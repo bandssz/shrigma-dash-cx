@@ -27,10 +27,37 @@
       <button data-marca="fishermans">Fishermans</button>
       <button data-marca="olivas">Olivas</button>
     </div>
-    <div class="seg" role="group" aria-label="Janela" id="seg-janela">
-      <button data-janela="dia" class="ativo">Dia</button>
-      <button data-janela="7d">7 dias</button>
-      <button data-janela="30d">30 dias</button>
+    <div class="periodo-wrap">
+      <button id="btn-periodo" class="btn-periodo" aria-haspopup="dialog">Hoje <span class="caret">▾</span></button>
+      <div id="pop-periodo" class="pop" hidden role="dialog" aria-label="Selecionar período">
+        <div class="pop-grid">
+          <ul class="presets" id="lista-presets">
+            <li data-p="hoje" class="ativo">Hoje</li>
+            <li data-p="ontem">Ontem</li>
+            <li data-p="7d">Últimos 7 dias</li>
+            <li data-p="30d">Últimos 30 dias</li>
+            <li data-p="mes">Este mês</li>
+            <li data-p="mes-1">Mês passado</li>
+            <li data-p="custom">Personalizado…</li>
+          </ul>
+          <div class="pop-datas">
+            <div class="pop-sec">Período</div>
+            <div class="par-datas">
+              <label>Início <input type="date" id="dt-ini"></label>
+              <label>Fim <input type="date" id="dt-fim"></label>
+            </div>
+            <div class="pop-sec">Comparação</div>
+            <label class="alternar"><input type="checkbox" id="chk-comparar-pop" checked><span>Comparar com outro período</span></label>
+            <label class="radio"><input type="radio" name="modo-comp" value="auto" checked><span>Período anterior equivalente</span></label>
+            <label class="radio"><input type="radio" name="modo-comp" value="custom"><span>Personalizado:</span></label>
+            <div class="par-datas comp-datas">
+              <label>Início <input type="date" id="dt-cini" disabled></label>
+              <label>Fim <input type="date" id="dt-cfim" disabled></label>
+            </div>
+            <button id="btn-aplicar" class="btn-aplicar">Aplicar</button>
+          </div>
+        </div>
+      </div>
     </div>
     <select id="sel-agente" aria-label="Agente">
       <option value="todos">Todos os agentes</option>
