@@ -561,16 +561,32 @@ function pintaSocial(d) {
     </div>`;
   }).join("");
 
-  // fila de atenção — o que exige ação humana agora
-  const urg = (d.social_urgentes || []).filter((u) => marcas.includes(u.marca));
-  $("#area-social-urgentes").innerHTML = urg.length
-    ? `<div class="soc-urg"><div class="soc-urg-cab">Precisam de resposta <span class="mini">(negativos ou urgentes, sem réplica, últimos 14 dias)</span></div>
-        ${urg.slice(0, 6).map((u) => `<div class="soc-urg-item">
+  // tempo mediano de resposta aos comentários (no período)
+  const tempos = (d.social_tempo || []).filter((t) => t.dia >= PER.ini && t.dia <= PER.fim && marcas.includes(t.marca));
+  if (tempos.length) {
+    const num = tempos.reduce((s, t) => s + Number(t.mediana_seg || 0) * Number(t.respondidos || 0), 0);
+    const den = tempos.reduce((s, t) => s + Number(t.respondidos || 0), 0);
+    if (den) alvo.insertAdjacentHTML("beforeend",
+      `<div class="soc-tempo">Tempo mediano até a marca responder: <b>${fmtDur(num / den)}</b>
+       <span class="mini">(${fmtNum(den)} comentários respondidos)</span></div>`);
+  }
+
+  // duas filas distintas: problema (atenção) e dinheiro (oportunidade)
+  const fila = (titulo, itens, classe, sub) => itens.length
+    ? `<div class="soc-urg"><div class="soc-urg-cab ${classe}">${titulo} <span class="mini">${sub}</span></div>
+        ${itens.slice(0, 5).map((u) => `<div class="soc-urg-item">
           <span class="ponto" style="--cor:${corHex(u.marca)}"></span>
           <div><div class="soc-urg-txt">${(u.texto || "").replace(/</g, "&lt;")}</div>
           <div class="mini">@${u.autor || "?"} · ${u.rede} · ${u.categoria || "—"}${u.sentimento === "negativo" ? ' · <span class="vm">negativo</span>' : ""}</div></div>
         </div>`).join("")}</div>`
-    : `<div class="soc-urg-ok mini">Nenhum comentário negativo ou urgente sem resposta. ✓</div>`;
+    : "";
+  const at = (d.social_atencao || []).filter((u) => marcas.includes(u.marca));
+  const op = (d.social_oportunidade || []).filter((u) => marcas.includes(u.marca));
+  $("#area-social-urgentes").innerHTML =
+    fila("⚠ Precisam de atenção", at, "urg-ruim", "negativos ou reclamações sem resposta da marca · 14 dias") +
+    fila("💰 Oportunidades sem resposta", op, "urg-bom", "intenção de compra, preço ou dúvida de produto · 7 dias") +
+    (!at.length && !op.length ? `<div class="soc-urg-ok mini">Nada pendente: sem reclamação e sem oportunidade esperando resposta. ✓</div>`
+      : (!at.length ? `<div class="soc-urg-ok mini">Nenhuma reclamação sem resposta. ✓</div>` : ""));
 }
 
 function pintaNps(d, hoje) {
