@@ -329,3 +329,7 @@ select {
   padding: 9px; font: 700 13px var(--ui); cursor: pointer;
 }
 @media (max-width: 560px) { .pop { min-width: 92vw; right: auto; left: 0; } .pop-grid { grid-template-columns: 1fr; } .presets { border-right: 0; border-bottom: 1px solid var(--borda); } }
+
+.kpi-ref { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--borda); font-size: 11.5px; color: var(--mudo); }
+.kpi-ref b { color: var(--texto); }
+.nps-score small { font-size: 13px; color: var(--mudo); font-weight: 600; }
