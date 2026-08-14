@@ -616,34 +616,32 @@ function pintaNps(d, hoje) {
 }
 
 
-// Principais frustrações do NPS: área da taxonomia da empresa + tema específico.
-// Fonte: area escolhida pelo cliente (31% preenchem) + classificação do texto livre.
+// Categorias do NPS: o que o cliente escolheu ao votar (campo "área" da landing).
+// Sem interpretação de IA — é a própria seleção dele.
 function pintaFrustracoes(d) {
   const alvo = $("#area-frustracoes");
-  const marcasAlvo = estado.marca === "todas" ? ["aristo", "fish", "olivas"]
-    : { aristocrata: "aristo", fishermans: "fish", olivas: "olivas" }[estado.marca];
-  const lista = (d.nps_frustracoes || []).filter((f) => {
-    const okMarca = Array.isArray(marcasAlvo) ? marcasAlvo.includes(f.marca) : f.marca === marcasAlvo;
-    return okMarca && f.dia >= PER.ini && f.dia <= PER.fim;
-  });
+  const mapa = { aristocrata: "aristo", fishermans: "fish", olivas: "olivas" };
+  const alvoMarcas = estado.marca === "todas" ? ["aristo", "fish", "olivas"] : [mapa[estado.marca]];
+  const lista = (d.nps_frustracoes || []).filter((f) =>
+    alvoMarcas.includes(f.marca) && f.dia >= PER.ini && f.dia <= PER.fim);
   if (!lista.length) { alvo.innerHTML = ""; return; }
-  const porTema = {};
+  const porArea = {};
+  let negativos = 0;
   for (const f of lista) {
-    const k = (f.area || "?") + "|" + (f.tema || "?");
-    porTema[k] = (porTema[k] || 0) + Number(f.n || 0);
+    const n = Number(f.n || 0);
+    porArea[f.area] = (porArea[f.area] || 0) + n;
+    if (f.bucket !== "promotor") negativos += n;
   }
-  const top = Object.entries(porTema).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const top = Object.entries(porArea).sort((a, b) => b[1] - a[1]);
   const max = top[0][1];
-  const total = Object.values(porTema).reduce((s, x) => s + x, 0);
+  const total = top.reduce((s, [, n]) => s + n, 0);
   alvo.innerHTML = `<div class="frust">
-    <div class="frust-cab">O que desagradou <span class="mini">${fmtNum(total)} menções de detratores e passivos</span></div>
-    ${top.map(([k, n]) => {
-      const [area, tema] = k.split("|");
-      return `<div class="frust-linha">
-        <span class="frust-tema">${tema}<span class="frust-area">${area}</span></span>
-        <span class="frust-barra"><i style="width:${(n / max) * 100}%"></i></span>
-        <span class="frust-n">${fmtNum(n)}</span></div>`;
-    }).join("")}</div>`;
+    <div class="frust-cab">Área apontada por quem votou
+      <span class="mini">${fmtNum(total)} escolhas · ${fmtNum(negativos)} de detratores e passivos</span></div>
+    ${top.map(([area, n]) => `<div class="frust-linha">
+      <span class="frust-tema">${area}</span>
+      <span class="frust-barra"><i style="width:${(n / max) * 100}%"></i></span>
+      <span class="frust-n">${fmtNum(n)}</span></div>`).join("")}</div>`;
 }
 
 // ---------- interação ----------
