@@ -197,11 +197,20 @@ function diffDias(ini, fim) {
 function agregaRange(dados, marca, ini, fim, hoje) {
   const len = diffDias(ini, fim) + 1;
   const ontem = diasAtras(1, hoje);
+  const ag = agregaDias(filtraDias(dados.snapshot_1d, marca, ini, fim));
   if (fim === ontem && (len === 7 || len === 30)) {
     const ex = janelaExata(dados.janelas, marca, len + "d", fim);
-    if (ex) return ex;
+    if (ex) {
+      // a linha de janela exata do Gleap não tem as colunas de horário comercial
+      // (elas são calculadas por dia, no workflow noturno) — herdamos da série diária
+      if (ag) {
+        ex.primeira_resposta_comercial_seg = ag.primeira_resposta_comercial_seg;
+        ex.resolucao_comercial_seg = ag.resolucao_comercial_seg;
+        ex.amostra_comercial = ag.amostra_comercial;
+      }
+      return ex;
+    }
   }
-  const ag = agregaDias(filtraDias(dados.snapshot_1d, marca, ini, fim));
   // fila: se o intervalo alcança hoje, usa a foto mais recente
   if (ag && fim >= hoje) {
     const h = filtraDias(dados.snapshot_1d, marca, hoje, hoje)[0];
