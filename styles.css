@@ -277,3 +277,17 @@ select {
 .ra-val.vd { color: var(--bom); } .ra-val.vm { color: var(--ruim); }
 .ra-meta { color: var(--rotulo); font-size: 10.5px; text-align: right; }
 @media (max-width: 560px) { .ra-linha { grid-template-columns: 110px 1fr 56px; } .ra-meta { display: none; } }
+
+/* ---------- gráfico comparativo ---------- */
+.grafico-controles { display: flex; align-items: center; gap: 14px; }
+.alternar { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--mudo); cursor: pointer; }
+.alternar input { accent-color: var(--texto); width: 15px; height: 15px; }
+.grafico { width: 100%; height: 190px; display: block; }
+.grafico-eixo { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--rotulo); margin-top: 2px; }
+.grafico-legenda { display: flex; gap: 20px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--mudo); }
+.leg-linha { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 6px; }
+.leg-linha.tracejada { background: repeating-linear-gradient(90deg, #9c968c 0 5px, transparent 5px 9px); }
+
+.repl-grade { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.repl-grade .metrica { border: 0; padding: 4px 0; }
+.vd { color: var(--bom); } .vm { color: var(--ruim); }
