@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CX · Grupo Shrigma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="titulo">
+    <span class="logo">CX</span>
+    <div>
+      <h1>Central de Suporte</h1>
+      <p class="sub">Grupo Shrigma · <span id="rotulo-janela">hoje</span></p>
+    </div>
+  </div>
+
+  <nav class="filtros" aria-label="Filtros">
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo">Consolidada</button>
+      <button data-marca="aristocrata">Aristocrata</button>
+      <button data-marca="fishermans">Fishermans</button>
+      <button data-marca="olivas">Olivas</button>
+    </div>
+    <div class="seg" role="group" aria-label="Janela" id="seg-janela">
+      <button data-janela="dia" class="ativo">Dia</button>
+      <button data-janela="7d">7 dias</button>
+      <button data-janela="30d">30 dias</button>
+    </div>
+    <select id="sel-agente" aria-label="Agente">
+      <option value="todos">Todos os agentes</option>
+    </select>
+  </nav>
+
+  <div class="status">
+    <span id="relogio">--:--</span>
+    <span id="frescor" class="frescor" title="Última coleta gravada no banco">coleta —</span>
+  </div>
+</header>
+
+<main>
+  <!-- Cartões de marca (a balança do dia é o coração do painel) -->
+  <section id="area-marcas" class="grid-marcas" aria-label="Visão por marca"></section>
+
+  <!-- Ranking de agentes -->
+  <section class="painel" aria-label="Ranking de agentes">
+    <div class="painel-cab">
+      <h2>Quem está no leme</h2>
+      <span id="ranking-rotulo" class="mini"></span>
+    </div>
+    <table class="ranking" id="tabela-ranking">
+      <thead>
+        <tr>
+          <th>Agente</th><th>Marca</th>
+          <th class="num">Trabalhados</th><th class="num">Respostas</th>
+          <th class="num">Fechados</th><th class="num">CSAT</th><th class="num">T. resposta</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- NPS -->
+  <section class="painel" aria-label="NPS pós-entrega">
+    <div class="painel-cab">
+      <h2>NPS pós-entrega</h2>
+      <span class="mini">últimos 30 dias · fonte: votos no Listmonk</span>
+    </div>
+    <div id="area-nps" class="grid-nps"></div>
+  </section>
+
+  <!-- Fontes semanais (etapas 4 e 5) -->
+  <section class="grid-semanais">
+    <div class="painel vazio" aria-label="Replient">
+      <h2>Comentários · Replient</h2>
+      <p>Aguardando primeira carga semanal. Registre volume, sentimento e respondidos/apagados
+         na tabela <code>cx_manual_semanal</code> (fonte <code>replient</code>) e os números aparecem aqui.</p>
+    </div>
+    <div class="painel vazio" aria-label="Reclame Aqui">
+      <h2>Reclame Aqui · rumo ao RA1000</h2>
+      <p>Coleta semanal automática entra na etapa 5. Este cartão vai mostrar a distância de cada
+         critério do selo, marca a marca.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <span>Lê snapshots do Postgres via n8n — o Gleap nunca é chamado por esta página.</span>
+  <span id="aviso-aprox" class="mini" hidden>≈ medianas de períodos longos são ponderadas até as janelas exatas acumularem.</span>
+</footer>
+
+<script src="config.js"></script>
+<script src="dados.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
