@@ -10,6 +10,8 @@ const estado = {
   dados: null,
 };
 
+const CORES_HEX = { aristocrata: "#b9822d", fishermans: "#22808d", olivas: "#6f7f33", todas: "#55524c" };
+function corHex(m) { return CORES_HEX[m] || CORES_HEX.todas; }
 const CORES = { aristocrata: "var(--aristocrata)", fishermans: "var(--fishermans)", olivas: "var(--olivas)", todas: "var(--todas)" };
 const $ = (s) => document.querySelector(s);
 
@@ -53,6 +55,34 @@ function pintaFrescor(d) {
   el.classList.toggle("velho", min > 75);
 }
 
+
+// sparkline dupla (novos vs fechados) dos últimos 14 dias — SVG puro
+function sparkline(d, marca, cor) {
+  const hoje = hojeRef();
+  const ini = diasAtras(13, hoje);
+  const linhas = marca === "todas"
+    ? null : filtraDias(d.snapshot_1d, marca, ini, hoje);
+  let novos, fechados;
+  if (marca === "todas") {
+    const dias = [...new Set(d.snapshot_1d.filter(l => l.dia >= ini).map(l => l.dia))].sort();
+    novos = dias.map(dd => d.snapshot_1d.filter(l => l.dia === dd).reduce((a,l) => a + (l.novos||0), 0));
+    fechados = dias.map(dd => d.snapshot_1d.filter(l => l.dia === dd).reduce((a,l) => a + (l.fechados||0), 0));
+  } else {
+    novos = linhas.map(l => l.novos ?? 0);
+    fechados = linhas.map(l => l.fechados ?? 0);
+  }
+  if (novos.length < 2) return "";
+  const max = Math.max(...novos, ...fechados, 1);
+  const W = 100, H = 30, pad = 2;
+  const pts = (arr) => arr.map((v, i) =>
+    `${(i / (arr.length - 1)) * W},${H - pad - (v / max) * (H - 2 * pad)}`).join(" ");
+  return `<div class="spark"><div class="rot">novos × resolvidos · 14 dias</div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${pts(novos)}" fill="none" stroke="${cor}" stroke-opacity=".3" stroke-width="1.6"/>
+      <polyline points="${pts(fechados)}" fill="none" stroke="${cor}" stroke-width="1.6"/>
+    </svg></div>`;
+}
+
 function cartaoMarca(nome, rotulo, p, cor) {
   const a = p.atual || {};
   const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
@@ -61,13 +91,17 @@ function cartaoMarca(nome, rotulo, p, cor) {
     const dl = delta(metrica, a[metrica], (p.anterior || {})[metrica]);
     return `<div class="metrica"><span class="rot">${rot}</span>
       <span class="val">${valorFmt}${unidade ? `<small> ${unidade}</small>` : ""}</span>
-      <span class="d ${dl.classe}">${dl.texto}</span></div>`;
+      <span class="chip ${dl.classe}">${dl.texto || "&nbsp;"}</span></div>`;
   };
-  return `<article class="cartao ${a.incompleto ? "incompleto" : ""}" style="--cor:${cor}">
-    <h2>${rotulo}</h2><span class="comp">${p.rotuloComp}${a.aprox ? " · ≈" : ""}</span>
+  return `<article class="cartao" style="--cor:${cor}">
+    <div class="cartao-cab"><span class="ponto"></span><h2>${rotulo}</h2>
+      ${a.incompleto ? '<span class="selo-incompleto">coleta incompleta</span>' : ""}
+      <span class="comp">${p.rotuloComp}${a.aprox ? " · ≈" : ""}</span></div>
     <div class="balanca">
-      <div class="saldo">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}
-        <small>SALDO · ${saldo === null ? "sem dados" : saldo >= 0 ? "fila vazando" : "fila enchendo"}</small></div>
+      <div class="topo-b">
+        <span class="saldo ${saldo === null ? "" : saldo >= 0 ? "pos" : "neg"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</span>
+        <span class="saldo-rot">${saldo === null ? "sem dados" : saldo >= 0 ? "fila vazando" : "fila enchendo"}</span>
+      </div>
       <div class="barras">
         <div class="lado entra"><i style="width:${((a.novos || 0) / max) * 100}%"></i></div>
         <div class="lado sai"><i style="width:${((a.fechados || 0) / max) * 100}%"></i></div>
@@ -85,6 +119,7 @@ function cartaoMarca(nome, rotulo, p, cor) {
       ${m("fechados", "Fechados", fmtNum(a.fechados))}
       ${m("novos", "Novos", fmtNum(a.novos))}
     </div>
+    ${sparkline(estado.dados, nome, corHex(nome))}
   </article>`;
 }
 
@@ -131,9 +166,9 @@ function pintaRanking(d, hoje) {
 
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${CORES[a.marca] || "var(--mudo)"}">
-      <td class="nome">${a.nome || a.agente_id}</td>
+      <td><div class="pessoa"><span class="avatar">${(a.nome || "?").split(" ").map(x=>x[0]).slice(0,2).join("").toUpperCase()}</span><span class="nome">${a.nome || a.agente_id}</span></div></td>
       <td><span class="marca-tag">${(ROTULOS[a.marca] || a.marca || "").split(" ").pop()}</span></td>
-      <td class="num barra">${fmtNum(a.trabalhados)}<i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></td>
+      <td class="num">${fmtNum(a.trabalhados)}<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span></td>
       <td class="num">${fmtNum(a.respostas)}</td>
       <td class="num">${fmtNum(a.fechados)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"}</td>
