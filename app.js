@@ -130,6 +130,7 @@ function pinta() {
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
+  pintaFrustracoes(d);
   pintaRa(d);
   pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
@@ -525,7 +526,7 @@ function pintaSocial(d) {
   const alvo = $("#area-social");
   const linhas = (d.social || []).filter((l) => l.dia >= PER.ini && l.dia <= PER.fim);
   const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
-  $("#social-rotulo").textContent = PER.rotulo + " · coleta automática a cada 2h";
+  $("#social-rotulo").textContent = PER.rotulo + " · coleta automática a cada 15 min · orgânico + anúncios";
 
   const agg = {};
   for (const l of linhas) {
@@ -612,6 +613,37 @@ function pintaNps(d, hoje) {
       <div class="nps-leg"><span>NPS <b>${n.nps}</b></span><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
     </div>`;
   }).join("");
+}
+
+
+// Principais frustrações do NPS: área da taxonomia da empresa + tema específico.
+// Fonte: area escolhida pelo cliente (31% preenchem) + classificação do texto livre.
+function pintaFrustracoes(d) {
+  const alvo = $("#area-frustracoes");
+  const marcasAlvo = estado.marca === "todas" ? ["aristo", "fish", "olivas"]
+    : { aristocrata: "aristo", fishermans: "fish", olivas: "olivas" }[estado.marca];
+  const lista = (d.nps_frustracoes || []).filter((f) => {
+    const okMarca = Array.isArray(marcasAlvo) ? marcasAlvo.includes(f.marca) : f.marca === marcasAlvo;
+    return okMarca && f.dia >= PER.ini && f.dia <= PER.fim;
+  });
+  if (!lista.length) { alvo.innerHTML = ""; return; }
+  const porTema = {};
+  for (const f of lista) {
+    const k = (f.area || "?") + "|" + (f.tema || "?");
+    porTema[k] = (porTema[k] || 0) + Number(f.n || 0);
+  }
+  const top = Object.entries(porTema).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const max = top[0][1];
+  const total = Object.values(porTema).reduce((s, x) => s + x, 0);
+  alvo.innerHTML = `<div class="frust">
+    <div class="frust-cab">O que desagradou <span class="mini">${fmtNum(total)} menções de detratores e passivos</span></div>
+    ${top.map(([k, n]) => {
+      const [area, tema] = k.split("|");
+      return `<div class="frust-linha">
+        <span class="frust-tema">${tema}<span class="frust-area">${area}</span></span>
+        <span class="frust-barra"><i style="width:${(n / max) * 100}%"></i></span>
+        <span class="frust-n">${fmtNum(n)}</span></div>`;
+    }).join("")}</div>`;
 }
 
 // ---------- interação ----------
