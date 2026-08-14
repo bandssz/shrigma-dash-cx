@@ -34,6 +34,14 @@ Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
   Usar `totalCountForUser` subnotifica o agente pela metade.
 - `primeiro_fechamento_seg` é tempo até o **primeiro** fechamento, não resolução total.
 - `fila_aberta` é foto do momento da coleta — não existe para dias retroativos (NULL).
+- **1ª resposta em expediente** (seg–sex 8h–18h SP) é cálculo nosso, feito no workflow
+  noturno `CX — 1ª resposta em horário comercial`: o Gleap não oferece o recorte e o
+  parâmetro `businessHours` **zera o resultado com HTTP 200**. Fonte: `/tickets?createdAt>=…`
+  (o operador vai no NOME do parâmetro) + `/messages` procurando `type=TEXT` com `bot=false`.
+  O painel mostra as duas: expediente (o que o time controla) e espera total (o que o cliente sente).
+- Comentários: `respondido_pela_marca` é o que conta como atendimento — `respondido` sozinho
+  incluiria resposta de outro usuário. `apagado` é inferência (o comentário desapareceu do post
+  entre duas coletas) e só é marcado quando a lista do post foi lida por completo.
 - Medianas **não somam**: períodos de 7/30 dias usam a linha de janela exata quando ela
   existe; senão, aproximação ponderada por volume, marcada com "≈" na tela.
 
