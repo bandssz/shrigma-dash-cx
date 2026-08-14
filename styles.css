@@ -369,3 +369,7 @@ select {
 .soc-urg-item .ponto { margin-top: 5px; background: var(--cor); }
 .soc-urg-txt { font-size: 12.5px; line-height: 1.4; }
 .soc-urg-ok { margin-top: 12px; color: var(--bom); font-weight: 600; }
+
+.soc-tempo { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borda); font-size: 13px; }
+.soc-urg-cab.urg-ruim { color: var(--ruim); }
+.soc-urg-cab.urg-bom { color: var(--bom); }
