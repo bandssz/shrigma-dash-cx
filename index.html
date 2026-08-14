@@ -44,47 +44,59 @@
 </header>
 
 <main>
-  <!-- Cartões de marca (a balança do dia é o coração do painel) -->
-  <section id="area-marcas" class="grid-marcas" aria-label="Visão por marca"></section>
+  <div id="faixa-alertas" aria-live="polite"></div>
 
-  <!-- Ranking de agentes -->
-  <section class="painel" aria-label="Ranking de agentes">
-    <div class="painel-cab">
-      <h2>Quem está no leme</h2>
-      <span id="ranking-rotulo" class="mini"></span>
+  <!-- Linha 1: os números de decisão, grandes -->
+  <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
+
+  <!-- Linha 2: marcas lado a lado (some quando uma marca é filtrada) -->
+  <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
+    <div class="painel-cab"><h2>Marcas lado a lado</h2><span id="comp-rotulo" class="mini"></span></div>
+    <div class="rolagem">
+      <table class="comparativo" id="tabela-comparativo">
+        <thead><tr>
+          <th>Marca</th><th class="num">Saldo</th><th class="num">Fila</th>
+          <th class="num">1ª resposta</th><th class="num">CSAT</th>
+          <th class="num">Kai segura</th><th class="num">Respostas</th><th>14 dias</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <table class="ranking" id="tabela-ranking">
-      <thead>
-        <tr>
-          <th>Agente</th><th>Marca</th>
+  </section>
+
+  <!-- Linha 3: pessoas e voz do cliente -->
+  <div class="duas-colunas">
+    <section class="painel" aria-label="Ranking de agentes">
+      <div class="painel-cab">
+        <h2>Quem está no leme</h2>
+        <span id="ranking-rotulo" class="mini"></span>
+      </div>
+      <table class="ranking" id="tabela-ranking">
+        <thead><tr>
+          <th>Agente</th>
           <th class="num">Trabalhados</th><th class="num">Respostas</th>
-          <th class="num">Fechados</th><th class="num">CSAT</th><th class="num">T. resposta</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+          <th class="num">CSAT</th><th class="num">T. resposta</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="painel" aria-label="NPS pós-entrega">
+      <div class="painel-cab">
+        <h2>NPS pós-entrega</h2>
+        <span id="nps-rotulo" class="mini"></span>
+      </div>
+      <div id="area-nps" class="grid-nps"></div>
+    </section>
+  </div>
 
-  <!-- NPS -->
-  <section class="painel" aria-label="NPS pós-entrega">
-    <div class="painel-cab">
-      <h2>NPS pós-entrega</h2>
-      <span class="mini">últimos 30 dias · fonte: votos no Listmonk</span>
-    </div>
-    <div id="area-nps" class="grid-nps"></div>
-  </section>
-
-  <!-- Fontes semanais (etapas 4 e 5) -->
   <section class="grid-semanais">
     <div class="painel vazio" aria-label="Replient">
       <h2>Comentários · Replient</h2>
-      <p>Aguardando primeira carga semanal. Registre volume, sentimento e respondidos/apagados
-         na tabela <code>cx_manual_semanal</code> (fonte <code>replient</code>) e os números aparecem aqui.</p>
+      <p>Aguardando primeira carga semanal em <code>cx_manual_semanal</code> (fonte <code>replient</code>).</p>
     </div>
     <div class="painel vazio" aria-label="Reclame Aqui">
       <h2>Reclame Aqui · rumo ao RA1000</h2>
-      <p>Coleta semanal automática entra na etapa 5. Este cartão vai mostrar a distância de cada
-         critério do selo, marca a marca.</p>
+      <p>Coleta semanal automática entra na etapa 5, com a distância de cada critério do selo.</p>
     </div>
   </section>
 </main>
