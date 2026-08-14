@@ -43,10 +43,10 @@ Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
 4. Em ~1 min o painel estará em `https://<usuario>.github.io/shrigma-dash-cx/`.
 5. Monitor de parede: abra com `?janela=dia` (ou `?marca=aristocrata&janela=7d` etc.).
 
-> Atenção: GitHub Pages é público. A URL da API fica visível no `config.js`; o token no
-> caminho do webhook é a única barreira. Os dados são métricas operacionais (sem dado de
-> cliente), mas se quiser trancar depois: repositório privado + Cloudflare Access, ou servir
-> o site pelo próprio Easypanel.
+> Acesso: o site é público, mas a API exige chave (`?k=`), validada no workflow
+> `CX — Dashboard · API de leitura` (nó "Valida chave" — é lá que se troca).
+> O painel pede a chave uma vez por dispositivo e guarda em localStorage.
+> A chave nunca aparece neste repositório.
 
 ## Rodar local
 
