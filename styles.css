@@ -333,3 +333,18 @@ select {
 .kpi-ref { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--borda); font-size: 11.5px; color: var(--mudo); }
 .kpi-ref b { color: var(--texto); }
 .nps-score small { font-size: 13px; color: var(--mudo); font-weight: 600; }
+
+/* ---------- tooltip do gráfico ---------- */
+#area-grafico { position: relative; }
+.graf-tip {
+  position: absolute; z-index: 10; pointer-events: none;
+  background: var(--texto); color: #fff; border-radius: 8px;
+  padding: 7px 10px; font-size: 11.5px; line-height: 1.5;
+  box-shadow: 0 4px 14px rgba(32,31,29,.25); white-space: nowrap;
+}
+.graf-tip b { font-weight: 700; }
+.graf-tip span { display: block; opacity: .95; }
+.graf-guia {
+  position: absolute; top: 0; width: 1px; background: var(--texto);
+  opacity: .18; pointer-events: none;
+}
