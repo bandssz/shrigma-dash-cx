@@ -49,6 +49,24 @@
   <!-- Linha 1: os números de decisão, grandes -->
   <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
 
+  <!-- Gráfico de evolução (estilo Shopify: período atual × anterior) -->
+  <section class="painel" id="painel-grafico" aria-label="Evolução">
+    <div class="painel-cab">
+      <h2>Evolução</h2>
+      <div class="grafico-controles">
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
+          <option value="fechados">Resolvidos</option>
+          <option value="novos">Novos</option>
+          <option value="fila_aberta">Fila</option>
+        </select>
+        <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
+          <span>Comparar com período anterior</span></label>
+      </div>
+    </div>
+    <div id="area-grafico"></div>
+    <div id="grafico-legenda" class="grafico-legenda"></div>
+  </section>
+
   <!-- Linha 2: marcas lado a lado (some quando uma marca é filtrada) -->
   <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
     <div class="painel-cab"><h2>Marcas lado a lado</h2><span id="comp-rotulo" class="mini"></span></div>
@@ -90,9 +108,9 @@
   </div>
 
   <section class="grid-semanais">
-    <div class="painel vazio" aria-label="Replient">
-      <h2>Comentários · Replient</h2>
-      <p>Aguardando primeira carga semanal em <code>cx_manual_semanal</code> (fonte <code>replient</code>).</p>
+    <div class="painel" aria-label="Replient">
+      <div class="painel-cab"><h2>Comentários · Replient</h2><span id="replient-rotulo" class="mini"></span></div>
+      <div id="area-replient"></div>
     </div>
     <div class="painel" aria-label="Reclame Aqui">
       <div class="painel-cab"><h2>Reclame Aqui · rumo ao RA1000</h2><span id="ra-rotulo" class="mini"></span></div>
