@@ -19,7 +19,10 @@ Painel interno de CS/CX. Site estático que lê snapshots do Postgres (via webho
 
 - `cx_snapshot` — marca × janela × dia (métricas de marca)
 - `cx_snapshot_agente` — marca × agente × janela × dia
-- `cx_manual_semanal` — Reclame Aqui e Replient (jsonb, semanal)
+- `cx_manual_semanal` — Reclame Aqui (jsonb, semanal, via bookmarklet)
+- `cx_social_comentarios` — comentários IG/FB via Meta Graph, com sentimento próprio
+  (OpenAI). Independe da Replient: volume, respondido, oculto e sentimento são nossos.
+  Coleta automática a cada 2h; sentimento classificado 1× por comentário (nunca reprocessa).
 - NPS não tem tabela própria: é lido de `subscribers.attribs->'nps'`
 
 Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
