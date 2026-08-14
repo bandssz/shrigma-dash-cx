@@ -180,21 +180,60 @@ function agrupaAgentes(linhas, aprox) {
     .sort((a, b) => (b.trabalhados || 0) - (a.trabalhados || 0));
 }
 
+
+// ---------- períodos por intervalo arbitrário (seletor estilo Shopify) ----------
+function diffDias(ini, fim) {
+  return Math.round((new Date(fim + "T12:00Z") - new Date(ini + "T12:00Z")) / 86400000);
+}
+// agrega uma marca num intervalo [ini, fim]; usa janela exata quando o intervalo coincide
+function agregaRange(dados, marca, ini, fim, hoje) {
+  const len = diffDias(ini, fim) + 1;
+  const ontem = diasAtras(1, hoje);
+  if (fim === ontem && (len === 7 || len === 30)) {
+    const ex = janelaExata(dados.janelas, marca, len + "d", fim);
+    if (ex) return ex;
+  }
+  const ag = agregaDias(filtraDias(dados.snapshot_1d, marca, ini, fim));
+  // fila: se o intervalo alcança hoje, usa a foto mais recente
+  if (ag && fim >= hoje) {
+    const h = filtraDias(dados.snapshot_1d, marca, hoje, hoje)[0];
+    if (h && typeof h.fila_aberta === "number") ag.fila_aberta = h.fila_aberta;
+  }
+  return ag;
+}
+// comparação automática: mesmo tamanho, imediatamente anterior
+function rangeAnterior(ini, fim) {
+  const len = diffDias(ini, fim) + 1;
+  return { ini: diasAtras(len, ini), fim: diasAtras(1, ini) };
+}
+function rankingAgentesRange(dados, marca, ini, fim, hoje) {
+  const len = diffDias(ini, fim) + 1;
+  const ontem = diasAtras(1, hoje);
+  if (fim === ontem && (len === 7 || len === 30)) {
+    const exatas = dados.agentes_janelas.filter((a) =>
+      a.janela === len + "d" && a.dia === fim && (marca === "todas" || a.marca === marca));
+    if (exatas.length) return agrupaAgentes(exatas, false);
+  }
+  const linhas = dados.agentes_1d.filter((a) =>
+    a.dia >= ini && a.dia <= fim && (marca === "todas" || a.marca === marca));
+  return agrupaAgentes(linhas, len > 1);
+}
 // ---------- NPS ----------
-function calculaNps(votos, marca, dias, hoje) {
-  const corte = new Date((hoje || ymd(new Date())) + "T23:59:59Z");
-  const ini = new Date(corte); ini.setUTCDate(ini.getUTCDate() - dias);
+// NPS num intervalo [ini, fim] (ymd de São Paulo), com nota média 0-10
+function calculaNps(votos, marca, ini, fim) {
   const sel = votos.filter((v) => {
     const m = NPS_MARCA[v.marca] || v.marca;
     if (marca !== "todas" && m !== marca) return false;
-    const d = new Date(v.data);
-    return d >= ini && d <= corte;
+    const spYmdVoto = new Date(new Date(v.data).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+    return spYmdVoto >= ini && spYmdVoto <= fim;
   });
   const n = sel.length;
-  if (!n) return { n: 0, nps: null, prom: 0, pass: 0, detr: 0 };
+  if (!n) return { n: 0, nps: null, media: null, prom: 0, pass: 0, detr: 0 };
   const prom = sel.filter((v) => v.bucket === "promotor").length;
   const detr = sel.filter((v) => v.bucket === "detrator").length;
-  return { n, prom, detr, pass: n - prom - detr, nps: Math.round(((prom - detr) / n) * 100) };
+  const media = sel.reduce((a, v) => a + (v.score || 0), 0) / n;
+  return { n, prom, detr, pass: n - prom - detr,
+    nps: Math.round(((prom - detr) / n) * 100), media: Math.round(media * 10) / 10 };
 }
 
 
@@ -250,6 +289,6 @@ function delta(metrica, atual, anterior) {
 
 // exporta para node (testes) sem quebrar o navegador
 if (typeof module !== "undefined") {
-  module.exports = { serieIntradia, serieDiaria, MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
+  module.exports = { serieIntradia, serieDiaria, diffDias, agregaRange, rangeAnterior, rankingAgentesRange, MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
     rankingAgentes, calculaNps, fmtNum, fmtPct, fmtDur, delta, diasAtras };
 }
