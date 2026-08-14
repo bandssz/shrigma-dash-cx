@@ -240,20 +240,31 @@ function calculaNps(votos, marca, ini, fim) {
 // ---------- séries para o gráfico comparativo ----------
 // intradiária: pontos {x: minutos desde 00:00 SP, y} do dia pedido
 function serieIntradia(intradia, marca, diaYmd, metrica) {
-  const buckets = {};
+  // por marca: bucket(10min) -> último valor; depois forward-fill na união dos
+  // buckets e soma — sem isso, a visão "todas" afundaria quando uma marca
+  // pulasse uma coleta.
+  const porMarca = {};
   for (const p of intradia || []) {
     const sp = new Date(new Date(p.ts).getTime() - 3 * 3600 * 1000);
     if (sp.toISOString().slice(0, 10) !== diaYmd) continue;
     if (marca !== "todas" && p.marca !== marca) continue;
-    const min = sp.getUTCHours() * 60 + sp.getUTCMinutes();
-    const b = Math.round(min / 10) * 10; // alinha em blocos de 10min p/ somar as 3 marcas
-    if (!buckets[b]) buckets[b] = { n: 0, v: 0 };
+    const b = Math.round((sp.getUTCHours() * 60 + sp.getUTCMinutes()) / 10) * 10;
     const val = p[metrica];
-    if (typeof val === "number") { buckets[b].v += val; buckets[b].n++; }
+    if (typeof val !== "number") continue;
+    (porMarca[p.marca] = porMarca[p.marca] || {})[b] = val;
   }
-  return Object.entries(buckets)
-    .map(([x, o]) => ({ x: Number(x), y: o.v }))
-    .sort((a, b) => a.x - b.x);
+  const marcasSerie = Object.keys(porMarca);
+  if (!marcasSerie.length) return [];
+  const buckets = [...new Set(marcasSerie.flatMap((m) => Object.keys(porMarca[m]).map(Number)))].sort((a, b) => a - b);
+  const ultimo = {};
+  return buckets.map((b) => {
+    let soma = 0;
+    for (const m of marcasSerie) {
+      if (porMarca[m][b] !== undefined) ultimo[m] = porMarca[m][b];
+      soma += ultimo[m] || 0;
+    }
+    return { x: b, y: soma };
+  });
 }
 
 // último valor acumulado de um dia até determinado minuto (comparação "mesma hora")
