@@ -203,6 +203,7 @@ function pintaComparativo(porMarca, d) {
         ${a.incompleto ? '<span class="selo-incompleto">coleta incompleta</span>' : ""}</div></td>
       <td class="num ${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</td>
       <td class="num">${fmtNum(a.fila_aberta)} ${seta("fila_aberta", a.fila_aberta, ant.fila_aberta)}</td>
+      <td class="num">${fmtNum(a.trabalhados)} ${seta("trabalhados", a.trabalhados, ant.trabalhados)}</td>
       <td class="num">${fmtDur(a.primeira_resposta_seg)} ${seta("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"} ${seta("csat", a.csat, ant.csat)}</td>
       <td class="num">${fmtPct(a.kai_deflexao)} ${seta("kai_deflexao", a.kai_deflexao, ant.kai_deflexao)}</td>
@@ -232,11 +233,13 @@ function pintaRanking(d, hoje) {
         <div class="pessoa-marca">${ROTULOS[a.marca] || a.marca || ""}</div></div>
       </div></td>
       <td class="num">${fmtNum(a.trabalhados)}<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span></td>
+      <td class="num">${fmtNum(a.fechados)}</td>
       <td class="num">${fmtNum(a.respostas)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"}</td>
       <td class="num">${fmtDur(a.resposta_mediana_seg)}</td>
+      <td class="num">${fmtDur(a.horas_ativas_seg)}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="5" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+    `<tr><td colspan="7" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
 function pintaNps(d, hoje) {
