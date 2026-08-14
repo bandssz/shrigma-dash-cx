@@ -236,10 +236,12 @@ function pintaRanking(d, hoje) {
       <td class="num">${fmtNum(a.fechados)}</td>
       <td class="num">${fmtNum(a.respostas)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"}</td>
+      <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
       <td class="num">${fmtDur(a.resposta_mediana_seg)}</td>
+      <td class="num">${fmtDur(a.fechamento_seg)}</td>
       <td class="num">${fmtDur(a.horas_ativas_seg)}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="7" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+    `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
 function pintaNps(d, hoje) {
