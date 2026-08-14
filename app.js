@@ -101,14 +101,26 @@ function pinta() {
   const hoje = hojeRef();
   PER = resolverPeriodo(hoje);
   const porMarca = {};
+  const lenComp = diffDias(PER.cIni, PER.cFim) + 1;
   for (const m of MARCAS) {
+    let anterior = estado.comparar ? agregaRange(d, m, PER.cIni, PER.cFim, hoje) : null;
+    // honestidade: se o período de comparação não tem histórico suficiente no banco,
+    // não comparamos — % contra dado parcial é mentira com casas decimais.
+    if (anterior && lenComp > 1 && (anterior.dias || 0) < lenComp * 0.8) anterior = { __semHistorico: true };
     porMarca[m] = {
       atual: agregaRange(d, m, PER.ini, PER.fim, hoje),
-      anterior: estado.comparar ? agregaRange(d, m, PER.cIni, PER.cFim, hoje) : null,
+      anterior,
       rotuloComp: estado.comparar ? PER.rotComp : "",
     };
   }
-  const grupo = consolida(porMarca);
+  const porMarcaCons = {};
+  for (const m of MARCAS) porMarcaCons[m] = {
+    atual: porMarca[m].atual,
+    anterior: porMarca[m].anterior && porMarca[m].anterior.__semHistorico ? null : porMarca[m].anterior,
+    rotuloComp: porMarca[m].rotuloComp,
+  };
+  const grupo = consolida(porMarcaCons);
+  if (grupo && estado.comparar && !grupo.anterior) grupo.anterior = { __semHistorico: true };
   const escopo = estado.marca === "todas" ? grupo : porMarca[estado.marca];
 
   pintaFrescor(d);
@@ -152,20 +164,46 @@ function pintaAlertas(porMarca, d) {
     ? `<div class="alerta">⚠ ${avisos.join("  ·  ")}</div>` : "";
 }
 
-function chipHtml(metrica, atual, anterior) {
+function chipHtml(metrica, atual, anterior, fmt) {
   if (!estado.comparar) return "";
   const dl = delta(metrica, atual, anterior);
-  return dl.texto ? `<span class="chip ${dl.classe}">${dl.texto}</span>` : "";
+  if (!dl.texto) return "";
+  const ant = typeof anterior === "number" ? " · ant. " + (fmt || fmtNum)(anterior) : "";
+  return `<span class="chip ${dl.classe}">${dl.texto}${ant}</span>`;
+}
+// contagens acumuladas do dia comparam com ontem ATÉ A MESMA HORA (estilo Shopify);
+// taxas e tempos (CSAT, 1ª resposta, deflexão, fila) comparam com o dia anterior inteiro.
+const METRICAS_ACUMULADAS = ["novos", "fechados", "trabalhados", "respostas"];
+function mesmaHoraAgora() {
+  const sp = new Date(Date.now() - 3 * 3600 * 1000);
+  return sp.getUTCHours() * 60 + sp.getUTCMinutes();
+}
+// devolve {valor, mesmaHora:boolean} para comparar uma métrica no modo "hoje"
+function anteriorProgressivo(metrica, marca, antCheio) {
+  const base = antCheio ? antCheio[metrica] : null;
+  if (!(PER.ini === PER.fim && estado.comparar)) return { valor: base, mesmaHora: false };
+  if (!METRICAS_ACUMULADAS.includes(metrica)) return { valor: base, mesmaHora: false };
+  const v = valorMesmaHora(estado.dados.intradia, marca, PER.cIni, metrica, mesmaHoraAgora());
+  return v === null ? { valor: null, mesmaHora: false, cheio: base } : { valor: v, mesmaHora: true, cheio: base };
 }
 
 function pintaKpis(p, porMarca) {
   const a = (p && p.atual) || {};
-  const ant = (p && p.anterior) || {};
+  const antBruto = (p && p.anterior) || {};
+  const semHist = antBruto.__semHistorico === true;
+  const ant = semHist ? {} : antBruto;
   const todas = estado.marca === "todas";
+  const marcaRef = estado.marca;
+  const umDia = PER.ini === PER.fim;
   const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
-  const saldoAnt = typeof ant.novos === "number" && typeof ant.fechados === "number" ? ant.fechados - ant.novos : null;
 
-  // detalhes contextuais
+  // comparação progressiva (contagens): ontem até a mesma hora, quando a série existir
+  const pn = anteriorProgressivo("novos", marcaRef, ant);
+  const pf = anteriorProgressivo("fechados", marcaRef, ant);
+  const saldoAntProg = typeof pn.valor === "number" && typeof pf.valor === "number" ? pf.valor - pn.valor : null;
+  const saldoAntCheio = typeof ant.novos === "number" && typeof ant.fechados === "number" ? ant.fechados - ant.novos : null;
+  const usaMesmaHora = pn.mesmaHora && pf.mesmaHora;
+
   const filaSub = todas
     ? MARCAS.map((m) => {
         const f = porMarca[m].atual && porMarca[m].atual.fila_aberta;
@@ -182,25 +220,41 @@ function pintaKpis(p, porMarca) {
     if (pior) respSub = `pior: ${ROTULOS[pior.m]} · ${fmtDur(pior.v)}`;
   }
 
-  const kpi = (rot, valHtml, sub, chip) =>
+  const kpi = (rot, valHtml, sub, chip, ref) =>
     `<div class="kpi"><div class="kpi-rot">${rot}</div><div class="kpi-val">${valHtml}</div>
-     <div class="kpi-rodape"><span class="kpi-sub">${sub}</span>${chip || ""}</div></div>`;
+     <div class="kpi-rodape"><span class="kpi-sub">${sub}</span>${chip || ""}</div>
+     ${ref ? `<div class="kpi-ref">${ref}</div>` : ""}</div>`;
+
+  // linhas de referência "ontem fechou em..." (o total do período anterior sempre visível)
+  const avisoHist = estado.comparar && semHist
+    ? `<span class="mini">sem histórico completo do período de comparação</span>` : "";
+  const refSaldo = estado.comparar && umDia && saldoAntCheio !== null
+    ? `ontem fechou em <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b> (${fmtNum(ant.novos)} novos · ${fmtNum(ant.fechados)} resolvidos)` : "";
+  const rotMH = usaMesmaHora ? " · até a mesma hora" : "";
 
   $("#area-kpis").innerHTML =
     kpi("Saldo · " + PER.rotulo,
         `<span class="${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</span>`,
-        `entraram ${fmtNum(a.novos)} · resolvidos ${fmtNum(a.fechados)}`,
-        chipHtml("fechados", a.fechados, ant.fechados)) +
+        `entraram ${fmtNum(a.novos)} · resolvidos ${fmtNum(a.fechados)}${rotMH ? "" : ""}`,
+        umDia ? chipHtml("fechados", a.fechados, pf.valor) : chipHtml("fechados", a.fechados, ant.fechados),
+        refSaldo || avisoHist || (estado.comparar && !umDia && saldoAntCheio !== null
+          ? `período anterior: <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b>` : "")) +
     kpi("Fila agora", fmtNum(a.fila_aberta), filaSub,
-        chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta)) +
+        chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta),
+        estado.comparar && typeof ant.fila_aberta === "number" ? `${umDia ? "ontem" : "antes"}: <b>${fmtNum(ant.fila_aberta)}</b>` : "") +
     kpi("1ª resposta", fmtDur(a.primeira_resposta_seg), respSub,
-        chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg)) +
+        chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
+        "") +
     kpi("CSAT", typeof a.csat === "number" ? Math.round(a.csat) : "—",
         `cobertura ${typeof a.csat_cobertura === "number" ? Math.round(a.csat_cobertura) + "%" : "—"} · ${fmtNum(a.csat_votos)} votos${a.aprox ? " · ≈" : ""}`,
-        chipHtml("csat", a.csat, ant.csat));
+        chipHtml("csat", a.csat, ant.csat),
+        "");
   $("#aviso-aprox").hidden = !(a && a.aprox);
+  // rótulo global da comparação
+  const compEl = $("#comp-rotulo");
+  if (compEl && estado.comparar && umDia)
+    compEl.dataset.mh = usaMesmaHora ? "1" : "0";
 }
-
 // sparkline dupla (novos × resolvidos), SVG puro
 function sparkSvg(marca, cor, w, h) {
   const d = estado.dados;
@@ -289,7 +343,9 @@ function pintaComparativo(porMarca, d) {
   const painel = $("#painel-comparativo");
   if (estado.marca !== "todas") { painel.hidden = true; return; }
   painel.hidden = false;
-  $("#comp-rotulo").textContent = ((estado.comparar && porMarca.aristocrata.rotuloComp) || "") +
+  const rotMH2 = PER.ini === PER.fim && estado.comparar && valorMesmaHora(d.intradia, "todas", PER.cIni, "fechados", mesmaHoraAgora()) !== null
+    ? " · contagens até a mesma hora" : "";
+  $("#comp-rotulo").textContent = ((estado.comparar && porMarca.aristocrata.rotuloComp) || "") + rotMH2 +
     (Object.values(porMarca).some((p) => p.atual && p.atual.aprox) ? " · ≈" : "");
 
   const seta = (metrica, atual, anterior) => {
@@ -299,7 +355,8 @@ function pintaComparativo(porMarca, d) {
   };
   $("#tabela-comparativo tbody").innerHTML = MARCAS.map((m) => {
     const a = porMarca[m].atual || {};
-    const ant = porMarca[m].anterior || {};
+    const antB = porMarca[m].anterior || {};
+    const ant = antB.__semHistorico ? {} : antB;
     const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
     return `<tr>
       <td><div class="pessoa"><span class="ponto" style="--cor:${corHex(m)}"></span>
@@ -307,7 +364,7 @@ function pintaComparativo(porMarca, d) {
         ${a.incompleto ? '<span class="selo-incompleto">coleta incompleta</span>' : ""}</div></td>
       <td class="num ${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</td>
       <td class="num">${fmtNum(a.fila_aberta)} ${seta("fila_aberta", a.fila_aberta, ant.fila_aberta)}</td>
-      <td class="num">${fmtNum(a.trabalhados)} ${seta("trabalhados", a.trabalhados, ant.trabalhados)}</td>
+      <td class="num">${fmtNum(a.trabalhados)} ${seta("trabalhados", a.trabalhados, anteriorProgressivo("trabalhados", m, ant).valor)}</td>
       <td class="num">${fmtDur(a.primeira_resposta_seg)} ${seta("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"} ${seta("csat", a.csat, ant.csat)}</td>
       <td class="num">${fmtPct(a.kai_deflexao)} ${seta("kai_deflexao", a.kai_deflexao, ant.kai_deflexao)}</td>
@@ -440,14 +497,14 @@ function pintaNps(d, hoje) {
     const pc = (x) => (x / n.n) * 100;
     return `<div class="nps-cartao">
       <div class="cab"><span class="ponto" style="--cor:${corHex(mca)}"></span><h3>${rot}</h3>
-        ${n.n < 5 ? '<span class="chip">amostra pequena</span>' : (nAnt.n >= 5 ? chipHtml("csat", n.nps, nAnt.nps) : "")}
-        <span class="nps-score">${n.nps}</span></div>
+        ${n.n < 5 ? '<span class="chip">amostra pequena</span>' : (nAnt.n >= 5 ? chipHtml("csat", n.media, nAnt.media, (v) => v.toFixed(1).replace(".", ",")) : "")}
+        <span class="nps-score">${typeof n.media === "number" ? n.media.toFixed(1).replace(".", ",") : "—"}<small>/10</small></span></div>
       <div class="nps-dist">
         <i class="p" style="width:${pc(n.prom)}%"></i>
         <i class="pa" style="width:${pc(n.pass)}%"></i>
         <i class="d" style="width:${pc(n.detr)}%"></i>
       </div>
-      <div class="nps-leg"><span><b>média ${typeof n.media === "number" ? n.media.toFixed(1).replace(".", ",") : "—"}</b>/10</span><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
+      <div class="nps-leg"><span>NPS <b>${n.nps}</b></span><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
     </div>`;
   }).join("");
 }
