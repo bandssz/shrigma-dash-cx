@@ -78,6 +78,7 @@ function pinta() {
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
+  pintaRa(d);
   $("#rotulo-janela").textContent = JAN_ROT[estado.janela];
 }
 
@@ -244,6 +245,55 @@ function pintaRanking(d, hoje) {
     `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
+
+// RA1000: critérios oficiais (blog do Reclame AQUI, confirmados 08/2026)
+const RA1000 = [
+  ["nota", "Nota média", 7, 10],
+  ["resposta", "Respondidas", 90, 100],
+  ["solucao", "Índice de solução", 90, 100],
+  ["voltaria", "Voltaria a fazer negócio", 70, 100],
+  ["avaliacoes", "Avaliações", 50, null],
+];
+function pintaRa(d) {
+  const linhas = (d.manual || []).filter((m) => m.fonte === "reclame_aqui");
+  const alvo = $("#area-ra");
+  if (!linhas.length) {
+    $("#ra-rotulo").textContent = "";
+    alvo.innerHTML = `<p class="mini">Sem coleta ainda. Toda segunda: abrir a página da marca no
+      Reclame AQUI e clicar no favorito “→ Painel CX” (bookmarklet).</p>`;
+    return;
+  }
+  const porMarca = {};
+  for (const l of linhas) {
+    const m = l.marca;
+    if (!porMarca[m] || l.semana_inicio > porMarca[m].semana_inicio) porMarca[m] = l;
+  }
+  const marcas = (estado.marca === "todas" ? MARCAS : [estado.marca]).filter((m) => porMarca[m]);
+  if (!marcas.length) { alvo.innerHTML = `<p class="mini">Sem coleta para esta marca ainda.</p>`; return; }
+  $("#ra-rotulo").textContent = "semana de " + porMarca[marcas[0]].semana_inicio.slice(0, 10).split("-").reverse().join("/");
+  alvo.innerHTML = marcas.map((m) => {
+    const ex = (porMarca[m].dados || {}).extraido;
+    if (!ex) return `<div class="ra-marca"><div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span>
+      <h3>${ROTULOS[m]}</h3></div><p class="mini">Dados brutos recebidos — extração em calibração.</p></div>`;
+    const ok = RA1000.every(([c, , min]) => typeof ex[c] === "number" && ex[c] >= min);
+    return `<div class="ra-marca">
+      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3>
+        <span class="chip ${ok ? "d-bom" : ""}">${ok ? "critérios RA1000 ✓" : "em construção"}</span></div>
+      ${RA1000.map(([c, rot, min, max]) => {
+        const v = ex[c];
+        const tem = typeof v === "number";
+        const bate = tem && v >= min;
+        const pct = tem ? Math.min(100, (v / (max || Math.max(v, min * 1.4))) * 100) : 0;
+        return `<div class="ra-linha">
+          <span class="ra-rot">${rot}</span>
+          <span class="ra-barra"><i class="${bate ? "ok" : ""}" style="width:${pct}%"></i><em style="left:${max ? (min / max) * 100 : 70}%"></em></span>
+          <span class="ra-val ${bate ? "vd" : "vm"}">${tem ? (max === 100 ? v.toFixed(1).replace(".", ",") + "%" : (c === "nota" ? v.toFixed(1).replace(".", ",") : fmtNum(v))) : "—"}</span>
+          <span class="ra-meta">meta ${max === 100 ? min + "%" : min}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }).join("");
+}
 function pintaNps(d, hoje) {
   const dias = NPS_DIAS[estado.janela];
   $("#nps-rotulo").textContent = JAN_ROT[estado.janela] + " · votos no Listmonk";
