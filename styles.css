@@ -348,3 +348,24 @@ select {
   position: absolute; top: 0; width: 1px; background: var(--texto);
   opacity: .18; pointer-events: none;
 }
+
+/* ---------- comentários orgânicos ---------- */
+.soc-marca { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.soc-marca:last-child { border-bottom: 0; }
+.soc-marca .cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.soc-marca h3 { font-size: 13px; font-weight: 700; }
+.soc-marca .cab .chip { margin: 0 0 0 auto; }
+.soc-marca .cab .ponto { background: var(--cor); }
+.soc-grade { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.soc-grade .metrica { border: 0; padding: 2px 0; }
+.soc-barra { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--neutro-bg); margin-top: 9px; }
+.soc-barra i.p { background: var(--bom); } .soc-barra i.pa { background: var(--borda-forte); } .soc-barra i.d { background: var(--ruim); }
+.soc-nota { margin-top: 6px; }
+.soc-urg { margin-top: 14px; border-top: 1px solid var(--borda); padding-top: 12px; }
+.soc-urg-cab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); margin-bottom: 8px; }
+.soc-urg-cab .mini { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.soc-urg-item { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; border-bottom: 1px dashed var(--borda); }
+.soc-urg-item:last-child { border-bottom: 0; }
+.soc-urg-item .ponto { margin-top: 5px; background: var(--cor); }
+.soc-urg-txt { font-size: 12.5px; line-height: 1.4; }
+.soc-urg-ok { margin-top: 12px; color: var(--bom); font-weight: 600; }
