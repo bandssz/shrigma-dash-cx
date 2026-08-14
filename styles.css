@@ -259,3 +259,21 @@ select {
 .gate-erro { color: var(--ruim); font-weight: 600; min-height: 1em; }
 
 @media (max-width: 980px) { .duas-colunas { grid-template-columns: 1fr; } }
+
+/* ---------- RA1000 ---------- */
+.ra-marca { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.ra-marca:last-child { border-bottom: 0; }
+.ra-marca .cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ra-marca h3 { font-size: 13px; font-weight: 700; }
+.ra-marca .cab .chip { margin: 0 0 0 auto; }
+.ra-marca .cab .ponto { background: var(--cor); }
+.ra-linha { display: grid; grid-template-columns: 150px 1fr 64px 62px; align-items: center; gap: 10px; padding: 3px 0; font-size: 12px; }
+.ra-rot { color: var(--mudo); }
+.ra-barra { position: relative; height: 7px; background: var(--neutro-bg); border-radius: 4px; }
+.ra-barra i { display: block; height: 100%; border-radius: 4px; background: var(--ruim); opacity: .55; }
+.ra-barra i.ok { background: var(--bom); opacity: 1; }
+.ra-barra em { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--texto); opacity: .35; }
+.ra-val { text-align: right; font-weight: 700; }
+.ra-val.vd { color: var(--bom); } .ra-val.vm { color: var(--ruim); }
+.ra-meta { color: var(--rotulo); font-size: 10.5px; text-align: right; }
+@media (max-width: 560px) { .ra-linha { grid-template-columns: 110px 1fr 56px; } .ra-meta { display: none; } }
