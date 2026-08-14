@@ -4,16 +4,47 @@
 
 const estado = {
   marca: new URLSearchParams(location.search).get("marca") || "todas",
-  janela: new URLSearchParams(location.search).get("janela") || "dia",
+  preset: (() => {
+    const q = new URLSearchParams(location.search);
+    const mapaAntigo = { dia: "hoje", "7d": "7d", "30d": "30d" };
+    return q.get("periodo") || mapaAntigo[q.get("janela")] || "hoje";
+  })(), // hoje|ontem|7d|30d|mes|mes-1|custom
+  ini: null, fim: null,          // resolvidos em resolverPeriodo()
+  comparar: true,
+  compAuto: true, cIni: null, cFim: null,
   agente: "todos",
   dados: null,
 };
+function resolverPeriodo(hoje) {
+  const p = estado.preset;
+  let ini, fim, rotulo;
+  if (p === "hoje") { ini = fim = hoje; rotulo = "hoje"; }
+  else if (p === "ontem") { ini = fim = diasAtras(1, hoje); rotulo = "ontem"; }
+  else if (p === "7d") { ini = diasAtras(7, hoje); fim = diasAtras(1, hoje); rotulo = "últimos 7 dias"; }
+  else if (p === "30d") { ini = diasAtras(30, hoje); fim = diasAtras(1, hoje); rotulo = "últimos 30 dias"; }
+  else if (p === "mes") { ini = hoje.slice(0, 8) + "01"; fim = hoje; rotulo = "este mês (parcial)"; }
+  else if (p === "mes-1") {
+    const d1 = new Date(hoje.slice(0, 8) + "01T12:00Z"); d1.setUTCMonth(d1.getUTCMonth() - 1);
+    ini = d1.toISOString().slice(0, 8) + "01";
+    const dfim = new Date(hoje.slice(0, 8) + "01T12:00Z"); dfim.setUTCDate(0);
+    fim = dfim.toISOString().slice(0, 10); rotulo = "mês passado";
+  } else { // custom
+    ini = estado.ini || hoje; fim = estado.fim || hoje;
+    if (ini > fim) [ini, fim] = [fim, ini];
+    rotulo = ini === fim ? fmtDia(ini) : fmtDia(ini) + " – " + fmtDia(fim);
+  }
+  estado.ini = ini; estado.fim = fim;
+  const auto = rangeAnterior(ini, fim);
+  const cIni = estado.compAuto ? auto.ini : (estado.cIni || auto.ini);
+  const cFim = estado.compAuto ? auto.fim : (estado.cFim || auto.fim);
+  const rotComp = estado.compAuto ? "vs período anterior" : "vs " + fmtDia(cIni) + " – " + fmtDia(cFim);
+  return { ini, fim, cIni, cFim, rotulo, rotComp };
+}
+function fmtDia(ymd) { return ymd.slice(5).split("-").reverse().join("/"); }
 
 const CORES_HEX = { aristocrata: "#b9822d", fishermans: "#22808d", olivas: "#6f7f33", todas: "#55524c" };
 const corHex = (m) => CORES_HEX[m] || CORES_HEX.todas;
 const $ = (s) => document.querySelector(s);
-const NPS_DIAS = { dia: 1, "7d": 7, "30d": 30 };
-const JAN_ROT = { dia: "hoje", "7d": "últimos 7 dias", "30d": "últimos 30 dias" };
 
 // ---------- chave de acesso ----------
 // A API exige ?k=<chave>. A chave fica só neste dispositivo (localStorage),
@@ -64,11 +95,19 @@ function hojeRef() {
 }
 
 // ---------- pintura ----------
+let PER = null; // período resolvido do render atual
 function pinta() {
   const d = estado.dados;
   const hoje = hojeRef();
+  PER = resolverPeriodo(hoje);
   const porMarca = {};
-  for (const m of MARCAS) porMarca[m] = periodoMarca(d, m, estado.janela, hoje);
+  for (const m of MARCAS) {
+    porMarca[m] = {
+      atual: agregaRange(d, m, PER.ini, PER.fim, hoje),
+      anterior: estado.comparar ? agregaRange(d, m, PER.cIni, PER.cFim, hoje) : null,
+      rotuloComp: estado.comparar ? PER.rotComp : "",
+    };
+  }
   const grupo = consolida(porMarca);
   const escopo = estado.marca === "todas" ? grupo : porMarca[estado.marca];
 
@@ -81,7 +120,9 @@ function pinta() {
   pintaNps(d, hoje);
   pintaRa(d);
   pintaReplient(d);
-  $("#rotulo-janela").textContent = JAN_ROT[estado.janela];
+  $("#rotulo-janela").textContent = PER.rotulo;
+  $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
+  const chk = $("#chk-comparar"); if (chk) chk.checked = estado.comparar;
 }
 
 function pintaFrescor(d) {
@@ -112,6 +153,7 @@ function pintaAlertas(porMarca, d) {
 }
 
 function chipHtml(metrica, atual, anterior) {
+  if (!estado.comparar) return "";
   const dl = delta(metrica, atual, anterior);
   return dl.texto ? `<span class="chip ${dl.classe}">${dl.texto}</span>` : "";
 }
@@ -145,7 +187,7 @@ function pintaKpis(p, porMarca) {
      <div class="kpi-rodape"><span class="kpi-sub">${sub}</span>${chip || ""}</div></div>`;
 
   $("#area-kpis").innerHTML =
-    kpi("Saldo · " + JAN_ROT[estado.janela],
+    kpi("Saldo · " + PER.rotulo,
         `<span class="${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</span>`,
         `entraram ${fmtNum(a.novos)} · resolvidos ${fmtNum(a.fechados)}`,
         chipHtml("fechados", a.fechados, ant.fechados)) +
@@ -202,31 +244,29 @@ function pintaGrafico(d, hoje) {
   const cor = corHex(estado.marca);
   const met = estado.metrica;
   const W = 640, H = 170;
-  let atual = [], anterior = [], xMax, rotAtual, rotAnterior, eixoIni, eixoFim;
+  const umDia = PER.ini === PER.fim;
+  let atual = [], anterior = [], xMax, rotAtual = PER.rotulo, rotAnterior, eixoIni, eixoFim;
 
-  if (estado.janela === "dia") {
-    atual = serieIntradia(d.intradia, estado.marca, hoje, met);
-    anterior = estado.comparar ? serieIntradia(d.intradia, estado.marca, diasAtras(1, hoje), met) : [];
-    xMax = 1440; rotAtual = "hoje"; rotAnterior = "ontem"; eixoIni = "00h"; eixoFim = "24h";
+  if (umDia) {
+    atual = serieIntradia(d.intradia, estado.marca, PER.ini, met);
+    anterior = estado.comparar ? serieIntradia(d.intradia, estado.marca, PER.cIni, met) : [];
+    xMax = 1440; rotAnterior = estado.compAuto ? "dia anterior" : fmtDia(PER.cIni);
+    eixoIni = "00h"; eixoFim = "24h";
     if (atual.length < 2) {
-      alvo.innerHTML = `<p class="mini">A curva do dia se forma ao longo das coletas de 10 em 10 minutos —
-        e a linha de "ontem" aparece a partir de amanhã, quando existir um dia inteiro de pontos.</p>`;
+      alvo.innerHTML = `<p class="mini">A curva intradiária existe a partir das coletas de 10 em 10 min
+        (histórico desde 14/08). Para dias sem pontos, use um intervalo de vários dias.</p>`;
       leg.innerHTML = ""; return;
     }
   } else {
-    const n = estado.janela === "7d" ? 7 : 30;
-    const fim = diasAtras(1, hoje);
-    atual = serieDiaria(d.snapshot_1d, estado.marca, diasAtras(n, hoje), fim, met);
+    atual = serieDiaria(d.snapshot_1d, estado.marca, PER.ini, PER.fim, met)
+      .map((p, i) => ({ x: i, y: p.y, dia: p.dia }));
     anterior = estado.comparar
-      ? serieDiaria(d.snapshot_1d, estado.marca, diasAtras(2 * n, hoje), diasAtras(n + 1, hoje), met)
+      ? serieDiaria(d.snapshot_1d, estado.marca, PER.cIni, PER.cFim, met).map((p, i) => ({ x: i, y: p.y }))
       : [];
-    // normaliza o x das duas séries para o mesmo eixo (posição no período)
-    atual = atual.map((p, i) => ({ x: i, y: p.y, dia: p.dia }));
-    anterior = anterior.map((p, i) => ({ x: i, y: p.y }));
     xMax = Math.max(atual.length, anterior.length, 2) - 1;
-    rotAtual = "período atual"; rotAnterior = "período anterior";
-    eixoIni = atual[0] ? atual[0].dia.slice(5).split("-").reverse().join("/") : "";
-    eixoFim = atual.length ? atual[atual.length - 1].dia.slice(5).split("-").reverse().join("/") : "";
+    rotAnterior = estado.compAuto ? "período anterior" : fmtDia(PER.cIni) + "–" + fmtDia(PER.cFim);
+    eixoIni = atual[0] ? fmtDia(atual[0].dia) : "";
+    eixoFim = atual.length ? fmtDia(atual[atual.length - 1].dia) : "";
     if (atual.length < 2) { alvo.innerHTML = `<p class="mini">Sem série suficiente no período.</p>`; leg.innerHTML = ""; return; }
   }
 
@@ -249,7 +289,7 @@ function pintaComparativo(porMarca, d) {
   const painel = $("#painel-comparativo");
   if (estado.marca !== "todas") { painel.hidden = true; return; }
   painel.hidden = false;
-  $("#comp-rotulo").textContent = (porMarca.aristocrata.rotuloComp || "") +
+  $("#comp-rotulo").textContent = ((estado.comparar && porMarca.aristocrata.rotuloComp) || "") +
     (Object.values(porMarca).some((p) => p.atual && p.atual.aprox) ? " · ≈" : "");
 
   const seta = (metrica, atual, anterior) => {
@@ -278,7 +318,7 @@ function pintaComparativo(porMarca, d) {
 }
 
 function pintaRanking(d, hoje) {
-  const linhas = rankingAgentes(d, estado.marca, estado.janela, hoje);
+  const linhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
   const sel = $("#sel-agente");
   const atual = estado.agente;
   const nomes = [...new Map(linhas.map((a) => [a.agente_id, a.nome])).entries()];
@@ -287,7 +327,7 @@ function pintaRanking(d, hoje) {
 
   const filtradas = atual === "todos" ? linhas : linhas.filter((a) => a.agente_id === atual);
   const maxTrab = Math.max(...linhas.map((a) => a.trabalhados || 0), 1);
-  $("#ranking-rotulo").textContent = JAN_ROT[estado.janela] + (linhas.some((a) => a.aprox) ? " · ≈" : "");
+  $("#ranking-rotulo").textContent = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "");
 
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
@@ -388,12 +428,11 @@ function pintaReplient(d) {
   }).join("");
 }
 function pintaNps(d, hoje) {
-  const dias = NPS_DIAS[estado.janela];
-  $("#nps-rotulo").textContent = JAN_ROT[estado.janela] + " · votos no Listmonk";
+  $("#nps-rotulo").textContent = PER.rotulo + " · votos no Listmonk";
   const marcas = estado.marca === "todas" ? ["todas", ...MARCAS] : [estado.marca];
   $("#area-nps").innerHTML = marcas.map((mca) => {
-    const n = calculaNps(d.nps, mca, dias, hoje);
-    const nAnt = calculaNps(d.nps, mca, dias, diasAtras(dias, hoje));
+    const n = calculaNps(d.nps, mca, PER.ini, PER.fim);
+    const nAnt = calculaNps(d.nps, mca, PER.cIni, PER.cFim);
     const rot = mca === "todas" ? "Grupo" : ROTULOS[mca];
     if (!n.n) return `<div class="nps-cartao">
       <div class="cab"><span class="ponto" style="--cor:${corHex(mca)}"></span><h3>${rot}</h3><span class="nps-score">—</span></div>
@@ -401,14 +440,14 @@ function pintaNps(d, hoje) {
     const pc = (x) => (x / n.n) * 100;
     return `<div class="nps-cartao">
       <div class="cab"><span class="ponto" style="--cor:${corHex(mca)}"></span><h3>${rot}</h3>
-        ${nAnt.n >= 3 ? chipHtml("csat", n.nps, nAnt.nps) : ""}
+        ${n.n < 5 ? '<span class="chip">amostra pequena</span>' : (nAnt.n >= 5 ? chipHtml("csat", n.nps, nAnt.nps) : "")}
         <span class="nps-score">${n.nps}</span></div>
       <div class="nps-dist">
         <i class="p" style="width:${pc(n.prom)}%"></i>
         <i class="pa" style="width:${pc(n.pass)}%"></i>
         <i class="d" style="width:${pc(n.detr)}%"></i>
       </div>
-      <div class="nps-leg"><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
+      <div class="nps-leg"><span><b>média ${typeof n.media === "number" ? n.media.toFixed(1).replace(".", ",") : "—"}</b>/10</span><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
     </div>`;
   }).join("");
 }
@@ -421,17 +460,42 @@ function ligaFiltros() {
     [...$("#seg-marca").children].forEach((x) => x.classList.toggle("ativo", x === b));
     pinta();
   });
-  $("#seg-janela").addEventListener("click", (e) => {
-    const b = e.target.closest("button"); if (!b) return;
-    estado.janela = b.dataset.janela;
-    [...$("#seg-janela").children].forEach((x) => x.classList.toggle("ativo", x === b));
-    pinta();
+  // seletor de período
+  const pop = $("#pop-periodo");
+  $("#btn-periodo").addEventListener("click", () => { pop.hidden = !pop.hidden; });
+  document.addEventListener("click", (e) => {
+    if (!pop.hidden && !e.target.closest(".periodo-wrap")) pop.hidden = true;
+  });
+  $("#lista-presets").addEventListener("click", (e) => {
+    const li = e.target.closest("li"); if (!li) return;
+    [...$("#lista-presets").children].forEach((x) => x.classList.toggle("ativo", x === li));
+    if (li.dataset.p !== "custom") {
+      estado.preset = li.dataset.p;
+      pop.hidden = true; pinta();
+      // reflete o intervalo resolvido nos calendários
+      $("#dt-ini").value = PER.ini; $("#dt-fim").value = PER.fim;
+    }
+  });
+  for (const id of ["dt-ini", "dt-fim"]) $("#" + id).addEventListener("change", () => {
+    estado.preset = "custom";
+    [...$("#lista-presets").children].forEach((x) => x.classList.toggle("ativo", x.dataset.p === "custom"));
+  });
+  $("#chk-comparar-pop").addEventListener("change", (e) => { estado.comparar = e.target.checked; });
+  for (const r of document.querySelectorAll('input[name="modo-comp"]')) r.addEventListener("change", (e) => {
+    estado.compAuto = e.target.value === "auto";
+    $("#dt-cini").disabled = $("#dt-cfim").disabled = estado.compAuto;
+  });
+  $("#btn-aplicar").addEventListener("click", () => {
+    if (estado.preset === "custom") { estado.ini = $("#dt-ini").value || estado.ini; estado.fim = $("#dt-fim").value || estado.fim; }
+    estado.comparar = $("#chk-comparar-pop").checked;
+    if (!estado.compAuto) { estado.cIni = $("#dt-cini").value || null; estado.cFim = $("#dt-cfim").value || null; }
+    pop.hidden = true; pinta();
   });
   $("#sel-metrica").addEventListener("change", (e) => { estado.metrica = e.target.value; pinta(); });
-  $("#chk-comparar").addEventListener("change", (e) => { estado.comparar = e.target.checked; pinta(); });
+  $("#chk-comparar").addEventListener("change", (e) => { estado.comparar = e.target.checked; $("#chk-comparar-pop").checked = e.target.checked; pinta(); });
   $("#sel-agente").addEventListener("change", (e) => { estado.agente = e.target.value; pinta(); });
   for (const b of $("#seg-marca").children) b.classList.toggle("ativo", b.dataset.marca === estado.marca);
-  for (const b of $("#seg-janela").children) b.classList.toggle("ativo", b.dataset.janela === estado.janela);
+  for (const li of $("#lista-presets").children) li.classList.toggle("ativo", li.dataset.p === estado.preset);
 }
 
 function relogio() {
