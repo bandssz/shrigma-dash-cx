@@ -373,3 +373,14 @@ select {
 .soc-tempo { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borda); font-size: 13px; }
 .soc-urg-cab.urg-ruim { color: var(--ruim); }
 .soc-urg-cab.urg-bom { color: var(--bom); }
+
+/* ---------- frustrações do NPS ---------- */
+.frust { margin-top: 14px; border-top: 1px solid var(--borda); padding-top: 12px; }
+.frust-cab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); margin-bottom: 9px; }
+.frust-cab .mini { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 6px; }
+.frust-linha { display: grid; grid-template-columns: 1fr 90px 34px; align-items: center; gap: 10px; padding: 4px 0; }
+.frust-tema { font-size: 12.5px; font-weight: 600; }
+.frust-area { font-size: 10.5px; font-weight: 500; color: var(--rotulo); margin-left: 7px; }
+.frust-barra { height: 7px; background: var(--neutro-bg); border-radius: 4px; overflow: hidden; }
+.frust-barra i { display: block; height: 100%; background: var(--ruim); opacity: .75; border-radius: 4px; }
+.frust-n { text-align: right; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
