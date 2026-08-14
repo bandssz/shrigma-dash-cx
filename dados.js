@@ -197,6 +197,34 @@ function calculaNps(votos, marca, dias, hoje) {
   return { n, prom, detr, pass: n - prom - detr, nps: Math.round(((prom - detr) / n) * 100) };
 }
 
+
+// ---------- séries para o gráfico comparativo ----------
+// intradiária: pontos {x: minutos desde 00:00 SP, y} do dia pedido
+function serieIntradia(intradia, marca, diaYmd, metrica) {
+  const buckets = {};
+  for (const p of intradia || []) {
+    const sp = new Date(new Date(p.ts).getTime() - 3 * 3600 * 1000);
+    if (sp.toISOString().slice(0, 10) !== diaYmd) continue;
+    if (marca !== "todas" && p.marca !== marca) continue;
+    const min = sp.getUTCHours() * 60 + sp.getUTCMinutes();
+    const b = Math.round(min / 10) * 10; // alinha em blocos de 10min p/ somar as 3 marcas
+    if (!buckets[b]) buckets[b] = { n: 0, v: 0 };
+    const val = p[metrica];
+    if (typeof val === "number") { buckets[b].v += val; buckets[b].n++; }
+  }
+  return Object.entries(buckets)
+    .map(([x, o]) => ({ x: Number(x), y: o.v }))
+    .sort((a, b) => a.x - b.x);
+}
+// diária: um ponto por dia no intervalo [ini, fim]
+function serieDiaria(snapshot1d, marca, ini, fim, metrica) {
+  const dias = [...new Set(snapshot1d.filter((l) => l.dia >= ini && l.dia <= fim).map((l) => l.dia))].sort();
+  return dias.map((dd, i) => {
+    const ls = snapshot1d.filter((l) => l.dia === dd && (marca === "todas" || l.marca === marca));
+    const vals = ls.map((l) => l[metrica]).filter((v) => typeof v === "number");
+    return { x: i, y: vals.length ? vals.reduce((a, b) => a + b, 0) : null, dia: dd };
+  }).filter((p) => p.y !== null);
+}
 // ---------- formatação ----------
 function fmtNum(v) { return typeof v === "number" ? Math.round(v).toLocaleString("pt-BR") : "—"; }
 function fmtPct(v) { return typeof v === "number" ? v.toFixed(1).replace(".", ",") + "%" : "—"; }
@@ -222,6 +250,6 @@ function delta(metrica, atual, anterior) {
 
 // exporta para node (testes) sem quebrar o navegador
 if (typeof module !== "undefined") {
-  module.exports = { MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
+  module.exports = { serieIntradia, serieDiaria, MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
     rankingAgentes, calculaNps, fmtNum, fmtPct, fmtDur, delta, diasAtras };
 }
