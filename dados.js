@@ -255,6 +255,14 @@ function serieIntradia(intradia, marca, diaYmd, metrica) {
     .map(([x, o]) => ({ x: Number(x), y: o.v }))
     .sort((a, b) => a.x - b.x);
 }
+
+// último valor acumulado de um dia até determinado minuto (comparação "mesma hora")
+function valorMesmaHora(intradia, marca, diaYmd, metrica, minutoLimite) {
+  const serie = serieIntradia(intradia, marca, diaYmd, metrica);
+  let ult = null;
+  for (const p of serie) if (p.x <= minutoLimite) ult = p.y;
+  return ult; // null = sem pontos naquele dia até aquele horário
+}
 // diária: um ponto por dia no intervalo [ini, fim]
 function serieDiaria(snapshot1d, marca, ini, fim, metrica) {
   const dias = [...new Set(snapshot1d.filter((l) => l.dia >= ini && l.dia <= fim).map((l) => l.dia))].sort();
@@ -280,15 +288,16 @@ function delta(metrica, atual, anterior) {
   const p = ((atual - anterior) / Math.abs(anterior)) * 100;
   if (Math.abs(p) < 0.5) return { texto: "＝", classe: "d-neutro" };
   const seta = p > 0 ? "▲" : "▼";
+  const pctTxt = Math.abs(p) > 500 ? ">500%" : Math.abs(p).toFixed(0) + "%";
   const dir = DIRECAO[metrica] || "neutro";
   let classe = "d-neutro";
   if (dir === "alto") classe = p > 0 ? "d-bom" : "d-ruim";
   if (dir === "baixo") classe = p > 0 ? "d-ruim" : "d-bom";
-  return { texto: `${seta} ${Math.abs(p).toFixed(0)}%`, classe };
+  return { texto: `${seta} ${pctTxt}`, classe };
 }
 
 // exporta para node (testes) sem quebrar o navegador
 if (typeof module !== "undefined") {
-  module.exports = { serieIntradia, serieDiaria, diffDias, agregaRange, rangeAnterior, rankingAgentesRange, MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
+  module.exports = { serieIntradia, serieDiaria, valorMesmaHora, diffDias, agregaRange, rangeAnterior, rankingAgentesRange, MARCAS, ROTULOS, agregaDias, filtraDias, periodoMarca, consolida,
     rankingAgentes, calculaNps, fmtNum, fmtPct, fmtDur, delta, diasAtras };
 }
