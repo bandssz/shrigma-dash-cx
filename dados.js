@@ -171,6 +171,8 @@ function agrupaAgentes(linhas, aprox) {
     fechados: soma(g.linhas.map((l) => l.fechados)),
     csat: mediaPond(g.linhas.map((l) => [l.csat, l.respostas])),
     resposta_mediana_seg: mediaPond(g.linhas.map((l) => [l.resposta_mediana_seg, l.respostas])),
+    primeira_resposta_seg: mediaPond(g.linhas.map((l) => [l.primeira_resposta_seg, l.trabalhados])),
+    fechamento_seg: mediaPond(g.linhas.map((l) => [l.fechamento_seg, l.fechados])),
     horas_ativas_seg: soma(g.linhas.map((l) => l.horas_ativas_seg)),
   }));
   return out
