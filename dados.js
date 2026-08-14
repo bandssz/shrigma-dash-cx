@@ -56,6 +56,9 @@ function agregaDias(linhas) {
     respostas: soma(linhas.map((l) => l.respostas)),
     // tempos/qualidade: ponderados por volume do dia (aproximação, ver regra 3)
     primeira_resposta_seg: mediaPond(linhas.map((l) => [l.primeira_resposta_seg, l.novos])),
+    primeira_resposta_comercial_seg: mediaPond(linhas.map((l) => [l.primeira_resposta_comercial_seg, l.amostra_comercial])),
+    resolucao_comercial_seg: mediaPond(linhas.map((l) => [l.resolucao_comercial_seg, l.amostra_comercial])),
+    amostra_comercial: soma(linhas.map((l) => l.amostra_comercial)),
     csat: mediaPond(linhas.map((l) => [l.csat, l.csat_votos])),
     csat_cobertura: mediaPond(linhas.map((l) => [Number(l.csat_cobertura), l.fechados])),
     csat_votos: soma(linhas.map((l) => l.csat_votos)),
@@ -80,6 +83,8 @@ function janelaExata(janelas, marca, jan, fim) {
   return {
     novos: l.novos, fechados: l.fechados, trabalhados: l.trabalhados, respostas: l.respostas,
     primeira_resposta_seg: l.primeira_resposta_seg,
+    primeira_resposta_comercial_seg: l.primeira_resposta_comercial_seg,
+    resolucao_comercial_seg: l.resolucao_comercial_seg, amostra_comercial: l.amostra_comercial,
     csat: l.csat, csat_cobertura: Number(l.csat_cobertura), csat_votos: l.csat_votos,
     kai_deflexao: Number(l.kai_deflexao), fila_aberta: l.fila_aberta,
     aprox: false, dias: jan === "7d" ? 7 : 30,
@@ -124,6 +129,9 @@ function consolida(porMarca) {
       trabalhados: soma(ps.map((p) => p.trabalhados)),
       respostas: soma(ps.map((p) => p.respostas)),
       primeira_resposta_seg: mediaPond(ps.map((p) => [p.primeira_resposta_seg, p.novos])),
+      primeira_resposta_comercial_seg: mediaPond(ps.map((p) => [p.primeira_resposta_comercial_seg, p.amostra_comercial])),
+      resolucao_comercial_seg: mediaPond(ps.map((p) => [p.resolucao_comercial_seg, p.amostra_comercial])),
+      amostra_comercial: soma(ps.map((p) => p.amostra_comercial)),
       csat: mediaPond(ps.map((p) => [p.csat, p.csat_votos])),
       csat_cobertura: mediaPond(ps.map((p) => [p.csat_cobertura, p.fechados])),
       csat_votos: soma(ps.map((p) => p.csat_votos)),
