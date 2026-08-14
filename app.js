@@ -142,23 +142,34 @@ function pintaFrescor(d) {
   if (!ult) return;
   const min = Math.round((Date.now() - new Date(ult).getTime()) / 60000);
   const el = $("#frescor");
+  if (!dentroDoExpediente()) {
+    el.textContent = "coleta retoma às 06h";
+    el.classList.remove("velho");
+    return;
+  }
   el.textContent = "coleta há " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
   el.classList.toggle("velho", min > 25);
 }
 
-// alertas: só o que exige ação — nada de ruído
-function pintaAlertas(porMarca, d) {
+// alertas: sempre sobre AGORA/HOJE, independente do período selecionado na tela
+function dentroDoExpediente() {
+  const sp = new Date(Date.now() - 3 * 3600 * 1000);
+  const h = sp.getUTCHours();
+  return h >= 6 && h < 23; // janela do coletor (06–23h SP)
+}
+function pintaAlertas(_, d) {
   const avisos = [];
+  const hoje = hojeRef();
   const ult = d.snapshot_1d.map((l) => l.coletado_em).sort().pop();
-  if (ult && Date.now() - new Date(ult).getTime() > 25 * 60000)
+  if (ult && Date.now() - new Date(ult).getTime() > 25 * 60000 && dentroDoExpediente())
     avisos.push("Coleta atrasada — painel pode estar defasado.");
   for (const m of MARCAS) {
-    const a = porMarca[m].atual;
+    const a = agregaRange(d, m, hoje, hoje, hoje);
     if (!a) continue;
     if (typeof a.primeira_resposta_seg === "number" && a.primeira_resposta_seg > 12 * 3600)
-      avisos.push(`${ROTULOS[m]} com 1ª resposta em ${fmtDur(a.primeira_resposta_seg)}.`);
+      avisos.push(`${ROTULOS[m]} com 1ª resposta em ${fmtDur(a.primeira_resposta_seg)} hoje.`);
     if (typeof a.csat === "number" && a.csat < 70 && (a.csat_votos || 0) >= 5)
-      avisos.push(`CSAT de ${ROTULOS[m]} em ${Math.round(a.csat)}.`);
+      avisos.push(`CSAT de ${ROTULOS[m]} em ${Math.round(a.csat)} hoje.`);
   }
   $("#faixa-alertas").innerHTML = avisos.length
     ? `<div class="alerta">⚠ ${avisos.join("  ·  ")}</div>` : "";
@@ -207,7 +218,7 @@ function pintaKpis(p, porMarca) {
   const filaSub = todas
     ? MARCAS.map((m) => {
         const f = porMarca[m].atual && porMarca[m].atual.fila_aberta;
-        return `${ROTULOS[m].split(" ").pop()[0]} ${fmtNum(f)}`;
+        return `${{aristocrata:"A",fishermans:"F",olivas:"O"}[m]} ${fmtNum(f)}`;
       }).join(" · ")
     : "abertos neste momento";
   let respSub = "mediana até a 1ª resposta";
@@ -228,8 +239,9 @@ function pintaKpis(p, porMarca) {
   // linhas de referência "ontem fechou em..." (o total do período anterior sempre visível)
   const avisoHist = estado.comparar && semHist
     ? `<span class="mini">sem histórico completo do período de comparação</span>` : "";
+  const rotAntDia = estado.compAuto ? (estado.preset === "hoje" ? "ontem" : "dia anterior") : fmtDia(PER.cIni);
   const refSaldo = estado.comparar && umDia && saldoAntCheio !== null
-    ? `ontem fechou em <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b> (${fmtNum(ant.novos)} novos · ${fmtNum(ant.fechados)} resolvidos)` : "";
+    ? `${rotAntDia} fechou em <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b> (${fmtNum(ant.novos)} novos · ${fmtNum(ant.fechados)} resolvidos)` : "";
   const rotMH = usaMesmaHora ? " · até a mesma hora" : "";
 
   $("#area-kpis").innerHTML =
@@ -239,9 +251,9 @@ function pintaKpis(p, porMarca) {
         umDia ? chipHtml("fechados", a.fechados, pf.valor) : chipHtml("fechados", a.fechados, ant.fechados),
         refSaldo || avisoHist || (estado.comparar && !umDia && saldoAntCheio !== null
           ? `período anterior: <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b>` : "")) +
-    kpi("Fila agora", fmtNum(a.fila_aberta), filaSub,
+    kpi(PER.fim >= hojeRef() ? "Fila agora" : "Fila no fim do período", fmtNum(a.fila_aberta), filaSub,
         chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta),
-        estado.comparar && typeof ant.fila_aberta === "number" ? `${umDia ? "ontem" : "antes"}: <b>${fmtNum(ant.fila_aberta)}</b>` : "") +
+        estado.comparar && typeof ant.fila_aberta === "number" ? `${umDia ? rotAntDia : "antes"}: <b>${fmtNum(ant.fila_aberta)}</b>` : "") +
     kpi("1ª resposta", fmtDur(a.primeira_resposta_seg), respSub,
         chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
         "") +
@@ -292,6 +304,47 @@ function linhaSvg(pts, xMax, yMax, W, H, cor, tracejada) {
     stroke-width="2" ${tracejada ? 'stroke-dasharray="5 4" stroke-opacity=".55"' : ""} />`;
 }
 
+
+// ---------- tooltip do gráfico ----------
+let GRAF = null; // estado da última pintura, para o hover
+function fmtHoraMin(m) { return String(Math.floor(m / 60)).padStart(2, "0") + "h" + String(m % 60).padStart(2, "0"); }
+function pontoProximo(serie, xAlvo) {
+  if (!serie || !serie.length) return null;
+  let melhor = serie[0];
+  for (const p of serie) if (Math.abs(p.x - xAlvo) < Math.abs(melhor.x - xAlvo)) melhor = p;
+  return melhor;
+}
+function ligaTooltip() {
+  const area = $("#area-grafico");
+  area.addEventListener("mousemove", (e) => {
+    if (!GRAF) return;
+    const svg = area.querySelector("svg.grafico");
+    const tipEl = area.querySelector(".graf-tip");
+    const guia = area.querySelector(".graf-guia");
+    if (!svg || !tipEl) return;
+    const r = svg.getBoundingClientRect();
+    if (r.width < 10) return;
+    const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const xAlvo = frac * GRAF.xMax;
+    const pa = pontoProximo(GRAF.atual, xAlvo);
+    if (!pa) return;
+    const pb = estado.comparar ? pontoProximo(GRAF.anterior, pa.x) : null; // ancora no MESMO horário do ponto atual
+    const rotX = GRAF.umDia ? fmtHoraMin(pa.x) : fmtDia((GRAF.atual[pa.x] || pa).dia || "");
+    tipEl.innerHTML = `<b>${rotX}</b><span>${GRAF.rotAtual}: <b>${fmtNum(pa.y)}</b></span>` +
+      (pb ? `<span>${GRAF.rotAnterior}: <b>${fmtNum(pb.y)}</b>${GRAF.umDia && pb.x !== pa.x ? " (" + fmtHoraMin(pb.x) + ")" : ""}</span>` : "");
+    const px = (pa.x / GRAF.xMax) * r.width;
+    tipEl.hidden = false;
+    tipEl.style.left = Math.min(px + 12, r.width - 150) + "px";
+    tipEl.style.top = "8px";
+    guia.hidden = false;
+    guia.style.left = px + "px";
+    guia.style.height = r.height + "px";
+  });
+  area.addEventListener("mouseleave", () => {
+    const t = area.querySelector(".graf-tip"), g = area.querySelector(".graf-guia");
+    if (t) t.hidden = true; if (g) g.hidden = true;
+  });
+}
 function pintaGrafico(d, hoje) {
   const alvo = $("#area-grafico");
   const leg = $("#grafico-legenda");
@@ -307,6 +360,7 @@ function pintaGrafico(d, hoje) {
     xMax = 1440; rotAnterior = estado.compAuto ? "dia anterior" : fmtDia(PER.cIni);
     eixoIni = "00h"; eixoFim = "24h";
     if (atual.length < 2) {
+      GRAF = null;
       alvo.innerHTML = `<p class="mini">A curva intradiária existe a partir das coletas de 10 em 10 min
         (histórico desde 14/08). Para dias sem pontos, use um intervalo de vários dias.</p>`;
       leg.innerHTML = ""; return;
@@ -332,7 +386,9 @@ function pintaGrafico(d, hoje) {
       ${linhaSvg(atual, xMax, yMax, W, H, cor, false)}
       <circle cx="${(ultimo.x / xMax) * W}" cy="${H - 4 - (ultimo.y / yMax) * (H - 10)}" r="3.5" fill="${cor}" />
     </svg>
-    <div class="grafico-eixo"><span>${eixoIni}</span><span>${eixoFim}</span></div>`;
+    <div class="grafico-eixo"><span>${eixoIni}</span><span>${eixoFim}</span></div>
+    <div class="graf-tip" hidden></div><div class="graf-guia" hidden></div>`;
+  GRAF = { atual, anterior, xMax, umDia, rotAtual, rotAnterior };
   const antUlt = anterior.length ? anterior[anterior.length - 1] : null;
   leg.innerHTML = `<span><i class="leg-linha" style="background:${cor}"></i>${rotAtual} · <b>${fmtNum(ultimo.y)}</b></span>` +
     (estado.comparar && antUlt
@@ -562,6 +618,7 @@ function relogio() {
 }
 
 ligaFiltros();
+ligaTooltip();
 relogio();
 carrega();
 if (typeof module === "undefined" || !module.exports) setInterval(carrega, REFRESH_SEG * 1000);
