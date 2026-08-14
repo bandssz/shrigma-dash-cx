@@ -206,6 +206,7 @@ function pintaKpis(p, porMarca) {
   const todas = estado.marca === "todas";
   const marcaRef = estado.marca;
   const umDia = PER.ini === PER.fim;
+  const temCom = typeof a.primeira_resposta_comercial_seg === "number";
   const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
 
   // comparação progressiva (contagens): ontem até a mesma hora, quando a série existir
@@ -254,9 +255,15 @@ function pintaKpis(p, porMarca) {
     kpi(PER.fim >= hojeRef() ? "Fila agora" : "Fila no fim do período", fmtNum(a.fila_aberta), filaSub,
         chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta),
         estado.comparar && typeof ant.fila_aberta === "number" ? `${umDia ? rotAntDia : "antes"}: <b>${fmtNum(ant.fila_aberta)}</b>` : "") +
-    kpi("1ª resposta", fmtDur(a.primeira_resposta_seg), respSub,
-        chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
-        "") +
+    kpi(temCom ? "1ª resposta · expediente" : "1ª resposta",
+        fmtDur(temCom ? a.primeira_resposta_comercial_seg : a.primeira_resposta_seg),
+        temCom ? `seg–sex 8h–18h · ${fmtNum(a.amostra_comercial)} tickets` : respSub,
+        temCom
+          ? chipHtml("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg, fmtDur)
+          : chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
+        temCom && typeof a.primeira_resposta_seg === "number"
+          ? `espera total do cliente: <b>${fmtDur(a.primeira_resposta_seg)}</b>${typeof a.resolucao_comercial_seg === "number" ? ` · resolução em expediente <b>${fmtDur(a.resolucao_comercial_seg)}</b>` : ""}`
+          : (todas ? "" : respSub === "mediana até a 1ª resposta" ? "" : respSub)) +
     kpi("CSAT", typeof a.csat === "number" ? Math.round(a.csat) : "—",
         `cobertura ${typeof a.csat_cobertura === "number" ? Math.round(a.csat_cobertura) + "%" : "—"} · ${fmtNum(a.csat_votos)} votos${a.aprox ? " · ≈" : ""}`,
         chipHtml("csat", a.csat, ant.csat),
@@ -421,7 +428,8 @@ function pintaComparativo(porMarca, d) {
       <td class="num ${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</td>
       <td class="num">${fmtNum(a.fila_aberta)} ${seta("fila_aberta", a.fila_aberta, ant.fila_aberta)}</td>
       <td class="num">${fmtNum(a.trabalhados)} ${seta("trabalhados", a.trabalhados, anteriorProgressivo("trabalhados", m, ant).valor)}</td>
-      <td class="num">${fmtDur(a.primeira_resposta_seg)} ${seta("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg)}</td>
+      <td class="num">${fmtDur(a.primeira_resposta_comercial_seg)} ${seta("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg)}</td>
+      <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"} ${seta("csat", a.csat, ant.csat)}</td>
       <td class="num">${fmtPct(a.kai_deflexao)} ${seta("kai_deflexao", a.kai_deflexao, ant.kai_deflexao)}</td>
       <td class="num">${fmtNum(a.respostas)}</td>
@@ -522,8 +530,8 @@ function pintaSocial(d) {
   const agg = {};
   for (const l of linhas) {
     if (!marcas.includes(l.marca)) continue;
-    const a = (agg[l.marca] = agg[l.marca] || { total: 0, respondidos: 0, ocultos: 0, pos: 0, neg: 0, neu: 0, sem: 0, aguardando: 0 });
-    for (const k of ["total", "respondidos", "ocultos", "aguardando"]) a[k] += Number(l[k] || 0);
+    const a = (agg[l.marca] = agg[l.marca] || { total: 0, respondidos: 0, ocultos: 0, apagados: 0, pos: 0, neg: 0, neu: 0, sem: 0, aguardando: 0 });
+    for (const k of ["total", "respondidos", "ocultos", "aguardando", "apagados"]) a[k] += Number(l[k] || 0);
     a.pos += Number(l.pos || 0); a.neg += Number(l.neg || 0);
     a.neu += Number(l.neu || 0); a.sem += Number(l.sem_classificacao || 0);
   }
@@ -542,8 +550,8 @@ function pintaSocial(d) {
         ${a.aguardando ? `<span class="chip d-ruim">${a.aguardando} aguardando resposta</span>` : ""}</div>
       <div class="soc-grade">
         <div class="metrica"><span class="rot">Comentários</span><span class="val">${fmtNum(a.total)}</span></div>
-        <div class="metrica"><span class="rot">Respondidos</span><span class="val">${fmtNum(a.respondidos)}<small> ${taxa !== null ? Math.round(taxa) + "%" : ""}</small></span></div>
-        <div class="metrica"><span class="rot">Ocultados</span><span class="val">${fmtNum(a.ocultos)}</span></div>
+        <div class="metrica"><span class="rot">Respondidos pela marca</span><span class="val">${fmtNum(a.respondidos)}<small> ${taxa !== null ? Math.round(taxa) + "%" : ""}</small></span></div>
+        <div class="metrica"><span class="rot">Ocultados / apagados</span><span class="val">${fmtNum(a.ocultos)}<small> / ${fmtNum(a.apagados)}</small></span></div>
         <div class="metrica"><span class="rot">Sentimento</span><span class="val">${clas ? `<span class="vd">${Math.round(pc(a.pos))}%</span><small> pos · </small><span class="vm">${Math.round(pc(a.neg))}%</span><small> neg</small>` : "—"}</span></div>
       </div>
       ${clas ? `<div class="soc-barra">
