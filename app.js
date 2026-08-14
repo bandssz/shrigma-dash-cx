@@ -75,10 +75,12 @@ function pinta() {
   pintaFrescor(d);
   pintaAlertas(porMarca, d);
   pintaKpis(escopo, porMarca);
+  pintaGrafico(d, hoje);
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
   pintaRa(d);
+  pintaReplient(d);
   $("#rotulo-janela").textContent = JAN_ROT[estado.janela];
 }
 
@@ -88,14 +90,14 @@ function pintaFrescor(d) {
   const min = Math.round((Date.now() - new Date(ult).getTime()) / 60000);
   const el = $("#frescor");
   el.textContent = "coleta há " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
-  el.classList.toggle("velho", min > 75);
+  el.classList.toggle("velho", min > 25);
 }
 
 // alertas: só o que exige ação — nada de ruído
 function pintaAlertas(porMarca, d) {
   const avisos = [];
   const ult = d.snapshot_1d.map((l) => l.coletado_em).sort().pop();
-  if (ult && Date.now() - new Date(ult).getTime() > 75 * 60000)
+  if (ult && Date.now() - new Date(ult).getTime() > 25 * 60000)
     avisos.push("Coleta atrasada — painel pode estar defasado.");
   for (const m of MARCAS) {
     const a = porMarca[m].atual;
@@ -182,6 +184,67 @@ function sparkSvg(marca, cor, w, h) {
       <polyline points="${pts(fechados)}" fill="none" stroke="${cor}" stroke-width="1.6"/></svg>`;
 }
 
+
+// ---------- gráfico comparativo (estilo Shopify) ----------
+estado.metrica = "fechados";
+estado.comparar = true;
+
+function linhaSvg(pts, xMax, yMax, W, H, cor, tracejada) {
+  if (pts.length < 2) return "";
+  const px = (p) => `${(p.x / xMax) * W},${H - 4 - (p.y / yMax) * (H - 10)}`;
+  return `<polyline points="${pts.map(px).join(" ")}" fill="none" stroke="${cor}"
+    stroke-width="2" ${tracejada ? 'stroke-dasharray="5 4" stroke-opacity=".55"' : ""} />`;
+}
+
+function pintaGrafico(d, hoje) {
+  const alvo = $("#area-grafico");
+  const leg = $("#grafico-legenda");
+  const cor = corHex(estado.marca);
+  const met = estado.metrica;
+  const W = 640, H = 170;
+  let atual = [], anterior = [], xMax, rotAtual, rotAnterior, eixoIni, eixoFim;
+
+  if (estado.janela === "dia") {
+    atual = serieIntradia(d.intradia, estado.marca, hoje, met);
+    anterior = estado.comparar ? serieIntradia(d.intradia, estado.marca, diasAtras(1, hoje), met) : [];
+    xMax = 1440; rotAtual = "hoje"; rotAnterior = "ontem"; eixoIni = "00h"; eixoFim = "24h";
+    if (atual.length < 2) {
+      alvo.innerHTML = `<p class="mini">A curva do dia se forma ao longo das coletas de 10 em 10 minutos —
+        e a linha de "ontem" aparece a partir de amanhã, quando existir um dia inteiro de pontos.</p>`;
+      leg.innerHTML = ""; return;
+    }
+  } else {
+    const n = estado.janela === "7d" ? 7 : 30;
+    const fim = diasAtras(1, hoje);
+    atual = serieDiaria(d.snapshot_1d, estado.marca, diasAtras(n, hoje), fim, met);
+    anterior = estado.comparar
+      ? serieDiaria(d.snapshot_1d, estado.marca, diasAtras(2 * n, hoje), diasAtras(n + 1, hoje), met)
+      : [];
+    // normaliza o x das duas séries para o mesmo eixo (posição no período)
+    atual = atual.map((p, i) => ({ x: i, y: p.y, dia: p.dia }));
+    anterior = anterior.map((p, i) => ({ x: i, y: p.y }));
+    xMax = Math.max(atual.length, anterior.length, 2) - 1;
+    rotAtual = "período atual"; rotAnterior = "período anterior";
+    eixoIni = atual[0] ? atual[0].dia.slice(5).split("-").reverse().join("/") : "";
+    eixoFim = atual.length ? atual[atual.length - 1].dia.slice(5).split("-").reverse().join("/") : "";
+    if (atual.length < 2) { alvo.innerHTML = `<p class="mini">Sem série suficiente no período.</p>`; leg.innerHTML = ""; return; }
+  }
+
+  const yMax = Math.max(...atual.map((p) => p.y), ...anterior.map((p) => p.y), 1);
+  const ultimo = atual[atual.length - 1];
+  alvo.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="grafico">
+      <line x1="0" y1="${H - 4}" x2="${W}" y2="${H - 4}" stroke="var(--borda)" />
+      ${linhaSvg(anterior, xMax, yMax, W, H, "#9c968c", true)}
+      ${linhaSvg(atual, xMax, yMax, W, H, cor, false)}
+      <circle cx="${(ultimo.x / xMax) * W}" cy="${H - 4 - (ultimo.y / yMax) * (H - 10)}" r="3.5" fill="${cor}" />
+    </svg>
+    <div class="grafico-eixo"><span>${eixoIni}</span><span>${eixoFim}</span></div>`;
+  const antUlt = anterior.length ? anterior[anterior.length - 1] : null;
+  leg.innerHTML = `<span><i class="leg-linha" style="background:${cor}"></i>${rotAtual} · <b>${fmtNum(ultimo.y)}</b></span>` +
+    (estado.comparar && antUlt
+      ? `<span><i class="leg-linha tracejada"></i>${rotAnterior} · <b>${fmtNum(antUlt.y)}</b></span>` : "") +
+    `<span class="mini">pico ${fmtNum(yMax)}</span>`;
+}
 function pintaComparativo(porMarca, d) {
   const painel = $("#painel-comparativo");
   if (estado.marca !== "todas") { painel.hidden = true; return; }
@@ -294,6 +357,36 @@ function pintaRa(d) {
     </div>`;
   }).join("");
 }
+
+function pintaReplient(d) {
+  const linhas = (d.manual || []).filter((m) => m.fonte === "replient");
+  const alvo = $("#area-replient");
+  if (!linhas.length) {
+    $("#replient-rotulo").textContent = "";
+    alvo.innerHTML = `<p class="mini">Coleta semanal por bookmarklet na tela de Analytics do Replient
+      (mesmo clique do RA) — e API oficial solicitada ao time deles.</p>`;
+    return;
+  }
+  const porMarca = {};
+  for (const l of linhas) if (!porMarca[l.marca] || l.semana_inicio > porMarca[l.marca].semana_inicio) porMarca[l.marca] = l;
+  const marcas = (estado.marca === "todas" ? MARCAS : [estado.marca]).filter((m) => porMarca[m]);
+  if (!marcas.length) { alvo.innerHTML = `<p class="mini">Sem coleta para esta marca ainda.</p>`; return; }
+  $("#replient-rotulo").textContent = "semana de " + porMarca[marcas[0]].semana_inicio.slice(0, 10).split("-").reverse().join("/");
+  alvo.innerHTML = marcas.map((m) => {
+    const ex = (porMarca[m].dados || {}).extraido;
+    if (!ex) return `<div class="ra-marca"><div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span>
+      <h3>${ROTULOS[m]}</h3></div><p class="mini">Dados brutos recebidos — extração em calibração.</p></div>`;
+    const taxa = typeof ex.respondidos === "number" && ex.comentarios ? (ex.respondidos / ex.comentarios) * 100 : null;
+    return `<div class="ra-marca">
+      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3></div>
+      <div class="repl-grade">
+        <div class="metrica"><span class="rot">Comentários</span><span class="val">${fmtNum(ex.comentarios)}</span></div>
+        <div class="metrica"><span class="rot">Respondidos</span><span class="val">${fmtNum(ex.respondidos)}${taxa !== null ? `<small> ${Math.round(taxa)}%</small>` : ""}</span></div>
+        <div class="metrica"><span class="rot">Apagados</span><span class="val">${fmtNum(ex.apagados)}</span></div>
+        <div class="metrica"><span class="rot">Sentimento</span><span class="val">${typeof ex.sentimento_pos === "number" ? `<span class="vd">${Math.round(ex.sentimento_pos)}%</span>` : "—"}${typeof ex.sentimento_neg === "number" ? `<small> · <span class="vm">${Math.round(ex.sentimento_neg)}% neg</span></small>` : ""}</span></div>
+      </div></div>`;
+  }).join("");
+}
 function pintaNps(d, hoje) {
   const dias = NPS_DIAS[estado.janela];
   $("#nps-rotulo").textContent = JAN_ROT[estado.janela] + " · votos no Listmonk";
@@ -334,6 +427,8 @@ function ligaFiltros() {
     [...$("#seg-janela").children].forEach((x) => x.classList.toggle("ativo", x === b));
     pinta();
   });
+  $("#sel-metrica").addEventListener("change", (e) => { estado.metrica = e.target.value; pinta(); });
+  $("#chk-comparar").addEventListener("change", (e) => { estado.comparar = e.target.checked; pinta(); });
   $("#sel-agente").addEventListener("change", (e) => { estado.agente = e.target.value; pinta(); });
   for (const b of $("#seg-marca").children) b.classList.toggle("ativo", b.dataset.marca === estado.marca);
   for (const b of $("#seg-janela").children) b.classList.toggle("ativo", b.dataset.janela === estado.janela);
