@@ -131,7 +131,7 @@ function pinta() {
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
   pintaRa(d);
-  pintaReplient(d);
+  pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
   const chk = $("#chk-comparar"); if (chk) chk.checked = estado.comparar;
@@ -511,35 +511,60 @@ function pintaRa(d) {
   }).join("");
 }
 
-function pintaReplient(d) {
-  const linhas = (d.manual || []).filter((m) => m.fonte === "replient");
-  const alvo = $("#area-replient");
-  if (!linhas.length) {
-    $("#replient-rotulo").textContent = "";
-    alvo.innerHTML = `<p class="mini">Coleta semanal por bookmarklet na tela de Analytics do Replient
-      (mesmo clique do RA) — e API oficial solicitada ao time deles.</p>`;
-    return;
+// Comentários orgânicos via Meta Graph (volume, respondidos, ocultos, sentimento próprio).
+// Independe da Replient: quando a API deles sair, entra como fonte adicional.
+function pintaSocial(d) {
+  const alvo = $("#area-social");
+  const linhas = (d.social || []).filter((l) => l.dia >= PER.ini && l.dia <= PER.fim);
+  const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
+  $("#social-rotulo").textContent = PER.rotulo + " · coleta automática a cada 2h";
+
+  const agg = {};
+  for (const l of linhas) {
+    if (!marcas.includes(l.marca)) continue;
+    const a = (agg[l.marca] = agg[l.marca] || { total: 0, respondidos: 0, ocultos: 0, pos: 0, neg: 0, neu: 0, sem: 0, aguardando: 0 });
+    for (const k of ["total", "respondidos", "ocultos", "aguardando"]) a[k] += Number(l[k] || 0);
+    a.pos += Number(l.pos || 0); a.neg += Number(l.neg || 0);
+    a.neu += Number(l.neu || 0); a.sem += Number(l.sem_classificacao || 0);
   }
-  const porMarca = {};
-  for (const l of linhas) if (!porMarca[l.marca] || l.semana_inicio > porMarca[l.marca].semana_inicio) porMarca[l.marca] = l;
-  const marcas = (estado.marca === "todas" ? MARCAS : [estado.marca]).filter((m) => porMarca[m]);
-  if (!marcas.length) { alvo.innerHTML = `<p class="mini">Sem coleta para esta marca ainda.</p>`; return; }
-  $("#replient-rotulo").textContent = "semana de " + porMarca[marcas[0]].semana_inicio.slice(0, 10).split("-").reverse().join("/");
-  alvo.innerHTML = marcas.map((m) => {
-    const ex = (porMarca[m].dados || {}).extraido;
-    if (!ex) return `<div class="ra-marca"><div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span>
-      <h3>${ROTULOS[m]}</h3></div><p class="mini">Dados brutos recebidos — extração em calibração.</p></div>`;
-    const taxa = typeof ex.respondidos === "number" && ex.comentarios ? (ex.respondidos / ex.comentarios) * 100 : null;
-    return `<div class="ra-marca">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3></div>
-      <div class="repl-grade">
-        <div class="metrica"><span class="rot">Comentários</span><span class="val">${fmtNum(ex.comentarios)}</span></div>
-        <div class="metrica"><span class="rot">Respondidos</span><span class="val">${fmtNum(ex.respondidos)}${taxa !== null ? `<small> ${Math.round(taxa)}%</small>` : ""}</span></div>
-        <div class="metrica"><span class="rot">Apagados</span><span class="val">${fmtNum(ex.apagados)}</span></div>
-        <div class="metrica"><span class="rot">Sentimento</span><span class="val">${typeof ex.sentimento_pos === "number" ? `<span class="vd">${Math.round(ex.sentimento_pos)}%</span>` : "—"}${typeof ex.sentimento_neg === "number" ? `<small> · <span class="vm">${Math.round(ex.sentimento_neg)}% neg</span></small>` : ""}</span></div>
-      </div></div>`;
+  const comDados = marcas.filter((m) => agg[m] && agg[m].total);
+  if (!comDados.length) {
+    alvo.innerHTML = `<p class="mini">Nenhum comentário no período selecionado.</p>`;
+    $("#area-social-urgentes").innerHTML = ""; return;
+  }
+  alvo.innerHTML = comDados.map((m) => {
+    const a = agg[m];
+    const taxa = a.total ? (a.respondidos / a.total) * 100 : null;
+    const clas = a.pos + a.neg + a.neu;
+    const pc = (x) => (clas ? (x / clas) * 100 : 0);
+    return `<div class="soc-marca">
+      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3>
+        ${a.aguardando ? `<span class="chip d-ruim">${a.aguardando} aguardando resposta</span>` : ""}</div>
+      <div class="soc-grade">
+        <div class="metrica"><span class="rot">Comentários</span><span class="val">${fmtNum(a.total)}</span></div>
+        <div class="metrica"><span class="rot">Respondidos</span><span class="val">${fmtNum(a.respondidos)}<small> ${taxa !== null ? Math.round(taxa) + "%" : ""}</small></span></div>
+        <div class="metrica"><span class="rot">Ocultados</span><span class="val">${fmtNum(a.ocultos)}</span></div>
+        <div class="metrica"><span class="rot">Sentimento</span><span class="val">${clas ? `<span class="vd">${Math.round(pc(a.pos))}%</span><small> pos · </small><span class="vm">${Math.round(pc(a.neg))}%</span><small> neg</small>` : "—"}</span></div>
+      </div>
+      ${clas ? `<div class="soc-barra">
+        <i class="p" style="width:${pc(a.pos)}%"></i><i class="pa" style="width:${pc(a.neu)}%"></i><i class="d" style="width:${pc(a.neg)}%"></i>
+      </div>` : ""}
+      ${a.sem ? `<div class="mini soc-nota">${a.sem} ainda na fila de classificação</div>` : ""}
+    </div>`;
   }).join("");
+
+  // fila de atenção — o que exige ação humana agora
+  const urg = (d.social_urgentes || []).filter((u) => marcas.includes(u.marca));
+  $("#area-social-urgentes").innerHTML = urg.length
+    ? `<div class="soc-urg"><div class="soc-urg-cab">Precisam de resposta <span class="mini">(negativos ou urgentes, sem réplica, últimos 14 dias)</span></div>
+        ${urg.slice(0, 6).map((u) => `<div class="soc-urg-item">
+          <span class="ponto" style="--cor:${corHex(u.marca)}"></span>
+          <div><div class="soc-urg-txt">${(u.texto || "").replace(/</g, "&lt;")}</div>
+          <div class="mini">@${u.autor || "?"} · ${u.rede} · ${u.categoria || "—"}${u.sentimento === "negativo" ? ' · <span class="vm">negativo</span>' : ""}</div></div>
+        </div>`).join("")}</div>`
+    : `<div class="soc-urg-ok mini">Nenhum comentário negativo ou urgente sem resposta. ✓</div>`;
 }
+
 function pintaNps(d, hoje) {
   $("#nps-rotulo").textContent = PER.rotulo + " · votos no Listmonk";
   const marcas = estado.marca === "todas" ? ["todas", ...MARCAS] : [estado.marca];
