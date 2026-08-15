@@ -12,37 +12,60 @@
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
 .abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px}
+.secoes button{border:0;background:transparent;padding:0 0 10px;font:600 13.5px/1 var(--ui);
+  color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
+.secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
+.sec{display:none}.sec.ativa{display:block}
 .tabn{font-variant-numeric:tabular-nums}
 td.destaque{font-weight:700}
-.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:48px}
+.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
 .barra i{display:block;height:100%;border-radius:3px}
 .tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
 .tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
 .tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
 .tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
 .tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
-.galho{display:grid;grid-template-columns:158px 1fr 66px 62px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--borda)}
+.galho{display:grid;grid-template-columns:170px 1fr 66px 60px;gap:10px;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--borda)}
 .galho:last-child{border-bottom:0}
-.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.3 var(--ui);color:var(--rotulo)}
-.vazio{padding:24px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
+.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.35 var(--ui);color:var(--rotulo)}
+.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
   background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
 .nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
-  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:10px}
-.periodo{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:12px}
+.periodo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .periodo .presets{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
 .periodo .presets button{border:0;background:transparent;padding:6px 10px;border-radius:7px;
   font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
 .periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
 .periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
-.periodo input[type=date]{font:500 12px/1 var(--ui);padding:6px 8px;border:1px solid var(--borda-forte);
-  border-radius:7px;background:var(--card);color:var(--texto)}
-#grafico{width:100%;height:210px;display:block}
+input[type=date],select,input[type=text],input[type=number],textarea{font:500 12.5px/1.35 var(--ui);
+  padding:7px 9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);
+  color:var(--texto);font-family:var(--ui)}
+textarea{width:100%;resize:vertical;min-height:58px}
+#grafico{width:100%;height:200px;display:block}
 .legenda{display:flex;gap:16px;font:500 11.5px/1 var(--ui);color:var(--mudo);margin-top:8px;flex-wrap:wrap}
 .legenda i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px}
-.metrica-sel{font:600 12px/1 var(--ui);padding:6px 9px;border:1px solid var(--borda-forte);
-  border-radius:7px;background:var(--card);color:var(--texto)}
 .dica{position:fixed;pointer-events:none;background:var(--texto);color:#fff;padding:6px 9px;
   border-radius:7px;font:500 11.5px/1.45 var(--ui);opacity:0;transition:opacity .12s;z-index:50;white-space:pre}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.form .campo{display:flex;flex-direction:column;gap:5px}
+.form .campo.largo{grid-column:1/-1}
+.form label{font:600 11.5px/1 var(--ui);color:var(--rotulo);text-transform:uppercase;letter-spacing:.04em}
+.form .ajuda{font:400 11px/1.4 var(--ui);color:var(--mudo)}
+.btn{border:0;border-radius:8px;padding:9px 16px;font:600 13px/1 var(--ui);cursor:pointer;
+  background:var(--texto);color:#fff}
+.btn.sec{background:var(--neutro-bg);color:var(--texto)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.veredito{padding:12px 14px;border-radius:9px;font:500 13px/1.5 var(--ui);margin-top:10px}
+.veredito.conclusivo{background:var(--bom-bg);color:var(--bom)}
+.veredito.inconclusivo{background:var(--neutro-bg);color:var(--texto)}
+.bracos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
+.braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
+.braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -64,39 +87,53 @@ td.destaque{font-weight:700}
   <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
 </header>
 
-<div class="periodo" id="periodo" style="padding:0 var(--pad,20px) 12px">
-  <div class="presets" id="presets">
-    <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
-    <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
-    <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
-    <button data-p="livre">Personalizado</button>
-  </div>
-  <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
-  <label><input type="checkbox" id="cmp" checked> comparar com período anterior</label>
-</div>
-
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
+
+  <div class="periodo" id="periodo">
+    <div class="presets" id="presets">
+      <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
+      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+    </div>
+    <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+    <label><input type="checkbox" id="cmp" checked> comparar</label>
+  </div>
+
   <section class="kpis" id="area-kpis"></section>
 
-  <section class="painel">
-    <div class="painel-cab"><h2>Evolução</h2>
-      <select class="metrica-sel" id="sel-metrica">
-        <option value="receita">Receita atribuída</option>
-        <option value="cliques">Cliques</option>
-        <option value="enviados">Enviados</option>
-        <option value="complaints">Reclamações</option>
-        <option value="novos_subs">Novos inscritos</option>
-      </select>
-    </div>
-    <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
-    <div class="legenda">
-      <span><i style="background:var(--todas)"></i>período atual</span>
-      <span><i style="background:var(--mudo);border-top:2px dashed var(--mudo);height:0"></i>período anterior</span>
-    </div>
-  </section>
+  <nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="visao" class="ativo">Visão geral</button>
+    <button data-s="conv">Conversão<span class="n" id="n-conv"></span></button>
+    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
+    <button data-s="arv">Árvore<span class="n" id="n-arv"></span></button>
+    <button data-s="ab">Testes A/B<span class="n" id="n-ab"></span></button>
+  </nav>
 
-  <div class="duas-colunas">
+  <div class="sec ativa" id="sec-visao">
+    <section class="painel">
+      <div class="painel-cab"><h2>Evolução</h2>
+        <select id="sel-metrica">
+          <option value="receita">Receita atribuída</option>
+          <option value="cliques">Cliques</option>
+          <option value="enviados">Enviados</option>
+          <option value="complaints">Reclamações</option>
+          <option value="novos_subs">Novos inscritos</option>
+        </select>
+      </div>
+      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
+      <div class="legenda">
+        <span><i style="background:var(--todas)"></i>período atual</span>
+        <span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>
+      </div>
+    </section>
+    <section class="painel">
+      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
+      <div id="area-top"></div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-conv">
     <section class="painel">
       <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span></div>
       <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
@@ -105,26 +142,74 @@ td.destaque{font-weight:700}
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-conv"></div>
     </section>
+  </div>
+
+  <div class="sec" id="sec-camp">
     <section class="painel">
-      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
-      <div id="area-arvore"></div>
+      <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Entrega</th>
+        <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
+        <th class="num">Reclam.</th><th>Abertura real</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-camp"></div>
     </section>
   </div>
 
-  <section class="painel">
-    <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
-    <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
-      <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Entrega</th>
-      <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-      <th class="num">Reclam.</th><th>Abertura real</th>
-    </tr></thead><tbody></tbody></table></div>
-    <div class="nota" id="nota-camp"></div>
-  </section>
+  <div class="sec" id="sec-arv">
+    <section class="painel">
+      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
+      <div id="area-arvore"></div>
+      <div class="nota">A árvore é lida da tabela <code>crm_regra_galho</code>, não do workflow. Mudar um corte
+        de recência é um <code>UPDATE</code> — não precisa editar n8n.</div>
+    </section>
+  </div>
 
-  <section class="painel">
-    <div class="painel-cab"><h2>Testes A/B</h2><span class="mini">hipótese registrada antes do disparo</span></div>
-    <div id="area-testes"></div>
-  </section>
+  <div class="sec" id="sec-ab">
+    <section class="painel">
+      <div class="painel-cab"><h2>Testes A/B</h2>
+        <button class="btn sec" id="btn-novo">Novo teste</button></div>
+      <div id="form-teste" hidden>
+        <div class="form">
+          <div class="campo"><label>Identificador</label>
+            <input type="text" id="f-id" placeholder="fish-c2-assunto-01">
+            <span class="ajuda">Sem espaço. Vira a chave do teste.</span></div>
+          <div class="campo"><label>Marca</label>
+            <select id="f-marca"><option value="fish">Fishermans</option>
+              <option value="aristo">Aristocrata</option><option value="olivas">Olivas</option></select></div>
+          <div class="campo"><label>Canal</label>
+            <select id="f-canal"><option value="email">E-mail</option><option value="whatsapp">WhatsApp</option></select></div>
+          <div class="campo"><label>Nome</label>
+            <input type="text" id="f-nome" placeholder="C2 · assunto direto vs curiosidade"></div>
+          <div class="campo largo"><label>Hipótese</label>
+            <textarea id="f-hip" placeholder="Assunto que nomeia a linha comprada gera mais clique que assunto de curiosidade no galho C2."></textarea>
+            <span class="ajuda">Obrigatória e gravada <strong>antes</strong> do disparo. Sem hipótese registrada
+              antes, o resultado vira caça a p-valor depois do fato.</span></div>
+          <div class="campo"><label>Variável</label>
+            <select id="f-var"><option>assunto</option><option>remetente</option><option>horario</option>
+              <option>oferta</option><option>criativo</option><option>cta</option></select></div>
+          <div class="campo"><label>Métrica primária</label>
+            <select id="f-met"><option value="ctor">CTOR</option><option value="ctr">CTR</option>
+              <option value="conversao">Conversão em venda</option></select>
+            <span class="ajuda">Uma só, escolhida agora.</span></div>
+          <div class="campo"><label>Efeito mínimo (p.p.)</label>
+            <input type="number" id="f-efeito" step="0.1" value="1.0">
+            <span class="ajuda">Diferença que valeria mudar a operação.</span></div>
+          <div class="campo"><label>Braço A — campanha</label>
+            <select id="f-ca"></select><input type="text" id="f-da" placeholder="descrição do braço A"></div>
+          <div class="campo"><label>Braço B — campanha</label>
+            <select id="f-cb"></select><input type="text" id="f-db" placeholder="descrição do braço B"></div>
+          <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
+            <button class="btn" id="f-salvar">Registrar teste</button>
+            <button class="btn sec" id="f-cancelar">Cancelar</button>
+            <span class="mini" id="f-msg"></span></div>
+        </div>
+        <div class="nota">Os braços usam <code>utm_term=a</code> e <code>utm_term=b</code> nos links. Sem isso o
+          teste é mensurável em clique mas não em venda.</div>
+      </div>
+      <div id="area-testes"></div>
+    </section>
+  </div>
 </main>
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
@@ -132,326 +217,378 @@ td.destaque{font-weight:700}
 
 <script src="config.js"></script>
 <script>
-/* ================= dados: só matemática ================= */
+/* ================= dados: só matemática, testável com node ================= */
 const G = {
-  MARCA: {aristo:'Aristocrata', fish:'Fishermans', olivas:'Olivas'},
-  TRACKING_DESDE: '2026-07-19',
-  iso: d => d.toISOString().slice(0,10),
-  addDias(s, n){ const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return G.iso(d); },
-  diasEntre(a, b){ return Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 864e5) + 1; },
+  MARCA:{aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'},
+  TRACKING_DESDE:'2026-07-19',
+  iso:d=>d.toISOString().slice(0,10),
+  addDias(s,n){const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return G.iso(d);},
+  diasEntre(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5)+1;},
+  anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
+  preset(p,hoje){
+    const d=new Date(hoje+'T12:00:00');
+    if(p==='hoje')return{ini:hoje,fim:hoje};
+    if(p==='ontem'){const a=G.addDias(hoje,-1);return{ini:a,fim:a};}
+    if(p==='mes')return{ini:hoje.slice(0,8)+'01',fim:hoje};
+    if(p==='mesant'){const pm=new Date(d.getFullYear(),d.getMonth(),0);
+      return{ini:G.iso(new Date(pm.getFullYear(),pm.getMonth(),1)),fim:G.iso(pm)};}
+    const n=+p||7;return{ini:G.addDias(hoje,-(n-1)),fim:hoje};
+  },
+  noPeriodo:(dia,ini,fim)=>dia>=ini&&dia<=fim,
+  pct(n,d,c=1){if(n===null||n===undefined||!d)return null;return +(100*n/d).toFixed(c);},
 
-  // Régua de comparação: mesma duração, imediatamente antes.
-  anterior(ini, fim){
-    const n = G.diasEntre(ini, fim);
-    return { ini: G.addDias(ini, -n), fim: G.addDias(fim, -n) };
-  },
-  preset(p, hoje){
-    const d = new Date(hoje + 'T12:00:00');
-    if (p === 'hoje')   return { ini: hoje, fim: hoje };
-    if (p === 'ontem')  { const a = G.addDias(hoje, -1); return { ini: a, fim: a }; }
-    if (p === 'mes')    return { ini: hoje.slice(0,8) + '01', fim: hoje };
-    if (p === 'mesant') {
-      const pm = new Date(d.getFullYear(), d.getMonth(), 0);
-      return { ini: G.iso(new Date(pm.getFullYear(), pm.getMonth(), 1)), fim: G.iso(pm) };
-    }
-    const n = +p || 7;
-    return { ini: G.addDias(hoje, -(n - 1)), fim: hoje };
-  },
-  noPeriodo: (dia, ini, fim) => dia >= ini && dia <= fim,
-
-  serie(api, marca, ini, fim, metrica){
-    const dias = [];
-    for (let d = ini; d <= fim; d = G.addDias(d, 1)) dias.push(d);
-    if (metrica === 'receita'){
-      const m = {};
-      (api.crm_conversao || []).forEach(r => {
-        const dia = String(r.dia).slice(0,10);
-        if (marca !== 'todas' && r.marca !== marca) return;
-        m[dia] = (m[dia] || 0) + (+r.receita_ultimo || 0);
-      });
-      return dias.map(d => ({ d, v: m[d] ?? null }));
-    }
-    const m = {};
-    (api.crm_diario || []).filter(r => r.janela === '1d')
-      .filter(r => marca === 'todas' || r.marca === marca)
-      .forEach(r => {
-        const dia = String(r.dia).slice(0,10), v = r[metrica];
-        if (v === null || v === undefined) return;
-        m[dia] = (m[dia] || 0) + (+v || 0);
-      });
-    return dias.map(d => ({ d, v: m[d] ?? null }));
-  },
-  soma: s => s.reduce((a, p) => a + (p.v ?? 0), 0),
-  // Sem histórico suficiente na régua de comparação, o % é SUPRIMIDO — nunca ▲3473%.
-  delta(atual, anterior, medidoAnt){
-    if (!medidoAnt || anterior === null || anterior === 0) return null;
-    return +(100 * (atual - anterior) / anterior).toFixed(1);
-  },
-
-  conversao(api, marca, ini, fim){
-    const agg = new Map();
-    (api.crm_conversao || []).forEach(r => {
-      const dia = String(r.dia).slice(0,10);
-      if (marca !== 'todas' && r.marca !== marca) return;
-      if (!G.noPeriodo(dia, ini, fim)) return;
-      const k = [r.marca, r.canal, r.utm_campaign, r.utm_content].join('|');
-      const a = agg.get(k) || { marca:r.marca, canal:r.canal, campanha:r.utm_campaign,
-        peca:r.utm_content, pedidos:0, receita:0, assist:0, receita_assist:0, novos:0, recorr:0 };
-      a.pedidos += +r.pedidos_ultimo || 0; a.receita += +r.receita_ultimo || 0;
-      a.assist  += +r.pedidos_assistido || 0; a.receita_assist += +r.receita_assistida || 0;
-      a.novos   += +r.clientes_novos || 0; a.recorr += +r.clientes_recorrentes || 0;
-      agg.set(k, a);
-    });
-    return [...agg.values()].sort((x,y) => (y.receita - x.receita) || (y.receita_assist - x.receita_assist));
-  },
-  campanhas(api, marca, ini, fim){
-    return (api.crm_campanha || [])
-      .filter(c => marca === 'todas' || c.marca === marca)
-      .filter(c => G.noPeriodo(String(c.enviado_em).slice(0,10), ini, fim))
-      .map(c => ({ ...c,
-        entrega_pct: G.pct(c.entregues, c.enviados, 2),
-        abertura_pct: G.pct(c.abriram, c.entregues),
-        ctr_pct: G.pct(c.clicaram, c.entregues, 2),
-        ctor_pct: G.pct(c.clicaram, c.abriram),
-        compl_pct: G.pct(c.complaints, c.entregues, 3),
-        real: G.aberturaConfiavel(c.aberturas_provedor),
-        medido: c.abriram !== null && c.abriram !== undefined }))
-      .sort((a,b) => String(b.enviado_em).localeCompare(String(a.enviado_em)));
-  },
-  pct(n, d, casas = 1){ if (n === null || n === undefined || !d) return null; return +(100*n/d).toFixed(casas); },
   aberturaConfiavel(p){
-    if (!p) return null;
-    const bons = (+p.gmail||0) + (+p.outlook||0) + (+p.brasileiro||0);
-    const tot = Object.values(p).reduce((a,b) => a + (+b||0), 0);
-    return tot ? { bons, tot, pct: Math.round(100*bons/tot) } : null;
+    if(!p)return null;
+    const bons=(+p.gmail||0)+(+p.outlook||0)+(+p.brasileiro||0);
+    const tot=Object.values(p).reduce((a,b)=>a+(+b||0),0);
+    return tot?{bons,tot,pct:Math.round(100*bons/tot)}:null;
   },
-  totais(cs, conv){
-    const m = cs.filter(c => c.medido);
-    const s = (a,k) => a.reduce((x,c) => x + (+c[k]||0), 0);
-    const entregM = s(m,'entregues');
-    return {
-      pecas: cs.length, medidas: m.length,
-      enviados: s(cs,'enviados'), entregues: s(cs,'entregues'),
-      abriram: s(m,'abriram'), clicaram: s(m,'clicaram'),
-      hard: s(cs,'hard'), complaints: s(cs,'complaints'),
-      ctr: G.pct(s(m,'clicaram'), entregM, 2),
-      ctor: G.pct(s(m,'clicaram'), s(m,'abriram')),
-      complPct: G.pct(s(cs,'complaints'), s(cs,'entregues'), 3),
-      hardPct: G.pct(s(cs,'hard'), s(cs,'enviados'), 2),
-      receita: conv.reduce((a,c) => a + c.receita, 0),
-      receitaAssist: conv.reduce((a,c) => a + c.receita_assist, 0),
-      pedidos: conv.reduce((a,c) => a + c.pedidos, 0),
-    };
+  serie(api,marca,ini,fim,metrica){
+    const dias=[];for(let d=ini;d<=fim;d=G.addDias(d,1))dias.push(d);
+    const m={};
+    if(metrica==='receita'){
+      (api.crm_conversao||[]).forEach(r=>{
+        if(marca!=='todas'&&r.marca!==marca)return;
+        const d=String(r.dia).slice(0,10);m[d]=(m[d]||0)+(+r.receita_ultimo||0);});
+    }else{
+      (api.crm_diario||[]).filter(r=>r.janela==='1d')
+        .filter(r=>marca==='todas'||r.marca===marca).forEach(r=>{
+          const v=r[metrica];if(v===null||v===undefined)return;
+          const d=String(r.dia).slice(0,10);m[d]=(m[d]||0)+(+v||0);});
+    }
+    return dias.map(d=>({d,v:m[d]??null}));
   },
-  alertas(cs, tot, api, marca){
-    const a = [];
-    const t = cs.filter(c => c.truncado);
-    if (t.length) a.push({t:'ruim', m:`${t.length} disparo(s) não saíram inteiros — ` +
-      t.slice(0,2).map(c => `#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
-    if (tot.hardPct !== null && tot.hardPct >= 0.5) a.push({t:'ruim',
+  delta(a,b,medido){if(!medido||b===null||b===0)return null;return +(100*(a-b)/b).toFixed(1);},
+
+  conversao(api,marca,ini,fim){
+    const agg=new Map();
+    (api.crm_conversao||[]).forEach(r=>{
+      const dia=String(r.dia).slice(0,10);
+      if(marca!=='todas'&&r.marca!==marca)return;
+      if(!G.noPeriodo(dia,ini,fim))return;
+      const k=[r.marca,r.canal,r.utm_campaign,r.utm_content].join('|');
+      const a=agg.get(k)||{marca:r.marca,canal:r.canal,campanha:r.utm_campaign,peca:r.utm_content,
+        pedidos:0,receita:0,assist:0,receita_assist:0,novos:0,recorr:0};
+      a.pedidos+=+r.pedidos_ultimo||0;a.receita+=+r.receita_ultimo||0;
+      a.assist+=+r.pedidos_assistido||0;a.receita_assist+=+r.receita_assistida||0;
+      a.novos+=+r.clientes_novos||0;a.recorr+=+r.clientes_recorrentes||0;
+      agg.set(k,a);
+    });
+    return [...agg.values()].sort((x,y)=>(y.receita-x.receita)||(y.receita_assist-x.receita_assist));
+  },
+  campanhas(api,marca,ini,fim){
+    return (api.crm_campanha||[])
+      .filter(c=>marca==='todas'||c.marca===marca)
+      .filter(c=>G.noPeriodo(String(c.enviado_em).slice(0,10),ini,fim))
+      .map(c=>({...c,
+        entrega_pct:G.pct(c.entregues,c.enviados,2),
+        abertura_pct:G.pct(c.abriram,c.entregues),
+        ctr_pct:G.pct(c.clicaram,c.entregues,2),
+        ctor_pct:G.pct(c.clicaram,c.abriram),
+        compl_pct:G.pct(c.complaints,c.entregues,3),
+        real:G.aberturaConfiavel(c.aberturas_provedor),
+        medido:c.abriram!==null&&c.abriram!==undefined}))
+      .sort((a,b)=>String(b.enviado_em).localeCompare(String(a.enviado_em)));
+  },
+  totais(cs,conv){
+    const m=cs.filter(c=>c.medido),s=(a,k)=>a.reduce((x,c)=>x+(+c[k]||0),0);
+    return {pecas:cs.length,medidas:m.length,enviados:s(cs,'enviados'),entregues:s(cs,'entregues'),
+      abriram:s(m,'abriram'),clicaram:s(m,'clicaram'),hard:s(cs,'hard'),complaints:s(cs,'complaints'),
+      ctr:G.pct(s(m,'clicaram'),s(m,'entregues'),2),ctor:G.pct(s(m,'clicaram'),s(m,'abriram')),
+      complPct:G.pct(s(cs,'complaints'),s(cs,'entregues'),3),hardPct:G.pct(s(cs,'hard'),s(cs,'enviados'),2),
+      receita:conv.reduce((a,c)=>a+c.receita,0),
+      receitaAssist:conv.reduce((a,c)=>a+c.receita_assist,0),
+      pedidos:conv.reduce((a,c)=>a+c.pedidos,0)};
+  },
+  alertas(cs,tot,api){
+    const a=[],t=cs.filter(c=>c.truncado);
+    if(t.length)a.push({t:'ruim',m:`${t.length} disparo(s) não saíram inteiros — `+
+      t.slice(0,2).map(c=>`#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
+    if(tot.hardPct!==null&&tot.hardPct>=0.5)a.push({t:'ruim',
       m:`Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
-    if (tot.complPct !== null && tot.complPct >= 0.08) a.push({t:'ruim',
+    if(tot.complPct!==null&&tot.complPct>=0.08)a.push({t:'ruim',
       m:`Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
-    const nm = cs.length - tot.medidas;
-    if (nm) a.push({t:'aviso', m:`${nm} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só passou a registrar em 19/07/2026. Gravado como NULL, nunca zero.`});
-    const g = api.gerado_em ? (Date.now() - new Date(api.gerado_em)) / 36e5 : null;
-    if (g !== null && g > 3) a.push({t:'ruim', m:`Última coleta há ${g.toFixed(1)}h — o snapshot deveria rodar a cada 30 min.`});
+    const nm=cs.length-tot.medidas;
+    if(nm)a.push({t:'aviso',m:`${nm} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só começou em 19/07/2026. Gravado como NULL, nunca zero.`});
+    const g=api.gerado_em?(Date.now()-new Date(api.gerado_em))/36e5:null;
+    if(g!==null&&g>3)a.push({t:'ruim',m:`Última coleta há ${g.toFixed(1)}h — o snapshot deveria rodar a cada 30 min.`});
     return a;
+  },
+
+  /* ---------- teste A/B ---------- */
+  // Aproximação normal de duas proporções. Só vale com contagens razoáveis;
+  // abaixo de 5 sucessos/fracassos por braço devolve poucos_dados e o painel NÃO conclui.
+  zParaP(z){
+    const x=Math.abs(z),t=1/(1+0.2316419*x),d=0.3989423*Math.exp(-x*x/2);
+    const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+    return +(2*p).toFixed(4);
+  },
+  compara(a,b){
+    if(!a||!b||!a.n||!b.n)return{status:'sem_dados'};
+    const pa=a.x/a.n,pb=b.x/b.n;
+    if(a.x<5||b.x<5||a.n-a.x<5||b.n-b.x<5)return{status:'poucos_dados',pa,pb,dif:100*(pb-pa)};
+    const pp=(a.x+b.x)/(a.n+b.n),se=Math.sqrt(pp*(1-pp)*(1/a.n+1/b.n));
+    if(!se)return{status:'sem_dados'};
+    const z=(pb-pa)/se,p=G.zParaP(z);
+    return{status:p<0.05?'conclusivo':'inconclusivo',pa,pb,z:+z.toFixed(2),p,
+      dif:100*(pb-pa),vencedor:pb>pa?'b':'a'};
+  },
+  amostraNecessaria(pBase,efeitoPP){
+    const p1=pBase,p2=pBase+efeitoPP/100;
+    if(p2<=0||p2>=1||!efeitoPP)return null;
+    const pm=(p1+p2)/2,d=Math.abs(p2-p1);
+    return Math.ceil(2*Math.pow(1.96*Math.sqrt(2*pm*(1-pm))+0.84*Math.sqrt(p1*(1-p1)+p2*(1-p2)),2)/(2*d*d));
+  },
+  metricaDoBraco(api,teste,braco){
+    const c=(api.crm_campanha||[]).find(x=>String(x.campanha_id)===String(braco.campanha_id));
+    const m=teste.metrica_primaria;
+    if(m==='ctor'&&c&&c.abriram)  return{n:c.abriram,x:c.clicaram??0,rot:'CTOR'};
+    if(m==='ctr'&&c&&c.entregues) return{n:c.entregues,x:c.clicaram??0,rot:'CTR'};
+    if(m==='conversao'&&c&&c.entregues){
+      const ped=(api.crm_conversao||[])
+        .filter(r=>r.marca===teste.marca&&r.utm_term===braco.utm_term)
+        .reduce((a,r)=>a+(+r.pedidos_ultimo||0),0);
+      return{n:c.entregues,x:ped,rot:'Conversão'};
+    }
+    return null;
   },
 };
 
 /* ================= app: só render ================= */
-const $ = s => document.querySelector(s);
-const nf = n => (n === null || n === undefined) ? '—' : (+n).toLocaleString('pt-BR');
-const rf = n => (n === null || n === undefined) ? '—' : 'R$ ' + (+n).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0});
-const pf = n => (n === null || n === undefined) ? '—' : (+n).toLocaleString('pt-BR') + '%';
-let API = null, MARCA = 'todas', HOJE = new Date().toISOString().slice(0,10);
-let PER = G.preset('7', HOJE), CMP = true, METRICA = 'receita';
+const $=s=>document.querySelector(s);
+const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
+const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
+const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+let API=null,MARCA='todas',SEC='visao',METRICA='receita',CMP=true;
+const HOJE=new Date().toISOString().slice(0,10);
+let PER=G.preset('7',HOJE);
+const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
+const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
+  :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
 
-const cor = m => `var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
-
-function chip(d){
-  if (d === null) return '<span class="mini">sem base de comparação</span>';
-  const bom = d >= 0;
-  return `<span class="chip ${bom?'chip-bom':'chip-ruim'}">${bom?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+function grafico(atual,ant){
+  const svg=$('#grafico'),W=svg.clientWidth||700,H=200,P={t:12,r:10,b:22,l:48};
+  const vals=[...atual.map(p=>p.v),...(CMP?ant.map(p=>p.v):[])].filter(v=>v!==null);
+  const max=Math.max(1,...vals);
+  const x=i=>P.l+i*(W-P.l-P.r)/Math.max(1,atual.length-1),y=v=>H-P.b-(v/max)*(H-P.t-P.b);
+  const linha=s=>s.map((p,i)=>p.v===null?null:`${x(i)},${y(p.v)}`).filter(Boolean)
+    .map((c,i)=>(i?'L':'M')+c).join(' ');
+  const eixo=[0,.5,1].map(f=>{const v=max*f;return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}"
+    stroke="var(--borda)"/><text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)"
+    font-size="10.5" font-family="Inter">${METRICA==='receita'?rf(v):nf(Math.round(v))}</text>`;}).join('');
+  const rot=atual.map((p,i)=>(i===0||i===atual.length-1||(atual.length>6&&i===Math.floor(atual.length/2)))
+    ?`<text x="${x(i)}" y="${H-6}" text-anchor="middle" fill="var(--rotulo)" font-size="10.5"
+      font-family="Inter">${p.d.slice(8,10)}/${p.d.slice(5,7)}</text>`:'').join('');
+  const pts=atual.map((p,i)=>p.v===null?'':`<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.innerHTML=eixo+rot+
+    (CMP&&ant.length?`<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6" stroke-dasharray="4 3" opacity=".75"/>`:'')+
+    `<path d="${linha(atual)}" fill="none" stroke="${cor(MARCA)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`+pts;
+  const dica=$('#dica');
+  svg.onmousemove=e=>{
+    const alvo=e.target.closest('circle[data-i]');
+    if(!alvo){dica.style.opacity=0;return;}
+    const i=+alvo.dataset.i,a=atual[i],b=ant[i],fmt=v=>v===null?'sem dado':(METRICA==='receita'?rf(v):nf(v));
+    dica.textContent=`${a.d.split('-').reverse().join('/')}\natual: ${fmt(a.v)}`+(CMP&&b?`\nanterior: ${fmt(b.v)}`:'');
+    dica.style.left=(e.clientX+12)+'px';dica.style.top=(e.clientY+12)+'px';dica.style.opacity=1;
+  };
+  svg.onmouseleave=()=>dica.style.opacity=0;
 }
 
-function grafico(atual, ant){
-  const svg = $('#grafico'), W = svg.clientWidth || 700, H = 210, P = {t:12,r:10,b:22,l:46};
-  const vals = [...atual.map(p=>p.v), ...(CMP ? ant.map(p=>p.v) : [])].filter(v => v !== null);
-  const max = Math.max(1, ...vals);
-  const x = i => P.l + i * (W - P.l - P.r) / Math.max(1, atual.length - 1);
-  const y = v => H - P.b - (v / max) * (H - P.t - P.b);
-  const linha = s => s.map((p,i) => p.v === null ? null : `${x(i)},${y(p.v)}`)
-                      .filter(Boolean).map((c,i) => (i?'L':'M') + c).join(' ');
-  const eixo = [0, .5, 1].map(f => {
-    const v = max * f;
-    return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--borda)" stroke-width="1"/>
-            <text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)" font-size="10.5"
-              font-family="Inter">${METRICA==='receita' ? rf(v) : nf(Math.round(v))}</text>`;
+function renderTestes(){
+  const ts=API.crm_teste||[],bs=API.crm_teste_braco||[];
+  const meus=ts.filter(t=>MARCA==='todas'||t.marca===MARCA);
+  $('#n-ab').textContent=meus.length||'';
+  if(!meus.length){
+    $('#area-testes').innerHTML=`<div class="vazio">Nenhum teste registrado.<br>
+      <span class="mini">Hipótese e métrica primária são gravadas antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
+    return;
+  }
+  $('#area-testes').innerHTML=meus.map(t=>{
+    const mb_=bs.filter(b=>b.teste_id===t.teste_id).sort((a,b)=>String(a.braco).localeCompare(String(b.braco)));
+    const ma=mb_[0]?G.metricaDoBraco(API,t,mb_[0]):null;
+    const mbb=mb_[1]?G.metricaDoBraco(API,t,mb_[1]):null;
+    const r=G.compara(ma,mbb);
+    let veredito;
+    if(r.status==='sem_dados')
+      veredito=`<div class="veredito inconclusivo">Sem dado nos braços ainda — vincule as campanhas e espere o snapshot.</div>`;
+    else if(r.status==='poucos_dados')
+      veredito=`<div class="veredito inconclusivo">Amostra pequena demais para concluir. A diferença aparente é de
+        ${r.dif.toFixed(2)} p.p., mas com esse volume ela é indistinguível de ruído.</div>`;
+    else{
+      const n=G.amostraNecessaria(r.pa,+t.efeito_minimo||1);
+      veredito=r.status==='conclusivo'
+        ? `<div class="veredito conclusivo">Braço ${r.vencedor.toUpperCase()} venceu:
+            ${(100*Math.max(r.pa,r.pb)).toFixed(2)}% contra ${(100*Math.min(r.pa,r.pb)).toFixed(2)}%
+            (${Math.abs(r.dif).toFixed(2)} p.p., p=${r.p}). Conclusivo.</div>`
+        : `<div class="veredito inconclusivo">Diferença de ${Math.abs(r.dif).toFixed(2)} p.p. (p=${r.p}) —
+            <strong>não é conclusivo</strong>. Para detectar ${t.efeito_minimo||1} p.p. com segurança seriam
+            necessários cerca de ${nf(n)} por braço.</div>`;
+    }
+    const cards=mb_.map((b,i)=>{
+      const m=i===0?ma:mbb;
+      return `<div class="braco"><h4>Braço ${esc(String(b.braco).toUpperCase())}</h4>
+        <div class="m">${m?((100*m.x/m.n).toFixed(2)+'%'):'—'}</div>
+        <div class="mini">${m?`${nf(m.x)} de ${nf(m.n)} · ${m.rot}`:'sem campanha vinculada'}</div>
+        <div class="mini">${esc(b.descricao||'')}</div></div>`;}).join('');
+    return `<section class="painel" style="margin-bottom:14px">
+      <div class="painel-cab"><h2 style="font-size:15px">${esc(t.nome)}</h2>
+        <span><span class="tag ${t.marca}">${G.MARCA[t.marca]||t.marca}</span>
+        <span class="tag nulo">${esc(t.status)}</span></span></div>
+      <div class="mini" style="margin-bottom:4px"><strong>Hipótese:</strong> ${esc(t.hipotese)}</div>
+      <div class="mini">Variável: ${esc(t.variavel)} · Métrica: ${esc(t.metrica_primaria)}
+        · Efeito mínimo: ${t.efeito_minimo||'—'} p.p.</div>
+      <div class="bracos">${cards}</div>${veredito}</section>`;
   }).join('');
-  const rot = atual.map((p,i) => (i === 0 || i === atual.length-1 || (atual.length > 6 && i === Math.floor(atual.length/2)))
-    ? `<text x="${x(i)}" y="${H-6}" text-anchor="middle" fill="var(--rotulo)" font-size="10.5"
-        font-family="Inter">${p.d.slice(8,10)}/${p.d.slice(5,7)}</text>` : '').join('');
-  const pts = atual.map((p,i) => p.v === null ? '' :
-    `<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = eixo + rot +
-    (CMP && ant.length ? `<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6"
-        stroke-dasharray="4 3" opacity=".75"/>` : '') +
-    `<path d="${linha(atual)}" fill="none" stroke="${cor(MARCA)}" stroke-width="2.2"
-       stroke-linejoin="round" stroke-linecap="round"/>` + pts;
-  const dica = $('#dica');
-  svg.onmousemove = e => {
-    const alvo = e.target.closest('circle[data-i]');
-    if (!alvo) { dica.style.opacity = 0; return; }
-    const i = +alvo.dataset.i, a = atual[i], b = ant[i];
-    const fmt = v => v === null ? 'sem dado' : (METRICA === 'receita' ? rf(v) : nf(v));
-    dica.textContent = `${a.d.split('-').reverse().join('/')}\natual: ${fmt(a.v)}` +
-      (CMP && b ? `\nanterior: ${fmt(b.v)}` : '');
-    dica.style.left = (e.clientX + 12) + 'px'; dica.style.top = (e.clientY + 12) + 'px';
-    dica.style.opacity = 1;
-  };
-  svg.onmouseleave = () => dica.style.opacity = 0;
 }
 
 function render(){
-  if (!API) return;
-  const { ini, fim } = PER, ant = G.anterior(ini, fim);
-  const cs = G.campanhas(API, MARCA, ini, fim), conv = G.conversao(API, MARCA, ini, fim);
-  const tot = G.totais(cs, conv);
-  const csA = G.campanhas(API, MARCA, ant.ini, ant.fim), convA = G.conversao(API, MARCA, ant.ini, ant.fim);
-  const totA = G.totais(csA, convA);
-  // Régua sem cobertura de coleta => % suprimido.
-  const medidoAnt = ant.fim >= G.TRACKING_DESDE;
+  if(!API)return;
+  const {ini,fim}=PER,ant=G.anterior(ini,fim);
+  const cs=G.campanhas(API,MARCA,ini,fim),conv=G.conversao(API,MARCA,ini,fim);
+  const tot=G.totais(cs,conv);
+  const totA=G.totais(G.campanhas(API,MARCA,ant.ini,ant.fim),G.conversao(API,MARCA,ant.ini,ant.fim));
+  const medidoAnt=ant.fim>=G.TRACKING_DESDE;
 
-  $('#faixa-alertas').innerHTML = G.alertas(cs, tot, API, MARCA)
-    .map(a => `<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API)
+    .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  $('#area-kpis').innerHTML = [
-    {r:'Receita atribuída', v:rf(tot.receita), d:G.delta(tot.receita, totA.receita, true),
-     s:`${nf(tot.pedidos)} pedidos · último clique`},
-    {r:'CTOR', v:pf(tot.ctor), d:G.delta(tot.ctor, totA.ctor, medidoAnt), s:'clicou ÷ abriu — mede a peça'},
-    {r:'CTR', v:pf(tot.ctr), d:G.delta(tot.ctr, totA.ctr, medidoAnt), s:'clicou ÷ entregue'},
-    {r:'Reclamação', v:pf(tot.complPct), d:G.delta(tot.complPct, totA.complPct, true),
-     s:`limite SES 0,1% · ${nf(tot.complaints)} no período`},
-  ].map(k => `<div class="kpi"><div class="kpi-rot">${k.r}</div>
-      <div class="kpi-val tabn">${k.v}</div>
-      <div class="kpi-rodape">${chip(k.d)}</div>
-      <div class="kpi-sub">${k.s}</div></div>`).join('');
+  $('#area-kpis').innerHTML=[
+    {r:'Receita atribuída',v:rf(tot.receita),d:G.delta(tot.receita,totA.receita,true),s:`${nf(tot.pedidos)} pedidos · último clique`},
+    {r:'CTOR',v:pf(tot.ctor),d:G.delta(tot.ctor,totA.ctor,medidoAnt),s:'clicou ÷ abriu — mede a peça'},
+    {r:'CTR',v:pf(tot.ctr),d:G.delta(tot.ctr,totA.ctr,medidoAnt),s:'clicou ÷ entregue'},
+    {r:'Reclamação',v:pf(tot.complPct),d:G.delta(tot.complPct,totA.complPct,true),s:`limite SES 0,1% · ${nf(tot.complaints)} no período`},
+  ].map(k=>`<div class="kpi"><div class="kpi-rot">${k.r}</div><div class="kpi-val tabn">${k.v}</div>
+    <div class="kpi-rodape">${chip(k.d)}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-  grafico(G.serie(API, MARCA, ini, fim, METRICA), G.serie(API, MARCA, ant.ini, ant.fim, METRICA));
+  grafico(G.serie(API,MARCA,ini,fim,METRICA),G.serie(API,MARCA,ant.ini,ant.fim,METRICA));
 
-  $('#tab-conv tbody').innerHTML = conv.length ? conv.map(c => {
-    const tot2 = c.novos + c.recorr;
-    return `<tr>
-      <td><strong>${(c.peca || c.campanha || '—').slice(0,34)}</strong>
-          <div class="mini">${c.campanha}</div></td>
-      <td><span class="tag ${c.canal}">${c.canal}</span>
-          <span class="tag ${c.marca}">${G.MARCA[c.marca] || c.marca}</span></td>
-      <td class="num tabn">${nf(c.pedidos)}</td>
-      <td class="num tabn destaque">${rf(c.receita)}</td>
-      <td class="num tabn">${nf(c.assist)}</td>
-      <td class="num tabn">${rf(c.receita_assist)}</td>
-      <td class="num tabn">${tot2 ? Math.round(100*c.novos/tot2) + '%' : '—'}</td></tr>`;
-  }).join('') : '<tr><td colspan="7"><div class="vazio">Sem conversão atribuída no período.</div></td></tr>';
+  $('#area-top').innerHTML=conv.length?conv.slice(0,5).map(c=>{
+    const mx=conv[0].receita||1;
+    return `<div class="galho"><div><div class="rot">${esc((c.peca||c.campanha||'—').slice(0,30))}</div>
+      <div class="flx">${esc(c.campanha)}</div></div>
+      <div class="barra"><i style="width:${100*c.receita/mx}%;background:${cor(c.marca)}"></i></div>
+      <div class="num tabn">${rf(c.receita)}</div>
+      <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
+  }).join(''):'<div class="vazio">Sem conversão atribuída no período.</div>';
 
-  const somaU = conv.reduce((a,c)=>a+c.receita,0), somaA = conv.reduce((a,c)=>a+c.receita_assist,0);
-  $('#nota-conv').innerHTML = `<strong>Último clique</strong> = o CRM foi o toque final; recebe 100% do crédito.
-    <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam o
-    mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal do
-    Shopify ignora UTM e não serve. No período: ${rf(somaU)} de último clique e ${rf(somaA)} assistido.`;
+  $('#n-conv').textContent=conv.length||'';
+  $('#tab-conv tbody').innerHTML=conv.length?conv.map(c=>{
+    const t2=c.novos+c.recorr;
+    return `<tr><td><strong>${esc((c.peca||c.campanha||'—').slice(0,34))}</strong>
+      <div class="mini">${esc(c.campanha)}</div></td>
+      <td><span class="tag ${c.canal}">${c.canal}</span> <span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
+      <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
+      <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
+      <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
+  }).join(''):'<tr><td colspan="7"><div class="vazio">Sem conversão atribuída no período.</div></td></tr>';
+  $('#nota-conv').innerHTML=`<strong>Último clique</strong> = o CRM foi o toque final; recebe 100% do crédito.
+    <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam
+    o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
+    ignora UTM e não serve.`;
 
-  const regras = (API.crm_regra_galho || []).filter(r => MARCA === 'todas' || r.marca === MARCA);
-  const ult = {}; (API.crm_galho || []).forEach(g => {
-    const k = g.marca + g.galho;
-    if (!ult[k] || String(g.dia) > String(ult[k].dia)) ult[k] = g;
-  });
-  const maxP = Math.max(1, ...Object.values(ult).map(g => +g.pessoas || 0));
-  $('#arv-rot').textContent = regras.length ? `${regras.length} galhos` : '';
-  $('#area-arvore').innerHTML = regras.length ? regras.map(r => {
-    const g = ult[r.marca + r.galho], p = g ? +g.pessoas : undefined;
-    return `<div class="galho">
-      <div><div class="rot">${r.rotulo}</div>
-           <div class="flx">${r.fluxo || 'sem fluxo'} · cap ${r.cap_dias}d${g && g.ltv_medio > 0 ? ' · LTV ' + rf(g.ltv_medio) : ''}</div></div>
-      <div class="barra"><i style="width:${p ? 100*p/maxP : 0}%;background:${cor(r.marca)}"></i></div>
-      <div class="num tabn">${p === undefined ? '—' : nf(p)}</div>
-      <div><span class="tag ${r.marca}">${G.MARCA[r.marca] || r.marca}</span></div></div>`;
-  }).join('') : '<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
-
-  $('#camp-rot').textContent = `${cs.length} peças`;
-  $('#tab-camp tbody').innerHTML = cs.length ? cs.map(c => {
-    const real = c.real ? `<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas vêm de provedor confiável">
+  $('#n-camp').textContent=cs.length||'';
+  $('#camp-rot').textContent=`${cs.length} peças`;
+  $('#tab-camp tbody').innerHTML=cs.length?cs.map(c=>{
+    const real=c.real?`<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas de provedor confiável">
       <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div><span class="mini">${c.real.pct}% confiável</span>`
-      : '<span class="mini">—</span>';
-    return `<tr>
-      <td><strong>${(c.nome||'').slice(0,38)}</strong><div class="mini">${c.utm_campaign||'sem utm'} · ${c.utm_content||'—'}</div></td>
+      :'<span class="mini">—</span>';
+    return `<tr><td><strong>${esc((c.nome||'').slice(0,38))}</strong>
+      <div class="mini">${esc(c.utm_campaign||'sem utm')} · ${esc(c.utm_content||'—')}</div></td>
       <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}</td>
-      <td class="num tabn">${nf(c.enviados)}</td>
-      <td class="num tabn">${pf(c.entrega_pct)}</td>
-      <td class="num tabn">${c.medido ? pf(c.abertura_pct) : '<span class="tag nulo">não medido</span>'}</td>
-      <td class="num tabn">${pf(c.ctr_pct)}</td>
-      <td class="num tabn destaque">${pf(c.ctor_pct)}</td>
-      <td class="num tabn">${pf(c.compl_pct)}</td>
-      <td>${real}</td></tr>`;
-  }).join('') : '<tr><td colspan="9"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+      <td class="num tabn">${nf(c.enviados)}</td><td class="num tabn">${pf(c.entrega_pct)}</td>
+      <td class="num tabn">${c.medido?pf(c.abertura_pct):'<span class="tag nulo">não medido</span>'}</td>
+      <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn destaque">${pf(c.ctor_pct)}</td>
+      <td class="num tabn">${pf(c.compl_pct)}</td><td>${real}</td></tr>`;
+  }).join(''):'<tr><td colspan="9"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+  $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
+    e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio
+    de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
 
-  $('#nota-camp').innerHTML = `<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
-    e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio de
-    provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
+  const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
+  const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
+    if(!ult[k]||String(g.dia)>String(ult[k].dia))ult[k]=g;});
+  const maxP=Math.max(1,...Object.values(ult).map(g=>+g.pessoas||0));
+  $('#n-arv').textContent=regras.length||'';
+  $('#arv-rot').textContent=regras.length?`${regras.length} galhos`:'';
+  $('#area-arvore').innerHTML=regras.length?regras.map(r=>{
+    const g=ult[r.marca+r.galho],p=g?+g.pessoas:undefined;
+    return `<div class="galho"><div><div class="rot">${esc(r.rotulo)}</div>
+      <div class="flx">${esc(r.fluxo||'sem fluxo')} · cap ${r.cap_dias}d${g&&g.ltv_medio>0?' · LTV '+rf(g.ltv_medio):''}</div></div>
+      <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
+      <div class="num tabn">${p===undefined?'—':nf(p)}</div>
+      <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;
+  }).join(''):'<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
 
-  const ts = API.crm_teste || [];
-  $('#area-testes').innerHTML = ts.length ? ts.map(t =>
-    `<div class="galho"><div><div class="rot">${t.nome}</div><div class="flx">${t.hipotese}</div></div>
-     <div class="mini">${t.variavel}</div><div class="num">${t.metrica_primaria}</div>
-     <div><span class="tag ${t.status==='conclusivo'?'aristo':'nulo'}">${t.status}</span></div></div>`).join('')
-    : `<div class="vazio">Nenhum teste registrado.<br><span class="mini">Hipótese e métrica primária são
-       obrigatórias antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
+  renderTestes();
+  const opts=(API.crm_campanha||[]).filter(c=>MARCA==='todas'||c.marca===MARCA)
+    .map(c=>`<option value="${c.campanha_id}">#${c.campanha_id} · ${esc((c.nome||'').slice(0,38))}</option>`).join('');
+  $('#f-ca').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
+  $('#f-cb').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
 
-  const g = API.gerado_em ? new Date(API.gerado_em) : null;
-  $('#frescor').textContent = g ? `coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : 'coleta —';
-  $('#relogio').textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  $('#d-ini').value = ini; $('#d-fim').value = fim;
+  const g=API.gerado_em?new Date(API.gerado_em):null;
+  $('#frescor').textContent=g?`coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'coleta —';
+  $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  $('#d-ini').value=ini;$('#d-fim').value=fim;
 }
 
 function chave(){
-  let k = localStorage.getItem('shrigma_dash_key');
-  if (!k){ k = prompt('Chave de acesso do painel:'); if (k) localStorage.setItem('shrigma_dash_key', k); }
+  let k=localStorage.getItem('shrigma_dash_key');
+  if(!k){k=prompt('Chave de acesso do painel:');if(k)localStorage.setItem('shrigma_dash_key',k);}
   return k;
 }
 async function carregar(){
-  const k = chave(); if (!k) return;
-  try {
-    const r = await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
-    if (r.status === 401){ localStorage.removeItem('shrigma_dash_key'); location.reload(); return; }
-    API = await r.json(); render();
-  } catch(e){
-    $('#faixa-alertas').innerHTML = `<div class="alerta alerta-ruim">Falha ao ler a API: ${e.message}</div>`;
-  }
+  const k=chave();if(!k)return;
+  try{
+    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
+    if(r.status===401){localStorage.removeItem('shrigma_dash_key');location.reload();return;}
+    API=await r.json();render();
+  }catch(e){$('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim">Falha ao ler a API: ${esc(e.message)}</div>`;}
 }
-document.querySelectorAll('#seg-marca button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#seg-marca button').forEach(x => x.classList.remove('ativo'));
-  b.classList.add('ativo'); MARCA = b.dataset.marca; render();
-});
-document.querySelectorAll('#presets button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#presets button').forEach(x => x.classList.remove('ativo'));
-  b.classList.add('ativo');
-  if (b.dataset.p !== 'livre') PER = G.preset(b.dataset.p, HOJE);
-  render();
-});
-['d-ini','d-fim'].forEach(id => $('#'+id).onchange = () => {
-  const a = $('#d-ini').value, b = $('#d-fim').value;
-  if (!a || !b || a > b) return;
-  PER = { ini:a, fim:b };
-  document.querySelectorAll('#presets button').forEach(x => x.classList.remove('ativo'));
-  document.querySelector('#presets button[data-p=livre]').classList.add('ativo');
-  render();
-});
-$('#cmp').onchange = e => { CMP = e.target.checked; render(); };
-$('#sel-metrica').onchange = e => { METRICA = e.target.value; render(); };
-addEventListener('resize', () => API && render());
+async function salvarTeste(){
+  const msg=$('#f-msg');msg.textContent='';
+  if(typeof AB_API_URL==='undefined'){msg.textContent='AB_API_URL não configurada em config.js';return;}
+  let wk=localStorage.getItem('shrigma_ab_key');
+  if(!wk){wk=prompt('Chave de ESCRITA (registrar teste A/B):');if(!wk)return;localStorage.setItem('shrigma_ab_key',wk);}
+  const corpo={k:wk,acao:'criar',
+    teste:{teste_id:$('#f-id').value.trim(),marca:$('#f-marca').value,canal:$('#f-canal').value,
+      nome:$('#f-nome').value.trim(),hipotese:$('#f-hip').value.trim(),variavel:$('#f-var').value,
+      metrica_primaria:$('#f-met').value,efeito_minimo:$('#f-efeito').value},
+    bracos:[{braco:'a',utm_term:'a',campanha_id:$('#f-ca').value||null,descricao:$('#f-da').value},
+            {braco:'b',utm_term:'b',campanha_id:$('#f-cb').value||null,descricao:$('#f-db').value}]};
+  $('#f-salvar').disabled=true;
+  try{
+    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    let j={};try{j=await r.json();}catch(_){}
+    if(r.status===401){localStorage.removeItem('shrigma_ab_key');msg.textContent='Chave de escrita inválida.';}
+    else if(!r.ok){msg.textContent='Recusado: '+(j.erro||r.status);}
+    else{msg.textContent='Registrado.';$('#form-teste').hidden=true;await carregar();}
+  }catch(e){msg.textContent='Falha: '+e.message;}
+  $('#f-salvar').disabled=false;
+}
+document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');MARCA=b.dataset.marca;render();});
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
+  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
+  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
+  if(SEC==='visao')render();});
+document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
+['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
+  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
+$('#cmp').onchange=e=>{CMP=e.target.checked;render();};
+$('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
+$('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
+$('#f-cancelar').onclick=()=>{$('#form-teste').hidden=true;};
+$('#f-salvar').onclick=salvarTeste;
+addEventListener('resize',()=>API&&SEC==='visao'&&render());
 carregar();
-setInterval(carregar, (typeof REFRESH_SEG !== 'undefined' ? REFRESH_SEG : 60) * 1000);
+setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
 </script>
 </body>
 </html>
