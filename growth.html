@@ -9,10 +9,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
+/* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
+   e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
+   start trava as linhas na altura do conteudo. */
+main{align-content:start}
+/* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
+   inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
+main>*{min-width:0}
+.rolagem{max-width:100%}
+/* faixa vazia continua ocupando um `gap` de 22px do grid */
+#faixa-alertas:empty{display:none}
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
 .abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
-.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px}
+.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px;
+  overflow-x:auto;scrollbar-width:none}
+.secoes::-webkit-scrollbar{display:none}
+.secoes button{white-space:nowrap}
 .secoes button{border:0;background:transparent;padding:0 0 10px;font:600 13.5px/1 var(--ui);
   color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 .secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
@@ -66,6 +79,12 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
 .braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
 .braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .bracos{grid-template-columns:1fr}
+  .galho{grid-template-columns:1fr 60px;row-gap:4px}
+  .galho .barra{display:none}
+  #grafico{height:170px}
+}
 </style>
 </head>
 <body>
@@ -574,7 +593,10 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
-  if(SEC==='visao')render();});
+  if(SEC==='visao')render();
+  // se a barra de secoes ficou acima da viewport, traz de volta
+  const r=$('#secoes').getBoundingClientRect();
+  if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
