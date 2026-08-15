@@ -9,28 +9,40 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
-/* --- só o que a aba Growth acrescenta ao design system existente --- */
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
 .abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
-.tab-metrica{font-variant-numeric:tabular-nums}
+.tabn{font-variant-numeric:tabular-nums}
 td.destaque{font-weight:700}
-.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:52px}
+.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:48px}
 .barra i{display:block;height:100%;border-radius:3px}
-.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui)}
-.tag.aristo{background:#f6ecdb;color:#8a5f1d}
-.tag.fish{background:#dff0f2;color:#186068}
-.tag.olivas{background:#eaeedc;color:#525f24}
-.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
+.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
+.tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
+.tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
 .tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
-.galho{display:grid;grid-template-columns:150px 1fr 74px 70px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--borda)}
+.tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
+.galho{display:grid;grid-template-columns:158px 1fr 66px 62px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--borda)}
 .galho:last-child{border-bottom:0}
-.galho .rot{font:600 12.5px/1.3 var(--ui)}
-.galho .flx{font:400 11px/1.3 var(--ui);color:var(--rotulo)}
-.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.5 var(--ui);
+.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.3 var(--ui);color:var(--rotulo)}
+.vazio{padding:24px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
   background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
 .nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
   border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:10px}
+.periodo{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.periodo .presets{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
+.periodo .presets button{border:0;background:transparent;padding:6px 10px;border-radius:7px;
+  font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
+.periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
+.periodo input[type=date]{font:500 12px/1 var(--ui);padding:6px 8px;border:1px solid var(--borda-forte);
+  border-radius:7px;background:var(--card);color:var(--texto)}
+#grafico{width:100%;height:210px;display:block}
+.legenda{display:flex;gap:16px;font:500 11.5px/1 var(--ui);color:var(--mudo);margin-top:8px;flex-wrap:wrap}
+.legenda i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px}
+.metrica-sel{font:600 12px/1 var(--ui);padding:6px 9px;border:1px solid var(--borda-forte);
+  border-radius:7px;background:var(--card);color:var(--texto)}
+.dica{position:fixed;pointer-events:none;background:var(--texto);color:#fff;padding:6px 9px;
+  border-radius:7px;font:500 11.5px/1.45 var(--ui);opacity:0;transition:opacity .12s;z-index:50;white-space:pre}
 </style>
 </head>
 <body>
@@ -38,70 +50,76 @@ td.destaque{font-weight:700}
 <header class="topo">
   <div class="titulo">
     <span class="logo">GS</span>
-    <div>
-      <h1>Growth &amp; CRM</h1>
-      <p class="sub">Grupo Shrigma · <span id="rotulo-janela">e-mail</span></p>
-    </div>
+    <div><h1>Growth &amp; CRM</h1><p class="sub">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
-
   <nav class="filtros" aria-label="Filtros">
-    <div class="abas">
-      <a href="index.html">Suporte</a>
-      <a href="growth.html" class="ativo">Growth</a>
-    </div>
+    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html" class="ativo">Growth</a></div>
     <div class="seg" role="group" aria-label="Marca" id="seg-marca">
       <button data-marca="todas" class="ativo">Consolidada</button>
       <button data-marca="aristo">Aristocrata</button>
       <button data-marca="fish">Fishermans</button>
       <button data-marca="olivas">Olivas</button>
     </div>
-    <select id="sel-periodo" aria-label="Período">
-      <option value="30">Últimos 30 dias</option>
-      <option value="90">Últimos 90 dias</option>
-      <option value="180" selected>Últimos 180 dias</option>
-    </select>
   </nav>
-
-  <div class="status">
-    <span id="relogio">--:--</span>
-    <span id="frescor" class="frescor">coleta —</span>
-  </div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
 </header>
+
+<div class="periodo" id="periodo" style="padding:0 var(--pad,20px) 12px">
+  <div class="presets" id="presets">
+    <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
+    <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
+    <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+    <button data-p="livre">Personalizado</button>
+  </div>
+  <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+  <label><input type="checkbox" id="cmp" checked> comparar com período anterior</label>
+</div>
 
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
-
-  <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
+  <section class="kpis" id="area-kpis"></section>
 
   <section class="painel">
-    <div class="painel-cab">
-      <h2>Campanhas</h2>
-      <span class="mini" id="camp-rotulo"></span>
+    <div class="painel-cab"><h2>Evolução</h2>
+      <select class="metrica-sel" id="sel-metrica">
+        <option value="receita">Receita atribuída</option>
+        <option value="cliques">Cliques</option>
+        <option value="enviados">Enviados</option>
+        <option value="complaints">Reclamações</option>
+        <option value="novos_subs">Novos inscritos</option>
+      </select>
     </div>
-    <div class="rolagem">
-      <table class="comparativo" id="tabela-camp">
-        <thead><tr>
-          <th>Peça</th><th></th>
-          <th class="num">Enviados</th><th class="num">Entrega</th>
-          <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-          <th class="num">Reclam.</th><th>Abertura real</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
+    <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
+    <div class="legenda">
+      <span><i style="background:var(--todas)"></i>período atual</span>
+      <span><i style="background:var(--mudo);border-top:2px dashed var(--mudo);height:0"></i>período anterior</span>
     </div>
-    <div class="nota" id="nota-camp"></div>
   </section>
 
   <div class="duas-colunas">
     <section class="painel">
-      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rotulo"></span></div>
-      <div id="area-arvore"></div>
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
+        <th>Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
+        <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-conv"></div>
     </section>
     <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span></div>
-      <div id="area-conversao"></div>
+      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
+      <div id="area-arvore"></div>
     </section>
   </div>
+
+  <section class="painel">
+    <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
+    <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+      <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Entrega</th>
+      <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
+      <th class="num">Reclam.</th><th>Abertura real</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="nota" id="nota-camp"></div>
+  </section>
 
   <section class="painel">
     <div class="painel-cab"><h2>Testes A/B</h2><span class="mini">hipótese registrada antes do disparo</span></div>
@@ -109,166 +127,305 @@ td.destaque{font-weight:700}
   </section>
 </main>
 
-<footer class="rodape">
-  <span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span>
-</footer>
+<footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
+<div class="dica" id="dica"></div>
 
 <script src="config.js"></script>
 <script>
-/* ============ dados: só matemática, testável com node ============ */
+/* ================= dados: só matemática ================= */
 const G = {
-  MARCA_NOME: {aristo:'Aristocrata', fish:'Fishermans', olivas:'Olivas'},
+  MARCA: {aristo:'Aristocrata', fish:'Fishermans', olivas:'Olivas'},
   TRACKING_DESDE: '2026-07-19',
+  iso: d => d.toISOString().slice(0,10),
+  addDias(s, n){ const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return G.iso(d); },
+  diasEntre(a, b){ return Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 864e5) + 1; },
 
-  pct(n, d, casas = 1) {
-    if (n === null || n === undefined || !d) return null;
-    return +(100 * n / d).toFixed(casas);
+  // Régua de comparação: mesma duração, imediatamente antes.
+  anterior(ini, fim){
+    const n = G.diasEntre(ini, fim);
+    return { ini: G.addDias(ini, -n), fim: G.addDias(fim, -n) };
   },
-  // provedores cuja abertura é confiável (Gmail não pré-carrega imagem por padrão do jeito
-  // que o Apple MPP faz). iCloud infla; por isso a coluna "abertura real".
-  aberturaConfiavel(prov) {
-    if (!prov) return null;
-    const bons = (+prov.gmail || 0) + (+prov.outlook || 0) + (+prov.brasileiro || 0);
-    const tot = Object.values(prov).reduce((a, b) => a + (+b || 0), 0);
-    return tot ? {bons, tot, pct: +(100 * bons / tot).toFixed(0)} : null;
+  preset(p, hoje){
+    const d = new Date(hoje + 'T12:00:00');
+    if (p === 'hoje')   return { ini: hoje, fim: hoje };
+    if (p === 'ontem')  { const a = G.addDias(hoje, -1); return { ini: a, fim: a }; }
+    if (p === 'mes')    return { ini: hoje.slice(0,8) + '01', fim: hoje };
+    if (p === 'mesant') {
+      const pm = new Date(d.getFullYear(), d.getMonth(), 0);
+      return { ini: G.iso(new Date(pm.getFullYear(), pm.getMonth(), 1)), fim: G.iso(pm) };
+    }
+    const n = +p || 7;
+    return { ini: G.addDias(hoje, -(n - 1)), fim: hoje };
   },
-  campanhas(api, marca, dias) {
-    const corte = Date.now() - dias * 864e5;
+  noPeriodo: (dia, ini, fim) => dia >= ini && dia <= fim,
+
+  serie(api, marca, ini, fim, metrica){
+    const dias = [];
+    for (let d = ini; d <= fim; d = G.addDias(d, 1)) dias.push(d);
+    if (metrica === 'receita'){
+      const m = {};
+      (api.crm_conversao || []).forEach(r => {
+        const dia = String(r.dia).slice(0,10);
+        if (marca !== 'todas' && r.marca !== marca) return;
+        m[dia] = (m[dia] || 0) + (+r.receita_ultimo || 0);
+      });
+      return dias.map(d => ({ d, v: m[d] ?? null }));
+    }
+    const m = {};
+    (api.crm_diario || []).filter(r => r.janela === '1d')
+      .filter(r => marca === 'todas' || r.marca === marca)
+      .forEach(r => {
+        const dia = String(r.dia).slice(0,10), v = r[metrica];
+        if (v === null || v === undefined) return;
+        m[dia] = (m[dia] || 0) + (+v || 0);
+      });
+    return dias.map(d => ({ d, v: m[d] ?? null }));
+  },
+  soma: s => s.reduce((a, p) => a + (p.v ?? 0), 0),
+  // Sem histórico suficiente na régua de comparação, o % é SUPRIMIDO — nunca ▲3473%.
+  delta(atual, anterior, medidoAnt){
+    if (!medidoAnt || anterior === null || anterior === 0) return null;
+    return +(100 * (atual - anterior) / anterior).toFixed(1);
+  },
+
+  conversao(api, marca, ini, fim){
+    const agg = new Map();
+    (api.crm_conversao || []).forEach(r => {
+      const dia = String(r.dia).slice(0,10);
+      if (marca !== 'todas' && r.marca !== marca) return;
+      if (!G.noPeriodo(dia, ini, fim)) return;
+      const k = [r.marca, r.canal, r.utm_campaign, r.utm_content].join('|');
+      const a = agg.get(k) || { marca:r.marca, canal:r.canal, campanha:r.utm_campaign,
+        peca:r.utm_content, pedidos:0, receita:0, assist:0, receita_assist:0, novos:0, recorr:0 };
+      a.pedidos += +r.pedidos_ultimo || 0; a.receita += +r.receita_ultimo || 0;
+      a.assist  += +r.pedidos_assistido || 0; a.receita_assist += +r.receita_assistida || 0;
+      a.novos   += +r.clientes_novos || 0; a.recorr += +r.clientes_recorrentes || 0;
+      agg.set(k, a);
+    });
+    return [...agg.values()].sort((x,y) => (y.receita - x.receita) || (y.receita_assist - x.receita_assist));
+  },
+  campanhas(api, marca, ini, fim){
     return (api.crm_campanha || [])
-      .filter(c => (marca === 'todas' || c.marca === marca))
-      .filter(c => new Date(c.enviado_em).getTime() >= corte)
-      .map(c => ({
-        ...c,
+      .filter(c => marca === 'todas' || c.marca === marca)
+      .filter(c => G.noPeriodo(String(c.enviado_em).slice(0,10), ini, fim))
+      .map(c => ({ ...c,
         entrega_pct: G.pct(c.entregues, c.enviados, 2),
         abertura_pct: G.pct(c.abriram, c.entregues),
         ctr_pct: G.pct(c.clicaram, c.entregues, 2),
         ctor_pct: G.pct(c.clicaram, c.abriram),
         compl_pct: G.pct(c.complaints, c.entregues, 3),
         real: G.aberturaConfiavel(c.aberturas_provedor),
-        medido: c.abriram !== null && c.abriram !== undefined,
-      }));
+        medido: c.abriram !== null && c.abriram !== undefined }))
+      .sort((a,b) => String(b.enviado_em).localeCompare(String(a.enviado_em)));
   },
-  totais(cs) {
+  pct(n, d, casas = 1){ if (n === null || n === undefined || !d) return null; return +(100*n/d).toFixed(casas); },
+  aberturaConfiavel(p){
+    if (!p) return null;
+    const bons = (+p.gmail||0) + (+p.outlook||0) + (+p.brasileiro||0);
+    const tot = Object.values(p).reduce((a,b) => a + (+b||0), 0);
+    return tot ? { bons, tot, pct: Math.round(100*bons/tot) } : null;
+  },
+  totais(cs, conv){
     const m = cs.filter(c => c.medido);
-    const s = (a, k) => a.reduce((x, c) => x + (+c[k] || 0), 0);
+    const s = (a,k) => a.reduce((x,c) => x + (+c[k]||0), 0);
+    const entregM = s(m,'entregues');
     return {
       pecas: cs.length, medidas: m.length,
-      enviados: s(cs, 'enviados'), entregues: s(cs, 'entregues'),
-      abriram: s(m, 'abriram'), clicaram: s(m, 'clicaram'),
-      hard: s(cs, 'hard'), complaints: s(cs, 'complaints'),
-      get ctr() { return G.pct(this.clicaram, m.reduce((x, c) => x + (+c.entregues || 0), 0), 2); },
-      get ctor() { return G.pct(this.clicaram, this.abriram); },
-      get complPct() { return G.pct(this.complaints, this.entregues, 3); },
-      get hardPct() { return G.pct(this.hard, this.enviados, 2); },
+      enviados: s(cs,'enviados'), entregues: s(cs,'entregues'),
+      abriram: s(m,'abriram'), clicaram: s(m,'clicaram'),
+      hard: s(cs,'hard'), complaints: s(cs,'complaints'),
+      ctr: G.pct(s(m,'clicaram'), entregM, 2),
+      ctor: G.pct(s(m,'clicaram'), s(m,'abriram')),
+      complPct: G.pct(s(cs,'complaints'), s(cs,'entregues'), 3),
+      hardPct: G.pct(s(cs,'hard'), s(cs,'enviados'), 2),
+      receita: conv.reduce((a,c) => a + c.receita, 0),
+      receitaAssist: conv.reduce((a,c) => a + c.receita_assist, 0),
+      pedidos: conv.reduce((a,c) => a + c.pedidos, 0),
     };
   },
-  alertas(cs, tot) {
+  alertas(cs, tot, api, marca){
     const a = [];
-    const trunc = cs.filter(c => c.truncado);
-    if (trunc.length) a.push({t: 'ruim', m: `${trunc.length} disparo(s) não saíram inteiros — ` +
-      trunc.slice(0, 2).map(c => `#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
-    if (tot.hardPct !== null && tot.hardPct >= 0.5) a.push({t: 'ruim',
-      m: `Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
-    if (tot.complPct !== null && tot.complPct >= 0.08) a.push({t: 'ruim',
-      m: `Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
-    const naoMedidas = cs.length - tot.medidas;
-    if (naoMedidas) a.push({t: 'aviso',
-      m: `${naoMedidas} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só passou a registrar em 19/07/2026. Gravado como NULL, nunca zero.`});
+    const t = cs.filter(c => c.truncado);
+    if (t.length) a.push({t:'ruim', m:`${t.length} disparo(s) não saíram inteiros — ` +
+      t.slice(0,2).map(c => `#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
+    if (tot.hardPct !== null && tot.hardPct >= 0.5) a.push({t:'ruim',
+      m:`Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
+    if (tot.complPct !== null && tot.complPct >= 0.08) a.push({t:'ruim',
+      m:`Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
+    const nm = cs.length - tot.medidas;
+    if (nm) a.push({t:'aviso', m:`${nm} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só passou a registrar em 19/07/2026. Gravado como NULL, nunca zero.`});
+    const g = api.gerado_em ? (Date.now() - new Date(api.gerado_em)) / 36e5 : null;
+    if (g !== null && g > 3) a.push({t:'ruim', m:`Última coleta há ${g.toFixed(1)}h — o snapshot deveria rodar a cada 30 min.`});
     return a;
   },
 };
 
-/* ============ app: só render ============ */
+/* ================= app: só render ================= */
 const $ = s => document.querySelector(s);
 const nf = n => (n === null || n === undefined) ? '—' : (+n).toLocaleString('pt-BR');
-const pf = (n, s = '%') => (n === null || n === undefined) ? '—' : `${(+n).toLocaleString('pt-BR')}${s}`;
-let API = null, MARCA = 'todas', DIAS = 180;
+const rf = n => (n === null || n === undefined) ? '—' : 'R$ ' + (+n).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0});
+const pf = n => (n === null || n === undefined) ? '—' : (+n).toLocaleString('pt-BR') + '%';
+let API = null, MARCA = 'todas', HOJE = new Date().toISOString().slice(0,10);
+let PER = G.preset('7', HOJE), CMP = true, METRICA = 'receita';
 
-function cor(m) { return `var(--${m === 'aristo' ? 'aristocrata' : m === 'fish' ? 'fishermans' : m === 'olivas' ? 'olivas' : 'todas'})`; }
+const cor = m => `var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
 
-function render() {
+function chip(d){
+  if (d === null) return '<span class="mini">sem base de comparação</span>';
+  const bom = d >= 0;
+  return `<span class="chip ${bom?'chip-bom':'chip-ruim'}">${bom?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+}
+
+function grafico(atual, ant){
+  const svg = $('#grafico'), W = svg.clientWidth || 700, H = 210, P = {t:12,r:10,b:22,l:46};
+  const vals = [...atual.map(p=>p.v), ...(CMP ? ant.map(p=>p.v) : [])].filter(v => v !== null);
+  const max = Math.max(1, ...vals);
+  const x = i => P.l + i * (W - P.l - P.r) / Math.max(1, atual.length - 1);
+  const y = v => H - P.b - (v / max) * (H - P.t - P.b);
+  const linha = s => s.map((p,i) => p.v === null ? null : `${x(i)},${y(p.v)}`)
+                      .filter(Boolean).map((c,i) => (i?'L':'M') + c).join(' ');
+  const eixo = [0, .5, 1].map(f => {
+    const v = max * f;
+    return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--borda)" stroke-width="1"/>
+            <text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)" font-size="10.5"
+              font-family="Inter">${METRICA==='receita' ? rf(v) : nf(Math.round(v))}</text>`;
+  }).join('');
+  const rot = atual.map((p,i) => (i === 0 || i === atual.length-1 || (atual.length > 6 && i === Math.floor(atual.length/2)))
+    ? `<text x="${x(i)}" y="${H-6}" text-anchor="middle" fill="var(--rotulo)" font-size="10.5"
+        font-family="Inter">${p.d.slice(8,10)}/${p.d.slice(5,7)}</text>` : '').join('');
+  const pts = atual.map((p,i) => p.v === null ? '' :
+    `<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = eixo + rot +
+    (CMP && ant.length ? `<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6"
+        stroke-dasharray="4 3" opacity=".75"/>` : '') +
+    `<path d="${linha(atual)}" fill="none" stroke="${cor(MARCA)}" stroke-width="2.2"
+       stroke-linejoin="round" stroke-linecap="round"/>` + pts;
+  const dica = $('#dica');
+  svg.onmousemove = e => {
+    const alvo = e.target.closest('circle[data-i]');
+    if (!alvo) { dica.style.opacity = 0; return; }
+    const i = +alvo.dataset.i, a = atual[i], b = ant[i];
+    const fmt = v => v === null ? 'sem dado' : (METRICA === 'receita' ? rf(v) : nf(v));
+    dica.textContent = `${a.d.split('-').reverse().join('/')}\natual: ${fmt(a.v)}` +
+      (CMP && b ? `\nanterior: ${fmt(b.v)}` : '');
+    dica.style.left = (e.clientX + 12) + 'px'; dica.style.top = (e.clientY + 12) + 'px';
+    dica.style.opacity = 1;
+  };
+  svg.onmouseleave = () => dica.style.opacity = 0;
+}
+
+function render(){
   if (!API) return;
-  const cs = G.campanhas(API, MARCA, DIAS), tot = G.totais(cs);
+  const { ini, fim } = PER, ant = G.anterior(ini, fim);
+  const cs = G.campanhas(API, MARCA, ini, fim), conv = G.conversao(API, MARCA, ini, fim);
+  const tot = G.totais(cs, conv);
+  const csA = G.campanhas(API, MARCA, ant.ini, ant.fim), convA = G.conversao(API, MARCA, ant.ini, ant.fim);
+  const totA = G.totais(csA, convA);
+  // Régua sem cobertura de coleta => % suprimido.
+  const medidoAnt = ant.fim >= G.TRACKING_DESDE;
 
-  $('#faixa-alertas').innerHTML = G.alertas(cs, tot)
-    .map(a => `<div class="alerta ${a.t === 'ruim' ? 'alerta-ruim' : ''}">${a.m}</div>`).join('');
+  $('#faixa-alertas').innerHTML = G.alertas(cs, tot, API, MARCA)
+    .map(a => `<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
   $('#area-kpis').innerHTML = [
-    {r: 'CTOR', v: pf(tot.ctor), s: 'clicou ÷ abriu — mede a peça, não a entrega'},
-    {r: 'CTR', v: pf(tot.ctr), s: 'clicou ÷ entregue'},
-    {r: 'Reclamação', v: pf(tot.complPct), s: `limite SES 0,1% · ${nf(tot.complaints)} no período`},
-    {r: 'Enviados', v: nf(tot.enviados), s: `${tot.pecas} peças · ${tot.medidas} medidas`},
+    {r:'Receita atribuída', v:rf(tot.receita), d:G.delta(tot.receita, totA.receita, true),
+     s:`${nf(tot.pedidos)} pedidos · último clique`},
+    {r:'CTOR', v:pf(tot.ctor), d:G.delta(tot.ctor, totA.ctor, medidoAnt), s:'clicou ÷ abriu — mede a peça'},
+    {r:'CTR', v:pf(tot.ctr), d:G.delta(tot.ctr, totA.ctr, medidoAnt), s:'clicou ÷ entregue'},
+    {r:'Reclamação', v:pf(tot.complPct), d:G.delta(tot.complPct, totA.complPct, true),
+     s:`limite SES 0,1% · ${nf(tot.complaints)} no período`},
   ].map(k => `<div class="kpi"><div class="kpi-rot">${k.r}</div>
-      <div class="kpi-val tab-metrica">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+      <div class="kpi-val tabn">${k.v}</div>
+      <div class="kpi-rodape">${chip(k.d)}</div>
+      <div class="kpi-sub">${k.s}</div></div>`).join('');
 
-  $('#camp-rotulo').textContent = `${cs.length} peças · ${DIAS} dias`;
-  $('#tabela-camp tbody').innerHTML = cs.length ? cs.map(c => {
-    const real = c.real ? `<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas vêm de provedor confiável">
-        <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div>
-        <span class="mini">${c.real.pct}% confiável</span>` : '<span class="mini">—</span>';
+  grafico(G.serie(API, MARCA, ini, fim, METRICA), G.serie(API, MARCA, ant.ini, ant.fim, METRICA));
+
+  $('#tab-conv tbody').innerHTML = conv.length ? conv.map(c => {
+    const tot2 = c.novos + c.recorr;
     return `<tr>
-      <td><strong>${(c.nome || '').slice(0, 40)}</strong>
-          <div class="mini">${c.utm_campaign || 'sem utm'} · ${c.utm_content || '—'}</div></td>
-      <td><span class="tag ${c.marca}">${G.MARCA_NOME[c.marca] || c.marca}</span>
-          ${c.truncado ? '<span class="tag alerta">truncado</span>' : ''}</td>
-      <td class="num tab-metrica">${nf(c.enviados)}</td>
-      <td class="num tab-metrica">${pf(c.entrega_pct)}</td>
-      <td class="num tab-metrica">${c.medido ? pf(c.abertura_pct) : '<span class="tag nulo">não medido</span>'}</td>
-      <td class="num tab-metrica">${pf(c.ctr_pct)}</td>
-      <td class="num tab-metrica destaque">${pf(c.ctor_pct)}</td>
-      <td class="num tab-metrica">${pf(c.compl_pct)}</td>
-      <td>${real}</td></tr>`;
-  }).join('') : '<tr><td colspan="9"><div class="vazio">Nenhuma peça no período.</div></td></tr>';
+      <td><strong>${(c.peca || c.campanha || '—').slice(0,34)}</strong>
+          <div class="mini">${c.campanha}</div></td>
+      <td><span class="tag ${c.canal}">${c.canal}</span>
+          <span class="tag ${c.marca}">${G.MARCA[c.marca] || c.marca}</span></td>
+      <td class="num tabn">${nf(c.pedidos)}</td>
+      <td class="num tabn destaque">${rf(c.receita)}</td>
+      <td class="num tabn">${nf(c.assist)}</td>
+      <td class="num tabn">${rf(c.receita_assist)}</td>
+      <td class="num tabn">${tot2 ? Math.round(100*c.novos/tot2) + '%' : '—'}</td></tr>`;
+  }).join('') : '<tr><td colspan="7"><div class="vazio">Sem conversão atribuída no período.</div></td></tr>';
 
-  $('#nota-camp').innerHTML = `<strong>Entrega</strong> aqui é enviado menos rejeição — não é caixa de entrada.
-    E-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio de
-    provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
+  const somaU = conv.reduce((a,c)=>a+c.receita,0), somaA = conv.reduce((a,c)=>a+c.receita_assist,0);
+  $('#nota-conv').innerHTML = `<strong>Último clique</strong> = o CRM foi o toque final; recebe 100% do crédito.
+    <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam o
+    mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal do
+    Shopify ignora UTM e não serve. No período: ${rf(somaU)} de último clique e ${rf(somaA)} assistido.`;
 
   const regras = (API.crm_regra_galho || []).filter(r => MARCA === 'todas' || r.marca === MARCA);
-  const pops = {}; (API.crm_galho || []).forEach(g => { pops[g.marca + g.galho] = g.pessoas; });
-  const maxP = Math.max(1, ...Object.values(pops).map(Number));
-  $('#arv-rotulo').textContent = regras.length ? `${regras.length} galhos` : '';
+  const ult = {}; (API.crm_galho || []).forEach(g => {
+    const k = g.marca + g.galho;
+    if (!ult[k] || String(g.dia) > String(ult[k].dia)) ult[k] = g;
+  });
+  const maxP = Math.max(1, ...Object.values(ult).map(g => +g.pessoas || 0));
+  $('#arv-rot').textContent = regras.length ? `${regras.length} galhos` : '';
   $('#area-arvore').innerHTML = regras.length ? regras.map(r => {
-    const p = pops[r.marca + r.galho];
+    const g = ult[r.marca + r.galho], p = g ? +g.pessoas : undefined;
     return `<div class="galho">
-      <div><div class="rot">${r.rotulo}</div><div class="flx">${r.fluxo || 'sem fluxo'} · cap ${r.cap_dias}d</div></div>
-      <div class="barra"><i style="width:${p ? 100 * p / maxP : 0}%;background:${cor(r.marca)}"></i></div>
-      <div class="num tab-metrica">${p === undefined ? '—' : nf(p)}</div>
-      <div><span class="tag ${r.marca}">${G.MARCA_NOME[r.marca] || r.marca}</span></div></div>`;
-  }).join('') + (Object.keys(pops).length ? '' :
-    '<div class="nota">Regras gravadas. A população por galho aparece quando o coletor noturno rodar pela primeira vez.</div>')
-    : '<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
+      <div><div class="rot">${r.rotulo}</div>
+           <div class="flx">${r.fluxo || 'sem fluxo'} · cap ${r.cap_dias}d${g && g.ltv_medio > 0 ? ' · LTV ' + rf(g.ltv_medio) : ''}</div></div>
+      <div class="barra"><i style="width:${p ? 100*p/maxP : 0}%;background:${cor(r.marca)}"></i></div>
+      <div class="num tabn">${p === undefined ? '—' : nf(p)}</div>
+      <div><span class="tag ${r.marca}">${G.MARCA[r.marca] || r.marca}</span></div></div>`;
+  }).join('') : '<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
 
-  const conv = (API.crm_conversao || []).filter(c => MARCA === 'todas' || c.marca === MARCA);
-  $('#area-conversao').innerHTML = conv.length ? '' :
-    `<div class="vazio">Aguardando a primeira coleta da Shopify.<br>
-     <span class="mini">Fonte: Admin API, customerJourneySummary — não o relatório de canal, que ignora UTM.</span></div>`;
+  $('#camp-rot').textContent = `${cs.length} peças`;
+  $('#tab-camp tbody').innerHTML = cs.length ? cs.map(c => {
+    const real = c.real ? `<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas vêm de provedor confiável">
+      <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div><span class="mini">${c.real.pct}% confiável</span>`
+      : '<span class="mini">—</span>';
+    return `<tr>
+      <td><strong>${(c.nome||'').slice(0,38)}</strong><div class="mini">${c.utm_campaign||'sem utm'} · ${c.utm_content||'—'}</div></td>
+      <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}</td>
+      <td class="num tabn">${nf(c.enviados)}</td>
+      <td class="num tabn">${pf(c.entrega_pct)}</td>
+      <td class="num tabn">${c.medido ? pf(c.abertura_pct) : '<span class="tag nulo">não medido</span>'}</td>
+      <td class="num tabn">${pf(c.ctr_pct)}</td>
+      <td class="num tabn destaque">${pf(c.ctor_pct)}</td>
+      <td class="num tabn">${pf(c.compl_pct)}</td>
+      <td>${real}</td></tr>`;
+  }).join('') : '<tr><td colspan="9"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
 
-  const testes = API.crm_teste || [];
-  $('#area-testes').innerHTML = testes.length ? testes.map(t =>
+  $('#nota-camp').innerHTML = `<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
+    e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio de
+    provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
+
+  const ts = API.crm_teste || [];
+  $('#area-testes').innerHTML = ts.length ? ts.map(t =>
     `<div class="galho"><div><div class="rot">${t.nome}</div><div class="flx">${t.hipotese}</div></div>
      <div class="mini">${t.variavel}</div><div class="num">${t.metrica_primaria}</div>
-     <div><span class="tag ${t.status === 'conclusivo' ? 'aristo' : 'nulo'}">${t.status}</span></div></div>`).join('')
-    : `<div class="vazio">Nenhum teste registrado.<br>
-       <span class="mini">Hipótese e métrica primária são obrigatórias antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
+     <div><span class="tag ${t.status==='conclusivo'?'aristo':'nulo'}">${t.status}</span></div></div>`).join('')
+    : `<div class="vazio">Nenhum teste registrado.<br><span class="mini">Hipótese e métrica primária são
+       obrigatórias antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
 
   const g = API.gerado_em ? new Date(API.gerado_em) : null;
-  $('#frescor').textContent = g ? `coleta ${g.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}` : 'coleta —';
-  $('#relogio').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+  $('#frescor').textContent = g ? `coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : 'coleta —';
+  $('#relogio').textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  $('#d-ini').value = ini; $('#d-fim').value = fim;
 }
 
-function chave() {
+function chave(){
   let k = localStorage.getItem('shrigma_dash_key');
-  if (!k) { k = prompt('Chave de acesso do painel:'); if (k) localStorage.setItem('shrigma_dash_key', k); }
+  if (!k){ k = prompt('Chave de acesso do painel:'); if (k) localStorage.setItem('shrigma_dash_key', k); }
   return k;
 }
-async function carregar() {
+async function carregar(){
   const k = chave(); if (!k) return;
   try {
     const r = await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
-    if (r.status === 401) { localStorage.removeItem('shrigma_dash_key'); location.reload(); return; }
+    if (r.status === 401){ localStorage.removeItem('shrigma_dash_key'); location.reload(); return; }
     API = await r.json(); render();
-  } catch (e) {
+  } catch(e){
     $('#faixa-alertas').innerHTML = `<div class="alerta alerta-ruim">Falha ao ler a API: ${e.message}</div>`;
   }
 }
@@ -276,7 +433,23 @@ document.querySelectorAll('#seg-marca button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#seg-marca button').forEach(x => x.classList.remove('ativo'));
   b.classList.add('ativo'); MARCA = b.dataset.marca; render();
 });
-$('#sel-periodo').onchange = e => { DIAS = +e.target.value; render(); };
+document.querySelectorAll('#presets button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#presets button').forEach(x => x.classList.remove('ativo'));
+  b.classList.add('ativo');
+  if (b.dataset.p !== 'livre') PER = G.preset(b.dataset.p, HOJE);
+  render();
+});
+['d-ini','d-fim'].forEach(id => $('#'+id).onchange = () => {
+  const a = $('#d-ini').value, b = $('#d-fim').value;
+  if (!a || !b || a > b) return;
+  PER = { ini:a, fim:b };
+  document.querySelectorAll('#presets button').forEach(x => x.classList.remove('ativo'));
+  document.querySelector('#presets button[data-p=livre]').classList.add('ativo');
+  render();
+});
+$('#cmp').onchange = e => { CMP = e.target.checked; render(); };
+$('#sel-metrica').onchange = e => { METRICA = e.target.value; render(); };
+addEventListener('resize', () => API && render());
 carregar();
 setInterval(carregar, (typeof REFRESH_SEG !== 'undefined' ? REFRESH_SEG : 60) * 1000);
 </script>
