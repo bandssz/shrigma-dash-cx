@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Growth · Grupo Shrigma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* --- só o que a aba Growth acrescenta ao design system existente --- */
+.abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
+.abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
+.abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.tab-metrica{font-variant-numeric:tabular-nums}
+td.destaque{font-weight:700}
+.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:52px}
+.barra i{display:block;height:100%;border-radius:3px}
+.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui)}
+.tag.aristo{background:#f6ecdb;color:#8a5f1d}
+.tag.fish{background:#dff0f2;color:#186068}
+.tag.olivas{background:#eaeedc;color:#525f24}
+.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
+.tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
+.galho{display:grid;grid-template-columns:150px 1fr 74px 70px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--borda)}
+.galho:last-child{border-bottom:0}
+.galho .rot{font:600 12.5px/1.3 var(--ui)}
+.galho .flx{font:400 11px/1.3 var(--ui);color:var(--rotulo)}
+.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.5 var(--ui);
+  background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
+.nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
+  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="titulo">
+    <span class="logo">GS</span>
+    <div>
+      <h1>Growth &amp; CRM</h1>
+      <p class="sub">Grupo Shrigma · <span id="rotulo-janela">e-mail</span></p>
+    </div>
+  </div>
+
+  <nav class="filtros" aria-label="Filtros">
+    <div class="abas">
+      <a href="index.html">Suporte</a>
+      <a href="growth.html" class="ativo">Growth</a>
+    </div>
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo">Consolidada</button>
+      <button data-marca="aristo">Aristocrata</button>
+      <button data-marca="fish">Fishermans</button>
+      <button data-marca="olivas">Olivas</button>
+    </div>
+    <select id="sel-periodo" aria-label="Período">
+      <option value="30">Últimos 30 dias</option>
+      <option value="90">Últimos 90 dias</option>
+      <option value="180" selected>Últimos 180 dias</option>
+    </select>
+  </nav>
+
+  <div class="status">
+    <span id="relogio">--:--</span>
+    <span id="frescor" class="frescor">coleta —</span>
+  </div>
+</header>
+
+<main>
+  <div id="faixa-alertas" aria-live="polite"></div>
+
+  <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
+
+  <section class="painel">
+    <div class="painel-cab">
+      <h2>Campanhas</h2>
+      <span class="mini" id="camp-rotulo"></span>
+    </div>
+    <div class="rolagem">
+      <table class="comparativo" id="tabela-camp">
+        <thead><tr>
+          <th>Peça</th><th></th>
+          <th class="num">Enviados</th><th class="num">Entrega</th>
+          <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
+          <th class="num">Reclam.</th><th>Abertura real</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="nota" id="nota-camp"></div>
+  </section>
+
+  <div class="duas-colunas">
+    <section class="painel">
+      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rotulo"></span></div>
+      <div id="area-arvore"></div>
+    </section>
+    <section class="painel">
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span></div>
+      <div id="area-conversao"></div>
+    </section>
+  </div>
+
+  <section class="painel">
+    <div class="painel-cab"><h2>Testes A/B</h2><span class="mini">hipótese registrada antes do disparo</span></div>
+    <div id="area-testes"></div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span>
+</footer>
+
+<script src="config.js"></script>
+<script>
+/* ============ dados: só matemática, testável com node ============ */
+const G = {
+  MARCA_NOME: {aristo:'Aristocrata', fish:'Fishermans', olivas:'Olivas'},
+  TRACKING_DESDE: '2026-07-19',
+
+  pct(n, d, casas = 1) {
+    if (n === null || n === undefined || !d) return null;
+    return +(100 * n / d).toFixed(casas);
+  },
+  // provedores cuja abertura é confiável (Gmail não pré-carrega imagem por padrão do jeito
+  // que o Apple MPP faz). iCloud infla; por isso a coluna "abertura real".
+  aberturaConfiavel(prov) {
+    if (!prov) return null;
+    const bons = (+prov.gmail || 0) + (+prov.outlook || 0) + (+prov.brasileiro || 0);
+    const tot = Object.values(prov).reduce((a, b) => a + (+b || 0), 0);
+    return tot ? {bons, tot, pct: +(100 * bons / tot).toFixed(0)} : null;
+  },
+  campanhas(api, marca, dias) {
+    const corte = Date.now() - dias * 864e5;
+    return (api.crm_campanha || [])
+      .filter(c => (marca === 'todas' || c.marca === marca))
+      .filter(c => new Date(c.enviado_em).getTime() >= corte)
+      .map(c => ({
+        ...c,
+        entrega_pct: G.pct(c.entregues, c.enviados, 2),
+        abertura_pct: G.pct(c.abriram, c.entregues),
+        ctr_pct: G.pct(c.clicaram, c.entregues, 2),
+        ctor_pct: G.pct(c.clicaram, c.abriram),
+        compl_pct: G.pct(c.complaints, c.entregues, 3),
+        real: G.aberturaConfiavel(c.aberturas_provedor),
+        medido: c.abriram !== null && c.abriram !== undefined,
+      }));
+  },
+  totais(cs) {
+    const m = cs.filter(c => c.medido);
+    const s = (a, k) => a.reduce((x, c) => x + (+c[k] || 0), 0);
+    return {
+      pecas: cs.length, medidas: m.length,
+      enviados: s(cs, 'enviados'), entregues: s(cs, 'entregues'),
+      abriram: s(m, 'abriram'), clicaram: s(m, 'clicaram'),
+      hard: s(cs, 'hard'), complaints: s(cs, 'complaints'),
+      get ctr() { return G.pct(this.clicaram, m.reduce((x, c) => x + (+c.entregues || 0), 0), 2); },
+      get ctor() { return G.pct(this.clicaram, this.abriram); },
+      get complPct() { return G.pct(this.complaints, this.entregues, 3); },
+      get hardPct() { return G.pct(this.hard, this.enviados, 2); },
+    };
+  },
+  alertas(cs, tot) {
+    const a = [];
+    const trunc = cs.filter(c => c.truncado);
+    if (trunc.length) a.push({t: 'ruim', m: `${trunc.length} disparo(s) não saíram inteiros — ` +
+      trunc.slice(0, 2).map(c => `#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
+    if (tot.hardPct !== null && tot.hardPct >= 0.5) a.push({t: 'ruim',
+      m: `Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
+    if (tot.complPct !== null && tot.complPct >= 0.08) a.push({t: 'ruim',
+      m: `Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
+    const naoMedidas = cs.length - tot.medidas;
+    if (naoMedidas) a.push({t: 'aviso',
+      m: `${naoMedidas} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só passou a registrar em 19/07/2026. Gravado como NULL, nunca zero.`});
+    return a;
+  },
+};
+
+/* ============ app: só render ============ */
+const $ = s => document.querySelector(s);
+const nf = n => (n === null || n === undefined) ? '—' : (+n).toLocaleString('pt-BR');
+const pf = (n, s = '%') => (n === null || n === undefined) ? '—' : `${(+n).toLocaleString('pt-BR')}${s}`;
+let API = null, MARCA = 'todas', DIAS = 180;
+
+function cor(m) { return `var(--${m === 'aristo' ? 'aristocrata' : m === 'fish' ? 'fishermans' : m === 'olivas' ? 'olivas' : 'todas'})`; }
+
+function render() {
+  if (!API) return;
+  const cs = G.campanhas(API, MARCA, DIAS), tot = G.totais(cs);
+
+  $('#faixa-alertas').innerHTML = G.alertas(cs, tot)
+    .map(a => `<div class="alerta ${a.t === 'ruim' ? 'alerta-ruim' : ''}">${a.m}</div>`).join('');
+
+  $('#area-kpis').innerHTML = [
+    {r: 'CTOR', v: pf(tot.ctor), s: 'clicou ÷ abriu — mede a peça, não a entrega'},
+    {r: 'CTR', v: pf(tot.ctr), s: 'clicou ÷ entregue'},
+    {r: 'Reclamação', v: pf(tot.complPct), s: `limite SES 0,1% · ${nf(tot.complaints)} no período`},
+    {r: 'Enviados', v: nf(tot.enviados), s: `${tot.pecas} peças · ${tot.medidas} medidas`},
+  ].map(k => `<div class="kpi"><div class="kpi-rot">${k.r}</div>
+      <div class="kpi-val tab-metrica">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+  $('#camp-rotulo').textContent = `${cs.length} peças · ${DIAS} dias`;
+  $('#tabela-camp tbody').innerHTML = cs.length ? cs.map(c => {
+    const real = c.real ? `<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas vêm de provedor confiável">
+        <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div>
+        <span class="mini">${c.real.pct}% confiável</span>` : '<span class="mini">—</span>';
+    return `<tr>
+      <td><strong>${(c.nome || '').slice(0, 40)}</strong>
+          <div class="mini">${c.utm_campaign || 'sem utm'} · ${c.utm_content || '—'}</div></td>
+      <td><span class="tag ${c.marca}">${G.MARCA_NOME[c.marca] || c.marca}</span>
+          ${c.truncado ? '<span class="tag alerta">truncado</span>' : ''}</td>
+      <td class="num tab-metrica">${nf(c.enviados)}</td>
+      <td class="num tab-metrica">${pf(c.entrega_pct)}</td>
+      <td class="num tab-metrica">${c.medido ? pf(c.abertura_pct) : '<span class="tag nulo">não medido</span>'}</td>
+      <td class="num tab-metrica">${pf(c.ctr_pct)}</td>
+      <td class="num tab-metrica destaque">${pf(c.ctor_pct)}</td>
+      <td class="num tab-metrica">${pf(c.compl_pct)}</td>
+      <td>${real}</td></tr>`;
+  }).join('') : '<tr><td colspan="9"><div class="vazio">Nenhuma peça no período.</div></td></tr>';
+
+  $('#nota-camp').innerHTML = `<strong>Entrega</strong> aqui é enviado menos rejeição — não é caixa de entrada.
+    E-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio de
+    provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
+
+  const regras = (API.crm_regra_galho || []).filter(r => MARCA === 'todas' || r.marca === MARCA);
+  const pops = {}; (API.crm_galho || []).forEach(g => { pops[g.marca + g.galho] = g.pessoas; });
+  const maxP = Math.max(1, ...Object.values(pops).map(Number));
+  $('#arv-rotulo').textContent = regras.length ? `${regras.length} galhos` : '';
+  $('#area-arvore').innerHTML = regras.length ? regras.map(r => {
+    const p = pops[r.marca + r.galho];
+    return `<div class="galho">
+      <div><div class="rot">${r.rotulo}</div><div class="flx">${r.fluxo || 'sem fluxo'} · cap ${r.cap_dias}d</div></div>
+      <div class="barra"><i style="width:${p ? 100 * p / maxP : 0}%;background:${cor(r.marca)}"></i></div>
+      <div class="num tab-metrica">${p === undefined ? '—' : nf(p)}</div>
+      <div><span class="tag ${r.marca}">${G.MARCA_NOME[r.marca] || r.marca}</span></div></div>`;
+  }).join('') + (Object.keys(pops).length ? '' :
+    '<div class="nota">Regras gravadas. A população por galho aparece quando o coletor noturno rodar pela primeira vez.</div>')
+    : '<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
+
+  const conv = (API.crm_conversao || []).filter(c => MARCA === 'todas' || c.marca === MARCA);
+  $('#area-conversao').innerHTML = conv.length ? '' :
+    `<div class="vazio">Aguardando a primeira coleta da Shopify.<br>
+     <span class="mini">Fonte: Admin API, customerJourneySummary — não o relatório de canal, que ignora UTM.</span></div>`;
+
+  const testes = API.crm_teste || [];
+  $('#area-testes').innerHTML = testes.length ? testes.map(t =>
+    `<div class="galho"><div><div class="rot">${t.nome}</div><div class="flx">${t.hipotese}</div></div>
+     <div class="mini">${t.variavel}</div><div class="num">${t.metrica_primaria}</div>
+     <div><span class="tag ${t.status === 'conclusivo' ? 'aristo' : 'nulo'}">${t.status}</span></div></div>`).join('')
+    : `<div class="vazio">Nenhum teste registrado.<br>
+       <span class="mini">Hipótese e métrica primária são obrigatórias antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
+
+  const g = API.gerado_em ? new Date(API.gerado_em) : null;
+  $('#frescor').textContent = g ? `coleta ${g.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}` : 'coleta —';
+  $('#relogio').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+}
+
+function chave() {
+  let k = localStorage.getItem('shrigma_dash_key');
+  if (!k) { k = prompt('Chave de acesso do painel:'); if (k) localStorage.setItem('shrigma_dash_key', k); }
+  return k;
+}
+async function carregar() {
+  const k = chave(); if (!k) return;
+  try {
+    const r = await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
+    if (r.status === 401) { localStorage.removeItem('shrigma_dash_key'); location.reload(); return; }
+    API = await r.json(); render();
+  } catch (e) {
+    $('#faixa-alertas').innerHTML = `<div class="alerta alerta-ruim">Falha ao ler a API: ${e.message}</div>`;
+  }
+}
+document.querySelectorAll('#seg-marca button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#seg-marca button').forEach(x => x.classList.remove('ativo'));
+  b.classList.add('ativo'); MARCA = b.dataset.marca; render();
+});
+$('#sel-periodo').onchange = e => { DIAS = +e.target.value; render(); };
+carregar();
+setInterval(carregar, (typeof REFRESH_SEG !== 'undefined' ? REFRESH_SEG : 60) * 1000);
+</script>
+</body>
+</html>
