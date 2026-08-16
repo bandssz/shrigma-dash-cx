@@ -410,14 +410,38 @@ h1, .kpi-val { font-family: "Archivo", var(--ui); letter-spacing: -.015em; font-
 body[data-marca] .kpi-val { color: var(--marca); }
 .kpi-val.vazio-val { color: var(--rotulo); font-weight: 600; font-size: 22px; }
 
-/* Logos: as tres tem naturezas incompativeis (mascote PNG cheio, simbolo SVG vazado
-   que some no fundo claro, JPEG com fundo branco proprio). O chip iguala o peso
-   visual sem precisar editar arquivo de marca. */
-.marcas { display:flex; align-items:center; gap:6px; }
-.marcas .chipe { width:36px; height:36px; border-radius:9px; background:#fff;
+/* ---- Wordmarks: o seletor de marca E a marca ----
+   Cada botao usa a tipografia real da propria loja, nao um rotulo generico:
+     O Aristocrata  -> Archivo, a face do sistema de marca (Alma da Roca)
+     Fishermans     -> Roboto Condensed, a heading do tema da loja
+     Olivas do Campo-> Jost, a face do tema da loja
+   Os tamanhos e o tracking sao ajustados por marca porque as tres faces tem
+   larguras muito diferentes; sem isso uma domina opticamente as outras. */
+.seg button[data-marca] { font-size:12px; text-transform:uppercase; padding:7px 13px; }
+.seg button[data-marca="todas"] {
+  font:600 11.5px/1 var(--ui); letter-spacing:.06em; text-transform:uppercase; }
+.seg button[data-marca="aristo"],
+.seg button[data-marca="aristocrata"] {
+  font-family:"Archivo",var(--ui); font-weight:900; letter-spacing:.025em; font-size:12.5px; }
+.seg button[data-marca="fish"],
+.seg button[data-marca="fishermans"] {
+  font-family:"Roboto Condensed",var(--ui); font-weight:700; letter-spacing:.13em; font-size:13px; }
+.seg button[data-marca="olivas"] {
+  font-family:"Jost",var(--ui); font-weight:400; letter-spacing:.19em; font-size:12px; }
+.seg button[data-marca="aristo"].ativo,
+.seg button[data-marca="aristocrata"].ativo { color:#b9822d; }
+.seg button[data-marca="fish"].ativo,
+.seg button[data-marca="fishermans"].ativo { color:#22808d; }
+.seg button[data-marca="olivas"].ativo     { color:#6f7f33; }
+
+/* Marca no topo: UMA so, a ativa. Tres empilhadas viravam uma coluna de logos
+   e comiam o cabecalho inteiro. */
+.marcas { display:flex; align-items:center; }
+.marcas .chipe { width:38px; height:38px; border-radius:10px; background:#fff;
   border:1px solid var(--borda); display:grid; place-items:center; overflow:hidden; flex:0 0 auto; }
-.marcas .chipe img { max-width:26px; max-height:26px; width:auto; height:auto;
+body[data-marca]:not([data-marca="todas"]) .marcas .chipe { border-color:var(--marca); }
+.marcas .chipe img { max-width:27px; max-height:27px; width:auto; height:auto;
   object-fit:contain; display:block; }
-.marcas.uma .chipe { width:44px; height:44px; border-radius:11px; border-color:var(--marca); }
-.marcas.uma .chipe img { max-width:32px; max-height:32px; }
+.marcas .sigla { font:800 13px/1 "Archivo",var(--ui); letter-spacing:.5px; color:#fff;
+  background:var(--texto); padding:9px 10px; border-radius:10px; }
 @media (prefers-reduced-motion: reduce) { body { transition: none; } }
