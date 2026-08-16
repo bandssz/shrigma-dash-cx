@@ -92,6 +92,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .funil-leg{display:flex;justify-content:space-between;margin-top:7px;
   font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
 .funil-marcas{margin-top:14px;border-top:1px solid var(--borda);padding-top:4px}
+.funil-crm{margin-top:11px;padding-top:10px;border-top:1px dashed var(--borda)}
 @media (max-width:640px){
   .bracos{grid-template-columns:1fr}
   .galho{grid-template-columns:1fr 60px;row-gap:4px}
@@ -309,8 +310,9 @@ const G = {
     const sm=(k)=>medidos.reduce((a,r)=>a+(+r[k]||0),0);
     const porMarca={};
     linhas.forEach(r=>{
-      const a=porMarca[r.marca]||(porMarca[r.marca]={marca:r.marca,carrinhos:0,valor:0,rec:0,receita:0,medido:false});
+      const a=porMarca[r.marca]||(porMarca[r.marca]={marca:r.marca,carrinhos:0,valor:0,voltou:0,rec:0,receita:0,medido:false});
       a.carrinhos+=+r.carrinhos||0; a.valor+=+r.valor_em_jogo||0;
+      a.voltou=(a.voltou||0)+(+r.voltaram_72h||0);
       if(r.recuperados!==null&&r.recuperados!==undefined){a.medido=true;a.rec+=+r.recuperados;a.receita+=+r.receita_recuperada||0;}
     });
     // linhas sao marca x dia: contar DIAS distintos, senao "7 dias" vira "14"
@@ -322,6 +324,8 @@ const G = {
       receita:medidos.length?sm('receita_recuperada'):null,
       valorMedido:sm('valor_em_jogo'),
       carrinhosMedidos:sm('carrinhos'),
+      voltaram:s('voltaram_72h'), receitaVoltaram:s('receita_voltaram'),
+      voltaramMedidos:sm('voltaram_72h'),
       porMarca:Object.values(porMarca).sort((a,b)=>b.valor-a.valor)};
   },
   conversao(api,marca,ini,fim){
@@ -563,23 +567,32 @@ function render(){
     const naoMedidos=car.dias-car.diasMedidos;
     $('#area-carrinho').innerHTML=`
       <div class="funil">
-        <div class="funil-num"><b>${rf(perdido)}</b>
-          <span>abandonados e não recuperados em ${temRec?car.diasMedidos:car.dias} dia(s)${temRec?` · ${rf(car.receita)} de volta`:''}</span></div>
-        <div class="funil-barra"><i style="width:${frac}%"></i></div>
+        <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
+          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${rf(car.receitaVoltaram)} voltou</span></div>
+        <div class="funil-barra" title="Voltaram e compraram em até 72h">
+          <i style="width:${car.carrinhos?Math.max(.6,100*car.voltaram/car.carrinhos):0}%"></i></div>
         <div class="funil-leg">
-          <span>${nf(temRec?car.carrinhosMedidos:car.carrinhos)} carrinhos · ${rf(emJogo)} em jogo</span>
-          <span>${temRec?`${nf(car.recuperados)} recuperados · ${taxa.toFixed(2)}%`:'recuperação ainda não medida'}</span>
+          <span>${nf(car.carrinhos)} carrinhos · ${rf(car.valor)} em jogo</span>
+          <span><strong>${nf(car.voltaram)} voltaram</strong> · ${car.carrinhos?(100*car.voltaram/car.carrinhos).toFixed(1):'—'}% em 72h</span>
         </div>
+        ${temRec?`<div class="funil-crm">
+          <div class="funil-barra" title="Fechados pelo fluxo de CRM (último clique)">
+            <i style="width:${car.voltaramMedidos?Math.max(.6,100*car.recuperados/car.voltaramMedidos):0}%;opacity:.55"></i></div>
+          <div class="funil-leg">
+            <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
+            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos):0}% do resgate é do CRM</span>
+          </div></div>`:''}
         ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) do período ficaram de fora: a conversão ainda não foi coletada neles. Excluídos em vez de contarem como zero.</div>`:''}
         <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${Math.round(100*car.consent/car.carrinhos)}%).</div>
         ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
-          const t=m.medido&&m.carrinhos?(100*m.rec/m.carrinhos):null;
+          const tv=m.carrinhos?(100*m.voltou/m.carrinhos):null;
+          const t=m.medido&&m.voltou?(100*m.rec/m.voltou):null;
           const mx=car.porMarca[0].valor||1;
           return `<div class="galho"><div><div class="rot">${G.MARCA[m.marca]||m.marca}</div>
-            <div class="flx">${nf(m.carrinhos)} carrinhos · ${t!==null?t.toFixed(2)+'% recuperado':'não medido'}</div></div>
+            <div class="flx">${nf(m.carrinhos)} carrinhos · ${tv!==null?tv.toFixed(1)+'% voltou':'—'}${t!==null?` · ${Math.round(t)}% via fluxo`:''}</div></div>
             <div class="barra"><i style="width:${100*m.valor/mx}%;background:${cor(m.marca)}"></i></div>
             <div class="num tabn">${rf(m.valor)}</div>
-            <div><span class="tag ${m.marca}">${nf(m.rec)}</span></div></div>`;}).join('')+`</div>`:''}
+            <div><span class="tag ${m.marca}">${nf(m.voltou)}</span></div></div>`;}).join('')+`</div>`:''}
       </div>`;
   }
 
