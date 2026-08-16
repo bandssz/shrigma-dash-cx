@@ -12,34 +12,11 @@
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
    start trava as linhas na altura do conteudo. */
-/* ---- tema por marca: uma variavel manda em tudo que e colorido ----
-   Vem do data-marca no <body>. Os hex sao os mesmos do styles.css do CX. */
-body[data-marca=todas]  {--marca:#55524c; --marca-fraca:#eceae6}
-body[data-marca=aristo] {--marca:#b9822d; --marca-fraca:#f6ecdb}
-body[data-marca=fish]   {--marca:#22808d; --marca-fraca:#dff0f2}
-body[data-marca=olivas] {--marca:#6f7f33; --marca-fraca:#eaeedc}
-/* Archivo e a face do sistema de marca da Shrigma (Alma da Roca). Display e numero
-   grande usam ela; Inter fica para UI e texto corrido. */
-.kpi-val,.braco .m,.secoes button,h1{font-family:"Archivo",var(--ui);letter-spacing:-.015em}
-.kpi-val{font-weight:800;color:var(--marca)}
-/* sem dado nao pode parecer dado: o travessao em Archivo 800 virava uma barra colorida */
-.kpi-val.vazio-val{color:var(--rotulo);font-weight:600;font-size:22px}
-h1{font-weight:800}
-.topo{border-bottom:2px solid var(--marca)}
-.secoes button.ativo{color:var(--marca);border-bottom-color:var(--marca)}
-.seg button.ativo{box-shadow:inset 0 -2px 0 var(--marca)}
 main{align-content:start}
 /* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
    inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
 main>*{min-width:0}
-.marcas{display:flex;align-items:center;gap:6px}
-/* chip: as tres logos tem naturezas diferentes (mascote PNG cheio, simbolo SVG vazado,
-   JPEG com fundo proprio). O chip iguala peso visual sem editar os arquivos. */
-.marcas .chipe{width:36px;height:36px;border-radius:9px;background:var(--card);
-  border:1px solid var(--borda);display:grid;place-items:center;overflow:hidden;flex:0 0 auto}
-.marcas .chipe img{max-width:26px;max-height:26px;width:auto;height:auto;object-fit:contain;display:block}
-.marcas.uma .chipe{width:44px;height:44px;border-radius:11px;border-color:var(--marca)}
-.marcas.uma .chipe img{max-width:32px;max-height:32px}
+
 .rolagem{max-width:100%}
 /* faixa vazia continua ocupando um `gap` de 22px do grid */
 #faixa-alertas:empty{display:none}
