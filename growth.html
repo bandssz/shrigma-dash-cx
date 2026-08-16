@@ -279,6 +279,26 @@ const G = {
     const tot=Object.values(p).reduce((a,b)=>a+(+b||0),0);
     return tot?{bons,tot,pct:Math.round(100*bons/tot)}:null;
   },
+  // Um dia so => curva por HORA, acumulada, e a comparacao para na mesma hora
+  // que o periodo atual (senao "hoje" perde de "ontem inteiro" todo santo dia).
+  serieHora(api,marca,dia,metrica,limiteHora){
+    const col = metrica==='receita' ? 'receita' : (metrica==='cliques' ? 'cliques' : null);
+    if(!col) return null;
+    const h=Array(24).fill(null);
+    let viu=false;
+    (api.crm_intradia||[])
+      .filter(r=>String(r.dia).slice(0,10)===dia)
+      .filter(r=>marca==='todas'||r.marca===marca)
+      .forEach(r=>{ const v=r[col]; if(v===null||v===undefined) return;
+        viu=true; h[r.hora]=(h[r.hora]||0)+(+v||0); });
+    if(!viu) return null;
+    let acc=0; const out=[];
+    for(let i=0;i<24;i++){
+      if(limiteHora!==undefined && i>limiteHora){ out.push({d:String(i).padStart(2,'0')+'h',v:null}); continue; }
+      acc+=(h[i]||0); out.push({d:String(i).padStart(2,'0')+'h', v:acc});
+    }
+    return out;
+  },
   serie(api,marca,ini,fim,metrica){
     const dias=[];for(let d=ini;d<=fim;d=G.addDias(d,1))dias.push(d);
     const m={};
@@ -461,9 +481,10 @@ function grafico(atual,ant){
   const eixo=[0,.5,1].map(f=>{const v=max*f;return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}"
     stroke="var(--borda)"/><text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)"
     font-size="10.5" font-family="Inter">${METRICA==='receita'?rf(v):nf(Math.round(v))}</text>`;}).join('');
+  const ehHora=atual.length&&/h$/.test(atual[0].d);
   const rot=atual.map((p,i)=>(i===0||i===atual.length-1||(atual.length>6&&i===Math.floor(atual.length/2)))
     ?`<text x="${x(i)}" y="${H-6}" text-anchor="middle" fill="var(--rotulo)" font-size="10.5"
-      font-family="Inter">${p.d.slice(8,10)}/${p.d.slice(5,7)}</text>`:'').join('');
+      font-family="Inter">${ehHora?p.d:p.d.slice(8,10)+'/'+p.d.slice(5,7)}</text>`:'').join('');
   const pts=atual.map((p,i)=>p.v===null?'':`<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML=eixo+rot+
@@ -476,7 +497,8 @@ function grafico(atual,ant){
     const alvo=e.target.closest('circle[data-i]');
     if(!alvo){dica.style.opacity=0;return;}
     const i=+alvo.dataset.i,a=atual[i],b=ant[i],fmt=v=>v===null?'sem dado':(METRICA==='receita'?rf(v):nf(v));
-    dica.textContent=`${a.d.split('-').reverse().join('/')}\natual: ${fmt(a.v)}`+(CMP&&b?`\nanterior: ${fmt(b.v)}`:'');
+    const rotD=/h$/.test(a.d)?a.d:a.d.split('-').reverse().join('/');
+    dica.textContent=`${rotD}\natual: ${fmt(a.v)}`+(CMP&&b?`\nanterior: ${fmt(b.v)}`:'');
     dica.style.left=(e.clientX+12)+'px';dica.style.top=(e.clientY+12)+'px';dica.style.opacity=1;
   };
   svg.onmouseleave=()=>dica.style.opacity=0;
@@ -550,13 +572,24 @@ function render(){
     <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
     <div class="kpi-rodape">${chip(k.d)}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-  const sAtual=G.serie(API,MARCA,ini,fim,METRICA), sAnt=G.serie(API,MARCA,ant.ini,ant.fim,METRICA);
+  // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
+  const umDia = ini===fim;
+  const agoraH = new Date().getHours();
+  const hojeIso = new Date().toISOString().slice(0,10);
+  const lim = (umDia && ini===hojeIso) ? agoraH : undefined;
+  let sAtual=null, sAnt=null, porHora=false;
+  if(umDia){
+    const a=G.serieHora(API,MARCA,ini,METRICA,lim);
+    if(a){ sAtual=a; sAnt=G.serieHora(API,MARCA,ant.ini,METRICA,lim)||Array(24).fill(null).map((_,i)=>({d:String(i).padStart(2,'0')+'h',v:null})); porHora=true; }
+  }
+  if(!porHora){ sAtual=G.serie(API,MARCA,ini,fim,METRICA); sAnt=G.serie(API,MARCA,ant.ini,ant.fim,METRICA); }
   const temAnt=CMP&&sAnt.some(p=>p.v!==null);
   grafico(sAtual,sAnt);
   const ultConv=(API.crm_conversao||[]).reduce((a,r)=>{const d=String(r.coletado_em||'');return d>a?d:a;},'');
   const hConv=ultConv?new Date(ultConv).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):null;
   $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
     temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
+    porHora?'<span>por hora, acumulado'+(lim!==undefined?' · comparação até a mesma hora':'')+'</span>':'',
     (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':''].filter(Boolean).join('');
 
   const car=G.carrinho(API,MARCA,ini,fim);
