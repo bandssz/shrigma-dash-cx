@@ -155,10 +155,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
         </select>
       </div>
       <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
-      <div class="legenda">
-        <span><i style="background:var(--todas)"></i>período atual</span>
-        <span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>
-      </div>
+      <div class="legenda" id="legenda-graf"></div>
     </section>
     <section class="painel" id="painel-carrinho">
       <div class="painel-cab"><h2>Carrinho abandonado</h2><span class="mini" id="car-rot"></span></div>
@@ -460,6 +457,7 @@ function grafico(atual,ant){
   const x=i=>P.l+i*(W-P.l-P.r)/Math.max(1,atual.length-1),y=v=>H-P.b-(v/max)*(H-P.t-P.b);
   const linha=s=>s.map((p,i)=>p.v===null?null:`${x(i)},${y(p.v)}`).filter(Boolean)
     .map((c,i)=>(i?'L':'M')+c).join(' ');
+  const antVazia=CMP&&ant.length&&ant.every(p=>p.v===null);
   const eixo=[0,.5,1].map(f=>{const v=max*f;return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}"
     stroke="var(--borda)"/><text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)"
     font-size="10.5" font-family="Inter">${METRICA==='receita'?rf(v):nf(Math.round(v))}</text>`;}).join('');
@@ -469,7 +467,9 @@ function grafico(atual,ant){
   const pts=atual.map((p,i)=>p.v===null?'':`<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML=eixo+rot+
-    (CMP&&ant.length?`<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6" stroke-dasharray="4 3" opacity=".75"/>`:'')+
+    (CMP&&ant.length&&!antVazia?`<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6" stroke-dasharray="4 3" opacity=".75"/>`:'')+
+    (antVazia?`<text x="${W/2}" y="${P.t+14}" text-anchor="middle" fill="var(--rotulo)" font-size="11.5"
+       font-family="Inter">sem dado no período anterior — nada a comparar</text>`:'')+
     `<path d="${linha(atual)}" fill="none" stroke="${cor(MARCA)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`+pts;
   const dica=$('#dica');
   svg.onmousemove=e=>{
@@ -550,7 +550,14 @@ function render(){
     <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
     <div class="kpi-rodape">${chip(k.d)}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-  grafico(G.serie(API,MARCA,ini,fim,METRICA),G.serie(API,MARCA,ant.ini,ant.fim,METRICA));
+  const sAtual=G.serie(API,MARCA,ini,fim,METRICA), sAnt=G.serie(API,MARCA,ant.ini,ant.fim,METRICA);
+  const temAnt=CMP&&sAnt.some(p=>p.v!==null);
+  grafico(sAtual,sAnt);
+  const ultConv=(API.crm_conversao||[]).reduce((a,r)=>{const d=String(r.coletado_em||'');return d>a?d:a;},'');
+  const hConv=ultConv?new Date(ultConv).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):null;
+  $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
+    temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
+    (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':''].filter(Boolean).join('');
 
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
@@ -565,6 +572,14 @@ function render(){
     const frac=temRec&&emJogo?Math.max(.6,100*car.receita/emJogo):0;
     const taxa=temRec&&car.carrinhosMedidos?(100*car.recuperados/car.carrinhosMedidos):null;
     const naoMedidos=car.dias-car.diasMedidos;
+    // Um carrinho de hoje ainda tem ate 72h para voltar. Marcar os dias imaturos
+    // evita a leitura de que "hoje esta pessimo" quando so nao terminou.
+    const hoje=new Date().toISOString().slice(0,10);
+    const imaturos=(API.crm_carrinho||[])
+      .filter(r=>(MARCA==='todas'||r.marca===MARCA)&&G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
+      .filter(r=>G.diasEntre(String(r.dia).slice(0,10),hoje)<=3)
+      .map(r=>String(r.dia).slice(0,10));
+    const nImaturos=new Set(imaturos).size;
     $('#area-carrinho').innerHTML=`
       <div class="funil">
         <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
@@ -582,7 +597,8 @@ function render(){
             <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
             <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos):0}% do resgate é do CRM</span>
           </div></div>`:''}
-        ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) do período ficaram de fora: a conversão ainda não foi coletada neles. Excluídos em vez de contarem como zero.</div>`:''}
+        ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
+        ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
         <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${Math.round(100*car.consent/car.carrinhos)}%).</div>
         ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
           const tv=m.carrinhos?(100*m.voltou/m.carrinhos):null;
