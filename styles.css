@@ -384,3 +384,40 @@ select {
 .frust-barra { height: 7px; background: var(--neutro-bg); border-radius: 4px; overflow: hidden; }
 .frust-barra i { display: block; height: 100%; background: var(--ruim); opacity: .75; border-radius: 4px; }
 .frust-n { text-align: right; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ===================== IDENTIDADE POR MARCA =====================
+   Uma marca selecionada tinta a pagina inteira: fundo, acento, regua do topo.
+   Os fundos sao os das proprias lojas, extraidos do tema Shopify de cada uma:
+     Aristocrata #fffbec (creme, mesmo do sistema Alma da Roca)
+     Fishermans  #f8f9fa (branco/cinza)
+     Olivas      #f7f6f2 (bege quente)
+   O CX usa data-marca="aristocrata"/"fishermans"; o Growth usa "aristo"/"fish".
+   As duas convencoes sao aceitas para nao ter que mexer no app.js.
+   Transicao suave porque a troca de marca repinta a tela inteira de uma vez. */
+body { transition: background-color .28s ease; }
+body[data-marca="todas"]      { --marca:#55524c; --marca-fraca:#eceae6; }
+body[data-marca="aristo"],
+body[data-marca="aristocrata"] { --fundo:#fffbec; --marca:#b9822d; --marca-fraca:#f6ecdb; }
+body[data-marca="fish"],
+body[data-marca="fishermans"]  { --fundo:#f8f9fa; --marca:#22808d; --marca-fraca:#dff0f2; }
+body[data-marca="olivas"]      { --fundo:#f7f6f2; --marca:#6f7f33; --marca-fraca:#eaeedc; }
+body[data-marca] .topo        { border-bottom: 2px solid var(--marca); }
+body[data-marca] .seg button.ativo { box-shadow: inset 0 -2px 0 var(--marca), 0 1px 3px rgba(32,31,29,.12); }
+
+/* Archivo e a face do sistema de marca da Shrigma. Numero grande e titulo usam ela;
+   Inter continua na UI e no texto corrido. */
+h1, .kpi-val { font-family: "Archivo", var(--ui); letter-spacing: -.015em; font-weight: 800; }
+body[data-marca] .kpi-val { color: var(--marca); }
+.kpi-val.vazio-val { color: var(--rotulo); font-weight: 600; font-size: 22px; }
+
+/* Logos: as tres tem naturezas incompativeis (mascote PNG cheio, simbolo SVG vazado
+   que some no fundo claro, JPEG com fundo branco proprio). O chip iguala o peso
+   visual sem precisar editar arquivo de marca. */
+.marcas { display:flex; align-items:center; gap:6px; }
+.marcas .chipe { width:36px; height:36px; border-radius:9px; background:#fff;
+  border:1px solid var(--borda); display:grid; place-items:center; overflow:hidden; flex:0 0 auto; }
+.marcas .chipe img { max-width:26px; max-height:26px; width:auto; height:auto;
+  object-fit:contain; display:block; }
+.marcas.uma .chipe { width:44px; height:44px; border-radius:11px; border-color:var(--marca); }
+.marcas.uma .chipe img { max-width:32px; max-height:32px; }
+@media (prefers-reduced-motion: reduce) { body { transition: none; } }
