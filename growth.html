@@ -6,16 +6,40 @@
 <title>Growth · Grupo Shrigma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
    start trava as linhas na altura do conteudo. */
+/* ---- tema por marca: uma variavel manda em tudo que e colorido ----
+   Vem do data-marca no <body>. Os hex sao os mesmos do styles.css do CX. */
+body[data-marca=todas]  {--marca:#55524c; --marca-fraca:#eceae6}
+body[data-marca=aristo] {--marca:#b9822d; --marca-fraca:#f6ecdb}
+body[data-marca=fish]   {--marca:#22808d; --marca-fraca:#dff0f2}
+body[data-marca=olivas] {--marca:#6f7f33; --marca-fraca:#eaeedc}
+/* Archivo e a face do sistema de marca da Shrigma (Alma da Roca). Display e numero
+   grande usam ela; Inter fica para UI e texto corrido. */
+.kpi-val,.braco .m,.secoes button,h1{font-family:"Archivo",var(--ui);letter-spacing:-.015em}
+.kpi-val{font-weight:800;color:var(--marca)}
+/* sem dado nao pode parecer dado: o travessao em Archivo 800 virava uma barra colorida */
+.kpi-val.vazio-val{color:var(--rotulo);font-weight:600;font-size:22px}
+h1{font-weight:800}
+.topo{border-bottom:2px solid var(--marca)}
+.secoes button.ativo{color:var(--marca);border-bottom-color:var(--marca)}
+.seg button.ativo{box-shadow:inset 0 -2px 0 var(--marca)}
 main{align-content:start}
 /* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
    inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
 main>*{min-width:0}
+.marcas{display:flex;align-items:center;gap:6px}
+/* chip: as tres logos tem naturezas diferentes (mascote PNG cheio, simbolo SVG vazado,
+   JPEG com fundo proprio). O chip iguala peso visual sem editar os arquivos. */
+.marcas .chipe{width:36px;height:36px;border-radius:9px;background:var(--card);
+  border:1px solid var(--borda);display:grid;place-items:center;overflow:hidden;flex:0 0 auto}
+.marcas .chipe img{max-width:26px;max-height:26px;width:auto;height:auto;object-fit:contain;display:block}
+.marcas.uma .chipe{width:44px;height:44px;border-radius:11px;border-color:var(--marca)}
+.marcas.uma .chipe img{max-width:32px;max-height:32px}
 .rolagem{max-width:100%}
 /* faixa vazia continua ocupando um `gap` de 22px do grid */
 #faixa-alertas:empty{display:none}
@@ -79,6 +103,18 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
 .braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
 .braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+/* Barra do dinheiro em jogo. A fatia recuperada e sólida; o resto fica hachurado
+   porque nao e "vazio" — e valor que existiu e foi embora. */
+.funil{margin:2px 0 4px}
+.funil-num{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.funil-num b{font:800 30px/1 "Archivo",var(--ui);color:var(--marca);font-variant-numeric:tabular-nums}
+.funil-num span{font:500 12.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-barra{height:24px;border-radius:6px;overflow:hidden;display:flex;
+  background:repeating-linear-gradient(135deg,var(--neutro-bg) 0 6px,#e4e1db 6px 12px)}
+.funil-barra i{display:block;background:var(--marca);height:100%}
+.funil-leg{display:flex;justify-content:space-between;margin-top:7px;
+  font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-marcas{margin-top:14px;border-top:1px solid var(--borda);padding-top:4px}
 @media (max-width:640px){
   .bracos{grid-template-columns:1fr}
   .galho{grid-template-columns:1fr 60px;row-gap:4px}
@@ -91,8 +127,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
 <header class="topo">
   <div class="titulo">
-    <span class="logo">GS</span>
-    <div><h1>Growth &amp; CRM</h1><p class="sub">Grupo Shrigma · e-mail e WhatsApp</p></div>
+    <span class="marcas" id="marcas-topo"></span>
+    <div><h1>Growth &amp; CRM</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
   <nav class="filtros" aria-label="Filtros">
     <div class="abas"><a href="index.html">Suporte</a><a href="growth.html" class="ativo">Growth</a></div>
@@ -145,6 +181,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
         <span><i style="background:var(--todas)"></i>período atual</span>
         <span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>
       </div>
+    </section>
+    <section class="painel" id="painel-carrinho">
+      <div class="painel-cab"><h2>Carrinho abandonado</h2><span class="mini" id="car-rot"></span></div>
+      <div id="area-carrinho"></div>
     </section>
     <section class="painel">
       <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
@@ -279,6 +319,32 @@ const G = {
   },
   delta(a,b,medido){if(!medido||b===null||b===0)return null;return +(100*(a-b)/b).toFixed(1);},
 
+  carrinho(api,marca,ini,fim){
+    const linhas=(api.crm_carrinho||[])
+      .filter(r=>marca==='todas'||r.marca===marca)
+      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim));
+    if(!linhas.length)return null;
+    const s=(k)=>linhas.reduce((a,r)=>a+(+r[k]||0),0);
+    // dias sem cobertura da crm_conversao gravam NULL: separados para nao virar 0%
+    const medidos=linhas.filter(r=>r.recuperados!==null&&r.recuperados!==undefined);
+    const sm=(k)=>medidos.reduce((a,r)=>a+(+r[k]||0),0);
+    const porMarca={};
+    linhas.forEach(r=>{
+      const a=porMarca[r.marca]||(porMarca[r.marca]={marca:r.marca,carrinhos:0,valor:0,rec:0,receita:0,medido:false});
+      a.carrinhos+=+r.carrinhos||0; a.valor+=+r.valor_em_jogo||0;
+      if(r.recuperados!==null&&r.recuperados!==undefined){a.medido=true;a.rec+=+r.recuperados;a.receita+=+r.receita_recuperada||0;}
+    });
+    // linhas sao marca x dia: contar DIAS distintos, senao "7 dias" vira "14"
+    const dd=new Set(linhas.map(r=>String(r.dia).slice(0,10)));
+    const dm=new Set(medidos.map(r=>String(r.dia).slice(0,10)));
+    return {carrinhos:s('carrinhos'), valor:s('valor_em_jogo'), consent:s('com_consent'),
+      dias:dd.size, diasMedidos:dm.size,
+      recuperados:medidos.length?sm('recuperados'):null,
+      receita:medidos.length?sm('receita_recuperada'):null,
+      valorMedido:sm('valor_em_jogo'),
+      carrinhosMedidos:sm('carrinhos'),
+      porMarca:Object.values(porMarca).sort((a,b)=>b.valor-a.valor)};
+  },
   conversao(api,marca,ini,fim){
     const agg=new Map();
     (api.crm_conversao||[]).forEach(r=>{
@@ -383,6 +449,19 @@ let API=null,MARCA='todas',SEC='visao',METRICA='receita',CMP=true;
 const HOJE=new Date().toISOString().slice(0,10);
 let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
+const LOGO={
+  aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
+  fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
+  olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+function pintaMarca(){
+  document.body.dataset.marca=MARCA;
+  const uma=MARCA!=='todas';
+  const el=$('#marcas-topo');
+  el.className='marcas'+(uma?' uma':'');
+  el.innerHTML=(uma?[MARCA]:['aristo','fish','olivas'])
+    .map(m=>`<span class="chipe" title="${G.MARCA[m]}"><img src="${LOGO[m]}" alt="${G.MARCA[m]}" loading="lazy"></span>`).join('');
+  $('#sub-topo').textContent=uma?`${G.MARCA[MARCA]} · e-mail e WhatsApp`:'Grupo Shrigma · três marcas';
+}
 const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
   :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
 
@@ -464,6 +543,7 @@ function renderTestes(){
 
 function render(){
   if(!API)return;
+  pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
   const cs=G.campanhas(API,MARCA,ini,fim),conv=G.conversao(API,MARCA,ini,fim);
   const tot=G.totais(cs,conv);
@@ -478,10 +558,46 @@ function render(){
     {r:'CTOR',v:pf(tot.ctor),d:G.delta(tot.ctor,totA.ctor,medidoAnt),s:'clicou ÷ abriu — mede a peça'},
     {r:'CTR',v:pf(tot.ctr),d:G.delta(tot.ctr,totA.ctr,medidoAnt),s:'clicou ÷ entregue'},
     {r:'Reclamação',v:pf(tot.complPct),d:G.delta(tot.complPct,totA.complPct,true),s:`limite SES 0,1% · ${nf(tot.complaints)} no período`},
-  ].map(k=>`<div class="kpi"><div class="kpi-rot">${k.r}</div><div class="kpi-val tabn">${k.v}</div>
+  ].map(k=>`<div class="kpi"><div class="kpi-rot">${k.r}</div>
+    <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
     <div class="kpi-rodape">${chip(k.d)}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
   grafico(G.serie(API,MARCA,ini,fim,METRICA),G.serie(API,MARCA,ant.ini,ant.fim,METRICA));
+
+  const car=G.carrinho(API,MARCA,ini,fim);
+  $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
+  if(!car){
+    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período.</div>';
+  } else {
+    // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
+    // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".
+    const temRec=car.recuperados!==null&&car.diasMedidos>0;
+    const emJogo=temRec?car.valorMedido:car.valor;
+    const perdido=Math.max(0,emJogo-(car.receita||0));
+    const frac=temRec&&emJogo?Math.max(.6,100*car.receita/emJogo):0;
+    const taxa=temRec&&car.carrinhosMedidos?(100*car.recuperados/car.carrinhosMedidos):null;
+    const naoMedidos=car.dias-car.diasMedidos;
+    $('#area-carrinho').innerHTML=`
+      <div class="funil">
+        <div class="funil-num"><b>${rf(perdido)}</b>
+          <span>abandonados e não recuperados em ${temRec?car.diasMedidos:car.dias} dia(s)${temRec?` · ${rf(car.receita)} de volta`:''}</span></div>
+        <div class="funil-barra"><i style="width:${frac}%"></i></div>
+        <div class="funil-leg">
+          <span>${nf(temRec?car.carrinhosMedidos:car.carrinhos)} carrinhos · ${rf(emJogo)} em jogo</span>
+          <span>${temRec?`${nf(car.recuperados)} recuperados · ${taxa.toFixed(2)}%`:'recuperação ainda não medida'}</span>
+        </div>
+        ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) do período ficaram de fora: a conversão ainda não foi coletada neles. Excluídos em vez de contarem como zero.</div>`:''}
+        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${Math.round(100*car.consent/car.carrinhos)}%).</div>
+        ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
+          const t=m.medido&&m.carrinhos?(100*m.rec/m.carrinhos):null;
+          const mx=car.porMarca[0].valor||1;
+          return `<div class="galho"><div><div class="rot">${G.MARCA[m.marca]||m.marca}</div>
+            <div class="flx">${nf(m.carrinhos)} carrinhos · ${t!==null?t.toFixed(2)+'% recuperado':'não medido'}</div></div>
+            <div class="barra"><i style="width:${100*m.valor/mx}%;background:${cor(m.marca)}"></i></div>
+            <div class="num tabn">${rf(m.valor)}</div>
+            <div><span class="tag ${m.marca}">${nf(m.rec)}</span></div></div>`;}).join('')+`</div>`:''}
+      </div>`;
+  }
 
   $('#area-top').innerHTML=conv.length?conv.slice(0,5).map(c=>{
     const mx=conv[0].receita||1;
