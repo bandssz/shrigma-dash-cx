@@ -428,18 +428,29 @@ let API=null,MARCA='todas',SEC='visao',METRICA='receita',CMP=true;
 const HOJE=new Date().toISOString().slice(0,10);
 let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
+// Logotipo tipografico de cada loja. Assets de naturezas diferentes:
+// aristo tem versao creme (direto na barra escura), fish e preto com contorno
+// (invert deixa legivel no navy), olivas so existe em JPEG com fundo branco.
 const LOGO={
-  aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
-  fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
-  olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+  aristo:{src:'https://oaristocrata.com/cdn/shop/files/logotipo_aristocrata_ffefd3.png?height=140',cls:'wm'},
+  fish:{src:'https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=140',cls:'wm inverter'},
+  olivas:{src:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=140',cls:'placa'}};
+// Pre-carrega os tres logotipos: sem isso, trocar de marca mostra um buraco
+// no cabecalho ate o PNG chegar (o da Fishermans tem ~112 KB).
+Object.values(LOGO).forEach(l=>{const i=new Image(); i.src=l.src;});
 function pintaMarca(){
   document.body.dataset.marca=MARCA;
   const uma=MARCA!=='todas';
   const el=$('#marcas-topo');
   el.className='marcas';
-  el.innerHTML = uma
-    ? `<span class="chipe" title="${G.MARCA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA[MARCA]}" loading="lazy"></span>`
-    : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+  if(uma){
+    const L=LOGO[MARCA], n=G.MARCA_CHEIA[MARCA];
+    el.innerHTML = L.cls==='placa'
+      ? `<span class="placa"><img src="${L.src}" alt="${n}"></span>`
+      : `<img class="${L.cls}" src="${L.src}" alt="${n}">`;
+  } else {
+    el.innerHTML='<span class="sigla" title="Grupo Shrigma">GS</span>';
+  }
   $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · e-mail e WhatsApp`:'Grupo Shrigma · três marcas';
 }
 const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
