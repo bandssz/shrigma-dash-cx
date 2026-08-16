@@ -6,7 +6,7 @@
 <title>Growth · Grupo Shrigma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
@@ -111,9 +111,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <div class="abas"><a href="index.html">Suporte</a><a href="growth.html" class="ativo">Growth</a></div>
     <div class="seg" role="group" aria-label="Marca" id="seg-marca">
       <button data-marca="todas" class="ativo">Consolidada</button>
-      <button data-marca="aristo">Aristocrata</button>
+      <button data-marca="aristo">O Aristocrata</button>
       <button data-marca="fish">Fishermans</button>
-      <button data-marca="olivas">Olivas</button>
+      <button data-marca="olivas">Olivas do Campo</button>
     </div>
   </nav>
   <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
@@ -256,6 +256,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 /* ================= dados: só matemática, testável com node ================= */
 const G = {
   MARCA:{aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'},
+  // nome por extenso: cabecalho usa o nome cheio, tag de tabela usa o curto
+  MARCA_CHEIA:{aristo:'O Aristocrata',fish:'Fishermans',olivas:'Olivas do Campo'},
   TRACKING_DESDE:'2026-07-19',
   iso:d=>d.toISOString().slice(0,10),
   addDias(s,n){const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return G.iso(d);},
@@ -434,10 +436,11 @@ function pintaMarca(){
   document.body.dataset.marca=MARCA;
   const uma=MARCA!=='todas';
   const el=$('#marcas-topo');
-  el.className='marcas'+(uma?' uma':'');
-  el.innerHTML=(uma?[MARCA]:['aristo','fish','olivas'])
-    .map(m=>`<span class="chipe" title="${G.MARCA[m]}"><img src="${LOGO[m]}" alt="${G.MARCA[m]}" loading="lazy"></span>`).join('');
-  $('#sub-topo').textContent=uma?`${G.MARCA[MARCA]} · e-mail e WhatsApp`:'Grupo Shrigma · três marcas';
+  el.className='marcas';
+  el.innerHTML = uma
+    ? `<span class="chipe" title="${G.MARCA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA[MARCA]}" loading="lazy"></span>`
+    : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · e-mail e WhatsApp`:'Grupo Shrigma · três marcas';
 }
 const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
   :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
