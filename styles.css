@@ -411,12 +411,12 @@ body[data-marca] .kpi-val { color: var(--marca); }
 .kpi-val.vazio-val { color: var(--rotulo); font-weight: 600; font-size: 22px; }
 
 /* ---- Wordmarks: o seletor de marca E a marca ----
-   Cada botao usa a tipografia real da propria loja, nao um rotulo generico:
-     O Aristocrata  -> Archivo, a face do sistema de marca (Alma da Roca)
-     Fishermans     -> Roboto Condensed, a heading do tema da loja
-     Olivas do Campo-> Jost, a face do tema da loja
-   Os tamanhos e o tracking sao ajustados por marca porque as tres faces tem
-   larguras muito diferentes; sem isso uma domina opticamente as outras. */
+   Cada botao usa a tipografia real da propria loja:
+     O Aristocrata   -> Archivo, face do sistema de marca (Alma da Roca)
+     Fishermans      -> Roboto Condensed, heading do tema da loja
+     Olivas do Campo -> Jost, face do tema da loja
+   Tamanho e tracking calibrados por marca: Archivo 900 e muito mais pesado que
+   Jost 400 e sem ajuste domina opticamente os outros dois. */
 .seg button[data-marca] { font-size:12px; text-transform:uppercase; padding:7px 13px; }
 .seg button[data-marca="todas"] {
   font:600 11.5px/1 var(--ui); letter-spacing:.06em; text-transform:uppercase; }
@@ -428,20 +428,59 @@ body[data-marca] .kpi-val { color: var(--marca); }
   font-family:"Roboto Condensed",var(--ui); font-weight:700; letter-spacing:.13em; font-size:13px; }
 .seg button[data-marca="olivas"] {
   font-family:"Jost",var(--ui); font-weight:400; letter-spacing:.19em; font-size:12px; }
-.seg button[data-marca="aristo"].ativo,
-.seg button[data-marca="aristocrata"].ativo { color:#b9822d; }
-.seg button[data-marca="fish"].ativo,
-.seg button[data-marca="fishermans"].ativo { color:#22808d; }
-.seg button[data-marca="olivas"].ativo     { color:#6f7f33; }
 
-/* Marca no topo: UMA so, a ativa. Tres empilhadas viravam uma coluna de logos
-   e comiam o cabecalho inteiro. */
+/* ---- Cabecalho na cor escura da marca ----
+   Escuros vindos do tema de cada loja: Aristocrata #3f502f (verde mata),
+   Fishermans #1a1c2e (navy), Olivas #1c2413 (oliva escuro).
+   O corpo do painel continua no fundo claro da marca — o contraste entre a barra
+   escura e o papel claro e o que da identidade sem sujar a leitura dos numeros. */
+body[data-marca="aristo"],  body[data-marca="aristocrata"] { --barra:#3f502f; }
+body[data-marca="fish"],    body[data-marca="fishermans"]  { --barra:#1a1c2e; }
+body[data-marca="olivas"]                                   { --barra:#1c2413; }
+
+body[data-marca]:not([data-marca="todas"]) .topo {
+  background: var(--barra); border-bottom-color: rgba(255,255,255,.14); }
+body[data-marca]:not([data-marca="todas"]) .topo h1,
+body[data-marca]:not([data-marca="todas"]) .topo #relogio { color:#fff; }
+body[data-marca]:not([data-marca="todas"]) .topo .sub { color:rgba(255,255,255,.62); }
+body[data-marca]:not([data-marca="todas"]) .topo .seg { background:rgba(255,255,255,.12); }
+body[data-marca]:not([data-marca="todas"]) .topo .seg button { color:rgba(255,255,255,.66); }
+body[data-marca]:not([data-marca="todas"]) .topo .seg button:hover { color:#fff; }
+body[data-marca]:not([data-marca="todas"]) .topo .seg button.ativo {
+  background:#fff; color:var(--barra); box-shadow:none; }
+body[data-marca]:not([data-marca="todas"]) .topo select,
+body[data-marca]:not([data-marca="todas"]) .topo .btn-periodo {
+  background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); color:#fff; }
+body[data-marca]:not([data-marca="todas"]) .topo .btn-periodo .caret { color:rgba(255,255,255,.6); }
+body[data-marca]:not([data-marca="todas"]) .topo .frescor {
+  background:rgba(255,255,255,.14); color:#fff; }
+body[data-marca]:not([data-marca="todas"]) .topo .frescor.velho { background:var(--ruim); color:#fff; }
+body[data-marca]:not([data-marca="todas"]) .abas { background:rgba(255,255,255,.12); }
+body[data-marca]:not([data-marca="todas"]) .abas a { color:rgba(255,255,255,.66); }
+body[data-marca]:not([data-marca="todas"]) .abas a.ativo { background:#fff; color:var(--barra); }
+
+/* ---- Logotipo tipografico, nao o mascote ----
+   Cada marca so tem um asset utilizavel e eles sao diferentes entre si:
+     Aristocrata: existe versao creme, vai direto na barra escura.
+     Fishermans:  preto com contorno branco; invert(1) deixa a letra branca
+                  com contorno escuro, legivel no navy sem perder a forma.
+     Olivas:      so existe JPEG com fundo branco assado. Vai numa placa clara.
+                  Trocar por um PNG transparente resolve e a regra some. */
 .marcas { display:flex; align-items:center; }
-.marcas .chipe { width:38px; height:38px; border-radius:10px; background:#fff;
-  border:1px solid var(--borda); display:grid; place-items:center; overflow:hidden; flex:0 0 auto; }
-body[data-marca]:not([data-marca="todas"]) .marcas .chipe { border-color:var(--marca); }
-.marcas .chipe img { max-width:27px; max-height:27px; width:auto; height:auto;
-  object-fit:contain; display:block; }
+.marcas img { display:block; width:auto; }
+.marcas .wm { height:30px; max-width:190px; object-fit:contain; }
+.marcas .wm.inverter { filter:invert(1); }
+.marcas .placa { background:#fff; border-radius:8px; padding:4px 8px; display:grid; place-items:center; }
+.marcas .placa img { height:30px; max-width:130px; object-fit:contain; }
 .marcas .sigla { font:800 13px/1 "Archivo",var(--ui); letter-spacing:.5px; color:#fff;
   background:var(--texto); padding:9px 10px; border-radius:10px; }
+@media (max-width:720px){
+  .marcas .wm{height:24px;max-width:130px} .marcas .placa img{height:24px}
+  /* Os wordmarks sao mais largos que rotulos genericos: em tela estreita o
+     seletor rola na horizontal em vez de empurrar a pagina inteira. */
+  .filtros{ max-width:100%; }
+  .seg{ overflow-x:auto; scrollbar-width:none; max-width:100%; }
+  .seg::-webkit-scrollbar{ display:none; }
+  .seg button{ white-space:nowrap; flex:0 0 auto; }
+}
 @media (prefers-reduced-motion: reduce) { body { transition: none; } }
