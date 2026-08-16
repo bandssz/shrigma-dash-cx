@@ -6,7 +6,7 @@
 <title>CX · Grupo Shrigma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
@@ -18,7 +18,7 @@
 
 <header class="topo">
   <div class="titulo">
-    <span class="logo">GS</span>
+    <span class="marcas" id="marcas-topo"></span>
     <div>
       <h1>Central de Suporte</h1>
       <p class="sub">Grupo Shrigma · <span id="rotulo-janela">hoje</span></p>
@@ -168,5 +168,33 @@
 <script src="config.js"></script>
 <script src="dados.js"></script>
 <script src="app.js"></script>
+
+<script>
+/* Espelha a marca selecionada no <body> para o CSS tintar a pagina.
+   Observa o botao ativo em vez de alterar o app.js: o estado ja vive la,
+   duplicar a logica criaria duas fontes de verdade. */
+(function(){
+  var LOGO={
+    aristocrata:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
+    fishermans:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
+    olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+  var NOME={aristocrata:'O Aristocrata',fishermans:'Fishermans',olivas:'Olivas do Campo'};
+  var seg=document.getElementById('seg-marca'), topo=document.getElementById('marcas-topo');
+  if(!seg||!topo) return;
+  function pinta(){
+    var b=seg.querySelector('button.ativo');
+    var m=(b&&b.dataset.marca)||'todas';
+    if(document.body.dataset.marca===m) return;
+    document.body.dataset.marca=m;
+    var uma=m!=='todas';
+    topo.className='marcas'+(uma?' uma':'');
+    topo.innerHTML=(uma?[m]:['aristocrata','fishermans','olivas']).map(function(k){
+      return '<span class="chipe" title="'+NOME[k]+'"><img src="'+LOGO[k]+'" alt="'+NOME[k]+'" loading="lazy"></span>';
+    }).join('');
+  }
+  new MutationObserver(pinta).observe(seg,{subtree:true,attributes:true,attributeFilter:['class']});
+  pinta();
+})();
+</script>
 </body>
 </html>
