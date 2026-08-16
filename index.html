@@ -174,11 +174,15 @@
    Observa o botao ativo em vez de alterar o app.js: o estado ja vive la,
    duplicar a logica criaria duas fontes de verdade. */
 (function(){
+  /* Logotipo tipografico de cada loja. As tres tem naturezas diferentes:
+     aristocrata tem versao creme (vai direto na barra escura),
+     fishermans e preto com contorno (invert deixa legivel no navy),
+     olivas so existe em JPEG com fundo branco (vai em placa clara). */
   var LOGO={
-    aristocrata:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
-    fishermans:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
-    olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
-  var NOME={aristocrata:'O Aristocrata',fishermans:'Fishermans',olivas:'Olivas do Campo'};
+    aristocrata:{src:'https://oaristocrata.com/cdn/shop/files/logotipo_aristocrata_ffefd3.png?height=140',cls:'wm',nome:'O Aristocrata'},
+    fishermans:{src:'https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=140',cls:'wm inverter',nome:'Fishermans'},
+    olivas:{src:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=140',cls:'placa',nome:'Olivas do Campo'},
+  };
   var seg=document.getElementById('seg-marca'), topo=document.getElementById('marcas-topo');
   if(!seg||!topo) return;
   function pinta(){
@@ -188,10 +192,18 @@
     document.body.dataset.marca=m;
     var uma=m!=='todas';
     topo.className='marcas';
-    topo.innerHTML = uma
-      ? '<span class="chipe" title="'+NOME[m]+'"><img src="'+LOGO[m]+'" alt="'+NOME[m]+'" loading="lazy"></span>'
-      : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+    if(uma){
+      var L=LOGO[m];
+      topo.innerHTML = L.cls==='placa'
+        ? '<span class="placa"><img src="'+L.src+'" alt="'+L.nome+'"></span>'
+        : '<img class="'+L.cls+'" src="'+L.src+'" alt="'+L.nome+'">';
+    } else {
+      topo.innerHTML = '<span class="sigla" title="Grupo Shrigma">GS</span>';
+    }
   }
+  /* Pre-carrega os tres logotipos: sem isso, trocar de marca mostra um buraco
+     no cabecalho ate o PNG chegar (o da Fishermans tem ~112 KB). */
+  Object.keys(LOGO).forEach(function(k){ var i=new Image(); i.src=LOGO[k].src; });
   new MutationObserver(pinta).observe(seg,{subtree:true,attributes:true,attributeFilter:['class']});
   pinta();
 })();
