@@ -133,9 +133,11 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <main>
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
+      <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
+      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
       <button data-p="7">7 dias</button><button data-p="30">30 dias</button>
       <button data-p="90" class="ativo">90 dias</button>
-      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
     </div>
     <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
   </div>
@@ -286,12 +288,17 @@ const G = {
 let MARCA='todas', SEC='influ';
 const isoBR=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const HOJE=isoBR(new Date());
+const dm=(s,n)=>{const x=new Date(s+'T12:00:00Z');x.setDate(x.getDate()+n);return isoBR(x);};
+// 0=domingo no getUTCDay; queremos segunda como inicio, entao domingo vira 6.
+const segunda=s=>{const x=new Date(s+'T12:00:00Z');const w=(x.getUTCDay()+6)%7;return dm(s,-w);};
 function preset(p){
-  const d=s=>{const x=new Date(HOJE+'T12:00:00Z');x.setDate(x.getDate()-s);return isoBR(x);};
+  if(p==='hoje')return {ini:HOJE,fim:HOJE};
+  if(p==='ontem'){const y=dm(HOJE,-1);return {ini:y,fim:y};}
+  if(p==='semana')return {ini:segunda(HOJE),fim:HOJE};
+  if(p==='semanaant'){const s=dm(segunda(HOJE),-7);return {ini:s,fim:dm(s,6)};}
   if(p==='mes')return {ini:HOJE.slice(0,8)+'01',fim:HOJE};
-  if(p==='mesant'){const x=new Date(HOJE+'T12:00:00Z');x.setDate(0);
-    const f=isoBR(x);return {ini:f.slice(0,8)+'01',fim:f};}
-  return {ini:d(+p-1),fim:HOJE};
+  if(p==='mesant'){const f=dm(HOJE.slice(0,8)+'01',-1);return {ini:f.slice(0,8)+'01',fim:f};}
+  return {ini:dm(HOJE,-(+p-1)),fim:HOJE};
 }
 let PER=preset('90');
 const LOGO={
@@ -342,13 +349,16 @@ async function carregarInflu(){
 function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();}
 function renderKPIs(){
   const k=G.influKPI(INFLU.roi,MARCA);
+  k.receitaCupom=(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
+    .reduce((a,x)=>a+(+x.receita||0),0);
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
-    {r:'Receita rastreada',v:rf(k.receita),s:`${nf(k.creators)} creators · ${PER.ini} a ${PER.fim}`},
+    {r:'Receita rastreada',v:rf(k.receitaCupom),s:`todos os cupons · ${PER.ini} a ${PER.fim}`},
+    {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
     {r:'ROI',v:`<span class="${cls.trim()}">${roiTxt}</span>`,s:'receita ÷ (custo lançado + comissão)'},
     {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} lançado · ${rf(k.comissao)} comissão`},
-    {r:'Retorno líquido',v:rf(k.lucro),s:'receita rastreada menos investimento'}
+    {r:'Retorno líquido',v:rf(k.lucro),s:'receita com dono menos investimento'}
   ].map(x=>`<div class="kpi"><div class="kpi-rot">${x.r}</div>
     <div class="kpi-val tabn">${x.v}</div>
     <div class="kpi-sub">${x.s}</div></div>`).join('');
@@ -359,6 +369,8 @@ function renderKPIs(){
   const semMensal=(INFLU.roi||[]).filter(x=>x.fonte_custo==='planilha-90d'&&x.receita!=null).length;
   if(semMensal)av.push(`${semMensal} creator(s) ainda sem <strong>custo mensal</strong> lançado — para esses o custo vem da planilha de 90 dias importada, rateado pelos dias da janela. É aproximação, não o valor do mês.`);
   if(k.freteZerado)av.push('Frete lançado como <strong>zero</strong> em pelo menos um creator. Com mais de 20 permutas enviadas isso é improvável, então o ROI dos permuta está superestimado.');
+  const semDono=k.receitaCupom-k.receita;
+  if(semDono>1)av.push(`<strong>${rf(semDono)}</strong> de receita em cupons ainda <strong>sem dono</strong> — não entra em ROI nem em comissão até alguém associar.`);
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita registrada — ficam fora de todos os números acima, não entram como zero.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
 }
@@ -399,6 +411,8 @@ function renderTabela(){
   $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
 
   const ROI=new Map((INFLU.roi||[]).map(x=>[x.marca+'|'+x.influ,x]));
+  // receita e do CUPOM, nao do influ: cupom sem dono tambem tem receita e precisa aparecer
+  const RC=new Map((INFLU.receita_cupom||[]).map(x=>[x.marca+'|'+x.codigo,x]));
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
@@ -406,7 +420,10 @@ function renderTabela(){
   else if(filtro==='outros')cs=cs.filter(c=>c.tipo!=='influ'&&c.tipo!=='pendente');
   cs.sort((a,b)=>{
     const ra=ROI.get(a.marca+'|'+a.influ),rb=ROI.get(b.marca+'|'+b.influ);
-    return (+(rb&&rb.receita)||0)-(+(ra&&ra.receita)||0)||(b.usos_lifetime||0)-(a.usos_lifetime||0);
+    const ca=RC.get(a.marca+'|'+a.codigo),cb=RC.get(b.marca+'|'+b.codigo);
+    return (+(cb&&cb.receita)||0)-(+(ca&&ca.receita)||0)
+        || (+(rb&&rb.receita)||0)-(+(ra&&ra.receita)||0)
+        || (b.usos_lifetime||0)-(a.usos_lifetime||0);
   });
 
   if(!cs.length){$('#area-tabela').innerHTML='<div class="vazio">Nada neste filtro.</div>';return;}
@@ -414,6 +431,7 @@ function renderTabela(){
   const TIPOS=['influ','pendente','crm','cortesia','campanha','suporte','app','desconhecido'];
   const linhas=cs.map(c=>{
     const v=ROI.get(c.marca+'|'+c.influ);
+    const rc=RC.get(c.marca+'|'+c.codigo);
     const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
     const optI=['<option value="">— sem influ —</option>'].concat(meus.map(i=>
       `<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
@@ -424,7 +442,8 @@ function renderTabela(){
     const det=[
       v&&v.porte?`porte ${esc(v.porte)}`:'', v&&v.modelo?`modelo ${esc(v.modelo)}`:'',
       c.influ_comissao_pct!=null?`comissão ${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:'',
-      v&&v.pedidos?`${nf(v.pedidos)} pedidos`:'',
+      rc?`${nf(rc.pedidos)} pedidos neste cupom`:'',
+      v&&v.pedidos?`${nf(v.pedidos)} pedidos no creator`:'',
       v&&+v.comissao?`comissão ${rf(v.comissao)}`:'',
       v&&+v.custo_lancado?`custo ${rf(v.custo_lancado)}`:'',
       v&&+v.investimento?`investido ${rf(v.investimento)}`:'',
@@ -436,7 +455,7 @@ function renderTabela(){
       <td class="i-cod"><button class="i-mais" title="detalhes">+</button> ${esc(c.codigo)}
         <div class="mini">${esc(G.MARCA[c.marca]||c.marca)}${v&&v.nome?' · '+esc(v.nome):''}${v&&!v.ativo?' · inativo':''}</div></td>
       <td><select class="i-sel i-i">${optI}</select></td>
-      <td class="num">${v&&v.receita!=null?rf(v.receita):'—'}</td>
+      <td class="num">${rc?rf(rc.receita):'—'}</td>
       <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
       <td><select class="i-sel i-t">${optT}</select>${semPct?' <span class="tag nulo">definir %</span>':''}</td>
       <td><button class="btn sec i-salvar" disabled>Salvar</button>
