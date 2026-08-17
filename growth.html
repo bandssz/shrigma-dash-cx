@@ -100,10 +100,6 @@ textarea{width:100%;resize:vertical;min-height:58px}
   #grafico{height:170px}
 }
 
-/* aba Influs */
-.i-fura td{background:#fff4ef}
-.i-fura .i-cod{font-weight:700}
-.i-sel{font:500 12.5px/1 var(--ui);padding:4px 6px;border:1px solid var(--borda);
   border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
 .i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
 .i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
@@ -119,7 +115,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <div><h1>Growth &amp; CRM</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
   <nav class="filtros" aria-label="Filtros">
-    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html" class="ativo">Growth</a></div>
+    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html" class="ativo">Growth</a><a href="influs.html">Influs</a></div>
     <div class="seg" role="group" aria-label="Marca" id="seg-marca">
       <button data-marca="todas" class="ativo">Consolidada</button>
       <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
@@ -152,7 +148,6 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <button data-s="regua">Régua<span class="n" id="n-regua"></span></button>
     <button data-s="arv">Árvore<span class="n" id="n-arv"></span></button>
     <button data-s="ab">Testes A/B<span class="n" id="n-ab"></span></button>
-    <button data-s="influ">Influs<span class="n" id="n-influ"></span></button>
   </nav>
 
   <div class="sec ativa" id="sec-visao">
@@ -281,51 +276,6 @@ textarea{width:100%;resize:vertical;min-height:58px}
     </section>
   </div>
 
-  <div class="sec" id="sec-influ">
-    <section class="painel">
-      <div class="painel-cab"><h2>Cupons &times; influs</h2>
-        <span><span class="mini" id="i-frescor"></span>
-        <select id="i-filtro" class="i-sel">
-          <option value="pendente">Pendentes de associa&ccedil;&atilde;o</option>
-          <option value="influ">J&aacute; associados</option>
-          <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
-          <option value="todos">Todos</option>
-        </select>
-        <button class="btn sec" id="i-btn-novo">Novo / editar influ</button></span></div>
-
-      <div id="i-form" hidden>
-        <div class="form">
-          <div class="campo"><label>Marca</label>
-            <select id="i-f-marca" class="i-sel"><option value="aristo">O Aristocrata</option>
-              <option value="fish">Fishermans</option><option value="olivas">Olivas do Campo</option></select></div>
-          <div class="campo"><label>Slug</label>
-            <input type="text" id="i-f-slug" placeholder="ursobranco">
-            <span class="ajuda">Slug que <strong>j&aacute; existe</strong> atualiza o cadastro dele (campo em branco n&atilde;o apaga o que j&aacute; est&aacute; l&aacute;)
-              &mdash; &eacute; assim que se corrige uma comiss&atilde;o. Min&uacute;sculo, sem acento e sem espa&ccedil;o. Tem que ser <strong>id&ecirc;ntico</strong> ao
-              <code>utm_content</code> dos links dele &mdash; &eacute; isso que faz a atribui&ccedil;&atilde;o por UTM funcionar sozinha.</span></div>
-          <div class="campo"><label>Nome</label><input type="text" id="i-f-nome" placeholder="Urso Branco"></div>
-          <div class="campo"><label>Handle</label><input type="text" id="i-f-handle" placeholder="@ursobranco"></div>
-          <div class="campo"><label>Comiss&atilde;o (%)</label>
-            <input type="number" id="i-f-com" step="0.5" value="5">
-            <span class="ajuda"><strong>5% &eacute; a regra</strong>; 10% s&oacute; para capivara e ursobranco.
-              N&atilde;o confundir com o desconto do cupom &mdash; s&atilde;o n&uacute;meros diferentes.
-              Deixar em branco grava NULL, que <strong>n&atilde;o paga nada</strong> at&eacute; alguem definir.
-              O pct fica congelado em cada pedido apurado, ent&atilde;o mudar aqui n&atilde;o reescreve comiss&atilde;o j&aacute; paga.</span></div>
-          <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
-            <button class="btn" id="i-f-salvar">Salvar influ</button>
-            <button class="btn sec" id="i-f-cancelar">Cancelar</button>
-            <span class="mini" id="i-f-msg"></span></div>
-        </div>
-      </div>
-
-      <div class="i-cont" id="i-contadores"></div>
-      <div id="area-influ"></div>
-      <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
-        <strong>n&atilde;o</strong> entra &mdash; n&atilde;o se paga o que n&atilde;o foi confirmado. Linhas destacadas s&atilde;o cupons
-        que hoje escapam da blacklist do relat&oacute;rio ShopifyQL e por isso poluem a apura&ccedil;&atilde;o.
-        Toda altera&ccedil;&atilde;o vai para <code>crm_cupom_log</code> com de&rarr;para e autor.</div>
-    </section>
-  </div>
 </main>
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
@@ -350,22 +300,6 @@ const G = {
   addDias(s,n){const d=new Date(s+'T12:00:00Z');d.setDate(d.getDate()+n);return G.iso(d);},
   diasEntre(a,b){return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5)+1;},
   anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
-  // Contadores da aba Influs. Matematica no G, testavel com node.
-  // 'pendente' = reconhecido como cupom de influ mas ainda sem dono: e a fila de trabalho.
-  influResumo(cupons, marca){
-    const c = (cupons||[]).filter(x => marca === 'todas' || x.marca === marca);
-    const soma = f => c.filter(f).reduce((a,x) => a + (+x.usos_lifetime || 0), 0);
-    return {
-      pendentes: c.filter(x => x.tipo === 'pendente').length,
-      associados: c.filter(x => x.tipo === 'influ').length,
-      usosSemDono: soma(x => x.tipo === 'pendente'),
-      usosAssociados: soma(x => x.tipo === 'influ'),
-      furos: c.filter(x => /FORA da blacklist/.test(x.obs || '')).length,
-      // associado porem sem pct: nao gera pagamento. NULL nunca vira 0 escondido.
-      semComissao: c.filter(x => x.tipo === 'influ' && x.influ_comissao_pct == null).length,
-      total: c.length
-    };
-  },
   preset(p,hoje){
     const d=new Date(hoje+'T12:00:00Z');
     if(p==='hoje')return{ini:hoje,fim:hoje};
@@ -1018,7 +952,6 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   if(SEC==='visao')render();
-  if(SEC==='influ')carregarInflu();
   // se a barra de secoes ficou acima da viewport, traz de volta
   const r=$('#secoes').getBoundingClientRect();
   if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
@@ -1034,135 +967,9 @@ $('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
 $('#f-cancelar').onclick=()=>{$('#form-teste').hidden=true;};
 $('#f-salvar').onclick=salvarTeste;
 
-// ===================== ABA INFLUS =====================
-// Cadastro cupom<->influ. Le e escreve pelo workflow proprio
-// "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
-// dominio de falha separado, igual ao coletor de conversao.
-let INFLU=null;
-
-function chaveEscritaInflu(){
-  let wk=localStorage.getItem('shrigma_influ_key');
-  if(!wk){wk=prompt('Chave de ESCRITA (cadastro de influs):');
-    if(!wk)return null;localStorage.setItem('shrigma_influ_key',wk);}
-  return wk;
-}
-async function influPost(corpo){
-  if(typeof INFLU_API_URL==='undefined')throw new Error('INFLU_API_URL não configurada em config.js');
-  const r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(corpo)});
-  let j={};try{j=await r.json();}catch(_){}
-  if(r.status===401){
-    if(corpo.acao!=='listar')localStorage.removeItem('shrigma_influ_key');
-    throw new Error('chave inválida');
-  }
-  if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
-  return j;
-}
-async function carregarInflu(){
-  const k=chave();if(!k)return;
-  try{INFLU=await influPost({k,acao:'listar'});renderInflu();}
-  catch(e){$('#area-influ').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
-}
-function renderInflu(){
-  if(!INFLU)return;
-  const filtro=$('#i-filtro').value;
-  const todos=INFLU.cupons||[];
-  const r=G.influResumo(todos,MARCA);
-  $('#n-influ').textContent=r.pendentes||'';
-  $('#i-contadores').innerHTML=[
-    ['Pendentes',nf(r.pendentes),'sem dono'],
-    ['Associados',nf(r.associados),'entram na comissão'],
-    ['Usos sem dono',nf(r.usosSemDono),'histórico não atribuído'],
-    ['Furos na blacklist',nf(r.furos),'poluem a apuração'],
-    ['Sem comissão',nf(r.semComissao),'associado mas não paga']
-  ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
-
-  const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
-  $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
-
-  let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
-  if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
-  else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
-  else if(filtro==='outros')cs=cs.filter(c=>c.tipo!=='influ'&&c.tipo!=='pendente');
-
-  if(!cs.length){
-    $('#area-influ').innerHTML=`<div class="vazio">Nada neste filtro.</div>`;return;}
-
-  const TIPOS=['influ','pendente','crm','cortesia','campanha','suporte','app','desconhecido'];
-  const linhas=cs.map(c=>{
-    const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
-    const optI=['<option value="">— sem influ —</option>'].concat(
-      meus.map(i=>`<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
-    const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
-    const fura=/FORA da blacklist/.test(c.obs||'');
-    // influ associado mas sem pct definido nao gera pagamento: precisa gritar, nao virar travessao
-    const semPct=c.tipo==='influ'&&c.influ_comissao_pct==null;
-    const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%'
-      :(semPct?'<span class="tag nulo" title="sem comissão definida: não paga">definir</span>':'—');
-    return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
-      <td><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></td>
-      <td class="i-cod">${esc(c.codigo)}</td>
-      <td class="num">${nf(c.usos_lifetime)}</td>
-      <td class="num">${c.desconto_pct!=null?(100*(+c.desconto_pct)).toFixed(0)+'%':'—'}</td>
-      <td><select class="i-sel i-t">${optT}</select></td>
-      <td><select class="i-sel i-i">${optI}</select></td>
-      <td class="num">${com}</td>
-      <td class="i-obs">${esc(c.obs||'')}</td>
-      <td><button class="btn sec i-salvar" disabled>Salvar</button>
-        <span class="mini i-msg"></span></td></tr>`;}).join('');
-
-  $('#area-influ').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
-    <th>Marca</th><th>Cupom</th><th class="num">Usos</th><th class="num">Desc.</th>
-    <th>Tipo</th><th>Influ</th><th class="num">Comissão</th><th>Observação</th><th></th>
-    </tr></thead><tbody>${linhas}</tbody></table></div>`;
-
-  document.querySelectorAll('#area-influ tbody tr').forEach(tr=>{
-    const bt=tr.querySelector('.i-salvar');
-    tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{bt.disabled=false;});
-    bt.onclick=()=>salvarCupom(tr);
-  });
-}
-async function salvarCupom(tr){
-  const msg=tr.querySelector('.i-msg'),bt=tr.querySelector('.i-salvar');
-  const tipo=tr.querySelector('.i-t').value,influ=tr.querySelector('.i-i').value;
-  // a mesma regra vive no banco (CHECK) e no workflow. Aqui e so para nao gastar round-trip.
-  if(tipo==='influ'&&!influ){msg.textContent='tipo=influ precisa de um influ';return;}
-  if(tipo!=='influ'&&influ){msg.textContent='só tipo=influ pode ter influ';return;}
-  const wk=chaveEscritaInflu();if(!wk)return;
-  bt.disabled=true;msg.textContent='…';
-  try{
-    const j=await influPost({k:wk,acao:'salvar_cupom',autor:(localStorage.getItem('shrigma_autor')||''),
-      cupom:{marca:tr.dataset.marca,codigo:tr.dataset.cod,tipo,influ}});
-    msg.textContent=j.ok?(j.alteracoes?'salvo':'sem mudança'):'cupom não encontrado';
-    if(j.ok&&j.alteracoes)await carregarInflu();
-  }catch(e){msg.textContent=esc(e.message);bt.disabled=false;}
-}
-async function salvarInflu(){
-  const msg=$('#i-f-msg');msg.textContent='';
-  const slug=$('#i-f-slug').value.trim().toLowerCase();
-  if(!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(slug)){
-    msg.textContent='slug: minúsculo, sem acento e sem espaço';return;}
-  const wk=chaveEscritaInflu();if(!wk)return;
-  const com=$('#i-f-com').value;
-  $('#i-f-salvar').disabled=true;
-  try{
-    await influPost({k:wk,acao:'salvar_influ',influ:{marca:$('#i-f-marca').value,influ:slug,
-      nome:$('#i-f-nome').value.trim(),handle:$('#i-f-handle').value.trim(),
-      comissao_pct:com===''?null:(+com/100)}});
-    msg.textContent='registrado.';
-    ['i-f-slug','i-f-nome','i-f-handle','i-f-com'].forEach(id=>$('#'+id).value='');
-    await carregarInflu();
-  }catch(e){msg.textContent='Falha: '+e.message;}
-  $('#i-f-salvar').disabled=false;
-}
-$('#i-filtro').onchange=renderInflu;
-$('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
-$('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
-$('#i-f-salvar').onclick=salvarInflu;
 
 addEventListener('resize',()=>API&&SEC==='visao'&&render());
 carregar();
-carregarInflu();
 setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
 </script>
 </body>
