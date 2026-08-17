@@ -560,12 +560,59 @@ function renderTestes(){
     return `<section class="painel" style="margin-bottom:14px">
       <div class="painel-cab"><h2 style="font-size:15px">${esc(t.nome)}</h2>
         <span><span class="tag ${t.marca}">${G.MARCA[t.marca]||t.marca}</span>
-        <span class="tag nulo">${esc(t.status)}</span></span></div>
+        <span class="tag nulo">${esc(t.status)}</span>
+        ${t.status==='rodando'?`<button class="btn sec btn-encerrar" data-t="${esc(t.teste_id)}"
+          data-sug="${r.status==='conclusivo'?esc(r.vencedor):''}"
+          data-st="${r.status==='conclusivo'?'conclusivo':'inconclusivo'}">Encerrar</button>`:''}
+        </span></div>
+      ${t.status==='rodando'?`<div class="form enc" id="enc-${esc(t.teste_id)}" hidden style="margin-top:10px">
+        <div class="campo"><label>Vencedor</label>
+          <select class="e-venc"><option value="">Nenhum — deu empate</option>
+            <option value="a">Braço A</option><option value="b">Braço B</option></select>
+          <span class="ajuda">Só marque vencedor se o veredito acima fechou. Escolher braço em teste
+            inconclusivo é decidir no ruído.</span></div>
+        <div class="campo largo"><label>Conclusão</label>
+          <textarea class="e-conc" placeholder="O que isso muda na operação daqui pra frente."></textarea></div>
+        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}">Encerrar teste</button>
+          <span class="mini e-msg"></span></div>
+      </div>`:''}
       <div class="mini" style="margin-bottom:4px"><strong>Hipótese:</strong> ${esc(t.hipotese)}</div>
       <div class="mini">Variável: ${esc(t.variavel)} · Métrica: ${esc(t.metrica_primaria)}
         · Efeito mínimo: ${t.efeito_minimo||'—'} p.p.</div>
       <div class="bracos">${cards}</div>${veredito}</section>`;
   }).join('');
+
+  document.querySelectorAll('.btn-encerrar').forEach(b=>b.onclick=()=>{
+    const cx=$('#enc-'+b.dataset.t);
+    cx.hidden=!cx.hidden;
+    // pre-seleciona o vencedor que o proprio painel calculou; vazio se nao deu conclusivo
+    if(!cx.hidden)cx.querySelector('.e-venc').value=b.dataset.sug||'';
+    cx.dataset.st=b.dataset.st;
+  });
+  document.querySelectorAll('.e-salvar').forEach(b=>b.onclick=()=>encerrarTeste(b.dataset.t));
+}
+
+async function encerrarTeste(id){
+  const cx=$('#enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
+  msg.textContent='';
+  const venc=cx.querySelector('.e-venc').value;
+  const conc=cx.querySelector('.e-conc').value.trim();
+  if(!conc){msg.textContent='Escreva a conclusão — sem ela o teste não vira aprendizado.';return;}
+  // status vem do veredito calculado, nao da vontade de quem encerra
+  const st=venc?cx.dataset.st:'inconclusivo';
+  if(venc&&st!=='conclusivo'&&!confirm('O veredito não fechou como conclusivo. Encerrar mesmo assim marcando um vencedor?'))return;
+  let wk=localStorage.getItem('shrigma_ab_key');
+  if(!wk){wk=prompt('Chave de ESCRITA (encerrar teste A/B):');if(!wk)return;localStorage.setItem('shrigma_ab_key',wk);}
+  btn.disabled=true;
+  try{
+    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({k:wk,acao:'encerrar',teste:{teste_id:id,status:st,vencedor:venc||null,conclusao:conc}})});
+    let j={};try{j=await r.json();}catch(_){}
+    if(r.status===401){localStorage.removeItem('shrigma_ab_key');msg.textContent='Chave de escrita inválida.';}
+    else if(!r.ok){msg.textContent='Recusado: '+(j.erro||r.status);}
+    else{msg.textContent='Encerrado.';await carregar();}
+  }catch(e){msg.textContent='Falha: '+e.message;}
+  btn.disabled=false;
 }
 
 function render(){
