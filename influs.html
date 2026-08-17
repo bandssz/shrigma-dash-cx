@@ -356,7 +356,8 @@ function renderKPIs(){
   // a tela tem que dizer de onde vem o numero, senao digitado passa por coletado
   const av=[];
   if(k.fontePlanilha)av.push('Alguns creators não têm <strong>nenhum pedido coletado</strong> nesta janela — para esses, a receita mostrada ainda vem da planilha da Marcela.');
-  if((INFLU.roi||[]).some(x=>x.custo_da_janela_inteira))av.push('O custo lançado cobre um período <strong>diferente</strong> da janela escolhida e <strong>não é rateado por dia</strong> — cache é pagamento pontual, ratear inventaria número. O ROI desta janela carrega o custo cheio.');
+  const semMensal=(INFLU.roi||[]).filter(x=>x.fonte_custo==='planilha-90d'&&x.receita!=null).length;
+  if(semMensal)av.push(`${semMensal} creator(s) ainda sem <strong>custo mensal</strong> lançado — para esses o custo vem da planilha de 90 dias importada, rateado pelos dias da janela. É aproximação, não o valor do mês.`);
   if(k.freteZerado)av.push('Frete lançado como <strong>zero</strong> em pelo menos um creator. Com mais de 20 permutas enviadas isso é improvável, então o ROI dos permuta está superestimado.');
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita registrada — ficam fora de todos os números acima, não entram como zero.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
@@ -428,7 +429,7 @@ function renderTabela(){
       v&&+v.custo_lancado?`custo ${rf(v.custo_lancado)}`:'',
       v&&+v.investimento?`investido ${rf(v.investimento)}`:'',
       `${nf(c.usos_lifetime)} usos históricos`,
-      v&&v.custo_da_janela_inteira?'<strong>custo lançado cobre período diferente da janela — não é rateado</strong>':'',
+      v&&v.fonte_custo?`custo ${esc(v.fonte_custo==='mensal'?'mensal':'rateado da planilha 90d')}`:'',
       c.obs?esc(c.obs):'', v&&v.obs?esc(v.obs):''
     ].filter(Boolean).join(' · ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
