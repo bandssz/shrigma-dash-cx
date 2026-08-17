@@ -265,12 +265,19 @@ const G = {
   // nome por extenso: cabecalho usa o nome cheio, tag de tabela usa o curto
   MARCA_CHEIA:{aristo:'O Aristocrata',fish:'Fishermans',olivas:'Olivas do Campo'},
   TRACKING_DESDE:'2026-07-19',
-  iso:d=>d.toISOString().slice(0,10),
-  addDias(s,n){const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return G.iso(d);},
-  diasEntre(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5)+1;},
+  // O navegador pode estar em qualquer fuso e o banco roda em UTC. A operacao e em Brasilia:
+  // toda data exibida ou comparada passa por aqui. Espelha hoje_br()/dia_br() do Postgres.
+  TZ:'America/Sao_Paulo',
+  diaBR(x){return new Intl.DateTimeFormat('en-CA',{timeZone:G.TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(x instanceof Date?x:new Date(x));},
+  horaBR(x){return +new Intl.DateTimeFormat('en-GB',{timeZone:G.TZ,hour:'2-digit',hour12:false}).format(x instanceof Date?x:new Date(x));},
+  // colunas DATE (crm_*.dia) chegam como meia-noite UTC: converter quebraria para o dia anterior.
+  // Elas usam slice(0,10) direto. diaBR e so para timestamptz (enviado_em, sent_at) e para "agora".
+  iso:d=>G.diaBR(d),
+  addDias(s,n){const d=new Date(s+'T12:00:00Z');d.setDate(d.getDate()+n);return G.iso(d);},
+  diasEntre(a,b){return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5)+1;},
   anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
   preset(p,hoje){
-    const d=new Date(hoje+'T12:00:00');
+    const d=new Date(hoje+'T12:00:00Z');
     if(p==='hoje')return{ini:hoje,fim:hoje};
     if(p==='ontem'){const a=G.addDias(hoje,-1);return{ini:a,fim:a};}
     if(p==='mes')return{ini:hoje.slice(0,8)+'01',fim:hoje};
@@ -381,7 +388,7 @@ const G = {
     return (api.crm_campanha||[])
       .filter(c=>marca==='todas'||c.marca===marca)
       .filter(c=>c.tipo!=='agendada')
-      .filter(c=>G.noPeriodo(String(c.enviado_em).slice(0,10),ini,fim))
+      .filter(c=>G.noPeriodo(G.diaBR(c.enviado_em),ini,fim))
       .map(c=>({...c,
         entrega_pct:G.pct(c.entregues,c.enviados,2),
         abertura_pct:G.pct(c.abriram,c.entregues),
@@ -463,7 +470,7 @@ const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{m
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 let API=null,MARCA='todas',SEC='visao',METRICA='receita',CMP=true;
-const HOJE=new Date().toISOString().slice(0,10);
+const HOJE=G.diaBR(new Date());
 let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
 // Icone pequeno da marca, no topo a esquerda. O nome por extenso vive no seletor.
@@ -638,8 +645,8 @@ function render(){
 
   // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
   const umDia = ini===fim;
-  const agoraH = new Date().getHours();
-  const hojeIso = new Date().toISOString().slice(0,10);
+  const agoraH = G.horaBR(new Date());
+  const hojeIso = G.diaBR(new Date());
   const lim = (umDia && ini===hojeIso) ? agoraH : undefined;
   let sAtual=null, sAnt=null, porHora=false;
   if(umDia){
@@ -671,7 +678,7 @@ function render(){
     const naoMedidos=car.dias-car.diasMedidos;
     // Um carrinho de hoje ainda tem ate 72h para voltar. Marcar os dias imaturos
     // evita a leitura de que "hoje esta pessimo" quando so nao terminou.
-    const hoje=new Date().toISOString().slice(0,10);
+    const hoje=G.diaBR(new Date());
     const imaturos=(API.crm_carrinho||[])
       .filter(r=>(MARCA==='todas'||r.marca===MARCA)&&G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
       .filter(r=>G.diasEntre(String(r.dia).slice(0,10),hoje)<=3)
