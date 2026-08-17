@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Influs &amp; Afiliados · Grupo Shrigma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=60d79cdd">
+<style>
+/* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
+   e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
+   start trava as linhas na altura do conteudo. */
+main{align-content:start}
+/* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
+   inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
+main>*{min-width:0}
+
+.rolagem{max-width:100%}
+/* faixa vazia continua ocupando um `gap` de 22px do grid */
+#faixa-alertas:empty{display:none}
+.abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
+.abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
+.abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px;
+  overflow-x:auto;scrollbar-width:none}
+.secoes::-webkit-scrollbar{display:none}
+.secoes button{white-space:nowrap}
+.secoes button{border:0;background:transparent;padding:0 0 10px;font:600 13.5px/1 var(--ui);
+  color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
+.secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
+.sec{display:none}.sec.ativa{display:block}
+.tabn{font-variant-numeric:tabular-nums}
+td.destaque{font-weight:700}
+.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
+.barra i{display:block;height:100%;border-radius:3px}
+.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
+.tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
+.tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
+.tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
+.tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
+.galho{display:grid;grid-template-columns:170px 1fr 66px 60px;gap:10px;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--borda)}
+.galho:last-child{border-bottom:0}
+.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.35 var(--ui);color:var(--rotulo)}
+.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
+  background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
+.nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
+  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:12px}
+.periodo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.periodo .presets{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
+.periodo .presets button{border:0;background:transparent;padding:6px 10px;border-radius:7px;
+  font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
+.periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
+input[type=date],select,input[type=text],input[type=number],textarea{font:500 12.5px/1.35 var(--ui);
+  padding:7px 9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);
+  color:var(--texto);font-family:var(--ui)}
+textarea{width:100%;resize:vertical;min-height:58px}
+#grafico{width:100%;height:200px;display:block}
+.legenda{display:flex;gap:16px;font:500 11.5px/1 var(--ui);color:var(--mudo);margin-top:8px;flex-wrap:wrap}
+.legenda i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px}
+.dica{position:fixed;pointer-events:none;background:var(--texto);color:#fff;padding:6px 9px;
+  border-radius:7px;font:500 11.5px/1.45 var(--ui);opacity:0;transition:opacity .12s;z-index:50;white-space:pre}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.form .campo{display:flex;flex-direction:column;gap:5px}
+.form .campo.largo{grid-column:1/-1}
+.form label{font:600 11.5px/1 var(--ui);color:var(--rotulo);text-transform:uppercase;letter-spacing:.04em}
+.form .ajuda{font:400 11px/1.4 var(--ui);color:var(--mudo)}
+.btn{border:0;border-radius:8px;padding:9px 16px;font:600 13px/1 var(--ui);cursor:pointer;
+  background:var(--texto);color:#fff}
+.btn.sec{background:var(--neutro-bg);color:var(--texto)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.veredito{padding:12px 14px;border-radius:9px;font:500 13px/1.5 var(--ui);margin-top:10px}
+.veredito.conclusivo{background:var(--bom-bg);color:var(--bom)}
+.veredito.inconclusivo{background:var(--neutro-bg);color:var(--texto)}
+.bracos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
+.braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
+.braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+/* Barra do dinheiro em jogo. A fatia recuperada e sólida; o resto fica hachurado
+   porque nao e "vazio" — e valor que existiu e foi embora. */
+.funil{margin:2px 0 4px}
+.funil-num{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.funil-num b{font:800 30px/1 "Archivo",var(--ui);color:var(--marca);font-variant-numeric:tabular-nums}
+.funil-num span{font:500 12.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-barra{height:24px;border-radius:6px;overflow:hidden;display:flex;
+  background:repeating-linear-gradient(135deg,var(--neutro-bg) 0 6px,#e4e1db 6px 12px)}
+.funil-barra i{display:block;background:var(--marca);height:100%}
+.funil-leg{display:flex;justify-content:space-between;margin-top:7px;
+  font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-marcas{margin-top:14px;border-top:1px solid var(--borda);padding-top:4px}
+.funil-crm{margin-top:11px;padding-top:10px;border-top:1px dashed var(--borda)}
+@media (max-width:640px){
+  .bracos{grid-template-columns:1fr}
+  .galho{grid-template-columns:1fr 60px;row-gap:4px}
+  .galho .barra{display:none}
+  #grafico{height:170px}
+}
+
+/* aba Influs */
+.i-fura td{background:#fff4ef}
+.i-fura .i-cod{font-weight:700}
+.i-sel{font:500 12.5px/1 var(--ui);padding:4px 6px;border:1px solid var(--borda);
+  border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
+.i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
+.i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
+.i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
+.i-cont strong{display:block;font:700 18px/1.2 var(--ui);color:var(--texto)}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="titulo">
+    <span class="marcas" id="marcas-topo"></span>
+    <div><h1>Influs &amp; Afiliados</h1><p class="sub" id="sub-topo">Grupo Shrigma · três marcas</p></div>
+  </div>
+  <nav class="filtros" aria-label="Filtros">
+    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html">Growth</a><a href="influs.html" class="ativo">Influs</a></div>
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo">Consolidada</button>
+      <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
+      <button data-marca="fish" aria-label="Fishermans"><img src="https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=120" alt="Fishermans"></button>
+      <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
+    </div>
+  </nav>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">—</span></div>
+</header>
+
+<main>
+  <nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="influ" class="ativo">Cupons &times; influs<span class="n" id="n-influ"></span></button>
+    <button data-s="afil">Afiliados TikTok</button>
+  </nav>
+
+  <div class="sec ativa" id="sec-influ">
+    <section class="painel">
+      <div class="painel-cab"><h2>Cupons &times; influs</h2>
+        <span><span class="mini" id="i-frescor"></span>
+        <select id="i-filtro" class="i-sel">
+          <option value="pendente">Pendentes de associa&ccedil;&atilde;o</option>
+          <option value="influ">J&aacute; associados</option>
+          <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
+          <option value="todos">Todos</option>
+        </select>
+        <button class="btn sec" id="i-btn-novo">Novo / editar influ</button></span></div>
+
+      <div id="i-form" hidden>
+        <div class="form">
+          <div class="campo"><label>Marca</label>
+            <select id="i-f-marca" class="i-sel"><option value="aristo">O Aristocrata</option>
+              <option value="fish">Fishermans</option><option value="olivas">Olivas do Campo</option></select></div>
+          <div class="campo"><label>Slug</label>
+            <input type="text" id="i-f-slug" placeholder="ursobranco">
+            <span class="ajuda">Slug que <strong>j&aacute; existe</strong> atualiza o cadastro dele (campo em branco n&atilde;o apaga o que j&aacute; est&aacute; l&aacute;)
+              &mdash; &eacute; assim que se corrige uma comiss&atilde;o. Min&uacute;sculo, sem acento e sem espa&ccedil;o. Tem que ser <strong>id&ecirc;ntico</strong> ao
+              <code>utm_content</code> dos links dele &mdash; &eacute; isso que faz a atribui&ccedil;&atilde;o por UTM funcionar sozinha.</span></div>
+          <div class="campo"><label>Nome</label><input type="text" id="i-f-nome" placeholder="Urso Branco"></div>
+          <div class="campo"><label>Handle</label><input type="text" id="i-f-handle" placeholder="@ursobranco"></div>
+          <div class="campo"><label>Comiss&atilde;o (%)</label>
+            <input type="number" id="i-f-com" step="0.5" value="5">
+            <span class="ajuda"><strong>5% &eacute; a regra</strong>; 10% s&oacute; para capivara e ursobranco.
+              N&atilde;o confundir com o desconto do cupom &mdash; s&atilde;o n&uacute;meros diferentes.
+              Deixar em branco grava NULL, que <strong>n&atilde;o paga nada</strong> at&eacute; alguem definir.
+              O pct fica congelado em cada pedido apurado, ent&atilde;o mudar aqui n&atilde;o reescreve comiss&atilde;o j&aacute; paga.</span></div>
+          <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
+            <button class="btn" id="i-f-salvar">Salvar influ</button>
+            <button class="btn sec" id="i-f-cancelar">Cancelar</button>
+            <span class="mini" id="i-f-msg"></span></div>
+        </div>
+      </div>
+
+      <div class="i-cont" id="i-contadores"></div>
+      <div id="area-influ"></div>
+      <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
+        <strong>n&atilde;o</strong> entra &mdash; n&atilde;o se paga o que n&atilde;o foi confirmado. Linhas destacadas s&atilde;o cupons
+        que hoje escapam da blacklist do relat&oacute;rio ShopifyQL e por isso poluem a apura&ccedil;&atilde;o.
+        Toda altera&ccedil;&atilde;o vai para <code>crm_cupom_log</code> com de&rarr;para e autor.</div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-afil">
+    <section class="painel">
+      <div class="painel-cab"><h2>Afiliados TikTok Shop</h2></div>
+      <div class="vazio">Esta lane ainda n&atilde;o &eacute; coletada para o Postgres, ent&atilde;o n&atilde;o h&aacute; o que mostrar aqui.<br>
+        <span class="mini">O que existe hoje: app registrado com 9 escopos e 4 workflows no n8n cuidando de token
+        e mapeamento de afiliados. &Eacute; uma lane <strong>separada</strong> dos cupons Shopify &mdash; comiss&atilde;o de afiliado
+        TikTok &eacute; apurada dentro do TikTok, n&atilde;o por cupom nem por UTM. Somar as duas contaria a mesma venda duas vezes.<br>
+        Para preencher esta aba falta um coletor que traga pedido, afiliado e comiss&atilde;o para uma tabela
+        pr&oacute;pria &mdash; nunca para <code>crm_influ_pedido</code>.</span></div>
+    </section>
+  </div>
+
+</main>
+
+<script src="config.js?v=6c1bc67d"></script>
+<script>
+const $=s=>document.querySelector(s);
+// mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
+function chaveLeitura(){let k=localStorage.getItem('shrigma_dash_key');
+  if(!k){k=prompt('Chave de acesso do painel:');if(k)localStorage.setItem('shrigma_dash_key',k);}
+  return k;}
+const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
+const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
+const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+// So o que esta pagina usa. A matematica fica aqui, testavel com node.
+const G = {
+  MARCA:{aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'},
+  MARCA_CHEIA:{aristo:'O Aristocrata',fish:'Fishermans',olivas:'Olivas do Campo'},
+  // Contadores da aba Influs. Matematica no G, testavel com node.
+  // 'pendente' = reconhecido como cupom de influ mas ainda sem dono: e a fila de trabalho.
+  influResumo(cupons, marca){
+    const c = (cupons||[]).filter(x => marca === 'todas' || x.marca === marca);
+    const soma = f => c.filter(f).reduce((a,x) => a + (+x.usos_lifetime || 0), 0);
+    return {
+      pendentes: c.filter(x => x.tipo === 'pendente').length,
+      associados: c.filter(x => x.tipo === 'influ').length,
+      usosSemDono: soma(x => x.tipo === 'pendente'),
+      usosAssociados: soma(x => x.tipo === 'influ'),
+      furos: c.filter(x => /FORA da blacklist/.test(x.obs || '')).length,
+      // associado porem sem pct: nao gera pagamento. NULL nunca vira 0 escondido.
+      semComissao: c.filter(x => x.tipo === 'influ' && x.influ_comissao_pct == null).length,
+      total: c.length
+    };
+  },
+};
+
+let MARCA='todas', SEC='influ';
+const LOGO={
+  aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
+  fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
+  olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+// identico ao growth.html: chipe com <img>, sigla GS no consolidado.
+function pintaMarca(){
+  document.body.dataset.marca=MARCA;
+  const uma=MARCA!=='todas';
+  const el=$('#marcas-topo');
+  el.className='marcas';
+  el.innerHTML = uma
+    ? `<span class="chipe" title="${G.MARCA_CHEIA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA_CHEIA[MARCA]}"></span>`
+    : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · cupons e comissão`:'Grupo Shrigma · três marcas';
+}
+// ===================== ABA INFLUS =====================
+// Cadastro cupom<->influ. Le e escreve pelo workflow proprio
+// "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
+// dominio de falha separado, igual ao coletor de conversao.
+let INFLU=null;
+
+function chaveEscritaInflu(){
+  let wk=localStorage.getItem('shrigma_influ_key');
+  if(!wk){wk=prompt('Chave de ESCRITA (cadastro de influs):');
+    if(!wk)return null;localStorage.setItem('shrigma_influ_key',wk);}
+  return wk;
+}
+async function influPost(corpo){
+  if(typeof INFLU_API_URL==='undefined')throw new Error('INFLU_API_URL não configurada em config.js');
+  const r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(corpo)});
+  let j={};try{j=await r.json();}catch(_){}
+  if(r.status===401){
+    if(corpo.acao!=='listar')localStorage.removeItem('shrigma_influ_key');
+    throw new Error('chave inválida');
+  }
+  if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
+  return j;
+}
+async function carregarInflu(){
+  const k=chaveLeitura();if(!k)return;
+  try{INFLU=await influPost({k,acao:'listar'});renderInflu();}
+  catch(e){$('#area-influ').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
+}
+function renderInflu(){
+  if(!INFLU)return;
+  const filtro=$('#i-filtro').value;
+  const todos=INFLU.cupons||[];
+  const r=G.influResumo(todos,MARCA);
+  $('#n-influ').textContent=r.pendentes||'';
+  $('#i-contadores').innerHTML=[
+    ['Pendentes',nf(r.pendentes),'sem dono'],
+    ['Associados',nf(r.associados),'entram na comissão'],
+    ['Usos sem dono',nf(r.usosSemDono),'histórico não atribuído'],
+    ['Furos na blacklist',nf(r.furos),'poluem a apuração'],
+    ['Sem comissão',nf(r.semComissao),'associado mas não paga']
+  ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
+
+  const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
+  $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
+
+  let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
+  if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
+  else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
+  else if(filtro==='outros')cs=cs.filter(c=>c.tipo!=='influ'&&c.tipo!=='pendente');
+
+  if(!cs.length){
+    $('#area-influ').innerHTML=`<div class="vazio">Nada neste filtro.</div>`;return;}
+
+  const TIPOS=['influ','pendente','crm','cortesia','campanha','suporte','app','desconhecido'];
+  const linhas=cs.map(c=>{
+    const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
+    const optI=['<option value="">— sem influ —</option>'].concat(
+      meus.map(i=>`<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
+    const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
+    const fura=/FORA da blacklist/.test(c.obs||'');
+    // influ associado mas sem pct definido nao gera pagamento: precisa gritar, nao virar travessao
+    const semPct=c.tipo==='influ'&&c.influ_comissao_pct==null;
+    const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%'
+      :(semPct?'<span class="tag nulo" title="sem comissão definida: não paga">definir</span>':'—');
+    return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
+      <td><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></td>
+      <td class="i-cod">${esc(c.codigo)}</td>
+      <td class="num">${nf(c.usos_lifetime)}</td>
+      <td class="num">${c.desconto_pct!=null?(100*(+c.desconto_pct)).toFixed(0)+'%':'—'}</td>
+      <td><select class="i-sel i-t">${optT}</select></td>
+      <td><select class="i-sel i-i">${optI}</select></td>
+      <td class="num">${com}</td>
+      <td class="i-obs">${esc(c.obs||'')}</td>
+      <td><button class="btn sec i-salvar" disabled>Salvar</button>
+        <span class="mini i-msg"></span></td></tr>`;}).join('');
+
+  $('#area-influ').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
+    <th>Marca</th><th>Cupom</th><th class="num">Usos</th><th class="num">Desc.</th>
+    <th>Tipo</th><th>Influ</th><th class="num">Comissão</th><th>Observação</th><th></th>
+    </tr></thead><tbody>${linhas}</tbody></table></div>`;
+
+  document.querySelectorAll('#area-influ tbody tr').forEach(tr=>{
+    const bt=tr.querySelector('.i-salvar');
+    tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{bt.disabled=false;});
+    bt.onclick=()=>salvarCupom(tr);
+  });
+}
+async function salvarCupom(tr){
+  const msg=tr.querySelector('.i-msg'),bt=tr.querySelector('.i-salvar');
+  const tipo=tr.querySelector('.i-t').value,influ=tr.querySelector('.i-i').value;
+  // a mesma regra vive no banco (CHECK) e no workflow. Aqui e so para nao gastar round-trip.
+  if(tipo==='influ'&&!influ){msg.textContent='tipo=influ precisa de um influ';return;}
+  if(tipo!=='influ'&&influ){msg.textContent='só tipo=influ pode ter influ';return;}
+  const wk=chaveEscritaInflu();if(!wk)return;
+  bt.disabled=true;msg.textContent='…';
+  try{
+    const j=await influPost({k:wk,acao:'salvar_cupom',autor:(localStorage.getItem('shrigma_autor')||''),
+      cupom:{marca:tr.dataset.marca,codigo:tr.dataset.cod,tipo,influ}});
+    msg.textContent=j.ok?(j.alteracoes?'salvo':'sem mudança'):'cupom não encontrado';
+    if(j.ok&&j.alteracoes)await carregarInflu();
+  }catch(e){msg.textContent=esc(e.message);bt.disabled=false;}
+}
+async function salvarInflu(){
+  const msg=$('#i-f-msg');msg.textContent='';
+  const slug=$('#i-f-slug').value.trim().toLowerCase();
+  if(!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(slug)){
+    msg.textContent='slug: minúsculo, sem acento e sem espaço';return;}
+  const wk=chaveEscritaInflu();if(!wk)return;
+  const com=$('#i-f-com').value;
+  $('#i-f-salvar').disabled=true;
+  try{
+    await influPost({k:wk,acao:'salvar_influ',influ:{marca:$('#i-f-marca').value,influ:slug,
+      nome:$('#i-f-nome').value.trim(),handle:$('#i-f-handle').value.trim(),
+      comissao_pct:com===''?null:(+com/100)}});
+    msg.textContent='registrado.';
+    ['i-f-slug','i-f-nome','i-f-handle','i-f-com'].forEach(id=>$('#'+id).value='');
+    await carregarInflu();
+  }catch(e){msg.textContent='Falha: '+e.message;}
+  $('#i-f-salvar').disabled=false;
+}
+$('#i-filtro').onchange=renderInflu;
+$('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
+$('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
+$('#i-f-salvar').onclick=salvarInflu;
+
+document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderInflu();});
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
+  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
+  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');});
+pintaMarca();
+$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+carregarInflu();
+</script>
+</body>
+</html>
