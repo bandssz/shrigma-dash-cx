@@ -139,6 +139,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <button data-s="visao" class="ativo">Visão geral</button>
     <button data-s="conv">Conversão<span class="n" id="n-conv"></span></button>
     <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
+    <button data-s="regua">Régua<span class="n" id="n-regua"></span></button>
     <button data-s="arv">Árvore<span class="n" id="n-arv"></span></button>
     <button data-s="ab">Testes A/B<span class="n" id="n-ab"></span></button>
   </nav>
@@ -175,6 +176,22 @@ textarea{width:100%;resize:vertical;min-height:58px}
         <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-conv"></div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-regua">
+    <section class="painel">
+      <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
+      <div id="area-cvr"></div>
+    </section>
+    <section class="painel">
+      <div class="painel-cab"><h2>Régua por peça</h2><span class="mini" id="regua-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
+        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Pedidos</th>
+        <th class="num">Receita</th><th class="num">Assist.</th><th class="num">R$ assist.</th>
+        <th class="num">Ped./1000 envios</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-regua"></div>
     </section>
   </div>
 
@@ -330,6 +347,52 @@ const G = {
     return dias.map(d=>({d,v:m[d]??null}));
   },
   delta(a,b,medido){if(!medido||b===null||b===0)return null;return +(100*(a-b)/b).toFixed(1);},
+
+  // Envios anômalos conhecidos: mostrados como nota, nunca removidos do dado.
+  REGUA_ANOMALIAS:[{dia:'2026-08-17',marca:'aristo',piece:'pedido-preparando',
+    motivo:'2.408 envios por catch-up manual de fulfillments (backlog pré-J&T) — não é volume orgânico'}],
+
+  // Régua/fluxo agregada no período. Grão de saída: marca × flow × piece.
+  // Pedido/receita NULL na crm_fluxo (sem linha de conversão no dia) soma como zero
+  // atribuído — a nota da tela explica o porquê. Enviados sempre soma.
+  regua(api,marca,ini,fim){
+    const m={};
+    (api.crm_fluxo||[])
+      .filter(r=>marca==='todas'||r.marca===marca)
+      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
+      .forEach(r=>{
+        const k=r.marca+'|'+r.flow+'|'+r.piece;
+        const o=m[k]||(m[k]={marca:r.marca,flow:r.flow,piece:r.piece,
+          enviados:0,pedidos:0,receita:0,assist:0,receita_assist:0});
+        o.enviados+=+r.enviados||0;
+        o.pedidos+=+r.pedidos_ultimo||0;
+        o.receita+=+r.receita_ultimo||0;
+        o.assist+=+r.pedidos_assistido||0;
+        o.receita_assist+=+r.receita_assistida||0;
+      });
+    return Object.values(m)
+      .map(o=>({...o,porMil:o.enviados?+(1000*o.pedidos/o.enviados).toFixed(1):null}))
+      .sort((a,b)=>b.receita-a.receita||b.enviados-a.enviados);
+  },
+  // A pergunta do bloco: do que sai por e-mail, quanto é campanha e quanto é régua,
+  // e qual converte melhor por envio. Campanha: enviados da crm_campanha + conversão
+  // com utm_medium='campanha'. Régua: crm_fluxo. Só e-mail nos dois lados.
+  campVsRegua(api,marca,ini,fim){
+    const cs=G.campanhas(api,marca,ini,fim).filter(c=>c.canal==='email');
+    const envC=cs.reduce((a,c)=>a+(+c.enviados||0),0);
+    let pedC=0,recC=0;
+    (api.crm_conversao||[])
+      .filter(r=>(marca==='todas'||r.marca===marca)&&r.canal==='email'&&r.utm_medium==='campanha')
+      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
+      .forEach(r=>{pedC+=+r.pedidos_ultimo||0;recC+=+r.receita_ultimo||0;});
+    const fl=G.regua(api,marca,ini,fim);
+    const envR=fl.reduce((a,r)=>a+r.enviados,0);
+    const pedR=fl.reduce((a,r)=>a+r.pedidos,0);
+    const recR=fl.reduce((a,r)=>a+r.receita,0);
+    if(!envC&&!envR)return null;
+    return{campanha:{env:envC,ped:pedC,rec:recC,porMil:envC?+(1000*pedC/envC).toFixed(1):null},
+           regua:{env:envR,ped:pedR,rec:recR,porMil:envR?+(1000*pedR/envR).toFixed(1):null}};
+  },
 
   carrinho(api,marca,ini,fim){
     const linhas=(api.crm_carrinho||[])
@@ -739,6 +802,39 @@ function render(){
     <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam
     o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
     ignora UTM e não serve.`;
+
+  const fl=G.regua(API,MARCA,ini,fim);
+  $('#n-regua').textContent=fl.length||'';
+  $('#regua-rot').textContent=fl.length?`${fl.length} peças`:'';
+  const cvr=G.campVsRegua(API,MARCA,ini,fim);
+  if(!cvr){
+    $('#area-cvr').innerHTML='<div class="vazio">Nenhum e-mail no período — a régua é medida desde 16/08/2026.</div>';
+  }else{
+    const mx=Math.max(cvr.campanha.env,cvr.regua.env,1);
+    $('#area-cvr').innerHTML=[['Campanha',cvr.campanha],['Régua',cvr.regua]].map(([rot,x])=>`
+      <div class="galho"><div><div class="rot">${rot}</div>
+        <div class="flx">${nf(x.ped)} pedidos · ${rf(x.rec)}${x.porMil!==null?` · ${x.porMil} ped./1000 envios`:''}</div></div>
+        <div class="barra"><i style="width:${Math.max(.6,100*x.env/mx)}%;background:${cor(MARCA)}"></i></div>
+        <div class="num tabn">${nf(x.env)}</div>
+        <div><span class="tag email">e-mail</span></div></div>`).join('');
+  }
+  $('#tab-regua tbody').innerHTML=fl.length?fl.map(r=>`
+    <tr><td><strong>${esc(r.piece)}</strong><div class="mini">${esc(r.flow)}</div></td>
+      <td><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></td>
+      <td class="num tabn">${nf(r.enviados)}</td>
+      <td class="num tabn">${nf(r.pedidos)}</td>
+      <td class="num tabn destaque">${rf(r.receita)}</td>
+      <td class="num tabn">${nf(r.assist)}</td>
+      <td class="num tabn">${rf(r.receita_assist)}</td>
+      <td class="num tabn">${r.porMil===null?'—':r.porMil}</td></tr>`).join('')
+    :'<tr><td colspan="8"><div class="vazio">Nenhum envio de régua no período.</div></td></tr>';
+  const anom=G.REGUA_ANOMALIAS.filter(a=>G.noPeriodo(a.dia,ini,fim)&&(MARCA==='todas'||a.marca===MARCA));
+  $('#nota-regua').innerHTML=`Fonte: <code>crm_fluxo</code> (view sobre o log de envios, só e-mail —
+    o WhatsApp roda na Reportana e ainda não é medido). Pedido/receita vêm da atribuição por
+    <code>utm_content</code>; peça sem linha de conversão no dia conta como zero atribuído.
+    Sem abertura/clique: a régua sai por SES direto, sem rastreio do Listmonk. Medida desde 16/08/2026.`+
+    anom.map(a=>`<div class="mini" style="margin-top:6px"><strong>${a.dia.split('-').reverse().join('/')}
+      · ${G.MARCA[a.marca]||a.marca} · ${esc(a.piece)}:</strong> ${a.motivo}.</div>`).join('');
 
   const fila=G.fila(API,MARCA);
   $('#painel-fila').hidden=!fila.length;
