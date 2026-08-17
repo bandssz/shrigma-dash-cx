@@ -872,13 +872,20 @@ function render(){
   const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
   const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
     if(!ult[k]||String(g.dia)>String(ult[k].dia))ult[k]=g;});
+  // movimento é gravado no dia que FECHOU (01:35 grava em ontem): a linha mais
+  // recente do galho nunca tem entraram/sairam — buscar a última linha MEDIDA.
+  const ultMov={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
+    if(g.entraram===null||g.entraram===undefined)return;
+    if(!ultMov[k]||String(g.dia)>String(ultMov[k].dia))ultMov[k]=g;});
   const maxP=Math.max(1,...Object.values(ult).map(g=>+g.pessoas||0));
   $('#n-arv').textContent=regras.length||'';
   $('#arv-rot').textContent=regras.length?`${regras.length} galhos`:'';
   $('#area-arvore').innerHTML=regras.length?regras.map(r=>{
     const g=ult[r.marca+r.galho],p=g?+g.pessoas:undefined;
+    const mv=ultMov[r.marca+r.galho];
+    const mvTxt=mv?` · <span style="color:#2e7d32">+${nf(mv.entraram)}</span> <span style="color:#b3261e">−${nf(mv.sairam)}</span> em ${String(mv.dia).slice(8,10)}/${String(mv.dia).slice(5,7)}`:'';
     return `<div class="galho"><div><div class="rot">${esc(r.rotulo)}</div>
-      <div class="flx">${esc(r.fluxo||'sem fluxo')} · cap ${r.cap_dias}d${g&&g.ltv_medio>0?' · LTV '+rf(g.ltv_medio):''}</div></div>
+      <div class="flx">${esc(r.fluxo||'sem fluxo')} · cap ${r.cap_dias}d${g&&g.ltv_medio>0?' · LTV '+rf(g.ltv_medio):''}${mvTxt}</div></div>
       <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
       <div class="num tabn">${p===undefined?'—':nf(p)}</div>
       <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;
