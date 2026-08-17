@@ -179,6 +179,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
+    <section class="painel" id="painel-fila" hidden>
+      <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
+        <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">Agendadas no Listmonk que ainda não dispararam. Não entram em nenhuma métrica.</div>
+    </section>
+
     <section class="painel">
       <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
@@ -361,9 +369,18 @@ const G = {
     });
     return [...agg.values()].sort((x,y)=>(y.receita-x.receita)||(y.receita_assist-x.receita_assist));
   },
+  // Agendada nao entra aqui: 0 enviado sobre 0 entregue nao e taxa, e ruido.
+  // Ela aparece no bloco "Na fila", com a data prevista.
+  fila(api,marca){
+    return (api.crm_campanha||[])
+      .filter(c=>c.tipo==='agendada')
+      .filter(c=>marca==='todas'||c.marca===marca)
+      .sort((x,y)=>new Date(x.enviado_em)-new Date(y.enviado_em));
+  },
   campanhas(api,marca,ini,fim){
     return (api.crm_campanha||[])
       .filter(c=>marca==='todas'||c.marca===marca)
+      .filter(c=>c.tipo!=='agendada')
       .filter(c=>G.noPeriodo(String(c.enviado_em).slice(0,10),ini,fim))
       .map(c=>({...c,
         entrega_pct:G.pct(c.entregues,c.enviados,2),
@@ -668,6 +685,21 @@ function render(){
     <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam
     o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
     ignora UTM e não serve.`;
+
+  const fila=G.fila(API,MARCA);
+  $('#painel-fila').hidden=!fila.length;
+  if(fila.length){
+    $('#fila-rot').textContent=`${fila.length} agendada${fila.length>1?'s':''}`;
+    $('#tab-fila tbody').innerHTML=fila.map(c=>{
+      const dt=new Date(c.enviado_em);
+      const h=Math.round((dt-Date.now())/36e5);
+      const falta=h<0?'atrasada':h<24?`${h}h`:`${Math.round(h/24)}d`;
+      return `<tr><td><strong>${esc((c.nome||'').slice(0,44))}</strong></td>
+        <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
+        <td>${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+        <td class="num tabn${h<0?' destaque':''}">${falta}</td></tr>`;
+    }).join('');
+  }
 
   $('#n-camp').textContent=cs.length||'';
   $('#camp-rot').textContent=`${cs.length} peças`;
