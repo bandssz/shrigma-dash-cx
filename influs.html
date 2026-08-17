@@ -137,15 +137,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
   <nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="creators" class="ativo">Creators<span class="n" id="n-creators"></span></button>
-    <button data-s="influ">Cupons &times; influs<span class="n" id="n-influ"></span></button>
     <button data-s="afil">Afiliados TikTok</button>
   </nav>
 
   <div class="sec ativa" id="sec-creators">
-    <section class="painel">
-      <div class="painel-cab"><h2>ROI por creator</h2><span class="mini" id="c-rot"></span></div>
-      <div id="area-creators"></div>
-    </section>
     <section class="painel">
       <div class="painel-cab"><h2>Onde o retorno est&aacute;</h2>
         <span class="mini">o corte que decide contrato</span></div>
@@ -155,15 +150,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
         com valor que nunca entrou no caixa. Compliance e conte&uacute;dos contratados tamb&eacute;m sa&iacute;ram:
         vinham 100% e 6/6 para os 23 creators, ou seja constante, e constante n&atilde;o ajuda a decidir nada.</div>
     </section>
-  </div>
 
-  <div class="sec" id="sec-influ">
     <section class="painel">
-      <div class="painel-cab"><h2>Cupons &times; influs</h2>
+      <div class="painel-cab"><h2>Creators &amp; cupons</h2>
         <span><span class="mini" id="i-frescor"></span>
         <select id="i-filtro" class="i-sel">
+          <option value="tudo" selected>Influs + pendentes</option>
+          <option value="influ">Creators associados</option>
           <option value="pendente">Pendentes de associa&ccedil;&atilde;o</option>
-          <option value="influ">J&aacute; associados</option>
           <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
           <option value="todos">Todos</option>
         </select>
@@ -195,7 +189,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
       </div>
 
       <div class="i-cont" id="i-contadores"></div>
-      <div id="area-influ"></div>
+      <div id="area-tabela"></div>
       <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
         <strong>n&atilde;o</strong> entra &mdash; n&atilde;o se paga o que n&atilde;o foi confirmado. Linhas destacadas s&atilde;o cupons
         que hoje escapam da blacklist do relat&oacute;rio ShopifyQL e por isso poluem a apura&ccedil;&atilde;o.
@@ -323,10 +317,10 @@ async function influPost(corpo){
 async function carregarInflu(){
   const k=chaveLeitura();if(!k)return;
   try{INFLU=await influPost({k,acao:'listar'});renderTudo();}
-  catch(e){$('#area-influ').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
+  catch(e){$('#area-tabela').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
 }
 
-function renderTudo(){if(!INFLU)return;renderKPIs();renderCreators();renderInflu();}
+function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();}
 function renderKPIs(){
   const k=G.influKPI(INFLU.roi,MARCA);
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
@@ -347,55 +341,34 @@ function renderKPIs(){
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita registrada — ficam fora de todos os números acima, não entram como zero.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
 }
-function renderCreators(){
-  const r=(INFLU.roi||[]).filter(x=>MARCA==='todas'||x.marca===MARCA);
-  $('#n-creators').textContent=r.length||'';
-  const comRec=r.filter(x=>x.receita!==null).sort((a,b)=>(b.roi??-1)-(a.roi??-1));
-  const per=comRec[0];
-  $('#c-rot').textContent=per?`${per.ini} a ${per.fim} · fonte ${per.fonte}`:'';
+const roiTxt=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
+const roiCls=v=>v==null?'':(v>=3?'vd':(v<1?'vm':''));
 
-  if(!comRec.length){$('#area-creators').innerHTML='<div class="vazio">Nenhum creator com receita registrada.</div>';}
-  else{
-    $('#area-creators').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
-      <th>Creator</th><th>Porte</th><th>Modelo</th><th class="num">Receita</th>
-      <th class="num">Custo</th><th class="num">Comissão</th><th class="num">Investido</th>
-      <th class="num">ROI</th><th>Alerta</th></tr></thead><tbody>`+
-      comRec.map(x=>{
-        const roi=x.roi==null?'—':(+x.roi).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
-        const cl=x.roi==null?'':(x.roi>=3?'vd':(x.roi<1?'vm':''));
-        return `<tr><td>${esc(x.nome||x.influ)}${x.ativo?'':' <span class="tag nulo">inativo</span>'}
-            <div class="mini">${esc(x.influ)}</div></td>
-          <td>${esc(x.porte||'—')}</td><td>${esc(x.modelo||'—')}</td>
-          <td class="num">${rf(x.receita)}</td><td class="num">${rf(x.custo_lancado)}</td>
-          <td class="num">${x.comissao?rf(x.comissao):'—'}</td><td class="num">${rf(x.investimento)}</td>
-          <td class="num ${cl}"><strong>${roi}</strong></td>
-          <td class="i-obs">${x.obs?esc(x.obs):''}</td></tr>`;}).join('')+'</tbody></table></div>';
-  }
-
+function renderCortes(){
   const bloco=(titulo,campo)=>{
     const gs=G.influPor(INFLU.roi,MARCA,campo);
-    return `<div><div class="kpi-rot" style="margin-bottom:8px">${titulo}</div>
-      <table class="comparativo"><thead><tr><th>${titulo}</th><th class="num">n</th>
+    if(!gs.length)return '';
+    return `<div><table class="comparativo"><thead><tr><th>${titulo}</th><th class="num">n</th>
       <th class="num">Receita</th><th class="num">Investido</th><th class="num">ROI</th></tr></thead><tbody>`+
-      gs.map(g=>{
-        const roi=g.roi==null?'—':g.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
-        const cl=g.roi==null?'':(g.roi>=3?'vd':(g.roi<1?'vm':''));
-        return `<tr><td>${esc(g.chave)}</td><td class="num">${nf(g.n)}</td>
-          <td class="num">${rf(g.receita)}</td><td class="num">${rf(g.investimento)}</td>
-          <td class="num ${cl}"><strong>${roi}</strong></td></tr>`;}).join('')+'</tbody></table></div>';
+      gs.map(g=>`<tr><td>${esc(g.chave)}</td><td class="num">${nf(g.n)}</td>
+        <td class="num">${rf(g.receita)}</td><td class="num">${rf(g.investimento)}</td>
+        <td class="num ${roiCls(g.roi)}"><strong>${roiTxt(g.roi)}</strong></td></tr>`).join('')+
+      '</tbody></table></div>';
   };
-  $('#area-cortes').innerHTML=bloco('Porte','porte')+bloco('Modelo','modelo');
+  const html=bloco('Porte','porte')+bloco('Modelo','modelo');
+  $('#area-cortes').innerHTML=html||'<div class="vazio">Sem receita registrada para cortar por porte ou modelo.</div>';
 }
 
-function renderInflu(){
-  if(!INFLU)return;
+// Uma tabela so: cada linha e um cupom. Associado mostra ROI, pendente mostra os selects
+// e ROI vazio. Sao a mesma pergunta em dois estagios, nao duas telas.
+function renderTabela(){
   const filtro=$('#i-filtro').value;
   const todos=INFLU.cupons||[];
   const r=G.influResumo(todos,MARCA);
-  $('#n-influ').textContent=r.pendentes||'';
+  $('#n-creators').textContent=(r.associados+r.pendentes)||'';
   $('#i-contadores').innerHTML=[
-    ['Pendentes',nf(r.pendentes),'sem dono'],
     ['Associados',nf(r.associados),'entram na comissão'],
+    ['Pendentes',nf(r.pendentes),'sem dono'],
     ['Usos sem dono',nf(r.usosSemDono),'histórico não atribuído'],
     ['Furos na blacklist',nf(r.furos),'poluem a apuração'],
     ['Sem comissão',nf(r.semComissao),'associado mas não paga']
@@ -404,48 +377,61 @@ function renderInflu(){
   const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
   $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
 
+  const ROI=new Map((INFLU.roi||[]).map(x=>[x.marca+'|'+x.influ,x]));
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
+  else if(filtro==='tudo')cs=cs.filter(c=>c.tipo==='influ'||c.tipo==='pendente');
   else if(filtro==='outros')cs=cs.filter(c=>c.tipo!=='influ'&&c.tipo!=='pendente');
+  cs.sort((a,b)=>{
+    const ra=ROI.get(a.marca+'|'+a.influ),rb=ROI.get(b.marca+'|'+b.influ);
+    return (+(rb&&rb.receita)||0)-(+(ra&&ra.receita)||0)||(b.usos_lifetime||0)-(a.usos_lifetime||0);
+  });
 
-  if(!cs.length){
-    $('#area-influ').innerHTML=`<div class="vazio">Nada neste filtro.</div>`;return;}
+  if(!cs.length){$('#area-tabela').innerHTML='<div class="vazio">Nada neste filtro.</div>';return;}
 
   const TIPOS=['influ','pendente','crm','cortesia','campanha','suporte','app','desconhecido'];
   const linhas=cs.map(c=>{
+    const v=ROI.get(c.marca+'|'+c.influ);
     const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
-    const optI=['<option value="">— sem influ —</option>'].concat(
-      meus.map(i=>`<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
+    const optI=['<option value="">— sem influ —</option>'].concat(meus.map(i=>
+      `<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
     const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
     const fura=/FORA da blacklist/.test(c.obs||'');
-    // influ associado mas sem pct definido nao gera pagamento: precisa gritar, nao virar travessao
     const semPct=c.tipo==='influ'&&c.influ_comissao_pct==null;
     const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%'
       :(semPct?'<span class="tag nulo" title="sem comissão definida: não paga">definir</span>':'—');
+    const alerta=[c.obs||'',(v&&v.obs)||''].filter(Boolean).join(' — ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
       <td><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></td>
-      <td class="i-cod">${esc(c.codigo)}</td>
-      <td class="num">${nf(c.usos_lifetime)}</td>
-      <td class="num">${c.desconto_pct!=null?(100*(+c.desconto_pct)).toFixed(0)+'%':'—'}</td>
-      <td><select class="i-sel i-t">${optT}</select></td>
+      <td class="i-cod">${esc(c.codigo)}
+        <div class="mini">${v?esc(v.nome||v.influ)+(v.ativo?'':' · inativo'):''}</div></td>
       <td><select class="i-sel i-i">${optI}</select></td>
-      <td class="num">${com}</td>
-      <td class="i-obs">${esc(c.obs||'')}</td>
+      <td>${v?esc([v.porte,v.modelo].filter(Boolean).join(' · ')||'—'):'—'}</td>
+      <td class="num">${nf(c.usos_lifetime)}</td>
+      <td class="num">${v&&v.receita!=null?rf(v.receita):'—'}</td>
+      <td class="num">${v&&+v.custo_lancado?rf(v.custo_lancado):'—'}</td>
+      <td class="num">${v&&+v.comissao?rf(v.comissao):com}</td>
+      <td class="num">${v&&+v.investimento?rf(v.investimento):'—'}</td>
+      <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
+      <td><select class="i-sel i-t">${optT}</select></td>
+      <td class="i-obs">${esc(alerta)}</td>
       <td><button class="btn sec i-salvar" disabled>Salvar</button>
         <span class="mini i-msg"></span></td></tr>`;}).join('');
 
-  $('#area-influ').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
-    <th>Marca</th><th>Cupom</th><th class="num">Usos</th><th class="num">Desc.</th>
-    <th>Tipo</th><th>Influ</th><th class="num">Comissão</th><th>Observação</th><th></th>
+  $('#area-tabela').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
+    <th>Marca</th><th>Cupom</th><th>Creator</th><th>Porte · modelo</th><th class="num">Usos</th>
+    <th class="num">Receita</th><th class="num">Custo</th><th class="num">Comissão</th>
+    <th class="num">Investido</th><th class="num">ROI</th><th>Tipo</th><th>Alerta</th><th></th>
     </tr></thead><tbody>${linhas}</tbody></table></div>`;
 
-  document.querySelectorAll('#area-influ tbody tr').forEach(tr=>{
+  document.querySelectorAll('#area-tabela tbody tr').forEach(tr=>{
     const bt=tr.querySelector('.i-salvar');
     tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{bt.disabled=false;});
     bt.onclick=()=>salvarCupom(tr);
   });
 }
+
 async function salvarCupom(tr){
   const msg=tr.querySelector('.i-msg'),bt=tr.querySelector('.i-salvar');
   const tipo=tr.querySelector('.i-t').value,influ=tr.querySelector('.i-i').value;
@@ -479,14 +465,14 @@ async function salvarInflu(){
   }catch(e){msg.textContent='Falha: '+e.message;}
   $('#i-f-salvar').disabled=false;
 }
-$('#i-filtro').onchange=renderInflu;
+$('#i-filtro').onchange=renderTabela;
 $('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
 $('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
 $('#i-f-salvar').onclick=salvarInflu;
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderInflu();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();});
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
