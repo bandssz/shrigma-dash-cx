@@ -131,6 +131,15 @@ textarea{width:100%;resize:vertical;min-height:58px}
 </header>
 
 <main>
+  <div class="periodo" id="periodo">
+    <div class="presets" id="presets">
+      <button data-p="7">7 dias</button><button data-p="30">30 dias</button>
+      <button data-p="90" class="ativo">90 dias</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+    </div>
+    <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+  </div>
+
   <div id="faixa-alertas" aria-live="polite"></div>
 
   <section class="kpis" id="area-kpis"></section>
@@ -275,6 +284,16 @@ const G = {
 };
 
 let MARCA='todas', SEC='influ';
+const isoBR=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+const HOJE=isoBR(new Date());
+function preset(p){
+  const d=s=>{const x=new Date(HOJE+'T12:00:00Z');x.setDate(x.getDate()-s);return isoBR(x);};
+  if(p==='mes')return {ini:HOJE.slice(0,8)+'01',fim:HOJE};
+  if(p==='mesant'){const x=new Date(HOJE+'T12:00:00Z');x.setDate(0);
+    const f=isoBR(x);return {ini:f.slice(0,8)+'01',fim:f};}
+  return {ini:d(+p-1),fim:HOJE};
+}
+let PER=preset('90');
 const LOGO={
   aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
   fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
@@ -316,7 +335,7 @@ async function influPost(corpo){
 }
 async function carregarInflu(){
   const k=chaveLeitura();if(!k)return;
-  try{INFLU=await influPost({k,acao:'listar'});renderTudo();}
+  try{INFLU=await influPost({k,acao:'listar',ini:PER.ini,fim:PER.fim});renderTudo();}
   catch(e){$('#area-tabela').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
 }
 
@@ -326,7 +345,7 @@ function renderKPIs(){
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
-    {r:'Receita rastreada',v:rf(k.receita),s:`${nf(k.creators)} creators com receita · cupom + UTM`},
+    {r:'Receita rastreada',v:rf(k.receita),s:`${nf(k.creators)} creators · ${PER.ini} a ${PER.fim}`},
     {r:'ROI',v:`<span class="${cls.trim()}">${roiTxt}</span>`,s:'receita ÷ (custo lançado + comissão)'},
     {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} lançado · ${rf(k.comissao)} comissão`},
     {r:'Retorno líquido',v:rf(k.lucro),s:'receita rastreada menos investimento'}
@@ -336,7 +355,8 @@ function renderKPIs(){
 
   // a tela tem que dizer de onde vem o numero, senao digitado passa por coletado
   const av=[];
-  if(k.fontePlanilha)av.push('Receita vem da <strong>planilha da Marcela</strong> (janela de 90 dias), não do coletor — ele ainda não existe. Assim que rodar, a receita coletada passa a valer sozinha.');
+  if(k.fontePlanilha)av.push('Alguns creators não têm <strong>nenhum pedido coletado</strong> nesta janela — para esses, a receita mostrada ainda vem da planilha da Marcela.');
+  if((INFLU.roi||[]).some(x=>x.custo_da_janela_inteira))av.push('O custo lançado cobre um período <strong>diferente</strong> da janela escolhida e <strong>não é rateado por dia</strong> — cache é pagamento pontual, ratear inventaria número. O ROI desta janela carrega o custo cheio.');
   if(k.freteZerado)av.push('Frete lançado como <strong>zero</strong> em pelo menos um creator. Com mais de 20 permutas enviadas isso é improvável, então o ROI dos permuta está superestimado.');
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita registrada — ficam fora de todos os números acima, não entram como zero.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
@@ -399,33 +419,37 @@ function renderTabela(){
     const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
     const fura=/FORA da blacklist/.test(c.obs||'');
     const semPct=c.tipo==='influ'&&c.influ_comissao_pct==null;
-    const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%'
-      :(semPct?'<span class="tag nulo" title="sem comissão definida: não paga">definir</span>':'—');
-    const alerta=[c.obs||'',(v&&v.obs)||''].filter(Boolean).join(' — ');
+    // detalhe fica atras de um clique: o que decide contrato e cupom, receita e ROI.
+    const det=[
+      v&&v.porte?`porte ${esc(v.porte)}`:'', v&&v.modelo?`modelo ${esc(v.modelo)}`:'',
+      c.influ_comissao_pct!=null?`comissão ${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:'',
+      v&&v.pedidos?`${nf(v.pedidos)} pedidos`:'',
+      v&&+v.comissao?`comissão ${rf(v.comissao)}`:'',
+      v&&+v.custo_lancado?`custo ${rf(v.custo_lancado)}`:'',
+      v&&+v.investimento?`investido ${rf(v.investimento)}`:'',
+      `${nf(c.usos_lifetime)} usos históricos`,
+      v&&v.custo_da_janela_inteira?'<strong>custo lançado cobre período diferente da janela — não é rateado</strong>':'',
+      c.obs?esc(c.obs):'', v&&v.obs?esc(v.obs):''
+    ].filter(Boolean).join(' · ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
-      <td><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></td>
-      <td class="i-cod">${esc(c.codigo)}
-        <div class="mini">${v?esc(v.nome||v.influ)+(v.ativo?'':' · inativo'):''}</div></td>
+      <td class="i-cod"><button class="i-mais" title="detalhes">+</button> ${esc(c.codigo)}
+        <div class="mini">${esc(G.MARCA[c.marca]||c.marca)}${v&&v.nome?' · '+esc(v.nome):''}${v&&!v.ativo?' · inativo':''}</div></td>
       <td><select class="i-sel i-i">${optI}</select></td>
-      <td>${v?esc([v.porte,v.modelo].filter(Boolean).join(' · ')||'—'):'—'}</td>
-      <td class="num">${nf(c.usos_lifetime)}</td>
       <td class="num">${v&&v.receita!=null?rf(v.receita):'—'}</td>
-      <td class="num">${v&&+v.custo_lancado?rf(v.custo_lancado):'—'}</td>
-      <td class="num">${v&&+v.comissao?rf(v.comissao):com}</td>
-      <td class="num">${v&&+v.investimento?rf(v.investimento):'—'}</td>
       <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
-      <td><select class="i-sel i-t">${optT}</select></td>
-      <td class="i-obs">${esc(alerta)}</td>
+      <td><select class="i-sel i-t">${optT}</select>${semPct?' <span class="tag nulo">definir %</span>':''}</td>
       <td><button class="btn sec i-salvar" disabled>Salvar</button>
-        <span class="mini i-msg"></span></td></tr>`;}).join('');
+        <span class="mini i-msg"></span></td></tr>
+      <tr class="i-det" hidden><td colspan="6" class="i-obs">${det}</td></tr>`;}).join('');
 
   $('#area-tabela').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
-    <th>Marca</th><th>Cupom</th><th>Creator</th><th>Porte · modelo</th><th class="num">Usos</th>
-    <th class="num">Receita</th><th class="num">Custo</th><th class="num">Comissão</th>
-    <th class="num">Investido</th><th class="num">ROI</th><th>Tipo</th><th>Alerta</th><th></th>
-    </tr></thead><tbody>${linhas}</tbody></table></div>`;
+    <th>Cupom</th><th>Creator</th><th class="num">Receita</th><th class="num">ROI</th>
+    <th>Tipo</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
-  document.querySelectorAll('#area-tabela tbody tr').forEach(tr=>{
+  document.querySelectorAll('#area-tabela .i-mais').forEach(b=>b.onclick=()=>{
+    const d=b.closest('tr').nextElementSibling;
+    d.hidden=!d.hidden; b.textContent=d.hidden?'+':'–';});
+  document.querySelectorAll('#area-tabela tbody tr:not(.i-det)').forEach(tr=>{
     const bt=tr.querySelector('.i-salvar');
     tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{bt.disabled=false;});
     bt.onclick=()=>salvarCupom(tr);
@@ -466,6 +490,15 @@ async function salvarInflu(){
   $('#i-f-salvar').disabled=false;
 }
 $('#i-filtro').onchange=renderTabela;
+$('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;
+document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');PER=preset(b.dataset.p);
+  $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;carregarInflu();});
+['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
+  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
+  carregarInflu();});
 $('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
 $('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
 $('#i-f-salvar').onclick=salvarInflu;
