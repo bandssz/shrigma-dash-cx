@@ -132,8 +132,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
       <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
-      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
+      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
       <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
     </div>
     <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
     <label><input type="checkbox" id="cmp" checked> comparar</label>
@@ -300,7 +301,11 @@ const G = {
   addDias(s,n){const d=new Date(s+'T12:00:00Z');d.setDate(d.getDate()+n);return G.iso(d);},
   diasEntre(a,b){return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5)+1;},
   anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
+  // Semana comeca na SEGUNDA (convencao BR). getUTCDay da 0 no domingo, entao domingo vira 6.
+  segunda(s){const x=new Date(s+'T12:00:00Z');return G.addDias(s,-((x.getUTCDay()+6)%7));},
   preset(p,hoje){
+    if(p==='semana')return {ini:G.segunda(hoje),fim:hoje};
+    if(p==='semanaant'){const s=G.addDias(G.segunda(hoje),-7);return {ini:s,fim:G.addDias(s,6)};}
     const d=new Date(hoje+'T12:00:00Z');
     if(p==='hoje')return{ini:hoje,fim:hoje};
     if(p==='ontem'){const a=G.addDias(hoje,-1);return{ini:a,fim:a};}
