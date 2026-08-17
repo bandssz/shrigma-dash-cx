@@ -291,7 +291,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
           <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
           <option value="todos">Todos</option>
         </select>
-        <button class="btn sec" id="i-btn-novo">Novo influ</button></span></div>
+        <button class="btn sec" id="i-btn-novo">Novo / editar influ</button></span></div>
 
       <div id="i-form" hidden>
         <div class="form">
@@ -300,16 +300,19 @@ textarea{width:100%;resize:vertical;min-height:58px}
               <option value="fish">Fishermans</option><option value="olivas">Olivas do Campo</option></select></div>
           <div class="campo"><label>Slug</label>
             <input type="text" id="i-f-slug" placeholder="ursobranco">
-            <span class="ajuda">Min&uacute;sculo, sem acento e sem espa&ccedil;o. Tem que ser <strong>id&ecirc;ntico</strong> ao
+            <span class="ajuda">Slug que <strong>j&aacute; existe</strong> atualiza o cadastro dele (campo em branco n&atilde;o apaga o que j&aacute; est&aacute; l&aacute;)
+              &mdash; &eacute; assim que se corrige uma comiss&atilde;o. Min&uacute;sculo, sem acento e sem espa&ccedil;o. Tem que ser <strong>id&ecirc;ntico</strong> ao
               <code>utm_content</code> dos links dele &mdash; &eacute; isso que faz a atribui&ccedil;&atilde;o por UTM funcionar sozinha.</span></div>
           <div class="campo"><label>Nome</label><input type="text" id="i-f-nome" placeholder="Urso Branco"></div>
           <div class="campo"><label>Handle</label><input type="text" id="i-f-handle" placeholder="@ursobranco"></div>
           <div class="campo"><label>Comiss&atilde;o (%)</label>
-            <input type="number" id="i-f-com" step="0.5" placeholder="10">
-            <span class="ajuda">N&atilde;o &eacute; o desconto do cupom. O pct fica congelado em cada pedido apurado,
-              ent&atilde;o mudar aqui n&atilde;o reescreve comiss&atilde;o j&aacute; paga.</span></div>
+            <input type="number" id="i-f-com" step="0.5" value="5">
+            <span class="ajuda"><strong>5% &eacute; a regra</strong>; 10% s&oacute; para capivara e ursobranco.
+              N&atilde;o confundir com o desconto do cupom &mdash; s&atilde;o n&uacute;meros diferentes.
+              Deixar em branco grava NULL, que <strong>n&atilde;o paga nada</strong> at&eacute; alguem definir.
+              O pct fica congelado em cada pedido apurado, ent&atilde;o mudar aqui n&atilde;o reescreve comiss&atilde;o j&aacute; paga.</span></div>
           <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
-            <button class="btn" id="i-f-salvar">Registrar influ</button>
+            <button class="btn" id="i-f-salvar">Salvar influ</button>
             <button class="btn sec" id="i-f-cancelar">Cancelar</button>
             <span class="mini" id="i-f-msg"></span></div>
         </div>
@@ -358,6 +361,8 @@ const G = {
       usosSemDono: soma(x => x.tipo === 'pendente'),
       usosAssociados: soma(x => x.tipo === 'influ'),
       furos: c.filter(x => /FORA da blacklist/.test(x.obs || '')).length,
+      // associado porem sem pct: nao gera pagamento. NULL nunca vira 0 escondido.
+      semComissao: c.filter(x => x.tipo === 'influ' && x.influ_comissao_pct == null).length,
       total: c.length
     };
   },
@@ -1068,7 +1073,8 @@ function renderInflu(){
     ['Pendentes',nf(r.pendentes),'sem dono'],
     ['Associados',nf(r.associados),'entram na comissão'],
     ['Usos sem dono',nf(r.usosSemDono),'histórico não atribuído'],
-    ['Furos na blacklist',nf(r.furos),'poluem a apuração']
+    ['Furos na blacklist',nf(r.furos),'poluem a apuração'],
+    ['Sem comissão',nf(r.semComissao),'associado mas não paga']
   ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
 
   const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
@@ -1089,7 +1095,10 @@ function renderInflu(){
       meus.map(i=>`<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
     const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
     const fura=/FORA da blacklist/.test(c.obs||'');
-    const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%':'—';
+    // influ associado mas sem pct definido nao gera pagamento: precisa gritar, nao virar travessao
+    const semPct=c.tipo==='influ'&&c.influ_comissao_pct==null;
+    const com=c.influ_comissao_pct!=null?(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')+'%'
+      :(semPct?'<span class="tag nulo" title="sem comissão definida: não paga">definir</span>':'—');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
       <td><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></td>
       <td class="i-cod">${esc(c.codigo)}</td>
