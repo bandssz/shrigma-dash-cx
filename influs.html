@@ -243,22 +243,33 @@ const G = {
   // KPIs de influencia. Soma so quem tem receita: quem esta NULL nao vira zero.
   // investimento = custo lancado + comissao. ROI NULL quando investimento=0 (nunca infinito).
   influKPI(roi, marca){
-    const r = (roi||[]).filter(x => (marca==='todas'||x.marca===marca) && x.receita !== null);
-    const s = k => r.reduce((a,x) => a + (+x[k] || 0), 0);
-    const receita = s('receita'), investimento = s('investimento');
+    const todos = (roi||[]).filter(x => marca==='todas'||x.marca===marca);
+    const comRec = todos.filter(x => x.receita !== null);
+    const soma = (arr,k) => arr.reduce((a,x) => a + (+x[k] || 0), 0);
+    // CUSTO E COMISSAO SOMAM TODOS, nao so quem teve receita. Cache pago a quem
+    // vendeu zero e custo real - e provavelmente o numero mais importante da leitura.
+    // Filtrar por receita!=null aqui escondia R$ 19 mil na Fishermans e dobrava o ROI.
+    const receita = soma(comRec,'receita');
+    const custo = soma(todos,'custo_lancado');
+    const comissao = soma(todos,'comissao');
+    const investimento = custo + comissao;
+    const semRec = todos.filter(x => x.receita === null);
     return {
-      creators: r.length,
-      semReceita: (roi||[]).filter(x => (marca==='todas'||x.marca===marca) && x.receita === null).length,
-      receita, investimento, comissao: s('comissao'), custo: s('custo_lancado'),
+      creators: comRec.length,
+      semReceita: semRec.length,
+      custoSemReceita: soma(semRec,'custo_lancado'),
+      receita, investimento, comissao, custo,
       roi: investimento > 0 ? receita/investimento : null,
       lucro: receita - investimento,
-      fontePlanilha: r.some(x => x.fonte === 'planilha'),
-      freteZerado: r.some(x => x.frete_zerado === true)
+      fontePlanilha: comRec.some(x => x.fonte === 'planilha'),
+      freteZerado: todos.some(x => x.frete_zerado === true)
     };
   },
   // agrupa por porte ou modelo para achar onde o dinheiro rende
   influPor(roi, marca, campo){
-    const r = (roi||[]).filter(x => (marca==='todas'||x.marca===marca) && x.receita !== null);
+    // inclui quem teve receita nula: o custo dele tem que aparecer no corte
+    const r = (roi||[]).filter(x => (marca==='todas'||x.marca===marca)
+      && (x.receita !== null || +x.investimento > 0));
     const m = new Map();
     for(const x of r){
       const k = x[campo] || '(não informado)';
@@ -373,7 +384,7 @@ function renderKPIs(){
   if(desde&&PER.ini<desde)av.push(`A janela começa antes de <strong>${desde}</strong>. Não há cache lançado antes dessa data — muitos contratos nem existiam — então <strong>o ROI deste período está inflado</strong>: a receita conta, o custo não. Receita isolada continua válida.`);
   const semDono=k.receitaCupom-k.receita;
   if(semDono>1)av.push(`<strong>${rf(semDono)}</strong> de receita em cupons ainda <strong>sem dono</strong> — não entra em ROI nem em comissão até alguém associar.`);
-  if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita registrada — ficam fora de todos os números acima, não entram como zero.`);
+  if(k.semReceita)av.push(`${k.semReceita} creator(s) sem <strong>nenhuma</strong> receita rastreada nesta janela, custando <strong>${rf(k.custoSemReceita)}</strong>. O custo deles entra no ROI; a receita não existe.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
 }
 const roiTxt=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
