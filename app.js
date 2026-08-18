@@ -15,11 +15,23 @@ const estado = {
   agente: "todos",
   dados: null,
 };
+// Semana comeca na SEGUNDA (convencao BR). getUTCDay da 0 no domingo, entao domingo vira 6.
+// Mesma regra usada em growth.html e influs.html - os tres paineis tem que concordar
+// sobre o que e "esta semana", senao o mesmo numero muda de painel para painel.
+function segundaDe(ymd) {
+  const d = new Date(ymd + "T12:00:00Z");
+  return diasAtras((d.getUTCDay() + 6) % 7, ymd);
+}
 function resolverPeriodo(hoje) {
   const p = estado.preset;
   let ini, fim, rotulo;
   if (p === "hoje") { ini = fim = hoje; rotulo = "hoje"; }
   else if (p === "ontem") { ini = fim = diasAtras(1, hoje); rotulo = "ontem"; }
+  else if (p === "semana") { ini = segundaDe(hoje); fim = hoje; rotulo = "esta semana"; }
+  else if (p === "semana-1") {
+    const seg = segundaDe(hoje);
+    ini = diasAtras(7, seg); fim = diasAtras(1, seg); rotulo = "semana passada";
+  }
   else if (p === "7d") { ini = diasAtras(7, hoje); fim = diasAtras(1, hoje); rotulo = "últimos 7 dias"; }
   else if (p === "30d") { ini = diasAtras(30, hoje); fim = diasAtras(1, hoje); rotulo = "últimos 30 dias"; }
   else if (p === "mes") { ini = hoje.slice(0, 8) + "01"; fim = hoje; rotulo = "este mês (parcial)"; }
