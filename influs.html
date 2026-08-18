@@ -105,6 +105,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .i-fura .i-cod{font-weight:700}
 .i-sel{font:500 12.5px/1 var(--ui);padding:4px 6px;border:1px solid var(--borda);
   border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
+.tag.sku{background:#eef4f5;color:#22808d;border:1px solid #cfe1e4;
+  font:700 10.5px/1.5 var(--ui);padding:1px 5px;border-radius:4px;letter-spacing:.02em}
 .i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
 .i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
 .i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
@@ -383,6 +385,11 @@ function renderKPIs(){
   if(k.freteZerado)av.push('Frete lançado como <strong>zero</strong> em pelo menos um creator. Com mais de 20 permutas enviadas isso é improvável, então o ROI dos permuta está superestimado.');
   const desde=(INFLU.marco||{}).custo_confiavel_desde;
   if(desde&&PER.ini<desde)av.push(`A janela começa antes de <strong>${desde}</strong>. Não há cache lançado antes dessa data — muitos contratos nem existiam — então <strong>o ROI deste período está inflado</strong>: a receita conta, o custo não. Receita isolada continua válida.`);
+  const sku=(INFLU.receita_sku||[]).filter(x=>MARCA==='todas'||x.marca===MARCA);
+  if(sku.length){
+    const t=sku.reduce((a,x)=>a+(+x.receita||0),0), s=sku.reduce((a,x)=>a+(+x.sobreposicao||0),0);
+    av.push(`<strong>${rf(t)}</strong> de receita em linha assinada (${sku.length} creator(s)), medida por SKU. É uma <strong>lente separada</strong>: ${s>0?`${rf(s)} caiu em pedido que também usou cupom, então`:'não'} somar com a receita de cupom ${s>0?'contaria a mesma venda duas vezes':'ainda assim mede outra coisa'}.`);
+  }
   const semDono=k.receitaCupom-k.receita;
   if(semDono>1)av.push(`<strong>${rf(semDono)}</strong> de receita em cupons ainda <strong>sem dono</strong> — não entra em ROI nem em comissão até alguém associar.`);
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem <strong>nenhuma</strong> receita rastreada nesta janela, custando <strong>${rf(k.custoSemReceita)}</strong>. O custo deles entra no ROI; a receita não existe.`);
@@ -427,6 +434,9 @@ function renderTabela(){
   const ROI=new Map((INFLU.roi||[]).map(x=>[x.marca+'|'+x.influ,x]));
   // receita e do CUPOM, nao do influ: cupom sem dono tambem tem receita e precisa aparecer
   const RC=new Map((INFLU.receita_cupom||[]).map(x=>[x.marca+'|'+x.codigo,x]));
+  // Lente 2, separada: receita da linha assinada. NUNCA somar com a receita de cupom -
+  // 'sobreposicao' e a parte que caiu no mesmo pedido e somar contaria a venda duas vezes.
+  const RS=new Map((INFLU.receita_sku||[]).map(x=>[x.marca+'|'+x.influ,x]));
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
@@ -435,7 +445,8 @@ function renderTabela(){
   // senao o ROI volta a mentir - foi exatamente o bug encontrado na auditoria de 18/08.
   let ocultos=0, custoOculto=0;
   if(filtro==='tudo'||filtro==='influ'){
-    const vendeu=c=>{const x=RC.get(c.marca+'|'+c.codigo);return x&&+x.receita>0;};
+    const vendeu=c=>{const x=RC.get(c.marca+'|'+c.codigo);const s=RS.get(c.marca+'|'+c.influ);
+      return (x&&+x.receita>0)||(s&&+s.receita>0);};   // linha assinada tambem conta como venda
     const fora=cs.filter(c=>!vendeu(c));
     ocultos=fora.length;
     for(const c of fora){const v=ROI.get(c.marca+'|'+c.influ);custoOculto+=v?(+v.custo_lancado||0):0;}
@@ -456,6 +467,7 @@ function renderTabela(){
   const linhas=cs.map(c=>{
     const v=ROI.get(c.marca+'|'+c.influ);
     const rc=RC.get(c.marca+'|'+c.codigo);
+    const rs=RS.get(c.marca+'|'+c.influ);
     const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
     const optI=['<option value="">— sem influ —</option>'].concat(meus.map(i=>
       `<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
@@ -467,6 +479,10 @@ function renderTabela(){
       v&&v.porte?`porte ${esc(v.porte)}`:'', v&&v.modelo?`modelo ${esc(v.modelo)}`:'',
       c.influ_comissao_pct!=null?`comissão ${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:'',
       rc?`${nf(rc.pedidos)} pedidos neste cupom`:'',
+      rs?`linha assinada: ${rf(rs.receita)} em ${nf(rs.pedidos)} pedidos (${nf(rs.skus)} SKUs)`:'',
+      rs?(+rs.sobreposicao>0
+          ? `<strong>sobreposição ${rf(rs.sobreposicao)}</strong> — pedido que usou cupom E comprou a linha; as duas lentes não se somam`
+          : 'sobreposição zero — quem comprou a linha não usou cupom, as lentes são complementares'):'',
       v&&v.pedidos?`${nf(v.pedidos)} pedidos no creator`:'',
       v&&+v.comissao?`comissão ${rf(v.comissao)}`:'',
       v&&+v.custo_lancado?`custo ${rf(v.custo_lancado)}`:'',
@@ -477,7 +493,7 @@ function renderTabela(){
     ].filter(Boolean).join(' · ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
       <td class="i-cod"><button class="i-mais" title="detalhes">+</button> ${esc(c.codigo)}
-        <div class="mini">${esc(G.MARCA[c.marca]||c.marca)}${v&&v.nome?' · '+esc(v.nome):''}${v&&!v.ativo?' · inativo':''}</div></td>
+        <div class="mini">${esc(G.MARCA[c.marca]||c.marca)}${v&&v.nome?' · '+esc(v.nome):''}${v&&!v.ativo?' · inativo':''}${rs?` <span class="tag sku" title="Linha assinada · ${nf(rs.pedidos)} pedidos em ${nf(rs.skus)} SKUs. Lente separada: não somar com a receita de cupom.">RECEITA SKU ${rf(rs.receita)}</span>`:''}</div></td>
       <td><select class="i-sel i-i">${optI}</select></td>
       <td class="num">${rc?rf(rc.receita):'—'}</td>
       <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
