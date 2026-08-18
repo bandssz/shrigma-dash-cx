@@ -166,7 +166,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <div class="painel-cab"><h2>Creators &amp; cupons</h2>
         <span><span class="mini" id="i-frescor"></span>
         <select id="i-filtro" class="i-sel">
-          <option value="tudo" selected>Influs + pendentes</option>
+          <option value="tudo" selected>Vendeu nesta janela</option>
+          <option value="inclui-zero">Inclui quem não vendeu</option>
           <option value="influ">Creators associados</option>
           <option value="pendente">Pendentes de associa&ccedil;&atilde;o</option>
           <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
@@ -261,7 +262,7 @@ const G = {
       receita, investimento, comissao, custo,
       roi: investimento > 0 ? receita/investimento : null,
       lucro: receita - investimento,
-      fontePlanilha: comRec.some(x => x.fonte === 'planilha'),
+
       freteZerado: todos.some(x => x.frete_zerado === true)
     };
   },
@@ -365,7 +366,7 @@ function renderKPIs(){
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
-    {r:'Receita rastreada',v:rf(k.receitaCupom),s:`todos os cupons · ${PER.ini} a ${PER.fim}`},
+    {r:'Receita rastreada',v:rf(k.receitaCupom),s:`Shopify · ${PER.ini} a ${PER.fim}`},
     {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
     {r:'ROI',v:`<span class="${cls.trim()}">${roiTxt}</span>`,s:`receita ÷ (custo + comissão)${(INFLU.marco||{}).custo_confiavel_desde?' · custo desde '+INFLU.marco.custo_confiavel_desde:''}`},
     {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} lançado · ${rf(k.comissao)} comissão`},
@@ -376,9 +377,9 @@ function renderKPIs(){
 
   // a tela tem que dizer de onde vem o numero, senao digitado passa por coletado
   const av=[];
-  if(k.fontePlanilha)av.push('Alguns creators não têm <strong>nenhum pedido coletado</strong> nesta janela — para esses, a receita mostrada ainda vem da planilha da Marcela.');
-  const semMensal=(INFLU.roi||[]).filter(x=>x.fonte_custo==='planilha-90d'&&x.receita!=null).length;
-  if(semMensal)av.push(`${semMensal} creator(s) ainda sem <strong>custo mensal</strong> lançado — para esses o custo vem da planilha de 90 dias importada, rateado pelos dias da janela. É aproximação, não o valor do mês.`);
+
+  const semModelo=(INFLU.roi||[]).filter(x=>!x.modelo&&x.receita!=null).length;
+  if(semModelo)av.push(`${semModelo} creator(s) com receita e <strong>sem modelo de remuneração</strong> definido — não recebem comissão nem têm cache lançado até alguém cadastrar.`);
   if(k.freteZerado)av.push('Frete lançado como <strong>zero</strong> em pelo menos um creator. Com mais de 20 permutas enviadas isso é improvável, então o ROI dos permuta está superestimado.');
   const desde=(INFLU.marco||{}).custo_confiavel_desde;
   if(desde&&PER.ini<desde)av.push(`A janela começa antes de <strong>${desde}</strong>. Não há cache lançado antes dessa data — muitos contratos nem existiam — então <strong>o ROI deste período está inflado</strong>: a receita conta, o custo não. Receita isolada continua válida.`);
@@ -429,7 +430,17 @@ function renderTabela(){
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
-  else if(filtro==='tudo')cs=cs.filter(c=>c.tipo==='influ'||c.tipo==='pendente');
+  else if(filtro==='tudo'||filtro==='inclui-zero')cs=cs.filter(c=>c.tipo==='influ'||c.tipo==='pendente');
+  // Esconder quem vendeu zero e so da TABELA. O custo deles continua nos KPIs de cima,
+  // senao o ROI volta a mentir - foi exatamente o bug encontrado na auditoria de 18/08.
+  let ocultos=0, custoOculto=0;
+  if(filtro==='tudo'||filtro==='influ'){
+    const vendeu=c=>{const x=RC.get(c.marca+'|'+c.codigo);return x&&+x.receita>0;};
+    const fora=cs.filter(c=>!vendeu(c));
+    ocultos=fora.length;
+    for(const c of fora){const v=ROI.get(c.marca+'|'+c.influ);custoOculto+=v?(+v.custo_lancado||0):0;}
+    cs=cs.filter(vendeu);
+  }
   else if(filtro==='outros')cs=cs.filter(c=>c.tipo!=='influ'&&c.tipo!=='pendente');
   cs.sort((a,b)=>{
     const ra=ROI.get(a.marca+'|'+a.influ),rb=ROI.get(b.marca+'|'+b.influ);
@@ -461,7 +472,7 @@ function renderTabela(){
       v&&+v.custo_lancado?`custo ${rf(v.custo_lancado)}`:'',
       v&&+v.investimento?`investido ${rf(v.investimento)}`:'',
       `${nf(c.usos_lifetime)} usos históricos`,
-      v&&v.fonte_custo?`custo ${esc(v.fonte_custo==='mensal'?'mensal':'rateado da planilha 90d')}`:'',
+      v?(v.tem_custo?'cache mensal lançado':'sem cache lançado'):'',
       c.obs?esc(c.obs):'', v&&v.obs?esc(v.obs):''
     ].filter(Boolean).join(' · ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
@@ -475,7 +486,10 @@ function renderTabela(){
         <span class="mini i-msg"></span></td></tr>
       <tr class="i-det" hidden><td colspan="6" class="i-obs">${det}</td></tr>`;}).join('');
 
-  $('#area-tabela').innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
+  const avisoOculto = ocultos
+    ? `<div class="nota">${nf(ocultos)} cupom(ns) sem venda nesta janela${custoOculto>0?`, custando <strong>${rf(custoOculto)}</strong>,`:''} escondido(s) da tabela. <strong>O custo continua contando nos KPIs acima.</strong> Para ver, troque o filtro para “Inclui quem não vendeu”.</div>`
+    : '';
+  $('#area-tabela').innerHTML=avisoOculto+`<div class="rolagem"><table class="comparativo"><thead><tr>
     <th>Cupom</th><th>Creator</th><th class="num">Receita</th><th class="num">ROI</th>
     <th>Tipo</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
