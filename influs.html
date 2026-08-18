@@ -230,7 +230,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 const $=s=>document.querySelector(s);
 // mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
 function chaveLeitura(){let k=localStorage.getItem('shrigma_dash_key');
-  if(!k){k=prompt('Chave de acesso do painel:');if(k)localStorage.setItem('shrigma_dash_key',k);}
+  if(!k){k=(prompt('Chave de acesso do painel:')||'').trim();
+    if(k)localStorage.setItem('shrigma_dash_key',k); else return null;}
   return k;}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
@@ -354,10 +355,28 @@ async function influPost(corpo){
   if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
   return j;
 }
+function avisoTela(titulo,detalhe,botao){
+  // Tela branca e o pior estado possivel: quem abre nao sabe se quebrou ou se esta vazio.
+  const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
+  $('#area-tabela').innerHTML=`<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${bt}</div>`;
+  $('#area-cortes').innerHTML=''; $('#area-kpis').innerHTML=''; $('#faixa-alertas').innerHTML='';
+  const b=$('#btn-retry'); if(b) b.onclick=()=>{localStorage.removeItem('shrigma_dash_key');carregarInflu();};
+}
 async function carregarInflu(){
-  const k=chaveLeitura();if(!k)return;
-  try{INFLU=await influPost({k,acao:'listar',ini:PER.ini,fim:PER.fim});renderTudo();}
-  catch(e){$('#area-tabela').innerHTML=`<div class="vazio">Falha ao ler o cadastro: ${esc(e.message)}</div>`;}
+  const k=chaveLeitura();
+  if(!k){ avisoTela('Chave de acesso não informada',
+    'O painel precisa da chave de leitura para carregar. Ela fica guardada neste navegador depois da primeira vez.',
+    'Digitar a chave'); return; }
+  avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
+  try{
+    INFLU=await influPost({k,acao:'listar',ini:PER.ini,fim:PER.fim});
+    renderTudo();
+  }catch(e){
+    const chaveRuim=/chave/i.test(e.message);
+    avisoTela(chaveRuim?'Chave inválida':'Falha ao carregar',
+      esc(e.message)+(chaveRuim?'':'<br><span class="mini">Se persistir, o workflow da API pode estar desativado no n8n.</span>'),
+      chaveRuim?'Digitar outra chave':'Tentar de novo');
+  }
 }
 
 function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();}
