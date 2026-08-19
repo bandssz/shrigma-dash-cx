@@ -253,18 +253,22 @@ const G = {
     // CUSTO E COMISSAO SOMAM TODOS, nao so quem teve receita. Cache pago a quem
     // vendeu zero e custo real - e provavelmente o numero mais importante da leitura.
     // Filtrar por receita!=null aqui escondia R$ 19 mil na Fishermans e dobrava o ROI.
+    // receita de influencia = cupom + linha assinada. A view ja desconta sobreposicao.
     const receita = soma(comRec,'receita');
     const custo = soma(todos,'custo_lancado');
     const comissao = soma(todos,'comissao');
-    const investimento = custo + comissao;
+    const patrocinio = soma(todos,'patrocinio');
+    const investimento = custo + comissao;              // gasto com retorno rastreavel
+    const investimentoTotal = investimento + patrocinio; // + midia sem atribuicao
     const semRec = todos.filter(x => x.receita === null);
     return {
       creators: comRec.length,
       semReceita: semRec.length,
       custoSemReceita: soma(semRec,'custo_lancado'),
-      receita, investimento, comissao, custo,
+      receita, investimento, investimentoTotal, comissao, custo, patrocinio,
       roi: investimento > 0 ? receita/investimento : null,
-      lucro: receita - investimento,
+      roiTotal: investimentoTotal > 0 ? receita/investimentoTotal : null,
+      lucro: receita - investimentoTotal,
 
       freteZerado: todos.some(x => x.frete_zerado === true)
     };
@@ -384,14 +388,22 @@ function renderKPIs(){
   const k=G.influKPI(INFLU.roi,MARCA);
   k.receitaCupom=(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
     .reduce((a,x)=>a+(+x.receita||0),0);
+  const roiTxt2=roiTxt2f(k.roiTotal);
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
     {r:'Receita rastreada',v:rf(k.receitaCupom),s:`Shopify · ${PER.ini} a ${PER.fim}`},
     {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
-    {r:'ROI',v:`<span class="${cls.trim()}">${roiTxt}</span>`,s:`receita ÷ (custo + comissão)${(INFLU.marco||{}).custo_confiavel_desde?' · custo desde '+INFLU.marco.custo_confiavel_desde:''}`},
-    {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} lançado · ${rf(k.comissao)} comissão`},
-    {r:'Retorno líquido',v:rf(k.lucro),s:'receita com dono menos investimento'}
+    {r:k.patrocinio>0?'ROI de influência':'ROI',
+     v:`<span class="${cls.trim()}">${roiTxt}</span>`,
+     s:k.patrocinio>0
+       ? `sobre cache + comissão · com o patrocínio dentro: <strong>${roiTxt2}</strong>`
+       : `receita ÷ (custo + comissão)${(INFLU.marco||{}).custo_confiavel_desde?' · custo desde '+INFLU.marco.custo_confiavel_desde:''}`},
+    {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} cache · ${rf(k.comissao)} comissão`},
+    ...(k.patrocinio>0?[{r:'Patrocínio',v:rf(k.patrocinio),
+      s:'custo real, sem retorno rastreável'}]:[]),
+    {r:'Retorno líquido',v:rf(k.lucro),
+     s:k.patrocinio>0?`receita menos ${rf(k.investimentoTotal)} de custo total`:'receita menos investimento'}
   ].map(x=>`<div class="kpi"><div class="kpi-rot">${x.r}</div>
     <div class="kpi-val tabn">${x.v}</div>
     <div class="kpi-sub">${x.s}</div></div>`).join('');
@@ -409,12 +421,14 @@ function renderKPIs(){
     const t=sku.reduce((a,x)=>a+(+x.receita||0),0), s=sku.reduce((a,x)=>a+(+x.sobreposicao||0),0);
     av.push(`<strong>${rf(t)}</strong> de receita em linha assinada (${sku.length} creator(s)), medida por SKU. É uma <strong>lente separada</strong>: ${s>0?`${rf(s)} caiu em pedido que também usou cupom, então`:'não'} somar com a receita de cupom ${s>0?'contaria a mesma venda duas vezes':'ainda assim mede outra coisa'}.`);
   }
+  if(k.patrocinio>0)av.push(`<strong>${rf(k.patrocinio)}</strong> em patrocínio de canal <strong>sem mecanismo de atribuição</strong> (TV, evento, cota). É custo real e está no total, mas nenhuma lente — cupom, UTM ou SKU — consegue medir o retorno. Um cupom exclusivo lido no ar resolveria.`);
   const semDono=k.receitaCupom-k.receita;
   if(semDono>1)av.push(`<strong>${rf(semDono)}</strong> de receita em cupons ainda <strong>sem dono</strong> — não entra em ROI nem em comissão até alguém associar.`);
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem <strong>nenhuma</strong> receita rastreada nesta janela, custando <strong>${rf(k.custoSemReceita)}</strong>. O custo deles entra no ROI; a receita não existe.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
 }
 const roiTxt=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
+const roiTxt2f=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
 const roiCls=v=>v==null?'':(v>=3?'vd':(v<1?'vm':''));
 
 function renderCortes(){
@@ -508,6 +522,8 @@ function renderTabela(){
       v&&+v.investimento?`investido ${rf(v.investimento)}`:'',
       `${nf(c.usos_lifetime)} usos históricos`,
       v?(v.tem_custo?'cache mensal lançado':'sem cache lançado'):'',
+      v&&+v.patrocinio>0?`<strong>${esc(v.patrocinio_rotulo||'patrocínio')} ${rf(v.patrocinio)}</strong> — custo sem retorno rastreável, fora do ROI de influência`:'',
+      v&&+v.patrocinio>0?`custo total ${rf(v.investimento_total)} · retorno total ${v.roi_total?(+v.roi_total).toFixed(2)+'x':'—'}`:'',
       c.obs?esc(c.obs):'', v&&v.obs?esc(v.obs):''
     ].filter(Boolean).join(' · ');
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
