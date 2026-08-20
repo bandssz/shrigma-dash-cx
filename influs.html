@@ -202,6 +202,59 @@ textarea{width:100%;resize:vertical;min-height:58px}
         </div>
       </div>
 
+
+      <div id="i-editor" hidden>
+        <div class="form">
+          <div class="campo largo"><label>Editando</label>
+            <strong id="ed-titulo"></strong>
+            <span class="ajuda" id="ed-sub"></span></div>
+          <div class="campo"><label>Nome</label><input type="text" id="ed-nome"></div>
+          <div class="campo"><label>Handle</label><input type="text" id="ed-handle"></div>
+          <div class="campo"><label>Contato</label><input type="text" id="ed-contato"></div>
+          <div class="campo"><label>Modelo</label>
+            <select id="ed-modelo" class="i-sel">
+              <option value="">— definir —</option>
+              <option value="fixo">fixo (só cache)</option>
+              <option value="comissao">comissão</option>
+              <option value="hibrido">híbrido (cache + comissão)</option>
+              <option value="permuta">permuta</option>
+              <option value="encerrado">encerrado</option>
+            </select>
+            <span class="ajuda">Modelo <code>fixo</code>, <code>permuta</code> e <code>encerrado</code> não aceitam
+              percentual; <code>comissao</code> e <code>hibrido</code> exigem.</span></div>
+          <div class="campo"><label>Comissão (%)</label><input type="number" id="ed-com" step="0.5">
+            <span class="ajuda">Em branco = <strong>não paga nada</strong>. Mudar aqui recalcula a comissão
+              já congelada nos pedidos deste influ.</span></div>
+          <div class="campo"><label>Porte</label>
+            <select id="ed-porte" class="i-sel"><option value="">—</option>
+              <option value="nano">nano</option><option value="micro">micro</option>
+              <option value="macro">macro</option><option value="celebridade">celebridade</option></select></div>
+          <div class="campo"><label>Seguidores</label><input type="number" id="ed-seg"></div>
+          <div class="campo"><label>Situação</label>
+            <select id="ed-ativo" class="i-sel"><option value="1">ativo</option>
+              <option value="0">encerrado (cupom segue contando receita)</option></select></div>
+          <div class="campo largo"><label>Observação</label><input type="text" id="ed-obs"></div>
+
+          <div class="campo largo"><label>Custo por competência</label>
+            <div id="ed-custos"></div>
+            <span class="ajuda">Competência sem linha é <strong>diferente</strong> de linha zerada:
+              contrato que não existia no mês não deve ter linha. Use “remover”.</span></div>
+
+          <div class="campo"><label>Competência</label><input type="month" id="ed-comp"></div>
+          <div class="campo"><label>Cache (R$)</label><input type="number" id="ed-fixo" step="0.01"></div>
+          <div class="campo"><label>Patrocínio (R$)</label><input type="number" id="ed-patroc" step="0.01">
+            <span class="ajuda">Canal sem atribuição (TV, evento, cota). Conta como custo, fica
+              <strong>fora</strong> do ROI.</span></div>
+          <div class="campo"><label>Rótulo do patrocínio</label><input type="text" id="ed-rotulo" placeholder="Fish TV"></div>
+
+          <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn" id="ed-salvar">Salvar cadastro</button>
+            <button class="btn sec" id="ed-custo-salvar">Salvar competência</button>
+            <button class="btn sec" id="ed-custo-remover">Remover competência</button>
+            <button class="btn sec" id="ed-fechar">Fechar</button>
+            <span class="mini" id="ed-msg"></span></div>
+        </div>
+      </div>
       <div class="i-cont" id="i-contadores"></div>
       <div id="area-tabela"></div>
       <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
@@ -268,7 +321,10 @@ const G = {
       receita, investimento, investimentoTotal, comissao, custo, patrocinio,
       roi: investimento > 0 ? receita/investimento : null,
       roiTotal: investimentoTotal > 0 ? receita/investimentoTotal : null,
-      lucro: receita - investimentoTotal,
+      // ROI e liquido consideram SO o gasto com retorno rastreavel (Felipe, 20/08).
+      // O patrocinio continua visivel como custo, mas fora da razao - medir retorno
+      // de TV com receita de e-commerce produziria um numero que ninguem pode acionar.
+      lucro: receita - investimento,
 
       freteZerado: todos.some(x => x.frete_zerado === true)
     };
@@ -383,7 +439,8 @@ async function carregarInflu(){
   }
 }
 
-function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();}
+function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();
+  if(ED){const e=$('#i-editor'); if(e&&!e.hidden) pintaCustos();}}
 function renderKPIs(){
   const k=G.influKPI(INFLU.roi,MARCA);
   k.receitaCupom=(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
@@ -397,13 +454,13 @@ function renderKPIs(){
     {r:k.patrocinio>0?'ROI de influência':'ROI',
      v:`<span class="${cls.trim()}">${roiTxt}</span>`,
      s:k.patrocinio>0
-       ? `sobre cache + comissão · com o patrocínio dentro: <strong>${roiTxt2}</strong>`
+       ? `sobre cache + comissão · ${rf(k.patrocinio)} de patrocínio ficam fora (sem atribuição)`
        : `receita ÷ (custo + comissão)${(INFLU.marco||{}).custo_confiavel_desde?' · custo desde '+INFLU.marco.custo_confiavel_desde:''}`},
     {r:'Investimento',v:rf(k.investimento),s:`${rf(k.custo)} cache · ${rf(k.comissao)} comissão`},
     ...(k.patrocinio>0?[{r:'Patrocínio',v:rf(k.patrocinio),
       s:'custo real, sem retorno rastreável'}]:[]),
     {r:'Retorno líquido',v:rf(k.lucro),
-     s:k.patrocinio>0?`receita menos ${rf(k.investimentoTotal)} de custo total`:'receita menos investimento'}
+     s:k.patrocinio>0?`receita menos cache e comissão · fora ${rf(k.patrocinio)} de patrocínio`:'receita menos investimento'}
   ].map(x=>`<div class="kpi"><div class="kpi-rot">${x.r}</div>
     <div class="kpi-val tabn">${x.v}</div>
     <div class="kpi-sub">${x.s}</div></div>`).join('');
@@ -534,6 +591,7 @@ function renderTabela(){
       <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
       <td><select class="i-sel i-t">${optT}</select>${semPct?' <span class="tag nulo">definir %</span>':''}</td>
       <td><button class="btn sec i-salvar" disabled>Salvar</button>
+        ${c.influ?`<button class="btn sec i-edit" data-influ="${esc(c.influ)}" data-m="${esc(c.marca)}">Editar</button>`:''}
         <span class="mini i-msg"></span></td></tr>
       <tr class="i-det" hidden><td colspan="6" class="i-obs">${det}</td></tr>`;}).join('');
 
@@ -544,6 +602,7 @@ function renderTabela(){
     <th>Cupom</th><th>Creator</th><th class="num">Receita</th><th class="num">ROI</th>
     <th>Tipo</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
+  document.querySelectorAll('#area-tabela .i-edit').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
   document.querySelectorAll('#area-tabela .i-mais').forEach(b=>b.onclick=()=>{
     const d=b.closest('tr').nextElementSibling;
     d.hidden=!d.hidden; b.textContent=d.hidden?'+':'–';});
@@ -587,6 +646,79 @@ async function salvarInflu(){
   }catch(e){msg.textContent='Falha: '+e.message;}
   $('#i-f-salvar').disabled=false;
 }
+
+// ---------- editor de cadastro e custo ----------
+let ED=null;
+function abrirEditor(marca,influ){
+  const i=(INFLU.influs||[]).find(x=>x.marca===marca&&x.influ===influ)||{marca,influ};
+  const v=(INFLU.roi||[]).find(x=>x.marca===marca&&x.influ===influ)||{};
+  ED={marca,influ};
+  $('#i-editor').hidden=false; $('#i-form').hidden=true;
+  $('#ed-titulo').textContent=`${i.nome||influ} · ${G.MARCA[marca]||marca}`;
+  $('#ed-sub').innerHTML=`slug <code>${esc(influ)}</code> — precisa bater com o <code>utm_content</code> dos links dele`;
+  $('#ed-nome').value=i.nome||''; $('#ed-handle').value=i.handle||'';
+  $('#ed-contato').value=i.contato||''; $('#ed-modelo').value=i.modelo||'';
+  $('#ed-com').value=i.comissao_pct!=null?(100*(+i.comissao_pct)).toString():'';
+  $('#ed-porte').value=i.porte||''; $('#ed-seg').value=i.seguidores||'';
+  $('#ed-ativo').value=(i.ativo===false)?'0':'1';
+  $('#ed-obs').value=i.obs||''; $('#ed-msg').textContent='';
+  $('#ed-comp').value=(PER.fim||'').slice(0,7);
+  pintaCustos();
+  $('#i-editor').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function pintaCustos(){
+  const cs=(INFLU.custos||[]).filter(c=>c.marca===ED.marca&&c.influ===ED.influ);
+  if(!cs.length){$('#ed-custos').innerHTML='<span class="mini">Nenhuma competência lançada.</span>';
+    $('#ed-fixo').value='';$('#ed-patroc').value='';$('#ed-rotulo').value='';return;}
+  $('#ed-custos').innerHTML='<table class="comparativo"><thead><tr><th>Competência</th>'
+    +'<th class="num">Cache</th><th class="num">Patrocínio</th><th></th></tr></thead><tbody>'
+    +cs.map(c=>`<tr><td>${esc(c.competencia)}</td><td class="num">${rf(c.fixo)}</td>
+      <td class="num">${c.patrocinio?rf(c.patrocinio):'—'}</td>
+      <td><button class="btn sec ed-carrega" data-c="${esc(c.competencia)}">carregar</button></td></tr>`).join('')
+    +'</tbody></table>';
+  document.querySelectorAll('.ed-carrega').forEach(b=>b.onclick=()=>{
+    const c=cs.find(x=>x.competencia===b.dataset.c);
+    $('#ed-comp').value=c.competencia; $('#ed-fixo').value=c.fixo??'';
+    $('#ed-patroc').value=c.patrocinio??''; $('#ed-rotulo').value=c.patrocinio_rotulo??'';});
+}
+async function salvarCadastro(){
+  const msg=$('#ed-msg'); msg.textContent='…';
+  const com=$('#ed-com').value.trim();
+  const wk=chaveEscritaInflu(); if(!wk){msg.textContent='';return;}
+  try{
+    const j=await influPost({k:wk,acao:'salvar_influ',influ:{
+      marca:ED.marca, influ:ED.influ, nome:$('#ed-nome').value.trim(),
+      handle:$('#ed-handle').value.trim(), contato:$('#ed-contato').value.trim(),
+      modelo:$('#ed-modelo').value||null, comissao_pct:com===''?null:(+com/100),
+      porte:$('#ed-porte').value||null,
+      seguidores:$('#ed-seg').value===''?null:+$('#ed-seg').value,
+      ativo:$('#ed-ativo').value==='1', obs:$('#ed-obs').value.trim()}});
+    msg.textContent=j.pedidos_recomputados>0
+      ? `salvo · ${nf(j.pedidos_recomputados)} pedido(s) com comissão recalculada`
+      : 'salvo';
+    await carregarInflu();
+  }catch(e){msg.textContent='Falha: '+e.message;}
+}
+async function salvarCusto(remover){
+  const msg=$('#ed-msg'); const comp=$('#ed-comp').value;
+  if(!/^\d{4}-\d{2}$/.test(comp)){msg.textContent='escolha a competência';return;}
+  const wk=chaveEscritaInflu(); if(!wk)return;
+  msg.textContent='…';
+  try{
+    const d={marca:ED.marca,influ:ED.influ,competencia:comp};
+    if(remover) d.remover=true;
+    else{ d.fixo=$('#ed-fixo').value; d.patrocinio=$('#ed-patroc').value;
+          d.patrocinio_rotulo=$('#ed-rotulo').value.trim(); }
+    const j=await influPost({k:wk,acao:'salvar_custo',custo:d});
+    msg.textContent=remover?`competência removida (${j.removidos})`:'competência salva';
+    await carregarInflu();
+  }catch(e){msg.textContent='Falha: '+e.message;}
+}
+$('#ed-salvar').onclick=salvarCadastro;
+$('#ed-custo-salvar').onclick=()=>salvarCusto(false);
+$('#ed-custo-remover').onclick=()=>salvarCusto(true);
+$('#ed-fechar').onclick=()=>{$('#i-editor').hidden=true;ED=null;};
+
 $('#i-filtro').onchange=renderTabela;
 $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
