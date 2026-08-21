@@ -203,22 +203,26 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
-    <section class="painel" id="painel-fila" hidden>
-      <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
-      <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
-        <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Agendadas no Listmonk que ainda não dispararam. Não entram em nenhuma métrica.</div>
-    </section>
-
     <section class="painel">
       <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
         <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Entrega</th>
         <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-        <th class="num">Reclam.</th><th>Abertura real</th>
+        <th class="num">Reclam.</th><th class="num">Pedidos</th><th class="num">Receita</th>
+        <th>Abertura real</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-camp"></div>
+    </section>
+
+    <section class="painel" id="painel-fila" hidden>
+      <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
+        <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th><th>UTM</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">Agendadas no Listmonk que ainda não dispararam. Não entram em nenhuma métrica.
+        A coluna UTM é checklist pré-disparo: peça sem UTM no corpo não terá receita atribuída depois,
+        e não dá para consertar retroativamente. Peça que aponta para fora da loja (grupo de WhatsApp,
+        por exemplo) aparece sem UTM por natureza — ali a atribuição é por cupom ou coorte.</div>
     </section>
   </div>
 
@@ -453,18 +457,31 @@ const G = {
   },
   // Agendada nao entra aqui: 0 enviado sobre 0 entregue nao e taxa, e ruido.
   // Ela aparece no bloco "Na fila", com a data prevista.
+  // De-para peca -> receita de ultimo clique, vindo da view crm_campanha_receita.
+  // Chave e marca+id porque campanha_id so e unico dentro do Listmonk de cada marca.
+  // receita null NAO e zero: significa utm_ambiguo, tupla de UTM que outra peca tambem usa.
+  receitaPorPeca(api){
+    const m=new Map();
+    (api.crm_campanha_receita||[]).forEach(r=>m.set(r.marca+'|'+r.campanha_id,r));
+    return m;
+  },
   fila(api,marca){
+    const rec=G.receitaPorPeca(api);
     return (api.crm_campanha||[])
       .filter(c=>c.tipo==='agendada')
       .filter(c=>marca==='todas'||c.marca===marca)
+      // Peca so entra em crm_campanha_receita se tiver UTM no corpo: ausencia = sem UTM.
+      .map(c=>({...c,tem_utm:rec.has(c.marca+'|'+c.campanha_id)}))
       .sort((x,y)=>new Date(x.enviado_em)-new Date(y.enviado_em));
   },
   campanhas(api,marca,ini,fim){
+    const rec=G.receitaPorPeca(api);
     return (api.crm_campanha||[])
       .filter(c=>marca==='todas'||c.marca===marca)
       .filter(c=>c.tipo!=='agendada')
       .filter(c=>G.noPeriodo(G.diaBR(c.enviado_em),ini,fim))
       .map(c=>({...c,
+        rec:rec.get(c.marca+'|'+c.campanha_id)||null,
         entrega_pct:G.pct(c.entregues,c.enviados,2),
         abertura_pct:G.pct(c.abriram,c.entregues),
         ctr_pct:G.pct(c.clicaram,c.entregues,2),
@@ -859,7 +876,8 @@ function render(){
       return `<tr><td><strong>${esc((c.nome||'').slice(0,44))}</strong></td>
         <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
         <td>${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
-        <td class="num tabn${h<0?' destaque':''}">${falta}</td></tr>`;
+        <td class="num tabn${h<0?' destaque':''}">${falta}</td>
+        <td>${c.tem_utm?'<span class="mini">ok</span>':'<span class="tag nulo">sem UTM</span>'}</td></tr>`;
     }).join('');
   }
 
@@ -869,17 +887,30 @@ function render(){
     const real=c.real?`<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas de provedor confiável">
       <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div><span class="mini">${c.real.pct}% confiável</span>`
       :'<span class="mini">—</span>';
+    const ambiguo=!!(c.rec&&c.rec.utm_ambiguo);
     return `<tr><td><strong>${esc((c.nome||'').slice(0,38))}</strong>
       <div class="mini">${esc(c.utm_campaign||'sem utm')} · ${esc(c.utm_content||'—')}</div></td>
       <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}</td>
       <td class="num tabn">${nf(c.enviados)}</td><td class="num tabn">${pf(c.entrega_pct)}</td>
       <td class="num tabn">${c.medido?pf(c.abertura_pct):'<span class="tag nulo">não medido</span>'}</td>
-      <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn destaque">${pf(c.ctor_pct)}</td>
-      <td class="num tabn">${pf(c.compl_pct)}</td><td>${real}</td></tr>`;
-  }).join(''):'<tr><td colspan="9"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+      <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn">${pf(c.ctor_pct)}</td>
+      <td class="num tabn">${pf(c.compl_pct)}</td>
+      <td class="num tabn">${ambiguo?'<span class="tag nulo">—</span>':nf(c.rec?c.rec.pedidos:null)}</td>
+      <td class="num tabn destaque">${ambiguo
+        ?'<span class="tag nulo" title="UTM usado por mais de uma peça: a receita existe mas não tem dono">indivisível</span>'
+        :rf(c.rec?c.rec.receita:null)}</td>
+      <td>${real}</td></tr>`;
+  }).join(''):'<tr><td colspan="11"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+  const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
     e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio
-    de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.`;
+    de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.
+    <strong>Receita</strong> é só de último clique, casada por <code>utm_campaign + utm_content + utm_term</code>
+    na view <code>crm_campanha_receita</code> — receita assistida fica de fora de propósito: aqui a pergunta é
+    qual e-mail vendeu, não como dividir crédito com a mídia paga.`+
+    (ambig?`<div class="mini" style="margin-top:6px"><strong>${ambig} peça(s) marcada(s) como indivisível:</strong>
+      usam a mesma tupla de UTM que outra peça, então a receita existe mas não tem dono. Aparece em branco,
+      nunca como zero — zero diria "não vendeu". Some quando cada peça ganhar <code>utm_term</code> próprio.</div>`:'');
 
   const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
   const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
