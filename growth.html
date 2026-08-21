@@ -287,6 +287,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <div class="dica" id="dica"></div>
 
 <script src="config.js?v=6c1bc67d"></script>
+<script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 /* ================= dados: só matemática, testável com node ================= */
 const G = {
@@ -956,7 +957,11 @@ async function carregar(){
   try{
     const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
     if(r.status===401){localStorage.removeItem('shrigma_dash_key');location.reload();return;}
-    API=await r.json();render();
+    API=await r.json();
+    // faixa de credencial antes do render: se uma chave morreu, o que vem
+    // abaixo pode estar velho sem acusar erro.
+    if(window.avisoCredencial) window.avisoCredencial(API.crm_credencial||[]);
+    render();
   }catch(e){$('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim">Falha ao ler a API: ${esc(e.message)}</div>`;}
 }
 async function salvarTeste(){

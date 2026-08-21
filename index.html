@@ -171,6 +171,25 @@
 <script src="config.js?v=60d79cdd"></script>
 <script src="dados.js?v=60d79cdd"></script>
 <script src="app.js?v=0dd8b7b4"></script>
+<script src="alerta-credencial.js?v=a8463e22"></script>
+
+<script>
+/* Faixa de credencial: estado.dados so existe depois do fetch do app.js,
+   por isso o gancho espera em vez de ler na hora. Desiste em ~20s para nao
+   ficar rodando para sempre numa aba esquecida aberta. */
+(function(){
+  var t=0, id=setInterval(function(){
+    t++;
+    try{
+      if(typeof estado!=='undefined' && estado.dados){
+        clearInterval(id);
+        window.avisoCredencial((estado.dados.crm_credencial)||[]);
+      }
+    }catch(e){ clearInterval(id); }
+    if(t>80) clearInterval(id);
+  },250);
+})();
+</script>
 
 <script>
 /* Espelha a marca selecionada no <body> para o CSS tintar a pagina.
