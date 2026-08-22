@@ -132,7 +132,7 @@ tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
 <header class="topo">
   <div class="titulo">
     <span class="marcas" id="marcas-topo"></span>
-    <div><h1>Orgânico</h1><p class="sub">Grupo Shrigma · Instagram e Facebook</p></div>
+    <div><h1>Orgânico</h1><p class="sub" id="sub-topo">Grupo Shrigma · Instagram e Facebook</p></div>
   </div>
   <nav class="filtros" aria-label="Filtros">
     <div class="abas"><a href="index.html">Suporte</a><a href="growth.html">Growth</a><a href="organico.html" class="ativo">Orgânico</a><a href="influs.html">Influs</a></div>
@@ -244,6 +244,7 @@ const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&am
 
 const G={
   MARCA:{aristocrata:'Aristocrata',fishermans:'Fishermans',olivas:'Olivas'},
+  MARCA_CHEIA:{aristo:'O Aristocrata',fish:'Fishermans',olivas:'Olivas do Campo'},
   CLASSE:{aristocrata:'aristo',fishermans:'fish',olivas:'olivas'},
   // O navegador pode estar em qualquer fuso e o banco roda em UTC. A operacao e em
   // Brasilia: toda data exibida ou comparada passa por aqui. Espelha hoje_br()/dia_br().
@@ -271,6 +272,27 @@ const G={
 const HOJE=G.diaBR(new Date());
 let API=null,MARCA='todas',PER=G.preset('30',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';
 let ORD={col:'publicado_em',dir:-1};
+
+const LOGO={
+  aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
+  fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
+  olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+// Pre-carrega os tres logotipos: sem isso, trocar de marca mostra um buraco
+// no cabecalho ate o PNG chegar (o da Fishermans tem ~112 KB).
+Object.values(LOGO).forEach(u=>{const i=new Image(); i.src=u;});
+// O tema por marca mora no styles.css em body[data-marca]: fundo, --marca e a
+// borda do topo saem daqui. Sem esta linha a pagina fica cinza de Consolidada
+// mesmo com uma marca escolhida, que foi o estado em que ela nasceu.
+function pintaMarca(){
+  document.body.dataset.marca=MARCA;
+  const uma=MARCA!=='todas';
+  const el=$('#marcas-topo');
+  el.className='marcas';
+  el.innerHTML = uma
+    ? `<span class="chipe" title="${G.MARCA_CHEIA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA_CHEIA[MARCA]}"></span>`
+    : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · Instagram e Facebook`:'Grupo Shrigma · Instagram e Facebook';
+}
 
 const tag=m=>`<span class="tag ${G.CLASSE[m]||m}">${G.MARCA[m]||m}</span>`;
 const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
@@ -452,6 +474,7 @@ function pintaStories(){
 }
 
 function render(){
+  pintaMarca();
   if(!API)return;
   $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
   const lista=pintaKPIs();
@@ -517,6 +540,7 @@ document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
   ORD = ORD.col===c ? {col:c,dir:-ORD.dir} : {col:c,dir:-1};
   render();});
 
+pintaMarca();
 setInterval(()=>{$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},1000);
 carrega();
 setInterval(carrega,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
