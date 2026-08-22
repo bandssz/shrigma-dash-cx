@@ -279,6 +279,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 </main>
 
 <script src="config.js?v=6c1bc67d"></script>
+<script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
 // mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
@@ -415,6 +416,24 @@ async function influPost(corpo){
   if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
   return j;
 }
+/* Faixa de credencial. O Influs le de outro endpoint, entao busca so este
+   pedaco em separado. Falha aqui NUNCA derruba a pagina: sem faixa e melhor
+   que tela branca. */
+async function faixaCredencial(){
+  try{
+    if(typeof CX_API_URL==='undefined')return;
+    // reusa a chave de leitura que o Influs ja guarda no localStorage
+    const k=localStorage.getItem('shrigma_dash_key')||'';
+    if(!k)return;
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
+    if(!r.ok)return;
+    const j=await r.json();
+    const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
+    if(window.avisoCredencial)window.avisoCredencial((p&&p.crm_credencial)||[]);
+  }catch(e){ /* silencioso de proposito */ }
+}
+faixaCredencial();
+
 function avisoTela(titulo,detalhe,botao){
   // Tela branca e o pior estado possivel: quem abre nao sabe se quebrou ou se esta vazio.
   const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
