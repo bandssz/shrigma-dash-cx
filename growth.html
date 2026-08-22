@@ -149,6 +149,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <button data-s="regua">Régua<span class="n" id="n-regua"></span></button>
     <button data-s="arv">Árvore<span class="n" id="n-arv"></span></button>
     <button data-s="ab">Testes A/B<span class="n" id="n-ab"></span></button>
+    <button data-s="org">Orgânico<span class="n" id="n-org"></span></button>
   </nav>
 
   <div class="sec ativa" id="sec-visao">
@@ -278,6 +279,49 @@ textarea{width:100%;resize:vertical;min-height:58px}
           teste é mensurável em clique mas não em venda.</div>
       </div>
       <div id="area-testes"></div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-org">
+    <section class="painel">
+      <div class="painel-cab"><h2>Engajamento Qualificado</h2>
+        <span class="mini">meta ≥ 1% · semanal · só post não impulsionado</span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-eq"><thead><tr>
+        <th>Semana</th><th></th><th class="num">Posts</th><th class="num">Alcance</th>
+        <th class="num">Salvos + compart.</th><th class="num">EQ</th>
+        <th class="num">Mediana</th><th>Leitura</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">EQ é (salvamentos + compartilhamentos) ÷ alcance × 100, agregado na semana.
+        <strong>Leia o EQ junto com a mediana.</strong> Quando os dois andam próximos, foi a grade da
+        semana. Quando o agregado dispara e a mediana fica no chão, um post viralizou e carregou o
+        resto — é sorte, não gestão, e não se repete só porque a meta bateu.
+        Post impulsionado fica fora: verba infla o alcance sem trazer salvamento na mesma proporção.</div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-cab"><h2>Conteúdos vencedores</h2>
+        <span class="mini" id="venc-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-venc"><thead><tr>
+        <th>Publicado</th><th></th><th>Formato</th><th class="num">Alcance</th>
+        <th class="num">Salvos</th><th class="num">Compart.</th>
+        <th class="num">EQ</th><th class="num">Percentil</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">Vencedor é o top 20% de EQ <strong>dentro da mesma marca e do mesmo
+        formato</strong>, em janela móvel de 90 dias. Comparar Reel com carrossel, ou Aristocrata com
+        Fishermans, mede público e não conteúdo — sabonete se salva, linha de pesca se compartilha.</div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-cab"><h2>Stories</h2><span class="mini" id="story-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-story"><thead><tr>
+        <th>Publicado</th><th></th><th class="num">Alcance</th><th class="num">Views</th>
+        <th class="num">Navegação</th><th class="num">Respostas</th>
+        <th class="num">Visitas ao perfil</th><th class="num">Snapshots</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">A API só devolve story das últimas 24h — <strong>dia sem coleta é dado perdido
+        para sempre</strong>, ao contrário de post, que a API entrega até 333 dias depois. O coletor
+        roda a cada 2h; a coluna Snapshots mostra quantas vezes cada story foi medida. Snapshot igual a
+        1 significa número imaturo, não resultado final.</div>
     </section>
   </div>
 
@@ -715,6 +759,59 @@ async function encerrarTeste(id){
   btn.disabled=false;
 }
 
+/* ---------- ORGANICO ---------- */
+const MARCA_ORG={aristocrata:'aristo',fishermans:'fish',olivas:'olivas'};
+function orgFiltra(lista,campo){
+  return (lista||[]).filter(x=>MARCA==='todas'||MARCA_ORG[x[campo||'marca']]===MARCA);
+}
+function pintaOrganico(){
+  if(!API)return;
+  const M={aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'};
+  const tag=m=>`<span class="tag ${MARCA_ORG[m]||m}">${M[MARCA_ORG[m]]||m}</span>`;
+
+  // EQ semanal: agregado E mediana. O par e o ponto - agregado sozinho engana.
+  const eq=orgFiltra(API.cx_eq_semana).slice(0,26);
+  $('#tab-eq tbody').innerHTML=eq.length?eq.map(x=>{
+    const bateu=+x.eq>=1;
+    // agregado alto com mediana baixa = um post carregou a semana
+    const loteria=bateu && +x.eq_mediana < +x.eq/2;
+    const leitura=!bateu?'<span class="mini">abaixo da meta</span>'
+      :loteria?'<span class="tag alerta">um post carregou</span>'
+      :'<span class="mini">grade puxando</span>';
+    return `<tr><td>${new Date(x.semana).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.posts)}</td>
+      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.qualificado)}</td>
+      <td class="num tabn destaque">${(+x.eq).toFixed(2)}%</td>
+      <td class="num tabn">${(+x.eq_mediana).toFixed(2)}%</td>
+      <td>${leitura}</td></tr>`;}).join('')
+    :'<tr><td colspan="8"><div class="vazio">Sem post orgânico no período.</div></td></tr>';
+
+  const venc=orgFiltra(API.cx_vencedor).filter(x=>x.vencedor).slice(0,30);
+  $('#venc-rot').textContent=`top 20% da própria marca e formato · ${venc.length} na janela de 90 dias`;
+  $('#tab-venc tbody').innerHTML=venc.length?venc.map(x=>
+    `<tr><td>${new Date(x.publicado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td><span class="mini">${esc(x.formato||'')}</span></td>
+      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.salvos)}</td>
+      <td class="num tabn">${nf(x.compartilh)}</td>
+      <td class="num tabn destaque">${(+x.eq_pct).toFixed(2)}%</td>
+      <td class="num tabn">p${nf(x.percentil)}</td>
+      <td>${x.permalink?`<a href="${esc(x.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
+    </tr>`).join('')
+    :'<tr><td colspan="9"><div class="vazio">Nenhum vencedor na janela.</div></td></tr>';
+
+  const st=orgFiltra(API.cx_story).slice(0,40);
+  $('#story-rot').textContent=`janela da API é de 24h · ${st.length} coletadas`;
+  $('#tab-story tbody').innerHTML=st.length?st.map(x=>
+    `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>
+      <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.navegacao)}</td>
+      <td class="num tabn">${nf(x.respostas)}</td><td class="num tabn">${nf(x.visitas_perfil)}</td>
+      <td class="num tabn${+x.snapshots<2?' destaque':''}">${nf(x.snapshots)}</td></tr>`).join('')
+    :'<tr><td colspan="8"><div class="vazio">Nenhuma story coletada. Se ninguém postou nas últimas 24h, é esperado.</div></td></tr>';
+
+  $('#n-org').textContent=venc.length||'';
+}
+
 function render(){
   if(!API)return;
   pintaMarca();
@@ -961,7 +1058,7 @@ async function carregar(){
     // faixa de credencial antes do render: se uma chave morreu, o que vem
     // abaixo pode estar velho sem acusar erro.
     if(window.avisoCredencial) window.avisoCredencial(API.crm_credencial||[]);
-    render();
+    render();pintaOrganico();
   }catch(e){$('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim">Falha ao ler a API: ${esc(e.message)}</div>`;}
 }
 async function salvarTeste(){
@@ -993,6 +1090,7 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   if(SEC==='visao')render();
+  if(SEC==='org')pintaOrganico();
   // se a barra de secoes ficou acima da viewport, traz de volta
   const r=$('#secoes').getBoundingClientRect();
   if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
