@@ -109,8 +109,24 @@ textarea{width:100%;resize:vertical;min-height:58px}
   #grafico{height:170px}
 }
 
-</style>
-</head>
+
+/* Faixa de KPI: cartao que leva para a secao correspondente. Vencedores e CTR sao
+   perguntas, nao numeros -- clicar tem que levar a lista que responde. */
+.kpi-ir{cursor:pointer;transition:box-shadow .12s,transform .12s}
+.kpi-ir:hover{box-shadow:0 3px 14px rgba(0,0,0,.09);transform:translateY(-1px)}
+.kpi-ir:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
+.seg-mini{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
+.seg-mini button{border:0;background:transparent;padding:5px 12px;border-radius:7px;
+  font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
+.seg-mini button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+th.ord{cursor:pointer;user-select:none;white-space:nowrap}
+th.ord:hover{color:var(--texto)}
+th.ord-ativa::after{content:'\2191';margin-left:4px;font-size:10px}
+th.ord-ativa[data-dir=desc]::after{content:'\2193'}
+.tag.venc{background:var(--bom-bg);color:var(--bom)}
+tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
+@media (max-width:640px){.periodo .presets{flex-wrap:wrap}}
+</style></head>
 <body>
 
 <header class="topo">
@@ -131,54 +147,89 @@ textarea{width:100%;resize:vertical;min-height:58px}
 </header>
 
 <main>
+  <div id="faixa-alertas" aria-live="polite"></div>
   <div id="aviso-carga"></div>
-    <section class="painel">
+
+  <div class="periodo" id="periodo">
+    <div class="presets" id="presets">
+      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+      <button data-p="30" class="ativo">30 dias</button><button data-p="90">90 dias</button>
+    </div>
+    <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+    <label><input type="checkbox" id="cmp" checked> comparar com período anterior</label>
+  </div>
+
+  <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
+
+  <nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="grade" class="ativo">Grade<span class="n" id="n-grade"></span></button>
+    <button data-s="posts">Post a post<span class="n" id="n-posts"></span></button>
+    <button data-s="stories">Stories<span class="n" id="n-stories"></span></button>
+  </nav>
+
+  <section class="sec ativa" id="sec-grade">
+    <div class="painel">
       <div class="painel-cab"><h2>Engajamento Qualificado</h2>
-        <span class="mini">meta ≥ 1% · semanal · só post não impulsionado</span></div>
+        <div class="seg-mini" role="group" aria-label="Agregação">
+          <button data-g="semana" class="ativo">Semana</button><button data-g="mes">Mês</button>
+        </div></div>
       <div class="rolagem"><table class="comparativo" id="tab-eq"><thead><tr>
-        <th>Semana</th><th></th><th class="num">Posts</th><th class="num">Alcance</th>
+        <th id="th-periodo">Semana</th><th></th><th class="num">Posts</th><th class="num">Alcance</th>
         <th class="num">Salvos + compart.</th><th class="num">EQ</th>
         <th class="num">Mediana</th><th>Leitura</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">EQ é (salvamentos + compartilhamentos) ÷ alcance × 100, agregado na semana.
-        <strong>Leia o EQ junto com a mediana.</strong> Quando os dois andam próximos, foi a grade da
-        semana. Quando o agregado dispara e a mediana fica no chão, um post viralizou e carregou o
-        resto — é sorte, não gestão, e não se repete só porque a meta bateu.
-        Post impulsionado fica fora: verba infla o alcance sem trazer salvamento na mesma proporção.</div>
-    </section>
+      <div class="nota">EQ é (salvamentos + compartilhamentos) ÷ alcance × 100, agregado no período.
+        <strong>Leia o EQ junto com a mediana.</strong> Quando os dois andam próximos, foi a grade.
+        Quando o agregado dispara e a mediana fica no chão, um post viralizou e carregou o resto — é
+        sorte, não gestão, e não se repete só porque a meta bateu. Post impulsionado fica fora: verba
+        infla o alcance sem trazer salvamento na mesma proporção.</div>
+    </div>
+  </section>
 
-    <section class="painel">
-      <div class="painel-cab"><h2>Conteúdos vencedores</h2>
-        <span class="mini" id="venc-rot"></span></div>
-      <div class="rolagem"><table class="comparativo" id="tab-venc"><thead><tr>
-        <th>Post</th><th></th><th>Formato</th><th class="num">Alcance</th>
-        <th class="num">Salvos</th><th class="num">Compart.</th>
-        <th class="num">EQ</th><th>vs. meta 1%</th><th class="num">Percentil</th><th></th>
+  <section class="sec" id="sec-posts">
+    <div class="painel">
+      <div class="painel-cab"><h2>Post a post</h2>
+        <div class="seg-mini" role="group" aria-label="Filtro de posts">
+          <button data-f="todos" class="ativo">Todos</button><button data-f="venc">Só vencedores</button>
+        </div></div>
+      <div class="rolagem"><table class="comparativo" id="tab-posts"><thead><tr>
+        <th class="ord" data-c="publicado_em">Post</th><th></th>
+        <th class="ord" data-c="formato">Formato</th>
+        <th class="num ord" data-c="alcance">Alcance</th>
+        <th class="num ord" data-c="salvos">Salvos</th>
+        <th class="num ord" data-c="compartilh">Compart.</th>
+        <th class="num ord" data-c="comentarios">Coment.</th>
+        <th class="num ord" data-c="eq">EQ</th>
+        <th>vs. meta 1%</th><th class="num ord" data-c="percentil">Percentil</th><th></th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Vencedor é o top 20% de EQ <strong>dentro da mesma marca e do mesmo
-        formato</strong>, em janela móvel de 90 dias. Comparar Reel com carrossel, ou Aristocrata com
+      <div class="nota">O percentil é recalculado <strong>dentro do período selecionado</strong>, sempre
+        dentro da mesma marca e do mesmo formato. Comparar Reel com carrossel, ou Aristocrata com
         Fishermans, mede público e não conteúdo — sabonete se salva, linha de pesca se compartilha.
-        <br><br><strong>Vencedor é posição relativa, não aprovação.</strong> O corte é o percentil da
-        própria marca e formato, então um post pode liderar a fila e ainda assim ficar abaixo da meta
-        de 1% — é o melhor do que foi postado, não necessariamente bom. A coluna vs. meta separa as
-        duas leituras. <em>Amostra curta</em> marca par marca×formato com menos de 10 posts na janela,
-        onde top 20% é ruído. <em>Imaturo</em> marca post com menos de 3 dias, que ainda está
-        acumulando salvamento contra posts que tiveram 90.</div>
-    </section>
+        <br><br><strong>Vencedor é posição relativa, não aprovação.</strong> Um post pode liderar a fila
+        e ainda ficar abaixo da meta de 1%: é o melhor do que foi postado, não necessariamente bom.
+        <em>Amostra curta</em> marca par marca×formato com menos de 10 posts no período, onde top 20%
+        vira sorteio. <em>Imaturo</em> marca post com menos de 3 dias, que ainda acumula salvamento
+        contra posts que tiveram noventa.</div>
+    </div>
+  </section>
 
-    <section class="painel">
+  <section class="sec" id="sec-stories">
+    <div class="painel">
       <div class="painel-cab"><h2>Stories</h2><span class="mini" id="story-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-story"><thead><tr>
         <th>Publicado</th><th></th><th class="num">Alcance</th><th class="num">Views</th>
+        <th class="num">Toques no link</th><th class="num">CTR</th>
         <th class="num">Navegação</th><th class="num">Respostas</th>
         <th class="num">Visitas ao perfil</th><th class="num">Snapshots</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota">A API só devolve story das últimas 24h — <strong>dia sem coleta é dado perdido
         para sempre</strong>, ao contrário de post, que a API entrega até 333 dias depois. O coletor
-        roda a cada 2h; a coluna Snapshots mostra quantas vezes cada story foi medida. Snapshot igual a
-        1 significa número imaturo, não resultado final.</div>
-    </section>
-  
+        roda a cada 2h; Snapshots mostra quantas vezes cada story foi medida, e 1 significa número
+        imaturo, não resultado final. CTR só existe em story com figurinha de link: story sem link
+        aparece com traço, não com zero.</div>
+    </div>
+  </section>
 </main>
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
@@ -188,79 +239,231 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
+const pc=(n,c=2)=>(n===null||n===undefined)?'—':(+n).toFixed(c).replace('.',',')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-let API=null,MARCA='todas';
 
+const G={
+  MARCA:{aristocrata:'Aristocrata',fishermans:'Fishermans',olivas:'Olivas'},
+  CLASSE:{aristocrata:'aristo',fishermans:'fish',olivas:'olivas'},
+  // O navegador pode estar em qualquer fuso e o banco roda em UTC. A operacao e em
+  // Brasilia: toda data exibida ou comparada passa por aqui. Espelha hoje_br()/dia_br().
+  TZ:'America/Sao_Paulo',
+  diaBR(x){return new Intl.DateTimeFormat('en-CA',{timeZone:G.TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(x instanceof Date?x:new Date(x));},
+  iso:d=>G.diaBR(d),
+  addDias(s,n){const d=new Date(s+'T12:00:00Z');d.setDate(d.getDate()+n);return G.iso(d);},
+  diasEntre(a,b){return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5)+1;},
+  anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
+  // Semana comeca na SEGUNDA (convencao BR). getUTCDay da 0 no domingo, entao domingo vira 6.
+  segunda(s){const x=new Date(s+'T12:00:00Z');return G.addDias(s,-((x.getUTCDay()+6)%7));},
+  preset(p,hoje){
+    if(p==='semana')return{ini:G.segunda(hoje),fim:hoje};
+    if(p==='semanaant'){const s=G.addDias(G.segunda(hoje),-7);return{ini:s,fim:G.addDias(s,6)};}
+    const d=new Date(hoje+'T12:00:00Z');
+    if(p==='mes')return{ini:hoje.slice(0,8)+'01',fim:hoje};
+    if(p==='mesant'){const pm=new Date(d.getFullYear(),d.getMonth(),0);
+      return{ini:G.iso(new Date(pm.getFullYear(),pm.getMonth(),1)),fim:G.iso(pm)};}
+    const n=+p||30;return{ini:G.addDias(hoje,-(n-1)),fim:hoje};
+  },
+  mediana(a){if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;
+    return s.length%2?s[m]:(s[m-1]+s[m])/2;},
+};
 
-const MARCA_ORG={aristocrata:'aristo',fishermans:'fish',olivas:'olivas'};
-function orgFiltra(lista,campo){
-  return (lista||[]).filter(x=>MARCA==='todas'||MARCA_ORG[x[campo||'marca']]===MARCA);
+const HOJE=G.diaBR(new Date());
+let API=null,MARCA='todas',PER=G.preset('30',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';
+let ORD={col:'publicado_em',dir:-1};
+
+const tag=m=>`<span class="tag ${G.CLASSE[m]||m}">${G.MARCA[m]||m}</span>`;
+const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
+  :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+const varia=(a,b)=>(b===null||b===undefined||!b)?null:Math.round(100*(a-b)/b);
+
+/* ---------- recortes ---------- */
+// Toda serie de post e story e filtrada por data BR do publicado_em; a serie de conta
+// ja chega como coluna DATE e usa slice(0,10) direto -- converter quebraria o dia.
+function daMarca(x){return MARCA==='todas'||G.CLASSE[x.marca]===MARCA;}
+function posts(ini,fim){
+  return (API.cx_post||[]).filter(p=>!p.impulsionado&&daMarca(p)
+    &&G.diaBR(p.publicado_em)>=ini&&G.diaBR(p.publicado_em)<=fim)
+    .map(p=>({...p,dia:G.diaBR(p.publicado_em),
+      eq:p.alcance?100*((+p.salvos||0)+(+p.compartilh||0))/p.alcance:null}));
 }
-function pintaOrganico(){
-  if(!API)return;
-  const M={aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'};
-  const tag=m=>`<span class="tag ${MARCA_ORG[m]||m}">${M[MARCA_ORG[m]]||m}</span>`;
+function stories(ini,fim){
+  return (API.cx_story||[]).filter(s=>daMarca(s)
+    &&G.diaBR(s.publicado_em)>=ini&&G.diaBR(s.publicado_em)<=fim);
+}
+function conta(ini,fim){
+  return (API.cx_conta_dia||[]).filter(r=>daMarca(r)
+    &&String(r.dia).slice(0,10)>=ini&&String(r.dia).slice(0,10)<=fim);
+}
 
-  // EQ semanal: agregado E mediana. O par e o ponto - agregado sozinho engana.
-  const eq=orgFiltra(API.cx_eq_semana).slice(0,26);
-  $('#tab-eq tbody').innerHTML=eq.length?eq.map(x=>{
-    const bateu=+x.eq>=1;
-    // agregado alto com mediana baixa = um post carregou a semana
-    const loteria=bateu && +x.eq_mediana < +x.eq/2;
+// Percentil recalculado DENTRO do periodo, por marca x formato. A view cx_social_vencedor
+// tem 90 dias cravados e nao responde "quem venceu em agosto".
+function classifica(lista){
+  const grupos={};
+  lista.forEach(p=>{const k=p.marca+'|'+p.formato;(grupos[k]=grupos[k]||[]).push(p);});
+  Object.values(grupos).forEach(g=>{
+    const val=g.filter(p=>p.eq!==null).sort((a,b)=>a.eq-b.eq);
+    val.forEach((p,i)=>{
+      const r=val.length>1?i/(val.length-1):0;
+      p.percentil=Math.round(r*100);
+      p.vencedor=r>=0.8;
+      p.amostraCurta=val.length<10;
+    });
+    g.filter(p=>p.eq===null).forEach(p=>{p.percentil=null;p.vencedor=false;p.amostraCurta=true;});
+  });
+  return lista;
+}
+
+function agregado(lista){
+  const alc=lista.reduce((a,p)=>a+(+p.alcance||0),0);
+  const qual=lista.reduce((a,p)=>a+(+p.salvos||0)+(+p.compartilh||0),0);
+  return{posts:lista.length,alcance:alc,qualificado:qual,
+    eq:alc?100*qual/alc:null,
+    mediana:G.mediana(lista.filter(p=>p.eq!==null).map(p=>p.eq))};
+}
+
+/* ---------- KPIs ---------- */
+function pintaKPIs(){
+  const ant=G.anterior(PER.ini,PER.fim);
+  const A=classifica(posts(PER.ini,PER.fim)), B=classifica(posts(ant.ini,ant.fim));
+  const ag=agregado(A), agB=agregado(B);
+  const vA=A.filter(p=>p.vencedor).length, vB=B.filter(p=>p.vencedor).length;
+
+  const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
+  const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
+  const ctr=l=>{const a=l.reduce((x,s)=>x+(+s.alcance||0),0);
+    return a?100*l.reduce((x,s)=>x+(+s.link_clicks||0),0)/a:null;};
+
+  const cA=conta(PER.ini,PER.fim), cB=conta(ant.ini,ant.fim);
+  const som=(l,c)=>l.length?l.reduce((a,r)=>a+(+r[c]||0),0):null;
+  const seg=som(cA,'seguidores_novos'), segB=som(cB,'seguidores_novos');
+  const cli=som(cA,'website_clicks'), cliB=som(cB,'website_clicks');
+  // seguidores_total e retrato, nao soma: pega o dia mais recente de cada conta.
+  const ultimos={};
+  (API.cx_conta_dia||[]).filter(daMarca).forEach(r=>{const d=String(r.dia).slice(0,10);
+    if(!ultimos[r.conta]||d>ultimos[r.conta].d)ultimos[r.conta]={d,v:+r.seguidores_total||0};});
+  const base=Object.values(ultimos).reduce((a,x)=>a+x.v,0);
+
+  const cards=[
+    {r:'EQ do período', v:ag.eq===null?'—':pc(ag.eq),
+     d:varia(ag.eq,agB.eq), s:`mediana ${pc(ag.mediana)} · meta 1%`,
+     alerta:ag.eq!==null&&ag.mediana!==null&&ag.eq>=1&&ag.mediana<ag.eq/2?'um post carregou':null},
+    {r:'Conteúdos vencedores', v:A.length?String(vA):'—',
+     d:varia(vA,vB), s:`de ${nf(A.length)} posts · top 20% do período`, ir:'posts'},
+    {r:'CTR de story', v:stA.length?pc(ctr(stA)):'—',
+     d:stB.length?varia(ctr(stA),ctr(stB)):null,
+     s:stA.length?`${stA.length} stories com link`:'coletando desde 22/08', ir:'stories'},
+    {r:'Seguidores ganhos', v:seg===null?'—':nf(seg),
+     d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
+    {r:'Toques no link do site', v:cli===null?'—':nf(cli),
+     d:varia(cli,cliB), s:'nível de conta, não da peça'},
+  ];
+  $('#area-kpis').innerHTML=cards.map(k=>`<div class="kpi${k.ir?' kpi-ir':''}" ${k.ir?`data-ir="${k.ir}" role="button" tabindex="0"`:''}>
+    <div class="kpi-rot">${k.r}</div>
+    <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
+    <div class="kpi-rodape">${CMP?chip(k.d):'<span class="mini">&nbsp;</span>'}</div>
+    <div class="kpi-sub">${esc(k.s)}</div>
+    ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
+  </div>`).join('');
+  document.querySelectorAll('.kpi-ir').forEach(el=>{
+    const ir=()=>troca(el.dataset.ir);
+    el.onclick=ir; el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ir();}};
+  });
+  $('#n-posts').textContent=A.length; $('#n-stories').textContent=stories(PER.ini,PER.fim).length;
+  return A;
+}
+
+/* ---------- grade: semana ou mes ---------- */
+function pintaGrade(){
+  const lista=posts(PER.ini,PER.fim);
+  const bal=AGREG==='semana'?(d=>G.segunda(d)):(d=>d.slice(0,7)+'-01');
+  const buckets={};
+  lista.forEach(p=>{const k=bal(p.dia)+'|'+p.marca;(buckets[k]=buckets[k]||[]).push(p);});
+  const linhas=Object.entries(buckets).map(([k,v])=>{
+    const [ini,marca]=k.split('|');return{ini,marca,...agregado(v)};
+  }).sort((a,b)=>a.ini<b.ini?1:a.ini>b.ini?-1:(a.marca<b.marca?-1:1));
+  $('#th-periodo').textContent=AGREG==='semana'?'Semana':'Mês';
+  $('#n-grade').textContent=linhas.length;
+  const rotulo=x=>AGREG==='semana'
+    ? new Date(x.ini+'T12:00:00Z').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})
+    : new Date(x.ini+'T12:00:00Z').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
+  $('#tab-eq tbody').innerHTML=linhas.length?linhas.map(x=>{
+    const bateu=x.eq!==null&&x.eq>=1;
+    const loteria=bateu&&x.mediana!==null&&x.mediana<x.eq/2;
     const leitura=!bateu?'<span class="mini">abaixo da meta</span>'
       :loteria?'<span class="tag alerta">um post carregou</span>'
       :'<span class="mini">grade puxando</span>';
-    return `<tr><td>${new Date(x.semana).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
-      <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.posts)}</td>
-      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.qualificado)}</td>
-      <td class="num tabn destaque">${(+x.eq).toFixed(2)}%</td>
-      <td class="num tabn">${(+x.eq_mediana).toFixed(2)}%</td>
+    return `<tr><td>${rotulo(x)}</td><td>${tag(x.marca)}</td>
+      <td class="num tabn">${nf(x.posts)}</td><td class="num tabn">${nf(x.alcance)}</td>
+      <td class="num tabn">${nf(x.qualificado)}</td>
+      <td class="num tabn destaque">${pc(x.eq)}</td><td class="num tabn">${pc(x.mediana)}</td>
       <td>${leitura}</td></tr>`;}).join('')
-    :'<tr><td colspan="8"><div class="vazio">Sem post orgânico no período.</div></td></tr>';
+    :'<tr><td colspan="8"><div class="vazio">Nenhum post orgânico publicado neste período. Amplie a janela ou confira se a grade saiu.</div></td></tr>';
+}
 
-  // n por marca x formato vem da lista INTEIRA, antes de filtrar vencedor e marca:
-  // o corte de percentil e calculado sobre esse par, entao e ele que define se a
-  // amostra sustenta um top 20% ou se estamos rankeando ruido.
-  const nPar={};
-  (API.cx_vencedor||[]).forEach(x=>{const k=x.marca+'|'+x.formato;nPar[k]=(nPar[k]||0)+1;});
-
-  const venc=orgFiltra(API.cx_vencedor).filter(x=>x.vencedor).slice(0,30);
-  $('#venc-rot').textContent=`top 20% da própria marca e formato · ${venc.length} na janela de 90 dias`;
-  $('#tab-venc tbody').innerHTML=venc.length?venc.map(x=>{
-    const dt=new Date(x.publicado_em);
-    const dias=(Date.now()-dt.getTime())/864e5;
-    // Post novo compete com post que teve 90 dias para acumular salvamento.
-    const imaturo=dias<3;
-    // Top 20% de 6 posts nao e percentil, e sorteio.
-    const curta=(nPar[x.marca+'|'+x.formato]||0)<10;
-    // Vencedor e posicao relativa; a meta de 1% e absoluta. Sao perguntas diferentes.
-    const bateMeta=+x.eq_pct>=1;
-    const legenda=x.legenda?`<span class="post-id" title="${esc(x.legenda)}">${esc(x.legenda)}</span>`
-      :`<span class="post-id sem">sem legenda coletada</span>`;
-    return `<tr><td>${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+/* ---------- post a post ---------- */
+function pintaPosts(lista){
+  let L=FILTRO==='venc'?lista.filter(p=>p.vencedor):lista.slice();
+  const c=ORD.col;
+  L.sort((a,b)=>{
+    let x=a[c],y=b[c];
+    if(c==='publicado_em'||c==='formato'){x=String(x||'');y=String(y||'');return x<y?ORD.dir:x>y?-ORD.dir:0;}
+    x=(x===null||x===undefined)?-Infinity:+x; y=(y===null||y===undefined)?-Infinity:+y;
+    return (x-y)*-ORD.dir;
+  });
+  document.querySelectorAll('#tab-posts th.ord').forEach(th=>{
+    th.classList.toggle('ord-ativa',th.dataset.c===c);
+    th.dataset.dir=th.dataset.c===c?(ORD.dir<0?'desc':'asc'):'';
+  });
+  $('#tab-posts tbody').innerHTML=L.length?L.map(p=>{
+    const dt=new Date(p.publicado_em);
+    const imaturo=(Date.now()-dt.getTime())/864e5<3;
+    const legenda=p.legenda?`<span class="post-id" title="${esc(p.legenda)}">${esc(p.legenda)}</span>`
+      :'<span class="post-id sem">sem legenda coletada</span>';
+    return `<tr${p.vencedor?' class="linha-venc"':''}>
+      <td>${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+        ${p.vencedor?'<span class="tag venc">vencedor</span>':''}
         ${imaturo?'<span class="tag alerta">imaturo</span>':''}${legenda}</td>
-      <td>${tag(x.marca)}</td><td><span class="mini">${esc(x.formato||'')}</span></td>
-      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.salvos)}</td>
-      <td class="num tabn">${nf(x.compartilh)}</td>
-      <td class="num tabn destaque">${(+x.eq_pct).toFixed(2)}%</td>
-      <td>${bateMeta?'<span class="mini">bate</span>':'<span class="tag alerta">abaixo</span>'}</td>
-      <td class="num tabn">p${nf(x.percentil)}${curta?' <span class="tag nulo">amostra curta</span>':''}</td>
-      <td>${x.permalink?`<a href="${esc(x.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
+      <td>${tag(p.marca)}</td><td><span class="mini">${esc(p.formato||'')}</span></td>
+      <td class="num tabn">${nf(p.alcance)}</td><td class="num tabn">${nf(p.salvos)}</td>
+      <td class="num tabn">${nf(p.compartilh)}</td><td class="num tabn">${nf(p.comentarios)}</td>
+      <td class="num tabn destaque">${pc(p.eq)}</td>
+      <td>${p.eq===null?'<span class="mini">—</span>':p.eq>=1?'<span class="mini">bate</span>':'<span class="tag alerta">abaixo</span>'}</td>
+      <td class="num tabn">${p.percentil===null?'—':'p'+p.percentil}${p.amostraCurta?' <span class="tag nulo">amostra curta</span>':''}</td>
+      <td>${p.permalink?`<a href="${esc(p.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
     </tr>`;}).join('')
-    :'<tr><td colspan="10"><div class="vazio">Nenhum vencedor na janela.</div></td></tr>';
+    :`<tr><td colspan="11"><div class="vazio">${FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.':'Nenhum post orgânico publicado neste período.'}</div></td></tr>`;
+}
 
-  const st=orgFiltra(API.cx_story).slice(0,40);
-  $('#story-rot').textContent=`janela da API é de 24h · ${st.length} coletadas`;
+/* ---------- stories ---------- */
+function pintaStories(){
+  const st=stories(PER.ini,PER.fim);
+  const comLink=st.filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined).length;
+  $('#story-rot').textContent=`${st.length} coletadas · ${comLink} com link · janela da API é de 24h`;
   $('#tab-story tbody').innerHTML=st.length?st.map(x=>
     `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
       <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>
-      <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.navegacao)}</td>
-      <td class="num tabn">${nf(x.respostas)}</td><td class="num tabn">${nf(x.visitas_perfil)}</td>
+      <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.link_clicks)}</td>
+      <td class="num tabn destaque">${x.ctr===null||x.ctr===undefined?'—':pc(x.ctr)}</td>
+      <td class="num tabn">${nf(x.navegacao)}</td><td class="num tabn">${nf(x.respostas)}</td>
+      <td class="num tabn">${nf(x.visitas_perfil)}</td>
       <td class="num tabn${+x.snapshots<2?' destaque':''}">${nf(x.snapshots)}</td></tr>`).join('')
-    :'<tr><td colspan="8"><div class="vazio">Nenhuma story coletada. Se ninguém postou nas últimas 24h, é esperado.</div></td></tr>';
-
+    :'<tr><td colspan="10"><div class="vazio">Nenhuma story coletada neste período. O coletor guarda só o que existia na janela de 24h de cada rodada — período antigo fica vazio para sempre.</div></td></tr>';
 }
 
+function render(){
+  if(!API)return;
+  $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
+  const lista=pintaKPIs();
+  pintaGrade(); pintaPosts(lista); pintaStories();
+}
+function troca(s){
+  SEC=s;
+  document.querySelectorAll('#secoes button').forEach(b=>b.classList.toggle('ativo',b.dataset.s===s));
+  document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+s));
+}
+
+/* ---------- carga ---------- */
 function chaveLeitura(){
   let k=localStorage.getItem('shrigma_dash_key');
   if(!k){k=prompt('Chave de leitura do painel');
@@ -286,14 +489,34 @@ async function carrega(){
     API=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j.payload||j);
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
-    pintaOrganico();
+    render();
     const g=API.gerado_em?new Date(API.gerado_em):null;
     $('#frescor').textContent=g?`coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'coleta —';
   }catch(e){ avisoTela('Não deu para carregar',e.message); }
 }
+
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;if(API)pintaOrganico();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;render();});
+document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
+['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
+  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
+$('#cmp').onchange=e=>{CMP=e.target.checked;render();};
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>troca(b.dataset.s));
+document.querySelectorAll('#sec-grade .seg-mini button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#sec-grade .seg-mini button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');AGREG=b.dataset.g;pintaGrade();});
+document.querySelectorAll('#sec-posts .seg-mini button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#sec-posts .seg-mini button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');FILTRO=b.dataset.f;render();});
+document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
+  const c=th.dataset.c;
+  ORD = ORD.col===c ? {col:c,dir:-ORD.dir} : {col:c,dir:-1};
+  render();});
+
 setInterval(()=>{$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},1000);
 carrega();
 setInterval(carrega,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
