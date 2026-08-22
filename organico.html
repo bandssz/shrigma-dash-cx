@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=60d79cdd">
 <!-- O bloco <style> e duplicado entre growth.html, influs.html e esta pagina DE
      PROPOSITO: mover para styles.css exige trocar o hash nas quatro ao mesmo tempo.
      Divida conhecida e registrada no handoff. -->
@@ -41,6 +45,11 @@ td.destaque{font-weight:700}
 .tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
 .tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
 .tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
+/* Identificacao do post: data sozinha nao diz qual post e. A legenda entra como
+   segunda linha da celula em vez de coluna nova para nao alargar a tabela. */
+.post-id{display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font:400 11.5px/1.5 var(--ui);color:var(--rotulo)}
+.post-id.sem{font-style:italic;opacity:.7}
 .galho{display:grid;grid-template-columns:170px 1fr 66px 60px;gap:10px;align-items:center;
   padding:8px 0;border-bottom:1px solid var(--borda)}
 .galho:last-child{border-bottom:0}
@@ -100,11 +109,6 @@ textarea{width:100%;resize:vertical;min-height:58px}
   #grafico{height:170px}
 }
 
-  border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
-.i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
-.i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
-.i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
-.i-cont strong{display:block;font:700 18px/1.2 var(--ui);color:var(--texto)}
 </style>
 </head>
 <body>
@@ -147,13 +151,19 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <div class="painel-cab"><h2>Conteúdos vencedores</h2>
         <span class="mini" id="venc-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-venc"><thead><tr>
-        <th>Publicado</th><th></th><th>Formato</th><th class="num">Alcance</th>
+        <th>Post</th><th></th><th>Formato</th><th class="num">Alcance</th>
         <th class="num">Salvos</th><th class="num">Compart.</th>
-        <th class="num">EQ</th><th class="num">Percentil</th><th></th>
+        <th class="num">EQ</th><th>vs. meta 1%</th><th class="num">Percentil</th><th></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota">Vencedor é o top 20% de EQ <strong>dentro da mesma marca e do mesmo
         formato</strong>, em janela móvel de 90 dias. Comparar Reel com carrossel, ou Aristocrata com
-        Fishermans, mede público e não conteúdo — sabonete se salva, linha de pesca se compartilha.</div>
+        Fishermans, mede público e não conteúdo — sabonete se salva, linha de pesca se compartilha.
+        <br><br><strong>Vencedor é posição relativa, não aprovação.</strong> O corte é o percentil da
+        própria marca e formato, então um post pode liderar a fila e ainda assim ficar abaixo da meta
+        de 1% — é o melhor do que foi postado, não necessariamente bom. A coluna vs. meta separa as
+        duas leituras. <em>Amostra curta</em> marca par marca×formato com menos de 10 posts na janela,
+        onde top 20% é ruído. <em>Imaturo</em> marca post com menos de 3 dias, que ainda está
+        acumulando salvamento contra posts que tiveram 90.</div>
     </section>
 
     <section class="painel">
@@ -208,18 +218,36 @@ function pintaOrganico(){
       <td>${leitura}</td></tr>`;}).join('')
     :'<tr><td colspan="8"><div class="vazio">Sem post orgânico no período.</div></td></tr>';
 
+  // n por marca x formato vem da lista INTEIRA, antes de filtrar vencedor e marca:
+  // o corte de percentil e calculado sobre esse par, entao e ele que define se a
+  // amostra sustenta um top 20% ou se estamos rankeando ruido.
+  const nPar={};
+  (API.cx_vencedor||[]).forEach(x=>{const k=x.marca+'|'+x.formato;nPar[k]=(nPar[k]||0)+1;});
+
   const venc=orgFiltra(API.cx_vencedor).filter(x=>x.vencedor).slice(0,30);
   $('#venc-rot').textContent=`top 20% da própria marca e formato · ${venc.length} na janela de 90 dias`;
-  $('#tab-venc tbody').innerHTML=venc.length?venc.map(x=>
-    `<tr><td>${new Date(x.publicado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
+  $('#tab-venc tbody').innerHTML=venc.length?venc.map(x=>{
+    const dt=new Date(x.publicado_em);
+    const dias=(Date.now()-dt.getTime())/864e5;
+    // Post novo compete com post que teve 90 dias para acumular salvamento.
+    const imaturo=dias<3;
+    // Top 20% de 6 posts nao e percentil, e sorteio.
+    const curta=(nPar[x.marca+'|'+x.formato]||0)<10;
+    // Vencedor e posicao relativa; a meta de 1% e absoluta. Sao perguntas diferentes.
+    const bateMeta=+x.eq_pct>=1;
+    const legenda=x.legenda?`<span class="post-id" title="${esc(x.legenda)}">${esc(x.legenda)}</span>`
+      :`<span class="post-id sem">sem legenda coletada</span>`;
+    return `<tr><td>${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+        ${imaturo?'<span class="tag alerta">imaturo</span>':''}${legenda}</td>
       <td>${tag(x.marca)}</td><td><span class="mini">${esc(x.formato||'')}</span></td>
       <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.salvos)}</td>
       <td class="num tabn">${nf(x.compartilh)}</td>
       <td class="num tabn destaque">${(+x.eq_pct).toFixed(2)}%</td>
-      <td class="num tabn">p${nf(x.percentil)}</td>
+      <td>${bateMeta?'<span class="mini">bate</span>':'<span class="tag alerta">abaixo</span>'}</td>
+      <td class="num tabn">p${nf(x.percentil)}${curta?' <span class="tag nulo">amostra curta</span>':''}</td>
       <td>${x.permalink?`<a href="${esc(x.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
-    </tr>`).join('')
-    :'<tr><td colspan="9"><div class="vazio">Nenhum vencedor na janela.</div></td></tr>';
+    </tr>`;}).join('')
+    :'<tr><td colspan="10"><div class="vazio">Nenhum vencedor na janela.</div></td></tr>';
 
   const st=orgFiltra(API.cx_story).slice(0,40);
   $('#story-rot').textContent=`janela da API é de 24h · ${st.length} coletadas`;
