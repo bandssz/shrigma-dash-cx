@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Orgânico · Grupo Shrigma</title>
+<link rel="icon" href="data:,">
+<!-- O bloco <style> e duplicado entre growth.html, influs.html e esta pagina DE
+     PROPOSITO: mover para styles.css exige trocar o hash nas quatro ao mesmo tempo.
+     Divida conhecida e registrada no handoff. -->
+<style>
+/* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
+   e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
+   start trava as linhas na altura do conteudo. */
+main{align-content:start}
+/* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
+   inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
+main>*{min-width:0}
+
+.rolagem{max-width:100%}
+/* faixa vazia continua ocupando um `gap` de 22px do grid */
+#faixa-alertas:empty{display:none}
+.abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
+.abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
+.abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px;
+  overflow-x:auto;scrollbar-width:none}
+.secoes::-webkit-scrollbar{display:none}
+.secoes button{white-space:nowrap}
+.secoes button{border:0;background:transparent;padding:0 0 10px;font:600 13.5px/1 var(--ui);
+  color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
+.secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
+.sec{display:none}.sec.ativa{display:block}
+.tabn{font-variant-numeric:tabular-nums}
+td.destaque{font-weight:700}
+.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
+.barra i{display:block;height:100%;border-radius:3px}
+.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
+.tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
+.tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
+.tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
+.tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
+.galho{display:grid;grid-template-columns:170px 1fr 66px 60px;gap:10px;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--borda)}
+.galho:last-child{border-bottom:0}
+.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.35 var(--ui);color:var(--rotulo)}
+.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
+  background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
+.nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
+  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:12px}
+.periodo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.periodo .presets{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
+.periodo .presets button{border:0;background:transparent;padding:6px 10px;border-radius:7px;
+  font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
+.periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
+input[type=date],select,input[type=text],input[type=number],textarea{font:500 12.5px/1.35 var(--ui);
+  padding:7px 9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);
+  color:var(--texto);font-family:var(--ui)}
+textarea{width:100%;resize:vertical;min-height:58px}
+#grafico{width:100%;height:200px;display:block}
+.legenda{display:flex;gap:16px;font:500 11.5px/1 var(--ui);color:var(--mudo);margin-top:8px;flex-wrap:wrap}
+.legenda i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px}
+.dica{position:fixed;pointer-events:none;background:var(--texto);color:#fff;padding:6px 9px;
+  border-radius:7px;font:500 11.5px/1.45 var(--ui);opacity:0;transition:opacity .12s;z-index:50;white-space:pre}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.form .campo{display:flex;flex-direction:column;gap:5px}
+.form .campo.largo{grid-column:1/-1}
+.form label{font:600 11.5px/1 var(--ui);color:var(--rotulo);text-transform:uppercase;letter-spacing:.04em}
+.form .ajuda{font:400 11px/1.4 var(--ui);color:var(--mudo)}
+.btn{border:0;border-radius:8px;padding:9px 16px;font:600 13px/1 var(--ui);cursor:pointer;
+  background:var(--texto);color:#fff}
+.btn.sec{background:var(--neutro-bg);color:var(--texto)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.veredito{padding:12px 14px;border-radius:9px;font:500 13px/1.5 var(--ui);margin-top:10px}
+.veredito.conclusivo{background:var(--bom-bg);color:var(--bom)}
+.veredito.inconclusivo{background:var(--neutro-bg);color:var(--texto)}
+.bracos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
+.braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
+.braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+/* Barra do dinheiro em jogo. A fatia recuperada e sólida; o resto fica hachurado
+   porque nao e "vazio" — e valor que existiu e foi embora. */
+.funil{margin:2px 0 4px}
+.funil-num{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.funil-num b{font:800 30px/1 "Archivo",var(--ui);color:var(--marca);font-variant-numeric:tabular-nums}
+.funil-num span{font:500 12.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-barra{height:24px;border-radius:6px;overflow:hidden;display:flex;
+  background:repeating-linear-gradient(135deg,var(--neutro-bg) 0 6px,#e4e1db 6px 12px)}
+.funil-barra i{display:block;background:var(--marca);height:100%}
+.funil-leg{display:flex;justify-content:space-between;margin-top:7px;
+  font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
+.funil-marcas{margin-top:14px;border-top:1px solid var(--borda);padding-top:4px}
+.funil-crm{margin-top:11px;padding-top:10px;border-top:1px dashed var(--borda)}
+@media (max-width:640px){
+  .bracos{grid-template-columns:1fr}
+  .galho{grid-template-columns:1fr 60px;row-gap:4px}
+  .galho .barra{display:none}
+  #grafico{height:170px}
+}
+
+  border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
+.i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
+.i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
+.i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
+.i-cont strong{display:block;font:700 18px/1.2 var(--ui);color:var(--texto)}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="titulo">
+    <span class="marcas" id="marcas-topo"></span>
+    <div><h1>Orgânico</h1><p class="sub">Grupo Shrigma · Instagram e Facebook</p></div>
+  </div>
+  <nav class="filtros" aria-label="Filtros">
+    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html">Growth</a><a href="organico.html" class="ativo">Orgânico</a><a href="influs.html">Influs</a></div>
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo">Consolidada</button>
+      <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
+      <button data-marca="fish" aria-label="Fishermans"><img src="https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=120" alt="Fishermans"></button>
+      <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
+    </div>
+  </nav>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
+</header>
+
+<main>
+  <div id="aviso-carga"></div>
+    <section class="painel">
+      <div class="painel-cab"><h2>Engajamento Qualificado</h2>
+        <span class="mini">meta ≥ 1% · semanal · só post não impulsionado</span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-eq"><thead><tr>
+        <th>Semana</th><th></th><th class="num">Posts</th><th class="num">Alcance</th>
+        <th class="num">Salvos + compart.</th><th class="num">EQ</th>
+        <th class="num">Mediana</th><th>Leitura</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">EQ é (salvamentos + compartilhamentos) ÷ alcance × 100, agregado na semana.
+        <strong>Leia o EQ junto com a mediana.</strong> Quando os dois andam próximos, foi a grade da
+        semana. Quando o agregado dispara e a mediana fica no chão, um post viralizou e carregou o
+        resto — é sorte, não gestão, e não se repete só porque a meta bateu.
+        Post impulsionado fica fora: verba infla o alcance sem trazer salvamento na mesma proporção.</div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-cab"><h2>Conteúdos vencedores</h2>
+        <span class="mini" id="venc-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-venc"><thead><tr>
+        <th>Publicado</th><th></th><th>Formato</th><th class="num">Alcance</th>
+        <th class="num">Salvos</th><th class="num">Compart.</th>
+        <th class="num">EQ</th><th class="num">Percentil</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">Vencedor é o top 20% de EQ <strong>dentro da mesma marca e do mesmo
+        formato</strong>, em janela móvel de 90 dias. Comparar Reel com carrossel, ou Aristocrata com
+        Fishermans, mede público e não conteúdo — sabonete se salva, linha de pesca se compartilha.</div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-cab"><h2>Stories</h2><span class="mini" id="story-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-story"><thead><tr>
+        <th>Publicado</th><th></th><th class="num">Alcance</th><th class="num">Views</th>
+        <th class="num">Navegação</th><th class="num">Respostas</th>
+        <th class="num">Visitas ao perfil</th><th class="num">Snapshots</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota">A API só devolve story das últimas 24h — <strong>dia sem coleta é dado perdido
+        para sempre</strong>, ao contrário de post, que a API entrega até 333 dias depois. O coletor
+        roda a cada 2h; a coluna Snapshots mostra quantas vezes cada story foi medida. Snapshot igual a
+        1 significa número imaturo, não resultado final.</div>
+    </section>
+  
+</main>
+
+<footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
+
+<script src="config.js?v=6c1bc67d"></script>
+<script src="alerta-credencial.js?v=a8463e22"></script>
+<script>
+const $=s=>document.querySelector(s);
+const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+let API=null,MARCA='todas';
+
+
+const MARCA_ORG={aristocrata:'aristo',fishermans:'fish',olivas:'olivas'};
+function orgFiltra(lista,campo){
+  return (lista||[]).filter(x=>MARCA==='todas'||MARCA_ORG[x[campo||'marca']]===MARCA);
+}
+function pintaOrganico(){
+  if(!API)return;
+  const M={aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'};
+  const tag=m=>`<span class="tag ${MARCA_ORG[m]||m}">${M[MARCA_ORG[m]]||m}</span>`;
+
+  // EQ semanal: agregado E mediana. O par e o ponto - agregado sozinho engana.
+  const eq=orgFiltra(API.cx_eq_semana).slice(0,26);
+  $('#tab-eq tbody').innerHTML=eq.length?eq.map(x=>{
+    const bateu=+x.eq>=1;
+    // agregado alto com mediana baixa = um post carregou a semana
+    const loteria=bateu && +x.eq_mediana < +x.eq/2;
+    const leitura=!bateu?'<span class="mini">abaixo da meta</span>'
+      :loteria?'<span class="tag alerta">um post carregou</span>'
+      :'<span class="mini">grade puxando</span>';
+    return `<tr><td>${new Date(x.semana).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.posts)}</td>
+      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.qualificado)}</td>
+      <td class="num tabn destaque">${(+x.eq).toFixed(2)}%</td>
+      <td class="num tabn">${(+x.eq_mediana).toFixed(2)}%</td>
+      <td>${leitura}</td></tr>`;}).join('')
+    :'<tr><td colspan="8"><div class="vazio">Sem post orgânico no período.</div></td></tr>';
+
+  const venc=orgFiltra(API.cx_vencedor).filter(x=>x.vencedor).slice(0,30);
+  $('#venc-rot').textContent=`top 20% da própria marca e formato · ${venc.length} na janela de 90 dias`;
+  $('#tab-venc tbody').innerHTML=venc.length?venc.map(x=>
+    `<tr><td>${new Date(x.publicado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td><span class="mini">${esc(x.formato||'')}</span></td>
+      <td class="num tabn">${nf(x.alcance)}</td><td class="num tabn">${nf(x.salvos)}</td>
+      <td class="num tabn">${nf(x.compartilh)}</td>
+      <td class="num tabn destaque">${(+x.eq_pct).toFixed(2)}%</td>
+      <td class="num tabn">p${nf(x.percentil)}</td>
+      <td>${x.permalink?`<a href="${esc(x.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
+    </tr>`).join('')
+    :'<tr><td colspan="9"><div class="vazio">Nenhum vencedor na janela.</div></td></tr>';
+
+  const st=orgFiltra(API.cx_story).slice(0,40);
+  $('#story-rot').textContent=`janela da API é de 24h · ${st.length} coletadas`;
+  $('#tab-story tbody').innerHTML=st.length?st.map(x=>
+    `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>
+      <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.navegacao)}</td>
+      <td class="num tabn">${nf(x.respostas)}</td><td class="num tabn">${nf(x.visitas_perfil)}</td>
+      <td class="num tabn${+x.snapshots<2?' destaque':''}">${nf(x.snapshots)}</td></tr>`).join('')
+    :'<tr><td colspan="8"><div class="vazio">Nenhuma story coletada. Se ninguém postou nas últimas 24h, é esperado.</div></td></tr>';
+
+}
+
+function chaveLeitura(){
+  let k=localStorage.getItem('shrigma_dash_key');
+  if(!k){k=prompt('Chave de leitura do painel');
+    if(k)localStorage.setItem('shrigma_dash_key',k); else return null;}
+  return k;
+}
+function avisoTela(t,d){
+  /* Tela branca e o pior estado: quem abre nao sabe se quebrou ou se esta vazio. */
+  $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px">
+    <strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>
+    <br><button class="btn" id="btn-retry">Tentar de novo</button></div>`;
+  const b=$('#btn-retry'); if(b)b.onclick=()=>{localStorage.removeItem('shrigma_dash_key');carrega();};
+}
+async function carrega(){
+  const k=chaveLeitura();
+  if(!k)return avisoTela('Sem chave','Esta página lê o mesmo endpoint do painel de CX.');
+  try{
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
+    if(r.status===401){localStorage.removeItem('shrigma_dash_key');
+      return avisoTela('Chave inválida','A chave guardada foi recusada pelo n8n.');}
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    API=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j.payload||j);
+    $('#aviso-carga').innerHTML='';
+    if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
+    pintaOrganico();
+    const g=API.gerado_em?new Date(API.gerado_em):null;
+    $('#frescor').textContent=g?`coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'coleta —';
+  }catch(e){ avisoTela('Não deu para carregar',e.message); }
+}
+document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(API)pintaOrganico();});
+setInterval(()=>{$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},1000);
+carrega();
+setInterval(carrega,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
+</script>
+</body>
+</html>
