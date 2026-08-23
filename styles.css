@@ -361,6 +361,27 @@ select {
 .soc-barra { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--neutro-bg); margin-top: 9px; }
 .soc-barra i.p { background: var(--bom); } .soc-barra i.pa { background: var(--borda-forte); } .soc-barra i.d { background: var(--ruim); }
 .soc-nota { margin-top: 6px; }
+
+/* Quem respondeu: bot x humano. Bot fica no tom neutro forte e humano no tom da
+   marca -- nao usa verde/vermelho de proposito, porque bot nao e "ruim" e humano
+   nao e "bom". A leitura e de composicao, nao de semaforo. */
+.autoria { margin-top: 16px; border-top: 1px solid var(--borda); padding-top: 13px; }
+.autoria-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 11px; }
+.autoria-cab h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); margin: 0; }
+.autoria-marca + .autoria-marca { margin-top: 13px; }
+.autoria-marca .cab { display: flex; align-items: center; gap: 7px; }
+.autoria-marca h4 { font-size: 13px; font-weight: 700; margin: 0; }
+.autoria-barra { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--neutro-bg); margin-top: 8px; }
+.autoria-barra i.b { background: var(--borda-forte); }
+.autoria-barra i.i { background: var(--neutro-bg); box-shadow: inset 0 0 0 1px var(--borda-forte); }
+.autoria-barra i.h { background: var(--marca, #55524c); }
+.autoria-legenda { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 7px; font-size: 12px; }
+.autoria-legenda span { display: flex; align-items: center; gap: 5px; }
+.autoria-legenda small { color: var(--mudo); }
+.autoria-legenda i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+.autoria-legenda i.b { background: var(--borda-forte); }
+.autoria-legenda i.i { background: var(--neutro-bg); box-shadow: inset 0 0 0 1px var(--borda-forte); }
+.autoria-legenda i.h { background: var(--marca, #55524c); }
 .soc-urg { margin-top: 14px; border-top: 1px solid var(--borda); padding-top: 12px; }
 .soc-urg-cab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); margin-bottom: 8px; }
 .soc-urg-cab .mini { text-transform: none; letter-spacing: 0; font-weight: 500; }
