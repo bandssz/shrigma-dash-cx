@@ -442,6 +442,11 @@ const G = {
       const dia=String(r.dia).slice(0,10);
       if(marca!=='todas'&&r.marca!==marca)return;
       if(!G.noPeriodo(dia,ini,fim))return;
+      // Growth e CRM. Desde que o coletor passou a reconhecer utm_medium=organico,
+      // crm_conversao tambem carrega receita de conteudo -- que e outro dominio, com
+      // outro dono e outra cadencia, e mora no organico.html. Sem este porteiro a
+      // receita de post entraria no funil de e-mail sem ninguem pedir.
+      if(r.utm_medium==='organico')return;
       const k=[r.marca,r.canal,r.utm_campaign,r.utm_content].join('|');
       const a=agg.get(k)||{marca:r.marca,canal:r.canal,campanha:r.utm_campaign,peca:r.utm_content,
         pedidos:0,receita:0,assist:0,receita_assist:0,novos:0,recorr:0};

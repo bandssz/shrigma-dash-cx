@@ -605,14 +605,15 @@ function pintaSocial(d) {
 }
 
 /* Quem respondeu: bot da Replient ou gente.
-   Não existe campo de autoria na coleta — a Meta não diz quem escreveu. A inferência
-   é temporal, e o que valida o corte é o RELÓGIO DA RESPOSTA: gente não responde
-   metade das vezes fora do expediente, bot responde. Medido em 2.186 respostas:
-     até 10min   51,5% fora do horário, 7,4% de madrugada  -> bot
-     10 a 60min  15,8% fora do horário                      -> indefinido, não force
-     acima de 1h  6,5% caindo para 1,1%                     -> humano
-   A faixa abaixo de 1 minuto NÃO é humana, ao contrário do que se supunha: com 64,3%
-   fora do horário ela é mais bot do que a própria faixa de 1 a 10 minutos.
+   O corte não é estatístico, é de processo: quando a Replient não consegue responder,
+   ela deixa o chat em aberto e a resposta vira encargo do agente. A partir de 10
+   minutos é sempre humano — não existe faixa cinzenta.
+   Os números concordam. Medido em 2.186 respostas, olhando o RELÓGIO DA RESPOSTA:
+     até 10min   51,5% fora do expediente, 7,4% de madrugada -> bot
+     10 a 60min  15,8% fora                                  -> humano
+     acima de 1h  6,5% caindo para 1,1%                      -> humano
+   A faixa abaixo de 1 minuto também é bot: com 64,3% fora do expediente ela é mais
+   bot do que a própria faixa de 1 a 10 minutos.
    Limite conhecido: o texto da resposta não é coletado, então isto mede QUEM respondeu
    e QUANTO demorou — não se a resposta prestou. */
 function pintaAutoria(d, marcas, alvo) {
@@ -623,7 +624,7 @@ function pintaAutoria(d, marcas, alvo) {
   const agg = {};
   let precisavamSem = 0;
   for (const l of linhas) {
-    const a = (agg[l.marca] = agg[l.marca] || { bot: 0, humano: 0, indefinido: 0, sem_resposta: 0, botSeg: [], humSeg: [] });
+    const a = (agg[l.marca] = agg[l.marca] || { bot: 0, humano: 0, sem_resposta: 0, botSeg: [], humSeg: [] });
     a[l.autoria] = (a[l.autoria] || 0) + Number(l.n || 0);
     if (l.autoria === "sem_resposta") precisavamSem += Number(l.precisavam || 0);
     if (l.espera_mediana_seg !== null && l.espera_mediana_seg !== undefined) {
@@ -643,7 +644,7 @@ function pintaAutoria(d, marcas, alvo) {
     : s < 172800 ? Math.round(s / 3600) + " h"
     : Math.round(s / 86400) + " d";
 
-  const comDados = Object.keys(agg).filter((m) => agg[m].bot + agg[m].humano + agg[m].indefinido > 0);
+  const comDados = Object.keys(agg).filter((m) => agg[m].bot + agg[m].humano > 0);
   if (!comDados.length) return;
 
   alvo.insertAdjacentHTML("beforeend", `<div class="autoria">
@@ -651,7 +652,7 @@ function pintaAutoria(d, marcas, alvo) {
       <span class="mini">inferido pelo tempo de resposta · o texto da resposta ainda não é coletado</span></div>
     ${comDados.map((m) => {
       const a = agg[m];
-      const resp = a.bot + a.humano + a.indefinido;
+      const resp = a.bot + a.humano;
       const p = (x) => (resp ? (x / resp) * 100 : 0);
       return `<div class="autoria-marca">
         <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h4>${ROTULOS[m]}</h4>
@@ -659,13 +660,11 @@ function pintaAutoria(d, marcas, alvo) {
         <div class="autoria-barra" role="img"
              aria-label="${Math.round(p(a.bot))}% bot, ${Math.round(p(a.humano))}% humano">
           <i class="b" style="width:${p(a.bot)}%"></i>
-          <i class="i" style="width:${p(a.indefinido)}%"></i>
           <i class="h" style="width:${p(a.humano)}%"></i>
         </div>
         <div class="autoria-legenda">
           <span><i class="b"></i> Bot ${Math.round(p(a.bot))}%<small> ${fmtNum(a.bot)} · mediana ${dur(pond(a.botSeg))}</small></span>
           <span><i class="h"></i> Humano ${Math.round(p(a.humano))}%<small> ${fmtNum(a.humano)} · mediana ${dur(pond(a.humSeg))}</small></span>
-          ${a.indefinido ? `<span><i class="i"></i> Indefinido<small> ${fmtNum(a.indefinido)} · entre 10 e 60 min</small></span>` : ""}
         </div>
       </div>`;
     }).join("")}

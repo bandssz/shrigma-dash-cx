@@ -124,7 +124,9 @@ th.ord:hover{color:var(--texto)}
 th.ord-ativa::after{content:'\2191';margin-left:4px;font-size:10px}
 th.ord-ativa[data-dir=desc]::after{content:'\2193'}
 .tag.venc{background:var(--bom-bg);color:var(--bom)}
+.tag.perd{background:var(--ruim-bg);color:var(--ruim)}
 tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
+tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 @media (max-width:640px){.periodo .presets{flex-wrap:wrap}}
 </style></head>
 <body>
@@ -191,7 +193,7 @@ tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
     <div class="painel">
       <div class="painel-cab"><h2>Post a post</h2>
         <div class="seg-mini" role="group" aria-label="Filtro de posts">
-          <button data-f="todos" class="ativo">Todos</button><button data-f="venc">Só vencedores</button>
+          <button data-f="todos" class="ativo">Todos</button><button data-f="venc">Só vencedores</button><button data-f="perd">Só quedas</button>
         </div></div>
       <div class="rolagem"><table class="comparativo" id="tab-posts"><thead><tr>
         <th class="ord" data-c="publicado_em">Post</th><th></th>
@@ -200,6 +202,7 @@ tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
         <th class="num ord" data-c="salvos">Salvos</th>
         <th class="num ord" data-c="compartilh">Compart.</th>
         <th class="num ord" data-c="comentarios">Coment.</th>
+        <th class="num ord" data-c="neg">Negativos</th>
         <th class="num ord" data-c="eq">EQ</th>
         <th>vs. meta 1%</th><th class="num ord" data-c="percentil">Percentil</th><th></th>
       </tr></thead><tbody></tbody></table></div>
@@ -210,7 +213,11 @@ tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
         e ainda ficar abaixo da meta de 1%: é o melhor do que foi postado, não necessariamente bom.
         <em>Amostra curta</em> marca par marca×formato com menos de 10 posts no período, onde top 20%
         vira sorteio. <em>Imaturo</em> marca post com menos de 3 dias, que ainda acumula salvamento
-        contra posts que tiveram noventa.</div>
+        contra posts que tiveram noventa.
+        <br><br><strong>Queda é o bottom 20% do mesmo recorte.</strong> Vencedor diz o que repetir;
+        queda diz o que parar de postar, e essa é a decisão mais barata das duas. A coluna de
+        negativos vem dos comentários já classificados na aba de Suporte — post que afunda em EQ
+        e junta comentário negativo não é formato fraco, é assunto errado.</div>
     </div>
   </section>
 
@@ -295,19 +302,33 @@ function pintaMarca(){
 }
 
 const tag=m=>`<span class="tag ${G.CLASSE[m]||m}">${G.MARCA[m]||m}</span>`;
-const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
-  :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+// sinal decide a COR, exibe decide o numero e a seta: em Quedas, subir e ruim.
+const chip=(sinal,exibe)=>{
+  const d=exibe===undefined?sinal:exibe;
+  if(d===null||d===undefined)return '<span class="mini">sem base de comparação</span>';
+  return `<span class="chip ${sinal>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+};
 const varia=(a,b)=>(b===null||b===undefined||!b)?null:Math.round(100*(a-b)/b);
 
 /* ---------- recortes ---------- */
 // Toda serie de post e story e filtrada por data BR do publicado_em; a serie de conta
 // ja chega como coluna DATE e usa slice(0,10) direto -- converter quebraria o dia.
 function daMarca(x){return MARCA==='todas'||G.CLASSE[x.marca]===MARCA;}
+let COM=null;
+function comentarios(){
+  // Indexa uma vez por carga: sao 500+ posts e a tabela repinta a cada clique de coluna.
+  if(COM)return COM;
+  COM={}; (API.cx_post_comentario||[]).forEach(c=>{COM[c.post_id]=c;});
+  return COM;
+}
 function posts(ini,fim){
+  const c=comentarios();
   return (API.cx_post||[]).filter(p=>!p.impulsionado&&daMarca(p)
     &&G.diaBR(p.publicado_em)>=ini&&G.diaBR(p.publicado_em)<=fim)
     .map(p=>({...p,dia:G.diaBR(p.publicado_em),
-      eq:p.alcance?100*((+p.salvos||0)+(+p.compartilh||0))/p.alcance:null}));
+      eq:p.alcance?100*((+p.salvos||0)+(+p.compartilh||0))/p.alcance:null,
+      neg:+((c[p.post_id]||{}).negativos||0),
+      aguardando:+((c[p.post_id]||{}).aguardando||0)}));
 }
 function stories(ini,fim){
   return (API.cx_story||[]).filter(s=>daMarca(s)
@@ -329,9 +350,12 @@ function classifica(lista){
       const r=val.length>1?i/(val.length-1):0;
       p.percentil=Math.round(r*100);
       p.vencedor=r>=0.8;
+      // O painel mostrava so quem ganhou. Quem ganhou diz o que repetir; quem afundou
+      // diz o que PARAR de postar, e essa e a decisao mais barata de tomar.
+      p.perdedor=r<=0.2;
       p.amostraCurta=val.length<10;
     });
-    g.filter(p=>p.eq===null).forEach(p=>{p.percentil=null;p.vencedor=false;p.amostraCurta=true;});
+    g.filter(p=>p.eq===null).forEach(p=>{p.percentil=null;p.vencedor=false;p.perdedor=false;p.amostraCurta=true;});
   });
   return lista;
 }
@@ -350,6 +374,15 @@ function pintaKPIs(){
   const A=classifica(posts(PER.ini,PER.fim)), B=classifica(posts(ant.ini,ant.fim));
   const ag=agregado(A), agB=agregado(B);
   const vA=A.filter(p=>p.vencedor).length, vB=B.filter(p=>p.vencedor).length;
+  const pA=A.filter(p=>p.perdedor).length,  pB=B.filter(p=>p.perdedor).length;
+  const negA=A.reduce((a,p)=>a+(p.neg||0),0);
+  // Receita organica: so peca com de-para em crm_organico_utm entra como identificada.
+  // Sem de-para a receita e ORFA, nunca zero -- zero diria "nao vendeu".
+  const rec=(ini,fim)=>(API.cx_organico_receita||[]).filter(r=>daMarca(r)
+      &&String(r.dia).slice(0,10)>=ini&&String(r.dia).slice(0,10)<=fim);
+  const rA=rec(PER.ini,PER.fim), rB=rec(ant.ini,ant.fim);
+  const soma=l=>l.reduce((a,r)=>a+(+r.receita_ultimo||0),0);
+  const orfa=soma(rA.filter(r=>!r.post_id&&!r.story_id));
 
   const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
   const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
@@ -372,6 +405,8 @@ function pintaKPIs(){
      alerta:ag.eq!==null&&ag.mediana!==null&&ag.eq>=1&&ag.mediana<ag.eq/2?'um post carregou':null},
     {r:'Conteúdos vencedores', v:A.length?String(vA):'—',
      d:varia(vA,vB), s:`de ${nf(A.length)} posts · top 20% do período`, ir:'posts'},
+    {r:'Quedas', v:A.length?String(pA):'—',
+     d:varia(pA,pB), s:`bottom 20% · ${nf(negA)} comentários negativos`, ir:'posts', inverso:true},
     {r:'CTR de story', v:stA.length?pc(ctr(stA)):'—',
      d:stB.length?varia(ctr(stA),ctr(stB)):null,
      s:stA.length?`${stA.length} stories com link`:'coletando desde 22/08', ir:'stories'},
@@ -379,11 +414,16 @@ function pintaKPIs(){
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
+    {r:'Receita do orgânico', v:rA.length?'R$ '+soma(rA).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
+     d:rB.length?varia(soma(rA),soma(rB)):null,
+     s:rA.length?`${nf(rA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · último clique`
+       :'sem UTM de orgânico circulando ainda',
+     alerta:orfa>0?`R$ ${orfa.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} sem peça identificada`:null},
   ];
   $('#area-kpis').innerHTML=cards.map(k=>`<div class="kpi${k.ir?' kpi-ir':''}" ${k.ir?`data-ir="${k.ir}" role="button" tabindex="0"`:''}>
     <div class="kpi-rot">${k.r}</div>
     <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
-    <div class="kpi-rodape">${CMP?chip(k.d):'<span class="mini">&nbsp;</span>'}</div>
+    <div class="kpi-rodape">${CMP?chip(k.inverso&&k.d!==null?-k.d:k.d,k.d):'<span class="mini">&nbsp;</span>'}</div>
     <div class="kpi-sub">${esc(k.s)}</div>
     ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
   </div>`).join('');
@@ -425,7 +465,8 @@ function pintaGrade(){
 
 /* ---------- post a post ---------- */
 function pintaPosts(lista){
-  let L=FILTRO==='venc'?lista.filter(p=>p.vencedor):lista.slice();
+  let L=FILTRO==='venc'?lista.filter(p=>p.vencedor)
+       :FILTRO==='perd'?lista.filter(p=>p.perdedor):lista.slice();
   const c=ORD.col;
   L.sort((a,b)=>{
     let x=a[c],y=b[c];
@@ -442,19 +483,23 @@ function pintaPosts(lista){
     const imaturo=(Date.now()-dt.getTime())/864e5<3;
     const legenda=p.legenda?`<span class="post-id" title="${esc(p.legenda)}">${esc(p.legenda)}</span>`
       :'<span class="post-id sem">sem legenda coletada</span>';
-    return `<tr${p.vencedor?' class="linha-venc"':''}>
+    return `<tr${p.vencedor?' class="linha-venc"':p.perdedor?' class="linha-perd"':''}>
       <td>${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
         ${p.vencedor?'<span class="tag venc">vencedor</span>':''}
+        ${p.perdedor?'<span class="tag perd">queda</span>':''}
+        ${p.aguardando?`<span class="tag alerta">${p.aguardando} sem resposta</span>`:''}
         ${imaturo?'<span class="tag alerta">imaturo</span>':''}${legenda}</td>
       <td>${tag(p.marca)}</td><td><span class="mini">${esc(p.formato||'')}</span></td>
       <td class="num tabn">${nf(p.alcance)}</td><td class="num tabn">${nf(p.salvos)}</td>
       <td class="num tabn">${nf(p.compartilh)}</td><td class="num tabn">${nf(p.comentarios)}</td>
+      <td class="num tabn${p.neg?' vm':''}">${p.neg?nf(p.neg):'—'}</td>
       <td class="num tabn destaque">${pc(p.eq)}</td>
       <td>${p.eq===null?'<span class="mini">—</span>':p.eq>=1?'<span class="mini">bate</span>':'<span class="tag alerta">abaixo</span>'}</td>
       <td class="num tabn">${p.percentil===null?'—':'p'+p.percentil}${p.amostraCurta?' <span class="tag nulo">amostra curta</span>':''}</td>
       <td>${p.permalink?`<a href="${esc(p.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
     </tr>`;}).join('')
-    :`<tr><td colspan="11"><div class="vazio">${FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.':'Nenhum post orgânico publicado neste período.'}</div></td></tr>`;
+    :`<tr><td colspan="12"><div class="vazio">${FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.'
+       :FILTRO==='perd'?'Nenhum post caiu no bottom 20% neste período.':'Nenhum post orgânico publicado neste período.'}</div></td></tr>`;
 }
 
 /* ---------- stories ---------- */
