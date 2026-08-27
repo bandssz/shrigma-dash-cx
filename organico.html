@@ -533,9 +533,9 @@ function troca(s){
 
 /* ---------- carga ---------- */
 function chaveLeitura(){
-  let k=localStorage.getItem('shrigma_dash_key');
-  if(!k){k=prompt('Chave de leitura do painel');
-    if(k)localStorage.setItem('shrigma_dash_key',k); else return null;}
+  let k=localStorage.getItem('shrigma_k_organico');
+  if(!k){k=prompt('Chave de acesso do painel de Orgânico:');
+    if(k)localStorage.setItem('shrigma_k_organico',k); else return null;}
   return k;
 }
 function avisoTela(t,d){
@@ -543,14 +543,14 @@ function avisoTela(t,d){
   $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px">
     <strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>
     <br><button class="btn" id="btn-retry">Tentar de novo</button></div>`;
-  const b=$('#btn-retry'); if(b)b.onclick=()=>{localStorage.removeItem('shrigma_dash_key');carrega();};
+  const b=$('#btn-retry'); if(b)b.onclick=()=>{localStorage.removeItem('shrigma_k_organico');carrega();};
 }
 async function carrega(){
   const k=chaveLeitura();
   if(!k)return avisoTela('Sem chave','Esta página lê o mesmo endpoint do painel de CX.');
   try{
     const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
-    if(r.status===401){localStorage.removeItem('shrigma_dash_key');
+    if(r.status===401){localStorage.removeItem('shrigma_k_organico');
       return avisoTela('Chave inválida','A chave guardada foi recusada pelo n8n.');}
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();

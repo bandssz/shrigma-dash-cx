@@ -283,9 +283,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script>
 const $=s=>document.querySelector(s);
 // mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
-function chaveLeitura(){let k=localStorage.getItem('shrigma_dash_key');
-  if(!k){k=(prompt('Chave de acesso do painel:')||'').trim();
-    if(k)localStorage.setItem('shrigma_dash_key',k); else return null;}
+function chaveLeitura(){let k=localStorage.getItem('shrigma_k_influs');
+  if(!k){k=(prompt('Chave de acesso do painel de Influs:')||'').trim();
+    if(k)localStorage.setItem('shrigma_k_influs',k); else return null;}
   return k;}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
@@ -422,8 +422,10 @@ async function influPost(corpo){
 async function faixaCredencial(){
   try{
     if(typeof CX_API_URL==='undefined')return;
-    // reusa a chave de leitura que o Influs ja guarda no localStorage
-    const k=localStorage.getItem('shrigma_dash_key')||'';
+    // A chave do painel de Influs abre APENAS a faixa de credencial nesta API: o
+    // recorte por painel do n8n nao entrega dado de CX nem de Growth para ela.
+    // O dado de influenciador vem do endpoint proprio, com a chave de escrita.
+    const k=localStorage.getItem('shrigma_k_influs')||'';
     if(!k)return;
     const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
     if(!r.ok)return;
@@ -439,7 +441,7 @@ function avisoTela(titulo,detalhe,botao){
   const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
   $('#area-tabela').innerHTML=`<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${bt}</div>`;
   $('#area-cortes').innerHTML=''; $('#area-kpis').innerHTML=''; $('#faixa-alertas').innerHTML='';
-  const b=$('#btn-retry'); if(b) b.onclick=()=>{localStorage.removeItem('shrigma_dash_key');carregarInflu();};
+  const b=$('#btn-retry'); if(b) b.onclick=()=>{localStorage.removeItem('shrigma_k_influs');carregarInflu();};
 }
 async function carregarInflu(){
   const k=chaveLeitura();

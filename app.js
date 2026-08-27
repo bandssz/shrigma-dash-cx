@@ -61,7 +61,7 @@ const $ = (s) => document.querySelector(s);
 // ---------- chave de acesso ----------
 // A API exige ?k=<chave>. A chave fica só neste dispositivo (localStorage),
 // nunca no código. Errou a chave → a API devolve 401 e o painel pede de novo.
-function chave() { try { return localStorage.getItem("cx_chave") || ""; } catch (e) { return ""; } }
+function chave() { try { return localStorage.getItem("shrigma_k_cx") || ""; } catch (e) { return ""; } }
 function pedeChave(erro) {
   if ($("#gate")) { $("#gate .gate-erro").textContent = erro || ""; return; }
   const div = document.createElement("div");
@@ -76,7 +76,7 @@ function pedeChave(erro) {
   document.body.appendChild(div);
   div.querySelector("form").addEventListener("submit", (e) => {
     e.preventDefault();
-    try { localStorage.setItem("cx_chave", div.querySelector("input").value.trim()); } catch (err) {}
+    try { localStorage.setItem("shrigma_k_cx", div.querySelector("input").value.trim()); } catch (err) {}
     div.remove();
     carrega();
   });
@@ -88,7 +88,7 @@ async function carrega() {
   try {
     const r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()), { cache: "no-store" });
     if (r.status === 401 || r.status === 403) {
-      try { localStorage.removeItem("cx_chave"); } catch (e) {}
+      try { localStorage.removeItem("shrigma_k_cx"); } catch (e) {}
       pedeChave("Chave incorreta — tente de novo.");
       return;
     }
