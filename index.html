@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=e1f86064">
+<link rel="stylesheet" href="styles.css?v=c116e06b">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -115,11 +115,27 @@
         <thead><tr>
           <th>Marca</th><th class="num">Saldo</th><th class="num">Fila</th><th class="num">Trabalhados</th>
           <th class="num">1ª resp. exped.</th><th class="num">1ª resp. total</th><th class="num">CSAT</th>
-          <th class="num">Kai segura</th><th class="num">Respostas</th><th>14 dias</th>
+          <th class="num">Kai resolve</th><th class="num">Respostas</th><th>14 dias</th>
         </tr></thead>
         <tbody></tbody>
       </table>
     </div>
+  </section>
+
+  <section class="painel" id="painel-desfecho" aria-label="Desfecho dos tickets" hidden>
+    <div class="painel-cab">
+      <h2>O que acontece com o ticket</h2>
+      <span class="mini" id="desfecho-rot"></span>
+    </div>
+    <div id="area-desfecho"></div>
+    <div class="nota">Cinco desfechos que somam 100%. <strong>Kai resolve</strong> é o único que
+      conta como vitória: ticket encerrado sem nenhum humano responder, sem o Kai ter prometido
+      atendente e sem a régua ter fechado por silêncio do cliente.
+      <strong>Promessa vazia</strong> é o Kai avisar que chamaria uma pessoa e ninguém aparecer —
+      isso é fracasso, e a taxa de deflexão do Gleap contava como sucesso.
+      <em>Pendente</em> é ticket ainda aberto: nem vitória nem derrota, e fica fora de qualquer
+      taxa até ter desfecho. Canal muda tudo — Instagram é pré-venda e WhatsApp é pós-venda,
+      então a média entre canais não quer dizer nada.</div>
   </section>
 
   <!-- Linha 3: pessoas e voz do cliente -->
@@ -171,7 +187,7 @@
 
 <script src="config.js?v=60d79cdd"></script>
 <script src="dados.js?v=60d79cdd"></script>
-<script src="app.js?v=920efe83"></script>
+<script src="app.js?v=1935c35a"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

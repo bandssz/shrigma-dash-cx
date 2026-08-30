@@ -144,6 +144,7 @@ function pinta() {
   pintaNps(d, hoje);
   pintaFrustracoes(d);
   pintaRa(d);
+  pintaDesfecho(d);
   pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
@@ -444,11 +445,90 @@ function pintaComparativo(porMarca, d) {
       <td class="num">${fmtDur(a.primeira_resposta_comercial_seg)} ${seta("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg)}</td>
       <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
       <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"} ${seta("csat", a.csat, ant.csat)}</td>
-      <td class="num">${fmtPct(a.kai_deflexao)} ${seta("kai_deflexao", a.kai_deflexao, ant.kai_deflexao)}</td>
+      <td class="num">${pctKai(m)}</td>
       <td class="num">${fmtNum(a.respostas)}</td>
       <td class="cel-spark">${sparkSvg(m, corHex(m), 110, 26)}</td>
     </tr>`;
   }).join("");
+}
+
+/* Desfecho do ticket: cinco estados exclusivos que somam 100%.
+   Substitui a deflexão do Gleap, que mentia em três camadas empilhadas:
+     1. denominador só com conversas em que o Kai chegou a um veredito (exclui 56%
+        dos tickets no Aristocrata);
+     2. ticket ainda aberto contado como sucesso;
+     3. ticket em que o Kai prometeu humano e ninguém veio, também contado como
+        sucesso -- 306 no Aristocrata na janela medida.
+   Resultado: o Gleap dizia 73,4%; a resolução real do Kai sozinho é 25,9%.
+   Base pequena não vira percentual: abaixo de 30 encerrados mostra contagem. */
+const DESFECHOS = [
+  { k: "resolvido_kai",  r: "Kai resolve",    c: "d-kai"  },
+  { k: "escalado",       r: "Escalou",        c: "d-esc"  },
+  { k: "promessa_vazia", r: "Promessa vazia", c: "d-prom" },
+  { k: "inatividade",    r: "Abandonou",      c: "d-inat" },
+  { k: "pendente",       r: "Pendente",       c: "d-pend" },
+];
+const MIN_BASE = 30;
+
+function desfechoAgg(d, marca, ini, fim) {
+  const acc = {};
+  for (const l of (d.cx_desfecho || [])) {
+    const dia = String(l.dia).slice(0, 10);
+    if (dia < ini || dia > fim) continue;
+    if (marca !== "todas" && l.marca !== marca) continue;
+    const a = acc[l.canal] || (acc[l.canal] = { canal: l.canal, tickets: 0 });
+    a.tickets += Number(l.tickets || 0);
+    for (const { k } of DESFECHOS) a[k] = (a[k] || 0) + Number(l[k] || 0);
+  }
+  return Object.values(acc).sort((x, y) => y.tickets - x.tickets);
+}
+
+function pctKai(marca) {
+  const linhas = desfechoAgg(estado.dados || {}, marca, PER.ini, PER.fim);
+  const t = linhas.reduce((s, x) => s + x.tickets, 0);
+  if (!t) return "—";
+  const kai = linhas.reduce((s, x) => s + (x.resolvido_kai || 0), 0);
+  return t < MIN_BASE ? `${fmtNum(kai)}/${fmtNum(t)}` : fmtPct((kai / t) * 100);
+}
+
+function pintaDesfecho(d) {
+  const canais = desfechoAgg(d, estado.marca, PER.ini, PER.fim);
+  const painel = $("#painel-desfecho");
+  if (!canais.length) { painel.hidden = true; return; }
+  painel.hidden = false;
+
+  const tot = canais.reduce((a, x) => {
+    a.tickets += x.tickets;
+    for (const { k } of DESFECHOS) a[k] = (a[k] || 0) + (x[k] || 0);
+    return a;
+  }, { canal: "todos", tickets: 0 });
+
+  const marco = (d.cx_marco || []).find((m) => String(m.dia).slice(0, 10) >= PER.ini
+                                             && String(m.dia).slice(0, 10) <= PER.fim);
+  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets`
+    + (marco ? ` · <span class="tag alerta" title="${String(marco.detalhe || "")}">quebra de série em `
+               + `${String(marco.dia).slice(8,10)}/${String(marco.dia).slice(5,7)}</span>` : "");
+
+  const barra = (x) => {
+    const t = x.tickets || 1;
+    const seg = DESFECHOS.map(({ k, c, r }) => {
+      const v = x[k] || 0;
+      if (!v) return "";
+      return `<i class="${c}" style="width:${(v / t) * 100}%" title="${r}: ${fmtNum(v)}"></i>`;
+    }).join("");
+    const kaiPct = ((x.resolvido_kai || 0) / t) * 100;
+    return `<div class="d-linha">
+      <div class="d-nome">${x.canal === "todos" ? "<strong>Todos os canais</strong>" : x.canal}
+        <span class="mini">${fmtNum(x.tickets)}</span></div>
+      <div class="d-barra">${seg}</div>
+      <div class="d-val tabn">${x.tickets < MIN_BASE
+        ? `<span class="mini">base curta</span>` : fmtPct(kaiPct)}</div>
+    </div>`;
+  };
+
+  $("#area-desfecho").innerHTML = barra(tot) + canais.map(barra).join("")
+    + `<div class="d-legenda">` + DESFECHOS.map(({ r, c, k }) =>
+        `<span><i class="${c}"></i> ${r} <small>${fmtNum(tot[k] || 0)}</small></span>`).join("") + `</div>`;
 }
 
 function pintaRanking(d, hoje) {
