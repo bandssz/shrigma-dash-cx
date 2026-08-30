@@ -630,8 +630,7 @@ function pintaDesfecho(d) {
              <strong class="k-big tabn">${fmtPct(((tot.escalado || 0) / dTot) * 100)}</strong></div>
          </div>` : "")
     + canais.map((x) => linha(x, x.canal)).join("")
-    + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} tickets ainda sem desfecho —
-       abertos, abandonados, ou o Kai prometeu atendente e ninguém veio. Ficam fora da conta.</div>`;
+    + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} sem desfecho, fora da conta</div>`;
 
   pintaDetalhe(d, canais, tot);
 }
@@ -694,6 +693,9 @@ function pintaDetalhe(d, canais, tot) {
 }
 
 document.addEventListener("click", (e) => {
+  const lnk = e.target.closest("#lnk-nota-kai");
+  if (lnk) { e.preventDefault(); const n = $("#nota-kai-longa"); n.hidden = !n.hidden;
+             lnk.textContent = n.hidden ? "por quê" : "ocultar"; return; }
   const b = e.target.closest("#painel-desfecho .seg-mini button");
   if (!b) return;
   document.querySelectorAll("#painel-desfecho .seg-mini button")
