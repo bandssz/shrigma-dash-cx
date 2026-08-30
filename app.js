@@ -140,12 +140,14 @@ function pinta() {
   pintaAlertas(porMarca, d);
   pintaKpis(escopo, porMarca);
   pintaGrafico(d, hoje);
+  // pintaDesfecho resolve PER_DESF (o periodo que realmente tem desfecho) e a coluna
+  // "Kai resolve" do comparativo le esse mesmo recorte -- por isso vem antes.
+  pintaDesfecho(d);
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
   pintaFrustracoes(d);
   pintaRa(d);
-  pintaDesfecho(d);
   pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
@@ -463,6 +465,7 @@ function pintaComparativo(porMarca, d) {
    Resultado: o Gleap dizia 73,4%; a resolução real do Kai sozinho é 25,9%.
    Base pequena não vira percentual: abaixo de 30 encerrados mostra contagem. */
 const MIN_BASE = 30;
+let PER_DESF = { ini: "0000-00-00", fim: "9999-99-99" };
 
 /* Tres cortes do mesmo dado, um de cada vez. Painel separado para cada um daria
    quatro blocos empilhados dizendo a mesma coisa por angulos diferentes -- e o
@@ -507,7 +510,7 @@ function desfechoAgg(d, marca, ini, fim) {
 }
 
 function pctKai(marca) {
-  const linhas = desfechoAgg(estado.dados || {}, marca, PER.ini, PER.fim);
+  const linhas = desfechoAgg(estado.dados || {}, marca, PER_DESF.ini, PER_DESF.fim);
   const t = linhas.reduce((s, x) => s + x.tickets, 0);
   if (!t) return "—";
   const kai = linhas.reduce((s, x) => s + (x.resolvido_kai || 0), 0);
@@ -546,10 +549,35 @@ function reaberturaAgg(d, marca, ini, fim) {
 }
 
 function pintaDesfecho(d) {
-  const canais = desfechoAgg(d, estado.marca, PER.ini, PER.fim);
   const painel = $("#painel-desfecho");
-  if (!canais.length) { painel.hidden = true; return; }
-  painel.hidden = false;
+  painel.hidden = false;   // painel que se esconde sozinho e tela branca com outro nome
+  let canais = desfechoAgg(d, estado.marca, PER.ini, PER.fim);
+  let aviso = "";
+
+  /* O desfecho vem da consolidacao, que fecha o dia anterior: pedir "hoje" antes dela
+     rodar devolve vazio. Em vez de sumir com o painel, cai para o ultimo dia que
+     existe e DIZ que caiu -- quem abre precisa saber se esta vendo outro periodo. */
+  if (!canais.length) {
+    const dias = (d.cx_desfecho || [])
+      .filter((l) => estado.marca === "todas" || l.marca === estado.marca)
+      .map((l) => String(l.dia).slice(0, 10)).sort();
+    if (!dias.length) {
+      $("#tiras-cx").innerHTML = "";
+      $("#desfecho-rot").textContent = "";
+      $("#area-desfecho").innerHTML = `<div class="vazio">Sem desfecho coletado ainda.
+        A consolidação roda 01:15 e fecha o dia anterior.</div>`;
+      return;
+    }
+    const ate = dias[dias.length - 1];
+    const de = dias.find((x) => x >= (new Date(new Date(ate + "T12:00:00Z").getTime()
+      - 29 * 864e5)).toISOString().slice(0, 10)) || dias[0];
+    canais = desfechoAgg(d, estado.marca, de, ate);
+    const br = (x) => x.slice(8, 10) + "/" + x.slice(5, 7);
+    aviso = `<span class="tag alerta">período sem dado — mostrando ${br(de)} a ${br(ate)}</span>`;
+    PER_DESF = { ini: de, fim: ate };
+  } else {
+    PER_DESF = { ini: PER.ini, fim: PER.fim };
+  }
 
   const tot = canais.reduce((a, x) => {
     a.tickets += x.tickets;
@@ -557,9 +585,24 @@ function pintaDesfecho(d) {
     return a;
   }, { canal: "todos", tickets: 0 });
 
-  const marco = (d.cx_marco || []).find((m) => String(m.dia).slice(0, 10) >= PER.ini
-                                             && String(m.dia).slice(0, 10) <= PER.fim);
-  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets`
+  const marco = (d.cx_marco || []).find((m) => String(m.dia).slice(0, 10) >= PER_DESF.ini
+                                             && String(m.dia).slice(0, 10) <= PER_DESF.fim);
+  /* hasAgentReply so e populado quando o humano responde DE FATO: em ticket do mesmo
+     dia ele vem false mesmo em conversa que vai escalar. Entao periodo que inclui as
+     ultimas 48h mostra escalacao artificialmente baixa e pendente artificialmente
+     alto. O painel nao esconde esse periodo -- ele avisa. */
+  const limite = new Date(Date.now() - 48 * 3600 * 1000).toISOString().slice(0, 10);
+  const imaturos = (d.cx_desfecho || []).filter((l) => {
+    const dia = String(l.dia).slice(0, 10);
+    return dia >= PER_DESF.ini && dia <= PER_DESF.fim && dia > limite
+      && (estado.marca === "todas" || l.marca === estado.marca);
+  }).reduce((a, l) => a + Number(l.tickets || 0), 0);
+  const fatia = tot.tickets ? imaturos / tot.tickets : 0;
+  const selo = fatia > 0.15
+    ? `<span class="tag alerta" title="hasAgentReply só é confiável depois de ~48h: até lá o ticket que vai escalar ainda aparece como pendente">${
+        Math.round(fatia * 100)}% do período ainda maturando</span>` : "";
+
+  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}`
     + (marco ? ` · <span class="tag alerta" title="${String(marco.detalhe || "")}">quebra de série em `
                + `${String(marco.dia).slice(8,10)}/${String(marco.dia).slice(5,7)}</span>` : "");
 
@@ -569,7 +612,7 @@ function pintaDesfecho(d) {
      CSAT so tem cobertura porque o bot roda em platforms:["whatsapp"]: Instagram e
      e-mail nunca sao medidos, e botao nem funciona no Instagram. Por isso o numero
      do CSAT so aparece ao lado da cobertura, nunca sozinho. */
-  const { reab, hum } = reaberturaAgg(d, estado.marca, PER.ini, PER.fim);
+  const { reab, hum } = reaberturaAgg(d, estado.marca, PER_DESF.ini, PER_DESF.fim);
   const wa = canais.find((c) => c.canal === "whatsapp");
   const cobertura = wa && wa.tickets ? (wa.csat_enviado / wa.tickets) * 100 : null;
   const foraDaCurva = canais.filter((c) => c.canal !== "whatsapp")
@@ -585,7 +628,7 @@ function pintaDesfecho(d) {
   </div>`;
 
   if (estado.corteCX === "esforco") {
-    const linhas = esforcoAgg(d, estado.marca, PER.ini, PER.fim).filter((x) => x.esc);
+    const linhas = esforcoAgg(d, estado.marca, PER_DESF.ini, PER_DESF.fim).filter((x) => x.esc);
     const t = linhas.reduce((a, x) => ({ esc: a.esc + x.esc, comKai: a.comKai + x.comKai,
                                          som: a.som + x.som }), { esc: 0, comKai: 0, som: 0 });
     const linha = (x, nome) => `<div class="d-linha esf">
