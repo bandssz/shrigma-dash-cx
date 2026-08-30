@@ -3,6 +3,7 @@
 // Toda a matemática vive em dados.js. URL params: ?marca=aristocrata&janela=7d
 
 const estado = {
+  corteCX: "desfecho",   // desfecho|classe|caixa — tres cortes do mesmo dado
   marca: new URLSearchParams(location.search).get("marca") || "todas",
   preset: (() => {
     const q = new URLSearchParams(location.search);
@@ -461,14 +462,36 @@ function pintaComparativo(porMarca, d) {
         sucesso -- 306 no Aristocrata na janela medida.
    Resultado: o Gleap dizia 73,4%; a resolução real do Kai sozinho é 25,9%.
    Base pequena não vira percentual: abaixo de 30 encerrados mostra contagem. */
-const DESFECHOS = [
-  { k: "resolvido_kai",  r: "Kai resolve",    c: "d-kai"  },
-  { k: "escalado",       r: "Escalou",        c: "d-esc"  },
-  { k: "promessa_vazia", r: "Promessa vazia", c: "d-prom" },
-  { k: "inatividade",    r: "Abandonou",      c: "d-inat" },
-  { k: "pendente",       r: "Pendente",       c: "d-pend" },
-];
 const MIN_BASE = 30;
+
+/* Tres cortes do mesmo dado, um de cada vez. Painel separado para cada um daria
+   quatro blocos empilhados dizendo a mesma coisa por angulos diferentes -- e o
+   problema do painel de organico que a gente acabou de desfazer. */
+const CORTES = {
+  desfecho: { rot: "Desfecho",
+    seg: [
+      { k: "resolvido_kai",  r: "Kai resolve",    c: "d-kai"  },
+      { k: "escalado",       r: "Escalou",        c: "d-esc"  },
+      { k: "promessa_vazia", r: "Promessa vazia", c: "d-prom" },
+      { k: "inatividade",    r: "Abandonou",      c: "d-inat" },
+      { k: "pendente",       r: "Pendente",       c: "d-pend" },
+    ], destaque: "resolvido_kai" },
+  classe: { rot: "Classificação",
+    seg: [
+      { k: "nunca_outros",     r: "Acertou de primeira", c: "d-kai"  },
+      { k: "outros_corrigido", r: "Errou e corrigiu",    c: "d-esc"  },
+      { k: "so_outros",        r: "Só 'outros'",         c: "d-prom" },
+    ], destaque: "so_outros", inverso: true },
+  caixa: { rot: "Caixa",
+    seg: [
+      { k: "pend_cliente", r: "Cliente falou por último", c: "d-prom" },
+      { k: "pend_bot",     r: "Bot falou por último",     c: "d-esc"  },
+      { k: "pend_agente",  r: "Agente participou",        c: "d-kai"  },
+      { k: "pend_vazio",   r: "Ticket vazio",             c: "d-pend" },
+    ], destaque: "pend_cliente", inverso: true },
+};
+const CAMPOS = [...new Set(Object.values(CORTES).flatMap((c) => c.seg.map((s) => s.k)))]
+  .concat(["csat_enviado"]);
 
 function desfechoAgg(d, marca, ini, fim) {
   const acc = {};
@@ -478,7 +501,7 @@ function desfechoAgg(d, marca, ini, fim) {
     if (marca !== "todas" && l.marca !== marca) continue;
     const a = acc[l.canal] || (acc[l.canal] = { canal: l.canal, tickets: 0 });
     a.tickets += Number(l.tickets || 0);
-    for (const { k } of DESFECHOS) a[k] = (a[k] || 0) + Number(l[k] || 0);
+    for (const k of CAMPOS) a[k] = (a[k] || 0) + Number(l[k] || 0);
   }
   return Object.values(acc).sort((x, y) => y.tickets - x.tickets);
 }
@@ -491,6 +514,17 @@ function pctKai(marca) {
   return t < MIN_BASE ? `${fmtNum(kai)}/${fmtNum(t)}` : fmtPct((kai / t) * 100);
 }
 
+function reaberturaAgg(d, marca, ini, fim) {
+  let reab = 0, hum = 0;
+  for (const l of (d.cx_reabertura || [])) {
+    const dia = String(l.dia).slice(0, 10);
+    if (dia < ini || dia > fim) continue;
+    if (marca !== "todas" && l.marca !== marca) continue;
+    reab += Number(l.reabertos || 0); hum += Number(l.com_humano || 0);
+  }
+  return { reab, hum };
+}
+
 function pintaDesfecho(d) {
   const canais = desfechoAgg(d, estado.marca, PER.ini, PER.fim);
   const painel = $("#painel-desfecho");
@@ -499,7 +533,7 @@ function pintaDesfecho(d) {
 
   const tot = canais.reduce((a, x) => {
     a.tickets += x.tickets;
-    for (const { k } of DESFECHOS) a[k] = (a[k] || 0) + (x[k] || 0);
+    for (const k of CAMPOS) a[k] = (a[k] || 0) + (x[k] || 0);
     return a;
   }, { canal: "todos", tickets: 0 });
 
@@ -509,27 +543,67 @@ function pintaDesfecho(d) {
     + (marco ? ` · <span class="tag alerta" title="${String(marco.detalhe || "")}">quebra de série em `
                + `${String(marco.dia).slice(8,10)}/${String(marco.dia).slice(5,7)}</span>` : "");
 
+  /* Reabertura e CSAT sao numeros unicos: viram tira, nao barra.
+     Reabertura NUNCA e somada aos novos -- e volume que consome atendente sem
+     aparecer em NEW_TICKETS_COUNT, entao some se for embutida no total.
+     CSAT so tem cobertura porque o bot roda em platforms:["whatsapp"]: Instagram e
+     e-mail nunca sao medidos, e botao nem funciona no Instagram. Por isso o numero
+     do CSAT so aparece ao lado da cobertura, nunca sozinho. */
+  const { reab, hum } = reaberturaAgg(d, estado.marca, PER.ini, PER.fim);
+  const wa = canais.find((c) => c.canal === "whatsapp");
+  const cobertura = wa && wa.tickets ? (wa.csat_enviado / wa.tickets) * 100 : null;
+  const foraDaCurva = canais.filter((c) => c.canal !== "whatsapp")
+                            .reduce((a, c) => a + c.tickets, 0);
+  $("#tiras-cx").innerHTML = `<div class="tiras">
+    <div class="tira"><span class="tira-rot">Reaberturas</span>
+      <strong class="tabn">${fmtNum(reab)}</strong>
+      <span class="mini">+${tot.tickets ? Math.round((reab / tot.tickets) * 100) : 0}% sobre os novos ·
+        ${reab ? Math.round((hum / reab) * 100) : 0}% com humano · não somadas ao total</span></div>
+    <div class="tira"><span class="tira-rot">CSAT coberto</span>
+      <strong class="tabn">${cobertura === null ? "—" : fmtPct(cobertura)}</strong>
+      <span class="mini">só WhatsApp · ${fmtNum(foraDaCurva)} tickets fora da medição</span></div>
+  </div>`;
+
+  const corte = CORTES[estado.corteCX] || CORTES.desfecho;
+  const base = (x) => corte.seg.reduce((a, { k }) => a + (x[k] || 0), 0);
+
   const barra = (x) => {
-    const t = x.tickets || 1;
-    const seg = DESFECHOS.map(({ k, c, r }) => {
+    const b = base(x);
+    const seg = corte.seg.map(({ k, c, r }) => {
       const v = x[k] || 0;
-      if (!v) return "";
-      return `<i class="${c}" style="width:${(v / t) * 100}%" title="${r}: ${fmtNum(v)}"></i>`;
+      if (!v || !b) return "";
+      return `<i class="${c}" style="width:${(v / b) * 100}%" title="${r}: ${fmtNum(v)}"></i>`;
     }).join("");
-    const kaiPct = ((x.resolvido_kai || 0) / t) * 100;
+    const dest = b ? ((x[corte.destaque] || 0) / b) * 100 : 0;
     return `<div class="d-linha">
       <div class="d-nome">${x.canal === "todos" ? "<strong>Todos os canais</strong>" : x.canal}
-        <span class="mini">${fmtNum(x.tickets)}</span></div>
+        <span class="mini">${fmtNum(b)}</span></div>
       <div class="d-barra">${seg}</div>
-      <div class="d-val tabn">${x.tickets < MIN_BASE
-        ? `<span class="mini">base curta</span>` : fmtPct(kaiPct)}</div>
+      <div class="d-val tabn ${corte.inverso ? "vm" : ""}">${b < MIN_BASE
+        ? `<span class="mini">base curta</span>` : fmtPct(dest)}</div>
     </div>`;
   };
 
-  $("#area-desfecho").innerHTML = barra(tot) + canais.map(barra).join("")
-    + `<div class="d-legenda">` + DESFECHOS.map(({ r, c, k }) =>
-        `<span><i class="${c}"></i> ${r} <small>${fmtNum(tot[k] || 0)}</small></span>`).join("") + `</div>`;
+  // Canal sem base no corte escolhido sai da lista em vez de virar barra vazia:
+  // e-mail e widget nao tem tag de roteamento nenhuma, entao no corte de
+  // Classificacao eles simplesmente nao existem.
+  const linhas = canais.filter((x) => base(x) > 0);
+  $("#area-desfecho").innerHTML = barra(tot) + linhas.map(barra).join("")
+    + `<div class="d-legenda">` + corte.seg.map(({ r, c, k }) =>
+        `<span><i class="${c}"></i> ${r} <small>${fmtNum(tot[k] || 0)}</small></span>`).join("")
+    + (estado.corteCX === "classe"
+        ? `<span class="mini">tags são cumulativas: o total de 'outros' não é taxa de erro</span>` : "")
+    + `</div>`;
 }
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#painel-desfecho .seg-mini button");
+  if (!b) return;
+  document.querySelectorAll("#painel-desfecho .seg-mini button")
+    .forEach((x) => x.classList.toggle("ativo", x === b));
+  estado.corteCX = b.dataset.v;
+  if (estado.dados) pintaDesfecho(estado.dados);
+});
 
 function pintaRanking(d, hoje) {
   const linhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
