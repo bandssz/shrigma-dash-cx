@@ -603,7 +603,11 @@ function pintaDesfecho(d) {
   const selo = fatia > 0.15
     ? `<span class="tag alerta" title="hasAgentReply só é confiável depois de ~48h: até lá o ticket que vai escalar ainda aparece como pendente">${
         Math.round(fatia * 100)}% do período ainda maturando</span>` : "";
-  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}`;
+  /* O aviso vira etiqueta no cabecalho, nao paragrafo: a tabela e para bater o olho.
+     hasAgentReply mede quem RESPONDEU, nao quem transferiu -- ticket que o Kai passou
+     para uma pessoa e ninguem respondeu ainda conta como vitoria dele. */
+  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}
+    <span class="tag alerta" title="Medido por quem respondeu, não por quem transferiu: superestima o Kai. Pela transferência real são 19,8%.">superestima o Kai</span>`;
 
   const dTot = decid(tot);
   const linha = (x, nome) => {
@@ -646,10 +650,10 @@ function pintaDetalhe(d, canais, tot) {
   $("#tiras-cx").innerHTML = `<div class="tiras">
     <div class="tira"><span class="tira-rot">Reaberturas</span>
       <strong class="tabn">${fmtNum(reab)}</strong>
-      <span class="mini">${reab ? Math.round((hum / reab) * 100) : 0}% com humano · não somadas ao total</span></div>
+      <span class="mini">${reab ? Math.round((hum / reab) * 100) : 0}% com humano</span></div>
     <div class="tira"><span class="tira-rot">CSAT coberto</span>
       <strong class="tabn">${cobertura === null ? "—" : fmtPct(cobertura)}</strong>
-      <span class="mini">só WhatsApp · ${fmtNum(fora)} tickets fora da medição</span></div>
+      <span class="mini">só WhatsApp · ${fmtNum(fora)} fora</span></div>
   </div>`;
 
   if (estado.corteCX === "esforco") {
@@ -687,15 +691,10 @@ function pintaDetalhe(d, canais, tot) {
     + canais.map((x) => barra(x, x.canal)).join("")
     + `<div class="d-legenda">` + corte.seg.map(({ r, c, k }) =>
         `<span><i class="${c}"></i> ${r} <small>${fmtNum(tot[k] || 0)}</small></span>`).join("")
-    + (estado.corteCX === "classe"
-        ? `<span class="mini">tags são cumulativas: o total de 'outros' não é taxa de erro</span>` : "")
     + `</div>`;
 }
 
 document.addEventListener("click", (e) => {
-  const lnk = e.target.closest("#lnk-nota-kai");
-  if (lnk) { e.preventDefault(); const n = $("#nota-kai-longa"); n.hidden = !n.hidden;
-             lnk.textContent = n.hidden ? "por quê" : "ocultar"; return; }
   const b = e.target.closest("#painel-desfecho .seg-mini button");
   if (!b) return;
   document.querySelectorAll("#painel-desfecho .seg-mini button")
