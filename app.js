@@ -514,6 +514,26 @@ function pctKai(marca) {
   return t < MIN_BASE ? `${fmtNum(kai)}/${fmtNum(t)}` : fmtPct((kai / t) * 100);
 }
 
+/* Esforco do Kai quando ele falha. Nao e barra empilhada: sao dois numeros por
+   canal, e forcar barra aqui seria grafico enfeitando numero.
+   "turnos" e ambiguo -- pode ser mensagem ou troca. O que esta medido e MENSAGEM do
+   Kai (BOT + BOT_REPLY) antes do primeiro humano; uma unica resposta do Kai costuma
+   sair como 1 BOT_REPLY e 2 BOT. O rotulo diz mensagens, nao turnos. */
+function esforcoAgg(d, marca, ini, fim) {
+  const acc = {};
+  for (const l of (d.cx_esforco || [])) {
+    const dia = String(l.dia).slice(0, 10);
+    if (dia < ini || dia > fim) continue;
+    if (marca !== "todas" && l.marca !== marca) continue;
+    const a = acc[l.canal] || (acc[l.canal] = { canal: l.canal, esc: 0, comKai: 0, som: 0 });
+    const n = Number(l.escalados || 0);
+    a.esc += n; a.comKai += Number(l.com_kai_antes || 0);
+    // Mediana de medianas nao existe: pondera a mediana do dia pelo volume do dia.
+    if (l.turnos_mediana !== null && l.turnos_mediana !== undefined) a.som += Number(l.turnos_mediana) * n;
+  }
+  return Object.values(acc).sort((x, y) => y.esc - x.esc);
+}
+
 function reaberturaAgg(d, marca, ini, fim) {
   let reab = 0, hum = 0;
   for (const l of (d.cx_reabertura || [])) {
@@ -563,6 +583,24 @@ function pintaDesfecho(d) {
       <strong class="tabn">${cobertura === null ? "—" : fmtPct(cobertura)}</strong>
       <span class="mini">só WhatsApp · ${fmtNum(foraDaCurva)} tickets fora da medição</span></div>
   </div>`;
+
+  if (estado.corteCX === "esforco") {
+    const linhas = esforcoAgg(d, estado.marca, PER.ini, PER.fim).filter((x) => x.esc);
+    const t = linhas.reduce((a, x) => ({ esc: a.esc + x.esc, comKai: a.comKai + x.comKai,
+                                         som: a.som + x.som }), { esc: 0, comKai: 0, som: 0 });
+    const linha = (x, nome) => `<div class="d-linha esf">
+      <div class="d-nome">${nome}<span class="mini">${fmtNum(x.esc)} escalados</span></div>
+      <div class="esf-num"><strong class="tabn ${x.comKai / x.esc > 0.5 ? "vm" : ""}">${
+        fmtPct((x.comKai / x.esc) * 100)}</strong><span class="mini">passaram pelo Kai antes</span></div>
+      <div class="esf-num"><strong class="tabn">${(x.som / x.esc).toFixed(1).replace(".", ",")}</strong>
+        <span class="mini">mensagens do Kai antes</span></div></div>`;
+    $("#area-desfecho").innerHTML = (t.esc ? linha(t, "<strong>Todos os canais</strong>") : "")
+      + linhas.map((x) => linha(x, x.canal)).join("")
+      + `<div class="d-legenda"><span class="mini">Custo duplo é o ticket que o cliente pagou
+         duas vezes em tempo: falou com o Kai, não resolveu, e ainda esperou uma pessoa.
+         Só ticket escalado entra — o que o Kai resolveu não falhou.</span></div>`;
+    return;
+  }
 
   const corte = CORTES[estado.corteCX] || CORTES.desfecho;
   const base = (x) => corte.seg.reduce((a, { k }) => a + (x[k] || 0), 0);

@@ -544,3 +544,7 @@ body[data-marca="todas"] .marcas .chipe { border-color:var(--borda); }
 .tira strong { display:block; font:800 20px/1.2 var(--ui); margin:2px 0 1px; }
 #painel-desfecho .painel-cab { flex-wrap:wrap; gap:8px; }
 .d-val.vm { color:var(--ruim); }
+
+.d-linha.esf { grid-template-columns:190px 1fr 1fr; }
+.esf-num strong { display:block; font:800 17px/1.2 var(--ui); }
+@media (max-width:640px){ .d-linha.esf{ grid-template-columns:1fr; gap:2px; padding:9px 0 } }
