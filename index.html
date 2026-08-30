@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=684cc022">
+<link rel="stylesheet" href="styles.css?v=593ab0b5">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -126,23 +126,24 @@
     <div class="painel-cab">
       <h2>O que acontece com o ticket</h2>
       <span class="mini" id="desfecho-rot"></span>
+    </div>
+    <div id="area-desfecho"></div>
+    <details id="det-cx">
+      <summary>Ver detalhe</summary>
       <div class="seg-mini" role="group" aria-label="Corte">
-        <button data-v="desfecho" class="ativo">Desfecho</button>
-        <button data-v="classe">Classificação</button>
+        <button data-v="classe" class="ativo">Classificação</button>
         <button data-v="caixa">Caixa</button>
         <button data-v="esforco">Esforço do Kai</button>
       </div>
-    </div>
-    <div id="tiras-cx"></div>
-    <div id="area-desfecho"></div>
-    <div class="nota">Cinco desfechos que somam 100%. <strong>Kai resolve</strong> é o único que
-      conta como vitória: ticket encerrado sem nenhum humano responder, sem o Kai ter prometido
-      atendente e sem a régua ter fechado por silêncio do cliente.
-      <strong>Promessa vazia</strong> é o Kai avisar que chamaria uma pessoa e ninguém aparecer —
-      isso é fracasso, e a taxa de deflexão do Gleap contava como sucesso.
-      <em>Pendente</em> é ticket ainda aberto: nem vitória nem derrota, e fica fora de qualquer
-      taxa até ter desfecho. Canal muda tudo — Instagram é pré-venda e WhatsApp é pós-venda,
-      então a média entre canais não quer dizer nada.</div>
+      <div id="tiras-cx"></div>
+      <div id="area-detalhe"></div>
+    </details>
+    <div class="nota"><strong>Kai sozinho</strong> é ticket encerrado sem nenhum humano responder.
+      <strong>Foi para agente</strong> é ticket em que uma pessoa respondeu. A conta é sobre os
+      tickets que já tiveram desfecho — os que ainda estão abertos, os que o cliente abandonou e
+      os que o Kai prometeu atendente e ninguém veio ficam de fora e aparecem embaixo, porque
+      contá-los como vitória do Kai foi exatamente o erro da taxa de deflexão do Gleap.
+      Canal muda tudo: Instagram é pré-venda e WhatsApp é pós-venda.</div>
   </section>
 
   <!-- Linha 3: pessoas e voz do cliente -->
@@ -194,7 +195,7 @@
 
 <script src="config.js?v=60d79cdd"></script>
 <script src="dados.js?v=60d79cdd"></script>
-<script src="app.js?v=a0565351"></script>
+<script src="app.js?v=df9f2fc8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

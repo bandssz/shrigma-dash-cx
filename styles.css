@@ -548,3 +548,25 @@ body[data-marca="todas"] .marcas .chipe { border-color:var(--borda); }
 .d-linha.esf { grid-template-columns:190px 1fr 1fr; }
 .esf-num strong { display:block; font:800 17px/1.2 var(--ui); }
 @media (max-width:640px){ .d-linha.esf{ grid-template-columns:1fr; gap:2px; padding:9px 0 } }
+
+/* Dois numeros. O resto vive dentro do <details>. */
+.k-topo { display:flex; gap:28px; flex-wrap:wrap; margin:2px 0 15px; }
+.k-rot { display:block; font:600 11px/1.3 var(--ui); text-transform:uppercase;
+  letter-spacing:.05em; color:var(--rotulo); }
+.k-big { font:800 30px/1.1 var(--ui); display:block; margin-top:2px; }
+.k-topo div:first-child .k-big { color:var(--bom); }
+.k-linha { display:grid; grid-template-columns:150px 1fr 62px 62px; align-items:center;
+  gap:10px; padding:5px 0; }
+.k-nome { font:600 12.5px/1.3 var(--ui); display:flex; gap:6px; align-items:baseline; }
+.k-barra { display:flex; height:14px; border-radius:4px; overflow:hidden; background:var(--neutro-bg); }
+.k-barra i { display:block; height:100%; }
+.k-num { text-align:right; }
+.k-num strong { display:block; font:700 13px/1.2 var(--ui); }
+.k-rodape { margin-top:11px; padding-top:9px; border-top:1px solid var(--borda); }
+#det-cx { margin-top:14px; }
+#det-cx summary { cursor:pointer; font:600 12px/1 var(--ui); color:var(--rotulo);
+  padding:7px 0; user-select:none; }
+#det-cx summary:hover { color:var(--texto); }
+#det-cx .seg-mini { margin:6px 0 12px; display:inline-flex; }
+@media (max-width:640px){ .k-linha{ grid-template-columns:1fr 1fr; gap:4px }
+  .k-barra{ grid-column:1/-1 } .k-topo{ gap:18px } }

@@ -3,7 +3,7 @@
 // Toda a matemática vive em dados.js. URL params: ?marca=aristocrata&janela=7d
 
 const estado = {
-  corteCX: "desfecho",   // desfecho|classe|caixa — tres cortes do mesmo dado
+  corteCX: "classe",   // corte do bloco de detalhe: classe|caixa|esforco
   marca: new URLSearchParams(location.search).get("marca") || "todas",
   preset: (() => {
     const q = new URLSearchParams(location.search);
@@ -556,21 +556,20 @@ function pintaDesfecho(d) {
 
   /* O desfecho vem da consolidacao, que fecha o dia anterior: pedir "hoje" antes dela
      rodar devolve vazio. Em vez de sumir com o painel, cai para o ultimo dia que
-     existe e DIZ que caiu -- quem abre precisa saber se esta vendo outro periodo. */
+     existe e DIZ que caiu. */
   if (!canais.length) {
     const dias = (d.cx_desfecho || [])
       .filter((l) => estado.marca === "todas" || l.marca === estado.marca)
       .map((l) => String(l.dia).slice(0, 10)).sort();
     if (!dias.length) {
-      $("#tiras-cx").innerHTML = "";
       $("#desfecho-rot").textContent = "";
       $("#area-desfecho").innerHTML = `<div class="vazio">Sem desfecho coletado ainda.
         A consolidação roda 01:15 e fecha o dia anterior.</div>`;
       return;
     }
     const ate = dias[dias.length - 1];
-    const de = dias.find((x) => x >= (new Date(new Date(ate + "T12:00:00Z").getTime()
-      - 29 * 864e5)).toISOString().slice(0, 10)) || dias[0];
+    const de = dias.find((x) => x >= new Date(new Date(ate + "T12:00:00Z").getTime()
+      - 29 * 864e5).toISOString().slice(0, 10)) || dias[0];
     canais = desfechoAgg(d, estado.marca, de, ate);
     const br = (x) => x.slice(8, 10) + "/" + x.slice(5, 7);
     aviso = `<span class="tag alerta">período sem dado — mostrando ${br(de)} a ${br(ate)}</span>`;
@@ -585,12 +584,15 @@ function pintaDesfecho(d) {
     return a;
   }, { canal: "todos", tickets: 0 });
 
-  const marco = (d.cx_marco || []).find((m) => String(m.dia).slice(0, 10) >= PER_DESF.ini
-                                             && String(m.dia).slice(0, 10) <= PER_DESF.fim);
-  /* hasAgentReply so e populado quando o humano responde DE FATO: em ticket do mesmo
-     dia ele vem false mesmo em conversa que vai escalar. Entao periodo que inclui as
-     ultimas 48h mostra escalacao artificialmente baixa e pendente artificialmente
-     alto. O painel nao esconde esse periodo -- ele avisa. */
+  /* Duas linhas, uma pergunta: o que o Kai fechou sozinho e o que caiu no colo do
+     agente. O denominador e o ticket que JA TEVE DESFECHO. Aberto, abandonado e
+     promessa vazia ficam fora e aparecem como rodape -- contar isso como vitoria do
+     Kai foi exatamente o erro da taxa do Gleap. */
+  const decid = (x) => (x.resolvido_kai || 0) + (x.escalado || 0);
+  const semDesfecho = (x) => (x.promessa_vazia || 0) + (x.inatividade || 0) + (x.pendente || 0);
+
+  /* hasAgentReply so e confiavel depois de ~48h: ate la o ticket que vai escalar
+     aparece como pendente, e o Kai parece melhor do que e. */
   const limite = new Date(Date.now() - 48 * 3600 * 1000).toISOString().slice(0, 10);
   const imaturos = (d.cx_desfecho || []).filter((l) => {
     const dia = String(l.dia).slice(0, 10);
@@ -601,30 +603,54 @@ function pintaDesfecho(d) {
   const selo = fatia > 0.15
     ? `<span class="tag alerta" title="hasAgentReply só é confiável depois de ~48h: até lá o ticket que vai escalar ainda aparece como pendente">${
         Math.round(fatia * 100)}% do período ainda maturando</span>` : "";
+  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}`;
 
-  $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}`
-    + (marco ? ` · <span class="tag alerta" title="${String(marco.detalhe || "")}">quebra de série em `
-               + `${String(marco.dia).slice(8,10)}/${String(marco.dia).slice(5,7)}</span>` : "");
+  const dTot = decid(tot);
+  const linha = (x, nome) => {
+    const dd = decid(x);
+    if (!dd) return "";
+    const pk = ((x.resolvido_kai || 0) / dd) * 100;
+    return `<div class="k-linha">
+      <div class="k-nome">${nome}<span class="mini">${fmtNum(dd)} com desfecho</span></div>
+      <div class="k-barra">
+        <i class="d-kai" style="width:${pk}%"></i><i class="d-esc" style="width:${100 - pk}%"></i>
+      </div>
+      <div class="k-num"><strong class="tabn">${fmtPct(pk)}</strong>
+        <span class="mini">Kai</span></div>
+      <div class="k-num"><strong class="tabn">${fmtPct(100 - pk)}</strong>
+        <span class="mini">agente</span></div>
+    </div>`;
+  };
 
-  /* Reabertura e CSAT sao numeros unicos: viram tira, nao barra.
-     Reabertura NUNCA e somada aos novos -- e volume que consome atendente sem
-     aparecer em NEW_TICKETS_COUNT, entao some se for embutida no total.
-     CSAT so tem cobertura porque o bot roda em platforms:["whatsapp"]: Instagram e
-     e-mail nunca sao medidos, e botao nem funciona no Instagram. Por isso o numero
-     do CSAT so aparece ao lado da cobertura, nunca sozinho. */
+  $("#area-desfecho").innerHTML = (dTot
+      ? `<div class="k-topo">
+           <div><span class="k-rot">Kai resolve sozinho</span>
+             <strong class="k-big tabn">${fmtPct(((tot.resolvido_kai || 0) / dTot) * 100)}</strong></div>
+           <div><span class="k-rot">Vai para agente</span>
+             <strong class="k-big tabn">${fmtPct(((tot.escalado || 0) / dTot) * 100)}</strong></div>
+         </div>` : "")
+    + canais.map((x) => linha(x, x.canal)).join("")
+    + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} tickets ainda sem desfecho —
+       abertos, abandonados, ou o Kai prometeu atendente e ninguém veio. Ficam fora da conta.</div>`;
+
+  pintaDetalhe(d, canais, tot);
+}
+
+/* Tudo que nao e a pergunta principal vive aqui dentro, fechado. */
+function pintaDetalhe(d, canais, tot) {
+  const alvo = $("#area-detalhe");
+  if (!alvo) return;
   const { reab, hum } = reaberturaAgg(d, estado.marca, PER_DESF.ini, PER_DESF.fim);
   const wa = canais.find((c) => c.canal === "whatsapp");
   const cobertura = wa && wa.tickets ? (wa.csat_enviado / wa.tickets) * 100 : null;
-  const foraDaCurva = canais.filter((c) => c.canal !== "whatsapp")
-                            .reduce((a, c) => a + c.tickets, 0);
+  const fora = canais.filter((c) => c.canal !== "whatsapp").reduce((a, c) => a + c.tickets, 0);
   $("#tiras-cx").innerHTML = `<div class="tiras">
     <div class="tira"><span class="tira-rot">Reaberturas</span>
       <strong class="tabn">${fmtNum(reab)}</strong>
-      <span class="mini">+${tot.tickets ? Math.round((reab / tot.tickets) * 100) : 0}% sobre os novos ·
-        ${reab ? Math.round((hum / reab) * 100) : 0}% com humano · não somadas ao total</span></div>
+      <span class="mini">${reab ? Math.round((hum / reab) * 100) : 0}% com humano · não somadas ao total</span></div>
     <div class="tira"><span class="tira-rot">CSAT coberto</span>
       <strong class="tabn">${cobertura === null ? "—" : fmtPct(cobertura)}</strong>
-      <span class="mini">só WhatsApp · ${fmtNum(foraDaCurva)} tickets fora da medição</span></div>
+      <span class="mini">só WhatsApp · ${fmtNum(fora)} tickets fora da medição</span></div>
   </div>`;
 
   if (estado.corteCX === "esforco") {
@@ -637,39 +663,29 @@ function pintaDesfecho(d) {
         fmtPct((x.comKai / x.esc) * 100)}</strong><span class="mini">passaram pelo Kai antes</span></div>
       <div class="esf-num"><strong class="tabn">${(x.som / x.esc).toFixed(1).replace(".", ",")}</strong>
         <span class="mini">mensagens do Kai antes</span></div></div>`;
-    $("#area-desfecho").innerHTML = (t.esc ? linha(t, "<strong>Todos os canais</strong>") : "")
-      + linhas.map((x) => linha(x, x.canal)).join("")
-      + `<div class="d-legenda"><span class="mini">Custo duplo é o ticket que o cliente pagou
-         duas vezes em tempo: falou com o Kai, não resolveu, e ainda esperou uma pessoa.
-         Só ticket escalado entra — o que o Kai resolveu não falhou.</span></div>`;
+    alvo.innerHTML = (t.esc ? linha(t, "<strong>Todos os canais</strong>") : "")
+      + linhas.map((x) => linha(x, x.canal)).join("");
     return;
   }
 
-  const corte = CORTES[estado.corteCX] || CORTES.desfecho;
+  const corte = CORTES[estado.corteCX] || CORTES.classe;
   const base = (x) => corte.seg.reduce((a, { k }) => a + (x[k] || 0), 0);
-
-  const barra = (x) => {
+  const barra = (x, nome) => {
     const b = base(x);
+    if (!b) return "";
     const seg = corte.seg.map(({ k, c, r }) => {
       const v = x[k] || 0;
-      if (!v || !b) return "";
-      return `<i class="${c}" style="width:${(v / b) * 100}%" title="${r}: ${fmtNum(v)}"></i>`;
+      return v ? `<i class="${c}" style="width:${(v / b) * 100}%" title="${r}: ${fmtNum(v)}"></i>` : "";
     }).join("");
-    const dest = b ? ((x[corte.destaque] || 0) / b) * 100 : 0;
     return `<div class="d-linha">
-      <div class="d-nome">${x.canal === "todos" ? "<strong>Todos os canais</strong>" : x.canal}
-        <span class="mini">${fmtNum(b)}</span></div>
+      <div class="d-nome">${nome}<span class="mini">${fmtNum(b)}</span></div>
       <div class="d-barra">${seg}</div>
       <div class="d-val tabn ${corte.inverso ? "vm" : ""}">${b < MIN_BASE
-        ? `<span class="mini">base curta</span>` : fmtPct(dest)}</div>
+        ? `<span class="mini">base curta</span>` : fmtPct(((x[corte.destaque] || 0) / b) * 100)}</div>
     </div>`;
   };
-
-  // Canal sem base no corte escolhido sai da lista em vez de virar barra vazia:
-  // e-mail e widget nao tem tag de roteamento nenhuma, entao no corte de
-  // Classificacao eles simplesmente nao existem.
-  const linhas = canais.filter((x) => base(x) > 0);
-  $("#area-desfecho").innerHTML = barra(tot) + linhas.map(barra).join("")
+  alvo.innerHTML = barra(tot, "<strong>Todos os canais</strong>")
+    + canais.map((x) => barra(x, x.canal)).join("")
     + `<div class="d-legenda">` + corte.seg.map(({ r, c, k }) =>
         `<span><i class="${c}"></i> ${r} <small>${fmtNum(tot[k] || 0)}</small></span>`).join("")
     + (estado.corteCX === "classe"
