@@ -219,7 +219,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<script src="config.js?v=6c1bc67d"></script>
+<script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -511,9 +511,9 @@ function troca(s){
 
 /* ---------- carga ---------- */
 function chaveLeitura(){
-  let k=localStorage.getItem('shrigma_k_organico');
+  let k=shrigmaChave("organico");
   if(!k){k=prompt('Chave de acesso do painel de Orgânico:');
-    if(k)localStorage.setItem('shrigma_k_organico',k); else return null;}
+    if(k)shrigmaGuardaChave("organico", k); else return null;}
   return k;
 }
 function avisoTela(t,d){
@@ -521,18 +521,19 @@ function avisoTela(t,d){
   $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px">
     <strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>
     <br><button class="btn" id="btn-retry">Tentar de novo</button></div>`;
-  const b=$('#btn-retry'); if(b)b.onclick=()=>{localStorage.removeItem('shrigma_k_organico');carrega();};
+  const b=$('#btn-retry'); if(b)b.onclick=()=>{shrigmaEsqueceChave("organico");carrega();};
 }
 async function carrega(){
   const k=chaveLeitura();
   if(!k)return avisoTela('Sem chave','Esta página lê o mesmo endpoint do painel de CX.');
   try{
     const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
-    if(r.status===401){localStorage.removeItem('shrigma_k_organico');
+    if(r.status===401){shrigmaEsqueceChave("organico");
       return avisoTela('Chave inválida','A chave guardada foi recusada pelo n8n.');}
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
     API=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j.payload||j);
+    shrigmaMarcaMestra(k, API._painel);
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();

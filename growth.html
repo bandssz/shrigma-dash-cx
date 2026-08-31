@@ -282,7 +282,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
 <div class="dica" id="dica"></div>
 
-<script src="config.js?v=6c1bc67d"></script>
+<script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 /* ================= dados: só matemática, testável com node ================= */
@@ -949,16 +949,17 @@ function render(){
 }
 
 function chave(){
-  let k=localStorage.getItem('shrigma_k_growth');
-  if(!k){k=prompt('Chave de acesso do painel de Growth:');if(k)localStorage.setItem('shrigma_k_growth',k);}
+  let k=shrigmaChave("growth");
+  if(!k){k=prompt('Chave de acesso do painel de Growth:');if(k)shrigmaGuardaChave("growth", k);}
   return k;
 }
 async function carregar(){
   const k=chave();if(!k)return;
   try{
     const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
-    if(r.status===401){localStorage.removeItem('shrigma_k_growth');location.reload();return;}
+    if(r.status===401){shrigmaEsqueceChave("growth");location.reload();return;}
     API=await r.json();
+    shrigmaMarcaMestra(k, API._painel);
     // faixa de credencial antes do render: se uma chave morreu, o que vem
     // abaixo pode estar velho sem acusar erro.
     if(window.avisoCredencial) window.avisoCredencial(API.crm_credencial||[]);

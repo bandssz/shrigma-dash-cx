@@ -278,14 +278,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
 </main>
 
-<script src="config.js?v=6c1bc67d"></script>
+<script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
 // mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
-function chaveLeitura(){let k=localStorage.getItem('shrigma_k_influs');
+function chaveLeitura(){let k=shrigmaChave("influs");
   if(!k){k=(prompt('Chave de acesso do painel de Influs:')||'').trim();
-    if(k)localStorage.setItem('shrigma_k_influs',k); else return null;}
+    if(k)shrigmaGuardaChave("influs", k); else return null;}
   return k;}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
@@ -425,12 +425,13 @@ async function faixaCredencial(){
     // A chave do painel de Influs abre APENAS a faixa de credencial nesta API: o
     // recorte por painel do n8n nao entrega dado de CX nem de Growth para ela.
     // O dado de influenciador vem do endpoint proprio, com a chave de escrita.
-    const k=localStorage.getItem('shrigma_k_influs')||'';
+    const k=shrigmaChave("influs")||'';
     if(!k)return;
     const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
     if(!r.ok)return;
     const j=await r.json();
     const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
+    shrigmaMarcaMestra(k, p&&p._painel);
     if(window.avisoCredencial)window.avisoCredencial((p&&p.crm_credencial)||[]);
   }catch(e){ /* silencioso de proposito */ }
 }
@@ -441,7 +442,7 @@ function avisoTela(titulo,detalhe,botao){
   const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
   $('#area-tabela').innerHTML=`<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${bt}</div>`;
   $('#area-cortes').innerHTML=''; $('#area-kpis').innerHTML=''; $('#faixa-alertas').innerHTML='';
-  const b=$('#btn-retry'); if(b) b.onclick=()=>{localStorage.removeItem('shrigma_k_influs');carregarInflu();};
+  const b=$('#btn-retry'); if(b) b.onclick=()=>{shrigmaEsqueceChave("influs");carregarInflu();};
 }
 async function carregarInflu(){
   const k=chaveLeitura();
