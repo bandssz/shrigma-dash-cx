@@ -616,7 +616,7 @@ function pintaDesfecho(d) {
      processingUser), nao por quem respondeu. Ticket que o Kai passou e ninguem respondeu
      e do agente, nao do Kai. Antes disso o painel dava 30,9%; o certo era 19,8%. */
   $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}
-    <span class="tag" title="Escalado = ticket transferido para time ou agente (processingTeam/processingUser), não 'quem respondeu'. Corrigido em 02/09: o critério anterior dava 30,9% ao Kai; o real era 19,8%.">por transferência</span>`;
+    <span class="tag nota" title="Escalado = ticket transferido para time ou agente (processingTeam/processingUser), não 'quem respondeu'. Corrigido em 02/09: o critério anterior dava 30,9% ao Kai; o real era 19,8%.">por transferência</span>`;
 
   const dTot = decid(tot);
   const linha = (x, nome) => {
