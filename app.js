@@ -511,7 +511,8 @@ function desfechoAgg(d, marca, ini, fim) {
 }
 
 function pctKai(marca) {
-  const linhas = desfechoAgg(estado.dados || {}, marca, PER_DESF.ini, PER_DESF.fim);
+  const linhas = desfechoAgg(estado.dados || {}, marca, PER_DESF.ini, PER_DESF.fim)
+    .filter((x) => x.canal !== "email");   // Kai nao roda em e-mail
   const t = linhas.reduce((s, x) => s + x.tickets, 0);
   if (!t) return "—";
   const kai = linhas.reduce((s, x) => s + (x.resolvido_kai || 0), 0);
@@ -579,6 +580,12 @@ function pintaDesfecho(d) {
     PER_DESF = { ini: PER.ini, fim: PER.fim };
   }
 
+  /* O Kai NAO roda em e-mail (zero mensagem dele em 246 tickets/30d). Pela transferencia
+     e-mail da 0% "Kai sozinho" porque o roteamento sempre atribui time -- mostrar isso
+     como desempenho do Kai seria nota para quem nunca jogou. E-mail sai das cifras e da
+     lista e vai para o rodape, com a contagem. */
+  const email = canais.find((x) => x.canal === "email");
+  canais = canais.filter((x) => x.canal !== "email");
   const tot = canais.reduce((a, x) => {
     a.tickets += x.tickets;
     for (const k of CAMPOS) a[k] = (a[k] || 0) + (x[k] || 0);
@@ -592,8 +599,8 @@ function pintaDesfecho(d) {
   const decid = (x) => (x.resolvido_kai || 0) + (x.escalado || 0);
   const semDesfecho = (x) => (x.promessa_vazia || 0) + (x.inatividade || 0) + (x.pendente || 0);
 
-  /* hasAgentReply so e confiavel depois de ~48h: ate la o ticket que vai escalar
-     aparece como pendente, e o Kai parece melhor do que e. */
+  /* Ticket ainda aberto e "pendente" e fica fora do denominador; nos ultimos ~2 dias
+     essa fatia e grande e o numero ainda vai andar. */
   const limite = new Date(Date.now() - 48 * 3600 * 1000).toISOString().slice(0, 10);
   const imaturos = (d.cx_desfecho || []).filter((l) => {
     const dia = String(l.dia).slice(0, 10);
@@ -602,13 +609,14 @@ function pintaDesfecho(d) {
   }).reduce((a, l) => a + Number(l.tickets || 0), 0);
   const fatia = tot.tickets ? imaturos / tot.tickets : 0;
   const selo = fatia > 0.15
-    ? `<span class="tag alerta" title="hasAgentReply só é confiável depois de ~48h: até lá o ticket que vai escalar ainda aparece como pendente">${
+    ? `<span class="tag alerta" title="Ticket ainda aberto conta como pendente e fica fora do denominador; nos últimos ~2 dias essa fatia é grande e o número ainda vai andar">${
         Math.round(fatia * 100)}% do período ainda maturando</span>` : "";
   /* O aviso vira etiqueta no cabecalho, nao paragrafo: a tabela e para bater o olho.
-     hasAgentReply mede quem RESPONDEU, nao quem transferiu -- ticket que o Kai passou
-     para uma pessoa e ninguem respondeu ainda conta como vitoria dele. */
+     Desde 02/09 "vai para agente" e medido pela TRANSFERENCIA (processingTeam ou
+     processingUser), nao por quem respondeu. Ticket que o Kai passou e ninguem respondeu
+     e do agente, nao do Kai. Antes disso o painel dava 30,9%; o certo era 19,8%. */
   $("#desfecho-rot").innerHTML = `${fmtNum(tot.tickets)} tickets ${aviso} ${selo}
-    <span class="tag alerta" title="Medido por quem respondeu, não por quem transferiu: superestima o Kai. Pela transferência real são 19,8%.">superestima o Kai</span>`;
+    <span class="tag" title="Escalado = ticket transferido para time ou agente (processingTeam/processingUser), não 'quem respondeu'. Corrigido em 02/09: o critério anterior dava 30,9% ao Kai; o real era 19,8%.">por transferência</span>`;
 
   const dTot = decid(tot);
   const linha = (x, nome) => {
@@ -635,7 +643,8 @@ function pintaDesfecho(d) {
              <strong class="k-big tabn">${fmtPct(((tot.escalado || 0) / dTot) * 100)}</strong></div>
          </div>` : "")
     + canais.map((x) => linha(x, x.canal)).join("")
-    + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} sem desfecho, fora da conta</div>`;
+    + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} sem desfecho, fora da conta${
+        email ? ` · ${fmtNum(email.tickets)} por e-mail, fora: o Kai não roda lá` : ""}</div>`;
 
   pintaDetalhe(d, canais, tot);
 }
