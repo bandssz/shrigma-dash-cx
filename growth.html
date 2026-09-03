@@ -172,9 +172,11 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
   <div class="sec" id="sec-conv">
     <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span></div>
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span>
+        <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
+          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
       <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
-        <th>Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
+        <th id="th-conv-grao">Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
         <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-conv"></div>
@@ -436,7 +438,12 @@ const G = {
       voltaramMedidos:sm('voltaram_72h'),
       porMarca:Object.values(porMarca).sort((a,b)=>b.valor-a.valor)};
   },
-  conversao(api,marca,ini,fim){
+  // grao: 'peca' (campanha+conteudo, o padrao) | 'campanha' | 'familia'. Familia vem do
+  // de-para crm_familia_campanha; campanha sem de-para vira familia dela mesma -- some
+  // e o pior estado, entao nada e descartado. Em campanha/familia o canal deixa de
+  // fazer parte da chave: a pergunta e "quanto o lancamento vendeu", nao por canal.
+  conversao(api,marca,ini,fim,grao='peca'){
+    const fam=new Map();(api.crm_familia_campanha||[]).forEach(f=>fam.set(f.marca+'|'+f.utm_campaign,f.familia));
     const agg=new Map();
     (api.crm_conversao||[]).forEach(r=>{
       const dia=String(r.dia).slice(0,10);
@@ -447,9 +454,13 @@ const G = {
       // outro dono e outra cadencia, e mora no organico.html. Sem este porteiro a
       // receita de post entraria no funil de e-mail sem ninguem pedir.
       if(r.utm_medium==='organico')return;
-      const k=[r.marca,r.canal,r.utm_campaign,r.utm_content].join('|');
-      const a=agg.get(k)||{marca:r.marca,canal:r.canal,campanha:r.utm_campaign,peca:r.utm_content,
+      const familia=fam.get(r.marca+'|'+r.utm_campaign)||r.utm_campaign||'(sem)';
+      const k=grao==='peca'?[r.marca,r.canal,r.utm_campaign,r.utm_content].join('|')
+             :grao==='campanha'?[r.marca,r.utm_campaign].join('|'):[r.marca,familia].join('|');
+      const a=agg.get(k)||{marca:r.marca,canal:grao==='peca'?r.canal:'',campanha:r.utm_campaign,peca:r.utm_content,
+        familia,canais:new Set(),pecas:new Set(),campanhas:new Set(),
         pedidos:0,receita:0,assist:0,receita_assist:0,novos:0,recorr:0};
+      a.canais.add(r.canal);a.pecas.add(r.utm_campaign+'|'+r.utm_content);a.campanhas.add(r.utm_campaign);
       a.pedidos+=+r.pedidos_ultimo||0;a.receita+=+r.receita_ultimo||0;
       a.assist+=+r.pedidos_assistido||0;a.receita_assist+=+r.receita_assistida||0;
       a.novos+=+r.clientes_novos||0;a.recorr+=+r.clientes_recorrentes||0;
@@ -720,7 +731,8 @@ function render(){
   if(!API)return;
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
-  const cs=G.campanhas(API,MARCA,ini,fim),conv=G.conversao(API,MARCA,ini,fim);
+  const GRAO=($('#sel-grao')||{}).value||'peca';
+  const cs=G.campanhas(API,MARCA,ini,fim),conv=G.conversao(API,MARCA,ini,fim,GRAO);
   const tot=G.totais(cs,conv);
   const totA=G.totais(G.campanhas(API,MARCA,ant.ini,ant.fim),G.conversao(API,MARCA,ant.ini,ant.fim));
   const medidoAnt=ant.fim>=G.TRACKING_DESDE;
@@ -820,11 +832,17 @@ function render(){
   }).join(''):'<div class="vazio">Sem conversão atribuída no período.</div>';
 
   $('#n-conv').textContent=conv.length||'';
+  $('#th-conv-grao').textContent=GRAO==='peca'?'Peça':GRAO==='campanha'?'Campanha':'Família';
   $('#tab-conv tbody').innerHTML=conv.length?conv.map(c=>{
     const t2=c.novos+c.recorr;
-    return `<tr><td><strong>${esc((c.peca||c.campanha||'—').slice(0,34))}</strong>
-      <div class="mini">${esc(c.campanha)}</div></td>
-      <td><span class="tag ${c.canal}">${c.canal}</span> <span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
+    const titulo=GRAO==='peca'?(c.peca||c.campanha||'—'):GRAO==='campanha'?(c.campanha||'(sem)'):c.familia;
+    const sub=GRAO==='peca'?esc(c.campanha)
+      :GRAO==='campanha'?`${c.pecas.size} peça${c.pecas.size===1?'':'s'}`
+      :`${c.campanhas.size} campanha${c.campanhas.size===1?'':'s'} · ${c.pecas.size} peças`;
+    const canais=[...c.canais].map(x=>`<span class="tag ${x}">${x}</span>`).join(' ');
+    return `<tr><td><strong>${esc(String(titulo).slice(0,34))}</strong>
+      <div class="mini">${sub}</div></td>
+      <td>${canais} <span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
       <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
       <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
@@ -1005,6 +1023,7 @@ document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
+$('#sel-grao').onchange=()=>render();
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
 $('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
 $('#f-cancelar').onclick=()=>{$('#form-teste').hidden=true;};
