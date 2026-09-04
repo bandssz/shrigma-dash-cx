@@ -105,6 +105,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .i-fura .i-cod{font-weight:700}
 .i-sel{font:500 12.5px/1 var(--ui);padding:4px 6px;border:1px solid var(--borda);
   border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
+.nc-form{background:var(--neutro-bg,#f6f6f4);border:1px solid var(--borda,#e7e4de);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.nc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.nc-grid label{display:flex;flex-direction:column;font:600 11px/1.4 var(--ui);color:var(--rotulo)}
+.nc-grid input,.nc-grid select{margin-top:3px;padding:5px 7px;border:1px solid var(--borda,#d8d4cc);border-radius:6px;font:500 13px var(--ui);color:inherit;background:#fff}
 .tag.sku{background:#eef4f5;color:#22808d;border:1px solid #cfe1e4;
   font:700 10.5px/1.5 var(--ui);padding:1px 5px;border-radius:4px;letter-spacing:.02em}
 .i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
@@ -581,7 +585,9 @@ function renderTabela(){
     const rc=RC.get(c.marca+'|'+c.codigo);
     const rs=RS.get(c.marca+'|'+c.influ);
     const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
-    const optI=['<option value="">— sem influ —</option>'].concat(meus.map(i=>
+    const optI=['<option value="">— sem influ —</option>']
+      .concat(c.influ?[]:['<option value="__novo__">＋ novo creator a partir deste cupom</option>'])
+      .concat(meus.map(i=>
       `<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.influ)}${i.nome?' · '+esc(i.nome):''}</option>`)).join('');
     const optT=TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('');
     const fura=/FORA da blacklist/.test(c.obs||'');
@@ -630,9 +636,84 @@ function renderTabela(){
     d.hidden=!d.hidden; b.textContent=d.hidden?'+':'–';});
   document.querySelectorAll('#area-tabela tbody tr:not(.i-det)').forEach(tr=>{
     const bt=tr.querySelector('.i-salvar');
-    tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{bt.disabled=false;});
+    tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{
+      if(s.classList.contains('i-i')&&s.value==='__novo__'){s.value='';abrirNovoCreator(tr);return;}
+      bt.disabled=false;});
     bt.onclick=()=>salvarCupom(tr);
   });
+}
+
+// ---------- novo creator a partir do cupom: 3 saves em 1 clique ----------
+// Antes eram tres lugares (form de creator, select do cupom, editor de custo).
+// Aqui: cria o creator -> associa o cupom (tipo=influ) -> lanca o cache do mes.
+// Sequencial e sem transacao (sao 3 chamadas): se falhar no meio, a mensagem diz
+// em qual passo parou e o que ja ficou salvo.
+function slugDe(nome){
+  return String(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+}
+function abrirNovoCreator(tr){
+  const det=tr.nextElementSibling, marca=tr.dataset.marca, cod=tr.dataset.cod;
+  if(det.querySelector('.nc-form'))return;
+  const comp=new Date().toISOString().slice(0,7);
+  det.hidden=false; tr.querySelector('.i-mais').textContent='–';
+  const box=document.createElement('div'); box.className='nc-form';
+  box.innerHTML=`<div class="mini" style="margin-bottom:6px"><strong>Novo creator</strong> para o cupom <code>${esc(cod)}</code> · ${esc(G.MARCA[marca]||marca)}</div>
+    <div class="nc-grid">
+      <label>Nome <input class="nc-nome" placeholder="Ana Pescadora"></label>
+      <label>Slug <input class="nc-slug" placeholder="gerado do nome" title="Precisa bater com o utm_content dos links dele. Minúsculo, sem acento."></label>
+      <label>Handle <input class="nc-handle" placeholder="@ana"></label>
+      <label>Modelo <select class="nc-modelo"><option value="comissao">comissão</option><option value="hibrido">híbrido (cachê + %)</option><option value="fixo">fixo (só cachê)</option><option value="permuta">permuta</option></select></label>
+      <label>Comissão % <input class="nc-com" type="number" min="0" max="100" step="0.5" placeholder="10"></label>
+      <label>Porte <select class="nc-porte"><option value="">—</option><option>nano</option><option>micro</option><option>macro</option><option>celebridade</option></select></label>
+      <label>Competência <input class="nc-comp" value="${comp}" placeholder="AAAA-MM"></label>
+      <label>Cachê fixo R$ <input class="nc-fixo" type="number" min="0" step="1" placeholder="0"></label>
+      <label>Produto R$ <input class="nc-prod" type="number" min="0" step="1" placeholder="0"></label>
+      <label>Frete R$ <input class="nc-frete" type="number" min="0" step="1" placeholder="0"></label>
+    </div>
+    <div style="margin-top:8px"><button class="btn nc-salvar">Criar, associar e lançar custo</button>
+      <button class="btn sec nc-cancel">Cancelar</button> <span class="mini nc-msg"></span></div>`;
+  det.querySelector('.i-obs').prepend(box);
+  const $$=q=>box.querySelector(q);
+  $$('.nc-nome').oninput=()=>{if(!$$('.nc-slug').dataset.tocado)$$('.nc-slug').value=slugDe($$('.nc-nome').value);};
+  $$('.nc-slug').oninput=()=>{$$('.nc-slug').dataset.tocado='1';};
+  const ajustaCom=()=>{const m=$$('.nc-modelo').value;const c=$$('.nc-com');c.disabled=!(m==='comissao'||m==='hibrido');if(c.disabled)c.value='';};
+  $$('.nc-modelo').onchange=ajustaCom; ajustaCom();
+  $$('.nc-cancel').onclick=()=>box.remove();
+  $$('.nc-salvar').onclick=()=>salvarNovoCreator(box,marca,cod);
+}
+async function salvarNovoCreator(box,marca,cod){
+  const $$=q=>box.querySelector(q), msg=$$('.nc-msg'), bt=$$('.nc-salvar');
+  const slug=$$('.nc-slug').value.trim().toLowerCase(), nome=$$('.nc-nome').value.trim();
+  const modelo=$$('.nc-modelo').value, com=$$('.nc-com').value, comp=$$('.nc-comp').value.trim();
+  if(!nome){msg.textContent='nome é obrigatório';return;}
+  if(!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(slug)){msg.textContent='slug: minúsculo, sem acento e sem espaço';return;}
+  if((modelo==='comissao'||modelo==='hibrido')&&com===''){msg.textContent='esse modelo exige comissão %';return;}
+  const fixo=$$('.nc-fixo').value,prod=$$('.nc-prod').value,frete=$$('.nc-frete').value;
+  const temCusto=[fixo,prod,frete].some(v=>v!==''&&+v>0);
+  if(temCusto&&!/^\d{4}-\d{2}$/.test(comp)){msg.textContent='competência AAAA-MM';return;}
+  const wk=chaveEscritaInflu();if(!wk)return;
+  const autor=(localStorage.getItem('shrigma_autor')||'');
+  bt.disabled=true; let passo='criar creator';
+  try{
+    msg.textContent='1/3 criando creator…';
+    await influPost({k:wk,acao:'salvar_influ',autor,influ:{marca,influ:slug,nome,handle:$$('.nc-handle').value.trim(),
+      modelo,porte:$$('.nc-porte').value||undefined,comissao_pct:com===''?null:(+com/100)}});
+    passo='associar cupom';
+    msg.textContent='2/3 associando cupom…';
+    const j=await influPost({k:wk,acao:'salvar_cupom',autor,cupom:{marca,codigo:cod,tipo:'influ',influ:slug}});
+    if(!j.ok)throw new Error('cupom não encontrado');
+    if(temCusto){
+      passo='lançar custo';
+      msg.textContent='3/3 lançando custo…';
+      await influPost({k:wk,acao:'salvar_custo',autor,custo:{marca,influ:slug,competencia:comp,fixo:fixo||null,produto:prod||null,frete:frete||null}});
+    }
+    msg.textContent='salvo. atualizando…';
+    await carregarInflu();
+  }catch(e){
+    msg.textContent=`falhou em "${passo}": ${esc(e.message)}${passo!=='criar creator'?' — o creator já foi criado; termine pelo select da linha ou pelo Editar.':''}`;
+    bt.disabled=false;
+  }
 }
 
 async function salvarCupom(tr){
