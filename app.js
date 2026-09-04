@@ -156,17 +156,10 @@ function pinta() {
 }
 
 function pintaFrescor(d) {
-  const ult = d.snapshot_1d.map((l) => l.coletado_em).sort().pop();
-  if (!ult) return;
-  const min = Math.round((Date.now() - new Date(ult).getTime()) / 60000);
   const el = $("#frescor");
-  if (!dentroDoExpediente()) {
-    el.textContent = "coleta retoma às 06h";
-    el.classList.remove("velho");
-    return;
-  }
-  el.textContent = "coleta há " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
-  el.classList.toggle("velho", min > 25);
+  if (!dentroDoExpediente()) { el.textContent = "coleta retoma às 06h"; el.classList.remove("velho"); return; }
+  // frescor.js: idade do bloco mais fresco + alerta se qualquer bloco parou (>26h)
+  shrigmaFrescor(d, el, { limiteFrescoMin: 25 });
 }
 
 // alertas: sempre sobre AGORA/HOJE, independente do período selecionado na tela
@@ -513,9 +506,12 @@ function desfechoAgg(d, marca, ini, fim) {
 function pctKai(marca) {
   const linhas = desfechoAgg(estado.dados || {}, marca, PER_DESF.ini, PER_DESF.fim)
     .filter((x) => x.canal !== "email");   // Kai nao roda em e-mail
-  const t = linhas.reduce((s, x) => s + x.tickets, 0);
-  if (!t) return "—";
+  // Mesmo denominador do topo: ticket DECIDIDO (Kai resolveu ou foi para agente).
+  // Ate 04/09 dividia por todos os tickets e dava um "Kai" diferente do KPI principal.
   const kai = linhas.reduce((s, x) => s + (x.resolvido_kai || 0), 0);
+  const esc = linhas.reduce((s, x) => s + (x.escalado || 0), 0);
+  const t = kai + esc;
+  if (!t) return "—";
   return t < MIN_BASE ? `${fmtNum(kai)}/${fmtNum(t)}` : fmtPct((kai / t) * 100);
 }
 

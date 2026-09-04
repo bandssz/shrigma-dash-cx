@@ -284,6 +284,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
 <div class="dica" id="dica"></div>
 
+<script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
@@ -960,8 +961,7 @@ function render(){
   $('#f-ca').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
   $('#f-cb').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
 
-  const g=API.gerado_em?new Date(API.gerado_em):null;
-  $('#frescor').textContent=g?`coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'coleta —';
+  shrigmaFrescor(API,$('#frescor'));   // gerado_em era a hora da API, sempre "agora"
   $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   $('#d-ini').value=ini;$('#d-fim').value=fim;
 }

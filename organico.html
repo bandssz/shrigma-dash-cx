@@ -219,6 +219,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
+<script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
@@ -537,8 +538,7 @@ async function carrega(){
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();
-    const g=API.gerado_em?new Date(API.gerado_em):null;
-    $('#frescor').textContent=g?`coleta ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'coleta —';
+    shrigmaFrescor(API,$('#frescor'));   // gerado_em era a hora da API, sempre "agora"
   }catch(e){ avisoTela('Não deu para carregar',e.message); }
 }
 

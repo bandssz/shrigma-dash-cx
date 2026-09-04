@@ -297,6 +297,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
 </main>
 
+<script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
@@ -452,6 +453,7 @@ async function faixaCredencial(){
     const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
     shrigmaMarcaMestra(k, p&&p._painel);
     if(window.avisoCredencial)window.avisoCredencial((p&&p.crm_credencial)||[]);
+    if(p)shrigmaFrescor(p,$('#frescor'));
   }catch(e){ /* silencioso de proposito */ }
 }
 faixaCredencial();
