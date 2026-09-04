@@ -488,7 +488,7 @@ const CORTES = {
     ], destaque: "pend_cliente", inverso: true },
 };
 const CAMPOS = [...new Set(Object.values(CORTES).flatMap((c) => c.seg.map((s) => s.k)))]
-  .concat(["csat_enviado"]);
+  .concat(["csat_enviado", "escalado_sem_resposta"]);
 
 function desfechoAgg(d, marca, ini, fim) {
   const acc = {};
@@ -618,16 +618,23 @@ function pintaDesfecho(d) {
   const linha = (x, nome) => {
     const dd = decid(x);
     if (!dd) return "";
+    /* Tres destinos exclusivos do ticket decidido: Kai resolveu; pessoa respondeu e
+       fechou; transferido e fechado SEM resposta humana (a regua fechou na fila). Antes
+       os dois ultimos eram um so "agente", e o time levava credito pelo que ninguem fez. */
     const pk = ((x.resolvido_kai || 0) / dd) * 100;
+    const psr = ((x.escalado_sem_resposta || 0) / dd) * 100;
+    const pp = Math.max(0, 100 - pk - psr);
     return `<div class="k-linha">
       <div class="k-nome">${nome}<span class="mini">${fmtNum(dd)} com desfecho</span></div>
       <div class="k-barra">
-        <i class="d-kai" style="width:${pk}%"></i><i class="d-esc" style="width:${100 - pk}%"></i>
+        <i class="d-kai" style="width:${pk}%" title="Kai resolveu"></i><i class="d-esc" style="width:${pp}%" title="pessoa respondeu e fechou"></i><i class="d-semresp" style="width:${psr}%" title="transferido e fechado sem resposta humana"></i>
       </div>
       <div class="k-num"><strong class="tabn">${fmtPct(pk)}</strong>
         <span class="mini">Kai</span></div>
-      <div class="k-num"><strong class="tabn">${fmtPct(100 - pk)}</strong>
-        <span class="mini">agente</span></div>
+      <div class="k-num"><strong class="tabn">${fmtPct(pp)}</strong>
+        <span class="mini">pessoa</span></div>
+      <div class="k-num"><strong class="tabn ${psr >= 10 ? "vm" : ""}">${fmtPct(psr)}</strong>
+        <span class="mini">ninguém</span></div>
     </div>`;
   };
 
@@ -635,8 +642,10 @@ function pintaDesfecho(d) {
       ? `<div class="k-topo">
            <div><span class="k-rot">Kai resolve sozinho</span>
              <strong class="k-big tabn">${fmtPct(((tot.resolvido_kai || 0) / dTot) * 100)}</strong></div>
-           <div><span class="k-rot">Vai para agente</span>
-             <strong class="k-big tabn">${fmtPct(((tot.escalado || 0) / dTot) * 100)}</strong></div>
+           <div><span class="k-rot">Pessoa resolve</span>
+             <strong class="k-big tabn">${fmtPct((((tot.escalado || 0) - (tot.escalado_sem_resposta || 0)) / dTot) * 100)}</strong></div>
+           <div title="Transferido para time ou agente e fechado sem nenhuma resposta pública de pessoa: a régua fechou na fila."><span class="k-rot">Transferido, ninguém respondeu</span>
+             <strong class="k-big tabn ${(tot.escalado_sem_resposta || 0) / dTot >= 0.1 ? "vm" : ""}">${fmtPct(((tot.escalado_sem_resposta || 0) / dTot) * 100)}</strong></div>
          </div>` : "")
     + canais.map((x) => linha(x, x.canal)).join("")
     + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} sem desfecho, fora da conta${
