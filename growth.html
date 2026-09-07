@@ -287,6 +287,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
+<script src="alerta-whatsapp.js?v=e4cd94da"></script>
 <script>
 /* ================= dados: só matemática, testável com node ================= */
 const G = {
@@ -1013,6 +1014,8 @@ async function carregar(){
     // faixa de credencial antes do render: se uma chave morreu, o que vem
     // abaixo pode estar velho sem acusar erro.
     if(window.avisoCredencial) window.avisoCredencial(API.crm_credencial||[]);
+    // saude do WhatsApp por WABA: chip no cabecalho + faixa vermelha se alguma parou.
+    if(window.avisoWhatsApp) window.avisoWhatsApp(API.wa_saude||[]);
     render();
   }catch(e){$('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim">Falha ao ler a API: ${esc(e.message)}</div>`;}
 }
