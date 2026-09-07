@@ -394,7 +394,7 @@ const G = {
   // e qual converte melhor por envio. Campanha: enviados da crm_campanha + conversão
   // com utm_medium='campanha'. Régua: crm_fluxo. Só e-mail nos dois lados.
   campVsRegua(api,marca,ini,fim){
-    const cs=G.campanhas(api,marca,ini,fim).filter(c=>c.canal==='email');
+    const cs=G.campanhas(api,marca,ini,fim,false).filter(c=>c.canal==='email');
     const envC=cs.reduce((a,c)=>a+(+c.enviados||0),0);
     let pedC=0,recC=0;
     (api.crm_conversao||[])
@@ -488,8 +488,37 @@ const G = {
       .map(c=>({...c,tem_utm:rec.has(c.marca+'|'+c.campanha_id)}))
       .sort((x,y)=>new Date(x.enviado_em)-new Date(y.enviado_em));
   },
-  campanhas(api,marca,ini,fim){
+  // agrupar: pecas que reivindicam a mesma tupla de UTM (mesmo e-mail para bases diferentes)
+  // viram UMA linha, com envios/aberturas/cliques somados e a receita do GRUPO (view
+  // crm_campanha_grupo). Antes cada uma aparecia com receita "indivisivel" e o dinheiro
+  // ficava orfao. Testes A/B pedem agrupar=false: la a peca individual e o que importa.
+  campanhas(api,marca,ini,fim,agrupar=true){
     const rec=G.receitaPorPeca(api);
+    const lista=G._pecas(api,marca,ini,fim,rec);
+    if(!agrupar)return lista;
+    const grupos=(api.crm_campanha_grupo||[]);
+    const grupoDe=new Map();grupos.forEach(g=>(g.campanha_ids||[]).forEach(id=>grupoDe.set(g.marca+'|'+id,g)));
+    const out=[],feito=new Set();
+    for(const c of lista){
+      const g=grupoDe.get(c.marca+'|'+c.campanha_id);
+      if(!g){out.push(c);continue;}
+      if(feito.has(g.grupo))continue; feito.add(g.grupo);
+      const membros=lista.filter(x=>grupoDe.get(x.marca+'|'+x.campanha_id)===g);
+      const soma=k=>membros.reduce((a,x)=>a+(+x[k]||0),0), med=membros.filter(x=>x.medido);
+      const m={...membros[0],campanha_id:g.grupo,grupo:g,n_disparos:membros.length,
+        nome:`${membros[0].nome} · ${membros.length} disparos`,
+        publico:soma('publico'),enviados:soma('enviados'),entregues:soma('entregues'),hard:soma('hard'),complaints:soma('complaints'),
+        abriram:med.length?med.reduce((a,x)=>a+(+x.abriram||0),0):null,clicaram:med.length?med.reduce((a,x)=>a+(+x.clicaram||0),0):null,
+        medido:med.length===membros.length,truncado:membros.some(x=>x.truncado),real:null,
+        enviado_em:membros.map(x=>x.enviado_em).sort().pop(),
+        rec:{pedidos:g.pedidos,receita:g.receita,assistidos:g.assistidos,utm_ambiguo:false,grupo:true}};
+      m.entrega_pct=G.pct(m.entregues,m.enviados,2);m.abertura_pct=G.pct(m.abriram,m.entregues);
+      m.ctr_pct=G.pct(m.clicaram,m.entregues,2);m.ctor_pct=G.pct(m.clicaram,m.abriram);m.compl_pct=G.pct(m.complaints,m.entregues,3);
+      out.push(m);
+    }
+    return out.sort((a,b)=>String(b.enviado_em).localeCompare(String(a.enviado_em)));
+  },
+  _pecas(api,marca,ini,fim,rec){
     return (api.crm_campanha||[])
       .filter(c=>marca==='todas'||c.marca===marca)
       .filter(c=>c.tipo!=='agendada')
@@ -911,7 +940,7 @@ function render(){
     const ambiguo=!!(c.rec&&c.rec.utm_ambiguo);
     return `<tr><td><strong>${esc((c.nome||'').slice(0,38))}</strong>
       <div class="mini">${esc(c.utm_campaign||'sem utm')} · ${esc(c.utm_content||'—')}</div></td>
-      <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}</td>
+      <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}${c.grupo?` <span class="tag nulo" title="Peças #${c.grupo.grupo} usam a mesma tupla de UTM: mesmo e-mail para bases diferentes. Envios somados e receita do grupo.">mesmo UTM</span>`:''}</td>
       <td class="num tabn">${nf(c.enviados)}</td><td class="num tabn">${pf(c.entrega_pct)}</td>
       <td class="num tabn">${c.medido?pf(c.abertura_pct):'<span class="tag nulo">não medido</span>'}</td>
       <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn">${pf(c.ctor_pct)}</td>
@@ -920,7 +949,7 @@ function render(){
       <td class="num tabn destaque">${ambiguo
         ?'<span class="tag nulo" title="UTM usado por mais de uma peça: a receita existe mas não tem dono">indivisível</span>'
         :rf(c.rec?c.rec.receita:null)}</td>
-      <td>${real}</td></tr>`;
+      <td>${c.grupo?'<span class="mini">soma de disparos</span>':real}</td></tr>`;
   }).join(''):'<tr><td colspan="11"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
@@ -930,8 +959,11 @@ function render(){
     na view <code>crm_campanha_receita</code> — receita assistida fica de fora de propósito: aqui a pergunta é
     qual e-mail vendeu, não como dividir crédito com a mídia paga.`+
     (ambig?`<div class="mini" style="margin-top:6px"><strong>${ambig} peça(s) marcada(s) como indivisível:</strong>
-      usam a mesma tupla de UTM que outra peça, então a receita existe mas não tem dono. Aparece em branco,
-      nunca como zero — zero diria "não vendeu". Some quando cada peça ganhar <code>utm_term</code> próprio.</div>`:'');
+      usam a mesma tupla de UTM que outra peça e não estão no mesmo grupo. Aparece em branco,
+      nunca como zero — zero diria "não vendeu".</div>`:'')+
+    `<div class="mini" style="margin-top:6px"><strong>mesmo UTM</strong>: disparos do mesmo e-mail para bases diferentes
+      aparecem como uma linha — a receita não dá para dividir entre eles, mas dá para somar. Para ver cada base separada,
+      dê <code>utm_term</code> próprio a cada disparo.</div>`;
 
   const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
   const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
