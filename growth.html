@@ -37,6 +37,11 @@ td.destaque{font-weight:700}
 .barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
 .barra i{display:block;height:100%;border-radius:3px}
 .tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
+.mais{width:24px;height:24px;border-radius:50%;border:1px solid var(--borda);background:#fff;cursor:pointer;font:700 14px/1 var(--ui);color:var(--rotulo)}
+tr.det td{background:var(--neutro-bg,#f6f6f4);padding:10px 14px}
+.det-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.det-grid div{display:flex;flex-direction:column;gap:2px}.det-grid strong{font:800 15px/1.2 var(--ui)}
+.det-grid code{font-size:11px}.det-grid .vm{color:var(--ruim)}
 .tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
 .tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
 .tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
@@ -138,12 +143,11 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <section class="kpis" id="area-kpis"></section>
 
   <nav class="secoes" id="secoes" aria-label="Seções">
-    <button data-s="visao" class="ativo">Visão geral</button>
-    <button data-s="conv">Conversão<span class="n" id="n-conv"></span></button>
+    <button data-s="visao" class="ativo">Visão</button>
     <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Régua<span class="n" id="n-regua"></span></button>
-    <button data-s="arv">Árvore<span class="n" id="n-arv"></span></button>
-    <button data-s="ab">Testes A/B<span class="n" id="n-ab"></span></button>
+    <button data-s="regua">Réguas<span class="n" id="n-regua"></span></button>
+    <button data-s="base">Base<span class="n" id="n-arv"></span></button>
+    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
   </nav>
 
   <div class="sec ativa" id="sec-visao">
@@ -160,57 +164,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
       <div class="legenda" id="legenda-graf"></div>
     </section>
-    <section class="painel" id="painel-carrinho">
-      <div class="painel-cab"><h2>Carrinho abandonado</h2><span class="mini" id="car-rot"></span></div>
-      <div id="area-carrinho"></div>
-    </section>
     <section class="painel">
       <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
       <div id="area-top"></div>
     </section>
-  </div>
-
-  <div class="sec" id="sec-conv">
-    <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span>
-        <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
-          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
-      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
-        <th id="th-conv-grao">Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
-        <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-conv"></div>
-    </section>
-  </div>
-
-  <div class="sec" id="sec-regua">
-    <section class="painel">
-      <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
-      <div id="area-cvr"></div>
-    </section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Régua por peça</h2><span class="mini" id="regua-rot"></span></div>
-      <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
-        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Pedidos</th>
-        <th class="num">Receita</th><th class="num">Assist.</th><th class="num">R$ assist.</th>
-        <th class="num">Ped./1000 envios</th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-regua"></div>
-    </section>
-  </div>
-
-  <div class="sec" id="sec-camp">
-    <section class="painel">
-      <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
-      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
-        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Entrega</th>
-        <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-        <th class="num">Reclam.</th><th class="num">Pedidos</th><th class="num">Receita</th>
-        <th>Abertura real</th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-camp"></div>
-    </section>
-
     <section class="painel" id="painel-fila" hidden>
       <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
@@ -223,16 +180,26 @@ textarea{width:100%;resize:vertical;min-height:58px}
     </section>
   </div>
 
-  <div class="sec" id="sec-arv">
+  <div class="sec" id="sec-camp">
     <section class="painel">
-      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
-      <div id="area-arvore"></div>
-      <div class="nota">A árvore é lida da tabela <code>crm_regra_galho</code>, não do workflow. Mudar um corte
-        de recência é um <code>UPDATE</code> — não precisa editar n8n.</div>
+      <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+        <th>Peça</th><th></th><th class="num">Enviados</th>
+        <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
+        <th class="num">Receita</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-camp"></div>
     </section>
-  </div>
-
-  <div class="sec" id="sec-ab">
+    <section class="painel">
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span>
+        <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
+          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
+      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
+        <th id="th-conv-grao">Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
+        <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-conv"></div>
+    </section>
     <section class="painel">
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Novo teste</button></div>
@@ -275,6 +242,35 @@ textarea{width:100%;resize:vertical;min-height:58px}
           teste é mensurável em clique mas não em venda.</div>
       </div>
       <div id="area-testes"></div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-regua">
+    <section class="painel">
+      <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
+      <div id="area-cvr"></div>
+    </section>
+    <section class="painel">
+      <div class="painel-cab"><h2>Régua por peça</h2><span class="mini" id="regua-rot"></span></div>
+      <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
+        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Pedidos</th>
+        <th class="num">Receita</th><th class="num">Assist.</th><th class="num">R$ assist.</th>
+        <th class="num">Ped./1000 envios</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-regua"></div>
+    </section>
+    <section class="painel" id="painel-carrinho">
+      <div class="painel-cab"><h2>Carrinho abandonado</h2><span class="mini" id="car-rot"></span></div>
+      <div id="area-carrinho"></div>
+    </section>
+  </div>
+
+  <div class="sec" id="sec-base">
+    <section class="painel">
+      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
+      <div id="area-arvore"></div>
+      <div class="nota">A árvore é lida da tabela <code>crm_regra_galho</code>, não do workflow. Mudar um corte
+        de recência é um <code>UPDATE</code> — não precisa editar n8n.</div>
     </section>
   </div>
 
@@ -942,16 +938,23 @@ function render(){
     return `<tr><td><strong>${esc((c.nome||'').slice(0,38))}</strong>
       <div class="mini">${esc(c.utm_campaign||'sem utm')} · ${esc(c.utm_content||'—')}</div></td>
       <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}${c.grupo?` <span class="tag nulo" title="Peças #${c.grupo.grupo} usam a mesma tupla de UTM: mesmo e-mail para bases diferentes. Envios somados e receita do grupo.">mesmo UTM</span>`:''}</td>
-      <td class="num tabn">${nf(c.enviados)}</td><td class="num tabn">${pf(c.entrega_pct)}</td>
+      <td class="num tabn">${nf(c.enviados)}</td>
       <td class="num tabn">${c.medido?pf(c.abertura_pct):'<span class="tag nulo">não medido</span>'}</td>
       <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn">${pf(c.ctor_pct)}</td>
-      <td class="num tabn">${pf(c.compl_pct)}</td>
-      <td class="num tabn">${ambiguo?'<span class="tag nulo">—</span>':nf(c.rec?c.rec.pedidos:null)}</td>
       <td class="num tabn destaque">${ambiguo
         ?'<span class="tag nulo" title="UTM usado por mais de uma peça: a receita existe mas não tem dono">indivisível</span>'
-        :rf(c.rec?c.rec.receita:null)}</td>
-      <td>${c.grupo?'<span class="mini">soma de disparos</span>':real}</td></tr>`;
-  }).join(''):'<tr><td colspan="11"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+        :rf(c.rec?c.rec.receita:null)}${!ambiguo&&c.rec&&c.rec.pedidos?`<div class="mini">${nf(c.rec.pedidos)} pedidos</div>`:''}</td>
+      <td><button class="mais" title="entrega, reclamação, abertura real, UTM">+</button></td></tr>
+      <tr class="det" hidden><td colspan="8"><div class="det-grid">
+        <div><span class="mini">Entrega</span><strong class="tabn">${pf(c.entrega_pct)}</strong><span class="mini">${nf(c.entregues)} de ${nf(c.enviados)}</span></div>
+        <div><span class="mini">Reclamação</span><strong class="tabn ${c.compl_pct>=0.08?'vm':''}">${pf(c.compl_pct)}</strong><span class="mini">${nf(c.complaints)} · limite SES 0,1%</span></div>
+        <div><span class="mini">Rejeição permanente</span><strong class="tabn">${nf(c.hard)}</strong><span class="mini">hard bounce</span></div>
+        <div><span class="mini">Abertura real</span>${c.grupo?'<span class="mini">soma de disparos</span>':real}</div>
+        <div><span class="mini">UTM</span><code>${esc(c.utm_campaign||'sem utm')}</code><br><code>${esc(c.utm_content||'—')}</code></div>
+        ${c.grupo?`<div><span class="mini">Disparos no grupo</span><strong>#${esc(c.grupo.grupo)}</strong><span class="mini">mesmo e-mail, bases diferentes</span></div>`:''}
+      </div></td></tr>`;
+  }).join(''):'<tr><td colspan="8"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
+  document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
     e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio
@@ -1040,23 +1043,36 @@ async function salvarTeste(){
   }catch(e){msg.textContent='Falha: '+e.message;}
   $('#f-salvar').disabled=false;
 }
+// Marca, periodo e aba persistem no navegador (padrao Metabase/Looker): quem abre o painel
+// todo dia nao refaz os mesmos quatro cliques. Sem preferencia salva vale o padrao da pagina.
+const PREF_K='shrigma_growth_pref';
+function salvaPref(p){try{localStorage.setItem(PREF_K,JSON.stringify({...(lePref()||{}),...p}));}catch(e){}}
+function lePref(){try{return JSON.parse(localStorage.getItem(PREF_K)||'null');}catch(e){return null;}}
+function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).forEach(b=>{const on=b.dataset[attr]===val;b.classList.toggle('ativo',on);ok=ok||on;});return ok;}
+(function aplicaPref(){
+  const p=lePref(); if(!p)return;
+  if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
+  if(p.preset&&ativaBotao('#presets button','p',p.preset))PER=G.preset(p.preset,HOJE);
+  else if(p.ini&&p.fim&&p.fim<=HOJE){PER={ini:p.ini,fim:p.fim};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));}
+  if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+})();
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;render();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;salvaPref({marca:MARCA});render();});
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
-  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
+  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');salvaPref({sec:SEC});
   if(SEC==='visao')render();
   // se a barra de secoes ficou acima da viewport, traz de volta
   const r=$('#secoes').getBoundingClientRect();
   if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);salvaPref({preset:b.dataset.p,ini:null,fim:null});render();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
-  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();});
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
 $('#sel-grao').onchange=()=>render();
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
