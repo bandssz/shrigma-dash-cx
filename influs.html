@@ -121,6 +121,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .nc-dica{min-height:2.6em;color:#5b6470;font-weight:500}
 .nc-rodape{margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .nc-rodape .btn{font-size:14px;padding:9px 16px}
+.inbox{background:#fff;border:1px solid var(--borda,#e7e4de);border-left:4px solid #c9a227;border-radius:12px;padding:12px 16px;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,.05)}
+.inbox-cab{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;font-size:14px}
+.inbox-item{display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:8px 16px;align-items:center;padding:10px 0;border-top:1px solid var(--borda,#eee)}
+.inbox-item .ib-host{grid-column:1/-1}
+.inbox-cod{font-size:15px;background:#fdf6e3;padding:1px 6px;border-radius:5px}
+.inbox-acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.inbox-acoes .btn{padding:5px 9px;font-size:12px}
+@media(max-width:720px){.inbox-item{grid-template-columns:1fr}}
 .i-alerta{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .i-alerta-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tag.sku{background:#eef4f5;color:#22808d;border:1px solid #cfe1e4;
@@ -189,7 +197,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
           <option value="tudo" selected>Vendeu nesta janela</option>
           <option value="inclui-zero">Inclui quem não vendeu</option>
           <option value="influ">Creators associados</option>
-          <option value="pendente">Pendentes de associa&ccedil;&atilde;o</option>
+          <option value="pendente">Novos da Shopify (tamb&eacute;m na caixa de entrada)</option>
           <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
           <option value="todos">Todos</option>
         </select>
@@ -273,6 +281,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
             <span class="mini" id="ed-msg"></span></div>
         </div>
       </div>
+      <div id="i-inbox"></div>
       <div id="i-custo-aviso"></div>
       <div class="i-cont" id="i-contadores"></div>
       <div id="area-tabela"></div>
@@ -561,6 +570,7 @@ function renderTabela(){
     ['Sem comissão',nf(r.semComissao),'associado mas não paga']
   ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
 
+  renderInbox();
   renderAvisoCusto();
   const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
   $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
@@ -574,7 +584,8 @@ function renderTabela(){
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
-  else if(filtro==='tudo'||filtro==='inclui-zero')cs=cs.filter(c=>c.tipo==='influ'||c.tipo==='pendente');
+  // pendente NAO entra na tabela de ROI: vive na caixa de entrada ate ser classificado
+  else if(filtro==='tudo'||filtro==='inclui-zero')cs=cs.filter(c=>c.tipo==='influ');
   // Esconder quem vendeu zero e so da TABELA. O custo deles continua nos KPIs de cima,
   // senao o ROI volta a mentir - foi exatamente o bug encontrado na auditoria de 18/08.
   let ocultos=0, custoOculto=0;
@@ -661,6 +672,53 @@ function renderTabela(){
   });
 }
 
+// ---------- caixa de entrada: cupons novos da Shopify ----------
+// O sync diario cria o cupom como `pendente`. Antes ele caia direto na tabela de ROI,
+// misturado com creators. Aqui: cada cupom novo pede uma decisao explicita -- e creator
+// (associar ou criar) ou nao e (CRM / campanha / cortesia / suporte / outro) -- e so
+// depois entra ou sai da conta. Nada de novo na API: e o salvar_cupom de sempre.
+const fmtData=d=>{const [a,m,dd]=String(d).slice(0,10).split('-');return dd&&m?`${dd}/${m}/${a.slice(2)}`:String(d);};
+const TIPO_ROTULO={crm:'CRM (régua/e-mail)',campanha:'Campanha',cortesia:'Cortesia',suporte:'Suporte / CX',desconhecido:'Outro'};
+function renderInbox(){
+  const el=$('#i-inbox'); if(!el)return;
+  const pend=(INFLU.cupons||[]).filter(c=>c.tipo==='pendente'&&(MARCA==='todas'||c.marca===MARCA))
+    .sort((a,b)=>String(b.desde||'').localeCompare(String(a.desde||'')));
+  if(!pend.length){el.innerHTML='';return;}
+  const rec=new Map((INFLU.receita_cupom||[]).map(r=>[r.marca+'|'+r.codigo,r]));
+  const creators=(INFLU.influs||[]).filter(i=>i.ativo!==false);
+  el.innerHTML=`<div class="inbox"><div class="inbox-cab"><strong>${pend.length} ${pend.length===1?'cupom novo':'cupons novos'} da Shopify</strong>
+      <span class="mini">sem classificar não entram na conta — nem como creator, nem como custo</span></div>
+    ${pend.map(c=>{const r=rec.get(c.marca+'|'+c.codigo);
+      return `<div class="inbox-item" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
+        <div class="inbox-info"><code class="inbox-cod">${esc(c.codigo)}</code> <span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span>
+          <div class="mini">criado ${c.desde?fmtData(c.desde):'—'} · desconto ${c.desconto_pct!=null?Math.round(c.desconto_pct*100)+'%':'—'} · ${c.usos_lifetime||0} uso${c.usos_lifetime===1?'':'s'} na vida · no período: ${r?`<strong>${r.pedidos} pedido${r.pedidos===1?'':'s'} · ${rf(r.receita)}</strong>`:'nada'}</div></div>
+        <div class="inbox-acoes">
+          <select class="i-sel ib-creator" title="É creator: associa a um existente ou cria um novo"><option value="">É creator…</option><option value="__novo__">＋ criar novo creator</option>
+            ${creators.filter(i=>i.marca===c.marca).map(i=>`<option value="${esc(i.influ)}">${esc(i.nome||i.influ)}</option>`).join('')}</select>
+          <span class="mini">ou não é:</span>
+          ${Object.entries(TIPO_ROTULO).map(([t,l])=>`<button class="btn sec ib-tipo" data-tipo="${t}">${l}</button>`).join('')}
+          <span class="mini ib-msg"></span></div>
+        <div class="ib-host"></div></div>`;}).join('')}</div>`;
+  el.querySelectorAll('.inbox-item').forEach(it=>{
+    const marca=it.dataset.marca,cod=it.dataset.cod,msg=it.querySelector('.ib-msg');
+    it.querySelector('.ib-creator').onchange=async e=>{
+      const v=e.target.value; if(!v)return;
+      if(v==='__novo__'){e.target.value='';abrirNovoCreatorEm(it.querySelector('.ib-host'),marca,cod);return;}
+      await classificarCupom(marca,cod,'influ',v,msg,it);};
+    it.querySelectorAll('.ib-tipo').forEach(b=>b.onclick=()=>classificarCupom(marca,cod,b.dataset.tipo,null,msg,it));
+  });
+}
+async function classificarCupom(marca,cod,tipo,influ,msg,it){
+  const wk=chaveEscritaInflu();if(!wk)return;
+  it.querySelectorAll('button,select').forEach(x=>x.disabled=true);
+  msg.textContent='salvando…';
+  try{
+    const j=await influPost({k:wk,acao:'salvar_cupom',autor:(localStorage.getItem('shrigma_autor')||''),cupom:{marca,codigo:cod,tipo,influ:influ||undefined}});
+    if(!j.ok)throw new Error(j.erro||'cupom não encontrado');
+    msg.textContent='ok, atualizando…'; await carregarInflu();
+  }catch(e){msg.textContent='falhou: '+esc(e.message);it.querySelectorAll('button,select').forEach(x=>x.disabled=false);}
+}
+
 // ---------- custo por competencia: nao se repete sozinho ----------
 // O custo e lancado por mes (crm_influ_custo). Mes novo sem lancamento = custo zero e ROI
 // inflado. Em vez de esconder, avisar e oferecer repetir o mes anterior em um clique
@@ -705,10 +763,14 @@ function slugDe(nome){
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
 }
 function abrirNovoCreator(tr){
-  const det=tr.nextElementSibling, marca=tr.dataset.marca, cod=tr.dataset.cod;
-  if(det.querySelector('.nc-form'))return;
-  const comp=new Date().toISOString().slice(0,7);
+  const det=tr.nextElementSibling;
   det.hidden=false; tr.querySelector('.i-mais').textContent='–';
+  abrirNovoCreatorEm(det.querySelector('.i-obs'),tr.dataset.marca,tr.dataset.cod);
+}
+// host: elemento que recebe o formulario (linha de detalhe da tabela OU cartao da caixa de entrada)
+function abrirNovoCreatorEm(host,marca,cod){
+  if(host.querySelector('.nc-form'))return;
+  const comp=new Date().toISOString().slice(0,7);
   const box=document.createElement('div'); box.className='nc-form';
   box.innerHTML=`<div class="nc-cab"><div><strong>Novo creator</strong> a partir do cupom <code class="nc-cupom">${esc(cod)}</code> <span class="tag ${esc(marca)}">${esc(G.MARCA[marca]||marca)}</span></div><button class="btn sec nc-cancel">Cancelar</button></div>
     <div class="nc-passos">
@@ -731,7 +793,7 @@ function abrirNovoCreator(tr){
       </section>
     </div>
     <div class="nc-rodape"><button class="btn nc-salvar">Criar creator · associar cupom · lançar custo</button> <span class="mini nc-msg"></span></div>`;
-  det.querySelector('.i-obs').prepend(box);
+  host.prepend(box);
   const $$=q=>box.querySelector(q);
   $$('.nc-nome').oninput=()=>{if(!$$('.nc-slug').dataset.tocado)$$('.nc-slug').value=slugDe($$('.nc-nome').value);};
   $$('.nc-slug').oninput=()=>{$$('.nc-slug').dataset.tocado='1';};
