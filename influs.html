@@ -622,7 +622,7 @@ function renderCreators(){
     ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
       return `<tr>
         <td><strong>${esc(i.nome||i.influ)}</strong>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
-        <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag alerta">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:((i.modelo==='comissao'||i.modelo==='hibrido')?' <span class="tag alerta">definir %</span>':'')}</td>
+        <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag nulo">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:''}</td>
         <td class="num tabn">${cx?rf(cx):'—'}</td>
         <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
         <td class="num tabn">${v.pedidos?nf(v.pedidos):'—'}</td>
@@ -747,7 +747,7 @@ function renderTabela(){
     // Linha = leitura. Reclassificar (creator/tipo) mora no detalhe, atras do "+".
     const MODELO={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta'};
     const creator=v?`<strong>${esc(v.nome||c.influ)}</strong>${v.handle?` <span class="mini">${esc(v.handle)}</span>`:''}
-        <div class="mini">${v.modelo?`<span class="tag nulo">${esc(MODELO[v.modelo]||v.modelo)}</span> `:''}${c.influ_comissao_pct!=null?`${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:(semPct?'<span class="tag alerta">definir %</span>':'')}${!v.ativo?' <span class="tag alerta">inativo</span>':''}</div>`
+        <div class="mini">${v.modelo?`<span class="tag nulo">${esc(MODELO[v.modelo]||v.modelo)}</span> `:''}${c.influ_comissao_pct!=null?`${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:''}${!v.ativo?' <span class="tag alerta">inativo</span>':''}</div>`
       :(c.tipo==='influ'?`<strong>${esc(c.influ||'')}</strong>`:`<span class="tag nulo">${esc(c.tipo)}</span>`);
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
       <td class="i-cod"><button class="i-mais" title="detalhes e reclassificar">+</button> <code>${esc(c.codigo)}</code>
