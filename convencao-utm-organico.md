@@ -63,3 +63,16 @@ ambíguo no e-mail.
 `growth.html` descarta `utm_medium='organico'` na entrada, e o `crm_intradia` nem
 coleta. Growth é CRM; conteúdo é outro domínio, com outro dono e outra cadência.
 Receita de post mora em `organico.html`.
+
+
+## Atualização 08/09/2026 — padrão real do time e o que o painel aceita
+
+O time de orgânico (planilha "Controle de Links Parametrizados") usa:
+
+`utm_source=instagram|linktree` · `utm_medium=social` · `utm_campaign=venda` · `utm_content`/`utm_term` = superfície (story, reels, bio, post) e produto (amazonica8x, copo, S50…), **em qualquer ordem**.
+
+O coletor da Shopify passou a aceitar `utm_medium ∈ {organico, social}` com `utm_source` em rede conhecida (`instagram`, `linktree`/`bio` → instagram, `tiktok`, `youtube`, `facebook`). O portão continua sendo medium + rede, nunca source sozinho. O bruto é gravado como veio; a normalização superfície/produto é feita na leitura (API + organico.html › Venda). `link_in_bio` (UTM que o próprio Instagram põe no link do perfil) conta como superfície `bio`, sem produto.
+
+Link novo nesse padrão entra sozinho, sem de-para. O de-para em `crm_organico_utm` segue existindo só para ligar receita a um post/story específico.
+
+Risco declarado: anúncio do Meta com `utm_medium=social` entraria como orgânico. `utm_medium` fica gravado em `crm_conversao`, então dá para separar depois por `utm_campaign`.
