@@ -228,6 +228,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
       <div class="nota">Padrão aceito nos links: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
         <code>utm_medium=social</code> (ou <code>organico</code>) · <code>utm_campaign=venda</code> ·
         <code>utm_content</code>/<code>utm_term</code> = superfície (story, reels, bio, post) e produto, em qualquer ordem.
+        Automação EU QUERO (Replient): <code>utm_medium=dm</code> ou <code>dm-automation</code> → superfície "dm (automação)".
         Link novo nesse padrão entra sozinho. "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
         (liga a receita a um post ou story específico); sem ele a linha continua aqui, só sem o post.</div>
     </div>
@@ -282,6 +283,8 @@ function renderVenda(linhas){
     // link_in_bio e o UTM que o proprio Instagram poe no link do perfil: superficie bio, sem produto
     let sup=r.superficie_utm||'—', prod=(r.produto_utm||'—').toLowerCase();
     if(prod==='link_in_bio'){sup='bio';prod='—';}
+    // automacao EU QUERO (Replient): comentario -> DM com link. medium dm / dm-automation.
+    if(String(r.utm_medium||'').startsWith('dm')){sup='dm (automação)';prod=(r.utm_content||'replient').toLowerCase();}
     const camp=(r.utm_campaign&&r.utm_campaign!=='(sem)'&&r.utm_campaign!=='venda')?r.utm_campaign:'';  // venda e o padrao; outra campanha (ex.: automacao) ganha rotulo
     const k=[r.rede,sup,prod,camp].join('|');
     const a=agg.get(k)||{rede:r.rede,sup,prod,camp,ped:0,rec:0,ass:0,ident:new Set()};

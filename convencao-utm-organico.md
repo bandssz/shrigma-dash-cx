@@ -76,3 +76,11 @@ O coletor da Shopify passou a aceitar `utm_medium ∈ {organico, social}` com `u
 Link novo nesse padrão entra sozinho, sem de-para. O de-para em `crm_organico_utm` segue existindo só para ligar receita a um post/story específico.
 
 Risco declarado: anúncio do Meta com `utm_medium=social` entraria como orgânico. `utm_medium` fica gravado em `crm_conversao`, então dá para separar depois por `utm_campaign`.
+
+
+### Automação EU QUERO (Replient), 08/09/2026
+
+- Fishermans: `utm_source=instagram&utm_medium=dm&utm_campaign=evergreen- comentarios&utm_content=replient-quero`
+- Aristocrata: `utm_source=instagram&utm_medium=dm-automation&utm_campaign=aristocrata-quero-evergreen&utm_content=replient-eu-quero`
+
+O coletor aceita `utm_medium ∈ {dm, dm-automation}` com `utm_source=instagram` como orgânico; na aba Venda vira superfície "dm (automação)". Os dois links divergem entre si (medium e nome da campanha) — se um dia for reescrever no Replient, o padrão sugerido é `utm_medium=dm · utm_campaign=quero-evergreen · utm_content=replient` nas duas marcas.
