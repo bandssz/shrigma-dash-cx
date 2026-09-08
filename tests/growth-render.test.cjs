@@ -142,3 +142,23 @@ if(process.env.GROWTH_LIVE_PAYLOAD)test('payload Growth real renderiza todos os 
   assert(!/NaN|Infinity|undefined/.test(x.document.querySelector('#area-kpis').textContent));
  }
 });
+test('operação atual integra marca e canal e permanece independente do histórico',async()=>{
+ const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
+ const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="workflows"]').click();
+ assert.equal(x.document.querySelector('#control-workflows').hidden,false);
+ x.document.querySelector('[data-marca="fish"]').click();x.document.querySelector('[data-canal="whatsapp"]').click();
+ assert.equal(x.document.querySelectorAll('[data-control-workflow]').length,2);
+ const before=x.document.querySelector('#control-workflows').textContent;
+ x.run("PER={ini:'2026-07-01',fim:'2026-07-02'};render();");
+ assert.equal(x.document.querySelector('#control-workflows').textContent,before);
+ assert.equal(x.document.querySelector('#control-workflows').hidden,false);
+ assert.match(before,/independente do período/);
+});
+test('atalho de ocorrência volta ao histórico mesmo após abrir templates',async()=>{
+ const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
+ const x=await boot(p);x.document.querySelector('[data-control-tab="templates"]').click();
+ x.document.querySelector('[data-attention-flow]').click();
+ assert.equal(x.document.querySelector('#control-history').hidden,false);
+ assert.equal(x.document.querySelector('#control-templates').hidden,true);
+ assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
+});

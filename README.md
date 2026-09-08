@@ -130,3 +130,25 @@ parte da base deixa o total desconhecido, em vez de mostrar soma parcial ou zero
 O quadro representa o histórico do recorte, não estado ligado/parado; o último registro é
 da peça inteira e não necessariamente da falha. Sombra sem erro não entra como ocorrência.
 A cobertura de e-mail permanece informativa até existir reconciliação individual SES.
+
+
+### Operação atual e templates (08/09/2026)
+
+A aba **Automações** agora separa **Envios no período**, **Operação atual** e **Templates WhatsApp**.
+O objeto `crm_operacao` é um snapshot sanitizado fornecido exclusivamente pela API autenticada
+no escopo Growth/todos. Credenciais, parâmetros de workflows e dados de clientes não entram
+no contrato do front. A API já contém a extensão, mas a gravação inicial do resumo e a
+credencial do coletor aguardam autorização específica após bloqueio de revisão automática.
+As novas abas apresentam indisponibilidade enquanto não há resumo gravado. A UI distingue
+conferência pontual de coleta automática e sinaliza dados com 15 minutos ou mais.
+
+Ativação e publicação não comprovam entrega. Modos vêm da versão publicada; serviços
+compartilhados aparecem nos filtros de marca. A última execução disponível respeita a política
+de retenção: um erro antigo pode continuar aparecendo quando sucessos não são salvos.
+Templates mostram status/categoria esperada e observada, com busca; cartões aprovados cuja
+integração ainda está pendente continuam separados dos templates mapeados nos fluxos.
+O filtro de datas afeta apenas o histórico; marca e canal afetam também o inventário atual.
+
+A atualização automática proposta consulta 14 workflows e 23 templates a cada 5 minutos e guarda
+somente o resumo sanitizado. Não foi ativada nesta entrega. A ausência ou falha de coleta
+não aparece como estado saudável, e a interface não oferece controles de edição sem backend.

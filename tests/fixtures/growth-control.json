@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "collection_mode": "automatic",
+  "generated_at": "2026-09-08T01:09:00Z",
+  "refresh_interval_seconds": 300,
+  "stale_after_seconds": 900,
+  "workflows": [
+    {"key":"fish_tx","brand":"fish","channel":"whatsapp","label":"Pedido pago e rastreio Fishermans","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"active":true,"published":true,"has_unpublished_changes":false,"mode_source":"config","modes":[{"key":"modo_pedido_pago","value":"real"},{"key":"modo_rastreio","value":"real"}],"retention":{"success":"none","error":"all"},"last_retained_execution":{"id":"1001","status":"error","started_at":"2026-09-07T13:00:00Z","stopped_at":"2026-09-07T13:00:01Z"}},
+    {"key":"aristo_tx","brand":"aristo","channel":"whatsapp","label":"Pedido pago e rastreio Aristocrata","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"active":true,"published":true,"has_unpublished_changes":false,"mode_source":"config","modes":[{"key":"modo_pedido_pago","value":"sombra"},{"key":"modo_rastreio","value":"sombra"}],"retention":{"success":"none","error":"all"},"last_retained_execution":null},
+    {"key":"shared_email","brand":"shared","channel":"email","label":"E-mails transacionais","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"active":true,"published":true,"has_unpublished_changes":false,"mode_source":"none","modes":[],"retention":{"success":"all","error":"all"},"last_retained_execution":null},
+    {"key":"shared_monitor","brand":"shared","channel":"shared","label":"Monitor de credenciais","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"active":true,"published":true,"has_unpublished_changes":false,"mode_source":"none","modes":[],"retention":{"success":"none","error":"unknown"},"last_retained_execution":null}
+  ],
+  "templates": [
+    {"key":"fish_paid","brand":"fish","channel":"whatsapp","piece":"pedido-pago","usage":"current","id":"101","name":"fish_confirmacao_exemplo","language":"pt_BR","expected_category":"UTILITY","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"status":"APPROVED","category":"UTILITY","category_matches_expected":true},
+    {"key":"aristo_paid","brand":"aristo","channel":"whatsapp","piece":"pedido-pago","usage":"current","id":"102","name":"aristo_confirmacao_exemplo","language":"pt_BR","expected_category":"UTILITY","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"status":"APPROVED","category":"UTILITY","category_matches_expected":true},
+    {"key":"fish_native","brand":"fish","channel":"whatsapp","piece":"pedido-confirmado-card","usage":"native_pending","id":"103","name":"fish_card_exemplo","language":"pt_BR","expected_category":"UTILITY","checked_at":"2026-09-08T01:08:00Z","last_good_at":"2026-09-08T01:08:00Z","collection_status":"ok","collection_error_code":null,"status":"APPROVED","category":"UTILITY","category_matches_expected":true}
+  ]
+}
