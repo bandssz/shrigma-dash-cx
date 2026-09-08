@@ -128,6 +128,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .inbox-cod{font-size:15px;background:#fdf6e3;padding:1px 6px;border-radius:5px}
 .inbox-acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .inbox-acoes .btn{padding:5px 9px;font-size:12px}
+.inbox-acoes .ib-nao{background:#fff;border:1px solid var(--ruim,#c9463d);color:var(--ruim,#c9463d);font-weight:700}
 @media(max-width:720px){.inbox-item{grid-template-columns:1fr}}
 .i-alerta{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .i-alerta-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -608,7 +609,7 @@ function renderTabela(){
 
   if(!cs.length){$('#area-tabela').innerHTML='<div class="vazio">Nada neste filtro.</div>';return;}
 
-  const TIPOS=['influ','pendente','crm','cortesia','campanha','suporte','app','desconhecido'];
+  const TIPOS=['influ','pendente','nao_influ','crm','cortesia','campanha','suporte','app','desconhecido'];
   const linhas=cs.map(c=>{
     const v=ROI.get(c.marca+'|'+c.influ);
     const rc=RC.get(c.marca+'|'+c.codigo);
@@ -695,8 +696,9 @@ function renderInbox(){
         <div class="inbox-acoes">
           <select class="i-sel ib-creator" title="É creator: associa a um existente ou cria um novo"><option value="">É creator…</option><option value="__novo__">＋ criar novo creator</option>
             ${creators.filter(i=>i.marca===c.marca).map(i=>`<option value="${esc(i.influ)}">${esc(i.nome||i.influ)}</option>`).join('')}</select>
-          <span class="mini">ou não é:</span>
-          ${Object.entries(TIPO_ROTULO).map(([t,l])=>`<button class="btn sec ib-tipo" data-tipo="${t}">${l}</button>`).join('')}
+          <button class="btn ib-tipo ib-nao" data-tipo="nao_influ" title="Sai da caixa e da conta. Se quiser dizer o que é (CRM, campanha, cortesia…), use o select ao lado.">Não é influencer</button>
+          <select class="i-sel ib-tipo-sel" title="Opcional: classificar o que o cupom é"><option value="">…ou classificar como</option>
+            ${Object.entries(TIPO_ROTULO).map(([t,l])=>`<option value="${t}">${l}</option>`).join('')}</select>
           <span class="mini ib-msg"></span></div>
         <div class="ib-host"></div></div>`;}).join('')}</div>`;
   el.querySelectorAll('.inbox-item').forEach(it=>{
@@ -705,7 +707,8 @@ function renderInbox(){
       const v=e.target.value; if(!v)return;
       if(v==='__novo__'){e.target.value='';abrirNovoCreatorEm(it.querySelector('.ib-host'),marca,cod);return;}
       await classificarCupom(marca,cod,'influ',v,msg,it);};
-    it.querySelectorAll('.ib-tipo').forEach(b=>b.onclick=()=>classificarCupom(marca,cod,b.dataset.tipo,null,msg,it));
+    it.querySelector('.ib-nao').onclick=()=>classificarCupom(marca,cod,'nao_influ',null,msg,it);
+    it.querySelector('.ib-tipo-sel').onchange=e=>{if(e.target.value)classificarCupom(marca,cod,e.target.value,null,msg,it);};
   });
 }
 async function classificarCupom(marca,cod,tipo,influ,msg,it){

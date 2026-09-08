@@ -282,18 +282,20 @@ function renderVenda(linhas){
     // link_in_bio e o UTM que o proprio Instagram poe no link do perfil: superficie bio, sem produto
     let sup=r.superficie_utm||'—', prod=(r.produto_utm||'—').toLowerCase();
     if(prod==='link_in_bio'){sup='bio';prod='—';}
-    const k=[r.rede,sup,prod].join('|');
-    const a=agg.get(k)||{rede:r.rede,sup,prod,ped:0,rec:0,ass:0,ident:new Set()};
+    const camp=(r.utm_campaign&&r.utm_campaign!=='(sem)'&&r.utm_campaign!=='venda')?r.utm_campaign:'';  // venda e o padrao; outra campanha (ex.: automacao) ganha rotulo
+    const k=[r.rede,sup,prod,camp].join('|');
+    const a=agg.get(k)||{rede:r.rede,sup,prod,camp,ped:0,rec:0,ass:0,ident:new Set()};
     a.ped+=+r.pedidos_ultimo||0;a.rec+=+r.receita_ultimo||0;a.ass+=+r.pedidos_assistido||0;
     if(r.post_id||r.story_id)a.ident.add(r.apelido||r.post_id||r.story_id);
     agg.set(k,a);
   }
-  const rows=[...agg.values()].sort((a,b)=>b.rec-a.rec||b.ped-a.ped);
+  // pecas (story/reels/post) primeiro; bio por ultimo, marcado
+  const rows=[...agg.values()].sort((a,b)=>(a.sup==='bio')-(b.sup==='bio')||b.rec-a.rec||b.ped-a.ped);
   const tot=rows.reduce((t,x)=>({ped:t.ped+x.ped,rec:t.rec+x.rec,ass:t.ass+x.ass}),{ped:0,rec:0,ass:0});
   $('#n-venda').textContent=rows.length?nf(tot.ped):'';
   $('#venda-rot').textContent=rows.length?`${nf(tot.ped)} pedidos · R$ ${tot.rec.toLocaleString('pt-BR',{maximumFractionDigits:0})} · ${nf(tot.ass)} assistidos`:'';
   $('#tab-venda tbody').innerHTML=rows.length?rows.map(x=>`<tr>
-    <td><span class="tag ${esc(x.rede)}">${esc(x.rede)}</span></td><td>${esc(x.sup)}</td><td><strong>${esc(x.prod)}</strong></td>
+    <td><span class="tag ${esc(x.rede)}">${esc(x.rede)}</span></td><td>${esc(x.sup)}${x.sup==='bio'?' <span class="tag alerta" title="Anúncio → perfil → toque no link da bio vira último clique bio. Não dá para separar do orgânico puro.">pode ter mídia</span>':''}</td><td><strong>${esc(x.prod)}</strong>${x.camp?` <span class="tag nulo" title="utm_campaign diferente de venda">${esc(x.camp)}</span>`:''}</td>
     <td class="num tabn">${nf(x.ped)}</td><td class="num tabn">${x.rec?'R$ '+x.rec.toLocaleString('pt-BR',{maximumFractionDigits:0}):'—'}</td>
     <td class="num tabn">${nf(x.ass)}</td><td class="mini">${x.ident.size?[...x.ident].slice(0,3).map(esc).join(', '):'—'}</td></tr>`).join('')
     :'<tr><td colspan="7"><div class="vazio">Nenhum pedido com UTM de orgânico no período.</div></td></tr>';
@@ -402,7 +404,10 @@ function pintaKPIs(){
       &&String(r.dia).slice(0,10)>=ini&&String(r.dia).slice(0,10)<=fim);
   const rA=rec(PER.ini,PER.fim), rB=rec(ant.ini,ant.fim);
   const soma=l=>l.reduce((a,r)=>a+(+r.receita_ultimo||0),0);
-  const orfa=soma(rA.filter(r=>!r.post_id&&!r.story_id));
+  // Bio (inclui link_in_bio) pode ter midia: anuncio -> perfil -> toque no link vira ultimo
+  // clique "bio". O KPI conta so PECA com UTM (story/reels/post); bio aparece separado.
+  const ehBio=r=>{const s=r.superficie_utm,p=String(r.produto_utm||'').toLowerCase();return s==='bio'||p==='link_in_bio';};
+  const pcA=rA.filter(r=>!ehBio(r)), pcB=rB.filter(r=>!ehBio(r)), bioA=rA.filter(ehBio);
 
   const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
   const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
@@ -434,10 +439,11 @@ function pintaKPIs(){
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
-    {r:'Receita do orgânico', v:rA.length?'R$ '+soma(rA).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
-     d:rB.length?varia(soma(rA),soma(rB)):null,
-     s:rA.length?`${nf(rA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · último clique · por UTM`
-       :'nenhum pedido com UTM de orgânico no período', ir:'venda'},
+    {r:'Receita de story · reels · post', v:pcA.length?'R$ '+soma(pcA).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
+     d:pcB.length?varia(soma(pcA),soma(pcB)):null,
+     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · último clique · por UTM`
+       :'nenhum pedido com UTM de peça no período',
+     alerta:bioA.length?`+ R$ ${soma(bioA).toLocaleString('pt-BR',{maximumFractionDigits:0})} pelo link da bio (pode ter mídia)`:null, ir:'venda'},
   ];
   $('#area-kpis').innerHTML=cards.map(k=>`<div class="kpi${k.ir?' kpi-ir':''}" ${k.ir?`data-ir="${k.ir}" role="button" tabindex="0"`:''}>
     <div class="kpi-rot">${k.r}</div>
