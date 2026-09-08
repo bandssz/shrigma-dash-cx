@@ -136,6 +136,16 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .ib-sel-wrap{position:relative;display:inline-block}
 .ib-sel-wrap select{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .ib-fino .ib-link{text-decoration:underline dotted;cursor:pointer}
+.i-abas{display:flex;gap:4px;margin:6px 0 12px;border-bottom:1px solid var(--borda,#e7e4de)}
+.i-abas button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;font:600 13px var(--ui);color:var(--rotulo);cursor:pointer}
+.i-abas button.ativo{color:var(--texto,#222);border-bottom-color:#22808d}
+.i-abas .n{margin-left:5px;font-size:11px;background:var(--neutro-bg,#f1f1ef);border-radius:10px;padding:0 6px}
+.i-barra{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.i-busca{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--borda,#d8d4cc);border-radius:8px;font:500 13px var(--ui)}
+/* editor como drawer lateral, no padrao dos CRMs de creator: edita sem sair da lista */
+#i-editor{position:fixed;top:0;right:0;height:100vh;width:min(600px,100vw);overflow:auto;background:#fff;z-index:60;
+  box-shadow:-12px 0 40px rgba(0,0,0,.18);padding:18px 20px 28px;border-left:1px solid var(--borda,#e7e4de)}
+#i-editor::before{content:"";position:fixed;inset:0;right:min(600px,100vw);background:rgba(20,20,20,.25);z-index:-1}
 .i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
 .i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
 .i-cod code{font-size:14px}
@@ -212,7 +222,12 @@ textarea{width:100%;resize:vertical;min-height:58px}
           <option value="outros">N&atilde;o-influ (CRM, campanha, cortesia)</option>
           <option value="todos">Todos</option>
         </select>
-        <button class="btn sec" id="i-btn-novo">Novo / editar influ</button></span></div>
+        </span></div>
+      <nav class="i-abas" id="i-abas">
+        <button data-p="desempenho" class="ativo">Desempenho</button>
+        <button data-p="creators">Creators <span class="n" id="n-creators"></span></button>
+        <button data-p="cupons">Cupons <span class="n" id="n-cupons"></span></button>
+      </nav>
 
       <div id="i-form" hidden>
         <div class="form">
@@ -292,10 +307,21 @@ textarea{width:100%;resize:vertical;min-height:58px}
             <span class="mini" id="ed-msg"></span></div>
         </div>
       </div>
-      <div id="i-inbox"></div>
-      <div id="i-custo-aviso"></div>
-      <div class="i-cont" id="i-contadores"></div>
-      <div id="area-tabela"></div>
+      <div class="i-pane" id="i-pane-desempenho">
+        <div id="i-custo-aviso"></div>
+        <div class="i-cont" id="i-contadores"></div>
+        <div id="area-tabela"></div>
+      </div>
+      <div class="i-pane" id="i-pane-creators" hidden>
+        <div class="i-barra"><input id="cr-busca" placeholder="Buscar creator, handle ou cupom…" class="i-busca">
+          <select id="cr-status" class="i-sel"><option value="ativos">Ativos</option><option value="todos">Todos</option><option value="inativos">Inativos</option></select>
+          <button class="btn" id="i-btn-novo">＋ Novo creator</button></div>
+        <div id="area-creators"></div>
+      </div>
+      <div class="i-pane" id="i-pane-cupons" hidden>
+        <div id="i-inbox"></div>
+        <div id="area-cupons"></div>
+      </div>
       <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
         <strong>n&atilde;o</strong> entra &mdash; n&atilde;o se paga o que n&atilde;o foi confirmado. Linhas destacadas s&atilde;o cupons
         que hoje escapam da blacklist do relat&oacute;rio ShopifyQL e por isso poluem a apura&ccedil;&atilde;o.
@@ -568,6 +594,72 @@ function renderCortes(){
 
 // Uma tabela so: cada linha e um cupom. Associado mostra ROI, pendente mostra os selects
 // e ROI vazio. Sao a mesma pergunta em dois estagios, nao duas telas.
+// ---------- abas: Desempenho / Creators / Cupons ----------
+let PANE=localStorage.getItem('shrigma_influs_pane')||'desempenho';
+function trocaPane(p){PANE=p;localStorage.setItem('shrigma_influs_pane',p);
+  document.querySelectorAll('#i-abas button').forEach(b=>b.classList.toggle('ativo',b.dataset.p===p));
+  document.querySelectorAll('.i-pane').forEach(x=>x.hidden=(x.id!=='i-pane-'+p));}
+document.querySelectorAll('#i-abas button').forEach(b=>b.onclick=()=>trocaPane(b.dataset.p));
+trocaPane(PANE);
+
+// Diretorio de creators (padrao Grin/Aspire): lista com busca e status; editar abre o drawer.
+function renderCreators(){
+  const el=$('#area-creators'); if(!el)return;
+  const q=($('#cr-busca').value||'').trim().toLowerCase(), st=$('#cr-status').value;
+  const comp=compAtual();
+  const roi=new Map((INFLU.roi||[]).map(v=>[v.marca+'|'+v.influ,v]));
+  const cup=new Map(); (INFLU.cupons||[]).filter(c=>c.tipo==='influ'&&c.influ).forEach(c=>{const k=c.marca+'|'+c.influ;(cup.get(k)||cup.set(k,[]).get(k)).push(c.codigo);});
+  const custo=new Map(); (INFLU.custos||[]).filter(c=>c.competencia===comp).forEach(c=>custo.set(c.marca+'|'+c.influ,(+c.fixo||0)+(+c.produto||0)+(+c.frete||0)));
+  const MODELO={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta',encerrado:'encerrado'};
+  let lista=(INFLU.influs||[]).filter(i=>MARCA==='todas'||i.marca===MARCA);
+  if(st==='ativos')lista=lista.filter(i=>i.ativo!==false); if(st==='inativos')lista=lista.filter(i=>i.ativo===false);
+  if(q)lista=lista.filter(i=>[i.nome,i.handle,i.influ,...(cup.get(i.marca+'|'+i.influ)||[])].some(x=>String(x||'').toLowerCase().includes(q)));
+  lista.sort((a,b)=>((roi.get(b.marca+'|'+b.influ)||{}).receita||0)-((roi.get(a.marca+'|'+a.influ)||{}).receita||0));
+  $('#n-creators').textContent=(INFLU.influs||[]).filter(i=>(MARCA==='todas'||i.marca===MARCA)&&i.ativo!==false).length;
+  el.innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
+    <th>Creator</th><th>Contrato</th><th class="num">Cachê ${comp.slice(5)}/${comp.slice(2,4)}</th><th>Cupons</th>
+    <th class="num">Pedidos</th><th class="num">Receita</th><th>Status</th><th></th></tr></thead><tbody>
+    ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
+      return `<tr>
+        <td><strong>${esc(i.nome||i.influ)}</strong>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
+        <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag alerta">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:((i.modelo==='comissao'||i.modelo==='hibrido')?' <span class="tag alerta">definir %</span>':'')}</td>
+        <td class="num tabn">${cx?rf(cx):'—'}</td>
+        <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
+        <td class="num tabn">${v.pedidos?nf(v.pedidos):'—'}</td>
+        <td class="num tabn">${v.receita?rf(v.receita):'—'}</td>
+        <td>${i.ativo===false?'<span class="tag alerta">inativo</span>':'<span class="tag" style="background:#e2f3e6;color:#1e6b38">ativo</span>'}</td>
+        <td><button class="btn sec cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Editar</button></td></tr>`;}).join('')
+    :'<tr><td colspan="8"><div class="vazio">Nenhum creator com esse filtro.</div></td></tr>'}</tbody></table></div>`;
+  el.querySelectorAll('.cr-edit').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
+}
+$('#cr-busca').oninput=()=>renderCreators(); $('#cr-status').onchange=()=>renderCreators();
+
+// Todos os cupons da marca, com classificacao inline (o que a linha da tabela de ROI fazia).
+function renderCupons(){
+  const el=$('#area-cupons'); if(!el)return;
+  const TIPOS=['influ','pendente','nao_influ','crm','cortesia','campanha','suporte','app','desconhecido'];
+  const ordem={pendente:0,influ:1};
+  const lista=(INFLU.cupons||[]).filter(c=>MARCA==='todas'||c.marca===MARCA)
+    .sort((a,b)=>((ordem[a.tipo]??2)-(ordem[b.tipo]??2))||String(b.desde||'').localeCompare(String(a.desde||'')));
+  const rec=new Map((INFLU.receita_cupom||[]).map(r=>[r.marca+'|'+r.codigo,r]));
+  $('#n-cupons').textContent=lista.filter(c=>c.tipo==='pendente').length||'';
+  el.innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
+    <th>Cupom</th><th>Tipo</th><th>Creator</th><th class="num">Usos</th><th class="num">Pedidos na janela</th><th>Criado</th><th></th></tr></thead><tbody>
+    ${lista.map(c=>{const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca),r=rec.get(c.marca+'|'+c.codigo);
+      return `<tr data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}" class="${c.tipo==='pendente'?'i-fura':''}">
+        <td><code>${esc(c.codigo)}</code> <span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span>${c.desconto_pct!=null?`<div class="mini">${Math.round(c.desconto_pct*100)}% off</div>`:''}</td>
+        <td><select class="i-sel cp-t">${TIPOS.map(t=>`<option value="${t}"${t===c.tipo?' selected':''}>${t}</option>`).join('')}</select></td>
+        <td><select class="i-sel cp-i"><option value="">—</option>${meus.map(i=>`<option value="${esc(i.influ)}"${i.influ===c.influ?' selected':''}>${esc(i.nome||i.influ)}</option>`).join('')}</select></td>
+        <td class="num tabn">${nf(c.usos_lifetime||0)}</td><td class="num tabn">${r?nf(r.pedidos):'—'}</td>
+        <td class="mini">${c.desde?fmtData(c.desde):'—'}</td>
+        <td><button class="btn sec cp-salvar" disabled>Salvar</button> <span class="mini cp-msg"></span></td></tr>`;}).join('')}</tbody></table></div>`;
+  el.querySelectorAll('tbody tr').forEach(tr=>{const bt=tr.querySelector('.cp-salvar');
+    tr.querySelectorAll('select').forEach(x=>x.onchange=()=>{bt.disabled=false;});
+    bt.onclick=()=>{const tipo=tr.querySelector('.cp-t').value,influ=tr.querySelector('.cp-i').value||null;
+      if(tipo==='influ'&&!influ){tr.querySelector('.cp-msg').textContent='tipo influ precisa de creator';return;}
+      classificarCupom(tr.dataset.marca,tr.dataset.cod,tipo,tipo==='influ'?influ:null,tr.querySelector('.cp-msg'),tr);};});
+}
+
 function renderTabela(){
   const filtro=$('#i-filtro').value;
   const todos=INFLU.cupons||[];
@@ -582,6 +674,7 @@ function renderTabela(){
   ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
 
   renderInbox();
+  renderCreators(); renderCupons();
   renderAvisoCusto();
   const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
   $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
@@ -922,7 +1015,6 @@ function abrirEditor(marca,influ){
   $('#ed-obs').value=i.obs||''; $('#ed-msg').textContent='';
   $('#ed-comp').value=(PER.fim||'').slice(0,7);
   pintaCustos();
-  $('#i-editor').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function pintaCustos(){
   const cs=(INFLU.custos||[]).filter(c=>c.marca===ED.marca&&c.influ===ED.influ);
@@ -976,6 +1068,7 @@ $('#ed-salvar').onclick=salvarCadastro;
 $('#ed-custo-salvar').onclick=()=>salvarCusto(false);
 $('#ed-custo-remover').onclick=()=>salvarCusto(true);
 $('#ed-fechar').onclick=()=>{$('#i-editor').hidden=true;ED=null;};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#i-editor').hidden)$('#ed-fechar').click();});
 
 $('#i-filtro').onchange=renderTabela;
 $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;
