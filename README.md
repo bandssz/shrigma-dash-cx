@@ -62,3 +62,47 @@ Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
 ## Rodar local
 
 Qualquer servidor estático: `python3 -m http.server` na pasta e abrir `http://localhost:8000`.
+
+
+## Growth — operação por canal (08/09/2026)
+
+`growth.html` mantém a navegação existente e permite recortar marca, período e canal.
+A visão inicial mostra disparos, pedidos e receita atribuída, com cards de WhatsApp e e-mail;
+a aba **Automações** separa cada marca/canal/fluxo/peça e permite filtrar a tabela por fluxo.
+
+- `growth-data.js`: datas, campanhas, réguas, atribuição e A/B; funções puras compartilhadas pelo front e testes.
+- `growth-delivery.js`: reconciliação dos aceites/status WhatsApp e volumes de e-mail.
+- `growth-ui.js` / `growth.css`: cards, indicadores de cobertura e tabela por canal.
+- A API já existente recebe `painel=growth` para restringir a resposta quando a chave é mestra; isso não amplia o acesso de outra chave. Nenhuma chave fica no código.
+
+### Significado dos números
+
+WhatsApp usa `crm_wa_envios` e `crm_wa_cobertura`: agregados de 90 dias BRT do motor próprio,
+associados aos status pelo ID da mensagem. Aceite não é entrega. `delivered` ou `read` comprovam
+entrega; falhas com entrega posterior não duplicam o funil. Registros sem aceite não entram
+em disparos. O fluxo explícito `teste-motor` é contabilizado à parte; outros testes internos
+podem permanecer porque o histórico não grava o modo. Não inclui volume da Reportana.
+
+E-mail separa campanhas Listmonk e automações: o log transacional comprova aceite da API,
+não entrega individual SES. Abertura, CTR e CTOR usam apenas as campanhas com a medição correspondente.
+Métricas ausentes ficam como `—`. Receita e pedidos do resumo vêm da data da compra/último clique;
+não são uma taxa de conversão da coorte de envios. Receita na tabela de campanhas é acumulada
+dos disparos selecionados. Atribuição ambígua entre dois fluxos com a mesma peça não é duplicada.
+
+Comparações percentuais só aparecem para períodos fechados e bases conhecidas. Datas seguem Brasília
+independentemente do fuso do dispositivo. O gráfico exclui receita orgânica e não usa cliques de e-mail
+como se fossem WhatsApp. A atualização automática mantém o último dado quando há falha e permite repetir.
+
+### Verificação sem navegador
+
+As fixtures dos testes são sintéticas. Não incluir payloads reais, credenciais ou backups da API neste repositório.
+
+```sh
+npm install --no-audit --no-fund --prefix ../growth-test-tools linkedom@0.18.12
+node --test tests/*.test.cjs
+```
+
+O teste de integração usa um DOM local, sem navegador ou chamadas externas. Opcionalmente,
+`GROWTH_LIVE_PAYLOAD` pode apontar para um payload agregado privado, fora do repositório,
+para reconciliar os indicadores com uma consulta real. A extensão da API foi aplicada separadamente,
+com backup, guarda de versão e confirmação da versão publicada.

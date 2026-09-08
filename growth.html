@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
+<link rel="stylesheet" href="growth.css?v=20260908-1">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
@@ -31,7 +32,7 @@ main>*{min-width:0}
   color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 .secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
 .secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
-.sec{display:none}.sec.ativa{display:block}
+main>.sec{display:none}main>.sec.ativa{display:block}
 .tabn{font-variant-numeric:tabular-nums}
 td.destaque{font-weight:700}
 .barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
@@ -136,29 +137,43 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
       <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
     </div>
-    <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+    <input type="date" id="d-ini" aria-label="Início do período"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período">
     <label><input type="checkbox" id="cmp" checked> comparar</label>
   </div>
 
-  <section class="kpis" id="area-kpis"></section>
+  <div class="canal-bar">
+    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
+      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
+      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
+      <button data-canal="email" aria-pressed="false">E-mail</button>
+    </div>
+    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
+  </div>
+  <div class="growth-context" id="growth-context">Disparos e resultados do período · horário de Brasília</div>
+  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
+  <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
+  <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
 
   <nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="visao" class="ativo">Visão</button>
     <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Réguas<span class="n" id="n-regua"></span></button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
     <button data-s="base">Base<span class="n" id="n-arv"></span></button>
     <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
   </nav>
 
   <div class="sec ativa" id="sec-visao">
+    <div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div>
     <section class="painel">
       <div class="painel-cab"><h2>Evolução</h2>
-        <select id="sel-metrica">
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
           <option value="receita">Receita atribuída</option>
-          <option value="cliques">Cliques</option>
-          <option value="enviados">Enviados</option>
-          <option value="complaints">Reclamações</option>
-          <option value="novos_subs">Novos inscritos</option>
+          <option value="cliques">Cliques de e-mail</option>
+          <option value="enviados">Disparos registrados</option>
+          <option value="entregues">Entregues · WhatsApp</option>
+          <option value="falhas">Falhas de entrega · WhatsApp</option>
+          <option value="complaints">Reclamações de e-mail</option>
+          <option value="novos_subs">Novos inscritos de e-mail</option>
         </select>
       </div>
       <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
@@ -181,12 +196,12 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
-    <section class="painel">
-      <div class="painel-cab"><h2>Campanhas</h2><span class="mini" id="camp-rot"></span></div>
+    <section class="painel" id="campaign-email-block">
+      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
         <th>Peça</th><th></th><th class="num">Enviados</th>
         <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-        <th class="num">Receita</th><th></th>
+        <th class="num">Receita acumulada</th><th></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-camp"></div>
     </section>
@@ -246,26 +261,26 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-regua">
-    <section class="painel">
+    <section class="painel" id="email-comparison-block">
       <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
-      <div class="painel-cab"><h2>Régua por peça</h2><span class="mini" id="regua-rot"></span></div>
+      <div class="painel-cab"><h2>Automações por canal</h2><div class="flow-controls"><label for="sel-flow">Fluxo</label><select id="sel-flow"><option value="todos">Todos os fluxos</option></select><span class="mini" id="regua-rot"></span></div></div>
       <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
-        <th>Peça</th><th></th><th class="num">Enviados</th><th class="num">Pedidos</th>
-        <th class="num">Receita</th><th class="num">Assist.</th><th class="num">R$ assist.</th>
-        <th class="num">Ped./1000 envios</th>
+        <th>Peça</th><th>Marca / canal</th><th class="num">Disparos</th><th class="num">Entregues</th>
+        <th class="num">Falhas</th><th class="num">Pedidos</th><th class="num">Receita</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-regua"></div>
     </section>
     <section class="painel" id="painel-carrinho">
-      <div class="painel-cab"><h2>Carrinho abandonado</h2><span class="mini" id="car-rot"></span></div>
+      <div class="painel-cab"><h2>Carrinho abandonado · todos os canais</h2><span class="mini" id="car-rot"></span></div>
       <div id="area-carrinho"></div>
     </section>
   </div>
 
   <div class="sec" id="sec-base">
+    <p class="email-scope">Base de e-mail: a segmentação considera a marca selecionada, independentemente do filtro de canal.</p>
     <section class="painel">
       <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
       <div id="area-arvore"></div>
@@ -277,331 +292,24 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
 </main>
 
-<footer class="rodape"><span>Lê snapshots do Postgres via n8n — Listmonk e Shopify nunca são chamados por esta página.</span></footer>
+<footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=e4cd94da"></script>
+<script src="growth-data.js?v=20260908-1"></script>
+<script src="growth-delivery.js?v=20260908-1"></script>
+<script src="growth-ui.js?v=20260908-1"></script>
 <script>
-/* ================= dados: só matemática, testável com node ================= */
-const G = {
-  MARCA:{aristo:'Aristocrata',fish:'Fishermans',olivas:'Olivas'},
-  // nome por extenso: cabecalho usa o nome cheio, tag de tabela usa o curto
-  MARCA_CHEIA:{aristo:'O Aristocrata',fish:'Fishermans',olivas:'Olivas do Campo'},
-  TRACKING_DESDE:'2026-07-19',
-  // O navegador pode estar em qualquer fuso e o banco roda em UTC. A operacao e em Brasilia:
-  // toda data exibida ou comparada passa por aqui. Espelha hoje_br()/dia_br() do Postgres.
-  TZ:'America/Sao_Paulo',
-  diaBR(x){return new Intl.DateTimeFormat('en-CA',{timeZone:G.TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(x instanceof Date?x:new Date(x));},
-  horaBR(x){return +new Intl.DateTimeFormat('en-GB',{timeZone:G.TZ,hour:'2-digit',hour12:false}).format(x instanceof Date?x:new Date(x));},
-  // colunas DATE (crm_*.dia) chegam como meia-noite UTC: converter quebraria para o dia anterior.
-  // Elas usam slice(0,10) direto. diaBR e so para timestamptz (enviado_em, sent_at) e para "agora".
-  iso:d=>G.diaBR(d),
-  addDias(s,n){const d=new Date(s+'T12:00:00Z');d.setDate(d.getDate()+n);return G.iso(d);},
-  diasEntre(a,b){return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5)+1;},
-  anterior(ini,fim){const n=G.diasEntre(ini,fim);return{ini:G.addDias(ini,-n),fim:G.addDias(fim,-n)};},
-  // Semana comeca na SEGUNDA (convencao BR). getUTCDay da 0 no domingo, entao domingo vira 6.
-  segunda(s){const x=new Date(s+'T12:00:00Z');return G.addDias(s,-((x.getUTCDay()+6)%7));},
-  preset(p,hoje){
-    if(p==='semana')return {ini:G.segunda(hoje),fim:hoje};
-    if(p==='semanaant'){const s=G.addDias(G.segunda(hoje),-7);return {ini:s,fim:G.addDias(s,6)};}
-    const d=new Date(hoje+'T12:00:00Z');
-    if(p==='hoje')return{ini:hoje,fim:hoje};
-    if(p==='ontem'){const a=G.addDias(hoje,-1);return{ini:a,fim:a};}
-    if(p==='mes')return{ini:hoje.slice(0,8)+'01',fim:hoje};
-    if(p==='mesant'){const pm=new Date(d.getFullYear(),d.getMonth(),0);
-      return{ini:G.iso(new Date(pm.getFullYear(),pm.getMonth(),1)),fim:G.iso(pm)};}
-    const n=+p||7;return{ini:G.addDias(hoje,-(n-1)),fim:hoje};
-  },
-  noPeriodo:(dia,ini,fim)=>dia>=ini&&dia<=fim,
-  pct(n,d,c=1){if(n===null||n===undefined||!d)return null;return +(100*n/d).toFixed(c);},
-
-  aberturaConfiavel(p){
-    if(!p)return null;
-    const bons=(+p.gmail||0)+(+p.outlook||0)+(+p.brasileiro||0);
-    const tot=Object.values(p).reduce((a,b)=>a+(+b||0),0);
-    return tot?{bons,tot,pct:Math.round(100*bons/tot)}:null;
-  },
-  // Um dia so => curva por HORA, acumulada, e a comparacao para na mesma hora
-  // que o periodo atual (senao "hoje" perde de "ontem inteiro" todo santo dia).
-  serieHora(api,marca,dia,metrica,limiteHora){
-    const col = metrica==='receita' ? 'receita' : (metrica==='cliques' ? 'cliques' : null);
-    if(!col) return null;
-    const h=Array(24).fill(null);
-    let viu=false;
-    (api.crm_intradia||[])
-      .filter(r=>String(r.dia).slice(0,10)===dia)
-      .filter(r=>marca==='todas'||r.marca===marca)
-      .forEach(r=>{ const v=r[col]; if(v===null||v===undefined) return;
-        viu=true; h[r.hora]=(h[r.hora]||0)+(+v||0); });
-    if(!viu) return null;
-    let acc=0; const out=[];
-    for(let i=0;i<24;i++){
-      if(limiteHora!==undefined && i>limiteHora){ out.push({d:String(i).padStart(2,'0')+'h',v:null}); continue; }
-      acc+=(h[i]||0); out.push({d:String(i).padStart(2,'0')+'h', v:acc});
-    }
-    return out;
-  },
-  serie(api,marca,ini,fim,metrica){
-    const dias=[];for(let d=ini;d<=fim;d=G.addDias(d,1))dias.push(d);
-    const m={};
-    if(metrica==='receita'){
-      (api.crm_conversao||[]).forEach(r=>{
-        if(marca!=='todas'&&r.marca!==marca)return;
-        const d=String(r.dia).slice(0,10);m[d]=(m[d]||0)+(+r.receita_ultimo||0);});
-    }else{
-      (api.crm_diario||[]).filter(r=>r.janela==='1d')
-        .filter(r=>marca==='todas'||r.marca===marca).forEach(r=>{
-          const v=r[metrica];if(v===null||v===undefined)return;
-          const d=String(r.dia).slice(0,10);m[d]=(m[d]||0)+(+v||0);});
-    }
-    return dias.map(d=>({d,v:m[d]??null}));
-  },
-  delta(a,b,medido){if(!medido||b===null||b===0)return null;return +(100*(a-b)/b).toFixed(1);},
-
-  // Envios anômalos conhecidos: mostrados como nota, nunca removidos do dado.
-  REGUA_ANOMALIAS:[{dia:'2026-08-17',marca:'aristo',piece:'pedido-preparando',
-    motivo:'2.408 envios por catch-up manual de fulfillments (backlog pré-J&T) — não é volume orgânico'}],
-
-  // Régua/fluxo agregada no período. Grão de saída: marca × flow × piece.
-  // Pedido/receita NULL na crm_fluxo (sem linha de conversão no dia) soma como zero
-  // atribuído — a nota da tela explica o porquê. Enviados sempre soma.
-  regua(api,marca,ini,fim){
-    const m={};
-    (api.crm_fluxo||[])
-      .filter(r=>marca==='todas'||r.marca===marca)
-      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
-      .forEach(r=>{
-        const k=r.marca+'|'+r.flow+'|'+r.piece;
-        const o=m[k]||(m[k]={marca:r.marca,flow:r.flow,piece:r.piece,
-          enviados:0,pedidos:0,receita:0,assist:0,receita_assist:0});
-        o.enviados+=+r.enviados||0;
-        o.pedidos+=+r.pedidos_ultimo||0;
-        o.receita+=+r.receita_ultimo||0;
-        o.assist+=+r.pedidos_assistido||0;
-        o.receita_assist+=+r.receita_assistida||0;
-      });
-    return Object.values(m)
-      .map(o=>({...o,porMil:o.enviados?+(1000*o.pedidos/o.enviados).toFixed(1):null}))
-      .sort((a,b)=>b.receita-a.receita||b.enviados-a.enviados);
-  },
-  // A pergunta do bloco: do que sai por e-mail, quanto é campanha e quanto é régua,
-  // e qual converte melhor por envio. Campanha: enviados da crm_campanha + conversão
-  // com utm_medium='campanha'. Régua: crm_fluxo. Só e-mail nos dois lados.
-  campVsRegua(api,marca,ini,fim){
-    const cs=G.campanhas(api,marca,ini,fim,false).filter(c=>c.canal==='email');
-    const envC=cs.reduce((a,c)=>a+(+c.enviados||0),0);
-    let pedC=0,recC=0;
-    (api.crm_conversao||[])
-      .filter(r=>(marca==='todas'||r.marca===marca)&&r.canal==='email'&&r.utm_medium==='campanha')
-      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
-      .forEach(r=>{pedC+=+r.pedidos_ultimo||0;recC+=+r.receita_ultimo||0;});
-    const fl=G.regua(api,marca,ini,fim);
-    const envR=fl.reduce((a,r)=>a+r.enviados,0);
-    const pedR=fl.reduce((a,r)=>a+r.pedidos,0);
-    const recR=fl.reduce((a,r)=>a+r.receita,0);
-    if(!envC&&!envR)return null;
-    return{campanha:{env:envC,ped:pedC,rec:recC,porMil:envC?+(1000*pedC/envC).toFixed(1):null},
-           regua:{env:envR,ped:pedR,rec:recR,porMil:envR?+(1000*pedR/envR).toFixed(1):null}};
-  },
-
-  carrinho(api,marca,ini,fim){
-    const linhas=(api.crm_carrinho||[])
-      .filter(r=>marca==='todas'||r.marca===marca)
-      .filter(r=>G.noPeriodo(String(r.dia).slice(0,10),ini,fim));
-    if(!linhas.length)return null;
-    const s=(k)=>linhas.reduce((a,r)=>a+(+r[k]||0),0);
-    // dias sem cobertura da crm_conversao gravam NULL: separados para nao virar 0%
-    const medidos=linhas.filter(r=>r.recuperados!==null&&r.recuperados!==undefined);
-    const sm=(k)=>medidos.reduce((a,r)=>a+(+r[k]||0),0);
-    const porMarca={};
-    linhas.forEach(r=>{
-      const a=porMarca[r.marca]||(porMarca[r.marca]={marca:r.marca,carrinhos:0,valor:0,voltou:0,rec:0,receita:0,medido:false});
-      a.carrinhos+=+r.carrinhos||0; a.valor+=+r.valor_em_jogo||0;
-      a.voltou=(a.voltou||0)+(+r.voltaram_72h||0);
-      if(r.recuperados!==null&&r.recuperados!==undefined){a.medido=true;a.rec+=+r.recuperados;a.receita+=+r.receita_recuperada||0;}
-    });
-    // linhas sao marca x dia: contar DIAS distintos, senao "7 dias" vira "14"
-    const dd=new Set(linhas.map(r=>String(r.dia).slice(0,10)));
-    const dm=new Set(medidos.map(r=>String(r.dia).slice(0,10)));
-    return {carrinhos:s('carrinhos'), valor:s('valor_em_jogo'), consent:s('com_consent'),
-      dias:dd.size, diasMedidos:dm.size,
-      recuperados:medidos.length?sm('recuperados'):null,
-      receita:medidos.length?sm('receita_recuperada'):null,
-      valorMedido:sm('valor_em_jogo'),
-      carrinhosMedidos:sm('carrinhos'),
-      voltaram:s('voltaram_72h'), receitaVoltaram:s('receita_voltaram'),
-      voltaramMedidos:sm('voltaram_72h'),
-      porMarca:Object.values(porMarca).sort((a,b)=>b.valor-a.valor)};
-  },
-  // grao: 'peca' (campanha+conteudo, o padrao) | 'campanha' | 'familia'. Familia vem do
-  // de-para crm_familia_campanha; campanha sem de-para vira familia dela mesma -- some
-  // e o pior estado, entao nada e descartado. Em campanha/familia o canal deixa de
-  // fazer parte da chave: a pergunta e "quanto o lancamento vendeu", nao por canal.
-  conversao(api,marca,ini,fim,grao='peca'){
-    const fam=new Map();(api.crm_familia_campanha||[]).forEach(f=>fam.set(f.marca+'|'+f.utm_campaign,f.familia));
-    const agg=new Map();
-    (api.crm_conversao||[]).forEach(r=>{
-      const dia=String(r.dia).slice(0,10);
-      if(marca!=='todas'&&r.marca!==marca)return;
-      if(!G.noPeriodo(dia,ini,fim))return;
-      // Growth e CRM. Desde que o coletor passou a reconhecer utm_medium=organico,
-      // crm_conversao tambem carrega receita de conteudo -- que e outro dominio, com
-      // outro dono e outra cadencia, e mora no organico.html. Sem este porteiro a
-      // receita de post entraria no funil de e-mail sem ninguem pedir.
-      if(r.utm_medium==='organico')return;
-      const familia=fam.get(r.marca+'|'+r.utm_campaign)||r.utm_campaign||'(sem)';
-      const k=grao==='peca'?[r.marca,r.canal,r.utm_campaign,r.utm_content].join('|')
-             :grao==='campanha'?[r.marca,r.utm_campaign].join('|'):[r.marca,familia].join('|');
-      const a=agg.get(k)||{marca:r.marca,canal:grao==='peca'?r.canal:'',campanha:r.utm_campaign,peca:r.utm_content,
-        familia,canais:new Set(),pecas:new Set(),campanhas:new Set(),
-        pedidos:0,receita:0,assist:0,receita_assist:0,novos:0,recorr:0};
-      a.canais.add(r.canal);a.pecas.add(r.utm_campaign+'|'+r.utm_content);a.campanhas.add(r.utm_campaign);
-      a.pedidos+=+r.pedidos_ultimo||0;a.receita+=+r.receita_ultimo||0;
-      a.assist+=+r.pedidos_assistido||0;a.receita_assist+=+r.receita_assistida||0;
-      a.novos+=+r.clientes_novos||0;a.recorr+=+r.clientes_recorrentes||0;
-      agg.set(k,a);
-    });
-    return [...agg.values()].sort((x,y)=>(y.receita-x.receita)||(y.receita_assist-x.receita_assist));
-  },
-  // Agendada nao entra aqui: 0 enviado sobre 0 entregue nao e taxa, e ruido.
-  // Ela aparece no bloco "Na fila", com a data prevista.
-  // De-para peca -> receita de ultimo clique, vindo da view crm_campanha_receita.
-  // Chave e marca+id porque campanha_id so e unico dentro do Listmonk de cada marca.
-  // receita null NAO e zero: significa utm_ambiguo, tupla de UTM que outra peca tambem usa.
-  receitaPorPeca(api){
-    const m=new Map();
-    (api.crm_campanha_receita||[]).forEach(r=>m.set(r.marca+'|'+r.campanha_id,r));
-    return m;
-  },
-  fila(api,marca){
-    const rec=G.receitaPorPeca(api);
-    return (api.crm_campanha||[])
-      .filter(c=>c.tipo==='agendada')
-      .filter(c=>marca==='todas'||c.marca===marca)
-      // Peca so entra em crm_campanha_receita se tiver UTM no corpo: ausencia = sem UTM.
-      .map(c=>({...c,tem_utm:rec.has(c.marca+'|'+c.campanha_id)}))
-      .sort((x,y)=>new Date(x.enviado_em)-new Date(y.enviado_em));
-  },
-  // agrupar: pecas que reivindicam a mesma tupla de UTM (mesmo e-mail para bases diferentes)
-  // viram UMA linha, com envios/aberturas/cliques somados e a receita do GRUPO (view
-  // crm_campanha_grupo). Antes cada uma aparecia com receita "indivisivel" e o dinheiro
-  // ficava orfao. Testes A/B pedem agrupar=false: la a peca individual e o que importa.
-  campanhas(api,marca,ini,fim,agrupar=true){
-    const rec=G.receitaPorPeca(api);
-    const lista=G._pecas(api,marca,ini,fim,rec);
-    if(!agrupar)return lista;
-    const grupos=(api.crm_campanha_grupo||[]);
-    const grupoDe=new Map();grupos.forEach(g=>(g.campanha_ids||[]).forEach(id=>grupoDe.set(g.marca+'|'+id,g)));
-    const out=[],feito=new Set();
-    for(const c of lista){
-      const g=grupoDe.get(c.marca+'|'+c.campanha_id);
-      if(!g){out.push(c);continue;}
-      if(feito.has(g.grupo))continue; feito.add(g.grupo);
-      const membros=lista.filter(x=>grupoDe.get(x.marca+'|'+x.campanha_id)===g);
-      const soma=k=>membros.reduce((a,x)=>a+(+x[k]||0),0), med=membros.filter(x=>x.medido);
-      const m={...membros[0],campanha_id:g.grupo,grupo:g,n_disparos:membros.length,
-        nome:`${membros[0].nome} · ${membros.length} disparos`,
-        publico:soma('publico'),enviados:soma('enviados'),entregues:soma('entregues'),hard:soma('hard'),complaints:soma('complaints'),
-        abriram:med.length?med.reduce((a,x)=>a+(+x.abriram||0),0):null,clicaram:med.length?med.reduce((a,x)=>a+(+x.clicaram||0),0):null,
-        medido:med.length===membros.length,truncado:membros.some(x=>x.truncado),real:null,
-        enviado_em:membros.map(x=>x.enviado_em).sort().pop(),
-        rec:{pedidos:g.pedidos,receita:g.receita,assistidos:g.assistidos,utm_ambiguo:false,grupo:true}};
-      m.entrega_pct=G.pct(m.entregues,m.enviados,2);m.abertura_pct=G.pct(m.abriram,m.entregues);
-      m.ctr_pct=G.pct(m.clicaram,m.entregues,2);m.ctor_pct=G.pct(m.clicaram,m.abriram);m.compl_pct=G.pct(m.complaints,m.entregues,3);
-      out.push(m);
-    }
-    return out.sort((a,b)=>String(b.enviado_em).localeCompare(String(a.enviado_em)));
-  },
-  _pecas(api,marca,ini,fim,rec){
-    return (api.crm_campanha||[])
-      .filter(c=>marca==='todas'||c.marca===marca)
-      .filter(c=>c.tipo!=='agendada')
-      .filter(c=>G.noPeriodo(G.diaBR(c.enviado_em),ini,fim))
-      .map(c=>({...c,
-        rec:rec.get(c.marca+'|'+c.campanha_id)||null,
-        entrega_pct:G.pct(c.entregues,c.enviados,2),
-        abertura_pct:G.pct(c.abriram,c.entregues),
-        ctr_pct:G.pct(c.clicaram,c.entregues,2),
-        ctor_pct:G.pct(c.clicaram,c.abriram),
-        compl_pct:G.pct(c.complaints,c.entregues,3),
-        real:G.aberturaConfiavel(c.aberturas_provedor),
-        medido:c.abriram!==null&&c.abriram!==undefined}))
-      .sort((a,b)=>String(b.enviado_em).localeCompare(String(a.enviado_em)));
-  },
-  totais(cs,conv){
-    const m=cs.filter(c=>c.medido),s=(a,k)=>a.reduce((x,c)=>x+(+c[k]||0),0);
-    return {pecas:cs.length,medidas:m.length,enviados:s(cs,'enviados'),entregues:s(cs,'entregues'),
-      abriram:s(m,'abriram'),clicaram:s(m,'clicaram'),hard:s(cs,'hard'),complaints:s(cs,'complaints'),
-      ctr:G.pct(s(m,'clicaram'),s(m,'entregues'),2),ctor:G.pct(s(m,'clicaram'),s(m,'abriram')),
-      complPct:G.pct(s(cs,'complaints'),s(cs,'entregues'),3),hardPct:G.pct(s(cs,'hard'),s(cs,'enviados'),2),
-      receita:conv.reduce((a,c)=>a+c.receita,0),
-      receitaAssist:conv.reduce((a,c)=>a+c.receita_assist,0),
-      pedidos:conv.reduce((a,c)=>a+c.pedidos,0)};
-  },
-  alertas(cs,tot,api){
-    const a=[],t=cs.filter(c=>c.truncado);
-    if(t.length)a.push({t:'ruim',m:`${t.length} disparo(s) não saíram inteiros — `+
-      t.slice(0,2).map(c=>`#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
-    if(tot.hardPct!==null&&tot.hardPct>=0.5)a.push({t:'ruim',
-      m:`Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
-    if(tot.complPct!==null&&tot.complPct>=0.08)a.push({t:'ruim',
-      m:`Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
-    const nm=cs.length-tot.medidas;
-    if(nm)a.push({t:'aviso',m:`${nm} peça(s) sem abertura/clique medidos: o rastreamento do Listmonk só começou em 19/07/2026. Gravado como NULL, nunca zero.`});
-    const g=api.gerado_em?(Date.now()-new Date(api.gerado_em))/36e5:null;
-    if(g!==null&&g>3)a.push({t:'ruim',m:`Última coleta há ${g.toFixed(1)}h — o snapshot deveria rodar a cada 30 min.`});
-    return a;
-  },
-
-  /* ---------- teste A/B ---------- */
-  // Aproximação normal de duas proporções. Só vale com contagens razoáveis;
-  // abaixo de 5 sucessos/fracassos por braço devolve poucos_dados e o painel NÃO conclui.
-  zParaP(z){
-    const x=Math.abs(z),t=1/(1+0.2316419*x),d=0.3989423*Math.exp(-x*x/2);
-    const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
-    return +(2*p).toFixed(4);
-  },
-  compara(a,b){
-    if(!a||!b||!a.n||!b.n)return{status:'sem_dados'};
-    const pa=a.x/a.n,pb=b.x/b.n;
-    if(a.x<5||b.x<5||a.n-a.x<5||b.n-b.x<5)return{status:'poucos_dados',pa,pb,dif:100*(pb-pa)};
-    const pp=(a.x+b.x)/(a.n+b.n),se=Math.sqrt(pp*(1-pp)*(1/a.n+1/b.n));
-    if(!se)return{status:'sem_dados'};
-    const z=(pb-pa)/se,p=G.zParaP(z);
-    return{status:p<0.05?'conclusivo':'inconclusivo',pa,pb,z:+z.toFixed(2),p,
-      dif:100*(pb-pa),vencedor:pb>pa?'b':'a'};
-  },
-  amostraNecessaria(pBase,efeitoPP){
-    const p1=pBase,p2=pBase+efeitoPP/100;
-    if(p2<=0||p2>=1||!efeitoPP)return null;
-    const pm=(p1+p2)/2,d=Math.abs(p2-p1);
-    return Math.ceil(2*Math.pow(1.96*Math.sqrt(2*pm*(1-pm))+0.84*Math.sqrt(p1*(1-p1)+p2*(1-p2)),2)/(2*d*d));
-  },
-  metricaDoBraco(api,teste,braco){
-    const c=(api.crm_campanha||[]).find(x=>String(x.campanha_id)===String(braco.campanha_id));
-    const m=teste.metrica_primaria;
-    if(m==='ctor'&&c&&c.abriram)  return{n:c.abriram,x:c.clicaram??0,rot:'CTOR'};
-    if(m==='ctr'&&c&&c.entregues) return{n:c.entregues,x:c.clicaram??0,rot:'CTR'};
-    if(m==='conversao'&&c&&c.entregues){
-      const ped=(api.crm_conversao||[])
-        .filter(r=>r.marca===teste.marca&&r.utm_term===braco.utm_term)
-        .reduce((a,r)=>a+(+r.pedidos_ultimo||0),0);
-      return{n:c.entregues,x:ped,rot:'Conversão'};
-    }
-    return null;
-  },
-};
-
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-let API=null,MARCA='todas',SEC='visao',METRICA='receita',CMP=true;
+let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
 const HOJE=G.diaBR(new Date());
 let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
@@ -631,8 +339,7 @@ function grafico(atual,ant){
   const vals=[...atual.map(p=>p.v),...(CMP?ant.map(p=>p.v):[])].filter(v=>v!==null);
   const max=Math.max(1,...vals);
   const x=i=>P.l+i*(W-P.l-P.r)/Math.max(1,atual.length-1),y=v=>H-P.b-(v/max)*(H-P.t-P.b);
-  const linha=s=>s.map((p,i)=>p.v===null?null:`${x(i)},${y(p.v)}`).filter(Boolean)
-    .map((c,i)=>(i?'L':'M')+c).join(' ');
+  const linha=s=>{let open=false;return s.map((p,i)=>{if(p.v===null){open=false;return '';}const cmd=open?'L':'M';open=true;return `${cmd}${x(i)},${y(p.v)}`;}).join(' ');};
   const antVazia=CMP&&ant.length&&ant.every(p=>p.v===null);
   const eixo=[0,.5,1].map(f=>{const v=max*f;return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}"
     stroke="var(--borda)"/><text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)"
@@ -662,7 +369,7 @@ function grafico(atual,ant){
 
 function renderTestes(){
   const ts=API.crm_teste||[],bs=API.crm_teste_braco||[];
-  const meus=ts.filter(t=>MARCA==='todas'||t.marca===MARCA);
+  const meus=ts.filter(t=>(MARCA==='todas'||t.marca===MARCA)&&(CANAL==='todos'||t.canal===CANAL));
   $('#n-ab').textContent=meus.length||'';
   if(!meus.length){
     $('#area-testes').innerHTML=`<div class="vazio">Nenhum teste registrado.<br>
@@ -759,22 +466,16 @@ function render(){
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
   const GRAO=($('#sel-grao')||{}).value||'peca';
-  const cs=G.campanhas(API,MARCA,ini,fim),conv=G.conversao(API,MARCA,ini,fim,GRAO);
+  const cs=G.campanhas(API,MARCA,ini,fim,true,CANAL),conv=G.conversao(API,MARCA,ini,fim,GRAO,CANAL);
   const tot=G.totais(cs,conv);
-  const totA=G.totais(G.campanhas(API,MARCA,ant.ini,ant.fim),G.conversao(API,MARCA,ant.ini,ant.fim));
-  const medidoAnt=ant.fim>=G.TRACKING_DESDE;
 
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API)
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  $('#area-kpis').innerHTML=[
-    {r:'Receita atribuída',v:rf(tot.receita),d:G.delta(tot.receita,totA.receita,true),s:`${nf(tot.pedidos)} pedidos · último clique`},
-    {r:'CTOR',v:pf(tot.ctor),d:G.delta(tot.ctor,totA.ctor,medidoAnt),s:'clicou ÷ abriu — mede a peça'},
-    {r:'CTR',v:pf(tot.ctr),d:G.delta(tot.ctr,totA.ctr,medidoAnt),s:'clicou ÷ entregue'},
-    {r:'Reclamação',v:pf(tot.complPct),d:G.delta(tot.complPct,totA.complPct,true),s:`limite SES 0,1% · ${nf(tot.complaints)} no período`},
-  ].map(k=>`<div class="kpi"><div class="kpi-rot">${k.r}</div>
-    <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
-    <div class="kpi-rodape">${chip(k.d)}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+  GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows});
+  $('#campaign-email-block').hidden=CANAL==='whatsapp';
+  $('#email-comparison-block').hidden=CANAL==='whatsapp';
+  $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
 
   // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
   const umDia = ini===fim;
@@ -782,11 +483,11 @@ function render(){
   const hojeIso = G.diaBR(new Date());
   const lim = (umDia && ini===hojeIso) ? agoraH : undefined;
   let sAtual=null, sAnt=null, porHora=false;
-  if(umDia){
-    const a=G.serieHora(API,MARCA,ini,METRICA,lim);
-    if(a){ sAtual=a; sAnt=G.serieHora(API,MARCA,ant.ini,METRICA,lim)||Array(24).fill(null).map((_,i)=>({d:String(i).padStart(2,'0')+'h',v:null})); porHora=true; }
+  if(umDia&&METRICA==='cliques'&&CANAL!=='whatsapp'){
+    const a=G.serieHora(API,MARCA,ini,METRICA,lim,'email');
+    if(a){ sAtual=a; sAnt=G.serieHora(API,MARCA,ant.ini,METRICA,lim,'email')||Array(24).fill(null).map((_,i)=>({d:String(i).padStart(2,'0')+'h',v:null})); porHora=true; }
   }
-  if(!porHora){ sAtual=G.serie(API,MARCA,ini,fim,METRICA); sAnt=G.serie(API,MARCA,ant.ini,ant.fim,METRICA); }
+  if(!porHora){ sAtual=GD.series(G,API,MARCA,ini,fim,METRICA,CANAL); sAnt=GD.series(G,API,MARCA,ant.ini,ant.fim,METRICA,CANAL); }
   const temAnt=CMP&&sAnt.some(p=>p.v!==null);
   grafico(sAtual,sAnt);
   const ultConv=(API.crm_conversao||[]).reduce((a,r)=>{const d=String(r.coletado_em||'');return d>a?d:a;},'');
@@ -794,7 +495,9 @@ function render(){
   $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
     temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
     porHora?'<span>por hora, acumulado'+(lim!==undefined?' · comparação até a mesma hora':'')+'</span>':'',
-    (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':''].filter(Boolean).join('');
+    (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':'',
+    fim===hojeIso?'<span>Hoje é parcial</span>':'',
+    ['entregues','falhas'].includes(METRICA)?'<span>Status dos disparos registrados em cada dia · WhatsApp próprio</span>':''].filter(Boolean).join('');
 
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
@@ -879,7 +582,7 @@ function render(){
     o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
     ignora UTM e não serve.`;
 
-  const fl=G.regua(API,MARCA,ini,fim);
+  const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
   $('#n-regua').textContent=fl.length||'';
   $('#regua-rot').textContent=fl.length?`${fl.length} peças`:'';
   const cvr=G.campVsRegua(API,MARCA,ini,fim);
@@ -894,25 +597,9 @@ function render(){
         <div class="num tabn">${nf(x.env)}</div>
         <div><span class="tag email">e-mail</span></div></div>`).join('');
   }
-  $('#tab-regua tbody').innerHTML=fl.length?fl.map(r=>`
-    <tr><td><strong>${esc(r.piece)}</strong><div class="mini">${esc(r.flow)}</div></td>
-      <td><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></td>
-      <td class="num tabn">${nf(r.enviados)}</td>
-      <td class="num tabn">${nf(r.pedidos)}</td>
-      <td class="num tabn destaque">${rf(r.receita)}</td>
-      <td class="num tabn">${nf(r.assist)}</td>
-      <td class="num tabn">${rf(r.receita_assist)}</td>
-      <td class="num tabn">${r.porMil===null?'—':r.porMil}</td></tr>`).join('')
-    :'<tr><td colspan="8"><div class="vazio">Nenhum envio de régua no período.</div></td></tr>';
-  const anom=G.REGUA_ANOMALIAS.filter(a=>G.noPeriodo(a.dia,ini,fim)&&(MARCA==='todas'||a.marca===MARCA));
-  $('#nota-regua').innerHTML=`Fonte: <code>crm_fluxo</code> (view sobre o log de envios, só e-mail —
-    o WhatsApp roda na Reportana e ainda não é medido). Pedido/receita vêm da atribuição por
-    <code>utm_content</code>; peça sem linha de conversão no dia conta como zero atribuído.
-    Sem abertura/clique: a régua sai por SES direto, sem rastreio do Listmonk. Medida desde 16/08/2026.`+
-    anom.map(a=>`<div class="mini" style="margin-top:6px"><strong>${a.dia.split('-').reverse().join('/')}
-      · ${G.MARCA[a.marca]||a.marca} · ${esc(a.piece)}:</strong> ${a.motivo}.</div>`).join('');
+  GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL});
 
-  const fila=G.fila(API,MARCA);
+  const fila=G.fila(API,MARCA,CANAL);
   $('#painel-fila').hidden=!fila.length;
   if(fila.length){
     $('#fila-rot').textContent=`${fila.length} agendada${fila.length>1?'s':''}`;
@@ -949,7 +636,7 @@ function render(){
         <div><span class="mini">Entrega</span><strong class="tabn">${pf(c.entrega_pct)}</strong><span class="mini">${nf(c.entregues)} de ${nf(c.enviados)}</span></div>
         <div><span class="mini">Reclamação</span><strong class="tabn ${c.compl_pct>=0.08?'vm':''}">${pf(c.compl_pct)}</strong><span class="mini">${nf(c.complaints)} · limite SES 0,1%</span></div>
         <div><span class="mini">Rejeição permanente</span><strong class="tabn">${nf(c.hard)}</strong><span class="mini">hard bounce</span></div>
-        <div><span class="mini">Abertura real</span>${c.grupo?'<span class="mini">soma de disparos</span>':real}</div>
+        <div><span class="mini">Abertura por provedor</span>${c.grupo?'<span class="mini">soma de disparos</span>':real}</div>
         <div><span class="mini">UTM</span><code>${esc(c.utm_campaign||'sem utm')}</code><br><code>${esc(c.utm_content||'—')}</code></div>
         ${c.grupo?`<div><span class="mini">Disparos no grupo</span><strong>#${esc(c.grupo.grupo)}</strong><span class="mini">mesmo e-mail, bases diferentes</span></div>`:''}
       </div></td></tr>`;
@@ -957,11 +644,11 @@ function render(){
   document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
-    e-mail que cai no spam conta como entregue. <strong>Abertura real</strong> mostra quanto da abertura veio
+    e-mail que cai no spam conta como entregue. <strong>Abertura por provedor</strong> mostra quanto da abertura veio
     de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.
     <strong>Receita</strong> é só de último clique, casada por <code>utm_campaign + utm_content + utm_term</code>
     na view <code>crm_campanha_receita</code> — receita assistida fica de fora de propósito: aqui a pergunta é
-    qual e-mail vendeu, não como dividir crédito com a mídia paga.`+
+    qual e-mail gerou receita atribuída. Os disparos são selecionados pela data de envio; a receita desta tabela é acumulada e pode incluir compras fora do período selecionado.`+
     (ambig?`<div class="mini" style="margin-top:6px"><strong>${ambig} peça(s) marcada(s) como indivisível:</strong>
       usam a mesma tupla de UTM que outra peça e não estão no mesmo grupo. Aparece em branco,
       nunca como zero — zero diria "não vendeu".</div>`:'')+
@@ -998,8 +685,24 @@ function render(){
   $('#f-cb').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
 
   shrigmaFrescor(API,$('#frescor'));   // gerado_em era a hora da API, sempre "agora"
-  $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  $('#d-ini').value=ini;$('#d-fim').value=fim;
+  $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'});
+  $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
+}
+
+function setCanal(canal){
+  if(!['todos','email','whatsapp'].includes(canal))return;
+  CANAL=canal;salvaPref({canal});
+  document.querySelectorAll('#seg-canal button').forEach(b=>{const on=b.dataset.canal===canal;b.classList.toggle('ativo',on);b.setAttribute('aria-pressed',String(on));});
+  const onlyEmail=['cliques','complaints','novos_subs'],onlyWA=['entregues','falhas'];
+  if((canal==='whatsapp'&&onlyEmail.includes(METRICA))||(canal==='email'&&onlyWA.includes(METRICA)))METRICA='receita';
+  for(const o of $('#sel-metrica').options)o.disabled=(canal==='whatsapp'&&onlyEmail.includes(o.value))||(canal==='email'&&onlyWA.includes(o.value));
+  $('#sel-metrica').value=METRICA;render();
+}
+function openFlows(canal){
+  setCanal(canal);SEC='regua';salvaPref({sec:SEC});
+  document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
+  ativaBotao('#secoes button','s',SEC);
+  $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function chave(){
@@ -1008,19 +711,33 @@ function chave(){
   return k;
 }
 async function carregar(){
-  const k=chave();if(!k)return;
+  if(LOADING)return;
+  const k=chave();if(!k){$('#load-state').textContent='Informe a chave de Growth para consultar os dados.';return;}
+  LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
+  if(!API)$('#load-state').hidden=false;
   try{
-    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}`);
-    if(r.status===401){shrigmaEsqueceChave("growth");location.reload();return;}
-    API=await r.json();
-    shrigmaMarcaMestra(k, API._painel);
-    // faixa de credencial antes do render: se uma chave morreu, o que vem
-    // abaixo pode estar velho sem acusar erro.
-    if(window.avisoCredencial) window.avisoCredencial(API.crm_credencial||[]);
-    // saude do WhatsApp por WABA: chip no cabecalho + faixa vermelha se alguma parou.
-    if(window.avisoWhatsApp) window.avisoWhatsApp(API.wa_saude||[]);
+    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{signal:AbortSignal.timeout(45000)});
+    if(r.status===401){shrigmaEsqueceChave("growth");throw new Error('Chave inválida. Clique em Atualizar para informar a chave novamente.');}
+    if(!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);
+    const next=await r.json();
+    if(!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
+    API=next;
+    const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
+    if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
+    shrigmaMarcaMestra(k,API._painel);
+    if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
+    if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
     render();
-  }catch(e){$('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim">Falha ao ler a API: ${esc(e.message)}</div>`;}
+    $('#load-state').hidden=true;
+    $('#atualizado-em').textContent='Consulta às '+new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'})+' · atualiza a cada 60s';
+  }catch(e){
+    $('#load-state').hidden=true;
+    $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(e.name==='TimeoutError'?'A consulta demorou além do esperado.':e.message)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
+    $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
+    $('#tentar-novamente').onclick=()=>carregar();
+  }finally{
+    LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
+  }
 }
 async function salvarTeste(){
   const msg=$('#f-msg');msg.textContent='';
@@ -1054,6 +771,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
   if(p.preset&&ativaBotao('#presets button','p',p.preset))PER=G.preset(p.preset,HOJE);
   else if(p.ini&&p.fim&&p.fim<=HOJE){PER={ini:p.ini,fim:p.fim};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));}
+  if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
   if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 })();
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
@@ -1069,10 +787,12 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);salvaPref({preset:b.dataset.p,ini:null,fim:null});render();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
-  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
+  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b||b>G.diaBR(new Date()))return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();});
+document.querySelectorAll('#seg-canal button').forEach(b=>b.onclick=()=>setCanal(b.dataset.canal));
+$('#btn-atualizar').onclick=()=>carregar();
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
 $('#sel-grao').onchange=()=>render();
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
@@ -1082,6 +802,7 @@ $('#f-salvar').onclick=salvarTeste;
 
 
 addEventListener('resize',()=>API&&SEC==='visao'&&render());
+setCanal(CANAL);
 carregar();
 setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
 </script>
