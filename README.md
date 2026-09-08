@@ -137,10 +137,10 @@ A cobertura de e-mail permanece informativa até existir reconciliação individ
 A aba **Automações** agora separa **Envios no período**, **Operação atual** e **Templates WhatsApp**.
 O objeto `crm_operacao` é um snapshot sanitizado fornecido exclusivamente pela API autenticada
 no escopo Growth/todos. Credenciais, parâmetros de workflows e dados de clientes não entram
-no contrato do front. A API já contém a extensão, mas a gravação inicial do resumo e a
-credencial do coletor aguardam autorização específica após bloqueio de revisão automática.
-As novas abas apresentam indisponibilidade enquanto não há resumo gravado. A UI distingue
-conferência pontual de coleta automática e sinaliza dados com 15 minutos ou mais.
+no contrato do front. Após autorização específica, a coleta automática foi ativada e
+conferida pela API autenticada em 08/09/2026 às 13h37 de Brasília: 14 workflows e 23 templates,
+com todas as consultas válidas. A UI distingue conferência pontual de coleta automática
+e sinaliza dados com 15 minutos ou mais.
 
 Ativação e publicação não comprovam entrega. Modos vêm da versão publicada; serviços
 compartilhados aparecem nos filtros de marca. A última execução disponível respeita a política
@@ -149,6 +149,7 @@ Templates mostram status/categoria esperada e observada, com busca; cartões apr
 integração ainda está pendente continuam separados dos templates mapeados nos fluxos.
 O filtro de datas afeta apenas o histórico; marca e canal afetam também o inventário atual.
 
-A atualização automática proposta consulta 14 workflows e 23 templates a cada 5 minutos e guarda
-somente o resumo sanitizado. Não foi ativada nesta entrega. A ausência ou falha de coleta
-não aparece como estado saudável, e a interface não oferece controles de edição sem backend.
+A atualização automática consulta a lista explícita de 14 workflows e 23 templates a cada
+5 minutos e guarda somente o resumo sanitizado. Novos vínculos de template precisam ser
+incluídos nessa lista. A ausência ou falha de coleta não aparece como estado saudável,
+e a interface não oferece controles de edição sem backend.
