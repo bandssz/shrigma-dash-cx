@@ -14,6 +14,12 @@ const GUI = {
     const s = String(value || '').slice(0,10);
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : '—';
   },
+  timestamp(value) {
+    const date=new Date(value || '');
+    return Number.isFinite(date.valueOf()) ? new Intl.DateTimeFormat('pt-BR',{
+      timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',
+    }).format(date) : 'Não disponível';
+  },
   el(selector) { return typeof document === 'undefined' ? null : document.querySelector(selector); },
   html(selector, value) { const el=GUI.el(selector); if(el) el.innerHTML=value; },
   text(selector, value) { const el=GUI.el(selector); if(el) el.textContent=value; },
@@ -114,7 +120,48 @@ const GUI = {
         if(typeof ctx.onFlows==='function') ctx.onFlows(button.dataset.openFlows);
       }));
     }
+    GUI.attention(ctx);
     return summary;
+  },
+  attention(ctx={}) {
+    const {G,GD,marca='todas',ini='',fim='',canal='todos'}=ctx;
+    if(!G || !GD) return null;
+    const model=GD.attention(G,ctx.api || {},marca,ini,fim,canal),{wa,rows}=model;
+    const el=GUI.el('#automation-attention');
+    if(!el) return model;
+    const stats=[['falhas','Falhas na entrega'],['erros_sincronos','Erros antes do aceite'],['pendentes_entrega','Aguardando confirmação']];
+    const brand=key=>G.MARCA?.[key] || key || 'Sem marca';
+    const totals=stats.map(([key,label])=>`<div class="attention-stat${wa[key] > 0 ? key==='pendentes_entrega'?' attention-pending':' attention-occurrence':''}"><strong class="tabn">${GUI.nf(wa[key])}</strong><span>${label}</span></div>`).join('');
+    const rowHtml=row=>`<li class="attention-row"><div class="attention-identity"><span class="attention-brand">${GUI.esc(brand(row.marca))} · WhatsApp</span>
+      <strong>${GUI.esc(row.piece || 'Sem peça')}</strong><span class="flow-sub">${GUI.esc(row.flow || 'Sem fluxo')}</span>
+      <span class="attention-time">Último registro da peça: ${GUI.esc(GUI.timestamp(row.ultimo_registro_em))}</span>
+      ${row.dados_incompletos?'<span class="attention-incomplete">Contagem incompleta</span>':''}</div>
+      <div class="attention-counts">${stats.map(([key,label])=>`<div><strong class="tabn${row[key] > 0 && key!=='pendentes_entrega'?' attention-count-failure':''}">${GUI.nf(row[key])}</strong><span>${label}</span></div>`).join('')}</div>
+      <button type="button" class="refresh-btn attention-jump" data-attention-brand="${GUI.esc(row.marca)}" data-attention-flow="${GUI.esc(row.flow || 'Sem fluxo')}" aria-label="Ver automação ${GUI.esc(row.flow || 'Sem fluxo')} de ${GUI.esc(brand(row.marca))}">Ver automação →</button></li>`;
+    const state=!wa.coverage.present?'Dados de WhatsApp indisponíveis nesta consulta; não é possível avaliar as ocorrências.'
+      : !wa.coverage.complete?'O período selecionado não está totalmente coberto. Contagens incompletas aparecem como —.'
+      : !model.campos_completos?'Algumas contagens não foram informadas pela fonte e aparecem como —.'
+      : rows.length?'Peças com ocorrências registradas no período.'
+      : 'Nenhuma falha de entrega, erro antes do aceite ou aceite aguardando confirmação registrado neste recorte. Isso não confirma que os fluxos estejam ligados.';
+    const waHtml=canal==='email'?'':`<div class="attention-stats">${totals}</div><p class="attention-state">${state}</p>
+      ${rows.length?`<ul class="attention-list">${rows.map(rowHtml).join('')}</ul>`:''}
+      <details class="attention-details"><summary>O que este acompanhamento permite verificar</summary>
+        <p>Falhas e erros pertencem às tentativas registradas neste período; não indicam, sozinhos, uma falha atual da automação. Aguardando confirmação significa que a Meta aceitou a mensagem, mas ainda não há entrega ou falha registrada.</p>
+        <p>Registros sem aceite e sem erro, que podem incluir sombra, não entram nas falhas. O último registro é da peça inteira, não necessariamente da ocorrência. Este quadro não informa se o fluxo está ligado nem identifica a causa de cada erro.</p>
+        <p>Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))}. Última atualização de status disponível: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))}. Horários de Brasília. Não inclui Reportana.</p>
+      </details>`;
+    const emailHtml=canal==='whatsapp'?'':`<div class="attention-email"><div><strong>E-mail · cobertura do acompanhamento</strong>
+      <p>Campanhas Listmonk têm métricas agregadas. Nas automações via SES, esta visão mostra os envios registrados; entrega e falhas individuais ainda não são medidas aqui.</p></div>
+      <button type="button" class="refresh-btn" data-attention-email>Ver automações de e-mail →</button></div>`;
+    el.innerHTML=`<div class="painel-cab"><h2 id="attention-title">Acompanhamento das automações</h2><span class="mini">Histórico do período</span></div>
+      <p class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} · status disponíveis na consulta. Use os filtros de marca, canal e período para conferir cada operação.</p>${waHtml}${emailHtml}`;
+    el.querySelectorAll('[data-attention-flow]').forEach(button=>button.addEventListener('click',()=>{
+      if(typeof ctx.onFlows==='function')ctx.onFlows('whatsapp',{marca:button.dataset.attentionBrand,flow:button.dataset.attentionFlow});
+    }));
+    el.querySelector('[data-attention-email]')?.addEventListener('click',()=>{
+      if(typeof ctx.onFlows==='function')ctx.onFlows('email');
+    });
+    return model;
   },
   flows(ctx={}) {
     const {G,GD,marca='todas',ini='',fim='',canal='todos'}=ctx;

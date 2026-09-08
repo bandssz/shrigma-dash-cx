@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="growth.css?v=20260908-1">
+<link rel="stylesheet" href="growth.css?v=20260908-2">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
@@ -164,6 +164,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
   <div class="sec ativa" id="sec-visao">
     <div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div>
+    <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
     <section class="painel">
       <div class="painel-cab"><h2>Evolução</h2>
         <select id="sel-metrica" aria-label="Métrica do gráfico">
@@ -298,10 +299,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
-<script src="alerta-whatsapp.js?v=e4cd94da"></script>
-<script src="growth-data.js?v=20260908-1"></script>
-<script src="growth-delivery.js?v=20260908-1"></script>
-<script src="growth-ui.js?v=20260908-1"></script>
+<script src="alerta-whatsapp.js?v=20260908-2"></script>
+<script src="growth-data.js?v=20260908-2"></script>
+<script src="growth-delivery.js?v=20260908-2"></script>
+<script src="growth-ui.js?v=20260908-2"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -469,7 +470,7 @@ function render(){
   const cs=G.campanhas(API,MARCA,ini,fim,true,CANAL),conv=G.conversao(API,MARCA,ini,fim,GRAO,CANAL);
   const tot=G.totais(cs,conv);
 
-  $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API)
+  $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
   GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows});
@@ -698,8 +699,14 @@ function setCanal(canal){
   for(const o of $('#sel-metrica').options)o.disabled=(canal==='whatsapp'&&onlyEmail.includes(o.value))||(canal==='email'&&onlyWA.includes(o.value));
   $('#sel-metrica').value=METRICA;render();
 }
-function openFlows(canal){
+function openFlows(canal,selection={}){
+  if(selection.marca && ativaBotao('#seg-marca button','marca',selection.marca)){
+    MARCA=selection.marca;salvaPref({marca:MARCA});
+  }
   setCanal(canal);SEC='regua';salvaPref({sec:SEC});
+  if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
+    $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
+  }
   document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
   ativaBotao('#secoes button','s',SEC);
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});

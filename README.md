@@ -106,3 +106,27 @@ O teste de integração usa um DOM local, sem navegador ou chamadas externas. Op
 `GROWTH_LIVE_PAYLOAD` pode apontar para um payload agregado privado, fora do repositório,
 para reconciliar os indicadores com uma consulta real. A extensão da API foi aplicada separadamente,
 com backup, guarda de versão e confirmação da versão publicada.
+
+
+### Acompanhamento e saúde por conta (08/09/2026)
+
+O aviso de saúde avalia o horário de **cada conta**: uma verificação recente de uma WABA
+não encobre outra com dado antigo. Dados ausentes, inválidos, muito futuros ou com mais de
+duas horas não recebem sinal verde. Alertas antigos continuam identificados como históricos;
+um alerta do monitor não equivale à interrupção de todos os envios próprios. A visão é geral
+das contas recebidas pela API e pode incluir atividade de outros provedores.
+
+Os avisos de e-mail respeitam o canal selecionado e mantêm os limiares internos de atenção.
+Os percentuais das campanhas selecionadas não são a reputação oficial da conta SES. A AWS
+usa volume representativo e critérios próprios; o painel não infere suspensão da conta a
+partir desse recorte. Referência conferida em 08/09/2026:
+[Processo de revisão de envio SES](https://docs.aws.amazon.com/ses/latest/dg/faqs-enforcement.html).
+`gerado_em` indica a geração da consulta, não o horário de coleta de todas as suas fontes.
+
+A seção **Acompanhamento das automações** destaca falhas de entrega, erros anteriores ao
+aceite e aceites sem confirmação, agrupados por marca/fluxo/peça. Atalhos abrem Automações
+com o filtro correspondente e preservam o período. A ausência de uma contagem em qualquer
+parte da base deixa o total desconhecido, em vez de mostrar soma parcial ou zero.
+O quadro representa o histórico do recorte, não estado ligado/parado; o último registro é
+da peça inteira e não necessariamente da falha. Sombra sem erro não entra como ocorrência.
+A cobertura de e-mail permanece informativa até existir reconciliação individual SES.

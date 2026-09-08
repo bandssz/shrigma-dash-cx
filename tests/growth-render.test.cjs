@@ -84,6 +84,52 @@ test('ausência de WA não vira zero nem derruba os indicadores de e-mail',async
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'150');
  assert.equal(x.document.querySelector('#wa-coverage').hidden,true);
 });
+test('acompanhamento mostra histórico por peça e atalho filtra marca, canal e fluxo',async()=>{
+ const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);
+ p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';
+ p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';
+ const x=await boot(p),section=x.document.querySelector('#automation-attention');
+ assert.equal(section.querySelectorAll('.attention-row').length,1);
+ assert.deepEqual([...section.querySelectorAll('.attention-stat strong')].map(n=>n.textContent),['1','0','1']);
+ assert.match(section.textContent,/Histórico do período/);assert.match(section.textContent,/não informa se o fluxo está ligado/);
+ assert.match(section.querySelector('.attention-time').textContent,/07\/09\/2026, 12:30/);
+ const period=x.run('JSON.stringify(PER)');
+ section.querySelector('[data-attention-flow]').click();
+ assert.equal(x.run('SEC'),'regua');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('MARCA'),'fish');
+ assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
+ assert.equal(x.document.querySelectorAll('#tab-regua tbody tr').length,1);
+ assert.equal(x.run('JSON.stringify(PER)'),period);
+});
+test('sombra sem erro não vira atenção e acompanhamento de e-mail é informativo',async()=>{
+ const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);
+ const x=await boot(p);x.document.querySelector('[data-marca="aristo"]').click();
+ let section=x.document.querySelector('#automation-attention');
+ assert.equal(section.querySelectorAll('.attention-row').length,0);
+ assert.match(section.textContent,/Isso não confirma que os fluxos estejam ligados/);
+ section.querySelector('[data-attention-email]').click();
+ assert.equal(x.run('CANAL'),'email');assert.equal(x.run('SEC'),'regua');assert.equal(x.run('MARCA'),'aristo');
+ section=x.document.querySelector('#automation-attention');
+ assert.equal(section.querySelectorAll('.attention-stats').length,0);
+ assert.match(section.textContent,/entrega e falhas individuais ainda não são medidas/);
+ assert.equal(section.querySelectorAll('.attention-occurrence,.alerta-ruim').length,0);
+});
+test('acompanhamento informa campos e janela ausentes sem renderizar zero falso',async()=>{
+ const p=fixture();delete p.crm_wa_envios[0].falhas;
+ const x=await boot(p);let section=x.document.querySelector('#automation-attention');
+ assert.equal(section.querySelector('.attention-stat strong').textContent,'—');
+ assert.match(section.textContent,/Algumas contagens não foram informadas/);
+ assert.match(section.textContent,/Contagem incompleta/);
+ x.run("PER={ini:'2026-06-01',fim:'2026-09-07'};render();");
+ section=x.document.querySelector('#automation-attention');
+ assert([...section.querySelectorAll('.attention-stat strong')].every(n=>n.textContent==='—'));
+ assert.match(section.textContent,/não está totalmente coberto/);
+});
+test('identificadores de peça e fluxo são escapados no novo acompanhamento',async()=>{
+ const p=fixture();p.crm_wa_envios[0].piece='<img src=x onerror=bad()>',p.crm_wa_envios[0].flow='" onclick="bad()';
+ const x=await boot(p),section=x.document.querySelector('#automation-attention');
+ assert.equal(section.querySelectorAll('img,[onclick]').length,0);
+ assert.match(section.textContent,/<img src=x onerror=bad\(\)>/);
+});
 if(process.env.GROWTH_LIVE_PAYLOAD)test('payload Growth real renderiza todos os canais sem erro e reconcilia WA',async()=>{
  const p=JSON.parse(fs.readFileSync(process.env.GROWTH_LIVE_PAYLOAD,'utf8'));
  const x=await boot(p);

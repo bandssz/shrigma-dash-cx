@@ -4,6 +4,14 @@ const GD = {
   fields: ['registros','aceitos','enviados_provedor','entregues','lidos','falhas',
     'falhas_reportadas','erros_sincronos','pendentes_entrega','sem_disparo_confirmado','conflitos_status'],
   sum(rows, key) { return rows.reduce((n,r) => n + (+r[key] || 0), 0); },
+  count(value) {
+    return (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+      && Number.isSafeInteger(+value) && +value >= 0 ? +value : null;
+  },
+  sumKnown(rows, key) {
+    const values=rows.map(r=>GD.count(r[key]));
+    return values.every(v=>v !== null) ? values.reduce((n,v)=>n+v,0) : null;
+  },
   max(rows, key) { return rows.reduce((v,r) => String(r[key] || '') > v ? String(r[key]) : v, '') || null; },
   filter(rows, marca, ini, fim) {
     return (rows || []).filter(r => (marca === 'todas' || r.marca === marca)
@@ -26,8 +34,8 @@ const GD = {
     const out = {coverage, rows, ultimo_registro_em:GD.max(rows,'ultimo_registro_em'),
       ultimo_status_em:GD.max(rows,'ultimo_status_em'),
       testes_aceitos:coverage.complete?GD.sum(allRows.filter(r=>r.flow==='teste-motor'),'aceitos'):null};
-    GD.fields.forEach(k => out[k] = coverage.complete ? GD.sum(rows,k) : null);
-    out.entrega_pct = out.aceitos ? 100 * out.entregues / out.aceitos : null;
+    GD.fields.forEach(k => out[k] = coverage.complete ? GD.sumKnown(rows,k) : null);
+    out.entrega_pct = out.aceitos && out.entregues !== null ? 100 * out.entregues / out.aceitos : null;
     return out;
   },
   email(G, api, marca, ini, fim) {
@@ -56,20 +64,23 @@ const GD = {
     const coverage = GD.coverage(api,ini,fim);
     G.regua(api,marca,ini,fim,canal).filter(r=>r.flow!=='teste-motor').forEach(r => {
       const row = {...r,entregues:null,falhas:null,lidos:null,pendentes_entrega:null,
-        sem_disparo_confirmado:null,erros_sincronos:null,ultimo_registro_em:null};
-      if (r.canal === 'whatsapp') row.enviados = coverage.complete ? 0 : null;
+        sem_disparo_confirmado:null,erros_sincronos:null,ultimo_registro_em:null,ultimo_status_em:null};
+      if (r.canal === 'whatsapp') for(const field of ['enviados','entregues','falhas','lidos','pendentes_entrega','sem_disparo_confirmado','erros_sincronos']) row[field] = coverage.complete ? 0 : null;
       map.set(key(row),row);
     });
     if (canal !== 'email') GD.filter(api.crm_wa_envios,marca,ini,fim).filter(r=>r.flow!=='teste-motor').forEach(r => {
       const k = key({...r,canal:'whatsapp'});
       if (!map.has(k)) map.set(k,{marca:r.marca,canal:'whatsapp',flow:r.flow,piece:r.piece,
-        enviados:coverage.complete?0:null,pedidos:0,receita:0,assist:0,receita_assist:0});
+        enviados:0,entregues:0,falhas:0,lidos:0,pendentes_entrega:0,sem_disparo_confirmado:0,erros_sincronos:0,
+        pedidos:0,receita:0,assist:0,receita_assist:0});
       const row = map.get(k);
       for (const field of ['aceitos','entregues','falhas','lidos','pendentes_entrega','sem_disparo_confirmado','erros_sincronos']) {
         const dest = field === 'aceitos' ? 'enviados' : field;
-        row[dest] = coverage.complete ? (row[dest] || 0) + (+r[field] || 0) : null;
+        const value=GD.count(r[field]);
+        row[dest] = coverage.complete && row[dest] !== null && value !== null ? row[dest] + value : null;
       }
       row.ultimo_registro_em = GD.max([row,r],'ultimo_registro_em');
+      row.ultimo_status_em = GD.max([row,r],'ultimo_status_em');
     });
     const owners = new Map();
     for(const r of map.values()) {
@@ -85,6 +96,17 @@ const GD = {
       porMil:r.enviados ? 1000*r.pedidos/r.enviados : null}))
       .sort((a,b) => b.receita-a.receita || (+b.enviados||0)-(+a.enviados||0)
         || a.piece.localeCompare(b.piece));
+  },
+  attention(G, api, marca, ini, fim, canal='todos') {
+    const wa=GD.whatsapp(api,marca,ini,fim);
+    const fields=['falhas','erros_sincronos','pendentes_entrega'];
+    const rows=canal==='email'?[]:GD.flows(G,api,marca,ini,fim,'whatsapp')
+      .filter(row=>fields.some(field=>row[field] === null || row[field] > 0))
+      .map(row=>({...row,dados_incompletos:fields.some(field=>row[field] === null)}))
+      .sort((a,b)=>(+b.falhas||0)+(+b.erros_sincronos||0)-(+a.falhas||0)-(+a.erros_sincronos||0)
+        || (+b.pendentes_entrega||0)-(+a.pendentes_entrega||0)
+        || String(a.marca).localeCompare(String(b.marca)) || String(a.piece).localeCompare(String(b.piece)));
+    return {wa,rows,campos_completos:fields.every(field=>wa[field] !== null)};
   },
   series(G, api, marca, ini, fim, metrica, canal='todos') {
     const days = []; for (let d=ini;d<=fim;d=G.addDias(d,1)) days.push(d);

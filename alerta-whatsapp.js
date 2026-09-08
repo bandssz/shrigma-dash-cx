@@ -1,5 +1,5 @@
 /* ================== SAÚDE DO WHATSAPP ==================
-   Chip permanente no cabeçalho + faixa vermelha quando uma WABA está parada.
+   Chip permanente no cabeçalho + avisos por conta e horário de verificação.
 
    Por que existe: em 04/09/2026 a WABA transacional da Fishermans ficou 35h sem
    enviar (cartão cancelado → Meta bloqueou por pagamento, erro 131042) e ninguém
@@ -11,8 +11,8 @@
    workflow "WA · Saúde do canal" a partir do analytics da Meta — inclui o que a
    Reportana envia). Autônomo como alerta-credencial.js: injeta o próprio CSS.
 
-   Regras do painel: nunca calar sobre dado velho — se a última verificação tem
-   mais de 2h, a faixa diz isso em âmbar em vez de mostrar "ok" antigo. */
+   Cada conta tem seu próprio frescor: uma coleta recente não cobre outra antiga.
+   Alerta do monitor não comprova interrupção de todos os envios. */
 (function () {
   var CSS = [
     '.aviso-wa{display:flex;flex-wrap:wrap;gap:10px;align-items:center;',
@@ -39,9 +39,30 @@
   }
 
   function horaBR(iso) {
-    if (!iso) return '-';
+    if (!iso || !Number.isFinite(new Date(iso).getTime())) return 'sem data válida';
     var d = new Date(iso);
     return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function avaliar(lista, agora) {
+    var rows = (Array.isArray(lista) ? lista : []).filter(function (w) { return w && typeof w === 'object'; });
+    var contas = rows.map(function (w) {
+      var stamp = w.verificado_em ? new Date(w.verificado_em).getTime() : NaN;
+      var atual = Number.isFinite(stamp) && agora - stamp <= 2 * 3600000 && stamp <= agora + 300000;
+      return {dado:w, atual:atual, conhecido:w.estado === 'ok' || w.estado === 'alerta'};
+    });
+    return {
+      contas:contas,
+      alertas:contas.filter(function (c) { return c.atual && c.dado.estado === 'alerta'; }),
+      semColeta:contas.filter(function (c) { return !c.atual; }),
+      desconhecidas:contas.filter(function (c) { return c.atual && !c.conhecido; })
+    };
   }
 
   /* Chip no bloco .status do cabeçalho, ao lado do frescor. Criado uma vez. */
@@ -64,54 +85,52 @@
     var velho = document.getElementById('aviso-wa');
     if (velho) velho.remove();
     var c = chip();
-    lista = lista || [];
-
-    if (!lista.length) {
-      if (c) { c.className = 'frescor wa-velho'; c.textContent = 'WhatsApp · sem saúde'; c.title = 'Tabela shrigma_wa_saude vazia — o workflow "WA · Saúde do canal" ainda não rodou.'; }
-      return;
-    }
-
-    var ruins = lista.filter(function (w) { return w.estado === 'alerta'; });
-    var ultima = Math.max.apply(null, lista.map(function (w) { return new Date(w.verificado_em).getTime() || 0; }));
-    var velhoMs = Date.now() - ultima;
-    var semColeta = velhoMs > 2 * 3600 * 1000;
+    var resumo = avaliar(lista, Date.now());
+    var ruins = resumo.alertas;
+    var pendentes = resumo.semColeta.length + resumo.desconhecidas.length;
+    var total = resumo.contas.length;
 
     if (c) {
       if (ruins.length) {
         c.className = 'frescor wa-ruim';
-        c.textContent = 'WhatsApp · ' + ruins.length + ' de ' + lista.length + ' parada' + (ruins.length > 1 ? 's' : '');
-      } else if (semColeta) {
+        c.textContent = 'WhatsApp · ' + ruins.length + ' conta(s) em alerta' + (pendentes ? ' · ' + pendentes + ' sem confirmação atual' : '');
+      } else if (pendentes || !total) {
         c.className = 'frescor wa-velho';
-        c.textContent = 'WhatsApp · saúde de ' + horaBR(new Date(ultima).toISOString());
+        c.textContent = total ? 'WhatsApp · ' + pendentes + ' conta(s) sem confirmação atual' : 'WhatsApp · saúde indisponível';
       } else {
         c.className = 'frescor wa-ok';
-        c.textContent = 'WhatsApp ok · ' + lista.length + ' WABAs';
+        c.textContent = 'WhatsApp · sem alertas em ' + total + ' conta(s)';
       }
-      c.title = lista.map(function (w) {
-        return w.nome + ': ' + w.sent_3h + ' envios/3h · ' + w.sent_24h + '/24h · média ' + Math.round(w.media_dia_7d) + '/dia';
-      }).join('\n') + '\nVerificado ' + horaBR(new Date(ultima).toISOString());
+      c.title = 'Saúde geral das contas recebidas nesta consulta; inclui atividade de outros provedores.\n' + resumo.contas.map(function (item) {
+        var w = item.dado;
+        return (w.nome || 'Conta sem nome') + ': ' + (item.atual ? (item.conhecido ? w.estado : 'estado desconhecido') : 'verificação desatualizada ou inválida') + ' · verificado ' + horaBR(w.verificado_em);
+      }).join('\n');
     }
 
     if (!alvo) return;
     var div = document.createElement('div');
     div.id = 'aviso-wa';
 
-    if (ruins.length) {
-      div.className = 'aviso-wa grave';
-      div.innerHTML = '<b>WhatsApp parado</b>' + ruins.map(function (w) {
-        return '<span class="wa-chip">' + w.nome + '</span> <span>' + (w.motivo || '') +
-               ' · desde ' + horaBR(w.alerta_desde) + '</span>';
-      }).join(' ') +
-      '<span class="wa-obs">Enquanto estiver assim, carrinho, rastreio e pedido pago não chegam ao cliente. ' +
-      'Conferir Faturamento → WhatsApp no Business Manager da marca.</span>';
+    if (ruins.length || pendentes || !total) {
+      div.className = 'aviso-wa ' + (ruins.length ? 'grave' : 'aviso');
+      div.innerHTML = '<b>Saúde geral do WhatsApp</b>' + (!total ? '<span>Nenhuma verificação disponível nesta consulta.</span>' : '') +
+        ruins.map(function (item) {
+          var w = item.dado;
+          return '<span class="wa-chip">' + esc(w.nome || 'Conta sem nome') + '</span><span>' + esc(w.motivo || 'Alerta registrado pelo monitor') +
+            ' · verificado ' + horaBR(w.verificado_em) + '</span>';
+        }).join(' ') +
+        resumo.semColeta.map(function (item) {
+          var w = item.dado;
+          return '<span class="wa-chip">' + esc(w.nome || 'Conta sem nome') + '</span><span>Sem verificação atual · ' + horaBR(w.verificado_em) +
+            (w.estado === 'alerta' ? ' · último alerta: ' + esc(w.motivo || 'sem detalhe') : '') + '</span>';
+        }).join(' ') +
+        resumo.desconhecidas.map(function (item) {
+          return '<span class="wa-chip">' + esc(item.dado.nome || 'Conta sem nome') + '</span><span>Estado não reconhecido · verificado ' + horaBR(item.dado.verificado_em) + '</span>';
+        }).join(' ') +
+        '<span class="wa-obs">O monitor considera toda a atividade da conta, inclusive outros provedores. Confira o motivo e a data de cada conta; este resumo não comprova falha de todos os envios próprios.</span>';
       alvo.insertAdjacentElement('afterend', div);
-      return;
     }
-    if (semColeta) {
-      div.className = 'aviso-wa aviso';
-      div.innerHTML = '<b>Saúde do WhatsApp sem coleta</b><span>última verificação ' + horaBR(new Date(ultima).toISOString()) +
-        '</span><span class="wa-obs">O "ok" acima é velho. O workflow "WA · Saúde do canal" roda de hora em hora — ver execuções no n8n.</span>';
-      alvo.insertAdjacentElement('afterend', div);
-    }
+    return resumo;
   };
+  if (typeof module !== 'undefined' && module.exports) module.exports = {avaliar:avaliar};
 })();

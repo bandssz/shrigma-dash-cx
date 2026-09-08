@@ -278,18 +278,21 @@ const G = {
       receitaAssist:conv.reduce((a,c)=>a+c.receita_assist,0),
       pedidos:conv.reduce((a,c)=>a+c.pedidos,0)};
   },
-  alertas(cs,tot,api){
-    const a=[],t=cs.filter(c=>c.truncado);
+  alertas(cs,tot,api,options={}){
+    const a=[],email=options.canal!=='whatsapp',t=email?cs.filter(c=>c.truncado):[];
     if(t.length)a.push({t:'ruim',m:`${t.length} disparo(s) não saíram inteiros — `+
       t.slice(0,2).map(c=>`#${c.campanha_id} enviou ${(c.enviados||0).toLocaleString('pt-BR')} de ${(c.publico||0).toLocaleString('pt-BR')}`).join(' · ')});
-    if(tot.hardPct!==null&&tot.hardPct>=0.5)a.push({t:'ruim',
-      m:`Rejeição permanente em ${tot.hardPct}% — a SES alerta em 2% e suspende em 5%. Higiene de base antes do próximo disparo.`});
-    if(tot.complPct!==null&&tot.complPct>=0.08)a.push({t:'ruim',
-      m:`Reclamação em ${tot.complPct}% — limite da SES é 0,1%.`});
-    const nm=cs.filter(c=>!c.medido||!c.medido_clique).length;
+    // Limiares abaixo são avisos internos para o recorte, não limites de suspensão SES.
+    // A reputação SES usa volume representativo próprio, não o período selecionado.
+    // https://docs.aws.amazon.com/ses/latest/dg/faqs-enforcement.html
+    if(email&&tot.hardPct!==null&&tot.hardPct>=0.5)a.push({t:'ruim',
+      m:`Rejeições permanentes: ${tot.hardPct}% dos envios das campanhas selecionadas. Revise a base antes do próximo disparo e confira a reputação da conta no SES; este percentual não determina o estado da conta.`});
+    if(email&&tot.complPct!==null&&tot.complPct>=0.08)a.push({t:'ruim',
+      m:`Reclamações: ${tot.complPct}% das entregas das campanhas selecionadas. Investigue a origem e confira a reputação no SES, que usa outra base de cálculo.`});
+    const nm=email?cs.filter(c=>!c.medido||!c.medido_clique).length:0;
     if(nm)a.push({t:'aviso',m:`${nm} peça(s) sem medição completa de abertura/clique. As taxas usam apenas a base medida para cada indicador; ausência aparece sem dado, nunca como zero.`});
     const g=api.gerado_em?(Date.now()-new Date(api.gerado_em))/36e5:null;
-    if(g!==null&&g>3)a.push({t:'ruim',m:`Última coleta há ${g.toFixed(1)}h — o snapshot deveria rodar a cada 30 min.`});
+    if(g!==null&&g>3)a.push({t:'ruim',m:`Dados desta consulta gerados há ${g.toFixed(1)}h. Atualize o painel; cada origem tem seu próprio horário de coleta.`});
     return a;
   },
 
