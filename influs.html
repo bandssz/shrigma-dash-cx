@@ -679,6 +679,13 @@ function renderTabela(){
 // (associar ou criar) ou nao e (CRM / campanha / cortesia / suporte / outro) -- e so
 // depois entra ou sai da conta. Nada de novo na API: e o salvar_cupom de sempre.
 const fmtData=d=>{const [a,m,dd]=String(d).slice(0,10).split('-');return dd&&m?`${dd}/${m}/${a.slice(2)}`:String(d);};
+// Quem esta mexendo: vai para crm_cupom_log/autor. Pergunta uma vez e guarda no navegador.
+function autorAtual(){
+  let a=localStorage.getItem('shrigma_autor')||'';
+  if(!a){a=(prompt('Seu nome (fica no histórico de quem classificou/editou):')||'').trim().slice(0,60);
+    if(a)localStorage.setItem('shrigma_autor',a);}
+  return a;
+}
 const TIPO_ROTULO={crm:'CRM (régua/e-mail)',campanha:'Campanha',cortesia:'Cortesia',suporte:'Suporte / CX',desconhecido:'Outro'};
 function renderInbox(){
   const el=$('#i-inbox'); if(!el)return;
@@ -716,7 +723,7 @@ async function classificarCupom(marca,cod,tipo,influ,msg,it){
   it.querySelectorAll('button,select').forEach(x=>x.disabled=true);
   msg.textContent='salvando…';
   try{
-    const j=await influPost({k:wk,acao:'salvar_cupom',autor:(localStorage.getItem('shrigma_autor')||''),cupom:{marca,codigo:cod,tipo,influ:influ||undefined}});
+    const j=await influPost({k:wk,acao:'salvar_cupom',autor:autorAtual(),cupom:{marca,codigo:cod,tipo,influ:influ||undefined}});
     if(!j.ok)throw new Error(j.erro||'cupom não encontrado');
     msg.textContent='ok, atualizando…'; await carregarInflu();
   }catch(e){msg.textContent='falhou: '+esc(e.message);it.querySelectorAll('button,select').forEach(x=>x.disabled=false);}
@@ -748,7 +755,7 @@ async function repetirCustos(marca,de,para,msg,bt){
   bt.disabled=true; let ok=0;
   for(const c of linhas){
     msg.textContent=`${ok+1}/${linhas.length} ${c.influ}…`;
-    try{await influPost({k:wk,acao:'salvar_custo',autor:(localStorage.getItem('shrigma_autor')||''),
+    try{await influPost({k:wk,acao:'salvar_custo',autor:autorAtual(),
       custo:{marca,influ:c.influ,competencia:para,fixo:c.fixo,produto:c.produto,frete:c.frete,obs:`repetido de ${de}`}});ok++;}
     catch(e){msg.textContent=`parou em ${c.influ}: ${esc(e.message)} (${ok} lançados)`;bt.disabled=false;return;}
   }
@@ -817,7 +824,7 @@ async function salvarNovoCreator(box,marca,cod){
   const temCusto=[fixo,prod,frete].some(v=>v!==''&&+v>0);
   if(temCusto&&!/^\d{4}-\d{2}$/.test(comp)){msg.textContent='competência AAAA-MM';return;}
   const wk=chaveEscritaInflu();if(!wk)return;
-  const autor=(localStorage.getItem('shrigma_autor')||'');
+  const autor=autorAtual();
   bt.disabled=true; let passo='criar creator';
   try{
     msg.textContent='1/3 criando creator…';
@@ -849,7 +856,7 @@ async function salvarCupom(tr){
   const wk=chaveEscritaInflu();if(!wk)return;
   bt.disabled=true;msg.textContent='…';
   try{
-    const j=await influPost({k:wk,acao:'salvar_cupom',autor:(localStorage.getItem('shrigma_autor')||''),
+    const j=await influPost({k:wk,acao:'salvar_cupom',autor:autorAtual(),
       cupom:{marca:tr.dataset.marca,codigo:tr.dataset.cod,tipo,influ}});
     msg.textContent=j.ok?(j.alteracoes?'salvo':'sem mudança'):'cupom não encontrado';
     if(j.ok&&j.alteracoes)await carregarInflu();
