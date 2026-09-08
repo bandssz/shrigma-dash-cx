@@ -127,8 +127,18 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .inbox-item .ib-host{grid-column:1/-1}
 .inbox-cod{font-size:15px;background:#fdf6e3;padding:1px 6px;border-radius:5px}
 .inbox-acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.inbox-acoes .btn{padding:5px 9px;font-size:12px}
+.inbox-titulo{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.inbox-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:500 11.5px/1.6 var(--ui);background:var(--neutro-bg,#f3f3f1);border:1px solid var(--borda,#e7e4de);border-radius:20px;padding:0 8px}
+.inbox-acoes .btn{padding:8px 14px;font-size:13px;border-radius:9px}
+.inbox-acoes .ib-sim{background:#22808d;color:#fff;border:1px solid #22808d;font-weight:700;display:inline-block}
 .inbox-acoes .ib-nao{background:#fff;border:1px solid var(--ruim,#c9463d);color:var(--ruim,#c9463d);font-weight:700}
+.ib-sel-wrap{position:relative;display:inline-block}
+.ib-sel-wrap select{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.ib-fino .ib-link{text-decoration:underline dotted;cursor:pointer}
+.i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
+.i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
+.i-cod code{font-size:14px}
 @media(max-width:720px){.inbox-item{grid-template-columns:1fr}}
 .i-alerta{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .i-alerta-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -641,32 +651,41 @@ function renderTabela(){
       v&&+v.patrocinio>0?`custo total ${rf(v.investimento_total)} · retorno total ${v.roi_total?(+v.roi_total).toFixed(2)+'x':'—'}`:'',
       c.obs?esc(c.obs):'', v&&v.obs?esc(v.obs):''
     ].filter(Boolean).join(' · ');
+    // Linha = leitura. Reclassificar (creator/tipo) mora no detalhe, atras do "+".
+    const MODELO={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta'};
+    const creator=v?`<strong>${esc(v.nome||c.influ)}</strong>${v.handle?` <span class="mini">${esc(v.handle)}</span>`:''}
+        <div class="mini">${v.modelo?`<span class="tag nulo">${esc(MODELO[v.modelo]||v.modelo)}</span> `:''}${c.influ_comissao_pct!=null?`${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:(semPct?'<span class="tag alerta">definir %</span>':'')}${!v.ativo?' <span class="tag alerta">inativo</span>':''}</div>`
+      :(c.tipo==='influ'?`<strong>${esc(c.influ||'')}</strong>`:`<span class="tag nulo">${esc(c.tipo)}</span>`);
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
-      <td class="i-cod"><button class="i-mais" title="detalhes">+</button> ${esc(c.codigo)}
-        <div class="mini">${esc(G.MARCA[c.marca]||c.marca)}${v&&v.nome?' · '+esc(v.nome):''}${v&&!v.ativo?' · inativo':''}${rs?` <span class="tag sku" title="Linha assinada · ${nf(rs.pedidos)} pedidos em ${nf(rs.skus)} SKUs. Lente separada: não somar com a receita de cupom.">RECEITA SKU ${rf(rs.receita)}</span>`:''}</div></td>
-      <td><select class="i-sel i-i">${optI}</select></td>
-      <td class="num">${rc?rf(rc.receita):'—'}</td>
-      <td class="num ${v?roiCls(v.roi):''}"><strong>${v?roiTxt(v.roi):'—'}</strong></td>
-      <td><select class="i-sel i-t">${optT}</select>${semPct?' <span class="tag nulo">definir %</span>':''}</td>
-      <td><button class="btn sec i-salvar" disabled>Salvar</button>
-        ${c.influ?`<button class="btn sec i-edit" data-influ="${esc(c.influ)}" data-m="${esc(c.marca)}">Editar</button>`:''}
-        <span class="mini i-msg"></span></td></tr>
-      <tr class="i-det" hidden><td colspan="6" class="i-obs">${det}</td></tr>`;}).join('');
+      <td class="i-cod"><button class="i-mais" title="detalhes e reclassificar">+</button> <code>${esc(c.codigo)}</code>
+        <div class="mini"><span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span>${rs?` <span class="tag sku">linha</span>`:''}</div></td>
+      <td>${creator}</td>
+      <td class="num tabn">${rc?nf(rc.pedidos):'—'}</td>
+      <td class="num tabn">${rc?rf(rc.receita):'—'}</td>
+      <td class="num tabn">${v&&+v.investimento?rf(v.investimento):'—'}</td>
+      <td class="num ${v?roiCls(v.roi):''}"><strong class="tabn">${v?roiTxt(v.roi):'—'}</strong></td>
+      <td class="i-acoes">${c.influ?`<button class="btn sec i-edit" data-influ="${esc(c.influ)}" data-m="${esc(c.marca)}">Editar</button>`:''}</td></tr>
+      <tr class="i-det" hidden><td colspan="7" class="i-obs">
+        <div class="i-reclass"><span class="mini">Reclassificar:</span>
+          <label>creator <select class="i-sel i-i">${optI}</select></label>
+          <label>tipo <select class="i-sel i-t">${optT}</select></label>
+          <button class="btn sec i-salvar" disabled>Salvar</button> <span class="mini i-msg"></span></div>
+        <div class="mini">${det}</div></td></tr>`;}).join('');
 
   const avisoOculto = ocultos
     ? `<div class="nota">${nf(ocultos)} cupom(ns) sem venda nesta janela${custoOculto>0?`, custando <strong>${rf(custoOculto)}</strong>,`:''} escondido(s) da tabela. <strong>O custo continua contando nos KPIs acima.</strong> Para ver, troque o filtro para “Inclui quem não vendeu”.</div>`
     : '';
   $('#area-tabela').innerHTML=avisoOculto+`<div class="rolagem"><table class="comparativo"><thead><tr>
-    <th>Cupom</th><th>Creator</th><th class="num">Receita</th><th class="num">ROI</th>
-    <th>Tipo</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+    <th>Cupom</th><th>Creator</th><th class="num">Pedidos</th><th class="num">Receita</th>
+    <th class="num" title="cachê pro-rata + comissão + produto + frete no período">Investido</th><th class="num">ROI</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
   document.querySelectorAll('#area-tabela .i-edit').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
   document.querySelectorAll('#area-tabela .i-mais').forEach(b=>b.onclick=()=>{
     const d=b.closest('tr').nextElementSibling;
     d.hidden=!d.hidden; b.textContent=d.hidden?'+':'–';});
   document.querySelectorAll('#area-tabela tbody tr:not(.i-det)').forEach(tr=>{
-    const bt=tr.querySelector('.i-salvar');
-    tr.querySelectorAll('select').forEach(s=>s.onchange=()=>{
+    const det=tr.nextElementSibling, bt=det.querySelector('.i-salvar');
+    det.querySelectorAll('select').forEach(s=>s.onchange=()=>{
       if(s.classList.contains('i-i')&&s.value==='__novo__'){s.value='';abrirNovoCreator(tr);return;}
       bt.disabled=false;});
     bt.onclick=()=>salvarCupom(tr);
@@ -697,15 +716,19 @@ function renderInbox(){
   el.innerHTML=`<div class="inbox"><div class="inbox-cab"><strong>${pend.length} ${pend.length===1?'cupom novo':'cupons novos'} da Shopify</strong>
       <span class="mini">sem classificar não entram na conta — nem como creator, nem como custo</span></div>
     ${pend.map(c=>{const r=rec.get(c.marca+'|'+c.codigo);
+      const chips=[`criado ${c.desde?fmtData(c.desde):'—'}`, c.desconto_pct!=null?`${Math.round(c.desconto_pct*100)}% off`:null,
+        `${c.usos_lifetime||0} uso${c.usos_lifetime===1?'':'s'} na vida`, r?`<strong>${r.pedidos} pedido${r.pedidos===1?'':'s'} · ${rf(r.receita)}</strong> no período`:'sem venda no período'].filter(Boolean);
       return `<div class="inbox-item" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
-        <div class="inbox-info"><code class="inbox-cod">${esc(c.codigo)}</code> <span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span>
-          <div class="mini">criado ${c.desde?fmtData(c.desde):'—'} · desconto ${c.desconto_pct!=null?Math.round(c.desconto_pct*100)+'%':'—'} · ${c.usos_lifetime||0} uso${c.usos_lifetime===1?'':'s'} na vida · no período: ${r?`<strong>${r.pedidos} pedido${r.pedidos===1?'':'s'} · ${rf(r.receita)}</strong>`:'nada'}</div></div>
+        <div class="inbox-info"><div class="inbox-titulo"><code class="inbox-cod">${esc(c.codigo)}</code> <span class="tag ${esc(c.marca)}">${esc(G.MARCA[c.marca]||c.marca)}</span></div>
+          <div class="inbox-chips">${chips.map(x=>`<span class="chip">${x}</span>`).join('')}</div></div>
         <div class="inbox-acoes">
-          <select class="i-sel ib-creator" title="É creator: associa a um existente ou cria um novo"><option value="">É creator…</option><option value="__novo__">＋ criar novo creator</option>
-            ${creators.filter(i=>i.marca===c.marca).map(i=>`<option value="${esc(i.influ)}">${esc(i.nome||i.influ)}</option>`).join('')}</select>
-          <button class="btn ib-tipo ib-nao" data-tipo="nao_influ" title="Sai da caixa e da conta. Se quiser dizer o que é (CRM, campanha, cortesia…), use o select ao lado.">Não é influencer</button>
-          <select class="i-sel ib-tipo-sel" title="Opcional: classificar o que o cupom é"><option value="">…ou classificar como</option>
-            ${Object.entries(TIPO_ROTULO).map(([t,l])=>`<option value="${t}">${l}</option>`).join('')}</select>
+          <span class="ib-sel-wrap"><span class="btn ib-sim">👤 É creator ▾</span>
+            <select class="ib-creator" title="É creator: associa a um existente ou cria um novo"><option value="">É creator…</option><option value="__novo__">＋ criar novo creator</option>
+            ${creators.filter(i=>i.marca===c.marca).map(i=>`<option value="${esc(i.influ)}">${esc(i.nome||i.influ)}</option>`).join('')}</select></span>
+          <button class="btn ib-tipo ib-nao" data-tipo="nao_influ" title="Sai da caixa e da conta.">✕ Não é influencer</button>
+          <span class="ib-sel-wrap ib-fino"><span class="mini ib-link">classificar…</span>
+            <select class="ib-tipo-sel" title="Opcional: dizer o que o cupom é"><option value="">classificar como…</option>
+            ${Object.entries(TIPO_ROTULO).map(([t,l])=>`<option value="${t}">${l}</option>`).join('')}</select></span>
           <span class="mini ib-msg"></span></div>
         <div class="ib-host"></div></div>`;}).join('')}</div>`;
   el.querySelectorAll('.inbox-item').forEach(it=>{
@@ -848,8 +871,9 @@ async function salvarNovoCreator(box,marca,cod){
 }
 
 async function salvarCupom(tr){
-  const msg=tr.querySelector('.i-msg'),bt=tr.querySelector('.i-salvar');
-  const tipo=tr.querySelector('.i-t').value,influ=tr.querySelector('.i-i').value;
+  const det=tr.nextElementSibling;   // selects e Salvar moram no detalhe
+  const msg=det.querySelector('.i-msg'),bt=det.querySelector('.i-salvar');
+  const tipo=det.querySelector('.i-t').value,influ=det.querySelector('.i-i').value;
   // a mesma regra vive no banco (CHECK) e no workflow. Aqui e so para nao gastar round-trip.
   if(tipo==='influ'&&!influ){msg.textContent='tipo=influ precisa de um influ';return;}
   if(tipo!=='influ'&&influ){msg.textContent='só tipo=influ pode ter influ';return;}
