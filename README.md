@@ -132,24 +132,53 @@ da peça inteira e não necessariamente da falha. Sombra sem erro não entra com
 A cobertura de e-mail permanece informativa até existir reconciliação individual SES.
 
 
-### Operação atual e templates (08/09/2026)
+### Operação atual e templates (08/09/2026 · revisado em 09/09/2026)
 
-A aba **Automações** agora separa **Envios no período**, **Operação atual** e **Templates WhatsApp**.
+A aba **Automações** separa **Envios no período**, **Operação atual** e **Templates WhatsApp**.
 O objeto `crm_operacao` é um snapshot sanitizado fornecido exclusivamente pela API autenticada
 no escopo Growth/todos. Credenciais, parâmetros de workflows e dados de clientes não entram
-no contrato do front. Após autorização específica, a coleta automática foi ativada e
-conferida pela API autenticada em 08/09/2026 às 13h37 de Brasília: 14 workflows e 23 templates,
-com todas as consultas válidas. A UI distingue conferência pontual de coleta automática
-e sinaliza dados com 15 minutos ou mais.
+no contrato do front. A coleta automática roda a cada 5 minutos; a UI distingue conferência
+pontual de coleta automática e sinaliza dados com 15 minutos ou mais.
+
+**O inventário é dinâmico.** O coletor mantém a lista de workflows e templates acompanhados;
+o painel exibe o que a coleta mais recente devolveu e não fixa quantidades no código. Referências
+datadas: 14 workflows/23 templates na conferência de 08/09 às 13h37; 15/24 a partir das 19h15 do
+mesmo dia. Esses números são observações, não limites do schema — novos vínculos entram na lista
+do coletor (lado Codex) e aparecem no painel na coleta seguinte, sem mudança de front.
 
 Ativação e publicação não comprovam entrega. Modos vêm da versão publicada; serviços
 compartilhados aparecem nos filtros de marca. A última execução disponível respeita a política
 de retenção: um erro antigo pode continuar aparecendo quando sucessos não são salvos.
-Templates mostram status/categoria esperada e observada, com busca; cartões aprovados cuja
-integração ainda está pendente continuam separados dos templates mapeados nos fluxos.
-O filtro de datas afeta apenas o histórico; marca e canal afetam também o inventário atual.
+Templates mostram status/categoria esperada e observada; cartões aprovados cuja integração ainda
+está pendente continuam separados dos templates mapeados nos fluxos. O catálogo traz metadados,
+não corpo, componentes ou mídia. O filtro de datas afeta apenas o histórico; marca e canal afetam
+também o inventário atual. Falha de consulta de um workflow (`collection_status=error`) aparece
+como consulta indisponível, nunca como automação desligada, entrega falha ou operação saudável.
+A ausência ou falha de coleta não aparece como estado saudável, e a interface não oferece
+controles de edição sem backend.
 
-A atualização automática consulta a lista explícita de 14 workflows e 23 templates a cada
-5 minutos e guarda somente o resumo sanitizado. Novos vínculos de template precisam ser
-incluídos nessa lista. A ausência ou falha de coleta não aparece como estado saudável,
-e a interface não oferece controles de edição sem backend.
+### Navegação, exportação e estado da tela (09/09/2026)
+
+- **Faixa de fontes** sob os filtros: hora da última resposta da API, último status WhatsApp
+  recebido da Meta, última coleta de venda (Shopify), de e-mail (Listmonk) e do inventário.
+  Cada fonte tem o próprio horário; a etiqueta só muda de cor quando existe regra conhecida
+  (inventário com mais de 15 minutos, consulta que falhou, fonte ausente).
+- **KPIs adaptativos**: no canal WhatsApp a primeira linha mostra aceitos, entregues, falhas,
+  receita e pedidos; na visão consolidada, entrega WhatsApp e CTR de e-mail; no e-mail, CTR com a
+  base medida declarada. Cada KPI tem um atalho para a tabela que o explica, preservando marca e período.
+- **Tabelas** (Campanhas, Conversão, Automações, Operação atual, Templates): busca sem acento,
+  ordenação por cabeçalho (valor ausente sempre no fim, em qualquer direção), filtros de estado/modo
+  nos workflows e status/categoria/uso nos templates, estados vazios que dizem qual filtro esvaziou
+  a lista e botão para limpar.
+- **Exportar CSV** exporta exatamente as linhas visíveis (busca, filtro e ordenação aplicados),
+  com colunas de recorte repetidas em toda linha (marca, canal, período, hora da consulta; nos
+  inventários, hora da coleta). Formato: `;` como separador, vírgula decimal, UTF-8 com BOM — abre
+  direto no Excel em português. Valor ausente vira célula vazia, nunca zero; receita indivisível
+  sai em branco com a coluna "Receita indivisível" = sim; texto que começa com `=`, `+`, `-` ou `@`
+  recebe apóstrofo. Não exporta a chave, `version_id`, `id` de template nem nada que a tela não mostre.
+- **Estado preservado**: ordenação, busca e filtros vivem em memória, não no DOM; linhas abertas,
+  `details` e o cursor da busca sobrevivem à atualização a cada 60 s e à falha de consulta.
+  A URL carrega marca, canal, período, seção e aba (`#marca=fish&canal=whatsapp&p=7&sec=regua&aba=templates`):
+  copiar o link entrega a mesma tela. A chave nunca entra na URL nem no hash.
+- Implementação em `growth-table.js` (funções puras, testadas em `tests/growth-table.test.cjs`)
+  e nos testes de DOM em `tests/growth-render.test.cjs`.
