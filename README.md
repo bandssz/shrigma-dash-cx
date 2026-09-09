@@ -182,3 +182,20 @@ controles de edição sem backend.
   copiar o link entrega a mesma tela. A chave nunca entra na URL nem no hash.
 - Implementação em `growth-table.js` (funções puras, testadas em `tests/growth-table.test.cjs`)
   e nos testes de DOM em `tests/growth-render.test.cjs`.
+
+### Rascunhos locais de template (Entrega 2 · 09/09/2026)
+
+A aba **Automações › Rascunhos locais** é um editor para escrever e revisar templates de WhatsApp
+e e-mail **antes** de existir cadastro pelo painel: nome, marca, canal, idioma, categoria esperada,
+peça, cabeçalho, corpo com variáveis `{{n}}`, rodapé, exemplos das variáveis, botões (resposta rápida,
+link, telefone), prévia do texto digitado com os exemplos aplicados, checagens locais (limites públicos
+da Meta: 1024/60/60/25 caracteres, até 10 botões, variáveis em sequência, exemplo por variável, `https://`,
+`wa.me` fora de botão, texto de oferta em Utility) e importar/exportar em JSON.
+
+O rascunho fica **só no navegador** (`localStorage`, chave `shrigma_growth_rascunhos`) e a tela diz isso
+em todo lugar: não é cadastro na Meta, no Listmonk nem no n8n; não existe botão de publicar, submeter
+ou ativar; a prévia é do que foi digitado, nunca de um template publicado (o contrato atual não traz
+corpo de template). Se o nome coincidir com um template do catálogo, o card avisa que existe um
+template com esse nome e status, sem tratar o rascunho como esse template. Exportação não leva o id local
+nem qualquer credencial; importação aceita só campos conhecidos. Integração real: `BACKEND_REQUESTS.md` (R5).
+Código em `growth-drafts.js` (regras e armazenamento, puro) e `growth-drafts-ui.js` (tela).

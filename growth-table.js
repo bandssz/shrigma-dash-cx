@@ -81,9 +81,9 @@ const GT={
     return ['growth',base,meta.recorte_marca,meta.recorte_canal,meta.periodo_inicio&&meta.periodo_fim?`${meta.periodo_inicio}_${meta.periodo_fim}`:null]
       .filter(Boolean).map(limpa).join('-')+'.csv';
   },
-  baixar(nome,texto){
+  baixar(nome,texto,mime='text/csv;charset=utf-8'){
     if(typeof document==='undefined'||typeof Blob==='undefined'||typeof URL==='undefined'||!URL.createObjectURL)return false;
-    const blob=new Blob([texto],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);
+    const blob=new Blob([texto],{type:mime}),url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=nome;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
     return true;

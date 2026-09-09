@@ -332,3 +332,52 @@ test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave
  const y=await boot(fixture(),{hash:'#canal=email'});
  assert.equal(y.run('CANAL'),'email');assert.equal(y.document.querySelectorAll('#area-kpis .kpi').length,4);
 });
+/* ---------- Entrega 2: rascunhos locais ---------- */
+test('rascunhos: criar, salvar só no navegador, sobreviver ao refresh, exportar, importar e excluir — sem publicar/ativar',async()=>{
+ const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const root=()=>x.document.querySelector('#control-drafts');
+ assert.equal(root().hidden,false);assert.match(root().textContent,/Rascunhos salvos só neste dispositivo/);assert.match(root().textContent,/Nenhum rascunho neste dispositivo/);
+ root().querySelector('#drafts-novo').click();
+ const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
+ set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');
+ assert.equal(root().querySelectorAll('[data-exemplo]').length,2);
+ set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
+ assert.match(root().querySelector('#d-preview').textContent,/Olá Ana, seu pedido #123 saiu\./);
+ assert.match(root().querySelector('.draft-preview-head').textContent,/não é o template publicado/);
+ root().querySelector('#d-botao-add').click();set('[data-botao-campo="tipo"]','url');set('[data-botao-campo="texto"]','Acompanhar');set('[data-botao-campo="valor"]','https://wa.me/5541');
+ assert.match(root().querySelector('#d-checagens').textContent,/wa\.me/);
+ set('[data-botao-campo="valor"]','https://fishermans.com.br/suporte');
+ assert.match(root().querySelector('#d-checagens').textContent,/Checagens locais ok/);
+ assert.equal([...root().querySelectorAll('button')].filter(b=>/publicar|submeter|ativar|enviar/i.test(b.textContent)).length,0);
+ root().querySelector('#d-salvar').click();
+ assert.match(root().textContent,/salvo neste dispositivo/);
+ assert.equal(root().querySelectorAll('[data-draft]').length,1);
+ assert.match(x.store.get('shrigma_growth_rascunhos'),/fish_rastreio_v3/);
+ assert.equal(x.requests.length,1); // nenhuma chamada nova à API por causa do rascunho
+ await x.run('carregar()');
+ assert.equal(root().querySelectorAll('[data-draft]').length,1);assert.equal(root().hidden,false);
+ root().querySelector('[data-draft-export]').click();
+ const exp=x.downloads[x.downloads.length-1];
+ assert.equal(exp.nome,'rascunho-whatsapp-fish-fish_rastreio_v3.json');
+ assert.match(exp.texto,/"tipo": "shrigma-growth-rascunho"/);assert.doesNotMatch(exp.texto,/synthetic-test-key|shrigma_k/);
+ x.run(`GRU.importaTexto(${JSON.stringify(exp.texto.replace('fish_rastreio_v3','fish_rastreio_v4'))})`);
+ assert.equal(root().querySelector('#d-nome').value,'fish_rastreio_v4');assert.match(root().textContent,/importado como novo rascunho/);
+ root().querySelector('#d-salvar').click();assert.equal(root().querySelectorAll('[data-draft]').length,2);
+ root().querySelector('[data-draft-delete]').click(); // confirm() do teste devolve false → nada apaga
+ assert.equal(root().querySelectorAll('[data-draft]').length,2);
+ x.run('confirm=()=>true');root().querySelector('[data-draft-delete]').click();
+ assert.equal(root().querySelectorAll('[data-draft]').length,1);
+});
+test('rascunho com nome igual a template do catálogo é avisado sem ser tratado como o template',async()=>{
+ const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
+ const x=await boot(p);x.store.set('shrigma_growth_rascunhos',JSON.stringify([{id:'r1',canal:'whatsapp',marca:'fish',nome:'fish_confirmacao_exemplo',corpo:'Oi.',botoes:[],exemplos:{},atualizado_em:'2026-09-08T01:00:00Z'}]));
+ x.run('GRU.render({api:API})');
+ const card=x.document.querySelector('[data-draft="r1"]');
+ assert.match(card.textContent,/Existe um template com este nome no catálogo da Meta \(status APPROVED/);
+ assert.match(card.textContent,/não traz o corpo dele para comparar/);
+ assert.equal(card.querySelectorAll('.control-verified').length,0);
+});
+test('hash aba=drafts abre a aba de rascunhos',async()=>{
+ const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
+ assert.equal(x.document.querySelector('#control-drafts').hidden,false);
+});
