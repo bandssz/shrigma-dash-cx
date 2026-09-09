@@ -199,3 +199,14 @@ corpo de template). Se o nome coincidir com um template do catálogo, o card avi
 template com esse nome e status, sem tratar o rascunho como esse template. Exportação não leva o id local
 nem qualquer credencial; importação aceita só campos conhecidos. Integração real: `BACKEND_REQUESTS.md` (R5).
 Código em `growth-drafts.js` (regras e armazenamento, puro) e `growth-drafts-ui.js` (tela).
+
+### Contrato proposto de gestão de templates/workflows (Entrega 3 · 09/09/2026)
+
+`BACKEND_REQUESTS.md` (R5) especifica, para o Codex implementar, o contrato que o painel consumirá
+para gerir templates e workflows: capacidades por chave (`capabilities`), leitura de conteúdo e
+histórico, rascunho no servidor e validação (sem efeito externo), submissão e acompanhamento
+(Meta/Listmonk), controles de workflow (modo/ativação) com chave de escrita própria, versão esperada,
+idempotência, auditoria e a distinção rascunho → validado → submetido → publicado ≠ ativo.
+`tests/fixtures/growth-templates-contract.synthetic.json` é a fixture sintética desse contrato.
+**Nenhum desses endpoints existe**; o painel só exibirá os controles quando a API declarar a
+capacidade correspondente — hoje não exibe nenhum.

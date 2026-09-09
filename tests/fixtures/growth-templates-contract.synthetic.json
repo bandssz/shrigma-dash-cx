@@ -1,0 +1,20 @@
+{
+  "_comentario": "Fixture SINTÉTICA da proposta R5 (BACKEND_REQUESTS.md). Nenhum endpoint existe. Nomes, IDs e textos são inventados; não usar como dado real.",
+  "capabilities": {"templates":{"read_content":true,"draft":true,"validate":true,"submit":false,"list_history":true},"workflows":{"set_mode":false,"activate":false},"write_key_required":true,"api_version":"2026-09-1"},
+  "listar": {"api_version":"2026-09-1","templates":[
+    {"key":"fish_rastreio","brand":"fish","channel":"whatsapp","name":"exemplo_rastreio_v2","id":"100000000000001","language":"pt_BR","category":"UTILITY","status":"APPROVED","version":3,"published_at":"2026-09-07T14:00:00Z",
+     "components":[{"type":"HEADER","format":"TEXT","text":"Seu pedido saiu"},{"type":"BODY","text":"Olá {{1}}, o pedido {{2}} está a caminho. Código: {{3}}","example":{"body_text":[["Ana","#48213","XX0000123BR"]]}},{"type":"FOOTER","text":"Exemplo"},{"type":"BUTTONS","buttons":[{"type":"URL","text":"Acompanhar pedido","url":"https://exemplo.invalid/conta"}]}],
+     "mapped_in":[{"workflow_key":"fish_tx","piece":"rastreio-criado","mode_key":"modo_rastreio"}],"quality_score":null,"rejected_reason":null},
+    {"key":"aristo_carrinho_email","brand":"aristo","channel":"email","name":"exemplo-carrinho-01","id":"42","language":"pt_BR","category":null,"status":"draft","version":1,"published_at":null,
+     "components":{"subject":"Esqueceu algo?","body_html":"<p>Olá {{ .Subscriber.FirstName }}</p>","altbody":"Olá"},"mapped_in":[],"quality_score":null,"rejected_reason":null}
+  ]},
+  "historico": {"events":[{"at":"2026-09-07T13:58:00Z","who":"chave-exemplo","action":"submit","from_version":2,"to_version":3,"result":"ok","detail":null}]},
+  "rascunho_request": {"k":"<escrita>","acao":"rascunho","idempotency_key":"9f1c2c8e-0000-4000-8000-000000000001","rascunho":{"canal":"whatsapp","marca":"fish","idioma":"pt_BR","categoria":"UTILITY","nome":"exemplo_rastreio_v3","peca":"rastreio-criado","cabecalho":"Seu pedido saiu","corpo":"Olá {{1}}, o pedido {{2}} está a caminho. Código: {{3}}","rodape":"Exemplo","assunto":"","exemplos":{"1":"Ana","2":"#48213","3":"XX0000123BR"},"botoes":[{"tipo":"url","texto":"Acompanhar pedido","valor":"https://exemplo.invalid/conta"}]}},
+  "rascunho_response": {"draft_id":"d_01J0000000000000000000EX","version":1,"estado":"rascunho","salvo_em":"2026-09-09T20:00:00Z"},
+  "validar_ok": {"estado":"validado","erros":[],"avisos":[],"components_preview":[{"type":"BODY","text":"Olá {{1}}, o pedido {{2}} está a caminho. Código: {{3}}"}]},
+  "validar_422": {"erros":[{"codigo":"BODY_TOO_LONG","campo":"corpo","mensagem":"Corpo com 1025 caracteres; limite 1024."}]},
+  "submeter_202": {"submission_id":"s_01J0000000000000000000EX","estado":"submetido","provider":"meta","provider_id":"100000000000002","submitted_at":"2026-09-09T20:01:00Z"},
+  "submissao_get": {"estado":"submetido","provider_status":"PENDING","rejected_reason":null,"checked_at":"2026-09-09T20:02:00Z"},
+  "workflow_modo_200": {"workflow_key":"aristo_tx","version_id":"00000000-0000-4000-8000-000000000002","active":true,"modes":[{"key":"modo_pedido_pago","value":"sombra"},{"key":"modo_rastreio","value":"real"}],"applied_at":"2026-09-09T20:03:00Z"},
+  "erros": {"401":{"erro":"invalid_key"},"403":{"erro":"capability_missing","capability":"submit"},"409":{"erro":"version_conflict","current_version":4,"changed_by":"chave-exemplo","changed_at":"2026-09-09T19:59:00Z"},"422":{"erro":"template_not_approved"},"502":{"erro":"upstream_error","retry_after":60,"nothing_changed":true}}
+}
