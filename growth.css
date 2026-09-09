@@ -74,3 +74,52 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 .attention-email button{flex-shrink:0}
 @media(max-width:1100px){.attention-row{grid-template-columns:minmax(180px,1fr) minmax(280px,1.3fr)}.attention-jump{grid-column:1/-1;justify-self:start;margin-top:-8px}}
 @media(max-width:640px){.attention-stats{gap:7px}.attention-stat{padding:11px 9px}.attention-stat strong{font-size:23px}.attention-stat span{font-size:11px;line-height:1.4}.attention-row{grid-template-columns:minmax(0,1fr);gap:12px}.attention-counts{gap:12px}.attention-jump{grid-column:auto;margin:0}.attention-email{align-items:flex-start;flex-direction:column;gap:12px}.attention-email button{white-space:normal;text-align:left}}
+
+/* ---- P0 (09/09/2026): fontes, atalhos de KPI, lacunas de e-mail, toolbars de tabela ---- */
+/* Faixa de fontes: uma linha, um horário por origem. Cor só quando há regra conhecida. */
+.fontes{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mudo);margin-top:-8px}
+.fontes:empty{display:none}
+.fonte{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;cursor:help;white-space:nowrap}
+.fonte b{font-weight:600;color:var(--texto)}
+.fonte::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--borda-forte);flex-shrink:0}
+.fonte[data-estado=velho]::before{background:#d7b666}
+.fonte[data-estado=ruim]::before{background:var(--ruim)}
+.fonte[data-estado=ruim]{color:var(--ruim)}
+.fonte[data-estado=falta]::before{background:transparent;border:1px dashed var(--borda-forte)}
+/* KPI: atalho discreto e falha em vermelho quando há falha */
+.kpi-jump{border:0;background:transparent;padding:0;font:600 12px var(--ui);color:var(--marca,var(--todas));cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.kpi-jump:hover{color:var(--texto)}
+body[data-marca] .kpi-falha .kpi-val:not(.vazio-val){color:var(--ruim)}
+/* O que está medido no e-mail, legível sem abrir "Como ler" */
+.measure-gaps{list-style:none;margin:0;padding:12px 0 0;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mudo);line-height:1.4}
+.measure-gaps li{display:inline-flex;align-items:center;gap:6px;cursor:help}
+.measure-gaps li::before{content:"";width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--borda-forte)}
+.measure-gaps li[data-gap=ok]::before{background:#348951}
+.measure-gaps li[data-gap=parcial]::before{background:#d7b666}
+.measure-gaps li[data-gap=lacuna]::before{background:transparent;border:1px dashed var(--borda-forte)}
+.measure-gaps strong{color:var(--texto);font-weight:600}
+/* Toolbar de tabela: busca à esquerda, contagem e exportação à direita. Uma só forma em todas. */
+.gt-toolbar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 12px;font-size:12px;color:var(--mudo)}
+.gt-busca,.gt-filtro{display:flex;align-items:center;gap:8px;font:500 12px var(--ui);color:var(--mudo)}
+.gt-busca input{font:500 12.5px var(--ui);border:1px solid var(--borda-forte);border-radius:7px;padding:7px 10px;background:var(--card);color:var(--texto);min-width:200px}
+.gt-filtro select{font:500 12.5px var(--ui);border:1px solid var(--borda-forte);border-radius:7px;padding:7px 9px;background:var(--card);color:var(--texto)}
+.gt-contagem{font-variant-numeric:tabular-nums}
+.gt-export{margin-left:auto}
+.gt-export:disabled{opacity:.45;cursor:not-allowed}
+.gt-limpar{padding:5px 9px;font-size:12px;margin-top:8px}
+.vazio .gt-limpar{display:inline-block;margin:10px 0 0}
+/* Cabeçalho ordenável: o texto é um botão; a seta só aparece na coluna ativa. */
+.comparativo th[data-sort]{cursor:pointer;user-select:none}
+.gt-th{border:0;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer;text-transform:inherit;letter-spacing:inherit}
+.comparativo th[data-sort]:hover .gt-th{color:var(--texto)}
+.comparativo th.gt-ordenado .gt-th{color:var(--texto)}
+.comparativo th.gt-ordenado .gt-th::after{content:"▲";font-size:9px;margin-left:5px;vertical-align:1px}
+.comparativo th[aria-sort=descending] .gt-th::after{content:"▼"}
+#tab-regua th[data-sort]:first-child .gt-th{text-align:left}
+#tab-regua td.vm{color:var(--ruim)}
+.flow-controls.gt-toolbar{margin-top:-2px}
+@media(max-width:900px){#area-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#area-kpis .kpi{padding:14px 14px 12px}#area-kpis .kpi-val:not(.vazio-val){font-size:28px}}
+@media(max-width:640px){#area-kpis{gap:8px}#area-kpis .kpi{padding:12px 12px 10px}#area-kpis .kpi-val:not(.vazio-val){font-size:24px}#area-kpis .kpi-rot{font-size:10.5px}#area-kpis .kpi-sub{font-size:11.5px}
+  .fontes{gap:4px 10px;font-size:11.5px}.fonte{white-space:normal}
+  .gt-toolbar{gap:8px}.gt-busca{width:100%}.gt-busca input{flex:1;min-width:0}.gt-export{margin-left:0}
+  .measure-gaps{gap:5px 10px;font-size:11.5px}}

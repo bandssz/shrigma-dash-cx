@@ -41,25 +41,36 @@ const GUI = {
     const previousPeriod=G.anterior(ini,fim);
     const previous=cmp && closed ? GD.summary(G,api,marca,previousPeriod.ini,previousPeriod.fim,canal) : null;
     const previousLabel=GUI.period(previousPeriod.ini,previousPeriod.fim);
-    const compare=(current,before) => {
+    const compare=(current,before,invert=false) => {
       if(!cmp) return '<span class="mini">Comparação desativada</span>';
-      if(!closed) return '<span class="mini">Período parcial · comparação indisponível</span>';
+      if(!closed) return '<span class="mini">Período parcial · sem comparação</span>';
       const delta=G.delta(current,before,GUI.number(current) && GUI.number(before));
       if(delta === null) return `<span class="mini">Sem base comparável em ${GUI.esc(previousLabel)}</span>`;
-      return `<span class="chip ${delta >= 0 ? 'd-bom' : 'd-ruim'}">${delta > 0 ? '+' : ''}${GUI.pf(delta)}</span><span class="mini">vs. ${GUI.esc(previousLabel)}</span>`;
+      const good=invert ? delta <= 0 : delta >= 0;
+      return `<span class="chip ${good ? 'd-bom' : 'd-ruim'}">${delta > 0 ? '+' : ''}${GUI.pf(delta)}</span><span class="mini">vs. ${GUI.esc(previousLabel)}</span>`;
     };
+    const jump=(label,target)=>`<button type="button" class="kpi-jump" data-kpi-jump="${target}">${label}</button>`;
+    const waDelivery={label:'Entrega WhatsApp',value:wa.entrega_pct,before:previous?.wa?.entrega_pct,format:GUI.pf,
+      note:GUI.number(wa.entregues)?`${GUI.nf(wa.entregues)} entregues · ${GUI.nf(wa.falhas)} falhas · de ${GUI.nf(wa.aceitos)} aceitos`:'Entregues ÷ aceitos pela Meta',link:jump('Ver automações','flows:whatsapp')};
+    const emailCtr={label:'CTR das campanhas de e-mail',value:email.ctr,before:previous?.email?.ctr,format:GUI.pf,
+      note:GUI.number(email.medidasCliques)?`Clicaram ÷ entregues · ${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças medidas`:'Clicaram ÷ entregues · somente base medida',link:jump('Ver campanhas','camp')};
     const kpis=[
-      {label:'Disparos registrados',value:summary.enviados,before:previous?.enviados,format:GUI.nf,
-        note:canal==='whatsapp' ? 'Mensagens aceitas pela Meta' : canal==='email' ? 'Campanhas Listmonk + automações SES' : 'WhatsApp próprio + e-mail'},
-      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:'Último clique · data da compra'},
-      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:'Último clique · data da compra'},
-      canal==='whatsapp'
-        ? {label:'Taxa de entrega WhatsApp',value:wa.entrega_pct,before:previous?.wa?.entrega_pct,format:GUI.pf,note:'Entregues ÷ aceitos pela Meta'}
-        : {label:'CTR das campanhas de e-mail',value:email.ctr,before:previous?.email?.ctr,format:GUI.pf,note:'Clicaram ÷ entregues · somente base medida'},
+      {label:canal==='whatsapp'?'Aceitos pela Meta':'Disparos registrados',value:summary.enviados,before:previous?.enviados,format:GUI.nf,
+        note:canal==='whatsapp' ? 'Aceite não é entrega · sem Reportana' : canal==='email' ? 'Campanhas Listmonk + automações SES' : 'WhatsApp próprio + e-mail',link:jump('Ver envios',`flows:${canal}`)},
+      ...(canal==='whatsapp'?[
+        {label:'Entregues',value:wa.entregues,before:previous?.wa?.entregues,format:GUI.nf,note:GUI.number(wa.entrega_pct)?`${GUI.pf(wa.entrega_pct)} dos aceitos · delivered ou read`:'delivered ou read · sem duplicar',link:jump('Ver automações','flows:whatsapp')},
+        {label:'Falhas na entrega',value:wa.falhas,before:previous?.wa?.falhas,format:GUI.nf,invert:true,note:GUI.number(wa.pendentes_entrega)?`${GUI.nf(wa.pendentes_entrega)} aguardando confirmação`:'Aguardando confirmação: —',link:jump('Ver ocorrências','attention'),failure:GUI.number(wa.falhas)&&+wa.falhas>0},
+      ]:[]),
+      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:'Último clique · data da compra',link:jump('Ver conversão','conv')},
+      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:'Último clique · data da compra',link:jump('Ver conversão','conv')},
+      ...(canal==='todos'?[waDelivery,emailCtr]:canal==='email'?[emailCtr]:[]),
     ];
-    GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi"><div class="kpi-rot">${k.label}</div>
+    GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi${k.failure?' kpi-falha':''}"><div class="kpi-rot">${k.label}</div>
       <div class="kpi-val tabn${GUI.number(k.value)?'':' vazio-val'}">${k.format(k.value)}</div>
-      <div class="kpi-rodape">${compare(k.value,k.before)}</div><div class="kpi-sub">${k.note}</div></div>`).join(''));
+      <div class="kpi-rodape">${compare(k.value,k.before,k.invert)}</div><div class="kpi-sub">${k.note}${k.link?` · ${k.link}`:''}</div></div>`).join(''));
+    GUI.el('#area-kpis')?.querySelectorAll('[data-kpi-jump]').forEach(button=>button.addEventListener('click',()=>{
+      if(typeof ctx.onJump==='function')ctx.onJump(button.dataset.kpiJump);
+    }));
 
     const coverage=wa.coverage || {present:false,complete:false};
     const coverageEl=GUI.el('#wa-coverage');
@@ -86,7 +97,7 @@ const GUI = {
       <div class="channel-stats">${GUI.stat('Entregues',GUI.nf(wa.entregues))}${GUI.stat('Lidos',GUI.nf(wa.lidos))}${GUI.stat('Falhas na entrega',GUI.nf(wa.falhas),'failure')}
         ${GUI.stat('Aguardando confirmação',GUI.nf(wa.pendentes_entrega))}${GUI.stat('Pedidos atribuídos',GUI.nf(waConv.pedidos))}${GUI.stat('Taxa de entrega',GUI.pf(wa.entrega_pct))}</div>
       ${waBar}<div class="channel-foot"><p>Envios próprios registrados no período; status atualizado até a consulta. Não inclui disparos da Reportana.</p>
-        <details><summary>Como ler estas métricas</summary>
+        <details data-gt-key="wa-como-ler"><summary>Como ler estas métricas</summary>
           <p>${attributionNote}</p>
           <p>Entregues incluem mensagens lidas. Leituras dependem da confirmação disponível no WhatsApp; ausência de leitura não significa ausência de interesse.</p>
           <p class="substats">Sem disparo confirmado: <strong>${GUI.nf(wa.sem_disparo_confirmado)}</strong> · Erros antes do aceite: <strong>${GUI.nf(wa.erros_sincronos)}</strong>.</p>
@@ -100,8 +111,13 @@ const GUI = {
         <div class="amount"><strong>${GUI.rf(emailConv.receita)}</strong><span class="channel-label">receita atribuída</span></div></div>
       <div class="channel-stats">${GUI.stat('Campanhas Listmonk',GUI.nf(email.campanhas_enviados))}${GUI.stat('Automações SES',GUI.nf(email.automacoes_enviados))}${GUI.stat('Pedidos atribuídos',GUI.nf(emailConv.pedidos))}
         ${GUI.stat('CTR · campanhas',GUI.pf(email.ctr))}${GUI.stat('CTOR · campanhas',GUI.pf(email.ctor))}${GUI.stat('Abertura · campanhas',GUI.pf(email.abertura))}</div>
+      <ul class="measure-gaps" aria-label="O que está medido no e-mail">
+        <li data-gap="${GUI.number(email.medidasCliques)&&email.medidasCliques===email.pecas?'ok':'parcial'}" title="Abertura, CTR e CTOR consideram apenas campanhas Listmonk com a medição correspondente. Peça sem medição fica fora da taxa, nunca entra como zero."><strong>Campanhas</strong> ${GUI.number(email.pecas)?`${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças com clique medido`:'sem peças no período'}</li>
+        <li data-gap="lacuna" title="Automações registram o aceite da API Listmonk/SES. Entrega, abertura e clique por mensagem não são medidos neste contrato; a taxa fica como —, não como 0% ou 100%."><strong>Automações SES</strong> aceite da API · entrega individual não medida</li>
+        <li data-gap="lacuna" title="Os percentuais de rejeição e reclamação das campanhas selecionadas não são a reputação oficial da conta SES; a AWS usa volume representativo próprio."><strong>Reputação SES</strong> não derivada destes agregados</li>
+      </ul>
       <div class="channel-foot"><p>Envios de campanhas e automações separados. Abertura, CTR e CTOR usam apenas campanhas Listmonk com a respectiva medição.</p>
-        <details><summary>Como ler estas métricas</summary><p>${attributionNote}</p>
+        <details data-gt-key="email-como-ler"><summary>Como ler estas métricas</summary><p>${attributionNote}</p>
           <p>CTR = pessoas que clicaram ÷ entregues; CTOR = pessoas que clicaram ÷ pessoas que abriram; abertura = pessoas que abriram ÷ entregues.</p>
           <p class="substats">Campanhas com cliques medidos: <strong>${GUI.nf(email.medidasCliques)}</strong> · Base entregue para CTR: <strong>${GUI.nf(email.baseCliques)}</strong>.<br>
             Campanhas com abertura medida: <strong>${GUI.nf(email.medidas)}</strong> · Base entregue para abertura: <strong>${GUI.nf(email.baseAbertura)}</strong>.<br>
@@ -120,8 +136,44 @@ const GUI = {
         if(typeof ctx.onFlows==='function') ctx.onFlows(button.dataset.openFlows);
       }));
     }
+    GUI.sources(ctx,summary);
     GUI.attention(ctx);
     return summary;
+  },
+  /* Faixa de fontes: cada origem tem seu próprio horário. Horário não é veredito de
+     saúde, então a etiqueta só muda de cor quando há regra conhecida: inventário
+     vence em 15 min (contrato), consulta à API falhou, ou fonte ausente. */
+  sourceMax(rows,field){return (Array.isArray(rows)?rows:[]).reduce((max,row)=>{const v=String(row?.[field]||'');return v>max?v:max;},'')||null;},
+  sourceTime(value){
+    const date=new Date(value||'');
+    if(!Number.isFinite(date.valueOf()))return null;
+    const hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
+    const dia=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(date);
+    const hora=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}).format(date);
+    return dia===hoje?hora:`${dia.slice(8,10)}/${dia.slice(5,7)} ${hora}`;
+  },
+  sources(ctx={},summary={}){
+    const el=GUI.el('#fontes');if(!el)return null;
+    const api=ctx.api||{},consulta=ctx.consulta||{};
+    const wa=summary.wa||{},cov=wa.coverage?.meta||{};
+    const op=api.crm_operacao&&typeof api.crm_operacao==='object'?api.crm_operacao:null;
+    const now=Number.isFinite(ctx.now)?ctx.now:Date.now();
+    const invAge=op?.generated_at?now-Date.parse(op.generated_at):NaN;
+    const items=[
+      {rot:'Consulta',hora:GUI.sourceTime(consulta.em),estado:consulta.falhou?'ruim':consulta.em?'ok':'falta',
+        detalhe:consulta.falhou?'A última tentativa de atualizar falhou. Os números na tela são da consulta indicada.':'Hora em que a API respondeu por último. Cada fonte abaixo tem o próprio horário de coleta.',
+        texto:consulta.falhou?'falhou · exibindo':'às'},
+      {rot:'WhatsApp',hora:GUI.sourceTime(cov.ultimo_status_em||wa.ultimo_status_em),estado:wa.coverage?.present?'ok':'falta',
+        detalhe:'Última atualização de status (entregue, lido, falha) recebida da Meta no motor próprio. Não inclui Reportana.',texto:'status até'},
+      {rot:'Venda',hora:GUI.sourceTime(GUI.sourceMax(api.crm_conversao,'coletado_em')),estado:Array.isArray(api.crm_conversao)?'ok':'falta',
+        detalhe:'Última coleta de pedidos atribuídos na Shopify (último clique, data da compra). Vendas depois deste horário ainda não aparecem.',texto:'coletada até'},
+      {rot:'E-mail',hora:GUI.sourceTime(GUI.sourceMax(api.crm_diario,'coletado_em')||GUI.sourceMax(api.crm_campanha,'coletado_em')),estado:Array.isArray(api.crm_campanha)?'ok':'falta',
+        detalhe:'Última coleta de campanhas e métricas do Listmonk. Automações via SES registram aceite da API, sem entrega individual.',texto:'coletado até'},
+      {rot:'Inventário',hora:GUI.sourceTime(op?.generated_at),estado:!op?'falta':Number.isFinite(invAge)&&invAge<900000&&invAge>-60000?'ok':'velho',
+        detalhe:'Coleta do estado atual de workflows e templates (a cada 5 min; sinalizado a partir de 15 min). Independe do período selecionado.',texto:'coletado'},
+    ];
+    el.innerHTML=items.map(i=>`<span class="fonte" data-estado="${i.hora?i.estado:'falta'}" title="${GUI.esc(i.detalhe)}"><b>${GUI.esc(i.rot)}</b> ${i.hora?`${GUI.esc(i.texto)} ${GUI.esc(i.hora)}`:'sem dado'}</span>`).join('');
+    return items;
   },
   attention(ctx={}) {
     const {G,GD,marca='todas',ini='',fim='',canal='todos'}=ctx;
@@ -163,44 +215,82 @@ const GUI = {
     });
     return model;
   },
+  flowsState:{q:'',sort:'receita',dir:'desc'},
+  flowsColumns:[
+    {chave:'piece',rotulo:'Peça'},{chave:'flow',rotulo:'Fluxo'},{chave:'marca',rotulo:'Marca',pega:r=>r.marca},{chave:'canal',rotulo:'Canal'},
+    {chave:'enviados',rotulo:'Disparos'},{chave:'entregues',rotulo:'Entregues'},{chave:'falhas',rotulo:'Falhas'},{chave:'lidos',rotulo:'Lidos'},
+    {chave:'pendentes_entrega',rotulo:'Aguardando confirmação'},{chave:'sem_disparo_confirmado',rotulo:'Sem disparo confirmado'},{chave:'erros_sincronos',rotulo:'Erros antes do aceite'},
+    {chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},{chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},
+    {chave:'atribuicao_ambigua',rotulo:'Atribuição ambígua',pega:r=>!!r.atribuicao_ambigua},{chave:'ultimo_registro_em',rotulo:'Último registro'},{chave:'ultimo_status_em',rotulo:'Último status'},
+  ],
   flows(ctx={}) {
     const {G,GD,marca='todas',ini='',fim='',canal='todos'}=ctx;
     const api=ctx.api || {};
     if(!G || !GD) return [];
     const rows=GD.flows(G,api,marca,ini,fim,canal);
-    const selector=GUI.el('#sel-flow');
+    const selector=GUI.el('#sel-flow'),search=GUI.el('#regua-busca'),table=GUI.el('#tab-regua'),exportButton=GUI.el('#regua-export');
     const options=[...new Set(rows.map(row=>String(row.flow || 'Sem fluxo')))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     if(selector) {
       const previous=selector.value;
       selector.innerHTML='<option value="">Todas as automações</option>'+options.map(flow=>`<option value="${GUI.esc(flow)}">${GUI.esc(flow)}</option>`).join('');
       selector.value=options.includes(previous)?previous:'';
     }
+    if(search && search.value!==GUI.flowsState.q) search.value=GUI.flowsState.q;
+    let lastVisible=[];
     const render=()=>{
       const chosen=selector?.value || '';
-      const visible=chosen?rows.filter(row=>String(row.flow || 'Sem fluxo')===chosen):rows;
+      const state=GUI.flowsState;
+      const byFlow=chosen?rows.filter(row=>String(row.flow || 'Sem fluxo')===chosen):rows;
+      const searched=typeof GT!=='undefined'?GT.busca(byFlow,state.q,['piece','flow',r=>G.MARCA?.[r.marca]||r.marca]):byFlow;
+      const visible=typeof GT!=='undefined'?GT.ordena(searched,state.sort,state.dir):searched;
+      lastVisible=visible;
+      if(typeof GT!=='undefined')GT.marcaCabecalhos(table,state);
+      const tbody=GUI.el('#tab-regua tbody');
+      const kept=typeof GT!=='undefined'?GT.captura(tbody):null;
       GUI.text('#n-regua',rows.length || '');
-      GUI.text('#regua-rot',`${visible.length} peça${visible.length===1?'':'s'}${chosen?` de ${rows.length}`:''} · ${GUI.period(ini,fim)}`);
+      GUI.text('#regua-rot',`${visible.length} peça${visible.length===1?'':'s'}${visible.length!==rows.length?` de ${rows.length}`:''} · ${GUI.period(ini,fim)}`);
+      if(exportButton)exportButton.disabled=!visible.length;
+      const empty=!rows.length?'Nenhuma automação com registros neste recorte.'
+        :chosen&&state.q?`Nenhuma peça de "${GUI.esc(chosen)}" contém "${GUI.esc(state.q)}".`
+        :state.q?`Nenhuma peça contém "${GUI.esc(state.q)}" neste recorte.`
+        :`Nenhuma peça registrada para "${GUI.esc(chosen)}" no período.`;
+      const clear=rows.length&&(chosen||state.q)?' <button type="button" class="refresh-btn gt-limpar" data-flows-clear>Limpar busca e fluxo</button>':'';
       GUI.html('#tab-regua tbody',visible.length?visible.map(row=>{
         const channel=row.canal==='whatsapp'?'whatsapp':'email';
         const brandClass=['fish','aristo','olivas'].includes(row.marca)?row.marca:'nulo';
         const brand=G.MARCA?.[row.marca] || row.marca || 'Sem marca';
+        const key=GUI.esc([row.marca,row.canal,row.flow,row.piece].join('|'));
         const details=channel==='whatsapp'
-          ? `<details class="flow-extra"><summary>Detalhes dos disparos</summary><div>Lidos: ${GUI.nf(row.lidos)} · Aguardando confirmação: ${GUI.nf(row.pendentes_entrega)}<br>
+          ? `<details class="flow-extra" data-gt-key="${key}"><summary>Detalhes dos disparos</summary><div>Lidos: ${GUI.nf(row.lidos)} · Aguardando confirmação: ${GUI.nf(row.pendentes_entrega)}<br>
               Sem disparo confirmado: ${GUI.nf(row.sem_disparo_confirmado)} · Erros antes do aceite: ${GUI.nf(row.erros_sincronos)}</div></details>`
           : '<div class="flow-extra">Entrega e falhas individuais não medidas nesta visão.</div>';
+        const ambiguous=row.atribuicao_ambigua?'<span class="tag nulo" title="Mais de um fluxo usa esta peça: pedidos e receita existem, mas não têm dono. Aparece em branco, não como zero.">indivisível</span>':'';
         return `<tr><td><div class="flow-name">${GUI.esc(row.piece || 'Sem peça')}</div><div class="flow-sub">${GUI.esc(row.flow || 'Sem fluxo')}</div>${details}</td>
           <td><span class="tag growth-table-tag ${brandClass}">${GUI.esc(brand)}</span><span class="tag ${channel}">${channel==='whatsapp'?'WhatsApp':'E-mail'}</span></td>
           <td class="num tabn">${GUI.nf(row.enviados)}</td><td class="num tabn">${GUI.nf(channel==='whatsapp'?row.entregues:null)}</td>
-          <td class="num tabn">${GUI.nf(channel==='whatsapp'?row.falhas:null)}</td><td class="num tabn">${GUI.nf(row.pedidos)}</td>
-          <td class="num tabn destaque">${GUI.rf(row.receita)}</td></tr>`;
-      }).join(''):'<tr><td colspan="7"><div class="vazio">Nenhuma automação com registros neste recorte.</div></td></tr>');
+          <td class="num tabn${channel==='whatsapp'&&+row.falhas>0?' vm':''}">${GUI.nf(channel==='whatsapp'?row.falhas:null)}</td><td class="num tabn">${ambiguous||GUI.nf(row.pedidos)}</td>
+          <td class="num tabn destaque">${ambiguous?'':GUI.rf(row.receita)}</td></tr>`;
+      }).join(''):`<tr><td colspan="7"><div class="vazio">${empty}${clear}</div></td></tr>`);
+      if(kept&&typeof GT!=='undefined')GT.restaura(GUI.el('#tab-regua tbody'),kept);
+      GUI.el('#tab-regua [data-flows-clear]')?.addEventListener('click',()=>{GUI.flowsState.q='';if(search)search.value='';if(selector)selector.value='';render();});
       const anomalies=(G.REGUA_ANOMALIAS || []).filter(a=>canal!=='whatsapp' && a.dia>=ini && a.dia<=fim && (marca==='todas' || a.marca===marca));
       GUI.html('#nota-regua',`Disparos de WhatsApp são mensagens aceitas pela Meta; sombra e tentativas sem aceite ficam nos detalhes. Não inclui Reportana. Automações de e-mail são envios registrados via SES; entrega e falhas individuais aparecem como —.<br>
-        Pedidos e receita seguem a data da compra e a atribuição por último clique à peça. Não são conversão dos envios deste período. O filtro de automação altera somente esta tabela.`+
+        Pedidos e receita seguem a data da compra e a atribuição por último clique à peça. Não são conversão dos envios deste período. Busca, fluxo e ordenação alteram somente esta tabela e a exportação.`+
         anomalies.map(a=>`<div class="metric-note"><strong>${GUI.date(a.dia)} · ${GUI.esc(G.MARCA?.[a.marca] || a.marca)} · ${GUI.esc(a.piece)}:</strong> ${GUI.esc(a.motivo)}.</div>`).join(''));
       return visible;
     };
     if(selector) selector.onchange=render;
+    if(search) search.oninput=()=>{GUI.flowsState.q=search.value;render();};
+    if(table) table.querySelectorAll('th[data-sort]').forEach(th=>{th.onclick=()=>{
+      if(typeof GT==='undefined')return;
+      GUI.flowsState={...GUI.flowsState,...GT.proximaOrdem(GUI.flowsState,th.dataset.sort,th.classList.contains('num'))};render();};});
+    if(exportButton) exportButton.onclick=()=>{
+      if(typeof GT==='undefined'||typeof ctx.exportMeta!=='function')return;
+      const meta=ctx.exportMeta({fluxo:selector?.value||'todos',busca:GUI.flowsState.q||''});
+      const csvRows=lastVisible.map(r=>({...r,marca:G.MARCA_CHEIA?.[r.marca]||G.MARCA?.[r.marca]||r.marca,
+        pedidos:r.atribuicao_ambigua?null:r.pedidos,receita:r.atribuicao_ambigua?null:r.receita,assist:r.atribuicao_ambigua?null:r.assist,receita_assist:r.atribuicao_ambigua?null:r.receita_assist}));
+      GT.baixar(GT.nomeArquivo('automacoes',meta),GT.csv(GUI.flowsColumns,csvRows,meta));
+    };
     render();
     return rows;
   },

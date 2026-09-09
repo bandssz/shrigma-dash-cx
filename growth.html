@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="growth.css?v=20260908-2">
-<link rel="stylesheet" href="growth-control.css?v=20260908-1">
+<link rel="stylesheet" href="growth.css?v=20260909-1">
+<link rel="stylesheet" href="growth-control.css?v=20260909-1">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
@@ -151,6 +151,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
   </div>
   <div class="growth-context" id="growth-context">Disparos e resultados do período · horário de Brasília</div>
+  <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
   <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
   <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
   <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
@@ -200,10 +201,12 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <div class="sec" id="sec-camp">
     <section class="painel" id="campaign-email-block">
       <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
+        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
       <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
-        <th>Peça</th><th></th><th class="num">Enviados</th>
-        <th class="num">Abertura</th><th class="num">CTR</th><th class="num">CTOR</th>
-        <th class="num">Receita acumulada</th><th></th>
+        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
+        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
+        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-camp"></div>
     </section>
@@ -211,9 +214,11 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span>
         <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
           <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
+        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
       <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
-        <th id="th-conv-grao">Peça</th><th>Canal</th><th class="num">Pedidos</th><th class="num">Receita</th>
-        <th class="num">Assist.</th><th class="num">R$ assist.</th><th class="num">% novos</th>
+        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
+        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-conv"></div>
     </section>
@@ -276,10 +281,13 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
-      <div class="painel-cab"><h2>Automações por canal</h2><div class="flow-controls"><label for="sel-flow">Fluxo</label><select id="sel-flow"><option value="todos">Todos os fluxos</option></select><span class="mini" id="regua-rot"></span></div></div>
+      <div class="painel-cab"><h2>Automações por canal</h2><span class="mini" id="regua-rot"></span></div>
+      <div class="gt-toolbar flow-controls"><label class="gt-filtro" for="sel-flow">Fluxo<select id="sel-flow"><option value="">Todas as automações</option></select></label>
+        <label class="gt-busca">Buscar peça<input type="search" id="regua-busca" placeholder="Peça ou fluxo" autocomplete="off"></label>
+        <button type="button" class="refresh-btn gt-export" id="regua-export">Exportar CSV</button></div>
       <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
-        <th>Peça</th><th>Marca / canal</th><th class="num">Disparos</th><th class="num">Entregues</th>
-        <th class="num">Falhas</th><th class="num">Pedidos</th><th class="num">Receita</th>
+        <th data-sort="piece"><button type="button" class="gt-th">Peça</button></th><th data-sort="marca"><button type="button" class="gt-th">Marca / canal</button></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Disparos</button></th><th class="num" data-sort="entregues"><button type="button" class="gt-th">Entregues</button></th>
+        <th class="num" data-sort="falhas"><button type="button" class="gt-th">Falhas</button></th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-regua"></div>
     </section>
@@ -312,8 +320,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
 <script src="growth-data.js?v=20260908-2"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
-<script src="growth-ui.js?v=20260908-2"></script>
-<script src="growth-control.js?v=20260908-1"></script>
+<script src="growth-table.js?v=20260909-1"></script>
+<script src="growth-ui.js?v=20260909-1"></script>
+<script src="growth-control.js?v=20260909-1"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -322,6 +331,28 @@ const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{m
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+// Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
+let CONSULTA={em:null,falhou:false};
+// Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
+const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
+const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
+// Colunas de recorte repetidas em toda linha exportada: o CSV continua legível fora do painel.
+function exportMeta(extra={}){
+  const canal={todos:'E-mail e WhatsApp',email:'E-mail',whatsapp:'WhatsApp próprio'}[CANAL]||CANAL;
+  return {recorte_marca:MARCA==='todas'?'Consolidada':(G.MARCA_CHEIA[MARCA]||MARCA),recorte_canal:canal,
+    periodo_inicio:PER.ini,periodo_fim:PER.fim,
+    referencia_consulta:CONSULTA.em?new Date(CONSULTA.em).toLocaleString('pt-BR',{timeZone:G.TZ,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'',
+    ...extra};
+}
+const COLS_CAMP=[{chave:'nome',rotulo:'Peça'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'enviado_em',rotulo:'Enviado em'},
+  {chave:'utm_campaign',rotulo:'utm_campaign'},{chave:'utm_content',rotulo:'utm_content'},{chave:'enviados',rotulo:'Enviados'},{chave:'entregues',rotulo:'Entregues'},
+  {chave:'entrega_pct',rotulo:'Entrega %'},{chave:'abertura_pct',rotulo:'Abertura %',pega:c=>c.medido?c.abertura_pct:null},{chave:'ctr_pct',rotulo:'CTR %',pega:c=>c.medido_clique?c.ctr_pct:null},
+  {chave:'ctor_pct',rotulo:'CTOR %',pega:c=>c.medido&&c.medido_clique?c.ctor_pct:null},{chave:'hard',rotulo:'Hard bounce'},{chave:'complaints',rotulo:'Reclamações'},{chave:'compl_pct',rotulo:'Reclamação %'},
+  {chave:'pedidos',rotulo:'Pedidos atribuídos',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.pedidos:null},{chave:'receita',rotulo:'Receita acumulada',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null},
+  {chave:'utm_ambiguo',rotulo:'Receita indivisível',pega:c=>!!(c.rec&&c.rec.utm_ambiguo)},{chave:'grupo',rotulo:'Mesmo UTM (grupo)',pega:c=>c.grupo?`#${c.grupo.grupo}`:null},{chave:'truncado',rotulo:'Truncado',pega:c=>!!c.truncado}];
+const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Grão'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
+  {chave:'campanha',rotulo:'utm_campaign'},{chave:'peca',rotulo:'utm_content'},{chave:'familia',rotulo:'Família'},{chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},
+  {chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},{chave:'novos',rotulo:'Clientes novos'},{chave:'recorr',rotulo:'Clientes recorrentes'},{chave:'pct_novos',rotulo:'% novos'}];
 const HOJE=G.diaBR(new Date());
 let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
@@ -484,7 +515,7 @@ function render(){
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows});
+  GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
   $('#campaign-email-block').hidden=CANAL==='whatsapp';
   $('#email-comparison-block').hidden=CANAL==='whatsapp';
   $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
@@ -575,9 +606,16 @@ function render(){
 
   $('#n-conv').textContent=conv.length||'';
   $('#th-conv-grao').textContent=GRAO==='peca'?'Peça':GRAO==='campanha'?'Campanha':'Família';
-  $('#tab-conv tbody').innerHTML=conv.length?conv.map(c=>{
+  const convLinhas=conv.map(c=>{const t2=c.novos+c.recorr;return {...c,grao:GRAO,
+    titulo:GRAO==='peca'?(c.peca||c.campanha||'—'):GRAO==='campanha'?(c.campanha||'(sem)'):c.familia,
+    pct_novos:t2?Math.round(100*c.novos/t2):null};});
+  const convVis=GT.ordena(GT.busca(convLinhas,TABELAS.conv.q,['titulo','campanha','peca','familia',c=>G.MARCA[c.marca]||c.marca]),TABELAS.conv.sort,TABELAS.conv.dir);
+  ULT.conv=convVis;GT.marcaCabecalhos($('#tab-conv'),TABELAS.conv);
+  $('#conv-contagem').textContent=conv.length?`${convVis.length}${convVis.length!==conv.length?` de ${conv.length}`:''} linha${convVis.length===1?'':'s'}`:'';
+  $('#conv-export').disabled=!convVis.length;
+  $('#tab-conv tbody').innerHTML=convVis.length?convVis.map(c=>{
     const t2=c.novos+c.recorr;
-    const titulo=GRAO==='peca'?(c.peca||c.campanha||'—'):GRAO==='campanha'?(c.campanha||'(sem)'):c.familia;
+    const titulo=c.titulo;
     const sub=GRAO==='peca'?esc(c.campanha)
       :GRAO==='campanha'?`${c.pecas.size} peça${c.pecas.size===1?'':'s'}`
       :`${c.campanhas.size} campanha${c.campanhas.size===1?'':'s'} · ${c.pecas.size} peças`;
@@ -588,7 +626,8 @@ function render(){
       <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
       <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
-  }).join(''):'<tr><td colspan="7"><div class="vazio">Sem conversão atribuída no período.</div></td></tr>';
+  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período.'}</div></td></tr>`;
+  $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
   $('#nota-conv').innerHTML=`<strong>Último clique</strong> = o CRM foi o toque final; recebe 100% do crédito.
     <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam
     o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
@@ -609,8 +648,8 @@ function render(){
         <div class="num tabn">${nf(x.env)}</div>
         <div><span class="tag email">e-mail</span></div></div>`).join('');
   }
-  GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL});
-  GC.render({api:API,marca:MARCA,canal:CANAL});
+  GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
+  GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});
 
   const fila=G.fila(API,MARCA,CANAL);
   $('#painel-fila').hidden=!fila.length;
@@ -630,7 +669,13 @@ function render(){
 
   $('#n-camp').textContent=cs.length||'';
   $('#camp-rot').textContent=`${cs.length} peças`;
-  $('#tab-camp tbody').innerHTML=cs.length?cs.map(c=>{
+  const campVis=GT.ordena(GT.busca(cs,TABELAS.camp.q,['nome','utm_campaign','utm_content',c=>G.MARCA[c.marca]||c.marca]),TABELAS.camp.sort,TABELAS.camp.dir,
+    c=>TABELAS.camp.sort==='receita'?(c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null):TABELAS.camp.sort==='abertura_pct'?(c.medido?c.abertura_pct:null):c[TABELAS.camp.sort]);
+  ULT.camp=campVis;GT.marcaCabecalhos($('#tab-camp'),TABELAS.camp);
+  $('#camp-contagem').textContent=cs.length?`${campVis.length}${campVis.length!==cs.length?` de ${cs.length}`:''} peça${campVis.length===1?'':'s'}`:'';
+  $('#camp-export').disabled=!campVis.length;
+  const campAbertas=GT.captura($('#tab-camp tbody'));
+  $('#tab-camp tbody').innerHTML=campVis.length?campVis.map(c=>{
     const real=c.real?`<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas de provedor confiável">
       <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div><span class="mini">${c.real.pct}% confiável</span>`
       :'<span class="mini">—</span>';
@@ -644,7 +689,7 @@ function render(){
       <td class="num tabn destaque">${ambiguo
         ?'<span class="tag nulo" title="UTM usado por mais de uma peça: a receita existe mas não tem dono">indivisível</span>'
         :rf(c.rec?c.rec.receita:null)}${!ambiguo&&c.rec&&c.rec.pedidos?`<div class="mini">${nf(c.rec.pedidos)} pedidos</div>`:''}</td>
-      <td><button class="mais" title="entrega, reclamação, abertura real, UTM">+</button></td></tr>
+      <td><button class="mais" title="entrega, reclamação, abertura real, UTM" data-gt-expand="${esc(c.marca+'|'+c.campanha_id)}" data-gt-toggle-text="–" aria-expanded="false">+</button></td></tr>
       <tr class="det" hidden><td colspan="8"><div class="det-grid">
         <div><span class="mini">Entrega</span><strong class="tabn">${pf(c.entrega_pct)}</strong><span class="mini">${nf(c.entregues)} de ${nf(c.enviados)}</span></div>
         <div><span class="mini">Reclamação</span><strong class="tabn ${c.compl_pct>=0.08?'vm':''}">${pf(c.compl_pct)}</strong><span class="mini">${nf(c.complaints)} · limite SES 0,1%</span></div>
@@ -653,8 +698,10 @@ function render(){
         <div><span class="mini">UTM</span><code>${esc(c.utm_campaign||'sem utm')}</code><br><code>${esc(c.utm_content||'—')}</code></div>
         ${c.grupo?`<div><span class="mini">Disparos no grupo</span><strong>#${esc(c.grupo.grupo)}</strong><span class="mini">mesmo e-mail, bases diferentes</span></div>`:''}
       </div></td></tr>`;
-  }).join(''):'<tr><td colspan="8"><div class="vazio">Nenhuma peça disparada no período.</div></td></tr>';
-  document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';});
+  }).join(''):`<tr><td colspan="8"><div class="vazio">${cs.length?`Nenhuma peça contém "${esc(TABELAS.camp.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="camp">Limpar busca</button>`:'Nenhuma peça disparada no período.'}</div></td></tr>`;
+  GT.restaura($('#tab-camp tbody'),campAbertas);
+  $('#tab-camp [data-limpar]')?.addEventListener('click',()=>{TABELAS.camp.q='';$('#camp-busca').value='';render();});
+  document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
     e-mail que cai no spam conta como entregue. <strong>Abertura por provedor</strong> mostra quanto da abertura veio
@@ -702,6 +749,21 @@ function render(){
   $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
 }
 
+// Atalhos dos KPIs: levam para a tabela que explica o número, sem mexer em marca/período.
+function pular(alvo){
+  if(alvo.startsWith('flows:')){const c=alvo.slice(6);openFlows(c==='todos'?CANAL:c);return;}
+  if(alvo==='attention'){$('#automation-attention').scrollIntoView({behavior:'smooth',block:'start'});return;}
+  if(alvo==='camp'||alvo==='conv'){
+    SEC='camp';salvaPref({sec:SEC});document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);
+    $(alvo==='camp'?'#campaign-email-block':'#tab-conv').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
+  }
+}
+// Estado da tela na URL: copiar o link entrega a mesma marca, canal, período, seção e aba.
+function estadoHash(){
+  const preset=document.querySelector('#presets button.ativo')?.dataset.p||null;
+  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:SEC==='regua'?GC.activeTab:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
+}
+function gravaHash(){try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
 function setCanal(canal){
   if(!['todos','email','whatsapp'].includes(canal))return;
   CANAL=canal;salvaPref({canal});
@@ -709,7 +771,7 @@ function setCanal(canal){
   const onlyEmail=['cliques','complaints','novos_subs'],onlyWA=['entregues','falhas'];
   if((canal==='whatsapp'&&onlyEmail.includes(METRICA))||(canal==='email'&&onlyWA.includes(METRICA)))METRICA='receita';
   for(const o of $('#sel-metrica').options)o.disabled=(canal==='whatsapp'&&onlyEmail.includes(o.value))||(canal==='email'&&onlyWA.includes(o.value));
-  $('#sel-metrica').value=METRICA;render();
+  $('#sel-metrica').value=METRICA;render();gravaHash();
 }
 function openFlows(canal,selection={}){
   if(selection.marca && ativaBotao('#seg-marca button','marca',selection.marca)){
@@ -721,7 +783,7 @@ function openFlows(canal,selection={}){
   }
   document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
   ativaBotao('#secoes button','s',SEC);
-  $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});
+  $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
 
 function chave(){
@@ -746,14 +808,19 @@ async function carregar(){
     shrigmaMarcaMestra(k,API._painel);
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
+    CONSULTA={em:new Date().toISOString(),falhou:false};
     render();
+    if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
+    gravaHash();
     $('#load-state').hidden=true;
     $('#atualizado-em').textContent='Consulta às '+new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'})+' · atualiza a cada 60s';
   }catch(e){
     $('#load-state').hidden=true;
+    CONSULTA={...CONSULTA,falhou:true};
     $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(e.name==='TimeoutError'?'A consulta demorou além do esperado.':e.message)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
-    GC.render({api:API,marca:MARCA,canal:CANAL});
+    if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
+    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
@@ -783,11 +850,17 @@ async function salvarTeste(){
 // Marca, periodo e aba persistem no navegador (padrao Metabase/Looker): quem abre o painel
 // todo dia nao refaz os mesmos quatro cliques. Sem preferencia salva vale o padrao da pagina.
 const PREF_K='shrigma_growth_pref';
+let PENDENTE_FLOW=null; // fluxo pedido pela URL, aplicado na primeira carga com dados
 function salvaPref(p){try{localStorage.setItem(PREF_K,JSON.stringify({...(lePref()||{}),...p}));}catch(e){}}
 function lePref(){try{return JSON.parse(localStorage.getItem(PREF_K)||'null');}catch(e){return null;}}
 function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).forEach(b=>{const on=b.dataset[attr]===val;b.classList.toggle('ativo',on);ok=ok||on;});return ok;}
 (function aplicaPref(){
-  const p=lePref(); if(!p)return;
+  const h=(typeof location!=='undefined'&&typeof location.hash==='string')?GT.leHash(location.hash):{};
+  const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
+    ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
+  if(h.aba&&['history','workflows','templates'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.flow)PENDENTE_FLOW=h.flow;
+  if(!Object.keys(p).length)return;
   if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
   if(p.preset&&ativaBotao('#presets button','p',p.preset))PER=G.preset(p.preset,HOJE);
   else if(p.ini&&p.fim&&p.fim<=HOJE){PER={ini:p.ini,fim:p.fim};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));}
@@ -796,25 +869,31 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
 })();
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;salvaPref({marca:MARCA});render();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;salvaPref({marca:MARCA});render();gravaHash();});
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');salvaPref({sec:SEC});
-  if(SEC==='visao')render();
+  if(SEC==='visao')render();gravaHash();
   // se a barra de secoes ficou acima da viewport, traz de volta
   const r=$('#secoes').getBoundingClientRect();
   if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b||b>G.diaBR(new Date()))return;
-  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();});
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
 document.querySelectorAll('#seg-canal button').forEach(b=>b.onclick=()=>setCanal(b.dataset.canal));
 $('#btn-atualizar').onclick=()=>carregar();
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
 $('#sel-grao').onchange=()=>render();
+$('#camp-busca').oninput=e=>{TABELAS.camp.q=e.target.value;render();};
+$('#conv-busca').oninput=e=>{TABELAS.conv.q=e.target.value;render();};
+document.querySelectorAll('#tab-camp th[data-sort]').forEach(th=>th.onclick=()=>{TABELAS.camp={...TABELAS.camp,...GT.proximaOrdem(TABELAS.camp,th.dataset.sort,th.classList.contains('num')||th.dataset.sort==='enviado_em')};render();});
+document.querySelectorAll('#tab-conv th[data-sort]').forEach(th=>th.onclick=()=>{TABELAS.conv={...TABELAS.conv,...GT.proximaOrdem(TABELAS.conv,th.dataset.sort,th.classList.contains('num'))};render();});
+$('#camp-export').onclick=()=>GT.baixar(GT.nomeArquivo('campanhas',exportMeta()),GT.csv(COLS_CAMP,ULT.camp,exportMeta({busca:TABELAS.camp.q})));
+$('#conv-export').onclick=()=>GT.baixar(GT.nomeArquivo('conversao-'+(($('#sel-grao')||{}).value||'peca'),exportMeta()),GT.csv(COLS_CONV,ULT.conv,exportMeta({busca:TABELAS.conv.q})));
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
 $('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
 $('#f-cancelar').onclick=()=>{$('#form-teste').hidden=true;};
@@ -823,10 +902,12 @@ $('#f-salvar').onclick=salvarTeste;
 
 addEventListener('resize',()=>API&&SEC==='visao'&&render());
 GC.init();
+// depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
+document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',gravaHash));
 setCanal(CANAL);
 carregar();
 setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
-setInterval(()=>{if(API)GC.render({api:API,marca:MARCA,canal:CANAL});},30000);
+setInterval(()=>{if(API)GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});},30000);
 </script>
 </body>
 </html>

@@ -31,3 +31,8 @@
 .control-template-table .control-badge{margin:0 4px 5px 0}.control-usage{display:block;max-width:215px;font-size:12px;line-height:1.5}.control-planned{color:#625485}.control-template-table p.control-warning{max-width:250px;font-size:11px;line-height:1.5;margin:8px 0 0}
 @media(max-width:1100px){.control-workflows{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.control-tabs{gap:6px}.control-tabs button{padding:9px 10px;font-size:12px}.control-context{flex-direction:column;gap:12px}.control-updated{text-align:left}.control-summary{gap:7px}.control-summary>div{padding:11px 9px}.control-summary strong{font-size:23px}.control-summary span{font-size:11px}.control-workflow{padding:13px}.control-workflow-head{flex-direction:column;gap:9px}.control-template-toolbar{align-items:flex-start;flex-direction:column;gap:10px}.control-template-toolbar label{width:100%;flex-wrap:wrap}.control-template-toolbar input{width:100%;min-width:0}}
+/* P0 (09/09/2026): filtros do inventário na mesma toolbar das demais tabelas */
+.control-toolbar{margin:18px 0}
+.control-toolbar .gt-busca input{min-width:200px}
+.control-template-table th[data-sort]{cursor:pointer}
+@media(max-width:640px){.control-toolbar{align-items:stretch;flex-direction:column;gap:10px}.control-toolbar .gt-busca,.control-toolbar .gt-filtro{width:100%}.control-toolbar .gt-filtro select,.control-toolbar .gt-busca input{flex:1;width:100%;min-width:0}}
