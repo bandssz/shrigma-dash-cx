@@ -145,7 +145,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 /* editor como drawer lateral, no padrao dos CRMs de creator: edita sem sair da lista */
 #i-editor{position:fixed;top:0;right:0;height:100vh;width:min(600px,100vw);overflow:auto;background:#fff;z-index:60;
   box-shadow:-12px 0 40px rgba(0,0,0,.18);padding:18px 20px 28px;border-left:1px solid var(--borda,#e7e4de)}
-#i-editor::before{content:"";position:fixed;inset:0;right:min(600px,100vw);background:rgba(20,20,20,.25);z-index:-1}
+#i-editor-fundo{position:fixed;inset:0;background:rgba(20,20,20,.28);z-index:59}
+.ed-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:16px}
 .i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
 .i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
 .i-cod code{font-size:14px}
@@ -1004,7 +1005,7 @@ function abrirEditor(marca,influ){
   const i=(INFLU.influs||[]).find(x=>x.marca===marca&&x.influ===influ)||{marca,influ};
   const v=(INFLU.roi||[]).find(x=>x.marca===marca&&x.influ===influ)||{};
   ED={marca,influ};
-  $('#i-editor').hidden=false; $('#i-form').hidden=true;
+  window.__abreEditor(); $('#i-form').hidden=true;
   $('#ed-titulo').textContent=`${i.nome||influ} · ${G.MARCA[marca]||marca}`;
   $('#ed-sub').innerHTML=`slug <code>${esc(influ)}</code> — precisa bater com o <code>utm_content</code> dos links dele`;
   $('#ed-nome').value=i.nome||''; $('#ed-handle').value=i.handle||'';
@@ -1067,7 +1068,15 @@ async function salvarCusto(remover){
 $('#ed-salvar').onclick=salvarCadastro;
 $('#ed-custo-salvar').onclick=()=>salvarCusto(false);
 $('#ed-custo-remover').onclick=()=>salvarCusto(true);
-$('#ed-fechar').onclick=()=>{$('#i-editor').hidden=true;ED=null;};
+// Drawer fora de qualquer secao: movido para o <body> na carga, com fundo proprio. Assim nenhum
+// pai (aba escondida, overflow, transform) consegue esconde-lo ou prende-lo.
+(function(){const ed=$('#i-editor'); if(!ed)return; const back=document.createElement('div'); back.id='i-editor-fundo'; back.hidden=true;
+  document.body.appendChild(back); document.body.appendChild(ed);
+  const cab=document.createElement('div'); cab.className='ed-cab'; cab.innerHTML='<strong>Editar creator</strong><button class="btn sec" id="ed-fechar-topo">Fechar</button>'; ed.prepend(cab);
+  const fecha=()=>{ed.hidden=true;back.hidden=true;ED=null;};
+  back.onclick=fecha; $('#ed-fechar-topo').onclick=fecha; $('#ed-fechar').onclick=fecha;
+  window.__abreEditor=()=>{back.hidden=false;ed.hidden=false;ed.scrollTop=0;};
+})();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#i-editor').hidden)$('#ed-fechar').click();});
 
 $('#i-filtro').onchange=renderTabela;
