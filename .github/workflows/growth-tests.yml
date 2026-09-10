@@ -1,0 +1,37 @@
+name: Growth regression
+on:
+  pull_request:
+    paths:
+      - 'growth*'
+      - 'config.js'
+      - 'alerta-*.js'
+      - 'tests/**'
+      - '.github/workflows/growth-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing DOM test dependency
+        run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Run synthetic regression tests
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
+      - name: Save test result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: growth-test-results
+          path: ${{ runner.temp }}/growth-tests.txt
+          retention-days: 7

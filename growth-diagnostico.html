@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Pedido pago · Diagnóstico Growth</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#242936;background:#f5f6f8;line-height:1.5}*{box-sizing:border-box}body{margin:0}main{max-width:1060px;margin:auto;padding:28px 22px 52px}header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:26px}h1{font-size:clamp(25px,5vw,35px);line-height:1.2;margin:5px 0 9px;letter-spacing:-.025em}h2{font-size:19px;margin:0 0 12px}h3{font-size:15px;margin:0 0 6px}p{margin:8px 0}.muted,small{color:#606b7c}.overline{font-size:12px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:#606b7c}a{color:#234fa3;text-underline-offset:3px}button,input,select{font:inherit}button,.back{border:1px solid #c8ced8;border-radius:8px;padding:9px 13px;background:white;color:#283647;font-weight:650;cursor:pointer;white-space:nowrap}button:disabled{opacity:.55;cursor:default}input,select{border:1px solid #c8ced8;border-radius:7px;background:#fff;padding:9px;color:inherit;min-height:43px}label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}.toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-bottom:17px}.panel{background:#fff;border:1px solid #dfe3e9;border-radius:12px;padding:21px;margin:17px 0}.notice{background:#f0f4fa;border:1px solid #d4e0ef;border-radius:9px;padding:13px 15px;font-size:14px}.warning{background:#fff7e8;border-color:#ead7ad;color:#71511e}.blocked{background:#fff0ec;border-color:#efcfc5;color:#8d3928}.unknown{color:#73551f}.stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:17px}.stage{border:1px solid #e0e4eb;border-radius:9px;padding:15px;min-width:0}.stage p{font-size:14px}.stage small{display:block;margin-top:12px}.counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin:18px 0}.count strong{font-size:28px;display:block;line-height:1.3;font-variant-numeric:tabular-nums}.count span{font-size:13px;color:#606b7c}.line{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}.fine{font-size:13px}details{margin-top:16px}summary{cursor:pointer;font-weight:650}li{margin:8px 0}ul{padding-left:20px}code{font-size:.95em}#auth-form{max-width:540px}#auth-key{width:100%;margin-bottom:10px}#status{min-height:25px;margin:10px 0;font-size:14px}footer{font-size:12px;color:#606b7c;margin-top:22px}[hidden]{display:none!important}:focus-visible{outline:3px solid #6a8cce;outline-offset:3px}@media(max-width:650px){main{padding:20px 15px 35px}header{display:block}.back{display:inline-block;margin-top:8px}.stages{grid-template-columns:1fr}.counts{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:17px}.toolbar label{flex:1 1 130px}.toolbar button{flex:1 1 auto}}
+</style>
+</head>
+<body><main>
+<header><div><span class="overline">Grupo Shrigma · Growth</span><h1>Diagnóstico de pedido pago</h1><p class="muted">Configuração atual e histórico de WhatsApp, sem alterar automações.</p></div><a class="back" href="growth.html">Voltar ao Growth</a></header>
+<div class="notice">Esta página usa a mesma consulta de leitura do Growth. Não envia mensagens, não muda modos e não reenvia pedidos.</div>
+<section class="panel" id="auth" hidden><h2>Acesso Growth</h2><p class="fine">A chave já salva no Growth é reutilizada. Sem uma chave salva, informe a mesma chave de leitura aqui.</p><form id="auth-form"><label for="auth-key">Chave de leitura<input id="auth-key" type="password" autocomplete="off" spellcheck="false" required></label><button type="submit">Consultar</button></form></section>
+<section class="panel" aria-label="Recorte do diagnóstico"><div class="toolbar">
+<label>Marca<select id="brand"><option value="aristo">O Aristocrata</option><option value="fish">Fishermans</option></select></label>
+<label>Início<input type="date" id="start" required></label><label>Fim<input type="date" id="end" required></label>
+<button type="button" id="today">Hoje</button><button type="button" id="yesterday">Ontem e hoje</button><button type="button" id="refresh">Atualizar</button>
+</div><div id="status" role="status" aria-live="polite">Aguardando consulta.</div><p class="fine muted" id="received">Horários de Brasília. O recorte de datas afeta somente o histórico.</p></section>
+<div id="result" hidden></div>
+<footer>Consulta automática a cada 60 segundos enquanto esta página estiver aberta. Uma coleta com 15 minutos ou mais não confirma configuração atual. Sem conexão, a consulta anterior permanece identificada.</footer>
+</main>
+<script src="config.js?v=e30fc0c8"></script>
+<script src="growth-delivery.js?v=20260908-2"></script>
+<script src="growth-control.js?v=20260909-1"></script>
+<script src="growth-diagnostic.js?v=20260910-1"></script>
+<script src="growth-diagnostic-ui.js?v=20260910-1"></script>
+</body></html>
