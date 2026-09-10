@@ -157,6 +157,11 @@ como consulta indisponível, nunca como automação desligada, entrega falha ou 
 A ausência ou falha de coleta não aparece como estado saudável, e a interface não oferece
 controles de edição sem backend.
 
+O incidente `new` com horários nulos no inventário foi corrigido em 09/09 às 17h43 (Brasília):
+a coleta de 17h45, conferida às 17h46, preservou configuração de `fish_pix`/`receiver`, com
+15 workflows, 24 templates e zero erro de coleta. É evidência datada, não diagnóstico da fila
+atual. A separação por `config_collection`/`execution_collection` ainda é proposta em R1.
+
 ### Navegação, exportação e estado da tela (09/09/2026)
 
 - **Faixa de fontes** sob os filtros: hora da última resposta da API, último status WhatsApp
@@ -188,9 +193,9 @@ controles de edição sem backend.
 A aba **Automações › Rascunhos locais** é um editor para escrever e revisar templates de WhatsApp
 e e-mail **antes** de existir cadastro pelo painel: nome, marca, canal, idioma, categoria esperada,
 peça, cabeçalho, corpo com variáveis `{{n}}`, rodapé, exemplos das variáveis, botões (resposta rápida,
-link, telefone), prévia do texto digitado com os exemplos aplicados, checagens locais (limites públicos
-da Meta: 1024/60/60/25 caracteres, até 10 botões, variáveis em sequência, exemplo por variável, `https://`,
-`wa.me` fora de botão, texto de oferta em Utility) e importar/exportar em JSON.
+link, telefone), prévia do texto digitado com os exemplos aplicados, checagens locais (perfil conservador
+de 1024/60/60/25 caracteres para corpo/cabeçalho/rodapé/botão, até 10 botões, variáveis em sequência,
+exemplos, `https://`, aviso de link para atendimento e linguagem de oferta em Utility) e importar/exportar em JSON.
 
 O rascunho fica **só no navegador** (`localStorage`, chave `shrigma_growth_rascunhos`) e a tela diz isso
 em todo lugar: não é cadastro na Meta, no Listmonk nem no n8n; não existe botão de publicar, submeter
@@ -198,6 +203,10 @@ ou ativar; a prévia é do que foi digitado, nunca de um template publicado (o c
 corpo de template). Se o nome coincidir com um template do catálogo, o card avisa que existe um
 template com esse nome e status, sem tratar o rascunho como esse template. Exportação não leva o id local
 nem qualquer credencial; importação aceita só campos conhecidos. Integração real: `BACKEND_REQUESTS.md` (R5).
+As checagens não certificam aprovação nem categoria na Meta. Na revisão de 10/09, a documentação
+oficial de componentes respondeu HTTP 429; não houve recertificação das regras atuais.
+Antes de implementar submissão (R5), validar novamente combinações de botões, variáveis por
+componente, idiomas e limites do tipo de template suportado.
 Código em `growth-drafts.js` (regras e armazenamento, puro) e `growth-drafts-ui.js` (tela).
 
 ### Contrato proposto de gestão de templates/workflows (Entrega 3 · 09/09/2026)

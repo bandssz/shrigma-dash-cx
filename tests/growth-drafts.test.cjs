@@ -6,12 +6,12 @@ test('variáveis são extraídas em ordem e sem repetição; exemplos preenchem 
  assert.equal(GR.preenche('Oi {{1}}, código {{2}}',{1:'Ana'}),'Oi Ana, código {{2}}');
  assert.equal(GR.preenche(null,{}),'');
 });
-test('validação local: limites da Meta, sequência de variáveis, botões e categoria',()=>{
+test('validação local: limites locais, sequência de variáveis, botões e categoria',()=>{
  const ok=GR.novo({nome:'fish_rastreio_v3',corpo:'Olá {{1}}, seu pedido {{2}} saiu.',exemplos:{1:'Ana',2:'#123'},botoes:[{tipo:'url',texto:'Acompanhar',valor:'https://conta.fishermans.com.br'}]});
  assert.deepEqual(GR.valida(ok),{erros:[],avisos:[]});
  const ruim=GR.novo({nome:'Nome Com Espaço',corpo:'{{1}} e {{3}} '+'x'.repeat(1030),botoes:[{tipo:'url',texto:'Ir',valor:'http://x'},{tipo:'phone',texto:'',valor:'abc'}]});
  const v=GR.valida(ruim);
- assert(v.erros.some(e=>/limite da Meta é 1024/.test(e)));
+ assert(v.erros.some(e=>/este editor aceita até 1024/.test(e)));
  assert(v.erros.some(e=>/sequência a partir de \{\{1\}\}/.test(e)));
  assert(v.erros.some(e=>/https:\/\//.test(e)));assert(v.erros.some(e=>/Botão 2 sem texto/.test(e)));assert(v.erros.some(e=>/formato internacional/.test(e)));
  assert(v.avisos.some(a=>/minúsculas/.test(a)));assert(v.avisos.some(a=>/começa ou termina com variável/.test(a)));
@@ -47,4 +47,17 @@ test('armazenamento local: guarda, atualiza no lugar, remove e ignora lixo',()=>
   mem.set(GR.CHAVE,'{"nao":"array"}');assert.deepEqual(GR.lista(),[]);
   mem.set(GR.CHAVE,'[1,null,{"id":"z","nome":"z"}]');assert.deepEqual(GR.lista().map(r=>r.id),['z']);
  }finally{delete global.localStorage;}
+});
+
+test('importação rejeita tipos malformados e versão futura com erro legível',()=>{
+ for(const r of [{corpo:'Oi.',nome:{toString:null}}, {corpo:'Oi.',botoes:[{texto:{toString:null}}]}, {corpo:'Oi.',exemplos:{1:{toString:null}}}]){
+  assert.match(GR.importa(JSON.stringify(r)).erro,/Arquivo inválido/);
+ }
+ assert.match(GR.importa(JSON.stringify({tipo:'shrigma-growth-rascunho',versao:99,rascunho:{corpo:'Oi.'}})).erro,/Versão/);
+});
+test('exportação só leva os campos de conteúdo conhecidos; armazenamento ausente não declara sucesso',()=>{
+ const txt=GR.exporta(GR.novo({nome:'x_y',corpo:'Oi.',chave_api:'EXTRA_SECRET',botoes:[{tipo:'url',texto:'Ver',valor:'https://example.com',token:'EXTRA_SECRET'}],exemplos:{1:'Ana',chave_api:'EXTRA_SECRET'}}));
+ assert.doesNotMatch(txt,/EXTRA_SECRET|chave_api|token/);
+ delete global.localStorage;
+ assert.equal(GR.guarda(GR.novo({nome:'x_y',corpo:'Oi.'})),null);
 });

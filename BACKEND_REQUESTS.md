@@ -1,24 +1,42 @@
 # BACKEND_REQUESTS — frente Dashboard Growth (Claude → Codex)
 
-Revisado em 09/09/2026. Nenhum destes itens está implementado no backend; o front atual mostra
-a lacuna como indisponível e não simula o dado. Rotas e campos abaixo são **propostas**, aditivas a
+Revisado na integração em 10/09/2026. O incidente R1 foi corrigido em produção em 09/09;
+a separação de coletas proposta em R1 e os itens R2–R5 continuam sem implementação comprovada.
+O front mostra as lacunas sem simular dados. Rotas e campos abaixo são **propostas**, aditivas a
 `crm_operacao.schema_version=1` e ao contrato GET Growth, sem segredo e sem payload real.
 Ordem = prioridade sugerida pela frente de UI. Prazos da migração operacional têm precedência.
 
-## R1 — Separar consulta de configuração e consulta de execução no inventário
+## R1 — Incidente corrigido; separação de coletas ainda proposta
+
+**Evidência histórica de 09/09/2026, Brasília:** o coletor foi publicado às 17h43min34s
+(versão `f80086ca-dc8c-413b-ba9c-861654da8d29`). O snapshot automático de 17h45min07s,
+lido às 17h46min09s, contém 15 workflows e 24 templates, sem erros de coleta.
+`fish_pix` e `receiver` preservam `active=true` e `published=true`, mesmo com execução
+retida `new`, ID válido e horários de início/fim nulos. Os 30 testes do sanitizador passaram.
+Isso corrige o caso observado; não prova processamento da fila nem entrega e não é uma
+consulta nova de 10/09. O contrato continua `schema_version=1`; os objetos
+`config_collection` e `execution_collection` abaixo **não foram publicados**.
+
+A tabela preserva o pedido original de Claude, baseado no snapshot de 09/09 às 17h00,
+para orientar uma evolução posterior do contrato.
 
 | Campo | Conteúdo |
 |---|---|
 | Problema do usuário | `fish_pix` e `receiver` aparecem como "Falha na consulta / Ativação desconhecida" desde 08/09 porque uma execução retida com `status=new` e `startedAt=null` faz o sanitizador descartar também `active`, `published`, versões e modos. O painel perde configuração válida por causa de um metadado de execução. Não dá para responder "o PIX Fish está ligado?" olhando o painel. |
 | Dados/ação necessários | Manter `active`, `published`, `has_unpublished_changes`, `version_id`, `active_version_id`, `modes` quando a leitura de configuração deu certo, mesmo que a leitura de execução falhe; reportar cada leitura separadamente. |
 | Contrato atual | `collection_status` (ok/error) e `collection_error_code` únicos por workflow; `clearWorkflow` zera tudo em qualquer erro (`nota-sanitizador-execucoes.md`). |
-| Contrato proposto | Aditivo, por workflow: `"config_collection": {"status":"ok"\|"error","error_code":null\|"...","checked_at":"…","last_good_at":"…"}` e `"execution_collection": {"status":"ok"\|"error","error_code":null\|"invalid_execution_metadata","checked_at":"…"}`. `collection_status` continua existindo com o pior dos dois (compatibilidade). `last_retained_execution` aceita `started_at:null` somente quando `status` ∈ {`new`,`waiting`} e mantém `id`. Exemplo sintético: `{"key":"fish_pix","active":true,"published":true,"modes":[{"key":"modo","value":"real"}],"collection_status":"error","collection_error_code":"invalid_execution_metadata","config_collection":{"status":"ok","error_code":null,"checked_at":"2026-09-09T20:00:30Z","last_good_at":"2026-09-09T20:00:30Z"},"execution_collection":{"status":"ok","error_code":null,"checked_at":"2026-09-09T20:00:30Z"},"last_retained_execution":{"id":"854177","status":"new","started_at":null,"stopped_at":null}}` |
+| Contrato proposto | Aditivo, por workflow: `"config_collection": {"status":"ok"\|"error","error_code":null\|"...","checked_at":"…","last_good_at":"…"}` e `"execution_collection": {"status":"ok"\|"error","error_code":null\|"invalid_execution_metadata","checked_at":"…"}`. `collection_status` continua existindo com o pior dos dois (compatibilidade). `last_retained_execution` aceita `started_at:null` somente quando `status` ∈ {`new`,`waiting`} e mantém `id`. Exemplo sintético: `{"key":"fish_pix","active":true,"published":true,"modes":[{"key":"modo","value":"real"}],"collection_status":"ok","collection_error_code":null,"config_collection":{"status":"ok","error_code":null,"checked_at":"2026-09-09T20:00:30Z","last_good_at":"2026-09-09T20:00:30Z"},"execution_collection":{"status":"ok","error_code":null,"checked_at":"2026-09-09T20:00:30Z"},"last_retained_execution":{"id":"854177","status":"new","started_at":null,"stopped_at":null}}` |
 | Permissões e capacidades | Leitura, mesmo escopo Growth. Sem ação. |
 | Consistência | `schema_version` permanece 1 (campos novos opcionais). Front trata ausência dos campos novos como hoje. Adicionar teste no coletor para execução `new` sem início e manter rejeição de timestamp inválido em estados que exigem início. |
 | Comportamento sem integração | Como hoje: badge "Falha na consulta", ativação/publicação "desconhecida", modo "não confirmado". Filtro "A conferir" agrupa esses casos. |
 | Critério de aceite | Payload autenticado com `fish_pix` mostrando `active/published` verdadeiros e `execution_collection` explicando o `new`; teste do coletor cobrindo o caso; fixture sintética atualizada devolvida à frente de UI. |
 
 ## R2 — Horário de coleta por fonte no topo do payload
+
+Os números de `cadencia_seg` abaixo são apenas exemplos sintéticos, não a configuração em
+produção. O contrato precisa distinguir coleta bem-sucedida de consulta de observação;
+status WhatsApp chegam por push, sem cadência de polling. Fontes ainda não integradas ou
+sem prova de coleta devem informar ausência/estado desconhecido, nunca `ok` presumido.
 
 | Campo | Conteúdo |
 |---|---|
@@ -160,7 +178,8 @@ Uma chave pode ter várias capacidades; o rótulo (`who`) é o que aparece na au
 | Situação | O que o painel mostra |
 |---|---|
 | Sem `capabilities` (hoje) | Só rascunho local, aviso "salvo só neste dispositivo" |
-| `draft:true`, `submit:false` | Botão "Salvar no servidor" e "Validar"; badge "rascunho no servidor · não submetido"; sem botão submeter |
+| `draft:true`, `validate:true`, `submit:false` | Botão "Salvar no servidor" e "Validar"; badge "rascunho no servidor · não submetido"; sem botão submeter |
+| `draft:true`, `validate:false` | Botão "Salvar no servidor"; sem botão "Validar" nem submissão dependente de validação |
 | `submit:true` | Botão "Submeter à Meta" com confirmação textual; após 202, badge "submetido · aguardando Meta" com hora; nunca "aprovado" antes do GET dizer `APPROVED` |
 | Template `APPROVED` sem workflow em `real` | Badge "publicado · não ativo" |
 | `set_mode:false` | Modo exibido como hoje, sem controle |

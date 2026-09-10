@@ -19,7 +19,7 @@ const GRU={
     if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
     const lista=GR.lista(),r=GRU.state.rascunho;
-    const aviso=`<div class="drafts-scope"><strong>Rascunhos salvos só neste dispositivo</strong><p>Este editor escreve e revisa templates antes de existir cadastro pelo painel. Nada aqui é enviado à Meta, ao Listmonk ou ao n8n; um rascunho não é um template publicado nem aparece para outra pessoa. Para levar a outro computador, exporte o arquivo. Cadastro, submissão e ativação dependem de backend (BACKEND_REQUESTS.md · R5).</p></div>`;
+    const aviso=`<div class="drafts-scope"><strong>Rascunhos salvos só neste dispositivo</strong><p>Escreva e revise mensagens de WhatsApp e e-mail. Elas ficam neste navegador e só serão salvas ao clicar em Salvar. Para levar a outro computador, exporte o arquivo. Publicação de templates e ativação de automações pelo painel ainda estão em desenvolvimento.</p></div>`;
     const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo">Novo rascunho</button>
       <label class="refresh-btn drafts-importar">Importar arquivo<input type="file" id="drafts-arquivo" accept="application/json,.json" hidden></label>
       <span class="gt-contagem">${lista.length} rascunho${lista.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
@@ -42,13 +42,13 @@ const GRU={
       <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.texto)}" aria-label="Texto do botão ${i+1}">
       ${b.tipo==='quick_reply'?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
-    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge">Salvo só neste dispositivo</span></div>
+    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge">Rascunho local</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${wa?'Nome do template':'Nome do rascunho'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Só para você achar depois.'}</span></div>
         <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" data-campo="marca">${GRU.opts(GR.MARCAS,r.marca)}</select></div>
         <div class="campo"><label for="d-canal">Canal</label><select id="d-canal" data-campo="canal">${GRU.opts(GR.CANAIS,r.canal)}</select></div>
         ${wa?`<div class="campo"><label for="d-idioma">Idioma</label><input type="text" id="d-idioma" data-campo="idioma" value="${GRU.e(r.idioma)}" placeholder="pt_BR"></div>
-        <div class="campo"><label for="d-categoria">Categoria esperada</label><select id="d-categoria" data-campo="categoria">${GRU.opts(GR.CATEGORIAS,r.categoria)}</select><span class="ajuda">Utility precisa citar a transação do cliente; aviso genérico vira Marketing.</span></div>`
+        <div class="campo"><label for="d-categoria">Categoria esperada</label><select id="d-categoria" data-campo="categoria">${GRU.opts(GR.CATEGORIAS,r.categoria)}</select><span class="ajuda">Utility deve tratar de uma solicitação ou transação específica, sem promoção. A Meta define a categoria final.</span></div>`
         :`<div class="campo largo"><label for="d-assunto">Assunto</label><input type="text" id="d-assunto" data-campo="assunto" value="${GRU.e(r.assunto)}"></div>`}
         <div class="campo"><label for="d-peca">Peça (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
         ${wa?`<div class="campo largo"><label for="d-cabecalho">Cabeçalho (opcional)</label><input type="text" id="d-cabecalho" data-campo="cabecalho" maxlength="${GR.LIMITES.cabecalho}" value="${GRU.e(r.cabecalho)}"></div>`:''}
@@ -60,7 +60,7 @@ const GRU={
       </div>
       <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia do que você digitou<span class="control-badge">não é o template publicado</span></div><div id="d-preview">${GRU.preview(r)}</div>
         <div id="d-checagens">${GRU.checagens(v)}</div></div></div>
-      <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar">Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button>${GRU.state.editando?'<button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>':''}<span class="mini">Salvar grava no navegador. Não cadastra, não submete e não ativa nada.</span></div></section>`;
+      <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar">Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button><span class="mini">Salvar grava no navegador. Não cadastra, não submete e não ativa nada.</span></div></section>`;
   },
   preview(r){
     const ex=r.exemplos||{},corpo=GR.preenche(r.corpo,ex);
@@ -69,7 +69,7 @@ const GRU={
       ${(r.botoes||[]).filter(b=>b.texto).map(b=>`<div class="draft-bubble-btn">${b.tipo==='url'?'↗ ':b.tipo==='phone'?'☏ ':''}${GRU.e(b.texto)}</div>`).join('')}`;
   },
   checagens(v){
-    if(!v.erros.length&&!v.avisos.length)return '<p class="draft-ok">Checagens locais ok. A decisão final é da revisão da Meta ou do Listmonk, não deste painel.</p>';
+    if(!v.erros.length&&!v.avisos.length)return '<p class="draft-ok">Checagens locais ok. Essas checagens são parciais. No WhatsApp, a Meta define aprovação e categoria; no e-mail, ainda falta validar a integração de envio.</p>';
     return `${v.erros.map(x=>`<p class="control-warning draft-erro">${GRU.e(x)}</p>`).join('')}${v.avisos.map(x=>`<p class="draft-aviso">${GRU.e(x)}</p>`).join('')}`;
   },
   atualizaPreview(){

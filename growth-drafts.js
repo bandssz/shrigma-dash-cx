@@ -3,7 +3,8 @@
    escrever e revisar um template antes de existir backend de cadastro. O que isto NÃO é:
    cadastro na Meta, no Listmonk ou no n8n. Não há publicar, submeter ou ativar aqui; a
    integração real está especificada em BACKEND_REQUESTS.md (R5) e depende do Codex.
-   Checagens abaixo são regras públicas conhecidas da Meta; a decisão final é da revisão da Meta. */
+   Checagens abaixo usam um perfil local conservador e não certificam aprovação pela Meta.
+   Antes de implementar submissão, rever limites e combinações na documentação oficial. */
 'use strict';
 const GR={
   VERSAO:1,
@@ -41,7 +42,7 @@ const GR={
       if(nome&&!/^[a-z0-9_]+$/.test(nome))avisos.push('Nome de template na Meta usa só letras minúsculas, números e _ (ex.: fishermans_rastreio_v2).');
       if(nome.length>L.nome)erros.push(`Nome com mais de ${L.nome} caracteres.`);
       if(!['UTILITY','MARKETING'].includes(r.categoria))erros.push('Escolha a categoria esperada (Utility ou Marketing).');
-      if(String(r.corpo||'').length>L.corpo)erros.push(`Corpo com ${r.corpo.length} caracteres; o limite da Meta é ${L.corpo}.`);
+      if(String(r.corpo||'').length>L.corpo)erros.push(`Corpo com ${r.corpo.length} caracteres; este editor aceita até ${L.corpo}.`);
       if(String(r.cabecalho||'').length>L.cabecalho)erros.push(`Cabeçalho com mais de ${L.cabecalho} caracteres.`);
       if(String(r.rodape||'').length>L.rodape)erros.push(`Rodapé com mais de ${L.rodape} caracteres.`);
       const vars=GR.variaveis(r.corpo);
@@ -56,7 +57,7 @@ const GR={
         else if(b.texto.length>L.botao)erros.push(`Botão ${i+1} com mais de ${L.botao} caracteres.`);
         if(b.tipo==='url'){
           if(!/^https:\/\/\S+$/i.test(b.valor||''))erros.push(`Botão ${i+1}: link precisa começar com https://.`);
-          else if(/wa\.me|api\.whatsapp\.com/i.test(b.valor))avisos.push(`Botão ${i+1}: a Meta não aceita wa.me em botão de link — use o redirect /suporte do domínio da marca.`);
+          else if(/wa\.me|api\.whatsapp\.com/i.test(b.valor))avisos.push(`Botão ${i+1}: wa.me abre atendimento. Para pagamento ou rastreio, confira se o link leva à página correta do pedido.`);
         }
         if(b.tipo==='phone'&&!/^\+?\d{8,15}$/.test(String(b.valor||'').replace(/[\s()-]/g,'')))erros.push(`Botão ${i+1}: telefone no formato internacional (+55…).`);
         if(!['quick_reply','url','phone'].includes(b.tipo))erros.push(`Botão ${i+1}: tipo desconhecido.`);
@@ -66,7 +67,7 @@ const GR={
     if(r.canal==='email'){
       if(!String(r.assunto||'').trim())erros.push('E-mail precisa de assunto.');
       else if(r.assunto.length>L.assunto)avisos.push(`Assunto com mais de ${L.assunto} caracteres; provedores cortam.`);
-      if(Array.isArray(r.botoes)&&r.botoes.some(b=>b.tipo==='url'&&b.valor&&!/utm_/.test(b.valor)))avisos.push('Link sem UTM: a receita desse e-mail não será atribuída depois, e não dá para consertar retroativamente.');
+      if(Array.isArray(r.botoes)&&r.botoes.some(b=>b.tipo==='url'&&b.valor&&!/utm_/.test(b.valor)))avisos.push('Link sem UTM: a atribuição de receita por esta peça pode ficar incompleta. Confira os parâmetros da campanha antes do envio.');
     }
     return {erros,avisos};
   },
@@ -81,7 +82,7 @@ const GR={
   lista(){
     try{const raw=GR.store()?.getItem(GR.CHAVE);const arr=raw?JSON.parse(raw):[];return Array.isArray(arr)?arr.filter(r=>r&&typeof r==='object'&&r.id):[];}catch(_){return [];}
   },
-  salva(lista){try{GR.store()?.setItem(GR.CHAVE,JSON.stringify(lista));return true;}catch(_){return false;}},
+  salva(lista){try{const store=GR.store();if(!store)return false;store.setItem(GR.CHAVE,JSON.stringify(lista));return true;}catch(_){return false;}},
   guarda(r){
     const lista=GR.lista(),i=lista.findIndex(x=>x.id===r.id),item={...r,versao:GR.VERSAO,atualizado_em:GR.agora()};
     if(i>=0)lista[i]=item;else lista.unshift(item);
@@ -90,15 +91,24 @@ const GR={
   remove(id){return GR.salva(GR.lista().filter(r=>r.id!==id));},
   /* ---------- arquivo ---------- */
   exporta(r){
-    const {id,...resto}=r; // id local não faz sentido em outro dispositivo
+    // Lista explícita: nem campos extras de uma integração futura entram no arquivo.
+    const campos=['versao','canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','criado_em','atualizado_em'];
+    const resto=Object.fromEntries(campos.filter(k=>r[k]!==undefined).map(k=>[k,r[k]]));
+    resto.exemplos=Object.fromEntries(Object.entries(r.exemplos||{}).filter(([k,v])=>/^\d+$/.test(k)&&typeof v==='string'));
+    resto.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||''}));
     return JSON.stringify({tipo:'shrigma-growth-rascunho',versao:GR.VERSAO,exportado_em:GR.agora(),origem:'rascunho local · não é template publicado',rascunho:resto},null,2)+'\n';
   },
   nomeArquivo(r){return `rascunho-${r.canal}-${r.marca}-${String(r.nome||'sem-nome').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'-').replace(/^-|-$/g,'')||'sem-nome'}.json`;},
   importa(texto){
     let j;try{j=JSON.parse(texto);}catch(_){return {erro:'Arquivo não é JSON válido.'};}
+    if(j?.tipo==='shrigma-growth-rascunho'&&j.versao!==GR.VERSAO)return {erro:'Versão de arquivo não suportada.'};
     const r=j&&j.tipo==='shrigma-growth-rascunho'&&j.rascunho&&typeof j.rascunho==='object'?j.rascunho:(j&&typeof j==='object'&&typeof j.corpo==='string'?j:null);
-    if(!r)return {erro:'Arquivo não contém um rascunho reconhecido.'};
+    if(!r||Array.isArray(r))return {erro:'Arquivo não contém um rascunho reconhecido.'};
     const permitidas=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','exemplos','botoes','criado_em'];
+    const textual=v=>v===undefined||v===null||['string','number','boolean'].includes(typeof v);
+    if(permitidas.filter(k=>!['exemplos','botoes'].includes(k)).some(k=>!textual(r[k])))return {erro:'Arquivo inválido: campos de texto precisam conter valores simples.'};
+    if(r.exemplos&&(typeof r.exemplos!=='object'||Array.isArray(r.exemplos)||Object.values(r.exemplos).some(v=>!textual(v))))return {erro:'Arquivo inválido: exemplos precisam conter texto.'};
+    if(Array.isArray(r.botoes)&&r.botoes.some(b=>!b||typeof b!=='object'||Array.isArray(b)||['tipo','texto','valor'].some(k=>!textual(b[k]))))return {erro:'Arquivo inválido: botões precisam conter texto.'};
     const limpo={};permitidas.forEach(k=>{if(r[k]!==undefined)limpo[k]=r[k];});
     limpo.botoes=Array.isArray(limpo.botoes)?limpo.botoes.filter(b=>b&&typeof b==='object').map(b=>({tipo:String(b.tipo||'quick_reply'),texto:String(b.texto||''),valor:String(b.valor||'')})).slice(0,GR.LIMITES.botoes):[];
     limpo.exemplos=limpo.exemplos&&typeof limpo.exemplos==='object'?Object.fromEntries(Object.entries(limpo.exemplos).map(([k,v])=>[k,String(v)])):{};
