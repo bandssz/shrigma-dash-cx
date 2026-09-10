@@ -1,0 +1,42 @@
+name: Aristo n8n - leitura segura
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/n8n_aristo_readonly.py'
+      - 'tools/test_n8n_aristo_readonly.py'
+      - '.github/workflows/n8n-aristo-readonly.yml'
+  pull_request:
+    paths:
+      - 'tools/n8n_aristo_readonly.py'
+      - 'tools/test_n8n_aristo_readonly.py'
+      - '.github/workflows/n8n-aristo-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aristo-n8n-readonly-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Synthetic tests only - no operational credentials
+        run: python3 -m unittest discover -s tools -p 'test_n8n_aristo_readonly.py' -v
+  read:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'bandssz/shrigma-dash-cx'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: GET only - report encrypted before logging
+        env:
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+        run: python3 tools/n8n_aristo_readonly.py
