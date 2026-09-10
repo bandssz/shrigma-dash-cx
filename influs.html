@@ -150,6 +150,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
 .i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
 .i-cod code{font-size:14px}
+.i-nome{color:inherit;text-decoration:none;border-bottom:1px dashed #22808d}
+.i-nome:hover{color:#22808d}
 @media(max-width:720px){.inbox-item{grid-template-columns:1fr}}
 .i-alerta{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .i-alerta-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -622,7 +624,7 @@ function renderCreators(){
     <th class="num">Pedidos</th><th class="num">Receita</th><th>Status</th><th></th></tr></thead><tbody>
     ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
       return `<tr>
-        <td><strong>${esc(i.nome||i.influ)}</strong>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
+        <td><a href="#" class="i-nome cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}" title="Editar creator"><strong>${esc(i.nome||i.influ)}</strong> ✎</a>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
         <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag nulo">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:''}</td>
         <td class="num tabn">${cx?rf(cx):'—'}</td>
         <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
@@ -631,7 +633,7 @@ function renderCreators(){
         <td>${i.ativo===false?'<span class="tag alerta">inativo</span>':'<span class="tag" style="background:#e2f3e6;color:#1e6b38">ativo</span>'}</td>
         <td><button class="btn sec cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Editar</button></td></tr>`;}).join('')
     :'<tr><td colspan="8"><div class="vazio">Nenhum creator com esse filtro.</div></td></tr>'}</tbody></table></div>`;
-  el.querySelectorAll('.cr-edit').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
+  el.querySelectorAll('.cr-edit').forEach(b=>b.onclick=e=>{e.preventDefault();abrirEditor(b.dataset.m,b.dataset.influ);});
 }
 $('#cr-busca').oninput=()=>renderCreators(); $('#cr-status').onchange=()=>renderCreators();
 
@@ -674,9 +676,10 @@ function renderTabela(){
     ['Sem comissão',nf(r.semComissao),'associado mas não paga']
   ].map(([t,v,s])=>`<div><strong>${v}</strong>${esc(t)}<br><span class="mini">${esc(s)}</span></div>`).join('');
 
-  renderInbox();
-  renderCreators(); renderCupons();
-  renderAvisoCusto();
+  // erro de render vira texto no painel, nunca tela em branco
+  const seguro=(fn,sel)=>{try{fn();}catch(e){const el=$(sel);if(el)el.innerHTML=`<div class="alerta">Erro ao montar esta parte: ${esc(e.message)}</div>`;console.error(e);}};
+  seguro(renderInbox,'#i-inbox'); seguro(renderCreators,'#area-creators'); seguro(renderCupons,'#area-cupons');
+  seguro(renderAvisoCusto,'#i-custo-aviso');
   const g=INFLU.gerado_em?new Date(INFLU.gerado_em):null;
   $('#i-frescor').textContent=g?`lido ${g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'';
 
@@ -747,7 +750,7 @@ function renderTabela(){
     ].filter(Boolean).join(' · ');
     // Linha = leitura. Reclassificar (creator/tipo) mora no detalhe, atras do "+".
     const MODELO={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta'};
-    const creator=v?`<strong>${esc(v.nome||c.influ)}</strong>${v.handle?` <span class="mini">${esc(v.handle)}</span>`:''}
+    const creator=v?`<a href="#" class="i-nome i-edit" data-influ="${esc(c.influ)}" data-m="${esc(c.marca)}" title="Editar creator"><strong>${esc(v.nome||c.influ)}</strong> ✎</a>${v.handle?` <span class="mini">${esc(v.handle)}</span>`:''}
         <div class="mini">${v.modelo?`<span class="tag nulo">${esc(MODELO[v.modelo]||v.modelo)}</span> `:''}${c.influ_comissao_pct!=null?`${(100*(+c.influ_comissao_pct)).toFixed(1).replace('.',',')}%`:''}${!v.ativo?' <span class="tag alerta">inativo</span>':''}</div>`
       :(c.tipo==='influ'?`<strong>${esc(c.influ||'')}</strong>`:`<span class="tag nulo">${esc(c.tipo)}</span>`);
     return `<tr class="${fura?'i-fura':''}" data-marca="${esc(c.marca)}" data-cod="${esc(c.codigo)}">
@@ -773,7 +776,7 @@ function renderTabela(){
     <th>Cupom</th><th>Creator</th><th class="num">Pedidos</th><th class="num">Receita</th>
     <th class="num" title="cachê pro-rata + comissão + produto + frete no período">Investido</th><th class="num">ROI</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
-  document.querySelectorAll('#area-tabela .i-edit').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
+  document.querySelectorAll('#area-tabela .i-edit').forEach(b=>b.onclick=e=>{e.preventDefault();abrirEditor(b.dataset.m,b.dataset.influ);});
   document.querySelectorAll('#area-tabela .i-mais').forEach(b=>b.onclick=()=>{
     const d=b.closest('tr').nextElementSibling;
     d.hidden=!d.hidden; b.textContent=d.hidden?'+':'–';});
