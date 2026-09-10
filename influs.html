@@ -146,6 +146,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 #i-editor{position:fixed;top:0;right:0;height:100vh;width:min(600px,100vw);overflow:auto;background:#fff;z-index:60;
   box-shadow:-12px 0 40px rgba(0,0,0,.18);padding:18px 20px 28px;border-left:1px solid var(--borda,#e7e4de)}
 #i-editor-fundo{position:fixed;inset:0;background:rgba(20,20,20,.28);z-index:59}
+.ed-termos{margin-top:8px;background:var(--neutro-bg,#f6f6f4);border-radius:8px;padding:8px 10px;font-size:12px}
+.ed-termo-vig{margin-bottom:4px}
 .ed-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:16px}
 .i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
 .i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
@@ -262,7 +264,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
         <div class="form">
           <div class="campo largo"><label>Editando</label>
             <strong id="ed-titulo"></strong>
-            <span class="ajuda" id="ed-sub"></span></div>
+            <span class="ajuda" id="ed-sub"></span>
+            <div id="ed-termos" class="ed-termos"></div></div>
           <div class="campo"><label>Nome</label><input type="text" id="ed-nome"></div>
           <div class="campo"><label>Handle</label><input type="text" id="ed-handle"></div>
           <div class="campo"><label>Contato</label><input type="text" id="ed-contato"></div>
@@ -1017,6 +1020,14 @@ function abrirEditor(marca,influ){
   $('#ed-porte').value=i.porte||''; $('#ed-seg').value=i.seguidores||'';
   $('#ed-ativo').value=(i.ativo===false)?'0':'1';
   $('#ed-obs').value=i.obs||''; $('#ed-msg').textContent='';
+  // Termos com vigencia: o que vale hoje e o historico. Mudar modelo/% cria termo do mes corrente.
+  const termos=(INFLU.termos||[]).filter(t=>t.marca===marca&&t.influ===influ);
+  const mesAtual=compAtual(), fmtMes=d=>`${d.slice(5,7)}/${d.slice(0,4)}`;
+  const MOD={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta',encerrado:'encerrado'};
+  const linha=t=>`${MOD[t.modelo]||t.modelo||'sem modelo'}${t.comissao_pct!=null?` · ${(100*+t.comissao_pct).toFixed(1).replace('.',',')}%`:''}`;
+  $('#ed-termos').innerHTML=`<div class="ed-termo-vig"><strong>Termo vigente${termos[0]?` desde ${fmtMes(termos[0].vigente_desde)}`:''}:</strong> ${termos[0]?linha(termos[0]):'—'}</div>
+    <div class="mini">Mudar modelo ou comissão vale <strong>a partir de ${mesAtual.slice(5)}/${mesAtual.slice(0,4)}</strong>; meses anteriores mantêm a comissão que foi apurada. Cachê é por mês: edite a competência embaixo.</div>
+    ${termos.length>1?`<details class="mini"><summary>histórico (${termos.length} termos)</summary>${termos.map(t=>`<div>${fmtMes(t.vigente_desde)} → ${linha(t)}${t.autor?` <span class="mini">· ${esc(t.autor)}</span>`:''}</div>`).join('')}</details>`:''}`;
   $('#ed-comp').value=(PER.fim||'').slice(0,7);
   pintaCustos();
 }
@@ -1047,8 +1058,8 @@ async function salvarCadastro(){
       porte:$('#ed-porte').value||null,
       seguidores:$('#ed-seg').value===''?null:+$('#ed-seg').value,
       ativo:$('#ed-ativo').value==='1', obs:$('#ed-obs').value.trim()}});
-    msg.textContent=j.pedidos_recomputados>0
-      ? `salvo · ${nf(j.pedidos_recomputados)} pedido(s) com comissão recalculada`
+    msg.textContent=j.termo_novo_desde
+      ? `salvo · termo novo a partir de ${j.termo_novo_desde.slice(5,7)}/${j.termo_novo_desde.slice(0,4)} · ${nf(j.pedidos_recomputados)} pedido(s) deste mês recalculado(s); meses anteriores intactos`
       : 'salvo';
     await carregarInflu();
   }catch(e){msg.textContent='Falha: '+e.message;}
