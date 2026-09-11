@@ -34,8 +34,36 @@ test('observado: agrupa por (marca, flow) sem inventar gatilho/ordem; volume só
  assert.equal(c.saude.length,1);assert.equal(c.saude[0].estado,'alerta');
  assert.match(GF.volumeTexto(c.etapas[1]),/^— aceitos · 45 entregues$/);assert.match(GF.volumeTexto(c.etapas[0]),/50 aceitos pela API \(entrega individual não medida\)/);
  const a=o.fluxos[0];assert.equal(a.etapas[0].workflows.length,1);assert.equal(a.etapas[0].workflows[0].modo,'sombra');assert.equal(a.etapas[0].workflows[0].atual,null); // sem modelo da tela: não afirma atualidade
- assert.equal(a.etapas[0].templates[0].name,'aristo_confirmacao_exemplo');assert.equal(a.modo.valor,'sombra');
+ assert.equal(a.etapas[0].templates[0].name,'aristo_confirmacao_exemplo');assert.equal(a.modo.valor,'nao_confirmado');
  assert.equal(GF.observados(api(),{marca:'fish'}).fluxos.length,1);
+});
+test('volume de e-mail ausente permanece desconhecido na tela e no CSV, inclusive em soma parcial',()=>{
+ const row={dia:'2026-09-07',marca:'fish',canal:'email',flow:'pos-venda',piece:'nps'};
+ const ctx={ini:'2026-09-01',fim:'2026-09-07'};
+ for(const missing of [null,undefined,'']){
+  for(const rows of [[{...row,enviados:missing}],[{...row,enviados:50},{...row,enviados:missing}]]){
+   const list=GF.lista({crm_fluxo:rows},ctx),step=list.observados[0].etapas[0];
+   assert.equal(step.volume.enviados,null);
+   assert.match(GF.volumeTexto(step),/^— aceitos pela API/);
+   assert.match(GF.linhasCsv(list)[0].volume,/^— aceitos pela API/);
+  }
+ }
+ const known=GF.lista({crm_fluxo:[{...row,enviados:0}]},ctx);
+ assert.equal(known.observados[0].etapas[0].volume.enviados,0);
+ assert.match(GF.linhasCsv(known)[0].volume,/^0 aceitos pela API/);
+});
+test('modo sem consulta confirmada não recebe selo verificado, inclusive com outro workflow atual',()=>{
+ const current={key:'atual',modo:'real',atual:true,ativo:true};
+ for(const atual of [null,undefined]){
+  const unknown={key:'sem-consulta',modo:'real',atual,ativo:true};
+  for(const workflows of [[unknown],[current,unknown]]){
+   const mode=GF.modoResumo([{workflows}]);
+   assert.equal(mode.valor,'nao_confirmado');
+   assert.notEqual(mode.tone,'verified');
+   assert.match(mode.rotulo,/consulta não confirmada em sem-consulta/);
+  }
+ }
+ assert.equal(GF.modoResumo([{workflows:[current]}]).tone,'verified');
 });
 test('resumo de modo: real só com todos os workflows em real, ativos e com consulta atual; desatualizado nunca vira real; mistura vira misto',()=>{
  const w=(modo,atual,ativo=true,key='k')=>({key,modo,atual,ativo});

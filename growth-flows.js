@@ -88,11 +88,11 @@ const GF={
       const k=`${r.marca}|${r.flow}`;
       if(!mapa.has(k))mapa.set(k,{key:k,marca:r.marca,flow:r.flow,nome:r.flow,origem:'observado',etapas:new Map(),saude:[]});
       const f=mapa.get(k),pk=`${r.piece}|${r.canal||'?'}`;
-      if(!f.etapas.has(pk))f.etapas.set(pk,{peca:r.piece,canal:GF.CANAIS[r.canal]?r.canal:null,canal_bruto:r.canal??null,fontes:new Set(),volume:{enviados:0,aceitos:undefined,entregues:undefined,linhas:0,linhas_periodo:0},workflows:[],templates:[]});
+      if(!f.etapas.has(pk))f.etapas.set(pk,{peca:r.piece,canal:GF.CANAIS[r.canal]?r.canal:null,canal_bruto:r.canal??null,fontes:new Set(),volume:{enviados:undefined,aceitos:undefined,entregues:undefined,linhas:0,linhas_periodo:0},workflows:[],templates:[]});
       const e=f.etapas.get(pk);e.fontes.add(r.fonte);e.volume.linhas++;
       const noPeriodo=typeof r.dia==='string'&&(!ini||r.dia>=ini)&&(!fim||r.dia<=fim);
       if(noPeriodo){e.volume.linhas_periodo++;
-        if(r.fonte==='crm_fluxo')e.volume.enviados+=GF.count(r.enviados)??0;
+        if(r.fonte==='crm_fluxo')e.volume.enviados=GF.somaConhecida(e.volume.enviados,r.enviados);
         if(r.fonte==='crm_wa_envios'){e.volume.aceitos=GF.somaConhecida(e.volume.aceitos,r.aceitos);e.volume.entregues=GF.somaConhecida(e.volume.entregues,r.entregues);}}
     });
     // inventário: template → workflow(s) por peça, com modo e validade da consulta
@@ -123,6 +123,8 @@ const GF={
     if(!wfs.length)return {valor:'nao_declarado',rotulo:'Workflow não declarado no manifesto',tone:'neutral'};
     const desat=wfs.filter(w=>w.atual===false);
     if(desat.length)return {valor:'nao_confirmado',rotulo:`Modo não confirmado (consulta desatualizada em ${[...new Set(desat.map(w=>w.key))].join(', ')})`,tone:'warning'};
+    const semConsulta=wfs.filter(w=>w.atual!==true);
+    if(semConsulta.length)return {valor:'nao_confirmado',rotulo:`Modo não confirmado (consulta não confirmada em ${[...new Set(semConsulta.map(w=>w.key))].join(', ')})`,tone:'warning'};
     const vals=[...new Set(wfs.map(w=>w.modo))];
     const semWf=etapas.filter(e=>!e.workflows.length).length; // etapas sem workflow declarado: o modo não cobre o fluxo inteiro
     if(vals.length===1&&GF.MODOS.includes(vals[0]))return {valor:vals[0],rotulo:`Modo ${vals[0]}${vals[0]==='real'&&wfs.some(w=>w.ativo===false)?' · workflow inativo':''}${semWf?` (${etapas.length-semWf} de ${etapas.length} etapas com workflow declarado)`:''}`,tone:vals[0]==='real'&&wfs.every(w=>w.ativo===true)&&!semWf?'verified':'neutral'};
