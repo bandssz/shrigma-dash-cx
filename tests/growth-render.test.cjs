@@ -315,7 +315,7 @@ test('templates: filtros por status, categoria e uso, ordenação por peça e ex
  x.document.querySelector('#control-tpl-export').click();
  const {texto}=x.downloads[0];
  assert.doesNotMatch(texto.split('\r\n')[0],/;id;|^id;/);
- assert.match(texto,/pedido-pago;aristo_confirmacao_exemplo;O Aristocrata;pt_BR;PENDING;MARKETING;UTILITY;sim;mapeado no fluxo;ok;/);
+ assert.match(texto,/pedido-pago;aristo_confirmacao_exemplo;O Aristocrata;pt_BR;PENDING;MARKETING;UTILITY;sim;mapeado no fluxo;;;;ok;/); // vínculo/métricas vazios sem mapped_in e crm_wa_template
  assert.equal(x.downloads[0].texto.split('\r\n').length-2,1);
 });
 test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave',async()=>{
@@ -407,4 +407,27 @@ test('saúde dos fluxos: chips só com dado da API, alerta destacado, filtro por
  chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips.length,1);assert.equal(chips[0].dataset.estado,'ok');
  const y=await boot(fixture());
  assert.equal(y.document.querySelector('#fluxo-saude').innerHTML,'');
+});
+/* ---------- R3 (10/09/2026): mapped_in + crm_wa_template ---------- */
+test('templates: vínculo vem de mapped_in (manifesto) com modo do workflow, métricas do período por template e exportação',async()=>{
+ const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
+ const t=p.crm_operacao.templates;
+ t[0].mapped_in=[{workflow_key:'fish_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];   // fish_paid → fish_tx (modes na fixture)
+ t[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}]; // aristo_paid
+ t[2].mapped_in=[];                                                                            // fish_native (native_pending)
+ p.crm_wa_template=[{dia:'2026-09-06',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:10,aceitos:9,entregues:7,lidos:3,falhas:1,sem_disparo_confirmado:1},
+  {dia:'2026-09-07',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:5,aceitos:5,entregues:4,lidos:1,falhas:0,sem_disparo_confirmado:0},
+  {dia:'2026-08-01',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:99,aceitos:99,entregues:99,lidos:0,falhas:0,sem_disparo_confirmado:0}];
+ const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="templates"]').click();
+ const row=k=>x.document.querySelector(`[data-control-template="${k}"]`);
+ const fishLinks=[...row('fish_paid').querySelectorAll('.control-template-link')].map(n=>n.textContent);
+ assert.equal(fishLinks.length,1);assert.match(fishLinks[0],/pedido-pago · modo real|pedido-pago · modo sombra|pedido-pago · modo/);assert.doesNotMatch(fishLinks[0],/^fish_tx ·/); // usa o label do workflow, não a chave
+ assert.match(row('fish_paid').querySelector('.control-template-metrics').textContent,/^15 registros · 14 aceitos · 11 entregues · 1 falhas$/); // só 01–07/09, fora agosto
+ assert.equal(row('fish_native').querySelector('.control-template-link'),null); // native_pending sem vínculo: nada a declarar
+ assert.match(row('fish_native').querySelector('.control-template-metrics').textContent,/Sem registro no período/);
+ x.document.querySelector('#control-tpl-export').click();
+ const cab=x.downloads[0].texto.split('\r\n')[0];assert.match(cab,/Vinculado a;Aceitos no período;Entregues no período/);
+ assert.match(x.downloads[0].texto,/fish_tx:pedido-pago;14;11;/);
+ const y=await boot(fixture());y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="templates"]').click();
+ assert.equal(y.document.querySelectorAll('.control-template-metrics').length,0); // sem crm_wa_template na resposta, sem coluna inventada
 });

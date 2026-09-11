@@ -46,6 +46,9 @@ const GC={
     {chave:'piece',rotulo:'Peça'},{chave:'name',rotulo:'Template'},{chave:'brand',rotulo:'Marca',pega:r=>GC.brand(r.brand)},{chave:'language',rotulo:'Idioma'},
     {chave:'status',rotulo:'Status'},{chave:'category',rotulo:'Categoria'},{chave:'expected_category',rotulo:'Categoria esperada'},{chave:'mismatch',rotulo:'Categoria divergente'},
     {chave:'usage',rotulo:'Uso',pega:r=>r.usage==='native_pending'?'integração pendente':r.usage==='current'?'mapeado no fluxo':r.usage},
+    {chave:'mapped_in',rotulo:'Vinculado a',pega:r=>Array.isArray(r.mapped_in)&&r.mapped_in.length?r.mapped_in.map(l=>`${l.workflow_key}:${l.piece}`).join(' | '):null},
+    {chave:'aceitos_periodo',rotulo:'Aceitos no período',pega:r=>{const m=GC.templateMetrics(r);return m?m.aceitos:null;}},
+    {chave:'entregues_periodo',rotulo:'Entregues no período',pega:r=>{const m=GC.templateMetrics(r);return m?m.entregues:null;}},
     {chave:'collection_status',rotulo:'Consulta'},{chave:'collection_label',rotulo:'Situação da consulta',pega:r=>r.collection.label},{chave:'collection_error_code',rotulo:'Erro da consulta'},
     {chave:'checked_at',rotulo:'Consultado em'},{chave:'last_good_at',rotulo:'Última consulta válida'},
   ],
@@ -134,8 +137,33 @@ const GC={
       <p>Execuções concluídas: ${e(retention('success'))}. Execuções com erro: ${e(retention('error'))}.</p>
       <p>${row.retention.success==='none'?'Este fluxo não salva execuções concluídas; uma execução antiga com erro pode continuar sendo a última retida.':'A última execução retida pode não representar a última atividade do fluxo.'} Esse registro não comprova entrega ao cliente.</p></details></article>`;
   },
+  /* R3 (10/09/2026): vínculo template→workflow vem do manifesto (mapped_in), nunca do nome; métricas por template vêm
+     de crm_wa_template no período selecionado. Sem os dois na resposta, a coluna fica como antes. */
+  templateCtx:{workflows:[],metrics:null,ini:'',fim:''},
+  templateLink(row){
+    const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
+    if(links===null)return null;
+    if(!links.length)return row.usage==='native_pending'?null:{text:'Sem vínculo declarado no manifesto',tone:'neutral'};
+    return links.map(l=>{
+      const wf=GC.templateCtx.workflows.find(w=>w.key===l.workflow_key);
+      const mode=wf?(wf.modes||[]).find(m=>m.key===l.mode_key):null;
+      const modeTxt=mode?(mode.value==='unknown'?'modo não confirmado':`modo ${mode.value}`):(wf?'modo não informado':'');
+      return {text:`${wf?wf.label||l.workflow_key:l.workflow_key} · ${l.piece}${modeTxt?` · ${modeTxt}`:''}`,tone:mode&&mode.value==='real'?'verified':'neutral'};
+    });
+  },
+  templateMetrics(row){
+    const m=GC.templateCtx.metrics;if(!Array.isArray(m))return null;
+    const {ini,fim}=GC.templateCtx;
+    const rows=m.filter(r=>String(r.template_ref)===String(row.id)&&r.marca===row.brand&&(!ini||r.dia>=ini)&&(!fim||r.dia<=fim));
+    if(!rows.length)return {registros:0,aceitos:0,entregues:0,falhas:0,vazio:true};
+    return rows.reduce((acc,r)=>({registros:acc.registros+(+r.registros||0),aceitos:acc.aceitos+(+r.aceitos||0),entregues:acc.entregues+(+r.entregues||0),falhas:acc.falhas+(+r.falhas||0),vazio:false}),{registros:0,aceitos:0,entregues:0,falhas:0,vazio:false});
+  },
   template(row){
     const e=GC.esc,current=row.collection.current;
+    const links=GC.templateLink(row),met=GC.templateMetrics(row);
+    const nf=v=>new Intl.NumberFormat('pt-BR').format(v);
+    const linkHtml=links?(Array.isArray(links)?links:[links]).map(l=>`<span class="control-template-link" data-tone="${l.tone}">${e(l.text)}</span>`).join(''):'';
+    const metHtml=met?`<span class="control-template-metrics" title="Linhas do motor para este template no período selecionado: registros (inclui sombra), aceitos pela Meta (wamid), entregues (delivered/read) e falhas. Reconcilia com Envios no período.">${met.vazio?'Sem registro no período':`${nf(met.registros)} registros · ${nf(met.aceitos)} aceitos · ${nf(met.entregues)} entregues${met.falhas?` · ${nf(met.falhas)} falhas`:''}`}</span>`:'';
     let note=row.usage==='native_pending'?'Integração pendente · ainda fora do envio':'Mapeado no fluxo · envio depende da ativação';
     if(!['current','native_pending'].includes(row.usage))note='Uso não confirmado';
     const alerts=[];
@@ -146,11 +174,12 @@ const GC={
     const categoryTone=current && row.mismatch?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span></td>
       <td>${GC.badge(row.status,statusTone)}${GC.badge(row.category,categoryTone)}<span class="control-template-meta">Esperada: ${e(GC.text(row.expected_category,'Não informada'))}</span></td>
-      <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
+      <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
   },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
+    GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||''};
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');
     if(!workflowRoot||!templateRoot)return model;

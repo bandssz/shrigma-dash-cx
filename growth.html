@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
 <link rel="stylesheet" href="growth.css?v=20260910-2">
-<link rel="stylesheet" href="growth-control.css?v=20260909-2">
+<link rel="stylesheet" href="growth-control.css?v=20260910-2">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
@@ -325,7 +325,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-delivery.js?v=20260908-2"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260910-2"></script>
-<script src="growth-control.js?v=20260909-1"></script>
+<script src="growth-control.js?v=20260910-2"></script>
 <script src="growth-drafts.js?v=20260910-1"></script>
 <script src="growth-drafts-ui.js?v=20260910-1"></script>
 <script>
@@ -654,7 +654,7 @@ function render(){
         <div><span class="tag email">e-mail</span></div></div>`).join('');
   }
   GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
-  GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});
+  GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
   GRU.render({api:API});
 
   const fila=G.fila(API,MARCA,CANAL);
@@ -826,7 +826,7 @@ async function carregar(){
     $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(e.name==='TimeoutError'?'A consulta demorou além do esperado.':e.message)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
-    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});
+    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
@@ -913,7 +913,7 @@ document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('c
 setCanal(CANAL);
 carregar();
 setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
-setInterval(()=>{if(API)GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta});},30000);
+setInterval(()=>{if(API)GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});},30000);
 </script>
 </body>
 </html>

@@ -228,3 +228,12 @@ gravada de hora em hora pelo workflow "WA · Saúde dos fluxos": gatilho de e-ma
 status da Meta em 1h, falhas > 20%; task no ClickUp ao virar alerta e a cada 6h). A faixa de fontes usa `crm_fontes`
 quando presente (fallback antigo continua) e os chips de saúde dos fluxos aparecem sob ela — só com dado da API;
 ausência não vira "saudável".
+
+### Template → workflow e métricas por template (R3 · 10/09/2026)
+
+O coletor de inventário passou a declarar `mapped_in` por template a partir do **manifesto** (workflow, peça e campo
+de modo que governa a peça — nunca inferido do nome; `native_pending` fica vazio) e deixou de fixar 15/24 no código.
+A API Growth devolve `crm_wa_template` (mesmas métricas de `crm_wa_envios` com a dimensão `template_ref`; a soma por
+dia/marca/fluxo/peça reconcilia com a peça). A aba Templates mostra "workflow · peça · modo atual" e
+"registros · aceitos · entregues · falhas" do período selecionado, e exporta as três colunas; sem os dados na resposta,
+nada é inventado.

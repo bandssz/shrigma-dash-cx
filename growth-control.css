@@ -70,3 +70,8 @@
 @media(max-width:1100px){.draft-form{grid-template-columns:minmax(0,1fr)}.draft-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.draft-botao{grid-template-columns:1fr 28px}.draft-botao select{grid-column:1}.draft-actions .refresh-btn{flex:1}}
 #d-botao-add{align-self:flex-start}
+
+/* R3 (10/09/2026): vínculo template→workflow (manifesto) e métricas por template no período */
+.control-template-link,.control-template-metrics{display:block;font-size:11.5px;color:var(--mudo);margin-top:4px;line-height:1.4}
+.control-template-link[data-tone=verified]{color:var(--texto)}
+.control-template-metrics{font-variant-numeric:tabular-nums;cursor:help}
