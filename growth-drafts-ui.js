@@ -222,7 +222,7 @@ const GRU={
   },
   async validarServidor(r){
     const idem=GRU.idem(r,'validar');
-    const out=await GRU.chamada('validar',r,c=>c.validar(r.servidor.draft_id,idem));if(!out)return;
+    const out=await GRU.chamada('validar',r,c=>c.validar(r.servidor.draft_id,idem,r.servidor.version));if(!out)return;
     const {res,erro}=out;GRU.concluiu(r,res);
     if(erro&&erro.tipo==='validacao'){r.servidor.estado='rascunho';r.servidor.erros=erro.erros;r.servidor.avisos=[];GTA.evento(r.servidor,{at:GR.agora(),who:GRU.who(res),action:'validar',result:'422',detail:`${erro.erros.length} erro(s)`});GR.guarda(r);GRU.aviso(`A API recusou: ${erro.texto}`,'erro');GRU.render();return;}
     if(erro){GRU.falha(r,'validar',res,erro);return;}
