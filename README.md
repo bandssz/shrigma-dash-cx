@@ -237,3 +237,40 @@ A API Growth devolve `crm_wa_template` (mesmas métricas de `crm_wa_envios` com 
 dia/marca/fluxo/peça reconcilia com a peça). A aba Templates mostra "workflow · peça · modo atual" e
 "registros · aceitos · entregues · falhas" do período selecionado, e exporta as três colunas; sem os dados na resposta,
 nada é inventado.
+
+### Templates ponta a ponta atrás de `capabilities` (Fase A · 11/09/2026)
+
+A aba **Automações › Rascunhos locais** ganhou o ciclo completo do contrato R5, mas **cada botão só existe se a API
+declarar a capacidade** em `capabilities` (R5.1) e informar `capabilities.endpoints.templates` (ou `TEMPLATE_API_URL`
+em `config.js`). Sem isso a tela é a mesma da Entrega 2. Hoje a API de produção não declara `capabilities`, então nada
+disto aparece em produção — foi desenvolvido e testado contra `tests/fixtures/growth-templates-contract.synthetic.json`
+e um fetch falso.
+
+- **Arquivos:** `growth-templates-api.js` (regras: capacidades, cliente, tradução de erros, máquina de estados,
+  publicado ≠ ativo, prévia de `components`), `growth-drafts-ui.js` (tela), `growth-control.js` (aba Templates).
+- **Etapas visíveis no cartão:** Local → No servidor → Validado → Submetido → Publicado (ou Rejeitado). O estado só
+  muda com resposta da API; o painel nunca escreve "aprovado" por conta própria.
+- **Salvar no servidor** (`draft`) grava também neste dispositivo, com `draft_id`, `version` e um hash do conteúdo.
+  Editar depois disso marca "Alterado após salvar no servidor (vN)" e **esconde Validar/Submeter** até salvar de novo.
+- **Validar** (`validate`) nunca fala com a Meta; `422` aparece como "API: …" junto das checagens locais.
+- **Submeter** (`submit`) abre um resumo (nome, marca, canal, categoria, o que acontece depois) e exige digitar
+  `submeter`; o botão só liga com a palavra certa. Manda `expected_version` e `confirm`. Depois: "Submetido · aguardando
+  Meta desde HH:MM", consulta automática a cada 60 s (`acao=submissao`) e botão "Verificar agora".
+- **Publicado ≠ ativo:** cartão e aba Templates mostram "Publicado · ativo em modo real (wf)" só quando um workflow do
+  inventário está ativo e com o modo daquele template em `real` (via `mapped_in`); senão "Publicado · não ativo (…)".
+- **Erros (R5.7):** `401` esquece a chave de escrita guardada (`shrigma_tpl_key`, mesmo padrão da chave do A/B);
+  `403` diz qual capacidade falta; `409` mostra "Alterado por <who> às <hora> (versão N). Recarregue e refaça; nada foi
+  sobrescrito" e oferece "Refazer sobre a vN" (só ajusta a versão esperada, nada é enviado); `502` com
+  `nothing_changed:true` → "nada foi alterado, tente em X s"; sem essa garantia → "estado incerto, consulte o histórico".
+- **Idempotência:** uma chave por tentativa; depois de `502`/rede a **mesma** chave é reaproveitada na repetição.
+- **Histórico:** cada cartão tem "Histórico (n)" com `who`/`when`/ação/resultado — eventos locais mais os da API
+  (`acao=historico`) quando `list_history` for true.
+- **Aba Templates:** com `read_content`, botão "Carregar conteúdo publicado" busca `components` e mostra a prévia
+  fiel (texto escapado; `body_html` de e-mail nunca é injetado) e, com `list_history`, o histórico por template.
+  Coluna "Publicado / ativo" no CSV.
+- **Chave de escrita:** pedida uma vez (prompt) e guardada só neste navegador; nunca vai em URL, arquivo exportado,
+  log ou histórico. A chave de leitura do painel só é usada nos GETs.
+- O que o contrato precisou ganhar para isso funcionar está em `BACKEND_REQUESTS.md` › R5.9.
+
+Testes: `tests/growth-templates-api.test.cjs` (regras) e o bloco "Fase A" em `tests/growth-render.test.cjs`
+(ciclo completo, 409/502/401, aba Templates). 115 no total.

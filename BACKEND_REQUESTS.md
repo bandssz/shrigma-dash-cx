@@ -200,6 +200,27 @@ Uma chave pode ter várias capacidades; o rótulo (`who`) é o que aparece na au
    devolve `422 template_not_approved`.
 5. Em todas: zero credencial na resposta; nenhuma rota aceita a chave de leitura para escrita.
 
+### R5.9 — Ajustes pedidos pela implementação do front (Fase A · 11/09/2026)
+
+O front da Fase A (rascunho → servidor → validar → submeter → acompanhar → publicado ≠ ativo) está pronto em
+`growth-drafts-ui.js` + `growth-templates-api.js`, desenvolvido contra a fixture e um fetch falso. Ao implementar,
+quatro pontos do contrato ficaram curtos. Todos aditivos; nada muda para quem não os devolver — o front cai no
+comportamento descrito em "sem integração".
+
+| # | Problema | Contrato proposto (aditivo) | Sem integração |
+|---|---|---|---|
+| a | O front não sabe **para onde** chamar. `config.js` é arquivo compartilhado; a frente não o edita. | Em `capabilities`: `"endpoints":{"templates":"https://…/webhook/crm-template-api-<id>"}`. Alternativa aceita: constante global `TEMPLATE_API_URL` em `config.js` (o front lê as duas, nessa ordem). | Com `capabilities` sem endpoint o front avisa "capacidades declaradas sem endereço" e **não mostra botão nenhum**. |
+| b | `acao=rascunho` só cria. Editar um rascunho já salvo criaria outro `draft_id` a cada Salvar, e o `409` de submissão não teria como ser resolvido. | `acao=rascunho` aceita opcionalmente `draft_id` + `expected_version`: atualiza esse rascunho → `200 {"draft_id":"<mesmo>","version":<n+1>,"estado":"rascunho","salvo_em":"…"}`; divergência de versão → `409 version_conflict` como nas demais escritas. Sem `draft_id`, cria (`201`) como hoje. | O front manda `draft_id`/`expected_version` quando os tem e aceita `201` com `draft_id` novo (passa a apontar para ele). |
+| c | Auditoria (`who`) só sai por `historico`, e `historico` só aceita `key` de template publicado. Um rascunho nunca tem `key` até ser aprovado. | Toda resposta de escrita (`rascunho`, `validar`, `submeter`) inclui `"who":"<rótulo da chave>"`. `acao=historico` aceita `draft_id` além de `key`. Quando a submissão vira `publicado`, `acao=submissao` devolve também `"template_key":"fish_rastreio_v3"` para o front ligar o rascunho ao catálogo. | Histórico local com `who: "chave de escrita deste navegador"` e o botão "Carregar histórico da API" só aparece quando há `key` ou `draft_id`. |
+| d | Duas tentativas com a mesma `idempotency_key` depois de `502`/rede: o front **reaproveita** a chave (é o uso correto). Precisa que o backend devolva a mesma resposta se a primeira tiver chegado. | Já está em Princípios §3; registrar aqui o teste de aceite: `rascunho` com a mesma `idempotency_key` duas vezes → mesmo `draft_id`/`version`, um só registro. | — |
+
+Exemplo sintético de resposta de escrita com `who` (b + c): `{"draft_id":"d_01J0000000000000000000EX","version":2,"estado":"rascunho","salvo_em":"2026-09-11T12:00:00Z","who":"chave-felipe"}`.
+
+**Critério de aceite da Fase A ligada à API real:** com `capabilities` + `endpoints.templates` no GET Growth e uma chave de
+escrita `draft+validate`, o painel salva o rascunho da fixture no servidor, valida (422 para corpo de 1025 caracteres),
+e **não mostra** "Submeter" enquanto `submit:false`; com `submit:true` em WABA de teste, submete só após a palavra digitada,
+acompanha a cada 60 s e o cartão termina em "Publicado · não ativo (sem workflow mapeado)". Nenhum workflow muda.
+
 ## Nota da frente Claude
 
 - Nenhuma alteração de produção (n8n, SQL, Meta, Listmonk, SES) foi feita por esta frente.
