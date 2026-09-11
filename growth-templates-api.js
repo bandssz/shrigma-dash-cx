@@ -62,7 +62,7 @@ const GTA={
       historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
       submissao:submission_id=>get({acao:'submissao',submission_id}),
       rascunho:(rascunho,extra)=>post({acao:'rascunho',rascunho,...extra}),           // extra: idempotency_key, draft_id?, expected_version?
-      validar:(draft_id,idempotency_key)=>post({acao:'validar',draft_id,idempotency_key}),
+      validar:(draft_id,idempotency_key,expected_version)=>post({acao:'validar',draft_id,idempotency_key,...(expected_version!==undefined?{expected_version}:{})}),
       submeter:(draft_id,expected_version,confirm,idempotency_key)=>post({acao:'submeter',draft_id,expected_version,confirm,idempotency_key}),
     };
   },
@@ -78,6 +78,7 @@ const GTA={
       case 403:return {texto:`Esta chave não tem a capacidade "${b.capability||acao||'?'}". Peça uma chave com essa capacidade.`,tipo:'chave'};
       case 409:
         if(b.erro==='idempotency_replay_mismatch')return {texto:'Esta tentativa repetiu uma chave de idempotência com conteúdo diferente. Gere uma nova tentativa.',tipo:'conflito'};
+        if(['revision_locked','revision_already_claimed','ja_submetido'].includes(b.erro))return {texto:'Esta revisão já tem uma submissão ou está bloqueada. Consulte o histórico antes de criar outra revisão.',tipo:'bloqueado'};
         return {texto:`Alterado por ${b.changed_by||'outra chave'} às ${GTA.stamp(b.changed_at)}${Number.isFinite(+b.current_version)?` (versão ${b.current_version})`:''}. Recarregue e refaça; nada foi sobrescrito.`,tipo:'conflito',conflito:{current_version:b.current_version,changed_by:b.changed_by||null,changed_at:b.changed_at||null}};
       case 422:{const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
       case 429:return {texto:`Muitas tentativas.${seg||' Aguarde um instante.'}`,tipo:'limite'};

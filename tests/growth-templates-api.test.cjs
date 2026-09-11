@@ -99,3 +99,13 @@ test('hash e idempotência: mesmo conteúdo → mesmo hash; uuid tem formato v4'
  assert.notEqual(GTA.hash(GR.conteudo(a)),GTA.hash(GR.conteudo({...a,corpo:'d'})));
  assert.match(GTA.uuid(),/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 });
+test('validação identifica a revisão e reserva existente não oferece sobrescrita de versão',async()=>{
+ let request;
+ const c=GTA.cliente({endpoint:END,chaveEscrita:'SINTETICA',fetch:async(url,init)=>{request=JSON.parse(init.body);return {status:200,json:async()=>({})};}});
+ await c.validar('d_exemplo','idem-exemplo',7);
+ assert.equal(request.expected_version,7);
+ for(const erro of ['revision_locked','revision_already_claimed','ja_submetido']){
+  const e=GTA.erro({status:409,body:{erro}});
+  assert.equal(e.tipo,'bloqueado');assert.equal(e.conflito,undefined);assert.match(e.texto,/Consulte o histórico/);
+ }
+});
