@@ -223,7 +223,7 @@ const GUI = {
         return `<button type="button" class="fluxo-chip" data-estado="${GUI.esc(st)}" data-gt-expand="fluxo-${GUI.esc(r.chave)}" data-gt-alvo="${id}" aria-expanded="false" aria-controls="${id}">${GUI.esc(r.nome||r.chave)}${st==='alerta'?' · alerta':st==='desconhecido'?' · estado ?':''}</button>`;}).join('')}${invalidas?`<span class="fluxo-chip" data-estado="desconhecido">${invalidas} registro(s) inválido(s) ignorado(s)</span>`:''}</div>
       ${vis.map((r,i)=>`<div class="fluxo-detalhe mini" id="fluxo-det-${i}" hidden>${GUI.esc(motivo(r))} · verificado ${stamp(r.verificado_em)}${r.alerta_desde?` · em alerta desde ${stamp(r.alerta_desde)}`:''}${r.estado==='alerta'&&GUI.sourceTime(r.verificado_em)===null?' · sem hora de verificação: trate como histórico':''}</div>`).join('')}`
       :`<span class="mini">Sem verificação de fluxo para este recorte.</span>`;
-    el.querySelectorAll('[data-gt-expand]').forEach(b=>b.onclick=()=>{const alvo=el.querySelector('#'+b.dataset.gtAlvo);const abre=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(abre));if(alvo)alvo.hidden=!abre;});
+    if(typeof el.querySelectorAll==='function')el.querySelectorAll('[data-gt-expand]').forEach(b=>b.onclick=()=>{const alvo=el.querySelector('#'+b.dataset.gtAlvo);const abre=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(abre));if(alvo)alvo.hidden=!abre;});
     if(kept&&typeof GT!=='undefined')GT.restaura(el,kept);
     return alertas;
   },
