@@ -129,8 +129,9 @@ const GTA={
     const atual=wf=>!wf.collection||(wf.collection.current&&wf.fieldsValid!==false);
     const reais=links.filter(l=>{const wf=wfDe(l);const m=wf?(wf.modes||[]).find(x=>x&&x.key===l.mode_key):null;return wf&&atual(wf)&&wf.active===true&&m&&m.value==='real';});
     if(reais.length)return {situacao:'ativo',rotulo:`Publicado · ativo em modo real (${reais.map(l=>l.workflow_key).join(', ')})`,tone:'verified'};
-    const antigos=links.filter(l=>{const wf=wfDe(l);const m=wf?(wf.modes||[]).find(x=>x&&x.key===l.mode_key):null;return wf&&!atual(wf)&&m&&m.value==='real';});
-    if(antigos.length)return {situacao:'desconhecido',rotulo:`Publicado · ativação não confirmada (último modo observado real em ${antigos.map(l=>l.workflow_key).join(', ')}, consulta desatualizada)`,tone:'warning'};
+    // Workflow vinculado com consulta com falha/desatualizada: não dá para afirmar nem "ativo" nem "não ativo".
+    const antigos=links.filter(l=>{const wf=wfDe(l);return wf&&!atual(wf);});
+    if(antigos.length)return {situacao:'desconhecido',rotulo:`Publicado · ativação não confirmada (${antigos.map(l=>{const wf=wfDe(l);const m=(wf.modes||[]).find(x=>x&&x.key===l.mode_key);return `${l.workflow_key}: último modo observado ${m?m.value==='unknown'?'não confirmado':m.value:'não informado'}`;}).join('; ')} · consulta ${antigos.some(l=>wfDe(l).collection?.key==='error')?'com falha':'desatualizada'})`,tone:'warning'};
     return {situacao:'nao_ativo',rotulo:links.length?'Publicado · não ativo (nenhum workflow em modo real)':'Publicado · não ativo (sem workflow mapeado)',tone:'warning'};
   },
   evento(servidor,ev){servidor.eventos=(Array.isArray(servidor.eventos)?servidor.eventos:[]).concat([ev]).slice(-30);},

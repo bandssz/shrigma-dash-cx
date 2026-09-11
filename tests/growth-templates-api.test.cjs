@@ -50,6 +50,9 @@ test('publicado ≠ ativo: só é ativo com workflow do inventário ativo e o mo
  assert.equal(GTA.publicadoAtivo({status:'APPROVED',mapped_in:[{workflow_key:'fish_tx',piece:'x',mode_key:'modo_pedido_pago'}]},wfs).situacao,'nao_ativo'); // sombra
  assert.equal(GTA.publicadoAtivo({status:'APPROVED',mapped_in:[{workflow_key:'aristo_tx',piece:'x',mode_key:'modo_rastreio'}]},wfs).situacao,'nao_ativo'); // workflow inativo
  assert.equal(GTA.publicadoAtivo({status:'APPROVED',mapped_in:[]},wfs).rotulo,'Publicado · não ativo (sem workflow mapeado)');
+ const velho=[{key:'fish_tx',active:true,fieldsValid:true,collection:{current:false,key:'error'},modes:[{key:'modo_rastreio',value:'real'}]}]; // F03: consulta com falha não confirma nada
+ const pv=GTA.publicadoAtivo({status:'APPROVED',mapped_in:[{workflow_key:'fish_tx',piece:'x',mode_key:'modo_rastreio'},null]},velho);
+ assert.equal(pv.situacao,'desconhecido');assert.equal(pv.rotulo,'Publicado · ativação não confirmada (fish_tx: último modo observado real · consulta com falha)');
  assert.equal(GTA.publicadoAtivo({status:'APPROVED'},wfs).situacao,'desconhecido');
  assert.equal(GTA.publicadoAtivo({status:'PENDING',mapped_in:[]},wfs).situacao,'nao_publicado');
  const r=GR.novo({nome:'x',corpo:'Oi.',servidor:{draft_id:'d',version:2,estado:'publicado',hash:null}});
