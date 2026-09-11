@@ -122,10 +122,15 @@ const GTA={
   /* Cruza template aprovado com o inventário: ativo = algum workflow mapeado com o modo em `real`. Sem mapped_in, não se sabe. */
   publicadoAtivo(row,workflows=[]){
     if(row.status!=='APPROVED')return {situacao:'nao_publicado',rotulo:'Não publicado',tone:'neutral'};
-    const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
+    const links=Array.isArray(row.mapped_in)?row.mapped_in.filter(l=>l&&typeof l==='object'&&typeof l.workflow_key==='string'):null; // F06: vínculo malformado não derruba
     if(links===null)return {situacao:'desconhecido',rotulo:'Publicado · ativação desconhecida (sem vínculo no manifesto)',tone:'neutral'};
-    const reais=links.filter(l=>{const wf=workflows.find(w=>w.key===l.workflow_key);const m=wf?(wf.modes||[]).find(x=>x.key===l.mode_key):null;return wf&&wf.active===true&&m&&m.value==='real';});
+    const wfDe=l=>workflows.find(w=>w&&w.key===l.workflow_key);
+    // F03: só conta como ativo o workflow cuja consulta é atual (quando o inventário informa isso) e com campos válidos.
+    const atual=wf=>!wf.collection||(wf.collection.current&&wf.fieldsValid!==false);
+    const reais=links.filter(l=>{const wf=wfDe(l);const m=wf?(wf.modes||[]).find(x=>x&&x.key===l.mode_key):null;return wf&&atual(wf)&&wf.active===true&&m&&m.value==='real';});
     if(reais.length)return {situacao:'ativo',rotulo:`Publicado · ativo em modo real (${reais.map(l=>l.workflow_key).join(', ')})`,tone:'verified'};
+    const antigos=links.filter(l=>{const wf=wfDe(l);const m=wf?(wf.modes||[]).find(x=>x&&x.key===l.mode_key):null;return wf&&!atual(wf)&&m&&m.value==='real';});
+    if(antigos.length)return {situacao:'desconhecido',rotulo:`Publicado · ativação não confirmada (último modo observado real em ${antigos.map(l=>l.workflow_key).join(', ')}, consulta desatualizada)`,tone:'warning'};
     return {situacao:'nao_ativo',rotulo:links.length?'Publicado · não ativo (nenhum workflow em modo real)':'Publicado · não ativo (sem workflow mapeado)',tone:'warning'};
   },
   evento(servidor,ev){servidor.eventos=(Array.isArray(servidor.eventos)?servidor.eventos:[]).concat([ev]).slice(-30);},

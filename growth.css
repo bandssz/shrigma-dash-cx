@@ -127,5 +127,13 @@ body[data-marca] .kpi-falha .kpi-val:not(.vazio-val){color:var(--ruim)}
 /* Saúde dos fluxos (R2/§12, 10/09/2026): chips sob a faixa de fontes; vermelho só em alerta da API */
 .fluxo-saude{margin-top:-4px}.fluxo-saude:empty{display:none}
 .fluxo-saude-lista{display:flex;flex-wrap:wrap;gap:6px}
-.fluxo-chip{font:600 11.5px var(--ui);padding:3px 9px;border-radius:999px;background:var(--neutro-bg);color:var(--mudo);cursor:help;border:1px solid transparent}
+.fluxo-chip{font:600 11.5px var(--ui);padding:3px 9px;border-radius:999px;background:var(--neutro-bg);color:var(--mudo);cursor:pointer;border:1px solid transparent}
 .fluxo-chip[data-estado=alerta]{background:var(--ruim-bg,#fbe9e7);color:var(--ruim);border-color:var(--ruim)}
+
+/* Revisão 11/09 (F02/F07): estados extras da faixa de fontes e detalhe visível dos chips de saúde */
+.fonte[data-estado=evento]::before{background:transparent;border:1px solid var(--borda-forte)}
+.fonte[data-estado=desconhecido]::before{background:transparent;border:1px dashed #d7b666}
+.fonte[data-estado=desconhecido]{color:#82581c}
+.fluxo-chip[aria-expanded=true]{border-color:var(--texto)}
+.fluxo-chip[data-estado=desconhecido]{border-color:#d7b666;color:#82581c}
+.fluxo-detalhe{margin-top:6px;color:var(--mudo)}

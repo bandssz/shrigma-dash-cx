@@ -161,19 +161,29 @@ const GUI = {
       detalhe:consulta.falhou?'A última tentativa de atualizar falhou. Os números na tela são da consulta indicada.':'Hora em que a API respondeu por último. Cada fonte abaixo tem o próprio horário de coleta.',
       texto:consulta.falhou?'falhou · exibindo':'às'};
     let items;
-    if(Array.isArray(api.crm_fontes)&&api.crm_fontes.length){
-      // R2: a API declara hora, cadência e status de coleta por fonte. Coleta ≠ evento: 'evento' é o último
-      // status recebido da Meta (push), que não prova coleta nem saúde — fica neutro.
+    const fontesValidas=Array.isArray(api.crm_fontes)?api.crm_fontes.filter(f=>f&&typeof f==='object'&&typeof f.fonte==='string'&&f.fonte.trim()):null;
+    const fontesInvalidas=Array.isArray(api.crm_fontes)?api.crm_fontes.length-fontesValidas.length:0;
+    if(fontesValidas&&fontesValidas.length){
+      // R2 (revisado 11/09, F02/F06): tabela explícita de estados do contrato. Coleta ≠ evento: 'evento' é o último status
+      // recebido da Meta (push) e não prova coleta nem saúde. Erro conserva a hora do último sucesso como histórico e
+      // sinaliza a falha; status ausente ou fora da tabela nunca herda "ok". Nenhum limiar inventado: só o que a API declara.
       const ROT={shopify_conversao:'Venda',listmonk_snapshot:'E-mail',wa_status_meta:'WhatsApp',inventario_operacao:'Inventário',wa_saude:'Saúde canal',wa_fluxo_saude:'Saúde fluxos'};
-      items=[consultaItem,...api.crm_fontes.map(f=>{
+      const ESTADO={ok:'ok',atrasado:'velho',error:'ruim',erro:'ruim',evento:'evento'};
+      items=[consultaItem,...fontesValidas.map(f=>{
         const cad=Number.isFinite(+f.cadencia_seg)&&+f.cadencia_seg>0?+f.cadencia_seg:null;
         const cadTxt=cad?(cad>=86400?`${Math.round(cad/86400)} dia(s)`:cad>=3600?`${Math.round(cad/3600)} h`:`${Math.round(cad/60)} min`):null;
-        return {rot:ROT[f.fonte]||f.rotulo||f.fonte,hora:GUI.sourceTime(f.coletado_em),
-          estado:!f.coletado_em?'falta':f.status==='atrasado'?'velho':'ok',
-          texto:f.tipo==='evento'?'último evento':'coletado',
-          detalhe:f.tipo==='evento'?`${f.rotulo||f.fonte}: hora do último evento recebido (push). Não é coleta e não indica saúde.`
-            :`${f.rotulo||f.fonte}: última coleta bem-sucedida${cadTxt?` · cadência ${cadTxt}; sinalizado a partir de 2× a cadência`:''}${f.status==='atrasado'?' · ATRASADA':''}.`};
+        const rotulo=f.rotulo||f.fonte,hora=GUI.sourceTime(f.coletado_em);
+        if(f.tipo==='evento')return {rot:ROT[f.fonte]||rotulo,hora,estado:hora?'evento':'falta',texto:'último evento',detalhe:`${rotulo}: hora do último evento recebido (push). Não é coleta e não indica saúde; silêncio não é falha.`};
+        const est=ESTADO[String(f.status||'').toLowerCase()];
+        const estado=est===undefined?((f.status===undefined||f.status===null)&&!hora?'falta':'desconhecido'):est==='ok'&&!hora?'falta':est;
+        const texto=estado==='ruim'?(hora?'falhou · último sucesso':'falhou'):estado==='desconhecido'?(hora?'status não informado':'sem dado'):estado==='velho'?'atrasada · coletado':hora?'coletado':'sem dado';
+        const detalhe=estado==='ruim'?`${rotulo}: a coleta atual FALHOU${f.erro?` (${f.erro})`:''}. A hora exibida é do último sucesso, não da tentativa atual.`
+          :estado==='desconhecido'?`${rotulo}: a API não informou o status desta coleta (recebido: ${f.status===undefined||f.status===null?'nenhum':String(f.status)}). Não se presume sucesso.`
+          :estado==='velho'?`${rotulo}: a API marcou esta coleta como atrasada${cadTxt?` (cadência declarada ${cadTxt})`:''}.`
+          :`${rotulo}: última coleta bem-sucedida${cadTxt?` · cadência declarada ${cadTxt}`:''}.`;
+        return {rot:ROT[f.fonte]||rotulo,hora,estado,texto,detalhe};
       })];
+      if(fontesInvalidas)items.push({rot:'Fontes',hora:null,estado:'desconhecido',texto:`${fontesInvalidas} registro(s) inválido(s) ignorado(s)`,detalhe:'Parte de crm_fontes veio em formato inválido e não pôde ser interpretada.'});
     } else {
       const wa=summary.wa||{},cov=wa.coverage?.meta||{};
       const op=api.crm_operacao&&typeof api.crm_operacao==='object'?api.crm_operacao:null;
@@ -189,21 +199,32 @@ const GUI = {
           detalhe:'Coleta do estado atual de workflows e templates (a cada 5 min; sinalizado a partir de 15 min). Independe do período selecionado.',texto:'coletado'},
       ];
     }
-    el.innerHTML=items.map(i=>`<span class="fonte" data-estado="${i.hora?i.estado:'falta'}" title="${GUI.esc(i.detalhe)}"><b>${GUI.esc(i.rot)}</b> ${i.hora?`${GUI.esc(i.texto)} ${GUI.esc(i.hora)}`:'sem dado'}</span>`).join('');
+    // Sem hora, o estado é "falta" — exceto quando o próprio item já declara que a falta é erro/desconhecido (F02).
+    el.innerHTML=items.map(i=>`<span class="fonte" data-estado="${i.hora?i.estado:['ruim','desconhecido'].includes(i.estado)?i.estado:'falta'}" title="${GUI.esc(i.detalhe)}"><b>${GUI.esc(i.rot)}</b> ${i.hora?`${GUI.esc(i.texto)} ${GUI.esc(i.hora)}`:GUI.esc(i.texto&&i.texto!=='coletado'&&i.texto!=='às'?i.texto:'sem dado')}</span>`).join('');
     return items;
   },
   /* Saúde dos fluxos (shrigma_wa_fluxo_saude, horária): gatilho de e-mail sem linha WhatsApp, aceite sem status
      da Meta, falhas. Só exibe o que a API devolveu; sem a chave, nada aparece (ausência não é saúde). */
   flowHealth(ctx={}){
     const el=GUI.el('#fluxo-saude');if(!el)return [];
-    const rows=Array.isArray(ctx.api?.wa_fluxo_saude)?ctx.api.wa_fluxo_saude:null;
+    const bruto=Array.isArray(ctx.api?.wa_fluxo_saude)?ctx.api.wa_fluxo_saude:null;
+    if(!bruto){el.innerHTML='';return [];}
+    // F06: linha inválida é contada e ignorada, o resto renderiza. F07: motivo e horário visíveis por toque/teclado, não só no title.
+    const rows=bruto.filter(r=>r&&typeof r==='object'&&typeof r.chave==='string'&&r.chave.trim());
+    const invalidas=bruto.length-rows.length;
     const marca=ctx.marca||'todas';
-    const vis=(rows||[]).filter(r=>marca==='todas'||r.brand===marca);
-    if(!rows){el.innerHTML='';return [];}
+    const vis=rows.filter(r=>marca==='todas'||r.brand===marca);
     const alertas=vis.filter(r=>r.estado==='alerta');
     const stamp=v=>GUI.sourceTime(v)||'—';
-    el.innerHTML=vis.length?`<div class="fluxo-saude-lista">${vis.map(r=>`<span class="fluxo-chip" data-estado="${GUI.esc(r.estado)}" title="${GUI.esc((r.motivo||'Sem ocorrência na última verificação')+' · verificado '+stamp(r.verificado_em)+(r.alerta_desde?' · em alerta desde '+stamp(r.alerta_desde):''))}">${GUI.esc(r.nome)}${r.estado==='alerta'?' · alerta':''}</span>`).join('')}</div>`
+    const kept=typeof GT!=='undefined'?GT.captura(el):null;
+    const estado=r=>['ok','alerta'].includes(r.estado)?r.estado:'desconhecido';
+    const motivo=r=>r.motivo?String(r.motivo):r.estado==='ok'?'Sem ocorrência na última verificação':'Estado não informado pela verificação';
+    el.innerHTML=vis.length||invalidas?`<div class="fluxo-saude-lista">${vis.map((r,i)=>{const id=`fluxo-det-${i}`,st=estado(r);
+        return `<button type="button" class="fluxo-chip" data-estado="${GUI.esc(st)}" data-gt-expand="fluxo-${GUI.esc(r.chave)}" data-gt-alvo="${id}" aria-expanded="false" aria-controls="${id}">${GUI.esc(r.nome||r.chave)}${st==='alerta'?' · alerta':st==='desconhecido'?' · estado ?':''}</button>`;}).join('')}${invalidas?`<span class="fluxo-chip" data-estado="desconhecido">${invalidas} registro(s) inválido(s) ignorado(s)</span>`:''}</div>
+      ${vis.map((r,i)=>`<div class="fluxo-detalhe mini" id="fluxo-det-${i}" hidden>${GUI.esc(motivo(r))} · verificado ${stamp(r.verificado_em)}${r.alerta_desde?` · em alerta desde ${stamp(r.alerta_desde)}`:''}${r.estado==='alerta'&&GUI.sourceTime(r.verificado_em)===null?' · sem hora de verificação: trate como histórico':''}</div>`).join('')}`
       :`<span class="mini">Sem verificação de fluxo para este recorte.</span>`;
+    el.querySelectorAll('[data-gt-expand]').forEach(b=>b.onclick=()=>{const alvo=el.querySelector('#'+b.dataset.gtAlvo);const abre=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(abre));if(alvo)alvo.hidden=!abre;});
+    if(kept&&typeof GT!=='undefined')GT.restaura(el,kept);
     return alertas;
   },
   attention(ctx={}) {

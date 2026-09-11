@@ -74,7 +74,7 @@
 /* R3 (10/09/2026): vínculo template→workflow (manifesto) e métricas por template no período */
 .control-template-link,.control-template-metrics{display:block;font-size:11.5px;color:var(--mudo);margin-top:4px;line-height:1.4}
 .control-template-link[data-tone=verified]{color:var(--texto)}
-.control-template-metrics{font-variant-numeric:tabular-nums;cursor:help}
+.control-template-metrics{font-variant-numeric:tabular-nums}.control-template-metrics summary{cursor:pointer}.control-template-metrics p{max-width:300px;margin:6px 0 0;font-size:11px;line-height:1.5}
 
 /* Fase A (11/09/2026): templates ponta a ponta atrás de `capabilities` — etapas, confirmação textual, conflito, histórico */
 .drafts-scope-api{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}

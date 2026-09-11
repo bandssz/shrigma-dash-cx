@@ -274,3 +274,31 @@ e um fetch falso.
 
 Testes: `tests/growth-templates-api.test.cjs` (regras) e o bloco "Fase A" em `tests/growth-render.test.cjs`
 (ciclo completo, 409/502/401, aba Templates). 115 no total.
+
+### Correções da revisão independente de 11/09/2026 (F01–F07)
+
+Parecer do chat GPT sobre o patch R2/R3, todas as sete linhas tratadas nesta base:
+
+- **F01** — contagem desconhecida nunca vira zero: `templateMetrics` usa a regra de `GD.count`/`GD.sumKnown` (Envios); se
+  qualquer linha tiver `aceitos:null`, a soma de aceitos é "—" na tela e célula vazia no CSV ("parte não medida"). Array
+  vazio só é "0" com `crm_wa_template_cobertura` declarada e cobrindo o período; senão "Sem linha no período · cobertura
+  não declarada" e CSV vazio. Coluna "Cobertura das métricas" no CSV.
+- **F02** — faixa de fontes com tabela fechada de estados: `ok`, `atrasado`→velho, `error|erro`→ruim ("falhou · último
+  sucesso HH:MM", a hora é do último sucesso), `tipo:evento`→evento (neutro, "silêncio não é falha"), qualquer outro
+  status → "status não informado" (nunca herda ok). O limiar "2× a cadência" saiu: só o que a API declarar.
+- **F03** — vínculo template→workflow só diz "modo configurado: real" (tom verificado) quando a consulta do workflow é
+  atual e os campos válidos; senão "último modo observado: real · consulta com falha/desatualizada (HH:MM)", tom aviso.
+  A mesma regra vale para "Publicado · ativo em modo real" na aba Templates e nos cartões de rascunho.
+- **F04** — a soma por template exclui `flow:teste-motor`, igual a Envios, e diz quantas linhas de teste ficaram fora.
+- **F05** — o CSV exporta a mesma projeção da tela (rótulo · peça · modo qualificado), não a chave interna do workflow.
+- **F06** — `mapped_in`, `crm_fontes`, `wa_fluxo_saude` e `crm_wa_template` toleram linha inválida (null, primitivo,
+  objeto sem chave): a linha é contada e ignorada, o resto renderiza, e a contagem aparece na tela.
+- **F07** — chips de saúde dos fluxos são botões (`aria-expanded`/`aria-controls`) que abrem um detalhe visível com motivo,
+  hora da verificação e "em alerta desde"; a explicação das métricas por template é um `<details>`; ambos sobrevivem ao
+  redesenho de 60 s. Estado desconhecido mostra "Estado não informado", não "Sem ocorrência".
+
+Também da revisão, aplicado ao que é do front: `provider_status` fora de PENDING/APPROVED/REJECTED (PAUSED, DISABLED…)
+não vira aprovação nem rejeição (C03); texto de submissão de e-mail não afirma mais "cria campanha" (B01, decisão do
+contrato); a prévia de `components` nunca é reenviada como payload (B04 — o POST leva só os 12 campos do rascunho).
+Contrato: `BACKEND_REQUESTS.md` › R5.9 e/f. O script `reproduzir-achados-r2-r3.cjs` da revisão não veio com o parecer;
+os casos dele foram reescritos como testes de comportamento esperado em `tests/growth-render.test.cjs`.

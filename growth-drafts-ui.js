@@ -123,7 +123,7 @@ const GRU={
   confirmacao(r,provedor){
     const s=r.servidor||{},ok=GRU.state.confirmTexto.trim().toLowerCase()==='submeter',wa=r.canal==='whatsapp';
     return `<div class="draft-confirm" id="d-confirmar" role="dialog" aria-label="Confirmar submissão"><strong>Submeter à ${GRU.e(provedor)} o rascunho v${GRU.e(s.version)}</strong>
-      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Cria campanha em rascunho no Listmonk; o agendamento continua no Listmonk.'}</dd></dl>
+      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Vai ao Listmonk como definição de template (o recurso exato — template transacional, não campanha — segue o contrato final, B01 da revisão). Nada é agendado nem disparado.'}</dd></dl>
       ${s.avisos?.length?`<p class="draft-aviso">Avisos da validação: ${GRU.e(s.avisos.map(a=>a.mensagem||a.codigo).join(' · '))}</p>`:''}
       <label for="d-confirm-texto">Digite <code>submeter</code> para liberar o botão</label><div class="draft-confirm-row"><input type="text" id="d-confirm-texto" value="${GRU.e(GRU.state.confirmTexto)}" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="d-confirm-ok"${ok&&!GRU.state.ocupado?'':' disabled'}>${GRU.state.ocupado==='submeter'?'Submetendo…':'Submeter agora'}</button><button type="button" class="btn sec" id="d-confirm-cancel">Cancelar</button></div></div>`;
   },
@@ -253,7 +253,10 @@ const GRU={
     const novo=b.estado==='publicado'||b.provider_status==='APPROVED'?'publicado':b.estado==='rejeitado'||b.provider_status==='REJECTED'?'rejeitado':'submetido';
     if(novo!==s.estado){s.estado=novo;s.confirmado_em=GR.agora();GTA.evento(s,{at:GR.agora(),who:'provedor via API',action:novo,result:b.provider_status||novo,detail:s.rejected_reason});}
     GR.guarda(r);
-    if(!silencioso)GRU.aviso(novo==='publicado'?`Publicado pelo provedor (${b.provider_status}). Publicado não é ativo: nenhum workflow mudou.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`:`Ainda aguardando (${b.provider_status||'sem status'}) · verificado ${GRU.stamp(s.checked_at)}.`,novo==='rejeitado'?'erro':'ok');
+    // C03: provider_status é extensível (PAUSED, DISABLED, IN_APPEAL…). Só PENDING/IN_APPEAL é "aguardando"; o resto é dito pelo nome, sem virar aprovação.
+    const aguardando=[undefined,null,'','PENDING','IN_APPEAL'].includes(b.provider_status);
+    if(!silencioso)GRU.aviso(novo==='publicado'?`Publicado pelo provedor (${b.provider_status}). Publicado não é ativo: nenhum workflow mudou.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`
+      :aguardando?`Ainda aguardando (${b.provider_status||'sem status'}) · verificado ${GRU.stamp(s.checked_at)}.`:`Provedor devolveu "${b.provider_status}": não é aprovação nem rejeição; estado mantido como submetido. Confira no provedor.`,novo==='rejeitado'||!aguardando&&novo==='submetido'?'aviso':'ok');
     if(GRU.state.rascunho&&GRU.state.rascunho.id===r.id)GRU.state.rascunho.servidor=JSON.parse(JSON.stringify(s));
     GRU.render();
   },

@@ -46,9 +46,10 @@ const GC={
     {chave:'piece',rotulo:'Peça'},{chave:'name',rotulo:'Template'},{chave:'brand',rotulo:'Marca',pega:r=>GC.brand(r.brand)},{chave:'language',rotulo:'Idioma'},
     {chave:'status',rotulo:'Status'},{chave:'category',rotulo:'Categoria'},{chave:'expected_category',rotulo:'Categoria esperada'},{chave:'mismatch',rotulo:'Categoria divergente'},
     {chave:'usage',rotulo:'Uso',pega:r=>r.usage==='native_pending'?'integração pendente':r.usage==='current'?'mapeado no fluxo':r.usage},
-    {chave:'mapped_in',rotulo:'Vinculado a',pega:r=>Array.isArray(r.mapped_in)&&r.mapped_in.length?r.mapped_in.map(l=>`${l.workflow_key}:${l.piece}`).join(' | '):null},
-    {chave:'aceitos_periodo',rotulo:'Aceitos no período',pega:r=>{const m=GC.templateMetrics(r);return m?m.aceitos:null;}},
-    {chave:'entregues_periodo',rotulo:'Entregues no período',pega:r=>{const m=GC.templateMetrics(r);return m?m.entregues:null;}},
+    {chave:'mapped_in',rotulo:'Vinculado a',pega:r=>GC.linkTexto(r)},
+    {chave:'aceitos_periodo',rotulo:'Aceitos no período',pega:r=>{const m=GC.templateMetrics(r);return m?(m.vazio?(m.coberto?0:null):m.aceitos):null;}},
+    {chave:'entregues_periodo',rotulo:'Entregues no período',pega:r=>{const m=GC.templateMetrics(r);return m?(m.vazio?(m.coberto?0:null):m.entregues):null;}},
+    {chave:'cobertura_metricas',rotulo:'Cobertura das métricas',pega:r=>{const m=GC.templateMetrics(r);return m?(m.coberto?`declarada ${m.cobertura.inicio} a ${m.cobertura.fim}`:'não declarada'):null;}},
     {chave:'collection_status',rotulo:'Consulta'},{chave:'collection_label',rotulo:'Situação da consulta',pega:r=>r.collection.label},{chave:'collection_error_code',rotulo:'Erro da consulta'},
     {chave:'checked_at',rotulo:'Consultado em'},{chave:'last_good_at',rotulo:'Última consulta válida'},
     {chave:'publicacao',rotulo:'Publicado / ativo',pega:r=>{const p=GC.publicacao(r);return p?p.rotulo:null;}},
@@ -181,27 +182,56 @@ const GC={
   templateLink(row){
     const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
     if(links===null)return null;
-    if(!links.length)return row.usage==='native_pending'?null:{text:'Sem vínculo declarado no manifesto',tone:'neutral'};
-    return links.map(l=>{
+    const validos=links.filter(l=>GC.object(l)&&typeof l.workflow_key==='string'&&l.workflow_key.trim()),invalidos=links.length-validos.length;
+    if(!validos.length)return row.usage==='native_pending'&&!invalidos?null:[{text:invalidos?`${invalidos} vínculo(s) em formato inválido`:'Sem vínculo declarado no manifesto',tone:invalidos?'warning':'neutral'}];
+    const out=validos.map(l=>{
       const wf=GC.templateCtx.workflows.find(w=>w.key===l.workflow_key);
       const mode=wf?(wf.modes||[]).find(m=>m.key===l.mode_key):null;
-      const modeTxt=mode?(mode.value==='unknown'?'modo não confirmado':`modo ${mode.value}`):(wf?'modo não informado':'');
-      return {text:`${wf?wf.label||l.workflow_key:l.workflow_key} · ${l.piece}${modeTxt?` · ${modeTxt}`:''}`,tone:mode&&mode.value==='real'?'verified':'neutral'};
+      const piece=typeof l.piece==='string'&&l.piece.trim()?l.piece:'peça não informada';
+      // F03: modo só é "configurado" se a consulta do workflow é atual e os campos são válidos; senão é o último modo observado.
+      const atual=!!wf&&wf.collection?.current&&wf.fieldsValid;
+      let modeTxt='',tone='neutral';
+      if(mode){
+        const val=mode.value==='unknown'?'não confirmado':mode.value;
+        if(atual){modeTxt=`modo configurado: ${val}`;tone=mode.value==='real'?'verified':'neutral';}
+        else{modeTxt=`último modo observado: ${val} · consulta ${wf.collection?.key==='error'?'com falha':'desatualizada'} (${GC.stamp(wf.last_good_at)})`;tone='warning';}
+      }else if(wf)modeTxt='modo não informado';
+      return {text:`${wf?wf.label||l.workflow_key:l.workflow_key} · ${piece}${modeTxt?` · ${modeTxt}`:''}`,tone};
     });
+    if(invalidos)out.push({text:`${invalidos} vínculo(s) em formato inválido ignorado(s)`,tone:'warning'});
+    return out;
   },
+  linkTexto(row){const l=GC.templateLink(row);return l?l.map(x=>x.text).join(' | '):null;},
+  /* F01/F04/F06 (revisão de 11/09): contagem desconhecida (null, ausente, texto, negativo) nunca vira zero — a soma do campo
+     fica null se qualquer linha for desconhecida (mesma regra de GD.sumKnown em Envios). Fluxo `teste-motor` sai, como em
+     Envios. Linhas inválidas são contadas e não somadas. Array vazio só é "zero" com cobertura declarada
+     (`crm_wa_template_cobertura`, pedido R5.9-e); sem ela, é "sem linha · cobertura não declarada". */
+  METRICAS_TPL:['registros','aceitos','entregues','falhas'],
   templateMetrics(row){
     const m=GC.templateCtx.metrics;if(!Array.isArray(m))return null;
-    const {ini,fim}=GC.templateCtx;
-    const rows=m.filter(r=>String(r.template_ref)===String(row.id)&&r.marca===row.brand&&(!ini||r.dia>=ini)&&(!fim||r.dia<=fim));
-    if(!rows.length)return {registros:0,aceitos:0,entregues:0,falhas:0,vazio:true};
-    return rows.reduce((acc,r)=>({registros:acc.registros+(+r.registros||0),aceitos:acc.aceitos+(+r.aceitos||0),entregues:acc.entregues+(+r.entregues||0),falhas:acc.falhas+(+r.falhas||0),vazio:false}),{registros:0,aceitos:0,entregues:0,falhas:0,vazio:false});
+    const {ini,fim,cobertura}=GC.templateCtx;
+    const count=v=>typeof GD!=='undefined'?GD.count(v):(Number.isSafeInteger(+v)&&+v>=0&&v!==null&&v!==''&&typeof v!=='boolean'?+v:null);
+    const invalidas=m.filter(r=>!GC.object(r)).length;
+    const doTemplate=m.filter(GC.object).filter(r=>String(r.template_ref)===String(row.id)&&r.marca===row.brand&&typeof r.dia==='string'&&(!ini||r.dia>=ini)&&(!fim||r.dia<=fim));
+    const testes=doTemplate.filter(r=>r.flow==='teste-motor'),rows=doTemplate.filter(r=>r.flow!=='teste-motor');
+    const coberto=!!cobertura&&(!ini||ini>=cobertura.inicio)&&(!fim||fim<=cobertura.fim);
+    const out={linhas:rows.length,testes:testes.length,invalidas,coberto,cobertura:cobertura||null,vazio:!rows.length};
+    GC.METRICAS_TPL.forEach(k=>{const vals=rows.map(r=>count(r[k]));out[k]=rows.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;});
+    return out;
+  },
+  metricaTexto(met){
+    if(!met)return null;
+    const nf=v=>v===null?'—':new Intl.NumberFormat('pt-BR').format(v);
+    if(met.vazio)return met.coberto?'Sem registro no período (0)':'Sem linha no período · cobertura não declarada';
+    return `${nf(met.registros)} registros · ${nf(met.aceitos)} aceitos · ${nf(met.entregues)} entregues${met.falhas!==null&&met.falhas>0?` · ${nf(met.falhas)} falhas`:met.falhas===null?' · falhas —':''}`;
   },
   template(row){
     const e=GC.esc,current=row.collection.current;
     const links=GC.templateLink(row),met=GC.templateMetrics(row);
     const nf=v=>new Intl.NumberFormat('pt-BR').format(v);
     const linkHtml=links?(Array.isArray(links)?links:[links]).map(l=>`<span class="control-template-link" data-tone="${l.tone}">${e(l.text)}</span>`).join(''):'';
-    const metHtml=met?`<span class="control-template-metrics" title="Linhas do motor para este template no período selecionado: registros (inclui sombra), aceitos pela Meta (wamid), entregues (delivered/read) e falhas. Reconcilia com Envios no período.">${met.vazio?'Sem registro no período':`${nf(met.registros)} registros · ${nf(met.aceitos)} aceitos · ${nf(met.entregues)} entregues${met.falhas?` · ${nf(met.falhas)} falhas`:''}`}</span>`:'';
+    const metHtml=met?`<details class="control-template-metrics" data-gt-key="met-${e(row.key)}"><summary>${e(GC.metricaTexto(met))}${met.coberto?'':met.vazio?'':' · cobertura não declarada'}${met.linhas&&[met.registros,met.aceitos,met.entregues,met.falhas].some(v=>v===null)?' · parte não medida':''}</summary>
+      <p>Linhas do motor para este template, na marca e no período selecionado, sem o fluxo de teste (mesma população de Envios). Registros incluem sombra; aceitos = wamid da Meta; entregues = delivered/read. "—" é contagem não informada em pelo menos uma linha, não zero.${met.testes?` ${met.testes} linha(s) de teste fora da soma.`:''}${met.invalidas?` ${met.invalidas} linha(s) da coleção em formato inválido, ignorada(s).`:''} ${met.coberto?`Cobertura declarada pela API: ${e(met.cobertura.inicio)} a ${e(met.cobertura.fim)}.`:'A API não declarou a cobertura desta coleção; ausência de linha não prova zero.'}</p></details>`:'';
     let note=row.usage==='native_pending'?'Integração pendente · ainda fora do envio':'Mapeado no fluxo · envio depende da ativação';
     if(!['current','native_pending'].includes(row.usage))note='Uso não confirmado';
     const alerts=[];
@@ -218,7 +248,9 @@ const GC={
   },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
-    GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||''};
+    const cob=ctx.api?.crm_wa_template_cobertura;
+    GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||'',
+      cobertura:GC.object(cob)&&/^\d{4}-\d{2}-\d{2}$/.test(cob.inicio||'')&&/^\d{4}-\d{2}-\d{2}$/.test(cob.fim||'')?{inicio:cob.inicio,fim:cob.fim}:null};
     GC.caps=typeof GTA!=='undefined'?GTA.caps(ctx.api,{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}):null;
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');

@@ -315,7 +315,7 @@ test('templates: filtros por status, categoria e uso, ordenação por peça e ex
  x.document.querySelector('#control-tpl-export').click();
  const {texto}=x.downloads[0];
  assert.doesNotMatch(texto.split('\r\n')[0],/;id;|^id;/);
- assert.match(texto,/pedido-pago;aristo_confirmacao_exemplo;O Aristocrata;pt_BR;PENDING;MARKETING;UTILITY;sim;mapeado no fluxo;;;;ok;/); // vínculo/métricas vazios sem mapped_in e crm_wa_template
+ assert.match(texto,/pedido-pago;aristo_confirmacao_exemplo;O Aristocrata;pt_BR;PENDING;MARKETING;UTILITY;sim;mapeado no fluxo;;;;;ok;/); // vínculo/métricas/cobertura vazios sem mapped_in e crm_wa_template
  assert.equal(x.downloads[0].texto.split('\r\n').length-2,1);
 });
 test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave',async()=>{
@@ -382,52 +382,86 @@ test('hash aba=drafts abre a aba de rascunhos',async()=>{
  assert.equal(x.document.querySelector('#control-drafts').hidden,false);
 });
 /* ---------- R2 (10/09/2026): crm_fontes e saúde dos fluxos ---------- */
-test('faixa de fontes prefere crm_fontes da API: coleta atrasada fica velha, evento fica neutro, ausente vira sem dado',async()=>{
+test('faixa de fontes (F02): tabela explícita de estados — erro sinaliza falha e guarda o último sucesso, status ausente não herda ok, evento é neutro, linha inválida é contada',async()=>{
  const p=fixture();
  p.crm_fontes=[{fonte:'shopify_conversao',rotulo:'Venda (Shopify)',tipo:'coleta',coletado_em:'2026-09-07T22:00:00Z',cadencia_seg:86400,status:'ok'},
   {fonte:'listmonk_snapshot',rotulo:'E-mail (Listmonk)',tipo:'coleta',coletado_em:'2026-09-07T20:00:00Z',cadencia_seg:1800,status:'atrasado'},
   {fonte:'wa_status_meta',rotulo:'Status WhatsApp (Meta)',tipo:'evento',coletado_em:'2026-09-08T01:00:00Z',cadencia_seg:null,status:'evento'},
-  {fonte:'inventario_operacao',rotulo:'Inventario',tipo:'coleta',coletado_em:null,cadencia_seg:300,status:null}];
+  {fonte:'inventario_operacao',rotulo:'Inventario',tipo:'coleta',coletado_em:null,cadencia_seg:300,status:null},
+  {fonte:'wa_saude',rotulo:'Saúde canal',tipo:'coleta',coletado_em:'2026-09-07T23:00:00Z',cadencia_seg:3600,status:'error',erro:'timeout'}, // F02: erro com hora antiga
+  {fonte:'wa_fluxo_saude',rotulo:'Saúde fluxos',tipo:'coleta',coletado_em:'2026-09-08T00:00:00Z',cadencia_seg:3600,status:'weird'},         // status fora da tabela
+  null,'texto'];                                                                                                                             // F06
  const x=await boot(p);
  const f=[...x.document.querySelectorAll('#fontes .fonte')];
- assert.deepEqual(f.map(n=>n.querySelector('b').textContent),['Consulta','Venda','E-mail','WhatsApp','Inventário']);
- assert.deepEqual(f.map(n=>n.dataset.estado),['ok','ok','velho','ok','falta']);
- assert.match(f[2].title,/ATRASADA/);assert.match(f[3].textContent,/último evento/);assert.match(f[3].title,/não indica saúde/i);
+ assert.deepEqual(f.map(n=>n.querySelector('b').textContent),['Consulta','Venda','E-mail','WhatsApp','Inventário','Saúde canal','Saúde fluxos','Fontes']);
+ assert.deepEqual(f.map(n=>n.dataset.estado),['ok','ok','velho','evento','falta','ruim','desconhecido','desconhecido']);
+ assert.match(f[2].title,/marcou esta coleta como atrasada \(cadência declarada 30 min\)/);assert.doesNotMatch(f[2].title,/2×/);
+ assert.match(f[3].textContent,/último evento/);assert.match(f[3].title,/não indica saúde; silêncio não é falha/i);
  assert.match(f[4].textContent,/sem dado/);
+ assert.match(f[5].textContent,/falhou · último sucesso/);assert.match(f[5].title,/FALHOU \(timeout\)\. A hora exibida é do último sucesso/);
+ assert.match(f[6].textContent,/status não informado/);assert.match(f[6].title,/recebido: weird/);
+ assert.match(f[7].textContent,/2 registro\(s\) inválido\(s\) ignorado\(s\)/);
+ const y=await boot({...fixture(),crm_fontes:[{fonte:'shopify_conversao',tipo:'coleta',coletado_em:'2026-09-07T22:00:00Z'}]}); // sem status: não é ok
+ assert.equal(y.document.querySelector('#fontes .fonte:nth-child(2)').dataset.estado,'desconhecido');
 });
-test('saúde dos fluxos: chips só com dado da API, alerta destacado, filtro por marca, ausência não vira saúde',async()=>{
+test('saúde dos fluxos (F07/F06): chips são botões com detalhe visível por clique/teclado, alerta destacado, estado desconhecido não vira "sem ocorrência", linha inválida contada, filtro por marca, ausência não vira saúde',async()=>{
  const p=fixture();
  p.wa_fluxo_saude=[{chave:'aceite:aristo',brand:'aristo',nome:'Aceite → status Meta · aristo',verificado_em:'2026-09-08T01:00:00Z',n_aceites:40,n_status:0,estado:'alerta',motivo:'40 aceites sem status',alerta_desde:'2026-09-07T23:00:00Z'},
-  {chave:'gatilho:fish:pedido-pago',brand:'fish',nome:'Gatilho → WhatsApp · fish · pedido-pago',verificado_em:'2026-09-08T01:00:00Z',n_gatilho:12,n_saida:12,estado:'ok',motivo:null}];
+  {chave:'gatilho:fish:pedido-pago',brand:'fish',nome:'Gatilho → WhatsApp · fish · pedido-pago',verificado_em:'2026-09-08T01:00:00Z',n_gatilho:12,n_saida:12,estado:'ok',motivo:null},
+  {chave:'x:fish',brand:'fish',nome:'Sem estado',verificado_em:null,estado:null,motivo:null},null,42];
  const x=await boot(p);
  let chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];
- assert.equal(chips.length,2);assert.equal(chips[0].dataset.estado,'alerta');assert.match(chips[0].textContent,/· alerta$/);assert.match(chips[0].title,/40 aceites sem status/);
- assert.equal(chips[1].dataset.estado,'ok');assert.match(chips[1].title,/Sem ocorrência/);
+ assert.equal(chips.length,4);assert.equal(chips[0].tagName,'BUTTON');assert.equal(chips[0].dataset.estado,'alerta');assert.match(chips[0].textContent,/· alerta$/);assert.equal(chips[0].getAttribute('aria-expanded'),'false');
+ const det=()=>x.document.getElementById(chips[0].getAttribute('aria-controls'));
+ assert.equal(det().hidden,true);chips[0].click();assert.equal(det().hidden,false);assert.equal(chips[0].getAttribute('aria-expanded'),'true');
+ assert.match(det().textContent,/40 aceites sem status · verificado 22:00 · em alerta desde 20:00/);
+ chips[1].click();assert.match(x.document.getElementById(chips[1].getAttribute('aria-controls')).textContent,/Sem ocorrência na última verificação/);
+ assert.equal(chips[2].dataset.estado,'desconhecido');assert.match(chips[2].textContent,/estado \?/);chips[2].click();assert.match(x.document.getElementById(chips[2].getAttribute('aria-controls')).textContent,/Estado não informado pela verificação · verificado —/);
+ assert.match(chips[3].textContent,/2 registro\(s\) inválido\(s\)/);
+ await x.run('carregar()'); // redesenho preserva o detalhe aberto
+ chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips[0].getAttribute('aria-expanded'),'true');assert.equal(x.document.getElementById(chips[0].getAttribute('aria-controls')).hidden,false);
  x.document.querySelector('[data-marca="fish"]').click();
- chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips.length,1);assert.equal(chips[0].dataset.estado,'ok');
+ chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips.filter(c=>c.tagName==='BUTTON').length,2);assert.equal(chips[0].dataset.estado,'ok');
  const y=await boot(fixture());
  assert.equal(y.document.querySelector('#fluxo-saude').innerHTML,'');
 });
 /* ---------- R3 (10/09/2026): mapped_in + crm_wa_template ---------- */
-test('templates: vínculo vem de mapped_in (manifesto) com modo do workflow, métricas do período por template e exportação',async()=>{
+test('templates (F01/F03/F04/F05/F06): vínculo diz se o modo é configurado ou só o último observado; métrica desconhecida vira "—", nunca zero; teste-motor fora da soma; CSV exporta o que a tela mostra; linha inválida não derruba a tela',async()=>{
  const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
- const t=p.crm_operacao.templates;
- t[0].mapped_in=[{workflow_key:'fish_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];   // fish_paid → fish_tx (modes na fixture)
- t[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}]; // aristo_paid
- t[2].mapped_in=[];                                                                            // fish_native (native_pending)
+ const t=p.crm_operacao.templates,w=p.crm_operacao.workflows;
+ t[0].mapped_in=[{workflow_key:'fish_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];   // fish_tx: consulta atual, modo real
+ t[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'},null,{piece:'x'}]; // F06: vínculos malformados
+ t[2].mapped_in=[];
+ w.find(x=>x.key==='aristo_tx').collection_status='error';w.find(x=>x.key==='aristo_tx').collection_error_code='timeout'; // F03: modo preservado de leitura antiga
  p.crm_wa_template=[{dia:'2026-09-06',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:10,aceitos:9,entregues:7,lidos:3,falhas:1,sem_disparo_confirmado:1},
   {dia:'2026-09-07',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:5,aceitos:5,entregues:4,lidos:1,falhas:0,sem_disparo_confirmado:0},
-  {dia:'2026-08-01',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:99,aceitos:99,entregues:99,lidos:0,falhas:0,sem_disparo_confirmado:0}];
+  {dia:'2026-09-07',marca:'fish',flow:'teste-motor',piece:'teste',template_ref:t[0].id,registros:7,aceitos:7,entregues:7,lidos:7,falhas:0,sem_disparo_confirmado:0}, // F04: fora da soma
+  {dia:'2026-08-01',marca:'fish',flow:'transacional',piece:'pedido-pago',template_ref:t[0].id,registros:99,aceitos:99,entregues:99,lidos:0,falhas:0,sem_disparo_confirmado:0},  // fora do período
+  {dia:'2026-09-07',marca:'aristo',flow:'transacional',piece:'pedido-pago',template_ref:t[1].id,registros:3,aceitos:null,entregues:2,lidos:0,falhas:0}, // F01: aceitos desconhecido
+  null,'lixo']; // F06
  const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="templates"]').click();
  const row=k=>x.document.querySelector(`[data-control-template="${k}"]`);
- const fishLinks=[...row('fish_paid').querySelectorAll('.control-template-link')].map(n=>n.textContent);
- assert.equal(fishLinks.length,1);assert.match(fishLinks[0],/pedido-pago · modo real|pedido-pago · modo sombra|pedido-pago · modo/);assert.doesNotMatch(fishLinks[0],/^fish_tx ·/); // usa o label do workflow, não a chave
- assert.match(row('fish_paid').querySelector('.control-template-metrics').textContent,/^15 registros · 14 aceitos · 11 entregues · 1 falhas$/); // só 01–07/09, fora agosto
- assert.equal(row('fish_native').querySelector('.control-template-link'),null); // native_pending sem vínculo: nada a declarar
- assert.match(row('fish_native').querySelector('.control-template-metrics').textContent,/Sem registro no período/);
+ const fishLinks=[...row('fish_paid').querySelectorAll('.control-template-link')];
+ assert.equal(fishLinks.length,1);assert.equal(fishLinks[0].textContent,'Pedido pago e rastreio Fishermans · pedido-pago · modo configurado: real');assert.equal(fishLinks[0].dataset.tone,'verified');
+ const ariLinks=[...row('aristo_paid').querySelectorAll('.control-template-link')];
+ assert.equal(ariLinks.length,2);assert.match(ariLinks[0].textContent,/^Pedido pago e rastreio Aristocrata · pedido-pago · último modo observado: sombra · consulta com falha \(0[78]\/09\/2026, \d\d:\d\d\)$/);assert.equal(ariLinks[0].dataset.tone,'warning');
+ assert.match(ariLinks[1].textContent,/2 vínculo\(s\) em formato inválido ignorado\(s\)/);
+ const met=k=>row(k).querySelector('.control-template-metrics');
+ assert.equal(met('fish_paid').tagName,'DETAILS');assert.equal(met('fish_paid').querySelector('summary').textContent,'15 registros · 14 aceitos · 11 entregues · 1 falhas · cobertura não declarada'); // 01–07/09, sem agosto, sem teste-motor
+ assert.match(met('fish_paid').querySelector('p').textContent,/1 linha\(s\) de teste fora da soma/);assert.match(met('fish_paid').querySelector('p').textContent,/2 linha\(s\) da coleção em formato inválido/);
+ assert.equal(met('aristo_paid').querySelector('summary').textContent,'3 registros · — aceitos · 2 entregues · cobertura não declarada · parte não medida'); // F01: null não vira 0
+ assert.equal(row('fish_native').querySelector('.control-template-link'),null);
+ assert.equal(met('fish_native').querySelector('summary').textContent,'Sem linha no período · cobertura não declarada'); // F01: vazio sem cobertura não é zero
  x.document.querySelector('#control-tpl-export').click();
- const cab=x.downloads[0].texto.split('\r\n')[0];assert.match(cab,/Vinculado a;Aceitos no período;Entregues no período/);
- assert.match(x.downloads[0].texto,/fish_tx:pedido-pago;14;11;/);
+ const csv=x.downloads[0].texto,cab=csv.split('\r\n')[0];assert.match(cab,/Vinculado a;Aceitos no período;Entregues no período;Cobertura das métricas/);
+ assert.match(csv,/;Pedido pago e rastreio Fishermans · pedido-pago · modo configurado: real;14;11;não declarada;/); // F05: CSV = tela
+ assert.doesNotMatch(csv,/fish_tx:pedido-pago/);
+ assert.match(csv,/último modo observado: sombra · consulta com falha[^;]*;;2;não declarada;/); // F01: aceitos desconhecido = célula vazia
+ assert.match(csv,/fish_card_exemplo;[^\r\n]*;;;não declarada;/); // vazio sem cobertura: célula vazia, não 0
+ // com cobertura declarada, vazio no período coberto é zero legítimo
+ p.crm_wa_template_cobertura={inicio:'2026-06-10',fim:'2026-09-07'};const z=await boot(p);z.document.querySelector('[data-s="regua"]').click();z.document.querySelector('[data-control-tab="templates"]').click();
+ assert.equal(z.document.querySelector('[data-control-template="fish_native"] .control-template-metrics summary').textContent,'Sem registro no período (0)');
+ z.document.querySelector('#control-tpl-export').click();assert.match(z.downloads[0].texto,/fish_card_exemplo;[^\r\n]*;0;0;declarada 2026-06-10 a 2026-09-07;/);
  const y=await boot(fixture());y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="templates"]').click();
  assert.equal(y.document.querySelectorAll('.control-template-metrics').length,0); // sem crm_wa_template na resposta, sem coluna inventada
 });
@@ -505,6 +539,9 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  root().querySelector('#d-verificar').click();await settle();
  assert.match(root().textContent,/Ainda aguardando \(PENDING\)/);assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Submetido/);
  assert.match(api.pedidos.find(p=>p.acao==='submissao').url,/submission_id=s_01J0000000000000000000EX/);
+ api.responde('submissao',200,{estado:'submetido',provider_status:'PAUSED',rejected_reason:null,checked_at:'2026-09-09T20:20:00Z'}); // C03: status fora do trio não vira aprovação
+ root().querySelector('#d-verificar').click();await settle();
+ assert.match(root().textContent,/Provedor devolveu "PAUSED": não é aprovação nem rejeição/);assert.equal(root().querySelector('.draft-card').dataset.estado,'submetido');
  api.responde('submissao',200,{estado:'publicado',provider_status:'APPROVED',rejected_reason:null,checked_at:'2026-09-09T20:30:00Z'});
  root().querySelector('#d-verificar').click();await settle();
  assert.match(root().textContent,/Publicado pelo provedor \(APPROVED\)\. Publicado não é ativo: nenhum workflow mudou/);
