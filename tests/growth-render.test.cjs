@@ -28,14 +28,14 @@ async function boot(payload=fixture(),opts={}){
  Object.defineProperty(document,'activeElement',{configurable:true,get(){return focado&&focado.isConnected?focado:document.body;}});
  window.HTMLElement.prototype.getBoundingClientRect=function(){return {top:0,width:1200,height:100};};
  const store=new Map([['shrigma_k_growth','synthetic-test-key']]);
- const requests=[],downloads=[],hashes=[];let response=payload,code=200;
+ const requests=[],downloads=[],hashes=[],calls=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
  const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,console,__downloads:downloads,
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:()=>null,confirm:()=>false,
  addEventListener:()=>{},setInterval:()=>0,clearInterval:()=>{},setTimeout,clearTimeout,
- fetch:async(url)=>{requests.push(url);return {status:code,ok:code>=200&&code<300,json:async()=>structuredClone(response)};},});
+ fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}return {status:code,ok:code>=200&&code<300,json:async()=>structuredClone(response)};},});
  for(const script of document.querySelectorAll('script')){
   const src=script.getAttribute('src');
   const code=src?fs.readFileSync(path.join(root,src.split('?')[0]),'utf8'):script.textContent;
@@ -45,7 +45,7 @@ async function boot(payload=fixture(),opts={}){
  // Exportação: captura o CSV em vez de criar um download real.
  run('GT.baixar=(nome,texto)=>{__downloads.push({nome,texto});return true;}');
  for(let i=0;i<10&&run('LOADING');i++)await new Promise(setImmediate);
- return {document,window,run,requests,store,downloads,hashes,setResponse:(r,status=200)=>{response=r;code=status;}};
+ return {document,window,run,requests,calls,store,downloads,hashes,setResponse:(r,status=200)=>{response=r;code=status;}};
 }
 test('front completo carrega, filtra canal/marca e mantém sombra fora dos disparos',async()=>{
  const x=await boot();assert.equal(x.document.querySelector('#load-state').hidden,true);
@@ -430,4 +430,151 @@ test('templates: vínculo vem de mapped_in (manifesto) com modo do workflow, mé
  assert.match(x.downloads[0].texto,/fish_tx:pedido-pago;14;11;/);
  const y=await boot(fixture());y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="templates"]').click();
  assert.equal(y.document.querySelectorAll('.control-template-metrics').length,0); // sem crm_wa_template na resposta, sem coluna inventada
+});
+/* ---------- Fase A (11/09/2026): templates ponta a ponta atrás de capabilities ---------- */
+const CONTRATO=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-templates-contract.synthetic.json'),'utf8'));
+const TPL_END='https://exemplo.invalid/webhook/crm-template-api-x';
+const settle=async()=>{for(let i=0;i<20;i++)await new Promise(setImmediate);};
+// API falsa: uma fila de respostas por ação; devolve a próxima da fila (ou 500 se acabou). Guarda os corpos para inspeção.
+function apiFalsa(){
+ const filas={},pedidos=[];const json=(status,body)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(body)});
+ return {pedidos,responde(acao,status,body){(filas[acao]=filas[acao]||[]).push({status,body});},
+  mock:async(url,init)=>{if(!url.startsWith(TPL_END))return null;const acao=init?.method==='POST'?JSON.parse(init.body).acao:new URL(url).searchParams.get('acao');
+   pedidos.push({acao,url,body:init?.body?JSON.parse(init.body):null,headers:init?.headers||{}});const r=(filas[acao]||[]).shift();return r?json(r.status,r.body):json(500,{erro:'fila vazia'});}};
+}
+const comCaps=(templates)=>{const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));p.capabilities={...CONTRATO.capabilities,templates:{...CONTRATO.capabilities.templates,...templates},endpoints:{templates:TPL_END}};return p;};
+
+test('sem capabilities nada muda: nenhum botão de servidor, rascunho segue só neste dispositivo',async()=>{
+ const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const root=x.document.querySelector('#control-drafts');root.querySelector('#drafts-novo').click();
+ assert.match(root.textContent,/Rascunhos salvos só neste dispositivo/);
+ assert.equal([...root.querySelectorAll('button')].filter(b=>/servidor|validar|submeter|publicar|ativar/i.test(b.textContent)).length,0);
+ assert.equal(root.querySelector('#drafts-filtro'),null);assert.equal(root.querySelector('.draft-steps'),null);
+ const y=await boot({...fixture(),capabilities:CONTRATO.capabilities}); // declaradas, mas sem endpoint
+ y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="drafts"]').click();
+ const ry=y.document.querySelector('#control-drafts');ry.querySelector('#drafts-novo').click();
+ assert.match(ry.textContent,/não informou o endereço da API de templates/);assert.equal(ry.querySelector('#d-servidor'),null);
+});
+test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e depois ok) → submeter com palavra digitada → acompanhar até publicado · não ativo',async()=>{
+ const api=apiFalsa();
+ const x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');x.run('GRU.render()');
+ x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const root=()=>x.document.querySelector('#control-drafts');
+ assert.match(root().textContent,/com envio ao servidor/);assert.match(root().textContent,/Chave de escrita: informada/);
+ root().querySelector('#drafts-novo').click();
+ const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
+ set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
+ assert.equal(root().querySelector('#d-validar'),null);assert.equal(root().querySelector('#d-submeter'),null); // nada no servidor ainda
+ // 1) salvar no servidor
+ api.responde('rascunho',201,CONTRATO.rascunho_response);
+ root().querySelector('#d-servidor').click();await settle();
+ const p1=api.pedidos[0];assert.equal(p1.acao,'rascunho');assert.equal(p1.body.k,'ESCRITA-TESTE');assert.equal(p1.body.draft_id,undefined);
+ assert.match(p1.body.idempotency_key,/^[0-9a-f-]{36}$/);assert.equal(p1.headers['Idempotency-Key'],p1.body.idempotency_key);
+ assert.deepEqual(Object.keys(p1.body.rascunho).sort(),['assunto','botoes','cabecalho','canal','categoria','corpo','exemplos','idioma','marca','nome','peca','rodape']);
+ assert.equal(p1.body.rascunho.corpo,'Olá {{1}}, seu pedido {{2}} saiu.');
+ assert.match(root().textContent,/salvo no servidor como v1/);assert.match(root().querySelector('.draft-card .control-badge').textContent,/Rascunho no servidor · não submetido/);
+ assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
+ assert.ok(root().querySelector('#d-validar'));assert.equal(root().querySelector('#d-submeter'),null); // valida antes de submeter
+ assert.match(x.store.get('shrigma_growth_rascunhos'),/d_01J0000000000000000000EX/);assert.doesNotMatch(x.store.get('shrigma_growth_rascunhos'),/ESCRITA-TESTE/);
+ // 2) alterar conteúdo bloqueia validar; voltar ao conteúdo salvo libera
+ set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu!');
+ assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Alterado após salvar no servidor \(v1\)/);assert.equal(root().querySelector('#d-validar'),null);
+ set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');assert.ok(root().querySelector('#d-validar'));
+ // 3) validar: primeiro a API recusa (422), depois aceita
+ api.responde('validar',422,CONTRATO.validar_422);
+ root().querySelector('#d-validar').click();await settle();
+ assert.match(root().querySelector('#d-checagens').textContent,/API: Corpo com 1025 caracteres; limite 1024\. \(corpo\)/);assert.match(root().textContent,/A API recusou/);
+ assert.equal(root().querySelector('#d-submeter'),null);assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
+ api.responde('validar',200,{...CONTRATO.validar_ok,avisos:[{codigo:'UTILITY_OFFER_WORDING',mensagem:'Tom promocional.'}]});
+ root().querySelector('#d-validar').click();await settle();
+ assert.match(root().textContent,/Validado pela API com 1 aviso/);assert.ok(root().querySelector('#d-submeter'));assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'validado');
+ // 4) submeter: confirmação textual obrigatória
+ root().querySelector('#d-submeter').click();
+ const conf=()=>root().querySelector('#d-confirmar');assert.ok(conf());assert.match(conf().textContent,/Submeter à Meta o rascunho v1/);assert.match(conf().textContent,/Tom promocional/);assert.match(conf().textContent,/vira "publicado · não ativo"\. Nenhum workflow muda/);
+ assert.equal(conf().querySelector('#d-confirm-ok').disabled,true);
+ set('#d-confirm-texto','errado');assert.equal(conf().querySelector('#d-confirm-ok').disabled,true);
+ set('#d-confirm-texto',' Submeter ');assert.equal(conf().querySelector('#d-confirm-ok').disabled,false);
+ api.responde('submeter',202,CONTRATO.submeter_202);
+ conf().querySelector('#d-confirm-ok').click();await settle();
+ const ps=api.pedidos.find(p=>p.acao==='submeter');assert.equal(ps.body.confirm,'submeter');assert.equal(ps.body.expected_version,1);assert.equal(ps.body.draft_id,'d_01J0000000000000000000EX');
+ assert.equal(conf(),null);assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Submetido · aguardando Meta desde 09\/09, 17:01/);
+ assert.ok(root().querySelector('#d-verificar'));assert.ok(root().querySelector('#drafts-verificar'));
+ assert.equal([...root().querySelectorAll('button')].filter(b=>/publicar|ativar/i.test(b.textContent)).length,0);
+ // 5) acompanhar: PENDING não muda nada; APPROVED vira publicado · não ativo (nunca "aprovado" antes da API dizer)
+ api.responde('submissao',200,CONTRATO.submissao_get);
+ root().querySelector('#d-verificar').click();await settle();
+ assert.match(root().textContent,/Ainda aguardando \(PENDING\)/);assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Submetido/);
+ assert.match(api.pedidos.find(p=>p.acao==='submissao').url,/submission_id=s_01J0000000000000000000EX/);
+ api.responde('submissao',200,{estado:'publicado',provider_status:'APPROVED',rejected_reason:null,checked_at:'2026-09-09T20:30:00Z'});
+ root().querySelector('#d-verificar').click();await settle();
+ assert.match(root().textContent,/Publicado pelo provedor \(APPROVED\)\. Publicado não é ativo: nenhum workflow mudou/);
+ assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);
+ assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'publicado');assert.equal(root().querySelector('#d-verificar'),null);
+ // histórico com who/when de cada passo
+ const hist=root().querySelector('.draft-historico').textContent;
+ for(const t of ['rascunho','validar','submit','publicado','chave de escrita deste navegador','provedor via API'])assert.match(hist,new RegExp(t));
+ // nenhuma URL ou corpo levou a chave de leitura para a API de templates fora do parâmetro k do GET, e a de escrita nunca foi para URL
+ assert.ok(api.pedidos.every(p=>!p.url.includes('ESCRITA-TESTE')));
+ assert.equal(api.pedidos.filter(p=>p.body).every(p=>p.body.k==='ESCRITA-TESTE'),true);
+ // filtro por estado
+ set('#drafts-filtro','submetido');assert.match(root().textContent,/Nenhum rascunho neste estado/);set('#drafts-filtro','publicado');assert.equal(root().querySelectorAll('[data-draft]').length,1);
+});
+test('conflito 409 não sobrescreve e oferece refazer; 502 "nada alterado" mantém estado e reaproveita a idempotência; 401 esquece a chave',async()=>{
+ const api=apiFalsa();
+ const x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+ const GRs=`GR.guarda(GR.novo({id:'r9',nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[],servidor:{draft_id:'d_9',version:1,estado:'validado',hash:GTA.hash(GR.conteudo(GR.novo({nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[]}))),eventos:[]}}))`;
+ x.run(GRs);x.run('GRU.render()');x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const root=()=>x.document.querySelector('#control-drafts');root().querySelector('[data-draft-edit]').click();
+ const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
+ // 409 ao submeter
+ root().querySelector('#d-submeter').click();set('#d-confirm-texto','submeter');
+ api.responde('submeter',409,CONTRATO.erros['409']);
+ root().querySelector('#d-confirm-ok').click();await settle();
+ assert.match(root().textContent,/Alterado por chave-exemplo às 09\/09, 16:59 \(versão 4\)\. Recarregue e refaça; nada foi sobrescrito\./);
+ assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Validado · não submetido/); // estado não mudou
+ assert.ok(root().querySelector('#d-refazer'));assert.match(root().querySelector('.draft-conflito').textContent,/Refazer sobre a v4/);
+ root().querySelector('#d-refazer').click();
+ assert.equal(root().querySelector('.draft-conflito'),null);assert.match(root().textContent,/Versão esperada ajustada para v4/);
+ // 502 nothing_changed ao salvar de novo: estado igual, mensagem clara, mesma chave de idempotência na repetição
+ api.responde('rascunho',502,CONTRATO.erros['502']);
+ root().querySelector('#d-servidor').click();await settle();
+ assert.match(root().textContent,/Meta\/Listmonk indisponível; nada foi alterado\. Tente em 60 s/);
+ const r1=api.pedidos.filter(p=>p.acao==='rascunho')[0];assert.equal(r1.body.draft_id,'d_9');assert.equal(r1.body.expected_version,4);
+ api.responde('rascunho',200,{draft_id:'d_9',version:5,estado:'rascunho',salvo_em:'2026-09-11T12:00:00Z',who:'chave-felipe'});
+ root().querySelector('#d-servidor').click();await settle();
+ const r2=api.pedidos.filter(p=>p.acao==='rascunho')[1];assert.equal(r2.body.idempotency_key,r1.body.idempotency_key); // repetição após 502 reaproveita a chave
+ assert.match(root().textContent,/salvo no servidor como v5/);assert.match(root().querySelector('.draft-historico').textContent,/chave-felipe · rascunho v—→v5 · ok/);
+ // 502 sem nothing_changed é incerto
+ api.responde('validar',502,{erro:'upstream_error'});root().querySelector('#d-validar').click();await settle();
+ assert.match(root().textContent,/estado incerto\. Consulte o histórico/);
+ // 401 esquece a chave guardada e nada mais é enviado sem chave (prompt do teste devolve null)
+ api.responde('validar',401,CONTRATO.erros['401']);root().querySelector('#d-validar').click();await settle();
+ assert.equal(x.store.get('shrigma_tpl_key'),undefined);assert.match(root().textContent,/Chave de escrita inválida/);assert.match(root().textContent,/Chave de escrita: ainda não informada/);
+ const antes=api.pedidos.length;root().querySelector('#d-validar').click();await settle();
+ assert.equal(api.pedidos.length,antes);assert.match(root().textContent,/Sem chave de escrita: nada foi enviado/);
+});
+test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só com read_content e ao pedir; histórico com who/when',async()=>{
+ const api=apiFalsa();
+ const p=comCaps({});const t=p.crm_operacao.templates;
+ t[0].mapped_in=[{workflow_key:'fish_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];   // fish_tx ativo, modo real
+ t[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}]; // aristo_tx em sombra
+ t[2].mapped_in=[];
+ const x=await boot(p,{fetchMock:api.mock});x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="templates"]').click();
+ const row=k=>x.document.querySelector(`[data-control-template="${k}"]`);
+ assert.match(row('fish_paid').querySelector('.control-template-pub').textContent,/Publicado · ativo em modo real \(fish_tx\)/);
+ assert.match(row('aristo_paid').querySelector('.control-template-pub').textContent,/Publicado · não ativo \(nenhum workflow em modo real\)/);
+ assert.match(row('fish_native').querySelector('.control-template-pub').textContent,/Publicado · não ativo \(sem workflow mapeado\)/);
+ assert.equal(x.document.querySelectorAll('.control-template-preview').length,0); // nada carregado sem pedir
+ api.responde('listar',200,{api_version:'2026-09-1',templates:[{...CONTRATO.listar.templates[0],key:'fish_paid',name:'fish_confirmacao_exemplo',brand:'fish'}]});
+ x.document.querySelector('#control-tpl-conteudo').click();await settle();
+ assert.match(api.pedidos[0].url,/k=synthetic-test-key&acao=listar$/); // leitura: chave de leitura do painel, sem marca no recorte "todas"
+ const prev=row('fish_paid').querySelector('.control-template-preview');assert.ok(prev);assert.match(prev.querySelector('summary').textContent,/Prévia publicada · v3 · 07\/09\/2026/);
+ assert.match(prev.textContent,/Olá Ana, o pedido #48213 está a caminho/);assert.match(prev.textContent,/↗ Acompanhar pedido/);
+ assert.match(row('aristo_paid').textContent,/Conteúdo publicado não veio na resposta da API/);
+ api.responde('historico',200,CONTRATO.historico);prev.querySelector('[data-tpl-historico]').click();await settle();
+ assert.match(api.pedidos[1].url,/acao=historico&key=fish_paid$/);
+ assert.match(row('fish_paid').querySelector('.control-template-hist').textContent,/chave-exemplo · submit v2→v3 · ok/);
+ const y=await boot(comCaps({read_content:false}));y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="templates"]').click();
+ assert.equal(y.document.querySelector('#control-tpl-conteudo'),null);
+ const csv=x.document.querySelector('#control-tpl-export');csv.click();assert.match(x.downloads[x.downloads.length-1].texto,/Publicado \/ ativo/);
 });

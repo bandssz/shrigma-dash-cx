@@ -51,6 +51,7 @@ const GC={
     {chave:'entregues_periodo',rotulo:'Entregues no período',pega:r=>{const m=GC.templateMetrics(r);return m?m.entregues:null;}},
     {chave:'collection_status',rotulo:'Consulta'},{chave:'collection_label',rotulo:'Situação da consulta',pega:r=>r.collection.label},{chave:'collection_error_code',rotulo:'Erro da consulta'},
     {chave:'checked_at',rotulo:'Consultado em'},{chave:'last_good_at',rotulo:'Última consulta válida'},
+    {chave:'publicacao',rotulo:'Publicado / ativo',pega:r=>{const p=GC.publicacao(r);return p?p.rotulo:null;}},
   ],
   esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));},
   object(value){return !!value && typeof value==='object' && !Array.isArray(value);},
@@ -140,6 +141,43 @@ const GC={
   /* R3 (10/09/2026): vínculo template→workflow vem do manifesto (mapped_in), nunca do nome; métricas por template vêm
      de crm_wa_template no período selecionado. Sem os dois na resposta, a coluna fica como antes. */
   templateCtx:{workflows:[],metrics:null,ini:'',fim:''},
+  /* Fase A (11/09/2026): conteúdo publicado (R5.2) só quando `capabilities.templates.read_content` for true e a pessoa
+     pedir. `conteudo` = null → nunca carregado; {} → carregado sem itens. Prévia vem de `components` da API, nunca do nome. */
+  conteudo:null,conteudoEm:null,conteudoErro:null,historicos:{},carregando:null,
+  publicacao(row){
+    if(typeof GTA==='undefined'||row.status!=='APPROVED'||!Array.isArray(row.mapped_in))return null;
+    return GTA.publicadoAtivo(row,GC.templateCtx.workflows);
+  },
+  previaPublicada(row){
+    if(!GC.conteudo||typeof GTA==='undefined')return '';
+    const t=GC.conteudo[row.key]||Object.values(GC.conteudo).find(x=>x&&x.name===row.name&&x.brand===row.brand);
+    if(!t)return '<span class="control-template-meta">Conteúdo publicado não veio na resposta da API para este template.</span>';
+    const e=GC.esc,hist=GC.historicos[row.key];
+    return `<details class="control-detail control-template-preview" data-gt-key="prev-${e(row.key)}"><summary>Prévia publicada · v${e(t.version??'?')}${t.published_at?` · ${e(GC.stamp(t.published_at))}`:''}</summary>
+      <div class="control-template-preview-body">${GTA.previaComponents(t.components)}</div>
+      ${t.quality_score?`<p>Qualidade (Meta): ${e(typeof t.quality_score==='object'?JSON.stringify(t.quality_score):t.quality_score)}</p>`:''}${t.rejected_reason?`<p class="control-warning">Motivo de rejeição: ${e(t.rejected_reason)}</p>`:''}
+      ${GC.caps?.pode?.list_history?(hist?`<ul class="control-template-hist">${hist.length?hist.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'?')} · ${e(x.action)}${x.from_version!=null||x.to_version!=null?` v${e(x.from_version??'—')}→v${e(x.to_version??'—')}`:''} · ${e(x.result||'')}</li>`).join(''):'<li>Nenhum evento devolvido pela API.</li>'}</ul>`:`<button type="button" class="refresh-btn" data-tpl-historico="${e(row.key)}"${GC.carregando?' disabled':''}>Carregar histórico</button>`):''}</details>`;
+  },
+  async carregarConteudo(ctx){
+    if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.read_content)return;
+    GC.carregando='listar';GC.conteudoErro=null;GC.render(ctx);
+    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':''});
+    let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
+    GC.carregando=null;
+    if(!res.ok){GC.conteudoErro=GTA.erro(res,'listar').texto;GC.render(ctx);return;}
+    const lista=Array.isArray(res.body?.templates)?res.body.templates.filter(t=>t&&typeof t==='object'&&typeof t.key==='string'):[];
+    GC.conteudo=Object.fromEntries(lista.map(t=>[t.key,t]));GC.conteudoEm=new Date().toISOString();GC.render(ctx);
+  },
+  async carregarHistorico(ctx,key){
+    if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history)return;
+    GC.carregando='historico';GC.render(ctx);
+    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':''});
+    let res;try{res=await c.historico({key});}catch(_){res={ok:false,status:0,body:null,rede:true};}
+    GC.carregando=null;
+    GC.historicos[key]=res.ok&&Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];
+    if(!res.ok)GC.conteudoErro=GTA.erro(res,'historico').texto;
+    GC.render(ctx);
+  },
   templateLink(row){
     const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
     if(links===null)return null;
@@ -172,14 +210,16 @@ const GC={
     if(!row.fieldsValid)alerts.push('Há campos do template não confirmados.');
     const statusTone=current && row.fieldsValid && row.status!=='APPROVED'?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     const categoryTone=current && row.mismatch?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
-    return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span></td>
-      <td>${GC.badge(row.status,statusTone)}${GC.badge(row.category,categoryTone)}<span class="control-template-meta">Esperada: ${e(GC.text(row.expected_category,'Não informada'))}</span></td>
+    const pub=GC.publicacao(row);
+    return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span>${GC.previaPublicada(row)}</td>
+      <td>${GC.badge(row.status,statusTone)}${GC.badge(row.category,categoryTone)}<span class="control-template-meta">Esperada: ${e(GC.text(row.expected_category,'Não informada'))}</span>${pub?`<span class="control-template-pub" data-situacao="${e(pub.situacao)}" title="Publicado = aprovado pela Meta. Ativo = algum workflow mapeado no manifesto está ativo e com o modo deste template em real. A tela nunca junta os dois.">${GC.badge(pub.rotulo,pub.tone)}</span>`:''}</td>
       <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
   },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
     GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||''};
+    GC.caps=typeof GTA!=='undefined'?GTA.caps(ctx.api,{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}):null;
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');
     if(!workflowRoot||!templateRoot)return model;
@@ -220,9 +260,10 @@ const GC={
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
         ${tplFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}
-        <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>
+        ${GC.caps?.pode?.read_content?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Busca na API de templates o corpo publicado (components) e mostra a prévia fiel em cada linha. Leitura; nada é alterado.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
+        <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
-      <p class="control-future">Próxima etapa: criar e versionar templates, acompanhar submissões e gerenciar workflows de WhatsApp, Listmonk e SES pelo painel. Depende de contrato de backend ainda não disponível.</p>`;
+      <p class="control-future">${GC.caps?.declaradas?'Criar, validar e submeter templates: aba Rascunhos locais (os botões seguem as capacidades desta API). Ativar/mudar modo de workflow pelo painel depende de R5.5.':'Próxima etapa: criar e versionar templates, acompanhar submissões e gerenciar workflows de WhatsApp, Listmonk e SES pelo painel. A tela já está pronta; aparece quando a API declarar <code>capabilities</code> (R5.1).'}</p>`;
     if(hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
     workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);
@@ -241,6 +282,8 @@ const GC={
     const wfExport=document.getElementById('control-wf-export');
     if(wfExport)wfExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('automacoes-operacao',m),GT.csv(GC.workflowColumns,workflows,m));};
     const tplExport=document.getElementById('control-tpl-export');
+    const tplConteudo=document.getElementById('control-tpl-conteudo');if(tplConteudo)tplConteudo.onclick=()=>GC.carregarConteudo(ctx);
+    templateRoot.querySelectorAll('[data-tpl-historico]').forEach(b=>b.onclick=()=>GC.carregarHistorico(ctx,b.dataset.tplHistorico));
     if(tplExport)tplExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('templates',m),GT.csv(GC.templateColumns,templates,m));};
     if(hasGT){if(keptWf&&!restoreInput)GT.restaura(workflowRoot,keptWf);if(keptTpl&&!restoreInput)GT.restaura(templateRoot,keptTpl);}
     GC.setTab(GC.activeTab);
