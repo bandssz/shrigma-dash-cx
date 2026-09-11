@@ -322,7 +322,7 @@ const GC={
     return model;
   },
   setTab(tab){
-    if(!['history','workflows','templates','drafts'].includes(tab))return;
+    if(!['history','workflows','templates','fluxos','drafts'].includes(tab))return;
     GC.activeTab=tab;
     if(typeof document==='undefined')return;
     document.querySelectorAll('[data-control-tab]').forEach(button=>{const selected=button.dataset.controlTab===tab;button.classList.toggle('ativo',selected);button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;});

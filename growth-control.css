@@ -103,3 +103,21 @@
 .control-template-preview-body{margin-top:8px;max-width:340px}.control-template-preview-body .draft-bubble,.control-template-preview-body .draft-mail{font-size:12.5px}
 .control-template-hist{margin:8px 0 0;padding-left:14px;font-size:11px}.control-template-preview .refresh-btn{margin-top:8px;padding:5px 9px;font-size:11.5px}
 @media(max-width:640px){.draft-steps{flex-wrap:nowrap}.draft-steps li{flex:1 1 0;text-align:center;padding:3px 4px 3px 11px;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+/* Fase C (11/09/2026): aba Fluxos — leitura */
+.flows-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.flow-card h3{text-transform:none}.flow-badges{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;flex-shrink:0}
+.flow-trigger{font-size:12.5px;line-height:1.55;margin:12px 0 10px;overflow-wrap:anywhere}.flow-trigger .mini{display:block;margin-top:3px}
+.flow-steps{list-style:none;margin:0;padding:0;border-left:2px solid var(--borda);margin-left:11px}
+.flow-step{position:relative;display:flex;gap:10px;padding:6px 0 10px 16px}
+.flow-step-n{position:absolute;left:-12px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--card);border:2px solid var(--borda-forte);font:700 10.5px var(--ui);display:flex;align-items:center;justify-content:center;color:var(--mudo)}
+.flow-step[data-tipo=mensagem] .flow-step-n{border-color:var(--texto);color:var(--texto)}
+.flow-step[data-tipo=mensagem][data-canal=whatsapp] .flow-step-n{border-color:#348951;color:#348951}.flow-step[data-tipo=mensagem][data-canal=email] .flow-step-n{border-color:#625485;color:#625485}
+.flow-step[data-tipo=espera] .flow-step-n{border-style:dashed}.flow-step[data-tipo=fim] .flow-step-n{background:var(--borda-forte)}
+.flow-step-body{min-width:0;flex:1}.flow-step-body strong{font-size:13px;display:block;overflow-wrap:anywhere}
+.flow-step-sub{display:block;font-size:11.5px;color:var(--mudo);line-height:1.45;margin-top:2px;overflow-wrap:anywhere}.flow-step-sub .control-template-link{margin-top:0}
+.flow-volume{font-variant-numeric:tabular-nums}
+.flow-step .control-detail{margin-top:6px;padding-top:4px;border-top:0}.flow-preview{max-width:340px;margin-top:6px}
+.flow-saude{margin-top:10px}
+@media(max-width:1100px){.flows-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){.flow-badges{justify-content:flex-start}}

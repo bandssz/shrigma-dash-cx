@@ -302,3 +302,23 @@ não vira aprovação nem rejeição (C03); texto de submissão de e-mail não a
 contrato); a prévia de `components` nunca é reenviada como payload (B04 — o POST leva só os 12 campos do rascunho).
 Contrato: `BACKEND_REQUESTS.md` › R5.9 e/f. O script `reproduzir-achados-r2-r3.cjs` da revisão não veio com o parecer;
 os casos dele foram reescritos como testes de comportamento esperado em `tests/growth-render.test.cjs`.
+
+### Fluxos · leitura (Fase C · 11/09/2026)
+
+Nova aba **Automações › Fluxos** (`growth-flows.js` regras, `growth-flows-ui.js` tela, hash `#sec=regua&aba=fluxos`).
+Duas origens, sempre rotuladas no cartão:
+
+- **Observado no motor** (o que existe hoje): grão `(marca, flow)` a partir de `crm_fluxo` + `crm_wa_envios`, com peças
+  e canais; template e workflow/modo vêm de `crm_operacao.templates[].mapped_in` → `workflows` (com a mesma qualificação
+  "modo configurado" / "último modo observado" do F03); saúde de `wa_fluxo_saude`; volume do período com a semântica de
+  Envios (desconhecido = "—", `teste-motor` fora). **Gatilho, ordem e esperas aparecem como "não declarado"** — a lista
+  de peças é alfabética e diz isso. O badge de modo do fluxo só é "real" verificado se todas as etapas têm workflow
+  declarado, em real, ativo e com consulta atual; cobertura parcial vira "(n de m etapas com workflow declarado)".
+- **Definição declarada** (`crm_fluxo_def`, contrato R6 — não existe ainda): gatilho (evento, chave, reentrada, saídas),
+  versão (número, ativa, rascunho pendente), modo e etapas em ordem (espera / mensagem / condição / fim), com prévia do
+  template quando o conteúdo publicado estiver carregado na aba Templates. Definição inválida é contada e listada.
+  Quando existe definição para um `(marca, flow)`, ela substitui o cartão observado.
+
+Busca, filtro por origem, recorte por marca, CSV por etapa (mesma projeção da tela), estado vazio e 360px conferidos em
+Chromium headless. **Nenhum botão de edição**: depende da API de fluxos (Fase B). Testes: `tests/growth-flows.test.cjs`
+e o bloco "Fase C" em `tests/growth-render.test.cjs`. 120 no total.

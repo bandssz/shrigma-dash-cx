@@ -223,6 +223,53 @@ escrita `draft+validate`, o painel salva o rascunho da fixture no servidor, vali
 e **não mostra** "Submeter" enquanto `submit:false`; com `submit:true` em WABA de teste, submete só após a palavra digitada,
 acompanha a cada 60 s e o cartão termina em "Publicado · não ativo (sem workflow mapeado)". Nenhum workflow muda.
 
+## R6 — Definição de fluxos como dados (Fase C · proposta de leitura · 11/09/2026)
+
+**Nada disto existe.** A aba **Automações › Fluxos** já está no painel em modo leitura: sem este contrato, ela mostra só o
+"observado no motor" (peças, canais, templates e workflow/modo cruzando `crm_fluxo`, `crm_wa_envios` e `crm_operacao`) e
+diz, em letras garrafais, que gatilho, ordem e esperas **não são conhecidos** — nada é deduzido do nome da peça. Quando a
+API devolver `crm_fluxo_def`, o cartão passa a mostrar a definição. Fixture sintética completa (2 fluxos válidos + 2
+inválidos de propósito): `tests/fixtures/growth-fluxo-def.synthetic.json`. Quem fixa o schema é a operação; abaixo está
+o que o front consome e o que a revisão independente vai procurar nele.
+
+### R6.1 — `crm_fluxo_def` (top-level opcional no GET Growth)
+
+```json
+{"schema_version":1,"generated_at":"…","fluxos":[{
+  "key":"carrinho","marca":"fish","nome":"Carrinho abandonado","motor":"n8n",
+  "gatilho":{"evento":"checkout_abandonado","chave_evento":"checkout_id","reentrada":"apos_fim","saida":["pedido_pago","checkout_recuperado"],"descricao":"…"},
+  "versao":{"id":"<uuid>","numero":3,"publicada_em":"…","ativa":true,"rascunho_pendente":false},
+  "modo":"real",
+  "etapas":[{"ordem":1,"key":"espera-30","tipo":"espera","espera_seg":1800},
+            {"ordem":2,"key":"wa-30min","tipo":"mensagem","canal":"whatsapp","peca":"carrinho-30min","template_ref":"<id Meta>","template_nome":"…","modo":"real"},
+            {"ordem":3,"key":"cond","tipo":"condicao","condicoes":[{"se":"whatsapp_lido","entao":"fim"},{"se":"nao_lido","entao":"email-24h"}]},
+            {"ordem":4,"key":"fim","tipo":"fim"}]}]}
+```
+
+| Campo | Regra que o front aplica | Por que a revisão pediu |
+|---|---|---|
+| `gatilho.evento` + `gatilho.chave_evento` | obrigatórios; `chave_evento` é a identidade do evento (ex.: `checkout_id`, `order_id`) | dedupe e "chave do evento" (parecer GPT, próxima ação 4) |
+| `gatilho.reentrada` | `nunca` · `apos_fim` · `sempre`; fora disso o fluxo é inválido | política de reentrada |
+| `gatilho.saida[]` | eventos que encerram a jornada (ex.: `pedido_pago`); vazio é exibido como "sem condição de saída declarada" | saída ao pagar/comprar |
+| `versao.id`/`numero`/`ativa` | obrigatórios; `ativa:false` + `rascunho_pendente:true` vira badge | versão ≠ ativa (mesma regra de publicado ≠ ativo) |
+| `modo` (fluxo) e `etapas[].modo` | `real` · `sombra` · `interno`; etapa pode divergir do fluxo e a tela mostra "difere do fluxo" | modo por etapa |
+| `etapas[].tipo` | `mensagem` (canal + `template_ref`/`template_nome`, `peca`), `espera` (`espera_seg`), `condicao` (`condicoes[{se,entao}]`), `fim` | ordem e esperas explícitas |
+| `etapas[].key` | alvo de `condicoes[].entao`; o front não valida o grafo ainda (só exibe) | eventos fora de ordem: a política (descartar/reprocessar) precisa vir em `gatilho` na R6.2 |
+
+Fluxo ou etapa em formato inválido é contado e listado na tela com o primeiro motivo; nunca exibido como válido.
+
+### R6.2 — Pendências que a revisão vai cobrar e o front ainda não representa
+- **Ref comercial vs tentativa:** onde fica a distinção entre `order_id`/`checkout_id` (comercial) e o id da tentativa de
+  envio? Proposta: `gatilho.chave_evento` é comercial; cada disparo real leva `tentativa_id` no motor (`crm_wa_envios`).
+- **Eventos fora de ordem:** `gatilho.fora_de_ordem: "descartar" | "reprocessar"` — o front só exibe.
+- **Vínculo com `crm_operacao.workflows`:** `etapas[].workflow_key` opcional, para a tela cruzar modo/atualidade da consulta
+  como já faz no observado.
+
+### R6.3 — Escrita (Fase B, fora desta entrega)
+Criar/alterar etapa, publicar versão e ativar seguem o mesmo padrão de R5 (chave de escrita por capacidade,
+`expected_version_id`, `confirm` textual para `real`/ativar, idempotência, auditoria `who/when`). A tela só ganha botões
+quando `capabilities.workflows.*` declarar — hoje a aba Fluxos não tem nenhum.
+
 ## Nota da frente Claude
 
 - Nenhuma alteração de produção (n8n, SQL, Meta, Listmonk, SES) foi feita por esta frente.

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
 <link rel="stylesheet" href="growth.css?v=20260910-2">
-<link rel="stylesheet" href="growth-control.css?v=20260911-1">
+<link rel="stylesheet" href="growth-control.css?v=20260911-2">
 <style>
 /* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
    e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
@@ -273,8 +273,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
       <button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates WhatsApp</button>
+      <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Fluxos</button>
       <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Rascunhos locais</button>
     </div>
+    <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
     <section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section>
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
     <section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section>
@@ -329,6 +331,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-drafts.js?v=20260911-1"></script>
 <script src="growth-templates-api.js?v=20260911-1"></script>
 <script src="growth-drafts-ui.js?v=20260911-1"></script>
+<script src="growth-flows.js?v=20260911-1"></script>
+<script src="growth-flows-ui.js?v=20260911-1"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -655,8 +659,9 @@ function render(){
         <div><span class="tag email">e-mail</span></div></div>`).join('');
   }
   GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
-  GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
+  const modeloOp=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
   GRU.render({api:API});
+  GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp?.workflows||null});
 
   const fila=G.fila(API,MARCA,CANAL);
   $('#painel-fila').hidden=!fila.length;
@@ -827,7 +832,7 @@ async function carregar(){
     $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(e.name==='TimeoutError'?'A consulta demorou além do esperado.':e.message)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
-    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
+    const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp2?.workflows||null});
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
@@ -865,7 +870,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   const h=(typeof location!=='undefined'&&typeof location.hash==='string')?GT.leHash(location.hash):{};
   const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
     ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
-  if(h.aba&&['history','workflows','templates','drafts'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.aba&&['history','workflows','templates','fluxos','drafts'].includes(h.aba))GC.activeTab=h.aba;
   if(h.flow)PENDENTE_FLOW=h.flow;
   if(!Object.keys(p).length)return;
   if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
@@ -914,7 +919,7 @@ document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('c
 setCanal(CANAL);
 carregar();
 setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
-setInterval(()=>{if(API)GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});},30000);
+setInterval(()=>{if(API){const m=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:m?.workflows||null});}},30000);
 </script>
 </body>
 </html>

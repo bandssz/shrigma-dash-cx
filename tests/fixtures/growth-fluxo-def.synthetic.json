@@ -1,0 +1,35 @@
+{
+  "_comentario": "Fixture SINTÉTICA do contrato R6 (BACKEND_REQUESTS.md) — definição de fluxos como dados. Nenhum endpoint devolve isto hoje. Nomes, IDs e tempos inventados.",
+  "crm_fluxo_def": {
+    "schema_version": 1,
+    "generated_at": "2026-09-11T12:00:00Z",
+    "fluxos": [
+      {
+        "key": "carrinho", "marca": "fish", "nome": "Carrinho abandonado", "motor": "n8n",
+        "gatilho": {"evento": "checkout_abandonado", "chave_evento": "checkout_id", "reentrada": "apos_fim", "saida": ["pedido_pago", "checkout_recuperado"], "descricao": "Checkout criado sem pedido pago em 30 min"},
+        "versao": {"id": "00000000-0000-4000-8000-0000000000c1", "numero": 3, "publicada_em": "2026-09-08T14:00:00Z", "ativa": true, "rascunho_pendente": false},
+        "modo": "real",
+        "etapas": [
+          {"ordem": 1, "key": "espera-30", "tipo": "espera", "espera_seg": 1800},
+          {"ordem": 2, "key": "wa-30min", "tipo": "mensagem", "canal": "whatsapp", "peca": "carrinho-30min", "template_ref": "100000000000001", "template_nome": "exemplo_carrinho_30", "modo": "real"},
+          {"ordem": 3, "key": "espera-24h", "tipo": "espera", "espera_seg": 86400},
+          {"ordem": 4, "key": "cond-abriu", "tipo": "condicao", "condicoes": [{"se": "whatsapp_lido", "entao": "fim"}, {"se": "nao_lido", "entao": "email-24h"}]},
+          {"ordem": 5, "key": "email-24h", "tipo": "mensagem", "canal": "email", "peca": "carrinho-24h", "template_ref": "42", "template_nome": "exemplo-carrinho-01", "modo": "real"},
+          {"ordem": 6, "key": "fim", "tipo": "fim"}
+        ]
+      },
+      {
+        "key": "pix-nao-pago", "marca": "aristo", "nome": "PIX não pago", "motor": "n8n",
+        "gatilho": {"evento": "pedido_criado_pix_pendente", "chave_evento": "order_id", "reentrada": "nunca", "saida": ["pedido_pago", "pedido_cancelado"]},
+        "versao": {"id": "00000000-0000-4000-8000-0000000000c2", "numero": 1, "publicada_em": null, "ativa": false, "rascunho_pendente": true},
+        "modo": "sombra",
+        "etapas": [
+          {"ordem": 1, "key": "espera-15", "tipo": "espera", "espera_seg": 900},
+          {"ordem": 2, "key": "wa-lembrete", "tipo": "mensagem", "canal": "whatsapp", "peca": "pix-lembrete", "template_nome": "exemplo_pix_lembrete", "modo": "sombra"}
+        ]
+      },
+      {"key": "quebrado", "marca": "fish", "gatilho": {"evento": "x"}, "versao": {"id": "v"}, "modo": "real", "etapas": [{"tipo": "mensagem", "canal": "fax"}]},
+      null
+    ]
+  }
+}

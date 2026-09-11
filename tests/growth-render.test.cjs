@@ -615,3 +615,47 @@ test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só
  assert.equal(y.document.querySelector('#control-tpl-conteudo'),null);
  const csv=x.document.querySelector('#control-tpl-export');csv.click();assert.match(x.downloads[x.downloads.length-1].texto,/Publicado \/ ativo/);
 });
+/* ---------- Fase C (11/09/2026): aba Fluxos · leitura ---------- */
+test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não declarado"; com definição mostra etapas em ordem; busca, origem, marca, CSV e hash; nenhum botão de edição',async()=>{
+ const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));
+ p.crm_operacao.templates[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];
+ const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="fluxos"]').click();
+ const root=()=>x.document.querySelector('#control-fluxos');
+ assert.equal(root().hidden,false);assert.match(root().textContent,/A API ainda não declara a definição dos fluxos/);
+ let cards=[...root().querySelectorAll('.flow-card')];
+ assert.deepEqual(cards.map(c=>c.dataset.flow),['aristo|transacional','fish|carrinho']);assert.ok(cards.every(c=>c.dataset.origem==='observado'));
+ assert.match(cards[1].textContent,/Gatilho: não declarado pela API/);assert.match(cards[1].textContent,/ordem alfabética, não a sequência do fluxo/);
+ assert.match(cards[0].querySelector('.flow-badges').textContent,/Modo sombra/); // aristo_tx em sombra na fixture, consulta atual
+ assert.match(cards[0].textContent,/Pedido pago e rastreio Aristocrata · modo configurado: sombra/);assert.match(cards[0].textContent,/aristo_confirmacao_exemplo · APPROVED/);
+ assert.match(cards[1].querySelector('.flow-badges').textContent,/Workflow não declarado no manifesto/);
+ assert.match(cards[1].textContent,/E-mail · carrinho-30min/);assert.match(cards[1].textContent,/50 aceitos pela API/);assert.match(cards[1].textContent,/42 aceitos · 40 entregues/);
+ assert.equal([...root().querySelectorAll('button')].filter(b=>/editar|publicar|ativar|salvar|criar|nova etapa/i.test(b.textContent)).length,0);
+ x.document.querySelector('[data-marca="fish"]').click();cards=[...root().querySelectorAll('.flow-card')];assert.deepEqual(cards.map(c=>c.dataset.flow),['fish|carrinho']);
+ x.document.querySelector('[data-marca="todas"]').click();
+ // com definição declarada
+ const DEF=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-fluxo-def.synthetic.json'),'utf8'));
+ const y=await boot({...p,...DEF});y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="fluxos"]').click();
+ const ry=()=>y.document.querySelector('#control-fluxos');
+ assert.match(ry().textContent,/Definição declarada pela API/);assert.match(ry().textContent,/2 definição\(ões\) de fluxo em formato inválido ignorada\(s\): quebrado/);
+ cards=[...ry().querySelectorAll('.flow-card')];
+ assert.deepEqual(cards.map(c=>c.dataset.flow+'/'+c.dataset.origem),['fish|carrinho/definido','aristo|pix-nao-pago/definido','aristo|transacional/observado']);
+ const carrinho=cards[0];
+ assert.match(carrinho.querySelector('.flow-trigger').textContent,/Gatilho: checkout_abandonado — Checkout criado sem pedido pago em 30 min/);assert.match(carrinho.querySelector('.flow-trigger').textContent,/chave do evento checkout_id · reentrada: só depois de terminar · sai ao ocorrer: pedido_pago, checkout_recuperado/);
+ assert.deepEqual([...carrinho.querySelectorAll('.flow-step')].map(s=>s.dataset.tipo),['espera','mensagem','espera','condicao','mensagem','fim']);
+ assert.deepEqual([...carrinho.querySelectorAll('.flow-step strong')].map(s=>s.textContent),['Espera 30 min','WhatsApp · carrinho-30min','Espera 1 dia(s)','Condição','E-mail · carrinho-24h','Fim']);
+ assert.match(carrinho.textContent,/se whatsapp_lido → fim · se nao_lido → email-24h/);assert.match(carrinho.querySelector('.flow-badges').textContent,/Modo real.*v3 · ativa/);
+ assert.match(carrinho.textContent,/exemplo_carrinho_30 · não encontrado no catálogo da Meta desta coleta/);
+ assert.match(cards[1].querySelector('.flow-badges').textContent,/Modo sombra.*v1 · não ativa.*Rascunho pendente/);
+ // busca e filtro de origem
+ const set=(sel,v)=>{const el=ry().querySelector(sel);el.value=v;el.dispatchEvent(new y.window.Event('input'));el.dispatchEvent(new y.window.Event('change'));};
+ set('#fluxos-busca','pix');assert.equal(ry().querySelectorAll('.flow-card').length,1);assert.equal(y.document.activeElement.id,'fluxos-busca');
+ set('#fluxos-busca','');set('#fluxos-origem','observados');assert.deepEqual([...ry().querySelectorAll('.flow-card')].map(c=>c.dataset.origem),['observado']);
+ set('#fluxos-origem','todas');
+ ry().querySelector('#fluxos-export').click();
+ const dl=y.downloads[y.downloads.length-1];assert.match(dl.nome,/^growth-fluxos-/);
+ const linhas=dl.texto.split('\r\n');assert.match(linhas[0],/^\uFEFFOrigem;Marca;Fluxo;Gatilho;Modo;Versão;Etapa;Tipo;Canal;Peça;Template;Espera;Condições;Workflow\(s\);Volume no período/);
+ assert.equal(linhas.filter(l=>l.startsWith('definição declarada')).length,8);assert.equal(linhas.filter(l=>l.startsWith('observado no motor')).length,1);
+ assert.match(dl.texto,/definição declarada;fish;Carrinho abandonado;checkout_abandonado · reentrada apos_fim · sai em pedido_pago, checkout_recuperado;real;v3 · ativa;1;espera;;;;30 min;;;/);
+ assert.doesNotMatch(dl.texto,/synthetic-test-key/);
+ const z=await boot(fixture(),{hash:'#sec=regua&aba=fluxos'});assert.equal(z.document.querySelector('#control-fluxos').hidden,false);
+});
