@@ -381,3 +381,30 @@ test('hash aba=drafts abre a aba de rascunhos',async()=>{
  const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
  assert.equal(x.document.querySelector('#control-drafts').hidden,false);
 });
+/* ---------- R2 (10/09/2026): crm_fontes e saúde dos fluxos ---------- */
+test('faixa de fontes prefere crm_fontes da API: coleta atrasada fica velha, evento fica neutro, ausente vira sem dado',async()=>{
+ const p=fixture();
+ p.crm_fontes=[{fonte:'shopify_conversao',rotulo:'Venda (Shopify)',tipo:'coleta',coletado_em:'2026-09-07T22:00:00Z',cadencia_seg:86400,status:'ok'},
+  {fonte:'listmonk_snapshot',rotulo:'E-mail (Listmonk)',tipo:'coleta',coletado_em:'2026-09-07T20:00:00Z',cadencia_seg:1800,status:'atrasado'},
+  {fonte:'wa_status_meta',rotulo:'Status WhatsApp (Meta)',tipo:'evento',coletado_em:'2026-09-08T01:00:00Z',cadencia_seg:null,status:'evento'},
+  {fonte:'inventario_operacao',rotulo:'Inventario',tipo:'coleta',coletado_em:null,cadencia_seg:300,status:null}];
+ const x=await boot(p);
+ const f=[...x.document.querySelectorAll('#fontes .fonte')];
+ assert.deepEqual(f.map(n=>n.querySelector('b').textContent),['Consulta','Venda','E-mail','WhatsApp','Inventário']);
+ assert.deepEqual(f.map(n=>n.dataset.estado),['ok','ok','velho','ok','falta']);
+ assert.match(f[2].title,/ATRASADA/);assert.match(f[3].textContent,/último evento/);assert.match(f[3].title,/não indica saúde/i);
+ assert.match(f[4].textContent,/sem dado/);
+});
+test('saúde dos fluxos: chips só com dado da API, alerta destacado, filtro por marca, ausência não vira saúde',async()=>{
+ const p=fixture();
+ p.wa_fluxo_saude=[{chave:'aceite:aristo',brand:'aristo',nome:'Aceite → status Meta · aristo',verificado_em:'2026-09-08T01:00:00Z',n_aceites:40,n_status:0,estado:'alerta',motivo:'40 aceites sem status',alerta_desde:'2026-09-07T23:00:00Z'},
+  {chave:'gatilho:fish:pedido-pago',brand:'fish',nome:'Gatilho → WhatsApp · fish · pedido-pago',verificado_em:'2026-09-08T01:00:00Z',n_gatilho:12,n_saida:12,estado:'ok',motivo:null}];
+ const x=await boot(p);
+ let chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];
+ assert.equal(chips.length,2);assert.equal(chips[0].dataset.estado,'alerta');assert.match(chips[0].textContent,/· alerta$/);assert.match(chips[0].title,/40 aceites sem status/);
+ assert.equal(chips[1].dataset.estado,'ok');assert.match(chips[1].title,/Sem ocorrência/);
+ x.document.querySelector('[data-marca="fish"]').click();
+ chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips.length,1);assert.equal(chips[0].dataset.estado,'ok');
+ const y=await boot(fixture());
+ assert.equal(y.document.querySelector('#fluxo-saude').innerHTML,'');
+});

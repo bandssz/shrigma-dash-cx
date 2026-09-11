@@ -123,3 +123,9 @@ body[data-marca] .kpi-falha .kpi-val:not(.vazio-val){color:var(--ruim)}
   .fontes{gap:4px 10px;font-size:11.5px}.fonte{white-space:normal}
   .gt-toolbar{gap:8px}.gt-busca{width:100%}.gt-busca input{flex:1;min-width:0}.gt-export{margin-left:0}
   .measure-gaps{gap:5px 10px;font-size:11.5px}}
+
+/* Saúde dos fluxos (R2/§12, 10/09/2026): chips sob a faixa de fontes; vermelho só em alerta da API */
+.fluxo-saude{margin-top:-4px}.fluxo-saude:empty{display:none}
+.fluxo-saude-lista{display:flex;flex-wrap:wrap;gap:6px}
+.fluxo-chip{font:600 11.5px var(--ui);padding:3px 9px;border-radius:999px;background:var(--neutro-bg);color:var(--mudo);cursor:help;border:1px solid transparent}
+.fluxo-chip[data-estado=alerta]{background:var(--ruim-bg,#fbe9e7);color:var(--ruim);border-color:var(--ruim)}

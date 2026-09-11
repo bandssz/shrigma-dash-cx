@@ -219,3 +219,12 @@ idempotência, auditoria e a distinção rascunho → validado → submetido →
 `tests/fixtures/growth-templates-contract.synthetic.json` é a fixture sintética desse contrato.
 **Nenhum desses endpoints existe**; o painel só exibirá os controles quando a API declarar a
 capacidade correspondente — hoje não exibe nenhum.
+
+### Fontes por coleta e saúde dos fluxos (10/09/2026)
+
+A API Growth passou a devolver `crm_fontes` (hora, cadência e status de coleta por fonte — `coleta` ≠ `evento`:
+o último status recebido da Meta é push e não indica saúde) e `wa_fluxo_saude` (tabela `shrigma_wa_fluxo_saude`,
+gravada de hora em hora pelo workflow "WA · Saúde dos fluxos": gatilho de e-mail sem linha WhatsApp em 2h, aceites sem
+status da Meta em 1h, falhas > 20%; task no ClickUp ao virar alerta e a cada 6h). A faixa de fontes usa `crm_fontes`
+quando presente (fallback antigo continua) e os chips de saúde dos fluxos aparecem sob ela — só com dado da API;
+ausência não vira "saudável".
