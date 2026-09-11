@@ -26,7 +26,7 @@ const GTA={
     const endpoint=url(c?.endpoints?.templates)||url(globais.TEMPLATE_API_URL)||null;
     const caps={declaradas:!!c,endpoint,api_version:typeof c?.api_version==='string'?c.api_version:null,
       write_key_required:c?c.write_key_required!==false:true,
-      read_content:b(t.read_content),draft:b(t.draft),validate:b(t.validate),submit:b(t.submit),list_history:b(t.list_history),
+      read_content:b(t.read_content),draft:b(t.draft),validate:b(t.validate),submit:b(t.submit),submit_email:b(t.submit_email),list_history:b(t.list_history),
       set_mode:b(w.set_mode),activate:b(w.activate)};
     caps.pode={};['read_content','draft','validate','submit','list_history','set_mode','activate'].forEach(k=>{caps.pode[k]=caps[k]&&!!endpoint;});
     caps.semEndpoint=!!c&&!endpoint&&['read_content','draft','validate','submit','list_history'].some(k=>caps[k]);
@@ -102,7 +102,7 @@ const GTA={
     return {
       salvarServidor:caps.pode.draft,
       validar:caps.pode.validate&&noServidor&&['rascunho','validado','rejeitado'].includes(estado),
-      submeter:caps.pode.submit&&noServidor&&(caps.validate?estado==='validado':['rascunho','validado','rejeitado'].includes(estado)),
+      submeter:caps.pode.submit&&(r?.canal!=='email'||caps.submit_email===true)&&noServidor&&(caps.validate?estado==='validado':['rascunho','validado','rejeitado'].includes(estado)),
       verificar:!!servidor?.submission_id&&estado==='submetido'&&!!caps.endpoint,
       historico:caps.pode.list_history&&!!servidor&&(!!servidor.template_key||!!servidor.draft_id),
     };

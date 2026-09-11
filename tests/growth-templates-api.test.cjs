@@ -58,6 +58,20 @@ test('publicado ≠ ativo: só é ativo com workflow do inventário ativo e o mo
  const r=GR.novo({nome:'x',corpo:'Oi.',servidor:{draft_id:'d',version:2,estado:'publicado',hash:null}});
  assert.equal(GTA.rotuloEstado(r,{workflows:wfs}).texto,'Publicado · não ativo (sem workflow mapeado)'); // rascunho publicado: nada o usa até o manifesto dizer
 });
+test('submissão de e-mail exige submit_email explicitamente true além de submit',()=>{
+ const r=GR.novo({canal:'email',nome:'email_exemplo',assunto:'Seu pedido',corpo:'Pedido confirmado.'});
+ r.servidor={draft_id:'d_email',version:1,estado:'validado',hash:GTA.hash(GR.conteudo(r))};
+ for(const enabled of [undefined,false,'true']){
+  const caps=GTA.caps(comEndpoint({templates:{draft:true,validate:true,submit:true,submit_email:enabled}}));
+  assert.equal(GTA.acoes(caps,r).submeter,false);
+  assert.equal(GTA.acoes(caps,r).salvarServidor,true);
+  assert.equal(GTA.acoes(caps,r).validar,true);
+ }
+ const caps=GTA.caps(comEndpoint({templates:{draft:true,validate:true,submit:true,submit_email:true}}));
+ assert.equal(GTA.acoes(caps,r).submeter,true);
+ const blocked=GTA.caps(comEndpoint({templates:{submit:false,submit_email:true}}));
+ assert.equal(GTA.acoes(blocked,r).submeter,false);
+});
 test('cliente: GET leva chave de leitura, POST leva chave de escrita + Idempotency-Key; rede/JSON quebrado nunca lançam; sem endpoint não chama',async()=>{
  const calls=[];const fx=async(url,init)=>{calls.push({url,init});return {status:201,json:async()=>FIX.rascunho_response};};
  const c=GTA.cliente({endpoint:END,fetch:fx,chaveLeitura:'LEITURA',chaveEscrita:'ESCRITA'});
