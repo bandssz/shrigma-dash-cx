@@ -90,12 +90,18 @@ const GR={
   },
   remove(id){return GR.salva(GR.lista().filter(r=>r.id!==id));},
   /* ---------- arquivo ---------- */
+  /* Conteúdo do rascunho, e só ele: os 12 campos do contrato R5.3 (`rascunho`), em lista explícita.
+     É o que vai no arquivo exportado e no POST rascunho; id local, estado no servidor e datas ficam fora. */
+  conteudo(r){
+    const campos=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto'];
+    const c=Object.fromEntries(campos.map(k=>[k,r[k]===undefined||r[k]===null?'':String(r[k])]));
+    c.exemplos=Object.fromEntries(Object.entries(r.exemplos||{}).filter(([k,v])=>/^\d+$/.test(k)&&typeof v==='string'));
+    c.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||''}));
+    return c;
+  },
   exporta(r){
-    // Lista explícita: nem campos extras de uma integração futura entram no arquivo.
-    const campos=['versao','canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','criado_em','atualizado_em'];
-    const resto=Object.fromEntries(campos.filter(k=>r[k]!==undefined).map(k=>[k,r[k]]));
-    resto.exemplos=Object.fromEntries(Object.entries(r.exemplos||{}).filter(([k,v])=>/^\d+$/.test(k)&&typeof v==='string'));
-    resto.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||''}));
+    const resto={versao:GR.VERSAO,...GR.conteudo(r)};
+    ['criado_em','atualizado_em'].forEach(k=>{if(r[k]!==undefined)resto[k]=r[k];});
     return JSON.stringify({tipo:'shrigma-growth-rascunho',versao:GR.VERSAO,exportado_em:GR.agora(),origem:'rascunho local · não é template publicado',rascunho:resto},null,2)+'\n';
   },
   nomeArquivo(r){return `rascunho-${r.canal}-${r.marca}-${String(r.nome||'sem-nome').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'-').replace(/^-|-$/g,'')||'sem-nome'}.json`;},
