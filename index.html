@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
+<link rel="stylesheet" href="cx.css?v=20260912a">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -86,42 +87,33 @@
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
 
-  <!-- Linha 1: os números de decisão, grandes -->
-  <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
+  <!-- 1. Os seis números: contatos/pedido, WISMO, CSAT (3 níveis), Kai, RA resposta, RA solução -->
+  <div class="secao-rot">Os seis números <span id="seis-rot" class="cab-tags"></span></div>
+  <section class="seis" id="area-seis" aria-label="Os seis números"></section>
 
-  <!-- Gráfico de evolução (estilo Shopify: período atual × anterior) -->
-  <section class="painel" id="painel-grafico" aria-label="Evolução">
-    <div class="painel-cab">
-      <h2>Evolução</h2>
-      <div class="grafico-controles">
-        <select id="sel-metrica" aria-label="Métrica do gráfico">
-          <option value="fechados">Resolvidos</option>
-          <option value="novos">Novos</option>
-          <option value="fila_aberta">Fila</option>
-        </select>
-        <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
-          <span>Comparar com período anterior</span></label>
+  <!-- 2. Motivo × CSAT: o corte que decide onde atacar -->
+  <section class="painel" id="painel-motivos" aria-label="Motivo de contato e CSAT">
+    <div class="painel-cab com-controle">
+      <h2>Por que o cliente chama — e como sai</h2>
+      <span id="motivos-rot" class="mini cab-tags"></span>
+      <div class="controles">
+        <div class="seg-canal" role="group" aria-label="Canal" id="seg-canal-motivo">
+          <button data-canal="todos" class="ativo">Chat</button>
+          <button data-canal="whatsapp">WhatsApp</button>
+          <button data-canal="instagram">Instagram</button>
+        </div>
       </div>
     </div>
-    <div id="area-grafico"></div>
-    <div id="grafico-legenda" class="grafico-legenda"></div>
+    <div id="area-motivos"></div>
   </section>
 
-  <!-- Linha 2: marcas lado a lado (some quando uma marca é filtrada) -->
-  <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
-    <div class="painel-cab"><h2>Marcas lado a lado</h2><span id="comp-rotulo" class="mini"></span></div>
-    <div class="rolagem">
-      <table class="comparativo" id="tabela-comparativo">
-        <thead><tr>
-          <th>Marca</th><th class="num">Saldo</th><th class="num">Fila</th><th class="num">Trabalhados</th>
-          <th class="num">1ª resp. exped.</th><th class="num">1ª resp. total</th><th class="num">CSAT</th>
-          <th class="num">Kai resolve</th><th class="num">Respostas</th><th>14 dias</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <!-- 3. CSAT em três níveis: distribuição, tendência semanal, Kai × pessoa -->
+  <section class="painel" id="painel-csat" aria-label="CSAT em três níveis">
+    <div class="painel-cab"><h2>CSAT em três níveis</h2><span id="csat-rot" class="mini cab-tags"></span></div>
+    <div id="area-csat" class="csat-grade"></div>
   </section>
 
+  <!-- 4. Kai × pessoa (desfecho por transferência) -->
   <section class="painel" id="painel-desfecho" aria-label="Desfecho dos tickets" hidden>
     <div class="painel-cab">
       <h2>O que acontece com o ticket</h2>
@@ -140,7 +132,46 @@
     </details>
   </section>
 
-  <!-- Linha 3: pessoas e voz do cliente -->
+  <!-- 5. Operação: saldo, fila, 1ª resposta; evolução; marcas lado a lado -->
+  <div class="secao-rot">Operação <span class="mini">o que o time controla no dia</span></div>
+  <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
+
+  <section class="painel" id="painel-grafico" aria-label="Evolução">
+    <div class="painel-cab">
+      <h2>Evolução</h2>
+      <div class="grafico-controles">
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
+          <option value="fechados">Resolvidos</option>
+          <option value="novos">Novos</option>
+          <option value="fila_aberta">Fila</option>
+        </select>
+        <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
+          <span>Comparar com período anterior</span></label>
+      </div>
+    </div>
+    <div id="area-grafico"></div>
+    <div id="grafico-legenda" class="grafico-legenda"></div>
+  </section>
+
+  <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
+    <div class="painel-cab"><h2>Marcas lado a lado</h2><span id="comp-rotulo" class="mini"></span></div>
+    <div class="rolagem">
+      <table class="comparativo" id="tabela-comparativo">
+        <thead><tr>
+          <th>Marca</th><th class="num" title="Todos os canais, e-mail incluso">Contatos</th>
+          <th class="num" title="Contatos ÷ pedidos × 100 · alvo < 12">/100 pedidos</th>
+          <th class="num" title="Tag wismo ÷ pedidos · alvo < 4%">WISMO</th>
+          <th class="num" title="Fatia de 'bom' entre quem avaliou (3 níveis, só chat)">CSAT bom</th>
+          <th class="num" title="Por transferência, sem e-mail">Kai resolve</th>
+          <th class="num">Fila</th><th class="num" title="seg–sex 8h–18h">1ª resp. exped.</th>
+          <th class="num" title="Mediana do que o cliente espera, relógio corrido">Espera total</th><th>14 dias</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6. Pessoas e voz do cliente -->
   <div class="duas-colunas">
     <section class="painel" aria-label="Ranking de agentes">
       <div class="painel-cab">
@@ -151,7 +182,7 @@
         <thead><tr>
           <th>Agente</th>
           <th class="num">Trabalhados</th><th class="num">Fechados</th><th class="num">Respostas</th>
-          <th class="num">CSAT</th><th class="num">1ª resposta</th><th class="num">T. resposta</th><th class="num">Resolução</th><th class="num">Horas ativas</th>
+          <th class="num" title="Média do Gleap por agente (0–100). Escala de 3 opções: leia como tendência, não como nota">CSAT</th><th class="num">1ª resposta</th><th class="num">T. resposta</th><th class="num">Resolução</th><th class="num">Horas ativas</th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
@@ -166,7 +197,12 @@
     </section>
   </div>
 
+  <!-- 7. Reputação pública -->
   <section class="grid-semanais">
+    <div class="painel" aria-label="Reclame Aqui">
+      <div class="painel-cab"><h2>Reclame Aqui · rumo ao RA1000</h2><span id="ra-rotulo" class="mini cab-tags"></span></div>
+      <div id="area-ra"></div>
+    </div>
     <div class="painel" aria-label="Comentários orgânicos">
       <div class="painel-cab">
         <h2>Comentários · Instagram + Facebook</h2>
@@ -175,22 +211,20 @@
       <div id="area-social"></div>
       <div id="area-social-urgentes"></div>
     </div>
-    <div class="painel" aria-label="Reclame Aqui">
-      <div class="painel-cab"><h2>Reclame Aqui · rumo ao RA1000</h2><span id="ra-rotulo" class="mini"></span></div>
-      <div id="area-ra"></div>
-    </div>
   </section>
 </main>
 
 <footer class="rodape">
-  <span>Lê snapshots do Postgres via n8n — o Gleap nunca é chamado por esta página.</span>
+  <span>Lê snapshots do Postgres via n8n — o Gleap nunca é chamado por esta página. CSAT e motivo vêm de <code>cx_ticket</code> (uma linha por ticket, desde 16/07).</span>
   <span id="aviso-aprox" class="mini" hidden>≈ medianas de períodos longos são ponderadas até as janelas exatas acumularem.</span>
 </footer>
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
-<script src="dados.js?v=60d79cdd"></script>
-<script src="app.js?v=6d9ba16e"></script>
+<script src="dados.js?v=20260912a"></script>
+<script src="cx-metricas.js?v=20260912a"></script>
+<script src="app.js?v=20260912a"></script>
+<script src="cx-tela.js?v=20260912a"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

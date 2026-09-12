@@ -1,0 +1,135 @@
+/* ============ CX · blocos novos (12/09/2026) ============
+   Complementa styles.css (compartilhado pelas quatro páginas) sem tocar nele.
+   Tokens vêm de lá: --bom, --ruim, --borda-forte, --mudo, --rotulo, --card-2. */
+
+/* ---------- os seis números ---------- */
+.seis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1280px) { .seis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .seis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.six {
+  background: var(--card); border: 1px solid var(--borda); border-radius: 14px;
+  padding: 14px 16px 12px; box-shadow: var(--sombra); min-width: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.six.ok { border-color: color-mix(in srgb, var(--bom) 35%, var(--borda)); }
+.six-tags { min-height: 18px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.six-tags .tag { margin-left: 0; }
+.six-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); }
+.six-val { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin-top: 2px; }
+.six-curto { font-size: 26px; }
+.six-curto small, .csat-num small { font-size: 13px; font-weight: 600; color: var(--mudo); letter-spacing: 0; }
+.six-rodape { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.six-sub { font-size: 12px; color: var(--mudo); }
+.six-ref { font-size: 11.5px; color: var(--mudo); border-top: 1px solid var(--borda); padding-top: 6px; margin-top: 4px; }
+.six-ref b { color: var(--texto); font-weight: 700; }
+.six .chip { margin-top: 0; }
+.six .tag { font-size: 10px; }
+
+/* etiqueta do cabeçalho (o `title` leva o detalhe) */
+.painel-cab .cab-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 4px; cursor: help; vertical-align: middle; }
+.tag.alerta { background: #fbf0d9; color: #8a5a00; }
+.tag.nota { background: var(--neutro-bg); color: var(--mudo); }
+
+/* ---------- barra de três níveis: ruim | neutro | bom ---------- */
+.b3 { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--neutro-bg); }
+.b3.fina { height: 6px; margin-top: 6px; }
+.b3.grossa { height: 14px; border-radius: 7px; }
+.b3.vazia { opacity: .5; }
+.b3 i { display: block; height: 100%; }
+.b3 i:first-child { border-radius: 4px 0 0 4px; } .b3 i:last-child { border-radius: 0 4px 4px 0; }
+.s-ruim { background: var(--ruim); } .s-neutro { background: var(--borda-forte); } .s-bom { background: var(--bom); }
+.b3-legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12.5px; color: var(--mudo); }
+.b3-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.b3-legenda b { color: var(--texto); }
+.b3-legenda small { margin-left: 3px; }
+.b3-legenda .resp { margin-left: auto; }
+
+/* ---------- motivo × CSAT ---------- */
+.motivos { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.motivos th {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo);
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borda); white-space: nowrap;
+}
+.motivos th.num, .motivos td.num { text-align: right; }
+.motivos td { padding: 9px 10px; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+.motivos tbody tr:hover td { background: var(--card-2); }
+.motivos tfoot td { border-bottom: 0; border-top: 2px solid var(--borda); font-weight: 700; color: var(--mudo); }
+.motivos .mot-nome { font-weight: 600; }
+.motivos .barra-td { min-width: 120px; }
+.motivos .barra-th { text-align: left; }
+.mot-barra { display: inline-block; width: 84px; height: 6px; background: var(--neutro-bg); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
+.mot-barra i { display: block; height: 100%; background: var(--texto); opacity: .55; border-radius: 3px; }
+.motivos .b3 { width: 110px; }
+.motivos .chip { margin-top: 0; }
+@media (max-width: 900px) { .motivos .esc { display: none; } }
+
+/* segmentado pequeno no cabeçalho do painel */
+.seg-canal { display: flex; background: var(--neutro-bg); border-radius: 8px; padding: 2px; gap: 2px; }
+.seg-canal button { background: none; border: 0; color: var(--mudo); font: 600 11.5px var(--ui); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+.seg-canal button.ativo { background: var(--card); color: var(--texto); box-shadow: 0 1px 2px rgba(32,31,29,.12); }
+.painel-cab.com-controle { flex-wrap: wrap; gap: 8px; }
+.painel-cab .controles { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+/* ---------- CSAT em três níveis ---------- */
+.csat-grade { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.3fr); grid-template-rows: auto auto; gap: 16px 28px; align-items: start; }
+.csat-hero { grid-column: 1; grid-row: 1; }
+.csat-kp { grid-column: 1; grid-row: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.csat-serie { grid-column: 2; grid-row: 1 / span 2; }
+@media (max-width: 900px) { .csat-grade { grid-template-columns: 1fr; } .csat-hero, .csat-kp, .csat-serie { grid-column: 1; grid-row: auto; } }
+@media (max-width: 480px) { .csat-kp { grid-template-columns: 1fr; } }
+.csat-big { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.csat-num { font-size: 52px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.kp-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); }
+.kp-rot .mini { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 6px; }
+.kp { background: var(--card-2); border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; }
+.kp-val { font-size: 28px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin-top: 2px; }
+.kp-sub { font-size: 12px; color: var(--mudo); margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.kp .chip { margin-top: 0; }
+.g-semanal { width: 100%; height: auto; display: block; margin-top: 6px; overflow: visible; }
+.g-semanal .grade { stroke: var(--borda); stroke-width: 1; }
+.g-semanal .base { stroke: var(--borda-forte); stroke-width: 1; }
+.g-semanal .eixo { font: 500 10px var(--ui); fill: var(--rotulo); }
+.g-semanal .fim { font: 700 11px var(--ui); fill: var(--texto); }
+.g-semanal circle { stroke: var(--card); stroke-width: 2; }
+.g-semanal circle.parcial { fill-opacity: .45; }
+.g-semanal .marco line { stroke: var(--texto); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 3 3; }
+.g-semanal .marco text { font: 600 9.5px var(--ui); fill: var(--mudo); }
+
+/* ---------- operação (saldo / fila / 1ª resposta), menor que os seis ---------- */
+#area-kpis .kpi-val { font-size: 30px; }
+#area-kpis { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+/* ---------- RA ---------- */
+.ra-extra { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--mudo); margin-top: 8px; }
+.ra-extra b { color: var(--texto); font-weight: 700; }
+.ra-extra b.vm { color: var(--ruim); }
+.ra-marca .cab .mini { margin-left: 4px; }
+
+/* ---------- genérico ---------- */
+.vazio { color: var(--mudo); font-size: 13px; padding: 10px 0; max-width: 64ch; }
+.tabn { font-variant-numeric: tabular-nums; }
+.secao-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--rotulo); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 2px -8px; }
+.secao-rot .mini { text-transform: none; letter-spacing: 0; font-weight: 500; }
+details.dobra > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--mudo); list-style: none; padding: 4px 0; }
+details.dobra > summary::before { content: "▸ "; } details.dobra[open] > summary::before { content: "▾ "; }
+
+/* ---------- largura de celular: a grade do <main> não pode crescer com a tabela ---------- */
+main { grid-template-columns: minmax(0, 1fr); }
+main > * { min-width: 0; }
+.duas-colunas > *, .grid-semanais > * { min-width: 0; }
+@media (max-width: 480px) {
+  main { padding-left: 14px; padding-right: 14px; }
+  .seis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .six { padding: 12px 12px 10px; }
+  .six-val { font-size: 28px; }
+  .csat-num { font-size: 44px; }
+  .motivos th, .motivos td { padding: 8px 6px; }
+  .motivos .barra-td { min-width: 0; }
+  .mot-barra { width: 48px; }
+  .motivos .b3 { width: 72px; }
+}
+@media (max-width: 480px) {
+  .soc-grade { grid-template-columns: 1fr 1fr; }
+  .metrica .rot { white-space: normal; }
+  .seg button img { max-width: 96px; }
+}
