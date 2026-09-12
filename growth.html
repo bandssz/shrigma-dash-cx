@@ -200,6 +200,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
+    <section class="painel" id="pix-conversion" aria-live="polite"></section>
     <section class="painel" id="campaign-email-block">
       <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
       <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
@@ -327,6 +328,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-delivery.js?v=20260908-2"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260910-2"></script>
+<script src="growth-pix.js?v=20260912-1"></script>
 <script src="growth-control.js?v=20260910-2"></script>
 <script src="growth-drafts.js?v=20260911-1"></script>
 <script src="growth-templates-api.js?v=20260911-1"></script>
@@ -525,6 +527,7 @@ function render(){
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
+  GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
   GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
   $('#campaign-email-block').hidden=CANAL==='whatsapp';
   $('#email-comparison-block').hidden=CANAL==='whatsapp';

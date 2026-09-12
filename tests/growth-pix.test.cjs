@@ -1,0 +1,11 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const P=require('../growth-pix.js');
+const base={marca:'fish',dia:'2026-09-11',pedidos_avisados:10,pedidos_somente_internos:0,pedidos_entregues:9,pedidos_consultados:10,sem_leitura_pagamento:0,pagos_apos_aviso:2,valor_pago_brl:200,janela_aberta:10,cancelados_estornados:0,janela_dias:7};
+const rows=a=>P.rows({crm_pix_conversao:a},'todas','2026-09-01','2026-09-12');
+test('missing source is unknown, not zero',()=>assert.equal(P.rows({},'todas','',''),null));
+test('payment rate uses same cohort; delivery is a separate count',()=>assert.equal(rows([base])[0].taxa,20));
+test('partial payment coverage never reports an exact rate',()=>assert.equal(rows([{...base,pedidos_consultados:9,sem_leitura_pagamento:1}])[0].taxa,null));
+test('internal records never form a conversion denominator',()=>assert.equal(rows([{...base,marca:'aristo',pedidos_avisados:0,pedidos_consultados:0,pedidos_somente_internos:80,pagos_apos_aviso:0}])[0].taxa,null));
+test('brand and send-cohort date filters apply together',()=>assert.equal(P.rows({crm_pix_conversao:[base,{...base,marca:'aristo'},{...base,dia:'2026-08-31'}]},'fish','2026-09-01','2026-09-12').length,1));
+test('missing numeric fields do not silently become a complete measurement',()=>assert.equal(rows([{...base,pedidos_consultados:null}])[0].taxa,null));
+test('freshness shows oldest read across the cohort',()=>assert.equal(rows([{...base,leitura_mais_antiga:'2026-09-12T10:00:00Z'},{...base,leitura_mais_antiga:'2026-09-12T11:00:00Z'}])[0].leitura_mais_antiga,'2026-09-12T10:00:00Z'));
