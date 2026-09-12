@@ -1,0 +1,457 @@
+{
+ "name": "CX — Ticket · Coletor Gleap→cx_ticket (30min + noturno 01:30)",
+ "nodes": [
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "*/30 6-23 * * *"
+      }
+     ]
+    }
+   },
+   "name": "A cada 30 min (06–23h)",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "30 1 * * *"
+      }
+     ]
+    }
+   },
+   "name": "Noturno 01:30 (45 dias + notas)",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    220
+   ]
+  },
+  {
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "m1",
+       "name": "modo",
+       "value": "hoje",
+       "type": "string"
+      }
+     ]
+    }
+   },
+   "name": "modo = hoje",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    240,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "m2",
+       "name": "modo",
+       "value": "noturno",
+       "type": "string"
+      }
+     ]
+    }
+   },
+   "name": "modo = noturno",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    240,
+    220
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Monta as consultas do Gleap. Uma linha por (marca, consulta). O operador vai no NOME do\n// parametro (createdAt%3E = \"createdAt >=\"). Os \":\" da data NAO podem ser percent-encoded\n// (409 CastError), por isso a URL e montada aqui e nao em \"Query Parameters\".\nconst modo = $input.first().json.modo || 'hoje';\nconst MARCAS = [\n  { marca: 'aristocrata', projeto: '6970d219368e0dea0fc91c42' },\n  { marca: 'fishermans',  projeto: '696f91650c6a7fc35f38be62' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);            // agora em Sao Paulo\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst hojeSP = ymd(sp);\nconst inicio = new Date(sp); inicio.setUTCDate(inicio.getUTCDate() - (modo === 'noturno' ? 45 : 0));\nconst desde = ymd(inicio) + 'T03:00:00.000Z';                // 00:00 SP em UTC\nconst base = 'https://api.gleap.io/v3/tickets?limit=500&createdAt%3E=' + desde;\nconst out = [];\nfor (const m of MARCAS) {\n  out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'lista', rating: null, url: base } });\n  if (modo === 'noturno') for (const r of [2, 6, 10])\n    out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'rating', rating: r, url: base + '&conversationRating=' + r } });\n}\nreturn out;\n"
+   },
+   "name": "Monta consultas",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    110
+   ]
+  },
+  {
+   "parameters": {
+    "rules": {
+     "values": [
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "typeValidation": "strict"
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.marca }}",
+          "rightValue": "aristocrata",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "aristocrata"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "typeValidation": "strict"
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.marca }}",
+          "rightValue": "fishermans",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "fishermans"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Por marca",
+   "type": "n8n-nodes-base.switch",
+   "typeVersion": 3.2,
+   "position": [
+    720,
+    110
+   ]
+  },
+  {
+   "parameters": {
+    "url": "={{ $json.url }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "Project",
+       "value": "={{ $json.projeto }}"
+      }
+     ]
+    },
+    "options": {
+     "pagination": {
+      "pagination": {
+       "paginationMode": "updateAParameterInEachRequest",
+       "parameters": {
+        "parameters": [
+         {
+          "type": "qs",
+          "name": "skip",
+          "value": "={{ $pageCount * 500 }}"
+         }
+        ]
+       },
+       "paginationCompleteWhen": "other",
+       "completeExpression": "={{ ($response.body.tickets || []).length < 500 }}",
+       "limitPagesFetched": true,
+       "maxRequestedPages": 60,
+       "requestInterval": 400
+      }
+     },
+     "response": {
+      "response": {
+       "fullResponse": false
+      }
+     }
+    }
+   },
+   "name": "Gleap · Aristocrata",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    980,
+    0
+   ],
+   "credentials": {
+    "httpHeaderAuth": {
+     "name": "Gleap · Aristocrata (Bearer)"
+    }
+   },
+   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket."
+  },
+  {
+   "parameters": {
+    "url": "={{ $json.url }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "Project",
+       "value": "={{ $json.projeto }}"
+      }
+     ]
+    },
+    "options": {
+     "pagination": {
+      "pagination": {
+       "paginationMode": "updateAParameterInEachRequest",
+       "parameters": {
+        "parameters": [
+         {
+          "type": "qs",
+          "name": "skip",
+          "value": "={{ $pageCount * 500 }}"
+         }
+        ]
+       },
+       "paginationCompleteWhen": "other",
+       "completeExpression": "={{ ($response.body.tickets || []).length < 500 }}",
+       "limitPagesFetched": true,
+       "maxRequestedPages": 60,
+       "requestInterval": 400
+      }
+     },
+     "response": {
+      "response": {
+       "fullResponse": false
+      }
+     }
+    }
+   },
+   "name": "Gleap · Fishermans",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    980,
+    220
+   ],
+   "credentials": {
+    "httpHeaderAuth": {
+     "name": "Gleap · Fishermans (Bearer)"
+    }
+   },
+   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket."
+  },
+  {
+   "parameters": {
+    "mode": "runOnceForEachItem",
+    "jsCode": "// Reanexa marca/tipo/rating da consulta de origem a cada pagina devolvida.\n// Usa o pairedItem que o HTTP Request mantem, entao funciona com qualquer numero de paginas.\nconst c = $('Monta consultas').item.json;\nreturn { json: Object.assign({}, $input.item.json, { _meta: { marca: c.marca, tipo: c.tipo, rating: c.rating } }) };"
+   },
+   "name": "Anexa meta",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1220,
+    110
+   ],
+   "notes": "Roda por item: cada pagina do Gleap herda (via pairedItem) a consulta que a gerou."
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Achata a resposta paginada em uma linha por ticket, com os campos que o painel usa.\n// Regras (iguais ao backfill de 12/09 e ao COMMENT de cx_ticket):\n//  - escalado = processingTeam OU processingUser preenchido (transferencia real)\n//  - motivo = precedencia problema > cancelamento > troca > wismo > pre-venda > outros; sem tag -> null\n//  - kai-pode-atender e roteamento, nao motivo\nconst PREC = ['problema', 'cancelamento', 'troca', 'wismo', 'pre-venda', 'outros'];\nconst id = (x) => (x && typeof x === 'object') ? (x.id || x._id || null) : (x || null);\nconst out = [];\nfor (const item of $input.all()) {\n  const meta = item.json._meta || {};\n  const tickets = item.json.tickets || [];\n  for (const t of tickets) {\n    const tags = Array.isArray(t.tags) ? t.tags : [];\n    const criado = new Date(t.createdAt);\n    const diaSP = new Date(criado.getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);\n    out.push({ json: {\n      ticket_id: t.id, marca: meta.marca, canal: (t.channel && t.channel.type) || null, dia: diaSP,\n      criado_em: t.createdAt, status: t.status || null, tipo: t.type || null, tags,\n      motivo: PREC.find((m) => tags.includes(m)) || null,\n      kai_pode_atender: tags.includes('kai-pode-atender'), csat_enviado: tags.includes('csat enviado'),\n      rating: meta.tipo === 'rating' ? meta.rating : null,\n      escalado: !!(t.processingTeam || t.processingUser),\n      processing_team: id(t.processingTeam), processing_user: id(t.processingUser),\n      has_agent_reply: typeof t.hasAgentReply === 'boolean' ? t.hasAgentReply : null,\n      human_handoff_em: (t.humanHandoff && t.humanHandoff.at) || null,\n      spam: !!t.isSpam, teste: !!t.isTestRun, so_rating: meta.tipo === 'rating',\n    } });\n  }\n}\nreturn out;\n"
+   },
+   "name": "Normaliza tickets",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1460,
+    110
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Um INSERT ... ON CONFLICT por lote de 400 linhas. Linhas de consulta \"rating\" so\n// atualizam a nota (COALESCE mantem a que ja existe). NULL nunca vira 0.\nconst q = (v) => v === null || v === undefined ? 'NULL'\n  : typeof v === 'boolean' ? (v ? 'true' : 'false')\n  : typeof v === 'number' ? String(v)\n  : Array.isArray(v) ? (v.length ? 'ARRAY[' + v.map((x) => \"'\" + String(x).replace(/'/g, \"''\") + \"'\").join(',') + ']::text[]' : \"'{}'::text[]\")\n  : \"'\" + String(v).replace(/'/g, \"''\") + \"'\";\nconst linhas = $input.all().map((i) => i.json);\nconst lista = linhas.filter((l) => !l.so_rating);\nconst notas = linhas.filter((l) => l.so_rating);\nconst cols = 'ticket_id,marca,canal,dia,criado_em,status,tipo,tags,motivo,kai_pode_atender,csat_enviado,rating,escalado,processing_team,processing_user,has_agent_reply,human_handoff_em,spam,teste';\nconst out = [];\nfor (let i = 0; i < lista.length; i += 400) {\n  const vals = lista.slice(i, i + 400).map((l) => '(' + [l.ticket_id, l.marca, l.canal, l.dia, l.criado_em, l.status, l.tipo, l.tags, l.motivo,\n    l.kai_pode_atender, l.csat_enviado, l.rating, l.escalado, l.processing_team, l.processing_user, l.has_agent_reply, l.human_handoff_em, l.spam, l.teste].map(q).join(',') + ')').join(',');\n  out.push({ json: { sql: `INSERT INTO cx_ticket (${cols}) VALUES ${vals}\n    ON CONFLICT (ticket_id) DO UPDATE SET status=EXCLUDED.status, tags=EXCLUDED.tags, motivo=EXCLUDED.motivo,\n      kai_pode_atender=EXCLUDED.kai_pode_atender, csat_enviado=EXCLUDED.csat_enviado, escalado=EXCLUDED.escalado,\n      processing_team=EXCLUDED.processing_team, processing_user=EXCLUDED.processing_user, has_agent_reply=EXCLUDED.has_agent_reply,\n      human_handoff_em=EXCLUDED.human_handoff_em, spam=EXCLUDED.spam, teste=EXCLUDED.teste, atualizado_em=now()`, n: Math.min(400, lista.length - i), tipo: 'lista' } });\n}\nfor (let i = 0; i < notas.length; i += 400) {\n  const lote = notas.slice(i, i + 400);\n  const vals = lote.map((l) => '(' + [l.ticket_id, l.marca, l.canal, l.dia, l.criado_em, l.status, l.tipo, l.tags, l.motivo,\n    l.kai_pode_atender, l.csat_enviado, l.rating, l.escalado, l.processing_team, l.processing_user, l.has_agent_reply, l.human_handoff_em, l.spam, l.teste].map(q).join(',') + ')').join(',');\n  // ticket avaliado que ainda nao esta na tabela (fora da janela da lista) entra pela consulta de nota\n  out.push({ json: { sql: `INSERT INTO cx_ticket (${cols}) VALUES ${vals}\n    ON CONFLICT (ticket_id) DO UPDATE SET rating=EXCLUDED.rating, atualizado_em=now()`, n: lote.length, tipo: 'rating' } });\n}\nif (!out.length) out.push({ json: { sql: 'SELECT 0 AS nada', n: 0, tipo: 'vazio' } });\nreturn out;\n"
+   },
+   "name": "Monta upsert em lotes",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1700,
+    110
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "={{ $json.sql }}",
+    "options": {}
+   },
+   "name": "Grava cx_ticket (Postgres)",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1940,
+    110
+   ],
+   "credentials": {
+    "postgres": {
+     "id": "uALf0AHnEuLCgOtx",
+     "name": "Postgres account 2"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "A cada 30 min (06–23h)": {
+   "main": [
+    [
+     {
+      "node": "modo = hoje",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Noturno 01:30 (45 dias + notas)": {
+   "main": [
+    [
+     {
+      "node": "modo = noturno",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "modo = hoje": {
+   "main": [
+    [
+     {
+      "node": "Monta consultas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "modo = noturno": {
+   "main": [
+    [
+     {
+      "node": "Monta consultas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta consultas": {
+   "main": [
+    [
+     {
+      "node": "Por marca",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Por marca": {
+   "main": [
+    [
+     {
+      "node": "Gleap · Aristocrata",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Gleap · Fishermans",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Gleap · Aristocrata": {
+   "main": [
+    [
+     {
+      "node": "Anexa meta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Gleap · Fishermans": {
+   "main": [
+    [
+     {
+      "node": "Anexa meta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Anexa meta": {
+   "main": [
+    [
+     {
+      "node": "Normaliza tickets",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Normaliza tickets": {
+   "main": [
+    [
+     {
+      "node": "Monta upsert em lotes",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta upsert em lotes": {
+   "main": [
+    [
+     {
+      "node": "Grava cx_ticket (Postgres)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "America/Sao_Paulo"
+ }
+}

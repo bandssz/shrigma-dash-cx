@@ -1,0 +1,180 @@
+{
+ "name": "CX — Reclame Aqui · Metatags→cx_ra_dia (diario 06:00)",
+ "nodes": [
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "0 6 * * *"
+      }
+     ]
+    }
+   },
+   "name": "Diario 06:00",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "return [\n  { json: { marca: 'aristocrata', url: 'https://www.reclameaqui.com.br/empresa/o-aristocrata-1751961/' } },\n  { json: { marca: 'fishermans',  url: 'https://www.reclameaqui.com.br/empresa/artigos-de-pesca-fishermans/' } },\n];"
+   },
+   "name": "Marcas",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "url": "={{ $json.url }}",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "User-Agent",
+       "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+      },
+      {
+       "name": "Accept",
+       "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      },
+      {
+       "name": "Accept-Language",
+       "value": "pt-BR,pt;q=0.9,en;q=0.8"
+      }
+     ]
+    },
+    "options": {
+     "response": {
+      "response": {
+       "responseFormat": "text"
+      }
+     },
+     "timeout": 30000
+    }
+   },
+   "name": "GET pagina da marca",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    480,
+    0
+   ],
+   "notes": "Em 12/09 curl simples tomou 403 (anti-bot). Se falhar aqui tambem, o fallback e o bookmarklet semanal gravando em cx_ra_dia com fonte='bookmarklet'."
+  },
+  {
+   "parameters": {
+    "mode": "runOnceForEachItem",
+    "jsCode": "\n// Le as metatags meta-reclameaqui:* e alguns numeros do corpo. Se a pagina veio bloqueada\n// (403/captcha), nao grava nada e lanca erro -- ausencia nunca vira zero.\nconst marca = $('Marcas').item.json.marca;\nconst html = String($input.item.json.data || $input.item.json.body || $input.item.json || '');\nif (!/reclameaqui:/.test(html)) throw new Error(`RA ${marca}: pagina sem metatags (bloqueio anti-bot? ${html.length} bytes)`);\nconst meta = (nome) => { const m = html.match(new RegExp('<meta[^>]+reclameaqui:' + nome + '[^>]+content=\"([^\"]*)\"', 'i')) || html.match(new RegExp('content=\"([^\"]*)\"[^>]+reclameaqui:' + nome, 'i')); return m ? m[1] : null; };\nconst num = (s) => s === null || s === '' ? null : Number(String(s).replace(',', '.'));\nconst corpo = (re) => { const m = html.match(re); return m ? num(m[1]) : null; };\nreturn { json: {\n  marca, nota: num(meta('reputation-score')), resposta_pct: num(meta('response-rate')), solucao_pct: num(meta('solved-rate')),\n  voltaria_pct: num(meta('deal-again-rate')), reclamacoes: num(meta('total-complaints')), avaliacoes: num(meta('total-ratings')),\n  nota_consumidor: corpo(/nota do consumidor[^0-9]{0,80}([0-9]+[.,]?[0-9]*)/i),\n  aguardando: corpo(/([0-9.]+)\\s*(?:reclama[cç][oõ]es?\\s*)?(?:aguardando|n[aã]o respondid)/i),\n  tempo_resposta_dias: corpo(/tempo m[eé]dio de resposta[^0-9]{0,40}([0-9]+)/i),\n  status_ra: meta('status') || null,\n} };\n"
+   },
+   "name": "Le metatags",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    720,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "\nconst q = (v) => v === null || v === undefined || Number.isNaN(v) ? 'NULL' : typeof v === 'number' ? String(v) : \"'\" + String(v).replace(/'/g, \"''\") + \"'\";\nconst vals = $input.all().map((i) => { const r = i.json; return '(' + [r.marca, r.nota, r.resposta_pct, r.solucao_pct, r.voltaria_pct, r.nota_consumidor, r.reclamacoes, r.avaliacoes, r.aguardando, r.tempo_resposta_dias, r.status_ra].map(q).join(',') + \",'metatag')\"; });\nreturn [{ json: { sql: `INSERT INTO cx_ra_dia (marca, nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor, reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, status_ra, fonte, dia)\n  SELECT v.*, (now() AT TIME ZONE 'America/Sao_Paulo')::date FROM (VALUES ${vals.join(',')}) AS v(marca, nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor, reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, status_ra, fonte)\n  ON CONFLICT (marca, dia) DO UPDATE SET nota=EXCLUDED.nota, resposta_pct=EXCLUDED.resposta_pct, solucao_pct=EXCLUDED.solucao_pct, voltaria_pct=EXCLUDED.voltaria_pct,\n    nota_consumidor=EXCLUDED.nota_consumidor, reclamacoes=EXCLUDED.reclamacoes, avaliacoes=EXCLUDED.avaliacoes, aguardando=EXCLUDED.aguardando,\n    tempo_resposta_dias=EXCLUDED.tempo_resposta_dias, status_ra=EXCLUDED.status_ra, fonte=EXCLUDED.fonte, coletado_em=now()` } }];\n"
+   },
+   "name": "Monta upsert",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    960,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "={{ $json.sql }}",
+    "options": {}
+   },
+   "name": "Grava cx_ra_dia (Postgres)",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1200,
+    0
+   ],
+   "credentials": {
+    "postgres": {
+     "id": "uALf0AHnEuLCgOtx",
+     "name": "Postgres account 2"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Diario 06:00": {
+   "main": [
+    [
+     {
+      "node": "Marcas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Marcas": {
+   "main": [
+    [
+     {
+      "node": "GET pagina da marca",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "GET pagina da marca": {
+   "main": [
+    [
+     {
+      "node": "Le metatags",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Le metatags": {
+   "main": [
+    [
+     {
+      "node": "Monta upsert",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta upsert": {
+   "main": [
+    [
+     {
+      "node": "Grava cx_ra_dia (Postgres)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "America/Sao_Paulo"
+ }
+}

@@ -1,0 +1,290 @@
+{
+ "name": "CX — Pedidos · Shopify→cx_pedido_dia (diario 01:20)",
+ "nodes": [
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "20 1 * * *"
+      }
+     ]
+    }
+   },
+   "name": "Diario 01:20",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "d1",
+       "name": "dias",
+       "value": 3,
+       "type": "number"
+      }
+     ]
+    }
+   },
+   "name": "dias = 3 (backfill: 62)",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    240,
+    0
+   ],
+   "notes": "Para o backfill desde 13/07, executar manualmente uma vez com dias = 62. O upsert e idempotente."
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Monta UMA consulta GraphQL por loja com ordersCount por dia (fuso -03:00), criados e pagos.\n// `dias` = quantos dias para tras (3 no diario; subir para 62 numa execucao manual de backfill).\nconst dias = Number($input.first().json.dias || 3);\nconst LOJAS = [\n  { marca: 'aristocrata', dominio: 'gwx20u-vw.myshopify.com' },\n  { marca: 'fishermans',  dominio: 'c0kfm1-qt.myshopify.com' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst out = [];\nfor (const loja of LOJAS) {\n  const campos = []; const mapa = [];\n  for (let i = 0; i < dias; i++) {\n    const d = new Date(sp); d.setUTCDate(d.getUTCDate() - i);\n    const dia = ymd(d); const prox = new Date(d); prox.setUTCDate(prox.getUTCDate() + 1);\n    const faixa = `created_at:>='${dia}T00:00:00-03:00' AND created_at:<'${ymd(prox)}T00:00:00-03:00'`;\n    campos.push(`t${i}: ordersCount(query: ${JSON.stringify(faixa)}) { count precision }`);\n    campos.push(`p${i}: ordersCount(query: ${JSON.stringify(faixa + ' AND financial_status:paid')}) { count precision }`);\n    mapa.push({ i, dia });\n  }\n  out.push({ json: { marca: loja.marca, url: `https://${loja.dominio}/admin/api/2025-07/graphql.json`,\n    body: { query: `{ ${campos.join(' ')} }` }, mapa } });\n}\nreturn out;\n"
+   },
+   "name": "Monta GraphQL",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "rules": {
+     "values": [
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "typeValidation": "strict"
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.marca }}",
+          "rightValue": "aristocrata",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "aristocrata"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "typeValidation": "strict"
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.marca }}",
+          "rightValue": "fishermans",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "fishermans"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Por loja",
+   "type": "n8n-nodes-base.switch",
+   "typeVersion": 3.2,
+   "position": [
+    720,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $json.url }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "shopifyAccessTokenApi",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "options": {}
+   },
+   "name": "Shopify · Aristocrata",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    980,
+    -110
+   ],
+   "credentials": {
+    "shopifyAccessTokenApi": {
+     "id": "CkOtCPF6b7FIyTjx",
+     "name": "Shopify Admin — Aristocrata"
+    }
+   },
+   "notes": "Se a credencial nao for do tipo Access Token, trocar para Header Auth com X-Shopify-Access-Token. Escopo read_orders basta."
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $json.url }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "shopifyAccessTokenApi",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "options": {}
+   },
+   "name": "Shopify · Fishermans",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    980,
+    110
+   ],
+   "credentials": {
+    "shopifyAccessTokenApi": {
+     "id": "Xv9XgNyJ1wyJFCTJ",
+     "name": "Shopify Admin — Fishermans"
+    }
+   },
+   "notes": "Se a credencial nao for do tipo Access Token, trocar para Header Auth com X-Shopify-Access-Token. Escopo read_orders basta."
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Transforma a resposta em linhas (marca, dia, pedidos, pedidos_pagos) e num upsert.\nconst q = (v) => v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : \"'\" + String(v).replace(/'/g, \"''\") + \"'\";\nconst vals = [];\nfor (const item of $input.all()) {\n  const meta = $('Monta GraphQL').itemMatching($input.all().indexOf(item)).json;\n  const data = (item.json.data) || {};\n  if (item.json.errors) throw new Error('Shopify GraphQL: ' + JSON.stringify(item.json.errors).slice(0, 300));\n  for (const { i, dia } of meta.mapa) {\n    const t = data['t' + i], p = data['p' + i];\n    if (!t) continue;                      // sem resposta para o dia: nao grava (NULL, nunca 0)\n    vals.push('(' + [meta.marca, dia, t.count, p ? p.count : null].map(q).join(',') + ')');\n  }\n}\nif (!vals.length) return [{ json: { sql: 'SELECT 0 AS nada' } }];\nreturn [{ json: { sql: `INSERT INTO cx_pedido_dia (marca, dia, pedidos, pedidos_pagos) VALUES ${vals.join(',')}\n  ON CONFLICT (marca, dia) DO UPDATE SET pedidos=EXCLUDED.pedidos, pedidos_pagos=EXCLUDED.pedidos_pagos, coletado_em=now()`, linhas: vals.length } }];\n"
+   },
+   "name": "Monta upsert",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1240,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "={{ $json.sql }}",
+    "options": {}
+   },
+   "name": "Grava cx_pedido_dia (Postgres)",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1480,
+    0
+   ],
+   "credentials": {
+    "postgres": {
+     "id": "uALf0AHnEuLCgOtx",
+     "name": "Postgres account 2"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Diario 01:20": {
+   "main": [
+    [
+     {
+      "node": "dias = 3 (backfill: 62)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "dias = 3 (backfill: 62)": {
+   "main": [
+    [
+     {
+      "node": "Monta GraphQL",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta GraphQL": {
+   "main": [
+    [
+     {
+      "node": "Por loja",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Por loja": {
+   "main": [
+    [
+     {
+      "node": "Shopify · Aristocrata",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Shopify · Fishermans",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Shopify · Aristocrata": {
+   "main": [
+    [
+     {
+      "node": "Monta upsert",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Shopify · Fishermans": {
+   "main": [
+    [
+     {
+      "node": "Monta upsert",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta upsert": {
+   "main": [
+    [
+     {
+      "node": "Grava cx_pedido_dia (Postgres)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "America/Sao_Paulo"
+ }
+}
