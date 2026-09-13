@@ -65,22 +65,27 @@ async function boot(payload = fixture(), query = '?periodo=7d', hash = '') {
 
 test('os seis números aparecem, CSAT em três níveis e não em média, Kai por transferência', async () => {
   const x = await boot();
-  assert.equal(x.document.querySelectorAll('#area-seis .six').length, 6);
-  const rots = x.txt('#area-seis .six-rot');
-  assert.deepEqual(rots, ['Contatos / dia', 'WISMO · fatia', 'CSAT · bom', 'Kai sozinho', 'RA · resposta', 'RA · solução']);
-  // sem cx_pedidos: cartões 1 e 2 degradam para /dia e fatia, com etiqueta — nunca zero
-  assert.match(x.txt('#area-seis .six')[0], /sem pedidos/);
-  assert.match(x.txt('#area-seis .six')[0], /A 145\/dia · F 30\/dia/);
-  // consolidada, 7 dias: (60+20+40+25+30)×7 = 1.225 contatos → 175/dia
-  assert.equal(x.txt('#area-seis .six-val')[0], '175');
+  assert.equal(x.document.querySelectorAll('#area-seis .six2').length, 6);
+  const rots = x.txt('#area-seis .six2-rot');
+  assert.deepEqual(rots, ['Contatos / 100 pedidos', 'WISMO / pedido', 'CSAT · bom', 'Kai resolve sozinho', 'RA · resposta', 'RA · solução']);
+  // sem cx_pedidos: valor é traço e a linha de apoio diz o porquê — nunca zero
+  assert.equal(x.txt('#area-seis .six2-val')[0], '—');
+  assert.match(x.txt('#area-seis .six2')[0], /1\.225 contatos · sem pedidos coletados/);
+  // o corte por marca mora no ⓘ (title), não na tela
+  assert.match(x.document.querySelectorAll('#area-seis .six2')[2].getAttribute('title'), /Por marca: O Aristocrata 69% · Fishermans 100%/);
   // CSAT bom = (20+4+27+30)/(40+4+30+30) = 81/104 = 78%
-  assert.equal(x.txt('#area-seis .six-val')[2], '78%');
-  assert.ok(!/\b6[0-9]\b(?!%)/.test(x.txt('#area-seis .six')[2]), 'a média 66 do snapshot não pode aparecer no cartão de CSAT');
+  assert.equal(x.txt('#area-seis .six2-val')[2], '78%');
+  assert.ok(!/\b6[0-9]\b(?!%)/.test(x.txt('#area-seis .six2')[2]), 'a média 66 do snapshot não pode aparecer no cartão de CSAT');
   // Kai resolve: 30/(30+60) = 33,3% (e-mail fora)
-  assert.equal(x.txt('#area-seis .six-val')[3], '33,3%');
-  // RA sem coleta: traço + etiqueta, não zero
-  assert.equal(x.txt('#area-seis .six-val')[4], '—');
-  assert.match(x.txt('#area-seis .six')[4], /sem coleta/);
+  assert.equal(x.txt('#area-seis .six2-val')[3], '33,3%');
+  // RA sem coleta: traço, não zero; contador de status no cabeçalho
+  assert.equal(x.txt('#area-seis .six2-val')[4], '—');
+  assert.match(x.document.querySelector('#seis-rot').textContent, /1 em atenção/);
+  // um gráfico só, dirigido pelo cartão ativo (padrão: contatos/100 pedidos → sem pedidos vira aviso)
+  assert.match(x.document.querySelector('#g-geral').textContent, /Sem pedidos coletados/);
+  x.document.querySelector('#area-seis .six2[data-m="csat_bom"]').click();
+  assert.match(x.document.querySelector('#g-geral-tit').textContent, /CSAT · bom/);
+  assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'linha de CSAT por marca');
   // o cartão antigo de CSAT (média) saiu da faixa de operação
   assert.deepEqual(x.txt('#area-kpis .kpi-rot').map((s) => s.split(' ·')[0]), ['Saldo', 'Fila no fim do período', '1ª resposta']);
 });
@@ -92,10 +97,12 @@ test('motivo × CSAT: ordem por volume, e-mail fora com etiqueta, base curta vir
   assert.deepEqual(motivos, ['Cadê meu pedido', 'Outros', 'Pré-venda']);
   assert.match(x.document.querySelector('#motivos-rot').textContent, /175 por e-mail sem tag/);
   const linhas = x.txt('#area-motivos tbody tr');
-  // WISMO: Kai sozinho tem 4 avaliações por dia × 7 = 28 < 30 → "28 aval.", não percentual
-  assert.match(linhas[0], /28 aval\./);
+  // Visão geral: 4 colunas (motivo, contatos, Δ, CSAT)
+  assert.equal(x.document.querySelectorAll('#area-motivos thead th').length, 4);
   // Pré-venda (só Fishermans): 100% bom com 210 avaliações
   assert.match(linhas[2], /100%/);
+  // o corte Kai × pessoa mora na aba Chat: WISMO com o Kai tem 28 avaliações → contagem, não percentual
+  assert.match(x.txt('#area-motivos-kai tbody tr')[0], /28 aval\./);
   // WISMO tem 53% do chat e CSAT bom 55%, sem subir: não é 'atacar'; nada marcado nesta fixture
   assert.equal(x.document.querySelectorAll('#area-motivos tr.mot-atacar').length, 0);
   // "outros" com 27% do chat (40 de 150 por dia): etiqueta de alerta de classificação no cabeçalho
@@ -108,9 +115,9 @@ test('motivo × CSAT: ordem por volume, e-mail fora com etiqueta, base curta vir
 
 test('filtro de marca recorta os seis números e o CSAT; RA vazio mostra estado vazio, não zero', async () => {
   const x = await boot(fixture(), '?periodo=7d&marca=fishermans');
-  assert.equal(x.txt('#area-seis .six-val')[0], '30');       // 30 contatos/dia
-  assert.equal(x.txt('#area-seis .six-val')[2], '100%');     // só pré-venda, tudo bom
-  assert.equal(x.txt('#area-seis .six-val')[1], '0%');       // sem wismo na Fishermans
+  assert.equal(x.txt('#area-seis .six2-val')[0], '—');        // sem pedidos → sem razão
+  assert.equal(x.txt('#area-seis .six2-val')[2], '100%');     // só pré-venda, tudo bom
+  assert.equal(x.txt('#area-seis .six2-val')[1], '—');
   assert.match(x.document.querySelector('#area-csat').textContent, /Passou por pessoa/);
   assert.match(x.document.querySelector('#area-ra').textContent, /Sem leitura do Reclame AQUI/);
   assert.doesNotMatch(x.document.querySelector('#area-ra').textContent, /0%/);
@@ -123,15 +130,13 @@ test('com pedidos e RA na API, os cartões viram razão por pedido e índices co
     cx_ra: [{ marca: 'aristocrata', dia: HOJE, nota: 7.0, resposta_pct: 86.2, solucao_pct: 85.0, voltaria_pct: 57.2, avaliacoes: 486, aguardando: 103, tempo_resposta_dias: 16 },
             { marca: 'fishermans', dia: HOJE, nota: 8.1, resposta_pct: 99.5, solucao_pct: 71.0, voltaria_pct: 80, avaliacoes: 60, aguardando: 0, tempo_resposta_dias: 2 }],
   }), '?periodo=7d&marca=aristocrata');
-  const rots = x.txt('#area-seis .six-rot');
-  assert.equal(rots[0], 'Contatos / 100 pedidos');
-  assert.equal(rots[1], 'WISMO / pedido');
   // Aristocrata 7d: 145 contatos/dia (60+20+40+25) → 1.015 ÷ 3.500 pedidos = 29,0
-  assert.equal(x.txt('#area-seis .six-val')[0], '29,0');
+  assert.equal(x.txt('#area-seis .six2-val')[0], '29,0');
   // WISMO 80/dia → 560 ÷ 3.500 = 16,0%
-  assert.equal(x.txt('#area-seis .six-val')[1], '16,0%');
-  assert.equal(x.txt('#area-seis .six-val')[4], '86,2%');
-  assert.equal(x.txt('#area-seis .six-val')[5], '85,0%');
+  assert.equal(x.txt('#area-seis .six2-val')[1], '16,0%');
+  assert.equal(x.txt('#area-seis .six2-val')[4], '86,2%');
+  assert.equal(x.txt('#area-seis .six2-val')[5], '85,0%');
+  assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'com pedidos o gráfico padrão traça a razão por semana');
   assert.match(x.document.querySelector('#area-ra').textContent, /faltam 3 de 5/);
   assert.match(x.document.querySelector('#area-ra').textContent, /103 aguardando resposta/);
 });
@@ -141,8 +146,8 @@ test('período sem dado em cx_csat cai para a última janela existente e diz que
   f.cx_csat = f.cx_csat.filter((l) => l.dia <= '2026-09-05');
   const x = await boot(f, '?periodo=hoje');
   assert.match(x.document.querySelector('#seis-rot').textContent, /período sem dado — mostrando 05\/09/);
-  assert.equal(x.document.querySelectorAll('#area-seis .six').length, 6);
-  assert.notEqual(x.txt('#area-seis .six-val')[2], '—');
+  assert.equal(x.document.querySelectorAll('#area-seis .six2').length, 6);
+  assert.notEqual(x.txt('#area-seis .six2-val')[2], '—');
 });
 
 test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () => {
@@ -158,16 +163,14 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   const visiveis = () => [...x.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba);
   assert.deepEqual(visiveis(), ['geral']);
   assert.equal(x.document.querySelector('#abas-cx .ativo').dataset.aba, 'geral');
-  // a leitura rápida fica fora das abas: sempre visível
-  assert.equal(x.document.querySelector('#leitura-rapida').closest('.aba-pane'), null);
   x.document.querySelector('#abas-cx [data-aba="chat"]').click();
   assert.deepEqual(visiveis(), ['chat']);
   assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3, 'a aba escondida já estava pintada');
   const y = await boot(fixture(), '?periodo=7d', '#aba=ra');
   assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['ra']);
-  // gráficos: motivos por semana tem 4 séries fixas; por 100 pedidos sem pedidos vira aviso, não gráfico vazio
+  // gráficos: motivos por semana (aba Chat) tem barras; visão geral tem um gráfico só
   assert.equal(x.document.querySelectorAll('#g-motivos rect').length > 0, true);
-  assert.match(x.document.querySelector('#g-por100').textContent, /Sem pedidos coletados/);
+  assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="geral"] svg').length, 0, 'sem pedidos, a visão geral mostra aviso em vez de gráfico');
   assert.equal(x.document.querySelectorAll('#area-csat .g-barras rect').length > 0, true, 'CSAT semanal em barras de três níveis');
   assert.match(x.document.querySelector('#g-ra-resposta').textContent, /Sem leitura ainda/);
   const z = await boot(fixture(), '?periodo=7d', '#aba=inexistente');

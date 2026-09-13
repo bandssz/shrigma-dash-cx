@@ -118,6 +118,18 @@ e marca; NPS por semana e marca (semana com < 10 votos fica em branco); comentá
 semana. Janela fixa de 12 semanas até o fim do período (8 para a razão por pedido); semanas iniciais sem dado são cortadas.
 Regras: um eixo só, hairline sólida, legenda sempre com ≥ 2 séries, rótulo direto só no último ponto, texto nunca na cor da série.
 
+### Visão geral enxuta (13/09, madrugada) — padrão Plausible/Intercom
+
+A referência é o painel que se lê em cima e se explica ao passar o mouse: **cartão de três camadas** (rótulo com ponto de
+status · valor · chip de variação) e **um gráfico só**, dirigido pelo cartão clicado. Os seis números viraram botões
+(`.six2`); o detalhe que antes era subtítulo (alvo, base, método, quebra por marca) foi para o `title` do cartão e para
+um `ⓘ` ao lado do rótulo de cada bloco — a tela deixa de repetir o que o tooltip já conta. A **leitura rápida saiu**; no
+lugar dela, o rótulo da seção diz "N fora do alvo · N em atenção" (ou "tudo no alvo"). A tabela de motivos tem **4
+colunas** (motivo · contatos · Δ volume · CSAT) com a marca `atacar` quando o motivo pesa ≥ 20% e piora (volume > +10% ou
+bom < 50%); a tabela Kai × pessoa por motivo foi para a aba Chat, ao lado do gráfico de motivos. Sombras dos painéis
+saíram; a hierarquia é só tipografia e espaço. Paleta: azul da marca, quatro cores fixas dos motivos, cinza para tudo que
+é contexto. O padrão vai ser replicado nas demais abas (3–4 números, um gráfico, uma tabela).
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

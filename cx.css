@@ -216,3 +216,28 @@ details.dobra > summary { display: flex; align-items: center; gap: 10px; flex-wr
 .g-legenda .leg-linha { display: inline-block; width: 16px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 6px; }
 .g-legenda .leg-alvo { background: repeating-linear-gradient(90deg, var(--texto) 0 4px, transparent 4px 7px); opacity: .6; }
 .g-legenda .leg-quad { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+
+/* ---------- Visão geral enxuta (13/09, noite): cartões de três camadas, um gráfico, ⓘ ---------- */
+.info { display: inline-block; font-size: 12px; font-weight: 600; color: var(--rotulo); cursor: help; margin-left: 4px; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+.info:hover { color: var(--texto); }
+.six2 {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; min-width: 0;
+  background: var(--card); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px 12px; cursor: pointer;
+  font: inherit; color: inherit; transition: border-color .12s, background .12s;
+}
+.six2:hover { border-color: var(--borda-forte); }
+.six2.ativo { border-color: var(--texto); background: var(--card-2); }
+.six2:focus-visible { outline: 2px solid var(--texto); outline-offset: 2px; }
+.six2-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--rotulo); display: flex; align-items: center; gap: 0; }
+.six2-val { font-size: 32px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+.six2-chip { min-height: 20px; display: flex; align-items: center; }
+.six2 .chip { margin-top: 0; }
+.st-dot.st-nulo { background: var(--borda); }
+.tag.st-ruim-tag { background: var(--ruim-bg); color: var(--ruim); }
+.tag .st-dot { margin-right: 5px; width: 7px; height: 7px; }
+.painel-grafico-geral .painel-cab { margin-bottom: 4px; }
+.painel-grafico-geral .g-linhas { max-width: none; }
+.painel { box-shadow: none; }
+.six { box-shadow: none; }
+main { gap: 20px; }
+.secao-rot { margin-bottom: -6px; }

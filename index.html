@@ -87,9 +87,6 @@
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
 
-  <!-- 0. Leitura rápida: o que está fora do alvo, em uma linha -->
-  <div id="leitura-rapida" class="leitura-rapida" hidden aria-label="Leitura rápida"></div>
-
   <nav class="abas-cx" role="tablist" aria-label="Seções do painel" id="abas-cx">
     <button role="tab" data-aba="geral" class="ativo" title="Os seis números, as tendências e os motivos de contato — a camada de decisão">Visão geral</button>
     <button role="tab" data-aba="chat" title="Gleap: CSAT em três níveis, Kai × pessoa, desfecho, fila, tempos e agentes">Chat e e-mail</button>
@@ -101,32 +98,19 @@
   <div class="aba-pane" data-aba="geral">
 
   <!-- 1. Os seis números: contatos/pedido, WISMO, CSAT (3 níveis), Kai, RA resposta, RA solução -->
-  <div class="secao-rot">Os seis números
+  <div class="secao-rot">Os seis números <span class="info" title="Os indicadores do plano de CX. Ponto verde = dentro do alvo; âmbar = entre o alvo e a linha de base de ago 1–15; vermelho = pior que a base. Passe o mouse no cartão para ver alvo, base, método e o corte por marca. Clique no cartão para ver a série dele no gráfico.">ⓘ</span>
     <span id="seis-rot" class="cab-tags"></span>
-    <span class="legenda-st"><i class="st-dot st-bom"></i>no alvo <i class="st-dot st-atencao"></i>entre o alvo e a base (ago 1–15) <i class="st-dot st-ruim"></i>pior que a base</span>
-    <span class="secao-sub">os indicadores que a liderança e o CX analyst acompanham — cada cartão diz o alvo, a cor diz se está nele, o detalhe está no passar do mouse</span>
   </div>
   <section class="seis" id="area-seis" aria-label="Os seis números"></section>
-
-  <!-- 1b. Tendências: contatos por 100 pedidos por dia e contatos por semana por motivo -->
-  <section class="grade-2" aria-label="Tendências">
-    <div class="painel">
-      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por 100 pedidos · por semana</h2>
-        <span class="painel-sub">quanto do que vendemos vira contato; a linha pontilhada é o alvo</span></div><span id="g-por100-rot" class="mini cab-tags"></span></div>
-      <div id="g-por100"></div>
-    </div>
-    <div class="painel">
-      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por semana · por motivo</h2>
-        <span class="painel-sub">só chat; e-mail não recebe tag de motivo</span></div><span id="g-motivos-rot" class="mini cab-tags"></span></div>
-      <div id="g-motivos"></div>
-    </div>
+  <section class="painel painel-grafico-geral" aria-label="Série da métrica escolhida">
+    <div class="painel-cab"><h2 id="g-geral-tit">Contatos / 100 pedidos · por semana</h2><span class="mini">12 semanas até o fim do período · uma linha por marca · ponto claro = semana em andamento</span></div>
+    <div id="g-geral"></div>
   </section>
 
   <!-- 2. Motivo × CSAT: o corte que decide onde atacar -->
   <section class="painel" id="painel-motivos" aria-label="Motivo de contato e CSAT">
     <div class="painel-cab com-controle">
-      <div class="cab-titulo"><h2>Por que o cliente chama — e como sai</h2>
-        <span class="painel-sub">onde atacar: motivo grande, subindo ou com CSAT baixo. Ordem por volume.</span></div>
+      <div class="cab-titulo"><h2>Por que o cliente chama <span class="info" title="Motivo da conversa pela tag do Gleap, só chat (e-mail não recebe tag). Ordem por volume. 'Atacar' = fatia ≥ 20% e (volume subindo > 10% ou CSAT bom < 50%). CSAT em três níveis: barra ruim | neutro | bom, número = fatia de bom, só com 30+ avaliações.">ⓘ</span></h2></div>
       <span id="motivos-rot" class="mini cab-tags"></span>
       <div class="controles">
         <div class="seg-canal" role="group" aria-label="Canal" id="seg-canal-motivo">
@@ -143,8 +127,7 @@
   <div class="aba-pane" data-aba="chat" hidden>
   <!-- 3. CSAT e desfecho no chat: distribuição, série semanal, Kai × pessoa; desfecho do ticket como faixa + detalhe -->
   <section class="painel" id="painel-csat" aria-label="CSAT e desfecho no chat">
-    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat</h2>
-        <span class="painel-sub">o cliente escolhe ruim / neutro / bom depois do atendimento; o número é a fatia de “bom”. Embaixo, quem fechou cada ticket: o Kai, uma pessoa, ou ninguém</span></div>
+    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat <span class="info" title="o cliente escolhe ruim / neutro / bom depois do atendimento; o número é a fatia de “bom”. Embaixo, quem fechou cada ticket: o Kai, uma pessoa, ou ninguém">ⓘ</span></h2></div>
       <span id="csat-rot" class="mini cab-tags"></span></div>
     <div id="area-csat" class="csat-grade"></div>
     <div id="desfecho-faixa"></div>
@@ -165,13 +148,25 @@
     </details>
   </section>
 
+  <section class="grade-2" aria-label="Motivos no chat">
+    <div class="painel">
+      <div class="painel-cab com-controle"><div class="cab-titulo"><h2>Motivo · Kai e pessoa <span class="info" title="Por motivo: quanto o Kai fecha sozinho (transferência real), quem avalia e o CSAT bom quando fechou com o Kai ou com pessoa.">ⓘ</span></h2></div>
+        <span id="motivos-kai-rot" class="mini cab-tags"></span>
+        <div class="controles"><div class="seg-canal" role="group" aria-label="Canal"><button data-canal="todos" class="ativo">Chat</button><button data-canal="whatsapp">WhatsApp</button><button data-canal="instagram">Instagram</button></div></div></div>
+      <div id="area-motivos-kai"></div>
+    </div>
+    <div class="painel">
+      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por semana · por motivo <span class="info" title="Só chat; e-mail não recebe tag de motivo. Semana começa na segunda; a última pode estar parcial. Cores fixas por grupo.">ⓘ</span></h2></div><span id="g-motivos-rot" class="mini cab-tags"></span></div>
+      <div id="g-motivos"></div>
+    </div>
+  </section>
+
   <!-- 4. Operação: saldo, fila, 1ª resposta; marcas lado a lado; agentes; evolução -->
-  <div class="secao-rot" id="sec-operacao">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
+  <div class="secao-rot" id="sec-operacao">Operação <span class="info" title="o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana">ⓘ</span></div>
   <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
 
   <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
-    <div class="painel-cab"><div class="cab-titulo"><h2>Marcas lado a lado</h2>
-        <span class="painel-sub">os mesmos números, uma linha por marca</span></div><span id="comp-rotulo" class="mini"></span></div>
+    <div class="painel-cab"><div class="cab-titulo"><h2>Marcas lado a lado <span class="info" title="os mesmos números, uma linha por marca">ⓘ</span></h2></div><span id="comp-rotulo" class="mini"></span></div>
     <div class="rolagem">
       <table class="comparativo" id="tabela-comparativo">
         <thead><tr>
@@ -190,8 +185,7 @@
 
   <section class="painel" id="painel-agentes" aria-label="Ranking de agentes">
     <div class="painel-cab">
-      <div class="cab-titulo"><h2>Por agente</h2>
-        <span class="painel-sub">volume e tempos de quem atende. CSAT por agente sai quando existir em três níveis (o Gleap só dá a média)</span></div>
+      <div class="cab-titulo"><h2>Por agente <span class="info" title="volume e tempos de quem atende. CSAT por agente sai quando existir em três níveis (o Gleap só dá a média)">ⓘ</span></h2></div>
       <span id="ranking-rotulo" class="mini"></span>
     </div>
     <div class="rolagem"><table class="ranking" id="tabela-ranking">
@@ -205,7 +199,7 @@
   </section>
 
   <details class="painel dobra-painel" id="painel-grafico" aria-label="Evolução" open>
-    <summary><div class="cab-titulo"><h2>Evolução</h2><span class="painel-sub">novos, resolvidos ou fila por dia, contra o período anterior</span></div></summary>
+    <summary><div class="cab-titulo"><h2>Evolução <span class="info" title="novos, resolvidos ou fila por dia, contra o período anterior">ⓘ</span></h2></div></summary>
     <div class="grafico-controles dobra-controles">
       <select id="sel-metrica" aria-label="Métrica do gráfico">
         <option value="fechados">Resolvidos</option>
@@ -223,13 +217,12 @@
 
   <div class="aba-pane" data-aba="ra" hidden>
   <section class="grade-2" aria-label="Evolução no Reclame Aqui">
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de resposta · por dia</h2><span class="painel-sub">alvo RA1000: 90%</span></div></div><div id="g-ra-resposta"></div></div>
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de solução · por dia</h2><span class="painel-sub">alvo RA1000: 90%</span></div></div><div id="g-ra-solucao"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de resposta · por dia <span class="info" title="alvo RA1000: 90%">ⓘ</span></h2></div></div><div id="g-ra-resposta"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de solução · por dia <span class="info" title="alvo RA1000: 90%">ⓘ</span></h2></div></div><div id="g-ra-solucao"></div></div>
   </section>
 
   <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui" open>
-    <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
-        <span class="painel-sub">os cinco critérios do selo, e o que está aguardando resposta</span></div><span id="ra-rotulo" class="mini cab-tags"></span></summary>
+    <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000 <span class="info" title="os cinco critérios do selo, e o que está aguardando resposta">ⓘ</span></h2></div><span id="ra-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-ra"></div>
   </details>
 
@@ -237,12 +230,11 @@
 
   <div class="aba-pane" data-aba="nps" hidden>
   <section class="painel" aria-label="Evolução do NPS">
-    <div class="painel-cab"><div class="cab-titulo"><h2>NPS · por semana</h2><span class="painel-sub">promotores − detratores, em pontos; semana com menos de 10 votos fica em branco</span></div><span id="g-nps-rot" class="mini cab-tags"></span></div>
+    <div class="painel-cab"><div class="cab-titulo"><h2>NPS · por semana <span class="info" title="promotores − detratores, em pontos; semana com menos de 10 votos fica em branco">ⓘ</span></h2></div><span id="g-nps-rot" class="mini cab-tags"></span></div>
     <div id="g-nps"></div>
   </section>
   <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega" open>
-    <summary><div class="cab-titulo"><h2>NPS pós-entrega</h2>
-        <span class="painel-sub">nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento</span></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
+    <summary><div class="cab-titulo"><h2>NPS pós-entrega <span class="info" title="nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento">ⓘ</span></h2></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-nps" class="grid-nps"></div>
     <div id="area-frustracoes"></div>
   </details>
@@ -251,12 +243,11 @@
 
   <div class="aba-pane" data-aba="social" hidden>
   <section class="grade-2" aria-label="Evolução dos comentários">
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Comentários · por semana</h2><span class="painel-sub">respondidos pela marca × sem resposta</span></div></div><div id="g-social-resp"></div></div>
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Sentimento · por semana</h2><span class="painel-sub">classificação própria dos comentários (OpenAI), em fatia</span></div></div><div id="g-social-sent"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Comentários · por semana <span class="info" title="respondidos pela marca × sem resposta">ⓘ</span></h2></div></div><div id="g-social-resp"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Sentimento · por semana <span class="info" title="classificação própria dos comentários (OpenAI), em fatia">ⓘ</span></h2></div></div><div id="g-social-sent"></div></div>
   </section>
   <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos" open>
-    <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook</h2>
-        <span class="painel-sub">o que ficou sem resposta da marca e o sentimento dos comentários</span></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
+    <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook <span class="info" title="o que ficou sem resposta da marca e o sentimento dos comentários">ⓘ</span></h2></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-social"></div>
     <div id="area-social-urgentes"></div>
   </details>

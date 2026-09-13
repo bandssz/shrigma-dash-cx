@@ -118,195 +118,191 @@ function kaiResolve(marca, ini, fim) {
   return { kai, esc, decididos: t, pct: t >= MIN_BASE ? (kai / t) * 100 : null };
 }
 
-// ---------- 1. Os seis números ----------
+// ---------- 1. Os seis números (padrão Plausible: rótulo · valor · variação; o resto no ⓘ) ----------
+// Clicar num cartão troca o único gráfico da Visão geral. estado.metricaGeral guarda a escolha.
+estado.metricaGeral = estado.metricaGeral || "contatos_por_pedido";
+const CX_SEIS = [
+  { k: "contatos_por_pedido", rot: "Contatos / 100 pedidos", fmt: (v) => fmtDec(v), casas: 1, pct: false },
+  { k: "wismo_rate",          rot: "WISMO / pedido",         fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
+  { k: "csat_bom",            rot: "CSAT · bom",             fmt: fmtPct0, casas: 0, pct: true },
+  { k: "kai_resolve",         rot: "Kai resolve sozinho",    fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
+  { k: "ra_resposta",         rot: "RA · resposta",          fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
+  { k: "ra_solucao",          rot: "RA · solução",           fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
+];
+const CX_INFO = {
+  contatos_por_pedido: "Contatos de todos os canais (e-mail incluso) ÷ pedidos criados no mesmo período × 100.\nAlvo < 12. Base ago 1–15: Aristocrata 20, Fishermans 42.",
+  wismo_rate: "Tickets com tag wismo (só chat: e-mail não recebe tag) ÷ pedidos criados × 100. É piso.\nAlvo < 4%. Base ago 1–15: Aristocrata 7,8%, Fishermans 5,3%.",
+  csat_bom: "O Gleap tem três opções (ruim / neutro / bom). O número é a fatia de bom entre quem avaliou, só chat, com 30+ avaliações.\nAlvo ≥ 80%. Base ago 1–15: Aristocrata 53%, Fishermans 65%.",
+  kai_resolve: "Tickets que o Kai fechou sozinho ÷ tickets com desfecho (Kai ou transferido para pessoa). E-mail fora. Quebra de série em 29/08.\nSem alvo declarado: acompanhar a tendência.",
+  ra_resposta: "Índice de resposta na página da marca no Reclame AQUI (metatags, via bookmarklet).\nAlvo RA1000 ≥ 90%.",
+  ra_solucao: "Índice de solução no Reclame AQUI.\nAlvo RA1000 ≥ 90%.",
+};
+let CX_SEIS_DADOS = null; // valores por métrica/marca do último render, para o gráfico e o ⓘ
+
 function pintaSeisNumeros(d) {
   const alvo = $("#area-seis");
   if (!alvo) return;
   const rows = d.cx_csat || [];
-  const marca = estado.marca;
-  const todas = marca === "todas";
+  const marca = estado.marca, todas = marca === "todas";
   const per = cxPeriodoComDado(rows, marca);
   const rot = $("#seis-rot");
   if (per.vazio) {
-    alvo.innerHTML = `<div class="vazio">A API ainda não devolve <code>cx_csat</code>. Os seis números entram quando o bloco existir.</div>`;
-    if (rot) rot.innerHTML = cxTag("bloco cx_csat ausente", "alerta", "A API de leitura precisa devolver a view cx_csat_dia. Enquanto isso, o resto do painel segue funcionando.");
+    alvo.innerHTML = `<div class="vazio">A API ainda não devolve <code>cx_csat</code>.</div>`;
+    if (rot) rot.innerHTML = cxTag("bloco cx_csat ausente", "alerta", "A API de leitura precisa devolver a view cx_csat_dia.");
     return;
   }
-  if (rot) rot.innerHTML = (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
-    (per.semHist ? cxTag("sem histórico para comparar", "nota", "O período de comparação tem menos de 80% dos dias coletados (cx_ticket começa em 16/07). Os chips de variação ficam de fora.") : "") +
-    (per.f.fim >= hojeRef() && diffDias(per.f.ini, per.f.fim) < 2 ? cxTag("dia em andamento", "nota", "Ticket aberto hoje ainda vai receber nota e motivo. Números de hoje mudam até amanhã.") : "");
-
   const marcas = todas ? MARCAS.filter((m) => m !== "olivas") : [marca];
-  const cpp = contatosPorPedido(rows, d.cx_pedidos, per.f);
-  const cppAnt = per.fAnt ? contatosPorPedido(rows, d.cx_pedidos, per.fAnt) : null;
-  const porMarcaCpp = Object.fromEntries(marcas.map((m) => [m, contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, per.f, { marca: m }))]));
-  const subMarcas = (f) => todas ? marcas.map((m) => `${CX_SIGLA[m]} <b>${f(porMarcaCpp[m])}</b>`).join(" · ") : "";
-  const temPed = typeof cpp.pedidos === "number";
-  const semPed = cxTag("sem pedidos", "alerta", "cx_pedido_dia está vazia: a coleta de pedidos da Shopify ainda não roda. Quando existir, este cartão vira a razão por pedido.");
-  const janCurta = cpp.janelaCurta ? cxTag("janela curta", "nota", "Em menos de 7 dias a razão é frágil: o WISMO de hoje é sobre pedidos de dias anteriores.") : "";
+  const porMarca = (fn) => Object.fromEntries(marcas.map((m) => [m, fn(m)]));
 
-  const t1 = temPed
-    ? cxTile({ rot: "Contatos / 100 pedidos", val: fmtDec(cpp.por100), tags: janCurta, metrica: "contatos_por_pedido", valor: cpp.por100,
-        sub: `${fmtNum(cpp.contatos)} contatos · ${fmtNum(cpp.pedidos)} pedidos`,
-        chip: cxChip("contatos_por_pedido", cpp.por100, cppAnt && cppAnt.por100, fmtDec),
-        ref: subMarcas((x) => fmtDec(x.por100)) || "todos os canais, e-mail incluso",
-        title: "Contatos (todos os canais) ÷ pedidos criados no mesmo período × 100. Linha de base ago 1–15: Aristocrata 20, Fishermans 17. Alvo: abaixo de 12." })
-    : cxTile({ rot: "Contatos / dia", val: fmtDec(cpp.contatosDia, 0), tags: semPed,
-        sub: `${fmtNum(cpp.contatos)} contatos em ${cpp.dias} dia${cpp.dias > 1 ? "s" : ""}`,
-        chip: cxChip("contatos_dia", cpp.contatosDia, cppAnt && cppAnt.contatosDia, (v) => fmtDec(v, 0)),
-        ref: subMarcas((x) => fmtDec(x.contatosDia, 0) + "/dia") || "todos os canais, e-mail incluso",
-        title: "Vai virar 'contatos por 100 pedidos' (alvo < 12) quando a coleta de pedidos existir. Hoje mostra a média diária de contatos de todos os canais." });
-
-  const t2 = temPed
-    ? cxTile({ rot: "WISMO / pedido", val: fmtDec(cpp.wismoRate) + "%", tags: janCurta, metrica: "wismo_rate", valor: cpp.wismoRate,
-        sub: `${fmtNum(cpp.wismo)} “cadê meu pedido” · ${fmtNum(cpp.pedidos)} pedidos`,
-        chip: cxChipPP("wismo_rate", cpp.wismoRate, cppAnt && cppAnt.wismoRate, 1),
-        ref: subMarcas((x) => fmtDec(x.wismoRate) + "%") || "só chat: e-mail não recebe tag",
-        title: "Tickets com tag wismo (WhatsApp, Instagram e widget) ÷ pedidos criados × 100. E-mail não recebe tag, então é piso. Base ago 1–15: Aristocrata 8%, Fishermans 2%. Alvo: abaixo de 4%." })
-    : cxTile({ rot: "WISMO · fatia", val: fmtPct0(cpp.wismoShare), tags: semPed,
-        sub: `${fmtNum(cpp.wismo)} “cadê meu pedido” · ${fmtDec(cpp.wismoDia, 0)}/dia`,
-        chip: cxChipPP("wismo_share", cpp.wismoShare, cppAnt && cppAnt.wismoShare),
-        ref: subMarcas((x) => fmtPct0(x.wismoShare)) || "só chat: e-mail não recebe tag",
-        title: "Vai virar 'WISMO por pedido' (alvo < 4%) quando a coleta de pedidos existir. Hoje mostra a fatia dos contatos que é 'cadê meu pedido'." });
-
-  // CSAT em três níveis (todos os canais do Kai; e-mail não tem CSAT)
-  const cs = csatAgg(rows, Object.assign({}, per.f, { canais: CX_CANAIS_KAI }));
-  const csAnt = per.fAnt ? csatAgg(rows, Object.assign({}, per.fAnt, { canais: CX_CANAIS_KAI })) : null;
-  const t3 = cxTile({ rot: "CSAT · bom", metrica: "csat_bom", valor: cs.baseOk ? cs.pctBom : null,
-    val: cs.baseOk ? fmtPct0(cs.pctBom) : `<span class="six-curto">${fmtNum(cs.bom)}<small> de ${fmtNum(cs.avaliadas)}</small></span>`,
-    tags: cxTag("3 níveis", "nota", "O Gleap só tem três opções (ruim / neutro / bom). Média não existe aqui: o número é a fatia de 'bom' entre quem avaliou. Só chat: e-mail não tem CSAT."),
-    barra: cxBarra3(cs, "fina"),
-    sub: `responderam ${fmtPct0(cs.pctResposta)} · ${fmtNum(cs.avaliadas)} votos`,
-    chip: cs.baseOk ? cxChipPP("csat_bom", cs.pctBom, csAnt && csAnt.baseOk ? csAnt.pctBom : null) : "",
-    ref: todas ? marcas.map((m) => { const a = csatAgg(rows, Object.assign({}, per.f, { marca: m, canais: CX_CANAIS_KAI })); return `${CX_SIGLA[m]} <b>${a.baseOk ? fmtPct0(a.pctBom) : fmtNum(a.bom) + "/" + fmtNum(a.avaliadas)}</b>`; }).join(" · ")
-               : `neutro ${fmtPct0(cs.pctNeutro)} · ruim ${fmtPct0(cs.pctRuim)}`,
-    title: "Base ago 1–15: Aristocrata 53% bom, Fishermans 65%. Benchmark do handoff: 80–85% é média de mercado, 90%+ é referência." });
-
-  // Kai resolve sozinho (mesmo denominador do bloco de desfecho)
-  const kr = kaiResolve(marca, PER_DESF.ini, PER_DESF.fim);
-  let krAnt = null;
+  // valores atuais e anteriores, por métrica, no escopo e por marca
+  const cpp = contatosPorPedido(rows, d.cx_pedidos, per.f), cppAnt = per.fAnt ? contatosPorPedido(rows, d.cx_pedidos, per.fAnt) : null;
+  const cs = csatAgg(rows, Object.assign({}, per.f, { canais: CX_CANAIS_KAI })), csAnt = per.fAnt ? csatAgg(rows, Object.assign({}, per.fAnt, { canais: CX_CANAIS_KAI })) : null;
+  const kr = kaiResolve(marca, PER_DESF.ini, PER_DESF.fim); let krAnt = null;
   if (estado.comparar) { const a = rangeAnterior(PER_DESF.ini, PER_DESF.fim); krAnt = kaiResolve(marca, a.ini, a.fim); }
-  const t4 = cxTile({ rot: "Kai sozinho",
-    val: kr.pct === null ? (kr.decididos ? `<span class="six-curto">${fmtNum(kr.kai)}<small> de ${fmtNum(kr.decididos)}</small></span>` : "—") : fmtDec(kr.pct) + "%",
-    tags: cxTag("por transferência", "nota", "Escalado = ticket transferido para time ou agente (processingTeam/processingUser). Ticket aberto, abandonado ou com promessa vazia fica fora do denominador. E-mail fora: o Kai não roda lá."),
-    sub: `${fmtNum(kr.kai)} fechou sozinho · ${fmtNum(kr.decididos)} com desfecho`,
-    chip: cxChipPP("kai_resolve", kr.pct, krAnt && krAnt.pct, 1),
-    ref: todas ? marcas.map((m) => { const k = kaiResolve(m, PER_DESF.ini, PER_DESF.fim); return `${CX_SIGLA[m]} <b>${k.pct === null ? fmtNum(k.kai) + "/" + fmtNum(k.decididos) : fmtDec(k.pct) + "%"}</b>`; }).join(" · ") : "",
-    title: "Objetivo-norte: resolvido sem humano com cliente satisfeito. Quebra de série em 29/08 (8 alterações no Kai): não compare antes com depois sem cortar ali." });
-
-  // Reclame Aqui: última leitura por marca
-  const ra = marcas.map((m) => ({ m, l: raUltimo(d.cx_ra, m, cxRaFim(per.f.fim)) }));
-  const raAnt = (m) => per.fAnt ? raUltimo(d.cx_ra, m, per.fAnt.fim) : null;
-  const tileRa = (rot, campo, metrica, title) => {
-    const com = ra.filter((x) => x.l && typeof Number(x.l[campo]) === "number" && x.l[campo] !== null);
-    if (!com.length) return cxTile({ rot, val: "—", tags: cxTag("sem coleta", "alerta", "cx_ra_dia está vazia. A coleta diária das metatags da página da marca no Reclame AQUI ainda não roda."), sub: "Reclame AQUI", title });
-    const pior = com.reduce((a, x) => (Number(x.l[campo]) < Number(a.l[campo]) ? x : a));
-    const v = Number(pior.l[campo]);
-    const ant = raAnt(pior.m);
-    const idade = Math.round((new Date(hojeRef() + "T12:00Z") - new Date(cxDia(pior.l.dia) + "T12:00Z")) / 864e5);
-    return cxTile({ rot, val: fmtDec(v) + "%", metrica, valor: v,
-      tags: idade > 2 ? cxTag(`coleta há ${idade} d`, "alerta", "Última leitura do Reclame AQUI é de " + fmtDia(cxDia(pior.l.dia))) : "",
-      sub: todas ? `pior: ${ROTULOS[pior.m]}` : `leitura de ${fmtDia(cxDia(pior.l.dia))}`,
-      chip: cxChipPP(metrica, v, ant ? Number(ant[campo]) : null, 1),
-      ref: todas ? com.map((x) => `${CX_SIGLA[x.m]} <b>${fmtDec(Number(x.l[campo]))}%</b>`).join(" · ") : (pior.l.aguardando != null ? `${fmtNum(Number(pior.l.aguardando))} aguardando resposta` : ""),
-      title });
+  const raU = porMarca((m) => raUltimo(d.cx_ra, m, cxRaFim(per.f.fim)));
+  const raAnt = porMarca((m) => per.fAnt ? raUltimo(d.cx_ra, m, per.fAnt.fim) : null);
+  const raPior = (campo, src) => { const vs = marcas.map((m) => src[m] && src[m][campo] != null ? Number(src[m][campo]) : null).filter((v) => typeof v === "number"); return vs.length ? Math.min(...vs) : null; };
+  const temPed = typeof cpp.pedidos === "number";
+  const V = {
+    contatos_por_pedido: { v: temPed ? cpp.por100 : null, ant: cppAnt && cppAnt.por100, sub: temPed ? `${fmtNum(cpp.contatos)} contatos · ${fmtNum(cpp.pedidos)} pedidos` : `${fmtNum(cpp.contatos)} contatos · sem pedidos coletados`,
+      marcas: porMarca((m) => contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, per.f, { marca: m })).por100) },
+    wismo_rate: { v: temPed ? cpp.wismoRate : null, ant: cppAnt && cppAnt.wismoRate, sub: `${fmtNum(cpp.wismo)} “cadê meu pedido”`,
+      marcas: porMarca((m) => contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, per.f, { marca: m })).wismoRate) },
+    csat_bom: { v: cs.baseOk ? cs.pctBom : null, ant: csAnt && csAnt.baseOk ? csAnt.pctBom : null, sub: `${fmtNum(cs.avaliadas)} avaliações · responderam ${fmtPct0(cs.pctResposta)}`, curto: !cs.baseOk && cs.avaliadas ? `${fmtNum(cs.bom)} de ${fmtNum(cs.avaliadas)}` : null,
+      marcas: porMarca((m) => { const a = csatAgg(rows, Object.assign({}, per.f, { marca: m, canais: CX_CANAIS_KAI })); return a.baseOk ? a.pctBom : null; }) },
+    kai_resolve: { v: kr.pct, ant: krAnt && krAnt.pct, sub: `${fmtNum(kr.kai)} de ${fmtNum(kr.decididos)} com desfecho`, curto: kr.pct === null && kr.decididos ? `${fmtNum(kr.kai)} de ${fmtNum(kr.decididos)}` : null,
+      marcas: porMarca((m) => kaiResolve(m, PER_DESF.ini, PER_DESF.fim).pct) },
+    ra_resposta: { v: raPior("resposta_pct", raU), ant: raPior("resposta_pct", raAnt), sub: marcas.length > 1 ? "pior marca" : (raU[marca] ? "leitura de " + fmtDia(cxDia(raU[marca].dia)) : "sem leitura"), marcas: porMarca((m) => raU[m] ? Number(raU[m].resposta_pct) : null) },
+    ra_solucao: { v: raPior("solucao_pct", raU), ant: raPior("solucao_pct", raAnt), sub: marcas.length > 1 ? "pior marca" : (raU[marca] ? "leitura de " + fmtDia(cxDia(raU[marca].dia)) : "sem leitura"), marcas: porMarca((m) => raU[m] ? Number(raU[m].solucao_pct) : null) },
   };
-  const t5 = tileRa("RA · resposta", "resposta_pct", "ra_resposta", "Índice de resposta na página da marca no Reclame AQUI. Base 12/09: Aristocrata 86,2%, Fishermans 99,5%. Alvo RA1000: 90% nas duas.");
-  const t6 = tileRa("RA · solução", "solucao_pct", "ra_solucao", "Índice de solução no Reclame AQUI. Base 12/09: Aristocrata 85,0%, Fishermans 71,0%. Alvo RA1000: 90% nas duas.");
+  CX_SEIS_DADOS = { V, per, marcas };
 
-  alvo.innerHTML = t1 + t2 + t3 + t4 + t5 + t6;
-  pintaLeituraRapida([
-    { rot: "Contatos/100 pedidos", metrica: "contatos_por_pedido", v: temPed ? cpp.por100 : null, fmt: (x) => fmtDec(x) },
-    { rot: "WISMO/pedido", metrica: "wismo_rate", v: temPed ? cpp.wismoRate : null, fmt: (x) => fmtDec(x) + "%" },
-    { rot: "CSAT bom", metrica: "csat_bom", v: cs.baseOk ? cs.pctBom : null, fmt: fmtPct0 },
-    ...ra.filter((x) => x.l).flatMap((x) => [
-      { rot: `RA resposta ${CX_SIGLA[x.m]}`, metrica: "ra_resposta", v: Number(x.l.resposta_pct), fmt: (y) => fmtDec(y) + "%" },
-      { rot: `RA solução ${CX_SIGLA[x.m]}`, metrica: "ra_solucao", v: Number(x.l.solucao_pct), fmt: (y) => fmtDec(y) + "%" }]),
-  ], { kai: kr, outros: null });
+  const nFora = CX_SEIS.filter((s) => cxStatus(s.k, V[s.k].v) === "ruim").length;
+  const nAt = CX_SEIS.filter((s) => cxStatus(s.k, V[s.k].v) === "atencao").length;
+  if (rot) rot.innerHTML = (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
+    (per.semHist ? cxTag("sem histórico para comparar", "nota", "O período de comparação tem menos de 80% dos dias coletados.") : "") +
+    (nFora ? `<span class="tag st-ruim-tag"><i class="st-dot st-ruim"></i>${nFora} fora do alvo</span>` : "") +
+    (nAt ? `<span class="tag nota"><i class="st-dot st-atencao"></i>${nAt} em atenção</span>` : "") +
+    (!nFora && !nAt ? `<span class="tag nota"><i class="st-dot st-bom"></i>tudo no alvo</span>` : "");
+
+  alvo.innerHTML = CX_SEIS.map((s) => {
+    const x = V[s.k]; const st = cxStatus(s.k, x.v);
+    const info = CX_INFO[s.k] + (todas ? "\n\nPor marca: " + marcas.map((m) => `${ROTULOS[m]} ${typeof x.marcas[m] === "number" ? s.fmt(x.marcas[m]) : "—"}`).join(" · ") : "") + "\n\n" + x.sub;
+    const val = typeof x.v === "number" ? s.fmt(x.v) : (x.curto ? `<span class="six-curto">${x.curto}</span>` : "—");
+    return `<button type="button" class="six2${st ? " st-" + st : ""}${estado.metricaGeral === s.k ? " ativo" : ""}" data-m="${s.k}" title="${info.replace(/"/g, "&quot;")}" aria-pressed="${estado.metricaGeral === s.k}">
+      <span class="six2-rot">${st ? `<i class="st-dot"></i>` : `<i class="st-dot st-nulo"></i>`}${s.rot}</span>
+      <span class="six2-val">${val}</span>
+      <span class="six2-chip">${typeof x.v === "number" ? (cxChipPP(s.k, x.v, x.ant, s.casas) || `<span class="mini">${x.sub}</span>`) : `<span class="mini">${x.sub}</span>`}</span>
+    </button>`;
+  }).join("");
+  pintaGraficoGeral(d);
 }
 
-/* Uma linha, em português, com o que está fora do alvo — é o que a liderança lê primeiro.
-   Só usa os alvos declarados; sem alvo, não opina. */
-function pintaLeituraRapida(itens) {
-  const el = $("#leitura-rapida");
-  if (!el) return;
-  const fora = itens.filter((i) => cxStatus(i.metrica, i.v) === "ruim");
-  const aten = itens.filter((i) => cxStatus(i.metrica, i.v) === "atencao");
-  const ok = itens.filter((i) => cxStatus(i.metrica, i.v) === "bom");
-  const semDado = itens.filter((i) => typeof i.v !== "number").length;
-  const li = (i, cls) => `<span class="lr-item ${cls}"><i class="st-dot"></i>${i.rot} <b>${i.fmt(i.v)}</b> <small>(${CX_ALVOS[i.metrica].rot})</small></span>`;
-  el.innerHTML = `<span class="lr-rot">${PER.rotulo}</span>` +
-    (fora.length ? `<span class="lr-grupo"><span class="lr-tit">Fora do alvo</span>${fora.map((i) => li(i, "st-ruim")).join("")}</span>` : "") +
-    (aten.length ? `<span class="lr-grupo"><span class="lr-tit">Atenção</span>${aten.map((i) => li(i, "st-atencao")).join("")}</span>` : "") +
-    (ok.length ? `<span class="lr-grupo"><span class="lr-tit">No alvo</span>${ok.map((i) => li(i, "st-bom")).join("")}</span>` : "") +
-    (!fora.length && !aten.length && !ok.length ? `<span class="mini">sem alvo avaliável no período</span>` : "") +
-    (semDado ? `<span class="mini lr-sem">${semDado} sem dado</span>` : "");
-  el.hidden = false;
+// o único gráfico da Visão geral: a métrica do cartão ativo, por semana, uma linha por marca
+function pintaGraficoGeral(d) {
+  const el = $("#g-geral"), tit = $("#g-geral-tit");
+  if (!el || !CX_SEIS_DADOS) return;
+  const s = CX_SEIS.find((x) => x.k === estado.metricaGeral) || CX_SEIS[0];
+  const { per, marcas } = CX_SEIS_DADOS;
+  const rows = d.cx_csat || [];
+  const j = cxJanelaTendencia(per.f.fim, 12);
+  const segHoje = cxSegunda(hojeRef());
+  let series = [], rotulosX = [], alvoRef = null, baseRef = null, marcos = [], vazio = null, pct = s.pct && s.k !== "wismo_rate";
+  const lbl = (m) => ({ nome: ROTULOS[m], cor: corHex(m) });
+  if (s.k === "contatos_por_pedido" || s.k === "wismo_rate") {
+    const w = s.k === "wismo_rate";
+    const base = serieSemanalPor100(rows, d.cx_pedidos, marcas, j.ini, j.fim);
+    const wis = w ? serieSemanalPor100(cxFiltra(rows, { marca: "todas", ini: j.ini, fim: j.fim, canais: CX_CANAIS_KAI, motivo: "wismo" }), d.cx_pedidos, marcas, j.ini, j.fim) : null;
+    const src = w ? wis : base;
+    const c = cxCortaVazioInicial(base.semanas, base.series.map((x) => x.pontos.map((p) => p.contatos))); const corte = base.semanas.length - c.semanas.length;
+    rotulosX = c.semanas.map(fmtDia);
+    if (!src.series.some((x) => x.pontos.some((p) => p.pedidos))) vazio = "Sem pedidos coletados no intervalo.";
+    series = src.series.map((x) => Object.assign(lbl(x.marca), { pontos: x.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: p.pedidos ? `${fmtNum(p.contatos)} ${w ? "wismo" : "contatos"} · ${fmtNum(p.pedidos)} pedidos` : undefined, parcial: p.semana === segHoje })) }));
+    alvoRef = { y: CX_ALVOS[s.k].alvo, rot: "alvo " + (w ? "4%" : "12") }; baseRef = { y: CX_ALVOS[s.k].base, rot: "base " + (w ? "8%" : "20") };
+  } else if (s.k === "csat_bom") {
+    const ss = marcas.map((m) => ({ m, c: serieSemanalCsat3(rows, { marca: m, ini: j.ini, fim: j.fim }) }));
+    const c = cxCortaVazioInicial(ss[0].c.semanas, ss.map((x) => x.c.tickets)); const corte = ss[0].c.semanas.length - c.semanas.length;
+    rotulosX = c.semanas.map(fmtDia);
+    series = ss.map((x) => Object.assign(lbl(x.m), { pontos: x.c.pctBom.slice(corte).map((y, i) => ({ y, rot: "semana de " + fmtDia(c.semanas[i]), n: `${fmtNum(x.c.tickets.slice(corte)[i])} contatos`, parcial: c.semanas[i] === segHoje })) }));
+    alvoRef = { y: 80, rot: "alvo 80%" };
+    marcos = (d.cx_marco || []).map((m) => ({ i: c.semanas.indexOf(cxSegunda(cxDia(m.dia))), rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` })).filter((m) => m.i >= 0);
+  } else if (s.k === "kai_resolve") {
+    const ss = marcas.map((m) => ({ m, k: serieSemanalKai(d.cx_desfecho, m, j.ini, j.fim) }));
+    const c = cxCortaVazioInicial(ss[0].k.semanas, ss.map((x) => x.k.pontos.map((p) => p.n))); const corte = ss[0].k.semanas.length - c.semanas.length;
+    rotulosX = c.semanas.map(fmtDia);
+    series = ss.map((x) => Object.assign(lbl(x.m), { pontos: x.k.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} com desfecho`, parcial: p.semana === segHoje })) }));
+    marcos = (d.cx_marco || []).map((m) => ({ i: c.semanas.indexOf(cxSegunda(cxDia(m.dia))), rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` })).filter((m) => m.i >= 0);
+  } else {
+    const campo = s.k === "ra_resposta" ? "resposta_pct" : "solucao_pct";
+    const r = serieRa(d.cx_ra, marcas, campo);
+    rotulosX = r.dias.map(fmtDia);
+    if (r.dias.length < 2) vazio = r.dias.length ? `Uma leitura só (${fmtDia(r.dias[0])}): ${r.series.map((x) => `${ROTULOS[x.marca]} ${fmtDec(x.pontos[0].y)}%`).join(" · ")}. A curva aparece a partir da segunda leitura do bookmarklet.` : "Sem leitura do Reclame AQUI ainda.";
+    series = r.series.map((x) => Object.assign(lbl(x.marca), { pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) }));
+    alvoRef = { y: 90, rot: "alvo 90%" };
+  }
+  if (tit) tit.textContent = s.rot + (s.k.startsWith("ra_") ? " · por leitura" : " · por semana");
+  el.innerHTML = vazio && (!series.length || series.every((x) => x.pontos.filter((p) => typeof p.y === "number").length < 2))
+    ? `<div class="vazio mini">${vazio}</div>`
+    : cxgLinhas({ rotulosX, series, pct, fmt: s.k === "contatos_por_pedido" ? (v) => fmtDec(v, 0) : s.k === "wismo_rate" ? (v) => fmtDec(v, 0) + "%" : (v) => Math.round(v) + "%", alvo: alvoRef, base: baseRef, marcos, aria: s.rot,
+        yMax: s.k === "wismo_rate" ? null : undefined });
 }
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#area-seis .six2"); if (!b) return;
+  estado.metricaGeral = b.dataset.m;
+  document.querySelectorAll("#area-seis .six2").forEach((x) => { const on = x === b; x.classList.toggle("ativo", on); x.setAttribute("aria-pressed", on); });
+  if (estado.dados) pintaGraficoGeral(estado.dados);
+});
 
 // ---------- 2. Por que o cliente chama — e como sai (motivo × CSAT) ----------
+// Visão geral: 4 colunas (motivo, contatos, Δ, CSAT). Aba Chat: o corte Kai × pessoa.
 estado.canalMotivo = "todos";
 function pintaMotivos(d) {
-  const alvo = $("#area-motivos");
-  if (!alvo) return;
   const rows = d.cx_csat || [];
   const per = cxPeriodoComDado(rows, estado.marca);
-  const rot = $("#motivos-rot");
-  if (per.vazio) { alvo.innerHTML = `<div class="vazio">Sem <code>cx_csat</code> na API.</div>`; if (rot) rot.innerHTML = ""; return; }
   const canais = estado.canalMotivo === "todos" ? null : [estado.canalMotivo];
-  const pm = porMotivo(rows, Object.assign({}, per.f, { canais }), per.fAnt ? Object.assign({}, per.fAnt, { canais }) : null);
-  const outros = pm.linhas.find((l) => l.motivo === "outros");
-  if (rot) rot.innerHTML = `${fmtNum(pm.total.tickets)} contatos no chat ` +
-    (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
-    (outros && outros.share >= 25 ? cxTag(`“outros” ${fmtPct0(outros.share)}`, "alerta", "Um em cada quatro contatos sem motivo conhecido: o classificador não está dando conta. É o primeiro motivo a atacar — não dá para reduzir o que não se nomeia.") : "") +
-    (pm.email.tickets ? cxTag(`${fmtNum(pm.email.tickets)} por e-mail sem tag`, "nota", "E-mail entra no total de contatos, mas a classificação silenciosa não grava tag de motivo lá. Fora desta tabela e do CSAT.") : "") +
-    cxTag("CSAT em 3 níveis", "nota", "Barra: ruim | neutro | bom. Percentual só com 30+ avaliações; abaixo disso, contagem.");
-
-  /* Ordem por volume: a pergunta é "onde atacar", e o maior vem primeiro. A linha marcada
-     "atacar" é motivo com fatia >= 20% que esta subindo OU com CSAT bom abaixo de 50%:
-     grande e piorando, ou grande e mal resolvido. Regra no title. */
-  const linhas = [...pm.linhas].sort((a, b) => b.tickets - a.tickets);
+  const pm = per.vazio ? null : porMotivo(rows, Object.assign({}, per.f, { canais }), per.fAnt ? Object.assign({}, per.fAnt, { canais }) : null);
+  const linhas = pm ? [...pm.linhas].sort((a, b) => b.tickets - a.tickets) : [];
   const maxT = Math.max(...linhas.map((l) => l.tickets), 1);
   const atacar = (l) => l.share >= 20 && ((typeof l.delta === "number" && l.delta > 10) || (l.baseOk && l.pctBom < 50));
   const pctOuN = (pctB, n) => typeof pctB === "number" ? `<strong class="tabn">${fmtPct0(pctB)}</strong>` : (n ? `<span class="mini">${fmtNum(n)} aval.</span>` : "<span class='mini'>—</span>");
   const csatCel = (a) => `<div class="csat-cel">${cxBarra3(a)}${a.baseOk ? `<strong class="tabn">${fmtPct0(a.pctBom)}</strong>` : `<span class="mini">${fmtNum(a.avaliadas)} aval.</span>`}</div>`;
+  const contCel = (l) => `<div class="cont-cel"><strong class="tabn">${fmtNum(l.tickets)}</strong><span class="mot-barra"><i style="width:${(l.tickets / maxT) * 100}%"></i></span><span class="mini tabn">${fmtPct0(l.share)}</span></div>`;
   const dlHtml = (l) => {
     if (!estado.comparar || typeof l.delta !== "number") return "<span class='mini'>—</span>";
-    const dl = delta("novos", l.tickets, l.anterior);
-    if (!dl.texto) return "<span class='mini'>—</span>";
+    const dl = delta("novos", l.tickets, l.anterior); if (!dl.texto) return "<span class='mini'>—</span>";
     const cls = l.motivo === "pre-venda" ? "d-neutro" : l.delta > 0 ? "d-ruim" : l.delta < 0 ? "d-bom" : "d-neutro";
     return `<span class="chip ${cls}" title="antes: ${fmtNum(l.anterior)}">${dl.texto}</span>`;
   };
-  alvo.innerHTML = `<div class="rolagem"><table class="motivos">
-    <thead><tr>
-      <th>Motivo</th>
-      <th class="num" title="Contatos do motivo no chat e fatia do total">Contatos</th>
-      <th class="num" title="Variação do volume contra o período anterior. Pré-venda subir é neutro (é venda), o resto subir é ruim.">Δ volume</th>
-      <th class="num" title="Fatia dos contatos do motivo que o Kai fechou sozinho (transferência real)">Kai sozinho</th>
-      <th title="Barra: ruim | neutro | bom entre quem avaliou. Número = fatia de bom. Só com 30+ avaliações.">CSAT</th>
-      <th class="num" title="Quem avaliou ÷ contatos do motivo">Resp.</th>
-      <th class="num esc" title="CSAT bom quando o Kai fechou sozinho · quando passou por pessoa">bom Kai · pessoa</th>
-    </tr></thead>
-    <tbody>${linhas.map((l) => `<tr class="${atacar(l) ? "mot-atacar" : ""}">
-        <td><span class="mot-nome">${l.rotulo}</span>${atacar(l) ? `<span class="tag alerta mot-tag" title="Fatia ≥ 20% e (volume subindo > 10% ou CSAT bom < 50%): grande e piorando, ou grande e mal resolvido">atacar</span>` : ""}</td>
-        <td class="num"><div class="cont-cel"><strong class="tabn">${fmtNum(l.tickets)}</strong><span class="mot-barra"><i style="width:${(l.tickets / maxT) * 100}%"></i></span><span class="mini tabn">${fmtPct0(l.share)}</span></div></td>
-        <td class="num">${dlHtml(l)}</td>
-        <td class="num">${l.tickets ? `<span class="tabn">${fmtPct0(l.kaiShare)}</span>` : "—"}</td>
-        <td>${csatCel(l)}</td>
-        <td class="num"><span class="mini tabn">${fmtPct0(l.pctResposta)}</span></td>
-        <td class="num esc">${pctOuN(l.kaiBom, l.kaiAvaliadas)} <span class="mini">·</span> ${pctOuN(l.pessoaBom, l.pessoaAvaliadas)}</td>
-      </tr>`).join("")}
-    </tbody>
-    <tfoot><tr>
-      <td>Todos os motivos</td>
-      <td class="num"><div class="cont-cel"><strong class="tabn">${fmtNum(pm.total.tickets)}</strong></div></td>
-      <td class="num">${estado.comparar && pm.anterior ? (cxChip("novos", pm.total.tickets, pm.anterior.tickets) || "") : ""}</td>
-      <td class="num"><span class="tabn">${fmtPct0(pm.total.tickets ? ((pm.linhas.reduce((s, l) => s + l.kaiTickets, 0)) / pm.total.tickets) * 100 : null)}</span></td>
-      <td>${csatCel(pm.total)}</td>
-      <td class="num"><span class="mini tabn">${fmtPct0(pm.total.pctResposta)}</span></td>
-      <td class="num esc"></td>
-    </tr></tfoot>
-  </table></div>`;
+  const nome = (l) => `<span class="mot-nome">${l.rotulo}</span>${atacar(l) ? `<span class="tag alerta mot-tag" title="Fatia ≥ 20% e (volume subindo > 10% ou CSAT bom < 50%)">atacar</span>` : ""}`;
+  const cab = (pmx) => pmx ? `${fmtNum(pmx.total.tickets)} contatos no chat ` + (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
+    ((pmx.linhas.find((l) => l.motivo === "outros") || {}).share >= 25 ? cxTag(`“outros” ${fmtPct0(pmx.linhas.find((l) => l.motivo === "outros").share)}`, "alerta", "Um em cada quatro contatos sem motivo conhecido: o classificador não está dando conta.") : "") +
+    (pmx.email.tickets ? cxTag(`${fmtNum(pmx.email.tickets)} por e-mail sem tag`, "nota", "E-mail entra no total de contatos, mas não recebe tag de motivo.") : "") : "";
+
+  // Visão geral — 4 colunas
+  const a1 = $("#area-motivos"), r1 = $("#motivos-rot");
+  if (a1) {
+    if (!pm) { a1.innerHTML = `<div class="vazio">Sem <code>cx_csat</code> na API.</div>`; if (r1) r1.innerHTML = ""; }
+    else {
+      if (r1) r1.innerHTML = cab(pm);
+      a1.innerHTML = `<div class="rolagem"><table class="motivos">
+        <thead><tr><th>Motivo</th><th class="num" title="Contatos do motivo no chat e fatia do total">Contatos</th><th class="num" title="Variação do volume contra o período anterior">Δ volume</th><th title="ruim | neutro | bom entre quem avaliou; número = fatia de bom (30+ avaliações)">CSAT</th></tr></thead>
+        <tbody>${linhas.map((l) => `<tr class="${atacar(l) ? "mot-atacar" : ""}"><td>${nome(l)}</td><td class="num">${contCel(l)}</td><td class="num">${dlHtml(l)}</td><td>${csatCel(l)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td>Todos os motivos</td><td class="num"><div class="cont-cel"><strong class="tabn">${fmtNum(pm.total.tickets)}</strong></div></td><td class="num">${estado.comparar && pm.anterior ? (cxChip("novos", pm.total.tickets, pm.anterior.tickets) || "") : ""}</td><td>${csatCel(pm.total)}</td></tr></tfoot>
+      </table></div>`;
+    }
+  }
+  // Aba Chat — Kai × pessoa por motivo
+  const a2 = $("#area-motivos-kai"), r2 = $("#motivos-kai-rot");
+  if (a2) {
+    if (!pm) a2.innerHTML = `<div class="vazio">Sem <code>cx_csat</code> na API.</div>`;
+    else {
+      if (r2) r2.innerHTML = cab(pm);
+      a2.innerHTML = `<div class="rolagem"><table class="motivos">
+        <thead><tr><th>Motivo</th><th class="num">Contatos</th><th class="num" title="Fatia dos contatos do motivo que o Kai fechou sozinho (transferência real)">Kai sozinho</th><th class="num" title="Quem avaliou ÷ contatos">Resp.</th><th class="num" title="CSAT bom quando o Kai fechou sozinho">bom · Kai</th><th class="num" title="CSAT bom quando passou por pessoa">bom · pessoa</th></tr></thead>
+        <tbody>${linhas.map((l) => `<tr><td>${nome(l)}</td><td class="num">${contCel(l)}</td><td class="num">${l.tickets ? `<span class="tabn">${fmtPct0(l.kaiShare)}</span>` : "—"}</td><td class="num"><span class="mini tabn">${fmtPct0(l.pctResposta)}</span></td><td class="num">${pctOuN(l.kaiBom, l.kaiAvaliadas)}</td><td class="num">${pctOuN(l.pessoaBom, l.pessoaAvaliadas)}</td></tr>`).join("")}</tbody>
+      </table></div>`;
+    }
+  }
 }
 
 // ---------- 3. CSAT em três níveis: distribuição, tendência semanal, Kai × pessoa ----------
@@ -450,10 +446,11 @@ function pintaRaNovo(d) {
 
 // ---------- interação dos blocos novos ----------
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("#seg-canal-motivo button");
+  const b = e.target.closest(".seg-canal button");
   if (!b) return;
-  document.querySelectorAll("#seg-canal-motivo button").forEach((x) => x.classList.toggle("ativo", x === b));
+  
   estado.canalMotivo = b.dataset.canal;
+  document.querySelectorAll(".seg-canal button").forEach((x) => x.classList.toggle("ativo", x.dataset.canal === estado.canalMotivo));
   if (estado.dados) pintaMotivos(estado.dados);
 });
 
@@ -483,27 +480,14 @@ function cxMarcasSerie() { return estado.marca === "todas" ? MARCAS.filter((m) =
 
 // Visão geral: contatos por 100 pedidos por dia (por marca) + contatos por semana por motivo
 function pintaTendencias(d) {
-  const el1 = $("#g-por100"), el2 = $("#g-motivos");
-  if (!el1 || !el2) return;
+  const el2 = $("#g-motivos"); if (!el2) return;
   const rows = d.cx_csat || [];
   const per = cxPeriodoComDado(rows, estado.marca);
-  if (per.vazio) { el1.innerHTML = el2.innerHTML = `<div class="vazio mini">Sem cx_csat na API.</div>`; return; }
-  const j = cxJanelaTendencia(per.f.fim, 12);
-  const marcas = cxMarcasSerie();
-  const s1 = serieSemanalPor100(rows, d.cx_pedidos, marcas, j.ini, j.fim);
-  const temPed = s1.series.some((s) => s.pontos.some((p) => p.pedidos));
-  const c1 = cxCortaVazioInicial(s1.semanas, s1.series.map((s) => s.pontos.map((p) => p.contatos)));
-  const corte = s1.semanas.length - c1.semanas.length;
-  $("#g-por100-rot").innerHTML = temPed ? cxTag("por semana · 12 semanas", "nota", "Semana começa na segunda. Dia a dia oscila com o fim de semana (poucos pedidos, mesma fila), por isso a razão é semanal.") : cxTag("sem pedidos", "alerta", "cx_pedido_dia vazia no período.");
-  el1.innerHTML = temPed ? cxgLinhas({
-    rotulosX: c1.semanas.map(fmtDia), fmt: (v) => fmtDec(v, 0), aria: "Contatos por 100 pedidos por semana",
-    series: s1.series.map((s) => ({ nome: ROTULOS[s.marca], cor: corHex(s.marca), pontos: s.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: p.pedidos ? `${fmtNum(p.contatos)} contatos · ${fmtNum(p.pedidos)} pedidos` : undefined, parcial: p.semana === cxSegunda(hojeRef()) })) })),
-    alvo: { y: CX_ALVOS.contatos_por_pedido.alvo, rot: "alvo 12" }, base: { y: CX_ALVOS.contatos_por_pedido.base, rot: "base 20" },
-  }) : `<div class="vazio mini">Sem pedidos coletados: a razão por pedido aparece quando a Shopify for lida.</div>`;
+  if (per.vazio) { el2.innerHTML = `<div class="vazio mini">Sem cx_csat na API.</div>`; return; }
   const j2 = cxJanelaTendencia(per.f.fim, 12);
   const s2 = serieSemanalMotivos(rows, { marca: per.f.marca, ini: j2.ini, fim: j2.fim });
   const c2 = cxCortaVazioInicial(s2.semanas, s2.series.map((s) => s.valores));
-  $("#g-motivos-rot").innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; a última pode estar parcial. cx_ticket começa em 16/07.");
+  const r = $("#g-motivos-rot"); if (r) r.innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; a última pode estar parcial.");
   el2.innerHTML = cxgBarras({ rotulosX: c2.semanas.map(fmtDia), fmt: fmtNum, aria: "Contatos por semana por motivo",
     series: s2.series.map((s, i) => ({ nome: s.nome, cor: CX_COR_GRUPO[s.k], valores: c2.colunas[i] })) });
 }
