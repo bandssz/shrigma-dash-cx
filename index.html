@@ -87,14 +87,22 @@
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
 
+  <!-- 0. Leitura rápida: o que está fora do alvo, em uma linha -->
+  <div id="leitura-rapida" class="leitura-rapida" hidden aria-label="Leitura rápida"></div>
+
   <!-- 1. Os seis números: contatos/pedido, WISMO, CSAT (3 níveis), Kai, RA resposta, RA solução -->
-  <div class="secao-rot">Os seis números <span id="seis-rot" class="cab-tags"></span></div>
+  <div class="secao-rot">Os seis números
+    <span id="seis-rot" class="cab-tags"></span>
+    <span class="legenda-st"><i class="st-dot st-bom"></i>no alvo <i class="st-dot st-atencao"></i>entre o alvo e a base (ago 1–15) <i class="st-dot st-ruim"></i>pior que a base</span>
+    <span class="secao-sub">os indicadores que a liderança e o CX analyst acompanham — cada cartão diz o alvo, a cor diz se está nele, o detalhe está no passar do mouse</span>
+  </div>
   <section class="seis" id="area-seis" aria-label="Os seis números"></section>
 
   <!-- 2. Motivo × CSAT: o corte que decide onde atacar -->
   <section class="painel" id="painel-motivos" aria-label="Motivo de contato e CSAT">
     <div class="painel-cab com-controle">
-      <h2>Por que o cliente chama — e como sai</h2>
+      <div class="cab-titulo"><h2>Por que o cliente chama — e como sai</h2>
+        <span class="painel-sub">onde atacar: motivo grande, subindo ou com CSAT baixo. Ordem por volume.</span></div>
       <span id="motivos-rot" class="mini cab-tags"></span>
       <div class="controles">
         <div class="seg-canal" role="group" aria-label="Canal" id="seg-canal-motivo">
@@ -109,14 +117,17 @@
 
   <!-- 3. CSAT em três níveis: distribuição, tendência semanal, Kai × pessoa -->
   <section class="painel" id="painel-csat" aria-label="CSAT em três níveis">
-    <div class="painel-cab"><h2>CSAT em três níveis</h2><span id="csat-rot" class="mini cab-tags"></span></div>
+    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT em três níveis</h2>
+        <span class="painel-sub">o cliente escolhe ruim / neutro / bom depois do atendimento no chat; o número é a fatia de “bom”</span></div>
+      <span id="csat-rot" class="mini cab-tags"></span></div>
     <div id="area-csat" class="csat-grade"></div>
   </section>
 
   <!-- 4. Kai × pessoa (desfecho por transferência) -->
   <section class="painel" id="painel-desfecho" aria-label="Desfecho dos tickets" hidden>
     <div class="painel-cab">
-      <h2>O que acontece com o ticket</h2>
+      <div class="cab-titulo"><h2>O que acontece com o ticket</h2>
+        <span class="painel-sub">de cada ticket com desfecho no chat: o Kai fechou sozinho, uma pessoa fechou, ou foi transferido e ninguém respondeu</span></div>
       <span class="mini" id="desfecho-rot"></span>
     </div>
     <div id="area-desfecho"></div>
@@ -133,7 +144,7 @@
   </section>
 
   <!-- 5. Operação: saldo, fila, 1ª resposta; evolução; marcas lado a lado -->
-  <div class="secao-rot">Operação <span class="mini">o que o time controla no dia</span></div>
+  <div class="secao-rot">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
   <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
 
   <section class="painel" id="painel-grafico" aria-label="Evolução">
@@ -154,7 +165,8 @@
   </section>
 
   <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
-    <div class="painel-cab"><h2>Marcas lado a lado</h2><span id="comp-rotulo" class="mini"></span></div>
+    <div class="painel-cab"><div class="cab-titulo"><h2>Marcas lado a lado</h2>
+        <span class="painel-sub">os mesmos números, uma linha por marca</span></div><span id="comp-rotulo" class="mini"></span></div>
     <div class="rolagem">
       <table class="comparativo" id="tabela-comparativo">
         <thead><tr>
@@ -175,7 +187,8 @@
   <div class="duas-colunas">
     <section class="painel" aria-label="Ranking de agentes">
       <div class="painel-cab">
-        <h2>Por agente</h2>
+        <div class="cab-titulo"><h2>Por agente</h2>
+          <span class="painel-sub">volume e tempos de quem atende; CSAT aqui é a média do Gleap, leia como tendência</span></div>
         <span id="ranking-rotulo" class="mini"></span>
       </div>
       <div class="rolagem"><table class="ranking" id="tabela-ranking">
@@ -200,7 +213,8 @@
   <!-- 7. Reputação pública -->
   <section class="grid-semanais">
     <div class="painel" aria-label="Reclame Aqui">
-      <div class="painel-cab"><h2>Reclame Aqui · rumo ao RA1000</h2><span id="ra-rotulo" class="mini cab-tags"></span></div>
+      <div class="painel-cab"><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
+          <span class="painel-sub">os cinco critérios do selo, e o que está aguardando resposta</span></div><span id="ra-rotulo" class="mini cab-tags"></span></div>
       <div id="area-ra"></div>
     </div>
     <div class="painel" aria-label="Comentários orgânicos">

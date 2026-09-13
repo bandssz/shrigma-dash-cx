@@ -13,7 +13,7 @@
 .six.ok { border-color: color-mix(in srgb, var(--bom) 35%, var(--borda)); }
 .six-tags { min-height: 18px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .six-tags .tag { margin-left: 0; }
-.six-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); }
+.six-rot { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--rotulo); white-space: nowrap; }
 .six-val { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin-top: 2px; }
 .six-curto { font-size: 26px; }
 .six-curto small, .csat-num small { font-size: 13px; font-weight: 600; color: var(--mudo); letter-spacing: 0; }
@@ -133,3 +133,44 @@ main > * { min-width: 0; }
   .metrica .rot { white-space: normal; }
   .seg button img { max-width: 96px; }
 }
+
+/* ---------- UX 13/09: status vs alvo, leitura rápida, subtítulos ---------- */
+.st-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--borda-forte); margin-right: 6px; vertical-align: 1px; }
+.st-bom .st-dot, .st-dot.st-bom { background: var(--bom); }
+.st-atencao .st-dot, .st-dot.st-atencao { background: #d9971e; }
+.st-ruim .st-dot, .st-dot.st-ruim { background: var(--ruim); }
+.six.st-bom { box-shadow: var(--sombra), inset 3px 0 0 var(--bom); }
+.six.st-atencao { box-shadow: var(--sombra), inset 3px 0 0 #d9971e; }
+.six.st-ruim { box-shadow: var(--sombra), inset 3px 0 0 var(--ruim); }
+.tag.alvo { background: var(--card-2); color: var(--mudo); border: 1px solid var(--borda); cursor: help; }
+.six-tags .tag.nota { opacity: .8; }
+.legenda-st { margin-left: auto; font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--mudo); display: inline-flex; gap: 4px 12px; flex-wrap: wrap; align-items: center; }
+.legenda-st .st-dot { margin-right: 4px; }
+.secao-sub, .painel-sub { display: block; font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--mudo); }
+.secao-rot .secao-sub { flex-basis: 100%; margin-top: -2px; }
+.cab-titulo { display: flex; flex-direction: column; gap: 3px; }
+.painel-cab { align-items: flex-start; }
+.painel-cab .mini.cab-tags { padding-top: 2px; }
+
+.leitura-rapida {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+  background: var(--card); border: 1px solid var(--borda); border-radius: 12px; padding: 10px 16px; box-shadow: var(--sombra);
+  font-size: 13px;
+}
+.lr-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--rotulo); }
+.lr-grupo { display: inline-flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.lr-tit { font-weight: 700; color: var(--texto); }
+.lr-item { display: inline-flex; align-items: center; gap: 4px; color: var(--mudo); white-space: nowrap; }
+.lr-item b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.lr-item small { color: var(--rotulo); }
+.lr-sem { margin-left: auto; }
+
+.cont-cel { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.cont-cel .mot-barra { margin: 0; width: 64px; }
+.csat-cel { display: inline-flex; align-items: center; gap: 8px; }
+.csat-cel .b3 { width: 96px; }
+tr.mot-atacar td { background: #fdf7ec; }
+tr.mot-atacar:hover td { background: #fbf0d9 !important; }
+.mot-tag { margin-left: 8px; font-size: 9.5px; }
+@media (max-width: 480px) { .cont-cel .mot-barra { display: none; } .csat-cel .b3 { width: 64px; } .legenda-st { display: none; } }
+@media (max-width: 480px) { .six-rot { white-space: normal; } }

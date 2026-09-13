@@ -8,7 +8,9 @@ const estado = {
   preset: (() => {
     const q = new URLSearchParams(location.search);
     const mapaAntigo = { dia: "hoje", "7d": "7d", "30d": "30d" };
-    return q.get("periodo") || mapaAntigo[q.get("janela")] || "hoje";
+    // Padrão: últimos 7 dias. "Hoje" é dia em andamento (ticket ainda sem nota e sem motivo) e
+    // distorce os seis números; a fila e o saldo de hoje continuam visíveis na Operação.
+    return q.get("periodo") || mapaAntigo[q.get("janela")] || "7d";
   })(), // hoje|ontem|7d|30d|mes|mes-1|custom
   ini: null, fim: null,          // resolvidos em resolverPeriodo()
   comparar: true,

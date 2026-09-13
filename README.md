@@ -85,6 +85,15 @@ Arquivos: `cx-metricas.js` (funções puras, testes em `tests/cx-metricas.test.c
 novos), `cx.css` (estilos novos, sem tocar em `styles.css`), `tests/cx-render.test.cjs` (DOM local com fixture sintética).
 Contrato da API e coletores: `BACKEND_REQUESTS.md` › R7.
 
+### Leitura em 10 segundos (UX de 13/09)
+
+- **Leitura rápida** no topo: uma linha com o que está *fora do alvo*, em *atenção* e *no alvo*, com valor e alvo entre parênteses.
+- **Status nos seis números**: ponto e filete colorido por cartão — verde dentro do alvo, âmbar entre o alvo e a linha de base
+  (ago 1–15), vermelho pior que a base. Alvos: contatos/100 pedidos < 12, WISMO < 4%, CSAT bom ≥ 80%, RA ≥ 90%. "Kai sozinho" não tem alvo declarado.
+- **Subtítulo em cada bloco** dizendo a pergunta que ele responde; o detalhe metodológico fica no `title` (passar o mouse).
+- **Motivos ordenados por volume**, com etiqueta **atacar** quando fatia ≥ 20% e (volume subindo > 10% ou CSAT bom < 50%).
+- **Período padrão: últimos 7 dias** ("hoje" é dia em andamento e distorce nota e motivo; fila e saldo de hoje continuam na Operação).
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

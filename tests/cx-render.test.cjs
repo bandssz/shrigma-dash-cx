@@ -85,16 +85,19 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   assert.deepEqual(x.txt('#area-kpis .kpi-rot').map((s) => s.split(' ·')[0]), ['Saldo', 'Fila no fim do período', '1ª resposta']);
 });
 
-test('motivo × CSAT: ordem fixa, e-mail fora com etiqueta, base curta vira contagem', async () => {
+test('motivo × CSAT: ordem por volume, e-mail fora com etiqueta, base curta vira contagem', async () => {
   const x = await boot();
   const motivos = x.txt('#area-motivos tbody .mot-nome');
-  assert.deepEqual(motivos, ['Cadê meu pedido', 'Pré-venda', 'Outros']);
+  // por volume: wismo 80/dia, outros 40/dia, pré-venda 30/dia
+  assert.deepEqual(motivos, ['Cadê meu pedido', 'Outros', 'Pré-venda']);
   assert.match(x.document.querySelector('#motivos-rot').textContent, /175 por e-mail sem tag/);
   const linhas = x.txt('#area-motivos tbody tr');
   // WISMO: Kai sozinho tem 4 avaliações por dia × 7 = 28 < 30 → "28 aval.", não percentual
   assert.match(linhas[0], /28 aval\./);
   // Pré-venda (só Fishermans): 100% bom com 210 avaliações
-  assert.match(linhas[1], /100%/);
+  assert.match(linhas[2], /100%/);
+  // WISMO tem 53% do chat e CSAT bom 55%, sem subir: não é 'atacar'; nada marcado nesta fixture
+  assert.equal(x.document.querySelectorAll('#area-motivos tr.mot-atacar').length, 0);
   // "outros" com 27% do chat (40 de 150 por dia): etiqueta de alerta de classificação no cabeçalho
   assert.match(x.document.querySelector('#motivos-rot').textContent, /“outros” 27%/);
   // trocar canal para Instagram: sem linha → tabela vazia mas sem tela branca
