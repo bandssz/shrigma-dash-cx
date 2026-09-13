@@ -275,7 +275,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
       <button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates WhatsApp</button>
       <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Fluxos</button>
-      <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Rascunhos locais</button>
+      <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar templates</button>
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
     <section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section>
@@ -329,12 +329,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260910-2"></script>
 <script src="growth-pix.js?v=20260912-1"></script>
-<script src="growth-control.js?v=20260910-2"></script>
-<script src="growth-drafts.js?v=20260911-1"></script>
+<script src="growth-control.js?v=20260913-builder1"></script>
+<script src="growth-drafts.js?v=20260913-builder1"></script>
 <script src="growth-templates-api.js?v=20260911-1"></script>
-<script src="growth-drafts-ui.js?v=20260911-1"></script>
+<script src="growth-drafts-ui.js?v=20260913-builder1"></script>
+<link rel="stylesheet" href="growth-builder.css?v=20260913-1">
+<script src="growth-builder.js?v=20260913-1"></script>
 <script src="growth-flows.js?v=20260911-1"></script>
-<script src="growth-flows-ui.js?v=20260911-1"></script>
+<script src="growth-flows-ui.js?v=20260913-builder1"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);

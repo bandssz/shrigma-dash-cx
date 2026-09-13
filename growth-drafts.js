@@ -65,6 +65,15 @@ const GR={
       if(r.categoria==='UTILITY'&&/desconto|cupom|oferta|promo|%\s*off/i.test(r.corpo||''))avisos.push('Corpo fala de desconto/oferta: a Meta tende a reclassificar Utility para Marketing (regra registrada em 07/09: Utility precisa citar a transação do cliente).');
     }
     if(r.canal==='email'){
+      if(!['fish','aristo'].includes(r.marca))erros.push('Criação de e-mail disponível para Fishermans e O Aristocrata.');
+      if(String(r.nome||'').length>120)erros.push('Nome de e-mail: até 120 caracteres.');
+      if(String(r.corpo||'').length>200000)erros.push('Corpo de e-mail: até 200 mil caracteres.');
+      if(/<\s*(script|iframe|object|embed|form|input|base|meta)\b|\bon[a-z]+\s*=|javascript\s*:|data\s*:/i.test(r.corpo||''))erros.push('Remova scripts, formulários e conteúdo interativo do e-mail.');
+      for(const text of [r.corpo,r.assunto,r.rodape]){
+        const rest=String(text||'').replace(/\{\{\s*\.Tx\.Data\.[a-zA-Z][a-zA-Z0-9_]{0,63}\s*\}\}/g,'');
+        if(rest.includes('{{')||rest.includes('}}'))erros.push('Use variáveis de e-mail como {{ .Tx.Data.first_name }}.');
+      }
+      if((r.botoes||[]).some(b=>b.tipo!=='url'||!/^https:\/\/[^\s<>"']+$/.test(b.valor||'')))erros.push('Botões de e-mail precisam de um link HTTPS.');
       if(!String(r.assunto||'').trim())erros.push('E-mail precisa de assunto.');
       else if(r.assunto.length>L.assunto)avisos.push(`Assunto com mais de ${L.assunto} caracteres; provedores cortam.`);
       if(Array.isArray(r.botoes)&&r.botoes.some(b=>b.tipo==='url'&&b.valor&&!/utm_/.test(b.valor)))avisos.push('Link sem UTM: a atribuição de receita por esta peça pode ficar incompleta. Confira os parâmetros da campanha antes do envio.');

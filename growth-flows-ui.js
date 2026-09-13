@@ -10,6 +10,7 @@ const GFU={
   badge(t,tone='neutral'){return `<span class="control-badge control-${GFU.e(tone)}">${GFU.e(t)}</span>`;},
   render(ctx){
     if(ctx)GFU.ctx=ctx;
+    if(typeof GB!=='undefined'&&GFU.ctx.api?.capabilities?.workflows?.editor===true){GB.render(GFU.ctx);return;}
     const root=typeof document!=='undefined'?document.querySelector('#control-fluxos'):null;if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
     const lista=GF.lista(GFU.ctx.api,GFU.ctx);

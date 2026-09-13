@@ -327,6 +327,10 @@ const GC={
     if(typeof document==='undefined')return;
     document.querySelectorAll('[data-control-tab]').forEach(button=>{const selected=button.dataset.controlTab===tab;button.classList.toggle('ativo',selected);button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;});
     document.querySelectorAll('[data-control-panel]').forEach(panel=>{panel.hidden=panel.dataset.controlPanel!==tab;});
+    if(tab==='fluxos'&&typeof GB!=='undefined'&&GB.state.loaded){
+      const f=GB.state.flows.find(x=>x.key===GB.state.selected);
+      if(f)for(const channel of new Set(f.available_steps.map(s=>s.channel)))GB.loadTemplates(f.brand,channel);
+    }
   },
   init(){
     if(typeof document==='undefined')return;

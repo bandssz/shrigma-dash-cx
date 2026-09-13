@@ -40,13 +40,13 @@ const GRU={
     const comServidor=caps.declaradas||todos.some(d=>GTA.situacao(d).estado!=='local');
     const lista=todos.filter(d=>GRU.state.filtro==='todos'||GTA.situacao(d).estado===GRU.state.filtro||(GRU.state.filtro==='sujo'&&GTA.situacao(d).sujo));
     const submetidos=todos.filter(d=>GTA.situacao(d).estado==='submetido');
-    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo">Novo rascunho</button>
+    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo">Criar template WhatsApp</button><button type="button" class="btn sec" id="drafts-novo-email">Criar template de e-mail</button>
       <label class="refresh-btn drafts-importar">Importar arquivo<input type="file" id="drafts-arquivo" accept="application/json,.json" hidden></label>
       ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no servidor</option></select></label>`:''}
       ${submetidos.length&&caps.endpoint?`<button type="button" class="refresh-btn" id="drafts-verificar"${GRU.state.ocupado?' disabled':''}>Verificar ${submetidos.length===1?'a submissão':`${submetidos.length} submissões`} agora</button>`:''}
       <span class="gt-contagem">${lista.length}${lista.length!==todos.length?` de ${todos.length}`:''} rascunho${todos.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" data-tone="${GRU.e(GRU.state.msgTone)}" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
     const listaHtml=lista.length?`<div class="draft-grid">${lista.map(d=>GRU.cartao(d,caps)).join('')}</div>`
-      :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Novo rascunho" ou importe um arquivo exportado em outro computador.'}</div>`;
+      :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Criar template" ou importe um arquivo exportado em outro computador.'}</div>`;
     root.innerHTML=GRU.escopo(caps)+ferramentas+(r?GRU.editor(r,caps):'')+listaHtml;
     GRU.bind(root,caps);
     GRU.agenda();
@@ -82,7 +82,7 @@ const GRU={
   editor(r,caps){
     const wa=r.canal==='whatsapp',vars=GR.variaveis(r.corpo),v=GR.valida(r),sit=GTA.situacao(r),s=sit.servidor,acoes=GTA.acoes(caps,r),oc=GRU.state.ocupado;
     const rot=GTA.rotuloEstado(r,{workflows:GRU.workflows(),mapped_in:s?.mapped_in});
-    const botoes=(r.botoes||[]).map((b,i)=>`<div class="draft-botao" data-botao="${i}"><select data-botao-campo="tipo" aria-label="Tipo do botão ${i+1}">${GRU.opts(GR.TIPOS_BOTAO,b.tipo)}</select>
+    const botoes=(r.botoes||[]).map((b,i)=>`<div class="draft-botao" data-botao="${i}"><select data-botao-campo="tipo" aria-label="Tipo do botão ${i+1}">${GRU.opts(wa?GR.TIPOS_BOTAO:GR.TIPOS_BOTAO.filter(([k])=>k==='url'),b.tipo)}</select>
       <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.texto)}" aria-label="Texto do botão ${i+1}">
       ${b.tipo==='quick_reply'?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
@@ -99,8 +99,8 @@ const GRU={
       :caps.semEndpoint?'<p class="mini draft-server-off">Capacidades declaradas sem endereço da API: envio ao servidor indisponível nesta consulta.</p>':'';
     return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
       <div class="draft-form"><div class="form">
-        <div class="campo"><label for="d-nome">${wa?'Nome do template':'Nome do rascunho'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Só para você achar depois.'}</span></div>
-        <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" data-campo="marca">${GRU.opts(GR.MARCAS,r.marca)}</select></div>
+        <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
+        <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" data-campo="marca">${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
         <div class="campo"><label for="d-canal">Canal</label><select id="d-canal" data-campo="canal">${GRU.opts(GR.CANAIS,r.canal)}</select></div>
         ${wa?`<div class="campo"><label for="d-idioma">Idioma</label><input type="text" id="d-idioma" data-campo="idioma" value="${GRU.e(r.idioma)}" placeholder="pt_BR"></div>
         <div class="campo"><label for="d-categoria">Categoria esperada</label><select id="d-categoria" data-campo="categoria">${GRU.opts(GR.CATEGORIAS,r.categoria)}</select><span class="ajuda">Utility deve tratar de uma solicitação ou transação específica, sem promoção. A Meta define a categoria final.</span></div>`
@@ -118,18 +118,23 @@ const GRU={
       <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini">Salvar grava no navegador. Não cadastra, não submete e não ativa nada.</span>'}</div>
       ${servidorBar}</section>`;
   },
-  contaCorpo(r){return `${String(r.corpo||'').length}${r.canal==='whatsapp'?` de ${GR.LIMITES.corpo}`:''} caracteres${r.canal==='whatsapp'?' · variáveis como {{1}}, {{2}}':''}`;},
+  contaCorpo(r){return `${String(r.corpo||'').length}${r.canal==='whatsapp'?` de ${GR.LIMITES.corpo}`:''} caracteres${r.canal==='whatsapp'?' · variáveis como {{1}}, {{2}}':' · Texto ou HTML. Variáveis como {{ .Tx.Data.first_name }}; use apenas os dados indicados na etapa do fluxo.'}`;},
   /* Confirmação textual (R5.4): resumo do que vai para o provedor + a palavra digitada. O botão só liga com a palavra certa. */
   confirmacao(r,provedor){
     const s=r.servidor||{},ok=GRU.state.confirmTexto.trim().toLowerCase()==='submeter',wa=r.canal==='whatsapp';
     return `<div class="draft-confirm" id="d-confirmar" role="dialog" aria-label="Confirmar submissão"><strong>Submeter à ${GRU.e(provedor)} o rascunho v${GRU.e(s.version)}</strong>
-      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Vai ao Listmonk como definição de template (o recurso exato — template transacional, não campanha — segue o contrato final, B01 da revisão). Nada é agendado nem disparado.'}</dd></dl>
+      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Cria um template transacional no Listmonk. Depois, selecione-o na etapa desejada e publique o fluxo.'}</dd></dl>
       ${s.avisos?.length?`<p class="draft-aviso">Avisos da validação: ${GRU.e(s.avisos.map(a=>a.mensagem||a.codigo).join(' · '))}</p>`:''}
       <label for="d-confirm-texto">Digite <code>submeter</code> para liberar o botão</label><div class="draft-confirm-row"><input type="text" id="d-confirm-texto" value="${GRU.e(GRU.state.confirmTexto)}" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="d-confirm-ok"${ok&&!GRU.state.ocupado?'':' disabled'}>${GRU.state.ocupado==='submeter'?'Submetendo…':'Submeter agora'}</button><button type="button" class="btn sec" id="d-confirm-cancel">Cancelar</button></div></div>`;
   },
   preview(r){
     const ex=r.exemplos||{},corpo=GR.preenche(r.corpo,ex);
-    if(r.canal==='email')return `<div class="draft-mail"><div class="draft-mail-assunto">${GRU.e(r.assunto||'(sem assunto)')}</div><div class="draft-mail-corpo">${GRU.e(corpo)||'<span class="mini">Corpo vazio.</span>'}</div>${(r.botoes||[]).filter(b=>b.texto).map(b=>`<span class="draft-mail-link">${GRU.e(b.texto)}</span>`).join('')}</div>`;
+    if(r.canal==='email'){
+      const html=/<[a-z][\s\S]*>/i.test(corpo)?corpo:GRU.e(corpo).replace(/\n/g,'<br>');
+      const brand=r.marca==='aristo'?'O Aristocrata':'Fishermans';
+      const source=`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https:;"><style>body{font:16px/1.6 Arial;color:#242424;padding:24px;background:#fff;margin:0;overflow-wrap:anywhere}img{max-width:100%;height:auto}h2{font-size:22px;color:${r.marca==='aristo'?'#3b1f13':'#414f27'}}a{color:#285d72}</style></head><body><h2>${brand}</h2>${html}${(r.botoes||[]).filter(b=>b.texto).map(b=>`<p>${GRU.e(b.texto)}</p>`).join('')}</body></html>`;
+      return `<div class="draft-mail"><div class="draft-mail-assunto">${GRU.e(r.assunto||'(sem assunto)')}</div><iframe title="Prévia do template de e-mail" sandbox="" referrerpolicy="no-referrer" srcdoc="${GRU.e(source)}" style="width:100%;height:440px;border:0;background:#fff"></iframe></div>`;
+    }
     return `<div class="draft-bubble">${r.cabecalho?`<div class="draft-bubble-head">${GRU.e(GR.preenche(r.cabecalho,ex))}</div>`:''}<div class="draft-bubble-body">${GRU.e(corpo)||'<span class="mini">Corpo vazio.</span>'}</div>${r.rodape?`<div class="draft-bubble-foot">${GRU.e(r.rodape)}</div>`:''}</div>
       ${(r.botoes||[]).filter(b=>b.texto).map(b=>`<div class="draft-bubble-btn">${b.tipo==='url'?'↗ ':b.tipo==='phone'?'☏ ':''}${GRU.e(b.texto)}</div>`).join('')}`;
   },
@@ -151,7 +156,8 @@ const GRU={
   aviso(msg,tone='ok'){GRU.state.msg=msg;GRU.state.msgTone=tone;},
   bind(root,caps){
     const $=s=>root.querySelector(s);
-    $('#drafts-novo')?.addEventListener('click',()=>GRU.abrir(GR.novo(),null));
+    $('#drafts-novo')?.addEventListener('click',()=>GRU.abrir(GR.novo({marca:['fish','aristo'].includes(GRU.ctx.marca)?GRU.ctx.marca:'fish'}),null));
+    $('#drafts-novo-email')?.addEventListener('click',()=>GRU.abrir(GR.novo({canal:'email',marca:['fish','aristo'].includes(GRU.ctx.marca)?GRU.ctx.marca:'fish'}),null));
     $('#drafts-chave')?.addEventListener('click',()=>{GRU.esqueceChave();if(GRU.chaveEscrita(true))GRU.aviso('Chave de escrita guardada neste navegador. Ela não é mostrada em lugar nenhum.');GRU.render();});
     const filtro=$('#drafts-filtro');if(filtro)filtro.onchange=()=>{GRU.state.filtro=filtro.value;GRU.render();};
     $('#drafts-limpar')?.addEventListener('click',()=>{GRU.state.filtro='todos';GRU.render();});
@@ -172,7 +178,7 @@ const GRU={
     root.querySelectorAll('[data-exemplo]').forEach(el=>el.oninput=()=>{r.exemplos=r.exemplos||{};r.exemplos[el.dataset.exemplo]=el.value;GRU.mudou(r);});
     root.querySelectorAll('[data-botao-campo]').forEach(el=>{const i=+el.closest('[data-botao]').dataset.botao;const h=()=>{r.botoes[i][el.dataset.botaoCampo]=el.value;if(el.dataset.botaoCampo==='tipo'){r.botoes[i].valor='';GRU.render();}else GRU.mudou(r);};el.oninput=h;el.onchange=h;});
     root.querySelectorAll('[data-botao-remover]').forEach(b=>b.onclick=()=>{r.botoes.splice(+b.dataset.botaoRemover,1);GRU.render();});
-    $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:'quick_reply',texto:'',valor:''});GRU.render();});
+    $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:r.canal==='email'?'url':'quick_reply',texto:'',valor:''});GRU.render();});
     $('#d-salvar')?.addEventListener('click',()=>{const v=GR.valida(r);if(v.erros.length){GRU.aviso('');GRU.atualizaPreview();document.getElementById('d-checagens')?.scrollIntoView?.({block:'nearest'});return;}
       const salvo=GR.guarda(r);if(salvo){GRU.fechar();GRU.aviso(`Rascunho "${salvo.nome}" salvo neste dispositivo às ${GRU.stamp(salvo.atualizado_em)}.`);}else GRU.aviso('Não foi possível gravar no navegador (armazenamento cheio ou bloqueado). Exporte o arquivo para não perder.','erro');GRU.render();});
     $('#d-cancelar')?.addEventListener('click',()=>{GRU.fechar();GRU.render();});
