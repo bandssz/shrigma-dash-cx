@@ -18,7 +18,8 @@
    "position": [
     0,
     0
-   ]
+   ],
+   "id": "4bc60a6b-7199-4e51-9475-20398a0180ea"
   },
   {
    "parameters": {
@@ -40,11 +41,12 @@
     240,
     0
    ],
-   "notes": "Para o backfill desde 13/07, executar manualmente uma vez com dias = 62. O upsert e idempotente."
+   "notes": "Para o backfill desde 13/07, executar manualmente uma vez com dias = 62. O upsert e idempotente.",
+   "id": "0da4822c-224c-4cfc-baba-4b1c442dd044"
   },
   {
    "parameters": {
-    "jsCode": "\n// Monta UMA consulta GraphQL por loja com ordersCount por dia (fuso -03:00), criados e pagos.\n// `dias` = quantos dias para tras (3 no diario; subir para 62 numa execucao manual de backfill).\nconst dias = Number($input.first().json.dias || 3);\nconst LOJAS = [\n  { marca: 'aristocrata', dominio: 'gwx20u-vw.myshopify.com' },\n  { marca: 'fishermans',  dominio: 'c0kfm1-qt.myshopify.com' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst out = [];\nfor (const loja of LOJAS) {\n  const campos = []; const mapa = [];\n  for (let i = 0; i < dias; i++) {\n    const d = new Date(sp); d.setUTCDate(d.getUTCDate() - i);\n    const dia = ymd(d); const prox = new Date(d); prox.setUTCDate(prox.getUTCDate() + 1);\n    const faixa = `created_at:>='${dia}T00:00:00-03:00' AND created_at:<'${ymd(prox)}T00:00:00-03:00'`;\n    campos.push(`t${i}: ordersCount(query: ${JSON.stringify(faixa)}) { count precision }`);\n    campos.push(`p${i}: ordersCount(query: ${JSON.stringify(faixa + ' AND financial_status:paid')}) { count precision }`);\n    mapa.push({ i, dia });\n  }\n  out.push({ json: { marca: loja.marca, url: `https://${loja.dominio}/admin/api/2025-07/graphql.json`,\n    body: { query: `{ ${campos.join(' ')} }` }, mapa } });\n}\nreturn out;\n"
+    "jsCode": "\n// Monta UMA consulta GraphQL por loja com ordersCount por dia (fuso -03:00), criados e pagos.\n// `dias` = quantos dias para tras (3 no diario; subir para 62 numa execucao manual de backfill).\nconst j0 = $input.first().json || {};\nconst dias = Number(j0.dias || (j0.query && j0.query.dias) || 3);\nconst LOJAS = [\n  { marca: 'aristocrata', dominio: 'gwx20u-vw.myshopify.com' },\n  { marca: 'fishermans',  dominio: 'c0kfm1-qt.myshopify.com' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst out = [];\n// Custo do GraphQL: ordersCount custa caro e a Shopify limita o custo por chamada.\n// Por isso cada item cobre no maximo 7 dias (14 ordersCount); o backfill vira varios itens por loja.\nconst LOTE = 7;\nfor (const loja of LOJAS) {\n  for (let ini = 0; ini < dias; ini += LOTE) {\n    const campos = []; const mapa = [];\n    for (let i = ini; i < Math.min(dias, ini + LOTE); i++) {\n      const d = new Date(sp); d.setUTCDate(d.getUTCDate() - i);\n      const dia = ymd(d); const prox = new Date(d); prox.setUTCDate(prox.getUTCDate() + 1);\n      const faixa = `created_at:>='${dia}T00:00:00-03:00' AND created_at:<'${ymd(prox)}T00:00:00-03:00'`;\n      campos.push(`t${i}: ordersCount(query: ${JSON.stringify(faixa)}) { count precision }`);\n      campos.push(`p${i}: ordersCount(query: ${JSON.stringify(faixa + ' AND financial_status:paid')}) { count precision }`);\n      mapa.push({ i, dia });\n    }\n    out.push({ json: { marca: loja.marca, url: `https://${loja.dominio}/admin/api/2025-07/graphql.json`,\n      body: { query: `{ ${campos.join(' ')} }` }, mapa } });\n  }\n}\nreturn out;\n"
    },
    "name": "Monta GraphQL",
    "type": "n8n-nodes-base.code",
@@ -52,7 +54,8 @@
    "position": [
     480,
     0
-   ]
+   ],
+   "id": "74224b61-fdc6-4859-bffc-e452c1af9ba8"
   },
   {
    "parameters": {
@@ -110,18 +113,26 @@
    "position": [
     720,
     0
-   ]
+   ],
+   "id": "fbc557c5-311e-4e48-b19e-d2286fe18987"
   },
   {
    "parameters": {
     "method": "POST",
     "url": "={{ $json.url }}",
-    "authentication": "predefinedCredentialType",
-    "nodeCredentialType": "shopifyAccessTokenApi",
+    "authentication": "genericCredentialType",
     "sendBody": true,
     "specifyBody": "json",
     "jsonBody": "={{ JSON.stringify($json.body) }}",
-    "options": {}
+    "options": {
+     "batching": {
+      "batch": {
+       "batchSize": 1,
+       "batchInterval": 600
+      }
+     }
+    },
+    "genericAuthType": "httpHeaderAuth"
    },
    "name": "Shopify · Aristocrata",
    "type": "n8n-nodes-base.httpRequest",
@@ -131,23 +142,31 @@
     -110
    ],
    "credentials": {
-    "shopifyAccessTokenApi": {
+    "httpHeaderAuth": {
      "id": "CkOtCPF6b7FIyTjx",
-     "name": "Shopify Admin — Aristocrata"
+     "name": "Shopify Admin — Aristocrata (header)"
     }
    },
-   "notes": "Se a credencial nao for do tipo Access Token, trocar para Header Auth com X-Shopify-Access-Token. Escopo read_orders basta."
+   "notes": "Credencial Header Auth existente (X-Shopify-Access-Token). Escopo read_orders basta.",
+   "id": "b2807423-d414-47c3-ab00-5c2ad44c61bb"
   },
   {
    "parameters": {
     "method": "POST",
     "url": "={{ $json.url }}",
-    "authentication": "predefinedCredentialType",
-    "nodeCredentialType": "shopifyAccessTokenApi",
+    "authentication": "genericCredentialType",
     "sendBody": true,
     "specifyBody": "json",
     "jsonBody": "={{ JSON.stringify($json.body) }}",
-    "options": {}
+    "options": {
+     "batching": {
+      "batch": {
+       "batchSize": 1,
+       "batchInterval": 600
+      }
+     }
+    },
+    "genericAuthType": "httpHeaderAuth"
    },
    "name": "Shopify · Fishermans",
    "type": "n8n-nodes-base.httpRequest",
@@ -157,16 +176,17 @@
     110
    ],
    "credentials": {
-    "shopifyAccessTokenApi": {
+    "httpHeaderAuth": {
      "id": "Xv9XgNyJ1wyJFCTJ",
-     "name": "Shopify Admin — Fishermans"
+     "name": "Shopify Admin — Fishermans (header)"
     }
    },
-   "notes": "Se a credencial nao for do tipo Access Token, trocar para Header Auth com X-Shopify-Access-Token. Escopo read_orders basta."
+   "notes": "Credencial Header Auth existente (X-Shopify-Access-Token). Escopo read_orders basta.",
+   "id": "56702271-f306-403f-8478-0d8f561970fb"
   },
   {
    "parameters": {
-    "jsCode": "\n// Transforma a resposta em linhas (marca, dia, pedidos, pedidos_pagos) e num upsert.\nconst q = (v) => v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : \"'\" + String(v).replace(/'/g, \"''\") + \"'\";\nconst vals = [];\nfor (const item of $input.all()) {\n  const meta = $('Monta GraphQL').itemMatching($input.all().indexOf(item)).json;\n  const data = (item.json.data) || {};\n  if (item.json.errors) throw new Error('Shopify GraphQL: ' + JSON.stringify(item.json.errors).slice(0, 300));\n  for (const { i, dia } of meta.mapa) {\n    const t = data['t' + i], p = data['p' + i];\n    if (!t) continue;                      // sem resposta para o dia: nao grava (NULL, nunca 0)\n    vals.push('(' + [meta.marca, dia, t.count, p ? p.count : null].map(q).join(',') + ')');\n  }\n}\nif (!vals.length) return [{ json: { sql: 'SELECT 0 AS nada' } }];\nreturn [{ json: { sql: `INSERT INTO cx_pedido_dia (marca, dia, pedidos, pedidos_pagos) VALUES ${vals.join(',')}\n  ON CONFLICT (marca, dia) DO UPDATE SET pedidos=EXCLUDED.pedidos, pedidos_pagos=EXCLUDED.pedidos_pagos, coletado_em=now()`, linhas: vals.length } }];\n"
+    "jsCode": "\n// Transforma a resposta em linhas (marca, dia, pedidos, pedidos_pagos) e num upsert.\nconst q = (v) => v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : \"'\" + String(v).replace(/'/g, \"''\") + \"'\";\nconst vals = [];\nfor (const item of $input.all()) {\n  const meta = $('Monta GraphQL').itemMatching($input.all().indexOf(item)).json; // pairedItem: cada resposta acha o seu lote\n  const data = (item.json.data) || {};\n  if (item.json.errors) throw new Error('Shopify GraphQL: ' + JSON.stringify(item.json.errors).slice(0, 300));\n  for (const { i, dia } of meta.mapa) {\n    const t = data['t' + i], p = data['p' + i];\n    if (!t) continue;                      // sem resposta para o dia: nao grava (NULL, nunca 0)\n    vals.push('(' + [meta.marca, dia, t.count, p ? p.count : null].map(q).join(',') + ')');\n  }\n}\nif (!vals.length) return [{ json: { sql: 'SELECT 0 AS nada' } }];\nreturn [{ json: { sql: `INSERT INTO cx_pedido_dia (marca, dia, pedidos, pedidos_pagos) VALUES ${vals.join(',')}\n  ON CONFLICT (marca, dia) DO UPDATE SET pedidos=EXCLUDED.pedidos, pedidos_pagos=EXCLUDED.pedidos_pagos, coletado_em=now()`, linhas: vals.length } }];\n"
    },
    "name": "Monta upsert",
    "type": "n8n-nodes-base.code",
@@ -174,7 +194,8 @@
    "position": [
     1240,
     0
-   ]
+   ],
+   "id": "5608f7c9-b6b6-4fbb-a326-39d29c912326"
   },
   {
    "parameters": {
@@ -194,7 +215,25 @@
      "id": "uALf0AHnEuLCgOtx",
      "name": "Postgres account 2"
     }
-   }
+   },
+   "id": "7cf4cf23-667a-4544-8357-9ff50be17546"
+  },
+  {
+   "parameters": {
+    "httpMethod": "GET",
+    "path": "<definir-no-n8n>",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Forçar (GET)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    240,
+    -220
+   ],
+   "notes": "Execucao manual: GET /webhook/cx-pedidos-forcar-795c69ab2d12 (?modo=noturno ou ?dias=62). Responde na hora; ver resultado em Executions.",
+   "id": "555b0487-abec-44ff-a1cb-32b2847a325c"
   }
  ],
  "connections": {
@@ -281,10 +320,23 @@
      }
     ]
    ]
+  },
+  "Forçar (GET)": {
+   "main": [
+    [
+     {
+      "node": "Monta GraphQL",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
   }
  },
  "settings": {
   "executionOrder": "v1",
-  "timezone": "America/Sao_Paulo"
+  "timezone": "America/Sao_Paulo",
+  "callerPolicy": "workflowsFromSameOwner",
+  "availableInMCP": false
  }
 }

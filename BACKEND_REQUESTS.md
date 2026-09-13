@@ -321,6 +321,10 @@ O front tolera ausência de qualquer um dos três: sem `cx_csat` os seis número
 segue; sem `cx_pedidos` os cartões 1 e 2 degradam para contatos/dia e fatia WISMO com etiqueta "sem pedidos"; sem `cx_ra`
 os cartões 5 e 6 mostram traço com etiqueta "sem coleta". Nada vira zero.
 
+**Estado em 13/09 (11h30 BRT):** R7.3 e R7.4 **em produção** (`gWr4rt2qpESG89Tz`, `zpSak3vkYTd7DYMW`), primeira execução verificada
+no banco; `cx_pedido_dia` com backfill desde 14/07. R7.5 mudou de forma: o fetch direto toma 403 (anti-bot) — entra pelo
+bookmarklet `n8n/ra-bookmarklet.js` → receptor `Ki5WNbHHJQ4mmVb4` → `cx_ra_dia`. Leitura de 13/09 já gravada à mão. Detalhes em `n8n/README.md`.
+
 ### R7.3 — Coletor `cx_ticket` (novo workflow n8n, credencial Gleap por marca)
 
 Duas cadências, mesma lógica de upsert por `ticket_id`:

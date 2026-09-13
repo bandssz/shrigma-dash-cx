@@ -18,7 +18,8 @@
    "position": [
     0,
     0
-   ]
+   ],
+   "id": "e229514a-c55a-4c0e-9f4b-715189a4106e"
   },
   {
    "parameters": {
@@ -37,7 +38,8 @@
    "position": [
     0,
     220
-   ]
+   ],
+   "id": "eb04d8b5-785b-483a-9e4e-db75f7b54edd"
   },
   {
    "parameters": {
@@ -58,7 +60,8 @@
    "position": [
     240,
     0
-   ]
+   ],
+   "id": "bd1b8aac-b77f-4409-8489-355ddbf232e5"
   },
   {
    "parameters": {
@@ -79,11 +82,12 @@
    "position": [
     240,
     220
-   ]
+   ],
+   "id": "fb96775f-dbd6-41f9-801b-68a9ea9133da"
   },
   {
    "parameters": {
-    "jsCode": "\n// Monta as consultas do Gleap. Uma linha por (marca, consulta). O operador vai no NOME do\n// parametro (createdAt%3E = \"createdAt >=\"). Os \":\" da data NAO podem ser percent-encoded\n// (409 CastError), por isso a URL e montada aqui e nao em \"Query Parameters\".\nconst modo = $input.first().json.modo || 'hoje';\nconst MARCAS = [\n  { marca: 'aristocrata', projeto: '6970d219368e0dea0fc91c42' },\n  { marca: 'fishermans',  projeto: '696f91650c6a7fc35f38be62' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);            // agora em Sao Paulo\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst hojeSP = ymd(sp);\nconst inicio = new Date(sp); inicio.setUTCDate(inicio.getUTCDate() - (modo === 'noturno' ? 45 : 0));\nconst desde = ymd(inicio) + 'T03:00:00.000Z';                // 00:00 SP em UTC\nconst base = 'https://api.gleap.io/v3/tickets?limit=500&createdAt%3E=' + desde;\nconst out = [];\nfor (const m of MARCAS) {\n  out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'lista', rating: null, url: base } });\n  if (modo === 'noturno') for (const r of [2, 6, 10])\n    out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'rating', rating: r, url: base + '&conversationRating=' + r } });\n}\nreturn out;\n"
+    "jsCode": "\n// Monta as consultas do Gleap. Uma linha por (marca, consulta). O operador vai no NOME do\n// parametro (createdAt%3E = \"createdAt >=\"). Os \":\" da data NAO podem ser percent-encoded\n// (409 CastError), por isso a URL e montada aqui e nao em \"Query Parameters\".\nconst j0 = $input.first().json || {};\nconst modo = j0.modo || (j0.query && j0.query.modo) || 'hoje';\nconst MARCAS = [\n  { marca: 'aristocrata', projeto: '6970d219368e0dea0fc91c42' },\n  { marca: 'fishermans',  projeto: '696f91650c6a7fc35f38be62' },\n];\nconst sp = new Date(Date.now() - 3 * 3600 * 1000);            // agora em Sao Paulo\nconst ymd = (d) => d.toISOString().slice(0, 10);\nconst hojeSP = ymd(sp);\nconst inicio = new Date(sp); inicio.setUTCDate(inicio.getUTCDate() - (modo === 'noturno' ? 45 : 0));\nconst desde = ymd(inicio) + 'T03:00:00.000Z';                // 00:00 SP em UTC\nconst base = 'https://api.gleap.io/v3/tickets?limit=500&createdAt%3E=' + desde;\nconst out = [];\nfor (const m of MARCAS) {\n  out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'lista', rating: null, url: base } });\n  if (modo === 'noturno') for (const r of [2, 6, 10])\n    out.push({ json: { marca: m.marca, projeto: m.projeto, tipo: 'rating', rating: r, url: base + '&conversationRating=' + r } });\n}\nreturn out;\n"
    },
    "name": "Monta consultas",
    "type": "n8n-nodes-base.code",
@@ -91,7 +95,8 @@
    "position": [
     480,
     110
-   ]
+   ],
+   "id": "e34c7be5-d652-4b7c-bfcf-4cf41681b9a0"
   },
   {
    "parameters": {
@@ -149,7 +154,8 @@
    "position": [
     720,
     110
-   ]
+   ],
+   "id": "b491031f-1a14-4969-b2c8-cae1846454a9"
   },
   {
    "parameters": {
@@ -201,10 +207,12 @@
    ],
    "credentials": {
     "httpHeaderAuth": {
+     "id": "14wgbRC7dvtvMCZF",
      "name": "Gleap · Aristocrata (Bearer)"
     }
    },
-   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket."
+   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket.",
+   "id": "9e50deef-424b-46dc-b0a5-60de799d497f"
   },
   {
    "parameters": {
@@ -256,10 +264,12 @@
    ],
    "credentials": {
     "httpHeaderAuth": {
+     "id": "tTiPiZLO71IAjjyp",
      "name": "Gleap · Fishermans (Bearer)"
     }
    },
-   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket."
+   "notes": "Credencial Header Auth: nome 'Authorization', valor 'Bearer <secret api key do Gleap>' (chave de service account, API v3). O header Project vai no proprio no. Rate limit 200 req/min nos endpoints de ticket.",
+   "id": "699bc6a8-4f51-46b8-9c7e-ae7c4dedb7f0"
   },
   {
    "parameters": {
@@ -273,7 +283,8 @@
     1220,
     110
    ],
-   "notes": "Roda por item: cada pagina do Gleap herda (via pairedItem) a consulta que a gerou."
+   "notes": "Roda por item: cada pagina do Gleap herda (via pairedItem) a consulta que a gerou.",
+   "id": "cb89aac0-fb85-4d5e-aa8b-8a839b5de025"
   },
   {
    "parameters": {
@@ -285,7 +296,8 @@
    "position": [
     1460,
     110
-   ]
+   ],
+   "id": "3b3edd3e-f693-4223-a46a-3c0887fa90fd"
   },
   {
    "parameters": {
@@ -297,7 +309,8 @@
    "position": [
     1700,
     110
-   ]
+   ],
+   "id": "5d69e16c-c425-4b14-9de1-95ac8dc2d1c3"
   },
   {
    "parameters": {
@@ -317,7 +330,25 @@
      "id": "uALf0AHnEuLCgOtx",
      "name": "Postgres account 2"
     }
-   }
+   },
+   "id": "9c4de606-824c-44e6-955f-9defd41debf5"
+  },
+  {
+   "parameters": {
+    "httpMethod": "GET",
+    "path": "<definir-no-n8n>",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Forçar (GET)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    240,
+    -220
+   ],
+   "notes": "Execucao manual: GET /webhook/cx-ticket-forcar-8f6a69ef19f4 (?modo=noturno ou ?dias=62). Responde na hora; ver resultado em Executions.",
+   "id": "a8ba3b88-3209-4c18-8928-0b09c6f19bca"
   }
  ],
  "connections": {
@@ -448,10 +479,23 @@
      }
     ]
    ]
+  },
+  "Forçar (GET)": {
+   "main": [
+    [
+     {
+      "node": "Monta consultas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
   }
  },
  "settings": {
   "executionOrder": "v1",
-  "timezone": "America/Sao_Paulo"
+  "timezone": "America/Sao_Paulo",
+  "callerPolicy": "workflowsFromSameOwner",
+  "availableInMCP": false
  }
 }

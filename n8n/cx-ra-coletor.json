@@ -18,7 +18,8 @@
    "position": [
     0,
     0
-   ]
+   ],
+   "id": "a0a8f33d-cd82-40c0-a817-fe70c7f65b93"
   },
   {
    "parameters": {
@@ -30,7 +31,8 @@
    "position": [
     240,
     0
-   ]
+   ],
+   "id": "d16feb47-b854-4708-876b-316307e1c729"
   },
   {
    "parameters": {
@@ -68,7 +70,8 @@
     480,
     0
    ],
-   "notes": "Em 12/09 curl simples tomou 403 (anti-bot). Se falhar aqui tambem, o fallback e o bookmarklet semanal gravando em cx_ra_dia com fonte='bookmarklet'."
+   "notes": "Em 12/09 curl simples tomou 403 (anti-bot). Se falhar aqui tambem, o fallback e o bookmarklet semanal gravando em cx_ra_dia com fonte='bookmarklet'.",
+   "id": "a443c93e-5b90-4a9c-9ce9-64abf781e6a8"
   },
   {
    "parameters": {
@@ -81,7 +84,8 @@
    "position": [
     720,
     0
-   ]
+   ],
+   "id": "084d8757-ce51-49b1-a586-62bb4145b39d"
   },
   {
    "parameters": {
@@ -93,7 +97,8 @@
    "position": [
     960,
     0
-   ]
+   ],
+   "id": "e2ea89ad-434c-4b24-ba7e-19839dcc8532"
   },
   {
    "parameters": {
@@ -113,7 +118,25 @@
      "id": "uALf0AHnEuLCgOtx",
      "name": "Postgres account 2"
     }
-   }
+   },
+   "id": "701c1f19-f19b-447c-aee4-e627d8ff75fc"
+  },
+  {
+   "parameters": {
+    "httpMethod": "GET",
+    "path": "<definir-no-n8n>",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Forçar (GET)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    200
+   ],
+   "notes": "Execucao manual: GET /webhook/cx-ra-forcar-03978f05d04d",
+   "id": "970e30c6-aa55-452d-97ed-78e4197cdd73"
   }
  ],
  "connections": {
@@ -171,10 +194,23 @@
      }
     ]
    ]
+  },
+  "Forçar (GET)": {
+   "main": [
+    [
+     {
+      "node": "Marcas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
   }
  },
  "settings": {
   "executionOrder": "v1",
-  "timezone": "America/Sao_Paulo"
+  "timezone": "America/Sao_Paulo",
+  "callerPolicy": "workflowsFromSameOwner",
+  "availableInMCP": false
  }
 }

@@ -1,0 +1,88 @@
+{
+ "name": "CX — RA · Bookmarklet metatags→cx_ra_dia (POST)",
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "cx-ra-metatags",
+    "responseMode": "onReceived",
+    "options": {
+     "allowedOrigins": "*"
+    }
+   },
+   "name": "POST metatags",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "webhookId": "c55ea5ee-1569-488d-8abe-e2093e1c901e",
+   "id": "a0175286-9781-4dc3-ba92-c3e465ac7ab7"
+  },
+  {
+   "parameters": {
+    "jsCode": "\n// Recebe o POST do bookmarklet aberto NA PAGINA da marca no Reclame AQUI (um navegador de\n// verdade passa pelo anti-bot; curl e n8n tomam 403). Corpo: {marca, ra:{...}} em text/plain.\n// A chave vai na query (?k=) e e validada NO SQL contra crm_dash_chave (painel cx ou todos, ativa):\n// chave errada = nada gravado, sem erro (o bookmarklet nao le a resposta).\nlet body = $json.body;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }\nelse if (body && typeof body === 'object' && !body.marca) {\n  const ks = Object.keys(body);\n  if (ks.length && ks[0].trim().startsWith('{')) { try { body = JSON.parse(ks[0] + (body[ks[0]] || '')); } catch (e) { body = {}; } }\n}\nconst k = String(($json.query || {}).k || '').trim();\nconst MARCAS = ['aristocrata', 'fishermans', 'olivas'];\nconst marca = MARCAS.includes(body.marca) ? body.marca : null;\nconst ra = body.ra || {};\nif (!marca || !k) return [{ json: { sql: 'SELECT 0 AS ignorado' } }];\nconst num = (v) => { if (v === null || v === undefined || v === '') return 'NULL'; const n = Number(String(v).replace(',', '.')); return Number.isNaN(n) ? 'NULL' : String(n); };\nconst txt = (v) => v === null || v === undefined ? 'NULL' : \"'\" + String(v).slice(0, 40).replace(/'/g, \"''\") + \"'\";\nconst vals = [ \"'\" + marca + \"'\", num(ra.nota), num(ra.resposta_pct), num(ra.solucao_pct), num(ra.voltaria_pct), num(ra.nota_consumidor),\n  num(ra.reclamacoes), num(ra.avaliacoes), num(ra.aguardando), num(ra.tempo_resposta_dias), txt(ra.status_ra), \"'bookmarklet'\" ].join(',');\nreturn [{ json: { sql: `INSERT INTO cx_ra_dia (marca, nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor, reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, status_ra, fonte, dia)\n  SELECT v.marca, v.nota::numeric, v.resposta_pct::numeric, v.solucao_pct::numeric, v.voltaria_pct::numeric, v.nota_consumidor::numeric,\n         v.reclamacoes::int, v.avaliacoes::int, v.aguardando::int, v.tempo_resposta_dias::numeric, v.status_ra::text, v.fonte::text, (now() AT TIME ZONE 'America/Sao_Paulo')::date\n  FROM (VALUES (${vals})) AS v(marca, nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor, reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, status_ra, fonte)\n  WHERE EXISTS (SELECT 1 FROM crm_dash_chave WHERE chave = ${\"'\" + k.replace(/'/g, \"''\") + \"'\"} AND ativo AND painel IN ('cx','todos'))\n  ON CONFLICT (marca, dia) DO UPDATE SET nota=EXCLUDED.nota, resposta_pct=EXCLUDED.resposta_pct, solucao_pct=EXCLUDED.solucao_pct,\n    voltaria_pct=EXCLUDED.voltaria_pct, nota_consumidor=EXCLUDED.nota_consumidor, reclamacoes=EXCLUDED.reclamacoes, avaliacoes=EXCLUDED.avaliacoes,\n    aguardando=EXCLUDED.aguardando, tempo_resposta_dias=EXCLUDED.tempo_resposta_dias, status_ra=EXCLUDED.status_ra, fonte=EXCLUDED.fonte, coletado_em=now()` } }];\n"
+   },
+   "name": "Monta upsert (chave validada no SQL)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    260,
+    0
+   ],
+   "id": "91c639b3-6e1b-4a0b-9b85-989fe12c6a08"
+  },
+  {
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "={{ $json.sql }}",
+    "options": {}
+   },
+   "name": "Grava cx_ra_dia (Postgres)",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    520,
+    0
+   ],
+   "credentials": {
+    "postgres": {
+     "id": "uALf0AHnEuLCgOtx",
+     "name": "Postgres account 2"
+    }
+   },
+   "id": "6b8f6adb-aadd-436a-ad9b-8bb69f357380"
+  }
+ ],
+ "connections": {
+  "POST metatags": {
+   "main": [
+    [
+     {
+      "node": "Monta upsert (chave validada no SQL)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Monta upsert (chave validada no SQL)": {
+   "main": [
+    [
+     {
+      "node": "Grava cx_ra_dia (Postgres)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "America/Sao_Paulo",
+  "callerPolicy": "workflowsFromSameOwner",
+  "availableInMCP": false
+ }
+}
