@@ -1,6 +1,6 @@
 # Editor de fluxos e templates
 
-O Growth oferece edição operacional em **Réguas → Fluxos**, com criação em **Criar templates**.
+O Growth oferece edição operacional em **Automações → Fluxos**, com criação em **Criar templates**.
 
 Escopo inicial: Fishermans e O Aristocrata. São 20 jornadas e 46 etapas, incluindo variantes de WhatsApp e e-mail. Polpa está em pausa; Olivas será replicada depois.
 
