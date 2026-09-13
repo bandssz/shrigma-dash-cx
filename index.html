@@ -86,10 +86,18 @@
 
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
-  <nav class="ancoras" aria-label="Ir para"><a href="#area-seis">Números</a><a href="#painel-motivos">Motivos</a><a href="#painel-csat">CSAT e Kai</a><a href="#sec-operacao">Operação</a><a href="#painel-agentes">Agentes</a><a href="#sec-reputacao">Reputação</a></nav>
 
   <!-- 0. Leitura rápida: o que está fora do alvo, em uma linha -->
   <div id="leitura-rapida" class="leitura-rapida" hidden aria-label="Leitura rápida"></div>
+
+  <nav class="abas-cx" role="tablist" aria-label="Seções do painel" id="abas-cx">
+    <button role="tab" data-aba="geral" class="ativo" title="Os seis números e os motivos de contato — a camada de decisão">Visão geral</button>
+    <button role="tab" data-aba="csat" title="CSAT em três níveis, série semanal, Kai × pessoa e desfecho do ticket">CSAT e Kai</button>
+    <button role="tab" data-aba="operacao" title="Saldo, fila, 1ª resposta, marcas lado a lado, agentes e evolução">Operação</button>
+    <button role="tab" data-aba="reputacao" title="Reclame Aqui, NPS pós-entrega e comentários nas redes">Reputação</button>
+  </nav>
+
+  <div class="aba-pane" data-aba="geral">
 
   <!-- 1. Os seis números: contatos/pedido, WISMO, CSAT (3 níveis), Kai, RA resposta, RA solução -->
   <div class="secao-rot">Os seis números
@@ -116,6 +124,8 @@
     <div id="area-motivos"></div>
   </section>
 
+  </div><!-- /geral -->
+  <div class="aba-pane" data-aba="csat" hidden>
   <!-- 3. CSAT e desfecho no chat: distribuição, série semanal, Kai × pessoa; desfecho do ticket como faixa + detalhe -->
   <section class="painel" id="painel-csat" aria-label="CSAT e desfecho no chat">
     <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat</h2>
@@ -136,7 +146,9 @@
     </details>
   </section>
 
-  <!-- 4. Operação: saldo, fila, 1ª resposta; agentes; evolução recolhida; marcas lado a lado -->
+  </div><!-- /csat -->
+  <div class="aba-pane" data-aba="operacao" hidden>
+  <!-- 4. Operação: saldo, fila, 1ª resposta; marcas lado a lado; agentes; evolução -->
   <div class="secao-rot" id="sec-operacao">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
   <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
 
@@ -175,7 +187,7 @@
     </table></div>
   </section>
 
-  <details class="painel dobra-painel" id="painel-grafico" aria-label="Evolução">
+  <details class="painel dobra-painel" id="painel-grafico" aria-label="Evolução" open>
     <summary><div class="cab-titulo"><h2>Evolução</h2><span class="painel-sub">novos, resolvidos ou fila por dia, contra o período anterior</span></div></summary>
     <div class="grafico-controles dobra-controles">
       <select id="sel-metrica" aria-label="Métrica do gráfico">
@@ -190,28 +202,31 @@
     <div id="grafico-legenda" class="grafico-legenda"></div>
   </details>
 
-  <!-- 5. Reputação e voz do cliente: recolhidos por padrão, com resumo na linha do título -->
-  <div class="secao-rot" id="sec-reputacao">Reputação e voz do cliente <span class="secao-sub">Reclame Aqui abre sozinho quando está fora do alvo; NPS e comentários abrem no clique</span></div>
+  </div><!-- /operacao -->
+  <div class="aba-pane" data-aba="reputacao" hidden>
+  <!-- 5. Reputação e voz do cliente -->
+  <div class="secao-rot" id="sec-reputacao">Reputação e voz do cliente <span class="secao-sub">o que o cliente diz fora do chat: Reclame Aqui, nota pós-entrega e comentários nas redes</span></div>
 
-  <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui">
+  <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui" open>
     <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
         <span class="painel-sub">os cinco critérios do selo, e o que está aguardando resposta</span></div><span id="ra-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-ra"></div>
   </details>
 
-  <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega">
+  <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega" open>
     <summary><div class="cab-titulo"><h2>NPS pós-entrega</h2>
         <span class="painel-sub">nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento</span></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-nps" class="grid-nps"></div>
     <div id="area-frustracoes"></div>
   </details>
 
-  <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos">
+  <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos" open>
     <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook</h2>
         <span class="painel-sub">o que ficou sem resposta da marca e o sentimento dos comentários</span></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-social"></div>
     <div id="area-social-urgentes"></div>
   </details>
+  </div><!-- /reputacao -->
 </main>
 
 <footer class="rodape">

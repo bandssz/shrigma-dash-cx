@@ -36,7 +36,7 @@ function fixture(o = {}) {
   };
 }
 
-async function boot(payload = fixture(), query = '?periodo=7d') {
+async function boot(payload = fixture(), query = '?periodo=7d', hash = '') {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const { document, window } = parseHTML(html);
   window.HTMLElement.prototype.getBoundingClientRect = function () { return { top: 0, left: 0, width: 1200, height: 100 }; };
@@ -47,7 +47,7 @@ async function boot(payload = fixture(), query = '?periodo=7d') {
   const context = vm.createContext({ document, window, Date: FixedDate, Intl, URL, URLSearchParams, console,
     MutationObserver: class { observe() {} }, Image: class { set src(x) {} },
     localStorage: { getItem: (k) => store.get(k) || null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) },
-    location: { search: query, hash: '' }, addEventListener: () => {}, setInterval: () => 0, clearInterval: () => {}, setTimeout, clearTimeout,
+    location: { search: query, hash, pathname: '/index.html' }, history: { replaceState: () => {} }, addEventListener: () => {}, setInterval: () => 0, clearInterval: () => {}, setTimeout, clearTimeout,
     fetch: async (url) => { requests.push(url); return { status: 200, ok: true, json: async () => structuredClone(payload) }; } });
   context.window.avisoCredencial = () => {};
   for (const script of document.querySelectorAll('script')) {
@@ -151,4 +151,20 @@ test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () =
   assert.match(x.document.querySelector('#area-seis').textContent, /ainda não devolve/);
   assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3);
   assert.match(x.document.querySelector('#desfecho-faixa').textContent, /Kai resolve sozinho/);
+});
+
+test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem refazer a página', async () => {
+  const x = await boot();
+  const visiveis = () => [...x.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba);
+  assert.deepEqual(visiveis(), ['geral']);
+  assert.equal(x.document.querySelector('#abas-cx .ativo').dataset.aba, 'geral');
+  // a leitura rápida fica fora das abas: sempre visível
+  assert.equal(x.document.querySelector('#leitura-rapida').closest('.aba-pane'), null);
+  x.document.querySelector('#abas-cx [data-aba="operacao"]').click();
+  assert.deepEqual(visiveis(), ['operacao']);
+  assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3, 'a aba escondida já estava pintada');
+  const y = await boot(fixture(), '?periodo=7d', '#aba=reputacao');
+  assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['reputacao']);
+  const z = await boot(fixture(), '?periodo=7d', '#aba=inexistente');
+  assert.deepEqual([...z.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['geral']);
 });

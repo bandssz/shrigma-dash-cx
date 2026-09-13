@@ -453,5 +453,24 @@ document.addEventListener("click", (e) => {
   if (estado.dados) pintaMotivos(estado.dados);
 });
 
+// ---------- abas ----------
+// A aba vive no hash (#aba=csat): link copiado abre no lugar certo. Filtros continuam globais.
+// Tudo é pintado sempre (as abas escondidas também) — trocar de aba é instantâneo e não refaz conta.
+const CX_ABAS = ["geral", "csat", "operacao", "reputacao"];
+function cxAbaDoHash() {
+  const m = /(?:^|[#&])aba=([a-z]+)/.exec(location.hash || "");
+  return m && CX_ABAS.includes(m[1]) ? m[1] : "geral";
+}
+function cxMostraAba(aba, gravar) {
+  document.querySelectorAll(".aba-pane").forEach((p) => { p.hidden = p.dataset.aba !== aba; });
+  document.querySelectorAll("#abas-cx [role=tab]").forEach((b) => {
+    const on = b.dataset.aba === aba; b.classList.toggle("ativo", on); b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  if (gravar) { const h = aba === "geral" ? "" : "#aba=" + aba; if (location.hash !== h) history.replaceState(null, "", location.pathname + location.search + h); }
+}
+document.addEventListener("click", (e) => { const b = e.target.closest("#abas-cx [role=tab]"); if (b) cxMostraAba(b.dataset.aba, true); });
+window.addEventListener("hashchange", () => cxMostraAba(cxAbaDoHash(), false));
+cxMostraAba(cxAbaDoHash(), false);
+
 // Painéis recolhíveis: um clique do usuário vale mais que a regra "abre se fora do alvo".
 document.addEventListener("toggle", (e) => { if (e.target && e.target.classList && e.target.classList.contains("dobra-painel")) e.target.dataset.tocado = "1"; }, true);

@@ -105,6 +105,13 @@ Diagnóstico: o mesmo número aparecia em até cinco lugares e a metade de baixo
 - Barra de âncoras no topo (Números · Motivos · CSAT e Kai · Operação · Agentes · Reputação). Comentários ficam no CX (negativo sem
   resposta é atendimento); mover para o orgânico exigiria mexer na whitelist e no front de outra página.
 
+### Abas (13/09, noite)
+
+Quatro abas em vez de rolagem: **Visão geral** (seis números + motivos), **CSAT e Kai**, **Operação** (saldo, fila, 1ª resposta,
+marcas lado a lado, agentes, evolução) e **Reputação** (RA, NPS, comentários — abertos, a aba é deles). A **leitura rápida fica acima
+das abas**, sempre visível; filtros de marca e período continuam globais no cabeçalho. A aba vai no hash (`#aba=csat`), então link
+copiado abre no lugar certo. Tudo é pintado sempre — trocar de aba não refaz conta. Cada aba cabe numa tela em 1440px.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

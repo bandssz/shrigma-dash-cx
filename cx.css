@@ -188,7 +188,11 @@ details.dobra > summary { display: flex; align-items: center; gap: 10px; flex-wr
 #desfecho-faixa { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borda); }
 #desfecho-faixa .k-topo { margin-bottom: 4px; }
 #det-desfecho { margin-top: 8px; }
-.ancoras { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 -10px; }
-.ancoras a { font: 600 12px var(--ui); color: var(--mudo); text-decoration: none; padding: 5px 11px; border-radius: 999px; background: var(--card); border: 1px solid var(--borda); }
-.ancoras a:hover { color: var(--texto); border-color: var(--borda-forte); }
-html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+/* abas do painel: segundo nível, abaixo da leitura rápida */
+.abas-cx { display: flex; gap: 2px; border-bottom: 1px solid var(--borda); margin: 0 0 -6px; overflow-x: auto; }
+.abas-cx [role=tab] { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 16px; font: 600 13.5px var(--ui); color: var(--mudo); cursor: pointer; white-space: nowrap; }
+.abas-cx [role=tab]:hover { color: var(--texto); }
+.abas-cx [role=tab].ativo { color: var(--texto); border-bottom-color: var(--texto); }
+.abas-cx [role=tab]:focus-visible { outline: 2px solid var(--texto); outline-offset: -2px; border-radius: 6px; }
+.aba-pane { display: grid; gap: 22px; }
+.aba-pane[hidden] { display: none; }
