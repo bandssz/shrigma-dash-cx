@@ -128,7 +128,31 @@ lugar dela, o rótulo da seção diz "N fora do alvo · N em atenção" (ou "tud
 colunas** (motivo · contatos · Δ volume · CSAT) com a marca `atacar` quando o motivo pesa ≥ 20% e piora (volume > +10% ou
 bom < 50%); a tabela Kai × pessoa por motivo foi para a aba Chat, ao lado do gráfico de motivos. Sombras dos painéis
 saíram; a hierarquia é só tipografia e espaço. Paleta: azul da marca, quatro cores fixas dos motivos, cinza para tudo que
-é contexto. O padrão vai ser replicado nas demais abas (3–4 números, um gráfico, uma tabela).
+é contexto.
+
+O mesmo padrão nas outras abas (`CX_BLOCOS` em `cx-tela.js`: cartões → `estado[chave]` → um gráfico):
+
+- **Chat e e-mail**: Contatos · CSAT bom · Kai resolve sozinho · Ninguém respondeu · Fila · 1ª resposta (expediente).
+  O cartão dirige: contatos por semana e motivo (barras), CSAT ruim/neutro/bom por semana, Kai por marca com a quebra
+  de 29/08, quem fechou por semana, fila por dia e 1ª resposta por dia (8 semanas, uma linha por marca). Tabela:
+  motivo × Kai e pessoa. Recolhidos e fechados: **Por agente** e **Desfecho por canal e detalhe do Kai**. Saíram os
+  cartões de operação, o "Marcas lado a lado" (o corte por marca está no ⓘ de cada cartão) e o gráfico "Evolução"
+  com seletor — o cartão de Fila faz o mesmo papel.
+- **Reclame Aqui**: os cinco critérios do RA1000 (nota, respondidas, solução, voltaria, avaliações) + aguardando como
+  cartões; com as duas marcas o cartão mostra a **pior** (aguardando soma). Gráfico por leitura com a linha da meta;
+  tabela por marca com verde/vermelho por critério, aguardando, tempo de resposta, reclamações e nota do consumidor.
+- **NPS**: NPS · nota média · promotores · detratores · votos. Gráficos: NPS e nota por semana por marca (branco com
+  menos de 10 votos), distribuição detrator/passivo/promotor em barras 100% com o NPS no topo, votos por semana por
+  marca. Tabela por marca + a área apontada por quem votou.
+- **Comentários**: comentários · respondidos pela marca · aguardando resposta · negativos · tempo até responder.
+  Gráficos: respondidos × sem resposta, % respondidos com alvo 80%, sentimento em barras 100%, tempo mediano por
+  semana. Tabela por marca com sentimento em barra de três níveis e bot × pessoa (inferido pelo tempo); embaixo, as
+  filas de atenção e oportunidade.
+
+Faixas sem alvo declarado no handoff, escolhidas para dar cor ao ponto de status (mude em `cx-tela.js` se o time
+fixar outras): "ninguém respondeu" ≤ 5% ok / ≤ 10% atenção; NPS ≥ 50 ok / ≥ 30 atenção; respondidos nos comentários
+≥ 80% ok / ≥ 50% atenção; aguardando 0 ok / ≤ 5 atenção. Variações de tempo (1ª resposta, tempo até responder) vêm em
+diferença de duração, nunca em % ("▲ 1,7h · ant. 6min", não ">500%").
 
 ### Regras que a repaginação fixou
 

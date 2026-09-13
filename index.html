@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="cx.css?v=20260913b">
+<link rel="stylesheet" href="cx.css?v=20260913c">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -125,69 +125,27 @@
 
   </div><!-- /geral -->
   <div class="aba-pane" data-aba="chat" hidden>
-  <!-- 3. CSAT e desfecho no chat: distribuição, série semanal, Kai × pessoa; desfecho do ticket como faixa + detalhe -->
-  <section class="painel" id="painel-csat" aria-label="CSAT e desfecho no chat">
-    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat <span class="info" title="o cliente escolhe ruim / neutro / bom depois do atendimento; o número é a fatia de “bom”. Embaixo, quem fechou cada ticket: o Kai, uma pessoa, ou ninguém">ⓘ</span></h2></div>
-      <span id="csat-rot" class="mini cab-tags"></span></div>
-    <div id="area-csat" class="csat-grade"></div>
-    <div id="desfecho-faixa"></div>
-    <div class="grade-2 dentro">
-      <div><div class="kp-rot">Kai resolve sozinho · por semana <span class="mini">tickets com desfecho no chat</span></div><div id="g-kai"></div></div>
-      <div><div class="kp-rot">Quem fechou · por semana <span class="mini">Kai · pessoa · ninguém respondeu</span></div><div id="g-desfecho"></div></div>
-    </div>
-    <details id="det-desfecho" class="dobra">
-      <summary>Desfecho por canal e detalhe do Kai <span class="mini" id="desfecho-rot"></span></summary>
-      <div id="area-desfecho"></div>
-      <div class="seg-mini" role="group" aria-label="Corte">
-        <button data-v="classe" class="ativo">Classificação</button>
-        <button data-v="caixa">Caixa</button>
-        <button data-v="esforco">Esforço do Kai</button>
-      </div>
-      <div id="tiras-cx"></div>
-      <div id="area-detalhe"></div>
-    </details>
+  <!-- 3. Chat e e-mail (Gleap): seis números → um gráfico; motivo × Kai; agentes e desfecho recolhidos -->
+  <div class="secao-rot">Chat e e-mail · Gleap <span class="info" title="WhatsApp, Instagram, widget e e-mail. CSAT, motivo e Kai valem só para o chat: e-mail não recebe tag, não tem pesquisa e o Kai não roda lá. Passe o mouse no cartão para ver método e corte por marca; clique para ver a série dele.">ⓘ</span>
+    <span id="chat-rot" class="cab-tags"></span>
+  </div>
+  <section class="seis" id="area-chat" aria-label="Números do chat"></section>
+  <section class="painel painel-grafico-geral" aria-label="Série da métrica escolhida">
+    <div class="painel-cab"><h2 id="g-chat-tit">CSAT · bom · por semana</h2><span class="mini" id="g-chat-sub"></span></div>
+    <div id="g-chat"></div>
   </section>
 
-  <section class="grade-2" aria-label="Motivos no chat">
-    <div class="painel">
-      <div class="painel-cab com-controle"><div class="cab-titulo"><h2>Motivo · Kai e pessoa <span class="info" title="Por motivo: quanto o Kai fecha sozinho (transferência real), quem avalia e o CSAT bom quando fechou com o Kai ou com pessoa.">ⓘ</span></h2></div>
-        <span id="motivos-kai-rot" class="mini cab-tags"></span>
-        <div class="controles"><div class="seg-canal" role="group" aria-label="Canal"><button data-canal="todos" class="ativo">Chat</button><button data-canal="whatsapp">WhatsApp</button><button data-canal="instagram">Instagram</button></div></div></div>
-      <div id="area-motivos-kai"></div>
+  <section class="painel" id="painel-motivos-kai" aria-label="Motivo · Kai e pessoa">
+    <div class="painel-cab com-controle">
+      <div class="cab-titulo"><h2>Motivo · Kai e pessoa <span class="info" title="Por motivo: quanto o Kai fecha sozinho (transferência real), quem avalia e o CSAT bom quando fechou com o Kai ou com pessoa. Kai e pessoa não são comparáveis entre si — quem o Kai fecha responde menos à pesquisa e para a pessoa chega o caso difícil.">ⓘ</span></h2></div>
+      <span id="motivos-kai-rot" class="mini cab-tags"></span>
+      <div class="controles"><div class="seg-canal" role="group" aria-label="Canal"><button data-canal="todos" class="ativo">Chat</button><button data-canal="whatsapp">WhatsApp</button><button data-canal="instagram">Instagram</button></div></div>
     </div>
-    <div class="painel">
-      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por semana · por motivo <span class="info" title="Só chat; e-mail não recebe tag de motivo. Semana começa na segunda; a última pode estar parcial. Cores fixas por grupo.">ⓘ</span></h2></div><span id="g-motivos-rot" class="mini cab-tags"></span></div>
-      <div id="g-motivos"></div>
-    </div>
+    <div id="area-motivos-kai"></div>
   </section>
 
-  <!-- 4. Operação: saldo, fila, 1ª resposta; marcas lado a lado; agentes; evolução -->
-  <div class="secao-rot" id="sec-operacao">Operação <span class="info" title="o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana">ⓘ</span></div>
-  <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
-
-  <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
-    <div class="painel-cab"><div class="cab-titulo"><h2>Marcas lado a lado <span class="info" title="os mesmos números, uma linha por marca">ⓘ</span></h2></div><span id="comp-rotulo" class="mini"></span></div>
-    <div class="rolagem">
-      <table class="comparativo" id="tabela-comparativo">
-        <thead><tr>
-          <th>Marca</th><th class="num" title="Todos os canais, e-mail incluso">Contatos</th>
-          <th class="num" title="Contatos ÷ pedidos × 100 · alvo < 12">/100 pedidos</th>
-          <th class="num" title="Tag wismo ÷ pedidos · alvo < 4%">WISMO</th>
-          <th class="num" title="Fatia de 'bom' entre quem avaliou (3 níveis, só chat)">CSAT bom</th>
-          <th class="num" title="Por transferência, sem e-mail">Kai resolve</th>
-          <th class="num">Fila</th><th class="num" title="seg–sex 8h–18h">1ª resp. exped.</th>
-          <th class="num" title="Mediana do que o cliente espera, relógio corrido">Espera total</th><th>14 dias</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="painel" id="painel-agentes" aria-label="Ranking de agentes">
-    <div class="painel-cab">
-      <div class="cab-titulo"><h2>Por agente <span class="info" title="volume e tempos de quem atende. CSAT por agente sai quando existir em três níveis (o Gleap só dá a média)">ⓘ</span></h2></div>
-      <span id="ranking-rotulo" class="mini"></span>
-    </div>
+  <details class="painel dobra-painel" id="painel-agentes" aria-label="Ranking de agentes">
+    <summary><div class="cab-titulo"><h2>Por agente <span class="info" title="volume e tempos de quem atende. CSAT por agente sai quando existir em três níveis (o Gleap só dá a média)">ⓘ</span></h2></div><span id="ranking-rotulo" class="mini"></span></summary>
     <div class="rolagem"><table class="ranking" id="tabela-ranking">
       <thead><tr>
         <th>Agente</th>
@@ -196,61 +154,70 @@
       </tr></thead>
       <tbody></tbody>
     </table></div>
-  </section>
+  </details>
 
-  <details class="painel dobra-painel" id="painel-grafico" aria-label="Evolução" open>
-    <summary><div class="cab-titulo"><h2>Evolução <span class="info" title="novos, resolvidos ou fila por dia, contra o período anterior">ⓘ</span></h2></div></summary>
-    <div class="grafico-controles dobra-controles">
-      <select id="sel-metrica" aria-label="Métrica do gráfico">
-        <option value="fechados">Resolvidos</option>
-        <option value="novos">Novos</option>
-        <option value="fila_aberta">Fila</option>
-      </select>
-      <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
-        <span>Comparar com período anterior</span></label>
+  <details class="painel dobra-painel" id="det-desfecho" aria-label="Desfecho por canal">
+    <summary><div class="cab-titulo"><h2>Desfecho por canal e detalhe do Kai <span class="info" title="Quem fechou cada ticket por canal (Kai · pessoa · ninguém), classificação, caixa e esforço do Kai antes de passar.">ⓘ</span></h2></div><span class="mini cab-tags" id="desfecho-rot"></span></summary>
+    <div id="area-desfecho"></div>
+    <div class="seg-mini" role="group" aria-label="Corte">
+      <button data-v="classe" class="ativo">Classificação</button>
+      <button data-v="caixa">Caixa</button>
+      <button data-v="esforco">Esforço do Kai</button>
     </div>
-    <div id="area-grafico"></div>
-    <div id="grafico-legenda" class="grafico-legenda"></div>
+    <div id="tiras-cx"></div>
+    <div id="area-detalhe"></div>
   </details>
 
   </div><!-- /chat -->
 
   <div class="aba-pane" data-aba="ra" hidden>
-  <section class="grade-2" aria-label="Evolução no Reclame Aqui">
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de resposta · por dia <span class="info" title="alvo RA1000: 90%">ⓘ</span></h2></div></div><div id="g-ra-resposta"></div></div>
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de solução · por dia <span class="info" title="alvo RA1000: 90%">ⓘ</span></h2></div></div><div id="g-ra-solucao"></div></div>
+  <!-- 4. Reclame Aqui: os critérios do RA1000 como cartões → série por leitura; tabela por marca -->
+  <div class="secao-rot">Reclame Aqui · rumo ao RA1000 <span class="info" title="Metatags da página pública da marca, gravadas pelo bookmarklet. Os cinco critérios do selo: nota ≥ 7, resposta ≥ 90%, solução ≥ 90%, voltaria ≥ 70%, 50+ avaliações. Com as duas marcas, o cartão mostra a pior; o corte por marca está no ⓘ e na tabela.">ⓘ</span>
+    <span id="ra-rotulo" class="cab-tags"></span>
+  </div>
+  <section class="seis" id="area-ra-num" aria-label="Critérios do RA1000"></section>
+  <section class="painel painel-grafico-geral" aria-label="Série da métrica escolhida">
+    <div class="painel-cab"><h2 id="g-ra-tit">Respondidas · por leitura</h2><span class="mini" id="g-ra-sub"></span></div>
+    <div id="g-ra"></div>
   </section>
-
-  <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui" open>
-    <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000 <span class="info" title="os cinco critérios do selo, e o que está aguardando resposta">ⓘ</span></h2></div><span id="ra-rotulo" class="mini cab-tags"></span></summary>
+  <section class="painel" id="painel-ra" aria-label="Reclame Aqui por marca">
+    <div class="painel-cab"><div class="cab-titulo"><h2>Por marca <span class="info" title="Última leitura de cada marca. Verde bate a meta do critério; vermelho não. Aguardando = reclamações ainda sem resposta da marca: é o que derruba o índice de resposta.">ⓘ</span></h2></div><span id="ra-tab-rot" class="mini cab-tags"></span></div>
     <div id="area-ra"></div>
-  </details>
-
+  </section>
   </div><!-- /ra -->
 
   <div class="aba-pane" data-aba="nps" hidden>
-  <section class="painel" aria-label="Evolução do NPS">
-    <div class="painel-cab"><div class="cab-titulo"><h2>NPS · por semana <span class="info" title="promotores − detratores, em pontos; semana com menos de 10 votos fica em branco">ⓘ</span></h2></div><span id="g-nps-rot" class="mini cab-tags"></span></div>
+  <!-- 5. NPS pós-entrega: cartões → série semanal; área apontada -->
+  <div class="secao-rot">NPS pós-entrega <span class="info" title="Nota de 0 a 10 que o cliente dá depois de receber. NPS = % promotores (9–10) − % detratores (0–6). Semana com menos de 10 votos fica em branco no gráfico. Olivas entra no total quando tem voto.">ⓘ</span>
+    <span id="nps-rotulo" class="cab-tags"></span>
+  </div>
+  <section class="seis seis-5" id="area-nps-num" aria-label="Números do NPS"></section>
+  <section class="painel painel-grafico-geral" aria-label="Série da métrica escolhida">
+    <div class="painel-cab"><h2 id="g-nps-tit">NPS · por semana</h2><span class="mini" id="g-nps-sub"></span></div>
     <div id="g-nps"></div>
   </section>
-  <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega" open>
-    <summary><div class="cab-titulo"><h2>NPS pós-entrega <span class="info" title="nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento">ⓘ</span></h2></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
-    <div id="area-nps" class="grid-nps"></div>
+  <section class="painel" id="painel-nps" aria-label="NPS por marca e área">
+    <div class="painel-cab"><div class="cab-titulo"><h2>Por marca e área apontada <span class="info" title="Uma linha por marca com NPS, nota e distribuição. Embaixo, a área que o próprio cliente marcou ao votar (produto, entrega, atendimento…): é a seleção dele, sem interpretação de IA.">ⓘ</span></h2></div></div>
+    <div id="area-nps"></div>
     <div id="area-frustracoes"></div>
-  </details>
-
+  </section>
   </div><!-- /nps -->
 
   <div class="aba-pane" data-aba="social" hidden>
-  <section class="grade-2" aria-label="Evolução dos comentários">
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Comentários · por semana <span class="info" title="respondidos pela marca × sem resposta">ⓘ</span></h2></div></div><div id="g-social-resp"></div></div>
-    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Sentimento · por semana <span class="info" title="classificação própria dos comentários (OpenAI), em fatia">ⓘ</span></h2></div></div><div id="g-social-sent"></div></div>
+  <!-- 6. Comentários (Instagram + Facebook): cartões → série semanal; por marca; pendências -->
+  <div class="secao-rot">Comentários · Instagram + Facebook <span class="info" title="Comentários orgânicos e de anúncios via Meta Graph. Respondidos pela marca = resposta pública da conta (bot da Replient ou pessoa, inferido pelo tempo). Sentimento é classificação própria (OpenAI).">ⓘ</span>
+    <span id="social-rotulo" class="cab-tags"></span>
+  </div>
+  <section class="seis seis-5" id="area-social-num" aria-label="Números dos comentários"></section>
+  <section class="painel painel-grafico-geral" aria-label="Série da métrica escolhida">
+    <div class="painel-cab"><h2 id="g-social-tit">Comentários · por semana</h2><span class="mini" id="g-social-sub"></span></div>
+    <div id="g-social"></div>
   </section>
-  <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos" open>
-    <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook <span class="info" title="o que ficou sem resposta da marca e o sentimento dos comentários">ⓘ</span></h2></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
+  <section class="painel" id="painel-social" aria-label="Comentários por marca">
+    <div class="painel-cab"><div class="cab-titulo"><h2>Por marca e pendências <span class="info" title="Uma linha por marca. Quem respondeu (bot × pessoa) é inferido pelo tempo até a resposta: até 10 minutos é o bot da Replient. Embaixo, o que ainda espera resposta: reclamações (14 dias) e oportunidades de venda (7 dias).">ⓘ</span></h2></div></div>
     <div id="area-social"></div>
     <div id="area-social-urgentes"></div>
-  </details>
+  </section>
   </div><!-- /social -->
 </main>
 
@@ -262,10 +229,10 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260913b"></script>
-<script src="cx-graficos.js?v=20260913b"></script>
-<script src="app.js?v=20260913b"></script>
-<script src="cx-tela.js?v=20260913b"></script>
+<script src="cx-metricas.js?v=20260913c"></script>
+<script src="cx-graficos.js?v=20260913c"></script>
+<script src="app.js?v=20260913c"></script>
+<script src="cx-tela.js?v=20260913c"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

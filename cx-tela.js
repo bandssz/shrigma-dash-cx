@@ -1,5 +1,6 @@
 // ================== CX · TELA DOS BLOCOS NOVOS ==================
-// Pinta: os seis números, motivo × CSAT, CSAT em três níveis, Reclame Aqui.
+// Pinta: os seis números e os motivos (Visão geral) e as abas Chat, Reclame Aqui, NPS e Comentários —
+// todas no mesmo padrão: cartões de três camadas dirigindo um gráfico, uma tabela embaixo.
 // Toda a matemática está em cx-metricas.js; aqui só HTML. Depende dos globais de app.js
 // (estado, PER, PER_DESF, desfechoAgg) e de dados.js (MARCAS, ROTULOS, fmt*, delta, DIRECAO).
 //
@@ -96,18 +97,6 @@ function cxStatus(metrica, v) {
   return v >= a.alvo ? "bom" : v >= a.base ? "atencao" : "ruim";
 }
 const CX_STATUS_ROT = { bom: "no alvo", atencao: "atenção", ruim: "fora do alvo" };
-function cxTile(o) {
-  const st = o.metrica ? cxStatus(o.metrica, o.valor) : null;
-  const alvo = o.metrica && CX_ALVOS[o.metrica] ? `<span class="tag alvo" title="${CX_ALVOS[o.metrica].rot} · faixa de atenção até a linha de base de ago 1–15">${CX_ALVOS[o.metrica].rot}</span>` : "";
-  return `<div class="six${o.classe ? " " + o.classe : ""}${st ? " st-" + st : ""}"${o.title ? ` title="${o.title.replace(/"/g, "&quot;")}"` : ""}>
-    <div class="six-rot">${st ? `<i class="st-dot" title="${CX_STATUS_ROT[st]}"></i>` : ""}${o.rot}</div>
-    <div class="six-tags">${alvo}${o.tags || ""}</div>
-    <div class="six-val">${o.val}</div>
-    ${o.barra || ""}
-    <div class="six-rodape"><span class="six-sub">${o.sub || ""}</span>${o.chip || ""}</div>
-    ${o.ref ? `<div class="six-ref">${o.ref}</div>` : ""}
-  </div>`;
-}
 
 // ---------- Kai resolve (mesmo critério do bloco de desfecho) ----------
 function kaiResolve(marca, ini, fim) {
@@ -220,18 +209,10 @@ function pintaGraficoGeral(d) {
     series = src.series.map((x) => Object.assign(lbl(x.marca), { pontos: x.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: p.pedidos ? `${fmtNum(p.contatos)} ${w ? "wismo" : "contatos"} · ${fmtNum(p.pedidos)} pedidos` : undefined, parcial: p.semana === segHoje })) }));
     alvoRef = { y: CX_ALVOS[s.k].alvo, rot: "alvo " + (w ? "4%" : "12") }; baseRef = { y: CX_ALVOS[s.k].base, rot: "base " + (w ? "8%" : "20") };
   } else if (s.k === "csat_bom") {
-    const ss = marcas.map((m) => ({ m, c: serieSemanalCsat3(rows, { marca: m, ini: j.ini, fim: j.fim }) }));
-    const c = cxCortaVazioInicial(ss[0].c.semanas, ss.map((x) => x.c.tickets)); const corte = ss[0].c.semanas.length - c.semanas.length;
-    rotulosX = c.semanas.map(fmtDia);
-    series = ss.map((x) => Object.assign(lbl(x.m), { pontos: x.c.pctBom.slice(corte).map((y, i) => ({ y, rot: "semana de " + fmtDia(c.semanas[i]), n: `${fmtNum(x.c.tickets.slice(corte)[i])} contatos`, parcial: c.semanas[i] === segHoje })) }));
+    const sc = cxSerieCsatMarcas(d, rows, marcas, j); rotulosX = sc.rotulosX; series = sc.series; marcos = sc.marcos;
     alvoRef = { y: 80, rot: "alvo 80%" };
-    marcos = (d.cx_marco || []).map((m) => ({ i: c.semanas.indexOf(cxSegunda(cxDia(m.dia))), rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` })).filter((m) => m.i >= 0);
   } else if (s.k === "kai_resolve") {
-    const ss = marcas.map((m) => ({ m, k: serieSemanalKai(d.cx_desfecho, m, j.ini, j.fim) }));
-    const c = cxCortaVazioInicial(ss[0].k.semanas, ss.map((x) => x.k.pontos.map((p) => p.n))); const corte = ss[0].k.semanas.length - c.semanas.length;
-    rotulosX = c.semanas.map(fmtDia);
-    series = ss.map((x) => Object.assign(lbl(x.m), { pontos: x.k.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} com desfecho`, parcial: p.semana === segHoje })) }));
-    marcos = (d.cx_marco || []).map((m) => ({ i: c.semanas.indexOf(cxSegunda(cxDia(m.dia))), rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` })).filter((m) => m.i >= 0);
+    const sk = cxSerieKaiMarcas(d, marcas, j); rotulosX = sk.rotulosX; series = sk.series; marcos = sk.marcos;
   } else {
     const campo = s.k === "ra_resposta" ? "resposta_pct" : "solucao_pct";
     const r = serieRa(d.cx_ra, marcas, campo);
@@ -304,158 +285,398 @@ function pintaMotivos(d) {
     }
   }
 }
+// ---------- padrão das abas: cartões de três camadas → um gráfico ----------
+// Toda aba segue o mesmo desenho (Plausible/Intercom): rótulo · valor · variação nos cartões, o resto
+// no title; o cartão ativo dirige o único gráfico da aba; uma tabela embaixo. estado[chave] guarda a
+// escolha e CX_BLOCOS[bloco] sabe repintar o gráfico quando o cartão muda.
+const CX_BLOCOS = {};
+function cxPintaCartoes(bloco, cartoes) {
+  const b = CX_BLOCOS[bloco]; const alvo = $(b.area); if (!alvo) return;
+  const ativo = estado[b.chave];
+  alvo.innerHTML = cartoes.map((c) => {
+    const st = c.status || null;
+    const val = typeof c.val === "string" && c.val ? c.val : "—";
+    const chip = c.chip || `<span class="mini">${c.sub || ""}</span>`;
+    return `<button type="button" class="six2${st ? " st-" + st : ""}${ativo === c.k ? " ativo" : ""}" data-bloco="${bloco}" data-m="${c.k}" title="${String(c.info || "").replace(/"/g, "&quot;")}" aria-pressed="${ativo === c.k}">
+      <span class="six2-rot"><i class="st-dot${st ? "" : " st-nulo"}"></i>${c.rot}</span>
+      <span class="six2-val">${val}</span>
+      <span class="six2-chip">${chip}</span>
+    </button>`;
+  }).join("");
+}
+function cxGraficoBloco(bloco, r) {
+  const b = CX_BLOCOS[bloco]; const el = $(b.g); if (!el) return;
+  el.innerHTML = r.html;
+  const t = $(b.tit); if (t && r.tit) t.textContent = r.tit;
+  const s = $(b.sub); if (s) s.textContent = r.sub || "";
+}
+// "N fora do alvo · N em atenção" (ou "tudo no alvo") para o rótulo da seção
+function cxResumoStatus(cartoes) {
+  const comAlvo = cartoes.filter((c) => c.status);
+  if (!comAlvo.length) return "";
+  const nFora = comAlvo.filter((c) => c.status === "ruim").length, nAt = comAlvo.filter((c) => c.status === "atencao").length;
+  return (nFora ? `<span class="tag st-ruim-tag"><i class="st-dot st-ruim"></i>${nFora} fora do alvo</span>` : "") +
+    (nAt ? `<span class="tag nota"><i class="st-dot st-atencao"></i>${nAt} em atenção</span>` : "") +
+    (!nFora && !nAt ? `<span class="tag nota"><i class="st-dot st-bom"></i>tudo no alvo</span>` : "");
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".six2[data-bloco]"); if (!btn) return;
+  const b = CX_BLOCOS[btn.dataset.bloco]; if (!b) return;
+  estado[b.chave] = btn.dataset.m;
+  document.querySelectorAll(`${b.area} .six2`).forEach((x) => { const on = x === btn; x.classList.toggle("ativo", on); x.setAttribute("aria-pressed", on); });
+  if (estado.dados) b.grafico(estado.dados);
+});
+// chips: pontos (NPS), contagem com direção e duração
+function cxChipPts(atual, anterior, dir) {
+  if (!estado.comparar || typeof atual !== "number" || typeof anterior !== "number") return "";
+  const d = atual - anterior; if (Math.abs(d) < 0.5) return `<span class="chip d-neutro">＝ · ant. ${fmtNum(anterior)}</span>`;
+  const classe = dir === "neutro" ? "d-neutro" : (dir === "alto") === (d > 0) ? "d-bom" : "d-ruim";
+  return `<span class="chip ${classe}">${d > 0 ? "▲" : "▼"} ${fmtNum(Math.abs(d))} pts · ant. ${fmtNum(anterior)}</span>`;
+}
+// durações: diferença em tempo, não em % (1,8h contra 6min daria ">500%")
+function cxChipDur(atual, anterior) {
+  if (!estado.comparar || typeof atual !== "number" || typeof anterior !== "number") return "";
+  const d = atual - anterior; if (Math.abs(d) < Math.max(60, anterior * 0.05)) return `<span class="chip d-neutro">＝ · ant. ${fmtDur(anterior)}</span>`;
+  return `<span class="chip ${d > 0 ? "d-ruim" : "d-bom"}">${d > 0 ? "▲" : "▼"} ${fmtDur(Math.abs(d))} · ant. ${fmtDur(anterior)}</span>`;
+}
+function cxPorMarcaTxt(marcas, fn) { return marcas.map((m) => `${ROTULOS[m]} ${fn(m)}`).join(" · "); }
+const CX_SUB_SEMANA = "12 semanas até o fim do período · ponto claro = semana em andamento";
 
-// ---------- 3. CSAT em três níveis: distribuição, tendência semanal, Kai × pessoa ----------
-function pintaCsat(d) {
-  const alvo = $("#area-csat");
-  if (!alvo) return;
+// ---------- séries compartilhadas (Visão geral e abas) ----------
+function cxMarcosSemanas(d, semanas) {
+  return (d.cx_marco || []).map((m) => ({ i: semanas.indexOf(cxSegunda(cxDia(m.dia))), rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` })).filter((m) => m.i >= 0);
+}
+const cxLbl = (m) => ({ nome: ROTULOS[m], cor: corHex(m) });
+// Kai resolve sozinho por semana, uma linha por marca
+function cxSerieKaiMarcas(d, marcas, j) {
+  const segHoje = cxSegunda(hojeRef());
+  const ss = marcas.map((m) => ({ m, k: serieSemanalKai(d.cx_desfecho, m, j.ini, j.fim) }));
+  const c = cxCortaVazioInicial(ss[0].k.semanas, ss.map((x) => x.k.pontos.map((p) => p.n))); const corte = ss[0].k.semanas.length - c.semanas.length;
+  return { rotulosX: c.semanas.map(fmtDia), marcos: cxMarcosSemanas(d, c.semanas),
+    series: ss.map((x) => Object.assign(cxLbl(x.m), { pontos: x.k.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} com desfecho`, parcial: p.semana === segHoje })) })) };
+}
+// CSAT bom por semana, uma linha por marca
+function cxSerieCsatMarcas(d, rows, marcas, j) {
+  const segHoje = cxSegunda(hojeRef());
+  const ss = marcas.map((m) => ({ m, c: serieSemanalCsat3(rows, { marca: m, ini: j.ini, fim: j.fim }) }));
+  const c = cxCortaVazioInicial(ss[0].c.semanas, ss.map((x) => x.c.tickets)); const corte = ss[0].c.semanas.length - c.semanas.length;
+  return { rotulosX: c.semanas.map(fmtDia), marcos: cxMarcosSemanas(d, c.semanas),
+    series: ss.map((x) => Object.assign(cxLbl(x.m), { pontos: x.c.pctBom.slice(corte).map((y, i) => ({ y, rot: "semana de " + fmtDia(c.semanas[i]), n: `${fmtNum(x.c.tickets.slice(corte)[i])} contatos`, parcial: c.semanas[i] === segHoje })) })) };
+}
+// CSAT em três níveis por semana (barras 100%), no escopo
+function cxBarrasCsat3(rows, f) {
+  const c3b = serieSemanalCsat3(rows, f);
+  const cc = cxCortaVazioInicial(c3b.semanas, [c3b.tickets]); const corte = c3b.semanas.length - cc.semanas.length;
+  const g = (k) => c3b[k].slice(corte);
+  return cxgBarras({ rotulosX: cc.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "CSAT por semana em três níveis",
+    series: [{ nome: "Ruim", cor: "var(--ruim)", valores: g("ruim") }, { nome: "Neutro", cor: "var(--borda-forte)", valores: g("neutro") }, { nome: "Bom", cor: "var(--bom)", valores: g("bom") }],
+    topo: g("pctBom").map((p) => (typeof p === "number" ? Math.round(p) + "%" : "")), vazio: "Sem semana com 30+ avaliações." });
+}
+// quem fechou por semana (Kai · pessoa · ninguém), barras 100%
+function cxBarrasQuemFechou(d, marca, j) {
+  const semanas = cxSemanas(j.ini, j.fim); const acc = {};
+  for (const l of d.cx_desfecho || []) { const dia = cxDia(l.dia); if (dia < j.ini || dia > j.fim || l.canal === "email") continue; if (marca !== "todas" && l.marca !== marca) continue;
+    const s = cxSegunda(dia); const a = acc[s] || (acc[s] = { kai: 0, pessoa: 0, ninguem: 0 }); a.kai += Number(l.resolvido_kai || 0); a.ninguem += Number(l.escalado_sem_resposta || 0); a.pessoa += Number(l.escalado || 0) - Number(l.escalado_sem_resposta || 0); }
+  const g = (kk) => semanas.map((s) => (acc[s] ? Math.max(0, acc[s][kk]) : 0));
+  const c = cxCortaVazioInicial(semanas, [g("kai"), g("pessoa"), g("ninguem")]);
+  return cxgBarras({ rotulosX: c.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Quem fechou o ticket por semana",
+    series: [{ nome: "Kai", cor: "var(--bom)", valores: c.colunas[0] }, { nome: "Pessoa", cor: "var(--borda-forte)", valores: c.colunas[1] }, { nome: "Ninguém respondeu", cor: "var(--ruim)", valores: c.colunas[2] }] });
+}
+// contatos por semana por motivo (4 grupos, cores fixas)
+const CX_COR_GRUPO = { wismo: "#2a78d6", "pre-venda": "#1baf7a", resolucao: "#eb6834", outros: "#9c968c" };
+function cxBarrasMotivos(rows, f) {
+  const s2 = serieSemanalMotivos(rows, f);
+  const c2 = cxCortaVazioInicial(s2.semanas, s2.series.map((s) => s.valores));
+  return cxgBarras({ rotulosX: c2.semanas.map(fmtDia), fmt: fmtNum, aria: "Contatos por semana por motivo",
+    series: s2.series.map((s, i) => ({ nome: s.nome, cor: CX_COR_GRUPO[s.k], valores: c2.colunas[i] })) });
+}
+// série diária de um campo do snapshot, uma linha por marca (fila, 1ª resposta…)
+function cxSerieDiariaMarcas(snapshot, marcas, ini, fim, campo, transf) {
+  const dias = [...new Set((snapshot || []).filter((l) => l.dia >= ini && l.dia <= fim).map((l) => l.dia))].sort();
+  const series = marcas.map((m) => {
+    const pts = serieDiaria(snapshot || [], m, ini, fim, campo);
+    const porX = new Map(pts.map((p) => [p.x, p.y]));
+    return Object.assign(cxLbl(m), { pontos: dias.map((dd, i) => ({ y: porX.has(i) ? (transf ? transf(porX.get(i)) : porX.get(i)) : null, rot: fmtDia(dd) })) });
+  });
+  return { rotulosX: dias.map(fmtDia), series, dias };
+}
+function cxJanelaTendencia(fim, semanas) { return { ini: diasAtras(7 * semanas - 1, fim), fim }; }
+function cxMarcasSerie() { return estado.marca === "todas" ? MARCAS.filter((m) => m !== "olivas") : [estado.marca]; }
+function fmtHoras(h) { return typeof h !== "number" ? "—" : h < 1 ? Math.round(h * 60) + "min" : fmtDec(h, h < 10 ? 1 : 0) + "h"; }
+
+// ---------- Aba Chat e e-mail: seis números → um gráfico ----------
+estado.metricaChat = estado.metricaChat || "csat_bom";
+CX_BLOCOS.chat = { area: "#area-chat", g: "#g-chat", tit: "#g-chat-tit", sub: "#g-chat-sub", chave: "metricaChat", grafico: (d) => pintaGraficoChat(d) };
+Object.assign(DIRECAO, { sem_resposta: "baixo", fila: "baixo", primeira_resposta: "baixo" });
+let CX_CHAT_DADOS = null;
+function pintaChat(d, escopo, porMarca) {
+  if (!$("#area-chat")) return;
   const rows = d.cx_csat || [];
-  const per = cxPeriodoComDado(rows, estado.marca);
-  const rot = $("#csat-rot");
-  if (per.vazio) { alvo.innerHTML = `<div class="vazio">Sem <code>cx_csat</code> na API.</div>`; if (rot) rot.innerHTML = ""; return; }
-  const kp = csatKaiVsPessoa(rows, per.f);
-  const kpAnt = per.fAnt ? csatKaiVsPessoa(rows, per.fAnt) : null;
-  const a = kp.todos;
-  if (rot) rot.innerHTML = `${fmtNum(a.avaliadas)} avaliações · ${fmtNum(a.tickets)} contatos no chat ` +
-    (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
-    (a.pctResposta !== null && a.pctResposta < 25 ? cxTag(`resposta ${fmtPct0(a.pctResposta)}`, "alerta", "Taxa de resposta abaixo de 25%. Em agosto era 42–46% no Aristocrata e 32–35% na Fishermans; caiu depois das mudanças de 29/08 no Kai. Instagram não responde (botão não funciona lá).") : "") +
-    cxTag("só chat", "nota", "WhatsApp, Instagram e widget. E-mail não tem CSAT. No Instagram o botão de nota não renderiza: o envio lá é perdido.");
+  const marca = estado.marca, todas = marca === "todas";
+  const marcas = todas ? MARCAS.filter((m) => m !== "olivas") : [marca];
+  const per = cxPeriodoComDado(rows, marca);
+  const a = (escopo && escopo.atual) || {}, antB = (escopo && escopo.anterior) || {}; const ant = antB.__semHistorico ? {} : antB;
+  const hoje = hojeRef();
+  const pm = (m, campo) => porMarca[m] && porMarca[m].atual ? porMarca[m].atual[campo] : null;
 
-  // série semanal: janela de 12 semanas terminando no fim do período, com marco de quebra
-  const fimSerie = per.f.fim;
-  const iniSerie = diasAtras(7 * 12 - 1, fimSerie);
-  const c3b = serieSemanalCsat3(rows, { marca: per.f.marca, ini: iniSerie, fim: fimSerie });
-  const cc = cxCortaVazioInicial(c3b.semanas, [c3b.tickets]); const cortC = c3b.semanas.length - cc.semanas.length;
-  const c3 = { semanas: cc.semanas, ruim: c3b.ruim.slice(cortC), neutro: c3b.neutro.slice(cortC), bom: c3b.bom.slice(cortC), pctBom: c3b.pctBom.slice(cortC) };
-  const marcos = (d.cx_marco || []).map((m) => ({ dia: cxDia(m.dia), titulo: m.titulo, detalhe: m.detalhe })).filter((m) => m.dia >= iniSerie && m.dia <= fimSerie);
+  // CSAT (só chat) e Kai × pessoa
+  const cs = per.vazio ? null : csatAgg(rows, Object.assign({}, per.f, { canais: CX_CANAIS_KAI }));
+  const csAnt = per.vazio || !per.fAnt ? null : csatAgg(rows, Object.assign({}, per.fAnt, { canais: CX_CANAIS_KAI }));
+  const kp = per.vazio ? null : csatKaiVsPessoa(rows, per.f);
+  // desfecho (cx_desfecho, período resolvido em pintaDesfecho)
+  const kr = kaiResolve(marca, PER_DESF.ini, PER_DESF.fim); let krAnt = null;
+  if (estado.comparar) { const r = rangeAnterior(PER_DESF.ini, PER_DESF.fim); krAnt = kaiResolve(marca, r.ini, r.fim); }
+  const semResp = (mm, ini, fim) => { const ls = desfechoAgg(d, mm, ini, fim).filter((x) => x.canal !== "email"); const s = ls.reduce((t, x) => t + (x.escalado_sem_resposta || 0), 0); const dec = ls.reduce((t, x) => t + (x.resolvido_kai || 0) + (x.escalado || 0), 0); return { s, dec, pct: dec >= MIN_BASE ? (s / dec) * 100 : null }; };
+  const sr = semResp(marca, PER_DESF.ini, PER_DESF.fim); let srAnt = null;
+  if (estado.comparar) { const r = rangeAnterior(PER_DESF.ini, PER_DESF.fim); srAnt = semResp(marca, r.ini, r.fim); }
+  const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
+  const pn = anteriorProgressivo("novos", marca, ant); // "hoje" compara com ontem até a mesma hora
+  const temCom = typeof a.primeira_resposta_comercial_seg === "number";
+  const pr = temCom ? a.primeira_resposta_comercial_seg : a.primeira_resposta_seg, prAnt = temCom ? ant.primeira_resposta_comercial_seg : ant.primeira_resposta_seg;
+  const filaAgora = PER.fim >= hoje;
 
-  const tileKp = (rotulo, x, xAnt, sub) => `<div class="kp">
-      <div class="kp-rot">${rotulo}</div>
-      <div class="kp-val">${x.baseOk ? fmtPct0(x.pctBom) : (x.avaliadas ? `<span class="six-curto">${fmtNum(x.bom)}<small> de ${fmtNum(x.avaliadas)}</small></span>` : "—")}</div>
-      ${cxBarra3(x, "fina")}
-      <div class="kp-sub">${fmtNum(x.tickets)} contatos · resp. ${fmtPct0(x.pctResposta)} ${x.baseOk ? cxChipPP("csat_bom", x.pctBom, xAnt && xAnt.baseOk ? xAnt.pctBom : null) : ""}</div>
-      <div class="mini">${sub}</div>
-    </div>`;
-
-  alvo.innerHTML = `
-    <div class="csat-hero">
-      <div class="csat-big">
-        <div class="kp-rot">bom</div>
-        <div class="csat-num">${a.baseOk ? fmtPct0(a.pctBom) : (a.avaliadas ? `${fmtNum(a.bom)}<small> de ${fmtNum(a.avaliadas)}</small>` : "—")}</div>
-        ${a.baseOk ? cxChipPP("csat_bom", a.pctBom, kpAnt && kpAnt.todos.baseOk ? kpAnt.todos.pctBom : null) : ""}
-      </div>
-      ${cxBarra3(a, "grossa")}
-      <div class="b3-legenda">
-        <span><i class="s-ruim"></i> Ruim <b>${fmtPct0(a.pctRuim)}</b> <small>${fmtNum(a.ruim)}</small></span>
-        <span><i class="s-neutro"></i> Neutro <b>${fmtPct0(a.pctNeutro)}</b> <small>${fmtNum(a.neutro)}</small></span>
-        <span><i class="s-bom"></i> Bom <b>${fmtPct0(a.pctBom)}</b> <small>${fmtNum(a.bom)}</small></span>
-        <span class="resp">responderam <b>${fmtPct0(a.pctResposta)}</b> <small>${fmtNum(a.avaliadas)} de ${fmtNum(a.tickets)}</small></span>
-      </div>
-    </div>
-    <div class="csat-kp">
-      ${tileKp("Kai fechou sozinho", kp.kai, kpAnt && kpAnt.kai, "quem o Kai resolve responde menos à pesquisa")}
-      ${tileKp("Passou por pessoa", kp.pessoa, kpAnt && kpAnt.pessoa, "chega o caso difícil: a nota mede a experiência, não só o atendimento")}
-    </div>
-    <div class="csat-serie">
-      <div class="kp-rot">ruim · neutro · bom, por semana <span class="mini">12 semanas até ${fmtDia(fimSerie)} · número = fatia de bom</span></div>
-      ${cxgBarras({ rotulosX: c3.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "CSAT por semana em três níveis",
-        series: [{ nome: "Ruim", cor: "var(--ruim)", valores: c3.ruim }, { nome: "Neutro", cor: "var(--borda-forte)", valores: c3.neutro }, { nome: "Bom", cor: "var(--bom)", valores: c3.bom }],
-        topo: c3.pctBom.map((p) => (typeof p === "number" ? Math.round(p) + "%" : "")), vazio: "Sem semana com 30+ avaliações." })}
-    </div>`;
+  const cartoes = [
+    { k: "contatos", rot: "Contatos", val: fmtNum(a.novos), chip: chipHtml("novos", a.novos, pn.valor), sub: `resolvidos ${fmtNum(a.fechados)}${pn.mesmaHora ? " · vs ontem até a mesma hora" : ""}`,
+      info: `Tickets novos em todos os canais (e-mail incluso) no período.${pn.mesmaHora ? " A variação compara com ontem até a mesma hora." : ""}\nResolvidos ${fmtNum(a.fechados)} · saldo ${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}.` + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => fmtNum(pm(m, "novos")))}` : "") },
+    { k: "csat_bom", rot: "CSAT · bom", val: cs && cs.baseOk ? fmtPct0(cs.pctBom) : (cs && cs.avaliadas ? `<span class="six-curto">${fmtNum(cs.bom)} de ${fmtNum(cs.avaliadas)}</span>` : "—"), status: cs && cs.baseOk ? cxStatus("csat_bom", cs.pctBom) : null,
+      chip: cs && cs.baseOk ? cxChipPP("csat_bom", cs.pctBom, csAnt && csAnt.baseOk ? csAnt.pctBom : null) : "", sub: cs ? `${fmtNum(cs.avaliadas)} avaliações · responderam ${fmtPct0(cs.pctResposta)}` : "sem cx_csat",
+      info: `Fatia de “bom” entre quem avaliou (três opções: ruim / neutro / bom), só chat, com 30+ avaliações. Alvo ≥ 80%.` + (cs ? `\nRuim ${fmtPct0(cs.pctRuim)} · neutro ${fmtPct0(cs.pctNeutro)} · bom ${fmtPct0(cs.pctBom)} · ${fmtNum(cs.avaliadas)} de ${fmtNum(cs.tickets)} responderam.` : "") +
+        (kp ? `\nKai fechou sozinho: bom ${kp.kai.baseOk ? fmtPct0(kp.kai.pctBom) : fmtNum(kp.kai.bom) + " de " + fmtNum(kp.kai.avaliadas)} (resp. ${fmtPct0(kp.kai.pctResposta)}) · passou por pessoa: bom ${kp.pessoa.baseOk ? fmtPct0(kp.pessoa.pctBom) : fmtNum(kp.pessoa.bom) + " de " + fmtNum(kp.pessoa.avaliadas)} (resp. ${fmtPct0(kp.pessoa.pctResposta)}). Não são comparáveis entre si.` : "") +
+        (todas && !per.vazio ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = csatAgg(rows, Object.assign({}, per.f, { marca: m, canais: CX_CANAIS_KAI })); return x.baseOk ? fmtPct0(x.pctBom) : "—"; })}` : "") },
+    { k: "kai_resolve", rot: "Kai resolve sozinho", val: typeof kr.pct === "number" ? fmtDec(kr.pct) + "%" : (kr.decididos ? `<span class="six-curto">${fmtNum(kr.kai)} de ${fmtNum(kr.decididos)}</span>` : "—"),
+      chip: cxChipPP("kai_resolve", kr.pct, krAnt && krAnt.pct, 1), sub: `${fmtNum(kr.kai)} de ${fmtNum(kr.decididos)} com desfecho`,
+      info: `Tickets que o Kai fechou sozinho ÷ tickets com desfecho (Kai ou transferido para pessoa — processingTeam/processingUser). E-mail fora. Quebra de série em 29/08.` + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = kaiResolve(m, PER_DESF.ini, PER_DESF.fim); return typeof x.pct === "number" ? fmtDec(x.pct) + "%" : "—"; })}` : "") },
+    { k: "sem_resposta", rot: "Ninguém respondeu", val: typeof sr.pct === "number" ? fmtDec(sr.pct) + "%" : (sr.dec ? `<span class="six-curto">${fmtNum(sr.s)} de ${fmtNum(sr.dec)}</span>` : "—"), status: typeof sr.pct === "number" ? (sr.pct >= 10 ? "ruim" : sr.pct >= 5 ? "atencao" : "bom") : null,
+      chip: cxChipPP("sem_resposta", sr.pct, srAnt && srAnt.pct, 1), sub: `${fmtNum(sr.s)} tickets`,
+      info: `Transferido para time ou agente e fechado sem nenhuma resposta pública de pessoa: a régua fechou na fila. Faixa: até 5% ok, até 10% atenção.` + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = semResp(m, PER_DESF.ini, PER_DESF.fim); return typeof x.pct === "number" ? fmtDec(x.pct) + "%" : "—"; })}` : "") },
+    { k: "fila", rot: filaAgora ? "Fila agora" : "Fila no fim do período", val: fmtNum(a.fila_aberta), chip: chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta), sub: todas ? marcas.concat(["olivas"]).map((m) => `${CX_SIGLA[m]} ${fmtNum(pm(m, "fila_aberta"))}`).join(" · ") : "tickets abertos",
+      info: `Tickets abertos ${filaAgora ? "na última coleta" : "no fim do período"}, todos os canais.` + (estado.comparar && typeof ant.fila_aberta === "number" ? `\nAntes: ${fmtNum(ant.fila_aberta)}.` : "") + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(MARCAS, (m) => fmtNum(pm(m, "fila_aberta")))}` : "") },
+    { k: "primeira_resposta", rot: temCom ? "1ª resposta · expediente" : "1ª resposta", val: fmtDur(pr), chip: cxChipDur(pr, prAnt), sub: temCom ? `seg–sex 8h–18h · ${fmtNum(a.amostra_comercial)} tickets` : "mediana até a 1ª resposta humana",
+      info: (temCom ? `Mediana do tempo até a primeira resposta humana, contando só horário comercial (seg–sex 8h–18h).\nEspera total do cliente, relógio corrido: ${fmtDur(a.primeira_resposta_seg)}` + (typeof a.resolucao_comercial_seg === "number" ? ` · resolução em expediente ${fmtDur(a.resolucao_comercial_seg)}.` : ".") : "Mediana do tempo até a primeira resposta humana, relógio corrido.") +
+        (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => fmtDur(temCom ? pm(m, "primeira_resposta_comercial_seg") : pm(m, "primeira_resposta_seg")))}` : "") },
+  ];
+  CX_CHAT_DADOS = { per, marcas };
+  const rot = $("#chat-rot");
+  if (rot) rot.innerHTML = (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
+    (cs && cs.pctResposta !== null && cs.pctResposta < 25 ? cxTag(`resposta à pesquisa ${fmtPct0(cs.pctResposta)}`, "alerta", "Taxa de resposta abaixo de 25%. Em agosto era 42–46% no Aristocrata e 32–35% na Fishermans; caiu depois das mudanças de 29/08 no Kai. No Instagram o botão de nota não renderiza: o envio lá é perdido.") : "") +
+    cxResumoStatus(cartoes);
+  cxPintaCartoes("chat", cartoes);
+  pintaGraficoChat(d);
+}
+function pintaGraficoChat(d) {
+  if (!CX_CHAT_DADOS || !$("#g-chat")) return;
+  const k = estado.metricaChat; const { per, marcas } = CX_CHAT_DADOS; const rows = d.cx_csat || [];
+  const fimDesf = PER_DESF.fim >= hojeRef() ? diasAtras(1, hojeRef()) : PER_DESF.fim;
+  const j = cxJanelaTendencia(per.vazio ? PER.fim : per.f.fim, 12), jd = cxJanelaTendencia(fimDesf, 12);
+  let r;
+  if (k === "contatos") r = { tit: "Contatos no chat · por semana e motivo", sub: "só chat — e-mail não recebe tag de motivo · cores fixas por grupo", html: per.vazio ? `<div class="vazio mini">Sem cx_csat na API.</div>` : cxBarrasMotivos(rows, { marca: per.f.marca, ini: j.ini, fim: j.fim }) };
+  else if (k === "csat_bom") r = { tit: "CSAT · ruim, neutro e bom · por semana", sub: "número no topo = fatia de bom · só chat", html: per.vazio ? `<div class="vazio mini">Sem cx_csat na API.</div>` : cxBarrasCsat3(rows, { marca: per.f.marca, ini: j.ini, fim: j.fim }) };
+  else if (k === "kai_resolve") { const s = cxSerieKaiMarcas(d, marcas, jd); r = { tit: "Kai resolve sozinho · por semana", sub: CX_SUB_SEMANA + " · linha tracejada = quebra de série", html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, pct: true, fmt: (v) => Math.round(v) + "%", marcos: s.marcos, aria: "Kai resolve sozinho" }) }; }
+  else if (k === "sem_resposta") r = { tit: "Quem fechou · por semana", sub: "Kai · pessoa · transferido e ninguém respondeu · só chat", html: cxBarrasQuemFechou(d, estado.marca, jd) };
+  else if (k === "fila") { const j8 = cxJanelaTendencia(PER.fim, 8); const s = cxSerieDiariaMarcas(d.snapshot_1d, marcas, j8.ini, j8.fim, "fila_aberta"); r = { tit: "Fila · por dia", sub: "8 semanas até o fim do período · tickets abertos na coleta do dia", html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, fmt: fmtNum, aria: "Fila por dia", vazio: "Sem série diária no intervalo." }) }; }
+  else { const j8 = cxJanelaTendencia(PER.fim, 8); const campo = d.snapshot_1d.some((l) => typeof l.primeira_resposta_comercial_seg === "number") ? "primeira_resposta_comercial_seg" : "primeira_resposta_seg"; const s = cxSerieDiariaMarcas(d.snapshot_1d, marcas, j8.ini, j8.fim, campo, (v) => v / 3600); r = { tit: "1ª resposta · por dia", sub: "8 semanas até o fim do período · mediana em horas" + (campo.includes("comercial") ? " · só horário comercial" : ""), html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, fmt: fmtHoras, aria: "Primeira resposta por dia", vazio: "Sem série diária no intervalo." }) }; }
+  cxGraficoBloco("chat", r);
 }
 
-// gráfico de linha semanal (SVG puro): uma série, eixo 0–100, marcos como linha vertical
-function cxGraficoSemanal(serie, marcos, cor) {
-  const pts = serie.filter((s) => typeof s.pctBom === "number");
-  if (pts.length < 2) return `<div class="vazio mini">Sem semanas com 30+ avaliações para traçar.</div>`;
-  const W = 520, H = 190, PL = 30, PR = 44, PT = 12, PB = 22;
-  const iw = W - PL - PR, ih = H - PT - PB;
-  const n = serie.length;
-  const x = (i) => PL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const y = (v) => PT + ih - (v / 100) * ih;
-  const idx = new Map(serie.map((s, i) => [s.semana, i]));
-  const linha = pts.map((s) => `${x(idx.get(s.semana)).toFixed(1)},${y(s.pctBom).toFixed(1)}`).join(" ");
-  const grade = [25, 50, 75].map((g) => `<line x1="${PL}" x2="${W - PR}" y1="${y(g)}" y2="${y(g)}" class="grade"/><text x="${PL - 6}" y="${y(g) + 3.5}" class="eixo" text-anchor="end">${g}</text>`).join("");
-  const marcoSvg = marcos.map((m) => {
-    const seg = cxSegunda(m.dia);
-    const i = idx.get(seg);
-    if (i === undefined) return "";
-    const off = ((new Date(m.dia + "T12:00Z") - new Date(seg + "T12:00Z")) / 864e5) / 7;
-    const xx = x(i) + (n > 1 ? off * (iw / (n - 1)) : 0);
-    return `<g class="marco"><title>${fmtDia(m.dia)} — ${m.titulo}${m.detalhe ? "\n" + m.detalhe : ""}</title><line x1="${xx}" x2="${xx}" y1="${PT}" y2="${PT + ih}"/><text x="${xx + 4}" y="${PT + 9}">${fmtDia(m.dia)}</text></g>`;
-  }).join("");
-  const ult = pts[pts.length - 1];
-  const dots = pts.map((s) => `<circle cx="${x(idx.get(s.semana))}" cy="${y(s.pctBom)}" r="${s === ult ? 4 : 3}" class="${s.parcial ? "parcial" : ""}" style="fill:${cor}"><title>semana de ${fmtDia(s.semana)}${s.parcial ? " (parcial)" : ""}\nbom ${fmtPct0(s.pctBom)} · ${fmtNum(s.avaliadas)} avaliações\nresposta ${fmtPct0(s.pctResposta)}</title></circle>`).join("");
-  const rotIni = fmtDia(serie[0].semana), rotFim = fmtDia(serie[n - 1].semana);
-  return `<svg viewBox="0 0 ${W} ${H}" class="g-semanal" role="img" aria-label="CSAT bom por semana">
-    ${grade}
-    <line x1="${PL}" x2="${W - PR}" y1="${y(0)}" y2="${y(0)}" class="base"/>
-    ${marcoSvg}
-    <polyline points="${linha}" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-    <text x="${x(idx.get(ult.semana)) + 7}" y="${y(ult.pctBom) + 4}" class="fim">${fmtPct0(ult.pctBom)}</text>
-    <text x="${PL}" y="${H - 6}" class="eixo">${rotIni}</text>
-    <text x="${W - PR}" y="${H - 6}" class="eixo" text-anchor="end">${rotFim}</text>
-  </svg>`;
-}
-
-// ---------- 4. Reclame Aqui · rumo ao RA1000 ----------
-function pintaRaNovo(d) {
-  const alvo = $("#area-ra");
-  if (!alvo) return;
-  const marcas = (estado.marca === "todas" ? MARCAS : [estado.marca]).filter((m) => m !== "olivas" || estado.marca === "olivas");
-  const rot = $("#ra-rotulo");
-  const linhas = marcas.map((m) => ({ m, l: raUltimo(d.cx_ra, m, cxRaFim(PER.fim)) })).filter((x) => x.l);
-  if (!linhas.length) {
-    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "cx_ra_dia está vazia. A coleta diária das metatags da página da marca no Reclame AQUI ainda não roda no n8n.");
-    alvo.innerHTML = `<div class="vazio">Sem leitura do Reclame AQUI ainda. Quando a coleta diária das metatags entrar, aqui aparecem os cinco critérios do RA1000 por marca, o que está aguardando resposta e o tempo médio de resposta.</div>`;
-    return;
+// ---------- Aba Reclame Aqui: critérios do RA1000 como cartões → série por leitura; tabela por marca ----------
+estado.metricaRa = estado.metricaRa || "resposta_pct";
+CX_BLOCOS.ra = { area: "#area-ra-num", g: "#g-ra", tit: "#g-ra-tit", sub: "#g-ra-sub", chave: "metricaRa", grafico: (d) => pintaGraficoRaAba(d) };
+Object.assign(CX_ALVOS, {
+  ra_nota: { alvo: 7, base: 6, dir: "alto", rot: "alvo ≥ 7" }, ra_voltaria: { alvo: 70, base: 60, dir: "alto", rot: "alvo ≥ 70%" },
+  ra_avaliacoes: { alvo: 50, base: 30, dir: "alto", rot: "alvo ≥ 50" }, ra_aguardando: { alvo: 1, base: 10, dir: "baixo", rot: "alvo 0" },
+});
+Object.assign(DIRECAO, { ra_nota: "alto", ra_voltaria: "alto", ra_avaliacoes: "alto", ra_aguardando: "baixo" });
+const CX_RA_CARTOES = [
+  { k: "nota", m: "ra_nota", rot: "Nota média", tipo: "nota", info: "Nota média das avaliações na página da marca. Critério RA1000: ≥ 7." },
+  { k: "resposta_pct", m: "ra_resposta", rot: "Respondidas", tipo: "pct", info: "Índice de resposta: reclamações respondidas pela marca. Critério RA1000: ≥ 90%. O que derruba é o que fica aguardando." },
+  { k: "solucao_pct", m: "ra_solucao", rot: "Índice de solução", tipo: "pct", info: "Reclamações que o consumidor marcou como resolvidas. Critério RA1000: ≥ 90%." },
+  { k: "voltaria_pct", m: "ra_voltaria", rot: "Voltaria a fazer negócio", tipo: "pct", info: "Consumidores que dizem que voltariam a fazer negócio. Critério RA1000: ≥ 70%." },
+  { k: "avaliacoes", m: "ra_avaliacoes", rot: "Avaliações", tipo: "int", info: "Quantidade de avaliações no período de referência do RA. Critério RA1000: 50 ou mais." },
+  { k: "aguardando", m: "ra_aguardando", rot: "Aguardando resposta", tipo: "int", info: "Reclamações ainda sem resposta da marca. Cada uma pesa no índice de resposta; alvo é zero." },
+];
+let CX_RA_DADOS = null;
+function pintaRaAba(d) {
+  if (!$("#area-ra-num")) return;
+  const marcas = estado.marca === "todas" ? MARCAS.filter((m) => m !== "olivas") : [estado.marca];
+  const todas = marcas.length > 1;
+  const lidos = marcas.map((m) => ({ m, l: raUltimo(d.cx_ra, m, cxRaFim(PER.fim)), ant: estado.comparar ? raUltimo(d.cx_ra, m, PER.cFim) : null })).filter((x) => x.l);
+  const rot = $("#ra-rotulo"), tab = $("#area-ra"), tabRot = $("#ra-tab-rot");
+  CX_RA_DADOS = { marcas };
+  if (!lidos.length) {
+    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "cx_ra_dia está vazia. O bookmarklet ainda não gravou nenhuma leitura da página da marca no Reclame AQUI.");
+    cxPintaCartoes("ra", CX_RA_CARTOES.map((c) => ({ k: c.k, rot: c.rot, val: "—", sub: "sem leitura", info: c.info })));
+    if (tab) tab.innerHTML = `<div class="vazio">Sem leitura do Reclame AQUI ainda. Quando o bookmarklet gravar a primeira, aqui aparecem os cinco critérios do RA1000 por marca, o que está aguardando resposta e o tempo médio de resposta.</div>`;
+    if (tabRot) tabRot.innerHTML = "";
+    pintaGraficoRaAba(d); return;
   }
-  const maisRecente = linhas.map((x) => cxDia(x.l.dia)).sort().pop();
-  // resumo no título: resposta/solução por marca; o painel abre sozinho se alguma estiver fora do alvo
-  const foraAlvo = linhas.some(({ l }) => cxStatus("ra_resposta", Number(l.resposta_pct)) === "ruim" || cxStatus("ra_solucao", Number(l.solucao_pct)) === "ruim");
-  const painelRa = $("#painel-ra"); if (painelRa && painelRa.tagName === "DETAILS" && foraAlvo && !painelRa.dataset.tocado) painelRa.open = true;
-  if (rot) rot.innerHTML = linhas.map(({ m, l }) => `${CX_SIGLA[m]} resp. <b>${fmtDec(Number(l.resposta_pct))}%</b> · sol. <b>${fmtDec(Number(l.solucao_pct))}%</b>${l.aguardando != null && Number(l.aguardando) > 0 ? ` · <span class="vm">${fmtNum(Number(l.aguardando))} aguardando</span>` : ""}`).join(" &nbsp;|&nbsp; ")
-    + ` · leitura de ${fmtDia(maisRecente)}` + cxTag(foraAlvo ? "fora do alvo" : "no alvo", foraAlvo ? "alerta" : "nota", "Alvo RA1000: resposta e solução ≥ 90% nas duas marcas. Fonte: metatags da página pública da marca (bookmarklet).");
-  alvo.innerHTML = linhas.map(({ m, l }) => {
-    const av = raAvalia(l);
-    const ant = estado.comparar ? raUltimo(d.cx_ra, m, PER.cFim) : null;
-    return `<div class="ra-marca">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3>
-        <span class="mini">${fmtDia(cxDia(l.dia))}${l.fonte && l.fonte !== "metatag" ? " · " + l.fonte : ""}</span>
-        <span class="chip ${av.ra1000 ? "d-bom" : ""}">${av.ra1000 ? "critérios RA1000 ✓" : `faltam ${av.faltam} de 5`}</span></div>
-      ${av.crit.map((c) => {
-        const pct = typeof c.v === "number" ? Math.min(100, (c.v / (c.max || Math.max(c.v, c.min * 1.4))) * 100) : 0;
-        const txt = typeof c.v !== "number" ? "—" : c.tipo === "pct" ? fmtDec(c.v) + "%" : c.tipo === "nota" ? fmtDec(c.v) : fmtNum(c.v);
-        const dl = ant && typeof c.v === "number" && ant[c.c] != null ? delta("csat", c.v, Number(ant[c.c])) : null;
-        return `<div class="ra-linha">
-          <span class="ra-rot">${c.rot}</span>
-          <span class="ra-barra"><i class="${c.bate ? "ok" : ""}" style="width:${pct}%"></i><em style="left:${c.max ? (c.min / c.max) * 100 : 70}%"></em></span>
-          <span class="ra-val ${c.bate ? "vd" : "vm"}">${txt}${dl && dl.texto && dl.texto !== "＝" ? `<span class="seta ${dl.classe}">${dl.texto.split(" ")[0]}</span>` : ""}</span>
-          <span class="ra-meta">meta ${c.tipo === "pct" ? c.min + "%" : c.min}</span>
-        </div>`; }).join("")}
-      <div class="ra-extra">
-        ${l.aguardando != null ? `<span title="Reclamações ainda sem resposta da marca — é o que derruba o índice de resposta"><b class="${Number(l.aguardando) > 0 ? "vm" : ""}">${fmtNum(Number(l.aguardando))}</b> aguardando resposta</span>` : ""}
-        ${l.tempo_resposta_dias != null ? `<span><b>${fmtDec(Number(l.tempo_resposta_dias), 0)} d</b> tempo médio de resposta</span>` : ""}
-        ${l.reclamacoes != null ? `<span><b>${fmtNum(Number(l.reclamacoes))}</b> reclamações</span>` : ""}
-        ${l.nota_consumidor != null ? `<span><b>${fmtDec(Number(l.nota_consumidor))}</b> nota do consumidor</span>` : ""}
-      </div>
-    </div>`;
-  }).join("");
+  const num = (l, c) => l && l[c] !== null && l[c] !== undefined ? Number(l[c]) : null;
+  const fmtV = (c, v) => typeof v !== "number" ? "—" : c.tipo === "pct" ? fmtDec(v) + "%" : c.tipo === "nota" ? fmtDec(v) : fmtNum(v);
+  // com as duas marcas: a pior (alvo alto) ou a soma (aguardando)
+  const agrega = (c, src) => { const vs = lidos.map((x) => num(x[src], c.k)).filter((v) => typeof v === "number"); if (!vs.length) return null; return c.k === "aguardando" ? vs.reduce((s, v) => s + v, 0) : Math.min(...vs); };
+  const cartoes = CX_RA_CARTOES.map((c) => {
+    const v = agrega(c, "l"), va = agrega(c, "ant");
+    const chip = c.tipo === "pct" ? cxChipPP(c.m, v, va, 1) : (typeof va === "number" && estado.comparar ? (c.tipo === "nota" ? chipHtml("csat", v, va, (x) => fmtDec(x)) : cxChipPts(v, va, DIRECAO[c.m])) : "");
+    const sub = todas ? (c.k === "aguardando" ? "as duas marcas" : "pior marca") : `leitura de ${fmtDia(cxDia(lidos[0].l.dia))}`;
+    return { k: c.k, rot: c.rot, val: fmtV(c, v), status: cxStatus(c.m, v), chip, sub, info: c.info + (todas ? `\n\nPor marca: ${lidos.map((x) => `${ROTULOS[x.m]} ${fmtV(c, num(x.l, c.k))}`).join(" · ")}` : "") + `\n\nLeitura de ${fmtDia(cxDia(lidos[0].l.dia))}, metatags da página pública (bookmarklet).` };
+  });
+  const maisRecente = lidos.map((x) => cxDia(x.l.dia)).sort().pop();
+  if (rot) rot.innerHTML = `<span class="tag nota">leitura de ${fmtDia(maisRecente)}</span>` + cxResumoStatus(cartoes);
+  cxPintaCartoes("ra", cartoes);
+  pintaGraficoRaAba(d);
+  // tabela por marca: os cinco critérios + o que pesa
+  if (tabRot) tabRot.innerHTML = lidos.map(({ m, l }) => { const av = raAvalia(l); return `<span class="tag ${av.ra1000 ? "nota" : "alerta"}">${CX_SIGLA[m]} · ${av.ra1000 ? "critérios RA1000 ✓" : `faltam ${av.faltam} de 5`}</span>`; }).join("");
+  const cel = (c, v, bate) => `<td class="num ${typeof v === "number" ? (bate ? "vd" : "vm") : ""}">${fmtV(c, v)}</td>`;
+  if (tab) tab.innerHTML = `<div class="rolagem"><table class="comparativo ra-tab">
+    <thead><tr><th>Marca</th>${CX_RA_CARTOES.slice(0, 5).map((c) => `<th class="num" title="${c.info.replace(/"/g, "&quot;")}">${c.rot}<span class="mini meta"> ≥ ${c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo}</span></th>`).join("")}<th class="num" title="Reclamações sem resposta da marca">Aguardando</th><th class="num" title="Tempo médio de resposta, em dias">Tempo resp.</th><th class="num">Reclamações</th><th class="num" title="Nota que o consumidor dá à marca">Nota consumidor</th></tr></thead>
+    <tbody>${lidos.map(({ m, l }) => { const av = raAvalia(l); return `<tr>
+      <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span><div class="mini">${fmtDia(cxDia(l.dia))}${l.fonte && l.fonte !== "metatag" ? " · " + l.fonte : ""}</div></td>
+      ${av.crit.map((c, i) => cel(CX_RA_CARTOES[i], c.v, c.bate)).join("")}
+      <td class="num ${num(l, "aguardando") > 0 ? "vm" : ""}">${fmtNum(num(l, "aguardando"))}</td>
+      <td class="num">${l.tempo_resposta_dias != null ? fmtDec(Number(l.tempo_resposta_dias), 0) + " d" : "—"}</td>
+      <td class="num">${fmtNum(num(l, "reclamacoes"))}</td>
+      <td class="num">${l.nota_consumidor != null ? fmtDec(Number(l.nota_consumidor)) : "—"}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function pintaGraficoRaAba(d) {
+  if (!CX_RA_DADOS || !$("#g-ra")) return;
+  const c = CX_RA_CARTOES.find((x) => x.k === estado.metricaRa) || CX_RA_CARTOES[1];
+  const s = serieRa(d.cx_ra, CX_RA_DADOS.marcas, c.k);
+  const fmt = c.tipo === "pct" ? (v) => Math.round(v) + "%" : c.tipo === "nota" ? (v) => fmtDec(v, 0) : fmtNum;
+  let html;
+  if (!s.dias.length) html = `<div class="vazio mini">Sem leitura ainda. A série começa quando o bookmarklet gravar a primeira.</div>`;
+  else if (s.dias.length < 2) html = `<div class="vazio mini">Uma leitura só (${fmtDia(s.dias[0])}): ${s.series.map((x) => `${ROTULOS[x.marca]} <b>${typeof x.pontos[0].y === "number" ? (c.tipo === "pct" ? fmtDec(x.pontos[0].y) + "%" : c.tipo === "nota" ? fmtDec(x.pontos[0].y) : fmtNum(x.pontos[0].y)) : "—"}</b>`).join(" · ")}. A curva aparece a partir da segunda leitura.</div>`;
+  else html = cxgLinhas({ rotulosX: s.dias.map(fmtDia), pct: c.tipo === "pct", yMax: c.tipo === "nota" ? 10 : undefined, fmt, aria: c.rot,
+    series: s.series.map((x) => Object.assign(cxLbl(x.marca), { pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) })),
+    alvo: c.k === "aguardando" ? null : { y: CX_ALVOS[c.m].alvo, rot: "alvo " + (c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo) } });
+  cxGraficoBloco("ra", { tit: c.rot + " · por leitura", sub: "uma leitura por dia, quando o bookmarklet roda · uma linha por marca", html });
 }
 
-// ---------- interação dos blocos novos ----------
+// ---------- Aba NPS: cinco números → série semanal; tabela por marca + área apontada ----------
+estado.metricaNps = estado.metricaNps || "nps";
+CX_BLOCOS.nps = { area: "#area-nps-num", g: "#g-nps", tit: "#g-nps-tit", sub: "#g-nps-sub", chave: "metricaNps", grafico: (d) => pintaGraficoNpsAba(d) };
+Object.assign(DIRECAO, { nps_prom: "alto", nps_detr: "baixo" });
+function npsSemanal(votos, marcas, ini, fim) {
+  const semanas = cxSemanas(ini, fim); const acc = {};
+  for (const v of votos || []) {
+    const m = NPS_MARCA[v.marca] || v.marca; const dd = new Date(new Date(v.data).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+    if (dd < ini || dd > fim) continue; const s = cxSegunda(dd);
+    const a = acc[m + "|" + s] || (acc[m + "|" + s] = { n: 0, prom: 0, detr: 0, soma: 0 }); a.n++; a.soma += Number(v.score || 0);
+    if (v.bucket === "promotor") a.prom++; if (v.bucket === "detrator") a.detr++;
+  }
+  const get = (m, s) => acc[m + "|" + s] || { n: 0, prom: 0, detr: 0, soma: 0 };
+  const tot = semanas.map((s) => marcas.reduce((t, m) => { const a = get(m, s); t.n += a.n; t.prom += a.prom; t.detr += a.detr; return t; }, { n: 0, prom: 0, detr: 0 }));
+  return { semanas, get, tot };
+}
+function pintaNpsAba(d) {
+  if (!$("#area-nps-num")) return;
+  const marca = estado.marca, todas = marca === "todas";
+  const g = calculaNps(d.nps, marca, PER.ini, PER.fim), ga = estado.comparar ? calculaNps(d.nps, marca, PER.cIni, PER.cFim) : { n: 0 };
+  const marcasVoto = todas ? MARCAS.filter((m) => calculaNps(d.nps, m, PER.ini, PER.fim).n) : [marca];
+  const okAnt = ga.n >= 10;
+  const pct = (x, n) => (n ? (x / n) * 100 : null);
+  const porMarca = (fn) => todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcasVoto, (m) => fn(calculaNps(d.nps, m, PER.ini, PER.fim)))}` : "";
+  const cartoes = [
+    { k: "nps", rot: "NPS", val: g.n ? String(g.nps) : "—", status: g.n >= 10 ? (g.nps >= 50 ? "bom" : g.nps >= 30 ? "atencao" : "ruim") : null, chip: g.n >= 10 && okAnt ? cxChipPts(g.nps, ga.nps, "alto") : "", sub: g.n ? `${fmtNum(g.n)} votos` : "sem votos no período",
+      info: `% promotores (9–10) − % detratores (0–6). Faixa: ≥ 50 bom, 30–49 atenção, < 30 fora. Chip só com 10+ votos nos dois períodos.` + porMarca((x) => x.n ? String(x.nps) : "—") },
+    { k: "nota", rot: "Nota média", val: g.n ? fmtDec(g.media) + "<small class=\"six-de\">/10</small>" : "—", chip: g.n >= 10 && okAnt ? chipHtml("csat", g.media, ga.media, (v) => fmtDec(v)) : "", sub: g.n ? `${fmtNum(g.n)} votos` : "",
+      info: `Média das notas de 0 a 10.` + porMarca((x) => x.n ? fmtDec(x.media) : "—") },
+    { k: "prom", rot: "Promotores", val: g.n ? fmtPct0(pct(g.prom, g.n)) : "—", chip: g.n >= 10 && okAnt ? cxChipPP("nps_prom", pct(g.prom, g.n), pct(ga.prom, ga.n)) : "", sub: g.n ? `${fmtNum(g.prom)} deram 9 ou 10` : "",
+      info: `Notas 9 e 10.` + porMarca((x) => x.n ? fmtPct0(pct(x.prom, x.n)) : "—") },
+    { k: "detr", rot: "Detratores", val: g.n ? fmtPct0(pct(g.detr, g.n)) : "—", chip: g.n >= 10 && okAnt ? cxChipPP("nps_detr", pct(g.detr, g.n), pct(ga.detr, ga.n)) : "", sub: g.n ? `${fmtNum(g.detr)} deram 0 a 6` : "",
+      info: `Notas de 0 a 6. Passivos (7 e 8) ficam fora das duas contas.` + porMarca((x) => x.n ? fmtPct0(pct(x.detr, x.n)) : "—") },
+    { k: "votos", rot: "Votos", val: g.n ? fmtNum(g.n) : "0", chip: chipHtml("respostas", g.n, ga.n || null), sub: PER.rotulo,
+      info: `Respostas à pesquisa pós-entrega no período.` + porMarca((x) => fmtNum(x.n)) },
+  ];
+  const rot = $("#nps-rotulo");
+  if (rot) rot.innerHTML = (g.n && g.n < 10 ? cxTag("amostra pequena", "nota", "Menos de 10 votos no período: leia a contagem, não a taxa.") : "") + cxResumoStatus(cartoes);
+  cxPintaCartoes("nps", cartoes);
+  pintaGraficoNpsAba(d);
+}
+function pintaGraficoNpsAba(d) {
+  if (!$("#g-nps")) return;
+  const k = estado.metricaNps; const j = cxJanelaTendencia(PER.fim, 12); const marcas = cxMarcasSerie();
+  const segHoje = cxSegunda(hojeRef());
+  const ns = npsSemanal(d.nps, marcas, j.ini, j.fim);
+  const c = cxCortaVazioInicial(ns.semanas, [ns.tot.map((t) => t.n)]); const corte = ns.semanas.length - c.semanas.length; const semanas = c.semanas;
+  const rotulosX = semanas.map(fmtDia); let r;
+  const linhaMarcas = (fn, opts, tit, sub) => ({ tit, sub, html: cxgLinhas(Object.assign({ rotulosX, aria: tit, vazio: "Sem semana com 10+ votos no intervalo.",
+    series: marcas.map((m) => Object.assign(cxLbl(m), { pontos: semanas.map((s) => { const a = ns.get(m, s); return { y: a.n >= 10 ? fn(a) : null, rot: "semana de " + fmtDia(s), n: `${fmtNum(a.n)} votos`, parcial: s === segHoje }; }) })) }, opts)) });
+  if (k === "nota") r = linhaMarcas((a) => a.soma / a.n, { yMax: 10, fmt: (v) => fmtDec(v, 0) }, "Nota média · por semana", CX_SUB_SEMANA + " · semana com menos de 10 votos fica em branco");
+  else if (k === "prom" || k === "detr") { const tot = ns.tot.slice(corte); r = { tit: "Promotores · passivos · detratores · por semana", sub: "fatia dos votos da semana · número no topo = NPS", html: cxgBarras({ rotulosX, pct: true, fmt: (v) => Math.round(v) + "%", aria: "Distribuição do NPS por semana", vazio: "Sem voto no intervalo.",
+      series: [{ nome: "Detratores", cor: "var(--ruim)", valores: tot.map((t) => t.detr) }, { nome: "Passivos", cor: "var(--borda-forte)", valores: tot.map((t) => t.n - t.prom - t.detr) }, { nome: "Promotores", cor: "var(--bom)", valores: tot.map((t) => t.prom) }],
+      topo: tot.map((t) => (t.n >= 10 ? String(Math.round(((t.prom - t.detr) / t.n) * 100)) : "")) }) }; }
+  else if (k === "votos") r = { tit: "Votos · por semana", sub: "respostas à pesquisa pós-entrega · uma cor por marca", html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Votos por semana", vazio: "Sem voto no intervalo.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: semanas.map((s) => ns.get(m, s).n) })) }) };
+  else r = linhaMarcas((a) => Math.round(((a.prom - a.detr) / a.n) * 100), { yMax: 100, fmt: (v) => String(Math.round(v)) }, "NPS · por semana", CX_SUB_SEMANA + " · semana com menos de 10 votos fica em branco");
+  cxGraficoBloco("nps", r);
+}
+
+// ---------- Aba Comentários: cinco números → série semanal; tabela por marca + pendências ----------
+estado.metricaSocial = estado.metricaSocial || "total";
+CX_BLOCOS.social = { area: "#area-social-num", g: "#g-social", tit: "#g-social-tit", sub: "#g-social-sub", chave: "metricaSocial", grafico: (d) => pintaGraficoSocialAba(d) };
+Object.assign(DIRECAO, { soc_resp: "alto", soc_neg: "baixo", soc_tempo: "baixo" });
+function socialAgg(d, marcas, ini, fim) {
+  const a = { total: 0, respondidos: 0, aguardando: 0, pos: 0, neg: 0, neu: 0, ocultos: 0, apagados: 0 };
+  for (const l of d.social || []) { if (l.dia < ini || l.dia > fim || !marcas.includes(l.marca)) continue; for (const k of Object.keys(a)) a[k] += Number(l[k] || 0); }
+  let num = 0, den = 0;
+  for (const t of d.social_tempo || []) { if (t.dia < ini || t.dia > fim || !marcas.includes(t.marca)) continue; num += Number(t.mediana_seg || 0) * Number(t.respondidos || 0); den += Number(t.respondidos || 0); }
+  a.tempoSeg = den ? num / den : null; a.tempoN = den;
+  a.clas = a.pos + a.neg + a.neu;
+  a.pctResp = a.total ? (a.respondidos / a.total) * 100 : null; a.pctNeg = a.clas ? (a.neg / a.clas) * 100 : null;
+  return a;
+}
+function pintaSocialAba(d) {
+  if (!$("#area-social-num")) return;
+  const todas = estado.marca === "todas"; const marcas = todas ? MARCAS : [estado.marca];
+  const a = socialAgg(d, marcas, PER.ini, PER.fim), an = estado.comparar ? socialAgg(d, marcas, PER.cIni, PER.cFim) : null;
+  const comDados = marcas.filter((m) => socialAgg(d, [m], PER.ini, PER.fim).total);
+  const porMarca = (fn) => todas && comDados.length ? `\n\nPor marca: ${cxPorMarcaTxt(comDados, (m) => fn(socialAgg(d, [m], PER.ini, PER.fim)))}` : "";
+  const cartoes = [
+    { k: "total", rot: "Comentários", val: fmtNum(a.total), chip: chipHtml("respostas", a.total, an && an.total || null), sub: PER.rotulo + " · orgânico + anúncios", info: "Comentários novos em posts e anúncios da marca no Instagram e no Facebook." + porMarca((x) => fmtNum(x.total)) },
+    { k: "resp", rot: "Respondidos pela marca", val: a.total ? fmtPct0(a.pctResp) : "—", status: a.total >= 10 ? (a.pctResp >= 80 ? "bom" : a.pctResp >= 50 ? "atencao" : "ruim") : null, chip: a.total ? cxChipPP("soc_resp", a.pctResp, an && an.total ? an.pctResp : null) : "", sub: a.total ? `${fmtNum(a.respondidos)} de ${fmtNum(a.total)}` : "",
+      info: "Comentários com resposta pública da conta da marca (bot da Replient ou pessoa). Faixa: ≥ 80% bom, 50–79% atenção." + porMarca((x) => x.total ? fmtPct0(x.pctResp) : "—") },
+    { k: "aguardando", rot: "Aguardando resposta", val: fmtNum(a.aguardando), status: a.total ? (a.aguardando === 0 ? "bom" : a.aguardando <= 5 ? "atencao" : "ruim") : null, chip: an ? cxChipPts(a.aguardando, an.aguardando, "baixo") : "", sub: "precisavam de resposta",
+      info: "Comentários que pediam resposta (pergunta, reclamação, intenção de compra) e ainda não têm. Alvo é zero." + porMarca((x) => fmtNum(x.aguardando)) },
+    { k: "neg", rot: "Negativos", val: a.clas ? fmtPct0(a.pctNeg) : "—", chip: a.clas ? cxChipPP("soc_neg", a.pctNeg, an && an.clas ? an.pctNeg : null) : "", sub: a.clas ? `${fmtNum(a.neg)} de ${fmtNum(a.clas)} classificados` : (a.total ? `${fmtNum(a.total)} na fila de classificação` : ""),
+      info: "Fatia de comentários classificados como negativos (classificação própria, OpenAI). Positivo " + (a.clas ? fmtPct0((a.pos / a.clas) * 100) : "—") + " · neutro " + (a.clas ? fmtPct0((a.neu / a.clas) * 100) : "—") + "." + porMarca((x) => x.clas ? fmtPct0(x.pctNeg) : "—") },
+    { k: "tempo", rot: "Tempo até responder", val: a.tempoSeg !== null ? fmtDur(a.tempoSeg) : "—", chip: a.tempoSeg !== null && an ? cxChipDur(a.tempoSeg, an.tempoSeg) : "", sub: a.tempoN ? `mediana · ${fmtNum(a.tempoN)} respondidos` : "",
+      info: "Mediana do tempo entre o comentário e a resposta da marca, ponderada pelo volume do dia. Até 10 minutos é o bot da Replient; acima disso é pessoa." + porMarca((x) => x.tempoSeg !== null ? fmtDur(x.tempoSeg) : "—") },
+  ];
+  const rot = $("#social-rotulo");
+  if (rot) rot.innerHTML = (!a.total ? cxTag("nenhum comentário no período", "nota") : "") + cxResumoStatus(cartoes);
+  cxPintaCartoes("social", cartoes);
+  pintaGraficoSocialAba(d);
+}
+function pintaGraficoSocialAba(d) {
+  if (!$("#g-social")) return;
+  const k = estado.metricaSocial; const j = cxJanelaTendencia(PER.fim, 12);
+  const s0 = serieSemanalSocial(d.social, estado.marca, j.ini, j.fim);
+  const cs = cxCortaVazioInicial(s0.semanas, [s0.total]); const corte = s0.semanas.length - cs.semanas.length;
+  const s = Object.fromEntries(Object.entries(s0).map(([kk, v]) => [kk, Array.isArray(v) ? v.slice(corte) : v]));
+  const rotulosX = s.semanas.map(fmtDia); const segHoje = cxSegunda(hojeRef()); let r;
+  if (k === "neg") r = { tit: "Sentimento · por semana", sub: "fatia dos comentários classificados · classificação própria (OpenAI)", html: cxgBarras({ rotulosX, pct: true, fmt: (v) => Math.round(v) + "%", aria: "Sentimento por semana", vazio: "Sem comentário classificado no intervalo.",
+    series: [{ nome: "Negativo", cor: "var(--ruim)", valores: s.neg }, { nome: "Neutro", cor: "var(--borda-forte)", valores: s.neu }, { nome: "Positivo", cor: "var(--bom)", valores: s.pos }] }) };
+  else if (k === "resp") r = { tit: "Respondidos pela marca · por semana", sub: CX_SUB_SEMANA, html: cxgLinhas({ rotulosX, pct: true, fmt: (v) => Math.round(v) + "%", aria: "Respondidos por semana", vazio: "Sem comentário no intervalo.", alvo: { y: 80, rot: "alvo 80%" },
+    series: [{ nome: "Respondidos", cor: corHex(estado.marca), pontos: s.semanas.map((sem, i) => ({ y: s.total[i] ? (s.respondidos[i] / s.total[i]) * 100 : null, rot: "semana de " + fmtDia(sem), n: `${fmtNum(s.respondidos[i])} de ${fmtNum(s.total[i])}`, parcial: sem === segHoje })) }] }) };
+  else if (k === "tempo") {
+    const marcas = estado.marca === "todas" ? MARCAS : [estado.marca]; const acc = {};
+    for (const t of d.social_tempo || []) { if (t.dia < j.ini || t.dia > j.fim || !marcas.includes(t.marca)) continue; const sem = cxSegunda(t.dia); const x = acc[sem] || (acc[sem] = { num: 0, den: 0 }); x.num += Number(t.mediana_seg || 0) * Number(t.respondidos || 0); x.den += Number(t.respondidos || 0); }
+    r = { tit: "Tempo até responder · por semana", sub: "mediana em horas, ponderada pelo volume · até 10 min é o bot", html: cxgLinhas({ rotulosX, fmt: fmtHoras, aria: "Tempo de resposta por semana", vazio: "Sem resposta medida no intervalo.",
+      series: [{ nome: "Mediana", cor: corHex(estado.marca), pontos: s.semanas.map((sem) => ({ y: acc[sem] && acc[sem].den ? acc[sem].num / acc[sem].den / 3600 : null, rot: "semana de " + fmtDia(sem), n: acc[sem] ? `${fmtNum(acc[sem].den)} respondidos` : undefined, parcial: sem === segHoje })) }] }) };
+  } else r = { tit: k === "aguardando" ? "Comentários · respondidos × sem resposta · por semana" : "Comentários · por semana", sub: "respondidos pela marca × sem resposta · orgânico + anúncios", html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Comentários por semana", vazio: "Sem comentário no intervalo.",
+    series: [{ nome: "Respondidos pela marca", cor: corHex(estado.marca), valores: s.respondidos }, { nome: "Sem resposta", cor: "#c9463d", valores: s.semResposta }] }) };
+  cxGraficoBloco("social", r);
+}
+
+// ---------- interação dos blocos ----------
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".seg-canal button");
   if (!b) return;
-  
   estado.canalMotivo = b.dataset.canal;
   document.querySelectorAll(".seg-canal button").forEach((x) => x.classList.toggle("ativo", x.dataset.canal === estado.canalMotivo));
   if (estado.dados) pintaMotivos(estado.dados);
 });
 
 // ---------- abas ----------
-// A aba vive no hash (#aba=csat): link copiado abre no lugar certo. Filtros continuam globais.
+// A aba vive no hash (#aba=chat): link copiado abre no lugar certo. Filtros continuam globais.
 // Tudo é pintado sempre (as abas escondidas também) — trocar de aba é instantâneo e não refaz conta.
 const CX_ABAS = ["geral", "chat", "ra", "nps", "social"];
 function cxAbaDoHash() {
@@ -473,89 +694,5 @@ document.addEventListener("click", (e) => { const b = e.target.closest("#abas-cx
 window.addEventListener("hashchange", () => cxMostraAba(cxAbaDoHash(), false));
 cxMostraAba(cxAbaDoHash(), false);
 
-// ---------- gráficos das abas ----------
-const CX_COR_GRUPO = { wismo: "#2a78d6", "pre-venda": "#1baf7a", resolucao: "#eb6834", outros: "#9c968c" };
-function cxJanelaTendencia(fim, semanas) { return { ini: diasAtras(7 * semanas - 1, fim), fim }; }
-function cxMarcasSerie() { return estado.marca === "todas" ? MARCAS.filter((m) => m !== "olivas") : [estado.marca]; }
-
-// Visão geral: contatos por 100 pedidos por dia (por marca) + contatos por semana por motivo
-function pintaTendencias(d) {
-  const el2 = $("#g-motivos"); if (!el2) return;
-  const rows = d.cx_csat || [];
-  const per = cxPeriodoComDado(rows, estado.marca);
-  if (per.vazio) { el2.innerHTML = `<div class="vazio mini">Sem cx_csat na API.</div>`; return; }
-  const j2 = cxJanelaTendencia(per.f.fim, 12);
-  const s2 = serieSemanalMotivos(rows, { marca: per.f.marca, ini: j2.ini, fim: j2.fim });
-  const c2 = cxCortaVazioInicial(s2.semanas, s2.series.map((s) => s.valores));
-  const r = $("#g-motivos-rot"); if (r) r.innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; a última pode estar parcial.");
-  el2.innerHTML = cxgBarras({ rotulosX: c2.semanas.map(fmtDia), fmt: fmtNum, aria: "Contatos por semana por motivo",
-    series: s2.series.map((s, i) => ({ nome: s.nome, cor: CX_COR_GRUPO[s.k], valores: c2.colunas[i] })) });
-}
-
-// Chat: Kai resolve por semana + quem fechou por semana (barras 100%)
-function pintaGraficosChat(d) {
-  const el1 = $("#g-kai"), el2 = $("#g-desfecho");
-  if (!el1 || !el2) return;
-  const fim = PER_DESF.fim >= hojeRef() ? diasAtras(1, hojeRef()) : PER_DESF.fim;
-  const j = cxJanelaTendencia(fim, 12);
-  const k = serieSemanalKai(d.cx_desfecho, estado.marca, j.ini, j.fim);
-  const marcos = (d.cx_marco || []).map((m) => { const s = cxSegunda(cxDia(m.dia)); const i = k.semanas.indexOf(s); return i < 0 ? null : { i, rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` }; }).filter(Boolean);
-  const ck = cxCortaVazioInicial(k.semanas, [k.pontos.map((p) => p.n)]); const cortK = k.semanas.length - ck.semanas.length;
-  marcos.forEach((m) => { m.i -= cortK; }); const marcosOk = marcos.filter((m) => m.i >= 0);
-  k.semanas = ck.semanas; k.pontos = k.pontos.slice(cortK);
-  el1.innerHTML = cxgLinhas({ rotulosX: k.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Kai resolve sozinho por semana", marcos: marcosOk,
-    series: [{ nome: "Kai sozinho", cor: corHex(estado.marca), pontos: k.pontos.map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} com desfecho` })) }] });
-  // quem fechou: kai / pessoa / ninguém, por semana
-  const acc = {};
-  for (const l of d.cx_desfecho || []) { const dia = cxDia(l.dia); if (dia < j.ini || dia > j.fim || l.canal === "email") continue; if (estado.marca !== "todas" && l.marca !== estado.marca) continue;
-    const s = cxSegunda(dia); const a = acc[s] || (acc[s] = { kai: 0, pessoa: 0, ninguem: 0 }); a.kai += Number(l.resolvido_kai || 0); a.ninguem += Number(l.escalado_sem_resposta || 0); a.pessoa += Number(l.escalado || 0) - Number(l.escalado_sem_resposta || 0); }
-  const g = (kk) => k.semanas.map((s) => (acc[s] ? Math.max(0, acc[s][kk]) : 0));
-  el2.innerHTML = cxgBarras({ rotulosX: k.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Quem fechou o ticket por semana",
-    series: [{ nome: "Kai", cor: "var(--bom)", valores: g("kai") }, { nome: "Pessoa", cor: "var(--borda-forte)", valores: g("pessoa") }, { nome: "Ninguém respondeu", cor: "var(--ruim)", valores: g("ninguem") }] });
-}
-
-// Reclame Aqui: índices por dia, por marca
-function pintaGraficoRa(d) {
-  const a = $("#g-ra-resposta"), b = $("#g-ra-solucao");
-  if (!a || !b) return;
-  const marcas = cxMarcasSerie();
-  const linha = (campo, el) => {
-    const s = serieRa(d.cx_ra, marcas, campo);
-    if (!s.dias.length) { el.innerHTML = `<div class="vazio mini">Sem leitura ainda. A série começa quando o bookmarklet gravar a primeira.</div>`; return; }
-    if (s.dias.length < 2) { el.innerHTML = `<div class="vazio mini">Primeira leitura em ${fmtDia(s.dias[0])}: ${s.series.map((x) => `${ROTULOS[x.marca]} <b>${fmtDec(x.pontos[0].y)}%</b>`).join(" · ")}. A curva aparece a partir da segunda leitura.</div>`; return; }
-    el.innerHTML = cxgLinhas({ rotulosX: s.dias.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: campo,
-      series: s.series.map((x) => ({ nome: ROTULOS[x.marca], cor: corHex(x.marca), pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) })), alvo: { y: 90, rot: "alvo 90%" } });
-  };
-  linha("resposta_pct", a); linha("solucao_pct", b);
-}
-
-// NPS por semana por marca
-function pintaGraficoNps(d) {
-  const el = $("#g-nps"); if (!el) return;
-  const j = cxJanelaTendencia(PER.fim, 12);
-  const marcas = cxMarcasSerie();
-  const s0 = serieSemanalNps(d.nps, marcas, j.ini, j.fim, NPS_MARCA);
-  const cn = cxCortaVazioInicial(s0.semanas, s0.series.map((x) => x.pontos.map((p) => p.n))); const cortN = s0.semanas.length - cn.semanas.length;
-  const s = { semanas: cn.semanas, series: s0.series.map((x) => ({ marca: x.marca, pontos: x.pontos.slice(cortN) })) };
-  $("#g-nps-rot").innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; NPS = % promotores − % detratores.");
-  el.innerHTML = cxgLinhas({ rotulosX: s.semanas.map(fmtDia), yMax: 100, fmt: (v) => String(Math.round(v)), aria: "NPS por semana",
-    series: s.series.map((x) => ({ nome: ROTULOS[x.marca], cor: corHex(x.marca), pontos: x.pontos.map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} votos` })) })),
-    vazio: "Sem semana com 10+ votos no intervalo." });
-}
-
-// Comentários por semana: respondidos × sem resposta; sentimento
-function pintaGraficoSocial(d) {
-  const a = $("#g-social-resp"), b = $("#g-social-sent"); if (!a || !b) return;
-  const j = cxJanelaTendencia(PER.fim, 12);
-  const s0 = serieSemanalSocial(d.social, estado.marca, j.ini, j.fim);
-  const cs = cxCortaVazioInicial(s0.semanas, [s0.total]); const cortS = s0.semanas.length - cs.semanas.length;
-  const s = Object.fromEntries(Object.entries(s0).map(([k, v]) => [k, Array.isArray(v) ? v.slice(cortS) : v]));
-  a.innerHTML = cxgBarras({ rotulosX: s.semanas.map(fmtDia), fmt: fmtNum, aria: "Comentários por semana",
-    series: [{ nome: "Respondidos pela marca", cor: corHex(estado.marca), valores: s.respondidos }, { nome: "Sem resposta", cor: "#c9463d", valores: s.semResposta }] });
-  b.innerHTML = cxgBarras({ rotulosX: s.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Sentimento por semana",
-    series: [{ nome: "Negativo", cor: "var(--ruim)", valores: s.neg }, { nome: "Neutro", cor: "var(--borda-forte)", valores: s.neu }, { nome: "Positivo", cor: "var(--bom)", valores: s.pos }],
-    vazio: "Sem comentário classificado no intervalo." });
-}
-
-// Painéis recolhíveis: um clique do usuário vale mais que a regra "abre se fora do alvo".
+// Painéis recolhíveis: um clique do usuário vale mais que qualquer regra de abrir sozinho.
 document.addEventListener("toggle", (e) => { if (e.target && e.target.classList && e.target.classList.contains("dobra-painel")) e.target.dataset.tocado = "1"; }, true);

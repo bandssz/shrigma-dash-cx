@@ -100,7 +100,7 @@ async function carrega() {
     shrigmaMarcaMestra(chave(), (estado.dados || {})._painel);
     pinta();
   } catch (e) {
-    $("#area-kpis").innerHTML =
+    $("#faixa-alertas").innerHTML =
       `<div class="erro-carga">Sem dados agora (${e.message}). Nova tentativa em ${REFRESH_SEG}s — se persistir, confira o workflow “CX — Dashboard · API de leitura” no n8n.</div>`;
   }
 }
@@ -141,29 +141,22 @@ function pinta() {
 
   pintaFrescor(d);
   pintaAlertas(porMarca, d);
-  pintaKpis(escopo, porMarca);
-  pintaGrafico(d, hoje);
-  // pintaDesfecho resolve PER_DESF (o periodo que realmente tem desfecho) e a coluna
-  // "Kai resolve" do comparativo le esse mesmo recorte -- por isso vem antes.
+  // pintaDesfecho resolve PER_DESF (o periodo que realmente tem desfecho); os cartoes de Kai
+  // leem esse mesmo recorte -- por isso vem antes.
   pintaDesfecho(d);
-  // blocos novos (cx-tela.js): leem cx_csat / cx_pedidos / cx_ra e o PER_DESF resolvido acima
+  // abas (cx-tela.js): cartoes de tres camadas → um grafico, uma tabela. Tudo e pintado sempre.
   pintaSeisNumeros(d);
-  pintaTendencias(d);
   pintaMotivos(d);
-  pintaCsat(d);
-  pintaGraficosChat(d);
-  pintaGraficoRa(d);
-  pintaGraficoNps(d);
-  pintaGraficoSocial(d);
-  pintaComparativo(porMarca, d);
+  pintaChat(d, escopo, porMarca);
   pintaRanking(d, hoje);
+  pintaRaAba(d);
+  pintaNpsAba(d);
   pintaNps(d, hoje);
   pintaFrustracoes(d);
-  pintaRaNovo(d);
+  pintaSocialAba(d);
   pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
-  const chk = $("#chk-comparar"); if (chk) chk.checked = estado.comparar;
 }
 
 function pintaFrescor(d) {
@@ -222,260 +215,6 @@ function anteriorProgressivo(metrica, marca, antCheio) {
   return v === null ? { valor: null, mesmaHora: false, cheio: base } : { valor: v, mesmaHora: true, cheio: base };
 }
 
-function pintaKpis(p, porMarca) {
-  const a = (p && p.atual) || {};
-  const antBruto = (p && p.anterior) || {};
-  const semHist = antBruto.__semHistorico === true;
-  const ant = semHist ? {} : antBruto;
-  const todas = estado.marca === "todas";
-  const marcaRef = estado.marca;
-  const umDia = PER.ini === PER.fim;
-  const temCom = typeof a.primeira_resposta_comercial_seg === "number";
-  const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
-
-  // comparação progressiva (contagens): ontem até a mesma hora, quando a série existir
-  const pn = anteriorProgressivo("novos", marcaRef, ant);
-  const pf = anteriorProgressivo("fechados", marcaRef, ant);
-  const saldoAntProg = typeof pn.valor === "number" && typeof pf.valor === "number" ? pf.valor - pn.valor : null;
-  const saldoAntCheio = typeof ant.novos === "number" && typeof ant.fechados === "number" ? ant.fechados - ant.novos : null;
-  const usaMesmaHora = pn.mesmaHora && pf.mesmaHora;
-
-  const filaSub = todas
-    ? MARCAS.map((m) => {
-        const f = porMarca[m].atual && porMarca[m].atual.fila_aberta;
-        return `${{aristocrata:"A",fishermans:"F",olivas:"O"}[m]} ${fmtNum(f)}`;
-      }).join(" · ")
-    : "abertos neste momento";
-  let respSub = "mediana até a 1ª resposta";
-  if (todas) {
-    let pior = null;
-    for (const m of MARCAS) {
-      const v = porMarca[m].atual && porMarca[m].atual.primeira_resposta_seg;
-      if (typeof v === "number" && (!pior || v > pior.v)) pior = { m, v };
-    }
-    if (pior) respSub = `pior: ${ROTULOS[pior.m]} · ${fmtDur(pior.v)}`;
-  }
-
-  const kpi = (rot, valHtml, sub, chip, ref) =>
-    `<div class="kpi"><div class="kpi-rot">${rot}</div><div class="kpi-val">${valHtml}</div>
-     <div class="kpi-rodape"><span class="kpi-sub">${sub}</span>${chip || ""}</div>
-     ${ref ? `<div class="kpi-ref">${ref}</div>` : ""}</div>`;
-
-  // linhas de referência "ontem fechou em..." (o total do período anterior sempre visível)
-  const avisoHist = estado.comparar && semHist
-    ? `<span class="mini">sem histórico completo do período de comparação</span>` : "";
-  const rotAntDia = estado.compAuto ? (estado.preset === "hoje" ? "ontem" : "dia anterior") : fmtDia(PER.cIni);
-  const refSaldo = estado.comparar && umDia && saldoAntCheio !== null
-    ? `${rotAntDia} fechou em <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b> (${fmtNum(ant.novos)} novos · ${fmtNum(ant.fechados)} resolvidos)` : "";
-  const rotMH = usaMesmaHora ? " · até a mesma hora" : "";
-
-  $("#area-kpis").innerHTML =
-    kpi("Saldo · " + PER.rotulo,
-        `<span class="${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</span>`,
-        `entraram ${fmtNum(a.novos)} · resolvidos ${fmtNum(a.fechados)}${rotMH ? "" : ""}`,
-        umDia ? chipHtml("fechados", a.fechados, pf.valor) : chipHtml("fechados", a.fechados, ant.fechados),
-        refSaldo || avisoHist || (estado.comparar && !umDia && saldoAntCheio !== null
-          ? `período anterior: <b>${(saldoAntCheio > 0 ? "+" : "") + fmtNum(saldoAntCheio)}</b>` : "")) +
-    kpi(PER.fim >= hojeRef() ? "Fila agora" : "Fila no fim do período", fmtNum(a.fila_aberta), filaSub,
-        chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta),
-        estado.comparar && typeof ant.fila_aberta === "number" ? `${umDia ? rotAntDia : "antes"}: <b>${fmtNum(ant.fila_aberta)}</b>` : "") +
-    kpi(temCom ? "1ª resposta · expediente" : "1ª resposta",
-        fmtDur(temCom ? a.primeira_resposta_comercial_seg : a.primeira_resposta_seg),
-        temCom ? `seg–sex 8h–18h · ${fmtNum(a.amostra_comercial)} tickets` : respSub,
-        temCom
-          ? chipHtml("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg, fmtDur)
-          : chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
-        temCom && typeof a.primeira_resposta_seg === "number"
-          ? `espera total do cliente: <b>${fmtDur(a.primeira_resposta_seg)}</b>${typeof a.resolucao_comercial_seg === "number" ? ` · resolução em expediente <b>${fmtDur(a.resolucao_comercial_seg)}</b>` : ""}`
-          : (todas ? "" : respSub === "mediana até a 1ª resposta" ? "" : respSub));
-  /* O cartão "CSAT" que ficava aqui mostrava a média do snapshot do Gleap: média de
-     {20, 60, 100} de uma pesquisa de três opções. Saiu em 12/09; o CSAT vive nos seis
-     números e no bloco "CSAT em três níveis" (cx-tela.js). */
-  $("#aviso-aprox").hidden = !(a && a.aprox);
-  // rótulo global da comparação
-  const compEl = $("#comp-rotulo");
-  if (compEl && estado.comparar && umDia)
-    compEl.dataset.mh = usaMesmaHora ? "1" : "0";
-}
-// sparkline dupla (novos × resolvidos), SVG puro
-function sparkSvg(marca, cor, w, h) {
-  const d = estado.dados;
-  const hoje = hojeRef();
-  const ini = diasAtras(13, hoje);
-  let novos, fechados;
-  if (marca === "todas") {
-    const dias = [...new Set(d.snapshot_1d.filter((l) => l.dia >= ini).map((l) => l.dia))].sort();
-    const somaDia = (dd, c) => d.snapshot_1d.filter((l) => l.dia === dd).reduce((acc, l) => acc + (l[c] || 0), 0);
-    novos = dias.map((dd) => somaDia(dd, "novos"));
-    fechados = dias.map((dd) => somaDia(dd, "fechados"));
-  } else {
-    const linhas = filtraDias(d.snapshot_1d, marca, ini, hoje);
-    novos = linhas.map((l) => l.novos ?? 0);
-    fechados = linhas.map((l) => l.fechados ?? 0);
-  }
-  if (novos.length < 2) return "";
-  const max = Math.max(...novos, ...fechados, 1);
-  const pts = (arr) => arr.map((v, i) =>
-    `${(i / (arr.length - 1)) * w},${h - 2 - (v / max) * (h - 4)}`).join(" ");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points="${pts(novos)}" fill="none" stroke="${cor}" stroke-opacity=".3" stroke-width="1.6"/>
-      <polyline points="${pts(fechados)}" fill="none" stroke="${cor}" stroke-width="1.6"/></svg>`;
-}
-
-
-// ---------- gráfico comparativo (estilo Shopify) ----------
-estado.metrica = "fechados";
-estado.comparar = true;
-
-function linhaSvg(pts, xMax, yMax, W, H, cor, tracejada) {
-  if (pts.length < 2) return "";
-  const px = (p) => `${(p.x / xMax) * W},${H - 4 - (p.y / yMax) * (H - 10)}`;
-  return `<polyline points="${pts.map(px).join(" ")}" fill="none" stroke="${cor}"
-    stroke-width="2" ${tracejada ? 'stroke-dasharray="5 4" stroke-opacity=".55"' : ""} />`;
-}
-
-
-// ---------- tooltip do gráfico ----------
-let GRAF = null; // estado da última pintura, para o hover
-function fmtHoraMin(m) { return String(Math.floor(m / 60)).padStart(2, "0") + "h" + String(m % 60).padStart(2, "0"); }
-function pontoProximo(serie, xAlvo) {
-  if (!serie || !serie.length) return null;
-  let melhor = serie[0];
-  for (const p of serie) if (Math.abs(p.x - xAlvo) < Math.abs(melhor.x - xAlvo)) melhor = p;
-  return melhor;
-}
-function ligaTooltip() {
-  const area = $("#area-grafico");
-  area.addEventListener("mousemove", (e) => {
-    if (!GRAF) return;
-    const svg = area.querySelector("svg.grafico");
-    const tipEl = area.querySelector(".graf-tip");
-    const guia = area.querySelector(".graf-guia");
-    if (!svg || !tipEl) return;
-    const r = svg.getBoundingClientRect();
-    if (r.width < 10) return;
-    const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    const xAlvo = frac * GRAF.xMax;
-    const pa = pontoProximo(GRAF.atual, xAlvo);
-    if (!pa) return;
-    const pb = estado.comparar ? pontoProximo(GRAF.anterior, pa.x) : null; // ancora no MESMO horário do ponto atual
-    const rotX = GRAF.umDia ? fmtHoraMin(pa.x) : fmtDia((GRAF.atual[pa.x] || pa).dia || "");
-    tipEl.innerHTML = `<b>${rotX}</b><span>${GRAF.rotAtual}: <b>${fmtNum(pa.y)}</b></span>` +
-      (pb ? `<span>${GRAF.rotAnterior}: <b>${fmtNum(pb.y)}</b>${GRAF.umDia && pb.x !== pa.x ? " (" + fmtHoraMin(pb.x) + ")" : ""}</span>` : "");
-    const px = (pa.x / GRAF.xMax) * r.width;
-    tipEl.hidden = false;
-    tipEl.style.left = Math.min(px + 12, r.width - 150) + "px";
-    tipEl.style.top = "8px";
-    guia.hidden = false;
-    guia.style.left = px + "px";
-    guia.style.height = r.height + "px";
-  });
-  area.addEventListener("mouseleave", () => {
-    const t = area.querySelector(".graf-tip"), g = area.querySelector(".graf-guia");
-    if (t) t.hidden = true; if (g) g.hidden = true;
-  });
-}
-function pintaGrafico(d, hoje) {
-  const alvo = $("#area-grafico");
-  const leg = $("#grafico-legenda");
-  const cor = corHex(estado.marca);
-  const met = estado.metrica;
-  const W = 640, H = 170;
-  const umDia = PER.ini === PER.fim;
-  let atual = [], anterior = [], xMax, rotAtual = PER.rotulo, rotAnterior, eixoIni, eixoFim;
-
-  if (umDia) {
-    atual = serieIntradia(d.intradia, estado.marca, PER.ini, met);
-    anterior = estado.comparar ? serieIntradia(d.intradia, estado.marca, PER.cIni, met) : [];
-    xMax = 1440; rotAnterior = estado.compAuto ? "dia anterior" : fmtDia(PER.cIni);
-    eixoIni = "00h"; eixoFim = "24h";
-    if (atual.length < 2) {
-      GRAF = null;
-      alvo.innerHTML = `<p class="mini">A curva intradiária existe a partir das coletas de 10 em 10 min
-        (histórico desde 14/08). Para dias sem pontos, use um intervalo de vários dias.</p>`;
-      leg.innerHTML = ""; return;
-    }
-  } else {
-    atual = serieDiaria(d.snapshot_1d, estado.marca, PER.ini, PER.fim, met)
-      .map((p, i) => ({ x: i, y: p.y, dia: p.dia }));
-    anterior = estado.comparar
-      ? serieDiaria(d.snapshot_1d, estado.marca, PER.cIni, PER.cFim, met).map((p, i) => ({ x: i, y: p.y }))
-      : [];
-    xMax = Math.max(atual.length, anterior.length, 2) - 1;
-    rotAnterior = estado.compAuto ? "período anterior" : fmtDia(PER.cIni) + "–" + fmtDia(PER.cFim);
-    eixoIni = atual[0] ? fmtDia(atual[0].dia) : "";
-    eixoFim = atual.length ? fmtDia(atual[atual.length - 1].dia) : "";
-    if (atual.length < 2) { alvo.innerHTML = `<p class="mini">Sem série suficiente no período.</p>`; leg.innerHTML = ""; return; }
-  }
-
-  const yMax = Math.max(...atual.map((p) => p.y), ...anterior.map((p) => p.y), 1);
-  const ultimo = atual[atual.length - 1];
-  // quebra de série (cx_marco): linha vertical no dia, só na visão diária
-  const marcos = umDia ? [] : (d.cx_marco || []).map((m) => {
-    const i = atual.findIndex((p) => p.dia >= String(m.dia).slice(0, 10));
-    return i < 0 ? "" : `<g><title>${fmtDia(String(m.dia).slice(0, 10))} — ${String(m.titulo || "").replace(/</g, "&lt;")}</title>
-      <line x1="${(i / xMax) * W}" x2="${(i / xMax) * W}" y1="6" y2="${H - 4}" stroke="var(--texto)" stroke-opacity=".35" stroke-dasharray="3 3"/></g>`;
-  }).join("");
-  alvo.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="grafico">
-      <line x1="0" y1="${H - 4}" x2="${W}" y2="${H - 4}" stroke="var(--borda)" />
-      ${marcos}
-      ${linhaSvg(anterior, xMax, yMax, W, H, "#9c968c", true)}
-      ${linhaSvg(atual, xMax, yMax, W, H, cor, false)}
-      <circle cx="${(ultimo.x / xMax) * W}" cy="${H - 4 - (ultimo.y / yMax) * (H - 10)}" r="3.5" fill="${cor}" />
-    </svg>
-    <div class="grafico-eixo"><span>${eixoIni}</span><span>${eixoFim}</span></div>
-    <div class="graf-tip" hidden></div><div class="graf-guia" hidden></div>`;
-  GRAF = { atual, anterior, xMax, umDia, rotAtual, rotAnterior };
-  const antUlt = anterior.length ? anterior[anterior.length - 1] : null;
-  leg.innerHTML = `<span><i class="leg-linha" style="background:${cor}"></i>${rotAtual} · <b>${fmtNum(ultimo.y)}</b></span>` +
-    (estado.comparar && antUlt
-      ? `<span><i class="leg-linha tracejada"></i>${rotAnterior} · <b>${fmtNum(antUlt.y)}</b></span>` : "") +
-    `<span class="mini">pico ${fmtNum(yMax)}</span>`;
-}
-function pintaComparativo(porMarca, d) {
-  const painel = $("#painel-comparativo");
-  if (estado.marca !== "todas") { painel.hidden = true; return; }
-  painel.hidden = false;
-  const rotMH2 = PER.ini === PER.fim && estado.comparar && valorMesmaHora(d.intradia, "todas", PER.cIni, "fechados", mesmaHoraAgora()) !== null
-    ? " · contagens até a mesma hora" : "";
-  $("#comp-rotulo").textContent = ((estado.comparar && porMarca.aristocrata.rotuloComp) || "") + rotMH2 +
-    (Object.values(porMarca).some((p) => p.atual && p.atual.aprox) ? " · ≈" : "");
-
-  const seta = (metrica, atual, anterior) => {
-    const dl = delta(metrica, atual, anterior);
-    if (!dl.texto || dl.texto === "＝") return "";
-    return `<span class="seta ${dl.classe}">${dl.texto.split(" ")[0]}</span>`;
-  };
-  /* Contatos, /100 pedidos, WISMO e CSAT vêm de cx_csat/cx_pedidos (cx-metricas.js), no
-     mesmo período com dado que os seis números usam. Fila e tempos continuam do snapshot. */
-  const csRows = d.cx_csat || [];
-  $("#tabela-comparativo tbody").innerHTML = MARCAS.map((m) => {
-    const a = porMarca[m].atual || {};
-    const antB = porMarca[m].anterior || {};
-    const ant = antB.__semHistorico ? {} : antB;
-    const per = cxPeriodoComDado(csRows, m);
-    const cpp = per.vazio ? null : contatosPorPedido(csRows, d.cx_pedidos, per.f);
-    const cppAnt = per.vazio || !per.fAnt ? null : contatosPorPedido(csRows, d.cx_pedidos, per.fAnt);
-    const cs = per.vazio ? null : csatAgg(csRows, Object.assign({}, per.f, { canais: CX_CANAIS_KAI }));
-    const csAnt = per.vazio || !per.fAnt ? null : csatAgg(csRows, Object.assign({}, per.fAnt, { canais: CX_CANAIS_KAI }));
-    const temPed = cpp && typeof cpp.pedidos === "number";
-    return `<tr>
-      <td><div class="pessoa"><span class="ponto" style="--cor:${corHex(m)}"></span>
-        <span class="nome">${ROTULOS[m]}</span>
-        ${a.incompleto ? '<span class="selo-incompleto">coleta incompleta</span>' : ""}</div></td>
-      <td class="num">${cpp ? fmtNum(cpp.contatos) : "—"} ${cpp && cppAnt ? seta("novos", cpp.contatos, cppAnt.contatos) : ""}</td>
-      <td class="num">${temPed ? cpp.por100.toFixed(1).replace(".", ",") : `<span class="mini" title="sem pedidos na API">${cpp && cpp.contatosDia !== null ? Math.round(cpp.contatosDia) + "/dia" : "—"}</span>`} ${temPed && cppAnt ? seta("contatos_por_pedido", cpp.por100, cppAnt.por100) : ""}</td>
-      <td class="num">${temPed ? fmtPct(cpp.wismoRate) : `<span class="mini" title="fatia dos contatos; vira taxa por pedido quando houver pedidos">${cpp && cpp.wismoShare !== null ? Math.round(cpp.wismoShare) + "% dos contatos" : "—"}</span>`} ${temPed && cppAnt ? seta("wismo_rate", cpp.wismoRate, cppAnt.wismoRate) : ""}</td>
-      <td class="num">${cs ? (cs.baseOk ? Math.round(cs.pctBom) + "%" : `<span class="mini">${fmtNum(cs.bom)}/${fmtNum(cs.avaliadas)}</span>`) : "—"} ${cs && cs.baseOk && csAnt ? seta("csat_bom", cs.pctBom, csAnt.pctBom) : ""}</td>
-      <td class="num">${pctKai(m)}</td>
-      <td class="num">${fmtNum(a.fila_aberta)} ${seta("fila_aberta", a.fila_aberta, ant.fila_aberta)}</td>
-      <td class="num">${fmtDur(a.primeira_resposta_comercial_seg)} ${seta("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg)}</td>
-      <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
-      <td class="cel-spark">${sparkSvg(m, corHex(m), 110, 26)}</td>
-    </tr>`;
-  }).join("");
-}
-
 /* Desfecho do ticket: cinco estados exclusivos que somam 100%.
    Substitui a deflexão do Gleap, que mentia em três camadas empilhadas:
      1. denominador só com conversas em que o Kai chegou a um veredito (exclui 56%
@@ -530,17 +269,6 @@ function desfechoAgg(d, marca, ini, fim) {
   return Object.values(acc).sort((x, y) => y.tickets - x.tickets);
 }
 
-function pctKai(marca) {
-  const linhas = desfechoAgg(estado.dados || {}, marca, PER_DESF.ini, PER_DESF.fim)
-    .filter((x) => x.canal !== "email");   // Kai nao roda em e-mail
-  // Mesmo denominador do topo: ticket DECIDIDO (Kai resolveu ou foi para agente).
-  // Ate 04/09 dividia por todos os tickets e dava um "Kai" diferente do KPI principal.
-  const kai = linhas.reduce((s, x) => s + (x.resolvido_kai || 0), 0);
-  const esc = linhas.reduce((s, x) => s + (x.escalado || 0), 0);
-  const t = kai + esc;
-  if (!t) return "—";
-  return t < MIN_BASE ? `${fmtNum(kai)}/${fmtNum(t)}` : fmtPct((kai / t) * 100);
-}
 
 /* Esforco do Kai quando ele falha. Nao e barra empilhada: sao dois numeros por
    canal, e forcar barra aqui seria grafico enfeitando numero.
@@ -782,59 +510,35 @@ function pintaRanking(d, hoje) {
 
 // Comentários orgânicos via Meta Graph (volume, respondidos, ocultos, sentimento próprio).
 // Independe da Replient: quando a API deles sair, entra como fonte adicional.
+// Aba Comentários: os cartões e o gráfico estão em cx-tela.js (pintaSocialAba); aqui a tabela por
+// marca (com quem respondeu: bot × pessoa, inferido pelo tempo) e as duas filas de pendência.
 function pintaSocial(d) {
-  const alvo = $("#area-social");
-  const linhas = (d.social || []).filter((l) => l.dia >= PER.ini && l.dia <= PER.fim);
+  const alvo = $("#area-social"); if (!alvo) return;
   const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
-  $("#social-rotulo").textContent = PER.rotulo + " · orgânico + anúncios";
-
+  const linhas = (d.social || []).filter((l) => l.dia >= PER.ini && l.dia <= PER.fim && marcas.includes(l.marca));
   const agg = {};
   for (const l of linhas) {
-    if (!marcas.includes(l.marca)) continue;
     const a = (agg[l.marca] = agg[l.marca] || { total: 0, respondidos: 0, ocultos: 0, apagados: 0, pos: 0, neg: 0, neu: 0, sem: 0, aguardando: 0 });
     for (const k of ["total", "respondidos", "ocultos", "aguardando", "apagados"]) a[k] += Number(l[k] || 0);
-    a.pos += Number(l.pos || 0); a.neg += Number(l.neg || 0);
-    a.neu += Number(l.neu || 0); a.sem += Number(l.sem_classificacao || 0);
+    a.pos += Number(l.pos || 0); a.neg += Number(l.neg || 0); a.neu += Number(l.neu || 0); a.sem += Number(l.sem_classificacao || 0);
   }
   const comDados = marcas.filter((m) => agg[m] && agg[m].total);
-  { // resumo na linha do título: total, % respondidos pela marca, aguardando
-    const T = comDados.reduce((s, m) => s + agg[m].total, 0), R = comDados.reduce((s, m) => s + agg[m].respondidos, 0), A = comDados.reduce((s, m) => s + agg[m].aguardando, 0);
-    $("#social-rotulo").innerHTML = T ? `<b>${fmtNum(T)}</b> comentários · <b>${Math.round((R / T) * 100)}%</b> respondidos pela marca${A ? ` · <span class="vm"><b>${fmtNum(A)}</b> aguardando</span>` : ""} · ${PER.rotulo}` : `nenhum comentário · ${PER.rotulo}`;
-  }
-  if (!comDados.length) {
-    alvo.innerHTML = `<p class="mini">Nenhum comentário no período selecionado.</p>`;
-    $("#area-social-urgentes").innerHTML = ""; return;
-  }
-  alvo.innerHTML = comDados.map((m) => {
-    const a = agg[m];
-    const taxa = a.total ? (a.respondidos / a.total) * 100 : null;
-    const clas = a.pos + a.neg + a.neu;
-    const pc = (x) => (clas ? (x / clas) * 100 : 0);
-    return `<div class="soc-marca">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3>
-        ${a.aguardando ? `<span class="chip d-ruim">${a.aguardando} aguardando resposta</span>` : ""}</div>
-      <div class="soc-grade">
-        <div class="metrica"><span class="rot">Comentários</span><span class="val">${fmtNum(a.total)}</span></div>
-        <div class="metrica"><span class="rot">Respondidos pela marca</span><span class="val">${fmtNum(a.respondidos)}<small> ${taxa !== null ? Math.round(taxa) + "%" : ""}</small></span></div>
-        <div class="metrica"><span class="rot">Ocultados / apagados</span><span class="val">${fmtNum(a.ocultos)}<small> / ${fmtNum(a.apagados)}</small></span></div>
-        <div class="metrica"><span class="rot">Sentimento</span><span class="val">${clas ? `<span class="vd">${Math.round(pc(a.pos))}%</span><small> pos · </small><span class="vm">${Math.round(pc(a.neg))}%</span><small> neg</small>` : "—"}</span></div>
-      </div>
-      ${clas ? `<div class="soc-barra">
-        <i class="p" style="width:${pc(a.pos)}%"></i><i class="pa" style="width:${pc(a.neu)}%"></i><i class="d" style="width:${pc(a.neg)}%"></i>
-      </div>` : ""}
-      ${a.sem ? `<div class="mini soc-nota">${a.sem} ainda na fila de classificação</div>` : ""}
-    </div>`;
-  }).join("");
-
-  // tempo mediano de resposta aos comentários (no período)
-  const tempos = (d.social_tempo || []).filter((t) => t.dia >= PER.ini && t.dia <= PER.fim && marcas.includes(t.marca));
-  if (tempos.length) {
-    const num = tempos.reduce((s, t) => s + Number(t.mediana_seg || 0) * Number(t.respondidos || 0), 0);
-    const den = tempos.reduce((s, t) => s + Number(t.respondidos || 0), 0);
-    if (den) alvo.insertAdjacentHTML("beforeend",
-      `<div class="soc-tempo">Tempo mediano até a marca responder: <b>${fmtDur(num / den)}</b>
-       <span class="mini">(${fmtNum(den)} comentários respondidos)</span></div>`);
-  }
+  const urg = $("#area-social-urgentes");
+  if (!comDados.length) { alvo.innerHTML = `<p class="mini">Nenhum comentário no período selecionado.</p>`; if (urg) urg.innerHTML = ""; return; }
+  const aut = autoriaAgg(d, marcas);
+  alvo.innerHTML = `<div class="rolagem"><table class="comparativo soc-tab">
+    <thead><tr><th>Marca</th><th class="num">Comentários</th><th class="num" title="Resposta pública da conta da marca">Respondidos</th><th class="num" title="Pediam resposta e não têm">Aguardando</th><th title="Classificação própria (OpenAI) · negativo | neutro | positivo">Sentimento</th><th class="num" title="Inferido pelo tempo até responder: até 10 min é o bot da Replient">Bot · pessoa</th><th class="num" title="Ocultados pela marca / apagados pelo autor">Ocultos / apagados</th></tr></thead>
+    <tbody>${comDados.map((m) => {
+      const a = agg[m], clas = a.pos + a.neg + a.neu, pc = (x) => (clas ? (x / clas) * 100 : 0), au = aut[m];
+      return `<tr>
+        <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span>${a.sem ? `<div class="mini">${fmtNum(a.sem)} na fila de classificação</div>` : ""}</td>
+        <td class="num">${fmtNum(a.total)}</td>
+        <td class="num">${fmtNum(a.respondidos)}<span class="mini"> ${Math.round((a.respondidos / a.total) * 100)}%</span></td>
+        <td class="num ${a.aguardando ? "vm" : ""}">${fmtNum(a.aguardando)}</td>
+        <td>${clas ? `<div class="csat-cel"><div class="b3 fina" role="img" aria-label="${Math.round(pc(a.neg))}% negativo"><i class="s-ruim" style="width:${pc(a.neg)}%" title="negativo: ${fmtNum(a.neg)}"></i><i class="s-neutro" style="width:${pc(a.neu)}%" title="neutro: ${fmtNum(a.neu)}"></i><i class="s-bom" style="width:${pc(a.pos)}%" title="positivo: ${fmtNum(a.pos)}"></i></div><strong class="tabn ${pc(a.neg) >= 25 ? "vm" : ""}">${Math.round(pc(a.neg))}%<span class="mini"> neg</span></strong></div>` : "<span class='mini'>—</span>"}</td>
+        <td class="num">${au && au.bot + au.humano ? `<span class="tabn">${Math.round((au.bot / (au.bot + au.humano)) * 100)}%<span class="mini"> · ${Math.round((au.humano / (au.bot + au.humano)) * 100)}%</span></span><div class="mini">bot ${au.medBot || "—"} · pessoa ${au.medHum || "—"}</div>` : "<span class='mini'>—</span>"}</td>
+        <td class="num"><span class="tabn">${fmtNum(a.ocultos)}<span class="mini"> / ${fmtNum(a.apagados)}</span></span></td>
+      </tr>`; }).join("")}</tbody></table></div>`;
 
   // duas filas distintas: problema (atenção) e dinheiro (oportunidade)
   const fila = (titulo, itens, classe, sub) => itens.length
@@ -847,13 +551,11 @@ function pintaSocial(d) {
     : "";
   const at = (d.social_atencao || []).filter((u) => marcas.includes(u.marca));
   const op = (d.social_oportunidade || []).filter((u) => marcas.includes(u.marca));
-  $("#area-social-urgentes").innerHTML =
+  if (urg) urg.innerHTML =
     fila("⚠ Precisam de atenção", at, "urg-ruim", "negativos ou reclamações sem resposta da marca · 14 dias") +
     fila("💰 Oportunidades sem resposta", op, "urg-bom", "intenção de compra, preço ou dúvida de produto · 7 dias") +
     (!at.length && !op.length ? `<div class="soc-urg-ok mini">Nada pendente: sem reclamação e sem oportunidade esperando resposta. ✓</div>`
       : (!at.length ? `<div class="soc-urg-ok mini">Nenhuma reclamação sem resposta. ✓</div>` : ""));
-
-  pintaAutoria(d, marcas, alvo);
 }
 
 /* Quem respondeu: bot da Replient ou gente.
@@ -868,88 +570,47 @@ function pintaSocial(d) {
    bot do que a própria faixa de 1 a 10 minutos.
    Limite conhecido: o texto da resposta não é coletado, então isto mede QUEM respondeu
    e QUANTO demorou — não se a resposta prestou. */
-function pintaAutoria(d, marcas, alvo) {
-  const linhas = (d.social_autoria || [])
-    .filter((l) => l.dia >= PER.ini && l.dia <= PER.fim && marcas.includes(l.marca));
-  if (!linhas.length) return;
-
+function autoriaAgg(d, marcas) {
   const agg = {};
-  let precisavamSem = 0;
-  for (const l of linhas) {
-    const a = (agg[l.marca] = agg[l.marca] || { bot: 0, humano: 0, sem_resposta: 0, botSeg: [], humSeg: [] });
-    a[l.autoria] = (a[l.autoria] || 0) + Number(l.n || 0);
-    if (l.autoria === "sem_resposta") precisavamSem += Number(l.precisavam || 0);
+  for (const l of (d.social_autoria || [])) {
+    if (l.dia < PER.ini || l.dia > PER.fim || !marcas.includes(l.marca)) continue;
+    const a = (agg[l.marca] = agg[l.marca] || { bot: 0, humano: 0, botSeg: [], humSeg: [] });
+    if (l.autoria === "bot" || l.autoria === "humano") a[l.autoria] += Number(l.n || 0);
     if (l.espera_mediana_seg !== null && l.espera_mediana_seg !== undefined) {
       const par = [Number(l.espera_mediana_seg), Number(l.n || 0)];
-      if (l.autoria === "bot") a.botSeg.push(par);
-      if (l.autoria === "humano") a.humSeg.push(par);
+      if (l.autoria === "bot") a.botSeg.push(par); if (l.autoria === "humano") a.humSeg.push(par);
     }
   }
   // Mediana de medianas diárias não existe: pondera pelo volume do dia.
-  const pond = (pares) => {
-    const den = pares.reduce((s, p) => s + p[1], 0);
-    return den ? pares.reduce((s, p) => s + p[0] * p[1], 0) / den : null;
-  };
-  const dur = (s) => s === null ? "—"
-    : s < 90 ? Math.round(s) + "s"
-    : s < 5400 ? Math.round(s / 60) + " min"
-    : s < 172800 ? Math.round(s / 3600) + " h"
-    : Math.round(s / 86400) + " d";
-
-  const comDados = Object.keys(agg).filter((m) => agg[m].bot + agg[m].humano > 0);
-  if (!comDados.length) return;
-
-  alvo.insertAdjacentHTML("beforeend", `<div class="autoria">
-    <div class="autoria-cab"><h3>Quem respondeu</h3>
-      <span class="mini">inferido pelo tempo de resposta · o texto da resposta ainda não é coletado</span></div>
-    ${comDados.map((m) => {
-      const a = agg[m];
-      const resp = a.bot + a.humano;
-      const p = (x) => (resp ? (x / resp) * 100 : 0);
-      return `<div class="autoria-marca">
-        <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h4>${ROTULOS[m]}</h4>
-          <span class="mini">${fmtNum(resp)} respondidos</span></div>
-        <div class="autoria-barra" role="img"
-             aria-label="${Math.round(p(a.bot))}% bot, ${Math.round(p(a.humano))}% humano">
-          <i class="b" style="width:${p(a.bot)}%"></i>
-          <i class="h" style="width:${p(a.humano)}%"></i>
-        </div>
-        <div class="autoria-legenda">
-          <span><i class="b"></i> Bot ${Math.round(p(a.bot))}%<small> ${fmtNum(a.bot)} · mediana ${dur(pond(a.botSeg))}</small></span>
-          <span><i class="h"></i> Humano ${Math.round(p(a.humano))}%<small> ${fmtNum(a.humano)} · mediana ${dur(pond(a.humSeg))}</small></span>
-        </div>
-      </div>`;
-    }).join("")}
-    ${precisavamSem ? `<div class="mini soc-nota">${fmtNum(precisavamSem)} comentários precisavam de resposta e ninguém respondeu — nem bot, nem gente.</div>` : ""}
-  </div>`);
+  const pond = (pares) => { const den = pares.reduce((s, p) => s + p[1], 0); return den ? pares.reduce((s, p) => s + p[0] * p[1], 0) / den : null; };
+  const dur = (x) => x === null ? null : x < 90 ? Math.round(x) + "s" : x < 5400 ? Math.round(x / 60) + " min" : x < 172800 ? Math.round(x / 3600) + " h" : Math.round(x / 86400) + " d";
+  for (const m of Object.keys(agg)) { agg[m].medBot = dur(pond(agg[m].botSeg)); agg[m].medHum = dur(pond(agg[m].humSeg)); }
+  return agg;
 }
 
+// Aba NPS: cartões e gráfico em cx-tela.js (pintaNpsAba); aqui a tabela por marca.
 function pintaNps(d, hoje) {
-  const g = calculaNps(d.nps, estado.marca, PER.ini, PER.fim);
-  $("#nps-rotulo").innerHTML = g.n
-    ? `<b>NPS ${g.nps}</b> · nota ${typeof g.media === "number" ? g.media.toFixed(1).replace(".", ",") : "—"} · ${fmtNum(g.n)} votos · ${PER.rotulo}`
-    : `sem votos · ${PER.rotulo}`;
-  const marcas = estado.marca === "todas" ? ["todas", ...MARCAS] : [estado.marca];
-  $("#area-nps").innerHTML = marcas.map((mca) => {
-    const n = calculaNps(d.nps, mca, PER.ini, PER.fim);
-    const nAnt = calculaNps(d.nps, mca, PER.cIni, PER.cFim);
-    const rot = mca === "todas" ? "Grupo" : ROTULOS[mca];
-    if (!n.n) return `<div class="nps-cartao">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(mca)}"></span><h3>${rot}</h3><span class="nps-score">—</span></div>
-      <p class="mini">Sem votos no período.</p></div>`;
-    const pc = (x) => (x / n.n) * 100;
-    return `<div class="nps-cartao">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(mca)}"></span><h3>${rot}</h3>
-        ${n.n < 5 ? '<span class="chip">amostra pequena</span>' : (nAnt.n >= 5 ? chipHtml("csat", n.media, nAnt.media, (v) => v.toFixed(1).replace(".", ",")) : "")}
-        <span class="nps-score">${typeof n.media === "number" ? n.media.toFixed(1).replace(".", ",") : "—"}<small>/10</small></span></div>
-      <div class="nps-dist">
-        <i class="p" style="width:${pc(n.prom)}%"></i>
-        <i class="pa" style="width:${pc(n.pass)}%"></i>
-        <i class="d" style="width:${pc(n.detr)}%"></i>
-      </div>
-      <div class="nps-leg"><span>NPS <b>${n.nps}</b></span><span>${n.prom} prom.</span><span>${n.pass} pass.</span><span>${n.detr} detr.</span><span>${n.n} votos</span></div>
-    </div>`;
-  }).join("");
+  const alvo = $("#area-nps"); if (!alvo) return;
+  const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
+  const linhas = marcas.map((m) => ({ m, n: calculaNps(d.nps, m, PER.ini, PER.fim), a: estado.comparar ? calculaNps(d.nps, m, PER.cIni, PER.cFim) : { n: 0 } }));
+  if (!linhas.some((l) => l.n.n)) { alvo.innerHTML = `<p class="mini">Sem votos no período.</p>`; return; }
+  const f1 = (v) => typeof v === "number" ? v.toFixed(1).replace(".", ",") : "—";
+  alvo.innerHTML = `<div class="rolagem"><table class="comparativo nps-tab">
+    <thead><tr><th>Marca</th><th class="num" title="% promotores − % detratores">NPS</th><th class="num">Nota</th><th title="detratores | passivos | promotores">Distribuição</th><th class="num">Promotores</th><th class="num">Passivos</th><th class="num">Detratores</th><th class="num">Votos</th></tr></thead>
+    <tbody>${linhas.map(({ m, n, a }) => {
+      if (!n.n) return `<tr><td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span></td><td colspan="7" class="mini">sem votos no período</td></tr>`;
+      const pc = (x) => (x / n.n) * 100;
+      const chip = n.n >= 10 && a.n >= 10 ? cxChipPts(n.nps, a.nps, "alto") : (n.n < 10 ? `<span class="chip">amostra pequena</span>` : "");
+      return `<tr>
+        <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span></td>
+        <td class="num">${n.nps}${chip ? `<div>${chip}</div>` : ""}</td>
+        <td class="num">${f1(n.media)}<span class="mini">/10</span></td>
+        <td><div class="b3 fina" role="img" aria-label="${Math.round(pc(n.detr))}% detratores"><i class="s-ruim" style="width:${pc(n.detr)}%" title="detratores: ${n.detr}"></i><i class="s-neutro" style="width:${pc(n.pass)}%" title="passivos: ${n.pass}"></i><i class="s-bom" style="width:${pc(n.prom)}%" title="promotores: ${n.prom}"></i></div></td>
+        <td class="num">${fmtNum(n.prom)}<span class="mini"> ${Math.round(pc(n.prom))}%</span></td>
+        <td class="num">${fmtNum(n.pass)}<span class="mini"> ${Math.round(pc(n.pass))}%</span></td>
+        <td class="num ${pc(n.detr) >= 25 ? "vm" : ""}">${fmtNum(n.detr)}<span class="mini"> ${Math.round(pc(n.detr))}%</span></td>
+        <td class="num">${fmtNum(n.n)}</td>
+      </tr>`; }).join("")}</tbody></table></div>`;
 }
 
 
@@ -1020,8 +681,6 @@ function ligaFiltros() {
     if (!estado.compAuto) { estado.cIni = $("#dt-cini").value || null; estado.cFim = $("#dt-cfim").value || null; }
     pop.hidden = true; pinta();
   });
-  $("#sel-metrica").addEventListener("change", (e) => { estado.metrica = e.target.value; pinta(); });
-  $("#chk-comparar").addEventListener("change", (e) => { estado.comparar = e.target.checked; $("#chk-comparar-pop").checked = e.target.checked; pinta(); });
   $("#sel-agente").addEventListener("change", (e) => { estado.agente = e.target.value; pinta(); });
   for (const b of $("#seg-marca").children) b.classList.toggle("ativo", b.dataset.marca === estado.marca);
   for (const li of $("#lista-presets").children) li.classList.toggle("ativo", li.dataset.p === estado.preset);
@@ -1034,7 +693,6 @@ function relogio() {
 }
 
 ligaFiltros();
-ligaTooltip();
 relogio();
 carrega();
 if (typeof module === "undefined" || !module.exports) setInterval(carrega, REFRESH_SEG * 1000);

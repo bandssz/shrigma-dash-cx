@@ -86,8 +86,14 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   x.document.querySelector('#area-seis .six2[data-m="csat_bom"]').click();
   assert.match(x.document.querySelector('#g-geral-tit').textContent, /CSAT · bom/);
   assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'linha de CSAT por marca');
-  // o cartão antigo de CSAT (média) saiu da faixa de operação
-  assert.deepEqual(x.txt('#area-kpis .kpi-rot').map((s) => s.split(' ·')[0]), ['Saldo', 'Fila no fim do período', '1ª resposta']);
+  // aba Chat no mesmo padrão: seis cartões (o antigo cartão de CSAT-média não existe mais) e um gráfico só
+  assert.deepEqual(x.txt('#area-chat .six2-rot'), ['Contatos', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Fila no fim do período', '1ª resposta · expediente']);
+  assert.equal(x.txt('#area-chat .six2-val')[1], '78%');
+  assert.equal(x.txt('#area-chat .six2-val')[2], '33,3%');
+  assert.ok(x.document.querySelectorAll('#g-chat .g-barras rect').length > 0, 'padrão da aba Chat: CSAT semanal em barras de três níveis');
+  x.document.querySelector('#area-chat .six2[data-m="kai_resolve"]').click();
+  assert.match(x.document.querySelector('#g-chat-tit').textContent, /Kai resolve sozinho/);
+  assert.ok(x.document.querySelectorAll('#g-chat polyline').length >= 1, 'o cartão clicado dirige o gráfico');
 });
 
 test('motivo × CSAT: ordem por volume, e-mail fora com etiqueta, base curta vira contagem', async () => {
@@ -118,9 +124,13 @@ test('filtro de marca recorta os seis números e o CSAT; RA vazio mostra estado 
   assert.equal(x.txt('#area-seis .six2-val')[0], '—');        // sem pedidos → sem razão
   assert.equal(x.txt('#area-seis .six2-val')[2], '100%');     // só pré-venda, tudo bom
   assert.equal(x.txt('#area-seis .six2-val')[1], '—');
-  assert.match(x.document.querySelector('#area-csat').textContent, /Passou por pessoa/);
+  // Kai × pessoa vive no ⓘ do cartão de CSAT da aba Chat
+  assert.match(x.document.querySelector('#area-chat .six2[data-m="csat_bom"]').getAttribute('title'), /passou por pessoa/);
   assert.match(x.document.querySelector('#area-ra').textContent, /Sem leitura do Reclame AQUI/);
   assert.doesNotMatch(x.document.querySelector('#area-ra').textContent, /0%/);
+  // cartões do RA sem leitura: traço, nunca zero
+  assert.deepEqual([...new Set(x.txt('#area-ra-num .six2-val'))], ['—']);
+  assert.match(x.document.querySelector('#ra-rotulo').textContent, /sem coleta/);
 });
 
 test('com pedidos e RA na API, os cartões viram razão por pedido e índices com critérios RA1000', async () => {
@@ -137,8 +147,12 @@ test('com pedidos e RA na API, os cartões viram razão por pedido e índices co
   assert.equal(x.txt('#area-seis .six2-val')[4], '86,2%');
   assert.equal(x.txt('#area-seis .six2-val')[5], '85,0%');
   assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'com pedidos o gráfico padrão traça a razão por semana');
-  assert.match(x.document.querySelector('#area-ra').textContent, /faltam 3 de 5/);
-  assert.match(x.document.querySelector('#area-ra').textContent, /103 aguardando resposta/);
+  // aba RA: seis critérios como cartões, tabela por marca com o veredito
+  assert.deepEqual(x.txt('#area-ra-num .six2-val'), ['7,0', '86,2%', '85,0%', '57,2%', '486', '103']);
+  assert.match(x.document.querySelector('#ra-tab-rot').textContent, /faltam 3 de 5/);
+  assert.match(x.document.querySelector('#ra-rotulo').textContent, /2 fora do alvo.*2 em atenção/);
+  assert.match(x.document.querySelector('#area-ra').textContent, /16 d/);
+  assert.match(x.document.querySelector('#g-ra').textContent, /Uma leitura só/);
 });
 
 test('período sem dado em cx_csat cai para a última janela existente e diz que caiu', async () => {
@@ -154,8 +168,9 @@ test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () =
   const f = fixture(); delete f.cx_csat;
   const x = await boot(f);
   assert.match(x.document.querySelector('#area-seis').textContent, /ainda não devolve/);
-  assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3);
-  assert.match(x.document.querySelector('#desfecho-faixa').textContent, /Kai resolve sozinho/);
+  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 6);
+  assert.match(x.document.querySelector('#area-desfecho').textContent, /Kai resolve sozinho/);
+  assert.equal(x.txt('#area-chat .six2-val')[2], '33,3%', 'Kai vem do desfecho, não de cx_csat');
 });
 
 test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem refazer a página', async () => {
@@ -165,14 +180,19 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.equal(x.document.querySelector('#abas-cx .ativo').dataset.aba, 'geral');
   x.document.querySelector('#abas-cx [data-aba="chat"]').click();
   assert.deepEqual(visiveis(), ['chat']);
-  assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3, 'a aba escondida já estava pintada');
+  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 6, 'a aba escondida já estava pintada');
   const y = await boot(fixture(), '?periodo=7d', '#aba=ra');
   assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['ra']);
-  // gráficos: motivos por semana (aba Chat) tem barras; visão geral tem um gráfico só
-  assert.equal(x.document.querySelectorAll('#g-motivos rect').length > 0, true);
+  // um gráfico por aba, dirigido pelo cartão ativo
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="geral"] svg').length, 0, 'sem pedidos, a visão geral mostra aviso em vez de gráfico');
-  assert.equal(x.document.querySelectorAll('#area-csat .g-barras rect').length > 0, true, 'CSAT semanal em barras de três níveis');
-  assert.match(x.document.querySelector('#g-ra-resposta').textContent, /Sem leitura ainda/);
+  assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="chat"] svg').length, 1);
+  x.document.querySelector('#area-chat .six2[data-m="contatos"]').click();
+  assert.match(x.document.querySelector('#g-chat-tit').textContent, /por semana e motivo/);
+  assert.equal(x.document.querySelectorAll('#g-chat rect').length > 0, true);
+  assert.match(x.document.querySelector('#g-ra').textContent, /Sem leitura ainda/);
+  // NPS e Comentários: cinco cartões cada, tabela por marca
+  assert.equal(x.document.querySelectorAll('#area-nps-num .six2').length, 5);
+  assert.equal(x.document.querySelectorAll('#area-social-num .six2').length, 5);
   const z = await boot(fixture(), '?periodo=7d', '#aba=inexistente');
   assert.deepEqual([...z.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['geral']);
 });

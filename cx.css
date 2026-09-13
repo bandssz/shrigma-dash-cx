@@ -119,7 +119,10 @@ main > * { min-width: 0; }
 .duas-colunas > *, .grid-semanais > * { min-width: 0; }
 @media (max-width: 480px) {
   main { padding-left: 14px; padding-right: 14px; }
-  .seis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .seis, .seis.seis-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .six2 { padding: 12px 12px 10px; }
+  .six2-val { font-size: 26px; }
+  .six2 .chip { white-space: normal; line-height: 1.3; }
   .six { padding: 12px 12px 10px; }
   .six-val { font-size: 28px; }
   .csat-num { font-size: 44px; }
@@ -236,8 +239,26 @@ details.dobra > summary { display: flex; align-items: center; gap: 10px; flex-wr
 .tag.st-ruim-tag { background: var(--ruim-bg); color: var(--ruim); }
 .tag .st-dot { margin-right: 5px; width: 7px; height: 7px; }
 .painel-grafico-geral .painel-cab { margin-bottom: 4px; }
-.painel-grafico-geral .g-linhas { max-width: none; }
+.painel-grafico-geral .g-linhas, .painel-grafico-geral .g-barras { max-width: none; }
 .painel { box-shadow: none; }
 .six { box-shadow: none; }
 main { gap: 20px; }
 .secao-rot { margin-bottom: -6px; }
+
+/* ---- abas no padrão dos cartões (13/09, madrugada) ---- */
+.seis.seis-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1280px) { .seis.seis-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .seis.seis-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.six-de { font-size: 14px; font-weight: 600; color: var(--mudo); margin-left: 2px; }
+.six2-rot { line-height: 1.2; }
+.comparativo .ponto { display: inline-block; vertical-align: 1px; margin-right: 2px; }
+.comparativo td .mini { font-weight: 500; }
+.comparativo td .b3 { width: 110px; margin-top: 0; display: inline-flex; }
+.comparativo td .csat-cel .b3 { width: 84px; }
+.comparativo th .meta { display: block; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.comparativo td .chip { margin-top: 4px; font-size: 11px; }
+.ra-tab td.num, .nps-tab td.num, .soc-tab td.num { font-size: 14px; }
+details.dobra-painel > summary .cab-titulo h2 { margin: 0; }
+.secao-rot .cab-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.aba-pane { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+.aba-pane > * { min-width: 0; }
