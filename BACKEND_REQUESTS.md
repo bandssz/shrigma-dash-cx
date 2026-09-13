@@ -270,9 +270,94 @@ Criar/alterar etapa, publicar versão e ativar seguem o mesmo padrão de R5 (cha
 `expected_version_id`, `confirm` textual para `real`/ativar, idempotência, auditoria `who/when`). A tela só ganha botões
 quando `capabilities.workflows.*` declarar — hoje a aba Fluxos não tem nenhum.
 
+## R7 — Painel de CX: CSAT em três níveis, motivo, pedidos e Reclame Aqui (12/09/2026)
+
+Repaginação do `index.html`. A camada de dados **já existe no Postgres** (criada em 12/09 via SQL util,
+com `COMMENT` em tabela e coluna); o que falta é a API devolver os blocos e os coletores rodarem.
+
+### R7.1 — O que já está no banco
+
+| Objeto | Grão | Estado |
+|---|---|---|
+| `cx_ticket` | uma linha por ticket do Gleap (lista `GET /tickets`, sem `/messages`) | criada; backfill de 16/07 a 12/09 (14.422 tickets, Aristocrata + Fishermans) |
+| `cx_csat_dia` (view) | marca × canal × dia × motivo × escalado → tickets, csat_enviado, avaliadas, bom, neutro, ruim, kai_pode_atender, abertos, coletado_em | criada |
+| `cx_ra_dia` | marca × dia → nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor, reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, fonte | criada, vazia |
+| `cx_pedido_dia` | marca × dia → pedidos, pedidos_pagos, receita | criada, vazia |
+
+Regras gravadas nos `COMMENT`s (não mude sem entender):
+- `rating` só assume 2 / 6 / 10 (ruim / neutro / bom). **Nunca tirar média.** O painel mostra % bom / neutro / ruim.
+- `motivo` = primeiro por precedência `problema > cancelamento > troca > wismo > pre-venda > outros`; `kai-pode-atender`
+  é roteamento, não motivo (coluna própria). E-mail não recebe tag → `NULL` → `sem-tag` na view.
+- `escalado` = `processingTeam` OU `processingUser` preenchido (transferência real). E-mail é sempre escalado pelo
+  roteamento: fora de qualquer conta de Kai.
+- `conversationRating` e `sentiment` **não vêm na lista** `/tickets`; a nota entra por `GET /tickets?conversationRating=2|6|10`
+  (devolve os ids) e se cruza. `sentiment` é `neutral` em 100% dos tickets — inútil, ignorar.
+
+### R7.2 — API de leitura (workflow `CX — Dashboard · API de leitura`)
+
+Três blocos novos no JSON, no escopo `cx` e `todos`:
+
+```sql
+-- cx_csat (≈1.400 linhas hoje; cresce ~25/dia)
+SELECT marca, canal, to_char(dia,'YYYY-MM-DD') AS dia, motivo, escalado, tickets, csat_enviado, avaliadas,
+       bom, neutro, ruim, kai_pode_atender, abertos, coletado_em
+FROM cx_csat_dia WHERE dia >= current_date - 120 ORDER BY dia, marca, canal, motivo, escalado;
+-- cx_pedidos
+SELECT marca, to_char(dia,'YYYY-MM-DD') AS dia, pedidos, coletado_em FROM cx_pedido_dia WHERE dia >= current_date - 120 ORDER BY dia, marca;
+-- cx_ra
+SELECT marca, to_char(dia,'YYYY-MM-DD') AS dia, nota, resposta_pct, solucao_pct, voltaria_pct, nota_consumidor,
+       reclamacoes, avaliacoes, aguardando, tempo_resposta_dias, fonte, coletado_em
+FROM cx_ra_dia WHERE dia >= current_date - 120 ORDER BY dia, marca;
+```
+
+**Estado em 12/09 (20h BRT):** o SQL acima já está publicado no workflow (nó "Consulta payload") — via `|| jsonb_build_object(...)`
+no fim, porque o `json_build_object` principal já está no limite de 100 argumentos do Postgres (50 chaves; foi o que
+derrubou a API por ~1 min na primeira tentativa, revertida na hora com o backup). A chave mestra já recebe os três blocos.
+**13/09 (10h40 BRT):** whitelist `POR_PAINEL.cx` do nó "Recorta por painel" ganhou `'cx_csat','cx_pedidos','cx_ra'` (backup antes,
+diff só nesse nó). Verificado com dado real: chave `cx` recebe `cx_csat` (1.347 linhas), `cx_pedidos` e `cx_ra`; chave `growth` continua sem nada de CX.
+A API está completa para o front; faltam só os coletores (R7.3–R7.5) encherem `cx_pedido_dia` e `cx_ra_dia`.
+
+O front tolera ausência de qualquer um dos três: sem `cx_csat` os seis números avisam "bloco ausente" e o resto do painel
+segue; sem `cx_pedidos` os cartões 1 e 2 degradam para contatos/dia e fatia WISMO com etiqueta "sem pedidos"; sem `cx_ra`
+os cartões 5 e 6 mostram traço com etiqueta "sem coleta". Nada vira zero.
+
+### R7.3 — Coletor `cx_ticket` (novo workflow n8n, credencial Gleap por marca)
+
+Duas cadências, mesma lógica de upsert por `ticket_id`:
+1. **A cada 30 min (07–23h SP):** `GET /tickets?createdAt>=<hoje 03:00Z>&limit=500&skip=…` por marca → upsert
+   `status, tags, motivo, kai_pode_atender, csat_enviado, escalado, processing_team, processing_user, has_agent_reply, human_handoff_em`.
+2. **Diário 01:30 (depois da consolidação):** mesma leitura para `createdAt>=D-45` (≈25 páginas por marca) e, para
+   `r` em (2, 6, 10): `GET /tickets?conversationRating=r&createdAt>=D-45&limit=500&skip=…` → `UPDATE cx_ticket SET rating=r`.
+   Janela de 45 dias porque a tag `csat enviado` é limpa para re-rating e a nota pode chegar dias depois.
+
+Sintaxe que funciona (apurada em 12/09): o operador vai **no nome** do parâmetro — `createdAt%3E=2026-08-01T03:00:00.000Z`
+é "createdAt ≥"; `createdAt%3C=` é "≤"; `limit` aceita 500; `skip` pagina; `totalCount` vem na resposta.
+`:` na data **não** pode ser percent-encoded (dá 409 CastError). Rate limit: 200 req/min nos endpoints de ticket.
+Header: `Authorization: Bearer <key>` + `Project: <projectId>`.
+
+### R7.4 — Coletor `cx_pedido_dia` (Shopify)
+
+Diário 01:20, por loja, `orders(query:"created_at:>=<D-3>")` via GraphQL Admin (as credenciais já existem no n8n:
+Aristocrata `CkOtCPF6b7FIyTjx`, Fishermans `Xv9XgNyJ1wyJFCTJ`) → `pedidos` = criados no dia (fuso SP), `pedidos_pagos` =
+`displayFinancialStatus = PAID`. Backfill desde 2026-07-13. Upsert por (marca, dia).
+
+### R7.5 — Coletor `cx_ra_dia` (Reclame Aqui)
+
+Diário 06:00, por marca: `GET https://www.reclameaqui.com.br/empresa/<slug>/` e ler as metatags
+`meta-reclameaqui:response-rate | solved-rate | deal-again-rate | reputation-score | total-complaints | total-ratings`
+(+ `aguardando` e `tempo_resposta_dias` do corpo, se vierem). Slugs: `o-aristocrata-1751961`, `artigos-de-pesca-fishermans`.
+**Atenção:** curl simples toma 403 (anti-bot); em 12/09 a página respondeu a um fetch com perfil de navegador. Se o n8n
+também tomar 403, o fallback é o bookmarklet semanal já previsto em `cx_manual_semanal` gravando em `cx_ra_dia` com
+`fonte='bookmarklet'` — o painel mostra a idade da leitura em qualquer caso.
+
+### R7.6 — Chaves por papel
+
+Prever em `crm_dash_chave` duas chaves novas de painel `cx`, com `dono` "CX analyst" e "CX Ops / IA" (rótulo aparece na
+auditoria; a chave nunca aparece no repositório).
+
 ## Nota da frente Claude
 
-- Nenhuma alteração de produção (n8n, SQL, Meta, Listmonk, SES) foi feita por esta frente.
+- Até 11/09 nenhuma alteração de produção foi feita por esta frente. Em 12/09 a frente CX criou no Postgres `cx_ticket`, `cx_csat_dia`, `cx_ra_dia` e `cx_pedido_dia` (R7.1), com backfill de `cx_ticket`; n8n, Meta, Listmonk e SES continuam intocados.
 - Consulta real: GET Growth às 17h03 BRT de 09/09/2026 (HTTP 200, escopo `growth`, snapshot 17h00,
   15 workflows/24 templates, `fish_pix` e `receiver` em `invalid_execution_metadata`). Payload
   guardado fora do repositório e não versionado.

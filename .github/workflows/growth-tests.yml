@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'growth*'
+      - 'cx*'
+      - 'index.html'
+      - 'app.js'
+      - 'dados.js'
       - 'config.js'
       - 'alerta-*.js'
       - 'tests/**'

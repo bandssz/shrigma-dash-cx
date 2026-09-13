@@ -144,11 +144,15 @@ function pinta() {
   // pintaDesfecho resolve PER_DESF (o periodo que realmente tem desfecho) e a coluna
   // "Kai resolve" do comparativo le esse mesmo recorte -- por isso vem antes.
   pintaDesfecho(d);
+  // blocos novos (cx-tela.js): leem cx_csat / cx_pedidos / cx_ra e o PER_DESF resolvido acima
+  pintaSeisNumeros(d);
+  pintaMotivos(d);
+  pintaCsat(d);
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);
   pintaFrustracoes(d);
-  pintaRa(d);
+  pintaRaNovo(d);
   pintaSocial(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
@@ -179,8 +183,10 @@ function pintaAlertas(_, d) {
     if (!a) continue;
     if (typeof a.primeira_resposta_seg === "number" && a.primeira_resposta_seg > 12 * 3600)
       avisos.push(`${ROTULOS[m]} com 1ª resposta em ${fmtDur(a.primeira_resposta_seg)} hoje.`);
-    if (typeof a.csat === "number" && a.csat < 70 && (a.csat_votos || 0) >= 5)
-      avisos.push(`CSAT de ${ROTULOS[m]} em ${Math.round(a.csat)} hoje.`);
+    // CSAT em três níveis: alerta quando 'ruim' passa de 30% com base mínima (cx_csat, só chat)
+    const cs = csatAgg(d.cx_csat || [], { marca: m, ini: hoje, fim: hoje, canais: CX_CANAIS_KAI });
+    if (cs.baseOk && cs.pctRuim >= 30)
+      avisos.push(`${ROTULOS[m]}: ${Math.round(cs.pctRuim)}% de CSAT ruim hoje (${fmtNum(cs.ruim)} de ${fmtNum(cs.avaliadas)}).`);
   }
   $("#faixa-alertas").innerHTML = avisos.length
     ? `<div class="alerta">⚠ ${avisos.join("  ·  ")}</div>` : "";
@@ -274,11 +280,10 @@ function pintaKpis(p, porMarca) {
           : chipHtml("primeira_resposta_seg", a.primeira_resposta_seg, ant.primeira_resposta_seg, fmtDur),
         temCom && typeof a.primeira_resposta_seg === "number"
           ? `espera total do cliente: <b>${fmtDur(a.primeira_resposta_seg)}</b>${typeof a.resolucao_comercial_seg === "number" ? ` · resolução em expediente <b>${fmtDur(a.resolucao_comercial_seg)}</b>` : ""}`
-          : (todas ? "" : respSub === "mediana até a 1ª resposta" ? "" : respSub)) +
-    kpi("CSAT", typeof a.csat === "number" ? Math.round(a.csat) : "—",
-        `cobertura ${typeof a.csat_cobertura === "number" ? Math.round(a.csat_cobertura) + "%" : "—"} · ${fmtNum(a.csat_votos)} votos${a.aprox ? " · ≈" : ""}`,
-        chipHtml("csat", a.csat, ant.csat),
-        "");
+          : (todas ? "" : respSub === "mediana até a 1ª resposta" ? "" : respSub));
+  /* O cartão "CSAT" que ficava aqui mostrava a média do snapshot do Gleap: média de
+     {20, 60, 100} de uma pesquisa de três opções. Saiu em 12/09; o CSAT vive nos seis
+     números e no bloco "CSAT em três níveis" (cx-tela.js). */
   $("#aviso-aprox").hidden = !(a && a.aprox);
   // rótulo global da comparação
   const compEl = $("#comp-rotulo");
@@ -398,8 +403,15 @@ function pintaGrafico(d, hoje) {
 
   const yMax = Math.max(...atual.map((p) => p.y), ...anterior.map((p) => p.y), 1);
   const ultimo = atual[atual.length - 1];
+  // quebra de série (cx_marco): linha vertical no dia, só na visão diária
+  const marcos = umDia ? [] : (d.cx_marco || []).map((m) => {
+    const i = atual.findIndex((p) => p.dia >= String(m.dia).slice(0, 10));
+    return i < 0 ? "" : `<g><title>${fmtDia(String(m.dia).slice(0, 10))} — ${String(m.titulo || "").replace(/</g, "&lt;")}</title>
+      <line x1="${(i / xMax) * W}" x2="${(i / xMax) * W}" y1="6" y2="${H - 4}" stroke="var(--texto)" stroke-opacity=".35" stroke-dasharray="3 3"/></g>`;
+  }).join("");
   alvo.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="grafico">
       <line x1="0" y1="${H - 4}" x2="${W}" y2="${H - 4}" stroke="var(--borda)" />
+      ${marcos}
       ${linhaSvg(anterior, xMax, yMax, W, H, "#9c968c", true)}
       ${linhaSvg(atual, xMax, yMax, W, H, cor, false)}
       <circle cx="${(ultimo.x / xMax) * W}" cy="${H - 4 - (ultimo.y / yMax) * (H - 10)}" r="3.5" fill="${cor}" />
@@ -427,23 +439,31 @@ function pintaComparativo(porMarca, d) {
     if (!dl.texto || dl.texto === "＝") return "";
     return `<span class="seta ${dl.classe}">${dl.texto.split(" ")[0]}</span>`;
   };
+  /* Contatos, /100 pedidos, WISMO e CSAT vêm de cx_csat/cx_pedidos (cx-metricas.js), no
+     mesmo período com dado que os seis números usam. Fila e tempos continuam do snapshot. */
+  const csRows = d.cx_csat || [];
   $("#tabela-comparativo tbody").innerHTML = MARCAS.map((m) => {
     const a = porMarca[m].atual || {};
     const antB = porMarca[m].anterior || {};
     const ant = antB.__semHistorico ? {} : antB;
-    const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
+    const per = cxPeriodoComDado(csRows, m);
+    const cpp = per.vazio ? null : contatosPorPedido(csRows, d.cx_pedidos, per.f);
+    const cppAnt = per.vazio || !per.fAnt ? null : contatosPorPedido(csRows, d.cx_pedidos, per.fAnt);
+    const cs = per.vazio ? null : csatAgg(csRows, Object.assign({}, per.f, { canais: CX_CANAIS_KAI }));
+    const csAnt = per.vazio || !per.fAnt ? null : csatAgg(csRows, Object.assign({}, per.fAnt, { canais: CX_CANAIS_KAI }));
+    const temPed = cpp && typeof cpp.pedidos === "number";
     return `<tr>
       <td><div class="pessoa"><span class="ponto" style="--cor:${corHex(m)}"></span>
         <span class="nome">${ROTULOS[m]}</span>
         ${a.incompleto ? '<span class="selo-incompleto">coleta incompleta</span>' : ""}</div></td>
-      <td class="num ${saldo === null ? "" : saldo >= 0 ? "vd" : "vm"}">${saldo === null ? "—" : (saldo > 0 ? "+" : "") + fmtNum(saldo)}</td>
+      <td class="num">${cpp ? fmtNum(cpp.contatos) : "—"} ${cpp && cppAnt ? seta("novos", cpp.contatos, cppAnt.contatos) : ""}</td>
+      <td class="num">${temPed ? cpp.por100.toFixed(1).replace(".", ",") : `<span class="mini" title="sem pedidos na API">${cpp && cpp.contatosDia !== null ? Math.round(cpp.contatosDia) + "/dia" : "—"}</span>`} ${temPed && cppAnt ? seta("contatos_por_pedido", cpp.por100, cppAnt.por100) : ""}</td>
+      <td class="num">${temPed ? fmtPct(cpp.wismoRate) : `<span class="mini" title="fatia dos contatos; vira taxa por pedido quando houver pedidos">${cpp && cpp.wismoShare !== null ? Math.round(cpp.wismoShare) + "% dos contatos" : "—"}</span>`} ${temPed && cppAnt ? seta("wismo_rate", cpp.wismoRate, cppAnt.wismoRate) : ""}</td>
+      <td class="num">${cs ? (cs.baseOk ? Math.round(cs.pctBom) + "%" : `<span class="mini">${fmtNum(cs.bom)}/${fmtNum(cs.avaliadas)}</span>`) : "—"} ${cs && cs.baseOk && csAnt ? seta("csat_bom", cs.pctBom, csAnt.pctBom) : ""}</td>
+      <td class="num">${pctKai(m)}</td>
       <td class="num">${fmtNum(a.fila_aberta)} ${seta("fila_aberta", a.fila_aberta, ant.fila_aberta)}</td>
-      <td class="num">${fmtNum(a.trabalhados)} ${seta("trabalhados", a.trabalhados, anteriorProgressivo("trabalhados", m, ant).valor)}</td>
       <td class="num">${fmtDur(a.primeira_resposta_comercial_seg)} ${seta("primeira_resposta_comercial_seg", a.primeira_resposta_comercial_seg, ant.primeira_resposta_comercial_seg)}</td>
       <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
-      <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"} ${seta("csat", a.csat, ant.csat)}</td>
-      <td class="num">${pctKai(m)}</td>
-      <td class="num">${fmtNum(a.respostas)}</td>
       <td class="cel-spark">${sparkSvg(m, corHex(m), 110, 26)}</td>
     </tr>`;
   }).join("");
@@ -733,8 +753,8 @@ function pintaRanking(d, hoje) {
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
       <td><div class="pessoa">
-        <span class="avatar">${(a.nome || "?").trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</span>
-        <div><div class="nome">${a.nome || a.agente_id}</div>
+        <span class="avatar">${(a.nome || "?").replace(/\s+null$/i, "").trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</span>
+        <div><div class="nome">${String(a.nome || a.agente_id).replace(/\s+null$/i, "")}</div>
         <div class="pessoa-marca">${ROTULOS[a.marca] || a.marca || ""}</div></div>
       </div></td>
       <td class="num">${fmtNum(a.trabalhados)}<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span></td>
@@ -750,54 +770,7 @@ function pintaRanking(d, hoje) {
 }
 
 
-// RA1000: critérios oficiais (blog do Reclame AQUI, confirmados 08/2026)
-const RA1000 = [
-  ["nota", "Nota média", 7, 10],
-  ["resposta", "Respondidas", 90, 100],
-  ["solucao", "Índice de solução", 90, 100],
-  ["voltaria", "Voltaria a fazer negócio", 70, 100],
-  ["avaliacoes", "Avaliações", 50, null],
-];
-function pintaRa(d) {
-  const linhas = (d.manual || []).filter((m) => m.fonte === "reclame_aqui");
-  const alvo = $("#area-ra");
-  if (!linhas.length) {
-    $("#ra-rotulo").textContent = "";
-    alvo.innerHTML = `<p class="mini">Sem coleta ainda. Toda segunda: abrir a página da marca no
-      Reclame AQUI e clicar no favorito “→ Painel CX” (bookmarklet).</p>`;
-    return;
-  }
-  const porMarca = {};
-  for (const l of linhas) {
-    const m = l.marca;
-    if (!porMarca[m] || l.semana_inicio > porMarca[m].semana_inicio) porMarca[m] = l;
-  }
-  const marcas = (estado.marca === "todas" ? MARCAS : [estado.marca]).filter((m) => porMarca[m]);
-  if (!marcas.length) { alvo.innerHTML = `<p class="mini">Sem coleta para esta marca ainda.</p>`; return; }
-  $("#ra-rotulo").textContent = "semana de " + porMarca[marcas[0]].semana_inicio.slice(0, 10).split("-").reverse().join("/");
-  alvo.innerHTML = marcas.map((m) => {
-    const ex = (porMarca[m].dados || {}).extraido;
-    if (!ex) return `<div class="ra-marca"><div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span>
-      <h3>${ROTULOS[m]}</h3></div><p class="mini">Dados brutos recebidos — extração em calibração.</p></div>`;
-    const ok = RA1000.every(([c, , min]) => typeof ex[c] === "number" && ex[c] >= min);
-    return `<div class="ra-marca">
-      <div class="cab"><span class="ponto" style="--cor:${corHex(m)}"></span><h3>${ROTULOS[m]}</h3>
-        <span class="chip ${ok ? "d-bom" : ""}">${ok ? "critérios RA1000 ✓" : "em construção"}</span></div>
-      ${RA1000.map(([c, rot, min, max]) => {
-        const v = ex[c];
-        const tem = typeof v === "number";
-        const bate = tem && v >= min;
-        const pct = tem ? Math.min(100, (v / (max || Math.max(v, min * 1.4))) * 100) : 0;
-        return `<div class="ra-linha">
-          <span class="ra-rot">${rot}</span>
-          <span class="ra-barra"><i class="${bate ? "ok" : ""}" style="width:${pct}%"></i><em style="left:${max ? (min / max) * 100 : 70}%"></em></span>
-          <span class="ra-val ${bate ? "vd" : "vm"}">${tem ? (max === 100 ? v.toFixed(1).replace(".", ",") + "%" : (c === "nota" ? v.toFixed(1).replace(".", ",") : fmtNum(v))) : "—"}</span>
-          <span class="ra-meta">meta ${max === 100 ? min + "%" : min}</span>
-        </div>`;
-      }).join("")}
-    </div>`;
-  }).join("");
-}
+// Reclame Aqui: pintaRaNovo em cx-tela.js (lê cx_ra_dia; critérios RA1000 em cx-metricas.js).
 
 // Comentários orgânicos via Meta Graph (volume, respondidos, ocultos, sentimento próprio).
 // Independe da Replient: quando a API deles sair, entra como fonte adicional.

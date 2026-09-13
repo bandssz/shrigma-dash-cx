@@ -64,6 +64,42 @@ Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
 Qualquer servidor estático: `python3 -m http.server` na pasta e abrir `http://localhost:8000`.
 
 
+## Painel de CX — repaginação (12/09/2026)
+
+`index.html` reorganizado em torno de **seis números** (o que a liderança e o CX analyst decidem com eles):
+
+| # | Cartão | Fonte | Base (ago 1–15) | Alvo |
+|---|---|---|---|---|
+| 1 | Contatos / 100 pedidos | `cx_csat` (todos os canais) ÷ `cx_pedidos` | Aris 20 · Fish 17 | < 12 |
+| 2 | WISMO / pedido | tag `wismo` (só chat) ÷ `cx_pedidos` | Aris 8% · Fish 2% | < 4% |
+| 3 | CSAT · bom | `cx_csat` (só chat), três níveis | Aris 53% · Fish 65% | subir |
+| 4 | Kai sozinho | `cx_desfecho` por transferência (sem e-mail) | — | subir |
+| 5 | RA · resposta | `cx_ra` (metatags) | Aris 86,2% · Fish 99,5% | > 90% |
+| 6 | RA · solução | `cx_ra` | Aris 85,0% · Fish 71,0% | > 90% |
+
+Depois vêm, nesta ordem: **motivo × CSAT** (volume, Δ, quanto o Kai fecha sozinho e CSAT em três níveis por motivo,
+com Kai/pessoa), **CSAT em três níveis** (distribuição, série semanal com a quebra de série de 29/08, Kai × pessoa),
+desfecho do ticket, operação (saldo, fila, 1ª resposta, evolução, marcas lado a lado), agentes, NPS, Reclame Aqui e comentários.
+
+Arquivos: `cx-metricas.js` (funções puras, testes em `tests/cx-metricas.test.cjs`), `cx-tela.js` (pintura dos blocos
+novos), `cx.css` (estilos novos, sem tocar em `styles.css`), `tests/cx-render.test.cjs` (DOM local com fixture sintética).
+Contrato da API e coletores: `BACKEND_REQUESTS.md` › R7.
+
+### Regras que a repaginação fixou
+
+- **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em
+  0–100 — não significa nada e saiu da tela. O que se mostra é % bom / neutro / ruim entre quem avaliou, só com 30+
+  avaliações; abaixo disso, contagem.
+- **E-mail** entra em "contatos", mas fica fora de motivo (a classificação não grava tag lá), de CSAT (não existe) e de Kai
+  (não roda lá). A tela diz quantos ficaram de fora.
+- **Escalado = transferência real** (`processingTeam`/`processingUser`), nunca `hasAgentReply`. `humanHandoff` do Gleap
+  está poluído pela conta de serviço que fecha 81% dos tickets.
+- **Comparação só com histórico**: `cx_ticket` começa em 16/07; período de comparação com menos de 80% dos dias não gera chip.
+- **Sem dado no período** (ex.: "hoje" antes da coleta) o bloco cai para a última janela existente e diz que caiu.
+- **Kai sozinho × pessoa não é comparável diretamente**: quem o Kai fecha responde bem menos à pesquisa (9–22% vs 31–53%)
+  e para a pessoa chega o caso difícil. Cada um se compara consigo mesmo no tempo.
+- Taxas comparam em **pontos percentuais** ("+22 pp · ant. 2,9%"), não em variação relativa.
+
 ## Growth — operação por canal (08/09/2026)
 
 `growth.html` mantém a navegação existente e permite recortar marca, período e canal.
