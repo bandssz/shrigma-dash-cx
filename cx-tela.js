@@ -328,7 +328,9 @@ function pintaCsat(d) {
   // série semanal: janela de 12 semanas terminando no fim do período, com marco de quebra
   const fimSerie = per.f.fim;
   const iniSerie = diasAtras(7 * 12 - 1, fimSerie);
-  const serie = serieCsatSemanal(rows, { marca: per.f.marca, ini: iniSerie, fim: fimSerie }, hojeRef());
+  const c3b = serieSemanalCsat3(rows, { marca: per.f.marca, ini: iniSerie, fim: fimSerie });
+  const cc = cxCortaVazioInicial(c3b.semanas, [c3b.tickets]); const cortC = c3b.semanas.length - cc.semanas.length;
+  const c3 = { semanas: cc.semanas, ruim: c3b.ruim.slice(cortC), neutro: c3b.neutro.slice(cortC), bom: c3b.bom.slice(cortC), pctBom: c3b.pctBom.slice(cortC) };
   const marcos = (d.cx_marco || []).map((m) => ({ dia: cxDia(m.dia), titulo: m.titulo, detalhe: m.detalhe })).filter((m) => m.dia >= iniSerie && m.dia <= fimSerie);
 
   const tileKp = (rotulo, x, xAnt, sub) => `<div class="kp">
@@ -359,8 +361,10 @@ function pintaCsat(d) {
       ${tileKp("Passou por pessoa", kp.pessoa, kpAnt && kpAnt.pessoa, "chega o caso difícil: a nota mede a experiência, não só o atendimento")}
     </div>
     <div class="csat-serie">
-      <div class="kp-rot">bom · por semana <span class="mini">12 semanas até ${fmtDia(fimSerie)} · linha tracejada = quebra de série</span></div>
-      ${cxGraficoSemanal(serie, marcos, corHex(estado.marca))}
+      <div class="kp-rot">ruim · neutro · bom, por semana <span class="mini">12 semanas até ${fmtDia(fimSerie)} · número = fatia de bom</span></div>
+      ${cxgBarras({ rotulosX: c3.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "CSAT por semana em três níveis",
+        series: [{ nome: "Ruim", cor: "var(--ruim)", valores: c3.ruim }, { nome: "Neutro", cor: "var(--borda-forte)", valores: c3.neutro }, { nome: "Bom", cor: "var(--bom)", valores: c3.bom }],
+        topo: c3.pctBom.map((p) => (typeof p === "number" ? Math.round(p) + "%" : "")), vazio: "Sem semana com 30+ avaliações." })}
     </div>`;
 }
 
@@ -456,7 +460,7 @@ document.addEventListener("click", (e) => {
 // ---------- abas ----------
 // A aba vive no hash (#aba=csat): link copiado abre no lugar certo. Filtros continuam globais.
 // Tudo é pintado sempre (as abas escondidas também) — trocar de aba é instantâneo e não refaz conta.
-const CX_ABAS = ["geral", "csat", "operacao", "reputacao"];
+const CX_ABAS = ["geral", "chat", "ra", "nps", "social"];
 function cxAbaDoHash() {
   const m = /(?:^|[#&])aba=([a-z]+)/.exec(location.hash || "");
   return m && CX_ABAS.includes(m[1]) ? m[1] : "geral";
@@ -471,6 +475,103 @@ function cxMostraAba(aba, gravar) {
 document.addEventListener("click", (e) => { const b = e.target.closest("#abas-cx [role=tab]"); if (b) cxMostraAba(b.dataset.aba, true); });
 window.addEventListener("hashchange", () => cxMostraAba(cxAbaDoHash(), false));
 cxMostraAba(cxAbaDoHash(), false);
+
+// ---------- gráficos das abas ----------
+const CX_COR_GRUPO = { wismo: "#2a78d6", "pre-venda": "#1baf7a", resolucao: "#eb6834", outros: "#9c968c" };
+function cxJanelaTendencia(fim, semanas) { return { ini: diasAtras(7 * semanas - 1, fim), fim }; }
+function cxMarcasSerie() { return estado.marca === "todas" ? MARCAS.filter((m) => m !== "olivas") : [estado.marca]; }
+
+// Visão geral: contatos por 100 pedidos por dia (por marca) + contatos por semana por motivo
+function pintaTendencias(d) {
+  const el1 = $("#g-por100"), el2 = $("#g-motivos");
+  if (!el1 || !el2) return;
+  const rows = d.cx_csat || [];
+  const per = cxPeriodoComDado(rows, estado.marca);
+  if (per.vazio) { el1.innerHTML = el2.innerHTML = `<div class="vazio mini">Sem cx_csat na API.</div>`; return; }
+  const j = cxJanelaTendencia(per.f.fim, 12);
+  const marcas = cxMarcasSerie();
+  const s1 = serieSemanalPor100(rows, d.cx_pedidos, marcas, j.ini, j.fim);
+  const temPed = s1.series.some((s) => s.pontos.some((p) => p.pedidos));
+  const c1 = cxCortaVazioInicial(s1.semanas, s1.series.map((s) => s.pontos.map((p) => p.contatos)));
+  const corte = s1.semanas.length - c1.semanas.length;
+  $("#g-por100-rot").innerHTML = temPed ? cxTag("por semana · 12 semanas", "nota", "Semana começa na segunda. Dia a dia oscila com o fim de semana (poucos pedidos, mesma fila), por isso a razão é semanal.") : cxTag("sem pedidos", "alerta", "cx_pedido_dia vazia no período.");
+  el1.innerHTML = temPed ? cxgLinhas({
+    rotulosX: c1.semanas.map(fmtDia), fmt: (v) => fmtDec(v, 0), aria: "Contatos por 100 pedidos por semana",
+    series: s1.series.map((s) => ({ nome: ROTULOS[s.marca], cor: corHex(s.marca), pontos: s.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: p.pedidos ? `${fmtNum(p.contatos)} contatos · ${fmtNum(p.pedidos)} pedidos` : undefined, parcial: p.semana === cxSegunda(hojeRef()) })) })),
+    alvo: { y: CX_ALVOS.contatos_por_pedido.alvo, rot: "alvo 12" }, base: { y: CX_ALVOS.contatos_por_pedido.base, rot: "base 20" },
+  }) : `<div class="vazio mini">Sem pedidos coletados: a razão por pedido aparece quando a Shopify for lida.</div>`;
+  const j2 = cxJanelaTendencia(per.f.fim, 12);
+  const s2 = serieSemanalMotivos(rows, { marca: per.f.marca, ini: j2.ini, fim: j2.fim });
+  const c2 = cxCortaVazioInicial(s2.semanas, s2.series.map((s) => s.valores));
+  $("#g-motivos-rot").innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; a última pode estar parcial. cx_ticket começa em 16/07.");
+  el2.innerHTML = cxgBarras({ rotulosX: c2.semanas.map(fmtDia), fmt: fmtNum, aria: "Contatos por semana por motivo",
+    series: s2.series.map((s, i) => ({ nome: s.nome, cor: CX_COR_GRUPO[s.k], valores: c2.colunas[i] })) });
+}
+
+// Chat: Kai resolve por semana + quem fechou por semana (barras 100%)
+function pintaGraficosChat(d) {
+  const el1 = $("#g-kai"), el2 = $("#g-desfecho");
+  if (!el1 || !el2) return;
+  const fim = PER_DESF.fim >= hojeRef() ? diasAtras(1, hojeRef()) : PER_DESF.fim;
+  const j = cxJanelaTendencia(fim, 12);
+  const k = serieSemanalKai(d.cx_desfecho, estado.marca, j.ini, j.fim);
+  const marcos = (d.cx_marco || []).map((m) => { const s = cxSegunda(cxDia(m.dia)); const i = k.semanas.indexOf(s); return i < 0 ? null : { i, rot: fmtDia(cxDia(m.dia)), title: `${fmtDia(cxDia(m.dia))} — ${m.titulo}` }; }).filter(Boolean);
+  const ck = cxCortaVazioInicial(k.semanas, [k.pontos.map((p) => p.n)]); const cortK = k.semanas.length - ck.semanas.length;
+  marcos.forEach((m) => { m.i -= cortK; }); const marcosOk = marcos.filter((m) => m.i >= 0);
+  k.semanas = ck.semanas; k.pontos = k.pontos.slice(cortK);
+  el1.innerHTML = cxgLinhas({ rotulosX: k.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Kai resolve sozinho por semana", marcos: marcosOk,
+    series: [{ nome: "Kai sozinho", cor: corHex(estado.marca), pontos: k.pontos.map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} com desfecho` })) }] });
+  // quem fechou: kai / pessoa / ninguém, por semana
+  const acc = {};
+  for (const l of d.cx_desfecho || []) { const dia = cxDia(l.dia); if (dia < j.ini || dia > j.fim || l.canal === "email") continue; if (estado.marca !== "todas" && l.marca !== estado.marca) continue;
+    const s = cxSegunda(dia); const a = acc[s] || (acc[s] = { kai: 0, pessoa: 0, ninguem: 0 }); a.kai += Number(l.resolvido_kai || 0); a.ninguem += Number(l.escalado_sem_resposta || 0); a.pessoa += Number(l.escalado || 0) - Number(l.escalado_sem_resposta || 0); }
+  const g = (kk) => k.semanas.map((s) => (acc[s] ? Math.max(0, acc[s][kk]) : 0));
+  el2.innerHTML = cxgBarras({ rotulosX: k.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Quem fechou o ticket por semana",
+    series: [{ nome: "Kai", cor: "var(--bom)", valores: g("kai") }, { nome: "Pessoa", cor: "var(--borda-forte)", valores: g("pessoa") }, { nome: "Ninguém respondeu", cor: "var(--ruim)", valores: g("ninguem") }] });
+}
+
+// Reclame Aqui: índices por dia, por marca
+function pintaGraficoRa(d) {
+  const a = $("#g-ra-resposta"), b = $("#g-ra-solucao");
+  if (!a || !b) return;
+  const marcas = cxMarcasSerie();
+  const linha = (campo, el) => {
+    const s = serieRa(d.cx_ra, marcas, campo);
+    if (!s.dias.length) { el.innerHTML = `<div class="vazio mini">Sem leitura ainda. A série começa quando o bookmarklet gravar a primeira.</div>`; return; }
+    if (s.dias.length < 2) { el.innerHTML = `<div class="vazio mini">Primeira leitura em ${fmtDia(s.dias[0])}: ${s.series.map((x) => `${ROTULOS[x.marca]} <b>${fmtDec(x.pontos[0].y)}%</b>`).join(" · ")}. A curva aparece a partir da segunda leitura.</div>`; return; }
+    el.innerHTML = cxgLinhas({ rotulosX: s.dias.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: campo,
+      series: s.series.map((x) => ({ nome: ROTULOS[x.marca], cor: corHex(x.marca), pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) })), alvo: { y: 90, rot: "alvo 90%" } });
+  };
+  linha("resposta_pct", a); linha("solucao_pct", b);
+}
+
+// NPS por semana por marca
+function pintaGraficoNps(d) {
+  const el = $("#g-nps"); if (!el) return;
+  const j = cxJanelaTendencia(PER.fim, 12);
+  const marcas = cxMarcasSerie();
+  const s0 = serieSemanalNps(d.nps, marcas, j.ini, j.fim, NPS_MARCA);
+  const cn = cxCortaVazioInicial(s0.semanas, s0.series.map((x) => x.pontos.map((p) => p.n))); const cortN = s0.semanas.length - cn.semanas.length;
+  const s = { semanas: cn.semanas, series: s0.series.map((x) => ({ marca: x.marca, pontos: x.pontos.slice(cortN) })) };
+  $("#g-nps-rot").innerHTML = cxTag("12 semanas", "nota", "Semana começa na segunda; NPS = % promotores − % detratores.");
+  el.innerHTML = cxgLinhas({ rotulosX: s.semanas.map(fmtDia), yMax: 100, fmt: (v) => String(Math.round(v)), aria: "NPS por semana",
+    series: s.series.map((x) => ({ nome: ROTULOS[x.marca], cor: corHex(x.marca), pontos: x.pontos.map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} votos` })) })),
+    vazio: "Sem semana com 10+ votos no intervalo." });
+}
+
+// Comentários por semana: respondidos × sem resposta; sentimento
+function pintaGraficoSocial(d) {
+  const a = $("#g-social-resp"), b = $("#g-social-sent"); if (!a || !b) return;
+  const j = cxJanelaTendencia(PER.fim, 12);
+  const s0 = serieSemanalSocial(d.social, estado.marca, j.ini, j.fim);
+  const cs = cxCortaVazioInicial(s0.semanas, [s0.total]); const cortS = s0.semanas.length - cs.semanas.length;
+  const s = Object.fromEntries(Object.entries(s0).map(([k, v]) => [k, Array.isArray(v) ? v.slice(cortS) : v]));
+  a.innerHTML = cxgBarras({ rotulosX: s.semanas.map(fmtDia), fmt: fmtNum, aria: "Comentários por semana",
+    series: [{ nome: "Respondidos pela marca", cor: corHex(estado.marca), valores: s.respondidos }, { nome: "Sem resposta", cor: "#c9463d", valores: s.semResposta }] });
+  b.innerHTML = cxgBarras({ rotulosX: s.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Sentimento por semana",
+    series: [{ nome: "Negativo", cor: "var(--ruim)", valores: s.neg }, { nome: "Neutro", cor: "var(--borda-forte)", valores: s.neu }, { nome: "Positivo", cor: "var(--bom)", valores: s.pos }],
+    vazio: "Sem comentário classificado no intervalo." });
+}
 
 // Painéis recolhíveis: um clique do usuário vale mais que a regra "abre se fora do alvo".
 document.addEventListener("toggle", (e) => { if (e.target && e.target.classList && e.target.classList.contains("dobra-painel")) e.target.dataset.tocado = "1"; }, true);

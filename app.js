@@ -148,8 +148,13 @@ function pinta() {
   pintaDesfecho(d);
   // blocos novos (cx-tela.js): leem cx_csat / cx_pedidos / cx_ra e o PER_DESF resolvido acima
   pintaSeisNumeros(d);
+  pintaTendencias(d);
   pintaMotivos(d);
   pintaCsat(d);
+  pintaGraficosChat(d);
+  pintaGraficoRa(d);
+  pintaGraficoNps(d);
+  pintaGraficoSocial(d);
   pintaComparativo(porMarca, d);
   pintaRanking(d, hoje);
   pintaNps(d, hoje);

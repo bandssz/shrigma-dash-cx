@@ -160,11 +160,16 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.equal(x.document.querySelector('#abas-cx .ativo').dataset.aba, 'geral');
   // a leitura rápida fica fora das abas: sempre visível
   assert.equal(x.document.querySelector('#leitura-rapida').closest('.aba-pane'), null);
-  x.document.querySelector('#abas-cx [data-aba="operacao"]').click();
-  assert.deepEqual(visiveis(), ['operacao']);
+  x.document.querySelector('#abas-cx [data-aba="chat"]').click();
+  assert.deepEqual(visiveis(), ['chat']);
   assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3, 'a aba escondida já estava pintada');
-  const y = await boot(fixture(), '?periodo=7d', '#aba=reputacao');
-  assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['reputacao']);
+  const y = await boot(fixture(), '?periodo=7d', '#aba=ra');
+  assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['ra']);
+  // gráficos: motivos por semana tem 4 séries fixas; por 100 pedidos sem pedidos vira aviso, não gráfico vazio
+  assert.equal(x.document.querySelectorAll('#g-motivos rect').length > 0, true);
+  assert.match(x.document.querySelector('#g-por100').textContent, /Sem pedidos coletados/);
+  assert.equal(x.document.querySelectorAll('#area-csat .g-barras rect').length > 0, true, 'CSAT semanal em barras de três níveis');
+  assert.match(x.document.querySelector('#g-ra-resposta').textContent, /Sem leitura ainda/);
   const z = await boot(fixture(), '?periodo=7d', '#aba=inexistente');
   assert.deepEqual([...z.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['geral']);
 });

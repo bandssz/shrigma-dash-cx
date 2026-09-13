@@ -105,12 +105,18 @@ Diagnóstico: o mesmo número aparecia em até cinco lugares e a metade de baixo
 - Barra de âncoras no topo (Números · Motivos · CSAT e Kai · Operação · Agentes · Reputação). Comentários ficam no CX (negativo sem
   resposta é atendimento); mover para o orgânico exigiria mexer na whitelist e no front de outra página.
 
-### Abas (13/09, noite)
+### Abas por fonte e gráficos no tempo (13/09, noite)
 
-Quatro abas em vez de rolagem: **Visão geral** (seis números + motivos), **CSAT e Kai**, **Operação** (saldo, fila, 1ª resposta,
-marcas lado a lado, agentes, evolução) e **Reputação** (RA, NPS, comentários — abertos, a aba é deles). A **leitura rápida fica acima
-das abas**, sempre visível; filtros de marca e período continuam globais no cabeçalho. A aba vai no hash (`#aba=csat`), então link
-copiado abre no lugar certo. Tudo é pintado sempre — trocar de aba não refaz conta. Cada aba cabe numa tela em 1440px.
+Cinco abas, uma por fonte: **Visão geral** (seis números, tendências, motivos), **Chat e e-mail** (Gleap: CSAT em três níveis,
+Kai × pessoa, desfecho, operação, agentes, evolução), **Reclame Aqui**, **NPS** e **Comentários** (Replient/Meta). A **leitura
+rápida fica acima das abas**; filtros de marca e período são globais; a aba vai no hash (`#aba=chat`). Tudo é pintado sempre.
+
+Gráficos (`cx-graficos.js`, SVG puro, duas formas — linhas e barras empilhadas): contatos por 100 pedidos por semana e por marca
+com alvo/base; contatos por semana por motivo (4 grupos, cores fixas); CSAT por semana em barras 100% ruim/neutro/bom com a fatia
+de bom no topo; Kai resolve por semana com a quebra de 29/08; quem fechou (Kai/pessoa/ninguém) por semana; índices do RA por dia
+e marca; NPS por semana e marca (semana com < 10 votos fica em branco); comentários respondidos × sem resposta e sentimento por
+semana. Janela fixa de 12 semanas até o fim do período (8 para a razão por pedido); semanas iniciais sem dado são cortadas.
+Regras: um eixo só, hairline sólida, legenda sempre com ≥ 2 séries, rótulo direto só no último ponto, texto nunca na cor da série.
 
 ### Regras que a repaginação fixou
 

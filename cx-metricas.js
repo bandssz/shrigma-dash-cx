@@ -211,8 +211,109 @@ function cxDelta(atual, anterior) {
   return ((atual - anterior) / Math.abs(anterior)) * 100;
 }
 
+// ---------- séries no tempo para as abas (todas puras) ----------
+// grupos de motivo para o gráfico (7 motivos viram 4 séries; cores fixas na tela)
+const CX_GRUPOS_MOTIVO = [
+  { k: "wismo", r: "Cadê meu pedido", motivos: ["wismo"] },
+  { k: "pre-venda", r: "Pré-venda", motivos: ["pre-venda"] },
+  { k: "resolucao", r: "Problema · troca · cancel.", motivos: ["problema", "troca", "cancelamento"] },
+  { k: "outros", r: "Outros / sem tag", motivos: ["outros", "sem-tag"] },
+];
+// semanas (segunda) cobrindo [ini, fim]
+function cxSemanas(ini, fim) {
+  const out = []; let s = cxSegunda(ini);
+  while (s <= fim) { out.push(s); const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 7); s = d.toISOString().slice(0, 10); }
+  return out;
+}
+function cxDiasIntervalo(ini, fim) {
+  const out = []; let d = ini;
+  while (d <= fim) { out.push(d); const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + 1); d = x.toISOString().slice(0, 10); }
+  return out;
+}
+// contatos por 100 pedidos, por dia, por marca (todos os canais; dias sem pedido = null)
+function serieDiariaPor100(csatRows, pedidos, marcas, ini, fim) {
+  const dias = cxDiasIntervalo(ini, fim);
+  const cont = {}, ped = {};
+  for (const l of cxFiltra(csatRows, { marca: "todas", ini, fim })) { const k = l.marca + "|" + cxDia(l.dia); cont[k] = (cont[k] || 0) + Number(l.tickets || 0); }
+  for (const p of pedidos || []) { const d = cxDia(p.dia); if (d < ini || d > fim || typeof p.pedidos !== "number") continue; ped[p.marca + "|" + d] = (ped[p.marca + "|" + d] || 0) + p.pedidos; }
+  return { dias, series: marcas.map((m) => ({ marca: m, pontos: dias.map((d) => {
+    const c = cont[m + "|" + d], pd = ped[m + "|" + d];
+    return { dia: d, y: pd ? ((c || 0) / pd) * 100 : null, contatos: c || 0, pedidos: pd || null };
+  }) })) };
+}
+// contatos por semana por grupo de motivo (só chat)
+function serieSemanalMotivos(rows, f) {
+  const semanas = cxSemanas(f.ini, f.fim);
+  const sel = cxFiltra(rows, Object.assign({}, f, { canais: f.canais || CX_CANAIS_KAI }));
+  const acc = {};
+  for (const l of sel) { const s = cxSegunda(cxDia(l.dia)); const g = CX_GRUPOS_MOTIVO.find((x) => x.motivos.includes(l.motivo)) || CX_GRUPOS_MOTIVO[3]; acc[s + "|" + g.k] = (acc[s + "|" + g.k] || 0) + Number(l.tickets || 0); }
+  return { semanas, series: CX_GRUPOS_MOTIVO.map((g) => ({ k: g.k, nome: g.r, valores: semanas.map((s) => acc[s + "|" + g.k] || 0) })) };
+}
+// CSAT por semana em três níveis (contagens) — para a barra 100%
+function serieSemanalCsat3(rows, f) {
+  const semanas = cxSemanas(f.ini, f.fim);
+  const sel = cxFiltra(rows, Object.assign({}, f, { canais: f.canais || CX_CANAIS_KAI }));
+  const acc = {};
+  for (const l of sel) { const s = cxSegunda(cxDia(l.dia)); const a = acc[s] || (acc[s] = { ruim: 0, neutro: 0, bom: 0, tickets: 0 }); a.ruim += Number(l.ruim || 0); a.neutro += Number(l.neutro || 0); a.bom += Number(l.bom || 0); a.tickets += Number(l.tickets || 0); }
+  const g = (k) => semanas.map((s) => (acc[s] ? acc[s][k] : 0));
+  return { semanas, ruim: g("ruim"), neutro: g("neutro"), bom: g("bom"), tickets: g("tickets"),
+    pctBom: semanas.map((s) => { const a = acc[s]; const n = a ? a.ruim + a.neutro + a.bom : 0; return n >= CX_MIN_BASE ? (a.bom / n) * 100 : null; }) };
+}
+// Kai resolve sozinho por semana (cx_desfecho: resolvido_kai ÷ (resolvido_kai + escalado), sem e-mail)
+function serieSemanalKai(desfecho, marca, ini, fim) {
+  const semanas = cxSemanas(ini, fim); const acc = {};
+  for (const l of desfecho || []) {
+    const d = cxDia(l.dia); if (d < ini || d > fim || l.canal === "email") continue;
+    if (marca !== "todas" && l.marca !== marca) continue;
+    const s = cxSegunda(d); const a = acc[s] || (acc[s] = { kai: 0, esc: 0 }); a.kai += Number(l.resolvido_kai || 0); a.esc += Number(l.escalado || 0);
+  }
+  return { semanas, pontos: semanas.map((s) => { const a = acc[s]; const t = a ? a.kai + a.esc : 0; return { semana: s, y: t >= CX_MIN_BASE ? (a.kai / t) * 100 : null, n: t }; }) };
+}
+// NPS por semana por marca (votos: {marca:'aristo'|'fish'|'olivas', score, bucket, data})
+function serieSemanalNps(votos, marcas, ini, fim, mapaMarca) {
+  const semanas = cxSemanas(ini, fim); const acc = {};
+  for (const v of votos || []) {
+    const m = (mapaMarca && mapaMarca[v.marca]) || v.marca;
+    const d = new Date(new Date(v.data).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+    if (d < ini || d > fim) continue;
+    const s = cxSegunda(d); const a = acc[m + "|" + s] || (acc[m + "|" + s] = { n: 0, prom: 0, detr: 0 });
+    a.n++; if (v.bucket === "promotor") a.prom++; if (v.bucket === "detrator") a.detr++;
+  }
+  return { semanas, series: marcas.map((m) => ({ marca: m, pontos: semanas.map((s) => { const a = acc[m + "|" + s]; return { semana: s, y: a && a.n >= 10 ? Math.round(((a.prom - a.detr) / a.n) * 100) : null, n: a ? a.n : 0 }; }) })) };
+}
+// comentários por semana: total, respondidos pela marca, sentimento (social: linhas por marca × rede × dia)
+function serieSemanalSocial(social, marca, ini, fim) {
+  const semanas = cxSemanas(ini, fim); const acc = {};
+  for (const l of social || []) {
+    const d = cxDia(l.dia); if (d < ini || d > fim) continue; if (marca !== "todas" && l.marca !== marca) continue;
+    const s = cxSegunda(d); const a = acc[s] || (acc[s] = { total: 0, respondidos: 0, pos: 0, neg: 0, neu: 0 });
+    a.total += Number(l.total || 0); a.respondidos += Number(l.respondidos || 0); a.pos += Number(l.pos || 0); a.neg += Number(l.neg || 0); a.neu += Number(l.neu || 0);
+  }
+  const g = (k) => semanas.map((s) => (acc[s] ? acc[s][k] : 0));
+  return { semanas, total: g("total"), respondidos: g("respondidos"), semResposta: semanas.map((s) => (acc[s] ? Math.max(0, acc[s].total - acc[s].respondidos) : 0)), pos: g("pos"), neg: g("neg"), neu: g("neu") };
+}
+// Reclame Aqui no tempo: uma linha por (marca, dia)
+function serieRa(rows, marcas, campo) {
+  const dias = [...new Set((rows || []).map((r) => cxDia(r.dia)))].sort();
+  return { dias, series: marcas.map((m) => ({ marca: m, pontos: dias.map((d) => { const r = (rows || []).find((x) => x.marca === m && cxDia(x.dia) === d); return { dia: d, y: r && r[campo] !== null && r[campo] !== undefined ? Number(r[campo]) : null }; }) })) };
+}
+
+// contatos por 100 pedidos, por SEMANA, por marca (dia a dia oscila com o fim de semana: poucos pedidos, mesma fila)
+function serieSemanalPor100(csatRows, pedidos, marcas, ini, fim) {
+  const semanas = cxSemanas(ini, fim); const cont = {}, ped = {};
+  for (const l of cxFiltra(csatRows, { marca: "todas", ini, fim })) { const k = l.marca + "|" + cxSegunda(cxDia(l.dia)); cont[k] = (cont[k] || 0) + Number(l.tickets || 0); }
+  for (const p of pedidos || []) { const d = cxDia(p.dia); if (d < ini || d > fim || typeof p.pedidos !== "number") continue; const k = p.marca + "|" + cxSegunda(d); ped[k] = (ped[k] || 0) + p.pedidos; }
+  return { semanas, series: marcas.map((m) => ({ marca: m, pontos: semanas.map((s) => { const c = cont[m + "|" + s], pd = ped[m + "|" + s]; return { semana: s, y: pd ? ((c || 0) / pd) * 100 : null, contatos: c || 0, pedidos: pd || null }; }) })) };
+}
+// corta semanas iniciais sem nenhum dado (a API devolve 120 dias, mas cx_ticket começa em 16/07)
+function cxCortaVazioInicial(semanas, colunas) {
+  let i = 0; while (i < semanas.length - 1 && colunas.every((c) => !(c[i] > 0))) i++;
+  return { semanas: semanas.slice(i), colunas: colunas.map((c) => c.slice(i)) };
+}
+
 if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
-    somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado };
+    somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

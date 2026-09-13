@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="cx.css?v=20260912a">
+<link rel="stylesheet" href="cx.css?v=20260913b">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -91,10 +91,11 @@
   <div id="leitura-rapida" class="leitura-rapida" hidden aria-label="Leitura rápida"></div>
 
   <nav class="abas-cx" role="tablist" aria-label="Seções do painel" id="abas-cx">
-    <button role="tab" data-aba="geral" class="ativo" title="Os seis números e os motivos de contato — a camada de decisão">Visão geral</button>
-    <button role="tab" data-aba="csat" title="CSAT em três níveis, série semanal, Kai × pessoa e desfecho do ticket">CSAT e Kai</button>
-    <button role="tab" data-aba="operacao" title="Saldo, fila, 1ª resposta, marcas lado a lado, agentes e evolução">Operação</button>
-    <button role="tab" data-aba="reputacao" title="Reclame Aqui, NPS pós-entrega e comentários nas redes">Reputação</button>
+    <button role="tab" data-aba="geral" class="ativo" title="Os seis números, as tendências e os motivos de contato — a camada de decisão">Visão geral</button>
+    <button role="tab" data-aba="chat" title="Gleap: CSAT em três níveis, Kai × pessoa, desfecho, fila, tempos e agentes">Chat e e-mail</button>
+    <button role="tab" data-aba="ra" title="Reclame Aqui: critérios do RA1000 e evolução dos índices">Reclame Aqui</button>
+    <button role="tab" data-aba="nps" title="NPS pós-entrega: nota, evolução por semana e área apontada">NPS</button>
+    <button role="tab" data-aba="social" title="Comentários no Instagram e Facebook: resposta da marca, sentimento e pendências">Comentários</button>
   </nav>
 
   <div class="aba-pane" data-aba="geral">
@@ -106,6 +107,20 @@
     <span class="secao-sub">os indicadores que a liderança e o CX analyst acompanham — cada cartão diz o alvo, a cor diz se está nele, o detalhe está no passar do mouse</span>
   </div>
   <section class="seis" id="area-seis" aria-label="Os seis números"></section>
+
+  <!-- 1b. Tendências: contatos por 100 pedidos por dia e contatos por semana por motivo -->
+  <section class="grade-2" aria-label="Tendências">
+    <div class="painel">
+      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por 100 pedidos · por semana</h2>
+        <span class="painel-sub">quanto do que vendemos vira contato; a linha pontilhada é o alvo</span></div><span id="g-por100-rot" class="mini cab-tags"></span></div>
+      <div id="g-por100"></div>
+    </div>
+    <div class="painel">
+      <div class="painel-cab"><div class="cab-titulo"><h2>Contatos por semana · por motivo</h2>
+        <span class="painel-sub">só chat; e-mail não recebe tag de motivo</span></div><span id="g-motivos-rot" class="mini cab-tags"></span></div>
+      <div id="g-motivos"></div>
+    </div>
+  </section>
 
   <!-- 2. Motivo × CSAT: o corte que decide onde atacar -->
   <section class="painel" id="painel-motivos" aria-label="Motivo de contato e CSAT">
@@ -125,7 +140,7 @@
   </section>
 
   </div><!-- /geral -->
-  <div class="aba-pane" data-aba="csat" hidden>
+  <div class="aba-pane" data-aba="chat" hidden>
   <!-- 3. CSAT e desfecho no chat: distribuição, série semanal, Kai × pessoa; desfecho do ticket como faixa + detalhe -->
   <section class="painel" id="painel-csat" aria-label="CSAT e desfecho no chat">
     <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat</h2>
@@ -133,6 +148,10 @@
       <span id="csat-rot" class="mini cab-tags"></span></div>
     <div id="area-csat" class="csat-grade"></div>
     <div id="desfecho-faixa"></div>
+    <div class="grade-2 dentro">
+      <div><div class="kp-rot">Kai resolve sozinho · por semana <span class="mini">tickets com desfecho no chat</span></div><div id="g-kai"></div></div>
+      <div><div class="kp-rot">Quem fechou · por semana <span class="mini">Kai · pessoa · ninguém respondeu</span></div><div id="g-desfecho"></div></div>
+    </div>
     <details id="det-desfecho" class="dobra">
       <summary>Desfecho por canal e detalhe do Kai <span class="mini" id="desfecho-rot"></span></summary>
       <div id="area-desfecho"></div>
@@ -146,8 +165,6 @@
     </details>
   </section>
 
-  </div><!-- /csat -->
-  <div class="aba-pane" data-aba="operacao" hidden>
   <!-- 4. Operação: saldo, fila, 1ª resposta; marcas lado a lado; agentes; evolução -->
   <div class="secao-rot" id="sec-operacao">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
   <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
@@ -202,10 +219,13 @@
     <div id="grafico-legenda" class="grafico-legenda"></div>
   </details>
 
-  </div><!-- /operacao -->
-  <div class="aba-pane" data-aba="reputacao" hidden>
-  <!-- 5. Reputação e voz do cliente -->
-  <div class="secao-rot" id="sec-reputacao">Reputação e voz do cliente <span class="secao-sub">o que o cliente diz fora do chat: Reclame Aqui, nota pós-entrega e comentários nas redes</span></div>
+  </div><!-- /chat -->
+
+  <div class="aba-pane" data-aba="ra" hidden>
+  <section class="grade-2" aria-label="Evolução no Reclame Aqui">
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de resposta · por dia</h2><span class="painel-sub">alvo RA1000: 90%</span></div></div><div id="g-ra-resposta"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Índice de solução · por dia</h2><span class="painel-sub">alvo RA1000: 90%</span></div></div><div id="g-ra-solucao"></div></div>
+  </section>
 
   <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui" open>
     <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
@@ -213,6 +233,13 @@
     <div id="area-ra"></div>
   </details>
 
+  </div><!-- /ra -->
+
+  <div class="aba-pane" data-aba="nps" hidden>
+  <section class="painel" aria-label="Evolução do NPS">
+    <div class="painel-cab"><div class="cab-titulo"><h2>NPS · por semana</h2><span class="painel-sub">promotores − detratores, em pontos; semana com menos de 10 votos fica em branco</span></div><span id="g-nps-rot" class="mini cab-tags"></span></div>
+    <div id="g-nps"></div>
+  </section>
   <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega" open>
     <summary><div class="cab-titulo"><h2>NPS pós-entrega</h2>
         <span class="painel-sub">nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento</span></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
@@ -220,13 +247,20 @@
     <div id="area-frustracoes"></div>
   </details>
 
+  </div><!-- /nps -->
+
+  <div class="aba-pane" data-aba="social" hidden>
+  <section class="grade-2" aria-label="Evolução dos comentários">
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Comentários · por semana</h2><span class="painel-sub">respondidos pela marca × sem resposta</span></div></div><div id="g-social-resp"></div></div>
+    <div class="painel"><div class="painel-cab"><div class="cab-titulo"><h2>Sentimento · por semana</h2><span class="painel-sub">classificação própria dos comentários (OpenAI), em fatia</span></div></div><div id="g-social-sent"></div></div>
+  </section>
   <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos" open>
     <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook</h2>
         <span class="painel-sub">o que ficou sem resposta da marca e o sentimento dos comentários</span></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
     <div id="area-social"></div>
     <div id="area-social-urgentes"></div>
   </details>
-  </div><!-- /reputacao -->
+  </div><!-- /social -->
 </main>
 
 <footer class="rodape">
@@ -237,9 +271,10 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260912a"></script>
-<script src="app.js?v=20260912a"></script>
-<script src="cx-tela.js?v=20260912a"></script>
+<script src="cx-metricas.js?v=20260913b"></script>
+<script src="cx-graficos.js?v=20260913b"></script>
+<script src="app.js?v=20260913b"></script>
+<script src="cx-tela.js?v=20260913b"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>
