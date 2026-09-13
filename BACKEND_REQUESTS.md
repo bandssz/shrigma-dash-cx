@@ -313,8 +313,9 @@ FROM cx_ra_dia WHERE dia >= current_date - 120 ORDER BY dia, marca;
 **Estado em 12/09 (20h BRT):** o SQL acima já está publicado no workflow (nó "Consulta payload") — via `|| jsonb_build_object(...)`
 no fim, porque o `json_build_object` principal já está no limite de 100 argumentos do Postgres (50 chaves; foi o que
 derrubou a API por ~1 min na primeira tentativa, revertida na hora com o backup). A chave mestra já recebe os três blocos.
-**Falta uma linha** no nó "Recorta por painel": incluir `'cx_csat','cx_pedidos','cx_ra'` na lista `POR_PAINEL.cx` — sem isso a
-chave do Samuel (painel `cx`) continua sem os blocos e os seis números mostram "bloco cx_csat ausente".
+**13/09 (10h40 BRT):** whitelist `POR_PAINEL.cx` do nó "Recorta por painel" ganhou `'cx_csat','cx_pedidos','cx_ra'` (backup antes,
+diff só nesse nó). Verificado com dado real: chave `cx` recebe `cx_csat` (1.347 linhas), `cx_pedidos` e `cx_ra`; chave `growth` continua sem nada de CX.
+A API está completa para o front; faltam só os coletores (R7.3–R7.5) encherem `cx_pedido_dia` e `cx_ra_dia`.
 
 O front tolera ausência de qualquer um dos três: sem `cx_csat` os seis números avisam "bloco ausente" e o resto do painel
 segue; sem `cx_pedidos` os cartões 1 e 2 degradam para contatos/dia e fatia WISMO com etiqueta "sem pedidos"; sem `cx_ra`

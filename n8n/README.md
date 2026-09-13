@@ -21,8 +21,7 @@ as chaves ficam em credenciais do n8n.
 3. **Executar manualmente uma vez** cada um e conferir no banco (`select * from cx_ra_dia`, `cx_pedido_dia`,
    `select max(atualizado_em) from cx_ticket`). Só depois ativar — configuração lida por API não é
    comportamento verificado.
-4. **API de leitura** (`CX — Dashboard · API de leitura`): no nó "Recorta por painel", linha 10, incluir
-   `'cx_csat','cx_pedidos','cx_ra'` na lista `POR_PAINEL.cx`. O SQL dos três blocos já está publicado.
+4. ~~API de leitura~~ — feito em 13/09: SQL dos três blocos e whitelist do painel `cx` publicados e verificados.
 
 ## Regras que os coletores respeitam
 
