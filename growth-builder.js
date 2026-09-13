@@ -36,8 +36,9 @@ const GB={
   if(GB.state.busy)return;GB.state.busy=true;GB.render();
   const r=await GB.request('fluxos_listar');GB.state.busy=false;
   if(!r.ok){GB.state.error=r.body?.erro||'Não foi possível carregar os fluxos.';GB.state.loaded=true;GB.render();return;}
-  GB.state.flows=Array.isArray(r.body.flows)?r.body.flows:[];GB.state.loaded=true;GB.state.error='';
+  GB.state.flows=Array.isArray(r.body.flows)?r.body.flows:[];GB.state.loaded=true;GB.state.error='';GB.state.templates={};
   if(!GB.state.dirty){const f=GB.visible().find(f=>f.key===GB.state.selected)||GB.visible()[0];if(f)GB.select(f.key,false);}
+  else {const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(f)for(const channel of new Set(f.available_steps.map(s=>s.channel)))GB.loadTemplates(f.brand,channel);}
   GB.render();
  },
  visible(){return GB.state.flows.filter(f=>!GB.ctx.marca||GB.ctx.marca==='todas'||f.brand===GB.ctx.marca);},
