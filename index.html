@@ -86,6 +86,7 @@
 
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
+  <nav class="ancoras" aria-label="Ir para"><a href="#area-seis">Números</a><a href="#painel-motivos">Motivos</a><a href="#painel-csat">CSAT e Kai</a><a href="#sec-operacao">Operação</a><a href="#painel-agentes">Agentes</a><a href="#sec-reputacao">Reputação</a></nav>
 
   <!-- 0. Leitura rápida: o que está fora do alvo, em uma linha -->
   <div id="leitura-rapida" class="leitura-rapida" hidden aria-label="Leitura rápida"></div>
@@ -115,24 +116,16 @@
     <div id="area-motivos"></div>
   </section>
 
-  <!-- 3. CSAT em três níveis: distribuição, tendência semanal, Kai × pessoa -->
-  <section class="painel" id="painel-csat" aria-label="CSAT em três níveis">
-    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT em três níveis</h2>
-        <span class="painel-sub">o cliente escolhe ruim / neutro / bom depois do atendimento no chat; o número é a fatia de “bom”</span></div>
+  <!-- 3. CSAT e desfecho no chat: distribuição, série semanal, Kai × pessoa; desfecho do ticket como faixa + detalhe -->
+  <section class="painel" id="painel-csat" aria-label="CSAT e desfecho no chat">
+    <div class="painel-cab"><div class="cab-titulo"><h2>CSAT e desfecho no chat</h2>
+        <span class="painel-sub">o cliente escolhe ruim / neutro / bom depois do atendimento; o número é a fatia de “bom”. Embaixo, quem fechou cada ticket: o Kai, uma pessoa, ou ninguém</span></div>
       <span id="csat-rot" class="mini cab-tags"></span></div>
     <div id="area-csat" class="csat-grade"></div>
-  </section>
-
-  <!-- 4. Kai × pessoa (desfecho por transferência) -->
-  <section class="painel" id="painel-desfecho" aria-label="Desfecho dos tickets" hidden>
-    <div class="painel-cab">
-      <div class="cab-titulo"><h2>O que acontece com o ticket</h2>
-        <span class="painel-sub">de cada ticket com desfecho no chat: o Kai fechou sozinho, uma pessoa fechou, ou foi transferido e ninguém respondeu</span></div>
-      <span class="mini" id="desfecho-rot"></span>
-    </div>
-    <div id="area-desfecho"></div>
-    <details id="det-cx">
-      <summary>Ver detalhe</summary>
+    <div id="desfecho-faixa"></div>
+    <details id="det-desfecho" class="dobra">
+      <summary>Desfecho por canal e detalhe do Kai <span class="mini" id="desfecho-rot"></span></summary>
+      <div id="area-desfecho"></div>
       <div class="seg-mini" role="group" aria-label="Corte">
         <button data-v="classe" class="ativo">Classificação</button>
         <button data-v="caixa">Caixa</button>
@@ -143,26 +136,9 @@
     </details>
   </section>
 
-  <!-- 5. Operação: saldo, fila, 1ª resposta; evolução; marcas lado a lado -->
-  <div class="secao-rot">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
+  <!-- 4. Operação: saldo, fila, 1ª resposta; agentes; evolução recolhida; marcas lado a lado -->
+  <div class="secao-rot" id="sec-operacao">Operação <span class="secao-sub">o que o time controla no dia — entradas × resolvidos, fila e tempo até a primeira resposta humana</span></div>
   <section class="kpis" id="area-kpis" aria-label="Indicadores de operação"></section>
-
-  <section class="painel" id="painel-grafico" aria-label="Evolução">
-    <div class="painel-cab">
-      <h2>Evolução</h2>
-      <div class="grafico-controles">
-        <select id="sel-metrica" aria-label="Métrica do gráfico">
-          <option value="fechados">Resolvidos</option>
-          <option value="novos">Novos</option>
-          <option value="fila_aberta">Fila</option>
-        </select>
-        <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
-          <span>Comparar com período anterior</span></label>
-      </div>
-    </div>
-    <div id="area-grafico"></div>
-    <div id="grafico-legenda" class="grafico-legenda"></div>
-  </section>
 
   <section class="painel" id="painel-comparativo" aria-label="Comparativo de marcas">
     <div class="painel-cab"><div class="cab-titulo"><h2>Marcas lado a lado</h2>
@@ -183,49 +159,59 @@
     </div>
   </section>
 
-  <!-- 6. Pessoas e voz do cliente -->
-  <div class="duas-colunas">
-    <section class="painel" aria-label="Ranking de agentes">
-      <div class="painel-cab">
-        <div class="cab-titulo"><h2>Por agente</h2>
-          <span class="painel-sub">volume e tempos de quem atende; CSAT aqui é a média do Gleap, leia como tendência</span></div>
-        <span id="ranking-rotulo" class="mini"></span>
-      </div>
-      <div class="rolagem"><table class="ranking" id="tabela-ranking">
-        <thead><tr>
-          <th>Agente</th>
-          <th class="num">Trabalhados</th><th class="num">Fechados</th><th class="num">Respostas</th>
-          <th class="num" title="Média do Gleap por agente (0–100). Escala de 3 opções: leia como tendência, não como nota">CSAT</th><th class="num">1ª resposta</th><th class="num">T. resposta</th><th class="num">Resolução</th><th class="num">Horas ativas</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table></div>
-    </section>
-    <section class="painel" aria-label="NPS pós-entrega">
-      <div class="painel-cab">
-        <h2>NPS pós-entrega</h2>
-        <span id="nps-rotulo" class="mini"></span>
-      </div>
-      <div id="area-nps" class="grid-nps"></div>
-      <div id="area-frustracoes"></div>
-    </section>
-  </div>
-
-  <!-- 7. Reputação pública -->
-  <section class="grid-semanais">
-    <div class="painel" aria-label="Reclame Aqui">
-      <div class="painel-cab"><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
-          <span class="painel-sub">os cinco critérios do selo, e o que está aguardando resposta</span></div><span id="ra-rotulo" class="mini cab-tags"></span></div>
-      <div id="area-ra"></div>
+  <section class="painel" id="painel-agentes" aria-label="Ranking de agentes">
+    <div class="painel-cab">
+      <div class="cab-titulo"><h2>Por agente</h2>
+        <span class="painel-sub">volume e tempos de quem atende. CSAT por agente sai quando existir em três níveis (o Gleap só dá a média)</span></div>
+      <span id="ranking-rotulo" class="mini"></span>
     </div>
-    <div class="painel" aria-label="Comentários orgânicos">
-      <div class="painel-cab">
-        <h2>Comentários · Instagram + Facebook</h2>
-        <span id="social-rotulo" class="mini"></span>
-      </div>
-      <div id="area-social"></div>
-      <div id="area-social-urgentes"></div>
-    </div>
+    <div class="rolagem"><table class="ranking" id="tabela-ranking">
+      <thead><tr>
+        <th>Agente</th>
+        <th class="num">Trabalhados</th><th class="num">Fechados</th><th class="num">Respostas</th>
+        <th class="num">1ª resposta</th><th class="num">T. resposta</th><th class="num">Resolução</th><th class="num">Horas ativas</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
   </section>
+
+  <details class="painel dobra-painel" id="painel-grafico" aria-label="Evolução">
+    <summary><div class="cab-titulo"><h2>Evolução</h2><span class="painel-sub">novos, resolvidos ou fila por dia, contra o período anterior</span></div></summary>
+    <div class="grafico-controles dobra-controles">
+      <select id="sel-metrica" aria-label="Métrica do gráfico">
+        <option value="fechados">Resolvidos</option>
+        <option value="novos">Novos</option>
+        <option value="fila_aberta">Fila</option>
+      </select>
+      <label class="alternar"><input type="checkbox" id="chk-comparar" checked>
+        <span>Comparar com período anterior</span></label>
+    </div>
+    <div id="area-grafico"></div>
+    <div id="grafico-legenda" class="grafico-legenda"></div>
+  </details>
+
+  <!-- 5. Reputação e voz do cliente: recolhidos por padrão, com resumo na linha do título -->
+  <div class="secao-rot" id="sec-reputacao">Reputação e voz do cliente <span class="secao-sub">Reclame Aqui abre sozinho quando está fora do alvo; NPS e comentários abrem no clique</span></div>
+
+  <details class="painel dobra-painel" id="painel-ra" aria-label="Reclame Aqui">
+    <summary><div class="cab-titulo"><h2>Reclame Aqui · rumo ao RA1000</h2>
+        <span class="painel-sub">os cinco critérios do selo, e o que está aguardando resposta</span></div><span id="ra-rotulo" class="mini cab-tags"></span></summary>
+    <div id="area-ra"></div>
+  </details>
+
+  <details class="painel dobra-painel" id="painel-nps" aria-label="NPS pós-entrega">
+    <summary><div class="cab-titulo"><h2>NPS pós-entrega</h2>
+        <span class="painel-sub">nota que o cliente dá depois de receber; a área apontada diz se a dor é produto, entrega ou atendimento</span></div><span id="nps-rotulo" class="mini cab-tags"></span></summary>
+    <div id="area-nps" class="grid-nps"></div>
+    <div id="area-frustracoes"></div>
+  </details>
+
+  <details class="painel dobra-painel" id="painel-social" aria-label="Comentários orgânicos">
+    <summary><div class="cab-titulo"><h2>Comentários · Instagram + Facebook</h2>
+        <span class="painel-sub">o que ficou sem resposta da marca e o sentimento dos comentários</span></div><span id="social-rotulo" class="mini cab-tags"></span></summary>
+    <div id="area-social"></div>
+    <div id="area-social-urgentes"></div>
+  </details>
 </main>
 
 <footer class="rodape">

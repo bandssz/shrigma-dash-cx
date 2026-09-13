@@ -412,7 +412,11 @@ function pintaRaNovo(d) {
     return;
   }
   const maisRecente = linhas.map((x) => cxDia(x.l.dia)).sort().pop();
-  if (rot) rot.innerHTML = `leitura de ${fmtDia(maisRecente)} ` + cxTag("metatags da página", "nota", "Fonte: metatags meta-reclameaqui:* da página pública da marca. Não existe API. Coleta diária.");
+  // resumo no título: resposta/solução por marca; o painel abre sozinho se alguma estiver fora do alvo
+  const foraAlvo = linhas.some(({ l }) => cxStatus("ra_resposta", Number(l.resposta_pct)) === "ruim" || cxStatus("ra_solucao", Number(l.solucao_pct)) === "ruim");
+  const painelRa = $("#painel-ra"); if (painelRa && painelRa.tagName === "DETAILS" && foraAlvo && !painelRa.dataset.tocado) painelRa.open = true;
+  if (rot) rot.innerHTML = linhas.map(({ m, l }) => `${CX_SIGLA[m]} resp. <b>${fmtDec(Number(l.resposta_pct))}%</b> · sol. <b>${fmtDec(Number(l.solucao_pct))}%</b>${l.aguardando != null && Number(l.aguardando) > 0 ? ` · <span class="vm">${fmtNum(Number(l.aguardando))} aguardando</span>` : ""}`).join(" &nbsp;|&nbsp; ")
+    + ` · leitura de ${fmtDia(maisRecente)}` + cxTag(foraAlvo ? "fora do alvo" : "no alvo", foraAlvo ? "alerta" : "nota", "Alvo RA1000: resposta e solução ≥ 90% nas duas marcas. Fonte: metatags da página pública da marca (bookmarklet).");
   alvo.innerHTML = linhas.map(({ m, l }) => {
     const av = raAvalia(l);
     const ant = estado.comparar ? raUltimo(d.cx_ra, m, PER.cFim) : null;
@@ -448,3 +452,6 @@ document.addEventListener("click", (e) => {
   estado.canalMotivo = b.dataset.canal;
   if (estado.dados) pintaMotivos(estado.dados);
 });
+
+// Painéis recolhíveis: um clique do usuário vale mais que a regra "abre se fora do alvo".
+document.addEventListener("toggle", (e) => { if (e.target && e.target.classList && e.target.classList.contains("dobra-painel")) e.target.dataset.tocado = "1"; }, true);

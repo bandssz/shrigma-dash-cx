@@ -569,8 +569,7 @@ function reaberturaAgg(d, marca, ini, fim) {
 }
 
 function pintaDesfecho(d) {
-  const painel = $("#painel-desfecho");
-  painel.hidden = false;   // painel que se esconde sozinho e tela branca com outro nome
+  const faixa = $("#desfecho-faixa");
   let canais = desfechoAgg(d, estado.marca, PER.ini, PER.fim);
   let aviso = "";
 
@@ -583,6 +582,7 @@ function pintaDesfecho(d) {
       .map((l) => String(l.dia).slice(0, 10)).sort();
     if (!dias.length) {
       $("#desfecho-rot").textContent = "";
+      if (faixa) faixa.innerHTML = "";
       $("#area-desfecho").innerHTML = `<div class="vazio">Sem desfecho coletado ainda.
         A consolidação roda 01:15 e fecha o dia anterior.</div>`;
       return;
@@ -660,7 +660,7 @@ function pintaDesfecho(d) {
     </div>`;
   };
 
-  $("#area-desfecho").innerHTML = (dTot
+  const kTopo = (dTot
       ? `<div class="k-topo">
            <div><span class="k-rot">Kai resolve sozinho</span>
              <strong class="k-big tabn">${fmtPct(((tot.resolvido_kai || 0) / dTot) * 100)}</strong></div>
@@ -668,10 +668,12 @@ function pintaDesfecho(d) {
              <strong class="k-big tabn">${fmtPct((((tot.escalado || 0) - (tot.escalado_sem_resposta || 0)) / dTot) * 100)}</strong></div>
            <div title="Transferido para time ou agente e fechado sem nenhuma resposta pública de pessoa: a régua fechou na fila."><span class="k-rot">Transferido, ninguém respondeu</span>
              <strong class="k-big tabn ${(tot.escalado_sem_resposta || 0) / dTot >= 0.1 ? "vm" : ""}">${fmtPct(((tot.escalado_sem_resposta || 0) / dTot) * 100)}</strong></div>
-         </div>` : "")
-    + canais.map((x) => linha(x, x.canal)).join("")
+         </div>` : "");
+  const kCanais = canais.map((x) => linha(x, x.canal)).join("")
     + `<div class="k-rodape mini">${fmtNum(semDesfecho(tot))} sem desfecho, fora da conta${
         email ? ` · ${fmtNum(email.tickets)} por e-mail, fora: o Kai não roda lá` : ""}</div>`;
+  if (faixa) { faixa.innerHTML = kTopo; $("#area-desfecho").innerHTML = kCanais; }
+  else $("#area-desfecho").innerHTML = kTopo + kCanais;
 
   pintaDetalhe(d, canais, tot);
 }
@@ -732,9 +734,9 @@ function pintaDetalhe(d, canais, tot) {
 }
 
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("#painel-desfecho .seg-mini button");
+  const b = e.target.closest("#det-desfecho .seg-mini button");
   if (!b) return;
-  document.querySelectorAll("#painel-desfecho .seg-mini button")
+  document.querySelectorAll("#det-desfecho .seg-mini button")
     .forEach((x) => x.classList.toggle("ativo", x === b));
   estado.corteCX = b.dataset.v;
   if (estado.dados) pintaDesfecho(estado.dados);
@@ -762,13 +764,12 @@ function pintaRanking(d, hoje) {
       <td class="num">${fmtNum(a.trabalhados)}<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span></td>
       <td class="num">${fmtNum(a.fechados)}</td>
       <td class="num">${fmtNum(a.respostas)}</td>
-      <td class="num">${typeof a.csat === "number" ? Math.round(a.csat) : "—"}</td>
       <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
       <td class="num">${fmtDur(a.resposta_mediana_seg)}</td>
       <td class="num">${fmtDur(a.fechamento_seg)}</td>
       <td class="num">${fmtDur(a.horas_ativas_seg)}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+    `<tr><td colspan="8" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
 
@@ -780,7 +781,7 @@ function pintaSocial(d) {
   const alvo = $("#area-social");
   const linhas = (d.social || []).filter((l) => l.dia >= PER.ini && l.dia <= PER.fim);
   const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
-  $("#social-rotulo").textContent = PER.rotulo + " · coleta automática a cada 15 min · orgânico + anúncios";
+  $("#social-rotulo").textContent = PER.rotulo + " · orgânico + anúncios";
 
   const agg = {};
   for (const l of linhas) {
@@ -791,6 +792,10 @@ function pintaSocial(d) {
     a.neu += Number(l.neu || 0); a.sem += Number(l.sem_classificacao || 0);
   }
   const comDados = marcas.filter((m) => agg[m] && agg[m].total);
+  { // resumo na linha do título: total, % respondidos pela marca, aguardando
+    const T = comDados.reduce((s, m) => s + agg[m].total, 0), R = comDados.reduce((s, m) => s + agg[m].respondidos, 0), A = comDados.reduce((s, m) => s + agg[m].aguardando, 0);
+    $("#social-rotulo").innerHTML = T ? `<b>${fmtNum(T)}</b> comentários · <b>${Math.round((R / T) * 100)}%</b> respondidos pela marca${A ? ` · <span class="vm"><b>${fmtNum(A)}</b> aguardando</span>` : ""} · ${PER.rotulo}` : `nenhum comentário · ${PER.rotulo}`;
+  }
   if (!comDados.length) {
     alvo.innerHTML = `<p class="mini">Nenhum comentário no período selecionado.</p>`;
     $("#area-social-urgentes").innerHTML = ""; return;
@@ -915,7 +920,10 @@ function pintaAutoria(d, marcas, alvo) {
 }
 
 function pintaNps(d, hoje) {
-  $("#nps-rotulo").textContent = PER.rotulo + " · votos no Listmonk";
+  const g = calculaNps(d.nps, estado.marca, PER.ini, PER.fim);
+  $("#nps-rotulo").innerHTML = g.n
+    ? `<b>NPS ${g.nps}</b> · nota ${typeof g.media === "number" ? g.media.toFixed(1).replace(".", ",") : "—"} · ${fmtNum(g.n)} votos · ${PER.rotulo}`
+    : `sem votos · ${PER.rotulo}`;
   const marcas = estado.marca === "todas" ? ["todas", ...MARCAS] : [estado.marca];
   $("#area-nps").innerHTML = marcas.map((mca) => {
     const n = calculaNps(d.nps, mca, PER.ini, PER.fim);

@@ -150,5 +150,5 @@ test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () =
   const x = await boot(f);
   assert.match(x.document.querySelector('#area-seis').textContent, /ainda não devolve/);
   assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length, 3);
-  assert.match(x.document.querySelector('#area-desfecho').textContent, /Kai resolve sozinho/);
+  assert.match(x.document.querySelector('#desfecho-faixa').textContent, /Kai resolve sozinho/);
 });

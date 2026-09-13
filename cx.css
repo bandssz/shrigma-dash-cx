@@ -174,3 +174,21 @@ tr.mot-atacar:hover td { background: #fbf0d9 !important; }
 .mot-tag { margin-left: 8px; font-size: 9.5px; }
 @media (max-width: 480px) { .cont-cel .mot-barra { display: none; } .csat-cel .b3 { width: 64px; } .legenda-st { display: none; } }
 @media (max-width: 480px) { .six-rot { white-space: normal; } }
+
+/* ---------- painéis recolhíveis e âncoras (13/09) ---------- */
+details.dobra-painel > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+details.dobra-painel > summary::-webkit-details-marker { display: none; }
+details.dobra-painel > summary::after { content: "▸"; color: var(--rotulo); font-size: 14px; margin-left: auto; order: 9; transition: transform .15s; }
+details.dobra-painel[open] > summary::after { transform: rotate(90deg); }
+details.dobra-painel[open] > summary { margin-bottom: 14px; }
+details.dobra-painel .painel-sub { max-width: 60ch; }
+details.dobra-painel > summary .cab-tags, details.dobra-painel > summary .mini { padding-top: 2px; }
+.dobra-controles { margin-bottom: 10px; }
+details.dobra > summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#desfecho-faixa { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borda); }
+#desfecho-faixa .k-topo { margin-bottom: 4px; }
+#det-desfecho { margin-top: 8px; }
+.ancoras { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 -10px; }
+.ancoras a { font: 600 12px var(--ui); color: var(--mudo); text-decoration: none; padding: 5px 11px; border-radius: 999px; background: var(--card); border: 1px solid var(--borda); }
+.ancoras a:hover { color: var(--texto); border-color: var(--borda-forte); }
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }

@@ -94,6 +94,17 @@ Contrato da API e coletores: `BACKEND_REQUESTS.md` › R7.
 - **Motivos ordenados por volume**, com etiqueta **atacar** quando fatia ≥ 20% e (volume subindo > 10% ou CSAT bom < 50%).
 - **Período padrão: últimos 7 dias** ("hoje" é dia em andamento e distorce nota e motivo; fila e saldo de hoje continuam na Operação).
 
+### Corte de gordura (13/09, tarde)
+
+Diagnóstico: o mesmo número aparecia em até cinco lugares e a metade de baixo respondia perguntas de outro time. O que mudou:
+- **"O que acontece com o ticket" virou parte do bloco de CSAT** ("CSAT e desfecho no chat"): faixa Kai · pessoa · ninguém embaixo
+  do hero; barras por canal e os três cortes ficam em "ver detalhe".
+- **"Por agente" perdeu a coluna CSAT** — era a média do Gleap, contradizia o resto do painel. Volta quando existir em três níveis por agente.
+- **Evolução, NPS e Comentários recolhidos por padrão**, com resumo na linha do título (NPS, nota, votos · comentários, % respondidos,
+  aguardando). **Reclame Aqui abre sozinho quando está fora do alvo**; um clique do usuário prevalece sobre a regra.
+- Barra de âncoras no topo (Números · Motivos · CSAT e Kai · Operação · Agentes · Reputação). Comentários ficam no CX (negativo sem
+  resposta é atendimento); mover para o orgânico exigiria mexer na whitelist e no front de outra página.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em
