@@ -207,7 +207,12 @@ function pintaSeisNumeros(d) {
       // composição do RA1000 da marca que dá a nota (a pior): resp · sol · voltaria · avaliações, com ✓/✗
       comp: (() => { const cands = marcas.filter((m) => raU[m]); if (!cands.length) return ""; const m = cands.sort((a, b) => Number(raU[a].nota) - Number(raU[b].nota))[0]; const av = raAvalia(raU[m]);
         const it = av.crit.filter((c) => c.c !== "nota").map((c) => `<span class="${c.bate ? "ok" : "falta"}" title="${c.rot}: meta ${c.tipo === "pct" ? c.min + "%" : c.min}">${c.c === "avaliacoes" ? fmtNum(c.v) + " aval." : (c.c === "resposta_pct" ? "resp. " : c.c === "solucao_pct" ? "sol. " : "volta ") + fmtDec(c.v, 0) + "%"} ${c.bate ? "✓" : "✗"}</span>`).join(" · ");
-        return `<span class="ra-comp">${it}${raU[m].aguardando != null && Number(raU[m].aguardando) > 0 ? ` · <span class="falta">${fmtNum(Number(raU[m].aguardando))} aguardando</span>` : ""}</span>`; })() },
+        // sem resposta: fila real (todas as ativas) somada nas marcas mostradas, não a régua de 6 meses — 102 na régua × 260 na fila (14/09)
+        const pends = cands.map((x) => ({ m: x, p: raPendentes(raU[x]) })).filter((x) => typeof x.p.v === "number");
+        const tot = pends.reduce((s, x) => s + x.p.v, 0), real = pends.every((x) => x.p.real), regua = pends.reduce((s, x) => s + (x.p.regua || 0), 0);
+        const tit = (real ? "Reclamações ativas sem resposta agora (a fila do RA Empresas)." : "Aguardando resposta dentro da régua de 6 meses da página pública (leitura antiga, sem a fila real).") +
+          (pends.length > 1 ? ` Por marca: ${pends.map((x) => `${CX_SIGLA[x.m]} ${fmtNum(x.p.v)}`).join(" · ")}.` : "") + (real ? ` Na régua de reputação (${raPeriodo(raU[m]) || "6 meses"}): ${fmtNum(regua)}.` : "");
+        return `<span class="ra-comp">${it}${tot > 0 ? ` · <span class="falta" title="${tit}">${fmtNum(tot)} sem resposta${real ? "" : " (régua)"}</span>` : ""}</span>`; })() },
   };
   CX_SEIS_DADOS = { V, per, marcas };
 
@@ -580,8 +585,9 @@ const CX_RA_CARTOES = [
   { k: "solucao_pct", m: "ra_solucao", rot: "Índice de solução", tipo: "pct", info: "Reclamações que o consumidor marcou como resolvidas. Critério RA1000: ≥ 90%." },
   { k: "voltaria_pct", m: "ra_voltaria", rot: "Voltaria a fazer negócio", tipo: "pct", info: "Consumidores que dizem que voltariam a fazer negócio. Critério RA1000: ≥ 70%." },
   { k: "avaliacoes", m: "ra_avaliacoes", rot: "Avaliações", tipo: "int", info: "Quantidade de avaliações no período de referência do RA. Critério RA1000: 50 ou mais." },
-  { k: "aguardando", m: "ra_aguardando", rot: "Aguardando resposta", tipo: "int", info: "Reclamações ainda sem resposta da marca. Cada uma pesa no índice de resposta; alvo é zero." },
+  { k: "pendentes_agora", m: "ra_aguardando", rot: "Sem resposta agora", tipo: "int", info: "Reclamações ativas sem resposta da marca neste momento — o mesmo número da fila do RA Empresas (busca pública, status pendente). A régua de reputação conta só as da janela de 6 meses e por isso mostra menos. Alvo é zero." },
 ];
+const CX_RA_CONTAGEM = new Set(["pendentes_agora", "aguardando"]);   // com as duas marcas soma, em vez de pegar a pior
 let CX_RA_DADOS = null;
 function pintaRaAba(d) {
   if (!$("#area-ra-num")) return;
@@ -597,29 +603,36 @@ function pintaRaAba(d) {
     if (tabRot) tabRot.innerHTML = "";
     pintaGraficoRaAba(d); return;
   }
-  const num = (l, c) => l && l[c] !== null && l[c] !== undefined ? Number(l[c]) : null;
+  // pendentes_agora cai para a régua (aguardando) em leitura antiga sem o campo — e a leitura avisa
+  const num = (l, c) => c === "pendentes_agora" ? raPendentes(l).v : (l && l[c] !== null && l[c] !== undefined ? Number(l[c]) : null);
   const fmtV = (c, v) => typeof v !== "number" ? "—" : c.tipo === "pct" ? fmtDec(v) + "%" : c.tipo === "nota" ? fmtDec(v) : fmtNum(v);
-  // com as duas marcas: a pior (alvo alto) ou a soma (aguardando)
-  const agrega = (c, src) => { const vs = lidos.map((x) => num(x[src], c.k)).filter((v) => typeof v === "number"); if (!vs.length) return null; return c.k === "aguardando" ? vs.reduce((s, v) => s + v, 0) : Math.min(...vs); };
+  // com as duas marcas: a pior (alvo alto) ou a soma (contagens)
+  const agrega = (c, src) => { const vs = lidos.map((x) => num(x[src], c.k)).filter((v) => typeof v === "number"); if (!vs.length) return null; return CX_RA_CONTAGEM.has(c.k) ? vs.reduce((s, v) => s + v, 0) : Math.min(...vs); };
+  const pendReal = lidos.every((x) => raPendentes(x.l).real);
+  const reguaTot = lidos.map((x) => raPendentes(x.l).regua).filter((v) => typeof v === "number").reduce((s, v) => s + v, 0);
   const cartoes = CX_RA_CARTOES.map((c) => {
     const v = agrega(c, "l"), va = agrega(c, "ant");
     const chip = c.tipo === "pct" ? cxChipPP(c.m, v, va, 1) : (typeof va === "number" && estado.comparar ? (c.tipo === "nota" ? chipHtml("csat", v, va, (x) => fmtDec(x)) : cxChipPts(v, va, DIRECAO[c.m])) : "");
-    const sub = todas ? (c.k === "aguardando" ? "as duas marcas" : "pior marca") : `leitura de ${fmtDia(cxDia(lidos[0].l.dia))}`;
-    return { k: c.k, rot: c.rot, val: fmtV(c, v), status: cxStatus(c.m, v), chip, sub, info: c.info + (todas ? `\n\nPor marca: ${lidos.map((x) => `${ROTULOS[x.m]} ${fmtV(c, num(x.l, c.k))}`).join(" · ")}` : "") + `\n\nLeitura de ${fmtDia(cxDia(lidos[0].l.dia))}, metatags da página pública (bookmarklet).` };
+    let sub = todas ? (CX_RA_CONTAGEM.has(c.k) ? "as duas marcas" : "pior marca") : `leitura de ${fmtDia(cxDia(lidos[0].l.dia))}`;
+    if (c.k === "pendentes_agora") sub = pendReal ? `fila real · na régua: ${fmtNum(reguaTot)}` : "régua de 6 meses (leitura antiga)";
+    return { k: c.k, rot: c.rot, val: fmtV(c, v), status: cxStatus(c.m, v), chip, sub, info: c.info + (todas ? `\n\nPor marca: ${lidos.map((x) => `${ROTULOS[x.m]} ${fmtV(c, num(x.l, c.k))}`).join(" · ")}` : "") + `\n\nLeitura de ${fmtDia(cxDia(lidos[0].l.dia))}, página pública da marca (tarefa agendada / bookmarklet).` };
   });
   const maisRecente = lidos.map((x) => cxDia(x.l.dia)).sort().pop();
-  if (rot) rot.innerHTML = `<span class="tag nota">leitura de ${fmtDia(maisRecente)}</span>` + cxResumoStatus(cartoes);
+  const periodo = raPeriodo(lidos.map((x) => x.l).find((l) => raPeriodo(l)));
+  if (rot) rot.innerHTML = `<span class="tag nota">leitura de ${fmtDia(maisRecente)}</span>` +
+    (periodo ? cxTag(`régua do RA: ${periodo}`, "nota", "Nota, respondidas, solução, voltaria e avaliações são calculados pelo Reclame AQUI sobre uma janela fechada de 6 meses — o mês corrente só entra na virada. 'Sem resposta agora' é a fila real, todas as reclamações ativas.") : "") +
+    cxResumoStatus(cartoes);
   cxPintaCartoes("ra", cartoes);
   pintaGraficoRaAba(d);
   // tabela por marca: os cinco critérios + o que pesa
   if (tabRot) tabRot.innerHTML = lidos.map(({ m, l }) => { const av = raAvalia(l); return `<span class="tag ${av.ra1000 ? "nota" : "alerta"}">${CX_SIGLA[m]} · ${av.ra1000 ? "critérios RA1000 ✓" : `faltam ${av.faltam} de 5`}</span>`; }).join("");
   const cel = (c, v, bate) => `<td class="num ${typeof v === "number" ? (bate ? "vd" : "vm") : ""}">${fmtV(c, v)}</td>`;
   if (tab) tab.innerHTML = `<div class="rolagem"><table class="comparativo ra-tab">
-    <thead><tr><th>Marca</th>${CX_RA_CARTOES.slice(0, 5).map((c) => `<th class="num" title="${c.info.replace(/"/g, "&quot;")}">${c.rot}<span class="mini meta"> ≥ ${c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo}</span></th>`).join("")}<th class="num" title="Reclamações sem resposta da marca">Aguardando</th><th class="num" title="Tempo médio de resposta, em dias">Tempo resp.</th><th class="num">Reclamações</th><th class="num" title="Nota que o consumidor dá à marca">Nota consumidor</th></tr></thead>
+    <thead><tr><th>Marca</th>${CX_RA_CARTOES.slice(0, 5).map((c) => `<th class="num" title="${c.info.replace(/"/g, "&quot;")}">${c.rot}<span class="mini meta"> ≥ ${c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo}</span></th>`).join("")}<th class="num" title="Reclamações ativas sem resposta agora (fila do RA Empresas); embaixo, quantas dessas contam na régua de 6 meses">Sem resposta</th><th class="num" title="Tempo médio de resposta, em dias">Tempo resp.</th><th class="num">Reclamações</th><th class="num" title="Nota que o consumidor dá à marca">Nota consumidor</th></tr></thead>
     <tbody>${lidos.map(({ m, l }) => { const av = raAvalia(l); return `<tr>
       <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span><div class="mini">${fmtDia(cxDia(l.dia))}${l.fonte && l.fonte !== "metatag" ? " · " + l.fonte : ""}</div></td>
       ${av.crit.map((c, i) => cel(CX_RA_CARTOES[i], c.v, c.bate)).join("")}
-      <td class="num ${num(l, "aguardando") > 0 ? "vm" : ""}">${fmtNum(num(l, "aguardando"))}</td>
+      ${(() => { const p = raPendentes(l); return `<td class="num ${p.v > 0 ? "vm" : ""}">${fmtNum(p.v)}${p.real && p.regua != null ? `<div class="mini">régua ${fmtNum(p.regua)}</div>` : (!p.real && p.v != null ? `<div class="mini">régua</div>` : "")}</td>`; })()}
       <td class="num">${l.tempo_resposta_dias != null ? fmtDec(Number(l.tempo_resposta_dias), 0) + " d" : "—"}</td>
       <td class="num">${fmtNum(num(l, "reclamacoes"))}</td>
       <td class="num">${l.nota_consumidor != null ? fmtDec(Number(l.nota_consumidor)) : "—"}</td></tr>`; }).join("")}</tbody></table></div>`;
@@ -634,8 +647,8 @@ function pintaGraficoRaAba(d) {
   else if (s.dias.length < 2) html = `<div class="vazio mini">Uma leitura só (${fmtDia(s.dias[0])}): ${s.series.map((x) => `${ROTULOS[x.marca]} <b>${typeof x.pontos[0].y === "number" ? (c.tipo === "pct" ? fmtDec(x.pontos[0].y) + "%" : c.tipo === "nota" ? fmtDec(x.pontos[0].y) : fmtNum(x.pontos[0].y)) : "—"}</b>`).join(" · ")}. A curva aparece a partir da segunda leitura.</div>`;
   else html = cxgLinhas({ rotulosX: s.dias.map(fmtDia), pct: c.tipo === "pct", yMax: c.tipo === "nota" ? 10 : undefined, fmt, aria: c.rot,
     series: s.series.map((x) => Object.assign(cxLbl(x.marca), { pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) })),
-    alvo: c.k === "aguardando" ? null : { y: CX_ALVOS[c.m].alvo, rot: "alvo " + (c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo) } });
-  cxGraficoBloco("ra", { tit: c.rot + " · por leitura", sub: "uma leitura por dia, quando o bookmarklet roda · uma linha por marca", html });
+    alvo: CX_RA_CONTAGEM.has(c.k) ? null : { y: CX_ALVOS[c.m].alvo, rot: "alvo " + (c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo) } });
+  cxGraficoBloco("ra", { tit: c.rot + " · por leitura", sub: (c.k === "pendentes_agora" ? "fila real (todas as ativas), coletada desde 14/09 · " : "") + "uma leitura por dia, quando a tarefa agendada ou o bookmarklet roda · uma linha por marca", html });
 }
 
 // ---------- Aba NPS: cinco números → série semanal; tabela por marca + área apontada ----------

@@ -201,6 +201,23 @@ function raAvalia(linha) {
   });
   return { crit, ra1000: crit.every((x) => x.bate), faltam: crit.filter((x) => !x.bate).length };
 }
+// Sem resposta no RA (14/09): a página pública tem DOIS números. `aguardando` é o da régua de reputação —
+// janela fechada de 6 meses (periodo_ini..periodo_fim), que ficava em 102 enquanto o Samuel via 260 no
+// RA Empresas. `pendentes_agora` é a fila real (busca pública, status=PENDING, todas as ativas). O painel
+// mostra a fila real e cai para a régua só em leitura antiga que não tem o campo.
+function raPendentes(linha) {
+  if (!linha) return { v: null, regua: null, real: false };
+  const n = (x) => x === null || x === undefined || x === "" ? null : Number(x);
+  const real = n(linha.pendentes_agora), regua = n(linha.aguardando);
+  return real !== null ? { v: real, regua, real: true } : { v: regua, regua, real: false };
+}
+// rótulo da janela da régua: "01/03–31/08" (null quando a leitura não trouxe o período)
+function raPeriodo(linha) {
+  if (!linha || !linha.periodo_ini || !linha.periodo_fim) return null;
+  const f = (s) => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}` : null; };
+  const a = f(linha.periodo_ini), b = f(linha.periodo_fim);
+  return a && b ? `${a}–${b}` : null;
+}
 
 // dias distintos com linha no intervalo (para não comparar contra período sem histórico)
 function cxDiasComDado(rows, f) {
@@ -443,6 +460,6 @@ function cxCortaVazioInicial(semanas, colunas) {
 if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
-    somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
+    somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
     CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

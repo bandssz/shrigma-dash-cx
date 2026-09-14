@@ -157,8 +157,9 @@ test('com pedidos e RA na API, os cartões viram razão por pedido e índices co
   const ds = dias(45);
   const x = await boot(fixture({
     cx_pedidos: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, pedidos: 500 }, { marca: 'fishermans', dia: d, pedidos: 100 }]),
-    cx_ra: [{ marca: 'aristocrata', dia: HOJE, nota: 7.0, resposta_pct: 86.2, solucao_pct: 85.0, voltaria_pct: 57.2, avaliacoes: 486, aguardando: 103, tempo_resposta_dias: 16 },
-            { marca: 'fishermans', dia: HOJE, nota: 8.1, resposta_pct: 99.5, solucao_pct: 71.0, voltaria_pct: 80, avaliacoes: 60, aguardando: 0, tempo_resposta_dias: 2 }],
+    // aguardando = régua de 6 meses da página; pendentes_agora = fila real (o que o time vê no RA Empresas)
+    cx_ra: [{ marca: 'aristocrata', dia: HOJE, nota: 7.0, resposta_pct: 86.2, solucao_pct: 85.0, voltaria_pct: 57.2, avaliacoes: 486, aguardando: 103, pendentes_agora: 260, periodo_ini: '2026-03-01', periodo_fim: '2026-08-31', tempo_resposta_dias: 16 },
+            { marca: 'fishermans', dia: HOJE, nota: 8.1, resposta_pct: 99.5, solucao_pct: 71.0, voltaria_pct: 80, avaliacoes: 60, aguardando: 0, pendentes_agora: 2, periodo_ini: '2026-03-01', periodo_fim: '2026-08-31', tempo_resposta_dias: 2 }],
   }), '?periodo=7d&marca=aristocrata');
   // Aristocrata 7d: 145 contatos/dia (60+20+40+25) → 1.015 ÷ 3.500 pedidos = 29,0
   assert.equal(x.txt('#area-seis .six2-val')[0], '29,0');
@@ -167,15 +168,18 @@ test('com pedidos e RA na API, os cartões viram razão por pedido e índices co
   // RA: a nota da empresa como número, a composição do RA1000 embaixo com ✓/✗
   assert.equal(x.txt('#area-seis .six2-val')[5], '7,0/10');
   const comp = x.document.querySelector('#area-seis .six2[data-m="ra_nota"] .six2-comp').textContent;
-  assert.match(comp, /resp\. 86% ✗/); assert.match(comp, /486 aval\. ✓/); assert.match(comp, /103 aguardando/);
+  assert.match(comp, /resp\. 86% ✗/); assert.match(comp, /486 aval\. ✓/); assert.match(comp, /260 sem resposta/); assert.doesNotMatch(comp, /103/);
   assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'com pedidos o gráfico padrão traça a razão por semana');
   x.document.querySelector('#area-seis .six2[data-m="ra_nota"]').click();
   assert.match(x.document.querySelector('#g-geral-tit').textContent, /por leitura/);
   // aba RA: seis critérios como cartões, tabela por marca com o veredito
-  assert.deepEqual(x.txt('#area-ra-num .six2-val'), ['7,0', '86,2%', '85,0%', '57,2%', '486', '103']);
+  assert.deepEqual(x.txt('#area-ra-num .six2-val'), ['7,0', '86,2%', '85,0%', '57,2%', '486', '260']);
+  assert.match(x.document.querySelector('#area-ra-num .six2[data-m="pendentes_agora"] .six2-chip').textContent, /fila real · na régua: 103/);
   assert.match(x.document.querySelector('#ra-tab-rot').textContent, /faltam 3 de 5/);
+  assert.match(x.document.querySelector('#ra-rotulo').textContent, /régua do RA: 01\/03–31\/08/);
   assert.match(x.document.querySelector('#ra-rotulo').textContent, /2 fora do alvo.*2 em atenção/);
   assert.match(x.document.querySelector('#area-ra').textContent, /16 d/);
+  assert.match(x.document.querySelector('#area-ra').textContent, /260\s*régua 103/);
   assert.match(x.document.querySelector('#g-ra').textContent, /Uma leitura só/);
 });
 

@@ -241,6 +241,29 @@ até 1h ok, ≥ 50% atenção. Gráfico do cartão: mediana diária por marca, 8
 Gleap parado (etiqueta no cabeçalho diz desde quando). `cx_snapshot.primeira_resposta_comercial_seg` continua sendo
 preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 
+### RA: 102 na página × 260 no RA Empresas — os dois números de "sem resposta" (14/09, noite)
+
+O Samuel apontou que o painel mostrava 102 aguardando quando o RA Empresas tem bem mais. Verificado na página pública
+(navegador do Mac): o **"aguardando resposta" da página é o da régua de reputação**, uma janela **fechada de 6 meses**
+("Dados de 01/03/2026 até 31/08/2026"), recalculada na virada do mês — setembro inteiro fica de fora; as abas
+6 meses / 12 meses / Geral mostram o mesmo `totalNotAnswered=102`. A **fila real** está na busca pública do próprio RA
+(`iosearch…/companyComplains?company=<id>&status=PENDING`), que só responde de dentro da página (curl/n8n: 403 Cloudflare):
+Aris **260** sem resposta (337 respondidas sem avaliação + 717 avaliadas = 1.314 ativas), Fish 2.
+
+O que mudou:
+- `cx_ra_dia` ganhou `periodo_ini/periodo_fim` (janela da régua), `pendentes_agora`, `respondidas_agora`, `avaliadas_agora`,
+  `ativas_agora`. `aguardando` continua sendo o número da régua (comentário na coluna diz isso).
+- Bookmarklet (`n8n/ra-bookmarklet.js`) e a tarefa agendada coletam os campos novos: período pelo texto da página, id da
+  empresa pelo JSON-LD (`identifier`) ou pelo script de analytics (`raichuId`), contagens pela busca pública de dentro da
+  página. Receiver `cx-ra-metatags` grava com COALESCE (leitura sem os campos não apaga a anterior). API expõe tudo em `cx_ra`.
+- Painel: o cartão RA da Visão geral mostra **"260 sem resposta"** (soma das marcas mostradas; title dá por marca e o
+  número da régua); a aba Reclame Aqui tem o cartão **"Sem resposta agora"** (fila real · na régua: N), etiqueta
+  **"régua do RA: 01/03–31/08"** no cabeçalho, e a tabela mostra a fila com a régua embaixo. Leitura antiga sem o campo cai
+  para a régua e diz "(régua)". Gráfico da fila começa em 14/09.
+- Leitura: os cinco critérios do RA1000 são da régua (janela fechada) — o que o time faz em setembro só aparece neles em
+  1º/10. A fila real é o que dá para agir hoje: cada uma das 260 que for respondida antes da virada entra na conta de
+  outubro; as que ficarem viram "não respondida" na régua e derrubam o índice de resposta (86% hoje, alvo 90%).
+
 ### Seis números revistos e fila agora (14/09, tarde)
 
 - **Reclame Aqui virou um cartão só**: a **nota da empresa** (pior marca, alvo ≥ 7) com a composição do RA1000 embaixo
