@@ -34,7 +34,7 @@ Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
   Usar `totalCountForUser` subnotifica o agente pela metade.
 - `primeiro_fechamento_seg` é tempo até o **primeiro** fechamento, não resolução total.
 - `fila_aberta` é foto do momento da coleta — não existe para dias retroativos (NULL).
-- **1ª resposta em expediente** (seg–sex 8h–18h SP) é cálculo nosso, feito no workflow
+- **1ª resposta em expediente** (seg–qui 8h–18h SP desde 14/09; sex e sáb sem expediente humano) é cálculo nosso, feito no workflow
   noturno `CX — 1ª resposta em horário comercial`: o Gleap não oferece o recorte e o
   parâmetro `businessHours` **zera o resultado com HTTP 200**. Fonte: `/tickets?createdAt>=…`
   (o operador vai no NOME do parâmetro) + `/messages` procurando `type=TEXT` com `bot=false`.
@@ -208,6 +208,14 @@ e 45 dias no noturno, então retag entra; a precedência problema > cancelamento
 `outros + wismo` virar wismo), WISMO/pedido (883 ÷ 5.184 = 17,0% em 07–13/09) e RA. **"Outros" 53%** é real: são tickets
 cuja única tag de rota é `outros` depois de todas as passadas — inclui casos em que o Kai respondeu rastreio (WISMO de
 fato) e o classificador não marcou.
+
+### Expediente do CX (14/09)
+
+Sexta e sábado **não têm expediente humano** — só o Kai atende; domingo está tratado como sem expediente até o Felipe
+confirmar. Isso entra em dois lugares: (1) a **maturação** do desfecho conta 2 dias de expediente, não 2 dias corridos
+(`CX_DIAS_SEM_EXPEDIENTE` em `cx-metricas.js`; ticket de quinta só tem desfecho justo na terça); (2) a **1ª resposta em
+horário comercial** (workflow `wNGvs4jiZFEjyyT6`) passou de seg–sex para **seg–qui 8h–18h** — ticket de sexta não soma
+10 h de "expediente" que não existiu. Zero resposta humana em sex/sáb no painel é o esperado, não incidente.
 
 ### Regras que a repaginação fixou
 

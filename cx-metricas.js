@@ -219,12 +219,23 @@ function cxDelta(atual, anterior) {
 // ---------- desfecho maduro (14/09): o Kai medido sobre TODOS os tickets, não só os fechados ----------
 // Por que: "Kai resolveu ÷ (Kai + fechados por pessoa)" ignorava o ticket transferido e ainda aberto. Na semana
 // de 06–12/09 isso deu 43% no Aristocrata quando o Kai fechou 26% dos tickets e 38% foram transferidos e ninguém
-// respondeu (fila de 1.257). Aqui o denominador é o ticket de chat criado até D-2 (maduro: quem ia fechar já fechou);
+// respondeu (fila de 1.257). Aqui o denominador é o ticket de chat MADURO — com 2 dias de expediente depois dele (quem ia fechar já fechou);
 // o que sobra em aberto é estado real, não ruído. Colunas vêm da view cx_csat_dia (fechados, resposta_humana,
 // kai_fechou, fechado_inatividade). Ticket transferido sem resposta humana = linhas escalado=true: tickets − resposta_humana.
+// Maturação conta DIAS DE EXPEDIENTE: sexta e sábado não têm atendimento humano (só o Kai), então ticket de quinta
+// só tem desfecho justo na terça. CX_DIAS_SEM_EXPEDIENTE usa getUTCDay (0 = dom … 6 = sáb). Domingo está como SEM
+// expediente até o Felipe confirmar — errar para esse lado só atrasa a maturação, nunca infla "ninguém respondeu".
 const CX_MATURACAO_DIAS = 2;
+const CX_DIAS_SEM_EXPEDIENTE = [0, 5, 6];
 function diasAtrasCx(n, base) { const d = new Date(base + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); }
-function cxFimMaduro(fim, hoje) { const teto = diasAtrasCx(CX_MATURACAO_DIAS, hoje); return fim < teto ? fim : teto; }
+function cxEhExpediente(ymd) { return !CX_DIAS_SEM_EXPEDIENTE.includes(new Date(ymd + "T12:00:00Z").getUTCDay()); }
+// teto = último dia cujos tickets já tiveram CX_MATURACAO_DIAS dias completos de expediente depois (hoje não conta: está em andamento)
+function cxFimMaduro(fim, hoje) {
+  let d = diasAtrasCx(1, hoje), n = 0, guarda = 0;
+  while (guarda++ < 14) { if (cxEhExpediente(d)) n++; if (n >= CX_MATURACAO_DIAS) break; d = diasAtrasCx(1, d); }
+  const teto = diasAtrasCx(1, d);
+  return fim < teto ? fim : teto;
+}
 function desfechoMaduro(rows, f, hoje) {
   const fim = cxFimMaduro(f.fim, hoje);
   const sel = cxFiltra(rows, Object.assign({}, f, { fim, canais: f.canais || CX_CANAIS_KAI }));
@@ -241,7 +252,7 @@ function desfechoMaduro(rows, f, hoje) {
 }
 // série semanal do desfecho maduro; semana que passa de D-2 é parcial (o que ainda vai fechar não fechou)
 function serieSemanalDesfecho(rows, f, hoje) {
-  const semanas = cxSemanas(f.ini, f.fim); const teto = diasAtrasCx(CX_MATURACAO_DIAS, hoje);
+  const semanas = cxSemanas(f.ini, f.fim); const teto = cxFimMaduro('9999-12-31', hoje);
   const pontos = semanas.map((s) => {
     const fimSem = diasAtrasCx(-6, s); const fim = fimSem < teto ? fimSem : teto;
     if (fim < s) return { semana: s, tickets: 0, kai: 0, pessoa: 0, semResp: 0, aberto: 0, y: null, ySemResp: null, parcial: true };
@@ -355,5 +366,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, CX_MATURACAO_DIAS, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }
