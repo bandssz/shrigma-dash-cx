@@ -1,6 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const GB=require('../growth-builder.js');
 const {parseHTML}=require(require.resolve('linkedom',{paths:[path.resolve(__dirname,'../../growth-test-tools/node_modules')]}));
+test('NPS template choices preserve signed link data; popup choices can use their own supplied fields',()=>{
+ const flows=require('../n8n/growth/engagement-flow-definitions.json');
+ const slot=flows.find(f=>f.key==='fish:nps-d3').steps[0];
+ const template={status:'APPROVED',id:'999',draft_id:'fixture',components:{body_html:'{{ .Tx.Data.nps_url }}?p={{ .Tx.Data.p }}&e={{ .Tx.Data.e }}&s={{ .Tx.Data.s }}'}};
+ assert.ok(GB.compatible(template,slot));
+ assert.ok(!GB.compatible({...template,components:{body_html:'Olá {{ .Tx.Data.first_name }}'}},slot));
+ assert.ok(!GB.compatible({...template,components:{body_html:template.components.body_html+' {{ .Tx.Data.tracking_url }}'}},slot));
+ const popup=flows.find(f=>f.key==='fish:popup').steps[0];
+ assert.ok(GB.compatible({...template,components:{body_html:'Olá {{ .Tx.Data.first_name }}'}},popup));
+ const f={brand:'fish',available_steps:[slot]};GB.state.templates={};
+ assert.match(GB.stepHtml(slot,0,f),/minutos desde a pesquisa inicial/);
+});
 test('template selection requires approval, compatible components and same email data',()=>{
  const components=[{type:'BODY',text:'Oi {{1}}'},{type:'BUTTONS',buttons:[{type:'URL',url:'https://example.com/{{1}}',text:'Abrir'}]}];
  const slot={channel:'whatsapp',category:'UTILITY',signature:GB.signature(components)};

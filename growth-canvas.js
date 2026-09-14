@@ -15,7 +15,7 @@ const GBC={
    // Stable stage-based identity keeps the wait node position when its duration changes.
    const anchor=items.map(i=>i.s.key).sort()[0],wid='wait:'+anchor;
    let parent='trigger';
-   if(wait>0){parent=add(wid,'wait',GBC.duration(wait),'Desde o gatilho',330,y,{stepIndex:items[0].index});edges.push({from:'trigger',to:parent});}
+   if(wait>0){parent=add(wid,'wait',GBC.duration(wait),items[0].slot.wait_caption||'Desde o gatilho',330,y,{stepIndex:items[0].index});edges.push({from:'trigger',to:parent});}
    const alternatives=items.filter(i=>i.slot.variant||i.slot.source_template_id),parallel=items.filter(i=>!alternatives.includes(i));
    let row=y;
    if(alternatives.length){
@@ -49,8 +49,9 @@ const GBC={
  inspector(f,d,g){
   const n=g.nodes.find(n=>n.id===GBC.selected);if(!n)return '';
   let inner='';
-  if(n.stepIndex!==undefined)inner=`<ul class="flow-inspector-fields">${GB.stepHtml(d.steps[n.stepIndex],n.stepIndex,f)}</ul><p class="flow-inspector-note">As esperas são contadas desde o gatilho. Compra, descadastro e validade são conferidos antes do envio.</p>`;
-  else if(n.type==='trigger')inner=`<div class="flow-inspector-content"><h3>${GBC.e(f.trigger)}</h3><p>Este evento inicia a jornada. Cada ramo segue seu tempo e suas condições.</p><p>Arraste os blocos para organizar o desenho. Salvar rascunho conserva a posição deles.</p></div>`;
+  const slot=n.stepIndex!==undefined?f.available_steps.find(s=>s.key===d.steps[n.stepIndex].key):null;
+  if(n.stepIndex!==undefined)inner=`<ul class="flow-inspector-fields">${GB.stepHtml(d.steps[n.stepIndex],n.stepIndex,f)}</ul><p class="flow-inspector-note">${GBC.e(slot?.help_text||'As esperas são contadas desde o gatilho. Compra, descadastro e validade são conferidos antes do envio.')}</p>`;
+  else if(n.type==='trigger')inner=`<div class="flow-inspector-content"><h3>${GBC.e(f.trigger)}</h3><p>${GBC.e(f.available_steps[0]?.help_text||'Este evento inicia a jornada. Cada ramo segue seu tempo e suas condições.')}</p><p>Arraste os blocos para organizar o desenho. Salvar rascunho conserva a posição deles.</p></div>`;
   else inner=`<div class="flow-inspector-content"><p>${n.subtitle==='Uma variante por carrinho'?'Cada carrinho segue a variante A ou B definida pela distribuição atual.':'O pedido segue uma das rotas abaixo conforme os dados de rastreio.'}</p>${(n.members||[]).map(id=>`<button type="button" data-flow-jump="${GBC.e(id)}">${GBC.e(g.nodes.find(x=>x.id===id)?.title)}</button>`).join('')}<p>As conexões representam as rotas executadas pela jornada.</p></div>`;
   return `<aside class="flow-inspector"><header><span>${n.type==='wait'?'Configurar espera':n.type==='branch'?'Rotas do fluxo':n.type==='trigger'?'Gatilho':'Configurar mensagem'}</span><button type="button" id="flow-close-inspector" aria-label="Fechar configurações">×</button></header>${inner}</aside>`;
  },

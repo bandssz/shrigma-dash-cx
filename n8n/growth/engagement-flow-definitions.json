@@ -1,0 +1,218 @@
+[
+  {
+    "key": "fish:nps-d0",
+    "brand": "fish",
+    "name": "NPS · Pesquisa inicial",
+    "trigger": "Pedido elegível para pesquisa recebido da loja",
+    "steps": [
+      {
+        "key": "email:nps-d0",
+        "name": "NPS · Pesquisa inicial",
+        "channel": "email",
+        "flow": "nps",
+        "piece": "nps-d0",
+        "variant": "",
+        "template_id": "29",
+        "template_name": "12F - NPS Pós-Entrega Fishermans",
+        "enabled": true,
+        "wait_min": 0,
+        "min_wait": 0,
+        "max_wait": 0,
+        "variables": [
+          "first_name",
+          "order_number",
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "required_variables": [
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "wait_label": "do gatilho",
+        "wait_caption": "Desde o gatilho",
+        "help_text": "A pesquisa começa quando a loja envia o evento elegível. Pausar esta jornada não pausa o lembrete de pesquisas anteriores."
+      }
+    ]
+  },
+  {
+    "key": "fish:nps-d3",
+    "brand": "fish",
+    "name": "NPS · Lembrete sem resposta",
+    "trigger": "Pesquisa inicial registrada, ainda sem resposta",
+    "steps": [
+      {
+        "key": "email:nps-d3",
+        "name": "NPS · Lembrete sem resposta",
+        "channel": "email",
+        "flow": "nps",
+        "piece": "nps-d3",
+        "variant": "",
+        "template_id": "31",
+        "template_name": "12F-R - Lembrete NPS Fishermans",
+        "enabled": true,
+        "wait_min": 4320,
+        "min_wait": 1440,
+        "max_wait": 20160,
+        "variables": [
+          "first_name",
+          "order_number",
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "required_variables": [
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "wait_label": "desde a pesquisa inicial",
+        "wait_caption": "Desde a pesquisa inicial",
+        "help_text": "A espera começa no registro da pesquisa inicial. Os elegíveis são verificados diariamente às 19h de Brasília. Uma resposta encerra o lembrete."
+      }
+    ]
+  },
+  {
+    "key": "fish:popup",
+    "brand": "fish",
+    "name": "Popup · Cupom de boas-vindas",
+    "trigger": "Inscrição no popup da loja",
+    "steps": [
+      {
+        "key": "email:cupom-boas-vindas",
+        "name": "Popup · Cupom de boas-vindas",
+        "channel": "email",
+        "flow": "popup",
+        "piece": "cupom-boas-vindas",
+        "variant": "",
+        "template_id": "23",
+        "template_name": "11F - POPUP INSCRITOS FISHERMANS",
+        "enabled": true,
+        "wait_min": 0,
+        "min_wait": 0,
+        "max_wait": 0,
+        "variables": [
+          "first_name",
+          "checkout_url"
+        ],
+        "required_variables": [],
+        "wait_label": "do gatilho",
+        "wait_caption": "Desde o gatilho",
+        "help_text": "Envia ao receber a inscrição de um contato habilitado. Pausar bloqueia os próximos envios; inscrições recebidas durante a pausa não são reenviadas automaticamente."
+      }
+    ]
+  },
+  {
+    "key": "aristo:nps-d0",
+    "brand": "aristo",
+    "name": "NPS · Pesquisa inicial",
+    "trigger": "Pedido elegível para pesquisa recebido da loja",
+    "steps": [
+      {
+        "key": "email:nps-d0",
+        "name": "NPS · Pesquisa inicial",
+        "channel": "email",
+        "flow": "nps",
+        "piece": "nps-d0",
+        "variant": "",
+        "template_id": "28",
+        "template_name": "12A - NPS Pós-Entrega Aristocrata",
+        "enabled": true,
+        "wait_min": 0,
+        "min_wait": 0,
+        "max_wait": 0,
+        "variables": [
+          "first_name",
+          "order_number",
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "required_variables": [
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "wait_label": "do gatilho",
+        "wait_caption": "Desde o gatilho",
+        "help_text": "A pesquisa começa quando a loja envia o evento elegível. Pausar esta jornada não pausa o lembrete de pesquisas anteriores."
+      }
+    ]
+  },
+  {
+    "key": "aristo:nps-d3",
+    "brand": "aristo",
+    "name": "NPS · Lembrete sem resposta",
+    "trigger": "Pesquisa inicial registrada, ainda sem resposta",
+    "steps": [
+      {
+        "key": "email:nps-d3",
+        "name": "NPS · Lembrete sem resposta",
+        "channel": "email",
+        "flow": "nps",
+        "piece": "nps-d3",
+        "variant": "",
+        "template_id": "30",
+        "template_name": "12A-R - Lembrete NPS Aristocrata",
+        "enabled": true,
+        "wait_min": 4320,
+        "min_wait": 1440,
+        "max_wait": 20160,
+        "variables": [
+          "first_name",
+          "order_number",
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "required_variables": [
+          "nps_url",
+          "p",
+          "e",
+          "s"
+        ],
+        "wait_label": "desde a pesquisa inicial",
+        "wait_caption": "Desde a pesquisa inicial",
+        "help_text": "A espera começa no registro da pesquisa inicial. Os elegíveis são verificados diariamente às 19h de Brasília. Uma resposta encerra o lembrete."
+      }
+    ]
+  },
+  {
+    "key": "aristo:popup",
+    "brand": "aristo",
+    "name": "Popup · Cupom de boas-vindas",
+    "trigger": "Inscrição no popup da loja",
+    "steps": [
+      {
+        "key": "email:cupom-boas-vindas",
+        "name": "Popup · Cupom de boas-vindas",
+        "channel": "email",
+        "flow": "popup",
+        "piece": "cupom-boas-vindas",
+        "variant": "",
+        "template_id": "22",
+        "template_name": "11A - POPUP Inscritos sem Compra Aristocrata",
+        "enabled": true,
+        "wait_min": 0,
+        "min_wait": 0,
+        "max_wait": 0,
+        "variables": [
+          "first_name",
+          "checkout_url"
+        ],
+        "required_variables": [],
+        "wait_label": "do gatilho",
+        "wait_caption": "Desde o gatilho",
+        "help_text": "Envia ao receber a inscrição de um contato habilitado. Pausar bloqueia os próximos envios; inscrições recebidas durante a pausa não são reenviadas automaticamente."
+      }
+    ]
+  }
+]

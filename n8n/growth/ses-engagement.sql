@@ -1,11 +1,11 @@
 -- Fish/Aristo NPS and popup delivery tracking. Run as one implicit transaction.
-CREATE FUNCTION public.shrigma_email_claim_engagement(b jsonb)
+CREATE OR REPLACE FUNCTION public.shrigma_email_claim_engagement(b jsonb)
 RETURNS TABLE(should_send boolean,dispatch_id uuid,claim_token uuid,payload jsonb,context jsonb,reason text)
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $f$
 #variable_conflict use_variable
 DECLARE brand text=b->>'brand';piece text=b->>'piece';flow text;email text=lower(b->>'email');ref text=b->>'ref';
  tx jsonb=b->'tx';sid int;tpl int;cfg text;sender text;key text;hash text;did uuid;claim uuid;
- recipient text;keyver text;s public.subscribers%ROWTYPE;ns jsonb;nv jsonb;d public.shrigma_email_dispatch%ROWTYPE;
+ slot jsonb;wait_time interval=interval '3 days';recipient text;keyver text;s public.subscribers%ROWTYPE;ns jsonb;nv jsonb;d public.shrigma_email_dispatch%ROWTYPE;
 BEGIN
  IF jsonb_typeof(b) IS DISTINCT FROM 'object' OR coalesce(brand,'') NOT IN ('fish','aristo') THEN RAISE EXCEPTION 'ENGAGEMENT_SCOPE_INVALID';END IF;
  IF piece NOT IN ('nps-d0','nps-d3','cupom-boas-vindas') OR piece IS NULL THEN RAISE EXCEPTION 'ENGAGEMENT_PIECE_INVALID';END IF;
@@ -19,6 +19,21 @@ BEGIN
  OR tx->>'from_email' NOT IN (sender,'Fishermans <'||sender||'>','O Aristocrata <'||sender||'>') OR tx->>'from_email' IS NULL
  OR coalesce(tx->>'subscriber_mode','external')<>'external' THEN RAISE EXCEPTION 'ENGAGEMENT_TRANSPORT_INVALID';END IF;
  IF flow='nps' AND (tx#>>'{data,order_number}' IS DISTINCT FROM ref OR lower(tx#>>'{data,e}') IS DISTINCT FROM email OR coalesce(tx#>>'{data,s}','')='') THEN RAISE EXCEPTION 'ENGAGEMENT_NPS_CONTEXT_INVALID';END IF;
+ -- Read only the published controls. A pause never reserves or marks a recipient.
+ slot=public.shrigma_flow_slot(brand,'email',flow,piece);
+ IF (slot->>'_managed')::boolean THEN
+  IF NOT coalesce((slot->>'_allowed')::boolean,false) THEN
+   RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'flow_paused';RETURN;
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.templates t JOIN public.shrigma_template_email_registry r ON r.template_id=t.id
+   WHERE t.id::text=slot->>'template_id' AND r.brand=brand AND t.type='tx') THEN RAISE EXCEPTION 'ENGAGEMENT_TEMPLATE_UNAVAILABLE';END IF;
+  IF tpl IS DISTINCT FROM (slot->>'template_id')::int THEN
+   -- Let Listmonk render the selected template's subject with the same data.
+   tx=(tx-'subject')||jsonb_build_object('template_id',(slot->>'template_id')::int);
+  END IF;
+  tpl=(slot->>'template_id')::int;
+  IF piece='nps-d3' THEN wait_time=make_interval(secs=>60*(slot->>'wait_min')::double precision);END IF;
+ END IF;
  -- Canonical transport and immutable context are captured before reservation.
  tx=tx||jsonb_build_object('subscriber_mode','external','subscriber_email',email,'headers',jsonb_build_array(jsonb_build_object('Reply-To',sender)));
  b=b||jsonb_build_object('email',email,'flow',flow,'tx',tx,'template_id',tpl);
@@ -37,7 +52,7 @@ BEGIN
   IF piece='nps-d0' THEN
    IF ns->>'order'=ref OR (ns->>'date')::timestamptz>now()-interval '45 days' OR (nv->>'date')::timestamptz>now()-interval '45 days' THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'nps_cooldown';RETURN;END IF;
   ELSE
-   IF ns->>'order' IS DISTINCT FROM ref OR ns->>'brand' IS DISTINCT FROM brand OR coalesce((ns->>'reminded')::boolean,true) OR ns->>'date' IS NULL OR (ns->>'date')::timestamptz>now()-interval '3 days' OR nv->>'order'=ref THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'reminder_ineligible';RETURN;END IF;
+   IF ns->>'order' IS DISTINCT FROM ref OR ns->>'brand' IS DISTINCT FROM brand OR coalesce((ns->>'reminded')::boolean,true) OR ns->>'date' IS NULL OR (ns->>'date')::timestamptz>now()-wait_time OR nv->>'order'=ref THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'reminder_ineligible';RETURN;END IF;
   END IF;
  END IF;
  did=gen_random_uuid();claim=gen_random_uuid();

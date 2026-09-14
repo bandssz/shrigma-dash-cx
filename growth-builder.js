@@ -17,6 +17,9 @@ const GB={
  compatible(template,slot){
   if(template.status!=='APPROVED')return false;
   if(slot.channel==='whatsapp')return template.language==='pt_BR'&&(slot.category!=='UTILITY'||template.category==='UTILITY')&&GB.same(GB.signature(template.components),slot.signature);
+  const content=String(template.components?.body_html||'')+String(template.components?.subject||'');
+  const present=[...content.matchAll(/\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)/g)].map(m=>m[1]);
+  if(!(slot.required_variables||[]).every(v=>present.includes(v)))return false;
   if(String(template.id)===String(slot.template_id))return true;
   if(!template.draft_id)return false;
   const vars=[...(String(template.components?.body_html||'')+String(template.components?.subject||'')).matchAll(/\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)/g)].map(m=>m[1]);
@@ -74,7 +77,7 @@ const GB={
   const choices=(GB.state.templates[f.brand+':'+step.channel]||[]).filter(t=>GB.compatible(t,slot));
   const current=choices.some(t=>String(t.id)===String(step.template_id));
   const icon=step.channel==='email'?'✉':'◉';
-  const wait=Number(slot.max_wait)>0?`<div class="builder-wait"><span>◷</span><label>Após <input type="number" min="${e(slot.min_wait)}" max="${e(slot.max_wait)}" step="0.5" data-step="${index}" data-field="wait_min" value="${e(step.wait_min)}" ${Number(slot.min_wait)===Number(slot.max_wait)?'readonly':''}> minutos do gatilho</label></div>`:'';
+  const wait=Number(slot.max_wait)>0?`<div class="builder-wait"><span>◷</span><label>Após <input type="number" min="${e(slot.min_wait)}" max="${e(slot.max_wait)}" step="0.5" data-step="${index}" data-field="wait_min" value="${e(step.wait_min)}" ${Number(slot.min_wait)===Number(slot.max_wait)?'readonly':''}> minutos ${e(slot.wait_label||'do gatilho')}</label></div>`:'';
   return `<li class="builder-stage ${step.enabled?'':'is-off'}" data-stage="${e(step.key)}">${wait}<div class="builder-message"><div class="builder-message-head"><span class="builder-channel ${e(step.channel)}">${icon}</span><div><small>${step.channel==='email'?'E-MAIL':'WHATSAPP'}</small><strong>${e(slot.name)}</strong></div><label class="builder-toggle"><input type="checkbox" data-step="${index}" data-field="enabled" ${step.enabled?'checked':''} aria-label="Ativar ${e(slot.name)}"><span>Ativa</span></label></div>
    ${slot.kind==='interactive'?`<label>Mensagem<textarea data-step="${index}" data-field="body" rows="4" maxlength="1024">${e(step.body)}</textarea></label>`:`<label>Template<select data-step="${index}" data-field="template_id">${current?'':`<option value="${e(step.template_id)}">${e(step.template_name||'Selecionar template')}</option>`}${choices.map(t=>`<option value="${e(t.id)}" ${String(t.id)===String(step.template_id)?'selected':''}>${e(t.name)}</option>`).join('')}</select></label><button class="builder-text-button" type="button" data-create-template="${e(step.channel)}">+ Criar template de ${step.channel==='email'?'e-mail':'WhatsApp'}</button>`}
    ${slot.variables?.length?`<p class="builder-variables">Dados: ${slot.variables.map(e).join(' · ')}</p>`:''}

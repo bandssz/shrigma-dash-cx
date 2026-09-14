@@ -1,5 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const C=require('../growth-canvas.js');
+test('NPS reminder displays the actual timing origin and executable schedule note',()=>{
+ const f=require('../n8n/growth/engagement-flow-definitions.json').find(f=>f.key==='aristo:nps-d3');
+ f.available_steps=f.steps;const g=C.graph(f,{steps:f.steps});
+ const wait=g.nodes.find(n=>n.type==='wait');
+ assert.equal(wait.subtitle,'Desde a pesquisa inicial');assert.equal(wait.title,'72 h');
+ assert.equal(g.edges.find(e=>e.to==='step:email:nps-d3').from,wait.id);
+ assert.match(f.steps[0].help_text,/19h de Brasília/);
+});
 const steps=[{key:'wa-a',name:'A',channel:'whatsapp',variant:'a',wait_min:30},{key:'wa-b',name:'B',channel:'whatsapp',variant:'b',wait_min:30},{key:'mail',name:'E-mail',channel:'email',wait_min:30}];
 const f={key:'fish:cart',trigger:'Checkout abandonado',available_steps:steps},d={steps};
 test('canvas derives actual parallel routes rather than a false A then B sequence',()=>{
