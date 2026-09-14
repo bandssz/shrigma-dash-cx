@@ -12,6 +12,10 @@ const AB_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-teste-api-
 // que nao mora neste repositorio - a Marcela digita uma vez e fica no localStorage dela.
 const INFLU_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-influ-api-7c41e0b93a5d8f26';
 
+// Endpoint de LEITURA da aba Afiliados TikTok Shop (influs.html). Aceita a chave de leitura do painel
+// de Influs (crm_dash_chave, painel influs/todos). Le as tabelas crm_tts_* do coletor diario.
+const TTS_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-painel-api-9d3f7a1c';
+
 /* ---------- chave de acesso, compartilhada entre as paginas ----------
    Cada painel tem seu proprio cofre no localStorage, para que a chave do Suporte nao
    abra o Growth. Mas a chave MESTRA (painel=todos) e uma so e tem que valer no

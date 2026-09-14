@@ -24,6 +24,11 @@ Painel interno de CS/CX. Site estático que lê snapshots do Postgres (via webho
   (OpenAI). Independe da Replient: volume, respondido, oculto e sentimento são nossos.
   Coleta automática a cada 2h; sentimento classificado 1× por comentário (nunca reprocessa).
 - NPS não tem tabela própria: é lido de `subscribers.attribs->'nps'`
+- `crm_tts_*` — afiliados do TikTok Shop (lane separada dos cupons Shopify): `crm_tts_pedido`
+  (1 linha por SKU de pedido de afiliado), `crm_tts_amostra` (pedidos de amostra + decisão da esteira),
+  `crm_tts_criador`, `crm_tts_colaboracao` (open/target × produto), `crm_tts_convite`, `crm_tts_regra`
+  (parâmetros da esteira por marca) e `crm_tts_coleta_log`. DDL em `n8n/tiktok/ddl_crm_tts.sql`.
+  Ver "Afiliados TikTok Shop" abaixo.
 
 Cada coluna tem `COMMENT` no banco explicando origem e pegadinha
 (`SELECT obj_description('cx_snapshot'::regclass)` e afins).
@@ -250,6 +255,50 @@ preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 - **Kai sozinho × pessoa não é comparável diretamente**: quem o Kai fecha responde bem menos à pesquisa (9–22% vs 31–53%)
   e para a pessoa chega o caso difícil. Cada um se compara consigo mesmo no tempo.
 - Taxas comparam em **pontos percentuais** ("+22 pp · ant. 2,9%"), não em variação relativa.
+
+## Afiliados TikTok Shop — aba em `influs.html` (14/09/2026)
+
+Lane **separada** dos cupons Shopify: a comissão de afiliado é apurada dentro do TikTok, não por cupom
+nem por UTM. Somar as duas contaria a mesma venda duas vezes — por isso tabelas próprias (`crm_tts_*`) e
+uma API própria, nunca `crm_influ_pedido`.
+
+**Camadas (mesma ordem do resto do painel):**
+
+1. **Coletor** — workflow n8n `TikTok Shop - Coletor diário de afiliados (03:30 + POST backfill)`
+   (id `c2W4sRygi7dhoc6d`). Chama a Open API do TikTok Shop com o access_token do `TikTok Shop - Token
+   Manager` e grava por upsert: pedidos de afiliado (janela rolante de 45 dias — settlement e reembolso
+   mudam depois do pedido), todos os pedidos de amostra (a API não tem filtro de data; ~15 páginas),
+   open collab por produto, target collabs (5 status) + detalhe com produtos e criadores convidados.
+   Backfill: `POST /webhook/tts-coleta-…` com `{k, dias}` (pedidos em fatias de 90 dias, limite da API).
+   Assinatura HMAC-SHA256 é feita em JS puro dentro do Code node — o sandbox do n8n não libera
+   `require('crypto')`, `URLSearchParams` nem `TextEncoder`. O corpo é assinado como string e enviado
+   como a mesma string (`json:false`); corpo vazio não é enviado e assina `''` — senão dá 401.
+2. **API de leitura** — `TikTok Shop - API do painel (POST, chave influs, JSON+CORS)` (id `ZRPkPSaMRw35uZQj`),
+   URL em `config.js` (`TTS_API_URL`). Aceita a chave de leitura do painel de Influs (`crm_dash_chave`,
+   painel `influs`/`todos`). Uma consulta `jsonb_build_object` devolve `kpis`, `amostras`, `fila`, `envio`,
+   `criadores`, `open`, `target`, `regra`, `serie`, `frescor`. Janela `ini/fim` vale só para pedidos.
+3. **Tela** — `influs-tts.js` (objeto puro `TTS` + render), seção `#sec-afil` em `influs.html`.
+   Sub-abas: Fila de amostras · Criadores · Colaborações · Regras. Testes: `tests/influs-tts.test.cjs`.
+
+**Regras fixadas:**
+
+- Amostras **não têm data** na API: `approve_expiration_time`/`shipment_expiration_time` só são reais
+  enquanto a etapa está aberta (PENDING / AWAITING_SHIPMENT); nos demais status vêm "agora" e são
+  descartados. Por isso os blocos de amostra são "agora/histórico" e não obedecem à janela de datas.
+  `primeiro_visto_em` passa a ser a data de referência daqui pra frente.
+- `crm_tts_amostra.snap_*` é o retrato do criador **no momento do pedido** (preservado com `COALESCE` no
+  upsert); `crm_tts_criador` tem o valor atual. É o que permite auditar depois por que a esteira decidiu X.
+- GMV usa `COALESCE(base_real, base_estimada)` e exclui `settlement_status = 'INELIGIBLE'` (reembolso/cancelado).
+- Percentuais só com base ≥ 30 (pedidos ou amostras); taxa de target collab só com 10+ convidados.
+- `fulfillment_pct = 0` significa "sem amostra nos últimos 90 dias", não "não posta" — a regra não penaliza 0%.
+- Frescor: etiqueta no cabeçalho da seção = coleta OK mais recente; vermelha se > 26 h ou se a última execução
+  de qualquer fonte falhou (`crm_tts_coleta_log`). Se a leitura falhar com dado em tela, mantém o dado e avisa.
+- Coluna "Sugestão" da fila é o que a esteira **faria** com `crm_tts_regra` (modo `dry_run`). A decisão
+  continua no Seller Center. Aprovar/rejeitar pelo painel e editar a regra são a próxima etapa.
+
+**Próximos passos (na ordem):** esteira de amostras em dry-run (gravar `decisao` sem chamar `/review`) →
+webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar pelo painel →
+edição de `crm_tts_regra` pelo painel → follow-up de `CONTENT_PENDING` via API de mensagens.
 
 ## Growth — operação por canal (08/09/2026)
 

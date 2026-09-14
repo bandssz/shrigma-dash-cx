@@ -100,6 +100,12 @@ textarea{width:100%;resize:vertical;min-height:58px}
   #grafico{height:170px}
 }
 
+/* aba Afiliados TikTok Shop */
+.tts-kpis{margin-bottom:14px}
+.tag.bom{background:var(--bom-bg);color:var(--bom)}.tag.ruim{background:var(--ruim-bg);color:var(--ruim)}
+.tag.neutro{background:#fff3d6;color:#8a5f1d}
+#tts-area h3{font:700 14px/1.2 var(--ui)}
+
 /* aba Influs */
 .i-fura td{background:#fff4ef}
 .i-fura .i-cod{font-weight:700}
@@ -337,20 +343,24 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
   <div class="sec" id="sec-afil">
     <section class="painel">
-      <div class="painel-cab"><h2>Afiliados TikTok Shop</h2></div>
-      <div class="vazio">Esta lane ainda n&atilde;o &eacute; coletada para o Postgres, ent&atilde;o n&atilde;o h&aacute; o que mostrar aqui.<br>
-        <span class="mini">O que existe hoje: app registrado com 9 escopos e 4 workflows no n8n cuidando de token
-        e mapeamento de afiliados. &Eacute; uma lane <strong>separada</strong> dos cupons Shopify &mdash; comiss&atilde;o de afiliado
-        TikTok &eacute; apurada dentro do TikTok, n&atilde;o por cupom nem por UTM. Somar as duas contaria a mesma venda duas vezes.<br>
-        Para preencher esta aba falta um coletor que traga pedido, afiliado e comiss&atilde;o para uma tabela
-        pr&oacute;pria &mdash; nunca para <code>crm_influ_pedido</code>.</span></div>
+      <div class="painel-cab"><h2>Afiliados TikTok Shop</h2>
+        <span><span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
+      <section class="kpis tts-kpis" id="tts-kpis"></section>
+      <nav class="i-abas" id="tts-abas">
+        <button data-p="fila" class="ativo">Fila de amostras <span class="n"></span></button>
+        <button data-p="criadores">Criadores <span class="n"></span></button>
+        <button data-p="colabs">Colaborações <span class="n"></span></button>
+        <button data-p="regras">Regras</button>
+      </nav>
+      <div id="tts-area"><div class="vazio">Carregando afiliados TikTok…</div></div>
     </section>
   </div>
 
 </main>
 
 <script src="frescor.js?v=78bf41ec"></script>
-<script src="config.js?v=e30fc0c8"></script>
+<script src="config.js?v=7a1c9d3f"></script>
+<script src="influs-tts.js?v=20260914a"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -1098,18 +1108,18 @@ $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');PER=preset(b.dataset.p);
-  $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;carregarInflu();});
+  $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;carregarInflu();if(window.carregarTTS)carregarTTS();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  carregarInflu();});
+  carregarInflu();if(window.carregarTTS)carregarTTS();});
 $('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
 $('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
 $('#i-f-salvar').onclick=salvarInflu;
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();if(window.renderTTS)renderTTS();});
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
@@ -1117,6 +1127,7 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 carregarInflu();
+if(window.carregarTTS)carregarTTS();
 </script>
 </body>
 </html>
