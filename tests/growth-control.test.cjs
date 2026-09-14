@@ -97,3 +97,11 @@ test('modo de coleta ausente ou desconhecido não promete periodicidade',()=>{
  assert(!x.document.querySelector('#control-workflows').textContent.includes('Coleta automática a cada'));
  p.collection_mode='invalid';const y=render(p);assert.equal(y.document.querySelectorAll('.control-verified').length,0);
 });
+test('optional and retired templates show reasons without a required integration warning',()=>{
+ for(const usage of ['optional','retired']){
+  const p=fixture(),t=p.templates.find(x=>x.key==='fish_native');t.usage=usage;t.usage_reason='Confirmação já coberta. <img src=x>';
+  const x=render(p),row=x.document.querySelector('[data-control-template="fish_native"]');
+  assert.doesNotMatch(row.textContent,/Integração pendente|campos do template não confirmados/);assert.match(row.textContent,/Confirmação já coberta/);assert.equal(row.querySelectorAll('img').length,0);
+  const model=GC.model(p,{now});assert.equal(model.templates.find(x=>x.key==='fish_native').fieldsValid,true);assert.equal(GC.templateMatches(t,{status:'todos',categoria:'todas',uso:usage}),true);assert.equal(GC.templateMatches(t,{status:'todos',categoria:'todas',uso:'current'}),false);
+ }
+});

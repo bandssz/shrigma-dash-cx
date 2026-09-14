@@ -9,7 +9,8 @@ const GC={
   MODOS_WF:[['todos','Qualquer modo'],['real','Real'],['sombra','Sombra'],['interno','Interno'],['segue-origem','Sem modo próprio'],['nao-confirmado','Modo não confirmado']],
   STATUS_TPL:[['todos','Qualquer status'],['APPROVED','Aprovado'],['outros','Não aprovado']],
   CATEGORIAS_TPL:[['todas','Qualquer categoria'],['UTILITY','Utility'],['MARKETING','Marketing'],['AUTHENTICATION','Authentication'],['divergente','Categoria divergente']],
-  USOS_TPL:[['todos','Qualquer uso'],['current','Mapeado no fluxo'],['native_pending','Integração pendente']],
+  USOS_TPL:[['todos','Qualquer uso'],['current','Mapeado no fluxo'],['native_pending','Integração pendente'],['optional','Opcional'],['retired','Retirado'],['available','Disponível'],['configured_paused','Etapa pausada']],
+  usoLabel:usage=>({current:'Mapeado no fluxo · envio depende da ativação',native_pending:'Integração pendente · ainda fora do envio',optional:'Opcional · sem necessidade operacional',retired:'Retirado · sem integração a fazer',available:'Disponível · não selecionado',configured_paused:'Selecionado · etapa ou jornada pausada'}[usage]||'Uso não confirmado'),
   workflowMatches(row,f){
     if(f.estado==='ativas'&&!(row.collection.current&&row.active===true))return false;
     if(f.estado==='inativas'&&!(row.collection.current&&row.active===false))return false;
@@ -26,7 +27,7 @@ const GC={
     if(f.status==='outros'&&row.status==='APPROVED')return false;
     if(['UTILITY','MARKETING','AUTHENTICATION'].includes(f.categoria)&&row.category!==f.categoria)return false;
     if(f.categoria==='divergente'&&!row.mismatch)return false;
-    if(['current','native_pending'].includes(f.uso)&&row.usage!==f.uso)return false;
+    if(GC.USOS_TPL.some(([key])=>key===f.uso&&key!=='todos')&&row.usage!==f.uso)return false;
     return true;
   },
   select(id,options,value,label){return `<label class="gt-filtro">${GC.esc(label)}<select id="${id}" data-gt-filter="${id}">${options.map(([v,t])=>`<option value="${GC.esc(v)}"${v===value?' selected':''}>${GC.esc(t)}</option>`).join('')}</select></label>`;},
@@ -45,7 +46,7 @@ const GC={
   templateColumns:[
     {chave:'piece',rotulo:'Peça'},{chave:'name',rotulo:'Template'},{chave:'brand',rotulo:'Marca',pega:r=>GC.brand(r.brand)},{chave:'language',rotulo:'Idioma'},
     {chave:'status',rotulo:'Status'},{chave:'category',rotulo:'Categoria'},{chave:'expected_category',rotulo:'Categoria esperada'},{chave:'mismatch',rotulo:'Categoria divergente'},
-    {chave:'usage',rotulo:'Uso',pega:r=>r.usage==='native_pending'?'integração pendente':r.usage==='current'?'mapeado no fluxo':r.usage},
+    {chave:'usage',rotulo:'Uso',pega:r=>r.usage==='native_pending'?'integração pendente':r.usage==='current'?'mapeado no fluxo':GC.usoLabel(r.usage)},
     {chave:'mapped_in',rotulo:'Vinculado a',pega:r=>GC.linkTexto(r)},
     {chave:'aceitos_periodo',rotulo:'Aceitos no período',pega:r=>{const m=GC.templateMetrics(r);return m?(m.vazio?(m.coberto?0:null):m.aceitos):null;}},
     {chave:'entregues_periodo',rotulo:'Entregues no período',pega:r=>{const m=GC.templateMetrics(r);return m?(m.vazio?(m.coberto?0:null):m.entregues):null;}},
@@ -93,13 +94,13 @@ const GC={
       const expectedKnown=['UTILITY','MARKETING','AUTHENTICATION'].includes(row.expected_category);
       const categoryKnown=['UTILITY','MARKETING','AUTHENTICATION'].includes(category);
       const mismatch=expectedKnown && categoryKnown && category!==row.expected_category;
-      const fieldsValid=expectedKnown && categoryKnown && ['current','native_pending'].includes(row.usage)
+      const fieldsValid=expectedKnown && categoryKnown && GC.USOS_TPL.some(([key])=>key===row.usage&&key!=='todos')
         && typeof row.key==='string' && !!row.key.trim() && typeof row.id==='string' && /^\d+$/.test(row.id)
         && ['fish','aristo'].includes(row.brand) && row.channel==='whatsapp' && typeof row.piece==='string' && !!row.piece.trim()
         && typeof row.category_matches_expected==='boolean' && row.category_matches_expected===(category===row.expected_category)
         && typeof row.name==='string' && row.name.trim().length>0 && typeof row.language==='string' && row.language.trim().length>0;
       const eligible=collection.current && fieldsValid && status==='APPROVED' && !mismatch;
-      return {...row,status,category,collection,fieldsValid,mismatch,eligible,attention:!eligible};
+      return {...row,status,category,collection,fieldsValid,mismatch,eligible,attention:!collection.current||!fieldsValid||(row.usage==='current'&&!eligible)};
     });
     const invalidRows=valid?(raw.workflows.filter(row=>!GC.object(row)).length+raw.templates.filter(row=>!GC.object(row)).length):0;
     return {meta,marca,canal,workflows,templates,invalidRows,
@@ -232,8 +233,7 @@ const GC={
     const linkHtml=links?(Array.isArray(links)?links:[links]).map(l=>`<span class="control-template-link" data-tone="${l.tone}">${e(l.text)}</span>`).join(''):'';
     const metHtml=met?`<details class="control-template-metrics" data-gt-key="met-${e(row.key)}"><summary>${e(GC.metricaTexto(met))}${met.coberto?'':met.vazio?'':' · cobertura não declarada'}${met.linhas&&[met.registros,met.aceitos,met.entregues,met.falhas].some(v=>v===null)?' · parte não medida':''}</summary>
       <p>Linhas do motor para este template, na marca e no período selecionado, sem o fluxo de teste (mesma população de Envios). Registros incluem sombra; aceitos = wamid da Meta; entregues = delivered/read. "—" é contagem não informada em pelo menos uma linha, não zero.${met.testes?` ${met.testes} linha(s) de teste fora da soma.`:''}${met.invalidas?` ${met.invalidas} linha(s) da coleção em formato inválido, ignorada(s).`:''} ${met.coberto?`Cobertura declarada pela API: ${e(met.cobertura.inicio)} a ${e(met.cobertura.fim)}.`:'A API não declarou a cobertura desta coleção; ausência de linha não prova zero.'}</p></details>`:'';
-    let note=row.usage==='native_pending'?'Integração pendente · ainda fora do envio':'Mapeado no fluxo · envio depende da ativação';
-    if(!['current','native_pending'].includes(row.usage))note='Uso não confirmado';
+    const note=GC.usoLabel(row.usage);
     const alerts=[];
     if(row.mismatch)alerts.push(`Categoria recebida: ${row.category}; esperada: ${row.expected_category}.`);
     if(row.status!=='APPROVED')alerts.push(`Status recebido: ${row.status}; aprovação não confirmada.`);
@@ -243,7 +243,7 @@ const GC={
     const pub=GC.publicacao(row);
     return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span>${GC.previaPublicada(row)}</td>
       <td>${GC.badge(row.status,statusTone)}${GC.badge(row.category,categoryTone)}<span class="control-template-meta">Esperada: ${e(GC.text(row.expected_category,'Não informada'))}</span>${pub?`<span class="control-template-pub" data-situacao="${e(pub.situacao)}" title="Publicado = aprovado pela Meta. Ativo = algum workflow mapeado no manifesto está ativo e com o modo deste template em real. A tela nunca junta os dois.">${GC.badge(pub.rotulo,pub.tone)}</span>`:''}</td>
-      <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
+      <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${row.usage_reason?`<p class="control-template-meta">${e(row.usage_reason)}</p>`:''}${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
   },
   render(ctx={}){
@@ -285,9 +285,9 @@ const GC={
     const tplEmpty=!model.templates.length?'Nenhum template disponível para estes filtros.'
       :`Nenhum template${GC.describe([ft.status==='APPROVED'?'aprovado':ft.status==='outros'?'não aprovado':'',
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?ft.categoria:ft.categoria==='divergente'?'com categoria divergente':'',
-          ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
+          ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    templateRoot.innerHTML=GC.metadata(model)+`<p class="control-explainer">Status e categoria consultados na Meta. Um template mapeado pode pertencer a um fluxo em sombra; aprovação não comprova envio. Cartões de pedido com integração pendente continuam fora do envio. O catálogo traz metadados, não o corpo ou a mídia do template.</p>
+    templateRoot.innerHTML=GC.metadata(model)+`<p class="control-explainer">Status e categoria consultados na Meta. Um template mapeado pode pertencer a um fluxo em sombra; aprovação não comprova envio. Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias. O catálogo traz metadados, não o corpo ou a mídia do template.</p>
       ${model.canal==='email'?'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>':`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
