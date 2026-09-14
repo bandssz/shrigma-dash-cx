@@ -154,6 +154,21 @@ fixar outras): "ninguém respondeu" ≤ 5% ok / ≤ 10% atenção; NPS ≥ 50 ok
 ≥ 80% ok / ≥ 50% atenção; aguardando 0 ok / ≤ 5 atenção. Variações de tempo (1ª resposta, tempo até responder) vêm em
 diferença de duração, nunca em % ("▲ 1,7h · ant. 6min", não ">500%").
 
+### Reclame Aqui sem depender da N2 (14/09)
+
+A leitura diária do RA agora é uma **tarefa agendada do Claude** (08:30 SP, roda no Mac do Felipe pelo navegador do app,
+porque o RA bloqueia curl e n8n com 403) que lê as metatags `reclameaqui:*` das duas marcas e faz o mesmo POST do
+bookmarklet para `cx-ra-metatags`. Validado em 13/09: as duas marcas gravaram em `cx_ra_dia` com `fonte='bookmarklet'`.
+O bookmarklet (`n8n/ra-bookmarklet.js`) continua como plano B para dia em que o Mac estiver desligado — a tarefa avisa
+por push quando não consegue rodar. Correções no bookmarklet: "nota média do consumidor", aguardando lido depois do
+rótulo, status pela metatag `reputation-status`.
+
+**Agentes (`cx_snapshot_agente` janela 1d) parados desde 12/09 — causa é do Gleap**: `TEAM_PERFORMANCE_LIST` devolve
+zero para todos os agentes em janelas de 1 dia de 12/09 e 13/09, nas duas marcas (11/09 e a janela 7d vêm normais).
+O coletor só grava agente com atividade > 0, então o dia fica sem linha; e a consolidação só revisita "ontem", logo o
+backfill do Gleap nunca entra. Correção proposta (não aplicada: a alteração de workflow do n8n precisa ser feita à
+mão): na consolidação, repetir só a chamada de agentes para D-2 e D-3 (`coletarAgentes`), 1 chamada por dia por marca.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

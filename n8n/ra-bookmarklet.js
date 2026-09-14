@@ -5,7 +5,12 @@
    Como instalar: criar um favorito com a URL abaixo (uma linha, começando em javascript:),
    trocando CHAVE pela chave do painel de CX. Uso: abrir a página da marca no RA e clicar no favorito.
    Marcas reconhecidas pela URL: o-aristocrata-1751961 → aristocrata; artigos-de-pesca-fishermans → fishermans.
-   Rotina: uma vez por dia útil (ou segunda, no mínimo). O painel mostra a idade da leitura. */
+   Rotina: uma vez por dia útil (ou segunda, no mínimo). O painel mostra a idade da leitura.
+   Desde 13/09 existe uma tarefa agendada do Claude (08:30, no Mac do Felipe) que faz a mesma leitura pelo
+   navegador; o bookmarklet é o plano B para quando o Mac estiver desligado. Validado ponta a ponta em 13/09
+   (as duas marcas gravaram com fonte='bookmarklet').
+   Correções de 13/09: "nota média do consumidor" (o texto tem "média"), aguardando lido depois do rótulo
+   ("Aguardando resposta 103") e status pela metatag reputation-status (GOOD/REGULAR/BAD). */
 
 javascript:(function(){
   var K='CHAVE';
@@ -14,15 +19,15 @@ javascript:(function(){
   var marca=/o-aristocrata/.test(h)?'aristocrata':/fishermans/.test(h)?'fishermans':/olivas/.test(h)?'olivas':null;
   if(!marca){alert('Abra a página da marca no Reclame AQUI antes de clicar.');return;}
   function meta(n){var m=document.querySelector('meta[name="reclameaqui:'+n+'"],meta[property="reclameaqui:'+n+'"],meta[name="meta-reclameaqui:'+n+'"]');return m?m.getAttribute('content'):null;}
-  var txt=document.body.innerText||'';
+  var txt=(document.body.innerText||'').replace(/\s+/g,' ');
   function corpo(re){var m=txt.match(re);return m?m[1].replace('.','').replace(',','.'):null;}
   var ra={
     nota:meta('reputation-score'),resposta_pct:meta('response-rate'),solucao_pct:meta('solved-rate'),
     voltaria_pct:meta('deal-again-rate'),reclamacoes:meta('total-complaints'),avaliacoes:meta('total-ratings'),
-    nota_consumidor:corpo(/nota do consumidor[^0-9]{0,80}([0-9]+[.,]?[0-9]*)/i),
-    aguardando:corpo(/([0-9.]+)\s*(?:reclama[cç][oõ]es?\s*)?(?:aguardando|n[aã]o respondid)/i),
+    nota_consumidor:corpo(/nota (?:m[eé]dia )?do consumidor[^0-9]{0,80}([0-9]+[.,]?[0-9]*)/i),
+    aguardando:corpo(/aguardando resposta\s*([0-9.]+)/i)||corpo(/([0-9.]+)\s*(?:reclama[cç][oõ]es?\s*)?(?:aguardando|n[aã]o respondid)/i),
     tempo_resposta_dias:corpo(/tempo m[eé]dio de resposta[^0-9]{0,40}([0-9]+[.,]?[0-9]*)/i),
-    status_ra:meta('status')||(txt.match(/reputa[cç][aã]o[^A-Za-zÀ-ú]{0,20}(Ótimo|Otimo|Bom|Boa|Regular|Ruim|Não recomendada|Nao recomendada)/i)||[])[1]||null
+    status_ra:meta('reputation-status')||meta('status')||(txt.match(/reputa[cç][aã]o[^A-Za-zÀ-ú]{0,20}(Ótimo|Otimo|Bom|Boa|Regular|Ruim|Não recomendada|Nao recomendada)/i)||[])[1]||null
   };
   if(!ra.resposta_pct&&!ra.nota){alert('Não achei as metatags do RA nesta página. Recarregue e tente de novo.');return;}
   fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({marca:marca,ra:ra})})
