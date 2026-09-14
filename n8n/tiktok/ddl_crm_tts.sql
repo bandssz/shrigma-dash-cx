@@ -171,9 +171,9 @@ VALUES
   ('aristo', 'dry_run',  5000, 2000, 86, true, 15, '{}', 'seed 2026-09-14')
 ON CONFLICT (marca) DO NOTHING;
 -- Regra de SKU (14/09/2026, Felipe): Fishermans — multifilamento só 150 m, monofilamento só 300 m (menor variante);
--- Aristocrata — só sabonete unitário 150g (sem "Kit"/"Unidades"). Casada contra "product_title | sku_name".
+-- Aristocrata — unitário ou kit de até 3 (misto incluso); fora: Kit/N Unidades com N ≥ 4. Casada contra "product_title | sku_name".
 UPDATE crm_tts_regra SET sku_regex = '^(?!.*[Mm]onofilamento).*\|.*[^0-9]150 ?[Mm]|^(?=.*[Mm]onofilamento).*\|.*[^0-9]300 ?[Mm]', atualizado_em = now(), atualizado_por = 'regra de SKU 2026-09-14' WHERE marca = 'fish' AND sku_regex IS NULL;
-UPDATE crm_tts_regra SET sku_regex = '^(?!.*([Kk]it|[Uu]nidades)).*150g', atualizado_em = now(), atualizado_por = 'regra de SKU 2026-09-14' WHERE marca = 'aristo' AND sku_regex IS NULL;
+UPDATE crm_tts_regra SET sku_regex = '^(?!.*(([Kk]it|-) ?([4-9]|[1-9][0-9]) ?([Uu]n|[Ss]abonete)|([4-9]|[1-9][0-9]) [Uu]nidades)).*', atualizado_em = now(), atualizado_por = 'regra de SKU 2026-09-14' WHERE marca = 'aristo' AND sku_regex IS NULL;
 
 -- 7) Visão da fila: pedidos PENDING com o criador atual, a regra da marca e o tier sugerido.
 --    Fonte única da lógica de tier — usada pela API do painel e pela esteira. Mudou a regra? Muda aqui.

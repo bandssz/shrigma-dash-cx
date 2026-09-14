@@ -304,8 +304,8 @@ uma API própria, nunca `crm_influ_pedido`.
 `is_approvable = false` → fila manual. Só chama `/sample_applications/review` no TikTok quando
 `crm_tts_regra.modo = 'ativo'` para a marca — hoje as duas estão em `dry_run` (grava e não executa);
 `pausado` não toca. Regra de SKU: `crm_tts_regra.sku_regex` (Postgres ARE sobre `"título | variante"`) e/ou
-`skus_permitidos[]`. Vigente: Fish = multifilamento só 150 m, monofilamento só 300 m; Aristo = sabonete
-unitário 150g (sem Kit/Unidades). Régua: Fish 10k/3k, Aristo 5k/2k (GMV 30d), postagem mínima 86%
+`skus_permitidos[]`. Vigente: Fish = multifilamento só 150 m, monofilamento só 300 m; Aristo = unitário ou
+kit de até 3 sabonetes, misto incluso (fora: Kit/N Unidades com N ≥ 4). Régua: Fish 10k/3k, Aristo 5k/2k (GMV 30d), postagem mínima 86%
 (0% não penaliza), teto 30/15 por mês. Na fila do painel, decisão gravada aparece como "Aprovar/Rejeitar/Avaliar
 (simulado)" com o motivo no `title`.
 
