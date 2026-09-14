@@ -217,6 +217,25 @@ confirmar. Isso entra em dois lugares: (1) a **maturação** do desfecho conta 2
 horário comercial** (workflow `wNGvs4jiZFEjyyT6`) passou de seg–sex para **seg–qui 8h–18h** — ticket de sexta não soma
 10 h de "expediente" que não existiu. Zero resposta humana em sex/sáb no painel é o esperado, não incidente.
 
+### Tempo de resposta em expediente, ticket a ticket (14/09, tarde)
+
+O "1ª resposta · expediente" antigo só media tickets de ontem que **já tinham resposta humana à 01:40** — a mediana dos
+atendidos rápido; ticket de quarta respondido segunda nunca entrava. Agora a hora da primeira resposta humana fica **no
+ticket** (`cx_ticket.primeira_resposta_humana_em/_por/_nome/_seg/_comercial_seg`), gravada pelo workflow
+`CX — 1ª resposta em horário comercial` (`wNGvs4jiZFEjyyT6`, 01:40, **delta**: só tickets com `has_agent_reply` e sem
+hora; até 700 por rodada; `Forçar (GET)` em `/webhook/cx-comercial-forcar`) — backfill dos ~8.200 respondidos desde
+16/07 feito em 14/09. "Resposta humana" = primeira mensagem `TEXT` com `bot=false` **ou** `CHANNEL_TEMPLATE_MESSAGE` de
+pessoa (template de WhatsApp que o agente manda na janela de 24h — 17% dos casos). Expediente = seg–qui 8h–18h SP.
+
+Views: `cx_tempo_dia` (marca × canal × dia de criação: tickets, respondidos, transferidos sem resposta, p50/p90 em
+expediente, p50 relógio, ≤1h, ≤4h) e `cx_tempo_agente_dia` (por quem deu a primeira resposta). API: blocos `cx_tempo`
+e `cx_tempo_agente`. Front (`tempoAgg`, `serieDiariaTempo`, `tempoPorAgente` em `cx-metricas.js`): mediana do período
+= **mediana das medianas diárias ponderada pelo volume, marcada ≈**; "% em até 1h" é exata. Faixa do cartão: ≥ 70% em
+até 1h ok, ≥ 50% atenção. Gráfico do cartão: mediana diária por marca, 8 semanas, alvo 1h. Tabela **Por agente** ganhou
+"Abriu" (tickets em que a pessoa respondeu primeiro) e "1ª resposta · exped." medidos por nós — aparecem mesmo com o
+Gleap parado (etiqueta no cabeçalho diz desde quando). `cx_snapshot.primeira_resposta_comercial_seg` continua sendo
+preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

@@ -33,6 +33,11 @@ function fixture(o = {}) {
       csat('aristocrata', d, 'sem-tag', true, { canal: 'email', tickets: 25, avaliadas: 0, bom: 0, neutro: 0, ruim: 0, csat_enviado: 0 }),
       csat('fishermans', d, 'pre-venda', true, { tickets: 30, avaliadas: 30, bom: 30, neutro: 0, ruim: 0 }),
     ]),
+    // 1ª resposta humana medida ticket a ticket (view cx_tempo_dia): mediana em expediente por dia
+    cx_tempo: ds.flatMap((d) => [{ marca: 'aristocrata', canal: 'whatsapp', dia: d, tickets: 120, respondidos: 70, transferidos_sem_resposta: 30, com_tempo: 70, p50_comercial_seg: 3000, p90_comercial_seg: 20000, p50_relogio_seg: 9000, ate_1h: 42, ate_4h: 60 },
+      { marca: 'fishermans', canal: 'whatsapp', dia: d, tickets: 30, respondidos: 30, transferidos_sem_resposta: 0, com_tempo: 30, p50_comercial_seg: 600, p90_comercial_seg: 3000, p50_relogio_seg: 700, ate_1h: 30, ate_4h: 30 }]),
+    cx_tempo_agente: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', canal: 'whatsapp', respondidos: 50, p50_comercial_seg: 2400, p50_relogio_seg: 8000, ate_1h: 35 },
+      { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', canal: 'whatsapp', respondidos: 30, p50_comercial_seg: 600, p50_relogio_seg: 700, ate_1h: 30 }]),
     cx_pedidos: [], cx_ra: [],
     ...o,
   };
@@ -92,6 +97,12 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   // aba Chat no mesmo padrão: seis cartões (o antigo cartão de CSAT-média não existe mais) e um gráfico só
   assert.deepEqual(x.txt('#area-chat .six2-rot'), ['Contatos', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Fila no fim do período', '1ª resposta · expediente']);
   assert.equal(x.txt('#area-chat .six2-val')[1], '78%');
+  // 1ª resposta em expediente vem de cx_tempo (ticket a ticket), dias completos: mediana ponderada ≈ 3000 s = 50min; 72 de 100 em até 1h
+  assert.match(x.txt('#area-chat .six2-val')[5], /50min/);
+  assert.match(x.document.querySelectorAll('#area-chat .six2')[5].getAttribute('title'), /com resposta humana 700 \(67%\)/);
+  // tabela de agentes: quem respondeu primeiro aparece mesmo sem dado do Gleap
+  assert.match(x.document.querySelector('#tabela-ranking tbody').textContent, /Leticia Franca/);
+  assert.match(x.document.querySelector('#tabela-ranking tbody').textContent, /70% em até 1h/);
   assert.equal(x.txt('#area-chat .six2-val')[2], '10,0%');
   // ninguém respondeu = transferido sem resposta humana ÷ maduros: (60−40) + (40−40) + (30−30) = 20 ÷ 150 = 13,3%
   assert.equal(x.txt('#area-chat .six2-val')[3], '13,3%');

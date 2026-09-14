@@ -476,7 +476,18 @@ document.addEventListener("click", (e) => {
 });
 
 function pintaRanking(d, hoje) {
-  const linhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
+  // Duas fontes, uma tabela: volume/tempos do Gleap (cx_snapshot_agente, por agente designado) e a 1ª resposta
+  // humana medida ticket a ticket (cx_tempo_agente, por quem de fato respondeu primeiro, em EXPEDIENTE seg–qui 8–18).
+  // A do Gleap atrasa dias (janelas de 1 dia zeradas desde 12/09); a nossa não depende dele.
+  const gleap = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
+  const jt = cxJanelaCompleta(cxF(estado.marca), hoje);
+  const tempos = tempoPorAgente(d.cx_tempo_agente || [], jt.f);
+  const porId = new Map(gleap.map((a) => [a.agente_id, Object.assign({}, a)]));
+  for (const t of tempos) {
+    const a = porId.get(t.agente_id) || (porId.set(t.agente_id, { agente_id: t.agente_id, nome: t.nome, marca: t.marcas.length === 1 ? t.marcas[0] : "todas", soTempo: true }), porId.get(t.agente_id));
+    a.tempo = t; if (!a.nome || /null$/i.test(a.nome)) a.nome = t.nome || a.nome;
+  }
+  const linhas = [...porId.values()].sort((x, y) => (y.trabalhados || 0) - (x.trabalhados || 0) || ((y.tempo && y.tempo.respondidos) || 0) - ((x.tempo && x.tempo.respondidos) || 0));
   const sel = $("#sel-agente");
   const atual = estado.agente;
   const nomes = [...new Map(linhas.map((a) => [a.agente_id, a.nome])).entries()];
@@ -485,24 +496,30 @@ function pintaRanking(d, hoje) {
 
   const filtradas = atual === "todos" ? linhas : linhas.filter((a) => a.agente_id === atual);
   const maxTrab = Math.max(...linhas.map((a) => a.trabalhados || 0), 1);
-  $("#ranking-rotulo").textContent = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "");
+  const gleapUlt = (d.agentes_1d || []).map((l) => l.dia).sort().pop();
+  const gleapVelho = gleapUlt && gleapUlt < diasAtras(2, hoje);
+  $("#ranking-rotulo").innerHTML = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "") +
+    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; trabalhados, fechados, respostas, T. resposta, resolução e horas ativas param em ${fmtDia(gleapUlt)}. A coluna de 1ª resposta é medida por nós e está em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
+    (jt.caiu || jt.cortou ? ` <span class="tag nota" title="1ª resposta usa só dias completos (ticket de hoje ainda vai ser respondido).">1ª resposta até ${fmtDia(jt.f.fim)}</span>` : "");
 
+  const t1 = (a) => a.tempo && a.tempo.respondidos ? `<strong class="tabn">${a.tempo.aproximado ? "≈ " : ""}${fmtDur(a.tempo.p50Comercial)}</strong><div class="mini">${fmtPct0(a.tempo.pctAte1h)} em até 1h</div>` : `<span class="mini">—</span>`;
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
       <td><div class="pessoa">
         <span class="avatar">${(a.nome || "?").replace(/\s+null$/i, "").trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</span>
         <div><div class="nome">${String(a.nome || a.agente_id).replace(/\s+null$/i, "")}</div>
-        <div class="pessoa-marca">${ROTULOS[a.marca] || a.marca || ""}</div></div>
+        <div class="pessoa-marca">${ROTULOS[a.marca] || (a.marca === "todas" ? "duas marcas" : a.marca || "")}</div></div>
       </div></td>
-      <td class="num">${fmtNum(a.trabalhados)}<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span></td>
-      <td class="num">${fmtNum(a.fechados)}</td>
-      <td class="num">${fmtNum(a.respostas)}</td>
-      <td class="num">${fmtDur(a.primeira_resposta_seg)}</td>
-      <td class="num">${fmtDur(a.resposta_mediana_seg)}</td>
-      <td class="num">${fmtDur(a.fechamento_seg)}</td>
-      <td class="num">${fmtDur(a.horas_ativas_seg)}</td>
+      <td class="num">${a.tempo ? fmtNum(a.tempo.respondidos) : "—"}</td>
+      <td class="num">${t1(a)}</td>
+      <td class="num">${a.soTempo ? "—" : fmtNum(a.trabalhados)}${a.soTempo ? "" : `<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span>`}</td>
+      <td class="num">${a.soTempo ? "—" : fmtNum(a.fechados)}</td>
+      <td class="num">${a.soTempo ? "—" : fmtNum(a.respostas)}</td>
+      <td class="num">${a.soTempo ? "—" : fmtDur(a.resposta_mediana_seg)}</td>
+      <td class="num">${a.soTempo ? "—" : fmtDur(a.fechamento_seg)}</td>
+      <td class="num">${a.soTempo ? "—" : fmtDur(a.horas_ativas_seg)}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="8" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+    `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
 

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="cx.css?v=20260914b">
+<link rel="stylesheet" href="cx.css?v=20260914c">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -149,8 +149,10 @@
     <div class="rolagem"><table class="ranking" id="tabela-ranking">
       <thead><tr>
         <th>Agente</th>
-        <th class="num">Trabalhados</th><th class="num">Fechados</th><th class="num">Respostas</th>
-        <th class="num">1ª resposta</th><th class="num">T. resposta</th><th class="num">Resolução</th><th class="num">Horas ativas</th>
+        <th class="num" title="Tickets em que esta pessoa deu a PRIMEIRA resposta humana (medido ticket a ticket, por dia de criação, dias completos)">Abriu</th>
+        <th class="num" title="Mediana do tempo até essa primeira resposta, só EXPEDIENTE (seg–qui 8h–18h); embaixo, fatia respondida em até 1h. ≈ = mediana das medianas diárias ponderada pelo volume">1ª resposta · exped.</th>
+        <th class="num" title="Gleap: tickets em que a pessoa atuou (ticketActivityCount)">Trabalhados</th><th class="num" title="Gleap">Fechados</th><th class="num" title="Gleap: mensagens enviadas">Respostas</th>
+        <th class="num" title="Gleap: mediana entre mensagens, relógio corrido">T. resposta</th><th class="num" title="Gleap: tempo até o primeiro fechamento, relógio corrido">Resolução</th><th class="num" title="Gleap">Horas ativas</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -229,10 +231,10 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260914b"></script>
-<script src="cx-graficos.js?v=20260914b"></script>
-<script src="app.js?v=20260914b"></script>
-<script src="cx-tela.js?v=20260914b"></script>
+<script src="cx-metricas.js?v=20260914c"></script>
+<script src="cx-graficos.js?v=20260914c"></script>
+<script src="app.js?v=20260914c"></script>
+<script src="cx-tela.js?v=20260914c"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

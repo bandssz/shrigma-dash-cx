@@ -470,9 +470,12 @@ function pintaChat(d, escopo, porMarca) {
   const kr = cxKai(rows, fBase, hoje), krAnt = cxKaiAnt(rows, fBase, hoje);   // desfecho maduro: kai · pessoa · ninguém · aberto
   const saldo = typeof a.novos === "number" && typeof a.fechados === "number" ? a.fechados - a.novos : null;
   const pn = anteriorProgressivo("novos", marca, ant); // "hoje" compara com ontem até a mesma hora
-  const temCom = typeof a.primeira_resposta_comercial_seg === "number";
-  const pr = temCom ? a.primeira_resposta_comercial_seg : a.primeira_resposta_seg, prAnt = temCom ? ant.primeira_resposta_comercial_seg : ant.primeira_resposta_seg;
   const filaAgora = PER.fim >= hoje;
+  // 1ª resposta humana em EXPEDIENTE, por ticket (cx_tempo): dias completos; resposta tardia entra no dia do ticket
+  const jt = cxJanelaCompleta(cxF(marca), hoje);
+  const tp = tempoAgg(d.cx_tempo || [], jt.f), tpAnt = estado.comparar && !jt.caiu ? tempoAgg(d.cx_tempo || [], rangeAnteriorDe(jt.f)) : null;
+  const temCom = tp.comTempo > 0;
+  const pr = temCom ? tp.p50Comercial : a.primeira_resposta_seg, prAnt = temCom ? (tpAnt && tpAnt.comTempo ? tpAnt.p50Comercial : null) : ant.primeira_resposta_seg;
 
   const cartoes = [
     { k: "contatos", rot: "Contatos", val: fmtNum(a.novos), chip: chipHtml("novos", a.novos, pn.valor), sub: `resolvidos ${fmtNum(a.fechados)}${pn.mesmaHora ? " · vs ontem até a mesma hora" : ""}`,
@@ -490,9 +493,10 @@ function pintaChat(d, escopo, porMarca) {
       info: `Transferido para time ou agente (processingTeam/processingUser) e sem NENHUMA resposta pública de pessoa — aberto na fila ou fechado pela régua. Denominador: todos os tickets de chat maduros (2 dias de expediente; sex e sáb não contam). Faixa: até 5% ok, até 10% atenção.` + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = cxKai(rows, Object.assign({}, fBase, { marca: m }), hoje); return typeof x.pctSemResp === "number" ? fmtDec(x.pctSemResp) + "%" : "—"; })}` : "") },
     { k: "fila", rot: filaAgora ? "Fila agora" : "Fila no fim do período", val: fmtNum(a.fila_aberta), chip: chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta), sub: todas ? marcas.concat(["olivas"]).map((m) => `${CX_SIGLA[m]} ${fmtNum(pm(m, "fila_aberta"))}`).join(" · ") : "tickets abertos",
       info: `Tickets abertos ${filaAgora ? "na última coleta" : "no fim do período"}, todos os canais.` + (estado.comparar && typeof ant.fila_aberta === "number" ? `\nAntes: ${fmtNum(ant.fila_aberta)}.` : "") + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(MARCAS, (m) => fmtNum(pm(m, "fila_aberta")))}` : "") },
-    { k: "primeira_resposta", rot: temCom ? "1ª resposta · expediente" : "1ª resposta", val: fmtDur(pr), chip: cxChipDur(pr, prAnt), sub: temCom ? `seg–qui 8h–18h · ${fmtNum(a.amostra_comercial)} tickets` : "mediana até a 1ª resposta humana",
-      info: (temCom ? `Mediana do tempo até a primeira resposta humana, contando só horário comercial (seg–qui 8h–18h; sex, sáb e dom não têm expediente humano).\nEspera total do cliente, relógio corrido: ${fmtDur(a.primeira_resposta_seg)}` + (typeof a.resolucao_comercial_seg === "number" ? ` · resolução em expediente ${fmtDur(a.resolucao_comercial_seg)}.` : ".") : "Mediana do tempo até a primeira resposta humana, relógio corrido.") +
-        (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => fmtDur(temCom ? pm(m, "primeira_resposta_comercial_seg") : pm(m, "primeira_resposta_seg")))}` : "") },
+    { k: "primeira_resposta", rot: temCom ? "1ª resposta · expediente" : "1ª resposta", val: temCom ? (tp.aproximado ? "≈ " : "") + fmtDur(pr) : fmtDur(pr), chip: cxChipDur(pr, prAnt), status: temCom ? (tp.pctAte1h >= 70 ? "bom" : tp.pctAte1h >= 50 ? "atencao" : "ruim") : null,
+      sub: temCom ? `${fmtPct0(tp.pctAte1h)} em até 1h · ${fmtNum(tp.comTempo)} respondidos${jt.caiu ? " · ontem" : jt.cortou ? " · até " + fmtDia(jt.f.fim) : ""}` : "mediana até a 1ª resposta humana",
+      info: (temCom ? `Mediana do tempo entre o ticket ser criado e a PRIMEIRA resposta de pessoa, contando só expediente (seg–qui 8h–18h; sex, sáb e dom não têm atendimento humano). Medido ticket a ticket em cx_ticket; ticket respondido dias depois entra no dia em que foi criado, por isso dias recentes ainda mudam. ${tp.aproximado ? "≈ mediana das medianas diárias, ponderada pelo volume. " : ""}Faixa: ≥ 70% em até 1h ok, ≥ 50% atenção.\nEm até 4h: ${fmtPct0(tp.pctAte4h)} · p90 ${fmtDur(tp.p90Comercial)} · relógio corrido (o que o cliente sente): ${fmtDur(tp.p50Relogio)}.\nTickets do período: ${fmtNum(tp.tickets)} · com resposta humana ${fmtNum(tp.respondidos)} (${fmtPct0(tp.pctRespondidos)}) · transferidos e ainda sem resposta ${fmtNum(tp.transfSemResp)}.` : "Mediana do tempo até a primeira resposta humana, relógio corrido (Gleap).") +
+        (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = tempoAgg(d.cx_tempo || [], Object.assign({}, jt.f, { marca: m })); return x.comTempo ? fmtDur(x.p50Comercial) + " · " + fmtPct0(x.pctAte1h) + " em 1h" : "—"; })}` : "") },
   ];
   CX_CHAT_DADOS = { per, marcas };
   const rot = $("#chat-rot");
@@ -513,7 +517,13 @@ function pintaGraficoChat(d) {
   else if (k === "kai_resolve") { const s = cxSerieKaiMarcas(d, marcas, jd); r = { tit: "Kai resolve sozinho · por semana", sub: "fatia de todos os tickets de chat da semana · ponto claro = semana ainda maturando · tracejado = quebra de série", html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, pct: true, fmt: (v) => Math.round(v) + "%", marcos: s.marcos, aria: "Kai resolve sozinho" }) }; }
   else if (k === "sem_resposta") r = { tit: "O que aconteceu com o ticket · por semana", sub: "todos os tickets de chat da semana · “parcial” = semana ainda maturando", html: cxBarrasQuemFechou(d, estado.marca, jd) };
   else if (k === "fila") { const j8 = cxJanelaTendencia(PER.fim, 8); const s = cxSerieDiariaMarcas(d.snapshot_1d, marcas, j8.ini, j8.fim, "fila_aberta"); r = { tit: "Fila · por dia", sub: "8 semanas até o fim do período · tickets abertos na coleta do dia", html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, fmt: fmtNum, aria: "Fila por dia", vazio: "Sem série diária no intervalo." }) }; }
-  else { const j8 = cxJanelaTendencia(PER.fim, 8); const campo = d.snapshot_1d.some((l) => typeof l.primeira_resposta_comercial_seg === "number") ? "primeira_resposta_comercial_seg" : "primeira_resposta_seg"; const s = cxSerieDiariaMarcas(d.snapshot_1d, marcas, j8.ini, j8.fim, campo, (v) => v / 3600); r = { tit: "1ª resposta · por dia", sub: "8 semanas até o fim do período · mediana em horas" + (campo.includes("comercial") ? " · só horário comercial" : ""), html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, fmt: fmtHoras, aria: "Primeira resposta por dia", vazio: "Sem série diária no intervalo." }) }; }
+  else {
+    const j8 = cxJanelaTendencia(PER.fim >= hojeRef() ? diasAtras(1, hojeRef()) : PER.fim, 8);
+    const st = serieDiariaTempo(d.cx_tempo || [], marcas, j8.ini, j8.fim);
+    const series = st.series.map((x) => Object.assign(cxLbl(x.marca), { pontos: x.pontos.map((p) => ({ y: typeof p.y === "number" ? p.y / 3600 : null, rot: fmtDia(p.dia), n: p.n ? `${fmtNum(p.n)} respondidos · ${fmtPct0(p.ate1h)} em até 1h` : undefined })) }));
+    r = { tit: "1ª resposta humana · por dia de criação do ticket", sub: "8 semanas até ontem · mediana em horas de EXPEDIENTE (seg–qui 8–18) · dia com menos de 5 respondidos e dia sem expediente ficam em branco",
+      html: cxgLinhas({ rotulosX: st.dias.map(fmtDia), series, fmt: fmtHoras, aria: "Primeira resposta humana por dia", vazio: "Sem ticket respondido no intervalo.", alvo: { y: 1, rot: "alvo 1h" } }) };
+  }
   cxGraficoBloco("chat", r);
 }
 

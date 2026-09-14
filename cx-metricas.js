@@ -262,6 +262,55 @@ function serieSemanalDesfecho(rows, f, hoje) {
   return { semanas, pontos };
 }
 
+
+// ---------- tempo até a 1ª resposta humana (14/09): cx_tempo (por marca × canal × dia) e cx_tempo_agente ----------
+// A view traz mediana e p90 POR DIA (em segundos de expediente seg–qui 8–18 e em relógio corrido). Mediana de
+// medianas não existe: para o período usa-se a mediana das medianas diárias PONDERADA pelo volume do dia, marcada
+// com "≈" na tela. A fatia "em até 1h" é exata (contagem). Dia de criação do ticket = dia da linha; resposta
+// tardia entra quando acontece, por isso dias recentes ainda mudam — a tela lê dias completos.
+function medianaPonderada(pares) {   // [[valor, peso]] → valor no ponto em que a soma dos pesos passa da metade
+  const v = pares.filter((p) => typeof p[0] === "number" && p[1] > 0).sort((a, b) => a[0] - b[0]);
+  const tot = v.reduce((s, p) => s + p[1], 0); if (!tot) return null;
+  let acc = 0; for (const p of v) { acc += p[1]; if (acc >= tot / 2) return p[0]; }
+  return v[v.length - 1][0];
+}
+function tempoAgg(rows, f) {
+  const sel = cxFiltra(rows, f);
+  const a = { tickets: 0, respondidos: 0, transfSemResp: 0, comTempo: 0, ate1h: 0, ate4h: 0, dias: new Set() };
+  const p50c = [], p90c = [], p50r = [];
+  for (const l of sel) {
+    a.tickets += Number(l.tickets || 0); a.respondidos += Number(l.respondidos || 0); a.transfSemResp += Number(l.transferidos_sem_resposta || 0);
+    const n = Number(l.com_tempo || 0); a.comTempo += n; a.ate1h += Number(l.ate_1h || 0); a.ate4h += Number(l.ate_4h || 0);
+    if (n) { a.dias.add(cxDia(l.dia)); p50c.push([Number(l.p50_comercial_seg), n]); p90c.push([Number(l.p90_comercial_seg), n]); p50r.push([Number(l.p50_relogio_seg), n]); }
+  }
+  a.dias = a.dias.size;
+  a.p50Comercial = medianaPonderada(p50c); a.p90Comercial = medianaPonderada(p90c); a.p50Relogio = medianaPonderada(p50r);
+  a.aproximado = a.dias > 1;                  // um dia só = a mediana do dia, exata
+  a.pctAte1h = a.comTempo ? (a.ate1h / a.comTempo) * 100 : null;
+  a.pctAte4h = a.comTempo ? (a.ate4h / a.comTempo) * 100 : null;
+  a.pctRespondidos = a.tickets ? (a.respondidos / a.tickets) * 100 : null;
+  return a;
+}
+// série diária da mediana em expediente, uma linha por marca (todos os canais)
+function serieDiariaTempo(rows, marcas, ini, fim) {
+  const dias = cxDiasIntervalo(ini, fim);
+  // dia sem expediente (sex/sáb/dom) fica em branco: o expediente zera por definição, não por mérito
+  return { dias, series: marcas.map((m) => ({ marca: m, pontos: dias.map((d) => { const a = tempoAgg(rows, { marca: m, ini: d, fim: d }); return { dia: d, y: a.comTempo >= 5 && cxEhExpediente(d) ? a.p50Comercial : null, n: a.comTempo, ate1h: a.pctAte1h }; }) })) };
+}
+// por pessoa que deu a 1ª resposta, no período
+function tempoPorAgente(rows, f) {
+  const acc = {};
+  for (const l of cxFiltra(rows, f)) {
+    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), respondidos: 0, ate1h: 0, p50c: [], p50r: [] });
+    a.nome = a.nome || l.agente_nome; a.marcas.add(l.marca);
+    const n = Number(l.respondidos || 0); a.respondidos += n; a.ate1h += Number(l.ate_1h || 0);
+    a.p50c.push([Number(l.p50_comercial_seg), n]); a.p50r.push([Number(l.p50_relogio_seg), n]);
+  }
+  return Object.values(acc).map((a) => ({ agente_id: a.agente_id, nome: a.nome, marcas: [...a.marcas], respondidos: a.respondidos,
+    p50Comercial: medianaPonderada(a.p50c), p50Relogio: medianaPonderada(a.p50r), pctAte1h: a.respondidos ? (a.ate1h / a.respondidos) * 100 : null, aproximado: a.p50c.length > 1 }))
+    .sort((x, y) => y.respondidos - x.respondidos);
+}
+
 // ---------- séries no tempo para as abas (todas puras) ----------
 // grupos de motivo para o gráfico (7 motivos viram 4 séries; cores fixas na tela)
 const CX_GRUPOS_MOTIVO = [
@@ -366,5 +415,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }
