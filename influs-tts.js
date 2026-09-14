@@ -94,7 +94,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     : h < 24 ? `<span class="tag alerta">${h} h</span>`
     : `<span class="tag nulo">${Math.round(h / 24)} d</span>`;
 
-  let DADOS = null, PANE = (() => { try { return localStorage.getItem('shrigma_tts_pane') || 'fila'; } catch (e) { return 'fila'; } })();
+  let DADOS = null, SEQ = 0, PANE = (() => { try { return localStorage.getItem('shrigma_tts_pane') || 'fila'; } catch (e) { return 'fila'; } })();
   const marcaAtual = () => (typeof MARCA !== 'undefined' ? MARCA : 'todas');
   const per = () => (typeof PER !== 'undefined' ? PER : { ini: null, fim: null });
 
@@ -130,12 +130,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (typeof TTS_API_URL === 'undefined') { vazio('TTS_API_URL não configurada', 'Falta a URL da API do TikTok Shop em config.js.'); return; }
     const k = (typeof chaveLeitura === 'function' ? chaveLeitura() : '') || '';
     if (!k) { vazio('Chave de acesso não informada', 'A mesma chave do painel de Influs abre esta aba.'); return; }
-    const anterior = DADOS;
+    const anterior = DADOS, seq = ++SEQ;
     try {
       const r = await fetch(TTS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k, ini: per().ini, fim: per().fim }) });
       if (r.status === 401) throw new Error('chave inválida para esta API');
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      DADOS = await r.json();
+      const novo = await r.json();
+      if (seq !== SEQ) return;            // chegou uma resposta mais nova antes desta: descarta a velha
+      DADOS = novo;
       DADOS._caiu = null;
       renderTTS();
     } catch (e) {
@@ -161,8 +163,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${j.ini} a ${j.fim}` },
       { r: 'Comissão paga', v: rf(k.comissao), s: k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV` : 'sem pedido na janela' },
       { r: 'Vídeo × Live', v: k.pctVideo === null ? '—' : `${pf(k.pctVideo)} <span class="mini">vídeo</span>`, s: k.pctVideo === null ? 'base menor que 30 pedidos' : `${pf(k.pctLive)} live · resto shop/link`, title: 'percentual do GMV por formato de conteúdo que gerou o pedido' },
-      { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora' },
-      { r: 'Perda operacional', v: k.perdaPct === null ? nf(k.perda) : pf(k.perdaPct), s: `${nf(k.perda)} de ${nf(k.amostrasTotal)} amostras · venceu sem decisão ou aprovada e não enviada · histórico`, title: 'histórico completo — a API do TikTok não devolve a data do pedido de amostra' },
+      { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: (k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora') + ' · agora, não segue o período', title: 'estado atual da fila no TikTok — não depende do período selecionado' },
+      { r: 'Perda operacional', v: k.perdaPct === null ? nf(k.perda) : pf(k.perdaPct), s: `${nf(k.perda)} de ${nf(k.amostrasTotal)} amostras · venceu sem decisão ou aprovada e não enviada · histórico completo, não segue o período`, title: 'histórico completo — a API do TikTok não devolve a data do pedido de amostra, então não dá para recortar por período' },
     ];
     $('#tts-kpis').innerHTML = cards.map(x => `<div class="kpi"${x.title ? ` title="${esc(x.title)}"` : ''}><div class="kpi-rot">${x.r}</div><div class="kpi-val tabn">${x.v}</div><div class="kpi-sub">${x.s}</div></div>`).join('');
   }
