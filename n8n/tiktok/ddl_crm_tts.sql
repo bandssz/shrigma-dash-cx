@@ -198,3 +198,20 @@ FROM crm_tts_amostra a
 LEFT JOIN crm_tts_criador c ON c.marca = a.marca AND c.username = a.username
 LEFT JOIN crm_tts_regra r ON r.marca = a.marca
 WHERE a.status = 'PENDING';
+
+-- 8) Tokens de autorização por loja. Escrito pelo workflow "Captura de Autorização" a cada (re)autorização
+--    e lido pelo Token Manager. Existe porque o pacote de ESCOPOS está amarrado à autorização: ligar um
+--    escopo novo no Partner Center exige re-autorizar as lojas, e o refresh token novo tem que chegar ao
+--    Token Manager sozinho — antes disso dependia de alguém editar a constante SEEDS no código.
+CREATE TABLE IF NOT EXISTS crm_tts_token (
+  loja               text PRIMARY KEY,   -- aristocrata | fishermans (nome usado pelo Token Manager)
+  marca              text,               -- aristo | fish (slug das tabelas crm_*)
+  shop_id            text,
+  shop_cipher        text,
+  refresh_token      text NOT NULL,
+  refresh_expira_em  timestamptz,
+  seller_name        text,
+  open_id            text,
+  autorizado_em      timestamptz NOT NULL DEFAULT now(),
+  atualizado_em      timestamptz NOT NULL DEFAULT now()
+);

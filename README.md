@@ -370,6 +370,15 @@ Na fila, botões Aprovar/Rejeitar de dois cliques (o 2º confirma); na aba Regra
 só PENDING e AWAITING_SHIPMENT, 1–2 páginas). Pedido que estava aberto no banco e não voltou nessa busca vira
 `status = 'ENCERRADA_AGUARDANDO_SYNC'` (saiu da fila; o status real vem às 03:30).
 
+**Tokens e escopos (14/09/2026, noite)** — o pacote de ESCOPOS fica preso à autorização da loja: ligar um
+escopo novo no Partner Center **exige re-autorizar cada loja**, e um token antigo continua respondendo
+`105005 Access denied` nos endpoints do escopo novo. Medido hoje nas duas lojas: Affiliate OK; **Order,
+Product e Analytics em 105005**. Para que a re-autorização passe a valer sozinha, o workflow `TikTok Shop -
+Captura de Autorização` agora descobre as lojas da autorização (Get Authorized Shops) e grava o refresh
+token em `crm_tts_token`; o `Token Manager` lê dessa tabela primeiro e **descarta o cache quando a
+`autorizado_em` muda** — sem isso o cache continuaria servindo um token com os escopos antigos. Os `SEEDS`
+no código ficam só como rede de segurança da primeira autorização.
+
 **Próximos passos (na ordem):** medir concordância do dry-run (decisão da esteira × o que a Marcela fez no
 Seller Center, via `status` final) → webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar
 pelo painel → edição de `crm_tts_regra` pelo painel → ligar `modo='ativo'` por marca → follow-up de
