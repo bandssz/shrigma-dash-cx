@@ -16,3 +16,7 @@ test('popup preserves quotes in names and has per-execution identity, with other
  assert.equal(popup({...b,from_email:'Olivas <contato@olivasdocampo.com.br>'},'123'),null);
  assert.throws(()=>popup({...b,template_id:22},'123'),/POPUP_INPUT_INVALID/);assert.throws(()=>popup(b,'not-an-id'),/POPUP_INPUT_INVALID/);
 });
+test('only explicit Listmonk acceptance is accepted; failures and uncertain outcomes stay distinct',()=>{
+ const classify=require('../n8n/growth/engagement-outcome.js');
+ for(const [r,want] of [[{statusCode:200,body:{data:true}},'accepted'],[{statusCode:202,body:'{"data":true}'},'accepted'],[{statusCode:200,body:{data:'true'}},'outcome_unknown'],[{statusCode:200,body:'broken'},'outcome_unknown'],[{statusCode:403},'rejected'],[{statusCode:500},'outcome_unknown'],[{},'outcome_unknown'],[null,'outcome_unknown']])assert.equal(classify(r),want);
+});
