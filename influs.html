@@ -107,6 +107,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 #tts-area h3{font:700 14px/1.2 var(--ui)}
 #tts-area .comparativo{font-size:12.5px}#tts-area .comparativo td{padding:9px 8px}#tts-area .comparativo td.num{font-size:13.5px}
 .tts-btn{background:var(--neutro-bg);color:var(--texto)} /* não usar .sec: a página esconde .sec (seções) */
+body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/alertas de cupom não valem para a lane TikTok */
 .tts-acoes{white-space:nowrap}.tts-acoes .btn{padding:5px 8px;font-size:11.5px;margin-right:4px}.tts-prod{max-width:230px}
 
 /* aba Influs */
@@ -1126,7 +1127,9 @@ document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
-  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');});
+  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
+  // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
+  document.body.classList.toggle('sec-afil',SEC==='afil');});
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 carregarInflu();
