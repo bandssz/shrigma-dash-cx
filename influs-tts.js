@@ -58,9 +58,18 @@
         title: f.map(x => `${x.marca}: OK há ${fmt(idade(x))}${x.erros ? ' · erro: ' + x.erros : ''}`).join('\n'),
       };
     },
-    // Fila ordenada por urgência (prazo mais curto primeiro), com o tier já resolvido em rótulo.
+    // Decisão já gravada pela esteira (dry-run ou real) tem prioridade sobre o tier calculado na hora.
+    DECISAO: { auto_aprovada: { rot: 'Aprovar', cls: 'bom' }, auto_rejeitada: { rot: 'Rejeitar', cls: 'ruim' }, fila_manual: { rot: 'Avaliar', cls: 'neutro' },
+               manual_aprovada: { rot: 'Aprovada', cls: 'bom' }, manual_rejeitada: { rot: 'Rejeitada', cls: 'ruim' } },
+    rotulo(x) {
+      const t = TTS.TIER[x.tier_sugerido] || TTS.TIER.sem_regra;
+      const d = x.decisao && TTS.DECISAO[x.decisao];
+      if (!d) return { rot: t.rot, cls: t.cls, det: t.det };
+      return { rot: d.rot + (x.dry_run ? ' (simulado)' : ''), cls: d.cls, det: x.decisao_motivo || t.det };
+    },
+    // Fila ordenada por urgência (prazo mais curto primeiro), com o rótulo já resolvido.
     fila(p, marca, agora) {
-      return TTS.filtra(p.fila, marca).map(x => ({ ...x, horas: TTS.horasAte(x.approve_expira_em, agora), tier: TTS.TIER[x.tier_sugerido] || TTS.TIER.sem_regra }))
+      return TTS.filtra(p.fila, marca).map(x => ({ ...x, horas: TTS.horasAte(x.approve_expira_em, agora), tier: TTS.rotulo(x) }))
         .sort((a, b) => (a.horas ?? 1e9) - (b.horas ?? 1e9));
     },
     // Target collab: taxa convidado→conteúdo, só com base >= 10 convidados.
@@ -212,10 +221,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!rs.length) { $('#tts-area').innerHTML = '<div class="vazio">Sem regra cadastrada.</div>'; return; }
     $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th title="dry_run: a esteira só registra o que faria; ativo: chama a API de review; pausado: nada">Modo</th>
       <th class="num" title="GMV 30d do criador a partir do qual a amostra é aprovada automaticamente">Aprova ≥</th><th class="num" title="entre este valor e o de aprovação: fila manual">Avalia ≥</th>
-      <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín.</th><th class="num" title="amostras aprovadas por mês (auto + manual)">Teto/mês</th><th>SKUs permitidos</th><th>Atualizado</th></tr></thead><tbody>
+      <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín.</th><th class="num" title="amostras aprovadas por mês (auto + manual)">Teto/mês</th><th title="variantes que podem virar amostra: padrão (regex sobre título | variante) e/ou lista explícita de sku_id">SKUs permitidos</th><th>Atualizado</th></tr></thead><tbody>
       ${rs.map(r => `<tr><td>${tag(r.marca)}</td><td><span class="tag ${r.modo === 'ativo' ? 'bom' : 'nulo'}">${esc(r.modo)}</span></td><td class="num tabn">${rf(r.gmv_auto)}</td><td class="num tabn">${rf(r.gmv_manual)}</td>
         <td class="num tabn">${pf(r.fulfillment_min)}${r.fulfillment_zero_ok ? '' : ' <span class="mini">(0% conta)</span>'}</td><td class="num tabn">${nf(r.teto_mensal)}</td>
-        <td>${(r.skus_permitidos || []).length ? `<span class="mini">${r.skus_permitidos.length} SKU(s)</span>` : '<span class="tag alerta" title="sem lista, a regra de SKU não filtra nada">lista vazia</span>'}</td>
+        <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'sabonete unitário 150g' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td></tr>`).join('')}</tbody></table></div>
       <div class="nota">Edição pelo painel e aprovar/rejeitar direto daqui são a próxima etapa. Hoje a regra é <strong>simulação</strong>: a coluna "Sugestão" da fila mostra o que a esteira faria; a decisão continua no Seller Center.</div>`;
   }

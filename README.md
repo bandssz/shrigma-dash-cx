@@ -296,9 +296,23 @@ uma API própria, nunca `crm_influ_pedido`.
 - Coluna "Sugestão" da fila é o que a esteira **faria** com `crm_tts_regra` (modo `dry_run`). A decisão
   continua no Seller Center. Aprovar/rejeitar pelo painel e editar a regra são a próxima etapa.
 
-**Próximos passos (na ordem):** esteira de amostras em dry-run (gravar `decisao` sem chamar `/review`) →
-webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar pelo painel →
-edição de `crm_tts_regra` pelo painel → follow-up de `CONTENT_PENDING` via API de mensagens.
+**Esteira de amostras (dry-run desde 14/09/2026)** — workflow `TikTok Shop - Esteira de amostras`
+(id `U7MNDRQYwvM4ovPG`, a cada 2 h + `POST /webhook/tts-esteira-…`). Lê a VIEW `crm_tts_fila_v` (fonte
+única do tier: mesma usada pela API do painel), decide só o que está PENDING e sem `decidido_em`, e grava
+`decisao`/`decisao_motivo`/`dry_run` em `crm_tts_amostra`. Regras: `comprovado` → `auto_aprovada` até o
+`teto_mensal` da marca (depois vai pra fila manual); `descoberta` → `fila_manual`; `fora_*` → `auto_rejeitada`;
+`is_approvable = false` → fila manual. Só chama `/sample_applications/review` no TikTok quando
+`crm_tts_regra.modo = 'ativo'` para a marca — hoje as duas estão em `dry_run` (grava e não executa);
+`pausado` não toca. Regra de SKU: `crm_tts_regra.sku_regex` (Postgres ARE sobre `"título | variante"`) e/ou
+`skus_permitidos[]`. Vigente: Fish = multifilamento só 150 m, monofilamento só 300 m; Aristo = sabonete
+unitário 150g (sem Kit/Unidades). Régua: Fish 10k/3k, Aristo 5k/2k (GMV 30d), postagem mínima 86%
+(0% não penaliza), teto 30/15 por mês. Na fila do painel, decisão gravada aparece como "Aprovar/Rejeitar/Avaliar
+(simulado)" com o motivo no `title`.
+
+**Próximos passos (na ordem):** medir concordância do dry-run (decisão da esteira × o que a Marcela fez no
+Seller Center, via `status` final) → webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar
+pelo painel → edição de `crm_tts_regra` pelo painel → ligar `modo='ativo'` por marca → follow-up de
+`CONTENT_PENDING` via API de mensagens.
 
 ## Growth — operação por canal (08/09/2026)
 

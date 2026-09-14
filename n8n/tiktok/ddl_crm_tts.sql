@@ -144,10 +144,12 @@ CREATE TABLE IF NOT EXISTS crm_tts_regra (
   fulfillment_zero_ok boolean      NOT NULL DEFAULT true,-- 0% = sem histórico, não penaliza
   teto_mensal        integer NOT NULL,                  -- amostras aprovadas (auto+manual) por mês
   teto_escalonamento jsonb,                             -- ex.: [{"desde":"2026-10-01","teto":40}]
-  skus_permitidos    text[] NOT NULL DEFAULT '{}',      -- sku_id que podem virar amostra
+  skus_permitidos    text[] NOT NULL DEFAULT '{}',      -- sku_id que podem virar amostra (lista explícita)
+  sku_regex          text,                              -- OU regex (Postgres ARE) sobre "titulo | sku_name"; casou = permitido
   atualizado_em      timestamptz NOT NULL DEFAULT now(),
   atualizado_por     text
 );
+ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS sku_regex text;
 
 -- 6) Log de coleta — frescor no cabeçalho do painel.
 CREATE TABLE IF NOT EXISTS crm_tts_coleta_log (
@@ -166,5 +168,33 @@ CREATE TABLE IF NOT EXISTS crm_tts_coleta_log (
 INSERT INTO crm_tts_regra (marca, modo, gmv_auto, gmv_manual, fulfillment_min, fulfillment_zero_ok, teto_mensal, skus_permitidos, atualizado_por)
 VALUES
   ('fish',   'dry_run', 10000, 3000, 86, true, 30, '{}', 'seed 2026-09-14'),
-  ('aristo', 'dry_run', 10000, 3000, 86, true, 15, '{}', 'seed 2026-09-14')
+  ('aristo', 'dry_run',  5000, 2000, 86, true, 15, '{}', 'seed 2026-09-14')
 ON CONFLICT (marca) DO NOTHING;
+-- Regra de SKU (14/09/2026, Felipe): Fishermans — multifilamento só 150 m, monofilamento só 300 m (menor variante);
+-- Aristocrata — só sabonete unitário 150g (sem "Kit"/"Unidades"). Casada contra "product_title | sku_name".
+UPDATE crm_tts_regra SET sku_regex = '^(?!.*[Mm]onofilamento).*\|.*[^0-9]150 ?[Mm]|^(?=.*[Mm]onofilamento).*\|.*[^0-9]300 ?[Mm]', atualizado_em = now(), atualizado_por = 'regra de SKU 2026-09-14' WHERE marca = 'fish' AND sku_regex IS NULL;
+UPDATE crm_tts_regra SET sku_regex = '^(?!.*([Kk]it|[Uu]nidades)).*150g', atualizado_em = now(), atualizado_por = 'regra de SKU 2026-09-14' WHERE marca = 'aristo' AND sku_regex IS NULL;
+
+-- 7) Visão da fila: pedidos PENDING com o criador atual, a regra da marca e o tier sugerido.
+--    Fonte única da lógica de tier — usada pela API do painel e pela esteira. Mudou a regra? Muda aqui.
+CREATE OR REPLACE VIEW crm_tts_fila_v AS
+SELECT a.marca, a.application_id, a.username, c.nickname, c.seguidores, c.gmv_30d, c.fulfillment_pct,
+       a.product_title, a.sku_id, a.sku_name, a.approve_expira_em, a.is_approvable, a.motivo_nao_aprovavel,
+       c.amostras_total, c.amostras_completas, c.pedidos_90d, c.gmv_90d_marca,
+       a.decisao, a.decisao_motivo, a.decidido_em, a.dry_run,
+       (a.sku_id = ANY(r.skus_permitidos))
+         OR (r.sku_regex IS NOT NULL AND (a.product_title || ' | ' || COALESCE(a.sku_name,'')) ~ r.sku_regex) AS sku_ok,
+       CASE
+         WHEN r.marca IS NULL THEN 'sem_regra'
+         WHEN (cardinality(r.skus_permitidos) > 0 OR r.sku_regex IS NOT NULL)
+              AND NOT (a.sku_id = ANY(r.skus_permitidos))
+              AND NOT (r.sku_regex IS NOT NULL AND (a.product_title || ' | ' || COALESCE(a.sku_name,'')) ~ r.sku_regex) THEN 'fora_sku'
+         WHEN c.fulfillment_pct > 0 AND c.fulfillment_pct < r.fulfillment_min THEN 'fora_fulfillment'
+         WHEN COALESCE(c.gmv_30d,0) >= r.gmv_auto THEN 'comprovado'
+         WHEN COALESCE(c.gmv_30d,0) >= r.gmv_manual THEN 'descoberta'
+         ELSE 'fora_gmv' END AS tier_sugerido,
+       r.modo AS regra_modo, r.teto_mensal, r.gmv_auto, r.gmv_manual, r.fulfillment_min
+FROM crm_tts_amostra a
+LEFT JOIN crm_tts_criador c ON c.marca = a.marca AND c.username = a.username
+LEFT JOIN crm_tts_regra r ON r.marca = a.marca
+WHERE a.status = 'PENDING';

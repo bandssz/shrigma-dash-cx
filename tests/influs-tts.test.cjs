@@ -46,6 +46,12 @@ test('fila ordena pelo prazo mais curto, sem prazo por último, e tier desconhec
   assert.equal(f[0].tier.rot,'Sem regra'); assert.equal(f[1].tier.cls,'bom'); assert.equal(f[2].tier.rot,'Fora · SKU');
   assert.equal(TTS.fila(P,'fish',AGORA).length,2);
 });
+test('decisão gravada pela esteira vence o tier calculado e marca simulação',()=>{
+  const r=TTS.rotulo({tier_sugerido:'comprovado',decisao:'auto_rejeitada',dry_run:true,decisao_motivo:'SKU fora'});
+  assert.equal(r.rot,'Rejeitar (simulado)'); assert.equal(r.cls,'ruim'); assert.equal(r.det,'SKU fora');
+  assert.equal(TTS.rotulo({tier_sugerido:'descoberta'}).rot,'Avaliar');
+  assert.equal(TTS.rotulo({tier_sugerido:'comprovado',decisao:'auto_aprovada',dry_run:false}).rot,'Aprovar');
+});
 test('horas até prazo: negativo quando vencido',()=>{
   assert.equal(TTS.horasAte('2026-09-14T10:00:00Z',AGORA),-2);
   assert.equal(TTS.horasAte(null,AGORA),null);
