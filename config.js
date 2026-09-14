@@ -15,6 +15,9 @@ const INFLU_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-influ-a
 // Endpoint de LEITURA da aba Afiliados TikTok Shop (influs.html). Aceita a chave de leitura do painel
 // de Influs (crm_dash_chave, painel influs/todos). Le as tabelas crm_tts_* do coletor diario.
 const TTS_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-painel-api-9d3f7a1c';
+// Endpoint de ESCRITA do TikTok Shop (aprovar/rejeitar amostra, editar regra). Chave PROPRIA, que nao mora
+// neste repositorio - a Marcela digita uma vez e fica no localStorage dela (shrigma_tts_wkey).
+const TTS_ACAO_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-acao-api-2c7e9f41';
 
 /* ---------- chave de acesso, compartilhada entre as paginas ----------
    Cada painel tem seu proprio cofre no localStorage, para que a chave do Suporte nao

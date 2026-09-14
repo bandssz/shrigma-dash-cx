@@ -98,6 +98,28 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   const marcaAtual = () => (typeof MARCA !== 'undefined' ? MARCA : 'todas');
   const per = () => (typeof PER !== 'undefined' ? PER : { ini: null, fim: null });
 
+  // ---- escrita (aprovar/rejeitar amostra, editar regra): chave PRÓPRIA, nunca a de leitura ----
+  function chaveEscritaTTS() {
+    let wk = null; try { wk = localStorage.getItem('shrigma_tts_wkey'); } catch (e) {}
+    if (!wk) { wk = (prompt('Chave de ESCRITA do TikTok Shop (aprovar/rejeitar amostra e editar regra):') || '').trim(); if (!wk) return null; try { localStorage.setItem('shrigma_tts_wkey', wk); } catch (e) {} }
+    return wk;
+  }
+  function autorTTS() { try { if (typeof autorAtual === 'function') return autorAtual(); } catch (e) {} let a = ''; try { a = localStorage.getItem('shrigma_autor') || ''; } catch (e) {} if (!a) { a = (prompt('Seu nome (fica registrado na decisão):') || '').trim(); try { if (a) localStorage.setItem('shrigma_autor', a); } catch (e) {} } return a || 'painel'; }
+  async function acaoTTS(corpo) {
+    if (typeof TTS_ACAO_URL === 'undefined') throw new Error('TTS_ACAO_URL não configurada em config.js');
+    const k = chaveEscritaTTS(); if (!k) throw new Error('sem chave de escrita');
+    const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...corpo, k, autor: autorTTS() }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) { if (/chave/i.test(j.erro || '')) { try { localStorage.removeItem('shrigma_tts_wkey'); } catch (e) {} } throw new Error(j.erro || j.mensagem || ('HTTP ' + r.status)); }
+    return j;
+  }
+  // botão de duas etapas: 1º clique arma ("Confirmar?"), 2º clique executa; desarma sozinho em 6 s
+  function armar(btn, rotuloConfirma, fn) {
+    if (btn.dataset.armado) { btn.dataset.armado = ''; btn.disabled = true; btn.textContent = '…'; fn().catch(e => { btn.disabled = false; btn.textContent = 'erro: ' + e.message; }); return; }
+    const orig = btn.textContent; btn.dataset.armado = '1'; btn.textContent = rotuloConfirma;
+    setTimeout(() => { if (btn.dataset.armado) { btn.dataset.armado = ''; btn.textContent = orig; } }, 6000);
+  }
+
   function vazio(titulo, detalhe, retry) {
     $('#tts-kpis').innerHTML = '';
     $('#tts-area').innerHTML = `<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${retry ? '<br><br><button class="btn" id="tts-retry">Tentar de novo</button>' : ''}</div>`;
@@ -162,22 +184,31 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; return; }
     html += `<div class="rolagem"><table class="comparativo"><thead><tr>
       <th title="prazo da plataforma para decidir (7 dias); vencido vira OVERDUE_CANCELLED">Vence em</th><th>Marca</th><th>Criador</th>
-      <th class="num" title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma)">GMV 30d</th>
+      <th class="num" title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma), em R$">GMV 30d</th>
       <th class="num" title="% das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo. 0% = sem histórico recente, não é 'não posta'">Postagem</th>
       <th class="num" title="amostras completas / pedidas AQUI, nesta marca (histórico)">Amostras aqui</th>
-      <th class="num" title="pedidos e GMV que esse criador já gerou para esta marca nos últimos 90 dias">Vendeu aqui 90d</th>
+      <th class="num" title="pedidos · GMV em R$ que esse criador já gerou para esta marca nos últimos 90 dias">Vendeu aqui 90d</th>
       <th>Produto pedido</th>
-      <th title="o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo feita no Seller Center">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</th></tr></thead><tbody>
+      <th title="o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo humana">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</th>
+      <th title="executa no TikTok na hora (mesma API do Seller Center) e registra quem decidiu. Clique 2× para confirmar">Decidir</th></tr></thead><tbody>
       ${fila.map(x => `<tr>
         <td>${prazo(x.horas)}</td><td>${tag(x.marca)}</td>
         <td><div class="nome">${esc(x.nickname || x.username)}</div><span class="mini">@${esc(x.username)} · ${nf(x.seguidores)} seg.</span></td>
-        <td class="num tabn">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : rf(x.gmv_30d)}</td>
+        <td class="num tabn">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</td>
         <td class="num tabn">${pf(x.fulfillment_pct)}</td>
         <td class="num tabn">${nf(x.amostras_completas)}/${nf(x.amostras_total)}</td>
-        <td class="num tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${rf(x.gmv_90d_marca)}` : '—'}</td>
-        <td>${esc(x.product_title)}<br><span class="mini">${esc(x.sku_name)}${x.is_approvable === false ? ` · <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</span></td>
-        <td><span class="tag ${x.tier.cls}" title="${esc(x.tier.det)}">${x.tier.rot}</span></td></tr>`).join('')}</tbody></table></div>`;
+        <td class="num tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</td>
+        <td class="tts-prod" title="${esc(x.product_title)}">${esc(String(x.product_title || '').length > 52 ? String(x.product_title).slice(0, 50) + '…' : x.product_title)}<br><span class="mini">${esc(x.sku_name)}${x.is_approvable === false ? ` · <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</span></td>
+        <td><span class="tag ${x.tier.cls}" title="${esc(x.tier.det)}">${x.tier.rot}</span></td>
+        <td class="tts-acoes" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
+    document.querySelectorAll('#tts-area .tts-acoes button').forEach(b => b.onclick = () => {
+      const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
+      armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
+        await acaoTTS({ acao: 'revisar', marca: td.dataset.marca, application_id: td.dataset.id, resultado: aprova ? 'APPROVE' : 'REJECT', motivo_rejeicao: 'NOT_MATCH' });
+        await carregarTTS();
+      });
+    });
   }
 
   function renderCriadores() {
@@ -219,14 +250,30 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderRegras() {
     const m = marcaAtual(), rs = TTS.filtra(DADOS.regra, m);
     if (!rs.length) { $('#tts-area').innerHTML = '<div class="vazio">Sem regra cadastrada.</div>'; return; }
-    $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th title="dry_run: a esteira só registra o que faria; ativo: chama a API de review; pausado: nada">Modo</th>
+    const inp = (r, campo, passo, titulo) => `<input type="number" class="i-sel tts-r" data-campo="${campo}" value="${esc(r[campo])}" step="${passo}" min="0" style="width:96px" title="${esc(titulo)}">`;
+    $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th>
+      <th title="dry_run: a esteira só registra o que faria (simulação); ativo: a esteira EXECUTA aprovação/rejeição automática no TikTok; pausado: esteira não toca">Modo</th>
       <th class="num" title="GMV 30d do criador a partir do qual a amostra é aprovada automaticamente">Aprova ≥</th><th class="num" title="entre este valor e o de aprovação: fila manual">Avalia ≥</th>
-      <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín.</th><th class="num" title="amostras aprovadas por mês (auto + manual)">Teto/mês</th><th title="variantes que podem virar amostra: padrão (regex sobre título | variante) e/ou lista explícita de sku_id">SKUs permitidos</th><th>Atualizado</th></tr></thead><tbody>
-      ${rs.map(r => `<tr><td>${tag(r.marca)}</td><td><span class="tag ${r.modo === 'ativo' ? 'bom' : 'nulo'}">${esc(r.modo)}</span></td><td class="num tabn">${rf(r.gmv_auto)}</td><td class="num tabn">${rf(r.gmv_manual)}</td>
-        <td class="num tabn">${pf(r.fulfillment_min)}${r.fulfillment_zero_ok ? '' : ' <span class="mini">(0% conta)</span>'}</td><td class="num tabn">${nf(r.teto_mensal)}</td>
+      <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín. %</th><th class="num" title="amostras aprovadas por mês (auto + manual) antes de tudo virar fila manual">Teto/mês</th>
+      <th title="variantes que podem virar amostra: padrão (regex sobre título | variante) e/ou lista explícita de sku_id">SKUs permitidos</th><th>Atualizado</th><th></th></tr></thead><tbody>
+      ${rs.map(r => `<tr data-marca="${esc(r.marca)}"><td>${tag(r.marca)}</td>
+        <td><select class="i-sel tts-r" data-campo="modo" title="ativo = executa no TikTok sem passar por gente">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
+        <td class="num">${inp(r, 'gmv_auto', 500, 'R$, GMV 30d')}</td><td class="num">${inp(r, 'gmv_manual', 500, 'R$, GMV 30d')}</td>
+        <td class="num">${inp(r, 'fulfillment_min', 1, '% de amostras postadas em 90 dias')}</td><td class="num">${inp(r, 'teto_mensal', 5, 'amostras por mês')}</td>
         <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
-        <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td></tr>`).join('')}</tbody></table></div>
-      <div class="nota">Edição pelo painel e aprovar/rejeitar direto daqui são a próxima etapa. Hoje a regra é <strong>simulação</strong>: a coluna "Sugestão" da fila mostra o que a esteira faria; a decisão continua no Seller Center.</div>`;
+        <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
+        <td><button class="btn tts-btn tts-salvar">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
+      <div class="nota">A esteira roda a cada 2 h e só executa no TikTok com o modo <strong>ativo</strong>. Em simulação, a coluna "Sugestão" da fila mostra o que ela faria. Alterar o padrão de SKU é tarefa de banco (<code>crm_tts_regra.sku_regex</code>).</div>`;
+    document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {
+      const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
+      tr.querySelectorAll('.tts-r').forEach(el => { regra[el.dataset.campo] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
+      const ativo = regra.modo === 'ativo';
+      armar(b, ativo ? 'Confirmar modo ATIVO (executa no TikTok)?' : 'Confirmar?', async () => {
+        const j = await acaoTTS({ acao: 'regra', marca: tr.dataset.marca, regra });
+        msg.textContent = j.mensagem || 'ok'; b.disabled = false; b.textContent = 'Salvar';
+        await carregarTTS();
+      });
+    });
   }
 
   // ligações com a página

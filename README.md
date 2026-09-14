@@ -309,6 +309,20 @@ kit de até 3 sabonetes, misto incluso (fora: Kit/N Unidades com N ≥ 4). Régu
 (0% não penaliza), teto 30/15 por mês. Na fila do painel, decisão gravada aparece como "Aprovar/Rejeitar/Avaliar
 (simulado)" com o motivo no `title`.
 
+**Ação pelo painel (14/09/2026, noite)** — workflow `TikTok Shop - API de ação do painel` (id `LCODPC1y6kRPQ6hI`),
+URL em `config.js` (`TTS_ACAO_URL`), chave de ESCRITA própria (não mora no repo; a Marcela digita uma vez, fica em
+`localStorage.shrigma_tts_wkey`). Ações: `revisar` (aprova/rejeita 1 pedido no TikTok via
+`/sample_applications/review`, grava `manual_aprovada|manual_rejeitada`, `decidido_por = autor (painel)`, e adianta
+o `status` para AWAITING_SHIPMENT/REJECT_CANCELLED — a varredura das 03:30 confirma) e `regra` (edita `gmv_auto`,
+`gmv_manual`, `fulfillment_min`, `teto_mensal`, `modo` de `crm_tts_regra`, com faixa validada; `sku_regex` só no banco).
+Na fila, botões Aprovar/Rejeitar de dois cliques (o 2º confirma); na aba Regras, campos editáveis + Salvar (modo
+`ativo` pede confirmação explícita). Falha do TikTok volta como 400 com a mensagem da API e vai pro `crm_tts_coleta_log`
+(`fonte = 'acao_painel'`). **A chamada real de review ainda não foi exercitada** — o primeiro uso da Marcela é o teste.
+
+**Esteira × PENDING fresco** — antes de decidir, a esteira chama o coletor em modo `abertas` (`{modo:'abertas'}`:
+só PENDING e AWAITING_SHIPMENT, 1–2 páginas). Pedido que estava aberto no banco e não voltou nessa busca vira
+`status = 'ENCERRADA_AGUARDANDO_SYNC'` (saiu da fila; o status real vem às 03:30).
+
 **Próximos passos (na ordem):** medir concordância do dry-run (decisão da esteira × o que a Marcela fez no
 Seller Center, via `status` final) → webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar
 pelo painel → edição de `crm_tts_regra` pelo painel → ligar `modo='ativo'` por marca → follow-up de
