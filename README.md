@@ -166,8 +166,16 @@ rótulo, status pela metatag `reputation-status`.
 **Agentes (`cx_snapshot_agente` janela 1d) parados desde 12/09 — causa é do Gleap**: `TEAM_PERFORMANCE_LIST` devolve
 zero para todos os agentes em janelas de 1 dia de 12/09 e 13/09, nas duas marcas (11/09 e a janela 7d vêm normais).
 O coletor só grava agente com atividade > 0, então o dia fica sem linha; e a consolidação só revisita "ontem", logo o
-backfill do Gleap nunca entra. Correção proposta (não aplicada: a alteração de workflow do n8n precisa ser feita à
-mão): na consolidação, repetir só a chamada de agentes para D-2 e D-3 (`coletarAgentes`), 1 chamada por dia por marca.
+backfill do Gleap nunca entra. **Correção aplicada em 14/09 no workflow `SIzi3oTMH39LTbDj`** (backup do JSON anterior em
+`~/work/n8n-snap/snap_backup_*.json` no Mac): a lista de agentes virou `coletarAgentes()` e a consolidação a repete para
+D-2 e D-3 (1 chamada por dia por marca). Primeira rodada com o código novo: 14/09 12:00 UTC, sucesso em 45 s. As linhas
+de 12/09 e 13/09 entram sozinhas quando o Gleap fechar a conta — se em 16/09 ainda não houver linha 1d de 13/09, o problema
+é permanente do lado deles e vale abrir chamado.
+
+**Tarefa agendada do RA e Mac desligado**: quando o Mac não está ligado na hora (08:30), a plataforma **desativa a tarefa**
+(`suspension_reason: device_absent`) em vez de só pular o dia — foi o que aconteceu em 14/09; reativei e disparei à mão
+(as duas marcas gravaram às 08:53). Se o painel mostrar leitura do RA com mais de um dia, conferir em claude.ai › tarefas
+agendadas se ela está ativa. Plano B continua sendo o bookmarklet.
 
 ### Regras que a repaginação fixou
 
