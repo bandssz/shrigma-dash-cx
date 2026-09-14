@@ -98,3 +98,24 @@ test('delta nunca inventa direção com dado ausente', () => {
   assert.equal(M.cxDelta(10, 0), null);
   assert.equal(M.cxDelta(15, 10), 50);
 });
+
+test('desfecho maduro: só tickets até D-2, o Kai é fatia de TODOS os tickets e semana em maturação é parcial', () => {
+  const { desfechoMaduro, serieSemanalDesfecho } = require('../cx-metricas.js');
+  const row = (dia, escalado, o) => ({ marca: 'aristocrata', canal: 'whatsapp', dia, motivo: 'wismo', escalado, tickets: 50, avaliadas: 0, bom: 0, neutro: 0, ruim: 0, ...o });
+  const rows = ['2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14'].flatMap((d) => [
+    row(d, true, { resposta_humana: 20, kai_fechou: 0, fechado_inatividade: 0 }),   // 50 transferidos: 20 com pessoa, 30 sem ninguém
+    row(d, false, { resposta_humana: 0, kai_fechou: 10, fechado_inatividade: 5 }),  // 50 não transferidos: 10 Kai, 5 inatividade, 35 abertos
+    row(d, false, { canal: 'email', resposta_humana: 0, kai_fechou: 0, fechado_inatividade: 0 }),
+  ]);
+  const r = desfechoMaduro(rows, { marca: 'aristocrata', ini: '2026-09-10', fim: '2026-09-14' }, '2026-09-14');
+  assert.equal(r.fim, '2026-09-12', 'corta em D-2');
+  assert.equal(r.tickets, 300, 'e-mail fora, 3 dias × 100');
+  assert.equal(r.kai, 30); assert.equal(r.pessoa, 60); assert.equal(r.semResp, 90);
+  assert.equal(Math.round(r.pctKai), 10); assert.equal(Math.round(r.pctSemResp), 30); assert.equal(Math.round(r.pctAberto * 10) / 10, 40);
+  const so = desfechoMaduro(rows, { marca: 'aristocrata', ini: '2026-09-13', fim: '2026-09-14' }, '2026-09-14');
+  assert.equal(so.maduro, false, 'período só com dias imaturos não tem desfecho');
+  const s = serieSemanalDesfecho(rows, { marca: 'aristocrata', ini: '2026-09-07', fim: '2026-09-14' }, '2026-09-14');
+  assert.deepEqual(s.semanas, ['2026-09-07', '2026-09-14']);
+  assert.equal(s.pontos[0].tickets, 300); assert.equal(s.pontos[0].parcial, true, 'semana de 07/09 termina 13/09 > D-2: parcial');
+  assert.equal(s.pontos[1].y, null, 'semana atual sem dia maduro');
+});

@@ -10,8 +10,10 @@ const dias = (n) => Array.from({ length: n }, (_, i) => { const d = new Date(HOJ
 const snap = (marca, dia, o = {}) => ({ marca, janela: '1d', dia, novos: 100, fechados: 90, trabalhados: 80, respostas: 300,
   primeira_resposta_seg: 600, csat: 66, csat_cobertura: 40, csat_votos: 40, kai_deflexao: 50, ia_perguntas: 10, fila_aberta: 12,
   coletas_ok: 3, coletas_total: 3, coletado_em: HOJE + 'T14:00:00Z', primeira_resposta_comercial_seg: 500, resolucao_comercial_seg: 3000, amostra_comercial: 30, ...o });
-const csat = (marca, dia, motivo, escalado, o = {}) => ({ marca, canal: 'whatsapp', dia, motivo, escalado,
-  tickets: 60, csat_enviado: 50, avaliadas: 40, bom: 20, neutro: 10, ruim: 10, kai_pode_atender: 0, abertos: 0, ...o });
+// desfecho maduro (14/09): linha transferida = 40 com resposta humana (20 sem ninguém); linha do Kai = 15 fechadas por ele, 2 por inatividade
+const csat = (marca, dia, motivo, escalado, o = {}) => { const t = o.tickets ?? 60, resp = escalado ? Math.min(40, t) : 0;
+  return { marca, canal: 'whatsapp', dia, motivo, escalado, tickets: t, csat_enviado: 50, avaliadas: 40, bom: 20, neutro: 10, ruim: 10, kai_pode_atender: 0, abertos: 0,
+    fechados: escalado ? resp : 17, resposta_humana: resp, kai_fechou: escalado ? 0 : 15, fechado_inatividade: escalado ? 0 : 2, ...o }; };
 const desf = (marca, dia, canal = 'whatsapp') => ({ dia, marca, canal, tickets: 100, resolvido_kai: 30, escalado: 60, escalado_sem_resposta: 5,
   promessa_vazia: 3, inatividade: 5, pendente: 2, so_outros: 5, outros_corrigido: 10, nunca_outros: 85, csat_enviado: 80, pend_cliente: 1, pend_bot: 1, pend_agente: 0, pend_vazio: 0 });
 
@@ -76,8 +78,9 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   // CSAT bom = (20+4+27+30)/(40+4+30+30) = 81/104 = 78%
   assert.equal(x.txt('#area-seis .six2-val')[2], '78%');
   assert.ok(!/\b6[0-9]\b(?!%)/.test(x.txt('#area-seis .six2')[2]), 'a média 66 do snapshot não pode aparecer no cartão de CSAT');
-  // Kai resolve: 30/(30+60) = 33,3% (e-mail fora)
-  assert.equal(x.txt('#area-seis .six2-val')[3], '33,3%');
+  // Kai resolve sozinho = fechados pelo Kai ÷ TODOS os tickets de chat maduros (até D-2), consolidado: 15 ÷ (60+20+40+30) = 10,0%
+  assert.equal(x.txt('#area-seis .six2-val')[3], '10,0%');
+  assert.match(x.document.querySelector('#area-seis .six2[data-m="kai_resolve"]').getAttribute('title'), /TODOS os tickets/);
   // RA sem coleta: traço, não zero; contador de status no cabeçalho
   assert.equal(x.txt('#area-seis .six2-val')[4], '—');
   assert.match(x.document.querySelector('#seis-rot').textContent, /1 em atenção/);
@@ -89,7 +92,9 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   // aba Chat no mesmo padrão: seis cartões (o antigo cartão de CSAT-média não existe mais) e um gráfico só
   assert.deepEqual(x.txt('#area-chat .six2-rot'), ['Contatos', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Fila no fim do período', '1ª resposta · expediente']);
   assert.equal(x.txt('#area-chat .six2-val')[1], '78%');
-  assert.equal(x.txt('#area-chat .six2-val')[2], '33,3%');
+  assert.equal(x.txt('#area-chat .six2-val')[2], '10,0%');
+  // ninguém respondeu = transferido sem resposta humana ÷ maduros: (60−40) + (40−40) + (30−30) = 20 ÷ 150 = 13,3%
+  assert.equal(x.txt('#area-chat .six2-val')[3], '13,3%');
   assert.ok(x.document.querySelectorAll('#g-chat .g-barras rect').length > 0, 'padrão da aba Chat: CSAT semanal em barras de três níveis');
   x.document.querySelector('#area-chat .six2[data-m="kai_resolve"]').click();
   assert.match(x.document.querySelector('#g-chat-tit').textContent, /Kai resolve sozinho/);
@@ -170,7 +175,7 @@ test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () =
   assert.match(x.document.querySelector('#area-seis').textContent, /ainda não devolve/);
   assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 6);
   assert.match(x.document.querySelector('#area-desfecho').textContent, /Kai resolve sozinho/);
-  assert.equal(x.txt('#area-chat .six2-val')[2], '33,3%', 'Kai vem do desfecho, não de cx_csat');
+  assert.equal(x.txt('#area-chat .six2-val')[2], '—', 'sem cx_csat não há desfecho maduro: traço, nunca zero');
 });
 
 test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem refazer a página', async () => {

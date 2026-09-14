@@ -1,7 +1,8 @@
 // ================== CX · MÉTRICAS NOVAS (camada de dados) ==================
 // Funções puras sobre os blocos novos da API do painel de CX:
 //   cx_csat    — view cx_csat_dia: marca × canal × dia × motivo × escalado
-//                (tickets, csat_enviado, avaliadas, bom, neutro, ruim, kai_pode_atender, abertos)
+//                (tickets, csat_enviado, avaliadas, bom, neutro, ruim, kai_pode_atender, abertos,
+//                 fechados, resposta_humana, kai_fechou, fechado_inatividade — estas quatro desde 14/09)
 //   cx_pedidos — cx_pedido_dia: marca × dia × pedidos (Shopify)
 //   cx_ra      — cx_ra_dia: marca × dia × índices do Reclame Aqui (metatags da brand page)
 // Nenhum DOM aqui — testável com `node --test tests/cx-metricas.test.cjs`.
@@ -54,9 +55,9 @@ function cxFiltra(rows, f) {
   return out;
 }
 
-const CX_CAMPOS = ["tickets", "csat_enviado", "avaliadas", "bom", "neutro", "ruim", "kai_pode_atender", "abertos"];
+const CX_CAMPOS = ["tickets", "csat_enviado", "avaliadas", "bom", "neutro", "ruim", "kai_pode_atender", "abertos", "fechados", "resposta_humana", "kai_fechou", "fechado_inatividade"];
 function cxSoma(rows) {
-  const a = { tickets: 0, csat_enviado: 0, avaliadas: 0, bom: 0, neutro: 0, ruim: 0, kai_pode_atender: 0, abertos: 0, linhas: 0 };
+  const a = { tickets: 0, csat_enviado: 0, avaliadas: 0, bom: 0, neutro: 0, ruim: 0, kai_pode_atender: 0, abertos: 0, fechados: 0, resposta_humana: 0, kai_fechou: 0, fechado_inatividade: 0, linhas: 0 };
   for (const l of rows) { a.linhas++; for (const k of CX_CAMPOS) a[k] += Number(l[k] || 0); }
   return a;
 }
@@ -104,7 +105,10 @@ function porMotivo(rows, f, fAnt) {
       delta: aa && aa.tickets > 0 ? ((a.tickets - aa.tickets) / aa.tickets) * 100 : null,
       avaliadas: a.avaliadas, bom: a.bom, neutro: a.neutro, ruim: a.ruim, pctResposta: a.pctResposta,
       pctBom: a.pctBom, pctNeutro: a.pctNeutro, pctRuim: a.pctRuim, baseOk: a.baseOk,
-      kaiTickets: kai.tickets, kaiShare: a.tickets ? (kai.tickets / a.tickets) * 100 : null,
+      // kaiShare (14/09): fatia do motivo que o Kai de fato FECHOU sozinho (kai_fechou), não 'não foi transferido' —
+      // ticket não transferido e ainda aberto não é vitória do Kai. Sem coluna nova na API, cai para o critério antigo.
+      kaiTickets: kai.tickets, kaiFechou: a.kai_fechou,
+      kaiShare: a.tickets ? ((a.linhas && rows.some((l) => l.kai_fechou !== undefined) ? a.kai_fechou : kai.tickets) / a.tickets) * 100 : null,
       kaiBom: kai.pctBom, kaiAvaliadas: kai.avaliadas,
       pessoaBom: pes.pctBom, pessoaAvaliadas: pes.avaliadas,
     };
@@ -211,6 +215,42 @@ function cxDelta(atual, anterior) {
   return ((atual - anterior) / Math.abs(anterior)) * 100;
 }
 
+
+// ---------- desfecho maduro (14/09): o Kai medido sobre TODOS os tickets, não só os fechados ----------
+// Por que: "Kai resolveu ÷ (Kai + fechados por pessoa)" ignorava o ticket transferido e ainda aberto. Na semana
+// de 06–12/09 isso deu 43% no Aristocrata quando o Kai fechou 26% dos tickets e 38% foram transferidos e ninguém
+// respondeu (fila de 1.257). Aqui o denominador é o ticket de chat criado até D-2 (maduro: quem ia fechar já fechou);
+// o que sobra em aberto é estado real, não ruído. Colunas vêm da view cx_csat_dia (fechados, resposta_humana,
+// kai_fechou, fechado_inatividade). Ticket transferido sem resposta humana = linhas escalado=true: tickets − resposta_humana.
+const CX_MATURACAO_DIAS = 2;
+function diasAtrasCx(n, base) { const d = new Date(base + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); }
+function cxFimMaduro(fim, hoje) { const teto = diasAtrasCx(CX_MATURACAO_DIAS, hoje); return fim < teto ? fim : teto; }
+function desfechoMaduro(rows, f, hoje) {
+  const fim = cxFimMaduro(f.fim, hoje);
+  const sel = cxFiltra(rows, Object.assign({}, f, { fim, canais: f.canais || CX_CANAIS_KAI }));
+  const a = cxSoma(sel);
+  const esc = cxSoma(sel.filter((l) => l.escalado === true));
+  const kai = a.kai_fechou, pessoa = a.resposta_humana;
+  const semResp = Math.max(0, esc.tickets - esc.resposta_humana);       // transferido e ninguém respondeu (aberto ou fechado)
+  const inat = a.fechado_inatividade;
+  const abertoSemTransf = Math.max(0, a.tickets - kai - pessoa - semResp - inat);
+  const t = a.tickets, ok = t >= CX_MIN_BASE;
+  const pct = (x) => (ok ? (x / t) * 100 : null);
+  return { ini: f.ini, fim, maduro: fim >= f.ini, tickets: t, kai, pessoa, semResp, inat, abertoSemTransf, baseOk: ok,
+    pctKai: pct(kai), pctPessoa: pct(pessoa), pctSemResp: pct(semResp), pctAberto: pct(abertoSemTransf + inat) };
+}
+// série semanal do desfecho maduro; semana que passa de D-2 é parcial (o que ainda vai fechar não fechou)
+function serieSemanalDesfecho(rows, f, hoje) {
+  const semanas = cxSemanas(f.ini, f.fim); const teto = diasAtrasCx(CX_MATURACAO_DIAS, hoje);
+  const pontos = semanas.map((s) => {
+    const fimSem = diasAtrasCx(-6, s); const fim = fimSem < teto ? fimSem : teto;
+    if (fim < s) return { semana: s, tickets: 0, kai: 0, pessoa: 0, semResp: 0, aberto: 0, y: null, ySemResp: null, parcial: true };
+    const d = desfechoMaduro(rows, { marca: f.marca, ini: s, fim, canais: f.canais }, hoje);
+    return { semana: s, tickets: d.tickets, kai: d.kai, pessoa: d.pessoa, semResp: d.semResp, aberto: d.abertoSemTransf + d.inat, y: d.pctKai, ySemResp: d.pctSemResp, parcial: fimSem > teto };
+  });
+  return { semanas, pontos };
+}
+
 // ---------- séries no tempo para as abas (todas puras) ----------
 // grupos de motivo para o gráfico (7 motivos viram 4 séries; cores fixas na tela)
 const CX_GRUPOS_MOTIVO = [
@@ -315,5 +355,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, CX_MATURACAO_DIAS, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

@@ -177,6 +177,38 @@ de 12/09 e 13/09 entram sozinhas quando o Gleap fechar a conta — se em 16/09 a
 (as duas marcas gravaram às 08:53). Se o painel mostrar leitura do RA com mais de um dia, conferir em claude.ai › tarefas
 agendadas se ela está ativa. Plano B continua sendo o bookmarklet.
 
+### Auditoria dos números (14/09) — o que estava furado e o que mudou
+
+Conferido número a número contra `cx_ticket` (uma linha por ticket), o Gleap direto e transcrições. Achados e correções:
+
+1. **Razões por pedido explodiam em "hoje"** (361 contatos/100 pedidos, WISMO 190%): `cx_pedido_dia` de hoje é a foto das
+   01:20 (17 pedidos) e os contatos entram a cada 30 min. Agora as razões usam **só dia completo** (período que só tem
+   hoje cai para ontem e a etiqueta diz); a série semanal também para em ontem. O chip da razão virou diferença absoluta
+   ("▲ 23,4 · ant. 31,6"), não "pp".
+2. **"Kai resolve sozinho" estava inflado** (47% quando o real era 26–30%). A conta antiga era Kai ÷ (Kai + fechados por
+   pessoa): ticket **transferido e ainda aberto ficava fora do denominador** — e com a fila em 1.400 isso era 35% dos
+   tickets. Agora é `desfechoMaduro()`: Kai fechou ÷ **todos** os tickets de chat criados até D-2, com o resto explícito
+   (pessoa respondeu · transferido e ninguém respondeu · aberto/inatividade). Colunas novas na view `cx_csat_dia`
+   (`fechados, resposta_humana, kai_fechou, fechado_inatividade`) e na API. "Ninguém respondeu" saiu de 12,8% para
+   **36,2%** — esse é o número verdadeiro da semana.
+3. Ainda dentro do Kai: em 10 transcrições de "Kai resolveu" (13/09), 6 eram informação entregue (rastreio, status),
+   **3 eram o Kai prometendo "o time responde por aqui" sem transferir o ticket** (troca de endereço que ninguém fez) e
+   1 era cliente com pedido parado há 8 dias que deu 😡. A promessa sem transferência não tem tag (`kai-aviso` não foi
+   aplicada) e por isso conta como resolvido. Correção é no fluxo do Kai (transferir quando promete), não no painel.
+4. **CSAT de hoje sempre zerava**: o coletor só buscava ratings no noturno. Agora busca em toda rodada de 30 min;
+   e quando o período não tem avaliação nenhuma o cartão cai para a última janela com avaliação e diz.
+5. **Dia do desfecho era UTC** no snapshot (21h–24h SP caíam no dia seguinte): corrigido para São Paulo.
+6. **Δ de motivos em "hoje"** comparava meio dia com ontem inteiro (sempre seta para baixo de manhã): suprimido em dia
+   em andamento, com etiqueta.
+7. Coluna "Kai sozinho" da tabela de motivos media "não foi transferido"; virou **"Kai fechou"** (`kai_fechou`).
+
+O que **bateu**: contatos (todos os 40 tickets amostrados foram abertos pelo cliente; 406 sessões distintas em 408 tickets
+de um dia — não há duplicata por cliente), pedidos (Shopify), motivos com tag final (o coletor refaz hoje a cada 30 min
+e 45 dias no noturno, então retag entra; a precedência problema > cancelamento > troca > wismo > pré-venda > outros faz
+`outros + wismo` virar wismo), WISMO/pedido (883 ÷ 5.184 = 17,0% em 07–13/09) e RA. **"Outros" 53%** é real: são tickets
+cuja única tag de rota é `outros` depois de todas as passadas — inclui casos em que o Kai respondeu rastreio (WISMO de
+fato) e o classificador não marcou.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em
