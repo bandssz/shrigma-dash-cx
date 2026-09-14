@@ -74,7 +74,7 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   const x = await boot();
   assert.equal(x.document.querySelectorAll('#area-seis .six2').length, 6);
   const rots = x.txt('#area-seis .six2-rot');
-  assert.deepEqual(rots, ['Contatos / 100 pedidos', 'WISMO / pedido', 'CSAT · bom', 'Kai resolve sozinho', 'RA · resposta', 'RA · solução']);
+  assert.deepEqual(rots, ['Contatos / 100 pedidos', 'WISMO / pedido', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Reclame Aqui · nota']);
   // sem cx_pedidos: valor é traço e a linha de apoio diz o porquê — nunca zero
   assert.equal(x.txt('#area-seis .six2-val')[0], '—');
   assert.match(x.txt('#area-seis .six2')[0], /1\.225 contatos · sem pedidos coletados/);
@@ -86,9 +86,13 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   // Kai resolve sozinho = fechados pelo Kai ÷ TODOS os tickets de chat maduros (até D-2), consolidado: 15 ÷ (60+20+40+30) = 10,0%
   assert.equal(x.txt('#area-seis .six2-val')[3], '10,0%');
   assert.match(x.document.querySelector('#area-seis .six2[data-m="kai_resolve"]').getAttribute('title'), /TODOS os tickets/);
-  // RA sem coleta: traço, não zero; contador de status no cabeçalho
-  assert.equal(x.txt('#area-seis .six2-val')[4], '—');
-  assert.match(x.document.querySelector('#seis-rot').textContent, /1 em atenção/);
+  // ninguém respondeu = transferidos sem resposta humana ÷ maduros = 20/150 = 13,3% (fora do alvo de 5%)
+  assert.equal(x.txt('#area-seis .six2-val')[4], '13,3%');
+  // RA sem coleta: traço, não zero
+  assert.equal(x.txt('#area-seis .six2-val')[5], '—');
+  // CSAT: taxa de resposta sempre visível no cartão
+  assert.match(x.txt('#area-seis .six2')[2], /responderam \d+%/);
+  assert.match(x.document.querySelector('#seis-rot').textContent, /1 fora do alvo/);
   // um gráfico só, dirigido pelo cartão ativo (padrão: contatos/100 pedidos → sem pedidos vira aviso)
   assert.match(x.document.querySelector('#g-geral').textContent, /Sem pedidos coletados/);
   x.document.querySelector('#area-seis .six2[data-m="csat_bom"]').click();
@@ -160,9 +164,13 @@ test('com pedidos e RA na API, os cartões viram razão por pedido e índices co
   assert.equal(x.txt('#area-seis .six2-val')[0], '29,0');
   // WISMO 80/dia → 560 ÷ 3.500 = 16,0%
   assert.equal(x.txt('#area-seis .six2-val')[1], '16,0%');
-  assert.equal(x.txt('#area-seis .six2-val')[4], '86,2%');
-  assert.equal(x.txt('#area-seis .six2-val')[5], '85,0%');
+  // RA: a nota da empresa como número, a composição do RA1000 embaixo com ✓/✗
+  assert.equal(x.txt('#area-seis .six2-val')[5], '7,0/10');
+  const comp = x.document.querySelector('#area-seis .six2[data-m="ra_nota"] .six2-comp').textContent;
+  assert.match(comp, /resp\. 86% ✗/); assert.match(comp, /486 aval\. ✓/); assert.match(comp, /103 aguardando/);
   assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'com pedidos o gráfico padrão traça a razão por semana');
+  x.document.querySelector('#area-seis .six2[data-m="ra_nota"]').click();
+  assert.match(x.document.querySelector('#g-geral-tit').textContent, /por leitura/);
   // aba RA: seis critérios como cartões, tabela por marca com o veredito
   assert.deepEqual(x.txt('#area-ra-num .six2-val'), ['7,0', '86,2%', '85,0%', '57,2%', '486', '103']);
   assert.match(x.document.querySelector('#ra-tab-rot').textContent, /faltam 3 de 5/);

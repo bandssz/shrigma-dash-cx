@@ -262,3 +262,17 @@ details.dobra-painel > summary .cab-titulo h2 { margin: 0; }
 .secao-rot .cab-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .aba-pane { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
 .aba-pane > * { min-width: 0; }
+
+/* ---- cartão RA com composição, fila agora (14/09) ---- */
+.six2-comp { display: block; font-size: 11px; color: var(--mudo); line-height: 1.5; margin-top: 2px; }
+.six2-comp .ok { color: var(--bom); } .six2-comp .falta { color: var(--ruim); font-weight: 600; }
+.six2 .six2-chip .mini.vm { color: var(--ruim); font-weight: 600; }
+.fila-agora { margin-bottom: 18px; }
+.fila-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.fila-stats > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--card-2); border: 1px solid var(--borda); border-radius: 10px; }
+.fila-stats strong { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.fila-stats strong.vm { color: var(--ruim); }
+.fila-tab td, .fila-tab th { padding: 8px 10px; font-size: 13px; }
+.fila-tab a { color: var(--texto); text-decoration: underline dotted; }
+@media (max-width: 900px) { .fila-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.six2-extra { display: block; font-size: 11px; margin-top: 2px; }

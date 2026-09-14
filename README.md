@@ -241,6 +241,30 @@ até 1h ok, ≥ 50% atenção. Gráfico do cartão: mediana diária por marca, 8
 Gleap parado (etiqueta no cabeçalho diz desde quando). `cx_snapshot.primeira_resposta_comercial_seg` continua sendo
 preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 
+### Seis números revistos e fila agora (14/09, tarde)
+
+- **Reclame Aqui virou um cartão só**: a **nota da empresa** (pior marca, alvo ≥ 7) com a composição do RA1000 embaixo
+  — resp. · sol. · voltaria · avaliações com ✓/✗ e o "aguardando". O gráfico do cartão é a nota por leitura. Resposta e
+  solução continuam como cartões na aba Reclame Aqui.
+- **"Ninguém respondeu" entrou nos seis** (transferido e sem resposta humana ÷ tickets de chat maduros; alvo < 5%, atenção
+  até 10%) — hoje é o número mais importante do painel e estava escondido na aba Chat.
+- **CSAT mostra a taxa de resposta sempre** ("responderam 19%", vermelho abaixo de 25%). Referência: pesquisa pós-chat no
+  WhatsApp costuma responder 15–30%; 19–20% não é anormal em si — o problema é que caiu de 42–46% em agosto e que quem o
+  Kai fecha responde 9–22% contra 31–53% de quem passou por pessoa, então o CSAT fala mais pelo atendimento humano.
+- **Fila agora** (aba Chat, cartão Fila): bloco `cx_fila` na API (um ticket aberto por linha, 90 dias) → esperando pessoa
+  (transferido sem resposta humana), espera mediana e p90 em **horas de expediente**, quantos há mais de 1 dia útil e mais de
+  1 semana útil, com pessoa, com o Kai, e os **10 tickets há mais tempo esperando** com link para o Gleap
+  (`app.gleap.io/projects/<projeto>/inbox/<ticket>` — padrão observado; ajustar se não abrir). Acima de 20 h a espera
+  aparece em dias úteis (10 h cada).
+- Cabeçalho da Visão geral diz até que dia o Kai/ninguém respondeu estão maduros ("até 08/09" numa segunda).
+
+**"Outros" é WISMO não classificado.** Amostra de 40 dos 835 tickets `outros` do Aristocrata (WhatsApp, 08–13/09): 35 eram
+"cadê meu pedido" (rastreio, entrega, pedido) respondidos pelo Kai; 2 só "boa tarde"; 1 cancelamento; 2 sem texto útil. Ou
+seja, WISMO real ≈ 37% + 85% de 53% ≈ **80% do chat**. A classificação é do Kai (Gleap); o atalho em nossas mãos é o
+workflow `Gleap – WISMO Consulta Pedido` (`yH37IridSjvKgk75`), que o Kai chama para localizar o pedido e hoje **não marca
+tag** — marcar `wismo` ali quando o pedido é localizado resolveria a maior parte. Não aplicado: tags dirigem roteamento no
+Gleap e é decisão do Samuel/CX Ops.
+
 ### Regras que a repaginação fixou
 
 - **CSAT do Gleap tem três opções** (2 ruim / 6 neutro / 10 bom). A coluna `csat` de `cx_snapshot` é a média disso em

@@ -311,6 +311,35 @@ function tempoPorAgente(rows, f) {
     .sort((x, y) => y.respondidos - x.respondidos);
 }
 
+
+// ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
+// segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
+function cxSegExpediente(iniUtc, fimUtc) {
+  const a0 = new Date(iniUtc), b0 = new Date(fimUtc); if (!(b0 > a0)) return 0;
+  const sp = (d) => new Date(d.getTime() - 3 * 3600 * 1000); const a = sp(a0), b = sp(b0);
+  let total = 0; const d = new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate()));
+  const fimDia = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()));
+  let guarda = 0;
+  while (d <= fimDia && guarda++ < 400) {
+    if (!CX_DIAS_SEM_EXPEDIENTE.includes(d.getUTCDay())) {
+      const ab = new Date(d); ab.setUTCHours(8, 0, 0, 0); const fe = new Date(d); fe.setUTCHours(18, 0, 0, 0);
+      const ini = a > ab ? a : ab, fim = b < fe ? b : fe; if (fim > ini) total += (fim - ini) / 1000;
+    }
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return Math.round(total);
+}
+function mediana(v) { const s = v.filter((x) => typeof x === "number").sort((a, b) => a - b); if (!s.length) return null; const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
+// agora = Date (UTC). Esperando pessoa = transferido e sem resposta humana; com o Kai = aberto sem transferência.
+function filaAgora(rows, marca, agora, canais) {
+  const sel = (rows || []).filter((l) => (marca === "todas" || l.marca === marca) && (!canais || canais.includes(l.canal)));
+  const esp = sel.filter((l) => l.escalado && !l.has_agent_reply).map((l) => Object.assign({}, l, { espera: cxSegExpediente(l.criado_em, agora), esperaRelogio: Math.round((agora - new Date(l.criado_em)) / 1000) }));
+  esp.sort((x, y) => y.espera - x.espera);
+  const idades = esp.map((x) => x.espera);
+  return { total: sel.length, esperandoPessoa: esp.length, comPessoa: sel.filter((l) => l.has_agent_reply).length, comKai: sel.filter((l) => !l.escalado && !l.has_agent_reply).length,
+    idadeMediana: mediana(idades), idadeP90: idades.length ? idades.slice().sort((a, b) => a - b)[Math.floor(0.9 * (idades.length - 1))] : null,
+    maisDe1dia: esp.filter((x) => x.espera > 10 * 3600).length, maisDe1semana: esp.filter((x) => x.espera > 40 * 3600).length, top: esp.slice(0, 10) };
+}
 // ---------- séries no tempo para as abas (todas puras) ----------
 // grupos de motivo para o gráfico (7 motivos viram 4 séries; cores fixas na tela)
 const CX_GRUPOS_MOTIVO = [
@@ -415,5 +444,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }
