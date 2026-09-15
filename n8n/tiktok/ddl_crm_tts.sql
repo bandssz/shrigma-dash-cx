@@ -186,9 +186,13 @@ SELECT a.marca, a.application_id, a.username, c.nickname, c.seguidores, c.gmv_30
          OR (r.sku_regex IS NOT NULL AND (a.product_title || ' | ' || COALESCE(a.sku_name,'')) ~ r.sku_regex) AS sku_ok,
        CASE
          WHEN r.marca IS NULL THEN 'sem_regra'
+         -- SKU fora da regra: rejeita, MENOS quando o criador é comprovado (GMV 30d >= gmv_auto) — aí vai
+         -- para a fila manual. Medido em 15/09: a esteira teria rejeitado @maykosantos_ia (R$ 24.514) por
+         -- pedir 300 m, e a decisão humana foi aprovar e enviar.
          WHEN (cardinality(r.skus_permitidos) > 0 OR r.sku_regex IS NOT NULL)
               AND NOT (a.sku_id = ANY(r.skus_permitidos))
-              AND NOT (r.sku_regex IS NOT NULL AND (a.product_title || ' | ' || COALESCE(a.sku_name,'')) ~ r.sku_regex) THEN 'fora_sku'
+              AND NOT (r.sku_regex IS NOT NULL AND (a.product_title || ' | ' || COALESCE(a.sku_name,'')) ~ r.sku_regex)
+           THEN CASE WHEN COALESCE(c.gmv_30d,0) >= r.gmv_auto THEN 'sku_fora_comprovado' ELSE 'fora_sku' END
          WHEN c.fulfillment_pct > 0 AND c.fulfillment_pct < r.fulfillment_min THEN 'fora_fulfillment'
          WHEN COALESCE(c.gmv_30d,0) >= r.gmv_auto THEN 'comprovado'
          WHEN COALESCE(c.gmv_30d,0) >= r.gmv_manual THEN 'descoberta'

@@ -379,6 +379,20 @@ token em `crm_tts_token`; o `Token Manager` lê dessa tabela primeiro e **descar
 `autorizado_em` muda** — sem isso o cache continuaria servindo um token com os escopos antigos. Os `SEEDS`
 no código ficam só como rede de segurança da primeira autorização.
 
+**Decisão de amostra é manual (15/09/2026).** O painel só oferece `simulação` e `pausado`; ligar
+`crm_tts_regra.modo = 'ativo'` é decisão do Felipe, direto no banco. Aprovar e rejeitar acontece pelos
+botões da fila, um a um, com autor registrado.
+
+**Primeira medição de concordância (15/09):** 1 decisão comparável, e foi desacordo — @maykosantos_ia
+(R$ 24.514 de GMV 30d) pediu multifilamento 300 m; a esteira teria rejeitado por SKU e a decisão humana
+foi aprovar e enviar. Daí o tier **`sku_fora_comprovado`**: variante fora da regra + criador acima do
+`gmv_auto` vai para a fila manual, nunca para rejeição automática.
+
+**Limite de QPS (15/09):** a coleta das 03:30 tomou `429` em `target` nas duas marcas, e a esteira
+chamava o coletor **duas vezes em paralelo** (o nó HTTP rodava uma vez por item do Token Manager, que
+devolve duas lojas). Corrigido com `executeOnce` no nó, backoff de 1,5 s → 12 s com reassinatura em 429/5xx
+e pausa curta entre páginas. Coleta completa depois da correção: 12 fontes sem erro em ~2 min.
+
 **Próximos passos (na ordem):** medir concordância do dry-run (decisão da esteira × o que a Marcela fez no
 Seller Center, via `status` final) → webhook "Sample Application Status Change" no Partner Center → aprovar/rejeitar
 pelo painel → edição de `crm_tts_regra` pelo painel → ligar `modo='ativo'` por marca → follow-up de

@@ -50,6 +50,7 @@ test('decisão gravada pela esteira vence o tier calculado e marca simulação',
   const r=TTS.rotulo({tier_sugerido:'comprovado',decisao:'auto_rejeitada',dry_run:true,decisao_motivo:'SKU fora'});
   assert.equal(r.rot,'Rejeitar (simulado)'); assert.equal(r.cls,'ruim'); assert.equal(r.det,'SKU fora');
   assert.equal(TTS.rotulo({tier_sugerido:'descoberta'}).rot,'Avaliar');
+  assert.equal(TTS.rotulo({tier_sugerido:'sku_fora_comprovado'}).rot,'Avaliar · SKU','criador comprovado com SKU fora nunca é rejeição automática');
   assert.equal(TTS.rotulo({tier_sugerido:'comprovado',decisao:'auto_aprovada',dry_run:false}).rot,'Aprovar');
 });
 test('horas até prazo: negativo quando vencido',()=>{

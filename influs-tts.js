@@ -13,6 +13,7 @@
       fora_gmv:         { rot: 'Fora · GMV',     cls: 'ruim',   det: 'GMV 30d abaixo do mínimo' },
       fora_sku:         { rot: 'Fora · SKU',     cls: 'ruim',   det: 'variante pedida não está na lista de amostras permitidas' },
       fora_fulfillment: { rot: 'Fora · postagem', cls: 'ruim',  det: 'taxa de postagem de amostras abaixo do mínimo' },
+      sku_fora_comprovado: { rot: 'Avaliar · SKU', cls: 'neutro', det: 'variante fora da regra, mas o criador passa do corte de GMV — decisão humana, nunca rejeição automática' },
       sem_regra:        { rot: 'Sem regra',      cls: 'nulo',   det: 'marca sem linha em crm_tts_regra' },
     },
     filtra(arr, marca) { return (arr || []).filter(x => marca === 'todas' || x.marca === marca); },
@@ -259,18 +260,17 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín. %</th><th class="num" title="amostras aprovadas por mês (auto + manual) antes de tudo virar fila manual">Teto/mês</th>
       <th title="variantes que podem virar amostra: padrão (regex sobre título | variante) e/ou lista explícita de sku_id">SKUs permitidos</th><th>Atualizado</th><th></th></tr></thead><tbody>
       ${rs.map(r => `<tr data-marca="${esc(r.marca)}"><td>${tag(r.marca)}</td>
-        <td><select class="i-sel tts-r" data-campo="modo" title="ativo = executa no TikTok sem passar por gente">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
+        <td><select class="i-sel tts-r" data-campo="modo" title="a decisão de amostra é manual: o painel só liga simulação ou pausado. Ligar o automático é decisão do Felipe, direto em crm_tts_regra.modo">${['dry_run', 'pausado'].concat(r.modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num">${inp(r, 'gmv_auto', 500, 'R$, GMV 30d')}</td><td class="num">${inp(r, 'gmv_manual', 500, 'R$, GMV 30d')}</td>
         <td class="num">${inp(r, 'fulfillment_min', 1, '% de amostras postadas em 90 dias')}</td><td class="num">${inp(r, 'teto_mensal', 5, 'amostras por mês')}</td>
         <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
         <td><button class="btn tts-btn tts-salvar">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
-      <div class="nota">A esteira roda a cada 2 h e só executa no TikTok com o modo <strong>ativo</strong>. Em simulação, a coluna "Sugestão" da fila mostra o que ela faria. Alterar o padrão de SKU é tarefa de banco (<code>crm_tts_regra.sku_regex</code>).</div>`;
+      <div class="nota">Aprovar e rejeitar amostra é <strong>manual</strong> — pelos botões da fila. A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Ligar o automático e alterar o padrão de SKU são tarefas de banco (<code>crm_tts_regra.modo</code> e <code>.sku_regex</code>).</div>`;
     document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
       tr.querySelectorAll('.tts-r').forEach(el => { regra[el.dataset.campo] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
-      const ativo = regra.modo === 'ativo';
-      armar(b, ativo ? 'Confirmar modo ATIVO (executa no TikTok)?' : 'Confirmar?', async () => {
+      armar(b, 'Confirmar?', async () => {
         const j = await acaoTTS({ acao: 'regra', marca: tr.dataset.marca, regra });
         msg.textContent = j.mensagem || 'ok'; b.disabled = false; b.textContent = 'Salvar';
         await carregarTTS();
