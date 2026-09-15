@@ -1,7 +1,7 @@
 /* Growth attribution contract v2: order-deduplicated aggregates, explicit models. */
 const GA=(()=>{
  const models={last_non_direct:'Último clique não direto',last_click:'Último clique'},brands=['aristo','fish'];
- const names={'semana-do-cliente-2026':'Semana do Cliente · 2026','desodorante-frescor':'Lançamento Desodorante Frescor','sabonete-alma-da-roca':'Lançamento Alma da Roça','fish-carta-fundador':'Carta do fundador','fish-copo':'Campanha do Copo','fish-kit-x1':'Kit X1','fish-4x-8x':'Guia 4X ou 8X','aristo-9do9':'Especial 9.9','workflow-175919-semana-do-pescador-02':'Semana do Pescador · WhatsApp (histórico)'};
+ const names={'semana-do-cliente-2026':'Semana do Cliente · 2026','desodorante-frescor':'Lançamento Desodorante Frescor','sabonete-alma-da-roca':'Lançamento Alma da Roça','fish-carta-fundador':'Carta do fundador','fish-dia-do-cliente':'Dia do Cliente · 2026','fish-copo':'Campanha do Copo','fish-kit-x1':'Kit X1','fish-4x-8x':'Guia 4X ou 8X','aristo-9do9':'Especial 9.9','workflow-175919-semana-do-pescador-02':'Semana do Pescador · WhatsApp (histórico)'};
  const norm=v=>String(v??'').trim().toLowerCase(),num=v=>Number(v)||0,date=v=>String(v||'').slice(0,10);
  const inPeriod=(d,a,b)=>date(d)>=a&&date(d)<=b;
  const day=v=>v?new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v)):'';
