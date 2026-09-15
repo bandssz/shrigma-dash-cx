@@ -35,6 +35,7 @@ FROM observed GROUP BY 1,2,3,4;
 
 CREATE OR REPLACE VIEW public.shrigma_growth_email_ses_payload_v1 AS
 SELECT jsonb_build_object('schema_version',1,'generated_at',clock_timestamp(),'timezone','America/Sao_Paulo',
+ 'health',(SELECT payload FROM public.shrigma_growth_email_ses_health_v1),
  'rows',coalesce((SELECT jsonb_agg(to_jsonb(r) ORDER BY r.dia,r.marca,r.flow,r.piece) FROM public.shrigma_growth_email_ses_rows_v1 r),'[]'::jsonb),
  'coverage',coalesce((SELECT jsonb_agg(jsonb_build_object('marca',c.brand,'flow',c.flow,'piece',c.piece,
    'starts_at',c.starts_at,'ends_at',c.ends_at,'state',c.state,'checked_at',c.checked_at,'verified_through',c.verified_through)

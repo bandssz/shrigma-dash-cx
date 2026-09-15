@@ -6,3 +6,4 @@
 .ses-coverage{margin-top:16px}.ses-coverage summary{cursor:pointer;font:600 13px/1.5 var(--ui);padding:10px 0}
 .ses-updated{margin:12px 0 0}
 @media(max-width:700px){.ses-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ses-metric{padding:12px}.ses-metric strong{font-size:26px}}
+.ses-health{margin:14px 0;padding:14px;border:1px solid #dde3eb;border-radius:10px;background:#f8fafc}.ses-health p{margin:8px 0}.ses-health-danger{color:#942c25;font-weight:600}.ses-health-warning{color:#80530d}.ses-health-ok{color:#17664d}

@@ -3,6 +3,37 @@
 const GSES = {
   fields:['aceitos','enviados_ses','entregues','hard','soft','recusados_ses','falhas','reclamacoes','atrasos','sem_confirmacao_final'],
   count(v) { return typeof v==='number' && Number.isSafeInteger(v) && v>=0 ? v : null; },
+  health(api,marca,now=Date.now()) {
+    const h=api?.crm_email_ses?.health,alerts=[];
+    const age=t=>{const n=Date.parse(t);return Number.isFinite(n)&&n<=now+60000?now-n:null;};
+    if(h?.schema_version!==1||!Array.isArray(h.brands)||age(h.checked_at)===null||age(h.checked_at)>15*60000)return {alerts:[{level:'warning',text:'Saúde da coleta sem consulta atual. Atualize o painel.'}]};
+    const pollAge=age(h.collector?.last_poll_ok_at),errorAge=age(h.collector?.last_error_at);
+    if(pollAge===null)alerts.push({level:'warning',text:'Ainda sem confirmação de funcionamento do coletor.'});
+    else if(pollAge>5*60000)alerts.push({level:'danger',text:'Coletor sem confirmação há mais de cinco minutos. As entregas podem estar desatualizadas.'});
+    else alerts.push({level:'ok',text:'Consulta à fila confirmada nos últimos cinco minutos.'});
+    const q=h.queue,queueAge=age(q?.checked_at),queueError=age(q?.error_at);
+    if(queueAge===null||queueAge>5*60000||['visible','inflight','delayed'].some(k=>GSES.count(q?.[k])===null)||queueError!==null&&queueError<queueAge)alerts.push({level:'warning',text:'Tamanho da fila sem medição atual confirmada.'});
+    else alerts.push({level:q.visible>=100?'warning':'info',text:'Fila SES: aproximadamente '+q.visible+' eventos aguardando, '+q.inflight+' em processamento e '+q.delayed+' com espera programada.'});
+    if(errorAge!==null&&errorAge<15*60000)alerts.push({level:'danger',text:'Houve falha no processamento da coleta nos últimos 15 minutos.'});
+    for(const [key,label] of [['pending_ingest_15min','eventos aguardam conciliação há mais de 15 minutos'],['conflicts','eventos apresentam conflito de conciliação']]) {
+      const n=GSES.count(h[key]);if(n===null)alerts.push({level:'warning',text:'Contagem de '+label+' indisponível.'});else if(n)alerts.push({level:'danger',text:n+' '+label+'.'});
+    }
+    for(const brand of ['fish','aristo'].filter(b=>['todas','todos'].includes(marca)||b===marca)) {
+      const rows=h.brands.filter(r=>r?.marca===brand),r=rows[0],label=brand==='fish'?'Fishermans':'Aristocrata';
+      const fields=['finalizacao_pendente','entregue_sem_gravacao','resultado_incerto','sem_confirmacao_15min','falhas_24h','reclamacoes_24h'];
+      if(rows.length!==1||fields.some(k=>GSES.count(r?.[k])===null)){alerts.push({level:'warning',text:label+': diagnóstico de envios indisponível.'});continue;}
+      if(r.finalizacao_pendente||r.entregue_sem_gravacao)alerts.push({level:'danger',text:label+': '+r.finalizacao_pendente+' envios com gravação pendente há mais de 15 minutos.'+(r.entregue_sem_gravacao?' '+r.entregue_sem_gravacao+' com entrega confirmada pelo SES e registro incompleto.':'')});
+      if(r.resultado_incerto)alerts.push({level:'danger',text:label+': '+r.resultado_incerto+' envios com resultado incerto. Exigem conciliação antes de qualquer nova tentativa.'});
+      if(r.sem_confirmacao_15min)alerts.push({level:'warning',text:label+': '+r.sem_confirmacao_15min+' envios aceitos nas últimas 24h aguardam confirmação final há mais de 15 minutos.'});
+      if(r.falhas_24h)alerts.push({level:'warning',text:label+': '+r.falhas_24h+' falhas em envios iniciados nas últimas 24h.'});
+      if(r.reclamacoes_24h)alerts.push({level:'danger',text:label+': '+r.reclamacoes_24h+(r.reclamacoes_24h===1?' reclamação':' reclamações')+' em envios iniciados nas últimas 24h.'});
+    }
+    return {alerts,checked_at:h.checked_at};
+  },
+  healthHtml(api,marca,ui) {
+    const h=GSES.health(api,marca);
+    return `<div class="ses-health" role="status"><strong>Saúde atual da operação</strong><p class="mini">Coleta compartilhada entre as marcas · independe do período selecionado · cobertura parcial</p>${h.alerts.map(a=>`<p class="ses-health-${a.level}">${ui.esc(a.text)}</p>`).join('')}</div>`;
+  },
   day(v) {
     const d=new Date(v || '');
     return Number.isFinite(d.valueOf()) ? new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d) : null;
@@ -37,7 +68,7 @@ const GSES = {
     const name=r=>esc(labels[r.marca] || r.marca);
     const states={partial:'Parcial',instrumented:'Instrumentado',interrupted:'Interrompido'};
     const metric=(label,key,note)=>`<div class="ses-metric"><span>${label}</span><strong>${ui.nf(m.totals[key])}</strong><small>${note}</small></div>`;
-    el.innerHTML=heading+`
+    el.innerHTML=heading+GSES.healthHtml(api,marca,ui)+`
       <p class="ses-summary">Automações com medição · agrupadas pelo dia do envio · ${esc(ui.period(ini,fim))}</p>
       ${m.stale?'<div class="nota" role="status">Esta consulta tem mais de 15 minutos. Atualize o painel para buscar novos eventos.</div>':''}
       <div class="ses-metrics">${metric('Aceitos pelo emissor','aceitos','Ainda não confirma entrega')}${metric('Entregues','entregues','Servidor do destinatário confirmou')}${metric('Falhas observadas','falhas','Devolução ou recusa do SES')}${metric('Sem confirmação final','sem_confirmacao_final','Aguardando entrega ou falha')}</div>
