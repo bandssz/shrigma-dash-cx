@@ -291,6 +291,13 @@ busca mensagens de todo ticket pendente) e do backfill `backfill_respostas.py`. 
 `cx_resposta_agente`. Tabela por agente: coluna **T. resposta · exped.** (mediana; embaixo, % em até 8 min e nº de
 respostas), meta 8 min colore o número; a 1ª resposta continua na coluna ao lado, separada de propósito.
 
+**Backfill de respostas (16/07 em diante)**: 31.059 respostas humanas em 7.112 tickets (3.978 são a 1ª do ticket e
+ficam fora). De 11/08 a 14/09, mediana em expediente por agente: Carlos 1,6 min · Juliano 2,3 · Adão 2,6 · Letícia
+2,6 · Giovanny 3,8 · Maria Eduarda 4,1 · Vivian 5,8 · **Vitória 11,3** — quase todo mundo bate "mediana < 8 min". O
+que não bate é a cauda: só **44–80% das respostas** saem em até 8 min (p90 de 1,5 h a 5 h), então a régua que
+diferencia o time é a fatia em até 8 min, não a mediana. A cor da coluna usa essa fatia (≥ 50% ⇔ mediana < 8 min,
+exato; a mediana mostrada é ≈ quando pondera dias).
+
 **Nomes que enganavam**: `cx_reabertura_dia` não é reabertura — é ticket criado antes do período com atividade dentro
 (comentário da própria tabela); a tira do detalhe passou a se chamar "Ativos de antes do período". `cx_agente_resolucao`
 (fechados/reabertos/resolvidos por agente) foi uma tentativa de 18/08–01/09 sem fonte declarada e parou; ficou como
