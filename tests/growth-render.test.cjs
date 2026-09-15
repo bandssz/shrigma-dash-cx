@@ -240,10 +240,10 @@ test('exportação CSV sai igual à tela: filtro, recorte, ausente vazio, indivi
  const {nome,texto}=x.downloads[0];
  assert.equal(nome,'growth-campanhas-consolidada-e-mail-2026-09-01_2026-09-07.csv');
  const linhas=texto.split('\r\n');
- assert.equal(linhas.length,3);assert.match(linhas[0],/^\uFEFFPeça;Marca;Enviado em/);assert.match(linhas[0],/recorte_marca;recorte_canal;periodo_inicio;periodo_fim;referencia_consulta;busca$/);
+ assert.equal(linhas.length,3);assert.match(linhas[0],/^\uFEFFPeça;Marca;Enviado em/);assert.match(linhas[0],/recorte_marca;recorte_canal;periodo_inicio;periodo_fim;modelo_atribuicao;referencia_consulta;busca$/);
  assert.match(linhas[1],/^"Zebra; ""aspas""";O Aristocrata;/);
  // abertura não medida → vazio; CTOR sem abertura → vazio; receita indivisível → vazio + sim
- assert.match(linhas[1],/;500;490;98;;4,08;;0;0;0;;;sim;;não;Consolidada;E-mail;2026-09-01;2026-09-07;07\/09\/2026, 22:10;zebra$/);
+ assert.match(linhas[1],/;500;490;98;;4,08;;0;0;0;;;sim;;não;Consolidada;E-mail;2026-09-01;2026-09-07;Fonte anterior não reconciliada;07\/09\/2026, 22:10;zebra$/);
  assert.doesNotMatch(texto,/synthetic-test-key|shrigma_k/);
  x.document.querySelector('[data-s="camp"]').click();
  x.document.querySelector('#conv-export').click();

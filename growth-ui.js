@@ -34,7 +34,7 @@ const GUI = {
     if(!G || !GD) return null;
     const summary=GD.summary(G,api,marca,ini,fim,canal);
     const wa=summary.wa || {}, email=summary.email || {};
-    const conversionKnown=Array.isArray(api.crm_conversao);
+    const conversionKnown=Array.isArray(api.crm_conversao)&&!api._attribution_missing;
     const receipt=conversionKnown ? summary.receita : null;
     const orders=conversionKnown ? summary.pedidos : null;
     const closed=!!hoje && fim < hoje;
@@ -61,8 +61,8 @@ const GUI = {
         {label:'Entregues',value:wa.entregues,before:previous?.wa?.entregues,format:GUI.nf,note:GUI.number(wa.entrega_pct)?`${GUI.pf(wa.entrega_pct)} dos aceitos · delivered ou read`:'delivered ou read · sem duplicar',link:jump('Ver automações','flows:whatsapp')},
         {label:'Falhas na entrega',value:wa.falhas,before:previous?.wa?.falhas,format:GUI.nf,invert:true,note:GUI.number(wa.pendentes_entrega)?`${GUI.nf(wa.pendentes_entrega)} aguardando confirmação`:'Aguardando confirmação: —',link:jump('Ver ocorrências','attention'),failure:GUI.number(wa.falhas)&&+wa.falhas>0},
       ]:[]),
-      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:'Último clique · data da compra',link:jump('Ver conversão','conv')},
-      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:'Último clique · data da compra',link:jump('Ver conversão','conv')},
+      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
+      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
       ...(canal==='todos'?[waDelivery,emailCtr]:canal==='email'?[emailCtr]:[]),
     ];
     GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi${k.failure?' kpi-falha':''}"><div class="kpi-rot">${k.label}</div>
@@ -87,7 +87,7 @@ const GUI = {
     const waConv=channelConv('whatsapp'),emailConv=channelConv('email');
     const period=GUI.esc(GUI.period(ini,fim));
     const channelButton=channel => `<button type="button" class="refresh-btn" data-select-channel="${channel}" aria-pressed="${canal===channel}">${canal===channel?'Ver todos os canais':'Ver só este canal'}</button>`;
-    const attributionNote='Receita e pedidos seguem a data da compra e o último clique. Não representam a taxa de conversão dos envios deste período.';
+    const attributionNote=`Receita e pedidos seguem a data da compra e o modelo ${api._attribution_model==='last_click'?'último clique':'último clique não direto'}. Não representam a taxa de conversão dos envios deste período.`;
     const waBar=[wa.entregues,wa.pendentes_entrega,wa.falhas].every(GUI.number) && +wa.aceitos > 0
       ? `<div class="delivery-bar" aria-hidden="true">${[['ok',wa.entregues],['pending',wa.pendentes_entrega],['failed',wa.falhas]].map(([cls,n])=>`<i class="${cls}" style="width:${Math.min(100,Math.max(0,100*n/wa.aceitos))}%"></i>`).join('')}</div>` : '';
     const waCard=`<article class="channel-card whatsapp" data-channel-card="whatsapp">

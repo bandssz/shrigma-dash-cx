@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
 <link rel="stylesheet" href="growth.css?v=20260910-2">
+<link rel="stylesheet" href="growth-attribution.css?v=20260915-1">
 <link rel="stylesheet" href="growth-ses.css?v=20260914-1">
 <link rel="stylesheet" href="growth-control.css?v=20260911-2">
 <style>
@@ -156,6 +157,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
   <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
   <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
+  <section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section>
   <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
 
   <nav class="secoes" id="secoes" aria-label="Seções">
@@ -201,6 +203,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
+    <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
     <section class="painel" id="pix-conversion" aria-live="polite"></section>
     <section class="painel" id="campaign-email-block">
       <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
@@ -214,7 +217,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
       <div class="nota" id="nota-camp"></div>
     </section>
     <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">último clique · assistido</span>
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
         <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
           <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
       <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
@@ -327,9 +330,10 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
 <script src="growth-data.js?v=20260908-2"></script>
+<script src="growth-attribution.js?v=20260915-1"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
 <script src="growth-table.js?v=20260909-1"></script>
-<script src="growth-ui.js?v=20260910-2"></script>
+<script src="growth-ui.js?v=20260915-1"></script>
 <script src="growth-pix.js?v=20260912-1"></script>
 <script src="growth-ses.js?v=20260914-1"></script>
 <script src="growth-control.js?v=20260914-templates"></script>
@@ -348,6 +352,8 @@ const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+GA.install(G);
+let ATTR_MODEL='last_non_direct';
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
@@ -358,7 +364,7 @@ const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sa
 function exportMeta(extra={}){
   const canal={todos:'E-mail e WhatsApp',email:'E-mail',whatsapp:'WhatsApp próprio'}[CANAL]||CANAL;
   return {recorte_marca:MARCA==='todas'?'Consolidada':(G.MARCA_CHEIA[MARCA]||MARCA),recorte_canal:canal,
-    periodo_inicio:PER.ini,periodo_fim:PER.fim,
+    periodo_inicio:PER.ini,periodo_fim:PER.fim,modelo_atribuicao:GA.valid(API)?GA.models[GA.model(API)]:'Fonte anterior não reconciliada',
     referencia_consulta:CONSULTA.em?new Date(CONSULTA.em).toLocaleString('pt-BR',{timeZone:G.TZ,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'',
     ...extra};
 }
@@ -533,11 +539,12 @@ function render(){
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
+  GA.render({api:API,marca:MARCA,ini,fim,canal:CANAL,GUI,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
   GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
   GSES.render(API,MARCA,ini,fim,CANAL,GUI);
   GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
-  $('#campaign-email-block').hidden=CANAL==='whatsapp';
-  $('#email-comparison-block').hidden=CANAL==='whatsapp';
+  $('#campaign-email-block').hidden=GA.valid(API)||CANAL==='whatsapp';
+  $('#email-comparison-block').hidden=GA.valid(API)||CANAL==='whatsapp';
   $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
 
   // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
@@ -648,10 +655,7 @@ function render(){
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
   }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período.'}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
-  $('#nota-conv').innerHTML=`<strong>Último clique</strong> = o CRM foi o toque final; recebe 100% do crédito.
-    <strong>Assistido</strong> = o CRM apareceu na jornada mas outro canal fechou. As duas colunas nunca contam
-    o mesmo pedido. Fonte: Admin API da Shopify (<code>customerJourneySummary</code>) — o relatório de canal
-    ignora UTM e não serve.`;
+  $('#nota-conv').innerHTML=GA.valid(API)?`<strong>${esc(GA.models[GA.model(API)])} · 30 dias.</strong> ${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'} Receita líquida recebida, descontados reembolsos. <strong>Assistido</strong> = outro toque CRM dentro da janela, sem crédito final nesta linha. A mesma compra pode assistir mais de uma linha; não some assistências entre campanhas. Família consolida pedidos únicos da iniciativa. Jornadas ainda indisponíveis ficam pendentes. Dados anteriores à cobertura conciliada ficam fora desta atribuição.`:`Fonte anterior: último clique não direto, janela nominal de 30 dias. Atribuição ainda não reconciliada para esta marca.`;
 
   const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
   $('#n-regua').textContent=fl.length||'';
@@ -689,7 +693,7 @@ function render(){
     }).join('');
   }
 
-  $('#n-camp').textContent=cs.length||'';
+  $('#n-camp').textContent=(GA.valid(API)?GA.campaigns(API,MARCA,ini,fim,CANAL).length:cs.length)||'';
   $('#camp-rot').textContent=`${cs.length} peças`;
   const campVis=GT.ordena(GT.busca(cs,TABELAS.camp.q,['nome','utm_campaign','utm_content',c=>G.MARCA[c.marca]||c.marca]),TABELAS.camp.sort,TABELAS.camp.dir,
     c=>TABELAS.camp.sort==='receita'?(c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null):TABELAS.camp.sort==='abertura_pct'?(c.medido?c.abertura_pct:null):c[TABELAS.camp.sort]);
@@ -824,7 +828,7 @@ async function carregar(){
     if(!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);
     const next=await r.json();
     if(!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
-    API=next;
+    API=GA.project(next,ATTR_MODEL);
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     shrigmaMarcaMestra(k,API._painel);
