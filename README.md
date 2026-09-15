@@ -241,6 +241,55 @@ até 1h ok, ≥ 50% atenção. Gráfico do cartão: mediana diária por marca, 8
 Gleap parado (etiqueta no cabeçalho diz desde quando). `cx_snapshot.primeira_resposta_comercial_seg` continua sendo
 preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 
+### Fechamento não é resolução: cx_fechamento, "voltou em 7 dias", FCR e a meta do N1 (15/09)
+
+**Problema**: a coluna Fechados por agente vinha do Gleap (CLOSED por agente) e conta fechamento, não desfecho — o
+mesmo ticket fechado três vezes conta três, e reabertura concentra em incidente, quando a leitura mais importa. A meta
+do N1 passou a ser **fechamentos resolutivos > 120/dia e CSAT > 75**, então o painel precisa medir resolução.
+
+**Fonte** (verificada em 150 tickets de 18/08–08/09): o Gleap guarda por ticket `GET /tickets/{id}/history` com cada
+mudança de status (`FEEDBACK_UPDATED` / `STATUS`, valor, hora e usuário) desde a criação — é histórico completo, dá
+para reconstruir tudo desde 16/07. Duas pegadinhas: (1) a **reabertura automática** (cliente escreve num ticket
+fechado) **não gera evento de status** — só 9 "OPEN" para 248 "DONE" — então "voltou" sai de `/messages`: primeira
+mensagem do cliente (`USER_TEXT`/`BOT_REPLY`) depois do fechamento e antes do próximo, em até **7 dias corridos**;
+(2) a **resposta do CSAT** (🤩/😐/😡, "[Button clicked: …]", número) chega como mensagem do cliente depois do
+fechamento — sem filtrar, 51% dos tickets "voltavam"; filtrando, sobram retornos de verdade ("alguma atualização do
+envio?", "que demora é essa"). Polling, não webhook: webhook só dá tempo real e não dá backfill.
+
+**Dados**: tabela `cx_fechamento` — uma linha por fechamento: `ticket_id, ordem, marca, canal, ticket_dia,
+fechado_em, fechado_dia (SP), fechado_por_tipo (pessoa | kai | n8n | servico | sistema), fechado_por_id/nome,
+voltou_em, voltou_horas, humano_depois, msgs_humanas/msgs_cliente/msgs_bot (no trecho até este fechamento),
+agentes_ate_aqui, checado_em`. Contas de serviço do Gleap são `noreply-…@gleap.io`: "claude" = Kai (uma conta por
+projeto), "N8N Access" = n8n. Views `cx_fechamento_dia` (marca × canal × dia do fechamento: fechados, por_pessoa,
+por_kai, por_sistema, maduros, resolutivos, voltaram, voltaram_humano, pessoa_/kai_maduros e _resolutivos, fcr_base,
+fcr, msgs p50/média) e `cx_fechamento_agente_dia` (só pessoa). **Maduro** = `fechado_em + 7 dias <= now()`;
+**resolutivo** = maduro sem volta; **FCR** = 1º fechamento do ticket por pessoa, um agente humano só até ali, sem
+volta. `cx_ticket.fechamento_checado_em` marca o que já foi lido.
+
+**Coleta**: backfill de 15/09 (scratch `backfill_fechamentos.py`, 2 chamadas por ticket, ~15 mil tickets) e o
+workflow **CX — Fechamentos · noturno** (`VKtqiQ7LkEMsz9TT`, 01:10–06:10 a cada hora, 500 tickets por rodada, forçar
+em `GET /webhook/cx-fechamentos-forcar`): revisita ticket novo, ticket atualizado depois da última leitura e ticket
+com fechamento ainda imaturo (até 7 dias), apagando e reinserindo as linhas dele. Mesma função nos dois (JS validado
+contra o Python nos mesmos tickets). API: blocos `cx_fechamento` e `cx_fechamento_agente` (120 dias).
+
+**Tela**: aba Chat ganhou o cartão **"Voltou em 7 dias"** (fechamentos por pessoa maduros em que o cliente voltou;
+faixa proposta < 15% / 25% — não é meta declarada; title traz resolutivos, FCR, Kai e mensagens por fechamento;
+gráfico semanal por marca, ponto claro = semana maturando) com etiqueta "voltou: até dd/mm" quando o período ainda
+matura. A tabela **Por agente** virou a tabela da meta: **Fechados** (nossos, com /dia e dias com fechamento; meta
+120/dia colore o número), **Resolutivos** (% dos maduros; base < 30 vira contagem), **FCR**, **Msgs/fech.** (mediana
+de mensagens humanas; embaixo, do cliente), **CSAT** (escala do Gleap; meta 75), 1ª resposta, Trabalhados e Horas
+ativas (Gleap). Saíram Respostas, T. resposta e Resolução do Gleap. Etiqueta "resolutivos maduros até dd/mm".
+
+**Nomes que enganavam**: `cx_reabertura_dia` não é reabertura — é ticket criado antes do período com atividade dentro
+(comentário da própria tabela); a tira do detalhe passou a se chamar "Ativos de antes do período". `cx_agente_resolucao`
+(fechados/reabertos/resolvidos por agente) foi uma tentativa de 18/08–01/09 sem fonte declarada e parou; ficou como
+está, sem uso.
+
+**Amostra de 18/08–08/09 (Aris, WhatsApp + e-mail), antes do backfill**: 189 fechamentos por pessoa → 34% o cliente
+voltou em 7 dias, 29% voltou e alguém precisou trabalhar de novo; Kai 59 → 58% voltaram; FCR 42%; mensagens humanas
+por ticket mediana 2 (média 4), do cliente mediana 7. Fechamentos por agente por dia (Gleap, seg–qui, 25/08–11/09):
+o maior é 67/dia — a meta de 120 fechamentos/dia não é alcançada por ninguém hoje nem contando fechamento bruto.
+
 ### RA: 102 na página × 260 no RA Empresas — os dois números de "sem resposta" (14/09, noite)
 
 O Samuel apontou que o painel mostrava 102 aguardando quando o RA Empresas tem bem mais. Verificado na página pública

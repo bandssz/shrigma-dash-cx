@@ -276,3 +276,12 @@ details.dobra-painel > summary .cab-titulo h2 { margin: 0; }
 .fila-tab a { color: var(--texto); text-decoration: underline dotted; }
 @media (max-width: 900px) { .fila-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .six2-extra { display: block; font-size: 11px; margin-top: 2px; }
+
+/* 15/09 · tabela por agente: número colorido pelo status da meta (fechados/dia, resolutivos, FCR, CSAT) */
+.tabn.st-bom { color: var(--bom); }
+.tabn.st-atencao { color: #d9971e; }
+.tabn.st-ruim { color: var(--ruim); }
+/* 15/09 · aba Chat tem sete cartões (entrou "Voltou em 7 dias"): sete colunas no desktop, 4+3 no médio, 2 no celular */
+#area-chat { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 1280px) { #area-chat { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { #area-chat { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

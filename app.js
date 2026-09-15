@@ -420,7 +420,7 @@ function pintaDetalhe(d, canais, tot) {
   const cobertura = wa && wa.tickets ? (wa.csat_enviado / wa.tickets) * 100 : null;
   const fora = canais.filter((c) => c.canal !== "whatsapp").reduce((a, c) => a + c.tickets, 0);
   $("#tiras-cx").innerHTML = `<div class="tiras">
-    <div class="tira"><span class="tira-rot">Reaberturas</span>
+    <div class="tira" title="cx_reabertura_dia NÃO é reabertura: é ticket criado ANTES do período com atividade DENTRO dele (volume que não entra em 'novos' e consome atendente). Reabertura de verdade — cliente voltou depois do fechamento — está no cartão 'Voltou em 7 dias' da aba Chat e na tabela por agente."><span class="tira-rot">Ativos de antes do período</span>
       <strong class="tabn">${fmtNum(reab)}</strong>
       <span class="mini">${reab ? Math.round((hum / reab) * 100) : 0}% com humano</span></div>
     <div class="tira"><span class="tira-rot">CSAT coberto</span>
@@ -476,18 +476,28 @@ document.addEventListener("click", (e) => {
 });
 
 function pintaRanking(d, hoje) {
-  // Duas fontes, uma tabela: volume/tempos do Gleap (cx_snapshot_agente, por agente designado) e a 1ª resposta
-  // humana medida ticket a ticket (cx_tempo_agente, por quem de fato respondeu primeiro, em EXPEDIENTE seg–qui 8–18).
-  // A do Gleap atrasa dias (janelas de 1 dia zeradas desde 12/09); a nossa não depende dele.
-  const gleap = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
+  // Três fontes, uma tabela por agente:
+  //  - cx_fechamento_agente (15/09): fechamentos feitos pela pessoa (evento DONE do histórico do Gleap), quantos
+  //    voltaram em 7 dias, FCR e mensagens por fechamento — é aqui que a meta do N1 (fechamentos > 120/dia) é conferida;
+  //  - cx_tempo_agente: 1ª resposta humana em EXPEDIENTE, por quem respondeu primeiro;
+  //  - Gleap (cx_snapshot_agente): trabalhados, horas ativas e CSAT (escala do Gleap, meta > 75). Atrasa dias.
+  const gleapLinhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
   const jt = cxJanelaCompleta(cxF(estado.marca), hoje);
   const tempos = tempoPorAgente(d.cx_tempo_agente || [], jt.f);
-  const porId = new Map(gleap.map((a) => [a.agente_id, Object.assign({}, a)]));
-  for (const t of tempos) {
-    const a = porId.get(t.agente_id) || (porId.set(t.agente_id, { agente_id: t.agente_id, nome: t.nome, marca: t.marcas.length === 1 ? t.marcas[0] : "todas", soTempo: true }), porId.get(t.agente_id));
-    a.tempo = t; if (!a.nome || /null$/i.test(a.nome)) a.nome = t.nome || a.nome;
+  const fechs = fechamentoPorAgente(d.cx_fechamento_agente || [], { marca: estado.marca, ini: PER.ini, fim: PER.fim });
+  const temFech = Array.isArray(d.cx_fechamento_agente) && d.cx_fechamento_agente.length > 0;
+  const porId = new Map();
+  const pega = (id, nome, marca) => porId.get(id) || (porId.set(id, { agente_id: id, nome, marcas: new Set(marca ? [marca] : []), trabalhados: 0, respostas: 0, horas_ativas_seg: 0, csatPares: [], gleap: false }), porId.get(id));
+  for (const g of gleapLinhas) {   // o Gleap devolve uma linha por agente × marca: soma
+    const a = pega(g.agente_id, g.nome, g.marca); a.gleap = true; a.marcas.add(g.marca);
+    a.trabalhados += g.trabalhados || 0; a.respostas += g.respostas || 0; a.horas_ativas_seg += g.horas_ativas_seg || 0;
+    if (typeof g.csat === "number") a.csatPares.push([g.csat, g.respostas || 1]);
+    a.aprox = a.aprox || g.aprox;
   }
-  const linhas = [...porId.values()].sort((x, y) => (y.trabalhados || 0) - (x.trabalhados || 0) || ((y.tempo && y.tempo.respondidos) || 0) - ((x.tempo && x.tempo.respondidos) || 0));
+  for (const t of tempos) { const a = pega(t.agente_id, t.nome, null); t.marcas.forEach((m) => a.marcas.add(m)); a.tempo = t; if (!a.nome || /null$/i.test(a.nome)) a.nome = t.nome || a.nome; }
+  for (const f of fechs) { const a = pega(f.agente_id, f.nome, null); f.marcas.forEach((m) => a.marcas.add(m)); a.fech = f; if (!a.nome || /null$/i.test(a.nome)) a.nome = f.nome || a.nome; }
+  const linhas = [...porId.values()].map((a) => { const tot = a.csatPares.reduce((s, p) => s + p[1], 0); a.csat = tot ? a.csatPares.reduce((s, p) => s + p[0] * p[1], 0) / tot : null; a.marca = a.marcas.size === 1 ? [...a.marcas][0] : "todas"; return a; })
+    .sort((x, y) => ((y.fech && y.fech.fechados) || 0) - ((x.fech && x.fech.fechados) || 0) || (y.trabalhados || 0) - (x.trabalhados || 0));
   const sel = $("#sel-agente");
   const atual = estado.agente;
   const nomes = [...new Map(linhas.map((a) => [a.agente_id, a.nome])).entries()];
@@ -495,14 +505,23 @@ function pintaRanking(d, hoje) {
     nomes.map(([id, n]) => `<option value="${id}" ${id === atual ? "selected" : ""}>${n}</option>`).join("");
 
   const filtradas = atual === "todos" ? linhas : linhas.filter((a) => a.agente_id === atual);
-  const maxTrab = Math.max(...linhas.map((a) => a.trabalhados || 0), 1);
+  const maxFech = Math.max(...linhas.map((a) => (a.fech && a.fech.fechados) || 0), 1);
   const gleapUlt = (d.agentes_1d || []).map((l) => l.dia).sort().pop();
   const gleapVelho = gleapUlt && gleapUlt < diasAtras(2, hoje);
+  const tetoMaduro = cxFimMaduroVolta(hoje);
   $("#ranking-rotulo").innerHTML = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "") +
-    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; trabalhados, fechados, respostas, T. resposta, resolução e horas ativas param em ${fmtDia(gleapUlt)}. A coluna de 1ª resposta é medida por nós e está em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
+    (temFech && PER.fim > tetoMaduro ? ` <span class="tag nota" title="Fechamento só conta como resolutivo (ou 'voltou') depois de ${CX_VOLTA_DIAS} dias corridos. Fechados conta todos; Resolutivos e FCR só os maduros — em período curto a base fica pequena e a coluna mostra a contagem.">resolutivos maduros até ${fmtDia(tetoMaduro)}</span>` : "") +
+    (!temFech ? ` <span class="tag alerta" title="A API ainda não devolve cx_fechamento_agente; Fechados, Resolutivos, FCR e Msgs ficam vazios.">sem cx_fechamento</span>` : "") +
+    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; Trabalhados, CSAT e Horas ativas param em ${fmtDia(gleapUlt)}. Fechados, Resolutivos, FCR, Msgs e 1ª resposta são medidos por nós e estão em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
     (jt.caiu || jt.cortou ? ` <span class="tag nota" title="1ª resposta usa só dias completos (ticket de hoje ainda vai ser respondido).">1ª resposta até ${fmtDia(jt.f.fim)}</span>` : "");
 
-  const t1 = (a) => a.tempo && a.tempo.respondidos ? `<strong class="tabn">${a.tempo.aproximado ? "≈ " : ""}${fmtDur(a.tempo.p50Comercial)}</strong><div class="mini">${fmtPct0(a.tempo.pctAte1h)} em até 1h</div>` : `<span class="mini">—</span>`;
+  const st = (m, v) => { const s = cxStatus(m, v); return s ? ` st-${s}` : ""; };
+  const t1 = (a) => a.tempo && a.tempo.respondidos ? `<strong class="tabn">${a.tempo.aproximado ? "≈ " : ""}${fmtDur(a.tempo.p50Comercial)}</strong><div class="mini">${fmtPct0(a.tempo.pctAte1h)} em até 1h · abriu ${fmtNum(a.tempo.respondidos)}</div>` : `<span class="mini">—</span>`;
+  const fechCel = (f) => !f ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_fechados_dia", f.porDia)}">${fmtNum(f.fechados)}</strong><span class="prog"><i style="width:${(f.fechados / maxFech) * 100}%"></i></span><div class="mini">${f.porDia === null ? "—" : fmtDec(f.porDia, 0)}/dia · ${fmtNum(f.dias)} dia${f.dias === 1 ? "" : "s"}</div>`;
+  const resCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctResolutivo === "number" ? `<strong class="tabn${st("voltou", f.pctVoltou)}">${fmtPct0(f.pctResolutivo)}</strong><div class="mini">${fmtNum(f.resolutivos)} de ${fmtNum(f.maduros)} · voltaram ${fmtNum(f.maduros - f.resolutivos)}</div>` : `<span class="tabn">${fmtNum(f.resolutivos)}<span class="mini"> de ${fmtNum(f.maduros)}</span></span><div class="mini">${f.maduros ? "base curta" : "nada maduro ainda"}</div>`;
+  const fcrCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctFcr === "number" ? `<strong class="tabn${st("fcr", f.pctFcr)}">${fmtPct0(f.pctFcr)}</strong><div class="mini">de ${fmtNum(f.fcrBase)} primeiros</div>` : `<span class="tabn">${fmtNum(f.fcr)}<span class="mini"> de ${fmtNum(f.fcrBase)}</span></span>`;
+  const msgCel = (f) => !f || f.msgsHumanasP50 === null ? `<span class="mini">—</span>` : `<strong class="tabn">${f.aproximado ? "≈ " : ""}${fmtDec(f.msgsHumanasP50, 0)}</strong><div class="mini">cliente ${f.msgsClienteP50 === null ? "—" : fmtDec(f.msgsClienteP50, 0)}</div>`;
+  const csatCel = (a) => !a.gleap || typeof a.csat !== "number" ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_csat", a.csat)}">${fmtDec(a.csat, 0)}</strong>`;
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
       <td><div class="pessoa">
@@ -510,14 +529,14 @@ function pintaRanking(d, hoje) {
         <div><div class="nome">${String(a.nome || a.agente_id).replace(/\s+null$/i, "")}</div>
         <div class="pessoa-marca">${ROTULOS[a.marca] || (a.marca === "todas" ? "duas marcas" : a.marca || "")}</div></div>
       </div></td>
-      <td class="num">${a.tempo ? fmtNum(a.tempo.respondidos) : "—"}</td>
+      <td class="num">${fechCel(a.fech)}</td>
+      <td class="num">${resCel(a.fech)}</td>
+      <td class="num">${fcrCel(a.fech)}</td>
+      <td class="num">${msgCel(a.fech)}</td>
+      <td class="num">${csatCel(a)}</td>
       <td class="num">${t1(a)}</td>
-      <td class="num">${a.soTempo ? "—" : fmtNum(a.trabalhados)}${a.soTempo ? "" : `<span class="prog"><i style="width:${((a.trabalhados || 0) / maxTrab) * 100}%"></i></span>`}</td>
-      <td class="num">${a.soTempo ? "—" : fmtNum(a.fechados)}</td>
-      <td class="num">${a.soTempo ? "—" : fmtNum(a.respostas)}</td>
-      <td class="num">${a.soTempo ? "—" : fmtDur(a.resposta_mediana_seg)}</td>
-      <td class="num">${a.soTempo ? "—" : fmtDur(a.fechamento_seg)}</td>
-      <td class="num">${a.soTempo ? "—" : fmtDur(a.horas_ativas_seg)}</td>
+      <td class="num">${a.gleap ? fmtNum(a.trabalhados) : "—"}</td>
+      <td class="num">${a.gleap ? fmtDur(a.horas_ativas_seg) : "—"}</td>
     </tr>`).join("") ||
     `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }

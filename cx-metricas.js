@@ -329,6 +329,69 @@ function tempoPorAgente(rows, f) {
 }
 
 
+// ---------- fechamentos (15/09): cx_fechamento_dia (marca × canal × dia do fechamento) e cx_fechamento_agente_dia ----------
+// "Fechados" do Gleap conta fechamento, não resolução: o mesmo ticket fechado três vezes conta três, e reabertura
+// concentra em incidente. Aqui cada fechamento é uma linha em cx_fechamento com quem fechou e se o cliente VOLTOU
+// em 7 dias corridos (mensagem dele depois do fechamento, ignorando a resposta do CSAT). Resolutivo = maduro
+// (7 dias passados) e sem volta. FCR = primeiro fechamento do ticket por pessoa, um agente só, sem volta.
+// A view já traz maduros/resolutivos calculados na hora da consulta; a tela só soma e só mostra % em base ≥ 30.
+const CX_VOLTA_DIAS = 7;
+function fechamentoAgg(rows, f) {
+  const a = { fechados: 0, porPessoa: 0, porKai: 0, porSistema: 0, maduros: 0, resolutivos: 0, voltaram: 0, voltaramHumano: 0,
+    pessoaMaduros: 0, pessoaResolutivos: 0, kaiMaduros: 0, kaiResolutivos: 0, fcrBase: 0, fcr: 0, dias: new Set() };
+  const p50h = [], p50c = [];
+  for (const l of cxFiltra(rows, f)) {
+    const n = (k) => Number(l[k] || 0);
+    a.fechados += n("fechados"); a.porPessoa += n("por_pessoa"); a.porKai += n("por_kai"); a.porSistema += n("por_sistema");
+    a.maduros += n("maduros"); a.resolutivos += n("resolutivos"); a.voltaram += n("voltaram"); a.voltaramHumano += n("voltaram_humano");
+    a.pessoaMaduros += n("pessoa_maduros"); a.pessoaResolutivos += n("pessoa_resolutivos"); a.kaiMaduros += n("kai_maduros"); a.kaiResolutivos += n("kai_resolutivos");
+    a.fcrBase += n("fcr_base"); a.fcr += n("fcr");
+    if (n("por_pessoa")) { a.dias.add(cxDia(l.dia)); p50h.push([Number(l.msgs_humanas_p50), n("por_pessoa")]); p50c.push([Number(l.msgs_cliente_p50), n("por_pessoa")]); }
+  }
+  const pct = (x, b) => b >= CX_MIN_BASE ? (x / b) * 100 : null;
+  return Object.assign(a, {
+    dias: a.dias.size,
+    pctVoltouPessoa: pct(a.pessoaMaduros - a.pessoaResolutivos, a.pessoaMaduros),   // fechou, cliente voltou em 7 dias
+    pctVoltouKai: pct(a.kaiMaduros - a.kaiResolutivos, a.kaiMaduros),
+    pctResolutivoPessoa: pct(a.pessoaResolutivos, a.pessoaMaduros),
+    pctFcr: pct(a.fcr, a.fcrBase),
+    msgsHumanasP50: medianaPonderada(p50h), msgsClienteP50: medianaPonderada(p50c), aproximado: p50h.length > 1,
+    imaturos: a.fechados - a.maduros,
+  });
+}
+// último dia cujos fechamentos já estão maduros (7 dias corridos) — etiqueta "maduro até dd/mm"
+function cxFimMaduroVolta(hoje) { return diasAtrasCx(CX_VOLTA_DIAS, hoje); }
+// % voltou (fechamento por pessoa) por semana, uma linha por marca; semana sem dia maduro = null, parcialmente madura = parcial
+function serieSemanalVolta(rows, f, hoje) {
+  const semanas = cxSemanas(f.ini, f.fim); const teto = cxFimMaduroVolta(hoje);
+  const pontos = semanas.map((s) => {
+    const fimSem = diasAtrasCx(-6, s); const fim = fimSem < teto ? fimSem : teto;
+    if (fim < s) return { semana: s, y: null, yKai: null, n: 0, parcial: true };
+    const a = fechamentoAgg(rows, { marca: f.marca, ini: s, fim, canais: f.canais });
+    return { semana: s, y: a.pctVoltouPessoa, yKai: a.pctVoltouKai, n: a.pessoaMaduros, nKai: a.kaiMaduros, parcial: fimSem > teto };
+  });
+  return { semanas, pontos };
+}
+// por agente (só fechamentos por pessoa): fechados, dias com fechamento, maduros, resolutivos, voltaram, FCR, mensagens
+function fechamentoPorAgente(rows, f) {
+  const acc = {};
+  for (const l of cxFiltra(rows, f)) {
+    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), dias: new Set(), fechados: 0, maduros: 0, resolutivos: 0, voltaram: 0, voltaramHumano: 0, fcrBase: 0, fcr: 0, p50h: [], p50c: [] });
+    a.nome = a.nome || l.agente_nome; a.marcas.add(l.marca);
+    const n = (k) => Number(l[k] || 0);
+    if (n("fechados")) a.dias.add(cxDia(l.dia));
+    a.fechados += n("fechados"); a.maduros += n("maduros"); a.resolutivos += n("resolutivos"); a.voltaram += n("voltaram"); a.voltaramHumano += n("voltaram_humano");
+    a.fcrBase += n("fcr_base"); a.fcr += n("fcr");
+    a.p50h.push([Number(l.msgs_humanas_p50), n("fechados")]); a.p50c.push([Number(l.msgs_cliente_p50), n("fechados")]);
+  }
+  const pct = (x, b) => b >= CX_MIN_BASE ? (x / b) * 100 : null;
+  return Object.values(acc).map((a) => ({ agente_id: a.agente_id, nome: a.nome, marcas: [...a.marcas], fechados: a.fechados, dias: a.dias.size,
+    porDia: a.dias.size ? a.fechados / a.dias.size : null, maduros: a.maduros, resolutivos: a.resolutivos, voltaram: a.voltaram, voltaramHumano: a.voltaramHumano,
+    pctResolutivo: pct(a.resolutivos, a.maduros), pctVoltou: pct(a.maduros - a.resolutivos, a.maduros), fcrBase: a.fcrBase, fcr: a.fcr, pctFcr: pct(a.fcr, a.fcrBase),
+    msgsHumanasP50: medianaPonderada(a.p50h), msgsClienteP50: medianaPonderada(a.p50c), aproximado: a.p50h.length > 1 }))
+    .sort((x, y) => y.fechados - x.fechados);
+}
+
 // ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
 // segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
 function cxSegExpediente(iniUtc, fimUtc) {
@@ -461,5 +524,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

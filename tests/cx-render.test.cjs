@@ -6,6 +6,7 @@ const { parseHTML } = require(require.resolve('linkedom', { paths: [path.resolve
 const root = path.resolve(__dirname, '..');
 
 const HOJE = '2026-09-10';
+const diasAtrasT = (n) => { const d = new Date(HOJE + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 const dias = (n) => Array.from({ length: n }, (_, i) => { const d = new Date(HOJE + 'T12:00Z'); d.setUTCDate(d.getUTCDate() - i); return d.toISOString().slice(0, 10); });
 const snap = (marca, dia, o = {}) => ({ marca, janela: '1d', dia, novos: 100, fechados: 90, trabalhados: 80, respostas: 300,
   primeira_resposta_seg: 600, csat: 66, csat_cobertura: 40, csat_votos: 40, kai_deflexao: 50, ia_perguntas: 10, fila_aberta: 12,
@@ -38,6 +39,16 @@ function fixture(o = {}) {
       { marca: 'fishermans', canal: 'whatsapp', dia: d, tickets: 30, respondidos: 30, transferidos_sem_resposta: 0, com_tempo: 30, p50_comercial_seg: 600, p90_comercial_seg: 3000, p50_relogio_seg: 700, ate_1h: 30, ate_4h: 30 }]),
     cx_tempo_agente: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', canal: 'whatsapp', respondidos: 50, p50_comercial_seg: 2400, p50_relogio_seg: 8000, ate_1h: 35 },
       { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', canal: 'whatsapp', respondidos: 30, p50_comercial_seg: 600, p50_relogio_seg: 700, ate_1h: 30 }]),
+    // fechamentos (view cx_fechamento_dia / cx_fechamento_agente_dia): por dia do fechamento; maduros = 7 dias corridos.
+    // Dias antigos (> 7 dias) vêm maduros; os 7 últimos, imaturos (maduros 0) — como a view devolve na vida real.
+    cx_fechamento: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
+      { marca: 'aristocrata', canal: 'whatsapp', dia: d, fechados: 100, por_pessoa: 60, por_kai: 40, por_sistema: 0, maduros: mad ? 100 : 0, resolutivos: mad ? 70 : 0, voltaram: mad ? 30 : 5, voltaram_humano: mad ? 20 : 3,
+        pessoa_maduros: mad ? 60 : 0, pessoa_resolutivos: mad ? 48 : 0, kai_maduros: mad ? 40 : 0, kai_resolutivos: mad ? 22 : 0, fcr_base: mad ? 50 : 0, fcr: mad ? 35 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.4, msgs_cliente_p50: 6 },
+      { marca: 'fishermans', canal: 'whatsapp', dia: d, fechados: 20, por_pessoa: 20, por_kai: 0, por_sistema: 0, maduros: mad ? 20 : 0, resolutivos: mad ? 19 : 0, voltaram: mad ? 1 : 0, voltaram_humano: mad ? 1 : 0,
+        pessoa_maduros: mad ? 20 : 0, pessoa_resolutivos: mad ? 19 : 0, kai_maduros: 0, kai_resolutivos: 0, fcr_base: mad ? 20 : 0, fcr: mad ? 18 : 0, msgs_humanas_p50: 2, msgs_humanas_media: 2.1, msgs_cliente_p50: 4 }]; }),
+    cx_fechamento_agente: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
+      { marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', fechados: 60, maduros: mad ? 60 : 0, resolutivos: mad ? 48 : 0, voltaram: mad ? 12 : 2, voltaram_humano: mad ? 8 : 1, fcr_base: mad ? 50 : 0, fcr: mad ? 35 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.4, msgs_cliente_p50: 6 },
+      { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', fechados: 20, maduros: mad ? 20 : 0, resolutivos: mad ? 19 : 0, voltaram: mad ? 1 : 0, voltaram_humano: mad ? 1 : 0, fcr_base: mad ? 20 : 0, fcr: mad ? 18 : 0, msgs_humanas_p50: 2, msgs_humanas_media: 2.1, msgs_cliente_p50: 4 }]; }),
     cx_pedidos: [], cx_ra: [],
     ...o,
   };
@@ -99,14 +110,26 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   assert.match(x.document.querySelector('#g-geral-tit').textContent, /CSAT · bom/);
   assert.ok(x.document.querySelectorAll('#g-geral polyline').length >= 1, 'linha de CSAT por marca');
   // aba Chat no mesmo padrão: seis cartões (o antigo cartão de CSAT-média não existe mais) e um gráfico só
-  assert.deepEqual(x.txt('#area-chat .six2-rot'), ['Contatos', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Fila no fim do período', '1ª resposta · expediente']);
+  assert.deepEqual(x.txt('#area-chat .six2-rot'), ['Contatos', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Voltou em 7 dias', 'Fila no fim do período', '1ª resposta · expediente']);
   assert.equal(x.txt('#area-chat .six2-val')[1], '78%');
   // 1ª resposta em expediente vem de cx_tempo (ticket a ticket), dias completos: mediana ponderada ≈ 3000 s = 50min; 72 de 100 em até 1h
-  assert.match(x.txt('#area-chat .six2-val')[5], /50min/);
-  assert.match(x.document.querySelectorAll('#area-chat .six2')[5].getAttribute('title'), /com resposta humana 700 \(67%\)/);
-  // tabela de agentes: quem respondeu primeiro aparece mesmo sem dado do Gleap
-  assert.match(x.document.querySelector('#tabela-ranking tbody').textContent, /Leticia Franca/);
-  assert.match(x.document.querySelector('#tabela-ranking tbody').textContent, /70% em até 1h/);
+  assert.match(x.txt('#area-chat .six2-val')[6], /50min/);
+  assert.match(x.document.querySelectorAll('#area-chat .six2')[6].getAttribute('title'), /com resposta humana 700 \(67%\)/);
+  // voltou em 7 dias: só o 1º dia do período (03/09) está maduro → corta e avisa; Aris 12 de 60 e Fish 1 de 20 por dia → 13 ÷ 80 = 16,3%
+  assert.equal(x.txt('#area-chat .six2-val')[4], '16,3%');
+  assert.match(x.document.querySelector('#chat-rot').textContent, /voltou: até 03\/09/);
+  assert.match(x.document.querySelector('#area-chat .six2[data-m="voltou"]').getAttribute('title'), /FCR \(1º fechamento por pessoa, um agente só, sem volta\): 76% de 70/);
+  // tabela de agentes: fechados por dia contra a meta de 120, resolutivos só maduros (7d: nada maduro → contagem), CSAT do Gleap
+  const tb = x.document.querySelector('#tabela-ranking tbody');
+  assert.match(tb.textContent, /Leticia Franca/);
+  assert.match(tb.textContent, /70% em até 1h/);
+  const let1 = [...tb.querySelectorAll('tr')].find((tr) => /Leticia/.test(tr.textContent));
+  assert.match(let1.children[1].textContent, /420\s*60\/dia · 7 dias/);
+  assert.ok(let1.children[1].querySelector('.st-ruim'), '60/dia fica vermelho contra a meta de 120');
+  // só 03/09 está maduro dentro do período: 48 resolutivos de 60 maduros = 80% (base ≥ 30); os outros 6 dias ainda maturam
+  assert.match(let1.children[2].textContent, /80%\s*48 de 60 · voltaram 12/);
+  assert.match(x.document.querySelector('#ranking-rotulo').textContent, /resolutivos maduros até/);
+  assert.match(let1.children[4].textContent, /≈ 3/);
   assert.equal(x.txt('#area-chat .six2-val')[2], '10,0%');
   // ninguém respondeu = transferido sem resposta humana ÷ maduros: (60−40) + (40−40) + (30−30) = 20 ÷ 150 = 13,3%
   assert.equal(x.txt('#area-chat .six2-val')[3], '13,3%');
@@ -196,7 +219,7 @@ test('sem o bloco cx_csat na API, o painel avisa e o resto continua', async () =
   const f = fixture(); delete f.cx_csat;
   const x = await boot(f);
   assert.match(x.document.querySelector('#area-seis').textContent, /ainda não devolve/);
-  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 6);
+  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 7);
   assert.match(x.document.querySelector('#area-desfecho').textContent, /Kai resolve sozinho/);
   assert.equal(x.txt('#area-chat .six2-val')[2], '—', 'sem cx_csat não há desfecho maduro: traço, nunca zero');
 });
@@ -208,7 +231,7 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.equal(x.document.querySelector('#abas-cx .ativo').dataset.aba, 'geral');
   x.document.querySelector('#abas-cx [data-aba="chat"]').click();
   assert.deepEqual(visiveis(), ['chat']);
-  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 6, 'a aba escondida já estava pintada');
+  assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 7, 'a aba escondida já estava pintada');
   const y = await boot(fixture(), '?periodo=7d', '#aba=ra');
   assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['ra']);
   // um gráfico por aba, dirigido pelo cartão ativo

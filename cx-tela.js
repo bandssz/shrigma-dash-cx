@@ -92,6 +92,12 @@ const CX_ALVOS = {
   ra_nota:             { alvo: 7,  base: 6,  dir: "alto",  rot: "alvo ≥ 7" },
   // transferido para pessoa e ninguém respondeu, sobre tickets de chat maduros — faixa nossa, não do handoff
   sem_resposta:        { alvo: 5,  base: 10, dir: "baixo", rot: "alvo < 5%" },
+  // fechamentos (15/09): meta do N1 declarada pelo Felipe — fechamentos resolutivos > 120/dia por agente e CSAT > 75 (escala do Gleap).
+  // "voltou" e FCR são faixas propostas (referência de mercado: reabertura < 15%, FCR ≥ 70%), não meta declarada.
+  voltou:              { alvo: 15, base: 25, dir: "baixo", rot: "faixa < 15%" },
+  fcr:                 { alvo: 70, base: 55, dir: "alto",  rot: "faixa ≥ 70%" },
+  ag_fechados_dia:     { alvo: 120, base: 90, dir: "alto", rot: "meta > 120/dia" },
+  ag_csat:             { alvo: 75, base: 65, dir: "alto",  rot: "meta > 75" },
 };
 function cxStatus(metrica, v) {
   const a = CX_ALVOS[metrica];
@@ -114,6 +120,20 @@ function cxKaiAnt(rows, f, hoje) {
   const k = cxKai(rows, f, hoje); if (k.caiu) return null;
   const len = diffDias(k.ini, k.fim) + 1; const ant = { ini: diasAtras(len, k.ini), fim: diasAtras(1, k.ini) };
   return desfechoMaduro(rows, Object.assign({}, f, ant), hoje);
+}
+// Fechamentos e volta em 7 dias (15/09): só fechamentos maduros (7 dias corridos). Período sem dia maduro cai
+// para os 7 dias maduros mais recentes e diz que caiu — nunca "—" por imaturidade quando existe histórico.
+function cxVolta(rows, f, hoje) {
+  const teto = cxFimMaduroVolta(hoje);
+  if (f.fim <= teto) return { a: fechamentoAgg(rows, f), ini: f.ini, fim: f.fim, caiu: false, cortou: false };
+  if (f.ini <= teto) return { a: fechamentoAgg(rows, Object.assign({}, f, { fim: teto })), ini: f.ini, fim: teto, caiu: false, cortou: true };
+  const ini = diasAtras(6, teto);
+  return { a: fechamentoAgg(rows, Object.assign({}, f, { ini, fim: teto })), ini, fim: teto, caiu: true, cortou: false };
+}
+function cxVoltaAnt(rows, v, f) {
+  if (!estado.comparar || v.caiu) return null;
+  const len = diffDias(v.ini, v.fim) + 1;
+  return fechamentoAgg(rows, Object.assign({}, f, { ini: diasAtras(len, v.ini), fim: diasAtras(1, v.ini) }));
 }
 // Razões por pedido só com dia COMPLETO: cx_pedido_dia de hoje é a foto das 01:20 (17 pedidos) e os contatos
 // entram a cada 30 min — a razão de "hoje" dava 361 contatos/100 pedidos e WISMO 190%. Período que só tem hoje
@@ -469,7 +489,7 @@ function fmtHoras(h) { return typeof h !== "number" ? "—" : h < 1 ? Math.round
 // ---------- Aba Chat e e-mail: seis números → um gráfico ----------
 estado.metricaChat = estado.metricaChat || "csat_bom";
 CX_BLOCOS.chat = { area: "#area-chat", g: "#g-chat", tit: "#g-chat-tit", sub: "#g-chat-sub", chave: "metricaChat", grafico: (d) => pintaGraficoChat(d) };
-Object.assign(DIRECAO, { sem_resposta: "baixo", fila: "baixo", primeira_resposta: "baixo" });
+Object.assign(DIRECAO, { sem_resposta: "baixo", fila: "baixo", primeira_resposta: "baixo", voltou: "baixo", fcr: "alto" });
 let CX_CHAT_DADOS = null;
 function pintaChat(d, escopo, porMarca) {
   if (!$("#area-chat")) return;
@@ -496,6 +516,10 @@ function pintaChat(d, escopo, porMarca) {
   const tp = tempoAgg(d.cx_tempo || [], jt.f), tpAnt = estado.comparar && !jt.caiu ? tempoAgg(d.cx_tempo || [], rangeAnteriorDe(jt.f)) : null;
   const temCom = tp.comTempo > 0;
   const pr = temCom ? tp.p50Comercial : a.primeira_resposta_seg, prAnt = temCom ? (tpAnt && tpAnt.comTempo ? tpAnt.p50Comercial : null) : ant.primeira_resposta_seg;
+  // fechamentos por pessoa e volta do cliente em 7 dias (cx_fechamento): só maduros
+  const temFech = Array.isArray(d.cx_fechamento) && d.cx_fechamento.length > 0;
+  const vt = temFech ? cxVolta(d.cx_fechamento, cxF(marca), hoje) : null, vtAnt = vt ? cxVoltaAnt(d.cx_fechamento, vt, cxF(marca)) : null;
+  const va = vt ? vt.a : null;
 
   const cartoes = [
     { k: "contatos", rot: "Contatos", val: fmtNum(a.novos), chip: chipHtml("novos", a.novos, pn.valor), sub: `resolvidos ${fmtNum(a.fechados)}${pn.mesmaHora ? " · vs ontem até a mesma hora" : ""}`,
@@ -511,6 +535,12 @@ function pintaChat(d, escopo, porMarca) {
     { k: "sem_resposta", rot: "Ninguém respondeu", val: typeof kr.pctSemResp === "number" ? fmtDec(kr.pctSemResp) + "%" : (kr.tickets ? `<span class="six-curto">${fmtNum(kr.semResp)} de ${fmtNum(kr.tickets)}</span>` : "—"), status: typeof kr.pctSemResp === "number" ? (kr.pctSemResp >= 10 ? "ruim" : kr.pctSemResp >= 5 ? "atencao" : "bom") : null,
       chip: cxChipPP("sem_resposta", kr.pctSemResp, krAnt && krAnt.pctSemResp, 1), sub: `${fmtNum(kr.semResp)} tickets transferidos sem resposta humana`,
       info: `Transferido para time ou agente (processingTeam/processingUser) e sem NENHUMA resposta pública de pessoa — aberto na fila ou fechado pela régua. Denominador: todos os tickets de chat maduros (2 dias de expediente; sex e sáb não contam). Faixa: até 5% ok, até 10% atenção.` + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = cxKai(rows, Object.assign({}, fBase, { marca: m }), hoje); return typeof x.pctSemResp === "number" ? fmtDec(x.pctSemResp) + "%" : "—"; })}` : "") },
+    { k: "voltou", rot: "Voltou em 7 dias", val: va && typeof va.pctVoltouPessoa === "number" ? fmtDec(va.pctVoltouPessoa) + "%" : (va && va.pessoaMaduros ? `<span class="six-curto">${fmtNum(va.pessoaMaduros - va.pessoaResolutivos)} de ${fmtNum(va.pessoaMaduros)}</span>` : "—"),
+      status: va ? cxStatus("voltou", va.pctVoltouPessoa) : null, chip: va ? cxChipPP("voltou", va.pctVoltouPessoa, vtAnt && vtAnt.pctVoltouPessoa, 1) : "",
+      sub: va ? `${fmtNum(va.pessoaMaduros)} fechamentos por pessoa até ${fmtDia(vt.fim)} · FCR ${fmtPct0(va.pctFcr)}` : "a API ainda não devolve cx_fechamento",
+      info: `Fechamentos feitos por PESSOA em que o cliente escreveu de novo em até 7 dias corridos (resposta do CSAT não conta). Um ticket fechado três vezes conta três fechamentos — é o que o "Fechados" do Gleap esconde. Só fechamentos com 7 dias passados (maduros). Faixa proposta: < 15% ok, até 25% atenção.` +
+        (va ? `\nResolutivos (fechou e não voltou): ${fmtPct0(va.pctResolutivoPessoa)} · voltou e alguém precisou trabalhar de novo: ${fmtNum(va.voltaramHumano)} · FCR (1º fechamento por pessoa, um agente só, sem volta): ${fmtPct0(va.pctFcr)} de ${fmtNum(va.fcrBase)} · Kai: voltou ${fmtPct0(va.pctVoltouKai)} de ${fmtNum(va.kaiMaduros)} · mensagens humanas por fechamento (mediana${va.aproximado ? " ≈" : ""}): ${va.msgsHumanasP50 === null ? "—" : fmtDec(va.msgsHumanasP50, 0)} · do cliente: ${va.msgsClienteP50 === null ? "—" : fmtDec(va.msgsClienteP50, 0)}.` : "") +
+        (va && todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => { const x = fechamentoAgg(d.cx_fechamento, { marca: m, ini: vt.ini, fim: vt.fim }); return typeof x.pctVoltouPessoa === "number" ? fmtDec(x.pctVoltouPessoa) + "%" : "—"; })}` : "") },
     { k: "fila", rot: filaAgora ? "Fila agora" : "Fila no fim do período", val: fmtNum(a.fila_aberta), chip: chipHtml("fila_aberta", a.fila_aberta, ant.fila_aberta), sub: todas ? marcas.concat(["olivas"]).map((m) => `${CX_SIGLA[m]} ${fmtNum(pm(m, "fila_aberta"))}`).join(" · ") : "tickets abertos",
       info: `Tickets abertos ${filaAgora ? "na última coleta" : "no fim do período"}, todos os canais.` + (estado.comparar && typeof ant.fila_aberta === "number" ? `\nAntes: ${fmtNum(ant.fila_aberta)}.` : "") + (todas ? `\n\nPor marca: ${cxPorMarcaTxt(MARCAS, (m) => fmtNum(pm(m, "fila_aberta")))}` : "") },
     { k: "primeira_resposta", rot: temCom ? "1ª resposta · expediente" : "1ª resposta", val: temCom ? (tp.aproximado ? "≈ " : "") + fmtDur(pr) : fmtDur(pr), chip: cxChipDur(pr, prAnt), status: temCom ? (tp.pctAte1h >= 70 ? "bom" : tp.pctAte1h >= 50 ? "atencao" : "ruim") : null,
@@ -522,6 +552,7 @@ function pintaChat(d, escopo, porMarca) {
   const rot = $("#chat-rot");
   if (rot) rot.innerHTML = (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
     (kr.caiu ? cxTag(`Kai e desfecho: ${fmtDia(kr.ini)}–${fmtDia(kr.fim)}`, "nota", "Ticket precisa de 2 dias de expediente (sex, sáb e dom não contam) para ter desfecho; o período não tem dia maduro, então esses dois cartões mostram os 7 dias maduros mais recentes.") : "") +
+    (vt && (vt.caiu || vt.cortou) ? cxTag(vt.caiu ? `voltou: ${fmtDia(vt.ini)}–${fmtDia(vt.fim)}` : `voltou: até ${fmtDia(vt.fim)}`, "nota", `Fechamento só conta como resolutivo ou "voltou" depois de ${CX_VOLTA_DIAS} dias corridos; ${vt.caiu ? "o período não tem dia maduro, então o cartão mostra os 7 dias maduros mais recentes" : "os últimos dias do período ainda estão maturando"}.`) : "") +
     (cs && cs.pctResposta !== null && cs.pctResposta < 25 ? cxTag(`resposta à pesquisa ${fmtPct0(cs.pctResposta)}`, "alerta", "Taxa de resposta abaixo de 25%. Em agosto era 42–46% no Aristocrata e 32–35% na Fishermans; caiu depois das mudanças de 29/08 no Kai. No Instagram o botão de nota não renderiza: o envio lá é perdido.") : "") +
     cxResumoStatus(cartoes);
   cxPintaCartoes("chat", cartoes);
@@ -535,6 +566,14 @@ function pintaGraficoChat(d) {
   if (k === "contatos") r = { tit: "Contatos no chat · por semana e motivo", sub: "só chat — e-mail não recebe tag de motivo · cores fixas por grupo", html: per.vazio ? `<div class="vazio mini">Sem cx_csat na API.</div>` : cxBarrasMotivos(rows, { marca: per.f.marca, ini: j.ini, fim: j.fim }) };
   else if (k === "csat_bom") r = { tit: "CSAT · ruim, neutro e bom · por semana", sub: "número no topo = fatia de bom · só chat", html: per.vazio ? `<div class="vazio mini">Sem cx_csat na API.</div>` : cxBarrasCsat3(rows, { marca: per.f.marca, ini: j.ini, fim: j.fim }) };
   else if (k === "kai_resolve") { const s = cxSerieKaiMarcas(d, marcas, jd); r = { tit: "Kai resolve sozinho · por semana", sub: "fatia de todos os tickets de chat da semana · ponto claro = semana ainda maturando · tracejado = quebra de série", html: cxgLinhas({ rotulosX: s.rotulosX, series: s.series, pct: true, fmt: (v) => Math.round(v) + "%", marcos: s.marcos, aria: "Kai resolve sozinho" }) }; }
+  else if (k === "voltou") {
+    const hoje = hojeRef(); const rows = d.cx_fechamento || [];
+    const ss = marcas.map((m) => ({ m, s: serieSemanalVolta(rows, { marca: m, ini: jd.ini, fim: jd.fim }, hoje) }));
+    const c = cxCortaVazioInicial(ss[0].s.semanas, ss.map((x) => x.s.pontos.map((p) => p.n))); const corte = ss[0].s.semanas.length - c.semanas.length;
+    r = { tit: "Voltou em 7 dias · fechamentos por pessoa · por semana do fechamento", sub: "fatia dos fechamentos maduros da semana em que o cliente escreveu de novo · ponto claro = semana ainda maturando · semana com menos de 30 fechamentos fica em branco",
+      html: cxgLinhas({ rotulosX: c.semanas.map(fmtDia), pct: true, fmt: (v) => Math.round(v) + "%", aria: "Voltou em 7 dias por semana", vazio: "Sem fechamento maduro no intervalo.", alvo: { y: CX_ALVOS.voltou.alvo, rot: "faixa 15%" },
+        series: ss.map((x) => Object.assign(cxLbl(x.m), { pontos: x.s.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: `${fmtNum(p.n)} fechamentos por pessoa maduros`, parcial: p.parcial })) })) }) };
+  }
   else if (k === "sem_resposta") r = { tit: "O que aconteceu com o ticket · por semana", sub: "todos os tickets de chat da semana · “parcial” = semana ainda maturando", html: cxBarrasQuemFechou(d, estado.marca, jd) };
   else if (k === "fila") {
     const j8 = cxJanelaTendencia(PER.fim, 8); const s = cxSerieDiariaMarcas(d.snapshot_1d, marcas, j8.ini, j8.fim, "fila_aberta");
