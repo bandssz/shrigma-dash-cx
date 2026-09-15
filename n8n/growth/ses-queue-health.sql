@@ -16,7 +16,7 @@ BEGIN
  IF coalesce(a->>'ApproximateNumberOfMessages','') !~ '^[0-9]{1,9}$'
  OR coalesce(a->>'ApproximateNumberOfMessagesNotVisible','') !~ '^[0-9]{1,9}$'
  OR coalesce(a->>'ApproximateNumberOfMessagesDelayed','') !~ '^[0-9]{1,9}$' THEN
-  INSERT INTO public.shrigma_email_consumer_health(key,queue_error_at,queue_diagnostic) VALUES('ses-events',clock_timestamp(),jsonb_build_object('input_keys',(SELECT jsonb_agg(k) FROM jsonb_object_keys(r) k),'error',r->'error','body_type',jsonb_typeof(r->'body'),'data_type',jsonb_typeof(r->'data')))
+  INSERT INTO public.shrigma_email_consumer_health(key,queue_error_at,queue_diagnostic) VALUES('ses-events',clock_timestamp(),jsonb_build_object('input_keys',(SELECT jsonb_agg(k) FROM jsonb_object_keys(r) k),'body_type',jsonb_typeof(r->'body'),'data_type',jsonb_typeof(r->'data')))
   ON CONFLICT(key) DO UPDATE SET queue_error_at=excluded.queue_error_at,queue_diagnostic=excluded.queue_diagnostic;
   RETURN false;
  END IF;
