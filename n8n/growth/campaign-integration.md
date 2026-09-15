@@ -1,6 +1,6 @@
 # Cadastro de campanhas: dashboard e IA
 
-Estado em 15/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, seus adaptadores persistentes e o agendamento pelo painel ainda não estão implementados/publicados.** Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude ainda não foi fornecida.
+Estado em 15/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, seus adaptadores persistentes e o agendamento pelo painel ainda não estão implementados/publicados.** Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude foi recebida nesta rodada e revisada em pacote separado, com os mesmos módulos de contrato/preparo e um CLI local. Isso ainda não habilita o endpoint remoto.
 
 ## Escopo
 
@@ -61,6 +61,6 @@ Gravações exigem `idempotency_key` única por operação, reutilizada em consu
 6. Validar callbacks, erros, recuperação de resultado incerto e catálogo com provas na instância. Só depois anunciar capacidades e ligar salvar/validar/agendar no painel.
 7. Adaptar a skill do Claude e seus scripts para a mesma API. Até lá, criações diretas no Listmonk continuam fora desta proteção automática.
 
-## O que precisamos da skill
+## Integração com a skill revisada
 
-`SKILL.md` e os scripts/helpers chamados por ela, ou o diretório/ZIP da skill. Não precisamos receber novamente as credenciais. A adaptação deve preservar o trabalho criativo atual e substituir a montagem livre de UTMs e o transporte direto pelo contrato validado.
+O pacote Claude v2 preserva a criação e o repertório de marca, inclui normalização/preparo locais com cópias versionadas destes módulos e um checklist HTML/texto/wrapper. O catálogo e os snapshots fornecidos aos helpers precisam vir de consultas reais; o sucesso local não comprova autenticação ou disponibilidade do provedor. O transporte central será ligado quando os adaptadores acima estiverem implementados e verificados. Não é necessário repassar credenciais.

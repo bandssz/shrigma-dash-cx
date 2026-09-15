@@ -8,3 +8,14 @@ test('assets, legal pages, external sites and unsubscribe remain unchanged',()=>
 test('sent, paused, running, imminent and stale scheduled campaigns cannot be rewritten',()=>{for(const patch of [{sent:1},{started_at:'2026-09-15T10:00:00Z'},{status:'running'},{status:'paused'},{send_at:'2026-09-15T12:05:00Z'},{send_at:'bad'}])assert.throws(()=>T.prepare({...base(),...patch},opts));});
 test('foreign coupon redirects and conflicting campaign tags fail closed',()=>{for(const url of ['https://oaristocrata.com/discount/A?redirect=https%3A%2F%2Fevil.example%2Fproducts%2Fa','https://oaristocrata.com/products/a?utm_campaign=other'])assert.throws(()=>T.prepare({...base(),body:url},opts));});
 test('multiple lists identify the union, deterministically, without claiming per-list recipients',()=>{const c=base();c.lists=[{id:124},{id:123},{id:123}];assert.equal(T.prepare(c,opts).token,'lm-126-l123-124');});
+test('Listmonk shorthand stays outside the URL while adding stable dispatch UTMs',()=>{
+ const x={id:987,status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:[123],body:'<a href="https://oaristocrata.com/products/kit?variant=10@TrackLink">Kit</a>',altbody:'https://oaristocrata.com/products/kit@TrackLink'};
+ const options={brand:'aristo',campaign:'aristo-teste'},prepared=require('../n8n/growth/campaign-tracking').prepare(x,options);
+ assert.match(prepared.body,/utm_term=lm-987-l123@TrackLink"/);assert(!prepared.body.includes('%40TrackLink'));assert.match(prepared.altbody,/@TrackLink$/);
+ assert.equal(require('../n8n/growth/campaign-tracking').prepare({...x,body:prepared.body,altbody:prepared.altbody},options).body,prepared.body);
+});
+test('a cloned draft replaces previous managed dispatch identities while preserving its variant',()=>{
+ for(const [old,wanted] of [['lm-100-l10','lm-126-l123'],['a--lm-100-l10','a--lm-126-l123'],['quentes--lm-100-l10--lm-200-l20','quentes--lm-126-l123']]){
+  const x=base();x.body=`<a href="https://oaristocrata.com/products/kit?utm_term=${old}">Kit</a>`;const r=T.prepare(x,opts);assert.match(r.body,new RegExp('utm_term='+wanted+'(?:&|"|$)'));assert(!r.body.includes('lm-100-l10'));assert(!r.body.includes('lm-200-l20'));
+ }
+});

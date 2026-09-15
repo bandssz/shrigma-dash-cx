@@ -13,7 +13,8 @@ const CampaignTracking=(()=>{
   if(!lists.length||!lists.every(id))throw Error('Verified list IDs are required');
   const token=`lm-${c.id}-l${lists.join('-')}`,changes=[];
   function transform(raw,field){
-   const entity=raw.includes('&amp;'),decoded=raw.replace(/&amp;/g,'&');let u;
+   const shorthand=raw.endsWith('@TrackLink'),literal=shorthand?raw.slice(0,-10):raw;
+   const entity=literal.includes('&amp;'),decoded=literal.replace(/&amp;/g,'&');let u;
    try{u=new URL(decoded);}catch{return raw;}
    const host=config[brand].host;
    if(![host,'www.'+host].includes(u.hostname)||u.username||u.password||u.port)return raw;
@@ -31,10 +32,13 @@ const CampaignTracking=(()=>{
    }
    const content=target.searchParams.get('utm_content')||(coupon?'cupom-auto':field==='altbody'?'alt-link':'link');
    target.searchParams.set('utm_content',content);
-   const previous=target.searchParams.get('utm_term')||'';
-   if(previous!==token&&!previous.endsWith('--'+token))target.searchParams.set('utm_term',previous?previous+'--'+token:token);
+   let previous=target.searchParams.get('utm_term')||'';
+   // A cloned campaign keeps its experiment label, never another dispatch identity.
+   const managedSuffix=/(?:^|--)lm-[1-9]\d*-l[1-9]\d*(?:-[1-9]\d*)*$/;
+   while(managedSuffix.test(previous))previous=previous.replace(managedSuffix,'');
+   target.searchParams.set('utm_term',previous?previous+'--'+token:token);
    if(coupon)u.searchParams.set('redirect',target.pathname+target.search+target.hash);
-   let result=u.href;if(entity)result=result.replace(/&/g,'&amp;');
+   let result=u.href+(shorthand?'@TrackLink':'');if(entity)result=result.replace(/&/g,'&amp;');
    if(result!==raw)changes.push({field,before:raw,after:result,content,term:target.searchParams.get('utm_term'),coupon});
    // Routing, variant and coupon code remain exactly the same after stripping tracking.
    const clean=x=>{const q=new URL(x);for(const k of [...q.searchParams.keys()])if(k.startsWith('utm_'))q.searchParams.delete(k);return q;};
