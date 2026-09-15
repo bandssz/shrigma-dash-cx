@@ -219,3 +219,125 @@ CREATE TABLE IF NOT EXISTS crm_tts_token (
   autorizado_em      timestamptz NOT NULL DEFAULT now(),
   atualizado_em      timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================
+-- v2 (15/09/2026) — CANAL INTEIRO, não só afiliados.
+-- A Marcela vai responder por 100% do TikTok, então o painel precisa fechar o canal:
+-- ads + afiliados + lives + orgânico. A modelagem abaixo copia a taxonomia OFICIAL da
+-- plataforma (Seller University, "Sales Metrics Breakdown Logic"), que é a mesma que os
+-- apps de analytics de TikTok Shop usam, porque é a única que reconcilia com o Seller Center:
+--   · tipo de conteúdo  : LIVE | vídeo curto | product card (vitrine/busca)
+--   · origem do pedido  : afiliado | próprio (seller)
+--   · atribuição        : GMV direto (comprou dentro do conteúdo) x indireto (viu e comprou depois,
+--                         last-touch, janela de 1 dia)
+--   · ads x não-ads     : a plataforma separa "Ads Gross Revenue" de "Non-Ads Gross Revenue";
+--                         o CUSTO de mídia NÃO vem da Shop API (é outro app, o TikTok Ads Business API),
+--                         por isso entra por crm_tts_canal_custo até termos aquele app.
+-- Decisão de modelagem: UMA tabela-fato com dimensões, não três tabelas paralelas por superfície.
+-- Três tabelas separadas duplicariam GMV (um mesmo pedido é live E afiliado) e tornariam a
+-- "conversão total do canal" impossível de fechar. Vídeo e live ganham tabela própria só no
+-- grão de ENTIDADE (cada vídeo, cada transmissão), que é outro grão, não outra fatia do mesmo bolo.
+
+-- 9) Fato diário do canal. Grão: (dia, marca, superficie, origem). Somar tudo de um dia = GMV do canal.
+CREATE TABLE IF NOT EXISTS crm_tts_canal_dia (
+  marca         text NOT NULL,
+  dia           date NOT NULL,
+  superficie    text NOT NULL,          -- live | video | vitrine | outros  (content type da plataforma)
+  origem        text NOT NULL,          -- afiliado | proprio               (order source da plataforma)
+  gmv           numeric(12,2) DEFAULT 0,
+  gmv_direto    numeric(12,2) DEFAULT 0,-- comprou interagindo com o conteúdo
+  gmv_indireto  numeric(12,2) DEFAULT 0,-- viu e comprou depois (last-touch, janela de 1 dia)
+  gmv_ads       numeric(12,2) DEFAULT 0,-- parte do GMV acima que a plataforma marca como Ads Gross Revenue
+  pedidos       integer DEFAULT 0,
+  unidades      integer DEFAULT 0,
+  compradores   integer DEFAULT 0,
+  reembolso     numeric(12,2) DEFAULT 0,
+  visualizacoes bigint  DEFAULT 0,      -- impressões do conteúdo (denominador da conversão)
+  cliques       bigint  DEFAULT 0,      -- cliques no produto
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, dia, superficie, origem)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_canal_dia_idx ON crm_tts_canal_dia (marca, dia);
+
+-- 10) Vídeo × dia. Grão de ENTIDADE: qual peça vendeu. É o que responde "que criativo replicar".
+CREATE TABLE IF NOT EXISTS crm_tts_video_dia (
+  marca         text NOT NULL,
+  dia           date NOT NULL,
+  video_id      text NOT NULL,
+  username      text,                   -- criador (nulo = conteúdo da própria loja)
+  origem        text,                   -- afiliado | proprio
+  titulo        text,
+  publicado_em  timestamptz,
+  gmv           numeric(12,2) DEFAULT 0,
+  pedidos       integer DEFAULT 0,
+  unidades      integer DEFAULT 0,
+  visualizacoes bigint  DEFAULT 0,
+  cliques       bigint  DEFAULT 0,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, dia, video_id)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_video_dia_user_idx ON crm_tts_video_dia (marca, username, dia);
+
+-- 11) Live × sessão. Grão de ENTIDADE: cada transmissão (não cada dia — uma live pode cruzar meia-noite).
+CREATE TABLE IF NOT EXISTS crm_tts_live_dia (
+  marca         text NOT NULL,
+  live_id       text NOT NULL,
+  dia           date NOT NULL,          -- dia de início, para juntar com o resto do painel
+  username      text,
+  origem        text,                   -- afiliado | proprio
+  titulo        text,
+  inicio_em     timestamptz,
+  duracao_min   integer,
+  gmv           numeric(12,2) DEFAULT 0,
+  pedidos       integer DEFAULT 0,
+  unidades      integer DEFAULT 0,
+  visualizacoes bigint  DEFAULT 0,
+  espectadores  integer DEFAULT 0,      -- únicos
+  cliques       bigint  DEFAULT 0,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, live_id)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_live_dia_idx ON crm_tts_live_dia (marca, dia);
+
+-- 12) Custo de mídia por dia. Entrada MANUAL enquanto não existir o app do TikTok Ads Business API:
+--     a Shop API não devolve investimento, só receita. Sem esta tabela não há ROAS nem take rate real.
+CREATE TABLE IF NOT EXISTS crm_tts_canal_custo (
+  marca         text NOT NULL,
+  dia           date NOT NULL,
+  custo_ads     numeric(12,2) DEFAULT 0,
+  fonte         text DEFAULT 'manual',  -- manual | ads_api (quando o app existir, vira ads_api sozinho)
+  observacao    text,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  atualizado_por text,
+  PRIMARY KEY (marca, dia)
+);
+
+-- 13) Visão do canal: as métricas que a Marcela vai olhar, já com os denominadores certos.
+--     Conversão = pedidos / visualizações do conteúdo (a plataforma chama de CVR de conteúdo).
+--     ROAS é BLENDED de propósito: o custo é do canal, não da superfície — dividir custo por
+--     superfície seria inventar atribuição que a plataforma não dá.
+CREATE OR REPLACE VIEW crm_tts_canal_v AS
+WITH d AS (
+  SELECT marca, dia,
+         sum(gmv) AS gmv, sum(gmv_ads) AS gmv_ads, sum(gmv) - sum(gmv_ads) AS gmv_organico,
+         sum(gmv) FILTER (WHERE origem = 'afiliado') AS gmv_afiliado,
+         sum(gmv) FILTER (WHERE origem = 'proprio')  AS gmv_proprio,
+         sum(gmv) FILTER (WHERE superficie = 'live')    AS gmv_live,
+         sum(gmv) FILTER (WHERE superficie = 'video')   AS gmv_video,
+         sum(gmv) FILTER (WHERE superficie = 'vitrine') AS gmv_vitrine,
+         sum(gmv_direto) AS gmv_direto, sum(gmv_indireto) AS gmv_indireto,
+         sum(pedidos) AS pedidos, sum(unidades) AS unidades, sum(reembolso) AS reembolso,
+         sum(visualizacoes) AS visualizacoes, sum(cliques) AS cliques
+  FROM crm_tts_canal_dia GROUP BY 1,2
+)
+SELECT d.*,
+       COALESCE(c.custo_ads, 0) AS custo_ads,
+       c.fonte AS custo_fonte,
+       round(d.gmv / NULLIF(d.pedidos,0), 2)                         AS ticket_medio,
+       round(100.0 * d.pedidos / NULLIF(d.visualizacoes,0), 3)       AS conversao_pct,
+       round(100.0 * d.cliques / NULLIF(d.visualizacoes,0), 2)       AS ctr_pct,
+       round(d.gmv / NULLIF(c.custo_ads,0), 2)                       AS roas_blended,
+       round(100.0 * d.gmv_organico / NULLIF(d.gmv,0), 1)            AS pct_organico,
+       round(100.0 * d.gmv_afiliado / NULLIF(d.gmv,0), 1)            AS pct_afiliado,
+       round(100.0 * d.reembolso / NULLIF(d.gmv,0), 1)               AS pct_reembolso
+FROM d LEFT JOIN crm_tts_canal_custo c ON c.marca = d.marca AND c.dia = d.dia;

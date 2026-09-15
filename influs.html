@@ -102,6 +102,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 
 /* aba Afiliados TikTok Shop */
 .tts-kpis{margin-bottom:14px}
+.tts-aut{margin:0 0 12px;padding:10px 12px;border:1px solid #f0c36d;background:#fff8e6;border-radius:8px;font-size:13px;line-height:1.5}
+.tts-aut .tts-btn{margin-left:8px}
 .tag.bom{background:var(--bom-bg);color:var(--bom)}.tag.ruim{background:var(--ruim-bg);color:var(--ruim)}
 .tag.neutro{background:#fff3d6;color:#8a5f1d}
 #tts-area h3{font:700 14px/1.2 var(--ui)}
@@ -349,6 +351,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
     <section class="painel">
       <div class="painel-cab"><h2>Afiliados TikTok Shop</h2>
         <span><span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
+      <div class="tts-aut" id="tts-autorizacao" hidden></div>
       <section class="kpis tts-kpis" id="tts-kpis"></section>
       <nav class="i-abas" id="tts-abas">
         <button data-p="fila" class="ativo" title="estado atual — não segue o período">Fila de amostras <span class="n"></span> <span class="mini">agora</span></button>
@@ -364,7 +367,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=2c7e9f41"></script>
-<script src="influs-tts.js?v=20260915a"></script>
+<script src="influs-tts.js?v=20260915b"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);

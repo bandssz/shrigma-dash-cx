@@ -62,3 +62,26 @@ test('taxa da target collab só com 10+ convidados',()=>{
   assert.equal(TTS.targetTaxa({invited_count:5,content_creator_count:3}),null);
   assert.equal(TTS.targetTaxa({}),null);
 });
+
+test('autorização: loja sem linha em crm_tts_token vira aviso de reautorizar', () => {
+  const vazio = TTS.autorizacao({ autorizacao: [] }, 'fish');
+  assert.equal(vazio.estado, 'ausente');
+
+  const agora = Date.parse('2026-09-15T12:00:00Z');
+  const ok = TTS.autorizacao({ autorizacao: [
+    { marca: 'fish', loja: 'fishermans', refresh_expira_em: '2026-12-01T00:00:00Z', expira_em_breve: false, ultimo_erro_canal: null },
+  ] }, 'fish', agora);
+  assert.equal(ok.estado, 'ok');
+
+  const venceu = TTS.autorizacao({ autorizacao: [
+    { marca: 'fish', loja: 'fishermans', refresh_expira_em: '2026-09-01T00:00:00Z', expira_em_breve: true, ultimo_erro_canal: null },
+  ] }, 'fish', agora);
+  assert.equal(venceu.estado, 'vencida');
+
+  // escopo faltando: a autorização é válida, mas o coletor do canal bate em 105005.
+  const semEscopo = TTS.autorizacao({ autorizacao: [
+    { marca: 'fish', loja: 'fishermans', refresh_expira_em: '2026-12-01T00:00:00Z', expira_em_breve: false,
+      ultimo_erro_canal: '105005 The access token does not include any scope' },
+  ] }, 'fish', agora);
+  assert.equal(semEscopo.estado, 'sem_escopo');
+});

@@ -59,6 +59,20 @@
         title: f.map(x => `${x.marca}: OK há ${fmt(idade(x))}${x.erros ? ' · erro: ' + x.erros : ''}`).join('\n'),
       };
     },
+    // Estado da autorização da loja. Sem linha em crm_tts_token a loja nunca foi (re)autorizada desde que
+    // passamos a guardar o refresh token no banco — e é isso que prende os escopos novos (analytics do canal).
+    autorizacao(p, marca, agora) {
+      const a = TTS.filtra(p.autorizacao || [], marca);
+      if (!a.length) return { estado: 'ausente', txt: 'Esta loja ainda não foi reautorizada — os dados de canal (ads, lives, orgânico) ficam vazios até isso acontecer.' };
+      const now = agora || Date.now();
+      const venc = a.filter(x => x.refresh_expira_em && new Date(x.refresh_expira_em).getTime() < now);
+      if (venc.length) return { estado: 'vencida', txt: 'A autorização de ' + venc.map(x => x.loja).join(' e ') + ' venceu. A coleta para hoje até reautorizar.' };
+      const perto = a.filter(x => x.expira_em_breve);
+      if (perto.length) return { estado: 'expirando', txt: 'A autorização de ' + perto.map(x => x.loja).join(' e ') + ' vence em menos de 14 dias.' };
+      const erro = a.find(x => x.ultimo_erro_canal);
+      if (erro) return { estado: 'sem_escopo', txt: 'A coleta do canal falhou em ' + erro.loja + ': ' + erro.ultimo_erro_canal };
+      return { estado: 'ok', txt: '' };
+    },
     // Decisão já gravada pela esteira (dry-run ou real) tem prioridade sobre o tier calculado na hora.
     DECISAO: { auto_aprovada: { rot: 'Aprovar', cls: 'bom' }, auto_rejeitada: { rot: 'Rejeitar', cls: 'ruim' }, fila_manual: { rot: 'Avaliar', cls: 'neutro' },
                manual_aprovada: { rot: 'Aprovada', cls: 'bom' }, manual_rejeitada: { rot: 'Rejeitada', cls: 'ruim' } },
@@ -154,7 +168,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (m === 'olivas') { $('#tts-frescor').textContent = ''; vazio('Olivas do Campo não vende no TikTok Shop', 'Só O Aristocrata e Fishermans têm loja e programa de afiliados lá.'); return; }
     const f = TTS.frescor(DADOS, m);
     const fe = $('#tts-frescor'); fe.textContent = f.txt + (DADOS._caiu ? ' · leitura falhou agora, mostrando a última' : ''); fe.title = f.title + (DADOS._caiu ? '\nerro: ' + DADOS._caiu : ''); fe.classList.toggle('velho', f.velho || !!DADOS._caiu);
-    renderKpisTTS(); renderPane();
+    renderAutorizacao(m); renderKpisTTS(); renderPane();
+  }
+
+  // Faixa de autorização: existe para que "escopo faltando" nunca mais apareça como tabela vazia sem motivo.
+  function renderAutorizacao(m) {
+    const el = $('#tts-autorizacao');
+    if (!el) return;
+    const a = TTS.autorizacao(DADOS, m);
+    if (a.estado === 'ok') { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    el.innerHTML = `<b>Autorização da loja</b> · ${esc(a.txt)}
+      <a class="tts-btn" href="https://services.tiktokshop.com/open/authorize?service_id=7670181171502434055" target="_blank" rel="noopener">Reautorizar no TikTok</a>
+      <span class="mini">abra logado como vendedor da loja; a captura grava sozinha e o coletor volta na próxima rodada</span>`;
   }
 
   function renderKpisTTS() {
