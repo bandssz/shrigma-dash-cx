@@ -285,10 +285,15 @@ ativas (Gleap). Saíram Respostas, T. resposta e Resolução do Gleap. Etiqueta 
 (fechados/reabertos/resolvidos por agente) foi uma tentativa de 18/08–01/09 sem fonte declarada e parou; ficou como
 está, sem uso.
 
-**Amostra de 18/08–08/09 (Aris, WhatsApp + e-mail), antes do backfill**: 189 fechamentos por pessoa → 34% o cliente
-voltou em 7 dias, 29% voltou e alguém precisou trabalhar de novo; Kai 59 → 58% voltaram; FCR 42%; mensagens humanas
-por ticket mediana 2 (média 4), do cliente mediana 7. Fechamentos por agente por dia (Gleap, seg–qui, 25/08–11/09):
-o maior é 67/dia — a meta de 120 fechamentos/dia não é alcançada por ninguém hoje nem contando fechamento bruto.
+**Backfill de 15/09 (16/07 em diante, 15.330 tickets, 22.438 fechamentos)**: por pessoa 16.766 fechamentos em
+10.851 tickets — o cliente voltou em 7 dias em **31% (Aris) / 26% (Fish)**; Kai 4.371 → 39% / 21%; sistema 1.301.
+Por semana (Aris, fechamentos por pessoa): 27–29% em julho, 36% na semana de 17/08, **41% na de 24/08 (incidente)**,
+27% na de 31/08; FCR 73–82% fora do incidente, 65% dentro. Por agente, seg–qui de 11/08 a 07/09: Juliano 140
+fechamentos/dia brutos → **87 resolutivos/dia**; Vivian 108 → 73; Adão 97 → 69; Giovanny 97 → 65; Maria Eduarda
+55 → 44; Vitória 52 → 38; Carlos 48 → 37. Ninguém chega a 120 resolutivos/dia; só o Juliano passa de 120 no bruto.
+Nosso "Fechados" é maior que o do Gleap (Juliano 140 × 67/dia) porque o Gleap conta ticket designado ao agente e
+fechado; o nosso conta o clique de fechar, de quem quer que seja o ticket. Mensagens humanas por fechamento: mediana
+1–3 por agente — metade dos fechamentos feitos por pessoa tem no máximo uma mensagem dela.
 
 ### RA: 102 na página × 260 no RA Empresas — os dois números de "sem resposta" (14/09, noite)
 
