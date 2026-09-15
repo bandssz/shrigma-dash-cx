@@ -4,14 +4,16 @@ RETURNS TABLE(should_send boolean,dispatch_id uuid,claim_token uuid,payload json
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $f$
 #variable_conflict use_variable
 DECLARE brand text=b->>'brand';piece text=b->>'piece';flow text;email text=lower(b->>'email');ref text=b->>'ref';
- tx jsonb=b->'tx';sid int;tpl int;cfg text;sender text;key text;hash text;did uuid;claim uuid;
+ tx jsonb=b->'tx';sid int;tpl int;cfg text;sender text;reply_to text;key text;hash text;did uuid;claim uuid;
  slot jsonb;wait_time interval=interval '3 days';recipient text;keyver text;s public.subscribers%ROWTYPE;ns jsonb;nv jsonb;d public.shrigma_email_dispatch%ROWTYPE;
 BEGIN
  IF jsonb_typeof(b) IS DISTINCT FROM 'object' OR coalesce(brand,'') NOT IN ('fish','aristo') THEN RAISE EXCEPTION 'ENGAGEMENT_SCOPE_INVALID';END IF;
  IF piece NOT IN ('nps-d0','nps-d3','cupom-boas-vindas') OR piece IS NULL THEN RAISE EXCEPTION 'ENGAGEMENT_PIECE_INVALID';END IF;
  flow=CASE WHEN piece='cupom-boas-vindas' THEN 'popup' ELSE 'nps' END;
  tpl=CASE brand WHEN 'fish' THEN CASE piece WHEN 'nps-d0' THEN 29 WHEN 'nps-d3' THEN 31 ELSE 23 END ELSE CASE piece WHEN 'nps-d0' THEN 28 WHEN 'nps-d3' THEN 30 ELSE 22 END END;
- sender=CASE brand WHEN 'fish' THEN 'contato@fishermans.com.br' ELSE 'contato@oaristocrata.com' END;
+ -- Popup sender is the existing pedidos mailbox; NPS uses contato.
+ sender=(CASE WHEN flow='popup' THEN 'pedidos@' ELSE 'contato@' END)||CASE brand WHEN 'fish' THEN 'fishermans.com.br' ELSE 'oaristocrata.com' END;
+ reply_to=CASE WHEN flow='popup' AND brand='fish' THEN 'pedidos@fishermans.com.br' WHEN brand='fish' THEN 'contato@fishermans.com.br' ELSE 'contato@oaristocrata.com' END;
  cfg=CASE brand WHEN 'fish' THEN 'cs-fishermans-tx' ELSE 'cs-aristocrata-tx' END;
  IF email IS NULL OR email<>btrim(email) OR email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR email LIKE '%@simulator.amazonses.com' THEN RAISE EXCEPTION 'ENGAGEMENT_EMAIL_INVALID';END IF;
  IF ref IS NULL OR ref='' OR octet_length(ref)>256 THEN RAISE EXCEPTION 'ENGAGEMENT_REF_INVALID';END IF;
@@ -35,7 +37,7 @@ BEGIN
   IF piece='nps-d3' THEN wait_time=make_interval(secs=>60*(slot->>'wait_min')::double precision);END IF;
  END IF;
  -- Canonical transport and immutable context are captured before reservation.
- tx=tx||jsonb_build_object('subscriber_mode','external','subscriber_email',email,'headers',jsonb_build_array(jsonb_build_object('Reply-To',sender)));
+ tx=tx||jsonb_build_object('subscriber_mode','external','subscriber_email',email,'headers',jsonb_build_array(jsonb_build_object('Reply-To',reply_to)));
  b=b||jsonb_build_object('email',email,'flow',flow,'tx',tx,'template_id',tpl);
  hash=encode(digest(convert_to(b::text,'UTF8'),'sha256'),'hex');
  key=jsonb_build_array('email',ref,CASE WHEN flow='popup' THEN email ELSE 'order' END,false)::text;

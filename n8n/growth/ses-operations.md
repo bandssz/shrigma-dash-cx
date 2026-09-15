@@ -49,3 +49,35 @@ view in `ses-metrics.sql`; apply finalization/recovery functions with privileges
 restricted to the existing service owner. Preserve current workflow versions and
 credentials when adding the native nodes. Inspect active versions and observe
 real poll/queue timestamps after publication.
+
+## Transactional reconciliation and popup sender repair (September 15)
+
+`ses-transactional-recovery.sql` provides an explicit repair for lost HTTP
+responses. It requires both SES Send and Delivery for one message, with the
+same dispatch, recipient, account, region and configuration set. The complete
+archived SNS envelope must pass its stored SHA-256 check. Missing events,
+conflicting identity, existing logs and test dispatches are rejected. No HTTP
+request or queue retry is part of this function.
+
+Two historical Aristo dispatches were reconciled after 13 rollback checks.
+Their original dispatch state and evidence references are retained in
+`shrigma_email_tx_recovery`. Acceptance is inferred from provider Send and
+Delivery, explicitly marked `RECONCILED_SES_DELIVERY_HTTP_NOT_CAPTURED`;
+the HTTP response remains unavailable. Send time comes from SES, and the
+unknown template stays NULL. The reservation and claim remain intact.
+The other 39 historical transactional outcomes have insufficient evidence and
+remain protected against another send.
+
+The absence of popup dispatches was investigated against pre-migration sends.
+Both popup forms use the pedidos mailbox; the engagement guard had incorrectly
+required the NPS contato mailbox. The claim now validates pedidos for popup and
+contato for NPS. Existing Reply-To addresses are preserved: pedidos for Fish
+popup, contato for Aristo popup and both NPS routes. This is a database function
+change; existing webhooks, credentials and published editor controls are intact.
+
+`tests/sql/engagement-senders.sql` exercises both brands and all three engagement
+pieces, including duplicate claims, finalization, concurrent votes, cooldown,
+blocklist and uncertain outcomes. Run the entire SQL through the protected
+utility; its caught subtransaction rolls back all fixtures without sending mail.
+Do not claim popup delivery based only on this test; inspect natural dispatches
+and matched SES Delivery after deployment.

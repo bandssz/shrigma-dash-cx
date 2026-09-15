@@ -11,7 +11,7 @@ test('unsupported brands and incomplete NPS requests cannot become Fishermans se
  for(const input of [{brand:'olivas',email:'x@example.invalid',ref:'1'},{brand:'fish',email:'',ref:'1'},{brand:'aristo',email:'x@example.invalid'}])assert.throws(()=>nps(input,'nps-d0',C,()=>''),/NPS_INPUT_INVALID/);
 });
 test('popup preserves quotes in names and has per-execution identity, with other brands unchanged',()=>{
- const b={email:'X@EXAMPLE.INVALID',name:'João "Teste"',from_email:C.FROM.fish,template_id:23,checkout_url:'https://fishermans.com.br/?coupon=welcome'};
+ const b={email:'X@EXAMPLE.INVALID',name:'João "Teste"',from_email:'Fishermans <pedidos@fishermans.com.br>',template_id:23,checkout_url:'https://fishermans.com.br/?coupon=welcome'};
  const r=popup(b,'123');assert.equal(r.tx.data.first_name,b.name);assert.equal(r.tx.data.checkout_url,b.checkout_url);assert.equal(r.email,'x@example.invalid');assert.equal(r.ref,'popup-execution:123');assert.notEqual(popup(b,'124').ref,r.ref);
  assert.equal(popup({...b,from_email:'Olivas <contato@olivasdocampo.com.br>'},'123'),null);
  assert.throws(()=>popup({...b,template_id:22},'123'),/POPUP_INPUT_INVALID/);assert.throws(()=>popup(b,'not-an-id'),/POPUP_INPUT_INVALID/);
