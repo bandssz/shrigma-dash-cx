@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
 <link rel="stylesheet" href="growth.css?v=20260910-2">
 <link rel="stylesheet" href="growth-attribution.css?v=20260915-3">
+<link rel="stylesheet" href="growth-campaign-editor.css?v=20260915-1">
 <link rel="stylesheet" href="growth-ses.css?v=20260914-1">
 <link rel="stylesheet" href="growth-control.css?v=20260911-2">
 <style>
@@ -203,6 +204,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
   </div>
 
   <div class="sec" id="sec-camp">
+    <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail"></section>
     <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
     <section class="painel" id="pix-conversion" aria-live="polite"></section>
     <section class="painel" id="campaign-email-block">
@@ -331,6 +333,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
 <script src="growth-data.js?v=20260908-2"></script>
 <script src="growth-attribution.js?v=20260915-3"></script>
+<script src="n8n/growth/campaign-contract.js?v=20260915-1"></script>
+<script src="growth-campaign-editor.js?v=20260915-1"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260915-1"></script>
@@ -529,6 +533,7 @@ async function encerrarTeste(id){
 }
 
 function render(){
+  GCE.mount({marca:MARCA});
   if(!API)return;
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
