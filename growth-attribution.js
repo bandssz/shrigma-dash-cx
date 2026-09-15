@@ -81,7 +81,7 @@ const GA=(()=>{
  function render(ctx){
   const {api,marca:b,ini:a,fim:z,canal:channel='todos',GUI:U,onModel}=ctx;
   const root=document.querySelector('#attribution-campaigns'),bar=document.querySelector('#attribution-status');if(!root||!bar)return;
-  const e=U.esc,n=U.nf,money=U.rf,ok=valid(api)&&supported(b);
+  const previousState=GT.captura(root);const e=U.esc,n=U.nf,money=U.rf,ok=valid(api)&&supported(b);
   if(!ok){bar.innerHTML='<p>Atribuição por pedido ainda não disponível para este recorte. Valores da fonte anterior não foram reconciliados.</p>';root.innerHTML='';return;}
   const cov=coverage(api,b,a,z);api._attribution_missing=!cov.covered;const label=models[model(api)],rr=rows(api,b,a,z,channel==='todos'?'total':'channel',channel),total=sum(rr);
   bar.innerHTML=`<div class="ga-model"><label>Modelo de atribuição<select id="attribution-model"><option value="last_non_direct" ${model(api)==='last_non_direct'?'selected':''}>Último clique não direto · 30 dias</option><option value="last_click" ${model(api)==='last_click'?'selected':''}>Último clique · 30 dias</option></select></label><div><strong>${cov.complete?'Período conciliado':'Cobertura parcial'}</strong><span>${n(cov.covered)} de ${n(cov.expected)} dias × marca · ${n(cov.read)} pedidos lidos · ${n(cov.paid)} pagos elegíveis</span></div></div><p>${e(label)} · receita líquida recebida, descontados reembolsos · data da compra em Brasília.${b==='todas'?' Atribuição conciliada: Aristocrata e Fishermans.':''} ${cov.pending?`${n(cov.pending)} pedido(s) com jornada pendente. `:''}${cov.partial?`${n(cov.partial)} jornada(s) parcial(is); assistências podem estar incompletas. `:''}${!cov.complete?'Dias sem conciliação ficam fora dos resultados; o total está parcial. ':''}Leitura mais recente: ${e(U.timestamp(cov.latest))}.</p>`;
@@ -94,13 +94,13 @@ const GA=(()=>{
    }).join(''):'<div class="vazio">Nenhuma campanha com envio ou atribuição neste recorte.</div>';
    root.querySelectorAll('details[data-key]').forEach(el=>el.addEventListener('toggle',()=>{if(el.open)opened.add(el.dataset.key);else opened.delete(el.dataset.key);}));
    root.querySelector('#attribution-export').onclick=()=>{
-    const records=list.map(v=>[v.nome,v.marca,a,z,label,cov.complete?'completa':'parcial',v.pedidos,v.receita,v.assist,v.receita_assist,v.sent,v.pieces]);
-    const cell=x=>'"'+String(x??'').replace(/"/g,'""').replace(/^[=+@-]/,x=>"'"+x)+'"';
-    const csv='\uFEFF'+[['Campanha','Marca','Inicio compras','Fim compras','Modelo','Cobertura','Pedidos','Receita BRL','Assistidos','Receita assistida BRL','Emails enviados no periodo','Disparos no periodo'],...records].map(r=>r.map(cell).join(';')).join('\r\n');
-    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=`campanhas-${a}-${z}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const records=list.map(v=>[v.nome,v.marca,a,z,label,cov.complete?'completa':'parcial',cov.covered?v.pedidos:null,cov.covered?v.receita:null,cov.covered?v.assist:null,cov.covered?v.receita_assist:null,v.sent,v.pieces]);
+    const labels=['Campanha','Marca','Inicio compras','Fim compras','Modelo','Cobertura','Pedidos','Receita BRL','Assistidos','Receita assistida BRL','Emails enviados no periodo','Disparos no periodo'];
+    const csv=GT.csv(labels.map((rotulo,chave)=>({chave,rotulo})),records,{recorte_canal:channel,consulta_em:api.crm_attribution.generated_at});
+    GT.baixar(`campanhas-${channel}-${a}-${z}.csv`,csv);
    };
   }
-  root.querySelector('#attribution-search').oninput=ev=>{search=ev.target.value;draw();};draw();
+  root.querySelector('#attribution-search').oninput=ev=>{search=ev.target.value;draw();};draw();GT.restaura(root,previousState);
  }
  return {models,valid,model,project,rows,sum,coverage,conversion,campaigns,install,render};
 })();
