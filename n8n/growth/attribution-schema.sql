@@ -106,14 +106,39 @@ INSERT INTO public.crm_familia_campanha(marca,utm_campaign,familia)
 VALUES('aristo','aristo-semana-cliente','semana-do-cliente-2026')
 ON CONFLICT(marca,utm_campaign) DO NOTHING;
 
+CREATE FUNCTION public.crm_attribution_url_decode_v2(input text) RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT SECURITY INVOKER SET search_path=pg_catalog AS $f$
+DECLARE part text;buf bytea=''::bytea;
+BEGIN
+ FOR part IN SELECT m[1] FROM regexp_matches(input,'%[0-9A-Fa-f]{2}|[^%]+|%','g')m LOOP
+  buf=buf||CASE WHEN part~'^%[0-9A-Fa-f]{2}$' THEN decode(substr(part,2),'hex') ELSE convert_to(part,'UTF8') END;
+ END LOOP;
+ BEGIN RETURN convert_from(buf,'UTF8');EXCEPTION WHEN character_not_in_repertoire OR untranslatable_character THEN RETURN input;END;
+END;$f$;
+REVOKE ALL ON FUNCTION public.crm_attribution_url_decode_v2(text) FROM PUBLIC;
+CREATE VIEW public.crm_growth_campaign_links_v2 AS
+WITH urls AS (
+ SELECT c.id campanha_id,replace(public.crm_attribution_url_decode_v2(public.crm_attribution_url_decode_v2(m[1])),'&amp;','&') url
+ FROM public.campaigns c CROSS JOIN LATERAL regexp_matches(c.body,$regex$https?://[^"'<>[:space:]]+$regex$,'g')m
+ WHERE c.status<>'draft' AND coalesce(c.started_at,c.send_at,c.created_at)>=now()-interval '120 days'
+), parsed AS (
+ SELECT campanha_id,
+ lower(coalesce(substring(url from '(?i)[?&]utm_source=([^&#]+)'),'')) source,
+ lower(coalesce(substring(url from '(?i)[?&]utm_medium=([^&#]+)'),'')) medium,
+ lower(coalesce(substring(url from '(?i)[?&]utm_campaign=([^&#]+)'),'')) campaign,
+ lower(coalesce(substring(url from '(?i)[?&]utm_content=([^&#]+)'),'')) content,
+ lower(coalesce(substring(url from '(?i)[?&]utm_term=([^&#]+)'),'')) term FROM urls
+)
+SELECT DISTINCT * FROM parsed WHERE source<>'' AND campaign<>'';
+
 CREATE VIEW public.crm_growth_campaign_members_v2 AS
 WITH c AS (
  SELECT c.*,CASE WHEN c.from_email ILIKE '%oaristocrata.com%' THEN 'aristo' WHEN c.from_email ILIKE '%fishermans.com.br%' THEN 'fish' END emissor
  FROM public.campaigns c WHERE c.status<>'draft' AND coalesce(c.started_at,c.send_at,c.created_at)>=now()-interval '120 days'
 ), meta AS (
  SELECT c.*,CASE WHEN c.id=114 AND c.tags::text[] @> ARRAY['desodorante','cross'] THEN 'aristo' ELSE c.emissor END marca,
- (SELECT jsonb_agg(x) FROM(SELECT DISTINCT u.utm_source source,u.utm_medium medium,u.utm_campaign campaign,u.utm_content content,u.utm_term term
-  FROM public.crm_campanha_utm u WHERE u.campanha_id=c.id AND u.canal='email')x) utms,
+ (SELECT jsonb_agg(x) FROM(SELECT DISTINCT coalesce(u.utm_source,'') source,coalesce(u.utm_medium,'') medium,coalesce(u.utm_campaign,'') campaign,coalesce(u.utm_content,'') content,coalesce(u.utm_term,'') term
+  FROM public.crm_campanha_utm u WHERE u.campanha_id=c.id AND u.canal='email'
+  UNION SELECT l.source,l.medium,l.campaign,l.content,l.term FROM public.crm_growth_campaign_links_v2 l WHERE l.campanha_id=c.id)x) utms,
  (SELECT array_agg(DISTINCT l.name ORDER BY l.name) FROM public.campaign_lists cl JOIN public.lists l ON l.id=cl.list_id WHERE cl.campaign_id=c.id) segmentos
  FROM c WHERE c.emissor IS NOT NULL
 )

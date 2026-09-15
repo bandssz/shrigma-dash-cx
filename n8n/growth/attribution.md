@@ -29,7 +29,7 @@ A iniciativa comercial reúne disparos e canais. A Semana do Cliente 2026 reúne
 
 Cada iniciativa abre os canais, disparos e listas/segmentos do Listmonk. Receita segue a data da compra; o total de envios segue a data do disparo. Detalhes mostram também disparos anteriores da mesma iniciativa, com a data explícita. Agendamentos não entram em resultados.
 
-A receita por disparo exige correspondência de origem, meio, campanha, conteúdo e termo. Se mais de um disparo enviado usa a mesma tupla, não se divide a receita entre suas bases. A iniciativa conserva seu total deduplicado. Disparos sem UTM mantêm as métricas de envio, com receita individual não identificável. Para os próximos disparos, termos de rastreamento próprios por base permitem separar os resultados.
+A receita por disparo exige correspondência de origem, meio, campanha, conteúdo e termo. URLs de redirecionamento/cupom percentualmente codificadas são decodificadas antes de extrair o rastreamento. Se mais de um disparo enviado usa a mesma tupla, não se divide a receita entre suas bases. Links exclusivos continuam mostrando sua parcela identificada; a parte compartilhada não é distribuída entre bases. A iniciativa conserva seu total deduplicado. Disparos sem UTM mantêm as métricas de envio, com receita individual não identificável. Para os próximos disparos, termos de rastreamento próprios por base permitem separar os resultados.
 
 Envios e pessoas que clicaram são contagens por disparo, não audiência única da campanha inteira. Aberturas também podem incluir ações automáticas de provedores.
 
