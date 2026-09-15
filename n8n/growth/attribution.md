@@ -25,13 +25,21 @@ Cobertura identifica dias e marcas efetivamente lidos. Datas fora da cobertura n
 
 ## Campanhas comerciais
 
-A iniciativa comercial reúne disparos e canais. A Semana do Cliente 2026 reúne `aristo-semana-cliente`; o lançamento Desodorante Frescor reúne `aristo-desodorante` e `desodorante-lancamento`. O envio cruzado Fishermans → Aristocrata preserva a marca emissora, mas a conversão pertence à loja onde a compra ocorreu.
+A iniciativa comercial reúne disparos e canais. A Semana do Cliente 2026 reúne `aristo-semana-cliente`; o lançamento Desodorante Frescor reúne `aristo-desodorante` e `desodorante-lancamento`. A Campanha do Copo reúne também os aliases de texto `copo_s1_quentes`, `copo_s2_multi`, `copo_s3_carrinho` e `copo_s4_adormecidos`, conferidos nos mesmos cinco disparos que usam `fish-copo` no HTML. O envio cruzado Fishermans → Aristocrata preserva a marca emissora, mas a conversão pertence à loja onde a compra ocorreu.
 
 Cada iniciativa abre os canais, disparos e listas/segmentos do Listmonk. Receita segue a data da compra; o total de envios segue a data do disparo. Detalhes mostram também disparos anteriores da mesma iniciativa, com a data explícita. Agendamentos não entram em resultados.
 
-A receita por disparo exige correspondência de origem, meio, campanha, conteúdo e termo. URLs de redirecionamento/cupom percentualmente codificadas são decodificadas antes de extrair o rastreamento. Se mais de um disparo enviado usa a mesma tupla, não se divide a receita entre suas bases. Links exclusivos continuam mostrando sua parcela identificada; a parte compartilhada não é distribuída entre bases. A iniciativa conserva seu total deduplicado. Disparos sem UTM mantêm as métricas de envio, com receita individual não identificável. Para os próximos disparos, termos de rastreamento próprios por base permitem separar os resultados.
+A receita por disparo exige correspondência de origem, meio, campanha, conteúdo e termo. Links do HTML e da versão em texto são considerados. URLs de redirecionamento/cupom percentualmente codificadas são decodificadas antes de extrair o rastreamento. Aliases antigos do snapshot só complementam o corpo atual quando possuem clique registrado ou quando nenhum link atual foi identificado; alterações de rastreamento antes do envio não conservam aliases obsoletos sem clique. Se mais de um disparo enviado usa a mesma tupla, não se divide a receita entre suas bases. Links exclusivos continuam mostrando sua parcela identificada; a parte compartilhada não é distribuída entre bases. A iniciativa conserva seu total deduplicado. Disparos sem UTM mantêm as métricas de envio, com receita individual não identificável. Para os próximos disparos, termos de rastreamento próprios por base permitem separar os resultados.
 
 Envios e pessoas que clicaram são contagens por disparo, não audiência única da campanha inteira. Aberturas também podem incluir ações automáticas de provedores.
+
+## Preparação dos próximos disparos
+
+`campaign-tracking.js` prepara, sem enviar, links comerciais de um rascunho ou agendamento ainda não iniciado. O `utm_term` recebe um identificador estável de disparo + lista (`lm-ID-lLISTA`), mantendo qualquer termo anterior como prefixo. O identificador não contém dados de assinantes. Uma união de listas identifica o conjunto, não cada pessoa ou lista individual.
+
+O preparo inclui HTML, texto e destino interno de cupom; preserva produto, variante, desconto e texto. Links legais, imagens, cancelamento e destinos externos ficam intactos. Disparos iniciados, agendamentos a menos de 15 minutos, redirecionamentos externos e UTMs conflitantes são recusados. Alterações devem ser conferidas contra a versão atual antes da atualização pela API do Listmonk; não há disparo, pausa ou reagendamento automático.
+
+O painel mostra links identificados exclusivos, reutilizados ou ausência de rastreamento por disparo. Reutilização com um próximo agendamento é sinalizada antecipadamente, mas apenas disparos já enviados disputam o crédito histórico. A função de preparo é uma ferramenta operacional; não intercepta automaticamente campanhas criadas fora deste fluxo.
 
 ## Assistências
 

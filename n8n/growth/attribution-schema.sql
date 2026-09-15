@@ -103,7 +103,9 @@ FROM public.crm_attribution_order_v2 o GROUP BY 1,2;
 
 -- Explicit initiative mapping; unrelated mappings are preserved.
 INSERT INTO public.crm_familia_campanha(marca,utm_campaign,familia)
-VALUES('aristo','aristo-semana-cliente','semana-do-cliente-2026')
+VALUES('aristo','aristo-semana-cliente','semana-do-cliente-2026'),
+ ('fish','copo_s1_quentes','fish-copo'),('fish','copo_s2_multi','fish-copo'),
+ ('fish','copo_s3_carrinho','fish-copo'),('fish','copo_s4_adormecidos','fish-copo')
 ON CONFLICT(marca,utm_campaign) DO NOTHING;
 
 CREATE FUNCTION public.crm_attribution_url_decode_v2(input text) RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT SECURITY INVOKER SET search_path=pg_catalog AS $f$
@@ -118,7 +120,7 @@ REVOKE ALL ON FUNCTION public.crm_attribution_url_decode_v2(text) FROM PUBLIC;
 CREATE VIEW public.crm_growth_campaign_links_v2 AS
 WITH urls AS (
  SELECT c.id campanha_id,replace(public.crm_attribution_url_decode_v2(public.crm_attribution_url_decode_v2(m[1])),'&amp;','&') url
- FROM public.campaigns c CROSS JOIN LATERAL regexp_matches(c.body,$regex$https?://[^"'<>[:space:]]+$regex$,'g')m
+ FROM public.campaigns c CROSS JOIN LATERAL regexp_matches(coalesce(c.body,'')||E'\n'||coalesce(c.altbody,''),$regex$https?://[^"'<>[:space:]]+$regex$,'g')m
  WHERE c.status<>'draft' AND coalesce(c.started_at,c.send_at,c.created_at)>=now()-interval '120 days'
 ), parsed AS (
  SELECT campanha_id,
@@ -138,6 +140,7 @@ WITH c AS (
  SELECT c.*,CASE WHEN c.id=114 AND c.tags::text[] @> ARRAY['desodorante','cross'] THEN 'aristo' ELSE c.emissor END marca,
  (SELECT jsonb_agg(x) FROM(SELECT DISTINCT coalesce(u.utm_source,'') source,coalesce(u.utm_medium,'') medium,coalesce(u.utm_campaign,'') campaign,coalesce(u.utm_content,'') content,coalesce(u.utm_term,'') term
   FROM public.crm_campanha_utm u WHERE u.campanha_id=c.id AND u.canal='email'
+   AND (coalesce(u.cliques,0)>0 OR NOT EXISTS(SELECT 1 FROM public.crm_growth_campaign_links_v2 current_links WHERE current_links.campanha_id=c.id))
   UNION SELECT l.source,l.medium,l.campaign,l.content,l.term FROM public.crm_growth_campaign_links_v2 l WHERE l.campanha_id=c.id)x) utms,
  (SELECT array_agg(DISTINCT l.name ORDER BY l.name) FROM public.campaign_lists cl JOIN public.lists l ON l.id=cl.list_id WHERE cl.campaign_id=c.id) segmentos
  FROM c WHERE c.emissor IS NOT NULL
