@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="cx.css?v=20260915a">
+<link rel="stylesheet" href="cx.css?v=20260915b">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -145,7 +145,7 @@
   </section>
 
   <details class="painel dobra-painel" id="painel-agentes" aria-label="Ranking de agentes">
-    <summary><div class="cab-titulo"><h2>Por agente <span class="info" title="Meta do N1: fechamentos resolutivos > 120/dia e CSAT > 75. Fechados, Resolutivos, FCR, Msgs e 1ª resposta são medidos por nós ticket a ticket; Trabalhados, CSAT e Horas ativas vêm do Gleap">ⓘ</span></h2></div><span id="ranking-rotulo" class="mini"></span></summary>
+    <summary><div class="cab-titulo"><h2>Por agente <span class="info" title="Meta do N1: fechamentos resolutivos > 120/dia, tempo de resposta < 8 min e CSAT > 75. Fechados, Resolutivos, FCR, Msgs e 1ª resposta são medidos por nós ticket a ticket; Trabalhados, CSAT e Horas ativas vêm do Gleap">ⓘ</span></h2></div><span id="ranking-rotulo" class="mini"></span></summary>
     <div class="rolagem"><table class="ranking" id="tabela-ranking">
       <thead><tr>
         <th>Agente</th>
@@ -153,6 +153,7 @@
         <th class="num" title="Fechamentos maduros (7 dias corridos) em que o cliente NÃO voltou. Só com 30+ maduros; abaixo disso mostra a contagem">Resolutivos</th>
         <th class="num" title="Primeiro fechamento do ticket feito por esta pessoa, um agente só no ticket, sem volta em 7 dias ÷ primeiros fechamentos maduros dela">FCR</th>
         <th class="num" title="Mediana de mensagens humanas por fechamento (o esforço); embaixo, mensagens do cliente. ≈ = mediana das medianas diárias ponderada">Msgs/fech.</th>
+        <th class="num" title="Mediana do tempo que o cliente esperou por uma resposta desta pessoa DENTRO da conversa, só EXPEDIENTE (seg–qui 8h–18h), contando desde a primeira mensagem dele sem resposta; a 1ª resposta do ticket (a fila) fica fora. Meta < 8 min. ≈ = mediana das medianas diárias ponderada">T. resposta · exped.<span class="mini meta"> meta 8 min</span></th>
         <th class="num" title="CSAT na escala do Gleap (média ponderada por respostas). Meta > 75">CSAT<span class="mini meta"> meta 75</span></th>
         <th class="num" title="Mediana do tempo até a PRIMEIRA resposta humana desta pessoa, só EXPEDIENTE (seg–qui 8h–18h); embaixo, fatia em até 1h e quantos tickets abriu">1ª resposta · exped.</th>
         <th class="num" title="Gleap: tickets em que a pessoa atuou (ticketActivityCount)">Trabalhados</th><th class="num" title="Gleap">Horas ativas</th>
@@ -234,10 +235,10 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260915a"></script>
-<script src="cx-graficos.js?v=20260915a"></script>
-<script src="app.js?v=20260915a"></script>
-<script src="cx-tela.js?v=20260915a"></script>
+<script src="cx-metricas.js?v=20260915b"></script>
+<script src="cx-graficos.js?v=20260915b"></script>
+<script src="app.js?v=20260915b"></script>
+<script src="cx-tela.js?v=20260915b"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>

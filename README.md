@@ -245,7 +245,7 @@ preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 
 **Problema**: a coluna Fechados por agente vinha do Gleap (CLOSED por agente) e conta fechamento, não desfecho — o
 mesmo ticket fechado três vezes conta três, e reabertura concentra em incidente, quando a leitura mais importa. A meta
-do N1 passou a ser **fechamentos resolutivos > 120/dia e CSAT > 75**, então o painel precisa medir resolução.
+do N1 passou a ser **fechamentos resolutivos > 120/dia, tempo de resposta < 8 min e CSAT > 75**, então o painel precisa medir resolução.
 
 **Fonte** (verificada em 150 tickets de 18/08–08/09): o Gleap guarda por ticket `GET /tickets/{id}/history` com cada
 mudança de status (`FEEDBACK_UPDATED` / `STATUS`, valor, hora e usuário) desde a criação — é histórico completo, dá
@@ -279,6 +279,17 @@ matura. A tabela **Por agente** virou a tabela da meta: **Fechados** (nossos, co
 120/dia colore o número), **Resolutivos** (% dos maduros; base < 30 vira contagem), **FCR**, **Msgs/fech.** (mediana
 de mensagens humanas; embaixo, do cliente), **CSAT** (escala do Gleap; meta 75), 1ª resposta, Trabalhados e Horas
 ativas (Gleap). Saíram Respostas, T. resposta e Resolução do Gleap. Etiqueta "resolutivos maduros até dd/mm".
+
+**Tempo de resposta < 8 min (terceira meta, 15/09)**: o "T. resposta" do Gleap por agente é relógio corrido e mistura a
+1ª resposta (a fila, horas) com a conversa — dava 6 min para uns e 400+ para outros, e está parado desde 12/09. Medimos
+o nosso: tabela `cx_resposta`, **uma resposta humana por linha** — mensagem de pessoa que vem logo depois de uma
+sequência de mensagens do cliente; `espera` desde a **primeira** mensagem do cliente daquela sequência, em relógio e em
+**expediente** (seg–qui 8–18); se antes falou o Kai ou outro humano, não é resposta a cliente. `primeira` marca a 1ª
+resposta humana do ticket, que fica fora das views (`cx_resposta_dia`, `cx_resposta_agente_dia`: respostas, p50/p90
+em expediente, p50 relógio, até 8 min, até 30 min). Sai das mesmas `/messages` do noturno de fechamentos (que agora
+busca mensagens de todo ticket pendente) e do backfill `backfill_respostas.py`. API: `cx_resposta`,
+`cx_resposta_agente`. Tabela por agente: coluna **T. resposta · exped.** (mediana; embaixo, % em até 8 min e nº de
+respostas), meta 8 min colore o número; a 1ª resposta continua na coluna ao lado, separada de propósito.
 
 **Nomes que enganavam**: `cx_reabertura_dia` não é reabertura — é ticket criado antes do período com atividade dentro
 (comentário da própria tabela); a tira do detalhe passou a se chamar "Ativos de antes do período". `cx_agente_resolucao`

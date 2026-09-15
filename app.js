@@ -485,6 +485,7 @@ function pintaRanking(d, hoje) {
   const jt = cxJanelaCompleta(cxF(estado.marca), hoje);
   const tempos = tempoPorAgente(d.cx_tempo_agente || [], jt.f);
   const fechs = fechamentoPorAgente(d.cx_fechamento_agente || [], { marca: estado.marca, ini: PER.ini, fim: PER.fim });
+  const resps = respostaPorAgente(d.cx_resposta_agente || [], { marca: estado.marca, ini: PER.ini, fim: PER.fim });
   const temFech = Array.isArray(d.cx_fechamento_agente) && d.cx_fechamento_agente.length > 0;
   const porId = new Map();
   const pega = (id, nome, marca) => porId.get(id) || (porId.set(id, { agente_id: id, nome, marcas: new Set(marca ? [marca] : []), trabalhados: 0, respostas: 0, horas_ativas_seg: 0, csatPares: [], gleap: false }), porId.get(id));
@@ -495,6 +496,7 @@ function pintaRanking(d, hoje) {
     a.aprox = a.aprox || g.aprox;
   }
   for (const t of tempos) { const a = pega(t.agente_id, t.nome, null); t.marcas.forEach((m) => a.marcas.add(m)); a.tempo = t; if (!a.nome || /null$/i.test(a.nome)) a.nome = t.nome || a.nome; }
+  for (const rp of resps) { const a = pega(rp.agente_id, rp.nome, null); rp.marcas.forEach((m) => a.marcas.add(m)); a.resp = rp; if (!a.nome || /null$/i.test(a.nome)) a.nome = rp.nome || a.nome; }
   for (const f of fechs) { const a = pega(f.agente_id, f.nome, null); f.marcas.forEach((m) => a.marcas.add(m)); a.fech = f; if (!a.nome || /null$/i.test(a.nome)) a.nome = f.nome || a.nome; }
   const linhas = [...porId.values()].map((a) => { const tot = a.csatPares.reduce((s, p) => s + p[1], 0); a.csat = tot ? a.csatPares.reduce((s, p) => s + p[0] * p[1], 0) / tot : null; a.marca = a.marcas.size === 1 ? [...a.marcas][0] : "todas"; return a; })
     .sort((x, y) => ((y.fech && y.fech.fechados) || 0) - ((x.fech && x.fech.fechados) || 0) || (y.trabalhados || 0) - (x.trabalhados || 0));
@@ -512,7 +514,7 @@ function pintaRanking(d, hoje) {
   $("#ranking-rotulo").innerHTML = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "") +
     (temFech && PER.fim > tetoMaduro ? ` <span class="tag nota" title="Fechamento só conta como resolutivo (ou 'voltou') depois de ${CX_VOLTA_DIAS} dias corridos. Fechados conta todos; Resolutivos e FCR só os maduros — em período curto a base fica pequena e a coluna mostra a contagem.">resolutivos maduros até ${fmtDia(tetoMaduro)}</span>` : "") +
     (!temFech ? ` <span class="tag alerta" title="A API ainda não devolve cx_fechamento_agente; Fechados, Resolutivos, FCR e Msgs ficam vazios.">sem cx_fechamento</span>` : "") +
-    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; Trabalhados, CSAT e Horas ativas param em ${fmtDia(gleapUlt)}. Fechados, Resolutivos, FCR, Msgs e 1ª resposta são medidos por nós e estão em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
+    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; Trabalhados, CSAT e Horas ativas param em ${fmtDia(gleapUlt)}. Fechados, Resolutivos, FCR, Msgs, T. resposta e 1ª resposta são medidos por nós e estão em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
     (jt.caiu || jt.cortou ? ` <span class="tag nota" title="1ª resposta usa só dias completos (ticket de hoje ainda vai ser respondido).">1ª resposta até ${fmtDia(jt.f.fim)}</span>` : "");
 
   const st = (m, v) => { const s = cxStatus(m, v); return s ? ` st-${s}` : ""; };
@@ -521,6 +523,7 @@ function pintaRanking(d, hoje) {
   const resCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctResolutivo === "number" ? `<strong class="tabn${st("voltou", f.pctVoltou)}">${fmtPct0(f.pctResolutivo)}</strong><div class="mini">${fmtNum(f.resolutivos)} de ${fmtNum(f.maduros)} · voltaram ${fmtNum(f.maduros - f.resolutivos)}</div>` : `<span class="tabn">${fmtNum(f.resolutivos)}<span class="mini"> de ${fmtNum(f.maduros)}</span></span><div class="mini">${f.maduros ? "base curta" : "nada maduro ainda"}</div>`;
   const fcrCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctFcr === "number" ? `<strong class="tabn${st("fcr", f.pctFcr)}">${fmtPct0(f.pctFcr)}</strong><div class="mini">de ${fmtNum(f.fcrBase)} primeiros</div>` : `<span class="tabn">${fmtNum(f.fcr)}<span class="mini"> de ${fmtNum(f.fcrBase)}</span></span>`;
   const msgCel = (f) => !f || f.msgsHumanasP50 === null ? `<span class="mini">—</span>` : `<strong class="tabn">${f.aproximado ? "≈ " : ""}${fmtDec(f.msgsHumanasP50, 0)}</strong><div class="mini">cliente ${f.msgsClienteP50 === null ? "—" : fmtDec(f.msgsClienteP50, 0)}</div>`;
+  const respCel = (a) => !a.resp || !a.resp.respostas ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_resposta_seg", a.resp.p50Comercial)}">${a.resp.aproximado ? "≈ " : ""}${fmtDur(a.resp.p50Comercial)}</strong><div class="mini">${fmtPct0(a.resp.pctAte8)} em até 8 min · ${fmtNum(a.resp.respostas)} resp.</div>`;
   const csatCel = (a) => !a.gleap || typeof a.csat !== "number" ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_csat", a.csat)}">${fmtDec(a.csat, 0)}</strong>`;
   $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
     <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
@@ -533,12 +536,13 @@ function pintaRanking(d, hoje) {
       <td class="num">${resCel(a.fech)}</td>
       <td class="num">${fcrCel(a.fech)}</td>
       <td class="num">${msgCel(a.fech)}</td>
+      <td class="num">${respCel(a)}</td>
       <td class="num">${csatCel(a)}</td>
       <td class="num">${t1(a)}</td>
       <td class="num">${a.gleap ? fmtNum(a.trabalhados) : "—"}</td>
       <td class="num">${a.gleap ? fmtDur(a.horas_ativas_seg) : "—"}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="9" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+    `<tr><td colspan="10" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
 }
 
 

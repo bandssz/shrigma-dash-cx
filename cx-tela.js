@@ -98,6 +98,7 @@ const CX_ALVOS = {
   fcr:                 { alvo: 70, base: 55, dir: "alto",  rot: "faixa ≥ 70%" },
   ag_fechados_dia:     { alvo: 120, base: 90, dir: "alto", rot: "meta > 120/dia" },
   ag_csat:             { alvo: 75, base: 65, dir: "alto",  rot: "meta > 75" },
+  ag_resposta_seg:     { alvo: 480, base: 900, dir: "baixo", rot: "meta < 8 min" },   // mediana em segundos de expediente
 };
 function cxStatus(metrica, v) {
   const a = CX_ALVOS[metrica];

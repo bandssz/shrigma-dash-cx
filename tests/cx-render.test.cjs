@@ -49,6 +49,9 @@ function fixture(o = {}) {
     cx_fechamento_agente: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
       { marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', fechados: 60, maduros: mad ? 60 : 0, resolutivos: mad ? 48 : 0, voltaram: mad ? 12 : 2, voltaram_humano: mad ? 8 : 1, fcr_base: mad ? 50 : 0, fcr: mad ? 35 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.4, msgs_cliente_p50: 6 },
       { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', fechados: 20, maduros: mad ? 20 : 0, resolutivos: mad ? 19 : 0, voltaram: mad ? 1 : 0, voltaram_humano: mad ? 1 : 0, fcr_base: mad ? 20 : 0, fcr: mad ? 18 : 0, msgs_humanas_p50: 2, msgs_humanas_media: 2.1, msgs_cliente_p50: 4 }]; }),
+    // tempo de resposta dentro da conversa (view cx_resposta_agente_dia): Leticia mediana 5 min (90% em até 8), Adão 20 min
+    cx_resposta_agente: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', respostas: 40, p50_comercial_seg: 300, p90_comercial_seg: 900, p50_relogio_seg: 320, ate_8min: 36, ate_30min: 40 },
+      { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', respostas: 20, p50_comercial_seg: 1200, p90_comercial_seg: 3600, p50_relogio_seg: 5000, ate_8min: 4, ate_30min: 15 }]),
     cx_pedidos: [], cx_ra: [],
     ...o,
   };
@@ -130,6 +133,11 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   assert.match(let1.children[2].textContent, /80%\s*48 de 60 · voltaram 12/);
   assert.match(x.document.querySelector('#ranking-rotulo').textContent, /resolutivos maduros até/);
   assert.match(let1.children[4].textContent, /≈ 3/);
+  // T. resposta em expediente: mediana ponderada 5min, 90% em até 8 min → verde; Adão 20min → vermelho
+  assert.match(let1.children[5].textContent, /≈ 5min\s*90% em até 8 min · 280 resp\./);
+  assert.ok(let1.children[5].querySelector('.st-bom'), '5 min bate a meta de 8');
+  const adao = [...tb.querySelectorAll('tr')].find((tr) => /Adão/.test(tr.textContent));
+  assert.ok(adao.children[5].querySelector('.st-ruim'), '20 min fica vermelho');
   assert.equal(x.txt('#area-chat .six2-val')[2], '10,0%');
   // ninguém respondeu = transferido sem resposta humana ÷ maduros: (60−40) + (40−40) + (30−30) = 20 ÷ 150 = 13,3%
   assert.equal(x.txt('#area-chat .six2-val')[3], '13,3%');

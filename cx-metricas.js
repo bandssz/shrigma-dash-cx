@@ -392,6 +392,32 @@ function fechamentoPorAgente(rows, f) {
     .sort((x, y) => y.fechados - x.fechados);
 }
 
+// ---------- tempo de resposta dentro da conversa (15/09): cx_resposta_dia / cx_resposta_agente_dia ----------
+// Resposta humana logo depois de mensagem do cliente; espera desde a PRIMEIRA mensagem do cliente da sequência, em
+// EXPEDIENTE. A 1ª resposta do ticket fica fora (é a fila, medida em cx_tempo). Meta do N1: mediana < 8 min.
+const CX_META_RESPOSTA_SEG = 8 * 60;
+function respostaAgg(rows, f) {
+  const a = { respostas: 0, ate8: 0, ate30: 0 }; const p50c = [], p90c = [], p50r = [];
+  for (const l of cxFiltra(rows, f)) {
+    const n = Number(l.respostas || 0); if (!n) continue;
+    a.respostas += n; a.ate8 += Number(l.ate_8min || 0); a.ate30 += Number(l.ate_30min || 0);
+    p50c.push([Number(l.p50_comercial_seg), n]); p90c.push([Number(l.p90_comercial_seg), n]); p50r.push([Number(l.p50_relogio_seg), n]);
+  }
+  return Object.assign(a, { p50Comercial: medianaPonderada(p50c), p90Comercial: medianaPonderada(p90c), p50Relogio: medianaPonderada(p50r),
+    pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, pctAte30: a.respostas ? (a.ate30 / a.respostas) * 100 : null, aproximado: p50c.length > 1 });
+}
+function respostaPorAgente(rows, f) {
+  const acc = {};
+  for (const l of cxFiltra(rows, f)) {
+    const n = Number(l.respostas || 0); if (!n) continue;
+    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), respostas: 0, ate8: 0, p50c: [], p50r: [] });
+    a.nome = a.nome || l.agente_nome; a.marcas.add(l.marca); a.respostas += n; a.ate8 += Number(l.ate_8min || 0);
+    a.p50c.push([Number(l.p50_comercial_seg), n]); a.p50r.push([Number(l.p50_relogio_seg), n]);
+  }
+  return Object.values(acc).map((a) => ({ agente_id: a.agente_id, nome: a.nome, marcas: [...a.marcas], respostas: a.respostas,
+    p50Comercial: medianaPonderada(a.p50c), p50Relogio: medianaPonderada(a.p50r), pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, aproximado: a.p50c.length > 1 }));
+}
+
 // ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
 // segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
 function cxSegExpediente(iniUtc, fimUtc) {
@@ -524,5 +550,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }
