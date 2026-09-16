@@ -479,7 +479,7 @@ document.addEventListener("click", (e) => {
 function pintaRanking(d, hoje) {
   // Três fontes, uma tabela por agente:
   //  - cx_fechamento_agente (15/09): fechamentos feitos pela pessoa (evento DONE do histórico do Gleap), quantos
-  //    voltaram em 7 dias, FCR e mensagens por fechamento — é aqui que a meta do N1 (fechamentos > 120/dia) é conferida;
+  //    voltaram em 7 dias, FCR e mensagens por fechamento — é aqui que a meta do N1 (150 fechamentos resolutivos/dia) é conferida;
   //  - cx_tempo_agente: 1ª resposta humana em EXPEDIENTE, por quem respondeu primeiro;
   //  - Gleap (cx_snapshot_agente): trabalhados, horas ativas e CSAT (escala do Gleap, meta > 75). Atrasa dias.
   const gleapLinhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);

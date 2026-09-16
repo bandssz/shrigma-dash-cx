@@ -418,6 +418,23 @@ function respostaPorAgente(rows, f) {
     p50Comercial: medianaPonderada(a.p50c), p50Relogio: medianaPonderada(a.p50r), pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, aproximado: a.p50c.length > 1 }));
 }
 
+// fechamentos por pessoa × motivo do ticket (cx_fechamento_motivo_dia): em quais motivos a meta de 150/dia é realista.
+// f: {marca, ini, fim, canais?}; volta só sobre maduros (a view já traz maduros/resolutivos calculados na consulta).
+function fechamentoPorMotivo(rows, f) {
+  const acc = {};
+  for (const l of cxFiltra(rows, f)) {
+    const a = acc[l.motivo] || (acc[l.motivo] = { motivo: l.motivo, fechados: 0, maduros: 0, resolutivos: 0, fcrBase: 0, fcr: 0, p50h: [], p50c: [] });
+    const n = (k) => Number(l[k] || 0);
+    a.fechados += n("fechados"); a.maduros += n("maduros"); a.resolutivos += n("resolutivos"); a.fcrBase += n("fcr_base"); a.fcr += n("fcr");
+    if (n("fechados")) { a.p50h.push([Number(l.msgs_humanas_p50), n("fechados")]); a.p50c.push([Number(l.msgs_cliente_p50), n("fechados")]); }
+  }
+  const pct = (x, b) => b >= CX_MIN_BASE ? (x / b) * 100 : null;
+  const out = {};
+  for (const a of Object.values(acc)) out[a.motivo] = { motivo: a.motivo, fechados: a.fechados, maduros: a.maduros, resolutivos: a.resolutivos, pctVoltou: pct(a.maduros - a.resolutivos, a.maduros), pctFcr: pct(a.fcr, a.fcrBase),
+    msgsHumanasP50: medianaPonderada(a.p50h), msgsClienteP50: medianaPonderada(a.p50c), aproximado: a.p50h.length > 1 };
+  return out;
+}
+
 // ---------- trocas e devoluções (16/09): cx_troca_mes (marca × mês × tipo) e cx_troca_motivo_mes ----------
 // Fonte: API pública do Troquecommerce, uma reversa por linha em cx_troca; aqui já agregada por mês. Grão mensal.
 // "Em análise" é fila (status atual), não conta do mês: soma-se em todos os meses. Tipos vindos do portal: Troca,
@@ -591,5 +608,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

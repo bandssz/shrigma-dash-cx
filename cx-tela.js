@@ -92,11 +92,11 @@ const CX_ALVOS = {
   ra_nota:             { alvo: 7,  base: 6,  dir: "alto",  rot: "alvo ≥ 7" },
   // transferido para pessoa e ninguém respondeu, sobre tickets de chat maduros — faixa nossa, não do handoff
   sem_resposta:        { alvo: 5,  base: 10, dir: "baixo", rot: "alvo < 5%" },
-  // fechamentos (15/09): meta do N1 declarada pelo Felipe — fechamentos resolutivos > 120/dia por agente e CSAT > 75 (escala do Gleap).
+  // fechamentos (15/09, régua 150 desde 16/09): meta do N1 declarada pelo Felipe — fechamentos resolutivos 150/dia por agente, T. resposta < 8 min e CSAT > 75 (escala do Gleap).
   // "voltou" e FCR são faixas propostas (referência de mercado: reabertura < 15%, FCR ≥ 70%), não meta declarada.
   voltou:              { alvo: 15, base: 25, dir: "baixo", rot: "faixa < 15%" },
   fcr:                 { alvo: 70, base: 55, dir: "alto",  rot: "faixa ≥ 70%" },
-  ag_fechados_dia:     { alvo: 120, base: 90, dir: "alto", rot: "meta > 120/dia" },
+  ag_fechados_dia:     { alvo: 150, base: 110, dir: "alto", rot: "meta 150/dia" },
   ag_csat:             { alvo: 75, base: 65, dir: "alto",  rot: "meta > 75" },
   ag_resposta_seg:     { alvo: 480, base: 900, dir: "baixo", rot: "meta < 8 min" },   // mediana em segundos de expediente
 };
@@ -356,15 +356,19 @@ function pintaMotivos(d) {
       </table></div>`;
     }
   }
-  // Aba Chat — Kai × pessoa por motivo
+  // Aba Chat — Kai × pessoa por motivo + o que custa fechar por pessoa (16/09: mensagens por fechamento e volta, por motivo)
   const a2 = $("#area-motivos-kai"), r2 = $("#motivos-kai-rot");
   if (a2) {
     if (!pm) a2.innerHTML = `<div class="vazio">Sem <code>cx_csat</code> na API.</div>`;
     else {
-      if (r2) r2.innerHTML = cab(pm);
+      const temFm = Array.isArray(d.cx_fechamento_motivo) && d.cx_fechamento_motivo.length > 0;
+      const fm = temFm ? fechamentoPorMotivo(d.cx_fechamento_motivo, Object.assign({}, per.f, { canais })) : {};
+      const fmCel = (l) => { const x = fm[l.motivo]; return !x || !x.fechados ? "<span class='mini'>—</span>" : `<strong class="tabn">${x.aproximado ? "≈ " : ""}${fmtDec(x.msgsHumanasP50, 0)}</strong><div class="mini">${fmtNum(x.fechados)} fech. · cliente ${fmtDec(x.msgsClienteP50, 0)}</div>`; };
+      const vCel = (l) => { const x = fm[l.motivo]; return !x ? "<span class='mini'>—</span>" : typeof x.pctVoltou === "number" ? `<strong class="tabn${x.pctVoltou >= 25 ? " st-ruim" : x.pctVoltou >= 15 ? " st-atencao" : " st-bom"}">${fmtPct0(x.pctVoltou)}</strong><div class="mini">de ${fmtNum(x.maduros)} maduros</div>` : `<span class="mini">${fmtNum(x.maduros)} maduros</span>`; };
+      if (r2) r2.innerHTML = cab(pm) + (temFm ? "" : cxTag("sem cx_fechamento_motivo", "nota", "A API ainda não devolve fechamentos por motivo; as duas últimas colunas ficam vazias."));
       a2.innerHTML = `<div class="rolagem"><table class="motivos">
-        <thead><tr><th>Motivo</th><th class="num">Contatos</th><th class="num" title="Fatia dos contatos do motivo que o Kai FECHOU sozinho (sem resposta humana, sem transferência, sem tag de inatividade). Inclui tickets recentes, ainda maturando.">Kai fechou</th><th class="num" title="Quem avaliou ÷ contatos">Resp.</th><th class="num" title="CSAT bom quando o Kai fechou sozinho">bom · Kai</th><th class="num" title="CSAT bom quando passou por pessoa">bom · pessoa</th></tr></thead>
-        <tbody>${linhas.map((l) => `<tr><td>${nome(l)}</td><td class="num">${contCel(l)}</td><td class="num">${l.tickets ? `<span class="tabn">${fmtPct0(l.kaiShare)}</span>` : "—"}</td><td class="num"><span class="mini tabn">${fmtPct0(l.pctResposta)}</span></td><td class="num">${pctOuN(l.kaiBom, l.kaiAvaliadas)}</td><td class="num">${pctOuN(l.pessoaBom, l.pessoaAvaliadas)}</td></tr>`).join("")}</tbody>
+        <thead><tr><th>Motivo</th><th class="num">Contatos</th><th class="num" title="Fatia dos contatos do motivo que o Kai FECHOU sozinho (sem resposta humana, sem transferência, sem tag de inatividade). Inclui tickets recentes, ainda maturando.">Kai fechou</th><th class="num" title="Quem avaliou ÷ contatos">Resp.</th><th class="num" title="CSAT bom quando o Kai fechou sozinho">bom · Kai</th><th class="num" title="CSAT bom quando passou por pessoa">bom · pessoa</th><th class="num" title="Mediana de mensagens humanas por fechamento feito por pessoa, neste motivo (o esforço); embaixo, fechamentos no período e mensagens do cliente">Msgs/fech.</th><th class="num" title="Fechamentos por pessoa deste motivo em que o cliente voltou em 7 dias (só maduros, base ≥ 30). Faixa < 15% / 25%">Voltou</th></tr></thead>
+        <tbody>${linhas.map((l) => `<tr><td>${nome(l)}</td><td class="num">${contCel(l)}</td><td class="num">${l.tickets ? `<span class="tabn">${fmtPct0(l.kaiShare)}</span>` : "—"}</td><td class="num"><span class="mini tabn">${fmtPct0(l.pctResposta)}</span></td><td class="num">${pctOuN(l.kaiBom, l.kaiAvaliadas)}</td><td class="num">${pctOuN(l.pessoaBom, l.pessoaAvaliadas)}</td><td class="num">${fmCel(l)}</td><td class="num">${vCel(l)}</td></tr>`).join("")}</tbody>
       </table></div>`;
     }
   }

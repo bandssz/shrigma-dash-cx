@@ -65,6 +65,10 @@ function fixture(o = {}) {
       { marca: 'aristocrata', mes: '2026-08-01', motivo: 'Me arrependi', submotivo: 'Não era o que eu esperava', tipo: 'Troca', reversas: 25, valor_itens: 3000 },
       { marca: 'fishermans', mes: '2026-08-01', motivo: 'Comprei a linha errada', submotivo: '', tipo: 'Troca', reversas: 22, valor_itens: 2600 },
     ],
+    // fechamentos por pessoa × motivo (view cx_fechamento_motivo_dia): WISMO custa 3 msgs e volta 30%; pré-venda 1 msg e volta 5%
+    cx_fechamento_motivo: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
+      { marca: 'aristocrata', motivo: 'wismo', canal: 'whatsapp', dia: d, fechados: 40, maduros: mad ? 40 : 0, resolutivos: mad ? 28 : 0, fcr_base: mad ? 30 : 0, fcr: mad ? 20 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.2, msgs_cliente_p50: 7 },
+      { marca: 'aristocrata', motivo: 'pre-venda', canal: 'whatsapp', dia: d, fechados: 20, maduros: mad ? 20 : 0, resolutivos: mad ? 19 : 0, fcr_base: mad ? 18 : 0, fcr: mad ? 17 : 0, msgs_humanas_p50: 1, msgs_humanas_media: 1.2, msgs_cliente_p50: 3 }]; }),
     cx_pedidos: [], cx_ra: [],
     ...o,
   };
@@ -141,7 +145,13 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   assert.match(tb.textContent, /70% em até 1h/);
   const let1 = [...tb.querySelectorAll('tr')].find((tr) => /Leticia/.test(tr.textContent));
   assert.match(let1.children[1].textContent, /420\s*60\/dia · 7 dias/);
-  assert.ok(let1.children[1].querySelector('.st-ruim'), '60/dia fica vermelho contra a meta de 120');
+  assert.ok(let1.children[1].querySelector('.st-ruim'), '60/dia fica vermelho contra a meta de 150');
+  // motivos na aba Chat: mensagens por fechamento e volta, por motivo (7d: só 03/09 maduro → 40 maduros, 12 voltaram = 30%)
+  const motKai = x.document.querySelector('#area-motivos-kai');
+  const wismo = [...motKai.querySelectorAll('tbody tr')].find((tr) => /Cadê meu pedido/.test(tr.textContent));
+  assert.match(wismo.children[6].textContent, /≈ 3\s*280 fech\. · cliente 7/);
+  assert.match(wismo.children[7].textContent, /30%\s*de 40 maduros/);
+  assert.ok(wismo.children[7].querySelector('.st-ruim'), 'volta de 30% em WISMO fica vermelha');
   // só 03/09 está maduro dentro do período: 48 resolutivos de 60 maduros = 80% (base ≥ 30); os outros 6 dias ainda maturam
   assert.match(let1.children[2].textContent, /80%\s*48 de 60 · voltaram 12/);
   assert.match(x.document.querySelector('#ranking-rotulo').textContent, /resolutivos maduros até/);

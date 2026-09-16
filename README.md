@@ -338,6 +338,15 @@ que não bate é a cauda: só **44–80% das respostas** saem em até 8 min (p90
 diferencia o time é a fatia em até 8 min, não a mediana. A cor da coluna usa essa fatia (≥ 50% ⇔ mediana < 8 min,
 exato; a mediana mostrada é ≈ quando pondera dias).
 
+**Meta subiu para 150 (16/09)** e a tabela por agente colore Fechados/dia contra 150 (atenção a partir de 110).
+**Mensagens por motivo**: view `cx_fechamento_motivo_dia` (fechamentos por pessoa × motivo do ticket × canal × dia:
+fechados, maduros, resolutivos, FCR, mensagens humanas/cliente p50), API `cx_fechamento_motivo`; a tabela "Kai × pessoa
+por motivo" da aba Chat ganhou **Msgs/fech.** e **Voltou** por motivo. Leitura de 11/08–16/09 (Aris, por pessoa): WISMO
+4.583 fechamentos, 2,6 msgs, resolutivo 62%; outros 3.295, 2,4 msgs, 68%; sem tag 1.213, 1,3 msg, 76%; pré-venda 822,
+1,8 msg, 81%; cancelamento 113, 3,2 msgs, 63%; problema 104, 3,4 msgs, 72%. Ou seja: 150/dia é plausível onde o
+fechamento é de 1–2 mensagens (pré-venda, sem tag, boa parte de "outros") e não onde é WISMO em incidente — 62% de
+resolutivo significa que 4 em 10 fechamentos de WISMO voltam e viram trabalho de novo.
+
 **Nomes que enganavam**: `cx_reabertura_dia` não é reabertura — é ticket criado antes do período com atividade dentro
 (comentário da própria tabela); a tira do detalhe passou a se chamar "Ativos de antes do período". `cx_agente_resolucao`
 (fechados/reabertos/resolvidos por agente) foi uma tentativa de 18/08–01/09 sem fonte declarada e parou; ficou como
