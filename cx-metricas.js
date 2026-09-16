@@ -477,15 +477,15 @@ function trocaMotivos(rows, f) {
 }
 
 // ---------- custo de concessão sobre receita (16/09): cx_concessao (marca × mês) e cx_concessao_tipo ----------
-// Meta do Head de CX. Numerador = o que a marca devolveu ao cliente por decisão do atendimento: reembolsos e cupons
-// registrados no ClickUp (lista Reembolsos, casos concluídos) + estorno em dinheiro das devoluções pelo Troquecommerce.
-// Denominador = receita Shopify do mês (total_sales do Analytics; Fishermans = soma dos pedidos não cancelados até ter o escopo read_reports).
-// Ao lado, como conferência: estornos processados na Shopify no mês (returns do Analytics) — o dinheiro que de fato saiu, com ou sem registro no ClickUp.
-// Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel, com erro) não entra no numerador — vai em "pendente".
-// Sem receita completa no mês (dia sem coleta), a % não é calculada: melhor "—" do que uma % inflada.
+// Meta do Head de CX. Numerador = reembolsos registrados no ClickUp (lista Reembolsos) que o financeiro JÁ EXECUTOU
+// (status feito, redigindo resposta, retorno concluído — a view cx_concessao_mes aplica a regra). Só ClickUp, por decisão
+// do Felipe (16/09): estorno da Shopify inclui cancelamento de pedido que nunca passou pelo CX; devolução pelo Troque tem o
+// card dela na parte de trocas. Denominador = receita Shopify do mês (total_sales do Analytics; Fishermans = soma dos
+// pedidos não cancelados até ter o escopo read_reports). Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel,
+// enc. financeiro, com erro) fica em "pendente", fora da %. Mês sem receita completa não vira %: melhor "—" do que % inflada.
 function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-MM-01', inclusivos)
   const a = { casos: 0, concedidos: 0, negados: 0, andamento: 0, valorConcedido: 0, valorPedidoConcedido: 0, valorAndamento: 0, n1: 0, n2: 0, n3: 0, valorN1: 0, valorN2: 0, valorN3: 0, semValor: 0,
-    receita: 0, pedidos: 0, diasReceita: 0, dias: 0, troqueEstorno: 0, troqueDevolucoes: 0, shopifyEstornos: 0, meses: new Set(), marcas: new Set(), coletadoEm: null, receitaFaltando: false };
+    receita: 0, pedidos: 0, diasReceita: 0, dias: 0, meses: new Set(), marcas: new Set(), coletadoEm: null, receitaFaltando: false };
   for (const l of rows || []) {
     const mes = cxMesYmd(l.mes);
     if (f.marcas && !f.marcas.includes(l.marca)) continue;
@@ -494,23 +494,21 @@ function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-M
     a.casos += n("casos"); a.concedidos += n("concedidos"); a.negados += n("negados"); a.andamento += n("andamento");
     a.valorConcedido += n("valor_concedido"); a.valorPedidoConcedido += n("valor_pedido_concedido"); a.valorAndamento += n("valor_andamento");
     a.n1 += n("n1"); a.n2 += n("n2"); a.n3 += n("n3"); a.valorN1 += n("valor_n1"); a.valorN2 += n("valor_n2"); a.valorN3 += n("valor_n3"); a.semValor += n("concedidos_sem_valor");
-    a.troqueEstorno += n("troque_estorno"); a.troqueDevolucoes += n("troque_devolucoes");
-    a.shopifyEstornos += n("shopify_estornos");   // o que de fato saiu pela Shopify (returns, por data do estorno) — confere o registro do ClickUp
     a.pedidos += n("pedidos"); a.diasReceita += n("dias_receita"); a.dias += n("dias");
     if (l.receita === null || l.receita === undefined || n("dias_receita") < n("dias")) a.receitaFaltando = true;   // mês com dia sem receita: % vira "—"
     a.receita += n("receita");
     a.meses.add(mes); a.marcas.add(l.marca);
     if (l.coletado_em && (!a.coletadoEm || l.coletado_em > a.coletadoEm)) a.coletadoEm = l.coletado_em;
   }
-  const total = a.valorConcedido + a.troqueEstorno;
-  return Object.assign(a, { meses: [...a.meses].sort(), marcas: [...a.marcas], total,
-    pct: !a.receitaFaltando && a.receita > 0 ? (total / a.receita) * 100 : null,
-    pctClickUp: !a.receitaFaltando && a.receita > 0 ? (a.valorConcedido / a.receita) * 100 : null,
-    pctShopify: !a.receitaFaltando && a.receita > 0 ? (a.shopifyEstornos / a.receita) * 100 : null,
+  const concluidos = a.concedidos + a.negados;
+  return Object.assign(a, { meses: [...a.meses].sort(), marcas: [...a.marcas], total: a.valorConcedido,
+    pct: !a.receitaFaltando && a.receita > 0 ? (a.valorConcedido / a.receita) * 100 : null,
     pctN3: a.concedidos ? (a.n3 / a.concedidos) * 100 : null,
+    pctNegados: concluidos ? (a.negados / concluidos) * 100 : null,          // "não" do CX sobre os casos já decididos
+    casosPorMilPedidos: a.pedidos > 0 ? (a.casos / a.pedidos) * 1000 : null,   // volume de casos normalizado (compara marcas)
     ticketMedio: a.concedidos - a.semValor > 0 ? a.valorConcedido / (a.concedidos - a.semValor) : null });
 }
-function concessaoMeses(rows, marcas) { return [...new Set((rows || []).filter((l) => (!marcas || marcas.includes(l.marca)) && (Number(l.casos) || Number(l.receita) || Number(l.troque_estorno))).map((l) => cxMesYmd(l.mes)))].sort(); }
+function concessaoMeses(rows, marcas) { return [...new Set((rows || []).filter((l) => (!marcas || marcas.includes(l.marca)) && (Number(l.casos) || Number(l.receita))).map((l) => cxMesYmd(l.mes)))].sort(); }
 // tipos de caso (marca × tipo), ordenados por valor concedido
 function concessaoTipos(rows, f) {
   const acc = {};

@@ -284,40 +284,43 @@ token lá completa o histórico.
 ### Custo de concessão sobre receita (16/09)
 
 **Problema**: é a meta do Head de CX e não tinha fonte. Os valores estão nas listas de reembolso do ClickUp (Suporte ›
-Reembolsos `901327245214`, 88 casos; Formulários › Forms Reembolso `901327137956`, vazia mas lida também), a receita
-está na Shopify, e a parte que sai pelo Troquecommerce (estorno das devoluções) já estava em `cx_troca`.
+Reembolsos `901327245214`, 91 casos desde mai/26; Formulários › Forms Reembolso `901327137956`, vazia mas lida também) e a
+receita está na Shopify.
 
-**Definição** (a confirmar com o Samuel): concessão do mês = **reembolsos e cupons registrados no ClickUp em casos
-concluídos e não negados** (status tipo done/closed: feito, enc. financeiro, retorno concluído…; `➤Valor do reembolso`)
-**+ estorno em dinheiro das devoluções abertas no Troque** (não canceladas), ÷ **receita Shopify do mês**. Caso em
-negociação / ag. N2 / ag. Samuel / com erro fica em "em andamento" (valor mostrado à parte, fora da %). O caso conta no
-mês em que foi criado no ClickUp. Nível (régua do CX): N1 cupom de cortesia, N2 compensação parcial, N3 reembolso total.
+**Definição** (Felipe, 16/09; meta em número ainda com o Samuel): concessão do mês = **reembolsos registrados no ClickUp
+que o financeiro já executou** — status `feito`, `redigindo resposta`, `retorno concluído` (os três vêm depois do
+pagamento no fluxo da lista), campo `➤Valor do reembolso` — ÷ **receita Shopify do mês**. `em negociação`, `ag. n2`,
+`ag. samuel`, `enc. financeiro` e `com erro` ficam em "em andamento" (valor mostrado à parte, fora da %); `negado` nunca
+entra. **Só ClickUp de propósito**: o estorno da Shopify inclui cancelamento de pedido que nunca passou pelo CX (Aris
+ago R$ 32,5 mil na Shopify contra R$ 1,7 mil pagos via ClickUp), e a devolução pelo Troque já tem o card dela na parte
+de trocas. O caso conta no mês em que foi criado. Nível (régua do CX): N1 cupom, N2 parcial, N3 total.
 
 **Dados**: `cx_concessao` — um caso do ClickUp por linha, **sem dado pessoal** (nome da task = cliente, CPF, e-mail,
 PIX, telefone e textos livres não saem do ClickUp): marca, status e tipo do status, datas, nível, degrau, tipo de caso
 (campo novo de 10 opções; o antigo entra quando só ele está preenchido), valor do pedido e do reembolso (texto "135,47"
-→ numérico), nº do pedido Shopify, quem abriu/atende (equipe). Views `cx_concessao_mes` (marca × mês: casos,
-concedidos, negados, andamento, valores, N1/N2/N3, concedidos_sem_valor) e `cx_concessao_tipo_mes`; `cx_receita_mes`
-soma `cx_pedido_dia`, que ganhou as colunas `receita` e `estornos` (devoluções processadas na Shopify, `returns` do Analytics por data do estorno — o dinheiro que de fato saiu, com ou sem caso no ClickUp; Fishermans estorna fora da Shopify, então lá é ~0). Workflows: **CX — Concessões · noturno** (01:50; ClickUp
-API v2 `GET /list/{id}/task?include_closed=true&page=N` com a credencial `clickUpApi` referenciada por ID; forçar em
-`GET /webhook/cx-concessao-forcar`) e **CX — Receita · diário** (01:40; ShopifyQL `FROM sales SHOW total_sales GROUP BY
-day` = o total de vendas do Analytics da Shopify; a Fishermans ainda não tem o escopo `read_reports`, então cai para a
-soma de `currentTotalPriceSet` dos pedidos não cancelados do dia — conferido na Aris em 15/09: 98,0k nos dois caminhos;
-forçar em `GET /webhook/cx-receita-forcar`). Backfill de receita desde 01/07 (scratch `receita_backfill.py`). API do
-painel: `cx_concessao` (12 meses, já com receita e Troque na linha) e `cx_concessao_tipo` (6 meses).
+→ numérico), nº do pedido Shopify, quem abriu/atende (equipe). Views `cx_concessao_mes` (marca × mês: casos, concedidos =
+pagos, negados, andamento, valores, N1/N2/N3, concedidos_sem_valor) e `cx_concessao_tipo_mes`; `cx_receita_mes` soma
+`cx_pedido_dia`, que ganhou `receita` (e `estornos`, coletado mas não mostrado). Workflows: **CX — Concessões · noturno**
+(`4SUih2vegFK5RVjS`, 01:50; ClickUp API v2 `GET /list/{id}/task?include_closed=true&page=N` com a credencial `clickUpApi`
+referenciada por ID; forçar em `GET /webhook/cx-concessao-forcar`) e **CX — Receita · diário** (`3qHS19o4d301kKK3`, 01:40;
+ShopifyQL `FROM sales SHOW total_sales, returns GROUP BY day` = o total de vendas do Analytics; a Fishermans ainda não tem
+o escopo `read_reports`, então cai para a soma de `currentTotalPriceSet` dos pedidos não cancelados do dia — conferido
+na Aris em 15/09: 98,0k nos dois caminhos; forçar em `GET /webhook/cx-receita-forcar`). Backfill de receita desde 01/07
+(scratch `receita_backfill.py`; a loja Shopify da Fishermans só existe desde 14/07). API do painel: `cx_concessao`
+(12 meses, já com receita na linha) e `cx_concessao_tipo` (6 meses).
 
-**Tela**: bloco **Concessão sobre receita** no fim da aba Trocas (mesmo dinheiro saindo), grão mensal. Cartões: % do
-último mês fechado (faixa **provisória** < 1% / 2% até o Samuel fixar a meta; chip em pp contra o mês anterior), mês
-atual até hoje, reembolsos ClickUp (concedidos · negados · sem valor), estorno Troque, **estornos Shopify** (conferência:
-se for muito maior que ClickUp + Troque, tem reembolso sem caso aberto), em andamento agora (foto, vermelho com 10+). Mês com dia sem receita coletada não vira % — a tabela mostra "≥ R$" e a linha do gráfico fica em
-branco. Gráfico: % por marca por mês (linha da faixa), valor devolvido (ClickUp + Troque), Shopify × registrado, casos por desfecho.
+**Tela**: bloco **Concessão sobre receita** no fim da aba Trocas, grão mensal. Cartões: % do último mês fechado (faixa
+**provisória** < 1% / 2% até o Samuel fixar a meta; chip em pp), mês atual até hoje, pagos pelo financeiro (casos ·
+ticket médio), em andamento agora (foto, vermelho com 10+), negados % entre os decididos, casos por 1.000 pedidos. Mês
+com dia sem receita coletada não vira % — a tabela mostra "≥ R$" e a linha do gráfico fica em branco. Gráfico: % por
+marca por mês, valor pago, casos por desfecho, casos/mil. Tabela mês × marca e tabela por tipo de caso (3 meses fechados
++ atual), ordenada por valor pago.
 
-**O que a leitura de 16/09 diz** (ClickUp ainda sem coleta — depende do Mac): receita Aris jul 1,97 mi · ago 2,74 mi · set 1,93 mi em 15 dias;
-Fish (loja Shopify desde 14/07) jul 225 mil · ago 670 mil · set 330 mil. **Estornos Shopify Aris: jul 11,4 mil (0,58%) · ago 32,5 mil
-(1,19%) · set 39,5 mil em 16 dias (2,05%)** — setembro já passou agosto inteiro. Fish ~0 na Shopify (estorna por PIX). A lista
-Reembolsos tem 89 casos desde jun: 7 retorno concluído, 8 redigindo resposta, 12 negados, **45 em 'ag. n2' (movidos em bloco em
-12/09)**, 13 em negociação, 13 com erro — ou seja, a régua de 'concedido' do ClickUp só fecha quando o time concluir os casos.
-Tabela mês × marca e tabela por tipo de caso (3 meses fechados + atual), ordenada por valor.
+**O que a leitura de 16/09 diz**: receita Aris jul 1,97 mi · ago 2,74 mi · set 1,99 mi em 16 dias; Fish jul 225 mil ·
+ago 670 mil · set 345 mil. **ago/26 pago: Aris R$ 1.709 (9 casos, 0,06%), Fish R$ 135 (1 caso, 0,02%)**. Dos 91 casos da
+lista, 14 pagos, 10 negados e **67 em andamento (R$ 9,3 mil)** — 41 em `ag. n2` (movidos em bloco em 12/09), 15 em
+negociação, 11 com erro. Os 45 casos de setembro são todos "Atrasado — nunca foi enviado". Todo caso com nível é N3:
+cupom de cortesia (N1) e compensação parcial (N2) não passam por essa lista. Fish estorna fora da Shopify.
 
 ### Fechamento não é resolução: cx_fechamento, "voltou em 7 dias", FCR e a meta do N1 (15/09)
 

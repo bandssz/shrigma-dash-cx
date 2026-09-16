@@ -65,8 +65,8 @@ function fixture(o = {}) {
       { marca: 'aristocrata', mes: '2026-08-01', motivo: 'Me arrependi', submotivo: 'Não era o que eu esperava', tipo: 'Troca', reversas: 25, valor_itens: 3000 },
       { marca: 'fishermans', mes: '2026-08-01', motivo: 'Comprei a linha errada', submotivo: '', tipo: 'Troca', reversas: 22, valor_itens: 2600 },
     ],
-    // concessão sobre receita (view cx_concessao_mes ⋈ cx_receita_mes ⋈ cx_troca_mes): Aris ago = 8.000 ClickUp + 5.000 Troque sobre 1.000.000 = 1,30%;
-    // Fish ago = 500 sobre 100.000 = 0,50% (receita = soma dos pedidos); set Aris incompleto em receita (dias_receita < dias) → %
+    // concessão sobre receita (view cx_concessao_mes ⋈ cx_receita_mes): Aris ago = 8.000 pagos sobre 1.000.000 = 0,80%; Fish ago = 500 sobre
+    // 100.000 = 0,50% (receita = soma dos pedidos); set Aris incompleto em receita (dias_receita < dias) → sem %. Casos ago = 24 em 10.500 pedidos = 2,3/mil.
     cx_concessao: [
       { marca: 'aristocrata', mes: '2026-07-01', casos: 6, concedidos: 4, negados: 2, andamento: 0, valor_concedido: 3000, valor_pedido_concedido: 4000, valor_andamento: 0, n1: 1, n2: 1, n3: 2, valor_n1: 100, valor_n2: 400, valor_n3: 2500, concedidos_sem_valor: 0, receita: 800000, pedidos: 7000, pedidos_pagos: 6500, dias_receita: 31, dias: 31, troque_estorno: 1800, troque_devolucoes: 25, shopify_estornos: 6000, coletado_em: '2026-09-10T04:50:00Z' },
       { marca: 'aristocrata', mes: '2026-08-01', casos: 20, concedidos: 12, negados: 3, andamento: 5, valor_concedido: 8000, valor_pedido_concedido: 9000, valor_andamento: 2200, n1: 2, n2: 4, n3: 6, valor_n1: 200, valor_n2: 1800, valor_n3: 6000, concedidos_sem_valor: 1, receita: 1000000, pedidos: 9000, pedidos_pagos: 8500, dias_receita: 31, dias: 31, troque_estorno: 5000, troque_devolucoes: 60, shopify_estornos: 25000, coletado_em: '2026-09-10T04:50:00Z' },
@@ -287,18 +287,18 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.match(x.document.querySelector('#area-trocas').textContent, /ago\/26.*O Aristocrata.*90/s);
   assert.match(x.document.querySelector('#area-trocas-motivo').textContent, /Recebi um produto diferente do que pedi/);
   assert.ok(x.document.querySelectorAll('#g-trocas .g-barras rect, #g-trocas rect').length > 0, 'gráfico padrão: reversas por mês em barras');
-  // concessão sobre receita (mesma aba): ago Aris+Fish = 13.500 ÷ 1.100.000 = 1,23% (atenção na faixa provisória < 1%); set sem % (receita incompleta)
-  assert.deepEqual(x.txt('#area-concessao-num .six2-rot'), ['Concessão · ago/26', 'set/26 até hoje', 'Reembolsos ClickUp · ago/26', 'Estorno Troque · ago/26', 'Estornos Shopify · ago/26', 'Em andamento agora']);
-  assert.deepEqual(x.txt('#area-concessao-num .six2-val'), ['1,23%', '—', 'R$ 8.500', 'R$ 5.000', 'R$ 25.000', 'R$ 3.250']);
-  assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="pct"]').classList.contains('st-atencao'), '1,23% fica em atenção entre 1% e 2%');
+  // concessão sobre receita (mesma aba, só ClickUp pago pelo financeiro): ago Aris+Fish = 8.500 ÷ 1.100.000 = 0,77% (na faixa < 1%); set sem % (receita incompleta)
+  assert.deepEqual(x.txt('#area-concessao-num .six2-rot'), ['Concessão · ago/26', 'set/26 até hoje', 'Pagos pelo financeiro · ago/26', 'Em andamento agora', 'Negados · ago/26', 'Casos / 1.000 pedidos · ago/26']);
+  assert.deepEqual(x.txt('#area-concessao-num .six2-val'), ['0,77%', '—', 'R$ 8.500', 'R$ 3.250', '22%', '2,3']);
+  assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="pct"]').classList.contains('st-bom'), '0,77% fica dentro da faixa provisória < 1%');
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="ritmo"] .six2-chip').textContent, /em 10 dias/);
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="pendente"] .six2-chip').textContent, /10 casos/);
-  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só casos concluídos/);
+  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="negados"] .six2-chip').textContent, /▼ 11 pp · ant. 33%/);
+  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só o que o financeiro pagou/);
   assert.match(x.document.querySelector('#concessao-rotulo').textContent, /Fish: receita = soma dos pedidos/);
-  assert.match(x.document.querySelector('#area-concessao').textContent, /ago\/26.*O Aristocrata.*R\$ 1.000 mil.*1,30%/s);
+  assert.match(x.document.querySelector('#area-concessao').textContent, /ago\/26.*O Aristocrata.*R\$ 1.000 mil.*0,80%/s);
   assert.match(x.document.querySelector('#area-concessao').textContent, /set\/26.*≥ R\$ 250 mil/s, 'mês com dia sem receita mostra piso e não %');
-  assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="shopify"]').classList.contains('st-ruim'), '25.000 ÷ 1.100.000 = 2,27% fora da faixa');
-  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="shopify"] .six2-chip').textContent, /▲ 1,52 pp · ant. 0,75%/);
+  assert.doesNotMatch(x.document.querySelector('.aba-pane[data-aba="trocas"]').textContent, /Shopify · ago|Estornos Shopify/, 'estorno da Shopify fica fora do bloco de concessão por decisão');
   assert.match(x.document.querySelector('#area-concessao-tipo').textContent, /Extraviado.*R\$ 5.000/s);
   assert.ok(x.document.querySelectorAll('#g-concessao svg').length === 1, 'gráfico padrão: % da receita em linhas');
   // um gráfico por aba, dirigido pelo cartão ativo
