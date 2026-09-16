@@ -10,18 +10,27 @@ function shrigmaFrescor(payload, el, opts) {
   if (!el || !payload) return;
   const o = Object.assign({ limiteParadoH: 26, limiteFrescoMin: 90 }, opts || {});
   const agora = Date.now();
-  const blocos = [];
+  const blocos = [], semConfirmacao=[];
+  if(Array.isArray(o.collections)){
+    for(const s of o.collections){
+      const t=Date.parse(s.checked_at||'');
+      if(Number.isFinite(t))blocos.push({nome:s.name,min:Math.max(0,Math.round((agora-t)/60000))});
+      else if(s.required)semConfirmacao.push(s.name);
+    }
+  }else{
   for (const [nome, rows] of Object.entries(payload)) {
     if (!Array.isArray(rows) || !rows.length || nome.startsWith('_')) continue;
     let max = null;
-    for (const r of rows) { const t = r && r.coletado_em; if (t && (!max || t > max)) max = t; }
-    if (max) blocos.push({ nome, min: Math.round((agora - new Date(max).getTime()) / 60000) });
+    for (const r of rows) { const t = Date.parse(r?.coletado_em||''); if (Number.isFinite(t) && (max===null || t > max)) max = t; }
+    if (max!==null) blocos.push({ nome, min: Math.max(0,Math.round((agora-max)/60000)) });
   }
-  if (!blocos.length) { el.textContent = 'coleta —'; el.classList.remove('velho'); return; }
+  }
+  if (!blocos.length) { el.textContent = semConfirmacao.length?'coleta sem confirmação':'coleta —'; el.title=semConfirmacao.join('\n');el.classList.toggle('velho',semConfirmacao.length>0); return; }
   blocos.sort((a, b) => a.min - b.min);
   const fmt = (m) => m < 60 ? m + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d';
   const fresco = blocos[0], parados = blocos.filter((b) => b.min > o.limiteParadoH * 60);
-  el.textContent = 'coleta há ' + fmt(fresco.min) + (parados.length ? ` · ${parados[0].nome} parado há ${fmt(parados[0].min)}` : '');
-  el.classList.toggle('velho', parados.length > 0 || fresco.min > o.limiteFrescoMin);
-  el.title = blocos.map((b) => `${b.nome}: há ${fmt(b.min)}`).join('\n');
+  el.textContent = 'coleta há ' + fmt(fresco.min) + (semConfirmacao.length?` · ${semConfirmacao[0]} sem confirmação`:parados.length ? ` · ${parados[0].nome} sem atualização há ${fmt(parados[0].min)}` : '');
+  el.classList.toggle('velho', semConfirmacao.length>0 || parados.length > 0 || fresco.min > o.limiteFrescoMin);
+  el.title = [...blocos.map((b) => `${b.nome}: há ${fmt(b.min)}`),...semConfirmacao.map(n=>n+': sem confirmação de coleta')].join('\n');
 }
+if(typeof module!=='undefined')module.exports=shrigmaFrescor;

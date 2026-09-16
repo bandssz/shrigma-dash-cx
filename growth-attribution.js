@@ -1,12 +1,13 @@
 /* Growth attribution contract v2: order-deduplicated aggregates, explicit models. */
 const GA=(()=>{
- const models={last_non_direct:'Último clique não direto',last_click:'Último clique'},brands=['aristo','fish'];
+ const DEFAULT_MODEL='last_click';
+ const models={last_click:'Último clique',last_non_direct:'Último clique não direto'},brands=['aristo','fish'];
  const names={'semana-do-cliente-2026':'Semana do Cliente · 2026','desodorante-frescor':'Lançamento Desodorante Frescor','sabonete-alma-da-roca':'Lançamento Alma da Roça','fish-carta-fundador':'Carta do fundador','fish-dia-do-cliente':'Dia do Cliente · 2026','fish-copo':'Campanha do Copo','fish-kit-x1':'Kit X1','fish-4x-8x':'Guia 4X ou 8X','aristo-9do9':'Especial 9.9','workflow-175919-semana-do-pescador-02':'Semana do Pescador · WhatsApp (histórico)'};
  const norm=v=>String(v??'').trim().toLowerCase(),num=v=>Number(v)||0,date=v=>String(v||'').slice(0,10);
  const inPeriod=(d,a,b)=>date(d)>=a&&date(d)<=b;
  const day=v=>v?new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v)):'';
  const valid=api=>api?.crm_attribution?.schema_version===2;
- const model=api=>models[api?._attribution_model]?api._attribution_model:'last_non_direct';
+ const model=api=>models[api?._attribution_model]?api._attribution_model:DEFAULT_MODEL;
  const supported=b=>b==='todas'||brands.includes(b);
  const selected=(r,b,a,z)=> (b==='todas'||r.marca===b)&&inPeriod(r.dia,a,z);
  function rows(api,b,a,z,grain,channel='todos'){
@@ -21,15 +22,15 @@ const GA=(()=>{
   const q=(api?.crm_attribution?.quality||[]).filter(r=>selected(r,b,a,z));
   return {expected,covered,complete:expected>0&&covered===expected,oldest,latest,read:q.reduce((s,r)=>s+num(r.pedidos_lidos),0),paid:q.reduce((s,r)=>s+num(r.pagos_elegiveis),0),pending:q.reduce((s,r)=>s+num(r.jornada_pendente),0),partial:q.reduce((s,r)=>s+num(r.jornada_parcial),0)};
  }
- function project(api,m='last_non_direct'){
+ function project(api,m=DEFAULT_MODEL){
   if(!valid(api))return api;
   if(!api._attribution_legacy)api._attribution_legacy={conv:api.crm_conversao||[],hourly:api.crm_intradia||[]};
-  api._attribution_model=models[m]?m:'last_non_direct';
+  api._attribution_model=models[m]?m:DEFAULT_MODEL;
   // Unreconciled CRM aggregates are excluded for the two audited brands, including
   // dates outside coverage. Organic and other brands retain their existing source.
   api.crm_conversao=api._attribution_legacy.conv.filter(r=>!brands.includes(r.marca)||!['email','whatsapp'].includes(r.canal)||r.utm_medium==='organico').concat(
    (api.crm_attribution.daily||[]).filter(r=>r.model===model(api)&&r.grain==='piece').map(r=>({marca:r.marca,dia:r.dia,canal:r.dimension[0],utm_medium:r.dimension[1],utm_campaign:r.dimension[2],utm_content:r.dimension[3],utm_term:r.dimension[4],utm_source:r.dimension[5],pedidos_ultimo:num(r.pedidos),receita_ultimo:num(r.receita),pedidos_assistido:num(r.assistidos),receita_assistida:num(r.receita_assistida),clientes_novos:num(r.novos),clientes_recorrentes:num(r.recorrentes),coletado_em:(api.crm_attribution.coverage||[]).find(c=>c.brand===r.marca&&date(c.day)===date(r.dia))?.checked_at||null})));
-  api.crm_intradia=api._attribution_legacy.hourly.filter(r=>!brands.includes(r.marca)).concat((api.crm_attribution.hourly||[]).filter(r=>r.model===model(api)));
+  api.crm_intradia=api._attribution_legacy.hourly.filter(r=>!brands.includes(r.marca)).concat((api.crm_attribution.hourly||[]).filter(r=>r.model===model(api)).map(r=>({...r,coletado_em:(api.crm_attribution.coverage||[]).find(c=>c.brand===r.marca&&date(c.day)===date(r.dia))?.checked_at||null})));
   return api;
  }
  function conversion(api,b,a,z,grain='peca',channel='todos'){
@@ -85,9 +86,9 @@ const GA=(()=>{
   const previousState=GT.captura(root);const e=U.esc,n=U.nf,money=v=>v===null||v===undefined?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),ok=valid(api)&&supported(b);
   if(!ok){bar.innerHTML='<p>Atribuição por pedido ainda não disponível para este recorte. Valores da fonte anterior não foram reconciliados.</p>';root.innerHTML='';return;}
   const cov=coverage(api,b,a,z);api._attribution_missing=!cov.covered;const label=models[model(api)],rr=rows(api,b,a,z,channel==='todos'?'total':'channel',channel),total=sum(rr);
-  bar.innerHTML=`<div class="ga-model"><label>Modelo de atribuição<select id="attribution-model"><option value="last_non_direct" ${model(api)==='last_non_direct'?'selected':''}>Último clique não direto · 30 dias</option><option value="last_click" ${model(api)==='last_click'?'selected':''}>Último clique · 30 dias</option></select></label><div><strong class="ga-coverage ${cov.complete?'is-complete':'is-partial'}">${cov.complete?'Período conciliado':'Cobertura parcial'}</strong><span>${n(cov.covered)} de ${n(cov.expected)} dias × marca · ${n(cov.read)} pedidos lidos · ${n(cov.paid)} pagos elegíveis</span></div></div><p>${e(label)} · receita líquida recebida, descontados reembolsos · data da compra em Brasília.${b==='todas'?' Atribuição conciliada: Aristocrata e Fishermans.':''} ${cov.pending?`${n(cov.pending)} pedido(s) com jornada pendente. `:''}${cov.partial?`${n(cov.partial)} jornada(s) parcial(is); assistências podem estar incompletas. `:''}${!cov.complete?'Dias sem conciliação ficam fora dos resultados; o total está parcial. ':''}Leitura mais recente: ${e(U.timestamp(cov.latest))}.</p>`;
+  bar.innerHTML=`<div class="ga-model"><label>Modelo de atribuição<select id="attribution-model"><option value="last_click" ${model(api)==='last_click'?'selected':''}>Último clique · padrão · 30 dias</option><option value="last_non_direct" ${model(api)==='last_non_direct'?'selected':''}>Último clique não direto · comparação</option></select></label><div><strong class="ga-coverage ${cov.complete?'is-complete':'is-partial'}">${cov.complete?'Período conciliado':'Cobertura parcial'}</strong><span>${n(cov.covered)} de ${n(cov.expected)} dias × marca · ${n(cov.read)} pedidos lidos · ${n(cov.paid)} pagos elegíveis</span></div></div><p>${e(label)} · receita líquida recebida, descontados reembolsos · data da compra em Brasília.${b==='todas'?' Atribuição conciliada: Aristocrata e Fishermans.':''} ${cov.pending?`${n(cov.pending)} pedido(s) com jornada pendente. `:''}${cov.partial?`${n(cov.partial)} jornada(s) parcial(is); assistências podem estar incompletas. `:''}${!cov.complete?'Dias sem conciliação ficam fora dos resultados; o total está parcial. ':''}Leitura mais recente: ${e(U.timestamp(cov.latest))}.</p>`;
   bar.querySelector('select').onchange=ev=>onModel(ev.target.value);
-  root.innerHTML=`<div class="painel-cab"><div><span class="ga-eyebrow">PERFORMANCE DE CRM</span><h2>Campanhas, de ponta a ponta</h2><p class="ga-subtitle">Cada iniciativa reúne seus canais, disparos e segmentos.</p></div><button type="button" class="refresh-btn" id="attribution-export">Exportar CSV <span aria-hidden="true">↗</span></button></div><div class="ga-summary">${U.stat('Receita atribuída ao CRM',money(cov.covered?total.receita:null),'ga-primary')}${U.stat('Pedidos com crédito final',n(cov.covered?total.pedidos:null))}${U.stat('Pedidos assistidos¹',n(cov.covered?total.assist:null))}</div><div class="ga-context"><span>${e(U.period(a,z))} <span aria-hidden="true">/</span> ${e(label)}</span><details class="ga-method"><summary>Como ler os números</summary><p>Totais de CRM incluem campanhas e automações, inclusive cliques históricos da Reportana. Receita pela data da compra; envios pela data do disparo. Uma compra recebe um crédito final. ¹ Assistidos são pedidos sem crédito final no recorte selecionado. Assistências entre campanhas podem se sobrepor e não devem ser somadas à receita atribuída.</p></details></div><div class="gt-toolbar"><label class="gt-busca"><span>Buscar campanha ou segmento</span><input id="attribution-search" type="search" placeholder="Buscar campanha ou segmento…" value="${e(search)}"></label><span class="mini" id="attribution-count" aria-live="polite"></span></div><div id="attribution-list"></div>`;
+  root.innerHTML=`<div class="painel-cab"><div><span class="ga-eyebrow">PERFORMANCE DE CRM</span><h2>Campanhas, de ponta a ponta</h2><p class="ga-subtitle">Cada iniciativa reúne seus canais, disparos e segmentos.</p></div><button type="button" class="refresh-btn" id="attribution-export">Exportar CSV <span aria-hidden="true">↗</span></button></div><div class="ga-summary">${U.stat('Receita atribuída ao CRM',money(cov.covered?total.receita:null),'ga-primary')}${U.stat('Pedidos com crédito final',n(cov.covered?total.pedidos:null))}${U.stat('Pedidos assistidos¹',n(cov.covered?total.assist:null))}</div><div class="ga-context"><span>${e(U.period(a,z))} <span aria-hidden="true">/</span> ${e(label)}</span><details class="ga-method"><summary>Como ler os números</summary><p>Último clique considera a última sessão registrada pela Shopify antes do pedido. Se essa sessão for direta ou de outro canal, o e-mail não recebe crédito final. Uma abertura ou clique sem pedido pago não gera receita. Totais de CRM incluem campanhas e automações, inclusive cliques históricos da Reportana. Receita pela data da compra; envios pela data do disparo. Uma compra recebe um crédito final. ¹ Assistidos são pedidos sem crédito final no recorte selecionado. Assistências entre campanhas podem se sobrepor e não devem ser somadas à receita atribuída.</p></details></div><div class="gt-toolbar"><label class="gt-busca"><span>Buscar campanha ou segmento</span><input id="attribution-search" type="search" placeholder="Buscar campanha ou segmento…" value="${e(search)}"></label><span class="mini" id="attribution-count" aria-live="polite"></span></div><div id="attribution-list"></div>`;
   const brandName=v=>v==='aristo'?'O Aristocrata':v==='fish'?'Fishermans':v;
   const shortName=v=>String(v||'').replace(/\s*\[CLAUDE\]\s*/gi,'').replace(/^(?:ARISTO(?:CRATA)?(?: SEMANA)?|FISH(?:ERMANS)?)\s*[—–]\s*/i,'').replace(/\s*\((?:seg|ter|qua|qui|sex|sáb|sab|dom)\b[^)]*\)/gi,'').trim();
   function memberRow(m){
@@ -112,6 +113,6 @@ const GA=(()=>{
   }
   root.querySelector('#attribution-search').oninput=ev=>{search=ev.target.value;draw();};draw();GT.restaura(root,previousState);
  }
- return {models,valid,model,project,rows,sum,coverage,conversion,campaigns,install,render};
+ return {DEFAULT_MODEL,models,valid,model,project,rows,sum,coverage,conversion,campaigns,install,render};
 })();
 if(typeof module!=='undefined')module.exports=GA;

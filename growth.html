@@ -327,12 +327,13 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<script src="frescor.js?v=78bf41ec"></script>
+<script src="frescor.js?v=20260916-health"></script>
+<script src="growth-freshness.js?v=20260916-health"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
 <script src="growth-data.js?v=20260908-2"></script>
-<script src="growth-attribution.js?v=20260915-3"></script>
+<script src="growth-attribution.js?v=20260916-health"></script>
 <script src="n8n/growth/campaign-contract.js?v=20260915-2"></script>
 <script src="growth-campaign-editor.js?v=20260915-1"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
@@ -357,7 +358,7 @@ const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{m
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 GA.install(G);
-let ATTR_MODEL='last_non_direct';
+let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
@@ -775,7 +776,7 @@ function render(){
   $('#f-ca').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
   $('#f-cb').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
 
-  shrigmaFrescor(API,$('#frescor'));   // gerado_em era a hora da API, sempre "agora"
+  shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
   $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'});
   $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
 }

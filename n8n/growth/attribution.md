@@ -6,7 +6,7 @@ Versão 2, setembro de 2026. Escopo conciliado: Fishermans e O Aristocrata. Oliv
 
 O painel oferece dois modelos com janela de 30 dias antes da criação do pedido:
 
-- **Último clique:** última visita informada pela Shopify, inclusive retorno direto.
+- **Último clique — padrão desde 16/09/2026:** última visita informada pela Shopify, inclusive retorno direto. Se ela não for do e-mail, a receita não recebe crédito final de e-mail.
 - **Último clique não direto:** visita identificada mais recente; retornos diretos e referências internas da própria loja e retornos do modal PIX (`pix-on-site.appmax.com.br`) não substituem esse crédito.
 
 Uma compra recebe um crédito final. E-mail exige UTM de origem reconhecida (`email`/`listmonk`); WhatsApp exige `whatsapp` ou a origem histórica reconhecida da Reportana. Receber, abrir ou ler uma mensagem não comprova clique nem atribui uma venda. A jornada depende do rastreamento disponível à Shopify e não resolve perda de cookies ou troca de dispositivo.
@@ -15,6 +15,8 @@ Só entram pedidos reais, não cancelados, pagos ou parcialmente reembolsados, e
 
 O tipo de cliente usa a posição daquele pedido na jornada, não a contagem atual de compras do cliente.
 
+A referência de último clique é a [última sessão anterior ao pedido registrada pela Shopify](https://shopify.dev/docs/api/admin-graphql/latest/objects/CustomerJourneySummary#field-CustomerJourneySummary.fields.lastVisit). É atribuição observada; não comprova causalidade incremental. Pedidos sem última sessão confirmada ficam fora do crédito estrito. Trocar o modelo padrão não altera pedidos, pagamentos, UTMs ou resultados já calculados em cada modelo; o não direto continua disponível para comparação explícita.
+
 ## Conciliação e cobertura
 
 Cada registro tem chave loja + ID do pedido. Reprocessar atualiza o mesmo registro; correções de origem, cancelamentos e reembolsos removem o crédito anterior dos agregados. Leituras antigas não sobrescrevem dados mais recentes. A coleta regular usa pedidos atualizados; o histórico usa intervalos de criação explícitos.
@@ -22,6 +24,8 @@ Cada registro tem chave loja + ID do pedido. Reprocessar atualiza o mesmo regist
 Todas as páginas de pedidos devem terminar antes de registrar cobertura das duas marcas. A jornada consulta os 50 momentos mais recentes e inclui a última visita. Jornadas truncadas sem um último toque não direto comprovado permanecem desconhecidas; a primeira visita não preenche uma lacuna da paginação. Assistências podem estar incompletas quando a jornada está truncada. Pedidos cuja jornada ainda não está pronta ficam pendentes, visíveis no indicador de qualidade.
 
 Cobertura identifica dias e marcas efetivamente lidos. Datas fora da cobertura não recebem os antigos totais agregados como se estivessem conciliadas. Hoje é parcial até a última leitura. O indicador de coleta usa a leitura registrada, não apenas a hora da consulta do painel.
+
+O alerta do Growth respeita a marca selecionada. Atribuição v2 usa as confirmações por marca/dia, mesmo sem conversões novas. A coleta legada registra `crm_collection_receipt_v1` após ler todas as páginas e gravar os agregados; ela não rejuvenesce a data de uma venda antiga. A ausência de confirmação e uma coleta antiga continuam visíveis. `collection-evidence.js` valida a prova e `collection-receipt.sql` impede confirmação parcial e sobrescrita por execução antiga.
 
 ## Campanhas comerciais
 

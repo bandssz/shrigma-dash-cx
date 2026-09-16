@@ -156,7 +156,7 @@ SELECT m.marca,m.emissor,'email'::text canal,m.id campanha_id,m.name nome,m.stat
 FROM meta m LEFT JOIN public.crm_campanha s ON s.marca=m.emissor AND s.canal='email' AND s.campanha_id=m.id;
 
 CREATE VIEW public.crm_attribution_payload_v2 AS
-SELECT jsonb_build_object('schema_version',2,'window_days',30,'default_model','last_non_direct',
+SELECT jsonb_build_object('schema_version',2,'window_days',30,'default_model','last_click',
  'money_basis','net_payment_brl','generated_at',now(),
  'daily',coalesce((SELECT jsonb_agg(to_jsonb(d)) FROM public.crm_attribution_daily_v2 d),'[]'::jsonb),
  'quality',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM public.crm_attribution_quality_v2 q),'[]'::jsonb),
