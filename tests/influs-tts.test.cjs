@@ -103,3 +103,31 @@ test('autorização válida sem o escopo do canal manda para o app, não para re
   ] }, 'fish', agora);
   assert.equal(completo.estado, 'ok');
 });
+
+test('sonda separa "reautorize agora" de "ainda em análise"', () => {
+  const tok = [{ marca: 'fish', loja: 'fishermans', refresh_expira_em: '2125-08-15T22:26:30Z',
+                 expira_em_breve: false, ultimo_erro_canal: null, granted_scopes: [], escopos_faltando: [] }];
+  const agora = Date.parse('2026-09-16T13:00:00Z');
+
+  // permissão liberada no app, autorização antiga -> reautorizar resolve agora
+  const pronto = TTS.autorizacao({ autorizacao: tok, escopos: [
+    { marca: 'fish', pronto_para_reautorizar: ['Shop Analytics', 'Order Information'], aguardando_tiktok: ['Promotion'] },
+  ] }, 'fish', agora);
+  assert.equal(pronto.estado, 'reautorizar_agora');
+  assert.match(pronto.txt, /Shop Analytics/);
+  assert.match(pronto.txt, /Promotion.*análise/, 'tem que dizer o que ainda está em análise');
+
+  // só coisa em análise -> reautorizar não adianta
+  const espera = TTS.autorizacao({ autorizacao: tok, escopos: [
+    { marca: 'fish', pronto_para_reautorizar: null, aguardando_tiktok: ['Fulfillment'] },
+  ] }, 'fish', agora);
+  assert.equal(espera.estado, 'sem_escopo');
+  assert.equal(espera.app, true);
+  assert.match(espera.txt, /não adianta/);
+
+  // tudo liberado e já no token -> faixa some
+  const ok = TTS.autorizacao({ autorizacao: tok, escopos: [
+    { marca: 'fish', pronto_para_reautorizar: null, aguardando_tiktok: null },
+  ] }, 'fish', agora);
+  assert.equal(ok.estado, 'ok');
+});

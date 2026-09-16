@@ -341,3 +341,22 @@ SELECT d.*,
        round(100.0 * d.gmv_afiliado / NULLIF(d.gmv,0), 1)            AS pct_afiliado,
        round(100.0 * d.reembolso / NULLIF(d.gmv,0), 1)               AS pct_reembolso
 FROM d LEFT JOIN crm_tts_canal_custo c ON c.marca = d.marca AND c.dia = d.dia;
+
+-- 14) Estado de cada família de escopo, por loja. Preenchido pela "Sonda de escopos" (6h em 6h).
+--     Existe porque o 105005 do TikTok tem dois significados e só a MENSAGEM os separa:
+--     'falta_no_app' = a permissão não está no app (ou está em análise) -> não adianta reautorizar;
+--     'reautorizar'  = está no app e não chegou no token -> reautorizar as lojas resolve AGORA;
+--     'ok'           = passou da checagem de escopo.
+--     mudou_em é o carimbo da virada — é assim que se descobre que a TikTok aprovou, sem ficar
+--     abrindo o Partner Center todo dia.
+CREATE TABLE IF NOT EXISTS crm_tts_escopo (
+  marca         text NOT NULL,
+  loja          text NOT NULL,
+  familia       text NOT NULL,          -- analytics | order | product | finance | fulfillment | return | promotion
+  rotulo        text,                   -- nome como aparece no Partner Center
+  estado        text NOT NULL,          -- falta_no_app | reautorizar | ok
+  mensagem      text,                   -- resposta crua da API, para auditoria
+  verificado_em timestamptz NOT NULL DEFAULT now(),
+  mudou_em      timestamptz,
+  PRIMARY KEY (loja, familia)
+);

@@ -112,6 +112,32 @@ Resultado do teste endpoint a endpoint, na Fishermans:
 Promotion, Customer Service e Seller info ficam para depois: cupom ainda não é alavanca no TikTok e
 o atendimento já vive no Gleap.
 
+## A sonda: quem avisa quando a TikTok aprova
+
+Aprovar uma permissão é um processo da TikTok que leva dias e não manda aviso. E o token só ganha o
+escopo na **próxima autorização**, então existe uma janela em que a permissão já está liberada e
+ninguém sabe — o painel seguiria vazio sem motivo aparente.
+
+O workflow **"Sonda de escopos"** (`hxcQkWmx8iiuKNKo`, de 6 em 6 horas) resolve isso: bate um
+endpoint barato por família de API e classifica a resposta em `crm_tts_escopo`:
+
+- `falta_no_app` — *"this app has not been granted"* → ainda em análise, **reautorizar não adianta**
+- `reautorizar` — *"the access token does not include"* → **já liberado, reautorizar resolve agora**
+- `ok` — passou da checagem de escopo
+- `desconhecido` — a sonda não conseguiu medir (nunca assume `ok`)
+
+`mudou_em` carimba a virada, que é o instante da aprovação. A faixa do painel lê isso e troca de
+mensagem sozinha: enquanto está em análise ela manda esperar; quando libera, ela manda reautorizar.
+
+Duas armadilhas que a sonda teve que contornar, as duas descobertas medindo:
+
+1. O `105005` volta como **HTTP 401** e o n8n, por padrão, lança exceção com o texto
+   `Request failed with status code 401` — o corpo com a mensagem se perde e tudo era classificado
+   errado. Precisa de `ignoreHttpStatusErrors: true` para ler o **corpo**, não o status.
+2. Em várias famílias a validação de parâmetro roda **antes** da checagem de escopo, e aí a resposta
+   não diz nada sobre permissão. `page_size` vai na query na maioria, mas a Promotion exige inteiro
+   e só aceita no corpo — com ele na query ela falhava na validação de tipo e a sonda lia `ok`.
+
 ## Como saber que deu certo
 
 - O aviso amarelo no topo da aba **Afiliados** some sozinho (ele compara `granted_scopes` com o que o canal exige).
