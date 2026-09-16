@@ -100,6 +100,40 @@ Lendo a simulação inteira, o que denuncia automação não é o texto — é o
    na vitrine — e isso só existe na família X. Denunciava que a mensagem era automática. A copy de
    vitrine agora não assume família de produto.
 
+## ⚠️ BLOQUEADO: a API não aceita o id de criador que temos (16/09/2026)
+
+Primeiro disparo real rodou às 13h20 de 16/09. **As 30 falharam no primeiro passo e nenhum criador
+recebeu nada.** Erro, igual nas 30:
+
+```
+abrir conversa: 16032001 Invalid parameter CreatorId, please ensure it is not empty.
+```
+
+O `creator_open_id` chegou preenchido no log — não era campo vazio. O que a mensagem esconde é que
+`POST /conversations` quer um **id numérico**, e o `open_id` (formato `57KYwQAAAACtYGSlt419...`) é
+recusado como malformado. A prova está nos dois erros diferentes:
+
+| o que mandei | resposta |
+|---|---|
+| `creator_id` = open_id nosso | *Invalid parameter CreatorId, please ensure it is not empty* |
+| `creator_id` = `7000000000000000000` (19 dígitos) | *Cannot associate this creator and seller* |
+
+O segundo erro é de **relação**, ou seja o formato numérico passou na validação. O primeiro é de
+**formato**.
+
+E o id numérico não existe em nada que a gente consegue ler: o objeto `creator` de
+`sample_applications` traz `creator_open_id`, `username`, `nickname`, `follower_count`, `gmv`,
+`fulfillment_percentage` — e nenhum id numérico. `marketplace_creators/search` não existe em nenhuma
+versão testada (202309 a 202509).
+
+**Conclusão:** falta uma forma de resolver username/open_id → id numérico, e ela provavelmente mora
+atrás de um escopo que o app ainda não tem. Entra na fila junto com os outros escopos em análise.
+
+A cobrança ficou em `pausado` e o log foi limpo, então nenhuma tentativa foi consumida: quando
+destravar, todo mundo começa do toque 1.
+
+O resto da máquina está pronto e provado — régua, copy, tetos, painel. O que falta é um id.
+
 ## Para ligar
 
 Na aba **Cobrança** do painel, no bloco "Ligar a cobrança": troca de `simulação` para `ativo` e salva.
