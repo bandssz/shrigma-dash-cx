@@ -29,6 +29,8 @@ if (acao === 'regra') {
   // diferentes e ligar um não pode ligar o outro sem querer.
   if (r.cobranca_modo !== undefined) { if (!['dry_run', 'ativo', 'pausado'].includes(r.cobranca_modo)) throw new Error('cobranca_modo invalido'); out.cobranca_modo = r.cobranca_modo; }
   if (r.cobranca_max_dia !== undefined) out.cobranca_max_dia = Math.round(num(r.cobranca_max_dia, 0, 200));
+  if (r.cobranca_max_tentativas !== undefined) out.cobranca_max_tentativas = Math.round(num(r.cobranca_max_tentativas, 1, 20));
+  if (r.cobranca_dias_entre !== undefined) out.cobranca_dias_entre = Math.round(num(r.cobranca_dias_entre, 1, 120));
   if (out.gmv_auto !== undefined && out.gmv_manual !== undefined && out.gmv_manual > out.gmv_auto) throw new Error('gmv_manual nao pode ser maior que gmv_auto');
   if (!Object.keys(out).length) throw new Error('nada para alterar');
   return [{ json: { acao, marca, autor, regra: out } }];

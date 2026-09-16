@@ -407,3 +407,20 @@ CREATE INDEX IF NOT EXISTS crm_tts_cobranca_dia_idx ON crm_tts_cobranca (marca, 
 --     mandar mensagem e decidir amostra são riscos diferentes e não devem ser ligados pela mesma chave.
 ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_modo text NOT NULL DEFAULT 'dry_run';
 ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_max_dia integer NOT NULL DEFAULT 15;
+
+-- ============================================================
+-- v3.1 (16/09/2026) — RÉGUA DE COBRANÇA (várias tentativas).
+-- Medido em 16/09: a API de mensagens de afiliado só devolve o ID da conversa. Não dá para ler
+-- resposta, não há contador de não-lidas e o GET em /messages responde "Invalid method". Ou seja:
+-- "se não responder, manda outra" é IMPOSSÍVEL de implementar pelo pé da resposta.
+-- O que dá para ver é melhor para o objetivo: a pessoa PRODUZIU (content_product_count > 0, ou a
+-- amostra virou COMPLETED). Quem produz sai da fila sozinho; quem não produz avança de tentativa.
+ALTER TABLE crm_tts_cobranca ADD COLUMN IF NOT EXISTS tentativa integer NOT NULL DEFAULT 1;
+ALTER TABLE crm_tts_cobranca DROP CONSTRAINT IF EXISTS crm_tts_cobranca_pkey;
+ALTER TABLE crm_tts_cobranca ADD PRIMARY KEY (marca, etapa, username, tentativa);
+ALTER TABLE crm_tts_cobranca_modelo ADD COLUMN IF NOT EXISTS tentativa integer NOT NULL DEFAULT 1;
+ALTER TABLE crm_tts_cobranca_modelo DROP CONSTRAINT IF EXISTS crm_tts_cobranca_modelo_pkey;
+ALTER TABLE crm_tts_cobranca_modelo ADD PRIMARY KEY (marca, etapa, tentativa);
+-- quantas tentativas no máximo e quantos dias entre elas. Ver COBRANCA.md sobre por que não é infinito.
+ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_max_tentativas integer NOT NULL DEFAULT 3;
+ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_dias_entre integer NOT NULL DEFAULT 7;

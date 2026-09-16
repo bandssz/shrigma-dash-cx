@@ -332,22 +332,25 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <td>${tag(x.marca)}</td>
       <td>@${esc(x.username)}</td>
       <td>${esc(ETAPA[x.etapa] || x.etapa)}</td>
+      <td class="num tabn" title="toque ${x.tentativa} da régua">${x.tentativa || 1}</td>
       <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
       <td class="msg" title="${esc(x.texto || '')}">${esc((x.texto || '').split('\n')[0])}</td>
       <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`).join('');
     $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo">
-      <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th>
+      <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num" title="qual toque da régua">Toque</th>
         <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
         <th>Mensagem <span class="mini">passe o mouse para ler inteira</span></th><th>Quando</th></tr></thead>
       <tbody>${linhas}</tbody></table></div>
       <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Ligar a cobrança</h3>
         <span class="mini">${c.modo === 'ativo' ? `até ${c.tetoDia} por dia · ${c.pendentes} na fila`
           : `${c.simuladas} prontas, nenhuma enviada · ${c.pendentes} devendo conteúdo`}</span></div>
-      <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Cobrança</th><th class="num">Máx/dia</th><th></th></tr></thead><tbody>
+      <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Cobrança</th><th class="num">Máx/dia</th><th class="num" title="quantas vezes cobrar a mesma pessoa">Toques</th><th class="num" title="dias entre um toque e o próximo">Intervalo</th><th></th></tr></thead><tbody>
       ${TTS.filtra(DADOS.cobranca_regra || [], m).map(r => `<tr data-marca="${esc(r.marca)}">
         <td>${tag(r.marca)}</td>
         <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="simulação grava a mensagem e não envia nada; ativo envia de verdade, respeitando o teto">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="5" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
+        <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_tentativas" value="${esc(r.cobranca_max_tentativas)}" step="1" min="1" style="width:80px" title="quantas vezes cobrar a mesma pessoa antes de parar"></td>
+        <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_dias_entre" value="${esc(r.cobranca_dias_entre)}" step="1" min="1" style="width:80px" title="dias de espera entre um toque e o próximo"></td>
         <td><button class="btn tts-btn tts-salvar-cob">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}
       </tbody></table></div>`;
     document.querySelectorAll('#tts-area .tts-salvar-cob').forEach(b => b.onclick = () => {

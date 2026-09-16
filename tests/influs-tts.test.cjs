@@ -152,3 +152,14 @@ test('cobrança: soma por marca e distingue simulada de enviada', () => {
   assert.equal(todas.pendentes, 82);
   assert.equal(todas.falhas, 1);
 });
+
+test('régua: toque nunca some da fila mostrada', () => {
+  // o painel precisa distinguir 1o toque de 3o: sem isso ninguém sabe se a pessoa já foi insistida
+  const p = { cobranca_fila: [
+    { marca: 'fish', etapa: 'vitrine_sem_video', username: 'a', tentativa: 1, dry_run: true, ok: true },
+    { marca: 'fish', etapa: 'vitrine_sem_video', username: 'b', tentativa: 3, dry_run: false, ok: true },
+  ] };
+  const f = TTS.filtra(p.cobranca_fila, 'fish');
+  assert.equal(f.length, 2);
+  assert.deepEqual(f.map(x => x.tentativa), [1, 3]);
+});

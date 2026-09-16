@@ -40,13 +40,15 @@ async function chamar(marca, method, path, body) {
 }
 
 const alvos = $input.all().map(i => i.json).filter(a => a && a.username);
-const linhas = [], resumo = { simulado: 0, entregue: 0, erro: 0 };
+const linhas = [], resumo = { simulado: 0, entregue: 0, erro: 0, porTentativa: {} };
 
 for (const a of alvos.slice(0, MAX_POR_EXECUCAO)) {
   const seco = a.modo !== 'ativo';
+  const t = Number(a.tentativa) || 1;
+  resumo.porTentativa[t] = (resumo.porTentativa[t] || 0) + 1;
   if (seco) {
     resumo.simulado++;
-    linhas.push(`(${q(a.marca)},${q(a.etapa)},${q(a.username)},${q(a.creator_open_id)},${q(a.referencia)},NULL,${q(a.texto)},true,true,NULL,now())`);
+    linhas.push(`(${q(a.marca)},${q(a.etapa)},${q(a.username)},${t},${q(a.creator_open_id)},${q(a.referencia)},NULL,${q(a.texto)},true,true,NULL,now())`);
     continue;
   }
   let conversa = null, erro = null;
@@ -64,14 +66,14 @@ for (const a of alvos.slice(0, MAX_POR_EXECUCAO)) {
     } catch (e) { erro = 'entregar: ' + String(e.message || e); }
   }
   if (erro) resumo.erro++; else resumo.entregue++;
-  linhas.push(`(${q(a.marca)},${q(a.etapa)},${q(a.username)},${q(a.creator_open_id)},${q(a.referencia)},${q(conversa)},${q(a.texto)},false,${erro ? 'false' : 'true'},${q(erro)},now())`);
+  linhas.push(`(${q(a.marca)},${q(a.etapa)},${q(a.username)},${t},${q(a.creator_open_id)},${q(a.referencia)},${q(conversa)},${q(a.texto)},false,${erro ? 'false' : 'true'},${q(erro)},now())`);
   await new Promise(s => setTimeout(s, 900));   // a API limita QPS, e isto fala com gente: devagar
 }
 
 if (!linhas.length) return [{ json: { sql: 'SELECT 0 AS nada_a_cobrar', ...resumo, alvos: alvos.length } }];
-// ON CONFLICT DO NOTHING é a trava real contra cobrar a mesma pessoa duas vezes na mesma etapa.
+// ON CONFLICT DO NOTHING é a trava real contra repetir a MESMA tentativa; a régua anda pelo número.
 return [{ json: { ...resumo, alvos: alvos.length,
-  sql: `INSERT INTO crm_tts_cobranca (marca, etapa, username, creator_open_id, referencia, conversation_id, texto, dry_run, ok, erro, enviado_em)
+  sql: `INSERT INTO crm_tts_cobranca (marca, etapa, username, tentativa, creator_open_id, referencia, conversation_id, texto, dry_run, ok, erro, enviado_em)
 VALUES ${linhas.join(',')}
-ON CONFLICT (marca, etapa, username) DO NOTHING
-RETURNING marca, etapa, username, dry_run, ok` } }];
+ON CONFLICT (marca, etapa, username, tentativa) DO NOTHING
+RETURNING marca, etapa, username, tentativa, dry_run, ok` } }];

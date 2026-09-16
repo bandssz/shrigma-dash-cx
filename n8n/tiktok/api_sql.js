@@ -71,10 +71,10 @@ cob AS (  -- Cobrança de conteúdo: o que já saiu e o que está na fila de sim
   FROM crm_tts_cobranca GROUP BY 1
 ),
 cob_fila AS (  -- as mensagens em si, para a Marcela ler antes de qualquer criador receber
-  SELECT marca, etapa, username, dry_run, ok, erro, texto, enviado_em
+  SELECT marca, etapa, username, tentativa, dry_run, ok, erro, texto, enviado_em
   FROM crm_tts_cobranca ORDER BY dry_run DESC, enviado_em DESC LIMIT 200
 ),
-cob_regra AS (SELECT marca, cobranca_modo, cobranca_max_dia FROM crm_tts_regra),
+cob_regra AS (SELECT marca, cobranca_modo, cobranca_max_dia, cobranca_max_tentativas, cobranca_dias_entre FROM crm_tts_regra),
 cob_pend AS (  -- quantos ainda faltam no total, independente do teto diário
   SELECT marca, count(*)::int AS pendentes FROM (
     SELECT marca, username FROM crm_tts_convite

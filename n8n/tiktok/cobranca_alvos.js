@@ -5,12 +5,13 @@
 //   amostra_sem_video — recebeu produto de graça e ainda não postou
 // O teto diário e o modo vêm de crm_tts_regra, por marca.
 const sql = `
-WITH r AS (SELECT marca, cobranca_modo, cobranca_max_dia FROM crm_tts_regra),
+WITH r AS (SELECT marca, cobranca_modo, cobranca_max_dia, cobranca_max_tentativas, cobranca_dias_entre FROM crm_tts_regra),
 -- Titulo de anuncio nao cabe em DM: "Sabonete Natural Masculino O Aristocrata 150g 4.9 Estrelas 90mil
 -- Avaliacoes" soa como catalogo, nao como gente falando. Corta o rabo de marketing e o nome em 42
 -- caracteres, sempre em fronteira de palavra (cortar em "Frescor da" fica pior que nao cortar).
-ja AS (  -- quem já levou cobrança nesta etapa não leva de novo, nunca. A PK garante, isto só evita o trabalho.
-  SELECT marca, etapa, username FROM crm_tts_cobranca
+ja AS (  -- última tentativa de cada pessoa nesta etapa, e quando foi. É o que faz a régua andar.
+  SELECT marca, etapa, username, max(tentativa) AS ultima, max(enviado_em) AS em
+    FROM crm_tts_cobranca GROUP BY 1,2,3
 ),
 hoje AS (  -- quanto já saiu hoje, por marca, para respeitar o teto
   SELECT marca, count(*)::int AS n FROM crm_tts_cobranca
@@ -67,23 +68,36 @@ amostra AS (
    ORDER BY a.marca, a.username, a.atualizado_em DESC
 ),
 alvo AS (SELECT * FROM vitrine UNION ALL SELECT * FROM amostra),
-fila AS (
-  SELECT a.marca, a.etapa, a.username, a.creator_open_id, a.referencia,
-         r.cobranca_modo AS modo,
-         -- {nome} e {produto} trocados aqui, no SQL: o que vai pro log e exatamente o que vai na mensagem
-         replace(replace(m.texto, '{nome}', a.nome), '{produto}', a.produto) AS texto,
-         -- amostra antes de vitrine: quem recebeu produto de graca e a cobranca mais urgente
-         row_number() OVER (PARTITION BY a.marca ORDER BY (a.etapa = 'amostra_sem_video') DESC, a.username) AS pos,
-         r.cobranca_max_dia - COALESCE((SELECT h.n FROM hoje h WHERE h.marca = a.marca), 0) AS vagas
+prox AS (  -- quem entra hoje e em qual tentativa
+  SELECT a.*, r.cobranca_modo AS modo, r.cobranca_max_dia, r.cobranca_max_tentativas,
+         COALESCE(ja.ultima, 0) + 1 AS tentativa
     FROM alvo a
     JOIN r ON r.marca = a.marca
-    JOIN crm_tts_cobranca_modelo m ON m.marca = a.marca AND m.etapa = a.etapa AND m.ativo
     LEFT JOIN ja ON ja.marca = a.marca AND ja.etapa = a.etapa AND ja.username = a.username
-   WHERE ja.username IS NULL AND r.cobranca_modo <> 'pausado'
+   WHERE r.cobranca_modo <> 'pausado'
+     -- nunca cobrado, OU já passou o intervalo desde a última tentativa
+     AND (ja.username IS NULL OR ja.em < now() - make_interval(days => r.cobranca_dias_entre))
+     -- e ainda não estourou o teto de tentativas
+     AND COALESCE(ja.ultima, 0) < r.cobranca_max_tentativas
+),
+fila AS (
+  SELECT p.marca, p.etapa, p.username, p.creator_open_id, p.referencia, p.modo, p.tentativa,
+         -- {nome} e {produto} trocados aqui, no SQL: o que vai pro log e exatamente o que vai na mensagem
+         replace(replace(m.texto, '{nome}', p.nome), '{produto}', p.produto) AS texto,
+         -- quem já está no meio da régua tem prioridade sobre quem nunca foi tocado: terminar o que
+         -- começou vale mais que abrir frente nova. Depois, amostra antes de vitrine.
+         row_number() OVER (PARTITION BY p.marca
+           ORDER BY p.tentativa DESC, (p.etapa = 'amostra_sem_video') DESC, p.username) AS pos,
+         p.cobranca_max_dia - COALESCE((SELECT h.n FROM hoje h WHERE h.marca = p.marca), 0) AS vagas
+    FROM prox p
+    -- o modelo da tentativa exata; se não existir, cai no maior que existir (régua mais curta que o teto)
+    JOIN LATERAL (SELECT texto FROM crm_tts_cobranca_modelo mm
+                   WHERE mm.marca = p.marca AND mm.etapa = p.etapa AND mm.ativo AND mm.tentativa <= p.tentativa
+                   ORDER BY mm.tentativa DESC LIMIT 1) m ON true
 )
 -- pos <= vagas: o teto LIMITA a quantidade, nao so abre ou fecha o portao. Sem isto, uma marca com
 -- teto 15 e 63 pendentes soltaria os 63 de uma vez no primeiro dia em que ligasse o modo ativo.
-SELECT marca, etapa, username, creator_open_id, referencia, modo, texto
+SELECT marca, etapa, username, creator_open_id, referencia, modo, tentativa, texto
   FROM fila WHERE pos <= GREATEST(vagas, 0)
  ORDER BY marca, pos`;
 return [{ json: { sql } }];
