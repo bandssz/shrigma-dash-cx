@@ -7,7 +7,8 @@
 const sql = `
 WITH r AS (SELECT marca, cobranca_modo, cobranca_max_dia FROM crm_tts_regra),
 -- Titulo de anuncio nao cabe em DM: "Sabonete Natural Masculino O Aristocrata 150g 4.9 Estrelas 90mil
--- Avaliacoes" soa como catalogo, nao como gente falando. Corta o rabo de marketing e limita a 6 palavras.
+-- Avaliacoes" soa como catalogo, nao como gente falando. Corta o rabo de marketing e o nome em 42
+-- caracteres, sempre em fronteira de palavra (cortar em "Frescor da" fica pior que nao cortar).
 ja AS (  -- quem já levou cobrança nesta etapa não leva de novo, nunca. A PK garante, isto só evita o trabalho.
   SELECT marca, etapa, username FROM crm_tts_cobranca
 ),
@@ -19,9 +20,14 @@ vitrine AS (
   SELECT DISTINCT ON (c.marca, c.username)
          c.marca, 'vitrine_sem_video'::text AS etapa, c.username, c.creator_open_id,
          c.colab_id AS referencia,
-         COALESCE(co.nome, array_to_string((string_to_array(
-           regexp_replace(co.product_title, '\\s*[0-9.,]+\\s*(estrelas?|mil\\s*avalia|avalia).*$', '', 'i'),
-           ' '))[1:6], ' '), 'nossos produtos') AS produto,
+         -- NUNCA usar co.nome aqui: e o nome INTERNO da campanha ("FEITO JUSTAMENTE PRA VOCE",
+         -- "trofeu e grana na linha"). Dentro de uma DM isso soa como se a gente tivesse errado
+         -- o destinatario. So o titulo do produto, encurtado.
+         COALESCE(nullif(regexp_replace(substring(
+           regexp_replace(co.product_title, '\\s*[0-9.,]+\\s*(estrelas?|mil\\s*avalia|avalia).*$', '', 'i')
+           from '^.{1,42}(?=\\s|$)'),
+           -- o corte pode parar numa preposicao ("Frescor da"); pendurado assim fica pior que cortado antes
+           '\\s+(da|de|do|das|dos|e|com|para|pra|em|no|na)$', '', 'i'), ''), 'nossos produtos') AS produto,
          COALESCE(c.nickname, c.username) AS nome
     FROM crm_tts_convite c
     LEFT JOIN crm_tts_colaboracao co ON co.marca = c.marca AND co.colab_id = c.colab_id
@@ -33,9 +39,11 @@ amostra AS (
   SELECT DISTINCT ON (a.marca, a.username)
          a.marca, 'amostra_sem_video'::text AS etapa, a.username, a.creator_open_id,
          a.application_id AS referencia,
-         COALESCE(array_to_string((string_to_array(
-           regexp_replace(a.product_title, '\\s*[0-9.,]+\\s*(estrelas?|mil\\s*avalia|avalia).*$', '', 'i'),
-           ' '))[1:6], ' '), 'o produto') AS produto,
+         COALESCE(nullif(regexp_replace(substring(
+           regexp_replace(a.product_title, '\\s*[0-9.,]+\\s*(estrelas?|mil\\s*avalia|avalia).*$', '', 'i')
+           from '^.{1,42}(?=\\s|$)'),
+           -- o corte pode parar numa preposicao ("Frescor da"); pendurado assim fica pior que cortado antes
+           '\\s+(da|de|do|das|dos|e|com|para|pra|em|no|na)$', '', 'i'), ''), 'o produto') AS produto,
          COALESCE(cr.nickname, a.username) AS nome
     FROM crm_tts_amostra a
     LEFT JOIN crm_tts_criador cr ON cr.marca = a.marca AND cr.username = a.username

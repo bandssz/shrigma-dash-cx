@@ -46,14 +46,20 @@ O título do anúncio é encurtado antes de entrar na mensagem: "Sabonete Natura
 150g 4.9 Estrelas 90mil Avaliações" vira "Sabonete Natural Masculino O Aristocrata 150g". Título de
 catálogo dentro de uma DM soa como robô.
 
-⚠️ A copy atual é **rascunho do Claude** (`atualizado_por = 'claude (rascunho, revisar)'`). A da
-Fishermans passou pela skill da marca; a d'O Aristocrata não. Revisar na aba Cobrança antes de ligar.
+A copy passou pelas skills das duas marcas. Três erros que só apareceram lendo a simulação:
+
+1. O nome do **produto** na etapa de vitrine vinha do nome INTERNO da campanha — "FEITO JUSTAMENTE
+   PRA VOCE", "trofeu e grana na linha". Numa DM soa como mensagem enviada pro contato errado.
+2. O corte do título parava no meio: "Sabonete Natural O Aristocrata Frescor da". Agora corta em
+   fronteira de palavra e ainda tira preposição pendurada no fim.
+3. A mensagem da Fishermans citava **X4/X8 e camuflagem** para quem tinha posto uma **monofilamento**
+   na vitrine — e isso só existe na família X. Denunciava que a mensagem era automática. A copy de
+   vitrine agora não assume família de produto.
 
 ## Para ligar
 
-```sql
-UPDATE crm_tts_regra SET cobranca_modo = 'ativo' WHERE marca = 'fish';
-```
+Na aba **Cobrança** do painel, no bloco "Ligar a cobrança": troca de `simulação` para `ativo` e salva.
+O botão pede confirmação com o texto "Enviar de verdade?" quando o clique liga o envio — é o único
+lugar do painel que fala com criador em nome da marca.
 
-Uma marca de cada vez. A aba **Cobrança** do painel mostra o que saiu, o que está simulado e quantos
-ainda faltam.
+Uma marca de cada vez, se preferir. O teto por dia fica no mesmo bloco.
