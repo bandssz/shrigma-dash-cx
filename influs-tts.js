@@ -69,6 +69,16 @@
       if (venc.length) return { estado: 'vencida', txt: 'A autorização de ' + venc.map(x => x.loja).join(' e ') + ' venceu. A coleta para hoje até reautorizar.' };
       const perto = a.filter(x => x.expira_em_breve);
       if (perto.length) return { estado: 'expirando', txt: 'A autorização de ' + perto.map(x => x.loja).join(' e ') + ' vence em menos de 14 dias.' };
+      // Autorização válida mas SEM os escopos do canal: reautorizar de novo não resolve — o escopo tem que
+      // ser liberado no app, no Partner Center, antes da autorização. Por isso a mensagem manda pro app.
+      const faltam = a.filter(x => (x.escopos_faltando || []).length);
+      if (faltam.length) {
+        const s = [...new Set(faltam.flatMap(x => x.escopos_faltando))];
+        return { estado: 'sem_escopo', app: true,
+          txt: 'A autorização de ' + faltam.map(x => x.loja).join(' e ') + ' está válida, mas não carrega ' +
+               s.join(', ') + ' — sem isso os dados de canal (ads, lives, orgânico) não vêm. ' +
+               'Reautorizar de novo não adianta: o escopo precisa estar liberado no app antes.' };
+      }
       const erro = a.find(x => x.ultimo_erro_canal);
       if (erro) return { estado: 'sem_escopo', txt: 'A coleta do canal falhou em ' + erro.loja + ': ' + erro.ultimo_erro_canal };
       return { estado: 'ok', txt: '' };
@@ -179,8 +189,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (a.estado === 'ok') { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
     el.innerHTML = `<b>Autorização da loja</b> · ${esc(a.txt)}
-      <a class="tts-btn" href="https://services.tiktokshop.com/open/authorize?service_id=7670181171502434055" target="_blank" rel="noopener">Reautorizar no TikTok</a>
-      <span class="mini">abra logado como vendedor da loja; a captura grava sozinha e o coletor volta na próxima rodada</span>`;
+      ${a.app
+        ? `<a class="tts-btn" href="https://partner.tiktokshop.com/" target="_blank" rel="noopener">Abrir o Partner Center</a>
+           <span class="mini">liberar o escopo no app &rarr; só então reautorizar as duas lojas</span>`
+        : `<a class="tts-btn" href="https://services.tiktokshop.com/open/authorize?service_id=7670181171502434055" target="_blank" rel="noopener">Reautorizar no TikTok</a>
+           <span class="mini">abra logado como vendedor da loja; a captura grava sozinha e o coletor volta na próxima rodada</span>`}`;
   }
 
   function renderKpisTTS() {

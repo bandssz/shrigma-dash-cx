@@ -85,3 +85,21 @@ test('autorização: loja sem linha em crm_tts_token vira aviso de reautorizar',
   ] }, 'fish', agora);
   assert.equal(semEscopo.estado, 'sem_escopo');
 });
+
+test('autorização válida sem o escopo do canal manda para o app, não para reautorizar de novo', () => {
+  const base = { marca: 'fish', loja: 'fishermans', refresh_expira_em: '2125-08-15T22:26:30Z', expira_em_breve: false, ultimo_erro_canal: null };
+  const agora = Date.parse('2026-09-16T12:00:00Z');
+
+  const semEscopo = TTS.autorizacao({ autorizacao: [
+    { ...base, granted_scopes: ['seller.affiliate_collaboration.read'], escopos_faltando: ['seller.data.read'] },
+  ] }, 'fish', agora);
+  assert.equal(semEscopo.estado, 'sem_escopo');
+  assert.equal(semEscopo.app, true, 'tem que apontar para o Partner Center: reautorizar de novo não resolve');
+  assert.match(semEscopo.txt, /seller\.data\.read/);
+
+  // com todos os escopos, a faixa some — mesmo com a autorização válida por 99 anos
+  const completo = TTS.autorizacao({ autorizacao: [
+    { ...base, granted_scopes: ['seller.data.read', 'seller.order.read', 'seller.product.read'], escopos_faltando: [] },
+  ] }, 'fish', agora);
+  assert.equal(completo.estado, 'ok');
+});

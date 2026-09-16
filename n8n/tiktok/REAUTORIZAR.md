@@ -48,9 +48,32 @@ O *Token Manager* lê `crm_tts_token` antes do cache e **descarta o cache quando
 Ou seja: assim que a autorização entra, a próxima chamada já usa o token novo, com os escopos novos.
 Antes de existir essa tabela, alguém tinha que editar a constante `SEEDS` no código — essa era a trava.
 
+## Medido em 16/09/2026 — reautorizar não bastou
+
+As duas lojas foram reautorizadas e o token novo entrou. Mas o próprio token diz quais escopos
+carrega (campo `granted_scopes` da resposta de `/token/refresh`), e vieram **só 5, todos de afiliado**:
+
+```
+seller.affiliate_collaboration.read    seller.affiliate_collaboration.write
+seller.affiliate_messages.write        seller.creator_marketplace.read
+seller.authorization.info
+```
+
+Resultado medido endpoint a endpoint: afiliado (colabs, pedidos, amostras) responde OK; `order`,
+`product` e `analytics` respondem `105005`.
+
+**Conclusão: o escopo precisa estar liberado no app ANTES da autorização.** Autorizar de novo com o
+app do jeito que está vai produzir exatamente os mesmos 5 escopos, quantas vezes for. O passo 1 é
+que não surtiu efeito — ou a permissão não foi salva, ou o app (criado na categoria *Colaborações do
+criador*) não oferece as permissões de loja/analytics sem mudar de categoria ou passar por revisão
+da TikTok. Isso se confirma abrindo a página de permissões do app no Partner Center.
+
+`granted_scopes` agora é gravado em `crm_tts_token` a cada autorização, e o painel mostra a lista do
+que falta — então dá para conferir sem abrir chamado com ninguém.
+
 ## Como saber que deu certo
 
-- O aviso amarelo no topo da aba **Afiliados** some sozinho (ele lê `crm_tts_token`).
+- O aviso amarelo no topo da aba **Afiliados** some sozinho (ele compara `granted_scopes` com o que o canal exige).
 - `SELECT loja, autorizado_em FROM crm_tts_token;` traz as duas lojas com a data de hoje.
 - A coleta do canal para de registrar `105005` em `crm_tts_coleta_log`.
 
@@ -62,3 +85,11 @@ Antes de existir essa tabela, alguém tinha que editar a constante `SEEDS` no c�
 | reautorizar exigia um dev editando workflow | é abrir um link logado na loja |
 | escopo faltando aparecia como tabela vazia | aparece como faixa amarela no painel, com o link do lado |
 | vencimento do token só se descobria quebrando | o painel avisa 14 dias antes |
+| `105005` não dizia qual escopo faltava | o painel nomeia o escopo, de `granted_scopes` |
+
+## Sobre vencimento: não vence
+
+Medido: `refresh_token_expire_in` volta como **2125** (99 anos). O refresh **rotaciona** o token a cada
+chamada, mas o anterior **continua válido** — testei reusando o mesmo token do banco duas vezes
+seguidas, as duas funcionaram. Então o que está em `crm_tts_token` não caduca, e o Token Manager
+guarda o rotacionado no cache. Reautorizar só é necessário quando **mudar o pacote de escopos**.
