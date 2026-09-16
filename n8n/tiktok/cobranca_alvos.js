@@ -10,8 +10,10 @@ WITH r AS (SELECT marca, cobranca_modo, cobranca_max_dia, cobranca_max_tentativa
 -- Avaliacoes" soa como catalogo, nao como gente falando. Corta o rabo de marketing e o nome em 42
 -- caracteres, sempre em fronteira de palavra (cortar em "Frescor da" fica pior que nao cortar).
 ja AS (  -- última tentativa de cada pessoa nesta etapa, e quando foi. É o que faz a régua andar.
+  -- NOT dry_run é essencial: linha de simulação não pode contar como toque dado, senão a pessoa
+  -- que apareceu no dry-run nunca receberia o toque 1 de verdade — entraria direto no toque 2.
   SELECT marca, etapa, username, max(tentativa) AS ultima, max(enviado_em) AS em
-    FROM crm_tts_cobranca GROUP BY 1,2,3
+    FROM crm_tts_cobranca WHERE NOT dry_run GROUP BY 1,2,3
 ),
 hoje AS (  -- quanto já saiu hoje, por marca, para respeitar o teto
   SELECT marca, count(*)::int AS n FROM crm_tts_cobranca
