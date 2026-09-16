@@ -816,10 +816,104 @@ document.addEventListener("click", (e) => {
   if (estado.dados) pintaMotivos(estado.dados);
 });
 
+// ---------- Aba Trocas (16/09): reversas do Troquecommerce → seis números mensais, série por mês, tabela mês × marca, motivos ----------
+// Grão mensal de propósito: a decisão que este bloco serve (trocas + RA cabem em uma pessoa?) não precisa de dia.
+// O período do painel (7d/30d) não se aplica aqui: os cartões leem o último mês FECHADO e o mês atual; a fila "em análise"
+// é foto de agora (todas as reversas abertas), não conta do mês.
+estado.metricaTrocas = estado.metricaTrocas || "reversas";
+CX_BLOCOS.trocas = { area: "#area-trocas-num", g: "#g-trocas", tit: "#g-trocas-tit", sub: "#g-trocas-sub", chave: "metricaTrocas", grafico: (d) => pintaGraficoTrocasAba(d) };
+Object.assign(DIRECAO, { tr_reversas: "baixo", tr_analise: "baixo", tr_dias: "baixo", tr_devolucao: "baixo", tr_valor: "baixo" });
+const fmtBRL = (v) => typeof v === "number" ? "R$ " + Math.round(v).toLocaleString("pt-BR") : "—";
+const fmtMes = (ymd) => { const m = String(ymd).slice(0, 7).split("-"); return ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][Number(m[1]) - 1] + "/" + m[0].slice(2); };
+function cxMesAtual(hoje) { return hoje.slice(0, 7) + "-01"; }
+function cxMesAnterior(mes) { const d = new Date(mes + "T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) + "-01"; }
+let CX_TROCAS_DADOS = null;
+function pintaTrocasAba(d) {
+  if (!$("#area-trocas-num")) return;
+  const rows = d.cx_troca || [], mot = d.cx_troca_motivo || [];
+  const marcas = cxMarcasSerie(); const todas = marcas.length > 1;
+  const hoje = hojeRef(); const mesAtual = cxMesAtual(hoje), mesAnt = cxMesAnterior(mesAtual), mesAnt2 = cxMesAnterior(mesAnt);
+  const rot = $("#trocas-rotulo"), tab = $("#area-trocas"), tabMot = $("#area-trocas-motivo"), tabRot = $("#trocas-tab-rot");
+  CX_TROCAS_DADOS = { marcas };
+  if (!rows.length) {
+    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "A API ainda não devolve cx_troca. O coletor noturno CX — Trocas lê a API pública do Troquecommerce às 02:40.");
+    cxPintaCartoes("trocas", [{ k: "reversas", rot: "Reversas no mês", val: "—", sub: "sem leitura" }]);
+    if (tab) tab.innerHTML = `<div class="vazio">Sem leitura do Troquecommerce ainda.</div>`; if (tabMot) tabMot.innerHTML = ""; if (tabRot) tabRot.innerHTML = "";
+    pintaGraficoTrocasAba(d); return;
+  }
+  const fechado = trocaAgg(rows, { marcas, mesIni: mesAnt, mesFim: mesAnt }), fechadoAnt = trocaAgg(rows, { marcas, mesIni: mesAnt2, mesFim: mesAnt2 });
+  const atual = trocaAgg(rows, { marcas, mesIni: mesAtual, mesFim: mesAtual }), fila = trocaAgg(rows, { marcas });
+  const diaDoMes = Number(hoje.slice(8, 10));
+  const porMarca = (fn) => todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => fn(m))}` : "";
+  const cartoes = [
+    { k: "reversas", rot: `Reversas · ${fmtMes(mesAnt)}`, val: fmtNum(fechado.reversas), chip: fechadoAnt.reversas ? chipHtml("novos", fechado.reversas, fechadoAnt.reversas) : "", sub: `${fmtNum(fechado.troca)} trocas · ${fmtNum(fechado.devolucao)} devoluções`,
+      info: `Reversas abertas pelo cliente no portal no último mês fechado (${fmtMes(mesAnt)}), as duas marcas. Chip contra ${fmtMes(mesAnt2)}.` + porMarca((m) => fmtNum(trocaAgg(rows, { marcas: [m], mesIni: mesAnt, mesFim: mesAnt }).reversas)) },
+    { k: "ritmo", rot: `${fmtMes(mesAtual)} até hoje`, val: fmtNum(atual.reversas), sub: `em ${diaDoMes} dia${diaDoMes === 1 ? "" : "s"} · ${fmtNum(atual.troca)} trocas · ${fmtNum(atual.devolucao)} dev.`,
+      info: `Reversas abertas no mês corrente até hoje. Não é projeção: leia junto com o dia do mês.` + porMarca((m) => fmtNum(trocaAgg(rows, { marcas: [m], mesIni: mesAtual, mesFim: mesAtual }).reversas)) },
+    { k: "analise", rot: "Em análise agora", val: fmtNum(fila.emAnalise), status: fila.emAnalise === 0 ? "bom" : fila.emAnalise7d >= 10 ? "ruim" : "atencao", sub: `${fmtNum(fila.emAnalise7d)} há mais de 7 dias`,
+      info: `Reversas que o cliente abriu e a loja ainda não aprovou nem cancelou — fila parada, foto de agora (todos os meses). Vermelho com 10+ paradas há mais de 7 dias.` + porMarca((m) => { const x = trocaAgg(rows, { marcas: [m] }); return `${fmtNum(x.emAnalise)} (${fmtNum(x.emAnalise7d)} > 7 d)`; }) },
+    { k: "dias", rot: "Até aprovar", val: fechado.diasAnaliseP50 === null ? "—" : (fechado.aproximado ? "≈ " : "") + fmtDec(fechado.diasAnaliseP50) + " d", status: fechado.diasAnaliseP50 === null ? null : fechado.diasAnaliseP50 <= 2 ? "bom" : fechado.diasAnaliseP50 <= 5 ? "atencao" : "ruim",
+      sub: `mediana · ${fmtNum(fechado.analisadas)} analisadas em ${fmtMes(mesAnt)}`,
+      info: `Dias entre o cliente abrir a reversa e a loja tomar a primeira ação (aprovar, pedir algo ou cancelar), mediana das reversas do mês já analisadas. Faixa: até 2 dias ok, até 5 atenção. ≈ = mediana das medianas mensais por tipo, ponderada.` + porMarca((m) => { const x = trocaAgg(rows, { marcas: [m], mesIni: mesAnt, mesFim: mesAnt }); return x.diasAnaliseP50 === null ? "—" : fmtDec(x.diasAnaliseP50) + " d"; }) },
+    { k: "devolucao", rot: "Devolução (dinheiro)", val: fmtPct0(fechado.pctDevolucao), chip: cxChipPP("tr_devolucao", fechado.pctDevolucao, fechadoAnt.pctDevolucao), sub: `${fmtNum(fechado.devolucao)} de ${fmtNum(fechado.reversas)} em ${fmtMes(mesAnt)}`,
+      info: `Fatia das reversas do mês fechado que são devolução com estorno em dinheiro; o resto é troca (vira cupom) ou sem reembolso. Política v2 quer empurrar para troca.` + porMarca((m) => fmtPct0(trocaAgg(rows, { marcas: [m], mesIni: mesAnt, mesFim: mesAnt }).pctDevolucao)) },
+    { k: "valor", rot: `Valor em reversa · ${fmtMes(mesAnt)}`, val: fmtBRL(fechado.valorEstorno + fechado.valorTroca), sub: `${fmtBRL(fechado.valorEstorno)} estorno · ${fmtBRL(fechado.valorTroca)} cupom`,
+      info: `Soma do que as reversas do mês fechado (não canceladas) devolvem ao cliente: parcela em dinheiro + parcela em cupom de troca. Frete reverso pago pela loja: ${fmtBRL(fechado.freteReverso)}.` + porMarca((m) => { const x = trocaAgg(rows, { marcas: [m], mesIni: mesAnt, mesFim: mesAnt }); return fmtBRL(x.valorEstorno + x.valorTroca); }) },
+  ];
+  const leitura = fila.coletadoEm ? cxDia(fila.coletadoEm) : null;
+  if (rot) rot.innerHTML = (leitura ? cxTag(`leitura de ${fmtDia(leitura)}`, "nota", "Última leitura da API pública do Troquecommerce (coletor noturno, 02:40).") : "") +
+    cxTag("grão mensal", "nota", "Trocas não seguem o período do painel: cartões leem o último mês fechado e o mês atual; a fila em análise é foto de agora.") +
+    cxResumoStatus(cartoes);
+  cxPintaCartoes("trocas", cartoes);
+  pintaGraficoTrocasAba(d);
+  // tabela mês × marca (últimos 6 meses com dado)
+  const meses = trocaMeses(rows, marcas).slice(-6).reverse();
+  if (tabRot) tabRot.innerHTML = cxTag("fila em análise é de agora", "nota", "A coluna 'em análise' mostra quantas reversas daquele mês ainda estão paradas hoje, não quantas estavam no fim do mês.");
+  if (tab) tab.innerHTML = `<div class="rolagem"><table class="comparativo troca-tab">
+    <thead><tr><th>Mês</th><th>Marca</th><th class="num">Reversas</th><th class="num" title="viram cupom">Trocas</th><th class="num" title="dinheiro de volta">Devoluções</th><th class="num" title="ainda paradas hoje">Em análise</th><th class="num">Canceladas</th><th class="num" title="produto chegou de volta">Entregues</th><th class="num" title="mediana em dias até a primeira ação da loja">Até aprovar</th><th class="num" title="parcela em dinheiro, reversas não canceladas">Estorno</th><th class="num" title="parcela em cupom">Cupom</th></tr></thead>
+    <tbody>${meses.flatMap((mes) => marcas.map((m) => { const x = trocaAgg(rows, { marcas: [m], mesIni: mes, mesFim: mes }); if (!x.reversas) return ""; return `<tr>
+      <td>${fmtMes(mes)}${mes === mesAtual ? '<div class="mini">até hoje</div>' : ""}</td>
+      <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span></td>
+      <td class="num"><strong class="tabn">${fmtNum(x.reversas)}</strong></td><td class="num">${fmtNum(x.troca)}</td><td class="num">${fmtNum(x.devolucao)}</td>
+      <td class="num ${x.emAnalise ? "vm" : ""}">${fmtNum(x.emAnalise)}${x.emAnalise7d ? `<div class="mini">${fmtNum(x.emAnalise7d)} > 7 d</div>` : ""}</td>
+      <td class="num">${fmtNum(x.canceladas)}</td><td class="num">${fmtNum(x.entregues)}</td>
+      <td class="num">${x.diasAnaliseP50 === null ? "—" : `${x.aproximado ? "≈ " : ""}${fmtDec(x.diasAnaliseP50)} d<div class="mini">${fmtNum(x.analisadas)} de ${fmtNum(x.reversas)}</div>`}</td>
+      <td class="num">${fmtBRL(x.valorEstorno)}</td><td class="num">${fmtBRL(x.valorTroca)}</td></tr>`; })).join("")}</tbody></table></div>`;
+  // motivos: 3 meses fechados + atual
+  const mIni = cxMesAnterior(cxMesAnterior(mesAnt));
+  const motivos = trocaMotivos(mot, { marcas, mesIni: mIni, mesFim: mesAtual });
+  if (tabMot) tabMot.innerHTML = !motivos.length ? `<div class="vazio mini">Sem motivo registrado no intervalo.</div>` : `<div class="rolagem"><table class="comparativo troca-mot">
+    <thead><tr><th>Marca</th><th>Motivo (${fmtMes(mIni)}–${fmtMes(mesAtual)})</th><th class="num">Reversas</th><th class="num">Trocas</th><th class="num">Devoluções</th><th class="num" title="valor dos itens em reversa">Valor</th><th>Submotivos mais comuns</th></tr></thead>
+    <tbody>${motivos.slice(0, 14).map((x) => `<tr><td><span class="ponto" style="--cor:${corHex(x.marca)}"></span> ${CX_SIGLA[x.marca] || x.marca}</td><td>${x.motivo}</td><td class="num"><strong class="tabn">${fmtNum(x.reversas)}</strong></td><td class="num">${fmtNum(x.troca || 0)}</td><td class="num">${fmtNum(x.devolucao || 0)}</td><td class="num">${fmtBRL(x.valor)}</td><td class="mini">${x.subTop.map(([s, n]) => `${s} (${fmtNum(n)})`).join(" · ") || "—"}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function pintaGraficoTrocasAba(d) {
+  if (!CX_TROCAS_DADOS || !$("#g-trocas")) return;
+  const rows = d.cx_troca || []; const { marcas } = CX_TROCAS_DADOS; const k = estado.metricaTrocas;
+  const meses = trocaMeses(rows, marcas).slice(-12);
+  if (!meses.length) { cxGraficoBloco("trocas", { tit: "Reversas · por mês", sub: "", html: `<div class="vazio mini">Sem leitura do Troquecommerce ainda.</div>` }); return; }
+  const rotulosX = meses.map(fmtMes); const hojeMes = cxMesAtual(hojeRef());
+  const por = (m, mes) => trocaAgg(rows, { marcas: [m], mesIni: mes, mesFim: mes });
+  let r;
+  if (k === "dias") r = { tit: "Dias até aprovar · por mês", sub: "mediana das reversas do mês já analisadas · uma linha por marca · mês com menos de 5 analisadas fica em branco",
+    html: cxgLinhas({ rotulosX, fmt: (v) => fmtDec(v, 0) + " d", aria: "Dias até aprovar por mês", vazio: "Sem reversa analisada.", alvo: { y: 2, rot: "faixa 2 d" },
+      series: marcas.map((m) => Object.assign(cxLbl(m), { pontos: meses.map((mes) => { const x = por(m, mes); return { y: x.analisadas >= 5 ? x.diasAnaliseP50 : null, rot: fmtMes(mes), n: `${fmtNum(x.analisadas)} analisadas`, parcial: mes === hojeMes }; }) })) }) };
+  else if (k === "devolucao") r = { tit: "Troca × devolução · por mês", sub: "fatia das reversas do mês · número no topo = % devolução (dinheiro)",
+    html: cxgBarras({ rotulosX, pct: true, fmt: (v) => Math.round(v) + "%", aria: "Troca × devolução por mês", vazio: "Sem reversa.",
+      series: [{ nome: "Devolução", cor: "var(--ruim)", valores: meses.map((mes) => trocaAgg(rows, { marcas, mesIni: mes, mesFim: mes }).devolucao) }, { nome: "Troca", cor: "var(--bom)", valores: meses.map((mes) => trocaAgg(rows, { marcas, mesIni: mes, mesFim: mes }).troca) }, { nome: "Outro", cor: "var(--borda-forte)", valores: meses.map((mes) => trocaAgg(rows, { marcas, mesIni: mes, mesFim: mes }).outro) }],
+      topo: meses.map((mes) => { const x = trocaAgg(rows, { marcas, mesIni: mes, mesFim: mes }); return x.reversas ? fmtPct0(x.pctDevolucao) : ""; }) }) };
+  else if (k === "valor") r = { tit: "Valor devolvido ao cliente · por mês", sub: "estorno em dinheiro + cupom de troca, reversas não canceladas · uma cor por marca",
+    html: cxgBarras({ rotulosX, fmt: fmtBRL, aria: "Valor em reversa por mês", vazio: "Sem reversa.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: meses.map((mes) => { const x = por(m, mes); return x.valorEstorno + x.valorTroca; }) })) }) };
+  else if (k === "analise") r = { tit: "Em análise hoje · por mês de abertura", sub: "reversas ainda paradas, pelo mês em que o cliente abriu · uma cor por marca",
+    html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Em análise por mês de abertura", vazio: "Nenhuma reversa em análise.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: meses.map((mes) => por(m, mes).emAnalise) })) }) };
+  else r = { tit: "Reversas · por mês", sub: "abertas pelo cliente no portal · uma cor por marca · último mês pode estar em andamento",
+    html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Reversas por mês", vazio: "Sem reversa.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: meses.map((mes) => por(m, mes).reversas) })) }) };
+  cxGraficoBloco("trocas", r);
+}
+
 // ---------- abas ----------
 // A aba vive no hash (#aba=chat): link copiado abre no lugar certo. Filtros continuam globais.
 // Tudo é pintado sempre (as abas escondidas também) — trocar de aba é instantâneo e não refaz conta.
-const CX_ABAS = ["geral", "chat", "ra", "nps", "social"];
+const CX_ABAS = ["geral", "chat", "ra", "nps", "social", "trocas"];
 function cxAbaDoHash() {
   const m = /(?:^|[#&])aba=([a-z]+)/.exec(location.hash || "");
   return m && CX_ABAS.includes(m[1]) ? m[1] : "geral";

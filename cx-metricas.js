@@ -418,6 +418,47 @@ function respostaPorAgente(rows, f) {
     p50Comercial: medianaPonderada(a.p50c), p50Relogio: medianaPonderada(a.p50r), pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, aproximado: a.p50c.length > 1 }));
 }
 
+// ---------- trocas e devoluções (16/09): cx_troca_mes (marca × mês × tipo) e cx_troca_motivo_mes ----------
+// Fonte: API pública do Troquecommerce, uma reversa por linha em cx_troca; aqui já agregada por mês. Grão mensal.
+// "Em análise" é fila (status atual), não conta do mês: soma-se em todos os meses. Tipos vindos do portal: Troca,
+// Devolução, Troca e devolução, Sem Reembolso… — agrupados em troca (cupom) × devolução (dinheiro) × outro.
+function cxMesYmd(v) { return String(v || "").slice(0, 7) + "-01"; }
+function cxTipoTroca(t) { const x = String(t || "").toLowerCase(); if (x.includes("devolu") || x.includes("estorno")) return "devolucao"; if (x.includes("troca") || x.includes("vale") || x.includes("cupom")) return "troca"; return "outro"; }
+function trocaAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} (mesIni/mesFim = 'YYYY-MM-01', inclusivos)
+  const a = { reversas: 0, troca: 0, devolucao: 0, outro: 0, emAnalise: 0, emAnalise7d: 0, canceladas: 0, finalizadas: 0, entregues: 0, analisadas: 0, valorItens: 0, valorEstorno: 0, valorTroca: 0, freteReverso: 0, segunda: 0, meses: new Set(), marcas: new Set(), coletadoEm: null };
+  const p50 = [];
+  for (const l of rows || []) {
+    const mes = cxMesYmd(l.mes);
+    if (f.marcas && !f.marcas.includes(l.marca)) continue;
+    if (f.mesIni && mes < f.mesIni) continue; if (f.mesFim && mes > f.mesFim) continue;
+    const n = (k) => Number(l[k] || 0);
+    a.reversas += n("reversas"); a[cxTipoTroca(l.tipo)] += n("reversas");
+    a.emAnalise += n("em_analise"); a.emAnalise7d += n("em_analise_7d"); a.canceladas += n("canceladas"); a.finalizadas += n("finalizadas"); a.entregues += n("entregues"); a.analisadas += n("analisadas");
+    a.valorItens += n("valor_itens"); a.valorEstorno += n("valor_estorno"); a.valorTroca += n("valor_troca"); a.freteReverso += n("frete_reverso"); a.segunda += n("segunda_solicitacao");
+    if (l.dias_analise_p50 !== null && l.dias_analise_p50 !== undefined && n("analisadas")) p50.push([Number(l.dias_analise_p50), n("analisadas")]);
+    a.meses.add(mes); a.marcas.add(l.marca);
+    if (l.coletado_em && (!a.coletadoEm || l.coletado_em > a.coletadoEm)) a.coletadoEm = l.coletado_em;
+  }
+  return Object.assign(a, { meses: [...a.meses].sort(), marcas: [...a.marcas],
+    pctDevolucao: a.reversas ? (a.devolucao / a.reversas) * 100 : null, pctCanceladas: a.reversas ? (a.canceladas / a.reversas) * 100 : null,
+    diasAnaliseP50: medianaPonderada(p50), aproximado: p50.length > 1 });
+}
+// meses presentes na API, do mais antigo ao mais novo (para eixo do gráfico e tabela)
+function trocaMeses(rows, marcas) { return [...new Set((rows || []).filter((l) => !marcas || marcas.includes(l.marca)).map((l) => cxMesYmd(l.mes)))].sort(); }
+// motivos agregados (marca × motivo), ordenados por volume
+function trocaMotivos(rows, f) {
+  const acc = {};
+  for (const l of rows || []) {
+    const mes = cxMesYmd(l.mes);
+    if (f.marcas && !f.marcas.includes(l.marca)) continue; if (f.mesIni && mes < f.mesIni) continue; if (f.mesFim && mes > f.mesFim) continue;
+    const k = l.marca + "|" + (l.motivo || "(sem motivo)");
+    const a = acc[k] || (acc[k] = { marca: l.marca, motivo: l.motivo || "(sem motivo)", reversas: 0, troca: 0, devolucao: 0, valor: 0, subs: {} });
+    const n = Number(l.reversas || 0); a.reversas += n; a[cxTipoTroca(l.tipo)] = (a[cxTipoTroca(l.tipo)] || 0) + n; a.valor += Number(l.valor_itens || 0);
+    if (l.submotivo) a.subs[l.submotivo] = (a.subs[l.submotivo] || 0) + n;
+  }
+  return Object.values(acc).map((a) => Object.assign(a, { subTop: Object.entries(a.subs).sort((x, y) => y[1] - x[1]).slice(0, 2) })).sort((x, y) => y.reversas - x.reversas);
+}
+
 // ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
 // segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
 function cxSegExpediente(iniUtc, fimUtc) {
@@ -550,5 +591,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

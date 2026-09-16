@@ -241,6 +241,44 @@ até 1h ok, ≥ 50% atenção. Gráfico do cartão: mediana diária por marca, 8
 Gleap parado (etiqueta no cabeçalho diz desde quando). `cx_snapshot.primeira_resposta_comercial_seg` continua sendo
 preenchido (recalculado para 10 dias a cada noite) para quem ainda lê de lá.
 
+### Trocas e devoluções direto do Troquecommerce (16/09)
+
+O painel via "troca" só como motivo de contato no Gleap (~46/mês) — quem foi ao chat. A reversa aberta direto no portal
+Troquecommerce não era puxada de lugar nenhum, e é o número que decide se trocas + RA cabem em uma pessoa.
+
+**Fonte**: API pública do Troquecommerce, documentada em `https://api.troquecommerce.com.br/docs` (OpenAPI em
+`/swagger/bundled.json`; a central de ajuda não linka). Header `token` (gerado em Painel › Automações › Tokens de API,
+nível READ), base `https://www.troquecommerce.com.br/api/public`, **40 req/10 s por token**. `GET /order/list`
+(paginado, filtros `since_updated_at`, `status`, `created_at_from/to`) + `GET /order?id=` (detalhe com itens, motivos,
+`history` de eventos, cupom, estorno, rastreio). Um token por painel: Aristocrata (login admin@oaristocrata.com) e
+Fishermans (login adm@fishermans.com.br). Tokens em `crm_credencial` (`troque_api_*`) e no nó do workflow — nunca no repo.
+No Shopify o app não deixa rastro (sem returns nativos, sem tag, sem pedido criado) — só o portal tem o dado.
+
+**Dados**: `cx_troca` — uma reversa por linha, **sem dado pessoal do cliente** (nome, CPF, PIX, conta ficam fora de
+propósito): marca, pedido, criada/atualizada, mês (SP), status, tipo (Troca / Devolução / Sem Reembolso…), valor dos
+itens, parcela troca (cupom), parcela estorno, retido, frete do pedido e reverso, cupom, estorno (valor, meio, data),
+itens, motivo e submotivo mais comuns dos itens, coleta/completa/segunda solicitação, rastreio, `analise_ate` (1º evento
+do histórico que não é criação nem e-mail = saída de "Em Análise"), finalizada/cancelada, nº de eventos. Views
+`cx_troca_mes` (marca × mês × tipo: reversas, abertas, em_analise, em_analise_7d, canceladas, finalizadas, entregues,
+analisadas, valores, dias_analise p50/p90, dias até entrega) e `cx_troca_motivo_mes`. Backfill 16/09 (scratch
+`troque_load.py`, 384 reversas) e workflow **CX — Trocas · noturno** (`iF2t4UcPGJlK9Lvr`, 02:40; forçar em
+`GET /webhook/cx-trocas-forcar`): lista `since_updated_at` 3 dias + tudo em status aberto, detalha, upsert. JS conferido
+contra o Python reversa a reversa. API do painel: `cx_troca` (12 meses) e `cx_troca_motivo` (6 meses).
+
+**Tela**: aba **Trocas**, grão mensal (o período do painel não se aplica; etiqueta diz). Cartões: reversas do último mês
+fechado (chip contra o anterior), mês atual até hoje (com o dia do mês, sem projeção), **em análise agora** (fila de
+todos os meses; vermelho com 10+ paradas há mais de 7 dias), até aprovar (mediana em dias, faixa 2/5), devolução em
+dinheiro %, valor devolvido (estorno + cupom). Gráfico por mês (reversas por marca; troca × devolução; dias até aprovar;
+valor; em análise por mês de abertura). Tabela mês × marca e tabela de motivos (3 meses fechados + atual).
+
+**O que a leitura de 16/09 diz**: Aris jul 40 · ago 92 · set 70 em 16 dias (~130/mês); Fish jul 26 · ago 39 · set 17.
+Fila **em análise agora: 122 na Aris, 82 há mais de 7 dias** — 57 das 92 de agosto e 65 das 70 de setembro nunca foram
+tratadas; zero finalizadas na ferramenta. Fish está em dia (0 de agosto em análise). Motivos Aris jul–set: "me arrependi
+/ quero outro" 104, **"recebi um produto diferente do que pedi" 70** (erro de expedição — kit errado 16, aroma errado 9),
+problema de fabricação 20. Fish: "comprei a linha errada" 43, "produto diferente" 20. O buraco de jan–jun/26 na
+Fishermans bate com a troca de conta de julho (adm@ ↔ software@ do Bling): se a outra conta tiver as reversas, um
+token lá completa o histórico.
+
 ### Fechamento não é resolução: cx_fechamento, "voltou em 7 dias", FCR e a meta do N1 (15/09)
 
 **Problema**: a coluna Fechados por agente vinha do Gleap (CLOSED por agente) e conta fechamento, não desfecho — o

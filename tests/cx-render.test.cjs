@@ -52,6 +52,19 @@ function fixture(o = {}) {
     // tempo de resposta dentro da conversa (view cx_resposta_agente_dia): Leticia mediana 5 min (90% em até 8), Adão 20 min
     cx_resposta_agente: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', respostas: 40, p50_comercial_seg: 300, p90_comercial_seg: 900, p50_relogio_seg: 320, ate_8min: 36, ate_30min: 40 },
       { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', respostas: 20, p50_comercial_seg: 1200, p90_comercial_seg: 3600, p50_relogio_seg: 5000, ate_8min: 4, ate_30min: 15 }]),
+    // trocas (view cx_troca_mes): HOJE = 10/09 → mês fechado = agosto, atual = setembro; 'em análise' é fila de agora
+    cx_troca: [
+      { marca: 'aristocrata', mes: '2026-07-01', tipo: 'Devolução', reversas: 25, abertas: 0, em_analise: 0, em_analise_7d: 0, canceladas: 10, finalizadas: 0, entregues: 15, analisadas: 25, valor_itens: 3000, valor_estorno: 1800, valor_troca: 0, frete_reverso: 200, dias_analise_p50: 0.5, dias_analise_p90: 2, dias_ate_entrega_p50: 9, segunda_solicitacao: 0, coletado_em: '2026-09-10T05:40:00Z' },
+      { marca: 'aristocrata', mes: '2026-08-01', tipo: 'Devolução', reversas: 60, abertas: 40, em_analise: 40, em_analise_7d: 40, canceladas: 5, finalizadas: 0, entregues: 15, analisadas: 20, valor_itens: 8000, valor_estorno: 5000, valor_troca: 0, frete_reverso: 300, dias_analise_p50: 4, dias_analise_p90: 9, dias_ate_entrega_p50: 12, segunda_solicitacao: 0, coletado_em: '2026-09-10T05:40:00Z' },
+      { marca: 'aristocrata', mes: '2026-08-01', tipo: 'Troca', reversas: 30, abertas: 17, em_analise: 17, em_analise_7d: 17, canceladas: 6, finalizadas: 0, entregues: 7, analisadas: 13, valor_itens: 4000, valor_estorno: 0, valor_troca: 3000, frete_reverso: 100, dias_analise_p50: 6, dias_analise_p90: 10, dias_ate_entrega_p50: 14, segunda_solicitacao: 0, coletado_em: '2026-09-10T05:40:00Z' },
+      { marca: 'fishermans', mes: '2026-08-01', tipo: 'Troca', reversas: 30, abertas: 5, em_analise: 0, em_analise_7d: 0, canceladas: 8, finalizadas: 4, entregues: 20, analisadas: 30, valor_itens: 3500, valor_estorno: 0, valor_troca: 3200, frete_reverso: 250, dias_analise_p50: 1, dias_analise_p90: 3, dias_ate_entrega_p50: 10, segunda_solicitacao: 1, coletado_em: '2026-09-10T05:40:00Z' },
+      { marca: 'aristocrata', mes: '2026-09-01', tipo: 'Devolução', reversas: 20, abertas: 20, em_analise: 20, em_analise_7d: 5, canceladas: 0, finalizadas: 0, entregues: 0, analisadas: 0, valor_itens: 2500, valor_estorno: 1500, valor_troca: 0, frete_reverso: 0, dias_analise_p50: null, dias_analise_p90: null, dias_ate_entrega_p50: null, segunda_solicitacao: 0, coletado_em: '2026-09-10T05:40:00Z' },
+    ],
+    cx_troca_motivo: [
+      { marca: 'aristocrata', mes: '2026-08-01', motivo: 'Recebi um produto diferente do que pedi', submotivo: 'Kit com composição errada', tipo: 'Devolução', reversas: 35, valor_itens: 4200 },
+      { marca: 'aristocrata', mes: '2026-08-01', motivo: 'Me arrependi', submotivo: 'Não era o que eu esperava', tipo: 'Troca', reversas: 25, valor_itens: 3000 },
+      { marca: 'fishermans', mes: '2026-08-01', motivo: 'Comprei a linha errada', submotivo: '', tipo: 'Troca', reversas: 22, valor_itens: 2600 },
+    ],
     cx_pedidos: [], cx_ra: [],
     ...o,
   };
@@ -242,6 +255,15 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.equal(x.document.querySelectorAll('#area-chat .six2').length, 7, 'a aba escondida já estava pintada');
   const y = await boot(fixture(), '?periodo=7d', '#aba=ra');
   assert.deepEqual([...y.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['ra']);
+  // aba Trocas: grão mensal — mês fechado (ago) nos cartões, fila em análise de agora, tabela mês × marca e motivos
+  assert.deepEqual(x.txt('#area-trocas-num .six2-rot'), ['Reversas · ago/26', 'set/26 até hoje', 'Em análise agora', 'Até aprovar', 'Devolução (dinheiro)', 'Valor em reversa · ago/26']);
+  assert.deepEqual(x.txt('#area-trocas-num .six2-val'), ['120', '20', '77', '≈ 4,0 d', '50%', 'R$ 11.200']);
+  assert.match(x.document.querySelector('#area-trocas-num .six2[data-m="analise"] .six2-chip').textContent, /62 há mais de 7 dias/);
+  assert.ok(x.document.querySelector('#area-trocas-num .six2[data-m="analise"]').classList.contains('st-ruim'), '62 paradas há mais de 7 dias é vermelho');
+  assert.match(x.document.querySelector('#trocas-rotulo').textContent, /leitura de 10\/09/);
+  assert.match(x.document.querySelector('#area-trocas').textContent, /ago\/26.*O Aristocrata.*90/s);
+  assert.match(x.document.querySelector('#area-trocas-motivo').textContent, /Recebi um produto diferente do que pedi/);
+  assert.ok(x.document.querySelectorAll('#g-trocas .g-barras rect, #g-trocas rect').length > 0, 'gráfico padrão: reversas por mês em barras');
   // um gráfico por aba, dirigido pelo cartão ativo
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="geral"] svg').length, 0, 'sem pedidos, a visão geral mostra aviso em vez de gráfico');
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="chat"] svg').length, 1);
