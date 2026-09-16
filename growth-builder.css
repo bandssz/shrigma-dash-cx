@@ -10,3 +10,11 @@
 @media(max-width:650px){.builder-visual .builder-header{padding:12px 14px}.builder-visual .builder-title{font-size:17px!important}.flow-tools{left:10px;top:12px;gap:0}.flow-tools #flow-arrange{display:none}.flow-tools button{padding:0 7px;font-size:11px}.flow-expand{right:10px;top:12px;font-size:0;width:40px;padding:0}.flow-expand:after{content:'↗';font-size:20px}.flow-minimap{width:130px;height:85px;right:10px;bottom:15px}.flow-zoom{left:10px;bottom:15px}.flow-zoom button{padding:0 7px;font-size:11px;min-width:24px}.flow-inspector{right:10px;left:10px;width:auto;top:70px;bottom:120px;max-height:500px}.flow-palette{left:10px;top:70px;width:280px;max-width:calc(100% - 20px)}.flow-workspace{height:650px}.builder-flow-label select{max-width:245px}}
 
 .builder-visual .builder-main>.builder-alert,.builder-visual .builder-main>.builder-notice{margin:0;border-radius:0;flex-shrink:0}
+
+/* One objective, multiple channels: make the operational scope visible above the canvas. */
+.builder-journey-summary{display:flex;align-items:center;gap:8px 12px;padding:10px 20px;border-bottom:1px solid #e7ebef;background:#fff;flex-wrap:wrap}
+.builder-journey-summary>span{font-size:11px;font-weight:650;color:#526478;background:#f1f5f8;border-radius:6px;padding:4px 8px;white-space:nowrap}
+.builder-journey-summary p{margin:0;font-size:12px;color:#657588;line-height:1.5;flex:1;min-width:220px}
+.flow-node-end{border-color:#d5e4df!important;background:#f8fcfa!important}
+.flow-node-end .flow-node-icon{background:#e7f2ed;color:#397962}
+@media(max-width:600px){.builder-journey-summary{padding:10px 12px}.builder-journey-summary p{flex-basis:100%}}

@@ -9,6 +9,12 @@ FOREACH brand IN ARRAY ARRAY['fish','aristo'] LOOP
   tpl=CASE brand WHEN 'fish' THEN CASE piece WHEN 'nps-d0' THEN 29 WHEN 'nps-d3' THEN 31 ELSE 23 END ELSE CASE piece WHEN 'nps-d0' THEN 28 WHEN 'nps-d3' THEN 30 ELSE 22 END END;
   sender=(CASE brand WHEN 'fish' THEN 'Fishermans <' ELSE 'O Aristocrata <' END)||(CASE WHEN piece='cupom-boas-vindas' THEN 'pedidos@' ELSE 'contato@' END)||(CASE brand WHEN 'fish' THEN 'fishermans.com.br>' ELSE 'oaristocrata.com>' END);
   b=jsonb_build_object('brand',brand,'piece',piece,'email','Ses-Engagement-Fixture@EXAMPLE.INVALID','ref','ses-engagement-fixture-'||brand||piece,'tx',jsonb_build_object('subscriber_email','ses-engagement-fixture@example.invalid','template_id',tpl,'from_email',sender,'content_type','html','data',jsonb_build_object('order_number','ses-engagement-fixture-'||brand||piece,'e','ses-engagement-fixture@example.invalid','s','fixture-signature')));
+  IF piece='nps-d3' THEN
+   SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);
+   IF r.should_send OR r.reason<>'initial_not_confirmed' THEN RAISE EXCEPTION 'unconfirmed initial reminder allowed';END IF;
+   INSERT INTO shrigma_send_log(email,brand,kind,flow,channel,piece,template_id,ref)
+   VALUES('ses-engagement-fixture@example.invalid',brand,'tx','nps','email','nps-d0',CASE brand WHEN 'fish' THEN 29 ELSE 28 END,b->>'ref');
+  END IF;
   SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);
   IF r.should_send IS DISTINCT FROM true OR r.payload->>'subscriber_email'<>'ses-engagement-fixture@example.invalid' OR NOT (r.payload->'headers' @> jsonb_build_array(jsonb_build_object('X-SES-CONFIGURATION-SET',CASE brand WHEN 'fish' THEN 'cs-fishermans-tx' ELSE 'cs-aristocrata-tx' END))) THEN RAISE EXCEPTION 'claim/header failed % %: %',brand,piece,r.reason;END IF;n=n+1;
   SELECT * INTO r2 FROM public.shrigma_email_claim_engagement(b);
@@ -30,7 +36,7 @@ UPDATE subscribers SET attribs=jsonb_build_object('nps_sent',jsonb_build_object(
 SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);IF r.reason<>'nps_cooldown' THEN RAISE EXCEPTION 'cooldown ignored';END IF;
 b=jsonb_set(b,'{piece}','"nps-d3"');b=jsonb_set(b,'{tx,template_id}','30');
 UPDATE subscribers SET attribs=jsonb_build_object('nps_sent',jsonb_build_object('order','new-order','date',now()-interval '4 days','brand','aristo','reminded',false),'nps',jsonb_build_object('order','new-order')) WHERE id=sid;
-SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);IF r.reason<>'reminder_ineligible' THEN RAISE EXCEPTION 'voted reminder accepted';END IF;
+SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);IF r.should_send OR r.reason NOT IN ('reminder_ineligible','initial_not_confirmed') THEN RAISE EXCEPTION 'voted reminder accepted';END IF;
 UPDATE subscribers SET status='blocklisted' WHERE id=sid;
 SELECT * INTO r FROM public.shrigma_email_claim_engagement(b);IF r.reason<>'subscriber_unavailable' THEN RAISE EXCEPTION 'blocklist ignored';END IF;
 UPDATE subscribers SET status='enabled',attribs='{}' WHERE id=sid;

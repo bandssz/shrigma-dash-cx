@@ -54,6 +54,7 @@ BEGIN
   IF piece='nps-d0' THEN
    IF ns->>'order'=ref OR (ns->>'date')::timestamptz>now()-interval '45 days' OR (nv->>'date')::timestamptz>now()-interval '45 days' THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'nps_cooldown';RETURN;END IF;
   ELSE
+   IF NOT public.shrigma_nps_initial_confirmed(brand,ref,email) THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'initial_not_confirmed';RETURN;END IF;
    IF ns->>'order' IS DISTINCT FROM ref OR ns->>'brand' IS DISTINCT FROM brand OR coalesce((ns->>'reminded')::boolean,true) OR ns->>'date' IS NULL OR (ns->>'date')::timestamptz>now()-wait_time OR nv->>'order'=ref THEN RETURN QUERY SELECT false,NULL::uuid,NULL::uuid,NULL::jsonb,NULL::jsonb,'reminder_ineligible';RETURN;END IF;
   END IF;
  END IF;
