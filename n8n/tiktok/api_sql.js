@@ -62,6 +62,27 @@ colab_target AS (
   FROM crm_tts_colaboracao WHERE ativo AND tipo='target' GROUP BY 1,2,3,4,5,6,7,8
 ),
 serie AS (SELECT marca, dia, round(sum(gmv),2) AS gmv, count(DISTINCT order_id)::int AS pedidos FROM ped GROUP BY 1,2),
+cob AS (  -- Cobrança de conteúdo: o que já saiu e o que está na fila de simulação.
+  SELECT marca,
+         count(*) FILTER (WHERE NOT dry_run AND ok)::int  AS enviadas,
+         count(*) FILTER (WHERE NOT dry_run AND NOT ok)::int AS falhas,
+         count(*) FILTER (WHERE dry_run)::int              AS simuladas,
+         max(enviado_em) AS ultima
+  FROM crm_tts_cobranca GROUP BY 1
+),
+cob_fila AS (  -- as mensagens em si, para a Marcela ler antes de qualquer criador receber
+  SELECT marca, etapa, username, dry_run, ok, erro, texto, enviado_em
+  FROM crm_tts_cobranca ORDER BY dry_run DESC, enviado_em DESC LIMIT 200
+),
+cob_regra AS (SELECT marca, cobranca_modo, cobranca_max_dia FROM crm_tts_regra),
+cob_pend AS (  -- quantos ainda faltam no total, independente do teto diário
+  SELECT marca, count(*)::int AS pendentes FROM (
+    SELECT marca, username FROM crm_tts_convite
+     WHERE showcase_product_count > 0 AND content_product_count = 0
+    UNION
+    SELECT marca, username FROM crm_tts_amostra WHERE status IN ('SHIPPED','CONTENT_PENDING')
+  ) x GROUP BY 1
+),
 esc AS (  -- Estado de cada família de escopo (Sonda, 6h) cruzado com a data da última autorização.
           -- A verdade é granted_scopes, não a mensagem de erro: medido em 16/09, a mensagem
           -- "the access token does not include" NÃO garante que a permissão já esteja aprovada —
@@ -108,6 +129,10 @@ SELECT jsonb_build_object(
   'frescor', COALESCE((SELECT jsonb_agg(to_jsonb(f)) FROM frescor f), '[]'),
   'autorizacao', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM aut a), '[]'),
   'escopos', COALESCE((SELECT jsonb_agg(to_jsonb(e)) FROM esc e), '[]'),
+  'cobranca', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM cob c), '[]'),
+  'cobranca_fila', COALESCE((SELECT jsonb_agg(to_jsonb(f)) FROM cob_fila f), '[]'),
+  'cobranca_regra', COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM cob_regra r), '[]'),
+  'cobranca_pendentes', COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM cob_pend p), '[]'),
   'kpis', COALESCE((SELECT jsonb_agg(to_jsonb(k)) FROM kpi k), '[]'),
   'amostras', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM amo a), '[]'),
   'regra', COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM regra r), '[]'),

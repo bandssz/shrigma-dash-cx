@@ -131,3 +131,24 @@ test('sonda: reautorizar só quando algo mudou desde a última autorização', (
   ] }, 'fish', agora);
   assert.equal(ok.estado, 'ok');
 });
+
+test('cobrança: soma por marca e distingue simulada de enviada', () => {
+  const p = {
+    cobranca: [{ marca: 'fish', enviadas: 0, falhas: 0, simuladas: 15 },
+               { marca: 'aristo', enviadas: 3, falhas: 1, simuladas: 0 }],
+    cobranca_regra: [{ marca: 'fish', cobranca_modo: 'dry_run', cobranca_max_dia: 15 },
+                     { marca: 'aristo', cobranca_modo: 'ativo', cobranca_max_dia: 15 }],
+    cobranca_pendentes: [{ marca: 'fish', pendentes: 62 }, { marca: 'aristo', pendentes: 20 }],
+  };
+  const fish = TTS.cobranca(p, 'fish');
+  assert.equal(fish.simuladas, 15);
+  assert.equal(fish.enviadas, 0, 'em simulação nada pode contar como enviado');
+  assert.equal(fish.pendentes, 62);
+  assert.equal(fish.modo, 'dry_run');
+
+  // visão das duas marcas em modos diferentes não pode mentir que está tudo ligado
+  const todas = TTS.cobranca(p, 'todas');
+  assert.equal(todas.modo, 'misto');
+  assert.equal(todas.pendentes, 82);
+  assert.equal(todas.falhas, 1);
+});

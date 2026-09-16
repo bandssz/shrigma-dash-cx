@@ -59,6 +59,21 @@
         title: f.map(x => `${x.marca}: OK há ${fmt(idade(x))}${x.erros ? ' · erro: ' + x.erros : ''}`).join('\n'),
       };
     },
+    // Cobrança de conteúdo: junta o que saiu, o que está simulado e quantos ainda faltam.
+    cobranca(p, marca) {
+      const c = TTS.filtra(p.cobranca || [], marca);
+      const r = TTS.filtra(p.cobranca_regra || [], marca);
+      const pend = TTS.filtra(p.cobranca_pendentes || [], marca);
+      const soma = (a, k) => a.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+      const modos = [...new Set(r.map(x => x.cobranca_modo))];
+      return {
+        enviadas: soma(c, 'enviadas'), falhas: soma(c, 'falhas'), simuladas: soma(c, 'simuladas'),
+        pendentes: soma(pend, 'pendentes'),
+        tetoDia: soma(r, 'cobranca_max_dia'),
+        // 'misto' quando as duas marcas estão em modos diferentes e a visão é das duas
+        modo: modos.length === 1 ? modos[0] : (modos.length ? 'misto' : null),
+      };
+    },
     // Estado da autorização da loja. Sem linha em crm_tts_token a loja nunca foi (re)autorizada desde que
     // passamos a guardar o refresh token no banco — e é isso que prende os escopos novos (analytics do canal).
     autorizacao(p, marca, agora) {
@@ -231,9 +246,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderPane() {
     if (!DADOS) return;
     const m = marcaAtual();
-    const n = { fila: TTS.filtra(DADOS.fila, m).length, criadores: TTS.filtra(DADOS.criadores, m).length, colabs: TTS.filtra(DADOS.target, m).length + TTS.filtra(DADOS.open, m).length };
+    const n = { fila: TTS.filtra(DADOS.fila, m).length, criadores: TTS.filtra(DADOS.criadores, m).length, colabs: TTS.filtra(DADOS.target, m).length + TTS.filtra(DADOS.open, m).length, cobranca: TTS.cobranca(DADOS, m).pendentes };
     document.querySelectorAll('#tts-abas button').forEach(b => { b.classList.toggle('ativo', b.dataset.p === PANE); const s = b.querySelector('.n'); if (s) s.textContent = n[b.dataset.p] ?? ''; });
-    ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, regras: renderRegras })[PANE]();
+    ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, cobranca: renderCobranca, regras: renderRegras })[PANE]();
   }
 
   function renderFila() {
@@ -306,6 +321,30 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="num tabn">${nf(o.showcase_count)}</td><td class="num tabn">${nf(o.content_creator_count)}</td><td class="num tabn">${nf(o.inventario)}</td>
         <td class="num tabn mini">${o.preco_min === o.preco_max ? rf(o.preco_min) : rf(o.preco_min) + '–' + rf(o.preco_max)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vazio">Nenhum produto na open collab.</div>';
     $('#tts-area').innerHTML = html;
+  }
+
+  function renderCobranca() {
+    const m = marcaAtual(), c = TTS.cobranca(DADOS, m);
+    const fila = TTS.filtra(DADOS.cobranca_fila || [], m);
+    if (!fila.length && !c.pendentes) { $('#tts-area').innerHTML = '<div class="vazio">Ninguém devendo conteúdo agora.</div>'; return; }
+    const ETAPA = { vitrine_sem_video: 'Pôs na vitrine, não gravou', amostra_sem_video: 'Recebeu amostra, não postou' };
+    const linhas = fila.map(x => `<tr>
+      <td>${tag(x.marca)}</td>
+      <td>@${esc(x.username)}</td>
+      <td>${esc(ETAPA[x.etapa] || x.etapa)}</td>
+      <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
+      <td class="msg" title="${esc(x.texto || '')}">${esc((x.texto || '').split('\n')[0])}</td>
+      <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`).join('');
+    $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo">
+      <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th>
+        <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
+        <th>Mensagem <span class="mini">passe o mouse para ler inteira</span></th><th>Quando</th></tr></thead>
+      <tbody>${linhas}</tbody></table></div>
+      <div class="obs">${c.modo === 'ativo'
+        ? `Cobrança <b>ligada</b> — até ${c.tetoDia} por dia. ${c.pendentes} ainda na fila.`
+        : `Cobrança em <b>simulação</b>: ${c.simuladas} mensagens prontas, <b>nenhuma foi enviada</b>. ` +
+          `${c.pendentes} criadores devendo conteúdo no total. Para ligar de verdade, ` +
+          `<code>crm_tts_regra.cobranca_modo = 'ativo'</code> — o teto é ${c.tetoDia} por dia e ninguém leva a mesma cobrança duas vezes.`}</div>`;
   }
 
   function renderRegras() {

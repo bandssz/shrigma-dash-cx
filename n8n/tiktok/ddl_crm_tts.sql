@@ -360,3 +360,50 @@ CREATE TABLE IF NOT EXISTS crm_tts_escopo (
   mudou_em      timestamptz,
   PRIMARY KEY (loja, familia)
 );
+
+-- ============================================================
+-- v3 (16/09/2026) — COBRANÇA DE CONTEÚDO.
+-- O gargalo de produção medido em 16/09 não é seleção de criador, é gente que aceitou e parou no meio:
+--   Fish   375 convites -> 143 puseram na vitrine ->  83 postaram  (63 com vitrine e nenhum vídeo)
+--   Aristo 301 convites ->  39 puseram na vitrine ->  21 postaram  (19 com vitrine e nenhum vídeo)
+-- São 82 criadores que já aceitaram, já colocaram o produto na loja deles e nunca gravaram.
+-- O canal para falar com eles já existe e o escopo já está concedido (seller.affiliate_messages.write):
+--   POST /affiliate_seller/202412/conversations                    {creator_id}      -> abre o canal
+--   POST /affiliate_seller/202412/conversations/{id}/messages      {msg_type,content} -> envia
+-- (mapeado na unha em 16/09; a API valida que criador e vendedor têm relação antes de abrir a conversa)
+
+-- 15) Modelo de mensagem por marca e etapa. Fica no BANCO, não no código, para a Marcela e o Felipe
+--     ajustarem a copy sem mexer em workflow. {nome} e {produto} são trocados na hora do envio.
+CREATE TABLE IF NOT EXISTS crm_tts_cobranca_modelo (
+  marca         text NOT NULL,
+  etapa         text NOT NULL,          -- vitrine_sem_video | amostra_sem_video
+  texto         text NOT NULL,
+  dias_min      integer NOT NULL DEFAULT 7,  -- só cobra depois de tantos dias parado
+  ativo         boolean NOT NULL DEFAULT true,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  atualizado_por text,
+  PRIMARY KEY (marca, etapa)
+);
+
+-- 16) Log de cobrança. A CHAVE é (marca, etapa, username): o ON CONFLICT DO NOTHING é o que garante
+--     que ninguém leva a mesma cobrança duas vezes, por mais que o workflow rode todo dia.
+CREATE TABLE IF NOT EXISTS crm_tts_cobranca (
+  marca           text NOT NULL,
+  etapa           text NOT NULL,
+  username        text NOT NULL,
+  creator_open_id text,
+  referencia      text,                 -- colab_id ou application_id que motivou a cobrança
+  conversation_id text,
+  texto           text,                 -- exatamente o que foi (ou seria) enviado
+  dry_run         boolean NOT NULL DEFAULT true,
+  ok              boolean,
+  erro            text,
+  enviado_em      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, etapa, username)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_cobranca_dia_idx ON crm_tts_cobranca (marca, enviado_em);
+
+-- 17) Controles da cobrança na regra da marca. modo separado do da esteira de amostras de propósito:
+--     mandar mensagem e decidir amostra são riscos diferentes e não devem ser ligados pela mesma chave.
+ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_modo text NOT NULL DEFAULT 'dry_run';
+ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_max_dia integer NOT NULL DEFAULT 15;

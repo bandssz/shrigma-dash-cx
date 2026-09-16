@@ -104,6 +104,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .tts-kpis{margin-bottom:14px}
 .tts-aut{margin:0 0 12px;padding:10px 12px;border:1px solid #f0c36d;background:#fff8e6;border-radius:8px;font-size:13px;line-height:1.5}
 .tts-aut .tts-btn{margin-left:8px}
+.comparativo td.msg{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555}
 .tag.bom{background:var(--bom-bg);color:var(--bom)}.tag.ruim{background:var(--ruim-bg);color:var(--ruim)}
 .tag.neutro{background:#fff3d6;color:#8a5f1d}
 #tts-area h3{font:700 14px/1.2 var(--ui)}
@@ -357,6 +358,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
         <button data-p="fila" class="ativo" title="estado atual — não segue o período">Fila de amostras <span class="n"></span> <span class="mini">agora</span></button>
         <button data-p="criadores" title="quem vendeu no período selecionado">Criadores <span class="n"></span> <span class="mini">período</span></button>
         <button data-p="colabs" title="colaborações ativas hoje — não segue o período">Colaborações <span class="n"></span> <span class="mini">agora</span></button>
+        <button data-p="cobranca" title="criadores que aceitaram e pararam no meio — o gargalo de produção">Cobrança <span class="n"></span> <span class="mini">agora</span></button>
         <button data-p="regras">Regras</button>
       </nav>
       <div id="tts-area"><div class="vazio">Carregando afiliados TikTok…</div></div>
@@ -367,7 +369,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=2c7e9f41"></script>
-<script src="influs-tts.js?v=20260916c"></script>
+<script src="influs-tts.js?v=20260916d"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
