@@ -11,3 +11,5 @@ test('paused journey or stage cannot imply active template use',()=>{
 test('template switch removes stale mapping and unknown routes fail visibly',()=>{
  const previous=[{key:'aristo:33',id:'33',usage:'current',mapped_in:[{workflow_key:'aristo_pix_appmax'}]}];assert.equal(build(previous,[flow])[0].usage,'available');assert.deepEqual(build(previous,[flow])[0].mapped_in,[]);assert.throws(()=>build(seed,[]),/unavailable/);assert.throws(()=>build(seed,[{...flow,key:'aristo:unknown'}]),/unmapped/);
 });
+
+test('unified order journeys keep the actual paid-order template mapped to the sender',()=>{for(const brand of ['fish','aristo']){const f={...flow,key:brand+':pedido-recebido',brand,steps:[{...flow.steps[0],piece:'pedido-pago'}]};const r=build([], [f])[0];assert.equal(r.usage,'current');assert.deepEqual(r.mapped_in,[{workflow_key:brand+'_tx',mode_key:'modo_pedido_pago',piece:'pedido-pago'}]);f.enabled=false;assert.equal(build([], [f])[0].usage,'configured_paused');}});

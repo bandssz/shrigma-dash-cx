@@ -4,6 +4,7 @@ function templateUsage(seed, flows) {
   if(!Array.isArray(flows)||!flows.length)throw Error('published_bindings_unavailable');
   const routes={
     'fish:pedido-confirmado':['fish_tx','modo_pedido_pago'], 'aristo:pedido-confirmado':['aristo_tx','modo_pedido_pago'],
+    'fish:pedido-recebido':['fish_tx','modo_pedido_pago'], 'aristo:pedido-recebido':['aristo_tx','modo_pedido_pago'],
     'fish:rastreio':['fish_tx','modo_rastreio'], 'aristo:rastreio':['aristo_tx','modo_rastreio'],
     'fish:carrinho':['fish_cart','modo'], 'aristo:carrinho':['aristo_cart','modo'],
     'fish:pix':['fish_pix','modo'], 'aristo:pix':['aristo_pix_appmax','modo']

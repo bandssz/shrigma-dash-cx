@@ -1,0 +1,4 @@
+-- Current runtime bindings only; archived journeys cannot override active template usage.
+SELECT COALESCE((SELECT data FROM public.shrigma_growth_operation_snapshot WHERE snapshot_key='growth-v1'),'{}'::jsonb) previous,clock_timestamp()::text captured_at,
+(SELECT jsonb_agg(jsonb_build_object('key',f.key,'brand',f.brand,'enabled',f.enabled,'runtime_ready',f.runtime_ready,'steps',
+(SELECT coalesce(jsonb_agg(jsonb_build_object('id',s->>'template_id','name',s->>'template_name','piece',s->>'piece','category',s->>'category','enabled',s->'enabled')),'[]'::jsonb) FROM jsonb_array_elements(f.published->'steps') s WHERE s->>'channel'='whatsapp' AND s->>'template_id' IS NOT NULL))) FROM shrigma_flow_definition f WHERE f.brand IN ('fish','aristo') AND f.binding->>'merged_into' IS NULL) flow_bindings;
