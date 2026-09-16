@@ -261,9 +261,11 @@ itens, motivo e submotivo mais comuns dos itens, coleta/completa/segunda solicit
 do histórico que não é criação nem e-mail = saída de "Em Análise"), finalizada/cancelada, nº de eventos. Views
 `cx_troca_mes` (marca × mês × tipo: reversas, abertas, em_analise, em_analise_7d, canceladas, finalizadas, entregues,
 analisadas, valores, dias_analise p50/p90, dias até entrega) e `cx_troca_motivo_mes`. Backfill 16/09 (scratch
-`troque_load.py`, 384 reversas) e workflow **CX — Trocas · noturno** (`iF2t4UcPGJlK9Lvr`, 02:40; forçar em
-`GET /webhook/cx-trocas-forcar`): lista `since_updated_at` 3 dias + tudo em status aberto, detalha, upsert. JS conferido
-contra o Python reversa a reversa. API do painel: `cx_troca` (12 meses) e `cx_troca_motivo` (6 meses).
+`troque_load.py`, 384 reversas) e workflow **CX — Trocas · noturno** (`iF2t4UcPGJlK9Lvr`, a cada hora de 02:10 a 06:10; forçar em
+`GET /webhook/cx-trocas-forcar`): lista `since_updated_at` 3 dias + tudo em status aberto, pula o que já leu nas
+últimas 20 h (nó Postgres "Já lidas hoje"), detalha até 120 por rodada em lotes de 4 (o runner do Code node não aguenta
+300 chamadas sequenciais — a 1ª versão morreu aos 3 min), upsert. Sem `URLSearchParams` no sandbox do n8n. JS conferido
+contra o Python reversa a reversa; rodada forçada em 16/09: 320 listadas, 0 pendentes. API do painel: `cx_troca` (12 meses) e `cx_troca_motivo` (6 meses).
 
 **Tela**: aba **Trocas**, grão mensal (o período do painel não se aplica; etiqueta diz). Cartões: reversas do último mês
 fechado (chip contra o anterior), mês atual até hoje (com o dia do mês, sem projeção), **em análise agora** (fila de
