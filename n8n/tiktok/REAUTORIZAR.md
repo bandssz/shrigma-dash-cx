@@ -71,6 +71,47 @@ da TikTok. Isso se confirma abrindo a página de permissões do app no Partner C
 `granted_scopes` agora é gravado em `crm_tts_token` a cada autorização, e o painel mostra a lista do
 que falta — então dá para conferir sem abrir chamado com ninguém.
 
+## Quais escopos pedir, e a diferença entre os dois erros (medido 16/09/2026)
+
+A API devolve `105005` em dois sabores, e eles pedem ações **diferentes**:
+
+- *"The access token does not include any scope… **Reauthorize**"* → a permissão existe no app,
+  mas não chegou no token.
+- *"**This app has not been granted** any access scope… **Add**"* → a permissão não está no app.
+
+Resultado do teste endpoint a endpoint, na Fishermans:
+
+| API | mensagem | ação |
+|---|---|---|
+| Shop Analytics | reauthorize | está no app, não chega no token — conferir se está *aprovada* ou *pendente* |
+| Order Information | reauthorize | idem |
+| Product Information | reauthorize | idem |
+| Finance | reauthorize | idem |
+| Fulfillment | **add** | adicionar ao app |
+| Return & Refund | **add** | adicionar ao app |
+| Customer Service | **add** | adicionar ao app |
+| Promotion | **add** | adicionar ao app |
+| Seller/Shop info | **add** | adicionar ao app |
+
+### Prioridade, pela decisão que cada uma destrava
+
+1. **Product Information** — hoje a regra de SKU de amostra é um *regex no título do produto*, gambiarra
+   que só existe porque não lemos o catálogo. Com esse escopo a regra passa a ler SKU/variante de
+   verdade (o kit misto novo entra sozinho, sem mexer em regex), dá para não aprovar amostra de SKU sem
+   estoque, e o problema já medido de *SKU desativado ainda pagando comissão* vira alerta automático.
+2. **Order Information** — é o **denominador**. Hoje o GMV do painel é só de afiliado; sem pedidos da
+   loja não existe "% do canal que é afiliado", não dá para reconciliar com Bling/Shopify, e a tabela
+   de canal não tem contra o que ser conferida.
+3. **Finance** — transforma GMV em margem: comissão efetivamente paga, taxa da plataforma, liquidado
+   × pendente. É o que faz o painel responder *quanto sobrou*, não *quanto vendeu*.
+4. **Fulfillment** — ataca direto os 30% de perda operacional: *aprovada e não enviada* é problema de
+   expedição, e hoje não enxergamos o pacote da amostra.
+5. **Return & Refund** — preenche a coluna de reembolso do canal e mostra qual criador traz cliente
+   que devolve.
+
+Promotion, Customer Service e Seller info ficam para depois: cupom ainda não é alavanca no TikTok e
+o atendimento já vive no Gleap.
+
 ## Como saber que deu certo
 
 - O aviso amarelo no topo da aba **Afiliados** some sozinho (ele compara `granted_scopes` com o que o canal exige).
