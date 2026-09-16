@@ -82,7 +82,7 @@ const GC={
       const collection=GC.collection(row,meta,now);
       const modes=Array.isArray(row.modes)?row.modes.filter(GC.object).map(mode=>({key:GC.text(mode.key,'Modo'),value:['real','sombra','interno'].includes(mode.value)?mode.value:'unknown'})):[];
       const retention=GC.object(row.retention)?row.retention:{};
-      const fieldsValid=typeof row.key==='string' && !!row.key.trim() && ['fish','aristo','shared'].includes(row.brand)
+      const fieldsValid=typeof row.key==='string' && !!row.key.trim() && ['fish','aristo','olivas','shared'].includes(row.brand)
         && ['whatsapp','email','shared'].includes(row.channel) && typeof row.label==='string' && !!row.label.trim()
         && typeof row.active==='boolean' && typeof row.published==='boolean' && Array.isArray(row.modes)
         && (row.modes.length===modes.length) && modes.every(mode=>mode.value!=='unknown')

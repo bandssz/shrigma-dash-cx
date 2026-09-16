@@ -16,7 +16,7 @@ const GrowthFreshness=(()=>{
   const v2=api?.crm_attribution?.schema_version===2;
   for(const b of Object.keys(brands)){
    if(!chosen(b))continue;
-   if(v2&&['fish','aristo'].includes(b)){
+   if(v2&&['fish','aristo','olivas'].includes(b)){
     out.push({name:'Atribuição · '+brands[b],checked_at:latest((api.crm_attribution.coverage||[]).filter(r=>r?.brand===b)),required:true});
    }else{
     const receipts=(api.crm_collection_receipt||[]).filter(r=>r?.source==='legacy_conversion'&&r.brand===b);

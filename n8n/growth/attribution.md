@@ -58,3 +58,12 @@ A mesma compra pode assistir iniciativas diferentes. **Não somar assistência �
 - [Shopify Order e netPaymentSet](https://shopify.dev/docs/api/admin-graphql/latest/objects/Order)
 
 Os modelos acima são definidos explicitamente pelo painel; não se presume igualdade com todos os relatórios nativos de aquisição da Shopify.
+
+
+## Olivas do Campo — escopo ativo em 16/09/2026
+
+A coleta e o classificador v2 passam a incluir `olivas`, com as mesmas regras de pagamento, janela de 30 dias, último clique estrito padrão, assistência e deduplicação. A cobertura consolidada exige as três marcas; falta de histórico não pode ser preenchida com agregados legados. `attribution-olivas.sql` estende a restrição de marca, o escopo da ingestão e a identificação dos disparos comerciais. O banco aceita o escopo histórico Fish/Aristo, o escopo completo das três marcas e o escopo Olivas isolado para conciliação. Só as marcas declaradas e completas recebem cobertura.
+
+Identidade confirmada na Shopify existente: loja `olivasdocampo.com.br`, domínio Shopify `6r9bqn-ic.myshopify.com`. Remetente existente usa `olivasdocampo.com`; contrato distingue domínio de e-mail e domínio comercial dos links. Preparador local e regras de UTM aceitam Olivas. Isso não habilita cadastro/agendamento remoto por si só.
+
+O inventário `olivas-operations.json` contém os quatro fluxos já existentes incluídos no monitoramento. Coleta de carrinho não é prova de entrega. Monitoramento não transforma automaticamente esses fluxos em jornadas editáveis, não adiciona WhatsApp e não dá cobertura SES a envios legados. Essas integrações precisam de seus próprios vínculos, guardas e provas.

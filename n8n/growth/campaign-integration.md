@@ -64,3 +64,6 @@ Gravações exigem `idempotency_key` única por operação, reutilizada em consu
 ## Integração com a skill revisada
 
 O pacote Claude v2 preserva a criação e o repertório de marca, inclui normalização/preparo locais com cópias versionadas destes módulos e um checklist HTML/texto/wrapper. O catálogo e os snapshots fornecidos aos helpers precisam vir de consultas reais; o sucesso local não comprova autenticação ou disponibilidade do provedor. O transporte central será ligado quando os adaptadores acima estiverem implementados e verificados. Não é necessário repassar credenciais.
+
+
+Olivas está no escopo ativo: remetente/Reply-To existentes em `olivasdocampo.com`, loja e links em `olivasdocampo.com.br`. `CampaignContract.STORES` separa domínio comercial de `BRANDS` (domínio do e-mail). Aplicam-se as mesmas UTMs, catálogo por marca, identidade de disparo e guardas. Preparador local disponível; conexão persistente do servidor e atualização do pacote Claude para incluir Olivas ainda devem ser concluídas.

@@ -3,7 +3,7 @@ const CRMAttribution=(()=>{
  const VERSION='last-non-direct-30d-v2',DAY=864e5;
  const norm=v=>String(v??'').trim().toLowerCase();
  const time=v=>v?Date.parse(v):NaN;
- const own={fish:['fishermans.com.br','c0kfm1-qt.myshopify.com'],aristo:['oaristocrata.com','gwx20u-vw.myshopify.com']};
+ const own={fish:['fishermans.com.br','c0kfm1-qt.myshopify.com'],aristo:['oaristocrata.com','gwx20u-vw.myshopify.com'],olivas:['olivasdocampo.com.br','6r9bqn-ic.myshopify.com']};
  function host(url){const m=String(url||'').match(/^(?:https?:)?\/\/([^/?#]+)/i);return m?m[1].split('@').pop().split(':')[0].toLowerCase().replace(/\.$/,''):'';}
  function internal(url,brand){const h=host(url);return !!h&&(h==='pix-on-site.appmax.com.br'||(own[brand]||[]).some(d=>h===d||h.endsWith('.'+d)));}
  function channel(u){
@@ -22,7 +22,7 @@ const CRMAttribution=(()=>{
    channel:channel(u),non_direct:nonDirect};
  }
  function classify(o){
-  const brand=o._marca;if(!['fish','aristo'].includes(brand))throw Error('ATTRIBUTION_BRAND_INVALID');
+  const brand=o._marca;if(!['fish','aristo','olivas'].includes(brand))throw Error('ATTRIBUTION_BRAND_INVALID');
   if(!/^gid:\/\/shopify\/Order\/\d+$/.test(o.id||'')||!Number.isFinite(time(o.createdAt))||!Number.isFinite(time(o.updatedAt)))throw Error('ATTRIBUTION_ORDER_INVALID');
   const j=o.customerJourneySummary,created=time(o.createdAt),money=o.netPaymentSet?.shopMoney;
   const financial=o.displayFinancialStatus,amount=money?.amount==null?null:Number(money.amount),currency=money?.currencyCode||null;

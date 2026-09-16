@@ -1,0 +1,38 @@
+[
+  {
+    "key": "olivas_email_tx",
+    "id": "dQj2Qalxe9tdJMLw",
+    "brand": "olivas",
+    "channel": "email",
+    "label": "Pós-venda Olivas do Campo",
+    "mode_source": "none",
+    "mode_specs": []
+  },
+  {
+    "key": "olivas_popup",
+    "id": "TEXBWZJbCS8lgHfo",
+    "brand": "olivas",
+    "channel": "email",
+    "label": "Popup e cupom Olivas do Campo",
+    "mode_source": "none",
+    "mode_specs": []
+  },
+  {
+    "key": "olivas_cart_collection",
+    "id": "w70hJ82olj1Kmir1",
+    "brand": "olivas",
+    "channel": "email",
+    "label": "Carrinho Olivas · coleta e reconciliação",
+    "mode_source": "none",
+    "mode_specs": []
+  },
+  {
+    "key": "olivas_customer_sync",
+    "id": "4w1XjHl2kFHtcG7f",
+    "brand": "olivas",
+    "channel": "shared",
+    "label": "Clientes Olivas · sincronização noturna",
+    "mode_source": "none",
+    "mode_specs": []
+  }
+]

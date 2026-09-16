@@ -1,6 +1,6 @@
 -- Order identity prevents stale aggregate keys and duplicate purchase credit.
 CREATE TABLE public.crm_attribution_order_v2(
- brand text NOT NULL CHECK(brand IN ('fish','aristo')),order_id text NOT NULL,
+ brand text NOT NULL CHECK(brand IN ('fish','aristo','olivas')),order_id text NOT NULL,
  payload jsonb NOT NULL,source_updated_at timestamptz NOT NULL,checked_at timestamptz NOT NULL,
  PRIMARY KEY(brand,order_id)
 );
@@ -12,19 +12,22 @@ CREATE TABLE public.crm_attribution_coverage_v2(
  PRIMARY KEY(brand,day)
 );
 REVOKE ALL ON public.crm_attribution_order_v2,public.crm_attribution_run_v2,public.crm_attribution_coverage_v2 FROM PUBLIC;
-CREATE FUNCTION public.crm_attribution_ingest_v2(p_rows jsonb,scope jsonb)
-RETURNS integer LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $f$
+CREATE OR REPLACE FUNCTION public.crm_attribution_ingest_v2(p_rows jsonb, scope jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
 DECLARE n integer;b text;from_day date;until_day date;read_at timestamptz;rid text;
 BEGIN
  IF jsonb_typeof(p_rows) IS DISTINCT FROM 'array' OR jsonb_array_length(p_rows)>20000
-  OR scope->>'complete' IS DISTINCT FROM 'true' OR scope->>'mode' NOT IN ('created','updated')
-  OR scope->'brands' IS DISTINCT FROM '["aristo","fish"]'::jsonb THEN RAISE EXCEPTION 'ATTRIBUTION_BATCH_INVALID';END IF;
+  OR scope->>'complete' IS DISTINCT FROM 'true' OR coalesce(scope->>'mode','') NOT IN ('created','updated')
+  OR coalesce(scope->'brands','null'::jsonb) NOT IN ('["aristo","fish"]'::jsonb,'["aristo","fish","olivas"]'::jsonb,'["olivas"]'::jsonb) THEN RAISE EXCEPTION 'ATTRIBUTION_BATCH_INVALID';END IF;
  rid=scope->>'execution_id';read_at=(scope->>'read_at')::timestamptz;
  from_day=(scope->>'coverage_from')::date;until_day=(scope->>'coverage_until')::date;
  IF coalesce(rid,'')='' OR read_at IS NULL OR from_day IS NULL OR until_day IS NULL
   OR from_day>until_day OR until_day>public.hoje_br() OR until_day-from_day>7 THEN RAISE EXCEPTION 'ATTRIBUTION_SCOPE_INVALID';END IF;
  IF EXISTS(SELECT 1 FROM public.crm_attribution_run_v2 WHERE execution_id=rid) THEN RETURN 0;END IF;
- IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_rows) x WHERE x->>'brand' NOT IN ('fish','aristo')
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_rows) x WHERE coalesce(x->>'brand','') NOT IN ('fish','aristo','olivas') OR NOT ((scope->'brands') ? (x->>'brand'))
   OR coalesce(x->>'order_id','')!~'^gid://shopify/Order/[0-9]+$' OR x->>'model_version' IS DISTINCT FROM 'last-non-direct-30d-v2'
   OR x->>'created_at' IS NULL OR x->>'updated_at' IS NULL)
   OR (SELECT count(*) FROM jsonb_array_elements(p_rows))<>(SELECT count(DISTINCT (x->>'brand',x->>'order_id')) FROM jsonb_array_elements(p_rows)x) THEN
@@ -35,14 +38,15 @@ BEGIN
  WHERE EXCLUDED.source_updated_at>=crm_attribution_order_v2.source_updated_at AND EXCLUDED.checked_at>=crm_attribution_order_v2.checked_at;
  GET DIAGNOSTICS n=ROW_COUNT;
  INSERT INTO public.crm_attribution_run_v2(execution_id,scope,orders) VALUES(rid,scope,n);
- FOREACH b IN ARRAY ARRAY['aristo','fish'] LOOP
+ FOR b IN SELECT jsonb_array_elements_text(scope->'brands') LOOP
   INSERT INTO public.crm_attribution_coverage_v2(brand,day,checked_at,execution_id)
   SELECT b,from_day+i,read_at,rid FROM generate_series(0,until_day-from_day)i
   ON CONFLICT(brand,day) DO UPDATE SET checked_at=EXCLUDED.checked_at,execution_id=EXCLUDED.execution_id
   WHERE EXCLUDED.checked_at>crm_attribution_coverage_v2.checked_at;
  END LOOP;
  RETURN n;
-END;$f$;
+END;$function$;
+
 REVOKE ALL ON FUNCTION public.crm_attribution_ingest_v2(jsonb,jsonb) FROM PUBLIC;
 
 CREATE VIEW public.crm_attribution_order_model_v2 AS
@@ -134,7 +138,7 @@ SELECT DISTINCT * FROM parsed WHERE source<>'' AND campaign<>'';
 
 CREATE VIEW public.crm_growth_campaign_members_v2 AS
 WITH c AS (
- SELECT c.*,CASE WHEN c.from_email ILIKE '%oaristocrata.com%' THEN 'aristo' WHEN c.from_email ILIKE '%fishermans.com.br%' THEN 'fish' END emissor
+ SELECT c.*,CASE WHEN c.from_email ILIKE '%oaristocrata.com%' THEN 'aristo' WHEN c.from_email ILIKE '%fishermans.com.br%' THEN 'fish' WHEN c.from_email ILIKE '%olivasdocampo.com%' THEN 'olivas' END emissor
  FROM public.campaigns c WHERE c.status<>'draft' AND coalesce(c.started_at,c.send_at,c.created_at)>=now()-interval '120 days'
 ), meta AS (
  SELECT c.*,CASE WHEN c.id=114 AND c.tags::text[] @> ARRAY['desodorante','cross'] THEN 'aristo' ELSE c.emissor END marca,

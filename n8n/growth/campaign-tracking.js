@@ -2,7 +2,7 @@
 'use strict';
 const CampaignTracking=(()=>{
  const urlPattern=/https?:\/\/[^\s<>"']+/g;
- const config={aristo:{host:'oaristocrata.com'},fish:{host:'fishermans.com.br'}};
+ const config={aristo:{host:'oaristocrata.com'},fish:{host:'fishermans.com.br'},olivas:{host:'olivasdocampo.com.br'}};
  const id=v=>Number.isSafeInteger(Number(v))&&Number(v)>0;
  function prepare(c,{brand,campaign,now=Date.now()}={}){
   if(!config[brand]||!campaign||!/^[a-z0-9_-]+$/.test(campaign))throw Error('Brand and campaign are required');
