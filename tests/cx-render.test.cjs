@@ -65,6 +65,19 @@ function fixture(o = {}) {
       { marca: 'aristocrata', mes: '2026-08-01', motivo: 'Me arrependi', submotivo: 'Não era o que eu esperava', tipo: 'Troca', reversas: 25, valor_itens: 3000 },
       { marca: 'fishermans', mes: '2026-08-01', motivo: 'Comprei a linha errada', submotivo: '', tipo: 'Troca', reversas: 22, valor_itens: 2600 },
     ],
+    // concessão sobre receita (view cx_concessao_mes ⋈ cx_receita_mes ⋈ cx_troca_mes): Aris ago = 8.000 ClickUp + 5.000 Troque sobre 1.000.000 = 1,30%;
+    // Fish ago = 500 sobre 100.000 = 0,50% (receita = soma dos pedidos); set Aris incompleto em receita (dias_receita < dias) → %
+    cx_concessao: [
+      { marca: 'aristocrata', mes: '2026-07-01', casos: 6, concedidos: 4, negados: 2, andamento: 0, valor_concedido: 3000, valor_pedido_concedido: 4000, valor_andamento: 0, n1: 1, n2: 1, n3: 2, valor_n1: 100, valor_n2: 400, valor_n3: 2500, concedidos_sem_valor: 0, receita: 800000, pedidos: 7000, pedidos_pagos: 6500, dias_receita: 31, dias: 31, troque_estorno: 1800, troque_devolucoes: 25, shopify_estornos: 6000, coletado_em: '2026-09-10T04:50:00Z' },
+      { marca: 'aristocrata', mes: '2026-08-01', casos: 20, concedidos: 12, negados: 3, andamento: 5, valor_concedido: 8000, valor_pedido_concedido: 9000, valor_andamento: 2200, n1: 2, n2: 4, n3: 6, valor_n1: 200, valor_n2: 1800, valor_n3: 6000, concedidos_sem_valor: 1, receita: 1000000, pedidos: 9000, pedidos_pagos: 8500, dias_receita: 31, dias: 31, troque_estorno: 5000, troque_devolucoes: 60, shopify_estornos: 25000, coletado_em: '2026-09-10T04:50:00Z' },
+      { marca: 'fishermans', mes: '2026-08-01', casos: 4, concedidos: 2, negados: 1, andamento: 1, valor_concedido: 500, valor_pedido_concedido: 600, valor_andamento: 150, n1: 0, n2: 0, n3: 2, valor_n1: 0, valor_n2: 0, valor_n3: 500, concedidos_sem_valor: 0, receita: 100000, pedidos: 1500, pedidos_pagos: 1400, dias_receita: 31, dias: 31, troque_estorno: 0, troque_devolucoes: 0, shopify_estornos: 0, coletado_em: '2026-09-10T04:50:00Z' },
+      { marca: 'aristocrata', mes: '2026-09-01', casos: 5, concedidos: 1, negados: 0, andamento: 4, valor_concedido: 300, valor_pedido_concedido: 300, valor_andamento: 900, n1: 0, n2: 1, n3: 0, valor_n1: 0, valor_n2: 300, valor_n3: 0, concedidos_sem_valor: 0, receita: 250000, pedidos: 3000, pedidos_pagos: 2900, dias_receita: 8, dias: 10, troque_estorno: 1500, troque_devolucoes: 20, shopify_estornos: 9000, coletado_em: '2026-09-10T04:50:00Z' },
+    ],
+    cx_concessao_tipo: [
+      { marca: 'aristocrata', mes: '2026-08-01', tipo_caso: 'Extraviado (rastreio sumiu ou parado há muito tempo, sem previsão)', casos: 8, concedidos: 6, valor_concedido: 5000 },
+      { marca: 'aristocrata', mes: '2026-08-01', tipo_caso: 'Cliente desistiu da compra (sem erro nosso — só mudou de ideia)', casos: 6, concedidos: 4, valor_concedido: 2000 },
+      { marca: 'fishermans', mes: '2026-08-01', tipo_caso: 'Chegou danificado (quebrado, vazado, amassado)', casos: 2, concedidos: 2, valor_concedido: 500 },
+    ],
     // fechamentos por pessoa × motivo (view cx_fechamento_motivo_dia): WISMO custa 3 msgs e volta 30%; pré-venda 1 msg e volta 5%
     cx_fechamento_motivo: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
       { marca: 'aristocrata', motivo: 'wismo', canal: 'whatsapp', dia: d, fechados: 40, maduros: mad ? 40 : 0, resolutivos: mad ? 28 : 0, fcr_base: mad ? 30 : 0, fcr: mad ? 20 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.2, msgs_cliente_p50: 7 },
@@ -274,6 +287,20 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.match(x.document.querySelector('#area-trocas').textContent, /ago\/26.*O Aristocrata.*90/s);
   assert.match(x.document.querySelector('#area-trocas-motivo').textContent, /Recebi um produto diferente do que pedi/);
   assert.ok(x.document.querySelectorAll('#g-trocas .g-barras rect, #g-trocas rect').length > 0, 'gráfico padrão: reversas por mês em barras');
+  // concessão sobre receita (mesma aba): ago Aris+Fish = 13.500 ÷ 1.100.000 = 1,23% (atenção na faixa provisória < 1%); set sem % (receita incompleta)
+  assert.deepEqual(x.txt('#area-concessao-num .six2-rot'), ['Concessão · ago/26', 'set/26 até hoje', 'Reembolsos ClickUp · ago/26', 'Estorno Troque · ago/26', 'Estornos Shopify · ago/26', 'Em andamento agora']);
+  assert.deepEqual(x.txt('#area-concessao-num .six2-val'), ['1,23%', '—', 'R$ 8.500', 'R$ 5.000', 'R$ 25.000', 'R$ 3.250']);
+  assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="pct"]').classList.contains('st-atencao'), '1,23% fica em atenção entre 1% e 2%');
+  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="ritmo"] .six2-chip').textContent, /em 10 dias/);
+  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="pendente"] .six2-chip').textContent, /10 casos/);
+  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só casos concluídos/);
+  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /Fish: receita = soma dos pedidos/);
+  assert.match(x.document.querySelector('#area-concessao').textContent, /ago\/26.*O Aristocrata.*R\$ 1.000 mil.*1,30%/s);
+  assert.match(x.document.querySelector('#area-concessao').textContent, /set\/26.*≥ R\$ 250 mil/s, 'mês com dia sem receita mostra piso e não %');
+  assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="shopify"]').classList.contains('st-ruim'), '25.000 ÷ 1.100.000 = 2,27% fora da faixa');
+  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="shopify"] .six2-chip').textContent, /▲ 1,52 pp · ant. 0,75%/);
+  assert.match(x.document.querySelector('#area-concessao-tipo').textContent, /Extraviado.*R\$ 5.000/s);
+  assert.ok(x.document.querySelectorAll('#g-concessao svg').length === 1, 'gráfico padrão: % da receita em linhas');
   // um gráfico por aba, dirigido pelo cartão ativo
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="geral"] svg').length, 0, 'sem pedidos, a visão geral mostra aviso em vez de gráfico');
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="chat"] svg').length, 1);

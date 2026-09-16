@@ -156,6 +156,7 @@ function pinta() {
   pintaSocialAba(d);
   pintaSocial(d);
   pintaTrocasAba(d);
+  pintaConcessaoAba(d);
   $("#rotulo-janela").textContent = PER.rotulo;
   $("#btn-periodo").innerHTML = PER.rotulo.charAt(0).toUpperCase() + PER.rotulo.slice(1) + ' <span class="caret">▾</span>';
 }

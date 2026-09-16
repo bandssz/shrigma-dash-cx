@@ -99,6 +99,8 @@ const CX_ALVOS = {
   ag_fechados_dia:     { alvo: 150, base: 110, dir: "alto", rot: "meta 150/dia" },
   ag_csat:             { alvo: 75, base: 65, dir: "alto",  rot: "meta > 75" },
   ag_resposta_seg:     { alvo: 480, base: 900, dir: "baixo", rot: "meta < 8 min" },   // mediana em segundos de expediente
+  // concessão sobre receita (16/09): meta do Head de CX ainda sem número declarado — faixa provisória até o Samuel fixar a dele.
+  concessao_pct:       { alvo: 1,  base: 2,  dir: "baixo", rot: "faixa provisória < 1%" },
 };
 function cxStatus(metrica, v) {
   const a = CX_ALVOS[metrica];
@@ -912,6 +914,110 @@ function pintaGraficoTrocasAba(d) {
   else r = { tit: "Reversas · por mês", sub: "abertas pelo cliente no portal · uma cor por marca · último mês pode estar em andamento",
     html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Reversas por mês", vazio: "Sem reversa.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: meses.map((mes) => por(m, mes).reversas) })) }) };
   cxGraficoBloco("trocas", r);
+}
+
+// ---------- Concessão sobre receita (16/09): cx_concessao (ClickUp + Troque ÷ Shopify) e cx_concessao_tipo ----------
+// Meta do Head de CX. Grão mensal, na aba Trocas (é o mesmo dinheiro saindo). Regras em cx-metricas: caso em andamento não
+// entra; mês sem receita completa não vira %. Faixa provisória de 1% até o Samuel fixar a meta dele.
+estado.metricaConcessao = estado.metricaConcessao || "pct";
+CX_BLOCOS.concessao = { area: "#area-concessao-num", g: "#g-concessao", tit: "#g-concessao-tit", sub: "#g-concessao-sub", chave: "metricaConcessao", grafico: (d) => pintaGraficoConcessaoAba(d) };
+Object.assign(DIRECAO, { co_pct: "baixo", co_valor: "baixo", co_casos: "baixo", co_n3: "baixo" });
+const fmtBRLk = (v) => typeof v === "number" ? (Math.abs(v) >= 100000 ? "R$ " + (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + " mil" : fmtBRL(v)) : "—";
+let CX_CONCESSAO_DADOS = null;
+function pintaConcessaoAba(d) {
+  if (!$("#area-concessao-num")) return;
+  const rows = d.cx_concessao || [], tipos = d.cx_concessao_tipo || [];
+  const marcas = cxMarcasSerie(); const todas = marcas.length > 1;
+  const hoje = hojeRef(); const mesAtual = cxMesAtual(hoje), mesAnt = cxMesAnterior(mesAtual), mesAnt2 = cxMesAnterior(mesAnt);
+  const rot = $("#concessao-rotulo"), tab = $("#area-concessao"), tabTipo = $("#area-concessao-tipo"), tabRot = $("#concessao-tab-rot");
+  CX_CONCESSAO_DADOS = { marcas };
+  if (!rows.length) {
+    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "A API ainda não devolve cx_concessao. Coletores noturnos: CX — Concessões (ClickUp, 01:50) e CX — Receita (Shopify, 01:40).");
+    cxPintaCartoes("concessao", [{ k: "pct", rot: "Concessão · % da receita", val: "—", sub: "sem leitura" }]);
+    if (tab) tab.innerHTML = `<div class="vazio">Sem leitura do ClickUp/Shopify ainda.</div>`; if (tabTipo) tabTipo.innerHTML = ""; if (tabRot) tabRot.innerHTML = "";
+    pintaGraficoConcessaoAba(d); return;
+  }
+  const ag = (mIni, mFim, ms) => concessaoAgg(rows, { marcas: ms || marcas, mesIni: mIni, mesFim: mFim });
+  const fechado = ag(mesAnt, mesAnt), fechadoAnt = ag(mesAnt2, mesAnt2), atual = ag(mesAtual, mesAtual), tudo = ag();
+  const diaDoMes = Number(hoje.slice(8, 10));
+  const porMarca = (fn) => todas ? `\n\nPor marca: ${cxPorMarcaTxt(marcas, (m) => fn(m))}` : "";
+  const pctTxt = (x) => x.pct === null ? "—" : fmtDec(x.pct, 2) + "%";
+  const cartoes = [
+    { k: "pct", rot: `Concessão · ${fmtMes(mesAnt)}`, val: pctTxt(fechado), status: cxStatus("concessao_pct", fechado.pct), chip: cxChipPP("co_pct", fechado.pct, fechadoAnt.pct, 2),
+      sub: fechado.pct === null ? (fechado.receitaFaltando ? "receita do mês incompleta" : "sem receita") : `${fmtBRLk(fechado.total)} de ${fmtBRLk(fechado.receita)}`,
+      info: `Devolvido ao cliente (reembolsos e cupons do ClickUp concluídos + estorno das devoluções no Troque) ÷ receita Shopify do último mês fechado (${fmtMes(mesAnt)}). ${CX_ALVOS.concessao_pct.rot} — meta do Head de CX ainda por fixar. Chip contra ${fmtMes(mesAnt2)}.` + porMarca((m) => pctTxt(ag(mesAnt, mesAnt, [m]))) },
+    { k: "ritmo", rot: `${fmtMes(mesAtual)} até hoje`, val: pctTxt(atual), status: cxStatus("concessao_pct", atual.pct), sub: atual.pct === null && atual.receitaFaltando ? `receita incompleta · ${fmtBRLk(atual.total)} devolvidos em ${diaDoMes} dia${diaDoMes === 1 ? "" : "s"}` : `em ${diaDoMes} dia${diaDoMes === 1 ? "" : "s"} · ${fmtBRLk(atual.total)} de ${fmtBRLk(atual.receita)}`,
+      info: `Mesma conta no mês corrente. Lê-se com cuidado: o reembolso costuma ser decidido dias depois da venda, então o mês em andamento tende a subir até fechar.` + porMarca((m) => pctTxt(ag(mesAtual, mesAtual, [m]))) },
+    { k: "clickup", rot: `Reembolsos ClickUp · ${fmtMes(mesAnt)}`, val: fmtBRL(fechado.valorConcedido), chip: fechadoAnt.valorConcedido ? chipHtml("co_valor", fechado.valorConcedido, fechadoAnt.valorConcedido, fmtBRL) : "",
+      sub: `${fmtNum(fechado.concedidos)} concedido${fechado.concedidos === 1 ? "" : "s"} · ${fmtNum(fechado.negados)} negado${fechado.negados === 1 ? "" : "s"}${fechado.semValor ? ` · ${fmtNum(fechado.semValor)} sem valor` : ""}`,
+      info: `Soma de '➤Valor do reembolso' dos casos da lista Reembolsos abertos no mês e já concluídos (status feito, enc. financeiro, retorno concluído…). Negado não entra. Cupom de cortesia (nível 1) entra pelo valor do cupom.` + porMarca((m) => fmtBRL(ag(mesAnt, mesAnt, [m]).valorConcedido)) },
+    { k: "troque", rot: `Estorno Troque · ${fmtMes(mesAnt)}`, val: fmtBRL(fechado.troqueEstorno), sub: `${fmtNum(fechado.troqueDevolucoes)} devolu${fechado.troqueDevolucoes === 1 ? "ção" : "ções"} pelo portal`,
+      info: `Parcela em dinheiro das devoluções abertas no portal Troquecommerce no mês (não canceladas). Troca que vira cupom não é custo e fica fora.` + porMarca((m) => fmtBRL(ag(mesAnt, mesAnt, [m]).troqueEstorno)) },
+    { k: "shopify", rot: `Estornos Shopify · ${fmtMes(mesAnt)}`, val: fmtBRL(fechado.shopifyEstornos), chip: cxChipPP("co_pct", fechado.pctShopify, fechadoAnt.pctShopify, 2), status: cxStatus("concessao_pct", fechado.pctShopify),
+      sub: fechado.pctShopify === null ? "sem receita completa" : `${fmtDec(fechado.pctShopify, 2)}% da receita · ${fmtNum(fechado.n3)} N3 no ClickUp`,
+      info: `Conferência: devoluções processadas na Shopify no mês (returns do Analytics, por data do estorno) — o dinheiro que de fato saiu, com ou sem registro no ClickUp. Se for muito maior que ClickUp + Troque, tem reembolso sem caso aberto. Fishermans estorna fora da Shopify (PIX manual), então lá este número não conta a história.` + porMarca((m) => { const x = ag(mesAnt, mesAnt, [m]); return `${fmtBRL(x.shopifyEstornos)} (${x.pctShopify === null ? "—" : fmtDec(x.pctShopify, 2) + "%"})`; }) },
+    { k: "pendente", rot: "Em andamento agora", val: fmtBRL(tudo.valorAndamento), status: tudo.andamento === 0 ? "bom" : tudo.andamento >= 10 ? "ruim" : "atencao", sub: `${fmtNum(tudo.andamento)} caso${tudo.andamento === 1 ? "" : "s"} · foto de agora`,
+      info: `Casos do ClickUp ainda em negociação, aguardando N2/Samuel ou com erro, todos os meses — dinheiro que provavelmente vai sair e ainda não está na %. Vermelho com 10+ casos parados.` + porMarca((m) => { const x = ag(null, null, [m]); return `${fmtBRL(x.valorAndamento)} (${fmtNum(x.andamento)})`; }) },
+  ];
+  const leitura = tudo.coletadoEm ? cxDia(tudo.coletadoEm) : null;
+  const fishSemRelatorio = rows.some((l) => l.marca === "fishermans" && Number(l.receita));
+  if (rot) rot.innerHTML = (leitura ? cxTag(`leitura de ${fmtDia(leitura)}`, "nota", "Última leitura do ClickUp (01:50) e da receita Shopify (01:40).") : "") +
+    cxTag("grão mensal", "nota", "Concessão não segue o período do painel: cartões leem o último mês fechado e o mês atual; 'em andamento' é foto de agora.") +
+    cxTag("só casos concluídos", "nota", "Em negociação, aguardando N2/Samuel ou com erro não entram no numerador até concluir. Negado nunca entra.") +
+    (fishSemRelatorio ? cxTag("Fish: receita = soma dos pedidos", "nota", "A loja Fishermans ainda não liberou o escopo read_reports; a receita é a soma dos pedidos não cancelados do dia, ~0,1% diferente do Analytics.") : "") +
+    cxResumoStatus(cartoes);
+  cxPintaCartoes("concessao", cartoes);
+  pintaGraficoConcessaoAba(d);
+  // tabela mês × marca (últimos 6 meses com dado)
+  const meses = concessaoMeses(rows, marcas).slice(-6).reverse();
+  if (tabRot) tabRot.innerHTML = cxTag("caso no mês em que foi aberto", "nota", "O caso conta no mês em que foi criado no ClickUp, não no mês do pagamento; a devolução do Troque, no mês em que o cliente a abriu.");
+  if (tab) tab.innerHTML = `<div class="rolagem"><table class="comparativo concessao-tab">
+    <thead><tr><th>Mês</th><th>Marca</th><th class="num" title="total de vendas Shopify">Receita</th><th class="num" title="casos abertos no mês na lista Reembolsos; embaixo, quantos foram negados">Casos</th><th class="num" title="concluídos, não negados">Concedidos</th><th class="num" title="ainda em negociação / N2 / Samuel / com erro">Em andamento</th><th class="num" title="cupom de cortesia">N1</th><th class="num" title="compensação parcial">N2</th><th class="num" title="reembolso total">N3</th><th class="num" title="soma dos valores de reembolso concedidos">ClickUp</th><th class="num" title="estorno em dinheiro das devoluções no portal">Troque</th><th class="num">Total</th><th class="num" title="total ÷ receita">% receita</th><th class="num" title="devoluções processadas na Shopify no mês (conferência) e % da receita">Shopify</th></tr></thead>
+    <tbody>${meses.flatMap((mes) => marcas.map((m) => { const x = ag(mes, mes, [m]); if (!x.casos && !x.receita && !x.troqueEstorno) return ""; const st = cxStatus("concessao_pct", x.pct); return `<tr>
+      <td>${fmtMes(mes)}${mes === mesAtual ? '<div class="mini">até hoje</div>' : ""}</td>
+      <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span></td>
+      <td class="num">${x.receitaFaltando ? `<span title="mês com dia sem receita coletada">${x.receita ? "≥ " + fmtBRLk(x.receita) : "—"}</span>` : fmtBRLk(x.receita)}</td>
+      <td class="num">${fmtNum(x.casos)}${x.negados ? `<div class="mini">${fmtNum(x.negados)} negado${x.negados === 1 ? "" : "s"}</div>` : ""}</td><td class="num"><strong class="tabn">${fmtNum(x.concedidos)}</strong>${x.semValor ? `<div class="mini">${fmtNum(x.semValor)} sem valor</div>` : ""}</td>
+      <td class="num ${x.andamento ? "vm" : ""}">${fmtNum(x.andamento)}${x.valorAndamento ? `<div class="mini">${fmtBRL(x.valorAndamento)}</div>` : ""}</td>
+      <td class="num">${fmtNum(x.n1)}<div class="mini">${fmtBRL(x.valorN1)}</div></td><td class="num">${fmtNum(x.n2)}<div class="mini">${fmtBRL(x.valorN2)}</div></td><td class="num">${fmtNum(x.n3)}<div class="mini">${fmtBRL(x.valorN3)}</div></td>
+      <td class="num">${fmtBRL(x.valorConcedido)}</td><td class="num">${fmtBRL(x.troqueEstorno)}</td><td class="num"><strong>${fmtBRL(x.total)}</strong></td>
+      <td class="num"><strong class="tabn${st ? " st-" + st : ""}">${pctTxt(x)}</strong></td>
+      <td class="num">${fmtBRL(x.shopifyEstornos)}<div class="mini">${x.pctShopify === null ? "—" : fmtDec(x.pctShopify, 2) + "%"}</div></td></tr>`; })).join("")}</tbody></table></div>`;
+  // tipos de caso: 3 meses fechados + atual
+  const mIni = cxMesAnterior(cxMesAnterior(mesAnt));
+  const lista = concessaoTipos(tipos, { marcas, mesIni: mIni, mesFim: mesAtual });
+  if (tabTipo) tabTipo.innerHTML = !lista.length ? `<div class="vazio mini">Sem tipo de caso registrado no intervalo.</div>` : `<div class="rolagem"><table class="comparativo concessao-tipo">
+    <thead><tr><th>Marca</th><th>Tipo de caso (${fmtMes(mIni)}–${fmtMes(mesAtual)})</th><th class="num">Casos</th><th class="num">Concedidos</th><th class="num" title="soma dos reembolsos concedidos">Valor</th><th class="num" title="valor ÷ concedidos">Médio</th></tr></thead>
+    <tbody>${lista.slice(0, 14).map((x) => `<tr><td><span class="ponto" style="--cor:${corHex(x.marca)}"></span> ${CX_SIGLA[x.marca] || x.marca}</td><td>${x.tipo}</td><td class="num">${fmtNum(x.casos)}</td><td class="num"><strong class="tabn">${fmtNum(x.concedidos)}</strong></td><td class="num">${fmtBRL(x.valor)}</td><td class="num">${x.concedidos ? fmtBRL(x.valor / x.concedidos) : "—"}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function pintaGraficoConcessaoAba(d) {
+  if (!CX_CONCESSAO_DADOS || !$("#g-concessao")) return;
+  const rows = d.cx_concessao || []; const { marcas } = CX_CONCESSAO_DADOS; const k = estado.metricaConcessao;
+  const meses = concessaoMeses(rows, marcas).slice(-12);
+  if (!meses.length) { cxGraficoBloco("concessao", { tit: "Concessão · % da receita por mês", sub: "", html: `<div class="vazio mini">Sem leitura do ClickUp/Shopify ainda.</div>` }); return; }
+  const rotulosX = meses.map(fmtMes); const hojeMes = cxMesAtual(hojeRef());
+  const por = (m, mes) => concessaoAgg(rows, { marcas: [m], mesIni: mes, mesFim: mes });
+  const todos = (mes) => concessaoAgg(rows, { marcas, mesIni: mes, mesFim: mes });
+  let r;
+  if (k === "clickup" || k === "troque") r = { tit: "Devolvido ao cliente · por mês", sub: "reembolsos e cupons do ClickUp (concluídos) + estorno das devoluções no Troque · as marcas escolhidas somadas",
+    html: cxgBarras({ rotulosX, fmt: fmtBRL, aria: "Valor devolvido por mês", vazio: "Sem caso.",
+      series: [{ nome: "ClickUp", cor: "var(--ruim)", valores: meses.map((mes) => todos(mes).valorConcedido) }, { nome: "Troque", cor: "var(--borda-forte)", valores: meses.map((mes) => todos(mes).troqueEstorno) }],
+      topo: meses.map((mes) => { const x = todos(mes); return x.total ? fmtBRLk(x.total) : ""; }) }) };
+  else if (k === "shopify") r = { tit: "Estornos processados na Shopify · por mês", sub: "returns do Analytics (por data do estorno) contra o registrado no ClickUp + Troque · as marcas escolhidas somadas",
+    html: cxgBarras({ rotulosX, fmt: fmtBRL, aria: "Estornos Shopify por mês", vazio: "Sem estorno.",
+      series: [{ nome: "Shopify (saiu)", cor: "var(--ruim)", valores: meses.map((mes) => todos(mes).shopifyEstornos) }, { nome: "ClickUp + Troque (registrado)", cor: "var(--borda-forte)", valores: meses.map((mes) => todos(mes).total) }],
+      topo: meses.map((mes) => { const x = todos(mes); return x.pctShopify === null ? "" : fmtDec(x.pctShopify, 2) + "%"; }) }) };
+  else if (k === "n3") r = { tit: "Nível da concessão · por mês", sub: "casos concedidos no ClickUp por nível · número no topo = % nível 3",
+    html: cxgBarras({ rotulosX, pct: true, fmt: (v) => Math.round(v) + "%", aria: "Nível da concessão por mês", vazio: "Sem caso.",
+      series: [{ nome: "N3 total", cor: "var(--ruim)", valores: meses.map((mes) => todos(mes).n3) }, { nome: "N2 parcial", cor: "#d9971e", valores: meses.map((mes) => todos(mes).n2) }, { nome: "N1 cupom", cor: "var(--bom)", valores: meses.map((mes) => todos(mes).n1) }],
+      topo: meses.map((mes) => { const x = todos(mes); return x.concedidos ? fmtPct0(x.pctN3) : ""; }) }) };
+  else if (k === "pendente") r = { tit: "Casos do ClickUp · por mês de abertura", sub: "concedidos, negados e ainda em andamento · as marcas escolhidas somadas",
+    html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Casos por mês", vazio: "Sem caso.",
+      series: [{ nome: "Concedidos", cor: "var(--ruim)", valores: meses.map((mes) => todos(mes).concedidos) }, { nome: "Em andamento", cor: "#d9971e", valores: meses.map((mes) => todos(mes).andamento) }, { nome: "Negados", cor: "var(--bom)", valores: meses.map((mes) => todos(mes).negados) }] }) };
+  else r = { tit: "Concessão · % da receita por mês", sub: "devolvido ao cliente ÷ receita Shopify · uma linha por marca · faixa < 1% é provisória até o Samuel fixar a meta · mês sem receita completa fica em branco",
+    html: cxgLinhas({ rotulosX, fmt: (v) => fmtDec(v, 2) + "%", aria: "Concessão sobre receita por mês", vazio: "Sem receita ou sem caso.", alvo: { y: CX_ALVOS.concessao_pct.alvo, rot: "< 1%" },
+      series: marcas.map((m) => Object.assign(cxLbl(m), { pontos: meses.map((mes) => { const x = por(m, mes); return { y: x.pct, rot: fmtMes(mes), n: `${fmtBRLk(x.total)} de ${fmtBRLk(x.receita)}`, parcial: mes === hojeMes }; }) })) }) };
+  cxGraficoBloco("concessao", r);
 }
 
 // ---------- abas ----------
