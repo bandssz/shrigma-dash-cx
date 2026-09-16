@@ -28,7 +28,15 @@ vitrine AS (
            from '^.{1,42}(?=\\s|$)'),
            -- o corte pode parar numa preposicao ("Frescor da"); pendurado assim fica pior que cortado antes
            '\\s+(da|de|do|das|dos|e|com|para|pra|em|no|na)$', '', 'i'), ''), 'nossos produtos') AS produto,
-         COALESCE(c.nickname, c.username) AS nome
+         -- so personaliza quando o apelido parece nome de gente; loja e emoji ficam sem nome
+         CASE WHEN COALESCE(c.nickname,'') ~ '^[A-ZÀ-Þ][a-zà-ÿ]{1,13}($|\\s)'
+            -- primeira letra MAIUSCULA e resto minusculo: "Mayko", "Andressa" passam;
+            -- "cantinho do pescador" nao. Mais a lista de palavras que comecam nome de LOJA,
+            -- que sao maiusculas e passariam ("Opa, Dicas!" fica pior que "Opa!").
+            AND lower(split_part(c.nickname, ' ', 1)) NOT IN ('dicas','loja','shop','achados','cantinho',
+              'clube','grupo','canal','oficial','mundo','casa','espaco','espaço','atelie','ateliê',
+              'top','mega','super','style','moda','store','universo','reino','arte','arteira','liga','time')
+           THEN ', ' || split_part(c.nickname, ' ', 1) ELSE '' END AS nome
     FROM crm_tts_convite c
     LEFT JOIN crm_tts_colaboracao co ON co.marca = c.marca AND co.colab_id = c.colab_id
    WHERE c.showcase_product_count > 0 AND c.content_product_count = 0
@@ -44,7 +52,14 @@ amostra AS (
            from '^.{1,42}(?=\\s|$)'),
            -- o corte pode parar numa preposicao ("Frescor da"); pendurado assim fica pior que cortado antes
            '\\s+(da|de|do|das|dos|e|com|para|pra|em|no|na)$', '', 'i'), ''), 'o produto') AS produto,
-         COALESCE(cr.nickname, a.username) AS nome
+         CASE WHEN COALESCE(cr.nickname,'') ~ '^[A-ZÀ-Þ][a-zà-ÿ]{1,13}($|\\s)'
+            -- primeira letra MAIUSCULA e resto minusculo: "Mayko", "Andressa" passam;
+            -- "cantinho do pescador" nao. Mais a lista de palavras que comecam nome de LOJA,
+            -- que sao maiusculas e passariam ("Opa, Dicas!" fica pior que "Opa!").
+            AND lower(split_part(cr.nickname, ' ', 1)) NOT IN ('dicas','loja','shop','achados','cantinho',
+              'clube','grupo','canal','oficial','mundo','casa','espaco','espaço','atelie','ateliê',
+              'top','mega','super','style','moda','store','universo','reino','arte','arteira','liga','time')
+           THEN ', ' || split_part(cr.nickname, ' ', 1) ELSE '' END AS nome
     FROM crm_tts_amostra a
     LEFT JOIN crm_tts_criador cr ON cr.marca = a.marca AND cr.username = a.username
    WHERE a.status IN ('SHIPPED','CONTENT_PENDING')

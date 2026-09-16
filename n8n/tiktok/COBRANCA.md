@@ -46,9 +46,22 @@ O título do anúncio é encurtado antes de entrar na mensagem: "Sabonete Natura
 150g 4.9 Estrelas 90mil Avaliações" vira "Sabonete Natural Masculino O Aristocrata 150g". Título de
 catálogo dentro de uma DM soa como robô.
 
-A copy passou pelas skills das duas marcas. Três erros que só apareceram lendo a simulação:
+### O que deixa a mensagem com cara de robô
 
-1. O nome do **produto** na etapa de vitrine vinha do nome INTERNO da campanha — "FEITO JUSTAMENTE
+Lendo a simulação inteira, o que denuncia automação não é o texto — é o preenchimento:
+
+- **Título de anúncio no meio da frase.** "Vi que você pôs o Sabonete Natural O Aristocrata Frescor na
+  sua vitrine" — ninguém escreve assim. Virou "o sabonete" e "a linha", que é como a Marcela falaria.
+- **Apelido usado como nome.** Metade dos apelidos é nome de loja ou tem emoji: "Opa, cantinho do
+  pescador!" é pior que não chamar de nada. O nome só entra quando o apelido parece nome de pessoa
+  (primeira letra maiúscula, resto minúsculo, e fora de uma lista de palavras de loja). Na leva atual
+  são 10 de 30 com nome — os outros 20 abrem só com "Opa!".
+- **Tamanho.** Quatro parágrafos com prova social soa como e-mail marketing. A v2 tem três linhas e
+  termina numa pergunta ("Travou em alguma coisa?"), que é o que faz o criador responder.
+
+### Erros que só apareceram lendo a simulação
+
+1. O **produto** na etapa de vitrine vinha do nome INTERNO da campanha — "FEITO JUSTAMENTE
    PRA VOCE", "trofeu e grana na linha". Numa DM soa como mensagem enviada pro contato errado.
 2. O corte do título parava no meio: "Sabonete Natural O Aristocrata Frescor da". Agora corta em
    fronteira de palavra e ainda tira preposição pendurada no fim.
