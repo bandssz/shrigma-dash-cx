@@ -121,8 +121,17 @@ ninguém sabe — o painel seguiria vazio sem motivo aparente.
 O workflow **"Sonda de escopos"** (`hxcQkWmx8iiuKNKo`, de 6 em 6 horas) resolve isso: bate um
 endpoint barato por família de API e classifica a resposta em `crm_tts_escopo`:
 
-- `falta_no_app` — *"this app has not been granted"* → ainda em análise, **reautorizar não adianta**
-- `reautorizar` — *"the access token does not include"* → **já liberado, reautorizar resolve agora**
+- `falta_no_app` — *"this app has not been granted"*
+- `reautorizar` — *"the access token does not include"*
+
+**Cuidado: a mensagem sozinha não diz se a permissão foi aprovada.** Eu li `reautorizar` como
+"já liberado, é só reautorizar" e estava errado — em 16/09 reautorizamos as duas lojas às 13h41 com
+Analytics, Order, Product e Finance nesse estado, e `granted_scopes` continuou com os mesmos 5
+escopos de afiliado. A verdade é `granted_scopes`, não a mensagem de erro.
+
+Por isso o painel só pede reautorização quando uma família **muda de estado depois** da última
+autorização. Se a sonda já conferiu depois de autorizar e nada entrou, a faixa diz exatamente isso:
+reautorizar de novo não resolve, falta a TikTok aprovar no app.
 - `ok` — passou da checagem de escopo
 - `desconhecido` — a sonda não conseguiu medir (nunca assume `ok`)
 

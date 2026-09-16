@@ -73,16 +73,23 @@
       // ações opostas: permissão já liberada no app -> reautorizar resolve AGORA; ainda em análise na
       // TikTok -> reautorizar não muda nada, é esperar. Sem essa distinção a faixa manda fazer trabalho à toa.
       const e = TTS.filtra(p.escopos || [], marca)[0];
-      if (e && (e.pronto_para_reautorizar || []).length) {
+      const dia = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toTimeString().slice(0, 5); };
+      // Só pede reautorização quando a família MUDOU de estado depois da última autorização.
+      // A mensagem de erro da API sozinha não prova que a permissão foi aprovada.
+      if (e && (e.mudou_desde_autorizacao || []).length) {
         return { estado: 'reautorizar_agora',
-          txt: 'A TikTok liberou ' + e.pronto_para_reautorizar.join(', ') + ' no app, mas a autorização ' +
-               'atual das lojas é anterior e não carrega esses escopos. Reautorize as duas agora.' +
-               ((e.aguardando_tiktok || []).length ? ' (' + e.aguardando_tiktok.join(', ') + ' seguem em análise.)' : '') };
+          txt: 'Mudou algo em ' + e.mudou_desde_autorizacao.join(', ') + ' depois da última autorização' +
+               (e.autorizado_em ? ' (' + dia(e.autorizado_em) + ')' : '') + '. Vale reautorizar as duas lojas.' };
+      }
+      if (e && (e.aguardando_tiktok || []).length && e.conferido_apos_autorizar) {
+        return { estado: 'sem_escopo', app: true,
+          txt: e.aguardando_tiktok.join(', ') + ' não chegam no token. A reautorização de ' +
+               dia(e.autorizado_em) + ' já foi conferida e não trouxe nenhuma delas, então reautorizar de novo ' +
+               'não resolve — falta a TikTok aprovar no app. A sonda avisa aqui quando mudar.' };
       }
       if (e && (e.aguardando_tiktok || []).length) {
         return { estado: 'sem_escopo', app: true,
-          txt: e.aguardando_tiktok.join(', ') + ' ainda não foram liberados no app pela TikTok — ' +
-               'reautorizar não adianta enquanto estiverem em análise.' };
+          txt: e.aguardando_tiktok.join(', ') + ' ainda não chegam no token — falta a TikTok liberar no app.' };
       }
       const faltam = a.filter(x => (x.escopos_faltando || []).length);
       if (faltam.length) {

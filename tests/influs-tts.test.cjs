@@ -104,30 +104,30 @@ test('autorização válida sem o escopo do canal manda para o app, não para re
   assert.equal(completo.estado, 'ok');
 });
 
-test('sonda separa "reautorize agora" de "ainda em análise"', () => {
+test('sonda: reautorizar só quando algo mudou desde a última autorização', () => {
   const tok = [{ marca: 'fish', loja: 'fishermans', refresh_expira_em: '2125-08-15T22:26:30Z',
                  expira_em_breve: false, ultimo_erro_canal: null, granted_scopes: [], escopos_faltando: [] }];
-  const agora = Date.parse('2026-09-16T13:00:00Z');
+  const agora = Date.parse('2026-09-16T14:00:00Z');
 
-  // permissão liberada no app, autorização antiga -> reautorizar resolve agora
-  const pronto = TTS.autorizacao({ autorizacao: tok, escopos: [
-    { marca: 'fish', pronto_para_reautorizar: ['Shop Analytics', 'Order Information'], aguardando_tiktok: ['Promotion'] },
+  // o caso que me pegou: reautorizou, a sonda conferiu depois e nada entrou -> NÃO pedir de novo
+  const jaTentou = TTS.autorizacao({ autorizacao: tok, escopos: [
+    { marca: 'fish', mudou_desde_autorizacao: null, aguardando_tiktok: ['Shop Analytics', 'Order Information'],
+      autorizado_em: '2026-09-16T13:43:23Z', conferido_apos_autorizar: true },
   ] }, 'fish', agora);
-  assert.equal(pronto.estado, 'reautorizar_agora');
-  assert.match(pronto.txt, /Shop Analytics/);
-  assert.match(pronto.txt, /Promotion.*análise/, 'tem que dizer o que ainda está em análise');
+  assert.equal(jaTentou.estado, 'sem_escopo');
+  assert.match(jaTentou.txt, /não resolve/, 'tem que dizer que reautorizar de novo não adianta');
+  assert.doesNotMatch(jaTentou.txt, /Reautorize as duas/);
 
-  // só coisa em análise -> reautorizar não adianta
-  const espera = TTS.autorizacao({ autorizacao: tok, escopos: [
-    { marca: 'fish', pronto_para_reautorizar: null, aguardando_tiktok: ['Fulfillment'] },
+  // mudou de estado depois da autorização -> aí sim vale reautorizar
+  const mudou = TTS.autorizacao({ autorizacao: tok, escopos: [
+    { marca: 'fish', mudou_desde_autorizacao: ['Shop Analytics'], aguardando_tiktok: ['Promotion'],
+      autorizado_em: '2026-09-16T13:43:23Z', conferido_apos_autorizar: true },
   ] }, 'fish', agora);
-  assert.equal(espera.estado, 'sem_escopo');
-  assert.equal(espera.app, true);
-  assert.match(espera.txt, /não adianta/);
+  assert.equal(mudou.estado, 'reautorizar_agora');
 
-  // tudo liberado e já no token -> faixa some
+  // tudo ok -> faixa some
   const ok = TTS.autorizacao({ autorizacao: tok, escopos: [
-    { marca: 'fish', pronto_para_reautorizar: null, aguardando_tiktok: null },
+    { marca: 'fish', mudou_desde_autorizacao: null, aguardando_tiktok: null, conferido_apos_autorizar: true },
   ] }, 'fish', agora);
   assert.equal(ok.estado, 'ok');
 });
