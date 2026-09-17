@@ -15,3 +15,9 @@ Aristo mantém toque de três minutos e ao menos 90 segundos restantes. Fisherma
 Validação inclui cenários sintéticos e reprodução local de respostas reais, sem enviar a clientes ou efetuar pagamentos. Aceite da Meta, entrega de WhatsApp e pagamento são evidências diferentes. Uma execução sem candidatos não comprova entrega.
 
 Fontes: [template de cobrança Meta](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/orderdetailstemplate/), [PIX externo Meta](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/offsite-pix).
+
+### Validação com destinatários em 17/09
+
+A verificação Meta da Aristo ainda consultava o ID do cartão anterior; a guarda bloqueava corretamente a divergência, impedindo o novo envio. Corrigida a URL do nó `Confere template PIX v2 na Meta` para usar `$('Config').first().json.template_id`. ID, nome, idioma, categoria, aprovação e botão continuam conferidos. Depois da correção, o template compacto 1132506052775113 teve aceite e entrega reais confirmados. O compacto Fishermans 1378177134340410 também teve entrega real.
+
+Instrumentação adicional: emissores preservam `_pix_expires_at` no payload interno e o motor registra impressão do código/valor/validade na mesma reserva, seguido de recibo de aceite. Campo interno não é enviado à Meta. Ver `pix-charge-evidence.sql`.

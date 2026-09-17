@@ -1,0 +1,64 @@
+{
+  "name": "CRM · Atualiza evidência de atribuição por disparo",
+  "nodes": [
+    {
+      "id": "d3167b85-1da2-4e4a-837a-cf54c271a024",
+      "name": "A cada cinco minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8bfedf49-043b-4321-8e7a-46959c36d6a4",
+      "name": "Atualiza conciliação temporal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.crm_attribution_refresh_dispatch_v3() AS refreshed;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "uALf0AHnEuLCgOtx"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "A cada cinco minutos": {
+      "main": [
+        [
+          {
+            "node": "Atualiza conciliação temporal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  }
+}
