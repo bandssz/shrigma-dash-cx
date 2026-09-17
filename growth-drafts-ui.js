@@ -83,8 +83,8 @@ const GRU={
     const wa=r.canal==='whatsapp',vars=GR.variaveis(r.corpo),v=GR.valida(r),sit=GTA.situacao(r),s=sit.servidor,acoes=GTA.acoes(caps,r),oc=GRU.state.ocupado;
     const rot=GTA.rotuloEstado(r,{workflows:GRU.workflows(),mapped_in:s?.mapped_in});
     const botoes=(r.botoes||[]).map((b,i)=>`<div class="draft-botao" data-botao="${i}"><select data-botao-campo="tipo" aria-label="Tipo do botão ${i+1}">${GRU.opts(wa?GR.TIPOS_BOTAO:GR.TIPOS_BOTAO.filter(([k])=>k==='url'),b.tipo)}</select>
-      <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.texto)}" aria-label="Texto do botão ${i+1}">
-      ${b.tipo==='quick_reply'?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
+      <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.tipo==='order_details'?'Copiar código Pix':b.texto)}"${b.tipo==='order_details'?' readonly':''} aria-label="Texto do botão ${i+1}">
+      ${['quick_reply','order_details'].includes(b.tipo)?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
     const provedor=wa?'Meta':'Listmonk';
     const dis=oc?' disabled':'';
@@ -135,8 +135,9 @@ const GRU={
       const source=`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https:;"><style>body{font:16px/1.6 Arial;color:#242424;padding:24px;background:#fff;margin:0;overflow-wrap:anywhere}img{max-width:100%;height:auto}h2{font-size:22px;color:${r.marca==='aristo'?'#3b1f13':'#414f27'}}a{color:#285d72}</style></head><body><h2>${brand}</h2>${html}${(r.botoes||[]).filter(b=>b.texto).map(b=>`<p>${GRU.e(b.texto)}</p>`).join('')}</body></html>`;
       return `<div class="draft-mail"><div class="draft-mail-assunto">${GRU.e(r.assunto||'(sem assunto)')}</div><iframe title="Prévia do template de e-mail" sandbox="" referrerpolicy="no-referrer" srcdoc="${GRU.e(source)}" style="width:100%;height:440px;border:0;background:#fff"></iframe></div>`;
     }
-    return `<div class="draft-bubble">${r.cabecalho?`<div class="draft-bubble-head">${GRU.e(GR.preenche(r.cabecalho,ex))}</div>`:''}<div class="draft-bubble-body">${GRU.e(corpo)||'<span class="mini">Corpo vazio.</span>'}</div>${r.rodape?`<div class="draft-bubble-foot">${GRU.e(r.rodape)}</div>`:''}</div>
-      ${(r.botoes||[]).filter(b=>b.texto).map(b=>`<div class="draft-bubble-btn">${b.tipo==='url'?'↗ ':b.tipo==='phone'?'☏ ':''}${GRU.e(b.texto)}</div>`).join('')}`;
+    const pix=(r.botoes||[]).some(b=>b.tipo==='order_details');
+    return `<div class="draft-bubble">${pix?'<div class="draft-bubble-head">Cartão PIX · dados do pedido</div><div class="draft-bubble-body">Pedido, valor e vencimento serão preenchidos com a cobrança real no envio.</div>':''}${r.cabecalho?`<div class="draft-bubble-head">${GRU.e(GR.preenche(r.cabecalho,ex))}</div>`:''}<div class="draft-bubble-body">${GRU.e(corpo)||'<span class="mini">Corpo vazio.</span>'}</div>${r.rodape?`<div class="draft-bubble-foot">${GRU.e(r.rodape)}</div>`:''}</div>
+      ${(r.botoes||[]).filter(b=>b.texto).map(b=>`<div class="draft-bubble-btn">${b.tipo==='url'?'↗ ':b.tipo==='phone'?'☏ ':''}${GRU.e(b.tipo==='order_details'?'Copiar código Pix':b.texto)}</div>`).join('')}`;
   },
   checagens(v,s){
     const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">API: ${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">API: ${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
@@ -176,7 +177,7 @@ const GRU={
       el.oninput=h;el.onchange=h;});
     GRU._vars=GR.variaveis(r.corpo).join();GRU._sujo=GTA.situacao(r).sujo;
     root.querySelectorAll('[data-exemplo]').forEach(el=>el.oninput=()=>{r.exemplos=r.exemplos||{};r.exemplos[el.dataset.exemplo]=el.value;GRU.mudou(r);});
-    root.querySelectorAll('[data-botao-campo]').forEach(el=>{const i=+el.closest('[data-botao]').dataset.botao;const h=()=>{r.botoes[i][el.dataset.botaoCampo]=el.value;if(el.dataset.botaoCampo==='tipo'){r.botoes[i].valor='';GRU.render();}else GRU.mudou(r);};el.oninput=h;el.onchange=h;});
+    root.querySelectorAll('[data-botao-campo]').forEach(el=>{const i=+el.closest('[data-botao]').dataset.botao;const h=()=>{r.botoes[i][el.dataset.botaoCampo]=el.value;if(el.dataset.botaoCampo==='tipo'){r.botoes[i].valor='';if(el.value==='order_details')r.botoes[i].texto='Copiar código Pix';GRU.mudou(r);GRU.render();}else GRU.mudou(r);};el.oninput=h;el.onchange=h;});
     root.querySelectorAll('[data-botao-remover]').forEach(b=>b.onclick=()=>{r.botoes.splice(+b.dataset.botaoRemover,1);GRU.render();});
     $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:r.canal==='email'?'url':'quick_reply',texto:'',valor:''});GRU.render();});
     $('#d-salvar')?.addEventListener('click',()=>{const v=GR.valida(r);if(v.erros.length){GRU.aviso('');GRU.atualizaPreview();document.getElementById('d-checagens')?.scrollIntoView?.({block:'nearest'});return;}

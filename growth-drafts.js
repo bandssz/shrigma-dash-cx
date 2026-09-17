@@ -13,7 +13,7 @@ const GR={
   MARCAS:[['fish','Fishermans'],['aristo','O Aristocrata'],['olivas','Olivas do Campo']],
   CANAIS:[['whatsapp','WhatsApp'],['email','E-mail']],
   CATEGORIAS:[['UTILITY','Utility · cita a transação do cliente'],['MARKETING','Marketing · oferta ou aviso genérico']],
-  TIPOS_BOTAO:[['quick_reply','Resposta rápida'],['url','Abrir link'],['phone','Ligar']],
+  TIPOS_BOTAO:[['quick_reply','Resposta rápida'],['url','Abrir link'],['phone','Ligar'],['order_details','Cartão PIX · copiar código']],
   esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));},
   agora(){return new Date().toISOString();},
   id(){return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);},
@@ -60,7 +60,7 @@ const GR={
           else if(/wa\.me|api\.whatsapp\.com/i.test(b.valor))avisos.push(`Botão ${i+1}: wa.me abre atendimento. Para pagamento ou rastreio, confira se o link leva à página correta do pedido.`);
         }
         if(b.tipo==='phone'&&!/^\+?\d{8,15}$/.test(String(b.valor||'').replace(/[\s()-]/g,'')))erros.push(`Botão ${i+1}: telefone no formato internacional (+55…).`);
-        if(!['quick_reply','url','phone'].includes(b.tipo))erros.push(`Botão ${i+1}: tipo desconhecido.`);
+        if(!['quick_reply','url','phone','order_details'].includes(b.tipo))erros.push(`Botão ${i+1}: tipo desconhecido.`);
       });
       if(r.categoria==='UTILITY'&&/desconto|cupom|oferta|promo|%\s*off/i.test(r.corpo||''))avisos.push('Corpo fala de desconto/oferta: a Meta tende a reclassificar Utility para Marketing (regra registrada em 07/09: Utility precisa citar a transação do cliente).');
     }
@@ -78,6 +78,8 @@ const GR={
       else if(r.assunto.length>L.assunto)avisos.push(`Assunto com mais de ${L.assunto} caracteres; provedores cortam.`);
       if(Array.isArray(r.botoes)&&r.botoes.some(b=>b.tipo==='url'&&b.valor&&!/utm_/.test(b.valor)))avisos.push('Link sem UTM: a atribuição de receita por esta peça pode ficar incompleta. Confira os parâmetros da campanha antes do envio.');
     }
+    const contract=typeof WAT!=='undefined'?WAT:typeof require==='function'?require('./whatsapp-template-contract.js'):null;
+    if(contract)erros.push(...contract.errors(r).map(e=>e.mensagem));
     return {erros,avisos};
   },
   /* ---------- prévia do que foi digitado ----------

@@ -17,6 +17,7 @@ const GB={
  same(a,b){const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;return JSON.stringify(stable(a))===JSON.stringify(stable(b));},
  compatible(template,slot){
   if(template.status!=='APPROVED')return false;
+  if(slot.channel==='whatsapp'&&/^pix(?:-|_|$)/.test(slot.piece||'')&&!template.components?.some(c=>c.type==='BUTTONS'&&c.buttons?.some(b=>b.type==='ORDER_DETAILS')))return false;
   if(slot.channel==='whatsapp')return template.language==='pt_BR'&&(slot.category!=='UTILITY'||template.category==='UTILITY')&&GB.same(GB.signature(template.components),slot.signature);
   const content=String(template.components?.body_html||'')+String(template.components?.subject||'');
   const present=[...content.matchAll(/\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)/g)].map(m=>m[1]);
