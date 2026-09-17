@@ -63,8 +63,7 @@ colab_target AS (
 ),
 serie AS (SELECT marca, dia, round(sum(gmv),2) AS gmv, count(DISTINCT order_id)::int AS pedidos FROM ped GROUP BY 1,2),
 canal AS (  -- Canal (Shop Analytics) na janela: total da loja por dia, fatia por superfície e por origem
-  SELECT v.marca, v.dia, v.gmv, v.gmv_live, v.gmv_video, v.gmv_vitrine, v.gmv_afiliado, v.gmv_proprio, v.gmv_ads, v.gmv_max_pct,
-         v.pedidos, v.compradores, v.reembolso, v.visitantes, v.page_views, v.conversao_pct, v.ticket_medio, v.pct_afiliado, v.pct_live, v.pct_video, v.pct_vitrine
+  SELECT v.marca, v.dia, v.gmv, v.gmv_live, v.gmv_video, v.gmv_vitrine, v.gmv_afiliado, v.gmv_proprio, v.gmv_ads, v.pedidos, v.visitantes, v.reembolso
   FROM crm_tts_canal_v v, j WHERE v.dia BETWEEN j.ini AND j.fim
 ),
 canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Canal)
@@ -82,12 +81,13 @@ canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Can
   FROM canal GROUP BY 1
 ),
 lives AS (  -- sessões de live na janela (loja e afiliados), com venda e interação
-  SELECT marca, live_id, dia, username, origem, titulo, inicio_em, fim_em, duracao_min, gmv, gmv_24h, pedidos, unidades, compradores, ticket_medio,
-         espectadores, visualizacoes, cliques, impressoes_produto, ctr_pct, clique_pedido_pct, curtidas, comentarios, novos_seguidores, tempo_medio_s
+  SELECT marca, live_id, dia, username, origem, left(titulo, 60) AS titulo, inicio_em, duracao_min, gmv, gmv_24h, pedidos, compradores,
+         espectadores, ctr_pct, clique_pedido_pct, novos_seguidores
   FROM crm_tts_live_dia l, j WHERE l.dia BETWEEN j.ini AND j.fim
 ),
 videos AS (  -- retrato mais recente dos vídeos (30 dias acumulados, top por GMV) — não é por dia
-  SELECT marca, dia AS retrato_em, video_id, username, origem, titulo, publicado_em, gmv, gpm, pedidos, unidades, compradores, visualizacoes, ctr_pct, duracao_s, produtos, hashtags
+  -- só o que a tela mostra: título cortado, sem produtos/hashtags (ficam no banco para análise)
+  SELECT marca, dia AS retrato_em, video_id, username, origem, left(titulo, 90) AS titulo, publicado_em, gmv, gpm, pedidos, visualizacoes, ctr_pct, duracao_s
   FROM crm_tts_video_dia v WHERE v.dia = (SELECT max(dia) FROM crm_tts_video_dia x WHERE x.marca = v.marca)
 ),
 cob AS (  -- Cobrança de conteúdo: o que já saiu e o que está na fila de simulação.
@@ -190,7 +190,7 @@ SELECT jsonb_build_object(
   'serie', COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.marca, s.dia) FROM serie s), '[]'),
   'canal', COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.marca, c.dia) FROM canal c), '[]'),
   'canal_total', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM canal_tot c), '[]'),
-  'lives', COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.inicio_em DESC) FROM (SELECT * FROM lives ORDER BY gmv DESC, inicio_em DESC LIMIT 200) l), '[]'),
-  'videos', COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.gmv DESC) FROM (SELECT * FROM videos WHERE gmv > 0 ORDER BY gmv DESC LIMIT 100) v), '[]')
+  'lives', COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.gmv DESC, l.inicio_em DESC) FROM (SELECT * FROM lives ORDER BY gmv DESC, inicio_em DESC LIMIT 60) l), '[]'),
+  'videos', COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.gmv DESC) FROM (SELECT * FROM videos WHERE gmv > 0 ORDER BY gmv DESC LIMIT 30) v), '[]')
 ) AS payload`;
 return [{ json: { sql } }];

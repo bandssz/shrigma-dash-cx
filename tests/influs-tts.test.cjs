@@ -204,3 +204,12 @@ test('canal: marca sem coleta não inventa zero — diz que não tem dado',()=>{
   assert.equal(o.temDados,false); assert.equal(o.pctLive,null); assert.equal(o.conversao,null); assert.equal(o.serie.length,0);
   const v=TTS.canal({}, 'todas','2026-09-17'); assert.equal(v.temDados,false);
 });
+test('cache só serve na mesma janela e com menos de 24 h',()=>{
+  const c={em:'2026-09-17T12:00:00Z',ini:'2026-08-18',fim:'2026-09-17',payload:{kpis:[]}};
+  const agora=Date.parse('2026-09-17T15:00:00Z');
+  assert.equal(TTS.cacheServe(c,'2026-08-18','2026-09-17',agora),true);
+  assert.equal(TTS.cacheServe(c,'2026-08-01','2026-09-17',agora),false,'janela diferente');
+  assert.equal(TTS.cacheServe(c,'2026-08-18','2026-09-17',agora+25*36e5),false,'velho demais');
+  assert.equal(TTS.cacheServe(null,'2026-08-18','2026-09-17',agora),false);
+  assert.equal(TTS.cacheServe({em:'2026-09-17T12:00:00Z',ini:null,fim:null,payload:{}},null,null,agora),true,'janela padrão (null) casa com null');
+});

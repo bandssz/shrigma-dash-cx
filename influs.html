@@ -111,6 +111,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 #tts-area .comparativo{font-size:12.5px}#tts-area .comparativo td{padding:9px 8px}#tts-area .comparativo td.num{font-size:13.5px}
 .tts-btn{background:var(--neutro-bg);color:var(--texto)} /* não usar .sec: a página esconde .sec (seções) */
 body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/alertas de cupom não valem para a lane TikTok */
+.tts-oculto{display:none}.tts-mais-tr td{text-align:center;padding:6px !important}.tts-mais{font-size:11.5px;padding:4px 10px}
+.tts-aviso{margin-right:8px;cursor:help}
 .tts-acoes{white-space:nowrap}.tts-acoes .btn{padding:5px 8px;font-size:11.5px;margin-right:4px}.tts-prod{max-width:230px}
 
 /* aba Influs */
@@ -351,7 +353,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
   <div class="sec" id="sec-afil">
     <section class="painel">
       <div class="painel-cab"><h2>Afiliados TikTok Shop</h2>
-        <span><span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
+        <span><span class="tag neutro tts-aviso" id="tts-aviso" hidden></span> <span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
       <div class="tts-aut" id="tts-autorizacao" hidden></div>
       <section class="kpis tts-kpis" id="tts-kpis"></section>
       <nav class="i-abas" id="tts-abas">
@@ -370,7 +372,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=2c7e9f41"></script>
-<script src="influs-tts.js?v=20260917a"></script>
+<script src="influs-tts.js?v=20260917b"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
