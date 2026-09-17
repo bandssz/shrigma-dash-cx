@@ -156,7 +156,7 @@ const GC={
     if(!t)return '<span class="control-template-meta">Conteúdo publicado não veio na resposta da API para este template.</span>';
     const e=GC.esc,hist=GC.historicos[row.key];
     return `<details class="control-detail control-template-preview" data-gt-key="prev-${e(row.key)}"><summary>Prévia publicada · v${e(t.version??'?')}${t.published_at?` · ${e(GC.stamp(t.published_at))}`:''}</summary>
-      <div class="control-template-preview-body">${GTA.previaComponents(t.components)}</div>
+      <div class="control-template-preview-body">${GTA.previaComponents(t.components)}</div>${t.components?.body_html?`<button type="button" class="refresh-btn" data-tpl-preview-email="${e(t.key||row.key)}">Abrir prévia do HTML</button>`:''}
       ${t.quality_score?`<p>Qualidade (Meta): ${e(typeof t.quality_score==='object'?JSON.stringify(t.quality_score):t.quality_score)}</p>`:''}${t.rejected_reason?`<p class="control-warning">Motivo de rejeição: ${e(t.rejected_reason)}</p>`:''}
       ${GC.caps?.pode?.list_history?(hist?`<ul class="control-template-hist">${hist.length?hist.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'?')} · ${e(x.action)}${x.from_version!=null||x.to_version!=null?` v${e(x.from_version??'—')}→v${e(x.to_version??'—')}`:''} · ${e(x.result||'')}</li>`).join(''):'<li>Nenhum evento devolvido pela API.</li>'}</ul>`:`<button type="button" class="refresh-btn" data-tpl-historico="${e(row.key)}"${GC.carregando?' disabled':''}>Carregar histórico</button>`):''}</details>`;
   },
@@ -314,6 +314,7 @@ const GC={
     const wfExport=document.getElementById('control-wf-export');
     if(wfExport)wfExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('automacoes-operacao',m),GT.csv(GC.workflowColumns,workflows,m));};
     const tplExport=document.getElementById('control-tpl-export');
+    document.querySelectorAll('[data-tpl-preview-email]').forEach(b=>b.onclick=()=>{const t=GC.conteudo?.[b.dataset.tplPreviewEmail];if(t?.components?.body_html)GMP.openEmail({source:t.components.body_html,subject:t.components.subject,label:'Prévia do template publicado'});});
     const tplConteudo=document.getElementById('control-tpl-conteudo');if(tplConteudo)tplConteudo.onclick=()=>GC.carregarConteudo(ctx);
     templateRoot.querySelectorAll('[data-tpl-historico]').forEach(b=>b.onclick=()=>GC.carregarHistorico(ctx,b.dataset.tplHistorico));
     if(tplExport)tplExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('templates',m),GT.csv(GC.templateColumns,templates,m));};

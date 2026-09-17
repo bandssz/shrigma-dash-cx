@@ -113,7 +113,7 @@ const GRU={
         <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Nenhum botão.</span>'}</div>
           ${(r.botoes||[]).length<GR.LIMITES.botoes?'<button type="button" class="refresh-btn" id="d-botao-add">Adicionar botão</button>':''}</div>
       </div>
-      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia do que você digitou<span class="control-badge">não é o template publicado</span></div><div id="d-preview">${GRU.preview(r)}</div>
+      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia do que você digitou<span class="control-badge">não é o template publicado</span></div>${wa?'':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
         <div id="d-checagens">${GRU.checagens(v,s)}</div></div></div>
       <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini">Salvar grava no navegador. Não cadastra, não submete e não ativa nada.</span>'}</div>
       ${servidorBar}</section>`;
@@ -127,18 +127,7 @@ const GRU={
       ${s.avisos?.length?`<p class="draft-aviso">Avisos da validação: ${GRU.e(s.avisos.map(a=>a.mensagem||a.codigo).join(' · '))}</p>`:''}
       <label for="d-confirm-texto">Digite <code>submeter</code> para liberar o botão</label><div class="draft-confirm-row"><input type="text" id="d-confirm-texto" value="${GRU.e(GRU.state.confirmTexto)}" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="d-confirm-ok"${ok&&!GRU.state.ocupado?'':' disabled'}>${GRU.state.ocupado==='submeter'?'Submetendo…':'Submeter agora'}</button><button type="button" class="btn sec" id="d-confirm-cancel">Cancelar</button></div></div>`;
   },
-  preview(r){
-    const ex=r.exemplos||{},corpo=GR.preenche(r.corpo,ex);
-    if(r.canal==='email'){
-      const html=/<[a-z][\s\S]*>/i.test(corpo)?corpo:GRU.e(corpo).replace(/\n/g,'<br>');
-      const brand=r.marca==='aristo'?'O Aristocrata':'Fishermans';
-      const source=`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https:;"><style>body{font:16px/1.6 Arial;color:#242424;padding:24px;background:#fff;margin:0;overflow-wrap:anywhere}img{max-width:100%;height:auto}h2{font-size:22px;color:${r.marca==='aristo'?'#3b1f13':'#414f27'}}a{color:#285d72}</style></head><body><h2>${brand}</h2>${html}${(r.botoes||[]).filter(b=>b.texto).map(b=>`<p>${GRU.e(b.texto)}</p>`).join('')}</body></html>`;
-      return `<div class="draft-mail"><div class="draft-mail-assunto">${GRU.e(r.assunto||'(sem assunto)')}</div><iframe title="Prévia do template de e-mail" sandbox="" referrerpolicy="no-referrer" srcdoc="${GRU.e(source)}" style="width:100%;height:440px;border:0;background:#fff"></iframe></div>`;
-    }
-    const pix=(r.botoes||[]).some(b=>b.tipo==='order_details');
-    return `<div class="draft-bubble">${pix?'<div class="draft-bubble-head">Cartão PIX · dados do pedido</div><div class="draft-bubble-body">Pedido, valor e vencimento serão preenchidos com a cobrança real no envio.</div>':''}${r.cabecalho?`<div class="draft-bubble-head">${GRU.e(GR.preenche(r.cabecalho,ex))}</div>`:''}<div class="draft-bubble-body">${GRU.e(corpo)||'<span class="mini">Corpo vazio.</span>'}</div>${r.rodape?`<div class="draft-bubble-foot">${GRU.e(r.rodape)}</div>`:''}</div>
-      ${(r.botoes||[]).filter(b=>b.texto).map(b=>`<div class="draft-bubble-btn">${b.tipo==='url'?'↗ ':b.tipo==='phone'?'☏ ':''}${GRU.e(b.tipo==='order_details'?'Copiar código Pix':b.texto)}</div>`).join('')}`;
-  },
+  preview(r){return r.canal==='email'?GMP.email(r):GMP.whatsapp(r);},
   checagens(v,s){
     const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">API: ${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">API: ${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
     if(!v.erros.length&&!v.avisos.length)return `<p class="draft-ok">Checagens locais ok. Essas checagens são parciais. No WhatsApp, a Meta define aprovação e categoria; no e-mail, ainda falta validar a integração de envio.</p>${api}`;
@@ -184,6 +173,7 @@ const GRU={
       const salvo=GR.guarda(r);if(salvo){GRU.fechar();GRU.aviso(`Rascunho "${salvo.nome}" salvo neste dispositivo às ${GRU.stamp(salvo.atualizado_em)}.`);}else GRU.aviso('Não foi possível gravar no navegador (armazenamento cheio ou bloqueado). Exporte o arquivo para não perder.','erro');GRU.render();});
     $('#d-cancelar')?.addEventListener('click',()=>{GRU.fechar();GRU.render();});
     $('#d-exportar')?.addEventListener('click',()=>GRU.exporta(r));
+    $('#d-preview-open')?.addEventListener('click',()=>GMP.openEmail({source:GMP.emailHTML(r),subject:r.assunto}));
     $('#d-servidor')?.addEventListener('click',()=>GRU.salvarServidor(r));
     $('#d-validar')?.addEventListener('click',()=>GRU.validarServidor(r));
     $('#d-verificar')?.addEventListener('click',()=>GRU.verificarSubmissao(r));

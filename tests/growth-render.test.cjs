@@ -660,3 +660,30 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  assert.doesNotMatch(dl.texto,/synthetic-test-key/);
  const z=await boot(fixture(),{hash:'#sec=regua&aba=fluxos'});assert.equal(z.document.querySelector('#control-fluxos').hidden,false);
 });
+
+test('WhatsApp preview updates examples and PIX card without live payment actions',async()=>{
+ const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
+ x.document.querySelector('#drafts-novo').click();
+ const set=(id,v)=>{const el=x.document.querySelector(id);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
+ set('#d-corpo','Olá *{{1}}*! Seu pedido está pronto.');set('[data-exemplo="1"]','Ana <teste>');
+ assert.equal(x.document.querySelector('.mp-chat-head strong').textContent,'Fishermans');
+ assert.equal(x.document.querySelector('.draft-bubble-body strong').textContent,'Ana <teste>');
+ x.document.querySelector('#d-botao-add').click();set('[data-botao-campo="tipo"]','order_details');
+ assert.match(x.document.querySelector('.mp-payment').textContent,/Dados ilustrativos/);
+ assert.match(x.document.querySelector('#d-preview').textContent,/Copiar código Pix/);
+ assert.equal(x.document.querySelectorAll('#d-preview a[href]').length,0);
+});
+test('email preview opens isolated HTML with devices, images opt-in and restored focus',async()=>{
+ const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
+ x.document.querySelector('#drafts-novo-email').click();
+ const set=(id,v)=>{const el=x.document.querySelector(id);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
+ set('#d-assunto','Sua compra');set('#d-corpo','<h1>Olá {{ .Tx.Data.first_name }}</h1><img src="https://example.com/photo.png"><script>alert(1)</script><a href="https://example.com/pay" onclick="alert(1)">Pagar</a>');
+ const open=x.document.querySelector('#d-preview-open');open.focus();open.click();
+ const modal=x.document.querySelector('#message-preview-dialog'),frame=modal.querySelector('iframe');
+ assert.equal(frame.getAttribute('sandbox'),'');assert.equal(frame.getAttribute('referrerpolicy'),'no-referrer');
+ const source=frame.getAttribute('srcdoc');assert.match(source,/Olá/);assert.match(source,/\.Tx\.Data\.first_name/);assert.doesNotMatch(source,/<script|onclick=|href="https/);assert.match(source,/img-src &#39;none&#39;/);
+ modal.querySelector('[data-mp-device="mobile"]').click();assert.equal(modal.querySelector('.mp-mail-stage').dataset.device,'mobile');
+ const images=modal.querySelector('[data-mp-images]');images.checked=true;images.dispatchEvent(new x.window.Event('change'));assert.match(modal.querySelector('iframe').getAttribute('srcdoc'),/img-src https:/);
+ modal.querySelector('[data-mp-close]').click();assert.equal(x.document.querySelector('#message-preview-dialog'),null);assert.equal(x.document.activeElement,open);
+ assert.equal(x.requests.length,1);
+});
