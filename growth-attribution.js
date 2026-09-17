@@ -77,7 +77,7 @@ const GA=(()=>{
     const shared=[...tuples].some(k=>(claimants.get(k)?.size||0)>1),tracked=tuples.size>0,sent=num(m.enviados)>0;
     const exclusive=[...tuples].filter(k=>(claimants.get(k)?.size||0)===1);const uniqueMatches=matches.filter(r=>exclusive.includes(tuple(r.marca,{source:r.dimension[5],medium:r.dimension[1],campaign:r.dimension[2],content:r.dimension[3],term:r.dimension[4]})));
     const verifiedRows=verified?(evidence.daily||[]).filter(r=>r.model===model(api)&&r.marca===m.marca&&String(r.campanha_id)===String(m.campanha_id)&&inPeriod(r.dia,a,z)):[];
-    const verifiedResult=verified&&sent&&tracked&&(!shared||verifiedRows.length)?sum(verifiedRows):null;
+    const verifiedResult=verified&&sent&&tracked&&Number.isFinite(Date.parse(m.enviado_em))&&(!shared||verifiedRows.length)?sum(verifiedRows):null;
     return {...m,tracking_state:!tracked?'missing':[...tuples].some(k=>(plannedClaimants.get(k)?.size||0)>1)?'shared':'exclusive',in_period:sent&&inPeriod(day(m.enviado_em),a,z),future:!sent,shared,tracked,evidence_verified:verified,result:hasEvidence?(verified?verifiedResult:null):sent&&tracked&&exclusive.length?sum(uniqueMatches):null};
    }).sort((x,y)=>Number(x.future)-Number(y.future)||String(y.enviado_em||y.agendado_em).localeCompare(String(x.enviado_em||x.agendado_em)));
    v.sent=v.members.filter(m=>m.in_period).reduce((s,m)=>s+num(m.enviados),0);
