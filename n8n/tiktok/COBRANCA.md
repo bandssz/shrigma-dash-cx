@@ -34,27 +34,39 @@ depois disso. Cada toque tem texto próprio (`crm_tts_cobranca_modelo`, chave ma
 tentativa): o 1º oferece ajuda, o 2º pergunta o que falta, o 3º dá saída — "se não encaixou, eu tiro
 da sua vitrine".
 
-### Por que não é "infinito"
+### Por que não é "infinito" — e o que mudou em 18/09
 
-O Felipe pediu para tentar reativar indefinidamente. Duas razões para o teto existir, e a segunda é
-a que decide:
+O Felipe pediu para tentar reativar indefinidamente. Em 16/09 isso não era implementável porque a
+API parecia não ler mensagem. **Em 18/09 achei a família inteira de IM na documentação** (a busca do
+portal não indexa; o índice sai de `GET /api/v1/document/tree`): `Get Message in the Conversation`,
+`Get Conversation List`, `Get Latest Unread Messages`, webhook `New message listener`. Testado na
+Fishermans: a conversa com um criador voltou com as mensagens dele, `sender_id`, `create_time` e 7
+não lidas.
 
-1. **Não dá para saber se a pessoa respondeu.** Medido em 16/09: a API de mensagens devolve só o ID
-   da conversa. Não há leitura de mensagem (`GET` em `/messages` responde *Invalid method*), não há
-   contador de não-lidas, não há última mensagem. Ou seja, "se não responder, manda outra" não é
-   implementável — o sistema mandaria o 8º toque para quem respondeu no 1º e está conversando com a
-   Marcela agora. Isso é pior que não cobrar.
-2. **Insistir sem limite queima o canal.** É a caixa de entrada do criador dentro do TikTok, com o
-   nome da marca. Quem ignorou três mensagens não converte na oitava, mas pode denunciar.
+Então a régua agora é de verdade "se não respondeu, manda outra". Antes de cada toque o robô abre a
+conversa e olha as últimas 20 mensagens:
 
-O que o sistema **consegue** ver é melhor para o objetivo: se a pessoa **produziu**. Quem grava sai
-da fila sozinho na coleta seguinte, porque deixa de bater o critério. Então a régua não persegue
-quem já respondeu — ela para em quem entregou.
+| o que vê | o que faz | por quê |
+|---|---|---|
+| há mensagem **não lida** do criador (qualquer idade) | pula, motivo `respondeu` | pendência da loja: alguém precisa ler |
+| a última palavra é do criador, há ≤ 30 dias | pula, motivo `respondeu` | a bola está com a Marcela |
+| última palavra é do criador, há > 30 dias, já lida | **toca** | a conversa morreu; insistir vale |
+| alguém (loja ou criador) falou nos últimos 7 dias | pula, motivo `conversa_ativa` | não empilhar robô em conversa humana |
+| conversa nova ou parada | **toca** | |
 
-O teto é configurável no painel (`Toques`). Se quiser 6, é digitar 6. Recomendação: 3.
+Pulo vai para `crm_tts_cobranca_pulo` (uma linha por pessoa/etapa, estado mais recente) e **não
+consome tentativa**. Quem pulou por `respondeu` aparece no topo da aba Cobrança em "Responderam e
+estão esperando", com o trecho da última mensagem e quantas não lidas — isso virou a linha mais
+urgente da aba, porque é gente que já engajou e está sem resposta.
 
-**Reativação depois disso** não é insistir mais — é um gatilho novo. Quando o criador volta a pôr um
-produto na vitrine, ou entra numa campanha nova, ele aparece como alvo de novo com a régua zerada.
+Ensaio com os 30 alvos do dia (18/09, envio bloqueado no harness `cob_local.js`): 26 tocariam, 4
+pulariam — todos com mensagem não lida do criador, um deles um **link de vídeo pronto** que ninguém
+abriu (`fmshop2923`, 4 não lidas desde 11/08) e outro com o WhatsApp do criador (7 não lidas).
+
+O teto de toques continua (3, configurável), por segunda razão: **insistir sem limite queima o
+canal.** É a caixa de entrada do criador dentro do TikTok, com o nome da marca. Quem ignorou três
+mensagens não converte na oitava, mas pode denunciar. Quem produz sai da fila sozinho na coleta
+seguinte. **Reativação** depois do teto é gatilho novo (produto novo na vitrine, campanha nova).
 
 ## As travas
 
@@ -100,39 +112,27 @@ Lendo a simulação inteira, o que denuncia automação não é o texto — é o
    na vitrine — e isso só existe na família X. Denunciava que a mensagem era automática. A copy de
    vitrine agora não assume família de produto.
 
-## ⚠️ BLOQUEADO: a API não aceita o id de criador que temos (16/09/2026)
+## Destravado em 18/09: a versão 202508 aceita o open_id
 
-Primeiro disparo real rodou às 13h20 de 16/09. **As 30 falharam no primeiro passo e nenhum criador
-recebeu nada.** Erro, igual nas 30:
+Primeiro disparo real (16/09, 13h20) falhou nas 30 com `16032001 Invalid parameter CreatorId`: a
+`POST /affiliate_seller/202412/conversations` quer `creator_id` **numérico**, e nenhum payload que
+lemos tem esse número. Nenhum criador recebeu nada; log limpo, régua zerada.
 
-```
-abrir conversa: 16032001 Invalid parameter CreatorId, please ensure it is not empty.
-```
+A saída estava na própria doc, numa página que a busca do portal não acha:
+**`POST /affiliate_seller/202508/conversations`** (`Create Conversation with creator`) recebe
+`{creator_open_id, only_need_conversation_id:false}` e devolve `conversation_id`, `creator_im_id`,
+`is_new`, `unread_count`, `username`. Testado: `code 0`, `is_new:false` para um criador que já
+conversa com a Marcela pelo Seller Center. O envio continua em
+`POST /affiliate_seller/202412/conversations/{id}/messages` `{msg_type:'TEXT', content}`; a leitura em
+`GET /affiliate_seller/202412/conversation/{id}/messages?page_size=20` (singular, `conversation`).
 
-O `creator_open_id` chegou preenchido no log — não era campo vazio. O que a mensagem esconde é que
-`POST /conversations` quer um **id numérico**, e o `open_id` (formato `57KYwQAAAACtYGSlt419...`) é
-recusado como malformado. A prova está nos dois erros diferentes:
+Cota de outreach (`GET /affiliate_seller/202607/creator_outreach/quota`): as duas lojas voltam
+`unlimited:true`. Não há teto da plataforma para nós hoje; o teto é o nosso (15/dia/marca).
 
-| o que mandei | resposta |
-|---|---|
-| `creator_id` = open_id nosso | *Invalid parameter CreatorId, please ensure it is not empty* |
-| `creator_id` = `7000000000000000000` (19 dígitos) | *Cannot associate this creator and seller* |
-
-O segundo erro é de **relação**, ou seja o formato numérico passou na validação. O primeiro é de
-**formato**.
-
-E o id numérico não existe em nada que a gente consegue ler: o objeto `creator` de
-`sample_applications` traz `creator_open_id`, `username`, `nickname`, `follower_count`, `gmv`,
-`fulfillment_percentage` — e nenhum id numérico. `marketplace_creators/search` não existe em nenhuma
-versão testada (202309 a 202509).
-
-**Conclusão:** falta uma forma de resolver username/open_id → id numérico, e ela provavelmente mora
-atrás de um escopo que o app ainda não tem. Entra na fila junto com os outros escopos em análise.
-
-A cobrança ficou em `pausado` e o log foi limpo, então nenhuma tentativa foi consumida: quando
-destravar, todo mundo começa do toque 1.
-
-O resto da máquina está pronto e provado — régua, copy, tetos, painel. O que falta é um id.
+Outras APIs que apareceram no mesmo índice e valem fila: `Seller Search Creator on Marketplace`
+(202608), `Get Marketplace Creator Performance` (202608), `Get Open Collaboration Creator Content
+Detail` (202508), `Query Creator Promotion Details in Target Collaboration` (2026), webhook
+`New message listener` (33). O `sender_id` das mensagens é o `creator_im_id`, não o open_id.
 
 ## Para ligar
 
@@ -140,4 +140,5 @@ Na aba **Cobrança** do painel, no bloco "Ligar a cobrança": troca de `simulaç
 O botão pede confirmação com o texto "Enviar de verdade?" quando o clique liga o envio — é o único
 lugar do painel que fala com criador em nome da marca.
 
-Uma marca de cada vez, se preferir. O teto por dia fica no mesmo bloco.
+Uma marca de cada vez, se preferir. O teto por dia fica no mesmo bloco. O cron é dias úteis 13h20;
+para não esperar, `POST /webhook/tts-cobranca-4a9e7b {k}` roda na hora com a regra vigente.

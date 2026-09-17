@@ -39,6 +39,8 @@ vitrine AS (
             AND lower(split_part(c.nickname, ' ', 1)) NOT IN ('dicas','loja','shop','achados','cantinho',
               'clube','grupo','canal','oficial','mundo','casa','espaco','espaço','atelie','ateliê',
               'top','mega','super','style','moda','store','universo','reino','arte','arteira','liga','time')
+            -- e nome de gente nao carrega pedaco de marca/loja dentro ("Viralbox" passou pelo filtro acima em 18/09)
+            AND lower(split_part(c.nickname, ' ', 1)) !~ '(box|viral|shop|store|promo|ofert|achad|pesca|fish|tiktok|ofc|oficial|brasil|digital|online)'
            THEN ', ' || split_part(c.nickname, ' ', 1) ELSE '' END AS nome
     FROM crm_tts_convite c
     LEFT JOIN crm_tts_colaboracao co ON co.marca = c.marca AND co.colab_id = c.colab_id
@@ -62,6 +64,8 @@ amostra AS (
             AND lower(split_part(cr.nickname, ' ', 1)) NOT IN ('dicas','loja','shop','achados','cantinho',
               'clube','grupo','canal','oficial','mundo','casa','espaco','espaço','atelie','ateliê',
               'top','mega','super','style','moda','store','universo','reino','arte','arteira','liga','time')
+            -- e nome de gente nao carrega pedaco de marca/loja dentro ("Viralbox" passou pelo filtro acima em 18/09)
+            AND lower(split_part(cr.nickname, ' ', 1)) !~ '(box|viral|shop|store|promo|ofert|achad|pesca|fish|tiktok|ofc|oficial|brasil|digital|online)'
            THEN ', ' || split_part(cr.nickname, ' ', 1) ELSE '' END AS nome
     FROM crm_tts_amostra a
     LEFT JOIN crm_tts_criador cr ON cr.marca = a.marca AND cr.username = a.username

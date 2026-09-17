@@ -213,3 +213,16 @@ test('cache só serve na mesma janela e com menos de 24 h',()=>{
   assert.equal(TTS.cacheServe(null,'2026-08-18','2026-09-17',agora),false);
   assert.equal(TTS.cacheServe({em:'2026-09-17T12:00:00Z',ini:null,fim:null,payload:{}},null,null,agora),true,'janela padrão (null) casa com null');
 });
+test('cobrança: quem respondeu vem separado, ordenado por não lidas, e não conta como toque',()=>{
+  const P2={cobranca:[{marca:'fish',enviadas:3,falhas:0,simuladas:0}],cobranca_regra:[{marca:'fish',cobranca_modo:'ativo',cobranca_max_dia:15}],
+    cobranca_pendentes:[{marca:'fish',pendentes:40}],
+    cobranca_pulos:[{marca:'fish',username:'a',motivo:'respondeu',nao_lidas:0,ultima_msg_em:'2026-09-17T10:00:00Z'},
+                    {marca:'fish',username:'b',motivo:'respondeu',nao_lidas:7,ultima_msg_em:'2026-09-16T10:00:00Z'},
+                    {marca:'fish',username:'c',motivo:'conversa_ativa',nao_lidas:0},
+                    {marca:'aristo',username:'d',motivo:'respondeu',nao_lidas:1}]};
+  const f=TTS.cobranca(P2,'fish');
+  assert.deepEqual(f.responderam.map(x=>x.username),['b','a']);
+  assert.equal(f.naoLidas,7); assert.equal(f.conversasAtivas,1); assert.equal(f.enviadas,3);
+  assert.equal(TTS.cobranca(P2,'todas').responderam.length,3);
+  assert.equal(TTS.cobranca({}, 'fish').responderam.length,0);
+});

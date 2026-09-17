@@ -103,6 +103,11 @@ cob_fila AS (  -- as mensagens em si, para a Marcela ler antes de qualquer criad
   FROM crm_tts_cobranca ORDER BY dry_run DESC, enviado_em DESC LIMIT 200
 ),
 cob_regra AS (SELECT marca, cobranca_modo, cobranca_max_dia, cobranca_max_tentativas, cobranca_dias_entre FROM crm_tts_regra),
+cob_pulo AS (  -- quem o robô NÃO cobrou porque a conversa está viva: respondeu (bola com a Marcela) ou alguém falou há pouco
+  SELECT marca, etapa, username, tentativa, motivo, nao_lidas, ultima_msg_em, ultima_msg_de, ultimo_texto, visto_em
+  FROM crm_tts_cobranca_pulo WHERE visto_em > now() - interval '30 days'
+  ORDER BY (motivo = 'respondeu') DESC, nao_lidas DESC, ultima_msg_em DESC LIMIT 200
+),
 cob_pend AS (  -- quantos ainda faltam no total, independente do teto diário
   SELECT marca, count(*)::int AS pendentes FROM (
     SELECT marca, username FROM crm_tts_convite
@@ -179,6 +184,7 @@ SELECT jsonb_build_object(
   'cobranca_fila', COALESCE((SELECT jsonb_agg(to_jsonb(f)) FROM cob_fila f), '[]'),
   'cobranca_regra', COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM cob_regra r), '[]'),
   'cobranca_pendentes', COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM cob_pend p), '[]'),
+  'cobranca_pulos', COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM cob_pulo p), '[]'),
   'kpis', COALESCE((SELECT jsonb_agg(to_jsonb(k)) FROM kpi k), '[]'),
   'amostras', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM amo a), '[]'),
   'regra', COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM regra r), '[]'),

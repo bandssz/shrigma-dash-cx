@@ -64,9 +64,13 @@
       const c = TTS.filtra(p.cobranca || [], marca);
       const r = TTS.filtra(p.cobranca_regra || [], marca);
       const pend = TTS.filtra(p.cobranca_pendentes || [], marca);
+      const pulos = TTS.filtra(p.cobranca_pulos || [], marca);
       const soma = (a, k) => a.reduce((t, x) => t + (Number(x[k]) || 0), 0);
       const modos = [...new Set(r.map(x => x.cobranca_modo))];
+      // quem respondeu está esperando gente, não robô: é a linha mais urgente da aba
+      const responderam = pulos.filter(x => x.motivo === 'respondeu').sort((a, b) => (+b.nao_lidas || 0) - (+a.nao_lidas || 0) || String(b.ultima_msg_em).localeCompare(String(a.ultima_msg_em)));
       return {
+        responderam, naoLidas: soma(responderam, 'nao_lidas'), conversasAtivas: pulos.filter(x => x.motivo === 'conversa_ativa').length,
         enviadas: soma(c, 'enviadas'), falhas: soma(c, 'falhas'), simuladas: soma(c, 'simuladas'),
         pendentes: soma(pend, 'pendentes'),
         tetoDia: soma(r, 'cobranca_max_dia'),
@@ -385,8 +389,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderCobranca() {
     const m = marcaAtual(), c = TTS.cobranca(DADOS, m);
     const fila = TTS.filtra(DADOS.cobranca_fila || [], m);
-    if (!fila.length && !c.pendentes) { $('#tts-area').innerHTML = '<div class="vazio">Ninguém devendo conteúdo agora.</div>'; return; }
+    if (!fila.length && !c.pendentes && !c.responderam.length) { $('#tts-area').innerHTML = '<div class="vazio">Ninguém devendo conteúdo agora.</div>'; return; }
     const ETAPA = { vitrine_sem_video: 'Pôs na vitrine, não gravou', amostra_sem_video: 'Recebeu amostra, não postou' };
+    // Responderam: o robô parou de propósito — a próxima palavra é da Marcela, no Seller Center.
+    let topo = '';
+    if (c.responderam.length) topo = `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Responderam e estão esperando <span class="tag alerta">${c.responderam.length}</span></h3>
+        <span class="mini" title="o robô leu a conversa antes de cobrar e parou: a última mensagem é do criador. Responder é no chat do Seller Center.">${c.naoLidas ? c.naoLidas + ' mensagens sem ler · ' : ''}robô não cobra quem respondeu</span></div>
+      <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Criador</th><th>Devia</th><th class="num" title="mensagens do criador que ninguém da loja abriu">Sem ler</th><th>Última mensagem</th><th>Quando</th></tr></thead><tbody>
+      ${dobra(c.responderam.map(x => `<tr><td>${tag(x.marca)}</td><td>@${esc(x.username)}</td><td class="mini">${esc(ETAPA[x.etapa] || x.etapa)}</td>
+        <td class="num tabn">${+x.nao_lidas ? `<span class="vm">${nf(x.nao_lidas)}</span>` : '—'}</td>
+        <td class="msg" title="${esc(x.ultimo_texto || '')}">${esc(x.ultimo_texto || '')}</td><td class="mini tabn">${dt(x.ultima_msg_em)}</td></tr>`), 10, 'todos')}</tbody></table></div>`;
     const linhas = fila.map(x => `<tr>
       <td>${tag(x.marca)}</td>
       <td>@${esc(x.username)}</td>
@@ -394,19 +406,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <td class="num tabn" title="toque ${x.tentativa} da régua">${x.tentativa || 1}</td>
       <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
       <td class="msg" title="${esc(x.texto || '')}">${esc((x.texto || '').split('\n')[0])}</td>
-      <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`).join('');
-    $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo">
+      <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`);
+    $('#tts-area').innerHTML = topo + `${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : ''}<div class="rolagem"><table class="comparativo">
       <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num" title="qual toque da régua">Toque</th>
         <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
         <th>Mensagem <span class="mini">passe o mouse para ler inteira</span></th><th>Quando</th></tr></thead>
-      <tbody>${linhas}</tbody></table></div>
+      <tbody>${dobra(linhas, 12, 'todos os toques')}</tbody></table></div>
       <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Ligar a cobrança</h3>
         <span class="mini">${c.modo === 'ativo' ? `até ${c.tetoDia} por dia · ${c.pendentes} na fila`
           : `${c.simuladas} prontas, nenhuma enviada · ${c.pendentes} devendo conteúdo`}</span></div>
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Cobrança</th><th class="num">Máx/dia</th><th class="num" title="quantas vezes cobrar a mesma pessoa">Toques</th><th class="num" title="dias entre um toque e o próximo">Intervalo</th><th></th></tr></thead><tbody>
       ${TTS.filtra(DADOS.cobranca_regra || [], m).map(r => `<tr data-marca="${esc(r.marca)}">
         <td>${tag(r.marca)}</td>
-        <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="simulação grava a mensagem e não envia nada; ativo envia de verdade, respeitando o teto">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
+        <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="simulação grava a mensagem e não envia nada; ativo envia de verdade, respeitando o teto — e lê a conversa antes: quem respondeu ou está conversando não recebe robô">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="5" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_tentativas" value="${esc(r.cobranca_max_tentativas)}" step="1" min="1" style="width:80px" title="quantas vezes cobrar a mesma pessoa antes de parar"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_dias_entre" value="${esc(r.cobranca_dias_entre)}" step="1" min="1" style="width:80px" title="dias de espera entre um toque e o próximo"></td>
@@ -423,6 +435,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         await carregarTTS();
       });
     });
+    ligarDobras();
   }
 
   // Aba Canal: a loja inteira (Shop Analytics), para responder "quanto do que vendemos veio de afiliado,

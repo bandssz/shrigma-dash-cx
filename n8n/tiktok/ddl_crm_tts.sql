@@ -506,3 +506,27 @@ FROM tot t
 LEFT JOIN fat f ON f.marca = t.marca AND f.dia = t.dia
 LEFT JOIN afi a ON a.marca = t.marca AND a.dia = t.dia
 LEFT JOIN crm_tts_canal_custo c ON c.marca = t.marca AND c.dia = t.dia;
+
+-- ============================================================
+-- v5 (18/09/2026) — COBRANÇA destravada: /affiliate_seller/202508/conversations aceita creator_open_id
+-- (a 202412 exigia id numérico que nenhum payload nosso tem). E a API LÊ a conversa
+-- (GET /202412/conversation/{id}/messages), então "se não respondeu, manda outra" virou implementável:
+-- antes de cada toque o robô olha a conversa e PULA quando (a) a última palavra é do criador — a bola
+-- está com a Marcela — ou (b) alguém falou nos últimos N dias (conversa humana em andamento).
+-- Pulo não consome tentativa da régua: fica nesta tabela, uma linha por pessoa/etapa (estado mais recente).
+CREATE TABLE IF NOT EXISTS crm_tts_cobranca_pulo (
+  marca            text NOT NULL,
+  etapa            text NOT NULL,
+  username         text NOT NULL,
+  tentativa        integer,                 -- o toque que seria dado
+  motivo           text NOT NULL,           -- respondeu | conversa_ativa
+  conversation_id  text,
+  creator_im_id    text,
+  nao_lidas        integer DEFAULT 0,       -- mensagens do criador que ninguém da loja leu
+  ultima_msg_em    timestamptz,
+  ultima_msg_de    text,                    -- criador | loja
+  ultimo_texto     text,                    -- primeiro trecho da última mensagem, para a Marcela bater o olho
+  visto_em         timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, etapa, username)
+);
+ALTER TABLE crm_tts_cobranca ADD COLUMN IF NOT EXISTS creator_im_id text;
