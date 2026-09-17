@@ -74,6 +74,41 @@
         modo: modos.length === 1 ? modos[0] : (modos.length ? 'misto' : null),
       };
     },
+    // Canal (Shop Analytics): a loja inteira por dia, não só afiliado. Soma as marcas quando a visão é 'todas'.
+    // Regra de leitura: gmv_afiliado vem dos pedidos de afiliado (crm_tts_pedido); live/vídeo/vitrine vem da
+    // plataforma. São cortes DIFERENTES do mesmo GMV — uma live de afiliado conta nos dois. Não somar entre cortes.
+    canal(p, marca, hoje) {
+      const dias = TTS.filtra(p.canal || [], marca);
+      const tot = TTS.filtra(p.canal_total || [], marca);
+      const soma = k => TTS.soma(tot, k);
+      const gmv = soma('gmv'), ped = soma('pedidos'), vis = soma('visitantes');
+      const pct = v => gmv > 0 ? 100 * v / gmv : null;
+      // série por dia somando marcas (quando 'todas'); cada dia vira 1 barra empilhada por superfície
+      const porDia = {};
+      for (const d of dias) {
+        const k = String(d.dia).slice(0, 10);
+        const x = porDia[k] || (porDia[k] = { dia: k, gmv: 0, live: 0, video: 0, vitrine: 0, afiliado: 0, proprio: 0, ads: 0, pedidos: 0, visitantes: 0, reembolso: 0 });
+        x.gmv += +d.gmv || 0; x.live += +d.gmv_live || 0; x.video += +d.gmv_video || 0; x.vitrine += +d.gmv_vitrine || 0;
+        x.afiliado += +d.gmv_afiliado || 0; x.proprio += +d.gmv_proprio || 0; x.ads += +d.gmv_ads || 0;
+        x.pedidos += +d.pedidos || 0; x.visitantes += +d.visitantes || 0; x.reembolso += +d.reembolso || 0;
+      }
+      const serie = Object.values(porDia).sort((a, b) => a.dia < b.dia ? -1 : 1);
+      const h = hoje || new Date().toISOString().slice(0, 10);
+      for (const x of serie) { x.parcial = x.dia >= h; x.pctAfiliado = x.gmv > 0 ? 100 * x.afiliado / x.gmv : null; x.conversao = x.visitantes > 0 ? 100 * x.pedidos / x.visitantes : null; }
+      const melhor = serie.reduce((m, x) => (!m || x.gmv > m.gmv ? x : m), null);
+      return {
+        temDados: tot.length > 0, dias: serie.length,
+        gmv, pedidos: ped, visitantes: vis, reembolso: soma('reembolso'),
+        live: soma('gmv_live'), video: soma('gmv_video'), vitrine: soma('gmv_vitrine'),
+        afiliado: soma('gmv_afiliado'), proprio: soma('gmv_proprio'), ads: soma('gmv_ads'),
+        pctLive: pct(soma('gmv_live')), pctVideo: pct(soma('gmv_video')), pctVitrine: pct(soma('gmv_vitrine')),
+        pctAfiliado: pct(soma('gmv_afiliado')), pctAds: pct(soma('gmv_ads')),
+        conversao: vis > 0 ? 100 * ped / vis : null, ticket: ped > 0 ? gmv / ped : null,
+        serie, melhorDia: melhor,
+        lives: TTS.filtra(p.lives || [], marca).slice().sort((a, b) => (+b.gmv || 0) - (+a.gmv || 0) || String(b.inicio_em).localeCompare(String(a.inicio_em))),
+        videos: TTS.filtra(p.videos || [], marca).slice().sort((a, b) => (+b.gmv || 0) - (+a.gmv || 0)),
+      };
+    },
     // Estado da autorização da loja. Sem linha em crm_tts_token a loja nunca foi (re)autorizada desde que
     // passamos a guardar o refresh token no banco — e é isso que prende os escopos novos (analytics do canal).
     autorizacao(p, marca, agora) {
@@ -248,7 +283,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const m = marcaAtual();
     const n = { fila: TTS.filtra(DADOS.fila, m).length, criadores: TTS.filtra(DADOS.criadores, m).length, colabs: TTS.filtra(DADOS.target, m).length + TTS.filtra(DADOS.open, m).length, cobranca: TTS.cobranca(DADOS, m).pendentes };
     document.querySelectorAll('#tts-abas button').forEach(b => { b.classList.toggle('ativo', b.dataset.p === PANE); const s = b.querySelector('.n'); if (s) s.textContent = n[b.dataset.p] ?? ''; });
-    ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, cobranca: renderCobranca, regras: renderRegras })[PANE]();
+    ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, cobranca: renderCobranca, canal: renderCanal, regras: renderRegras })[PANE]();
   }
 
   function renderFila() {
@@ -364,6 +399,88 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         await carregarTTS();
       });
     });
+  }
+
+  // Aba Canal: a loja inteira (Shop Analytics), para responder "quanto do que vendemos veio de afiliado,
+  // de live, de vídeo, de ads?" — e para ver o que uma live faz com o dia.
+  function renderCanal() {
+    const m = marcaAtual(), c = TTS.canal(DADOS, m), j = DADOS.janela || {};
+    if (!c.temDados) { $('#tts-area').innerHTML = '<div class="vazio"><strong>Sem dado de canal nesta janela.</strong><br>O coletor de canal roda às 04:10 e depende do escopo Shop Analytics em cada loja — veja a faixa de autorização no topo.</div>'; return; }
+    const pctOu = (v, d) => v === null ? '—' : pf(v, d ?? 0);
+    const cards = [
+      { r: 'GMV da loja', v: rf(c.gmv), s: `${nf(c.pedidos)} pedidos · ticket ${rf(c.ticket)} · ${j.ini} a ${j.fim}`, t: 'GMV total da loja no TikTok Shop (plataforma), todas as origens' },
+      { r: 'Veio de afiliado', v: pctOu(c.pctAfiliado), s: `${rf(c.afiliado)} afiliado · ${rf(c.proprio)} próprio`, t: 'GMV dos pedidos com criador afiliado (crm_tts_pedido) sobre o GMV total da loja' },
+      { r: 'Live · Vídeo · Vitrine', v: `${pctOu(c.pctLive)} <span class="mini">live</span>`, s: `${pctOu(c.pctVideo)} vídeo · ${pctOu(c.pctVitrine)} vitrine/link`, t: 'corte da plataforma por tipo de conteúdo que gerou o pedido — inclui lives e vídeos de afiliados' },
+      { r: 'GMV Max (ads TikTok)', v: pctOu(c.pctAds, 1), s: c.ads ? `${rf(c.ads)} com ads da própria TikTok` : 'sem GMV Max na janela', t: 'parte da receita bruta que a plataforma marca como GMV Max' },
+      { r: 'Conversão', v: pctOu(c.conversao, 2), s: `${nf(c.visitantes)} visitantes · reembolso ${rf(c.reembolso)}`, t: 'pedidos / visitantes únicos da loja (plataforma)' },
+    ];
+    let html = `<section class="kpis tts-kpis">${cards.map(x => `<div class="kpi" title="${esc(x.t)}"><div class="kpi-rot">${x.r}</div><div class="kpi-val tabn">${x.v}</div><div class="kpi-sub">${x.s}</div></div>`).join('')}</section>`;
+
+    // barras empilhadas por dia (live / vídeo / vitrine) — SVG inline, sem biblioteca
+    html += graficoCanal(c.serie);
+
+    // lives
+    const lv = c.lives;
+    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Lives no período <span class="tag nulo">${lv.length}</span></h3><span class="mini">da loja e de afiliados · ordenadas por venda</span></div>`;
+    if (!lv.length) html += '<div class="vazio">Nenhuma live no período.</div>';
+    else html += `<div class="rolagem"><table class="comparativo"><thead><tr>
+      <th>Quando</th><th>Marca</th><th>Quem</th><th class="num" title="minutos ao vivo">Duração</th>
+      <th class="num" title="espectadores únicos">Espectadores</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
+      <th class="num" title="pedidos / cliques em produto">Clique→pedido</th><th class="num">Pedidos</th><th class="num">GMV</th>
+      <th class="num" title="GMV atribuído nas 24 h após a live (a plataforma fecha isso com atraso)">GMV 24 h</th><th class="num">Seguidores</th></tr></thead><tbody>
+      ${lv.slice(0, 60).map(l => `<tr>
+        <td class="tabn">${dtHora(l.inicio_em)}</td><td>${tag(l.marca)}</td>
+        <td><div class="nome">${l.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(l.username || '—')}</div>${l.titulo ? `<span class="mini" title="${esc(l.titulo)}">${esc(String(l.titulo).slice(0, 40))}</span>` : ''}</td>
+        <td class="num tabn">${l.duracao_min !== null && l.duracao_min !== undefined ? nf(l.duracao_min) + ' min' : '—'}</td>
+        <td class="num tabn">${nf(l.espectadores)}</td><td class="num tabn">${pctOu(l.ctr_pct === null || l.ctr_pct === undefined ? null : +l.ctr_pct, 1)}</td>
+        <td class="num tabn">${pctOu(l.clique_pedido_pct === null || l.clique_pedido_pct === undefined ? null : +l.clique_pedido_pct, 1)}</td>
+        <td class="num tabn">${nf(l.pedidos)}</td><td class="num tabn"><b>${rf(l.gmv)}</b></td>
+        <td class="num tabn">${l.gmv_24h === null || l.gmv_24h === undefined ? '<span class="mini" title="a plataforma ainda não fechou as 24 h">…</span>' : rf(l.gmv_24h)}</td>
+        <td class="num tabn">${l.novos_seguidores ? '+' + nf(l.novos_seguidores) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+
+    // vídeos (retrato 30 dias)
+    const vd = c.videos, retrato = vd[0] ? dt(vd[0].retrato_em) : null;
+    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Vídeos que venderam <span class="tag nulo">${vd.length}</span></h3><span class="mini" title="a plataforma devolve o acumulado dos últimos 30 dias, não por dia — este bloco não segue o período">últimos 30 dias · retrato de ${retrato || '—'}</span></div>`;
+    if (!vd.length) html += '<div class="vazio">Nenhum vídeo com venda nos últimos 30 dias.</div>';
+    else html += `<div class="rolagem"><table class="comparativo"><thead><tr>
+      <th>#</th><th>Criador</th><th>Marca</th><th>Vídeo</th><th class="num">Publicado</th><th class="num">Views</th>
+      <th class="num" title="cliques em produto / views">CTR</th><th class="num">Pedidos</th><th class="num">GMV</th><th class="num" title="GMV por mil views — o rendimento do vídeo">GPM</th></tr></thead><tbody>
+      ${vd.slice(0, 50).map((v, i) => `<tr><td class="tabn">${i + 1}</td>
+        <td>${v.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(v.username || '—')}</td><td>${tag(v.marca)}</td>
+        <td class="tts-prod" title="${esc(v.titulo || '')}">${esc(String(v.titulo || '—').slice(0, 60))}${(v.titulo || '').length > 60 ? '…' : ''}${v.duracao_s ? ` <span class="mini">${v.duracao_s}s</span>` : ''}</td>
+        <td class="num tabn">${dt(v.publicado_em)}</td><td class="num tabn">${nf(v.visualizacoes)}</td>
+        <td class="num tabn">${pctOu(v.ctr_pct === null || v.ctr_pct === undefined ? null : +v.ctr_pct, 1)}</td>
+        <td class="num tabn">${nf(v.pedidos)}</td><td class="num tabn"><b>${rf(v.gmv)}</b></td><td class="num tabn">${rf(v.gpm)}</td></tr>`).join('')}</tbody></table></div>`;
+    html += `<div class="nota">Fonte: Shop Analytics da plataforma (coletor das 04:10, com ~1 dia de atraso; o dia de hoje é parcial). <strong>Afiliado</strong> e <strong>live/vídeo/vitrine</strong> são cortes diferentes do mesmo GMV — uma live de afiliado conta nos dois. Custo de ads ainda não entra: o app não tem a API de Ads.</div>`;
+    $('#tts-area').innerHTML = html;
+  }
+  const dtHora = iso => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  // Barras empilhadas por dia. Cores fixas por superfície; barra com contorno = dia parcial (hoje).
+  function graficoCanal(serie) {
+    if (!serie.length) return '';
+    const W = 960, H = 190, PAD = { l: 44, r: 8, t: 10, b: 26 };
+    const max = Math.max(1, ...serie.map(x => x.gmv));
+    const iw = (W - PAD.l - PAD.r) / serie.length, bw = Math.max(2, iw * 0.68);
+    const y = v => PAD.t + (H - PAD.t - PAD.b) * (1 - v / max);
+    const COR = { live: '#c0392b', video: '#2c6fbb', vitrine: '#9aa5b1' };
+    const passo = Math.max(1, Math.ceil(serie.length / 12));
+    let g = '';
+    for (const t of [0.5, 1]) g += `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y(max * t)}" y2="${y(max * t)}" stroke="#e6e2dc"/><text x="${PAD.l - 6}" y="${y(max * t) + 4}" text-anchor="end" font-size="10" fill="#888">${Math.round(max * t / 1000 * 10) / 10}k</text>`;
+    serie.forEach((x, i) => {
+      const cx = PAD.l + iw * i + (iw - bw) / 2; let base = 0;
+      const title = `${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)} · R$ ${Math.round(x.gmv).toLocaleString('pt-BR')} · live ${Math.round(x.live)} · vídeo ${Math.round(x.video)} · vitrine ${Math.round(x.vitrine)} · afiliado ${x.pctAfiliado === null ? '—' : Math.round(x.pctAfiliado) + '%'}${x.parcial ? ' · parcial' : ''}`;
+      g += `<g><title>${esc(title)}</title>`;
+      for (const k of ['vitrine', 'video', 'live']) {
+        const v = x[k] || 0; if (v <= 0) continue;
+        g += `<rect x="${cx.toFixed(1)}" y="${y(base + v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(base) - y(base + v)).toFixed(1)}" fill="${COR[k]}" ${x.parcial ? 'opacity=".45"' : ''}/>`;
+        base += v;
+      }
+      if (i % passo === 0) g += `<text x="${(cx + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#777">${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)}</text>`;
+      g += '</g>';
+    });
+    const leg = Object.entries({ live: 'Live', video: 'Vídeo', vitrine: 'Vitrine / link' }).map(([k, r]) => `<span class="mini"><span style="display:inline-block;width:10px;height:10px;background:${COR[k]};border-radius:2px;vertical-align:-1px;margin-right:4px"></span>${r}</span>`).join(' &nbsp; ');
+    return `<div class="painel-cab" style="margin-top:6px"><h3 style="margin:0">GMV por dia e por tipo de conteúdo</h3><span>${leg}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block" role="img" aria-label="GMV por dia">${g}</svg>`;
   }
 
   function renderRegras() {

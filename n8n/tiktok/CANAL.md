@@ -61,10 +61,58 @@ superfície seria inventar atribuição que a plataforma não entrega.
 
 ## Status
 
-Tabelas criadas no banco (15/09). O coletor ainda **não** existe: `/analytics/*` responde `105005`
-até as duas lojas serem reautorizadas — ver [REAUTORIZAR.md](REAUTORIZAR.md). Assim que a autorização
-entrar, eu leio o formato real das respostas e escrevo o coletor em cima do que a API devolve de
-verdade, em vez de adivinhar o shape.
+**Rodando desde 17/09/2026.** Escopo `data.shop_analytics.public.read` entrou nas duas lojas depois da
+submissão do app (o gate real era a ficha "Teste de produtos" no Partner Center, não a reautorização).
+
+### O que a API entrega de verdade (medido em 17/09)
+
+- `GET /analytics/202509/shop/performance` com `granularity=1D`: 1 intervalo por dia (`start_date`,
+  `end_date` exclusivo). Traz **GMV por tipo de conteúdo** (LIVE / VIDEO / PRODUCT_CARD), receita bruta
+  com % GMV_MAX × NON_GMV_MAX, pedidos, sku_orders, itens, compradores, reembolso, visitantes, page views
+  e conversão. **Não separa afiliado × próprio** — essa fatia sai de `crm_tts_pedido`, na view.
+  Janela máxima ~30 dias por chamada; `latest_available_date` fica ~1 dia atrás, mas o dia anterior já
+  vem com dado quase fechado.
+- `GET /analytics/202509/shop_lives/performance`: **por sessão**, e inclui lives de afiliados vendendo a
+  loja (username ≠ conta da loja). Venda (gmv, sku_orders, customers, avg_price, click_to_order_rate,
+  24h_live_gmv = -1 enquanto não fecha) e interação (viewers, views, product_clicks, impressions, CTR,
+  likes, comments, new_followers, avg_viewing_duration) — interação só vem para lives da própria loja.
+  Ordenada por GMV desc; a cauda é dezenas de lives de afiliado com zero venda.
+- `GET /analytics/202509/shop_videos/performance`: **acumulado da janela**, não por dia. ~940 vídeos em
+  30 dias na Fishermans, ~400 no Aristocrata; guardamos o retrato diário do top 200 por GMV
+  (`dia` = latest_available_date, `janela_dias` = 30). Traz gmv, gpm, sku_orders, views, CTR, duração,
+  produtos e hashtags.
+
+### Como ficou gravado (DDL v4)
+
+- `crm_tts_canal_dia`: linhas do analytics têm `origem = 'todos'`. A linha `superficie = 'total'` carrega
+  as métricas do dia inteiro; `live` / `video` / `vitrine` carregam **só o GMV da fatia**. A view
+  `crm_tts_canal_v` lê cada coisa do lugar certo — somar `gmv` de todas as linhas dobraria o total.
+  `gmv_ads` = receita bruta × % GMV Max.
+- `crm_tts_live_dia` (PK marca, live_id) e `crm_tts_video_dia` (PK marca, dia, video_id): `origem`
+  é `proprio` quando o username é a conta da loja (`oaristocrata.com`, `fishermans.com.br`), senão
+  `afiliado`. `gmv_24h` só é sobrescrito quando a API já devolve valor (COALESCE no upsert).
+- Coletor: workflow **"TikTok Shop - Coletor de canal"** (`ssS3VeOOGV80LkrX`), cron 04:10 BRT, janela
+  rolante de 7 dias (o upsert corrige o dia anterior). Backfill: `POST /webhook/tts-canal-5e1b9c3a7f24`
+  `{k, dias}` (fatias de 30 dias). Log em `crm_tts_coleta_log` com fonte `canal_dia` / `canal_live` /
+  `canal_video`. Backfill de 90 dias feito em 17/09.
+- Painel: aba **Canal** em influs.html (`TTS.canal` em influs-tts.js; payload `canal`, `canal_total`,
+  `lives`, `videos` da API do painel).
+
+### Primeira leitura (31 dias até 17/09)
+
+Fishermans: R$ 14,5 mil de GMV, 52% via afiliado, 56% vídeo · 29% vitrine · 15% live, 20% GMV Max.
+A live da loja em 16/09 (12:06–13:47, 1.305 espectadores, CTR 4,1%, clique→pedido 2,4%) fez R$ 762 —
+o dia fechou em R$ 1.359, o melhor da janela, 78% via live. Aristocrata: R$ 5,5 mil, 23% via afiliado,
+74% vitrine, sem GMV Max, conversão 0,15% sobre 37,7 mil visitantes (Fishermans: 1,55% sobre 8,3 mil).
+
+### Pendências
+
+- **Custo de ads continua fora** (`crm_tts_canal_custo` manual, vazio). ROAS blended só quando o app tiver
+  a API de Ads ou alguém lançar o custo.
+- `gmv_24h` das lives de 16/09 ainda -1 na API; o cron das 04:10 completa.
+- `crm_tts_token.granted_scopes` da Fishermans ficou com 5 escopos na captura de 14:44 enquanto a API já
+  devolvia 9 — por isso `escopos_faltando` na API do painel passou a ser **medido** (sonda `ok` ou coleta
+  de canal OK depois da última autorização), não deduzido do array gravado.
 
 ## Fontes
 

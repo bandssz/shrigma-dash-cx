@@ -424,3 +424,85 @@ ALTER TABLE crm_tts_cobranca_modelo ADD PRIMARY KEY (marca, etapa, tentativa);
 -- quantas tentativas no máximo e quantos dias entre elas. Ver COBRANCA.md sobre por que não é infinito.
 ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_max_tentativas integer NOT NULL DEFAULT 3;
 ALTER TABLE crm_tts_regra ADD COLUMN IF NOT EXISTS cobranca_dias_entre integer NOT NULL DEFAULT 7;
+
+-- ============================================================
+-- v4 (17/09/2026) — CANAL, ajustado ao formato REAL da API (escopo liberado em 17/09).
+-- O que a API entrega por dia (/analytics/202509/shop/performance, granularity=1D):
+--   gmv por TIPO DE CONTEÚDO (LIVE | VIDEO | PRODUCT_CARD), receita bruta com % GMV_MAX x NON_GMV_MAX,
+--   pedidos, sku_orders, itens, compradores, reembolso, visitantes, page views, conversão.
+-- Ela NÃO separa afiliado x próprio. Essa fatia vem de crm_tts_pedido (pedidos de afiliado), na view.
+-- Por isso: origem = 'todos' nas linhas do analytics; superficie 'total' carrega as métricas do dia
+-- inteiro, e live/video/vitrine carregam só o GMV da fatia. A view soma certo porque lê cada coisa
+-- do lugar certo — somar gmv de todas as linhas dobraria o total.
+ALTER TABLE crm_tts_canal_dia ADD COLUMN IF NOT EXISTS visitantes     integer DEFAULT 0;
+ALTER TABLE crm_tts_canal_dia ADD COLUMN IF NOT EXISTS receita_bruta  numeric(12,2) DEFAULT 0;
+ALTER TABLE crm_tts_canal_dia ADD COLUMN IF NOT EXISTS gmv_max_pct    numeric(6,2)  DEFAULT 0;  -- % da receita via GMV Max (ads da própria TikTok)
+ALTER TABLE crm_tts_canal_dia ADD COLUMN IF NOT EXISTS conversao_pct  numeric(6,3)  DEFAULT 0;
+ALTER TABLE crm_tts_canal_dia ADD COLUMN IF NOT EXISTS sku_pedidos    integer DEFAULT 0;
+
+-- lives: a API entrega por SESSÃO, com interação e venda. Colunas novas para não jogar dado fora.
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS fim_em            timestamptz;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS ticket_medio      numeric(12,2);
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS ctr_pct           numeric(6,2);   -- cliques em produto / impressões
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS clique_pedido_pct numeric(6,2);   -- pedidos / cliques
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS curtidas          integer DEFAULT 0;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS comentarios       integer DEFAULT 0;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS novos_seguidores  integer DEFAULT 0;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS impressoes_produto integer DEFAULT 0;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS tempo_medio_s     integer;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS gmv_24h           numeric(12,2);  -- GMV nas 24h após a live; NULL enquanto a API devolve -1
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS compradores       integer DEFAULT 0;
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS produtos_vendidos integer DEFAULT 0;
+
+-- vídeos: a API devolve o acumulado da JANELA pedida, não por dia. Guardamos um retrato diário dos
+-- 30 dias anteriores (top 200 por GMV); 'dia' é a data do retrato (latest_available_date).
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS gpm          numeric(12,2);   -- GMV por mil views
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS ctr_pct      numeric(6,2);
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS duracao_s    integer;
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS produtos     jsonb;
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS hashtags     text[];
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS compradores  integer DEFAULT 0;
+ALTER TABLE crm_tts_video_dia ADD COLUMN IF NOT EXISTS janela_dias  integer DEFAULT 30;
+
+-- view refeita para o formato real: métricas do dia vêm da linha 'total', fatias de GMV das outras.
+-- CREATE OR REPLACE nao muda tipo de coluna da view (gmv era numeric na v2, agora numeric(12,2)): derruba antes.
+DROP VIEW IF EXISTS crm_tts_canal_v;
+CREATE OR REPLACE VIEW crm_tts_canal_v AS
+WITH tot AS (
+  SELECT marca, dia, gmv, receita_bruta, gmv_max_pct, gmv_ads, pedidos, sku_pedidos, unidades, compradores,
+         reembolso, visitantes, visualizacoes AS page_views, conversao_pct
+  FROM crm_tts_canal_dia WHERE superficie = 'total'
+),
+fat AS (
+  SELECT marca, dia,
+         sum(gmv) FILTER (WHERE superficie = 'live')    AS gmv_live,
+         sum(gmv) FILTER (WHERE superficie = 'video')   AS gmv_video,
+         sum(gmv) FILTER (WHERE superficie = 'vitrine') AS gmv_vitrine
+  FROM crm_tts_canal_dia WHERE superficie <> 'total' GROUP BY 1,2
+),
+afi AS (  -- fatia de afiliado no dia, vinda dos pedidos de afiliado (a API de analytics não separa)
+  SELECT marca, dia, round(sum(COALESCE(base_real, base_estimada, 0)), 2) AS gmv_afiliado,
+         count(DISTINCT order_id)::int AS pedidos_afiliado
+  FROM crm_tts_pedido WHERE COALESCE(settlement_status,'') <> 'INELIGIBLE' GROUP BY 1,2
+)
+SELECT t.marca, t.dia, t.gmv, t.receita_bruta, t.gmv_max_pct, t.gmv_ads,
+       t.gmv - COALESCE(t.gmv_ads, 0)                                      AS gmv_organico,
+       f.gmv_live, f.gmv_video, f.gmv_vitrine,
+       COALESCE(a.gmv_afiliado, 0)                                          AS gmv_afiliado,
+       GREATEST(t.gmv - COALESCE(a.gmv_afiliado, 0), 0)                     AS gmv_proprio,
+       t.pedidos, t.sku_pedidos, t.unidades, t.compradores, t.reembolso,
+       t.visitantes, t.page_views, t.conversao_pct,
+       COALESCE(c.custo_ads, 0)                                             AS custo_ads,
+       c.fonte                                                              AS custo_fonte,
+       round(t.gmv / NULLIF(t.pedidos, 0), 2)                               AS ticket_medio,
+       round(t.gmv / NULLIF(c.custo_ads, 0), 2)                             AS roas_blended,
+       round(100.0 * (t.gmv - COALESCE(t.gmv_ads,0)) / NULLIF(t.gmv, 0), 1) AS pct_organico,
+       round(100.0 * COALESCE(a.gmv_afiliado, 0) / NULLIF(t.gmv, 0), 1)     AS pct_afiliado,
+       round(100.0 * COALESCE(f.gmv_live, 0) / NULLIF(t.gmv, 0), 1)         AS pct_live,
+       round(100.0 * COALESCE(f.gmv_video, 0) / NULLIF(t.gmv, 0), 1)        AS pct_video,
+       round(100.0 * COALESCE(f.gmv_vitrine, 0) / NULLIF(t.gmv, 0), 1)      AS pct_vitrine,
+       round(100.0 * t.reembolso / NULLIF(t.gmv, 0), 1)                     AS pct_reembolso
+FROM tot t
+LEFT JOIN fat f ON f.marca = t.marca AND f.dia = t.dia
+LEFT JOIN afi a ON a.marca = t.marca AND a.dia = t.dia
+LEFT JOIN crm_tts_canal_custo c ON c.marca = t.marca AND c.dia = t.dia;

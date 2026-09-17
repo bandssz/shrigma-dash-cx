@@ -62,6 +62,34 @@ colab_target AS (
   FROM crm_tts_colaboracao WHERE ativo AND tipo='target' GROUP BY 1,2,3,4,5,6,7,8
 ),
 serie AS (SELECT marca, dia, round(sum(gmv),2) AS gmv, count(DISTINCT order_id)::int AS pedidos FROM ped GROUP BY 1,2),
+canal AS (  -- Canal (Shop Analytics) na janela: total da loja por dia, fatia por superfície e por origem
+  SELECT v.marca, v.dia, v.gmv, v.gmv_live, v.gmv_video, v.gmv_vitrine, v.gmv_afiliado, v.gmv_proprio, v.gmv_ads, v.gmv_max_pct,
+         v.pedidos, v.compradores, v.reembolso, v.visitantes, v.page_views, v.conversao_pct, v.ticket_medio, v.pct_afiliado, v.pct_live, v.pct_video, v.pct_vitrine
+  FROM crm_tts_canal_v v, j WHERE v.dia BETWEEN j.ini AND j.fim
+),
+canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Canal)
+  SELECT marca, count(*)::int AS dias, round(sum(gmv),2) AS gmv, round(sum(gmv_live),2) AS gmv_live, round(sum(gmv_video),2) AS gmv_video,
+         round(sum(gmv_vitrine),2) AS gmv_vitrine, round(sum(gmv_afiliado),2) AS gmv_afiliado, round(sum(gmv_proprio),2) AS gmv_proprio,
+         round(sum(gmv_ads),2) AS gmv_ads, sum(pedidos)::int AS pedidos, sum(visitantes)::bigint AS visitantes, round(sum(reembolso),2) AS reembolso,
+         round(100.0 * sum(gmv_afiliado) / NULLIF(sum(gmv),0), 1) AS pct_afiliado,
+         round(100.0 * sum(gmv_live) / NULLIF(sum(gmv),0), 1) AS pct_live,
+         round(100.0 * sum(gmv_video) / NULLIF(sum(gmv),0), 1) AS pct_video,
+         round(100.0 * sum(gmv_vitrine) / NULLIF(sum(gmv),0), 1) AS pct_vitrine,
+         round(100.0 * sum(gmv_ads) / NULLIF(sum(gmv),0), 1) AS pct_gmv_max,
+         round(100.0 * sum(pedidos) / NULLIF(sum(visitantes),0), 2) AS conversao_pct,
+         round(sum(gmv) / NULLIF(sum(pedidos),0), 2) AS ticket_medio,
+         max(dia) AS ultimo_dia
+  FROM canal GROUP BY 1
+),
+lives AS (  -- sessões de live na janela (loja e afiliados), com venda e interação
+  SELECT marca, live_id, dia, username, origem, titulo, inicio_em, fim_em, duracao_min, gmv, gmv_24h, pedidos, unidades, compradores, ticket_medio,
+         espectadores, visualizacoes, cliques, impressoes_produto, ctr_pct, clique_pedido_pct, curtidas, comentarios, novos_seguidores, tempo_medio_s
+  FROM crm_tts_live_dia l, j WHERE l.dia BETWEEN j.ini AND j.fim
+),
+videos AS (  -- retrato mais recente dos vídeos (30 dias acumulados, top por GMV) — não é por dia
+  SELECT marca, dia AS retrato_em, video_id, username, origem, titulo, publicado_em, gmv, gpm, pedidos, unidades, compradores, visualizacoes, ctr_pct, duracao_s, produtos, hashtags
+  FROM crm_tts_video_dia v WHERE v.dia = (SELECT max(dia) FROM crm_tts_video_dia x WHERE x.marca = v.marca)
+),
 cob AS (  -- Cobrança de conteúdo: o que já saiu e o que está na fila de simulação.
   SELECT marca,
          count(*) FILTER (WHERE NOT dry_run AND ok)::int  AS enviadas,
@@ -83,6 +111,14 @@ cob_pend AS (  -- quantos ainda faltam no total, independente do teto diário
     SELECT marca, username FROM crm_tts_amostra WHERE status IN ('SHIPPED','CONTENT_PENDING')
   ) x GROUP BY 1
 ),
+-- PROVA DE NÍVEL DE APP: se uma loja já usa a família, então o app TEM a permissão, e a outra loja
+-- que ainda responde 'reautorizar' precisa mesmo é de uma autorização nova. Isso resolve a ambiguidade
+-- que me enganou em 16/09: a mensagem de erro sozinha não distingue "em análise" de "falta reautorizar".
+-- Medido em 17/09: o Aristo foi reautorizado depois da submissão do app e as 4 famílias viraram 'ok';
+-- a Fishermans continuou em 'reautorizar' — e ali a palavra passou a valer literalmente.
+app_tem AS (
+  SELECT familia FROM crm_tts_escopo GROUP BY familia HAVING bool_or(estado = 'ok')
+),
 esc AS (  -- Estado de cada família de escopo (Sonda, 6h) cruzado com a data da última autorização.
           -- A verdade é granted_scopes, não a mensagem de erro: medido em 16/09, a mensagem
           -- "the access token does not include" NÃO garante que a permissão já esteja aprovada —
@@ -90,10 +126,16 @@ esc AS (  -- Estado de cada família de escopo (Sonda, 6h) cruzado com a data da
           -- Então só vale mandar reautorizar quando a família MUDOU de estado depois da última
           -- autorização; caso contrário reautorizar é trabalho à toa e a faixa tem que dizer isso.
   SELECT e.marca,
+         -- pede reautorização quando a família mudou depois da última autorização OU quando a outra
+         -- loja já prova que o app tem a permissão
          array_agg(e.rotulo ORDER BY e.rotulo) FILTER (
-           WHERE e.estado <> 'ok' AND e.mudou_em IS NOT NULL AND e.mudou_em > t.autorizado_em) AS mudou_desde_autorizacao,
+           WHERE e.estado <> 'ok'
+             AND ((e.mudou_em IS NOT NULL AND e.mudou_em > t.autorizado_em)
+                  OR e.familia IN (SELECT familia FROM app_tem))) AS mudou_desde_autorizacao,
          array_agg(e.rotulo ORDER BY e.rotulo) FILTER (
-           WHERE e.estado <> 'ok' AND NOT (e.mudou_em IS NOT NULL AND e.mudou_em > t.autorizado_em)) AS aguardando_tiktok,
+           WHERE e.estado <> 'ok'
+             AND NOT (e.mudou_em IS NOT NULL AND e.mudou_em > t.autorizado_em)
+             AND e.familia NOT IN (SELECT familia FROM app_tem)) AS aguardando_tiktok,
          array_agg(e.rotulo ORDER BY e.rotulo) FILTER (WHERE e.estado = 'desconhecido') AS nao_medido,
          max(e.verificado_em) AS verificado_em,
          max(t.autorizado_em) AS autorizado_em,
@@ -108,8 +150,12 @@ aut AS (  -- saúde da autorização por loja: sem isto, um escopo faltando vira
          (t.refresh_expira_em IS NOT NULL AND t.refresh_expira_em < now() + interval '14 days') AS expira_em_breve,
          t.granted_scopes,
          -- escopos que o canal exige e a autorização NÃO tem. Vazio = dá para coletar o canal.
-         ARRAY(SELECT s FROM unnest(ARRAY['seller.data.read','seller.order.read','seller.product.read']) s
-                WHERE NOT (s = ANY(COALESCE(t.granted_scopes, '{}')))) AS escopos_faltando,
+         -- escopo que o canal exige e que a loja NÃO tem. Medido, não deduzido: a Sonda diz 'ok' para a
+         -- família analytics OU uma coleta de canal já passou depois da última autorização. (granted_scopes
+         -- gravado na captura pode vir incompleto: em 17/09 a Fishermans gravou 5 e a API já devolvia 9.)
+         CASE WHEN EXISTS (SELECT 1 FROM crm_tts_escopo e WHERE e.loja = t.loja AND e.familia = 'analytics' AND e.estado = 'ok')
+                OR EXISTS (SELECT 1 FROM crm_tts_coleta_log l WHERE l.marca = t.marca AND l.fonte LIKE 'canal%' AND l.ok AND l.terminado_em > t.autorizado_em)
+              THEN '{}'::text[] ELSE ARRAY['data.shop_analytics.public.read'] END AS escopos_faltando,
          (SELECT l.erro FROM crm_tts_coleta_log l
            WHERE l.marca = t.marca AND l.fonte LIKE 'canal%' AND NOT l.ok
            ORDER BY l.terminado_em DESC LIMIT 1) AS ultimo_erro_canal
@@ -141,6 +187,10 @@ SELECT jsonb_build_object(
   'criadores', COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.gmv DESC) FROM (SELECT * FROM cri ORDER BY gmv DESC LIMIT 300) c), '[]'),
   'open', COALESCE((SELECT jsonb_agg(to_jsonb(o) ORDER BY o.marca, o.showcase_count DESC) FROM colab_open o), '[]'),
   'target', COALESCE((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.marca, t.fim_em DESC NULLS LAST) FROM colab_target t), '[]'),
-  'serie', COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.marca, s.dia) FROM serie s), '[]')
+  'serie', COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.marca, s.dia) FROM serie s), '[]'),
+  'canal', COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.marca, c.dia) FROM canal c), '[]'),
+  'canal_total', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM canal_tot c), '[]'),
+  'lives', COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.inicio_em DESC) FROM (SELECT * FROM lives ORDER BY gmv DESC, inicio_em DESC LIMIT 200) l), '[]'),
+  'videos', COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.gmv DESC) FROM (SELECT * FROM videos WHERE gmv > 0 ORDER BY gmv DESC LIMIT 100) v), '[]')
 ) AS payload`;
 return [{ json: { sql } }];

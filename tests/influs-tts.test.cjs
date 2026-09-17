@@ -163,3 +163,44 @@ test('régua: toque nunca some da fila mostrada', () => {
   assert.equal(f.length, 2);
   assert.deepEqual(f.map(x => x.tentativa), [1, 3]);
 });
+
+// ---- Canal (Shop Analytics) ----
+const PC={
+  canal_total:[{marca:'fish',gmv:1000,gmv_live:400,gmv_video:300,gmv_vitrine:300,gmv_afiliado:500,gmv_proprio:500,gmv_ads:100,pedidos:10,visitantes:500,reembolso:50},
+               {marca:'aristo',gmv:1000,gmv_live:0,gmv_video:200,gmv_vitrine:800,gmv_afiliado:100,gmv_proprio:900,gmv_ads:0,pedidos:10,visitantes:1500,reembolso:0}],
+  canal:[{marca:'fish',dia:'2026-09-16T00:00:00.000Z',gmv:700,gmv_live:400,gmv_video:200,gmv_vitrine:100,gmv_afiliado:200,gmv_proprio:500,gmv_ads:60,pedidos:7,visitantes:300},
+         {marca:'fish',dia:'2026-09-17T00:00:00.000Z',gmv:300,gmv_live:0,gmv_video:100,gmv_vitrine:200,gmv_afiliado:300,gmv_proprio:0,gmv_ads:40,pedidos:3,visitantes:200},
+         {marca:'aristo',dia:'2026-09-16T00:00:00.000Z',gmv:1000,gmv_live:0,gmv_video:200,gmv_vitrine:800,gmv_afiliado:100,gmv_proprio:900,gmv_ads:0,pedidos:10,visitantes:1500}],
+  lives:[{marca:'fish',live_id:'1',gmv:761.76,inicio_em:'2026-09-16T15:06:09Z',origem:'proprio',username:'fishermans.com.br'},
+         {marca:'fish',live_id:'2',gmv:179.46,inicio_em:'2026-09-12T15:00:00Z',origem:'afiliado',username:'bibi'},
+         {marca:'aristo',live_id:'3',gmv:0,inicio_em:'2026-09-11T22:00:00Z',origem:'afiliado',username:'clecio'}],
+  videos:[{marca:'fish',video_id:'a',gmv:100},{marca:'fish',video_id:'b',gmv:1286.51},{marca:'aristo',video_id:'c',gmv:194.95}],
+};
+test('canal: soma as marcas em "todas" e os percentuais saem do GMV total da loja',()=>{
+  const t=TTS.canal(PC,'todas','2026-09-17');
+  assert.equal(t.temDados,true); assert.equal(t.gmv,2000); assert.equal(t.pedidos,20);
+  assert.equal(t.pctLive,20); assert.equal(t.pctVideo,25); assert.equal(t.pctVitrine,55);
+  assert.equal(t.pctAfiliado,30); assert.equal(t.pctAds,5);
+  assert.equal(t.conversao,1); assert.equal(t.ticket,100);
+});
+test('canal: série por dia soma marcas, marca hoje como parcial e acha o melhor dia',()=>{
+  const t=TTS.canal(PC,'todas','2026-09-17');
+  assert.equal(t.serie.length,2);
+  assert.deepEqual(t.serie.map(x=>x.dia),['2026-09-16','2026-09-17']);
+  assert.equal(t.serie[0].gmv,1700); assert.equal(t.serie[0].live,400); assert.equal(t.serie[0].parcial,false);
+  assert.equal(t.serie[1].parcial,true,'o dia de hoje é parcial');
+  assert.equal(t.melhorDia.dia,'2026-09-16');
+  assert.equal(Math.round(t.serie[0].pctAfiliado*10)/10,17.6);  // 300/1700
+});
+test('canal: filtro por marca, lives e vídeos ordenados por GMV',()=>{
+  const f=TTS.canal(PC,'fish','2026-09-17');
+  assert.equal(f.gmv,1000); assert.equal(f.pctLive,40); assert.equal(f.pctAfiliado,50);
+  assert.deepEqual(f.lives.map(l=>l.live_id),['1','2']);
+  assert.deepEqual(f.videos.map(v=>v.video_id),['b','a']);
+  assert.equal(f.lives[0].origem,'proprio');
+});
+test('canal: marca sem coleta não inventa zero — diz que não tem dado',()=>{
+  const o=TTS.canal(PC,'olivas','2026-09-17');
+  assert.equal(o.temDados,false); assert.equal(o.pctLive,null); assert.equal(o.conversao,null); assert.equal(o.serie.length,0);
+  const v=TTS.canal({}, 'todas','2026-09-17'); assert.equal(v.temDados,false);
+});
