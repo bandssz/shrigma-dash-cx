@@ -1,6 +1,6 @@
 # Atribuição de Growth por pedido
 
-Versão 2, setembro de 2026. Escopo conciliado: Fishermans e O Aristocrata. Olivas permanece fora desta etapa.
+Versão 2, setembro de 2026. Escopo ativo: Fishermans, O Aristocrata e Olivas do Campo. Cada marca conserva sua cobertura efetivamente observada.
 
 ## Regra de crédito
 
@@ -67,3 +67,13 @@ A coleta e o classificador v2 passam a incluir `olivas`, com as mesmas regras de
 Identidade confirmada na Shopify existente: loja `olivasdocampo.com.br`, domínio Shopify `6r9bqn-ic.myshopify.com`. Remetente existente usa `olivasdocampo.com`; contrato distingue domínio de e-mail e domínio comercial dos links. Preparador local e regras de UTM aceitam Olivas. Isso não habilita cadastro/agendamento remoto por si só.
 
 O inventário `olivas-operations.json` contém os quatro fluxos já existentes incluídos no monitoramento. Coleta de carrinho não é prova de entrega. Monitoramento não transforma automaticamente esses fluxos em jornadas editáveis, não adiciona WhatsApp e não dá cobertura SES a envios legados. Essas integrações precisam de seus próprios vínculos, guardas e provas.
+
+## Qualidade e testes de 17/09
+
+O painel separa cobertura de leitura de disponibilidade da última sessão. A ausência de sessão de um pedido pago não é conversão zero nem origem direta: é rastreamento não disponível para o modelo estrito. A migração `attribution-integrity.sql` adiciona à API as quantidades com/sem última sessão e o valor sem sessão. A sessão Shopify com UTM é a evidência observada; não se afirma identificar todos os cliques humanos ou toda troca de dispositivo.
+
+O provedor de pagamentos das marcas é Appmax. A origem de leitura varia: eventos Appmax em Aristo e dados de pagamento Shopify em Fishermans. Isso não significa provedores comerciais diferentes. A tabela PIX associa pagamento ao mesmo pedido em até sete dias; não confirma, por si só, a mesma cobrança enviada ou um clique no botão nativo. Coortes abertas permanecem provisórias. Uma coorte com janela encerrada e fonte não reconsultada após o encerramento também não oferece taxa final confiável.
+
+A/B deve registrar variante e versão antes do envio, conservar a unidade de sorteio, contar todas as unidades elegíveis atribuídas a cada braço e acompanhar resultado independente de clique. As variantes atuais de carrinho usam hash do carrinho e etapa, sem registro versionado de experimento; isso não equivale a um teste consolidado de toda a jornada. Sem grupo sem mensagem não se estima o efeito incremental da automação; A/B entre duas mensagens estima a diferença entre elas. Pedido pago e rastreio não podem receber crédito por causar a compra que já aconteceu. NPS deve priorizar resposta válida, e não a receita do pedido pesquisado.
+
+A nova taxa de janela encerrada exige snapshots financeiros reconsultados depois de sete dias. Eventos Appmax Aristo não são tratados como reconsulta de estado e não habilitam essa taxa final. `fonte_pagamento` diferencia eventos Appmax de transações Shopify; ambos representam pagamentos do provedor Appmax. A migração também filtra snapshots Fish pela marca antes da junção por ID.

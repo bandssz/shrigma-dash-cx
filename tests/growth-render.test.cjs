@@ -498,6 +498,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  root().querySelector('#drafts-novo').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
  set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
+ x.run("GRU.state.rascunho.botoes=[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}];GRU.render()");
  assert.equal(root().querySelector('#d-validar'),null);assert.equal(root().querySelector('#d-submeter'),null); // nada no servidor ainda
  // 1) salvar no servidor
  api.responde('rascunho',201,CONTRATO.rascunho_response);
@@ -559,7 +560,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
 test('conflito 409 não sobrescreve e oferece refazer; 502 "nada alterado" mantém estado e reaproveita a idempotência; 401 esquece a chave',async()=>{
  const api=apiFalsa();
  const x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- const GRs=`GR.guarda(GR.novo({id:'r9',nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[],servidor:{draft_id:'d_9',version:1,estado:'validado',hash:GTA.hash(GR.conteudo(GR.novo({nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[]}))),eventos:[]}}))`;
+ const GRs=`GR.guarda(GR.novo({id:'r9',nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}],servidor:{draft_id:'d_9',version:1,estado:'validado',hash:GTA.hash(GR.conteudo(GR.novo({nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}]}))),eventos:[]}}))`;
  x.run(GRs);x.run('GRU.render()');x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');root().querySelector('[data-draft-edit]').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));};

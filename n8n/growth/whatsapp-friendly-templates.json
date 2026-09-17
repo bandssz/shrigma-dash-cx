@@ -1,0 +1,871 @@
+[
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:carrinho",
+    "step_key": "whatsapp:carrinho-30min:a",
+    "piece": "carrinho-30min",
+    "old_id": "4023712691266957",
+    "old_name": "aristocrata_carrinho_t1_a_v3",
+    "new_name": "aristocrata_carrinho_t1_a_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "aristocrata_carrinho_t1_a_claro_v1",
+      "peca": "carrinho-30min",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Seu carrinho na O Aristocrata ficou sem finalizar.\n\nToque abaixo para conferir os itens e continuar de onde parou. Se precisar de ajuda, fale com nossa equipe.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "Cliente de teste"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://oaristocrata.com/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:carrinho",
+    "step_key": "whatsapp:carrinho-30min:b",
+    "piece": "carrinho-30min",
+    "old_id": "1088796170294256",
+    "old_name": "aristocrata_carrinho_t1_b_v3",
+    "new_name": "aristocrata_carrinho_t1_b_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "aristocrata_carrinho_t1_b_claro_v1",
+      "peca": "carrinho-30min",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Podemos ajudar com sua compra na O Aristocrata?\n\nUse os botões abaixo para voltar ao carrinho ou conversar com nossa equipe.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "Cliente de teste"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://oaristocrata.com/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:carrinho",
+    "step_key": "whatsapp:carrinho-24h:a",
+    "piece": "carrinho-24h",
+    "old_id": "1800471158047284",
+    "old_name": "aristocrata_carrinho_t2_a_v2",
+    "new_name": "aristocrata_carrinho_t2_a_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "aristocrata_carrinho_t2_a_claro_v1",
+      "peca": "carrinho-24h",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Quer retomar sua compra?\n\nSeu carrinho na O Aristocrata pode ser acessado pelo botão abaixo. Confira os produtos, os valores e a entrega antes de finalizar.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "Cliente de teste"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://oaristocrata.com/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:carrinho",
+    "step_key": "whatsapp:carrinho-24h:b",
+    "piece": "carrinho-24h",
+    "old_id": "29082041384727102",
+    "old_name": "aristocrata_carrinho_t2_b_v2",
+    "new_name": "aristocrata_carrinho_t2_b_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "aristocrata_carrinho_t2_b_claro_v1",
+      "peca": "carrinho-24h",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Ficou alguma dúvida sobre sua compra?\n\nVocê pode revisar seu carrinho na O Aristocrata ou falar com nossa equipe pelos botões abaixo. Estamos por aqui para ajudar.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "Cliente de teste"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://oaristocrata.com/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:pedido-recebido",
+    "step_key": "whatsapp:pedido-pago",
+    "piece": "pedido-pago",
+    "old_id": "28198466489773494",
+    "old_name": "aristocrata_pedido_pago_v1",
+    "new_name": "aristocrata_pedido_pago_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_pedido_pago_claro_v1",
+      "peca": "pedido-pago",
+      "cabecalho": "Pagamento aprovado",
+      "corpo": "Olá, {{1}}! Recebemos o pagamento do pedido *#{{2}}*.\n\n*Itens:* {{3}}\n*Entrega:* {{4}}\n\nVamos preparar tudo com cuidado. Avisaremos quando o rastreio estiver disponível.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "A12345",
+        "3": "Sabonete (Frescor da Mata) x2",
+        "4": "Rua Exemplo, 123 — Curitiba/PR"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.oaristocrata.com/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=aristo-pos-compra&utm_content=pedido-pago"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:pix",
+    "step_key": "whatsapp:pix-3min",
+    "piece": "pix-3min",
+    "old_id": "888257930852499",
+    "old_name": "30527_418043_pix_nao_pago15_minutos_vojy",
+    "new_name": "aristocrata_pix_cartao_v1",
+    "approved_template": {
+      "id": "1132506052775113",
+      "key": "aristo:1132506052775113",
+      "name": "aristocrata_pix_cartao_v1",
+      "brand": "aristo",
+      "status": "APPROVED",
+      "channel": "whatsapp",
+      "waba_id": "3800362180098479",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "components": [
+        {
+          "text": "Olá, {{1}}. O pagamento PIX do pedido #{{2}} está pendente.\n\nUse o botão abaixo para copiar o código e pagar até {{3}} (horário de Brasília).\n\nSe já pagou, desconsidere esta mensagem.",
+          "type": "BODY",
+          "example": {
+            "body_text": [
+              [
+                "Ana",
+                "12345",
+                "17/09 às 14:30"
+              ]
+            ]
+          }
+        },
+        {
+          "text": "O Aristocrata",
+          "type": "FOOTER"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "text": "Copy Pix code",
+              "type": "ORDER_DETAILS"
+            }
+          ]
+        }
+      ],
+      "quality_score": {
+        "date": 1789651799,
+        "score": "UNKNOWN"
+      },
+      "rejected_reason": "NONE"
+    }
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:rastreio",
+    "step_key": "whatsapp:rastreio-criado:960254843767524",
+    "piece": "rastreio-criado",
+    "old_id": "960254843767524",
+    "old_name": "aristocrata_rastreio_criado_v2",
+    "new_name": "aristocrata_rastreio_criado_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_rastreio_criado_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! Temos uma atualização do seu pedido.\n\nVocê pode consultar os detalhes pelo botão abaixo. As próximas atualizações também serão enviadas para {{2}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "joao@example.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.oaristocrata.com/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=aristocrata-pos-compra&utm_content=rastreio-criado"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1079624764765476",
+    "piece": "rastreio-criado",
+    "old_id": "1079624764765476",
+    "old_name": "aristocrata_rastreio_loggi_v2",
+    "new_name": "aristocrata_rastreio_loggi_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_rastreio_loggi_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "BLI1234567890",
+        "3": "joao@example.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://app.loggi.com/rastreador/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1400400164925082",
+    "piece": "rastreio-criado",
+    "old_id": "1400400164925082",
+    "old_name": "aristocrata_rastreio_total_express_v2",
+    "new_name": "aristocrata_rastreio_total_express_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_rastreio_total_express_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "TX123456789",
+        "3": "joao@example.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://totalconecta.totalexpress.com.br/rastreamento/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1615754763391281",
+    "piece": "rastreio-criado",
+    "old_id": "1615754763391281",
+    "old_name": "aristocrata_rastreio_melhor_envio_v2",
+    "new_name": "aristocrata_rastreio_melhor_envio_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_rastreio_melhor_envio_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "ME123456789BR",
+        "3": "joao@example.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://melhorrastreio.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "aristo",
+    "flow_key": "aristo:rastreio",
+    "step_key": "whatsapp:rastreio-criado:28123064554028655",
+    "piece": "rastreio-criado",
+    "old_id": "28123064554028655",
+    "old_name": "aristocrata_rastreio_v2",
+    "new_name": "aristocrata_rastreio_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "aristo",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "aristocrata_rastreio_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "O Aristocrata",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "AA123456789BR",
+        "3": "cliente@example.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.oaristocrata.com/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=aristocrata-pos-compra&utm_content=rastreio-criado"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://oaristocrata.com/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:carrinho",
+    "step_key": "whatsapp:carrinho-30min:a",
+    "piece": "carrinho-30min",
+    "old_id": "1876931797020477",
+    "old_name": "fishermans_carrinho_t1_a_v2",
+    "new_name": "fishermans_carrinho_t1_a_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "fishermans_carrinho_t1_a_claro_v1",
+      "peca": "carrinho-30min",
+      "cabecalho": "",
+      "corpo": "Seu carrinho na Fishermans ficou sem finalizar. 🎣\n\nToque abaixo para conferir os produtos e continuar sua compra. Se precisar, nossa equipe está no botão de atendimento.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {},
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://fishermans.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": true
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:carrinho",
+    "step_key": "whatsapp:carrinho-30min:b",
+    "piece": "carrinho-30min",
+    "old_id": "1970239170305225",
+    "old_name": "fishermans_carrinho_t1_b_v1",
+    "new_name": "fishermans_carrinho_t1_b_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "fishermans_carrinho_t1_b_claro_v1",
+      "peca": "carrinho-30min",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! 🎣\n\nVocê deixou {{2}} no carrinho da Fishermans.\n\nQuer continuar de onde parou? Confira os itens pelo botão abaixo. Se precisar de ajuda, fale com nossa equipe.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "Produto - Cor"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://fishermans.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:carrinho",
+    "step_key": "whatsapp:carrinho-24h:a",
+    "piece": "carrinho-24h",
+    "old_id": "1395141062726938",
+    "old_name": "fishermans_carrinho_t2_a_v1",
+    "new_name": "fishermans_carrinho_t2_a_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "fishermans_carrinho_t2_a_claro_v1",
+      "peca": "carrinho-24h",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Quer retomar sua compra?\n\nSeu carrinho na Fishermans pode ser acessado pelo botão abaixo. Confira os produtos, os valores e a entrega antes de finalizar.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "João"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://fishermans.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:carrinho",
+    "step_key": "whatsapp:carrinho-24h:b",
+    "piece": "carrinho-24h",
+    "old_id": "1447899020511462",
+    "old_name": "fishermans_carrinho_t2_b_v1",
+    "new_name": "fishermans_carrinho_t2_b_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "MARKETING",
+      "nome": "fishermans_carrinho_t2_b_claro_v1",
+      "peca": "carrinho-24h",
+      "cabecalho": "",
+      "corpo": "Olá, {{1}}! Ficou alguma dúvida sobre sua compra?\n\nVocê pode revisar seu carrinho na Fishermans ou falar com nossa equipe pelos botões abaixo. Estamos por aqui para ajudar.",
+      "rodape": "Para parar de receber, responda SAIR.",
+      "assunto": "",
+      "exemplos": {
+        "1": "João"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Retomar carrinho",
+          "valor": "https://fishermans.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:pedido-recebido",
+    "step_key": "whatsapp:pedido-pago",
+    "piece": "pedido-pago",
+    "old_id": "1791682188635768",
+    "old_name": "fishermans_pedido_pago_v1",
+    "new_name": "fishermans_pedido_pago_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_pedido_pago_claro_v1",
+      "peca": "pedido-pago",
+      "cabecalho": "Pagamento aprovado",
+      "corpo": "Olá, {{1}}! Recebemos o pagamento do pedido *#{{2}}*.\n\n*Itens:* {{3}}\n*Entrega:* {{4}}\n\nVamos preparar tudo com cuidado. Avisaremos quando o rastreio estiver disponível.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "1234",
+        "3": "Produto",
+        "4": "Rua Florianópolis 123, Centro, São José, MG, 36490-008, BR"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.fishermans.com.br/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=fish-pos-compra&utm_content=pedido-pago"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": true
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:pix",
+    "step_key": "whatsapp:pix-15min",
+    "piece": "pix-15min",
+    "old_id": "1765051111477690",
+    "old_name": "fishermans_recuperacao_pix_v1",
+    "new_name": "fishermans_pix_cartao_v1",
+    "approved_template": {
+      "id": "1378177134340410",
+      "key": "fish:1378177134340410",
+      "name": "fishermans_pix_cartao_v1",
+      "brand": "fish",
+      "status": "APPROVED",
+      "channel": "whatsapp",
+      "waba_id": "1809908546361438",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "components": [
+        {
+          "text": "Olá, {{1}}. O pagamento PIX do pedido #{{2}} está pendente.\n\nUse o botão abaixo para copiar o código e pagar até {{3}} (horário de Brasília).\n\nSe já pagou, desconsidere esta mensagem.",
+          "type": "BODY",
+          "example": {
+            "body_text": [
+              [
+                "Ana",
+                "12345",
+                "17/09 às 14:30"
+              ]
+            ]
+          }
+        },
+        {
+          "text": "Fishermans",
+          "type": "FOOTER"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "text": "Copy Pix code",
+              "type": "ORDER_DETAILS"
+            }
+          ]
+        }
+      ],
+      "quality_score": {
+        "date": 1789651799,
+        "score": "UNKNOWN"
+      },
+      "rejected_reason": "NONE"
+    }
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:rastreio",
+    "step_key": "whatsapp:rastreio-criado:966738019748435",
+    "piece": "rastreio-criado",
+    "old_id": "966738019748435",
+    "old_name": "fishermans_rastreio_criado_v1",
+    "new_name": "fishermans_rastreio_criado_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_rastreio_criado_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! Temos uma atualização do seu pedido.\n\nVocê pode consultar os detalhes pelo botão abaixo. As próximas atualizações também serão enviadas para {{2}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "joao@gmail.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.fishermans.com.br/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=fishermans-pos-compra&utm_content=rastreio-criado"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1047166964972141",
+    "piece": "rastreio-criado",
+    "old_id": "1047166964972141",
+    "old_name": "fishermans_rastreio_loggi_v1",
+    "new_name": "fishermans_rastreio_loggi_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_rastreio_loggi_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "BLI1234567890",
+        "3": "joao@gmail.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://app.loggi.com/rastreador/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1981691425877218",
+    "piece": "rastreio-criado",
+    "old_id": "1981691425877218",
+    "old_name": "fishermans_rastreio_total_express_v1",
+    "new_name": "fishermans_rastreio_total_express_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_rastreio_total_express_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "BLI1234567890",
+        "3": "joao@gmail.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://totalconecta.totalexpress.com.br/rastreamento/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:rastreio",
+    "step_key": "whatsapp:rastreio-criado:1607954397645813",
+    "piece": "rastreio-criado",
+    "old_id": "1607954397645813",
+    "old_name": "fishermans_rastreio_melhor_envio_v1",
+    "new_name": "fishermans_rastreio_melhor_envio_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_rastreio_melhor_envio_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "BLI1234567890",
+        "3": "joao@gmail.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Rastrear pedido",
+          "valor": "https://melhorrastreio.com.br/{{1}}"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  },
+  {
+    "brand": "fish",
+    "flow_key": "fish:rastreio",
+    "step_key": "whatsapp:rastreio-criado:4613810428763952",
+    "piece": "rastreio-criado",
+    "old_id": "4613810428763952",
+    "old_name": "fishermans_rastreio_v2",
+    "new_name": "fishermans_rastreio_claro_v1",
+    "draft": {
+      "canal": "whatsapp",
+      "marca": "fish",
+      "idioma": "pt_BR",
+      "categoria": "UTILITY",
+      "nome": "fishermans_rastreio_claro_v1",
+      "peca": "rastreio-criado",
+      "cabecalho": "Atualização do seu pedido",
+      "corpo": "Olá, {{1}}! O código de rastreio do seu pedido está disponível.\n\n*Código:* {{2}}\n\nConsulte pelo botão abaixo. As primeiras movimentações podem levar um tempo para aparecer. Enviaremos atualizações para {{3}}.\n\nSe precisar de ajuda, fale com nossa equipe pelo botão de atendimento.",
+      "rodape": "Fishermans",
+      "assunto": "",
+      "exemplos": {
+        "1": "João",
+        "2": "888030879961998",
+        "3": "joao@gmail.com"
+      },
+      "botoes": [
+        {
+          "tipo": "url",
+          "texto": "Acompanhar pedido",
+          "valor": "https://conta.fishermans.com.br/?utm_source=whatsapp&utm_medium=fluxo&utm_campaign=fishermans-pos-compra&utm_content=rastreio-criado"
+        },
+        {
+          "tipo": "url",
+          "texto": "Falar com a equipe",
+          "valor": "https://fishermans.com.br/suporte"
+        }
+      ]
+    },
+    "drop_media_header": false
+  }
+]

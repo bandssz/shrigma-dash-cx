@@ -9,3 +9,11 @@ test('internal records never form a conversion denominator',()=>assert.equal(row
 test('brand and send-cohort date filters apply together',()=>assert.equal(P.rows({crm_pix_conversao:[base,{...base,marca:'aristo'},{...base,dia:'2026-08-31'}]},'fish','2026-09-01','2026-09-12').length,1));
 test('missing numeric fields do not silently become a complete measurement',()=>assert.equal(rows([{...base,pedidos_consultados:null}])[0].taxa,null));
 test('freshness shows oldest read across the cohort',()=>assert.equal(rows([{...base,leitura_mais_antiga:'2026-09-12T10:00:00Z'},{...base,leitura_mais_antiga:'2026-09-12T11:00:00Z'}])[0].leitura_mais_antiga,'2026-09-12T10:00:00Z'));
+
+test('mature rate requires every closed order to be reconciled after its window',()=>{
+ const mature={...base,pedidos_janela_encerrada:8,pedidos_encerrados_consultados:8,pedidos_encerrados_reconsultados:8,pagos_janela_encerrada:2};
+ assert.equal(rows([mature])[0].taxa_encerrada,25);
+ for(const n of [7,0,null,undefined])assert.equal(rows([{...mature,pedidos_encerrados_reconsultados:n}])[0].taxa_encerrada,null);
+ assert.equal(rows([{...mature,pedidos_janela_encerrada:0}])[0].taxa_encerrada,null);
+ assert.equal(rows([base])[0].taxa_encerrada,null);
+});

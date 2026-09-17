@@ -34,5 +34,23 @@
     "label": "Clientes Olivas · sincronização noturna",
     "mode_source": "none",
     "mode_specs": []
+  },
+  {
+    "key": "olivas_nps",
+    "id": "BMaW3HkeCfksFyNg",
+    "brand": "olivas",
+    "channel": "email",
+    "label": "NPS Olivas · pesquisa, voto e comentário",
+    "mode_source": "none",
+    "mode_specs": []
+  },
+  {
+    "key": "olivas_nps_reminder",
+    "id": "hDUseQgvC6BrbH8h",
+    "brand": "olivas",
+    "channel": "email",
+    "label": "NPS Olivas · lembrete D+3",
+    "mode_source": "none",
+    "mode_specs": []
   }
 ]

@@ -1,4 +1,3 @@
--- Preserve required NPS link variables when selecting an email template.
 CREATE OR REPLACE FUNCTION public.shrigma_flow_validate(p jsonb, b jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -30,6 +29,11 @@ BEGIN
    errors:=errors||jsonb_build_array('Escolha um template para a etapa '||(slot->>'name'));
   ELSIF s->>'channel'='whatsapp' THEN
    SELECT data INTO t FROM shrigma_flow_template WHERE brand=b->>'brand' AND id=s->>'template_id';
+   IF coalesce(slot->>'piece','') IN ('pix-3min','pix-15min') AND NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(coalesce(t->'components','[]')) c,
+     LATERAL jsonb_array_elements(coalesce(c->'buttons','[]')) btn
+    WHERE c->>'type'='BUTTONS' AND btn->>'type'='ORDER_DETAILS'
+   ) THEN errors:=errors||jsonb_build_array('PIX exige cartão nativo com Copiar código Pix.');END IF;
    IF t IS NULL OR t->>'status' IS DISTINCT FROM 'APPROVED' OR t->>'name' IS DISTINCT FROM s->>'template_name'
       OR t->>'language' IS DISTINCT FROM 'pt_BR' OR shrigma_wa_signature(t->'components') IS DISTINCT FROM slot->'signature'
       OR (slot->>'category'='UTILITY' AND t->>'category' IS DISTINCT FROM 'UTILITY') THEN
@@ -63,4 +67,5 @@ BEGIN
    WHERE x->>'channel'='whatsapp' AND z->>'flow'='carrinho' GROUP BY x->>'piece' HAVING count(DISTINCT x->>'wait_min')>1) THEN
   errors:=errors||jsonb_build_array('As variantes A/B do mesmo toque precisam ter a mesma espera.');END IF;
  RETURN errors;
-END $function$;
+END $function$
+;
