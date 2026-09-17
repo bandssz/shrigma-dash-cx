@@ -179,7 +179,7 @@ const GRU={
     root.querySelectorAll('[data-exemplo]').forEach(el=>el.oninput=()=>{r.exemplos=r.exemplos||{};r.exemplos[el.dataset.exemplo]=el.value;GRU.mudou(r);});
     root.querySelectorAll('[data-botao-campo]').forEach(el=>{const i=+el.closest('[data-botao]').dataset.botao;const h=()=>{r.botoes[i][el.dataset.botaoCampo]=el.value;if(el.dataset.botaoCampo==='tipo'){r.botoes[i].valor='';if(el.value==='order_details')r.botoes[i].texto='Copiar código Pix';GRU.mudou(r);GRU.render();}else GRU.mudou(r);};el.oninput=h;el.onchange=h;});
     root.querySelectorAll('[data-botao-remover]').forEach(b=>b.onclick=()=>{r.botoes.splice(+b.dataset.botaoRemover,1);GRU.render();});
-    $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:r.canal==='email'?'url':'quick_reply',texto:'',valor:''});GRU.render();});
+    $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:'url',texto:'',valor:''});GRU.render();});
     $('#d-salvar')?.addEventListener('click',()=>{const v=GR.valida(r);if(v.erros.length){GRU.aviso('');GRU.atualizaPreview();document.getElementById('d-checagens')?.scrollIntoView?.({block:'nearest'});return;}
       const salvo=GR.guarda(r);if(salvo){GRU.fechar();GRU.aviso(`Rascunho "${salvo.nome}" salvo neste dispositivo às ${GRU.stamp(salvo.atualizado_em)}.`);}else GRU.aviso('Não foi possível gravar no navegador (armazenamento cheio ou bloqueado). Exporte o arquivo para não perder.','erro');GRU.render();});
     $('#d-cancelar')?.addEventListener('click',()=>{GRU.fechar();GRU.render();});

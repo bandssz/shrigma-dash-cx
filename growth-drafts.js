@@ -80,6 +80,7 @@ const GR={
     }
     const contract=typeof WAT!=='undefined'?WAT:typeof require==='function'?require('./whatsapp-template-contract.js'):null;
     if(contract)erros.push(...contract.errors(r).map(e=>e.mensagem));
+    if(contract?.warnings)avisos.push(...contract.warnings(r).map(e=>e.mensagem));
     return {erros,avisos};
   },
   /* ---------- prévia do que foi digitado ----------
