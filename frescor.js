@@ -8,7 +8,7 @@
    So `coletado_em` conta: `atualizado_em`/`criado_em` sao tabelas de cadastro manual. */
 function shrigmaFrescor(payload, el, opts) {
   if (!el || !payload) return;
-  const o = Object.assign({ limiteParadoH: 26, limiteFrescoMin: 90 }, opts || {});
+  const o = Object.assign({ limiteParadoH: 26, limiteFrescoMin: 90, nomes: {} }, opts || {});   // nomes: bloco → nome que uma pessoa entende ("cx_ra" → "Reclame Aqui")
   const agora = Date.now();
   const blocos = [], semConfirmacao=[];
   if(Array.isArray(o.collections)){
@@ -22,7 +22,7 @@ function shrigmaFrescor(payload, el, opts) {
     if (!Array.isArray(rows) || !rows.length || nome.startsWith('_')) continue;
     let max = null;
     for (const r of rows) { const t = Date.parse(r?.coletado_em||''); if (Number.isFinite(t) && (max===null || t > max)) max = t; }
-    if (max!==null) blocos.push({ nome, min: Math.max(0,Math.round((agora-max)/60000)) });
+    if (max!==null) blocos.push({ nome: o.nomes[nome] || nome, min: Math.max(0,Math.round((agora-max)/60000)) });
   }
   }
   if (!blocos.length) { el.textContent = semConfirmacao.length?'coleta sem confirmação':'coleta —'; el.title=semConfirmacao.join('\n');el.classList.toggle('velho',semConfirmacao.length>0); return; }

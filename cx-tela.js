@@ -157,6 +157,14 @@ function cxCsatComAvaliacao(rows, f) {
   const f2 = Object.assign({}, f, { ini, fim });
   return { a: csatAgg(rows, Object.assign({}, f2, { canais: CX_CANAIS_KAI })), f: f2, caiu: true };
 }
+// Despacho (17/09): só dias com 2 dias úteis completos depois do pedido. Período sem dia maduro cai para os 7 maduros mais recentes.
+function cxDespacho(rows, marcas, f, hoje) {
+  const teto = cxFimMaduroDespacho(hoje); const ag = (ini, fim) => despachoAgg(rows, { marcas, ini, fim });
+  if (f.fim <= teto) return { a: ag(f.ini, f.fim), f, caiu: false, cortou: false, rot: "" };
+  if (f.ini <= teto) return { a: ag(f.ini, teto), f: { ini: f.ini, fim: teto }, caiu: false, cortou: true, rot: `até ${fmtDia(teto)}` };
+  const ini = diasAtras(6, teto);
+  return { a: ag(ini, teto), f: { ini, fim: teto }, caiu: true, cortou: false, rot: `${fmtDia(ini)}–${fmtDia(teto)}` };
+}
 function rangeAnteriorDe(f) { const r = rangeAnterior(f.ini, f.fim); return Object.assign({}, f, r); }
 // variação absoluta (para razão como contatos/100 pedidos, que não é percentual)
 function cxChipAbs(metrica, atual, anterior, casas) {
@@ -173,18 +181,23 @@ const CX_SEIS = [
   { k: "contatos_por_pedido", rot: "Contatos / 100 pedidos", fmt: (v) => fmtDec(v), casas: 1, pct: false },
   { k: "wismo_rate",          rot: "WISMO / pedido",         fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
   { k: "csat_bom",            rot: "CSAT · bom",             fmt: fmtPct0, casas: 0, pct: true },
-  { k: "kai_resolve",         rot: "Kai resolve sozinho",    fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
-  { k: "sem_resposta",        rot: "Ninguém respondeu",      fmt: (v) => fmtDec(v) + "%", casas: 1, pct: true },
+  { k: "despacho_atraso",     rot: "Despacho > 2 dias úteis", fmt: fmtPct0, casas: 0, pct: true },
+  { k: "concessao_pct",       rot: "Concessão · % da receita", fmt: (v) => fmtDec(v, 2) + "%", casas: 2, pct: true },
   { k: "ra_nota",             rot: "Reclame Aqui · nota",    fmt: (v) => fmtDec(v), casas: 1, pct: false, nota: true },
 ];
+// 17/09: Kai resolve e Ninguém respondeu saíram daqui para a aba Chat (onde já tinham cartão) e entraram despacho e concessão.
+// Visão geral = resultado do negócio (eficiência, causa do WISMO, qualidade, custo, reputação); a operação do time fica na aba Chat.
 const CX_INFO = {
   contatos_por_pedido: "Contatos de todos os canais (e-mail incluso) ÷ pedidos criados no mesmo período × 100. Só dias completos: os pedidos de hoje fecham na coleta das 01:20.\nAlvo < 12. Base ago 1–15: Aristocrata 20, Fishermans 42.",
   wismo_rate: "Tickets com tag wismo (só chat: e-mail não recebe tag) ÷ pedidos criados no mesmo período × 100. Não é a fatia dos contatos (essa está na tabela de motivos): é quantos “cadê meu pedido” chegam por pedido vendido. Só dias completos.\nAlvo < 4%. Base ago 1–15: Aristocrata 7,8%, Fishermans 5,3%.",
   csat_bom: "O Gleap tem três opções (ruim / neutro / bom). O número é a fatia de bom entre quem avaliou, só chat, com 30+ avaliações.\nAlvo ≥ 80%. Base ago 1–15: Aristocrata 53%, Fishermans 65%.",
+  despacho_atraso: "Pedidos pagos que NÃO tiveram envio criado na Shopify em até 2 dias úteis (seg–sex) depois da compra — inclui os que ainda não saíram. Só dias com 2 dias úteis completos de maturação. Medido em 17/09: semanas com 85–94% de atraso foram seguidas por pico de WISMO (Fish 85→201, Aris 717 e 1.133). É a causa do “cadê meu pedido”, não o CX.\nSem alvo declarado — combinar o SLA de expedição com a operação.",
+  concessao_pct: "Reembolsos do ClickUp que o financeiro já pagou (feito, redigindo resposta, retorno concluído) ÷ receita Shopify do último mês FECHADO — grão mensal, não segue o período. Só ClickUp de propósito: estorno da Shopify inclui cancelamento que não passou pelo CX. Detalhe na aba Trocas.\nFaixa provisória < 1% até o Head de CX fixar a meta.",
   kai_resolve: "Tickets de chat que o Kai fechou sozinho (fechado, sem resposta humana, sem transferência, sem tag de inatividade) ÷ TODOS os tickets de chat com 2 dias de expediente de maturação (sex, sáb e dom não têm atendimento humano) — não só os que fecharam. O que falta para 100% é: pessoa respondeu · transferido e ninguém respondeu · ainda aberto. E-mail fora. Quebra de série em 29/08.\nSem alvo declarado: acompanhar a tendência.",
   sem_resposta: "Tickets de chat transferidos para time ou agente (processingTeam/processingUser) sem NENHUMA resposta pública de pessoa — abertos na fila ou fechados pela régua — ÷ todos os tickets de chat maduros (2 dias de expediente). É o número que a fila esconde.\nFaixa nossa: < 5% ok, até 10% atenção.",
   ra_nota: "Nota da empresa na página do Reclame AQUI (últimos 6 meses), lida pelas metatags. Embaixo, o que compõe o RA1000: respondidas ≥ 90%, solução ≥ 90%, voltaria a fazer negócio ≥ 70%, 50+ avaliações — ✓ bate, ✗ falta.\nCritério do selo para a nota: ≥ 7. Com as duas marcas, o cartão mostra a pior.",
 };
+Object.assign(DIRECAO, { contatos_por_pedido: "baixo", wismo_rate: "baixo", csat_bom: "alto", despacho_atraso: "baixo", concessao_pct: "baixo", ra_nota: "alto" });   // direção do chip = direção do alvo
 let CX_SEIS_DADOS = null; // valores por métrica/marca do último render, para o gráfico e o ⓘ
 
 function pintaSeisNumeros(d) {
@@ -215,6 +228,12 @@ function pintaSeisNumeros(d) {
   const raAnt = porMarca((m) => per.fAnt ? raUltimo(d.cx_ra, m, per.fAnt.fim) : null);
   const raPior = (campo, src) => { const vs = marcas.map((m) => src[m] && src[m][campo] != null ? Number(src[m][campo]) : null).filter((v) => typeof v === "number"); return vs.length ? Math.min(...vs) : null; };
   const temPed = typeof cpp.pedidos === "number";
+  // despacho: só dias maduros (2 dias úteis completos depois do pedido); período sem dia maduro cai para os 7 maduros mais recentes
+  const dp = cxDespacho(d.cx_despacho, marcas, per.f, hoje);
+  const dpAnt = per.fAnt && !dp.caiu ? despachoAgg(d.cx_despacho, { marcas, ini: diasAtras(diffDias(dp.f.ini, dp.f.fim) + 1, dp.f.ini), fim: diasAtras(1, dp.f.ini) }) : null;
+  // concessão: grão mensal — último mês fechado, independente do período
+  const coMes = cxMesAnterior(cxMesAtual(hoje)), coMesAnt = cxMesAnterior(coMes);
+  const co = concessaoAgg(d.cx_concessao, { marcas, mesIni: coMes, mesFim: coMes }), coAnt = concessaoAgg(d.cx_concessao, { marcas, mesIni: coMesAnt, mesFim: coMesAnt });
   const V = {
     contatos_por_pedido: { v: temPed ? cpp.por100 : null, ant: cppAnt && cppAnt.por100, sub: (temPed ? `${fmtNum(cpp.contatos)} contatos · ${fmtNum(cpp.pedidos)} pedidos` : `${fmtNum(cpp.contatos)} contatos · sem pedidos coletados`) + (rotPed ? ` · ${rotPed}` : ""),
       marcas: porMarca((m) => contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, fPed, { marca: m })).por100) },
@@ -226,6 +245,11 @@ function pintaSeisNumeros(d) {
       marcas: porMarca((m) => cxKai(rows, Object.assign({}, per.f, { marca: m }), hoje).pctKai) },
     sem_resposta: { v: kr.pctSemResp, ant: krAnt && krAnt.pctSemResp, sub: `${fmtNum(kr.semResp)} de ${fmtNum(kr.tickets)} tickets de chat até ${fmtDia(kr.fim)}`, curto: kr.pctSemResp === null && kr.tickets ? `${fmtNum(kr.semResp)} de ${fmtNum(kr.tickets)}` : null,
       marcas: porMarca((m) => cxKai(rows, Object.assign({}, per.f, { marca: m }), hoje).pctSemResp) },
+    despacho_atraso: { v: dp.a.pedidos >= 20 ? dp.a.pctAtraso : null, ant: dpAnt && dpAnt.pedidos >= 20 ? dpAnt.pctAtraso : null,
+      sub: dp.a.pedidos ? `${fmtNum(dp.a.pedidos - dp.a.ate2du)} de ${fmtNum(dp.a.pedidos)} pedidos · mediana ${dp.a.duP50 === null ? "—" : (dp.a.aproximado ? "≈ " : "") + fmtDec(dp.a.duP50) + " du"}${dp.a.semDespacho ? ` · ${fmtNum(dp.a.semDespacho)} ainda sem envio` : ""}` + (dp.rot ? ` · ${dp.rot}` : "") : "sem leitura de despacho",
+      marcas: porMarca((m) => { const x = despachoAgg(d.cx_despacho, { marcas: [m], ini: dp.f.ini, fim: dp.f.fim }); return x.pedidos >= 20 ? x.pctAtraso : null; }) },
+    concessao_pct: { v: co.pct, ant: coAnt.pct, sub: co.pct === null ? (co.casos || co.receita ? `${fmtMes(coMes)} · ${co.receitaFaltando ? "receita incompleta" : "sem receita"}` : "sem leitura do ClickUp") : `${fmtBRL(co.valorConcedido)} pagos em ${fmtMes(coMes)} · ${fmtNum(co.andamento)} em andamento`,
+      marcas: porMarca((m) => concessaoAgg(d.cx_concessao, { marcas: [m], mesIni: coMes, mesFim: coMes }).pct) },
     ra_nota: { v: raPior("nota", raU), ant: raPior("nota", raAnt), sub: marcas.length > 1 ? "pior marca" : (raU[marca] ? "leitura de " + fmtDia(cxDia(raU[marca].dia)) : "sem leitura"), marcas: porMarca((m) => raU[m] ? Number(raU[m].nota) : null),
       // composição do RA1000 da marca que dá a nota (a pior): resp · sol · voltaria · avaliações, com ✓/✗
       comp: (() => { const cands = marcas.filter((m) => raU[m]); if (!cands.length) return ""; const m = cands.sort((a, b) => Number(raU[a].nota) - Number(raU[b].nota))[0]; const av = raAvalia(raU[m]);
@@ -243,8 +267,8 @@ function pintaSeisNumeros(d) {
   const nAt = CX_SEIS.filter((s) => cxStatus(s.k, V[s.k].v) === "atencao").length;
   if (rot) rot.innerHTML = (per.caiu ? cxTag(per.rotulo, "alerta") : "") +
     (jc.caiu ? cxTag("pedidos: mostrando ontem", "nota", "Os pedidos de hoje só fecham na coleta das 01:20; a razão por pedido usa o último dia completo.") : "") +
-    (!kr.caiu && kr.fim < per.f.fim ? cxTag(`Kai e ninguém respondeu: até ${fmtDia(kr.fim)}`, "nota", `Só tickets com ${CX_MATURACAO_DIAS} dias de expediente depois de criados (sex, sáb e dom não contam) — os últimos dias ainda estão maturando.`) : "") +
-    (kr.caiu ? cxTag(`Kai: ${fmtDia(kr.ini)}–${fmtDia(kr.fim)}`, "nota", `Ticket precisa de ${CX_MATURACAO_DIAS} dias de expediente (sex, sáb e dom não contam) para ter desfecho; o período não tem dia maduro, então o Kai mostra os 7 dias maduros mais recentes.`) : "") +
+    (dp.caiu ? cxTag(`despacho: ${fmtDia(dp.f.ini)}–${fmtDia(dp.f.fim)}`, "nota", "O pedido precisa de 2 dias úteis completos para ter despacho medido; o período não tem dia maduro, então mostra os 7 dias maduros mais recentes.") : dp.cortou ? cxTag(`despacho: até ${fmtDia(dp.f.fim)}`, "nota", "Só dias com 2 dias úteis completos depois do pedido — os últimos dias ainda estão maturando.") : "") +
+    cxTag(`concessão: ${fmtMes(coMes)}`, "nota", "Concessão é grão mensal: o cartão lê o último mês fechado, não o período do painel.") +
     (csx.caiu ? cxTag("CSAT: sem avaliação no período", "nota", `Nenhuma avaliação no período; mostrando a última janela com avaliação (${fmtDia(csx.f.ini)}–${fmtDia(csx.f.fim)}).`) : "") +
     (per.semHist ? cxTag("sem histórico para comparar", "nota", "O período de comparação tem menos de 80% dos dias coletados.") : "") +
     (nFora ? `<span class="tag st-ruim-tag"><i class="st-dot st-ruim"></i>${nFora} fora do alvo</span>` : "") +
@@ -277,7 +301,7 @@ function pintaGraficoGeral(d) {
   const rows = d.cx_csat || [];
   const j = cxJanelaTendencia(per.f.fim, 12);
   const segHoje = cxSegunda(hojeRef());
-  let series = [], rotulosX = [], alvoRef = null, baseRef = null, marcos = [], vazio = null, pct = s.pct && s.k !== "wismo_rate";
+  let series = [], rotulosX = [], alvoRef = null, baseRef = null, marcos = [], vazio = null, pct = s.pct && s.k !== "wismo_rate" && s.k !== "concessao_pct";
   const lbl = (m) => ({ nome: ROTULOS[m], cor: corHex(m) });
   if (s.k === "contatos_por_pedido" || s.k === "wismo_rate") {
     const w = s.k === "wismo_rate";
@@ -293,11 +317,19 @@ function pintaGraficoGeral(d) {
   } else if (s.k === "csat_bom") {
     const sc = cxSerieCsatMarcas(d, rows, marcas, j); rotulosX = sc.rotulosX; series = sc.series; marcos = sc.marcos;
     alvoRef = { y: 80, rot: "alvo 80%" };
-  } else if (s.k === "kai_resolve") {
-    const sk = cxSerieKaiMarcas(d, marcas, j); rotulosX = sk.rotulosX; series = sk.series; marcos = sk.marcos;
-  } else if (s.k === "sem_resposta") {
-    const sk = cxSerieKaiMarcas(d, marcas, j, "ySemResp"); rotulosX = sk.rotulosX; series = sk.series; marcos = sk.marcos;
-    alvoRef = { y: 5, rot: "alvo 5%" }; baseRef = { y: 10, rot: "atenção 10%" };
+  } else if (s.k === "despacho_atraso") {
+    const fimM = cxFimMaduroDespacho(hojeRef());
+    const sd = serieSemanalDespacho(d.cx_despacho || [], marcas, j.ini, j.fim, fimM);
+    const c = cxCortaVazioInicial(sd.semanas, sd.series.map((x) => x.pontos.map((p) => p.pedidos))); const corte = sd.semanas.length - c.semanas.length;
+    rotulosX = c.semanas.map(fmtDia);
+    if (!sd.series.some((x) => x.pontos.some((p) => p.pedidos))) vazio = "Sem leitura de despacho no intervalo.";
+    series = sd.series.map((x) => Object.assign(lbl(x.marca), { pontos: x.pontos.slice(corte).map((p) => ({ y: p.y, rot: "semana de " + fmtDia(p.semana), n: p.pedidos ? `${fmtNum(p.pedidos)} pedidos` : undefined, parcial: p.parcial })) }));
+  } else if (s.k === "concessao_pct") {
+    const rows2 = d.cx_concessao || []; const meses = concessaoMeses(rows2, marcas).slice(-12); const hojeMes = cxMesAtual(hojeRef());
+    rotulosX = meses.map(fmtMes);
+    if (!meses.length) vazio = "Sem leitura do ClickUp ainda.";
+    series = marcas.map((m) => Object.assign(lbl(m), { pontos: meses.map((mes) => { const x = concessaoAgg(rows2, { marcas: [m], mesIni: mes, mesFim: mes }); return { y: x.pct, rot: fmtMes(mes), n: `${fmtBRL(x.valorConcedido)} pagos`, parcial: mes === hojeMes }; }) }));
+    alvoRef = { y: CX_ALVOS.concessao_pct.alvo, rot: "< 1%" };
   } else {
     const r = serieRa(d.cx_ra, marcas, "nota");
     rotulosX = r.dias.map(fmtDia);
@@ -305,11 +337,11 @@ function pintaGraficoGeral(d) {
     series = r.series.map((x) => Object.assign(lbl(x.marca), { pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) }));
     alvoRef = { y: 7, rot: "alvo 7" };
   }
-  if (tit) tit.textContent = s.rot + (s.k.startsWith("ra_") ? " · por leitura" : " · por semana");
+  if (tit) tit.textContent = s.rot + (s.k.startsWith("ra_") ? " · por leitura" : s.k === "concessao_pct" ? " · por mês" : " · por semana");
   el.innerHTML = vazio && (!series.length || series.every((x) => x.pontos.filter((p) => typeof p.y === "number").length < 2))
     ? `<div class="vazio mini">${vazio}</div>`
-    : cxgLinhas({ rotulosX, series, pct, fmt: s.k === "contatos_por_pedido" ? (v) => fmtDec(v, 0) : s.k === "ra_nota" ? (v) => fmtDec(v, 0) : s.k === "wismo_rate" ? (v) => fmtDec(v, 0) + "%" : (v) => Math.round(v) + "%", alvo: alvoRef, base: baseRef, marcos, aria: s.rot,
-        yMax: s.k === "wismo_rate" ? null : s.k === "ra_nota" ? 10 : undefined });
+    : cxgLinhas({ rotulosX, series, pct, fmt: s.k === "contatos_por_pedido" ? (v) => fmtDec(v, 0) : s.k === "ra_nota" ? (v) => fmtDec(v, 0) : s.k === "wismo_rate" ? (v) => fmtDec(v, 0) + "%" : s.k === "concessao_pct" ? (v) => fmtDec(v, 2) + "%" : (v) => Math.round(v) + "%", alvo: alvoRef, base: baseRef, marcos, aria: s.rot,
+        yMax: s.k === "wismo_rate" || s.k === "concessao_pct" ? null : s.k === "ra_nota" ? 10 : undefined });
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("#area-seis .six2"); if (!b) return;
@@ -949,8 +981,8 @@ function pintaConcessaoAba(d) {
     { k: "ritmo", rot: `${fmtMes(mesAtual)} até hoje`, val: pctTxt(atual), status: cxStatus("concessao_pct", atual.pct), sub: atual.pct === null && atual.receitaFaltando ? `receita incompleta · ${fmtBRLk(atual.valorConcedido)} pagos em ${diaDoMes} dia${diaDoMes === 1 ? "" : "s"}` : `em ${diaDoMes} dia${diaDoMes === 1 ? "" : "s"} · ${fmtBRLk(atual.valorConcedido)} de ${fmtBRLk(atual.receita)}`,
       info: `Mesma conta no mês corrente. Lê-se com cuidado: o caso costuma ser pago semanas depois de aberto, então o mês em andamento sobe até fechar — veja "em andamento".` + porMarca((m) => pctTxt(ag(mesAtual, mesAtual, [m]))) },
     { k: "clickup", rot: `Pagos pelo financeiro · ${fmtMes(mesAnt)}`, val: fmtBRL(fechado.valorConcedido), chip: fechadoAnt.valorConcedido ? chipHtml("co_valor", fechado.valorConcedido, fechadoAnt.valorConcedido, fmtBRL) : "",
-      sub: `${fmtNum(fechado.concedidos)} caso${fechado.concedidos === 1 ? "" : "s"} · ${fechado.ticketMedio === null ? "—" : fmtBRL(fechado.ticketMedio)} médio${fechado.semValor ? ` · ${fmtNum(fechado.semValor)} sem valor` : ""}`,
-      info: `Soma de '➤Valor do reembolso' dos casos abertos no mês e já pagos. Cupom de cortesia (nível 1), quando registrado, entra pelo valor do cupom.` + porMarca((m) => fmtBRL(ag(mesAnt, mesAnt, [m]).valorConcedido)) },
+      sub: `${fmtNum(fechado.concedidos)} caso${fechado.concedidos === 1 ? "" : "s"} · ${fechado.ticketMedio === null ? "—" : fmtBRL(fechado.ticketMedio)} médio${fechado.diasAtePagarN >= 3 ? ` · ${fmtDec(fechado.diasAtePagarP50, 0)} d até pagar` : ""}${fechado.semValor ? ` · ${fmtNum(fechado.semValor)} sem valor` : ""}`,
+      info: `Soma de '➤Valor do reembolso' dos casos abertos no mês e já pagos. Cupom de cortesia (nível 1), quando registrado, entra pelo valor do cupom. "Até pagar" = mediana de dias corridos entre abrir o caso e ele entrar em status pago (só com 3+ casos).` + porMarca((m) => fmtBRL(ag(mesAnt, mesAnt, [m]).valorConcedido)) },
     { k: "pendente", rot: "Em andamento agora", val: fmtBRL(tudo.valorAndamento), status: tudo.andamento === 0 ? "bom" : tudo.andamento >= 10 ? "ruim" : "atencao", sub: `${fmtNum(tudo.andamento)} caso${tudo.andamento === 1 ? "" : "s"} · foto de agora`,
       info: `Casos ainda em negociação, aguardando N2/Samuel, encaminhados ao financeiro ou com erro, todos os meses — dinheiro que provavelmente vai sair e ainda não está na %. Vermelho com 10+ casos parados.` + porMarca((m) => { const x = ag(null, null, [m]); return `${fmtBRL(x.valorAndamento)} (${fmtNum(x.andamento)})`; }) },
     { k: "negados", rot: `Negados · ${fmtMes(mesAnt)}`, val: fmtPct0(fechado.pctNegados), chip: cxChipPP("co_negados", fechado.pctNegados, fechadoAnt.pctNegados), sub: `${fmtNum(fechado.negados)} de ${fmtNum(fechado.negados + fechado.concedidos)} decididos`,

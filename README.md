@@ -281,6 +281,37 @@ problema de fabricação 20. Fish: "comprei a linha errada" 43, "produto diferen
 Fishermans bate com a troca de conta de julho (adm@ ↔ software@ do Bling): se a outra conta tiver as reversas, um
 token lá completa o histórico.
 
+### Os seis números refeitos e o despacho da Shopify (17/09)
+
+**Problema**: a Visão geral ainda mostrava os seis números do handoff de 12/09 enquanto as metas cobradas hoje (concessão
+do Head de CX, produtividade do N1) viviam no fim de abas. E o WISMO — 47% dos contatos — era mostrado sem a causa.
+
+**Medição antes de escrever** (scratch `med_despacho.py`, 28.409 pedidos Aris + 5.294 Fish de 01/08 a 14/09, Shopify
+GraphQL: `createdAt` do primeiro `fulfillment` = etiqueta emitida pelo Bling; dias úteis seg–sex): semanas com **85–94%
+dos pedidos despachados depois de 2 dias úteis** foram seguidas por pico de WISMO — Fish 10/08 e 17/08 (89% e 86%,
+mediana 7,5 e 5,1 du) → WISMO 85 → 201 → 177; Aris 03/08 e 24/08 (93% e 94%) → 717 e 1.133. Agosto inteiro: mediana
+3,2 du, 71% acima de 2 du, 26% acima de 5. Semana 07/09: 15% atrasado nas duas marcas e o WISMO Aris ainda em 815
+(defasagem de uma semana). Entrou.
+
+**Dados**: `cx_despacho_dia` (marca × dia de criação do pedido: pedidos pagos não cancelados, despachados, `ate_2du`,
+`ate_5du`, `sem_despacho`, `du_p50`, `du_p90`). Workflow **CX — Despacho · diário** (`2Vv9Pt2ODSw2EK5m`, 02:00; recalcula
+os últimos 14 dias inteiros porque o envio chega dias depois; forçar em `GET /webhook/cx-despacho-forcar`). Conferido
+linha a linha contra o Python do backfill. API: `cx_despacho` (90 dias). **Maturação**: o dia D só conta quando 2 dias
+úteis completos passaram depois dele (`cxFimMaduroDespacho`) — senão "ainda sem envio" vira atraso falso; período sem
+dia maduro cai para os 7 maduros mais recentes e diz que caiu.
+
+**Tela — os seis números agora**: Contatos / 100 pedidos · WISMO / pedido · CSAT bom · **Despacho > 2 dias úteis** (sem
+alvo declarado: cinza, tendência; combinar SLA com a operação) · **Concessão · % da receita** (grão mensal, último mês
+fechado, faixa provisória < 1%) · Reclame Aqui nota. **Kai resolve sozinho** e **Ninguém respondeu** saíram da Visão
+geral para a aba Chat, onde já tinham cartão — Visão geral = resultado do negócio; operação do time = aba Chat. Nenhum
+bloco novo. Etiqueta de frescor no cabeçalho passou a falar em nomes ("Reclame Aqui parado há 2 d", não "cx_ra").
+Cartão "Pagos pelo financeiro" ganhou a mediana de dias até pagar (`dias_ate_pagar_p50`, date_done do ClickUp; 3+ casos).
+
+**O que a leitura de 17/09 diz**: contatos por 100 pedidos na Aris subiu de ~28 (semana 24/08) para **58 (semana 07/09)**
+e 80+ nos três dias de 14–16/09 — ~500 tickets/dia contra ~600 pedidos/dia, conferido contra o snapshot do Gleap; WISMO
+17% dos pedidos; 1ª resposta em 66 h no alerta. Não é artefato de coleta. Despacho normalizou (mediana < 1 du) — a
+causa agora é outra e precisa de olho humano.
+
 ### Custo de concessão sobre receita (16/09)
 
 **Problema**: é a meta do Head de CX e não tinha fonte. Os valores estão nas listas de reembolso do ClickUp (Suporte ›

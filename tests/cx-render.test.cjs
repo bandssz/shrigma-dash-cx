@@ -69,7 +69,7 @@ function fixture(o = {}) {
     // 100.000 = 0,50% (receita = soma dos pedidos); set Aris incompleto em receita (dias_receita < dias) → sem %. Casos ago = 24 em 10.500 pedidos = 2,3/mil.
     cx_concessao: [
       { marca: 'aristocrata', mes: '2026-07-01', casos: 6, concedidos: 4, negados: 2, andamento: 0, valor_concedido: 3000, valor_pedido_concedido: 4000, valor_andamento: 0, n1: 1, n2: 1, n3: 2, valor_n1: 100, valor_n2: 400, valor_n3: 2500, concedidos_sem_valor: 0, receita: 800000, pedidos: 7000, pedidos_pagos: 6500, dias_receita: 31, dias: 31, troque_estorno: 1800, troque_devolucoes: 25, shopify_estornos: 6000, coletado_em: '2026-09-10T04:50:00Z' },
-      { marca: 'aristocrata', mes: '2026-08-01', casos: 20, concedidos: 12, negados: 3, andamento: 5, valor_concedido: 8000, valor_pedido_concedido: 9000, valor_andamento: 2200, n1: 2, n2: 4, n3: 6, valor_n1: 200, valor_n2: 1800, valor_n3: 6000, concedidos_sem_valor: 1, receita: 1000000, pedidos: 9000, pedidos_pagos: 8500, dias_receita: 31, dias: 31, troque_estorno: 5000, troque_devolucoes: 60, shopify_estornos: 25000, coletado_em: '2026-09-10T04:50:00Z' },
+      { marca: 'aristocrata', mes: '2026-08-01', casos: 20, concedidos: 12, negados: 3, andamento: 5, valor_concedido: 8000, valor_pedido_concedido: 9000, valor_andamento: 2200, n1: 2, n2: 4, n3: 6, valor_n1: 200, valor_n2: 1800, valor_n3: 6000, concedidos_sem_valor: 1, dias_ate_pagar_p50: 4.2, dias_ate_pagar_n: 12, receita: 1000000, pedidos: 9000, pedidos_pagos: 8500, dias_receita: 31, dias: 31, troque_estorno: 5000, troque_devolucoes: 60, shopify_estornos: 25000, coletado_em: '2026-09-10T04:50:00Z' },
       { marca: 'fishermans', mes: '2026-08-01', casos: 4, concedidos: 2, negados: 1, andamento: 1, valor_concedido: 500, valor_pedido_concedido: 600, valor_andamento: 150, n1: 0, n2: 0, n3: 2, valor_n1: 0, valor_n2: 0, valor_n3: 500, concedidos_sem_valor: 0, receita: 100000, pedidos: 1500, pedidos_pagos: 1400, dias_receita: 31, dias: 31, troque_estorno: 0, troque_devolucoes: 0, shopify_estornos: 0, coletado_em: '2026-09-10T04:50:00Z' },
       { marca: 'aristocrata', mes: '2026-09-01', casos: 5, concedidos: 1, negados: 0, andamento: 4, valor_concedido: 300, valor_pedido_concedido: 300, valor_andamento: 900, n1: 0, n2: 1, n3: 0, valor_n1: 0, valor_n2: 300, valor_n3: 0, concedidos_sem_valor: 0, receita: 250000, pedidos: 3000, pedidos_pagos: 2900, dias_receita: 8, dias: 10, troque_estorno: 1500, troque_devolucoes: 20, shopify_estornos: 9000, coletado_em: '2026-09-10T04:50:00Z' },
     ],
@@ -78,6 +78,9 @@ function fixture(o = {}) {
       { marca: 'aristocrata', mes: '2026-08-01', tipo_caso: 'Cliente desistiu da compra (sem erro nosso — só mudou de ideia)', casos: 6, concedidos: 4, valor_concedido: 2000 },
       { marca: 'fishermans', mes: '2026-08-01', tipo_caso: 'Chegou danificado (quebrado, vazado, amassado)', casos: 2, concedidos: 2, valor_concedido: 500 },
     ],
+    // despacho (cx_despacho_dia): HOJE 10/09 (qui) → dia maduro até 07/09; Aris 100 pedidos/dia com 60 em 2 du (40% atrasado), Fish 50/dia com 45 (10%)
+    cx_despacho: dias(14).flatMap((d) => [{ marca: 'aristocrata', dia: d, pedidos: 100, despachados: 98, ate_2du: 60, ate_5du: 90, sem_despacho: 2, du_p50: 2.4, du_p90: 6.1, coletado_em: HOJE + 'T05:00:00Z' },
+      { marca: 'fishermans', dia: d, pedidos: 50, despachados: 50, ate_2du: 45, ate_5du: 50, sem_despacho: 0, du_p50: 0.8, du_p90: 2.2, coletado_em: HOJE + 'T05:00:00Z' }]),
     // fechamentos por pessoa × motivo (view cx_fechamento_motivo_dia): WISMO custa 3 msgs e volta 30%; pré-venda 1 msg e volta 5%
     cx_fechamento_motivo: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
       { marca: 'aristocrata', motivo: 'wismo', canal: 'whatsapp', dia: d, fechados: 40, maduros: mad ? 40 : 0, resolutivos: mad ? 28 : 0, fcr_base: mad ? 30 : 0, fcr: mad ? 20 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.2, msgs_cliente_p50: 7 },
@@ -118,7 +121,7 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   const x = await boot();
   assert.equal(x.document.querySelectorAll('#area-seis .six2').length, 6);
   const rots = x.txt('#area-seis .six2-rot');
-  assert.deepEqual(rots, ['Contatos / 100 pedidos', 'WISMO / pedido', 'CSAT · bom', 'Kai resolve sozinho', 'Ninguém respondeu', 'Reclame Aqui · nota']);
+  assert.deepEqual(rots, ['Contatos / 100 pedidos', 'WISMO / pedido', 'CSAT · bom', 'Despacho > 2 dias úteis', 'Concessão · % da receita', 'Reclame Aqui · nota']);
   // sem cx_pedidos: valor é traço e a linha de apoio diz o porquê — nunca zero
   assert.equal(x.txt('#area-seis .six2-val')[0], '—');
   assert.match(x.txt('#area-seis .six2')[0], /1\.225 contatos · sem pedidos coletados/);
@@ -127,16 +130,18 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   // CSAT bom = (20+4+27+30)/(40+4+30+30) = 81/104 = 78%
   assert.equal(x.txt('#area-seis .six2-val')[2], '78%');
   assert.ok(!/\b6[0-9]\b(?!%)/.test(x.txt('#area-seis .six2')[2]), 'a média 66 do snapshot não pode aparecer no cartão de CSAT');
-  // Kai resolve sozinho = fechados pelo Kai ÷ TODOS os tickets de chat maduros (até D-2), consolidado: 15 ÷ (60+20+40+30) = 10,0%
-  assert.equal(x.txt('#area-seis .six2-val')[3], '10,0%');
-  assert.match(x.document.querySelector('#area-seis .six2[data-m="kai_resolve"]').getAttribute('title'), /TODOS os tickets/);
-  // ninguém respondeu = transferidos sem resposta humana ÷ maduros = 20/150 = 13,3% (fora do alvo de 5%)
-  assert.equal(x.txt('#area-seis .six2-val')[4], '13,3%');
+  // despacho > 2 du: período 7d (04–10/09) cortado nos dias maduros (até 07/09): (40 + 5) ÷ 150 = 30%
+  assert.equal(x.txt('#area-seis .six2-val')[3], '30%');
+  assert.match(x.document.querySelector('#area-seis .six2[data-m="despacho_atraso"]').getAttribute('title'), /Por marca: O Aristocrata 40% · Fishermans 10%/);
+  assert.match(x.document.querySelector('#seis-rot').textContent, /despacho: até 07\/09/);
+  // concessão: grão mensal, último mês fechado (ago): 8.500 ÷ 1.100.000 = 0,77%
+  assert.equal(x.txt('#area-seis .six2-val')[4], '0,77%');
+  assert.match(x.document.querySelector('#seis-rot').textContent, /concessão: ago\/26/);
   // RA sem coleta: traço, não zero
   assert.equal(x.txt('#area-seis .six2-val')[5], '—');
   // CSAT: taxa de resposta sempre visível no cartão
   assert.match(x.txt('#area-seis .six2')[2], /responderam \d+%/);
-  assert.match(x.document.querySelector('#seis-rot').textContent, /1 fora do alvo/);
+  assert.match(x.document.querySelector('#seis-rot').textContent, /1 em atenção/);
   // um gráfico só, dirigido pelo cartão ativo (padrão: contatos/100 pedidos → sem pedidos vira aviso)
   assert.match(x.document.querySelector('#g-geral').textContent, /Sem pedidos coletados/);
   x.document.querySelector('#area-seis .six2[data-m="csat_bom"]').click();
@@ -293,6 +298,7 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.ok(x.document.querySelector('#area-concessao-num .six2[data-m="pct"]').classList.contains('st-bom'), '0,77% fica dentro da faixa provisória < 1%');
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="ritmo"] .six2-chip').textContent, /em 10 dias/);
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="pendente"] .six2-chip').textContent, /10 casos/);
+  assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="clickup"]').getAttribute('title'), /Até pagar/);
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="negados"] .six2-chip').textContent, /▼ 11 pp · ant. 33%/);
   assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só o que o financeiro pagou/);
   assert.match(x.document.querySelector('#concessao-rotulo').textContent, /Fish: receita = soma dos pedidos/);

@@ -485,12 +485,14 @@ function trocaMotivos(rows, f) {
 // enc. financeiro, com erro) fica em "pendente", fora da %. Mês sem receita completa não vira %: melhor "—" do que % inflada.
 function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-MM-01', inclusivos)
   const a = { casos: 0, concedidos: 0, negados: 0, andamento: 0, valorConcedido: 0, valorPedidoConcedido: 0, valorAndamento: 0, n1: 0, n2: 0, n3: 0, valorN1: 0, valorN2: 0, valorN3: 0, semValor: 0,
-    receita: 0, pedidos: 0, diasReceita: 0, dias: 0, meses: new Set(), marcas: new Set(), coletadoEm: null, receitaFaltando: false };
+    receita: 0, pedidos: 0, diasReceita: 0, dias: 0, meses: new Set(), marcas: new Set(), coletadoEm: null, receitaFaltando: false, diasAtePagarN: 0 };
+  const pagar = [];   // [mediana do mês, n] → mediana ponderada de dias entre abrir o caso e o financeiro pagar
   for (const l of rows || []) {
     const mes = cxMesYmd(l.mes);
     if (f.marcas && !f.marcas.includes(l.marca)) continue;
     if (f.mesIni && mes < f.mesIni) continue; if (f.mesFim && mes > f.mesFim) continue;
     const n = (k) => Number(l[k] || 0);
+    if (l.dias_ate_pagar_p50 !== null && l.dias_ate_pagar_p50 !== undefined && n("dias_ate_pagar_n")) { pagar.push([Number(l.dias_ate_pagar_p50), n("dias_ate_pagar_n")]); a.diasAtePagarN += n("dias_ate_pagar_n"); }
     a.casos += n("casos"); a.concedidos += n("concedidos"); a.negados += n("negados"); a.andamento += n("andamento");
     a.valorConcedido += n("valor_concedido"); a.valorPedidoConcedido += n("valor_pedido_concedido"); a.valorAndamento += n("valor_andamento");
     a.n1 += n("n1"); a.n2 += n("n2"); a.n3 += n("n3"); a.valorN1 += n("valor_n1"); a.valorN2 += n("valor_n2"); a.valorN3 += n("valor_n3"); a.semValor += n("concedidos_sem_valor");
@@ -506,7 +508,8 @@ function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-M
     pctN3: a.concedidos ? (a.n3 / a.concedidos) * 100 : null,
     pctNegados: concluidos ? (a.negados / concluidos) * 100 : null,          // "não" do CX sobre os casos já decididos
     casosPorMilPedidos: a.pedidos > 0 ? (a.casos / a.pedidos) * 1000 : null,   // volume de casos normalizado (compara marcas)
-    ticketMedio: a.concedidos - a.semValor > 0 ? a.valorConcedido / (a.concedidos - a.semValor) : null });
+    ticketMedio: a.concedidos - a.semValor > 0 ? a.valorConcedido / (a.concedidos - a.semValor) : null,
+    diasAtePagarP50: medianaPonderada(pagar) });
 }
 function concessaoMeses(rows, marcas) { return [...new Set((rows || []).filter((l) => (!marcas || marcas.includes(l.marca)) && (Number(l.casos) || Number(l.receita))).map((l) => cxMesYmd(l.mes)))].sort(); }
 // tipos de caso (marca × tipo), ordenados por valor concedido
@@ -521,6 +524,41 @@ function concessaoTipos(rows, f) {
   }
   return Object.values(acc).sort((x, y) => y.valor - x.valor || y.casos - x.casos);
 }
+
+// ---------- despacho (17/09): cx_despacho_dia — WISMO lido como efeito da expedição ----------
+// Medido em 17/09 (ago–set, Shopify): semanas com 85–94% dos pedidos despachados depois de 2 dias úteis foram seguidas
+// por pico de WISMO (Fish 85→201; Aris 717 e 1.133). Despacho = createdAt do primeiro fulfillment; dias úteis seg–sex.
+// Maturação: o dia D só conta quando 2 dias úteis completos passaram depois dele — senão "sem despacho ainda" vira atraso falso.
+function cxFimMaduroDespacho(hoje) {
+  const d = new Date(hoje + "T12:00:00Z"); let uteis = 0;
+  while (true) { d.setUTCDate(d.getUTCDate() - 1); const dow = d.getUTCDay(); if (dow >= 1 && dow <= 5) uteis++; if (uteis >= 2) break; }
+  d.setUTCDate(d.getUTCDate() - 1);   // o dia anterior aos 2 úteis completos
+  return d.toISOString().slice(0, 10);
+}
+function despachoAgg(rows, f) {   // f: {marcas:[...], ini, fim} (dias inclusivos, 'YYYY-MM-DD')
+  const a = { pedidos: 0, despachados: 0, ate2du: 0, ate5du: 0, semDespacho: 0, dias: new Set(), coletadoEm: null }; const p50 = [];
+  for (const l of rows || []) {
+    const dia = cxDia(l.dia);
+    if (f.marcas && !f.marcas.includes(l.marca)) continue; if (f.ini && dia < f.ini) continue; if (f.fim && dia > f.fim) continue;
+    const n = (k) => Number(l[k] || 0);
+    a.pedidos += n("pedidos"); a.despachados += n("despachados"); a.ate2du += n("ate_2du"); a.ate5du += n("ate_5du"); a.semDespacho += n("sem_despacho");
+    if (l.du_p50 !== null && l.du_p50 !== undefined && n("despachados")) p50.push([Number(l.du_p50), n("despachados")]);
+    a.dias.add(dia); if (l.coletado_em && (!a.coletadoEm || l.coletado_em > a.coletadoEm)) a.coletadoEm = l.coletado_em;
+  }
+  return Object.assign(a, { dias: [...a.dias].sort(),
+    pctAtraso: a.pedidos ? ((a.pedidos - a.ate2du) / a.pedidos) * 100 : null,      // não saiu em 2 dias úteis (inclui quem ainda não saiu)
+    pctAtraso5: a.pedidos ? ((a.pedidos - a.ate5du) / a.pedidos) * 100 : null,
+    duP50: medianaPonderada(p50), aproximado: p50.length > 1 });
+}
+// série semanal de % atrasado, uma linha por marca (semana começa na segunda; semana em maturação marcada como parcial)
+function serieSemanalDespacho(rows, marcas, ini, fim, fimMaduro) {
+  const semanas = cxSemanas(ini, fim);
+  return { semanas, series: marcas.map((m) => ({ marca: m, pontos: semanas.map((s) => {
+    const sf = diasDepois(6, s); const a = despachoAgg(rows, { marcas: [m], ini: s, fim: sf < fim ? sf : fim });
+    return { semana: s, y: a.pedidos >= 20 ? a.pctAtraso : null, pedidos: a.pedidos, parcial: fimMaduro ? sf > fimMaduro : false };
+  }) })) };
+}
+function diasDepois(n, ymd) { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 
 // ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
 // segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
@@ -654,5 +692,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

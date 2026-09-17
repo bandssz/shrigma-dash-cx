@@ -165,7 +165,7 @@ function pintaFrescor(d) {
   const el = $("#frescor");
   if (!dentroDoExpediente()) { el.textContent = "coleta retoma às 06h"; el.classList.remove("velho"); return; }
   // frescor.js: idade do bloco mais fresco + alerta se qualquer bloco parou (>26h)
-  shrigmaFrescor(d, el, { limiteFrescoMin: 25 });
+  shrigmaFrescor(d, el, { limiteFrescoMin: 25, nomes: { snapshot_1d: "Gleap", agentes_1d: "Gleap agentes", cx_csat: "tickets Gleap", cx_fila: "fila Gleap", cx_tempo: "tempos Gleap", cx_fechamento: "fechamentos", cx_resposta: "respostas", cx_ra: "Reclame Aqui", cx_troca: "Troque", cx_concessao: "ClickUp", cx_pedidos: "Shopify", cx_despacho: "despacho Shopify", wa_saude: "WhatsApp", janelas: "janelas Gleap" } });
 }
 
 // alertas: sempre sobre AGORA/HOJE, independente do período selecionado na tela
