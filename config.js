@@ -2,6 +2,8 @@
 // Única coisa que o dev precisa trocar ao replicar no sistema interno.
 const CX_API_URL = "https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-api-306742284c6fac1d";
 const REFRESH_SEG = 60; // recarrega dados a cada 60s (lê Postgres via n8n; Gleap nunca é chamado daqui)
+// CX (17/09): o dado muda a cada 30 min (snapshot do Gleap) e cada leitura custa 2–4 s de Postgres — recarregar a cada minuto era o maior peso do banco.
+const CX_REFRESH_SEG = 600;
 
 // Endpoint de ESCRITA dos testes A/B. Chave PROPRIA (nao a de leitura):
 // a chave de leitura fica no localStorage de todo mundo que ja abriu o painel.

@@ -89,7 +89,8 @@ function pedeChave(erro) {
 async function carrega() {
   if (!chave()) { pedeChave(); return; }
   try {
-    const r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()), { cache: "no-store" });
+    // &painel=cx: com a chave-mestra, a API calcula e devolve só o CX (antes montava os quatro painéis, ~40 s de Postgres, e descartava três)
+    const r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", { cache: "no-store" });
     if (r.status === 401 || r.status === 403) {
       shrigmaEsqueceChave("cx");
       pedeChave("Chave incorreta — tente de novo.");
@@ -101,7 +102,7 @@ async function carrega() {
     pinta();
   } catch (e) {
     $("#faixa-alertas").innerHTML =
-      `<div class="erro-carga">Sem dados agora (${e.message}). Nova tentativa em ${REFRESH_SEG}s — se persistir, confira o workflow “CX — Dashboard · API de leitura” no n8n.</div>`;
+      `<div class="erro-carga">Sem dados agora (${e.message}). Nova tentativa em ${CX_REFRESH_SEG}s — se persistir, confira o workflow “CX — Dashboard · API de leitura” no n8n.</div>`;
   }
 }
 
@@ -740,4 +741,4 @@ function relogio() {
 ligaFiltros();
 relogio();
 carrega();
-if (typeof module === "undefined" || !module.exports) setInterval(carrega, REFRESH_SEG * 1000);
+if (typeof module === "undefined" || !module.exports) setInterval(carrega, CX_REFRESH_SEG * 1000);

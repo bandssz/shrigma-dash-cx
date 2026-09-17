@@ -312,6 +312,32 @@ e 80+ nos três dias de 14–16/09 — ~500 tickets/dia contra ~600 pedidos/dia,
 17% dos pedidos; 1ª resposta em 66 h no alerta. Não é artefato de coleta. Despacho normalizou (mediana < 1 du) — a
 causa agora é outra e precisa de olho humano.
 
+### Lentidão: onde o tempo estava e o que mudou (17/09)
+
+**Medição**: a API do CX respondia em 5–16 s; a transferência é ~0,2 s (224 KB gzipado) e o navegador pinta em ~0,4 s
+com o JSON na mão. O tempo estava no servidor montar o JSON. `EXPLAIN ANALYZE` da query com `painel=cx`: 4,3–6,8 s, dos
+quais **~1 s eram os blocos do CX** — o resto era Growth calculado e jogado fora: 30 dos 66 blocos do "Consulta payload"
+não tinham a guarda `CASE WHEN painel IN (...)` (`crm_fluxo` sobre `shrigma_send_log` sozinho: 2,3 s), e o nó "Recorta
+por painel" descartava 41 blocos por chamada. Pior: o próprio painel de CX aberto com a **chave-mestra** pedia
+`painel=todos` a **cada 60 s** (`REFRESH_SEG`), e cada uma dessas chamadas custava 35–50 s de Postgres (atribuição do
+Growth: 7,5 s + 6,3 s) — 53 das últimas 60 execuções da API eram isso. O banco ficava 60–80% do tempo ocupado montando um
+payload que ninguém usa inteiro, e todos os painéis esperavam atrás dele.
+
+**Mudanças (só CX + a query compartilhada, com saída idêntica por construção e conferida por diff)**:
+1. `api_patch_guardas.py`: guarda por painel nos 29 blocos sem guarda, usando a whitelist do próprio "Recorta" (fonte
+   única) — o que era descartado agora não é calculado. Conferido: payload de cx/organico/influs/growth idêntico (fora
+   timestamps e contadores vivos). SQL: cx 4,4 → 2,0 s · organico 2,9 → 0,2 s · influs 2,7 → 0,0 s.
+2. `api_patch_efetivo.py`: a chave-mestra pode se **restringir** a um painel (`?painel=cx|growth|organico|influs`, antes
+   só growth), e o SQL calcula só ele (`efetivo` no "Busca painel"; as guardas olham `efetivo`). Sem `?painel=` nada muda.
+   `_painel` continua sendo o painel da chave (o cofre mestre do front não muda).
+3. Front do CX: `fetch(... &painel=cx)` e `CX_REFRESH_SEG = 600` (constante nova; `REFRESH_SEG` dos outros painéis
+   intocado — mas eles também recarregam a cada 60 s e cada recarga do Growth custa 20–40 s de banco: vale o mesmo
+   remédio quando você parar por lá). Logo da Fishermans hospedado em `logos/` (vinha do CDN da Shopify, 1 s).
+
+**O que ainda dá** (não feito, para não mexer em tabela de outros): os dois blocos de NPS fazem `Seq Scan` em
+`subscribers` do Listmonk (0,7 s) — um índice GIN em `attribs` resolve, mas a tabela é do Listmonk; e o cache de payload
+por painel (um workflow monta o JSON a cada 10 min e a API vira um `SELECT`, < 0,3 s) — é o próximo passo, CX primeiro.
+
 ### Cadê meu pedido · onde estava o pedido (17/09)
 
 **Problema**: WISMO é quase metade dos contatos e o painel só sabia contar. O ticket do Gleap não carrega o número do
