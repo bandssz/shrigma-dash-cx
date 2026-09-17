@@ -560,6 +560,30 @@ function serieSemanalDespacho(rows, marcas, ini, fim, fimMaduro) {
 }
 function diasDepois(n, ymd) { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 
+// ---------- WISMO por situação do pedido (17/09): cx_wismo_situacao_dia ----------
+// Os fluxos "Gleap – WISMO Consulta Pedido" (Kai) já acham o pedido e leem a transportadora; passaram a registrar o resultado
+// (sem PII). Uma linha por ticket (a última consulta decide). Quebra o "cadê meu pedido" pela causa: expedição (sem despacho,
+// despachado sem movimento), transportadora (em trânsito, saiu para entrega, ocorrência, devolvido), já entregue, ou o Kai
+// não localizou o pedido (cliente sem número, telefone que não bate) — este último é falha do fluxo, não do cliente.
+const CX_WISMO_ROTULO = { "sem-despacho": "Ainda sem despacho", "despachado-sem-movimento": "Despachado, transportadora sem movimento", "em-transito": "Em trânsito", "saiu-para-entrega": "Saiu para entrega",
+  "entregue": "Já entregue", "devolvido": "Devolvido ao remetente", "ocorrencia": "Ocorrência na transportadora", "outra-transportadora": "Despachado (outra transportadora)", "despachado-sem-rastreio": "Despachado sem rastreio", "nao-encontrado": "Kai não localizou o pedido" };
+const CX_WISMO_EXPEDICAO = ["sem-despacho", "despachado-sem-movimento"];
+function wismoSituacao(rows, f) {   // f: {marcas:[...], ini, fim}
+  const acc = {}; let total = 0, coletadoEm = null;
+  for (const l of rows || []) {
+    const dia = cxDia(l.dia);
+    if (f.marcas && !f.marcas.includes(l.marca)) continue; if (f.ini && dia < f.ini) continue; if (f.fim && dia > f.fim) continue;
+    const k = l.situacao || "nao-encontrado"; const n = Number(l.tickets || 0);
+    const a = acc[k] || (acc[k] = { situacao: k, rotulo: CX_WISMO_ROTULO[k] || k, tickets: 0, escalados: 0, dias: [] });
+    a.tickets += n; a.escalados += Number(l.escalados || 0); if (l.dias_pedido_medio !== null && l.dias_pedido_medio !== undefined && n) a.dias.push([Number(l.dias_pedido_medio), n]);
+    total += n; if (l.coletado_em && (!coletadoEm || l.coletado_em > coletadoEm)) coletadoEm = l.coletado_em;
+  }
+  const lista = Object.values(acc).map((a) => Object.assign(a, { pct: total ? (a.tickets / total) * 100 : null, diasMedio: a.dias.length ? a.dias.reduce((s, [v, n]) => s + v * n, 0) / a.dias.reduce((s, [, n]) => s + n, 0) : null })).sort((x, y) => y.tickets - x.tickets);
+  const localizados = total - ((acc["nao-encontrado"] || {}).tickets || 0);
+  const expedicao = CX_WISMO_EXPEDICAO.reduce((s, k) => s + ((acc[k] || {}).tickets || 0), 0);
+  return { tickets: total, lista, coletadoEm, localizados, pctLocalizado: total ? (localizados / total) * 100 : null, pctExpedicao: localizados ? (expedicao / localizados) * 100 : null };
+}
+
 // ---------- fila agora (14/09): tickets abertos, um por linha (cx_fila) ----------
 // segundos de expediente entre dois instantes (mesma regra do coletor: seg–qui 8h–18h SP)
 function cxSegExpediente(iniUtc, fimUtc) {
@@ -692,5 +716,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, wismoSituacao, CX_WISMO_ROTULO, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

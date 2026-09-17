@@ -312,6 +312,34 @@ e 80+ nos três dias de 14–16/09 — ~500 tickets/dia contra ~600 pedidos/dia,
 17% dos pedidos; 1ª resposta em 66 h no alerta. Não é artefato de coleta. Despacho normalizou (mediana < 1 du) — a
 causa agora é outra e precisa de olho humano.
 
+### Cadê meu pedido · onde estava o pedido (17/09)
+
+**Problema**: WISMO é quase metade dos contatos e o painel só sabia contar. O ticket do Gleap não carrega o número do
+pedido — mas os fluxos **Gleap – WISMO Consulta Pedido** (Kai; Aris `yH37IridSjvKgk75`, Fish `QhcUt1yGZ9RELY6r`) já
+localizam o pedido na Shopify (número digitado, e-mail ou telefone da sessão) e leem o rastreio na J&T para responder — e
+jogavam o resultado fora.
+
+**O que mudou nos fluxos**: dois nós novos em paralelo ao "Responder", ligados na mesma saída de "Formatar resposta":
+Code **Registrar WISMO (sem PII)** → Postgres **Grava cx_wismo_consulta**, ambos com `onError: continuar`. Nenhum nó
+existente foi alterado (diff campo a campo: só a conexão nova); a resposta ao cliente sai antes e independe do registro.
+Script `wismo_registro_patch.py`, backups em `~/work/n8n-snap/wismo_*_backup_*.json`. Grava só: marca, ticket, número do
+pedido, como achou (`via`), situação, dias desde a compra/despacho, transportadora, se escalou — sem nome, telefone,
+e-mail ou código de rastreio.
+
+**Dados**: `cx_wismo_consulta` (uma consulta por linha) e view `cx_wismo_situacao_dia` (um ticket por linha-base: a última
+consulta do ticket decide; marca × dia × situação). Situações: `sem-despacho`, `despachado-sem-movimento` (expedição);
+`em-transito`, `saiu-para-entrega`, `ocorrencia`, `devolvido`, `outra-transportadora` (transportadora); `entregue`;
+`nao-encontrado` (o Kai não localizou o pedido em nenhuma tentativa — falha do fluxo, não do cliente). API: `cx_wismo` (60 d).
+
+**Tela**: painel **Cadê meu pedido · onde estava o pedido** na aba Chat (só aparece com dado; base < 30 mostra contagem, não
+%; etiqueta vermelha quando o Kai não acha o pedido em mais da metade), e o cartão WISMO da Visão geral ganhou "Kai achou o
+pedido em X%" no subtítulo com 20+ tickets. Nenhum cartão novo.
+
+**Primeira hora de registro (17/09, 09:41–09:55)**: 32 tickets — **o Kai não localizou o pedido em 23 (72%; Fish 11 de 12)**.
+Dos 9 localizados: 3 despachados sem movimento na J&T, 1 sem despacho, 4 em trânsito, 1 outra transportadora. Se a
+proporção se mantiver no dia, o buraco do WISMO não é a expedição de hoje — é o fluxo não achar o pedido (cliente sem
+número, busca por telefone que não bate) e mandar o cliente digitar de novo.
+
 ### Custo de concessão sobre receita (16/09)
 
 **Problema**: é a meta do Head de CX e não tinha fonte. Os valores estão nas listas de reembolso do ClickUp (Suporte ›

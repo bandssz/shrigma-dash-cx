@@ -81,6 +81,13 @@ function fixture(o = {}) {
     // despacho (cx_despacho_dia): HOJE 10/09 (qui) → dia maduro até 07/09; Aris 100 pedidos/dia com 60 em 2 du (40% atrasado), Fish 50/dia com 45 (10%)
     cx_despacho: dias(14).flatMap((d) => [{ marca: 'aristocrata', dia: d, pedidos: 100, despachados: 98, ate_2du: 60, ate_5du: 90, sem_despacho: 2, du_p50: 2.4, du_p90: 6.1, coletado_em: HOJE + 'T05:00:00Z' },
       { marca: 'fishermans', dia: d, pedidos: 50, despachados: 50, ate_2du: 45, ate_5du: 50, sem_despacho: 0, du_p50: 0.8, du_p90: 2.2, coletado_em: HOJE + 'T05:00:00Z' }]),
+    // WISMO por situação do pedido (cx_wismo_situacao_dia): 7d termina ontem → 4 dias × 9 = 36 tickets — Kai não achou 20 (56%), 8 sem despacho, 4 em trânsito, 4 entregues
+    cx_wismo: dias(5).flatMap((d) => [{ marca: 'aristocrata', dia: d, situacao: 'nao-encontrado', tickets: 5, escalados: 0, dias_pedido_medio: null, coletado_em: HOJE + 'T12:00:00Z' },
+      { marca: 'aristocrata', dia: d, situacao: 'sem-despacho', tickets: 2, escalados: 0, dias_pedido_medio: 3, coletado_em: HOJE + 'T12:00:00Z' },
+      { marca: 'fishermans', dia: d, situacao: 'em-transito', tickets: 1, escalados: 0, dias_pedido_medio: 9, coletado_em: HOJE + 'T12:00:00Z' }]).concat(
+      dias(5).map((d) => ({ marca: 'aristocrata', dia: d, situacao: 'entregue', tickets: 1, escalados: 0, dias_pedido_medio: 12, coletado_em: HOJE + 'T12:00:00Z' })),
+      [{ marca: 'fishermans', dia: HOJE, situacao: 'nao-encontrado', tickets: 2, escalados: 1, dias_pedido_medio: null, coletado_em: HOJE + 'T12:00:00Z' },
+       { marca: 'fishermans', dia: HOJE, situacao: 'em-transito', tickets: 2, escalados: 0, dias_pedido_medio: 7, coletado_em: HOJE + 'T12:00:00Z' }]),
     // fechamentos por pessoa × motivo (view cx_fechamento_motivo_dia): WISMO custa 3 msgs e volta 30%; pré-venda 1 msg e volta 5%
     cx_fechamento_motivo: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
       { marca: 'aristocrata', motivo: 'wismo', canal: 'whatsapp', dia: d, fechados: 40, maduros: mad ? 40 : 0, resolutivos: mad ? 28 : 0, fcr_base: mad ? 30 : 0, fcr: mad ? 20 : 0, msgs_humanas_p50: 3, msgs_humanas_media: 3.2, msgs_cliente_p50: 7 },
@@ -307,6 +314,14 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.doesNotMatch(x.document.querySelector('.aba-pane[data-aba="trocas"]').textContent, /Shopify · ago|Estornos Shopify/, 'estorno da Shopify fica fora do bloco de concessão por decisão');
   assert.match(x.document.querySelector('#area-concessao-tipo').textContent, /Extraviado.*R\$ 5.000/s);
   assert.ok(x.document.querySelectorAll('#g-concessao svg').length === 1, 'gráfico padrão: % da receita em linhas');
+  // cadê meu pedido · onde estava o pedido (aba Chat, 7d): 36 tickets, Kai não achou 20 → alerta; expedição = 8 de 16 localizados
+  const w7 = await boot(fixture(), '?periodo=7d');
+  assert.equal(w7.document.querySelector('#painel-wismo').hidden, false);
+  assert.match(w7.document.querySelector('#wismo-rot').textContent, /36 tickets consultados/);
+  assert.match(w7.document.querySelector('#wismo-rot').textContent, /Kai não achou o pedido em 56%/);
+  assert.match(w7.document.querySelector('#area-wismo').textContent, /Kai não localizou o pedido.*20.*56%/s);
+  assert.match(w7.document.querySelector('#area-wismo').textContent, /Ainda sem despacho.*8.*22%.*3 d/s);
+  assert.match(w7.document.querySelector('#area-seis .six2[data-m="wismo_rate"]').textContent, /Kai achou o pedido em 44%/);
   // um gráfico por aba, dirigido pelo cartão ativo
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="geral"] svg').length, 0, 'sem pedidos, a visão geral mostra aviso em vez de gráfico');
   assert.equal(x.document.querySelectorAll('.aba-pane[data-aba="chat"] svg').length, 1);

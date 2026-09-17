@@ -148,6 +148,7 @@ function pinta() {
   pintaSeisNumeros(d);
   pintaMotivos(d);
   pintaChat(d, escopo, porMarca);
+  pintaWismoSituacao(d);
   pintaRanking(d, hoje);
   pintaRaAba(d);
   pintaNpsAba(d);

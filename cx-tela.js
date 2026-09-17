@@ -228,6 +228,7 @@ function pintaSeisNumeros(d) {
   const raAnt = porMarca((m) => per.fAnt ? raUltimo(d.cx_ra, m, per.fAnt.fim) : null);
   const raPior = (campo, src) => { const vs = marcas.map((m) => src[m] && src[m][campo] != null ? Number(src[m][campo]) : null).filter((v) => typeof v === "number"); return vs.length ? Math.min(...vs) : null; };
   const temPed = typeof cpp.pedidos === "number";
+  const ws = wismoSituacao(d.cx_wismo || [], { marcas, ini: per.f.ini, fim: per.f.fim });   // situação do pedido nas consultas do Kai (desde 17/09)
   // despacho: só dias maduros (2 dias úteis completos depois do pedido); período sem dia maduro cai para os 7 maduros mais recentes
   const dp = cxDespacho(d.cx_despacho, marcas, per.f, hoje);
   const dpAnt = per.fAnt && !dp.caiu ? despachoAgg(d.cx_despacho, { marcas, ini: diasAtras(diffDias(dp.f.ini, dp.f.fim) + 1, dp.f.ini), fim: diasAtras(1, dp.f.ini) }) : null;
@@ -237,7 +238,7 @@ function pintaSeisNumeros(d) {
   const V = {
     contatos_por_pedido: { v: temPed ? cpp.por100 : null, ant: cppAnt && cppAnt.por100, sub: (temPed ? `${fmtNum(cpp.contatos)} contatos · ${fmtNum(cpp.pedidos)} pedidos` : `${fmtNum(cpp.contatos)} contatos · sem pedidos coletados`) + (rotPed ? ` · ${rotPed}` : ""),
       marcas: porMarca((m) => contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, fPed, { marca: m })).por100) },
-    wismo_rate: { v: temPed ? cpp.wismoRate : null, ant: cppAnt && cppAnt.wismoRate, sub: `${fmtNum(cpp.wismo)} “cadê meu pedido”` + (rotPed ? ` · ${rotPed}` : ""),
+    wismo_rate: { v: temPed ? cpp.wismoRate : null, ant: cppAnt && cppAnt.wismoRate, sub: `${fmtNum(cpp.wismo)} “cadê meu pedido”` + (rotPed ? ` · ${rotPed}` : "") + (ws.tickets >= 20 ? ` · Kai achou o pedido em ${fmtPct0(ws.pctLocalizado)}` : ""),
       marcas: porMarca((m) => contatosPorPedido(rows, d.cx_pedidos, Object.assign({}, fPed, { marca: m })).wismoRate) },
     csat_bom: { v: cs.baseOk ? cs.pctBom : null, ant: csAnt && csAnt.baseOk ? csAnt.pctBom : null, sub: `${fmtNum(cs.avaliadas)} avaliações · responderam ${fmtPct0(cs.pctResposta)}` + (csx.caiu ? ` · ${fmtDia(csx.f.ini)}${csx.f.ini !== csx.f.fim ? "–" + fmtDia(csx.f.fim) : ""}` : ""), curto: !cs.baseOk && cs.avaliadas ? `${fmtNum(cs.bom)} de ${fmtNum(cs.avaliadas)}` : null,
       marcas: porMarca((m) => { const a = csatAgg(rows, Object.assign({}, csx.f, { marca: m, canais: CX_CANAIS_KAI })); return a.baseOk ? a.pctBom : null; }) },
@@ -946,6 +947,24 @@ function pintaGraficoTrocasAba(d) {
   else r = { tit: "Reversas · por mês", sub: "abertas pelo cliente no portal · uma cor por marca · último mês pode estar em andamento",
     html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Reversas por mês", vazio: "Sem reversa.", series: marcas.map((m) => Object.assign(cxLbl(m), { valores: meses.map((mes) => por(m, mes).reversas) })) }) };
   cxGraficoBloco("trocas", r);
+}
+
+// ---------- Cadê meu pedido · onde estava o pedido (17/09): cx_wismo_situacao_dia ----------
+// Só aparece com dado (registro começou em 17/09). Um ticket por linha-base; % sobre os tickets consultados no período.
+function pintaWismoSituacao(d) {
+  const sec = $("#painel-wismo"), area = $("#area-wismo"), rot = $("#wismo-rot"); if (!sec || !area) return;
+  const marcas = cxMarcasSerie(); const f = cxF(estado.marca);
+  const ws = wismoSituacao(d.cx_wismo || [], { marcas, ini: f.ini, fim: f.fim });
+  if (!ws.tickets) { sec.hidden = true; return; }
+  sec.hidden = false;
+  const porMarca = marcas.length > 1 ? marcas.map((m) => { const x = wismoSituacao(d.cx_wismo || [], { marcas: [m], ini: f.ini, fim: f.fim }); return `${CX_SIGLA[m]} ${fmtNum(x.tickets)} · achou ${fmtPct0(x.pctLocalizado)}`; }).join(" · ") : "";
+  if (rot) rot.innerHTML = cxTag(`${fmtNum(ws.tickets)} tickets consultados`, "nota", "Tickets WISMO em que o Kai consultou o pedido no período; a última consulta do ticket decide a situação." + (porMarca ? ` Por marca: ${porMarca}.` : "")) +
+    (ws.tickets < 30 ? cxTag("base curta", "nota", "Menos de 30 tickets: leia as contagens, não as porcentagens.") : "") +
+    (ws.pctLocalizado !== null && ws.pctLocalizado < 50 && ws.tickets >= 30 ? cxTag(`Kai não achou o pedido em ${fmtPct0(100 - ws.pctLocalizado)}`, "alerta", "Na maioria dos tickets o Kai não localizou o pedido — o cliente não deu o número e a busca por telefone não bateu. Antes de olhar a expedição, esse é o buraco do fluxo.") : "") +
+    (ws.pctExpedicao !== null && ws.localizados >= 20 ? cxTag(`expedição em ${fmtPct0(ws.pctExpedicao)} dos localizados`, "nota", "Dos pedidos que o Kai achou, quantos ainda não tinham saído ou estavam despachados sem movimento na transportadora.") : "");
+  area.innerHTML = `<div class="rolagem"><table class="comparativo wismo-tab">
+    <thead><tr><th>Onde estava o pedido</th><th class="num">Tickets</th><th class="num">Fatia</th><th class="num" title="dias entre a compra e a pergunta, média">Dias desde a compra</th><th class="num" title="o Kai passou para pessoa">Escalados</th></tr></thead>
+    <tbody>${ws.lista.map((x) => `<tr class="${CX_WISMO_EXPEDICAO.includes(x.situacao) ? "vm-linha" : ""}"><td>${x.rotulo}</td><td class="num"><strong class="tabn">${fmtNum(x.tickets)}</strong></td><td class="num">${ws.tickets >= 30 ? fmtPct0(x.pct) : "—"}</td><td class="num">${x.diasMedio === null ? "—" : fmtDec(x.diasMedio, 0) + " d"}</td><td class="num">${fmtNum(x.escalados)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 // ---------- Concessão sobre receita (16/09): cx_concessao (ClickUp ÷ Shopify) e cx_concessao_tipo ----------
