@@ -51,3 +51,24 @@ test('tracking gaps distinguish missing quality from a measured zero',()=>{
  q.pagos_sem_ultima_sessao=0;assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,0);
  delete q.pagos_sem_ultima_sessao;assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,null);
 });
+
+
+test('server evidence rejects same-UTM revenue when the visit preceded the dispatch',()=>{
+ const f=fixture();f.crm_attribution.dispatch_evidence={schema_version:1,daily:[],quality:[]};
+ const v=GA.campaigns(f,'aristo',day,day)[0],m=v.members.find(m=>m.campanha_id===127);
+ assert.equal(v.receita,100);assert.equal(m.result.receita,0);assert.equal(m.evidence_verified,true);
+});
+test('chronology can identify an earlier send even when the same links were reused later',()=>{
+ const f=fixture();f.crm_attribution.campaigns.push({...f.crm_attribution.campaigns[0],campanha_id:128,enviado_em:day+'T23:00:00Z'});
+ f.crm_attribution.dispatch_evidence={schema_version:1,daily:[{marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:1,receita:100}],quality:[]};
+ const v=GA.campaigns(f,'aristo',day,day)[0];assert.equal(v.members.find(m=>m.campanha_id===127).result.receita,100);
+ assert.equal(v.members.find(m=>m.campanha_id===128).result,null);assert.equal(v.receita,100);
+});
+test('dispatch evidence respects brand, purchase date and selected model',()=>{
+ const f=fixture();f.crm_attribution.dispatch_evidence={schema_version:1,daily:[
+  {marca:'fish',dia:day,model:'last_click',campanha_id:127,pedidos:1,receita:900},
+  {marca:'aristo',dia:'2026-09-14',model:'last_click',campanha_id:127,pedidos:1,receita:800},
+  {marca:'aristo',dia:day,model:'last_non_direct',campanha_id:127,pedidos:1,receita:700},
+  {marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:1,receita:100}]};
+ assert.equal(GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127).result.receita,100);
+});
