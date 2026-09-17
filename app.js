@@ -89,15 +89,26 @@ function pedeChave(erro) {
 async function carrega() {
   if (!chave()) { pedeChave(); return; }
   try {
-    // &painel=cx: com a chave-mestra, a API calcula e devolve só o CX (antes montava os quatro painéis, ~40 s de Postgres, e descartava três)
-    const r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", { cache: "no-store" });
-    if (r.status === 401 || r.status === 403) {
+    // 1º o cache (payload pronto, montado a cada 10 min, < 1 s); se ele falhar, a API viva com &painel=cx
+    // (com a chave-mestra, sem &painel= a API montava os quatro painéis, ~40 s de Postgres, e descartava três).
+    let dados = null, r = null;
+    if (typeof CX_CACHE_URL === "string" && CX_CACHE_URL) {
+      try {
+        r = await fetch(CX_CACHE_URL + "?k=" + encodeURIComponent(chave()), { cache: "no-store" });
+        if (r.ok) { const j = await r.json(); if (j && j.gerado_em) dados = j; }   // cache vazio ou quebrado → cai para a API viva
+      } catch (e) { dados = null; }
+    }
+    if (!dados && !(r && (r.status === 401 || r.status === 403))) {
+      r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", { cache: "no-store" });
+      if (r.ok) dados = await r.json();
+    }
+    if (r && (r.status === 401 || r.status === 403)) {
       shrigmaEsqueceChave("cx");
       pedeChave("Chave incorreta — tente de novo.");
       return;
     }
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    estado.dados = await r.json();
+    if (!dados) throw new Error("HTTP " + (r ? r.status : "sem resposta"));
+    estado.dados = dados;
     shrigmaMarcaMestra(chave(), (estado.dados || {})._painel);
     pinta();
   } catch (e) {
@@ -167,7 +178,8 @@ function pintaFrescor(d) {
   const el = $("#frescor");
   if (!dentroDoExpediente()) { el.textContent = "coleta retoma às 06h"; el.classList.remove("velho"); return; }
   // frescor.js: idade do bloco mais fresco + alerta se qualquer bloco parou (>26h)
-  shrigmaFrescor(d, el, { limiteFrescoMin: 25, nomes: { snapshot_1d: "Gleap", agentes_1d: "Gleap agentes", cx_csat: "tickets Gleap", cx_fila: "fila Gleap", cx_tempo: "tempos Gleap", cx_fechamento: "fechamentos", cx_resposta: "respostas", cx_ra: "Reclame Aqui", cx_troca: "Troque", cx_concessao: "ClickUp", cx_pedidos: "Shopify", cx_despacho: "despacho Shopify", wa_saude: "WhatsApp", janelas: "janelas Gleap" } });
+  // limiteFrescoMin 40: snapshot do Gleap a cada 30 min + cache do payload a cada 10 min
+  shrigmaFrescor(d, el, { limiteFrescoMin: 40, nomes: { snapshot_1d: "Gleap", agentes_1d: "Gleap agentes", cx_csat: "tickets Gleap", cx_fila: "fila Gleap", cx_tempo: "tempos Gleap", cx_fechamento: "fechamentos", cx_resposta: "respostas", cx_ra: "Reclame Aqui", cx_troca: "Troque", cx_concessao: "ClickUp", cx_pedidos: "Shopify", cx_despacho: "despacho Shopify", wa_saude: "WhatsApp", janelas: "janelas Gleap" } });
 }
 
 // alertas: sempre sobre AGORA/HOJE, independente do período selecionado na tela

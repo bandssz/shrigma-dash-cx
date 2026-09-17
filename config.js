@@ -1,6 +1,9 @@
 // ================== CONFIG ==================
 // Única coisa que o dev precisa trocar ao replicar no sistema interno.
 const CX_API_URL = "https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-api-306742284c6fac1d";
+// CX (17/09): leitura em cache — o mesmo JSON, montado a cada 10 min pelo workflow "CX — API cache" e servido com um SELECT (< 1 s).
+// Se o cache falhar, app.js cai para CX_API_URL (a API viva). Só o painel de CX usa isto.
+const CX_CACHE_URL = "https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-cache-a91f3c7e2d4b";
 const REFRESH_SEG = 60; // recarrega dados a cada 60s (lê Postgres via n8n; Gleap nunca é chamado daqui)
 // CX (17/09): o dado muda a cada 30 min (snapshot do Gleap) e cada leitura custa 2–4 s de Postgres — recarregar a cada minuto era o maior peso do banco.
 const CX_REFRESH_SEG = 600;

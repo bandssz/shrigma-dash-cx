@@ -334,9 +334,19 @@ payload que ninguém usa inteiro, e todos os painéis esperavam atrás dele.
    intocado — mas eles também recarregam a cada 60 s e cada recarga do Growth custa 20–40 s de banco: vale o mesmo
    remédio quando você parar por lá). Logo da Fishermans hospedado em `logos/` (vinha do CDN da Shopify, 1 s).
 
+4. **Cache do payload (só CX, workflows novos, nada muda na API compartilhada)**: `cache_workflows.py` cria
+   **CX — API cache · a cada 10 min** (`forPBbJojntCcLGN`: lê a chave do CX em `crm_dash_chave` → GET na API de leitura
+   com `&painel=cx` → grava em `dash_payload_cache`; forçar em `GET /webhook/cx-dash-cache-forcar`) e **CX — API leitura
+   (cache)** (`Opom9DypMMhycd7S`, `GET /webhook/cx-dash-cache-a91f3c7e2d4b?k=`: mesma validação de chave na mesma tabela,
+   aceita chave do CX e mestra, devolve o payload com `_painel` = painel da chave e `_cache_gerado_em`; sem chave, 401
+   igual). O front (`CX_CACHE_URL` em config.js) lê o cache primeiro e **cai para a API viva** se o cache vier vazio ou
+   quebrado — nunca tela branca. Frescor: `limiteFrescoMin` 25 → 40 (snapshot de 30 min + cache de 10). Medido: cache
+   0,7–1,1 s de TTFB com o n8n tranquilo (SQL 65 ms; o resto é o próprio n8n), contra 4–8 s da API viva; nos picos em
+   que os outros painéis recarregam, o n8n fica saturado e até o nó "Valida chave" (3 linhas) leva 2 s — isso só o
+   remédio do item 3 nos outros painéis resolve. Ícones do topo também hospedados em `logos/`.
+
 **O que ainda dá** (não feito, para não mexer em tabela de outros): os dois blocos de NPS fazem `Seq Scan` em
-`subscribers` do Listmonk (0,7 s) — um índice GIN em `attribs` resolve, mas a tabela é do Listmonk; e o cache de payload
-por painel (um workflow monta o JSON a cada 10 min e a API vira um `SELECT`, < 0,3 s) — é o próximo passo, CX primeiro.
+`subscribers` do Listmonk (0,7 s) — um índice GIN em `attribs` resolve, mas a tabela é do Listmonk; e replicar o cache de payload aos outros painéis (mesmo par de workflows, trocando o painel).
 
 ### Cadê meu pedido · onde estava o pedido (17/09)
 
