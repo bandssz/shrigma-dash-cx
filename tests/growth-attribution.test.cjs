@@ -42,3 +42,12 @@ test('unmeasured engagement differs from zero and never divides by zero',()=>{
 });
 
 test('Olivas is included in campaign attribution and consolidated coverage without legacy duplicates',()=>{const f=fixture();f.crm_attribution.campaigns=f.crm_attribution.campaigns.map(m=>({...m,marca:'olivas',emissor:'olivas'}));f.crm_attribution.daily=f.crm_attribution.daily.map(r=>({...r,marca:'olivas'}));f.crm_attribution.coverage=[{brand:'olivas',day,checked_at:day+'T13:00:00Z'}];f.crm_conversao=[{marca:'olivas',canal:'email',receita_ultimo:999}];GA.project(f);assert.equal(GA.campaigns(f,'olivas',day,day)[0].receita,100);assert.equal(f.crm_conversao.length,1);assert.equal(f.crm_conversao[0].receita_ultimo,100);assert.equal(GA.coverage(f,'olivas',day,day).complete,true);assert.equal(GA.coverage(f,'todas',day,day).expected,3);assert.equal(GA.coverage(f,'todas',day,day).complete,false);});
+
+test('tracking gaps distinguish missing quality from a measured zero',()=>{
+ const f=fixture();assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,null);
+ const q={marca:'aristo',dia:day,pagos_elegiveis:10,pagos_com_ultima_sessao:9,pagos_sem_ultima_sessao:1,pagos_sem_origem_nao_direta:2};
+ f.crm_attribution.quality=[q];assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,1);
+ assert.equal(GA.coverage(f,'aristo',day,day).lastVisitKnown,9);
+ q.pagos_sem_ultima_sessao=0;assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,0);
+ delete q.pagos_sem_ultima_sessao;assert.equal(GA.coverage(f,'aristo',day,day).lastVisitMissing,null);
+});
