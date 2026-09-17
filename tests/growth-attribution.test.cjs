@@ -72,3 +72,10 @@ test('dispatch evidence respects brand, purchase date and selected model',()=>{
   {marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:1,receita:100}]};
  assert.equal(GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127).result.receita,100);
 });
+
+test('an unknown dispatch time cannot be reported as measured zero revenue',()=>{
+ const f=fixture();f.crm_attribution.campaigns[0].enviado_em=null;
+ f.crm_attribution.dispatch_evidence={schema_version:1,daily:[],quality:[]};
+ const m=GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
+ assert.equal(m.result,null);
+});
