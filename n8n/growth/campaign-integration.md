@@ -1,6 +1,6 @@
 # Cadastro de campanhas: dashboard e IA
 
-Estado em 15/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, seus adaptadores persistentes e o agendamento pelo painel ainda não estão implementados/publicados.** Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude foi recebida nesta rodada e revisada em pacote separado, com os mesmos módulos de contrato/preparo e um CLI local. Isso ainda não habilita o endpoint remoto.
+Estado em 18/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, o adaptador atômico do provedor e o agendamento pelo painel ainda não estão implementados/publicados.** O armazenamento PostgreSQL de operações/validações está implementado em `campaign-store.sql` e `campaign-store.js`; a ativação é registrada abaixo. Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude foi recebida nesta rodada e revisada em pacote separado, com os mesmos módulos de contrato/preparo e um CLI local. Isso ainda não habilita o endpoint remoto.
 
 ## Escopo
 
@@ -54,7 +54,7 @@ Gravações exigem `idempotency_key` única por operação, reutilizada em consu
 ## O que falta no backend
 
 1. Adaptar o núcleo ao runtime real: módulos Node/CommonJS e `URL` não estão disponíveis automaticamente em Code nodes do n8n. O arquivo de serviço não é um workflow importável.
-2. Implementar `store` persistente com claim transacional único por ator/chave, hash do pedido, lease, ID nativo, resposta e validação vinculada à versão. Nunca guardar a credencial no pedido/hash/histórico.
+2. Integrar o `store` PostgreSQL implementado ao runtime autenticado: claim único por ator/chave, hash do pedido, token de dono, ID nativo, resposta e validação vinculada à versão. Nunca guardar a credencial no pedido/hash/histórico. O token não expira para autorizar reenvio; resultados incertos exigem conciliação.
 3. Implementar `provider` com catálogo atualizado, listas por marca, integração nativa Listmonk e preservação de headers/atributos não pertencentes ao editor. A criação sempre deixa status `draft`.
 4. Provar a proteção concorrente na gravação e no agendamento. O núcleo requer troca atômica condicionada à versão; uma sequência GET/PUT sem guarda não cumpre o contrato. As rotas diretas de edição no Listmonk precisam entrar nessa análise.
 5. Gravar o mapa de iniciativa em `crm_familia_campanha` com conflito explícito, na mesma operação lógica. Apenas preencher `attribs.crm` não atualiza o agrupamento da API atual. Conferir tags legadas `semana-cliente`/`desodorante`, que hoje também determinam família na view.
@@ -66,4 +66,21 @@ Gravações exigem `idempotency_key` única por operação, reutilizada em consu
 O pacote Claude v2 preserva a criação e o repertório de marca, inclui normalização/preparo locais com cópias versionadas destes módulos e um checklist HTML/texto/wrapper. O catálogo e os snapshots fornecidos aos helpers precisam vir de consultas reais; o sucesso local não comprova autenticação ou disponibilidade do provedor. O transporte central será ligado quando os adaptadores acima estiverem implementados e verificados. Não é necessário repassar credenciais.
 
 
-Olivas está no escopo ativo: remetente/Reply-To existentes em `olivasdocampo.com`, loja e links em `olivasdocampo.com.br`. `CampaignContract.STORES` separa domínio comercial de `BRANDS` (domínio do e-mail). Aplicam-se as mesmas UTMs, catálogo por marca, identidade de disparo e guardas. Preparador local disponível; conexão persistente do servidor e atualização do pacote Claude para incluir Olivas ainda devem ser concluídas.
+Olivas foi adiada por Felipe em 18/09; o escopo de entrega atual é Aristo e Fishermans. O contrato Olivas já existente permanece preservado, sem novas ativações: remetente/Reply-To existentes em `olivasdocampo.com`, loja e links em `olivasdocampo.com.br`. `CampaignContract.STORES` separa domínio comercial de `BRANDS` (domínio do e-mail). Aplicam-se as mesmas UTMs, catálogo por marca, identidade de disparo e guardas. Preparador local disponível; conexão persistente do servidor e atualização do pacote Claude para incluir Olivas ainda devem ser concluídas.
+
+
+## Persistência das operações — 18/09
+
+Migração aplicada em 18/09: criação confirmada por consulta após COMMIT. A primeira tentativa retornou 502; antes da segunda, a leitura confirmou que nenhum dos três objetos existia. 33 testes Node passaram e os cenários SQL passaram com rollback. Ainda não há endpoint ou ligação ao emissor/painel; nenhuma campanha foi criada/agendada por esta implantação.
+
+`campaign-store.sql` cria duas tabelas próprias e uma função interna, sem alterar tabelas Listmonk ou enviar mensagens. `campaign-store.js` adapta consultas PostgreSQL parametrizadas ao núcleo do serviço. O adaptador exige retorno `{rows:[{result:...}]}` e confirmação explícita das escritas; resposta vazia não vira sucesso.
+
+- Reserva única por ator autenticado/chave, com hash do pedido e identidade do rascunho remoto. O token de escrita só é devolvido ao primeiro dono da reserva; a consulta de operação não o expõe.
+- Operações pendentes/incertas nunca são recuperadas automaticamente por idade. Mesmo depois de um timeout, outra tentativa com a mesma chave não recebe uma nova reserva.
+- Finalização terminal é idempotente apenas para o mesmo resultado. Outra resposta ou outra identidade remota é recusada; conciliação administrativa futura requer seu próprio procedimento auditado.
+- Validação guarda a versão revisada. O serviço já exige correspondência de versão antes de agendar; o adaptador do provedor ainda precisa implementar comparação e troca atômicas.
+- Sem SECURITY DEFINER, acesso PUBLIC revogado. Backend deve autenticar antes da chamada e usar o dono/grant explícito; não expor esta função como endpoint SQL genérico. Escopo desta etapa: aristo/fish.
+
+A validação SQL em `tests/campaign-store.sql` deve rodar junto da migração dentro de BEGIN/ROLLBACK, em ambiente sem essas tabelas, usando apenas operações sintéticas. Os testes Node cobrem parametrização e falhas de confirmação; testes do serviço incluem chamadas simultâneas com adaptadores em memória. Isso não é prova de concorrência do futuro endpoint/provedor real.
+
+Permanecem necessários: adaptador Listmonk com proteção atômica contra edições externas, API autenticada, catálogo por marca, gravação do mapa de iniciativa, consulta de operações no painel e ligação salvar/validar/agendar. Não anunciar essas capacidades no navegador/skill até a prova ponta a ponta. A existência destas tabelas, por si só, não protege criações diretas no Listmonk.
