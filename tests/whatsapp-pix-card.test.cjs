@@ -28,3 +28,30 @@ test('Celcoin can return JSON or JWS for the same Appmax code',async()=>{
   const b=await getPixCard(input,async()=>response,now);assert.equal(b.parameters[0].action.order_details.total_amount.value,4305);
  }
 });
+
+const {pixShopifyOrder}=require('../n8n/growth/whatsapp-pix-card');
+const money=amount=>({shopMoney:{amount,currencyCode:'BRL'}});
+function shopifyOrder(){return {id:'gid://shopify/Order/123',currencyCode:'BRL',cancelledAt:null,displayFinancialStatus:'PENDING',taxesIncluded:false,currentTotalPriceSet:money('43.05'),currentShippingPriceSet:money('5.05'),currentTotalTaxSet:money('0'),lineItems:{pageInfo:{hasNextPage:false},nodes:[{id:'gid://shopify/LineItem/1',name:'Produto de teste',quantity:2,currentQuantity:2,originalUnitPriceSet:money('20.00'),discountAllocations:[{allocatedAmountSet:money('2.00')}]}]}};}
+test('itemized card reconciles real quantity, unit price, shipping and discounts to the verified charge',()=>{
+ const order=shopifyOrder(),enriched=pixShopifyOrder(order,'123','43.05');assert.equal(enriched.mode,'itemized');assert.deepEqual(enriched.order.items,[{retailer_id:'1',name:'Produto de teste',amount:{value:2000,offset:100},quantity:2}]);assert.equal(enriched.order.subtotal.value,4000);assert.equal(enriched.order.discount.value,200);assert.equal(enriched.order.shipping.value,505);
+ const card=makePixCard({...input,shopify_order:order},charge,now).parameters[0].action.order_details;
+ assert.deepEqual(card.order,enriched.order);assert.equal(card.total_amount.value,4305);assert.equal(card.payment_settings[0].pix_dynamic_code.code,input.code);
+});
+test('incomplete or foreign order details keep the truthful aggregate card',()=>{
+ for(const change of [o=>{o.id='gid://shopify/Order/999';},o=>{o.lineItems.pageInfo.hasNextPage=true;},o=>{o.lineItems.nodes[0].currentQuantity=1;},o=>{o.displayFinancialStatus='PAID';},o=>{o.currentShippingPriceSet=money('5.06');}]){
+  const o=shopifyOrder();change(o);const r=pixShopifyOrder(o,'123','43.05');assert.equal(r.mode,'aggregate');assert.equal(r.order,null);
+  const d=makePixCard({...input,shopify_order:o},charge,now).parameters[0].action.order_details;assert.equal(d.order.items[0].name,'Pedido #123');assert.equal(d.order.items[0].amount.value,4305);
+ }
+});
+test('no guessed zeros, currencies, quantities or missing discounts enter item details',()=>{
+ for(const change of [o=>{o.currentShippingPriceSet.shopMoney.amount=null;},o=>{o.currentShippingPriceSet.shopMoney.amount='';},o=>{o.currentShippingPriceSet.shopMoney.currencyCode='USD';},o=>{o.lineItems.nodes[0].quantity=1.5;},o=>{delete o.lineItems.nodes[0].discountAllocations;},o=>{o.lineItems.nodes[0].originalUnitPriceSet=money('20.001');},o=>{o.lineItems.nodes.push({...o.lineItems.nodes[0]});}]){const o=shopifyOrder();change(o);assert.equal(pixShopifyOrder(o,'123','43.05').mode,'aggregate');}
+});
+test('included tax cannot be charged twice and ordinary tax is reconciled',()=>{
+ const o=shopifyOrder();o.currentTotalTaxSet=money('1');o.currentTotalPriceSet=money('44.05');
+ assert.equal(pixShopifyOrder(o,'123','44.05').order.tax.value,100);
+ o.taxesIncluded=true;assert.equal(pixShopifyOrder(o,'123','44.05').reason,'pix_order_tax_inclusive');
+});
+test('enrichment never bypasses payment state or charge-total checks',()=>{
+ assert.throws(()=>makePixCard({...input,shopify_order:shopifyOrder()},{...charge,status:'CONCLUIDA'},now),/pix_charge_not_active/);
+ assert.throws(()=>makePixCard({...input,shopify_order:shopifyOrder(),total:'44.05'},charge,now),/pix_amount_mismatch/);
+});

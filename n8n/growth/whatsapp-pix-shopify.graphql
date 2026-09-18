@@ -1,0 +1,24 @@
+# Fetch with the authenticated store connection. Join only by verified order
+# identity; keep Appmax PIX and charge checks from whatsapp-pix-card.js.
+fragment PixOrderItems on Order {
+  id
+  name
+  currencyCode
+  cancelledAt
+  displayFinancialStatus
+  taxesIncluded
+  currentTotalPriceSet { shopMoney { amount currencyCode } }
+  currentShippingPriceSet { shopMoney { amount currencyCode } }
+  currentTotalTaxSet { shopMoney { amount currencyCode } }
+  lineItems(first: 30) {
+    pageInfo { hasNextPage }
+    nodes {
+      id
+      name
+      quantity
+      currentQuantity
+      originalUnitPriceSet { shopMoney { amount currencyCode } }
+      discountAllocations { allocatedAmountSet { shopMoney { amount currencyCode } } }
+    }
+  }
+}
