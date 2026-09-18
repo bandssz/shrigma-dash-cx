@@ -2,7 +2,7 @@
 
 Revisão: 18/09/2026. Decisão de produto de Felipe registrada nesta data.
 
-Atualização de execução: documentação incorporada à main pelo PR #12 (`de3fc99`). Enriquecimento opcional por itens Shopify implementado e testado no código; [estado da implantação](whatsapp-pix.md#detalhamento-de-produtos-preparado-em-1809). Não confundir código preparado com alteração dos envios em produção.
+Atualização de execução: documentação incorporada à main pelo PR #12 (`de3fc99`). Enriquecimento opcional por itens Shopify implementado, testado e ativado na Fishermans; [estado da implantação](whatsapp-pix.md#detalhamento-de-produtos--fishermans-ativada-em-1809). Cinco pedidos conciliados e 22 testes aprovados. A primeira entrega com itens ainda precisa ser comprovada; Aristo aguarda vínculo seguro com Shopify.
 
 ## Decisão para a operação
 
@@ -58,7 +58,7 @@ Arquivos de implementação:
 
 ### Card com produtos reais
 
-Pendência de implementação: obter itens, quantidades, preços e ajustes da fonte confiável do pedido, vinculada à cobrança Appmax correta. Conciliar em centavos o total de produtos, descontos, frete, tributos e demais ajustes com o total da cobrança, conforme o contrato brasileiro documentado. Não adivinhar alocação de descontos nem inventar campos da API.
+Fishermans implementada: itens e ajustes Shopify conciliados com a cobrança Appmax. Pendência Aristo: obter itens, quantidades, preços e ajustes da fonte confiável do pedido, vinculada à cobrança Appmax correta. Conciliar em centavos o total de produtos, descontos, frete, tributos e demais ajustes com o total da cobrança, conforme o contrato brasileiro documentado. Não adivinhar alocação de descontos nem inventar campos da API.
 
 Enquanto não houver detalhamento conciliado, manter o item agregado identificado pelo pedido. Na prévia do editor, rotular dados ilustrativos e distinguir o resumo agregado dos produtos reais. A prévia deve vir do mesmo contrato de componentes usado no envio; o WhatsApp controla a renderização final.
 

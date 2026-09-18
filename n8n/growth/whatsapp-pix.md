@@ -1,6 +1,6 @@
 # PIX nativo e contrato de templates
 
-Diretriz de produto e aprendizado oficial: [Meta API/MCP e Detalhes do pedido](meta-whatsapp-api-mcp.md). Em 18/09, Felipe reafirmou o card nativo como padrão e solicitou preservar esse conhecimento no projeto. O detalhamento por produtos reais continua pendente; o item agregado abaixo não é uma lista de produtos.
+Diretriz de produto e aprendizado oficial: [Meta API/MCP e Detalhes do pedido](meta-whatsapp-api-mcp.md). Em 18/09, Felipe reafirmou o card nativo como padrão e solicitou preservar esse conhecimento no projeto. O detalhamento foi ativado na Fishermans em 18/09 conforme registro ao final; Aristo ainda usa o item agregado, que não é uma lista de produtos.
 
 O provedor das marcas é Appmax. O destino bancário é obtido do código original de cada cobrança; não existe banco fixo por marca. A consulta aceita apenas endereços bancários observados e explicitamente permitidos, via HTTPS com validação de certificado e sem redirecionamento. Um endereço novo exige revisão, nunca tentativa arbitrária de acesso.
 
@@ -24,7 +24,7 @@ A verificação Meta da Aristo ainda consultava o ID do cartão anterior; a guar
 
 Instrumentação adicional: emissores preservam `_pix_expires_at` no payload interno e o motor registra impressão do código/valor/validade na mesma reserva, seguido de recibo de aceite. Campo interno não é enviado à Meta. Ver `pix-charge-evidence.sql`.
 
-### Detalhamento de produtos preparado em 18/09
+### Detalhamento de produtos — Fishermans ativada em 18/09
 
 `makePixCard` agora aceita `shopify_order` opcional. `pixShopifyOrder` confere a identidade do pedido, moeda BRL, situação pendente, lista completa, quantidades atuais, preços originais, descontos alocados, frete e tributos. Só usa produtos reais quando `subtotal + frete + tributos - descontos` coincide, em centavos, com o total já conferido da cobrança. Campos requeridos em [whatsapp-pix-shopify.graphql](whatsapp-pix-shopify.graphql).
 
@@ -35,3 +35,7 @@ Lista parcial, mais de 30 linhas, nomes acima de 60 caracteres, itens removidos,
 Validação local: 22 testes de card, evidência da cobrança e métricas PIX aprovados. Os três nós propostos da Fishermans compilam. Isso não comprova entrega de um card enriquecido a cliente.
 
 Referências complementares: [Shopify LineItem](https://shopify.dev/docs/api/admin-graphql/latest/objects/LineItem), [Shopify Order](https://shopify.dev/docs/api/admin-graphql/latest/objects/Order), [contrato de pagamentos brasileiros da CM.com](https://developers.cm.com/messaging/docs/payments-brazil). A CM.com documenta seu transporte e a composição de valores do card; não substitui comprovação de elegibilidade das nossas WABAs. A leitura integral atual da referência Meta continuou limitada.
+
+**Publicação operacional confirmada às 11h42 BRT:** workflow Fishermans `hUfSmwy6mfPguZFP`, versão `8eb4a96d-1ab1-47de-ad84-8708ba12bbc8`. GET posterior confirmou conteúdo, `active=true` e `activeVersionId` igual à versão publicada. Guardas, conexões, reservas, template e evidência da cobrança foram preservados. A primeira entrega natural com produtos ainda precisa ser comprovada; consultas de pedidos não são envios. Aristo continua com card agregado até vincular com segurança os itens Shopify à cobrança Appmax.
+
+**Saúde operacional observada às 11h43 BRT:** a execução Fishermans `1282076`, anterior à publicação (início 10h55 BRT), falhou em `Seleciona candidatos PIX` com `Timeout waiting for lock SqliteWriteConnectionMutex to become available`. A listagem também trouxe execuções em estado `new`, ainda sem início. Isso exige diagnóstico da infraestrutura n8n/SQLite; não atribuir essa falha prévia ao novo card nem afirmar que a entrega está funcionando a partir de `active=true`. Não houve reinício ou alteração de infraestrutura nesta rodada.
