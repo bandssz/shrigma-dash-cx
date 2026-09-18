@@ -226,3 +226,31 @@ test('cobrança: quem respondeu vem separado, ordenado por não lidas, e não co
   assert.equal(TTS.cobranca(P2,'todas').responderam.length,3);
   assert.equal(TTS.cobranca({}, 'fish').responderam.length,0);
 });
+test('lives: sessões da mesma conta com intervalo curto viram um evento; GMV é a soma; pendente = criados − pagos',()=>{
+  const L=[{marca:'fish',live_id:'a',username:'fishermans.com.br',origem:'proprio',inicio_em:'2026-09-16T14:04:00Z',fim_em:'2026-09-16T15:05:00Z',duracao_min:61,gmv:155.74,pedidos:3,pedidos_criados:3,espectadores:781,cliques:239,impressoes_produto:5009,gmv_24h:155.74},
+           {marca:'fish',live_id:'b',username:'fishermans.com.br',origem:'proprio',inicio_em:'2026-09-16T15:06:00Z',fim_em:'2026-09-16T16:47:00Z',duracao_min:101,gmv:761.76,pedidos:9,pedidos_criados:10,espectadores:1305,cliques:371,impressoes_produto:9067,gmv_24h:null},
+           {marca:'fish',live_id:'c',username:'fishermans.com.br',origem:'proprio',inicio_em:'2026-09-16T16:48:00Z',fim_em:'2026-09-16T17:04:00Z',duracao_min:16,gmv:146.7,pedidos:3,pedidos_criados:3,espectadores:505,cliques:88,impressoes_produto:2666,gmv_24h:146.7},
+           {marca:'fish',live_id:'d',username:'bibi',origem:'afiliado',inicio_em:'2026-09-16T15:00:00Z',fim_em:'2026-09-16T16:00:00Z',duracao_min:60,gmv:50,pedidos:1,pedidos_criados:1},
+           {marca:'fish',live_id:'e',username:'fishermans.com.br',origem:'proprio',inicio_em:'2026-09-17T13:35:00Z',fim_em:'2026-09-17T15:00:00Z',duracao_min:85,gmv:510.91,pedidos:9,pedidos_criados:11}];
+  const agora=Date.parse('2026-09-18T12:00:00Z');
+  const ev=TTS.agruparLives(L,30,agora);
+  assert.equal(ev.length,3,'3 eventos: a live de 16/09 (3 sessões), a bibi e a de 17/09');
+  const e16=ev.find(e=>e.live_ids.includes('b'));
+  assert.deepEqual(e16.live_ids,['a','b','c']);
+  assert.equal(Math.round(e16.gmv*100)/100,1064.2); assert.equal(e16.pedidos,15); assert.equal(e16.pendentes,1); assert.equal(e16.duracao_min,178);
+  assert.equal(e16.gmv_24h,null,'uma sessão sem 24h fecha o evento como pendente');
+  assert.equal(e16.emFechamento,true,'terminou há menos de 72 h');
+  assert.equal(Math.round(e16.ctr_pct*100)/100,Math.round(100*(239+371+88)/(5009+9067+2666)*100)/100);
+  assert.equal(ev[0].live_ids[0],'a','ordenado por GMV desc');
+  assert.equal(TTS.agruparLives(L,30,agora+4*864e5).find(e=>e.live_ids.includes('b')).emFechamento,false);
+});
+test('lives: produtos do evento somam as sessões por produto',()=>{
+  const ev={live_ids:['a','b']};
+  const P=[{live_id:'a',product_id:'x',nome:'X8',gmv_direto:100,pedidos:1,pedidos_criados:1,compradores:1,impressoes:100,cliques:10},
+           {live_id:'b',product_id:'x',nome:'X8',gmv_direto:207,pedidos:2,pedidos_criados:2,compradores:1,impressoes:151,cliques:6},
+           {live_id:'b',product_id:'y',nome:'N40',gmv_direto:0,pedidos:0,pedidos_criados:1,compradores:0,impressoes:6243,cliques:260},
+           {live_id:'z',product_id:'x',nome:'X8',gmv_direto:999,pedidos:9,pedidos_criados:9,compradores:9,impressoes:1,cliques:1}];
+  const r=TTS.produtosDoEvento(ev,P);
+  assert.equal(r.length,2); assert.equal(r[0].product_id,'x'); assert.equal(r[0].gmv_direto,307); assert.equal(r[0].pedidos,3); assert.equal(r[0].impressoes,251);
+  assert.equal(Math.round(r[1].ctr_pct*100)/100,4.16); assert.equal(r[1].pedidos_criados,1);
+});

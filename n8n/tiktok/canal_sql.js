@@ -13,10 +13,13 @@ const TABELAS = {
     unidades: n, compradores: n, reembolso: n, visitantes: n, visualizacoes: n, conversao_pct: n } },
   lives:  { tabela: 'crm_tts_live_dia', log: 'canal_live', pk: ['marca', 'live_id'], cols: {
     marca: q, live_id: q, dia: d, username: q, origem: q, titulo: q, inicio_em: t, fim_em: t, duracao_min: n, gmv: n, gmv_24h: n, ticket_medio: n,
-    pedidos: n, unidades: n, compradores: n, produtos_vendidos: n, clique_pedido_pct: n, visualizacoes: n, espectadores: n, cliques: n,
+    pedidos: n, pedidos_criados: n, unidades: n, compradores: n, produtos_vendidos: n, clique_pedido_pct: n, visualizacoes: n, espectadores: n, cliques: n,
     impressoes_produto: n, ctr_pct: n, curtidas: n, comentarios: n, novos_seguidores: n, tempo_medio_s: n },
     // gmv_24h chega -1 (NULL aqui) enquanto a API não fecha as 24h; não apagar um valor já gravado
     preservar: ['gmv_24h'] },
+  live_produtos: { tabela: 'crm_tts_live_produto', log: 'canal_live_produto', pk: ['marca', 'live_id', 'product_id'], cols: {
+    marca: q, live_id: q, product_id: q, nome: q, gmv_direto: n, pedidos: n, pedidos_criados: n, compradores: n, unidades: n, ticket_medio: n, taxa_pagamento: n,
+    impressoes: n, cliques: n, ctr_pct: n, clique_pedido_pct: n, carrinho: n, gpm: n } },
   videos: { tabela: 'crm_tts_video_dia', log: 'canal_video', pk: ['marca', 'dia', 'video_id'], cols: {
     marca: q, dia: d, video_id: q, username: q, origem: q, titulo: q, publicado_em: t, gmv: n, gpm: n, pedidos: n, unidades: n, compradores: n,
     visualizacoes: n, ctr_pct: n, duracao_s: n, produtos: js, hashtags: arr, janela_dias: n } },

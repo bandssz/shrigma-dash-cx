@@ -110,8 +110,55 @@
         conversao: vis > 0 ? 100 * ped / vis : null, ticket: ped > 0 ? gmv / ped : null,
         serie, melhorDia: melhor,
         lives: TTS.filtra(p.lives || [], marca).slice().sort((a, b) => (+b.gmv || 0) - (+a.gmv || 0) || String(b.inicio_em).localeCompare(String(a.inicio_em))),
+        eventos: TTS.agruparLives(TTS.filtra(p.lives || [], marca), 30),
+        liveProdutos: TTS.filtra(p.live_produtos || [], marca),
         videos: TTS.filtra(p.videos || [], marca).slice().sort((a, b) => (+b.gmv || 0) - (+a.gmv || 0)),
       };
+    },
+    // Live como a equipe vê, não como a API entrega. A API devolve SESSÕES: caiu o sinal, virou sessão
+    // nova. A live da Fishermans de 16/09 foram 3 sessões (61 + 101 + 16 min) com ~1 min entre elas —
+    // "a live deu R$ 762" e "a live deu R$ 1.064" eram a mesma live, contada de dois jeitos. Sessões da
+    // mesma conta com intervalo <= gapMin viram um EVENTO; o número da live é a soma das sessões.
+    // gmv da API é PAGO; pedidos_criados inclui não pago (COD/PayLater) — o valor se mexe por ~72 h.
+    agruparLives(lives, gapMin, agora) {
+      const gap = (gapMin || 30) * 6e4, now = agora || Date.now();
+      const ord = (lives || []).slice().sort((a, b) => String(a.username) < String(b.username) ? -1 : String(a.username) > String(b.username) ? 1 : String(a.inicio_em).localeCompare(String(b.inicio_em)));
+      const evs = [];
+      for (const l of ord) {
+        const ini = new Date(l.inicio_em).getTime();
+        const fim = l.fim_em ? new Date(l.fim_em).getTime() : ini + (+l.duracao_min || 0) * 6e4;
+        const ult = evs[evs.length - 1];
+        if (ult && ult.marca === l.marca && ult.username === l.username && ini - ult.fimMs <= gap) { ult.sessoes.push(l); ult.fimMs = Math.max(ult.fimMs, fim); }
+        else evs.push({ marca: l.marca, username: l.username, origem: l.origem, titulo: l.titulo || null, inicio_em: l.inicio_em, iniMs: ini, fimMs: fim, sessoes: [l] });
+      }
+      const soma = (a, k) => a.reduce((t, x) => t + (+x[k] || 0), 0);
+      for (const e of evs) {
+        const ss = e.sessoes;
+        e.fim_em = new Date(e.fimMs).toISOString();
+        e.titulo = e.titulo || (ss.map(x => x.titulo).filter(Boolean)[0] || null);
+        e.gmv = soma(ss, 'gmv'); e.pedidos = soma(ss, 'pedidos'); e.pedidos_criados = soma(ss, 'pedidos_criados');
+        e.pendentes = Math.max(0, e.pedidos_criados - e.pedidos);           // criados e ainda não pagos
+        e.duracao_min = soma(ss, 'duracao_min'); e.espectadores = soma(ss, 'espectadores'); e.cliques = soma(ss, 'cliques'); e.impressoes = soma(ss, 'impressoes_produto');
+        e.novos_seguidores = soma(ss, 'novos_seguidores'); e.compradores = soma(ss, 'compradores');
+        e.ctr_pct = e.impressoes > 0 ? 100 * e.cliques / e.impressoes : null;
+        e.clique_pedido_pct = e.cliques > 0 ? 100 * e.pedidos / e.cliques : null;
+        e.gmv_24h = ss.every(x => x.gmv_24h !== null && x.gmv_24h !== undefined) ? soma(ss, 'gmv_24h') : null;
+        e.emFechamento = now - e.fimMs < 72 * 36e5;                         // a plataforma ainda revisa
+        e.live_ids = ss.map(x => String(x.live_id));
+      }
+      return evs.sort((a, b) => b.gmv - a.gmv || b.iniMs - a.iniMs);
+    },
+    // Produtos de um evento: soma as sessões por produto (a mesma linha pinada nas 3 sessões é 1 produto).
+    produtosDoEvento(ev, produtos) {
+      const ids = new Set(ev.live_ids || []), m = new Map();
+      for (const p of (produtos || [])) {
+        if (!ids.has(String(p.live_id))) continue;
+        const x = m.get(p.product_id) || { product_id: p.product_id, nome: p.nome, gmv_direto: 0, pedidos: 0, pedidos_criados: 0, compradores: 0, impressoes: 0, cliques: 0 };
+        for (const k of ['gmv_direto', 'pedidos', 'pedidos_criados', 'compradores', 'impressoes', 'cliques']) x[k] += +p[k] || 0;
+        m.set(p.product_id, x);
+      }
+      return [...m.values()].map(x => ({ ...x, ctr_pct: x.impressoes > 0 ? 100 * x.cliques / x.impressoes : null, clique_pedido_pct: x.cliques > 0 ? 100 * x.pedidos / x.cliques : null }))
+        .sort((a, b) => b.gmv_direto - a.gmv_direto || b.cliques - a.cliques);
     },
     // Pintura instantânea: o payload da última leitura serve como primeira tela se for da MESMA janela
     // e tiver menos de 24 h. A API leva 3–7 s (n8n) — sem isto a aba abre em "Carregando…" toda vez.
@@ -469,24 +516,24 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     // barras empilhadas por dia (live / vídeo / vitrine) — SVG inline, sem biblioteca
     let html = graficoCanal(c.serie);
 
-    // lives
-    const lv = c.lives, lvVenda = lv.filter(l => +l.gmv > 0).length;
-    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Lives no período <span class="tag nulo">${lv.length}</span></h3><span class="mini" title="inclui lives de afiliados vendendo a loja; ordenadas por venda">${lvVenda} com venda · loja e afiliados</span></div>`;
-    if (!lv.length) html += '<div class="vazio">Nenhuma live no período.</div>';
-    else html += `<div class="rolagem"><table class="comparativo"><thead><tr>
-      <th>Quando</th>${thM}<th>Quem</th><th class="num" title="minutos ao vivo">Duração</th>
-      <th class="num" title="espectadores únicos">Espectadores</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
-      <th class="num" title="pedidos / cliques em produto">Clique→pedido</th><th class="num">Pedidos</th><th class="num">GMV</th>
-      <th class="num" title="GMV atribuído nas 24 h após a live (a plataforma fecha isso com atraso)">GMV 24 h</th><th class="num">Seguidores</th></tr></thead><tbody>
-      ${dobra(lv.slice(0, 60).map(l => `<tr>
-        <td class="tabn">${dtHora(l.inicio_em)}</td>${tdM(l)}
-        <td><div class="nome">${l.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(l.username || '—')}</div>${l.titulo ? `<span class="mini" title="${esc(l.titulo)}">${esc(String(l.titulo).slice(0, 40))}</span>` : ''}</td>
-        <td class="num tabn">${l.duracao_min !== null && l.duracao_min !== undefined ? nf(l.duracao_min) + ' min' : '—'}</td>
-        <td class="num tabn">${nf(l.espectadores)}</td><td class="num tabn">${pctOu(l.ctr_pct === null || l.ctr_pct === undefined ? null : +l.ctr_pct, 1)}</td>
-        <td class="num tabn">${pctOu(l.clique_pedido_pct === null || l.clique_pedido_pct === undefined ? null : +l.clique_pedido_pct, 1)}</td>
-        <td class="num tabn">${nf(l.pedidos)}</td><td class="num tabn"><b>${rf(l.gmv)}</b></td>
-        <td class="num tabn">${l.gmv_24h === null || l.gmv_24h === undefined ? '<span class="mini" title="a plataforma ainda não fechou as 24 h">…</span>' : rf(l.gmv_24h)}</td>
-        <td class="num tabn">${l.novos_seguidores ? '+' + nf(l.novos_seguidores) : '—'}</td></tr>`), 8, 'todas as lives')}</tbody></table></div>`;
+    // lives — por evento (sessões agrupadas), com sessões e produtos ao clicar
+    const ev = c.eventos, evVenda = ev.filter(e => e.gmv > 0).length, emFech = ev.filter(e => e.emFechamento && e.gmv > 0).length;
+    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0" title="a API devolve sessões; queda de sinal vira sessão nova. Sessões da mesma conta com até 30 min de intervalo são mostradas como uma live só. GMV = pago; pedido criado e não pago aparece como pendente. A plataforma revisa os números por ~72 h.">Lives no período <span class="tag nulo">${ev.length}</span>${emFech ? ` <span class="tag neutro" title="terminou há menos de 72 h: a plataforma ainda revisa pedidos pagos, cancelados e pendentes">${emFech} em fechamento</span>` : ''}</h3><span class="mini">${evVenda} com venda · loja e afiliados · clique na linha para ver sessões e produtos</span></div>`;
+    if (!ev.length) html += '<div class="vazio">Nenhuma live no período.</div>';
+    else html += `<div class="rolagem"><table class="comparativo tts-ev"><thead><tr>
+      <th>Quando</th>${thM}<th>Quem</th><th class="num" title="minutos ao vivo, somando as sessões">Duração</th>
+      <th class="num" title="espectadores únicos por sessão, somados — quem voltou depois da queda conta de novo">Espectadores</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
+      <th class="num" title="pedidos pagos / cliques em produto">Clique→pedido</th><th class="num" title="pedidos pagos · pendentes de pagamento">Pedidos</th><th class="num" title="GMV pago somando as sessões">GMV</th>
+      <th class="num" title="GMV nas 24 h após a live (a plataforma fecha com atraso)">GMV 24 h</th><th class="num">Seguidores</th></tr></thead><tbody>
+      ${dobra(ev.slice(0, 60).map((e, i) => `<tr class="tts-ev-linha" data-i="${i}" style="cursor:pointer">
+        <td class="tabn">${dtHora(e.inicio_em)}${e.sessoes.length > 1 ? ` <span class="tag nulo" title="${e.sessoes.length} sessões: a live caiu e voltou">${e.sessoes.length}×</span>` : ''}${e.emFechamento && e.gmv > 0 ? ' <span class="mini" title="terminou há menos de 72 h — números ainda em revisão pela plataforma">◔</span>' : ''}</td>${tdM(e)}
+        <td><div class="nome">${e.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(e.username || '—')}</div>${e.titulo ? `<span class="mini" title="${esc(e.titulo)}">${esc(String(e.titulo).slice(0, 40))}</span>` : ''}</td>
+        <td class="num tabn">${e.duracao_min ? nf(e.duracao_min) + ' min' : '—'}</td>
+        <td class="num tabn">${e.espectadores ? nf(e.espectadores) : '—'}</td><td class="num tabn">${pctOu(e.ctr_pct, 1)}</td>
+        <td class="num tabn">${pctOu(e.clique_pedido_pct, 1)}</td>
+        <td class="num tabn">${nf(e.pedidos)}${e.pendentes ? ` <span class="mini" title="${e.pendentes} pedido(s) criado(s) e ainda não pago(s) — COD/PayLater; entra no GMV quando pagar">+${e.pendentes}</span>` : ''}</td><td class="num tabn"><b>${rf(e.gmv)}</b></td>
+        <td class="num tabn">${e.gmv_24h === null ? '<span class="mini" title="a plataforma ainda não fechou as 24 h">…</span>' : rf(e.gmv_24h)}</td>
+        <td class="num tabn">${e.novos_seguidores ? '+' + nf(e.novos_seguidores) : '—'}</td></tr>`), 8, 'todas as lives')}</tbody></table></div>`;
 
     // vídeos (retrato 30 dias)
     const vd = c.videos, retrato = vd[0] ? dt(vd[0].retrato_em) : null;
@@ -503,6 +550,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="num tabn">${nf(v.pedidos)}</td><td class="num tabn"><b>${rf(v.gmv)}</b></td><td class="num tabn">${rf(v.gpm)}</td></tr>`), 10, 'todos os vídeos')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
     ligarDobras();
+    document.querySelectorAll('#tts-area .tts-ev-linha').forEach(tr => tr.onclick = () => {
+      const prox = tr.nextElementSibling;
+      if (prox && prox.classList.contains('tts-ev-det')) { prox.remove(); return; }
+      const e = ev[+tr.dataset.i], prods = TTS.produtosDoEvento(e, c.liveProdutos);
+      const det = document.createElement('tr'); det.className = 'tts-ev-det';
+      det.innerHTML = `<td colspan="12"><div class="tts-ev-grid">
+        <div><div class="mini" style="margin-bottom:4px"><b>Sessões</b> · ${e.sessoes.length}</div><table class="comparativo mini"><tbody>${e.sessoes.map(x => `<tr><td class="tabn">${dtHora(x.inicio_em)}</td><td class="num tabn">${nf(x.duracao_min)} min</td><td class="num tabn">${nf(x.espectadores) } esp.</td><td class="num tabn">${nf(x.pedidos)} ped.</td><td class="num tabn"><b>${rf(x.gmv)}</b></td></tr>`).join('')}</tbody></table></div>
+        <div><div class="mini" style="margin-bottom:4px"><b>Produtos</b> · ${prods.length ? 'o que vendeu e o que só foi clicado' : (e.origem === 'proprio' ? 'sem dado de produto ainda' : 'a plataforma não abre produto de live de afiliado')}</div>
+          ${prods.length ? `<table class="comparativo mini"><thead><tr><th>Produto</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num" title="cliques / impressões">CTR</th><th class="num" title="pedidos pagos / cliques">Cl→ped</th><th class="num">Pedidos</th><th class="num">GMV</th></tr></thead><tbody>
+          ${prods.slice(0, 12).map(p => `<tr><td class="tts-prod" title="${esc(p.nome || '')}">${esc(String(p.nome || p.product_id).slice(0, 48))}</td><td class="num tabn">${nf(p.impressoes)}</td><td class="num tabn">${nf(p.cliques)}</td><td class="num tabn">${pctOu(p.ctr_pct, 1)}</td><td class="num tabn">${pctOu(p.clique_pedido_pct, 1)}</td><td class="num tabn">${nf(p.pedidos)}${p.pedidos_criados > p.pedidos ? ` <span class="mini">+${p.pedidos_criados - p.pedidos}</span>` : ''}</td><td class="num tabn"><b>${p.gmv_direto ? rf(p.gmv_direto) : '—'}</b></td></tr>`).join('')}</tbody></table>` : ''}</div></div></td>`;
+      tr.after(det);
+    });
   }
   const dtHora = iso => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
   // Barras empilhadas por dia. Cores fixas por superfície; barra com contorno = dia parcial (hoje).

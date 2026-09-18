@@ -169,7 +169,7 @@ async function coletarLives(loja) {
       rows.push({ marca, live_id: String(l.id), dia: diaBR(ini_iso), username: l.username || null, origem: origem(loja, l.username), titulo: l.title || null,
         inicio_em: ini_iso, fim_em: fim_iso, duracao_min: (ini_iso && fim_iso) ? Math.round((num(l.end_time) - num(l.start_time)) / 60) : null,
         gmv: amt(sp.gmv), gmv_24h: (g24 === null || g24 < 0) ? null : g24, ticket_medio: amt(sp.avg_price),
-        pedidos: num(sp.sku_orders), unidades: num(sp.items_sold), compradores: num(sp.customers), produtos_vendidos: num(sp.different_products_sold),
+        pedidos: num(sp.sku_orders), pedidos_criados: num(sp.created_sku_orders), unidades: num(sp.items_sold), compradores: num(sp.customers), produtos_vendidos: num(sp.different_products_sold),
         clique_pedido_pct: pctStr(sp.click_to_order_rate),
         visualizacoes: num(ip.views), espectadores: num(ip.viewers), cliques: num(ip.product_clicks), impressoes_produto: num(ip.product_impressions),
         ctr_pct: pctStr(ip.click_through_rate), curtidas: num(ip.likes), comentarios: num(ip.comments), novos_seguidores: num(ip.new_followers),
@@ -211,14 +211,36 @@ async function coletarVideos(loja) {
   return { rows, paginas, latest };
 }
 
+// Produto por live: só sessões com venda (a cauda de afiliado sem venda é dezenas por dia e não diz nada).
+// direct_gmv somado por live = gmv pago da sessão (medido 18/09: 307,08 + 302,82 + 151,86 = 761,76).
+async function coletarLiveProdutos(loja, lives) {
+  const { marca, cipher } = LOJAS[loja]; const rows = []; let paginas = 0;
+  const comVenda = lives.filter(l => (l.gmv || 0) > 0).slice(0, 60);
+  for (const l of comVenda) {
+    const d = await chamar(tokens[loja], cipher, `/analytics/202512/shop/${l.live_id}/products_performance`, { currency: 'LOCAL', page_size: '50' });
+    paginas++;
+    for (const p of (d.products || [])) {
+      const s = p.sales || {}, t = p.traffic || {};
+      rows.push({ marca, live_id: l.live_id, product_id: String(p.id), nome: (p.name || '').slice(0, 200) || null,
+        gmv_direto: amt(s.direct_gmv), pedidos: num(s.sku_orders), pedidos_criados: num(s.created_sku_orders), compradores: num(s.customers), unidades: num(s.items_sold),
+        ticket_medio: amt(s.avg_price), taxa_pagamento: pctFrac(s.payment_rate),
+        impressoes: num(t.product_impressions), cliques: num(t.produt_clicks !== undefined ? t.produt_clicks : t.product_clicks), ctr_pct: pctFrac(t.ctr),
+        clique_pedido_pct: pctFrac((t.click_to_order_rate || {}).sku_order_ctor), carrinho: num(t.add_to_cart_count), gpm: num((t.gpm || {}).watch_gpm) });
+    }
+    await dorme(250);
+  }
+  return { rows, paginas, latest: null };
+}
+
 // ---------- roda tudo, serial por loja (QPS) ----------
 const out = [];
 for (const loja of Object.keys(LOJAS)) {
   const marca = LOJAS[loja].marca;
-  if (!tokens[loja]) { for (const f of ['canal', 'lives', 'videos']) out.push({ json: { marca, fonte: f, rows: [], paginas: 0, erro: 'sem token no Token Manager', iniciado_em: new Date().toISOString() } }); continue; }
-  for (const [fonte, fn] of [['canal', coletarCanal], ['lives', coletarLives], ['videos', coletarVideos]]) {
+  if (!tokens[loja]) { for (const f of ['canal', 'lives', 'live_produtos', 'videos']) out.push({ json: { marca, fonte: f, rows: [], paginas: 0, erro: 'sem token no Token Manager', iniciado_em: new Date().toISOString() } }); continue; }
+  let livesDaLoja = [];
+  for (const [fonte, fn] of [['canal', coletarCanal], ['lives', coletarLives], ['live_produtos', () => coletarLiveProdutos(loja, livesDaLoja)], ['videos', coletarVideos]]) {
     const iniciado_em = new Date().toISOString();
-    try { const r = await fn(loja); out.push({ json: { marca, fonte, rows: r.rows, paginas: r.paginas, latest: r.latest, erro: null, iniciado_em } }); }
+    try { const r = await fn(loja); if (fonte === 'lives') livesDaLoja = r.rows; out.push({ json: { marca, fonte, rows: r.rows, paginas: r.paginas, latest: r.latest, erro: null, iniciado_em } }); }
     catch (e) { out.push({ json: { marca, fonte, rows: [], paginas: 0, erro: String(e.message || e).slice(0, 500), iniciado_em } }); }
     await dorme(400);
   }

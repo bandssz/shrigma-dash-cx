@@ -105,6 +105,32 @@ A live da loja em 16/09 (12:06–13:47, 1.305 espectadores, CTR 4,1%, clique→p
 o dia fechou em R$ 1.359, o melhor da janela, 78% via live. Aristocrata: R$ 5,5 mil, 23% via afiliado,
 74% vitrine, sem GMV Max, conversão 0,15% sobre 37,7 mil visitantes (Fishermans: 1,55% sobre 8,3 mil).
 
+### Live com "máxima realidade" (18/09)
+
+Três diferenças entre "o que a equipe viu" e "o que o painel mostrava", todas medidas na live da
+Fishermans de 16/09 e corrigidas:
+
+1. **Sessão ≠ live.** A API devolve sessão; queda de sinal vira sessão nova. A live de 16/09 foram 3
+   sessões (61 + 101 + 16 min, ~1 min entre elas). "Deu R$ 762" (maior sessão) e "deu R$ 1.064" (as
+   três) eram a mesma live. O painel agrupa sessões da mesma conta com intervalo ≤ 30 min num evento
+   (`TTS.agruparLives`) e mostra as sessões ao clicar.
+2. **GMV é pago; o número se mexe.** `gmv` da sessão é GMV pago; `created_sku_orders` inclui pedido
+   criado e não pago (COD/PayLater). Às 04:10 a API dizia R$ 840,72 (10 pagos); às 09:00, R$ 761,76
+   (9 pagos + 1 pendente). Guardamos `pedidos_criados`; o painel mostra "+1" pendente e etiqueta
+   "em fechamento" por 72 h após o fim.
+3. **Produto por live.** `/analytics/202512/shop/{live_id}/products_performance` diz o que vendeu e o
+   que só foi clicado em cada live (X8 Oceânica R$ 307 · X4 Amazônica R$ 303 · N40 R$ 152 = R$ 761,76,
+   bate com a sessão). Tabela `crm_tts_live_produto`, coletada para toda live com venda. A API só
+   devolve produto para live da própria loja — live de afiliado volta vazia.
+
+Reconciliação que fecha: soma das sessões da loja em 16/09 = R$ 1.064,20 = fatia LIVE do dia em
+`shop/performance`. Afiliado do dia (crm_tts_pedido) = R$ 299,52, nenhum via live. Então o dia de
+R$ 1.358,72 foi 78% live própria, 22% vídeo de afiliado.
+
+Ainda não coletado: `/analytics/202510/shop_lives/{live_id}/performance_per_minutes` (minuto a minuto:
+espectadores, cliques, pedidos) — útil para ver em que momento da live a venda acontece; entra quando
+houver pergunta que só ele responde.
+
 ### Pendências
 
 - **Custo de ads continua fora** (`crm_tts_canal_custo` manual, vazio). ROAS blended só quando o app tiver

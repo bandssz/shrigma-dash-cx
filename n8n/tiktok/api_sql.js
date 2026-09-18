@@ -81,9 +81,14 @@ canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Can
   FROM canal GROUP BY 1
 ),
 lives AS (  -- sessões de live na janela (loja e afiliados), com venda e interação
-  SELECT marca, live_id, dia, username, origem, left(titulo, 60) AS titulo, inicio_em, duracao_min, gmv, gmv_24h, pedidos, compradores,
-         espectadores, ctr_pct, clique_pedido_pct, novos_seguidores
+  SELECT marca, live_id, dia, username, origem, left(titulo, 60) AS titulo, inicio_em, fim_em, duracao_min, gmv, gmv_24h, pedidos, pedidos_criados, compradores,
+         espectadores, cliques, impressoes_produto, ctr_pct, clique_pedido_pct, novos_seguidores, atualizado_em
   FROM crm_tts_live_dia l, j WHERE l.dia BETWEEN j.ini AND j.fim
+),
+live_prod AS (  -- o que vendeu em cada live da janela (só lives com venda; a API só devolve produto para live da própria loja)
+  SELECT p.marca, p.live_id, p.product_id, left(p.nome, 80) AS nome, p.gmv_direto, p.pedidos, p.pedidos_criados, p.compradores, p.impressoes, p.cliques, p.ctr_pct, p.clique_pedido_pct, p.gpm
+  FROM crm_tts_live_produto p JOIN lives l ON l.marca = p.marca AND l.live_id = p.live_id
+  WHERE p.gmv_direto > 0 OR p.cliques >= 10
 ),
 videos AS (  -- retrato mais recente dos vídeos (30 dias acumulados, top por GMV) — não é por dia
   -- só o que a tela mostra: título cortado, sem produtos/hashtags (ficam no banco para análise)
@@ -197,6 +202,7 @@ SELECT jsonb_build_object(
   'canal', COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.marca, c.dia) FROM canal c), '[]'),
   'canal_total', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM canal_tot c), '[]'),
   'lives', COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.gmv DESC, l.inicio_em DESC) FROM (SELECT * FROM lives ORDER BY gmv DESC, inicio_em DESC LIMIT 60) l), '[]'),
-  'videos', COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.gmv DESC) FROM (SELECT * FROM videos WHERE gmv > 0 ORDER BY gmv DESC LIMIT 30) v), '[]')
+  'videos', COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.gmv DESC) FROM (SELECT * FROM videos WHERE gmv > 0 ORDER BY gmv DESC LIMIT 30) v), '[]'),
+  'live_produtos', COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.live_id, p.gmv_direto DESC) FROM (SELECT * FROM live_prod ORDER BY gmv_direto DESC LIMIT 400) p), '[]')
 ) AS payload`;
 return [{ json: { sql } }];
