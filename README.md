@@ -3,6 +3,8 @@
 Painel interno de CS/CX. Site estático que lê snapshots do Postgres (via webhook do n8n) —
 **nunca chama o Gleap diretamente**.
 
+Conhecimento de continuidade: [Meta API/MCP e padrão Detalhes do pedido](n8n/growth/meta-whatsapp-api-mcp.md) — decisão de produto, contrato PIX atual, fontes oficiais e evolução pendente (18/09/2026).
+
 ## Arquitetura (3 camadas, nesta ordem)
 
 1. **Coleta** — workflow n8n `CX — Dashboard · Snapshot Gleap→Postgres`
