@@ -400,10 +400,14 @@ pagos, negados, andamento, valores, N1/N2/N3, concedidos_sem_valor) e `cx_conces
 `cx_pedido_dia`, que ganhou `receita` (e `estornos`, coletado mas não mostrado). Workflows: **CX — Concessões · noturno**
 (`4SUih2vegFK5RVjS`, 01:50; ClickUp API v2 `GET /list/{id}/task?include_closed=true&page=N` com a credencial `clickUpApi`
 referenciada por ID; forçar em `GET /webhook/cx-concessao-forcar`) e **CX — Receita · diário** (`3qHS19o4d301kKK3`, 01:40;
-ShopifyQL `FROM sales SHOW total_sales, returns GROUP BY day` = o total de vendas do Analytics; a Fishermans ainda não tem
-o escopo `read_reports`, então cai para a soma de `currentTotalPriceSet` dos pedidos não cancelados do dia — conferido
-na Aris em 15/09: 98,0k nos dois caminhos; forçar em `GET /webhook/cx-receita-forcar`). Backfill de receita desde 01/07
-(scratch `receita_backfill.py`; a loja Shopify da Fishermans só existe desde 14/07). API do painel: `cx_concessao`
+**receita = pedidos pagos** — soma de `currentTotalPriceSet` dos pedidos não cancelados com `displayFinancialStatus`
+PAID/PARTIALLY_REFUNDED/REFUNDED criados no dia (fuso -03:00), igual nas duas marcas, via `orders` da Admin API. Decisão
+de 18/09, depois de medir agosto pedido a pedido: o `total_sales` do ShopifyQL/Analytics soma TODOS os pedidos, cancelados
+inclusive — Aris 2.738.140 contra 2.459.518 pagos (+11%, 1.851 PIX expirados), Fish 748.299 contra 656.419 (+14%); e o
+`returns` do Analytics não é reembolso, é item removido de pedido cancelado (as duas marcas estornam fora da Shopify).
+`estornos` = `totalRefunded` dos pedidos criados no dia, só o que passou pela Shopify, coletado e não mostrado. Forçar em
+`GET /webhook/cx-receita-forcar?dias=N` (padrão 3, teto 120). Backfill de 01/07 a 15/09 refeito em 18/09 com a mesma regra
+(scratch `backfill_receita.py`; a loja Shopify da Fishermans só existe desde 14/07). API do painel: `cx_concessao`
 (12 meses, já com receita na linha) e `cx_concessao_tipo` (6 meses).
 
 **Tela**: bloco **Concessão sobre receita** no fim da aba Trocas, grão mensal. Cartões: % do último mês fechado (faixa

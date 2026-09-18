@@ -308,7 +308,8 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="clickup"]').getAttribute('title'), /Até pagar/);
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="negados"] .six2-chip').textContent, /▼ 11 pp · ant. 33%/);
   assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só o que o financeiro pagou/);
-  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /Fish: receita = soma dos pedidos/);
+  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /receita = pedidos pagos/);   // 18/09: mesma definição nas duas marcas
+  assert.doesNotMatch(x.document.querySelector('#concessao-rotulo').textContent, /soma dos pedidos/);
   assert.match(x.document.querySelector('#area-concessao').textContent, /ago\/26.*O Aristocrata.*R\$ 1.000 mil.*0,80%/s);
   assert.match(x.document.querySelector('#area-concessao').textContent, /set\/26.*≥ R\$ 250 mil/s, 'mês com dia sem receita mostra piso e não %');
   assert.doesNotMatch(x.document.querySelector('.aba-pane[data-aba="trocas"]').textContent, /Shopify · ago|Estornos Shopify/, 'estorno da Shopify fica fora do bloco de concessão por decisão');

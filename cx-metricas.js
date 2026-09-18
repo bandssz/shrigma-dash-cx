@@ -480,8 +480,9 @@ function trocaMotivos(rows, f) {
 // Meta do Head de CX. Numerador = reembolsos registrados no ClickUp (lista Reembolsos) que o financeiro JÁ EXECUTOU
 // (status feito, redigindo resposta, retorno concluído — a view cx_concessao_mes aplica a regra). Só ClickUp, por decisão
 // do Felipe (16/09): estorno da Shopify inclui cancelamento de pedido que nunca passou pelo CX; devolução pelo Troque tem o
-// card dela na parte de trocas. Denominador = receita Shopify do mês (total_sales do Analytics; Fishermans = soma dos
-// pedidos não cancelados até ter o escopo read_reports). Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel,
+// card dela na parte de trocas. Denominador = receita paga da Shopify no mês (18/09: soma dos pedidos pagos e não
+// cancelados, igual nas duas marcas — não o total_sales do Analytics, que soma PIX expirado e cancelado: +11% Aris, +14% Fish
+// em ago/26). Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel,
 // enc. financeiro, com erro) fica em "pendente", fora da %. Mês sem receita completa não vira %: melhor "—" do que % inflada.
 function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-MM-01', inclusivos)
   const a = { casos: 0, concedidos: 0, negados: 0, andamento: 0, valorConcedido: 0, valorPedidoConcedido: 0, valorAndamento: 0, n1: 0, n2: 0, n3: 0, valorN1: 0, valorN2: 0, valorN3: 0, semValor: 0,
