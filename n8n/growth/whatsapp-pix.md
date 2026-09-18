@@ -1,5 +1,7 @@
 # PIX nativo e contrato de templates
 
+Diretriz de produto e aprendizado oficial: [Meta API/MCP e Detalhes do pedido](meta-whatsapp-api-mcp.md). Em 18/09, Felipe reafirmou o card nativo como padrão e solicitou preservar esse conhecimento no projeto. O detalhamento por produtos reais continua pendente; o item agregado abaixo não é uma lista de produtos.
+
 O provedor das marcas é Appmax. O destino bancário é obtido do código original de cada cobrança; não existe banco fixo por marca. A consulta aceita apenas endereços bancários observados e explicitamente permitidos, via HTTPS com validação de certificado e sem redirecionamento. Um endereço novo exige revisão, nunca tentativa arbitrária de acesso.
 
 `whatsapp-pix-card.js` confere TLV/CRC do código, moeda, valor em centavos, situação ativa e validade comparada com a fonte. O código de pagamento não é gerado nem reescrito. A chave exibida vem da cobrança, não do CNPJ da marca. Cobranças pagas, divergentes ou próximas do vencimento são recusadas. Quando não existe detalhamento monetário confiável de produtos, o cartão representa o total como um item identificado pelo pedido, sem inventar produtos ou preços.
