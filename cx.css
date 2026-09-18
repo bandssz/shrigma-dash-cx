@@ -285,3 +285,7 @@ details.dobra-painel > summary .cab-titulo h2 { margin: 0; }
 #area-chat { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 @media (max-width: 1280px) { #area-chat { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 720px)  { #area-chat { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Por agente (18/09): rodapé = o time inteiro na mesma régua */
+.ranking tfoot td { border-bottom: 0; border-top: 2px solid var(--borda); background: var(--card-2); }
+.ranking tfoot .nome { color: var(--mudo); }

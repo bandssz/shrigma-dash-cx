@@ -106,7 +106,7 @@ Contrato da API e coletores: `BACKEND_REQUESTS.md` › R7.
 Diagnóstico: o mesmo número aparecia em até cinco lugares e a metade de baixo respondia perguntas de outro time. O que mudou:
 - **"O que acontece com o ticket" virou parte do bloco de CSAT** ("CSAT e desfecho no chat"): faixa Kai · pessoa · ninguém embaixo
   do hero; barras por canal e os três cortes ficam em "ver detalhe".
-- **"Por agente" perdeu a coluna CSAT** — era a média do Gleap, contradizia o resto do painel. Volta quando existir em três níveis por agente.
+- **"Por agente" perdeu a coluna CSAT** (média do Gleap) em 13/09; voltou em 18/09 em três níveis, do ticket que a pessoa fechou (`cx_agente_dia`).
 - **Evolução, NPS e Comentários recolhidos por padrão**, com resumo na linha do título (NPS, nota, votos · comentários, % respondidos,
   aguardando). **Reclame Aqui abre sozinho quando está fora do alvo**; um clique do usuário prevalece sobre a regra.
 - Barra de âncoras no topo (Números · Motivos · CSAT e Kai · Operação · Agentes · Reputação). Comentários ficam no CX (negativo sem
@@ -400,10 +400,14 @@ pagos, negados, andamento, valores, N1/N2/N3, concedidos_sem_valor) e `cx_conces
 `cx_pedido_dia`, que ganhou `receita` (e `estornos`, coletado mas não mostrado). Workflows: **CX — Concessões · noturno**
 (`4SUih2vegFK5RVjS`, 01:50; ClickUp API v2 `GET /list/{id}/task?include_closed=true&page=N` com a credencial `clickUpApi`
 referenciada por ID; forçar em `GET /webhook/cx-concessao-forcar`) e **CX — Receita · diário** (`3qHS19o4d301kKK3`, 01:40;
-ShopifyQL `FROM sales SHOW total_sales, returns GROUP BY day` = o total de vendas do Analytics; a Fishermans ainda não tem
-o escopo `read_reports`, então cai para a soma de `currentTotalPriceSet` dos pedidos não cancelados do dia — conferido
-na Aris em 15/09: 98,0k nos dois caminhos; forçar em `GET /webhook/cx-receita-forcar`). Backfill de receita desde 01/07
-(scratch `receita_backfill.py`; a loja Shopify da Fishermans só existe desde 14/07). API do painel: `cx_concessao`
+**receita = pedidos pagos** — soma de `currentTotalPriceSet` dos pedidos não cancelados com `displayFinancialStatus`
+PAID/PARTIALLY_REFUNDED/REFUNDED criados no dia (fuso -03:00), igual nas duas marcas, via `orders` da Admin API. Decisão
+de 18/09, depois de medir agosto pedido a pedido: o `total_sales` do ShopifyQL/Analytics soma TODOS os pedidos, cancelados
+inclusive — Aris 2.738.140 contra 2.459.518 pagos (+11%, 1.851 PIX expirados), Fish 748.299 contra 656.419 (+14%); e o
+`returns` do Analytics não é reembolso, é item removido de pedido cancelado (as duas marcas estornam fora da Shopify).
+`estornos` = `totalRefunded` dos pedidos criados no dia, só o que passou pela Shopify, coletado e não mostrado. Forçar em
+`GET /webhook/cx-receita-forcar?dias=N` (padrão 3, teto 120). Backfill de 01/07 a 15/09 refeito em 18/09 com a mesma regra
+(scratch `backfill_receita.py`; a loja Shopify da Fishermans só existe desde 14/07). API do painel: `cx_concessao`
 (12 meses, já com receita na linha) e `cx_concessao_tipo` (6 meses).
 
 **Tela**: bloco **Concessão sobre receita** no fim da aba Trocas, grão mensal. Cartões: % do último mês fechado (faixa
@@ -499,6 +503,42 @@ fechamentos/dia brutos → **87 resolutivos/dia**; Vivian 108 → 73; Adão 97 �
 Nosso "Fechados" é maior que o do Gleap (Juliano 140 × 67/dia) porque o Gleap conta ticket designado ao agente e
 fechado; o nosso conta o clique de fechar, de quem quer que seja o ticket. Mensagens humanas por fechamento: mediana
 1–3 por agente — metade dos fechamentos feitos por pessoa tem no máximo uma mensagem dela.
+
+### Por agente reescrita: resolução, descarte e o time contra o que chega (18/09)
+
+**Problema**: a tabela tinha 10 colunas de três fontes, três delas mortas (Trabalhados, Horas ativas e CSAT vinham do
+snapshot por agente do Gleap, parado desde 12/09), ordenava por **Fechados** — que conta o clique de fechar, inclusive
+fechamento sem nenhuma mensagem humana — e com o período padrão (7 dias até ontem) só um dia estava maduro, então
+Resolutivos e FCR mostravam "base curta" para todo mundo. Medido antes de mexer (dias úteis 01–14/09, só pessoa):
+**19% dos fechamentos humanos têm zero mensagem humana** (Vitória 49%, Maria Eduarda 37%); o cliente **volta em 30%**
+para todos os agentes, de Juliano a Vitória (índice igual em perfis opostos = processo, não pessoa); o cliente escreve
+6,5–7,5 mensagens por atendimento contra 2,5–3 da pessoa (espera, não problema); 55% dos retornos acontecem em 48 h e
+80% só em ~106 h (3 dias de maturação subcontaria um terço — ficam os 7).
+
+**Camada de dados**: view **`cx_agente_dia`** (`n8n/sql/cx_agente_dia.sql`; marca × agente × dia do fechamento, só
+pessoa): `fechados`, **`descartes`** (0 msg humana), `efetivos` (≥ 1), `maduros`/`resolutivos`/`voltaram` **só sobre
+efetivos** (7 dias), `msgs_humanas`/`msgs_cliente` somadas, `csat_avaliados`/`csat_bom`/`csat_ruim` (rating 2/6/10 do
+ticket fechado de forma efetiva, contado por ticket). View **`cx_handoff_dia`** (`n8n/sql/cx_handoff_dia.sql`; marca ×
+canal × dia de criação): `tickets`, **`chegam_humano`** (escalado, ou com resposta de pessoa, ou `human_handoff_em`, ou
+e-mail), `wismo`. API: blocos **`cx_agente`** e **`cx_handoff`** (120 dias; `n8n/api_patch_agente.py` acrescenta os dois
+ao "Consulta payload" e à whitelist do cx com backup + diff). Os blocos antigos (`cx_fechamento_agente`, `agentes_1d`,
+`agentes_janelas`) continuam na API; a tela não os lê mais.
+
+**Tela** (`pintaRanking` em `app.js`; puras em `cx-metricas.js`: `agenteAgg`, `agenteTime`, `cxJanelaMadura`): sete
+colunas, ordenadas por **Resolutivos/dia** (resolutivos ÷ dias em que a pessoa teve fechamento maduro; meta 150) ·
+**Voltou** (faixa < 15%) · **Cliente escreveu** (msgs do cliente ÷ efetivos; faixa < 4) · **CSAT bom · ruim** (meta
+> 75; ruim ≥ 25% vermelho) · **Resposta ≤ 8 min** (fatia; p90 embaixo) · **Descartes** (fora de tudo; ≥ 25% vermelho).
+Janela: o período da página cortado no teto maduro; com menos de 3 dias úteis maduros cai para os últimos 10 dias úteis
+maduros e avisa ("caiu para o maduro"). Rodapé **Time**: soma na mesma régua e **chegam ao humano por dia útil**
+(seg–sex; Aris + Fish) contra **resolvem por dia útil** → saldo, também no rótulo. Saíram FCR (redundante com voltou
+enquanto a volta é de 30% para todo mundo), 1ª resposta por agente (fila é meta de escala, não do N1) e as três colunas
+do Gleap. Testes: `tests/cx-metricas.test.cjs` (3 novos) e a fixture de `cx-render.test.cjs`.
+
+**Leitura de 31/08–11/09 (10 dias úteis maduros, dado real)**: Juliano 84 resolutivos/dia (fechou 126) · Giovanny 77 ·
+Vivian 66 · Letícia 57 · Adão 57 · Samu 32 · Vitória 29 (52% descarte) · Maria Eduarda 25 (37%) · Carlos 21. Volta
+26–35% em todos. CSAT bom 33–58%, ruim 17–35% (Juliano: maior volume, pior CSAT; Vivian e Adão os melhores). Time:
+**chegam 392/dia útil, resolvem 324 → saldo −68/dia**. Ninguém chega à metade de 150; com volta em 30% e 19% de
+descarte no número, 150 é inalcançável por esforço — com volta em 10% e descarte separado, fica em ~1,2× do Juliano.
 
 ### RA: 102 na página × 260 no RA Empresas — os dois números de "sem resposta" (14/09, noite)
 

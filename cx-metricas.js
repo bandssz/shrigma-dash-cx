@@ -410,12 +410,75 @@ function respostaPorAgente(rows, f) {
   const acc = {};
   for (const l of cxFiltra(rows, f)) {
     const n = Number(l.respostas || 0); if (!n) continue;
-    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), respostas: 0, ate8: 0, p50c: [], p50r: [] });
+    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), respostas: 0, ate8: 0, p50c: [], p90c: [], p50r: [] });
     a.nome = a.nome || l.agente_nome; a.marcas.add(l.marca); a.respostas += n; a.ate8 += Number(l.ate_8min || 0);
-    a.p50c.push([Number(l.p50_comercial_seg), n]); a.p50r.push([Number(l.p50_relogio_seg), n]);
+    a.p50c.push([Number(l.p50_comercial_seg), n]); a.p90c.push([Number(l.p90_comercial_seg), n]); a.p50r.push([Number(l.p50_relogio_seg), n]);
   }
   return Object.values(acc).map((a) => ({ agente_id: a.agente_id, nome: a.nome, marcas: [...a.marcas], respostas: a.respostas,
-    p50Comercial: medianaPonderada(a.p50c), p50Relogio: medianaPonderada(a.p50r), pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, aproximado: a.p50c.length > 1 }));
+    p50Comercial: medianaPonderada(a.p50c), p90Comercial: medianaPonderada(a.p90c), p50Relogio: medianaPonderada(a.p50r), pctAte8: a.respostas ? (a.ate8 / a.respostas) * 100 : null, aproximado: a.p50c.length > 1 }));
+}
+
+// ---------- por agente (18/09): cx_agente_dia + cx_resposta_agente_dia + cx_handoff_dia ----------
+// A tabela "Por agente" mede RESOLUÇÃO, não fechamento. Regras (medidas em set/26 antes de escrever):
+//  - descarte = fechamento sem nenhuma mensagem humana (duplicado, spam, cliente sumiu): 19% dos fechamentos humanos
+//    do time, 37–49% no N2. Sai de "fechados" e vira coluna própria — senão a produtividade mente pra cima.
+//  - efetivo = fechamento com ≥ 1 mensagem humana. Maduro/resolutivo/voltou só sobre efetivos, 7 dias corridos
+//    (55% dos retornos acontecem em 48 h, 80% só em ~106 h — 3 dias subcontaria um terço).
+//  - resolutivos/dia divide pelos dias MADUROS com fechamento efetivo (dias imaturos não diluem).
+//  - mensagens do cliente por atendimento = soma ÷ efetivos (esforço do cliente = espera); CSAT 2/6/10, nunca média.
+//  - % só com base ≥ 30 (CX_MIN_BASE): abaixo, a tela mostra a contagem.
+// Janela: a tabela usa o período da página cortado no teto maduro; se sobram menos de CX_AGENTE_MIN_DIAS dias úteis,
+// cai para os últimos CX_AGENTE_DIAS_QUEDA dias úteis maduros e diz que caiu (nunca tela vazia).
+const CX_AGENTE_MIN_DIAS = 3, CX_AGENTE_DIAS_QUEDA = 10;
+// dia útil do time humano = seg–sex (declarado pelo Felipe em 12/09). Diferente de CX_DIAS_SEM_EXPEDIENTE (maturação de
+// desfecho, que trata sexta como sem expediente até confirmação) — aqui é capacidade, e sexta tem gente fechando ticket.
+function cxEhDiaUtil(ymd) { const d = new Date(ymd + "T12:00:00Z").getUTCDay(); return d >= 1 && d <= 5; }
+function cxDiasUteis(ini, fim) { return cxDiasIntervalo(ini, fim).filter((d) => cxEhDiaUtil(d)); }
+function cxJanelaMadura(f, hoje) {
+  const teto = cxFimMaduroVolta(hoje);
+  const fim = f.fim < teto ? f.fim : teto;
+  if (fim >= f.ini && cxDiasUteis(f.ini, fim).length >= CX_AGENTE_MIN_DIAS) return { ini: f.ini, fim, caiu: false, cortou: fim < f.fim, teto };
+  // volta dia a dia até juntar CX_AGENTE_DIAS_QUEDA dias úteis (no máximo 30 dias corridos)
+  let ini = teto, uteis = cxEhDiaUtil(teto) ? 1 : 0, n = 0;
+  while (uteis < CX_AGENTE_DIAS_QUEDA && n < 30) { ini = diasAtrasCx(1, ini); n++; if (cxEhDiaUtil(ini)) uteis++; }
+  return { ini, fim: teto, caiu: true, cortou: true, teto };
+}
+function agenteAgg(rows, f) {
+  const acc = {};
+  for (const l of cxFiltra(rows, f)) {
+    const a = acc[l.agente_id] || (acc[l.agente_id] = { agente_id: l.agente_id, nome: l.agente_nome, marcas: new Set(), dias: new Set(), diasMaduros: new Set(),
+      fechados: 0, descartes: 0, efetivos: 0, maduros: 0, resolutivos: 0, voltaram: 0, msgsHumanas: 0, msgsCliente: 0, csatAvaliados: 0, csatBom: 0, csatRuim: 0 });
+    a.nome = a.nome || l.agente_nome; a.marcas.add(l.marca);
+    const n = (k) => Number(l[k] || 0);
+    if (n("efetivos")) a.dias.add(cxDia(l.dia));
+    if (n("maduros")) a.diasMaduros.add(cxDia(l.dia));
+    a.fechados += n("fechados"); a.descartes += n("descartes"); a.efetivos += n("efetivos"); a.maduros += n("maduros"); a.resolutivos += n("resolutivos"); a.voltaram += n("voltaram");
+    a.msgsHumanas += n("msgs_humanas"); a.msgsCliente += n("msgs_cliente"); a.csatAvaliados += n("csat_avaliados"); a.csatBom += n("csat_bom"); a.csatRuim += n("csat_ruim");
+  }
+  const pct = (x, b) => b >= CX_MIN_BASE ? (x / b) * 100 : null;
+  return Object.values(acc).map((a) => ({ agente_id: a.agente_id, nome: a.nome, marcas: [...a.marcas], dias: a.dias.size, diasMaduros: a.diasMaduros.size,
+    fechados: a.fechados, descartes: a.descartes, efetivos: a.efetivos, maduros: a.maduros, resolutivos: a.resolutivos, voltaram: a.voltaram,
+    fechadosDia: a.dias.size ? a.efetivos / a.dias.size : null,
+    resolutivosDia: a.diasMaduros.size ? a.resolutivos / a.diasMaduros.size : null,
+    pctVoltou: pct(a.voltaram, a.maduros), pctDescartes: pct(a.descartes, a.fechados),
+    msgsClientePorAt: a.efetivos ? a.msgsCliente / a.efetivos : null, msgsHumanasPorAt: a.efetivos ? a.msgsHumanas / a.efetivos : null,
+    csatAvaliados: a.csatAvaliados, pctCsatBom: pct(a.csatBom, a.csatAvaliados), pctCsatRuim: pct(a.csatRuim, a.csatAvaliados) }))
+    .sort((x, y) => (y.resolutivosDia || 0) - (x.resolutivosDia || 0) || (y.efetivos || 0) - (x.efetivos || 0));
+}
+// o time inteiro na mesma régua (linha de rodapé): soma dos agentes + o que CHEGA ao humano por dia útil (cx_handoff_dia)
+function agenteTime(agentes, handoffRows, f) {
+  const t = { agentes: agentes.length, fechados: 0, descartes: 0, efetivos: 0, maduros: 0, resolutivos: 0, voltaram: 0, msgsCliente: 0, msgsHumanas: 0, csatAvaliados: 0, csatBom: 0, csatRuim: 0 };
+  for (const a of agentes) { for (const k of ["fechados", "descartes", "efetivos", "maduros", "resolutivos", "voltaram", "csatAvaliados"]) t[k] += a[k]; t.msgsCliente += a.msgsClientePorAt ? a.msgsClientePorAt * a.efetivos : 0; t.msgsHumanas += a.msgsHumanasPorAt ? a.msgsHumanasPorAt * a.efetivos : 0; t.csatBom += a.pctCsatBom === null ? 0 : (a.pctCsatBom / 100) * a.csatAvaliados; t.csatRuim += a.pctCsatRuim === null ? 0 : (a.pctCsatRuim / 100) * a.csatAvaliados; }
+  const uteis = cxDiasUteis(f.ini, f.fim).length;
+  let chegam = 0, tickets = 0, diasHandoff = new Set();
+  for (const l of cxFiltra(handoffRows, Object.assign({}, f, { canais: null }))) { if (l.marca === "olivas") continue; chegam += Number(l.chegam_humano || 0); tickets += Number(l.tickets || 0); diasHandoff.add(cxDia(l.dia)); }
+  const pct = (x, b) => b >= CX_MIN_BASE ? (x / b) * 100 : null;
+  return Object.assign(t, { diasUteis: uteis, chegam, tickets, temHandoff: diasHandoff.size > 0,
+    chegamDia: uteis && diasHandoff.size ? chegam / uteis : null,            // chegam por dia útil (fim de semana entra na conta do humano da segunda)
+    resolutivosDia: uteis && t.maduros ? t.resolutivos / uteis : null,       // o time resolve X por dia útil
+    pctVoltou: pct(t.voltaram, t.maduros), pctDescartes: pct(t.descartes, t.fechados),
+    msgsClientePorAt: t.efetivos ? t.msgsCliente / t.efetivos : null, msgsHumanasPorAt: t.efetivos ? t.msgsHumanas / t.efetivos : null,
+    pctCsatBom: pct(t.csatBom, t.csatAvaliados), pctCsatRuim: pct(t.csatRuim, t.csatAvaliados) });
 }
 
 // fechamentos por pessoa × motivo do ticket (cx_fechamento_motivo_dia): em quais motivos a meta de 150/dia é realista.
@@ -480,8 +543,9 @@ function trocaMotivos(rows, f) {
 // Meta do Head de CX. Numerador = reembolsos registrados no ClickUp (lista Reembolsos) que o financeiro JÁ EXECUTOU
 // (status feito, redigindo resposta, retorno concluído — a view cx_concessao_mes aplica a regra). Só ClickUp, por decisão
 // do Felipe (16/09): estorno da Shopify inclui cancelamento de pedido que nunca passou pelo CX; devolução pelo Troque tem o
-// card dela na parte de trocas. Denominador = receita Shopify do mês (total_sales do Analytics; Fishermans = soma dos
-// pedidos não cancelados até ter o escopo read_reports). Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel,
+// card dela na parte de trocas. Denominador = receita paga da Shopify no mês (18/09: soma dos pedidos pagos e não
+// cancelados, igual nas duas marcas — não o total_sales do Analytics, que soma PIX expirado e cancelado: +11% Aris, +14% Fish
+// em ago/26). Grão mensal. Caso em andamento (em negociação, ag. N2, ag. Samuel,
 // enc. financeiro, com erro) fica em "pendente", fora da %. Mês sem receita completa não vira %: melhor "—" do que % inflada.
 function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-MM-01', inclusivos)
   const a = { casos: 0, concedidos: 0, negados: 0, andamento: 0, valorConcedido: 0, valorPedidoConcedido: 0, valorAndamento: 0, n1: 0, n2: 0, n3: 0, valorN1: 0, valorN2: 0, valorN3: 0, semValor: 0,
@@ -716,5 +780,5 @@ if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
     somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
-    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, wismoSituacao, CX_WISMO_ROTULO, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
+    CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, agenteAgg, agenteTime, cxJanelaMadura, cxDiasUteis, cxEhDiaUtil, CX_AGENTE_MIN_DIAS, CX_AGENTE_DIAS_QUEDA, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, wismoSituacao, CX_WISMO_ROTULO, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }

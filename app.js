@@ -492,75 +492,76 @@ document.addEventListener("click", (e) => {
 });
 
 function pintaRanking(d, hoje) {
-  // Três fontes, uma tabela por agente:
-  //  - cx_fechamento_agente (15/09): fechamentos feitos pela pessoa (evento DONE do histórico do Gleap), quantos
-  //    voltaram em 7 dias, FCR e mensagens por fechamento — é aqui que a meta do N1 (150 fechamentos resolutivos/dia) é conferida;
-  //  - cx_tempo_agente: 1ª resposta humana em EXPEDIENTE, por quem respondeu primeiro;
-  //  - Gleap (cx_snapshot_agente): trabalhados, horas ativas e CSAT (escala do Gleap, meta > 75). Atrasa dias.
-  const gleapLinhas = rankingAgentesRange(d, estado.marca, PER.ini, PER.fim, hoje);
-  const jt = cxJanelaCompleta(cxF(estado.marca), hoje);
-  const tempos = tempoPorAgente(d.cx_tempo_agente || [], jt.f);
-  const fechs = fechamentoPorAgente(d.cx_fechamento_agente || [], { marca: estado.marca, ini: PER.ini, fim: PER.fim });
-  const resps = respostaPorAgente(d.cx_resposta_agente || [], { marca: estado.marca, ini: PER.ini, fim: PER.fim });
-  const temFech = Array.isArray(d.cx_fechamento_agente) && d.cx_fechamento_agente.length > 0;
-  const porId = new Map();
-  const pega = (id, nome, marca) => porId.get(id) || (porId.set(id, { agente_id: id, nome, marcas: new Set(marca ? [marca] : []), trabalhados: 0, respostas: 0, horas_ativas_seg: 0, csatPares: [], gleap: false }), porId.get(id));
-  for (const g of gleapLinhas) {   // o Gleap devolve uma linha por agente × marca: soma
-    const a = pega(g.agente_id, g.nome, g.marca); a.gleap = true; a.marcas.add(g.marca);
-    a.trabalhados += g.trabalhados || 0; a.respostas += g.respostas || 0; a.horas_ativas_seg += g.horas_ativas_seg || 0;
-    if (typeof g.csat === "number") a.csatPares.push([g.csat, g.respostas || 1]);
-    a.aprox = a.aprox || g.aprox;
-  }
-  for (const t of tempos) { const a = pega(t.agente_id, t.nome, null); t.marcas.forEach((m) => a.marcas.add(m)); a.tempo = t; if (!a.nome || /null$/i.test(a.nome)) a.nome = t.nome || a.nome; }
-  for (const rp of resps) { const a = pega(rp.agente_id, rp.nome, null); rp.marcas.forEach((m) => a.marcas.add(m)); a.resp = rp; if (!a.nome || /null$/i.test(a.nome)) a.nome = rp.nome || a.nome; }
-  for (const f of fechs) { const a = pega(f.agente_id, f.nome, null); f.marcas.forEach((m) => a.marcas.add(m)); a.fech = f; if (!a.nome || /null$/i.test(a.nome)) a.nome = f.nome || a.nome; }
-  const linhas = [...porId.values()].map((a) => { const tot = a.csatPares.reduce((s, p) => s + p[1], 0); a.csat = tot ? a.csatPares.reduce((s, p) => s + p[0] * p[1], 0) / tot : null; a.marca = a.marcas.size === 1 ? [...a.marcas][0] : "todas"; return a; })
-    .sort((x, y) => ((y.fech && y.fech.fechados) || 0) - ((x.fech && x.fech.fechados) || 0) || (y.trabalhados || 0) - (x.trabalhados || 0));
+  // Por agente (18/09): RESOLUÇÃO, não fechamento. Duas fontes medidas por nós ticket a ticket:
+  //  - cx_agente (view cx_agente_dia): fechamentos por pessoa separando descarte (0 msg humana) de efetivo; maduro/resolutivo/voltou
+  //    só sobre efetivos, 7 dias corridos; mensagens do cliente por atendimento; CSAT 2/6/10 do ticket fechado;
+  //  - cx_resposta_agente: cadência dentro da conversa em expediente (fatia ≤ 8 min e p90).
+  //  - cx_handoff (view cx_handoff_dia): quantos tickets chegam ao humano por dia útil — o denominador do time (rodapé).
+  // Saíram: Trabalhados/Horas/CSAT do Gleap (o snapshot por agente parou em 12/09), FCR (redundante com "voltou" enquanto a
+  // volta está em 30% pra todo mundo) e 1ª resposta por agente (a fila é meta de escala, não do N1).
+  const rows = d.cx_agente || [];
+  const temAgente = Array.isArray(d.cx_agente) && d.cx_agente.length > 0;
+  const jm = cxJanelaMadura({ ini: PER.ini, fim: PER.fim }, hoje);
+  const f = { marca: estado.marca, ini: jm.ini, fim: jm.fim };
+  const linhas = agenteAgg(rows, f);
+  const resps = new Map(respostaPorAgente(d.cx_resposta_agente || [], f).map((r) => [r.agente_id, r]));
+  const time = agenteTime(linhas, d.cx_handoff || [], f);
   const sel = $("#sel-agente");
   const atual = estado.agente;
-  const nomes = [...new Map(linhas.map((a) => [a.agente_id, a.nome])).entries()];
+  const nomeDe = (a) => String(a.nome || a.agente_id).replace(/\s+null$/i, "");
   sel.innerHTML = `<option value="todos">Todos os agentes</option>` +
-    nomes.map(([id, n]) => `<option value="${id}" ${id === atual ? "selected" : ""}>${n}</option>`).join("");
-
+    linhas.map((a) => `<option value="${a.agente_id}" ${a.agente_id === atual ? "selected" : ""}>${nomeDe(a)}</option>`).join("");
   const filtradas = atual === "todos" ? linhas : linhas.filter((a) => a.agente_id === atual);
-  const maxFech = Math.max(...linhas.map((a) => (a.fech && a.fech.fechados) || 0), 1);
-  const gleapUlt = (d.agentes_1d || []).map((l) => l.dia).sort().pop();
-  const gleapVelho = gleapUlt && gleapUlt < diasAtras(2, hoje);
-  const tetoMaduro = cxFimMaduroVolta(hoje);
-  $("#ranking-rotulo").innerHTML = PER.rotulo + (linhas.some((a) => a.aprox) ? " · ≈" : "") +
-    (temFech && PER.fim > tetoMaduro ? ` <span class="tag nota" title="Fechamento só conta como resolutivo (ou 'voltou') depois de ${CX_VOLTA_DIAS} dias corridos. Fechados conta todos; Resolutivos e FCR só os maduros — em período curto a base fica pequena e a coluna mostra a contagem.">resolutivos maduros até ${fmtDia(tetoMaduro)}</span>` : "") +
-    (!temFech ? ` <span class="tag alerta" title="A API ainda não devolve cx_fechamento_agente; Fechados, Resolutivos, FCR e Msgs ficam vazios.">sem cx_fechamento</span>` : "") +
-    (gleapVelho ? ` <span class="tag alerta" title="O Gleap devolve zero para todos os agentes em janelas de 1 dia desde 12/09; Trabalhados, CSAT e Horas ativas param em ${fmtDia(gleapUlt)}. Fechados, Resolutivos, FCR, Msgs, T. resposta e 1ª resposta são medidos por nós e estão em dia.">Gleap parado em ${fmtDia(gleapUlt)}</span>` : "") +
-    (jt.caiu || jt.cortou ? ` <span class="tag nota" title="1ª resposta usa só dias completos (ticket de hoje ainda vai ser respondido).">1ª resposta até ${fmtDia(jt.f.fim)}</span>` : "");
+
+  $("#ranking-rotulo").innerHTML = `${fmtDia(jm.ini)}–${fmtDia(jm.fim)}` +
+    (jm.caiu ? ` <span class="tag alerta" title="O período da página não tem ${CX_AGENTE_MIN_DIAS} dias úteis maduros (fechamento só conta como resolutivo ou 'voltou' ${CX_VOLTA_DIAS} dias depois). A tabela caiu para os últimos ${CX_AGENTE_DIAS_QUEDA} dias úteis maduros.">caiu para o maduro</span>` :
+      jm.cortou ? ` <span class="tag nota" title="Fechamento só conta como resolutivo ou 'voltou' ${CX_VOLTA_DIAS} dias depois; os dias do período depois de ${fmtDia(jm.fim)} ainda estão maturando e ficam fora da tabela.">maduro até ${fmtDia(jm.fim)}</span>` : "") +
+    (!temAgente ? ` <span class="tag alerta" title="A API ainda não devolve cx_agente (bloco novo de 18/09). Rode n8n/api_patch_agente.py e force o cache.">sem cx_agente</span>` : "") +
+    (time.temHandoff && typeof time.chegamDia === "number" && typeof time.resolutivosDia === "number"
+      ? ` <span class="tag ${time.resolutivosDia >= time.chegamDia ? "ok" : "alerta"}" title="Chegam ao humano (transferido para pessoa, ou com resposta de pessoa, ou e-mail; Aris + Fish) por dia útil da janela, contra o que o time resolve por dia útil (fechou com mensagem e o cliente não voltou em 7 dias). Negativo = a fila cresce.">chegam ${fmtDec(time.chegamDia, 0)}/dia útil · time resolve ${fmtDec(time.resolutivosDia, 0)} · saldo ${time.resolutivosDia - time.chegamDia >= 0 ? "+" : "−"}${fmtDec(Math.abs(time.resolutivosDia - time.chegamDia), 0)}</span>` : "");
 
   const st = (m, v) => { const s = cxStatus(m, v); return s ? ` st-${s}` : ""; };
-  const t1 = (a) => a.tempo && a.tempo.respondidos ? `<strong class="tabn">${a.tempo.aproximado ? "≈ " : ""}${fmtDur(a.tempo.p50Comercial)}</strong><div class="mini">${fmtPct0(a.tempo.pctAte1h)} em até 1h · abriu ${fmtNum(a.tempo.respondidos)}</div>` : `<span class="mini">—</span>`;
-  const fechCel = (f) => !f ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_fechados_dia", f.porDia)}">${fmtNum(f.fechados)}</strong><span class="prog"><i style="width:${(f.fechados / maxFech) * 100}%"></i></span><div class="mini">${f.porDia === null ? "—" : fmtDec(f.porDia, 0)}/dia · ${fmtNum(f.dias)} dia${f.dias === 1 ? "" : "s"}</div>`;
-  const resCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctResolutivo === "number" ? `<strong class="tabn${st("voltou", f.pctVoltou)}">${fmtPct0(f.pctResolutivo)}</strong><div class="mini">${fmtNum(f.resolutivos)} de ${fmtNum(f.maduros)} · voltaram ${fmtNum(f.maduros - f.resolutivos)}</div>` : `<span class="tabn">${fmtNum(f.resolutivos)}<span class="mini"> de ${fmtNum(f.maduros)}</span></span><div class="mini">${f.maduros ? "base curta" : "nada maduro ainda"}</div>`;
-  const fcrCel = (f) => !f ? `<span class="mini">—</span>` : typeof f.pctFcr === "number" ? `<strong class="tabn${st("fcr", f.pctFcr)}">${fmtPct0(f.pctFcr)}</strong><div class="mini">de ${fmtNum(f.fcrBase)} primeiros</div>` : `<span class="tabn">${fmtNum(f.fcr)}<span class="mini"> de ${fmtNum(f.fcrBase)}</span></span>`;
-  const msgCel = (f) => !f || f.msgsHumanasP50 === null ? `<span class="mini">—</span>` : `<strong class="tabn">${f.aproximado ? "≈ " : ""}${fmtDec(f.msgsHumanasP50, 0)}</strong><div class="mini">cliente ${f.msgsClienteP50 === null ? "—" : fmtDec(f.msgsClienteP50, 0)}</div>`;
-  // status pela fatia em até 8 min, que é exata: mediana < 8 min ⇔ pelo menos metade das respostas em até 8 min (a mediana mostrada é ≈ quando pondera dias)
-  const stResp = (r) => typeof r.pctAte8 !== "number" ? "" : r.pctAte8 >= 50 ? " st-bom" : r.pctAte8 >= 40 ? " st-atencao" : " st-ruim";
-  const respCel = (a) => !a.resp || !a.resp.respostas ? `<span class="mini">—</span>` : `<strong class="tabn${stResp(a.resp)}">${a.resp.aproximado ? "≈ " : ""}${fmtDur(a.resp.p50Comercial)}</strong><div class="mini">${fmtPct0(a.resp.pctAte8)} em até 8 min · ${fmtNum(a.resp.respostas)} resp.</div>`;
-  const csatCel = (a) => !a.gleap || typeof a.csat !== "number" ? `<span class="mini">—</span>` : `<strong class="tabn${st("ag_csat", a.csat)}">${fmtDec(a.csat, 0)}</strong>`;
-  $("#tabela-ranking tbody").innerHTML = filtradas.map((a) => `
-    <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marca)}">
+  const stAlto = (v, bom, aten) => typeof v !== "number" ? "" : v >= bom ? " st-bom" : v >= aten ? " st-atencao" : " st-ruim";
+  const stBaixo = (v, bom, aten) => typeof v !== "number" ? "" : v <= bom ? " st-bom" : v <= aten ? " st-atencao" : " st-ruim";
+  const vazio = `<span class="mini">—</span>`;
+  const resCel = (a) => typeof a.resolutivosDia !== "number" ? `<span class="tabn">${fmtNum(a.resolutivos)}</span><div class="mini">${a.maduros ? "nada maduro por dia" : "nada maduro ainda"}</div>`
+    : `<strong class="tabn${st("ag_fechados_dia", a.resolutivosDia)}">${fmtDec(a.resolutivosDia, 0)}</strong><div class="mini">${fmtNum(a.resolutivos)} de ${fmtNum(a.maduros)} maduros · fechou ${a.fechadosDia === null ? "—" : fmtDec(a.fechadosDia, 0)}/dia</div>`;
+  const volCel = (a) => typeof a.pctVoltou === "number" ? `<strong class="tabn${st("voltou", a.pctVoltou)}">${fmtPct0(a.pctVoltou)}</strong><div class="mini">${fmtNum(a.voltaram)} voltaram</div>`
+    : `<span class="tabn">${fmtNum(a.voltaram)}<span class="mini"> de ${fmtNum(a.maduros)}</span></span><div class="mini">base curta</div>`;
+  const cliCel = (a) => typeof a.msgsClientePorAt !== "number" ? vazio : `<strong class="tabn${stBaixo(a.msgsClientePorAt, 4, 6)}">${fmtDec(a.msgsClientePorAt, 1)}</strong><div class="mini">pessoa ${fmtDec(a.msgsHumanasPorAt, 1)}</div>`;
+  const csatCel = (a) => typeof a.pctCsatBom !== "number" ? `<span class="tabn">${fmtNum(a.csatAvaliados)}<span class="mini"> aval.</span></span><div class="mini">base curta</div>`
+    : `<strong class="tabn${st("ag_csat", a.pctCsatBom)}">${fmtPct0(a.pctCsatBom)}</strong><span class="mini"> · </span><span class="tabn${a.pctCsatRuim >= 25 ? " st-ruim" : ""}">${fmtPct0(a.pctCsatRuim)}</span><div class="mini">${fmtNum(a.csatAvaliados)} avaliados</div>`;
+  const respCel = (r) => !r || !r.respostas ? vazio : `<strong class="tabn${stAlto(r.pctAte8, 50, 40)}">${fmtPct0(r.pctAte8)}</strong><div class="mini">p90 ${fmtDur(r.p90Comercial)} · ${fmtNum(r.respostas)} resp.</div>`;
+  const descCel = (a) => !a.fechados ? vazio : `<strong class="tabn${typeof a.pctDescartes === "number" ? stBaixo(a.pctDescartes, 15, 25) : ""}">${fmtNum(a.descartes)}</strong><div class="mini">${typeof a.pctDescartes === "number" ? fmtPct0(a.pctDescartes) + " dos fechamentos" : "de " + fmtNum(a.fechados)}</div>`;
+  const respAg = (a) => { const r = resps.get(a.agente_id); return r; };
+  const linha = (a) => `
+    <tr class="${a.agente_id === atual ? "destaque" : ""}" style="--cor-tag:${corHex(a.marcas.length === 1 ? a.marcas[0] : "todas")}">
       <td><div class="pessoa">
-        <span class="avatar">${(a.nome || "?").replace(/\s+null$/i, "").trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</span>
-        <div><div class="nome">${String(a.nome || a.agente_id).replace(/\s+null$/i, "")}</div>
-        <div class="pessoa-marca">${ROTULOS[a.marca] || (a.marca === "todas" ? "duas marcas" : a.marca || "")}</div></div>
+        <span class="avatar">${nomeDe(a).trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</span>
+        <div><div class="nome">${nomeDe(a)}</div>
+        <div class="pessoa-marca">${a.marcas.length === 1 ? ROTULOS[a.marcas[0]] || a.marcas[0] : "duas marcas"} · ${fmtNum(a.dias)} dia${a.dias === 1 ? "" : "s"}</div></div>
       </div></td>
-      <td class="num">${fechCel(a.fech)}</td>
-      <td class="num">${resCel(a.fech)}</td>
-      <td class="num">${fcrCel(a.fech)}</td>
-      <td class="num">${msgCel(a.fech)}</td>
-      <td class="num">${respCel(a)}</td>
+      <td class="num">${resCel(a)}</td>
+      <td class="num">${volCel(a)}</td>
+      <td class="num">${cliCel(a)}</td>
       <td class="num">${csatCel(a)}</td>
-      <td class="num">${t1(a)}</td>
-      <td class="num">${a.gleap ? fmtNum(a.trabalhados) : "—"}</td>
-      <td class="num">${a.gleap ? fmtDur(a.horas_ativas_seg) : "—"}</td>
-    </tr>`).join("") ||
-    `<tr><td colspan="10" class="vazio-tabela">Nenhuma atividade de agente no período.</td></tr>`;
+      <td class="num">${respCel(respAg(a))}</td>
+      <td class="num">${descCel(a)}</td>
+    </tr>`;
+  $("#tabela-ranking tbody").innerHTML = filtradas.map(linha).join("") ||
+    `<tr><td colspan="7" class="vazio-tabela">${temAgente ? "Nenhum fechamento por pessoa na janela." : "Sem dado por agente (a API ainda não devolve cx_agente)."}</td></tr>`;
+  // rodapé: o time inteiro na mesma régua — só quando a página está em "todos os agentes"
+  const tf = $("#tabela-ranking tfoot");
+  if (tf) tf.innerHTML = atual !== "todos" || !linhas.length ? "" : `
+    <tr class="total">
+      <td><div class="pessoa"><div><div class="nome">Time · ${fmtNum(time.agentes)} pessoas</div><div class="pessoa-marca">${time.temHandoff && typeof time.chegamDia === "number" ? `chegam ao humano ${fmtDec(time.chegamDia, 0)}/dia útil` : `${fmtNum(time.diasUteis)} dias úteis`}</div></div></div></td>
+      <td class="num">${typeof time.resolutivosDia === "number" ? `<strong class="tabn${time.temHandoff && typeof time.chegamDia === "number" ? (time.resolutivosDia >= time.chegamDia ? " st-bom" : " st-ruim") : ""}">${fmtDec(time.resolutivosDia, 0)}</strong><div class="mini">${fmtNum(time.resolutivos)} de ${fmtNum(time.maduros)} maduros · por dia útil</div>` : vazio}</td>
+      <td class="num">${typeof time.pctVoltou === "number" ? `<strong class="tabn${st("voltou", time.pctVoltou)}">${fmtPct0(time.pctVoltou)}</strong><div class="mini">${fmtNum(time.voltaram)} voltaram</div>` : vazio}</td>
+      <td class="num">${typeof time.msgsClientePorAt === "number" ? `<strong class="tabn${stBaixo(time.msgsClientePorAt, 4, 6)}">${fmtDec(time.msgsClientePorAt, 1)}</strong><div class="mini">pessoa ${fmtDec(time.msgsHumanasPorAt, 1)}</div>` : vazio}</td>
+      <td class="num">${typeof time.pctCsatBom === "number" ? `<strong class="tabn${st("ag_csat", time.pctCsatBom)}">${fmtPct0(time.pctCsatBom)}</strong><span class="mini"> · </span><span class="tabn${time.pctCsatRuim >= 25 ? " st-ruim" : ""}">${fmtPct0(time.pctCsatRuim)}</span><div class="mini">${fmtNum(time.csatAvaliados)} avaliados</div>` : vazio}</td>
+      <td class="num">${(() => { const r = respostaAgg(d.cx_resposta_agente || [], f); return respCel(r); })()}</td>
+      <td class="num">${typeof time.pctDescartes === "number" ? `<strong class="tabn${stBaixo(time.pctDescartes, 15, 25)}">${fmtNum(time.descartes)}</strong><div class="mini">${fmtPct0(time.pctDescartes)} dos fechamentos</div>` : vazio}</td>
+    </tr>`;
 }
 
 

@@ -52,6 +52,16 @@ function fixture(o = {}) {
     // tempo de resposta dentro da conversa (view cx_resposta_agente_dia): Leticia mediana 5 min (90% em até 8), Adão 20 min
     cx_resposta_agente: ds.flatMap((d) => [{ marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', respostas: 40, p50_comercial_seg: 300, p90_comercial_seg: 900, p50_relogio_seg: 320, ate_8min: 36, ate_30min: 40 },
       { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', respostas: 20, p50_comercial_seg: 1200, p90_comercial_seg: 3600, p50_relogio_seg: 5000, ate_8min: 4, ate_30min: 15 }]),
+    // por agente (view cx_agente_dia, 18/09): Leticia fecha 70/dia (10 descartes), maduros só até D-7; volta 12 de 60 (20%);
+    // cliente 6 msgs por atendimento (360/60), pessoa 3; CSAT 30 avaliados → 24 bom (80%) · 3 ruim. Adão: 20/dia, 1 volta, CSAT base curta.
+    cx_agente: ds.flatMap((d) => { const mad = d <= diasAtrasT(7); return [
+      { marca: 'aristocrata', dia: d, agente_id: 'u1', agente_nome: 'Leticia Franca', fechados: 70, descartes: 10, efetivos: 60, maduros: mad ? 60 : 0, resolutivos: mad ? 48 : 0, voltaram: mad ? 12 : 0,
+        msgs_humanas: 180, msgs_cliente: 360, csat_avaliados: 30, csat_bom: 24, csat_ruim: 3 },
+      { marca: 'fishermans', dia: d, agente_id: 'u2', agente_nome: 'Adão M', fechados: 20, descartes: 0, efetivos: 20, maduros: mad ? 20 : 0, resolutivos: mad ? 19 : 0, voltaram: mad ? 1 : 0,
+        msgs_humanas: 40, msgs_cliente: 80, csat_avaliados: 5, csat_bom: 4, csat_ruim: 0 }]; }),
+    // chegam ao humano (view cx_handoff_dia): 100/dia Aris + 20 Fish, todo dia (fim de semana entra na conta do dia útil)
+    cx_handoff: ds.flatMap((d) => [{ marca: 'aristocrata', canal: 'whatsapp', dia: d, tickets: 150, chegam_humano: 100, wismo: 40 },
+      { marca: 'fishermans', canal: 'whatsapp', dia: d, tickets: 30, chegam_humano: 20, wismo: 5 }]),
     // trocas (view cx_troca_mes): HOJE = 10/09 → mês fechado = agosto, atual = setembro; 'em análise' é fila de agora
     cx_troca: [
       { marca: 'aristocrata', mes: '2026-07-01', tipo: 'Devolução', reversas: 25, abertas: 0, em_analise: 0, em_analise_7d: 0, canceladas: 10, finalizadas: 0, entregues: 15, analisadas: 25, valor_itens: 3000, valor_estorno: 1800, valor_troca: 0, frete_reverso: 200, dias_analise_p50: 0.5, dias_analise_p90: 2, dias_ate_entrega_p50: 9, segunda_solicitacao: 0, coletado_em: '2026-09-10T05:40:00Z' },
@@ -164,28 +174,40 @@ test('os seis números aparecem, CSAT em três níveis e não em média, Kai por
   assert.equal(x.txt('#area-chat .six2-val')[4], '16,3%');
   assert.match(x.document.querySelector('#chat-rot').textContent, /voltou: até 03\/09/);
   assert.match(x.document.querySelector('#area-chat .six2[data-m="voltou"]').getAttribute('title'), /FCR \(1º fechamento por pessoa, um agente só, sem volta\): 76% de 70/);
-  // tabela de agentes: fechados por dia contra a meta de 120, resolutivos só maduros (7d: nada maduro → contagem), CSAT do Gleap
+  // tabela de agentes (18/09): resolução, não fechamento. 7d (03–09/09) tem só 1 dia útil maduro (03/09) → cai para os
+  // últimos 10 dias úteis maduros (21/08–03/09) e avisa. Leticia: 48 resolutivos por dia maduro (vermelho contra 150),
+  // volta 20% (âmbar), cliente 6,0 msgs, CSAT 80% · 10%, resposta 90% em até 8 min, descartes 140 = 14%. Janela de 14 dias corridos, tudo maduro.
   const tb = x.document.querySelector('#tabela-ranking tbody');
   assert.match(tb.textContent, /Leticia Franca/);
-  assert.match(tb.textContent, /70% em até 1h/);
+  assert.match(x.document.querySelector('#ranking-rotulo').textContent, /21\/08–03\/09.*caiu para o maduro/);
   const let1 = [...tb.querySelectorAll('tr')].find((tr) => /Leticia/.test(tr.textContent));
-  assert.match(let1.children[1].textContent, /420\s*60\/dia · 7 dias/);
-  assert.ok(let1.children[1].querySelector('.st-ruim'), '60/dia fica vermelho contra a meta de 150');
+  assert.match(let1.children[1].textContent, /^\s*48\s*672 de 840 maduros · fechou 60\/dia/);
+  assert.ok(let1.children[1].querySelector('.st-ruim'), '48/dia fica vermelho contra a meta de 150');
+  assert.match(let1.children[2].textContent, /20%\s*168 voltaram/);
+  assert.ok(let1.children[2].querySelector('.st-atencao'), 'volta de 20% fica âmbar (faixa < 15%, base 25%)');
+  assert.match(let1.children[3].textContent, /6,0\s*pessoa 3,0/);
+  assert.match(let1.children[4].textContent, /80%\s*·\s*10%\s*420 avaliados/);
+  assert.ok(let1.children[4].querySelector('.st-bom'), 'CSAT bom 80% bate a meta de 75');
+  assert.match(let1.children[5].textContent, /90%\s*p90 15min · 560 resp\./);
+  assert.ok(let1.children[5].querySelector('.st-bom'), '90% em até 8 min é verde');
+  assert.match(let1.children[6].textContent, /140\s*14% dos fechamentos/);
+  // Adão: CSAT com 50 avaliados (base ≥ 30) → 80% · 0%; volta 1 de 20 por dia = 5% verde; resposta 20% em até 8 min → vermelho
+  const adao = [...tb.querySelectorAll('tr')].find((tr) => /Adão/.test(tr.textContent));
+  assert.match(adao.children[2].textContent, /5%/);
+  assert.ok(adao.children[5].querySelector('.st-ruim'), '20% em até 8 min fica vermelho');
+  // resolutivos por dia é a ordem: Leticia (48) antes de Adão (19)
+  assert.deepEqual(x.txt('#tabela-ranking tbody .nome'), ['Leticia Franca', 'Adão M']);
+  // rodapé = o time contra o que chega: janela 21/08–03/09 = 14 dias corridos, 10 úteis. 120 chegam/dia × 14 ÷ 10 = 168/dia útil; resolvem (672+266) ÷ 10 = 94 → saldo −74
+  const tf = x.document.querySelector('#tabela-ranking tfoot');
+  assert.match(tf.textContent, /Time · 2 pessoas\s*chegam ao humano 168\/dia útil/);
+  assert.match(tf.textContent, /94\s*938 de 1.120 maduros/);
+  assert.match(x.document.querySelector('#ranking-rotulo').textContent, /chegam 168\/dia útil · time resolve 94 · saldo −74/);
   // motivos na aba Chat: mensagens por fechamento e volta, por motivo (7d: só 03/09 maduro → 40 maduros, 12 voltaram = 30%)
   const motKai = x.document.querySelector('#area-motivos-kai');
   const wismo = [...motKai.querySelectorAll('tbody tr')].find((tr) => /Cadê meu pedido/.test(tr.textContent));
   assert.match(wismo.children[6].textContent, /≈ 3\s*280 fech\. · cliente 7/);
   assert.match(wismo.children[7].textContent, /30%\s*de 40 maduros/);
   assert.ok(wismo.children[7].querySelector('.st-ruim'), 'volta de 30% em WISMO fica vermelha');
-  // só 03/09 está maduro dentro do período: 48 resolutivos de 60 maduros = 80% (base ≥ 30); os outros 6 dias ainda maturam
-  assert.match(let1.children[2].textContent, /80%\s*48 de 60 · voltaram 12/);
-  assert.match(x.document.querySelector('#ranking-rotulo').textContent, /resolutivos maduros até/);
-  assert.match(let1.children[4].textContent, /≈ 3/);
-  // T. resposta em expediente: mediana ponderada 5min, 90% em até 8 min → verde; Adão 20min → vermelho
-  assert.match(let1.children[5].textContent, /≈ 5min\s*90% em até 8 min · 280 resp\./);
-  assert.ok(let1.children[5].querySelector('.st-bom'), '5 min bate a meta de 8');
-  const adao = [...tb.querySelectorAll('tr')].find((tr) => /Adão/.test(tr.textContent));
-  assert.ok(adao.children[5].querySelector('.st-ruim'), '20 min fica vermelho');
   assert.equal(x.txt('#area-chat .six2-val')[2], '10,0%');
   // ninguém respondeu = transferido sem resposta humana ÷ maduros: (60−40) + (40−40) + (30−30) = 20 ÷ 150 = 13,3%
   assert.equal(x.txt('#area-chat .six2-val')[3], '13,3%');
@@ -308,7 +330,8 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="clickup"]').getAttribute('title'), /Até pagar/);
   assert.match(x.document.querySelector('#area-concessao-num .six2[data-m="negados"] .six2-chip').textContent, /▼ 11 pp · ant. 33%/);
   assert.match(x.document.querySelector('#concessao-rotulo').textContent, /só o que o financeiro pagou/);
-  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /Fish: receita = soma dos pedidos/);
+  assert.match(x.document.querySelector('#concessao-rotulo').textContent, /receita = pedidos pagos/);   // 18/09: mesma definição nas duas marcas
+  assert.doesNotMatch(x.document.querySelector('#concessao-rotulo').textContent, /soma dos pedidos/);
   assert.match(x.document.querySelector('#area-concessao').textContent, /ago\/26.*O Aristocrata.*R\$ 1.000 mil.*0,80%/s);
   assert.match(x.document.querySelector('#area-concessao').textContent, /set\/26.*≥ R\$ 250 mil/s, 'mês com dia sem receita mostra piso e não %');
   assert.doesNotMatch(x.document.querySelector('.aba-pane[data-aba="trocas"]').textContent, /Shopify · ago|Estornos Shopify/, 'estorno da Shopify fica fora do bloco de concessão por decisão');

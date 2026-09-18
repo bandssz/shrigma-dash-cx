@@ -123,3 +123,46 @@ test('desfecho maduro: 2 dias de expediente (sex/sáb/dom não contam), Kai é f
   assert.equal(s.pontos[1].tickets, 200); assert.equal(s.pontos[1].parcial, true, 'semana de 07/09 passa do teto (08/09): parcial');
   assert.equal(s.pontos[2].y, null, 'semana atual sem dia maduro');
 });
+
+// ---------- por agente (18/09): descarte fora, maduro por dia, janela que cai para o maduro ----------
+test('agenteAgg: descarte não é trabalho; resolutivos/dia divide pelos dias maduros; % só com base ≥ 30', () => {
+  const rows = [
+    { marca: 'aristocrata', dia: '2026-09-01', agente_id: 'a', agente_nome: 'Ana', fechados: 50, descartes: 20, efetivos: 30, maduros: 30, resolutivos: 24, voltaram: 6, msgs_humanas: 60, msgs_cliente: 150, csat_avaliados: 30, csat_bom: 15, csat_ruim: 9 },
+    { marca: 'aristocrata', dia: '2026-09-02', agente_id: 'a', agente_nome: 'Ana', fechados: 40, descartes: 0, efetivos: 40, maduros: 0, resolutivos: 0, voltaram: 0, msgs_humanas: 80, msgs_cliente: 160, csat_avaliados: 10, csat_bom: 5, csat_ruim: 1 },
+    { marca: 'fishermans', dia: '2026-09-01', agente_id: 'b', agente_nome: 'Bia', fechados: 10, descartes: 1, efetivos: 9, maduros: 9, resolutivos: 9, voltaram: 0, msgs_humanas: 9, msgs_cliente: 9, csat_avaliados: 2, csat_bom: 2, csat_ruim: 0 },
+  ];
+  const [ana, bia] = M.agenteAgg(rows, { marca: 'todas', ini: '2026-09-01', fim: '2026-09-02' });
+  assert.equal(ana.nome, 'Ana');
+  assert.equal(ana.fechados, 90); assert.equal(ana.descartes, 20); assert.equal(ana.efetivos, 70);
+  assert.equal(ana.dias, 2); assert.equal(ana.diasMaduros, 1);
+  assert.equal(ana.resolutivosDia, 24, 'só o dia maduro entra no divisor');
+  assert.equal(ana.fechadosDia, 35, 'efetivos por dia com fechamento');
+  assert.equal(ana.pctVoltou, 20);
+  assert.equal(ana.msgsClientePorAt, 310 / 70);
+  assert.equal(ana.pctCsatBom, 50); assert.equal(ana.pctCsatRuim, 25);
+  assert.equal(ana.pctDescartes, (20 / 90) * 100);
+  assert.equal(bia.pctVoltou, null, 'base < 30 não vira %'); assert.equal(bia.pctCsatBom, null); assert.equal(bia.pctDescartes, null);
+  assert.equal(bia.resolutivosDia, 9);
+});
+test('agenteTime: chegam por dia útil (seg–sex), Olivas fora, saldo contra o que o time resolve', () => {
+  const ag = M.agenteAgg([
+    { marca: 'aristocrata', dia: '2026-09-01', agente_id: 'a', agente_nome: 'Ana', fechados: 60, descartes: 0, efetivos: 60, maduros: 60, resolutivos: 40, voltaram: 20, msgs_humanas: 120, msgs_cliente: 300, csat_avaliados: 40, csat_bom: 20, csat_ruim: 10 },
+  ], { marca: 'todas', ini: '2026-08-31', fim: '2026-09-04' });   // seg–sex = 5 dias úteis
+  const handoff = ['2026-08-30', '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].flatMap((d) => [
+    { marca: 'aristocrata', canal: 'whatsapp', dia: d, tickets: 100, chegam_humano: 50, wismo: 10 },
+    { marca: 'olivas', canal: 'whatsapp', dia: d, tickets: 5, chegam_humano: 5, wismo: 0 }]);
+  const t = M.agenteTime(ag, handoff, { marca: 'todas', ini: '2026-08-31', fim: '2026-09-04' });
+  assert.equal(t.diasUteis, 5);
+  assert.equal(t.chegam, 250, 'domingo 30/08 fora da janela; Olivas fora');
+  assert.equal(t.chegamDia, 50);
+  assert.equal(t.resolutivosDia, 8);
+  assert.equal(t.pctVoltou, (20 / 60) * 100); assert.equal(t.pctCsatBom, 50);
+});
+test('cxJanelaMadura: corta no teto de 7 dias; sem 3 dias úteis maduros cai para 10 dias úteis e avisa', () => {
+  const hoje = '2026-09-10';
+  assert.deepEqual(M.cxJanelaMadura({ ini: '2026-08-20', fim: '2026-09-09' }, hoje), { ini: '2026-08-20', fim: '2026-09-03', caiu: false, cortou: true, teto: '2026-09-03' });
+  const q = M.cxJanelaMadura({ ini: '2026-09-03', fim: '2026-09-09' }, hoje);
+  assert.equal(q.caiu, true); assert.equal(q.fim, '2026-09-03'); assert.equal(q.ini, '2026-08-21');
+  assert.equal(M.cxDiasUteis(q.ini, q.fim).length, 10);
+  assert.equal(M.cxJanelaMadura({ ini: '2026-08-01', fim: '2026-08-31' }, hoje).cortou, false);
+});
