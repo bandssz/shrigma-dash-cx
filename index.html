@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<link rel="stylesheet" href="cx.css?v=20260918a">
+<link rel="stylesheet" href="cx.css?v=20260918b">
 <style>
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
 .abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
@@ -151,20 +151,19 @@
   </section>
 
   <details class="painel dobra-painel" id="painel-agentes" aria-label="Ranking de agentes">
-    <summary><div class="cab-titulo"><h2>Por agente <span class="info" title="Meta do N1: fechamentos resolutivos 150/dia, tempo de resposta < 8 min e CSAT > 75. Fechados, Resolutivos, FCR, Msgs e 1ª resposta são medidos por nós ticket a ticket; Trabalhados, CSAT e Horas ativas vêm do Gleap">ⓘ</span></h2></div><span id="ranking-rotulo" class="mini"></span></summary>
+    <summary><div class="cab-titulo"><h2>Por agente <span class="info" title="Resolução, não fechamento. Meta do N1: 150 resolutivos/dia, resposta em até 8 min, CSAT > 75. Tudo medido por nós ticket a ticket no histórico do Gleap (cx_fechamento, cx_resposta). Fechamento sem nenhuma mensagem humana é DESCARTE e não conta como trabalho. Fechamento só amadurece 7 dias depois: a tabela usa a parte madura do período (ou cai para os últimos 10 dias úteis maduros e avisa). % só com base ≥ 30; abaixo disso mostra a contagem. Rodapé = o time inteiro contra o que chega ao humano por dia útil.">ⓘ</span></h2></div><span id="ranking-rotulo" class="mini"></span></summary>
     <div class="rolagem"><table class="ranking" id="tabela-ranking">
       <thead><tr>
         <th>Agente</th>
-        <th class="num" title="Fechamentos feitos por esta pessoa no período (evento de fechamento no histórico do Gleap; o mesmo ticket fechado duas vezes conta duas). Embaixo, por dia com fechamento. Meta 150 resolutivos/dia">Fechados<span class="mini meta"> meta 150/dia</span></th>
-        <th class="num" title="Fechamentos maduros (7 dias corridos) em que o cliente NÃO voltou. Só com 30+ maduros; abaixo disso mostra a contagem">Resolutivos</th>
-        <th class="num" title="Primeiro fechamento do ticket feito por esta pessoa, um agente só no ticket, sem volta em 7 dias ÷ primeiros fechamentos maduros dela">FCR</th>
-        <th class="num" title="Mediana de mensagens humanas por fechamento (o esforço); embaixo, mensagens do cliente. ≈ = mediana das medianas diárias ponderada">Msgs/fech.</th>
-        <th class="num" title="Mediana do tempo que o cliente esperou por uma resposta desta pessoa DENTRO da conversa, só EXPEDIENTE (seg–qui 8h–18h), contando desde a primeira mensagem dele sem resposta; a 1ª resposta do ticket (a fila) fica fora. Meta < 8 min. ≈ = mediana das medianas diárias ponderada">T. resposta · exped.<span class="mini meta"> meta 8 min</span></th>
-        <th class="num" title="CSAT na escala do Gleap (média ponderada por respostas). Meta > 75">CSAT<span class="mini meta"> meta 75</span></th>
-        <th class="num" title="Mediana do tempo até a PRIMEIRA resposta humana desta pessoa, só EXPEDIENTE (seg–qui 8h–18h); embaixo, fatia em até 1h e quantos tickets abriu">1ª resposta · exped.</th>
-        <th class="num" title="Gleap: tickets em que a pessoa atuou (ticketActivityCount)">Trabalhados</th><th class="num" title="Gleap">Horas ativas</th>
+        <th class="num" title="Fechamentos com pelo menos uma mensagem desta pessoa, maduros (7 dias corridos), em que o cliente NÃO voltou — por dia em que ela teve fechamento maduro. Embaixo: base e quantos fechou por dia (efetivos). Meta 150/dia">Resolutivos / dia<span class="mini meta"> meta 150</span></th>
+        <th class="num" title="Fechamentos efetivos maduros em que o cliente escreveu de novo em até 7 dias ÷ maduros. É a alavanca: 30% em todo o time em set/26 = fecha sem resolver. Faixa < 15%">Voltou<span class="mini meta"> &lt; 15%</span></th>
+        <th class="num" title="Mensagens do CLIENTE por atendimento efetivo (soma ÷ fechamentos efetivos): 'oi?', 'alguém aí?' — é espera, não problema. Embaixo, mensagens da pessoa. Faixa < 4">Cliente escreveu<span class="mini meta"> &lt; 4 msgs</span></th>
+        <th class="num" title="CSAT do Gleap em três níveis (2/6/10) dos tickets que esta pessoa fechou de forma efetiva: % bom · % ruim, nunca média. Meta bom > 75; ruim acima de 25% fica vermelho">CSAT bom · ruim<span class="mini meta"> meta &gt; 75</span></th>
+        <th class="num" title="Respostas desta pessoa dentro da conversa (a 1ª resposta do ticket, que é a fila, fica fora) dadas em até 8 min de EXPEDIENTE desde a mensagem do cliente. Embaixo, o p90 (a cauda é a fila) e quantas respostas. Meta: metade em até 8 min">Resposta ≤ 8 min<span class="mini meta"> meta ≥ 50%</span></th>
+        <th class="num" title="Fechamentos SEM nenhuma mensagem humana (duplicado, spam, cliente sumiu, ticket que o Kai já tinha resolvido). Não é trabalho e fica fora de todas as outras colunas. Acima de 25% dos fechamentos fica vermelho">Descartes<span class="mini meta"> &lt; 15%</span></th>
       </tr></thead>
       <tbody></tbody>
+      <tfoot></tfoot>
     </table></div>
   </details>
 
@@ -278,10 +277,10 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260918a"></script>
-<script src="cx-graficos.js?v=20260918a"></script>
-<script src="app.js?v=20260918a"></script>
-<script src="cx-tela.js?v=20260918a"></script>
+<script src="cx-metricas.js?v=20260918b"></script>
+<script src="cx-graficos.js?v=20260918b"></script>
+<script src="app.js?v=20260918b"></script>
+<script src="cx-tela.js?v=20260918b"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 
 <script>
