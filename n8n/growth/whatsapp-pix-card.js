@@ -1,4 +1,44 @@
 'use strict';
+// Optional presentation enrichment. The verified Appmax charge remains authoritative.
+function pixOrderCents(v) {
+ if ((typeof v!=='number'&&typeof v!=='string')||String(v).trim()==='') throw Error('pix_order_money_invalid');
+ if(typeof v==='string'&&!/^\d+(?:\.\d+)?$/.test(v))throw Error('pix_order_money_invalid');
+ const n=Number(v),c=Math.round(n*100);
+ if(!Number.isFinite(n)||n<0||!Number.isSafeInteger(c)||Math.abs(n*100-c)>0.00001)throw Error('pix_order_money_invalid');
+ return c;
+}
+function pixOrderMoney(bag) {
+ const m=bag?.shopMoney;if(m?.currencyCode!=='BRL')throw Error('pix_order_currency_invalid');
+ return pixOrderCents(m.amount);
+}
+function pixShopifyOrder(order,reference,total) {
+ try {
+  if(order?.id!=='gid://shopify/Order/'+reference||order.currencyCode!=='BRL'||order.cancelledAt||order.displayFinancialStatus!=='PENDING')throw Error('pix_order_identity_invalid');
+  if(order.lineItems?.pageInfo?.hasNextPage!==false)throw Error('pix_order_items_incomplete');
+  const lines=order.lineItems.nodes;
+  if(!Array.isArray(lines)||!lines.length||lines.length>30)throw Error('pix_order_items_invalid');
+  const totalCents=pixOrderCents(total),shipping=pixOrderMoney(order.currentShippingPriceSet),tax=pixOrderMoney(order.currentTotalTaxSet);
+  if(pixOrderMoney(order.currentTotalPriceSet)!==totalCents)throw Error('pix_order_total_mismatch');
+  // Tax-inclusive prices need a separate allocation contract; don't double-count tax.
+  if(typeof order.taxesIncluded!=='boolean'||(order.taxesIncluded&&tax>0))throw Error('pix_order_tax_inclusive');
+  let subtotal=0,discount=0;const ids=new Set(),m=value=>({value,offset:100});
+  const items=lines.map(line=>{
+   const id=String(line.id||''),name=String(line.name||'').replace(/[\r\n\t]/g,' ').trim(),q=line.quantity;
+   if(!/^gid:\/\/shopify\/LineItem\/\d+$/.test(id)||ids.has(id)||!name||Array.from(name).length>60||!Number.isSafeInteger(q)||q<1||q!==line.currentQuantity)throw Error('pix_order_item_invalid');
+   ids.add(id);const unit=pixOrderMoney(line.originalUnitPriceSet),lineTotal=unit*q;
+   if(!Number.isSafeInteger(lineTotal)||!Array.isArray(line.discountAllocations))throw Error('pix_order_item_invalid');
+   const lineDiscount=line.discountAllocations.reduce((n,a)=>n+pixOrderMoney(a.allocatedAmountSet),0);
+   if(!Number.isSafeInteger(lineDiscount)||lineDiscount>lineTotal)throw Error('pix_order_discount_invalid');
+   subtotal+=lineTotal;discount+=lineDiscount;
+   return {retailer_id:id.split('/').pop(),name,amount:m(unit),quantity:q};
+  });
+  if(!Number.isSafeInteger(subtotal)||!Number.isSafeInteger(discount)||!Number.isSafeInteger(subtotal+shipping+tax)||subtotal+shipping+tax-discount!==totalCents)throw Error('pix_order_total_mismatch');
+  const result={status:'pending',items,subtotal:m(subtotal),tax:m(tax)};
+  if(shipping)result.shipping=m(shipping);if(discount)result.discount=m(discount);
+  return {mode:'itemized',reason:null,order:result};
+ }catch(e){return {mode:'aggregate',reason:/^pix_order_[a-z_]+$/.test(e.message)?e.message:'pix_order_data_invalid',order:null};}
+}
+
 // Payment data comes from the original provider. Never generate or rewrite a PIX.
 function pixCents(value) {
  const n=Number(value);if(!Number.isFinite(n)||n<0||Math.abs(n*100-Math.round(n*100))>0.00001)throw Error('pix_amount_invalid');
@@ -29,6 +69,7 @@ function makePixCard(input,charge,now=Date.now()) {
  const details={reference_id:input.brand+'-'+input.reference,type:'digital-goods',payment_type:'br',payment_settings:[{type:'pix_dynamic_code',pix_dynamic_code:{code:input.code,merchant_name:f.merchant,key,key_type}}],currency:'BRL',total_amount:m(amount)};
  // An aggregate order label is truthful when the upstream event has no product detail.
  details.order={status:'pending',items:[{retailer_id:'order-'+input.reference,name:input.item_label||'Pedido #'+input.reference,amount:m(amount),quantity:1}],subtotal:m(amount),tax:m(0)};
+ if(input.shopify_order){const enriched=pixShopifyOrder(input.shopify_order,String(input.reference),input.total);if(enriched.order)details.order=enriched.order;}
  return {type:'button',sub_type:'order_details',index:'0',parameters:[{type:'action',action:{order_details:details}}]};
 }
 async function getPixCard(input,http,now) {
@@ -49,4 +90,4 @@ async function getPixCard(input,http,now) {
  }
  return makePixCard(input,response,now===undefined?Date.now():now);
 }
-module.exports={pixCents,pixFields,pixKeyType,makePixCard,getPixCard};
+module.exports={pixShopifyOrder,pixCents,pixFields,pixKeyType,makePixCard,getPixCard};

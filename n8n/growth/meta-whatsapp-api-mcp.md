@@ -2,6 +2,8 @@
 
 Revisão: 18/09/2026. Decisão de produto de Felipe registrada nesta data.
 
+Atualização de execução: documentação incorporada à main pelo PR #12 (`de3fc99`). Enriquecimento opcional por itens Shopify implementado e testado no código; [estado da implantação](whatsapp-pix.md#detalhamento-de-produtos-preparado-em-1809). Não confundir código preparado com alteração dos envios em produção.
+
 ## Decisão para a operação
 
 Usar **Detalhes do pedido (`ORDER_DETAILS`) como padrão de cobrança PIX** das marcas. A experiência desejada é um card nativo, com identificação do pedido, produtos/quantidades quando confiáveis, total, texto curto e ação nativa para copiar o PIX. Appmax é o provedor de pagamento de todas as marcas. MCP é uma ferramenta de operação da Meta; não altera o provedor da cobrança.
