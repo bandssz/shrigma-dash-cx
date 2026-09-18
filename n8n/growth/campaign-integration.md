@@ -1,6 +1,6 @@
 # Cadastro de campanhas: dashboard e IA
 
-Estado em 18/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, o adaptador atômico do provedor e o agendamento pelo painel ainda não estão implementados/publicados.** O armazenamento PostgreSQL de operações/validações está implementado em `campaign-store.sql` e `campaign-store.js`; a ativação é registrada abaixo. Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude foi recebida nesta rodada e revisada em pacote separado, com os mesmos módulos de contrato/preparo e um CLI local. Isso ainda não habilita o endpoint remoto.
+Estado em 18/09/2026: o painel prepara rascunhos locais e importa/exporta JSON. `campaign-contract.js` centraliza as regras e `campaign-service.js` implementa o núcleo do serviço. **O endpoint de campanhas, a ligação do adaptador ao runtime e o agendamento pelo painel ainda não estão implementados/publicados.** O armazenamento PostgreSQL de operações/validações está implementado em `campaign-store.sql` e `campaign-store.js`; a ativação é registrada abaixo. Os testes do serviço usam adaptadores em memória; não comprovam integração com o Listmonk real. A skill do Claude foi recebida nesta rodada e revisada em pacote separado, com os mesmos módulos de contrato/preparo e um CLI local. Isso ainda não habilita o endpoint remoto.
 
 ## Escopo
 
@@ -84,3 +84,24 @@ Migração aplicada em 18/09: criação confirmada por consulta após COMMIT. A 
 A validação SQL em `tests/campaign-store.sql` deve rodar junto da migração dentro de BEGIN/ROLLBACK, em ambiente sem essas tabelas, usando apenas operações sintéticas. Os testes Node cobrem parametrização e falhas de confirmação; testes do serviço incluem chamadas simultâneas com adaptadores em memória. Isso não é prova de concorrência do futuro endpoint/provedor real.
 
 Permanecem necessários: adaptador Listmonk com proteção atômica contra edições externas, API autenticada, catálogo por marca, gravação do mapa de iniciativa, consulta de operações no painel e ligação salvar/validar/agendar. Não anunciar essas capacidades no navegador/skill até a prova ponta a ponta. A existência destas tabelas, por si só, não protege criações diretas no Listmonk.
+
+
+## Adaptador do provedor — preparado, ainda sem ativação
+
+`campaign-provider.sql` e `campaign-provider.js` implementam catálogo por marca, leitura de revisões e operações condicionadas à versão. `campaign-native.js` prepara criação nativa como rascunho sem data e compilação por prévia, sem envio. Nenhum desses módulos é, isoladamente, um endpoint n8n. O armazenamento da etapa anterior continua instalado; este novo adaptador ainda não foi aplicado permanentemente.
+
+- O catálogo usa tags de marca inequívocas e o vínculo conhecido das bases 16/17. Listas sem vínculo, cross, aposentadas ou de outra marca ficam fora; arquivadas não podem ser usadas. Títulos de listas não são prova de propriedade. Templates transacionais ficam fora do cadastro comercial.
+- A versão inclui dados atuais da campanha, listas, mídia e wrapper. O SQL bloqueia a campanha, confere estado/versão, revalida listas e template, preserva cabeçalhos e atributos alheios ao editor, grava a iniciativa e invalida a validação anterior na mesma transação. Não modifica anexos/arquivo público.
+- Agendamento exige operação pendente da marca, rascunho não iniciado, validação correspondente à versão, iniciativa mapeada e antecedência mínima de 15 minutos. A gravação do estado é atômica, sem endpoint de envio imediato.
+- Compilação usa três prévias separadas (HTML, assunto e texto), com wrapper, antes da gravação. O backend gera a prova; não aceitar contentValidated do navegador. O adaptador de transporte deve manter credenciais no servidor, origem fixa e não seguir redirects autenticados.
+- O comparador detecta mudanças externas anteriores à operação, inclusive se updated_at não mudou. **Não protege edições que continuem sendo feitas diretamente no Listmonk por um caminho que não exige versão.** Coordenar esses caminhos continua sendo condição para declarar concorrência ponta a ponta resolvida.
+
+Provas locais: 42 testes JavaScript aprovados e PostgreSQL isolado com PGlite 0.3.14. O teste integrado executa serviço, store e provider contra o banco isolado, incluindo duas solicitações iguais, preparo das UTMs, validação e agendamento; criação/compilação nativas são simuladas e não existe transporte. Isso não é prova de campanha agendada em produção. O CI agora executa também os cenários SQL isolados.
+
+Uma prévia nativa POST /api/campaigns/126/preview, com conteúdo técnico próprio, retornou HTTP 200 e o texto esperado, sem envio. Isso comprova a rota/formato de prévia, não a integração completa nem criação/agendamento reais.
+
+Na tentativa de integração, a API n8n oscilou com 502; healthz respondeu 200, sem provar saúde da API/execuções. A consulta de compatibilidade em transação com rollback não retornou JSON utilizável. O workflow temporário de inspeção foi desativado e removido (200). Nenhum emissor de produção foi alterado e os botões remotos continuam indisponíveis.
+
+Próximos gates: conferir o schema real das relações usadas; executar prova com rollback na instância; montar autenticação e orquestração nativa no n8n; conferir compilação/rascunho reais; coordenar escrita direta Listmonk; só então publicar capacidades e ligar o painel/skill. A/B e editor de jornadas não foram ativados por esta etapa.
+
+Referências primárias usadas na revisão: [API de campanhas](https://listmonk.app/docs/apis/campaigns/), [core de campanhas v6.1.0](https://github.com/knadh/listmonk/blob/v6.1.0/internal/core/campaigns.go) e [consultas v6.1.0](https://github.com/knadh/listmonk/blob/v6.1.0/queries/campaigns.sql). Manter compatibilidade com a versão instalada antes de aplicar novas versões.

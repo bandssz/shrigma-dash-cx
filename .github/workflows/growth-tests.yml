@@ -9,6 +9,7 @@ on:
       - 'dados.js'
       - 'config.js'
       - 'alerta-*.js'
+      - 'n8n/growth/campaign*'
       - 'tests/**'
       - '.github/workflows/growth-tests.yml'
   workflow_dispatch:
@@ -25,13 +26,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install existing DOM test dependency
-        run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Install test dependencies
+        run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
       - name: Run synthetic regression tests
         shell: bash
         run: |
           set -o pipefail
           node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
+      - name: Check campaign SQL on isolated PostgreSQL
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/campaign-provider-postgres.cjs
       - name: Save test result
         if: always()
         uses: actions/upload-artifact@v4
