@@ -10,6 +10,19 @@ const WAT={
   if((s.includes('{{')||s.includes('}}'))&&(vars.length!==1||vars[0]!==1||!s.endsWith('{{1}}')||s.split('{{1}}').length!==2))return 'O link dinâmico aceita apenas {{1}}, uma vez, no final da URL.';
   return null;
  },
+ // WA_SYNTHETIC_ORDER_URL_EXAMPLE_V1: opt-in sample, never a customer's authenticated order URL.
+ urlExampleError(button){
+  if(button?.exemplo_url === undefined)return null;
+  const base=String(button.valor||'');
+  if(WAT.urlError(base)||!/^https:\/\/(?:fishermans\.com\.br|oaristocrata\.com)\/\{\{1\}\}$/.test(base))return 'Exemplo de pedido exige domínio próprio aprovado e um único {{1}} no final.';
+  const expected=base.replace('{{1}}','0/orders/EXEMPLOPEDIDO/authenticate?key=EXEMPLOCHAVE');
+  if(typeof button.exemplo_url!=='string'||button.exemplo_url!==expected)return 'Use somente o exemplo sintético reservado; não informe URL ou chave de pedido real.';
+  return null;
+ },
+ urlExample(button){
+  if(WAT.urlExampleError(button))return String(button.valor||'').replace('{{1}}','exemplo');
+  return button.exemplo_url===undefined?button.valor.replace('{{1}}','exemplo'):button.exemplo_url;
+ },
  warnings(r){
   if(r?.canal!=='whatsapp')return [];
   const text=String(r.corpo||''),out=[];
@@ -23,7 +36,7 @@ const WAT={
   const e=[],add=(campo,mensagem)=>e.push({codigo:'WHATSAPP_CONTRACT',campo,mensagem}),buttons=r.botoes||[];
   if(/[\r\n*_~`]|\p{Extended_Pictographic}/u.test(r.cabecalho||''))add('cabecalho','O cabeçalho deve ser texto simples, sem emoji, formatação ou quebra de linha. Use esses recursos no corpo.');
   for(const b of buttons)if(!['url','phone','quick_reply','order_details'].includes(b.tipo))add('botoes','Tipo de botão não suportado.');
-  for(const b of buttons)if(b.tipo==='url'){const error=WAT.urlError(b.valor);if(error)add('botoes',error);}
+  for(const b of buttons)if(b.tipo==='url'){const error=WAT.urlError(b.valor)||WAT.urlExampleError(b);if(error)add('botoes',error);}
   if(/carrinho|rastreio|pedido.pago|pedido.confirmado/i.test((r.peca||'')+' '+(r.nome||''))&&!WAT.isPix(r)&&!buttons.some(b=>b.tipo==='url'))add('botoes','Esta mensagem precisa de um botão com link para o carrinho, pedido ou rastreio.');
   if(WAT.isPix(r)&&!WAT.card(r))add('botoes','PIX exige cartão de pagamento e botão Copiar código Pix. Não use código no texto nem botão de cupom.');
   if(WAT.card(r)&&(buttons.length!==1||r.categoria!=='UTILITY'))add('botoes','O cartão PIX usa um único botão de pagamento e categoria Utility.');
@@ -36,7 +49,7 @@ const WAT={
  components(r,components){
   const c=JSON.parse(JSON.stringify(components));
   const h=c.find(x=>x.type==='HEADER');if(h&&WAT.vars(h.text).length)h.example={header_text:[String(r.exemplos?.[1]||'Cliente')]};
-  const bt=c.find(x=>x.type==='BUTTONS');if(bt)bt.buttons=(r.botoes||[]).filter(x=>x&&x.texto).map(x=>x.tipo==='order_details'?{type:'ORDER_DETAILS',text:'Copy Pix code'}:x.tipo==='url'?{type:'URL',text:x.texto,url:x.valor,...(x.valor.includes('{{1}}')?{example:[x.valor.replace('{{1}}','exemplo')]}:{})}:x.tipo==='phone'?{type:'PHONE_NUMBER',text:x.texto,phone_number:x.valor}:{type:'QUICK_REPLY',text:x.texto});
+  const bt=c.find(x=>x.type==='BUTTONS');if(bt)bt.buttons=(r.botoes||[]).filter(x=>x&&x.texto).map(x=>x.tipo==='order_details'?{type:'ORDER_DETAILS',text:'Copy Pix code'}:x.tipo==='url'?{type:'URL',text:x.texto,url:x.valor,...(x.valor.includes('{{1}}')?{example:[WAT.urlExample(x)]}:{})}:x.tipo==='phone'?{type:'PHONE_NUMBER',text:x.texto,phone_number:x.valor}:{type:'QUICK_REPLY',text:x.texto});
   return c;
  },
  runtime(input,template){
