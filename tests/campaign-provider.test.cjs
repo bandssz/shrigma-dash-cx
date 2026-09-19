@@ -10,3 +10,17 @@ test('missing or stale content compilation never reaches an atomic write',async(
 test('update binds exact campaign, template and operation versions to parameterized SQL',async()=>{const f=fixture();await f.provider.updateDraft(1,{definition:def()},{expectedVersion:'campaign-v1',operationId:'op'});const p=f.calls.find(x=>x.a==='update').p;assert.equal(p.expectedVersion,'campaign-v1');assert.equal(p.templateVersion,'template-v1');assert.equal(p.operationId,'op');});
 test('server rejection is definitive but a timeout remains uncertain',async()=>{for(const error of [Object.assign(Error('VERSION_CONFLICT'),{code:'P0001'}),Error('timeout')]){const provider=createProvider({query:async()=>{throw error;},nativeCreate:async()=>{},validateContent:async()=>{}});await assert.rejects(()=>provider.schedule(1,{expectedVersion:'v',operationId:'op'}),e=>error.code==='P0001'?e.nothingChanged===true&&e.code==='VERSION_CONFLICT':!e.nothingChanged);}});
 test('Olivas cannot reserve a new native draft in this stage',async()=>{const f=fixture(),d=def();d.brand='olivas';d.from_email=d.reply_to='sac@olivasdocampo.com';await assert.rejects(()=>f.provider.createDraft(d,{operationId:'op'}),e=>e.code==='BRAND_UNAVAILABLE');assert.equal(f.calls.length,0);});
+
+test('database ownership conflicts return actionable errors without pretending a timeout rolled back',async()=>{
+ for(const code of ['CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE']){
+  const provider=createProvider({query:async()=>{throw Object.assign(Error(code),{code:'P0001'});},nativeCreate:async()=>{},validateContent:async()=>{}});
+  await assert.rejects(()=>provider.schedule(1,{expectedVersion:'v',operationId:'op'}),e=>e.code===code&&e.status===409&&e.nothingChanged===true&&e.message!==code);
+ }
+});
+
+test('database lock timeout, deadlock and serialization rollback are explicit conflicts',async()=>{
+ for(const code of ['55P03','40P01','40001']){
+  const provider=createProvider({query:async()=>{throw Object.assign(Error('database rollback'),{code});},nativeCreate:async()=>{},validateContent:async()=>{}});
+  await assert.rejects(()=>provider.schedule(1,{expectedVersion:'v',operationId:'op'}),e=>e.code==='CAMPAIGN_BUSY'&&e.status===409&&e.nothingChanged===true);
+ }
+});

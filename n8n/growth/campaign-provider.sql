@@ -36,14 +36,14 @@ LANGUAGE sql STABLE AS $$
  CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(cl.list_id ORDER BY cl.list_id),'[]') ids,
   coalesce(jsonb_agg(jsonb_build_object('relation',to_jsonb(cl),'list',to_jsonb(l)) ORDER BY cl.list_id),'[]') snapshot
   FROM public.campaign_lists cl LEFT JOIN public.lists l ON l.id=cl.list_id WHERE cl.campaign_id=c.id) li
- CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(to_jsonb(cm) ORDER BY cm.id),'[]') snapshot FROM public.campaign_media cm WHERE cm.campaign_id=c.id) me
+ CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(jsonb_build_object('relation',to_jsonb(cm),'media',to_jsonb(m)) ORDER BY cm.media_id,cm.filename),'[]') snapshot FROM public.campaign_media cm LEFT JOIN public.media m ON m.id=cm.media_id WHERE cm.campaign_id=c.id) me
  WHERE c.id=pid AND c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}' IN ('aristo','fish')
 $$;
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_provider(a text,p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s'
 AS $fn$
 DECLARE c public.campaigns%ROWTYPE; op public.shrigma_campaign_operation%ROWTYPE;
- current_row jsonb;d jsonb:=p->'definition';b text;cat jsonb;ids integer[];tid integer; fam text;new_headers jsonb;
+ current_row jsonb;d jsonb:=p->'definition';b text;cat jsonb;ids integer[];tid integer; fam text;new_headers jsonb; previous_writer text;
 BEGIN
  IF a='catalog' THEN RETURN public.shrigma_campaign_catalog(p->>'brand');
  ELSIF a='get' THEN RETURN public.shrigma_campaign_current((p->>'id')::integer);
@@ -73,6 +73,7 @@ BEGIN
  PERFORM id FROM public.lists WHERE id=ANY(ids) ORDER BY id FOR SHARE;
  IF (SELECT count(*) FROM public.lists l WHERE id=ANY(ids) AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=b)<>cardinality(ids) THEN RAISE EXCEPTION 'LIST_SCOPE'; END IF;
  PERFORM id FROM public.templates WHERE id=tid FOR SHARE;
+ PERFORM m.id FROM public.media m JOIN public.campaign_media cm ON cm.media_id=m.id WHERE cm.campaign_id=c.id ORDER BY m.id FOR SHARE OF m;
  IF NOT EXISTS(SELECT 1 FROM public.templates WHERE id=tid AND type::text='campaign') THEN RAISE EXCEPTION 'TEMPLATE_SCOPE'; END IF;
  IF public.shrigma_campaign_current(c.id)->>'version' IS DISTINCT FROM p->>'expectedVersion' THEN RAISE EXCEPTION 'VERSION_CONFLICT'; END IF;
  IF a='update' AND (SELECT md5(to_jsonb(t)::text) FROM public.templates t WHERE id=tid) IS DISTINCT FROM p->>'templateVersion' THEN RAISE EXCEPTION 'TEMPLATE_CHANGED'; END IF;
@@ -80,6 +81,8 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('campaign-initiative:'||b||':'||(d->>'utm_campaign'),0));
  SELECT familia INTO fam FROM public.crm_familia_campanha WHERE marca=b AND utm_campaign=d->>'utm_campaign' FOR UPDATE;
  IF FOUND AND fam IS DISTINCT FROM d#>>'{initiative,key}' THEN RAISE EXCEPTION 'INITIATIVE_CONFLICT'; END IF;
+ previous_writer:=current_setting('shrigma.campaign_writer',true);
+ PERFORM set_config('shrigma.campaign_writer',c.id::text,true);
  IF a='schedule' THEN
   IF NOT EXISTS(SELECT 1 FROM public.shrigma_campaign_validation v WHERE provider_id=c.id AND validation->>'version'=p->>'expectedVersion'
    AND validation->>'policy'='crm-campaign-v1' AND validation->'ok'='true'::jsonb) THEN RAISE EXCEPTION 'VALIDATION_STALE'; END IF;
@@ -108,6 +111,7 @@ BEGIN
   DELETE FROM public.shrigma_campaign_validation WHERE provider_id=c.id;
  END IF;
  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
+ PERFORM set_config('shrigma.campaign_writer',coalesce(previous_writer,''),true);
  RETURN public.shrigma_campaign_current(c.id);
 END $fn$;
 REVOKE ALL ON FUNCTION public.shrigma_campaign_list_brand(public.lists),public.shrigma_campaign_catalog(text),public.shrigma_campaign_current(integer),public.shrigma_campaign_provider(text,jsonb) FROM PUBLIC;

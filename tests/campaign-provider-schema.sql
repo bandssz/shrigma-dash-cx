@@ -6,7 +6,9 @@ CREATE TABLE campaigns(id integer PRIMARY KEY,name text,subject text,from_email 
  content_type text,send_at timestamptz,headers jsonb,status text,tags varchar(100)[],type text,messenger text,template_id integer,
  sent integer,started_at timestamptz,updated_at timestamptz DEFAULT now(),attribs jsonb,archive boolean DEFAULT false);
 CREATE TABLE campaign_lists(id serial PRIMARY KEY,campaign_id integer,list_id integer,list_name text,UNIQUE(campaign_id,list_id));
-CREATE TABLE campaign_media(id serial PRIMARY KEY,campaign_id integer,media_id integer,filename text);
+CREATE TABLE media(id integer PRIMARY KEY,filename text);
+INSERT INTO media VALUES(1,'attachment.pdf');
+CREATE TABLE campaign_media(campaign_id integer,media_id integer,filename text,UNIQUE(campaign_id,media_id));
 CREATE TABLE crm_familia_campanha(marca text,utm_campaign text,familia text,criado_em timestamptz DEFAULT now(),PRIMARY KEY(marca,utm_campaign));
 INSERT INTO lists VALUES(3,'Fish',ARRAY['fishermans'],'active'),(7,'Aristo',ARRAY['aristocrata'],'active'),
  (9,'Cross',ARRAY['fishermans','aristocrata'],'active'),(10,'Unknown',NULL,'active'),(11,'Archived',ARRAY['fishermans'],'archived'),

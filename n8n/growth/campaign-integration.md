@@ -94,7 +94,7 @@ Permanecem necessários: adaptador Listmonk com proteção atômica contra ediç
 - A versão inclui dados atuais da campanha, listas, mídia e wrapper. O SQL bloqueia a campanha, confere estado/versão, revalida listas e template, preserva cabeçalhos e atributos alheios ao editor, grava a iniciativa e invalida a validação anterior na mesma transação. Não modifica anexos/arquivo público.
 - Agendamento exige operação pendente da marca, rascunho não iniciado, validação correspondente à versão, iniciativa mapeada e antecedência mínima de 15 minutos. A gravação do estado é atômica, sem endpoint de envio imediato.
 - Compilação usa três prévias separadas (HTML, assunto e texto), com wrapper, antes da gravação. O backend gera a prova; não aceitar contentValidated do navegador. O adaptador de transporte deve manter credenciais no servidor, origem fixa e não seguir redirects autenticados.
-- O comparador detecta mudanças externas anteriores à operação, inclusive se updated_at não mudou. **Não protege edições que continuem sendo feitas diretamente no Listmonk por um caminho que não exige versão.** Coordenar esses caminhos continua sendo condição para declarar concorrência ponta a ponta resolvida.
+- O comparador detecta mudanças externas anteriores à operação, inclusive se updated_at não mudou. A primeira versão não protegia edições diretas posteriores. A proteção adicional de 19/09 está descrita abaixo; sua ativação deve ser comprovada antes de liberar capacidades.
 
 Provas locais: 42 testes JavaScript aprovados e PostgreSQL isolado com PGlite 0.3.14. O teste integrado executa serviço, store e provider contra o banco isolado, incluindo duas solicitações iguais, preparo das UTMs, validação e agendamento; criação/compilação nativas são simuladas e não existe transporte. Isso não é prova de campanha agendada em produção. O CI agora executa também os cenários SQL isolados.
 
@@ -105,3 +105,20 @@ Na tentativa de integração, a API n8n oscilou com 502; healthz respondeu 200, 
 Próximos gates: conferir o schema real das relações usadas; executar prova com rollback na instância; montar autenticação e orquestração nativa no n8n; conferir compilação/rascunho reais; coordenar escrita direta Listmonk; só então publicar capacidades e ligar o painel/skill. A/B e editor de jornadas não foram ativados por esta etapa.
 
 Referências primárias usadas na revisão: [API de campanhas](https://listmonk.app/docs/apis/campaigns/), [core de campanhas v6.1.0](https://github.com/knadh/listmonk/blob/v6.1.0/internal/core/campaigns.go) e [consultas v6.1.0](https://github.com/knadh/listmonk/blob/v6.1.0/queries/campaigns.sql). Manter compatibilidade com a versão instalada antes de aplicar novas versões.
+
+
+## Proteção entre editores — 19/09/2026
+
+`campaign-write-guard.sql`, aplicada junto do provedor numa transação, protege apenas campanhas com `attribs.crm.policy=crm-campaign-v1` e marca Aristo/Fishermans. Campanhas existentes sem essa identificação e Olivas continuam no caminho nativo. A criação nativa deve permanecer rascunho, sem data de envio; a mesma transação pode gravar suas relações iniciais.
+
+Depois da criação, alterações de conteúdo, cabeçalhos, atributos, listas e anexos dessas campanhas devem passar pelo provedor, que exige a revisão atual. Remover a identificação CRM, excluir a campanha ou usar o envio nativo para pular a validação é recusado. O contexto de escrita é interno e limitado à transação/chamada; não é uma autorização recebida do navegador. Esta é uma proteção entre aplicações, não contra um administrador do banco capaz de desativar triggers.
+
+O trabalhador nativo mantém contadores e transições de execução; pausa, cancelamento e retomada preservam o conteúdo já agendado. Iniciar antes da data ou reiniciar campanha cancelada/concluída é recusado. Para alterar conteúdo após agendamento, cancelar e criar um novo rascunho; pausa conserva a revisão e não libera edição.
+
+Templates, metadados das listas e anexos referenciados não podem ser alterados/excluídos enquanto uma campanha gerida estiver agendada, executando ou pausada. Depois de cancelada/concluída, o recurso é liberado. Em rascunhos, mudanças no catálogo invalidam a revisão. Isso não congela inscrição/descadastro de destinatários: supressões continuam nativas, e o público efetivo é calculado pelo Listmonk. Arquivos hospedados externamente continuam sujeitos à alteração em sua origem.
+
+A inspeção do schema real corrigiu uma incompatibilidade anterior: `campaign_media` não possui `id` nesta instalação. A revisão passa a ordenar por `media_id/filename` e inclui também o registro de mídia, bloqueado durante a operação.
+
+Os testes SQL cobrem tentativas de sobrescrita/remoção da identificação, relações movidas/removidas, alteração de recursos em uso, envio direto, início antecipado, cancelamento, retomada, conclusão, funcionamento legado/Olivas e ausência de vazamento de autorização entre chamadas. O pipeline serviço/store/provedor continua testado em PostgreSQL isolado; os transportes nativos são simulados nessa suíte. As provas de ativação e concorrência no banco real são registradas no quadro macro.
+
+O utilitário SQL de manutenção não é o transporte do futuro endpoint: texto com delimitadores de templates precisa ser passado como parâmetro, sem virar expressão do n8n. Não liberar as capacidades remotas enquanto autenticação, parametrização e orquestração não estiverem conectadas e verificadas.
