@@ -43,6 +43,10 @@ jobs:
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
         run: node tests/campaign-provider-postgres.cjs
+      - name: Check organic attribution on isolated PostgreSQL
+        env:
+          ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/organico-attribution-postgres.cjs
       - name: Save test result
         if: always()
         uses: actions/upload-artifact@v4

@@ -22,6 +22,8 @@ main{align-content:start}
 main>*{min-width:0}
 
 .rolagem{max-width:100%}
+#organico-attribution .rolagem:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
+#organico-attribution .org-utm-values{min-width:220px;max-width:420px;overflow-wrap:anywhere;white-space:normal}
 /* faixa vazia continua ocupando um `gap` de 22px do grid */
 #faixa-alertas:empty{display:none}
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
@@ -146,7 +148,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
       <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
     </div>
   </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span><span class="mini">Leitura a cada 10 min com a aba visível</span></div>
 </header>
 
 <main>
@@ -219,17 +221,20 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
   </section>
 
   <section class="sec" id="sec-venda">
+    <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <div class="painel">
-      <div class="painel-cab"><h2>Conversão por UTM</h2><span class="mini" id="venda-rot"></span></div>
+      <div class="painel-cab"><h2>Histórico de conversões · projeção anterior</h2><span class="mini" id="venda-rot"></span></div>
+      <div class="nota">Comparação histórica preservada. A fonte e o modelo desta projeção ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas, nem pedidos assistidos à receita exclusiva.</div>
       <div class="rolagem"><table class="comparativo" id="tab-venda"><thead><tr>
         <th>Rede</th><th>Superfície</th><th>Produto / peça</th>
         <th class="num">Pedidos</th><th class="num">Receita</th><th class="num">Assistidos</th><th>Peça identificada</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Padrão aceito nos links: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
+      <div class="nota">Padrão da projeção histórica: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
         <code>utm_medium=social</code> (ou <code>organico</code>) · <code>utm_campaign=venda</code> ·
         <code>utm_content</code>/<code>utm_term</code> = superfície (story, reels, bio, post) e produto, em qualquer ordem.
         Automação EU QUERO (Replient): <code>utm_medium=dm</code> ou <code>dm-automation</code> → superfície "dm (automação)".
-        Link novo nesse padrão entra sozinho. "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
+        Os links recentes com <code>utm_source=instagram_social</code> e <code>utm_medium=story|linktree</code> não entram nesta projeção anterior.
+        "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
         (liga a receita a um post ou story específico); sem ele a linha continua aqui, só sem o post.</div>
     </div>
   </section>
@@ -240,6 +245,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
+<script src="organico-attribution.js?v=20260919-4"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -275,6 +281,17 @@ const G={
 
 const HOJE=G.diaBR(new Date());
 let API=null,MARCA='todas',PER=G.preset('30',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';
+// Recorta apenas as superficies ja declaradas pela API. Nao muda atribuicao nem
+// deduz peca/canal pelo source: DM, bio e superficie ausente ficam explicitos.
+function grupoReceitaOrganico(r){
+  const medium=String(r.utm_medium||'').trim().toLowerCase();
+  const sup=String(r.superficie_utm||'').trim().toLowerCase();
+  const produto=String(r.produto_utm||'').trim().toLowerCase();
+  if(['dm','dm-automation'].includes(medium))return 'dm';
+  if(sup==='bio'||produto==='link_in_bio')return 'bio';
+  if(['story','stories','reels','reel','post','feed','carrossel'].includes(sup))return 'editorial';
+  return 'outra';
+}
 // Conversao por UTM: rede x superficie x produto, direto do padrao dos links -- nao depende do
 // de-para. A normalizacao (superficie_utm / produto_utm) vem pronta da API.
 function renderVenda(linhas){
@@ -406,11 +423,16 @@ function pintaKPIs(){
   const rec=(ini,fim)=>(API.cx_organico_receita||[]).filter(r=>daMarca(r)
       &&String(r.dia).slice(0,10)>=ini&&String(r.dia).slice(0,10)<=fim);
   const rA=rec(PER.ini,PER.fim), rB=rec(ant.ini,ant.fim);
-  const soma=l=>l.reduce((a,r)=>a+(+r.receita_ultimo||0),0);
-  // Bio (inclui link_in_bio) pode ter midia: anuncio -> perfil -> toque no link vira ultimo
-  // clique "bio". O KPI conta so PECA com UTM (story/reels/post); bio aparece separado.
-  const ehBio=r=>{const s=r.superficie_utm,p=String(r.produto_utm||'').toLowerCase();return s==='bio'||p==='link_in_bio';};
-  const pcA=rA.filter(r=>!ehBio(r)), pcB=rB.filter(r=>!ehBio(r)), bioA=rA.filter(ehBio);
+  const soma=l=>l.length&&l.every(r=>r.receita_ultimo!==null&&r.receita_ultimo!==undefined
+    &&String(r.receita_ultimo).trim()!==''&&Number.isFinite(+r.receita_ultimo))
+    ?l.reduce((a,r)=>a+(+r.receita_ultimo),0):null;
+  const pcA=rA.filter(r=>grupoReceitaOrganico(r)==='editorial');
+  const pcB=rB.filter(r=>grupoReceitaOrganico(r)==='editorial');
+  const receitaA=soma(pcA),receitaB=soma(pcB);
+  const moeda=n=>n===null?'receita indisponível':'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const outrasReceitas=[['bio','Bio (pode ter mídia)'],['dm','Automação DM'],['outra','Outras superfícies / não identificadas']]
+    .map(([grupo,rotulo])=>{const linhas=rA.filter(r=>grupoReceitaOrganico(r)===grupo);
+      return linhas.length?`${rotulo}: ${moeda(soma(linhas))}`:null;}).filter(Boolean);
 
   const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
   const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
@@ -442,11 +464,11 @@ function pintaKPIs(){
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
-    {r:'Receita de story · reels · post', v:pcA.length?'R$ '+soma(pcA).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
-     d:pcB.length?varia(soma(pcA),soma(pcB)):null,
-     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · último clique · por UTM`
-       :'nenhum pedido com UTM de peça no período',
-     alerta:bioA.length?`+ R$ ${soma(bioA).toLocaleString('pt-BR',{maximumFractionDigits:0})} pelo link da bio (pode ter mídia)`:null, ir:'venda'},
+    {r:'Receita histórica de story · reels · post', v:receitaA===null?'—':moeda(receitaA),
+     d:receitaA!==null&&receitaB!==null?varia(receitaA,receitaB):null,
+     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · projeção anterior · superfície UTM`
+       :'nenhuma receita com superfície editorial identificada no período',
+     detalhes:outrasReceitas, ir:'venda'},
   ];
   $('#area-kpis').innerHTML=cards.map(k=>`<div class="kpi${k.ir?' kpi-ir':''}" ${k.ir?`data-ir="${k.ir}" role="button" tabindex="0"`:''}>
     <div class="kpi-rot">${k.r}</div>
@@ -454,8 +476,14 @@ function pintaKPIs(){
     <div class="kpi-rodape">${CMP?chip(k.inverso&&k.d!==null?-k.d:k.d,k.d):'<span class="mini">&nbsp;</span>'}</div>
     <div class="kpi-sub">${esc(k.s)}</div>
     ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
+    ${(k.detalhes||[]).map(d=>`<div class="kpi-sub">${esc(d)}</div>`).join('')}
   </div>`).join('');
   renderVenda(rA);
+  if(typeof OA!=='undefined'){
+    OA.render($('#organico-attribution'),API,MARCA,PER.ini,PER.fim);
+    // O contador antigo pertence ao legado; nao representa os modelos da leitura v2.
+    if(OA.valid(API))$('#n-venda').textContent='';
+  }
   document.querySelectorAll('.kpi-ir').forEach(el=>{
     const ir=()=>troca(el.dataset.ir);
     el.onclick=ir; el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ir();}};
@@ -578,7 +606,7 @@ async function carrega(){
   const k=chaveLeitura();
   if(!k)return avisoTela('Sem chave','Esta página lê o mesmo endpoint do painel de CX.');
   try{
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=organico');
     if(r.status===401){shrigmaEsqueceChave("organico");
       return avisoTela('Chave inválida','A chave guardada foi recusada pelo n8n.');}
     if(!r.ok)throw new Error('HTTP '+r.status);
@@ -617,7 +645,8 @@ document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
 pintaMarca();
 setInterval(()=>{$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},1000);
 carrega();
-setInterval(carrega,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
+// Cadencia local: fontes mudam em 30-120 min; nao consultar em aba oculta.
+setInterval(()=>{if(!document.hidden)carrega();},600000);
 </script>
 </body>
 </html>
