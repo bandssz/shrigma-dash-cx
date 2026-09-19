@@ -45,7 +45,8 @@ function createProvider({query,nativeCreate,validateContent}){
    if(proof?.ok!==true||proof.templateVersion!==templateVersion)throw Object.assign(Error('Compilação do conteúdo não confirmada.'),{code:'CONTENT_UNVALIDATED',status:422,nothingChanged:true});
    return call('update',{id,expectedVersion,operationId,definition:d,templateVersion,contentValidated:true});
   },
-  schedule:(id,{expectedVersion,operationId})=>call('schedule',{id,expectedVersion,operationId})
+  schedule:(id,{expectedVersion,operationId})=>call('schedule',{id,expectedVersion,operationId}),
+  cancel:(id,{expectedVersion,operationId})=>call('cancel',{id,expectedVersion,operationId})
  };
 }
 module.exports={createProvider};

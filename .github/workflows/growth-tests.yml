@@ -14,6 +14,7 @@ on:
       - 'config.js'
       - 'alerta-*.js'
       - 'n8n/**'
+      - 'tools/campaign-runtime-build/**'
       - 'frescor.js'
       - '*.css'
       - 'tests/**'
@@ -39,10 +40,18 @@ jobs:
         run: |
           set -o pipefail
           node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
+      - name: Check pinned campaign runtime bundle
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          node tools/campaign-runtime-build/build.cjs --check
       - name: Check campaign SQL on isolated PostgreSQL
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
         run: node tests/campaign-provider-postgres.cjs
+      - name: Check incremental campaign cancellation
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/campaign-cancel-postgres.cjs
       - name: Check organic attribution on isolated PostgreSQL
         env:
           ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite

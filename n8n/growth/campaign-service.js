@@ -1,12 +1,13 @@
 /* Server core. Requires durable operation/validation storage and an atomic provider adapter.
    This module does not expose an HTTP endpoint or send messages by itself. */
 'use strict';
-const {createHash}=require('node:crypto'),C=require('./campaign-contract'),T=require('./campaign-tracking');
+const C=require('./campaign-contract'),T=require('./campaign-tracking');
 const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
-const hash=v=>createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
+const hash=v=>require('node:crypto').createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
 const fail=(status,code,message)=>Object.assign(new Error(message),{status,code});
-function createService({store,provider,now=()=>Date.now()}){
+function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
  if(!store||!provider)throw Error('Durable store and provider adapter are required');
+ if(typeof hashValue!=='function')throw Error('A campaign hash function is required');
  const response=(status,body)=>({status,body});
  const wrap=c=>({id:c.id,version:c.version,status:c.status,sent:c.sent,started_at:c.started_at,send_at:c.send_at,definition:c.definition});
  async function current(id,brand){if(!Number.isSafeInteger(id)||id<=0)throw fail(422,'ID_INVALID','Campanha inválida.');const c=await provider.get(id);if(!c||c.definition?.brand!==brand)throw fail(404,'CAMPAIGN_NOT_FOUND','Campanha não encontrada nesta marca.');return c;}
@@ -16,7 +17,7 @@ function createService({store,provider,now=()=>Date.now()}){
    if(!auth?.actor||!Array.isArray(auth.caps))throw fail(401,'UNAUTHORIZED','Autenticação necessária.');
    if(!request||typeof request!=='object')throw fail(422,'REQUEST_INVALID','Solicitação inválida.');
    const action=String(request.acao||'').replace(/^campanha_/,'');
-   const capability={catalogo:'read_content',listar:'read_content',obter:'read_content',operacao:'read_content',salvar:'draft',validar:'validate',agendar:'submit'}[action];
+   const capability={catalogo:'read_content',listar:'read_content',obter:'read_content',operacao:'read_content',salvar:'draft',validar:'validate',agendar:'submit',cancelar:'submit'}[action];
    if(!capability)throw fail(400,'ACTION_INVALID','Ação desconhecida.');
    if(!auth.caps.includes(capability))throw fail(403,'CAPABILITY_MISSING','Esta chave não permite esta operação.');
    if(!Object.hasOwn(C.BRANDS,request.brand))throw fail(422,'BRAND_INVALID','Marca inválida.');
@@ -29,7 +30,7 @@ function createService({store,provider,now=()=>Date.now()}){
     return response(200,{operation:saved});
    }
    C.request(action,{}, {idempotencyKey:request.idempotency_key});
-   const digest=hash(request),claim=await store.claim({actor:auth.actor,key:request.idempotency_key,hash:digest,brand:request.brand,action});
+   const digest=hashValue(request),claim=await store.claim({actor:auth.actor,key:request.idempotency_key,hash:digest,brand:request.brand,action});
    if(claim.hash!==digest)throw fail(409,'IDEMPOTENCY_CONFLICT','A chave já foi usada com outro conteúdo.');
    if(!claim.acquired){if(claim.response)return claim.response;throw fail(409,'OPERATION_PENDING','Operação em andamento ou incerta. Consulte seu estado antes de repetir.');}
    op=claim;
@@ -53,16 +54,22 @@ function createService({store,provider,now=()=>Date.now()}){
     const prepared=C.prepare(d,{catalog,tracking:T,trackingId:c.id,now:now()});
     mutating=true;
     const updated=await provider.updateDraft(c.id,prepared,{expectedVersion:c.version,operationId:op.id});
-    if(updated.status!=='draft'||updated.sent!==0||updated.started_at||hash(updated.definition)!==hash(prepared.definition))throw fail(502,'READBACK_MISMATCH','Conteúdo salvo não confirmado; consulte o rascunho antes de repetir.');
+    if(updated.status!=='draft'||updated.sent!==0||updated.started_at||hashValue(updated.definition)!==hashValue(prepared.definition))throw fail(502,'READBACK_MISMATCH','Conteúdo salvo não confirmado; consulte o rascunho antes de repetir.');
     await store.invalidateValidation(c.id);
     result=response(request.id?200:201,{campaign:wrap(updated),tracking:prepared.tracking,operation_id:op.id});
    }else{
     const c=await current(request.id,request.brand);providerId=c.id;
     if(!request.expected_version||c.version!==request.expected_version)throw fail(409,'VERSION_CONFLICT','Campanha alterada; recarregue.');
-    if(action==='validar'){
+    if(action==='cancelar'){
+     C.cancel(request,c,{now:now(),canPublish:true});
+     mutating=true;
+     const cancelled=await provider.cancel(c.id,{expectedVersion:c.version,operationId:op.id});
+     if(cancelled.id!==c.id||cancelled.status!=='cancelled'||cancelled.sent!==0||cancelled.started_at||cancelled.send_at!==c.send_at||!cancelled.version||cancelled.version===c.version)throw fail(502,'CANCEL_UNCONFIRMED','Cancelamento não confirmado; consulte o estado antes de repetir.');
+     result=response(200,{campaign:wrap(cancelled),operation_id:op.id});
+    }else if(action==='validar'){
      if(c.status!=='draft'||c.sent!==0||c.started_at)throw fail(409,'CAMPAIGN_LOCKED','Validação de agendamento exige um rascunho não iniciado.');
      const p=C.prepare(c.definition,{catalog:await provider.catalog(request.brand),tracking:T,trackingId:c.id,now:now()});
-     if(hash(p.definition)!==hash(c.definition))throw fail(422,'TRACKING_NOT_PREPARED','Salve a campanha pelo cadastro padronizado antes de validar.');
+     if(hashValue(p.definition)!==hashValue(c.definition))throw fail(422,'TRACKING_NOT_PREPARED','Salve a campanha pelo cadastro padronizado antes de validar.');
      const validation={policy:C.VERSION,version:c.version,ok:true,validated_at:new Date(now()).toISOString()};
      await store.setValidation(c.id,validation);
      result=response(200,{campaign:wrap(c),validation,tracking:p.tracking});
@@ -88,4 +95,4 @@ function createService({store,provider,now=()=>Date.now()}){
   }
  }};
 }
-module.exports={createService,hash};
+module.exports={createService,hash,stable};

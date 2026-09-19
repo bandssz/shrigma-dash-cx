@@ -6,7 +6,7 @@ CREATE TABLE public.shrigma_campaign_operation (
  operation_key text NOT NULL CHECK (operation_key ~ '^[A-Za-z0-9_-]{16,100}$'),
  request_hash text NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
  brand text NOT NULL CHECK (brand IN ('aristo','fish')),
- action text NOT NULL CHECK (action IN ('salvar','validar','agendar')),
+ action text NOT NULL CHECK (action IN ('salvar','validar','agendar','cancelar')),
  lease uuid NOT NULL DEFAULT gen_random_uuid(),
  state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','succeeded','rejected','outcome_unknown')),
  provider_id integer CHECK (provider_id > 0),
@@ -39,7 +39,7 @@ BEGIN
  IF p_action='claim' THEN
   IF coalesce(p->>'hash','') !~ '^[0-9a-f]{64}$' OR
      coalesce(p->>'brand','') NOT IN ('aristo','fish') OR
-     coalesce(p->>'action','') NOT IN ('salvar','validar','agendar') THEN
+     coalesce(p->>'action','') NOT IN ('salvar','validar','agendar','cancelar') THEN
    RAISE EXCEPTION 'CAMPAIGN_STORE_CLAIM';
   END IF;
   -- Serialize exactly one actor/key, including concurrent insertion. Never reclaim
