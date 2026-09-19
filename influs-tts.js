@@ -19,6 +19,8 @@
     filtra(arr, marca) { return (arr || []).filter(x => marca === 'todas' || x.marca === marca); },
     soma(arr, k) { return (arr || []).reduce((a, x) => a + (+x[k] || 0), 0); },
 
+    regrasEditaveis(dados) { return dados?.regra_contrato === 'atomic_v1' && !dados._cache && !dados._caiu; },
+
     // The complete rule contains the exact database timestamp; do not round it through Date.
     pedidoRegra(base, campos) {
       if (!base || !base.marca || typeof base.atualizado_em !== 'string' || !base.atualizado_em) throw new Error('Recarregue a regra antes de salvar.');
@@ -294,6 +296,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   }
   function autorTTS() { try { if (typeof autorAtual === 'function') return autorAtual(); } catch (e) {} let a = ''; try { a = localStorage.getItem('shrigma_autor') || ''; } catch (e) {} if (!a) { a = (prompt('Seu nome (fica registrado na decisão):') || '').trim(); try { if (a) localStorage.setItem('shrigma_autor', a); } catch (e) {} } return a || 'painel'; }
   async function acaoTTS(corpo) {
+    if (corpo.acao === 'regra' && !TTS.regrasEditaveis(DADOS)) throw new Error('Edição temporariamente indisponível. Aguarde a confirmação do serviço e recarregue.');
     if (typeof TTS_ACAO_URL === 'undefined') throw new Error('TTS_ACAO_URL não configurada em config.js');
     const k = chaveEscritaTTS(); if (!k) throw new Error('sem chave de escrita');
     const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...corpo, k, autor: autorTTS() }) });
@@ -527,8 +530,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="5" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_tentativas" value="${esc(r.cobranca_max_tentativas)}" step="1" min="1" style="width:80px" title="quantas vezes cobrar a mesma pessoa antes de parar"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_dias_entre" value="${esc(r.cobranca_dias_entre)}" step="1" min="1" style="width:80px" title="dias de espera entre um toque e o próximo"></td>
-        <td><button class="btn tts-btn tts-salvar-cob">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}
+        <td><button class="btn tts-btn tts-salvar-cob" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}
       </tbody></table></div>`;
+    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar-cob').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
@@ -674,8 +678,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="num">${inp(r, 'fulfillment_min', 1, '% de amostras postadas em 90 dias')}</td><td class="num">${inp(r, 'teto_mensal', 5, 'amostras por mês')}</td>
         <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
-        <td><button class="btn tts-btn tts-salvar">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
+        <td><button class="btn tts-btn tts-salvar" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
       <div class="nota">Aprovar e rejeitar amostra é <strong>manual</strong> — pelos botões da fila. A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</div>`;
+    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};

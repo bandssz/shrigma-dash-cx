@@ -16,7 +16,7 @@ O resultado JSON contém `ok`, `codigo`, `mensagem`, `regra_atual`, `linhas` e, 
 2. Conferir a credencial PostgreSQL do node `Grava` e a usada na instalação. A função é `SECURITY INVOKER`, com `search_path` fixo. `PUBLIC` não recebe EXECUTE. O owner mantém execução; se os papéis forem diferentes, conceder EXECUTE apenas ao papel de serviço conferido, preservando permissões das tabelas.
 3. Instalar apenas esta migração incremental. Não executar seeds ou o DDL histórico inteiro.
 4. Aplicar `patchWorkflow(fresh,{expectedVersion})` de `regra-action-patch.cjs` sobre o export fresco. O patch preserva autenticação, assinatura, aprovação manual, credenciais, ligações e demais nodes. Muda a validação de regra, a preparação de consulta parametrizada, os parâmetros nativos do PostgreSQL e a resposta. Conferir a versão novamente antes de publicar.
-5. Publicar a UI junto ao contrato. A leitura existente fornece a versão em `regra`, mesmo quando o subconjunto `cobranca_regra` não a contém.
+5. A UI só habilita edição após uma leitura viva com `regra_contrato=atomic_v1`; cache, falha de atualização ou contrato ausente mantém os botões indisponíveis. Publicar a descoberta com `regra-contract-patch.cjs` somente depois de conferir SQL, ação ativa e recusa inofensiva real. A leitura fornece a versão em `regra`, mesmo quando o subconjunto `cobranca_regra` não a contém.
 6. Conferir o código ativo e a resposta sem ativar rotinas ou alterar limites operacionais apenas para produzir evidência.
 
 A etapa de Token Manager continua no caminho antigo; este patch não modifica transporte. Falha de banco/rede sem recibo continua exigindo releitura e conciliação, sem retentativa automática. A função não promete entrega comercial nem torna a cobrança segura para ativação.

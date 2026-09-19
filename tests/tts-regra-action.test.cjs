@@ -50,3 +50,36 @@ test('fresh patch refuses unreviewed rule code drift even when version was suppl
  assert.throws(()=>p.patchValidate(code('acao_valida.js').replace('const r = b.regra;','const r = b.regra; /* concurrent rule change */')),/divergiu/);
  assert.throws(()=>p.patchExecute(code('acao_exec.js').replace("acao:'regra', sql:","acao:'regra', fixture:true, sql:")),/divergiu/);
 });
+
+test('rule editing requires confirmed live contract; cache and failed refresh cannot enable it',()=>{
+ const TTS=require('../influs-tts.js');
+ for(const data of [null,{}, {regra_contrato:'legacy'}, {regra_contrato:'atomic_v1',_cache:'now'}, {regra_contrato:'atomic_v1',_caiu:'timeout'}])assert.equal(TTS.regrasEditaveis(data),false);
+ assert.equal(TTS.regrasEditaveis({regra_contrato:'atomic_v1',_cache:null,_caiu:null}),true);
+ const ui=fs.readFileSync(path.join(__dirname,'../influs-tts.js'),'utf8');
+ assert.match(ui,/corpo\.acao === 'regra' && !TTS\.regrasEditaveis\(DADOS\)/);
+ assert.equal((ui.match(/disabled title="Edição temporariamente/g)||[]).length,2);
+});
+
+test('read contract is additive, version checked and requires verified action',()=>{
+ const c=require('../n8n/tiktok/regra-contract-patch.cjs'),source=code('api_sql.js');
+ const w={versionId:'fresh',nodes:[{name:'Monta SQL',parameters:{jsCode:source}},{name:'Other',parameters:{keep:1}}],connections:{same:true}};
+ assert.throws(()=>c.patchWorkflow(w,{expectedVersion:'fresh'}),/Verified/);
+ assert.throws(()=>c.patchWorkflow(w,{expectedVersion:'old',actionVerified:true}),/Fresh/);
+ const out=c.patchWorkflow(w,{expectedVersion:'fresh',actionVerified:true});
+ assert.equal(out.nodes[0].parameters.jsCode.replace(c.NEW,c.OLD),source);
+ assert.deepEqual(out.nodes[1],w.nodes[1]);assert.deepEqual(out.connections,w.connections);
+ assert.equal(c.patchCode(out.nodes[0].parameters.jsCode),out.nodes[0].parameters.jsCode);
+ assert.throws(()=>c.patchCode('unexpected'),/drift/);
+});
+
+test('actual action refuses legacy or cached reads before asking credentials or issuing HTTP',async()=>{
+ const TTS=require('../influs-tts.js'),ui=fs.readFileSync(path.join(__dirname,'../influs-tts.js'),'utf8');
+ const source=ui.slice(ui.indexOf('  async function acaoTTS(corpo) {'),ui.indexOf('  // botão de duas etapas'));
+ let credentials=0,http=0;
+ for(const data of [{},{regra_contrato:'atomic_v1',_cache:'stored'},{regra_contrato:'atomic_v1',_caiu:'network'}]){
+  const ctx={TTS,DADOS:data,chaveEscritaTTS:()=>{credentials++;return 'fixture';},fetch:()=>{http++;throw Error('unexpected');}};
+  const fn=vm.runInNewContext(source+';acaoTTS',ctx);
+  await assert.rejects(fn({acao:'regra',marca:'fish',regra:{gmv_auto:100}}),/temporariamente/);
+ }
+ assert.equal(credentials,0);assert.equal(http,0);
+});
