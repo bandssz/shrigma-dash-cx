@@ -588,10 +588,10 @@ function pintaRanking(d, hoje) {
 
 // Reclame Aqui: pintaRaNovo em cx-tela.js (lê cx_ra_dia; critérios RA1000 em cx-metricas.js).
 
-// Comentários orgânicos via Meta Graph (volume, respondidos, ocultos, sentimento próprio).
+// Comentários de orgânico e anúncios via Meta Graph (volume, respondidos, ocultos, sentimento próprio).
 // Independe da Replient: quando a API deles sair, entra como fonte adicional.
 // Aba Comentários: os cartões e o gráfico estão em cx-tela.js (pintaSocialAba); aqui a tabela por
-// marca (com quem respondeu: bot × pessoa, inferido pelo tempo) e as duas filas de pendência.
+// marca (faixa de tempo da resposta, sem identidade do respondente) e as duas filas de pendência.
 function pintaSocial(d) {
   const alvo = $("#area-social"); if (!alvo) return;
   const marcas = estado.marca === "todas" ? MARCAS : [estado.marca];
@@ -607,7 +607,7 @@ function pintaSocial(d) {
   if (!comDados.length) { alvo.innerHTML = `<p class="mini">Nenhum comentário no período selecionado.</p>`; if (urg) urg.innerHTML = ""; return; }
   const aut = autoriaAgg(d, marcas);
   alvo.innerHTML = `<div class="rolagem"><table class="comparativo soc-tab">
-    <thead><tr><th>Marca</th><th class="num">Comentários</th><th class="num" title="Resposta pública da conta da marca">Respondidos</th><th class="num" title="Pediam resposta e não têm">Aguardando</th><th title="Classificação própria (OpenAI) · negativo | neutro | positivo">Sentimento</th><th class="num" title="Inferido pelo tempo até responder: até 10 min é o bot da Replient">Bot · pessoa</th><th class="num" title="Ocultados pela marca / apagados pelo autor">Ocultos / apagados</th></tr></thead>
+    <thead><tr><th>Marca</th><th class="num">Comentários</th><th class="num" title="Resposta pública da conta da marca">Respondidos</th><th class="num" title="Pediam resposta e não têm">Aguardando</th><th title="Classificação própria (OpenAI) · negativo | neutro | positivo">Sentimento</th><th class="num" title="Faixas pelo tempo até a resposta da conta da marca: menos de 10 minutos e 10 minutos ou mais. O tempo não comprova se foi bot ou pessoa.">Tempo de resposta<div class="mini">menos de 10 min · 10 min ou mais</div></th><th class="num" title="Ocultados pela marca / apagados pelo autor">Ocultos / apagados</th></tr></thead>
     <tbody>${comDados.map((m) => {
       const a = agg[m], clas = a.pos + a.neg + a.neu, pc = (x) => (clas ? (x / clas) * 100 : 0), au = aut[m];
       return `<tr>
@@ -616,7 +616,7 @@ function pintaSocial(d) {
         <td class="num">${fmtNum(a.respondidos)}<span class="mini"> ${Math.round((a.respondidos / a.total) * 100)}%</span></td>
         <td class="num ${a.aguardando ? "vm" : ""}">${fmtNum(a.aguardando)}</td>
         <td>${clas ? `<div class="csat-cel"><div class="b3 fina" role="img" aria-label="${Math.round(pc(a.neg))}% negativo"><i class="s-ruim" style="width:${pc(a.neg)}%" title="negativo: ${fmtNum(a.neg)}"></i><i class="s-neutro" style="width:${pc(a.neu)}%" title="neutro: ${fmtNum(a.neu)}"></i><i class="s-bom" style="width:${pc(a.pos)}%" title="positivo: ${fmtNum(a.pos)}"></i></div><strong class="tabn ${pc(a.neg) >= 25 ? "vm" : ""}">${Math.round(pc(a.neg))}%<span class="mini"> neg</span></strong></div>` : "<span class='mini'>—</span>"}</td>
-        <td class="num">${au && au.bot + au.humano ? `<span class="tabn">${Math.round((au.bot / (au.bot + au.humano)) * 100)}%<span class="mini"> · ${Math.round((au.humano / (au.bot + au.humano)) * 100)}%</span></span><div class="mini">bot ${au.medBot || "—"} · pessoa ${au.medHum || "—"}</div>` : "<span class='mini'>—</span>"}</td>
+        <td class="num">${au && au.bot + au.humano ? `<span class="tabn">${Math.round((au.bot / (au.bot + au.humano)) * 100)}%<span class="mini"> · ${Math.round((au.humano / (au.bot + au.humano)) * 100)}%</span></span><div class="mini" title="Estimativas: média das medianas de cada dia e origem, ponderada pelo número de respostas com tempo válido; não é a mediana do período.">${au.medBot === null ? "—" : "≈ " + au.medBot} · ${au.medHum === null ? "—" : "≈ " + au.medHum}</div><div class="mini">${fmtNum(au.bot + au.humano)} na classificação temporal</div><div class="mini">${fmtNum(au.tempoN)} com mediana válida</div>` : "<span class='mini'>—</span>"}</td>
         <td class="num"><span class="tabn">${fmtNum(a.ocultos)}<span class="mini"> / ${fmtNum(a.apagados)}</span></span></td>
       </tr>`; }).join("")}</tbody></table></div>`;
 
@@ -638,33 +638,32 @@ function pintaSocial(d) {
       : (!at.length ? `<div class="soc-urg-ok mini">Nenhuma reclamação sem resposta. ✓</div>` : ""));
 }
 
-/* Quem respondeu: bot da Replient ou gente.
-   O corte não é estatístico, é de processo: quando a Replient não consegue responder,
-   ela deixa o chat em aberto e a resposta vira encargo do agente. A partir de 10
-   minutos é sempre humano — não existe faixa cinzenta.
-   Os números concordam. Medido em 2.186 respostas, olhando o RELÓGIO DA RESPOSTA:
-     até 10min   51,5% fora do expediente, 7,4% de madrugada -> bot
-     10 a 60min  15,8% fora                                  -> humano
-     acima de 1h  6,5% caindo para 1,1%                      -> humano
-   A faixa abaixo de 1 minuto também é bot: com 64,3% fora do expediente ela é mais
-   bot do que a própria faixa de 1 a 10 minutos.
-   Limite conhecido: o texto da resposta não é coletado, então isto mede QUEM respondeu
-   e QUANTO demorou — não se a resposta prestou. */
+// Os nomes legados bot/humano vêm de CASE espera < 600, não de identidade.
+// Preservar as contagens da fonte; apresentar somente as faixas de tempo.
+// Null, texto vazio e números inválidos nunca são uma espera de zero segundos.
+function socialTempoPar(mediana, volume) {
+  const numerico = (v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "");
+  if (!numerico(mediana) || !numerico(volume)) return null;
+  const seg = Number(mediana), n = Number(volume);
+  return Number.isFinite(seg) && seg >= 0 && Number.isSafeInteger(n) && n > 0 ? [seg, n] : null;
+}
 function autoriaAgg(d, marcas) {
   const agg = {};
   for (const l of (d.social_autoria || [])) {
     if (l.dia < PER.ini || l.dia > PER.fim || !marcas.includes(l.marca)) continue;
     const a = (agg[l.marca] = agg[l.marca] || { bot: 0, humano: 0, botSeg: [], humSeg: [] });
-    if (l.autoria === "bot" || l.autoria === "humano") a[l.autoria] += Number(l.n || 0);
-    if (l.espera_mediana_seg !== null && l.espera_mediana_seg !== undefined) {
-      const par = [Number(l.espera_mediana_seg), Number(l.n || 0)];
-      if (l.autoria === "bot") a.botSeg.push(par); if (l.autoria === "humano") a.humSeg.push(par);
-    }
+    const n = Number(l.n);
+    if ((l.autoria === "bot" || l.autoria === "humano") && Number.isSafeInteger(n) && n > 0) a[l.autoria] += n;
+    const par = socialTempoPar(l.espera_mediana_seg, l.n);
+    if (par) { if (l.autoria === "bot") a.botSeg.push(par); if (l.autoria === "humano") a.humSeg.push(par); }
   }
-  // Mediana de medianas diárias não existe: pondera pelo volume do dia.
+  // Estimador legado: média ponderada das medianas diárias por origem; não é p50 do período.
   const pond = (pares) => { const den = pares.reduce((s, p) => s + p[1], 0); return den ? pares.reduce((s, p) => s + p[0] * p[1], 0) / den : null; };
   const dur = (x) => x === null ? null : x < 90 ? Math.round(x) + "s" : x < 5400 ? Math.round(x / 60) + " min" : x < 172800 ? Math.round(x / 3600) + " h" : Math.round(x / 86400) + " d";
-  for (const m of Object.keys(agg)) { agg[m].medBot = dur(pond(agg[m].botSeg)); agg[m].medHum = dur(pond(agg[m].humSeg)); }
+  for (const m of Object.keys(agg)) {
+    agg[m].medBot = dur(pond(agg[m].botSeg)); agg[m].medHum = dur(pond(agg[m].humSeg));
+    agg[m].tempoN = [...agg[m].botSeg, ...agg[m].humSeg].reduce((s, p) => s + p[1], 0);
+  }
   return agg;
 }
 

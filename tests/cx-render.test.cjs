@@ -358,3 +358,63 @@ test('abas: visão geral por padrão, hash abre a aba certa e o clique troca sem
   const z = await boot(fixture(), '?periodo=7d', '#aba=inexistente');
   assert.deepEqual([...z.document.querySelectorAll('.aba-pane')].filter((p) => !p.hidden).map((p) => p.dataset.aba), ['geral']);
 });
+
+test('Comentários preserva o estimador e apresenta faixas de tempo sem provar identidade', async () => {
+  // Grupos possíveis [0, 200] e [900]: p50 conjunto = 200, mas o estimador
+  // diário = (100×2 + 900×1)/3. A tela não pode chamar este último p50.
+  const social = [{ marca: 'aristocrata', dia: '2026-09-07', total: 4, respondidos: 2 }, { marca: 'aristocrata', dia: '2026-09-08', total: 2, respondidos: 1 }];
+  const x = await boot(fixture({ social,
+    social_tempo: [{ marca: 'aristocrata', dia: '2026-09-07', respondidos: 2, mediana_seg: 100 }, { marca: 'aristocrata', dia: '2026-09-08', respondidos: 1, mediana_seg: 900 }],
+    social_autoria: [{ marca: 'aristocrata', dia: '2026-09-07', autoria: 'bot', n: 2, espera_mediana_seg: 100 }, { marca: 'aristocrata', dia: '2026-09-08', autoria: 'humano', n: 1, espera_mediana_seg: 900 }],
+  }), '?periodo=7d&marca=aristocrata');
+  const agg = x.run('socialAgg(estado.dados, ["aristocrata"], PER.ini, PER.fim)');
+  assert.equal(agg.tempoSeg, 1100 / 3); assert.equal(agg.tempoN, 3); assert.notEqual(agg.tempoSeg, 200);
+  const card = x.document.querySelector('#area-social-num [data-m="tempo"]');
+  assert.match(card.textContent, /≈.*estimativa · 3 respostas com tempo/s);
+  assert.match(card.getAttribute('title'), /média das medianas diárias por marca/);
+  assert.match(card.getAttribute('title'), /Não é a mediana de todas as respostas/);
+  const table = x.document.querySelector('#area-social');
+  assert.match(table.textContent, /menos de 10 min · 10 min ou mais/);
+  assert.match(table.textContent, /67%\s*· 33%/); assert.match(table.textContent, /3 na classificação temporal/);
+  assert.doesNotMatch(table.textContent, /Bot · pessoa|bot \d|pessoa \d/);
+  assert.match(table.querySelectorAll('th')[5].getAttribute('title'), /não comprova se foi bot ou pessoa/);
+  card.click();
+  assert.match(x.document.querySelector('#g-social-sub').textContent, /média ponderada das medianas diárias/);
+  assert.match(x.document.querySelector('#g-social-sub').textContent, /não é a mediana da semana/);
+  x.run('var socialGraphProof; cxgLinhas = (opts) => { socialGraphProof = opts; return "<svg></svg>"; }; pintaGraficoSocialAba(estado.dados);');
+  const measured = x.run('socialGraphProof.series[0].pontos.filter(p => p.y !== null)');
+  assert.equal(measured.length, 1); assert.equal(measured[0].y, 1100 / 3 / 3600); assert.equal(measured[0].n, '3 respostas com tempo');
+});
+
+test('Comentários não transforma mediana ausente em zero nem aumenta amostra do estimador', async () => {
+  const social = [{ marca: 'aristocrata', dia: '2026-09-07', total: 90, respondidos: 80 }];
+  const tempo = [null, undefined, '', ' ', 'invalido', -1, Infinity, false].map((mediana_seg) => ({ marca: 'aristocrata', dia: '2026-09-07', respondidos: 10, mediana_seg }));
+  tempo.push({ marca: 'aristocrata', dia: '2026-09-07', respondidos: 2, mediana_seg: 120 });
+  const x = await boot(fixture({ social, social_tempo: tempo, social_autoria: [
+    { marca: 'aristocrata', dia: '2026-09-07', autoria: 'bot', n: 10, espera_mediana_seg: null },
+    { marca: 'aristocrata', dia: '2026-09-07', autoria: 'bot', n: 2, espera_mediana_seg: 120 },
+    { marca: 'aristocrata', dia: '2026-09-07', autoria: 'humano', n: 1, espera_mediana_seg: null },
+  ] }), '?periodo=7d&marca=aristocrata');
+  const agg = x.run('socialAgg(estado.dados, ["aristocrata"], PER.ini, PER.fim)');
+  assert.equal(agg.tempoSeg, 120); assert.equal(agg.tempoN, 2);
+  const aut = x.run('autoriaAgg(estado.dados, ["aristocrata"]).aristocrata');
+  assert.equal(aut.bot, 12); assert.equal(aut.humano, 1, 'contagens legadas permanecem conhecidas');
+  assert.equal(aut.medBot, '2 min'); assert.equal(aut.medHum, null); assert.equal(aut.tempoN, 2);
+  assert.match(x.document.querySelector('#area-social').textContent, /2 com mediana válida/);
+  assert.match(x.document.querySelector('#area-social').textContent, /≈ 2 min · —/);
+  assert.match(x.document.querySelector('#area-social-num [data-m="tempo"]').textContent, /2 respostas com tempo/);
+  x.run('var socialGraphProof; cxgLinhas = (opts) => { socialGraphProof = opts; return "<svg></svg>"; }; estado.metricaSocial="tempo"; pintaGraficoSocialAba(estado.dados);');
+  const measured = x.run('socialGraphProof.series[0].pontos.filter(p => p.y !== null)');
+  assert.equal(measured[0].y, 120 / 3600); assert.equal(measured[0].n, '2 respostas com tempo');
+});
+
+test('Comentários sem tempos medidos mostra ausência; zero válido continua zero', async () => {
+  const x = await boot(fixture({ social: [{ marca: 'aristocrata', dia: '2026-09-07', total: 10, respondidos: 5 }],
+    social_tempo: [{ marca: 'aristocrata', dia: '2026-09-07', respondidos: 5, mediana_seg: null }],
+    social_autoria: [{ marca: 'aristocrata', dia: '2026-09-07', autoria: 'humano', n: 5, espera_mediana_seg: null }],
+  }), '?periodo=7d&marca=aristocrata');
+  const card = x.document.querySelector('#area-social-num [data-m="tempo"]');
+  assert.equal(card.querySelector('.six2-val').textContent, '—'); assert.match(card.textContent, /sem tempo medido/); card.click();
+  assert.match(x.document.querySelector('#g-social').textContent, /Sem resposta medida/);
+  assert.equal(x.run('socialTempoPar(0, 1)[0]'), 0); assert.equal(x.run('socialTempoPar(100, 0)'), null); assert.equal(x.run('socialTempoPar(100, 1.5)'), null);
+});

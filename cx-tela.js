@@ -797,7 +797,11 @@ function socialAgg(d, marcas, ini, fim) {
   const a = { total: 0, respondidos: 0, aguardando: 0, pos: 0, neg: 0, neu: 0, ocultos: 0, apagados: 0 };
   for (const l of d.social || []) { if (l.dia < ini || l.dia > fim || !marcas.includes(l.marca)) continue; for (const k of Object.keys(a)) a[k] += Number(l[k] || 0); }
   let num = 0, den = 0;
-  for (const t of d.social_tempo || []) { if (t.dia < ini || t.dia > fim || !marcas.includes(t.marca)) continue; num += Number(t.mediana_seg || 0) * Number(t.respondidos || 0); den += Number(t.respondidos || 0); }
+  for (const t of d.social_tempo || []) {
+    if (t.dia < ini || t.dia > fim || !marcas.includes(t.marca)) continue;
+    const par = socialTempoPar(t.mediana_seg, t.respondidos); if (!par) continue;
+    num += par[0] * par[1]; den += par[1];
+  }
   a.tempoSeg = den ? num / den : null; a.tempoN = den;
   a.clas = a.pos + a.neg + a.neu;
   a.pctResp = a.total ? (a.respondidos / a.total) * 100 : null; a.pctNeg = a.clas ? (a.neg / a.clas) * 100 : null;
@@ -812,13 +816,13 @@ function pintaSocialAba(d) {
   const cartoes = [
     { k: "total", rot: "Comentários", val: fmtNum(a.total), chip: chipHtml("respostas", a.total, an && an.total || null), sub: PER.rotulo + " · orgânico + anúncios", info: "Comentários novos em posts e anúncios da marca no Instagram e no Facebook." + porMarca((x) => fmtNum(x.total)) },
     { k: "resp", rot: "Respondidos pela marca", val: a.total ? fmtPct0(a.pctResp) : "—", status: a.total >= 10 ? (a.pctResp >= 80 ? "bom" : a.pctResp >= 50 ? "atencao" : "ruim") : null, chip: a.total ? cxChipPP("soc_resp", a.pctResp, an && an.total ? an.pctResp : null) : "", sub: a.total ? `${fmtNum(a.respondidos)} de ${fmtNum(a.total)}` : "",
-      info: "Comentários com resposta pública da conta da marca (bot da Replient ou pessoa). Faixa: ≥ 80% bom, 50–79% atenção." + porMarca((x) => x.total ? fmtPct0(x.pctResp) : "—") },
+      info: "Comentários com resposta pública da conta da marca; a fonte não identifica bot ou pessoa. Faixa: ≥ 80% bom, 50–79% atenção." + porMarca((x) => x.total ? fmtPct0(x.pctResp) : "—") },
     { k: "aguardando", rot: "Aguardando resposta", val: fmtNum(a.aguardando), status: a.total ? (a.aguardando === 0 ? "bom" : a.aguardando <= 5 ? "atencao" : "ruim") : null, chip: an ? cxChipPts(a.aguardando, an.aguardando, "baixo") : "", sub: "precisavam de resposta",
       info: "Comentários que pediam resposta (pergunta, reclamação, intenção de compra) e ainda não têm. Alvo é zero." + porMarca((x) => fmtNum(x.aguardando)) },
     { k: "neg", rot: "Negativos", val: a.clas ? fmtPct0(a.pctNeg) : "—", chip: a.clas ? cxChipPP("soc_neg", a.pctNeg, an && an.clas ? an.pctNeg : null) : "", sub: a.clas ? `${fmtNum(a.neg)} de ${fmtNum(a.clas)} classificados` : (a.total ? `${fmtNum(a.total)} na fila de classificação` : ""),
       info: "Fatia de comentários classificados como negativos (classificação própria, OpenAI). Positivo " + (a.clas ? fmtPct0((a.pos / a.clas) * 100) : "—") + " · neutro " + (a.clas ? fmtPct0((a.neu / a.clas) * 100) : "—") + "." + porMarca((x) => x.clas ? fmtPct0(x.pctNeg) : "—") },
-    { k: "tempo", rot: "Tempo até responder", val: a.tempoSeg !== null ? fmtDur(a.tempoSeg) : "—", chip: a.tempoSeg !== null && an ? cxChipDur(a.tempoSeg, an.tempoSeg) : "", sub: a.tempoN ? `mediana · ${fmtNum(a.tempoN)} respondidos` : "",
-      info: "Mediana do tempo entre o comentário e a resposta da marca, ponderada pelo volume do dia. Até 10 minutos é o bot da Replient; acima disso é pessoa." + porMarca((x) => x.tempoSeg !== null ? fmtDur(x.tempoSeg) : "—") },
+    { k: "tempo", rot: "Tempo até responder", val: a.tempoSeg !== null ? "≈ " + fmtDur(a.tempoSeg) : "—", chip: a.tempoSeg !== null && an ? cxChipDur(a.tempoSeg, an.tempoSeg) : "", sub: a.tempoN ? `estimativa · ${fmtNum(a.tempoN)} respostas com tempo` : "sem tempo medido",
+      info: "Estimativa do tempo entre o comentário e a resposta da marca: média das medianas diárias por marca, ponderada pelo número de respostas com tempo válido. Não é a mediana de todas as respostas do período. O tempo não comprova se foi bot ou pessoa." + porMarca((x) => x.tempoSeg !== null ? fmtDur(x.tempoSeg) : "—") },
   ];
   const rot = $("#social-rotulo");
   if (rot) rot.innerHTML = (!a.total ? cxTag("nenhum comentário no período", "nota") : "") + cxResumoStatus(cartoes);
@@ -838,9 +842,13 @@ function pintaGraficoSocialAba(d) {
     series: [{ nome: "Respondidos", cor: corHex(estado.marca), pontos: s.semanas.map((sem, i) => ({ y: s.total[i] ? (s.respondidos[i] / s.total[i]) * 100 : null, rot: "semana de " + fmtDia(sem), n: `${fmtNum(s.respondidos[i])} de ${fmtNum(s.total[i])}`, parcial: sem === segHoje })) }] }) };
   else if (k === "tempo") {
     const marcas = estado.marca === "todas" ? MARCAS : [estado.marca]; const acc = {};
-    for (const t of d.social_tempo || []) { if (t.dia < j.ini || t.dia > j.fim || !marcas.includes(t.marca)) continue; const sem = cxSegunda(t.dia); const x = acc[sem] || (acc[sem] = { num: 0, den: 0 }); x.num += Number(t.mediana_seg || 0) * Number(t.respondidos || 0); x.den += Number(t.respondidos || 0); }
-    r = { tit: "Tempo até responder · por semana", sub: "mediana em horas, ponderada pelo volume · até 10 min é o bot", html: cxgLinhas({ rotulosX, fmt: fmtHoras, aria: "Tempo de resposta por semana", vazio: "Sem resposta medida no intervalo.",
-      series: [{ nome: "Mediana", cor: corHex(estado.marca), pontos: s.semanas.map((sem) => ({ y: acc[sem] && acc[sem].den ? acc[sem].num / acc[sem].den / 3600 : null, rot: "semana de " + fmtDia(sem), n: acc[sem] ? `${fmtNum(acc[sem].den)} respondidos` : undefined, parcial: sem === segHoje })) }] }) };
+    for (const t of d.social_tempo || []) {
+      if (t.dia < j.ini || t.dia > j.fim || !marcas.includes(t.marca)) continue;
+      const par = socialTempoPar(t.mediana_seg, t.respondidos); if (!par) continue;
+      const sem = cxSegunda(t.dia); const x = acc[sem] || (acc[sem] = { num: 0, den: 0 }); x.num += par[0] * par[1]; x.den += par[1];
+    }
+    r = { tit: "Tempo até responder · estimativa por semana", sub: "horas · média ponderada das medianas diárias por marca · não é a mediana da semana", html: cxgLinhas({ rotulosX, fmt: fmtHoras, aria: "Estimativa do tempo de resposta por semana", vazio: "Sem resposta medida no intervalo.",
+      series: [{ nome: "Estimativa", cor: corHex(estado.marca), pontos: s.semanas.map((sem) => ({ y: acc[sem] && acc[sem].den ? acc[sem].num / acc[sem].den / 3600 : null, rot: "semana de " + fmtDia(sem), n: acc[sem] ? `${fmtNum(acc[sem].den)} respostas com tempo` : undefined, parcial: sem === segHoje })) }] }) };
   } else r = { tit: k === "aguardando" ? "Comentários · respondidos × sem resposta · por semana" : "Comentários · por semana", sub: "respondidos pela marca × sem resposta · orgânico + anúncios", html: cxgBarras({ rotulosX, fmt: fmtNum, aria: "Comentários por semana", vazio: "Sem comentário no intervalo.",
     series: [{ nome: "Respondidos pela marca", cor: corHex(estado.marca), valores: s.respondidos }, { nome: "Sem resposta", cor: "#c9463d", valores: s.semResposta }] }) };
   cxGraficoBloco("social", r);
