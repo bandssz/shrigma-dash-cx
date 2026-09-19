@@ -108,7 +108,7 @@ const GR={
     const campos=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto'];
     const c=Object.fromEntries(campos.map(k=>[k,r[k]===undefined||r[k]===null?'':String(r[k])]));
     c.exemplos=Object.fromEntries(Object.entries(r.exemplos||{}).filter(([k,v])=>/^\d+$/.test(k)&&typeof v==='string'));
-    c.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||''}));
+    c.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||'',...(b.exemplo_url!==undefined?{exemplo_url:b.exemplo_url}:{})}));
     return c;
   },
   exporta(r){
@@ -126,9 +126,9 @@ const GR={
     const textual=v=>v===undefined||v===null||['string','number','boolean'].includes(typeof v);
     if(permitidas.filter(k=>!['exemplos','botoes'].includes(k)).some(k=>!textual(r[k])))return {erro:'Arquivo inválido: campos de texto precisam conter valores simples.'};
     if(r.exemplos&&(typeof r.exemplos!=='object'||Array.isArray(r.exemplos)||Object.values(r.exemplos).some(v=>!textual(v))))return {erro:'Arquivo inválido: exemplos precisam conter texto.'};
-    if(Array.isArray(r.botoes)&&r.botoes.some(b=>!b||typeof b!=='object'||Array.isArray(b)||['tipo','texto','valor'].some(k=>!textual(b[k]))))return {erro:'Arquivo inválido: botões precisam conter texto.'};
+    if(Array.isArray(r.botoes)&&r.botoes.some(b=>!b||typeof b!=='object'||Array.isArray(b)||['tipo','texto','valor','exemplo_url'].some(k=>!textual(b[k]))))return {erro:'Arquivo inválido: botões precisam conter texto.'};
     const limpo={};permitidas.forEach(k=>{if(r[k]!==undefined)limpo[k]=r[k];});
-    limpo.botoes=Array.isArray(limpo.botoes)?limpo.botoes.filter(b=>b&&typeof b==='object').map(b=>({tipo:String(b.tipo||'quick_reply'),texto:String(b.texto||''),valor:String(b.valor||'')})).slice(0,GR.LIMITES.botoes):[];
+    limpo.botoes=Array.isArray(limpo.botoes)?limpo.botoes.filter(b=>b&&typeof b==='object').map(b=>({tipo:String(b.tipo||'quick_reply'),texto:String(b.texto||''),valor:String(b.valor||''),...(b.exemplo_url!==undefined?{exemplo_url:String(b.exemplo_url)}:{})})).slice(0,GR.LIMITES.botoes):[];
     limpo.exemplos=limpo.exemplos&&typeof limpo.exemplos==='object'?Object.fromEntries(Object.entries(limpo.exemplos).map(([k,v])=>[k,String(v)])):{};
     ['nome','peca','cabecalho','corpo','rodape','assunto','idioma'].forEach(k=>{if(limpo[k]!==undefined)limpo[k]=String(limpo[k]);});
     return {rascunho:GR.novo({...limpo,id:GR.id(),criado_em:typeof limpo.criado_em==='string'?limpo.criado_em:GR.agora()})};
