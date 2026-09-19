@@ -17,23 +17,26 @@ if (acao === 'revisar') {
   return [{ json: { acao, marca, autor, application_id, resultado, motivo_rejeicao, observacao: String(b.observacao || '').slice(0, 200) } }];
 }
 if (acao === 'regra') {
-  // campos editáveis pelo painel, com validação de faixa
-  const r = b.regra || {};
-  const num = (v, min, max) => { const n = Number(v); if (!Number.isFinite(n) || n < min || n > max) throw new Error('valor fora da faixa'); return n; };
+  const r = b.regra;
+  if (!r || typeof r !== 'object' || Array.isArray(r)) throw new Error('regra deve ser um objeto');
+  const ranges = { gmv_auto:[0,1e7], gmv_manual:[0,1e7], fulfillment_min:[0,100], teto_mensal:[0,10000],
+    cobranca_max_dia:[0,200], cobranca_max_tentativas:[1,20], cobranca_dias_entre:[1,120] };
+  const integers = ['teto_mensal','cobranca_max_dia','cobranca_max_tentativas','cobranca_dias_entre'];
   const out = {};
-  if (r.gmv_auto !== undefined) out.gmv_auto = num(r.gmv_auto, 0, 1e7);
-  if (r.gmv_manual !== undefined) out.gmv_manual = num(r.gmv_manual, 0, 1e7);
-  if (r.fulfillment_min !== undefined) out.fulfillment_min = num(r.fulfillment_min, 0, 100);
-  if (r.teto_mensal !== undefined) out.teto_mensal = Math.round(num(r.teto_mensal, 0, 10000));
-  if (r.modo !== undefined) { if (!['dry_run', 'ativo', 'pausado'].includes(r.modo)) throw new Error('modo invalido'); out.modo = r.modo; }
-  // cobranca_modo é separado de modo de propósito: mandar mensagem e decidir amostra são riscos
-  // diferentes e ligar um não pode ligar o outro sem querer.
-  if (r.cobranca_modo !== undefined) { if (!['dry_run', 'ativo', 'pausado'].includes(r.cobranca_modo)) throw new Error('cobranca_modo invalido'); out.cobranca_modo = r.cobranca_modo; }
-  if (r.cobranca_max_dia !== undefined) out.cobranca_max_dia = Math.round(num(r.cobranca_max_dia, 0, 200));
-  if (r.cobranca_max_tentativas !== undefined) out.cobranca_max_tentativas = Math.round(num(r.cobranca_max_tentativas, 1, 20));
-  if (r.cobranca_dias_entre !== undefined) out.cobranca_dias_entre = Math.round(num(r.cobranca_dias_entre, 1, 120));
-  if (out.gmv_auto !== undefined && out.gmv_manual !== undefined && out.gmv_manual > out.gmv_auto) throw new Error('gmv_manual nao pode ser maior que gmv_auto');
+  for (const [k,v] of Object.entries(r)) {
+    if (['modo','cobranca_modo'].includes(k)) {
+      if (typeof v !== 'string' || !['dry_run','ativo','pausado'].includes(v)) throw new Error('modo invalido');
+    } else {
+      if (!Object.hasOwn(ranges,k)) throw new Error('campo de regra nao editavel');
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < ranges[k][0] || v > ranges[k][1]
+          || integers.includes(k) && !Number.isInteger(v)) throw new Error('limite numerico invalido');
+    }
+    out[k] = v;
+  }
   if (!Object.keys(out).length) throw new Error('nada para alterar');
-  return [{ json: { acao, marca, autor, regra: out } }];
+  const expected = b.esperado_atualizado_em;
+  if (expected !== undefined && (typeof expected !== 'string' || !expected.trim())) throw new Error('versao invalida');
+  // Cross-field and activation checks run against the locked current row in PostgreSQL.
+  return [{ json: { acao, marca, autor, regra: out, esperado_atualizado_em: expected ?? null } }];
 }
 throw new Error('acao desconhecida');

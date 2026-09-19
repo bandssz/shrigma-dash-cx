@@ -19,6 +19,22 @@
     filtra(arr, marca) { return (arr || []).filter(x => marca === 'todas' || x.marca === marca); },
     soma(arr, k) { return (arr || []).reduce((a, x) => a + (+x[k] || 0), 0); },
 
+    // The complete rule contains the exact database timestamp; do not round it through Date.
+    pedidoRegra(base, campos) {
+      if (!base || !base.marca || typeof base.atualizado_em !== 'string' || !base.atualizado_em) throw new Error('Recarregue a regra antes de salvar.');
+      const regra = {};
+      for (const [k,v] of Object.entries(campos)) {
+        if (typeof v === 'number' ? Number(base[k]) !== v : base[k] !== v) regra[k] = v;
+      }
+      if (!Object.keys(regra).length) throw new Error('Nenhuma alteração para salvar.');
+      return {acao:'regra',marca:base.marca,regra,esperado_atualizado_em:base.atualizado_em};
+    },
+    regraRecebida(dados, atual) {
+      if (!dados || !atual || !TTS.MARCAS.includes(atual.marca) || !atual.atualizado_em) return dados;
+      const update = rows => (rows || []).map(r => r.marca === atual.marca ? {...r,...atual} : r);
+      return {...dados,regra:update(dados.regra),cobranca_regra:update(dados.cobranca_regra)};
+    },
+
     // KPIs do topo da aba. Percentuais só com base >= 30 pedidos (regra do painel).
     kpis(p, marca) {
       const k = TTS.filtra(p.kpis, marca), a = TTS.filtra(p.amostras, marca);
@@ -282,6 +298,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const k = chaveEscritaTTS(); if (!k) throw new Error('sem chave de escrita');
     const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...corpo, k, autor: autorTTS() }) });
     const j = await r.json().catch(() => ({}));
+    if (corpo.acao === 'regra' && j.regra_atual) {
+      DADOS = TTS.regraRecebida(DADOS,j.regra_atual);
+      if (!r.ok || !j.ok) {
+        renderPane();
+        const aviso = document.createElement('div'); aviso.className = 'nota'; aviso.setAttribute('role','alert');
+        aviso.textContent = (j.erro || j.mensagem || 'Alteração recusada.') + ' A regra atual foi exibida para revisão.';
+        $('#tts-area')?.prepend(aviso);
+      }
+    }
     if (!r.ok || !j.ok) { if (/chave/i.test(j.erro || '')) { try { localStorage.removeItem('shrigma_tts_wkey'); } catch (e) {} } throw new Error(j.erro || j.mensagem || ('HTTP ' + r.status)); }
     return j;
   }
@@ -487,30 +512,29 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
       <td class="msg" title="${esc(x.texto || '')}">${esc((x.texto || '').split('\n')[0])}</td>
       <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`);
-    $('#tts-area').innerHTML = topo + `${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : ''}<div class="rolagem"><table class="comparativo">
+    $('#tts-area').innerHTML = topo + `<div class="nota">Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.</div>${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : ''}<div class="rolagem"><table class="comparativo">
       <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num" title="qual toque da régua">Toque</th>
         <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
         <th>Mensagem <span class="mini">passe o mouse para ler inteira</span></th><th>Quando</th></tr></thead>
       <tbody>${dobra(linhas, 12, 'todos os toques')}</tbody></table></div>
-      <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Ligar a cobrança</h3>
+      <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Configuração da cobrança</h3>
         <span class="mini">${c.modo === 'ativo' ? `até ${c.tetoDia} por dia · ${c.pendentes} na fila`
           : `${c.simuladas} prontas, nenhuma enviada · ${c.pendentes} devendo conteúdo`}</span></div>
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Cobrança</th><th class="num">Máx/dia</th><th class="num" title="quantas vezes cobrar a mesma pessoa">Toques</th><th class="num" title="dias entre um toque e o próximo">Intervalo</th><th></th></tr></thead><tbody>
       ${TTS.filtra(DADOS.cobranca_regra || [], m).map(r => `<tr data-marca="${esc(r.marca)}">
         <td>${tag(r.marca)}</td>
-        <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="simulação grava a mensagem e não envia nada; ativo envia de verdade, respeitando o teto — e lê a conversa antes: quem respondeu ou está conversando não recebe robô">${['dry_run', 'ativo', 'pausado'].map(o => `<option value="${o}" ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
+        <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="Ativação indisponível enquanto as guardas de envio estiverem pendentes.">${['dry_run', 'pausado'].concat(r.cobranca_modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${o === 'ativo' ? 'disabled' : ''} ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="5" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_tentativas" value="${esc(r.cobranca_max_tentativas)}" step="1" min="1" style="width:80px" title="quantas vezes cobrar a mesma pessoa antes de parar"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_dias_entre" value="${esc(r.cobranca_dias_entre)}" step="1" min="1" style="width:80px" title="dias de espera entre um toque e o próximo"></td>
         <td><button class="btn tts-btn tts-salvar-cob">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}
       </tbody></table></div>`;
+    const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar-cob').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
       tr.querySelectorAll('.tts-c').forEach(el => { regra[el.dataset.campo] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
-      // confirmação extra quando o clique liga o envio real: daqui sai mensagem em nome da marca
-      const liga = regra.cobranca_modo === 'ativo';
-      armar(b, liga ? 'Enviar de verdade?' : 'Confirmar?', async () => {
-        const j = await acaoTTS({ acao: 'regra', marca: tr.dataset.marca, regra });
+      armar(b, 'Confirmar?', async () => {
+        const j = await acaoTTS(TTS.pedidoRegra(regrasLidas.get(tr.dataset.marca),regra));
         msg.textContent = j.mensagem || 'ok'; b.disabled = false; b.textContent = 'Salvar';
         await carregarTTS();
       });
@@ -645,18 +669,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <th class="num" title="abaixo disto (e acima de 0%) rejeita; 0% não penaliza">Postagem mín. %</th><th class="num" title="amostras aprovadas por mês (auto + manual) antes de tudo virar fila manual">Teto/mês</th>
       <th title="variantes que podem virar amostra: padrão (regex sobre título | variante) e/ou lista explícita de sku_id">SKUs permitidos</th><th>Atualizado</th><th></th></tr></thead><tbody>
       ${rs.map(r => `<tr data-marca="${esc(r.marca)}"><td>${tag(r.marca)}</td>
-        <td><select class="i-sel tts-r" data-campo="modo" title="a decisão de amostra é manual: o painel só liga simulação ou pausado. Ligar o automático é decisão do Felipe, direto em crm_tts_regra.modo">${['dry_run', 'pausado'].concat(r.modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
+        <td><select class="i-sel tts-r" data-campo="modo" title="Aprovação automática indisponível enquanto as guardas de concorrência estiverem pendentes.">${['dry_run', 'pausado'].concat(r.modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${o === 'ativo' ? 'disabled' : ''} ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num">${inp(r, 'gmv_auto', 500, 'R$, GMV 30d')}</td><td class="num">${inp(r, 'gmv_manual', 500, 'R$, GMV 30d')}</td>
         <td class="num">${inp(r, 'fulfillment_min', 1, '% de amostras postadas em 90 dias')}</td><td class="num">${inp(r, 'teto_mensal', 5, 'amostras por mês')}</td>
         <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
         <td><button class="btn tts-btn tts-salvar">Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
-      <div class="nota">Aprovar e rejeitar amostra é <strong>manual</strong> — pelos botões da fila. A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Ligar o automático e alterar o padrão de SKU são tarefas de banco (<code>crm_tts_regra.modo</code> e <code>.sku_regex</code>).</div>`;
+      <div class="nota">Aprovar e rejeitar amostra é <strong>manual</strong> — pelos botões da fila. A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</div>`;
+    const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
       tr.querySelectorAll('.tts-r').forEach(el => { regra[el.dataset.campo] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
       armar(b, 'Confirmar?', async () => {
-        const j = await acaoTTS({ acao: 'regra', marca: tr.dataset.marca, regra });
+        const j = await acaoTTS(TTS.pedidoRegra(regrasLidas.get(tr.dataset.marca),regra));
         msg.textContent = j.mensagem || 'ok'; b.disabled = false; b.textContent = 'Salvar';
         await carregarTTS();
       });
