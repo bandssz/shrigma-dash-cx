@@ -27,13 +27,13 @@ async function boot(payload=fixture(),opts={}){
  let focado=null;window.HTMLElement.prototype.focus=function(){focado=this;};window.HTMLElement.prototype.blur=function(){focado=null;};
  Object.defineProperty(document,'activeElement',{configurable:true,get(){return focado&&focado.isConnected?focado:document.body;}});
  window.HTMLElement.prototype.getBoundingClientRect=function(){return {top:0,width:1200,height:100};};
- const store=new Map([['shrigma_k_growth','synthetic-test-key']]);
+ const store=new Map(opts.noReadKey?[]:[['shrigma_k_growth','synthetic-test-key']]);
  const requests=[],downloads=[],hashes=[],calls=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
  const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,console,__downloads:downloads,
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
- Blob:class{constructor(parts){this.text=parts.join('');}},prompt:()=>null,confirm:()=>false,
+ Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
  addEventListener:()=>{},setInterval:()=>0,clearInterval:()=>{},setTimeout,clearTimeout,
  fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}return {status:code,ok:code>=200&&code<300,json:async()=>structuredClone(response)};},});
  for(const script of document.querySelectorAll('script')){
@@ -686,4 +686,29 @@ test('email preview opens isolated HTML with devices, images opt-in and restored
  const images=modal.querySelector('[data-mp-images]');images.checked=true;images.dispatchEvent(new x.window.Event('change'));assert.match(modal.querySelector('iframe').getAttribute('srcdoc'),/img-src https:/);
  modal.querySelector('[data-mp-close]').click();assert.equal(x.document.querySelector('#message-preview-dialog'),null);assert.equal(x.document.activeElement,open);
  assert.equal(x.requests.length,1);
+});
+
+
+test('Growth opens an accessible inline key form when prompt is unavailable, and submits with Enter semantics',async()=>{
+ const x=await boot(fixture(),{noReadKey:true,prompt:()=>{throw Error('prompt() is not supported');}});
+ assert.equal(x.run('LOADING'),false);assert.equal(x.requests.length,0);assert.equal(x.document.querySelector('#load-state').hidden,true);
+ const form=x.document.querySelector('#growth-acesso'),field=x.document.querySelector('#growth-chave');
+ assert.equal(form.hidden,false);assert.equal(field.getAttribute('type'),'password');assert.equal(x.document.activeElement,field);
+ assert.equal(x.document.querySelector('label[for="growth-chave"]').textContent,'Chave de acesso');
+ let prevented=0;await form.onsubmit({preventDefault(){prevented++;}});assert.equal(x.requests.length,0);assert.match(x.document.querySelector('#growth-acesso-msg').textContent,/Informe/);
+ field.value='  synthetic-inline&key  ';await form.onsubmit({preventDefault(){prevented++;}});
+ assert.equal(prevented,2);assert.equal(field.value,'');assert.equal(form.hidden,true);assert.equal(x.run('LOADING'),false);
+ assert.equal(x.requests.length,1);const url=new URL(x.requests[0]);assert.equal(url.searchParams.get('k'),'synthetic-inline&key');assert.equal(url.searchParams.get('painel'),'growth');
+ assert.equal(x.store.get('shrigma_k_growth'),'synthetic-inline&key');assert.equal(x.document.querySelector('#load-state').hidden,true);
+ assert.ok(x.document.querySelectorAll('#area-kpis .kpi-val').length>0,'real render functions paint fixture data');
+ assert.ok(x.hashes.every(h=>!h.includes('synthetic-inline')),'key never enters page navigation');
+});
+test('Growth keeps a session key when storage cannot persist it and reopens inline access on401/403',async()=>{
+ for(const status of [401,403]){
+  const x=await boot(fixture(),{noReadKey:true,prompt:()=>{throw Error('unsupported');}});
+  x.run('shrigmaGuardaChave=()=>{}');const form=x.document.querySelector('#growth-acesso'),field=x.document.querySelector('#growth-chave');
+  field.value='synthetic-session-only';await form.onsubmit({preventDefault(){}});assert.equal(x.store.has('shrigma_k_growth'),false);assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.run('chave()'),'synthetic-session-only');
+  x.setResponse({},status);await x.run('carregar()');assert.equal(form.hidden,false);assert.equal(x.run('chave()'),'');assert.equal(x.run('LOADING'),false);assert.equal(field.value,'');
+  assert.match(x.document.querySelector('#growth-acesso-msg').textContent,/recusada/);assert.equal(x.document.querySelector('#btn-atualizar').disabled,false);
+ }
 });

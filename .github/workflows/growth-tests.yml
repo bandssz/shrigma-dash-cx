@@ -6,6 +6,7 @@ on:
       - 'organico*'
       - 'influs*'
       - 'campaign-contract.js'
+      - 'whatsapp-template-contract.js'
       - '_config.yml'
       - 'cx*'
       - 'index.html'
