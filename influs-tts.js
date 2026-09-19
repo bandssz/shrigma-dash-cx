@@ -84,6 +84,21 @@
     // Canal (Shop Analytics): a loja inteira por dia, não só afiliado. Soma as marcas quando a visão é 'todas'.
     // Regra de leitura: gmv_afiliado vem dos pedidos de afiliado (crm_tts_pedido); live/vídeo/vitrine vem da
     // plataforma. São cortes DIFERENTES do mesmo GMV — uma live de afiliado conta nos dois. Não somar entre cortes.
+    conciliacaoOrigem(rows, marca) {
+      const numero = v => (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isFinite(Number(v)) ? Number(v) : null;
+      const soma = k => rows.length && rows.every(r => numero(r[k]) !== null) ? rows.reduce((s, r) => s + numero(r[k]), 0) : null;
+      const esperadas = marca === 'todas' ? TTS.MARCAS : [marca];
+      const contrato = rows.length > 0 && esperadas.every(m => rows.some(r => r.marca === m)) && rows.every(r => r.origem_modelo === 'analytics_total_menos_pedidos_afiliados' && ['saldo_calculado', 'divergente', 'indisponivel'].includes(r.origem_estado));
+      if (!contrato) return { contrato: false, estado: 'indisponivel', saldo: null, ajuste: null, ajusteAbsoluto: null, diasDivergentes: null, diasIndisponiveis: null };
+      const diasDivergentes = soma('origem_dias_divergentes'), diasIndisponiveis = soma('origem_dias_indisponiveis');
+      const divergente = rows.some(r => r.origem_estado === 'divergente') || diasDivergentes > 0;
+      const indisponivel = rows.some(r => r.origem_estado === 'indisponivel') || diasIndisponiveis === null || diasIndisponiveis > 0 || diasDivergentes === null;
+      const saldo = soma('gmv_saldo_nao_afiliado');
+      return { contrato: true, estado: divergente ? 'divergente' : indisponivel || saldo === null ? 'indisponivel' : 'saldo_calculado',
+        saldo: divergente || indisponivel ? null : saldo,
+        ajuste: indisponivel ? null : soma('gmv_ajuste_origem'), ajusteAbsoluto: indisponivel ? null : soma('gmv_ajuste_origem_absoluto'),
+        diasDivergentes, diasIndisponiveis };
+    },
     canal(p, marca, hoje) {
       const dias = TTS.filtra(p.canal || [], marca);
       const tot = TTS.filtra(p.canal_total || [], marca);
@@ -105,6 +120,7 @@
       const melhor = serie.reduce((m, x) => (!m || x.gmv > m.gmv ? x : m), null);
       return {
         temDados: tot.length > 0, dias: serie.length,
+        origem: TTS.conciliacaoOrigem(tot, marca), origemLinhas: dias,
         gmv, pedidos: ped, visitantes: vis, reembolso: soma('reembolso'),
         live: soma('gmv_live'), video: soma('gmv_video'), vitrine: soma('gmv_vitrine'),
         afiliado: soma('gmv_afiliado'), proprio: soma('gmv_proprio'), ads: soma('gmv_ads'),
@@ -505,12 +521,22 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   // Aba Canal: a loja inteira (Shop Analytics), para responder "quanto do que vendemos veio de afiliado,
   // de live, de vídeo, de ads?" — e para ver o que uma live faz com o dia.
   const pctOu = (v, d) => (v === null || v === undefined) ? '—' : pf(+v, d ?? 0);
+  const moedaOrigem = v => (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isFinite(Number(v)) ? Number(v).toLocaleString('pt-BR', {style:'currency',currency:'BRL'}) : 'indisponível';
+  function resumoOrigemCanal(c) {
+    const o = c.origem, rot = {saldo_calculado:'Saldo calculado',divergente:'Fontes divergentes',indisponivel:'Conciliação indisponível'};
+    const aviso = !o.contrato ? 'Esta consulta ainda não confirma o contrato de conciliação para todas as marcas selecionadas.' : o.estado === 'divergente' ? 'Há dias em que as fontes não conciliam. O saldo não afiliado permanece indisponível.' : o.estado === 'indisponivel' ? 'Falta componente necessário em parte do período. Ausência não é receita zero.' : 'O saldo é total da loja menos pedidos de afiliados. Não comprova venda própria atribuída.';
+    return `<div class="nota" role="status"><strong>${rot[o.estado]}.</strong> ${aviso} Shop Analytics e pedidos de afiliados são fontes distintas; não somar seus valores. GMV Max e live/vídeo/vitrine são outros cortes.</div>
+      <details class="nota"><summary>Conferir conciliação de origem</summary><p>Saldo não afiliado: <strong>${moedaOrigem(o.saldo)}</strong>. Diferença assinada: ${moedaOrigem(o.ajuste)}. Soma das diferenças absolutas por dia: ${moedaOrigem(o.ajusteAbsoluto)}.</p>
+      <p>${nf(o.diasDivergentes)} dia(s) × marca divergentes; ${nf(o.diasIndisponiveis)} sem componente confirmado. Diferença é ajuste de conciliação, não receita, reembolso ou crédito atribuído. Ausência de linha não comprova cobertura do período. “Próprio anterior” preserva o campo histórico apenas para auditoria.</p>
+      <div class="rolagem" tabindex="0" role="region" aria-label="Conciliação de origem por dia e marca"><table class="comparativo"><thead><tr><th>Dia / marca</th><th>Total da loja</th><th>Afiliado</th><th>Próprio anterior</th><th>Saldo calculado</th><th>Diferença</th><th>Estado</th></tr></thead><tbody>${c.origemLinhas.map(r => `<tr><td>${esc(String(r.dia||'').slice(0,10))}<br>${esc(r.marca)}</td><td>${moedaOrigem(r.gmv)}</td><td>${moedaOrigem(r.gmv_afiliado)}</td><td>${moedaOrigem(r.gmv_proprio)}</td><td>${moedaOrigem(r.gmv_saldo_nao_afiliado)}</td><td>${moedaOrigem(r.gmv_ajuste_origem)}</td><td>${esc(rot[r.origem_estado]||'Conciliação indisponível')}</td></tr>`).join('')||'<tr><td colspan="7">Sem linhas diárias disponíveis.</td></tr>'}</tbody></table></div></details>`;
+  }
   function cardsCanal() {
     const m = marcaAtual(), c = TTS.canal(DADOS, m), j = DADOS.janela || {};
     if (!c.temDados) return '';
     const cards = [
       { r: 'GMV da loja', v: rf(c.gmv), s: `${nf(c.pedidos)} pedidos · ticket ${rf(c.ticket)} · ${j.ini} a ${j.fim}`, t: 'GMV total da loja no TikTok Shop (plataforma), todas as origens' },
-      { r: 'Veio de afiliado', v: pctOu(c.pctAfiliado), s: `${rf(c.afiliado)} afiliado · ${rf(c.proprio)} próprio`, t: 'GMV dos pedidos com criador afiliado (crm_tts_pedido) sobre o GMV total da loja' },
+      { r: 'GMV de afiliados', v: rf(c.afiliado), s: `${pctOu(c.pctAfiliado)} do total da loja · comparação de fontes`, t: 'Pedidos de afiliados e total da loja vêm de fontes distintas. Divergências permanecem explícitas, sem limitar artificialmente o valor a 100%.' },
+      { r: 'Saldo não afiliado · calculado', v: c.origem.saldo === null ? '—' : moedaOrigem(c.origem.saldo), s: c.origem.estado === 'saldo_calculado' ? 'total menos afiliados · não é venda própria atribuída' : 'indisponível · conferir conciliação de origem', t: 'Só calculado quando todos os dias conhecidos conciliam. Não substitui atribuição de venda própria.' },
       { r: 'Live · Vídeo · Vitrine', v: `${pctOu(c.pctLive)} <span class="mini">live</span>`, s: `${pctOu(c.pctVideo)} vídeo · ${pctOu(c.pctVitrine)} vitrine/link`, t: 'corte da plataforma por tipo de conteúdo que gerou o pedido — inclui lives e vídeos de afiliados' },
       { r: 'GMV Max (ads TikTok)', v: pctOu(c.pctAds, 1), s: c.ads ? `${rf(c.ads)} com ads da própria TikTok` : 'sem GMV Max na janela', t: 'parte da receita bruta que a plataforma marca como GMV Max' },
       { r: 'Conversão', v: pctOu(c.conversao, 2), s: `${nf(c.visitantes)} visitantes · reembolso ${rf(c.reembolso)}`, t: 'pedidos / visitantes únicos da loja (plataforma)' },
@@ -531,7 +557,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!c.temDados) { $('#tts-area').innerHTML = '<div class="vazio"><strong>Sem dado de canal nesta janela.</strong><br>O coletor de canal roda às 04:10 e depende do escopo Shop Analytics em cada loja — veja a faixa de autorização no topo.</div>'; return; }
     const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
     // barras empilhadas por dia (live / vídeo / vitrine) — SVG inline, sem biblioteca
-    let html = graficoCanal(c.serie);
+    let html = resumoOrigemCanal(c) + graficoCanal(c.serie);
 
     // lives — por evento (sessões agrupadas), com sessões e produtos ao clicar
     const ev = c.eventos, evVenda = ev.filter(e => e.gmv > 0).length, emFech = ev.filter(e => e.emFechamento && e.gmv > 0).length;

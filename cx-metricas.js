@@ -553,6 +553,8 @@ function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-M
   const a = { casos: 0, concedidos: 0, negados: 0, andamento: 0, valorConcedido: 0, valorPedidoConcedido: 0, valorAndamento: 0, n1: 0, n2: 0, n3: 0, valorN1: 0, valorN2: 0, valorN3: 0, semValor: 0,
     receita: 0, pedidos: 0, diasReceita: 0, dias: 0, meses: new Set(), marcas: new Set(), coletadoEm: null, receitaFaltando: false, diasAtePagarN: 0 };
   const pagar = [];   // [mediana do mês, n] → mediana ponderada de dias entre abrir o caso e o financeiro pagar
+  const presentes = new Set();
+  const numero = v => (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isFinite(Number(v)) ? Number(v) : null;
   for (const l of rows || []) {
     const mes = cxMesYmd(l.mes);
     if (f.marcas && !f.marcas.includes(l.marca)) continue;
@@ -563,10 +565,23 @@ function concessaoAgg(rows, f) {   // f: {marcas:[...], mesIni, mesFim} ('YYYY-M
     a.valorConcedido += n("valor_concedido"); a.valorPedidoConcedido += n("valor_pedido_concedido"); a.valorAndamento += n("valor_andamento");
     a.n1 += n("n1"); a.n2 += n("n2"); a.n3 += n("n3"); a.valorN1 += n("valor_n1"); a.valorN2 += n("valor_n2"); a.valorN3 += n("valor_n3"); a.semValor += n("concedidos_sem_valor");
     a.pedidos += n("pedidos"); a.diasReceita += n("dias_receita"); a.dias += n("dias");
-    if (l.receita === null || l.receita === undefined || n("dias_receita") < n("dias")) a.receitaFaltando = true;   // mês com dia sem receita: % vira "—"
-    a.receita += n("receita");
+    const receita = numero(l.receita), dias = numero(l.dias), diasReceita = numero(l.dias_receita);
+    if (receita === null || !Number.isInteger(dias) || dias <= 0 || !Number.isInteger(diasReceita) || diasReceita !== dias) a.receitaFaltando = true;
+    a.receita += receita === null ? 0 : receita; // subtotal conhecido; nunca libera % se faltar receita
+    presentes.add(l.marca + '|' + mes);
     a.meses.add(mes); a.marcas.add(l.marca);
     if (l.coletado_em && (!a.coletadoEm || l.coletado_em > a.coletadoEm)) a.coletadoEm = l.coletado_em;
+  }
+  // Uma marca/mes ausente nao e um mes com receita zero. Usa o calendario da
+  // fonte (dias/dias_receita), sem impor 30/31 dias ao mes corrente.
+  const meses = [...a.meses].sort(), marcas = f.marcas || [...a.marcas];
+  const inicio = f.mesIni ? cxMesYmd(f.mesIni) : meses[0], fim = f.mesFim ? cxMesYmd(f.mesFim) : meses[meses.length - 1];
+  if (!meses.length) a.receitaFaltando = true;
+  for (let mes = inicio; mes && fim && mes <= fim;) {
+    if (marcas.some(m => !presentes.has(m + '|' + mes))) a.receitaFaltando = true;
+    const proximo = new Date(mes + 'T12:00:00Z');
+    if (!Number.isFinite(proximo.getTime())) { a.receitaFaltando = true; break; }
+    proximo.setUTCMonth(proximo.getUTCMonth() + 1); mes = proximo.toISOString().slice(0, 10);
   }
   const concluidos = a.concedidos + a.negados;
   return Object.assign(a, { meses: [...a.meses].sort(), marcas: [...a.marcas], total: a.valorConcedido,
