@@ -2,7 +2,8 @@
 // 'regra' só monta o UPDATE de crm_tts_regra. Sempre devolve { ok, mensagem, sql }.
 const helpers = this.helpers;
 const APP_KEY = '6ks1ed1nu6tke';
-const APP_SECRET = '28756b9cdbbfb5d1f830ca41c352508832660af8';
+const APP_SECRET = '__SERVER_ONLY_TIKTOK_SHOP_SECRET__';
+if (APP_SECRET.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const BASE = 'https://open-api.tiktokglobalshop.com';
 const CIPHER = { aristo: 'ROW_ClybuQAAAADyU2UHVmE1Tp9Bh09-VkFd', fish: 'ROW_zJ-uoAAAAAAaYEj8VRveXGiGC8P_ChU_' };
 const LOJA = { aristo: 'aristocrata', fish: 'fishermans' };

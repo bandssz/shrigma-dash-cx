@@ -8,7 +8,8 @@
 // única deixa de que reautorizar as lojas vale a pena agora.
 const helpers = this.helpers;
 const APP_KEY = '6ks1ed1nu6tke';
-const APP_SECRET = '28756b9cdbbfb5d1f830ca41c352508832660af8';
+const APP_SECRET = '__SERVER_ONLY_TIKTOK_SHOP_SECRET__';
+if (APP_SECRET.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const BASE = 'https://open-api.tiktokglobalshop.com';
 // ---- HMAC-SHA256 em JS puro (o Code node do n8n não permite o módulo crypto). Saída em hex. ----
 // Implementação padrão FIPS 180-4; validada contra o módulo crypto do Node antes de ir pro n8n.

@@ -4,7 +4,8 @@
 // as contas de anúncio autorizadas e casamos cada uma com a loja (shop_id) para virar 'marca'.
 const helpers = this.helpers;
 const APP_ID = '7634837098909941761';
-const SECRET = 'd017e3b38c0adcc8e4c9f2d96ae52e1f4ce33dd5';
+const SECRET = '__SERVER_ONLY_TIKTOK_ADS_SECRET__';
+if (SECRET.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const BASE = 'https://business-api.tiktok.com/open_api/v1.3';
 const SHOP_MARCA = { '7496187684176366275': 'fish', '7494118898942707364': 'aristo' };   // shop_id da Shop API → marca
 const q = s => (s === null || s === undefined) ? 'NULL' : "'" + String(s).split("'").join("''") + "'";

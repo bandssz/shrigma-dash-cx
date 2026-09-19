@@ -1,6 +1,7 @@
 // API de AÇÃO do painel de afiliados TikTok. Só com a chave de ESCRITA (própria, não mora no repo):
 // a chave de leitura fica no localStorage de quem abre o painel e não pode aprovar amostra nem mudar regra.
-const ESCRITA = 'shrigma-tts-escrita-7d2f9a4c1e';
+const ESCRITA = '__SERVER_ONLY_TIKTOK_WRITE_KEY__';
+if (ESCRITA.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const b = $json.body || {};
 if (String(b.k || '') !== ESCRITA) throw new Error('chave invalida');
 const acao = String(b.acao || '');

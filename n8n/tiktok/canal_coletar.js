@@ -66,7 +66,8 @@ function hmacSha256Hex(key, msg) {
 }
 
 const APP_KEY = '6ks1ed1nu6tke';
-const APP_SECRET = '28756b9cdbbfb5d1f830ca41c352508832660af8';
+const APP_SECRET = '__SERVER_ONLY_TIKTOK_SHOP_SECRET__';
+if (APP_SECRET.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const BASE = 'https://open-api.tiktokglobalshop.com';
 const TOP_VIDEOS = 200;              // 2 páginas de 100; abaixo disso é GMV zero na prática
 const LOJAS = {

@@ -232,8 +232,8 @@
     <div class="painel-cab"><div class="cab-titulo"><h2>Por que o cliente devolve <span class="info" title="Motivo escolhido pelo cliente ao abrir a reversa no portal (últimos 3 meses fechados + mês atual), por marca. 'Recebi um produto diferente' é erro de expedição, não decisão do cliente.">ⓘ</span></h2></div></div>
     <div id="area-trocas-motivo"></div>
   </section>
-  <!-- 7. Custo de concessão sobre receita (16/09): reembolsos do ClickUp + estornos do Troque ÷ receita Shopify. Meta do Head de CX. -->
-  <div class="secao-rot">Concessão sobre receita <span class="info" title="Quanto a marca devolveu ao cliente por decisão do atendimento, como % da receita Shopify do mês. Numerador: reembolsos registrados no ClickUp (lista Reembolsos) que o financeiro já executou. Denominador: total de vendas do mês (Shopify Analytics). Grão mensal, por marca. Caso em andamento fica em 'pendente' até o pagamento. Só ClickUp de propósito: estorno da Shopify inclui cancelamento de pedido que não passou pelo CX. Sem dado pessoal do cliente.">ⓘ</span>
+  <!-- 7. Custo de concessão sobre receita: reembolsos pagos do ClickUp ÷ receita dos pedidos pagos e não cancelados na Shopify (regra de 18/09). -->
+  <div class="secao-rot">Concessão sobre receita <span class="info" title="Quanto a marca devolveu ao cliente por decisão do atendimento, como % da receita de pedidos pagos registrada na Shopify. Numerador: casos abertos no mês no ClickUp (lista Reembolsos) cujo reembolso o financeiro já executou. Denominador: soma dos valores atuais dos pedidos não cancelados criados no mês, com status pago, parcialmente estornado ou estornado, nas duas marcas. Grão mensal, por marca. Caso em andamento fica em 'pendente' até o pagamento. Só ClickUp de propósito: estorno da Shopify inclui cancelamento de pedido que não passou pelo CX. Sem dado pessoal do cliente.">ⓘ</span>
     <span id="concessao-rotulo" class="cab-tags"></span>
   </div>
   <section class="seis" id="area-concessao-num" aria-label="Números de concessão sobre receita"></section>
@@ -277,7 +277,7 @@
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="dados.js?v=20260912a"></script>
-<script src="cx-metricas.js?v=20260918b"></script>
+<script src="cx-metricas.js?v=20260919-csat"></script>
 <script src="cx-graficos.js?v=20260918b"></script>
 <script src="app.js?v=20260918b"></script>
 <script src="cx-tela.js?v=20260918b"></script>
