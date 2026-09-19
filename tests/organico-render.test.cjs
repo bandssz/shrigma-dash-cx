@@ -29,7 +29,7 @@ function boot(linhas=[]){
 }
 const row=(overrides={})=>({dia:'2026-09-19',marca:'aristocrata',rede:'instagram',utm_medium:'social',
  superficie_utm:'story',produto_utm:'produto-teste',receita_ultimo:100,pedidos_ultimo:1,...overrides});
-function receitaCard(x){return x.elements.get('#area-kpis').innerHTML.split('Receita de story · reels · post')[1];}
+function receitaCard(x){return x.elements.get('#area-kpis').innerHTML.split('Receita histórica de story · reels · post')[1];}
 
 test('KPI editorial exclui DM, bio e superficie desconhecida sem retirar essas linhas de Venda',()=>{
  const linhas=[row(),row({utm_medium:'dm',receita_ultimo:200}),row({utm_medium:'dm-automation',receita_ultimo:300}),
@@ -74,4 +74,17 @@ test('leitura do painel sempre solicita escopo organico e codifica a chave sem a
  assert.equal(url.searchParams.get('painel'),'organico');
  assert.equal(url.searchParams.get('k'),'synthetic-key&other=x');
  assert.equal(url.searchParams.get('other'),null);
+});
+
+test('agenda uma unica leitura a cada dez minutos e ignora os ciclos com aba oculta',()=>{
+ const timers=[],document={hidden:false};let calls=0;
+ const context=vm.createContext({document,setInterval:(fn,ms)=>timers.push({fn,ms}),carrega:()=>{calls++;},
+  $:()=>({textContent:''}),Date,REFRESH_SEG:1});
+ vm.runInContext(trecho("setInterval(()=>{$('#relogio')",'</script>'),context);
+ assert.equal(calls,1,'a carga inicial continua imediata');
+ assert.deepEqual(timers.map(t=>t.ms),[1000,600000],'a configuracao global nao acelera a leitura local');
+ const refresh=timers[1].fn;
+ document.hidden=true;refresh();refresh();assert.equal(calls,1);
+ document.hidden=false;refresh();assert.equal(calls,2);
+ assert.equal(timers.length,2,'o ciclo nao agenda timers adicionais');
 });

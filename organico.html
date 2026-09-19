@@ -22,6 +22,8 @@ main{align-content:start}
 main>*{min-width:0}
 
 .rolagem{max-width:100%}
+#organico-attribution .rolagem:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
+#organico-attribution .org-utm-values{min-width:220px;max-width:420px;overflow-wrap:anywhere;white-space:normal}
 /* faixa vazia continua ocupando um `gap` de 22px do grid */
 #faixa-alertas:empty{display:none}
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
@@ -146,7 +148,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
       <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
     </div>
   </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span><span class="mini">Leitura a cada 10 min com a aba visível</span></div>
 </header>
 
 <main>
@@ -219,17 +221,20 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
   </section>
 
   <section class="sec" id="sec-venda">
+    <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <div class="painel">
-      <div class="painel-cab"><h2>Conversão por UTM</h2><span class="mini" id="venda-rot"></span></div>
+      <div class="painel-cab"><h2>Histórico de conversões · projeção anterior</h2><span class="mini" id="venda-rot"></span></div>
+      <div class="nota">Comparação histórica preservada. A fonte e o modelo desta projeção ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas, nem pedidos assistidos à receita exclusiva.</div>
       <div class="rolagem"><table class="comparativo" id="tab-venda"><thead><tr>
         <th>Rede</th><th>Superfície</th><th>Produto / peça</th>
         <th class="num">Pedidos</th><th class="num">Receita</th><th class="num">Assistidos</th><th>Peça identificada</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Padrão aceito nos links: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
+      <div class="nota">Padrão da projeção histórica: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
         <code>utm_medium=social</code> (ou <code>organico</code>) · <code>utm_campaign=venda</code> ·
         <code>utm_content</code>/<code>utm_term</code> = superfície (story, reels, bio, post) e produto, em qualquer ordem.
         Automação EU QUERO (Replient): <code>utm_medium=dm</code> ou <code>dm-automation</code> → superfície "dm (automação)".
-        Link novo nesse padrão entra sozinho. "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
+        Os links recentes com <code>utm_source=instagram_social</code> e <code>utm_medium=story|linktree</code> não entram nesta projeção anterior.
+        "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
         (liga a receita a um post ou story específico); sem ele a linha continua aqui, só sem o post.</div>
     </div>
   </section>
@@ -240,6 +245,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
+<script src="organico-attribution.js?v=20260919-4"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -458,9 +464,9 @@ function pintaKPIs(){
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
-    {r:'Receita de story · reels · post', v:receitaA===null?'—':moeda(receitaA),
+    {r:'Receita histórica de story · reels · post', v:receitaA===null?'—':moeda(receitaA),
      d:receitaA!==null&&receitaB!==null?varia(receitaA,receitaB):null,
-     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · último clique · superfície UTM`
+     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · projeção anterior · superfície UTM`
        :'nenhuma receita com superfície editorial identificada no período',
      detalhes:outrasReceitas, ir:'venda'},
   ];
@@ -473,6 +479,11 @@ function pintaKPIs(){
     ${(k.detalhes||[]).map(d=>`<div class="kpi-sub">${esc(d)}</div>`).join('')}
   </div>`).join('');
   renderVenda(rA);
+  if(typeof OA!=='undefined'){
+    OA.render($('#organico-attribution'),API,MARCA,PER.ini,PER.fim);
+    // O contador antigo pertence ao legado; nao representa os modelos da leitura v2.
+    if(OA.valid(API))$('#n-venda').textContent='';
+  }
   document.querySelectorAll('.kpi-ir').forEach(el=>{
     const ir=()=>troca(el.dataset.ir);
     el.onclick=ir; el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ir();}};
@@ -634,7 +645,8 @@ document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
 pintaMarca();
 setInterval(()=>{$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},1000);
 carrega();
-setInterval(carrega,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
+// Cadencia local: fontes mudam em 30-120 min; nao consultar em aba oculta.
+setInterval(()=>{if(!document.hidden)carrega();},600000);
 </script>
 </body>
 </html>
