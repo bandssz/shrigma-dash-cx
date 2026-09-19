@@ -530,3 +530,75 @@ CREATE TABLE IF NOT EXISTS crm_tts_cobranca_pulo (
   PRIMARY KEY (marca, etapa, username)
 );
 ALTER TABLE crm_tts_cobranca ADD COLUMN IF NOT EXISTS creator_im_id text;
+
+-- ============================================================
+-- v6 (18/09/2026) — ADS: TikTok for Business (Marketing API v1.3). App do Felipe, id 7634837098909941761.
+-- Fecha o buraco do custo de mídia: GMV Max é a única mídia que a loja roda no TikTok e a Marketing API
+-- entrega gasto/receita/ROAS por campanha e por dia. O token de advertiser não expira (só revogação).
+CREATE TABLE IF NOT EXISTS crm_tts_ads_token (
+  advertiser_id   text PRIMARY KEY,
+  nome            text,
+  marca           text,                    -- aristo | fish | NULL até casar com a loja (gmv_max/store/list)
+  moeda           text,
+  access_token    text NOT NULL,
+  escopos         text[],
+  autorizado_em   timestamptz NOT NULL DEFAULT now(),
+  ultimo_ok_em    timestamptz,
+  ultimo_erro     text,
+  atualizado_em   timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS crm_tts_ads_campanha_dia (
+  marca           text NOT NULL,
+  dia             date NOT NULL,
+  advertiser_id   text NOT NULL,
+  campaign_id     text NOT NULL,
+  nome            text,
+  tipo            text,                    -- PRODUCT_GMV_MAX | LIVE_GMV_MAX | outro
+  status          text,
+  custo           numeric(12,2) DEFAULT 0, -- spend
+  receita         numeric(12,2) DEFAULT 0, -- gross revenue atribuído pela plataforma de ads
+  pedidos         integer DEFAULT 0,
+  roas            numeric(8,2),
+  impressoes      bigint DEFAULT 0,
+  cliques         bigint DEFAULT 0,
+  atualizado_em   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, dia, campaign_id)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_ads_campanha_dia_idx ON crm_tts_ads_campanha_dia (marca, dia);
+-- crm_tts_canal_custo já existe (manual). O coletor de ads grava por dia com fonte = 'ads_api'; a view
+-- crm_tts_canal_v já lê custo_ads/roas_blended dali — nada muda na tela além de o número aparecer.
+
+-- ============================================================
+-- v7 (18/09/2026) — LIVE com "máxima realidade": o que a plataforma entrega e o que a gente mostrava
+-- não batia por três motivos, todos medidos na live da Fishermans de 16/09:
+--   1. a API devolve a live por SESSÃO; uma queda de sinal vira sessão nova. A live "do dia 16" foram
+--      3 sessões (61 + 101 + 16 min) com ~1 min de intervalo. O painel agrupa em EVENTO (mesma conta,
+--      intervalo <= 30 min) e mostra as sessões dentro.
+--   2. gmv da sessão é GMV PAGO; created_sku_orders inclui pedido criado e não pago (COD/PayLater).
+--      Às 04:10 a API dizia 840,72 (10 pagos); às 09:00 dizia 761,76 (9 pagos + 1 pendente). O número
+--      se mexe por ~72 h. Guardamos pedidos_criados e o painel etiqueta a live como "em fechamento".
+--   3. faltava o produto: /analytics/202512/shop/{live_id}/products_performance diz o que vendeu em
+--      cada live (X8 Oceânica R$ 307 · X4 Amazônica R$ 303 · N40 R$ 152 = 761,76, bate com a sessão).
+ALTER TABLE crm_tts_live_dia ADD COLUMN IF NOT EXISTS pedidos_criados integer DEFAULT 0;   -- inclui não pagos
+CREATE TABLE IF NOT EXISTS crm_tts_live_produto (
+  marca            text NOT NULL,
+  live_id          text NOT NULL,
+  product_id       text NOT NULL,
+  nome             text,
+  gmv_direto       numeric(12,2) DEFAULT 0,   -- direct_gmv: comprou pelo produto pinado na live
+  pedidos          integer DEFAULT 0,         -- sku_orders (pagos)
+  pedidos_criados  integer DEFAULT 0,
+  compradores      integer DEFAULT 0,
+  unidades         integer DEFAULT 0,
+  ticket_medio     numeric(12,2),
+  taxa_pagamento   numeric(5,2),              -- payment_rate (0–1 → %)
+  impressoes       integer DEFAULT 0,
+  cliques          integer DEFAULT 0,
+  ctr_pct          numeric(6,2),
+  clique_pedido_pct numeric(6,2),             -- sku_order_ctor
+  carrinho         integer DEFAULT 0,         -- add_to_cart_count
+  gpm              numeric(12,2),             -- watch_gpm: GMV por mil espectadores que viram o produto
+  atualizado_em    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (marca, live_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS crm_tts_live_produto_idx ON crm_tts_live_produto (marca, live_id);
