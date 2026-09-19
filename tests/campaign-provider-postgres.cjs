@@ -5,7 +5,7 @@ const fs=require('node:fs'),path=require('node:path');
 (async()=>{
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');const db=new PGlite();
  try{
-  for(const file of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','tests/campaign-provider.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'..',file),'utf8'));
+  for(const file of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','tests/campaign-provider.sql','n8n/growth/campaign-write-guard.sql','tests/campaign-write-guard.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'..',file),'utf8'));
   const assert=require('node:assert/strict');
   const {createService}=require('../n8n/growth/campaign-service');
   const {createStore}=require('../n8n/growth/campaign-store');
@@ -14,10 +14,11 @@ const fs=require('node:fs'),path=require('node:path');
   const query=(sql,params)=>db.query(sql,params);
   const provider=createProvider({query,validateContent:async({templateVersion})=>({ok:true,templateVersion}),nativeCreate:async payload=>{
    creations++;
+   await db.exec('BEGIN');
    await db.query(`INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs)
      VALUES(300,$1,$2,$3,$4,$5,'html',$6::jsonb,'draft','{}','regular','email',1,0,$7::jsonb)`,
      [payload.name,payload.subject,payload.from_email,payload.body,payload.altbody,JSON.stringify(payload.headers),JSON.stringify(payload.attribs)]);
-   await db.query("INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(300,3,'Fish')");return {id:300};
+   await db.query("INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(300,3,'Fish')");await db.exec('COMMIT');return {id:300};
   }});
   const service=createService({store:createStore({query}),provider});
   const auth={actor:'integration',caps:['read_content','draft','validate','submit']};
