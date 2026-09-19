@@ -58,12 +58,21 @@ const CampaignContract=(()=>{
   if(!current.send_at||!Number.isFinite(Date.parse(current.send_at))||Date.parse(current.send_at)<now+15*60e3)error('SCHEDULE_TOO_SOON','Agende com pelo menos 15 minutos de antecedência.');
   return {method:'PUT',path:`/api/campaigns/${current.id}/status`,body:{status:'scheduled'}};
  }
+ function cancel(request,current,{now=Date.now(),canPublish=false}={}){
+  if(!canPublish)error('CAPABILITY_MISSING','Esta chave não pode cancelar agendamentos.');
+  if(request?.confirm!=='cancelar')error('CONFIRM_REQUIRED','Confirme o cancelamento do agendamento revisado.');
+  if(!current||!positive(current.id)||!request.expected_version||request.expected_version!==current.version)error('VERSION_CONFLICT','A campanha mudou. Recarregue antes de cancelar.');
+  if(current.status!=='scheduled'||current.sent!==0||current.started_at!==null)error('CAMPAIGN_ALREADY_STARTED','Só é possível cancelar uma campanha agendada ainda não iniciada.');
+  if(!current.send_at||!Number.isFinite(Date.parse(current.send_at))||Date.parse(current.send_at)<=now)error('SCHEDULE_NOT_FUTURE','O agendamento precisa continuar no futuro para ser cancelado.');
+  // This is the guarded provider action, not Listmonk's native status route.
+  return {action:'cancel',id:current.id,expected_version:current.version};
+ }
  function request(action,input,{idempotencyKey,expectedVersion}={}){
-  const allowed=['catalogo','listar','obter','salvar','validar','agendar','operacao'];
+  const allowed=['catalogo','listar','obter','salvar','validar','agendar','cancelar','operacao'];
   if(!allowed.includes(action))error('ACTION_INVALID','Ação de campanha inválida.');
-  if(['salvar','validar','agendar'].includes(action)&&!/^[a-zA-Z0-9_-]{16,100}$/.test(idempotencyKey||''))error('IDEMPOTENCY_REQUIRED','Informe uma chave de idempotência para esta operação.');
+  if(['salvar','validar','agendar','cancelar'].includes(action)&&!/^[a-zA-Z0-9_-]{16,100}$/.test(idempotencyKey||''))error('IDEMPOTENCY_REQUIRED','Informe uma chave de idempotência para esta operação.');
   return {...input,acao:'campanha_'+action,...(idempotencyKey?{idempotency_key:idempotencyKey}:{}),...(expectedVersion?{expected_version:expectedVersion}:{})};
  }
- return {VERSION,BRANDS,STORES,normalize,checkCatalog,prepare,schedule,request};
+ return {VERSION,BRANDS,STORES,normalize,checkCatalog,prepare,schedule,cancel,request};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;

@@ -23,3 +23,13 @@ test('an existing audience term and coupon redirect retain valid tracking across
 });
 
 test('Olivas preserves its distinct email domain and shop domain with scoped lists and tracked links',()=>{const d={...base(),brand:'olivas',from_email:'Olivas do Campo <sac@olivasdocampo.com>',reply_to:'sac@olivasdocampo.com',list_ids:[40],html:base().html.replaceAll('oaristocrata.com','olivasdocampo.com.br'),text:base().text.replaceAll('oaristocrata.com','olivasdocampo.com.br')};const cat={...catalog,brand:'olivas',lists:[{id:40,brand:'olivas',available:true}]};const r=C.prepare(d,{catalog:cat,tracking:T,trackingId:987});assert.match(r.definition.html,/olivasdocampo.com.br/);assert.match(r.definition.text,/utm_term=lm-987-l40/);assert.equal(r.definition.from_email,d.from_email);assert.throws(()=>C.normalize({...d,from_email:'sac@oaristocrata.com'}),{code:'SENDER_BRAND'});assert.throws(()=>C.prepare(d,{catalog,tracking:T,trackingId:987}),{code:'CATALOG_UNAVAILABLE'});});
+
+
+test('cancelling is explicitly confirmed, version-bound, future-only and never delegates to native status',()=>{
+ const current={id:987,status:'scheduled',sent:0,started_at:null,version:'v1',send_at:'2026-09-20T15:00:00Z'},opts={now:Date.parse('2026-09-19T12:00:00Z'),canPublish:true},request={confirm:'cancelar',expected_version:'v1'};
+ assert.deepEqual(C.cancel(request,current,opts),{action:'cancel',id:987,expected_version:'v1'});
+ for(const patch of [{status:'draft'},{status:'running'},{sent:1},{started_at:undefined},{started_at:''},{started_at:'2026-09-19T11:00:00Z'}])assert.throws(()=>C.cancel(request,{...current,...patch},opts),{code:'CAMPAIGN_ALREADY_STARTED'});
+ for(const send_at of [null,'invalid','2026-09-19T12:00:00Z','2026-09-19T11:59:59Z'])assert.throws(()=>C.cancel(request,{...current,send_at},opts),{code:'SCHEDULE_NOT_FUTURE'});
+ assert.throws(()=>C.cancel({...request,confirm:'agendar'},current,opts),{code:'CONFIRM_REQUIRED'});assert.throws(()=>C.cancel({...request,expected_version:'stale'},current,opts),{code:'VERSION_CONFLICT'});assert.throws(()=>C.cancel(request,current,{...opts,canPublish:false}),{code:'CAPABILITY_MISSING'});
+ assert.throws(()=>C.request('cancelar',{id:987}),{code:'IDEMPOTENCY_REQUIRED'});assert.equal(C.request('cancelar',{id:987},{idempotencyKey:'cancel-request-000001'}).acao,'campanha_cancelar');
+});

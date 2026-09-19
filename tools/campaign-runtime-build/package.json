@@ -1,0 +1,11 @@
+{
+  "name": "shrigma-campaign-runtime-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build-only dependencies for the isolated n8n campaign runtime",
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "core-js-pure": "3.50.0",
+    "@noble/hashes": "2.4.0"
+  }
+}

@@ -35,6 +35,17 @@ const fs=require('node:fs'),path=require('node:path');
   const scheduled=await service.handle(auth,{acao:'campanha_agendar',brand:'fish',id,expected_version:version,confirm:'agendar',idempotency_key:'integration-schedule-01'});
   assert.equal(scheduled.status,200,JSON.stringify(scheduled));assert.equal(scheduled.body.campaign.status,'scheduled');
   assert.equal(scheduled.body.campaign.sent,0);
+  const scheduledVersion=scheduled.body.campaign.version;
+  const cancel={acao:'campanha_cancelar',brand:'fish',id,expected_version:scheduledVersion,confirm:'cancelar',idempotency_key:'integration-cancel-01'};
+  assert.equal((await service.handle({...auth,caps:['read_content']},cancel)).status,403);
+  assert.equal((await service.handle(auth,{...cancel,expected_version:version,idempotency_key:'integration-cancel-stale'})).status,409);
+  assert.equal((await service.handle(auth,{...cancel,brand:'aristo',idempotency_key:'integration-cancel-brand'})).status,404);
+  const cancelled=await service.handle(auth,cancel);
+  assert.equal(cancelled.status,200,JSON.stringify(cancelled));assert.equal(cancelled.body.campaign.status,'cancelled');
+  assert.notEqual(cancelled.body.campaign.version,scheduledVersion);assert.equal(cancelled.body.campaign.sent,0);assert.equal(cancelled.body.campaign.started_at,null);
+  assert.deepEqual(await service.handle(auth,cancel),cancelled,'same-key cancellation returns the persisted receipt');
+  const retained=await db.query("SELECT count(*)::int AS n FROM shrigma_campaign_operation WHERE actor='integration' AND operation_key='integration-cancel-01'");
+  assert.equal(retained.rows[0].n,1,'cancellation does not remove its reservation');
   assert.equal((await service.handle(auth,req)).status,201);assert.equal(creations,1);
   console.log('Campaign provider PostgreSQL scenarios and service pipeline passed (isolated; native create/compiler simulated; no transport).');
  }finally{await db.close();}

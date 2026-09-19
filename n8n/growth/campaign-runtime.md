@@ -1,0 +1,17 @@
+# Campanhas protegidas pelo painel
+
+O editor usa o mesmo contrato do servidor. A leitura pública de capacidades informa disponibilidade, mas não concede permissão: cada solicitação autentica a chave existente e obtém o ator e as permissões no servidor. A etapa admite Aristo e Fishermans; a preparação local das outras marcas continua independente.
+
+`campaign-runtime.js` executa os adaptadores existentes por efeitos fechados. O contexto pertence a uma execução n8n, contém recibos privados e nunca vem do navegador. O gerador cria um workflow separado; alterações posteriores devem partir de export fresco e preservar credenciais, identificadores, conexões e outras abas. Consultas usam SQL fixo com parâmetros; o transporte nativo permite somente criar rascunho sem data de envio e compilar prévias. Não existe ação de envio imediato.
+
+Salvar, validar, agendar e cancelar são operações distintas, com identidade e reserva duráveis. A validação vincula a revisão exata. Cancelar exige confirmação, campanha agendada no futuro, zero envios e nenhuma data de início; a transação trava a linha e disputa com o worker. `campaign-cancel.sql` estende a instalação anterior de forma transacional e idempotente, sem reinstalar o esquema, apagar operações ou modificar as seis guardas.
+
+Agendamento e cancelamento persistem o recibo na mesma transação da mudança de estado. Perder a etapa final do runtime não deixa uma mudança confirmada sem recibo; o finish posterior aceita somente o mesmo resultado. Operações antigas pendentes não são finalizadas retroativamente.
+
+Um recibo perdido pode deixar o cliente incerto ou uma operação ainda pendente. Consultar usa a mesma autoria e chave da tentativa; nenhuma retomada troca essa chave, apaga a reserva ou presume que o transporte falhou. A tela guarda o registro antes da solicitação e exige Web Locks para evitar duas abas escrevendo simultaneamente. O limite de espera de escrita é maior que o de leitura; esgotá-lo conserva o estado incerto. Uma leitura posterior do estado da campanha, isoladamente, não transforma uma operação sem recibo em sucesso. Após recuperar um recibo confirmado, o cliente também lê a revisão atual: o estado histórico do recibo pode ter sido seguido por cancelamento ou início posterior.
+
+O bundle é gerado com dependências de compilação fixadas em `tools/campaign-runtime-build/package-lock.json`. Execute a compilação desse diretório e confira `build.cjs --check`; o CI exige igualdade entre fontes e bundle. O bundle é exclusivo do servidor e fica excluído do GitHub Pages, assim como SQL, ferramentas e testes.
+
+Os testes cobrem permissões, versão, escopo, concorrência de reservas, perda de resposta, repetição da mesma chave, vínculo dos recibos no loop, proteção entre abas e migração incremental em PostgreSQL isolado. O navegador usa testes sintéticos; provas de implantação devem acrescentar leitura do runtime publicado e, quando necessária, uma campanha técnica com lista vazia, data distante, zero envios e cancelamento verificado. Reservas permanecem para auditoria. Os testes isolados não constituem prova de entrega nem corrida com o worker real.
+
+`campaign-capabilities-patch.cjs` acrescenta a disponibilidade ao objeto já existente da API compartilhada, preservando o escopo Growth/todos e a quantidade de argumentos da consulta. Só deve ser aplicado após os critérios de operação do ambiente serem comprovados. Estado de implantação, acessos e evidências de produção ficam no arquivo privado do integrador, fora deste repositório.
