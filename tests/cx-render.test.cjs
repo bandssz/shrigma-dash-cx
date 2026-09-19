@@ -115,7 +115,7 @@ async function boot(payload = fixture(), query = '?periodo=7d', hash = '') {
   const requests = [];
   const NativeDate = Date;
   class FixedDate extends NativeDate { constructor(...a) { super(...(a.length ? a : [HOJE + 'T15:10:00Z'])); } static now() { return new NativeDate(HOJE + 'T15:10:00Z').valueOf(); } }
-  const context = vm.createContext({ document, window, Date: FixedDate, Intl, URL, URLSearchParams, console,
+  const context = vm.createContext({ document, window, Date: FixedDate, Intl, URL, URLSearchParams, AbortController, console,
     MutationObserver: class { observe() {} }, Image: class { set src(x) {} },
     localStorage: { getItem: (k) => store.get(k) || null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) },
     location: { search: query, hash, pathname: '/index.html' }, history: { replaceState: () => {} }, addEventListener: () => {}, setInterval: () => 0, clearInterval: () => {}, setTimeout, clearTimeout,

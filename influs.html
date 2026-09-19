@@ -375,7 +375,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=2c7e9f41"></script>
-<script src="influs-tts.js?v=20260918b"></script>
+<script src="influs-tts.js?v=20260919-read-consistency"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -493,7 +493,7 @@ function pintaMarca(){
 // Cadastro cupom<->influ. Le e escreve pelo workflow proprio
 // "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
 // dominio de falha separado, igual ao coletor de conversao.
-let INFLU=null;
+let INFLU=null, INFLU_SEQ=0;
 
 function chaveEscritaInflu(){
   let wk=localStorage.getItem('shrigma_influ_key');
@@ -524,7 +524,7 @@ async function faixaCredencial(){
     // O dado de influenciador vem do endpoint proprio, com a chave de escrita.
     const k=shrigmaChave("influs")||'';
     if(!k)return;
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k));
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=influs');
     if(!r.ok)return;
     const j=await r.json();
     const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
@@ -543,15 +543,20 @@ function avisoTela(titulo,detalhe,botao){
   const b=$('#btn-retry'); if(b) b.onclick=()=>{shrigmaEsqueceChave("influs");carregarInflu();};
 }
 async function carregarInflu(){
+  const seq=++INFLU_SEQ, periodo={ini:PER.ini,fim:PER.fim};
   const k=chaveLeitura();
+  INFLU=null; // nenhum dado do recorte anterior pode ser repintado sob datas novas
   if(!k){ avisoTela('Chave de acesso não informada',
     'O painel precisa da chave de leitura para carregar. Ela fica guardada neste navegador depois da primeira vez.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
   try{
-    INFLU=await influPost({k,acao:'listar',ini:PER.ini,fim:PER.fim});
+    const novo=await influPost({k,acao:'listar',...periodo});
+    if(seq!==INFLU_SEQ)return;
+    INFLU=novo;
     renderTudo();
   }catch(e){
+    if(seq!==INFLU_SEQ)return;
     const chaveRuim=/chave/i.test(e.message);
     avisoTela(chaveRuim?'Chave inválida':'Falha ao carregar',
       esc(e.message)+(chaveRuim?'':'<br><span class="mini">Se persistir, o workflow da API pode estar desativado no n8n.</span>'),

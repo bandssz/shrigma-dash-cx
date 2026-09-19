@@ -42,21 +42,24 @@
     },
     // Horas até um prazo (negativo = vencido). null sem prazo.
     horasAte(iso, agora) { if (!iso) return null; return Math.round((new Date(iso).getTime() - (agora || Date.now())) / 36e5); },
-    // Etiqueta de frescor: idade da coleta OK mais recente entre as marcas visíveis; vermelho se > limite ou se a última execução falhou.
+    // Nenhuma marca visivel pode ser encoberta pela coleta mais recente de outra.
     frescor(p, marca, agora, limiteH) {
       const f = TTS.filtra(p.frescor, marca);
       if (!f.length) return { txt: 'coleta —', velho: true, title: 'nenhuma coleta registrada' };
-      const now = agora || Date.now();
-      const idade = x => x.ultima_ok ? Math.round((now - new Date(x.ultima_ok).getTime()) / 6e4) : null;
+      const now = agora ?? Date.now();
+      const idade = x => { const t = Date.parse(x.ultima_ok || ''); return Number.isFinite(t) && t <= now + 60000 ? Math.max(0, Math.round((now - t) / 6e4)) : null; };
       const fmt = m => m === null ? '—' : m < 60 ? m + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d';
       const idades = f.map(idade).filter(x => x !== null);
       const maisFresca = idades.length ? Math.min(...idades) : null;
       const falhou = f.some(x => x.ultima_ok_todas === false);
-      const velho = maisFresca === null || maisFresca > (limiteH || 26) * 60 || falhou;
+      const esperadas = marca === 'todas' ? TTS.MARCAS : [marca];
+      const semConfirmacao = esperadas.filter(m => !f.some(x => x.marca === m && idade(x) !== null));
+      const paradas = f.filter(x => idade(x) !== null && idade(x) > (limiteH || 26) * 60);
+      const velho = semConfirmacao.length > 0 || paradas.length > 0 || falhou;
       return {
-        txt: 'coleta há ' + fmt(maisFresca) + (falhou ? ' · última execução com erro' : ''),
+        txt: 'coleta há ' + fmt(maisFresca) + (semConfirmacao.length ? ' · ' + semConfirmacao.join(', ') + ' sem confirmação' : paradas.length ? ' · ' + paradas.map(x => x.marca + ' há ' + fmt(idade(x))).join(', ') : '') + (falhou ? ' · última execução com erro' : ''),
         velho,
-        title: f.map(x => `${x.marca}: OK há ${fmt(idade(x))}${x.erros ? ' · erro: ' + x.erros : ''}`).join('\n'),
+        title: [...f.map(x => `${x.marca}: OK há ${fmt(idade(x))}${x.erros ? ' · erro: ' + x.erros : ''}`), ...semConfirmacao.map(m => m + ': sem confirmação de coleta')].join('\n'),
       };
     },
     // Cobrança de conteúdo: junta o que saiu, o que está simulado e quantos ainda faltam.
@@ -165,7 +168,8 @@
     cacheServe(c, ini, fim, agora) {
       if (!c || !c.payload || !c.em) return false;
       if (String(c.ini || '') !== String(ini || '') || String(c.fim || '') !== String(fim || '')) return false;
-      return ((agora || Date.now()) - new Date(c.em).getTime()) < 24 * 36e5;
+      const idade = (agora ?? Date.now()) - Date.parse(c.em);
+      return Number.isFinite(idade) && idade >= -60000 && idade < 24 * 36e5;
     },
     // Estado da autorização da loja. Sem linha em crm_tts_token a loja nunca foi (re)autorizada desde que
     // passamos a guardar o refresh token no banco — e é isso que prende os escopos novos (analytics do canal).
@@ -273,31 +277,44 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   }
 
   function vazio(titulo, detalhe, retry) {
+    if (!DADOS) { const f = $('#tts-frescor'); if (f) { f.textContent = 'coleta sem confirmação'; f.title = ''; f.classList.add('velho'); } }
     $('#tts-kpis').innerHTML = '';
     $('#tts-area').innerHTML = `<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${retry ? '<br><br><button class="btn" id="tts-retry">Tentar de novo</button>' : ''}</div>`;
     const b = $('#tts-retry'); if (b) b.onclick = carregarTTS;
   }
 
   async function carregarTTS() {
+    const seq = ++SEQ, periodo = { ini: per().ini, fim: per().fim };
     if (typeof TTS_API_URL === 'undefined') { vazio('TTS_API_URL não configurada', 'Falta a URL da API do TikTok Shop em config.js.'); return; }
     const k = (typeof chaveLeitura === 'function' ? chaveLeitura() : '') || '';
-    if (!k) { vazio('Chave de acesso não informada', 'A mesma chave do painel de Influs abre esta aba.'); return; }
-    const anterior = DADOS, seq = ++SEQ;
+    if (!k) { DADOS = null; vazio('Chave de acesso não informada', 'A mesma chave do painel de Influs abre esta aba.'); return; }
+    let anterior = DADOS && DADOS._periodo?.ini === periodo.ini && DADOS._periodo?.fim === periodo.fim ? DADOS : null;
+    DADOS = anterior;
     if (!DADOS) {  // primeira abertura: pinta a última leitura guardada enquanto a API responde
       let c = null; try { c = JSON.parse(localStorage.getItem('shrigma_tts_cache') || 'null'); } catch (e) {}
-      if (TTS.cacheServe(c, per().ini, per().fim)) { DADOS = c.payload; DADOS._cache = c.em; renderTTS(); }
+      if (TTS.cacheServe(c, periodo.ini, periodo.fim)) { DADOS = c.payload; DADOS._periodo = periodo; DADOS._cache = c.em; renderTTS(); }
+      else vazio('Carregando afiliados TikTok…', 'Lendo o período selecionado.');
     }
+    anterior = DADOS;
     try {
-      const r = await fetch(TTS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k, ini: per().ini, fim: per().fim }) });
-      if (r.status === 401) throw new Error('chave inválida para esta API');
+      const r = await fetch(TTS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k, ...periodo }) });
+      if (r.status === 401 || r.status === 403) { const erro = new Error('chave inválida ou sem acesso a esta API'); erro.status = r.status; throw erro; }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const novo = await r.json();
       if (seq !== SEQ) return;            // chegou uma resposta mais nova antes desta: descarta a velha
       DADOS = novo;
+      DADOS._periodo = periodo;
       DADOS._caiu = null; DADOS._cache = null;
-      try { localStorage.setItem('shrigma_tts_cache', JSON.stringify({ em: new Date().toISOString(), ini: per().ini, fim: per().fim, payload: novo })); } catch (e) {}
+      try { localStorage.setItem('shrigma_tts_cache', JSON.stringify({ em: new Date().toISOString(), ...periodo, payload: novo })); } catch (e) {}
       renderTTS();
     } catch (e) {
+      if (seq !== SEQ) return;
+      if (e.status === 401 || e.status === 403) {
+        DADOS = null;
+        try { localStorage.removeItem('shrigma_tts_cache'); } catch (_) {}
+        if (typeof shrigmaEsqueceChave === 'function') shrigmaEsqueceChave('influs');
+        vazio('Acesso não confirmado', esc(e.message), true); return;
+      }
       // Nunca tela branca: se já havia dado, mantém e avisa que caiu; senão, aviso com retry.
       if (anterior) { DADOS = anterior; DADOS._caiu = e.message; renderTTS(); }
       else vazio('Falha ao carregar afiliados TikTok', esc(e.message) + '<br><span class="mini">Se persistir, o workflow "TikTok Shop - API do painel" pode estar desativado no n8n.</span>', true);

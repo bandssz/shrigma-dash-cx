@@ -86,21 +86,42 @@ function pedeChave(erro) {
 }
 
 // ---------- carga ----------
+const CX_CACHE_MAX_MS = 20 * 60 * 1000; // duas geracoes esperadas do cache (10 min)
+let CX_CARREGANDO = false;
+function payloadCXValido(p) {
+  return p && (!p._escopo || p._escopo === 'cx') &&
+    ['snapshot_1d', 'janelas', 'agentes_1d', 'agentes_janelas'].every(k => Array.isArray(p[k]));
+}
+function cacheCXValido(p, agora = Date.now()) {
+  const t = Date.parse(p && p.gerado_em || '');
+  return payloadCXValido(p) && Number.isFinite(t) && agora - t >= -60000 && agora - t <= CX_CACHE_MAX_MS;
+}
+async function consultaCX(url, timeoutMs) {
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    return { response, payload: response.ok ? await response.json() : null };
+  } finally { clearTimeout(timer); }
+}
 async function carrega() {
+  if (CX_CARREGANDO) return;
   if (!chave()) { pedeChave(); return; }
+  CX_CARREGANDO = true;
   try {
     // 1º o cache (payload pronto, montado a cada 10 min, < 1 s); se ele falhar, a API viva com &painel=cx
     // (com a chave-mestra, sem &painel= a API montava os quatro painéis, ~40 s de Postgres, e descartava três).
     let dados = null, r = null;
     if (typeof CX_CACHE_URL === "string" && CX_CACHE_URL) {
       try {
-        r = await fetch(CX_CACHE_URL + "?k=" + encodeURIComponent(chave()), { cache: "no-store" });
-        if (r.ok) { const j = await r.json(); if (j && j.gerado_em) dados = j; }   // cache vazio ou quebrado → cai para a API viva
+        const leitura = await consultaCX(CX_CACHE_URL + "?k=" + encodeURIComponent(chave()), 8000);
+        r = leitura.response;
+        if (r.ok && cacheCXValido(leitura.payload)) dados = leitura.payload;
       } catch (e) { dados = null; }
     }
     if (!dados && !(r && (r.status === 401 || r.status === 403))) {
-      r = await fetch(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", { cache: "no-store" });
-      if (r.ok) dados = await r.json();
+      const leitura = await consultaCX(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", 45000);
+      r = leitura.response;
+      if (r.ok && payloadCXValido(leitura.payload)) dados = leitura.payload;
     }
     if (r && (r.status === 401 || r.status === 403)) {
       shrigmaEsqueceChave("cx");
@@ -114,7 +135,7 @@ async function carrega() {
   } catch (e) {
     $("#faixa-alertas").innerHTML =
       `<div class="erro-carga">Sem dados agora (${e.message}). Nova tentativa em ${CX_REFRESH_SEG}s — se persistir, confira o workflow “CX — Dashboard · API de leitura” no n8n.</div>`;
-  }
+  } finally { CX_CARREGANDO = false; }
 }
 
 function hojeRef() {
