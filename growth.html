@@ -158,6 +158,14 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
   <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
   <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
+  <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo">
+    <h2 id="growth-acesso-titulo">Acessar Growth</h2>
+    <p id="growth-acesso-ajuda">Use a chave de leitura já fornecida para este painel.</p>
+    <div class="campo"><label for="growth-chave">Chave de acesso</label>
+      <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
+    <button type="submit" class="btn">Acessar painel</button>
+    <span id="growth-acesso-msg" class="mini" role="status"></span>
+  </form>
   <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
   <section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section>
   <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
@@ -234,43 +242,47 @@ textarea{width:100%;resize:vertical;min-height:58px}
     <section class="painel">
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Novo teste</button></div>
+      <div class="campo"><label for="ab-chave">Chave de escrita do cadastro A/B</label>
+        <input id="ab-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="ab-chave-ajuda">
+        <span id="ab-chave-ajuda" class="ajuda">Se já foi configurada neste navegador, não é necessário preencher novamente. Consultar resultados usa o acesso de leitura.</span></div>
+      <p id="ab-status" class="mini" role="status"></p>
       <div id="form-teste" hidden>
         <div class="form">
-          <div class="campo"><label>Identificador</label>
+          <div class="campo"><label for="f-id">Identificador</label>
             <input type="text" id="f-id" placeholder="fish-c2-assunto-01">
             <span class="ajuda">Sem espaço. Vira a chave do teste.</span></div>
-          <div class="campo"><label>Marca</label>
+          <div class="campo"><label for="f-marca">Marca</label>
             <select id="f-marca"><option value="fish">Fishermans</option>
               <option value="aristo">Aristocrata</option><option value="olivas">Olivas</option></select></div>
-          <div class="campo"><label>Canal</label>
+          <div class="campo"><label for="f-canal">Canal</label>
             <select id="f-canal"><option value="email">E-mail</option><option value="whatsapp">WhatsApp</option></select></div>
-          <div class="campo"><label>Nome</label>
+          <div class="campo"><label for="f-nome">Nome</label>
             <input type="text" id="f-nome" placeholder="C2 · assunto direto vs curiosidade"></div>
-          <div class="campo largo"><label>Hipótese</label>
+          <div class="campo largo"><label for="f-hip">Hipótese</label>
             <textarea id="f-hip" placeholder="Assunto que nomeia a linha comprada gera mais clique que assunto de curiosidade no galho C2."></textarea>
-            <span class="ajuda">Obrigatória e gravada <strong>antes</strong> do disparo. Sem hipótese registrada
-              antes, o resultado vira caça a p-valor depois do fato.</span></div>
-          <div class="campo"><label>Variável</label>
+            <span class="ajuda">Registre antes do disparo. Este cadastro ainda não congela versões nem distribui públicos.</span></div>
+          <div class="campo"><label for="f-var">Variável</label>
             <select id="f-var"><option>assunto</option><option>remetente</option><option>horario</option>
               <option>oferta</option><option>criativo</option><option>cta</option></select></div>
-          <div class="campo"><label>Métrica primária</label>
+          <div class="campo"><label for="f-met">Métrica primária</label>
             <select id="f-met"><option value="ctor">CTOR</option><option value="ctr">CTR</option>
               <option value="conversao">Conversão em venda</option></select>
             <span class="ajuda">Uma só, escolhida agora.</span></div>
-          <div class="campo"><label>Efeito mínimo (p.p.)</label>
+          <div class="campo"><label for="f-efeito">Efeito mínimo (p.p.)</label>
             <input type="number" id="f-efeito" step="0.1" value="1.0">
             <span class="ajuda">Diferença que valeria mudar a operação.</span></div>
-          <div class="campo"><label>Braço A — campanha</label>
-            <select id="f-ca"></select><input type="text" id="f-da" placeholder="descrição do braço A"></div>
-          <div class="campo"><label>Braço B — campanha</label>
-            <select id="f-cb"></select><input type="text" id="f-db" placeholder="descrição do braço B"></div>
+          <div class="campo"><label for="f-ca">Braço A — campanha</label>
+            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição do braço A" placeholder="descrição do braço A"></div>
+          <div class="campo"><label for="f-cb">Braço B — campanha</label>
+            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição do braço B" placeholder="descrição do braço B"></div>
           <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
             <button class="btn" id="f-salvar">Registrar teste</button>
             <button class="btn sec" id="f-cancelar">Cancelar</button>
-            <span class="mini" id="f-msg"></span></div>
+            <span class="mini" id="f-msg" role="status"></span></div>
         </div>
-        <div class="nota">Os braços usam <code>utm_term=a</code> e <code>utm_term=b</code> nos links. Sem isso o
-          teste é mensurável em clique mas não em venda.</div>
+        <div class="nota">O cadastro legado guarda <code>utm_term=a</code> e <code>utm_term=b</code>.
+          Isso não identifica sozinho o grupo acompanhado nem comprova conversão em venda. Preserve os links e padrões atuais;
+          não substitua as UTMs do envio para tentar obter um resultado neste quadro.</div>
       </div>
       <div id="area-testes"></div>
     </section>
@@ -333,7 +345,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
-<script src="growth-data.js?v=20260908-2"></script>
+<script src="growth-data.js?v=20260919-ab-integrity"></script>
 <script src="growth-attribution.js?v=20260917-cache"></script>
 <script src="campaign-contract.js?v=20260919-public-boundary"></script>
 <script src="growth-message-preview.js?v=20260917-1"></script>
@@ -366,6 +378,7 @@ let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
+const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
@@ -444,97 +457,97 @@ function grafico(atual,ant){
 }
 
 function renderTestes(){
+  reconciliaTestesAB();
   const ts=API.crm_teste||[],bs=API.crm_teste_braco||[];
   const meus=ts.filter(t=>(MARCA==='todas'||t.marca===MARCA)&&(CANAL==='todos'||t.canal===CANAL));
   $('#n-ab').textContent=meus.length||'';
   if(!meus.length){
     $('#area-testes').innerHTML=`<div class="vazio">Nenhum teste registrado.<br>
-      <span class="mini">Hipótese e métrica primária são gravadas antes do disparo — métrica escolhida depois do resultado não é teste.</span></div>`;
+      <span class="mini">Registre hipótese e métrica antes do disparo. O cadastro, sozinho, não distribui públicos nem comprova um experimento.</span></div>`;
     return;
   }
   $('#area-testes').innerHTML=meus.map(t=>{
     const mb_=bs.filter(b=>b.teste_id===t.teste_id).sort((a,b)=>String(a.braco).localeCompare(String(b.braco)));
-    const ma=mb_[0]?G.metricaDoBraco(API,t,mb_[0]):null;
-    const mbb=mb_[1]?G.metricaDoBraco(API,t,mb_[1]):null;
-    const r=G.compara(ma,mbb);
-    let veredito;
-    if(r.status==='sem_dados')
-      veredito=`<div class="veredito inconclusivo">Sem dado nos braços ainda — vincule as campanhas e espere o snapshot.</div>`;
-    else if(r.status==='poucos_dados')
-      veredito=`<div class="veredito inconclusivo">Amostra pequena demais para concluir. A diferença aparente é de
-        ${r.dif.toFixed(2)} p.p., mas com esse volume ela é indistinguível de ruído.</div>`;
-    else{
-      const n=G.amostraNecessaria(r.pa,+t.efeito_minimo||1);
-      veredito=r.status==='conclusivo'
-        ? `<div class="veredito conclusivo">Braço ${r.vencedor.toUpperCase()} venceu:
-            ${(100*Math.max(r.pa,r.pb)).toFixed(2)}% contra ${(100*Math.min(r.pa,r.pb)).toFixed(2)}%
-            (${Math.abs(r.dif).toFixed(2)} p.p., p=${r.p}). Conclusivo.</div>`
-        : `<div class="veredito inconclusivo">Diferença de ${Math.abs(r.dif).toFixed(2)} p.p. (p=${r.p}) —
-            <strong>não é conclusivo</strong>. Para detectar ${t.efeito_minimo||1} p.p. com segurança seriam
-            necessários cerca de ${nf(n)} por braço.</div>`;
-    }
+    const analysis=G.analisaTeste(API,t,mb_);
+    const veredito=`<div class="veredito inconclusivo"><strong>Comparação descritiva, sem vencedor automático.</strong>
+      ${analysis.difference!==null?`Diferença observada de ${Math.abs(analysis.difference).toFixed(2)} p.p. entre os dois braços. `:''}
+      Este cadastro não comprova quem entrou em cada versão, se o conteúdo ficou fixo nem se o prazo de acompanhamento terminou.
+      As taxas de clique usam a base indicada; não medem vendas adicionais causadas pelo envio.</div>`;
     const cards=mb_.map((b,i)=>{
-      const m=i===0?ma:mbb;
+      const a=analysis.arms[i],m=a.metric;
       return `<div class="braco"><h4>Braço ${esc(String(b.braco).toUpperCase())}</h4>
         <div class="m">${m?((100*m.x/m.n).toFixed(2)+'%'):'—'}</div>
-        <div class="mini">${m?`${nf(m.x)} de ${nf(m.n)} · ${m.rot}`:'sem campanha vinculada'}</div>
+        <div class="mini">${m?`${nf(m.x)} de ${nf(m.n)} · ${m.rot} · ${esc(a.base)}`:esc(a.reason)}</div>
         <div class="mini">${esc(b.descricao||'')}</div></div>`;}).join('');
     return `<section class="painel" style="margin-bottom:14px">
       <div class="painel-cab"><h2 style="font-size:15px">${esc(t.nome)}</h2>
-        <span><span class="tag ${t.marca}">${G.MARCA[t.marca]||t.marca}</span>
+        <span><span class="tag ${G.MARCA[t.marca]?t.marca:'nulo'}">${esc(G.MARCA[t.marca]||t.marca)}</span>
         <span class="tag nulo">${esc(t.status)}</span>
         ${t.status==='rodando'?`<button class="btn sec btn-encerrar" data-t="${esc(t.teste_id)}"
-          data-sug="${r.status==='conclusivo'?esc(r.vencedor):''}"
-          data-st="${r.status==='conclusivo'?'conclusivo':'inconclusivo'}">Encerrar</button>`:''}
+          data-st="inconclusivo">Encerrar registro</button>`:''}
         </span></div>
       ${t.status==='rodando'?`<div class="form enc" id="enc-${esc(t.teste_id)}" hidden style="margin-top:10px">
-        <div class="campo"><label>Vencedor</label>
-          <select class="e-venc"><option value="">Nenhum — deu empate</option>
-            <option value="a">Braço A</option><option value="b">Braço B</option></select>
-          <span class="ajuda">Só marque vencedor se o veredito acima fechou. Escolher braço em teste
-            inconclusivo é decidir no ruído.</span></div>
+        <div class="campo"><label>Resultado do registro</label>
+          <span class="ajuda">Encerramento sem vencedor experimental. Registre a observação e a decisão operacional; este cadastro não comprova a distribuição dos participantes nem o prazo completo de acompanhamento.</span></div>
         <div class="campo largo"><label>Conclusão</label>
-          <textarea class="e-conc" placeholder="O que isso muda na operação daqui pra frente."></textarea></div>
-        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}">Encerrar teste</button>
-          <span class="mini e-msg"></span></div>
+          <textarea class="e-conc" aria-label="Conclusão do registro" placeholder="O que isso muda na operação daqui pra frente."></textarea></div>
+        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}" ${AB_PENDENTES.has(t.teste_id)?'disabled':''}>Encerrar registro</button>
+          <span class="mini e-msg" role="status">${AB_PENDENTES.has(t.teste_id)?'Gravação aguardando confirmação; atualize os dados antes de repetir.':''}</span></div>
       </div>`:''}
       <div class="mini" style="margin-bottom:4px"><strong>Hipótese:</strong> ${esc(t.hipotese)}</div>
       <div class="mini">Variável: ${esc(t.variavel)} · Métrica: ${esc(t.metrica_primaria)}
         · Efeito mínimo: ${t.efeito_minimo||'—'} p.p.</div>
+      <div class="mini">Base: dados acumulados de cada campanha; este resultado não muda com o filtro de período do painel.
+        ${t.vencedor?`Vencedor anotado no registro anterior: ${esc(String(t.vencedor).toUpperCase())}. Essa anotação não foi revalidada como conclusão experimental.`:''}</div>
       <div class="bracos">${cards}</div>${veredito}</section>`;
   }).join('');
 
   document.querySelectorAll('.btn-encerrar').forEach(b=>b.onclick=()=>{
     const cx=$('#enc-'+b.dataset.t);
     cx.hidden=!cx.hidden;
-    // pre-seleciona o vencedor que o proprio painel calculou; vazio se nao deu conclusivo
-    if(!cx.hidden)cx.querySelector('.e-venc').value=b.dataset.sug||'';
-    cx.dataset.st=b.dataset.st;
+    // Closing this legacy registry does not establish a causal result.
+    cx.dataset.st='inconclusivo';
   });
   document.querySelectorAll('.e-salvar').forEach(b=>b.onclick=()=>encerrarTeste(b.dataset.t));
 }
 
+function chaveTesteAB(msg){
+  const field=$('#ab-chave'),typed=field.value.trim();
+  if(typed){AB_CHAVE_SESSAO=typed;field.value='';try{localStorage.setItem('shrigma_ab_key',typed);}catch(_){}}
+  if(!AB_CHAVE_SESSAO)try{AB_CHAVE_SESSAO=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
+  if(!AB_CHAVE_SESSAO){msg.textContent='Informe a chave de escrita do cadastro A/B no campo acima.';field.focus();}
+  return AB_CHAVE_SESSAO;
+}
+function reconciliaTestesAB(){
+  for(const [id,pending] of AB_PENDENTES){
+    if(pending.state==='enviando'||AB_LEITURA<=pending.readVersion||!G.registroTesteConfere(API,pending.expected))continue;
+    AB_PENDENTES.delete(id);$('#ab-status').textContent='Registro '+id+' conferido nos dados atuais do cadastro.';
+    if(pending.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro conferido nos dados atuais.';}
+  }
+  $('#f-salvar').disabled=[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
+  if(AB_PENDENTES.size)$('#ab-status').textContent='Há gravação aguardando confirmação. Atualize o painel para conferir o mesmo registro. Não crie outro identificador para repetir a operação. O cadastro legado não tem histórico imutável de operações.';
+}
+async function gravaTesteAB(corpo,msg,btn){
+  const id=corpo.teste.teste_id;
+  if(AB_PENDENTES.has(id)||(corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar'))){msg.textContent='Gravação aguardando confirmação. Atualize o painel antes de repetir.';btn.disabled=true;return;}
+  const {k,...expected}=corpo,pending={expected,state:'enviando',readVersion:AB_LEITURA};AB_PENDENTES.set(id,pending);
+  btn.disabled=true;const inicio=Date.now();
+  try{
+    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    let j={};try{j=await r.json();}catch(_){}
+    if(r.status===401||r.status===403){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}AB_PENDENTES.delete(id);msg.textContent='Chave de escrita recusada.';}
+    else if(!r.ok&&r.status>=400&&r.status<500){AB_PENDENTES.delete(id);msg.textContent='Recusado: '+(j.erro||r.status);}
+    else if(!r.ok||!G.reciboTesteValido(j,inicio,Date.now())){pending.state='incerto';msg.textContent='Gravação sem confirmação. Atualize o painel e confira o mesmo registro; nenhum reenvio será feito automaticamente.';}
+    else{pending.state='aceito';msg.textContent='Solicitação aceita pelo cadastro. Atualizando para conferir o registro…';await carregar();}
+  }catch(e){pending.state='incerto';msg.textContent='Gravação sem confirmação após falha de conexão. Atualize o painel e confira o mesmo registro antes de repetir.';}
+  finally{reconciliaTestesAB();btn.disabled=AB_PENDENTES.has(id);}
+}
 async function encerrarTeste(id){
   const cx=$('#enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
-  msg.textContent='';
-  const venc=cx.querySelector('.e-venc').value;
-  const conc=cx.querySelector('.e-conc').value.trim();
+  msg.textContent='';const conc=cx.querySelector('.e-conc').value.trim();
   if(!conc){msg.textContent='Escreva a conclusão — sem ela o teste não vira aprendizado.';return;}
-  // status vem do veredito calculado, nao da vontade de quem encerra
-  const st=venc?cx.dataset.st:'inconclusivo';
-  if(venc&&st!=='conclusivo'&&!confirm('O veredito não fechou como conclusivo. Encerrar mesmo assim marcando um vencedor?'))return;
-  let wk=localStorage.getItem('shrigma_ab_key');
-  if(!wk){wk=prompt('Chave de ESCRITA (encerrar teste A/B):');if(!wk)return;localStorage.setItem('shrigma_ab_key',wk);}
-  btn.disabled=true;
-  try{
-    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({k:wk,acao:'encerrar',teste:{teste_id:id,status:st,vencedor:venc||null,conclusao:conc}})});
-    let j={};try{j=await r.json();}catch(_){}
-    if(r.status===401){localStorage.removeItem('shrigma_ab_key');msg.textContent='Chave de escrita inválida.';}
-    else if(!r.ok){msg.textContent='Recusado: '+(j.erro||r.status);}
-    else{msg.textContent='Encerrado.';await carregar();}
-  }catch(e){msg.textContent='Falha: '+e.message;}
-  btn.disabled=false;
+  const wk=chaveTesteAB(msg);if(!wk)return;
+  await gravaTesteAB({k:wk,acao:'encerrar',teste:{teste_id:id,status:'inconclusivo',vencedor:null,conclusao:conc}},msg,btn);
 }
 
 function render(){
@@ -822,23 +835,33 @@ function openFlows(canal,selection={}){
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
 
-function chave(){
-  let k=shrigmaChave("growth");
-  if(!k){k=prompt('Chave de acesso do painel de Growth:');if(k)shrigmaGuardaChave("growth", k);}
-  return k;
+let CHAVE_GROWTH_SESSAO='';
+function chave(){return CHAVE_GROWTH_SESSAO||shrigmaChave('growth');}
+function mostraAcessoGrowth(mensagem=''){
+  const form=$('#growth-acesso'),abrindo=form.hidden;
+  form.hidden=false;$('#load-state').hidden=true;
+  $('#growth-acesso-msg').textContent=mensagem;
+  $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
+  if(abrindo)$('#growth-chave').focus();
 }
+$('#growth-acesso').onsubmit=async e=>{
+  e.preventDefault();const campo=$('#growth-chave'),k=campo.value.trim();
+  if(!k){$('#growth-acesso-msg').textContent='Informe a chave de acesso.';campo.focus();return;}
+  CHAVE_GROWTH_SESSAO=k;shrigmaGuardaChave('growth',k);campo.value='';
+  $('#growth-acesso').hidden=true;await carregar();
+};
 async function carregar(){
   if(LOADING)return;
-  const k=chave();if(!k){$('#load-state').textContent='Informe a chave de Growth para consultar os dados.';return;}
+  const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
   if(!API)$('#load-state').hidden=false;
   try{
     const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{signal:AbortSignal.timeout(45000)});
-    if(r.status===401){shrigmaEsqueceChave("growth");throw new Error('Chave inválida. Clique em Atualizar para informar a chave novamente.');}
+    if(r.status===401||r.status===403){CHAVE_GROWTH_SESSAO='';shrigmaEsqueceChave('growth');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     if(!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);
     const next=await r.json();
     if(!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
-    API=GA.project(next,ATTR_MODEL);
+    API=GA.project(next,ATTR_MODEL);AB_LEITURA++;
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     shrigmaMarcaMestra(k,API._painel);
@@ -864,24 +887,15 @@ async function carregar(){
 }
 async function salvarTeste(){
   const msg=$('#f-msg');msg.textContent='';
-  if(typeof AB_API_URL==='undefined'){msg.textContent='AB_API_URL não configurada em config.js';return;}
-  let wk=localStorage.getItem('shrigma_ab_key');
-  if(!wk){wk=prompt('Chave de ESCRITA (registrar teste A/B):');if(!wk)return;localStorage.setItem('shrigma_ab_key',wk);}
+  if(typeof AB_API_URL==='undefined'){msg.textContent='Cadastro A/B indisponível nesta configuração.';return;}
+  const wk=chaveTesteAB(msg);if(!wk)return;
   const corpo={k:wk,acao:'criar',
     teste:{teste_id:$('#f-id').value.trim(),marca:$('#f-marca').value,canal:$('#f-canal').value,
       nome:$('#f-nome').value.trim(),hipotese:$('#f-hip').value.trim(),variavel:$('#f-var').value,
       metrica_primaria:$('#f-met').value,efeito_minimo:$('#f-efeito').value},
     bracos:[{braco:'a',utm_term:'a',campanha_id:$('#f-ca').value||null,descricao:$('#f-da').value},
             {braco:'b',utm_term:'b',campanha_id:$('#f-cb').value||null,descricao:$('#f-db').value}]};
-  $('#f-salvar').disabled=true;
-  try{
-    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
-    let j={};try{j=await r.json();}catch(_){}
-    if(r.status===401){localStorage.removeItem('shrigma_ab_key');msg.textContent='Chave de escrita inválida.';}
-    else if(!r.ok){msg.textContent='Recusado: '+(j.erro||r.status);}
-    else{msg.textContent='Registrado.';$('#form-teste').hidden=true;await carregar();}
-  }catch(e){msg.textContent='Falha: '+e.message;}
-  $('#f-salvar').disabled=false;
+  await gravaTesteAB(corpo,msg,$('#f-salvar'));
 }
 // Marca, periodo e aba persistem no navegador (padrao Metabase/Looker): quem abre o painel
 // todo dia nao refaz os mesmos quatro cliques. Sem preferencia salva vale o padrao da pagina.

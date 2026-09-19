@@ -306,6 +306,7 @@ const G = {
   },
   compara(a,b){
     if(!a||!b||!a.n||!b.n)return{status:'sem_dados'};
+    if(![a,b].every(v=>Number.isSafeInteger(v.n)&&v.n>0&&Number.isSafeInteger(v.x)&&v.x>=0&&v.x<=v.n))return{status:'dados_invalidos'};
     const pa=a.x/a.n,pb=b.x/b.n;
     if(a.x<5||b.x<5||a.n-a.x<5||b.n-b.x<5)return{status:'poucos_dados',pa,pb,dif:100*(pb-pa)};
     const pp=(a.x+b.x)/(a.n+b.n),se=Math.sqrt(pp*(1-pp)*(1/a.n+1/b.n));
@@ -320,18 +321,56 @@ const G = {
     const pm=(p1+p2)/2,d=Math.abs(p2-p1);
     return Math.ceil(2*Math.pow(1.96*Math.sqrt(2*pm*(1-pm))+0.84*Math.sqrt(p1*(1-p1)+p2*(1-p2)),2)/(2*d*d));
   },
-  metricaDoBraco(api,teste,braco){
-    const c=(api.crm_campanha||[]).find(x=>x.marca===teste.marca&&String(x.campanha_id)===String(braco.campanha_id));
-    const m=teste.metrica_primaria;
-    if(m==='ctor'&&c&&G.temNumero(c.abriram)&&+c.abriram>0&&G.temNumero(c.clicaram))return{n:+c.abriram,x:+c.clicaram,rot:'CTOR'};
-    if(m==='ctr'&&c&&G.temNumero(c.entregues)&&+c.entregues>0&&G.temNumero(c.clicaram))return{n:+c.entregues,x:+c.clicaram,rot:'CTR'};
-    if(m==='conversao'&&c&&c.entregues){
-      const ped=(api.crm_conversao||[])
-        .filter(r=>r.marca===teste.marca&&r.utm_term===braco.utm_term)
-        .reduce((a,r)=>a+(+r.pedidos_ultimo||0),0);
-      return{n:c.entregues,x:ped,rot:'Conversão'};
-    }
-    return null;
+  // Legacy API acknowledgment: it has a timestamp, but no operation ID/revision.
+  // Allow one minute of clock skew; a missing/stale receipt cannot confirm a write.
+  reciboTesteValido(receipt,inicio,fim){
+    if(!receipt||Array.isArray(receipt)||receipt.ok!==true||typeof receipt.gravado_em!=='string')return false;
+    const at=Date.parse(receipt.gravado_em);
+    return Number.isFinite(at)&&Number.isFinite(inicio)&&Number.isFinite(fim)&&fim>=inicio&&at>=inicio-60000&&at<=fim+60000;
+  },
+  // Readback proves only the current registry state, not immutable assignment.
+  registroTesteConfere(api,expected){
+    const t=expected?.teste;if(!t?.teste_id)return false;
+    const rows=(api?.crm_teste||[]).filter(r=>r.teste_id===t.teste_id);if(rows.length!==1)return false;
+    const r=rows[0],str=v=>v===null||v===undefined?'':String(v);
+    if(expected.acao==='encerrar')return r.status===t.status&&r.vencedor==null&&str(r.conclusao)===str(t.conclusao);
+    if(expected.acao!=='criar'||r.status!==(t.status||'rodando'))return false;
+    if(!['marca','canal','nome','hipotese','variavel','metrica_primaria'].every(k=>str(r[k])===str(t[k])))return false;
+    if(str(r.efeito_minimo)!==str(t.efeito_minimo)&&(!G.temNumero(r.efeito_minimo)||!G.temNumero(t.efeito_minimo)||+r.efeito_minimo!==+t.efeito_minimo))return false;
+    const arms=(api?.crm_teste_braco||[]).filter(b=>b.teste_id===t.teste_id),wanted=expected.bracos||[];
+    return wanted.length>=2&&arms.length===wanted.length&&new Set(arms.map(b=>b.braco)).size===wanted.length&&wanted.every(b=>{
+      const a=arms.find(x=>x.braco===b.braco);return a&&['campanha_id','utm_term','descricao'].every(k=>str(a[k])===str(b[k]));
+    });
+  },
+  // The legacy registry has no assignment ledger or prespecified outcome window.
+  // Campaign snapshots can describe engagement, never establish a causal winner.
+  avaliaBraco(api,teste,braco){
+    const missing=reason=>({metric:null,reason});
+    if(teste.metrica_primaria==='conversao')return missing('Conversão indisponível: faltam o grupo alocado e o prazo de acompanhamento. Pedidos agrupados por UTM não representam essa base.');
+    if(!['ctr','ctor'].includes(teste.metrica_primaria))return missing('Métrica sem contrato de medição neste cadastro.');
+    if(braco.campanha_id===null||braco.campanha_id===undefined||braco.campanha_id==='')return missing('Sem campanha vinculada.');
+    const candidates=(api.crm_campanha||[]).filter(c=>c.marca===teste.marca&&String(c.campanha_id)===String(braco.campanha_id)&&(!teste.canal||c.canal===teste.canal));
+    if(candidates.length!==1)return missing(candidates.length?'Mais de uma campanha corresponde ao vínculo; confira marca e canal.':'Campanha não disponível nos dados consultados.');
+    const c=candidates[0];
+    if(c.tipo==='agendada')return missing('Campanha agendada, ainda sem resultado de disparo.');
+    if(c.truncado===true)return missing('Dados da campanha incompletos; taxa indisponível.');
+    const count=v=>(typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isSafeInteger(+v)&&+v>=0;
+    const denominator=teste.metrica_primaria==='ctor'?c.abriram:c.entregues;
+    if(!count(denominator)||!count(c.clicaram))return missing('Contagem de clique ou base não disponível; ausência não equivale a zero.');
+    const n=+denominator,x=+c.clicaram;
+    if(!n)return missing('Base medida igual a zero; taxa indefinida.');
+    if(x>n)return missing('Cliques excedem a base deste indicador; conferir cobertura, sem truncar o resultado para 100%.');
+    return {metric:{n,x,rot:teste.metrica_primaria==='ctor'?'CTOR':'CTR'},reason:null,
+      base:teste.metrica_primaria==='ctor'?'destinatários com abertura registrada':'entregues registrados',enviado_em:c.enviado_em||null};
+  },
+  metricaDoBraco(api,teste,braco){return G.avaliaBraco(api,teste,braco).metric;},
+  analisaTeste(api,teste,bracos){
+    const arms=bracos.map(b=>({braco:b.braco,...G.avaliaBraco(api,teste,b)}));
+    const distinct=new Set(bracos.map(b=>b.campanha_id===null||b.campanha_id===undefined?'':String(b.campanha_id)));
+    const pair=arms.length===2&&distinct.size===2&&arms.every(a=>a.metric);
+    return {status:arms.some(a=>a.metric)?'descritivo':'sem_dados',arms,
+      difference:pair?100*(arms[1].metric.x/arms[1].metric.n-arms[0].metric.x/arms[0].metric.n):null,
+      comparable:!!pair,causal:false,canDeclareWinner:false};
   },
 };
 

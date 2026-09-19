@@ -427,6 +427,17 @@ const G = {
       freteZerado: todos.some(x => x.frete_zerado === true)
     };
   },
+  // Coverage is per active creator and current competence, not an all-or-none month.
+  coberturaCusto(payload, marca, competencia){
+    if(!Array.isArray(payload?.influs)||!Array.isArray(payload?.custos))return null;
+    const custos=new Set(payload.custos.filter(c=>c.competencia===competencia).map(c=>c.marca+'|'+c.influ));
+    const ativos=payload.influs.filter(i=>(marca==='todas'||i.marca===marca)&&i.ativo!==false&&i.modelo!=='encerrado'&&(!i.desde||String(i.desde).slice(0,7)<=competencia));
+    return ativos.flatMap(i=>{
+      if(!i.modelo||!['fixo','hibrido','permuta','comissao'].includes(i.modelo))return [{...i,motivo:'modelo de remuneração não definido'}];
+      if(['fixo','hibrido','permuta'].includes(i.modelo)&&!custos.has(i.marca+'|'+i.influ))return [{...i,motivo:i.modelo==='permuta'?'conferir produto e frete; sem lançamento nesta competência':'cachê desta competência não lançado'}];
+      return [];
+    });
+  },
   // agrupa por porte ou modelo para achar onde o dinheiro rende
   influPor(roi, marca, campo){
     // inclui quem teve receita nula: o custo dele tem que aparecer no corte
@@ -653,13 +664,13 @@ function renderCreators(){
   lista.sort((a,b)=>((roi.get(b.marca+'|'+b.influ)||{}).receita||0)-((roi.get(a.marca+'|'+a.influ)||{}).receita||0));
   $('#n-creators').textContent=(INFLU.influs||[]).filter(i=>(MARCA==='todas'||i.marca===MARCA)&&i.ativo!==false).length;
   el.innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
-    <th>Creator</th><th>Contrato</th><th class="num">Cachê ${comp.slice(5)}/${comp.slice(2,4)}</th><th>Cupons</th>
+    <th>Creator</th><th>Contrato</th><th class="num" title="Cachê + produto + frete lançados no mês">Custo ${comp.slice(5)}/${comp.slice(2,4)}</th><th>Cupons</th>
     <th class="num">Pedidos</th><th class="num">Receita</th><th>Status</th><th></th></tr></thead><tbody>
     ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
       return `<tr>
         <td><a href="#" class="i-nome cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}" title="Editar creator"><strong>${esc(i.nome||i.influ)}</strong> ✎</a>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
         <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag nulo">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:''}</td>
-        <td class="num tabn">${cx?rf(cx):'—'}</td>
+        <td class="num tabn">${cx!==undefined?rf(cx):'—'}</td>
         <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
         <td class="num tabn">${v.pedidos?nf(v.pedidos):'—'}</td>
         <td class="num tabn">${v.receita?rf(v.receita):'—'}</td>
@@ -882,38 +893,18 @@ async function classificarCupom(marca,cod,tipo,influ,msg,it){
   }catch(e){msg.textContent='falhou: '+esc(e.message);it.querySelectorAll('button,select').forEach(x=>x.disabled=false);}
 }
 
-// ---------- custo por competencia: nao se repete sozinho ----------
-// O custo e lancado por mes (crm_influ_custo). Mes novo sem lancamento = custo zero e ROI
-// inflado. Em vez de esconder, avisar e oferecer repetir o mes anterior em um clique
-// (N chamadas ao salvar_custo que ja existe; sem acao nova na API).
-function compAtual(){return new Date().toISOString().slice(0,7);}
-function compAnterior(c){const [a,m]=c.split('-').map(Number);const d=new Date(a,m-2,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+// ---------- custo por competência: recorrência fixa existente; avulsos revisados ----------
+function compAtual(agora=new Date()){
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).formatToParts(agora);
+  return p.find(x=>x.type==='year').value+'-'+p.find(x=>x.type==='month').value;
+}
 function renderAvisoCusto(){
   const el=$('#i-custo-aviso'); if(!el)return;
-  const cs=(INFLU.custos||[]).filter(c=>MARCA==='todas'||c.marca===MARCA);
-  const atual=compAtual(), ant=compAnterior(atual);
-  const soma=comp=>cs.filter(c=>c.competencia===comp).reduce((a,c)=>a+(+c.fixo||0)+(+c.produto||0)+(+c.frete||0),0);
-  const nAtual=cs.filter(c=>c.competencia===atual).length, nAnt=cs.filter(c=>c.competencia===ant).length;
-  if(nAtual>0||nAnt===0){el.innerHTML='';return;}
-  const marcas=[...new Set(cs.filter(c=>c.competencia===ant).map(c=>c.marca))];
-  el.innerHTML=`<div class="alerta i-alerta"><strong>${atual.slice(5)}/${atual.slice(0,4)} sem custo lançado</strong> — ${nAnt} creator${nAnt===1?'':'s'} tinham custo em ${ant.slice(5)}/${ant.slice(0,4)} (${rf(soma(ant))}). O ROI deste mês está sem o custo, então está inflado.
-    <span class="i-alerta-acoes">${marcas.map(m=>`<button class="btn sec i-repetir" data-m="${esc(m)}">Repetir ${ant.slice(5)}/${ant.slice(0,4)} em ${atual.slice(5)} · ${esc(G.MARCA[m]||m)}</button>`).join(' ')} <span class="mini i-rep-msg"></span></span></div>`;
-  el.querySelectorAll('.i-repetir').forEach(b=>b.onclick=()=>repetirCustos(b.dataset.m,ant,atual,el.querySelector('.i-rep-msg'),b));
-}
-async function repetirCustos(marca,de,para,msg,bt){
-  const linhas=(INFLU.custos||[]).filter(c=>c.marca===marca&&c.competencia===de&&((+c.fixo||0)+(+c.produto||0)+(+c.frete||0)>0));
-  if(!linhas.length){msg.textContent='nada para repetir';return;}
-  if(!confirm(`Lançar em ${para} os mesmos ${linhas.length} custos de ${de} (${esc(G.MARCA[marca]||marca)})? Patrocínio não é copiado.`))return;
-  const wk=chaveEscritaInflu();if(!wk)return;
-  bt.disabled=true; let ok=0;
-  for(const c of linhas){
-    msg.textContent=`${ok+1}/${linhas.length} ${c.influ}…`;
-    try{await influPost({k:wk,acao:'salvar_custo',autor:autorAtual(),
-      custo:{marca,influ:c.influ,competencia:para,fixo:c.fixo,produto:c.produto,frete:c.frete,obs:`repetido de ${de}`}});ok++;}
-    catch(e){msg.textContent=`parou em ${c.influ}: ${esc(e.message)} (${ok} lançados)`;bt.disabled=false;return;}
-  }
-  msg.textContent=`${ok} custos lançados em ${para}. atualizando…`;
-  await carregarInflu();
+  const atual=compAtual(),pendentes=G.coberturaCusto(INFLU,MARCA,atual);
+  const regra='O cachê de contratos fixos e híbridos ativos é repetido automaticamente quando a competência ainda não existe. Produto, frete e patrocínio precisam de conferência própria. Um lançamento existente não comprova que todos os custos foram informados.';
+  if(pendentes===null){el.innerHTML='<div class="alerta i-alerta">Cobertura dos custos indisponível. Atualize os dados antes de avaliar o retorno.</div>';return;}
+  el.innerHTML=`<div class="${pendentes.length?'alerta i-alerta':'nota'}"><strong>Custos · competência ${atual.slice(5)}/${atual.slice(0,4)}</strong><div class="mini">${regra} Esta conferência usa o mês atual de Brasília, independentemente do filtro de vendas.</div>${pendentes.length?`<p>${pendentes.length} cadastro(s) precisam de revisão. O retorno exibido usa os valores lançados e pode estar incompleto.</p><ul>${pendentes.map(i=>`<li>${esc(i.nome||i.influ)} · ${esc(G.MARCA[i.marca]||i.marca)}: ${esc(i.motivo)} <button class="btn sec i-revisar-custo" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Revisar cadastro e custos</button></li>`).join('')}</ul>`:''}</div>`;
+  el.querySelectorAll('.i-revisar-custo').forEach(b=>b.onclick=()=>abrirEditor(b.dataset.m,b.dataset.influ));
 }
 
 // ---------- novo creator a partir do cupom: 3 saves em 1 clique ----------
