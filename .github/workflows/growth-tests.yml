@@ -1,15 +1,21 @@
-name: Growth regression
+name: Dashboard regression
 on:
   pull_request:
     paths:
       - 'growth*'
+      - 'organico*'
+      - 'influs*'
+      - 'campaign-contract.js'
+      - '_config.yml'
       - 'cx*'
       - 'index.html'
       - 'app.js'
       - 'dados.js'
       - 'config.js'
       - 'alerta-*.js'
-      - 'n8n/growth/campaign*'
+      - 'n8n/**'
+      - 'frescor.js'
+      - '*.css'
       - 'tests/**'
       - '.github/workflows/growth-tests.yml'
   workflow_dispatch:

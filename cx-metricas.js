@@ -462,13 +462,15 @@ function agenteAgg(rows, f) {
     resolutivosDia: a.diasMaduros.size ? a.resolutivos / a.diasMaduros.size : null,
     pctVoltou: pct(a.voltaram, a.maduros), pctDescartes: pct(a.descartes, a.fechados),
     msgsClientePorAt: a.efetivos ? a.msgsCliente / a.efetivos : null, msgsHumanasPorAt: a.efetivos ? a.msgsHumanas / a.efetivos : null,
-    csatAvaliados: a.csatAvaliados, pctCsatBom: pct(a.csatBom, a.csatAvaliados), pctCsatRuim: pct(a.csatRuim, a.csatAvaliados) }))
+    csatAvaliados: a.csatAvaliados, csatBom: a.csatBom, csatRuim: a.csatRuim,
+    pctCsatBom: pct(a.csatBom, a.csatAvaliados), pctCsatRuim: pct(a.csatRuim, a.csatAvaliados) }))
     .sort((x, y) => (y.resolutivosDia || 0) - (x.resolutivosDia || 0) || (y.efetivos || 0) - (x.efetivos || 0));
 }
 // o time inteiro na mesma régua (linha de rodapé): soma dos agentes + o que CHEGA ao humano por dia útil (cx_handoff_dia)
 function agenteTime(agentes, handoffRows, f) {
   const t = { agentes: agentes.length, fechados: 0, descartes: 0, efetivos: 0, maduros: 0, resolutivos: 0, voltaram: 0, msgsCliente: 0, msgsHumanas: 0, csatAvaliados: 0, csatBom: 0, csatRuim: 0 };
-  for (const a of agentes) { for (const k of ["fechados", "descartes", "efetivos", "maduros", "resolutivos", "voltaram", "csatAvaliados"]) t[k] += a[k]; t.msgsCliente += a.msgsClientePorAt ? a.msgsClientePorAt * a.efetivos : 0; t.msgsHumanas += a.msgsHumanasPorAt ? a.msgsHumanasPorAt * a.efetivos : 0; t.csatBom += a.pctCsatBom === null ? 0 : (a.pctCsatBom / 100) * a.csatAvaliados; t.csatRuim += a.pctCsatRuim === null ? 0 : (a.pctCsatRuim / 100) * a.csatAvaliados; }
+  // Soma os votos brutos: ocultar o percentual de um agente com base curta não elimina seus votos do time.
+  for (const a of agentes) { for (const k of ["fechados", "descartes", "efetivos", "maduros", "resolutivos", "voltaram", "csatAvaliados", "csatBom", "csatRuim"]) t[k] += a[k]; t.msgsCliente += a.msgsClientePorAt ? a.msgsClientePorAt * a.efetivos : 0; t.msgsHumanas += a.msgsHumanasPorAt ? a.msgsHumanasPorAt * a.efetivos : 0; }
   const uteis = cxDiasUteis(f.ini, f.fim).length;
   let chegam = 0, tickets = 0, diasHandoff = new Set();
   for (const l of cxFiltra(handoffRows, Object.assign({}, f, { canais: null }))) { if (l.marca === "olivas") continue; chegam += Number(l.chegam_humano || 0); tickets += Number(l.tickets || 0); diasHandoff.add(cxDia(l.dia)); }

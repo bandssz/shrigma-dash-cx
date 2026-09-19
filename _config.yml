@@ -1,0 +1,13 @@
+# Publish only dashboard assets; server code and operational artifacts stay out of Pages.
+exclude:
+  - n8n
+  - tools
+  - tests
+  - docs
+  - .private
+  - private
+  - artifacts
+  - README.md
+  - BACKEND_REQUESTS.md
+  - DIAGNOSTICO-PEDIDO-PAGO.md
+  - convencao-utm-organico.md

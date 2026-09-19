@@ -12,7 +12,8 @@
 // para o Felipe e a Marcela lerem a copy antes de qualquer criador receber alguma coisa.
 const helpers = this.helpers;
 const APP_KEY = '6ks1ed1nu6tke';
-const APP_SECRET = '28756b9cdbbfb5d1f830ca41c352508832660af8';
+const APP_SECRET = '__SERVER_ONLY_TIKTOK_SHOP_SECRET__';
+if (APP_SECRET.startsWith('__SERVER_ONLY_')) throw new Error('Configure a credencial no servidor antes de publicar este node.');
 const BASE = 'https://open-api.tiktokglobalshop.com';
 const MAX_POR_EXECUCAO = 60;   // trava dura contra disparada; o controle real é crm_tts_regra.cobranca_max_dia (15/marca)
 const DIAS_QUIETOS = 7;        // conversa com mensagem (de qualquer lado) mais nova que isto é conversa humana: o robô não entra

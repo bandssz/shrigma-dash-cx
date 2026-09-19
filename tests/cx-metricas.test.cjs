@@ -158,6 +158,40 @@ test('agenteTime: chegam por dia útil (seg–sex), Olivas fora, saldo contra o 
   assert.equal(t.resolutivosDia, 8);
   assert.equal(t.pctVoltou, (20 / 60) * 100); assert.equal(t.pctCsatBom, 50);
 });
+test('agenteTime: votos de agentes com base curta entram no CSAT do time antes da guarda de amostra', () => {
+  const f = { marca: 'todas', ini: '2026-09-01', fim: '2026-09-01' };
+  const row = (id, avaliados, bom, ruim) => ({ marca: 'aristocrata', dia: '2026-09-01', agente_id: id,
+    agente_nome: id, fechados: 40, descartes: 0, efetivos: 40, maduros: 40, resolutivos: 35, voltaram: 5,
+    msgs_humanas: 80, msgs_cliente: 80, csat_avaliados: avaliados, csat_bom: bom, csat_ruim: ruim });
+  const agrega = (rows) => {
+    const agentes = M.agenteAgg(rows, f);
+    return { agentes, time: M.agenteTime(agentes, [], f) };
+  };
+  const boas = agrega([row('a', 20, 20, 0), row('b', 20, 20, 0)]);
+  assert.ok(boas.agentes.every((a) => a.pctCsatBom === null && a.pctCsatRuim === null), 'base individual curta continua sem percentual');
+  assert.equal(boas.time.csatAvaliados, 40);
+  assert.equal(boas.time.csatBom, 40);
+  assert.equal(boas.time.pctCsatBom, 100, '40 votos bons não viram zero só porque nenhum agente tem 30');
+  assert.equal(boas.time.pctCsatRuim, 0);
+
+  const mista = agrega([row('a', 10, 4, 3), row('b', 40, 20, 10)]);
+  assert.equal(mista.time.csatAvaliados, 50);
+  assert.equal(mista.time.csatBom, 24);
+  assert.equal(mista.time.csatRuim, 13);
+  assert.equal(mista.time.pctCsatBom, 48, 'peso é quantidade de votos, incluindo a base curta');
+  assert.equal(mista.time.pctCsatRuim, 26, 'ruins também preservados; neutros ficam no denominador');
+
+  const curta = agrega([row('a', 10, 4, 3), row('b', 19, 9, 5)]);
+  assert.equal(curta.time.csatAvaliados, 29);
+  assert.equal(curta.time.pctCsatBom, null, 'time com menos de 30 também continua sem percentual');
+  assert.equal(curta.time.pctCsatRuim, null);
+  const limite = agrega([row('a', 10, 4, 3), row('b', 20, 11, 6)]);
+  assert.equal(limite.time.pctCsatBom, 50, '30 votos liberam a apresentação do consolidado');
+  assert.equal(limite.time.pctCsatRuim, 30);
+  const vazio = agrega([row('a', 0, 0, 0)]);
+  assert.equal(vazio.time.pctCsatBom, null, 'ausência de votos não é satisfação zero');
+  assert.equal(vazio.time.pctCsatRuim, null);
+});
 test('cxJanelaMadura: corta no teto de 7 dias; sem 3 dias úteis maduros cai para 10 dias úteis e avisa', () => {
   const hoje = '2026-09-10';
   assert.deepEqual(M.cxJanelaMadura({ ini: '2026-08-20', fim: '2026-09-09' }, hoje), { ini: '2026-08-20', fim: '2026-09-03', caiu: false, cortou: true, teto: '2026-09-03' });
