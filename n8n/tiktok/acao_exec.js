@@ -1,5 +1,5 @@
 // Executa a ação validada. 'revisar' chama o TikTok (review de 1 pedido) e grava a decisão manual;
-// 'regra' só monta o UPDATE de crm_tts_regra. Sempre devolve { ok, mensagem, sql }.
+// 'regra' chama a validação atômica parametrizada; o resultado só existe depois de Grava.
 const helpers = this.helpers;
 const APP_KEY = '6ks1ed1nu6tke';
 const APP_SECRET = '__SERVER_ONLY_TIKTOK_SHOP_SECRET__';
@@ -76,10 +76,8 @@ const tokens = {};
 for (const it of $input.all()) if (it.json.loja && it.json.access_token) tokens[it.json.loja] = it.json.access_token;
 
 if (a.acao === 'regra') {
-  const sets = Object.entries(a.regra).map(([k, v]) => `${k} = ${typeof v === 'number' ? v : q(v)}`);
-  sets.push(`atualizado_em = now()`, `atualizado_por = ${q(a.autor + ' (painel)')}`);
-  return [{ json: { ok: true, mensagem: `regra da marca ${a.marca} atualizada: ${Object.keys(a.regra).join(', ')}`,
-    sql: `UPDATE crm_tts_regra SET ${sets.join(', ')} WHERE marca = ${q(a.marca)} RETURNING *` } }];
+  return [{ json: { acao:'regra', sql:'SELECT public.crm_tts_regra_patch_v1($1::text,$2::jsonb,$3::text,$4::text) AS regra_result',
+    sqlParameters:[a.marca,JSON.stringify(a.regra),a.autor,a.esperado_atualizado_em ?? null] } }];
 }
 
 // revisar
