@@ -3,7 +3,7 @@
 'use strict';
 const C=require('./campaign-contract');
 const MESSAGES={CAMPAIGN_EDITOR_REQUIRED:'Esta campanha é gerida pelo painel. Recarregue a versão atual antes de editar.',CAMPAIGN_REVIEW_REQUIRED:'A campanha precisa ser validada e agendada pelo painel.',CAMPAIGN_DEPENDENCY_IN_USE:'Uma campanha agendada, em execução ou pausada utiliza este recurso. Cancele a campanha antes de alterar o recurso.'};
-const ERRORS=new Set(['CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED']);
+const ERRORS=new Set(['CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED']);
 function createProvider({query,nativeCreate,validateContent}){
  if(typeof query!=='function'||typeof nativeCreate!=='function'||typeof validateContent!=='function')throw Error('Postgres, native create and content compilation adapters are required');
  async function call(action,payload){

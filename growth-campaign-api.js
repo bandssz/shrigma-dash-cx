@@ -111,6 +111,12 @@ const GCA=(()=>{
     if(!writeJournal)return {...snapshot(),consultation:{state:saved.state},readOnly:true};
     if(saved.state==='succeeded'){
      const r=saved.response;if(!r||!applyResponse({status:r.status,body:r.body,ok:r.status>=200&&r.status<300},op))throw error('RESPONSE_UNCONFIRMED','A operação respondeu, mas a campanha ainda não foi confirmada.');
+     // The durable receipt is historical: a later cancellation or worker may
+     // have changed the campaign. Confirm its current revision before unlocking.
+     const id=state.campaign.id;persist({...state,recoveryId:id});
+     const latest=await call('GET',CampaignContract.request('obter',{brand,id}),k);
+     if(!latest.ok||!validCampaign(latest.body?.campaign)||latest.body.campaign.id!==id)throw error('READBACK_UNCONFIRMED','A operação foi confirmada, mas o estado atual da campanha ainda não. Consulte novamente.');
+     const c=latest.body.campaign;persist({...state,campaign:copy(c),validation:state.validation?.version===c.version?state.validation:null,recoveryId:null});
     }else if(saved.state==='rejected'){
      // Rejection after native creation still owns a real draft. Read it back
      // before unlocking; never turn a rejected post-create step into new create.

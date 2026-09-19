@@ -69,9 +69,15 @@ BEGIN
   previous_writer:=current_setting('shrigma.campaign_writer',true);
   PERFORM set_config('shrigma.campaign_writer',c.id::text,true);
   UPDATE public.campaigns SET status='cancelled',updated_at=clock_timestamp() WHERE id=c.id;
-  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
+  -- CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1: status and its durable receipt commit together.
+  current_row:=public.shrigma_campaign_current(c.id);
+  IF current_row->>'status' IS DISTINCT FROM 'cancelled' OR current_row->'sent' IS DISTINCT FROM '0'::jsonb
+   OR current_row->'started_at' IS DISTINCT FROM 'null'::jsonb OR (current_row->>'id')::integer IS DISTINCT FROM c.id
+   OR nullif(current_row->>'send_at','')::timestamptz IS DISTINCT FROM c.send_at THEN RAISE EXCEPTION 'CAMPAIGN_RECEIPT_MISMATCH'; END IF;
+  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,state='succeeded',
+   response=jsonb_build_object('status',200,'body',jsonb_build_object('campaign',current_row,'operation_id',op.id)),updated_at=clock_timestamp() WHERE id=op.id;
   PERFORM set_config('shrigma.campaign_writer',coalesce(previous_writer,''),true);
-  RETURN public.shrigma_campaign_current(c.id);
+  RETURN current_row;
  END IF;
  IF c.status::text<>'draft' OR c.sent<>0 OR c.started_at IS NOT NULL OR c.type::text<>'regular'
   OR c.content_type::text<>'html' OR c.body_source IS NOT NULL OR c.messenger<>'email' THEN RAISE EXCEPTION 'CAMPAIGN_LOCKED'; END IF;
@@ -122,8 +128,18 @@ BEGIN
   INSERT INTO public.crm_familia_campanha(marca,utm_campaign,familia) VALUES(b,d->>'utm_campaign',d#>>'{initiative,key}') ON CONFLICT DO NOTHING;
   DELETE FROM public.shrigma_campaign_validation WHERE provider_id=c.id;
  END IF;
- UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
+ current_row:=public.shrigma_campaign_current(c.id);
+ IF a='schedule' THEN
+  -- CAMPAIGN_ATOMIC_SCHEDULE_RECEIPT_V1: losing the runtime's final step cannot orphan a confirmed schedule.
+  IF current_row->>'status' IS DISTINCT FROM 'scheduled' OR current_row->'sent' IS DISTINCT FROM '0'::jsonb
+   OR current_row->'started_at' IS DISTINCT FROM 'null'::jsonb OR (current_row->>'id')::integer IS DISTINCT FROM c.id
+   OR nullif(current_row->>'send_at','')::timestamptz IS DISTINCT FROM c.send_at THEN RAISE EXCEPTION 'CAMPAIGN_RECEIPT_MISMATCH'; END IF;
+  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,state='succeeded',
+   response=jsonb_build_object('status',200,'body',jsonb_build_object('campaign',current_row,'operation_id',op.id)),updated_at=clock_timestamp() WHERE id=op.id;
+ ELSE
+  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
+ END IF;
  PERFORM set_config('shrigma.campaign_writer',coalesce(previous_writer,''),true);
- RETURN public.shrigma_campaign_current(c.id);
+ RETURN current_row;
 END $fn$;
 REVOKE ALL ON FUNCTION public.shrigma_campaign_list_brand(public.lists),public.shrigma_campaign_catalog(text),public.shrigma_campaign_current(integer),public.shrigma_campaign_provider(text,jsonb) FROM PUBLIC;

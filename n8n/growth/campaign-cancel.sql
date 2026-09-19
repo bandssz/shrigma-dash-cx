@@ -25,7 +25,8 @@ BEGIN
  IF strpos(body,'op.action<>(CASE WHEN a=''update'' THEN ''salvar'' WHEN a=''cancel'' THEN ''cancelar'' ELSE ''agendar'' END)')>0 THEN NULL;
  ELSIF (length(body)-length(replace(body,'op.action<>(CASE WHEN a=''update'' THEN ''salvar'' ELSE ''agendar'' END)','')))/length('op.action<>(CASE WHEN a=''update'' THEN ''salvar'' ELSE ''agendar'' END)')=1 THEN body:=replace(body,'op.action<>(CASE WHEN a=''update'' THEN ''salvar'' ELSE ''agendar'' END)','op.action<>(CASE WHEN a=''update'' THEN ''salvar'' WHEN a=''cancel'' THEN ''cancelar'' ELSE ''agendar'' END)');
  ELSE RAISE EXCEPTION 'CANCEL_PROVIDER_DRIFT_1'; END IF;
- IF strpos(body,' IF current_row->>''version'' IS DISTINCT FROM p->>''expectedVersion'' THEN RAISE EXCEPTION ''VERSION_CONFLICT''; END IF;
+ IF strpos(body,'CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1')>0 AND strpos(body,'IF a=''cancel'' THEN')>0 THEN NULL;
+ ELSIF strpos(body,' IF current_row->>''version'' IS DISTINCT FROM p->>''expectedVersion'' THEN RAISE EXCEPTION ''VERSION_CONFLICT''; END IF;
  IF a=''cancel'' THEN
   -- The row lock arbitrates cancellation against the native worker. Never cancel
   -- a due, started or partly delivered campaign through this future-schedule path.

@@ -77,9 +77,25 @@ test('confirmed rejected post-create step reopens its owned draft instead of per
  await f.client.save(definition());assert.equal(updates,1);assert.equal(f.calls.filter(c=>c.init.method==='POST'&&!c.request.id).length,1);
 });
 test('successful operation polling recovers the confirmed result; malformed success never becomes a new draft',async()=>{
- const f=fixture(async req=>req.acao==='campanha_operacao'?{status:200,body:{operation:{brand:'fish',state:'succeeded',response:{status:201,body:{campaign:campaign()}}}}}:{status:200,body:{accepted:true}});
+ const f=fixture(async req=>req.acao==='campanha_operacao'?{status:200,body:{operation:{brand:'fish',state:'succeeded',response:{status:201,body:{campaign:campaign()}}}}}:req.acao==='campanha_obter'?{status:200,body:{campaign:campaign()}}:{status:200,body:{accepted:true}});
  await f.client.catalog();await assert.rejects(()=>f.client.save(definition()));assert.equal(f.client.locked(),true);
  await f.reload().consult();assert.equal(f.reload().locked(),false);assert.equal(f.reload().snapshot().campaign.id,100);
+});
+test('reconciliation keeps the historical receipt but requires the current campaign revision',async()=>{
+ let available=false;
+ const current={...campaign(),status:'cancelled',version:'v-after-cancellation'};
+ const f=fixture(async req=>{
+  if(req.acao==='campanha_operacao')return {status:200,body:{operation:{brand:'fish',state:'succeeded',response:{status:201,body:{campaign:campaign()}}}}};
+  if(req.acao==='campanha_obter')return available?{status:200,body:{campaign:current}}:{status:503,body:{error:'READ_UNAVAILABLE'}};
+  return {status:200,body:null};
+ });
+ await f.client.catalog();await assert.rejects(()=>f.client.save(definition()));
+ await assert.rejects(()=>f.client.consult(),{code:'READBACK_UNCONFIRMED'});assert.equal(f.client.locked(),true);
+ assert.equal(f.client.snapshot().operation.phase,'succeeded');assert.equal(f.client.snapshot().recoveryId,100);
+ available=true;await f.client.consult();assert.equal(f.client.locked(),false);
+ assert.equal(f.client.snapshot().campaign.status,'cancelled');assert.equal(f.client.snapshot().campaign.version,current.version);
+ assert.equal(f.client.snapshot().operation.response.body.campaign.status,'draft','original receipt remains historical');
+ assert.equal(f.calls.filter(c=>c.init.method==='POST').length,1,'reconciliation never repeats the write');
 });
 test('unavailable durable browser storage prevents transport; server capability denial confirms no claim',async()=>{
  const f=fixture(async()=>({status:401,body:{error:'UNAUTHORIZED'}}));await f.client.catalog();

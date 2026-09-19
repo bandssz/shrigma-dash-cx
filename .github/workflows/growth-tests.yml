@@ -53,7 +53,9 @@ jobs:
       - name: Check incremental campaign cancellation
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
-        run: node tests/campaign-cancel-postgres.cjs
+        run: |
+          node tests/campaign-cancel-postgres.cjs
+          node tests/campaign-atomic-receipt-postgres.cjs
       - name: Check organic attribution on isolated PostgreSQL
         env:
           ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
