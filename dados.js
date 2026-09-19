@@ -23,6 +23,9 @@ const DIRECAO = {
 };
 
 // ---------- utilidades ----------
+function numeroOuNulo(v) {
+  return (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isFinite(Number(v)) ? Number(v) : null;
+}
 function soma(vals) {
   const v = vals.filter((x) => typeof x === "number");
   return v.length ? v.reduce((a, b) => a + b, 0) : null;
@@ -60,9 +63,9 @@ function agregaDias(linhas) {
     resolucao_comercial_seg: mediaPond(linhas.map((l) => [l.resolucao_comercial_seg, l.amostra_comercial])),
     amostra_comercial: soma(linhas.map((l) => l.amostra_comercial)),
     csat: mediaPond(linhas.map((l) => [l.csat, l.csat_votos])),
-    csat_cobertura: mediaPond(linhas.map((l) => [Number(l.csat_cobertura), l.fechados])),
+    csat_cobertura: mediaPond(linhas.map((l) => [numeroOuNulo(l.csat_cobertura), l.fechados])),
     csat_votos: soma(linhas.map((l) => l.csat_votos)),
-    kai_deflexao: mediaPond(linhas.map((l) => [Number(l.kai_deflexao), l.ia_perguntas])),
+    kai_deflexao: mediaPond(linhas.map((l) => [numeroOuNulo(l.kai_deflexao), l.ia_perguntas])),
     fila_aberta: ult.fila_aberta, // foto do momento: só faz sentido a mais recente
     aprox: linhas.length > 1,     // 1 dia = exato; vários dias = medianas aproximadas
     dias: linhas.length,
@@ -85,8 +88,8 @@ function janelaExata(janelas, marca, jan, fim) {
     primeira_resposta_seg: l.primeira_resposta_seg,
     primeira_resposta_comercial_seg: l.primeira_resposta_comercial_seg,
     resolucao_comercial_seg: l.resolucao_comercial_seg, amostra_comercial: l.amostra_comercial,
-    csat: l.csat, csat_cobertura: Number(l.csat_cobertura), csat_votos: l.csat_votos,
-    kai_deflexao: Number(l.kai_deflexao), fila_aberta: l.fila_aberta,
+    csat: l.csat, csat_cobertura: numeroOuNulo(l.csat_cobertura), csat_votos: l.csat_votos,
+    kai_deflexao: numeroOuNulo(l.kai_deflexao), fila_aberta: l.fila_aberta,
     aprox: false, dias: jan === "7d" ? 7 : 30,
     incompleto: l.coletas_ok < l.coletas_total,
   };

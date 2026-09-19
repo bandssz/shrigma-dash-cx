@@ -62,11 +62,19 @@ colab_target AS (
   FROM crm_tts_colaboracao WHERE ativo AND tipo='target' GROUP BY 1,2,3,4,5,6,7,8
 ),
 serie AS (SELECT marca, dia, round(sum(gmv),2) AS gmv, count(DISTINCT order_id)::int AS pedidos FROM ped GROUP BY 1,2),
-canal AS (  -- Canal (Shop Analytics) na janela: total da loja por dia, fatia por superfície e por origem
-  SELECT v.marca, v.dia, v.gmv, v.gmv_live, v.gmv_video, v.gmv_vitrine, v.gmv_afiliado, v.gmv_proprio, v.gmv_ads, v.pedidos, v.visitantes, v.reembolso
+canal AS (  -- Mesmos valores originais; saldo calculado não é venda própria atribuída.
+  SELECT v.marca, v.dia, v.gmv, v.gmv_live, v.gmv_video, v.gmv_vitrine, v.gmv_afiliado, v.gmv_proprio, v.gmv_ads, v.pedidos, v.visitantes, v.reembolso,
+         CASE WHEN v.gmv IS NULL OR v.gmv_afiliado IS NULL OR v.gmv_proprio IS NULL THEN 'indisponivel'
+              WHEN v.gmv_afiliado > v.gmv OR v.gmv <> v.gmv_afiliado + v.gmv_proprio THEN 'divergente'
+              ELSE 'saldo_calculado' END AS origem_estado,
+         'analytics_total_menos_pedidos_afiliados'::text AS origem_modelo,
+         CASE WHEN v.gmv >= v.gmv_afiliado AND v.gmv = v.gmv_afiliado + v.gmv_proprio
+              THEN v.gmv - v.gmv_afiliado ELSE NULL END AS gmv_saldo_nao_afiliado,
+         v.gmv - v.gmv_afiliado - v.gmv_proprio AS gmv_ajuste_origem,
+         abs(v.gmv - v.gmv_afiliado - v.gmv_proprio) AS gmv_ajuste_origem_absoluto
   FROM crm_tts_canal_v v, j WHERE v.dia BETWEEN j.ini AND j.fim
 ),
-canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Canal)
+canal_tot AS (  -- Compatibilidade avaliada por dia antes de agregar; nenhum desvio se compensa.
   SELECT marca, count(*)::int AS dias, round(sum(gmv),2) AS gmv, round(sum(gmv_live),2) AS gmv_live, round(sum(gmv_video),2) AS gmv_video,
          round(sum(gmv_vitrine),2) AS gmv_vitrine, round(sum(gmv_afiliado),2) AS gmv_afiliado, round(sum(gmv_proprio),2) AS gmv_proprio,
          round(sum(gmv_ads),2) AS gmv_ads, sum(pedidos)::int AS pedidos, sum(visitantes)::bigint AS visitantes, round(sum(reembolso),2) AS reembolso,
@@ -77,7 +85,19 @@ canal_tot AS (  -- resumo da janela por marca (o que vai nos cartões da aba Can
          round(100.0 * sum(gmv_ads) / NULLIF(sum(gmv),0), 1) AS pct_gmv_max,
          round(100.0 * sum(pedidos) / NULLIF(sum(visitantes),0), 2) AS conversao_pct,
          round(sum(gmv) / NULLIF(sum(pedidos),0), 2) AS ticket_medio,
-         max(dia) AS ultimo_dia
+         max(dia) AS ultimo_dia,
+         CASE WHEN bool_or(origem_estado = 'divergente') THEN 'divergente'
+              WHEN bool_or(origem_estado = 'indisponivel') THEN 'indisponivel'
+              ELSE 'saldo_calculado' END AS origem_estado,
+         'analytics_total_menos_pedidos_afiliados'::text AS origem_modelo,
+         CASE WHEN bool_and(origem_estado = 'saldo_calculado') THEN round(sum(gmv_saldo_nao_afiliado),2)
+              ELSE NULL END AS gmv_saldo_nao_afiliado,
+         CASE WHEN bool_and(gmv_ajuste_origem IS NOT NULL) THEN round(sum(gmv_ajuste_origem),2)
+              ELSE NULL END AS gmv_ajuste_origem,
+         CASE WHEN bool_and(gmv_ajuste_origem IS NOT NULL) THEN round(sum(gmv_ajuste_origem_absoluto),2)
+              ELSE NULL END AS gmv_ajuste_origem_absoluto,
+         count(*) FILTER (WHERE origem_estado = 'divergente')::int AS origem_dias_divergentes,
+         count(*) FILTER (WHERE origem_estado = 'indisponivel')::int AS origem_dias_indisponiveis
   FROM canal GROUP BY 1
 ),
 lives AS (  -- sessões de live na janela (loja e afiliados), com venda e interação
