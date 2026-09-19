@@ -73,6 +73,16 @@ jobs:
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
         run: node tests/tts-regra-postgres.cjs
+      - name: Check disabled journey entry and immutable releases
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: |
+          node tests/journey-template-release-postgres.cjs
+          node tests/journey-cart-entry-postgres.cjs
+      - name: Check paused TikTok collection safeguards
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/tts-cobranca-safety-postgres.cjs
       - name: Save test result
         if: always()
         uses: actions/upload-artifact@v4
@@ -112,3 +122,34 @@ jobs:
           TEST_DATABASE_URL: postgres://synthetic@localhost:5432/tts_regra_test
           TTS_TEST_DATABASE_ISOLATED: '1'
         run: node tests/tts-regra-concurrency-postgres.cjs
+
+  journey-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:16.10
+        env:
+          POSTGRES_DB: journey_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d journey_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned PostgreSQL test client
+        run: npm install --prefix ../postgres-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1
+      - name: Check independent-session journey contention
+        env:
+          NODE_PATH: ../postgres-test-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_test
+          JOURNEY_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-concurrency-postgres.cjs
