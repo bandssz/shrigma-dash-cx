@@ -1,0 +1,47 @@
+name: TikTok manual decision candidate
+on:
+  pull_request:
+    paths:
+      - 'n8n/tiktok/manual-decision*'
+      - 'tests/tts-manual-*'
+      - '.github/workflows/tiktok-manual-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:16.10
+        env:
+          POSTGRES_DB: tts_manual_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d tts_manual_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated test dependencies
+        run: npm install --prefix ../tts-manual-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Check controller and isolated SQL
+        env:
+          NODE_PATH: ../tts-manual-test-tools/node_modules
+        run: |
+          node --test tests/tts-manual-decision.test.cjs
+          node tests/tts-manual-decision-postgres.cjs
+      - name: Check two independent PostgreSQL sessions
+        env:
+          NODE_PATH: ../tts-manual-test-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/tts_manual_test
+          TTS_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/tts-manual-concurrency-postgres.cjs
