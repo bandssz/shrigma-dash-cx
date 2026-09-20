@@ -136,6 +136,7 @@ th.ord-ativa[data-dir=desc]::after{content:'\2193'}
 tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
 tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 @media (max-width:640px){.periodo .presets{flex-wrap:wrap}}
+.organico-acesso-bar{margin-bottom:12px}#organico-acesso[hidden]{display:none}#organico-acesso fieldset{border:0;padding:0;display:grid;gap:10px;max-width:580px;min-width:0}#organico-acesso input{box-sizing:border-box;max-width:100%;min-width:0;padding:10px}#organico-acesso button{margin:8px 0}#organico-acesso p{line-height:1.5}#organico-acesso-msg{min-height:1.5em}
 </style></head>
 <body>
 
@@ -158,7 +159,21 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 
 <main>
   <div id="faixa-alertas" aria-live="polite"></div>
-  <div id="aviso-carga"></div>
+  <div id="aviso-carga" role="status" aria-live="polite"></div>
+  <div class="organico-acesso-bar"><button type="button" class="btn" id="organico-acesso-abrir">Acesso de leitura</button></div>
+  <form id="organico-acesso" class="painel" hidden aria-labelledby="organico-acesso-titulo">
+    <h2 id="organico-acesso-titulo">Acessar Orgânico</h2>
+    <p id="organico-acesso-ajuda">Use a chave de leitura já fornecida ou o arquivo de acesso deste painel. O novo acesso fica apenas na memória enquanto esta página estiver aberta.</p>
+    <fieldset id="organico-acesso-campos">
+      <label for="organico-chave">Chave de leitura</label>
+      <input id="organico-chave" type="password" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="organico-acesso-ajuda organico-acesso-msg">
+      <label for="organico-chave-arquivo">Arquivo de acesso de leitura do Orgânico (.json)</label>
+      <input id="organico-chave-arquivo" type="file" accept=".json,application/json" aria-describedby="organico-acesso-ajuda organico-acesso-msg">
+      <button type="submit" class="btn">Acessar</button>
+    </fieldset>
+    <button type="button" class="btn" id="organico-acesso-cancelar">Cancelar</button>
+    <p id="organico-acesso-msg" role="status" aria-live="polite"></p>
+  </form>
 
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
@@ -251,6 +266,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
+<script src="organico-access.js?v=2f861fb69b"></script>
 <script src="organico-attribution.js?v=0de9bfdc51"></script>
 <script src="organico-stories.js?v=ef5f8c39f2"></script>
 <script src="organico-legacy.js?v=dc5ba45c4a"></script>
@@ -590,35 +606,35 @@ function troca(s){
 }
 
 /* ---------- carga ---------- */
-function chaveLeitura(){
-  let k=shrigmaChave("organico");
-  if(!k){k=prompt('Chave de acesso do painel de Orgânico:');
-    if(k)shrigmaGuardaChave("organico", k); else return null;}
-  return k;
-}
-function avisoTela(t,d){
-  /* Tela branca e o pior estado: quem abre nao sabe se quebrou ou se esta vazio. */
-  $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px">
-    <strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>
-    <br><button class="btn" id="btn-retry">Tentar de novo</button></div>`;
-  const b=$('#btn-retry'); if(b)b.onclick=()=>{shrigmaEsqueceChave("organico");carrega();};
+const ACESSO_ORGANICO=OrganicAccess.bind({document,readExisting:()=>shrigmaChave('organico'),onAccess:()=>carrega()});
+let CARGA_ORGANICO=false;
+function chaveLeitura(){return ACESSO_ORGANICO.current();}
+function avisoTela(t,d,retry=true){
+  $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px"><strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>${retry?'<br><button class="btn" id="btn-retry">Atualizar leitura</button>':''}</div>`;
+  const b=$('#btn-retry');if(b)b.onclick=()=>carrega();
 }
 async function carrega(){
+  if(CARGA_ORGANICO)return;
   const k=chaveLeitura();
-  if(!k)return avisoTela('Sem chave','Esta página lê o mesmo endpoint do painel de CX.');
+  if(!k){avisoTela('Acesso de leitura necessário','Abra Acesso de leitura para consultar Orgânico.',false);ACESSO_ORGANICO.show();return;}
+  CARGA_ORGANICO=true;ACESSO_ORGANICO.setBusy(true);
+  avisoTela('Carregando dados…',API?'Os dados anteriores permanecem na tela até a leitura terminar.':'A consulta do Orgânico está em andamento.',false);
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
   try{
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=organico');
-    if(r.status===401){shrigmaEsqueceChave("organico");
-      return avisoTela('Chave inválida','A chave guardada foi recusada pelo n8n.');}
-    if(!r.ok)throw new Error('HTTP '+r.status);
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=organico',{signal:controller.signal,cache:'no-store'});
+    if(r.status===401||r.status===403){
+      avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
+    if(!r.ok)throw new Error('read_failed');
     const j=await r.json();
-    API=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j.payload||j);
-    shrigmaMarcaMestra(k, API._painel);
+    const payload=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j&&j.payload||j);
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||payload.error||payload.erro||payload._escopo!=='organico'||!['cx_post','cx_story','cx_organico_receita'].some(k=>Array.isArray(payload[k])))throw new Error('invalid_payload');
+    API=payload;
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();
-    shrigmaFrescor(API,$('#frescor'));   // gerado_em era a hora da API, sempre "agora"
-  }catch(e){ avisoTela('Não deu para carregar',e.message); }
+    shrigmaFrescor(API,$('#frescor'));
+  }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
+  finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}
 }
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
