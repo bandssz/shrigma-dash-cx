@@ -304,14 +304,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   // ---- escrita (aprovar/rejeitar amostra, editar regra): chave PRÓPRIA, nunca a de leitura ----
   const ACESSO_TTS = { k:'', autor:'' }; // New values stay in this page's memory.
   let ACAO_TTS_EM_CURSO = false;
-  // Reservations survive reload; the server still needs its own durable idempotency.
-  let JOURNAL_TTS;
+  // The v2 ledger requires exact GET receipts; legacy reservations remain frozen.
+  let JOURNAL_TTS, MANUAL_TTS_CAPS = null;
   function journalTTS() {
     if (!JOURNAL_TTS) {
       let storage = null, locks = null;
       try { storage = localStorage; locks = navigator.locks; } catch (_) {}
-      if (typeof TTSActionJournal === 'undefined') throw new Error('Proteção da decisão manual indisponível. Recarregue o painel; a consulta continua disponível.');
-      JOURNAL_TTS = TTSActionJournal.create({storage,locks,endpoint:typeof TTS_ACAO_URL === 'string' ? TTS_ACAO_URL : ''});
+      if (typeof TTSManual === 'undefined') throw new Error('Proteção da decisão manual indisponível. Recarregue o painel; a consulta continua disponível.');
+      JOURNAL_TTS = TTSManual.create({storage,locks,crypto:globalThis.crypto,fetch:(...args)=>fetch(...args),endpoint:typeof TTS_ACAO_URL === 'string' ? TTS_ACAO_URL : ''});
     }
     return JOURNAL_TTS;
   }
@@ -326,17 +326,69 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!msg) { msg = document.createElement('p'); msg.id = 'tts-acao-msg'; msg.className = 'nota'; msg.setAttribute('role','status'); msg.setAttribute('aria-live','polite'); area.parentNode.insertBefore(msg,area); }
     msg.textContent = texto; msg.hidden = !texto;
   }
+  function manualDisponivelTTS() {
+    return !!DADOS && MANUAL_TTS_CAPS?.write === true && MANUAL_TTS_CAPS.key === ACESSO_TTS.k && Date.now()-MANUAL_TTS_CAPS.checkedAt < 60000 && !DADOS?._cache && !DADOS?._caiu;
+  }
   function travaAmostrasTTS() {
+    const pronto = manualDisponivelTTS(), nota = $('#tts-manual-status');
+    const verificar=$('#tts-manual-check');if(verificar)verificar.onclick=()=>acionaConsultaTTS({acao:'capacidades',marca:marcaAtual()},verificar);
+    if (nota) nota.textContent = pronto ? 'Serviço disponível. Cada decisão exige nova conferência e confirmação; consulta do recibo não repete a ação.' : MANUAL_TTS_CAPS?.write === false ? 'Decisões indisponíveis: o serviço mantém a operação protegida. A fila, as regras e os recibos continuam disponíveis.' : 'Decisões protegidas. Consulte a disponibilidade com seu acesso de escrita antes de decidir.';
     document.querySelectorAll('#tts-area .tts-acoes').forEach(td => {
       let estado;
-      try { estado = journalTTS().inspect({brand:td.dataset.marca,application_id:td.dataset.id}); }
+      try { estado = journalTTS().inspect({marca:td.dataset.marca,application_id:td.dataset.id}); }
       catch (e) { estado = {state:'blocked',message:e.message}; }
-      if (!estado) return;
-      td.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      td.querySelectorAll('.tts-ok,.tts-nao').forEach(b => { b.disabled = !!estado || !pronto || b.dataset.plataformaBloqueada === 'true'; });
       let aviso = td.querySelector('.tts-decisao-estado');
-      if (!aviso) { aviso = document.createElement('span'); aviso.className = 'mini tts-decisao-estado'; aviso.setAttribute('role','status'); td.append(aviso); }
-      aviso.textContent = estado.state === 'confirmed' ? 'Decisão registrada neste navegador.' : estado.state === 'blocked' ? estado.message : 'Decisão já solicitada. Não repita; peça a conferência ao integrador.';
+      if (!aviso && estado) { aviso = document.createElement('span'); aviso.className = 'mini tts-decisao-estado'; aviso.setAttribute('role','status'); td.append(aviso); }
+      if (aviso) aviso.textContent = !estado ? '' : estado.state === 'accepted' ? 'Decisão aceita; recibo confirmado. Consulte a fila para o estado da amostra.' : estado.legacy ? estado.message : estado.state === 'blocked' ? (estado.message || 'Tentativa bloqueada pelo serviço; reserva preservada.') : 'Decisão já reservada. Não repita; consulte o recibo da mesma tentativa.';
+      let consulta = td.querySelector('.tts-consultar');
+      if (estado?.operation_id && !consulta) {
+        consulta = document.createElement('button'); consulta.className='btn tts-btn tts-consultar'; consulta.type='button'; consulta.textContent='Consultar recibo'; td.append(consulta);
+        consulta.onclick=()=>acionaConsultaTTS({acao:'operacao',marca:td.dataset.marca,application_id:td.dataset.id},consulta);
+      }
     });
+    renderTentativasTTS();
+  }
+  function renderTentativasTTS() {
+    const area=$('#tts-area');if(!area)return;
+    let box=$('#tts-tentativas-locais');
+    if(!box){box=document.createElement('section');box.id='tts-tentativas-locais';box.className='nota';box.setAttribute('aria-labelledby','tts-tentativas-titulo');area.append(box);}
+    let lista;try{lista=journalTTS().list({marca:marcaAtual()});}catch(e){box.hidden=false;box.textContent=e.message;return;}
+    box.hidden=!lista.length;if(!lista.length){box.textContent='';return;}
+    box.innerHTML='<h3 id="tts-tentativas-titulo">Tentativas neste navegador</h3><p class="mini">Inclui amostras que já saíram da fila. Consultar o recibo não repete a decisão. Registros antigos ficam preservados para conciliação.</p>';
+    for(const op of lista){
+      const linha=document.createElement('p'),texto=document.createElement('span');
+      const status=op.state==='accepted'?'aceite confirmado':op.state==='blocked'?'registro bloqueado':op.legacy?'registro anterior preservado':'resultado sem confirmação';
+      texto.textContent=(MARCA_N[op.marca]||op.marca)+' · amostra '+op.application_id+' · '+status+'. ';linha.append(texto);
+      if(op.operation_id){const btn=document.createElement('button');btn.className='btn tts-btn tts-recibo-local';btn.id='tts-recibo-'+op.marca+'-'+op.application_id;btn.type='button';btn.textContent='Consultar recibo';btn.onclick=()=>acionaConsultaTTS({acao:'operacao',marca:op.marca,application_id:op.application_id},btn);linha.append(btn);}
+      else {const aviso=document.createElement('span');aviso.className='mini';aviso.textContent=op.message||'Sem identificador consultável. Preserve o registro e peça conciliação ao integrador.';linha.append(aviso);}
+      box.append(linha);
+    }
+  }
+  async function acionaConsultaTTS(corpo,caller) {
+    caller.disabled=true;
+    try{await consultaManualTTS(corpo);}catch(e){mensagemAcaoTTS(e.message);}
+    finally{caller.disabled=false;const target=caller.isConnected?caller:caller.id?document.getElementById(caller.id):null;(target||$('#tts-abas button.ativo'))?.focus();}
+  }
+  async function consultaManualTTS(corpo) {
+    if (ACAO_TTS_EM_CURSO) throw new Error('Conclua ou cancele a consulta que já está aberta.');
+    ACAO_TTS_EM_CURSO=true;
+    try {
+      const leitura=SEQ,pane=PANE,marca=marcaAtual(),acesso=await pedeAcessoTTS(corpo);
+      if (!acesso) { const e=new Error('Consulta cancelada. Nenhuma decisão foi enviada.');e.code='TTS_CANCELLED';throw e; }
+      if (SEQ!==leitura || PANE!==pane || marcaAtual()!==marca) throw new Error('A tela foi atualizada. Consulte novamente.');
+      if (corpo.acao==='capacidades') {
+        MANUAL_TTS_CAPS=null;travaAmostrasTTS();
+        const cap=await journalTTS().capabilities(acesso.k);
+        if (SEQ!==leitura || PANE!==pane || acesso.k!==ACESSO_TTS.k) throw new Error('A tela ou o acesso mudou. Consulte novamente.');
+        MANUAL_TTS_CAPS={...cap,key:acesso.k,checkedAt:Date.now()};
+        mensagemAcaoTTS(cap.write ? 'Disponibilidade confirmada. Nenhuma decisão foi enviada.' : TTSManual.CLOSED);
+      } else {
+        const found=await journalTTS().lookup(corpo,acesso.k);
+        mensagemAcaoTTS(found.state==='accepted' ? 'Recibo confirmado: a API aceitou esta decisão. A evolução da amostra continua na fila.' : found.state==='blocked' ? 'O serviço bloqueou esta tentativa. A reserva foi preservada; não repita.' : TTSManual.UNKNOWN);
+      }
+    } catch(e) { if(e.code==='TTS_AUTH_REQUIRED')esqueceAcessoTTS();throw e; }
+    finally { ACAO_TTS_EM_CURSO=false;travaAmostrasTTS(); }
   }
   function acessoGuardadoTTS() {
     try {
@@ -346,35 +398,36 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     return {...ACESSO_TTS};
   }
   function esqueceAcessoTTS() {
-    ACESSO_TTS.k = '';
+    ACESSO_TTS.k = ''; MANUAL_TTS_CAPS = null;
     try { localStorage.removeItem('shrigma_tts_wkey'); } catch (_) {}
   }
   function pedeAcessoTTS(corpo) {
-    const salvo = acessoGuardadoTTS();
-    if (salvo.k && salvo.autor) return Promise.resolve(salvo);
+    const salvo = acessoGuardadoTTS(), consulta = ['capacidades','operacao'].includes(corpo.acao);
+    if (salvo.k && (consulta || salvo.autor)) return Promise.resolve(salvo);
     const area = $('#tts-area');
     if (!area?.parentNode) return Promise.reject(new Error('Abra a aba TikTok antes de continuar.'));
     let painel = $('#tts-acesso');
     if (!painel) { painel = document.createElement('section'); painel.id = 'tts-acesso'; painel.className = 'nota'; area.parentNode.insertBefore(painel,area); }
     painel.hidden = false; painel.setAttribute('aria-labelledby','tts-acesso-titulo');
-    const acao = corpo.acao === 'regra' ? 'Salvar a regra' : corpo.resultado === 'APPROVE' ? 'Aprovar a amostra selecionada' : 'Rejeitar a amostra selecionada';
+    const acao = consulta ? (corpo.acao === 'operacao' ? 'Consultar o recibo da tentativa' : 'Consultar a disponibilidade de decisões') : corpo.acao === 'regra' ? 'Salvar a regra' : corpo.resultado === 'APPROVE' ? 'Aprovar a amostra selecionada' : 'Rejeitar a amostra selecionada';
     painel.innerHTML = `<form id="tts-acesso-form" novalidate aria-labelledby="tts-acesso-titulo">
       <h3 id="tts-acesso-titulo">Continuar no TikTok Shop</h3>
-      <p id="tts-acesso-ajuda">${esc(acao)} · ${esc(MARCA_N[corpo.marca] || corpo.marca)}. Informe o acesso de escrita e quem está realizando a ação.</p>
+      <p id="tts-acesso-ajuda">${esc(acao)} · ${esc(MARCA_N[corpo.marca] || corpo.marca)}. ${consulta ? 'Informe o acesso de escrita da mesma tentativa. Esta consulta não envia uma decisão.' : 'Informe o acesso de escrita e quem está realizando a ação.'}</p>
       <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
         <div id="tts-acesso-chave-linha" ${salvo.k ? 'hidden' : ''} style="flex:1 1 220px;min-width:0"><label for="tts-acesso-chave">Chave de escrita</label><br>
           <input class="i-sel" id="tts-acesso-chave" type="password" ${salvo.k ? '' : 'required'} autocomplete="off" spellcheck="false" aria-describedby="tts-acesso-ajuda tts-acesso-msg" style="width:100%;box-sizing:border-box"></div>
-        <div style="flex:1 1 220px;min-width:0"><label for="tts-acesso-autor">Seu nome</label><br>
-          <input class="i-sel" id="tts-acesso-autor" type="text" required maxlength="40" autocomplete="name" aria-describedby="tts-acesso-ajuda tts-acesso-msg" style="width:100%;box-sizing:border-box"></div>
+        <div ${consulta ? 'hidden' : ''} style="flex:1 1 220px;min-width:0"><label for="tts-acesso-autor">Seu nome</label><br>
+          <input class="i-sel" id="tts-acesso-autor" type="text" ${consulta ? '' : 'required'} maxlength="40" autocomplete="name" aria-describedby="tts-acesso-ajuda tts-acesso-msg" style="width:100%;box-sizing:border-box"></div>
       </div>
       <p class="mini">O novo acesso fica somente nesta página aberta. Cancelar não executa a ação.</p>
+      ${!consulta && corpo.acao==='revisar' ? '<p class="mini">A decisão e o nome do operador ficam no registro da tentativa neste navegador e no serviço. A chave não é salva nesse registro. Não inclua dados de cliente ou segredos no nome.</p>' : ''}
       <button class="btn tts-btn" type="submit">Confirmar e continuar</button>
       <button class="btn tts-btn" id="tts-acesso-cancelar" type="button">Cancelar</button>
       <p id="tts-acesso-msg" role="status" aria-live="polite"></p>
     </form>`;
     const form = $('#tts-acesso-form'), chave = $('#tts-acesso-chave'), autor = $('#tts-acesso-autor'), msg = $('#tts-acesso-msg');
     autor.value = salvo.autor;
-    (salvo.k ? autor : chave).focus();
+    (salvo.k && !consulta ? autor : chave).focus();
     return new Promise(resolve => {
       let concluido = false;
       const terminar = valor => {
@@ -386,12 +439,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         e.preventDefault(); if (concluido || painel.hidden) return;
         const k = salvo.k || chave.value.trim(), nome = autor.value.trim();
         chave.removeAttribute('aria-invalid'); autor.removeAttribute('aria-invalid');
-        if (!k || !nome || nome.length>40) {
+        if (!k || !consulta && (!nome || nome.length>40)) {
           const campo = !k ? chave : autor;
           msg.textContent = !k ? 'Informe a chave de escrita.' : 'Informe seu nome, com até 40 caracteres.';
           campo.setAttribute('aria-invalid','true'); campo.focus(); return;
         }
-        ACESSO_TTS.k = k; ACESSO_TTS.autor = nome;
+        if (ACESSO_TTS.k !== k) MANUAL_TTS_CAPS=null;
+        ACESSO_TTS.k = k; if (!consulta) ACESSO_TTS.autor = nome;
         terminar({k,autor:nome});
       };
       $('#tts-acesso-cancelar').onclick = () => terminar(null);
@@ -404,7 +458,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const identidade = identidadeAmostraTTS(corpo);
     if (identidade) {
       const estado = journalTTS().inspect(identidade);
-      if (estado) { const erro = new Error(estado.message || 'Esta amostra já tem uma decisão solicitada neste navegador. Não repita; confira o resultado com o integrador.'); erro.code = estado.state === 'blocked' ? 'TTS_WRITE_UNAVAILABLE' : estado.state === 'confirmed' ? 'TTS_DECISION_RECORDED' : 'TTS_OUTCOME_UNKNOWN'; throw erro; }
+      if (estado) { const erro = new Error(estado.message || 'Esta amostra já tem uma decisão solicitada neste navegador. Não repita; confira o resultado com o integrador.'); erro.code = estado.state === 'blocked' ? 'TTS_WRITE_UNAVAILABLE' : ['accepted','confirmed'].includes(estado.state) ? 'TTS_DECISION_RECORDED' : 'TTS_OUTCOME_UNKNOWN'; throw erro; }
     }
     if (ACAO_TTS_EM_CURSO) throw new Error('Conclua ou cancele a ação que já está aberta.');
     ACAO_TTS_EM_CURSO = true;
@@ -414,6 +468,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!acesso) { const erro = new Error('Ação cancelada.'); erro.code = 'TTS_CANCELLED'; throw erro; }
     if (SEQ !== leitura || PANE !== pane || marcaAtual() !== marca || (pedido.acao === 'regra' && !TTS.regrasEditaveis(DADOS))) throw new Error('A tela foi atualizada. Revise os dados e confirme a ação novamente.');
     const {k,autor} = acesso;
+    if (identidade) {
+      const result=await journalTTS().run({...pedido,autor,observacao:pedido.observacao??''},k,{guard:()=>SEQ===leitura && PANE===pane && marcaAtual()===marca && ACESSO_TTS.k===k});
+      if (result.state!=='accepted') { const erro=new Error(result.state==='blocked'?'O serviço bloqueou esta tentativa. A reserva foi preservada; não repita.':TTSManual.UNKNOWN);erro.code='TTS_OUTCOME_UNKNOWN';throw erro; }
+      return {ok:true,operation_id:result.operation_id};
+    }
     const enviar = async () => {
     if (identidade) travaAmostrasTTS();
     const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pedido, k, autor }) });
@@ -433,8 +492,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!r.ok || j.ok !== true) throw new Error(j.erro || j.mensagem || ('HTTP ' + r.status));
     return {status:r.status,body:j};
     };
-    return identidade ? await journalTTS().run(identidade,enviar) : (await enviar()).body;
-    } finally { ACAO_TTS_EM_CURSO = false; travaAmostrasTTS(); }
+    return (await enviar()).body;
+    } catch(e) { if(e.code==='TTS_CONTRACT')MANUAL_TTS_CAPS=null;if(e.code==='TTS_WRITE_CLOSED')MANUAL_TTS_CAPS={write:false,key:ACESSO_TTS.k,checkedAt:Date.now()};if(e.code==='TTS_AUTH_REQUIRED')esqueceAcessoTTS();throw e; } finally { ACAO_TTS_EM_CURSO = false; travaAmostrasTTS(); }
   }
   // botão de duas etapas: 1º clique arma ("Confirmar?"), 2º clique executa; desarma sozinho em 6 s
   function armar(btn, rotuloConfirma, fn) {
@@ -550,10 +609,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderFila() {
     const m = marcaAtual(), fila = TTS.fila(DADOS, m), envio = TTS.filtra(DADOS.envio, m);
     const modo = (TTS.filtra(DADOS.regra, m)[0] || {}).modo || 'dry_run';
-    let html = '';
+    let html = '<div class="nota"><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p><button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>';
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Prazo</th><th>Marca</th><th>Criador</th><th>Produto</th><th>Pedido</th></tr></thead><tbody>${envio.map(e => `<tr><td>${prazo(TTS.horasAte(e.envio_expira_em))}</td><td>${tag(e.marca)}</td><td>@${esc(e.username)}</td><td>${esc(e.product_title)} <span class="mini">${esc(e.sku_name)}</span></td><td class="tabn">${esc(e.order_id || '—')}</td></tr>`).join('')}</tbody></table></div>`;
-    if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; return; }
+    if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; travaAmostrasTTS(); return; }
     html += `<div class="rolagem"><table class="comparativo"><thead><tr>
       <th title="prazo da plataforma para decidir (7 dias); vencido vira OVERDUE_CANCELLED">Vence em</th><th>Marca</th><th>Criador</th>
       <th class="num" title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma), em R$">GMV 30d</th>
@@ -562,7 +621,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <th class="num" title="pedidos · GMV em R$ que esse criador já gerou para esta marca nos últimos 90 dias">Vendeu aqui 90d</th>
       <th>Produto pedido</th>
       <th title="o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo humana">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</th>
-      <th title="executa no TikTok na hora (mesma API do Seller Center) e registra quem decidiu. Clique 2× para confirmar">Decidir</th></tr></thead><tbody>
+      <th title="depende da disponibilidade do serviço e de confirmação; o recibo é consultado sem repetir a decisão">Decidir</th></tr></thead><tbody>
       ${fila.map(x => `<tr>
         <td>${prazo(x.horas)}</td><td>${tag(x.marca)}</td>
         <td><div class="nome">${esc(x.nickname || x.username)}</div><span class="mini">@${esc(x.username)} · ${nf(x.seguidores)} seg.</span></td>
@@ -572,13 +631,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="num tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</td>
         <td class="tts-prod" title="${esc(x.product_title)}">${esc(String(x.product_title || '').length > 52 ? String(x.product_title).slice(0, 50) + '…' : x.product_title)}<br><span class="mini">${esc(x.sku_name)}${x.is_approvable === false ? ` · <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</span></td>
         <td><span class="tag ${x.tier.cls}" title="${esc(x.tier.det)}">${x.tier.rot}</span></td>
-        <td class="tts-acoes" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
+        <td class="tts-acoes" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
     travaAmostrasTTS();
-    document.querySelectorAll('#tts-area .tts-acoes button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#tts-area .tts-acoes .tts-ok,#tts-area .tts-acoes .tts-nao').forEach(b => b.onclick = () => {
       const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
       armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
-        await acaoTTS({ acao: 'revisar', marca: td.dataset.marca, application_id: td.dataset.id, resultado: aprova ? 'APPROVE' : 'REJECT', motivo_rejeicao: 'NOT_MATCH' });
+        await acaoTTS({ acao: 'revisar', marca: td.dataset.marca, application_id: td.dataset.id, resultado: aprova ? 'APPROVE' : 'REJECT', motivo_rejeicao: aprova ? null : 'NOT_MATCH', observacao: '' });
         await carregarTTS();
       });
     });
