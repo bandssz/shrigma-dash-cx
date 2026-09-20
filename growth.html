@@ -907,7 +907,7 @@ async function carregar(){
     if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
     gravaHash();
     $('#load-state').hidden=true;
-    $('#atualizado-em').textContent='Consulta às '+new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'})+' · atualiza a cada 60s';
+    $('#atualizado-em').textContent='Consulta às '+new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'})+' · atualiza a cada 60s enquanto visível';
   }catch(e){
     $('#load-state').hidden=true;
     CONSULTA={...CONSULTA,falhou:true};
@@ -994,9 +994,20 @@ GC.init();GRU.render({api:null});
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
 document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',gravaHash));
 setCanal(CANAL);
-carregar();
-setInterval(carregar,(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000);
-setInterval(()=>{if(API){const m=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:m?.workflows||null});}},30000);
+// Automatic refresh only while this panel is visible; server execution is independent.
+const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
+let GROWTH_LAST_AUTO_READ=null;
+function atualizarGrowthVisivel(){
+  if(document.hidden)return;
+  GROWTH_LAST_AUTO_READ=Date.now();
+  return carregar();
+}
+atualizarGrowthVisivel();
+setInterval(atualizarGrowthVisivel,GROWTH_REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&(GROWTH_LAST_AUTO_READ===null||Date.now()-GROWTH_LAST_AUTO_READ>=GROWTH_REFRESH_MS))atualizarGrowthVisivel();
+});
+setInterval(()=>{if(!document.hidden&&API){const m=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:m?.workflows||null});}},30000);
 </script>
 </body>
 </html>
