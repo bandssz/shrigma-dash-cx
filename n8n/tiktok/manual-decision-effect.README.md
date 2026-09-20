@@ -1,0 +1,11 @@
+# Dispatch and transport in one invocation
+
+The manual runtime keeps its readiness gates closed. Its effect node now calls the existing authenticated SQL utility with native parameters, validates a fresh `dispatch` witness, and calls the individual review endpoint inside the **same Code invocation**. No persisted output containing `allowed: true` from another node authorizes HTTP. Claim and finish still use native PostgreSQL nodes.
+
+Re-entering the effect node runs dispatch again. An existing `in_flight`, accepted, blocked or uncertain reservation never releases another provider call. A crash after dispatch but before HTTP conservatively leaves the operation uncertain; the code does not try to recover a send by guessing that it did not occur. A crash after HTTP and before finish likewise keeps the reservation. There are no loops, retries, token refresh calls or alternative transport paths in this effect.
+
+The private preparer injects the existing SQL utility URL/key into generated server code, never into the public source or frontend. The patcher checks the utility's saved/active version, selected-node fingerprint, authentication, route, native parameter expression and PostgreSQL credential binding. Deployment must freeze and recheck that utility identity alongside the manual and automatic workflows. Generated exports must remain private.
+
+`this.helpers.httpRequest` uses `returnFullResponse: true`, `disableFollowRedirect: true`, `ignoreHttpStatusErrors: true`, `encoding: 'text'`, a bounded timeout, and a raw JSON string body. The individual review destination is fixed; the utility destination is validated against the reviewed private configuration. Options follow the [official n8n 1.121.3 helper source](https://github.com/n8n-io/n8n/blob/n8n%401.121.3/packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts). Actual hosted compatibility still requires a provider-free probe.
+
+Isolated tests cover restarting the effect node, lost dispatch/HTTP/finish receipts and conflicting concurrent invocations. They do not authorize live review calls or prove native sample admission. Cutover, admission and hosted compatibility remain separate acceptance criteria; the public GET/POST contract and disabled capabilities are unchanged.

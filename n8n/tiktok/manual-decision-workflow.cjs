@@ -2,13 +2,15 @@
  * Outputs retain existing server configuration and must never enter the public repo. */
 'use strict';
 const crypto=require('node:crypto');
-const {createController}=require('./manual-decision.cjs'),{createRuntime}=require('./manual-decision-runtime.cjs');
+const {createController}=require('./manual-decision.cjs'),{createRuntime}=require('./manual-decision-runtime.cjs'),{createEffect}=require('./manual-decision-effect.cjs');
+const {EXPRESSION:UTILITY_PARAMETERS}=require('../growth/sql-utility-parameters-patch.cjs');
 const {sha256Bytes,stable,canonical,digest}=require('../growth/template-operation-receipt.cjs');
 const {VALIDATE,EXECUTE}=require('./regra-action-patch.cjs');
 const runtimeSource=`const C=(${createController.toString()})();\nconst M=(${createRuntime.toString()})(C);`;
 const cryptoSource=[sha256Bytes,stable,canonical,digest].map(f=>f.toString()).join('\n');
 const ACTION_NODES=['POST acao','Valida','Pegar tokens (Token Manager)','Executa acao','Grava','Resposta','400'];
 const AUTO_NODES=['Monta decisão (SQL)','Decide','Executa review (só modo ativo)','Log'];
+const UTILITY_NODES=['Webhook','Chave confere?','SQL','Responde','Nega 401'];
 const exact=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function selectedFingerprint(w,names){
  const nodes=names.map(name=>{const xs=w?.nodes?.filter(n=>n.name===name);if(xs?.length!==1)throw Error('Unique reviewed node required');const n=xs[0];return Object.fromEntries(['name','type','typeVersion','parameters','credentials','onError','retryOnFail','alwaysOutputData'].map(k=>[k,n[k]??null]));});
@@ -18,6 +20,18 @@ function checked(fresh,{expectedVersion,expectedFingerprint},names){
  if(!fresh?.id||!expectedVersion||fresh.versionId!==expectedVersion||selectedFingerprint(fresh,names)!==expectedFingerprint)throw Error('Fresh version and reviewed selected-node fingerprint required');
  if(fresh.active&&(!fresh.activeVersion||fresh.activeVersionId!==fresh.versionId||fresh.activeVersion.versionId!==fresh.versionId||!exact(fresh.activeVersion.nodes,fresh.nodes)||!exact(fresh.activeVersion.connections,fresh.connections)))throw Error('Saved and active workflow differ');
  return JSON.parse(JSON.stringify(fresh));
+}
+function utilityBinding(input,pgCredentials){
+ if(!input?.workflow||!input.expectedVersion||!input.expectedFingerprint||!input.config)throw Error('Reviewed native SQL utility required');
+ const u=checked(input.workflow,{expectedVersion:input.expectedVersion,expectedFingerprint:input.expectedFingerprint},UTILITY_NODES),by=name=>u.nodes.find(n=>n.name===name),config=input.config;
+ if(u.active!==true||u.activeVersion?.workflowId!==u.id||u.nodes.length!==5||by('SQL').type!=='n8n-nodes-base.postgres'||by('SQL').typeVersion!==2.6||by('SQL').parameters.operation!=='executeQuery'||by('SQL').parameters.query!=='={{ $json.body.q }}'||by('SQL').parameters.options?.queryReplacement!==UTILITY_PARAMETERS||!exact(by('SQL').credentials,pgCredentials))throw Error('Native utility version or PostgreSQL binding changed');
+ const condition=by('Chave confere?').parameters.conditions;
+ if(condition?.combinator!=='and'||condition.conditions?.length!==1||condition.conditions[0].leftValue!=='={{ $json.body.k }}'||condition.conditions[0].rightValue!==config.key||condition.conditions[0].operator?.type!=='string'||condition.conditions[0].operator?.operation!=='equals')throw Error('Utility authentication changed');
+ const edge=(n)=>[{node:n,type:'main',index:0}];
+ if(!exact(u.connections.Webhook?.main,[edge('Chave confere?')])||!exact(u.connections['Chave confere?']?.main,[edge('SQL'),edge('Nega 401')])||!exact(u.connections.SQL?.main,[edge('Responde')])||by('Webhook').parameters.httpMethod!=='POST'||by('Webhook').parameters.responseMode!=='responseNode'||by('Responde').parameters.respondWith!=='allIncomingItems')throw Error('Utility route changed');
+ const url=new URL(config.url);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||url.origin!==input.expectedOrigin||url.pathname!=='/webhook/'+by('Webhook').parameters.path)throw Error('Utility endpoint changed');
+ createEffect(createController(),createRuntime(createController())).utility(config);
+ return {config:{url:config.url,key:config.key,keyField:config.keyField,queryField:config.queryField,argsField:config.argsField},binding:{workflowId:u.id,versionId:u.versionId,fingerprint:input.expectedFingerprint}};
 }
 function patchManual(fresh,options={}){
  const w=checked(fresh,options,ACTION_NODES),by=name=>w.nodes.find(n=>n.name===name),ids=options.webhookIds;
@@ -29,6 +43,7 @@ function patchManual(fresh,options={}){
  if(!key||validation.split('const ESCRITA = ').length!==2||!validation.includes(VALIDATE)||!execution.includes(EXECUTE)||execution.split(boundary).length!==2||!execution.includes('/affiliate_seller/202409/sample_applications/${a.application_id}/review'))throw Error('Reviewed validation/rule/individual transport contract changed');
  const signer=execution.split(boundary)[0];
  if(signer.includes('httpRequest(')||!signer.includes('function assinar(')||!signer.includes("const BASE = 'https://open-api.tiktokglobalshop.com'"))throw Error('Signing prefix changed');
+ const utility=utilityBinding(options.utility,by('Grava').credentials);
  const originalConnections=JSON.parse(JSON.stringify(w.connections));
  const add=(name,type,parameters,extra={})=>{if(w.nodes.some(n=>n.name===name))throw Error('Duplicate generated node');w.nodes.push({id:'tts-manual-'+w.nodes.length,name,type:'n8n-nodes-base.'+type,typeVersion:type==='switch'?3.2:type==='postgres'?2.4:type==='httpRequest'?4.3:2,position:[(w.nodes.length%6)*280,Math.floor(w.nodes.length/6)*200],parameters,...extra});return name;};
  const connect=(from,to,index=0)=>{const c=w.connections[from]||(w.connections[from]={main:[]});while(c.main.length<=index)c.main.push([]);c.main[index].push({node:to,type:'main',index:0});};
@@ -46,12 +61,9 @@ function patchManual(fresh,options={}){
  // These are independent hard gates, not inferred from local first_seen or a quiet queue.
  code('Manual preflight',`${runtimeSource}\n${binding('Manual recibo reserva','owned')}const readiness={cutoverVerified:false,admissionVerified:false};\nreturn [{json:M.preflight(p,$input.all().map(i=>i.json),readiness)}];`);
  code('Manual preflight indisponível',`${runtimeSource}\n${binding('Manual recibo reserva','owned')}return [{json:M.preflight(p,[],{})}];`);
- route('Manual preflight →',['dispatch','finish']);connect('Manual preflight','Manual preflight →');connect('Manual preflight indisponível','Manual preflight →');connect('Manual preflight →','Manual reserva transporte',0);connect('Manual preflight →','Manual plano finish',1);connect('Manual preflight →','Manual resultado incerto',2);
- pg('Manual reserva transporte');code('Manual recibo transporte',`${runtimeSource}\n${single}${binding('Manual recibo reserva','owned')}return [{json:M.dispatch(p,$json.result)}];`);connect('Manual reserva transporte','Manual recibo transporte');route('Manual transporte →',['transport','response']);connect('Manual recibo transporte','Manual transporte →');connect('Manual transporte →','Manual assina',0);connect('Manual transporte →','Manual responde',1);connect('Manual transporte →','Manual resultado incerto',2);
- code('Manual assina',`${signer}\n${runtimeSource}\n${single}${binding('Manual recibo transporte','owned')}if($json._route!=='transport'||JSON.stringify($json.owned)!==JSON.stringify(p))throw Error('TTS_MANUAL_TRANSPORT_UNBOUND');\nconst access=M.token($('Manual tokens').all().map(i=>i.json),p.marca);\nconst request=M.request(p,access,{base:BASE,appKey:APP_KEY,cipher:CIPHER[p.marca],timestamp:Math.floor(Date.now()/1000),sign:assinar});\nreturn [{json:{request}}];`);
- add('Manual HTTP review','httpRequest',{method:'POST',url:'={{ $json.request.url }}',sendHeaders:true,specifyHeaders:'json',jsonHeaders:'={{ JSON.stringify($json.request.headers) }}',sendBody:true,contentType:'raw',rawContentType:'application/json',body:'={{ $json.request.body }}',options:{timeout:30000,redirect:{redirect:{followRedirects:false}},response:{response:{fullResponse:true,neverError:true,responseFormat:'text',outputPropertyName:'body'}}}},{onError:'continueErrorOutput',retryOnFail:false,alwaysOutputData:true});connect('Manual assina','Manual HTTP review');
- code('Manual recibo HTTP',`${runtimeSource}\n${single}${binding('Manual recibo transporte','owned')}return [{json:{finish:{...p,receipt:M.providerReceipt($json)}}}];`);
- code('Manual HTTP incerto',`${runtimeSource}\n${binding('Manual recibo transporte','owned')}return [{json:{finish:{...p,receipt:{kind:'outcome_unknown',provider_code:null,request_id:null,reason:'transport_uncertain'}}}}];`);connect('Manual HTTP review','Manual recibo HTTP');connect('Manual HTTP review','Manual HTTP incerto',1);connect('Manual recibo HTTP','Manual plano finish');connect('Manual HTTP incerto','Manual plano finish');
+ route('Manual preflight →',['dispatch','finish']);connect('Manual preflight','Manual preflight →');connect('Manual preflight indisponível','Manual preflight →');connect('Manual preflight →','Manual efeito protegido',0);connect('Manual preflight →','Manual plano finish',1);connect('Manual preflight →','Manual resultado incerto',2);
+ code('Manual efeito protegido',`${signer}\n${runtimeSource}\nconst E=(${createEffect.toString()})(C,M);\nconst SQL_UTILITY=${JSON.stringify(utility.config)};\nconst SQL_BINDING=${JSON.stringify(utility.binding)};\n${single}${binding('Manual recibo reserva','owned')}if($json._route!=='dispatch'||JSON.stringify($json.owned)!==JSON.stringify(p))throw Error('TTS_MANUAL_EFFECT_UNBOUND');\nconst access=M.token($('Manual tokens').all().map(i=>i.json),p.marca);\nreturn [{json:await E.execute(p,SQL_UTILITY,{http:options=>this.helpers.httpRequest(options),makeRequest:owned=>M.request(owned,access,{base:BASE,appKey:APP_KEY,cipher:CIPHER[owned.marca],timestamp:Math.floor(Date.now()/1000),sign:assinar})})}];`);
+ route('Manual efeito →',['finish','response']);connect('Manual efeito protegido','Manual efeito →');connect('Manual efeito →','Manual plano finish',0);connect('Manual efeito →','Manual responde',1);connect('Manual efeito →','Manual resultado incerto',2);
  code('Manual plano finish',`${runtimeSource}\n${single}const p=$json.finish;M.bound(p);if(p.owner!==${JSON.stringify(w.id+':')}+String($execution.id))throw Error('TTS_MANUAL_EXECUTION_MISMATCH');return [{json:M.finishPlan(p,p.receipt)}];`);pg('Manual finish');connect('Manual plano finish','Manual finish');code('Manual recibo final',`${runtimeSource}\n${single}const plan=$('Manual plano finish').first().json;return [{json:M.response(plan.owned,plan.receipt,$json.result)}];`);connect('Manual finish','Manual recibo final');connect('Manual recibo final','Manual responde');
  const headers={entries:[{name:'Content-Type',value:'application/json'},{name:'Cache-Control',value:'no-store'},{name:'Access-Control-Allow-Origin',value:'*'},{name:'Access-Control-Allow-Headers',value:'content-type,x-tts-write-key'},{name:'Access-Control-Allow-Methods',value:'POST,GET,OPTIONS'}]};
  add('Manual responde','respondToWebhook',{respondWith:'json',responseBody:'={{ $json.response.body }}',options:{responseCode:'={{ $json.response.status }}',responseHeaders:headers}},{typeVersion:1.1});
@@ -61,7 +73,7 @@ function patchManual(fresh,options={}){
  connect('GET decisão manual','Manual consulta');route('Manual consulta →',['get','response']);connect('Manual consulta','Manual consulta →');connect('Manual consulta →','Manual lê recibo',0);connect('Manual consulta →','Manual responde',1);connect('Manual consulta →','Manual resultado incerto',2);pg('Manual lê recibo');code('Manual recibo consulta',`${runtimeSource}\n${single}return [{json:M.lookup($('Manual consulta').first().json.p,$json.result)}];`);connect('Manual lê recibo','Manual recibo consulta');connect('Manual recibo consulta','Manual responde');
  add('Manual OPTIONS','respondToWebhook',{respondWith:'noData',options:{responseCode:204,responseHeaders:headers}},{typeVersion:1.1});connect('OPTIONS decisão manual','Manual OPTIONS');
  w.settings={...w.settings,saveDataSuccessExecution:'none',saveDataErrorExecution:'none',saveManualExecutions:false,saveExecutionProgress:false};
- return {workflow:w,readiness:{cutoverVerified:false,admissionVerified:false},requiresSQL:'manual-decision.sql; control.enabled remains false',modified:['Valida','Executa acao','Valida connections','retention'],ruleNodesPreserved:['Pegar tokens (Token Manager)','Grava','Resposta','400']};
+ return {workflow:w,readiness:{cutoverVerified:false,admissionVerified:false},requiresSQL:'manual-decision.sql; control.enabled remains false',utilityBinding:utility.binding,modified:['Valida','Executa acao','Valida connections','retention'],ruleNodesPreserved:['Pegar tokens (Token Manager)','Grava','Resposta','400']};
 }
 function dryOnly(decisions,inicio){
  if(!Array.isArray(decisions)||typeof inicio!=='string'||!Number.isFinite(Date.parse(inicio)))throw Error('TTS_AUTOMATIC_CONTEXT_INVALID');
@@ -79,4 +91,4 @@ function patchAutomatic(fresh,options={}){
  log.parameters.options={...log.parameters.options,queryReplacement:'={{ $json.sqlParameters }}'};
  return {workflow:w,modified:['Executa review (só modo ativo).jsCode','Log.queryReplacement'],commercialTransportRemoved:true};
 }
-module.exports={ACTION_NODES,AUTO_NODES,selectedFingerprint,patchManual,patchAutomatic,dryOnly};
+module.exports={ACTION_NODES,AUTO_NODES,UTILITY_NODES,selectedFingerprint,utilityBinding,patchManual,patchAutomatic,dryOnly};
