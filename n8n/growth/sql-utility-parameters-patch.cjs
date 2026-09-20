@@ -3,11 +3,13 @@
 // No endpoint, credential, auth rule, SQL text or permission is introduced here.
 const WORKFLOW_ID='ygVyBPjJqGqt2V5E';
 function nativeArguments(body){
- if(body==null||!Object.prototype.hasOwnProperty.call(body,'args'))return [];
+ if(body==null||body.args===undefined)return [];
  if(!Array.isArray(body.args)||body.args.length>128||body.args.some(x=>x!==null&&!['string','number','boolean'].includes(typeof x))||body.args.some(x=>typeof x==='number'&&!Number.isFinite(x)))throw Error('SQL_ARGS_INVALID');
  return body.args;
 }
 const EXPRESSION='={{ ('+nativeArguments.toString()+')($json.body) }}';
+// Exact previously deployed expression only. No arbitrary replacement is allowed.
+const LEGACY_EXPRESSION=EXPRESSION.replace('body.args===undefined',"!Object.prototype.hasOwnProperty.call(body,'args')");
 function ensure(ok,message){if(!ok)throw Error(message);}
 function patchUtility(fresh,{expectedVersionId}={}){
  ensure(fresh?.id===WORKFLOW_ID&&expectedVersionId&&fresh.versionId===expectedVersionId,'Fresh utility identity and version required');
@@ -19,9 +21,10 @@ function patchUtility(fresh,{expectedVersionId}={}){
  const options=sql[0].parameters.options;
  ensure(options&&typeof options==='object'&&!Array.isArray(options),'Current SQL options changed');
  if(Object.prototype.hasOwnProperty.call(options,'queryReplacement')){
-  ensure(options.queryReplacement===EXPRESSION,'Existing parameter contract differs');return {workflow,changes:[]};
+  if(options.queryReplacement===EXPRESSION)return {workflow,changes:[]};
+  ensure(options.queryReplacement===LEGACY_EXPRESSION,'Existing parameter contract differs');
  }
  options.queryReplacement=EXPRESSION;
  return {workflow,changes:[{node:'SQL',field:'options.queryReplacement'}]};
 }
-module.exports={WORKFLOW_ID,EXPRESSION,nativeArguments,patchUtility};
+module.exports={WORKFLOW_ID,EXPRESSION,LEGACY_EXPRESSION,nativeArguments,patchUtility};

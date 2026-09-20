@@ -4,6 +4,12 @@ const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'../../growth-test-to
 const M=require('../n8n/growth/whatsapp-order-status-proposal.cjs'),I=require('../n8n/growth/whatsapp-order-status-integration.cjs'),A=require('../n8n/growth/whatsapp-order-status-activation.cjs');
 const read=file=>fs.readFileSync(path.join(__dirname,file),'utf8'),clone=structuredClone;
 const SQL=read('../n8n/growth/whatsapp-order-status-cas.sql');
+test('installation source cannot be reinterpreted as a maintenance-node expression',()=>{
+ // The existing Postgres node evaluates these delimiters even inside SQL
+ // quoted literals. The provider placeholder must still match in the CAS
+ // success test below, but must not occur verbatim in transported SQL source.
+ assert.doesNotMatch(SQL,/\{\{[\s\S]*?\}\}/);
+});
 async function seed(db){
  await db.exec('TRUNCATE shrigma_flow_definition,shrigma_flow_template,shrigma_flow_request,shrigma_flow_revision,shrigma_flow_audit;');
  const byBrand=require('./whatsapp-order-status-fixture.cjs').catalogs(),proposals=M.buildProposal(byBrand),catalog=Object.values(byBrand).flat();

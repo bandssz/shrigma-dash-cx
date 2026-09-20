@@ -128,7 +128,9 @@ BEGIN
     OR jsonb_array_length(normalized->'buttons')<>2 THEN
     RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('error','source_button_changed','nothing_changed',true));
    END IF;
-   normalized:=jsonb_set(normalized,'{buttons,0,url}',to_jsonb('https://'||CASE f.brand WHEN 'fish' THEN 'fishermans.com.br' ELSE 'oaristocrata.com' END||'/{{1}}'));
+   -- Assemble the provider placeholder without expression delimiters in the
+   -- SQL source: the maintenance Postgres node resolves those before execution.
+   normalized:=jsonb_set(normalized,'{buttons,0,url}',to_jsonb('https://'||CASE f.brand WHEN 'fish' THEN 'fishermans.com.br' ELSE 'oaristocrata.com' END||'/'||chr(123)||chr(123)||'1'||chr(125)||chr(125)));
    IF normalized IS DISTINCT FROM public.shrigma_wa_review_content(t->'components') THEN
     RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('error','only_order_url_may_change','nothing_changed',true));
    END IF;
