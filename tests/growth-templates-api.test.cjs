@@ -75,7 +75,7 @@ test('submissão de e-mail exige submit_email explicitamente true além de submi
 test('cliente: GET leva chave de leitura, POST leva chave de escrita + Idempotency-Key; rede/JSON quebrado nunca lançam; sem endpoint não chama',async()=>{
  const calls=[];const fx=async(url,init)=>{calls.push({url,init});return {status:201,json:async()=>FIX.rascunho_response};};
  const c=GTA.cliente({endpoint:END,fetch:fx,chaveLeitura:'LEITURA',chaveEscrita:'ESCRITA'});
- const l=await c.listar('fish');assert.match(calls[0].url,/\?k=LEITURA&acao=listar&marca=fish$/);assert.equal(l.ok,true);
+ const l=await c.listar('fish');assert.match(calls[0].url,/\?acao=listar&marca=fish$/);assert.equal(calls[0].init.headers.Authorization,'Bearer LEITURA');assert.equal(l.ok,true);
  await c.listar('todas');assert.doesNotMatch(calls[1].url,/marca=/);
  await c.rascunho(FIX.rascunho_request.rascunho,{idempotency_key:'idem-1',draft_id:'d_1',expected_version:1});
  const body=JSON.parse(calls[2].init.body);assert.equal(body.k,'ESCRITA');assert.equal(body.acao,'rascunho');assert.equal(body.draft_id,'d_1');assert.equal(body.expected_version,1);assert.deepEqual(body.rascunho,FIX.rascunho_request.rascunho);

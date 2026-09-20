@@ -8,7 +8,7 @@ function trecho(inicio,fim){
  return html.slice(a,b);
 }
 function boot(linhas=[]){
- const elements=new Map(),requests=[],venda=[];
+ const elements=new Map(),requests=[],headers=[],venda=[];
  const $=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:''});return elements.get(s);};
  const context=vm.createContext({console,Intl,OLegacy,API:{cx_organico_receita:linhas},PER:{ini:'2026-09-01',fim:'2026-09-19'},CMP:false,
   G:{anterior:()=>({ini:'2026-08-13',fim:'2026-08-31'})},MARCA:'todas',
@@ -20,14 +20,14 @@ function boot(linhas=[]){
   CARGA_ORGANICO:false,ACESSO_ORGANICO:{setBusy:()=>{},show:()=>{},reject:()=>{}},AbortController,setTimeout,clearTimeout,
   chaveLeitura:()=> 'synthetic-key&other=x',CX_API_URL:'https://example.invalid/read',
   shrigmaMarcaMestra:()=>{},shrigmaEsqueceChave:()=>{},avisoTela:(t,d)=>{if(t!=='Carregando dados…')throw Error(t+': '+d);},window:{},
-  fetch:async url=>{requests.push(url);return {status:200,ok:true,json:async()=>({_escopo:'organico',cx_organico_receita:[]})};},
+  fetch:async(url,init)=>{requests.push(url);headers.push(init.headers);return {status:200,ok:true,json:async()=>({_escopo:'organico',cx_organico_receita:[]})};},
  });
  for(const source of [
   trecho('function grupoReceitaOrganico(r){','// Conversao por UTM:'),
   trecho('function pintaKPIs(){','/* ---------- grade:'),
   trecho('async function carrega(){',"document.querySelectorAll('#seg-marca button')"),
  ])vm.runInContext(source,context);
- return {context,elements,requests,venda,run:s=>vm.runInContext(s,context)};
+ return {context,elements,requests,headers,venda,run:s=>vm.runInContext(s,context)};
 }
 const row=(overrides={})=>({dia:'2026-09-19',marca:'aristocrata',rede:'instagram',utm_medium:'social',
  superficie_utm:'story',produto_utm:'produto-teste',receita_ultimo:100,pedidos_ultimo:1,...overrides});
@@ -97,7 +97,7 @@ test('leitura do painel sempre solicita escopo organico e codifica a chave sem a
  assert.equal(x.requests.length,1);
  const url=new URL(x.requests[0]);
  assert.equal(url.searchParams.get('painel'),'organico');
- assert.equal(url.searchParams.get('k'),'synthetic-key&other=x');
+ assert.equal(url.searchParams.has('k'),false);assert.equal(x.headers[0].Authorization,'Bearer synthetic-key&other=x');
  assert.equal(url.searchParams.get('other'),null);
 });
 

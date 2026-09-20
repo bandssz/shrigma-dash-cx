@@ -28,7 +28,7 @@ test('missing access uses inline form and focus without prompt, fetch or an endl
 test('Enter submits once; a new key is memory-only, encoded, scoped and cleared from fields',async()=>{
  let resolve;const x=boot({fetchImpl:()=>new Promise(r=>resolve=r)});await x.run('carrega()');
  x.$('#organico-chave').value='fixture-key&scope=wrong';x.submit();x.submit();await turn();assert.equal(x.requests.length,1);
- const url=new URL(x.requests[0][0]);assert.equal(url.searchParams.get('k'),'fixture-key&scope=wrong');assert.equal(url.searchParams.get('painel'),'organico');assert.equal(url.searchParams.has('scope'),false);assert.equal(x.requests[0][1].cache,'no-store');
+ const url=new URL(x.requests[0][0]);assert.equal(url.searchParams.has('k'),false);assert.equal(x.requests[0][1].headers.Authorization,'Bearer fixture-key&scope=wrong');assert.equal(url.searchParams.get('painel'),'organico');assert.equal(url.searchParams.has('scope'),false);assert.equal(x.requests[0][1].cache,'no-store');
  assert.equal(x.$('#organico-chave').value,'');assert.match(x.$('#aviso-carga').textContent,/Carregando/);assert.equal(x.run('chaveLeitura()'),'fixture-key&scope=wrong');
  resolve({ok:true,status:200,json:async()=>({_painel:'todos',_escopo:'organico',cx_story:[]})});await turn();assert.equal(x.$('#aviso-carga').textContent,'');assert.equal(x.writes(),0);assert.equal(x.timers.size,0);
  const reload=boot();assert.equal(reload.run('chaveLeitura()'),'');

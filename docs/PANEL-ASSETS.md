@@ -1,6 +1,6 @@
 # Assets e interface dos painéis
 
-CX/CS, CRM, Orgânico e Influs & Afiliados têm entradas próprias. Creators e Afiliados TikTok continuam como abas do mesmo painel. O cabeçalho separa navegação por área dos filtros de marca; período, ações e definições financeiras continuam pertencendo à área.
+CX/CS, CRM, Orgânico e Influs & Afiliados têm entradas próprias. Creators e Afiliados TikTok continuam como abas do mesmo painel. As entradas independentes não mostram outras áreas. A navegação entre áreas pertence somente ao portal mestre autenticado; período, ações e definições financeiras continuam pertencendo à área. Veja `PANEL-SECURITY.md`.
 
 ## Alterar e distribuir
 
@@ -14,7 +14,7 @@ node tools/panel-build/build.cjs
 node tools/panel-build/build.cjs --check
 ```
 
-Versionar os fontes, os quatro HTML e os oito arquivos gerados juntos. Cada HTML referencia o hash do conteúdo no endereço do asset; a verificação de CI recusa artefatos desatualizados. Os testes de renderização executam os scripts referenciados pelo HTML, portanto também exercitam os bundles distribuídos. Reverter uma entrega exige reverter o conjunto e publicar pela mesma revisão.
+Versionar os fontes, os quatro HTML de conteúdo, as cinco entradas por área/mestre e todos os arquivos gerados juntos. Cada HTML referencia o hash do conteúdo no endereço do asset; a verificação de CI recusa artefatos desatualizados. Os testes de renderização executam os scripts referenciados pelo HTML, portanto também exercitam os bundles distribuídos. Reverter uma entrega exige reverter o conjunto e publicar pela mesma revisão.
 
 ## Medir
 

@@ -14,7 +14,8 @@
       "cx-graficos.js",
       "app.js",
       "cx-tela.js",
-      "alerta-credencial.js"
+      "alerta-credencial.js",
+      "panel-bridge.js"
     ]
   },
   "growth": {
@@ -60,7 +61,8 @@
       "growth-canvas.js",
       "growth-builder.js",
       "growth-flows.js",
-      "growth-flows-ui.js"
+      "growth-flows-ui.js",
+      "panel-bridge.js"
     ]
   },
   "organico": {
@@ -76,7 +78,8 @@
       "organico-access.js",
       "organico-attribution.js",
       "organico-stories.js",
-      "organico-legacy.js"
+      "organico-legacy.js",
+      "panel-bridge.js"
     ]
   },
   "influs": {
@@ -92,7 +95,8 @@
       "influs-tts-actions.js",
       "influs-tts-manual.js",
       "influs-tts.js",
-      "alerta-credencial.js"
+      "alerta-credencial.js",
+      "panel-bridge.js"
     ]
   }
 }

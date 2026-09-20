@@ -53,7 +53,7 @@ test('templates, history and canvas read the new session reader while their writ
  const x=boot({legacy:'legacy-reader'});x.api.show();x.q('#growth-chave').value='synthetic-reader';await x.submit();
  x.run('GRU.caps={endpoint:"https://fixture.test/templates"};GC.caps={endpoint:"https://fixture.test/templates",pode:{read_content:true,list_history:true}};GC.render=()=>{};GB.endpoint=()=>"https://fixture.test/templates"');
  await x.run('GRU.cliente().listar("fish")');await x.run('GC.carregarConteudo({marca:"fish"})');await x.run('GC.carregarHistorico({marca:"fish"},"fixture")');await x.run('GB.request("fluxos_listar")');
- assert.equal(x.calls.length,4);for(const c of x.calls){assert.notEqual(c.init.method,'POST');assert.equal(new URL(c.url).searchParams.get('k'),'synthetic-reader');}
+ assert.equal(x.calls.length,4);for(const c of x.calls){assert.notEqual(c.init.method,'POST');assert.equal(new URL(c.url).searchParams.has('k'),false);assert.equal(c.init.headers.Authorization,'Bearer synthetic-reader');}
  await x.run('GRU.cliente("separate-synthetic-writer").rascunho({name:"fixture"},{idempotency_key:"fixture"})');assert.equal(JSON.parse(x.calls.at(-1).init.body).k,'separate-synthetic-writer');assert.deepEqual(x.writes,[]);
 });
 test('cancelled campaign can be listed and reopened with session read key only; no commercial action is sent',async()=>{
@@ -66,6 +66,6 @@ test('cancelled campaign can be listed and reopened with session read key only; 
  x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-open="1000"]'));x.q('[data-ce-open="1000"]').click();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));
  assert.match(x.q('[data-ce-server-state]').textContent,/0 enviados/);assert.equal(x.q('[name=name]').value,'Fixture cancelada');
  for(const action of ['save','validate','schedule','cancel'])assert.equal(x.q(`[data-ce-${action}]`).disabled,true);
- assert.equal(x.calls.length,4);assert.ok(x.calls.every(c=>c.init.method==='GET'&&new URL(c.url).searchParams.get('k')==='synthetic-reader'));
+ assert.equal(x.calls.length,4);assert.ok(x.calls.every(c=>c.init.method==='GET'&&!new URL(c.url).searchParams.has('k')&&c.init.headers.Authorization==='Bearer synthetic-reader'));
  assert.ok(!x.writes.includes('shrigma_k_growth')&&!x.writes.includes('shrigma_k_mestre')&&!x.writes.includes('shrigma_tpl_key'));assert.equal(x.store.get('shrigma_campaign_operation_v1:unrelated'),'preserve-exact');
 });

@@ -59,7 +59,7 @@ const GTA={
       try{const r=await fx(url,init);return {ok:r.status>=200&&r.status<300,status:r.status,body:await parse(r),rede:false};}
       catch(_){return {ok:false,status:0,body:null,rede:true};}
     };
-    const get=params=>{const q=new URLSearchParams({k:chaveLeitura||'',...params});return chama(`${endpoint}?${q}`,{signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
+    const get=params=>{const q=new URLSearchParams(params);return chama(`${endpoint}?${q}`,{headers:{Authorization:'Bearer '+(chaveLeitura||'')},cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
     const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
     return {
       listar:marca=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{})}),

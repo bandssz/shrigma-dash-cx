@@ -36,7 +36,7 @@ const GCA=(()=>{
     // A measured save exceeded 30s during queue load. Give writes time to return
     // their durable receipt; a lost response still preserves the same journal.
     const url=new URL(endpoint),init={method,cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(method==='POST'?90000:20000):undefined};
-    if(method==='GET'){url.search=new URLSearchParams({k,...request}).toString();}
+    if(method==='GET'){url.search=new URLSearchParams(request).toString();init.headers={Authorization:'Bearer '+k};}
     else{init.headers={'Content-Type':'application/json'};init.body=JSON.stringify({k,...request});}
     const res=await fetchFn(url.href,init);let body=null;try{body=await res.json();}catch{}
     return {status:res.status,body,ok:res.status>=200&&res.status<300};

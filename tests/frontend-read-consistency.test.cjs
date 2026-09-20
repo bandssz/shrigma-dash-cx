@@ -18,7 +18,7 @@ function cx(fetch){
 }
 test('CX fresh valid cache is used once, without live fallback or query-key injection',async()=>{
  const p=payload(),x=cx(async()=>response(p));await x.run();assert.equal(x.calls.length,1);assert.equal(x.ctx.estado.dados,p);
- assert.equal(new URL(x.calls[0].url).searchParams.get('k'),'synthetic&key');assert.equal(x.calls[0].init.cache,'no-store');assert.equal(x.timers.size,0);
+ assert.equal(new URL(x.calls[0].url).searchParams.has('k'),false);assert.equal(x.calls[0].init.headers.Authorization,'Bearer synthetic&key');assert.equal(x.calls[0].init.cache,'no-store');assert.equal(x.timers.size,0);
 });
 test('CX old, invalid, future or wrong-scope cache falls back to scoped live data',async()=>{
  for(const bad of [payload({gerado_em:'2026-09-19T17:39:59Z'}),payload({gerado_em:'invalid'}),payload({gerado_em:'2026-09-19T19:00:00Z'}),payload({_escopo:'growth'}),{gerado_em:'2026-09-19T17:50:00Z'}]){
@@ -62,9 +62,9 @@ test('Influs late failure cannot erase newer success; old data is cleared during
 });
 test('Influs credentials banner requests only its authorized scope',async()=>{
  const calls=[],ctx=vm.createContext({AbortController,setTimeout,clearTimeout,CRED_READ:null,CX_API_URL:'https://example.invalid/read',shrigmaChave:()=> 'synthetic&other=x',shrigmaMarcaMestra:()=>{},shrigmaFrescor:()=>{},window:{},$:()=>({}),
-  fetch:async url=>{calls.push(url);return response({crm_credencial:[]});}});
+  fetch:async(url,init)=>{calls.push({url,init});return response({crm_credencial:[]});}});
  vm.runInContext(slice(read('influs.html'),'function leituraInfluLimitada(run){','function chaveEscritaInflu()')+slice(read('influs.html'),'async function faixaCredencial(){','faixaCredencial();'),ctx);await ctx.faixaCredencial();
- const url=new URL(calls[0]);assert.equal(url.searchParams.get('painel'),'influs');assert.equal(url.searchParams.get('k'),'synthetic&other=x');assert.equal(url.searchParams.get('other'),null);
+ const url=new URL(calls[0].url);assert.equal(url.searchParams.get('painel'),'influs');assert.equal(url.searchParams.has('k'),false);assert.equal(calls[0].init.headers.Authorization,'Bearer synthetic&other=x');assert.equal(url.searchParams.get('other'),null);
 });
 const TTS=require('../influs-tts.js');
 function tts(initial=null){

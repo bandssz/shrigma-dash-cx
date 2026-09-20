@@ -681,7 +681,7 @@ test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só
  assert.equal(x.document.querySelectorAll('.control-template-preview').length,0); // nada carregado sem pedir
  api.responde('listar',200,{api_version:'2026-09-1',templates:[{...CONTRATO.listar.templates[0],key:'fish_paid',name:'fish_confirmacao_exemplo',brand:'fish'}]});
  x.document.querySelector('#control-tpl-conteudo').click();await waitFor(()=>row('fish_paid').querySelector('.control-template-preview'),'published template preview');
- assert.match(api.pedidos[0].url,/k=synthetic-test-key&acao=listar$/); // leitura: chave de leitura do painel, sem marca no recorte "todas"
+ assert.match(api.pedidos[0].url,/\?acao=listar$/);assert.equal(api.pedidos[0].headers.Authorization,'Bearer synthetic-test-key'); // leitura: chave de leitura do painel, sem marca no recorte "todas"
  const prev=row('fish_paid').querySelector('.control-template-preview');assert.ok(prev);assert.match(prev.querySelector('summary').textContent,/Prévia publicada · v3 · 07\/09\/2026/);
  assert.match(prev.textContent,/Olá Ana, o pedido #48213 está a caminho/);assert.match(prev.textContent,/↗ Acompanhar pedido/);
  assert.match(row('aristo_paid').textContent,/Conteúdo publicado não veio na resposta da API/);
@@ -774,7 +774,7 @@ test('Growth opens an accessible inline key form when prompt is unavailable, and
  let prevented=0;await form.onsubmit({preventDefault(){prevented++;}});assert.equal(x.requests.length,0);assert.match(x.document.querySelector('#growth-acesso-msg').textContent,/Informe/);
  field.value='  synthetic-inline&key  ';await form.onsubmit({preventDefault(){prevented++;}});
  assert.equal(prevented,2);assert.equal(field.value,'');assert.equal(form.hidden,true);assert.equal(x.run('LOADING'),false);
- assert.equal(x.requests.length,1);const url=new URL(x.requests[0]);assert.equal(url.searchParams.get('k'),'synthetic-inline&key');assert.equal(url.searchParams.get('painel'),'growth');
+ assert.equal(x.requests.length,1);const url=new URL(x.requests[0]);assert.equal(url.searchParams.has('k'),false);assert.equal(x.calls[0].init.headers.Authorization,'Bearer synthetic-inline&key');assert.equal(url.searchParams.get('painel'),'growth');
  assert.equal(x.store.has('shrigma_k_growth'),false);assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.run('GTA.chaveLeitura()'),'synthetic-inline&key');assert.equal(x.document.querySelector('#load-state').hidden,true);
  assert.ok(x.document.querySelectorAll('#area-kpis .kpi-val').length>0,'real render functions paint fixture data');
  assert.ok(x.hashes.every(h=>!h.includes('synthetic-inline')),'key never enters page navigation');
