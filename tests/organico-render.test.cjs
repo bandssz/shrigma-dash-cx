@@ -17,9 +17,10 @@ function boot(linhas=[]){
   nf:n=>n==null?'—':Number(n).toLocaleString('pt-BR'),pc:n=>n==null?'—':String(n)+'%',
   esc:s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])),
   renderVenda:rows=>venda.push(rows),troca:()=>{},render:()=>{},shrigmaFrescor:()=>{},
+  CARGA_ORGANICO:false,ACESSO_ORGANICO:{setBusy:()=>{},show:()=>{},reject:()=>{}},AbortController,setTimeout,clearTimeout,
   chaveLeitura:()=> 'synthetic-key&other=x',CX_API_URL:'https://example.invalid/read',
-  shrigmaMarcaMestra:()=>{},shrigmaEsqueceChave:()=>{},avisoTela:(t,d)=>{throw Error(t+': '+d);},window:{},
-  fetch:async url=>{requests.push(url);return {status:200,ok:true,json:async()=>({cx_organico_receita:[]})};},
+  shrigmaMarcaMestra:()=>{},shrigmaEsqueceChave:()=>{},avisoTela:(t,d)=>{if(t!=='Carregando dados…')throw Error(t+': '+d);},window:{},
+  fetch:async url=>{requests.push(url);return {status:200,ok:true,json:async()=>({_escopo:'organico',cx_organico_receita:[]})};},
  });
  for(const source of [
   trecho('function grupoReceitaOrganico(r){','// Conversao por UTM:'),
