@@ -1,6 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const {parseHTML}=require('linkedom'),G=require('../growth-data');
+const {parseHTML}=require('linkedom'),G=require('../growth-data'),GABJ=require('../growth-ab-journal');
+function locks(){let held=false;return {async request(name,opts,fn){if(held)return fn(null);held=true;try{return await fn({name});}finally{held=false;}}};}
 const campaign=(extra={})=>({marca:'fish',canal:'email',tipo:'enviada',campanha_id:1,entregues:100,abriram:40,clicaram:10,truncado:false,enviado_em:'2026-09-01T12:00:00Z',...extra});
 const experiment=(extra={})=>({teste_id:'synthetic-ab',marca:'fish',canal:'email',metrica_primaria:'ctr',nome:'Comparação sintética',hipotese:'Hipótese registrada',variavel:'assunto',efeito_minimo:1,status:'rodando',...extra});
 const arms=()=>[{teste_id:'synthetic-ab',braco:'a',campanha_id:1,utm_term:'a'},{teste_id:'synthetic-ab',braco:'b',campanha_id:2,utm_term:'b'}];
@@ -39,7 +40,8 @@ function boot(api,opts={}){
  const html=fs.readFileSync(path.join(__dirname,'../growth.html'),'utf8'),{document,window}=parseHTML(html),calls=[];
  const source=html.slice(html.indexOf('function renderTestes(){'),html.indexOf('\nfunction render(){',html.indexOf('function renderTestes(){')));
  const registration=html.slice(html.indexOf('async function salvarTeste(){'),html.indexOf('// Marca, periodo e aba persistem',html.indexOf('async function salvarTeste(){')));
- const context=vm.createContext({API:api,AB_PENDENTES:new Map(),AB_CHAVE_SESSAO:'',AB_LEITURA:0,MARCA:'todas',CANAL:'todos',G,document,window,$:s=>document.querySelector(s),esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nf:v=>String(v),AB_API_URL:'https://synthetic.invalid/ab',localStorage:{getItem:()=>opts.noWriteKey?null:'dummy-synthetic',setItem:()=>{},removeItem:()=>{}},carregar:async()=>{if(opts.readback){context.API=opts.readback;vm.runInContext('AB_LEITURA++;renderTestes();',context);}},prompt:()=>{throw Error('unexpected prompt');},confirm:()=>{throw Error('unexpected override');},fetch:async(url,init)=>{calls.push(JSON.parse(init.body));if(opts.networkError)throw Error('synthetic network loss');return {status:200,ok:true,json:async()=>{if(opts.invalidJson)throw Error('empty body');return opts.receipt??{ok:true,gravado_em:new Date().toISOString()};}};}});
+ const stored=opts.storage||new Map(opts.noWriteKey?[]:[['shrigma_ab_key','dummy-synthetic']]);
+ const context=vm.createContext({API:api,GABJ,navigator:{locks:opts.locks||locks()},AB_JOURNAL:null,AB_RECONCILIACAO:null,AB_BLOQUEADO:false,AB_PROVA_LEITURA:{startedAt:Date.now(),completedAt:Date.now()},AB_PENDENTES:new Map(),AB_CHAVE_SESSAO:'',AB_LEITURA:0,MARCA:'todas',CANAL:'todos',G,document,window,$:s=>document.querySelector(s),esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nf:v=>String(v),AB_API_URL:'https://synthetic.invalid/ab',localStorage:{getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},carregar:async()=>{if(opts.readback){context.API=opts.readback;vm.runInContext('AB_LEITURA++;AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};renderTestes();',context);}},prompt:()=>{throw Error('unexpected prompt');},confirm:()=>{throw Error('unexpected override');},fetch:async(url,init)=>{calls.push(JSON.parse(init.body));if(opts.networkError)throw Error('synthetic network loss');return {status:200,ok:true,json:async()=>{if(opts.invalidJson)throw Error('empty body');return opts.receipt??{ok:true,gravado_em:new Date().toISOString()};}};}});
  vm.runInContext(source+'\n'+registration+'\nrenderTestes();',context);return {document,window,calls,run:s=>vm.runInContext(s,context)};
 }
 test('UI reports descriptive snapshots, no winner suggestion, and closes only a manual inconclusive record',async()=>{
@@ -100,7 +102,7 @@ test('unknown A/B mutation stays blocked across render and only a fresh matching
   x.document.querySelector('.e-conc').value='Conclusão sintética.';await x.run('encerrarTeste("synthetic-ab")');assert.equal(x.calls.length,1);
   x.run('API.crm_teste[0]={...API.crm_teste[0],status:"inconclusivo",vencedor:null,conclusao:"Conclusão sintética."};renderTestes()');
   assert.equal(x.run('AB_PENDENTES.size'),1,'old snapshot cannot clear an uncertain operation');
-  x.run('AB_LEITURA++;renderTestes()');assert.equal(x.run('AB_PENDENTES.size'),0);assert.match(x.document.querySelector('#ab-status').textContent,/conferido nos dados atuais/);
+  await x.run('AB_LEITURA++;AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};reconciliaTestesAB()');assert.equal(x.run('AB_PENDENTES.size'),0);assert.match(x.document.querySelector('#ab-status').textContent,/conferido nos dados atuais/);
  }
 });
 test('A/B explicit password field works without prompt and missing key never submits',async()=>{
@@ -108,6 +110,26 @@ test('A/B explicit password field works without prompt and missing key never sub
  x.document.querySelector('.e-conc').value='Conclusão sintética.';await x.run('encerrarTeste("synthetic-ab")');assert.equal(x.calls.length,0);assert.match(x.document.querySelector('.e-msg').textContent,/Informe a chave/);
  input.value='synthetic-inline-write';await x.run('encerrarTeste("synthetic-ab")');assert.equal(x.calls.length,1);assert.equal(x.calls[0].k,'synthetic-inline-write');assert.equal(input.value,'');assert.equal(input.getAttribute('type'),'password');
  assert.equal(x.run('JSON.stringify([...AB_PENDENTES.values()]).includes("synthetic-inline-write")'),false,'pending journal never retains the key');
+});
+test('UI reload and another tab preserve an uncertain creation even when the key or test ID changes',async()=>{
+ const storage=new Map([['shrigma_ab_key','synthetic-first-key']]),sharedLocks=locks();
+ const fill=(x,id)=>{for(const [key,value] of Object.entries({'f-id':id,'f-nome':'Cadastro sintético','f-hip':'Hipótese','f-efeito':'1','f-da':'A','f-db':'B'}))x.document.getElementById(key).value=value;};
+ const first=boot(payload(),{storage,locks:sharedLocks,networkError:true});fill(first,'synthetic-pending');await first.run('salvarTeste()');assert.equal(first.calls.length,1);
+ storage.set('shrigma_ab_key','synthetic-different-key');
+ for(const id of ['synthetic-pending','synthetic-new-id']){
+   const reload=boot(payload(),{storage,locks:sharedLocks});fill(reload,id);await reload.run('salvarTeste()');
+   assert.equal(reload.calls.length,0);assert.equal(reload.document.getElementById('f-salvar').disabled,true);
+   assert.match(reload.document.getElementById('ab-status').textContent,/inclusive após recarregar ou trocar de aba/);
+ }
+ const journal=storage.get(GABJ.SLOT);assert.doesNotMatch(journal,/synthetic-first-key|synthetic-different-key/);assert.equal(JSON.parse(journal).operations.length,1);
+});
+test('UI fresh matching readback after reload confirms without a new POST and leaves the archive intact',async()=>{
+ const storage=new Map([['shrigma_ab_key','synthetic-key']]),sharedLocks=locks(),first=boot(payload(),{storage,locks:sharedLocks,networkError:true});
+ first.document.querySelector('.e-conc').value='Observação sintética persistida.';await first.run('encerrarTeste("synthetic-ab")');assert.equal(first.calls.length,1);
+ const readback=payload();readback.crm_teste[0]={...readback.crm_teste[0],status:'inconclusivo',vencedor:null,conclusao:'Observação sintética persistida.'};
+ const reload=boot(readback,{storage,locks:sharedLocks});await reload.run('reconciliaTestesAB()');
+ assert.equal(reload.calls.length,0);assert.equal(reload.run('AB_PENDENTES.size'),0);assert.equal(JSON.parse(storage.get(GABJ.SLOT)).operations[0].phase,'confirmed');
+ assert.match(reload.document.getElementById('ab-status').textContent,/conferido nos dados atuais/);
 });
 test('A/B readback binds ID, status, fields and all arms; response alone cannot prove identity',()=>{
  const t=experiment(),bs=arms().map(b=>({...b,descricao:''})),request={acao:'criar',teste:t,bracos:bs},api={crm_teste:[t],crm_teste_braco:bs};
