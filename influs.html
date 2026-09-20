@@ -440,6 +440,27 @@ const G = {
       return [];
     });
   },
+  // Pending coupon revenue stays at brand + coupon grain. ROI also includes
+  // signed-product revenue, so subtracting it from coupon revenue is invalid.
+  receitaCuponsPendentes(payload, marca){
+    if(!Array.isArray(payload?.cupons)||!Array.isArray(payload?.receita_cupom))return {disponivel:false,receitaConhecida:null,naoConciliadas:null};
+    const scope=x=>!x||typeof x!=='object'||!x.marca||marca==='todas'||x.marca===marca;
+    const key=x=>JSON.stringify([x.marca,x.codigo]);
+    const catalogo=new Map(),quantidades=new Map();
+    for(const c of payload.cupons.filter(scope)){if(!c||typeof c!=='object'||!c.marca||!c.codigo)continue;const k=key(c);catalogo.set(k,catalogo.has(k)?null:c);}
+    const receitas=payload.receita_cupom.filter(scope);
+    for(const r of receitas){if(r&&typeof r==='object'){const k=key(r);quantidades.set(k,(quantidades.get(k)||0)+1);}}
+    let receitaConhecida=0,naoConciliadas=0;
+    const tipos=new Set(['influ','pendente','nao_influ','crm','cortesia','campanha','suporte','app','desconhecido']);
+    for(const r of receitas){
+      if(!r||typeof r!=='object'){naoConciliadas++;continue;}
+      const k=key(r),c=catalogo.get(k),v=r.receita;
+      const numero=(typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isFinite(Number(v));
+      if(!r.marca||!r.codigo||quantidades.get(k)!==1||!c||!tipos.has(c.tipo)||!numero){naoConciliadas++;continue;}
+      if(c.tipo==='pendente'||c.tipo==='influ'&&!String(c.influ||'').trim())receitaConhecida+=Number(v);
+    }
+    return {disponivel:true,receitaConhecida:Number.isFinite(receitaConhecida)?receitaConhecida:null,naoConciliadas};
+  },
   // agrupa por porte ou modelo para achar onde o dinheiro rende
   influPor(roi, marca, campo){
     // inclui quem teve receita nula: o custo dele tem que aparecer no corte
@@ -617,9 +638,11 @@ function renderKPIs(){
     av.push(`<strong>${rf(t)}</strong> de receita em linha assinada (${sku.length} creator(s)), medida por SKU. É uma <strong>lente separada</strong>: ${s>0?`${rf(s)} caiu em pedido que também usou cupom, então`:'não'} somar com a receita de cupom ${s>0?'contaria a mesma venda duas vezes':'ainda assim mede outra coisa'}.`);
   }
   if(k.patrocinio>0)av.push(`<strong>${rf(k.patrocinio)}</strong> em patrocínio de canal <strong>sem mecanismo de atribuição</strong> (TV, evento, cota). É custo real e está no total, mas nenhuma lente — cupom, UTM ou SKU — consegue medir o retorno. Um cupom exclusivo lido no ar resolveria.`);
-  const semDono=k.receitaCupom-k.receita;
-  if(semDono>1)av.push(`<strong>${rf(semDono)}</strong> de receita em cupons ainda <strong>sem dono</strong> — não entra em ROI nem em comissão até alguém associar.`);
-  if(k.semReceita)av.push(`${k.semReceita} creator(s) sem <strong>nenhuma</strong> receita rastreada nesta janela, custando <strong>${rf(k.custoSemReceita)}</strong>. O custo deles entra no ROI; a receita não existe.`);
+  const pendentes=G.receitaCuponsPendentes(INFLU,MARCA);
+  if(pendentes.receitaConhecida>0)av.push(`${pendentes.naoConciliadas?'Subtotal conhecido: ':''}<strong>${rf(pendentes.receitaConhecida)}</strong> de receita nos registros de cupons <strong>pendentes de classificação ou associação a creator</strong>. Confira a fila de cupons; este valor não usa receita de linha assinada e não entra automaticamente na comissão.`);
+  if(!pendentes.disponivel||pendentes.receitaConhecida===null)av.push('Receita de cupons pendentes <strong>indisponível</strong>: falta uma fonte válida para conferir as associações. Ausência não significa zero.');
+  else if(pendentes.naoConciliadas)av.push(`${nf(pendentes.naoConciliadas)} registro(s) de receita de cupom não puderam ser conciliados com a classificação. O valor pendente conhecido pode ser parcial.`);
+  if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita informada na fonte nesta janela, com <strong>${rf(k.custoSemReceita)}</strong> de custo. O custo entra no ROI; a ausência de receita não comprova zero vendas.`);
   $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
 }
 const roiTxt=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
