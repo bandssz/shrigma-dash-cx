@@ -8,7 +8,9 @@ Atualização de execução: documentação incorporada à main pelo PR #12 (`de
 
 Usar **Detalhes do pedido (`ORDER_DETAILS`) como padrão de cobrança PIX** das marcas. A experiência desejada é um card nativo, com identificação do pedido, produtos/quantidades quando confiáveis, total, texto curto e ação nativa para copiar o PIX. Appmax é o provedor de pagamento de todas as marcas. MCP é uma ferramenta de operação da Meta; não altera o provedor da cobrança.
 
-Para pagamento aprovado, expedição e entrega, priorizar a ação útil daquela etapa: consultar o pedido específico ou abrir o rastreamento preenchido. Não presumir que um template de cobrança pendente serve para qualquer evento pós-pagamento. A adoção de `ORDER_STATUS`/`RICH_ORDER_STATUS` requer comprovação de suporte brasileiro e elegibilidade das contas; a presença desses nomes no SDK não basta.
+Para pagamento aprovado, Felipe escolheu em 20/09/2026 a experiência **Rich Order Status**: card nativo com miniatura, produto, número do pedido e frete; ao abrir, itens, preço e link do pedido. Esse recibo pós-pagamento é separado do `ORDER_DETAILS` de cobrança PIX. Expedição e entrega devem abrir o rastreamento preenchido quando disponível.
+
+As duas WABAs possuem template `RICH_ORDER_STATUS` aprovado (`fishermans_pedido_confirmado_card_v1` e `aristocrata_pedido_confirmado_card_v1`). O envio anterior pelo contrato comum de template entregou somente o corpo; não comprovou o card e não deve ser repetido. A renderização rica exige o transporte de integração de comércio `customer_events`, com `rich_order_status` contendo URL/data/moeda/frete e itens. A credencial Cloud API atual não substitui a instalação de mensagem de comércio.
 
 ## MCP oficial: conhecimento confirmado e acesso real
 
@@ -53,6 +55,7 @@ Arquivos de implementação:
 - [whatsapp-pix-card.js](whatsapp-pix-card.js): cobrança, valores e montagem do componente.
 - [whatsapp-pix.md](whatsapp-pix.md): fontes bancárias, validade, envio e evidência histórica.
 - [whatsapp-template-contract.js](../../whatsapp-template-contract.js): contrato compartilhado com o criador e o motor.
+- [whatsapp-rich-order-status.cjs](whatsapp-rich-order-status.cjs): valida pedido pago e monta o contrato nativo de recibo, sem transporte enquanto a instalação Meta não estiver conciliada.
 
 ## Evolução concreta e critérios de aceite
 
@@ -70,7 +73,9 @@ Aceite da evolução: totais conciliados, PIX original preservado, cobrança ati
 
 Prioridade de jornada: `Acompanhar pedido` deve chegar ao pedido específico quando a Shopify disponibilizar `Order.statusPageUrl`; rastreio deve abrir a transportadora com código preenchido quando disponível. Preservar autenticação exigida pelo destino. Não construir links de pedido por adivinhação.
 
-Estado anterior registrado: links gerais ainda abrem as contas das marcas; templates de transportadora usam URL dinâmica. Esta rodada documenta a evolução, não publica novos destinos. Não oferecer ação de pagamento para pedido já pago.
+Estado em 20/09: os templates nativos estão aprovados nas duas marcas, mas a leitura atual não retornou `linked_commerce_account`, a borda `subscribed_apps` veio vazia e os acessos existentes não incluem `wa_installation_id`/credencial BISU do transporte `customer_events`. Logo, o gerador do payload está implementado e testado, mas a integração, o envio correto e a ativação em pedidos reais permanecem pendentes. O fluxo vigente continua no template pago claro até essa prova; não oferecer ação de pagamento para pedido já pago nem trocar silenciosamente pelo template rico incompleto.
+
+Aceite do Rich Order Status: instalação de comércio identificada; leitura da configuração; pedido sintético enviado uma vez a destinatário autorizado com card renderizado; aceite/entrega/leitura conciliados; depois caller consulta todos os itens sem paginação pendente, imagem HTTPS, total por item, frete e `statusPageUrl` do pedido exato. Pedido teste, cancelado, não pago, captura ausente/futura, item incompleto ou host divergente falha fechado. Só então trocar a seleção publicada, preservando opt-out, idempotência e reservas incertas.
 
 ### Cliques e atribuição
 
@@ -90,6 +95,7 @@ Separar no dashboard: aceite, entrega, leitura, clique URL, eventual cópia nati
 | [Detalhes do pedido — Brasil](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/orderdetailstemplate/) | Referência brasileira existente no projeto; índice indica atualização em 02/09/2026. A leitura integral atual retornou erro/limitação. Não se afirma revisão completa do novo contrato. |
 | [PIX externo — Brasil](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/offsite-pix) | Referência já utilizada na implementação; leitura integral atual indisponível. Não transpor documentação indiana para o Brasil. |
 | [SDK oficial — WhatsAppBusinessAccount](https://github.com/facebook/facebook-python-business-sdk/blob/main/facebook_business/adobjects/whatsappbusinessaccount.py) | Campos/enums, incluindo Insights e formatos. Existência de enum não prova elegibilidade da conta nem aplicação efetiva de escrita. |
+| [Plugin oficial Meta for WooCommerce — Rich Order Status](https://github.com/facebook/facebook-for-woocommerce/blob/main/includes/Handlers/WhatsAppExtension.php) | Contrato `customer_events` e campos `rich_order_status`; também mostra que o transporte usa uma instalação de mensagens e credencial próprias. É referência do contrato Meta, não uma instrução para instalar WooCommerce no Shopify. |
 | [Shopify Order.statusPageUrl](https://shopify.dev/docs/api/admin-graphql/latest/objects/Order#field-Order.fields.statusPageUrl) | Destino específico de status do pedido; permissão e URL devem ser confirmadas por loja/pedido. |
 
 Este registro distingue decisão do usuário, observação do código, evidência histórica e documentação recuperada. Não é uma cópia integral das docs. Antes de ampliar o payload ou ativar capacidades novas, consultar o contrato oficial vigente e registrar a prova operacional correspondente.
