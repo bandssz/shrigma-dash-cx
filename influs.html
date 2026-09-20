@@ -31,7 +31,7 @@ main>*{min-width:0}
   color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 .secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
 .secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
-.sec{display:none}.sec.ativa{display:block}
+#sec-creators,#sec-afil{display:none}#sec-creators.ativa,#sec-afil.ativa{display:block}
 .tabn{font-variant-numeric:tabular-nums}
 td.destaque{font-weight:700}
 .barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
@@ -109,7 +109,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .tag.neutro{background:#fff3d6;color:#8a5f1d}
 #tts-area h3{font:700 14px/1.2 var(--ui)}
 #tts-area .comparativo{font-size:12.5px}#tts-area .comparativo td{padding:9px 8px}#tts-area .comparativo td.num{font-size:13.5px}
-.tts-btn{background:var(--neutro-bg);color:var(--texto)} /* não usar .sec: a página esconde .sec (seções) */
+.tts-btn{background:var(--neutro-bg);color:var(--texto)} /* estilo próprio dos botões TikTok */
 body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/alertas de cupom não valem para a lane TikTok */
 .tts-oculto{display:none}.tts-mais-tr td{text-align:center;padding:6px !important}.tts-mais{font-size:11.5px;padding:4px 10px}
 .tts-aviso{margin-right:8px;cursor:help}
@@ -1178,7 +1178,7 @@ document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();if(window.renderTTS)renderTTS();});
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
+  document.querySelectorAll('#sec-creators,#sec-afil').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
   document.body.classList.toggle('sec-afil',SEC==='afil');});
