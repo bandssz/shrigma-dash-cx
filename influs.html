@@ -543,10 +543,21 @@ function pintaMarca(){
 // Cadastro cupom<->influ. Le e escreve pelo workflow proprio
 // "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
 // dominio de falha separado, igual ao coletor de conversao.
-let INFLU=null, INFLU_SEQ=0;
+let INFLU=null, INFLU_SEQ=0, INFLU_READ=null, CRED_READ=null;
+
+// Read-only deadline: write receipts and uncertain writes never use this helper.
+function leituraInfluLimitada(run){
+  const controller=new AbortController();let active=true,timer,cancel;
+  const limit=new Promise((_,reject)=>{
+    cancel=()=>{active=false;controller.abort();reject(new Error('Consulta substituída.'));};
+    timer=setTimeout(()=>{active=false;controller.abort();reject(new Error('A consulta demorou mais de 20 segundos. Tente atualizar novamente.'));},20000);
+  });
+  const promise=Promise.race([run(controller.signal,()=>active),limit]).finally(()=>{active=false;clearTimeout(timer);});
+  return {promise,cancel};
+}
 
 function chaveEscritaInflu(){return INFLU_ACCESS.requireWrite();}
-async function influPost(corpo){
+async function influPost(corpo,leitura={}){
   if(typeof INFLU_API_URL==='undefined')throw new Error('Serviço de cadastro indisponível.');
   const escrita=corpo.acao!=='listar',role=escrita?'write':'read';
   if(escrita){
@@ -554,9 +565,10 @@ async function influPost(corpo){
     corpo={...corpo,autor:INFLU_ACCESS.author()};
   }
   let r;try{r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    redirect:'error',credentials:'omit',cache:'no-store',body:JSON.stringify(corpo)});}
+    redirect:'error',credentials:'omit',cache:'no-store',...(escrita?{}:{signal:leitura.signal}),body:JSON.stringify(corpo)});}
   catch(_){throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Não foi possível consultar os dados agora.');}
   let j=null;try{j=await r.json();}catch(_){}
+  if(!escrita&&leitura.vigente&&!leitura.vigente())throw new Error('Consulta substituída.');
   if(r.status===401||r.status===403){
     const message=r.status===401?'Chave inválida. Informe novamente o acesso.':'A chave não permite esta operação. Confira o acesso de '+(escrita?'cadastro.':'leitura.');
     INFLU_ACCESS.reject(role,corpo.k,message);
@@ -574,21 +586,27 @@ async function influPost(corpo){
    pedaco em separado. Falha aqui NUNCA derruba a pagina: sem faixa e melhor
    que tela branca. */
 async function faixaCredencial(){
-  try{
-    if(typeof CX_API_URL==='undefined')return;
-    // A chave do painel de Influs abre APENAS a faixa de credencial nesta API: o
-    // recorte por painel do n8n nao entrega dado de CX nem de Growth para ela.
-    // O dado de influenciador vem do endpoint proprio, com a chave de escrita.
-    const k=(typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):shrigmaChave('influs'))||'';
-    if(!k)return;
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=influs');
+  if(CRED_READ)CRED_READ.cancel();
+  if(window.avisoCredencial)window.avisoCredencial([]);
+  const frescor=$('#frescor');if(frescor){frescor.textContent='coleta sem confirmação';frescor.title='';}
+  if(typeof CX_API_URL==='undefined')return;
+  const acesso=()=>typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):shrigmaChave('influs');
+  const k=acesso()||'';if(!k)return;
+  const leitura=leituraInfluLimitada(async(signal,vigente)=>{
+    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=influs',{
+      signal,redirect:'error',credentials:'omit',cache:'no-store'});
     if(!r.ok)return;
     const j=await r.json();
-    const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
-    if(typeof INFLU_ACCESS==='undefined'||!INFLU_ACCESS.isSessionRead(k))shrigmaMarcaMestra(k, p&&p._painel);
-    if(window.avisoCredencial)window.avisoCredencial((p&&p.crm_credencial)||[]);
-    if(p)shrigmaFrescor(p,$('#frescor'));
-  }catch(e){ /* silencioso de proposito */ }
+    if(!vigente()||acesso()!==k)return;
+    const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j?.payload||j);
+    if(!p||typeof p!=='object'||!Array.isArray(p.crm_credencial))return;
+    if(typeof INFLU_ACCESS==='undefined'||!INFLU_ACCESS.isSessionRead(k))shrigmaMarcaMestra(k,p._painel);
+    if(window.avisoCredencial)window.avisoCredencial(p.crm_credencial);
+    shrigmaFrescor(p,frescor);
+  });
+  CRED_READ=leitura;
+  try{await leitura.promise;}catch(_){ /* Failure is isolated from the Creators/TikTok data. */ }
+  finally{if(CRED_READ===leitura)CRED_READ=null;}
 }
 faixaCredencial();
 
@@ -601,24 +619,31 @@ function avisoTela(titulo,detalhe,botao){
 }
 async function carregarInflu(){
   const seq=++INFLU_SEQ, periodo={ini:PER.ini,fim:PER.fim};
+  if(INFLU_READ)INFLU_READ.cancel();
   const k=chaveLeitura();
-  INFLU=null; // nenhum dado do recorte anterior pode ser repintado sob datas novas
+  const vigente=()=>seq===INFLU_SEQ&&(typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):chaveLeitura())===k;
+  INFLU=null;
   if(!k){ avisoTela('Chave de acesso não informada',
     'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
+  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo},{signal,vigente:()=>ativa()&&vigente()}));
+  INFLU_READ=leitura;
   try{
-    const novo=await influPost({k,acao:'listar',...periodo});
-    if(seq!==INFLU_SEQ)return;
+    const novo=await leitura.promise;
+    if(!vigente())return;
+    if(!novo||!['roi','influs','cupons','custos','receita_cupom','termos'].every(c=>Array.isArray(novo[c]))||
+       novo.janela?.ini!==periodo.ini||novo.janela?.fim!==periodo.fim)throw new Error('A resposta não confirmou os dados e o período solicitado.');
     INFLU=novo;
     renderTudo();
   }catch(e){
-    if(seq!==INFLU_SEQ)return;
-    const chaveRuim=/chave/i.test(e.message);
-    avisoTela(chaveRuim?'Chave inválida':'Falha ao carregar',
+    // A current authorization refusal may already have cleared the key inside influPost.
+    if(seq!==INFLU_SEQ||(!vigente()&&e.status!==401&&e.status!==403))return;
+    const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
+    avisoTela(chaveRuim?'Acesso não confirmado':'Falha ao carregar',
       esc(e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
-      chaveRuim?'Digitar outra chave':'Tentar de novo');
-  }
+      chaveRuim?'Informar acesso':'Tentar de novo');
+  }finally{if(INFLU_READ===leitura)INFLU_READ=null;}
 }
 
 function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();

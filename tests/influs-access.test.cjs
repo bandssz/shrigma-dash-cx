@@ -56,8 +56,8 @@ function page({initial={},responses=[]}={}){
  const {window,document}=parseHTML(html),store=storage(initial),calls=[],master=[],forgot=[];let focus=null;
  Object.defineProperty(document,'activeElement',{get:()=>focus});window.HTMLElement.prototype.focus=function(){if(this.closest('fieldset')?.disabled)return;focus=this;};
  const ctx=vm.createContext({window,document,InflusAccess:Access,localStorage:store,INFLU_API_URL:'https://example.invalid/influs',CX_API_URL:'https://example.invalid/shared',
-  shrigmaChave:()=>store.getItem('read')||'',shrigmaEsqueceChave:p=>forgot.push(p),shrigmaMarcaMestra:(...x)=>master.push(x),shrigmaFrescor:()=>{},Date,Intl,console,
-  prompt:()=>{throw Error('prompt forbidden');},fetch:async(url,init)=>{calls.push({url,...init,body:init?.body?JSON.parse(init.body):undefined});const next=responses.shift();if(next instanceof Error)throw next;return next||{status:200,ok:true,json:async()=>({roi:[],influs:[],cupons:[],custos:[],receita_cupom:[],termos:[]})};}});
+  shrigmaChave:()=>store.getItem('read')||'',shrigmaEsqueceChave:p=>forgot.push(p),shrigmaMarcaMestra:(...x)=>master.push(x),shrigmaFrescor:()=>{},Date,Intl,console,AbortController,setTimeout,clearTimeout,
+  prompt:()=>{throw Error('prompt forbidden');},fetch:async(url,init)=>{calls.push({url,...init,body:init?.body?JSON.parse(init.body):undefined});const next=responses.shift();if(next instanceof Error)throw next;return next||{status:200,ok:true,json:async()=>({roi:[],influs:[],cupons:[],custos:[],receita_cupom:[],termos:[],janela:JSON.parse(init.body||'{}')})};}});
  const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');vm.runInContext(source,ctx);store.writes.length=0; // Ignore the existing pane preference written during page boot.
  const $=s=>document.querySelector(s),submit=()=>$('#influ-access-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
  return {ctx,$,calls,store,master,forgot,window,document,submit};

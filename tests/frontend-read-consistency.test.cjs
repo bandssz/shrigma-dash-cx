@@ -44,26 +44,26 @@ test('CX malformed live payload is rejected without replacing last good data',as
 });
 function influ(){
  const calls=[],paints=[],notices=[];
- const ctx=vm.createContext({PER:{ini:'2026-09-01',fim:'2026-09-01'},chaveLeitura:()=> 'dummy',avisoTela:(...x)=>notices.push(x),esc:String,
+ const ctx=vm.createContext({AbortController,setTimeout,clearTimeout,PER:{ini:'2026-09-01',fim:'2026-09-01'},chaveLeitura:()=> 'dummy',avisoTela:(...x)=>notices.push(x),esc:String,
   influPost:body=>{const d=deferred();calls.push({body,...d});return d.promise;},renderTudo:()=>paints.push(vm.runInContext('INFLU',ctx))});
- vm.runInContext('let INFLU=null, INFLU_SEQ=0;'+slice(read('influs.html'),'async function carregarInflu(){','function renderTudo(){'),ctx);
+ vm.runInContext(slice(read('influs.html'),'let INFLU=null,','function chaveEscritaInflu()')+slice(read('influs.html'),'async function carregarInflu(){','function renderTudo(){'),ctx);
  return {ctx,calls,paints,notices,run:()=>ctx.carregarInflu(),data:()=>vm.runInContext('INFLU',ctx)};
 }
 test('Influs newer period wins even if the previous response resolves last',async()=>{
  const x=influ(),a=x.run();x.ctx.PER={ini:'2026-09-19',fim:'2026-09-19'};const b=x.run();
- x.calls[1].resolve({fixture:'new'});await b;x.calls[0].resolve({fixture:'old'});await a;
+ x.calls[1].resolve({fixture:'new',roi:[],influs:[],cupons:[],custos:[],receita_cupom:[],termos:[],janela:{ini:x.ctx.PER.ini,fim:x.ctx.PER.fim}});await b;x.calls[0].resolve({fixture:'old'});await a;
  assert.equal(x.data().fixture,'new');assert.equal(x.paints.length,1);assert.equal(x.calls[0].body.ini,'2026-09-01');assert.equal(x.calls[1].body.ini,'2026-09-19');
 });
 test('Influs late failure cannot erase newer success; old data is cleared during period change',async()=>{
- const x=influ(),a=x.run(),b=x.run();x.calls[1].resolve({fixture:'new'});await b;const notices=x.notices.length;
+ const x=influ(),a=x.run(),b=x.run();x.calls[1].resolve({fixture:'new',roi:[],influs:[],cupons:[],custos:[],receita_cupom:[],termos:[],janela:{ini:x.ctx.PER.ini,fim:x.ctx.PER.fim}});await b;const notices=x.notices.length;
  x.calls[0].reject(Error('old failure'));await a;assert.equal(x.data().fixture,'new');assert.equal(x.notices.length,notices);
  x.ctx.PER={ini:'2026-08-01',fim:'2026-08-01'};const c=x.run();assert.equal(x.data(),null);
  x.calls[2].reject(Error('current failure'));await c;assert.equal(x.data(),null);assert.match(x.notices.at(-1)[1],/current failure/);
 });
 test('Influs credentials banner requests only its authorized scope',async()=>{
- const calls=[],ctx=vm.createContext({CX_API_URL:'https://example.invalid/read',shrigmaChave:()=> 'synthetic&other=x',shrigmaMarcaMestra:()=>{},shrigmaFrescor:()=>{},window:{},$:()=>({}),
+ const calls=[],ctx=vm.createContext({AbortController,setTimeout,clearTimeout,CRED_READ:null,CX_API_URL:'https://example.invalid/read',shrigmaChave:()=> 'synthetic&other=x',shrigmaMarcaMestra:()=>{},shrigmaFrescor:()=>{},window:{},$:()=>({}),
   fetch:async url=>{calls.push(url);return response({crm_credencial:[]});}});
- vm.runInContext(slice(read('influs.html'),'async function faixaCredencial(){','faixaCredencial();'),ctx);await ctx.faixaCredencial();
+ vm.runInContext(slice(read('influs.html'),'function leituraInfluLimitada(run){','function chaveEscritaInflu()')+slice(read('influs.html'),'async function faixaCredencial(){','faixaCredencial();'),ctx);await ctx.faixaCredencial();
  const url=new URL(calls[0]);assert.equal(url.searchParams.get('painel'),'influs');assert.equal(url.searchParams.get('k'),'synthetic&other=x');assert.equal(url.searchParams.get('other'),null);
 });
 const TTS=require('../influs-tts.js');
