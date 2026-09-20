@@ -352,6 +352,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-campaign-api.js?v=20260919-campaigns"></script>
 <script src="growth-campaign-editor.js?v=20260919-campaigns"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
+<script src="growth-ab-journal.js?v=20260920-durable"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260915-1"></script>
 <script src="growth-pix.js?v=20260917-charge"></script>
@@ -379,6 +380,7 @@ let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
 const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
+let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
@@ -491,7 +493,7 @@ function renderTestes(){
           <span class="ajuda">Encerramento sem vencedor experimental. Registre a observação e a decisão operacional; este cadastro não comprova a distribuição dos participantes nem o prazo completo de acompanhamento.</span></div>
         <div class="campo largo"><label>Conclusão</label>
           <textarea class="e-conc" aria-label="Conclusão do registro" placeholder="O que isso muda na operação daqui pra frente."></textarea></div>
-        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}" ${AB_PENDENTES.has(t.teste_id)?'disabled':''}>Encerrar registro</button>
+        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}" ${AB_BLOQUEADO||AB_PENDENTES.has(t.teste_id)?'disabled':''}>Encerrar registro</button>
           <span class="mini e-msg" role="status">${AB_PENDENTES.has(t.teste_id)?'Gravação aguardando confirmação; atualize os dados antes de repetir.':''}</span></div>
       </div>`:''}
       <div class="mini" style="margin-bottom:4px"><strong>Hipótese:</strong> ${esc(t.hipotese)}</div>
@@ -518,30 +520,53 @@ function chaveTesteAB(msg){
   if(!AB_CHAVE_SESSAO){msg.textContent='Informe a chave de escrita do cadastro A/B no campo acima.';field.focus();}
   return AB_CHAVE_SESSAO;
 }
+function journalTesteAB(){
+  if(!AB_JOURNAL){let storage=null;try{storage=localStorage;}catch(_){}
+    AB_JOURNAL=GABJ.create({endpoint:typeof AB_API_URL==='string'?AB_API_URL:null,storage,
+      locks:typeof navigator!=='undefined'?navigator.locks:null,match:G.registroTesteConfere,receipt:G.reciboTesteValido});}
+  return AB_JOURNAL;
+}
+function sincronizaTestesAB(){
+  const state=journalTesteAB().inspect();AB_PENDENTES.clear();AB_BLOQUEADO=state.blocked;
+  for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
+  $('#f-salvar').disabled=AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
+  if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
+  else if(AB_PENDENTES.size)$('#ab-status').textContent='Há gravação aguardando confirmação neste navegador, inclusive após recarregar ou trocar de aba. Atualize para conferir o mesmo registro. Não crie outro identificador para repetir. O cadastro legado não tem histórico imutável de operações.';
+}
 function reconciliaTestesAB(){
-  for(const [id,pending] of AB_PENDENTES){
-    if(pending.state==='enviando'||AB_LEITURA<=pending.readVersion||!G.registroTesteConfere(API,pending.expected))continue;
-    AB_PENDENTES.delete(id);$('#ab-status').textContent='Registro '+id+' conferido nos dados atuais do cadastro.';
-    if(pending.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro conferido nos dados atuais.';}
-  }
-  $('#f-salvar').disabled=[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
-  if(AB_PENDENTES.size)$('#ab-status').textContent='Há gravação aguardando confirmação. Atualize o painel para conferir o mesmo registro. Não crie outro identificador para repetir a operação. O cadastro legado não tem histórico imutável de operações.';
+  sincronizaTestesAB();
+  if(AB_RECONCILIACAO||!AB_PROVA_LEITURA||!API)return AB_RECONCILIACAO||Promise.resolve();
+  AB_RECONCILIACAO=(async()=>{
+    let proof;
+    do{
+      proof=AB_PROVA_LEITURA;const result=await journalTesteAB().reconcile(API,proof);
+      if(result.changed){sincronizaTestesAB();
+        for(const p of result.confirmed){$('#ab-status').textContent='Registro '+p.expected.teste.teste_id+' conferido nos dados atuais do cadastro.';
+          if(p.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro conferido nos dados atuais.';}}
+        renderTestes();
+      }
+    }while(proof!==AB_PROVA_LEITURA); // A refresh that arrived during reconciliation must also be checked.
+  })().catch(e=>{if(e.code!=='AB_BUSY')$('#ab-status').textContent=e.message;}).finally(()=>{AB_RECONCILIACAO=null;});
+  return AB_RECONCILIACAO;
 }
 async function gravaTesteAB(corpo,msg,btn){
-  const id=corpo.teste.teste_id;
-  if(AB_PENDENTES.has(id)||(corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar'))){msg.textContent='Gravação aguardando confirmação. Atualize o painel antes de repetir.';btn.disabled=true;return;}
-  const {k,...expected}=corpo,pending={expected,state:'enviando',readVersion:AB_LEITURA};AB_PENDENTES.set(id,pending);
-  btn.disabled=true;const inicio=Date.now();
+  btn.disabled=true;
   try{
-    const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
-    let j={};try{j=await r.json();}catch(_){}
-    if(r.status===401||r.status===403){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}AB_PENDENTES.delete(id);msg.textContent='Chave de escrita recusada.';}
-    else if(!r.ok&&r.status>=400&&r.status<500){AB_PENDENTES.delete(id);msg.textContent='Recusado: '+(j.erro||r.status);}
-    else if(!r.ok||!G.reciboTesteValido(j,inicio,Date.now())){pending.state='incerto';msg.textContent='Gravação sem confirmação. Atualize o painel e confira o mesmo registro; nenhum reenvio será feito automaticamente.';}
-    else{pending.state='aceito';msg.textContent='Solicitação aceita pelo cadastro. Atualizando para conferir o registro…';await carregar();}
-  }catch(e){pending.state='incerto';msg.textContent='Gravação sem confirmação após falha de conexão. Atualize o painel e confira o mesmo registro antes de repetir.';}
-  finally{reconciliaTestesAB();btn.disabled=AB_PENDENTES.has(id);}
+    const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA},async expected=>{
+      const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',redirect:'error',cache:'no-store',
+        signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(90000):undefined,body:JSON.stringify({k:corpo.k,...expected})});
+      let body=null;try{body=await r.json();}catch(_){}return {status:r.status,body};
+    });
+    if(result.phase==='rejected'){
+      if(result.rejection.status===401){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}msg.textContent='Chave de escrita recusada.';}
+      else msg.textContent='Recusado antes da gravação: '+result.rejection.error;
+    }else if(result.phase==='accepted'){msg.textContent='Solicitação aceita pelo cadastro. Atualizando para conferir o registro…';await carregar();}
+    else msg.textContent='Gravação sem confirmação. A tentativa foi preservada neste navegador. Atualize e confira o mesmo registro; nenhum reenvio será feito automaticamente.';
+  }catch(e){msg.textContent=e.message||'Gravação sem confirmação. Preserve o registro local e atualize os dados.';}
+  finally{await reconciliaTestesAB();btn.disabled=AB_BLOQUEADO||AB_PENDENTES.has(corpo.teste.teste_id)||corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');}
 }
+window.addEventListener('storage',event=>{if((event.key===GABJ.SLOT||event.key===null)&&API)renderTestes();});
+
 async function encerrarTeste(id){
   const cx=$('#enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
   msg.textContent='';const conc=cx.querySelector('.e-conc').value.trim();
@@ -856,12 +881,13 @@ async function carregar(){
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
   if(!API)$('#load-state').hidden=false;
   try{
-    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{signal:AbortSignal.timeout(45000)});
+    const inicioLeituraAB=Date.now();
+    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{cache:'no-store',signal:AbortSignal.timeout(45000)});
     if(r.status===401||r.status===403){CHAVE_GROWTH_SESSAO='';shrigmaEsqueceChave('growth');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     if(!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);
     const next=await r.json();
     if(!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
-    API=GA.project(next,ATTR_MODEL);AB_LEITURA++;
+    API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     shrigmaMarcaMestra(k,API._painel);
