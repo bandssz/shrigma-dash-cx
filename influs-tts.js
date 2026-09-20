@@ -152,6 +152,19 @@
         videos: TTS.filtra(p.videos || [], marca).slice().sort((a, b) => (+b.gmv || 0) - (+a.gmv || 0)),
       };
     },
+    // Presentation coverage only. Keep every existing financial aggregation unchanged.
+    camposConhecidos(rows, fields) {
+      const known = v => (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isFinite(Number(v));
+      return Array.isArray(rows) && rows.length > 0 && rows.every(r => fields.every(k => known(r[k])));
+    },
+    coberturaLiveVideo(p, marca) {
+      const selected = marca === 'todas' ? TTS.MARCAS : [marca];
+      const collection = key => ({disponivel:Array.isArray(p[key]),recebidos:Array.isArray(p[key]) ? p[key].length : null,
+        selecionados:Array.isArray(p[key]) ? TTS.filtra(p[key],marca).length : null});
+      return {lives:collection('lives'),produtos:collection('live_produtos'),videos:collection('videos'),
+        retratos:selected.map(m => ({marca:m,dias:[...new Set((Array.isArray(p.videos)?p.videos:[]).filter(v=>v.marca===m)
+          .map(v=>String(v.retrato_em||'').slice(0,10)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)))].sort()}))};
+    },
     // Live como a equipe vê, não como a API entrega. A API devolve SESSÕES: caiu o sinal, virou sessão
     // nova. A live da Fishermans de 16/09 foram 3 sessões (61 + 101 + 16 min) com ~1 min entre elas —
     // "a live deu R$ 762" e "a live deu R$ 1.064" eram a mesma live, contada de dois jeitos. Sessões da
@@ -289,18 +302,125 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   const per = () => (typeof PER !== 'undefined' ? PER : { ini: null, fim: null });
 
   // ---- escrita (aprovar/rejeitar amostra, editar regra): chave PRÓPRIA, nunca a de leitura ----
-  function chaveEscritaTTS() {
-    let wk = null; try { wk = localStorage.getItem('shrigma_tts_wkey'); } catch (e) {}
-    if (!wk) { wk = (prompt('Chave de ESCRITA do TikTok Shop (aprovar/rejeitar amostra e editar regra):') || '').trim(); if (!wk) return null; try { localStorage.setItem('shrigma_tts_wkey', wk); } catch (e) {} }
-    return wk;
+  const ACESSO_TTS = { k:'', autor:'' }; // New values stay in this page's memory.
+  let ACAO_TTS_EM_CURSO = false;
+  // Reservations survive reload; the server still needs its own durable idempotency.
+  let JOURNAL_TTS;
+  function journalTTS() {
+    if (!JOURNAL_TTS) {
+      let storage = null, locks = null;
+      try { storage = localStorage; locks = navigator.locks; } catch (_) {}
+      if (typeof TTSActionJournal === 'undefined') throw new Error('Proteção da decisão manual indisponível. Recarregue o painel; a consulta continua disponível.');
+      JOURNAL_TTS = TTSActionJournal.create({storage,locks,endpoint:typeof TTS_ACAO_URL === 'string' ? TTS_ACAO_URL : ''});
+    }
+    return JOURNAL_TTS;
   }
-  function autorTTS() { try { if (typeof autorAtual === 'function') return autorAtual(); } catch (e) {} let a = ''; try { a = localStorage.getItem('shrigma_autor') || ''; } catch (e) {} if (!a) { a = (prompt('Seu nome (fica registrado na decisão):') || '').trim(); try { if (a) localStorage.setItem('shrigma_autor', a); } catch (e) {} } return a || 'painel'; }
+  function identidadeAmostraTTS(corpo) {
+    if (corpo.acao !== 'revisar') return null;
+    if (!TTS.MARCAS.includes(corpo.marca) || !/^[0-9]+$/.test(String(corpo.application_id || '')) || !['APPROVE','REJECT'].includes(corpo.resultado)) throw new Error('Identidade da amostra inválida. Recarregue a fila.');
+    return {brand:corpo.marca,application_id:String(corpo.application_id),result:corpo.resultado};
+  }
+  function mensagemAcaoTTS(texto) {
+    const area = $('#tts-area'); if (!area?.parentNode) return;
+    let msg = $('#tts-acao-msg');
+    if (!msg) { msg = document.createElement('p'); msg.id = 'tts-acao-msg'; msg.className = 'nota'; msg.setAttribute('role','status'); msg.setAttribute('aria-live','polite'); area.parentNode.insertBefore(msg,area); }
+    msg.textContent = texto; msg.hidden = !texto;
+  }
+  function travaAmostrasTTS() {
+    document.querySelectorAll('#tts-area .tts-acoes').forEach(td => {
+      let estado;
+      try { estado = journalTTS().inspect({brand:td.dataset.marca,application_id:td.dataset.id}); }
+      catch (e) { estado = {state:'blocked',message:e.message}; }
+      if (!estado) return;
+      td.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      let aviso = td.querySelector('.tts-decisao-estado');
+      if (!aviso) { aviso = document.createElement('span'); aviso.className = 'mini tts-decisao-estado'; aviso.setAttribute('role','status'); td.append(aviso); }
+      aviso.textContent = estado.state === 'confirmed' ? 'Decisão registrada neste navegador.' : estado.state === 'blocked' ? estado.message : 'Decisão já solicitada. Não repita; peça a conferência ao integrador.';
+    });
+  }
+  function acessoGuardadoTTS() {
+    try {
+      if (!ACESSO_TTS.k) ACESSO_TTS.k = (localStorage.getItem('shrigma_tts_wkey') || '').trim();
+      if (!ACESSO_TTS.autor) ACESSO_TTS.autor = (localStorage.getItem('shrigma_autor') || '').trim().slice(0,40);
+    } catch (_) {} // Storage may be unavailable; the inline form still works.
+    return {...ACESSO_TTS};
+  }
+  function esqueceAcessoTTS() {
+    ACESSO_TTS.k = '';
+    try { localStorage.removeItem('shrigma_tts_wkey'); } catch (_) {}
+  }
+  function pedeAcessoTTS(corpo) {
+    const salvo = acessoGuardadoTTS();
+    if (salvo.k && salvo.autor) return Promise.resolve(salvo);
+    const area = $('#tts-area');
+    if (!area?.parentNode) return Promise.reject(new Error('Abra a aba TikTok antes de continuar.'));
+    let painel = $('#tts-acesso');
+    if (!painel) { painel = document.createElement('section'); painel.id = 'tts-acesso'; painel.className = 'nota'; area.parentNode.insertBefore(painel,area); }
+    painel.hidden = false; painel.setAttribute('aria-labelledby','tts-acesso-titulo');
+    const acao = corpo.acao === 'regra' ? 'Salvar a regra' : corpo.resultado === 'APPROVE' ? 'Aprovar a amostra selecionada' : 'Rejeitar a amostra selecionada';
+    painel.innerHTML = `<form id="tts-acesso-form" novalidate aria-labelledby="tts-acesso-titulo">
+      <h3 id="tts-acesso-titulo">Continuar no TikTok Shop</h3>
+      <p id="tts-acesso-ajuda">${esc(acao)} · ${esc(MARCA_N[corpo.marca] || corpo.marca)}. Informe o acesso de escrita e quem está realizando a ação.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <div id="tts-acesso-chave-linha" ${salvo.k ? 'hidden' : ''} style="flex:1 1 220px;min-width:0"><label for="tts-acesso-chave">Chave de escrita</label><br>
+          <input class="i-sel" id="tts-acesso-chave" type="password" ${salvo.k ? '' : 'required'} autocomplete="off" spellcheck="false" aria-describedby="tts-acesso-ajuda tts-acesso-msg" style="width:100%;box-sizing:border-box"></div>
+        <div style="flex:1 1 220px;min-width:0"><label for="tts-acesso-autor">Seu nome</label><br>
+          <input class="i-sel" id="tts-acesso-autor" type="text" required maxlength="40" autocomplete="name" aria-describedby="tts-acesso-ajuda tts-acesso-msg" style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <p class="mini">O novo acesso fica somente nesta página aberta. Cancelar não executa a ação.</p>
+      <button class="btn tts-btn" type="submit">Confirmar e continuar</button>
+      <button class="btn tts-btn" id="tts-acesso-cancelar" type="button">Cancelar</button>
+      <p id="tts-acesso-msg" role="status" aria-live="polite"></p>
+    </form>`;
+    const form = $('#tts-acesso-form'), chave = $('#tts-acesso-chave'), autor = $('#tts-acesso-autor'), msg = $('#tts-acesso-msg');
+    autor.value = salvo.autor;
+    (salvo.k ? autor : chave).focus();
+    return new Promise(resolve => {
+      let concluido = false;
+      const terminar = valor => {
+        if (concluido) return; concluido = true;
+        chave.value = ''; autor.value = ''; painel.hidden = true;
+        resolve(valor);
+      };
+      form.onsubmit = e => {
+        e.preventDefault(); if (concluido || painel.hidden) return;
+        const k = salvo.k || chave.value.trim(), nome = autor.value.trim();
+        chave.removeAttribute('aria-invalid'); autor.removeAttribute('aria-invalid');
+        if (!k || !nome || nome.length>40) {
+          const campo = !k ? chave : autor;
+          msg.textContent = !k ? 'Informe a chave de escrita.' : 'Informe seu nome, com até 40 caracteres.';
+          campo.setAttribute('aria-invalid','true'); campo.focus(); return;
+        }
+        ACESSO_TTS.k = k; ACESSO_TTS.autor = nome;
+        terminar({k,autor:nome});
+      };
+      $('#tts-acesso-cancelar').onclick = () => terminar(null);
+      form.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); terminar(null); } });
+    });
+  }
   async function acaoTTS(corpo) {
     if (corpo.acao === 'regra' && !TTS.regrasEditaveis(DADOS)) throw new Error('Edição temporariamente indisponível. Aguarde a confirmação do serviço e recarregue.');
     if (typeof TTS_ACAO_URL === 'undefined') throw new Error('TTS_ACAO_URL não configurada em config.js');
-    const k = chaveEscritaTTS(); if (!k) throw new Error('sem chave de escrita');
-    const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...corpo, k, autor: autorTTS() }) });
-    const j = await r.json().catch(() => ({}));
+    const identidade = identidadeAmostraTTS(corpo);
+    if (identidade) {
+      const estado = journalTTS().inspect(identidade);
+      if (estado) { const erro = new Error(estado.message || 'Esta amostra já tem uma decisão solicitada neste navegador. Não repita; confira o resultado com o integrador.'); erro.code = estado.state === 'blocked' ? 'TTS_WRITE_UNAVAILABLE' : estado.state === 'confirmed' ? 'TTS_DECISION_RECORDED' : 'TTS_OUTCOME_UNKNOWN'; throw erro; }
+    }
+    if (ACAO_TTS_EM_CURSO) throw new Error('Conclua ou cancele a ação que já está aberta.');
+    ACAO_TTS_EM_CURSO = true;
+    const pedido = {...corpo,regra:corpo.regra ? {...corpo.regra} : undefined}, leitura = SEQ, pane = PANE, marca = marcaAtual();
+    try {
+    const acesso = await pedeAcessoTTS(pedido);
+    if (!acesso) { const erro = new Error('Ação cancelada.'); erro.code = 'TTS_CANCELLED'; throw erro; }
+    if (SEQ !== leitura || PANE !== pane || marcaAtual() !== marca || (pedido.acao === 'regra' && !TTS.regrasEditaveis(DADOS))) throw new Error('A tela foi atualizada. Revise os dados e confirme a ação novamente.');
+    const {k,autor} = acesso;
+    const enviar = async () => {
+    if (identidade) travaAmostrasTTS();
+    const r = await fetch(TTS_ACAO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pedido, k, autor }) });
+    const recebido = await r.json().catch(() => null), j = recebido && typeof recebido === 'object' && !Array.isArray(recebido) ? recebido : {};
+    if (r.status === 401 || r.status === 403) { esqueceAcessoTTS(); throw new Error('Acesso de escrita recusado. Confira a chave antes de tentar novamente.'); }
+    if (!j.ok && /chave/i.test(j.erro || '')) { esqueceAcessoTTS(); throw new Error('Acesso de escrita recusado. Confira a chave antes de tentar novamente.'); }
+    for (const campo of ['erro','mensagem']) if (typeof j[campo] === 'string') j[campo] = j[campo].split(k).join('[acesso ocultado]');
     if (corpo.acao === 'regra' && j.regra_atual) {
       DADOS = TTS.regraRecebida(DADOS,j.regra_atual);
       if (!r.ok || !j.ok) {
@@ -310,13 +430,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         $('#tts-area')?.prepend(aviso);
       }
     }
-    if (!r.ok || !j.ok) { if (/chave/i.test(j.erro || '')) { try { localStorage.removeItem('shrigma_tts_wkey'); } catch (e) {} } throw new Error(j.erro || j.mensagem || ('HTTP ' + r.status)); }
-    return j;
+    if (!r.ok || j.ok !== true) throw new Error(j.erro || j.mensagem || ('HTTP ' + r.status));
+    return {status:r.status,body:j};
+    };
+    return identidade ? await journalTTS().run(identidade,enviar) : (await enviar()).body;
+    } finally { ACAO_TTS_EM_CURSO = false; travaAmostrasTTS(); }
   }
   // botão de duas etapas: 1º clique arma ("Confirmar?"), 2º clique executa; desarma sozinho em 6 s
   function armar(btn, rotuloConfirma, fn) {
-    if (btn.dataset.armado) { btn.dataset.armado = ''; btn.disabled = true; btn.textContent = '…'; fn().catch(e => { btn.disabled = false; btn.textContent = 'erro: ' + e.message; }); return; }
-    const orig = btn.textContent; btn.dataset.armado = '1'; btn.textContent = rotuloConfirma;
+    if (btn.disabled) return;
+    if (btn.dataset.armado) { btn.dataset.armado = ''; btn.disabled = true; btn.textContent = '…'; Promise.resolve().then(fn).catch(e => { btn.disabled = e.code === 'TTS_OUTCOME_UNKNOWN'; btn.textContent = e.code === 'TTS_CANCELLED' ? (btn.dataset.original || 'Continuar') : e.code === 'TTS_OUTCOME_UNKNOWN' ? 'Resultado incerto' : 'erro: ' + e.message; mensagemAcaoTTS(e.code === 'TTS_CANCELLED' ? 'Ação cancelada. Nenhuma solicitação foi enviada.' : e.message); travaAmostrasTTS(); if (e.code === 'TTS_CANCELLED') (btn.isConnected ? btn : $('#tts-abas button.ativo'))?.focus(); }); return; }
+    const orig = btn.dataset.original || btn.textContent; btn.dataset.armado = '1'; btn.textContent = rotuloConfirma;
+    btn.dataset.original = orig;
+    mensagemAcaoTTS('');
     setTimeout(() => { if (btn.dataset.armado) { btn.dataset.armado = ''; btn.textContent = orig; } }, 6000);
   }
 
@@ -448,6 +574,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td><span class="tag ${x.tier.cls}" title="${esc(x.tier.det)}">${x.tier.rot}</span></td>
         <td class="tts-acoes" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
+    travaAmostrasTTS();
     document.querySelectorAll('#tts-area .tts-acoes button').forEach(b => b.onclick = () => {
       const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
       armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
@@ -580,57 +707,64 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       const tb = b.closest('tbody'); tb.querySelectorAll('.tts-oculto').forEach(tr => tr.classList.remove('tts-oculto')); b.closest('tr').remove();
     });
   }
+  const indisponivelTTS = '<span class="mini" title="Dado ausente ou não confirmado neste recorte">indisponível</span>';
+  const metricaSessaoTTS = (e, fields, value, format = nf) => TTS.camposConhecidos(e.sessoes,fields) ? format(value) : indisponivelTTS;
+  const valorTTS = (value, format = nf) => TTS.camposConhecidos([{value}],['value']) ? format(value) : indisponivelTTS;
   function renderCanal() {
-    const m = marcaAtual(), c = TTS.canal(DADOS, m), todas = m === 'todas';
-    if (!c.temDados) { $('#tts-area').innerHTML = '<div class="vazio"><strong>Sem dado de canal nesta janela.</strong><br>O coletor de canal roda às 04:10 e depende do escopo Shop Analytics em cada loja — veja a faixa de autorização no topo.</div>'; return; }
+    const m = marcaAtual(), c = TTS.canal(DADOS, m), todas = m === 'todas', cobertura = TTS.coberturaLiveVideo(DADOS,m), janela = DADOS.janela || {};
     const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
     // barras empilhadas por dia (live / vídeo / vitrine) — SVG inline, sem biblioteca
-    let html = resumoOrigemCanal(c) + graficoCanal(c.serie);
+    let html = c.temDados ? resumoOrigemCanal(c) + graficoCanal(c.serie) : '<div class="vazio"><strong>Dados diários do canal indisponíveis nesta janela.</strong><br>Isso não comprova zero vendas. Lives e vídeos abaixo mantêm seus próprios recortes e cobertura.</div>';
 
     // lives — por evento (sessões agrupadas), com sessões e produtos ao clicar
     const ev = c.eventos, evVenda = ev.filter(e => e.gmv > 0).length, emFech = ev.filter(e => e.emFechamento && e.gmv > 0).length;
-    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0" title="a API devolve sessões; queda de sinal vira sessão nova. Sessões da mesma conta com até 30 min de intervalo são mostradas como uma live só. GMV = pago; pedido criado e não pago aparece como pendente. A plataforma revisa os números por ~72 h.">Lives no período <span class="tag nulo">${ev.length}</span>${emFech ? ` <span class="tag neutro" title="terminou há menos de 72 h: a plataforma ainda revisa pedidos pagos, cancelados e pendentes">${emFech} em fechamento</span>` : ''}</h3><span class="mini">${evVenda} com venda · loja e afiliados · clique na linha para ver sessões e produtos</span></div>`;
-    if (!ev.length) html += '<div class="vazio">Nenhuma live no período.</div>';
+    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0" title="a API devolve sessões; queda de sinal vira sessão nova. Sessões da mesma conta com até 30 min de intervalo são mostradas como uma live só. GMV = pago; pedido criado e não pago aparece como pendente. A plataforma revisa os números por ~72 h.">Eventos de live · sessões recebidas <span class="tag nulo">${ev.length}</span>${emFech ? ` <span class="tag neutro" title="terminou há menos de 72 h: a plataforma ainda revisa pedidos pagos, cancelados e pendentes">${emFech} em fechamento</span>` : ''}</h3><span class="mini">${evVenda} com GMV positivo registrado · clique na linha para ver sessões e produtos</span></div>`;
+    html += `<div class="nota">Janela selecionada: <strong>${esc(janela.ini || 'indisponível')} a ${esc(janela.fim || 'indisponível')}</strong>. Esta lista recebe até <strong>60 sessões com maior GMV entre as marcas</strong>, antes do filtro de marca e do agrupamento. ${cobertura.lives.disponivel ? `${nf(cobertura.lives.recebidos)} sessões recebidas no total; ${nf(cobertura.lives.selecionados)} neste filtro.` : 'Lista de sessões indisponível.'} Um evento pode estar incompleto. Sessões da mesma conta com intervalo de até 30 minutos são agrupadas; a contagem é de grupos das sessões recebidas, não um inventário completo de lives.<br><strong>Espectadores são somados por sessão, não pessoas únicas do evento.</strong> Quem retorna em outra sessão pode aparecer novamente. Zero só é exibido quando o campo foi informado; “indisponível” não é zero.</div>`;
+    if (!ev.length) html += '<div class="vazio">Nenhuma sessão de live recebida neste filtro. O limite global ou a cobertura da coleta podem omitir sessões; isso não comprova ausência de lives ou de vendas.</div>';
     else html += `<div class="rolagem"><table class="comparativo tts-ev"><thead><tr>
       <th>Quando</th>${thM}<th>Quem</th><th class="num" title="minutos ao vivo, somando as sessões">Duração</th>
-      <th class="num" title="espectadores únicos por sessão, somados — quem voltou depois da queda conta de novo">Espectadores</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
+      <th class="num" title="espectadores únicos por sessão, somados — quem voltou depois da queda conta de novo">Espectadores · soma de sessões</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
       <th class="num" title="pedidos pagos / cliques em produto">Clique→pedido</th><th class="num" title="pedidos pagos · pendentes de pagamento">Pedidos</th><th class="num" title="GMV pago somando as sessões">GMV</th>
       <th class="num" title="GMV nas 24 h após a live (a plataforma fecha com atraso)">GMV 24 h</th><th class="num">Seguidores</th></tr></thead><tbody>
       ${dobra(ev.slice(0, 60).map((e, i) => `<tr class="tts-ev-linha" data-i="${i}" style="cursor:pointer">
-        <td class="tabn">${dtHora(e.inicio_em)}${e.sessoes.length > 1 ? ` <span class="tag nulo" title="${e.sessoes.length} sessões: a live caiu e voltou">${e.sessoes.length}×</span>` : ''}${e.emFechamento && e.gmv > 0 ? ' <span class="mini" title="terminou há menos de 72 h — números ainda em revisão pela plataforma">◔</span>' : ''}</td>${tdM(e)}
+        <td class="tabn">${dtHora(e.inicio_em)}${e.sessoes.length > 1 ? ` <span class="tag nulo" title="${e.sessoes.length} sessões agrupadas por conta e intervalo">${e.sessoes.length}×</span>` : ''}${e.emFechamento && e.gmv > 0 ? ' <span class="mini" title="terminou há menos de 72 h — números ainda em revisão pela plataforma">◔</span>' : ''}</td>${tdM(e)}
         <td><div class="nome">${e.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(e.username || '—')}</div>${e.titulo ? `<span class="mini" title="${esc(e.titulo)}">${esc(String(e.titulo).slice(0, 40))}</span>` : ''}</td>
-        <td class="num tabn">${e.duracao_min ? nf(e.duracao_min) + ' min' : '—'}</td>
-        <td class="num tabn">${e.espectadores ? nf(e.espectadores) : '—'}</td><td class="num tabn">${pctOu(e.ctr_pct, 1)}</td>
-        <td class="num tabn">${pctOu(e.clique_pedido_pct, 1)}</td>
-        <td class="num tabn">${nf(e.pedidos)}${e.pendentes ? ` <span class="mini" title="${e.pendentes} pedido(s) criado(s) e ainda não pago(s) — COD/PayLater; entra no GMV quando pagar">+${e.pendentes}</span>` : ''}</td><td class="num tabn"><b>${rf(e.gmv)}</b></td>
-        <td class="num tabn">${e.gmv_24h === null ? '<span class="mini" title="a plataforma ainda não fechou as 24 h">…</span>' : rf(e.gmv_24h)}</td>
-        <td class="num tabn">${e.novos_seguidores ? '+' + nf(e.novos_seguidores) : '—'}</td></tr>`), 8, 'todas as lives')}</tbody></table></div>`;
+        <td class="num tabn">${metricaSessaoTTS(e,['duracao_min'],e.duracao_min,v=>nf(v)+' min')}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['espectadores'],e.espectadores)}</td><td class="num tabn">${metricaSessaoTTS(e,['cliques','impressoes_produto'],e.ctr_pct,v=>pctOu(v,1))}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['pedidos','cliques'],e.clique_pedido_pct,v=>pctOu(v,1))}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['pedidos'],e.pedidos)}${TTS.camposConhecidos(e.sessoes,['pedidos','pedidos_criados']) && e.pendentes ? ` <span class="mini" title="${e.pendentes} pedido(s) criado(s) e ainda não pago(s) — COD/PayLater; entra no GMV quando pagar">+${e.pendentes}</span>` : ''}</td><td class="num tabn"><b>${metricaSessaoTTS(e,['gmv'],e.gmv,rf)}</b></td>
+        <td class="num tabn">${metricaSessaoTTS(e,['gmv_24h'],e.gmv_24h,rf)}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['novos_seguidores'],e.novos_seguidores,v=>(v>0?'+':'')+nf(v))}</td></tr>`), 8, 'todas as lives')}</tbody></table></div>`;
 
     // vídeos (retrato 30 dias)
-    const vd = c.videos, retrato = vd[0] ? dt(vd[0].retrato_em) : null;
-    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Vídeos que venderam <span class="tag nulo">${vd.length}</span></h3><span class="mini" title="a plataforma devolve o acumulado dos últimos 30 dias, não por dia — este bloco não segue o período">últimos 30 dias · retrato de ${retrato || '—'}</span></div>`;
-    if (!vd.length) html += '<div class="vazio">Nenhum vídeo com venda nos últimos 30 dias.</div>';
+    const vd = c.videos;
+    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Vídeos · retrato acumulado de 30 dias <span class="tag nulo">${vd.length}</span></h3><span class="mini">Este bloco não segue a janela de vendas selecionada</span></div>`;
+    html += `<div class="nota">Até <strong>30 vídeos com GMV positivo, ordenados por GMV entre as marcas</strong>, no último retrato disponível de cada marca. O limite é aplicado antes do filtro de marca. São valores acumulados de 30 dias da plataforma; não somar aos totais diários da janela escolhida.<br>${cobertura.retratos.map(r => `${esc(MARCA_N[r.marca] || r.marca)}: ${r.dias.length ? 'retrato de '+r.dias.map(esc).join(', ') : 'data do retrato indisponível nesta resposta'}`).join(' · ')}. ${cobertura.videos.disponivel ? `${nf(cobertura.videos.recebidos)} vídeos recebidos no total; ${nf(cobertura.videos.selecionados)} neste filtro.` : 'Lista de vídeos indisponível.'}</div>`;
+    if (!vd.length) html += '<div class="vazio">Nenhum vídeo recebido neste filtro. Isso não comprova zero vendas: pode haver limite global, retrato ausente ou cobertura incompleta.</div>';
     else html += `<div class="rolagem"><table class="comparativo"><thead><tr>
-      <th>#</th><th>Criador</th>${thM}<th>Vídeo</th><th class="num">Publicado</th><th class="num">Views</th>
-      <th class="num" title="cliques em produto / views">CTR</th><th class="num">Pedidos</th><th class="num">GMV</th><th class="num" title="GMV por mil views — o rendimento do vídeo">GPM</th></tr></thead><tbody>
+      <th>#</th><th>Criador</th>${thM}<th>Vídeo</th><th>Retrato</th><th class="num">Publicado</th><th class="num">Views · 30 dias</th>
+      <th class="num" title="cliques em produto / views">CTR</th><th class="num">Pedidos · 30 dias</th><th class="num">GMV · 30 dias</th><th class="num" title="GMV por mil views — o rendimento do vídeo">GPM</th></tr></thead><tbody>
       ${dobra(vd.slice(0, 50).map((v, i) => `<tr><td class="tabn">${i + 1}</td>
         <td>${v.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(v.username || '—')}</td>${tdM(v)}
         <td class="tts-prod" title="${esc(v.titulo || '')}">${esc(String(v.titulo || '—').slice(0, 60))}${(v.titulo || '').length > 60 ? '…' : ''}${v.duracao_s ? ` <span class="mini">${v.duracao_s}s</span>` : ''}</td>
-        <td class="num tabn">${dt(v.publicado_em)}</td><td class="num tabn">${nf(v.visualizacoes)}</td>
-        <td class="num tabn">${pctOu(v.ctr_pct === null || v.ctr_pct === undefined ? null : +v.ctr_pct, 1)}</td>
-        <td class="num tabn">${nf(v.pedidos)}</td><td class="num tabn"><b>${rf(v.gmv)}</b></td><td class="num tabn">${rf(v.gpm)}</td></tr>`), 10, 'todos os vídeos')}</tbody></table></div>`;
+        <td class="tabn">${v.retrato_em ? esc(String(v.retrato_em).slice(0,10)) : indisponivelTTS}</td><td class="num tabn">${dt(v.publicado_em)}</td><td class="num tabn">${valorTTS(v.visualizacoes)}</td>
+        <td class="num tabn">${valorTTS(v.ctr_pct,v=>pctOu(+v,1))}</td>
+        <td class="num tabn">${valorTTS(v.pedidos)}</td><td class="num tabn"><b>${valorTTS(v.gmv,rf)}</b></td><td class="num tabn">${valorTTS(v.gpm,rf)}</td></tr>`), 10, 'todos os vídeos')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
     ligarDobras();
     document.querySelectorAll('#tts-area .tts-ev-linha').forEach(tr => tr.onclick = () => {
       const prox = tr.nextElementSibling;
       if (prox && prox.classList.contains('tts-ev-det')) { prox.remove(); return; }
       const e = ev[+tr.dataset.i], prods = TTS.produtosDoEvento(e, c.liveProdutos);
+      const camposProduto = (p,keys) => TTS.camposConhecidos(c.liveProdutos.filter(x => e.live_ids.includes(String(x.live_id)) && x.product_id === p.product_id),keys);
+      const metricaProduto = (p,keys,value,format=nf) => camposProduto(p,keys) ? format(value) : indisponivelTTS;
       const det = document.createElement('tr'); det.className = 'tts-ev-det';
       det.innerHTML = `<td colspan="12"><div class="tts-ev-grid">
-        <div><div class="mini" style="margin-bottom:4px"><b>Sessões</b> · ${e.sessoes.length}</div><table class="comparativo mini"><tbody>${e.sessoes.map(x => `<tr><td class="tabn">${dtHora(x.inicio_em)}</td><td class="num tabn">${nf(x.duracao_min)} min</td><td class="num tabn">${nf(x.espectadores) } esp.</td><td class="num tabn">${nf(x.pedidos)} ped.</td><td class="num tabn"><b>${rf(x.gmv)}</b></td></tr>`).join('')}</tbody></table></div>
-        <div><div class="mini" style="margin-bottom:4px"><b>Produtos</b> · ${prods.length ? 'o que vendeu e o que só foi clicado' : (e.origem === 'proprio' ? 'sem dado de produto ainda' : 'a plataforma não abre produto de live de afiliado')}</div>
-          ${prods.length ? `<table class="comparativo mini"><thead><tr><th>Produto</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num" title="cliques / impressões">CTR</th><th class="num" title="pedidos pagos / cliques">Cl→ped</th><th class="num">Pedidos</th><th class="num">GMV</th></tr></thead><tbody>
-          ${prods.slice(0, 12).map(p => `<tr><td class="tts-prod" title="${esc(p.nome || '')}">${esc(String(p.nome || p.product_id).slice(0, 48))}</td><td class="num tabn">${nf(p.impressoes)}</td><td class="num tabn">${nf(p.cliques)}</td><td class="num tabn">${pctOu(p.ctr_pct, 1)}</td><td class="num tabn">${pctOu(p.clique_pedido_pct, 1)}</td><td class="num tabn">${nf(p.pedidos)}${p.pedidos_criados > p.pedidos ? ` <span class="mini">+${p.pedidos_criados - p.pedidos}</span>` : ''}</td><td class="num tabn"><b>${p.gmv_direto ? rf(p.gmv_direto) : '—'}</b></td></tr>`).join('')}</tbody></table>` : ''}</div></div></td>`;
+        <div><div class="mini" style="margin-bottom:4px"><b>Sessões</b> · ${e.sessoes.length}</div><table class="comparativo mini"><tbody>${e.sessoes.map(x => `<tr><td class="tabn">${dtHora(x.inicio_em)}</td><td class="num tabn">${valorTTS(x.duracao_min,v=>nf(v)+' min')}</td><td class="num tabn">${valorTTS(x.espectadores)} esp./sessão</td><td class="num tabn">${valorTTS(x.pedidos)} ped.</td><td class="num tabn"><b>${valorTTS(x.gmv,rf)}</b></td></tr>`).join('')}</tbody></table></div>
+        <div><div class="mini" style="margin-bottom:4px"><b>Produtos</b> · ${prods.length ? `exibindo ${Math.min(prods.length,12)} de ${prods.length} produtos recebidos deste grupo` : 'nenhum registro de produto recebido para este grupo'}</div>
+          <p class="mini">O detalhe cobre lives próprias e recebe até 400 registros de sessão/produto entre as marcas na janela, ordenados por GMV direto; entram registros com GMV direto positivo ou pelo menos 10 cliques. O limite vem antes do agrupamento. ${cobertura.produtos.disponivel ? nf(cobertura.produtos.recebidos)+' registros de produto recebidos no total.' : 'Lista de produtos indisponível.'} Ausência não comprova zero; estes produtos não conciliam, por si só, o GMV completo da live.</p>
+          ${prods.length ? `<table class="comparativo mini"><thead><tr><th>Produto</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num" title="cliques / impressões">CTR</th><th class="num" title="pedidos pagos / cliques">Cl→ped</th><th class="num">Pedidos</th><th class="num">GMV direto</th></tr></thead><tbody>
+          ${prods.slice(0, 12).map(p => `<tr><td class="tts-prod" title="${esc(p.nome || '')}">${esc(String(p.nome || p.product_id).slice(0, 48))}</td><td class="num tabn">${metricaProduto(p,['impressoes'],p.impressoes)}</td><td class="num tabn">${metricaProduto(p,['cliques'],p.cliques)}</td><td class="num tabn">${metricaProduto(p,['cliques','impressoes'],p.ctr_pct,v=>pctOu(v,1))}</td><td class="num tabn">${metricaProduto(p,['pedidos','cliques'],p.clique_pedido_pct,v=>pctOu(v,1))}</td><td class="num tabn">${metricaProduto(p,['pedidos'],p.pedidos)}${camposProduto(p,['pedidos','pedidos_criados']) && p.pedidos_criados > p.pedidos ? ` <span class="mini">+${p.pedidos_criados - p.pedidos}</span>` : ''}</td><td class="num tabn"><b>${metricaProduto(p,['gmv_direto'],p.gmv_direto,rf)}</b></td></tr>`).join('')}</tbody></table>` : ''}</div></div></td>`;
       tr.after(det);
     });
   }
@@ -697,6 +831,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#tts-abas button').forEach(b => b.onclick = () => { PANE = b.dataset.p; try { localStorage.setItem('shrigma_tts_pane', PANE); } catch (e) {} renderPane(); });
   });
+  window.addEventListener('storage', e => { if (e.key?.startsWith('shrigma_tts_manual_v1:')) travaAmostrasTTS(); });
   window.carregarTTS = carregarTTS;
   window.renderTTS = renderTTS;
 })();
