@@ -163,7 +163,7 @@ const GC={
   async carregarConteudo(ctx){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.read_content)return;
     GC.carregando='listar';GC.conteudoErro=null;GC.render(ctx);
-    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':''});
+    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura()});
     let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     GC.carregando=null;
     if(!res.ok){GC.conteudoErro=GTA.erro(res,'listar').texto;GC.render(ctx);return;}
@@ -173,7 +173,7 @@ const GC={
   async carregarHistorico(ctx,key){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history)return;
     GC.carregando='historico';GC.render(ctx);
-    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':''});
+    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura()});
     let res;try{res=await c.historico({key});}catch(_){res={ok:false,status:0,body:null,rede:true};}
     GC.carregando=null;
     GC.historicos[key]=res.ok&&Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];

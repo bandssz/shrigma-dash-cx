@@ -775,7 +775,7 @@ test('Growth opens an accessible inline key form when prompt is unavailable, and
  field.value='  synthetic-inline&key  ';await form.onsubmit({preventDefault(){prevented++;}});
  assert.equal(prevented,2);assert.equal(field.value,'');assert.equal(form.hidden,true);assert.equal(x.run('LOADING'),false);
  assert.equal(x.requests.length,1);const url=new URL(x.requests[0]);assert.equal(url.searchParams.get('k'),'synthetic-inline&key');assert.equal(url.searchParams.get('painel'),'growth');
- assert.equal(x.store.get('shrigma_k_growth'),'synthetic-inline&key');assert.equal(x.document.querySelector('#load-state').hidden,true);
+ assert.equal(x.store.has('shrigma_k_growth'),false);assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.run('GTA.chaveLeitura()'),'synthetic-inline&key');assert.equal(x.document.querySelector('#load-state').hidden,true);
  assert.ok(x.document.querySelectorAll('#area-kpis .kpi-val').length>0,'real render functions paint fixture data');
  assert.ok(x.hashes.every(h=>!h.includes('synthetic-inline')),'key never enters page navigation');
 });
@@ -786,5 +786,19 @@ test('Growth keeps a session key when storage cannot persist it and reopens inli
   field.value='synthetic-session-only';await form.onsubmit({preventDefault(){}});assert.equal(x.store.has('shrigma_k_growth'),false);assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.run('chave()'),'synthetic-session-only');
   x.setResponse({},status);await x.run('carregar()');assert.equal(form.hidden,false);assert.equal(x.run('chave()'),'');assert.equal(x.run('LOADING'),false);assert.equal(field.value,'');
   assert.match(x.document.querySelector('#growth-acesso-msg').textContent,/recusada/);assert.equal(x.document.querySelector('#btn-atualizar').disabled,false);
+ }
+});
+test('new reader is never promoted to shared master even when the response reports todos',async()=>{
+ const x=await boot({...fixture(),_painel:'todos'},{noReadKey:true});x.document.querySelector('#growth-chave').value='synthetic-session-reader';await x.document.querySelector('#growth-acesso').onsubmit({preventDefault(){}});
+ assert.equal(x.store.has('shrigma_k_growth'),false);assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.run('GTA.chaveLeitura()'),'synthetic-session-reader');
+});
+test('Growth connection errors do not print request URL or reader key',async()=>{
+ const x=await boot(fixture(),{noReadKey:true,fetchMock:async url=>{throw Error('failed request '+url);}});x.document.querySelector('#growth-chave').value='synthetic-session-reader';await x.document.querySelector('#growth-acesso').onsubmit({preventDefault(){}});
+ assert.match(x.document.querySelector('#faixa-alertas').textContent,/consulta falhou/);assert.doesNotMatch(x.document.body.textContent,/synthetic-session-reader/);assert.doesNotMatch(x.document.querySelector('#faixa-alertas').textContent,/\?k=/);assert.equal(x.run('LOADING'),false);
+});
+test('Growth rejects a response from another scope or an error envelope and preserves the previous data',async()=>{
+ const x=await boot();const before=x.document.querySelector('#area-kpis').textContent;
+ for(const payload of [{...fixture(),_escopo:'influs'}, {...fixture(),erro:'synthetic-private-error'}, {...fixture(),error:'synthetic-private-error'}]){
+  x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/não retornou os dados de Growth/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
  }
 });

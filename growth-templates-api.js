@@ -8,6 +8,10 @@
 const GTA={
   CHAVE_ESCRITA:'shrigma_tpl_key',            // precedente: shrigma_ab_key (A/B). A chave de leitura Growth não escreve.
   CHAVE_LEITURA:'shrigma_k_growth',
+  chaveLeitura(){
+    if(typeof GrowthAccess!=='undefined'&&GrowthAccess.ready())return GrowthAccess.current();
+    try{return typeof shrigmaChave==='function'?shrigmaChave('growth'):typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':'';}catch(_){return '';}
+  },
   POLL_MS:60000,                                // R5.4: consultar a submissão a cada 60 s enquanto "submetido"
   ESTADOS:[['local','Local'],['rascunho','No servidor'],['validado','Validado'],['submetido','Submetido'],['publicado','Publicado']],
   ORDEM:{local:0,rascunho:1,validado:2,submetido:3,publicado:4,rejeitado:4},
