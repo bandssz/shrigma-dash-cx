@@ -397,7 +397,7 @@ const $=s=>document.querySelector(s);
 const INFLU_ACCESS=InflusAccess.bind({document,host:$('#influ-access'),
   readExisting:()=>shrigmaChave('influs'),writeExisting:()=>localStorage.getItem('shrigma_influ_key'),
   authorExisting:()=>localStorage.getItem('shrigma_autor'),
-  onRead:async()=>{await Promise.allSettled([carregarInflu(),faixaCredencial(),...(window.carregarTTS?[window.carregarTTS()]:[])]);}});
+  onRead:async()=>{await Promise.allSettled([carregarAbaAtiva(),faixaCredencial()]);}});
 // O TTS conserva seu próprio acesso de escrita/journal; a leitura compartilha este painel.
 const esqueceChaveExistente=shrigmaEsqueceChave;
 shrigmaEsqueceChave=function(painel){if(painel==='influs')INFLU_ACCESS.forgetRead();return esqueceChaveExistente(painel);};
@@ -508,7 +508,7 @@ const G = {
   },
 };
 
-let MARCA='todas', SEC='influ';
+let MARCA='todas', SEC='creators';
 const isoBR=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const HOJE=isoBR(new Date());
 const dm=(s,n)=>{const x=new Date(s+'T12:00:00Z');x.setDate(x.getDate()+n);return isoBR(x);};
@@ -1165,11 +1165,11 @@ $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');PER=preset(b.dataset.p);
-  $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;carregarInflu();if(window.carregarTTS)carregarTTS();});
+  $('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;carregarAbaAtiva();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  carregarInflu();if(window.carregarTTS)carregarTTS();});
+  carregarAbaAtiva();});
 $('#i-btn-novo').onclick=()=>{$('#i-form').hidden=!$('#i-form').hidden;};
 $('#i-f-cancelar').onclick=()=>{$('#i-form').hidden=true;};
 $('#i-f-salvar').onclick=salvarInflu;
@@ -1177,16 +1177,21 @@ $('#i-f-salvar').onclick=salvarInflu;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();if(window.renderTTS)renderTTS();});
+// A leitura segue a aba visível; trocar de aba sempre relê o período atual.
+function carregarAbaAtiva(){
+  if(SEC==='afil')return typeof window.carregarTTS==='function'?window.carregarTTS():undefined;
+  return carregarInflu();
+}
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
+  if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('#sec-creators,#sec-afil').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
-  document.body.classList.toggle('sec-afil',SEC==='afil');});
+  document.body.classList.toggle('sec-afil',SEC==='afil');carregarAbaAtiva();});
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-carregarInflu();
-if(window.carregarTTS)carregarTTS();
+carregarAbaAtiva();
 </script>
 </body>
 </html>

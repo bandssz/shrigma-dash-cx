@@ -8,7 +8,7 @@ function page(){
  // Evaluate real style selectors against the DOM; linkedom has CSSOM but no layout engine.
  const rules=[...document.querySelectorAll('style')].flatMap(s=>Array.from(s.sheet.cssRules)).filter(r=>r.selectorText&&!r.selectorText.includes('::')&&r.style?.getPropertyValue('display'));
  const display=el=>rules.filter(r=>el.matches(r.selectorText)).reduce((_value,r)=>r.style.getPropertyValue('display'),'initial');
- const context=vm.createContext({document,SEC:'creators',$:s=>document.querySelector(s)});
+ const context=vm.createContext({document,SEC:'creators',carregarAbaAtiva:()=>{},$:s=>document.querySelector(s)});
  const start=html.indexOf("document.querySelectorAll('#secoes button').forEach(b=>b.onclick="),end=html.indexOf('\npintaMarca();',start);
  assert(start>=0&&end>start);vm.runInContext(html.slice(start,end),context);
  return {document,display,$:s=>document.querySelector(s)};
