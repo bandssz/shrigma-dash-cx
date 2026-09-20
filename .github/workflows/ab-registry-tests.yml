@@ -1,0 +1,48 @@
+name: A/B registry durable operations
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/ab-registry*'
+      - 'tests/ab-registry*'
+      - 'tests/growth-ab-*'
+      - 'growth-ab-*'
+      - 'growth.html'
+      - '.github/workflows/ab-registry-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: ab_registry_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d ab_registry_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated test dependencies
+        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Check protocol, workflow patch and isolated SQL
+        env:
+          NODE_PATH: ../ab-test-tools/node_modules
+        run: node --test tests/ab-registry.test.cjs tests/growth-ab-server.test.cjs tests/growth-ab-journal.test.cjs
+      - name: Check cutover and concurrent independent sessions
+        env:
+          NODE_PATH: ../ab-test-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/ab_registry_test
+          AB_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/ab-registry-concurrency-postgres.cjs

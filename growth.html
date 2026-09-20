@@ -248,8 +248,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
         <button class="btn sec" id="btn-novo">Novo teste</button></div>
       <div class="campo"><label for="ab-chave">Chave de escrita do cadastro A/B</label>
         <input id="ab-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="ab-chave-ajuda">
-        <span id="ab-chave-ajuda" class="ajuda">Se já foi configurada neste navegador, não é necessário preencher novamente. Consultar resultados usa o acesso de leitura.</span></div>
+        <span id="ab-chave-ajuda" class="ajuda">Uma nova chave fica apenas nesta página aberta. Consultar resultados usa leitura; consultar o recibo de uma tentativa exige a mesma chave de escrita.</span></div>
       <p id="ab-status" class="mini" role="status"></p>
+      <button type="button" class="btn sec" id="ab-consultar">Consultar tentativa registrada</button>
       <div id="form-teste" hidden>
         <div class="form">
           <div class="campo"><label for="f-id">Identificador</label>
@@ -264,7 +265,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
             <input type="text" id="f-nome" placeholder="C2 · assunto direto vs curiosidade"></div>
           <div class="campo largo"><label for="f-hip">Hipótese</label>
             <textarea id="f-hip" placeholder="Assunto que nomeia a linha comprada gera mais clique que assunto de curiosidade no galho C2."></textarea>
-            <span class="ajuda">Registre antes do disparo. Este cadastro ainda não congela versões nem distribui públicos.</span></div>
+            <span class="ajuda">Registre antes do disparo. O cadastro preserva sua versão; não distribui públicos nem comprova efeito causal.</span></div>
           <div class="campo"><label for="f-var">Variável</label>
             <select id="f-var"><option>assunto</option><option>remetente</option><option>horario</option>
               <option>oferta</option><option>criativo</option><option>cta</option></select></div>
@@ -357,7 +358,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-campaign-api.js?v=20260919-campaigns"></script>
 <script src="growth-campaign-editor.js?v=42178f7120"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
-<script src="growth-ab-journal.js?v=20260920-durable"></script>
+<script src="growth-ab-protocol.js?v=bc7f9cca2a68"></script>
+<script src="growth-ab-server.js?v=31714f28e6d0"></script>
+<script src="growth-ab-journal.js?v=c10de1081418"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260915-1"></script>
 <script src="growth-pix.js?v=20260917-charge"></script>
@@ -386,7 +389,7 @@ let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
 const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
-let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false;
+let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
@@ -511,17 +514,18 @@ function renderTestes(){
   }).join('');
 
   document.querySelectorAll('.btn-encerrar').forEach(b=>b.onclick=()=>{
-    const cx=$('#enc-'+b.dataset.t);
+    AB_WRITE_EPOCH++;const cx=document.getElementById('enc-'+b.dataset.t);
     cx.hidden=!cx.hidden;
     // Closing this legacy registry does not establish a causal result.
     cx.dataset.st='inconclusivo';
   });
   document.querySelectorAll('.e-salvar').forEach(b=>b.onclick=()=>encerrarTeste(b.dataset.t));
+  document.querySelectorAll('.e-conc').forEach(e=>e.addEventListener('input',()=>{AB_WRITE_EPOCH++;}));
 }
 
 function chaveTesteAB(msg){
   const field=$('#ab-chave'),typed=field.value.trim();
-  if(typed){AB_CHAVE_SESSAO=typed;field.value='';try{localStorage.setItem('shrigma_ab_key',typed);}catch(_){}}
+  if(typed){AB_CHAVE_SESSAO=typed;field.value='';}
   if(!AB_CHAVE_SESSAO)try{AB_CHAVE_SESSAO=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
   if(!AB_CHAVE_SESSAO){msg.textContent='Informe a chave de escrita do cadastro A/B no campo acima.';field.focus();}
   return AB_CHAVE_SESSAO;
@@ -529,7 +533,8 @@ function chaveTesteAB(msg){
 function journalTesteAB(){
   if(!AB_JOURNAL){let storage=null;try{storage=localStorage;}catch(_){}
     AB_JOURNAL=GABJ.create({endpoint:typeof AB_API_URL==='string'?AB_API_URL:null,storage,
-      locks:typeof navigator!=='undefined'?navigator.locks:null,match:G.registroTesteConfere,receipt:G.reciboTesteValido});}
+      locks:typeof navigator!=='undefined'?navigator.locks:null,match:G.registroTesteConfere,receipt:G.reciboTesteValido,
+      serverContract:true,validServer:typeof GABServer!=='undefined'?GABServer.validServer:null});}
   return AB_JOURNAL;
 }
 function sincronizaTestesAB(){
@@ -537,18 +542,20 @@ function sincronizaTestesAB(){
   for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
   $('#f-salvar').disabled=AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
   if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
-  else if(AB_PENDENTES.size)$('#ab-status').textContent='Há gravação aguardando confirmação neste navegador, inclusive após recarregar ou trocar de aba. Atualize para conferir o mesmo registro. Não crie outro identificador para repetir. O cadastro legado não tem histórico imutável de operações.';
+  else if(AB_PENDENTES.size)$('#ab-status').textContent=[...AB_PENDENTES.values()].some(p=>!p.server)?'Há tentativa anterior ao contrato do servidor. Ela permanece preservada e exige conciliação; uma coincidência nos dados não comprova o recibo. Não repita com outra chave ou identificador.':'Há tentativa aguardando recibo exato. Use Consultar tentativa registrada com a mesma chave de escrita; nenhuma consulta repete a gravação.';
 }
-function reconciliaTestesAB(){
+function reconciliaTestesAB(explicitKey=''){
   sincronizaTestesAB();
   if(AB_RECONCILIACAO||!AB_PROVA_LEITURA||!API)return AB_RECONCILIACAO||Promise.resolve();
   AB_RECONCILIACAO=(async()=>{
     let proof;
     do{
-      proof=AB_PROVA_LEITURA;const result=await journalTesteAB().reconcile(API,proof);
+      proof=AB_PROVA_LEITURA;let key=explicitKey||AB_CHAVE_SESSAO;if(!key)try{key=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
+      if(!key||!AB_PENDENTES.size)return;
+      const result=await journalTesteAB().reconcileRemote(GABServer.create({endpoint:AB_API_URL,key}));
       if(result.changed){sincronizaTestesAB();
-        for(const p of result.confirmed){$('#ab-status').textContent='Registro '+p.expected.teste.teste_id+' conferido nos dados atuais do cadastro.';
-          if(p.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro conferido nos dados atuais.';}}
+        for(const p of result.confirmed){$('#ab-status').textContent=p.phase==='confirmed'?'Recibo exato do registro '+p.expected.teste.teste_id+' conferido no servidor.':'Operação recusada pelo servidor com recibo preservado. Atualize a revisão antes de uma nova ação.';
+          if(p.phase==='confirmed'&&p.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro e revisão confirmados pelo recibo.';}}
         renderTestes();
       }
     }while(proof!==AB_PROVA_LEITURA); // A refresh that arrived during reconciliation must also be checked.
@@ -557,16 +564,14 @@ function reconciliaTestesAB(){
 }
 async function gravaTesteAB(corpo,msg,btn){
   btn.disabled=true;
+  const epoch=AB_WRITE_EPOCH,key=corpo.k;
   try{
-    const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA},async expected=>{
-      const r=await fetch(AB_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',redirect:'error',cache:'no-store',
-        signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(90000):undefined,body:JSON.stringify({k:corpo.k,...expected})});
-      let body=null;try{body=await r.json();}catch(_){}return {status:r.status,body};
-    });
+    const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA,
+      remote:GABServer.create({endpoint:AB_API_URL,key}),guard:()=>epoch===AB_WRITE_EPOCH&&AB_CHAVE_SESSAO===key&&btn.isConnected});
     if(result.phase==='rejected'){
       if(result.rejection.status===401){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}msg.textContent='Chave de escrita recusada.';}
       else msg.textContent='Recusado antes da gravação: '+result.rejection.error;
-    }else if(result.phase==='accepted'){msg.textContent='Solicitação aceita pelo cadastro. Atualizando para conferir o registro…';await carregar();}
+    }else if(result.phase==='confirmed'){msg.textContent='Registro e revisão confirmados pelo recibo do servidor.';if(corpo.acao==='criar')$('#form-teste').hidden=true;await carregar();}
     else msg.textContent='Gravação sem confirmação. A tentativa foi preservada neste navegador. Atualize e confira o mesmo registro; nenhum reenvio será feito automaticamente.';
   }catch(e){msg.textContent=e.message||'Gravação sem confirmação. Preserve o registro local e atualize os dados.';}
   finally{await reconciliaTestesAB();btn.disabled=AB_BLOQUEADO||AB_PENDENTES.has(corpo.teste.teste_id)||corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');}
@@ -574,7 +579,7 @@ async function gravaTesteAB(corpo,msg,btn){
 window.addEventListener('storage',event=>{if((event.key===GABJ.SLOT||event.key===null)&&API)renderTestes();});
 
 async function encerrarTeste(id){
-  const cx=$('#enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
+  const cx=document.getElementById('enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
   msg.textContent='';const conc=cx.querySelector('.e-conc').value.trim();
   if(!conc){msg.textContent='Escreva a conclusão — sem ela o teste não vira aprendizado.';return;}
   const wk=chaveTesteAB(msg);if(!wk)return;
@@ -969,7 +974,11 @@ $('#camp-export').onclick=()=>GT.baixar(GT.nomeArquivo('campanhas',exportMeta())
 $('#conv-export').onclick=()=>GT.baixar(GT.nomeArquivo('conversao-'+(($('#sel-grao')||{}).value||'peca'),exportMeta()),GT.csv(COLS_CONV,ULT.conv,exportMeta({busca:TABELAS.conv.q})));
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
 $('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
-$('#f-cancelar').onclick=()=>{$('#form-teste').hidden=true;};
+$('#f-cancelar').onclick=()=>{AB_WRITE_EPOCH++;$('#form-teste').hidden=true;};
+$('#form-teste').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
+$('#form-teste').addEventListener('change',()=>{AB_WRITE_EPOCH++;});
+$('#ab-chave').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
+$('#ab-consultar').onclick=async()=>{const key=chaveTesteAB($('#ab-status'));if(key)await reconciliaTestesAB(key);};
 $('#f-salvar').onclick=salvarTeste;
 
 
