@@ -1,6 +1,7 @@
 /* Fixtures sinteticas. Executa as funcoes reais do HTML sem rede ou dados de clientes. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const html=fs.readFileSync(path.resolve(__dirname,'../organico.html'),'utf8');
+const OLegacy=require('../organico-legacy.js');
 function trecho(inicio,fim){
  const a=html.indexOf(inicio),b=html.indexOf(fim,a);
  assert(a>=0&&b>a,`trecho do front nao encontrado: ${inicio}`);
@@ -9,7 +10,7 @@ function trecho(inicio,fim){
 function boot(linhas=[]){
  const elements=new Map(),requests=[],venda=[];
  const $=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:''});return elements.get(s);};
- const context=vm.createContext({console,Intl,API:{cx_organico_receita:linhas},PER:{ini:'2026-09-01',fim:'2026-09-19'},CMP:false,
+ const context=vm.createContext({console,Intl,OLegacy,API:{cx_organico_receita:linhas},PER:{ini:'2026-09-01',fim:'2026-09-19'},CMP:false,
   G:{anterior:()=>({ini:'2026-08-13',fim:'2026-08-31'})},MARCA:'todas',
   $: $,document:{querySelectorAll:()=>[]},posts:()=>[],stories:()=>[],conta:()=>[],classifica:x=>x,
   agregado:()=>({eq:null,mediana:null}),daMarca:()=>true,chip:()=>'',varia:(a,b)=>b?Math.round(100*(a-b)/b):null,
@@ -46,13 +47,36 @@ test('KPI editorial exclui DM, bio e superficie desconhecida sem retirar essas l
 });
 
 test('zero medido permanece zero; nulo, ausente e invalido nao se tornam receita zero',()=>{
- for(const [value,expected] of [[0,/R\$ 0,00/],[null,/sem dado/],[undefined,/sem dado/],['',/sem dado/],['erro',/sem dado/]]){
+ for(const [value,expected] of [[0,/R\$ 0,00/],[null,/sem dado/],[undefined,/sem dado/],['',/sem dado/],['erro',/sem dado/],[false,/sem dado/],[[],/sem dado/]]){
   const x=boot([row({receita_ultimo:value})]);x.run('pintaKPIs()');assert.match(receitaCard(x),expected);
  }
  const x=boot([row(),row({receita_ultimo:null}),row({utm_medium:'dm',receita_ultimo:null})]);
  x.run('pintaKPIs()');const card=receitaCard(x);
  assert.match(card,/sem dado/);assert.match(card,/Automação DM: receita indisponível/);
  assert.doesNotMatch(card,/R\$ 100,00/);
+});
+
+test('ausência ou formato inválido da projeção histórica não vira lista vazia disponível',()=>{
+ for(const value of [undefined,null,{},'invalid']){
+  const x=boot();x.context.API.cx_organico_receita=value;x.run('pintaKPIs()');
+  assert.equal(x.venda[0],null);assert.match(receitaCard(x),/sem dado/);
+ }
+ const empty=boot([]);empty.run('pintaKPIs()');assert.equal(empty.venda[0].length,0);
+});
+
+test('filtro financeiro usa os aliases reais de marca e conserva o período sem incluir outra marca',()=>{
+ const rows=[row({marca:'aristo'}),row({marca:'aristocrata'}),row({marca:'fish'}),row({marca:'fishermans'}),row({marca:null}),row({marca:'olivas'}),row({marca:'aristo',dia:'2026-08-10'})];
+ for(const [brand,expected] of [['aristo',['aristo','aristocrata']],['fish',['fish','fishermans']],['olivas',['olivas']]]){
+  const x=boot(rows);x.context.MARCA=brand;x.run('pintaKPIs()');
+  assert.deepEqual([...x.venda[0]].map(r=>r.marca),expected);assert.ok(x.venda[0].every(r=>r.dia==='2026-09-19'));
+ }
+ const all=boot(rows);all.run('pintaKPIs()');assert.equal(all.venda[0].length,6);
+});
+
+test('cartão histórico não transforma contagem de pedidos ausente em zero',()=>{
+ const x=boot([row({pedidos_ultimo:null}),row({pedidos_ultimo:2})]);x.run('pintaKPIs()');
+ assert.match(receitaCard(x),/Pedidos indisponíveis/);assert.doesNotMatch(receitaCard(x),/2 pedidos|0 pedidos/);
+ const zero=boot([row({pedidos_ultimo:0})]);zero.run('pintaKPIs()');assert.match(receitaCard(zero),/0 pedidos/);
 });
 
 test('somente superficies editoriais explicitas entram no KPI, sem inferir campanha ou source',()=>{

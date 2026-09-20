@@ -224,18 +224,18 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
     <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <div class="painel">
       <div class="painel-cab"><h2>Histórico de conversões · projeção anterior</h2><span class="mini" id="venda-rot"></span></div>
-      <div class="nota">Comparação histórica preservada. A fonte e o modelo desta projeção ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas, nem pedidos assistidos à receita exclusiva.</div>
-      <div class="rolagem"><table class="comparativo" id="tab-venda"><thead><tr>
-        <th>Rede</th><th>Superfície</th><th>Produto / peça</th>
-        <th class="num">Pedidos</th><th class="num">Receita</th><th class="num">Assistidos</th><th>Peça identificada</th>
+      <div class="nota">Comparação histórica da coleta Shopify, agrupada por marca, rede, superfície e produto/campanha UTM no período selecionado. A regra financeira e o modelo ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas. Assistências são incidências do legado: podem contar o mesmo pedido mais de uma vez e não se somam à receita exclusiva.</div>
+      <div class="rolagem" tabindex="0" role="region" aria-label="Tabela histórica de conversões; use as setas para rolar"><table class="comparativo" id="tab-venda"><thead><tr>
+        <th>Marca</th><th>Rede</th><th>Superfície</th><th>Produto / iniciativa UTM</th>
+        <th class="num">Pedidos · legado</th><th class="num">Receita · legado</th><th class="num">Incidências assistidas</th><th>Peça · vínculo legado</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota">Padrão da projeção histórica: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
         <code>utm_medium=social</code> (ou <code>organico</code>) · <code>utm_campaign=venda</code> ·
         <code>utm_content</code>/<code>utm_term</code> = superfície (story, reels, bio, post) e produto, em qualquer ordem.
         Automação EU QUERO (Replient): <code>utm_medium=dm</code> ou <code>dm-automation</code> → superfície "dm (automação)".
         Os links recentes com <code>utm_source=instagram_social</code> e <code>utm_medium=story|linktree</code> não entram nesta projeção anterior.
-        "Peça identificada" depende do de-para em <code>crm_organico_utm</code>
-        (liga a receita a um post ou story específico); sem ele a linha continua aqui, só sem o post.</div>
+        Os vínculos de peça informados pelo de-para legado ainda precisam de conciliação por marca; não distribuem a receita desta linha por post/story. Sem vínculo, a peça permanece desconhecida.
+        Valor indisponível não é zero: uma parcela ausente ou inválida impede publicar o total daquela métrica.</div>
     </div>
   </section>
 </main>
@@ -246,6 +246,7 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="organico-attribution.js?v=20260919-4"></script>
+<script src="organico-legacy.js?v=dc5ba45c4a"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -292,33 +293,20 @@ function grupoReceitaOrganico(r){
   if(['story','stories','reels','reel','post','feed','carrossel'].includes(sup))return 'editorial';
   return 'outra';
 }
-// Conversao por UTM: rede x superficie x produto, direto do padrao dos links -- nao depende do
-// de-para. A normalizacao (superficie_utm / produto_utm) vem pronta da API.
+// Conversao por UTM: marca x rede x superficie x produto/campanha. O de-para legado
+// so informa um vinculo ainda nao conciliado; nao reparte receita entre pecas.
 function renderVenda(linhas){
-  const agg=new Map();
-  for(const r of linhas){
-    // link_in_bio e o UTM que o proprio Instagram poe no link do perfil: superficie bio, sem produto
-    let sup=r.superficie_utm||'—', prod=(r.produto_utm||'—').toLowerCase();
-    if(prod==='link_in_bio'){sup='bio';prod='—';}
-    // automacao EU QUERO (Replient): comentario -> DM com link. medium dm / dm-automation.
-    if(String(r.utm_medium||'').startsWith('dm')){sup='dm (automação)';prod=(r.utm_content||'replient').toLowerCase();}
-    const camp=(r.utm_campaign&&r.utm_campaign!=='(sem)'&&r.utm_campaign!=='venda')?r.utm_campaign:'';  // venda e o padrao; outra campanha (ex.: automacao) ganha rotulo
-    const k=[r.rede,sup,prod,camp].join('|');
-    const a=agg.get(k)||{rede:r.rede,sup,prod,camp,ped:0,rec:0,ass:0,ident:new Set()};
-    a.ped+=+r.pedidos_ultimo||0;a.rec+=+r.receita_ultimo||0;a.ass+=+r.pedidos_assistido||0;
-    if(r.post_id||r.story_id)a.ident.add(r.apelido||r.post_id||r.story_id);
-    agg.set(k,a);
-  }
-  // pecas (story/reels/post) primeiro; bio por ultimo, marcado
-  const rows=[...agg.values()].sort((a,b)=>(a.sup==='bio')-(b.sup==='bio')||b.rec-a.rec||b.ped-a.ped);
-  const tot=rows.reduce((t,x)=>({ped:t.ped+x.ped,rec:t.rec+x.rec,ass:t.ass+x.ass}),{ped:0,rec:0,ass:0});
-  $('#n-venda').textContent=rows.length?nf(tot.ped):'';
-  $('#venda-rot').textContent=rows.length?`${nf(tot.ped)} pedidos · R$ ${tot.rec.toLocaleString('pt-BR',{maximumFractionDigits:0})} · ${nf(tot.ass)} assistidos`:'';
+  const {available,rows,total:tot}=OLegacy.aggregate(linhas);
+  const numero=n=>n===null?'indisponível':nf(n);
+  const moeda=n=>n===null?'indisponível':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  $('#n-venda').textContent=rows.length?(tot.ped===null?'—':nf(tot.ped)):'';
+  $('#venda-rot').textContent=rows.length?`Pedidos: ${numero(tot.ped)} · Receita: ${moeda(tot.rec)} · Incidências assistidas: ${numero(tot.ass)}`:available?'Sem linhas históricas no recorte':'Projeção histórica indisponível';
   $('#tab-venda tbody').innerHTML=rows.length?rows.map(x=>`<tr>
-    <td><span class="tag ${esc(x.rede)}">${esc(x.rede)}</span></td><td>${esc(x.sup)}${x.sup==='bio'?' <span class="tag alerta" title="Anúncio → perfil → toque no link da bio vira último clique bio. Não dá para separar do orgânico puro.">pode ter mídia</span>':''}</td><td><strong>${esc(x.prod)}</strong>${x.camp?` <span class="tag nulo" title="utm_campaign diferente de venda">${esc(x.camp)}</span>`:''}</td>
-    <td class="num tabn">${nf(x.ped)}</td><td class="num tabn">${x.rec?'R$ '+x.rec.toLocaleString('pt-BR',{maximumFractionDigits:0}):'—'}</td>
-    <td class="num tabn">${nf(x.ass)}</td><td class="mini">${x.ident.size?[...x.ident].slice(0,3).map(esc).join(', '):'—'}</td></tr>`).join('')
-    :'<tr><td colspan="7"><div class="vazio">Nenhum pedido com UTM de orgânico no período.</div></td></tr>';
+    <td>${esc(Object.hasOwn(OLegacy.BRANDS,x.marca)?OLegacy.BRANDS[x.marca]:x.marca?'Marca não reconhecida: '+x.marca:'Marca não informada')}</td>
+    <td>${esc(x.rede||'não informada')}</td><td>${esc(x.sup||'não informada')}${x.sup==='bio'?' <span class="tag alerta" title="Anúncio → perfil → toque no link da bio vira último clique bio. Não dá para separar do orgânico puro.">pode ter mídia</span>':''}</td><td><strong>${esc(x.prod||'não informado')}</strong>${x.camp?` <span class="tag nulo" title="utm_campaign diferente de venda">${esc(x.camp)}</span>`:''}</td>
+    <td class="num tabn">${numero(x.ped)}</td><td class="num tabn">${moeda(x.rec)}</td>
+    <td class="num tabn">${numero(x.ass)}</td><td class="mini">${x.ident.length?`${x.ident.slice(0,3).map(esc).join(', ')}${x.ident.length>3?` · e mais ${nf(x.ident.length-3)}`:''}<br>Informado no legado; vínculo ainda não conciliado.${x.unidentified?' Há também linhas sem vínculo.':''}`:'Sem vínculo comprovado'}</td></tr>`).join('')
+    :`<tr><td colspan="8"><div class="vazio">${available?'Sem linhas desta projeção histórica para os filtros selecionados. A ausência de linhas não comprova zero vendas.':'A projeção histórica não está disponível nesta consulta. Ausência de dados não é zero.'}</div></td></tr>`;
 }
 let ORD={col:'publicado_em',dir:-1};
 
@@ -420,14 +408,14 @@ function pintaKPIs(){
   const negA=A.reduce((a,p)=>a+(p.neg||0),0);
   // Receita organica: so peca com de-para em crm_organico_utm entra como identificada.
   // Sem de-para a receita e ORFA, nunca zero -- zero diria "nao vendeu".
-  const rec=(ini,fim)=>(API.cx_organico_receita||[]).filter(r=>daMarca(r)
+  const rec=(ini,fim)=>(Array.isArray(API.cx_organico_receita)?API.cx_organico_receita:[]).filter(r=>(MARCA==='todas'||OLegacy.brand(r.marca)===MARCA)
       &&String(r.dia).slice(0,10)>=ini&&String(r.dia).slice(0,10)<=fim);
   const rA=rec(PER.ini,PER.fim), rB=rec(ant.ini,ant.fim);
-  const soma=l=>l.length&&l.every(r=>r.receita_ultimo!==null&&r.receita_ultimo!==undefined
-    &&String(r.receita_ultimo).trim()!==''&&Number.isFinite(+r.receita_ultimo))
-    ?l.reduce((a,r)=>a+(+r.receita_ultimo),0):null;
+  const soma=l=>l.length&&l.every(r=>OLegacy.number(r.receita_ultimo)!==null)
+    ?l.reduce((a,r)=>a+OLegacy.number(r.receita_ultimo),0):null;
   const pcA=rA.filter(r=>grupoReceitaOrganico(r)==='editorial');
   const pcB=rB.filter(r=>grupoReceitaOrganico(r)==='editorial');
+  const pedidosEditorial=OLegacy.aggregate(pcA).total.ped;
   const receitaA=soma(pcA),receitaB=soma(pcB);
   const moeda=n=>n===null?'receita indisponível':'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const outrasReceitas=[['bio','Bio (pode ter mídia)'],['dm','Automação DM'],['outra','Outras superfícies / não identificadas']]
@@ -466,7 +454,7 @@ function pintaKPIs(){
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
     {r:'Receita histórica de story · reels · post', v:receitaA===null?'—':moeda(receitaA),
      d:receitaA!==null&&receitaB!==null?varia(receitaA,receitaB):null,
-     s:pcA.length?`${nf(pcA.reduce((a,r)=>a+(+r.pedidos_ultimo||0),0))} pedidos · projeção anterior · superfície UTM`
+     s:pcA.length?`${pedidosEditorial===null?'Pedidos indisponíveis':nf(pedidosEditorial)+' pedidos'} · projeção anterior · superfície UTM`
        :'nenhuma receita com superfície editorial identificada no período',
      detalhes:outrasReceitas, ir:'venda'},
   ];
@@ -478,7 +466,7 @@ function pintaKPIs(){
     ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
     ${(k.detalhes||[]).map(d=>`<div class="kpi-sub">${esc(d)}</div>`).join('')}
   </div>`).join('');
-  renderVenda(rA);
+  renderVenda(Array.isArray(API.cx_organico_receita)?rA:null);
   if(typeof OA!=='undefined'){
     OA.render($('#organico-attribution'),API,MARCA,PER.ini,PER.fim);
     // O contador antigo pertence ao legado; nao representa os modelos da leitura v2.
