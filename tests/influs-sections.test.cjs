@@ -4,6 +4,11 @@ const {parseHTML}=require('linkedom'),Access=require('../influs-access.js');
 const html=fs.readFileSync(require.resolve('../influs.html'),'utf8');
 function page(){
  const {document}=parseHTML(html);
+ for(const link of document.querySelectorAll('link[rel=stylesheet]')){
+  const style=document.createElement('style');
+  style.textContent=fs.readFileSync(require('node:path').join(__dirname,'..',link.getAttribute('href').split('?')[0]),'utf8');
+  document.head.append(style);
+ }
  Access.bind({document,host:document.querySelector('#influ-access'),readExisting:()=>'',writeExisting:()=>'',authorExisting:()=>'',onRead:()=>{throw Error('No network or operation permitted in section test');}});
  // Evaluate real style selectors against the DOM; linkedom has CSSOM but no layout engine.
  const rules=[...document.querySelectorAll('style')].flatMap(s=>Array.from(s.sheet.cssRules)).filter(r=>r.selectorText&&!r.selectorText.includes('::')&&r.style?.getPropertyValue('display'));

@@ -424,17 +424,16 @@ select {
 body { transition: background-color .28s ease; }
 body[data-marca="todas"]      { --marca:#55524c; --marca-fraca:#eceae6; }
 body[data-marca="aristo"],
-body[data-marca="aristocrata"] { --fundo:#fffbec; --marca:#b9822d; --marca-fraca:#f6ecdb; }
+body[data-marca="aristocrata"] { --marca:#b9822d; --marca-fraca:#f6ecdb; }
 body[data-marca="fish"],
-body[data-marca="fishermans"]  { --fundo:#f8f9fa; --marca:#22808d; --marca-fraca:#dff0f2; }
-body[data-marca="olivas"]      { --fundo:#f7f6f2; --marca:#6f7f33; --marca-fraca:#eaeedc; }
-body[data-marca] .topo        { border-bottom: 2px solid var(--marca); }
-body[data-marca] .seg button.ativo { box-shadow: inset 0 -2px 0 var(--marca), 0 1px 3px rgba(32,31,29,.12); }
+body[data-marca="fishermans"]  { --marca:#22808d; --marca-fraca:#dff0f2; }
+body[data-marca="olivas"]      { --marca:#6f7f33; --marca-fraca:#eaeedc; }
 
-/* Archivo e a face do sistema de marca da Shrigma. Numero grande e titulo usam ela;
-   Inter continua na UI e no texto corrido. */
-h1, .kpi-val { font-family: "Archivo", var(--ui); letter-spacing: -.015em; font-weight: 800; }
-body[data-marca] .kpi-val { color: var(--marca); }
+
+
+/* Headings and values use the same system font as the operational interface. */
+h1, .kpi-val { font-family: var(--ui); letter-spacing: -.015em; font-weight: 800; }
+
 .kpi-val.vazio-val { color: var(--rotulo); font-weight: 600; font-size: 22px; }
 
 /* ---- O seletor de marca E o logotipo ----
@@ -458,41 +457,6 @@ body[data-marca] .kpi-val { color: var(--marca); }
 .seg button[data-marca="todas"] {
   font:600 11.5px/1 var(--ui); letter-spacing:.06em; text-transform:uppercase; min-height:38px; }
 
-/* Barra escura: os logotipos sao pretos e sumiriam. Invertidos ficam claros.
-   O botao ativo tem pilula branca, entao ali o preto original e o certo. */
-body[data-marca]:not([data-marca="todas"]) .seg button[data-marca] img { filter:invert(1); }
-body[data-marca]:not([data-marca="todas"]) .seg button[data-marca].ativo img { filter:none; }
-
-/* ---- Cabecalho na cor escura da marca ----
-   Escuros vindos do tema de cada loja: Aristocrata #3f502f (verde mata),
-   Fishermans #1a1c2e (navy), Olivas #1c2413 (oliva escuro).
-   O corpo do painel continua no fundo claro da marca — o contraste entre a barra
-   escura e o papel claro e o que da identidade sem sujar a leitura dos numeros. */
-body[data-marca="aristo"],  body[data-marca="aristocrata"] { --barra:#3f502f; }
-body[data-marca="fish"],    body[data-marca="fishermans"]  { --barra:#1a1c2e; }
-body[data-marca="olivas"]                                   { --barra:#1c2413; }
-
-body[data-marca]:not([data-marca="todas"]) .topo {
-  background: var(--barra); border-bottom-color: rgba(255,255,255,.14); }
-body[data-marca]:not([data-marca="todas"]) .topo h1,
-body[data-marca]:not([data-marca="todas"]) .topo #relogio { color:#fff; }
-body[data-marca]:not([data-marca="todas"]) .topo .sub { color:rgba(255,255,255,.62); }
-body[data-marca]:not([data-marca="todas"]) .topo .seg { background:rgba(255,255,255,.12); }
-body[data-marca]:not([data-marca="todas"]) .topo .seg button { color:rgba(255,255,255,.66); }
-body[data-marca]:not([data-marca="todas"]) .topo .seg button:hover { color:#fff; }
-body[data-marca]:not([data-marca="todas"]) .topo .seg button.ativo {
-  background:#fff; color:var(--barra); box-shadow:none; }
-body[data-marca]:not([data-marca="todas"]) .topo select,
-body[data-marca]:not([data-marca="todas"]) .topo .btn-periodo {
-  background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); color:#fff; }
-body[data-marca]:not([data-marca="todas"]) .topo .btn-periodo .caret { color:rgba(255,255,255,.6); }
-body[data-marca]:not([data-marca="todas"]) .topo .frescor {
-  background:rgba(255,255,255,.14); color:#fff; }
-body[data-marca]:not([data-marca="todas"]) .topo .frescor.velho { background:var(--ruim); color:#fff; }
-body[data-marca]:not([data-marca="todas"]) .abas { background:rgba(255,255,255,.12); }
-body[data-marca]:not([data-marca="todas"]) .abas a { color:rgba(255,255,255,.66); }
-body[data-marca]:not([data-marca="todas"]) .abas a.ativo { background:#fff; color:var(--barra); }
-
 /* ---- Icone da marca no topo, a esquerda ----
    Marca pequena e reconhecivel; o nome por extenso ja esta no seletor.
    Fica em chip claro porque os tres assets tem naturezas diferentes
@@ -505,7 +469,7 @@ body[data-marca]:not([data-marca="todas"]) .abas a.ativo { background:#fff; colo
 body[data-marca="todas"] .marcas .chipe { border-color:var(--borda); }
 .marcas .chipe img { max-width:27px; max-height:27px; width:auto; height:auto;
   object-fit:contain; display:block; }
-.marcas .sigla { font:800 13px/1 "Archivo",var(--ui); letter-spacing:.5px; color:#fff;
+.marcas .sigla { font:800 13px/1 var(--ui); letter-spacing:.5px; color:#fff;
   background:var(--texto); padding:9px 10px; border-radius:10px; }
 @media (max-width:720px){
   .marcas .chipe{width:32px;height:32px}

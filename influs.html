@@ -4,195 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Jost:wght@300;400;500&family=Roboto+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=99fdb5ec">
-<style>
-/* main herda `flex:1` + `display:grid` do styles.css. Sem align-content, quando a secao
-   e curta as linhas do grid esticam para preencher a viewport e o card de KPI incha.
-   start trava as linhas na altura do conteudo. */
-main{align-content:start}
-/* itens de grid tem min-width:auto: a tabela larga dentro de .rolagem empurrava o grid
-   inteiro e anulava o overflow-x. min-width:0 devolve o scroll para dentro do painel. */
-main>*{min-width:0}
 
-.rolagem{max-width:100%}
-/* faixa vazia continua ocupando um `gap` de 22px do grid */
-#faixa-alertas:empty{display:none}
-.abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
-.abas a{padding:6px 14px;border-radius:7px;font:600 13px/1 var(--ui);color:var(--mudo);text-decoration:none}
-.abas a.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
-.secoes{display:flex;gap:20px;border-bottom:1px solid var(--borda);margin:0 0 18px;
-  overflow-x:auto;scrollbar-width:none}
-.secoes::-webkit-scrollbar{display:none}
-.secoes button{white-space:nowrap}
-.secoes button{border:0;background:transparent;padding:0 0 10px;font:600 13.5px/1 var(--ui);
-  color:var(--mudo);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
-.secoes button.ativo{color:var(--texto);border-bottom-color:var(--texto)}
-.secoes button .n{font:600 11px/1 var(--ui);color:var(--rotulo);margin-left:5px}
-#sec-creators,#sec-afil{display:none}#sec-creators.ativa,#sec-afil.ativa{display:block}
-.tabn{font-variant-numeric:tabular-nums}
-td.destaque{font-weight:700}
-.barra{height:6px;border-radius:3px;background:var(--neutro-bg);overflow:hidden;min-width:44px}
-.barra i{display:block;height:100%;border-radius:3px}
-.tag{display:inline-block;padding:1px 7px;border-radius:20px;font:600 11px/1.7 var(--ui);white-space:nowrap}
-.tag.aristo{background:#f6ecdb;color:#8a5f1d}.tag.fish{background:#dff0f2;color:#186068}
-.tag.olivas{background:#eaeedc;color:#525f24}.tag.alerta{background:var(--ruim-bg);color:var(--ruim)}
-.tag.nulo{background:var(--neutro-bg);color:var(--rotulo)}
-.tag.email{background:#ece9f7;color:#4b3f8f}.tag.whatsapp{background:#e2f3e6;color:#1e6b38}
-.galho{display:grid;grid-template-columns:170px 1fr 66px 60px;gap:10px;align-items:center;
-  padding:8px 0;border-bottom:1px solid var(--borda)}
-.galho:last-child{border-bottom:0}
-.galho .rot{font:600 12.5px/1.3 var(--ui)}.galho .flx{font:400 11px/1.35 var(--ui);color:var(--rotulo)}
-.vazio{padding:26px;text-align:center;color:var(--mudo);font:400 13px/1.55 var(--ui);
-  background:var(--neutro-bg);border-radius:9px;border:1px dashed var(--borda-forte)}
-.nota{font:400 12px/1.5 var(--ui);color:var(--mudo);background:var(--neutro-bg);
-  border-left:3px solid var(--borda-forte);padding:9px 12px;border-radius:0 7px 7px 0;margin-top:12px}
-.periodo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-.periodo .presets{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
-.periodo .presets button{border:0;background:transparent;padding:6px 10px;border-radius:7px;
-  font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
-.periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
-.periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
-input[type=date],select,input[type=text],input[type=number],textarea{font:500 12.5px/1.35 var(--ui);
-  padding:7px 9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);
-  color:var(--texto);font-family:var(--ui)}
-textarea{width:100%;resize:vertical;min-height:58px}
-#grafico{width:100%;height:200px;display:block}
-.legenda{display:flex;gap:16px;font:500 11.5px/1 var(--ui);color:var(--mudo);margin-top:8px;flex-wrap:wrap}
-.legenda i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px}
-.dica{position:fixed;pointer-events:none;background:var(--texto);color:#fff;padding:6px 9px;
-  border-radius:7px;font:500 11.5px/1.45 var(--ui);opacity:0;transition:opacity .12s;z-index:50;white-space:pre}
-.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.form .campo{display:flex;flex-direction:column;gap:5px}
-.form .campo.largo{grid-column:1/-1}
-.form label{font:600 11.5px/1 var(--ui);color:var(--rotulo);text-transform:uppercase;letter-spacing:.04em}
-.form .ajuda{font:400 11px/1.4 var(--ui);color:var(--mudo)}
-.btn{border:0;border-radius:8px;padding:9px 16px;font:600 13px/1 var(--ui);cursor:pointer;
-  background:var(--texto);color:#fff}
-.btn.sec{background:var(--neutro-bg);color:var(--texto)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.veredito{padding:12px 14px;border-radius:9px;font:500 13px/1.5 var(--ui);margin-top:10px}
-.veredito.conclusivo{background:var(--bom-bg);color:var(--bom)}
-.veredito.inconclusivo{background:var(--neutro-bg);color:var(--texto)}
-.bracos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
-.braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
-.braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
-/* Barra do dinheiro em jogo. A fatia recuperada e sólida; o resto fica hachurado
-   porque nao e "vazio" — e valor que existiu e foi embora. */
-.funil{margin:2px 0 4px}
-.funil-num{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
-.funil-num b{font:800 30px/1 "Archivo",var(--ui);color:var(--marca);font-variant-numeric:tabular-nums}
-.funil-num span{font:500 12.5px/1.4 var(--ui);color:var(--mudo)}
-.funil-barra{height:24px;border-radius:6px;overflow:hidden;display:flex;
-  background:repeating-linear-gradient(135deg,var(--neutro-bg) 0 6px,#e4e1db 6px 12px)}
-.funil-barra i{display:block;background:var(--marca);height:100%}
-.funil-leg{display:flex;justify-content:space-between;margin-top:7px;
-  font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
-.funil-marcas{margin-top:14px;border-top:1px solid var(--borda);padding-top:4px}
-.funil-crm{margin-top:11px;padding-top:10px;border-top:1px dashed var(--borda)}
-@media (max-width:640px){
-  .bracos{grid-template-columns:1fr}
-  .galho{grid-template-columns:1fr 60px;row-gap:4px}
-  .galho .barra{display:none}
-  #grafico{height:170px}
-}
-
-/* aba Afiliados TikTok Shop */
-.tts-kpis{margin-bottom:14px}
-.tts-aut{margin:0 0 12px;padding:10px 12px;border:1px solid #f0c36d;background:#fff8e6;border-radius:8px;font-size:13px;line-height:1.5}
-.tts-aut .tts-btn{margin-left:8px}
-.comparativo td.msg{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555}
-.tag.bom{background:var(--bom-bg);color:var(--bom)}.tag.ruim{background:var(--ruim-bg);color:var(--ruim)}
-.tag.neutro{background:#fff3d6;color:#8a5f1d}
-#tts-area h3{font:700 14px/1.2 var(--ui)}
-#tts-area .comparativo{font-size:12.5px}#tts-area .comparativo td{padding:9px 8px}#tts-area .comparativo td.num{font-size:13.5px}
-.tts-btn{background:var(--neutro-bg);color:var(--texto)} /* estilo próprio dos botões TikTok */
-body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/alertas de cupom não valem para a lane TikTok */
-.tts-oculto{display:none}.tts-mais-tr td{text-align:center;padding:6px !important}.tts-mais{font-size:11.5px;padding:4px 10px}
-.tts-aviso{margin-right:8px;cursor:help}
-.tts-ev-linha:hover td{background:#faf8f5}.tts-ev-det td{background:#fbfaf8;padding:10px 14px 14px !important}
-.tts-ev-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:18px}.tts-ev-grid .comparativo.mini{font-size:11.5px}.tts-ev-grid .comparativo.mini td,.tts-ev-grid .comparativo.mini th{padding:5px 6px;white-space:nowrap}.tts-ev-grid .comparativo.mini td.tts-prod{white-space:normal;max-width:260px}
-@media (max-width:900px){.tts-ev-grid{grid-template-columns:1fr}}
-.tts-acoes{white-space:nowrap}.tts-acoes .btn{padding:5px 8px;font-size:11.5px;margin-right:4px}.tts-prod{max-width:230px}
-.tts-decisao-estado{display:block;white-space:normal;max-width:230px;margin-top:6px}
-
-/* aba Influs */
-.i-fura td{background:#fff4ef}
-.i-fura .i-cod{font-weight:700}
-.i-sel{font:500 12.5px/1 var(--ui);padding:4px 6px;border:1px solid var(--borda);
-  border-radius:6px;background:var(--fundo);color:var(--texto);max-width:150px}
-.nc-form{background:#fff;border:1px solid var(--borda,#e7e4de);border-left:4px solid #22808d;border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 6px 18px rgba(0,0,0,.05)}
-.nc-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;font-size:14px}
-.nc-cupom{font-size:15px;background:#eef4f5;padding:1px 6px;border-radius:5px}
-.nc-passos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media(max-width:720px){.nc-passos{grid-template-columns:1fr}}
-.nc-passo{background:var(--neutro-bg,#f6f6f4);border-radius:10px;padding:12px}
-.nc-passo h4{margin:0 0 10px;font:700 12px/1 var(--ui);text-transform:uppercase;letter-spacing:.05em;color:#22808d;display:flex;align-items:center;gap:8px}
-.nc-passo h4 i{font-style:normal;width:22px;height:22px;border-radius:50%;background:#22808d;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
-.nc-passo label{display:flex;flex-direction:column;gap:3px;margin-bottom:9px;font:600 11px/1.3 var(--ui);color:var(--rotulo)}
-.nc-passo input,.nc-passo select{padding:7px 9px;border:1px solid var(--borda,#d8d4cc);border-radius:7px;font:500 14px var(--ui);color:inherit;background:#fff;width:100%;box-sizing:border-box}
-.nc-passo input:disabled{background:#f1f1ef;color:#aaa}
-.nc-sufixo{display:flex;align-items:center;gap:6px;font:600 13px var(--ui);color:var(--rotulo)}
-.nc-sufixo input{flex:1}
-.nc-dica{min-height:2.6em;color:#5b6470;font-weight:500}
-.nc-rodape{margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.nc-rodape .btn{font-size:14px;padding:9px 16px}
-.inbox{background:#fff;border:1px solid var(--borda,#e7e4de);border-left:4px solid #c9a227;border-radius:12px;padding:12px 16px;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,.05)}
-.inbox-cab{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;font-size:14px}
-.inbox-item{display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:8px 16px;align-items:center;padding:10px 0;border-top:1px solid var(--borda,#eee)}
-.inbox-item .ib-host{grid-column:1/-1}
-.inbox-cod{font-size:15px;background:#fdf6e3;padding:1px 6px;border-radius:5px}
-.inbox-acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.inbox-titulo{display:flex;gap:8px;align-items:center;margin-bottom:6px}
-.inbox-chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font:500 11.5px/1.6 var(--ui);background:var(--neutro-bg,#f3f3f1);border:1px solid var(--borda,#e7e4de);border-radius:20px;padding:0 8px}
-.inbox-acoes .btn{padding:8px 14px;font-size:13px;border-radius:9px}
-.inbox-acoes .ib-sim{background:#22808d;color:#fff;border:1px solid #22808d;font-weight:700;display:inline-block}
-.inbox-acoes .ib-nao{background:#fff;border:1px solid var(--ruim,#c9463d);color:var(--ruim,#c9463d);font-weight:700}
-.ib-sel-wrap{position:relative;display:inline-block}
-.ib-sel-wrap select{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
-.ib-fino .ib-link{text-decoration:underline dotted;cursor:pointer}
-.i-abas{display:flex;gap:4px;margin:6px 0 12px;border-bottom:1px solid var(--borda,#e7e4de)}
-.i-abas button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;font:600 13px var(--ui);color:var(--rotulo);cursor:pointer}
-.i-abas button.ativo{color:var(--texto,#222);border-bottom-color:#22808d}
-.i-abas .n{margin-left:5px;font-size:11px;background:var(--neutro-bg,#f1f1ef);border-radius:10px;padding:0 6px}
-.i-barra{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.i-busca{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--borda,#d8d4cc);border-radius:8px;font:500 13px var(--ui)}
-/* editor como drawer lateral, no padrao dos CRMs de creator: edita sem sair da lista */
-#i-editor{position:fixed;top:0;right:0;height:100vh;width:min(600px,100vw);overflow:auto;background:#fff;z-index:60;
-  box-shadow:-12px 0 40px rgba(0,0,0,.18);padding:18px 20px 28px;border-left:1px solid var(--borda,#e7e4de)}
-#i-editor-fundo{position:fixed;inset:0;background:rgba(20,20,20,.28);z-index:59}
-.ed-termos{margin-top:8px;background:var(--neutro-bg,#f6f6f4);border-radius:8px;padding:8px 10px;font-size:12px}
-.ed-termo-vig{margin-bottom:4px}
-.ed-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:16px}
-.i-reclass{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--borda,#e7e4de)}
-.i-reclass label{font:600 11px var(--ui);color:var(--rotulo);display:flex;gap:6px;align-items:center}
-.i-cod code{font-size:14px}
-.i-nome{color:inherit;text-decoration:none;border-bottom:1px dashed #22808d}
-.i-nome:hover{color:#22808d}
-@media(max-width:720px){.inbox-item{grid-template-columns:1fr}}
-.i-alerta{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
-.i-alerta-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.tag.sku{background:#eef4f5;color:#22808d;border:1px solid #cfe1e4;
-  font:700 10.5px/1.5 var(--ui);padding:1px 5px;border-radius:4px;letter-spacing:.02em}
-.i-obs{font:400 11.5px/1.35 var(--ui);color:var(--rotulo);max-width:340px;white-space:normal}
-.i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
-.i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
-.i-cont strong{display:block;font:700 18px/1.2 var(--ui);color:var(--texto)}
-
-/* Formulários de acesso por papel, também disponíveis dentro do editor. */
-#influ-access{margin:0 0 16px}.influ-access-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-#influ-access-form{margin:12px 0;scroll-margin-top:16px}#influ-access-form[hidden]{display:none}
-#influ-access-form fieldset{border:0;padding:0;margin:0}#influ-access-form h3{margin:0 0 8px}
-.influ-access-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:12px 0}
-.influ-access-grid label{display:block;font-size:13px;margin-bottom:6px}.influ-access-grid input{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid var(--borda,#cbd5e1);border-radius:7px}
-#influ-access-form button{margin:4px 6px 0 0}#influ-access-message,#influ-access-status{overflow-wrap:anywhere}
-</style>
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=8ac3774d4d6a">
 </head>
-<body>
+<body data-panel="influs">
+<a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+<nav class="workspace-nav" aria-label="Áreas de trabalho"><a class="workspace-brand" href="index.html">Shrigma<span>Operação</span></a><div class="workspace-links"><a href="index.html">CX/CS</a><a href="growth.html">CRM</a><a href="organico.html">Orgânico</a><a href="influs.html" aria-current="page">Influs &amp; Afiliados</a></div></nav>
 
 <header class="topo">
   <div class="titulo">
@@ -200,7 +17,6 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
     <div><h1>Influs &amp; Afiliados</h1><p class="sub" id="sub-topo">Grupo Shrigma · três marcas</p></div>
   </div>
   <nav class="filtros" aria-label="Filtros">
-    <div class="abas"><a href="index.html">Suporte</a><a href="growth.html">Growth</a><a href="organico.html">Orgânico</a><a href="influs.html" class="ativo">Influs</a></div>
     <div class="seg" role="group" aria-label="Marca" id="seg-marca">
       <button data-marca="todas" class="ativo">Consolidada</button>
       <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
@@ -211,7 +27,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
   <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">—</span></div>
 </header>
 
-<main>
+<main id="conteudo" tabindex="-1">
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
       <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
@@ -384,13 +200,7 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 </main>
 
-<script src="frescor.js?v=78bf41ec"></script>
-<script src="config.js?v=2c7e9f41"></script>
-<script src="influs-access.js?v=666f1a0650"></script>
-<script src="influs-tts-actions.js?v=c4c9a09767"></script>
-<script src="influs-tts-manual.js?v=06c6874bfe"></script>
-<script src="influs-tts.js?v=372f3c8a8b"></script>
-<script src="alerta-credencial.js?v=a8463e22"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=d66cdd120a12"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
