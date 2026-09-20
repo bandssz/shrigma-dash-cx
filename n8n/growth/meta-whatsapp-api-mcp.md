@@ -10,7 +10,7 @@ Usar **Detalhes do pedido (`ORDER_DETAILS`) como padrão de cobrança PIX** das 
 
 Para pagamento aprovado, Felipe escolheu em 20/09/2026 a experiência **Rich Order Status**: card nativo com miniatura, produto, número do pedido e frete; ao abrir, itens, preço e link do pedido. Esse recibo pós-pagamento é separado do `ORDER_DETAILS` de cobrança PIX. Expedição e entrega devem abrir o rastreamento preenchido quando disponível.
 
-As duas WABAs possuem template `RICH_ORDER_STATUS` aprovado (`fishermans_pedido_confirmado_card_v1` e `aristocrata_pedido_confirmado_card_v1`). O envio anterior pelo contrato comum de template entregou somente o corpo; não comprovou o card e não deve ser repetido. A renderização rica exige o transporte de integração de comércio `customer_events`, com `rich_order_status` contendo URL/data/moeda/frete e itens. A credencial Cloud API atual não substitui a instalação de mensagem de comércio.
+As duas WABAs possuem template `RICH_ORDER_STATUS` aprovado (`fishermans_pedido_confirmado_card_v1` e `aristocrata_pedido_confirmado_card_v1`). O envio anterior pelo contrato comum de template entregou somente o corpo; não comprovou o card e não deve ser repetido. O código oficial Meta para WooCommerce usa `customer_events`, com `rich_order_status` contendo URL/data/moeda/frete e itens, e uma instalação/credencial própria nesse caminho. Essa implementação é uma referência: não comprova transporte exclusivo nem elegibilidade das lojas Shopify. O contrato de envio das nossas contas ainda precisa ser confirmado. O motor genérico deve recusar `RICH_ORDER_STATUS` antes da reserva, pois somente variáveis BODY não comprovam o recibo nativo.
 
 ## MCP oficial: conhecimento confirmado e acesso real
 
@@ -23,7 +23,7 @@ Há dois recursos oficiais relevantes:
 
 A documentação do **WhatsApp Business Tools MCP** identifica o servidor remoto `https://mcp.facebook.com/whatsapp_business_tools` e autenticação **OAuth** com a conta de desenvolvedor Meta. Não armazenar tokens ou App Secret nesta documentação ou em configurações versionadas.
 
-**Estado em 18/09:** existência e endereço confirmados; conector não conectado nesta sessão. A busca no diretório disponível por WhatsApp não retornou o conector oficial. Isso não significa que o serviço não exista. Não houve autenticação, enumeração de ferramentas ou execução via esse MCP. Não substituir por plugin de terceiros com nome semelhante.
+**Estado atualizado em 20/09:** existência e endereço confirmados; conta informa “Not yet available for your account”, em rollout gradual, e o conector não está conectado nesta sessão. A busca no diretório disponível por WhatsApp não retornou o conector oficial. Isso não significa que o serviço não exista. Não houve autenticação, enumeração de ferramentas ou execução via esse MCP. Não substituir por plugin de terceiros com nome semelhante.
 
 Procedimento quando o cliente disponibilizar conexão ao servidor oficial:
 
@@ -55,7 +55,7 @@ Arquivos de implementação:
 - [whatsapp-pix-card.js](whatsapp-pix-card.js): cobrança, valores e montagem do componente.
 - [whatsapp-pix.md](whatsapp-pix.md): fontes bancárias, validade, envio e evidência histórica.
 - [whatsapp-template-contract.js](../../whatsapp-template-contract.js): contrato compartilhado com o criador e o motor.
-- [whatsapp-rich-order-status.cjs](whatsapp-rich-order-status.cjs): valida pedido pago e monta o contrato nativo de recibo, sem transporte enquanto a instalação Meta não estiver conciliada.
+- [whatsapp-rich-order-status.cjs](whatsapp-rich-order-status.cjs): valida pedido pago e monta o contrato de referência de recibo, sem transporte até a compatibilidade com as contas ser comprovada.
 
 ## Evolução concreta e critérios de aceite
 
@@ -65,7 +65,7 @@ Fishermans implementada: itens e ajustes Shopify conciliados com a cobrança App
 
 Enquanto não houver detalhamento conciliado, manter o item agregado identificado pelo pedido. Na prévia do editor, rotular dados ilustrativos e distinguir o resumo agregado dos produtos reais. A prévia deve vir do mesmo contrato de componentes usado no envio; o WhatsApp controla a renderização final.
 
-Ponto de auditoria identificado: o adaptador atual usa `type: digital-goods`, embora a operação venda produtos físicos. Confirmar os valores aceitos e a semântica exigida pela API brasileira antes de mudar esse campo; não assumir que o literal indica erro nem alterá-lo sem contrato verificado.
+A referência oficial brasileira foi lida integralmente em Markdown em 20/09, revisão da página em 10/09: `type` aceita `digital-goods` e `physical-goods`. O adaptador atual usa `digital-goods`; a adequação aos produtos físicos exige alteração e readback próprios. Não está aplicada por esta atualização documental.
 
 Aceite da evolução: totais conciliados, PIX original preservado, cobrança ativa, template aprovado, prévia coerente, payload aceito e entrega comprovada. Cobrança paga/cancelada/vencida e divergência monetária continuam bloqueadas. Alterar template e adaptador de forma coordenada.
 
@@ -73,9 +73,9 @@ Aceite da evolução: totais conciliados, PIX original preservado, cobrança ati
 
 Prioridade de jornada: `Acompanhar pedido` deve chegar ao pedido específico quando a Shopify disponibilizar `Order.statusPageUrl`; rastreio deve abrir a transportadora com código preenchido quando disponível. Preservar autenticação exigida pelo destino. Não construir links de pedido por adivinhação.
 
-Estado em 20/09: os templates nativos estão aprovados nas duas marcas, mas a leitura atual não retornou `linked_commerce_account`, a borda `subscribed_apps` veio vazia e os acessos existentes não incluem `wa_installation_id`/credencial BISU do transporte `customer_events`. Logo, o gerador do payload está implementado e testado, mas a integração, o envio correto e a ativação em pedidos reais permanecem pendentes. O fluxo vigente continua no template pago claro até essa prova; não oferecer ação de pagamento para pedido já pago nem trocar silenciosamente pelo template rico incompleto.
+Estado em 20/09: os templates nativos estão aprovados nas duas marcas, mas a leitura atual não retornou `linked_commerce_account`, a borda `subscribed_apps` veio vazia e os acessos existentes não incluem `wa_installation_id`/credencial BISU do transporte `customer_events`. Essas ausências não comprovam um requisito universal de BISU nem falta de elegibilidade. O gerador do payload está implementado e testado; contrato/elegibilidade, integração, envio correto e ativação em pedidos reais permanecem pendentes. O fluxo vigente continua no template pago claro até essa prova; não oferecer ação de pagamento para pedido já pago nem trocar silenciosamente pelo template rico incompleto.
 
-Aceite do Rich Order Status: instalação de comércio identificada; leitura da configuração; pedido sintético enviado uma vez a destinatário autorizado com card renderizado; aceite/entrega/leitura conciliados; depois caller consulta todos os itens sem paginação pendente, imagem HTTPS, total por item, frete e `statusPageUrl` do pedido exato. Pedido teste, cancelado, não pago, captura ausente/futura, item incompleto ou host divergente falha fechado. Só então trocar a seleção publicada, preservando opt-out, idempotência e reservas incertas.
+Aceite do Rich Order Status: transporte suportado e elegibilidade confirmados para as contas, com configuração correspondente lida; pedido sintético enviado uma vez a destinatário autorizado com card renderizado; aceite/entrega/leitura conciliados; depois caller consulta todos os itens sem paginação pendente, imagem HTTPS, total por item, frete e `statusPageUrl` do pedido exato. Pedido teste, cancelado, não pago, captura ausente/futura, item incompleto ou host divergente falha fechado. Só então trocar a seleção publicada, preservando opt-out, idempotência e reservas incertas.
 
 ### Cliques e atribuição
 
@@ -90,12 +90,16 @@ Separar no dashboard: aceite, entrega, leitura, clique URL, eventual cópia nati
 | Fonte | O que sustenta / limite |
 |---|---|
 | [Anúncio WhatsApp Business Tools MCP](https://developers.facebook.com/blog/post/2026/09/15/whatsapp-business-messaging-mcp-ai-agent/) e [índice oficial](https://developers.meta.com/blog/) | Existência do MCP e exemplos de contas, números, templates e testes. Índice lido; artigo integral indisponível nesta consulta. |
-| [Documentação WhatsApp Business Tools MCP](https://developers.facebook.com/documentation/mcp/whatsapp-business-tools-mcp) | Trechos oficiais indexados confirmam servidor remoto, URL e OAuth. Página integral indisponível nesta consulta. |
+| [Documentação WhatsApp Business Tools MCP](https://developers.facebook.com/documentation/mcp/whatsapp-business-tools-mcp) | Página integral lida em 20/09: servidor remoto, OAuth, pré-requisitos e rollout gradual. A disponibilidade da conta não está liberada; não se infere capacidade de Rich Order Status pelo MCP. |
 | [Meta Social Technologies MCP](https://developers.facebook.com/documentation/mcp/devtools-mcp) e [anúncio](https://developers.facebook.com/blog/post/2026/06/30/developer-tools-mcp/) | Descoberta de APIs, documentação e diagnóstico. Trechos oficiais indexados; não foi inspecionado o esquema vivo das ferramentas. |
-| [Detalhes do pedido — Brasil](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/orderdetailstemplate/) | Referência brasileira existente no projeto; índice indica atualização em 02/09/2026. A leitura integral atual retornou erro/limitação. Não se afirma revisão completa do novo contrato. |
+| [Detalhes do pedido — Brasil](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/orderdetailstemplate/) | Página de templates ainda sem releitura integral nesta etapa. A referência de [Pedidos](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/orders/) e sua versão Markdown foram lidas em 20/09. `order_status` referencia o `reference_id` de `order_details`; não prova recibo independente com a apresentação solicitada. |
 | [PIX externo — Brasil](https://developers.facebook.com/documentation/business-messaging/whatsapp/payments/payments-br/offsite-pix) | Referência já utilizada na implementação; leitura integral atual indisponível. Não transpor documentação indiana para o Brasil. |
 | [SDK oficial — WhatsAppBusinessAccount](https://github.com/facebook/facebook-python-business-sdk/blob/main/facebook_business/adobjects/whatsappbusinessaccount.py) | Campos/enums, incluindo Insights e formatos. Existência de enum não prova elegibilidade da conta nem aplicação efetiva de escrita. |
 | [Plugin oficial Meta for WooCommerce — Rich Order Status](https://github.com/facebook/facebook-for-woocommerce/blob/main/includes/Handlers/WhatsAppExtension.php) | Contrato `customer_events` e campos `rich_order_status`; também mostra que o transporte usa uma instalação de mensagens e credencial próprias. É referência do contrato Meta, não uma instrução para instalar WooCommerce no Shopify. |
 | [Shopify Order.statusPageUrl](https://shopify.dev/docs/api/admin-graphql/latest/objects/Order#field-Order.fields.statusPageUrl) | Destino específico de status do pedido; permissão e URL devem ser confirmadas por loja/pedido. |
 
 Este registro distingue decisão do usuário, observação do código, evidência histórica e documentação recuperada. Não é uma cópia integral das docs. Antes de ampliar o payload ou ativar capacidades novas, consultar o contrato oficial vigente e registrar a prova operacional correspondente.
+
+## Guarda de transporte do recibo nativo
+
+`whatsapp-rich-transport-patch.cjs` acrescenta `sub_category` à consulta de metadados já existente e bloqueia `RICH_ORDER_STATUS` no validador do envio genérico, antes da reserva. Não cria templates, não altera seletores e não envia mensagens. O bloqueio não afirma impossibilidade técnica na Meta: impede que o contrato BODY-only seja aceito como a solução rica antes de haver integração comprovada. Publicação no repositório e instalação no runtime são aceites separados.

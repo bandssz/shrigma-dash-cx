@@ -54,6 +54,8 @@ const WAT={
  },
  runtime(input,template){
   if(!template||String(template.id)!==String(input.template_id)||template.name!==input.template_name||template.language!==input.language||template.status!=='APPROVED')return 'template_nao_aprovado_ou_divergente';
+  // WA_RICH_ORDER_TRANSPORT_GUARD_V1: the generic template sender cannot render the native order receipt.
+  if(template.sub_category==='RICH_ORDER_STATUS')return 'template_recibo_nativo_transporte_nao_integrado';
   if((input.flow==='transacional'||WAT.isPix(input))&&template.category!=='UTILITY')return 'template_categoria_incompativel';
   const cs=input.components||[],approved=template.components||[];
   if(!Array.isArray(cs)||!Array.isArray(approved))return 'template_componentes_invalidos';
