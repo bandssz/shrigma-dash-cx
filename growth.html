@@ -91,6 +91,9 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .braco{border:1px solid var(--borda);border-radius:9px;padding:11px 13px}
 .braco h4{margin:0 0 6px;font:700 13px/1 var(--ui)}
 .braco .m{font:700 20px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+.ab-diferenca{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;align-items:baseline;margin-top:10px;padding:11px 13px;border:1px solid var(--borda);border-radius:9px;background:var(--fundo)}
+.ab-diferenca strong{font:750 19px/1.2 var(--ui);font-variant-numeric:tabular-nums}
+.ab-diferenca .mini{grid-column:1/-1}
 /* Barra do dinheiro em jogo. A fatia recuperada e sólida; o resto fica hachurado
    porque nao e "vazio" — e valor que existiu e foi embora. */
 .funil{margin:2px 0 4px}
@@ -351,7 +354,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="growth-access.js?v=e2e7c2f0ca"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
-<script src="growth-data.js?v=20260919-ab-integrity"></script>
+<script src="growth-data.js?v=20260920-ab-difference"></script>
 <script src="growth-attribution.js?v=20260917-cache"></script>
 <script src="campaign-contract.js?v=20260919-public-boundary"></script>
 <script src="growth-message-preview.js?v=20260917-1"></script>
@@ -480,8 +483,12 @@ function renderTestes(){
   $('#area-testes').innerHTML=meus.map(t=>{
     const mb_=bs.filter(b=>b.teste_id===t.teste_id).sort((a,b)=>String(a.braco).localeCompare(String(b.braco)));
     const analysis=G.analisaTeste(API,t,mb_);
+    const signed=(value,digits,suffix)=>`${value>0?'+':value<0?'−':''}${Math.abs(value).toLocaleString('pt-BR',{minimumFractionDigits:digits,maximumFractionDigits:digits})}${suffix}`;
+    const comparison=analysis.difference===null
+      ?`<div class="ab-diferenca"><span>Diferença B − A</span><strong>—</strong><span class="mini">Ainda não há duas taxas comparáveis com campanhas distintas.</span></div>`
+      :`<div class="ab-diferenca"><span>Diferença observada B − A</span><strong>${signed(analysis.difference,2,' p.p.')}</strong>
+        <span class="mini">${analysis.relativeDifference===null?'Variação relativa indisponível porque a taxa de A é zero.':`${signed(analysis.relativeDifference,1,'%')} em relação à taxa de A.`}</span></div>`;
     const veredito=`<div class="veredito inconclusivo"><strong>Comparação descritiva, sem vencedor automático.</strong>
-      ${analysis.difference!==null?`Diferença observada de ${Math.abs(analysis.difference).toFixed(2)} p.p. entre os dois braços. `:''}
       Este cadastro não comprova quem entrou em cada versão, se o conteúdo ficou fixo nem se o prazo de acompanhamento terminou.
       As taxas de clique usam a base indicada; não medem vendas adicionais causadas pelo envio.</div>`;
     const cards=mb_.map((b,i)=>{
@@ -510,7 +517,7 @@ function renderTestes(){
         · Efeito mínimo: ${t.efeito_minimo||'—'} p.p.</div>
       <div class="mini">Base: dados acumulados de cada campanha; este resultado não muda com o filtro de período do painel.
         ${t.vencedor?`Vencedor anotado no registro anterior: ${esc(String(t.vencedor).toUpperCase())}. Essa anotação não foi revalidada como conclusão experimental.`:''}</div>
-      <div class="bracos">${cards}</div>${veredito}</section>`;
+      <div class="bracos">${cards}</div>${comparison}${veredito}</section>`;
   }).join('');
 
   document.querySelectorAll('.btn-encerrar').forEach(b=>b.onclick=()=>{
