@@ -47,9 +47,10 @@ function paid(order,reference,nowMs){
  return proved?null:'sem_sale_ou_capture_success';
 }
 
-// Builds Meta's customer_events contract for the native Rich Order Status UI.
-// Transport is deliberately separate because it requires a Meta message-integration
-// installation id and its BISU credential, not the regular Cloud API token.
+// Builds the customer_events shape observed in Meta's official commerce integration.
+// That implementation uses an installation and BISU credential. It is a reference,
+// not proof of an exclusive transport or of eligibility for these Shopify accounts.
+// This builder has no transport; a normal BODY-only template is not a native receipt.
 function richOrderEvent(input,nowMs=Date.now()){
  if(!Number.isFinite(nowMs))return fail('relogio_validacao_invalido');
  const brand=String(input?.brand||''),host=BRAND_HOSTS[brand],reference=String(input?.reference||'');
