@@ -23,7 +23,7 @@ main>*{min-width:0}
 
 .rolagem{max-width:100%}
 #organico-attribution .rolagem:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
-#organico-attribution .org-utm-values{min-width:220px;max-width:420px;overflow-wrap:anywhere;white-space:normal}
+#organico-attribution .org-utm-values,#stories-conversions .org-utm-values{min-width:220px;max-width:420px;overflow-wrap:anywhere;white-space:normal}
 /* faixa vazia continua ocupando um `gap` de 22px do grid */
 #faixa-alertas:empty{display:none}
 .abas{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px;margin-right:auto}
@@ -121,6 +121,11 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .seg-mini{display:flex;gap:2px;background:var(--neutro-bg);padding:3px;border-radius:9px}
 .seg-mini button{border:0;background:transparent;padding:5px 12px;border-radius:7px;
   font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
+.org-story-models{flex-wrap:wrap}
+.org-story-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}
+.org-story-summary>div{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--borda);border-radius:8px;min-width:0}
+.org-story-summary strong{font-size:20px;overflow-wrap:anywhere}
+.org-story-summary span{font-size:12px;color:var(--mudo)}
 .seg-mini button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
 th.ord{cursor:pointer;user-select:none;white-space:nowrap}
 th.ord:hover{color:var(--texto)}
@@ -209,8 +214,9 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
   </section>
 
   <section class="sec" id="sec-stories">
+    <div class="painel" id="stories-conversions"><div class="nota">Aguardando leitura das conversões de Stories.</div></div>
     <div class="painel">
-      <div class="painel-cab"><h2>Stories</h2><span class="mini" id="story-rot"></span></div>
+      <div class="painel-cab"><h2>Stories publicados · métricas do Instagram</h2><span class="mini" id="story-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-story"><thead><tr>
         <th>Publicado</th><th></th><th class="num">Alcance</th><th class="num">Views</th>
         <th class="num">Toques no link</th><th class="num">CTR</th>
@@ -245,7 +251,8 @@ tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=e30fc0c8"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
-<script src="organico-attribution.js?v=20260919-4"></script>
+<script src="organico-attribution.js?v=0de9bfdc51"></script>
+<script src="organico-stories.js?v=ef5f8c39f2"></script>
 <script src="organico-legacy.js?v=dc5ba45c4a"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -468,7 +475,7 @@ function pintaKPIs(){
   </div>`).join('');
   renderVenda(Array.isArray(API.cx_organico_receita)?rA:null);
   if(typeof OA!=='undefined'){
-    OA.render($('#organico-attribution'),API,MARCA,PER.ini,PER.fim);
+    pintaAtribuicaoOrganico();
     // O contador antigo pertence ao legado; nao representa os modelos da leitura v2.
     if(OA.valid(API))$('#n-venda').textContent='';
   }
@@ -478,6 +485,12 @@ function pintaKPIs(){
   });
   $('#n-posts').textContent=A.length; $('#n-stories').textContent=stories(PER.ini,PER.fim).length;
   return A;
+}
+
+function pintaAtribuicaoOrganico(){
+  const sync=()=>pintaAtribuicaoOrganico();
+  if(typeof OA!=='undefined')OA.render($('#organico-attribution'),API,MARCA,PER.ini,PER.fim,sync);
+  if(typeof OS!=='undefined')OS.render($('#stories-conversions'),API,MARCA,PER.ini,PER.fim,sync);
 }
 
 /* ---------- grade: semana ou mes ---------- */
@@ -551,7 +564,7 @@ function pintaPosts(lista){
 function pintaStories(){
   const st=stories(PER.ini,PER.fim);
   const comLink=st.filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined).length;
-  $('#story-rot').textContent=`${st.length} coletadas · ${comLink} com link · janela da API é de 24h`;
+  $('#story-rot').textContent=`${st.length} coletadas · ${comLink} com métrica de link · data da publicação · coleta limitada à janela de 24h`;
   $('#tab-story tbody').innerHTML=st.length?st.map(x=>
     `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
       <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>

@@ -75,15 +75,16 @@ const OA=(()=>{
     <div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Marca / compra</th><th>Classificação</th><th>Rede / superfície</th><th>UTMs registradas</th><th class="num">Pedidos</th><th class="num">Receita líquida</th></tr></thead><tbody>${v.detailRows.length?v.detailRows.slice().sort((a,b)=>date(b.dia).localeCompare(date(a.dia))||brand(a.marca).localeCompare(brand(b.marca))).map(r=>`<tr><td>${esc(BRANDS[brand(r.marca)]||r.marca)}<div class="mini">${esc(date(r.dia))}</div></td><td>${esc(GROUPS[r.classification]?.name||'Classificação inválida')}<div class="mini">${esc(REASONS[r.rule_reason]||'Motivo não informado')}</div></td><td>${esc(r.rede||'não identificada')}<div class="mini">${esc(r.superficie||'superfície desconhecida')}</div></td><td class="mini org-utm-values">source: ${esc(r.utm_source||'não informado')}<br>medium: ${esc(r.utm_medium||'não informado')}<br>campaign: ${esc(r.utm_campaign||'não informada')}<br>content: ${esc(r.utm_content||'não informado')}<br>term: ${esc(r.utm_term||'não informado')}</td><td class="num tabn">${nf(count(r.pedidos))}</td><td class="num tabn">${money(number(r.receita_liquida))}</td></tr>`).join(''):`<tr><td colspan="6">${v.complete?'Nenhuma combinação UTM detalhada neste período e modelo. Confira os outros canais na conciliação.':'Sem linhas detalhadas disponíveis no recorte; cobertura incompleta.'}</td></tr>`}</tbody></table></div></details>`;
  }
  let activeModel=DEFAULT_MODEL;
- function render(el,api,marca,ini,fim){
+ function render(el,api,marca,ini,fim,onModelChange){
   if(!el)return;
   el.innerHTML=markup(select(api,marca,ini,fim,activeModel));
   el.querySelectorAll('[data-org-model]').forEach(button=>{button.onclick=()=>{
    if(!MODELS[button.dataset.orgModel])return;
-   activeModel=button.dataset.orgModel;render(el,api,marca,ini,fim);
+   activeModel=button.dataset.orgModel;render(el,api,marca,ini,fim,onModelChange);
+   if(onModelChange)onModelChange(activeModel);
    el.querySelector(`[data-org-model="${activeModel}"]`)?.focus();
   };});
  }
- return {DEFAULT_MODEL,MODELS,GROUPS,valid,select,markup,render};
+ return {DEFAULT_MODEL,MODELS,GROUPS,valid,select,markup,render,getModel:()=>activeModel,setModel:model=>{if(MODELS[model])activeModel=model;}};
 })();
 if(typeof module!=='undefined')module.exports=OA;
