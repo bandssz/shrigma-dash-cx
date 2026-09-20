@@ -69,29 +69,31 @@ test('Influs credentials banner requests only its authorized scope',async()=>{
 const TTS=require('../influs-tts.js');
 function tts(initial=null){
  const calls=[],paints=[],notices=[],store=new Map(),forgot=[];
- const ctx=vm.createContext({TTS,TTS_API_URL:'https://example.invalid/read',DADOS:initial,SEQ:0,PER:{ini:'2026-09-19',fim:'2026-09-19'},chaveLeitura:()=> 'dummy',Date,
+ const ctx=vm.createContext({TTS,TTS_API_URL:'https://example.invalid/read',DADOS:initial,SEQ:0,PER:{ini:'2026-09-19',fim:'2026-09-19'},chaveLeitura:()=> 'dummy',Date,AbortController,setTimeout,clearTimeout,READ_TTS:null,
+  CACHE_TTS:initial?{key:'dummy',em:new Date().toISOString(),...initial._periodo,payload:initial}:null,
   per:()=>ctx.PER,renderTTS:()=>paints.push(ctx.DADOS),vazio:(...x)=>notices.push(x),esc:String,shrigmaEsqueceChave:x=>forgot.push(x),
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
   fetch:(url,init)=>{const d=deferred();calls.push({body:JSON.parse(init.body),...d});return d.promise;}});
  vm.runInContext(slice(read('influs-tts.js'),'  async function carregarTTS()','  function renderTTS()'),ctx);
  return {ctx,calls,paints,notices,store,forgot,run:()=>ctx.carregarTTS()};
 }
-const prior=()=>({fixture:'old',_periodo:{ini:'2026-09-19',fim:'2026-09-19'}});
+const ttsPayload=(fixture,day='2026-09-19')=>({fixture,kpis:[],amostras:[],fila:[],janela:{ini:day,fim:day}});
+const prior=()=>({...ttsPayload('old'),_periodo:{ini:'2026-09-19',fim:'2026-09-19'}});
 test('TikTok late error cannot restore stale data after a newer success',async()=>{
- const x=tts(prior()),a=x.run(),b=x.run();x.calls[1].resolve(response({fixture:'new'}));await b;x.calls[0].reject(Error('old timeout'));await a;
- assert.equal(x.ctx.DADOS.fixture,'new');assert.equal(x.ctx.DADOS._caiu,null);assert.equal(x.paints.length,1);
+ const x=tts(prior()),a=x.run(),b=x.run();x.calls[1].resolve(response(ttsPayload('new')));await b;const painted=x.paints.length;x.calls[0].reject(Error('old timeout'));await a;
+ assert.equal(x.ctx.DADOS.fixture,'new');assert.equal(x.ctx.DADOS._caiu,null);assert.equal(x.paints.length,painted);
 });
-test('TikTok success and persisted cache retain the requested period despite filter changes',async()=>{
- const x=tts(),a=x.run();x.ctx.PER={ini:'2026-09-01',fim:'2026-09-01'};const b=x.run();x.calls[1].resolve(response({fixture:'new-period'}));await b;x.calls[0].resolve(response({fixture:'old-period'}));await a;
- assert.equal(x.ctx.DADOS.fixture,'new-period');const cache=JSON.parse(x.store.get('shrigma_tts_cache'));assert.equal(cache.ini,'2026-09-01');assert.equal(cache.payload._periodo.ini,cache.ini);
+test('TikTok success and in-memory cache retain the requested period despite filter changes',async()=>{
+ const x=tts(),a=x.run();x.ctx.PER={ini:'2026-09-01',fim:'2026-09-01'};const b=x.run();x.calls[1].resolve(response(ttsPayload('new-period','2026-09-01')));await b;x.calls[0].resolve(response(ttsPayload('old-period')));await a;
+ assert.equal(x.ctx.DADOS.fixture,'new-period');const cache=x.ctx.CACHE_TTS;assert.equal(cache.ini,'2026-09-01');assert.equal(cache.payload.janela.ini,cache.ini);assert.equal(x.store.has('shrigma_tts_cache'),false);
 });
 test('TikTok network failure preserves only data from the same period',async()=>{
- const x=tts(prior()),a=x.run();x.calls[0].reject(Error('offline'));await a;assert.equal(x.ctx.DADOS.fixture,'old');assert.equal(x.ctx.DADOS._caiu,'offline');
+ const x=tts(prior()),a=x.run();x.calls[0].reject(Error('offline'));await a;assert.equal(x.ctx.DADOS.fixture,'old');assert.match(x.ctx.DADOS._caiu,/Não foi possível consultar/);
  x.ctx.PER={ini:'2026-08-01',fim:'2026-08-01'};const b=x.run();assert.equal(x.ctx.DADOS,null);x.calls[1].reject(Error('offline'));await b;assert.equal(x.ctx.DADOS,null);assert.match(x.notices.at(-1)[0],/Falha/);
 });
-test('TikTok authorization refusal clears data and disk cache instead of fallback',async()=>{
- for(const status of [401,403]){const x=tts(prior());x.store.set('shrigma_tts_cache','synthetic');const a=x.run();x.calls[0].resolve(response(null,status));await a;
-  assert.equal(x.ctx.DADOS,null);assert.equal(x.store.has('shrigma_tts_cache'),false);assert.deepEqual(x.forgot,['influs']);assert.equal(x.paints.length,0);assert.match(x.notices.at(-1)[0],/Acesso/);}
+test('TikTok authorization refusal clears data and session cache instead of fallback',async()=>{
+ for(const status of [401,403]){const x=tts(prior());const a=x.run();x.calls[0].resolve(response(null,status));await a;
+  assert.equal(x.ctx.DADOS,null);assert.equal(x.ctx.CACHE_TTS,null);assert.deepEqual(x.forgot,['influs']);assert(x.paints.every(p=>p._cache));assert.match(x.notices.at(-1)[0],/Acesso/);}
 });
 test('TikTok consolidated freshness flags stale, absent, invalid and failed brands',()=>{
  const fresh={marca:'aristo',ultima_ok:'2026-09-19T17:55:00Z',ultima_ok_todas:true},old={marca:'fish',ultima_ok:'2026-09-15T18:00:00Z',ultima_ok_todas:true};

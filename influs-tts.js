@@ -298,6 +298,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     : `<span class="tag nulo">${Math.round(h / 24)} d</span>`;
 
   let DADOS = null, SEQ = 0, PANE = (() => { try { return localStorage.getItem('shrigma_tts_pane') || 'fila'; } catch (e) { return 'fila'; } })();
+  let CACHE_TTS = null, READ_TTS = null; // Data and read identity stay in this page's memory.
+  try { localStorage.removeItem('shrigma_tts_cache'); } catch (_) {} // Retire the unscoped legacy data cache only.
   const marcaAtual = () => (typeof MARCA !== 'undefined' ? MARCA : 'todas');
   const per = () => (typeof PER !== 'undefined' ? PER : { ini: null, fim: null });
 
@@ -507,6 +509,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   function vazio(titulo, detalhe, retry) {
     if (!DADOS) { const f = $('#tts-frescor'); if (f) { f.textContent = 'coleta sem confirmação'; f.title = ''; f.classList.add('velho'); } }
+    if (!DADOS) {
+      const a = $('#tts-autorizacao'), aviso = $('#tts-aviso');
+      if (a) { a.hidden = true; a.textContent = ''; }
+      if (aviso) { aviso.hidden = true; aviso.textContent = ''; }
+      document.querySelectorAll('#tts-abas .n').forEach(el => { el.textContent = ''; });
+    }
     $('#tts-kpis').innerHTML = '';
     $('#tts-area').innerHTML = `<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${retry ? '<br><br><button class="btn" id="tts-retry">Tentar de novo</button>' : ''}</div>`;
     const b = $('#tts-retry'); if (b) b.onclick = carregarTTS;
@@ -514,39 +522,56 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   async function carregarTTS() {
     const seq = ++SEQ, periodo = { ini: per().ini, fim: per().fim };
-    if (typeof TTS_API_URL === 'undefined') { vazio('TTS_API_URL não configurada', 'Falta a URL da API do TikTok Shop em config.js.'); return; }
+    if (READ_TTS) READ_TTS.cancel();
+    DADOS = null;
+    if (typeof TTS_API_URL === 'undefined') { vazio('Consulta indisponível', 'Não foi possível localizar o serviço de afiliados.', true); return; }
     const k = (typeof chaveLeitura === 'function' ? chaveLeitura() : '') || '';
-    if (!k) { DADOS = null; vazio('Chave de acesso não informada', 'A mesma chave do painel de Influs abre esta aba.'); return; }
-    let anterior = DADOS && DADOS._periodo?.ini === periodo.ini && DADOS._periodo?.fim === periodo.fim ? DADOS : null;
-    DADOS = anterior;
-    if (!DADOS) {  // primeira abertura: pinta a última leitura guardada enquanto a API responde
-      let c = null; try { c = JSON.parse(localStorage.getItem('shrigma_tts_cache') || 'null'); } catch (e) {}
-      if (TTS.cacheServe(c, periodo.ini, periodo.fim)) { DADOS = c.payload; DADOS._periodo = periodo; DADOS._cache = c.em; renderTTS(); }
-      else vazio('Carregando afiliados TikTok…', 'Lendo o período selecionado.');
-    }
-    anterior = DADOS;
+    const acessoAtual = () => typeof INFLU_ACCESS !== 'undefined' ? INFLU_ACCESS.current('read') : (typeof chaveLeitura === 'function' ? chaveLeitura() : '');
+    const vigente = () => seq === SEQ && acessoAtual() === k;
+    if (!k) { CACHE_TTS = null; vazio('Chave de acesso não informada', 'A mesma chave do painel de Influs abre esta aba.'); return; }
+    if (CACHE_TTS?.key !== k) CACHE_TTS = null;
+    if (TTS.cacheServe(CACHE_TTS, periodo.ini, periodo.fim)) {
+      DADOS = {...CACHE_TTS.payload, _periodo:periodo, _cache:CACHE_TTS.em, _caiu:null};
+      renderTTS(); // Cached data is visible, but all mutation guards remain closed until readback.
+    } else vazio('Carregando afiliados TikTok…', 'Lendo o período selecionado.');
+    const anterior = DADOS, controller = new AbortController();
+    let timer, cancel;
+    const limite = new Promise((_, reject) => {
+      cancel = () => { controller.abort(); reject(new Error('Consulta substituída.')); };
+      timer = setTimeout(() => { controller.abort(); reject(new Error('A consulta demorou mais de 20 segundos. Tente atualizar novamente.')); }, 20000);
+    });
+    const leitura = {cancel}; READ_TTS = leitura;
     try {
-      const r = await fetch(TTS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k, ...periodo }) });
-      if (r.status === 401 || r.status === 403) { const erro = new Error('chave inválida ou sem acesso a esta API'); erro.status = r.status; throw erro; }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const novo = await r.json();
-      if (seq !== SEQ) return;            // chegou uma resposta mais nova antes desta: descarta a velha
-      DADOS = novo;
-      DADOS._periodo = periodo;
-      DADOS._caiu = null; DADOS._cache = null;
-      try { localStorage.setItem('shrigma_tts_cache', JSON.stringify({ em: new Date().toISOString(), ...periodo, payload: novo })); } catch (e) {}
+      const consulta = (async () => {
+        let r;
+        try { r = await fetch(TTS_API_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({k,...periodo}), signal:controller.signal, redirect:'error', credentials:'omit', cache:'no-store' }); }
+        catch (_) { throw new Error('Não foi possível consultar os afiliados agora.'); }
+        if (r.status === 401 || r.status === 403) { const erro = new Error('Chave inválida ou sem acesso a esta consulta.'); erro.status = r.status; throw erro; }
+        if (!r.ok) throw new Error('Consulta indisponível (HTTP ' + r.status + ').');
+        let novo; try { novo = await r.json(); } catch (_) { throw new Error('Resposta de consulta inválida. Tente atualizar novamente.'); }
+        if (!novo || Array.isArray(novo) || !['kpis','amostras','fila'].every(c => Array.isArray(novo[c])) ||
+            novo.janela?.ini !== periodo.ini || novo.janela?.fim !== periodo.fim) throw new Error('A resposta não confirmou os dados e o período solicitado.');
+        return novo;
+      })();
+      const novo = await Promise.race([consulta, limite]);
+      if (!vigente()) return;
+      CACHE_TTS = {key:k,em:new Date().toISOString(),...periodo,payload:novo};
+      DADOS = {...novo,_periodo:periodo,_caiu:null,_cache:null};
       renderTTS();
     } catch (e) {
-      if (seq !== SEQ) return;
+      if (!vigente()) return;
       if (e.status === 401 || e.status === 403) {
-        DADOS = null;
-        try { localStorage.removeItem('shrigma_tts_cache'); } catch (_) {}
-        if (typeof shrigmaEsqueceChave === 'function') shrigmaEsqueceChave('influs');
+        DADOS = null; CACHE_TTS = null;
+        if (typeof INFLU_ACCESS !== 'undefined') INFLU_ACCESS.reject('read', k, e.message);
+        else if (typeof shrigmaEsqueceChave === 'function') shrigmaEsqueceChave('influs');
         vazio('Acesso não confirmado', esc(e.message), true); return;
       }
-      // Nunca tela branca: se já havia dado, mantém e avisa que caiu; senão, aviso com retry.
-      if (anterior) { DADOS = anterior; DADOS._caiu = e.message; renderTTS(); }
-      else vazio('Falha ao carregar afiliados TikTok', esc(e.message) + '<br><span class="mini">Se persistir, o workflow "TikTok Shop - API do painel" pode estar desativado no n8n.</span>', true);
+      if (anterior) { DADOS = {...anterior,_caiu:e.message}; renderTTS(); }
+      else vazio('Falha ao carregar afiliados TikTok', esc(e.message) + '<br><span class="mini">Os dados desta consulta não foram confirmados.</span>', true);
+    } finally {
+      clearTimeout(timer);
+      if (READ_TTS === leitura) READ_TTS = null;
     }
   }
 
@@ -555,7 +580,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const m = marcaAtual();
     if (m === 'olivas') { $('#tts-frescor').textContent = ''; vazio('Olivas do Campo não vende no TikTok Shop', 'Só O Aristocrata e Fishermans têm loja e programa de afiliados lá.'); return; }
     const f = TTS.frescor(DADOS, m);
-    const fe = $('#tts-frescor'); fe.textContent = f.txt + (DADOS._caiu ? ' · leitura falhou agora, mostrando a última' : '') + (DADOS._cache ? ' · atualizando…' : ''); fe.title = f.title + (DADOS._caiu ? '\nerro: ' + DADOS._caiu : ''); fe.classList.toggle('velho', f.velho || !!DADOS._caiu);
+    const fe = $('#tts-frescor'); fe.textContent = f.txt + (DADOS._caiu ? ' · leitura falhou agora, mostrando a última' : '') + (DADOS._cache && !DADOS._caiu ? ' · atualizando…' : ''); fe.title = f.title + (DADOS._caiu ? '\nerro: ' + DADOS._caiu : ''); fe.classList.toggle('velho', f.velho || !!DADOS._caiu);
     renderAutorizacao(m); renderPane();
   }
 
