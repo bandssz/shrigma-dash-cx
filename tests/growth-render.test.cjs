@@ -1,6 +1,7 @@
 /* Teste de integração em DOM local, sem abrir navegador ou fazer chamadas externas.
    Dependência de desenvolvimento: npm install --prefix ../growth-test-tools linkedom@0.18.12 */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {webcrypto}=require('node:crypto'),Receipt=require('../n8n/growth/template-operation-receipt.cjs');
 const {parseHTML}=require(require.resolve('linkedom',{paths:[path.resolve(__dirname,'../../growth-test-tools/node_modules')]}));
 const root=path.resolve(__dirname,'..');
 const fixture=()=>({
@@ -28,9 +29,12 @@ async function boot(payload=fixture(),opts={}){
  Object.defineProperty(document,'activeElement',{configurable:true,get(){return focado&&focado.isConnected?focado:document.body;}});
  window.HTMLElement.prototype.getBoundingClientRect=function(){return {top:0,width:1200,height:100};};
  const store=new Map(opts.noReadKey?[]:[['shrigma_k_growth','synthetic-test-key']]);
- const requests=[],downloads=[],hashes=[],calls=[];let response=payload,code=200;
+ const requests=[],downloads=[],hashes=[],calls=[],uiActions=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
- const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,console,__downloads:downloads,
+ const heldLocks=new Set(),locks={request:async(key,opts,fn)=>{if(heldLocks.has(key))return fn(null);heldLocks.add(key);try{return await fn({name:key});}finally{heldLocks.delete(key);}}};
+ const cryptoProvider=opts.cryptoProvider||webcrypto;
+ const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,crypto:cryptoProvider,TextEncoder,navigator:{locks},console,__downloads:downloads,
+ __trackUiAction:(name,promise)=>uiActions.push({name,promise}),
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
@@ -42,10 +46,16 @@ async function boot(payload=fixture(),opts={}){
   vm.runInContext(code,context,{filename:src||'growth-inline.js'});
  }
  const run=code=>vm.runInContext(code,context);
+ // DOM click() does not return its async listener's promise. Track the real
+ // public action without replacing its work, so native WebCrypto may finish
+ // whenever the runner schedules it, rather than after a fixed number of ticks.
+ run(`for(const name of ['salvarServidor','validarServidor','submeter','verificarSubmissao','verificarSubmissoes','consultarOperacao']){
+   const original=GRU[name];GRU[name]=function(...args){const pending=original.apply(this,args);__trackUiAction(name,pending);return pending;};
+ }`);
  // Exportação: captura o CSV em vez de criar um download real.
  run('GT.baixar=(nome,texto)=>{__downloads.push({nome,texto});return true;}');
  for(let i=0;i<10&&run('LOADING');i++)await new Promise(setImmediate);
- return {document,window,run,requests,calls,store,downloads,hashes,setResponse:(r,status=200)=>{response=r;code=status;}};
+ return {document,window,run,requests,calls,store,downloads,hashes,uiActions,setResponse:(r,status=200)=>{response=r;code=status;}};
 }
 test('front completo carrega, filtra canal/marca e mantém sombra fora dos disparos',async()=>{
  const x=await boot();assert.equal(x.document.querySelector('#load-state').hidden,true);
@@ -468,15 +478,63 @@ test('templates (F01/F03/F04/F05/F06): vínculo diz se o modo é configurado ou 
 /* ---------- Fase A (11/09/2026): templates ponta a ponta atrás de capabilities ---------- */
 const CONTRATO=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-templates-contract.synthetic.json'),'utf8'));
 const TPL_END='https://exemplo.invalid/webhook/crm-template-api-x';
-const settle=async()=>{for(let i=0;i<20;i++)await new Promise(setImmediate);};
-// API falsa: uma fila de respostas por ação; devolve a próxima da fila (ou 500 se acabou). Guarda os corpos para inspeção.
+async function deadline(promise,label,diagnose,timeoutMs=10000){
+ let timer;
+ try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>{let state='';try{state=diagnose?.()||'';}catch(_){state='Diagnostic unavailable';}reject(new Error(`Timed out after ${timeoutMs}ms waiting for ${label}. ${state}`));},timeoutMs);})]);}
+ finally{clearTimeout(timer);}
+}
+async function clickAction(x,element,action){
+ assert.ok(element,`Missing button for ${action}`);const before=x.uiActions.length;element.click();
+ const invoked=x.uiActions.slice(before).find(entry=>entry.name===action);
+ assert.ok(invoked&&typeof invoked.promise?.then==='function',`Click did not invoke async ${action}`);
+ await deadline(invoked.promise,action,()=>x.run('JSON.stringify({ocupado:GRU.state.ocupado,operacoes:GRU.journal()?.inspect().operations.map(x=>({phase:x.phase,applied:x.applied}))})'));
+}
+async function waitFor(condition,label,timeoutMs=10000){
+ const started=Date.now();while(!condition()){
+   if(Date.now()-started>=timeoutMs)throw Error(`Timed out after ${timeoutMs}ms waiting for ${label}`);
+   await new Promise(resolve=>setTimeout(resolve,5));
+ }
+}
+// The synthetic operation store uses the real read-only receipt projection.
+// Lost POST responses can be reconciled by GET; GET never consumes a mutation response.
 function apiFalsa(){
- const filas={},pedidos=[];const json=(status,body)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(body)});
- return {pedidos,responde(acao,status,body){(filas[acao]=filas[acao]||[]).push({status,body});},
-  mock:async(url,init)=>{if(!url.startsWith(TPL_END))return null;const acao=init?.method==='POST'?JSON.parse(init.body).acao:new URL(url).searchParams.get('acao');
-   pedidos.push({acao,url,body:init?.body?JSON.parse(init.body):null,headers:init?.headers||{}});const r=(filas[acao]||[]).shift();return r?json(r.status,r.body):json(500,{erro:'fila vazia'});}};
+ const filas={},pedidos=[],operations=new Map(),actor='chave-felipe',claimId='30000000-0000-4000-8000-000000000001';
+ const json=(status,body)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(body)});
+ const confirma=(request,status,raw)=>{
+   const p={acao:request.acao,rascunho:request.rascunho??null,draft_id:request.draft_id??null,expected_version:request.expected_version??null,confirm:request.confirm??null};
+   const body={...structuredClone(raw),who:actor};
+   if(request.acao==='validar'){body.draft_id=request.draft_id;body.version=request.expected_version;}
+   if(request.acao==='submeter'){body.draft_id=request.draft_id;body.operation_id=claimId;body.submission_id='s_'+claimId.replace(/-/g,'');}
+   const row={receipts:[{idempotency_key:request.idempotency_key,acao:request.acao,actor,request_payload:p,response:{status,body}}],claims:[]};
+   if(request.acao==='submeter')row.claims.push({claim_id:claimId,idempotency_key:request.idempotency_key,acao:'submeter',actor,request_payload:p,draft_id:request.draft_id,version:request.expected_version,state:status<300?'succeeded':'rejected',response:{_http:status,_body:body}});
+   operations.set(request.idempotency_key,row);return body;
+ };
+ return {pedidos,confirma,responde(acao,status,body){(filas[acao]=filas[acao]||[]).push({status,body});},
+  mock:async(url,init)=>{if(!url.startsWith(TPL_END))return null;const params=new URL(url).searchParams,request=init?.body?JSON.parse(init.body):null,acao=init?.method==='POST'?request.acao:params.get('acao');
+   pedidos.push({acao,url,body:request,headers:init?.headers||{},init});
+   const r=(filas[acao]||[]).shift();
+   if(acao==='operacao')return r?json(r.status,r.body):json(200,Receipt.operationReceipt({operation_key:params.get('idempotency_key'),operation_action:params.get('operacao'),who:actor},operations.get(params.get('idempotency_key'))||{receipts:[],claims:[]}));
+   if(!r)return json(500,{erro:'fila vazia'});
+   if(request&&(r.status>=200&&r.status<300||acao==='validar'&&r.status===422))return json(r.status,confirma(request,r.status,r.body));
+   return json(r.status,r.body);
+  }};
 }
 const comCaps=(templates)=>{const p=fixture();p.crm_operacao=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-control.json'),'utf8'));p.capabilities={...CONTRATO.capabilities,templates:{...CONTRATO.capabilities.templates,...templates},endpoints:{templates:TPL_END}};return p;};
+
+test('the UI harness waits for the action promise while native crypto is still pending, with a useful deadline',async()=>{
+ const api=apiFalsa();let release,entered,finished=false;
+ const barrier=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
+ const cryptoProvider={randomUUID:()=>webcrypto.randomUUID(),subtle:{digest:async(...args)=>{entered();await barrier;return webcrypto.subtle.digest(...args);}}};
+ const x=await boot(comCaps({submit:true}),{fetchMock:api.mock,cryptoProvider});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+ x.run("GRU.state.rascunho=GR.novo({id:'delayed-worker-template',nome:'fixture_template',corpo:'Conteúdo sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ api.responde('rascunho',201,{draft_id:'d_delayed',version:1,estado:'rascunho'});
+ const pending=clickAction(x,x.document.querySelector('#d-servidor'),'salvarServidor');pending.then(()=>{finished=true;},()=>{});
+ try{
+  await deadline(started,'synthetic crypto barrier');assert.equal(finished,false);assert.equal(api.pedidos.some(p=>p.body),false);assert.equal(x.run('GRU.state.ocupado'),'rascunho');
+ }finally{release();}
+ await pending;assert.equal(finished,true);assert.equal(api.pedidos.filter(p=>p.body).length,1);assert.equal(x.run('GRU.journal().inspect().operations[0].applied'),true);
+ await assert.rejects(deadline(new Promise(()=>{}),'synthetic hung action',()=>'{"ocupado":"rascunho"}',5),/Timed out after 5ms waiting for synthetic hung action.*ocupado/);
+});
 
 test('sem capabilities nada muda: nenhum botão de servidor, rascunho segue só neste dispositivo',async()=>{
  const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
@@ -502,8 +560,8 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  assert.equal(root().querySelector('#d-validar'),null);assert.equal(root().querySelector('#d-submeter'),null); // nada no servidor ainda
  // 1) salvar no servidor
  api.responde('rascunho',201,CONTRATO.rascunho_response);
- root().querySelector('#d-servidor').click();await settle();
- const p1=api.pedidos[0];assert.equal(p1.acao,'rascunho');assert.equal(p1.body.k,'ESCRITA-TESTE');assert.equal(p1.body.draft_id,undefined);
+ await clickAction(x,root().querySelector('#d-servidor'),'salvarServidor');
+ const p1=api.pedidos.find(p=>p.acao==='rascunho');assert.equal(p1.body.k,'ESCRITA-TESTE');assert.equal(p1.body.draft_id,undefined);
  assert.match(p1.body.idempotency_key,/^[0-9a-f-]{36}$/);assert.equal(p1.headers['Idempotency-Key'],p1.body.idempotency_key);
  assert.deepEqual(Object.keys(p1.body.rascunho).sort(),['assunto','botoes','cabecalho','canal','categoria','corpo','exemplos','idioma','marca','nome','peca','rodape']);
  assert.equal(p1.body.rascunho.corpo,'Olá {{1}}, seu pedido {{2}} saiu.');
@@ -517,11 +575,11 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');assert.ok(root().querySelector('#d-validar'));
  // 3) validar: primeiro a API recusa (422), depois aceita
  api.responde('validar',422,CONTRATO.validar_422);
- root().querySelector('#d-validar').click();await settle();
- assert.match(root().querySelector('#d-checagens').textContent,/API: Corpo com 1025 caracteres; limite 1024\. \(corpo\)/);assert.match(root().textContent,/A API recusou/);
+ await clickAction(x,root().querySelector('#d-validar'),'validarServidor');
+ assert.match(root().querySelector('#d-checagens').textContent,/API: Corpo com 1025 caracteres; limite 1024\. \(corpo\)/);assert.match(root().textContent,/recusada com recibo/);
  assert.equal(root().querySelector('#d-submeter'),null);assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
  api.responde('validar',200,{...CONTRATO.validar_ok,avisos:[{codigo:'UTILITY_OFFER_WORDING',mensagem:'Tom promocional.'}]});
- root().querySelector('#d-validar').click();await settle();
+ await clickAction(x,root().querySelector('#d-validar'),'validarServidor');
  assert.match(root().textContent,/Validado pela API com 1 aviso/);assert.ok(root().querySelector('#d-submeter'));assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'validado');
  // 4) submeter: confirmação textual obrigatória
  root().querySelector('#d-submeter').click();
@@ -530,66 +588,84 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  set('#d-confirm-texto','errado');assert.equal(conf().querySelector('#d-confirm-ok').disabled,true);
  set('#d-confirm-texto',' Submeter ');assert.equal(conf().querySelector('#d-confirm-ok').disabled,false);
  api.responde('submeter',202,CONTRATO.submeter_202);
- conf().querySelector('#d-confirm-ok').click();await settle();
+ await clickAction(x,conf().querySelector('#d-confirm-ok'),'submeter');
  const ps=api.pedidos.find(p=>p.acao==='submeter');assert.equal(ps.body.confirm,'submeter');assert.equal(ps.body.expected_version,1);assert.equal(ps.body.draft_id,'d_01J0000000000000000000EX');
  assert.equal(conf(),null);assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Submetido · aguardando Meta desde 09\/09, 17:01/);
  assert.ok(root().querySelector('#d-verificar'));assert.ok(root().querySelector('#drafts-verificar'));
  assert.equal([...root().querySelectorAll('button')].filter(b=>/publicar|ativar/i.test(b.textContent)).length,0);
  // 5) acompanhar: PENDING não muda nada; APPROVED vira publicado · não ativo (nunca "aprovado" antes da API dizer)
  api.responde('submissao',200,CONTRATO.submissao_get);
- root().querySelector('#d-verificar').click();await settle();
+ await clickAction(x,root().querySelector('#d-verificar'),'verificarSubmissao');
  assert.match(root().textContent,/Ainda aguardando \(PENDING\)/);assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Submetido/);
- assert.match(api.pedidos.find(p=>p.acao==='submissao').url,/submission_id=s_01J0000000000000000000EX/);
+ assert.match(api.pedidos.find(p=>p.acao==='submissao').url,/submission_id=s_30000000000040008000000000000001/);
  api.responde('submissao',200,{estado:'submetido',provider_status:'PAUSED',rejected_reason:null,checked_at:'2026-09-09T20:20:00Z'}); // C03: status fora do trio não vira aprovação
- root().querySelector('#d-verificar').click();await settle();
+ await clickAction(x,root().querySelector('#d-verificar'),'verificarSubmissao');
  assert.match(root().textContent,/Provedor devolveu "PAUSED": não é aprovação nem rejeição/);assert.equal(root().querySelector('.draft-card').dataset.estado,'submetido');
  api.responde('submissao',200,{estado:'publicado',provider_status:'APPROVED',rejected_reason:null,checked_at:'2026-09-09T20:30:00Z'});
- root().querySelector('#d-verificar').click();await settle();
+ await clickAction(x,root().querySelector('#d-verificar'),'verificarSubmissao');
  assert.match(root().textContent,/Publicado pelo provedor \(APPROVED\)\. Publicado não é ativo: nenhum workflow mudou/);
  assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);
  assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'publicado');assert.equal(root().querySelector('#d-verificar'),null);
  // histórico com who/when de cada passo
  const hist=root().querySelector('.draft-historico').textContent;
- for(const t of ['rascunho','validar','submit','publicado','chave de escrita deste navegador','provedor via API'])assert.match(hist,new RegExp(t));
+ for(const t of ['rascunho','validar','submit','publicado','chave-felipe','provedor via API'])assert.match(hist,new RegExp(t));
  // nenhuma URL ou corpo levou a chave de leitura para a API de templates fora do parâmetro k do GET, e a de escrita nunca foi para URL
  assert.ok(api.pedidos.every(p=>!p.url.includes('ESCRITA-TESTE')));
  assert.equal(api.pedidos.filter(p=>p.body).every(p=>p.body.k==='ESCRITA-TESTE'),true);
  // filtro por estado
  set('#drafts-filtro','submetido');assert.match(root().textContent,/Nenhum rascunho neste estado/);set('#drafts-filtro','publicado');assert.equal(root().querySelectorAll('[data-draft]').length,1);
 });
-test('conflito 409 não sobrescreve e oferece refazer; 502 "nada alterado" mantém estado e reaproveita a idempotência; 401 esquece a chave',async()=>{
- const api=apiFalsa();
- const x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- const GRs=`GR.guarda(GR.novo({id:'r9',nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}],servidor:{draft_id:'d_9',version:1,estado:'validado',hash:GTA.hash(GR.conteudo(GR.novo({nome:'fish_rastreio_v3',corpo:'Oi {{1}}.',exemplos:{1:'Ana'},botoes:[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}]}))),eventos:[]}}))`;
- x.run(GRs);x.run('GRU.render()');x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
- const root=()=>x.document.querySelector('#control-drafts');root().querySelector('[data-draft-edit]').click();
- const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
- // 409 ao submeter
- root().querySelector('#d-submeter').click();set('#d-confirm-texto','submeter');
- api.responde('submeter',409,CONTRATO.erros['409']);
- root().querySelector('#d-confirm-ok').click();await settle();
- assert.match(root().textContent,/Alterado por chave-exemplo às 09\/09, 16:59 \(versão 4\)\. Recarregue e refaça; nada foi sobrescrito\./);
- assert.match(root().querySelector('#draft-editor .control-badge').textContent,/Validado · não submetido/); // estado não mudou
- assert.ok(root().querySelector('#d-refazer'));assert.match(root().querySelector('.draft-conflito').textContent,/Refazer sobre a v4/);
- root().querySelector('#d-refazer').click();
- assert.equal(root().querySelector('.draft-conflito'),null);assert.match(root().textContent,/Versão esperada ajustada para v4/);
- // 502 nothing_changed ao salvar de novo: estado igual, mensagem clara, mesma chave de idempotência na repetição
- api.responde('rascunho',502,CONTRATO.erros['502']);
- root().querySelector('#d-servidor').click();await settle();
- assert.match(root().textContent,/Meta\/Listmonk indisponível; nada foi alterado\. Tente em 60 s/);
- const r1=api.pedidos.filter(p=>p.acao==='rascunho')[0];assert.equal(r1.body.draft_id,'d_9');assert.equal(r1.body.expected_version,4);
- api.responde('rascunho',200,{draft_id:'d_9',version:5,estado:'rascunho',salvo_em:'2026-09-11T12:00:00Z',who:'chave-felipe'});
- root().querySelector('#d-servidor').click();await settle();
- const r2=api.pedidos.filter(p=>p.acao==='rascunho')[1];assert.equal(r2.body.idempotency_key,r1.body.idempotency_key); // repetição após 502 reaproveita a chave
- assert.match(root().textContent,/salvo no servidor como v5/);assert.match(root().querySelector('.draft-historico').textContent,/chave-felipe · rascunho v—→v5 · ok/);
- // 502 sem nothing_changed é incerto
- api.responde('validar',502,{erro:'upstream_error'});root().querySelector('#d-validar').click();await settle();
- assert.match(root().textContent,/estado incerto\. Consulte o histórico/);
- // 401 esquece a chave guardada e nada mais é enviado sem chave (prompt do teste devolve null)
- api.responde('validar',401,CONTRATO.erros['401']);root().querySelector('#d-validar').click();await settle();
- assert.equal(x.store.get('shrigma_tpl_key'),undefined);assert.match(root().textContent,/Chave de escrita inválida/);assert.match(root().textContent,/Chave de escrita: ainda não informada/);
- const antes=api.pedidos.length;root().querySelector('#d-validar').click();await settle();
- assert.equal(api.pedidos.length,antes);assert.match(root().textContent,/Sem chave de escrita: nada foi enviado/);
+test('409/502 without a durable receipt stay frozen; a later exact GET recovers without POST replay',async()=>{
+ for(const status of [409,502]){
+  const api=apiFalsa(),x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+  x.run("GR.guarda(GR.novo({id:'pending-template',nome:'fixture_template',corpo:'Conteúdo sintético.'}));GRU.render()");
+  x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+  const root=()=>x.document.querySelector('#control-drafts');root().querySelector('[data-draft-edit]').click();
+  api.responde('rascunho',status,CONTRATO.erros[String(status)]);await clickAction(x,root().querySelector('#d-servidor'),'salvarServidor');
+  assert.match(root().textContent,/Operação sem confirmação/);const sent=api.pedidos.find(p=>p.acao==='rascunho');assert.ok(sent);
+  assert.equal(x.run('GRU.state.rascunho.servidor?.draft_id'),undefined);
+  await x.run('GRU.salvarServidor(GRU.state.rascunho)');
+  assert.equal(api.pedidos.filter(p=>p.acao==='rascunho').length,1,'uncertain attempts never replay POST');
+  await clickAction(x,root().querySelector('[data-template-operacao]'),'consultarOperacao');
+  assert.equal(api.pedidos.filter(p=>p.acao==='rascunho').length,1);assert.match(root().textContent,/Operação sem confirmação/);
+  if(status===502){
+   api.confirma(sent.body,201,{draft_id:'d_recovered',version:1,estado:'rascunho',salvo_em:'2026-09-11T12:00:00Z'});
+   await clickAction(x,root().querySelector('[data-template-operacao]'),'consultarOperacao');
+   assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'d_recovered');assert.match(root().textContent,/salvo no servidor como v1/);
+   assert.equal(api.pedidos.filter(p=>p.acao==='rascunho').length,1);assert.equal(x.run('GRU.journal().inspect().blocked'),false);
+  }
+  for(const call of api.pedidos.filter(p=>p.acao==='operacao')){assert.equal(call.headers['X-Template-Key'],'ESCRITA-TESTE');assert.ok(!call.url.includes('ESCRITA-TESTE'));}
+ }
+});
+test('opening an older confirmed template receipt never lowers the current revision or replays a POST',async()=>{
+ const api=apiFalsa(),x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+ x.run("GRU.state.rascunho=GR.novo({id:'versioned-template',nome:'fixture_template',corpo:'Primeira versão sintética.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ api.responde('rascunho',201,{draft_id:'d_versioned',version:1,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
+ const firstId=x.run('GRU.journal().inspect().operations[0].id');
+ x.run('GRU.state.rascunho.corpo="Segunda versão sintética."');api.responde('rascunho',200,{draft_id:'d_versioned',version:2,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
+ const before=x.run('JSON.stringify(GR.lista()[0])'),posts=api.pedidos.filter(p=>p.body).length;
+ await x.run(`GRU.consultarOperacao(${JSON.stringify(firstId)})`);
+ assert.equal(x.run('GRU.state.rascunho.servidor.version'),2);assert.equal(x.run('JSON.stringify(GR.lista()[0])'),before);assert.equal(api.pedidos.filter(p=>p.body).length,posts);
+ assert.equal(x.run('GRU.journal().inspect().operations.every(op=>op.applied===true)'),true);
+});
+test('editing during a pending save keeps the new text local and dirty after the frozen original receipt arrives',async()=>{
+ const api=apiFalsa();let release,entered;
+ const reached=new Promise(resolve=>entered=resolve),barrier=new Promise(resolve=>release=resolve);
+ const x=await boot(comCaps({submit:true}),{fetchMock:async(url,init)=>{if(url.startsWith(TPL_END)&&init?.method==='POST'){entered();await barrier;}return api.mock(url,init);}});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+ x.run("GRU.state.rascunho=GR.novo({id:'edited-template',nome:'fixture_template',corpo:'Texto enviado sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ api.responde('rascunho',201,{draft_id:'d_edited',version:1,estado:'rascunho'});const pending=x.run('GRU.salvarServidor(GRU.state.rascunho)');await reached;
+ x.run('GRU.state.rascunho.corpo="Nova edição local durante a espera."');release();await pending;
+ assert.equal(api.pedidos.find(p=>p.body).body.rascunho.corpo,'Texto enviado sintético.');assert.equal(x.run('GR.lista()[0].corpo'),'Nova edição local durante a espera.');
+ assert.equal(x.run('GTA.situacao(GR.lista()[0]).sujo'),true);assert.equal(x.run('GRU.journal().inspect().operations[0].applied'),true);
+ assert.equal(x.document.querySelector('#d-validar'),null);
+});
+test('unauthorized operation preflight performs no POST and creates no local reservation',async()=>{
+ const api=apiFalsa(),x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
+ x.run("GR.guarda(GR.novo({id:'unauthorized-template',nome:'fixture_template',corpo:'Conteúdo sintético.'}));GRU.render()");
+ x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();x.document.querySelector('[data-draft-edit]').click();
+ api.responde('operacao',401,{erro:'invalid_key'});await clickAction(x,x.document.querySelector('#d-servidor'),'salvarServidor');
+ assert.equal(api.pedidos.some(p=>p.body),false);assert.equal(x.run('GRU.journal().inspect().operations.length'),0);
+ assert.match(x.document.querySelector('#control-drafts').textContent,/Nada foi enviado/);
 });
 test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só com read_content e ao pedir; histórico com who/when',async()=>{
  const api=apiFalsa();
@@ -604,12 +680,12 @@ test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só
  assert.match(row('fish_native').querySelector('.control-template-pub').textContent,/Publicado · não ativo \(sem workflow mapeado\)/);
  assert.equal(x.document.querySelectorAll('.control-template-preview').length,0); // nada carregado sem pedir
  api.responde('listar',200,{api_version:'2026-09-1',templates:[{...CONTRATO.listar.templates[0],key:'fish_paid',name:'fish_confirmacao_exemplo',brand:'fish'}]});
- x.document.querySelector('#control-tpl-conteudo').click();await settle();
+ x.document.querySelector('#control-tpl-conteudo').click();await waitFor(()=>row('fish_paid').querySelector('.control-template-preview'),'published template preview');
  assert.match(api.pedidos[0].url,/k=synthetic-test-key&acao=listar$/); // leitura: chave de leitura do painel, sem marca no recorte "todas"
  const prev=row('fish_paid').querySelector('.control-template-preview');assert.ok(prev);assert.match(prev.querySelector('summary').textContent,/Prévia publicada · v3 · 07\/09\/2026/);
  assert.match(prev.textContent,/Olá Ana, o pedido #48213 está a caminho/);assert.match(prev.textContent,/↗ Acompanhar pedido/);
  assert.match(row('aristo_paid').textContent,/Conteúdo publicado não veio na resposta da API/);
- api.responde('historico',200,CONTRATO.historico);prev.querySelector('[data-tpl-historico]').click();await settle();
+ api.responde('historico',200,CONTRATO.historico);prev.querySelector('[data-tpl-historico]').click();await waitFor(()=>row('fish_paid').querySelector('.control-template-hist')?.textContent.includes('chave-exemplo'),'template history receipt');
  assert.match(api.pedidos[1].url,/acao=historico&key=fish_paid$/);
  assert.match(row('fish_paid').querySelector('.control-template-hist').textContent,/chave-exemplo · submit v2→v3 · ok/);
  const y=await boot(comCaps({read_content:false}));y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="templates"]').click();
