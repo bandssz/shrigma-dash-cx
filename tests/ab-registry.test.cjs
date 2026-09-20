@@ -45,8 +45,28 @@ test('SQL and controller integration suite runs in isolated PostgreSQL only',asy
 
 test('migration rejects schema, ledger constraints and trigger shape drift without silently repairing it',async()=>{
  const {PGlite}=require('@electric-sql/pglite'),{SCHEMA,SQL}=require('./ab-registry-postgres.cjs');
- for(const change of ["ALTER TABLE crm_ab_operation_v1 ADD COLUMN unexpected text", "ALTER TABLE crm_ab_operation_v1 DROP CONSTRAINT crm_ab_operation_v1_state_check", "GRANT SELECT ON crm_ab_operation_v1 TO PUBLIC", "DROP TRIGGER crm_ab_registry_guard_v1 ON crm_teste; CREATE TRIGGER crm_ab_registry_guard_v1 BEFORE UPDATE ON crm_teste FOR EACH ROW EXECUTE FUNCTION crm_ab_registry_guard_v1()"]){
+ for(const change of ["ALTER TABLE crm_ab_operation_v1 ADD COLUMN unexpected text", "ALTER TABLE crm_ab_operation_v1 DROP CONSTRAINT crm_ab_operation_v1_state_check", "ALTER TABLE crm_ab_operation_v1 ADD CONSTRAINT duplicate_state CHECK(state IN ('running','completed'))", "ALTER TABLE crm_ab_operation_v1 DROP CONSTRAINT crm_ab_operation_v1_state_check; ALTER TABLE crm_ab_operation_v1 ADD CONSTRAINT changed_state CHECK(state IN ('running','completed','other'))", "GRANT SELECT ON crm_ab_operation_v1 TO PUBLIC", "DROP TRIGGER crm_ab_registry_guard_v1 ON crm_teste; CREATE TRIGGER crm_ab_registry_guard_v1 BEFORE UPDATE ON crm_teste FOR EACH ROW EXECUTE FUNCTION crm_ab_registry_guard_v1()"]){
   const db=new PGlite();try{await db.exec(SCHEMA);await db.exec(SQL);await db.exec(change);await assert.rejects(db.exec(SQL),/AB_(LEDGER|REGISTRY_GUARD).*DRIFT/);await db.exec('ROLLBACK');}finally{await db.close();}
  }
  const db=new PGlite();try{await db.exec(SCHEMA);await db.exec('ALTER TABLE crm_teste ALTER COLUMN nome DROP NOT NULL');await assert.rejects(db.exec(SQL),/AB_SCHEMA_DRIFT/);await db.exec('ROLLBACK');assert.equal((await db.query("SELECT to_regclass('crm_ab_operation_v1') AS id")).rows[0].id,null);}finally{await db.close();}
+});
+
+// PostgreSQL locales need not sort textual CHECK definitions like PGlite.
+test('migration compares the exact constraint set without depending on array order',async()=>{
+ const {PGlite}=require('@electric-sql/pglite'),{SCHEMA,SQL}=require('./ab-registry-postgres.cjs');
+ const matched=SQL.match(/\$constraints\$(.*?)\$constraints\$/s);assert.ok(matched);
+ const reversed=SQL.replace(matched[0],()=>'$constraints$'+JSON.stringify(JSON.parse(matched[1]).reverse())+'$constraints$');
+ const db=new PGlite();try{await db.exec(SCHEMA);await db.exec(reversed);await db.exec(SQL);
+  const r=await db.query("SELECT count(*)::int AS n FROM pg_constraint WHERE conrelid='crm_ab_operation_v1'::regclass");assert.equal(r.rows[0].n,5);
+ }finally{await db.close();}
+});
+
+test('migration canonicalizes constraint rendering locally without changing caller session settings',async()=>{
+ const {PGlite}=require('@electric-sql/pglite'),{SCHEMA,SQL}=require('./ab-registry-postgres.cjs');
+ const db=new PGlite();try{await db.exec(SCHEMA);await db.exec('SET search_path=pg_catalog; SET quote_all_identifiers=on');
+  await db.exec(SQL);await db.exec(SQL);
+  assert.equal((await db.query('SHOW search_path')).rows[0].search_path,'pg_catalog');
+  assert.equal((await db.query('SHOW quote_all_identifiers')).rows[0].quote_all_identifiers,'on');
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM public.crm_teste')).rows[0].n,1);
+ }finally{await db.close();}
 });
