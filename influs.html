@@ -182,6 +182,14 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 .i-cont{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px}
 .i-cont div{font:400 12px/1.3 var(--ui);color:var(--rotulo)}
 .i-cont strong{display:block;font:700 18px/1.2 var(--ui);color:var(--texto)}
+
+/* Formulários de acesso por papel, também disponíveis dentro do editor. */
+#influ-access{margin:0 0 16px}.influ-access-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#influ-access-form{margin:12px 0;scroll-margin-top:16px}#influ-access-form[hidden]{display:none}
+#influ-access-form fieldset{border:0;padding:0;margin:0}#influ-access-form h3{margin:0 0 8px}
+.influ-access-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:12px 0}
+.influ-access-grid label{display:block;font-size:13px;margin-bottom:6px}.influ-access-grid input{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid var(--borda,#cbd5e1);border-radius:7px}
+#influ-access-form button{margin:4px 6px 0 0}#influ-access-message,#influ-access-status{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -216,6 +224,8 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
   </div>
 
   <div id="faixa-alertas" aria-live="polite"></div>
+
+  <section id="influ-access" aria-label="Acessos do painel"></section>
 
   <section class="kpis" id="area-kpis"></section>
 
@@ -376,16 +386,21 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 
 <script src="frescor.js?v=78bf41ec"></script>
 <script src="config.js?v=2c7e9f41"></script>
+<script src="influs-access.js?v=666f1a0650"></script>
 <script src="influs-tts-actions.js?v=c4c9a09767"></script>
 <script src="influs-tts.js?v=81d0b2f56c"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script>
 const $=s=>document.querySelector(s);
-// mesma chave de leitura do painel, mesmo item de localStorage: quem ja abriu o Growth nao redigita.
-function chaveLeitura(){let k=shrigmaChave("influs");
-  if(!k){k=(prompt('Chave de acesso do painel de Influs:')||'').trim();
-    if(k)shrigmaGuardaChave("influs", k); else return null;}
-  return k;}
+// Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
+const INFLU_ACCESS=InflusAccess.bind({document,host:$('#influ-access'),
+  readExisting:()=>shrigmaChave('influs'),writeExisting:()=>localStorage.getItem('shrigma_influ_key'),
+  authorExisting:()=>localStorage.getItem('shrigma_autor'),
+  onRead:async()=>{await Promise.allSettled([carregarInflu(),faixaCredencial(),...(window.carregarTTS?[window.carregarTTS()]:[])]);}});
+// O TTS conserva seu próprio acesso de escrita/journal; a leitura compartilha este painel.
+const esqueceChaveExistente=shrigmaEsqueceChave;
+shrigmaEsqueceChave=function(painel){if(painel==='influs')INFLU_ACCESS.forgetRead();return esqueceChaveExistente(painel);};
+function chaveLeitura(){return INFLU_ACCESS.requireRead();}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
@@ -529,22 +544,29 @@ function pintaMarca(){
 // dominio de falha separado, igual ao coletor de conversao.
 let INFLU=null, INFLU_SEQ=0;
 
-function chaveEscritaInflu(){
-  let wk=localStorage.getItem('shrigma_influ_key');
-  if(!wk){wk=prompt('Chave de ESCRITA (cadastro de influs):');
-    if(!wk)return null;localStorage.setItem('shrigma_influ_key',wk);}
-  return wk;
-}
+function chaveEscritaInflu(){return INFLU_ACCESS.requireWrite();}
 async function influPost(corpo){
-  if(typeof INFLU_API_URL==='undefined')throw new Error('INFLU_API_URL não configurada em config.js');
-  const r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(corpo)});
-  let j={};try{j=await r.json();}catch(_){}
-  if(r.status===401){
-    if(corpo.acao!=='listar')localStorage.removeItem('shrigma_influ_key');
-    throw new Error('chave inválida');
+  if(typeof INFLU_API_URL==='undefined')throw new Error('Serviço de cadastro indisponível.');
+  const escrita=corpo.acao!=='listar',role=escrita?'write':'read';
+  if(escrita){
+    const wk=chaveEscritaInflu();if(!wk||wk!==corpo.k)throw new Error('Informe acesso e autoria; depois confirme a alteração novamente. Nada foi enviado.');
+    corpo={...corpo,autor:INFLU_ACCESS.author()};
   }
-  if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
+  let r;try{r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    redirect:'error',credentials:'omit',cache:'no-store',body:JSON.stringify(corpo)});}
+  catch(_){throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Não foi possível consultar os dados agora.');}
+  let j=null;try{j=await r.json();}catch(_){}
+  if(r.status===401||r.status===403){
+    const message=r.status===401?'Chave inválida. Informe novamente o acesso.':'A chave não permite esta operação. Confira o acesso de '+(escrita?'cadastro.':'leitura.');
+    INFLU_ACCESS.reject(role,corpo.k,message);
+    const error=new Error(message);error.status=r.status;throw error;
+  }
+  const valid=j&&typeof j==='object'&&!Array.isArray(j)&&Object.keys(j).length>0;
+  if(!valid)throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Resposta de leitura indisponível; tente atualizar novamente.');
+  if(!r.ok||j.erro){
+    const message=typeof j.erro==='string'?j.erro.slice(0,400):'Não foi possível concluir a operação (HTTP '+r.status+').';
+    throw new Error(corpo.k?message.split(corpo.k).join('[acesso ocultado]'):message);
+  }
   return j;
 }
 /* Faixa de credencial. O Influs le de outro endpoint, entao busca so este
@@ -556,13 +578,13 @@ async function faixaCredencial(){
     // A chave do painel de Influs abre APENAS a faixa de credencial nesta API: o
     // recorte por painel do n8n nao entrega dado de CX nem de Growth para ela.
     // O dado de influenciador vem do endpoint proprio, com a chave de escrita.
-    const k=shrigmaChave("influs")||'';
+    const k=(typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):shrigmaChave('influs'))||'';
     if(!k)return;
     const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=influs');
     if(!r.ok)return;
     const j=await r.json();
     const p=Array.isArray(j)?(j[0]&&j[0].payload)||j[0]:(j.payload||j);
-    shrigmaMarcaMestra(k, p&&p._painel);
+    if(typeof INFLU_ACCESS==='undefined'||!INFLU_ACCESS.isSessionRead(k))shrigmaMarcaMestra(k, p&&p._painel);
     if(window.avisoCredencial)window.avisoCredencial((p&&p.crm_credencial)||[]);
     if(p)shrigmaFrescor(p,$('#frescor'));
   }catch(e){ /* silencioso de proposito */ }
@@ -574,14 +596,14 @@ function avisoTela(titulo,detalhe,botao){
   const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
   $('#area-tabela').innerHTML=`<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${bt}</div>`;
   $('#area-cortes').innerHTML=''; $('#area-kpis').innerHTML=''; $('#faixa-alertas').innerHTML='';
-  const b=$('#btn-retry'); if(b) b.onclick=()=>{shrigmaEsqueceChave("influs");carregarInflu();};
+  const b=$('#btn-retry'); if(b) b.onclick=()=>{/chave|acesso/i.test(titulo)?INFLU_ACCESS.show('read',{explicit:true}):carregarInflu();};
 }
 async function carregarInflu(){
   const seq=++INFLU_SEQ, periodo={ini:PER.ini,fim:PER.fim};
   const k=chaveLeitura();
   INFLU=null; // nenhum dado do recorte anterior pode ser repintado sob datas novas
   if(!k){ avisoTela('Chave de acesso não informada',
-    'O painel precisa da chave de leitura para carregar. Ela fica guardada neste navegador depois da primeira vez.',
+    'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
   try{
@@ -593,7 +615,7 @@ async function carregarInflu(){
     if(seq!==INFLU_SEQ)return;
     const chaveRuim=/chave/i.test(e.message);
     avisoTela(chaveRuim?'Chave inválida':'Falha ao carregar',
-      esc(e.message)+(chaveRuim?'':'<br><span class="mini">Se persistir, o workflow da API pode estar desativado no n8n.</span>'),
+      esc(e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
       chaveRuim?'Digitar outra chave':'Tentar de novo');
   }
 }
@@ -864,13 +886,8 @@ function renderTabela(){
 // (associar ou criar) ou nao e (CRM / campanha / cortesia / suporte / outro) -- e so
 // depois entra ou sai da conta. Nada de novo na API: e o salvar_cupom de sempre.
 const fmtData=d=>{const [a,m,dd]=String(d).slice(0,10).split('-');return dd&&m?`${dd}/${m}/${a.slice(2)}`:String(d);};
-// Quem esta mexendo: vai para crm_cupom_log/autor. Pergunta uma vez e guarda no navegador.
-function autorAtual(){
-  let a=localStorage.getItem('shrigma_autor')||'';
-  if(!a){a=(prompt('Seu nome (fica no histórico de quem classificou/editou):')||'').trim().slice(0,60);
-    if(a)localStorage.setItem('shrigma_autor',a);}
-  return a;
-}
+// Autoria é exigida junto ao acesso de cadastro; confirmar acesso não retoma uma gravação.
+function autorAtual(){return INFLU_ACCESS.author();}
 const TIPO_ROTULO={crm:'CRM (régua/e-mail)',campanha:'Campanha',cortesia:'Cortesia',suporte:'Suporte / CX',desconhecido:'Outro'};
 function renderInbox(){
   const el=$('#i-inbox'); if(!el)return;
@@ -908,7 +925,10 @@ function renderInbox(){
   });
 }
 async function classificarCupom(marca,cod,tipo,influ,msg,it){
-  const wk=chaveEscritaInflu();if(!wk)return;
+  const wk=chaveEscritaInflu();if(!wk){
+    it.querySelectorAll('.ib-creator,.ib-tipo-sel').forEach(s=>{s.selectedIndex=0;});
+    msg.textContent='Confirme o acesso e selecione novamente a classificação.';return;
+  }
   it.querySelectorAll('button,select').forEach(x=>x.disabled=true);
   msg.textContent='salvando…';
   try{

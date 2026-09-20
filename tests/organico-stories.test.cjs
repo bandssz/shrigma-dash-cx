@@ -53,3 +53,11 @@ test('real page wiring synchronizes model between Stories and Venda and keeps fo
  document.querySelector('[data-org-model="last_click"]').click();assert.equal(document.querySelector('[data-story-total="orders"]').textContent,'2');assert.equal(focused.dataset.orgModel,'last_click');assert.equal(document.querySelector('[data-story-model="last_click"]').getAttribute('aria-pressed'),'true');
  assert.match(html,/<section class="sec" id="sec-stories">\s*<div class="painel" id="stories-conversions">/);
 });
+
+test('story medium with link_in_bio content keeps the source classification and exposes the conflicting publication signal',()=>{
+ const p=fixture({daily:[row({utm_content:'link_in_bio',pedidos:4,receita_liquida:240.50}),row({model:'last_non_direct',utm_content:'link_in_bio',pedidos:7,receita_liquida:420}),row({classification:'bio',superficie:'bio',utm_medium:'linktree',utm_content:'link_in_bio',pedidos:10,receita_liquida:900})]});
+ const before=JSON.stringify(p),v=select(p),text=OS.markup(v);
+ assert.equal(v.storyOrders,4);assert.equal(v.storyRevenue,240.50);assert.equal(v.storyGroups.length,1);assert.match(text,/Sinal conflitante:/);assert.match(text,/medium=story e content=link_in_bio/);assert.match(text,/regra vigente usa source\/medium/);assert.match(text,/local real de publicação continua não comprovado/);assert.match(text,/categorias de automação DM, Bio\/Linktree/);
+ assert.equal(select(p,'aristo','last_non_direct').storyOrders,7);assert.equal(JSON.stringify(p),before);
+ assert.doesNotMatch(OS.markup(select(fixture())),/Sinal conflitante:/);
+});
