@@ -28,8 +28,13 @@ test('missing, fractional, boolean, negative, truncated or incompatible bases ne
 });
 test('a large descriptive difference cannot manufacture a winner, mature window or assignment',()=>{
  const api=payload(),result=G.analisaTeste(api,experiment(),arms());assert.equal(result.status,'descritivo');assert.equal(result.canDeclareWinner,false);assert.equal(result.causal,false);assert.equal(result.difference,13);
+ assert.equal(result.relativeDifference,650);
  assert.equal(G.compara(result.arms[0].metric,result.arms[1].metric).status,'conclusivo'); // old presentation would declare a winner
  const duplicate=arms().map(b=>({...b,campanha_id:1}));assert.equal(G.analisaTeste(api,experiment(),duplicate).difference,null);
+});
+test('relative A/B difference remains unavailable when arm A is zero',()=>{
+ const api=payload();api.crm_campanha[0].clicaram=0;const result=G.analisaTeste(api,experiment(),arms());
+ assert.equal(result.difference,15);assert.equal(result.relativeDifference,null);
 });
 test('three registered arms keep their own metrics and do not silently reuse armB',()=>{
  const api=payload();api.crm_campanha.push(campaign({campanha_id:3,entregues:10000,clicaram:4000}));
@@ -79,6 +84,7 @@ function boot(api,opts={}){
 }
 test('UI reports descriptive snapshots, no winner suggestion, and closes only a manual inconclusive record',async()=>{
  const x=boot(payload()),text=x.document.querySelector('#area-testes').textContent;
+ assert.match(text,/Diferença observada B − A/);assert.match(text,/\+13,00 p\.p\./);assert.match(text,/\+650,0% em relação à taxa de A/);
  assert.match(text,/Comparação descritiva, sem vencedor automático/);assert.match(text,/dados acumulados/);assert.match(text,/não muda com o filtro de período/);assert.doesNotMatch(text,/Braço [AB] venceu|p=|Conclusivo\./);
  assert.equal(x.document.querySelector('.e-venc'),null);assert.equal(x.calls.length,0);
  x.document.querySelector('.btn-encerrar').click();x.document.querySelector('.e-conc').value='Observação operacional, sem conclusão causal.';await x.run('encerrarTeste("synthetic-ab")');

@@ -368,8 +368,10 @@ const G = {
     const arms=bracos.map(b=>({braco:b.braco,...G.avaliaBraco(api,teste,b)}));
     const distinct=new Set(bracos.map(b=>b.campanha_id===null||b.campanha_id===undefined?'':String(b.campanha_id)));
     const pair=arms.length===2&&distinct.size===2&&arms.every(a=>a.metric);
+    const rateA=pair?arms[0].metric.x/arms[0].metric.n:null,rateB=pair?arms[1].metric.x/arms[1].metric.n:null;
+    const difference=pair?100*(rateB-rateA):null;
     return {status:arms.some(a=>a.metric)?'descritivo':'sem_dados',arms,
-      difference:pair?100*(arms[1].metric.x/arms[1].metric.n-arms[0].metric.x/arms[0].metric.n):null,
+      difference,relativeDifference:pair&&rateA>0?100*(rateB-rateA)/rateA:null,
       comparable:!!pair,causal:false,canDeclareWinner:false};
   },
 };
