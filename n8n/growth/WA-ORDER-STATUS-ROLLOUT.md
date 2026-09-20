@@ -78,3 +78,22 @@ Preparação parcial dos runtimes permanece compatível com seleção antiga. Um
 Os testes usam somente dados sintéticos e PGlite. Cobrem snapshots completos, estado pausado preservado, recibo idempotente, autorização, escopo, drift de aprovação/conteúdo, alteração indevida de campos, código ativo divergente, validação existente, falha tardia com rollback completo e falha da migração durante REVOKE. A suíte conjunta também cobre rastreio, pagamento/cancelamento e retenção de reservas incertas.
 
 O validador SQL é o arquivo real do repositório. A assinatura do fixture representa apenas o formato observado TEXT/BODY/URL; produção reaproveita a função instalada e exige conferência fresca. Não se alegam aprovação real, instalação, corrida simultânea entre sessões de produção ou entrega a partir dessas provas locais. Artefatos operacionais, payloads, exports, copy revisada, chaves e dados de clientes permanecem privados.
+
+## Transporte parametrizado na utility existente
+
+`sql-utility-parameters-patch.cjs` prepara uma única alteração em `ygVyBPjJqGqt2V5E`: o campo `SQL.parameters.options.queryReplacement`. A consulta continua sendo `={{ $json.body.q }}` e a rota Webhook POST → autenticação → SQL/401 é preservada integralmente, assim como credencial e conexão. O gerador exige versão fresca e a forma conhecida dos nós/conexões; não publica.
+
+O campo opcional `body.args` deve ser um array de até 128 valores escalares (string, número finito, boolean ou null). JSON do pedido deve ser serializado como string em um parâmetro. Campo ausente resulta em `[]`, preservando consultas sem parâmetros; forma inválida falha antes do PostgreSQL. A expressão não concatena valores ao SQL. O patch continua exigindo publicação/releitura do runtime e roundtrip literal nativo comprovado antes do CAS; teste de VM/PGlite não substitui essa prova.
+
+## Executor privado e quiescência
+
+O executor operacional permanece privado, separado dos módulos públicos. `prepare` pode retomar somente preparação nunca tentada, ainda sem payload congelado, mantendo a mesma UUID. Uma atualização explícita de preparação (`refresh`) só é admitida antes de qualquer tentativa; arquiva o payload anterior e mantém a UUID. Se a leitura nova falhar, o payload anterior permanece preservado. Estado attempted, incerto ou confirmado não admite essas operações nem outro POST CAS.
+
+Antes de congelar o pedido e antes do único CAS, a leitura de execuções percorre integralmente `GET /api/v1/executions` por workflow, com `limit=250` e sem filtro de status, até não existir `nextCursor`. Cursor deve ser codificado na query. Não se corta por idade ou primeira página. Qualquer paginação incompleta, erro, limite de páginas, identidade divergente, estado desconhecido/pendente ou terminal sem término comprovado bloqueia. Um estado desconhecido antigo não é dispensado por ser histórico.
+
+A reconciliação consulta o recibo por chave e ator com agregação JSON para produzir uma linha mesmo quando não há recibo. Confere também o payload integral congelado. Ausência de recibo não torna uma execução pendente revertida nem libera nova tentativa. Commit confirmado seguido de timeout de leitura permanece confirmado, com readback pendente. A configuração só recebe a marca de verificada após conferir quatro registros, seis seletores e os três runtimes ativos novamente.
+
+
+A expressão opcional evita acesso a `Object.prototype`, que não é compatível com o motor restrito. Como o corpo chega por JSON, `body.args === undefined` representa campo ausente; null ou outro tipo explícito continua inválido. O gerador reconhece exclusivamente a expressão anterior exata para permitir essa correção em um campo. Testes reproduzem a restrição, mas publicação ainda requer smoke real. Referências: [motor de expressões](https://github.com/n8n-io/n8n/blob/master/packages/workflow/src/expression.ts) e [parâmetros PostgreSQL](https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/nodes/Postgres/v2/actions/database/executeQuery.operation.ts).
+
+O mesmo nó interpreta delimitadores de expressão encontrados dentro do texto SQL, inclusive dentro de uma string SQL. A migração monta o marcador de URL com caracteres para que a fonte transportada não seja reinterpretada. Conferir o corpo completo da função após instalar é obrigatório; sucesso do nó sem essa comparação não comprova a instalação correta.

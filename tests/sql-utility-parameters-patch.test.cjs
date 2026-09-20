@@ -27,3 +27,23 @@ test('native PostgreSQL binding round-trips opaque JSON while preserving a table
   assert.equal((await db.query('SELECT count(*)::int AS n FROM synthetic',Array.from(expression({q:'unused'})))).rows[0].n,1);
  }finally{await db.close();}
 });
+
+
+test('restricted expression runtime rejects the exact former prototype access; new expression preserves JSON semantics',()=>{
+ const RestrictedObject=new Proxy(Object,{get(target,key){if(key==='prototype')throw Error('Cannot access prototype due to security concerns');return Reflect.get(target,key);}});
+ const run=(source,body)=>vm.runInNewContext(source.slice(3,-2),{$json:{body},Object:RestrictedObject});
+ assert.throws(()=>run(P.LEGACY_EXPRESSION,{q:'SELECT 1'}),/prototype/);
+ assert.deepEqual(Array.from(run(P.EXPRESSION,{q:'SELECT 1'})),[]);
+ const args=['opaque,quote\' Unicode ç {{ Macro }}',JSON.stringify({safe:true}),null,42,true];
+ assert.deepEqual(Array.from(run(P.EXPRESSION,{args})),args);
+ for(const args of [null,'a,b',{},[{}],[[]],[Infinity],Array(129).fill('x')])assert.throws(()=>run(P.EXPRESSION,{args}),/SQL_ARGS_INVALID/);
+ assert.doesNotMatch(P.EXPRESSION,/prototype|hasOwnProperty/);
+});
+test('migration recognizes only the exact deployed expression and changes a single field',()=>{
+ const w=fixture();w.nodes[2].parameters.options.queryReplacement=P.LEGACY_EXPRESSION;
+ const before=structuredClone(w),patched=P.patchUtility(w,{expectedVersionId:'fresh'});
+ assert.equal(patched.changes.length,1);assert.equal(patched.workflow.nodes[2].parameters.options.queryReplacement,P.EXPRESSION);assert.deepEqual(w,before);
+ const restored=structuredClone(patched.workflow);restored.nodes[2].parameters.options.queryReplacement=P.LEGACY_EXPRESSION;assert.deepEqual(restored,before);
+ const unknown=structuredClone(w);unknown.nodes[2].parameters.options.queryReplacement+=' ';assert.throws(()=>P.patchUtility(unknown,{expectedVersionId:'fresh'}),/differs/);
+ assert.deepEqual(P.patchUtility(patched.workflow,{expectedVersionId:'fresh'}).changes,[]);
+});
