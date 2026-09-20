@@ -4,14 +4,14 @@ const {parseHTML}=require('linkedom'),locks=require('./campaign-lock-fixture.cjs
 global.CampaignContract=C;const E=require('../growth-campaign-editor'),root=path.resolve(__dirname,'..');
 const file=extra=>JSON.stringify({schema:'shrigma_panel_access_v1',panel:'campaign',role:'write',key:'synthetic-campaign-writer',...extra});
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Fixture técnica',subject:'Fixture',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[1000],template_id:1,html:'https://fishermans.com.br/products/fixture {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/fixture {{ UnsubscribeURL }}',tags:[],send_at:'2099-01-01T15:00:00.000Z'});
-function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null}={}){
+function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,dialogSupport=true}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');let focused=null;window.HTMLElement.prototype.focus=function(){if(!this.disabled&&!this.closest('fieldset')?.disabled)focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused});
  const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  if(!store.has('shrigma_campaign_composer_v1'))store.set('shrigma_campaign_composer_v1',JSON.stringify(E.fromDefinition(definition())));
  store.set('read','synthetic-reader');if(legacyWrite)store.set('write',legacyWrite);
- const calls=[],writes=[],confirms=[];let c={id:1000,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
+ const calls=[],writes=[];let c={id:1000,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
  const ctx=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks:locks()},GTA:{CHAVE_ESCRITA:'write',CHAVE_LEITURA:'read'},GMP:{openEmail:()=>{}},
-  localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>{writes.push(k);store.set(k,v);},removeItem:k=>{writes.push(k);store.delete(k);}},confirm:text=>{confirms.push(text);return true;},
+  localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>{writes.push(k);store.set(k,v);},removeItem:k=>{writes.push(k);store.delete(k);}},confirm:()=>{throw Error('native confirm must not be called');},
   fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);calls.push({req,init});let body;
    if(init.method==='POST'){const journal=JSON.parse(store.get('shrigma_campaign_operation_v1:fish'));assert.equal(journal.operation.phase,'pending');assert.equal(journal.operation.key,req.idempotency_key);assert.ok(!JSON.stringify(journal).includes(req.k));if(failure==='timeout')throw Error('fixture lost response');if(failure)return {status:failure,json:async()=>({error:failure===401?'UNAUTHORIZED':'CAPABILITY_MISSING',operation_id:null})};}
    if(req.acao==='campanha_catalogo'){await beforeCatalog?.();body={brand:'fish',current:true,lists:[{id:1000,name:'Lista técnica vazia',available:true,brand:'fish'}],templates:[{id:1,name:'Fixture',type:'campaign',available:true}]};}
@@ -24,7 +24,8 @@ function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null}={
  const q=s=>document.querySelector(s),submit=()=>q('[data-ce-access-form]').onsubmit({preventDefault(){}});
  async function importFile(text){const field=q('[data-ce-access-file]');Object.defineProperty(field,'files',{configurable:true,value:[{size:typeof text==='string'?text.length:100,text:()=>typeof text==='function'?text():Promise.resolve(text)}]});await field.onchange();}
  function prepare(k='synthetic-campaign-writer'){q('[data-ce-access-open]').click();q('[data-ce-key]').value=k;submit();}
- return {run,q,document,window,store,calls,writes,confirms,submit,importFile,prepare,focused:()=>focused};
+ const dialog=dialogSupport?require('./campaign-dialog-fixture.cjs')(document,window):null;
+ return {run,q,document,window,store,calls,writes,confirms:dialog?.messages,dialog,submit,importFile,prepare,focused:()=>focused,setFailure:v=>{failure=v;}};
 }
 async function until(check){for(let i=0;i<200;i++){if(check())return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI did not finish');}
 const posts=x=>x.calls.filter(c=>c.init.method==='POST');
@@ -70,6 +71,74 @@ test('uncertain operation survives reload without session key; same writer looku
  y.prepare();assert.equal(y.calls.length,0);y.q('[data-ce-consult]').click();await until(()=>y.calls.length===1);assert.equal(y.calls[0].init.method,'GET');assert.equal(y.calls[0].req.idempotency_key,id);assert.equal(posts(y).length,0);assert.equal(y.q('[data-ce-save]').disabled,true);
 });
 test('four explicit actions keep one technical campaign and confirmation; access never creates a fifth POST',async()=>{
- const x=boot();x.prepare();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);x.q('[data-ce-schedule]').click();await until(()=>!x.q('[data-ce-cancel]').disabled);x.q('[data-ce-cancel]').click();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));
+ const x=boot();x.prepare();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);x.q('[data-ce-schedule]').click();x.dialog.accept();await until(()=>!x.q('[data-ce-cancel]').disabled);x.q('[data-ce-cancel]').click();x.dialog.accept();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));
  assert.deepEqual(posts(x).map(c=>c.req.acao),['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar']);assert.ok(posts(x).slice(1).every(c=>c.req.id===1000));assert.equal(new Set(posts(x).map(c=>c.req.idempotency_key)).size,4);assert.equal(x.confirms.length,2);assert.ok(x.confirms.every(s=>s.includes('2099')));assert.equal(x.q('[data-ce-save]').disabled,true);assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.equal(x.store.has('write'),false);
+});
+
+async function readyToSchedule(x){x.prepare();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);}
+function importCampaign(x,value){const field=x.q('[data-ce-import]');Object.defineProperty(field,'files',{configurable:true,value:[{size:100,text:()=>typeof value==='function'?value():Promise.resolve(JSON.stringify(value))}]});field.dispatchEvent(new x.window.Event('change'));}
+test('dialog cancellation by button, Escape or external close has no effects and restores focus',async()=>{
+ for(const method of ['cancel','escape','close']){
+  const x=boot(),before=x.store.get('shrigma_campaign_composer_v1');x.q('[data-ce-reset]').focus();x.q('[data-ce-reset]').click();
+  assert.equal(x.dialog.dialog.open,true);assert.equal(x.focused(),x.q('[data-ce-confirm-no]'));assert.equal(x.q('[data-ce-save]').disabled,true);assert.equal(x.q('[data-ce-refresh]').disabled,true);assert.equal(x.q('[name=subject]').disabled,true);
+  x.dialog[method]();await until(()=>!x.q('[data-ce-reset]').disabled);assert.equal(x.dialog.dialog.open,false);assert.equal(x.focused(),x.q('[data-ce-reset]'));assert.equal(x.store.get('shrigma_campaign_composer_v1'),before);assert.equal(x.calls.length,0);
+ }
+});
+test('new preparation, reset, reopening and import each wait for their own explicit dialog',async()=>{
+ const fresh=boot();fresh.q('[data-ce-new]').click();assert.equal(fresh.q('[name=subject]').value,'Fixture');assert.match(fresh.confirms[0],/nova preparação/);fresh.dialog.accept();await until(()=>fresh.q('[name=subject]').value==='');assert.equal(fresh.calls.length,0);assert.match(fresh.q('[data-ce-status]').textContent,/Nenhuma campanha foi criada/);
+ const reset=boot();reset.q('[data-ce-reset]').click();assert(reset.store.has('shrigma_campaign_composer_v1'));reset.dialog.accept();await until(()=>!reset.store.has('shrigma_campaign_composer_v1'));assert.equal(reset.calls.length,0);
+ const open=boot();open.q('[data-ce-refresh]').click();await until(()=>open.q('[data-ce-open]'));const count=open.calls.length;open.q('[data-ce-open]').click();assert.equal(open.calls.length,count);assert.match(open.confirms[0],/conteúdo salvo/);open.dialog.accept();await until(()=>open.calls.some(c=>c.req.acao==='campanha_obter'));assert.equal(posts(open).length,0);
+ const imported=boot();importCampaign(imported,{...definition(),subject:'Arquivo conferido'});await until(()=>imported.dialog.dialog.open);assert.equal(imported.q('[name=subject]').value,'Fixture');imported.dialog.accept();await until(()=>imported.q('[name=subject]').value==='Arquivo conferido');assert.equal(imported.calls.length,0);
+});
+test('one dialog blocks other actions and repeated acceptance makes only one schedule request',async()=>{
+ const x=boot();await readyToSchedule(x);const count=x.calls.length;x.q('[data-ce-schedule]').click();assert.equal(x.dialog.dialog.open,true);
+ for(const selector of ['[data-ce-save]','[data-ce-validate]','[data-ce-new]','[data-ce-refresh]','[data-ce-consult]','[data-ce-reset]','[data-ce-access-open]','[data-ce-preview]','[data-ce-export]'])x.q(selector).click();
+ assert.equal(x.calls.length,count);assert.equal(x.confirms.length,1);assert.equal(x.q('[data-ce-access-form]').hidden,true);
+ x.dialog.accept();x.dialog.accept();x.dialog.close();await until(()=>/Agendada/.test(x.q('[data-ce-server-state]').textContent));assert.equal(posts(x).filter(c=>c.req.acao==='campanha_agendar').length,1);
+});
+test('editing draft or changing saved revision in another tab invalidates the displayed schedule approval',async()=>{
+ for(const change of ['draft','journal']){
+  const x=boot();await readyToSchedule(x);x.q('[data-ce-schedule]').click();const count=posts(x).length;
+  if(change==='draft')x.q('[name=subject]').value='Alteração durante confirmação';
+  else{const state=JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish'));state.campaign.version='changed-in-other-tab';x.store.set('shrigma_campaign_operation_v1:fish',JSON.stringify(state));}
+  x.dialog.accept();await until(()=>/mudou durante a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(posts(x).length,count);assert.equal(x.dialog.dialog.open,false);
+ }
+});
+test('withdrawn capabilities or a different client cannot inherit a previous approval',async()=>{
+ for(const endpoint of ['https://fixture.test/campaigns','https://changed.test/campaigns']){
+  const x=boot();await readyToSchedule(x);x.q('[data-ce-schedule]').click();const count=posts(x).length;
+  x.run('GCE.mount({api:{capabilities:{campaigns:{contract_version:"crm-campaign-v1",brands:["fish"],read:true,save:true,validate:true,schedule:false,cancel:true,operation:true},endpoints:{campaigns:'+JSON.stringify(endpoint)+'}}}})');
+  x.dialog.accept();await until(()=>/mudou durante a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(posts(x).length,count);
+ }
+});
+test('changing legacy author while dialog is open aborts local replacement and preserves the original journal',async()=>{
+ const x=boot({legacyWrite:'original-writer'}),before=x.store.get('shrigma_campaign_composer_v1');x.q('[data-ce-new]').click();x.store.set('write','changed-writer');x.dialog.accept();await until(()=>/mudou durante a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.length,0);assert.equal(x.store.get('shrigma_campaign_composer_v1'),before);assert.equal(x.store.has('shrigma_campaign_operation_v1:fish'),false);
+});
+test('missing or throwing native dialog support fails closed without fallback confirmation',async()=>{
+ for(const throwing of [false,true]){
+  const x=boot({dialogSupport:throwing}),before=x.store.get('shrigma_campaign_composer_v1');if(throwing)x.dialog.dialog.showModal=()=>{throw Error('dialog unavailable');};
+  x.q('[data-ce-new]').click();await until(()=>/abrir a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.length,0);assert.equal(x.store.get('shrigma_campaign_composer_v1'),before);assert.equal(x.q('[data-ce-new]').disabled,false);
+ }
+});
+test('a delayed file cannot replace content or launch a dialog after the local draft changed',async()=>{
+ const x=boot();let done;importCampaign(x,()=>new Promise(r=>done=r));x.q('[name=subject]').value='Texto novo';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));done(JSON.stringify({...definition(),subject:'Arquivo atrasado'}));await until(()=>/mudou durante a leitura/.test(x.q('[data-ce-status]').textContent));assert.equal(x.q('[name=subject]').value,'Texto novo');assert.equal(x.dialog.dialog.open,false);assert.equal(x.calls.length,0);
+});
+test('cancel scheduling waits for confirmation, keeps the saved identity and restores focus when its action becomes unavailable',async()=>{
+ const x=boot();await readyToSchedule(x);x.q('[data-ce-schedule]').click();x.dialog.accept();await until(()=>!x.q('[data-ce-cancel]').disabled);
+ x.q('[name=name]').value='Nome não salvo';x.q('[data-ce-cancel]').focus();x.q('[data-ce-cancel]').click();assert.match(x.confirms.at(-1),/Fixture técnica/);assert.doesNotMatch(x.confirms.at(-1),/Nome não salvo/);const count=posts(x).length;
+ x.dialog.cancel();await until(()=>!x.q('[data-ce-cancel]').disabled);assert.equal(posts(x).length,count);assert.equal(x.focused(),x.q('[data-ce-cancel]'));
+ x.q('[data-ce-cancel]').click();x.dialog.accept();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));assert.equal(x.focused(),x.q('.ce-shell > summary'));assert.equal(posts(x).at(-1).req.id,1000);assert.equal(posts(x).at(-1).req.expected_version,'v1');
+});
+test('a lost cancellation receipt preserves its journal and cannot be repeated through another confirmation',async()=>{
+ const x=boot();await readyToSchedule(x);x.q('[data-ce-schedule]').click();x.dialog.accept();await until(()=>!x.q('[data-ce-cancel]').disabled);x.setFailure('timeout');x.q('[data-ce-cancel]').click();x.dialog.accept();await until(()=>/incerto/.test(x.q('[data-ce-server-state]').textContent));const saved=x.store.get('shrigma_campaign_operation_v1:fish'),count=posts(x).length;
+ assert.equal(JSON.parse(saved).operation.phase,'uncertain');assert.equal(x.dialog.dialog.open,false);x.q('[data-ce-cancel]').click();x.q('[data-ce-new]').click();await new Promise(setImmediate);assert.equal(posts(x).length,count);assert.equal(x.dialog.dialog.open,false);assert.equal(x.store.get('shrigma_campaign_operation_v1:fish'),saved);
+ const y=boot({store:x.store});assert.equal(y.q('[data-ce-cancel]').disabled,true);assert.equal(y.q('[data-ce-new]').disabled,true);assert.equal(y.calls.length,0);
+});
+test('the real styles keep the open dialog and both controls visible with bound labels and a mobile width rule',()=>{
+ const CSSOM=require('cssom'),x=boot(),page=fs.readFileSync(path.join(root,'growth.html'),'utf8');
+ const css=[...page.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m=>m[1]).join('\n')+'\n'+fs.readFileSync(path.join(root,'growth-campaign-editor.css'),'utf8');
+ const hidden=[];function rules(list){for(const r of list){if(r.cssRules)rules(r.cssRules);else if(r.selectorText&&r.style?.display==='none')hidden.push(...r.selectorText.split(',').filter(s=>!s.includes('::')));}}rules(CSSOM.parse(css).cssRules);
+ x.q('[data-ce-reset]').click();assert.equal(x.dialog.dialog.open,true);assert.equal(x.q('[data-ce-confirm]').closest('details'),null);
+ for(const selector of ['[data-ce-confirm]','[data-ce-confirm-no]','[data-ce-confirm-yes]']){let el=x.q(selector);while(el){assert.equal(el.hidden,false);for(const s of hidden)assert.equal(el.matches(s),false,selector+' is hidden by '+s);el=el.parentElement;}}
+ assert(x.q('#'+x.dialog.dialog.getAttribute('aria-labelledby')));assert(x.q('#'+x.dialog.dialog.getAttribute('aria-describedby')));assert.equal(x.focused(),x.q('[data-ce-confirm-no]'));assert.match(css,/width:min\(520px,calc\(100vw - 32px\)\)/);x.dialog.cancel();
 });

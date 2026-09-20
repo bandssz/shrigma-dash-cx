@@ -13,9 +13,9 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  if(!store.has('shrigma_campaign_composer_v1'))store.set('shrigma_campaign_composer_v1',JSON.stringify(Editor.fromDefinition(definition())));
  store.set('write-slot','synthetic-write-secret');if(masterOnly){store.delete('read-slot');store.set('shrigma_k_mestre','synthetic-master-secret');}else store.set('read-slot','synthetic-read-secret');
- const calls=[],confirmations=[];let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
+ const calls=[];let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
  const context=vm.createContext({document,window,console,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
-  localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:message=>{confirmations.push(message);return true;},__api:payload,
+  localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:()=>{throw Error('native confirm must not be called');},__api:payload,
   fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);calls.push(req);let body;
    if(req.acao==='campanha_catalogo')body=catalog;
    else if(req.acao==='campanha_listar')body={campaigns:[current]};
@@ -26,7 +26,8 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
   }});
  for(const file of ['campaign-contract.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
- return {document,window,calls,store,confirmations,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
+ const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
+ return {document,window,calls,store,confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
 async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI did not reach expected state');}
 
@@ -43,7 +44,7 @@ test('operators select named catalogs, save, validate and explicitly schedule th
  x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);
  x.q('[name=subject]').value='Alterado';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));assert.equal(x.q('[data-ce-schedule]').disabled,true);
  x.q('[name=subject]').value='Assunto';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
- x.q('[data-ce-schedule]').click();await until(()=>/Agendada/.test(x.q('[data-ce-server-state]').textContent));
+ x.q('[data-ce-schedule]').click();x.accept();await until(()=>/Agendada/.test(x.q('[data-ce-server-state]').textContent));
  assert.equal(x.confirmations.length,1);assert.match(x.confirmations[0],/Campanha de exemplo/);assert.match(x.confirmations[0],/20\/09\/2030/);
  const scheduled=x.calls.find(c=>c.acao==='campanha_agendar');assert.equal(scheduled.confirm,'agendar');assert.equal(scheduled.expected_version,'v1');
  assert.equal(x.q('[data-ce-save]').disabled,true);assert.equal(x.q('[data-ce-schedule]').disabled,true);assert.match(x.q('[data-ce-campaigns]').textContent,/Agendada/);assert.ok(!x.q('[data-ce-campaigns]').textContent.includes('Rascunho'));
@@ -67,8 +68,8 @@ test('without Web Locks the editor preserves reading and local preparation but d
 });
 test('cancel is optional and confirms saved name and date even with unsaved local changes',async()=>{
  const hidden=boot({payload:{capabilities:{...api.capabilities,campaigns:{...api.capabilities.campaigns,cancel:undefined}}}});assert.equal(hidden.q('[data-ce-cancel]').hidden,true);
- const x=boot();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);x.q('[data-ce-schedule]').click();await until(()=>!x.q('[data-ce-cancel]').disabled);
+ const x=boot();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>!x.q('[data-ce-schedule]').disabled);x.q('[data-ce-schedule]').click();x.accept();await until(()=>!x.q('[data-ce-cancel]').disabled);
  x.q('[name=name]').value='Alteração que não foi salva';x.q('[name=name]').dispatchEvent(new x.window.Event('input',{bubbles:true}));assert.equal(x.q('[data-ce-cancel]').disabled,false);
- x.q('[data-ce-cancel]').click();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));const prompt=x.confirmations.at(-1);assert.match(prompt,/Campanha de exemplo/);assert.match(prompt,/20\/09\/2030/);assert.ok(!prompt.includes('Alteração que não foi salva'));
+ x.q('[data-ce-cancel]').click();x.accept();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));const prompt=x.confirmations.at(-1);assert.match(prompt,/Campanha de exemplo/);assert.match(prompt,/20\/09\/2030/);assert.ok(!prompt.includes('Alteração que não foi salva'));
  assert.equal(x.calls.find(c=>c.acao==='campanha_cancelar').confirm,'cancelar');assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.match(x.q('[data-ce-campaigns]').textContent,/Cancelada/);
 });
