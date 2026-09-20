@@ -1,0 +1,98 @@
+{
+  "index": {
+    "css": [
+      "styles.css",
+      "cx.css",
+      "index-page.css",
+      "panel-ui.css"
+    ],
+    "scripts": [
+      "frescor.js",
+      "config.js",
+      "dados.js",
+      "cx-metricas.js",
+      "cx-graficos.js",
+      "app.js",
+      "cx-tela.js",
+      "alerta-credencial.js"
+    ]
+  },
+  "growth": {
+    "css": [
+      "styles.css",
+      "growth.css",
+      "growth-attribution.css",
+      "growth-campaign-editor.css",
+      "growth-ses.css",
+      "growth-control.css",
+      "growth-message-preview.css",
+      "growth-builder.css",
+      "growth-page.css",
+      "panel-ui.css"
+    ],
+    "scripts": [
+      "frescor.js",
+      "growth-freshness.js",
+      "config.js",
+      "growth-access.js",
+      "alerta-credencial.js",
+      "alerta-whatsapp.js",
+      "growth-data.js",
+      "growth-attribution.js",
+      "campaign-contract.js",
+      "growth-message-preview.js",
+      "growth-campaign-api.js",
+      "growth-campaign-editor.js",
+      "growth-delivery.js",
+      "growth-ab-protocol.js",
+      "growth-ab-server.js",
+      "growth-ab-journal.js",
+      "growth-table.js",
+      "growth-ui.js",
+      "growth-pix.js",
+      "growth-ses.js",
+      "growth-control.js",
+      "whatsapp-template-contract.js",
+      "growth-drafts.js",
+      "growth-templates-api.js",
+      "growth-template-journal.js",
+      "growth-drafts-ui.js",
+      "growth-canvas.js",
+      "growth-builder.js",
+      "growth-flows.js",
+      "growth-flows-ui.js"
+    ]
+  },
+  "organico": {
+    "css": [
+      "styles.css",
+      "organico-page.css",
+      "panel-ui.css"
+    ],
+    "scripts": [
+      "frescor.js",
+      "config.js",
+      "alerta-credencial.js",
+      "organico-access.js",
+      "organico-attribution.js",
+      "organico-stories.js",
+      "organico-legacy.js"
+    ]
+  },
+  "influs": {
+    "css": [
+      "styles.css",
+      "influs-page.css",
+      "panel-ui.css"
+    ],
+    "scripts": [
+      "frescor.js",
+      "config.js",
+      "influs-access.js",
+      "influs-tts-actions.js",
+      "influs-tts-manual.js",
+      "influs-tts.js",
+      "alerta-credencial.js"
+    ]
+  }
+}

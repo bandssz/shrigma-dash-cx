@@ -16,6 +16,9 @@ on:
       - 'alerta-*.js'
       - 'n8n/**'
       - 'tools/campaign-runtime-build/**'
+      - 'tools/panel-build/**'
+      - 'assets/panels/**'
+      - '*.js'
       - 'frescor.js'
       - '*.css'
       - 'tests/**'
@@ -47,6 +50,7 @@ jobs:
         run: |
           npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
           node tools/campaign-runtime-build/build.cjs --check
+          node tools/panel-build/build.cjs --check
       - name: Check campaign SQL on isolated PostgreSQL
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
