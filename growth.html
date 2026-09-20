@@ -158,13 +158,17 @@ textarea{width:100%;resize:vertical;min-height:58px}
   <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
   <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
   <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
-  <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo">
+  <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo" novalidate>
     <h2 id="growth-acesso-titulo">Acessar Growth</h2>
-    <p id="growth-acesso-ajuda">Use a chave de leitura já fornecida para este painel.</p>
+    <p id="growth-acesso-ajuda">Use a chave de leitura já fornecida para este painel. A nova chave fica somente nesta página aberta; acessar não salva, agenda ou envia campanhas.</p>
+    <fieldset id="growth-acesso-campos" style="border:0;padding:0;margin:0">
     <div class="campo"><label for="growth-chave">Chave de acesso</label>
-      <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
+      <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
+    <div class="campo"><label for="growth-acesso-arquivo">Importar arquivo de acesso de leitura Growth</label>
+      <input id="growth-acesso-arquivo" type="file" accept="application/json,.json" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
     <button type="submit" class="btn">Acessar painel</button>
-    <span id="growth-acesso-msg" class="mini" role="status"></span>
+    </fieldset><button id="growth-acesso-cancelar" type="button" class="btn sec">Cancelar</button>
+    <span id="growth-acesso-msg" class="mini" role="status" aria-live="polite"></span>
   </form>
   <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
   <section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section>
@@ -343,6 +347,7 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="frescor.js?v=20260916-health"></script>
 <script src="growth-freshness.js?v=20260916-olivas"></script>
 <script src="config.js?v=e30fc0c8"></script>
+<script src="growth-access.js?v=e2e7c2f0ca"></script>
 <script src="alerta-credencial.js?v=a8463e22"></script>
 <script src="alerta-whatsapp.js?v=20260908-2"></script>
 <script src="growth-data.js?v=20260919-ab-integrity"></script>
@@ -350,22 +355,22 @@ textarea{width:100%;resize:vertical;min-height:58px}
 <script src="campaign-contract.js?v=20260919-public-boundary"></script>
 <script src="growth-message-preview.js?v=20260917-1"></script>
 <script src="growth-campaign-api.js?v=20260919-campaigns"></script>
-<script src="growth-campaign-editor.js?v=20260919-campaigns"></script>
+<script src="growth-campaign-editor.js?v=d9c403818e"></script>
 <script src="growth-delivery.js?v=20260908-2"></script>
 <script src="growth-ab-journal.js?v=20260920-durable"></script>
 <script src="growth-table.js?v=20260909-1"></script>
 <script src="growth-ui.js?v=20260915-1"></script>
 <script src="growth-pix.js?v=20260917-charge"></script>
 <script src="growth-ses.js?v=20260914-1"></script>
-<script src="growth-control.js?v=20260917-preview"></script>
+<script src="growth-control.js?v=3018c1440c"></script>
 <script src="whatsapp-template-contract.js?v=20260919-order-example"></script>
 <script src="growth-drafts.js?v=20260919-order-example"></script>
-<script src="growth-templates-api.js?v=a48af2ff6b"></script>
+<script src="growth-templates-api.js?v=055769d574"></script>
 <script src="growth-template-journal.js?v=cd3b4ba90b"></script>
-<script src="growth-drafts-ui.js?v=df054c7996"></script>
+<script src="growth-drafts-ui.js?v=a3c1df60af"></script>
 <link rel="stylesheet" href="growth-builder.css?v=20260916-1">
 <script src="growth-canvas.js?v=20260916-1"></script>
-<script src="growth-builder.js?v=20260917-pix-card-20260917-olivas-nps"></script>
+<script src="growth-builder.js?v=58ead57d57"></script>
 <script src="growth-flows.js?v=20260911-1"></script>
 <script src="growth-flows-ui.js?v=20260913-builder1"></script>
 <script>
@@ -861,21 +866,12 @@ function openFlows(canal,selection={}){
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
 
-let CHAVE_GROWTH_SESSAO='';
-function chave(){return CHAVE_GROWTH_SESSAO||shrigmaChave('growth');}
+const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar()});
+function chave(){return ACESSO_GROWTH.current();}
 function mostraAcessoGrowth(mensagem=''){
-  const form=$('#growth-acesso'),abrindo=form.hidden;
-  form.hidden=false;$('#load-state').hidden=true;
-  $('#growth-acesso-msg').textContent=mensagem;
+  ACESSO_GROWTH.show(mensagem);$('#load-state').hidden=true;
   $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
-  if(abrindo)$('#growth-chave').focus();
 }
-$('#growth-acesso').onsubmit=async e=>{
-  e.preventDefault();const campo=$('#growth-chave'),k=campo.value.trim();
-  if(!k){$('#growth-acesso-msg').textContent='Informe a chave de acesso.';campo.focus();return;}
-  CHAVE_GROWTH_SESSAO=k;shrigmaGuardaChave('growth',k);campo.value='';
-  $('#growth-acesso').hidden=true;await carregar();
-};
 async function carregar(){
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
@@ -883,15 +879,15 @@ async function carregar(){
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
-    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{cache:'no-store',signal:AbortSignal.timeout(45000)});
-    if(r.status===401||r.status===403){CHAVE_GROWTH_SESSAO='';shrigmaEsqueceChave('growth');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    const r=await fetch(`${CX_API_URL}?k=${encodeURIComponent(k)}&painel=growth`,{cache:'no-store',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(45000)});
+    if(r.status===401||r.status===403){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso a Growth.');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     if(!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);
     const next=await r.json();
-    if(!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
+    if(!next||next._escopo!=='growth'||next.error||next.erro||!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('Esta chave não retornou os dados de Growth.');
     API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
-    shrigmaMarcaMestra(k,API._painel);
+    if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
     CONSULTA={em:new Date().toISOString(),falhou:false};
@@ -903,7 +899,7 @@ async function carregar(){
   }catch(e){
     $('#load-state').hidden=true;
     CONSULTA={...CONSULTA,falhou:true};
-    $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(e.name==='TimeoutError'?'A consulta demorou além do esperado.':e.message)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
+    $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(GrowthAccess.readError(e))} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
     const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp2?.workflows||null});

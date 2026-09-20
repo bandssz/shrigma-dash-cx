@@ -86,7 +86,7 @@ const GRU={
   },
   cliente(escrita){
     const c=GRU.caps||GRU.capacidades();
-    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GRU.guardado(GTA.CHAVE_LEITURA),chaveEscrita:escrita||''});
+    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||''});
   },
   /* ---------- render ---------- */
   render(ctx){

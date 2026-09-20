@@ -55,7 +55,7 @@ const GCE=(()=>{
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
   for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;
   if(next.endpoint&&next.brands.includes(brand)){
-   try{remote=GCA.createClient({capabilities:next,brand,readKey:()=>typeof shrigmaChave==='function'?shrigmaChave('growth'):keyValue(GTA.CHAVE_LEITURA),writeKey:()=>keyValue(GTA.CHAVE_ESCRITA)});}
+   try{remote=GCA.createClient({capabilities:next,brand,readKey:()=>typeof GTA.chaveLeitura==='function'?GTA.chaveLeitura():typeof shrigmaChave==='function'?shrigmaChave('growth'):keyValue(GTA.CHAVE_LEITURA),writeKey:()=>keyValue(GTA.CHAVE_ESCRITA)});}
    catch(err){message(err.message,true);}
   }
   paintRemote();
