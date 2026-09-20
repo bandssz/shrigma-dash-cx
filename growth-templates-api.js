@@ -56,11 +56,12 @@ const GTA={
       catch(_){return {ok:false,status:0,body:null,rede:true};}
     };
     const get=params=>{const q=new URLSearchParams({k:chaveLeitura||'',...params});return chama(`${endpoint}?${q}`,{signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
-    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body)});};
+    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
     return {
       listar:marca=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{})}),
       historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
       submissao:submission_id=>get({acao:'submissao',submission_id}),
+      operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
       rascunho:(rascunho,extra)=>post({acao:'rascunho',rascunho,...extra}),           // extra: idempotency_key, draft_id?, expected_version?
       validar:(draft_id,idempotency_key,expected_version)=>post({acao:'validar',draft_id,idempotency_key,...(expected_version!==undefined?{expected_version}:{})}),
       submeter:(draft_id,expected_version,confirm,idempotency_key)=>post({acao:'submeter',draft_id,expected_version,confirm,idempotency_key}),
@@ -77,7 +78,7 @@ const GTA={
       case 401:return {texto:'Chave de escrita inválida. Informe a chave de novo.',tipo:'chave',chaveInvalida:true};
       case 403:return {texto:`Esta chave não tem a capacidade "${b.capability||acao||'?'}". Peça uma chave com essa capacidade.`,tipo:'chave'};
       case 409:
-        if(b.erro==='idempotency_replay_mismatch')return {texto:'Esta tentativa repetiu uma chave de idempotência com conteúdo diferente. Gere uma nova tentativa.',tipo:'conflito'};
+        if(b.erro==='idempotency_replay_mismatch')return {texto:'Esta tentativa repetiu uma chave de idempotência com conteúdo diferente. Preserve o identificador e confira esta mesma operação antes de continuar.',tipo:'conflito'};
         if(['revision_locked','revision_already_claimed','ja_submetido'].includes(b.erro))return {texto:'Esta revisão já tem uma submissão ou está bloqueada. Consulte o histórico antes de criar outra revisão.',tipo:'bloqueado'};
         return {texto:`Alterado por ${b.changed_by||'outra chave'} às ${GTA.stamp(b.changed_at)}${Number.isFinite(+b.current_version)?` (versão ${b.current_version})`:''}. Recarregue e refaça; nada foi sobrescrito.`,tipo:'conflito',conflito:{current_version:b.current_version,changed_by:b.changed_by||null,changed_at:b.changed_at||null}};
       case 422:{const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
