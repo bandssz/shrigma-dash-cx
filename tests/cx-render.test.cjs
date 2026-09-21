@@ -418,3 +418,52 @@ test('Comentários sem tempos medidos mostra ausência; zero válido continua ze
   assert.match(x.document.querySelector('#g-social').textContent, /Sem resposta medida/);
   assert.equal(x.run('socialTempoPar(0, 1)[0]'), 0); assert.equal(x.run('socialTempoPar(100, 0)'), null); assert.equal(x.run('socialTempoPar(100, 1.5)'), null);
 });
+
+// --- Idade da leitura do RA na tela (21/09/2026) -----------------------------------
+// O RA recusa leitura de servidor (Cloudflare devolve desafio), então a coleta só avança
+// quando alguém roda o favorito. A etiqueta tem de envelhecer junto com o dado, em vez de
+// mostrar um número parado como se fosse de hoje. O relógio da fixture é HOJE.
+const raLinha = (marca, dia, o = {}) => ({ marca, dia, nota: 7.0, resposta_pct: 86.2, solucao_pct: 85.0, voltaria_pct: 57.2,
+  avaliacoes: 486, aguardando: 103, pendentes_agora: 260, periodo_ini: '2026-03-01', periodo_fim: '2026-08-31', tempo_resposta_dias: 16, ...o });
+
+test('leitura do RA feita hoje aparece como corrente, sem etiqueta de atraso', async () => {
+  const x = await boot(fixture({ cx_ra: [raLinha('aristocrata', HOJE)] }), '?periodo=7d&marca=aristocrata');
+  const rotulo = x.document.querySelector('#ra-rotulo');
+  assert.match(rotulo.textContent, /leitura de hoje/);
+  assert.doesNotMatch(rotulo.textContent, /dias atrás/);
+  assert.ok(rotulo.querySelector('.tag.nota'), 'leitura do dia não vira alerta');
+  assert.equal(rotulo.querySelector('.tag.alerta'), null);
+});
+
+test('leitura do RA de três dias atrás vira alerta com a idade escrita', async () => {
+  const x = await boot(fixture({ cx_ra: [raLinha('aristocrata', diasAtrasT(3))] }), '?periodo=7d&marca=aristocrata');
+  const rotulo = x.document.querySelector('#ra-rotulo');
+  assert.match(rotulo.textContent, /3 dias atrás/);
+  assert.ok(rotulo.querySelector('.tag.alerta'), 'leitura parada há três dias precisa aparecer como alerta');
+  // a idade acompanha o cartão, para quem olha só o número
+  assert.match(x.document.querySelector('#area-ra-num').textContent, /3 dias atrás/);
+  // e a tabela por marca carrega a idade daquela marca
+  assert.match(x.document.querySelector('#area-ra').textContent, /· 3 dias/);
+});
+
+test('leitura de ontem ainda conta como corrente e a tabela não marca idade', async () => {
+  const x = await boot(fixture({ cx_ra: [raLinha('aristocrata', diasAtrasT(1))] }), '?periodo=7d&marca=aristocrata');
+  const rotulo = x.document.querySelector('#ra-rotulo');
+  assert.match(rotulo.textContent, /leitura de ontem/);
+  assert.equal(rotulo.querySelector('.tag.alerta'), null);
+  assert.doesNotMatch(x.document.querySelector('#area-ra').textContent, /· 1 dias/);
+});
+
+test('cada marca envelhece por conta própria na tabela do RA', async () => {
+  const x = await boot(fixture({ cx_ra: [raLinha('aristocrata', HOJE), raLinha('fishermans', diasAtrasT(5), { nota: 8.1, resposta_pct: 99.5 })] }), '?periodo=7d');
+  const tabela = x.document.querySelector('#area-ra').textContent;
+  assert.match(tabela, /· 5 dias/, 'a marca parada mostra a própria idade');
+  assert.equal((tabela.match(/· \d+ dias/g) || []).length, 1, 'a marca lida hoje não recebe marca de idade');
+});
+
+test('a tela não promete mais coleta agendada do RA', async () => {
+  const x = await boot(fixture({ cx_ra: [raLinha('aristocrata', HOJE)] }), '?periodo=7d&marca=aristocrata');
+  const tudo = x.document.body.textContent + [...x.document.querySelectorAll('[title]')].map((e) => e.getAttribute('title')).join(' ');
+  assert.doesNotMatch(tudo, /tarefa agendada/, 'a tarefa agendada saiu: quem coleta é o favorito');
+  assert.match(tudo, /favorito do coletor/);
+});

@@ -200,3 +200,47 @@ test('cxJanelaMadura: corta no teto de 7 dias; sem 3 dias úteis maduros cai par
   assert.equal(M.cxDiasUteis(q.ini, q.fim).length, 10);
   assert.equal(M.cxJanelaMadura({ ini: '2026-08-01', fim: '2026-08-31' }, hoje).cortou, false);
 });
+
+// --- Idade da leitura do Reclame AQUI (21/09/2026) ---------------------------------
+// O RA recusa leitura de servidor (Cloudflare devolve desafio), então a coleta só avança
+// quando alguém roda o favorito. O painel precisa marcar a idade em vez de exibir número velho
+// como se fosse de hoje.
+test('raIdade classifica hoje e ontem como leitura fresca', () => {
+  const hoje = M.raIdade('2026-09-21', '2026-09-21');
+  assert.equal(hoje.dias, 0);
+  assert.equal(hoje.velha, false);
+  assert.equal(hoje.classe, 'nota');
+  const ontem = M.raIdade('2026-09-20', '2026-09-21');
+  assert.equal(ontem.dias, 1);
+  assert.equal(ontem.velha, false, 'um dia ainda é leitura corrente');
+  assert.equal(ontem.classe, 'nota');
+});
+
+test('raIdade marca leitura de dois dias ou mais como velha', () => {
+  const doisDias = M.raIdade('2026-09-19', '2026-09-21');
+  assert.equal(doisDias.dias, 2);
+  assert.equal(doisDias.velha, true);
+  assert.equal(doisDias.classe, 'alerta', 'dois dias já vira etiqueta de alerta');
+  const semana = M.raIdade('2026-09-14', '2026-09-21');
+  assert.equal(semana.dias, 7);
+  assert.equal(semana.velha, true);
+});
+
+test('raIdade aceita timestamp completo e ignora o horário', () => {
+  const a = M.raIdade('2026-09-18T11:37:54.756Z', '2026-09-21T23:59:00.000Z');
+  assert.equal(a.dia, '2026-09-18');
+  assert.equal(a.dias, 3);
+  assert.equal(a.velha, true);
+});
+
+test('raIdade devolve null sem leitura e não inventa data', () => {
+  assert.equal(M.raIdade(null, '2026-09-21'), null);
+  assert.equal(M.raIdade('', '2026-09-21'), null);
+  assert.equal(M.raIdade(undefined, '2026-09-21'), null);
+});
+
+test('raIdade sem hoje explícito usa o dia corrente em São Paulo', () => {
+  const hoje = M.cxHojeSP();
+  assert.match(hoje, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(M.raIdade(hoje).dias, 0, 'leitura do dia corrente não pode aparecer como atrasada');
+});

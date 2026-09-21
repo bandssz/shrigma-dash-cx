@@ -219,6 +219,19 @@ function raPeriodo(linha) {
   return a && b ? `${a}–${b}` : null;
 }
 
+// Idade da leitura do RA. A página pública do RA só pode ser lida de dentro de um navegador real:
+// o Cloudflare do RA devolve desafio (403, cf-mitigated: challenge) para qualquer leitura de servidor,
+// com ou sem cabeçalhos de navegador. Como a coleta depende de alguém rodar o favorito, o painel
+// precisa dizer quando o número na tela envelheceu, em vez de exibi-lo como se fosse de hoje.
+function cxHojeSP() { return new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); }
+function raIdade(diaYmd, hojeYmd) {
+  const d = cxDia(diaYmd); if (!d) return null;
+  const hoje = cxDia(hojeYmd) || cxHojeSP();
+  const dias = Math.round((Date.parse(hoje + "T00:00:00Z") - Date.parse(d + "T00:00:00Z")) / 86400000);
+  if (!Number.isFinite(dias)) return null;
+  return { dia: d, dias, velha: dias >= 2, classe: dias <= 1 ? "nota" : "alerta" };
+}
+
 // dias distintos com linha no intervalo (para não comparar contra período sem histórico)
 function cxDiasComDado(rows, f) {
   const s = new Set();
@@ -796,6 +809,6 @@ function cxCortaVazioInicial(semanas, colunas) {
 if (typeof module !== "undefined") {
   module.exports = { CX_MIN_BASE, CX_MOTIVOS, CX_ROTULO_MOTIVO, CX_CANAIS_KAI, CX_RA1000,
     cxFiltra, csatAgg, csatKaiVsPessoa, porMotivo, serieCsatSemanal, cxSegunda,
-    somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, cxDelta, cxDiasComDado,
+    somaPedidos, contatosPorPedido, raUltimo, raAvalia, raPendentes, raPeriodo, raIdade, cxHojeSP, cxDelta, cxDiasComDado,
     CX_GRUPOS_MOTIVO, cxSemanas, cxDiasIntervalo, serieDiariaPor100, serieSemanalMotivos, serieSemanalCsat3, serieSemanalKai, filaAgora, cxSegExpediente, mediana, tempoAgg, serieDiariaTempo, tempoPorAgente, medianaPonderada, fechamentoAgg, fechamentoPorAgente, agenteAgg, agenteTime, cxJanelaMadura, cxDiasUteis, cxEhDiaUtil, CX_AGENTE_MIN_DIAS, CX_AGENTE_DIAS_QUEDA, serieSemanalVolta, cxFimMaduroVolta, CX_VOLTA_DIAS, respostaAgg, respostaPorAgente, CX_META_RESPOSTA_SEG, trocaAgg, trocaMeses, trocaMotivos, cxTipoTroca, cxMesYmd, concessaoAgg, concessaoMeses, concessaoTipos, despachoAgg, serieSemanalDespacho, cxFimMaduroDespacho, wismoSituacao, CX_WISMO_ROTULO, fechamentoPorMotivo, desfechoMaduro, serieSemanalDesfecho, cxFimMaduro, cxEhExpediente, CX_MATURACAO_DIAS, CX_DIAS_SEM_EXPEDIENTE, serieSemanalNps, serieSemanalSocial, serieRa, serieSemanalPor100, cxCortaVazioInicial };
 }
