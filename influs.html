@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=476c24dfd8af">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RBKV2zdSouw7v6kt9gbTuC8FRscFpb81iJG58VP0OtE='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=a26025c61c73">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DbAjrzZsSHTIZUNamXqK7yVER5r11xVvVyi2Opd8Blw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -202,13 +202,13 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=3a5af012a0ed"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=40635c3b028b"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
 const INFLU_ACCESS=InflusAccess.bind({document,host:$('#influ-access'),
-  readExisting:()=>shrigmaChave('influs'),writeExisting:()=>localStorage.getItem('shrigma_influ_key'),
-  authorExisting:()=>localStorage.getItem('shrigma_autor'),
+  readExisting:()=>shrigmaChave('influs'),writeExisting:()=>(typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('influs','creators_edit'):'')||localStorage.getItem('shrigma_influ_key'),
+  authorExisting:()=>(typeof shrigmaAutorOperador==='function'?shrigmaAutorOperador('influs'):'')||localStorage.getItem('shrigma_autor'),
   onRead:async()=>{await Promise.allSettled([carregarAbaAtiva(),faixaCredencial()]);}});
 // O TTS conserva seu próprio acesso de escrita/journal; a leitura compartilha este painel.
 const esqueceChaveExistente=shrigmaEsqueceChave;

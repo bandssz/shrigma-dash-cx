@@ -32,7 +32,7 @@
   if(!frame||!identity||!key||e.source!==frame.contentWindow||e.origin!==location.origin||e.data?.type!=='shrigma:ready'||e.data.panel!==selected)return;
   const target=new URL(AREAS[selected].page,root);
   try{if(frame.contentWindow.location.pathname!==target.pathname)return;}catch(_){return;}
-  frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key},location.origin);
+  frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key,permission:identity.permissions?.[selected]||null},location.origin);
  });
  document.getElementById('entry-logout').onclick=()=>logout();
  form.onsubmit=async e=>{

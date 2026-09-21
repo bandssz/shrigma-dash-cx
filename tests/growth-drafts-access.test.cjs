@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {parseHTML}=require('linkedom');
 
-function setup({legacyKey='',storageBlocked=false,response=null,sharedValues=null,operations=new Map(),failLocalAfterReceipt=false}={}){
+function setup({legacyKey='',storageBlocked=false,response=null,sharedValues=null,operations=new Map(),failLocalAfterReceipt=false,operatorWrite=''}={}){
   const {document,window}=parseHTML('<html><body><section id="control-drafts"></section></body></html>');
   let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};
   Object.defineProperty(document,'activeElement',{get:()=>focused?.isConnected?focused:document.body});
@@ -14,7 +14,7 @@ function setup({legacyKey='',storageBlocked=false,response=null,sharedValues=nul
   const locks={request:async(k,_opts,fn)=>{if(held.has(k))return fn(null);held.add(k);try{return await fn({name:k});}finally{held.delete(k);}}};
   const json=(status,body)=>({status,json:async()=>body});
   const ctx=vm.createContext({document,window,localStorage:storage,URLSearchParams,URL,Date,Intl,console,crypto,TextEncoder,navigator:{locks},
-    prompt:()=>{throw Error('prompt is unavailable');},setInterval:()=>1,
+    shrigmaChaveOperador:(area,cap)=>area==='growth'&&cap==='draft'?operatorWrite:'',prompt:()=>{throw Error('prompt is unavailable');},setInterval:()=>1,
     FileReader:class{readAsText(file){this.result=file.fixture;this.onload();}},
     fetch:async(url,options)=>{
       if(options?.method!=='POST'){
@@ -168,4 +168,8 @@ test('published email receipt is applied as published without claiming activatio
   assert.match(s.document.body.textContent,/Publicado não é ativo/);const op=s.ui.journal().inspect().operations.at(-1);
   await s.ui.consultarOperacao(op.id);assert.equal(s.calls.length,3);assert.equal(s.ctx.drafts.lista()[0].servidor.estado,'publicado');
   for(const read of s.reads){assert.equal(new URL(read.url).searchParams.has('k'),false);assert.equal(read.options.headers['X-Template-Key'],'fixture-existing');assert.equal(read.options.redirect,'error');assert.equal(read.options.credentials,'omit');assert.equal(read.options.cache,'no-store');}
+});
+
+test('area operator saves a template only after explicit action without a second credential or persisted secret',async()=>{
+ const s=setup({operatorWrite:'synthetic-crm-operator'}),d=s.draft();assert.equal(s.calls.length,0);await s.ui.salvarServidor(d);assert.equal(s.calls.length,1);assert.equal(JSON.parse(s.calls[0].options.body).k,'synthetic-crm-operator');assert.equal(s.$('#drafts-acesso'),null);assert(![...s.values.values()].join('').includes('synthetic-crm-operator'));
 });

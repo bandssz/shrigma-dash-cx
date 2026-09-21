@@ -4,13 +4,13 @@ const {parseHTML}=require('linkedom'),locks=require('./campaign-lock-fixture.cjs
 global.CampaignContract=C;const E=require('../growth-campaign-editor'),root=path.resolve(__dirname,'..');
 const file=extra=>JSON.stringify({schema:'shrigma_panel_access_v1',panel:'campaign',role:'write',key:'synthetic-campaign-writer',...extra});
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Fixture técnica',subject:'Fixture',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[1000],template_id:1,html:'https://fishermans.com.br/products/fixture {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/fixture {{ UnsubscribeURL }}',tags:[],send_at:'2099-01-01T15:00:00.000Z'});
-function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,dialogSupport=true}={}){
+function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,dialogSupport=true,operatorWrite=''}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');let focused=null;window.HTMLElement.prototype.focus=function(){if(!this.disabled&&!this.closest('fieldset')?.disabled)focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused});
  const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  if(!store.has('shrigma_campaign_composer_v1'))store.set('shrigma_campaign_composer_v1',JSON.stringify(E.fromDefinition(definition())));
  store.set('read','synthetic-reader');if(legacyWrite)store.set('write',legacyWrite);
  const calls=[],writes=[];let c={id:1000,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
- const ctx=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks:locks()},GTA:{CHAVE_ESCRITA:'write',CHAVE_LEITURA:'read'},GMP:{openEmail:()=>{}},
+ const ctx=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks:locks()},GTA:{CHAVE_ESCRITA:'write',CHAVE_LEITURA:'read'},shrigmaChaveOperador:(area,cap)=>area==='growth'&&cap==='draft'?operatorWrite:'',GMP:{openEmail:()=>{}},
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>{writes.push(k);store.set(k,v);},removeItem:k=>{writes.push(k);store.delete(k);}},confirm:()=>{throw Error('native confirm must not be called');},
   fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);calls.push({req,init});let body;
    if(init.method==='POST'){const journal=JSON.parse(store.get('shrigma_campaign_operation_v1:fish'));assert.equal(journal.operation.phase,'pending');assert.equal(journal.operation.key,req.idempotency_key);assert.ok(!JSON.stringify(journal).includes(req.k));if(failure==='timeout')throw Error('fixture lost response');if(failure)return {status:failure,json:async()=>({error:failure===401?'UNAUTHORIZED':'CAPABILITY_MISSING',operation_id:null})};}
@@ -141,4 +141,9 @@ test('the real styles keep the open dialog and both controls visible with bound 
  x.q('[data-ce-reset]').click();assert.equal(x.dialog.dialog.open,true);assert.equal(x.q('[data-ce-confirm]').closest('details'),null);
  for(const selector of ['[data-ce-confirm]','[data-ce-confirm-no]','[data-ce-confirm-yes]']){let el=x.q(selector);while(el){assert.equal(el.hidden,false);for(const s of hidden)assert.equal(el.matches(s),false,selector+' is hidden by '+s);el=el.parentElement;}}
  assert(x.q('#'+x.dialog.dialog.getAttribute('aria-labelledby')));assert(x.q('#'+x.dialog.dialog.getAttribute('aria-describedby')));assert.equal(x.focused(),x.q('[data-ce-confirm-no]'));assert.match(css,/width:min\(520px,calc\(100vw - 32px\)\)/);x.dialog.cancel();
+});
+
+test('authenticated CRM operator uses its area session only after an explicit Save, retaining the journal guard',async()=>{
+ const x=boot({operatorWrite:'synthetic-area-operator'});assert.equal(x.calls.length,0);assert.equal(x.q('[data-ce-access-form]').hidden,true);
+ x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);assert.equal(posts(x).length,1);assert.equal(posts(x)[0].req.k,'synthetic-area-operator');assert.equal(x.store.has('write'),false);assert.ok(![...x.store.values()].join('').includes('synthetic-area-operator'));
 });

@@ -73,7 +73,9 @@ jobs:
       - name: Check area access isolation and hashed credentials
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
-        run: node tests/panel-auth-postgres.cjs
+        run: |
+          node tests/panel-auth-postgres.cjs
+          node tests/panel-operator-postgres.cjs
       - name: Check organic attribution on isolated PostgreSQL
         env:
           ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite

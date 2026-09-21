@@ -101,3 +101,21 @@ input[type=date],input[type=text],input[type=password],input[type=number],select
 .nota code,.alerta code{white-space:normal;overflow-wrap:anywhere}
 /* Navigation between areas belongs only to the authenticated master entry. */
 .panel-embedded>.workspace-nav{display:none}
+
+/* Historical brand palette, restored without changing alert/status semantics. */
+body[data-marca=aristo],body[data-marca=aristocrata]{--marca-texto:#815818}
+body[data-marca=fish],body[data-marca=fishermans]{--marca-texto:#17636d}
+body[data-marca=olivas]{--marca-texto:#4e5d1c}
+body[data-marca=todas]{--marca-texto:#55524c}
+.topo{border-top:4px solid var(--marca);background:linear-gradient(100deg,var(--marca-fraca) 0%,#fff 65%)}
+.topo .seg button[data-marca].ativo{background:var(--marca-fraca);color:var(--marca-texto,var(--texto));box-shadow:inset 0 -3px var(--marca)}
+.topo .seg button[data-marca=aristo],.topo .seg button[data-marca=aristocrata]{border-bottom:2px solid #b9822d}
+.topo .seg button[data-marca=fish],.topo .seg button[data-marca=fishermans]{border-bottom:2px solid #22808d}
+.topo .seg button[data-marca=olivas]{border-bottom:2px solid #6f7f33}
+.secoes button.ativo,.abas-cx button.ativo,.i-abas button.ativo{color:var(--marca-texto,var(--texto));border-bottom-color:var(--marca)}
+.kpis,.seis{border-top:3px solid var(--marca)}
+body[data-marca] .kpi:not(.kpi-falha) .kpi-val:not(.vazio-val),body[data-marca] #area-kpis .kpi:not(.kpi-falha) .kpi-val:not(.vazio-val){color:var(--marca-texto,var(--texto))}
+.six2.ativo{background:var(--marca-fraca);box-shadow:inset 0 -3px var(--marca)}
+.six2.ativo .six2-val{color:var(--marca-texto,var(--texto))}
+.btn:not(.sec),.ce-primary,.btn-aplicar{background:var(--marca-texto,var(--texto));border-color:var(--marca-texto,var(--texto));color:#fff}
+.periodo .presets button.ativo{background:var(--marca-fraca);color:var(--marca-texto,var(--texto))}

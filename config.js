@@ -27,6 +27,10 @@ const TTS_ACAO_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-acao-api
 /* Read credentials live only in this document. Never put them in a URL or cache. */
 const SHRIGMA_SLOT_MESTRE = 'shrigma_k_mestre';
 const SHRIGMA_READ_SESSION = Object.create(null);
+const SHRIGMA_OPERATOR_SESSION=Object.create(null);
+function shrigmaChaveOperador(area,cap){const p=SHRIGMA_OPERATOR_SESSION[area];return p&&Array.isArray(p.caps)&&p.caps.includes(cap)?shrigmaChave(area):'';}
+function shrigmaAutorOperador(area){return SHRIGMA_OPERATOR_SESSION[area]?.label||'';}
+
 const SHRIGMA_EMBEDDED = typeof location !== 'undefined' && new URLSearchParams(location.search || '').get('embed') === '1';
 function shrigmaChave(painel) {
   if (SHRIGMA_READ_SESSION[painel]) return SHRIGMA_READ_SESSION[painel];
@@ -42,7 +46,7 @@ function shrigmaChave(painel) {
 function shrigmaGuardaChave(painel,key) { SHRIGMA_READ_SESSION[painel]=typeof key==='string'?key:''; }
 function shrigmaMarcaMestra() { /* The server-validated portal owns cross-area navigation. */ }
 function shrigmaEsqueceChave(painel) {
-  delete SHRIGMA_READ_SESSION[painel];
+  delete SHRIGMA_READ_SESSION[painel];delete SHRIGMA_OPERATOR_SESSION[painel];
   try {localStorage.removeItem('shrigma_k_'+painel);localStorage.removeItem(SHRIGMA_SLOT_MESTRE);}catch(_){}
 }
 // A same-origin, exact-parent handshake. No key in local/session storage, URLs or referrers.
@@ -55,6 +59,8 @@ if(SHRIGMA_EMBEDDED && typeof window!=='undefined' && window.parent!==window){
   let parentPath;try{parentPath=new URL(window.parent.location.href).pathname;}catch(_){return;}
   if(!/(?:cx|crm|organico|creators|gestao)\/(?:index.html)?$/.test(parentPath))return;
   shrigmaGuardaChave(area,event.data.key);
+  const op=event.data.permission;delete SHRIGMA_OPERATOR_SESSION[area];
+  if(op&&Array.isArray(op.caps)&&typeof op.label==='string')SHRIGMA_OPERATOR_SESSION[area]={caps:op.caps.filter(x=>typeof x==='string'),label:op.label};
   document.querySelector('#gate')?.remove();
   for(const id of ['growth-acesso','organico-acesso','influ-access-form']){const el=document.getElementById(id);if(el)el.hidden=true;}
   window.dispatchEvent(new Event('shrigma:access-ready'));

@@ -81,7 +81,7 @@ const GCE=(()=>{
  }
  const keyValue=slot=>{try{return localStorage.getItem(slot)||'';}catch{return '';}};
  const validWriteKey=v=>typeof v==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(v.trim());
- const currentWriteKey=()=>{const k=sessionWrite||(legacyWrite&&typeof GTA!=='undefined'?keyValue(GTA.CHAVE_ESCRITA):'');return validWriteKey(k)?k.trim():'';};
+ const currentWriteKey=()=>{const k=sessionWrite||(legacyWrite?((typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'')||(typeof GTA!=='undefined'?keyValue(GTA.CHAVE_ESCRITA):'')):'');return validWriteKey(k)?k.trim():'';};
  function parseAccessFile(text){
   if(typeof text!=='string'||text.length>8192)throw Error('invalid_access_file');
   let p;try{p=JSON.parse(text);}catch(_){throw Error('invalid_access_file');}
