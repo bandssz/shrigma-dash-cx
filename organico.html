@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=a00eefaa1384">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-X89nLJmKVvQnc8SZza/r2UryK28FueyTKY5dQjAOSlU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=e5c279b8a285">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tG0YqlaiYmaqhC26EiwtMB/0cI5GHQGzUOmXkP0PytA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -103,7 +103,7 @@
   <section class="sec" id="sec-stories">
     <div class="painel" id="stories-conversions"><div class="nota">Aguardando leitura das conversões de Stories.</div></div>
     <div class="painel">
-      <div class="painel-cab"><h2>Stories publicados · métricas do Instagram</h2><span class="mini" id="story-rot"></span></div>
+      <div class="painel-cab"><h2>Stories publicados · métricas do Instagram</h2><button type="button" id="story-filtro" class="seg-mini-btn" aria-pressed="false">Só as que têm link</button><span class="mini" id="story-rot"></span></div>
       <div class="rolagem"><table class="comparativo" id="tab-story"><thead><tr>
         <th>Publicado</th><th></th><th class="num">Alcance</th><th class="num">Views</th>
         <th class="num">Toques no link</th><th class="num">CTR</th>
@@ -135,7 +135,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=9e990aeb342d"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=4c33030a0918"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -443,11 +443,19 @@ function pintaPosts(lista){
 }
 
 /* ---------- stories ---------- */
+let STORY_SO_LINK=false;
 function pintaStories(){
   const st=stories(PER.ini,PER.fim);
-  const comLink=st.filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined).length;
-  $('#story-rot').textContent=`${st.length} coletadas · ${comLink} com métrica de link · data da publicação · coleta limitada à janela de 24h`;
-  $('#tab-story tbody').innerHTML=st.length?st.map(x=>
+  // Campo preenchido não é link publicado: a Meta devolve toques em toda story, zerado
+  // quando não havia figurinha. Só clique > 0 prova que a peça levava a algum lugar.
+  const comLink=st.filter(s=>(+s.link_clicks||0)>0).length;
+  const cliques=st.reduce((n,s)=>n+(+s.link_clicks||0),0);
+  const lista=STORY_SO_LINK?st.filter(s=>(+s.link_clicks||0)>0).sort((a,b)=>(+b.link_clicks||0)-(+a.link_clicks||0)):st;
+  $('#story-rot').textContent=`${st.length} coletadas · ${comLink} carregaram link · ${cliques.toLocaleString('pt-BR')} toques · data da publicação · coleta limitada à janela de 24h`;
+  const botao=$('#story-filtro');
+  if(botao){botao.textContent=STORY_SO_LINK?'Mostrando só com link':'Só as que têm link';botao.setAttribute('aria-pressed',String(STORY_SO_LINK));botao.classList.toggle('ativo',STORY_SO_LINK);
+   botao.title=STORY_SO_LINK?'Ordenadas por toques no link. Clique para ver todas as stories do período.':`${comLink} de ${st.length} stories carregaram link no período. Só essas podem gerar pedido rastreado.`;}
+  $('#tab-story tbody').innerHTML=lista.length?lista.map(x=>
     `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
       <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>
       <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.link_clicks)}</td>
@@ -455,9 +463,12 @@ function pintaStories(){
       <td class="num tabn">${nf(x.navegacao)}</td><td class="num tabn">${nf(x.respostas)}</td>
       <td class="num tabn">${nf(x.visitas_perfil)}</td>
       <td class="num tabn${+x.snapshots<2?' destaque':''}">${nf(x.snapshots)}</td></tr>`).join('')
-    :'<tr><td colspan="10"><div class="vazio">Nenhuma story coletada neste período. O coletor guarda só o que existia na janela de 24h de cada rodada — período antigo fica vazio para sempre.</div></td></tr>';
+    :`<tr><td colspan="10"><div class="vazio">${STORY_SO_LINK&&st.length?'Nenhuma story deste período carregou link. Sem figurinha de link não há pedido rastreável.':'Nenhuma story coletada neste período. O coletor guarda só o que existia na janela de 24h de cada rodada — período antigo fica vazio para sempre.'}</div></td></tr>`;
 }
 
+document.addEventListener('click',e=>{
+  if(e.target&&e.target.id==='story-filtro'){STORY_SO_LINK=!STORY_SO_LINK;pintaStories();e.target.focus();}
+});
 function render(){
   pintaMarca();
   if(!API)return;

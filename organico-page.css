@@ -113,6 +113,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .org-story-summary strong{font-size:20px;overflow-wrap:anywhere}
 .org-story-summary span{font-size:12px;color:var(--mudo)}
 .seg-mini button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
+.seg-mini-btn{font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--borda);background:var(--card);color:var(--mudo);border-radius:7px;padding:4px 10px;margin-left:auto}
+.seg-mini-btn.ativo{border-color:var(--texto);color:var(--texto)}
 th.ord{cursor:pointer;user-select:none;white-space:nowrap}
 th.ord:hover{color:var(--texto)}
 th.ord-ativa::after{content:'\2191';margin-left:4px;font-size:10px}
