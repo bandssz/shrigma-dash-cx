@@ -118,3 +118,21 @@ test('the bridge is absent, not empty, when the story source is missing',()=>{
  assert.equal(select(p).bridge,null);
  assert.equal(OS.markup(select(p)).includes('Dia a dia'),false);
 });
+
+test('orders per tap is published only when the arithmetic fits, and is labelled a ceiling',()=>{
+ const cabe=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:7,receita_liquida:700})]});
+ cabe.cx_story=[storyRow({link_clicks:102})];
+ const v=select(cabe);
+ assert.ok(Math.abs(v.bridge[0].taxa-7/102)<1e-12);
+ const html=OS.markup(v);
+ assert.match(html,/6,9%/);
+ assert.match(html,/É um teto, não uma taxa comprovada/);
+ const estoura=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:285,receita_liquida:41785.47})]});
+ estoura.cx_story=[storyRow({link_clicks:166})];
+ const w=select(estoura);
+ assert.equal(w.bridge[0].taxa,null,'acima de 100% não vira número na tela');
+ assert.doesNotMatch(OS.markup(w),/17[0-9],?[0-9]?%/);
+ const semToque=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:3,receita_liquida:300})]});
+ semToque.cx_story=[storyRow({link_clicks:0})];
+ assert.equal(select(semToque).bridge[0].taxa,null,'sem toque medido não há denominador');
+});

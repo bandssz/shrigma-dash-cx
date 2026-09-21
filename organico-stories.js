@@ -38,11 +38,14 @@ const OS=(()=>{
    if(g.pedidos!==null)l.pedidos=(l.pedidos??0)+g.pedidos;
    if(g.receita!==null)l.receita=(l.receita??0)+g.receita;
   }
-  return [...dias.values()].sort((a,b)=>b.dia.localeCompare(a.dia)).map(l=>({...l,
+  return [...dias.values()].sort((a,b)=>b.dia.localeCompare(a.dia)).map(l=>{
    // Excedente = pedidos que a campanha do dia registrou além dos toques medidos nas
    // stories daquele dia. Prova de outra superfície; nunca vira crédito de story.
-   excedente:l.pedidos!==null&&l.comLink>0&&l.pedidos>l.cliques?l.pedidos-l.cliques:null,
-   semStoryComLink:l.pedidos!==null&&l.comLink===0}));
+   const excedente=l.pedidos!==null&&l.comLink>0&&l.pedidos>l.cliques?l.pedidos-l.cliques:null;
+   // Pedidos por toque só é publicável quando a conta cabe: acima de 100% o próprio
+   // número prova que o denominador não é o tráfego inteiro daquela campanha.
+   const taxa=excedente===null&&l.pedidos!==null&&l.cliques>0?l.pedidos/l.cliques:null;
+   return {...l,excedente,taxa,semStoryComLink:l.pedidos!==null&&l.comLink===0};});
  }
  function select(api,marca,ini,fim,model){
   const view=attribution().select(api,marca,ini,fim,model);
@@ -82,9 +85,11 @@ const OS=(()=>{
    const rotulo=l.excedente!==null?`<span class="tag alerta" title="A campanha datada deste dia registrou ${nf(l.pedidos)} pedidos contra ${nf(l.cliques)} toques nas stories do dia. O excedente prova que o mesmo link circulou fora dos stories; por isso nenhuma story recebe o crédito.">+${nf(l.excedente)} além dos toques</span>`
     :l.semStoryComLink?'<span class="tag alerta" title="Há campanha datada com pedidos neste dia, mas nenhuma story do dia registrou toque no link. O tráfego veio de outra superfície ou de outro dia.">campanha sem story com link</span>'
     :l.pedidos!==null?'<span class="tag nulo" title="Pedidos dentro dos toques medidos. Ainda assim a UTM não identifica qual story: o dia pode ter mais de uma peça com link.">dentro dos toques</span>':'';
-   return `<tr><td>${esc(l.dia.slice(8,10))}/${esc(l.dia.slice(5,7))}</td><td class="num tabn">${nf(l.stories)}</td><td class="num tabn${l.comLink?'':' vm'}">${nf(l.comLink)}</td><td class="num tabn">${nf(l.cliques)}</td><td class="mini org-utm-values">${l.campanhas.length?esc(l.campanhas.join(' · ')):'—'}</td><td class="num tabn">${nf(l.pedidos)}</td><td class="num tabn">${money(l.receita)}</td><td>${rotulo}</td></tr>`;}).join('');
+   const taxa=l.taxa===null?'<span class="mini" title="Sem denominador confiável: ou não houve toque medido no dia, ou os pedidos passam dos toques.">—</span>'
+    :`<span title="${nf(l.pedidos)} pedidos da campanha datada de ${esc(l.dia.slice(8,10))}/${esc(l.dia.slice(5,7))} sobre ${nf(l.cliques)} toques medidos nas stories do mesmo dia. É um teto, não uma taxa comprovada: parte dos pedidos pode ter vindo de outra superfície com o mesmo link.">${(l.taxa*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span>`;
+   return `<tr><td>${esc(l.dia.slice(8,10))}/${esc(l.dia.slice(5,7))}</td><td class="num tabn">${nf(l.stories)}</td><td class="num tabn${l.comLink?'':' vm'}">${nf(l.comLink)}</td><td class="num tabn">${nf(l.cliques)}</td><td class="mini org-utm-values">${l.campanhas.length?esc(l.campanhas.join(' · ')):'—'}</td><td class="num tabn">${nf(l.pedidos)}</td><td class="num tabn destaque">${taxa}</td><td class="num tabn">${money(l.receita)}</td><td>${rotulo}</td></tr>`;}).join('');
   return `<div class="painel-cab"><h2>Dia a dia · peça, toque e campanha</h2><span class="mini" title="Data de publicação da story e prefixo de data da campanha UTM. São duas fontes diferentes alinhadas pelo dia, não um vínculo comprovado entre peça e pedido.">alinhado pelo dia · vínculo não comprovado</span></div>
-   <div class="rolagem" tabindex="0" role="region" aria-label="Stories, toques no link e campanha datada por dia; use as setas para rolar"><table class="comparativo"><thead><tr><th>Dia</th><th class="num">Stories</th><th class="num" title="Stories com pelo menos um toque no link registrado pela Meta. Story sem link nunca gera pedido rastreado.">Com link</th><th class="num">Toques</th><th>Campanha datada do dia</th><th class="num">Pedidos</th><th class="num">Receita líquida</th><th>Leitura</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+   <div class="rolagem" tabindex="0" role="region" aria-label="Stories, toques no link e campanha datada por dia; use as setas para rolar"><table class="comparativo"><thead><tr><th>Dia</th><th class="num">Stories</th><th class="num" title="Stories com pelo menos um toque no link registrado pela Meta. Story sem link nunca gera pedido rastreado.">Com link</th><th class="num">Toques</th><th>Campanha datada do dia</th><th class="num">Pedidos</th><th class="num" title="Pedidos da campanha datada do dia divididos pelos toques medidos nas stories daquele dia. Teto, não taxa comprovada: o mesmo link pode ter circulado em outra superfície. Fica vazio quando os pedidos passam dos toques.">Pedidos por toque</th><th class="num">Receita líquida</th><th>Leitura</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
  }
  function markup(v){
   const title='<div class="painel-cab"><h2>Conversões de Stories · Shopify</h2><span class="mini">Pedidos e receita líquida atribuídos à superfície</span></div>';
