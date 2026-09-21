@@ -2,14 +2,16 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- O bloco <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=66a85ec742c2">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=27fa0f3ebe0b">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-X89nLJmKVvQnc8SZza/r2UryK28FueyTKY5dQjAOSlU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-<nav class="workspace-nav" aria-label="Áreas de trabalho"><a class="workspace-brand" href="index.html">Shrigma<span>Operação</span></a><div class="workspace-links"><a href="index.html">CX/CS</a><a href="growth.html">CRM</a><a href="organico.html" aria-current="page">Orgânico</a><a href="influs.html">Influs &amp; Afiliados</a></div></nav>
+<div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
 
 <header class="topo">
   <div class="titulo">
@@ -133,7 +135,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=98b41285a468"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=79d08510da10"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -485,7 +487,7 @@ async function carrega(){
   avisoTela('Carregando dados…',API?'Os dados anteriores permanecem na tela até a leitura terminar.':'A consulta do Orgânico está em andamento.',false);
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
   try{
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=organico',{signal:controller.signal,cache:'no-store'});
+    const r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
     if(r.status===401||r.status===403){
       avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
     if(!r.ok)throw new Error('read_failed');

@@ -9,52 +9,55 @@ const REFRESH_SEG = 60; // recarrega dados a cada 60s (lê Postgres via n8n; Gle
 const CX_REFRESH_SEG = 600;
 
 // Endpoint de ESCRITA dos testes A/B. Chave PROPRIA (nao a de leitura):
-// a chave de leitura fica no localStorage de todo mundo que ja abriu o painel.
+// a sessão de leitura não concede permissão de escrita.
 const AB_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-teste-api-01d240f09eff8e39';
 
 // Endpoint de LEITURA+ESCRITA do cadastro de influs (cupom <-> influ).
 // 'listar' aceita a chave de leitura do painel; salvar exige chave PROPRIA de escrita,
-// que nao mora neste repositorio - a Marcela digita uma vez e fica no localStorage dela.
+// que nao mora neste repositorio e continua sujeita ao controle próprio de escrita.
 const INFLU_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-influ-api-7c41e0b93a5d8f26';
 
 // Endpoint de LEITURA da aba Afiliados TikTok Shop (influs.html). Aceita a chave de leitura do painel
 // de Influs (crm_dash_chave, painel influs/todos). Le as tabelas crm_tts_* do coletor diario.
 const TTS_API_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-painel-api-9d3f7a1c';
 // Endpoint de ESCRITA do TikTok Shop (aprovar/rejeitar amostra, editar regra). Chave PROPRIA, que nao mora
-// neste repositorio - a Marcela digita uma vez e fica no localStorage dela (shrigma_tts_wkey).
+// neste repositorio e continua sujeita ao controle próprio de escrita.
 const TTS_ACAO_URL = 'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-acao-api-2c7e9f41';
 
-/* ---------- chave de acesso, compartilhada entre as paginas ----------
-   Cada painel tem seu proprio cofre no localStorage, para que a chave do Suporte nao
-   abra o Growth. Mas a chave MESTRA (painel=todos) e uma so e tem que valer no
-   dispositivo inteiro: sem isto, quem tem acesso total teria que colar a mesma chave
-   quatro vezes, uma por aba. Por isso existe um cofre extra, o mestre, que serve de
-   reserva para todas as paginas. */
+/* Read credentials live only in this document. Never put them in a URL or cache. */
 const SHRIGMA_SLOT_MESTRE = 'shrigma_k_mestre';
-
+const SHRIGMA_READ_SESSION = Object.create(null);
+const SHRIGMA_EMBEDDED = typeof location !== 'undefined' && new URLSearchParams(location.search || '').get('embed') === '1';
 function shrigmaChave(painel) {
+  if (SHRIGMA_READ_SESSION[painel]) return SHRIGMA_READ_SESSION[painel];
+  if (SHRIGMA_EMBEDDED) return '';
   try {
-    return localStorage.getItem('shrigma_k_' + painel)
-        || localStorage.getItem(SHRIGMA_SLOT_MESTRE) || '';
-  } catch (e) { return ''; }
+    // Migrate a legacy saved reader into memory once. New portal sessions never import it.
+    const key=localStorage.getItem('shrigma_k_'+painel)||localStorage.getItem(SHRIGMA_SLOT_MESTRE)||'';
+    localStorage.removeItem('shrigma_k_'+painel);localStorage.removeItem(SHRIGMA_SLOT_MESTRE);
+    if(key)SHRIGMA_READ_SESSION[painel]=key;
+    return key;
+  } catch (_) { return ''; }
 }
-
-function shrigmaGuardaChave(painel, k) {
-  try { localStorage.setItem('shrigma_k_' + painel, k); } catch (e) {}
-}
-
-/* Chamado depois de uma carga bem-sucedida: se a API disse que a chave e de acesso
-   total, ela vira reserva de todas as paginas. E dado da resposta, nao adivinhacao
-   pelo formato da chave. */
-function shrigmaMarcaMestra(k, painel) {
-  try {
-    if (painel === 'todos' && k) localStorage.setItem(SHRIGMA_SLOT_MESTRE, k);
-  } catch (e) {}
-}
-
+function shrigmaGuardaChave(painel,key) { SHRIGMA_READ_SESSION[painel]=typeof key==='string'?key:''; }
+function shrigmaMarcaMestra() { /* The server-validated portal owns cross-area navigation. */ }
 function shrigmaEsqueceChave(painel) {
-  try {
-    localStorage.removeItem('shrigma_k_' + painel);
-    localStorage.removeItem(SHRIGMA_SLOT_MESTRE);
-  } catch (e) {}
+  delete SHRIGMA_READ_SESSION[painel];
+  try {localStorage.removeItem('shrigma_k_'+painel);localStorage.removeItem(SHRIGMA_SLOT_MESTRE);}catch(_){}
+}
+// A same-origin, exact-parent handshake. No key in local/session storage, URLs or referrers.
+if(SHRIGMA_EMBEDDED && typeof window!=='undefined' && window.parent!==window){
+ const area=document.body.dataset.panel==='index'?'cx':document.body.dataset.panel;
+ document.body.classList.add('panel-embedded');
+ window.addEventListener('message',event=>{
+  if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='shrigma:read-access'||event.data.panel!==area)return;
+  if(typeof event.data.key!=='string'||!/^[a-z0-9-]{8,128}$/.test(event.data.key))return;
+  let parentPath;try{parentPath=new URL(window.parent.location.href).pathname;}catch(_){return;}
+  if(!/(?:cx|crm|organico|creators|gestao)\/(?:index.html)?$/.test(parentPath))return;
+  shrigmaGuardaChave(area,event.data.key);
+  document.querySelector('#gate')?.remove();
+  for(const id of ['growth-acesso','organico-acesso','influ-access-form']){const el=document.getElementById(id);if(el)el.hidden=true;}
+  window.dispatchEvent(new Event('shrigma:access-ready'));
+ });
+ window.parent.postMessage({type:'shrigma:ready',panel:area},location.origin);
 }

@@ -63,7 +63,7 @@ test('operation lookup uses the original write principal and unknown or not-foun
  await f.client.catalog();await assert.rejects(()=>f.client.save(definition()));f.setKey('different-author');
  await assert.rejects(()=>f.client.consult(),{code:'OPERATION_ACTOR_CHANGED'});assert.equal(f.calls.filter(c=>c.request.acao==='campanha_operacao').length,0);
  f.setKey('synthetic-write-secret');await assert.rejects(()=>f.client.consult());assert.equal(f.client.locked(),true);
- assert.equal(f.calls.at(-1).request.k,'synthetic-write-secret');assert.equal(f.calls.at(-1).request.idempotency_key,f.client.snapshot().operation.key);
+ assert.equal(f.calls.at(-1).request.k,undefined);assert.equal(f.calls.at(-1).init.headers.Authorization,'Bearer synthetic-write-secret');assert.equal(f.calls.at(-1).request.idempotency_key,f.client.snapshot().operation.key);
 });
 test('confirmed rejected post-create step reopens its owned draft instead of permitting a new creation',async()=>{
  let updates=0;const f=fixture(async req=>{

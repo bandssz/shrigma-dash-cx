@@ -99,3 +99,5 @@ input[type=date],input[type=text],input[type=password],input[type=number],select
 .secoes,.abas-cx,.i-abas{max-width:100%;overflow-x:auto}
 .duas-colunas>*{min-width:0;overflow-x:auto}
 .nota code,.alerta code{white-space:normal;overflow-wrap:anywhere}
+/* Navigation between areas belongs only to the authenticated master entry. */
+.panel-embedded>.workspace-nav{display:none}

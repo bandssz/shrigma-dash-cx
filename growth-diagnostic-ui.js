@@ -33,8 +33,8 @@
     loading=true;$('#refresh').disabled=true;$('#status').textContent='Consultando o Growth…';
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
     try{
-      const url=new URL(CX_API_URL);url.searchParams.set('k',key);url.searchParams.set('painel','growth');
-      const response=await fetch(url.toString(),{method:'GET',headers:{Accept:'application/json'},signal:controller.signal,redirect:'error',cache:'no-store'});
+      const url=new URL(CX_API_URL);url.searchParams.set('painel','growth');
+      const response=await fetch(url.toString(),{method:'GET',headers:{Accept:'application/json',Authorization:'Bearer '+key},signal:controller.signal,redirect:'error',cache:'no-store'});
       if(response.status===401){shrigmaEsqueceChave('growth');$('#auth').hidden=false;throw new Error('unauthorized');}
       if(!response.ok)throw new Error('http_'+response.status);
       const next=await response.json();

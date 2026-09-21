@@ -16,7 +16,7 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
  const calls=[];let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
  const context=vm.createContext({document,window,console,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:()=>{throw Error('native confirm must not be called');},__api:payload,
-  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);calls.push(req);let body;
+  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);let body;
    if(req.acao==='campanha_catalogo')body=catalog;
    else if(req.acao==='campanha_listar')body={campaigns:[current]};
    else if(req.acao==='campanha_obter')body={campaign:current};

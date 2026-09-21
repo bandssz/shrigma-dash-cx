@@ -33,7 +33,7 @@ const GB={
   let k=write?localStorage.getItem(GTA.CHAVE_ESCRITA)||'':GTA.chaveLeitura();
   if(write&&!k){k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k)return {ok:false,body:{erro:'Informe a chave de edição para salvar.'}};}
   try{
-   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({k,acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{});
+   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit'});
    return {ok:r.ok,status:r.status,body:await r.json()};
   }catch(_){return {ok:false,status:0,body:{erro:'Resultado não confirmado. Recarregue antes de repetir.'}};}
  },

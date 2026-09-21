@@ -17,6 +17,11 @@ on:
       - 'n8n/**'
       - 'tools/campaign-runtime-build/**'
       - 'tools/panel-build/**'
+      - 'cx/**'
+      - 'crm/**'
+      - 'organico/**'
+      - 'creators/**'
+      - 'gestao/**'
       - 'assets/panels/**'
       - '*.js'
       - 'frescor.js'
@@ -65,6 +70,10 @@ jobs:
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
         run: node tests/cart-order-monotonic-postgres.cjs
+      - name: Check area access isolation and hashed credentials
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/panel-auth-postgres.cjs
       - name: Check organic attribution on isolated PostgreSQL
         env:
           ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite

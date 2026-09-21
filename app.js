@@ -62,8 +62,7 @@ const corHex = (m) => CORES_HEX[m] || CORES_HEX.todas;
 const $ = (s) => document.querySelector(s);
 
 // ---------- chave de acesso ----------
-// A API exige ?k=<chave>. A chave fica só neste dispositivo (localStorage),
-// nunca no código. Errou a chave → a API devolve 401 e o painel pede de novo.
+// Credencial em memória, transmitida por cabeçalho. A API confere escopo e revogação.
 function chave() { return shrigmaChave("cx"); }
 function pedeChave(erro) {
   if ($("#gate")) { $("#gate .gate-erro").textContent = erro || ""; return; }
@@ -99,7 +98,7 @@ function cacheCXValido(p, agora = Date.now()) {
 async function consultaCX(url, timeoutMs) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(url, { headers:{Authorization:'Bearer '+chave()}, redirect:'error', credentials:'omit', cache: 'no-store', signal: controller.signal });
     return { response, payload: response.ok ? await response.json() : null };
   } finally { clearTimeout(timer); }
 }
@@ -113,13 +112,13 @@ async function carrega() {
     let dados = null, r = null;
     if (typeof CX_CACHE_URL === "string" && CX_CACHE_URL) {
       try {
-        const leitura = await consultaCX(CX_CACHE_URL + "?k=" + encodeURIComponent(chave()), 8000);
+        const leitura = await consultaCX(CX_CACHE_URL, 8000);
         r = leitura.response;
         if (r.ok && cacheCXValido(leitura.payload)) dados = leitura.payload;
       } catch (e) { dados = null; }
     }
     if (!dados && !(r && (r.status === 401 || r.status === 403))) {
-      const leitura = await consultaCX(CX_API_URL + "?k=" + encodeURIComponent(chave()) + "&painel=cx", 45000);
+      const leitura = await consultaCX(CX_API_URL + "?painel=cx", 45000);
       r = leitura.response;
       if (r.ok && payloadCXValido(leitura.payload)) dados = leitura.payload;
     }

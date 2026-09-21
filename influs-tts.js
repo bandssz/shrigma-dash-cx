@@ -544,8 +544,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     try {
       const consulta = (async () => {
         let r;
-        try { r = await fetch(TTS_API_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({k,...periodo}), signal:controller.signal, redirect:'error', credentials:'omit', cache:'no-store' }); }
+        try { r = await fetch(TTS_API_URL, { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},
+          body:JSON.stringify(periodo), signal:controller.signal, redirect:'error', credentials:'omit', cache:'no-store' }); }
         catch (_) { throw new Error('Não foi possível consultar os afiliados agora.'); }
         if (r.status === 401 || r.status === 403) { const erro = new Error('Chave inválida ou sem acesso a esta consulta.'); erro.status = r.status; throw erro; }
         if (!r.ok) throw new Error('Consulta indisponível (HTTP ' + r.status + ').');

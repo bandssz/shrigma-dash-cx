@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=8ac3774d4d6a">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=476c24dfd8af">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RBKV2zdSouw7v6kt9gbTuC8FRscFpb81iJG58VP0OtE='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-<nav class="workspace-nav" aria-label="Áreas de trabalho"><a class="workspace-brand" href="index.html">Shrigma<span>Operação</span></a><div class="workspace-links"><a href="index.html">CX/CS</a><a href="growth.html">CRM</a><a href="organico.html">Orgânico</a><a href="influs.html" aria-current="page">Influs &amp; Afiliados</a></div></nav>
+<div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
 
 <header class="topo">
   <div class="titulo">
@@ -200,7 +202,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=d66cdd120a12"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=3a5af012a0ed"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -374,8 +376,8 @@ async function influPost(corpo,leitura={}){
     const wk=chaveEscritaInflu();if(!wk||wk!==corpo.k)throw new Error('Informe acesso e autoria; depois confirme a alteração novamente. Nada foi enviado.');
     corpo={...corpo,autor:INFLU_ACCESS.author()};
   }
-  let r;try{r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    redirect:'error',credentials:'omit',cache:'no-store',...(escrita?{}:{signal:leitura.signal}),body:JSON.stringify(corpo)});}
+  let r;try{r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json',...(!escrita?{Authorization:'Bearer '+corpo.k}:{})},
+    redirect:'error',credentials:'omit',cache:'no-store',...(escrita?{}:{signal:leitura.signal}),body:JSON.stringify(escrita?corpo:Object.fromEntries(Object.entries(corpo).filter(([k])=>k!=='k')))});}
   catch(_){throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Não foi possível consultar os dados agora.');}
   let j=null;try{j=await r.json();}catch(_){}
   if(!escrita&&leitura.vigente&&!leitura.vigente())throw new Error('Consulta substituída.');
@@ -403,7 +405,7 @@ async function faixaCredencial(){
   const acesso=()=>typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):shrigmaChave('influs');
   const k=acesso()||'';if(!k)return;
   const leitura=leituraInfluLimitada(async(signal,vigente)=>{
-    const r=await fetch(CX_API_URL+'?k='+encodeURIComponent(k)+'&painel=influs',{
+    const r=await fetch(CX_API_URL+'?painel=influs',{headers:{Authorization:'Bearer '+k},
       signal,redirect:'error',credentials:'omit',cache:'no-store'});
     if(!r.ok)return;
     const j=await r.json();
