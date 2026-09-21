@@ -8,7 +8,7 @@ const tick=()=>new Promise(setImmediate);
 function page(){
  let key='reader-a',id=0;const calls=[],paints=[],notices=[],banners=[],master=[],rejects=[],timers=new Map(),fresh={textContent:'old',title:'old'};
  const ctx=vm.createContext({AbortController,setTimeout:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id),
-  PER:{ini:'2026-09-14',fim:'2026-09-20'},INFLU_API_URL:'https://example.invalid/creators',CX_API_URL:'https://example.invalid/shared',
+  SEC:'creators',PER:{ini:'2026-09-14',fim:'2026-09-20'},INFLU_API_URL:'https://example.invalid/creators',CX_API_URL:'https://example.invalid/shared',
   INFLU_ACCESS:{current:()=>key,isSessionRead:()=>true,requireWrite:()=>key,author:()=> 'Operator',reject:(r,k)=>{rejects.push({r,k});if(k===key)key='';}},
   chaveLeitura:()=>key,shrigmaChave:()=>key,esc:String,avisoTela:(...args)=>notices.push(args),$:()=>fresh,
   window:{avisoCredencial:x=>banners.push(x)},shrigmaMarcaMestra:(...x)=>master.push(x),shrigmaFrescor:p=>{fresh.textContent=p.gerado_em;},
