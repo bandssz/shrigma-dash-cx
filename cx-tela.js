@@ -676,9 +676,9 @@ function pintaRaAba(d) {
   const rot = $("#ra-rotulo"), tab = $("#area-ra"), tabRot = $("#ra-tab-rot");
   CX_RA_DADOS = { marcas };
   if (!lidos.length) {
-    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "cx_ra_dia está vazia. O bookmarklet ainda não gravou nenhuma leitura da página da marca no Reclame AQUI.");
+    if (rot) rot.innerHTML = cxTag("sem coleta", "alerta", "cx_ra_dia está vazia. Ninguém rodou o favorito do coletor na página da marca no Reclame AQUI ainda.");
     cxPintaCartoes("ra", CX_RA_CARTOES.map((c) => ({ k: c.k, rot: c.rot, val: "—", sub: "sem leitura", info: c.info })));
-    if (tab) tab.innerHTML = `<div class="vazio">Sem leitura do Reclame AQUI ainda. Quando o bookmarklet gravar a primeira, aqui aparecem os cinco critérios do RA1000 por marca, o que está aguardando resposta e o tempo médio de resposta.</div>`;
+    if (tab) tab.innerHTML = `<div class="vazio">Sem leitura do Reclame AQUI ainda. Quando alguém rodar o favorito do coletor pela primeira vez, aqui aparecem os cinco critérios do RA1000 por marca, o que está aguardando resposta e o tempo médio de resposta.</div>`;
     if (tabRot) tabRot.innerHTML = "";
     pintaGraficoRaAba(d); return;
   }
@@ -689,16 +689,21 @@ function pintaRaAba(d) {
   const agrega = (c, src) => { const vs = lidos.map((x) => num(x[src], c.k)).filter((v) => typeof v === "number"); if (!vs.length) return null; return CX_RA_CONTAGEM.has(c.k) ? vs.reduce((s, v) => s + v, 0) : Math.min(...vs); };
   const pendReal = lidos.every((x) => raPendentes(x.l).real);
   const reguaTot = lidos.map((x) => raPendentes(x.l).regua).filter((v) => typeof v === "number").reduce((s, v) => s + v, 0);
+  const maisRecente = lidos.map((x) => cxDia(x.l.dia)).sort().pop();
+  const idade = raIdade(maisRecente);
+  const idadeTxt = !idade ? "" : idade.dias <= 0 ? "leitura de hoje" : idade.dias === 1 ? "leitura de ontem"
+    : `leitura de ${fmtDia(idade.dia)} · ${idade.dias} dias atrás`;
+  const idadeTitle = "A página do Reclame AQUI só pode ser lida de dentro de um navegador: o RA recusa leitura de servidor. "
+    + "A leitura entra quando alguém roda o favorito do coletor. Enquanto não rodar, os números abaixo são os da última leitura, não os de hoje.";
   const cartoes = CX_RA_CARTOES.map((c) => {
     const v = agrega(c, "l"), va = agrega(c, "ant");
     const chip = c.tipo === "pct" ? cxChipPP(c.m, v, va, 1) : (typeof va === "number" && estado.comparar ? (c.tipo === "nota" ? chipHtml("csat", v, va, (x) => fmtDec(x)) : cxChipPts(v, va, DIRECAO[c.m])) : "");
-    let sub = todas ? (CX_RA_CONTAGEM.has(c.k) ? "as duas marcas" : "pior marca") : `leitura de ${fmtDia(cxDia(lidos[0].l.dia))}`;
+    let sub = todas ? (CX_RA_CONTAGEM.has(c.k) ? "as duas marcas" : "pior marca") : idadeTxt || `leitura de ${fmtDia(cxDia(lidos[0].l.dia))}`;
     if (c.k === "pendentes_agora") sub = pendReal ? `fila real · na régua: ${fmtNum(reguaTot)}` : "régua de 6 meses (leitura antiga)";
-    return { k: c.k, rot: c.rot, val: fmtV(c, v), status: cxStatus(c.m, v), chip, sub, info: c.info + (todas ? `\n\nPor marca: ${lidos.map((x) => `${ROTULOS[x.m]} ${fmtV(c, num(x.l, c.k))}`).join(" · ")}` : "") + `\n\nLeitura de ${fmtDia(cxDia(lidos[0].l.dia))}, página pública da marca (tarefa agendada / bookmarklet).` };
+    return { k: c.k, rot: c.rot, val: fmtV(c, v), status: cxStatus(c.m, v), chip, sub, info: c.info + (todas ? `\n\nPor marca: ${lidos.map((x) => `${ROTULOS[x.m]} ${fmtV(c, num(x.l, c.k))}`).join(" · ")}` : "") + `\n\nLeitura de ${fmtDia(cxDia(lidos[0].l.dia))}, página pública da marca, gravada pelo favorito do coletor. O RA não aceita leitura de servidor, então a data só avança quando alguém roda o favorito.` };
   });
-  const maisRecente = lidos.map((x) => cxDia(x.l.dia)).sort().pop();
   const periodo = raPeriodo(lidos.map((x) => x.l).find((l) => raPeriodo(l)));
-  if (rot) rot.innerHTML = `<span class="tag nota">leitura de ${fmtDia(maisRecente)}</span>` +
+  if (rot) rot.innerHTML = cxTag(idadeTxt || `leitura de ${fmtDia(maisRecente)}`, idade ? idade.classe : "nota", idadeTitle) +
     (periodo ? cxTag(`régua do RA: ${periodo}`, "nota", "Nota, respondidas, solução, voltaria e avaliações são calculados pelo Reclame AQUI sobre uma janela fechada de 6 meses — o mês corrente só entra na virada. 'Sem resposta agora' é a fila real, todas as reclamações ativas.") : "") +
     cxResumoStatus(cartoes);
   cxPintaCartoes("ra", cartoes);
@@ -709,7 +714,7 @@ function pintaRaAba(d) {
   if (tab) tab.innerHTML = `<div class="rolagem"><table class="comparativo ra-tab">
     <thead><tr><th>Marca</th>${CX_RA_CARTOES.slice(0, 5).map((c) => `<th class="num" title="${c.info.replace(/"/g, "&quot;")}">${c.rot}<span class="mini meta"> ≥ ${c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo}</span></th>`).join("")}<th class="num" title="Reclamações ativas sem resposta agora (fila do RA Empresas); embaixo, quantas dessas contam na régua de 6 meses">Sem resposta</th><th class="num" title="Tempo médio de resposta, em dias">Tempo resp.</th><th class="num">Reclamações</th><th class="num" title="Nota que o consumidor dá à marca">Nota consumidor</th></tr></thead>
     <tbody>${lidos.map(({ m, l }) => { const av = raAvalia(l); return `<tr>
-      <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span><div class="mini">${fmtDia(cxDia(l.dia))}${l.fonte && l.fonte !== "metatag" ? " · " + l.fonte : ""}</div></td>
+      <td><span class="ponto" style="--cor:${corHex(m)}"></span> <span class="nome">${ROTULOS[m]}</span><div class="mini">${fmtDia(cxDia(l.dia))}${(() => { const i = raIdade(l.dia); return i && i.velha ? ` · ${i.dias} dias` : ""; })()}${l.fonte && l.fonte !== "metatag" ? " · " + l.fonte : ""}</div></td>
       ${av.crit.map((c, i) => cel(CX_RA_CARTOES[i], c.v, c.bate)).join("")}
       ${(() => { const p = raPendentes(l); return `<td class="num ${p.v > 0 ? "vm" : ""}">${fmtNum(p.v)}${p.real && p.regua != null ? `<div class="mini">régua ${fmtNum(p.regua)}</div>` : (!p.real && p.v != null ? `<div class="mini">régua</div>` : "")}</td>`; })()}
       <td class="num">${l.tempo_resposta_dias != null ? fmtDec(Number(l.tempo_resposta_dias), 0) + " d" : "—"}</td>
@@ -722,12 +727,12 @@ function pintaGraficoRaAba(d) {
   const s = serieRa(d.cx_ra, CX_RA_DADOS.marcas, c.k);
   const fmt = c.tipo === "pct" ? (v) => Math.round(v) + "%" : c.tipo === "nota" ? (v) => fmtDec(v, 0) : fmtNum;
   let html;
-  if (!s.dias.length) html = `<div class="vazio mini">Sem leitura ainda. A série começa quando o bookmarklet gravar a primeira.</div>`;
+  if (!s.dias.length) html = `<div class="vazio mini">Sem leitura ainda. A série começa na primeira vez que alguém rodar o favorito do coletor.</div>`;
   else if (s.dias.length < 2) html = `<div class="vazio mini">Uma leitura só (${fmtDia(s.dias[0])}): ${s.series.map((x) => `${ROTULOS[x.marca]} <b>${typeof x.pontos[0].y === "number" ? (c.tipo === "pct" ? fmtDec(x.pontos[0].y) + "%" : c.tipo === "nota" ? fmtDec(x.pontos[0].y) : fmtNum(x.pontos[0].y)) : "—"}</b>`).join(" · ")}. A curva aparece a partir da segunda leitura.</div>`;
   else html = cxgLinhas({ rotulosX: s.dias.map(fmtDia), pct: c.tipo === "pct", yMax: c.tipo === "nota" ? 10 : undefined, fmt, aria: c.rot,
     series: s.series.map((x) => Object.assign(cxLbl(x.marca), { pontos: x.pontos.map((p) => ({ y: p.y, rot: fmtDia(p.dia) })) })),
     alvo: CX_RA_CONTAGEM.has(c.k) ? null : { y: CX_ALVOS[c.m].alvo, rot: "alvo " + (c.tipo === "pct" ? CX_ALVOS[c.m].alvo + "%" : CX_ALVOS[c.m].alvo) } });
-  cxGraficoBloco("ra", { tit: c.rot + " · por leitura", sub: (c.k === "pendentes_agora" ? "fila real (todas as ativas), coletada desde 14/09 · " : "") + "uma leitura por dia, quando a tarefa agendada ou o bookmarklet roda · uma linha por marca", html });
+  cxGraficoBloco("ra", { tit: c.rot + " · por leitura", sub: (c.k === "pendentes_agora" ? "fila real (todas as ativas), coletada desde 14/09 · " : "") + "uma leitura por dia, quando alguém roda o favorito do coletor · uma linha por marca", html });
 }
 
 // ---------- Aba NPS: cinco números → série semanal; tabela por marca + área apontada ----------
