@@ -1,8 +1,8 @@
 /* Independent operator entry. Identity and allowed areas always come from the API. */
 (function(){
  'use strict';
- // Espera longa e visivel enquanto a fila do servidor esta saturada. Mitigacao de interface: nao acelera o servidor.
- const ACCESS_WAIT_MS=180000;
+ // Teto da espera de identidade. Generoso para lentidao ocasional do servidor, curto o bastante para nao prender ninguem.
+ const ACCESS_WAIT_MS=60000;
  const AREAS={cx:{label:'CX/CS',page:'index.html'},growth:{label:'CRM',page:'growth.html'},organico:{label:'Orgânico',page:'organico.html'},influs:{label:'Influs & Afiliados',page:'influs.html'}};
  const requested=document.body.dataset.accessPanel,root=new URL('../',location.href),form=document.getElementById('entry-form'),field=document.getElementById('entry-key'),file=document.getElementById('entry-file'),message=document.getElementById('entry-message'),controls=document.getElementById('entry-fields'),cancel=document.getElementById('entry-cancel'),login=document.getElementById('entry-login'),shell=document.getElementById('entry-shell'),nav=document.getElementById('entry-nav'),host=document.getElementById('entry-frame');
  let key='',identity=null,frame=null,selected='',busy=false,epoch=0,expiry=null;

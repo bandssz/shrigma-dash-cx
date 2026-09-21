@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const CEILING=180000;
+const CEILING=60000;
 function login(fetch){
  const source=fs.readFileSync(require.resolve('../panel-entry.js'),'utf8'),
   s=source.slice(source.indexOf(' async function readIdentity('),source.indexOf(" document.getElementById('entry-logout')")),
@@ -13,7 +13,7 @@ function login(fetch){
 }
 test('the entry ceiling matches the published source', ()=>{
  const source=fs.readFileSync(require.resolve('../panel-entry.js'),'utf8');
- assert.match(source,/const ACCESS_WAIT_MS=180000;/);
+ assert.match(source,/const ACCESS_WAIT_MS=60000;/);
 });
 test('the ceiling releases a fetch that never honors abort',async()=>{
  const x=login(()=>new Promise(()=>{})),p=x.run();
