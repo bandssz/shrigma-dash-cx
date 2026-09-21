@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=e5c279b8a285">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FQRv64yQ74PW9KmI+LTXLq41EPjQfkXhZ+AZrd72nKY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3IXJ17mRqcagPPSpLtoNHLdGnWtiB8khBJXyFAmqib4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -311,6 +311,27 @@ function pintaKPIs(){
     .map(([grupo,rotulo])=>{const linhas=rA.filter(r=>grupoReceitaOrganico(r)===grupo);
       return linhas.length?`${rotulo}: ${moeda(soma(linhas))}`:null;}).filter(Boolean);
 
+  // KPI_STORY_LEDGER_BEGIN
+  // O card do topo lia a projeção anterior, que filtra utm_medium IN (organico,social,dm,
+  // dm-automation) e deriva a superfície de content/term. Os links de story de hoje usam
+  // medium=story e não trazem content/term, então não entram ali: o card dizia "sem dado"
+  // enquanto a aba Stories mostrava a receita. Agora os dois leem o mesmo ledger.
+  const ledgerStory=(()=>{
+    try{
+      if(typeof OS==='undefined'||typeof OA==='undefined')return null;
+      const v=OS.select(API,MARCA,PER.ini,PER.fim,OA.getModel());
+      return v&&v.available?v:null;
+    }catch(e){return null;}
+  })();
+  const ledgerStoryAnterior=(()=>{
+    try{
+      if(typeof OS==='undefined'||typeof OA==='undefined')return null;
+      const v=OS.select(API,MARCA,ant.ini,ant.fim,OA.getModel());
+      return v&&v.available?v:null;
+    }catch(e){return null;}
+  })();
+  const modeloStory=ledgerStory&&typeof OA!=='undefined'?OA.MODELS[ledgerStory.model]:null;
+  // KPI_STORY_LEDGER_END
   const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
   const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
   const ctr=l=>{const a=l.reduce((x,s)=>x+(+s.alcance||0),0);
@@ -341,10 +362,16 @@ function pintaKPIs(){
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
      d:varia(cli,cliB), s:'nível de conta, não da peça'},
+    ledgerStory?
+    {r:'Receita de Stories', v:ledgerStory.storyRevenue===null?'—':moeda(ledgerStory.storyRevenue),
+     d:ledgerStory.storyRevenue!==null&&ledgerStoryAnterior&&ledgerStoryAnterior.storyRevenue!==null?varia(ledgerStory.storyRevenue,ledgerStoryAnterior.storyRevenue):null,
+     s:`${ledgerStory.storyOrders===null?'pedidos indisponíveis':nf(ledgerStory.storyOrders)+' pedidos'} · ${modeloStory||'último clique'} · mesma fonte da aba Stories`,
+     detalhes:[...outrasReceitas,receitaA===null?'Projeção anterior para story: sem dado — ela não reconhece os links com medium=story':`Projeção anterior para story: ${moeda(receitaA)}`],
+     ir:'stories'}:
     {r:'Receita histórica de story · reels · post', v:receitaA===null?'—':moeda(receitaA),
      d:receitaA!==null&&receitaB!==null?varia(receitaA,receitaB):null,
      s:pcA.length?`${pedidosEditorial===null?'Pedidos indisponíveis':nf(pedidosEditorial)+' pedidos'} · projeção anterior · superfície UTM`
-       :'nenhuma receita com superfície editorial identificada no período',
+       :'leitura do ledger indisponível nesta consulta; a projeção anterior não reconhece os links com medium=story',
      detalhes:outrasReceitas, ir:'venda'},
   ];
   $('#area-kpis').innerHTML=cards.map(k=>`<div class="kpi${k.ir?' kpi-ir':''}" ${k.ir?`data-ir="${k.ir}" role="button" tabindex="0"`:''}>
