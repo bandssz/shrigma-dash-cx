@@ -16,3 +16,5 @@ body.sec-partners #area-kpis,body.sec-meta #area-kpis,body.sec-partners #faixa-a
 
 .cp-programs article[data-brand=aristo]{--program-color:#b9822d;--program-text:#815818}.cp-programs article[data-brand=fish]{--program-color:#22808d;--program-text:#17636d}.cp-programs a{color:var(--program-text,var(--marca-texto))}
 .cp-table .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Keep visually hidden table labels inside the scrolling table's containing block. */
+.cp-table{position:relative}.cp-table .sr-only{left:0;top:0}
