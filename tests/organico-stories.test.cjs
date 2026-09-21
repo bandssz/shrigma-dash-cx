@@ -61,3 +61,60 @@ test('story medium with link_in_bio content keeps the source classification and 
  assert.equal(select(p,'aristo','last_non_direct').storyOrders,7);assert.equal(JSON.stringify(p),before);
  assert.doesNotMatch(OS.markup(select(fixture())),/Sinal conflitante:/);
 });
+
+/* Ponte por dia: só o que a Meta mede por peça é por peça; o resto continua da campanha. */
+const storyRow=(o={})=>({marca:'aristocrata',story_id:'s'+Math.random(),publicado_em:'2026-09-19T15:00:00Z',link_clicks:0,...o});
+test('a story only counts as carrying a link when the Meta click count is above zero',()=>{
+ const p=fixture({daily:[row()]});
+ p.cx_story=[storyRow({link_clicks:null}),storyRow({link_clicks:0}),storyRow({link_clicks:12}),storyRow({link_clicks:5})];
+ const v=select(p);
+ assert.equal(v.storiesCollected,4,'todas as coletadas continuam contadas');
+ assert.equal(v.storiesWithClicks,3,'campo preenchido inclui os zeros');
+ assert.equal(v.storiesWithLink,2,'só clique acima de zero prova o link');
+ assert.equal(v.storyClicks,17);
+ assert.match(OS.markup(v),/2 carregaram link \(17 toques\)/);
+});
+test('the day bridge lines up publication day with the dated campaign without crediting a story',()=>{
+ const p=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:4,receita_liquida:400})]});
+ p.cx_story=[storyRow({link_clicks:30}),storyRow({link_clicks:0})];
+ const v=select(p),linha=v.bridge.find(l=>l.dia==='2026-09-19');
+ assert.equal(linha.stories,2);assert.equal(linha.comLink,1);assert.equal(linha.cliques,30);
+ assert.equal(linha.pedidos,4);assert.equal(linha.receita,400);
+ assert.equal(linha.excedente,null,'4 pedidos cabem em 30 toques');
+ assert.deepEqual(linha.campanhas,['20260919_semana']);
+ assert.match(OS.markup(v),/Dia a dia · peça, toque e campanha/);
+ assert.match(OS.markup(v),/dentro dos toques/);
+});
+test('more orders than measured taps is shown as proof of another surface, never split across stories',()=>{
+ const p=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:285,receita_liquida:41785.47})]});
+ p.cx_story=[storyRow({story_id:'id-que-nao-pode-vazar',link_clicks:166})];
+ const v=select(p),linha=v.bridge[0];
+ assert.equal(linha.excedente,119,'285 pedidos contra 166 toques');
+ assert.equal(Object.hasOwn(linha,'story_id'),false,'a linha do dia nunca carrega identidade de peça');
+ const html=OS.markup(v);
+ assert.match(html,/\+119 além dos toques/);
+ assert.match(html,/circulou fora dos stories/);
+ assert.doesNotMatch(html,/id-que-nao-pode-vazar/,'nenhum story_id vira crédito na tela');
+});
+test('a dated campaign with orders and no linked story that day is flagged, not attributed',()=>{
+ const p=fixture({daily:[row({utm_campaign:'20260919_semana',pedidos:7,receita_liquida:700})]});
+ p.cx_story=[storyRow({link_clicks:0}),storyRow({link_clicks:null})];
+ const v=select(p),linha=v.bridge[0];
+ assert.equal(linha.comLink,0);assert.equal(linha.semStoryComLink,true);assert.equal(linha.excedente,null);
+ assert.match(OS.markup(v),/campanha sem story com link/);
+});
+test('a campaign with no date prefix never invents a day, and days outside the range stay out',()=>{
+ const p=fixture({daily:[row({utm_campaign:'iniciativa_sem_data',pedidos:9,receita_liquida:900})]});
+ p.cx_story=[storyRow({link_clicks:4})];
+ const v=select(p);
+ assert.equal(v.bridge.length,1);
+ assert.equal(v.bridge[0].pedidos,null,'sem data no nome, a campanha não entra em nenhum dia');
+ assert.deepEqual(v.bridge[0].campanhas,[]);
+ const fora=select(fixture({daily:[row({utm_campaign:'20260101_antiga',pedidos:5,receita_liquida:500})]}));
+ assert.ok(fora.bridge.every(l=>l.dia>='2026-09-19'),'dia fora do recorte não vira linha');
+});
+test('the bridge is absent, not empty, when the story source is missing',()=>{
+ const p=fixture({daily:[row()]});delete p.cx_story;
+ assert.equal(select(p).bridge,null);
+ assert.equal(OS.markup(select(p)).includes('Dia a dia'),false);
+});
