@@ -34,6 +34,18 @@
   try{if(frame.contentWindow.location.pathname!==target.pathname)return;}catch(_){return;}
   frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key,permission:identity.permissions?.[selected]||null},location.origin);
  });
+ async function readIdentity(url,k,onSlow){
+  const controller=new AbortController();let deadline,notice;
+  const timeout=new Promise((_,reject)=>{deadline=setTimeout(()=>{controller.abort();reject(Error('ACCESS_TIMEOUT'));},25000);});
+  notice=setTimeout(onSlow,8000);
+  try{
+   return await Promise.race([(async()=>{
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
+    if(r.status===401||r.status===403)throw Error('ACCESS_DENIED');
+    if(!r.ok)throw Error('UNAVAILABLE');return await r.json();
+   })(),timeout]);
+  }finally{clearTimeout(deadline);clearTimeout(notice);}
+ }
  document.getElementById('entry-logout').onclick=()=>logout();
  form.onsubmit=async e=>{
   e.preventDefault();if(busy)return;const k=field.value.trim(),ticket=++epoch;
@@ -41,14 +53,11 @@
   busy=true;controls.disabled=true;message.textContent='Conferindo seu acesso…';field.value='';
   try{
    const url=new URL(CX_API_URL);url.searchParams.set('access','1');url.searchParams.set('painel',requested);
-   const r=await fetch(url.href,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(25000)});
-   if(ticket!==epoch)return;
-   if(r.status===401||r.status===403)throw Error('ACCESS_DENIED');
-   if(!r.ok)throw Error('UNAVAILABLE');const i=await r.json();
+   const i=await readIdentity(url.href,k,()=>{if(ticket===epoch)message.textContent='A validação está demorando mais que o normal. Aguarde…';});
    if(ticket!==epoch)return;
    if(!validIdentity(i)||(requested==='todos'?i.role!=='master':!i.allowedPanels.includes(requested)))throw Error('ACCESS_DENIED');
    enter(i,k);
-  }catch(err){if(ticket===epoch)message.textContent=err?.message==='ACCESS_DENIED'?'Esta chave não tem acesso a esta entrada. Confira o link e a credencial da sua área.':'Não foi possível confirmar o acesso agora. Tente novamente.';}
+  }catch(err){if(ticket===epoch)message.textContent=err?.message==='ACCESS_DENIED'?'Esta chave não tem acesso a esta entrada. Confira o link e a credencial da sua área.':err?.message==='ACCESS_TIMEOUT'?'O servidor demorou para confirmar o acesso. Tente novamente.':'Não foi possível confirmar o acesso agora. Tente novamente.';}
   finally{if(ticket===epoch){busy=false;controls.disabled=false;if(!login.hidden)field.focus();}}
  };
  file.onchange=async()=>{
