@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=a26025c61c73">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DbAjrzZsSHTIZUNamXqK7yVER5r11xVvVyi2Opd8Blw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=f93b4ed86451">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YkI0B2fw9+oLAELREt/vrodq+/qzAriUe4f3qm/1s4A='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -49,9 +49,13 @@
 
   <nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="creators" class="ativo">Creators<span class="n" id="n-creators"></span></button>
+    <button data-s="partners">Parceiros do site</button>
+    <button data-s="meta">Conteúdo em anúncios</button>
     <button data-s="afil">Afiliados TikTok</button>
   </nav>
 
+  <div class="sec" id="sec-partners"><div id="area-partners"></div></div>
+  <div class="sec" id="sec-meta"><div id="area-meta-creators"></div></div>
   <div class="sec ativa" id="sec-creators">
     <section class="painel">
       <div class="painel-cab"><h2>Onde o retorno est&aacute;</h2>
@@ -202,7 +206,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=40635c3b028b"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=a4905d59cc1d"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -423,6 +427,7 @@ async function faixaCredencial(){
 faixaCredencial();
 
 function avisoTela(titulo,detalhe,botao){
+  if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();
   // Tela branca e o pior estado possivel: quem abre nao sabe se quebrou ou se esta vazio.
   const bt = botao ? `<br><br><button class="btn" id="btn-retry">${botao}</button>` : '';
   $('#area-tabela').innerHTML=`<div class="vazio"><strong>${titulo}</strong><br>${detalhe}${bt}</div>`;
@@ -439,7 +444,7 @@ async function carregarInflu(){
     'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
-  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo},{signal,vigente:()=>ativa()&&vigente()}));
+  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo,pilot:SEC==='partners'||SEC==='meta'},{signal,vigente:()=>ativa()&&vigente()}));
   INFLU_READ=leitura;
   try{
     const novo=await leitura.promise;
@@ -458,7 +463,7 @@ async function carregarInflu(){
   }finally{if(INFLU_READ===leitura)INFLU_READ=null;}
 }
 
-function renderTudo(){if(!INFLU)return;renderKPIs();renderCortes();renderTabela();
+function renderTudo(){if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();if(!INFLU)return;renderKPIs();renderCortes();renderTabela();
   if(ED){const e=$('#i-editor'); if(e&&!e.hidden) pintaCustos();}}
 function renderKPIs(){
   const k=G.influKPI(INFLU.roi,MARCA);
@@ -1022,10 +1027,11 @@ function carregarAbaAtiva(){
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('#sec-creators,#sec-afil').forEach(x=>x.classList.remove('ativa'));
+  document.querySelectorAll('#sec-creators,#sec-afil,#sec-partners,#sec-meta').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
-  document.body.classList.toggle('sec-afil',SEC==='afil');carregarAbaAtiva();});
+  document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='partners');document.body.classList.toggle('sec-meta',SEC==='meta');carregarAbaAtiva();});
+if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 carregarAbaAtiva();

@@ -86,12 +86,15 @@
     "css": [
       "styles.css",
       "influs-page.css",
-      "panel-ui.css"
+      "panel-ui.css",
+      "creators-pilot.css"
     ],
     "scripts": [
       "frescor.js",
       "config.js",
       "influs-access.js",
+      "creators-meta.js",
+      "creators-pilot-ui.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",
       "influs-tts.js",

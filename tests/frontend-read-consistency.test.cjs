@@ -44,7 +44,7 @@ test('CX malformed live payload is rejected without replacing last good data',as
 });
 function influ(){
  const calls=[],paints=[],notices=[];
- const ctx=vm.createContext({AbortController,setTimeout,clearTimeout,PER:{ini:'2026-09-01',fim:'2026-09-01'},chaveLeitura:()=> 'dummy',avisoTela:(...x)=>notices.push(x),esc:String,
+ const ctx=vm.createContext({AbortController,setTimeout,clearTimeout,SEC:'creators',PER:{ini:'2026-09-01',fim:'2026-09-01'},chaveLeitura:()=> 'dummy',avisoTela:(...x)=>notices.push(x),esc:String,
   influPost:body=>{const d=deferred();calls.push({body,...d});return d.promise;},renderTudo:()=>paints.push(vm.runInContext('INFLU',ctx))});
  vm.runInContext(slice(read('influs.html'),'let INFLU=null,','function chaveEscritaInflu()')+slice(read('influs.html'),'async function carregarInflu(){','function renderTudo(){'),ctx);
  return {ctx,calls,paints,notices,run:()=>ctx.carregarInflu(),data:()=>vm.runInContext('INFLU',ctx)};
