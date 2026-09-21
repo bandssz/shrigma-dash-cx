@@ -39,7 +39,10 @@ async function boot(payload=fixture(),opts={}){
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
  addEventListener:()=>{},setInterval:()=>0,clearInterval:()=>{},setTimeout,clearTimeout,
- fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}return {status:code,ok:code>=200&&code<300,json:async()=>structuredClone(response)};},});
+ fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}
+  // The 10-minute cache serves the same payload stamped with its generation time; the panel reads it first and only falls back to the live API on a miss.
+  const body=structuredClone(response);if(typeof url==='string'&&url.includes('cx-dash-cache')&&body&&typeof body==='object'&&!Array.isArray(body))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();
+  return {status:code,ok:code>=200&&code<300,json:async()=>body};},});
  for(const script of document.querySelectorAll('script')){
   const src=script.getAttribute('src');
   const code=src?fs.readFileSync(path.join(root,src.split('?')[0]),'utf8'):script.textContent;
