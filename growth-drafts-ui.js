@@ -22,7 +22,7 @@ const GRU={
   store(){try{return typeof localStorage!=='undefined'?localStorage:null;}catch(_){return null;}},
   guardado(slot){try{return GRU.store()?.getItem(slot)||'';}catch(_){return '';}},
   chaveEscrita(){
-    return GRU.acesso.chave||(!GRU.acesso.ignorarLegada?GRU.guardado(GTA.CHAVE_ESCRITA):'')||null;
+    return GRU.acesso.chave||(!GRU.acesso.ignorarLegada?((typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'')||GRU.guardado(GTA.CHAVE_ESCRITA)):'')||null;
   },
   esqueceChave(){
     GRU.acesso.chave=null;GRU.acesso.ignorarLegada=true;

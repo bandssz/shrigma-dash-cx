@@ -30,7 +30,7 @@ const GB={
  endpoint(){return GTA.caps(GB.ctx.api).endpoint;},
  async request(action,body={},write=false){
   const endpoint=GB.endpoint();if(!endpoint)return {ok:false,body:{erro:'endpoint_indisponivel'}};
-  let k=write?localStorage.getItem(GTA.CHAVE_ESCRITA)||'':GTA.chaveLeitura();
+  let k=write?(typeof GRU!=='undefined'?GRU.chaveEscrita():''):GTA.chaveLeitura();
   if(write&&!k){k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k)return {ok:false,body:{erro:'Informe a chave de edição para salvar.'}};}
   try{
    const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit'});

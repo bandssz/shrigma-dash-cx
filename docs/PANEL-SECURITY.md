@@ -4,7 +4,9 @@ Entradas independentes: `/cx/`, `/crm/`, `/organico/`, `/creators/`. O acesso me
 
 Cada acesso humano novo tem um segredo aleatório próprio, uma área (ou `todos` para o mestre), prazo e revogação no servidor. O banco guarda o hash SHA-256, adequado a segredos aleatórios de 256 bits, não a senhas escolhidas por pessoas. O identificador da linha e o hash nunca são aceitos como chave. Não existe autenticação pelo nome da área ou por um campo alterado no navegador.
 
-As credenciais desta entrega dão acesso de consulta. Enviar/agendar campanhas, submeter templates, editar cadastros ou decidir amostras continuam sujeitos às permissões adicionais existentes, recibos e guardas de operação. A chave mestre de consulta não se transforma implicitamente em uma chave de envio. O acesso de serviço do cache CX fica em uma credencial do cofre n8n, separado dos gestores.
+A consulta é o padrão; permissões de operação são concessões explícitas no servidor. O gestor CRM e o mestre receberam edição/validação/publicação nas APIs de campanhas, templates e configurações de fluxos já suportadas. O gestor Creators e o mestre receberam cadastro de influenciadores, cupons, termos e custos. CX/CS e Orgânico mantêm consulta. As mesmas chaves de entrada atendem essas operações, sem segunda chave na interface. Envio/agendamento e publicação continuam sujeitos às confirmações, recibos, revisão e guardas existentes; entrar nunca dispara uma operação comercial.
+
+A/B mantém a autorização própria do registro atual; decisões de amostras TikTok não são concedidas por `creators_edit`. O editor de fluxos continua limitado ao motor existente: esta concessão não implementa execução de grafo livre. Revogar/expirar a credencial ou retirar uma concessão bloqueia as próximas operações no servidor, mesmo com uma aba antiga aberta. O mestre recebe concessões explícitas de CRM e Creators, sem promoção implícita de qualquer chave histórica. O acesso de serviço do cache CX fica em uma credencial do cofre n8n, separado dos gestores.
 
 ## Sessão e transporte
 
@@ -22,7 +24,7 @@ GitHub Pages continua hospedando arquivos públicos. A proteção é dos dados e
 
 ## Verificação e manutenção
 
-`node tools/panel-build/build.cjs` gera os cinco acessos, bundles e hashes CSP. A CI confere artefatos e executa regressões e `tests/panel-auth-postgres.cjs`: matriz de escopos, revogação, expiração, hash não reutilizável e preservação de consulta/escrita. Patches de runtime exigem export fresco, versão esperada, leitura após publicação e preservação dos demais nós/recibos. O coletor não escolhe mais uma chave de pessoa no banco.
+`node tools/panel-build/build.cjs` gera os cinco acessos, bundles e hashes CSP. A CI confere artefatos e executa regressões e `tests/panel-auth-postgres.cjs`: matriz de escopos, revogação, expiração, hash não reutilizável e preservação de consulta/escrita. Patches de runtime exigem export fresco, versão esperada, leitura após publicação e preservação dos demais nós/recibos. O coletor não escolhe mais uma chave de pessoa no banco. `tests/panel-operator-postgres.cjs` verifica concessões, revogação, expiração, fallback de leitura, preservação do escritor legado e replay da migração histórica. `panel-operator-patch.cjs` altera somente os pontos de autenticação/identidade em quatro workflows; o SQL de negócio permanece igual.
 
 Não tratar esta revisão como um teste de invasão completo. MFA/SSO, limitação de tentativas na borda, cabeçalhos de hospedagem como `frame-ancestors`, revisão integral de XSS e rotação dos acessos externos/integradores têm aceites próprios. Mudança de gestor exige revogar a credencial anterior e emitir outra; nunca reutilizar a chave de outro operador para resolver uma operação incerta.
 
