@@ -9,7 +9,9 @@ function trecho(inicio,fim){
 }
 function boot(linhas=[]){
  const elements=new Map(),requests=[],headers=[],venda=[];
- const $=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:''});return elements.get(s);};
+ // Elemento falso com o mínimo que os módulos reais tocam ao renderizar dentro do KPI.
+ const $=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:'',title:'',hidden:false,
+  querySelectorAll:()=>[],querySelector:()=>null,setAttribute(){},classList:{toggle(){},add(){},remove(){}}});return elements.get(s);};
  const context=vm.createContext({console,Intl,OLegacy,API:{cx_organico_receita:linhas},PER:{ini:'2026-09-01',fim:'2026-09-19'},CMP:false,
   G:{anterior:()=>({ini:'2026-08-13',fim:'2026-08-31'})},MARCA:'todas',
   $: $,document:{querySelectorAll:()=>[]},posts:()=>[],stories:()=>[],conta:()=>[],classifica:x=>x,
@@ -139,4 +141,46 @@ test('agenda uma unica leitura a cada dez minutos e ignora os ciclos com aba ocu
  document.hidden=true;refresh();refresh();assert.equal(calls,1);
  document.hidden=false;refresh();assert.equal(calls,2);
  assert.equal(timers.length,2,'o ciclo nao agenda timers adicionais');
+});
+
+/* O card do topo e a aba Stories precisam falar o mesmo número. */
+const ledgerFixture=()=>({
+ organico_attribution:{schema_version:1,window_days:30,source_system:'shopify',currency:'BRL',piece_identity_available:false,
+  rule_version:'organico-utm-20260919-v1',
+  daily:[{marca:'aristo',dia:'2026-09-15',model:'last_click',classification:'editorial',detail_level:'utm',rede:'instagram',
+   superficie:'story',utm_source:'instagram_social',utm_medium:'story',utm_campaign:'20260915_semana',utm_content:null,utm_term:null,
+   utm_raw_available:true,utm_provenance:'shopify',piece_status:'nao_identificada',pedidos:293,receita_liquida:43119.56}],
+  quality:[{marca:'aristo',dia:'2026-09-15',pagos_elegiveis:300,ultima_sessao_desconhecida:0,origem_nao_direta_desconhecida:0}],
+  coverage:[{marca:'aristo',dia:'2026-09-15',checked_at:'2026-09-15T18:00:00Z'}]},
+ cx_story:[],cx_post:[],cx_organico_receita:[]});
+
+test('o KPI de receita do topo lê o mesmo ledger da aba Stories, não a projeção anterior',()=>{
+ const OA=require('../organico-attribution.js'),OS=require('../organico-stories.js');
+ const x=boot();
+ Object.assign(x.context,{OA,OS,API:ledgerFixture(),MARCA:'aristo',PER:{ini:'2026-09-14',fim:'2026-09-20'},
+  G:{anterior:()=>({ini:'2026-09-07',fim:'2026-09-13'}),mediana:()=>null},CMP:false,
+  classifica:l=>l,agregado:()=>({posts:0,alcance:0,qualificado:0,eq:null,mediana:null})});
+ x.run('pintaKPIs()');
+ const html=x.elements.get('#area-kpis').innerHTML;
+ assert.match(html,/Receita de Stories/,'o rótulo deixa de prometer reels e post, que não carregam link');
+ assert.match(html,/43\.119,56/,'mostra o número do ledger');
+ const cartao=html.slice(html.indexOf('Receita de Stories'));
+ assert.doesNotMatch(cartao.slice(0,300),/sem dado/,'o valor do próprio cartão não pode ser "sem dado" com receita no ledger');
+ assert.match(html,/293 pedidos/);
+ assert.match(html,/mesma fonte da aba Stories/);
+ assert.match(html,/Projeção anterior para story: sem dado/,'a projeção antiga vira detalhe, não o número principal');
+ // o mesmo valor que a aba Stories publica
+ const v=OS.select(x.context.API,'aristo','2026-09-14','2026-09-20','last_click');
+ assert.equal(v.storyRevenue,43119.56);
+});
+
+test('sem o ledger na página o card cai para a projeção anterior e explica a ausência',()=>{
+ const x=boot();
+ Object.assign(x.context,{API:{cx_organico_receita:[],cx_post:[],cx_story:[]},MARCA:'aristo',PER:{ini:'2026-09-14',fim:'2026-09-20'},
+  G:{anterior:()=>({ini:'2026-09-07',fim:'2026-09-13'}),mediana:()=>null},CMP:false,
+  classifica:l=>l,agregado:()=>({posts:0,alcance:0,qualificado:0,eq:null,mediana:null})});
+ x.run('pintaKPIs()');
+ const html=x.elements.get('#area-kpis').innerHTML;
+ assert.match(html,/Receita histórica de story/);
+ assert.match(html,/não reconhece os links com medium=story/,'a ausência é explicada, não fica só "sem dado"');
 });
