@@ -45,13 +45,25 @@ CREATE TABLE IF NOT EXISTS public.crm_creator_pilot_operation_v1(
 );
 REVOKE ALL ON public.crm_partner_program_v1,public.crm_partner_candidate_v1,public.crm_creator_meta_source_v1,public.crm_creator_meta_day_v1,public.crm_creator_meta_link_v1,public.crm_creator_pilot_operation_v1 FROM PUBLIC;
 
+-- BEGIN explicit-window shadow schema. Legacy v1 facts remain untouched for audit.
+CREATE TABLE IF NOT EXISTS public.crm_creator_meta_source_v2
+ (LIKE public.crm_creator_meta_source_v1 INCLUDING ALL);
+CREATE TABLE IF NOT EXISTS public.crm_creator_meta_day_v2
+ (LIKE public.crm_creator_meta_day_v1 INCLUDING ALL,
+  FOREIGN KEY(account_id) REFERENCES public.crm_creator_meta_source_v2(account_id));
+INSERT INTO public.crm_creator_meta_source_v2(account_id,marca,account_name,currency,timezone,collection_mode)
+ SELECT account_id,marca,account_name,currency,timezone,'explicit_7d_click_v2'
+ FROM public.crm_creator_meta_source_v1 ON CONFLICT(account_id) DO NOTHING;
+REVOKE ALL ON public.crm_creator_meta_source_v2,public.crm_creator_meta_day_v2 FROM PUBLIC;
+-- END explicit-window shadow schema.
+
 CREATE OR REPLACE FUNCTION public.crm_creator_pilot_read_v1(d1 date,d2 date) RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,public AS $$
 BEGIN
  IF d1 IS NULL OR d2 IS NULL OR d2<d1 OR d2-d1>366 THEN RETURN jsonb_build_object('schema','creator_pilot_v1','erro','Período inválido (máximo 367 dias).'); END IF;
  RETURN jsonb_build_object('schema','creator_pilot_v1','since',d1,'until',d2,
  'programs',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY marca),'[]') FROM public.crm_partner_program_v1 p),
  'candidates',(SELECT coalesce(jsonb_agg(to_jsonb(p)-'actor' ORDER BY updated_at DESC),'[]') FROM public.crm_partner_candidate_v1 p),
- 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('covers_period',s.state='ok' AND s.since<=d1 AND s.until>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v1 s),
+ 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('covers_period',s.state='ok' AND s.since<=d1 AND s.until>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v2 s),
  'ads',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY spend DESC),'[]') FROM (
   SELECT x.account_id,x.ad_id,s.marca,s.currency,s.timezone,x.model,
    (array_agg(x.ad_name ORDER BY x.day DESC))[1] AS ad_name,
@@ -64,7 +76,7 @@ BEGIN
    count(x.purchases)::integer AS purchase_days_reported,count(x.purchase_value)::integer AS value_days_reported,
    count(*)::integer AS observed_days,min(x.day) AS first_day,max(x.day) AS last_day,
    max(x.collected_at) AS collected_at,l.influ,coalesce(l.version,0) AS link_version
-  FROM public.crm_creator_meta_day_v1 x JOIN public.crm_creator_meta_source_v1 s USING(account_id)
+  FROM public.crm_creator_meta_day_v2 x JOIN public.crm_creator_meta_source_v2 s USING(account_id)
   LEFT JOIN public.crm_creator_meta_link_v1 l ON l.account_id=x.account_id AND l.ad_id=x.ad_id
   WHERE x.day BETWEEN d1 AND d2 GROUP BY x.account_id,x.ad_id,s.marca,s.currency,s.timezone,x.model,l.influ,l.version
  ) a),'coupon_by_creator',(SELECT coalesce(jsonb_agg(to_jsonb(c)),'[]') FROM (SELECT marca,influ,count(*) FILTER(WHERE pago)::integer AS paid_orders,sum(receita_base) FILTER(WHERE pago) AS receita_cupom FROM public.crm_influ_pedido WHERE dia BETWEEN d1 AND d2 AND via='cupom' AND influ IS NOT NULL GROUP BY marca,influ) c),'tracking_active',false,'payout_active',false);
@@ -106,7 +118,7 @@ BEGIN
   result:=jsonb_build_object('ok',true,'kind',kind,'id',cid,'version',expected+1,'request_id',rid);
  ELSIF kind='vinculo' THEN
   account:=data->>'account_id';aid:=data->>'ad_id';person:=nullif(data->>'influ','');
-  IF NOT EXISTS(SELECT 1 FROM public.crm_creator_meta_source_v1 WHERE account_id=account AND marca=brand) OR NOT EXISTS(SELECT 1 FROM public.crm_creator_meta_day_v1 WHERE account_id=account AND ad_id=aid) THEN RETURN jsonb_build_object('erro','Anúncio não pertence à marca consultada.'); END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.crm_creator_meta_source_v2 WHERE account_id=account AND marca=brand) OR NOT EXISTS(SELECT 1 FROM public.crm_creator_meta_day_v2 WHERE account_id=account AND ad_id=aid) THEN RETURN jsonb_build_object('erro','Anúncio não pertence à marca consultada.'); END IF;
   IF person IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.crm_influ WHERE marca=brand AND influ=person) THEN RETURN jsonb_build_object('erro','Criador não pertence à marca.'); END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('creator-link:'||account||':'||aid,0));
   SELECT version INTO current_version FROM public.crm_creator_meta_link_v1 WHERE account_id=account AND ad_id=aid FOR UPDATE;
@@ -144,3 +156,29 @@ BEGIN
  RETURN jsonb_build_object('ok',true,'collected',true,'rows',n,'account_id',account);
 END $$;
 REVOKE ALL ON FUNCTION public.crm_creator_meta_ingest_v1(jsonb) FROM PUBLIC;
+
+-- BEGIN explicit-window collector. Only v2 snapshots can be replaced.
+CREATE OR REPLACE FUNCTION public.crm_creator_meta_ingest_v2(p jsonb) RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
+DECLARE account text:=p->>'account_id';started timestamptz:=(p->>'started_at')::timestamptz;d1 date:=(p->>'since')::date;d2 date:=(p->>'until')::date;s public.crm_creator_meta_source_v2%ROWTYPE;v jsonb;n integer;
+BEGIN
+ IF p->>'metric_basis' IS DISTINCT FROM 'explicit_7d_click' THEN RAISE EXCEPTION 'Explicit attribution window required'; END IF;
+ SELECT * INTO s FROM public.crm_creator_meta_source_v2 WHERE account_id=account FOR UPDATE;
+ IF NOT FOUND OR started IS NULL OR d1 IS NULL OR d2 IS NULL OR d1>d2 OR d2-d1>62 THEN RAISE EXCEPTION 'Invalid collector scope'; END IF;
+ IF s.last_attempt IS NOT NULL AND s.last_attempt>started THEN RETURN jsonb_build_object('ok',true,'ignored_older',true); END IF;
+ IF p->>'complete' IS DISTINCT FROM 'true' THEN
+  UPDATE public.crm_creator_meta_source_v2 SET state='error',last_attempt=started,error=left(coalesce(p->>'error','Coleta incompleta.'),250) WHERE account_id=account;
+  RETURN jsonb_build_object('ok',true,'collected',false);
+ END IF;
+ IF jsonb_typeof(p->'rows') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Invalid rows'; END IF;
+ FOR v IN SELECT value FROM jsonb_array_elements(p->'rows') LOOP
+  IF v->>'account_id' IS DISTINCT FROM account OR v->>'account_currency' IS DISTINCT FROM s.currency OR v->>'date_start' IS DISTINCT FROM v->>'date_stop' OR (v->>'date_start')::date NOT BETWEEN d1 AND d2 OR coalesce(v->>'ad_id','') !~ '^[0-9]+$' OR v->>'model' IS DISTINCT FROM '7d_click_conversion' THEN RAISE EXCEPTION 'Collector row outside scope'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(p->'rows') r GROUP BY r->>'ad_id',r->>'date_start' HAVING count(*)>1) THEN RAISE EXCEPTION 'Duplicate collector grain'; END IF;
+ DELETE FROM public.crm_creator_meta_day_v2 WHERE account_id=account AND day BETWEEN d1 AND d2 AND model='7d_click_conversion';
+ INSERT INTO public.crm_creator_meta_day_v2(account_id,ad_id,day,ad_name,adset_name,campaign_name,model,spend,impressions,clicks,purchases,purchase_value,collected_at)
+ SELECT account,r->>'ad_id',(r->>'date_start')::date,coalesce(r->>'ad_name',''),coalesce(r->>'adset_name',''),coalesce(r->>'campaign_name',''),'7d_click_conversion',(r->>'spend')::numeric,(r->>'impressions')::bigint,(r->>'clicks')::bigint,(r->>'purchases')::numeric,(r->>'purchase_value')::numeric,started FROM jsonb_array_elements(p->'rows') r;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ UPDATE public.crm_creator_meta_source_v2 SET state='ok',since=d1,until=d2,last_success=started,last_attempt=started,error=NULL,rows_count=n WHERE account_id=account;
+ RETURN jsonb_build_object('ok',true,'collected',true,'rows',n,'account_id',account);
+END $$;
+REVOKE ALL ON FUNCTION public.crm_creator_meta_ingest_v2(jsonb) FROM PUBLIC;

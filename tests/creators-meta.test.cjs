@@ -7,7 +7,7 @@ test('matching is a suggestion only, exact and same brand, never fuzzy on reedit
  const ad={marca:'fish',ad_name:'[X][UGC-NT][S-FM][Nádia e Edu]'},people=[{marca:'fish',influ:'nadia',nome:'Nadia e Edu'}];assert.equal(M.suggestion(ad,people),'nadia');assert.equal(M.suggestion(ad,[{...people[0],marca:'aristo'}]),null);assert.equal(M.suggestion(ad,[...people,...people]),null);assert.equal(M.suggestion({...ad,ad_name:'[X][UGC-NT][S-FM][Nadia e Edu R01]'},people),null);
 });
 test('overlapping Meta purchase action types are never added; missing is unknown',()=>{
- assert.equal(M.metric([{action_type:'purchase',value:'30'},{action_type:'offsite_conversion.fb_pixel_purchase',value:'20'},{action_type:'omni_purchase',value:'30'}]),20);assert.equal(M.metric([]),null);assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'0'}]),0);assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'4'},{action_type:'offsite_conversion.fb_pixel_purchase',value:'4'}]),null);
+ assert.equal(M.metric([{action_type:'purchase',value:'30'},{action_type:'offsite_conversion.fb_pixel_purchase',value:'30','7d_click':'20'},{action_type:'omni_purchase',value:'30'}]),20);assert.equal(M.metric([]),null);assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'2','7d_click':'0'}]),0);assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'4'},{action_type:'offsite_conversion.fb_pixel_purchase',value:'4'}]),null);
 });
 test('sources and incompatible grains cannot produce complete or additive financial totals',()=>{
  const a={marca:'fish',currency:'BRL',timezone:'America/Sao_Paulo',model:'7d_click_conversion',spend:10,purchases:null,purchase_value:null};const s=M.summary([a],[{marca:'fish',covers_period:false}]);assert.equal(s.spend,10);assert.equal(s.purchase_value,null);assert.equal(s.complete,false);assert.equal(M.summary([],[{covers_period:true}]).spend,null);assert.equal(M.summary([{...a,currency:'USD'}],[]).spend,null);
@@ -23,3 +23,5 @@ test('live set labels are exposed with their origin, never presented as an ad na
  const p=M.parseAd({ad_name:'AD-029.4 H1',adset_name:'UGC - Daniel Paris'});assert.equal(p.category,'UGC');assert.equal(p.label,'Daniel Paris');assert.equal(p.source,'conjunto (legado)');assert.equal(p.standard,false);assert(p.needsReview);
  const x=M.parseAd({ad_name:'[X][GR-NT][S-AR][Fernando]',adset_name:'UGC - Another'});assert.equal(x.category,'GR');assert.equal(x.source,'anúncio');
 });
+
+test('a general Meta value cannot masquerade as the explicit 7 day click window',()=>{assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'12'}]),null);assert.equal(M.metric([{action_type:'offsite_conversion.fb_pixel_purchase',value:'12','7d_click':'7'}]),7);});

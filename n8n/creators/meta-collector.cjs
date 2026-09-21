@@ -1,7 +1,7 @@
 'use strict';
 function normalizePages(pages,config){
  const rows=[],seen=new Set();let complete=pages.length>0,error=null;
- const metric=list=>{if(!Array.isArray(list))return null;const match=list.filter(x=>x.action_type==='offsite_conversion.fb_pixel_purchase');if(match.length!==1||match[0].value==null||String(match[0].value).trim()==='')return null;const n=Number(match[0].value);return Number.isFinite(n)&&n>=0?n:null;};
+ const metric=list=>{if(!Array.isArray(list))return null;const match=list.filter(x=>x.action_type==='offsite_conversion.fb_pixel_purchase');if(match.length!==1||match[0]['7d_click']==null||String(match[0]['7d_click']).trim()=='')return null;const n=Number(match[0]['7d_click']);return Number.isFinite(n)&&n>=0?n:null;};
  for(const page of pages){const body=page?.body;
   if(page?.statusCode!==200||!Array.isArray(body?.data)){complete=false;error='Meta não confirmou a consulta'+(body?.error?.code?' (código '+body.error.code+')':'')+'.';break;}
   for(const r of body.data){const grain=r.ad_id+'|'+r.date_start;
@@ -11,7 +11,7 @@ function normalizePages(pages,config){
   if(!complete)break;
  }
  if(pages.at(-1)?.body?.paging?.next){complete=false;error='Paginação incompleta. Última leitura preservada.';}
- return {...config,complete,error,rows:complete?rows:[]};
+ return {...config,metric_basis:'explicit_7d_click',complete,error,rows:complete?rows:[]};
 }
 function build({accounts,metaCredential,postgresCredential}){
  if(!Array.isArray(accounts)||!accounts.length||accounts.some(a=>!/^\d+$/.test(a.account_id)||!['fish','aristo'].includes(a.marca)))throw Error('Verified accounts required');
@@ -24,7 +24,7 @@ function build({accounts,metaCredential,postgresCredential}){
   const http='Meta '+(i+1),norm='Conferir '+(i+1),pg='Gravar '+(i+1);
   nodes.push(node(http,'httpRequest',{url:'https://graph.facebook.com/v25.0/act_'+a.account_id+'/insights',authentication:'genericCredentialType',genericAuthType:'httpHeaderAuth',sendQuery:true,queryParameters:{parameters:[{name:'fields',value:'account_id,account_currency,ad_id,ad_name,adset_name,campaign_name,date_start,date_stop,spend,impressions,clicks,actions,action_values'},{name:'level',value:'ad'},{name:'time_increment',value:'1'},{name:'time_range',value:'={{ JSON.stringify({since:$("Janela").first().json.since,until:$("Janela").first().json.until}) }}'},{name:'action_attribution_windows',value:'["7d_click"]'},{name:'action_report_time',value:'conversion'},{name:'limit',value:'250'}]},options:{timeout:60000,response:{response:{fullResponse:true,neverError:true,responseFormat:'json'}},redirect:{redirect:{followRedirects:false}},pagination:{pagination:{paginationMode:'updateAParameterInEachRequest',parameters:{parameters:[{type:'qs',name:'after',value:'={{ $response.body.paging?.cursors?.after || "" }}'}]},paginationCompleteWhen:'other',completeExpression:'={{ !$response.body.paging?.next }}',limitPagesFetched:true,maxRequests:20,requestInterval:1500}}} },400+i*600,0,{credentials:{httpHeaderAuth:metaCredential},retryOnFail:false,onError:'continueRegularOutput'}));
   nodes.push(node(norm,'code',{jsCode:'const normalize='+normalizePages.toString()+';return [{json:{payload:normalize($input.all().map(i=>i.json),{...$("Janela").first().json,account_id:'+JSON.stringify(a.account_id)+'})}}];'},600+i*600));
-  nodes.push(node(pg,'postgres',{operation:'executeQuery',query:'SELECT public.crm_creator_meta_ingest_v1($1::jsonb) AS result',options:{queryReplacement:'={{ [JSON.stringify($json.payload)] }}'}},800+i*600,0,{credentials:{postgres:postgresCredential},retryOnFail:false}));
+  nodes.push(node(pg,'postgres',{operation:'executeQuery',query:'SELECT public.crm_creator_meta_ingest_v2($1::jsonb) AS result',options:{queryReplacement:'={{ [JSON.stringify($json.payload)] }}'}},800+i*600,0,{credentials:{postgres:postgresCredential},retryOnFail:false}));
   edge(prior,http);edge(http,norm);edge(norm,pg);prior=pg;
  }
  return {name:'Creators — Meta Ads · leitura diária por anúncio (piloto)',nodes,connections,settings:{executionOrder:'v1',callerPolicy:'workflowsFromSameOwner',timezone:'America/Sao_Paulo',saveDataErrorExecution:'none',saveDataSuccessExecution:'none',saveManualExecutions:false,availableInMCP:false}};

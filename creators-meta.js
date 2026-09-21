@@ -26,8 +26,8 @@
  }
  function metric(actions,type='offsite_conversion.fb_pixel_purchase'){
   if(!Array.isArray(actions))return null;const found=actions.filter(x=>x.action_type===type);
-  if(found.length!==1||found[0].value===null||String(found[0].value).trim()==='')return null;
-  const n=Number(found[0].value);return Number.isFinite(n)&&n>=0?n:null;
+  if(found.length!==1||found[0]['7d_click']==null||String(found[0]['7d_click']).trim()=='')return null;
+  const n=Number(found[0]['7d_click']);return Number.isFinite(n)&&n>=0?n:null;
  }
  function summary(ads,sources,marca='todas'){
   const selected=(ads||[]).filter(a=>marca==='todas'||a.marca===marca),source=(sources||[]).filter(s=>marca==='todas'||s.marca===marca);
