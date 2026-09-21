@@ -3,11 +3,18 @@
    O que faz: lê as metatags meta-reclameaqui:* (fonte oficial da página) e alguns números do
    corpo, e manda um POST para o n8n, que grava cx_ra_dia (fonte='bookmarklet').
    Como instalar: criar um favorito com a URL abaixo (uma linha, começando em javascript:),
-   trocando CHAVE pela chave do painel de CX. Uso: abrir a página da marca no RA e clicar no favorito.
+   trocando CHAVE pela chave do coletor do RA (pacote privado COLETOR-RA, não a chave pessoal de ninguém).
+   Uso: abrir a página da marca no RA e clicar no favorito.
+   21/09/2026: a chave saiu da query string e passou a viajar no corpo do POST — na URL ela ficava no
+   histórico do navegador e no log do webhook. O n8n ainda aceita ?k= enquanto houver favorito antigo.
+   A chave do coletor é dedicada e não expira: trocar de pessoa no CX não quebra a coleta, e revogar
+   o coletor não derruba o acesso de ninguém ao painel.
    Marcas reconhecidas pela URL: o-aristocrata-1751961 → aristocrata; artigos-de-pesca-fishermans → fishermans.
    Rotina: uma vez por dia útil (ou segunda, no mínimo). O painel mostra a idade da leitura.
-   Desde 13/09 existe uma tarefa agendada do Claude (08:30, no Mac do Felipe) que faz a mesma leitura pelo
-   navegador; o bookmarklet é o plano B para quando o Mac estiver desligado. Validado ponta a ponta em 13/09
+   21/09/2026: medido que o n8n recebe HTTP 403 do Reclame AQUI — tanto na página da marca quanto no
+   iosearch — enquanto a mesma leitura de um navegador comum devolve 200. Coletar do servidor continua
+   impossível sem API oficial do RA ou saída de rede que o RA não bloqueie. Este favorito é a coleta,
+   não o plano B: não depende de Mac ligado, de tarefa agendada nem de chave de pessoa. Validado ponta a ponta em 13/09
    (as duas marcas gravaram com fonte='bookmarklet').
    Correções de 13/09: "nota média do consumidor" (o texto tem "média"), aguardando lido depois do rótulo
    ("Aguardando resposta 103") e status pela metatag reputation-status (GOOD/REGULAR/BAD).
@@ -23,7 +30,7 @@
 
 javascript:(async function(){
   var K='CHAVE';
-  var URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-ra-metatags?k='+encodeURIComponent(K);
+  var URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-ra-metatags';
   var h=location.pathname;
   var marca=/o-aristocrata/.test(h)?'aristocrata':/fishermans/.test(h)?'fishermans':/olivas/.test(h)?'olivas':null;
   if(!marca){alert('Abra a página da marca no Reclame AQUI antes de clicar.');return;}
@@ -47,7 +54,7 @@ javascript:(async function(){
   if(cid){var base='https://iosearch.reclameaqui.com.br/raichu-io-site-search-v1/query/companyComplains/1/0?company='+cid;
     var qs={pendentes_agora:'&status=PENDING&evaluated=bool:false',respondidas_agora:'&status=ANSWERED&evaluated=bool:false',avaliadas_agora:'&evaluated=bool:true',ativas_agora:''};
     for(var k in qs){try{var j=await (await fetch(base+qs[k])).json();ra[k]=j.complainResult.complains.count;}catch(e){ra[k]=null;}}}
-  fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({marca:marca,ra:ra})})
+  fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({k:K,marca:marca,ra:ra})})
     .then(function(){alert('Painel CX · '+marca+'\nresposta '+ra.resposta_pct+'% · solução '+ra.solucao_pct+'% · nota '+ra.nota+'\nsem resposta agora '+(ra.pendentes_agora!=null?ra.pendentes_agora:'?')+' · na régua '+(ra.aguardando||'?')+' · enviado.');})
     .catch(function(e){alert('Falhou ao enviar: '+e);});
 })();
