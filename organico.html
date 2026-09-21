@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=e5c279b8a285">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tG0YqlaiYmaqhC26EiwtMB/0cI5GHQGzUOmXkP0PytA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FQRv64yQ74PW9KmI+LTXLq41EPjQfkXhZ+AZrd72nKY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -26,7 +26,7 @@
       <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
     </div>
   </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span><span class="mini">Leitura a cada 10 min com a aba visível</span></div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span><span class="mini" id="origem-leitura" title="De onde veio esta leitura: o cache de 10 min ou a consulta ao vivo no Postgres."></span><span class="mini">Leitura a cada 10 min com a aba visível</span></div>
 </header>
 
 <main id="conteudo" tabindex="-1">
@@ -490,6 +490,21 @@ function avisoTela(t,d,retry=true){
   $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px"><strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>${retry?'<br><button class="btn" id="btn-retry">Atualizar leitura</button>':''}</div>`;
   const b=$('#btn-retry');if(b)b.onclick=()=>carrega();
 }
+// ORGANICO_CACHE_READ_BEGIN
+// O cache guarda duas gerações esperadas (10 min). Payload mais velho cai para a API
+// viva, que leva de 3 a 6 s de Postgres contra 0,4 s do cache.
+const ORGANICO_CACHE_MAX_MS=20*60*1000;
+let ORIGEM_LEITURA='';
+function payloadOrganico(j){return Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j&&j.payload||j);}
+function payloadOrganicoValido(p){
+ return !!p&&typeof p==='object'&&!Array.isArray(p)&&!p.error&&!p.erro&&p._escopo==='organico'
+  &&['cx_post','cx_story','cx_organico_receita'].some(k=>Array.isArray(p[k]));
+}
+function cacheOrganicoValido(p,agora=Date.now()){
+ const t=Date.parse(p&&p._cache_gerado_em||'');
+ return payloadOrganicoValido(p)&&Number.isFinite(t)&&agora-t>=-60000&&agora-t<=ORGANICO_CACHE_MAX_MS;
+}
+// ORGANICO_CACHE_READ_END
 async function carrega(){
   if(CARGA_ORGANICO)return;
   const k=chaveLeitura();
@@ -498,17 +513,33 @@ async function carrega(){
   avisoTela('Carregando dados…',API?'Os dados anteriores permanecem na tela até a leitura terminar.':'A consulta do Orgânico está em andamento.',false);
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
   try{
-    const r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
-    if(r.status===401||r.status===403){
+    // Cache de 10 min primeiro, como CX e CRM; a API viva fica de reserva.
+    let r=null,payload=null,origem='';
+    if(typeof CX_CACHE_URL==='string'&&CX_CACHE_URL){
+      try{
+        const c=await fetch(CX_CACHE_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
+        r=c;
+        if(c.ok){const corpo=payloadOrganico(await c.json().catch(()=>null));if(cacheOrganicoValido(corpo)){payload=corpo;origem='cache';}}
+      }catch(e){if(controller.signal.aborted)throw e;payload=null;}
+    }
+    if(!payload&&!(r&&(r.status===401||r.status===403))){
+      r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
+      if(r.ok){const corpo=payloadOrganico(await r.json());if(payloadOrganicoValido(corpo)){payload=corpo;origem='vivo';}}
+    }
+    if(r&&(r.status===401||r.status===403)){
       avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
-    if(!r.ok)throw new Error('read_failed');
-    const j=await r.json();
-    const payload=Array.isArray(j)?((j[0]&&j[0].payload)||j[0]):(j&&j.payload||j);
-    if(!payload||typeof payload!=='object'||Array.isArray(payload)||payload.error||payload.erro||payload._escopo!=='organico'||!['cx_post','cx_story','cx_organico_receita'].some(k=>Array.isArray(payload[k])))throw new Error('invalid_payload');
+    if(!payload){if(r&&!r.ok)throw new Error('read_failed');throw new Error('invalid_payload');}
+    ORIGEM_LEITURA=origem;
     API=payload;
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();
+    const origemRot=$('#origem-leitura');
+    if(origemRot){
+     const hora=d=>new Date(d).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+     origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':'Consulta ao vivo às '+hora(Date.now());
+     origemRot.title=ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
+    }
     shrigmaFrescor(API,$('#frescor'));
   }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
   finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}

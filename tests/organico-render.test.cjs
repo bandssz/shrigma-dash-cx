@@ -18,13 +18,14 @@ function boot(linhas=[]){
   esc:s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])),
   renderVenda:rows=>venda.push(rows),troca:()=>{},render:()=>{},shrigmaFrescor:()=>{},
   CARGA_ORGANICO:false,ACESSO_ORGANICO:{setBusy:()=>{},show:()=>{},reject:()=>{}},AbortController,setTimeout,clearTimeout,
-  chaveLeitura:()=> 'synthetic-key&other=x',CX_API_URL:'https://example.invalid/read',
+  chaveLeitura:()=> 'synthetic-key&other=x',CX_API_URL:'https://example.invalid/read',CX_CACHE_URL:'https://example.invalid/cache',Number,
   shrigmaMarcaMestra:()=>{},shrigmaEsqueceChave:()=>{},avisoTela:(t,d)=>{if(t!=='Carregando dados…')throw Error(t+': '+d);},window:{},
   fetch:async(url,init)=>{requests.push(url);headers.push(init.headers);return {status:200,ok:true,json:async()=>({_escopo:'organico',cx_organico_receita:[]})};},
  });
  for(const source of [
   trecho('function grupoReceitaOrganico(r){','// Conversao por UTM:'),
   trecho('function pintaKPIs(){','/* ---------- grade:'),
+  trecho('// ORGANICO_CACHE_READ_BEGIN','// ORGANICO_CACHE_READ_END'),
   trecho('async function carrega(){',"document.querySelectorAll('#seg-marca button')"),
  ])vm.runInContext(source,context);
  return {context,elements,requests,headers,venda,run:s=>vm.runInContext(s,context)};
@@ -94,11 +95,37 @@ test('somente superficies editoriais explicitas entram no KPI, sem inferir campa
 
 test('leitura do painel sempre solicita escopo organico e codifica a chave sem ampliar acesso',async()=>{
  const x=boot();await x.run('carrega()');
- assert.equal(x.requests.length,1);
- const url=new URL(x.requests[0]);
- assert.equal(url.searchParams.get('painel'),'organico');
- assert.equal(url.searchParams.has('k'),false);assert.equal(x.headers[0].Authorization,'Bearer synthetic-key&other=x');
- assert.equal(url.searchParams.get('other'),null);
+ // Sem carimbo de cache a leitura cai para a API viva: as duas chamadas valem a mesma regra.
+ assert.equal(x.requests.length,2,'cache primeiro, API viva como reserva');
+ assert.ok(x.requests[0].startsWith('https://example.invalid/cache'),'o cache vem antes');
+ assert.ok(x.requests[1].startsWith('https://example.invalid/read'),'a API viva vem depois');
+ x.requests.forEach((pedido,i)=>{
+  const url=new URL(pedido);
+  assert.equal(url.searchParams.get('painel'),'organico');
+  assert.equal(url.searchParams.has('k'),false);
+  assert.equal(url.searchParams.get('other'),null);
+  assert.equal(x.headers[i].Authorization,'Bearer synthetic-key&other=x');
+ });
+});
+
+test('um cache fresco encerra a leitura sem tocar na API viva',async()=>{
+ const x=boot();
+ x.context.fetch=async(url,init)=>{x.requests.push(url);x.headers.push(init.headers);
+  return {status:200,ok:true,json:async()=>({_escopo:'organico',cx_organico_receita:[],_cache_gerado_em:new Date().toISOString()})};};
+ await x.run('carrega()');
+ assert.equal(x.requests.length,1,'cache válido não dispara a consulta de 3 a 6 s');
+ assert.ok(x.requests[0].includes('/cache'));
+ assert.equal(x.run('ORIGEM_LEITURA'),'cache');
+});
+
+test('uma chave recusada no cache não é reapresentada à API viva',async()=>{
+ const x=boot();
+ x.context.fetch=async url=>{x.requests.push(url);return {status:401,ok:false,json:async()=>null};};
+ x.context.ACESSO_ORGANICO={setBusy:()=>{},show:()=>{},reject:()=>{x.context.recusou=true;}};
+ x.context.avisoTela=()=>{};
+ await x.run('carrega()');
+ assert.equal(x.requests.length,1,'401 no cache encerra a carga');
+ assert.equal(x.context.recusou,true);
 });
 
 test('agenda uma unica leitura a cada dez minutos e ignora os ciclos com aba oculta',()=>{
