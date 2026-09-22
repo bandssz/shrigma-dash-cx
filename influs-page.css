@@ -177,3 +177,22 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 .influ-access-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:12px 0}
 .influ-access-grid label{display:block;font-size:13px;margin-bottom:6px}.influ-access-grid input{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid var(--borda,#cbd5e1);border-radius:7px}
 #influ-access-form button{margin:4px 6px 0 0}#influ-access-message,#influ-access-status{overflow-wrap:anywhere}
+
+/* Canais de afiliados. As cores são de reconhecimento da plataforma, não o que carrega a identidade:
+   o nome está sempre escrito no botão. Validadas nas seis checagens em claro e escuro — banda de
+   luminosidade, croma, separação para daltonismo entre vizinhos e contraste contra a superfície.
+   O amarelo puro do Mercado Livre (#FFE600) reprova em contraste (1,23:1) e por isso entra pelo azul
+   do próprio logo; o rosa do TikTok e o laranja da Shopee são quentes demais entre si para conviverem
+   num mesmo gráfico, e é por isso que cada canal tem sua aba. */
+.canais{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.canais button{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;cursor:pointer;
+  padding:9px 14px;border:1px solid var(--borda);border-radius:999px;background:var(--card);color:var(--texto)}
+.canais button::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--plat,#8b9199);flex:none}
+.canais button:hover:not(:disabled){border-color:var(--plat,var(--borda-forte,#c5cbd2))}
+.canais button.ativo{border-color:var(--plat);box-shadow:inset 0 -2px 0 var(--plat);font-weight:600}
+.canais button:disabled{cursor:not-allowed;opacity:.55}
+.canais button .mini{font-size:11px;color:var(--mudo)}
+.canais button[data-plataforma=parceiros]{--plat:#4E7A2A}
+.canais button[data-plataforma=tiktok]{--plat:#E8114B}
+.canais button[data-plataforma=meli]{--plat:#3E6FC0}
+.canais button[data-plataforma=shopee]{--plat:#D9431F}
