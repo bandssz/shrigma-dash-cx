@@ -1,5 +1,8 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
 (async()=>{const db=new PGlite();await db.exec("CREATE TABLE crm_influ(marca text,influ text,PRIMARY KEY(marca,influ));CREATE TABLE crm_influ_pedido(marca text,influ text,dia date,via text,pago boolean,receita_base numeric);CREATE FUNCTION shrigma_panel_operator_v1(text,text) RETURNS jsonb LANGUAGE sql AS $$ SELECT CASE WHEN $1='synthetic-creators-key' AND $2='influs' THEN '{\"who\":\"actor1\",\"caps\":[\"creators_edit\"]}'::jsonb ELSE NULL END $$;");await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/creators/pilot.sql'),'utf8'));
+ // o ledger de atribuição vive fora deste esquema; aqui basta o recorte que a leitura de parceiros consulta
+ await db.exec("CREATE TABLE crm_organico_attribution_order_v2(marca text,order_id text,dia date,model text,utm_source text,utm_content text,receita_liquida numeric);");
+ await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/creators/partner-link.sql'),'utf8'));
  let checks=0;const run=async p=>(await db.query('SELECT crm_creator_pilot_write_v1($1::jsonb) AS r',[JSON.stringify(p)])).rows[0].r;
  const id='10000000-0000-4000-8000-000000000001',rid='20000000-0000-4000-8000-000000000001';let n=2;const next=()=>`20000000-0000-4000-8000-${String(n++).padStart(12,'0')}`;
  const cmd={k:'synthetic-creators-key',acao:'piloto_salvar',kind:'candidato',request_id:rid,expected_version:0,data:{id,marca:'fish',name:'QA candidato',source:'manual',state:'novo',handle:'@synthetic',note:''}};
@@ -29,4 +32,41 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const ledger=(await db.query('SELECT request FROM crm_creator_pilot_operation_v1')).rows;assert(ledger.every(x=>!JSON.stringify(x).includes('synthetic-creators-key')));checks++;
  await assert.rejects(ingest({...batch,metric_basis:'generic_value'}),/Explicit attribution/);checks++;
  assert.deepEqual((await db.query('SELECT to_jsonb(d) AS d FROM crm_creator_meta_day_v1 d ORDER BY day')).rows,legacyBefore);checks++;
+ // --- link de parceiro -------------------------------------------------------------
+ const linkCmd=(o={})=>({k:cmd.k,acao:'piloto_salvar',kind:'link',expected_version:0,request_id:next(),data:{marca:'fish',candidate_id:id,state:'pausado'},...o});
+ // o candidato está em 'em_analise' neste ponto: sem aprovação não há link
+ assert((await run(linkCmd())).erro);checks++;
+ await run({...cmd,request_id:next(),expected_version:2,data:{...cmd.data,state:'aprovado_piloto'}});
+ assert((await run(linkCmd({data:{marca:'aristo',candidate_id:id,state:'pausado'}}))).erro,'marca cruzada recusada');checks++;
+ assert((await run(linkCmd({data:{marca:'fish',candidate_id:id,state:'revogado'}}))).erro,'não há link vigente para revogar');checks++;
+ const emitidoRid=next(),emitido=await run(linkCmd({request_id:emitidoRid}));
+ assert(emitido.ok&&/^p-[0-9a-f]{8}$/.test(emitido.ref)&&emitido.state==='pausado'&&emitido.url===null&&emitido.commission_payable===false);checks++;
+ assert.deepEqual(await run(linkCmd({request_id:emitidoRid})),emitido,'mesmo request_id devolve o mesmo recibo');checks++;
+ assert.equal((await db.query('SELECT count(*)::int AS n FROM crm_partner_link_v1')).rows[0].n,1,'idempotência não pode emitir dois links');checks++;
+ assert((await run(linkCmd({request_id:next(),data:{marca:'fish',candidate_id:id,state:'ativo'}}))).erro,'versão velha recusada');checks++;
+ const ativo=await run(linkCmd({request_id:next(),expected_version:1,data:{marca:'fish',candidate_id:id,state:'ativo'}}));
+ assert.equal(ativo.url,`https://fishermans.com.br/?utm_source=parceiro&utm_medium=parceiro-site&utm_campaign=fish-parceiros&utm_content=${ativo.ref}`);checks++;
+ // pedidos atribuídos: só entram os do link, do modelo vigente e da janela
+ await db.exec(`INSERT INTO crm_organico_attribution_order_v2 VALUES
+  ('fish','o1','2026-09-10','last_click','parceiro','${ativo.ref}',100),
+  ('fish','o2','2026-09-11','last_click','parceiro','${ativo.ref}',50),
+  ('fish','o3','2026-09-11','last_non_direct','parceiro','${ativo.ref}',999),
+  ('fish','o4','2026-09-11','last_click','ig','${ativo.ref}',999),
+  ('fish','o5','2026-09-11','last_click','parceiro','p-deadbeef',999),
+  ('fish','o6','2026-08-01','last_click','parceiro','${ativo.ref}',999);`);
+ const comLink=(await db.query("SELECT crm_creator_pilot_read_v1('2026-09-01','2026-09-20') AS p")).rows[0].p;
+ assert.equal(comLink.partner_orders.length,1);assert.equal(comLink.partner_orders[0].pedidos,2);
+ assert.equal(Number(comLink.partner_orders[0].receita_liquida_com_frete),150);checks++;
+ assert.equal(comLink.partner_orders_basis,'receita_liquida_com_frete');assert.equal(comLink.commission_payable,false);
+ assert.equal(comLink.payout_active,false);assert.equal(comLink.tracking_active,true,'com link ativo o rastreio está de fato ligado');checks++;
+ assert.equal(comLink.links.length,1);assert.equal(comLink.links[0].candidate_name,'QA candidato');assert.equal(comLink.links[0].state,'ativo');checks++;
+ // revogar preserva o código e libera a emissão de um novo
+ assert((await run(linkCmd({request_id:next(),expected_version:2,data:{marca:'fish',candidate_id:id,state:'revogado'}}))).ok);checks++;
+ const novo=await run(linkCmd({request_id:next(),expected_version:0,data:{marca:'fish',candidate_id:id,state:'pausado'}}));
+ assert(novo.ok&&novo.ref!==ativo.ref);checks++;
+ assert.equal((await db.query('SELECT count(*)::int AS n FROM crm_partner_link_v1 WHERE candidate_id=$1',[id])).rows[0].n,2,'o link revogado continua no histórico');checks++;
+ await assert.rejects(db.query("INSERT INTO crm_partner_link_v1(ref,candidate_id,marca,state,version,actor) VALUES('p-11111111',$1,'fish','ativo',1,'x')",[id]),/duplicate|unique/i,'dois links vigentes para o mesmo parceiro são impossíveis');checks++;
+ await assert.rejects(db.query("INSERT INTO crm_partner_link_v1(ref,candidate_id,marca,state,version,actor) VALUES('PARCEIRO-JOAO',$1,'fish','pausado',1,'x')",[id]),/check|constraint/i,'o código do link tem forma fixa e não carrega nome');checks++;
+ const recibos=(await db.query('SELECT request FROM crm_creator_pilot_operation_v1')).rows;
+ assert(recibos.every(x=>!JSON.stringify(x).includes('synthetic-creators-key')),'nenhum recibo guarda credencial');checks++;
  console.log(JSON.stringify({checks,passed:true,live_calls:0}));await db.close();})().catch(e=>{console.error(e);process.exitCode=1;});

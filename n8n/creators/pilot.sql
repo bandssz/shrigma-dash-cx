@@ -1,4 +1,7 @@
--- Internal pilot. No storefront tracking, payable balance, payout or campaign write.
+-- Internal pilot. No payable balance, payout or campaign write.
+-- ORDER MATTERS: creators/partner-link.sql replaces crm_creator_pilot_read_v1 and
+-- crm_creator_pilot_write_v1 with versions that also handle partner links. Apply this file first
+-- and that one after; re-applying this one alone silently drops the link branch.
 CREATE TABLE IF NOT EXISTS public.crm_partner_program_v1(
  marca text PRIMARY KEY CHECK(marca IN ('aristo','fish')),
  rate numeric NOT NULL DEFAULT 0.07 CHECK(rate=0.07),
