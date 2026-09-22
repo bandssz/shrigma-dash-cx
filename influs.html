@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=1dda13fcbe20">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FLSFFJmJXz6w7R8QjI1p13PlmC9mGdCWG2u+2inO9p4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=e41aa00fa773">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gWUkZftfsmMP8fvp13zx2Xzcdxe1GRjSKBWwp2/Sl6k='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -49,12 +49,10 @@
 
   <nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="creators" class="ativo">Creators<span class="n" id="n-creators"></span></button>
-    <button data-s="partners">Parceiros do site</button>
     <button data-s="meta">Conteúdo em anúncios</button>
-    <button data-s="afil">Afiliados TikTok</button>
+    <button data-s="afil">Afiliados</button>
   </nav>
 
-  <div class="sec" id="sec-partners"><div id="area-partners"></div></div>
   <div class="sec" id="sec-meta"><div id="area-meta-creators"></div></div>
   <div class="sec ativa" id="sec-creators">
     <section class="painel">
@@ -187,6 +185,27 @@
   </div>
 
   <div class="sec" id="sec-afil">
+    <!-- Um canal por vez, de propósito. Rosa do TikTok, laranja da Shopee e amarelo do Mercado Livre
+         são todos quentes: lado a lado num mesmo gráfico não dá para separar nem com visão normal
+         (ΔE 7,6). Separados em abas, a cor vira reconhecimento da plataforma e o nome carrega a
+         identidade — que é o que a etiqueta faz. Os quatro passam nas checagens de cor, claro e escuro. -->
+    <nav class="canais" id="canais" aria-label="Canais de afiliados">
+      <button data-c="parceiros" class="ativo" data-plataforma="parceiros">Parceiros do site</button>
+      <button data-c="tiktok" data-plataforma="tiktok">TikTok Shop</button>
+      <button data-c="meli" data-plataforma="meli" disabled title="Ainda não conectado: nenhuma venda foi lida desta plataforma">Mercado Livre <span class="mini">em breve</span></button>
+      <button data-c="shopee" data-plataforma="shopee" disabled title="Ainda não conectado: nenhuma venda foi lida desta plataforma">Shopee <span class="mini">em breve</span></button>
+    </nav>
+
+    <div class="canal" id="canal-parceiros" data-plataforma="parceiros"><div id="area-partners"></div></div>
+
+    <div class="canal" id="canal-meli" data-plataforma="meli" hidden>
+      <section class="painel"><div class="vazio">Mercado Livre ainda não está conectado. Quando a coleta existir, este canal aparece aqui com as mesmas colunas dos outros — até lá não há número nenhum a mostrar, e zero seria mentira.</div></section>
+    </div>
+    <div class="canal" id="canal-shopee" data-plataforma="shopee" hidden>
+      <section class="painel"><div class="vazio">Shopee ainda não está conectada. Mesmo critério do Mercado Livre: o canal existe no desenho, o dado não existe ainda.</div></section>
+    </div>
+
+    <div class="canal" id="canal-tiktok" data-plataforma="tiktok" hidden>
     <section class="painel">
       <div class="painel-cab"><h2>Afiliados TikTok Shop</h2>
         <span><span class="tag neutro tts-aviso" id="tts-aviso" hidden></span> <span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
@@ -202,6 +221,7 @@
       </nav>
       <div id="tts-area"><div class="vazio">Carregando afiliados TikTok…</div></div>
     </section>
+    </div>
   </div>
 
 </main>
@@ -1033,17 +1053,30 @@ document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();if(window.renderTTS)renderTTS();});
 // A leitura segue a aba visível; trocar de aba sempre relê o período atual.
 function carregarAbaAtiva(){
-  if(SEC==='afil')return typeof window.carregarTTS==='function'?window.carregarTTS():undefined;
+  if(SEC==='afil')return CANAL==='tiktok'&&typeof window.carregarTTS==='function'?window.carregarTTS():carregarInflu();
   return carregarInflu();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('#sec-creators,#sec-afil,#sec-partners,#sec-meta').forEach(x=>x.classList.remove('ativa'));
+  document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
-  document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='partners');document.body.classList.toggle('sec-meta',SEC==='meta');carregarAbaAtiva();});
-if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
+  document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');document.body.classList.toggle('sec-meta',SEC==='meta');carregarAbaAtiva();});
+
+// Canais de afiliados. O TikTok só é carregado quando o canal dele é aberto — abrir Afiliados em
+// Parceiros não dispara a consulta pesada do TikTok Shop.
+let CANAL='parceiros';
+function trocaCanal(c){
+  CANAL=c;
+  document.querySelectorAll('#canais button').forEach(x=>x.classList.toggle('ativo',x.dataset.c===c));
+  document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==c;});
+  document.body.classList.toggle('sec-partners',SEC==='afil'&&c==='parceiros');
+  if(c==='tiktok'&&typeof window.carregarTTS==='function')window.carregarTTS();
+  if(c==='parceiros'&&window.CREATORS_PILOT)window.CREATORS_PILOT.render();
+}
+document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disabled&&CANAL!==b.dataset.c)trocaCanal(b.dataset.c);});
+if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC==='afil'?(CANAL==='parceiros'?'partners':CANAL):SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 carregarAbaAtiva();
