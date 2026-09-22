@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=1dda13fcbe20">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YkI0B2fw9+oLAELREt/vrodq+/qzAriUe4f3qm/1s4A='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FLSFFJmJXz6w7R8QjI1p13PlmC9mGdCWG2u+2inO9p4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -240,6 +240,11 @@ const G = {
     // Filtrar por receita!=null aqui escondia R$ 19 mil na Fishermans e dobrava o ROI.
     // receita de influencia = cupom + linha assinada. A view ja desconta sobreposicao.
     const receita = soma(comRec,'receita');
+    // Pedidos e ticket vem da lente CUPOM e so dela: `pedidos` conta pedido pago em
+    // crm_influ_pedido, e `receita` nesta linha e a receita desses mesmos pedidos. A receita da
+    // linha assinada entra no ROI por outro caminho e NAO pode dividir esta conta - misturar as
+    // duas lentes inflaria o ticket com venda que nao tem pedido contado aqui.
+    const pedidos = soma(comRec,'pedidos');
     const custo = soma(todos,'custo_lancado');
     const comissao = soma(todos,'comissao');
     const patrocinio = soma(todos,'patrocinio');
@@ -250,7 +255,9 @@ const G = {
       creators: comRec.length,
       semReceita: semRec.length,
       custoSemReceita: soma(semRec,'custo_lancado'),
-      receita, investimento, investimentoTotal, comissao, custo, patrocinio,
+      receita, investimento, investimentoTotal, comissao, custo, patrocinio, pedidos,
+      // sem pedido nao ha ticket: null, nunca zero
+      ticketMedio: pedidos > 0 ? receita/pedidos : null,
       roi: investimento > 0 ? receita/investimento : null,
       roiTotal: investimentoTotal > 0 ? receita/investimentoTotal : null,
       // ROI e liquido consideram SO o gasto com retorno rastreavel (Felipe, 20/08).
@@ -475,6 +482,10 @@ function renderKPIs(){
   $('#area-kpis').innerHTML=[
     {r:'Receita rastreada',v:rf(k.receitaCupom),s:`Shopify · ${PER.ini} a ${PER.fim}`},
     {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
+    {r:'Pedidos',v:k.pedidos?nf(k.pedidos):'—',
+     s:k.pedidos?`compras pagas por cupom de creator`:'nenhum pedido por cupom no período'},
+    {r:'Ticket médio',v:k.ticketMedio==null?'—':rf(k.ticketMedio),
+     s:k.ticketMedio==null?'sem pedido para calcular':'receita ÷ pedidos, só pela lente do cupom'},
     {r:k.patrocinio>0?'ROI de influência':'ROI',
      v:`<span class="${cls.trim()}">${roiTxt}</span>`,
      s:k.patrocinio>0
@@ -555,7 +566,7 @@ function renderCreators(){
   $('#n-creators').textContent=(INFLU.influs||[]).filter(i=>(MARCA==='todas'||i.marca===MARCA)&&i.ativo!==false).length;
   el.innerHTML=`<div class="rolagem"><table class="comparativo"><thead><tr>
     <th>Creator</th><th>Contrato</th><th class="num" title="Cachê + produto + frete lançados no mês">Custo ${comp.slice(5)}/${comp.slice(2,4)}</th><th>Cupons</th>
-    <th class="num">Pedidos</th><th class="num">Receita</th><th>Status</th><th></th></tr></thead><tbody>
+    <th class="num">Pedidos</th><th class="num">Receita</th><th class="num" title="Receita dividida pelos pedidos daquele creator, só pela lente do cupom">Ticket médio</th><th>Status</th><th></th></tr></thead><tbody>
     ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
       return `<tr>
         <td><a href="#" class="i-nome cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}" title="Editar creator"><strong>${esc(i.nome||i.influ)}</strong> ✎</a>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
@@ -564,9 +575,10 @@ function renderCreators(){
         <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
         <td class="num tabn">${v.pedidos?nf(v.pedidos):'—'}</td>
         <td class="num tabn">${v.receita?rf(v.receita):'—'}</td>
+        <td class="num tabn">${v.pedidos&&v.receita?rf(v.receita/v.pedidos):'—'}</td>
         <td>${i.ativo===false?'<span class="tag alerta">inativo</span>':'<span class="tag" style="background:#e2f3e6;color:#1e6b38">ativo</span>'}</td>
         <td><button class="btn sec cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Editar</button></td></tr>`;}).join('')
-    :'<tr><td colspan="8"><div class="vazio">Nenhum creator com esse filtro.</div></td></tr>'}</tbody></table></div>`;
+    :'<tr><td colspan="9"><div class="vazio">Nenhum creator com esse filtro.</div></td></tr>'}</tbody></table></div>`;
   el.querySelectorAll('.cr-edit').forEach(b=>b.onclick=e=>{e.preventDefault();abrirEditor(b.dataset.m,b.dataset.influ);});
 }
 $('#cr-busca').oninput=()=>renderCreators(); $('#cr-status').onchange=()=>renderCreators();

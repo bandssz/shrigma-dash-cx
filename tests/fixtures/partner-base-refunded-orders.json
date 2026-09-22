@@ -1,0 +1,3490 @@
+{
+ "aristocrata": [
+  {
+   "id": "gid://shopify/Order/744874623749",
+   "name": "#71083",
+   "createdAt": "2026-07-30T20:20:47Z",
+   "cancelledAt": "2026-07-30T20:22:29Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.15"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "43.05"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/267648241142",
+   "name": "#46978",
+   "createdAt": "2026-05-24T12:09:59Z",
+   "cancelledAt": null,
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.2"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "47.1"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": []
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/562343411971",
+   "name": "#43421",
+   "createdAt": "2026-05-09T13:23:46Z",
+   "cancelledAt": "2026-05-09T14:21:19Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/767197142715",
+   "name": "#15873",
+   "createdAt": "2026-02-06T19:44:09Z",
+   "cancelledAt": "2026-02-06T19:52:18Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "84.8"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.11"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "96.91"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "49.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/687373668493",
+   "name": "#2580",
+   "createdAt": "2025-11-20T14:59:25Z",
+   "cancelledAt": "2025-11-20T15:34:16Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "69.8"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "13.56"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "83.36"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.8"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/674373350242",
+   "name": "#1814",
+   "createdAt": "2025-11-04T03:09:29Z",
+   "cancelledAt": "2025-11-17T20:36:26Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "89.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.98"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "102.68"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.8"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "19.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/53737611728",
+   "name": "#1762",
+   "createdAt": "2025-11-03T11:28:37Z",
+   "cancelledAt": "2025-11-19T00:32:08Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "89.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.56"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "102.26"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.8"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "19.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/36742300488",
+   "name": "#1712",
+   "createdAt": "2025-11-02T14:16:45Z",
+   "cancelledAt": "2025-11-08T13:35:23Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "64.91"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.39"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "77.3"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "64.91"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/880738529097",
+   "name": "#1698",
+   "createdAt": "2025-11-01T23:55:02Z",
+   "cancelledAt": "2025-11-09T21:11:54Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "89.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "101.92"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.8"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "19.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/411326673319",
+   "name": "#1696",
+   "createdAt": "2025-11-01T23:12:55Z",
+   "cancelledAt": "2025-11-03T14:27:09Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/628181238251",
+   "name": "#1499",
+   "createdAt": "2025-10-26T13:04:04Z",
+   "cancelledAt": "2025-11-19T00:53:01Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "104.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "116.92"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "104.7"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/986232412120",
+   "name": "#1362",
+   "createdAt": "2025-10-21T15:19:36Z",
+   "cancelledAt": "2025-10-29T16:27:00Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "69.8"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "13.43"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "83.23"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.8"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/562719067080",
+   "name": "#1357",
+   "createdAt": "2025-10-21T12:48:05Z",
+   "cancelledAt": "2025-11-11T19:04:36Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "64.91"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "11.9"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "76.81"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "64.91"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/61672725592",
+   "name": "#1308",
+   "createdAt": "2025-10-20T11:04:56Z",
+   "cancelledAt": "2025-10-23T12:31:44Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/228295021326",
+   "name": "#1254",
+   "createdAt": "2025-10-18T21:24:03Z",
+   "cancelledAt": "2025-10-21T22:27:08Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "104.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.65"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "117.35"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "104.7"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/757073816427",
+   "name": "#1234",
+   "createdAt": "2025-10-18T11:19:24Z",
+   "cancelledAt": "2025-11-06T17:47:55Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/213207057213",
+   "name": "#1231",
+   "createdAt": "2025-10-18T10:29:48Z",
+   "cancelledAt": "2025-11-03T13:32:24Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "224.4"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "224.4"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "49.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/716259587415",
+   "name": "#1224",
+   "createdAt": "2025-10-17T23:41:56Z",
+   "cancelledAt": "2025-10-28T18:08:12Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "162.28"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "162.28"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "162.28"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/147266406424",
+   "name": "#1174",
+   "createdAt": "2025-10-16T03:42:44Z",
+   "cancelledAt": "2025-10-24T13:07:08Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "104.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "116.92"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "104.7"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/761715491630",
+   "name": "#1110",
+   "createdAt": "2025-10-14T14:32:42Z",
+   "cancelledAt": "2025-11-03T14:27:37Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/190620811507",
+   "name": "#1028",
+   "createdAt": "2025-10-10T14:44:42Z",
+   "cancelledAt": "2025-10-24T14:22:50Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "64.91"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "16.32"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "81.23"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "64.91"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/22296245873",
+   "name": "#106626",
+   "createdAt": "2026-09-21T13:53:28Z",
+   "cancelledAt": "2026-09-21T14:38:36Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "69.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.6"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/39365169175",
+   "name": "#106517",
+   "createdAt": "2026-09-21T09:55:08Z",
+   "cancelledAt": "2026-09-21T11:12:43Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "256.8"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "207.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "49.8"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/755142079587",
+   "name": "#106480",
+   "createdAt": "2026-09-21T03:39:00Z",
+   "cancelledAt": "2026-09-21T04:24:11Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "298.4"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "298.4"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/478312936021",
+   "name": "#106179",
+   "createdAt": "2026-09-20T18:53:14Z",
+   "cancelledAt": "2026-09-20T19:38:23Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "157.05"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "157.05"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/580164832989",
+   "name": "#105732",
+   "createdAt": "2026-09-20T01:50:58Z",
+   "cancelledAt": "2026-09-20T02:36:09Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "165.78"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "165.78"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/956988427110",
+   "name": "#105646",
+   "createdAt": "2026-09-19T22:25:02Z",
+   "cancelledAt": "2026-09-19T23:10:11Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "165.78"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "165.78"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/880589156533",
+   "name": "#105635",
+   "createdAt": "2026-09-19T22:03:04Z",
+   "cancelledAt": "2026-09-19T22:34:16Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "345.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "83.37"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "345.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/203837613963",
+   "name": "#105624",
+   "createdAt": "2026-09-19T21:26:15Z",
+   "cancelledAt": "2026-09-19T21:58:55Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "262.96"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "196.65"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "66.31"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/548182289864",
+   "name": "#105593",
+   "createdAt": "2026-09-19T20:25:37Z",
+   "cancelledAt": "2026-09-19T21:10:45Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.67"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/217330102355",
+   "name": "#105548",
+   "createdAt": "2026-09-19T19:08:46Z",
+   "cancelledAt": "2026-09-19T19:53:55Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.67"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/218065251018",
+   "name": "#105230",
+   "createdAt": "2026-09-19T10:22:17Z",
+   "cancelledAt": "2026-09-19T10:54:48Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/724178163849",
+   "name": "#104972",
+   "createdAt": "2026-09-18T20:21:53Z",
+   "cancelledAt": "2026-09-21T20:22:01Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "174.5"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "174.5"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/193699291202",
+   "name": "#104892",
+   "createdAt": "2026-09-18T17:22:14Z",
+   "cancelledAt": "2026-09-21T17:22:25Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "157.05"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "157.05"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/536418406118",
+   "name": "#104814",
+   "createdAt": "2026-09-18T15:11:43Z",
+   "cancelledAt": "2026-09-21T15:11:53Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "132.62"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.78"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "132.62"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/505491141452",
+   "name": "#104766",
+   "createdAt": "2026-09-18T13:49:06Z",
+   "cancelledAt": "2026-09-21T13:49:18Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "33.16"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.42"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "33.16"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/945870559030",
+   "name": "#104747",
+   "createdAt": "2026-09-18T13:13:29Z",
+   "cancelledAt": "2026-09-21T13:13:39Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "66.31"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "66.31"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/17531792008",
+   "name": "#104741",
+   "createdAt": "2026-09-18T13:06:36Z",
+   "cancelledAt": "2026-09-21T13:06:45Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "262.96"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "196.65"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "66.31"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/670508694816",
+   "name": "#104713",
+   "createdAt": "2026-09-18T12:24:26Z",
+   "cancelledAt": "2026-09-21T12:24:35Z",
+   "displayFinancialStatus": "PAID",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "66.31"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.78"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "66.31"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/297305754815",
+   "name": "#104678",
+   "createdAt": "2026-09-18T11:22:31Z",
+   "cancelledAt": "2026-09-21T11:22:40Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "66.31"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.86"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "66.31"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/967889425107",
+   "name": "#104653",
+   "createdAt": "2026-09-18T10:33:45Z",
+   "cancelledAt": "2026-09-21T10:33:53Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "165.78"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "165.78"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/33556351618",
+   "name": "#104642",
+   "createdAt": "2026-09-18T10:18:07Z",
+   "cancelledAt": "2026-09-18T10:50:39Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "228.89"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "64.86"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "164.03"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/391666470442",
+   "name": "#104602",
+   "createdAt": "2026-09-18T02:30:45Z",
+   "cancelledAt": "2026-09-21T02:30:53Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "34.9"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.85"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "34.9"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/919557539246",
+   "name": "#104596",
+   "createdAt": "2026-09-18T02:23:26Z",
+   "cancelledAt": "2026-09-18T02:55:54Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "65.62"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.65"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "65.62"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/725707014626",
+   "name": "#104547",
+   "createdAt": "2026-09-18T00:32:59Z",
+   "cancelledAt": "2026-09-21T00:33:09Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "173.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "104.7"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/986975505476",
+   "name": "#104529",
+   "createdAt": "2026-09-17T23:24:08Z",
+   "cancelledAt": "2026-09-17T23:56:37Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "157.05"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "157.05"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "fishermans": [
+  {
+   "id": "gid://shopify/Order/292188182146",
+   "name": "F30536",
+   "createdAt": "2026-09-16T16:06:22Z",
+   "cancelledAt": "2026-09-16T16:40:29Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "7.19"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.38"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "15.57"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": []
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/686121097424",
+   "name": "F30519",
+   "createdAt": "2026-09-16T14:30:47Z",
+   "cancelledAt": "2026-09-16T14:34:08Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "7.41"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "7.41"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": []
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/574584466200",
+   "name": "F26587",
+   "createdAt": "2026-08-18T22:26:50Z",
+   "cancelledAt": "2026-08-19T00:34:30Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/654115416723",
+   "name": "F26585",
+   "createdAt": "2026-08-18T22:22:19Z",
+   "cancelledAt": "2026-08-18T22:23:57Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "19.75"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "19.75"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/823036064583",
+   "name": "F26579",
+   "createdAt": "2026-08-18T21:46:34Z",
+   "cancelledAt": "2026-08-18T22:23:54Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/713980169359",
+   "name": "F26578",
+   "createdAt": "2026-08-18T21:44:12Z",
+   "cancelledAt": "2026-08-18T22:23:51Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "8.22"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/153527577328",
+   "name": "F26576",
+   "createdAt": "2026-08-18T21:40:54Z",
+   "cancelledAt": "2026-08-18T22:23:48Z",
+   "displayFinancialStatus": "REFUNDED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.25"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "9.25"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/210514714803",
+   "name": "F31075",
+   "createdAt": "2026-09-21T23:49:03Z",
+   "cancelledAt": "2026-09-22T00:51:40Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "214.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "87.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "127.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/747470621241",
+   "name": "F31074",
+   "createdAt": "2026-09-21T23:47:55Z",
+   "cancelledAt": "2026-09-22T00:51:34Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "214.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "87.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "127.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/996080537482",
+   "name": "F31054",
+   "createdAt": "2026-09-21T20:34:36Z",
+   "cancelledAt": "2026-09-21T21:40:57Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "69.35"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.12"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "69.35"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/904609672894",
+   "name": "F31050",
+   "createdAt": "2026-09-21T20:06:19Z",
+   "cancelledAt": "2026-09-21T21:11:04Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "180.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "28.85"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "180.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/960685059476",
+   "name": "F31027",
+   "createdAt": "2026-09-21T15:23:11Z",
+   "cancelledAt": "2026-09-21T16:32:48Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "29.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.17"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "29.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/275095351556",
+   "name": "F31016",
+   "createdAt": "2026-09-21T14:33:49Z",
+   "cancelledAt": "2026-09-21T15:41:27Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "263.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "190.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "73.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/219218086183",
+   "name": "F31008",
+   "createdAt": "2026-09-21T13:56:03Z",
+   "cancelledAt": "2026-09-21T15:02:57Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "54.15"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "35.25"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "54.15"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/864447207027",
+   "name": "F31004",
+   "createdAt": "2026-09-21T13:22:45Z",
+   "cancelledAt": "2026-09-21T14:32:38Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "54.15"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "16.58"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "54.15"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/416822775741",
+   "name": "F30990",
+   "createdAt": "2026-09-21T11:18:00Z",
+   "cancelledAt": "2026-09-21T12:21:19Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "139.65"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.81"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "139.65"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/972877317234",
+   "name": "F30989",
+   "createdAt": "2026-09-21T10:18:14Z",
+   "cancelledAt": "2026-09-21T11:21:06Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "77.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "12.56"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "77.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/807878601401",
+   "name": "F30985",
+   "createdAt": "2026-09-21T09:37:47Z",
+   "cancelledAt": "2026-09-21T10:40:50Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "57.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "60.59"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "57.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/344898011775",
+   "name": "F30971",
+   "createdAt": "2026-09-20T23:30:47Z",
+   "cancelledAt": "2026-09-21T00:40:45Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "73.15"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.43"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "73.15"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/747342114435",
+   "name": "F30965",
+   "createdAt": "2026-09-20T22:57:22Z",
+   "cancelledAt": "2026-09-21T00:02:34Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "187.15"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.4"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "187.15"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/389665005819",
+   "name": "F30957",
+   "createdAt": "2026-09-20T21:33:13Z",
+   "cancelledAt": "2026-09-20T22:41:08Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "139.65"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.04"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "139.65"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/592459786143",
+   "name": "F30952",
+   "createdAt": "2026-09-20T20:28:49Z",
+   "cancelledAt": "2026-09-20T21:32:45Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "29.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "27.45"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "29.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/669509237500",
+   "name": "F30948",
+   "createdAt": "2026-09-20T19:19:55Z",
+   "cancelledAt": "2026-09-20T20:21:40Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "214.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "87.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "127.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/806322852670",
+   "name": "F30940",
+   "createdAt": "2026-09-20T17:47:13Z",
+   "cancelledAt": "2026-09-20T18:51:30Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "77.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "9.47"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "77.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/912777149718",
+   "name": "F30939",
+   "createdAt": "2026-09-20T17:32:55Z",
+   "cancelledAt": "2026-09-20T18:40:52Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "100.7"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "13.04"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "73.15"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "27.55"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/112559909766",
+   "name": "F30936",
+   "createdAt": "2026-09-20T17:23:34Z",
+   "cancelledAt": "2026-09-20T18:32:31Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "214.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "0.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "87.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "127.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/57963461626",
+   "name": "F30931",
+   "createdAt": "2026-09-20T16:58:06Z",
+   "cancelledAt": "2026-09-20T18:02:46Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "567.15"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "61.78"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "325.85"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "241.3"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/340255886421",
+   "name": "F30930",
+   "createdAt": "2026-09-20T16:56:16Z",
+   "cancelledAt": "2026-09-20T18:02:38Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "87.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.74"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "87.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/758007829582",
+   "name": "F30922",
+   "createdAt": "2026-09-20T15:44:24Z",
+   "cancelledAt": "2026-09-20T16:51:31Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "77.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.35"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "77.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/877682774512",
+   "name": "F30911",
+   "createdAt": "2026-09-20T14:15:06Z",
+   "cancelledAt": "2026-09-20T15:21:25Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "197.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "8.89"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "197.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/173697084847",
+   "name": "F30888",
+   "createdAt": "2026-09-20T11:24:23Z",
+   "cancelledAt": "2026-09-20T12:32:24Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "324.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "247.0"
+         }
+        }
+       },
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "77.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "gid://shopify/Order/373070743222",
+   "name": "F30874",
+   "createdAt": "2026-09-20T00:36:34Z",
+   "cancelledAt": "2026-09-20T01:10:57Z",
+   "displayFinancialStatus": "EXPIRED",
+   "currencyCode": "BRL",
+   "subtotalPriceSet": {
+    "shopMoney": {
+     "amount": "77.0"
+    }
+   },
+   "totalShippingPriceSet": {
+    "shopMoney": {
+     "amount": "10.26"
+    }
+   },
+   "totalRefundedSet": {
+    "shopMoney": {
+     "amount": "0.0"
+    }
+   },
+   "lineItems": {
+    "pageInfo": {
+     "hasNextPage": false
+    }
+   },
+   "refunds": [
+    {
+     "refundLineItems": {
+      "nodes": [
+       {
+        "subtotalSet": {
+         "shopMoney": {
+          "amount": "77.0"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
