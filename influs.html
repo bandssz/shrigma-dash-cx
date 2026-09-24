@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=e41aa00fa773">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gWUkZftfsmMP8fvp13zx2Xzcdxe1GRjSKBWwp2/Sl6k='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=5a6b557a7a2c">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ffgYiQSj0T5k1amf+PlCXvf/KtdchtquPHpBrNfLXxQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -39,6 +39,7 @@
       <button data-p="90">90 dias</button>
     </div>
     <input type="date" id="d-ini"><span class="mini">até</span><input type="date" id="d-fim">
+    <select id="i-nicho" class="i-sel" hidden aria-label="Nicho" title="Filtra KPIs, cortes, cupons e creators pelo nicho do cadastro"><option value="">Todos os nichos</option></select>
   </div>
 
   <div id="faixa-alertas" aria-live="polite"></div>
@@ -95,6 +96,8 @@
               <code>utm_content</code> dos links dele &mdash; &eacute; isso que faz a atribui&ccedil;&atilde;o por UTM funcionar sozinha.</span></div>
           <div class="campo"><label>Nome</label><input type="text" id="i-f-nome" placeholder="Urso Branco"></div>
           <div class="campo"><label>Handle</label><input type="text" id="i-f-handle" placeholder="@ursobranco"></div>
+          <div class="campo"><label>Nicho</label><input type="text" id="i-f-nicho" list="nichos-lista" maxlength="40" placeholder="pesca esportiva">
+            <span class="ajuda">Texto livre do time. Use um que já existe (a lista sugere) para o corte por nicho não se dividir.</span></div>
           <div class="campo"><label>Comiss&atilde;o (%)</label>
             <input type="number" id="i-f-com" step="0.5" value="5">
             <span class="ajuda"><strong>5% &eacute; a regra</strong>; 10% s&oacute; para capivara e ursobranco.
@@ -107,6 +110,7 @@
             <span class="mini" id="i-f-msg"></span></div>
         </div>
       </div>
+      <datalist id="nichos-lista"></datalist>
 
 
       <div id="i-editor" hidden>
@@ -115,6 +119,9 @@
             <strong id="ed-titulo"></strong>
             <span class="ajuda" id="ed-sub"></span>
             <div id="ed-termos" class="ed-termos"></div></div>
+          <div class="campo largo"><label>Link do creator</label>
+            <div class="ed-link"><input type="text" id="ed-link" readonly><button class="btn sec" id="ed-link-copiar" type="button">Copiar link</button></div>
+            <span class="ajuda" id="ed-link-vendas"></span></div>
           <div class="campo"><label>Nome</label><input type="text" id="ed-nome"></div>
           <div class="campo"><label>Handle</label><input type="text" id="ed-handle"></div>
           <div class="campo"><label>Contato</label><input type="text" id="ed-contato"></div>
@@ -137,6 +144,8 @@
               <option value="nano">nano</option><option value="micro">micro</option>
               <option value="macro">macro</option><option value="celebridade">celebridade</option></select></div>
           <div class="campo"><label>Seguidores</label><input type="number" id="ed-seg"></div>
+          <div class="campo"><label>Nicho</label><input type="text" id="ed-nicho" list="nichos-lista" maxlength="40" placeholder="pesca esportiva">
+            <span class="ajuda">Em branco mantém o atual.</span></div>
           <div class="campo"><label>Situação</label>
             <select id="ed-ativo" class="i-sel"><option value="1">ativo</option>
               <option value="0">encerrado (cupom segue contando receita)</option></select></div>
@@ -335,6 +344,28 @@ const G = {
     return [...m.values()].map(a => ({...a, roi: a.investimento>0 ? a.receita/a.investimento : null}))
       .sort((a,b) => (b.roi??-1)-(a.roi??-1));
   },
+  // Nicho e texto livre do time, normalizado no banco (crm_influ_nicho_normalizado).
+  nichos(influs, marca){
+    return [...new Set((influs||[]).filter(i => (marca==='todas'||i.marca===marca) && i.nicho).map(i => i.nicho))]
+      .sort((a,b) => a.localeCompare(b,'pt-BR'));
+  },
+  // crm_influ_roi nao conhece nicho: ele entra aqui pelo cadastro, sem mexer na funcao do banco.
+  comNicho(roi, influs){
+    const n = new Map((influs||[]).map(i => [i.marca+'|'+i.influ, i.nicho||null]));
+    return (roi||[]).map(x => ({...x, nicho: n.get(x.marca+'|'+x.influ) || null}));
+  },
+  // '' = todos; '__sem__' = so quem ainda nao tem nicho, para o time preencher.
+  passaNicho(nicho, filtro){
+    if(!filtro) return true;
+    if(filtro==='__sem__') return !nicho;
+    return nicho===filtro;
+  },
+  // Lente de link, separada da de cupom. So 'sem_cupom' soma com cupom sem contar venda duas vezes.
+  vendasLink(receitaLink, marca, influ){
+    const r = (receitaLink||[]).find(x => x.marca===marca && x.influ===influ);
+    return r ? {pedidos:+r.pedidos||0, receita:+r.receita||0, semCupom:+r.pedidos_sem_cupom||0, receitaSemCupom:+r.receita_sem_cupom||0}
+             : {pedidos:0, receita:0, semCupom:0, receitaSemCupom:0};
+  },
   influResumo(cupons, marca){
     const c = (cupons||[]).filter(x => marca === 'todas' || x.marca === marca);
     const soma = f => c.filter(f).reduce((a,x) => a + (+x.usos_lifetime || 0), 0);
@@ -387,6 +418,21 @@ function pintaMarca(){
 // "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
 // dominio de falha separado, igual ao coletor de conversao.
 let INFLU=null, INFLU_SEQ=0, INFLU_READ=null, CRED_READ=null;
+// Filtro de nicho: escopa KPIs, cortes, cupons e creators, como a marca.
+let NICHO='';
+const mapaNicho=()=>new Map(((INFLU&&INFLU.influs)||[]).map(i=>[i.marca+'|'+i.influ,i.nicho||null]));
+const roiNoNicho=()=>G.comNicho(INFLU.roi,INFLU.influs).filter(x=>G.passaNicho(x.nicho,NICHO));
+function pintaNichos(){
+  const lista=G.nichos(INFLU&&INFLU.influs,MARCA), sel=$('#i-nicho'), dl=$('#nichos-lista');
+  if(dl)dl.innerHTML=G.nichos(INFLU&&INFLU.influs,'todas').map(n=>`<option value="${esc(n)}"></option>`).join('');
+  if(!sel)return;
+  if(NICHO&&NICHO!=='__sem__'&&!lista.includes(NICHO))NICHO='';
+  sel.innerHTML='<option value="">Todos os nichos</option>'+lista.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')
+    +'<option value="__sem__">(sem nicho)</option>';
+  sel.value=NICHO;
+  // sem nenhum nicho cadastrado o filtro nao tem o que filtrar: fica escondido
+  sel.hidden=!G.nichos(INFLU&&INFLU.influs,'todas').length;
+}
 
 // Read-only deadline: write receipts and uncertain writes never use this helper.
 function leituraInfluLimitada(run){
@@ -490,11 +536,17 @@ async function carregarInflu(){
   }finally{if(INFLU_READ===leitura)INFLU_READ=null;}
 }
 
-function renderTudo(){if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();if(!INFLU)return;renderKPIs();renderCortes();renderTabela();
+function renderTudo(){if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();if(!INFLU)return;pintaNichos();renderKPIs();renderCortes();renderTabela();
   if(ED){const e=$('#i-editor'); if(e&&!e.hidden) pintaCustos();}}
 function renderKPIs(){
-  const k=G.influKPI(INFLU.roi,MARCA);
+  // So depende do G e do payload: o filtro de nicho pode nao existir em quem reaproveita esta funcao.
+  const nicho=typeof NICHO==='string'?NICHO:'';
+  const k=G.influKPI(G.comNicho(INFLU.roi,INFLU.influs).filter(x=>G.passaNicho(x.nicho,nicho)),MARCA);
+  // com nicho escolhido, so entra receita de cupom que tem dono naquele nicho (cupom sem dono nao tem nicho)
+  const donoCupom=new Map((INFLU.cupons||[]).map(c=>[c.marca+'|'+c.codigo,c.influ]));
+  const nichoDe=new Map((INFLU.influs||[]).map(i=>[i.marca+'|'+i.influ,i.nicho||null]));
   k.receitaCupom=(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
+    .filter(x=>{if(!nicho)return true;const d=donoCupom.get(x.marca+'|'+x.codigo);return !!d&&G.passaNicho(nichoDe.get(x.marca+'|'+d),nicho);})
     .reduce((a,x)=>a+(+x.receita||0),0);
   const roiTxt2=roiTxt2f(k.roiTotal);
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
@@ -547,7 +599,7 @@ const roiCls=v=>v==null?'':(v>=3?'vd':(v<1?'vm':''));
 
 function renderCortes(){
   const bloco=(titulo,campo)=>{
-    const gs=G.influPor(INFLU.roi,MARCA,campo);
+    const gs=G.influPor(roiNoNicho(),MARCA,campo);
     if(!gs.length)return '';
     return `<div><table class="comparativo"><thead><tr><th>${titulo}</th><th class="num">n</th>
       <th class="num">Receita</th><th class="num">Investido</th><th class="num">ROI</th></tr></thead><tbody>`+
@@ -556,8 +608,10 @@ function renderCortes(){
         <td class="num ${roiCls(g.roi)}"><strong>${roiTxt(g.roi)}</strong></td></tr>`).join('')+
       '</tbody></table></div>';
   };
-  const html=bloco('Porte','porte')+bloco('Modelo','modelo');
-  $('#area-cortes').innerHTML=html||'<div class="vazio">Sem receita registrada para cortar por porte ou modelo.</div>';
+  // Nicho so aparece como corte quando alguem ja preencheu: um bloco inteiro de "(nao informado)" nao decide nada.
+  const temNicho=G.nichos(INFLU.influs,MARCA).length>0;
+  const html=bloco('Porte','porte')+bloco('Modelo','modelo')+(temNicho?bloco('Nicho','nicho'):'');
+  $('#area-cortes').innerHTML=html||'<div class="vazio">Sem receita registrada para cortar por porte, modelo ou nicho.</div>';
 }
 
 // Uma tabela so: cada linha e um cupom. Associado mostra ROI, pendente mostra os selects
@@ -579,7 +633,7 @@ function renderCreators(){
   const cup=new Map(); (INFLU.cupons||[]).filter(c=>c.tipo==='influ'&&c.influ).forEach(c=>{const k=c.marca+'|'+c.influ;(cup.get(k)||cup.set(k,[]).get(k)).push(c.codigo);});
   const custo=new Map(); (INFLU.custos||[]).filter(c=>c.competencia===comp).forEach(c=>custo.set(c.marca+'|'+c.influ,(+c.fixo||0)+(+c.produto||0)+(+c.frete||0)));
   const MODELO={fixo:'fixo',comissao:'comissão',hibrido:'híbrido',permuta:'permuta',encerrado:'encerrado'};
-  let lista=(INFLU.influs||[]).filter(i=>MARCA==='todas'||i.marca===MARCA);
+  let lista=(INFLU.influs||[]).filter(i=>MARCA==='todas'||i.marca===MARCA).filter(i=>G.passaNicho(i.nicho||null,NICHO));
   if(st==='ativos')lista=lista.filter(i=>i.ativo!==false); if(st==='inativos')lista=lista.filter(i=>i.ativo===false);
   if(q)lista=lista.filter(i=>[i.nome,i.handle,i.influ,...(cup.get(i.marca+'|'+i.influ)||[])].some(x=>String(x||'').toLowerCase().includes(q)));
   lista.sort((a,b)=>((roi.get(b.marca+'|'+b.influ)||{}).receita||0)-((roi.get(a.marca+'|'+a.influ)||{}).receita||0));
@@ -589,7 +643,7 @@ function renderCreators(){
     <th class="num">Pedidos</th><th class="num">Receita</th><th class="num" title="Receita dividida pelos pedidos daquele creator, só pela lente do cupom">Ticket médio</th><th>Status</th><th></th></tr></thead><tbody>
     ${lista.length?lista.map(i=>{const k=i.marca+'|'+i.influ,v=roi.get(k)||{},cs=cup.get(k)||[],cx=custo.get(k);
       return `<tr>
-        <td><a href="#" class="i-nome cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}" title="Editar creator"><strong>${esc(i.nome||i.influ)}</strong> ✎</a>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}</div></td>
+        <td><a href="#" class="i-nome cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}" title="Editar creator"><strong>${esc(i.nome||i.influ)}</strong> ✎</a>${i.handle?` <span class="mini">${esc(i.handle)}</span>`:''}<div class="mini"><span class="tag ${esc(i.marca)}">${esc(G.MARCA[i.marca]||i.marca)}</span> <code>${esc(i.influ)}</code>${i.porte?` · ${esc(i.porte)}`:''}${i.nicho?` · <span class="tag nulo">${esc(i.nicho)}</span>`:''}${(()=>{const l=G.vendasLink(INFLU.receita_link,i.marca,i.influ);return l.pedidos?` · <span title="Pedidos pagos cuja última visita veio do link deste creator. Lente separada da de cupom.">${nf(l.pedidos)} pelo link${l.semCupom?`, ${nf(l.semCupom)} sem cupom`:''}</span>`:'';})()}</div></td>
         <td>${i.modelo?`<span class="tag nulo">${esc(MODELO[i.modelo]||i.modelo)}</span>`:'<span class="tag nulo">sem modelo</span>'}${i.comissao_pct!=null?` <strong>${(100*+i.comissao_pct).toFixed(1).replace('.',',')}%</strong>`:''}</td>
         <td class="num tabn">${cx!==undefined?rf(cx):'—'}</td>
         <td>${cs.length?cs.map(c=>`<code>${esc(c)}</code>`).join(' '):'<span class="tag alerta">sem cupom</span>'}</td>
@@ -597,9 +651,10 @@ function renderCreators(){
         <td class="num tabn">${v.receita?rf(v.receita):'—'}</td>
         <td class="num tabn">${v.pedidos&&v.receita?rf(v.receita/v.pedidos):'—'}</td>
         <td>${i.ativo===false?'<span class="tag alerta">inativo</span>':'<span class="tag" style="background:#e2f3e6;color:#1e6b38">ativo</span>'}</td>
-        <td><button class="btn sec cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Editar</button></td></tr>`;}).join('')
+        <td class="cr-acoes"><button class="btn sec cr-edit" data-m="${esc(i.marca)}" data-influ="${esc(i.influ)}">Editar</button>${i.link?` <button class="btn sec cr-link" data-link="${esc(i.link)}" title="${esc(i.link)}">Copiar link</button>`:''}</td></tr>`;}).join('')
     :'<tr><td colspan="9"><div class="vazio">Nenhum creator com esse filtro.</div></td></tr>'}</tbody></table></div>`;
   el.querySelectorAll('.cr-edit').forEach(b=>b.onclick=e=>{e.preventDefault();abrirEditor(b.dataset.m,b.dataset.influ);});
+  el.querySelectorAll('.cr-link').forEach(b=>b.onclick=e=>{e.preventDefault();copiaLink(b.dataset.link,b);});
 }
 $('#cr-busca').oninput=()=>renderCreators(); $('#cr-status').onchange=()=>renderCreators();
 
@@ -656,6 +711,7 @@ function renderTabela(){
   // 'sobreposicao' e a parte que caiu no mesmo pedido e somar contaria a venda duas vezes.
   const RS=new Map((INFLU.receita_sku||[]).map(x=>[x.marca+'|'+x.influ,x]));
   let cs=todos.filter(c=>MARCA==='todas'||c.marca===MARCA);
+  if(NICHO){const nm=mapaNicho();cs=cs.filter(c=>!!c.influ&&G.passaNicho(nm.get(c.marca+'|'+c.influ),NICHO));}
   if(filtro==='pendente')cs=cs.filter(c=>c.tipo==='pendente');
   else if(filtro==='influ')cs=cs.filter(c=>c.tipo==='influ');
   // pendente NAO entra na tabela de ROI: vive na caixa de entrada ate ser classificado
@@ -853,6 +909,7 @@ function abrirNovoCreatorEm(host,marca,cod){
         <label>Handle <input class="nc-handle" placeholder="@ana"></label>
         <label>Slug <span class="mini">(= utm_content dos links)</span><input class="nc-slug" placeholder="gerado do nome"></label>
         <label>Porte <select class="nc-porte"><option value="">—</option><option>nano</option><option>micro</option><option>macro</option><option>celebridade</option></select></label>
+        <label>Nicho <input class="nc-nicho" list="nichos-lista" maxlength="40" placeholder="pesca esportiva"></label>
       </section>
       <section class="nc-passo"><h4><i>2</i> Contrato</h4>
         <label>Modelo <select class="nc-modelo"><option value="comissao">só comissão</option><option value="hibrido">híbrido · cachê + comissão</option><option value="fixo">fixo · só cachê</option><option value="permuta">permuta</option></select></label>
@@ -893,7 +950,7 @@ async function salvarNovoCreator(box,marca,cod){
   try{
     msg.textContent='1/3 criando creator…';
     await influPost({k:wk,acao:'salvar_influ',autor,influ:{marca,influ:slug,nome,handle:$$('.nc-handle').value.trim(),
-      modelo,porte:$$('.nc-porte').value||undefined,comissao_pct:com===''?null:(+com/100)}});
+      modelo,porte:$$('.nc-porte').value||undefined,nicho:$$('.nc-nicho').value.trim(),comissao_pct:com===''?null:(+com/100)}});
     passo='associar cupom';
     msg.textContent='2/3 associando cupom…';
     const j=await influPost({k:wk,acao:'salvar_cupom',autor,cupom:{marca,codigo:cod,tipo:'influ',influ:slug}});
@@ -937,10 +994,10 @@ async function salvarInflu(){
   $('#i-f-salvar').disabled=true;
   try{
     await influPost({k:wk,acao:'salvar_influ',influ:{marca:$('#i-f-marca').value,influ:slug,
-      nome:$('#i-f-nome').value.trim(),handle:$('#i-f-handle').value.trim(),
+      nome:$('#i-f-nome').value.trim(),handle:$('#i-f-handle').value.trim(),nicho:$('#i-f-nicho').value.trim(),
       comissao_pct:com===''?null:(+com/100)}});
-    msg.textContent='registrado.';
-    ['i-f-slug','i-f-nome','i-f-handle','i-f-com'].forEach(id=>$('#'+id).value='');
+    msg.textContent='registrado. O link dele está no Editar e no botão Copiar link da lista.';
+    ['i-f-slug','i-f-nome','i-f-handle','i-f-nicho','i-f-com'].forEach(id=>$('#'+id).value='');
     await carregarInflu();
   }catch(e){msg.textContent='Falha: '+e.message;}
   $('#i-f-salvar').disabled=false;
@@ -959,6 +1016,13 @@ function abrirEditor(marca,influ){
   $('#ed-contato').value=i.contato||''; $('#ed-modelo').value=i.modelo||'';
   $('#ed-com').value=i.comissao_pct!=null?(100*(+i.comissao_pct)).toString():'';
   $('#ed-porte').value=i.porte||''; $('#ed-seg').value=i.seguidores||'';
+  $('#ed-nicho').value=i.nicho||'';
+  $('#ed-link').value=i.link||'';
+  $('#ed-link-copiar').disabled=!i.link;
+  const lk=G.vendasLink(INFLU.receita_link,marca,influ);
+  $('#ed-link-vendas').innerHTML=!i.link?'Slug fora do padrão: sem link gerado.'
+    :lk.pedidos?`<strong>${nf(lk.pedidos)} pedido(s) pelo link</strong> no período (${rf(lk.receita)}), ${nf(lk.semCupom)} sem cupom. Lente separada da de cupom: só os sem cupom somam com ela.`
+    :'Nenhum pedido pelo link neste período. É o link que o creator deve usar na bio e nos stories; as vendas pelo cupom continuam contando igual.';
   $('#ed-ativo').value=(i.ativo===false)?'0':'1';
   $('#ed-obs').value=i.obs||''; $('#ed-msg').textContent='';
   // Termos com vigencia: o que vale hoje e o historico. Mudar modelo/% cria termo do mes corrente.
@@ -998,6 +1062,7 @@ async function salvarCadastro(){
       modelo:$('#ed-modelo').value||null, comissao_pct:com===''?null:(+com/100),
       porte:$('#ed-porte').value||null,
       seguidores:$('#ed-seg').value===''?null:+$('#ed-seg').value,
+      nicho:$('#ed-nicho').value.trim(),
       ativo:$('#ed-ativo').value==='1', obs:$('#ed-obs').value.trim()}});
     msg.textContent=j.termo_novo_desde
       ? `salvo · termo novo a partir de ${j.termo_novo_desde.slice(5,7)}/${j.termo_novo_desde.slice(0,4)} · ${nf(j.pedidos_recomputados)} pedido(s) deste mês recalculado(s); meses anteriores intactos`
@@ -1020,6 +1085,14 @@ async function salvarCusto(remover){
     await carregarInflu();
   }catch(e){msg.textContent='Falha: '+e.message;}
 }
+async function copiaLink(link,bt){
+  const volta=bt.textContent;
+  try{await navigator.clipboard.writeText(link);bt.textContent='Copiado';}
+  catch(_){const t=$('#ed-link');if(t&&t.value===link){t.select();}bt.textContent='Selecione e copie';}
+  setTimeout(()=>{bt.textContent=volta;},1600);
+}
+$('#ed-link-copiar').onclick=()=>copiaLink($('#ed-link').value,$('#ed-link-copiar'));
+$('#i-nicho').onchange=()=>{NICHO=$('#i-nicho').value;renderTudo();};
 $('#ed-salvar').onclick=salvarCadastro;
 $('#ed-custo-salvar').onclick=()=>salvarCusto(false);
 $('#ed-custo-remover').onclick=()=>salvarCusto(true);
