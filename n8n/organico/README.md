@@ -1,5 +1,7 @@
 # Orgânico: projeção Shopify por pedido/modelo
 
+> Coletores Meta (stories, posts, conta, inventário, comentários), credencial e saúde por conta: ver [COLETORES.md](COLETORES.md).
+
 `attribution.sql` cria três views e uma função novas. Não substitui views v2 existentes, ingestão, coletor, de-para, legado `crm_conversao` ou API viva. Aplicação e integração ao payload exigem revisão do runtime atual; este arquivo não é um instalador automático.
 
 ## Fonte e contrato
