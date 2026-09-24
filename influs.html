@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=5a6b557a7a2c">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ffgYiQSj0T5k1amf+PlCXvf/KtdchtquPHpBrNfLXxQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MS0T5M/uwrjCtGuK2Cy5pKCjO+n+RdU+46axbrh+sCQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -310,6 +310,23 @@ const G = {
   },
   // Pending coupon revenue stays at brand + coupon grain. ROI also includes
   // signed-product revenue, so subtracting it from coupon revenue is invalid.
+  // Receita de cupom dividida por dono. So conta como "rastreada" o cupom cadastrado como
+  // influ E associado a um creator; o resto (campanha da loja, pendente, desconhecido) vai para
+  // a etiqueta "sem dono". Assim uma campanha interna nao vira receita de influencia calada.
+  receitaCupomDono(payload, marca){
+    const dono=new Map();
+    for(const c of (payload?.cupons||[])){if(!c||typeof c!=='object'||!c.marca||!c.codigo)continue;
+      const k=c.marca+'|'+c.codigo;const d=c.tipo==='influ'&&String(c.influ||'').trim()?c.influ:null;
+      dono.set(k,dono.has(k)&&dono.get(k)!==d?null:d);}
+    let comDono=0,semDono=0;const sem=new Map();
+    for(const x of (payload?.receita_cupom||[])){
+      if(!x||typeof x!=='object'||(marca!=='todas'&&x.marca!==marca))continue;
+      const v=Number(x.receita);if(x.receita===null||x.receita===''||!Number.isFinite(v))continue;
+      if(dono.get(x.marca+'|'+x.codigo))comDono+=v;
+      else{semDono+=v;sem.set(x.codigo,(sem.get(x.codigo)||0)+v);}
+    }
+    return {comDono,semDono,semDonoCupons:[...sem].sort((a,b)=>b[1]-a[1])};
+  },
   receitaCuponsPendentes(payload, marca){
     if(!Array.isArray(payload?.cupons)||!Array.isArray(payload?.receita_cupom))return {disponivel:false,receitaConhecida:null,naoConciliadas:null};
     const scope=x=>!x||typeof x!=='object'||!x.marca||marca==='todas'||x.marca===marca;
@@ -545,14 +562,18 @@ function renderKPIs(){
   // com nicho escolhido, so entra receita de cupom que tem dono naquele nicho (cupom sem dono nao tem nicho)
   const donoCupom=new Map((INFLU.cupons||[]).map(c=>[c.marca+'|'+c.codigo,c.influ]));
   const nichoDe=new Map((INFLU.influs||[]).map(i=>[i.marca+'|'+i.influ,i.nicho||null]));
-  k.receitaCupom=(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
-    .filter(x=>{if(!nicho)return true;const d=donoCupom.get(x.marca+'|'+x.codigo);return !!d&&G.passaNicho(nichoDe.get(x.marca+'|'+d),nicho);})
+  const porDono=G.receitaCupomDono(INFLU,MARCA);
+  k.receitaCupom=!nicho?porDono.comDono:(INFLU.receita_cupom||[]).filter(x=>MARCA==='todas'||x.marca===MARCA)
+    .filter(x=>{const d=donoCupom.get(x.marca+'|'+x.codigo);return !!d&&G.passaNicho(nichoDe.get(x.marca+'|'+d),nicho);})
     .reduce((a,x)=>a+(+x.receita||0),0);
+  const escT=v=>String(v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const etqSemDono=!nicho&&porDono.semDono>0
+    ?` <span class="tag alerta" title="${escT('Cupom sem creator associado (campanha da loja, pendente ou desconhecido), fora da receita rastreada: '+porDono.semDonoCupons.slice(0,8).map(([c,v])=>c+' '+rf(v)).join(' · ')+(porDono.semDonoCupons.length>8?' · …':''))}">+ ${rf(porDono.semDono)} sem dono</span>`:'';
   const roiTxt2=roiTxt2f(k.roiTotal);
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
-    {r:'Receita rastreada',v:rf(k.receitaCupom),s:`Shopify · ${PER.ini} a ${PER.fim}`},
+    {r:'Receita rastreada'+etqSemDono,v:rf(k.receitaCupom),s:`cupom com creator · Shopify · ${PER.ini} a ${PER.fim}`},
     {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
     {r:'Pedidos',v:k.pedidos?nf(k.pedidos):'—',
      s:k.pedidos?`compras pagas por cupom de creator`:'nenhum pedido por cupom no período'},
