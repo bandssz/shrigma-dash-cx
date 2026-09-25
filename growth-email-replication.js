@@ -61,6 +61,9 @@ const GER=(()=>{
    for(const attr of parsed.attributes.filter(a=>['href','src','background','action','poster'].includes(a.name))){
     if(hits.some(h=>h.start>=attr.valueStart&&h.end<=attr.valueEnd))continue;
     add(attr.valueStart,attr.valueEnd,'attribute',['src','background','poster'].includes(attr.name));
+    const hit=hits.find(h=>h.start===attr.valueStart&&h.end===attr.valueEnd),stack=[];
+    for(const action of parsed.actions){if(action.start>=attr.valueStart)break;if(['if','range'].includes(action.kind))stack.push({kind:action.kind,inElse:false});else if(action.kind==='else')stack.at(-1).inElse=true;else if(action.kind==='end')stack.pop();}
+    if(hit)hit.itemScoped=stack.some(a=>a.kind==='range'&&!a.inElse);
    }
   }
   // Static CSS/VML also remain visible, including conditional comments.
@@ -76,12 +79,13 @@ const GER=(()=>{
  function adaptNative(text,field,adapt){
   if(!text.includes('{{'))return text;
   const p=expressions().parse(text,{html:field==='corpo'});if(!p.ok)fail('As variáveis deste template precisam de revisão antes da cópia.');
+  const staticText=segment=>{let out='',cursor=0;for(const hit of scan(segment,field)){out+=adapt(segment.slice(cursor,hit.start))+hit.raw;cursor=hit.end;}return out+adapt(segment.slice(cursor));};
   let out='',cursor=0;
-  for(const a of p.actions){out+=adapt(text.slice(cursor,a.start));let pos=a.start;
+  for(const a of p.actions){out+=staticText(text.slice(cursor,a.start));let pos=a.start;
    for(const l of p.literals.filter(l=>l.type==='string'&&l.start>=a.start&&l.end<=a.end)){out+=text.slice(pos,l.start)+expressions().encodeLiteral(adapt(l.value));pos=l.end;}
    out+=text.slice(pos,a.end);cursor=a.end;
   }
-  return out+adapt(text.slice(cursor));
+  return out+staticText(text.slice(cursor));
  }
  function pending(source,journal){
   if(source?.servidor?.pendente)return true;
@@ -99,12 +103,80 @@ const GER=(()=>{
    if(['from_email','reply_to'].includes(entry.key))continue;
    const native=entry.value.includes('{{');if(native)entry.value=adaptNative(entry.value,entry.key,adapt);const hits=scan(entry.value,entry.key);let cursor=0,out='';
    for(const hit of hits){out+=(native?entry.value.slice(cursor,hit.start):adapt(entry.value.slice(cursor,hit.start)))+hit.raw;cursor=hit.end;
-    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.value,false),clean=tracking(normalized,{inherited:true}),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:clean.url,original_url:normalized,tracking_removed:clean.removed,directRequired:clean.directRequired,kind:clean.directRequired?'personal':origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
+    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.value,false),clean=tracking(normalized,{inherited:true}),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:clean.url,original_url:normalized,tracking_removed:clean.removed,directRequired:clean.directRequired,kind:clean.directRequired?'personal':origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,itemScoped:!!hit.itemScoped,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
    }
    out+=native?entry.value.slice(cursor):adapt(entry.value.slice(cursor));put(r,entry.key,out);
   }
   const b=contract().BRANDS[to];r.from_email=b.name+' <contato@'+b.domain+'>';r.reply_to='contato@'+b.domain;r.nome=(r.nome||'Template')+' — cópia '+b.name;
   return {from,to,source_id:source.id,source_content:JSON.stringify(drafts().conteudo(source)),source_server:JSON.stringify(source.servidor||null),content:r,links};
+ }
+ // Check the possible URL shapes, not the result of a Go condition. The native
+ // renderer remains responsible for preview/escaping; no input values run here.
+ function conditionalURL(raw,target,link,plan){
+  const prefix=link.itemScoped?'{{ range .Tx.Data.items }}':'',suffix=link.itemScoped?'{{ end }}':'',offset=prefix.length;
+  const parse=s=>expressions().parse(prefix+s+suffix),original=parse(raw),parsed=parse(target);
+  const actions=(p,s)=>p.actions.filter(a=>a.start>=offset&&a.end<=offset+s.length).map(a=>s.slice(a.start-offset,a.end-offset));
+  if(!original.ok||!parsed.ok||JSON.stringify(actions(original,raw))!==JSON.stringify(actions(parsed,target)))fail('Preserve as variáveis e condições do endereço. Altere somente os destinos literais.');
+  const wrapper=prefix+'<a href="'+target+'">Link</a>'+suffix,html=expressions().parse(wrapper,{html:true});
+  if(!html.ok||html.attributes.length!==1||html.attributes[0].name!=='href'||html.attributes[0].valueStart!==offset+9||html.attributes[0].valueEnd!==offset+9+target.length||contract().htmlSafety(wrapper))fail('O endereço condicional contém conteúdo ou contexto não permitido.');
+  const urlFields=new Set(['checkout_url','nps_url','order_url','review_url','tracking_url','store_url','shop_url'].map(k=>'.Tx.Data.'+k));
+  if(link.itemScoped)urlFields.add('.image');
+  const domain=contract().BRANDS[plan.to].domain;
+  const checkStatic=value=>{
+   if(!/^https:\/\//i.test(value)||/[\s<>"'\\\u0000-\u001f\u007f]/.test(value))fail('Cada destino literal da condição precisa ser um link HTTPS completo.');
+   let u;try{u=new URL(value);}catch(_){fail('Cada destino literal da condição precisa ser um link HTTPS completo.');}
+   if(u.username||u.password)fail('Use destinos sem credenciais.');
+   if(tracking(value).directRequired)fail('Informe o destino direto. Links pessoais ou de rastreamento do Listmonk não podem ser copiados.');
+   if(!link.resource&&['origin','relative'].includes(link.kind)&&![domain,'www.'+domain].includes(u.hostname.toLowerCase()))fail('Cada link literal da loja precisa apontar para a marca de destino.');
+  };
+  const checkSuffix=value=>{
+   if(!value)return;
+   if(!/^[?&#]/.test(value)||/[\s<>"'\\\u0000-\u001f\u007f]/.test(value))fail('Após a variável de endereço, use somente parâmetros ou fragmento estáticos.');
+   if(tracking('https://replication.invalid/'+(value[0]==='&'?'?'+value.slice(1):value)).directRequired)fail('Informe o destino direto, sem links pessoais no redirecionamento.');
+  };
+  const textNodes=[];
+  function paths(nodes){
+   let out=[[]];
+   for(const n of nodes){let choices;
+    if(n.type==='text'){const value=decode(target.slice(n.start-offset,n.end-offset),false);textNodes.push({start:n.start-offset,end:n.end-offset,value});choices=[[{literal:value}]];}
+    else if(n.type==='output'&&n.expression.type==='field'&&urlFields.has(n.expression.path))choices=[[{url:n.expression.path}]];
+    else if(n.type==='if'){choices=[...paths(n.body),...paths(n.alternate)];}
+    else fail('Use somente condições e variáveis de endereço já previstas neste template.');
+    if(out.length*choices.length>64)fail('Simplifique as condições deste endereço antes de copiar.');
+    out=out.flatMap(prefix=>choices.map(suffix=>prefix.concat(suffix)));
+   }
+   return out;
+  }
+  const validatePaths=ast=>{for(const path of paths(ast)){
+   const variables=path.filter(p=>p.url);
+   if(!variables.length){
+    const parts=path.map(p=>p.literal).filter(Boolean),first=parts[0]||'';
+    if(!/^https:\/\//i.test(first)||/^https:\/\/[^/?#]+$/i.test(first)&&parts.length>1&&!/^[/?#]/.test(parts[1]))fail('Use protocolo e domínio completos em cada destino literal, sem montá-los por partes.');
+    checkStatic(parts.join(''));continue;
+   }
+   if(variables.length!==1||path.slice(0,path.indexOf(variables[0])).some(p=>p.literal))fail('A variável precisa fornecer o endereço completo, sem montar protocolo ou domínio por partes.');
+   checkSuffix(path.slice(path.indexOf(variables[0])+1).map(p=>p.literal).join(''));
+  }};
+  validatePaths(link.itemScoped?parsed.ast[0].body:parsed.ast);
+  // Clean only whole literal URLs or static query suffixes. Never edit an action,
+  // runtime URL, condition, or identity from the source draft.
+  let clean=target;
+  for(const n of textNodes.sort((a,b)=>b.start-a.start)){
+   let value=n.value;
+   if(/^https:\/\//i.test(value)){
+    const checked=tracking(value);if(checked.url!==new URL(value).href||checked.removed.length){
+     const query=value.indexOf('?'),hash=value.indexOf('#'),u=new URL(checked.url);
+     if(query>=0&&(hash<0||query<hash))value=value.slice(0,query)+(u.search||'?')+u.hash;
+    }
+   }
+   else if(/^[?&#]/.test(value)){const amp=value[0]==='&',u=new URL(tracking('https://replication.invalid/'+(amp?'?'+value.slice(1):value)).url);value=(amp&&u.search?'&'+u.search.slice(1):u.search)+u.hash;}
+   clean=clean.slice(0,n.start)+value+clean.slice(n.end);
+  }
+  // Validate the cleaned paths too: cleaning a fragment must never change the
+  // authority or create a newly accepted shape after the original check.
+  const cleaned=parse(clean);if(!cleaned.ok)fail('O endereço condicional precisa de revisão.');
+  target=clean;textNodes.length=0;validatePaths(link.itemScoped?cleaned.ast[0].body:cleaned.ast);
+  return clean;
  }
  function apply(plan,{fields={},links=[]}={}){
   const allowed=['nome','assunto','preheader','from_email','reply_to'];
@@ -116,7 +188,11 @@ const GER=(()=>{
    const review=links.find(l=>l.id===link.id);if(!review?.reviewed)fail('Confira todos os links e recursos da cópia.');
    let target=String(review.target||'').trim();if(target.length>4096)fail('O endereço de destino é longo demais.');if(!target)fail('Informe o destino de cada link da marca de origem.');
    if(sourceRemains(target,plan.from))fail('Um destino ainda contém a marca de origem. Corrija o link completo.');
-   if(link.kind==='dynamic'&&target===link.raw){/* Explicitly reviewed runtime data remains a variable. */}
+   if(link.raw.includes('{{')){
+    if(link.kind==='dynamic'&&target===link.raw){/* Existing unchanged dynamic path; the full document below validates its original context. */}
+    else if(target.includes('{{'))target=conditionalURL(link.raw,target,link,plan);
+    else fail('Preserve as variáveis e condições do endereço. Altere somente os destinos literais.');
+   }
    else if(/^https:\/\//i.test(target)){
     let u;try{u=new URL(target);}catch(_){fail('Use um endereço HTTPS completo para o destino.');}
     if(u.username||u.password||/[\s<>"'\\]/.test(target))fail('Use um endereço HTTPS sem credenciais ou caracteres inválidos.');
@@ -127,7 +203,7 @@ const GER=(()=>{
     for(const [k,v] of old?.searchParams||[])if(['utm_source','utm_medium','utm_content'].includes(k.toLowerCase())&&!u.searchParams.has(k))u.searchParams.set(k,brandText(v,plan.from,plan.to));
     target=u.href;
    }else if(!/^[^\s<>"'@]+@[^\s<>"'@]+$/.test(target)&&!/^mailto:[^\s<>"']+@[^\s<>"']+$/i.test(target)&&!/^tel:\+?[0-9-]+$/.test(target)&&!/^#[a-z][a-z0-9_-]*$/i.test(target))fail('Informe um link HTTPS, e-mail de contato ou âncora válida.');
-   if(!link.resource&&['origin','relative'].includes(link.kind)&&/^https:\/\//i.test(target)){
+   if(!link.resource&&['origin','relative'].includes(link.kind)&&!target.includes('{{')&&/^https:\/\//i.test(target)){
     const host=new URL(target).hostname.toLowerCase(),domain=contract().BRANDS[plan.to].domain;
     if(host!==domain&&host!=='www.'+domain)fail('O link da loja precisa apontar para a marca de destino. Recursos externos devem ser revisados no conteúdo de origem.');
    }
