@@ -133,3 +133,10 @@
 #email-replication h4{margin-top:18px}
 #email-replication pre{max-width:100%;max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;background:var(--card)}
 #email-replication iframe{width:100%;max-width:100%}
+
+#email-replication .rep-badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+#email-replication .rep-badge{display:inline-block;font-size:11px;font-weight:600;line-height:1.4;padding:3px 7px;border:1px solid var(--borda);border-radius:5px;color:var(--mudo)}
+#email-replication .rep-envelope{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12px}
+#email-replication .rep-envelope dt{font-weight:600}
+#email-replication .rep-envelope dd{margin:0;overflow-wrap:anywhere;min-width:0}
+#email-replication .rep-campaign{display:block;color:var(--mudo);margin:2px 0 8px}

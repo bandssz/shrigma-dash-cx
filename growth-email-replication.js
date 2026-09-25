@@ -15,6 +15,34 @@ const GER=(()=>{
  };
  const brandText=(s,from,to)=>String(s).replace(from==='fish'?/fishermans/gi:/o\s+aristocrata|aristocrata/gi,contract().BRANDS[to].name).replace(from==='fish'?/(?<![a-z0-9])fish(?![a-z0-9])/gi:/(?<![a-z0-9])aristo(?![a-z0-9])/gi,to).replace(new RegExp(contract().BRANDS[from].color,'gi'),contract().BRANDS[to].color);
  const sourceRemains=(s,from)=>{const text=decode(s).toLowerCase();return text.includes(contract().BRANDS[from].domain)|| (from==='fish'?/fishermans|(?<![a-z0-9])fish(?![a-z0-9])/i:/aristocrata|(?<![a-z0-9])aristo(?![a-z0-9])/i).test(text);};
+ // Exact transport fields; ordinary product/variant/id parameters are deliberately untouched.
+ const transportKeys=new Set(['crm_dispatch_id','dispatch_id','subscriber_id','subscriber_uuid','sub_uuid','campaign_id','campaign_uuid','camp_uuid','list_id','list_ids','claim_token','journey_entry_id','crm_test','utm_id','utm_term']);
+ const uuid='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+ const personalPath=new RegExp('^/(?:link/'+uuid+'/'+uuid+'/'+uuid+'|campaign/'+uuid+'/'+uuid+'(?:/px\\.png)?|subscription/(?:'+uuid+'/'+uuid+'|(?:optin|export|wipe)/'+uuid+'))/?$','i');
+ const transportValue=value=>/(?:^|[^a-z0-9])lm-\d+(?:$|[^a-z0-9])|(?:^|[^a-z0-9])(?:crm[_-])?dispatch[=:_-]/i.test(decode(value))||new RegExp('(?:^|[^a-z0-9])'+uuid+'(?:$|[^a-z0-9])','i').test(decode(value));
+ function tracking(raw,{inherited=false}={},depth=0){
+  const literal=decode(raw,false).replace(/@TrackLink$/,''),relative=literal.startsWith('/')&&!literal.startsWith('//');let u;
+  try{u=new URL(literal.startsWith('//')?'https:'+literal:literal,'https://replication.invalid');}catch(_){return {url:literal,removed:[],directRequired:false};}
+  if(!/^https?:$/.test(u.protocol)||!/^https?:\/\/|^\//i.test(literal))return {url:literal,removed:[],directRequired:false};
+  const removed=[],path=decode(u.pathname);let directRequired=personalPath.test(path);
+  for(const [key,value] of [...u.searchParams]){
+   const k=decode(key).toLowerCase();
+   if(transportKeys.has(k)||inherited&&k==='utm_campaign'||/^utm_/i.test(k)&&transportValue(value)){u.searchParams.delete(key);removed.push(key);continue;}
+   if(k==='redirect'&&/^(?:https?:\/\/|\/)/i.test(value)){
+    if(depth>=3)fail('Simplifique o redirecionamento antes de copiar este endereço.');
+    const nested=tracking(value,{inherited},depth+1);directRequired=directRequired||nested.directRequired;removed.push(...nested.removed);if(nested.url!==value)u.searchParams.set(key,nested.url);
+   }else if(/^https?:\/\//i.test(decode(value))){
+    try{directRequired=directRequired||personalPath.test(new URL(decode(value)).pathname);}catch(_){}
+   }
+  }
+  return {url:relative?u.pathname+u.search+u.hash:u.href,removed:[...new Set(removed)],directRequired};
+ }
+ const campaigns=raw=>{
+  let u;try{u=new URL(decode(raw,false));}catch(_){return [];}
+  const values=u.searchParams.getAll('utm_campaign');
+  if(u.searchParams.has('redirect')){try{values.push(...new URL(u.searchParams.get('redirect'),u.origin).searchParams.getAll('utm_campaign'));}catch(_){}}
+  return [...new Set(values)];
+ };
  function strings(r){const out=[];for(const k of ['nome','peca','cabecalho','corpo','rodape','assunto','preheader','from_email','reply_to'])out.push({key:k,value:String(r[k]||'')});(r.botoes||[]).forEach((b,i)=>{for(const k of ['texto','valor','exemplo_url'])if(b[k]!==undefined)out.push({key:`botoes.${i}.${k}`,value:String(b[k])});});Object.entries(r.exemplos||{}).forEach(([k,v])=>out.push({key:'exemplos.'+k,value:String(v)}));return out;}
  function put(r,key,value){const p=key.split('.');if(p.length===1)r[key]=value;else if(p[0]==='botoes')r.botoes[+p[1]][p[2]]=value;else r.exemplos[p[1]]=value;}
  function scan(text,field){
@@ -45,7 +73,7 @@ const GER=(()=>{
    if(['from_email','reply_to'].includes(entry.key))continue;
    const hits=scan(entry.value,entry.key);let cursor=0,out='';
    for(const hit of hits){out+=adapt(entry.value.slice(cursor,hit.start))+hit.raw;cursor=hit.end;
-    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.raw,false),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:normalized,kind:origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
+    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.raw,false),clean=tracking(normalized,{inherited:true}),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:clean.url,original_url:normalized,tracking_removed:clean.removed,directRequired:clean.directRequired,kind:clean.directRequired?'personal':origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
    }
    out+=adapt(entry.value.slice(cursor));put(r,entry.key,out);
   }
@@ -66,10 +94,11 @@ const GER=(()=>{
    else if(/^https:\/\//i.test(target)){
     let u;try{u=new URL(target);}catch(_){fail('Use um endereço HTTPS completo para o destino.');}
     if(u.username||u.password||/[\s<>"'\\]/.test(target))fail('Use um endereço HTTPS sem credenciais ou caracteres inválidos.');
-    // Keep attribution parameters, adapting only brand tokens. No product path is guessed.
+    const clean=tracking(target);if(clean.directRequired)fail('Informe o destino direto. Links pessoais ou de rastreamento do Listmonk não podem ser copiados.');
+    u=new URL(clean.url);
+    // Only descriptive UTMs may follow the content. Campaign/term/send IDs never do.
     let old;try{old=new URL(link.url);}catch(_){}
-    for(const [k,v] of old?.searchParams||[])if(/^utm_/i.test(k)&&!u.searchParams.has(k))u.searchParams.set(k,brandText(v,plan.from,plan.to));
-    for(const [k,v] of [...u.searchParams])if(/^utm_/i.test(k))u.searchParams.set(k,brandText(v,plan.from,plan.to));
+    for(const [k,v] of old?.searchParams||[])if(['utm_source','utm_medium','utm_content'].includes(k.toLowerCase())&&!u.searchParams.has(k))u.searchParams.set(k,brandText(v,plan.from,plan.to));
     target=u.href;
    }else if(!/^[^\s<>"'@]+@[^\s<>"'@]+$/.test(target)&&!/^mailto:[^\s<>"']+@[^\s<>"']+$/i.test(target)&&!/^tel:\+?[0-9-]+$/.test(target)&&!/^#[a-z][a-z0-9_-]*$/i.test(target))fail('Informe um link HTTPS, e-mail de contato ou âncora válida.');
    if(!link.resource&&['origin','relative'].includes(link.kind)&&/^https:\/\//i.test(target)){
@@ -87,6 +116,6 @@ const GER=(()=>{
   return drafts().conteudo(r);
  }
  const urls=r=>[...new Set(strings(r).filter(e=>!['from_email','reply_to'].includes(e.key)).flatMap(e=>scan(e.value,e.key).map(h=>decode(h.raw,false))))];
- return {prepare,apply,pending,decode,sourceRemains,urls};
+ return {prepare,apply,pending,decode,sourceRemains,urls,campaigns};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=GER;
