@@ -91,6 +91,26 @@ def configure_smtp(port, http_port):
     return '\n'.join("UPDATE settings SET value='" + json.dumps(v).replace("'", "''") + "'::jsonb WHERE key='" + k + "';" for k, v in settings.items())
 
 
+def native_config(http_port):
+    # Listmonk 6.1.0 initDB interpolates the password directly into a lib/pq DSN.
+    # A blank TOML value yields `password= dbname=...`, consuming dbname as the
+    # password. This public fixture placeholder is deliberately nonempty; the
+    # disposable PostgreSQL service uses trust and never authenticates with it.
+    return f'''[app]
+address="127.0.0.1:{http_port}"
+[db]
+host="127.0.0.1"
+port=5432
+user="synthetic"
+password="synthetic-ci-placeholder"
+database="{DB_NAME}"
+ssl_mode="disable"
+max_open=5
+max_idle=5
+max_lifetime="60s"
+'''
+
+
 def validate_delivery(messages, rows, errors):
     build.require(not errors, 'SMTP capture rejected an unexpected transaction')
     actual = collections.defaultdict(list)
@@ -138,7 +158,7 @@ def run(folder, output):
             sock.bind(('127.0.0.1', 0))
             http_port = sock.getsockname()[1]
         config = work / 'config.toml'
-        config.write_text(f'[app]\naddress="127.0.0.1:{http_port}"\n[db]\nhost="127.0.0.1"\nport=5432\nuser="synthetic"\npassword=""\ndatabase="{DB_NAME}"\nssl_mode="disable"\nmax_open=5\nmax_idle=5\nmax_lifetime="60s"\n')
+        config.write_text(native_config(http_port))
         try:
             # Same schema + migration marker as upstream installSchema(), without
             # installer sample addresses or API users; this is not an installer test.

@@ -87,6 +87,17 @@ class WorkerSmokeTests(unittest.TestCase):
         self.assertFalse(any(k.startswith(('PG', 'LISTMONK_')) for k in kwargs['env']))
         self.assertIn("SET statement_timeout='15s'", kwargs['input'])
 
+    def test_native_dsn_placeholder_does_not_consume_database(self):
+        # Regression: v6.1.0 interpolates TOML password into `password=%s dbname=%s`.
+        # lib/pq skips whitespace after '=', so a zero-length token swallowed the
+        # database field and connected to the user-named database instead.
+        config = smoke.native_config(9000)
+        self.assertIn('password="synthetic-ci-placeholder"\n', config)
+        self.assertNotIn('password=""\n', config)
+        self.assertIn('database="ab_worker_smoke"\n', config)
+        self.assertIn('host="127.0.0.1"\n', config)
+        self.assertIn('address="127.0.0.1:9000"\n', config)
+
 
 if __name__ == '__main__':
     unittest.main()
