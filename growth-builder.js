@@ -28,14 +28,68 @@ const GB={
   return vars.every(v=>(slot.variables||[]).includes(v));
  },
  endpoint(){return GTA.caps(GB.ctx.api).endpoint;},
- async request(action,body={},write=false){
-  const endpoint=GB.endpoint();if(!endpoint)return {ok:false,body:{erro:'endpoint_indisponivel'}};
-  let k=write?(typeof GRU!=='undefined'?GRU.chaveEscrita():''):GTA.chaveLeitura();
+ async request(action,body={},write=false,keyOverride=null,endpointOverride=null){
+  const endpoint=endpointOverride??GB.endpoint();if(!endpoint)return {ok:false,body:{erro:'endpoint_indisponivel'}};
+  let k=keyOverride??(write?(typeof GRU!=='undefined'?GRU.chaveEscrita():''):GTA.chaveLeitura());
   if(write&&!k){k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k)return {ok:false,body:{erro:'Informe a chave de edição para salvar.'}};}
   try{
-   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});
+   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body}),redirect:'error',credentials:'omit',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});
    return {ok:r.ok,status:r.status,body:await r.json()};
-  }catch(_){return {ok:false,status:0,body:{erro:'Resultado não confirmado. Recarregue antes de repetir.'}};}
+  }catch(_){return {ok:false,status:0,body:{erro:write?'Resultado não confirmado. Consulte a mesma tentativa antes de repetir.':'Não foi possível confirmar a leitura. Tente novamente.'}};}
+ },
+ journal(){
+  if(typeof GFJ==='undefined')return null;
+  const endpoint=GB.endpoint();if(GB._journal?.endpoint===endpoint)return GB._journal.value;
+  let storage;try{storage=globalThis.localStorage;}catch(_){}
+  const value=GFJ.create({storage,locks:globalThis.navigator?.locks,endpoint,uuid:()=>GTA.uuid()});GB._journal={endpoint,value};return value;
+ },
+ syncPending(){
+  const journal=GB.journal();if(!journal||GB.state.pending?.signature)return null;
+  const status=journal.inspect();GB.state.pending=status?.pending||(status?.uncertain?{unavailable:true}:null);return status;
+ },
+ hasPending(){return !!GB.syncPending()?.pending||!!GB.state.pending;},
+ canLeave(){return !GB.state.busy&&!GB.state.dirty&&!GB.hasPending();},
+ editingBlocked(){return GB.state.busy||GB.hasPending();},
+ hasDifferentDraft(op){return GB.state.dirty&&(GB.state.selected!==op.request_payload.key||GB.state.baseVersion!==op.context.baseVersion||!GB.same(GB.state.draft,op.context.draft));},
+ restorePending(){
+  const op=GB.syncPending()?.pending;if(!op?.context)return false;
+  if(GB.hasDifferentDraft(op))return true;
+  GB.state.selected=op.request_payload.key;GB.state.baseVersion=op.context.baseVersion;GB.state.draft=GB.clone(op.context.draft);GB.state.dirty=op.context.dirty;return true;
+ },
+ confirmation(action,f,payload){
+  if(action==='fluxo_salvar')return true;
+  const verb=action==='fluxo_publicar'?'Publicar alterações':payload.enabled?'Retomar jornada':'Pausar jornada';
+  const effect=action==='fluxo_publicar'?'A versão salva passará a orientar os próximos eventos desta jornada.':payload.enabled?'Os próximos eventos elegíveis poderão seguir a versão publicada.':'Os próximos envios desta jornada ficarão pausados. Mensagens já aceitas ou em trânsito não são recolhidas.';
+  return confirm(`${verb}?\n\nMarca: ${GB.brandLabel(f.brand)}\nJornada: ${f.name}\nVersão: ${payload.expected_version}\n\n${effect}\nCompra, descadastro e as demais guardas continuam valendo.`);
+ },
+ recovery(){
+  const latest=[...(GB.journal()?.inspect().operations||[])].reverse().find(op=>op.request_payload.key===GB.state.selected);
+  return !GB.state.pending&&latest?.phase==='rejected'&&latest.applied&&latest.context.dirty?latest:null;
+ },
+ recoverDraft(){
+  if(GB.editingBlocked())return;const op=GB.recovery();if(!op)return;
+  if(GB.hasDifferentDraft(op)&&!confirm('Há uma edição local diferente. Deseja substituí-la pela edição recusada que ficou guardada?'))return;
+  GB.state.selected=op.request_payload.key;GB.state.draft=GB.clone(op.context.draft);GB.state.baseVersion=op.context.baseVersion;GB.state.dirty=true;GB.state.notice='Edição recusada recuperada, com a versão original. Nenhuma alteração foi enviada.';GB.render();
+ },
+ async applyOperation(result,journal=GB.journal()){
+  return journal.apply(result.operation_id,async op=>{
+   const r=op.receipt,preserve=GB.hasDifferentDraft(op);
+   if(r.ok){const updated=r.body.flow;GB.state.flows=GB.state.flows.map(x=>x.key===updated.key&&x.version<=updated.version?updated:x);
+    if(!preserve){GB.state.selected=op.request_payload.key;GB.state.baseVersion=updated.version;GB.state.draft=GB.clone(updated.draft);GB.state.dirty=false;}
+    GB.state.error='';GB.state.notice=preserve?'Tentativa confirmada. Sua edição local foi preservada; confira a versão atual antes de salvar.':op.request_payload.acao==='fluxo_publicar'?'Versão publicada. Os próximos eventos usarão estas configurações.':op.request_payload.acao==='fluxo_estado'?(updated.enabled?'Fluxo retomado.':'Fluxo pausado.'):'Rascunho salvo no servidor.';
+   }else{
+    if(!preserve){GB.state.selected=op.request_payload.key;GB.state.baseVersion=op.context.baseVersion;GB.state.draft=GB.clone(op.context.draft);GB.state.dirty=op.context.dirty;}
+    GB.state.notice=preserve?'Sua edição local foi preservada. A edição recusada continua guardada na jornada de origem.':'';GB.state.error=(r.body.messages||[]).join(' · ')||GTA.erro(r,op.request_payload.acao).texto||r.body.erro;
+   }
+   return true;
+  });
+ },
+ async reconcile(){
+  if(GB.state.busy)return;const op=GB.syncPending()?.pending;if(!op)return;
+  const k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k){GB.state.error='Informe o acesso de edição usado nesta tentativa.';GB.render();return;}
+  const endpoint=GB.endpoint(),journal=GB.journal();GB.state.busy=true;GB.render();
+  try{const result=await journal.reconcile(op.id,(id,action)=>GB.request('fluxo_operacao',{idempotency_key:id,operation_action:action},false,k,endpoint));await GB.applyOperation(result,journal);}
+  catch(e){GB.state.error=e.message;}finally{GB.state.busy=false;GB.syncPending();GB.render();}
  },
  async load(){
   if(GB.state.busy)return;GB.state.busy=true;GB.render();
@@ -43,15 +97,17 @@ const GB={
   if(typeof GBC!=='undefined'&&GBC.drag){GBC.pendingRender=true;return;}
   if(!r.ok||!Array.isArray(r.body?.flows)){GB.state.error=r.body?.erro||'Não foi possível carregar os fluxos.';GB.state.loaded=true;GB.render();return;}
   GB.state.flows=r.body.flows;GB.state.loaded=true;GB.state.error='';GB.state.templates={};
+  if(GB.restorePending()){GB.render();return;}
   if(!GB.state.dirty){const f=GB.visible().find(f=>f.key===GB.state.selected)||GB.visible()[0];if(f)GB.select(f.key,false);}
   else {const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(f)for(const channel of new Set(f.available_steps.map(s=>s.channel)))GB.loadTemplates(f.brand,channel);}
   GB.render();
  },
  visible(){return GB.state.flows.filter(f=>!GB.ctx.marca||GB.ctx.marca==='todas'||f.brand===GB.ctx.marca);},
  select(key,confirmDirty=true){
+  if(GB.state.busy||GB.hasPending()&&!GB.state.pending?.unavailable)return;
   if(confirmDirty&&GB.state.dirty&&!confirm('Há alterações não salvas. Deseja descartá-las?'))return;
   const f=GB.state.flows.find(f=>f.key===key);if(!f)return;
-  GB.state.selected=key;GB.state.baseVersion=f.version;GB.state.draft=GB.clone(f.draft);GB.state.dirty=false;GB.state.pending=null;GB.state.notice='';GB.render();
+  GB.state.selected=key;GB.state.baseVersion=f.version;GB.state.draft=GB.clone(f.draft);GB.state.dirty=false;GB.state.notice='';GB.render();
   for(const channel of new Set(f.available_steps.map(s=>s.channel)))GB.loadTemplates(f.brand,channel);
  },
  async loadTemplates(brand,channel){
@@ -60,19 +116,22 @@ const GB={
   if(r.ok)GB.state.templates[key]=(r.body.templates||[]).filter(t=>t.brand===brand&&t.channel===channel);
   else delete GB.state.templates[key];GB.render();
  },
- change(){GB.state.dirty=true;GB.state.pending=null;GB.state.notice='';},
+ change(){GB.state.dirty=true;GB.state.notice='';},
  async mutate(action,extra={}){
-  if(GB.state.busy)return;const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(!f)return;
-  const payload={key:f.key,expected_version:GB.state.baseVersion??f.version,...extra};
+  if(GB.editingBlocked())return;const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(!f)return;
+  if(action!=='fluxo_salvar'&&(GB.state.dirty||!f.runtime_ready))return;
+  const payload={acao:action,key:f.key,expected_version:GB.state.baseVersion??f.version,...extra};
   if(action==='fluxo_salvar')payload.definition=GB.clone(GB.state.draft);
+  if(!GB.confirmation(action,f,payload))return;
   if(action==='fluxo_publicar')payload.confirm='publicar';
-  const signature=JSON.stringify({action,payload});
-  if(!GB.state.pending||GB.state.pending.signature!==signature)GB.state.pending={signature,id:GTA.uuid()};
-  payload.idempotency_key=GB.state.pending.id;GB.state.busy=true;GB.state.error='';GB.render();
-  const r=await GB.request(action,payload,true);GB.state.busy=false;
-  if(!r.ok){GB.state.error=(r.body?.messages||[]).join(' · ')||GTA.erro(r,action).texto||r.body?.erro;GB.render();return;}
-  const updated=r.body.flow;GB.state.flows=GB.state.flows.map(x=>x.key===updated.key?updated:x);GB.state.baseVersion=updated.version;GB.state.draft=GB.clone(updated.draft);GB.state.dirty=false;GB.state.pending=null;
-  GB.state.notice=action==='fluxo_publicar'?'Versão publicada. Os próximos eventos usarão estas configurações.':action==='fluxo_estado'?(updated.enabled?'Fluxo retomado.':'Fluxo pausado.'):'Rascunho salvo no servidor.';GB.render();
+  if(action==='fluxo_estado')payload.confirm=payload.enabled?'retomar':'pausar';
+  const endpoint=GB.endpoint(),journal=GB.journal();if(!journal){GB.state.error='A proteção de tentativas não está disponível. Nenhuma alteração foi enviada.';GB.render();return;}
+  const k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k){GB.state.error='Informe o acesso de edição antes de alterar a jornada.';GB.render();return;}
+  GB.state.busy=true;GB.state.error='';GB.render();
+  try{
+   const result=await journal.run({request_payload:payload,context:{brand:f.brand,name:f.name,baseVersion:payload.expected_version,draft:GB.clone(GB.state.draft),dirty:GB.state.dirty}},{transport:p=>{const {acao,...body}=p;return GB.request(acao,body,true,k,endpoint);},lookup:(id,a)=>GB.request('fluxo_operacao',{idempotency_key:id,operation_action:a},false,k,endpoint)});
+   await GB.applyOperation(result,journal);
+  }catch(e){GB.state.error=e.message;}finally{GB.state.busy=false;GB.syncPending();GB.render();}
  },
  stepHtml(step,index,f){
   const e=GB.e,slot=f.available_steps.find(x=>x.key===step.key)||step;
@@ -96,14 +155,15 @@ const GB={
  },
  render(ctx){
   if(typeof GBC!=='undefined'&&GBC.drag){if(ctx)GB.ctx=ctx;GBC.pendingRender=true;return;}
-  if(ctx){const old=GB.ctx.marca;GB.ctx=ctx;if(old!==ctx.marca&&GB.state.loaded&&!GB.state.dirty){const first=GB.visible()[0];if(first&&first.key!==GB.state.selected){GB.select(first.key,false);return;}}}const root=document.querySelector('#control-fluxos');if(!root)return;
-  const s=GB.state,e=GB.e,visible=GB.visible(),f=s.flows.find(x=>x.key===s.selected),d=s.draft;
+  if(ctx){const old=GB.ctx.marca;GB.ctx=ctx;if(old!==ctx.marca&&GB.state.loaded&&!GB.state.dirty&&!GB.hasPending()){const first=GB.visible()[0];if(first&&first.key!==GB.state.selected){GB.select(first.key,false);return;}}}const root=document.querySelector('#control-fluxos');if(!root)return;
+  GB.syncPending();const s=GB.state,e=GB.e,visible=GB.visible(),f=s.flows.find(x=>x.key===s.selected),d=s.draft;
   if(!s.loaded&&!s.busy){GB.load();return;}
   const rail=`<aside class="builder-rail"><div class="builder-rail-title">Jornadas <span>${visible.length}</span></div>${visible.map(x=>`<button type="button" class="builder-flow ${x.key===s.selected?'selected':''}" data-flow-key="${e(x.key)}"><span class="builder-dot ${x.enabled?'on':''}"></span><span><strong>${e(x.name)}</strong><small>${e(GB.brandLabel(x.brand))} · ${x.draft.steps.length} etapas</small></span></button>`).join('')}${!visible.length?`<p>${s.busy?'Carregando jornadas…':s.error?'Lista de jornadas indisponível.':'Nenhuma jornada nesta marca.'}</p>`:''}<button type="button" class="builder-reload" id="builder-reload" ${s.busy?'disabled':''}>${s.busy?'Carregando…':s.error?'Tentar novamente':'↻ Atualizar'}</button></aside>`;
   const visual=typeof GBC!=='undefined'&&!!(f&&d);
   const available=f?f.available_steps.filter(x=>!d?.steps.some(y=>y.key===x.key)):[];
-  const feedback=`${s.error?`<div class="builder-alert" role="alert">${e(s.error)}</div>`:''}${s.notice?`<div class="builder-notice" role="status">${e(s.notice)}</div>`:''}`;
-  const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome do fluxo" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
+  const recovery=GB.recovery();
+  const feedback=`${recovery?`<div class="builder-notice" role="status">Uma edição recusada desta jornada está guardada neste navegador.<button type="button" id="builder-recover-draft" ${s.busy?'disabled':''}>Recuperar edição recusada</button></div>`:''}${s.pending?`<div class="builder-alert" role="status">${e(s.pending.context?GB.brandLabel(s.pending.context.brand)+' · '+s.pending.context.name+': tentativa sem confirmação. Consulte antes de editar ou repetir.':'O registro da tentativa precisa ser conciliado. Preserve este navegador.')}<button type="button" id="builder-reconcile" ${s.busy||!s.pending.request_payload?'disabled':''}>Consultar tentativa</button></div>`:''}${s.error?`<div class="builder-alert" role="alert">${e(s.error)}</div>`:''}${s.notice?`<div class="builder-notice" role="status">${e(s.notice)}</div>`:''}`;
+  const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome do fluxo" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||s.pending||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
    ${GB.journeySummary(f,d)}${visual?GBC.html(f,d):`   <div class="builder-canvas"><div class="builder-trigger"><span class="builder-trigger-icon">↯</span><div><small>ENTRADA NO FLUXO</small><strong>${e(f.trigger)}</strong><p>${e(f.binding_description||'Cada evento mantém sua identidade para evitar envios repetidos.')}</p></div></div>
    ${GB.stagesHtml(f,d)}
    ${available.length?`<div class="builder-add"><select id="builder-add-slot" aria-label="Etapa para adicionar">${available.map(x=>`<option value="${e(x.key)}">${e(x.name)} · ${x.channel==='email'?'E-mail':'WhatsApp'}</option>`).join('')}</select><button type="button" id="builder-add">+ Adicionar etapa</button></div>`:''}
@@ -112,10 +172,14 @@ const GB={
   root.innerHTML=`${visual&&f&&d?'':feedback}<div class="builder-layout ${visual?'builder-visual':''}" aria-busy="${s.busy}">${visual?'':rail}${main}</div>`;GB.bind(root);if(visual&&f&&d)GBC.mount(root,f,d);
  },
  bind(root){
-  if(GB.state.busy)root.querySelectorAll('[data-step],[data-remove],[data-create-template],#builder-flow-picker').forEach(el=>el.disabled=true);
+  if(GB.editingBlocked())root.querySelectorAll('[data-step],[data-remove],[data-create-template],#builder-name,#builder-add,#builder-add-slot').forEach(el=>el.disabled=true);
+  if(GB.state.busy||GB.state.pending&&!GB.state.pending.unavailable)root.querySelectorAll('[data-flow-key],#builder-flow-picker').forEach(el=>el.disabled=true);
   root.querySelectorAll('[data-flow-key]').forEach(b=>b.onclick=()=>GB.select(b.dataset.flowKey));
   root.querySelector('#builder-flow-picker')?.addEventListener('change',ev=>{GB.select(ev.target.value);ev.target.value=GB.state.selected;});
   root.querySelector('#builder-reload')?.addEventListener('click',()=>GB.load());
+  root.querySelector('#builder-reconcile')?.addEventListener('click',()=>GB.reconcile());
+  root.querySelector('#builder-recover-draft')?.addEventListener('click',()=>GB.recoverDraft());
+  if(!GB._storageListener&&globalThis.addEventListener){GB._storageListener=true;globalThis.addEventListener('storage',ev=>{if(typeof GFJ!=='undefined'&&ev.key===GFJ.SLOT){GB.syncPending();GB.render();}});}
   root.querySelector('#builder-name')?.addEventListener('input',ev=>{GB.state.draft.name=ev.target.value;GB.change();GB.refreshActions();});
   root.querySelectorAll('[data-step]').forEach(input=>input.addEventListener('change',()=>{
    const step=GB.state.draft.steps[Number(input.dataset.step)],field=input.dataset.field;
@@ -144,6 +208,6 @@ const GB={
    GRU.abrir(GR.novo({marca:f.brand,canal:b.dataset.createTemplate}),null);
   });
  },
- refreshActions(){const t=document.querySelector('#builder-toggle');if(t)t.disabled=true;const b=document.querySelector('#builder-save');if(b)b.disabled=GB.state.busy||!GB.state.dirty;const p=document.querySelector('#builder-publish');if(p)p.disabled=true;},
+ refreshActions(){const t=document.querySelector('#builder-toggle');if(t)t.disabled=true;const b=document.querySelector('#builder-save');if(b)b.disabled=GB.editingBlocked()||!GB.state.dirty;const p=document.querySelector('#builder-publish');if(p)p.disabled=true;},
 };
 if(typeof module!=='undefined'&&module.exports)module.exports=GB;

@@ -24,7 +24,7 @@ test('initial read failure keeps retry visible and recovers the journeys of both
  const pending=x.run('GB.load()');
  assert.equal(x.q('#builder-reload').disabled,true);assert.match(x.q('[role=status]').textContent,/Carregando/);
  release(new TypeError('synthetic blocked network request'));await pending;
- assert.match(x.q('[role=alert]').textContent,/Resultado não confirmado/);
+ assert.match(x.q('[role=alert]').textContent,/Não foi possível confirmar a leitura/);
  assert.equal(x.q('#builder-reload').disabled,false);assert.match(x.q('#builder-reload').textContent,/Tentar novamente/);
  assert.equal(x.q('#builder-flow-picker'),null);assert.doesNotMatch(x.q('[role=status]').textContent,/Selecione/);
  x.run('GB.render({marca:"fish"});GB.render({marca:"aristo"})');assert.equal(x.calls.length,1);

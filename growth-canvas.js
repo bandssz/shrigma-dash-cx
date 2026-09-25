@@ -121,7 +121,7 @@ const GBC={
   on('flow-close-inspector',()=>{GBC.selected=null;GB.render();});
   on('flow-expand',()=>{GBC.expanded=!GBC.expanded;GB.render();});
   on('flow-zoom-in',()=>GBC.zoom(1.2));on('flow-zoom-out',()=>GBC.zoom(1/1.2));on('flow-reset',()=>GBC.zoom(1/GBC.views[f.key].z));on('flow-fit',()=>GBC.fit());
-  on('flow-arrange',()=>{if(GB.state.busy)return;d.layout={version:1,nodes:{}};GB.change();GB.render();GBC.fit();});
+  on('flow-arrange',()=>{if(GB.editingBlocked())return;d.layout={version:1,nodes:{}};GB.change();GB.render();GBC.fit();});
   root.querySelectorAll('[data-flow-add]').forEach(b=>{b.onclick=()=>GBC.add(b.dataset.flowAdd);b.ondragstart=e=>e.dataTransfer.setData('application/x-growth-stage',b.dataset.flowAdd);});
   root.querySelectorAll('[data-flow-jump]').forEach(b=>b.onclick=()=>{GBC.selected=b.dataset.flowJump;GB.render();GBC.center(GBC.model.nodes.find(n=>n.id===GBC.selected));});
   vp.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('application/x-growth-stage'))e.preventDefault();});
@@ -129,7 +129,7 @@ const GBC={
   vp.addEventListener('wheel',e=>{e.preventDefault();const v=GBC.views[f.key],r=vp.getBoundingClientRect();if(e.ctrlKey||e.metaKey)GBC.views[f.key]=GBC.zoomAt(v,v.z*Math.exp(-e.deltaY*.008),e.clientX-r.left,e.clientY-r.top);else{v.x-=e.shiftKey?e.deltaY:e.deltaX;v.y-=e.shiftKey?0:e.deltaY;}GBC.applyView();},{passive:false});
   vp.addEventListener('pointerdown',e=>{
    if(e.button!==0&&e.button!==1)return;const el=e.target.closest('[data-flow-node]'),n=el?GBC.model.nodes.find(n=>n.id===el.dataset.flowNode):null;
-   if(GB.state.busy&&n)return;e.preventDefault();vp.focus({preventScroll:true});vp.setPointerCapture?.(e.pointerId);
+   if(GB.editingBlocked()&&n)return;e.preventDefault();vp.focus({preventScroll:true});vp.setPointerCapture?.(e.pointerId);
    const pan=GBC.hand||GBC.space||e.button===1||!n;GBC.drag={pointer:e.pointerId,startX:e.clientX,startY:e.clientY,pan,node:pan?null:n,x:pan?GBC.views[f.key].x:n.x,y:pan?GBC.views[f.key].y:n.y,moved:false};vp.classList.add('dragging');
   });
   vp.addEventListener('pointermove',e=>{const drag=GBC.drag;if(!drag||drag.pointer!==e.pointerId)return;const dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;if(Math.abs(dx)+Math.abs(dy)>3)drag.moved=true;if(!drag.moved)return;
@@ -137,7 +137,7 @@ const GBC={
    else{drag.node.x=GBC.clamp(Math.round((drag.x+dx/GBC.views[f.key].z)/10)*10,-1000000,1000000);drag.node.y=GBC.clamp(Math.round((drag.y+dy/GBC.views[f.key].z)/10)*10,-1000000,1000000);GBC.drawPositions();}
   });
   const end=e=>{const drag=GBC.drag;if(!drag||drag.pointer!==e.pointerId)return;GBC.drag=null;vp.classList.remove('dragging');
-   if(drag.node&&drag.moved){GBC.storePosition(d,drag.node);GB.change();GB.refreshActions();}
+   if(drag.node&&drag.moved&&!GB.editingBlocked()){GBC.storePosition(d,drag.node);GB.change();GB.refreshActions();}
    else if(drag.node){GBC.selected=drag.node.id;GBC.palette=false;GB.render();}
    else if(!drag.moved&&GBC.selected){GBC.selected=null;GB.render();}
    if(GBC.pendingRender){GBC.pendingRender=false;GB.render();}
@@ -148,7 +148,7 @@ const GBC={
   root.querySelector('#flow-minimap')?.addEventListener('pointerdown',e=>{e.preventDefault();const rect=e.currentTarget.getBoundingClientRect(),m=GBC.map;if(!m)return;const x=((e.clientX-rect.left)*200/rect.width-m.ox)/m.scale+m.b.x,y=((e.clientY-rect.top)*130/rect.height-m.oy)/m.scale+m.b.y;GBC.center({x:x-GBC.W/2,y:y-GBC.H/2});});
  },
  storePosition(d,n){if(!d.layout||d.layout.version!==1)d.layout={version:1,nodes:{}};d.layout.nodes=d.layout.nodes||{};d.layout.nodes[n.id]={x:n.x,y:n.y};},
- add(key,point){if(GB.state.busy)return;const f=GB.state.flows.find(x=>x.key===GB.state.selected),d=GB.state.draft,slot=f.available_steps.find(x=>x.key===key);if(!slot||d.steps.some(x=>x.key===key))return;const step=GB.clone(slot),sibling=slot.variant&&d.steps.find(s=>s.channel===slot.channel&&s.piece===slot.piece&&s.variant);if(sibling)step.wait_min=sibling.wait_min;d.steps.push(step);if(point)GBC.storePosition(d,{id:'step:'+key,x:Math.round(point.x/10)*10,y:Math.round(point.y/10)*10});GBC.selected='step:'+key;GBC.palette=false;GB.change();GB.render();if(!point)GBC.center(GBC.model.nodes.find(n=>n.id===GBC.selected));},
+ add(key,point){if(GB.editingBlocked())return;const f=GB.state.flows.find(x=>x.key===GB.state.selected),d=GB.state.draft,slot=f.available_steps.find(x=>x.key===key);if(!slot||d.steps.some(x=>x.key===key))return;const step=GB.clone(slot),sibling=slot.variant&&d.steps.find(s=>s.channel===slot.channel&&s.piece===slot.piece&&s.variant);if(sibling)step.wait_min=sibling.wait_min;d.steps.push(step);if(point)GBC.storePosition(d,{id:'step:'+key,x:Math.round(point.x/10)*10,y:Math.round(point.y/10)*10});GBC.selected='step:'+key;GBC.palette=false;GB.change();GB.render();if(!point)GBC.center(GBC.model.nodes.find(n=>n.id===GBC.selected));},
  drawPositions(){if(!GBC.vp)return;GBC.vp.querySelectorAll('[data-flow-node]').forEach(el=>{const n=GBC.model.nodes.find(n=>n.id===el.dataset.flowNode);if(n){el.style.left=n.x+'px';el.style.top=n.y+'px';}});const edges=GBC.vp.querySelector('#flow-edges');if(edges)edges.innerHTML=GBC.edgesHtml(GBC.model);GBC.minimap();},
  redraw(){const f=GB.state.flows.find(x=>x.key===GB.state.selected);if(!f||!GBC.vp)return;GBC.model=GBC.graph(f,GB.state.draft);const world=GBC.vp.querySelector('#flow-world'),svg=world?.querySelector('svg');if(!world||!svg)return;world.querySelectorAll('[data-flow-node]').forEach(n=>n.remove());world.insertAdjacentHTML('beforeend',GBC.model.nodes.map(GBC.nodeHtml).join(''));GBC.drawPositions();},
  applyView(){const v=GBC.views[GBC.flowKey],vp=GBC.vp;if(!vp||!v)return;const world=vp.querySelector('#flow-world');if(world)world.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.z})`;vp.style.backgroundSize=`${24*v.z}px ${24*v.z}px`;vp.style.backgroundPosition=`${v.x}px ${v.y}px`;const label=document.querySelector('#flow-reset');if(label)label.textContent=Math.round(v.z*100)+'%';GBC.minimap();},
