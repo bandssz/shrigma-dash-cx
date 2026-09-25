@@ -72,3 +72,26 @@ test('a later complaint or failure remains visible even if delivery was recorded
  }
  assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{}}}),/ainda não confirmada/);
 });
+test('switching brands clears only the transient test status and retains its labeled receipt and duplicate guard',async()=>{
+ for(const brand of ['fish','aristo'])for(const mode of ['accepted','missing']){
+  const s=setup({brand,mode}),other=brand==='fish'?'aristo':'fish';
+  await s.ui.emailTestPrepare(s.ui.state.rascunho);await s.ui.emailTestSend();
+  assert.ok(s.$('.drafts-msg'));
+  const stored=s.values.get('shrigma_crm_email_tests_v1'),operation=JSON.parse(stored).operations[0];
+  const receipt=()=>s.$('[data-email-test-receipt]').closest('li');
+  const receiptBefore=receipt().textContent;
+  assert.match(receipt().textContent,brand==='fish'?/Fishermans/:/O Aristocrata/);
+  assert.equal(s.ctx.changeBrand(other),true);
+  assert.equal(!!s.$('.drafts-msg'),false,'The previous brand transient status must not follow the header');
+  assert.equal(s.ui.state.msg,'');assert.equal(s.ui.state.msgTone,'ok');
+  assert.equal(s.values.get('shrigma_crm_email_tests_v1'),stored);
+  assert.equal(s.$('[data-email-test-receipt]').dataset.emailTestReceipt,operation.id);
+  assert.equal(receipt().textContent,receiptBefore);
+  assert.match(receipt().textContent,brand==='fish'?/Fishermans/:/O Aristocrata/);
+  assert.equal(s.ctx.changeBrand(brand),true);
+  assert.equal(!!s.$('.drafts-msg'),false);
+  assert.equal(s.$('#d-email-test-preview').disabled,true);
+  assert.equal(s.values.get('shrigma_crm_email_tests_v1'),stored);
+  assert.equal(s.calls.filter(x=>x.method==='POST').length,1);
+ }
+});
