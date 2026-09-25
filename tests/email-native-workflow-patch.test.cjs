@@ -11,7 +11,9 @@ function run(code,ctx={}){return vm.runInNewContext('(function(){'+code+'})()',c
 test('patch is version/hash bound, changes only declared nodes/edges, preserves transport and credentials, no retries or redirects in native preview',()=>{
  const original=workflow(),old=JSON.stringify(original),p=N.patchWorkflow(original,{expectedVersionId:'fresh',expectedNodeHashes:expected(original)});
  assert.equal(JSON.stringify(original),old);for(const n of original.nodes)if(!p.changes.existingNodes.includes(n.name))assert.deepEqual(p.workflow.nodes.find(x=>x.name===n.name),n);
- const render=p.workflow.nodes.find(n=>n.name==='CRM Email Native render');assert.equal(render.parameters.url,'https://email.shrigma.com.br/api/templates/preview');assert.equal(render.retryOnFail,false);assert.equal(render.parameters.options.redirect.redirect.followRedirects,false);assert.equal(render.parameters.options.response.response.responseFormat,'text');assert.deepEqual(render.credentials,{httpBasicAuth:{id:'synthetic'}});
+ const render=p.workflow.nodes.find(n=>n.name==='CRM Email Native render');assert.equal(render.parameters.url,'https://email.shrigma.com.br/api/templates/preview');assert.equal(render.retryOnFail,false);assert.equal(render.parameters.options.redirect.redirect.followRedirects,false);assert.equal(render.parameters.options.response.response.responseFormat,'text');assert.equal(render.parameters.options.response.response.outputPropertyName,'body');
+ const read=p.workflow.nodes.find(n=>n.name==='CRM Email Native read');assert.equal(read.parameters.options.response.response.responseFormat,'json');assert.notEqual(read.parameters.options,render.parameters.options);assert.notEqual(read.parameters.options.response.response,render.parameters.options.response.response);
+ assert.deepEqual(render.credentials,{httpBasicAuth:{id:'synthetic'}});
  assert.throws(()=>N.patchWorkflow(original,{expectedVersionId:'stale',expectedNodeHashes:expected(original)}),/matching/);assert.throws(()=>N.patchWorkflow(original,{expectedVersionId:'fresh',expectedNodeHashes:{}}),/hash/);
  const route=p.workflow.nodes.find(n=>n.name==='Prepara').parameters.jsCode;assert.ok(route.includes('crm_email_native_snapshot_v1'));assert.ok(route.includes('preview_token:b.preview_token'));
  for(const n of p.workflow.nodes.filter(n=>n.type==='n8n-nodes-base.code'))assert.doesNotThrow(()=>new vm.Script('(function(){'+n.parameters.jsCode+'})()'),n.name);
@@ -34,4 +36,24 @@ test('registration compile preserves original continuation, failure durably reco
 test('native finish never forwards provider error HTML and never claims illustrative or compile requests',()=>{
  const env={$:()=>({first:()=>({json:{native_kind:'illustrative',prepared:{eligible:true,brand:'fish',data:{},subject:'Fixture',source_hash:'a'.repeat(64)}}})}),$json:{statusCode:500,body:'secret provider diagnostic'}};
  const d=run(N.FINISH,env)[0].json;assert.equal(d._step,'resposta');assert.equal(d._body.eligible,false);assert.equal(d._body.code,'native_preview_unconfirmed');assert.equal(JSON.stringify(d).includes('secret'),false);assert.equal(d.sql,undefined);
+});
+
+// n8n HttpRequestV3 (versions 3/4.x) emits the text body under the configured
+// outputPropertyName, defaulting to data even for fullResponse. JSON uses body.
+// Official source: https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts
+function httpOutput(parameters,response){
+ const option=parameters.options.response.response;assert.equal(option.fullResponse,true);
+ if(option.responseFormat==='text')return {[option.outputPropertyName||'data']:typeof response.body==='object'?JSON.stringify(response.body):response.body,headers:response.headers,statusCode:response.statusCode,statusMessage:response.statusMessage};
+ assert.equal(option.responseFormat,'json');return {...response,body:typeof response.body==='string'?JSON.parse(response.body):response.body};
+}
+test('real HTTP text/fullResponse representation reaches finish as body; native read remains a JSON object after serialization',()=>{
+ const w=workflow(),patched=N.patchWorkflow(w,{expectedVersionId:'fresh',expectedNodeHashes:expected(w)}).workflow;
+ const nodes=JSON.parse(JSON.stringify(patched.nodes)),render=nodes.find(n=>n.name==='CRM Email Native render'),read=nodes.find(n=>n.name==='CRM Email Native read');
+ const context={native_kind:'illustrative',prepared:{eligible:true,brand:'fish',data:{},subject:'Fixture',source_hash:'a'.repeat(64)}},env={$:()=>({first:()=>({json:context})})};
+ const response={statusCode:200,headers:{'content-type':'text/html'},statusMessage:'OK',body:'<p>Fixture</p>'};
+ const legacy=JSON.parse(JSON.stringify(render.parameters));delete legacy.options.response.response.outputPropertyName;
+ const failure=run(N.FINISH,{...env,$json:httpOutput(legacy,response)})[0].json;assert.equal(failure._body.code,'native_preview_unconfirmed');
+ const result=run(N.FINISH,{...env,$json:httpOutput(render.parameters,response)})[0].json;assert.equal(result._body.eligible,true);assert.equal(result._body.body_html,response.body);assert.equal(result.sql,undefined);
+ const template={data:{id:99,type:'tx',subject:'Fixture',body:'<p>Fixture</p>'}},readback=httpOutput(read.parameters,{...response,body:JSON.stringify(template)});assert.equal(typeof readback.body,'object');assert.deepEqual(readback.body,template);
+ const changedRead=patched.nodes.find(n=>n.name===read.name),changedRender=patched.nodes.find(n=>n.name===render.name);changedRender.parameters.options.response.response.outputPropertyName='changed';assert.equal(changedRead.parameters.options.response.response.outputPropertyName,undefined);assert.equal(changedRead.parameters.options.response.response.responseFormat,'json');
 });

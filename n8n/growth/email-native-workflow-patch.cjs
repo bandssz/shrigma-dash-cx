@@ -97,12 +97,13 @@ function patchWorkflow(fresh,{expectedVersionId,expectedNodeHashes}={}){
  const code=(name,jsCode)=>add(name,'n8n-nodes-base.code',{jsCode});const sw=(name,rules)=>add(name,'n8n-nodes-base.switch',{rules:{values:rules},options:{fallbackOutput:'extra'}});
  const connect=(from,to)=>w.connections[from]={main:[[edge(to)]]};
  const options={timeout:15000,redirect:{redirect:{followRedirects:false}},response:{response:{fullResponse:true,neverError:true}}};
- const http=(name,parameters)=>add(name,provider.type,{authentication:'genericCredentialType',genericAuthType:'httpBasicAuth',options,...parameters},{credentials:JSON.parse(JSON.stringify(provider.credentials)),retryOnFail:false,onError:'continueRegularOutput'});
+ const http=(name,parameters)=>add(name,provider.type,{authentication:'genericCredentialType',genericAuthType:'httpBasicAuth',options:JSON.parse(JSON.stringify(options)),...parameters},{credentials:JSON.parse(JSON.stringify(provider.credentials)),retryOnFail:false,onError:'continueRegularOutput'});
  http('CRM Email Native read',{method:'GET',url:"={{ 'https://email.shrigma.com.br/api/templates/' + $json.envelope.snapshot.native.id }}"});
+ node('CRM Email Native read').parameters.options.response.response.responseFormat='json';
  code('CRM Email Native test prepare',TEST_PREPARE);code('CRM Email Native request',REQUEST);sw('CRM Email Native ready',[rule('yes','_native_ready')]);
  http('CRM Email Native render',{method:'POST',url:'https://email.shrigma.com.br/api/templates/preview',sendBody:true,contentType:'form-urlencoded',bodyParameters:{parameters:[{name:'template_type',value:'tx'},{name:'body',value:'={{ $json.prepared.request.form.body }}'}]}});
  // /preview returns HTML rather than JSON; never parse or expose a provider error body.
- node('CRM Email Native render').parameters.options.response.response.responseFormat='text';
+ Object.assign(node('CRM Email Native render').parameters.options.response.response,{responseFormat:'text',outputPropertyName:'body'});
  code('CRM Email Native finish',FINISH);sw('CRM Email Native final route',[rule('crm_email_native_claim')]);sw('CRM Email Native registration route',[rule('crm_email_native_compile')]);
  const stageRules=stage.parameters.rules.values,stageOutputs=w.connections.Etapa?.main;
  if(stageOutputs?.length!==stageRules.length+1||stage.parameters.options?.fallbackOutput!=='extra')throw Error('Stage route drift');
