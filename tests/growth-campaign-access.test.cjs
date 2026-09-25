@@ -1,4 +1,5 @@
 'use strict';
+const audienceFixture=require('./campaign-audience-fixture.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{webcrypto}=require('node:crypto');
 const {parseHTML}=require('linkedom'),locks=require('./campaign-lock-fixture.cjs'),C=require('../campaign-contract');
 global.CampaignContract=C;const E=require('../growth-campaign-editor'),root=path.resolve(__dirname,'..');
@@ -9,7 +10,7 @@ function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,di
  const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  if(!store.has('shrigma_campaign_composer_v1'))store.set('shrigma_campaign_composer_v1',JSON.stringify(E.fromDefinition(definition())));
  store.set('read','synthetic-reader');if(legacyWrite)store.set('write',legacyWrite);
- const calls=[],writes=[];let c={id:1000,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
+ const calls=[],writes=[];let review=null;let c={id:1000,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
  const ctx=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks:locks()},GTA:{CHAVE_ESCRITA:'write',CHAVE_LEITURA:'read'},shrigmaChaveOperador:(area,cap)=>area==='growth'&&cap==='draft'?operatorWrite:'',GMP:{openEmail:()=>{}},
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>{writes.push(k);store.set(k,v);},removeItem:k=>{writes.push(k);store.delete(k);}},confirm:()=>{throw Error('native confirm must not be called');},
   fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);calls.push({req,init});let body;
@@ -17,10 +18,10 @@ function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,di
    if(req.acao==='campanha_catalogo'){await beforeCatalog?.();body={brand:'fish',current:true,lists:[{id:1000,name:'Lista técnica vazia',available:true,brand:'fish'}],templates:[{id:1,name:'Fixture',type:'campaign',available:true}]};}
    else if(req.acao==='campanha_operacao')body={operation:{brand:'fish',state:'outcome_unknown'}};
    else if(req.acao==='campanha_listar')body={campaigns:[c]};
-   else{if(req.acao==='campanha_salvar')c={...c,definition:req.definition};if(req.acao==='campanha_agendar')c={...c,status:'scheduled'};if(req.acao==='campanha_cancelar')c={...c,status:'cancelled',version:'v2'};body={campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:c.version,ok:true}}:{})};}
+   else{if(req.acao==='campanha_salvar')c={...c,definition:req.definition};if(req.acao==='campanha_agendar')c={...c,status:'scheduled'};if(req.acao==='campanha_cancelar')c={...c,status:'cancelled',version:'v2'};if(req.acao==='campanha_validar')review=audienceFixture(c,Date.now());body={campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:c.version,ok:true,audience:review}}:{}),...(req.acao==='campanha_agendar'?{audience:{...review,rechecked_at:review.checked_at}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};}});
  for(const name of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
- const run=s=>vm.runInContext(s,ctx);run('GCE.mount({marca:"fish",api:{capabilities:{campaigns:{contract_version:"crm-campaign-v1",brands:["fish"],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true},endpoints:{campaigns:"https://fixture.test/campaigns"}}}})');
+ const run=s=>vm.runInContext(s,ctx);run('GCE.mount({marca:"fish",api:{capabilities:{campaigns:{contract_version:"crm-campaign-v1",brands:["fish"],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:"https://fixture.test/campaigns"}}}})');
  writes.length=0; // Migration is tested separately; access actions must never persist credentials.
  const q=s=>document.querySelector(s),submit=()=>q('[data-ce-access-form]').onsubmit({preventDefault(){}});
  async function importFile(text){const field=q('[data-ce-access-file]');Object.defineProperty(field,'files',{configurable:true,value:[{size:typeof text==='string'?text.length:100,text:()=>typeof text==='function'?text():Promise.resolve(text)}]});await field.onchange();}

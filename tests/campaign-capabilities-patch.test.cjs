@@ -17,3 +17,11 @@ test('stale versions, changed scope/contracts and URLs carrying credentials are 
  const f=fixture();f.nodes[0].parameters.query=f.nodes[0].parameters.query.replace("'growth','todos'","'cx','todos'");assert.throws(()=>patchWorkflow(f,{expectedVersionId:'fresh',endpoint}));
  const r=patchWorkflow(fixture(),{expectedVersionId:'fresh',endpoint});assert.throws(()=>patchWorkflow(r.workflow,{expectedVersionId:'fresh',endpoint:endpoint+'-different'}));
 });
+test('cutover upgrades only the exact legacy campaign contract and preserves unrelated capabilities',()=>{
+ const f=patchWorkflow(fixture(),{expectedVersionId:'fresh',endpoint}).workflow;
+ const old={...FLAGS};delete old.audience_review;
+ f.nodes[0].parameters.query=f.nodes[0].parameters.query.replace(JSON.stringify(FLAGS),JSON.stringify(old));
+ const r=patchWorkflow(f,{expectedVersionId:'fresh',endpoint});assert.equal(r.changes.length,1);assert.ok(r.workflow.nodes[0].parameters.query.includes('"audience_review":"listmonk-6.1-regular-v1"'));
+ const changed=structuredClone(f);changed.nodes[0].parameters.query=changed.nodes[0].parameters.query.replace(JSON.stringify(old),JSON.stringify({...old,schedule:false}));assert.throws(()=>patchWorkflow(changed,{expectedVersionId:'fresh',endpoint}),/contract differs/);
+ const unknown=structuredClone(f);unknown.nodes[0].parameters.query=unknown.nodes[0].parameters.query.replace(JSON.stringify(old),JSON.stringify({...old,audience_review:'unrecognized'}));assert.throws(()=>patchWorkflow(unknown,{expectedVersionId:'fresh',endpoint}),/contract differs/);
+});

@@ -91,12 +91,11 @@ BEGIN
   IF pid IS NULL OR pid<=0 THEN RAISE EXCEPTION 'CAMPAIGN_STORE_PROVIDER'; END IF;
   IF p_action='validation_get' THEN
    SELECT validation INTO v FROM public.shrigma_campaign_validation WHERE provider_id=pid;
-   RETURN coalesce(v-'_audience_fingerprint','null'::jsonb);
+   RETURN coalesce(v,'null'::jsonb);
   ELSIF p_action='validation_invalidate' THEN
    DELETE FROM public.shrigma_campaign_validation WHERE provider_id=pid;
   ELSE
    v:=p->'validation';
-   IF v ? 'audience' OR v ? '_audience_fingerprint' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_VALIDATION'; END IF;
    IF jsonb_typeof(v) IS DISTINCT FROM 'object' OR v->>'policy' IS DISTINCT FROM 'crm-campaign-v1' OR
       v->'ok' IS DISTINCT FROM 'true'::jsonb OR coalesce(v->>'version','')='' OR
       coalesce(v->>'validated_at','')='' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_VALIDATION'; END IF;

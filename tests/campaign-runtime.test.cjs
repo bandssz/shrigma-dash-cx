@@ -1,3 +1,4 @@
+const audience=require('./campaign-audience-fixture.cjs');
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {createRuntime}=require('../n8n/growth/campaign-runtime');
@@ -52,9 +53,11 @@ function backend(options={}){
     const c=campaigns.get(p.id);if(c.version!==p.expectedVersion)throw dbError('VERSION_CONFLICT');
     Object.assign(c,{version:'v2',definition:copy(p.definition),send_at:p.definition.send_at});result=c;
     if(options.updateTimeoutAfterWrite)throw new Error('lost update response');
+   }else if(action==='review'){
+    const c=campaigns.get(p.id),v={policy:'crm-campaign-v1',version:c.version,ok:true,validated_at:new Date(NOW).toISOString(),audience:audience(c,NOW)};validations.set(p.id,v);result={campaign:c,validation:v};
    }else if(action==='schedule'){
     counts.schedule++;const c=campaigns.get(p.id);if(c.version!==p.expectedVersion)throw dbError('VERSION_CONFLICT');
-    assert.equal(validations.get(p.id)?.version,c.version);c.status='scheduled';result=c;
+    assert.equal(validations.get(p.id)?.version,c.version);c.status='scheduled';result={...c,audience:validations.get(p.id).audience};
    }else if(action==='cancel'){
     const c=campaigns.get(p.id);if(c.version!==p.expectedVersion)throw dbError('VERSION_CONFLICT');
     if(c.status!=='scheduled'||c.sent!==0||c.started_at!==null||Date.parse(c.send_at)<=NOW)throw dbError('CAMPAIGN_LOCKED');
@@ -105,7 +108,7 @@ test('runtime replay matches the original service through save, validate and sch
  const save=command('salvar',{definition:definition()});
  const saved=await drive(r,b,save);assert.deepEqual(saved,await a.direct.handle(AUTH,save));
  assert.equal(saved.status,201);const {id,version}=saved.body.campaign;
- for(const [action,extras] of [['validar',{}],['agendar',{confirm:'agendar'}]]){
+ for(const [action,extras] of [['validar',{}],['agendar',{confirm:'agendar',audience_review_id:'00000000-0000-4000-8000-000000000001'}]]){
   const req=command(action,{id,expected_version:version,...extras});
   assert.deepEqual(await drive(r,b,req,'execution-'+action),await a.direct.handle(AUTH,req));
  }

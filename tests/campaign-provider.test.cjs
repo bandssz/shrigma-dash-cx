@@ -12,7 +12,7 @@ test('server rejection is definitive but a timeout remains uncertain',async()=>{
 test('Olivas cannot reserve a new native draft in this stage',async()=>{const f=fixture(),d=def();d.brand='olivas';d.from_email=d.reply_to='sac@olivasdocampo.com';await assert.rejects(()=>f.provider.createDraft(d,{operationId:'op'}),e=>e.code==='BRAND_UNAVAILABLE');assert.equal(f.calls.length,0);});
 
 test('database ownership conflicts return actionable errors without pretending a timeout rolled back',async()=>{
- for(const code of ['CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE']){
+ for(const code of ['CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED']){
   const provider=createProvider({query:async()=>{throw Object.assign(Error(code),{code:'P0001'});},nativeCreate:async()=>{},validateContent:async()=>{}});
   await assert.rejects(()=>provider.schedule(1,{expectedVersion:'v',operationId:'op'}),e=>e.code===code&&e.status===409&&e.nothingChanged===true&&e.message!==code);
  }
@@ -24,3 +24,5 @@ test('database lock timeout, deadlock and serialization rollback are explicit co
   await assert.rejects(()=>provider.schedule(1,{expectedVersion:'v',operationId:'op'}),e=>e.code==='CAMPAIGN_BUSY'&&e.status===409&&e.nothingChanged===true);
  }
 });
+
+test('audience review and schedule bind server version, operation and exact review identity',async()=>{const f=fixture();await f.provider.reviewAudience(1,{expectedVersion:'v1',operationId:'review-op'});await f.provider.schedule(1,{expectedVersion:'v1',operationId:'schedule-op',audienceReviewId:'review-id'});assert.deepEqual(f.calls,[{a:'review',p:{id:1,expectedVersion:'v1',operationId:'review-op'}},{a:'schedule',p:{id:1,expectedVersion:'v1',operationId:'schedule-op',audienceReviewId:'review-id'}}]);});

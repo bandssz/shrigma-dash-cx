@@ -70,25 +70,29 @@ function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
      if(c.status!=='draft'||c.sent!==0||c.started_at)throw fail(409,'CAMPAIGN_LOCKED','Validação de agendamento exige um rascunho não iniciado.');
      const p=C.prepare(c.definition,{catalog:await provider.catalog(request.brand),tracking:T,trackingId:c.id,now:now()});
      if(hashValue(p.definition)!==hashValue(c.definition))throw fail(422,'TRACKING_NOT_PREPARED','Salve a campanha pelo cadastro padronizado antes de validar.');
-     const validation={policy:C.VERSION,version:c.version,ok:true,validated_at:new Date(now()).toISOString()};
-     await store.setValidation(c.id,validation);
-     result=response(200,{campaign:wrap(c),validation,tracking:p.tracking});
+     mutating=true;
+     const reviewed=await provider.reviewAudience(c.id,{expectedVersion:c.version,operationId:op.id});
+     if(reviewed?.campaign?.version!==c.version||reviewed.campaign.id!==c.id||reviewed.validation?.version!==c.version||reviewed.validation?.ok!==true)
+      throw fail(502,'AUDIENCE_REVIEW_UNCONFIRMED','Revisão de público não confirmada; consulte a operação.');
+     C.audienceReview(reviewed.validation.audience,c,{now:Date.parse(reviewed.validation.audience?.checked_at),allowBlocked:true});
+     result=response(200,{campaign:wrap(reviewed.campaign),validation:reviewed.validation,tracking:p.tracking});
     }else{
      const validation=await store.getValidation(c.id);
      C.schedule(request,{...c,validation},{now:now(),canPublish:true});
      // Recheck scope and mappings immediately before the atomic provider status change.
      C.checkCatalog(C.normalize(c.definition),await provider.catalog(request.brand));
      mutating=true;
-     const scheduled=await provider.schedule(c.id,{expectedVersion:c.version,operationId:op.id});
+     const scheduled=await provider.schedule(c.id,{expectedVersion:c.version,operationId:op.id,audienceReviewId:request.audience_review_id});
      if(scheduled.status!=='scheduled'||scheduled.send_at!==c.send_at)throw fail(502,'SCHEDULE_UNCONFIRMED','Agendamento não confirmado; consulte o estado antes de repetir.');
-     result=response(200,{campaign:wrap(scheduled),operation_id:op.id});
+     if(scheduled.audience?.review_id!==request.audience_review_id)throw fail(502,'AUDIENCE_REVIEW_UNCONFIRMED','Recibo de público não confirmado; consulte a operação.');
+     result=response(200,{campaign:wrap(scheduled),operation_id:op.id,audience:scheduled.audience});
     }
    }
    await store.finish(op.id,op.lease,{state:'succeeded',providerId,response:result});return result;
   }catch(e){
    const explicit=e.nothingChanged===true;
    const uncertain=mutating&&!explicit;
-   const status=uncertain?502:(e.status||({CAPABILITY_MISSING:403,VERSION_CONFLICT:409,VALIDATION_STALE:409}[e.code])||(e.code?422:503));
+   const status=uncertain?502:(e.status||({CAPABILITY_MISSING:403,VERSION_CONFLICT:409,VALIDATION_STALE:409,AUDIENCE_REVIEW_REQUIRED:409,AUDIENCE_STALE:409,AUDIENCE_CHANGED:409,AUDIENCE_EMPTY:409,AUDIENCE_DISABLED:409}[e.code])||(e.code?422:503));
    const result=response(status,{error:uncertain?'OUTCOME_UNKNOWN':e.code||'REQUEST_FAILED',message:uncertain?'Resultado remoto incerto. Consulte a operação e o rascunho; não repita com outra chave.':e.code?e.message:'Serviço indisponível. Consulte o estado da operação antes de repetir.',provider_id:providerId,operation_id:op?.id||null});
    if(op){try{await store.finish(op.id,op.lease,{state:uncertain?'outcome_unknown':'rejected',providerId,response:result});}catch{return response(502,{...result.body,error:'OUTCOME_UNKNOWN',message:'A gravação do resultado não foi confirmada. Consulte a operação antes de repetir.'});}}
    return result;

@@ -1,9 +1,10 @@
 'use strict';
+const audienceFixture=require('./campaign-audience-fixture.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 global.CampaignContract=require('../campaign-contract');
 const A=require('../growth-campaign-api'),createLocks=require('./campaign-lock-fixture.cjs');
 const END='https://campaign.example.test/operations',NOW=Date.parse('2026-09-19T12:00:00Z');
-const API={capabilities:{campaigns:{contract_version:A.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true},endpoints:{campaigns:END}}};
+const API={capabilities:{campaigns:{contract_version:A.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:END}}};
 const definition=()=>({schema_version:A.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Nome legível',subject:'Assunto',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[125],template_id:1,html:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',tags:[],send_at:'2026-09-20T15:00:00Z'});
 const campaign=()=>({id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()});
 const catalog={brand:'fish',current:true,lists:[{id:125,name:'Clientes recorrentes',brand:'fish',available:true}],templates:[{id:1,name:'Modelo principal',type:'campaign',available:true,version:'t1'}],initiatives:[]};
@@ -40,11 +41,11 @@ test('a slow confirmed write keeps its original journal until receipt instead of
  }finally{global.AbortSignal=original;}
 });
 test('save, validate and schedule bind versions, require confirmation and keep the key out of the operation journal',async()=>{
- const f=fixture(async req=>{const c=campaign();if(req.acao==='campanha_agendar')c.status='scheduled';return {status:req.acao==='campanha_salvar'?201:200,body:{campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:A.VERSION,version:c.version,ok:true}}:{})}};});
+ const a=audienceFixture(campaign(),NOW);const f=fixture(async req=>{const c=campaign();if(req.acao==='campanha_agendar')c.status='scheduled';return {status:req.acao==='campanha_salvar'?201:200,body:{campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:A.VERSION,version:c.version,ok:true,audience:a}}:{}),...(req.acao==='campanha_agendar'?{audience:{...a,rechecked_at:a.checked_at}}:{})}};});
  await f.client.catalog();await f.client.save(definition());assert.equal(f.client.snapshot().campaign.id,100);
  await assert.rejects(()=>f.client.validate({...definition(),subject:'Alterado'}),{code:'UNSAVED_CHANGES'});
  await f.client.validate(definition());await assert.rejects(()=>f.client.schedule(definition(),'outra palavra'),{code:'CONFIRM_REQUIRED'});
- await f.client.schedule(definition(),'agendar');assert.equal(f.client.snapshot().campaign.status,'scheduled');
+ await f.client.schedule(definition(),'agendar',a.review_id);assert.equal(f.client.snapshot().campaign.status,'scheduled');
  const writes=f.calls.filter(c=>c.init.method==='POST');assert.equal(writes.length,3);assert.equal(new Set(writes.map(x=>x.request.idempotency_key)).size,3);
  assert.equal(writes[1].request.expected_version,'v1');assert.equal(writes[2].request.expected_version,'v1');assert.equal(writes[2].request.confirm,'agendar');
  for(const c of writes){assert.equal(c.init.redirect,'error');assert.equal(c.init.credentials,'omit');assert.equal(c.request.k,'synthetic-write-secret');}
@@ -135,4 +136,34 @@ test('cancellation uses the current scheduled version and requires a newly confi
  await f.client.reopen(100);await assert.rejects(()=>f.client.cancel('agendar'),{code:'CONFIRM_REQUIRED'});await f.client.cancel('cancelar');
  const sent=f.calls.find(c=>c.request.acao==='campanha_cancelar').request;assert.equal(sent.id,100);assert.equal(sent.expected_version,'v1');assert.equal(sent.confirm,'cancelar');assert.equal(f.client.snapshot().campaign.status,'cancelled');assert.equal(f.client.snapshot().validation,null);
  const g=fixture(async()=>({status:200,body:{campaign:{...campaign(),status:'scheduled'}}}));await g.client.reopen(100);await assert.rejects(()=>g.client.cancel('cancelar'));assert.equal(g.client.locked(),true);
+});
+
+test('missing audience capability preserves reading, saving and cancellation without advertising review or scheduling',()=>{
+ for(const audience_review of [undefined,'different-policy',true]){const c=A.caps({capabilities:{...API.capabilities,campaigns:{...API.capabilities.campaigns,audience_review}}});assert.equal(c.read,true);assert.equal(c.operation,true);assert.equal(c.save,true);assert.equal(c.cancel,true);assert.equal(c.validate,false);assert.equal(c.schedule,false);}
+});
+const audienceHandler=(req,a)=>({status:200,body:{campaign:{...campaign(),...(req.acao==='campanha_agendar'?{status:'scheduled'}:{})},...(req.acao==='campanha_validar'?{validation:{policy:A.VERSION,version:'v1',ok:true,audience:a}}:{}),...(req.acao==='campanha_agendar'?{audience:{...a,rechecked_at:a.checked_at}}:{})}});
+test('review identity is explicit, checked again under the shared journal lock, and never selected silently',async()=>{
+ const a=audienceFixture(campaign(),NOW),f=fixture(async req=>audienceHandler(req,a));await f.client.catalog();await f.client.save(definition());await f.client.validate(definition());
+ for(const review of [undefined,'wrong'])await assert.rejects(()=>f.client.schedule(definition(),'agendar',review),{code:'AUDIENCE_REVIEW_REQUIRED'});
+ const slot=A.JOURNAL+'fish',changed=JSON.parse(f.data.get(slot));changed.validation.audience.review_id='00000000-0000-4000-8000-000000000002';f.data.set(slot,JSON.stringify(changed));
+ await assert.rejects(()=>f.client.schedule(definition(),'agendar',a.review_id),{code:'AUDIENCE_REVIEW_REQUIRED'});assert.equal(f.calls.some(c=>c.request.acao==='campanha_agendar'),false);
+});
+test('expired, empty and disabled reviews do not issue schedule transport',async()=>{
+ for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1},{checked_at:new Date(NOW-300001).toISOString(),expires_at:new Date(NOW-1).toISOString()}]){
+  const a=audienceFixture(campaign(),NOW,patch),f=fixture(async req=>audienceHandler(req,a));await f.client.catalog();await f.client.save(definition());await f.client.validate(definition());await assert.rejects(()=>f.client.schedule(definition(),'agendar',a.review_id));assert.equal(f.calls.some(c=>c.request.acao==='campanha_agendar'),false);
+ }
+});
+test('a successful schedule with a different audience receipt remains uncertain and cannot repeat',async()=>{
+ const a=audienceFixture(campaign(),NOW),f=fixture(async req=>{const r=audienceHandler(req,a);if(req.acao==='campanha_agendar')r.body.audience.review_id='00000000-0000-4000-8000-000000000002';return r;});await f.client.catalog();await f.client.save(definition());await f.client.validate(definition());await assert.rejects(()=>f.client.schedule(definition(),'agendar',a.review_id));assert.equal(f.client.locked(),true);await assert.rejects(()=>f.reload().schedule(definition(),'agendar',a.review_id),{code:'OPERATION_PENDING'});assert.equal(f.calls.filter(c=>c.request.acao==='campanha_agendar').length,1);
+});
+test('legacy validation receipt remains recoverable while no new scheduling can use it',async()=>{
+ const receipt={status:200,body:{campaign:campaign(),validation:{policy:A.VERSION,version:'v1',ok:true}}};
+ const f=fixture(async req=>req.acao==='campanha_operacao'?{status:200,body:{operation:{brand:'fish',state:'succeeded',response:receipt}}}:req.acao==='campanha_validar'?receipt:{status:200,body:{campaign:campaign()}});
+ await f.client.catalog();await f.client.save(definition());await assert.rejects(()=>f.client.validate(definition()));assert.equal(f.client.locked(),true);await f.client.consult();assert.equal(f.client.locked(),false);assert.deepEqual(f.client.snapshot().operation.response,receipt);await assert.rejects(()=>f.client.schedule(definition(),'agendar'),{code:'AUDIENCE_REVIEW_REQUIRED'});assert.equal(f.calls.some(c=>c.request.acao==='campanha_agendar'),false);
+});
+test('legacy successful schedule without audience proof can be polled without replaying or rewriting its receipt',async()=>{
+ const c={...campaign(),status:'scheduled'},receipt={status:200,body:{campaign:c,operation_id:'legacy'}};
+ const f=fixture(async req=>req.acao==='campanha_operacao'?{status:200,body:{operation:{brand:'fish',state:'succeeded',response:receipt}}}:{status:200,body:{campaign:req.acao==='campanha_obter'?c:campaign()}});await f.client.catalog();await f.client.save(definition());
+ const slot=A.JOURNAL+'fish',s=JSON.parse(f.data.get(slot));s.operation.phase='uncertain';s.operation.request={...s.operation.request,acao:'campanha_agendar',id:100,expected_version:'v1',confirm:'agendar'};f.data.set(slot,JSON.stringify(s));
+ const client=f.reload();await client.consult();assert.equal(client.locked(),false);assert.equal(client.snapshot().campaign.status,'scheduled');assert.deepEqual(client.snapshot().operation.response,receipt);assert.equal(f.calls.filter(c=>c.init.method==='POST').length,1);
 });
