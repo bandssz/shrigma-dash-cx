@@ -17,7 +17,7 @@ function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
    if(!auth?.actor||!Array.isArray(auth.caps))throw fail(401,'UNAUTHORIZED','Autenticação necessária.');
    if(!request||typeof request!=='object')throw fail(422,'REQUEST_INVALID','Solicitação inválida.');
    const action=String(request.acao||'').replace(/^campanha_/,'');
-   const capability={catalogo:'read_content',listar:'read_content',obter:'read_content',operacao:'read_content',salvar:'draft',validar:'validate',agendar:'submit',cancelar:'submit'}[action];
+   const capability={catalogo:'read_content',listar:'read_content',obter:'read_content',operacao:'read_content',salvar:'draft',validar:'validate',agendar:'submit',cancelar:'submit',recuperar:'draft'}[action];
    if(!capability)throw fail(400,'ACTION_INVALID','Ação desconhecida.');
    if(!auth.caps.includes(capability))throw fail(403,'CAPABILITY_MISSING','Esta chave não permite esta operação.');
    if(!Object.hasOwn(C.BRANDS,request.brand))throw fail(422,'BRAND_INVALID','Marca inválida.');
@@ -27,7 +27,8 @@ function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
    if(action==='operacao'){
     const saved=await store.getOperation(auth.actor,request.idempotency_key);
     if(!saved||saved.brand!==request.brand)throw fail(404,'OPERATION_NOT_FOUND','Operação não encontrada.');
-    return response(200,{operation:saved});
+    const recovery=saved.state==='outcome_unknown'&&saved.action==='salvar'&&auth.caps.includes('draft')?await provider.recovery({sourceOperationId:saved.id,actor:auth.actor}):null;
+    return response(200,{operation:saved,...(recovery?{recovery}:{})});
    }
    C.request(action,{}, {idempotencyKey:request.idempotency_key});
    const digest=hashValue(request),claim=await store.claim({actor:auth.actor,key:request.idempotency_key,hash:digest,brand:request.brand,action});
@@ -38,7 +39,7 @@ function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
    if(action==='salvar'){
     const d=C.normalize(request.definition);
     if(d.brand!==request.brand)throw fail(422,'BRAND_CONFLICT','Marca do conteúdo difere da solicitação.');
-    const catalog=await provider.catalog(d.brand);C.checkCatalog(d,catalog);
+    const catalog=await provider.catalog(d.brand);C.preflight(d,{catalog,tracking:T,now:now()});
     let c;
     if(request.id){
      c=await current(request.id,d.brand);providerId=c.id;
@@ -57,6 +58,14 @@ function createService({store,provider,now=()=>Date.now(),hashValue=hash}){
     if(updated.status!=='draft'||updated.sent!==0||updated.started_at||hashValue(updated.definition)!==hashValue(prepared.definition))throw fail(502,'READBACK_MISMATCH','Conteúdo salvo não confirmado; consulte o rascunho antes de repetir.');
     await store.invalidateValidation(c.id);
     result=response(request.id?200:201,{campaign:wrap(updated),tracking:prepared.tracking,operation_id:op.id});
+   }else if(action==='recuperar'){
+    if(request.confirm!=='recuperar')throw fail(422,'CONFIRM_REQUIRED','Confirme a recuperação deste rascunho existente.');
+    if(!Number.isSafeInteger(request.id)||request.id<=0||typeof request.expected_version!=='string'||!request.expected_version||!/^[-0-9a-f]{36}$/i.test(request.source_operation_id||''))throw fail(422,'RECOVERY_INVALID','A identidade da recuperação não foi confirmada.');
+    providerId=request.id;mutating=true;
+    const recovered=await provider.recover(request.id,{expectedVersion:request.expected_version,operationId:op.id,sourceOperationId:request.source_operation_id});
+    const c=recovered?.campaign;
+    if(recovered?.recovery_policy!=='crm-campaign-recovery-v1'||recovered.source_operation_id!==request.source_operation_id||recovered.operation_id!==op.id||c?.id!==request.id||c.version!==request.expected_version||c.definition?.brand!==request.brand||c.status!=='draft'||c.sent!==0||c.started_at!==null)throw fail(502,'RECOVERY_UNCONFIRMED','A recuperação não foi confirmada. Consulte a mesma tentativa.');
+    result=response(200,recovered);
    }else{
     const c=await current(request.id,request.brand);providerId=c.id;
     if(!request.expected_version||c.version!==request.expected_version)throw fail(409,'VERSION_CONFLICT','Campanha alterada; recarregue.');

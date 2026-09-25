@@ -39,6 +39,14 @@ const CampaignContract=(()=>{
   const mapping=array(catalog.initiatives).find(i=>i.utm_campaign===d.utm_campaign);
   if(mapping&&mapping.key!==d.initiative.key)error('INITIATIVE_CONFLICT','Esta UTM já pertence a outra iniciativa.','initiative.key');
  }
+ function preflight(input,{catalog,tracking,now=Date.now()}={}){
+  const d=normalize(input);checkCatalog(d,catalog);
+  if(!tracking||typeof tracking.check!=='function')error('TRACKING_UNAVAILABLE','Conferência dos links indisponível.');
+  let check;try{check=tracking.check({status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:d.list_ids,body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign,now});}
+  catch{error('TRACKING_INVALID','Confira os destinos e as UTMs dos links comerciais antes de salvar.','html');}
+  if(!Number.isSafeInteger(check?.commercial_links)||check.commercial_links<1)error('NO_COMMERCIAL_LINK','Inclua ao menos um link para produto, página ou coleção da loja.','html');
+  return d;
+ }
  function prepare(input,{catalog,tracking,trackingId,now=Date.now()}={}){
   const d=normalize(input);checkCatalog(d,catalog);
   if(!tracking||typeof tracking.prepare!=='function')error('TRACKING_UNAVAILABLE','Preparador de rastreamento indisponível.');
@@ -84,11 +92,11 @@ const CampaignContract=(()=>{
   return {action:'cancel',id:current.id,expected_version:current.version};
  }
  function request(action,input,{idempotencyKey,expectedVersion}={}){
-  const allowed=['catalogo','listar','obter','salvar','validar','agendar','cancelar','operacao'];
+  const allowed=['catalogo','listar','obter','salvar','validar','agendar','cancelar','operacao','recuperar'];
   if(!allowed.includes(action))error('ACTION_INVALID','Ação de campanha inválida.');
-  if(['salvar','validar','agendar','cancelar'].includes(action)&&!/^[a-zA-Z0-9_-]{16,100}$/.test(idempotencyKey||''))error('IDEMPOTENCY_REQUIRED','Informe uma chave de idempotência para esta operação.');
+  if(['salvar','validar','agendar','cancelar','recuperar'].includes(action)&&!/^[a-zA-Z0-9_-]{16,100}$/.test(idempotencyKey||''))error('IDEMPOTENCY_REQUIRED','Informe uma chave de idempotência para esta operação.');
   return {...input,acao:'campanha_'+action,...(idempotencyKey?{idempotency_key:idempotencyKey}:{}),...(expectedVersion?{expected_version:expectedVersion}:{})};
  }
- return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,prepare,schedule,cancel,request};
+ return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;

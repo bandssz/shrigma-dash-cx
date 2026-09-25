@@ -82,8 +82,7 @@ DECLARE c public.campaigns%ROWTYPE; op public.shrigma_campaign_operation%ROWTYPE
  current_row jsonb;d jsonb:=p->'definition';b text;cat jsonb;ids integer[];tid integer; fam text;new_headers jsonb; previous_writer text;
  audience jsonb;validation jsonb;review_at timestamptz;review_expiry timestamptz;
 BEGIN
- IF a IN ('recovery_inspect','recover') THEN RETURN public.shrigma_campaign_recovery(a,p);
- ELSIF a='catalog' THEN RETURN public.shrigma_campaign_catalog(p->>'brand');
+ IF a='catalog' THEN RETURN public.shrigma_campaign_catalog(p->>'brand');
  ELSIF a='get' THEN RETURN public.shrigma_campaign_current((p->>'id')::integer);
  ELSIF a='list' THEN RETURN coalesce((SELECT jsonb_agg(public.shrigma_campaign_current(ca.id) ORDER BY ca.id DESC)
   FROM public.campaigns ca WHERE ca.attribs#>>'{crm,policy}'='crm-campaign-v1' AND ca.attribs#>>'{crm,brand}'=p->>'brand'),'[]'::jsonb);

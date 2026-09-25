@@ -40,6 +40,7 @@
       "alerta-whatsapp.js",
       "growth-data.js",
       "growth-attribution.js",
+      "n8n/growth/campaign-tracking.js",
       "campaign-contract.js",
       "growth-email-contract.js",
       "growth-message-preview.js",
