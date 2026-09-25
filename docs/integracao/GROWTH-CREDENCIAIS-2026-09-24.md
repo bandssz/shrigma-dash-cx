@@ -32,9 +32,10 @@ não autoriza exclusão ou mudança de provedor.
 Growth**, nem chamada estática desses três workflows por `executeWorkflow`.
 A busca também cobriu referência literal a `openai.com` nos workflows
 ativos. Isso não é prova absoluta sobre integrações externas ou chamadas
-montadas dinamicamente. O impacto comprovado atual é sentimento/organização
-de arquivos e carga compartilhada do n8n, não interrupção comprovada dos
-WhatsApps e e-mails do CRM.
+montadas dinamicamente. A falha atual comprovada é na organização de arquivos,
+com carga adicional no n8n. O risco para classificação de sentimento vem do
+inventário e do handoff; seu alcance atual não foi comprovado. Não se comprovou
+interrupção dos WhatsApps e e-mails do CRM por essa credencial.
 
 O início em 27/08 e a fila de 2.146 comentários vêm do handoff; não foram
 recontados como fatos atuais. O levantamento não comprou crédito, mudou
@@ -60,6 +61,25 @@ troca a comparação literal por credencial nativa de cabeçalho. Está testado
 localmente e exige migração comprovada dos consumidores antes de publicar.
 O SQL util continua usando a autenticação anterior em produção.
 
+### Proteção de novas execuções, publicada às 22h19 BRT
+
+Como Growth depende desse utilitário, foi aplicada somente a retenção explícita
+`saveDataSuccessExecution=none`, `saveDataErrorExecution=none`,
+`saveManualExecutions=false` e `saveExecutionProgress=false`. O export fresco,
+o candidato e a leitura posterior confirmaram igualdade de todos os nós,
+conexões, chave, rota, credencial do banco e parâmetros SQL. Uma consulta sintética
+com argumento nativo retornou o valor esperado; chave incorreta continuou recebendo
+HTTP 401. O workflow permaneceu ativo, com a versão `bc0a979c-b3e6-4ae5-a9d0-a7b1eb99623d`.
+
+Isso reduz a retenção futura de corpos que contêm a chave. A configuração foi
+conferida para não salvar detalhes de sucesso, falha ou execução manual nem
+checkpoints de progresso; não comprova ausência de snapshots temporários ou
+dados em execuções que permaneçam abertas.
+Não apaga histórico, não remove a chave literal do código/versões antigas e não
+substitui a migração para credencial e a rotação coordenada. Nenhum consumidor
+precisou mudar sua chamada. Recibos privados: `bloco2-sql-util-retention-receipt.json`
+e `bloco2-sql-util-retention-auth.json`, junto dos exports anterior/posterior.
+
 A varredura por padrões apontou dez workflows ativos fora de CX para
 revisão de segredo embutido: o SQL util, sete de TikTok Shop, a captura de
 TikTok Ads e o coletor legado de comentários. Os nove fora de Growth não
@@ -76,8 +96,9 @@ Removidas **cinco entradas** do arquivo operacional usado por esta tarefa:
 ausência dessas entradas e igualdade dos demais valores; backup privado
 com permissão 0600 preservado. Pacotes históricos não foram reescritos.
 
-A evidência de revogação é a instrução explícita do usuário e o handoff de
-24/09. Não houve novo teste dos endereços legados: a revisão automática
+A classificação dessas entradas como mortas e sua remoção local se basearam
+na instrução do usuário e no handoff de 24/09; não houve confirmação de revogação
+no provedor. Não houve novo teste dos endereços legados: a revisão automática
 recusou transmitir credenciais a esses destinos. A limpeza local não
 revogou credenciais nem alterou serviços. Um levantamento separado dos
 erros na API vigente do n8n foi realizado com sucesso.

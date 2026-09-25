@@ -71,6 +71,15 @@ deve separar pedidos sem identidade; não os imputar como zero. Definir a janela
 e o fim das novas entradas antes de iniciar. O candidato não inventa poder estatístico ou
 conclusão com uma fatia pequena.
 
+A [fonte exclusiva de resultados](whatsapp-cart-outcomes.README.md) foi publicada às
+22h54 BRT, com reconciliação, revisão financeira e identidade compatível, sem filtro UTM.
+Uma rodada controlada comprovou quatro janelas completas e 82 pedidos gravados; os
+agendamentos foram liberados após essa prova. A cobertura ainda é parcial e a fonte
+permanece separada do gate, que não foi instalado nem ativado. Seu relatório atual mede
+pedidos criados e pagos após a primeira elegibilidade; essa definição, a cobertura real
+e a duração precisam ser conferidas antes do lançamento. Os testes e a ingestão inicial
+não equivalem a uma coorte já medida.
+
 ## Silêncio: correção separada já publicada
 
 O seletor anterior usava tetos de idade de 11h/34h quando o horário nominal caiu no silêncio.
@@ -98,9 +107,10 @@ parada de entradas, protocolo imutável e todos os 600 elegíveis registrados an
 Os dois exports privados pós-correção do silêncio geraram candidatos com JavaScript
 compilável e SQL sem interpolação pendente. Não houve SQL de escrita, publicação n8n
 ou envio em produção referente ao holdout.
-Ainda faltam cobertura de resultado, datas do protocolo, revisão independente e teste
-de concorrência real do banco antes de ativação. A suíte
+Ainda faltam cobertura de resultado, datas do protocolo e validação integrada antes
+de ativação. A revisão independente do gate não encontrou bloqueios materiais. A suíte
 `tests/whatsapp-cart-holdout-concurrency-postgres.cjs`, no job `holdout-concurrency`,
-exige banco PostgreSQL 16 vazio e descartável e usa conexões independentes para verificar
+passou no PostgreSQL 16.10 vazio e descartável e usou conexões independentes para verificar
 identidade concorrente, lotes em ordem inversa, isolamento entre marcas, parada de novas
-entradas e congelamento do protocolo. Não usa credenciais nem dados de produção.
+entradas e congelamento do protocolo, com quatro esperas reais por bloqueio observadas.
+Não usou credenciais nem dados de produção. [Execução do CI](https://github.com/bandssz/shrigma-dash-cx/actions/runs/36080902678).

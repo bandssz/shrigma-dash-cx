@@ -52,13 +52,17 @@ Validação local:
   por marca em consulta agregada de leitura: Aristo0/Fish0 elegíveis naquele instante.
   As duas consultas responderam com uma linha, sem erro. Zero elegíveis não é prova
   de envio nem comprovação da janela de manhã.
+- Nova leitura às 22h13 BRT confirmou ambas as versões ativas acima. O agregado
+  dos dois toques de carrinho, nas duas marcas, registrou zero linhas e zero aceites
+  WhatsApp desde 22h. Esse intervalo curto confirma somente o período observado;
+  não prova sozinho toda a noite nem o adiamento da manhã.
 
 **Pendente: prova operacional na próxima janela de manhã.** A publicação/readback e os
 testes de fronteira estão comprovados; ainda é preciso observar o processamento real
-08h–12h e a ausência de envio durante o silêncio. Não apresentar fixture ou contagem
+08h–12h e completar a observação da noite. Não apresentar fixture ou contagem
 de elegíveis como mensagem realmente enviada.
 
 Os candidatos holdout foram regenerados dos exports pós-publicação destas versões e
 continuam desabilitados, sem publicação. Recibos privados: `silence-deploy-receipt.json`,
-`silence-after-{id}.json` e `silence-smoke-result-{id}.json` em
+`silence-after-{id}.json`, `silence-smoke-result-{id}.json` e `bloco2-silence-evening.json` em
 `.private/runtime/growth-audit-20260924/` fora do repositório público.

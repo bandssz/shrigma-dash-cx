@@ -1,6 +1,6 @@
 # Growth — investigação do n8n e avaliação PostgreSQL, 24/09/2026
 
-A investigação encontrou um lote recorrente de e-mails de atualização de entrega entre **20:03 e 20:11 BRT**. Esse lote é um candidato concreto a disparador da sobrecarga. **A causa de execuções permanecerem abertas ainda não está demonstrada:** faltam logs e métricas do processo, disco e SQLite durante a janela. Migrar para PostgreSQL é uma hipótese de melhoria de capacidade, não uma correção comprovada para toda a cadeia de falha.
+A investigação confirmou a recorrência em 24/09: **214 registros iniciados entre 20:03:31 e 20:05:16 BRT continuavam `running` às 22:05**, dos quais 191 pertencem a Growth. O início coincide com o lote recorrente de e-mails de atualização de entrega. API, banco de negócio e consumo SES respondiam durante a leitura posterior; isso não resolve os registros sem conclusão. **A causa ainda não está demonstrada:** faltam logs e métricas do processo, disco e SQLite durante a janela. Migrar para PostgreSQL é uma hipótese de melhoria de capacidade, não uma correção comprovada para toda a cadeia de falha.
 
 Somente leitura em produção. Nenhum workflow, execução, banco, variável do serviço ou item de CX foi alterado nesta investigação. A amostra da API contém metadados operacionais gerais; a análise de configuração e efeitos de negócio ficou em Growth. As 35 exclusões de CX foram respeitadas; NPS foi excluído das consultas do log de envios. Os relatos anteriores são evidência histórica, não autorização para executar suas recomendações.
 
@@ -25,15 +25,53 @@ A versão instalada rejeitou com HTTP 400 os filtros `status=crashed` e `status=
 
 Não há evidência de incidente ativo nesse retrato anterior às 20h. A ausência atual do backlog histórico não identifica quem o removeu nem qual mecanismo o corrigiu. O handoff relata reinício feito por Felipe na manhã de 24/09; isso não foi reexecutado.
 
+## Atualização após o pico de 24/09, 22:01–22:07 BRT
+
+Às 22:01, a API retornou **219 `running`**, sem próxima página. Desses, 214 haviam começado entre 20:03:31 e 20:05:16, e cinco eram recentes. Às 22:05, havia 221 no total, novamente sem próxima página: **os mesmos 214 IDs antigos permaneciam**, junto com sete execuções recentes. Assim, não se trata apenas da sobreposição normal de poucos segundos do consumidor SES vista antes das 20h.
+
+Os registros antigos de Growth se distribuem assim:
+
+| Workflow | Registros `running` do intervalo |
+|---|---:|
+| `ecK2wke9fKnO3mfy` — e-mail transacional | 184 |
+| `54waQbYEjCHDLwgA` — WhatsApp transacional Aristo | 3 |
+| `qBC4HJC4qKSLkBBf` — consumidor SES | 3 |
+| `Ue4I5Fgc9lAk3n5O` — receptor Appmax | 1 |
+| **Total Growth** | **191** |
+
+Os outros 23 pertencem ao inventário excluído de CX. Foram somente contabilizados nos metadados gerais; não houve inspeção de conteúdo nem ação nessa frente. Nenhuma execução antiga identificada nesta amostra era do categorizador SharePoint; isso não exclui sua contribuição para carga no processo compartilhado.
+
+Três amostras pequenas de Growth foram lidas às 22:07 com limite de 2 MiB por resposta, sem guardar o conteúdo bruto:
+
+| Execução | Workflow | Início BRT | Bytes da resposta |
+|---|---|---|---:|
+| `1714410` | E-mail transacional | 20:03:31 | 40.746 |
+| `1714932` | WhatsApp Aristo | 20:04:32 | 22.874 |
+| `1714486` | SES | 20:03:33 | 14.369 |
+
+Todas tinham `status=running`, `finished=false`, `stoppedAt=null`, `waitTill=null`, `runData` vazio e nenhum `lastNodeExecuted` ou erro persistido. Portanto, a API **não localiza um nó travado nem demonstra que o processo continua executando esses IDs**. A ausência de resultados intermediários também não prova ausência de envio: a configuração de retenção/progresso pode impedir sua persistência. Não houve retry, cancelamento, exclusão ou leitura de detalhes SharePoint/CX.
+
+O estado corrente coexistia com a anomalia:
+
+- API às 22:01: consultas em 0,20–1,33 s; `running` em 0,83 s. A repetição de `running` às 22:05 levou 4,19 s. Não há série contínua que caracterize a latência durante o pico.
+- `waiting=0`; 60 erros retidos, sem paginação; amostra de 250 sucessos com próxima página. A página geral mais recente continha 245 sucessos e cinco erros. Isso não mede todos os estados `new`, cuja filtragem não é suportada pela instalação.
+- SQL do banco de negócio: ping 0,22 s, saúde SES 0,15–0,17 s e agregado de envios 0,36 s. Essas respostas não medem o SQLite interno do n8n.
+- SES às 22:01 e 22:05: `queue_visible=0`, `queue_inflight=0`, `queue_delayed=0`, com medições de fila recentes e poll bem-sucedido há menos de um segundo. O último erro registrado continuava sendo de 10:50 BRT.
+- Busca limitada e apoiada no índice parcial de `result='pending'`: zero registros pendentes às 22:05. Isso não mede mensagens anteriores ao arquivo, redelivery ou efeitos ainda não conciliados.
+- Às 22:08:43 BRT, a frente principal leu os endpoints oficiais sem credenciais: `/healthz` e `/healthz/readiness` devolveram HTTP 200/`ok` em 0,095/0,092 s; `/metrics` devolveu 404. É uma verificação de saúde naquele instante, não de uptime, ausência de restart/OOM ou histórico da janela. O 404 não identifica a configuração de métricas nem oferece telemetria substituta. [n8n — Monitoring](https://docs.n8n.io/hosting/logging-monitoring/monitoring/).
+
+**Conclusão desse retrato:** não foi observada indisponibilidade geral nem backlog SES corrente, mas a recorrência dos registros sem conclusão está confirmada. Não há base para limpar os IDs nem pedir restart preventivo; primeiro preservar e correlacionar a evidência do host.
+
 ## O que se repete às 20h
 
-Consultas em `shrigma_send_log`, Fish/Aristo, sem NPS, em 21–23/09:
+Consultas em `shrigma_send_log`, Fish/Aristo, sem NPS, em 21–24/09:
 
 | Dia | E-mail 19h | E-mail 20h | E-mail 21h | WhatsApp 19h / 20h / 21h |
 |---|---:|---:|---:|---:|
 | 21/09 | 206 | 449 | 206 | 89 / 94 / 93 |
 | 22/09 | 210 | 1.026 | 258 | 63 / 81 / 113 |
 | 23/09 | 199 | 906 | 227 | 73 / 75 / 90 |
+| 24/09 | 168 | 934 | 206 | 74 / 80 / 71 |
 
 O excesso de e-mails se concentra nas peças transacionais abaixo:
 
@@ -42,8 +80,11 @@ O excesso de e-mails se concentra nas peças transacionais abaixo:
 | 21/09 | 146 | 63 | 209 | 20:03:29–20:10:56 |
 | 22/09 | 563 | 239 | 802 | 20:03:31–20:11:39 |
 | 23/09 | 456 | 243 | 699 | 20:03:33–20:11:35 |
+| 24/09 | 181 | 542 | 723 | 20:03:28–20:09:59 |
 
-As consultas não encontraram `erro` preenchido nessas faixas de 19h–21h. Os registros mostram atividade, não atestam entrega final de todos os e-mails nem ausência de perda anterior à gravação. O mesmo vale para `wamid`: é comprovante de aceite, não de entrega final.
+As consultas não encontraram `erro` preenchido nessas faixas de 19h–21h em 21–23/09. Em 24/09, houve um erro de WhatsApp às 19h e nenhum erro de e-mail nas três horas; os demais 224 registros WhatsApp tinham `wamid`. Os registros mostram atividade, não atestam entrega final de todos os e-mails nem ausência de perda anterior à gravação. O mesmo vale para `wamid`: é comprovante de aceite, não de entrega final.
+
+Em 24/09, 665 dos 723 registros do lote foram gravados entre 20:05 e 20:10. O primeiro e-mail do lote (20:03:28) antecede em três segundos o primeiro `running` antigo identificado (20:03:31). A coincidência temporal é forte; não estabelece qual evento bloqueou a conclusão nem permite conciliar efeitos de cada execução individual.
 
 O workflow `ecK2wke9fKnO3mfy` recebe o transacional por webhook. Não foi encontrado nele um cron diário às 20h; o lote chega pela entrada. Ainda falta identificar, no sistema emissor, quem produz as atualizações em bloco. Não se deve atribuir isso à Shopify, transportadora ou serviço específico sem a evidência da origem.
 
@@ -83,6 +124,8 @@ Uma consulta agregada de `shrigma_email_event_ingest`, de 21 a 23/09, encontrou:
 
 Esses são eventos **já gravados** no horário de ingestão, não medição da taxa de chegada original da AWS, do backlog histórico nem da latência evento→arquivo. A concentração por minuto pode incluir trabalho admitido antes ou outros consumidores não inventariados; não se deve ler 292 registros/min como capacidade sustentável do trigger de 5 s. Mesmo assim, a demanda observada não demonstra a folga necessária para cortar a capacidade. A consulta levou 31,84 s; não foi repetido o scan amplo.
 
+Na leitura posterior ao pico de 24/09, a consulta foi limitada aos **10 mil maiores IDs**, usando a chave primária e somente colunas de data/resultado. A amostra vai de 08:06 a 22:07 BRT e contém 742 eventos das 19h, 2.250 das 20h e 435 das 21h, todos `processed`. Entre 20:05 e 20:20, foram 1.788, sendo 610 em cada uma das duas primeiras faixas de cinco minutos e 568 na seguinte. A consulta levou 3,31 s. Não há índice geral em `received_at`; o índice de data existente é parcial para `pending`, motivo para evitar novo scan amplo. Os números desta leitura são agregados da amostra limitada por ID, não medição direta da chegada/idade da fila durante o pico.
+
 **Não reduzir para 15/30 segundos nas condições verificadas.** A mudança reduz a capacidade máxima em 67%/83%, respectivamente, abaixo de horas com mais de 7 mil registros de ingestão. É necessário medir a idade da mensagem mais antiga durante o pico, considerar retries/redelivery e confirmar retenção/DLQ antes de redesenhar o consumidor. Medir somente e-mails enviados não o dimensiona. Uma melhoria futura deve reduzir execuções vazias preservando drenagem suficiente sob carga; não basta trocar o intervalo.
 
 ## Outro produtor de carga no mesmo n8n
@@ -114,7 +157,9 @@ Pedir ao operador do Easypanel somente o retrato e os logs de **19:50–20:30 BR
 - origem e taxa de recebimento dos webhooks do lote, em comparação com a taxa de conclusão;
 - SES: entradas/saídas e idade da mensagem mais antiga, não apenas fila vazia antes/depois.
 
-Se houver degradação, preservar esse retrato antes do reinício que Felipe eventualmente executar. Não apagar execuções nem habilitar retenção agressiva antes de preservar a evidência. Não existe base para solicitar reinício preventivo com o serviço saudável medido hoje.
+Com a recorrência de 24/09 documentada, começar pela janela curta **20:02–20:07 BRT (23:02–23:07 UTC de 24/09)** e procurar os IDs `1714410`, `1714932` e `1714486`. O conjunto mais útil é o log do serviço n8n junto dos eventos do contêiner nessa mesma janela: admissão/início/conclusão, mensagens de mutex/`SQLITE_BUSY`/timeout, perda de conexão e saída/reinício do processo. Um evento explícito `OOMKilled` junto do aumento de memória sustentaria OOM; somente exit 137, mensagem genérica de memória ou ausência de conclusão não basta. Bloqueios de escrita devem ser correlacionados com latência de disco/WAL e concorrência antes de atribuir causa ao SQLite. Se essa janela não contiver a transição, ampliar para 19:50–20:30. Felipe preferiu não consultar esses logs agora; a análise segue com essa limitação, sem atribuir causa nem executar mudança de infraestrutura.
+
+Se houver degradação, preservar esse retrato antes do reinício que Felipe eventualmente executar. Não apagar execuções nem habilitar retenção agressiva antes de preservar a evidência. A resposta corrente do serviço não elimina o estado anômalo persistido; tampouco justifica, isoladamente, um reinício preventivo.
 
 ## Avaliação da migração para PostgreSQL
 
@@ -146,5 +191,11 @@ Arquivos locais em `.private/runtime/`, fora do versionamento:
 - `growth-ses-capacity-20260924.json`: taxas de ingestão registradas, sem conteúdo das mensagens.
 - `growth-audit-20260924/openai-execution-size-safe.json`: tamanhos e metadados sanitizados de cinco execuções do categorizador; produção de JSON não equivale a bytes físicos no SQLite.
 - `growth-audit-20260924/inventory-private.json`: inventário contemporâneo reutilizado, sem nova coleta em massa.
+- `growth-audit-20260924/bl2/n8n-incident/current-snapshot.json`: metadados e agregados às 22:01, preservando os arquivos anteriores.
+- `growth-audit-20260924/bl2/n8n-incident/followup-snapshot.json` e `followup-safe.json`: segunda leitura às 22:05 e comparação dos mesmos 214 IDs.
+- `growth-audit-20260924/bl2/n8n-incident/cohort-safe.json`: agrupamento por workflow e limites temporais do conjunto antigo.
+- `growth-audit-20260924/bl2/n8n-incident/ses-sample-safe.json`: agregado limitado aos 10 mil IDs mais recentes, sem corpos de eventos.
+- `growth-audit-20260924/bl2/n8n-incident/small-details-safe.json`: somente status, tempos, tamanhos e ausência de resultados dos três exemplos Growth; nenhum detalhe bruto foi preservado.
+- `growth-audit-20260924/bloco2-health-endpoints.json`: leituras oficiais de saúde/readiness da frente principal às 22:08:43 BRT.
 
-Nenhum segredo, corpo de mensagem, e-mail, telefone ou pedido individual consta neste relatório. As consultas não medem perda silenciosa nem representam um teste de carga. Resultado atual: disparador provável mais específico, serviço saudável antes da janela, migração planejável; **causa-raiz e solução definitiva ainda pendentes da evidência do host e do pico**.
+Nenhum segredo, corpo de mensagem, e-mail, telefone ou pedido individual consta neste relatório. As consultas não medem perda silenciosa nem representam um teste de carga. Resultado atual: recorrência dos registros sem conclusão confirmada em 24/09, coincidente com o lote de entrega, com serviço respondendo antes e depois da janela; **causa-raiz e solução definitiva ainda pendentes da correlação com a evidência do host**.

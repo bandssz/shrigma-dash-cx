@@ -20,7 +20,7 @@ A revisão `updatedAt` é lida novamente ao final. Se mudar, se faltar uma pági
 
 A cada execução entram até 200 pedidos. Leituras existentes voltam após 24h para capturar reembolsos tardios. Pedidos que saíram da atribuição corrente por cancelamento ou reembolso continuam sendo atualizados a partir do snapshot registrado. O dono é preservado. O histórico financeiro **não** é reinserido em `partner_orders`: pedidos/receita desse retorno continuam refletindo apenas a atribuição corrente. Tentativas são ordenadas depois de pedidos nunca tentados, evitando que um lote inacessível impeça a coleta dos seguintes.
 
-É necessário conferir `read_orders` e, para dados anteriores a 60 dias, `read_all_orders` nas credenciais das duas lojas. Ausência do escopo não é interpretada como pedido zero nem como coleta concluída. A configuração de janela permite uma recuperação limitada enquanto o acesso é corrigido.
+Os escopos foram conferidos em leitura real: Aristo tem `read_orders` e `read_all_orders`; Fish tem `read_orders`, mas **não tem `read_all_orders`**. Portanto, a cobertura histórica completa de Fish não está comprovada: o acesso padrão é limitado aos últimos 60 dias e pode impedir atualizar reembolsos de pedidos antigos. Ausência do escopo não é interpretada como pedido zero nem como coleta concluída. A configuração de janela permite uma recuperação limitada enquanto o acesso é corrigido.
 
 ## Cálculo e limites
 
@@ -44,9 +44,24 @@ A migração foi aplicada em produção: 14 instruções, base com 27 colunas e 
 
 A execução de verificação comprovou autenticação e o caminho vazio: sem cabeçalho ou com valor incorreto, HTTP 403; com autenticação correta, resposta `{ok:true,pedidos:0,commission_payable:false}`. Após essa execução, a base continuava com zero snapshots e o registro de tentativas com zero linhas.
 
-**Ainda não comprovados:** chamada financeira real à Shopify pelo novo workflow, paginação/item linking no n8n com um pedido e execução do agendamento. A execução vazia não percorreu os nodes Shopify. Validar um pedido financeiro real em leitura isolada e, quando houver atribuição de parceiro legítima, conferir o snapshot completo antes de considerar a coleta de comissão comprovada. `commission_payable` segue `false`.
+### Prova financeira real, sem ingestão
+
+Um workflow temporário autenticado executou o mesmo estado e grafo de leitura do coletor com quatro pedidos reais já existentes, sem nenhum node SQL, criação de parceiro ou alteração de pedido. A execução retornou HTTP 200, quatro leituras concluídas e zero falhas. Uma conexão de itens foi reduzida a uma linha por página apenas nessa prova: duas páginas e uma continuação real confirmaram cursor e item linking no n8n.
+
+| Loja | Pedidos lidos | Reconciliação exata | Base estimada |
+| --- | ---: | ---: | ---: |
+| Aristo | 2: um pago e um reembolsado/cancelado | 2 | 0 |
+| Fish | 2: um pago e um reembolsado/cancelado | 1 | 1, reembolso sem linhas financeiras |
+
+Os valores financeiros individuais ficam somente no recibo privado. A prova confirmou que os pedidos reembolsados/cancelados não deixam base elegível e que um reembolso não itemizado permanece marcado como estimado.
+
+O temporário `2Ml1z0pbxsS0ZO21` foi desativado e removido após a prova, com backup. O coletor principal permaneceu ativo, com versão, nodes, conexões e configurações iguais ao export anterior. Nenhum snapshot foi fabricado para a prova.
+
+**Ainda não comprovados:** execução do agendamento, ingestão de um pedido legitimamente atribuído a parceiro e cobertura histórica de Fish sem `read_all_orders`. O caminho financeiro real e sua paginação foram exercidos, mas ainda não havia parceiro para comprovar a integração completa com a base de comissão. `commission_payable` segue `false`.
 
 Os recibos ficam no diretório privado `.private/runtime/growth-audit-20260924/`: `partner-sql-install-journal.json`, `partner-sql-install-after.json`, `partner-sql-functions-readback.json`, `partner-workflow-published.json` e `partner-live-smoke.json`. Não publicar arquivos de manutenção, credenciais ou exports privados junto da documentação.
+
+Os recibos da prova real ficam em `bloco2-shopify/`, dentro desse diretório: `probe-result-20260925T010850Z.json` (horário UTC; ainda 24/09 BRT), `probe-auth-noheader.json`, `probe-inactive-backup.json`, `probe-lifecycle.json` e `collector-after-probe.json`. A resposta financeira contém apenas agregados, contagens e escopos, sem IDs ou nomes de pedidos.
 
 ## Referências Shopify
 
