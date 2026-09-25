@@ -3,7 +3,7 @@
 BEGIN;
 SET LOCAL lock_timeout='3s';
 DO $check$ BEGIN
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure) NOT IN ('f29ede0cc548763cfd06c3f3539c483f','cbf4a87890f5b892e22fad01975844de') THEN RAISE EXCEPTION 'AUDIENCE_PROVIDER_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure) NOT IN ('f29ede0cc548763cfd06c3f3539c483f','99a6c32087bf30264da2a0a059528f62') THEN RAISE EXCEPTION 'AUDIENCE_PROVIDER_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_store(text,jsonb)'::regprocedure) NOT IN ('2db1e03334e674938e3e806c01c9ba31','4e95ed0403daef3496194e86c1878654') THEN RAISE EXCEPTION 'AUDIENCE_STORE_DRIFT'; END IF;
  IF to_regprocedure('public.shrigma_campaign_audience(integer)') IS NOT NULL AND (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('public.shrigma_campaign_audience(integer)'))<> 'bbdd14430b814cd7b3ac3f142f0066f0' THEN RAISE EXCEPTION 'AUDIENCE_HELPER_DRIFT'; END IF;
 END $check$;
@@ -226,14 +226,15 @@ BEGIN
   EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN RAISE EXCEPTION 'AUDIENCE_REVIEW_REQUIRED'; END;
   IF review_expiry-review_at<>interval '5 minutes' OR review_at>clock_timestamp() OR review_expiry<=clock_timestamp() THEN RAISE EXCEPTION 'AUDIENCE_STALE'; END IF;
   audience:=public.shrigma_campaign_audience(c.id);
-  -- Counting a large union must not let an expired review or imminent date pass.
-  IF review_expiry<=clock_timestamp() THEN RAISE EXCEPTION 'AUDIENCE_STALE'; END IF;
-  IF c.send_at<clock_timestamp()+interval '15 minutes' THEN RAISE EXCEPTION 'SCHEDULE_TOO_SOON'; END IF;
   IF (audience->>'native_disabled_count')::bigint>0 THEN RAISE EXCEPTION 'AUDIENCE_DISABLED'; END IF;
   IF (audience->>'eligible_count')::bigint=0 THEN RAISE EXCEPTION 'AUDIENCE_EMPTY'; END IF;
   IF audience->>'_fingerprint' IS DISTINCT FROM validation->>'_audience_fingerprint'
    OR (audience-'_fingerprint') IS DISTINCT FROM ((validation->'audience')-ARRAY['review_id','campaign_id','campaign_version','checked_at','expires_at','frozen']) THEN RAISE EXCEPTION 'AUDIENCE_CHANGED'; END IF;
-  validation:=jsonb_set(validation,'{audience}',(validation->'audience')||jsonb_build_object('rechecked_at',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
+  -- The receipt uses the same final instant checked after counting the union.
+  review_at:=clock_timestamp();
+  IF review_expiry<=review_at THEN RAISE EXCEPTION 'AUDIENCE_STALE'; END IF;
+  IF c.send_at<review_at+interval '15 minutes' THEN RAISE EXCEPTION 'SCHEDULE_TOO_SOON'; END IF;
+  validation:=jsonb_set(validation,'{audience}',(validation->'audience')||jsonb_build_object('rechecked_at',to_char(review_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
   UPDATE public.campaigns SET status='scheduled' ,updated_at=clock_timestamp() WHERE id=c.id;
  ELSE
   -- Native content compilation must be confirmed by the backend before this call.

@@ -8,9 +8,9 @@ const GCA=(()=>{
  function caps(api){
   const c=api?.capabilities?.campaigns,e=api?.capabilities?.endpoints?.campaigns;
   let endpoint=null;try{const u=new URL(e);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash)endpoint=u.href;}catch{}
-  const valid=c?.contract_version===VERSION&&Array.isArray(c.brands)&&!!endpoint;
-  return {endpoint:valid?endpoint:null,brands:valid?c.brands.filter(b=>['aristo','fish'].includes(b)):[],
-   ...Object.fromEntries(['read','save','validate','schedule','cancel','operation'].map(k=>[k,valid&&c[k]===true]))};
+  const valid=c?.contract_version===VERSION&&Array.isArray(c.brands)&&!!endpoint,audience=valid&&c.audience_review===CampaignContract.AUDIENCE_POLICY;
+  return {audience_review:audience?c.audience_review:null,endpoint:valid?endpoint:null,brands:valid?c.brands.filter(b=>['aristo','fish'].includes(b)):[],
+   ...Object.fromEntries(['read','save','validate','schedule','cancel','operation'].map(k=>[k,valid&&c[k]===true&&(!['validate','schedule'].includes(k)||audience)]))};
  }
  async function fingerprint(key){
   if(typeof crypto==='undefined'||!crypto.subtle||typeof TextEncoder==='undefined')throw error('IDENTITY_UNAVAILABLE','Este navegador não conseguiu proteger a identificação da tentativa.');
@@ -47,7 +47,7 @@ const GCA=(()=>{
    if(!c||!Number.isSafeInteger(c.id)||c.id<=0||typeof c.version!=='string'||!c.version||typeof c.status!=='string'||!Number.isSafeInteger(c.sent)||c.sent<0||!Object.hasOwn(c,'started_at')||!Object.hasOwn(c,'send_at')||(c.send_at!==null&&!Number.isFinite(Date.parse(c.send_at)))||c.definition?.brand!==brand)return false;
    try{CampaignContract.normalize(c.definition);return true;}catch{return false;}
   }
-  function applyResponse(res,operation){
+  function applyResponse(res,operation,{historical=false}={}){
    const c=res.body?.campaign;
    if(!res.ok||!validCampaign(c)||(operation.request.id&&c.id!==operation.request.id))return false;
    const action=operation.request.acao;
@@ -56,6 +56,14 @@ const GCA=(()=>{
    if(!['campanha_agendar','campanha_cancelar'].includes(action)&&(c.status!=='draft'||c.sent!==0||c.started_at))return false;
    const validation=res.body.validation;
    if(action==='campanha_validar'&&(validation?.ok!==true||validation.policy!==VERSION||validation.version!==c.version))return false;
+   try{
+    if(action==='campanha_validar'&&(!historical||validation.audience))CampaignContract.audienceReview(validation.audience,c,{now:Date.parse(validation.audience?.checked_at),allowBlocked:true});
+    // Old persisted receipts remain readable; all new scheduling requests carry a review ID.
+    if(action==='campanha_agendar'&&operation.request.audience_review_id){
+     const a=res.body.audience;CampaignContract.audienceReview(a,{...c,version:operation.request.expected_version},{now:Date.parse(a?.checked_at)});
+     const checked=Date.parse(a.rechecked_at);if(a.review_id!==operation.request.audience_review_id||!Number.isFinite(checked)||checked<Date.parse(a.checked_at)||checked>=Date.parse(a.expires_at))return false;
+    }
+   }catch{return false;}
    persist({...state,campaign:copy(c),validation:action==='campanha_validar'?copy(validation):null,recoveryId:null,
     operation:{...operation,phase:'succeeded',response:{status:res.status,body:copy(res.body)}}});return true;
   }
@@ -74,6 +82,7 @@ const GCA=(()=>{
    // tab must not create again or silently update the campaign another tab opened.
    if((state.campaign?.id??null)!==(input.id??null)||(state.campaign?.version??null)!==(input.expected_version??null))throw error('CAMPAIGN_CHANGED','Outra aba mudou a campanha selecionada. Reabra a versão atual antes de continuar.');
    if(action==='salvar'&&state.campaign&&(state.campaign.status!=='draft'||state.campaign.sent!==0||state.campaign.started_at))throw error('CAMPAIGN_LOCKED','Reabra um rascunho disponível para edição.');
+   if(action==='agendar'&&availability.audience_review!==CampaignContract.AUDIENCE_POLICY)throw error('CAPABILITY_UNAVAILABLE','A conferência do público ainda não está disponível.');
    if(action==='agendar')CampaignContract.schedule(input,{...state.campaign,validation:state.validation},{now:now(),canPublish:availability.schedule===true});
    if(action==='cancelar')CampaignContract.cancel(input,state.campaign,{now:now(),canPublish:availability.cancel===true});
    const k=key(writeKey),actorFingerprint=await keyFingerprint(k);writable();
@@ -99,7 +108,7 @@ const GCA=(()=>{
    async newDraft(){return exclusive(()=>{writable();persist({...state,campaign:null,validation:null,operation:null,recoveryId:null});return snapshot();});},
    async save(input){const d=CampaignContract.normalize(input);if(d.brand!==brand)throw error('BRAND_CONFLICT','Marca do conteúdo difere da solicitação.');CampaignContract.checkCatalog(d,catalog);const c=state.campaign;if(c&&(c.status!=='draft'||c.sent!==0||c.started_at))throw error('CAMPAIGN_LOCKED','Reabra um rascunho disponível para edição.');return mutate('salvar',{definition:d,...(c?{id:c.id,expected_version:c.version}:{})});},
    async validate(d){const c=reviewed(d);return mutate('validar',{id:c.id,expected_version:c.version});},
-   async schedule(d,confirm){const c=reviewed(d);CampaignContract.schedule({confirm,expected_version:c.version},{...c,validation:state.validation},{now:now(),canPublish:availability.schedule===true});return mutate('agendar',{id:c.id,expected_version:c.version,confirm});},
+   async schedule(d,confirm,audienceReviewId){const c=reviewed(d),input={id:c.id,expected_version:c.version,confirm,audience_review_id:audienceReviewId};CampaignContract.schedule(input,{...c,validation:state.validation},{now:now(),canPublish:availability.schedule===true});return mutate('agendar',input);},
    async cancel(confirm){const c=state.campaign;CampaignContract.cancel({confirm,expected_version:c?.version},c,{now:now(),canPublish:availability.cancel===true});return mutate('cancelar',{id:c.id,expected_version:c.version,confirm});},
    async consult(){return canWrite()?exclusive(()=>consult(true)):consult(false);}
   };
@@ -110,7 +119,7 @@ const GCA=(()=>{
     if(!res.ok||!saved||saved.brand!==brand)throw responseError(res);
     if(!writeJournal)return {...snapshot(),consultation:{state:saved.state},readOnly:true};
     if(saved.state==='succeeded'){
-     const r=saved.response;if(!r||!applyResponse({status:r.status,body:r.body,ok:r.status>=200&&r.status<300},op))throw error('RESPONSE_UNCONFIRMED','A operação respondeu, mas a campanha ainda não foi confirmada.');
+     const r=saved.response;if(!r||!applyResponse({status:r.status,body:r.body,ok:r.status>=200&&r.status<300},op,{historical:true}))throw error('RESPONSE_UNCONFIRMED','A operação respondeu, mas a campanha ainda não foi confirmada.');
      // The durable receipt is historical: a later cancellation or worker may
      // have changed the campaign. Confirm its current revision before unlocking.
      const id=state.campaign.id;persist({...state,recoveryId:id});

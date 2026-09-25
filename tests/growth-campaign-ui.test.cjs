@@ -1,33 +1,35 @@
 'use strict';
+const audienceFixture=require('./campaign-audience-fixture.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{webcrypto}=require('node:crypto');
 const createLocks=require('./campaign-lock-fixture.cjs');
 const {parseHTML}=require('linkedom'),C=require('../campaign-contract');
 global.CampaignContract=C;const Editor=require('../growth-campaign-editor');
 const root=path.resolve(__dirname,'..'),END='https://campaign.example.test/operations';
-const api={capabilities:{campaigns:{contract_version:C.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true},endpoints:{campaigns:END}}};
+const api={capabilities:{campaigns:{contract_version:C.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:END}}};
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Campanha de exemplo',subject:'Assunto',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[125],template_id:1,html:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',tags:[],send_at:'2030-09-20T15:00:00Z'});
 const catalog={brand:'fish',current:true,lists:[{id:125,name:'Clientes recorrentes',brand:'fish',available:true}],templates:[{id:1,name:'Modelo principal',type:'campaign',available:true,version:'t1'}],initiatives:[]};
-function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null}={}){
+function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null,audiencePatch={}}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');
  const proto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  if(!store.has('shrigma_campaign_composer_v1'))store.set('shrigma_campaign_composer_v1',JSON.stringify(Editor.fromDefinition(definition())));
  store.set('write-slot','synthetic-write-secret');if(masterOnly){store.delete('read-slot');store.set('shrigma_k_mestre','synthetic-master-secret');}else store.set('read-slot','synthetic-read-secret');
- const calls=[];let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
- const context=vm.createContext({document,window,console,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
+ const calls=[];let review=null;let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
+ let clock=Date.now();const Clock=class extends Date{static now(){return clock;}};
+ const context=vm.createContext({document,window,console,Date:Clock,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:()=>{throw Error('native confirm must not be called');},__api:payload,
   fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);if(beforeResponse)await beforeResponse(req);let body;
    if(req.acao==='campanha_catalogo')body=catalog;
    else if(req.acao==='campanha_listar')body={campaigns:[current]};
    else if(req.acao==='campanha_obter')body={campaign:current};
    else if(req.acao==='campanha_operacao')body={operation:{brand:'fish',state:'outcome_unknown'}};
-   else{if(timeout)throw Error('lost transport response');if(req.acao==='campanha_salvar')current={...current,definition:req.definition};if(req.acao==='campanha_agendar')current={...current,status:'scheduled'};if(req.acao==='campanha_cancelar')current={...current,status:'cancelled',version:'v2'};body={campaign:current,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:current.version,ok:true}}:{})};}
+   else{if(timeout)throw Error('lost transport response');if(req.acao==='campanha_salvar')current={...current,definition:req.definition};if(req.acao==='campanha_agendar')current={...current,status:'scheduled'};if(req.acao==='campanha_cancelar')current={...current,status:'cancelled',version:'v2'};if(req.acao==='campanha_validar')review=audienceFixture(current,clock,audiencePatch);body={campaign:current,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:current.version,ok:true,audience:review}}:{}),...(req.acao==='campanha_agendar'?{audience:{...review,rechecked_at:review.checked_at}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};
   }});
  for(const file of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
- return {document,window,calls,store,setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
+ return {document,window,calls,store,advance:ms=>{clock+=ms;},setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
 async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI did not reach expected state');}
 
@@ -122,4 +124,21 @@ test('a revision conflict stays frozen through catalog events, import, reset and
  assert.equal(fileRead,false);assert.equal(x.confirmations.length,0);assert.equal(x.q('[name=list_ids]').value,'125');assert.equal(x.q('[name=template_id]').value,'1');assert.equal(x.store.get(localKey),localRaw);assert.equal(x.store.get(journalKey),journalRaw);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);assert.equal(x.q('[data-ce-save]').disabled,true);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);
  x.q('[data-ce-open]').click();assert.equal(x.confirmations.length,1);assert.equal(x.q('[name=subject]').value,'Preparação antiga preservada');x.accept();await until(()=>!x.q('[data-ce-save]').disabled);
  assert.equal(x.q('[name=subject]').value,'Revisão nova do servidor');assert.equal(JSON.parse(x.store.get(localKey)).value._campaign.version,'v2');assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
+});
+
+async function audienceReady(x){x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);x.q('[data-ce-validate]').click();await until(()=>/pessoas? pode/.test(x.q('[data-ce-audience]').textContent));}
+test('audience display explains union, opt-out, exclusions and live count before confirmation',async()=>{
+ const x=boot({audiencePatch:{eligible_count:1234,unique_members_count:1241,excluded_blocklisted_count:3,excluded_subscription_count:4}});await audienceReady(x);
+ const text=x.q('[data-ce-audience]').textContent;assert.match(text,/1\.234 pessoas podem receber agora/);assert.match(text,/Descadastros e bloqueios conferidos/);assert.match(text,/outra lista selecionada/);assert.match(text,/3 bloqueados · 4 sem inscrição válida/);assert.match(text,/O total pode mudar até o envio/);
+ x.q('[data-ce-schedule]').click();assert.match(x.confirmations.at(-1),/Fishermans/);assert.match(x.confirmations.at(-1),/1\.234 pessoas/);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);x.accept();await until(()=>x.calls.some(c=>c.acao==='campanha_agendar'));
+ assert.equal(x.calls.find(c=>c.acao==='campanha_agendar').audience_review_id,'00000000-0000-4000-8000-000000000001');
+});
+test('zero and disabled audiences remain visible but cannot open scheduling',async()=>{
+ for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1}]){const x=boot({audiencePatch:patch});await audienceReady(x);assert.equal(x.q('[data-ce-schedule]').disabled,true);x.q('[data-ce-schedule]').click();assert.equal(x.confirmations.length,0);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-validate]').disabled,false);}
+});
+test('expiry while confirmation is open requires a new review with no schedule request',async()=>{
+ const x=boot();await audienceReady(x);x.q('[data-ce-schedule]').click();x.advance(300001);x.accept();await until(()=>/venceu/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-schedule]').disabled,true);assert.equal(x.q('[data-ce-validate]').disabled,false);
+});
+test('another tab replacing only the audience review invalidates the displayed approval',async()=>{
+ const x=boot();await audienceReady(x);x.q('[data-ce-schedule]').click();const key='shrigma_campaign_operation_v1:fish',s=JSON.parse(x.store.get(key));s.validation.audience.review_id='00000000-0000-4000-8000-000000000002';x.store.set(key,JSON.stringify(s));x.accept();await until(()=>/mudou durante a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);
 });
