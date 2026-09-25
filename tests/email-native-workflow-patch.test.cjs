@@ -57,3 +57,21 @@ test('real HTTP text/fullResponse representation reaches finish as body; native 
  const template={data:{id:99,type:'tx',subject:'Fixture',body:'<p>Fixture</p>'}},readback=httpOutput(read.parameters,{...response,body:JSON.stringify(template)});assert.equal(typeof readback.body,'object');assert.deepEqual(readback.body,template);
  const changedRead=patched.nodes.find(n=>n.name===read.name),changedRender=patched.nodes.find(n=>n.name===render.name);changedRender.parameters.options.response.response.outputPropertyName='changed';assert.equal(changedRead.parameters.options.response.response.outputPropertyName,undefined);assert.equal(changedRead.parameters.options.response.response.responseFormat,'json');
 });
+
+test('registration wrapper preserves the original reservation context used by provider routing and native publication',()=>{
+ const r={marca:'fish',canal:'email',nome:'fixture',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',preheader:'Fixture',assunto:'Example',corpo:'<p>{{ .Subscriber.Name }}</p>',botoes:[]};
+ const payload={name:'fixture',type:'tx',subject:'Example',body:'<p>{{ .Subscriber.Name }}</p>'},draft={draft_id:'d_fixture',version:1,brand:'fish',rascunho:r};
+ const original={_step:'meta_submeter',provider:'listmonk',claim_sql:'SYNTHETIC_RESERVE',draft,payload,payload_json:JSON.stringify(payload),idem:'fixture-key',who:'panel:fixture',draft_id:'d_fixture',corpoHash:'fixture-hash'};
+ const ctx={acao:'submeter',crm23_manager:true,who:'panel:fixture',idem:'fixture-key',corpoHash:'fixture-hash',draft_id:'d_fixture'};
+ const env={$:()=>({first:()=>({json:ctx})}),$input:{first:()=>({json:{draft}})}};
+ const guarded=run(N.registrationGuard('return [{json:'+JSON.stringify(original)+'}];'),env)[0].json;
+ assert.equal(guarded._step,'crm_email_native_compile');assert.equal(guarded.prepared.eligible,true);assert.equal(JSON.stringify(guarded.continuation),JSON.stringify(original));
+ for(const [key,value]of Object.entries(original))if(key!=='_step')assert.equal(JSON.stringify(guarded[key]),JSON.stringify(value),key);
+ const finish=run(N.FINISH,{$:()=>({first:()=>({json:guarded})}),$json:{statusCode:200,body:'<p>Fixture</p>'}})[0].json;assert.equal(JSON.stringify(finish),JSON.stringify(original));
+ // Exact published Resultado reserva: it explicitly reads Decide escrita again,
+ // rather than taking the restored continuation that reached the PG node.
+ const reservation="const r=$input.first().json.result;return [{json:r?.ready?{...$('Decide escrita').first().json,claim_id:r.claim_id,_step:'transportar'}:{_step:'resposta',...(r||{_http:500,_body:{erro:'reserva_indisponivel'}})}}];";
+ const reserved=run(reservation,{$:name=>{assert.equal(name,'Decide escrita');return{first:()=>({json:guarded})};},$input:{first:()=>({json:{result:{ready:true,claim_id:'fixture-claim'}}})}})[0].json;
+ assert.equal(reserved._step,'transportar');assert.equal(reserved.claim_id,'fixture-claim');assert.equal(reserved.provider,'listmonk');assert.equal(reserved.payload_json,original.payload_json);assert.equal(reserved.draft_id,original.draft_id);assert.equal(reserved.draft.version,1);assert.deepEqual(JSON.parse(reserved.payload_json),payload);
+ const rejected=run(N.FINISH,{$:()=>({first:()=>({json:guarded})}),$json:{statusCode:422,body:'native rejection'}})[0].json;assert.equal(rejected._step,'pg_escrita');assert.match(rejected.sql,/422/);assert.equal(rejected.provider,undefined);assert.equal(rejected.payload_json,undefined);
+});

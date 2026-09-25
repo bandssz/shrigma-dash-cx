@@ -69,7 +69,7 @@ const body={erro:'native_preview_required',erros:[{codigo:'EMAIL_NATIVE_PREVIEW'
 const quote=v=>"'"+String(v).replace(/'/g,"''")+"'",jsonb=v=>quote(JSON.stringify(v).replace(/\\{\\{/g,'\\\\u007b\\\\u007b').replace(/\\}\\}/g,'\\\\u007d\\\\u007d'))+'::jsonb';
 const insert='insert into shrigma_api_idempotencia(chave,rota,corpo_hash,resposta) values ('+quote(c.idem)+','+quote(c.acao)+','+quote(c.corpoHash)+','+jsonb({status:422,body})+')';
 const rejection={_step:'pg_escrita',sql:'select public.shrigma_template_apply_v2('+jsonb({ctx:{...c,snapshot:draft},status:422,body,statements:[insert]})+') as result'};
-return [{json:{_step:'crm_email_native_compile',native_kind:'compile',prepared,continuation:d,rejection}}];`;
+return [{json:{...d,_step:'crm_email_native_compile',native_kind:'compile',prepared,continuation:d,rejection}}];`;
 }
 function patchWorkflow(fresh,{expectedVersionId,expectedNodeHashes}={}){
  if(!expectedVersionId||fresh?.versionId!==expectedVersionId||!Array.isArray(fresh.nodes))throw Error('Fresh matching workflow required');
