@@ -1,0 +1,47 @@
+name: CRM email test isolation
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/email-test*'
+      - 'growth-email-test.js'
+      - 'growth-email-contract.js'
+      - 'tests/email-test*'
+      - 'tests/growth-email-test.test.cjs'
+      - 'tests/fixtures/email-test-fixture.cjs'
+      - '.github/workflows/email-test-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  email-test-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_DB: crm_email_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d crm_email_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test clients
+        run: npm install --prefix ../email-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Check synthetic protocol and independent-session contention
+        env:
+          NODE_PATH: ../email-test-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/crm_email_test
+          EMAIL_TEST_DATABASE_ISOLATED: '1'
+        run: |
+          node --test tests/email-test*.test.cjs tests/growth-email-test.test.cjs
+          node tests/email-test-concurrency-postgres.cjs
