@@ -30,6 +30,7 @@ const GENU={
  },
  async open(){
   if(GENU.busy()||!GEC.BRANDS[GRU.ctx.marca])return;
+  if(GRU.contextStatus().dirty){GRU.aviso('Salve ou feche o rascunho atual antes de copiar um e-mail publicado.','aviso');GRU.render();return;}
   let s;try{GENU.safeJournal();s={brand:GRU.ctx.marca,client:GENU.client(),templates:[],selected:null,draft:null,preview:null,confirmed:false,error:''};GENU.session=s;GRU.nativeEmailSession=true;GRU.state.ocupado='native_catalog';GRU.render();await s.client.capabilities();GENU.current(s);s.templates=await s.client.list(s.brand);GENU.current(s);}catch(e){if(s)s.error=e.message;else GRU.aviso(e.message,'erro');}finally{GRU.state.ocupado=null;GRU.render();document.getElementById('native-template-select')?.focus();}
  },
  async select(id){const s=GENU.session;if(!s||GRU.state.ocupado)return;s.draft=null;s.preview=null;s.confirmed=false;s.error='';try{GENU.current(s);const t=s.templates.find(t=>String(t.id)===String(id));if(!t)return;s.selected=t.id;s.draft=GENU.derive(t,s.brand);}catch(e){s.error=e.message;}GRU.render();},
