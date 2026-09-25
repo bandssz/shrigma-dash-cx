@@ -8,21 +8,9 @@ const GEE=(()=>{
  const NUMBER_FIELDS=new Set(['items_count','qty','quantity']);
  const ATTRIBUTES=new Set(['href','src','background','title','alt','aria-label']);
  const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
- // n8n can bridge Object/JSON across VM realms. Identity against one global
- // Object.prototype rejects ordinary records created in the other realm.
- // Accept only a genuine intrinsic Object prototype (or null), never a class
- // or a custom prototype that merely supplies a constructor/toString name.
+ const plain=o=>!!o&&typeof o==='object'&&!Array.isArray(o)&&(Object.getPrototypeOf(o)===Object.prototype||Object.getPrototypeOf(o)===null);
+ // Reference used only by the value-free diagnostic helper, never acceptance.
  const intrinsicObjectSource=Function.prototype.toString.call(({}).constructor);
- // Some bridges hide prototype metadata behind stable wrappers. Capture only
- // prototypes of fresh module-created records; never learn identities from input.
- const intrinsicRecordPrototypes=new Set([Object.getPrototypeOf({}),Object.getPrototypeOf(JSON.parse('{}')),Object.prototype]);
- const plain=o=>{
-  if(!o||typeof o!=='object'||Array.isArray(o))return false;
-  const proto=Object.getPrototypeOf(o);if(proto===null||intrinsicRecordPrototypes.has(proto))return true;
-  if(Object.getPrototypeOf(proto)!==null)return false;
-  const ctor=Object.getOwnPropertyDescriptor(proto,'constructor');
-  return !!ctor&&typeof ctor.value==='function'&&ctor.value.prototype===proto&&Function.prototype.toString.call(ctor.value)===intrinsicObjectSource;
- };
  const bad=(code,start=0,end=start)=>{const e=Error(code);e.code=code;e.start=start;e.end=end;throw e;};
  const wellFormed=s=>!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(s);
  const stringOK=s=>typeof s==='string'&&s.length<=LIMITS.string&&wellFormed(s)&&!/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(s);

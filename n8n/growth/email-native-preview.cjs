@@ -6,6 +6,13 @@ const ENP=(()=>{
  const RECIPIENT='felipebandeira@oaristocrata.com',PREFIX='✅ FINAL — ';
  const fail=code=>Object.assign(new Error(code),{code});
  const copy=x=>JSON.parse(JSON.stringify(x));
+ // Only call for our internally assembled synthetic context or GEE's validated
+ // typed copy. Never normalize a caller-provided draft/context this way.
+ function internalRecords(value){
+  if(Array.isArray(value))return value.map(internalRecords);
+  if(value&&typeof value==='object'){const out=Object.create(null);for(const [key,item]of Object.entries(value))out[key]=internalRecords(item);return out;}
+  return value;
+ }
  const simple=/^\.Tx\.Data\.[A-Za-z][A-Za-z0-9_]{0,63}$/;
  const forbiddenKeys=new Set(['__proto__','prototype','constructor']);
  function profile(brand){
@@ -38,13 +45,13 @@ const ENP=(()=>{
      sub={Name:subscriber.name,UUID:subscriber.uuid};subscriber_context='fixed_recipient';
     }else{sub={Name:'Assinante fictício',UUID:'00000000-0000-4000-8000-000000000001'};subscriber_context='synthetic';}
    }
-   const context={Tx:{Data:data},Subscriber:sub},check=deps.GEE.validateContext(context);
+   const context=internalRecords({Tx:{Data:data},Subscriber:sub}),check=deps.GEE.validateContext(context);
    if(!check.ok){
     const codes=['EMAIL_CONTEXT_SHAPE','EMAIL_CONTEXT_FIELD','EMAIL_CONTEXT_TYPE','EMAIL_CONTEXT_ITEMS','EMAIL_CONTEXT_URL','EMAIL_CONTEXT_SUBSCRIBER','EMAIL_CONTEXT_LIMIT'];
     const diagnostic=deps.GEE.diagnoseContext(context);
     return {eligible:false,code:'preview_context_invalid',contract:POLICY,context_diagnostic:{...diagnostic,validation_code:codes.includes(check.errors?.[0]?.code)?check.errors[0].code:'CONTEXT_VALIDATION_FAILED'}};
    }
-   const source=deps.GEE.buildPreviewEnvelope(parsed.payload.body,check.value),subject=parsed.payload.subject.replace(/\{\{\s*\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g,(_,k)=>{if(typeof data[k]!=='string'&&typeof data[k]!=='number')throw fail('unsupported_subject_variable');return String(data[k]);});
+   const source=deps.GEE.buildPreviewEnvelope(parsed.payload.body,internalRecords(check.value)),subject=parsed.payload.subject.replace(/\{\{\s*\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g,(_,k)=>{if(typeof data[k]!=='string'&&typeof data[k]!=='number')throw fail('unsupported_subject_variable');return String(data[k]);});
    const material={policy:POLICY,profile:PROFILE,brand:r.marca,subject:parsed.payload.subject,from_email:r.from_email,reply_to:r.reply_to,preheader:r.preheader,body:parsed.payload.body,context:check.value};
    if(typeof deps.digest!=='function')throw fail('preview_hash_unavailable');
    const source_hash=deps.digest(material);if(!/^[a-f0-9]{64}$/.test(source_hash))throw fail('preview_hash_unavailable');
