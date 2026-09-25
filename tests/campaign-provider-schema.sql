@@ -18,7 +18,7 @@ INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,heade
  VALUES(100,'Draft','Subject','contato@fishermans.com.br','<p>Original</p>','Original','html',
  '[{"Reply-To":"old@fishermans.com.br","X-SES-CONFIGURATION-SET":"cs-fishermans-mkt"},{"X-Other":"keep"}]',
  'draft',ARRAY['old'],'regular','email',1,0,
- '{"other":"keep","crm":{"policy":"crm-campaign-v1","brand":"fish","initiative_key":"week","initiative_name":"Week","utm_campaign":"week","created_operation_id":"keep"}}',now()+interval '1 day');
+ '{"other":"keep","crm":{"policy":"crm-campaign-v1","brand":"fish","initiative_key":"week","initiative_name":"Week","utm_campaign":"week","created_operation_id":"keep"}}',date_trunc('milliseconds',now())+interval '1 day');
 INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(100,3,'Fish');
 INSERT INTO campaign_media(campaign_id,media_id,filename) VALUES(100,1,'attachment.pdf');
 INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs,send_at)

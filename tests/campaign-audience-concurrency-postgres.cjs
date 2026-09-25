@@ -30,6 +30,15 @@ if(process.env.CAMPAIGN_TEST_DATABASE_ISOLATED!=='1'||!target||!['localhost','12
    assert.equal((await current()).status,'draft');
    const stored=(await c.query('SELECT state,response FROM shrigma_campaign_operation WHERE id=$1',[op.id])).rows[0];assert.equal(stored.state,'pending');assert.equal(stored.response,null);
   }
+  // The public timestamp contract is millisecond-precise. A row changed outside
+  // that contract must fail atomically, never silently round its send time.
+  await a.query("BEGIN;SELECT set_config('shrigma.campaign_writer','100',true);UPDATE campaigns SET send_at=send_at+interval '1 microsecond' WHERE id=100;COMMIT");
+  const microReview=await review(),microOp=await claim(),microPayload=await payload(microReview,microOp);
+  await assert.rejects(b.query("SELECT shrigma_campaign_provider('schedule',$1::jsonb)",[JSON.stringify(microPayload)]),/CAMPAIGN_RECEIPT_MISMATCH/);
+  assert.equal((await current()).status,'draft');
+  const microStored=(await c.query('SELECT state,response FROM shrigma_campaign_operation WHERE id=$1',[microOp.id])).rows[0];
+  assert.equal(microStored.state,'pending');assert.equal(microStored.response,null);
+  await a.query("BEGIN;SELECT set_config('shrigma.campaign_writer','100',true);UPDATE campaigns SET send_at=date_trunc('milliseconds',send_at) WHERE id=100;COMMIT");
   const v=await review(),op=await claim(),p=await payload(v,op);
   const r=(await b.query("SELECT shrigma_campaign_provider('schedule',$1::jsonb) c",[JSON.stringify(p)])).rows[0].c;
   const stored=(await c.query('SELECT state,response FROM shrigma_campaign_operation WHERE id=$1',[op.id])).rows[0];
