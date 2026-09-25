@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=64b25b58a919">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DRIpnBxiQbKt5yupgy2Ytqs8AdGCJIEGi74BGtFMZUs='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-pwkBgByY6hAlHqGsLINcHuslxQLS12RcZ8cajatMX9U='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -241,7 +241,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=1ca30beba255"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=2e0cb6cfa47a"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -511,7 +511,7 @@ function render(){
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
   if(!car){
-    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período.</div>';
+    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>';
   } else {
     // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
     // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".
@@ -568,7 +568,7 @@ function render(){
       <div class="barra"><i style="width:${100*c.receita/mx}%;background:${cor(c.marca)}"></i></div>
       <div class="num tabn">${rf(c.receita)}</div>
       <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
-  }).join(''):'<div class="vazio">Sem conversão atribuída no período.</div>';
+  }).join(''):'<div class="vazio">Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.</div>';
 
   $('#n-conv').textContent=conv.length||'';
   $('#th-conv-grao').textContent=GRAO==='peca'?'Peça':GRAO==='campanha'?'Campanha':'Família';
@@ -592,7 +592,7 @@ function render(){
       <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
       <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período.'}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
   $('#nota-conv').innerHTML=GA.valid(API)?`<strong>${esc(GA.models[GA.model(API)])} · 30 dias.</strong> ${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'} Receita líquida recebida, descontados reembolsos. <strong>Assistido</strong> = outro toque CRM dentro da janela, sem crédito final nesta linha. A mesma compra pode assistir mais de uma linha; não some assistências entre campanhas. Família consolida pedidos únicos da iniciativa. Jornadas ainda indisponíveis ficam pendentes. Dados anteriores à cobertura conciliada ficam fora desta atribuição.`:`Fonte anterior: último clique não direto, janela nominal de 30 dias. Atribuição ainda não reconciliada para esta marca.`;
 
@@ -601,7 +601,7 @@ function render(){
   $('#regua-rot').textContent=fl.length?`${fl.length} peças`:'';
   const cvr=G.campVsRegua(API,MARCA,ini,fim);
   if(!cvr){
-    $('#area-cvr').innerHTML='<div class="vazio">Nenhum e-mail no período — a régua é medida desde 16/08/2026.</div>';
+    $('#area-cvr').innerHTML='<div class="vazio">Nenhum e-mail no período. Amplie o período; esta medição começa em 16/08/2026.</div>';
   }else{
     const mx=Math.max(cvr.campanha.env,cvr.regua.env,1);
     $('#area-cvr').innerHTML=[['Campanha',cvr.campanha],['Régua',cvr.regua]].map(([rot,x])=>`
@@ -663,7 +663,7 @@ function render(){
         <div><span class="mini">UTM</span><code>${esc(c.utm_campaign||'sem utm')}</code><br><code>${esc(c.utm_content||'—')}</code></div>
         ${c.grupo?`<div><span class="mini">Disparos no grupo</span><strong>#${esc(c.grupo.grupo)}</strong><span class="mini">mesmo e-mail, bases diferentes</span></div>`:''}
       </div></td></tr>`;
-  }).join(''):`<tr><td colspan="8"><div class="vazio">${cs.length?`Nenhuma peça contém "${esc(TABELAS.camp.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="camp">Limpar busca</button>`:'Nenhuma peça disparada no período.'}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="8"><div class="vazio">${cs.length?`Nenhuma peça contém "${esc(TABELAS.camp.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="camp">Limpar busca</button>`:'Nenhuma campanha enviada no período. Amplie o período ou use Preparar campanha para criar uma nova.'}</div></td></tr>`;
   GT.restaura($('#tab-camp tbody'),campAbertas);
   $('#tab-camp [data-limpar]')?.addEventListener('click',()=>{TABELAS.camp.q='';$('#camp-busca').value='';render();});
   document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
@@ -701,7 +701,7 @@ function render(){
       <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
       <div class="num tabn">${p===undefined?'—':nf(p)}</div>
       <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;
-  }).join(''):'<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
+  }).join(''):'<div class="vazio">Nenhum segmento disponível nesta marca. Clique em Atualizar para conferir a segmentação da base.</div>';
 
   renderTestes();
 
