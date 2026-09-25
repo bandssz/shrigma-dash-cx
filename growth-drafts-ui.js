@@ -233,8 +233,8 @@ const GRU={
   emailTestSummary(op){
     const r=op.receipt||op.operation||{},s=r.ses||{};
     if(op.phase==='rejected')return GRU.emailTestReason(r.code);
-    if(s.delivery)return 'Entrega confirmada pelo SES.';
     if(s.bounce||s.complaint||s.reject||s.rendering_failure)return 'O SES registrou uma falha ou reclamação. Não repita esta versão.';
+    if(s.delivery)return 'Entrega confirmada pelo SES.';
     if(r.http_accepted)return 'Envio aceito; entrega ainda não confirmada.';
     if(s.send)return 'Envio registrado pelo SES; entrega ainda não confirmada.';
     return 'Resultado não confirmado. Consulte esta tentativa; não envie novamente.';

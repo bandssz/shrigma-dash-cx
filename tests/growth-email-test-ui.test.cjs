@@ -65,3 +65,10 @@ test('Escape closes confirmation without a durable attempt and duplicate confirm
  const s=setup();await s.ui.emailTestPrepare(s.ui.state.rascunho);const event=new s.window.Event('keydown',{bubbles:true,cancelable:true});event.key='Escape';s.$('#d-email-test-confirm').dispatchEvent(event);assert.equal(event.defaultPrevented,true);assert.equal(s.ui.emailTestSession,null);assert.equal(s.values.has('shrigma_crm_email_tests_v1'),false);
  await s.ui.emailTestPrepare(s.ui.state.rascunho);const first=s.ui.emailTestSend();await s.ui.emailTestSend();await first;assert.equal(s.calls.filter(x=>x.method==='POST').length,1);
 });
+test('a later complaint or failure remains visible even if delivery was recorded earlier',()=>{
+ const s=setup();
+ for(const flag of ['complaint','bounce','reject','rendering_failure']){
+  assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{delivery:'2026-09-24T23:00:00Z',[flag]:'2026-09-24T23:01:00Z'}}}),/falha ou reclamação/);
+ }
+ assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{}}}),/ainda não confirmada/);
+});
