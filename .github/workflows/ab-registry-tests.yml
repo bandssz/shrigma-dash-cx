@@ -2,11 +2,9 @@ name: A/B registry durable operations
 on:
   pull_request:
     paths:
-      - 'n8n/growth/ab-registry*'
-      - 'n8n/growth/ab-operator*'
+      - 'n8n/growth/ab-*'
       - 'n8n/access/panel-operator.sql'
-      - 'tests/ab-registry*'
-      - 'tests/ab-operator*'
+      - 'tests/ab-*'
       - 'tests/growth-ab-*'
       - 'growth-ab-*'
       - 'growth.html'
@@ -49,3 +47,44 @@ jobs:
           TEST_DATABASE_URL: postgres://synthetic@localhost:5432/ab_registry_test
           AB_TEST_DATABASE_ISOLATED: '1'
         run: node tests/ab-registry-concurrency-postgres.cjs
+  isolated-experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: ab_experiment_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d ab_experiment_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated test dependencies
+        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Check operator access, allocation, result and selection
+        env:
+          NODE_PATH: ../ab-test-tools/node_modules
+        run: node --test tests/ab-operator.test.cjs tests/ab-experiment-contract.test.cjs tests/ab-experiment-core.test.cjs tests/ab-listmonk-selection.test.cjs
+      - name: Check independent sessions against empty PostgreSQL
+        env:
+          NODE_PATH: ../ab-test-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/ab_experiment_test
+          AB_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/ab-experiment-concurrency-postgres.cjs
+      - name: Check complete pinned upstream queries in synthetic database
+        env:
+          NODE_PATH: ../ab-test-tools/node_modules
+          AB_UPSTREAM_SOURCE: /tmp/listmonk-v6.1.0-campaigns.sql
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --output "$AB_UPSTREAM_SOURCE" https://raw.githubusercontent.com/knadh/listmonk/v6.1.0/queries/campaigns.sql
+          node tests/ab-listmonk-upstream-proof.cjs
