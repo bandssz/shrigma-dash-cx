@@ -925,3 +925,24 @@ test('compact conversion note retains model, refund basis, coverage exclusion an
  assert.match(visible.textContent,/Último clique · 30 dias/);assert.match(visible.textContent,/Receita após reembolsos/);assert.match(visible.textContent,/Jornadas indisponíveis ficam pendentes/);assert.match(visible.textContent,/Datas fora da cobertura conciliada/);assert.match(visible.textContent,/Não some assistências entre campanhas/);assert.match(note.querySelector('details').textContent,/sem crédito final.*pedidos únicos/);assert.match(note.querySelector('[title*="última visita"]').title,/inclusive retorno direto/);
  x.run("API._attribution_model='last_non_direct';render()");assert.match(x.document.querySelector('#nota-conv').textContent,/Último clique não direto · 30 dias/);assert.match(x.document.querySelector('#nota-conv [title]').title,/Desconsidera retornos diretos/);
 });
+
+test('queue distinguishes unavailable native state from real schedules and clears previous brand rows',async()=>{
+ const p=fixture();p.crm_campanha.push(
+  {...p.crm_campanha[0],marca:'fish',campanha_id:2,tipo:'agendada',nome:'Fish future schedule',enviados:0,enviado_em:'2026-09-09T14:00:00Z'},
+  {...p.crm_campanha[0],marca:'aristo',campanha_id:3,tipo:'rascunho',nome:'Aristo returned draft',enviados:0},
+  {...p.crm_campanha[0],marca:'aristo',campanha_id:4,tipo:'indisponivel',nome:'Aristo missing native',enviados:0});
+ const x=await boot(p);x.run("MARCA='aristo';CANAL='email';render()");
+ assert.equal(x.document.querySelector('#painel-fila').hidden,false);
+ assert.equal(x.document.querySelector('#fila-rot').textContent,'');
+ assert.equal(x.document.querySelector('#tab-fila').hidden,true);
+ assert.equal(x.document.querySelector('#fila-nota').hidden,true);
+ assert.equal(x.document.querySelector('#fila-indisponivel').textContent,'1 campanha sem estado confirmado.');
+ assert.match(x.document.querySelector('#fila-indisponivel').title,/não é contada como agendada nem como envio/);
+ x.run("MARCA='fish';render()");
+ assert.equal(x.document.querySelector('#fila-rot').textContent,'1 agendada');
+ assert.equal(x.document.querySelector('#fila-indisponivel').hidden,true);
+ assert.equal(x.document.querySelector('#tab-fila').hidden,false);
+ assert.match(x.document.querySelector('#tab-fila tbody').textContent,/Fish future schedule/);
+ assert.doesNotMatch(x.document.querySelector('#tab-fila tbody').textContent,/Aristo/);
+ x.run("MARCA='aristo';CANAL='whatsapp';render()");assert.equal(x.document.querySelector('#painel-fila').hidden,true);
+});

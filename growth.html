@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cfe9284c3e6b">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MNeC5SGfCeoLsMVAD8CsKbAhxmUDZ5gD/1UQZ5wVrDk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Hwx8kzOBc63RUEedpGYQcb+mzCfx0YN57l11KnTKWkk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -104,10 +104,11 @@
     </section>
     <section class="painel" id="painel-fila" hidden>
       <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
+      <p class="mini" id="fila-indisponivel" hidden></p>
       <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
         <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th><th>UTM</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
+      <div class="nota" id="fila-nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
         <span class="control-badge" tabindex="0" title="Sem UTM no link da loja, a receita não pode ser atribuída depois. Links para fora da loja, como grupos de WhatsApp, usam outra forma de atribuição, como cupom ou coorte.">Como a UTM funciona</span></div>
     </section>
   </div>
@@ -241,7 +242,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=440b6c5aface"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=b5689075505f"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -617,7 +618,15 @@ function render(){
   GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp?.workflows||null});
 
   const fila=G.fila(API,MARCA,CANAL);
-  $('#painel-fila').hidden=!fila.length;
+  const filaIndisponivel=G.filaIndisponivel(API,MARCA,CANAL);
+  $('#painel-fila').hidden=!fila.length&&!filaIndisponivel.length;
+  $('#tab-fila').hidden=!fila.length;
+  $('#fila-nota').hidden=!fila.length;
+  $('#fila-rot').textContent=fila.length?`${fila.length} agendada${fila.length>1?'s':''}`:'';
+  $('#fila-indisponivel').hidden=!filaIndisponivel.length;
+  $('#fila-indisponivel').textContent=filaIndisponivel.length
+    ?`${filaIndisponivel.length} campanha${filaIndisponivel.length>1?'s':''} sem estado confirmado.`:'';
+  $('#fila-indisponivel').title='A fonte não confirmou o estado atual. Esta campanha não é contada como agendada nem como envio; confira o cadastro antes de operar.';
   if(fila.length){
     $('#fila-rot').textContent=`${fila.length} agendada${fila.length>1?'s':''}`;
     $('#tab-fila tbody').innerHTML=fila.map(c=>{
