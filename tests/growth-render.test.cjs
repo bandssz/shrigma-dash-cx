@@ -349,18 +349,18 @@ test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave
 test('rascunhos: criar, salvar só no navegador, sobreviver ao refresh, exportar, importar e excluir — sem publicar/ativar',async()=>{
  const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');
- assert.equal(root().hidden,false);assert.match(root().textContent,/Rascunhos salvos só neste dispositivo/);assert.match(root().textContent,/Nenhum rascunho neste dispositivo/);
+ assert.equal(root().hidden,false);assert.match(root().textContent,/Rascunhos neste dispositivo/);assert.match(root().textContent,/Nenhum rascunho neste dispositivo/);
  x.run('trocaMarca("fish")');root().querySelector('#drafts-novo').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
  set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');
  assert.equal(root().querySelectorAll('[data-exemplo]').length,2);
  set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
  assert.match(root().querySelector('#d-preview').textContent,/Olá Ana, seu pedido #123 saiu\./);
- assert.match(root().querySelector('.draft-preview-head').textContent,/não é o template publicado/);
+ assert.match(root().querySelector('.draft-preview-head').textContent,/Rascunho/);
  root().querySelector('#d-botao-add').click();set('[data-botao-campo="tipo"]','url');set('[data-botao-campo="texto"]','Acompanhar');set('[data-botao-campo="valor"]','https://wa.me/5541');
  assert.match(root().querySelector('#d-checagens').textContent,/wa\.me/);
  set('[data-botao-campo="valor"]','https://fishermans.com.br/suporte');
- assert.match(root().querySelector('#d-checagens').textContent,/Checagens locais ok/);
+ assert.match(root().querySelector('#d-checagens').textContent,/Conteúdo conferido/);
  assert.equal([...root().querySelectorAll('button')].filter(b=>/publicar|submeter|ativar|enviar/i.test(b.textContent)).length,0);
  root().querySelector('#d-salvar').click();
  assert.match(root().textContent,/salvo neste dispositivo/);
@@ -542,20 +542,20 @@ test('the UI harness waits for the action promise while native crypto is still p
 test('sem capabilities nada muda: nenhum botão de servidor, rascunho segue só neste dispositivo',async()=>{
  const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=x.document.querySelector('#control-drafts');root.querySelector('#drafts-novo').click();
- assert.match(root.textContent,/Rascunhos salvos só neste dispositivo/);
+ assert.match(root.textContent,/Rascunhos neste dispositivo/);
  assert.equal([...root.querySelectorAll('button')].filter(b=>/servidor|validar|submeter|publicar|ativar/i.test(b.textContent)).length,0);
  assert.equal(root.querySelector('#drafts-filtro'),null);assert.equal(root.querySelector('.draft-steps'),null);
  const y=await boot({...fixture(),capabilities:CONTRATO.capabilities}); // declaradas, mas sem endpoint
  y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="drafts"]').click();
  const ry=y.document.querySelector('#control-drafts');ry.querySelector('#drafts-novo').click();
- assert.match(ry.textContent,/não informou o endereço da API de templates/);assert.equal(ry.querySelector('#d-servidor'),null);
+ assert.match(ry.textContent,/Publicação indisponível/);assert.equal(ry.querySelector('#d-servidor'),null);
 });
 test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e depois ok) → submeter com palavra digitada → acompanhar até publicado · não ativo',async()=>{
  const api=apiFalsa();
  const x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');x.run('GRU.render()');
  x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');
- assert.match(root().textContent,/com envio ao servidor/);assert.match(root().textContent,/Chave de escrita: informada/);
+ assert.match(root().textContent,/Publicar não envia mensagens/);assert.match(root().textContent,/Acesso de edição disponível/);
  x.run('trocaMarca("fish")');root().querySelector('#drafts-novo').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
  set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
@@ -579,11 +579,11 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  // 3) validar: primeiro a API recusa (422), depois aceita
  api.responde('validar',422,CONTRATO.validar_422);
  await clickAction(x,root().querySelector('#d-validar'),'validarServidor');
- assert.match(root().querySelector('#d-checagens').textContent,/API: Corpo com 1025 caracteres; limite 1024\. \(corpo\)/);assert.match(root().textContent,/recusada com recibo/);
+ assert.match(root().querySelector('#d-checagens').textContent,/Corpo com 1025 caracteres; limite 1024\. \(corpo\)/);assert.match(root().textContent,/recusada com recibo/);
  assert.equal(root().querySelector('#d-submeter'),null);assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
  api.responde('validar',200,{...CONTRATO.validar_ok,avisos:[{codigo:'UTILITY_OFFER_WORDING',mensagem:'Tom promocional.'}]});
  await clickAction(x,root().querySelector('#d-validar'),'validarServidor');
- assert.match(root().textContent,/Validado pela API com 1 aviso/);assert.ok(root().querySelector('#d-submeter'));assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'validado');
+ assert.match(root().textContent,/Conteúdo conferido com 1 aviso/);assert.ok(root().querySelector('#d-submeter'));assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'validado');
  // 4) submeter: confirmação textual obrigatória
  root().querySelector('#d-submeter').click();
  const conf=()=>root().querySelector('#d-confirmar');assert.ok(conf());assert.match(conf().textContent,/Submeter à Meta o rascunho v1/);assert.match(conf().textContent,/Tom promocional/);assert.match(conf().textContent,/vira "publicado · não ativo"\. Nenhum workflow muda/);
