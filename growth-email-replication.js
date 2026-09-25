@@ -2,6 +2,7 @@
 'use strict';
 const GER=(()=>{
  const contract=()=>typeof GEC!=='undefined'?GEC:require('./growth-email-contract.js');
+ const expressions=()=>typeof GEE!=='undefined'?GEE:require('./growth-email-expressions.js');
  const drafts=()=>typeof GR!=='undefined'?GR:require('./growth-drafts.js');
  const clone=v=>JSON.parse(JSON.stringify(v));
  const fail=message=>{throw Error(message);};
@@ -46,16 +47,41 @@ const GER=(()=>{
  function strings(r){const out=[];for(const k of ['nome','peca','cabecalho','corpo','rodape','assunto','preheader','from_email','reply_to'])out.push({key:k,value:String(r[k]||'')});(r.botoes||[]).forEach((b,i)=>{for(const k of ['texto','valor','exemplo_url'])if(b[k]!==undefined)out.push({key:`botoes.${i}.${k}`,value:String(b[k])});});Object.entries(r.exemplos||{}).forEach(([k,v])=>out.push({key:'exemplos.'+k,value:String(v)}));return out;}
  function put(r,key,value){const p=key.split('.');if(p.length===1)r[key]=value;else if(p[0]==='botoes')r.botoes[+p[1]][p[2]]=value;else r.exemplos[p[1]]=value;}
  function scan(text,field){
-  const hits=[],add=(start,end,context,resource=false)=>{if(hits.length>=100)fail('Este e-mail tem muitos endereços. Simplifique o conteúdo antes de copiar.');if(start>=end||hits.some(h=>start<h.end&&end>h.start))return;const raw=text.slice(start,end);if(raw.length>4096)fail('Um endereço é longo demais para esta revisão. Simplifique o recurso no template.');if(raw.trim())hits.push({start,end,raw,context,field,resource});};
-  // CSS and VML are scanned as source, including conditional comments.
-  for(const m of text.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)){const start=m.index+m[0].indexOf(m[2]);add(start,start+m[2].length,'css',true);}
-  for(const m of text.matchAll(/\b(?:href|src|background|action|poster)\s*=\s*(['"])(.*?)\1/gi)){const start=m.index+m[0].indexOf(m[1])+1;add(start,start+m[2].length,'attribute',/^(?:src|background|poster)\s*=/i.test(m[0]));}
-  for(const m of text.matchAll(/\b(?:href|src|background|action|poster)\s*=\s*([^\s'"=<>`]+)/gi)){const start=m.index+m[0].lastIndexOf(m[1]);add(start,start+m[1].length,'attribute',/^(?:src|background|poster)\s*=/i.test(m[0]));}
-  for(const m of text.matchAll(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi))add(m.index,m.index+m[0].length,'text');
-  for(const m of text.matchAll(/(?:https?:\/\/|\/\/|mailto:|tel:)[^\s<>"'\\]+/gi)){let raw=m[0].replace(/[),.;]+$/,'');add(m.index,m.index+raw.length,'text');}
-  for(const m of text.matchAll(/(?:www\.)?(?:fishermans\.com\.br|oaristocrata\.com)(?:\/[^\s<>"']*)?/gi))add(m.index,m.index+m[0].length,'text');
+  const hits=[],add=(start,end,context,resource=false,value)=>{if(hits.length>=100)fail('Este e-mail tem muitos endereços. Simplifique o conteúdo antes de copiar.');if(start>=end||hits.some(h=>start<h.end&&end>h.start))return;const raw=text.slice(start,end);if(raw.length>4096)fail('Um endereço é longo demais para esta revisão. Simplifique o recurso no template.');if(raw.trim())hits.push({start,end,raw,context,field,resource,value:value??raw});};
+  let masked=text;
+  if(text.includes('{{')){
+   const parsed=expressions().parse(text,{html:field==='corpo'});if(!parsed.ok)fail('As variáveis deste template precisam de revisão antes da cópia.');
+   masked=parsed.safetySource;
+   // Literal token ranges include Go quotes. Never infer HTML boundaries from these quotes.
+   for(const literal of parsed.literals.filter(l=>l.type==='string')){
+    const value=literal.value;if(!/^(?:https?:\/\/|\/\/|mailto:|tel:|\/)|(?:fishermans\.com\.br|oaristocrata\.com)/i.test(value))continue;
+    const attr=parsed.attributes.find(a=>literal.start>=a.valueStart&&literal.end<=a.valueEnd);
+    add(literal.start,literal.end,'go-literal',!!attr&&['src','background','poster'].includes(attr.name),value);
+   }
+   for(const attr of parsed.attributes.filter(a=>['href','src','background','action','poster'].includes(a.name))){
+    if(hits.some(h=>h.start>=attr.valueStart&&h.end<=attr.valueEnd))continue;
+    add(attr.valueStart,attr.valueEnd,'attribute',['src','background','poster'].includes(attr.name));
+   }
+  }
+  // Static CSS/VML also remain visible, including conditional comments.
+  for(const m of masked.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)){const start=m.index+m[0].indexOf(m[2]);add(start,start+m[2].length,'css',true);}
+  for(const m of masked.matchAll(/\b(?:href|src|background|action|poster)\s*=\s*(['"])(.*?)\1/gi)){const start=m.index+m[0].indexOf(m[1])+1;add(start,start+m[2].length,'attribute',/^(?:src|background|poster)\s*=/i.test(m[0]));}
+  for(const m of masked.matchAll(/\b(?:href|src|background|action|poster)\s*=\s*([^\s'"=<>`]+)/gi)){const start=m.index+m[0].lastIndexOf(m[1]);add(start,start+m[1].length,'attribute',/^(?:src|background|poster)\s*=/i.test(m[0]));}
+  for(const m of masked.matchAll(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi))add(m.index,m.index+m[0].length,'text');
+  for(const m of masked.matchAll(/(?:https?:\/\/|\/\/|mailto:|tel:)[^\s<>"'\\]+/gi)){let raw=m[0].replace(/[),.;]+$/,'');add(m.index,m.index+raw.length,'text');}
+  for(const m of masked.matchAll(/(?:www\.)?(?:fishermans\.com\.br|oaristocrata\.com)(?:\/[^\s<>"']*)?/gi))add(m.index,m.index+m[0].length,'text');
   if(/^(?:botoes\.\d+\.(?:valor|exemplo_url))$/.test(field)&&!hits.length)add(0,text.length,'text');
   return hits.sort((a,b)=>a.start-b.start);
+ }
+ function adaptNative(text,field,adapt){
+  if(!text.includes('{{'))return text;
+  const p=expressions().parse(text,{html:field==='corpo'});if(!p.ok)fail('As variáveis deste template precisam de revisão antes da cópia.');
+  let out='',cursor=0;
+  for(const a of p.actions){out+=adapt(text.slice(cursor,a.start));let pos=a.start;
+   for(const l of p.literals.filter(l=>l.type==='string'&&l.start>=a.start&&l.end<=a.end)){out+=text.slice(pos,l.start)+expressions().encodeLiteral(adapt(l.value));pos=l.end;}
+   out+=text.slice(pos,a.end);cursor=a.end;
+  }
+  return out+adapt(text.slice(cursor));
  }
  function pending(source,journal){
   if(source?.servidor?.pendente)return true;
@@ -71,11 +97,11 @@ const GER=(()=>{
   const adapt=segment=>decode(segment).toLowerCase().includes(contract().BRANDS[from].domain)?segment:brandText(segment,from,to);
   for(const entry of strings(r)){
    if(['from_email','reply_to'].includes(entry.key))continue;
-   const hits=scan(entry.value,entry.key);let cursor=0,out='';
-   for(const hit of hits){out+=adapt(entry.value.slice(cursor,hit.start))+hit.raw;cursor=hit.end;
-    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.raw,false),clean=tracking(normalized,{inherited:true}),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:clean.url,original_url:normalized,tracking_removed:clean.removed,directRequired:clean.directRequired,kind:clean.directRequired?'personal':origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
+   const native=entry.value.includes('{{');if(native)entry.value=adaptNative(entry.value,entry.key,adapt);const hits=scan(entry.value,entry.key);let cursor=0,out='';
+   for(const hit of hits){out+=(native?entry.value.slice(cursor,hit.start):adapt(entry.value.slice(cursor,hit.start)))+hit.raw;cursor=hit.end;
+    let link=links.find(l=>l.raw===hit.raw);if(!link){const normalized=decode(hit.value,false),clean=tracking(normalized,{inherited:true}),origin=sourceRemains(normalized,from),dynamic=/\{\{/.test(normalized),relative=!/^(?:https?:)?\/\/|^mailto:|^tel:/i.test(normalized);link={id:'url'+links.length,raw:hit.raw,url:clean.url,original_url:normalized,tracking_removed:clean.removed,directRequired:clean.directRequired,kind:clean.directRequired?'personal':origin?'origin':dynamic?'dynamic':relative?'relative':'external',resource:hit.resource,fields:[]};links.push(link);if(links.length>100)fail('Revise um template com até 100 endereços por vez.');}link.resource=link.resource&&hit.resource;if(!link.fields.includes(entry.key))link.fields.push(entry.key);
    }
-   out+=adapt(entry.value.slice(cursor));put(r,entry.key,out);
+   out+=native?entry.value.slice(cursor):adapt(entry.value.slice(cursor));put(r,entry.key,out);
   }
   const b=contract().BRANDS[to];r.from_email=b.name+' <contato@'+b.domain+'>';r.reply_to='contato@'+b.domain;r.nome=(r.nome||'Template')+' — cópia '+b.name;
   return {from,to,source_id:source.id,source_content:JSON.stringify(drafts().conteudo(source)),source_server:JSON.stringify(source.servidor||null),content:r,links};
@@ -109,13 +135,13 @@ const GER=(()=>{
   }
   for(const entry of strings(r)){
    const hits=scan(entry.value,entry.key);let out='',cursor=0;
-   for(const hit of hits){const target=replacements.get(hit.raw);if(target===undefined){if(['from_email','reply_to'].includes(entry.key))continue;fail('Os links mudaram durante a revisão. Reabra a cópia.');}out+=entry.value.slice(cursor,hit.start)+(hit.context==='attribute'?target.replaceAll('&','&amp;'):target);cursor=hit.end;}out+=entry.value.slice(cursor);put(r,entry.key,out);
+   for(const hit of hits){const target=replacements.get(hit.raw);if(target===undefined){if(['from_email','reply_to'].includes(entry.key))continue;fail('Os links mudaram durante a revisão. Reabra a cópia.');}out+=entry.value.slice(cursor,hit.start)+(hit.context==='go-literal'?expressions().encodeLiteral(target):hit.context==='attribute'?target.replaceAll('&','&amp;'):target);cursor=hit.end;}out+=entry.value.slice(cursor);put(r,entry.key,out);
   }
   if(strings(r).some(e=>sourceRemains(e.value,plan.from)))fail('Ainda há referência à marca de origem no conteúdo, HTML ou estilo. Revise o rascunho original e reabra a cópia.');
   const errors=[...contract().envelopeErrors(r),...contract().documentErrors(r)].map(e=>e.mensagem);const validation=drafts().valida(r);if(errors.length||validation.erros.length)fail([...new Set([...errors,...validation.erros])].join(' '));
   return drafts().conteudo(r);
  }
- const urls=r=>[...new Set(strings(r).filter(e=>!['from_email','reply_to'].includes(e.key)).flatMap(e=>scan(e.value,e.key).map(h=>decode(h.raw,false))))];
+ const urls=r=>[...new Set(strings(r).filter(e=>!['from_email','reply_to'].includes(e.key)).flatMap(e=>scan(e.value,e.key).map(h=>decode(h.value,false))))];
  return {prepare,apply,pending,decode,sourceRemains,urls,campaigns};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=GER;
