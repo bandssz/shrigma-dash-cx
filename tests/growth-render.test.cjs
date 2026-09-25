@@ -856,3 +856,25 @@ test('a template preparation cannot silently inherit a different server draft id
  const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);confirm=()=>true;trocaMarca('aristo');GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
  assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'original-server-id');assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.match(x.run('GRU.contextError'),/vínculo/);assert.equal(x.run('GRU.prontaEscrita(GRU.state.rascunho)'),false);
 });
+
+test('email editor exposes a complete brand envelope and keeps it in preview, local save and brand restoration',async()=>{
+ const x=await boot();x.run('trocaMarca("fish")');x.document.querySelector('#drafts-novo-email').click();
+ const value=(id,text)=>{const input=x.document.querySelector(id);assert.ok(input);input.value=text;input.oninput();};
+ assert.equal(x.document.querySelector('#d-from-email').value,'Fishermans <contato@fishermans.com.br>');
+ assert.equal(x.document.querySelector('#d-reply-to').value,'contato@fishermans.com.br');
+ value('#d-nome','envelope-fish');value('#d-assunto','✅ FINAL — Fixture');value('#d-preheader','Resumo & seguro');value('#d-corpo','<h1>Fixture</h1>');
+ value('#d-reply-to','respostas@fishermans.com.br');
+ assert.match(x.document.querySelector('#d-preview').textContent,/respostas@fishermans.com.br/);
+ assert.equal(x.run('GR.valida(GRU.state.rascunho).erros.length'),0);
+ x.document.querySelector('#d-salvar').click();
+ assert.equal(x.run('GR.lista()[0].preheader'),'Resumo & seguro');
+ x.run('trocaMarca("aristo")');x.document.querySelector('#drafts-novo-email').click();
+ assert.equal(x.document.querySelector('#d-from-email').value,'O Aristocrata <contato@oaristocrata.com>');
+ value('#d-nome','envelope-aristo');value('#d-assunto','✅ FINAL — Outra marca');value('#d-preheader','Outro resumo');value('#d-corpo','<p>Outra marca</p>');
+ x.run('confirm=()=>true;trocaMarca("fish")');
+ x.document.querySelector('[data-draft-edit]').click();
+ assert.equal(x.document.querySelector('#d-preheader').value,'Resumo & seguro');assert.equal(x.document.querySelector('#d-reply-to').value,'respostas@fishermans.com.br');
+ value('#d-from-email','O Aristocrata <contato@oaristocrata.com>');
+ assert.ok(x.run('GR.valida(GRU.state.rascunho).erros.some(e=>e.includes("remetente"))'));
+ assert.ok(x.calls.every(c=>c.init?.method!=='POST'));
+});

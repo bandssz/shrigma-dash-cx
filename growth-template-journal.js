@@ -34,8 +34,8 @@
     const out=clone(value);
     if(value.acao==='rascunho'){
       if(!value.rascunho||typeof value.rascunho!=='object'||Array.isArray(value.rascunho))throw fail('TPL_INPUT','Conteúdo de template ausente.');
-      const fields=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','exemplos','botoes'];
-      if(Object.keys(value.rascunho).some(k=>!fields.includes(k)))throw fail('TPL_INPUT','Campo não permitido no conteúdo do template.');
+      const fields=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','exemplos','botoes'],emailFields=['from_email','reply_to','preheader'];
+      if(Object.keys(value.rascunho).some(k=>!fields.includes(k)&&!(value.rascunho.canal==='email'&&emailFields.includes(k)))||emailFields.some(k=>Object.hasOwn(value.rascunho,k)&&typeof value.rascunho[k]!=='string'))throw fail('TPL_INPUT','Campo não permitido no conteúdo do template.');
       if(!['whatsapp','email'].includes(value.rascunho.canal)||!['fish','aristo','olivas'].includes(value.rascunho.marca))throw fail('TPL_INPUT','Marca ou canal inválido.');
       if(fields.filter(k=>!['exemplos','botoes'].includes(k)).some(k=>typeof value.rascunho[k]!=='string')||!value.rascunho.exemplos||Array.isArray(value.rascunho.exemplos)||Object.entries(value.rascunho.exemplos).some(([k,v])=>!/^\d+$/.test(k)||typeof v!=='string')||!Array.isArray(value.rascunho.botoes)||value.rascunho.botoes.some(b=>!b||typeof b!=='object'||Array.isArray(b)||Object.entries(b).some(([k,v])=>!['tipo','texto','valor','exemplo_url'].includes(k)||typeof v!=='string')))throw fail('TPL_INPUT','Conteúdo de template inválido para preservar a tentativa.');
     }

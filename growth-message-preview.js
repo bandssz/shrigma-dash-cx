@@ -12,6 +12,8 @@ const GMP={
  // Same wrapper, paragraph conversion, buttons and footer as emailPayload in
  // the template creator. Variables deliberately remain unresolved in previews.
  emailHTML(r){
+  const contract=typeof GEC!=='undefined'?GEC:typeof require==='function'?require('./growth-email-contract.js'):null;
+  if(contract){try{return contract.html(r);}catch{return '<!doctype html><html><body><p>Complete o conteúdo do e-mail para ver a prévia.</p></body></html>';}}
   const esc=s=>GMP.esc(String(s||'')),color=r.marca==='fish'?'#414f27':'#3b1f13',name=r.marca==='fish'?'Fishermans':'O Aristocrata',raw=String(r.corpo||'');
   const content=/<[a-z][\s\S]*>/i.test(raw)?raw:raw.split(/\n\s*\n/).map(p=>'<p>'+esc(p).replace(/\n/g,'<br>')+'</p>').join('');
   const buttons=(r.botoes||[]).map(b=>'<p><a href="'+esc(b.valor)+'" style="display:inline-block;background:'+color+';color:#fff;padding:14px 22px;border-radius:6px;text-decoration:none">'+esc(b.texto)+'</a></p>').join('');
@@ -33,7 +35,7 @@ const GMP={
  frame(source,images=false,title='Prévia do template de e-mail'){
   return `<iframe class="mp-mail-frame" title="${GMP.esc(title)}" sandbox="" referrerpolicy="no-referrer" srcdoc="${GMP.esc(GMP.isolate(source,images))}"></iframe>`;
  },
- email(r){return `<div class="mp-mail-header"><small>Assunto</small><strong>${GMP.esc(r.assunto||'(sem assunto)')}</strong></div>${GMP.frame(GMP.emailHTML(r))}<p class="mp-caption">Abra a prévia para alternar celular/desktop e mostrar imagens. Variáveis permanecem como marcadores até o envio.</p>`;},
+ email(r){return `<div class="mp-mail-header"><small>De: ${GMP.esc(r.from_email||'Preencha o remetente')} · Responder para: ${GMP.esc(r.reply_to||'Preencha o e-mail de resposta')}</small><strong>${GMP.esc(r.assunto||'(sem assunto)')}</strong><small>${GMP.esc(r.preheader||'Preencha o pré-header')}</small></div>${GMP.frame(GMP.emailHTML(r))}`;},
  openEmail({source,subject='',label='Prévia do e-mail'}){
   document.getElementById('message-preview-dialog')?.remove();
   const opener=document.activeElement,dialog=document.createElement('dialog');dialog.id='message-preview-dialog';dialog.className='mp-dialog';dialog.setAttribute('aria-label',label);

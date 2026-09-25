@@ -41,6 +41,7 @@
       "growth-data.js",
       "growth-attribution.js",
       "campaign-contract.js",
+      "growth-email-contract.js",
       "growth-message-preview.js",
       "growth-brand-state.js",
       "growth-campaign-api.js",

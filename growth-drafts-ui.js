@@ -164,7 +164,10 @@ const GRU={
         <div class="campo"><label for="d-canal">Canal</label><select id="d-canal" data-campo="canal">${GRU.opts(GR.CANAIS,r.canal)}</select></div>
         ${wa?`<div class="campo"><label for="d-idioma">Idioma</label><input type="text" id="d-idioma" data-campo="idioma" value="${GRU.e(r.idioma)}" placeholder="pt_BR"></div>
         <div class="campo"><label for="d-categoria">Categoria esperada</label><select id="d-categoria" data-campo="categoria">${GRU.opts(GR.CATEGORIAS,r.categoria)}</select><span class="ajuda">Utility deve tratar de uma solicitação ou transação específica, sem promoção. A Meta define a categoria final.</span></div>`
-        :`<div class="campo largo"><label for="d-assunto">Assunto</label><input type="text" id="d-assunto" data-campo="assunto" value="${GRU.e(r.assunto)}"></div>`}
+        :`<div class="campo"><label for="d-from-email">Remetente</label><input type="text" id="d-from-email" data-campo="from_email" maxlength="254" value="${GRU.e(r.from_email)}" placeholder="Nome &lt;contato@dominio.com&gt;"></div>
+        <div class="campo"><label for="d-reply-to">Responder para</label><input type="email" id="d-reply-to" data-campo="reply_to" maxlength="254" value="${GRU.e(r.reply_to)}"></div>
+        <div class="campo largo"><label for="d-assunto">Assunto</label><input type="text" id="d-assunto" data-campo="assunto" maxlength="150" value="${GRU.e(r.assunto)}"></div>
+        <div class="campo largo"><label for="d-preheader">Pré-header</label><input type="text" id="d-preheader" data-campo="preheader" maxlength="200" value="${GRU.e(r.preheader)}" placeholder="Complemento do assunto na caixa de entrada"></div>`}
         <div class="campo"><label for="d-peca">Peça (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
         ${wa?`<div class="campo largo"><label for="d-cabecalho">Cabeçalho (opcional)</label><input type="text" id="d-cabecalho" data-campo="cabecalho" maxlength="${GR.LIMITES.cabecalho}" value="${GRU.e(r.cabecalho)}"><span class="ajuda" id="d-cabecalho-conta">${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}</span></div>`:''}
         <div class="campo largo"><label for="d-corpo">Corpo</label><textarea id="d-corpo" data-campo="corpo" rows="7" placeholder="${wa?'Olá {{1}}, seu pedido {{2}} saiu para entrega…':'Texto do e-mail…'}">${GRU.e(r.corpo)}</textarea><span class="ajuda" id="d-corpo-conta">${GRU.contaCorpo(r)}</span></div>
@@ -224,6 +227,7 @@ const GRU={
     return true;
   },
   abrir(r,editando){
+    if(typeof GEC!=='undefined')r=GEC.draft(r);
     if(GRU.state.ocupado||GRU.state.confirmando)return false;
     if(GRU.ctx.marca&&r.marca!==GRU.ctx.marca){
       if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca))return false;
@@ -265,7 +269,7 @@ const GRU={
     root.querySelectorAll('[data-draft-delete]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftDelete);if(!d)return;const s=GTA.situacao(d);if(typeof confirm==='function'&&!confirm(`Excluir o rascunho "${d.nome||'(sem nome)'}" deste dispositivo?${s.estado!=='local'?' O que já foi ao servidor continua lá; este painel só perde o vínculo.':' Só o rascunho local é removido.'}`))return;GR.remove(d.id);if(GRU.state.editando===d.id)GRU.fechar();GRU.aviso('Rascunho excluído deste dispositivo.');GRU.render();});
     const r=GRU.state.rascunho;if(!r)return;
     root.querySelectorAll('[data-campo]').forEach(el=>{
-      const h=()=>{r[el.dataset.campo]=el.value;const mudouEstrutura=el.dataset.campo==='canal'||(el.dataset.campo==='corpo'&&GR.variaveis(r.corpo).join()!==GRU._vars);const sujoAntes=GRU._sujo,sujoAgora=GTA.situacao(r).sujo;GRU._sujo=sujoAgora;if(mudouEstrutura||sujoAntes!==sujoAgora){GRU._vars=GR.variaveis(r.corpo).join();GRU.render();return;}GRU.atualizaPreview();};
+      const h=()=>{r[el.dataset.campo]=el.value;if(el.dataset.campo==='canal'&&typeof GEC!=='undefined')Object.assign(r,GEC.draft(r));const mudouEstrutura=el.dataset.campo==='canal'||(el.dataset.campo==='corpo'&&GR.variaveis(r.corpo).join()!==GRU._vars);const sujoAntes=GRU._sujo,sujoAgora=GTA.situacao(r).sujo;GRU._sujo=sujoAgora;if(mudouEstrutura||sujoAntes!==sujoAgora){GRU._vars=GR.variaveis(r.corpo).join();GRU.render();return;}GRU.atualizaPreview();};
       el.oninput=h;el.onchange=h;});
     GRU._vars=GR.variaveis(r.corpo).join();GRU._sujo=GTA.situacao(r).sujo;
     root.querySelectorAll('[data-exemplo]').forEach(el=>el.oninput=()=>{r.exemplos=r.exemplos||{};r.exemplos[el.dataset.exemplo]=el.value;GRU.mudou(r);});

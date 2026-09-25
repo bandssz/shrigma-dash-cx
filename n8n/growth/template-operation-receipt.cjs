@@ -51,7 +51,7 @@ function safePayload(p){
  if(p.expected_version!==null&&(!Number.isInteger(p.expected_version)||p.expected_version<1))return false;
  if(p.confirm!==null&&typeof p.confirm!=='string')return false;
  if(p.rascunho===null)return true;
- const r=p.rascunho,fields=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto'];
+ const r=p.rascunho,fields=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','from_email','reply_to','preheader'];
  if(!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).some(k=>!fields.includes(k)&&!['exemplos','botoes'].includes(k)))return false;
  if(fields.some(k=>Object.hasOwn(r,k)&&typeof r[k]!=='string'))return false;
  if(Object.hasOwn(r,'exemplos')&&(!r.exemplos||Array.isArray(r.exemplos)||typeof r.exemplos!=='object'||Object.entries(r.exemplos).some(([k,v])=>!/^\d+$/.test(k)||typeof v!=='string')))return false;

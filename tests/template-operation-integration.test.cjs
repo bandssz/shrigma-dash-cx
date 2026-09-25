@@ -22,6 +22,13 @@ test('browser and backend canonical receipts agree for save and validation after
   const f=fixture(request,{loseResponse:true}),result=await f.run();assert.equal(result.ok,true);assert.equal(f.client.inspect().operations[0].phase,'confirmed');assert.deepEqual(f.calls,['GET','POST','GET']);
  }
 });
+test('complete email fields survive the durable save receipt without changing legacy pending payloads',async()=>{
+ const r={...content,from_email:'Fishermans <teste@fishermans.com.br>',reply_to:'reply@fishermans.com.br',preheader:'Prévia do teste'};
+ const f=fixture({acao:'rascunho',rascunho:r},{loseResponse:true});
+ const result=await f.run();assert.equal(result.ok,true);
+ assert.deepEqual(f.rows.receipts[0].request_payload.rascunho,r);assert.deepEqual(f.calls,['GET','POST','GET']);
+ await f.client.reconcile(ID,f.lookup);assert.equal(f.calls.filter(x=>x==='POST').length,1);
+});
 test('submission joins its distinct claim UUID and preserves pending or approved provider states',async()=>{
  for(const [provider,approved] of [['meta',false],['meta',true],['listmonk',true]]){
   const f=fixture({acao:'submeter',draft_id:'d_fixture',expected_version:4,confirm:'submeter'},{provider,approved,loseResponse:true});
