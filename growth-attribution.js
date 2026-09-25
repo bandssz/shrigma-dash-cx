@@ -129,7 +129,7 @@ const GA=(()=>{
     const records=list.map(v=>[v.nome,v.marca,a,z,label,cov.complete?'completa':'parcial',cov.covered?v.pedidos:null,cov.covered?v.receita:null,cov.covered?v.assist:null,cov.covered?v.receita_assist:null,v.sent,v.pieces]);
     const labels=['Campanha','Marca','Inicio compras','Fim compras','Modelo','Cobertura','Pedidos','Receita BRL','Assistidos','Receita assistida BRL','Emails enviados no periodo','Disparos no periodo'];
     const csv=GT.csv(labels.map((rotulo,chave)=>({chave,rotulo})),records,{recorte_canal:channel,consulta_em:api.crm_attribution.generated_at});
-    GT.baixar(`campanhas-${channel}-${a}-${z}.csv`,csv);
+    GT.baixar(GT.nomeArquivo('campanhas',{recorte_marca:b==='todas'?'Todas as marcas':brandName(b),recorte_canal:channel==='email'?'E-mail':channel==='whatsapp'?'WhatsApp':'Todos os canais',periodo_inicio:a,periodo_fim:z}),csv);
    };
   }
   root.querySelector('#attribution-search').oninput=ev=>{search=ev.target.value;draw();};draw();GT.restaura(root,previousState);

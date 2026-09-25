@@ -3,13 +3,13 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {parseHTML}=require('linkedom');
 const day='2026-09-15';
 function fixture(){return {crm_attribution:{schema_version:2,generated_at:day+'T14:00:00Z',coverage:[{brand:'fish',day,checked_at:day+'T13:00:00Z'}],quality:[{marca:'fish',dia:day,pedidos_lidos:4,pagos_elegiveis:3,pagos_com_ultima_sessao:2,pagos_sem_ultima_sessao:1,jornada_pendente:1,jornada_parcial:1}],daily:[],campaigns:[{marca:'fish',emissor:'fish',canal:'email',campanha_id:1,nome:'Campanha sintética',familia:'fixture',segmentos:['Recorrentes'],status:'finished',enviados:3,enviado_em:day+'T12:00:00Z',utms:[]}],dispatch_evidence:{schema_version:1,checked_at:day+'T13:30:00Z',daily:[]}}};}
-function boot(api=fixture()){
+function boot(api=fixture(),{brand='fish',channel='email'}={}){
  const {document,window}=parseHTML('<html><body><section id="attribution-status"></section><section id="attribution-campaigns"></section></body></html>');
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused||document.body});
- const context=vm.createContext({document,window,Date,Intl});
+ const downloads=[],context=vm.createContext({document,window,Date,Intl,__downloads:downloads});
  for(const file of ['growth-table.js','growth-ui.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
- context.input=api;vm.runInContext(`globalThis.render=()=>GA.render({api:input,marca:'fish',ini:'2026-09-14',fim:'${day}',canal:'email',GUI,onModel:()=>{}});`,context);context.render();
- return {document,window,api,render:context.render,q:s=>document.querySelector(s)};
+ context.input=api;vm.runInContext(`GT.baixar=(name,text)=>__downloads.push({name,text});globalThis.render=()=>GA.render({api:input,marca:${JSON.stringify(brand)},ini:'2026-09-14',fim:'${day}',canal:${JSON.stringify(channel)},GUI,onModel:()=>{}});`,context);context.render();
+ return {document,window,api,downloads,render:context.render,q:s=>document.querySelector(s)};
 }
 test('empty campaign search has a safe clear action that restores results and focus without changing the recorte',()=>{
  const x=boot(),before=JSON.stringify(x.api),summary=x.q('.ga-summary').textContent,input=x.q('#attribution-search');
@@ -36,4 +36,13 @@ test('compact attribution keeps partial coverage and all source clocks visible, 
  assert.doesNotMatch(visible.textContent,/PIX copiado/);assert.match(detail.textContent,/não comprova clique nem venda adicional/);assert.match(detail.textContent,/Cobertura de leitura não garante rastreamento completo/);
  detail.open=true;x.render();assert.equal(x.q('#attribution-status details').open,true);
  x.api.crm_attribution.quality=[];x.render();assert.match(x.q('#attribution-status summary').textContent,/última sessão não informada/);
+});
+test('attribution exports distinguish brands and channel while preserving the filtered CSV content',()=>{
+ const api=fixture();api.crm_attribution.coverage.push({brand:'aristo',day,checked_at:day+'T13:00:00Z'});api.crm_attribution.campaigns.push({...api.crm_attribution.campaigns[0],marca:'aristo',emissor:'aristo',campanha_id:2,familia:'aristo-fixture',nome:'Campanha Aristo exclusiva'});
+ const fish=boot(api),aristo=boot(api,{brand:'aristo'}),before=JSON.stringify(api);
+ fish.q('#attribution-export').click();aristo.q('#attribution-export').click();
+ assert.equal(fish.downloads[0].name,'growth-campanhas-fishermans-e-mail-2026-09-14_2026-09-15.csv');assert.equal(aristo.downloads[0].name,'growth-campanhas-o-aristocrata-e-mail-2026-09-14_2026-09-15.csv');
+ assert.match(fish.downloads[0].text,/fixture;fish;/);assert.doesNotMatch(fish.downloads[0].text,/aristo fixture;aristo/);assert.match(aristo.downloads[0].text,/aristo fixture;aristo;/);assert.doesNotMatch(aristo.downloads[0].text,/fixture;fish/);
+ assert.equal(JSON.stringify(api),before);assert.equal(fish.downloads[0].text.split('\r\n')[0],aristo.downloads[0].text.split('\r\n')[0]);
+ const wa=boot(api,{channel:'whatsapp'});wa.q('#attribution-export').click();assert.match(wa.downloads[0].name,/-fishermans-whatsapp-/);
 });

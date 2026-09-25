@@ -132,7 +132,7 @@ test('sombra sem erro não vira atenção e acompanhamento de e-mail é informat
  assert.equal(x.run('CANAL'),'email');assert.equal(x.run('SEC'),'regua');assert.equal(x.run('MARCA'),'aristo');
  section=x.document.querySelector('#automation-attention');
  assert.equal(section.querySelectorAll('.attention-stats').length,0);
- assert.match(section.textContent,/entregas e falhas estão no quadro/);
+ assert.match(section.textContent,/Entregas e falhas: quadro/);
  assert.equal(section.querySelectorAll('.attention-occurrence,.alerta-ruim').length,0);
 });
 test('acompanhamento informa campos e janela ausentes sem renderizar zero falso',async()=>{
@@ -291,7 +291,7 @@ test('operação atual: filtros de estado e modo com vazio específico, busca ma
  assert.deepEqual(cards(),['aristo_tx']);assert.match(x.document.querySelector('#control-workflows .gt-contagem').textContent,/1 de 4/);
  const estado=x.document.querySelector('#control-wf-estado');estado.value='inativas';estado.dispatchEvent(new x.window.Event('change'));
  assert.deepEqual(cards(),[]);
- assert.match(x.document.querySelector('#control-workflows .vazio').textContent,/Nenhuma automação inativa em modo sombra\. Modo sombra ou inativo não significa/);
+ assert.match(x.document.querySelector('#control-workflows .vazio').textContent,/Nenhuma automação inativa em simulação\. Simulação ou configuração inativa não significa/);
  x.document.querySelector('#control-workflows .vazio [data-clear="wf"]').click();
  assert.equal(cards().length,4);
  const busca=x.document.querySelector('#control-workflow-search');busca.value='rastreio';busca.dispatchEvent(new x.window.Event('input'));
@@ -320,7 +320,7 @@ test('templates: filtros por status, categoria e uso, ordenação por peça e ex
  const uso=x.document.querySelector('#control-tpl-uso');uso.value='native_pending';uso.dispatchEvent(new x.window.Event('change'));
  assert.deepEqual(keys(),['fish_native']);
  const cat=x.document.querySelector('#control-tpl-categoria');cat.value='MARKETING';cat.dispatchEvent(new x.window.Event('change'));
- assert.match(x.document.querySelector('#control-templates .vazio').textContent,/Nenhum template MARKETING com integração pendente neste recorte/);
+ assert.match(x.document.querySelector('#control-templates .vazio').textContent,/Nenhum template Marketing com integração pendente neste recorte/);
  x.document.querySelector('#control-templates .vazio [data-clear="tpl"]').click();
  assert.equal(keys().length,3);
  cat.value='divergente';cat.dispatchEvent(new x.window.Event('change'));
@@ -455,9 +455,9 @@ test('templates (F01/F03/F04/F05/F06): vínculo diz se o modo é configurado ou 
  const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="templates"]').click();
  const row=k=>x.document.querySelector(`[data-control-template="${k}"]`);
  const fishLinks=[...row('fish_paid').querySelectorAll('.control-template-link')];
- assert.equal(fishLinks.length,1);assert.equal(fishLinks[0].textContent,'Pedido pago e rastreio Fishermans · pedido-pago · modo configurado: real');assert.equal(fishLinks[0].dataset.tone,'verified');
+ assert.equal(fishLinks.length,1);assert.equal(fishLinks[0].textContent,'Pedido pago e rastreio Fishermans · pedido-pago · modo configurado: envio real');assert.equal(fishLinks[0].dataset.tone,'verified');
  const ariLinks=[...row('aristo_paid').querySelectorAll('.control-template-link')];
- assert.equal(ariLinks.length,2);assert.match(ariLinks[0].textContent,/^Pedido pago e rastreio Aristocrata · pedido-pago · último modo observado: sombra · consulta com falha \(0[78]\/09\/2026, \d\d:\d\d\)$/);assert.equal(ariLinks[0].dataset.tone,'warning');
+ assert.equal(ariLinks.length,2);assert.match(ariLinks[0].textContent,/^Pedido pago e rastreio Aristocrata · pedido-pago · último modo observado: simulação · consulta com falha \(0[78]\/09\/2026, \d\d:\d\d\)$/);assert.equal(ariLinks[0].dataset.tone,'warning');
  assert.match(ariLinks[1].textContent,/2 vínculo\(s\) em formato inválido ignorado\(s\)/);
  const met=k=>row(k).querySelector('.control-template-metrics');
  assert.equal(met('fish_paid').tagName,'DETAILS');assert.equal(met('fish_paid').querySelector('summary').textContent,'15 registros · 14 aceitos · 11 entregues · 1 falhas · cobertura não declarada'); // 01–07/09, sem agosto, sem teste-motor
@@ -678,9 +678,9 @@ test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só
  t[2].mapped_in=[];
  const x=await boot(p,{fetchMock:api.mock});x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="templates"]').click();
  const row=k=>x.document.querySelector(`[data-control-template="${k}"]`);
- assert.match(row('fish_paid').querySelector('.control-template-pub').textContent,/Publicado · ativo em modo real \(fish_tx\)/);
- assert.match(row('aristo_paid').querySelector('.control-template-pub').textContent,/Publicado · não ativo \(nenhum workflow em modo real\)/);
- assert.match(row('fish_native').querySelector('.control-template-pub').textContent,/Publicado · não ativo \(sem workflow mapeado\)/);
+ assert.match(row('fish_paid').querySelector('.control-template-pub').textContent,/Publicado · envio ativo/);
+ assert.match(row('aristo_paid').querySelector('.control-template-pub').textContent,/Publicado · envio não ativo/);
+ assert.match(row('fish_native').querySelector('.control-template-pub').textContent,/Publicado · sem automação vinculada/);
  assert.equal(x.document.querySelectorAll('.control-template-preview').length,0); // nada carregado sem pedir
  api.responde('listar',200,{api_version:'2026-09-1',templates:[{...CONTRATO.listar.templates[0],key:'fish_paid',name:'fish_confirmacao_exemplo',brand:'fish'}]});
  x.document.querySelector('#control-tpl-conteudo').click();await waitFor(()=>row('fish_paid').querySelector('.control-template-preview'),'published template preview');
@@ -908,4 +908,20 @@ test('replication blocks pending source, invalidates preview after edits, and de
  const subject=x.document.querySelector('#rep-subject');subject.value='Novo assunto';subject.dispatchEvent(new x.window.Event('input'));assert.equal(x.document.querySelector('#rep-final'),null);x.document.querySelector('#rep-preview').click();
  x.run(`GR.guarda({...GR.lista().find(r=>r.id===${JSON.stringify(id)}),corpo:'Alterado em outra aba'});GERU.session.confirmed=true;GERU.create()`);
  assert.equal(x.run('GR.lista().length'),1);assert.match(x.document.querySelector('#email-replication').textContent,/origem ou uma operação mudou/);x.document.querySelector('#rep-cancel').click();assert.equal(x.document.querySelector('#email-replication'),null);
+});
+test('Base uses plain segment labels and describes recorded frequency and historical average without changing values',async()=>{
+ const p=fixture();p.crm_regra_galho=[{marca:'fish',galho:'C1',rotulo:'Clientes recorrentes',fluxo:'vip_campeao',cap_dias:30},{marca:'aristo',galho:'C2',rotulo:'Outro segmento',fluxo:null,cap_dias:null}];p.crm_galho=[{marca:'fish',galho:'C1',dia:'2026-09-07',pessoas:12,ltv_medio:125.5,entraram:2,sairam:1}];
+ const before=JSON.stringify(p),x=await boot(p),base=x.document.querySelector('#sec-base');assert.match(base.textContent,/Segmentos da base/);assert.equal(x.document.querySelector('#arv-rot').textContent,'2 segmentos');assert.match(base.textContent,/Clientes VIP · Frequência cadastrada · 30 dias/);assert.match(base.textContent,/Valor médio comprado · R\$\s*126/);assert.match(base.textContent,/Sem automação vinculada · Frequência não informada/);assert.doesNotMatch(base.textContent,/cap 30d|vip_campeao|LTV|undefined/);
+ assert.equal(base.querySelector('[title^="Média do total histórico"]').title,'Média do total histórico de compras dos clientes deste segmento com valor informado, em reais.');assert.match(base.querySelector('[title^="Frequência registrada"]').title,/regra deste segmento/);assert.equal(JSON.stringify(p),before);assert.deepEqual([...base.querySelectorAll('.num')].map(x=>x.textContent),['12','—']);
+});
+test('overview labels keep coverage, source clocks and occurrence warnings visible without duplicate card paragraphs',async()=>{
+ const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';const x=await boot(p),wa=x.document.querySelector('[data-channel-card="whatsapp"]'),email=x.document.querySelector('[data-channel-card="email"]');
+ assert.match(wa.querySelector('.operator-labels').textContent,/Envios próprios · sem Reportana/);assert.match(email.querySelector('.operator-labels').textContent,/Taxas só das campanhas/);for(const card of [wa,email])assert.match(card.querySelector('[title^="Receita e pedidos"]').title,/Não representam a taxa de conversão dos envios/);
+ const section=x.document.querySelector('#automation-attention'),visible=section.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());assert.match(visible.textContent,/07\/09\/2026, 12:30/);assert.match(visible.textContent,/07\/09\/2026, 21:30/);assert.match(visible.textContent,/Automações SES · cobertura parcial/);assert.match(visible.textContent,/Falhas na entrega/);assert.match(section.querySelector('details').textContent,/não informa se o fluxo está ligado/);
+ const selector=x.document.querySelector('#sel-grao');assert.equal(selector.getAttribute('aria-label'),'Agrupar conversões');assert.doesNotMatch(selector.title,/crm_|de-para|Grão/);
+});
+test('compact conversion note retains model, refund basis, coverage exclusion and overlapping-assistance warning',async()=>{
+ const p=fixture();p.crm_attribution={schema_version:2,daily:[],coverage:[],campaigns:[],quality:[]};const x=await boot(p),note=x.document.querySelector('#nota-conv'),visible=note.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());
+ assert.match(visible.textContent,/Último clique · 30 dias/);assert.match(visible.textContent,/Receita após reembolsos/);assert.match(visible.textContent,/Jornadas indisponíveis ficam pendentes/);assert.match(visible.textContent,/Datas fora da cobertura conciliada/);assert.match(visible.textContent,/Não some assistências entre campanhas/);assert.match(note.querySelector('details').textContent,/sem crédito final.*pedidos únicos/);assert.match(note.querySelector('[title*="última visita"]').title,/inclusive retorno direto/);
+ x.run("API._attribution_model='last_non_direct';render()");assert.match(x.document.querySelector('#nota-conv').textContent,/Último clique não direto · 30 dias/);assert.match(x.document.querySelector('#nota-conv [title]').title,/Desconsidera retornos diretos/);
 });

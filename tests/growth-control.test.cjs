@@ -34,13 +34,13 @@ test('data, status, categoria, identidade e campos inválidos não são apresent
 test('reclassificação e reprovação têm alerta factual sem alegar causa ou trocar template',()=>{
  const p=fixture();Object.assign(p.templates[0],{category:'MARKETING',category_matches_expected:false,status:'REJECTED'});
  const x=render(p),row=x.document.querySelector('[data-control-template="fish_paid"]');
- assert.match(row.textContent,/Categoria recebida: MARKETING; esperada: UTILITY/);
- assert.match(row.textContent,/Status recebido: REJECTED/);assert.equal(row.querySelectorAll('.control-verified').length,0);
+ assert.match(row.textContent,/Categoria recebida: Marketing; esperada: Utilidade/);
+ assert.match(row.textContent,/Status recebido: Reprovado/);assert.equal(row.querySelectorAll('.control-verified').length,0);
  assert.equal(row.querySelectorAll('button,a').length,0);
 });
 test('cartão aprovado permanece planejado e template mapeado não implica envio',()=>{
  const x=render(),native=x.document.querySelector('[data-control-template="fish_native"]'),current=x.document.querySelector('[data-control-template="aristo_paid"]');
- assert.match(native.textContent,/APPROVED/);assert.match(native.textContent,/Integração pendente · ainda fora do envio/);assert.equal(native.querySelectorAll('.control-verified').length,0);
+ assert.match(native.textContent,/Aprovado/);assert.match(native.textContent,/Integração pendente · ainda fora do envio/);assert.equal(native.querySelectorAll('.control-verified').length,0);
  assert.match(current.textContent,/Mapeado no fluxo · envio depende da ativação/);
 });
 test('última execução retida com erro não vira falha atual, inclusive quando sucesso não é salvo',()=>{
@@ -48,7 +48,7 @@ test('última execução retida com erro não vira falha atual, inclusive quando
  assert.match(card.textContent,/Consulta atual/);assert.match(card.textContent,/Erro registrado/);
  assert.match(card.textContent,/não salva execuções concluídas/);assert.match(card.textContent,/não comprova entrega ao cliente/);
  assert.equal(GC.model(fixture(),{now}).workflows[0].attention,false);
- assert.match(x.document.querySelector('[data-control-workflow="aristo_tx"]').textContent,/Pedido pago: sombra · Rastreio: sombra/);
+ assert.match(x.document.querySelector('[data-control-workflow="aristo_tx"]').textContent,/Pedido pago: simulação · Rastreio: simulação/);
 });
 test('falha de coleta mantém hora da última consulta válida e não rotula estado como atual',()=>{
  const p=fixture();Object.assign(p.workflows[0],{collection_status:'error',active:null,published:null,checked_at:'2026-09-08T01:09:00Z',last_good_at:'2026-09-07T23:30:00Z'});
@@ -116,4 +116,15 @@ test('email inventory missing, empty, malformed and paused are distinct states',
  assert.match(GC.emailInventory({},'fish','email',now),/ainda não veio/);
  const api={crm_operacao:{email_steps:[]}};assert.match(GC.emailInventory(api,'fish','email',now),/Nenhuma etapa.*Confira/);
  api.crm_operacao.email_steps=[{brand:'fish'}];assert.match(GC.emailInventory(api,'fish','email',now),/Não foi possível conferir/);
+});
+test('operator labels translate provider values while keeping raw values and current-state warnings accessible',()=>{
+ const x=render(),row=x.document.querySelector('[data-control-template="fish_paid"]');assert.match(row.textContent,/Aprovado.*Utilidade.*Categoria esperada: Utilidade/);assert.equal(row.querySelector('[title="Status recebido da Meta: APPROVED"]').textContent,'Aprovado');assert.equal(row.querySelector('[title="Categoria recebida da Meta: UTILITY"]').textContent,'Utilidade');
+ assert.match(x.document.querySelector('#control-templates').textContent,/Edição em Criar templates e Jornadas/);assert.equal(GC.templateMatches(GC.model(fixture(),{now}).templates[0],{status:'APPROVED',categoria:'UTILITY',uso:'todos'}),true);
+ assert.equal(GC.publicationLabel({situacao:'ativo'},{mapped_in:[{}]}),'Publicado · envio ativo');assert.equal(GC.publicationLabel({situacao:'nao_ativo'},{mapped_in:[{}]}),'Publicado · envio não ativo');assert.equal(GC.publicationLabel({situacao:'nao_ativo'},{mapped_in:[]}),'Publicado · sem automação vinculada');assert.equal(GC.publicationLabel({situacao:'desconhecido'},{mapped_in:[{}]}),'Publicado · ativação não confirmada');
+});
+test('published preview omits unavailable versions and labels the actual content consultation time',()=>{
+ const x=render();x.run(`globalThis.GTA={previaComponents:()=>''};GC.conteudo={fixture:{key:'fixture',name:'fixture',brand:'fish',components:{}}};GC.conteudoEm='2026-09-25T10:22:00Z';`);
+ const html=x.run("GC.previaPublicada({key:'fixture'})"),doc=parseHTML(html).document;assert.equal(doc.querySelector('summary').textContent,'Prévia publicada · consultada em 25/09/2026, 07:22');assert.doesNotMatch(html,/v\?/);
+ x.run('GC.conteudoEm=null');assert.equal(parseHTML(x.run("GC.previaPublicada({key:'fixture'})")).document.querySelector('summary').textContent,'Prévia publicada');
+ x.run("GC.conteudo.fixture.version=3;GC.conteudo.fixture.published_at='2026-09-24T10:00:00Z'");assert.equal(parseHTML(x.run("GC.previaPublicada({key:'fixture'})")).document.querySelector('summary').textContent,'Prévia publicada · v3 · 24/09/2026, 07:00');
 });
