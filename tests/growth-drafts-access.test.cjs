@@ -173,3 +173,26 @@ test('published email receipt is applied as published without claiming activatio
 test('area operator saves a template only after explicit action without a second credential or persisted secret',async()=>{
  const s=setup({operatorWrite:'synthetic-crm-operator'}),d=s.draft();assert.equal(s.calls.length,0);await s.ui.salvarServidor(d);assert.equal(s.calls.length,1);assert.equal(JSON.parse(s.calls[0].options.body).k,'synthetic-crm-operator');assert.equal(s.$('#drafts-acesso'),null);assert(![...s.values.values()].join('').includes('synthetic-crm-operator'));
 });
+
+
+test('recovered pre-provider publication rejection renders human guidance and preserves the draft, envelope and operation after reload',async()=>{
+ const first=setup({legacyKey:'fixture-existing',response:Error('lost response')}),draft=first.draft();
+ Object.assign(draft,{from_email:'Fishermans <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',preheader:'Resumo preservado'});
+ draft.servidor={draft_id:'fixture-draft',version:1,estado:'validado',hash:first.ctx.apiRules.hash(first.ctx.drafts.conteudo(draft))};
+ const content=JSON.stringify(first.ctx.drafts.conteudo(draft));await first.ui.submeter(draft);
+ assert.equal(first.calls.length,1);const pending=first.ui.journal().inspect().operations[0];assert.equal(pending.phase,'unknown');
+ const body={erro:'publication_not_started',code:'PUBLICATION_CONTEXT_NOT_FORWARDED',nothing_changed:true};
+ first.operations.set(pending.id,{idempotency_key:pending.id,acao:'submeter',actor:pending.actor,hash_schema:'json-stable-sha256-v1',claim_id:'20000000-0000-4000-8000-000000000001',request_payload:pending.request_payload,request_sha256:pending.request_sha256,state:'completed',response:{status:422,body}});
+ const reload=setup({sharedValues:first.values,operations:first.operations});await reload.ui.consultarOperacao(pending.id);
+ assert.equal(reload.calls.length,0);assert.equal(reload.reads.length,1);const recovered=reload.ctx.drafts.lista()[0];
+ assert.equal(JSON.stringify(reload.ctx.drafts.conteudo(recovered)),content);assert.equal(recovered.servidor.draft_id,'fixture-draft');assert.equal(recovered.servidor.version,1);assert.equal(recovered.servidor.estado,'validado');
+ assert.equal(reload.$('#d-from-email').value,draft.from_email);assert.equal(reload.$('#d-reply-to').value,draft.reply_to);
+ assert.match(reload.document.body.textContent,/Publicação não iniciada/);assert.match(reload.document.body.textContent,/nova versão/);assert.doesNotMatch(reload.document.body.textContent,/publication_not_started/);
+ const ops=reload.ui.journal().inspect().operations;assert.equal(ops.length,1);assert.equal(ops[0].id,pending.id);assert.equal(ops[0].phase,'rejected');assert.equal(ops[0].applied,true);assert.equal(JSON.stringify(ops[0].request_payload),JSON.stringify(pending.request_payload));assert.equal(JSON.stringify(ops[0].receipt.body),JSON.stringify(body));
+ // Existing events written by the old UI are translated only for display, never rewritten.
+ recovered.servidor.eventos.push({action:'submeter',result:'422',detail:'publication_not_started'});
+ assert.ok(reload.ctx.drafts.guarda(recovered));reload.ui.abrir(recovered,recovered.id);
+ await reload.ui.consultarOperacao(pending.id);assert.equal(reload.calls.length,0);assert.equal(reload.ui.journal().inspect().operations.length,1);
+ assert.doesNotMatch(reload.document.body.textContent,/publication_not_started/);assert.match(reload.document.body.textContent,/Confira o recibo desta tentativa/);
+ assert.equal(reload.ctx.drafts.lista()[0].servidor.eventos.at(-1).detail,'publication_not_started');
+});
