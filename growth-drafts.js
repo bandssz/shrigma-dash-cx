@@ -74,7 +74,7 @@ const GR={
       for(const [field,text] of [['corpo',r.corpo],['assunto',r.assunto],['rodape',r.rodape]]){
         const raw=String(text||''),rest=raw.replace(/\{\{\s*\.Tx\.Data\.[a-zA-Z][a-zA-Z0-9_]{0,63}\s*\}\}/g,'');
         const unsupported=envelope?envelope.templateExpressions(raw,field==='corpo'&&/<[a-z][\s\S]*>/i.test(raw)).unsupported:rest.includes('{{')||rest.includes('}}');
-        if(unsupported)erros.push('Use variáveis de e-mail como {{ .Tx.Data.first_name }}.');
+        if(unsupported)erros.push(field==='corpo'?'Confira os campos e condições do e-mail. Use HTML para conteúdo com condições ou lista de produtos.':'No assunto e no rodapé, use texto ou campos simples como {{ .Tx.Data.first_name }}.');
       }
       if((r.botoes||[]).some(b=>b.tipo!=='url'||!/^https:\/\/[^\s<>"']+$/.test(b.valor||'')))erros.push('Botões de e-mail precisam de um link HTTPS.');
       if(!String(r.assunto||'').trim())erros.push('E-mail precisa de assunto.');

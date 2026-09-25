@@ -42,6 +42,7 @@
       "growth-attribution.js",
       "n8n/growth/campaign-tracking.js",
       "campaign-contract.js",
+      "growth-email-expressions.js",
       "growth-email-contract.js",
       "growth-message-preview.js",
       "growth-brand-state.js",
