@@ -6,15 +6,15 @@
 const GRU={
   state:{editando:null,rascunho:null,msg:'',msgTone:'ok',filtro:'todos',ocupado:null,confirmando:false,confirmTexto:''},
   acesso:{aberto:false,chave:null,ignorarLegada:false,retorno:'drafts-chave'},
-  ctx:{},caps:null,
+  ctx:{},caps:null,contextBrand:null,contextSaved:null,contextError:'',
   e:s=>GR.esc(s),
   stamp(v){return GTA.stamp(v);},
   rotulo(lista,k){return (lista.find(([v])=>v===k)||[])[1]||k;},
   opts(lista,val){return lista.map(([v,t])=>`<option value="${GRU.e(v)}"${v===val?' selected':''}>${GRU.e(t)}</option>`).join('');},
   /* Catálogo: só associação por nome EXATO. Não inventa corpo, não diz que o rascunho é o template. */
-  noCatalogo(nome){
+  noCatalogo(nome,marca,canal){
     const tpls=GRU.ctx.api?.crm_operacao?.templates;
-    return Array.isArray(tpls)?tpls.find(t=>t&&t.name===nome)||null:null;
+    return Array.isArray(tpls)?tpls.find(t=>t&&t.name===nome&&t.brand===marca&&t.channel===canal)||null:null;
   },
   workflows(){const w=GRU.ctx.api?.crm_operacao?.workflows;return Array.isArray(w)?w.filter(x=>x&&typeof x==='object'):[];},
   capacidades(){return GTA.caps(GRU.ctx.api,{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined});},
@@ -51,6 +51,7 @@ const GRU={
   },
   prontaEscrita(r){
     if(GRU.state.ocupado)return false;
+    if(GRU.contextError||GRU.ctx.marca&&r.marca!==GRU.ctx.marca){GRU.aviso(GRU.contextError||'Abra a marca deste template no cabeçalho antes de editar.','erro');GRU.render();return false;}
     const j=GRU.journal(),estado=j?.inspect();
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
     if(GRU.chaveEscrita())return true;
@@ -90,23 +91,23 @@ const GRU={
   },
   /* ---------- render ---------- */
   render(ctx){
-    if(ctx)GRU.ctx=ctx;
+    if(ctx){GRU.ctx=ctx;if(ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)GRU.enterBrand(ctx.marca);}
     GRU.caps=GRU.capacidades();
     const root=typeof document!=='undefined'?document.querySelector('#control-drafts'):null;
     if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
-    const caps=GRU.caps,todos=GR.lista(),r=GRU.state.rascunho;
+    const caps=GRU.caps,todos=GR.lista().filter(d=>!GRU.ctx.marca||GRU.ctx.marca==='todas'||d.marca===GRU.ctx.marca),r=GRU.state.rascunho;
     const comServidor=caps.declaradas||todos.some(d=>GTA.situacao(d).estado!=='local');
     const lista=todos.filter(d=>GRU.state.filtro==='todos'||GTA.situacao(d).estado===GRU.state.filtro||(GRU.state.filtro==='sujo'&&GTA.situacao(d).sujo));
     const submetidos=todos.filter(d=>GTA.situacao(d).estado==='submetido');
-    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo">Criar template WhatsApp</button><button type="button" class="btn sec" id="drafts-novo-email">Criar template de e-mail</button>
+    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template WhatsApp</button><button type="button" class="btn sec" id="drafts-novo-email"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template de e-mail</button>
       <button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
       ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no servidor</option></select></label>`:''}
       ${submetidos.length&&caps.endpoint?`<button type="button" class="refresh-btn" id="drafts-verificar"${GRU.state.ocupado?' disabled':''}>Verificar ${submetidos.length===1?'a submissão':`${submetidos.length} submissões`} agora</button>`:''}
       <span class="gt-contagem">${lista.length}${lista.length!==todos.length?` de ${todos.length}`:''} rascunho${todos.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" data-tone="${GRU.e(GRU.state.msgTone)}" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
     const listaHtml=lista.length?`<div class="draft-grid">${lista.map(d=>GRU.cartao(d,caps)).join('')}</div>`
       :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Criar template" ou importe um arquivo exportado em outro computador.'}</div>`;
-    root.innerHTML=GRU.escopo(caps)+GRU.operacoes()+ferramentas+(r?GRU.editor(r,caps):'')+listaHtml;
+    root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+ferramentas+(r?GRU.editor(r,caps):'')+listaHtml;
     GRU.bind(root,caps);
     GRU.agenda();
     if(kept&&typeof GT!=='undefined')GT.restaura(root,kept);
@@ -124,7 +125,7 @@ const GRU={
     return `<ol class="draft-steps" aria-label="Etapas do template">${GTA.ESTADOS.map(([k,t],i)=>{const st=estado==='rejeitado'&&k==='publicado'?'rejeitado':i<ord?'feito':i===ord?'atual':'';return `<li data-passo="${k}"${st?` data-st="${st}"`:''}>${GRU.e(estado==='rejeitado'&&k==='publicado'?'Rejeitado':t)}</li>`;}).join('')}</ol>${sujo?'<span class="mini draft-sujo">conteúdo local difere do servidor</span>':''}`;
   },
   cartao(d,caps){
-    const v=GR.valida(d),cat=GRU.noCatalogo(d.nome),sit=GTA.situacao(d),s=sit.servidor;
+    const v=GR.valida(d),cat=GRU.noCatalogo(d.nome,d.marca,d.canal),sit=GTA.situacao(d),s=sit.servidor;
     const rot=GTA.rotuloEstado(d,{workflows:GRU.workflows(),mapped_in:s?.mapped_in});
     const acoes=GTA.acoes(caps,d);
     const eventos=[...(s?.historico||[]).map(x=>({...x,origem:'api'})),...(s?.eventos||[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
@@ -159,7 +160,7 @@ const GRU={
     return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
-        <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" data-campo="marca">${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
+        <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" disabled>${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
         <div class="campo"><label for="d-canal">Canal</label><select id="d-canal" data-campo="canal">${GRU.opts(GR.CANAIS,r.canal)}</select></div>
         ${wa?`<div class="campo"><label for="d-idioma">Idioma</label><input type="text" id="d-idioma" data-campo="idioma" value="${GRU.e(r.idioma)}" placeholder="pt_BR"></div>
         <div class="campo"><label for="d-categoria">Categoria esperada</label><select id="d-categoria" data-campo="categoria">${GRU.opts(GR.CATEGORIAS,r.categoria)}</select><span class="ajuda">Utility deve tratar de uma solicitação ou transação específica, sem promoção. A Meta define a categoria final.</span></div>`
@@ -200,13 +201,40 @@ const GRU={
     const h=document.getElementById('d-cabecalho-conta');if(h)h.textContent=`${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}`;
     const f=document.getElementById('d-rodape-conta');if(f)f.textContent=`${String(r.rodape||'').length} de ${GR.LIMITES.rodape}`;
   },
-  abrir(r,editando){GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};GRU.render();document.getElementById('d-nome')?.focus();},
-  fechar(){GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};},
+  contextValue(){return {editando:GRU.state.editando,rascunho:GRU.state.rascunho};},
+  contextStatus(){return {blocked:!!(GRU.state.ocupado||GRU.state.confirmando),dirty:!!GRU.state.rascunho&&JSON.stringify(GRU.contextValue())!==GRU.contextSaved};},
+  preserve(){
+    if(GRU.contextError)throw Error(GRU.contextError);
+    if(!GBS.validBrand(GRU.contextBrand))return;
+    const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value);GRU.contextSaved=JSON.stringify(value);
+  },
+  enterBrand(brand){
+    if(GRU.state.ocupado||GRU.state.confirmando)return false;
+    let value=null;GRU.contextError='';
+    try{value=GBS.read('template',brand);if(value?.rascunho?.marca&&value.rascunho.marca!==brand)throw Error('Preparação de template de outra marca. Os dados foram preservados.');}catch(e){value=null;GRU.contextError=e.message;}
+    GRU.contextBrand=brand;GRU.fechar(false);
+    if(value){
+      GRU.state.editando=value.editando;GRU.state.rascunho=value.rascunho;
+      const latest=GR.lista().find(d=>d.id===value.rascunho?.id),old=value.rascunho?.servidor;
+      // A saved editor buffer cannot roll back a receipt reconciled while another brand was open.
+      if(latest?.servidor&&old?.draft_id&&latest.servidor.draft_id!==old.draft_id)GRU.contextError='O vínculo deste template mudou em outra aba. Exporte sua preparação e reabra o rascunho para conferir.';
+      else if(latest?.servidor&&Number(latest.servidor.version)>=Number(old?.version||0))GRU.state.rascunho.servidor=JSON.parse(JSON.stringify(latest.servidor));
+    }
+    GRU.contextSaved=JSON.stringify(GRU.contextValue());if(GRU.contextError)GRU.aviso(GRU.contextError,'erro');
+    return true;
+  },
+  abrir(r,editando){
+    if(GRU.state.ocupado||GRU.state.confirmando)return false;
+    if(GRU.ctx.marca&&r.marca!==GRU.ctx.marca){
+      if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca))return false;
+    }
+    GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};GRU.render();document.getElementById('d-nome')?.focus();},
+  fechar(persist=true){GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},
   aviso(msg,tone='ok'){GRU.state.msg=msg;GRU.state.msgTone=tone;},
   bind(root,caps){
     const $=s=>root.querySelector(s);
-    $('#drafts-novo')?.addEventListener('click',()=>GRU.abrir(GR.novo({marca:['fish','aristo'].includes(GRU.ctx.marca)?GRU.ctx.marca:'fish'}),null));
-    $('#drafts-novo-email')?.addEventListener('click',()=>GRU.abrir(GR.novo({canal:'email',marca:['fish','aristo'].includes(GRU.ctx.marca)?GRU.ctx.marca:'fish'}),null));
+    $('#drafts-novo')?.addEventListener('click',()=>{if(GRU.ctx.marca==='todas')return;GRU.abrir(GR.novo({marca:GRU.ctx.marca||'fish'}),null);});
+    $('#drafts-novo-email')?.addEventListener('click',()=>{if(GRU.ctx.marca==='todas')return;GRU.abrir(GR.novo({canal:'email',marca:GRU.ctx.marca||'fish'}),null);});
     $('#drafts-chave')?.addEventListener('click',()=>GRU.abrirAcesso());
     root.querySelectorAll('[data-template-operacao]').forEach(b=>b.onclick=()=>GRU.consultarOperacao(b.dataset.templateOperacao));
     const acesso=$('#drafts-acesso');

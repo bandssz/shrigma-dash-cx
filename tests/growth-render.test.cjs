@@ -350,7 +350,7 @@ test('rascunhos: criar, salvar só no navegador, sobreviver ao refresh, exportar
  const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');
  assert.equal(root().hidden,false);assert.match(root().textContent,/Rascunhos salvos só neste dispositivo/);assert.match(root().textContent,/Nenhum rascunho neste dispositivo/);
- root().querySelector('#drafts-novo').click();
+ x.run('trocaMarca("fish")');root().querySelector('#drafts-novo').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
  set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');
  assert.equal(root().querySelectorAll('[data-exemplo]').length,2);
@@ -529,7 +529,7 @@ test('the UI harness waits for the action promise while native crypto is still p
  const barrier=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
  const cryptoProvider={randomUUID:()=>webcrypto.randomUUID(),subtle:{digest:async(...args)=>{entered();await barrier;return webcrypto.subtle.digest(...args);}}};
  const x=await boot(comCaps({submit:true}),{fetchMock:api.mock,cryptoProvider});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("GRU.state.rascunho=GR.novo({id:'delayed-worker-template',nome:'fixture_template',corpo:'Conteúdo sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'delayed-worker-template',nome:'fixture_template',corpo:'Conteúdo sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_delayed',version:1,estado:'rascunho'});
  const pending=clickAction(x,x.document.querySelector('#d-servidor'),'salvarServidor');pending.then(()=>{finished=true;},()=>{});
  try{
@@ -556,7 +556,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');
  assert.match(root().textContent,/com envio ao servidor/);assert.match(root().textContent,/Chave de escrita: informada/);
- root().querySelector('#drafts-novo').click();
+ x.run('trocaMarca("fish")');root().querySelector('#drafts-novo').click();
  const set=(sel,v)=>{const el=root().querySelector(sel);el.value=v;el.dispatchEvent(new x.window.Event('input'));el.dispatchEvent(new x.window.Event('change'));};
  set('#d-nome','fish_rastreio_v3');set('#d-corpo','Olá {{1}}, seu pedido {{2}} saiu.');set('[data-exemplo="1"]','Ana');set('[data-exemplo="2"]','#123');
  x.run("GRU.state.rascunho.botoes=[{tipo:'url',texto:'Acompanhar pedido',valor:'https://conta.fishermans.com.br/'}];GRU.render()");
@@ -642,7 +642,7 @@ test('409/502 without a durable receipt stay frozen; a later exact GET recovers 
 });
 test('opening an older confirmed template receipt never lowers the current revision or replays a POST',async()=>{
  const api=apiFalsa(),x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("GRU.state.rascunho=GR.novo({id:'versioned-template',nome:'fixture_template',corpo:'Primeira versão sintética.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'versioned-template',nome:'fixture_template',corpo:'Primeira versão sintética.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_versioned',version:1,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
  const firstId=x.run('GRU.journal().inspect().operations[0].id');
  x.run('GRU.state.rascunho.corpo="Segunda versão sintética."');api.responde('rascunho',200,{draft_id:'d_versioned',version:2,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
@@ -655,7 +655,7 @@ test('editing during a pending save keeps the new text local and dirty after the
  const api=apiFalsa();let release,entered;
  const reached=new Promise(resolve=>entered=resolve),barrier=new Promise(resolve=>release=resolve);
  const x=await boot(comCaps({submit:true}),{fetchMock:async(url,init)=>{if(url.startsWith(TPL_END)&&init?.method==='POST'){entered();await barrier;}return api.mock(url,init);}});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("GRU.state.rascunho=GR.novo({id:'edited-template',nome:'fixture_template',corpo:'Texto enviado sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'edited-template',nome:'fixture_template',corpo:'Texto enviado sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_edited',version:1,estado:'rascunho'});const pending=x.run('GRU.salvarServidor(GRU.state.rascunho)');await reached;
  x.run('GRU.state.rascunho.corpo="Nova edição local durante a espera."');release();await pending;
  assert.equal(api.pedidos.find(p=>p.body).body.rascunho.corpo,'Texto enviado sintético.');assert.equal(x.run('GR.lista()[0].corpo'),'Nova edição local durante a espera.');
@@ -742,7 +742,7 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
 
 test('WhatsApp preview updates examples and PIX card without live payment actions',async()=>{
  const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
- x.document.querySelector('#drafts-novo').click();
+ x.run('trocaMarca("fish")');x.document.querySelector('#drafts-novo').click();
  const set=(id,v)=>{const el=x.document.querySelector(id);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
  set('#d-corpo','Olá *{{1}}*! Seu pedido está pronto.');set('[data-exemplo="1"]','Ana <teste>');
  assert.equal(x.document.querySelector('.mp-chat-head strong').textContent,'Fishermans');
@@ -754,7 +754,7 @@ test('WhatsApp preview updates examples and PIX card without live payment action
 });
 test('email preview opens isolated HTML with devices, images opt-in and restored focus',async()=>{
  const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
- x.document.querySelector('#drafts-novo-email').click();
+ x.run('trocaMarca("fish")');x.document.querySelector('#drafts-novo-email').click();
  const set=(id,v)=>{const el=x.document.querySelector(id);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
  set('#d-assunto','Sua compra');set('#d-corpo','<h1>Olá {{ .Tx.Data.first_name }}</h1><img src="https://example.com/photo.png"><script>alert(1)</script><a href="https://example.com/pay" onclick="alert(1)">Pagar</a>');
  const open=x.document.querySelector('#d-preview-open');open.focus();open.click();
@@ -804,4 +804,55 @@ test('Growth rejects a response from another scope or an error envelope and pres
  for(const payload of [{...fixture(),_escopo:'influs'}, {...fixture(),erro:'synthetic-private-error'}, {...fixture(),error:'synthetic-private-error'}]){
   x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/não retornou os dados de Growth/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
  }
+});
+
+test('brand switch preserves template preparation, filters cards, and does not convert brands or operation journals',async()=>{
+ const x=await boot();x.run('trocaMarca("fish")');
+ x.run(`GR.guarda(GR.novo({id:'fish-local',marca:'fish',nome:'fish_template',corpo:'Fish'}));GR.guarda(GR.novo({id:'aristo-local',marca:'aristo',nome:'aristo_template',corpo:'Aristo'}));GRU.render();GRU.abrir(GR.novo({id:'working-fish',marca:'fish',nome:'incompleto',corpo:'Fish local https://fishermans.com.br/'}),null)`);
+ const snapshot=x.run('JSON.stringify(GRU.state.rascunho)');
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');
+ x.run('confirm=()=>true');x.document.querySelector('[data-marca="aristo"]').click();
+ assert.equal(x.run('MARCA'),'aristo');assert.equal(x.document.querySelectorAll('[data-draft="fish-local"]').length,0);assert.ok(x.document.querySelector('[data-draft="aristo-local"]'));
+ x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),snapshot);
+ assert.equal(x.document.querySelector('#d-marca').disabled,true);
+});
+test('journey dirty, busy or unresolved state keeps the header and preference on the original brand',async()=>{
+ const x=await boot();x.run('trocaMarca("fish")');
+ for(const state of [{dirty:true},{busy:true},{pending:{id:'same-attempt'}}]){
+  x.run(`Object.assign(GB.state,{dirty:false,busy:false,pending:null},${JSON.stringify(state)})`);
+  x.document.querySelector('[data-marca="aristo"]').click();
+  assert.equal(x.run('MARCA'),'fish');assert.equal(x.document.querySelector('#seg-marca .ativo').dataset.marca,'fish');assert.equal(JSON.parse(x.store.get('shrigma_growth_pref')).marca,'fish');
+  assert.equal(x.document.querySelector('#brand-context-status').hidden,false);
+ }
+});
+test('A/B brand and channel stay aligned, selection survives refresh, and changing channel explicitly clears incompatible arms',async()=>{
+ const p=fixture();p.crm_campanha.push({...p.crm_campanha[0],marca:'aristo',campanha_id:2,nome:'Aristo e-mail'},{...p.crm_campanha[0],marca:'aristo',canal:'whatsapp',campanha_id:3,nome:'Aristo WA'});
+ const x=await boot(p);x.run('trocaMarca("aristo")');x.document.querySelector('#btn-novo').click();
+ assert.equal(x.document.querySelector('#f-marca').value,'aristo');assert.equal(x.document.querySelector('#f-marca').disabled,true);
+ assert.deepEqual([...x.document.querySelector('#f-ca').options].map(o=>o.value),['','2']);
+ x.document.querySelector('#f-id').value='aristo-test';x.document.querySelector('#f-ca').value='2';await x.run('carregar()');assert.equal(x.document.querySelector('#f-ca').value,'2');
+ const change=()=>{const c=x.document.querySelector('#f-canal');c.value='whatsapp';c.dispatchEvent(new x.window.Event('change'));};
+ change();assert.equal(x.document.querySelector('#f-canal').value,'email');assert.equal(x.document.querySelector('#f-ca').value,'2');
+ x.run('confirm=()=>true');change();assert.equal(x.document.querySelector('#f-ca').value,'');assert.deepEqual([...x.document.querySelector('#f-ca').options].map(o=>o.value),['','3']);
+ x.document.querySelector('#f-ca').value='3';x.run('trocaMarca("fish");trocaMarca("aristo")');assert.equal(x.document.querySelector('#f-id').value,'aristo-test');assert.equal(x.document.querySelector('#f-ca').value,'3');
+});
+test('storage failure during a brand switch keeps the current editor, header and unsaved content',async()=>{
+ const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"não perder",corpo:"Conteúdo local"}),null);confirm=()=>true;localStorage.setItem=()=>{throw Error("Dispositivo sem espaço")}');
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Conteúdo local');assert.match(x.document.querySelector('#brand-context-status').textContent,/sem espaço/);
+});
+
+test('a late A/B receipt for Fish does not close or clear the open Aristo preparation',async()=>{
+ const x=await boot();x.run('trocaMarca("fish")');await x.run('reconciliaTestesAB()');
+ x.run(`AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};AB_CHAVE_SESSAO='synthetic-writer';AB_JOURNAL={inspect:()=>({blocked:false,operations:[{phase:'uncertain',server:{},expected:{acao:'criar',teste:{teste_id:'fish-old',marca:'fish'}}}]}),reconcileRemote:()=>new Promise(resolve=>globalThis.finishAB=resolve)};`);
+ const pending=x.run('reconciliaTestesAB()');
+ x.run(`trocaMarca('aristo');document.getElementById('btn-novo').click();document.getElementById('f-id').value='aristo-new';AB_JOURNAL.inspect=()=>({blocked:false,operations:[]});finishAB({changed:true,confirmed:[{phase:'confirmed',expected:{acao:'criar',teste:{teste_id:'fish-old',marca:'fish'}}}]})`);
+ await pending;assert.equal(x.document.querySelector('#form-teste').hidden,false);assert.equal(x.document.querySelector('#f-id').value,'aristo-new');assert.equal(x.run('MARCA'),'aristo');
+});
+test('returning to a template keeps local content but cannot lower a newer reconciled server revision',async()=>{
+ const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'same-id',version:1,estado:'rascunho'}}),null);confirm=()=>true;trocaMarca('aristo');GR.guarda(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Conteúdo do recibo',servidor:{draft_id:'same-id',version:2,estado:'validado'}}));trocaMarca('fish');`);
+ assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.equal(x.run('GRU.state.rascunho.servidor.version'),2);assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'same-id');
+});
+test('a template preparation cannot silently inherit a different server draft identity',async()=>{
+ const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);confirm=()=>true;trocaMarca('aristo');GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
+ assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'original-server-id');assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.match(x.run('GRU.contextError'),/vínculo/);assert.equal(x.run('GRU.prontaEscrita(GRU.state.rascunho)'),false);
 });

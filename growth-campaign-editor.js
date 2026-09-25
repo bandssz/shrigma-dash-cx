@@ -1,7 +1,7 @@
 /* Campaign editor. Server actions require explicitly announced capabilities. */
 'use strict';
 const GCE=(()=>{
- const KEY='shrigma_campaign_composer_v1';
+ let contextBrand=null,contextEpoch=0,localError='';
  const fields=['brand','initiative_name','initiative_key','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','send_at','tags','html','text'];
  let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[];
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
@@ -13,30 +13,28 @@ const GCE=(()=>{
  const fromDefinition=input=>{const d=CampaignContract.normalize(input);return {brand:d.brand,initiative_name:d.initiative.name,initiative_key:d.initiative.key,utm_campaign:d.utm_campaign,name:d.name,subject:d.subject,from_email:d.from_email,reply_to:d.reply_to,list_ids:d.list_ids.join(', '),template_id:String(d.template_id),send_at:d.send_at?new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3,hourCycle:'h23'}).format(new Date(d.send_at)).replace(' ','T').replace(',','.').replace(/\.000$/,''):'',tags:d.tags.join(', '),html:d.html,text:d.text};};
  function values(){return Object.fromEntries(fields.map(k=>[k,root.querySelector(`[name="${k}"]`).value]));}
  function message(text,error=false){const el=root.querySelector('[data-ce-status]');el.textContent=text;el.dataset.error=String(error);}
- function keep(){if(confirmation||remoteBusy)return;dirty=true;try{localStorage.setItem(KEY,JSON.stringify(values()));message('Alterações guardadas neste navegador.');}catch{message('Não foi possível salvar neste navegador. Exporte o JSON para guardar o rascunho.',true);}paintRemote();}
+ function keep(){if(confirmation||remoteBusy)return;dirty=true;try{saveLocal();message('Alterações guardadas neste navegador.');}catch(e){localError=e.message;message(e.message,true);}paintRemote();}
  function fill(v){for(const k of fields)root.querySelector(`[name="${k}"]`).value=typeof v[k]==='string'?v[k]:'';}
  const input=(name,label,placeholder='',extra='')=>`<label>${label}<input name="${name}" autocomplete="off" placeholder="${esc(placeholder)}" ${extra}></label>`;
  function mount({marca='fish',api:payload=null}={}){
   api=payload;
   const target=typeof document!=='undefined'?document.getElementById('campaign-composer'):null;
-  if(!target)return;if(target===root){setupRemote();return;}confirmation?.finish(false);root=target;
+  if(!target)return;if(target===root){if(contextBrand!==marca)enterBrand(marca);else setupRemote();return;}confirmation?.finish(false);root=target;
   root.innerHTML=`<details class="ce-shell"><summary><span class="ce-icon" aria-hidden="true">+</span><span class="ce-title"><strong>Preparar campanha</strong><span>Crie pelo painel ou importe o conteúdo preparado com IA.</span></span><span class="ce-tag">Rascunho local</span></summary>
    <div class="ce-body"><div class="ce-intro"><div><span class="ce-eyebrow">CADASTRO DE E-MAIL</span><h3>Uma iniciativa. Todos os seus disparos.</h3><p>A iniciativa reúne a campanha no relatório. Cada disparo mantém sua base e identificação próprias.</p></div><label class="ce-import">Importar JSON<input type="file" accept=".json,application/json" data-ce-import></label></div>
    <section class="ce-remote" data-ce-remote hidden aria-label="Campanhas no servidor"><div class="ce-remote-access"><button type="button" class="ce-secondary" data-ce-access-open>Acesso de escrita de campanhas</button><span data-ce-key-state role="status"></span></div>
-   <form data-ce-access-form hidden novalidate aria-labelledby="ce-access-title"><h4 id="ce-access-title">Acesso de escrita de campanhas</h4><p id="ce-access-help">A nova chave fica somente nesta página aberta. Preparar o acesso não salva, valida, agenda ou cancela; depois, escolha a ação desejada.</p><fieldset data-ce-access-fields><div class="ce-grid"><label for="ce-access-key">Chave de escrita de campanhas<input id="ce-access-key" type="password" data-ce-key autocomplete="off" spellcheck="false" maxlength="256" aria-describedby="ce-access-help ce-access-message"></label><label for="ce-access-file">Importar arquivo de acesso de campanhas<input id="ce-access-file" type="file" data-ce-access-file accept="application/json,.json" aria-describedby="ce-access-help ce-access-message"></label></div><button type="submit" class="ce-secondary" data-ce-key-save>Usar nesta página</button></fieldset><button type="button" class="ce-secondary" data-ce-access-cancel>Cancelar</button><p id="ce-access-message" data-ce-access-message role="status" aria-live="polite"></p></form><div class="ce-actions"><button type="button" class="ce-secondary" data-ce-refresh>Carregar catálogo e campanhas</button><button type="button" class="ce-secondary" data-ce-new>Preparar novo rascunho</button><button type="button" class="ce-secondary" data-ce-consult>Consultar tentativa</button></div><p data-ce-server-state role="status" aria-live="polite"></p><div data-ce-campaigns></div><div data-ce-catalog></div><div class="ce-actions"><button type="button" class="ce-primary" data-ce-save>Salvar no servidor</button><button type="button" class="ce-secondary" data-ce-validate>Validar versão salva</button><button type="button" class="ce-primary" data-ce-schedule>Agendar versão validada</button><button type="button" class="ce-secondary" data-ce-cancel>Cancelar agendamento</button></div><p class="ce-help">Salvar mantém o rascunho sem envio. Validar confere a revisão. Agendar usa a data revisada. Resultado incerto exige consulta da mesma tentativa.</p></section><form data-ce-definition novalidate><fieldset><legend><span>01</span> Campanha e iniciativa</legend><div class="ce-grid"><label>Marca<select name="brand"><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option><option value="olivas">Olivas do Campo</option></select></label>${input('initiative_name','Iniciativa comercial','Ex.: Semana do Cliente')}${input('initiative_key','Identificador da iniciativa','Ex.: semana-do-cliente-2026')}${input('utm_campaign','UTM da campanha','Use o identificador já adotado na iniciativa')}${input('name','Nome deste disparo','Ex.: Abertura · clientes recorrentes')}${input('subject','Assunto do e-mail','O assunto que aparece na caixa de entrada','maxlength="250"')}</div></fieldset>
+   <form data-ce-access-form hidden novalidate aria-labelledby="ce-access-title"><h4 id="ce-access-title">Acesso de escrita de campanhas</h4><p id="ce-access-help">A nova chave fica somente nesta página aberta. Preparar o acesso não salva, valida, agenda ou cancela; depois, escolha a ação desejada.</p><fieldset data-ce-access-fields><div class="ce-grid"><label for="ce-access-key">Chave de escrita de campanhas<input id="ce-access-key" type="password" data-ce-key autocomplete="off" spellcheck="false" maxlength="256" aria-describedby="ce-access-help ce-access-message"></label><label for="ce-access-file">Importar arquivo de acesso de campanhas<input id="ce-access-file" type="file" data-ce-access-file accept="application/json,.json" aria-describedby="ce-access-help ce-access-message"></label></div><button type="submit" class="ce-secondary" data-ce-key-save>Usar nesta página</button></fieldset><button type="button" class="ce-secondary" data-ce-access-cancel>Cancelar</button><p id="ce-access-message" data-ce-access-message role="status" aria-live="polite"></p></form><div class="ce-actions"><button type="button" class="ce-secondary" data-ce-refresh>Carregar catálogo e campanhas</button><button type="button" class="ce-secondary" data-ce-new>Preparar novo rascunho</button><button type="button" class="ce-secondary" data-ce-consult>Consultar tentativa</button></div><p data-ce-server-state role="status" aria-live="polite"></p><div data-ce-campaigns></div><div data-ce-catalog></div><div class="ce-actions"><button type="button" class="ce-primary" data-ce-save>Salvar no servidor</button><button type="button" class="ce-secondary" data-ce-validate>Validar versão salva</button><button type="button" class="ce-primary" data-ce-schedule>Agendar versão validada</button><button type="button" class="ce-secondary" data-ce-cancel>Cancelar agendamento</button></div><p class="ce-help">Salvar mantém o rascunho sem envio. Validar confere a revisão. Agendar usa a data revisada. Resultado incerto exige consulta da mesma tentativa.</p></section><form data-ce-definition novalidate><fieldset><legend><span>01</span> Campanha e iniciativa</legend><div class="ce-grid"><label>Marca<input name="brand" type="hidden"><strong data-ce-brand></strong></label>${input('initiative_name','Iniciativa comercial','Ex.: Semana do Cliente')}${input('initiative_key','Identificador da iniciativa','Ex.: semana-do-cliente-2026')}${input('utm_campaign','UTM da campanha','Use o identificador já adotado na iniciativa')}${input('name','Nome deste disparo','Ex.: Abertura · clientes recorrentes')}${input('subject','Assunto do e-mail','O assunto que aparece na caixa de entrada','maxlength="250"')}</div></fieldset>
    <fieldset><legend><span>02</span> Público e remetente</legend><div class="ce-grid">${input('list_ids','IDs das listas','Ex.: 123, 124')}${input('template_id','ID do template de campanha','Consulte o catálogo de templates','inputmode="numeric"')}${input('from_email','Remetente','Marca <email@dominio-da-marca>')}${input('reply_to','Endereço para respostas','email@dominio-da-marca')}${input('send_at','Data desejada · Brasília, UTC−3 (opcional)','','type="datetime-local" step="60"')}${input('tags','Tags (opcional)','abertura, clientes-recorrentes')}</div><p class="ce-help">Os IDs serão conferidos com o catálogo da marca na integração de envio. Informar uma data aqui não agenda a campanha.</p></fieldset>
    <fieldset><legend><span>03</span> Conteúdo</legend><div class="ce-grid ce-content"><label>HTML do e-mail<textarea name="html" spellcheck="false" placeholder="Cole o HTML com os links da loja e {{ UnsubscribeURL }}"></textarea></label><label>Versão em texto<textarea name="text" placeholder="Cole a versão em texto, incluindo os links e {{ UnsubscribeURL }}"></textarea></label></div></fieldset>
    <div class="ce-tracking"><strong>Rastreamento vinculado ao disparo</strong><p>A API de cadastro deverá aplicar as UTMs ao HTML e ao texto com o ID real do envio. O JSON exportado é uma preparação; ainda não confirma links rastreados, listas disponíveis ou agendamento.</p></div>
    <div class="ce-actions"><button type="button" class="ce-secondary" data-ce-preview>Abrir prévia do HTML</button><button type="button" class="ce-primary" data-ce-export>Verificar e exportar JSON</button><button type="button" class="ce-secondary" data-ce-reset>Limpar rascunho</button><span data-ce-status role="status" aria-live="polite">Rascunho local. Ainda não cadastrado para envio.</span></div>
    </form></div></details><dialog class="ce-confirm" data-ce-confirm aria-labelledby="ce-confirm-title" aria-describedby="ce-confirm-text"><h3 id="ce-confirm-title">Confirmar ação</h3><p id="ce-confirm-text" data-ce-confirm-text></p><div class="ce-confirm-actions"><button type="button" class="ce-secondary" data-ce-confirm-no autofocus>Voltar sem alterar</button><button type="button" class="ce-primary" data-ce-confirm-yes>Confirmar</button></div></dialog>`;
-  let initial=blank(marca);try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&typeof saved==='object'&&!Array.isArray(saved)){initial={...initial,...Object.fromEntries(fields.filter(k=>typeof saved[k]==='string').map(k=>[k,saved[k]]))};if(!['fish','aristo','olivas'].includes(initial.brand))initial.brand='fish';}}catch{}
-  fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
+  enterBrand(marca);
   root.querySelector('[data-ce-definition]').addEventListener('submit',e=>e.preventDefault());
   root.querySelector('[data-ce-definition]').addEventListener('input',keep);
-  root.querySelector('[name=brand]').addEventListener('change',()=>{if(confirmation||remoteBusy)return;setupRemote();keep();});
   root.querySelector('[data-ce-import]').addEventListener('change',async e=>{
    const field=e.target,f=field.files?.[0];if(!f||confirmation||remoteBusy)return;
-   try{if(remote?.locked())throw Error('Consulte a tentativa pendente antes de importar outro conteúdo.');if(f.size>800000)throw Error('Use um arquivo JSON de até 800 KB.');const before=confirmationContext(),v=fromDefinition(JSON.parse(await f.text()));if(!sameContext(before))throw Error('O rascunho mudou durante a leitura. Confira o conteúdo e importe novamente.');
+   try{if(remote?.locked())throw Error('Consulte a tentativa pendente antes de importar outro conteúdo.');if(f.size>800000)throw Error('Use um arquivo JSON de até 800 KB.');const before=confirmationContext(),v=fromDefinition(JSON.parse(await f.text()));if(v.brand!==contextBrand)throw Error('Este arquivo é de outra marca. Abra a marca do arquivo no cabeçalho antes de importar.');if(!sameContext(before))throw Error('O rascunho mudou durante a leitura. Confira o conteúdo e importe novamente.');
     const apply=()=>{fill(v);setupRemote();saveLocal();message('JSON importado e campos conferidos. Catálogo e UTMs finais serão validados na integração de envio.');};
     if(dirty)await confirmAction('Substituir o rascunho local pelo conteúdo deste arquivo?','Substituir rascunho',apply);else apply();
    }catch(err){message(err instanceof SyntaxError?'O arquivo não contém um JSON válido.':err.message,true);}finally{field.value='';}
@@ -47,16 +45,33 @@ const GCE=(()=>{
    catch(err){message(err.message,true);const mapped={'initiative.key':'initiative_key','initiative.name':'initiative_name'};root.querySelector(`[name="${mapped[err.field]||err.field}"]`)?.focus();}
   });
   root.querySelector('[data-ce-preview]').addEventListener('click',()=>{if(confirmation||remoteBusy)return;const v=values();GMP.openEmail({source:v.html||'<p>Escreva o HTML para visualizar o e-mail.</p>',subject:v.subject,label:'Prévia do conteúdo da campanha'});});
-  root.querySelector('[data-ce-reset]').addEventListener('click',()=>{if(remote?.locked()){message('Consulte a tentativa pendente antes de limpar o conteúdo.',true);return;}confirmAction('Limpar o rascunho salvo neste navegador?','Limpar rascunho',()=>{fill(blank(values().brand));try{localStorage.removeItem(KEY);}catch{}dirty=false;message('Rascunho limpo. Nenhuma campanha de envio foi alterada.');});});
+  root.querySelector('[data-ce-reset]').addEventListener('click',()=>{if(remote?.locked()){message('Consulte a tentativa pendente antes de limpar o conteúdo.',true);return;}confirmAction('Limpar o rascunho salvo neste navegador?','Limpar rascunho',()=>{fill(blank(values().brand));saveLocal();dirty=false;message('Rascunho limpo. Nenhuma campanha de envio foi alterada.');});});
   bindRemote();setupRemote();
  }
  const q=selector=>root.querySelector(selector);
- function saveLocal(){dirty=true;try{localStorage.setItem(KEY,JSON.stringify(values()));}catch{message('Não foi possível guardar o rascunho neste navegador.',true);}paintRemote();}
+ function saveLocal(){if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign;GBS.save('campaign',contextBrand,{...values(),_campaign:c?{id:c.id,version:c.version}:null});localError='';}
+ function contextStatus(){return {blocked:!!(remoteBusy||confirmation||accessImporting),dirty:!!localError,pending:!!remote?.locked()};}
+ function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
+ function enterBrand(brand){
+  if(remoteBusy||confirmation||accessImporting)return false;
+  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';
+  let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
+  initial.brand=GBS.validBrand(brand)?brand:'';fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
+  q('[data-ce-brand]').textContent=({fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo'})[brand]||'Escolha uma marca no cabeçalho';
+  q('[data-ce-definition]').hidden=!GBS.validBrand(brand);setupRemote();
+  if(!localError&&Object.hasOwn(initial,'_campaign')){
+   const c=remote?.snapshot()?.campaign,anchor=c?{id:c.id,version:c.version}:null;
+   if(JSON.stringify(initial._campaign)!==JSON.stringify(anchor)){localError='A campanha ou revisão desta marca mudou em outra aba. Exporte a preparação local e reabra a campanha antes de editar.';paintRemote();}
+  }
+  if(localError)message(localError,true);else message(GBS.validBrand(brand)?'Preparação desta marca. Salvar localmente não envia a campanha.':'Escolha uma marca no cabeçalho para preparar uma campanha.');
+  return true;
+ }
+
  function confirmationContext(){
-  return {root,client:remote,brand:values().brand,draft:JSON.stringify(values()),dirty,server:JSON.stringify(remote?.snapshot()||null),caps:JSON.stringify(remoteCaps),writer:currentWriteKey(),journal:remote?localStorage.getItem(GCA.JOURNAL+remoteBrand):null};
+  return {root,client:remote,epoch:contextEpoch,brand:values().brand,draft:JSON.stringify(values()),dirty,server:JSON.stringify(remote?.snapshot()||null),caps:JSON.stringify(remoteCaps),writer:currentWriteKey(),journal:remote?localStorage.getItem(GCA.JOURNAL+remoteBrand):null};
  }
  function sameContext(before){
-  const after=confirmationContext();return before.root===after.root&&before.client===after.client&&['brand','draft','dirty','server','caps','writer','journal'].every(k=>before[k]===after[k])&&!remote?.locked();
+  const after=confirmationContext();return before.root===after.root&&before.client===after.client&&['epoch','brand','draft','dirty','server','caps','writer','journal'].every(k=>before[k]===after[k])&&!remote?.locked();
  }
  async function confirmAction(text,label,work){
   if(confirmation||remoteBusy||remote?.locked()||accessImporting)return;
@@ -127,7 +142,7 @@ const GCE=(()=>{
  const statusName=s=>({draft:'Rascunho',scheduled:'Agendada',running:'Em envio',paused:'Pausada',finished:'Concluída',cancelled:'Cancelada'}[s]||s||'Não confirmado');
  function setupRemote(){
   if(typeof GCA==='undefined')return;
-  const next=GCA.caps(api),brand=values().brand;
+  const next=GCA.caps(api),brand=contextBrand;
   if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);paintRemote();return;}
   remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
@@ -144,7 +159,7 @@ const GCE=(()=>{
   for(const name of ['list_ids','template_id'])q(`[name=${name}]`).closest('label').hidden=exists;
   q('.ce-tracking p').textContent=exists?'Ao salvar, o servidor aplica as UTMs ao HTML e ao texto com a identidade real desta campanha. A versão salva deve ser validada antes do agendamento.':'A API de cadastro deverá aplicar as UTMs ao HTML e ao texto com o ID real do envio. O JSON exportado é uma preparação; ainda não confirma links rastreados, listas disponíveis ou agendamento.';
   const s=remote?.snapshot(),locked=!!remote?.locked(),frozen=locked||remoteBusy||!!confirmation;
-  for(const name of fields)q(`[name="${name}"]`).disabled=frozen;
+  for(const name of fields)q(`[name="${name}"]`).disabled=frozen||name==='brand'||!GBS.validBrand(contextBrand)||!!localError;
   q('[data-ce-import]').disabled=frozen;q('[data-ce-reset]').disabled=frozen;
   q('[data-ce-export]').disabled=remoteBusy||!!confirmation;q('[data-ce-preview]').disabled=remoteBusy||!!confirmation;
   for(const el of q('[data-ce-catalog]').querySelectorAll('input,select'))el.disabled=frozen;
@@ -154,7 +169,7 @@ const GCE=(()=>{
   q('[data-ce-access-open]').disabled=remoteBusy||!!confirmation;q('[data-ce-access-fields]').disabled=remoteBusy||accessImporting||!!confirmation;q('[data-ce-access-cancel]').disabled=!!confirmation;
   if(!exists)return;
   let d=null;try{d=definition(values());}catch{}
-  const writes=remote.canWrite(),c=s.campaign,clean=d&&remote.clean(d),draft=c?.status==='draft'&&c.sent===0&&!c.started_at;
+  const writes=remote.canWrite()&&!localError,c=s.campaign,clean=d&&remote.clean(d),draft=c?.status==='draft'&&c.sent===0&&!c.started_at;
   const set=(name,shown,disabled)=>{const b=q(`[data-ce-${name}]`);b.hidden=!shown;b.disabled=disabled;};
   set('refresh',remoteCaps.read,remoteBusy||!!confirmation);set('new',remoteCaps.save,frozen||!writes);set('consult',remoteCaps.operation,remoteBusy||!!confirmation||!s.operation);
   set('save',remoteCaps.save,frozen||!writes||!!c&&!draft);set('validate',remoteCaps.validate,frozen||!writes||!draft||!clean);
@@ -176,8 +191,8 @@ const GCE=(()=>{
   if(!remote||remoteBusy||(confirmation&&confirmation!==confirmed))return;
   if(write&&!requireWriteAccess())return;
   let accessDenied=null;
-  remoteBusy=true;paintRemote();
-  try{const result=await work();if(fillSaved&&result?.campaign){fill(fromDefinition(result.campaign.definition));try{localStorage.setItem(KEY,JSON.stringify(values()));}catch{}dirty=false;renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);}
+  const epoch=contextEpoch,client=remote;remoteBusy=true;paintRemote();
+  try{const result=await work();if(epoch!==contextEpoch||client!==remote)return;if(fillSaved&&result?.campaign){fill(fromDefinition(result.campaign.definition));saveLocal();dirty=false;renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);}
    if(result?.localOnly){message('Nova preparação local aberta. Nenhuma campanha foi criada ou enviada.');return;}
    if(result?.readOnly){const status={pending:'em processamento',outcome_unknown:'resultado incerto',succeeded:'concluída no servidor',rejected:'recusada no servidor'}[result.consultation?.state]||'estado não confirmado';message(`Consulta recebida: ${status}. O registro local foi preservado. A confirmação local depende da proteção entre abas deste navegador.`);return;}
    message(remote.locked()?'A tentativa continua pendente ou incerta. Consulte novamente; não crie outra tentativa.':'Operação conferida. O estado acima mostra o que o servidor confirmou.',remote.locked());}
@@ -220,9 +235,9 @@ const GCE=(()=>{
    const client=remote,s=client?.snapshot(),c=s?.campaign;if(!c||confirmation||remoteBusy)return;
    if(!requireWriteAccess())return;
    const d=definition(values());
-   confirmAction(`Agendar “${c.definition.name}” para ${stamp(c.send_at)}? Esta ação usa o público da versão validada e poderá iniciar o envio na data indicada.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar'),{fillSaved:true,write:true,confirmed}));
+   confirmAction(`Agendar ${contextBrand==='fish'?'Fishermans':contextBrand==='aristo'?'O Aristocrata':contextBrand} · “${c.definition.name}” para ${stamp(c.send_at)}? Esta ação usa o público da versão validada e poderá iniciar o envio na data indicada.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar'),{fillSaved:true,write:true,confirmed}));
   });
  }
- return {mount,definition,fromDefinition,parseAccessFile};
+ return {contextStatus,preserve,enterBrand,mount,definition,fromDefinition,parseAccessFile};
 })();
 if(typeof module!=='undefined')module.exports=GCE;
