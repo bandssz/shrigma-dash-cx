@@ -57,6 +57,7 @@ jobs:
           go mod verify
           go build -trimpath -o "$RUNNER_TEMP/stuffbin" github.com/knadh/stuffbin/stuffbin
       - name: Produce candidate and exact upstream rollback artifact
+        id: build_candidate
         env:
           BUILD_TARGET: ${{ matrix.target }}
         run: >-
@@ -88,6 +89,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U synthetic -d postgres -c 'CREATE DATABASE ab_selection_load;'
           python3 tools/listmonk-ab-build/selection_load.py --artifact-dir "$RUNNER_TEMP/listmonk-ab-linux_amd64" --report "$RUNNER_TEMP/listmonk-ab-linux_amd64/selection-load.json"
       - name: Upload review artifact only (no release, registry or deployment)
+        if: ${{ always() && steps.build_candidate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: listmonk-6.1.0-crm-ab-candidate-${{ matrix.target }}

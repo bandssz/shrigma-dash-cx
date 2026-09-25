@@ -6,6 +6,7 @@ worker, SMTP, HTTP, external connection, recipient export or deployment is made.
 All source SQL comes from the pinned, verified candidate/rollback artifact.
 """
 import argparse
+import gzip
 import ipaddress
 import json
 import math
@@ -28,6 +29,8 @@ BATCH = 1000
 TIMEOUT = 240
 OUTPUT_LIMIT = 262144
 REPORT_LIMIT = 2097152
+PLAN_RAW_LIMIT = 20 * 1048576
+PLAN_GZIP_LIMIT = 4 * 1048576
 QUERY_NAMES = ('next-campaigns', 'next-campaign-subscribers')
 CASES = (('upstream', 'control', 3), ('candidate', 'control', 3),
          ('candidate', 'a', 1), ('candidate', 'b', 2))
@@ -189,6 +192,9 @@ def set_proof(db, queries, phase, report):
                + str(max(expected_ids(phase, kind))) + ',' + quote(query) + ');')
         value, elapsed = db.json(sql)
         verify_page_summary(value, phase, kind)
+        # These are test-evidence rows only. Keep their planner statistics fresh;
+        # neither this table nor this ANALYZE is part of the product query.
+        db.sql('ANALYZE selection_load_seen;')
         proof, _ = db.json("SELECT json_build_object('missing',(SELECT count(*) FROM (SELECT id FROM selection_load_expected WHERE phase="
                           + quote(phase) + ' AND kind=' + quote(kind) + ' EXCEPT SELECT id FROM selection_load_seen WHERE label='
                           + quote(label) + ")x),'extra',(SELECT count(*) FROM (SELECT id FROM selection_load_seen WHERE label="
@@ -196,14 +202,21 @@ def set_proof(db, queries, phase, report):
                           + quote(phase) + ' AND kind=' + quote(kind) + ')x));')
         build.require(proof == {'missing': 0, 'extra': 0}, 'Selection set differs from independent fixture expectation')
         result.append({'variant': variant, 'kind': kind, **value, **proof, 'psql_wall_ms': elapsed})
-    overlap, _ = db.json("SELECT json_build_object('overlap',count(*)) FROM selection_load_seen a JOIN selection_load_seen b ON b.id=a.id WHERE a.label="
-                         + quote(phase + ':candidate:a') + ' AND b.label=' + quote(phase + ':candidate:b') + ';')
+    report['stage'] = phase + ':overlap'
+    overlap, _ = db.json(overlap_sql(phase))
     build.require(overlap == {'overlap': 0}, 'A/B partition overlap')
     partial.update({**overlap, 'exact_set_equivalence': True})
     return partial
 
 
-def measure(db, queries, report):
+def overlap_sql(phase):
+    build.require(phase in ('baseline', 'suppressed'), 'Unknown overlap phase')
+    return ("SELECT json_build_object('overlap',count(*)) FROM (SELECT id FROM selection_load_seen WHERE label="
+            + quote(phase + ':candidate:a') + ' INTERSECT SELECT id FROM selection_load_seen WHERE label='
+            + quote(phase + ':candidate:b') + ') shared_ids;')
+
+
+def measure(db, queries, report, plans):
     cases = [('count_control', QUERY_NAMES[0], ['ARRAY[1,2]::int[]', 'ARRAY[0,0]::int[]']),
              ('count_ab', QUERY_NAMES[0], ['ARRAY[3]::int[]', 'ARRAY[0]::int[]'])]
     for kind, cid in [('control', 3), ('a', 1), ('b', 2)]:
@@ -220,8 +233,13 @@ def measure(db, queries, report):
             # not independent cold-cache or concurrent worker measurements.
             for variant in (('upstream', 'candidate') if repeat % 2 == 0 else ('candidate', 'upstream')):
                 report['stage'] = 'explain:' + name + ':' + variant
-                value, elapsed = db.json(explain_sql(bind(queries[variant][query_name], args)))
-                samples[variant].append(explain_record(value, elapsed))
+                bound = bind(queries[variant][query_name], args)
+                value, elapsed = db.json(explain_sql(bound))
+                sample = explain_record(value, elapsed)
+                sample['plan_id'] = len(plans)
+                plans.append({'plan_id': len(plans), 'case': name, 'variant': variant, 'repeat': repeat,
+                              'query_sha256': build.sha(bound.encode()), 'query': bound, 'explain': sample.pop('explain')})
+                samples[variant].append(sample)
         entry.update(compare_samples(samples['upstream'], samples['candidate']))
     return reports
 
@@ -238,9 +256,78 @@ ANALYZE;
 """
 
 
+def plan_path(output):
+    return output.with_name(output.stem + '-plans.json.gz')
+
+
+def compact_json(value, limit):
+    encoded = (json.dumps(value, separators=(',', ':'), allow_nan=False) + '\n').encode()
+    build.require(len(encoded) <= limit, 'Evidence byte limit exceeded')
+    return encoded
+
+
+def emergency_summary(report):
+    # Fixed-shape fallback: keeps EVERY timing sample (11 x 2 x 3), never plans
+    # or unexpected oversized fields. The original failure takes precedence.
+    result = {key: report[key] for key in (
+        'schema', 'stage', 'production_access', 'database', 'postgres_version', 'runtime_after',
+        'failure_type', 'failure_detail', 'cleanup_failure_type', 'report_failure_type',
+        'elapsed_seconds', 'cardinality', 'review_signals', 'explain_archive') if key in report}
+    result['status'] = 'FAILED'
+    result['measurements'] = []
+    for entry in report.get('measurements', [])[:11]:
+        item = {key: entry[key] for key in ('case', 'upstream_median_ms', 'candidate_median_ms', 'delta_ms', 'ratio', 'review_signal') if key in entry}
+        item['samples'] = {variant: [{key: sample[key] for key in ('execution_ms', 'planning_ms', 'psql_wall_ms', 'plan_id') if key in sample}
+                                    for sample in entry.get('samples', {}).get(variant, [])[:3]] for variant in ('upstream', 'candidate')}
+        result['measurements'].append(item)
+    return result
+
+
+def write_reports(report, plans, output):
+    """Return a reporting error; do not mask the primary database/cleanup error.
+
+    Full plans have separate raw/gzip limits. Metrics remain in the small summary.
+    Even an unwritable disk leaves a bounded FAILED summary in the CI log.
+    """
+    failure = None
+    try:
+        raw = compact_json({'schema': 'listmonk-ab-selection-plans-v1', 'plans': plans}, PLAN_RAW_LIMIT)
+        zipped = gzip.compress(raw, mtime=0)
+        build.require(len(zipped) <= PLAN_GZIP_LIMIT, 'Compressed plan byte limit exceeded')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        target = plan_path(output)
+        with target.open('xb') as stream:
+            stream.write(zipped)
+        report['explain_archive'] = {'file': target.name, 'plans': len(plans), 'raw_bytes': len(raw),
+                                     'gzip_bytes': len(zipped), 'sha256': build.sha(zipped),
+                                     'raw_limit_bytes': PLAN_RAW_LIMIT, 'gzip_limit_bytes': PLAN_GZIP_LIMIT}
+    except Exception as exc:
+        failure = exc
+        report['status'] = 'FAILED'
+        report['report_failure_type'] = type(exc).__name__
+    try:
+        encoded = compact_json(report, REPORT_LIMIT)
+    except Exception as exc:
+        failure = failure or exc
+        report['status'] = 'FAILED'
+        report['report_failure_type'] = type(exc).__name__
+        encoded = compact_json(emergency_summary(report), REPORT_LIMIT)
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open('xb') as stream:
+            stream.write(encoded)
+    except Exception as exc:
+        failure = failure or exc
+        report['status'] = 'FAILED'
+        report['report_failure_type'] = type(exc).__name__
+    if failure or report['status'] == 'FAILED':
+        print(compact_json(emergency_summary(report), REPORT_LIMIT).decode().strip())
+    return failure
+
+
 def run(folder, output):
     require_ci(os.environ)
-    build.require(not output.exists(), 'Report must be a new file')
+    build.require(not output.exists() and not plan_path(output).exists(), 'Reports must be new files')
     db = Database(time.monotonic() + TIMEOUT)
     candidate, schema, manifest = load_candidate(folder)
     queries = load_queries(folder, candidate)
@@ -262,6 +349,8 @@ def run(folder, output):
                   'Allocation is explicit fixture membership; authorization is tested separately.',
                   'Observed settings do not prove in-memory overrides or deployment topology.']}
     initialized = False
+    primary_error = None
+    plans = []
     started = time.monotonic()
     try:
         db.sql(schema, seconds=30)
@@ -285,7 +374,7 @@ def run(folder, output):
         set_proof(db, queries, 'baseline', report)
         report['stage'] = 'explain'
         report['measurements'] = []
-        measure(db, queries, report)
+        measure(db, queries, report, plans)
         report['review_signals'] = [item['case'] for item in report['measurements'] if item['review_signal']]
         report['stage'] = 'suppression'
         db.sql(SUPPRESSION)
@@ -295,11 +384,11 @@ def run(folder, output):
         report['status'] = 'PASSED_SYNTHETIC_EQUIVALENCE_REVIEW_LATENCY'
         report['stage'] = 'complete'
     except Exception as exc:
+        primary_error = exc
         report['failure_type'] = type(exc).__name__
         # Inputs and SQL are entirely synthetic. Keep diagnostic text bounded;
         # never serialize result rows, environment, config or recipient bodies.
         report['failure_detail'] = str(exc)[:2000]
-        raise
     finally:
         try:
             if initialized:
@@ -307,16 +396,23 @@ def run(folder, output):
                 build.require(body == 'f', 'Disposable runtime cleanup failed')
                 report['runtime_after'] = 'OFF'
         except Exception as exc:
+            primary_error = primary_error or exc
             report['status'] = 'FAILED'
             report['cleanup_failure_type'] = type(exc).__name__
-            raise
         finally:
             report['elapsed_seconds'] = round(time.monotonic() - started, 3)
-            encoded = json.dumps(report, indent=2) + '\n'
-            build.require(len(encoded.encode()) <= REPORT_LIMIT, 'Report byte limit exceeded')
-            output.parent.mkdir(parents=True, exist_ok=True)
-            with output.open('x') as stream:
-                stream.write(encoded)
+            try:
+                report_error = write_reports(report, plans, output)
+            except Exception as exc:
+                # Last-resort primitive output survives even a malformed summary.
+                report['status'] = 'FAILED'
+                report_error = exc
+                print(json.dumps({'status': 'FAILED', 'stage': report.get('stage'),
+                                  'failure_type': type(primary_error or exc).__name__,
+                                  'report_failure_type': type(exc).__name__, 'runtime_after': report.get('runtime_after')}))
+            primary_error = primary_error or report_error
+    if primary_error is not None:
+        raise primary_error
     print(json.dumps({key: report[key] for key in ('status', 'cardinality', 'runtime_after', 'elapsed_seconds', 'review_signals')}))
 
 
