@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Growth · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=287a41f6a15b">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-pwkBgByY6hAlHqGsLINcHuslxQLS12RcZ8cajatMX9U='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cfe9284c3e6b">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MNeC5SGfCeoLsMVAD8CsKbAhxmUDZ5gD/1UQZ5wVrDk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -129,7 +129,7 @@
     </section>
     <section class="painel">
       <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
-        <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
+        <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
           <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
       <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
         <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
@@ -229,7 +229,7 @@
   <div class="sec" id="sec-base">
     <p class="email-scope">Base de e-mail: a segmentação considera a marca selecionada, independentemente do filtro de canal.</p>
     <section class="painel">
-      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
+      <div class="painel-cab"><h2>Segmentos da base</h2><span class="mini" id="arv-rot"></span></div>
       <div id="area-arvore"></div>
       <div class="nota"><span class="control-badge" tabindex="0" title="A árvore mostra as regras atuais de segmentação da marca. Alterações nessas regras precisam de revisão antes de valerem para os próximos públicos.">Regras atuais da marca</span></div>
     </section>
@@ -241,7 +241,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=4195b061fad1"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=440b6c5aface"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -273,7 +273,7 @@ const COLS_CAMP=[{chave:'nome',rotulo:'Peça'},{chave:'marca',rotulo:'Marca',peg
   {chave:'ctor_pct',rotulo:'CTOR %',pega:c=>c.medido&&c.medido_clique?c.ctor_pct:null},{chave:'hard',rotulo:'Hard bounce'},{chave:'complaints',rotulo:'Reclamações'},{chave:'compl_pct',rotulo:'Reclamação %'},
   {chave:'pedidos',rotulo:'Pedidos atribuídos',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.pedidos:null},{chave:'receita',rotulo:'Receita acumulada',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null},
   {chave:'utm_ambiguo',rotulo:'Receita indivisível',pega:c=>!!(c.rec&&c.rec.utm_ambiguo)},{chave:'grupo',rotulo:'Mesmo UTM (grupo)',pega:c=>c.grupo?`#${c.grupo.grupo}`:null},{chave:'truncado',rotulo:'Truncado',pega:c=>!!c.truncado}];
-const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Grão'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
+const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Agrupamento'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
   {chave:'campanha',rotulo:'utm_campaign'},{chave:'peca',rotulo:'utm_content'},{chave:'familia',rotulo:'Família'},{chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},
   {chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},{chave:'novos',rotulo:'Clientes novos'},{chave:'recorr',rotulo:'Clientes recorrentes'},{chave:'pct_novos',rotulo:'% novos'}];
 const HOJE=G.diaBR(new Date());
@@ -594,7 +594,7 @@ function render(){
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
   }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
-  $('#nota-conv').innerHTML=GA.valid(API)?`<strong>${esc(GA.models[GA.model(API)])} · 30 dias.</strong> ${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'} Receita líquida recebida, descontados reembolsos. <strong>Assistido</strong> = outro toque CRM dentro da janela, sem crédito final nesta linha. A mesma compra pode assistir mais de uma linha; não some assistências entre campanhas. Família consolida pedidos únicos da iniciativa. Jornadas ainda indisponíveis ficam pendentes. Dados anteriores à cobertura conciliada ficam fora desta atribuição.`:`Fonte anterior: último clique não direto, janela nominal de 30 dias. Atribuição ainda não reconciliada para esta marca.`;
+  $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
 
   const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
   $('#n-regua').textContent=fl.length||'';
@@ -691,13 +691,13 @@ function render(){
     if(!ultMov[k]||String(g.dia)>String(ultMov[k].dia))ultMov[k]=g;});
   const maxP=Math.max(1,...Object.values(ult).map(g=>+g.pessoas||0));
   $('#n-arv').textContent=regras.length||'';
-  $('#arv-rot').textContent=regras.length?`${regras.length} galhos`:'';
+  $('#arv-rot').textContent=regras.length?`${regras.length} segmento${regras.length===1?'':'s'}`:'';
   $('#area-arvore').innerHTML=regras.length?regras.map(r=>{
     const g=ult[r.marca+r.galho],p=g?+g.pessoas:undefined;
     const mv=ultMov[r.marca+r.galho];
     const mvTxt=mv?` · <span style="color:#2e7d32">+${nf(mv.entraram)}</span> <span style="color:#b3261e">−${nf(mv.sairam)}</span> em ${String(mv.dia).slice(8,10)}/${String(mv.dia).slice(5,7)}`:'';
     return `<div class="galho"><div><div class="rot">${esc(r.rotulo)}</div>
-      <div class="flx">${esc(r.fluxo||'sem fluxo')} · cap ${r.cap_dias}d${g&&g.ltv_medio>0?' · LTV '+rf(g.ltv_medio):''}${mvTxt}</div></div>
+      <div class="flx">${esc(GUI.segmentFlow(r.fluxo))} · <span tabindex="0" title="Frequência registrada na regra deste segmento, em dias.">${r.cap_dias!==null&&r.cap_dias!==undefined&&String(r.cap_dias).trim()!==''&&Number.isFinite(+r.cap_dias)?'Frequência cadastrada · '+nf(+r.cap_dias)+' dias':'Frequência não informada'}</span>${g&&g.ltv_medio>0?' · <span tabindex="0" title="Média do total histórico de compras dos clientes deste segmento com valor informado, em reais.">Valor médio comprado · '+rf(g.ltv_medio)+'</span>':''}${mvTxt}</div></div>
       <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
       <div class="num tabn">${p===undefined?'—':nf(p)}</div>
       <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;

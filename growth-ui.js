@@ -23,6 +23,7 @@ const GUI = {
   el(selector) { return typeof document === 'undefined' ? null : document.querySelector(selector); },
   html(selector, value) { const el=GUI.el(selector); if(el) el.innerHTML=value; },
   text(selector, value) { const el=GUI.el(selector); if(el) el.textContent=value; },
+  segmentFlow(value) { return ({boas_vindas:'Boas-vindas',lapsando:'Clientes em risco de inatividade',nutricao:'Relacionamento',pos_compra:'Pós-compra',reativacao:'Reativação',recompra_lembrete:'Lembrete de recompra',recompra_next_best:'Recomendação de recompra',resgate_alto_valor:'Retorno de clientes de alto valor',vip_campeao:'Clientes VIP'})[value] || value || 'Sem automação vinculada'; },
   period(ini, fim) { return ini === fim ? GUI.date(ini) : `${GUI.date(ini)} a ${GUI.date(fim)}`; },
   sum(rows, field) { return rows.reduce((total, row) => total + (+row[field] || 0),0); },
   stat(label, value, className='') {
@@ -96,9 +97,8 @@ const GUI = {
         <div class="amount"><strong>${GUI.rf(waConv.receita)}</strong><span class="channel-label">receita atribuída</span></div></div>
       <div class="channel-stats">${GUI.stat('Entregues',GUI.nf(wa.entregues))}${GUI.stat('Lidos',GUI.nf(wa.lidos))}${GUI.stat('Falhas na entrega',GUI.nf(wa.falhas),'failure')}
         ${GUI.stat('Aguardando confirmação',GUI.nf(wa.pendentes_entrega))}${GUI.stat('Pedidos atribuídos',GUI.nf(waConv.pedidos))}${GUI.stat('Taxa de entrega',GUI.pf(wa.entrega_pct))}</div>
-      ${waBar}<div class="channel-foot"><p>Envios próprios registrados no período; status atualizado até a consulta. Não inclui disparos da Reportana.</p>
+      ${waBar}<div class="channel-foot"><div class="operator-labels"><span class="control-badge" tabindex="0" title="Envios próprios registrados no período; status atualizado até a consulta.">Envios próprios · sem Reportana</span><span class="control-badge" tabindex="0" title="${GUI.esc(attributionNote)}">Receita por data da compra</span></div>
         <details data-gt-key="wa-como-ler"><summary>Como ler estas métricas</summary>
-          <p>${attributionNote}</p>
           <p>Entregues incluem mensagens lidas. Leituras dependem da confirmação disponível no WhatsApp; ausência de leitura não significa ausência de interesse.</p>
           <p class="substats">Sem disparo confirmado: <strong>${GUI.nf(wa.sem_disparo_confirmado)}</strong> · Erros antes do aceite: <strong>${GUI.nf(wa.erros_sincronos)}</strong>.</p>
           <p>Sem disparo confirmado inclui sombra, reserva ou tentativa sem aceite da Meta. Esses registros não entram em disparos aceitos.</p>
@@ -118,13 +118,13 @@ const GUI = {
         <li data-gap="${sesMeasured?'parcial':'lacuna'}" title="Entregas e falhas de automações aparecem no quadro de entregas confirmadas, dentro dos intervalos medidos. Aberturas e cliques das automações não estão medidos aqui."><strong>Automações SES</strong> ${sesMeasured?'entregas e falhas com cobertura parcial':ses?'sem cobertura de entrega neste período':'consulta de entregas indisponível'}</li>
         <li data-gap="lacuna" title="Os percentuais de rejeição e reclamação das campanhas selecionadas não são a reputação oficial da conta SES; a AWS usa volume representativo próprio."><strong>Reputação SES</strong> não derivada destes agregados</li>
       </ul>
-      <div class="channel-foot"><p>Envios de campanhas e automações separados. Abertura, CTR e CTOR usam apenas campanhas Listmonk com a respectiva medição.</p>
-        <details data-gt-key="email-como-ler"><summary>Como ler estas métricas</summary><p>${attributionNote}</p>
+      <div class="channel-foot"><div class="operator-labels"><span class="control-badge" tabindex="0" title="${GUI.esc(attributionNote)}">Receita por data da compra</span><span class="control-badge" tabindex="0" title="Abertura, CTR e CTOR usam apenas campanhas Listmonk com a respectiva medição.">Taxas só das campanhas</span></div>
+        <details data-gt-key="email-como-ler"><summary>Como ler estas métricas</summary>
           <p>CTR = pessoas que clicaram ÷ entregues; CTOR = pessoas que clicaram ÷ pessoas que abriram; abertura = pessoas que abriram ÷ entregues.</p>
           <p class="substats">Campanhas com cliques medidos: <strong>${GUI.nf(email.medidasCliques)}</strong> · Base entregue para CTR: <strong>${GUI.nf(email.baseCliques)}</strong>.<br>
             Campanhas com abertura medida: <strong>${GUI.nf(email.medidas)}</strong> · Base entregue para abertura: <strong>${GUI.nf(email.baseAbertura)}</strong>.<br>
             Campanhas com ambas as medições, usadas no CTOR: <strong>${GUI.nf(email.medidasConjuntas)}</strong>.</p>
-          <p>Entregas e falhas das automações aparecem em “E-mail · entregas confirmadas”, com cobertura parcial. Abertura e clique das automações não estão medidos nesta visão. Métrica ausente aparece como —.</p>
+          <p>Métrica ausente: —. Aberturas e cliques das automações não estão medidos nesta visão.</p>
           <p>Abertura pode incluir ações automáticas de provedores. Use cliques e pedidos para complementar a análise.</p>
         </details></div><button type="button" class="channel-jump" data-open-flows="email">Ver automações →</button></article>`;
     const cards=GUI.el('#channel-cards');
@@ -248,16 +248,15 @@ const GUI = {
       : 'Nenhuma falha de entrega, erro antes do aceite ou aceite aguardando confirmação registrado neste recorte. Isso não confirma que os fluxos estejam ligados.';
     const waHtml=canal==='email'?'':`<div class="attention-stats">${totals}</div><p class="attention-state">${state}</p>
       ${rows.length?`<ul class="attention-list">${rows.map(rowHtml).join('')}</ul>`:''}
-      <details class="attention-details"><summary>O que este acompanhamento permite verificar</summary>
-        <p>Falhas e erros pertencem às tentativas registradas neste período; não indicam, sozinhos, uma falha atual da automação. Aguardando confirmação significa que a Meta aceitou a mensagem, mas ainda não há entrega ou falha registrada.</p>
-        <p>Registros sem aceite e sem erro, que podem incluir sombra, não entram nas falhas. O último registro é da peça inteira, não necessariamente da ocorrência. Este quadro não informa se o fluxo está ligado nem identifica a causa de cada erro.</p>
-        <p>Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))}. Última atualização de status disponível: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))}. Horários de Brasília. Não inclui Reportana.</p>
+      <div class="attention-time">Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))} · Status atualizado: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))} · Horários de Brasília · Sem Reportana</div>
+      <details class="attention-details"><summary>Limites deste acompanhamento</summary>
+        <ul><li><strong>Histórico:</strong> falhas e erros pertencem às tentativas do período; não indicam, sozinhos, uma falha atual.</li><li><strong>Aguardando confirmação:</strong> a Meta aceitou a mensagem; ainda não há entrega ou falha registrada.</li><li><strong>Fora das falhas:</strong> registros sem aceite e sem erro, inclusive modo sombra.</li><li><strong>Último registro:</strong> é da peça inteira, não necessariamente da ocorrência.</li><li>Este quadro não informa se o fluxo está ligado nem identifica a causa de cada erro.</li></ul>
       </details>`;
     const emailHtml=canal==='whatsapp'?'':`<div class="attention-email"><div><strong>E-mail · cobertura do acompanhamento</strong>
-      <p>Campanhas Listmonk têm métricas agregadas. Nas automações via SES, entregas e falhas estão no quadro “E-mail · entregas confirmadas”, com cobertura parcial.</p></div>
+      <div class="operator-labels"><span class="control-badge" tabindex="0" title="Campanhas Listmonk têm métricas agregadas.">Campanhas · métricas agregadas</span><span class="control-badge">Automações SES · cobertura parcial</span></div><span class="mini">Entregas e falhas: quadro “E-mail · entregas confirmadas”.</span></div>
       <button type="button" class="refresh-btn" data-attention-email>Ver automações de e-mail →</button></div>`;
     el.innerHTML=`<div class="painel-cab"><h2 id="attention-title">Acompanhamento das automações</h2><span class="mini">Histórico do período</span></div>
-      <p class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} · status disponíveis na consulta. Use os filtros de marca, canal e período para conferir cada operação.</p>${waHtml}${emailHtml}`;
+      <div class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} <span class="control-badge" tabindex="0" title="Use os filtros de marca, canal e período para conferir cada operação.">Status disponíveis na consulta</span></div>${waHtml}${emailHtml}`;
     el.querySelectorAll('[data-attention-flow]').forEach(button=>button.addEventListener('click',()=>{
       if(typeof ctx.onFlows==='function')ctx.onFlows('whatsapp',{marca:button.dataset.attentionBrand,flow:button.dataset.attentionFlow});
     }));
