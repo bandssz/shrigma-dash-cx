@@ -95,7 +95,10 @@ test('preview bounds repeated output before the native request without evaluatin
  assert.ok(E.buildPreviewEnvelope(s,context({items:[{name:'Item A'},{name:'Item B'}]})).includes(s));
 });
 test('browser module exposes the same parser without Node globals or dynamic code execution',()=>{
- const sandbox={URL};vm.createContext(sandbox,{codeGeneration:{strings:false,wasm:false}});vm.runInContext(fs.readFileSync(require.resolve('../growth-email-expressions.js'),'utf8')+';globalThis.api=GEE;',sandbox);
+ const sandbox={};vm.createContext(sandbox,{codeGeneration:{strings:false,wasm:false}});vm.runInContext(fs.readFileSync(require.resolve('../growth-email-expressions.js'),'utf8')+';globalThis.api=GEE;',sandbox);
  assert.equal(sandbox.api.parse('<p>{{ .Tx.Data.first_name }}</p>',{html:true}).ok,true);
  assert.equal(sandbox.api.parse('<a href="{{ env "x" }}">X</a>',{html:true}).ok,false);
+ assert.equal(vm.runInContext('typeof URL',sandbox),'undefined');
+ for(const url of ['https://example.invalid/path?a=1&b=2','https://cdn.example.invalid:443/a.png'])assert.equal(vm.runInContext('GEE.validateContext({Tx:{Data:{order_url:'+JSON.stringify(url)+'}},Subscriber:{}}).ok',sandbox),true);
+ for(const url of ['https://user@example.invalid/','https://example.invalid:8080/','https://example.invalid./','https://-example.invalid/','https://example..invalid/','https://example.invalid/%xx'])assert.equal(vm.runInContext('GEE.validateContext({Tx:{Data:{order_url:'+JSON.stringify(url)+'}},Subscriber:{}}).ok',sandbox),false);
 });

@@ -173,7 +173,11 @@ const GEE=(()=>{
  function safeURL(s){
   if(s==='')return true;
   if(!stringOK(s)||/[\s\\<>"'`{}]/.test(s)||!/^https:\/\//i.test(s))return false;
-  try{const u=new URL(s);return u.protocol==='https:'&&!!u.hostname&&!u.username&&!u.password;}catch(_){return false;}
+  // Preview data uses canonical HTTPS DNS destinations only. Do not depend on
+  // URL being exposed by n8n's Code sandbox (or silently accept credentials).
+  const m=/^https:\/\/([a-z0-9.-]+)(?::443)?(?:[/?#].*)?$/i.exec(s);
+  if(!m||m[1].length>253||!m[1].includes('.')||/%(?![0-9a-f]{2})/i.test(s))return false;
+  return m[1].split('.').every(label=>label.length<=63&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label));
  }
  function validateContext(context){
   try{
