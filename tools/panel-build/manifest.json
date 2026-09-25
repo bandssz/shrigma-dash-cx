@@ -64,6 +64,7 @@
       "growth-template-journal.js",
       "growth-email-test.js",
       "growth-email-replication.js",
+      "growth-email-native-ui.js",
       "growth-drafts-ui.js",
       "growth-email-replication-ui.js",
       "growth-canvas.js",
