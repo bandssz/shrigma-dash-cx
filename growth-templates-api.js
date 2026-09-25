@@ -51,7 +51,7 @@ const GTA={
 
   /* ---------- cliente ----------
      Devolve sempre {ok,status,body,rede}. Nunca lança. Nunca loga chave. */
-  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita}){
+  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita,bearerWrite=false}){
     const fx=fetchFn||(typeof fetch==='function'?fetch:null);
     const parse=async r=>{try{return await r.json();}catch(_){return null;}};
     const chama=async(url,init)=>{
@@ -60,12 +60,12 @@ const GTA={
       catch(_){return {ok:false,status:0,body:null,rede:true};}
     };
     const get=params=>{const q=new URLSearchParams(params);return chama(`${endpoint}?${q}`,{headers:{Authorization:'Bearer '+(chaveLeitura||'')},cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
-    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
+    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
     return {
       listar:marca=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{})}),
       historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
       submissao:submission_id=>get({acao:'submissao',submission_id}),
-      operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
+      operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
       rascunho:(rascunho,extra)=>post({acao:'rascunho',rascunho,...extra}),           // extra: idempotency_key, draft_id?, expected_version?
       validar:(draft_id,idempotency_key,expected_version)=>post({acao:'validar',draft_id,idempotency_key,...(expected_version!==undefined?{expected_version}:{})}),
       submeter:(draft_id,expected_version,confirm,idempotency_key)=>post({acao:'submeter',draft_id,expected_version,confirm,idempotency_key}),

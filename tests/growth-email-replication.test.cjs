@@ -73,3 +73,16 @@ for(const from of ['fish','aristo']){
   const p=R.prepare(source(from,{corpo:'<a href="https://cdn.example.test/link/product?variant=2">Recurso</a>'}),to,{journal});assert.equal(p.links[0].kind,'external');assert.ok(R.apply(p,review(p)).corpo.includes('/link/product?variant=2'));
  });
 }
+for(const from of ['fish','aristo'])test('native Go ranges preserve helpers and map quoted URL fallback '+from,()=>{
+ const to=from==='fish'?'aristo':'fish',origin=GEC.BRANDS[from],target=GEC.BRANDS[to];
+ const html='<p>{{ .Tx.Data.first_name | upper }}</p>{{ if or .Tx.Data.order_url .Tx.Data.checkout_url }}<a href="{{ default "https://'+origin.domain+'/products/old?utm_term=lm-123" .Tx.Data.order_url }}">'+origin.name+'</a>{{ end }}{{ range .Tx.Data.items }}<img src="{{ .image }}"><p>{{ .name }}</p>{{ end }}';
+ const s=source(from,{corpo:html}),before=JSON.stringify(s),p=R.prepare(s,to,{journal});
+ assert.equal(p.links.length,2);assert.equal(p.links[0].original_url,'https://'+origin.domain+'/products/old?utm_term=lm-123');assert.equal(p.links[0].url.includes('lm-123'),false);
+ const out=R.apply(p,{links:p.links.map(l=>({id:l.id,reviewed:true,target:l.kind==='origin'?'https://'+target.domain+'/products/reviewed?variant=42':l.url}))});
+ assert.match(out.corpo,/default "https:\/\//);assert.ok(out.corpo.includes('default "https://'+target.domain+'/products/reviewed?variant=42"'));assert.ok(out.corpo.includes('{{ range .Tx.Data.items }}<img src="{{ .image }}">'));assert.ok(out.corpo.includes('{{ .Tx.Data.first_name | upper }}'));assert.equal(out.corpo.includes('lm-123'),false);assert.equal(JSON.stringify(s),before);assert.equal(GEC.documentErrors(out).length,0);
+ assert.throws(()=>R.apply(p,{links:p.links.map(l=>({id:l.id,reviewed:true,target:l.kind==='origin'?'javascript:alert(1)':l.url}))}),/HTTPS/);
+});
+test('Go string literals are encoded as whole tokens; brand text may change but fields and control flow do not',()=>{
+ const p=R.prepare(source('fish',{corpo:'{{ if .Tx.Data.first_name }}<p>{{ default "Fishermans" .Tx.Data.first_name }}</p>{{ end }}'}),'aristo',{journal});
+ const out=R.apply(p,{links:[]});assert.ok(out.corpo.includes('default "O Aristocrata"'));assert.ok(out.corpo.includes('{{ if .Tx.Data.first_name }}'));assert.equal(GEC.documentErrors(out).length,0);
+});
