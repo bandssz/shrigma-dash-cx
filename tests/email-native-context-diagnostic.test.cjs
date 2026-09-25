@@ -12,7 +12,7 @@ test('diagnostics contain only fixed paths, booleans and a static exception stag
 test('native failure exposes static validation code and boolean context report, never source, values, raw errors or render descriptor',()=>{
  const secret='SYNTHETIC_SECRET_HTML_VALUE';const r={marca:'fish',canal:'email',nome:'fixture',from_email:'contato@fishermans.com.br',reply_to:'contato@fishermans.com.br',preheader:secret,assunto:'Fixture',corpo:'<p>'+secret+' {{ .Subscriber.Name }}</p>',botoes:[]};
  for(const code of ['EMAIL_CONTEXT_SHAPE',secret]){
-  const gee={...GEE,validateContext:()=>({ok:false,errors:[{code,message:secret,source:secret}]})};const p=ENP.prepare(r,{GEE:gee,GEC,digest});assert.equal(p.eligible,false);assert.equal(p.code,'preview_context_invalid');shape(p.context_diagnostic);assert.equal(p.context_diagnostic.validation_code,code==='EMAIL_CONTEXT_SHAPE'?code:'CONTEXT_VALIDATION_FAILED');assert.equal(JSON.stringify(p).includes(secret),false);assert.deepEqual(Object.keys(p).sort(),['eligible','code','contract','context_diagnostic'].sort());
+  const gee={...GEE,validateContextJSON:()=>({ok:false,errors:[{code,message:secret,source:secret}]})};const p=ENP.prepare(r,{GEE:gee,GEC,digest});assert.equal(p.eligible,false);assert.equal(p.code,'preview_context_invalid');shape(p.context_diagnostic);assert.equal(p.context_diagnostic.validation_code,code==='EMAIL_CONTEXT_SHAPE'?code:'CONTEXT_VALIDATION_FAILED');assert.equal(JSON.stringify(p).includes(secret),false);assert.deepEqual(Object.keys(p).sort(),['eligible','code','contract','context_diagnostic'].sort());
  }
 });
 test('diagnostic helper does not change refusal of an unsafe context or successful native preparation',()=>{

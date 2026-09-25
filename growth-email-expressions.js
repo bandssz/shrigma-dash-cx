@@ -198,9 +198,9 @@ const GEE=(()=>{
   };
   return {contract:'crm_email_context_diagnostic_v1',checks:{root:inspect(()=>context),Tx:inspect(()=>context.Tx),Data:inspect(()=>context.Tx.Data),Subscriber:inspect(()=>context.Subscriber),firstItem:inspect(()=>context.Tx.Data.items?.[0])}};
  }
- function validateContext(context){
+ function validateContextValue(context,record){
   try{
-   if(!plain(context)||Object.keys(context).some(k=>!['Tx','Subscriber'].includes(k))||!plain(context.Tx)||Object.keys(context.Tx).some(k=>k!=='Data')||!plain(context.Tx.Data)||!plain(context.Subscriber)||Object.keys(context.Subscriber).some(k=>!['Name','UUID'].includes(k)))bad('EMAIL_CONTEXT_SHAPE');
+   if(!record(context)||Object.keys(context).some(k=>!['Tx','Subscriber'].includes(k))||!record(context.Tx)||Object.keys(context.Tx).some(k=>k!=='Data')||!record(context.Tx.Data)||!record(context.Subscriber)||Object.keys(context.Subscriber).some(k=>!['Name','UUID'].includes(k)))bad('EMAIL_CONTEXT_SHAPE');
    const data={},subscriber={};
    function scalar(k,v){
     if(v===null)return null;
@@ -211,7 +211,7 @@ const GEE=(()=>{
    for(const [k,v] of Object.entries(context.Tx.Data)){
     if(!DATA_FIELDS.has(k))bad('EMAIL_CONTEXT_FIELD');
     if(k==='items'){
-     if(!Array.isArray(v)||v.length>LIMITS.items)bad('EMAIL_CONTEXT_ITEMS');data.items=v.map(item=>{if(!plain(item))bad('EMAIL_CONTEXT_ITEMS');const out={};for(const [key,value]of Object.entries(item)){if(!ITEM_FIELDS.has(key))bad('EMAIL_CONTEXT_FIELD');out[key]=scalar(key,value);}return out;});
+     if(!Array.isArray(v)||v.length>LIMITS.items)bad('EMAIL_CONTEXT_ITEMS');data.items=v.map(item=>{if(!record(item))bad('EMAIL_CONTEXT_ITEMS');const out={};for(const [key,value]of Object.entries(item)){if(!ITEM_FIELDS.has(key))bad('EMAIL_CONTEXT_FIELD');out[key]=scalar(key,value);}return out;});
     }else data[k]=scalar(k,v);
    }
    for(const [k,v] of Object.entries(context.Subscriber)){
@@ -220,10 +220,21 @@ const GEE=(()=>{
    const value={Tx:{Data:data},Subscriber:subscriber};if(JSON.stringify(value).length>LIMITS.context)bad('EMAIL_CONTEXT_LIMIT');return {ok:true,value,errors:[]};
   }catch(e){return {ok:false,value:null,errors:[err(e)]};}
  }
+ // The object entry point remains strict. Only the text entry point can select
+ // JSON record semantics, after a bounded primitive string was parsed locally.
+ function validateContext(context){return validateContextValue(context,plain);}
+ function validateContextJSON(text){
+  try{
+   if(typeof text!=='string')bad('EMAIL_CONTEXT_JSON');
+   if(text.length>LIMITS.context)bad('EMAIL_CONTEXT_LIMIT');
+   let context;try{context=JSON.parse(text);}catch(_){bad('EMAIL_CONTEXT_JSON');}
+   return validateContextValue(context,value=>value!==null&&typeof value==='object'&&!Array.isArray(value));
+  }catch(e){return {ok:false,value:null,errors:[err(e)]};}
+ }
  function encodeLiteral(value){if(!stringOK(value))bad('EMAIL_CONTEXT_STRING');return JSON.stringify(value);}
- function buildPreviewEnvelope(source,context){
+ function buildValidatedEnvelope(source,checked){
   const parsed=parse(source,{html:true});if(!parsed.ok)bad(parsed.errors[0].code,parsed.errors[0].start,parsed.errors[0].end);
-  const checked=validateContext(context);if(!checked.ok)bad(checked.errors[0].code);
+  if(!checked.ok)bad(checked.errors[0].code);
   for(const path of parsed.fields){
    if(path.startsWith('.Tx.Data.')&&!DATA_FIELDS.has(path.slice(9)))bad('EMAIL_CONTEXT_FIELD');
    if(path.startsWith('.Subscriber.')&&!own(checked.value.Subscriber,path.slice(12)))bad('EMAIL_CONTEXT_SUBSCRIBER_REQUIRED');
@@ -241,6 +252,8 @@ const GEE=(()=>{
   const go=v=>v===null?'nil':typeof v==='string'?encodeLiteral(v):typeof v==='boolean'||typeof v==='number'?String(v):Array.isArray(v)?'(list'+(v.length?' '+v.map(go).join(' '):'')+')':'(dict'+Object.entries(v).map(([k,value])=>' '+encodeLiteral(k)+' '+go(value)).join('')+')';
   const body='{{ with '+go(checked.value)+' }}'+source+'{{ end }}';if(body.length>LIMITS.envelope)bad('EMAIL_CONTEXT_LIMIT');return body;
  }
- return {parse,validateContext,diagnoseContext,buildPreviewEnvelope,encodeLiteral,LIMITS};
+ function buildPreviewEnvelope(source,context){return buildValidatedEnvelope(source,validateContext(context));}
+ function buildPreviewEnvelopeJSON(source,text){return buildValidatedEnvelope(source,validateContextJSON(text));}
+ return {parse,validateContext,validateContextJSON,diagnoseContext,buildPreviewEnvelope,buildPreviewEnvelopeJSON,encodeLiteral,LIMITS};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=GEE;
