@@ -3,8 +3,8 @@
 const GEE=(()=>{
  const LIMITS=Object.freeze({source:200000,actions:1500,action:4096,depth:12,string:4096,items:20,context:40000,envelope:300000,outputBound:1000000});
  const ITEM_FIELDS=new Set(['image','name','price','qty','quantity','title','variant']);
- const DATA_FIELDS=new Set(('address cancel_reason carrier checkout_url coupon_code coupon_heading coupon_text coupon_value cta_text delivered_at delivered_by delivery_estimate e first_name has_discount headline items items_count last_update nps_url order_number order_url p paragraph_1 paragraph_2 paragraph_3 paragraph_4 payment_deadline payment_method preheader refund_method refund_status review_url s shipping_label shipping_name shipping_value status subtotal total tracking_company tracking_number tracking_status tracking_updated_at tracking_url urgency_text urgency_title').split(' '));
- const URL_FIELDS=new Set(['checkout_url','nps_url','order_url','review_url','tracking_url','image']);
+ const DATA_FIELDS=new Set(('address cancel_reason carrier checkout_url coupon_code coupon_heading coupon_text coupon_value cta_text delivered_at delivered_by delivery_estimate e first_name name nome brand brand_name store_url shop_url has_discount headline items items_count last_update nps_url order_number order_url p paragraph_1 paragraph_2 paragraph_3 paragraph_4 payment_deadline payment_method preheader refund_method refund_status review_url s shipping_label shipping_name shipping_value status subtotal total tracking_company tracking_number tracking_status tracking_updated_at tracking_url urgency_text urgency_title').split(' '));
+ const URL_FIELDS=new Set(['checkout_url','nps_url','order_url','review_url','tracking_url','image','store_url','shop_url']);
  const NUMBER_FIELDS=new Set(['items_count','qty','quantity']);
  const ATTRIBUTES=new Set(['href','src','background','title','alt','aria-label']);
  const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);

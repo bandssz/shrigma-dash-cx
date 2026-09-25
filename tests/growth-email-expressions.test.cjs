@@ -72,6 +72,9 @@ test('typed context permits empty, missing, zero and false without JS default se
  const w=E.buildPreviewEnvelope('<p>{{ default "Oi" .Tx.Data.first_name }}{{ if .Tx.Data.has_discount }}Sim{{ end }}{{ range .Tx.Data.items }}{{ default 1 .qty }}{{ end }}</p>',c);
  assert.ok(w.includes('"has_discount" false'));assert.ok(w.includes('"items_count" 0'));assert.ok(w.includes('"total" nil'));assert.ok(w.includes('{{ default 1 .qty }}'));assert.ok(w.startsWith('{{ with (dict '));assert.ok(w.endsWith('{{ end }}'));
  for(const items of [[],[{qty:0}],[{qty:0},{qty:1}]])assert.ok(E.buildPreviewEnvelope('{{ default "Sem desconto" .Tx.Data.has_discount }}{{ range .Tx.Data.items }}{{ default 1 .qty }}{{ else }}Vazio{{ end }}',context({items})));
+ const legacy={name:'Pessoa',nome:'Pessoa',brand:'fish',brand_name:'Marca sintética',store_url:'https://example.invalid/',shop_url:'https://example.invalid/shop'};
+ assert.ok(E.buildPreviewEnvelope('<p>{{ if .Tx.Data.name }}{{ .Tx.Data.nome }} · {{ .Tx.Data.brand_name }}{{ end }}</p><a href="{{ .Tx.Data.store_url }}">{{ .Tx.Data.brand }}</a><a href="{{ .Tx.Data.shop_url }}">Loja</a>',context(legacy)));
+ for(const field of ['store_url','shop_url'])assert.equal(E.validateContext(context({...legacy,[field]:'javascript:bad'})).ok,false);
 });
 test('preview context rejects unknown keys, objects, invalid URLs, oversized items and prototype tricks',()=>{
  for(const data of [{custom:'x'},{items:'x'},{items:Array(21).fill({})},{items:[{secret:'x'}]},{items:[{qty:'1'}]},{has_discount:'false'},{items_count:-1},{first_name:{}},{first_name:()=>1},{order_url:'javascript:alert(1)'},{order_url:'http://example.invalid/'},{order_url:'https://u:p@example.invalid/'},{order_url:'https://example.invalid/\\path'},{order_url:'https://example.invalid/{{env}}'}])assert.equal(E.validateContext(context(data)).ok,false,JSON.stringify(data));
