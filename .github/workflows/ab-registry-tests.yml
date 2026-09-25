@@ -39,7 +39,7 @@ jobs:
       - name: Check protocol, workflow patch and isolated SQL
         env:
           NODE_PATH: ../ab-test-tools/node_modules
-        run: node --test tests/ab-registry.test.cjs tests/growth-ab-server.test.cjs tests/growth-ab-journal.test.cjs
+        run: node --test tests/ab-registry.test.cjs tests/ab-operator.test.cjs tests/growth-ab-server.test.cjs tests/growth-ab-journal.test.cjs
       - name: Check cutover and concurrent independent sessions
         env:
           NODE_PATH: ../ab-test-tools/node_modules

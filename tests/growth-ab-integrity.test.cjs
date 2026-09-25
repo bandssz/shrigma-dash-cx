@@ -49,7 +49,7 @@ function boot(api,opts={}){
  const selectProto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(selectProto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  const source=html.slice(html.indexOf('function renderTestes(){'),html.indexOf('\nfunction render(){',html.indexOf('function renderTestes(){')));
  const registration=html.slice(html.indexOf('async function salvarTeste(){'),html.indexOf('// Marca, periodo e aba persistem',html.indexOf('async function salvarTeste(){')));
- const stored=opts.storage||new Map(opts.noWriteKey?[]:[['shrigma_ab_key','dummy-synthetic']]);
+ const stored=opts.storage||new Map();
  const response=(status,body)=>({status,ok:status>=200&&status<300,json:async()=>structuredClone(body)});
  async function fetchFixture(url,init){
   assert.ok(init&&['GET','POST'].includes(init.method),'request must declare its method');assert.equal(init.credentials,'omit');assert.equal(init.redirect,'error');assert.equal(init.cache,'no-store');
@@ -58,7 +58,8 @@ function boot(api,opts={}){
   if(init.method==='GET'){
    reads.push({query:q,headers:structuredClone(init.headers)});assert.equal(u.searchParams.has('k'),false,'write key must stay out of query URLs');
    if(opts.getError===q.acao)throw Error('synthetic read unavailable');
-   if(q.acao==='capacidades')return response(200,opts.capabilities??{contract:'ab_registry_v1',write:true,operation:true,record:true,causal_engine:false});
+   if(opts.beforeGet)await opts.beforeGet(q);
+   if(q.acao==='capacidades')return response(200,opts.capabilities??{contract:'ab_registry_v1',write:true,operation:true,record:true,causal_engine:false,access:'crm_operator'});
    if(q.acao==='registro')return response(200,{contract:'ab_registry_record_v1',teste_id:q.teste_id,record:opts.recordMissing?null:remote.records.get(q.teste_id)??null});
    assert.equal(q.acao,'operacao','GET is receipt/read-only allowlist');
    const found=remote.operations.get(q.operation_id),visible=found&&found.actor_sha256===actor&&found.action===q.operacao&&found.teste_id===q.teste_id;
@@ -79,7 +80,7 @@ function boot(api,opts={}){
   if(opts.invalidJson)return {status:200,ok:true,json:async()=>{throw Error('empty body');}};
   return response(status,opts.receipt??receipt.body);
  }
- const context=vm.createContext({API:api,GABJ:{...GABJ,create:o=>GABJ.create({...o,uuid:()=>crypto.randomUUID()})},GABServer:{...GABServer,create:o=>GABServer.create({...o,fetch:fetchFixture})},URL,AbortSignal,navigator:{locks:opts.locks||locks()},AB_JOURNAL:null,AB_RECONCILIACAO:null,AB_BLOQUEADO:false,AB_BUSY:false,AB_WRITE_EPOCH:0,AB_PROVA_LEITURA:{startedAt:Date.now(),completedAt:Date.now()},AB_PENDENTES:new Map(),AB_CHAVE_SESSAO:'',AB_LEITURA:0,MARCA:'fish',CANAL:'todos',G,document,window,$:s=>document.querySelector(s),esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nf:v=>String(v),AB_API_URL:'https://synthetic.invalid/ab',localStorage:{getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},carregar:async()=>{if(opts.readback){context.API=opts.readback;vm.runInContext('AB_LEITURA++;AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};renderTestes();',context);}},prompt:()=>{throw Error('unexpected prompt');},confirm:()=>{throw Error('unexpected override');},fetch:fetchFixture});
+ const context=vm.createContext({SESSION_KEY:opts.sessionKey??(opts.noWriteKey?'':'synthetic-crm-session'),chave:()=>context.SESSION_KEY,API:api,GABJ:{...GABJ,create:o=>GABJ.create({...o,uuid:()=>crypto.randomUUID()})},GABServer:{...GABServer,create:o=>GABServer.create({...o,fetch:fetchFixture})},URL,AbortSignal,navigator:{locks:opts.locks||locks()},AB_JOURNAL:null,AB_RECONCILIACAO:null,AB_BLOQUEADO:false,AB_BUSY:false,AB_WRITE_EPOCH:0,AB_PROVA_LEITURA:{startedAt:Date.now(),completedAt:Date.now()},AB_PENDENTES:new Map(),AB_CHAVE_SESSAO:'',AB_LEITURA:0,MARCA:'fish',CANAL:'todos',G,document,window,$:s=>document.querySelector(s),esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nf:v=>String(v),AB_API_URL:'https://synthetic.invalid/ab',localStorage:{getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},carregar:async()=>{if(opts.readback){context.API=opts.readback;vm.runInContext('AB_LEITURA++;AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};renderTestes();',context);}},prompt:()=>{throw Error('unexpected prompt');},confirm:()=>{throw Error('unexpected override');},fetch:fetchFixture});
  for(const name of ['growth-brand-state.js','growth-ab-form.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',name),'utf8'),context,{filename:name});
  vm.runInContext(source+'\n'+registration+'\nGABF.enter(MARCA,API);renderTestes();',context);return {document,window,calls,reads,remote,stored,run:s=>vm.runInContext(s,context)};
 }
@@ -145,11 +146,50 @@ test('unknown server operation remains blocked even when a fresh registry snapsh
   await x.run('AB_LEITURA++;AB_PROVA_LEITURA={startedAt:Date.now(),completedAt:Date.now()};reconciliaTestesAB()');assert.equal(x.run('AB_PENDENTES.size'),1);assert.equal(x.calls.length,1);assert.match(x.document.querySelector('#ab-status').textContent,/recibo exato|aguardando/);
  }
 });
-test('A/B explicit password field works without prompt and missing key never submits',async()=>{
- const x=boot(payload(),{noWriteKey:true}),input=x.document.querySelector('#ab-chave');input.focus=()=>{};
- x.document.querySelector('.e-conc').value='Conclusão sintética.';await x.run('encerrarTeste("synthetic-ab")');assert.equal(x.calls.length,0);assert.match(x.document.querySelector('.e-msg').textContent,/Informe a chave/);
- input.value='synthetic-inline-write';await x.run('encerrarTeste("synthetic-ab")');assert.equal(x.calls.length,1);assert.equal(x.calls[0].k,'synthetic-inline-write');assert.equal(input.value,'');assert.equal(input.getAttribute('type'),'password');
- assert.equal(x.run('JSON.stringify([...AB_PENDENTES.values()]).includes("synthetic-inline-write")'),false,'pending journal never retains the key');
+test('new configuration uses the CRM session and never a typed or stored legacy key',async()=>{
+ const x=boot(payload()),input=x.document.querySelector('#ab-chave');
+ input.value='synthetic-old-inline';x.stored.set('shrigma_ab_key','synthetic-old-stored');
+ x.document.querySelector('.e-conc').value='Conclusão sintética.';await x.run('encerrarTeste("synthetic-ab")');
+ assert.equal(x.calls.length,1);assert.equal(x.calls[0].k,'synthetic-crm-session');
+ assert.equal(x.document.querySelector('#ab-acesso-legado').hidden,true);
+ const journal=x.stored.get(GABJ.SLOT);assert.doesNotMatch(journal,/synthetic-crm-session|synthetic-old-inline|synthetic-old-stored/);
+ assert.equal(JSON.parse(journal).operations[0].server.access,'crm_operator');
+ const missing=boot(payload(),{noWriteKey:true});missing.document.querySelector('#ab-chave').value='synthetic-old-inline';
+ missing.document.querySelector('.e-conc').value='Conclusão sintética.';await missing.run('encerrarTeste("synthetic-ab")');
+ assert.equal(missing.calls.length,0);assert.match(missing.document.querySelector('.e-msg').textContent,/Entre novamente no CRM/);
+ assert.match(x.document.querySelector('#f-salvar').textContent,/sem disparo/);
+});
+test('old capability or access changed during preflight never reserves or sends',async()=>{
+ const old=boot(payload(),{capabilities:{contract:'ab_registry_v1',write:true,record:true,operation:true}});
+ old.document.querySelector('.e-conc').value='Conclusão sintética.';await old.run('encerrarTeste("synthetic-ab")');
+ assert.equal(old.calls.length,0);assert.equal(old.stored.has(GABJ.SLOT),false);assert.match(old.document.querySelector('.e-msg').textContent,/acesso do CRM/);
+ let x;x=boot(payload(),{beforeGet:q=>{if(q.acao==='registro')x.run('SESSION_KEY="another-session"');}});
+ x.document.querySelector('.e-conc').value='Conclusão sintética.';await x.run('encerrarTeste("synthetic-ab")');
+ assert.equal(x.calls.length,0);assert.equal(x.stored.has(GABJ.SLOT),false);assert.match(x.document.querySelector('.e-msg').textContent,/acesso mudou/);
+});
+test('Aristo configuration uses the same CRM session without a second key or send operation',async()=>{
+ const api=payload();api.crm_campanha=api.crm_campanha.map(c=>({...c,marca:'aristo'}));api.crm_teste=[];api.crm_teste_braco=[];
+ const x=boot(api);x.run('MARCA="aristo";GABF.enter(MARCA,API)');
+ for(const [key,value] of Object.entries({'f-id':'synthetic-aristo','f-nome':'Configuração Aristo','f-hip':'Hipótese','f-efeito':'1','f-da':'A','f-db':'B'}))x.document.getElementById(key).value=value;
+ await x.run('salvarTeste()');assert.equal(x.calls.length,1,x.document.querySelector('#f-msg').textContent);
+ assert.equal(x.calls[0].teste.marca,'aristo');assert.equal(x.calls[0].k,'synthetic-crm-session');assert.equal(x.calls[0].acao,'criar');
+ assert.equal(x.document.querySelector('#ab-acesso-legado').hidden,true);
+});
+test('legacy uncertain operation keeps its actor and uses only the original key for GET recovery',async()=>{
+ const storage=new Map(),first=boot(payload(),{storage,sessionKey:'synthetic-original',networkError:true,lookupMissing:true});
+ first.document.querySelector('.e-conc').value='Observação preservada.';await first.run('encerrarTeste("synthetic-ab")');
+ const old=JSON.parse(storage.get(GABJ.SLOT));delete old.operations[0].server.access;storage.set(GABJ.SLOT,JSON.stringify(old));
+ const preserved=JSON.stringify(old.operations[0].server),reload=boot(payload(),{storage,remote:first.remote,sessionKey:'synthetic-current-crm'});
+ await reload.run('reconciliaTestesAB()');assert.equal(reload.calls.length,0);assert.equal(reload.reads.length,0);
+ assert.equal(reload.document.querySelector('#ab-acesso-legado').hidden,false);assert.equal(reload.run('AB_PENDENTES.size'),1);
+ assert.match(reload.document.querySelector('#ab-status').textContent,/acesso original/);
+ reload.document.querySelector('#ab-chave').value='synthetic-wrong';await reload.run('reconciliaTestesAB(chaveLegadaTesteAB())');
+ assert.equal(reload.run('AB_PENDENTES.size'),1);assert.equal(reload.calls.length,0);
+ assert.equal(JSON.stringify(JSON.parse(storage.get(GABJ.SLOT)).operations[0].server),preserved);
+ reload.document.querySelector('#ab-chave').value='synthetic-original';await reload.run('reconciliaTestesAB(chaveLegadaTesteAB())');
+ assert.equal(reload.run('AB_PENDENTES.size'),0);assert.equal(reload.calls.length,0);
+ assert.ok(reload.reads.every(r=>r.query.acao==='operacao'));assert.doesNotMatch(storage.get(GABJ.SLOT),/synthetic-original|synthetic-current-crm|synthetic-wrong/);
+ assert.equal(JSON.stringify(JSON.parse(storage.get(GABJ.SLOT)).operations[0].server),preserved);
 });
 test('UI reload and another tab preserve an uncertain creation even when the key or test ID changes',async()=>{
  const storage=new Map([['shrigma_ab_key','synthetic-first-key']]),sharedLocks=locks();
@@ -157,7 +197,7 @@ test('UI reload and another tab preserve an uncertain creation even when the key
  const first=boot(payload(),{storage,locks:sharedLocks,networkError:true,lookupMissing:true});fill(first,'synthetic-pending');await first.run('salvarTeste()');assert.equal(first.calls.length,1,first.document.querySelector('#f-msg').textContent);
  storage.set('shrigma_ab_key','synthetic-different-key');
  for(const id of ['synthetic-pending','synthetic-new-id']){
-   const reload=boot(payload(),{storage,locks:sharedLocks});fill(reload,id);await reload.run('salvarTeste()');
+   const reload=boot(payload(),{storage,locks:sharedLocks,sessionKey:'synthetic-other-session'});fill(reload,id);await reload.run('salvarTeste()');
    assert.equal(reload.calls.length,0);assert.equal(reload.document.getElementById('f-salvar').disabled,true);
    assert.match(reload.document.getElementById('ab-status').textContent,/recibo exato|aguardando|não corresponde à identidade/);
  }
