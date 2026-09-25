@@ -72,6 +72,15 @@ test('a later complaint or failure remains visible even if delivery was recorded
  }
  assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{}}}),/ainda não confirmada/);
 });
+test('content guidance follows the open channel without promising publication, delivery or an unavailable WhatsApp email test',()=>{
+ for(const brand of ['fish','aristo']){
+  const s=setup({brand}),title=()=>s.$('#d-checagens .control-badge').title;
+  assert.match(title(),/não confirma publicação nem entrega/);assert.match(title(),/envio de teste.*e-mail/);
+  s.ui.abrir(s.ctx.drafts.novo({marca:brand,canal:'whatsapp',nome:'fixture_whatsapp',corpo:'Mensagem sintética.',categoria:'UTILITY'}),null);
+  assert.match(title(),/não confirma publicação nem entrega/);assert.match(title(),/aprovação da Meta/);assert.doesNotMatch(title(),/e-mail|envio de teste/);
+  assert.equal(!!s.$('#d-email-test-preview'),false);assert.equal(s.calls.length,0);
+ }
+});
 test('switching brands clears only the transient test status and retains its labeled receipt and duplicate guard',async()=>{
  for(const brand of ['fish','aristo'])for(const mode of ['accepted','missing']){
   const s=setup({brand,mode}),other=brand==='fish'?'aristo':'fish';

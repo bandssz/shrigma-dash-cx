@@ -5,3 +5,7 @@
 .ce-confirm{box-sizing:border-box;width:min(520px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d8ded1;border-radius:12px;padding:24px;background:#fff;color:#303b2e;box-shadow:0 16px 60px #18231638;font-family:var(--ui,sans-serif)}.ce-confirm:not([open]){display:none}.ce-confirm::backdrop{background:#18231680}.ce-confirm h3{font-size:18px;margin:0 0 14px}.ce-confirm p{font-size:14px;line-height:1.65;margin:0;overflow-wrap:anywhere}.ce-confirm-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:24px}.ce-confirm button{white-space:normal;min-height:44px}.ce-confirm button:focus-visible{outline:2px solid #4e6652;outline-offset:3px}@media(max-width:640px){.ce-confirm{padding:20px}.ce-confirm-actions{flex-direction:column}.ce-confirm-actions button{width:100%}}
 
 .ce-remote [data-ce-audience] .ce-tag{display:inline-block;white-space:normal;margin:4px 0 8px;line-height:1.5}
+.ce-audience-tags,.ce-audience-validity{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 0;font-size:11px;line-height:1.6;color:#777168}
+.ce-audience-tags .ce-tag{margin-left:0;white-space:normal}.ce-audience-details{margin-top:10px;font-size:11px;line-height:1.7;color:#777168}
+.ce-audience-details summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}.ce-audience-details p{margin-top:6px}
+.ce-tracking .ce-audience-warning strong{margin:8px 0 0;color:#82581c}
