@@ -27,7 +27,7 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
   try{
    await db.exec(read('tests/campaign-provider-schema.sql'));
    await db.exec("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
-   await db.exec(read('n8n/growth/campaign-store.sql'));await db.exec(install==='upgrade'?prior:provider);await db.exec(read('n8n/growth/campaign-write-guard.sql'));
+   await db.exec(read('tests/fixtures/campaign-store-pre-recovery.sql'));await db.exec(install==='upgrade'?prior:provider);await db.exec(read('n8n/growth/campaign-write-guard.sql'));
    await db.exec(`INSERT INTO shrigma_campaign_operation(actor,operation_key,request_hash,brand,action,state,provider_id,response)
     VALUES('legacy','legacy-schedule-pending','${'a'.repeat(64)}','fish','agendar','pending',100,NULL),
     ('legacy','legacy-cancel-uncertain','${'b'.repeat(64)}','fish','cancelar','outcome_unknown',100,'{"status":502,"body":{"error":"OUTCOME_UNKNOWN"}}')`);
