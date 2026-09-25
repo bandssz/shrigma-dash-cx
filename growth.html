@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cfe9284c3e6b">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Hwx8kzOBc63RUEedpGYQcb+mzCfx0YN57l11KnTKWkk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fK522evBQKx5WQ172zaU1ZCt7fDhfnJ1tNfy2TWGs74='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -32,6 +32,11 @@
 <main id="conteudo" tabindex="-1">
   <div id="faixa-alertas" aria-live="polite"></div>
   <p id="brand-context-status" class="nota" role="status" hidden></p>
+  <dialog id="brand-change-confirm" class="ce-confirm" aria-labelledby="brand-change-title" aria-describedby="brand-change-description">
+    <h3 id="brand-change-title">Guardar e trocar de marca</h3>
+    <p id="brand-change-description"></p>
+    <div class="ce-confirm-actions"><button type="button" id="brand-change-cancel" class="ce-secondary" autofocus>Continuar nesta marca</button><button type="button" id="brand-change-accept" class="ce-primary">Guardar e trocar</button></div>
+  </dialog>
 
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
@@ -242,7 +247,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=b5689075505f"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=200d669b1c23"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -745,7 +750,7 @@ function setCanal(canal){
   $('#sel-metrica').value=METRICA;render();gravaHash();
 }
 function openFlows(canal,selection={}){
-  if(selection.marca&&!trocaMarca(selection.marca))return;
+  if(selection.marca&&!trocaMarca(selection.marca,()=>openFlows(canal,selection)))return;
   setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
@@ -851,23 +856,45 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
   if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 })();
-function trocaMarca(next){
+function trocaMarca(next,afterConfirm=null){
   if(!['todas','fish','aristo','olivas'].includes(next))return false;
   if(next===MARCA)return true;
   const status=$('#brand-context-status'),notice=text=>{status.textContent=text;status.hidden=!text;};
-  const campaign=GCE.contextStatus(),template=GRU.contextStatus();
-  if(AB_BUSY||campaign.blocked||template.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
-  if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
-    notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
-  }
-  if(campaign.dirty||template.dirty||GABF.contextStatus().dirty){
-    if(typeof confirm!=='function'||!confirm('Guardar as preparações desta marca neste dispositivo e trocar de marca? Nada será enviado ao servidor.'))return false;
-  }
-  try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
-  const previous=MARCA;MARCA=next;AB_WRITE_EPOCH++;
-  ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
-  notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
-  return true;
+  const dialog=$('#brand-change-confirm'),previous=MARCA;
+  if(dialog?.open){notice('Conclua a confirmação aberta antes de trocar de marca.');return false;}
+  const ready=()=>{
+    if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
+    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
+      notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
+    }
+    return true;
+  };
+  const apply=()=>{
+    if(!ready())return false;
+    const campaign=GCE.contextStatus();
+    try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
+    MARCA=next;AB_WRITE_EPOCH++;
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
+    return true;
+  };
+  if(!ready())return false;
+  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty)return apply();
+  if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');return false;}
+  const caller=document.activeElement;let settled=false;
+  const finish=accepted=>{
+    if(settled)return;settled=true;dialog.oncancel=null;dialog.onclose=null;
+    $('#brand-change-accept').onclick=null;$('#brand-change-cancel').onclick=null;
+    try{dialog.close();}catch{dialog.removeAttribute('open');}
+    if(accepted&&apply()&&typeof afterConfirm==='function')afterConfirm();
+    (caller?.isConnected?caller:$('#seg-marca .ativo'))?.focus();
+  };
+  $('#brand-change-description').textContent='Guardar as preparações de '+(G.MARCA_CHEIA[previous]||previous)+' neste dispositivo e abrir '+(G.MARCA_CHEIA[next]||(next==='todas'?'Consolidada':next))+'? Nada será enviado ao servidor.';
+  $('#brand-change-accept').onclick=()=>finish(true);$('#brand-change-cancel').onclick=()=>finish(false);
+  dialog.oncancel=e=>{e.preventDefault();finish(false);};dialog.onclose=()=>finish(false);
+  try{dialog.showModal();$('#brand-change-cancel').focus();}catch{finish(false);notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');}
+  return false;
 }
 window.growthChangeBrand=trocaMarca;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
