@@ -33,7 +33,7 @@ const GB={
   let k=write?(typeof GRU!=='undefined'?GRU.chaveEscrita():''):GTA.chaveLeitura();
   if(write&&!k){k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k)return {ok:false,body:{erro:'Informe a chave de edição para salvar.'}};}
   try{
-   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit'});
+   const r=await fetch(write?endpoint:endpoint+'?'+new URLSearchParams({acao:action,...body}),write?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,acao:action,...body})}:{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});
    return {ok:r.ok,status:r.status,body:await r.json()};
   }catch(_){return {ok:false,status:0,body:{erro:'Resultado não confirmado. Recarregue antes de repetir.'}};}
  },
@@ -41,8 +41,8 @@ const GB={
   if(GB.state.busy)return;GB.state.busy=true;GB.render();
   const r=await GB.request('fluxos_listar');GB.state.busy=false;
   if(typeof GBC!=='undefined'&&GBC.drag){GBC.pendingRender=true;return;}
-  if(!r.ok){GB.state.error=r.body?.erro||'Não foi possível carregar os fluxos.';GB.state.loaded=true;GB.render();return;}
-  GB.state.flows=Array.isArray(r.body.flows)?r.body.flows:[];GB.state.loaded=true;GB.state.error='';GB.state.templates={};
+  if(!r.ok||!Array.isArray(r.body?.flows)){GB.state.error=r.body?.erro||'Não foi possível carregar os fluxos.';GB.state.loaded=true;GB.render();return;}
+  GB.state.flows=r.body.flows;GB.state.loaded=true;GB.state.error='';GB.state.templates={};
   if(!GB.state.dirty){const f=GB.visible().find(f=>f.key===GB.state.selected)||GB.visible()[0];if(f)GB.select(f.key,false);}
   else {const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(f)for(const channel of new Set(f.available_steps.map(s=>s.channel)))GB.loadTemplates(f.brand,channel);}
   GB.render();
@@ -99,8 +99,8 @@ const GB={
   if(ctx){const old=GB.ctx.marca;GB.ctx=ctx;if(old!==ctx.marca&&GB.state.loaded&&!GB.state.dirty){const first=GB.visible()[0];if(first&&first.key!==GB.state.selected){GB.select(first.key,false);return;}}}const root=document.querySelector('#control-fluxos');if(!root)return;
   const s=GB.state,e=GB.e,visible=GB.visible(),f=s.flows.find(x=>x.key===s.selected),d=s.draft;
   if(!s.loaded&&!s.busy){GB.load();return;}
-  const rail=`<aside class="builder-rail"><div class="builder-rail-title">Jornadas <span>${visible.length}</span></div>${visible.map(x=>`<button type="button" class="builder-flow ${x.key===s.selected?'selected':''}" data-flow-key="${e(x.key)}"><span class="builder-dot ${x.enabled?'on':''}"></span><span><strong>${e(x.name)}</strong><small>${e(GB.brandLabel(x.brand))} · ${x.draft.steps.length} etapas</small></span></button>`).join('')}${!visible.length?'<p>Nenhum fluxo carregado.</p>':''}<button type="button" class="builder-reload" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button></aside>`;
-  const visual=typeof GBC!=='undefined';
+  const rail=`<aside class="builder-rail"><div class="builder-rail-title">Jornadas <span>${visible.length}</span></div>${visible.map(x=>`<button type="button" class="builder-flow ${x.key===s.selected?'selected':''}" data-flow-key="${e(x.key)}"><span class="builder-dot ${x.enabled?'on':''}"></span><span><strong>${e(x.name)}</strong><small>${e(GB.brandLabel(x.brand))} · ${x.draft.steps.length} etapas</small></span></button>`).join('')}${!visible.length?`<p>${s.busy?'Carregando jornadas…':s.error?'Lista de jornadas indisponível.':'Nenhuma jornada nesta marca.'}</p>`:''}<button type="button" class="builder-reload" id="builder-reload" ${s.busy?'disabled':''}>${s.busy?'Carregando…':s.error?'Tentar novamente':'↻ Atualizar'}</button></aside>`;
+  const visual=typeof GBC!=='undefined'&&!!(f&&d);
   const available=f?f.available_steps.filter(x=>!d?.steps.some(y=>y.key===x.key)):[];
   const feedback=`${s.error?`<div class="builder-alert" role="alert">${e(s.error)}</div>`:''}${s.notice?`<div class="builder-notice" role="status">${e(s.notice)}</div>`:''}`;
   const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome do fluxo" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
@@ -108,7 +108,7 @@ const GB={
    ${GB.stagesHtml(f,d)}
    ${available.length?`<div class="builder-add"><select id="builder-add-slot" aria-label="Etapa para adicionar">${available.map(x=>`<option value="${e(x.key)}">${e(x.name)} · ${x.channel==='email'?'E-mail':'WhatsApp'}</option>`).join('')}</select><button type="button" id="builder-add">+ Adicionar etapa</button></div>`:''}
    <div class="builder-end">✓ Fim da jornada</div><div class="builder-exits"><strong>Saídas automáticas</strong><span>${e(f.exit_description||'Compra, cancelamento e descadastro são respeitados pelas guardas de cada jornada.')}</span></div>
-   ${!f.runtime_ready?'<p class="builder-runtime-note">Você pode preparar e salvar esta jornada. A publicação será liberada quando a conexão com a operação estiver concluída.</p>':''}</div>`}</main>`:'<main class="builder-main builder-empty">Selecione uma jornada para editar suas etapas.</main>';
+   ${!f.runtime_ready?'<p class="builder-runtime-note">Você pode preparar e salvar esta jornada. A publicação será liberada quando a conexão com a operação estiver concluída.</p>':''}</div>`}</main>`:`<main class="builder-main builder-empty" role="status">${s.busy?'Carregando jornadas…':s.error?'Tente novamente para carregar as jornadas.':visible.length?'Selecione uma jornada para editar suas etapas.':'Nenhuma jornada disponível para a marca selecionada.'}</main>`;
   root.innerHTML=`${visual&&f&&d?'':feedback}<div class="builder-layout ${visual?'builder-visual':''}" aria-busy="${s.busy}">${visual?'':rail}${main}</div>`;GB.bind(root);if(visual&&f&&d)GBC.mount(root,f,d);
  },
  bind(root){
