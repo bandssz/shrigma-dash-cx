@@ -1,10 +1,10 @@
 # CRM05 — teste de email para o próprio gestor
 
-O candidato adiciona três ações no endpoint de templates do Growth e um cliente independente `GETest`. Nenhum teste automatizado realiza HTTP de email. A instalação e qualquer envio real dependem da integração do botão de confirmação no painel; este patch não publica workflow, instala SQL ou envia mensagens por conta própria.
+O candidato adiciona três ações no endpoint de templates do Growth e um cliente independente `GETest`. Nenhum teste automatizado realiza HTTP de email. A UI habilita “Enviar teste para Felipe” somente com publicação de email habilitada, versão publicada sem alteração local, acesso de gestor e journal disponível. O botão faz GET da prévia; um painel de confirmação com HTML isolado, destinatário e dados fictícios exige novo clique explícito para enviar. Este patch não publica workflow, instala SQL ou envia mensagens por conta própria.
 
 ## Contrato do painel
 
-As três ações exigem `Authorization: Bearer <acesso atual de gestor Growth>`. Chave em URL/corpo e acesso legado de templates não autorizam estas ações. O cliente captura o acesso no início da ação e não o persiste. O envelope de resposta tem `contract: "crm_email_test_v1"`.
+As três ações exigem `Authorization: Bearer <acesso atual de gestor Growth>`. Chave em URL/corpo e acesso legado de templates não autorizam estas ações. A UI captura acesso, endpoint, versão e conteúdo local no início da prévia, bloqueia edição/troca de marca durante a confirmação e não persiste a chave. Cancelar ou pressionar Escape antes do envio não grava uma tentativa nem faz POST. A mudança de versão em outra aba exige reabrir a prévia. O envelope de resposta tem `contract: "crm_email_test_v1"`.
 
 | Ação | Método | Campos além de `acao` |
 | --- | --- | --- |
