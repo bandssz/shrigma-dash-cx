@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=64b25b58a919">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vau6ZOq2bTNEd4fEmP0qk+H5oiromuy7LT9W4byEUkM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DRIpnBxiQbKt5yupgy2Ytqs8AdGCJIEGi74BGtFMZUs='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -141,10 +141,11 @@
     </section>
     <section class="painel">
       <div class="painel-cab"><h2>Testes A/B</h2>
-        <button class="btn sec" id="btn-novo">Novo teste</button></div>
-      <div class="campo"><label for="ab-chave">Chave de escrita do cadastro A/B</label>
+        <button class="btn sec" id="btn-novo">Nova configuração</button></div>
+      <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
+      <div class="campo" id="ab-acesso-legado" hidden><label for="ab-chave">Acesso original da tentativa anterior</label>
         <input id="ab-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="ab-chave-ajuda">
-        <span id="ab-chave-ajuda" class="ajuda">Uma nova chave fica apenas nesta página aberta. Consultar resultados usa leitura; consultar o recibo de uma tentativa exige a mesma chave de escrita.</span></div>
+        <span id="ab-chave-ajuda" class="ajuda">Somente para consultar uma tentativa feita com o acesso antigo. Fica nesta página aberta; não será usado para salvar outra configuração nem repetir a gravação.</span></div>
       <p id="ab-status" class="mini" role="status"></p>
       <button type="button" class="btn sec" id="ab-consultar">Consultar tentativa registrada</button>
       <div id="form-teste" hidden>
@@ -177,7 +178,7 @@
           <div class="campo"><label for="f-cb">Braço B — campanha</label>
             <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição do braço B" placeholder="descrição do braço B"></div>
           <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
-            <button class="btn" id="f-salvar">Registrar teste</button>
+            <button class="btn" id="f-salvar">Salvar configuração sem disparo</button>
             <button class="btn sec" id="f-cancelar">Cancelar</button>
             <span class="mini" id="f-msg" role="status"></span></div>
         </div>
@@ -240,7 +241,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=b3f24eab9603"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6f89c223174e"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -393,10 +394,14 @@ function renderTestes(){
 }
 
 function chaveTesteAB(msg){
+  const key=chave();
+  if(!key)msg.textContent='Entre novamente no CRM para salvar a configuração. Nenhuma gravação foi enviada.';
+  return key;
+}
+function chaveLegadaTesteAB(){
   const field=$('#ab-chave'),typed=field.value.trim();
   if(typed){AB_CHAVE_SESSAO=typed;field.value='';}
   if(!AB_CHAVE_SESSAO)try{AB_CHAVE_SESSAO=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
-  if(!AB_CHAVE_SESSAO){msg.textContent='Informe a chave de escrita do cadastro A/B no campo acima.';field.focus();}
   return AB_CHAVE_SESSAO;
 }
 function journalTesteAB(){
@@ -409,9 +414,10 @@ function journalTesteAB(){
 function sincronizaTestesAB(){
   const state=journalTesteAB().inspect();AB_PENDENTES.clear();AB_BLOQUEADO=state.blocked;
   for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
+  $('#ab-acesso-legado').hidden=![...AB_PENDENTES.values()].some(p=>p.server&&p.server.access!=='crm_operator');
   $('#f-salvar').disabled=AB_BUSY||!GABF.valid(API)||AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
   if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
-  else if(AB_PENDENTES.size)$('#ab-status').textContent=[...AB_PENDENTES.values()].some(p=>!p.server)?'Há tentativa anterior ao contrato do servidor. Ela permanece preservada e exige conciliação; uma coincidência nos dados não comprova o recibo. Não repita com outra chave ou identificador.':'Há tentativa aguardando recibo exato. Use Consultar tentativa registrada com a mesma chave de escrita; nenhuma consulta repete a gravação.';
+  else if(AB_PENDENTES.size)$('#ab-status').textContent=[...AB_PENDENTES.values()].some(p=>!p.server)?'Há tentativa anterior ao contrato do servidor. Ela permanece preservada e exige conciliação; uma coincidência nos dados não comprova o recibo. Não repita com outra chave ou identificador.':'Há tentativa aguardando confirmação. Consultar tentativa registrada verifica o recibo com o acesso original; não repete a gravação.';
 }
 function reconciliaTestesAB(explicitKey=''){
   sincronizaTestesAB();
@@ -419,9 +425,13 @@ function reconciliaTestesAB(explicitKey=''){
   AB_RECONCILIACAO=(async()=>{
     let proof;
     do{
-      proof=AB_PROVA_LEITURA;let key=explicitKey||AB_CHAVE_SESSAO;if(!key)try{key=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
-      if(!key||!AB_PENDENTES.size)return;
-      const result=await journalTesteAB().reconcileRemote(GABServer.create({endpoint:AB_API_URL,key}));
+      proof=AB_PROVA_LEITURA;if(!AB_PENDENTES.size)return;
+      const operatorKey=chave(),legacyKey=explicitKey||chaveLegadaTesteAB(),endpoint=AB_API_URL;
+      const result=await journalTesteAB().reconcileRemote({lookup:async op=>{
+        const key=op.server.access==='crm_operator'?operatorKey:legacyKey;
+        if(!key)throw new Error(op.server.access==='crm_operator'?'Entre novamente no CRM com o mesmo acesso para consultar a tentativa.':'Informe o acesso original da tentativa anterior para consultar seu recibo. A gravação continua preservada.');
+        return GABServer.create({endpoint,key}).lookup(op);
+      }});
       if(result.changed){sincronizaTestesAB();
         for(const p of result.confirmed){$('#ab-status').textContent=p.phase==='confirmed'?'Recibo exato do registro '+p.expected.teste.teste_id+' conferido no servidor.':'Operação recusada pelo servidor com recibo preservado. Atualize a revisão antes de uma nova ação.';
           if(p.phase==='confirmed'&&p.expected.acao==='criar'&&GABF.matches(p.expected.teste)){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro e revisão confirmados pelo recibo.';}}
@@ -436,9 +446,9 @@ async function gravaTesteAB(corpo,msg,btn){
   const epoch=AB_WRITE_EPOCH,key=corpo.k;
   try{
     const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA,
-      remote:GABServer.create({endpoint:AB_API_URL,key}),guard:()=>epoch===AB_WRITE_EPOCH&&AB_CHAVE_SESSAO===key&&btn.isConnected});
+      remote:GABServer.create({endpoint:AB_API_URL,key,requireAccess:'crm_operator'}),guard:()=>epoch===AB_WRITE_EPOCH&&chave()===key&&btn.isConnected});
     if(result.phase==='rejected'){
-      if(result.rejection.status===401){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}msg.textContent='Chave de escrita recusada.';}
+      if(result.rejection.status===401){msg.textContent='Acesso recusado. Entre novamente no CRM.';}
       else msg.textContent='Recusado antes da gravação: '+result.rejection.error;
     }else if(result.phase==='confirmed'){msg.textContent='Registro e revisão confirmados pelo recibo do servidor.';if(corpo.acao==='criar'&&GABF.matches(corpo.teste))$('#form-teste').hidden=true;await carregar();}
     else msg.textContent='Gravação sem confirmação. A tentativa foi preservada neste navegador. Atualize e confira o mesmo registro; nenhum reenvio será feito automaticamente.';
@@ -883,7 +893,7 @@ $('#form-teste').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
 $('#form-teste').addEventListener('change',()=>{AB_WRITE_EPOCH++;sincronizaTestesAB();});
 $('#f-canal').onchange=()=>{GABF.changeChannel(API);sincronizaTestesAB();};
 $('#ab-chave').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
-$('#ab-consultar').onclick=async()=>{const key=chaveTesteAB($('#ab-status'));if(key)await reconciliaTestesAB(key);};
+$('#ab-consultar').onclick=async()=>{await reconciliaTestesAB(chaveLegadaTesteAB());};
 $('#f-salvar').onclick=salvarTeste;
 
 
