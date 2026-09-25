@@ -1,0 +1,59 @@
+name: Listmonk A/B candidate artifact (OFF)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-ab-build/**'
+      - 'n8n/growth/ab-listmonk-cohort-patch.cjs'
+      - '.github/workflows/ab-listmonk-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [linux_amd64, linux_arm64]
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+      GOPROXY: https://proxy.golang.org
+      GOSUMDB: sum.golang.org
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.14.0'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Test fail-closed input, archive and immutable-prefix checks
+        run: python3 -m unittest discover -s tools/listmonk-ab-build -p 'test_build.py'
+      - name: Build only the pinned official packaging tool
+        working-directory: tools/listmonk-ab-build
+        run: |
+          go mod download
+          go mod verify
+          go build -trimpath -o "$RUNNER_TEMP/stuffbin" github.com/knadh/stuffbin/stuffbin
+      - name: Produce candidate and exact upstream rollback artifact
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+        run: >-
+          python3 tools/listmonk-ab-build/build.py
+          --target "$BUILD_TARGET"
+          --stuffbin "$RUNNER_TEMP/stuffbin"
+          --out "$RUNNER_TEMP/listmonk-ab-$BUILD_TARGET"
+      - name: Upload review artifact only (no release, registry or deployment)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: listmonk-6.1.0-crm-ab-candidate-${{ matrix.target }}
+          path: ${{ runner.temp }}/listmonk-ab-${{ matrix.target }}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
