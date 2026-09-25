@@ -17,13 +17,14 @@ function plan(snapshot,GEC){
  const samples={first_name:'Felipe',name:'Felipe',nome:'Felipe',brand:GEC.BRANDS[r.marca].name,brand_name:GEC.BRANDS[r.marca].name,store_url:'https://'+domain,shop_url:'https://'+domain};
  if(typeof t.subject!=='string'||!t.subject.trim()||t.subject.length>250||/[\r\n\u0000-\u001f\u007f]/.test(t.subject))return {eligible:false,code:'subject_invalid'};
  const used=new Set();
- for(const source of [t.subject,t.body]){
-  const remainder=source.replace(/\{\{\s*\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g,(all,key)=>{used.add(key);return '';});
+ for(const [source,html] of [[t.subject,false],[t.body,true]]){
+  const expressions=GEC.templateExpressions(source,html);
   // Arbitrary Go expressions/functions and Subscriber fields are not fabricated or executed.
-  if(remainder.includes('{{')||remainder.includes('}}'))return {eligible:false,code:'unsupported_template_expression'};
+  if(expressions.unsupported)return {eligible:false,code:'unsupported_template_expression'};
+  expressions.keys.forEach(key=>used.add(key));
  }
  if([...used].some(k=>!Object.hasOwn(samples,k)))return {eligible:false,code:'unsupported_test_variable'};
- if(used.size&&(/<(?:script|style)(?:\s|>)/i.test(t.body)||[...t.body.matchAll(/\{\{[\s\S]*?\}\}/g)].some(m=>t.body.lastIndexOf('<',m.index)>t.body.lastIndexOf('>',m.index))))return {eligible:false,code:'unsupported_variable_context'};
+ if(!GEC.variablesInText(t.body))return {eligible:false,code:'unsupported_variable_context'};
  const data=Object.fromEntries([...used].sort().map(k=>[k,samples[k]]));
  const subject=PREFIX+t.subject.replace(/^(?:✅ FINAL — )+/u,'');
  const substitute=(value,html=false)=>value.replace(/\{\{\s*\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g,(_,key)=>html?GEC.esc(data[key]):data[key]);
