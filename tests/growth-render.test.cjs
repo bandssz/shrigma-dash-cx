@@ -887,3 +887,24 @@ test('email overview acknowledges SES partial delivery coverage without adding i
  const p=fixture();p.crm_email_ses={schema_version:1,generated_at:'2026-09-08T01:00:00Z',rows:[],coverage:[{marca:'fish',flow:'carrinho',piece:'carrinho-30min',starts_at:'2026-09-01T12:00:00Z',ends_at:null,state:'partial'}]};
  const x=await boot(p);x.document.querySelector('[data-canal="email"]').click();const gap=x.document.querySelectorAll('.measure-gaps li')[1];assert.equal(gap.dataset.gap,'parcial');assert.match(gap.textContent,/entregas e falhas com cobertura parcial/);assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);
 });
+function replicationSource(x,brand='fish'){
+ return x.run(`(()=>{const r=GEC.draft(GR.novo({canal:'email',marca:${JSON.stringify(brand)},nome:'carta',assunto:'Novidades',preheader:'Confira',corpo:'<p>'+GEC.BRANDS[${JSON.stringify(brand)}].name+'</p><a href="https://'+GEC.BRANDS[${JSON.stringify(brand)}].domain+'/products/origem?utm_source='+${JSON.stringify(brand)}+'&amp;utm_campaign=lm-123&amp;utm_term=warm--lm-123-l7&amp;crm_dispatch_id=12345678-1234-4567-890a-1234567890ab">Ver</a>'}));GR.guarda(r);GRU.render();return r.id;})()`);
+}
+for(const brand of ['fish','aristo'])test('replication wizard '+brand+' creates only a reviewed local draft for the other brand',async()=>{
+ const x=await boot(),id=replicationSource(x,brand),beforeCalls=x.calls.length,to=brand==='fish'?'aristo':'fish';
+ x.document.querySelector('[data-email-replicate="'+id+'"]').click();assert.ok(x.document.querySelector('#email-replication'));assert.equal(x.run('GRU.contextStatus().blocked'),true);
+ assert.equal(x.document.querySelector('#drafts-novo-email').disabled,true);assert.equal(x.document.querySelector('#rep-create'),null);assert.match(x.document.querySelector('#email-replication').textContent,/Rastreamento de envio removido/);assert.match(x.document.querySelector('[data-rep-url]').getAttribute('title'),/campanha UTM/);
+ const url=x.document.querySelector('[data-rep-url="0"]');url.value='https://'+(to==='fish'?'fishermans.com.br':'oaristocrata.com')+'/products/conferido';url.dispatchEvent(new x.window.Event('input'));
+ const check=x.document.querySelector('[data-rep-reviewed="0"]');check.checked=true;check.dispatchEvent(new x.window.Event('change'));
+ x.document.querySelector('#rep-preview').click();assert.ok(x.document.querySelector('#rep-final'));assert.equal(x.document.querySelector('#rep-create').disabled,true);assert.ok(x.document.querySelector('#rep-final iframe'));
+ const confirm=x.document.querySelector('#rep-confirmed');confirm.checked=true;confirm.dispatchEvent(new x.window.Event('change'));x.document.querySelector('#rep-create').click();
+ assert.equal(x.document.querySelector('#email-replication'),null);const rows=JSON.parse(x.run('JSON.stringify(GR.lista())'));assert.equal(rows.length,2);const copy=rows.find(r=>r.id!==id);assert.equal(copy.marca,to);assert.equal(copy.servidor,undefined);assert.ok(copy.corpo.includes('utm_source='+to));assert.equal(/lm-123|crm_dispatch_id|utm_campaign=/.test(copy.corpo),false);assert.equal(x.calls.length,beforeCalls);assert.equal(x.run('GRU.contextStatus().blocked'),false);
+});
+test('replication blocks pending source, invalidates preview after edits, and detects a concurrent source change',async()=>{
+ const x=await boot(),id=replicationSource(x);x.run('GERU.journal=()=>({available:true,blocked:true,operations:[]})');x.document.querySelector('[data-email-replicate="'+id+'"]').click();assert.equal(x.document.querySelector('#email-replication'),null);assert.match(x.document.querySelector('#control-drafts').textContent,/pendente ou incerta/);
+ x.run('GERU.journal=()=>({available:true,blocked:false,operations:[]})');x.document.querySelector('[data-email-replicate="'+id+'"]').click();
+ x.run("GERU.session.links[0]={...GERU.session.links[0],target:'https://oaristocrata.com/produto',reviewed:true};GERU.review()");assert.ok(x.document.querySelector('#rep-final'));
+ const subject=x.document.querySelector('#rep-subject');subject.value='Novo assunto';subject.dispatchEvent(new x.window.Event('input'));assert.equal(x.document.querySelector('#rep-final'),null);x.document.querySelector('#rep-preview').click();
+ x.run(`GR.guarda({...GR.lista().find(r=>r.id===${JSON.stringify(id)}),corpo:'Alterado em outra aba'});GERU.session.confirmed=true;GERU.create()`);
+ assert.equal(x.run('GR.lista().length'),1);assert.match(x.document.querySelector('#email-replication').textContent,/origem ou uma operação mudou/);x.document.querySelector('#rep-cancel').click();assert.equal(x.document.querySelector('#email-replication'),null);
+});

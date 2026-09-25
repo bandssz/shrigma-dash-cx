@@ -123,3 +123,20 @@
 @media(max-width:640px){.flow-badges{justify-content:flex-start}}
 
 .control-explainer{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}.control-context .control-explainer{margin-bottom:0}.control-badge[title]:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
+
+/* Cross-brand e-mail review stays within the existing draft surface. */
+#email-replication{margin-bottom:20px;max-width:100%;min-width:0}
+#email-replication .rep-link{padding:10px 0;border-bottom:1px solid var(--borda)}
+#email-replication label,#email-replication li{overflow-wrap:anywhere}
+#email-replication input[type="text"],#email-replication input[type="email"]{width:100%;min-width:0;padding:9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);font:inherit}
+#email-replication input[type="checkbox"]{width:auto;margin-right:7px}
+#email-replication h4{margin-top:18px}
+#email-replication pre{max-width:100%;max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;background:var(--card)}
+#email-replication iframe{width:100%;max-width:100%}
+
+#email-replication .rep-badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+#email-replication .rep-badge{display:inline-block;font-size:11px;font-weight:600;line-height:1.4;padding:3px 7px;border:1px solid var(--borda);border-radius:5px;color:var(--mudo)}
+#email-replication .rep-envelope{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12px}
+#email-replication .rep-envelope dt{font-weight:600}
+#email-replication .rep-envelope dd{margin:0;overflow-wrap:anywhere;min-width:0}
+#email-replication .rep-campaign{display:block;color:var(--mudo);margin:2px 0 8px}
