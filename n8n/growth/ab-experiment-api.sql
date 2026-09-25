@@ -12,7 +12,7 @@ BEGIN
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR length(p::text)>32768 OR coalesce(p->>'brand','') NOT IN ('fish','aristo') THEN RETURN jsonb_build_object('status',422,'body',jsonb_build_object('error','AB_V2_REQUEST'));END IF;
  b:=p->>'brand';
  ready:=EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled AND isfinite(verified_at) AND verified_at<=clock_timestamp()
-  AND native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817');
+  AND native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9');
  IF method='capabilities' AND (p-ARRAY['brand'])='{}' THEN
   RETURN jsonb_build_object('status',200,'body',jsonb_build_object('contract','crm-ab-email-v2','brand',b,'enabled',ready,
    'configure',ready AND auth->'caps' ? 'draft','review',auth->'caps' ? 'validate','schedule',ready AND auth->'caps' ? 'submit',

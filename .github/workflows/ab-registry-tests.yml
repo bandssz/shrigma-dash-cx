@@ -88,6 +88,7 @@ jobs:
         run: |
           curl --fail --location --proto '=https' --tlsv1.2 --output "$AB_UPSTREAM_SOURCE" https://raw.githubusercontent.com/knadh/listmonk/v6.1.0/queries/campaigns.sql
           node tests/ab-listmonk-upstream-proof.cjs
+          node tests/ab-listmonk-count-proof.cjs
   isolated-native-roles:
     runs-on: ubuntu-24.04
     timeout-minutes: 6

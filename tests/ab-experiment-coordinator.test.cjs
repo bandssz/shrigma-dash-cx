@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {fixture,read,uuid}=require('./ab-experiment-fixture.cjs');
 const CAPS=['draft','validate','submit','read_content'];
-const NATIVE_SHA='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817';
+const NATIVE_SHA='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9';
 async function setup(){
  const x=await fixture();await x.db.exec(read('n8n/growth/campaign-write-guard.sql'));
  await x.db.exec(read('n8n/growth/ab-experiment-selection.sql'));await x.db.exec(read('n8n/growth/ab-experiment-coordinator.sql'));

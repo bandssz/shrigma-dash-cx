@@ -4,13 +4,13 @@ Estado: candidato. Este documento não autoriza instalar, reiniciar, publicar en
 
 ## Artefatos e revisão
 
-1. Fixar HEAD da PR, CI verde e hashes dos SQL, módulos, runtime de campanhas e artefato Listmonk. O build custom deve conter exclusivamente as duas consultas revisadas, com fonte upstream e query final verificadas. Consulte `tools/listmonk-ab-build/README.md`.
+1. Fixar HEAD da PR, CI verde e hashes dos SQL, módulos, runtime de campanhas e artefato Listmonk. O build custom deve conter exclusivamente as duas consultas revisadas, com fonte upstream e query final verificadas. O tar de CI é um pacote de executável e fonte para revisão, não uma imagem do host nem o conjunto SQL/API/painel. Fixar também esses arquivos separados, suas permissões e a configuração de inicialização sem segredos. Consulte `tools/listmonk-ab-build/README.md`.
 2. Revisar `ab-experiment-core.sql`, `ab-experiment-selection.sql`, `ab-experiment-coordinator.sql`, `ab-experiment-api.sql`, `ab-experiment-workflow.cjs`, módulos `growth-ab-experiment-*` e mapeamento de erros do runtime de campanhas como uma unidade. Não publicar um botão que dependa de partes ausentes.
 3. Exigir provas da CI PostgreSQL em duas sessões e da seleção upstream integral, além das fixtures de interface. Testes locais PGlite não provam carga, sandbox n8n, implantação nem entrega real.
 
 ## Preflight somente leitura
 
-O responsável pelo host confirma versão instalada, arquitetura, imagem/artefato atual, comando de inicialização, usuário do banco e **quantos processos enviam**. Registrar digest do artefato anterior, configuração sem segredos e checkpoints/contagem de campanhas em andamento. Nenhuma tabela ou workflow exclusivo de CX faz parte dessa investigação.
+O responsável pelo host confirma versão instalada, arquitetura, imagem/artefato atual, comando de inicialização, usuário do banco e **quantos processos enviam**. Guardar uma cópia verificável do artefato realmente em uso, seu digest, configuração sem segredos e checkpoints/contagem de campanhas em andamento. A distribuição oficial incluída no pacote só serve como retorno do host se for comprovadamente equivalente ao que ele usava; não substitui esse backup. Nenhuma tabela ou workflow exclusivo de CX faz parte dessa investigação.
 
 No banco: conferir PostgreSQL compatível, nomes v2 ausentes, schema real de campaigns/lists/subscribers/subscriber_lists/settings/link_clicks, enums e índices usados. Conferir corpos/assinaturas do provider CRM06, audience review, guardas, validação de campanhas e `shrigma_panel_operator_v1(text,text)`. A autenticação combinada que também aceita chaves de templates não serve para esta API. Não supor que a credencial da API e o worker tenham o mesmo papel no banco.
 
@@ -29,7 +29,7 @@ Com autorização do responsável e backup privado verificado:
 
 ## Troca com emissor único
 
-A janela e execução pertencem ao responsável pelo host. Congelar novos agendamentos enquanto se troca o processo. Parar o emissor antigo e confirmar que não há outro worker/pipe usando a fila; conservar banco, checkpoints e parâmetros nativos. Iniciar **um único** emissor com o artefato verificado. Não fazer rolling deployment com dois emissores consumindo as mesmas campanhas.
+A janela e execução pertencem ao responsável pelo host. Congelar novos agendamentos enquanto se troca o processo. Esperar o término das campanhas em andamento, inclusive comuns, e comprovar ausência de lotes pendentes em memória antes de parar: checkpoint salvo não preserva a fila em memória. O ensaio de interrupção mostrou perda de seis mensagens selecionadas antes do aceite SMTP, sem reenvio. Se não houver prova de drenagem, adiar a troca. Parar o emissor antigo e confirmar que não há outro worker/pipe usando a fila; conservar banco, checkpoints e parâmetros nativos. Iniciar **um único** emissor com o artefato verificado. Não fazer rolling deployment com dois emissores consumindo as mesmas campanhas.
 
 Conferir saúde, versão, hash real da query embutida e consultas de campanhas comuns. Só então o recibo de implantação pode receber o hash esperado e timestamp finito verificado. Essa linha no banco é uma atestação do operador, não detecta sozinha um binário incorreto, um segundo processo ou uma queda do host. Não habilitar o recurso confiando apenas nessa linha.
 
@@ -45,6 +45,6 @@ As provas de envio real devem ser planejadas e autorizadas separadamente com pú
 
 ## Reversão
 
-Antes de voltar ao artefato original, parar/cancelar os dois braços de cada A/B e confirmar que não há pipe/lote A/B em memória ou campanha que possa retomar. Desligar runtime, manter recibos e evidência permanente, então parar o processo custom e iniciar apenas o artefato anterior verificado. **Nunca usar o binário padrão com uma campanha A/B executável**: ele ignoraria a coorte e usaria todas as listas originais.
+Antes de voltar ao artefato anterior verificado, exigir ambos os braços de cada A/B em estado finished/cancelled e confirmar que não há pipe/lote A/B em memória ou campanha que possa retomar. Paused e runtime OFF sozinhos não bastam. Esperar também a drenagem das campanhas comuns; confirmar que o processo candidato terminou antes de iniciar seu substituto. Desligar runtime, manter recibos e evidência permanente, então parar o processo custom e iniciar apenas o artefato anterior verificado. **Nunca usar o binário padrão com uma campanha A/B executável**: ele ignoraria a coorte e usaria todas as listas originais.
 
 Manter tabelas/funções/guardas enquanto qualquer processo referenciar o filtro. Não limpar histórico para desbloquear a UI. Se uma ação ficar incerta, conservar journal/identidade e consultar recibo; ausência não permite criar nova tentativa. Limite local de1.000 históricos requer conciliação/exportação técnica revisada antes de criar novo armazenamento; nenhuma limpeza automática foi implementada.

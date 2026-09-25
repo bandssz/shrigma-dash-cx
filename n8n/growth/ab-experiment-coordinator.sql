@@ -101,7 +101,7 @@ BEGIN
   PERFORM key FROM public.settings WHERE key IN ('privacy.disable_tracking','privacy.individual_tracking') ORDER BY key FOR SHARE;
   IF action='prepare' THEN
    IF NOT EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled
-     AND native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817' AND isfinite(verified_at) AND verified_at<=clock_timestamp()) THEN RAISE EXCEPTION 'AB_V2_TRANSPORT_UNAVAILABLE';END IF;
+     AND native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9' AND isfinite(verified_at) AND verified_at<=clock_timestamp()) THEN RAISE EXCEPTION 'AB_V2_TRANSPORT_UNAVAILABLE';END IF;
    result:=public.crm_ab_prepare_v2(actor,caps,oid,p);
    RETURN jsonb_build_object('status',200,'body',jsonb_build_object('experiment',result));
   END IF;
@@ -123,7 +123,7 @@ BEGIN
    IF p->>'confirm' IS DISTINCT FROM 'schedule_both' THEN RAISE EXCEPTION 'AB_V2_CONFIRM';END IF;
    IF e.state<>'prepared' THEN RAISE EXCEPTION 'AB_V2_STATE';END IF;
    IF NOT EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled
-     AND native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817' AND isfinite(verified_at) AND verified_at<=clock_timestamp()) THEN RAISE EXCEPTION 'AB_V2_TRANSPORT_UNAVAILABLE';END IF;
+     AND native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9' AND isfinite(verified_at) AND verified_at<=clock_timestamp()) THEN RAISE EXCEPTION 'AB_V2_TRANSPORT_UNAVAILABLE';END IF;
    SELECT * INTO review FROM public.crm_ab_review_v2 WHERE test_id=tid FOR UPDATE;
    IF NOT FOUND OR review.actor IS DISTINCT FROM actor OR review.review_id::text IS DISTINCT FROM p->>'review_id'
     OR review.experiment_version<>e.version OR review.expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'AB_V2_REVIEW_EXPIRED';END IF;

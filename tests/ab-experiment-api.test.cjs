@@ -18,7 +18,7 @@ test('API operation reads bind brand/action/actor and recover the exact mutation
  const x=await setup();try{
   const oid=uuid(303),op={brand:'fish',operation_id:oid,action:'prepare'};
   const missing=(await x.api('operation',op)).body.operation;assert.equal(missing.state,'missing');assert.match(missing.actor,/^panel:[a-f0-9]{64}$/);
-  const p=await x.protocol();await x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817',verified_at=now()");
+  const p=await x.protocol();await x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9',verified_at=now()");
   const saved=await x.api('mutate',{brand:'fish',operation_id:oid,request_payload:p});assert.equal(saved.status,200);
   const rotated=(await x.api('operation',op,'rotated')).body.operation;assert.equal(rotated.actor,missing.actor);assert.equal(rotated.state,'completed');assert.deepEqual(rotated.request_payload,p);assert.deepEqual(rotated.response,saved);
   assert.equal((await x.api('operation',op,'other')).body.operation.state,'missing');

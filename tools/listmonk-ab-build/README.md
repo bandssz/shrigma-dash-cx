@@ -1,10 +1,11 @@
 # Listmonk 6.1.0 A/B — artifact for review, OFF
 
 This produces a candidate executable and an exact upstream rollback archive in CI.
-The packaging step does not start the executable or access a database. A separate
-amd64 smoke step starts the real worker **only in the disposable CI runner**, with an
-empty PostgreSQL service, synthetic contacts and a loopback SMTP capturer. It accesses
-no operational host or database, creates no release and pushes no registry image.
+The packaging step does not start the executable or access a database. Separate
+amd64 smoke and recovery steps start real workers **only in the disposable CI runner**,
+with empty PostgreSQL databases, synthetic contacts and a loopback SMTP capturer.
+A separate SQL load step compares native and modified selection. None accesses an
+operational host or database, creates a release or pushes a registry image.
 The workflow uploads GitHub Actions artifacts for 14 days with read-only repository
 permission. The distributed artifact remains **OFF / not deployed**.
 
@@ -65,7 +66,8 @@ obtained exact locked files and performs no downloads. No credentials or configu
 file are accepted. Downloads are bounded to the known release sizes (under 10 MB each),
 expanded binary/assets are bounded, and each final artifact is capped at 64 MiB.
 The CLI receives explicit argument arrays; archive paths are never executed or extracted
-unchecked. The original rollback executable is never run by this workflow.
+unchecked. Only the isolated recovery step starts the verified original rollback
+executable, after the candidate has exited, runtime is OFF and both A/B arms are terminal.
 
 ## Ephemeral worker smoke
 
@@ -118,19 +120,89 @@ real inboxes, mid-buffer opt-out races, interruption recovery or representative 
 Existing A/B contract/concurrency tests cover separate layers. No binary is executed
 on the user's machine; arm64 is packaged and verified but not executed by this smoke.
 
+## Ephemeral recovery and rollback
+
+`worker_recovery.py` uses separate empty databases, the same verified amd64 candidate
+and bounded loopback SMTP transport. It pauses the first SMTP transaction before
+acceptance, commits an opt-out beyond the selected checkpoint, then verifies that a
+later batch excludes that contact. This proves the exercised between-batch case;
+it does not prove that an opt-out can retract a message already selected into memory.
+
+A second scenario kills the worker before SMTP acceptance and restarts the same
+candidate against its saved database. It compares actual captures with the persisted
+checkpoints and checks that selected but unaccepted work is not replayed. This exposes
+a native recovery limit: preserving a checkpoint does not preserve an in-memory batch.
+The product result calculation must remain inconclusive when native `sent` is below
+the original allocation; the test does not reduce that denominator or fabricate an
+acceptance receipt. The opt-out scenario must also remain inconclusive with that deficit.
+
+Only after the candidate has exited, runtime is OFF and both arms are `finished` or
+`cancelled` does the runner start the verified upstream executable for a new ordinary
+synthetic campaign. It checks that no A/B arm resumes. Paused arms or runtime OFF alone
+are insufficient for this rollback. Cleanup stops the process and leaves runtime OFF.
+`worker-recovery.json` accompanies the amd64 artifact and records these bounded cases.
+Small deterministic batches and concurrency do not reproduce the host's worker settings,
+process topology, abrupt infrastructure failures or delivery to real inboxes.
+
+## Native schema and restricted roles
+
+The separate `isolated-native-roles` job in `.github/workflows/ab-registry-tests.yml`
+runs `tests/ab-native-roles.cjs` against a new disposable PostgreSQL database. It applies
+the pinned native schema and required campaign/auth dependencies, then core → selection
+→ coordinator → API. Restricted synthetic API and worker roles exercise authorization,
+atomic prepare/schedule, replay, cancellation while OFF, the complete patched native
+queries and writes of transport evidence. Negative grant cases must fail without false
+success receipts. Runtime starts and ends OFF.
+
+This is a database test, not a running Listmonk/n8n service or a full application grant
+recipe. `SECURITY INVOKER` still requires privileges on underlying tables and row locks.
+The tested API role is a trusted backend role, not a browser credential or a
+function-only security boundary. Existing host roles, web/admin operations and other
+Listmonk features need their own privilege review; do not replace them with fixture roles.
+
+## Synthetic selection load
+
+`selection_load.py` reads the verified upstream and candidate queries from the artifact
+and runs them in another empty local PostgreSQL database. It compares counts, complete
+pagination, exact recipient sets, overlap and checkpoints before and after synthetic
+suppression. Bounded `EXPLAIN ANALYZE` samples cover A/B and ordinary campaigns. There is
+no worker, SMTP, external service, recipient export or production connection in this step.
+
+`selection-load.json` and `selection-load-plans.json.gz` accompany the amd64 artifact.
+Functional equivalence and latency review are separate outcomes: a successful job can
+still contain `review_signals` requiring review. Read the reports for the exact tested
+revision and query hash; a query change requires new evidence. This is a synthetic SQL
+comparison with a single client, not a throughput or capacity test of the host, its
+concurrent workers, prepared-query plans or representative production data.
+
 ## Before any operational use
 
-A green packaging step proves the transformation and preservation checks. A green
-worker smoke adds only the bounded synthetic cases above, **not host compatibility,
-throughput, operational readiness or zero impact**. The host must first
-be verified as the same Listmonk version and target architecture. A separately reviewed
-rehearsal must cover the complete service, schema/functions installed **OFF**, opt-outs,
-native checkpoints/pagination, worker interruption/restart, rollback and performance of
-both A/B and ordinary campaigns on representative volume. Do not run two emitters.
+A green packaging step proves the transformation and preservation checks. The separate
+worker, recovery, roles and load jobs add the bounded cases above, **not host compatibility,
+throughput, operational readiness or zero impact**. Pin the final reviewed revision and
+matching query/artifact hashes after any optimization, and review every report and latency
+signal. The host must match the Listmonk version and target architecture; arm64 packaging
+does not establish that its worker has been exercised.
+
+Before planning a switch, identify the actual image/binary, entrypoint, configuration
+mounts, database roles and number of sending processes. Preserve a verified backup of
+the artifact actually in use and the database. The included upstream archive is not
+proof of equivalence to that host artifact. Review the complete service and SQL/functions
+installed **OFF**, actual grants and representative performance. Finish/drain ordinary
+campaigns as well as A/B before stopping an emitter; a saved checkpoint alone is not
+proof that its in-memory batch is empty. Do not run two emitters or infer safe rolling
+deployment from these CI tests.
 
 The source/checksum/manifest is not an activation receipt. Runtime stays OFF until the
 actual worker and SQL pairing are proven and a separately authorized rollout occurs.
-Rollback requires stopping/canceling A/B and confirming that no buffered batch or
-campaign can execute before returning to a binary without the filter; preserve all
-operation/evidence tables. An upstream binary would otherwise read the full original
-lists. The candidate is not an image or host deployment package.
+Rollback requires all A/B arms to be `finished`/`cancelled`, no pending buffered batch,
+runtime OFF and the candidate process stopped before starting the verified prior artifact;
+preserve all operation/evidence tables. Paused/OFF alone does not make rollback safe: an
+upstream binary would read the full original lists if an A/B campaign could execute.
+
+The tar contains an executable, upstream rollback archive and build/query sources. It
+is not an image, host deployment package or complete SQL/API/panel installation bundle.
+Coordinator/API SQL, workflow, runtime error mapping, UI modules and host-specific grants
+must be reviewed and fixed to the corresponding repository revision separately. See
+`n8n/growth/ab-experiment-RUNBOOK.md`; the real Fish/Aristo UI acceptance and any authorized
+send remain separate from these synthetic CI proofs.

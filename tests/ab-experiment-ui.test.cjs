@@ -13,7 +13,7 @@ async function fixture(brand='fish'){
   if(f.failRead&&['list','get'].includes(method))throw Error('read unavailable');if(method==='mutate'&&f.beforeMutate)await f.beforeMutate();const r=await x.api(method,p,access);
   if(f.loseReceipt&&method==='operation'&&r.body.operation.state==='completed')throw Error('lost receipt');return {status:r.status,json:async()=>r.body};
  },...Object.fromEntries(Object.entries(opts).filter(([,v])=>v!==undefined))});
- f.enable=()=>x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817',verified_at=now()");
+ f.enable=()=>x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9',verified_at=now()");
  f.protocol=()=>x.protocol(brand,brand==='fish'?1:2);
  f.mount=()=>{f.ui?.destroy();f.clientInstance=f.client();f.ui=UI.mount({element:document.querySelector('#root'),brand,client:f.clientInstance,storage:f.storage,getKeyIdentity:()=>key,uuid:()=>uuid(brand==='fish'?1:2),reviewer:{pending:()=>false,consult:async()=>{},review:async p=>Object.fromEntries(await Promise.all(p.arms.map(async a=>[a.arm,(await x.db.query('SELECT fixture_audience_review($1) v',[a.campaign_id])).rows[0].v.audience.review_id])))}});const dialog=document.querySelector('dialog');dialog.showModal=()=>dialog.setAttribute('open','');dialog.close=()=>dialog.removeAttribute('open');return f.ui;};
  f.q=s=>document.querySelector(s);f.posts=()=>calls.filter(c=>c.verb==='POST').length;

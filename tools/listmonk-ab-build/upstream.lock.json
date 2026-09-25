@@ -26,7 +26,7 @@
   "query": {
     "asset": "/queries/campaigns.sql",
     "upstream_sha256": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882",
-    "patched_sha256": "b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817"
+    "patched_sha256": "50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9"
   },
   "stuffbin": {
     "version": "v1.3.0",

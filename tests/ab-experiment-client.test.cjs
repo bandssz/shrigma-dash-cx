@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),Client=requ
 const {setup}=require('./ab-experiment-api-fixture.cjs'),{uuid}=require('./ab-experiment-fixture.cjs');
 const copy=v=>JSON.parse(JSON.stringify(v));
 async function fixture(){
- const x=await setup();await x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817',verified_at=now()");
+ const x=await setup();await x.db.exec("UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9',verified_at=now()");
  const saved=new Map(),calls=[];let held=false,n=700,key='manager';
  const locks={async request(name,options,fn){if(held)return fn(null);held=true;try{return await fn({name});}finally{held=false;}}};
  const storage={getItem:k=>saved.get(k)??null,setItem:(k,v)=>saved.set(k,v)};

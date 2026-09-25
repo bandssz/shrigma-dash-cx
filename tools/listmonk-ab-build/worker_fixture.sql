@@ -23,7 +23,7 @@ INSERT INTO campaign_lists(campaign_id,list_id,list_name)
 -- ON is temporary and confined to this disposable database. The distributed
 -- candidate and migrations remain OFF. Do not use this fixture on a host.
 UPDATE crm_ab_runtime_v2 SET enabled=true,
- native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817',verified_at=clock_timestamp();
+ native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9',verified_at=clock_timestamp();
 INSERT INTO crm_ab_experiment_v2(test_id,brand,protocol,source_list_ids,state,
  window_start,window_end,transport_bound,tracking_continuous)
  VALUES('00000000-0000-4000-8000-000000000001','fish','{}',ARRAY[1,2],'scheduled',

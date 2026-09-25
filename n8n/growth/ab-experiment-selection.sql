@@ -16,7 +16,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,public AS $$
   JOIN public.subscribers s ON s.id=m.subscriber_id AND s.status::text='enabled'
   JOIN public.crm_ab_runtime_v2 r ON r.singleton
   WHERE a.campaign_id=cid AND e.state='scheduled' AND e.transport_bound AND e.tracking_continuous AND e.source_complete
-   AND r.enabled AND r.native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817'
+   AND r.enabled AND r.native_query_sha256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9'
    AND isfinite(r.verified_at) AND r.verified_at<=statement_timestamp()
    AND m.revoked_at IS NULL AND statement_timestamp()<e.window_end)
 $$;
@@ -26,7 +26,7 @@ BEGIN
  -- A stopped or unverified emitter may finish a campaign with fewer recipients.
  -- This evidence is irreversible; turning it back on must not invent a winner.
  IF TG_OP='DELETE' OR NEW.enabled IS DISTINCT FROM true OR
-  NEW.native_query_sha256 IS DISTINCT FROM 'b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817' OR
+  NEW.native_query_sha256 IS DISTINCT FROM '50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9' OR
   NEW.verified_at IS NULL OR NOT isfinite(NEW.verified_at) OR NEW.verified_at>clock_timestamp() THEN
   UPDATE public.crm_ab_experiment_v2 SET transport_interrupted_at=clock_timestamp(),transport_interruption='runtime_unverified'
    WHERE state='scheduled' AND transport_bound AND transport_interrupted_at IS NULL AND window_end>clock_timestamp();
