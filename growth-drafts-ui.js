@@ -197,7 +197,7 @@ const GRU={
   preview(r){return r.canal==='email'?GMP.email(r):GMP.whatsapp(r);},
   checagens(v,s){
     const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
-    if(!v.erros.length&&!v.avisos.length)return `<span class="control-badge" title="A conferência local não confirma publicação nem entrega. Confira o conteúdo no servidor e use o envio de teste para revisar o e-mail.">Conteúdo conferido</span>${api}`;
+    if(!v.erros.length&&!v.avisos.length)return `<span class="control-badge" title="A conferência local não confirma publicação nem entrega. ${GRU.state.rascunho?.canal==='email'?'Confira o conteúdo no servidor e use o envio de teste para revisar o e-mail.':'Confira a versão salva e a aprovação da Meta antes de usar o template.'}">Conteúdo conferido</span>${api}`;
     return `${v.erros.map(x=>`<p class="control-warning draft-erro">${GRU.e(x)}</p>`).join('')}${v.avisos.map(x=>`<p class="draft-aviso">${GRU.e(x)}</p>`).join('')}${api}`;
   },
   atualizaPreview(){

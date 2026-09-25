@@ -130,11 +130,14 @@ async function audienceReady(x){x.q('[data-ce-save]').click();await until(()=>!x
 test('audience display explains union, opt-out, exclusions and live count before confirmation',async()=>{
  const x=boot({audiencePatch:{eligible_count:1234,unique_members_count:1241,excluded_blocklisted_count:3,excluded_subscription_count:4}});await audienceReady(x);
  const text=x.q('[data-ce-audience]').textContent;assert.match(text,/1\.234 pessoas podem receber agora/);assert.match(text,/Descadastros e bloqueios conferidos/);assert.match(text,/outra lista selecionada/);assert.match(text,/3 bloqueados · 4 sem inscrição válida/);assert.match(text,/O total pode mudar até o envio/);
+ const visible=x.q('[data-ce-audience]').cloneNode(true);visible.querySelectorAll('details').forEach(el=>el.remove());
+ assert.match(visible.textContent,/1\.234 pessoas podem receber agora/);assert.match(visible.textContent,/Conferido em/);assert.match(visible.textContent,/Válido até/);assert.match(visible.textContent,/novos descadastros serão respeitados/);
+ assert.doesNotMatch(visible.textContent,/outra lista selecionada/);assert.match(x.q('[data-ce-audience] details').textContent,/Inscrições e exclusões.*3 bloqueados · 4 sem inscrição válida.*outra lista selecionada/);
  x.q('[data-ce-schedule]').click();assert.match(x.confirmations.at(-1),/Fishermans/);assert.match(x.confirmations.at(-1),/1\.234 pessoas/);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);x.accept();await until(()=>x.calls.some(c=>c.acao==='campanha_agendar'));
  assert.equal(x.calls.find(c=>c.acao==='campanha_agendar').audience_review_id,'00000000-0000-4000-8000-000000000001');
 });
 test('zero and disabled audiences remain visible but cannot open scheduling',async()=>{
- for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1}]){const x=boot({audiencePatch:patch});await audienceReady(x);assert.equal(x.q('[data-ce-schedule]').disabled,true);x.q('[data-ce-schedule]').click();assert.equal(x.confirmations.length,0);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-validate]').disabled,false);}
+ for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1}]){const x=boot({audiencePatch:patch});await audienceReady(x);assert.equal(x.q('[data-ce-schedule]').disabled,true);x.q('[data-ce-schedule]').click();assert.equal(x.confirmations.length,0);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-validate]').disabled,false);if(patch.native_disabled_count)assert.match(x.q('[data-ce-audience] .ce-audience-warning').textContent,/Há contatos desativados.*Revise o público antes de agendar/);}
 });
 test('expiry while confirmation is open requires a new review with no schedule request',async()=>{
  const x=boot();await audienceReady(x);x.q('[data-ce-schedule]').click();x.advance(300001);x.accept();await until(()=>/venceu/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-schedule]').disabled,true);assert.equal(x.q('[data-ce-validate]').disabled,false);

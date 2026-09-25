@@ -701,7 +701,8 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  p.crm_operacao.templates[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];
  const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="fluxos"]').click();
  const root=()=>x.document.querySelector('#control-fluxos');
- assert.equal(root().hidden,false);assert.match(root().textContent,/A API ainda não declara a definição dos fluxos/);
+ assert.equal(root().hidden,false);assert.match(root().textContent,/Gatilho, ordem e esperas não informados/);assert.match(root().textContent,/Somente leitura/);assert.doesNotMatch(root().textContent,/crm_fluxo_def|contrato R6|Fase B|BACKEND_REQUESTS/);
+ assert.match(root().querySelector('[data-gt-key="fluxos-como-ler"]').textContent,/"real" não confirma entrega.*WhatsApp aceitos e entregues; e-mail aceito pelo provedor/);
  let cards=[...root().querySelectorAll('.flow-card')];
  assert.deepEqual(cards.map(c=>c.dataset.flow),['aristo|transacional','fish|carrinho']);assert.ok(cards.every(c=>c.dataset.origem==='observado'));
  assert.match(cards[1].textContent,/Gatilho: não declarado pela API/);assert.match(cards[1].textContent,/ordem alfabética, não a sequência do fluxo/);
@@ -716,7 +717,7 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  const DEF=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/growth-fluxo-def.synthetic.json'),'utf8'));
  const y=await boot({...p,...DEF});y.document.querySelector('[data-s="regua"]').click();y.document.querySelector('[data-control-tab="fluxos"]').click();
  const ry=()=>y.document.querySelector('#control-fluxos');
- assert.match(ry().textContent,/Definição declarada pela API/);assert.match(ry().textContent,/2 definição\(ões\) de fluxo em formato inválido ignorada\(s\): quebrado/);
+ assert.match(ry().textContent,/Configuração consultada em/);assert.match(ry().textContent,/2 definição\(ões\) de fluxo em formato inválido ignorada\(s\): quebrado/);
  cards=[...ry().querySelectorAll('.flow-card')];
  assert.deepEqual(cards.map(c=>c.dataset.flow+'/'+c.dataset.origem),['fish|carrinho/definido','aristo|pix-nao-pago/definido','aristo|transacional/observado']);
  const carrinho=cards[0];

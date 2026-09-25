@@ -1,6 +1,9 @@
 /* Campaign workspace: deliberate hierarchy, compact channels, readable dispatches. */
 #attribution-status{border:1px solid var(--borda);border-radius:12px;padding:18px 22px;background:var(--card);margin-bottom:18px}
 #attribution-status p{font-size:12px;line-height:1.65;color:#68665f;margin:12px 0 0}
+.ga-status-labels,.ga-freshness{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:11px;line-height:1.6;color:#68665f}
+.ga-status-labels>span{border:1px solid var(--borda);border-radius:5px;padding:3px 7px}.ga-freshness b{font-weight:600}
+#attribution-status .ga-status-warning{color:#82581c}.ga-tracking-quality{margin-top:12px}
 .ga-model{display:flex;gap:24px;align-items:center;justify-content:space-between}
 .ga-model label,.ga-model>div{display:flex;flex-direction:column;gap:8px;font-size:12px}
 .ga-model label{font-weight:600}.ga-model select{padding:10px 34px 10px 12px;border:1px solid var(--borda-forte);border-radius:8px;background:var(--card);color:var(--texto);font:inherit}
