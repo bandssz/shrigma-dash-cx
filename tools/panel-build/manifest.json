@@ -60,6 +60,7 @@
       "growth-drafts.js",
       "growth-templates-api.js",
       "growth-template-journal.js",
+      "growth-email-test.js",
       "growth-drafts-ui.js",
       "growth-canvas.js",
       "growth-flow-journal.js",
