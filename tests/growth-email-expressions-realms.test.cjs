@@ -23,3 +23,19 @@ test('arrays, class instances, custom/forged prototypes and forbidden own keys s
  const tooMany=plain();tooMany.Tx.Data.items=Array.from({length:21},()=>({name:'synthetic'}));assert.equal(ctx.parser.validateContext(tooMany).ok,false);
  const unsafe=plain();unsafe.Tx.Data.items[0].image='javascript:alert(1)';assert.equal(ctx.parser.validateContext(unsafe).ok,false);
 });
+test('prototype metadata hidden by a bridge matches the runtime diagnostic and accepts only module-created intrinsic prototype identities',()=>{
+ const ctx=vm.createContext({JSON}),localProto=vm.runInContext('Object.getPrototypeOf({})',ctx);
+ // Representative bridge: intrinsic prototypes retain stable wrapper identity,
+ // but constructor descriptors/parent-null metadata are not exposed.
+ const outerWrapper={},innerWrapper={},mapped=new Map([[Object.prototype,outerWrapper],[localProto,innerWrapper]]);
+ const bridge=new Proxy(Object,{get(target,key,receiver){if(key==='getPrototypeOf')return value=>{const p=Reflect.getPrototypeOf(value);return mapped.get(p)||p;};return Reflect.get(target,key,receiver);}});ctx.Object=bridge;
+ vm.runInContext(source+'\nglobalThis.parser=GEE;',ctx);
+ const input=plain(),d=ctx.parser.diagnoseContext(input);
+ for(const check of Object.values(d.checks)){assert.equal(check.protoNull,false);assert.equal(check.parentNull,false);assert.equal(check.ownCtor,false);assert.equal(check.ctorType,false);assert.equal(check.ctorProtoSame,false);assert.equal(check.intrinsicSourceMatch,false);assert.equal(check.failed_at,null);}
+ assert.equal(ctx.parser.validateContext(input).ok,true);
+ const {BUNDLE}=require('../n8n/growth/email-native-workflow-patch.cjs');
+ const complete=vm.createContext({JSON});const completeProto=vm.runInContext('Object.getPrototypeOf({})',complete),fullMap=new Map([[Object.prototype,outerWrapper],[completeProto,innerWrapper]]);
+ complete.Object=new Proxy(Object,{get(target,key,receiver){if(key==='getPrototypeOf')return value=>{const p=Reflect.getPrototypeOf(value);return fullMap.get(p)||p;};return Reflect.get(target,key,receiver);}});
+ const prepared=vm.runInContext(BUNDLE+`\nENP.prepare({marca:'fish',canal:'email',nome:'fixture',from_email:'contato@fishermans.com.br',reply_to:'contato@fishermans.com.br',preheader:'Fictício',assunto:'Exemplo',corpo:'<p>{{ .Subscriber.Name }}</p>{{ if .Tx.Data.has_discount }}<p>Exemplo</p>{{ end }}{{ range .Tx.Data.items }}<p>{{ .name }}</p>{{ end }}',botoes:[]},{GEC,GEE,digest});`,complete,{timeout:1000});assert.equal(prepared.eligible,true);
+ for(const bad of [[],Object.assign(new(class Fixture{})(),input),Object.assign(Object.create({polluted:true}),input),Object.assign(Object.create(Object.assign(Object.create(null),{constructor:Object})),input)])assert.equal(ctx.parser.validateContext(bad).ok,false);
+});
