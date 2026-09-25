@@ -13,7 +13,7 @@ const GCE=(()=>{
  const fromDefinition=input=>{const d=CampaignContract.normalize(input);return {brand:d.brand,initiative_name:d.initiative.name,initiative_key:d.initiative.key,utm_campaign:d.utm_campaign,name:d.name,subject:d.subject,from_email:d.from_email,reply_to:d.reply_to,list_ids:d.list_ids.join(', '),template_id:String(d.template_id),send_at:d.send_at?new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3,hourCycle:'h23'}).format(new Date(d.send_at)).replace(' ','T').replace(',','.').replace(/\.000$/,''):'',tags:d.tags.join(', '),html:d.html,text:d.text};};
  function values(){return Object.fromEntries(fields.map(k=>[k,root.querySelector(`[name="${k}"]`).value]));}
  function message(text,error=false){const el=root.querySelector('[data-ce-status]');el.textContent=text;el.dataset.error=String(error);}
- function keep(){if(confirmation||remoteBusy)return;dirty=true;try{saveLocal();message('Alterações guardadas neste navegador.');}catch(e){localError=e.message;message(e.message,true);}paintRemote();}
+ function keep(){if(confirmation||remoteBusy)return;if(localError){message(localError,true);paintRemote();return;}dirty=true;try{saveLocal();message('Alterações guardadas neste navegador.');}catch(e){localError=e.message;message(e.message,true);}paintRemote();}
  function fill(v){for(const k of fields)root.querySelector(`[name="${k}"]`).value=typeof v[k]==='string'?v[k]:'';}
  const input=(name,label,placeholder='',extra='')=>`<label>${label}<input name="${name}" autocomplete="off" placeholder="${esc(placeholder)}" ${extra}></label>`;
  function mount({marca='fish',api:payload=null}={}){
@@ -33,7 +33,7 @@ const GCE=(()=>{
   root.querySelector('[data-ce-definition]').addEventListener('submit',e=>e.preventDefault());
   root.querySelector('[data-ce-definition]').addEventListener('input',keep);
   root.querySelector('[data-ce-import]').addEventListener('change',async e=>{
-   const field=e.target,f=field.files?.[0];if(!f||confirmation||remoteBusy)return;
+   const field=e.target,f=field.files?.[0];if(!f||confirmation||remoteBusy||localError)return;
    try{if(remote?.locked())throw Error('Consulte a tentativa pendente antes de importar outro conteúdo.');if(f.size>800000)throw Error('Use um arquivo JSON de até 800 KB.');const before=confirmationContext(),v=fromDefinition(JSON.parse(await f.text()));if(v.brand!==contextBrand)throw Error('Este arquivo é de outra marca. Abra a marca do arquivo no cabeçalho antes de importar.');if(!sameContext(before))throw Error('O rascunho mudou durante a leitura. Confira o conteúdo e importe novamente.');
     const apply=()=>{fill(v);setupRemote();saveLocal();message('JSON importado e campos conferidos. Catálogo e UTMs finais serão validados na integração de envio.');};
     if(dirty)await confirmAction('Substituir o rascunho local pelo conteúdo deste arquivo?','Substituir rascunho',apply);else apply();
@@ -45,11 +45,11 @@ const GCE=(()=>{
    catch(err){message(err.message,true);const mapped={'initiative.key':'initiative_key','initiative.name':'initiative_name'};root.querySelector(`[name="${mapped[err.field]||err.field}"]`)?.focus();}
   });
   root.querySelector('[data-ce-preview]').addEventListener('click',()=>{if(confirmation||remoteBusy)return;const v=values();GMP.openEmail({source:v.html||'<p>Escreva o HTML para visualizar o e-mail.</p>',subject:v.subject,label:'Prévia do conteúdo da campanha'});});
-  root.querySelector('[data-ce-reset]').addEventListener('click',()=>{if(remote?.locked()){message('Consulte a tentativa pendente antes de limpar o conteúdo.',true);return;}confirmAction('Limpar o rascunho salvo neste navegador?','Limpar rascunho',()=>{fill(blank(values().brand));saveLocal();dirty=false;message('Rascunho limpo. Nenhuma campanha de envio foi alterada.');});});
+  root.querySelector('[data-ce-reset]').addEventListener('click',()=>{if(localError){message(localError,true);return;}if(remote?.locked()){message('Consulte a tentativa pendente antes de limpar o conteúdo.',true);return;}confirmAction('Limpar o rascunho salvo neste navegador?','Limpar rascunho',()=>{fill(blank(values().brand));saveLocal();dirty=false;message('Rascunho limpo. Nenhuma campanha de envio foi alterada.');});});
   bindRemote();setupRemote();
  }
  const q=selector=>root.querySelector(selector);
- function saveLocal(){if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign;GBS.save('campaign',contextBrand,{...values(),_campaign:c?{id:c.id,version:c.version}:null});localError='';}
+ function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign;GBS.save('campaign',contextBrand,{...values(),_campaign:c?{id:c.id,version:c.version}:null});localError='';}
  function contextStatus(){return {blocked:!!(remoteBusy||confirmation||accessImporting),dirty:!!localError,pending:!!remote?.locked()};}
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
  function enterBrand(brand){
@@ -160,9 +160,9 @@ const GCE=(()=>{
   q('.ce-tracking p').textContent=exists?'Ao salvar, o servidor aplica as UTMs ao HTML e ao texto com a identidade real desta campanha. A versão salva deve ser validada antes do agendamento.':'A API de cadastro deverá aplicar as UTMs ao HTML e ao texto com o ID real do envio. O JSON exportado é uma preparação; ainda não confirma links rastreados, listas disponíveis ou agendamento.';
   const s=remote?.snapshot(),locked=!!remote?.locked(),frozen=locked||remoteBusy||!!confirmation;
   for(const name of fields)q(`[name="${name}"]`).disabled=frozen||name==='brand'||!GBS.validBrand(contextBrand)||!!localError;
-  q('[data-ce-import]').disabled=frozen;q('[data-ce-reset]').disabled=frozen;
+  q('[data-ce-import]').disabled=frozen||!!localError;q('[data-ce-reset]').disabled=frozen||!!localError;
   q('[data-ce-export]').disabled=remoteBusy||!!confirmation;q('[data-ce-preview]').disabled=remoteBusy||!!confirmation;
-  for(const el of q('[data-ce-catalog]').querySelectorAll('input,select'))el.disabled=frozen;
+  for(const el of q('[data-ce-catalog]').querySelectorAll('input,select'))el.disabled=frozen||!!localError;
   const selected=new Set(split(values().list_ids));for(const el of q('[data-ce-catalog]').querySelectorAll('[data-ce-list]'))el.checked=selected.has(el.value);
   if(q('[data-ce-template]'))q('[data-ce-template]').value=values().template_id;
   q('[data-ce-key-state]').textContent=sessionWrite?'Chave de campanhas disponível somente nesta página.':currentWriteKey()?'Acesso legado disponível neste navegador.':'Informe a chave para salvar, validar, agendar ou cancelar.';
@@ -177,7 +177,7 @@ const GCE=(()=>{
   set('cancel',remoteCaps.cancel,frozen||!writes||c?.status!=='scheduled'||c?.sent!==0||c?.started_at!==null||!c?.send_at||Date.parse(c.send_at)<=Date.now());
   const op=s.operation;
   const parts=[c?`${statusName(c.status)} · ${c.sent} enviados · ${stamp(c.send_at)}`:'Ainda sem campanha cadastrada neste editor.'];
-  if(!writes)parts.push('Consulta disponível. Este navegador não oferece a proteção entre abas necessária para salvar, validar, agendar ou cancelar.');
+  if(localError)parts.push(localError);else if(!writes)parts.push('Consulta disponível. Este navegador não oferece a proteção entre abas necessária para salvar, validar, agendar ou cancelar.');
   if(c)parts.push(clean?'Conteúdo corresponde à versão salva.':'Há alterações locais; salve antes de validar.');
   if(c&&s.validation?.ok===true&&s.validation.version===c.version)parts.push('Versão salva validada.');
   if(locked)parts.push('Resultado pendente ou incerto. Edição e novas tentativas bloqueadas; consulte a mesma operação.');
@@ -187,12 +187,14 @@ const GCE=(()=>{
   q('.ce-tag').textContent=c?statusName(c.status):'Rascunho local';
   for(const btn of q('[data-ce-campaigns]').querySelectorAll('button'))btn.disabled=frozen;
  }
- async function runRemote(work,{fillSaved=false,write=false,confirmed=null}={}){
+ async function runRemote(work,{fillSaved=false,write=false,confirmed=null,recoverLocal=false}={}){
   if(!remote||remoteBusy||(confirmation&&confirmation!==confirmed))return;
+  if(write&&localError&&!recoverLocal){message(localError,true);return;}
   if(write&&!requireWriteAccess())return;
   let accessDenied=null;
   const epoch=contextEpoch,client=remote;remoteBusy=true;paintRemote();
-  try{const result=await work();if(epoch!==contextEpoch||client!==remote)return;if(fillSaved&&result?.campaign){fill(fromDefinition(result.campaign.definition));saveLocal();dirty=false;renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);}
+  try{const result=await work();if(epoch!==contextEpoch||client!==remote)return;if(fillSaved&&result?.campaign){fill(fromDefinition(result.campaign.definition));saveLocal({recover:recoverLocal});dirty=false;renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);}
+   if(localError){message(localError,true);return;}
    if(result?.localOnly){message('Nova preparação local aberta. Nenhuma campanha foi criada ou enviada.');return;}
    if(result?.readOnly){const status={pending:'em processamento',outcome_unknown:'resultado incerto',succeeded:'concluída no servidor',rejected:'recusada no servidor'}[result.consultation?.state]||'estado não confirmado';message(`Consulta recebida: ${status}. O registro local foi preservado. A confirmação local depende da proteção entre abas deste navegador.`);return;}
    message(remote.locked()?'A tentativa continua pendente ou incerta. Consulte novamente; não crie outra tentativa.':'Operação conferida. O estado acima mostra o que o servidor confirmou.',remote.locked());}
@@ -203,15 +205,15 @@ const GCE=(()=>{
   const e=esc,d=values(),selected=new Set(split(d.list_ids).map(Number));
   q('[data-ce-catalog]').innerHTML=`<div class="ce-catalog"><fieldset><legend>Públicos disponíveis</legend>${catalog.lists.filter(l=>Number.isSafeInteger(l.id)&&l.id>0&&l.available===true&&l.brand===remoteBrand).map(l=>`<label><input type="checkbox" data-ce-list value="${l.id}" ${selected.has(l.id)?'checked':''}> ${e(l.name||l.label||'Lista '+l.id)}</label>`).join('')||'<p>Nenhum público disponível nesta marca.</p>'}</fieldset><label>Modelo de e-mail<select data-ce-template><option value="">Escolha um modelo</option>${catalog.templates.filter(t=>Number.isSafeInteger(t.id)&&t.id>0&&t.available===true&&t.type==='campaign').map(t=>`<option value="${t.id}" ${String(t.id)===d.template_id?'selected':''}>${e(t.name||'Template '+t.id)}</option>`).join('')}</select></label></div>`;
   q('[name=list_ids]').closest('label').hidden=true;q('[name=template_id]').closest('label').hidden=true;
-  q('[data-ce-catalog]').querySelectorAll('[data-ce-list]').forEach(el=>el.addEventListener('change',()=>{q('[name=list_ids]').value=[...q('[data-ce-catalog]').querySelectorAll('[data-ce-list]')].filter(x=>x.checked).map(x=>x.value).join(', ');keep();}));
-  q('[data-ce-template]').addEventListener('change',e=>{q('[name=template_id]').value=e.target.value;keep();});
+  q('[data-ce-catalog]').querySelectorAll('[data-ce-list]').forEach(el=>el.addEventListener('change',()=>{if(localError||confirmation||remoteBusy||remote?.locked()){paintRemote();return;}q('[name=list_ids]').value=[...q('[data-ce-catalog]').querySelectorAll('[data-ce-list]')].filter(x=>x.checked).map(x=>x.value).join(', ');keep();}));
+  q('[data-ce-template]').addEventListener('change',e=>{if(localError||confirmation||remoteBusy||remote?.locked()){paintRemote();return;}q('[name=template_id]').value=e.target.value;keep();});
  }
  function renderCampaigns(campaigns){
   remoteCampaigns=campaigns;
   q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||'<p>Nenhuma campanha disponível nesta marca.</p>'}</div>`;
   q('[data-ce-campaigns]').querySelectorAll('[data-ce-open]').forEach(btn=>btn.addEventListener('click',()=>{
    if(confirmation||remoteBusy)return;const id=Number(btn.dataset.ceOpen),client=remote;
-   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await client.catalog();fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed});
+   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await client.catalog();fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true});
    if(dirty)confirmAction('Substituir as alterações locais pelo conteúdo salvo desta campanha?','Reabrir campanha',work);else work(null);
   }));
  }
@@ -219,11 +221,11 @@ const GCE=(()=>{
   bindAccess();
   q('[data-ce-refresh]').addEventListener('click',()=>runRemote(async()=>{const catalog=await remote.catalog(),campaigns=await remote.list();renderCatalog(catalog);renderCampaigns(campaigns);}));
   q('[data-ce-new]').addEventListener('click',()=>{
-   if(!remote||remote.locked()||remoteBusy||confirmation)return;const client=remote,brand=values().brand;
+   if(!remote||remote.locked()||remoteBusy||confirmation||localError)return;const client=remote,brand=values().brand;
    const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();q('[data-ce-catalog]').innerHTML='';for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;return {localOnly:true};},{confirmed});
    if(dirty)confirmAction('Guardar uma nova preparação local no lugar do conteúdo atual?','Preparar novo rascunho',work);else work(null);
   });
-  q('[data-ce-consult]').addEventListener('click',()=>runRemote(()=>remote.consult(),{fillSaved:true,write:true}));
+  q('[data-ce-consult]').addEventListener('click',()=>runRemote(()=>remote.consult(),{fillSaved:true,write:true,recoverLocal:true}));
   q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;runRemote(async()=>{await remote.catalog();return remote.save(definition(values()));},{fillSaved:true,write:true});});
   q('[data-ce-validate]').addEventListener('click',()=>runRemote(()=>remote.validate(definition(values())),{fillSaved:true,write:true}));
   q('[data-ce-cancel]').addEventListener('click',()=>{

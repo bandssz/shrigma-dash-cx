@@ -27,7 +27,7 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
  for(const file of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
- return {document,window,calls,store,confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
+ return {document,window,calls,store,setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
 async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI did not reach expected state');}
 
@@ -103,4 +103,23 @@ test('returning to a campaign cannot attach old local content to a newer journal
  const key='shrigma_campaign_operation_v1:fish',journal=JSON.parse(x.store.get(key));journal.campaign.version='changed-in-other-tab';const changed=JSON.stringify(journal);x.store.set(key,changed);
  x.run('GCE.preserve();GCE.mount({marca:"fish",api:__api})');
  assert.equal(x.q('[name=subject]').value,'Minha edição ainda local');assert.equal(x.q('[data-ce-save]').disabled,true);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);assert.equal(x.store.get(key),changed);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
+});
+
+test('a revision conflict stays frozen through catalog events, import, reset and field input until explicit reopen',async()=>{
+ const x=boot();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);
+ x.q('[name=subject]').value='Preparação antiga preservada';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');
+ const journalKey='shrigma_campaign_operation_v1:fish',localKey='shrigma_growth_editor_v1:campaign:fish',journal=JSON.parse(x.store.get(journalKey));
+ journal.campaign.version='v2';journal.campaign.definition.subject='Revisão nova do servidor';x.setCurrent(journal.campaign);const journalRaw=JSON.stringify(journal);x.store.set(journalKey,journalRaw);
+ x.run('GCE.preserve();GCE.mount({marca:"fish",api:__api})');const localRaw=x.store.get(localKey);
+ x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]')&&!x.run('GCE.contextStatus().blocked'));
+ for(const selector of ['[data-ce-list]','[data-ce-template]','[data-ce-import]','[data-ce-reset]','[name=subject]'])assert.equal(x.q(selector).disabled,true,selector);
+ x.q('[data-ce-list]').checked=false;x.q('[data-ce-list]').dispatchEvent(new x.window.Event('change'));
+ x.q('[data-ce-template]').value='';x.q('[data-ce-template]').dispatchEvent(new x.window.Event('change'));
+ x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ let fileRead=false;Object.defineProperty(x.q('[data-ce-import]'),'files',{value:[{size:100,text:async()=>{fileRead=true;return JSON.stringify(definition());}}]});x.q('[data-ce-import]').dispatchEvent(new x.window.Event('change'));
+ x.q('[data-ce-reset]').dispatchEvent(new x.window.Event('click'));x.q('[data-ce-save]').dispatchEvent(new x.window.Event('click'));await new Promise(setImmediate);
+ assert.equal(fileRead,false);assert.equal(x.confirmations.length,0);assert.equal(x.q('[name=list_ids]').value,'125');assert.equal(x.q('[name=template_id]').value,'1');assert.equal(x.store.get(localKey),localRaw);assert.equal(x.store.get(journalKey),journalRaw);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);assert.equal(x.q('[data-ce-save]').disabled,true);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);
+ x.q('[data-ce-open]').click();assert.equal(x.confirmations.length,1);assert.equal(x.q('[name=subject]').value,'Preparação antiga preservada');x.accept();await until(()=>!x.q('[data-ce-save]').disabled);
+ assert.equal(x.q('[name=subject]').value,'Revisão nova do servidor');assert.equal(JSON.parse(x.store.get(localKey)).value._campaign.version,'v2');assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
 });
