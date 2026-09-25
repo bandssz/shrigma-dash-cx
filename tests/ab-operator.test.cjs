@@ -6,9 +6,9 @@ const {patchWorkflow,currentBuilder,authTail}=require('../n8n/growth/ab-operator
 const {sha256Bytes,stable,canonical,digest}=require('../n8n/growth/template-operation-receipt.cjs');
 const bridge=fs.readFileSync(require.resolve('../n8n/growth/ab-operator.sql'),'utf8');
 const auth=`CREATE FUNCTION shrigma_crm_operator_auth_v1(k text) RETURNS jsonb LANGUAGE sql STABLE AS $$
- SELECT CASE WHEN k IN ('manager','rotated') THEN '{"label":"synthetic-manager","caps":["draft","read_content"]}'::jsonb
- WHEN k='other' THEN '{"label":"other-manager","caps":["draft","read_content"]}'::jsonb
- WHEN k='reader' THEN '{"label":"synthetic-reader","caps":["read_content"]}'::jsonb ELSE NULL END $$;`;
+ SELECT CASE WHEN k IN ('manager','rotated') THEN '{"who":"panel:synthetic-manager","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
+ WHEN k='other' THEN '{"who":"panel:other-manager","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
+ WHEN k='reader' THEN '{"who":"panel:synthetic-reader","label":"Synthetic reader","caps":["read_content"]}'::jsonb ELSE NULL END $$;`;
 const runCode=(code,json)=>JSON.parse(JSON.stringify(vm.runInNewContext(`(()=>{${code}\n})()`,{$json:json,$input:{all:()=>[{json}]}})));
 function fixture(){
  const names=['POST teste','Valida chave','Autorizado?','Monta SQL','Grava','Resposta','200','401','400','GET cadastro AB','OPTIONS cadastro AB','Valida consulta AB','204 cadastro AB','Falha de recibo AB'];

@@ -7,7 +7,7 @@ BEGIN
  IF p_mode IS NULL OR p_mode NOT IN ('write','operation','record','capabilities')
    OR jsonb_typeof(p) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'AB_INVALID_REQUEST'; END IF;
  identity:=public.shrigma_crm_operator_auth_v1(k);
- IF jsonb_typeof(identity->'label') IS DISTINCT FROM 'string' OR coalesce(identity->>'label','')=''
+ IF jsonb_typeof(identity->'who') IS DISTINCT FROM 'string' OR coalesce(identity->>'who','')=''
    OR jsonb_typeof(identity->'caps') IS DISTINCT FROM 'array' THEN
   RETURN jsonb_build_object('status',401,'body',jsonb_build_object('ok',false,'code','operator_access_required'));
  END IF;
@@ -15,9 +15,9 @@ BEGIN
  IF NOT (identity->'caps' ? needed) THEN
   RETURN jsonb_build_object('status',403,'body',jsonb_build_object('ok',false,'code','capability_missing'));
  END IF;
- -- A rotated key for the same authenticated operator retains the same authorship.
+ -- A rotated key for the same authenticated principal retains the same authorship.
  -- The prefix separates this identity from every legacy shared-key digest.
- actor:=encode(sha256(convert_to('ab-registry-operator-v1:'||(identity->>'label'),'UTF8')),'hex');
+ actor:=encode(sha256(convert_to('ab-registry-operator-v1:'||(identity->>'who'),'UTF8')),'hex');
  IF p_mode='write' AND p->>'action'='criar' THEN brand:=p#>>'{request_payload,teste,marca}';
  ELSIF p_mode<>'capabilities' THEN SELECT marca INTO brand FROM public.crm_teste WHERE teste_id=p->>'teste_id'; END IF;
  IF brand IS NOT NULL AND brand NOT IN ('fish','aristo') THEN
