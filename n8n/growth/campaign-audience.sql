@@ -1,44 +1,12 @@
--- Listmonk v6.1 provider primitives. Authenticated backend only.
--- Create remains the native Listmonk API. These writes touch only CRM-managed drafts.
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_list_brand(l public.lists) RETURNS text
-LANGUAGE sql STABLE AS $$
- SELECT CASE
- WHEN coalesce(l.tags,'{}') && ARRAY['cross','aposentada','olivas']::varchar[] THEN NULL
- WHEN (coalesce(l.tags,'{}') && ARRAY['aristo','aristocrata']::varchar[] OR l.id=16)
-  AND NOT (coalesce(l.tags,'{}') && ARRAY['fish','fishermans']::varchar[] OR l.id=17) THEN 'aristo'
- WHEN (coalesce(l.tags,'{}') && ARRAY['fish','fishermans']::varchar[] OR l.id=17)
-  AND NOT (coalesce(l.tags,'{}') && ARRAY['aristo','aristocrata']::varchar[] OR l.id=16) THEN 'fish'
- ELSE NULL END
-$$;
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_catalog(b text) RETURNS jsonb
-LANGUAGE sql STABLE AS $$
- SELECT CASE WHEN b NOT IN ('aristo','fish') OR b IS NULL THEN NULL ELSE
- jsonb_build_object('brand',b,'current',true,'read_at',clock_timestamp(),
-  'lists',coalesce((SELECT jsonb_agg(jsonb_build_object('id',l.id,'name',l.name,'brand',b,'available',l.status::text='active') ORDER BY l.id)
-   FROM public.lists l WHERE public.shrigma_campaign_list_brand(l)=b),'[]'::jsonb),
-  'templates',coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'type',t.type,'available',true,
-   'version',md5(to_jsonb(t)::text)) ORDER BY t.id) FROM public.templates t WHERE t.type::text='campaign'),'[]'::jsonb),
-  'initiatives',coalesce((SELECT jsonb_agg(jsonb_build_object('utm_campaign',f.utm_campaign,'key',f.familia) ORDER BY f.utm_campaign)
-   FROM public.crm_familia_campanha f WHERE f.marca=b),'[]'::jsonb)) END
-$$;
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_current(pid integer) RETURNS jsonb
-LANGUAGE sql STABLE AS $$
- SELECT jsonb_build_object('id',c.id,'version',md5(jsonb_build_object('campaign',to_jsonb(c),'lists',li.snapshot,'media',me.snapshot,'template',to_jsonb(t))::text),
- 'status',c.status,'sent',c.sent,'started_at',c.started_at,
- 'send_at',CASE WHEN c.send_at IS NULL THEN NULL ELSE to_char(c.send_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END,
- 'definition',jsonb_build_object('schema_version','crm-campaign-v1','brand',c.attribs#>>'{crm,brand}','channel','email',
-  'initiative',jsonb_build_object('key',c.attribs#>>'{crm,initiative_key}','name',c.attribs#>>'{crm,initiative_name}'),
-  'utm_campaign',c.attribs#>>'{crm,utm_campaign}','name',c.name,'subject',c.subject,'from_email',c.from_email,
-  'reply_to',(SELECT e.value FROM jsonb_array_elements(coalesce(c.headers,'[]')) a CROSS JOIN LATERAL jsonb_each_text(a) e WHERE lower(e.key)='reply-to' LIMIT 1),
-  'list_ids',li.ids,'template_id',c.template_id,'html',c.body,'text',c.altbody,'tags',to_jsonb(c.tags),
-  'send_at',CASE WHEN c.send_at IS NULL THEN NULL ELSE to_char(c.send_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END))
- FROM public.campaigns c LEFT JOIN public.templates t ON t.id=c.template_id
- CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(cl.list_id ORDER BY cl.list_id),'[]') ids,
-  coalesce(jsonb_agg(jsonb_build_object('relation',to_jsonb(cl),'list',to_jsonb(l)) ORDER BY cl.list_id),'[]') snapshot
-  FROM public.campaign_lists cl LEFT JOIN public.lists l ON l.id=cl.list_id WHERE cl.campaign_id=c.id) li
- CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(jsonb_build_object('relation',to_jsonb(cm),'media',to_jsonb(m)) ORDER BY cm.media_id,cm.filename),'[]') snapshot FROM public.campaign_media cm LEFT JOIN public.media m ON m.id=cm.media_id WHERE cm.campaign_id=c.id) me
- WHERE c.id=pid AND c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}' IN ('aristo','fish')
-$$;
+-- CRM-06. Apply only after cancellation + atomic receipts. No campaigns or contacts are changed.
+-- Existing validation rows/operation receipts stay intact; legacy reviews cannot authorize a new schedule.
+BEGIN;
+SET LOCAL lock_timeout='3s';
+DO $check$ BEGIN
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure) NOT IN ('f29ede0cc548763cfd06c3f3539c483f','cbf4a87890f5b892e22fad01975844de') THEN RAISE EXCEPTION 'AUDIENCE_PROVIDER_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_store(text,jsonb)'::regprocedure) NOT IN ('2db1e03334e674938e3e806c01c9ba31','4e95ed0403daef3496194e86c1878654') THEN RAISE EXCEPTION 'AUDIENCE_STORE_DRIFT'; END IF;
+ IF to_regprocedure('public.shrigma_campaign_audience(integer)') IS NOT NULL AND (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('public.shrigma_campaign_audience(integer)'))<> 'bbdd14430b814cd7b3ac3f142f0066f0' THEN RAISE EXCEPTION 'AUDIENCE_HELPER_DRIFT'; END IF;
+END $check$;
 -- Current regular-campaign eligibility, aligned with Listmonk v6.1.0.
 -- Only aggregates leave SQL. Subscription rows remain mutable for opt-out.
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_audience(pid integer) RETURNS jsonb
@@ -74,6 +42,91 @@ BEGIN
  RETURN result;
 END $aud$;
 REVOKE ALL ON FUNCTION public.shrigma_campaign_audience(integer) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.shrigma_campaign_store(p_action text,p jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s'
+AS $fn$
+DECLARE r public.shrigma_campaign_operation%ROWTYPE; got boolean; v jsonb; pid integer;
+BEGIN
+ IF p IS NULL OR jsonb_typeof(p)<>'object' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_INPUT'; END IF;
+ IF p_action IN ('claim','get') THEN
+  IF coalesce(p->>'actor','')='' OR length(p->>'actor')>200 OR
+     coalesce(p->>'key','') !~ '^[A-Za-z0-9_-]{16,100}$' THEN
+   RAISE EXCEPTION 'CAMPAIGN_STORE_IDENTITY';
+  END IF;
+ END IF;
+ IF p_action='claim' THEN
+  IF coalesce(p->>'hash','') !~ '^[0-9a-f]{64}$' OR
+     coalesce(p->>'brand','') NOT IN ('aristo','fish') OR
+     coalesce(p->>'action','') NOT IN ('salvar','validar','agendar','cancelar') THEN
+   RAISE EXCEPTION 'CAMPAIGN_STORE_CLAIM';
+  END IF;
+  -- Serialize exactly one actor/key, including concurrent insertion. Never reclaim
+  -- an old operation by time: its remote side effect may already have happened.
+  PERFORM pg_advisory_xact_lock(hashtextextended('campaign-operation:'||jsonb_build_array(p->>'actor',p->>'key')::text,0));
+  INSERT INTO public.shrigma_campaign_operation(actor,operation_key,request_hash,brand,action)
+  VALUES(p->>'actor',p->>'key',p->>'hash',p->>'brand',p->>'action')
+  ON CONFLICT(actor,operation_key) DO NOTHING RETURNING * INTO r;
+  got:=FOUND;
+  IF NOT got THEN
+   SELECT * INTO STRICT r FROM public.shrigma_campaign_operation WHERE actor=p->>'actor' AND operation_key=p->>'key';
+  END IF;
+  RETURN jsonb_build_object('id',r.id,'lease',CASE WHEN got THEN r.lease ELSE NULL END,
+   'hash',r.request_hash,'brand',r.brand,'action',r.action,'acquired',got,
+   'state',r.state,'providerId',r.provider_id,'response',r.response);
+ ELSIF p_action='get' THEN
+  SELECT * INTO r FROM public.shrigma_campaign_operation WHERE actor=p->>'actor' AND operation_key=p->>'key';
+  IF NOT FOUND THEN RETURN 'null'::jsonb; END IF;
+  -- Never expose the mutation token through operation polling.
+  RETURN jsonb_build_object('id',r.id,'brand',r.brand,'action',r.action,'state',r.state,
+    'providerId',r.provider_id,'response',r.response,'created_at',r.created_at,'updated_at',r.updated_at);
+ ELSIF p_action IN ('provider','finish') THEN
+  SELECT * INTO r FROM public.shrigma_campaign_operation WHERE id=(p->>'id')::uuid FOR UPDATE;
+  IF NOT FOUND OR r.lease IS DISTINCT FROM (p->>'lease')::uuid THEN RAISE EXCEPTION 'CAMPAIGN_STORE_LEASE'; END IF;
+  pid:=nullif(p->>'providerId','')::integer;
+  IF pid IS NOT NULL AND pid<=0 THEN RAISE EXCEPTION 'CAMPAIGN_STORE_PROVIDER'; END IF;
+  IF r.provider_id IS NOT NULL AND pid IS NOT NULL AND r.provider_id<>pid THEN RAISE EXCEPTION 'CAMPAIGN_STORE_PROVIDER_CONFLICT'; END IF;
+  IF p_action='provider' THEN
+   IF pid IS NULL OR r.state<>'pending' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_STATE'; END IF;
+   UPDATE public.shrigma_campaign_operation SET provider_id=pid,updated_at=clock_timestamp() WHERE id=r.id;
+  ELSE
+   IF coalesce(p->>'state','') NOT IN ('succeeded','rejected','outcome_unknown') OR
+      jsonb_typeof(p->'response') IS DISTINCT FROM 'object' OR
+      jsonb_typeof(p#>'{response,body}') IS DISTINCT FROM 'object' OR
+      coalesce(p#>>'{response,status}','') !~ '^[1-5][0-9]{2}$' THEN
+    RAISE EXCEPTION 'CAMPAIGN_STORE_RESULT';
+   END IF;
+   IF r.state<>'pending' THEN
+    IF r.state=p->>'state' AND r.response=p->'response' AND r.provider_id IS NOT DISTINCT FROM coalesce(pid,r.provider_id) THEN RETURN '{"ok":true}'::jsonb; END IF;
+    -- A late worker cannot overwrite an uncertain or completed result.
+    RAISE EXCEPTION 'CAMPAIGN_STORE_FINALIZED';
+   END IF;
+   UPDATE public.shrigma_campaign_operation SET state=p->>'state',response=p->'response',
+    provider_id=coalesce(pid,provider_id),updated_at=clock_timestamp() WHERE id=r.id;
+  END IF;
+  RETURN '{"ok":true}'::jsonb;
+ ELSIF p_action IN ('validation_get','validation_set','validation_invalidate') THEN
+  pid:=(p->>'providerId')::integer;
+  IF pid IS NULL OR pid<=0 THEN RAISE EXCEPTION 'CAMPAIGN_STORE_PROVIDER'; END IF;
+  IF p_action='validation_get' THEN
+   SELECT validation INTO v FROM public.shrigma_campaign_validation WHERE provider_id=pid;
+   RETURN coalesce(v-'_audience_fingerprint','null'::jsonb);
+  ELSIF p_action='validation_invalidate' THEN
+   DELETE FROM public.shrigma_campaign_validation WHERE provider_id=pid;
+  ELSE
+   v:=p->'validation';
+   IF v ? 'audience' OR v ? '_audience_fingerprint' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_VALIDATION'; END IF;
+   IF jsonb_typeof(v) IS DISTINCT FROM 'object' OR v->>'policy' IS DISTINCT FROM 'crm-campaign-v1' OR
+      v->'ok' IS DISTINCT FROM 'true'::jsonb OR coalesce(v->>'version','')='' OR
+      coalesce(v->>'validated_at','')='' THEN RAISE EXCEPTION 'CAMPAIGN_STORE_VALIDATION'; END IF;
+   INSERT INTO public.shrigma_campaign_validation(provider_id,validation) VALUES(pid,v)
+    ON CONFLICT(provider_id) DO UPDATE SET validation=excluded.validation,updated_at=clock_timestamp();
+  END IF;
+  RETURN '{"ok":true}'::jsonb;
+ ELSE RAISE EXCEPTION 'CAMPAIGN_STORE_ACTION';
+ END IF;
+END $fn$;
+REVOKE ALL ON FUNCTION public.shrigma_campaign_store(text,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_provider(a text,p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s'
@@ -218,4 +271,5 @@ BEGIN
  PERFORM set_config('shrigma.campaign_writer',coalesce(previous_writer,''),true);
  RETURN current_row;
 END $fn$;
-REVOKE ALL ON FUNCTION public.shrigma_campaign_list_brand(public.lists),public.shrigma_campaign_catalog(text),public.shrigma_campaign_current(integer),public.shrigma_campaign_provider(text,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.shrigma_campaign_provider(text,jsonb) FROM PUBLIC;
+COMMIT;

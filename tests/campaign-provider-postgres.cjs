@@ -32,7 +32,7 @@ const fs=require('node:fs'),path=require('node:path');
   const {id,version}=saved.body.campaign;
   const validated=await service.handle(auth,{acao:'campanha_validar',brand:'fish',id,expected_version:version,idempotency_key:'integration-validate-01'});
   assert.equal(validated.status,200,JSON.stringify(validated));
-  const scheduled=await service.handle(auth,{acao:'campanha_agendar',brand:'fish',id,expected_version:version,confirm:'agendar',idempotency_key:'integration-schedule-01'});
+  const scheduled=await service.handle(auth,{acao:'campanha_agendar',brand:'fish',id,expected_version:version,confirm:'agendar',audience_review_id:validated.body.validation.audience.review_id,idempotency_key:'integration-schedule-01'});
   assert.equal(scheduled.status,200,JSON.stringify(scheduled));assert.equal(scheduled.body.campaign.status,'scheduled');
   assert.equal(scheduled.body.campaign.sent,0);
   const scheduledVersion=scheduled.body.campaign.version;

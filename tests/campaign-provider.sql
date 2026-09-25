@@ -36,6 +36,7 @@ BEGIN
  ASSERT bad,'external edit invalidates scheduling even if timestamp did not change';
  r:=public.shrigma_campaign_current(100);p:=p||jsonb_build_object('expectedVersion',r->>'version');
  PERFORM public.shrigma_campaign_store('validation_set',jsonb_build_object('providerId',100,'validation',jsonb_build_object('policy','crm-campaign-v1','version',r->>'version','ok',true,'validated_at',now())));
+ p:=p||jsonb_build_object('audienceReviewId',public.fixture_audience_review(100)#>>'{audience,review_id}');
  r:=public.shrigma_campaign_provider('schedule',p);
  ASSERT r->>'status'='scheduled','only reviewed revision scheduled';
  ASSERT r->>'sent'='0' AND r->>'started_at' IS NULL,'no immediate send';

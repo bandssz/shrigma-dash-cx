@@ -2,8 +2,8 @@
    Do not advertise remote campaigns until native compilation and runtime are wired. */
 'use strict';
 const C=require('./campaign-contract');
-const MESSAGES={CAMPAIGN_EDITOR_REQUIRED:'Esta campanha é gerida pelo painel. Recarregue a versão atual antes de editar.',CAMPAIGN_REVIEW_REQUIRED:'A campanha precisa ser validada e agendada pelo painel.',CAMPAIGN_DEPENDENCY_IN_USE:'Uma campanha agendada, em execução ou pausada utiliza este recurso. Cancele a campanha antes de alterar o recurso.'};
-const ERRORS=new Set(['CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED']);
+const MESSAGES={AUDIENCE_REVIEW_REQUIRED:'Valide o público da versão salva antes de agendar.',AUDIENCE_STALE:'A conferência do público venceu. Valide novamente antes de confirmar.',AUDIENCE_CHANGED:'O público mudou desde a conferência. Valide e confira novamente.',AUDIENCE_EMPTY:'Não há destinatários elegíveis agora.',AUDIENCE_DISABLED:'Há destinatários desativados no público nativo. Resolva a política antes de agendar.',CAMPAIGN_EDITOR_REQUIRED:'Esta campanha é gerida pelo painel. Recarregue a versão atual antes de editar.',CAMPAIGN_REVIEW_REQUIRED:'A campanha precisa ser validada e agendada pelo painel.',CAMPAIGN_DEPENDENCY_IN_USE:'Uma campanha agendada, em execução ou pausada utiliza este recurso. Cancele a campanha antes de alterar o recurso.'};
+const ERRORS=new Set(['AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED','CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED']);
 function createProvider({query,nativeCreate,validateContent}){
  if(typeof query!=='function'||typeof nativeCreate!=='function'||typeof validateContent!=='function')throw Error('Postgres, native create and content compilation adapters are required');
  async function call(action,payload){
@@ -45,7 +45,8 @@ function createProvider({query,nativeCreate,validateContent}){
    if(proof?.ok!==true||proof.templateVersion!==templateVersion)throw Object.assign(Error('Compilação do conteúdo não confirmada.'),{code:'CONTENT_UNVALIDATED',status:422,nothingChanged:true});
    return call('update',{id,expectedVersion,operationId,definition:d,templateVersion,contentValidated:true});
   },
-  schedule:(id,{expectedVersion,operationId})=>call('schedule',{id,expectedVersion,operationId}),
+  reviewAudience:(id,{expectedVersion,operationId})=>call('review',{id,expectedVersion,operationId}),
+  schedule:(id,{expectedVersion,operationId,audienceReviewId})=>call('schedule',{id,expectedVersion,operationId,audienceReviewId}),
   cancel:(id,{expectedVersion,operationId})=>call('cancel',{id,expectedVersion,operationId})
  };
 }

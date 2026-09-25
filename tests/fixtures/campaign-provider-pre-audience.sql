@@ -39,58 +39,21 @@ LANGUAGE sql STABLE AS $$
  CROSS JOIN LATERAL (SELECT coalesce(jsonb_agg(jsonb_build_object('relation',to_jsonb(cm),'media',to_jsonb(m)) ORDER BY cm.media_id,cm.filename),'[]') snapshot FROM public.campaign_media cm LEFT JOIN public.media m ON m.id=cm.media_id WHERE cm.campaign_id=c.id) me
  WHERE c.id=pid AND c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}' IN ('aristo','fish')
 $$;
--- Current regular-campaign eligibility, aligned with Listmonk v6.1.0.
--- Only aggregates leave SQL. Subscription rows remain mutable for opt-out.
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_audience(pid integer) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog,public AS $aud$
-DECLARE c public.campaigns%ROWTYPE;b text;ids integer[];result jsonb;
-BEGIN
- SELECT * INTO c FROM public.campaigns WHERE id=pid;
- b:=c.attribs#>>'{crm,brand}';
- IF NOT FOUND OR c.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'
-  OR b IS NULL OR b NOT IN ('aristo','fish') OR c.type::text<>'regular' OR c.messenger<>'email' THEN RAISE EXCEPTION 'CAMPAIGN_SCOPE'; END IF;
- SELECT array_agg(list_id ORDER BY list_id) INTO ids FROM public.campaign_lists WHERE campaign_id=pid;
- IF ids IS NULL OR cardinality(ids)<1 OR cardinality(ids)>30 OR EXISTS(SELECT 1 FROM unnest(ids) x WHERE x IS NULL)
-  OR (SELECT count(*) FROM public.lists l WHERE l.id=ANY(ids) AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=b)<>cardinality(ids) THEN RAISE EXCEPTION 'LIST_SCOPE'; END IF;
- WITH members AS MATERIALIZED (
-  SELECT s.id,s.status::text AS global_status,
-   bool_or(CASE l.optin::text WHEN 'double' THEN sl.status::text='confirmed'
-     WHEN 'single' THEN sl.status::text IN ('confirmed','unconfirmed') ELSE false END) AS eligible_link
-  FROM public.subscriber_lists sl JOIN public.lists l ON l.id=sl.list_id
-  JOIN public.subscribers s ON s.id=sl.subscriber_id WHERE sl.list_id=ANY(ids) GROUP BY s.id,s.status
- ), eligible AS (
-  SELECT id,global_status,(row_number() OVER(ORDER BY id)-1)/1024 AS chunk
-  FROM members WHERE global_status<>'blocklisted' AND eligible_link
- ), chunks AS (
-  SELECT chunk,encode(sha256(convert_to(string_agg(id::text||':'||global_status,',' ORDER BY id),'UTF8')),'hex') AS hash
-  FROM eligible GROUP BY chunk
- ) SELECT jsonb_build_object('policy','listmonk-6.1-regular-v1','brand',b,'list_ids',to_jsonb(ids),
-  'eligible_count',count(*) FILTER(WHERE global_status<>'blocklisted' AND eligible_link),
-  'unique_members_count',count(*),'excluded_blocklisted_count',count(*) FILTER(WHERE global_status='blocklisted'),
-  'excluded_subscription_count',count(*) FILTER(WHERE global_status<>'blocklisted' AND NOT eligible_link),
-  'native_disabled_count',count(*) FILTER(WHERE global_status='disabled' AND eligible_link),
-  '_fingerprint',encode(sha256(convert_to(jsonb_build_array('listmonk-6.1-regular-v1',b,to_jsonb(ids),
-    coalesce((SELECT string_agg(hash,'' ORDER BY chunk) FROM chunks),''))::text,'UTF8')),'hex')) INTO result FROM members;
- RETURN result;
-END $aud$;
-REVOKE ALL ON FUNCTION public.shrigma_campaign_audience(integer) FROM PUBLIC;
-
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_provider(a text,p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s'
 AS $fn$
 DECLARE c public.campaigns%ROWTYPE; op public.shrigma_campaign_operation%ROWTYPE;
  current_row jsonb;d jsonb:=p->'definition';b text;cat jsonb;ids integer[];tid integer; fam text;new_headers jsonb; previous_writer text;
- audience jsonb;validation jsonb;review_at timestamptz;review_expiry timestamptz;
 BEGIN
  IF a='catalog' THEN RETURN public.shrigma_campaign_catalog(p->>'brand');
  ELSIF a='get' THEN RETURN public.shrigma_campaign_current((p->>'id')::integer);
  ELSIF a='list' THEN RETURN coalesce((SELECT jsonb_agg(public.shrigma_campaign_current(ca.id) ORDER BY ca.id DESC)
   FROM public.campaigns ca WHERE ca.attribs#>>'{crm,policy}'='crm-campaign-v1' AND ca.attribs#>>'{crm,brand}'=p->>'brand'),'[]'::jsonb);
  END IF;
- IF a NOT IN ('update','schedule','cancel','review') THEN RAISE EXCEPTION 'CAMPAIGN_PROVIDER_ACTION'; END IF;
+ IF a NOT IN ('update','schedule','cancel') THEN RAISE EXCEPTION 'CAMPAIGN_PROVIDER_ACTION'; END IF;
  -- Lock operation then campaign consistently; old workers and different identities cannot write.
  SELECT * INTO op FROM public.shrigma_campaign_operation WHERE id=(p->>'operationId')::uuid FOR UPDATE;
- IF NOT FOUND OR op.state<>'pending' OR op.action<>(CASE WHEN a='update' THEN 'salvar' WHEN a='cancel' THEN 'cancelar' WHEN a='review' THEN 'validar' ELSE 'agendar' END) THEN RAISE EXCEPTION 'CAMPAIGN_OPERATION_INVALID'; END IF;
+ IF NOT FOUND OR op.state<>'pending' OR op.action<>(CASE WHEN a='update' THEN 'salvar' WHEN a='cancel' THEN 'cancelar' ELSE 'agendar' END) THEN RAISE EXCEPTION 'CAMPAIGN_OPERATION_INVALID'; END IF;
  SELECT * INTO c FROM public.campaigns WHERE id=(p->>'id')::integer FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'CAMPAIGN_NOT_FOUND'; END IF;
  b:=c.attribs#>>'{crm,brand}';
@@ -118,7 +81,7 @@ BEGIN
  END IF;
  IF c.status::text<>'draft' OR c.sent<>0 OR c.started_at IS NOT NULL OR c.type::text<>'regular'
   OR c.content_type::text<>'html' OR c.body_source IS NOT NULL OR c.messenger<>'email' THEN RAISE EXCEPTION 'CAMPAIGN_LOCKED'; END IF;
- IF a IN ('schedule','review') THEN d:=current_row->'definition'; END IF;
+ IF a='schedule' THEN d:=current_row->'definition'; END IF;
  IF d->>'brand' IS DISTINCT FROM b OR d->>'schema_version' IS DISTINCT FROM 'crm-campaign-v1'
   OR d->>'channel' IS DISTINCT FROM 'email' THEN RAISE EXCEPTION 'CAMPAIGN_SCOPE'; END IF;
  SELECT array_agg(x::integer ORDER BY x::integer) INTO ids FROM jsonb_array_elements_text(d->'list_ids') x;
@@ -136,52 +99,14 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('campaign-initiative:'||b||':'||(d->>'utm_campaign'),0));
  SELECT familia INTO fam FROM public.crm_familia_campanha WHERE marca=b AND utm_campaign=d->>'utm_campaign' FOR UPDATE;
  IF FOUND AND fam IS DISTINCT FROM d#>>'{initiative,key}' THEN RAISE EXCEPTION 'INITIATIVE_CONFLICT'; END IF;
- -- Audience revisions are produced only here, never from browser/store JSON.
- IF a='review' THEN
-  review_at:=clock_timestamp();audience:=public.shrigma_campaign_audience(c.id);
-  validation:=jsonb_build_object('policy','crm-campaign-v1','version',current_row->>'version','ok',true,
-   'validated_at',to_char(review_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-   '_audience_fingerprint',audience->>'_fingerprint','audience',(audience-'_fingerprint')||jsonb_build_object(
-    'review_id',gen_random_uuid(),'campaign_id',c.id,'campaign_version',current_row->>'version','frozen',false,
-    'checked_at',to_char(review_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-    'expires_at',to_char((review_at+interval '5 minutes') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
-  INSERT INTO public.shrigma_campaign_validation(provider_id,validation) VALUES(c.id,validation)
-   ON CONFLICT(provider_id) DO UPDATE SET validation=excluded.validation,updated_at=clock_timestamp();
-  UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
-  RETURN jsonb_build_object('campaign',current_row,'validation',validation-'_audience_fingerprint');
- END IF;
  previous_writer:=current_setting('shrigma.campaign_writer',true);
  PERFORM set_config('shrigma.campaign_writer',c.id::text,true);
  IF a='schedule' THEN
-  IF NOT EXISTS(SELECT 1 FROM public.shrigma_campaign_validation v WHERE provider_id=c.id AND v.validation->>'version'=p->>'expectedVersion'
-   AND v.validation->>'policy'='crm-campaign-v1' AND v.validation->'ok'='true'::jsonb) THEN RAISE EXCEPTION 'VALIDATION_STALE'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.shrigma_campaign_validation v WHERE provider_id=c.id AND validation->>'version'=p->>'expectedVersion'
+   AND validation->>'policy'='crm-campaign-v1' AND validation->'ok'='true'::jsonb) THEN RAISE EXCEPTION 'VALIDATION_STALE'; END IF;
   IF c.send_at IS NULL OR c.send_at<clock_timestamp()+interval '15 minutes' THEN RAISE EXCEPTION 'SCHEDULE_TOO_SOON'; END IF;
   IF fam IS NULL THEN RAISE EXCEPTION 'INITIATIVE_MISSING'; END IF;
-  -- CAMPAIGN_AUDIENCE_REVIEW_V1: recheck in the same transaction as status+receipt.
-  SELECT v.validation INTO validation FROM public.shrigma_campaign_validation v WHERE provider_id=c.id FOR UPDATE;
-  IF coalesce(p->>'audienceReviewId','')='' OR validation#>>'{audience,review_id}' IS DISTINCT FROM p->>'audienceReviewId'
-   OR validation#>>'{audience,policy}' IS DISTINCT FROM 'listmonk-6.1-regular-v1'
-   OR validation#>>'{audience,campaign_version}' IS DISTINCT FROM current_row->>'version'
-   OR validation#>>'{audience,brand}' IS DISTINCT FROM b
-   OR validation#>'{audience,list_ids}' IS DISTINCT FROM to_jsonb(ids)
-   OR validation#>>'{audience,campaign_id}' IS DISTINCT FROM c.id::text
-   OR coalesce(validation->>'_audience_fingerprint','') !~ '^[0-9a-f]{64}$'
-   OR coalesce(validation#>>'{audience,checked_at}','') !~ '^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$'
-   OR coalesce(validation#>>'{audience,expires_at}','') !~ '^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$' THEN RAISE EXCEPTION 'AUDIENCE_REVIEW_REQUIRED'; END IF;
-  BEGIN
-   review_at:=(validation#>>'{audience,checked_at}')::timestamptz;review_expiry:=(validation#>>'{audience,expires_at}')::timestamptz;
-  EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN RAISE EXCEPTION 'AUDIENCE_REVIEW_REQUIRED'; END;
-  IF review_expiry-review_at<>interval '5 minutes' OR review_at>clock_timestamp() OR review_expiry<=clock_timestamp() THEN RAISE EXCEPTION 'AUDIENCE_STALE'; END IF;
-  audience:=public.shrigma_campaign_audience(c.id);
-  -- Counting a large union must not let an expired review or imminent date pass.
-  IF review_expiry<=clock_timestamp() THEN RAISE EXCEPTION 'AUDIENCE_STALE'; END IF;
-  IF c.send_at<clock_timestamp()+interval '15 minutes' THEN RAISE EXCEPTION 'SCHEDULE_TOO_SOON'; END IF;
-  IF (audience->>'native_disabled_count')::bigint>0 THEN RAISE EXCEPTION 'AUDIENCE_DISABLED'; END IF;
-  IF (audience->>'eligible_count')::bigint=0 THEN RAISE EXCEPTION 'AUDIENCE_EMPTY'; END IF;
-  IF audience->>'_fingerprint' IS DISTINCT FROM validation->>'_audience_fingerprint'
-   OR (audience-'_fingerprint') IS DISTINCT FROM ((validation->'audience')-ARRAY['review_id','campaign_id','campaign_version','checked_at','expires_at','frozen']) THEN RAISE EXCEPTION 'AUDIENCE_CHANGED'; END IF;
-  validation:=jsonb_set(validation,'{audience}',(validation->'audience')||jsonb_build_object('rechecked_at',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
-  UPDATE public.campaigns SET status='scheduled' ,updated_at=clock_timestamp() WHERE id=c.id;
+  UPDATE public.campaigns SET status='scheduled',updated_at=clock_timestamp() WHERE id=c.id;
  ELSE
   -- Native content compilation must be confirmed by the backend before this call.
   IF p->'contentValidated' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'CONTENT_UNVALIDATED'; END IF;
@@ -210,8 +135,7 @@ BEGIN
    OR current_row->'started_at' IS DISTINCT FROM 'null'::jsonb OR (current_row->>'id')::integer IS DISTINCT FROM c.id
    OR nullif(current_row->>'send_at','')::timestamptz IS DISTINCT FROM c.send_at THEN RAISE EXCEPTION 'CAMPAIGN_RECEIPT_MISMATCH'; END IF;
   UPDATE public.shrigma_campaign_operation SET provider_id=c.id,state='succeeded',
-   response=jsonb_build_object('status',200,'body',jsonb_build_object('campaign',current_row,'operation_id',op.id,'audience',validation->'audience')),updated_at=clock_timestamp() WHERE id=op.id;
-  current_row:=current_row||jsonb_build_object('audience',validation->'audience');
+   response=jsonb_build_object('status',200,'body',jsonb_build_object('campaign',current_row,'operation_id',op.id)),updated_at=clock_timestamp() WHERE id=op.id;
  ELSE
   UPDATE public.shrigma_campaign_operation SET provider_id=c.id,updated_at=clock_timestamp() WHERE id=op.id;
  END IF;

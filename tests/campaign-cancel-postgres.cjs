@@ -5,7 +5,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 (async()=>{
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite'),db=new PGlite();
  try{
-  const store=read('n8n/growth/campaign-store.sql'),provider=read('n8n/growth/campaign-provider.sql');
+  const store=read('n8n/growth/campaign-store.sql'),provider=read('tests/fixtures/campaign-provider-pre-audience.sql');
   // Reconstitute the already-installed pre-cancellation release without removing any other guard.
   const priorStore=store.replaceAll("'agendar','cancelar'","'agendar'");
   const start=provider.indexOf(" IF a='cancel' THEN"),end=provider.indexOf(" IF c.status::text<>'draft'",start);

@@ -8,7 +8,7 @@ const {createStore}=require('../n8n/growth/campaign-store');
 const {createProvider}=require('../n8n/growth/campaign-provider');
 const AUTH={actor:'atomic-fixture',caps:['read_content','submit']};
 const migration=read('n8n/growth/campaign-atomic-receipt.sql');
-const provider=read('n8n/growth/campaign-provider.sql');
+const provider=read('tests/fixtures/campaign-provider-pre-audience.sql');
 const cancelStart=provider.indexOf('  -- CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1:'),cancelEnd=provider.indexOf('  RETURN current_row;',cancelStart)+'  RETURN current_row;'.length;
 const scheduleStart=provider.indexOf(' current_row:=public.shrigma_campaign_current(c.id);\n IF a=\'schedule\' THEN\n  -- CAMPAIGN_ATOMIC_SCHEDULE_RECEIPT_V1:'),scheduleEnd=provider.indexOf(' RETURN current_row;',scheduleStart)+' RETURN current_row;'.length;
 assert.ok(cancelStart>0&&cancelEnd>cancelStart&&scheduleStart>cancelEnd&&scheduleEnd>scheduleStart,'recognized public receipt blocks');
@@ -35,10 +35,12 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
    const guards=async()=>JSON.stringify((await db.query("SELECT tgname,pg_get_triggerdef(oid) AS definition FROM pg_trigger WHERE NOT tgisinternal ORDER BY tgname")).rows);
    const oldAudit=await audit(),oldGuards=await guards();assert.equal(JSON.parse(oldGuards).length,6);
    await db.exec(migration);await db.exec(migration);
+   await db.exec(read('n8n/growth/campaign-audience.sql'));await db.exec(read('n8n/growth/campaign-audience.sql'));
    assert.equal(await audit(),oldAudit,'migration cannot reinterpret old pending/uncertain operations');assert.equal(await guards(),oldGuards,'six guards preserved');
    const installed=(await db.query("SELECT prosrc FROM pg_proc WHERE oid='shrigma_campaign_provider(text,jsonb)'::regprocedure")).rows[0].prosrc;
    for(const marker of ['CAMPAIGN_ATOMIC_SCHEDULE_RECEIPT_V1','CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1'])assert.equal(installed.split(marker).length-1,1);
-   const call=async(action,p)=>(await db.query('SELECT shrigma_campaign_provider($1::text,$2::jsonb) AS r',[action,JSON.stringify(p)])).rows[0].r;
+   const reviewIds=new Map();
+   const call=async(action,p)=>(await db.query('SELECT shrigma_campaign_provider($1::text,$2::jsonb) AS r',[action,JSON.stringify(action==='schedule'?{audienceReviewId:reviewIds.get(p.id),...p}:p)])).rows[0].r;
    const store=async(action,p)=>(await db.query('SELECT shrigma_campaign_store($1::text,$2::jsonb) AS r',[action,JSON.stringify(p)])).rows[0].r;
    async function fixture(id,status='draft',changes={}){
     await db.query(`INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs,send_at)
@@ -49,9 +51,9 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
      await db.query("UPDATE campaigns SET status=$2,sent=$3,started_at=$4::timestamptz,send_at=clock_timestamp()+($5::int*interval '1 minute') WHERE id=$1",[id,status,changes.sent??0,changes.started_at??null,changes.minutes??1440]);await db.exec('COMMIT');
     }
     const c=await call('get',{id});
-    await store('validation_set',{providerId:id,validation:{policy:'crm-campaign-v1',version:c.version,ok:true,validated_at:new Date().toISOString()}});return c;
+    if(status==='draft'){const v=(await db.query('SELECT fixture_audience_review($1) AS v',[id])).rows[0].v;reviewIds.set(id,v.audience.review_id);}return c;
    }
-   const command=(action,c,key)=>({acao:'campanha_'+action,brand:'fish',id:c.id,expected_version:c.version,confirm:action,idempotency_key:key});
+   const command=(action,c,key)=>({acao:'campanha_'+action,brand:'fish',id:c.id,expected_version:c.version,confirm:action,...(action==='agendar'?{audience_review_id:reviewIds.get(c.id)}:{}),idempotency_key:key});
    const claim=req=>store('claim',{actor:AUTH.actor,key:req.idempotency_key,hash:hash(req),brand:req.brand,action:req.acao.replace('campanha_','')});
    const get=req=>store('get',{actor:AUTH.actor,key:req.idempotency_key});
    const noop=async()=>{throw Error('Unexpected native transport');};
@@ -63,7 +65,7 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
     // process polls/replays the same operation without another provider write.
     let c=await fixture(id++,beforeStatus),req=command(action,c,'atomic-crash-'+action+'-001'),op=await claim(req);
     const changed=await call(native,{id:c.id,expectedVersion:c.version,operationId:op.id});
-    const completed=await get(req),receipt={status:200,body:{campaign:changed,operation_id:op.id}};
+    const completed=await get(req),receipt={status:200,body:{campaign:Object.fromEntries(Object.entries(changed).filter(([k])=>k!=='audience')),operation_id:op.id,...(action==='agendar'?{audience:changed.audience}:{})}};
     assert.equal(completed.state,'succeeded');assert.equal(completed.providerId,c.id);assert.deepEqual(completed.response,receipt);assert.equal(changed.status,afterStatus);
     assert.equal(changed.sent,0);assert.equal(changed.started_at,null);assert.equal(changed.send_at,c.send_at);assert.notEqual(changed.version,c.version);assert.ok(!Object.hasOwn(completed,'lease'));
     let providerReads=0;
