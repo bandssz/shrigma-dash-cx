@@ -33,8 +33,11 @@ jornada alocada seguem a operação normal e ficam fora da análise. Não classi
 recebeu 30min como controle de ambos os toques. O gate registra o primeiro instante elegível
 de cada toque, sem chamar o motor nem marcar holdout como enviado.
 
-Retries usam as mesmas chaves únicas. A função relê o vencedor após conflitos de inserção.
-O sal, início e percentual ficam imutáveis após a primeira alocação. Interromper novas
+Retries usam as mesmas chaves únicas. Um bloqueio transacional por protocolo/marca,
+adquirido antes dos bloqueios de configuração e linhas, serializa lotes sobrepostos mesmo
+quando chegam em ordem inversa ou com telefone diferente para o mesmo carrinho. A outra
+marca pode prosseguir. A função relê a jornada registrada e preserva sua alocação.
+O sal, início, fim das entradas e percentual ficam imutáveis após a primeira alocação. Interromper novas
 entradas mantém os toques já alocados retidos até o vencimento normal; não existe disparo
 retroativo automático de holdout. Desinstalar o gate cedo pode causar esse disparo e exige
 plano de drenagem explícito, superior à maior janela vigente de carrinho.
@@ -96,4 +99,8 @@ Os dois exports privados pós-correção do silêncio geraram candidatos com Jav
 compilável e SQL sem interpolação pendente. Não houve SQL de escrita, publicação n8n
 ou envio em produção referente ao holdout.
 Ainda faltam cobertura de resultado, datas do protocolo, revisão independente e teste
-de concorrência real do banco antes de ativação.
+de concorrência real do banco antes de ativação. A suíte
+`tests/whatsapp-cart-holdout-concurrency-postgres.cjs`, no job `holdout-concurrency`,
+exige banco PostgreSQL 16 vazio e descartável e usa conexões independentes para verificar
+identidade concorrente, lotes em ordem inversa, isolamento entre marcas, parada de novas
+entradas e congelamento do protocolo. Não usa credenciais nem dados de produção.

@@ -34,6 +34,7 @@ test('both arms are registered; repeated t1/t24 and new carts preserve the perso
   assert.equal(await count(db,'growth_wa_cart_holdout_eligibility'),2002);assert.equal(await count(db,'shrigma_send_log'),0);
   await assert.rejects(db.exec("UPDATE growth_wa_cart_holdout_run SET allocation_salt='edfae6b1-73fc-4565-bc4e-2647e4eaf2ae'"),/HOLDOUT_PROTOCOL_ALREADY_ENROLLED/);
   await assert.rejects(db.exec("UPDATE growth_wa_cart_holdout_run SET starts_at=now()"),/HOLDOUT_PROTOCOL_ALREADY_ENROLLED/);
+  await assert.rejects(db.exec("UPDATE growth_wa_cart_holdout_run SET enrollment_ends_at=now()+interval '1 day'"),/HOLDOUT_PROTOCOL_ALREADY_ENROLLED/);
  }finally{await db.close();}
 });
 test('old carts, isolated t24, and any existing send reservation are outside the experiment',async()=>{

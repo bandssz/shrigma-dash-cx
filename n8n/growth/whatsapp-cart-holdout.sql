@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS public.growth_wa_cart_holdout_eligibility (
 CREATE OR REPLACE FUNCTION public.growth_wa_cart_holdout_freeze_v1()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $fn$
 BEGIN
- IF (NEW.run_key,NEW.holdout_bps,NEW.allocation_salt,NEW.starts_at) IS DISTINCT FROM
-    (OLD.run_key,OLD.holdout_bps,OLD.allocation_salt,OLD.starts_at)
+ IF (NEW.run_key,NEW.holdout_bps,NEW.allocation_salt,NEW.starts_at,NEW.enrollment_ends_at) IS DISTINCT FROM
+    (OLD.run_key,OLD.holdout_bps,OLD.allocation_salt,OLD.starts_at,OLD.enrollment_ends_at)
     AND EXISTS(SELECT 1 FROM public.growth_wa_cart_holdout_unit WHERE run_key=OLD.run_key) THEN
   RAISE EXCEPTION 'HOLDOUT_PROTOCOL_ALREADY_ENROLLED';
  END IF;
@@ -73,6 +73,10 @@ BEGIN
  IF p_brand NOT IN ('aristo','fish') OR p_brand IS NULL OR jsonb_typeof(p_candidates) IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'HOLDOUT_INVALID_INPUT';
  END IF;
+ -- A single brand lock precedes config/row locks. Overlapping batches may arrive
+ -- in opposite order, or the same cart may arrive with a changed phone. Serialize
+ -- those enrollments without holding locks for the other brand or sending HTTP.
+ PERFORM pg_advisory_xact_lock(hashtext('growth_wa_cart_holdout:wa-cart-20260924-v1'),hashtext(p_brand));
  SELECT * INTO STRICT cfg FROM public.growth_wa_cart_holdout_run
  WHERE run_key='wa-cart-20260924-v1' FOR SHARE;
  FOR candidate IN SELECT value FROM jsonb_array_elements(p_candidates) LOOP

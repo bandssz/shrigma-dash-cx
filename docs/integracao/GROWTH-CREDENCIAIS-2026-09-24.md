@@ -51,6 +51,9 @@ A chave literal do SQL util `ygVyBPjJqGqt2V5E` foi confirmada por comparação
 em memória com o arquivo privado. Também aparece no efeito protegido do
 TikTok `LCODPC1y6kRPQ6hI` e na sonda inativa `oAg0Fv8K4XY6EylL`. O acesso
 foi entregue ao dev de CX segundo o handoff. Por isso **não foi revogada**.
+Na continuação desta tarefa o usuário confirmou que o dev ainda usa a chave ou
+que sua descontinuação não foi confirmada. A rotação permanece pendente de
+migração coordenada desse consumidor; não há autorização para interromper CX.
 
 O [candidato de migração](../../n8n/growth/SQL-UTILITY-CREDENTIAL-MIGRATION.md)
 troca a comparação literal por credencial nativa de cabeçalho. Está testado
