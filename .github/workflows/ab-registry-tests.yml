@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - 'n8n/growth/ab-registry*'
+      - 'n8n/growth/ab-operator*'
+      - 'n8n/access/panel-operator.sql'
       - 'tests/ab-registry*'
+      - 'tests/ab-operator*'
       - 'tests/growth-ab-*'
       - 'growth-ab-*'
       - 'growth.html'
