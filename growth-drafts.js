@@ -65,6 +65,8 @@ const GR={
       if(r.categoria==='UTILITY'&&/desconto|cupom|oferta|promo|%\s*off/i.test(r.corpo||''))avisos.push('Corpo fala de desconto/oferta: a Meta tende a reclassificar Utility para Marketing (regra registrada em 07/09: Utility precisa citar a transação do cliente).');
     }
     if(r.canal==='email'){
+      const envelope=typeof GEC!=='undefined'?GEC:typeof require==='function'?require('./growth-email-contract.js'):null;
+      if(envelope){if(envelope.hasEnvelope(r))erros.push(...envelope.envelopeErrors(r).map(e=>e.mensagem));erros.push(...envelope.documentErrors(r).map(e=>e.mensagem));}
       if(!['fish','aristo'].includes(r.marca))erros.push('Criação de e-mail disponível para Fishermans e O Aristocrata.');
       if(String(r.nome||'').length>120)erros.push('Nome de e-mail: até 120 caracteres.');
       if(String(r.corpo||'').length>200000)erros.push('Corpo de e-mail: até 200 mil caracteres.');
@@ -107,6 +109,7 @@ const GR={
   conteudo(r){
     const campos=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto'];
     const c=Object.fromEntries(campos.map(k=>[k,r[k]===undefined||r[k]===null?'':String(r[k])]));
+    if(r.canal==='email')for(const k of ['from_email','reply_to','preheader'])if(Object.hasOwn(r,k))c[k]=String(r[k]??'');
     c.exemplos=Object.fromEntries(Object.entries(r.exemplos||{}).filter(([k,v])=>/^\d+$/.test(k)&&typeof v==='string'));
     c.botoes=(r.botoes||[]).map(b=>({tipo:b.tipo,texto:b.texto,valor:b.valor||'',...(b.exemplo_url!==undefined?{exemplo_url:b.exemplo_url}:{})}));
     return c;
@@ -122,7 +125,7 @@ const GR={
     if(j?.tipo==='shrigma-growth-rascunho'&&j.versao!==GR.VERSAO)return {erro:'Versão de arquivo não suportada.'};
     const r=j&&j.tipo==='shrigma-growth-rascunho'&&j.rascunho&&typeof j.rascunho==='object'?j.rascunho:(j&&typeof j==='object'&&typeof j.corpo==='string'?j:null);
     if(!r||Array.isArray(r))return {erro:'Arquivo não contém um rascunho reconhecido.'};
-    const permitidas=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','exemplos','botoes','criado_em'];
+    const permitidas=['canal','marca','idioma','categoria','nome','peca','cabecalho','corpo','rodape','assunto','from_email','reply_to','preheader','exemplos','botoes','criado_em'];
     const textual=v=>v===undefined||v===null||['string','number','boolean'].includes(typeof v);
     if(permitidas.filter(k=>!['exemplos','botoes'].includes(k)).some(k=>!textual(r[k])))return {erro:'Arquivo inválido: campos de texto precisam conter valores simples.'};
     if(r.exemplos&&(typeof r.exemplos!=='object'||Array.isArray(r.exemplos)||Object.values(r.exemplos).some(v=>!textual(v))))return {erro:'Arquivo inválido: exemplos precisam conter texto.'};
@@ -130,7 +133,7 @@ const GR={
     const limpo={};permitidas.forEach(k=>{if(r[k]!==undefined)limpo[k]=r[k];});
     limpo.botoes=Array.isArray(limpo.botoes)?limpo.botoes.filter(b=>b&&typeof b==='object').map(b=>({tipo:String(b.tipo||'quick_reply'),texto:String(b.texto||''),valor:String(b.valor||''),...(b.exemplo_url!==undefined?{exemplo_url:String(b.exemplo_url)}:{})})).slice(0,GR.LIMITES.botoes):[];
     limpo.exemplos=limpo.exemplos&&typeof limpo.exemplos==='object'?Object.fromEntries(Object.entries(limpo.exemplos).map(([k,v])=>[k,String(v)])):{};
-    ['nome','peca','cabecalho','corpo','rodape','assunto','idioma'].forEach(k=>{if(limpo[k]!==undefined)limpo[k]=String(limpo[k]);});
+    ['nome','peca','cabecalho','corpo','rodape','assunto','idioma','from_email','reply_to','preheader'].forEach(k=>{if(limpo[k]!==undefined)limpo[k]=String(limpo[k]);});
     return {rascunho:GR.novo({...limpo,id:GR.id(),criado_em:typeof limpo.criado_em==='string'?limpo.criado_em:GR.agora()})};
   },
 };
