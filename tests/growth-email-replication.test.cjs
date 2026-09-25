@@ -86,3 +86,66 @@ test('Go string literals are encoded as whole tokens; brand text may change but 
  const p=R.prepare(source('fish',{corpo:'{{ if .Tx.Data.first_name }}<p>{{ default "Fishermans" .Tx.Data.first_name }}</p>{{ end }}'}),'aristo',{journal});
  const out=R.apply(p,{links:[]});assert.ok(out.corpo.includes('default "O Aristocrata"'));assert.ok(out.corpo.includes('{{ if .Tx.Data.first_name }}'));assert.equal(GEC.documentErrors(out).length,0);
 });
+
+
+for(const from of ['fish','aristo'])test('conditional URL keeps native branches and typed runtime field while mapping the literal destination '+from,()=>{
+ const to=from==='fish'?'aristo':'fish',origin=GEC.BRANDS[from].domain,destination=GEC.BRANDS[to].domain;
+ const raw='{{ if .Tx.Data.order_url }}{{ .Tx.Data.order_url }}{{ else }}https://'+origin+'{{ end }}?utm_source=email&utm_medium=fluxo&utm_campaign='+to+'-transacional&utm_content=pedido-confirmado';
+ const input=source(from,{corpo:'<a href="'+raw+'">Pedido</a>'}),before=JSON.stringify(input),plan=R.prepare(input,to,{journal});
+ assert.equal(plan.links.length,1);assert.equal(plan.links[0].kind,'origin');
+ const target=plan.links[0].raw.replaceAll(origin,destination),out=R.apply(plan,{links:[{id:plan.links[0].id,reviewed:true,target}]});
+ const GEE=require('../growth-email-expressions'),a=GEE.parse(plan.content.corpo,{html:true}),b=GEE.parse(out.corpo,{html:true});
+ assert.deepEqual(a.actions.map(x=>plan.content.corpo.slice(x.start,x.end)),b.actions.map(x=>out.corpo.slice(x.start,x.end)));
+ assert.ok(out.corpo.includes('{{ if .Tx.Data.order_url }}{{ .Tx.Data.order_url }}{{ else }}https://'+destination+'{{ end }}'));assert.ok(out.corpo.includes('utm_campaign='+to+'-transacional'));assert.equal(GEC.documentErrors(out).length,0);assert.equal(R.sourceRemains(out.corpo,from),false);assert.equal(JSON.stringify(input),before);assert.equal(out.servidor,undefined);
+});
+test('conditional URL review refuses changed control/fields, unsafe literals and incomplete URL construction',()=>{
+ const raw='{{ if .Tx.Data.order_url }}{{ .Tx.Data.order_url }}{{ else }}https://fishermans.com.br{{ end }}?utm_source=email';
+ const p=R.prepare(source('fish',{corpo:'<a href="'+raw+'">Pedido</a>'}),'aristo',{journal}),link=p.links[0];
+ const good=link.raw.replaceAll('fishermans.com.br','oaristocrata.com'),apply=target=>R.apply(p,{links:[{id:link.id,reviewed:true,target}]});
+ for(const target of [
+  good.replaceAll('.Tx.Data.order_url','.Tx.Data.first_name'),good.replace('{{ if .Tx.Data.order_url }}','{{ if .Tx.Data.checkout_url }}'),good.replace('{{ else }}','{{ else }}{{ .Tx.Data.order_url }}'),
+  good.replace('https://oaristocrata.com','http://oaristocrata.com'),good.replace('https://oaristocrata.com','javascript:alert(1)'),good.replace('https://oaristocrata.com','jav&#97;script:alert(1)'),good.replace('https://oaristocrata.com','data:text/html,hello'),good.replace('https://oaristocrata.com','//oaristocrata.com'),good.replace('https://oaristocrata.com','https://external.invalid'),good.replace('https://oaristocrata.com','https://oaristocrata.com@external.invalid'),
+  good.replace('https://oaristocrata.com','https://oaristocrata.com" onmouseover="alert(1)'),good.replace('https://oaristocrata.com','https://oaristocrata.com&quot; onmouseover=&quot;alert(1)'),good.replace('{{ .Tx.Data.order_url }}','https://{{ .Tx.Data.order_url }}'),good.replace('?utm_source=email','/append-path'), 'https://oaristocrata.com/fixed'
+ ])assert.throws(()=>apply(target));
+ const scalar=R.prepare(source('fish',{corpo:'<a href="{{ if .Tx.Data.first_name }}{{ .Tx.Data.first_name }}{{ else }}https://fishermans.com.br{{ end }}">Pedido</a>'}),'aristo',{journal});assert.throws(()=>R.apply(scalar,{links:scalar.links.map(l=>({id:l.id,reviewed:true,target:l.raw.replaceAll('fishermans.com.br','oaristocrata.com')}))}),/variáveis de endereço/);
+});
+test('static tracking inside conditional URL branches and suffixes is removed without changing the native actions',()=>{
+ const raw='{{ if .Tx.Data.order_url }}{{ .Tx.Data.order_url }}{{ else }}https://fishermans.com.br/products/reviewed?variant=42&utm_term=lm-11{{ end }}&utm_campaign=aristo-reviewed&subscriber_id=92&crm_dispatch_id='+oldUUID;
+ const p=R.prepare(source('fish',{corpo:'<a href="'+raw+'">Pedido</a>'}),'aristo',{journal});
+ const out=R.apply(p,{links:p.links.map(l=>({id:l.id,reviewed:true,target:l.raw.replaceAll('fishermans.com.br','oaristocrata.com')}))});
+ assert.ok(out.corpo.includes('{{ .Tx.Data.order_url }}'));assert.ok(out.corpo.includes('variant=42'));assert.ok(out.corpo.includes('utm_campaign=aristo-reviewed'));for(const old of ['lm-11',oldUUID,'subscriber_id','crm_dispatch_id','utm_term'])assert.equal(out.corpo.includes(old),false);
+ const personal=p.links[0].raw.replaceAll('fishermans.com.br','oaristocrata.com').replace('/products/reviewed','/link/'+oldUUID+'/'+oldUUID+'/'+oldUUID);assert.throws(()=>R.apply(p,{links:[{id:p.links[0].id,reviewed:true,target:personal}]}),/destino direto/);
+});
+test('previously accepted unchanged dynamic expressions retain full-document context',()=>{
+ const raw='{{ if .name }}{{ .name }}{{ else }}https://cdn.example.test/default.png{{ end }}';
+ const p=R.prepare(source('fish',{corpo:'{{ range .Tx.Data.items }}<img src="'+raw+'">{{ end }}'}),'aristo',{journal});
+ const out=R.apply(p,{links:p.links.map(l=>({id:l.id,reviewed:true,target:l.raw}))});assert.ok(out.corpo.includes(raw));assert.equal(GEC.documentErrors(out).length,0);
+});
+test('fragmented authority is rejected and complete authority with conditional paths is byte-preserved',()=>{
+ const raw='https://fishermans.com.br{{ if .Tx.Data.has_discount }}/products/a{{ else }}/products/b{{ end }}';
+ const p=R.prepare(source('fish',{corpo:'<a href="'+raw+'">Pedido</a>'}),'aristo',{journal}),target=p.links[0].raw.replaceAll('fishermans.com.br','oaristocrata.com');
+ const out=R.apply(p,{links:[{id:p.links[0].id,reviewed:true,target}]});assert.ok(out.corpo.includes('href="'+target+'"'));assert.equal(out.corpo.includes('oaristocrata.com/{{'),false);
+ assert.throws(()=>R.apply(p,{links:[{id:p.links[0].id,reviewed:true,target:'https://oaristocrata{{ if .Tx.Data.has_discount }}.com/products/a{{ else }}.com/products/b{{ end }}'}]}),/domínio completos/);
+});
+test('range-scoped conditional image retains its validated scope and refuses scalar or root context',()=>{
+ const raw='{{ if .image }}{{ .image }}{{ else }}https://cdn.example.test/default.png{{ end }}';
+ const p=R.prepare(source('fish',{corpo:'{{ range .Tx.Data.items }}<img src="'+raw+'">{{ end }}'}),'aristo',{journal});assert.equal(p.links[0].itemScoped,true);
+ const out=R.apply(p,{links:[{id:p.links[0].id,reviewed:true,target:raw}]});assert.ok(out.corpo.includes(raw));assert.equal(GEC.documentErrors(out).length,0);
+ for(const target of [raw.replaceAll('.image','.name'),raw.replaceAll('.image','.Tx.Data.order_url')])assert.throws(()=>R.apply(p,{links:[{id:p.links[0].id,reviewed:true,target}]}));
+ assert.throws(()=>R.prepare(source('fish',{corpo:'<img src="'+raw+'">'}),'aristo',{journal}));
+});
+test('removing the last tracking parameter keeps the delimiter for a following query suffix',()=>{
+ const raw='{{ if .Tx.Data.order_url }}{{ .Tx.Data.order_url }}{{ else }}https://fishermans.com.br/products/reviewed?utm_term=lm-11{{ end }}&utm_campaign=aristo-reviewed';
+ const p=R.prepare(source('fish',{corpo:'<a href="'+raw+'">Pedido</a>'}),'aristo',{journal});
+ const out=R.apply(p,{links:p.links.map(l=>({id:l.id,reviewed:true,target:l.raw.replaceAll('fishermans.com.br','oaristocrata.com')}))});
+ assert.ok(out.corpo.includes('/products/reviewed?{{ end }}&amp;utm_campaign=aristo-reviewed'));assert.equal(out.corpo.includes('utm_term'),false);
+ const fallback=R.decode(out.corpo.match(/{{ else }}(.*?){{ end }}/)[1])+R.decode(out.corpo.match(/{{ end }}([^"]*)/)[1]);assert.equal(new URL(fallback).searchParams.get('utm_campaign'),'aristo-reviewed');
+});
+for(const from of ['fish','aristo'])test('default URL fallback and static UTM suffix adapt independently from other source URLs '+from,()=>{
+ const to=from==='fish'?'aristo':'fish',origin=GEC.BRANDS[from].domain,destination=GEC.BRANDS[to].domain;
+ const html='<a href="{{ default "https://'+origin+'/" .Tx.Data.order_url }}?utm_source=email&amp;utm_medium=fluxo&amp;utm_campaign='+from+'-transacional">Pedido</a><img src="https://cdn.example.test/'+origin+'/logo.png">';
+ const input=source(from,{corpo:html}),before=JSON.stringify(input),plan=R.prepare(input,to,{journal});
+ assert.equal(plan.links.length,2);assert.ok(plan.content.corpo.includes('utm_campaign='+to+'-transacional'));
+ const out=R.apply(plan,{links:plan.links.map(l=>({id:l.id,reviewed:true,target:l.resource?'https://cdn.example.test/destination-logo.png':'https://'+destination+'/'}))});
+ assert.equal(R.sourceRemains(JSON.stringify(out),from),false);assert.equal(GEC.documentErrors(out).length,0);assert.ok(out.corpo.includes('default "https://'+destination+'/" .Tx.Data.order_url'));assert.ok(out.corpo.includes('utm_campaign='+to+'-transacional'));assert.equal(JSON.stringify(input),before);
+});
