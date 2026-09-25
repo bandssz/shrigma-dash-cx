@@ -109,3 +109,21 @@ test('validação identifica a revisão e reserva existente não oferece sobresc
   assert.equal(e.tipo,'bloqueado');assert.equal(e.conflito,undefined);assert.match(e.texto,/Consulte o histórico/);
  }
 });
+
+
+test('publication rejected before the provider has a human recovery message without claiming an uncertain outcome',()=>{
+ const body={erro:'publication_not_started',code:'PUBLICATION_CONTEXT_NOT_FORWARDED',nothing_changed:true};
+ const before=JSON.stringify(body),e=GTA.erro({status:422,body},'submeter');
+ assert.equal(e.tipo,'bloqueado');assert.match(e.texto,/Publicação não iniciada/);assert.match(e.texto,/Conteúdo preservado/);assert.match(e.texto,/nova versão/);assert.doesNotMatch(e.texto,/publication_not_started|PUBLICATION_CONTEXT_NOT_FORWARDED/);assert.equal(JSON.stringify(body),before);
+ for(const uncertain of [{...body,nothing_changed:false},{erro:'publication_not_started'}]){
+  const result=GTA.erro({status:422,body:uncertain},'submeter');assert.equal(result.tipo,'incerto');assert.match(result.texto,/mesma tentativa/);assert.doesNotMatch(result.texto,/preservado|nova versão/);
+ }
+ const network=GTA.erro({status:0,rede:true,body},'submeter');assert.equal(network.tipo,'incerto');assert.doesNotMatch(network.texto,/nova versão/);
+});
+
+
+test('historical publication code translation is presentation-only and does not rewrite other failures',()=>{
+ const event={action:'submeter',result:'422',detail:'publication_not_started'},before=JSON.stringify(event);
+ assert.equal(GTA.detalheEvento(event),'Publicação não iniciada. Confira o recibo desta tentativa.');assert.equal(JSON.stringify(event),before);
+ for(const other of [{...event,result:'502'},{...event,action:'validar'},{...event,detail:'Outra mensagem'}])assert.equal(GTA.detalheEvento(other),other.detail);
+});
