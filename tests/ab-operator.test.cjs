@@ -6,8 +6,13 @@ const {patchWorkflow,currentBuilder,authTail}=require('../n8n/growth/ab-operator
 const {sha256Bytes,stable,canonical,digest}=require('../n8n/growth/template-operation-receipt.cjs');
 const bridge=fs.readFileSync(require.resolve('../n8n/growth/ab-operator.sql'),'utf8');
 const auth=`CREATE FUNCTION shrigma_crm_operator_auth_v1(k text) RETURNS jsonb LANGUAGE sql STABLE AS $$
- SELECT CASE WHEN k IN ('manager','rotated') THEN '{"who":"panel:synthetic-manager","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
+ SELECT '{"who":"template:legacy-writer","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb $$;
+ CREATE FUNCTION shrigma_panel_operator_v1(k text,panel text) RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT CASE WHEN panel<>'growth' THEN NULL
+ WHEN k='manager' THEN '{"who":"panel:synthetic-manager","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
+ WHEN k='rotated' THEN '{"who":"panel:synthetic-manager","label":"Changed display label","caps":["draft","read_content"]}'::jsonb
  WHEN k='other' THEN '{"who":"panel:other-manager","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
+ WHEN k='invalid-prefix' THEN '{"who":"template:legacy-writer","label":"Synthetic manager","caps":["draft","read_content"]}'::jsonb
  WHEN k='reader' THEN '{"who":"panel:synthetic-reader","label":"Synthetic reader","caps":["read_content"]}'::jsonb ELSE NULL END $$;`;
 const runCode=(code,json)=>JSON.parse(JSON.stringify(vm.runInNewContext(`(()=>{${code}\n})()`,{$json:json,$input:{all:()=>[{json}]}})));
 function fixture(){
@@ -17,7 +22,7 @@ function fixture(){
  w.nodes.find(n=>n.name==='Monta SQL').parameters.jsCode=currentBuilder;
  Object.assign(w.nodes.find(n=>n.name==='Grava'),{credentials:{postgres:{id:'synthetic',name:'synthetic'}},parameters:{query:'={{ $json.sql }}',options:{queryReplacement:'={{ $json.parameters }}'}}});return w;
 }
-test('manager uses existing auth with stable authorship; legacy receipts remain isolated and unchanged',async()=>{
+test('strict CRM panel auth excludes template writers; stable authorship and legacy receipts remain isolated',async()=>{
  const db=new PGlite();try{
   await db.exec(SCHEMA+auth);await db.exec(SQL);await db.exec(bridge);
   const run=async(k,mode,p)=>(await db.query('SELECT crm_ab_operator_registry_v1($1,$2,$3) AS v',[k,mode,JSON.stringify(p)])).rows[0].v;
@@ -31,6 +36,7 @@ test('manager uses existing auth with stable authorship; legacy receipts remain 
   const caps=(await run('manager','capabilities',{})).body;assert.equal(caps.access,'crm_operator');assert.equal(caps.write,true);assert.deepEqual(caps.brands,['fish','aristo']);
   assert.equal((await run('reader','capabilities',{})).body.write,false);
   assert.equal((await run('reader','write',input(3))).status,403);assert.equal((await run('invalid','write',input(3))).status,401);
+  for(const key of ['legacy-template-writer','other-panel','invalid-prefix'])for(const mode of ['capabilities','write','operation','record'])assert.equal((await run(key,mode,input(3))).status,401,key+' '+mode);
   const outside=input(4);outside.request_payload.teste.marca='olivas';assert.equal((await run('manager','write',outside)).body.code,'brand_scope');
   await db.query('SELECT crm_ab_registry_v1($1,$2)',['write',JSON.stringify(outside)]);assert.equal((await run('manager','record',outside)).status,403);
   assert.equal((await db.query('SELECT count(*)::int n FROM crm_ab_operation_v1')).rows[0].n,3);

@@ -2,7 +2,7 @@
 
 Candidato local; não publicado. A/B operacional (distribuição, envio e resultado) é outro contrato e não está concluído por esta ponte.
 
-`ab-operator.sql` adiciona uma função Growth que consulta `shrigma_crm_operator_auth_v1`, sem alterar login, cache ou a função compartilhada. `read_content` permite capacidades/registro/recibo; `draft` permite gravar o registro descritivo de Fish e Aristo. A autoria deriva do identificador estável `who` autenticado (não o rótulo de apresentação), com domínio próprio, e continua igual após rotação da chave do mesmo operador. O chamador não escolhe o ator.
+`ab-operator.sql` adiciona uma função Growth que consulta **somente** `shrigma_panel_operator_v1(k,'growth')`, exige principal `panel:` e não altera login, cache ou a função compartilhada. O helper combinado CRM/templates não é usado: ele também aceita chaves legadas de templates, que não recebem acesso A/B novo. `read_content` permite capacidades/registro/recibo; `draft` permite gravar o registro descritivo de Fish e Aristo. A autoria deriva do identificador estável `who` autenticado (não o rótulo de apresentação), com domínio próprio, e continua igual após rotação da chave do mesmo operador. O chamador não escolhe o ator.
 
 `ab-operator-workflow-patch.cjs` recebe export fresco + `expectedVersion`. Muda apenas os três nós Code da API dedicada `WjreLAEvwzDJnCoo`; mantém conexões, credencial Postgres e os recibos do contrato `ab_registry_v1`. O segredo de legado já presente no export continua privado. Uma chave igual à legada segue o principal antigo; outra chave é validada pelo auth CRM no banco. Chaves ausentes são recusadas antes de consulta; inválidas não gravam. Parâmetros transitórios exigem retenção `none`, manual false e progress false.
 

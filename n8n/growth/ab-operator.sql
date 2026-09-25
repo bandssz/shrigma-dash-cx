@@ -6,8 +6,10 @@ DECLARE identity jsonb; needed text; actor text; brand text; result jsonb;
 BEGIN
  IF p_mode IS NULL OR p_mode NOT IN ('write','operation','record','capabilities')
    OR jsonb_typeof(p) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'AB_INVALID_REQUEST'; END IF;
- identity:=public.shrigma_crm_operator_auth_v1(k);
- IF jsonb_typeof(identity->'who') IS DISTINCT FROM 'string' OR coalesce(identity->>'who','')=''
+ -- This path is CRM panel access only. The combined CRM/template helper also
+ -- accepts legacy template writers and must not grant them new A/B permissions.
+ identity:=public.shrigma_panel_operator_v1(k,'growth');
+ IF jsonb_typeof(identity->'who') IS DISTINCT FROM 'string' OR coalesce(identity->>'who','')!~'^panel:.+'
    OR jsonb_typeof(identity->'caps') IS DISTINCT FROM 'array' THEN
   RETURN jsonb_build_object('status',401,'body',jsonb_build_object('ok',false,'code','operator_access_required'));
  END IF;
