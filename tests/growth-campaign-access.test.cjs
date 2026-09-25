@@ -20,7 +20,7 @@ function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,di
    else if(req.acao==='campanha_listar')body={campaigns:[c]};
    else{if(req.acao==='campanha_salvar')c={...c,definition:req.definition};if(req.acao==='campanha_agendar')c={...c,status:'scheduled'};if(req.acao==='campanha_cancelar')c={...c,status:'cancelled',version:'v2'};if(req.acao==='campanha_validar')review=audienceFixture(c,Date.now());body={campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:c.version,ok:true,audience:review}}:{}),...(req.acao==='campanha_agendar'?{audience:{...review,rechecked_at:review.checked_at}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};}});
- for(const name of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+ for(const name of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
  const run=s=>vm.runInContext(s,ctx);run('GCE.mount({marca:"fish",api:{capabilities:{campaigns:{contract_version:"crm-campaign-v1",brands:["fish"],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:"https://fixture.test/campaigns"}}}})');
  writes.length=0; // Migration is tested separately; access actions must never persist credentials.
  const q=s=>document.querySelector(s),submit=()=>q('[data-ce-access-form]').onsubmit({preventDefault(){}});
