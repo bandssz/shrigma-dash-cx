@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=1e8377e701de">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-pxVwQ2RYpFgwjVhF28qgxlGu9TAaNg1kN7mVwFnWwFE='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-hCNPkoUOnaMZI+70wxVa+sx4RP425gTLiEvFLvda74I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -31,6 +31,7 @@
 
 <main id="conteudo" tabindex="-1">
   <div id="faixa-alertas" aria-live="polite"></div>
+  <p id="brand-context-status" class="nota" role="status" hidden></p>
 
   <div class="periodo" id="periodo">
     <div class="presets" id="presets">
@@ -242,7 +243,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=189010cc691d"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6adc68f923ec"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -256,7 +257,7 @@ let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false};
 const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
-let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0;
+let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0,AB_BUSY=false;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
@@ -411,7 +412,7 @@ function journalTesteAB(){
 function sincronizaTestesAB(){
   const state=journalTesteAB().inspect();AB_PENDENTES.clear();AB_BLOQUEADO=state.blocked;
   for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
-  $('#f-salvar').disabled=AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
+  $('#f-salvar').disabled=AB_BUSY||!GABF.valid(API)||AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
   if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
   else if(AB_PENDENTES.size)$('#ab-status').textContent=[...AB_PENDENTES.values()].some(p=>!p.server)?'Há tentativa anterior ao contrato do servidor. Ela permanece preservada e exige conciliação; uma coincidência nos dados não comprova o recibo. Não repita com outra chave ou identificador.':'Há tentativa aguardando recibo exato. Use Consultar tentativa registrada com a mesma chave de escrita; nenhuma consulta repete a gravação.';
 }
@@ -426,7 +427,7 @@ function reconciliaTestesAB(explicitKey=''){
       const result=await journalTesteAB().reconcileRemote(GABServer.create({endpoint:AB_API_URL,key}));
       if(result.changed){sincronizaTestesAB();
         for(const p of result.confirmed){$('#ab-status').textContent=p.phase==='confirmed'?'Recibo exato do registro '+p.expected.teste.teste_id+' conferido no servidor.':'Operação recusada pelo servidor com recibo preservado. Atualize a revisão antes de uma nova ação.';
-          if(p.phase==='confirmed'&&p.expected.acao==='criar'){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro e revisão confirmados pelo recibo.';}}
+          if(p.phase==='confirmed'&&p.expected.acao==='criar'&&GABF.matches(p.expected.teste)){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro e revisão confirmados pelo recibo.';}}
         renderTestes();
       }
     }while(proof!==AB_PROVA_LEITURA); // A refresh that arrived during reconciliation must also be checked.
@@ -434,7 +435,7 @@ function reconciliaTestesAB(explicitKey=''){
   return AB_RECONCILIACAO;
 }
 async function gravaTesteAB(corpo,msg,btn){
-  btn.disabled=true;
+  if(AB_BUSY)return;AB_BUSY=true;btn.disabled=true;
   const epoch=AB_WRITE_EPOCH,key=corpo.k;
   try{
     const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA,
@@ -442,10 +443,10 @@ async function gravaTesteAB(corpo,msg,btn){
     if(result.phase==='rejected'){
       if(result.rejection.status===401){AB_CHAVE_SESSAO='';try{localStorage.removeItem('shrigma_ab_key');}catch(_){}msg.textContent='Chave de escrita recusada.';}
       else msg.textContent='Recusado antes da gravação: '+result.rejection.error;
-    }else if(result.phase==='confirmed'){msg.textContent='Registro e revisão confirmados pelo recibo do servidor.';if(corpo.acao==='criar')$('#form-teste').hidden=true;await carregar();}
+    }else if(result.phase==='confirmed'){msg.textContent='Registro e revisão confirmados pelo recibo do servidor.';if(corpo.acao==='criar'&&GABF.matches(corpo.teste))$('#form-teste').hidden=true;await carregar();}
     else msg.textContent='Gravação sem confirmação. A tentativa foi preservada neste navegador. Atualize e confira o mesmo registro; nenhum reenvio será feito automaticamente.';
   }catch(e){msg.textContent=e.message||'Gravação sem confirmação. Preserve o registro local e atualize os dados.';}
-  finally{await reconciliaTestesAB();btn.disabled=AB_BLOQUEADO||AB_PENDENTES.has(corpo.teste.teste_id)||corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');}
+  finally{AB_BUSY=false;await reconciliaTestesAB();btn.disabled=AB_BLOQUEADO||AB_PENDENTES.has(corpo.teste.teste_id)||corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');}
 }
 window.addEventListener('storage',event=>{if((event.key===GABJ.SLOT||event.key===null)&&API)renderTestes();});
 
@@ -460,6 +461,7 @@ async function encerrarTeste(id){
 function render(){
   GCE.mount({marca:MARCA,api:API});
   if(!API)return;
+  GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
   const GRAO=($('#sel-grao')||{}).value||'peca';
@@ -604,7 +606,7 @@ function render(){
   }
   GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
   const modeloOp=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
-  GRU.render({api:API});
+  GRU.render({api:API,marca:MARCA});
   GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp?.workflows||null});
 
   const fila=G.fila(API,MARCA,CANAL);
@@ -695,10 +697,7 @@ function render(){
   }).join(''):'<div class="vazio">Nenhuma árvore definida para esta marca ainda.</div>';
 
   renderTestes();
-  const opts=(API.crm_campanha||[]).filter(c=>MARCA==='todas'||c.marca===MARCA)
-    .map(c=>`<option value="${c.campanha_id}">#${c.campanha_id} · ${esc((c.nome||'').slice(0,38))}</option>`).join('');
-  $('#f-ca').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
-  $('#f-cb').innerHTML='<option value="">— sem campanha ainda —</option>'+opts;
+
 
   shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
   $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'});
@@ -730,9 +729,7 @@ function setCanal(canal){
   $('#sel-metrica').value=METRICA;render();gravaHash();
 }
 function openFlows(canal,selection={}){
-  if(selection.marca && ativaBotao('#seg-marca button','marca',selection.marca)){
-    MARCA=selection.marca;salvaPref({marca:MARCA});
-  }
+  if(selection.marca&&!trocaMarca(selection.marca))return;
   setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
@@ -807,10 +804,11 @@ async function carregar(){
 }
 async function salvarTeste(){
   const msg=$('#f-msg');msg.textContent='';
+  if(GABF.brand!==MARCA||!GABF.valid(API)){msg.textContent='Confira a marca, o canal e os vínculos das campanhas antes de registrar.';return;}
   if(typeof AB_API_URL==='undefined'){msg.textContent='Cadastro A/B indisponível nesta configuração.';return;}
   const wk=chaveTesteAB(msg);if(!wk)return;
   const corpo={k:wk,acao:'criar',
-    teste:{teste_id:$('#f-id').value.trim(),marca:$('#f-marca').value,canal:$('#f-canal').value,
+    teste:{teste_id:$('#f-id').value.trim(),marca:GABF.brand,canal:$('#f-canal').value,
       nome:$('#f-nome').value.trim(),hipotese:$('#f-hip').value.trim(),variavel:$('#f-var').value,
       metrica_primaria:$('#f-met').value,efeito_minimo:$('#f-efeito').value},
     bracos:[{braco:'a',utm_term:'a',campanha_id:$('#f-ca').value||null,descricao:$('#f-da').value},
@@ -837,9 +835,26 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
   if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 })();
-document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;salvaPref({marca:MARCA});render();gravaHash();});
+function trocaMarca(next){
+  if(!['todas','fish','aristo','olivas'].includes(next))return false;
+  if(next===MARCA)return true;
+  const status=$('#brand-context-status'),notice=text=>{status.textContent=text;status.hidden=!text;};
+  const campaign=GCE.contextStatus(),template=GRU.contextStatus();
+  if(AB_BUSY||campaign.blocked||template.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+  if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
+    notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
+  }
+  if(campaign.dirty||template.dirty||GABF.contextStatus().dirty){
+    if(typeof confirm!=='function'||!confirm('Guardar as preparações desta marca neste dispositivo e trocar de marca? Nada será enviado ao servidor.'))return false;
+  }
+  try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
+  const previous=MARCA;MARCA=next;AB_WRITE_EPOCH++;
+  ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+  notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
+  return true;
+}
+window.growthChangeBrand=trocaMarca;
+document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
@@ -865,17 +880,18 @@ document.querySelectorAll('#tab-conv th[data-sort]').forEach(th=>th.onclick=()=>
 $('#camp-export').onclick=()=>GT.baixar(GT.nomeArquivo('campanhas',exportMeta()),GT.csv(COLS_CAMP,ULT.camp,exportMeta({busca:TABELAS.camp.q})));
 $('#conv-export').onclick=()=>GT.baixar(GT.nomeArquivo('conversao-'+(($('#sel-grao')||{}).value||'peca'),exportMeta()),GT.csv(COLS_CONV,ULT.conv,exportMeta({busca:TABELAS.conv.q})));
 $('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
-$('#btn-novo').onclick=()=>{$('#form-teste').hidden=!$('#form-teste').hidden;};
+$('#btn-novo').onclick=()=>{if(!GBS.validBrand(MARCA)||GABF.error)return;$('#form-teste').hidden=!$('#form-teste').hidden;};
 $('#f-cancelar').onclick=()=>{AB_WRITE_EPOCH++;$('#form-teste').hidden=true;};
 $('#form-teste').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
-$('#form-teste').addEventListener('change',()=>{AB_WRITE_EPOCH++;});
+$('#form-teste').addEventListener('change',()=>{AB_WRITE_EPOCH++;sincronizaTestesAB();});
+$('#f-canal').onchange=()=>{GABF.changeChannel(API);sincronizaTestesAB();};
 $('#ab-chave').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
 $('#ab-consultar').onclick=async()=>{const key=chaveTesteAB($('#ab-status'));if(key)await reconciliaTestesAB(key);};
 $('#f-salvar').onclick=salvarTeste;
 
 
 addEventListener('resize',()=>API&&SEC==='visao'&&render());
-GC.init();GRU.render({api:null});
+GC.init();GRU.render({api:null,marca:MARCA});
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
 document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',gravaHash));
 setCanal(CANAL);

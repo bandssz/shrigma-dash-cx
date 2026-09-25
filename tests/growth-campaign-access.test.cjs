@@ -19,8 +19,9 @@ function boot({store=new Map(),legacyWrite='',failure=null,beforeCatalog=null,di
    else if(req.acao==='campanha_listar')body={campaigns:[c]};
    else{if(req.acao==='campanha_salvar')c={...c,definition:req.definition};if(req.acao==='campanha_agendar')c={...c,status:'scheduled'};if(req.acao==='campanha_cancelar')c={...c,status:'cancelled',version:'v2'};body={campaign:c,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:c.version,ok:true}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};}});
- for(const name of ['campaign-contract.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+ for(const name of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
  const run=s=>vm.runInContext(s,ctx);run('GCE.mount({marca:"fish",api:{capabilities:{campaigns:{contract_version:"crm-campaign-v1",brands:["fish"],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true},endpoints:{campaigns:"https://fixture.test/campaigns"}}}})');
+ writes.length=0; // Migration is tested separately; access actions must never persist credentials.
  const q=s=>document.querySelector(s),submit=()=>q('[data-ce-access-form]').onsubmit({preventDefault(){}});
  async function importFile(text){const field=q('[data-ce-access-file]');Object.defineProperty(field,'files',{configurable:true,value:[{size:typeof text==='string'?text.length:100,text:()=>typeof text==='function'?text():Promise.resolve(text)}]});await field.onchange();}
  function prepare(k='synthetic-campaign-writer'){q('[data-ce-access-open]').click();q('[data-ce-key]').value=k;submit();}
@@ -86,7 +87,7 @@ test('dialog cancellation by button, Escape or external close has no effects and
 });
 test('new preparation, reset, reopening and import each wait for their own explicit dialog',async()=>{
  const fresh=boot();fresh.q('[data-ce-new]').click();assert.equal(fresh.q('[name=subject]').value,'Fixture');assert.match(fresh.confirms[0],/nova preparação/);fresh.dialog.accept();await until(()=>fresh.q('[name=subject]').value==='');assert.equal(fresh.calls.length,0);assert.match(fresh.q('[data-ce-status]').textContent,/Nenhuma campanha foi criada/);
- const reset=boot();reset.q('[data-ce-reset]').click();assert(reset.store.has('shrigma_campaign_composer_v1'));reset.dialog.accept();await until(()=>!reset.store.has('shrigma_campaign_composer_v1'));assert.equal(reset.calls.length,0);
+ const reset=boot(),legacy=reset.store.get('shrigma_campaign_composer_v1');reset.q('[data-ce-reset]').click();assert(reset.store.has('shrigma_campaign_composer_v1'));reset.dialog.accept();await until(()=>reset.q('[name=subject]').value==='');assert.equal(reset.store.get('shrigma_campaign_composer_v1'),legacy);assert.equal(JSON.parse(reset.store.get('shrigma_growth_editor_v1:campaign:fish')).value.subject,'');assert.equal(reset.calls.length,0);
  const open=boot();open.q('[data-ce-refresh]').click();await until(()=>open.q('[data-ce-open]'));const count=open.calls.length;open.q('[data-ce-open]').click();assert.equal(open.calls.length,count);assert.match(open.confirms[0],/conteúdo salvo/);open.dialog.accept();await until(()=>open.calls.some(c=>c.req.acao==='campanha_obter'));assert.equal(posts(open).length,0);
  const imported=boot();importCampaign(imported,{...definition(),subject:'Arquivo conferido'});await until(()=>imported.dialog.dialog.open);assert.equal(imported.q('[name=subject]').value,'Fixture');imported.dialog.accept();await until(()=>imported.q('[name=subject]').value==='Arquivo conferido');assert.equal(imported.calls.length,0);
 });

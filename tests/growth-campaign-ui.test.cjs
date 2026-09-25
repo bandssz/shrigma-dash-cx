@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..'),END='https://campaign.example.test/opera
 const api={capabilities:{campaigns:{contract_version:C.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true},endpoints:{campaigns:END}}};
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Campanha de exemplo',subject:'Assunto',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[125],template_id:1,html:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',tags:[],send_at:'2030-09-20T15:00:00Z'});
 const catalog={brand:'fish',current:true,lists:[{id:125,name:'Clientes recorrentes',brand:'fish',available:true}],templates:[{id:1,name:'Modelo principal',type:'campaign',available:true,version:'t1'}],initiatives:[]};
-function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false}={}){
+function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');
  const proto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
@@ -16,7 +16,7 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
  const calls=[];let current={id:100,version:'v1',status:'draft',sent:0,started_at:null,send_at:definition().send_at,definition:definition()};
  const context=vm.createContext({document,window,console,Date,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:()=>{throw Error('native confirm must not be called');},__api:payload,
-  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);let body;
+  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);if(beforeResponse)await beforeResponse(req);let body;
    if(req.acao==='campanha_catalogo')body=catalog;
    else if(req.acao==='campanha_listar')body={campaigns:[current]};
    else if(req.acao==='campanha_obter')body={campaign:current};
@@ -24,16 +24,16 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
    else{if(timeout)throw Error('lost transport response');if(req.acao==='campanha_salvar')current={...current,definition:req.definition};if(req.acao==='campanha_agendar')current={...current,status:'scheduled'};if(req.acao==='campanha_cancelar')current={...current,status:'cancelled',version:'v2'};body={campaign:current,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:current.version,ok:true}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};
   }});
- for(const file of ['campaign-contract.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+ for(const file of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
- return {document,window,calls,store,confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
+ return {document,window,calls,store,setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
 async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI did not reach expected state');}
 
 test('absent capabilities keep local preparation and remote clicks do not issue requests; Olivas remains local',async()=>{
  const x=boot({payload:{}});assert.equal(x.q('[data-ce-remote]').hidden,true);x.q('[data-ce-save]').click();await new Promise(setImmediate);assert.equal(x.calls.length,0);
- const y=boot();y.q('[name=brand]').value='olivas';y.q('[name=brand]').dispatchEvent(new y.window.Event('change',{bubbles:true}));assert.equal(y.q('[data-ce-remote]').hidden,true);
+ const y=boot();y.run('GCE.preserve();GCE.mount({marca:"olivas",api:__api})');assert.equal(y.q('[data-ce-remote]').hidden,true);
  assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);
 });
 test('operators select named catalogs, save, validate and explicitly schedule the reviewed date',async()=>{
@@ -72,4 +72,54 @@ test('cancel is optional and confirms saved name and date even with unsaved loca
  x.q('[name=name]').value='Alteração que não foi salva';x.q('[name=name]').dispatchEvent(new x.window.Event('input',{bubbles:true}));assert.equal(x.q('[data-ce-cancel]').disabled,false);
  x.q('[data-ce-cancel]').click();x.accept();await until(()=>/Cancelada/.test(x.q('[data-ce-server-state]').textContent));const prompt=x.confirmations.at(-1);assert.match(prompt,/Campanha de exemplo/);assert.match(prompt,/20\/09\/2030/);assert.ok(!prompt.includes('Alteração que não foi salva'));
  assert.equal(x.calls.find(c=>c.acao==='campanha_cancelar').confirm,'cancelar');assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.match(x.q('[data-ce-campaigns]').textContent,/Cancelada/);
+});
+
+test('campaign header context restores per-brand preparation without carrying lists or touching an uncertain journal',async()=>{
+ const x=boot({timeout:true}),legacy=x.store.get('shrigma_campaign_composer_v1');
+ x.q('[data-ce-save]').click();await until(()=>x.run('GCE.contextStatus().pending'));
+ const journal=x.store.get('shrigma_campaign_operation_v1:fish');
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');
+ assert.equal(x.q('[name=brand]').value,'aristo');assert.equal(x.q('[name=list_ids]').value,'');
+ x.q('[name=subject]').value='Preparação Aristo';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ x.run('GCE.preserve();GCE.mount({marca:"fish",api:__api})');
+ assert.equal(x.q('[name=subject]').value,'Assunto');assert.equal(x.q('[data-ce-save]').disabled,true);
+ assert.equal(x.store.get('shrigma_campaign_operation_v1:fish'),journal);assert.equal(x.store.get('shrigma_campaign_composer_v1'),legacy);
+ x.q('[data-ce-save]').click();await new Promise(setImmediate);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');assert.equal(x.q('[name=subject]').value,'Preparação Aristo');
+});
+test('a delayed catalog request blocks context switching until its response completes',async()=>{
+ let release,entered;const barrier=new Promise(r=>release=r),started=new Promise(r=>entered=r);
+ const x=boot({beforeResponse:async req=>{if(req.acao==='campanha_catalogo'){entered();await barrier;}}});
+ x.q('[data-ce-refresh]').click();await started;
+ assert.equal(x.run('GCE.contextStatus().blocked'),true);assert.equal(x.run('GCE.enterBrand("aristo")'),false);
+ assert.equal(x.q('[name=brand]').value,'fish');release();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');
+ assert.equal(x.q('[name=brand]').value,'aristo');assert.equal(x.q('[data-ce-catalog]').textContent,'');
+});
+test('returning to a campaign cannot attach old local content to a newer journal revision',async()=>{
+ const x=boot();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);
+ x.q('[name=subject]').value='Minha edição ainda local';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');
+ const key='shrigma_campaign_operation_v1:fish',journal=JSON.parse(x.store.get(key));journal.campaign.version='changed-in-other-tab';const changed=JSON.stringify(journal);x.store.set(key,changed);
+ x.run('GCE.preserve();GCE.mount({marca:"fish",api:__api})');
+ assert.equal(x.q('[name=subject]').value,'Minha edição ainda local');assert.equal(x.q('[data-ce-save]').disabled,true);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);assert.equal(x.store.get(key),changed);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
+});
+
+test('a revision conflict stays frozen through catalog events, import, reset and field input until explicit reopen',async()=>{
+ const x=boot();x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);
+ x.q('[name=subject]').value='Preparação antiga preservada';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ x.run('GCE.preserve();GCE.mount({marca:"aristo",api:__api})');
+ const journalKey='shrigma_campaign_operation_v1:fish',localKey='shrigma_growth_editor_v1:campaign:fish',journal=JSON.parse(x.store.get(journalKey));
+ journal.campaign.version='v2';journal.campaign.definition.subject='Revisão nova do servidor';x.setCurrent(journal.campaign);const journalRaw=JSON.stringify(journal);x.store.set(journalKey,journalRaw);
+ x.run('GCE.preserve();GCE.mount({marca:"fish",api:__api})');const localRaw=x.store.get(localKey);
+ x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]')&&!x.run('GCE.contextStatus().blocked'));
+ for(const selector of ['[data-ce-list]','[data-ce-template]','[data-ce-import]','[data-ce-reset]','[name=subject]'])assert.equal(x.q(selector).disabled,true,selector);
+ x.q('[data-ce-list]').checked=false;x.q('[data-ce-list]').dispatchEvent(new x.window.Event('change'));
+ x.q('[data-ce-template]').value='';x.q('[data-ce-template]').dispatchEvent(new x.window.Event('change'));
+ x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ let fileRead=false;Object.defineProperty(x.q('[data-ce-import]'),'files',{value:[{size:100,text:async()=>{fileRead=true;return JSON.stringify(definition());}}]});x.q('[data-ce-import]').dispatchEvent(new x.window.Event('change'));
+ x.q('[data-ce-reset]').dispatchEvent(new x.window.Event('click'));x.q('[data-ce-save]').dispatchEvent(new x.window.Event('click'));await new Promise(setImmediate);
+ assert.equal(fileRead,false);assert.equal(x.confirmations.length,0);assert.equal(x.q('[name=list_ids]').value,'125');assert.equal(x.q('[name=template_id]').value,'1');assert.equal(x.store.get(localKey),localRaw);assert.equal(x.store.get(journalKey),journalRaw);assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);assert.equal(x.q('[data-ce-save]').disabled,true);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);
+ x.q('[data-ce-open]').click();assert.equal(x.confirmations.length,1);assert.equal(x.q('[name=subject]').value,'Preparação antiga preservada');x.accept();await until(()=>!x.q('[data-ce-save]').disabled);
+ assert.equal(x.q('[name=subject]').value,'Revisão nova do servidor');assert.equal(JSON.parse(x.store.get(localKey)).value._campaign.version,'v2');assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);
 });

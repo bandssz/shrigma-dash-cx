@@ -13,7 +13,7 @@ function boot({legacy='',onRead=()=>{}}={}){
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>{writes.push(k);store.set(k,v);},removeItem:k=>{writes.push(k);store.delete(k);}},
   shrigmaChave:()=>store.get('shrigma_k_growth')||'',GMP:{openEmail:()=>{}},__onRead:()=>{reads.push(true);return onRead();},
   fetch:async(url,init={})=>{calls.push({url,init});return {ok:true,status:200,json:async()=>({templates:[],events:[],flows:[]})};}});
- for(const f of ['growth-access.js','growth-templates-api.js','growth-drafts-ui.js','growth-control.js','growth-builder.js','campaign-contract.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});
+ for(const f of ['growth-access.js','growth-brand-state.js','growth-templates-api.js','growth-drafts-ui.js','growth-control.js','growth-builder.js','campaign-contract.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});
  const run=s=>vm.runInContext(s,ctx),api=run('GrowthAccess.bind({document,readExisting:()=>shrigmaChave("growth"),onRead:__onRead})'),q=s=>document.querySelector(s);
  return {api,run,ctx,q,store,writes,calls,reads,document,window,focused:()=>focused,submit:()=>q('#growth-acesso').onsubmit({preventDefault(){}})};
 }
