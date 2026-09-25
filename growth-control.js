@@ -295,7 +295,7 @@ const GC={
     const searched=model.templates.filter(row=>[row.name,row.piece,GC.brand(row.brand)].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(search))).filter(row=>GC.templateMatches(row,ft));
     const templates=hasGT?GT.ordena(searched,ft.sort,ft.dir,r=>ft.sort==='collection'?r.checked_at:r[ft.sort]):searched;
     const tplFiltered=!!GC.search||ft.status!=='todos'||ft.categoria!=='todas'||ft.uso!=='todos';
-    const tplEmpty=!model.templates.length?'Nenhum template disponível para estes filtros.'
+    const tplEmpty=!model.templates.length?'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Templates.'
       :`Nenhum template${GC.describe([ft.status==='APPROVED'?'aprovado':ft.status==='outros'?'não aprovado':'',
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?ft.categoria:ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
@@ -305,10 +305,10 @@ const GC={
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
         ${tplFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}
-        ${GC.caps?.pode?.read_content?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Busca na API de templates o corpo publicado (components) e mostra a prévia fiel em cada linha. Leitura; nada é alterado.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
+        ${GC.caps?.pode?.read_content?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Carrega a mensagem publicada para conferir a prévia. Esta consulta não altera o template.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
         <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
-      <p class="control-future">${GC.caps?.declaradas?'Criar, validar e submeter templates: aba Rascunhos locais (os botões seguem as capacidades desta API). Ativar/mudar modo de workflow pelo painel depende de R5.5.':'Próxima etapa: criar e versionar templates, acompanhar submissões e gerenciar workflows de WhatsApp, Listmonk e SES pelo painel. A tela já está pronta; aparece quando a API declarar <code>capabilities</code> (R5.1).'}</p>`;
+      <span class="control-badge" title="Use Templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Fluxos.">Edição em Templates e Fluxos</span>`;
     if(hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
     workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);

@@ -118,16 +118,15 @@ const GRU={
     if(kept&&typeof GT!=='undefined')GT.restaura(root,kept);
   },
   escopo(caps){
-    if(!caps.declaradas)return `<div class="drafts-scope"><strong>Rascunhos salvos só neste dispositivo</strong><p>Escreva e revise mensagens de WhatsApp e e-mail. Elas ficam neste navegador e só serão salvas ao clicar em Salvar. Para levar a outro computador, exporte o arquivo. Publicação de templates e ativação de automações pelo painel ainda estão em desenvolvimento.</p></div>`;
-    if(caps.semEndpoint)return `<div class="drafts-scope"><strong>Rascunhos salvos só neste dispositivo</strong><p>A API declarou capacidades de templates, mas não informou o endereço da API de templates (<code>capabilities.endpoints.templates</code>). Sem o endereço, nenhum botão de servidor aparece — um botão que não sabe para onde chamar é um botão que não funciona.</p></div>`;
-    const cap=(k,t)=>`<span class="control-badge${caps.pode[k]?' control-verified':''}" title="${caps.pode[k]?'Disponível nesta API':'A API não declarou esta capacidade; o botão não aparece'}">${t}${caps.pode[k]?'':' · indisponível'}</span>`;
+    if(!caps.declaradas)return `<div class="drafts-scope"><strong>Rascunhos neste dispositivo</strong><span class="control-badge" title="Salve antes de fechar. Exporte o arquivo para continuar em outro computador. A publicação não está disponível neste acesso.">Publicação indisponível</span></div>`;
+    if(caps.semEndpoint)return `<div class="drafts-scope" role="status"><strong>Publicação indisponível</strong><span title="A conexão de templates não foi informada. Seus rascunhos permanecem neste dispositivo.">Atualize o painel para tentar novamente.</span></div>`;
     const chave=GRU.chaveEscrita();
-    return `<div class="drafts-scope drafts-scope-api"><div><strong>Rascunhos neste dispositivo, com envio ao servidor</strong><p>O que esta API permite hoje: ${cap('draft','Salvar no servidor')} ${cap('validate','Validar')} ${cap('submit','Publicar template')} ${cap('list_history','Histórico')} ${cap('read_content','Conteúdo publicado')}. Publicado é o que a Meta/Listmonk aprovou; ativo é o workflow em modo real — a tela nunca junta os dois.</p></div>
-      <div class="drafts-key"><span class="mini">Chave de escrita: ${chave?'informada':'ainda não informada'}</span><button type="button" class="refresh-btn" id="drafts-chave" aria-expanded="${GRU.acesso.aberto}"${GRU.state.ocupado?' disabled':''}>${chave?'Trocar chave':'Informar chave'}</button></div></div>${GRU.formularioAcesso()}`;
+    return `<div class="drafts-scope drafts-scope-api"><div><strong>Templates</strong><span class="control-badge" title="Salvar guarda uma versão para revisão. Publicar cadastra o template; enviar teste e ativar um fluxo são ações separadas, com confirmação.">Publicar não envia mensagens</span></div>
+      <div class="drafts-key"><span class="mini">${chave?'Acesso de edição disponível':'Acesso de edição necessário'}</span><button type="button" class="refresh-btn" id="drafts-chave" aria-expanded="${GRU.acesso.aberto}"${GRU.state.ocupado?' disabled':''}>${chave?'Trocar acesso':'Informar chave'}</button></div></div>${GRU.formularioAcesso()}`;
   },
   passos(d){
     const {estado,sujo}=GTA.situacao(d),ord=GTA.ORDEM[estado]??0;
-    return `<ol class="draft-steps" aria-label="Etapas do template">${GTA.ESTADOS.map(([k,t],i)=>{const st=estado==='rejeitado'&&k==='publicado'?'rejeitado':i<ord?'feito':i===ord?'atual':'';return `<li data-passo="${k}"${st?` data-st="${st}"`:''}>${GRU.e(estado==='rejeitado'&&k==='publicado'?'Rejeitado':t)}</li>`;}).join('')}</ol>${sujo?'<span class="mini draft-sujo">conteúdo local difere do servidor</span>':''}`;
+    return `<ol class="draft-steps" aria-label="Etapas do template">${GTA.ESTADOS.map(([k,t],i)=>{const st=estado==='rejeitado'&&k==='publicado'?'rejeitado':i<ord?'feito':i===ord?'atual':'';return `<li data-passo="${k}"${st?` data-st="${st}"`:''}>${GRU.e(estado==='rejeitado'&&k==='publicado'?'Rejeitado':t)}</li>`;}).join('')}</ol>${sujo?'<span class="mini draft-sujo">Alterações ainda não salvas no servidor</span>':''}`;
   },
   cartao(d,caps){
     const v=GR.valida(d),cat=GRU.noCatalogo(d.nome,d.marca,d.canal),sit=GTA.situacao(d),s=sit.servidor;
@@ -140,8 +139,8 @@ const GRU={
       ${caps.declaradas||sit.estado!=='local'?GRU.passos(d):''}
       <p class="draft-excerpt">${GRU.e((d.canal==='email'?(d.assunto?d.assunto+' — ':''):'')+String(d.corpo||'').slice(0,140))}${String(d.corpo||'').length>140?'…':''}</p>
       ${cat?`<p class="control-warning">Existe um template com este nome no catálogo da Meta (status ${GRU.e(cat.status||'?')}, categoria ${GRU.e(cat.category||'?')}). O rascunho não é esse template e o catálogo não traz o corpo dele para comparar.</p>`:''}
-      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Checagens locais ok</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão do rascunho no servidor e hora da última confirmação da API">servidor v${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última consulta do painel ao estado da submissão">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
-      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>`<li><time>${GRU.stamp(x.at)}</time> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(x.result||'')}${x.detail?` · ${GRU.e(x.detail)}`:''}${x.origem==='api'?' <span class="mini">(API)</span>':''}</li>`).join('')}</ul>`:'<p>Nenhum evento registrado.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Carregar histórico da API</button>`:''}</details>`:''}
+      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão do rascunho no servidor e hora da última confirmação da API">servidor v${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última consulta do painel ao estado da submissão">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
+      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>`<li><time>${GRU.stamp(x.at)}</time> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(x.result||'')}${x.detail?` · ${GRU.e(x.detail)}`:''}</li>`).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
       <div class="draft-actions"><button type="button" class="refresh-btn" data-draft-edit="${GRU.e(d.id)}">Editar</button>${acoes.verificar?`<button type="button" class="refresh-btn" data-draft-verificar="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Verificar agora</button>`:''}<button type="button" class="refresh-btn" data-draft-export="${GRU.e(d.id)}">Exportar arquivo</button><button type="button" class="refresh-btn" data-draft-dup="${GRU.e(d.id)}">Duplicar nesta marca</button>${d.canal==='email'&&['fish','aristo'].includes(d.marca)?`<button type="button" class="refresh-btn" data-email-replicate="${GRU.e(d.id)}">Copiar para ${d.marca==='fish'?'O Aristocrata':'Fishermans'}</button>`:''}<button type="button" class="refresh-btn draft-delete" data-draft-delete="${GRU.e(d.id)}">Excluir</button></div></article>`;
   },
   editor(r,caps){
@@ -155,13 +154,13 @@ const GRU={
     const dis=oc?' disabled':'';
     const servidorBar=caps.pode.draft?`<div class="draft-server-actions">
         <button type="button" class="btn sec" id="d-servidor"${dis}>${oc==='rascunho'?'Salvando…':s?`Salvar no servidor (v${GRU.e(s.version)}${sit.sujo?' → nova versão':''})`:'Salvar no servidor'}</button>
-        ${acoes.validar?`<button type="button" class="btn sec" id="d-validar"${dis}>${oc==='validar'?'Validando…':'Validar na API'}</button>`:''}
-        ${acoes.submeter?`<button type="button" class="btn" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Submeter à Meta…':'Publicar template…'}</button>`:''}
-        ${acoes.verificar?`<button type="button" class="refresh-btn" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar submissão'}</button>`:''}
-        <span class="mini">${s?`Servidor: v${GRU.e(s.version)} · ${GRU.e(rot.texto)}${sit.sujo?' · salve de novo antes de validar ou submeter':''}`:'Ainda não foi ao servidor. Salvar no servidor não submete nem ativa nada.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · submeter exige validar primeiro':''}</span></div>
+        ${acoes.validar?`<button type="button" class="btn sec" id="d-validar"${dis}>${oc==='validar'?'Validando…':'Conferir conteúdo'}</button>`:''}
+        ${acoes.submeter?`<button type="button" class="btn" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Enviar para aprovação…':'Publicar template…'}</button>`:''}
+        ${acoes.verificar?`<button type="button" class="refresh-btn" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar aprovação'}</button>`:''}
+        <span class="mini">${s?`Servidor: v${GRU.e(s.version)} · ${GRU.e(rot.texto)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve no servidor para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
         ${s?.conflito?`<div class="draft-conflito control-warning"><strong>Alguém alterou este rascunho no servidor antes de você.</strong> ${GRU.e(`Por ${s.conflito.changed_by||'outra chave'} às ${GRU.stamp(s.conflito.changed_at)}; versão atual v${s.conflito.current_version??'?'}. Nada foi sobrescrito.`)} <button type="button" class="refresh-btn" id="d-refazer">Refazer sobre a v${GRU.e(s.conflito.current_version??'?')}</button> <span class="mini">Refazer só ajusta a versão esperada; o conteúdo continua o seu e nada é enviado até você salvar de novo.</span></div>`:''}
         ${GRU.state.confirmando&&acoes.submeter?GRU.confirmacao(r,provedor):''}`
-      :caps.semEndpoint?'<p class="mini draft-server-off">Capacidades declaradas sem endereço da API: envio ao servidor indisponível nesta consulta.</p>':'';
+      :caps.semEndpoint?'<p class="mini draft-server-off" role="status">Publicação indisponível. Atualize o painel para tentar novamente.</p>':'';
     return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
@@ -173,17 +172,17 @@ const GRU={
         <div class="campo"><label for="d-reply-to">Responder para</label><input type="email" id="d-reply-to" data-campo="reply_to" maxlength="254" value="${GRU.e(r.reply_to)}"></div>
         <div class="campo largo"><label for="d-assunto">Assunto</label><input type="text" id="d-assunto" data-campo="assunto" maxlength="150" value="${GRU.e(r.assunto)}"></div>
         <div class="campo largo"><label for="d-preheader">Pré-header</label><input type="text" id="d-preheader" data-campo="preheader" maxlength="200" value="${GRU.e(r.preheader)}" placeholder="Complemento do assunto na caixa de entrada"></div>`}
-        <div class="campo"><label for="d-peca">Peça (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
+        <div class="campo"><label for="d-peca">Nome da etapa (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
         ${wa?`<div class="campo largo"><label for="d-cabecalho">Cabeçalho (opcional)</label><input type="text" id="d-cabecalho" data-campo="cabecalho" maxlength="${GR.LIMITES.cabecalho}" value="${GRU.e(r.cabecalho)}"><span class="ajuda" id="d-cabecalho-conta">${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}</span></div>`:''}
         <div class="campo largo"><label for="d-corpo">Corpo</label><textarea id="d-corpo" data-campo="corpo" rows="7" placeholder="${wa?'Olá {{1}}, seu pedido {{2}} saiu para entrega…':'Texto do e-mail…'}">${GRU.e(r.corpo)}</textarea><span class="ajuda" id="d-corpo-conta">${GRU.contaCorpo(r)}</span></div>
         ${wa?`<div class="campo largo"><label for="d-rodape">Rodapé (opcional)</label><input type="text" id="d-rodape" data-campo="rodape" maxlength="${GR.LIMITES.rodape}" value="${GRU.e(r.rodape)}"><span class="ajuda" id="d-rodape-conta">${String(r.rodape||'').length} de ${GR.LIMITES.rodape}</span></div>`:''}
         ${wa&&vars.length?`<div class="campo largo"><label>Exemplos das variáveis</label><div class="draft-exemplos">${vars.map(n=>`<label>{{${n}}}<input type="text" data-exemplo="${n}" value="${GRU.e((r.exemplos||{})[n]||'')}" placeholder="exemplo real, sem dado de cliente"></label>`).join('')}</div><span class="ajuda">A Meta pede um exemplo por variável. Use valores fictícios.</span></div>`:''}
-        <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Nenhum botão.</span>'}</div>
+        <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Use Adicionar botão para incluir um link.</span>'}</div>
           ${(r.botoes||[]).length<GR.LIMITES.botoes?'<button type="button" class="refresh-btn" id="d-botao-add">Adicionar botão</button>':''}</div>
       </div>
-      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia do que você digitou<span class="control-badge">não é o template publicado</span></div>${wa?'':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
+      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia<span class="control-badge" title="Mostra o conteúdo deste rascunho, que pode ser diferente da versão publicada.">Rascunho</span></div>${wa?'':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
         <div id="d-checagens">${GRU.checagens(v,s)}</div></div></div>
-      <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini">Salvar grava no navegador. Não cadastra, não submete e não ativa nada.</span>'}</div>
+      <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini" title="Salvar neste dispositivo não publica o template nem envia mensagens.">Salvo só neste dispositivo</span>'}</div>
       ${servidorBar}${GRU.emailTestControls(r,caps)}</section>`;
   },
   contaCorpo(r){return `${String(r.corpo||'').length}${r.canal==='whatsapp'?` de ${GR.LIMITES.corpo}`:''} caracteres${r.canal==='whatsapp'?' · variáveis como {{1}}, {{2}}':' · Texto ou HTML. Variáveis como {{ .Tx.Data.first_name }}; use apenas os dados indicados na etapa do fluxo.'}`;},
@@ -197,8 +196,8 @@ const GRU={
   },
   preview(r){return r.canal==='email'?GMP.email(r):GMP.whatsapp(r);},
   checagens(v,s){
-    const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">API: ${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">API: ${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
-    if(!v.erros.length&&!v.avisos.length)return `<p class="draft-ok">Checagens locais ok. Essas checagens são parciais. No WhatsApp, a Meta define aprovação e categoria; no e-mail, ainda falta validar a integração de envio.</p>${api}`;
+    const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
+    if(!v.erros.length&&!v.avisos.length)return `<span class="control-badge" title="A conferência local não confirma publicação nem entrega. Confira o conteúdo no servidor e use o envio de teste para revisar o e-mail.">Conteúdo conferido</span>${api}`;
     return `${v.erros.map(x=>`<p class="control-warning draft-erro">${GRU.e(x)}</p>`).join('')}${v.avisos.map(x=>`<p class="draft-aviso">${GRU.e(x)}</p>`).join('')}${api}`;
   },
   atualizaPreview(){
@@ -429,7 +428,7 @@ const GRU={
       GRU.aviso(`Rascunho salvo no servidor como v${b.version}. Não submetido.`);
     }else if(acao==='validar'){
       r.servidor={...s,estado:'validado',erros:[],avisos:Array.isArray(b.avisos)?b.avisos:[],validado_em:GR.agora(),confirmado_em:GR.agora()};
-      GRU.aviso(`Validado pela API${r.servidor.avisos.length?` com ${r.servidor.avisos.length} aviso(s)`:''}. Ainda não submetido.`);
+      GRU.aviso(`Conteúdo conferido${r.servidor.avisos.length?` com ${r.servidor.avisos.length} aviso(s)`:''}. Pronto para revisão antes da publicação.`);
     }else{
       r.servidor={...s,estado:b.estado,submission_id:b.submission_id,provider:b.provider,provider_id:b.provider_id||null,submitted_at:b.submitted_at||GR.agora(),provider_status:b.provider_status||null,checked_at:null,confirmado_em:GR.agora()};
       GRU.state.confirmando=false;GRU.state.confirmTexto='';
@@ -503,7 +502,7 @@ const GRU={
     const {res,erro}=out;
     if(erro){GRU.aviso(`Histórico indisponível: ${erro.texto}`,'erro');GRU.render();return;}
     s.historico=Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];
-    GR.guarda(r);GRU.aviso(`Histórico da API carregado: ${s.historico.length} evento(s).`);GRU.render();
+    GR.guarda(r);GRU.aviso(`Histórico atualizado: ${s.historico.length} evento(s).`);GRU.render();
   },
   falha(r,acao,res,erro){
     r.servidor=r.servidor||{};
