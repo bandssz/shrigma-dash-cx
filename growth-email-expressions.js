@@ -190,6 +190,23 @@ const GEE=(()=>{
   if(!m||m[1].length>253||!m[1].includes('.')||/%(?![0-9a-f]{2})/i.test(s))return false;
   return m[1].split('.').every(label=>label.length<=63&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label));
  }
+ // Diagnostic metadata only: never return values, prototypes, function source,
+ // dynamic property names, or exception messages. Does not change validation.
+ function diagnoseContext(context){
+  const inspect=get=>{
+   const result={protoNull:false,parentNull:false,ownCtor:false,ctorType:false,ctorProtoSame:false,intrinsicSourceMatch:false,failed_at:null};let stage='lookup';
+   try{
+    const value=get();stage='getPrototypeOf';const proto=Object.getPrototypeOf(value);result.protoNull=proto===null;
+    if(proto===null)return result;
+    stage='parentPrototype';result.parentNull=Object.getPrototypeOf(proto)===null;
+    stage='constructorDescriptor';const ctor=Object.getOwnPropertyDescriptor(proto,'constructor');result.ownCtor=!!ctor;
+    stage='constructorType';result.ctorType=!!ctor&&typeof ctor.value==='function';
+    if(result.ctorType){stage='constructorPrototype';result.ctorProtoSame=ctor.value.prototype===proto;stage='intrinsicSource';result.intrinsicSourceMatch=Function.prototype.toString.call(ctor.value)===intrinsicObjectSource;}
+   }catch(_){result.failed_at=stage;}
+   return result;
+  };
+  return {contract:'crm_email_context_diagnostic_v1',checks:{root:inspect(()=>context),Tx:inspect(()=>context.Tx),Data:inspect(()=>context.Tx.Data),Subscriber:inspect(()=>context.Subscriber),firstItem:inspect(()=>context.Tx.Data.items?.[0])}};
+ }
  function validateContext(context){
   try{
    if(!plain(context)||Object.keys(context).some(k=>!['Tx','Subscriber'].includes(k))||!plain(context.Tx)||Object.keys(context.Tx).some(k=>k!=='Data')||!plain(context.Tx.Data)||!plain(context.Subscriber)||Object.keys(context.Subscriber).some(k=>!['Name','UUID'].includes(k)))bad('EMAIL_CONTEXT_SHAPE');
@@ -233,6 +250,6 @@ const GEE=(()=>{
   const go=v=>v===null?'nil':typeof v==='string'?encodeLiteral(v):typeof v==='boolean'||typeof v==='number'?String(v):Array.isArray(v)?'(list'+(v.length?' '+v.map(go).join(' '):'')+')':'(dict'+Object.entries(v).map(([k,value])=>' '+encodeLiteral(k)+' '+go(value)).join('')+')';
   const body='{{ with '+go(checked.value)+' }}'+source+'{{ end }}';if(body.length>LIMITS.envelope)bad('EMAIL_CONTEXT_LIMIT');return body;
  }
- return {parse,validateContext,buildPreviewEnvelope,encodeLiteral,LIMITS};
+ return {parse,validateContext,diagnoseContext,buildPreviewEnvelope,encodeLiteral,LIMITS};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=GEE;
