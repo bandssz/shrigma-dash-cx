@@ -14,11 +14,11 @@ test('before/after synthetic proof: both server validators accept passive docume
  for(const n of out.nodes.slice(0,2)){
   const ctx=vm.createContext({});vm.runInContext(n.parameters.jsCode+'\nthis.server={errors:emailErrors,payload:emailPayload};',ctx);
   for(const brand of ['fish','aristo']){
-   const r=G.draft({canal:'email',marca:brand,nome:'fixture',assunto:'Oi {{ .Tx.Data.first_name }}',preheader:'Resumo',corpo:'<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>@media(max-width:600px){p{color:black}}</style></head><body title="1 > 0"><p>{{ .Tx.Data.first_name }}</p></body></html>',botoes:[]});
+   const r=G.draft({canal:'email',marca:brand,nome:'fixture',assunto:'Oi {{ .Tx.Data.first_name }}',preheader:'Resumo',corpo:'<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Example+Serif:wght@400;700&amp;display=swap"><style>@media(max-width:600px){p{color:black}}</style></head><body title="1 > 0"><p>{{ .Tx.Data.first_name }}</p></body></html>',botoes:[]});
    assert.equal(ctx.server.errors(r).length,0);assert.deepEqual(JSON.parse(JSON.stringify(ctx.server.payload(r))),G.payload(r));
    const dynamic={...r,corpo:'<a href="{{ .Tx.Data.order_url }}">Pedido</a>'};assert.equal(ctx.server.errors(dynamic).length,0);assert.equal(ctx.server.payload(dynamic).body,G.payload(dynamic).body);
    const old=vm.createContext({});vm.runInContext(B.contract+B.errors+'\nthis.errors=emailErrors;',old);assert.ok(old.errors(r).length);
-   for(const body of ['<meta http-equiv="refresh" content="0;url=https://example.invalid">','<img src="data:image/png;base64,AA==">'])assert.ok(ctx.server.errors({...r,corpo:body}).length,body);
+   for(const body of ['<meta http-equiv="refresh" content="0;url=https://example.invalid">','<img src="data:image/png;base64,AA==">','<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Example&redirect=https://example.invalid">'])assert.ok(ctx.server.errors({...r,corpo:body}).length,body);
   }
  }
 });

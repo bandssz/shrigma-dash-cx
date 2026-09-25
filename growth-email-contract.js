@@ -60,20 +60,41 @@ const GEC={
   const a=tag.attrs,keys=Object.keys(a).sort().join(',');
   if(keys==='charset')return /^utf-8$/i.test(a.charset||'');
   if(keys==='content,http-equiv')return /^content-type$/i.test(a['http-equiv']||'')&&/^text\/html;\s*charset=utf-8$/i.test(a.content||'');
-  if(keys!=='content,name'||!/^viewport$/i.test(a.name||''))return false;
+  if(keys!=='content,name')return false;
+  const name=String(a.name||'').toLowerCase(),content=String(a.content||'').trim().toLowerCase().replace(/[ \t\n\f\r]+/g,' ');
+  if(name==='color-scheme')return ['light dark','light only'].includes(content);
+  if(name==='supported-color-schemes')return ['light dark','light'].includes(content);
+  if(name!=='viewport')return false;
   const parts=String(a.content||'').toLowerCase().split(',').map(p=>p.trim());
   return parts.length===2&&parts.some(p=>/^width\s*=\s*device-width$/.test(p))&&parts.some(p=>/^initial-scale\s*=\s*1(?:\.0+)?$/.test(p));
+ },
+ passiveFontLink(tag){
+  if(!tag||tag.name!=='link'||tag.closing||Object.keys(tag.attrs).sort().join(',')!=='href,rel')return false;
+  const a=tag.attrs;if(!/^stylesheet$/i.test(a.rel||'')||typeof a.href!=='string'||a.href.length>4096)return false;
+  // Canonical provider/path only. Do not normalize hosts, redirects or relative URLs.
+  const match=a.href.replace(/&amp;/g,'&').match(/^https:\/\/fonts\.googleapis\.com\/css2\?([^\s"'<>`\\{}#]+)$/);
+  if(!match)return false;
+  let families=0,display=0;const parts=match[1].split('&');if(parts.length>16)return false;
+  for(const part of parts){
+   const pair=part.match(/^(family|display)=([^=]+)$/);if(!pair)return false;
+   let value;try{value=decodeURIComponent(pair[2].replace(/\+/g,' '));}catch(_){return false;}
+   if(pair[1]==='family'){if(!/^[A-Za-z][A-Za-z0-9 +:,@;.\-]{0,511}$/.test(value))return false;families++;}
+   else{if(++display>1||!['auto','block','swap','fallback','optional'].includes(value))return false;}
+  }
+  return families>0;
  },
  htmlSafety(source){
   const parsed=GEC.htmlTokens(source);if(!parsed.ok)return 'EMAIL_HTML_MALFORMED';
   // Keep active content forbidden, including content hidden in Outlook comments.
-  if(/<\s*(?:script|iframe|object|embed|form|input|button|select|textarea|base|link|svg|math)\b|\bon[a-z]+\s*=/i.test(source))return 'EMAIL_ACTIVE_CONTENT';
+  if(/<\s*(?:script|iframe|object|embed|form|input|button|select|textarea|base|svg|math)\b|\bon[a-z]+\s*=/i.test(source))return 'EMAIL_ACTIVE_CONTENT';
   let normalized=String(source).replace(/&#(x[0-9a-f]+|[0-9]+);?/gi,(_,n)=>{const hex=n[0].toLowerCase()==='x',cp=parseInt(hex?n.slice(1):n,hex?16:10);return cp<=0x10ffff?String.fromCodePoint(cp):'';}).replace(/&(colon|tab|newline);?/gi,(_,n)=>({colon:':',tab:'\t',newline:'\n'}[n.toLowerCase()])).replace(/\\([0-9a-f]{1,6})\s?/gi,(_,n)=>String.fromCodePoint(Math.min(parseInt(n,16),0x10ffff))).replace(/\\([():])/g,'$1');
   normalized=normalized.replace(/[\u0000-\u0020\u007f]/g,'');
   if(/(?:javascript|vbscript|data):|expression\(|-moz-binding:/i.test(normalized))return 'EMAIL_ACTIVE_CONTENT';
   for(const token of parsed.tokens){
    if(token.type==='tag'&&token.name==='meta'&&!GEC.passiveMeta(token))return 'EMAIL_META_UNSUPPORTED';
    if(token.type==='comment'&&/<\s*meta\b/i.test(source.slice(token.start,token.end)))return 'EMAIL_META_UNSUPPORTED';
+   if(token.type==='tag'&&token.name==='link'&&!GEC.passiveFontLink(token))return 'EMAIL_LINK_UNSUPPORTED';
+   if(token.type==='comment'&&/<\s*link\b/i.test(source.slice(token.start,token.end)))return 'EMAIL_LINK_UNSUPPORTED';
   }
   return null;
  },
@@ -130,7 +151,7 @@ const GEC={
    if(/<!--|<!doctype\b|<\/?[a-z]/i.test(raw)){const rawUnsafe=GEC.htmlSafety(raw);if(rawUnsafe)throw Error(rawUnsafe);}
    const html=GEC.html(r),unsafe=GEC.htmlSafety(html);if(unsafe)throw Error(unsafe);return [];
   }catch(e){
-   const messages={EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Use apenas metadados UTF-8 e viewport padrão. Redirecionamentos e outras instruções meta não são permitidos.'};
+   const messages={EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Use apenas metadados UTF-8, viewport padrão e esquemas de cores permitidos. Redirecionamentos e outras instruções meta não são permitidos.',EMAIL_LINK_UNSUPPORTED:'Use apenas a folha de fontes Google Fonts permitida. Outros recursos externos via link não são aceitos.'};
    return [{codigo:'EMAIL_CONTENT',campo:'corpo',mensagem:messages[e.message]||'Escolha a marca do e-mail.'}];
   }
  },
