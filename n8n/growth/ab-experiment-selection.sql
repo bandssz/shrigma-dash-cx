@@ -13,10 +13,28 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,public AS $$
  SELECT NOT EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 WHERE campaign_id=cid) OR EXISTS(
   SELECT 1 FROM public.crm_ab_arm_v2 a JOIN public.crm_ab_experiment_v2 e ON e.test_id=a.test_id
   JOIN public.crm_ab_member_v2 m ON m.test_id=a.test_id AND m.arm=a.arm AND m.subscriber_id=sid
+  JOIN public.subscribers s ON s.id=m.subscriber_id AND s.status::text='enabled'
   JOIN public.crm_ab_runtime_v2 r ON r.singleton
   WHERE a.campaign_id=cid AND e.state='scheduled' AND e.transport_bound AND e.tracking_continuous AND e.source_complete
-   AND r.enabled AND m.revoked_at IS NULL AND statement_timestamp()<e.window_end)
+   AND r.enabled AND r.native_query_sha256='b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817'
+   AND isfinite(r.verified_at) AND r.verified_at<=statement_timestamp()
+   AND m.revoked_at IS NULL AND statement_timestamp()<e.window_end)
 $$;
+CREATE FUNCTION public.crm_ab_runtime_evidence_guard_v2() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $$
+BEGIN
+ -- A stopped or unverified emitter may finish a campaign with fewer recipients.
+ -- This evidence is irreversible; turning it back on must not invent a winner.
+ IF TG_OP='DELETE' OR NEW.enabled IS DISTINCT FROM true OR
+  NEW.native_query_sha256 IS DISTINCT FROM 'b1a3dafd0502622d70a1b28b8ff09956acc48541bb883ff0e0894089ea42c817' OR
+  NEW.verified_at IS NULL OR NOT isfinite(NEW.verified_at) OR NEW.verified_at>clock_timestamp() THEN
+  UPDATE public.crm_ab_experiment_v2 SET transport_interrupted_at=clock_timestamp(),transport_interruption='runtime_unverified'
+   WHERE state='scheduled' AND transport_bound AND transport_interrupted_at IS NULL AND window_end>clock_timestamp();
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD;ELSE RETURN NEW;END IF;
+END $$;
+CREATE TRIGGER crm_ab_runtime_evidence_guard_v2 AFTER UPDATE OR DELETE ON public.crm_ab_runtime_v2
+ FOR EACH ROW EXECUTE FUNCTION public.crm_ab_runtime_evidence_guard_v2();
 CREATE FUNCTION public.crm_ab_campaign_guard_v2() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $$
 DECLARE e public.crm_ab_experiment_v2%ROWTYPE;allowed boolean;
@@ -27,8 +45,10 @@ BEGIN
  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN';END IF;
  -- Only the atomic A/B scheduler may change draft->scheduled. Its operation and
  -- native-build receipt are separate prerequisites, never a campaign-editor marker.
- allowed:=current_setting('shrigma.ab_schedule_v2',true)=e.test_id::text AND
-  EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled);
+ allowed:=current_setting('shrigma.ab_schedule_v2',true)=e.test_id::text AND (
+  EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled) OR
+  (NEW.status::text='cancelled' AND OLD.sent=0 AND OLD.started_at IS NULL AND
+   (OLD.status::text='draft' OR OLD.status::text='scheduled' AND OLD.send_at>clock_timestamp())));
  IF allowed THEN RETURN NEW;END IF;
  IF (to_jsonb(OLD)-runtime_fields) IS DISTINCT FROM (to_jsonb(NEW)-runtime_fields) THEN RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN';END IF;
  IF e.state='prepared' AND (to_jsonb(OLD)-'updated_at') IS DISTINCT FROM (to_jsonb(NEW)-'updated_at') THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED';END IF;
@@ -39,6 +59,12 @@ BEGIN
   (OLD.status::text='running' AND NEW.status::text='finished')) THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED';END IF;
  IF NEW.status::text='finished' AND OLD.status::text<>'finished' THEN
   UPDATE public.crm_ab_arm_v2 SET finished_at=clock_timestamp() WHERE campaign_id=OLD.id;
+ END IF;
+ IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status::text IN ('paused','cancelled') AND e.state='scheduled' THEN
+  -- The worker already holds its campaign row. Write arm evidence rather than
+  -- acquiring the experiment row in the reverse order of the coordinator.
+  UPDATE public.crm_ab_arm_v2 SET transport_interrupted_at=clock_timestamp()
+   WHERE campaign_id=OLD.id AND transport_interrupted_at IS NULL AND e.window_end>clock_timestamp();
  END IF;
  RETURN NEW;
 END $$;
@@ -76,4 +102,5 @@ CREATE TRIGGER crm_ab_tracking_evidence_guard_v2 AFTER UPDATE OR DELETE ON publi
  FOR EACH ROW WHEN (OLD.key IN ('privacy.disable_tracking','privacy.individual_tracking')) EXECUTE FUNCTION public.crm_ab_tracking_evidence_guard_v2();
 REVOKE ALL ON FUNCTION public.crm_ab_delivery_allowed_v2(integer,integer),public.crm_ab_campaign_guard_v2(),public.crm_ab_relation_guard_v2() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.crm_ab_click_evidence_guard_v2(),public.crm_ab_tracking_evidence_guard_v2() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.crm_ab_runtime_evidence_guard_v2() FROM PUBLIC;
 COMMIT;

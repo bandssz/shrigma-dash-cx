@@ -1,5 +1,5 @@
 /* A/B email v2 protocol and conservative fixed-window result. No I/O or recipients. */
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.GABExperiment=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.GABExperiment=api;})(typeof globalThis!=='undefined'?globalThis:this,function createExperimentContract(){
  'use strict';
  const CONTRACT='crm-ab-email-v2',RULE='fisher-two-sided-fixed-window-v1';
  const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
@@ -39,7 +39,7 @@
   const cfg=protocol(p),rule=cfg.rule,empty={contract:CONTRACT,test_id:cfg.test_id,metric:rule.metric,rule:clone(rule),winner:null,can_declare_winner:false,automatic_send:false};
   const unknown=reason=>({...empty,status:'unknown',reason,arms:null,difference_pp:null});
   if(!object(source)||source.contract!==CONTRACT||source.test_id!==cfg.test_id||JSON.stringify(stable(source.protocol))!==JSON.stringify(stable(cfg)))return unknown('source_identity');
-  const required=['allocation_complete','assignment_disjoint','transport_bound','tracking_continuous','source_complete'];
+  const required=['allocation_complete','assignment_disjoint','transport_bound','transport_continuous','tracking_continuous','source_complete'];
   if(!object(source.integrity)||required.some(k=>source.integrity[k]!==true))return unknown('incomplete_evidence');
   if(!Array.isArray(source.arms)||source.arms.length!==2)return unknown('arm_counts');
   const arms=[];
@@ -63,5 +63,14 @@
   const winner=pValue<rule.alpha&&Math.abs(out.difference_pp)>=rule.minimum_effect_pp&&out.difference_pp!==0?(out.difference_pp>0?'b':'a'):null;
   return {...out,p_value:pValue,status:winner?'conclusive':'inconclusive',reason:winner?'fixed_rule_met':'insufficient_separation',winner,can_declare_winner:!!winner};
  }
- return {CONTRACT,RULE,protocol,result,fisher};
+ function request(p){
+  if(object(p)&&Object.hasOwn(p,'allocation'))return protocol(p);
+  const actions={review:['source_reviews'],schedule:['review_id','confirm'],cancel:['confirm'],close:['confirm']};
+  if(!object(p)||!Object.hasOwn(actions,p.action)||!exact(p,['contract','action','test_id','brand','expected_version',...actions[p.action]])||p.contract!==CONTRACT||!uuid(p.test_id)||!['fish','aristo'].includes(p.brand)||!integer(p.expected_version,1,999999999))throw Error('AB_V2_REQUEST');
+  if(p.action==='review'&&(!exact(p.source_reviews,['a','b'])||!uuid(p.source_reviews.a)||!uuid(p.source_reviews.b)))throw Error('AB_V2_REVIEW');
+  if(p.action==='schedule'&&(!uuid(p.review_id)||p.confirm!=='schedule_both')||p.action==='cancel'&&p.confirm!=='cancel_both'||p.action==='close'&&p.confirm!=='close_measurement')throw Error('AB_V2_CONFIRM');
+  return clone(p);
+ }
+ const action=p=>Object.hasOwn(request(p),'allocation')?'prepare':p.action;
+ return {CONTRACT,RULE,protocol,request,action,result,fisher,canonical:x=>JSON.stringify(stable(x)),createContract:createExperimentContract};
 });

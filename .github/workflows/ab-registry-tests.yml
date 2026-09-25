@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install pinned isolated test dependencies
-        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
       - name: Check protocol, workflow patch and isolated SQL
         env:
           NODE_PATH: ../ab-test-tools/node_modules
@@ -70,11 +70,11 @@ jobs:
         with:
           node-version: '22'
       - name: Install isolated test dependencies
-        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+        run: npm install --prefix ../ab-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
       - name: Check operator access, allocation, result and selection
         env:
           NODE_PATH: ../ab-test-tools/node_modules
-        run: node --test tests/ab-operator.test.cjs tests/ab-experiment-contract.test.cjs tests/ab-experiment-core.test.cjs tests/ab-listmonk-selection.test.cjs
+        run: node --test tests/ab-operator.test.cjs tests/ab-experiment-*.test.cjs tests/ab-listmonk-selection.test.cjs
       - name: Check independent sessions against empty PostgreSQL
         env:
           NODE_PATH: ../ab-test-tools/node_modules

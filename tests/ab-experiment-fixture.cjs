@@ -6,8 +6,7 @@ const uuid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 async function fixture(connection=null){
  const db=connection||new PGlite();
  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
- await db.exec(`ALTER TABLE lists ADD COLUMN optin text NOT NULL DEFAULT 'single';
- CREATE TABLE subscribers(id integer PRIMARY KEY,status text NOT NULL);CREATE TABLE subscriber_lists(subscriber_id integer,list_id integer,status text NOT NULL,PRIMARY KEY(subscriber_id,list_id));
+ await db.exec(`TRUNCATE subscriber_lists,subscribers;
  CREATE TABLE link_clicks(id serial PRIMARY KEY,campaign_id integer,subscriber_id integer,created_at timestamptz NOT NULL);
  CREATE TABLE settings(key text PRIMARY KEY,value jsonb);INSERT INTO settings VALUES('privacy.disable_tracking','false'),('privacy.individual_tracking','true');
  INSERT INTO subscribers SELECT n,'enabled' FROM generate_series(1,1000) n;

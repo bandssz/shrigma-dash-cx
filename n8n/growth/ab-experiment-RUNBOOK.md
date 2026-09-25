@@ -1,0 +1,50 @@
+# CRM07 — revisão e implantação conjunta, ativação OFF
+
+Estado: candidato. Este documento não autoriza instalar, reiniciar, publicar endpoint, habilitar runtime ou enviar mensagens. A/B v1 continua sendo cadastro descritivo; CRM07 não está concluído nem aceito no painel real.
+
+## Artefatos e revisão
+
+1. Fixar HEAD da PR, CI verde e hashes dos SQL, módulos, runtime de campanhas e artefato Listmonk. O build custom deve conter exclusivamente as duas consultas revisadas, com fonte upstream e query final verificadas. Consulte `tools/listmonk-ab-build/README.md`.
+2. Revisar `ab-experiment-core.sql`, `ab-experiment-selection.sql`, `ab-experiment-coordinator.sql`, `ab-experiment-api.sql`, `ab-experiment-workflow.cjs`, módulos `growth-ab-experiment-*` e mapeamento de erros do runtime de campanhas como uma unidade. Não publicar um botão que dependa de partes ausentes.
+3. Exigir provas da CI PostgreSQL em duas sessões e da seleção upstream integral, além das fixtures de interface. Testes locais PGlite não provam carga, sandbox n8n, implantação nem entrega real.
+
+## Preflight somente leitura
+
+O responsável pelo host confirma versão instalada, arquitetura, imagem/artefato atual, comando de inicialização, usuário do banco e **quantos processos enviam**. Registrar digest do artefato anterior, configuração sem segredos e checkpoints/contagem de campanhas em andamento. Nenhuma tabela ou workflow exclusivo de CX faz parte dessa investigação.
+
+No banco: conferir PostgreSQL compatível, nomes v2 ausentes, schema real de campaigns/lists/subscribers/subscriber_lists/settings/link_clicks, enums e índices usados. Conferir corpos/assinaturas do provider CRM06, audience review, guardas, validação de campanhas e `shrigma_panel_operator_v1(text,text)`. A autenticação combinada que também aceita chaves de templates não serve para esta API. Não supor que a credencial da API e o worker tenham o mesmo papel no banco.
+
+Não usar `GRANT ... TO PUBLIC`. O papel exato deve ser obtido no preflight. Como as funções usam SECURITY INVOKER, revisar privilégios mínimos de leitura das tabelas v2/runtime para o worker e escrita da evidência dos braços pelos triggers; o papel restrito da API precisa dos privilégios necessários à transação/recibo. Não copiar o usuário superadministrador para o navegador nem inserir chave em código.
+
+## Instalação técnica ainda desligada
+
+Com autorização do responsável e backup privado verificado:
+
+1. Aplicar core → selection → coordinator → API. São migrações de criação única, que recusam colisões. Registrar definições/checksums/objetos criados. `crm_ab_runtime_v2.enabled` deve continuar false; experimentos, membros e ações reais devem estar vazios.
+2. Construir o workflow dedicado com referência à credencial PostgreSQL existente autorizada e origem HTTPS exata do painel. Criar inativo. Conferir nós, conexões, CORS e settings; sem cron, HTTP de envio ou ExecuteWorkflow, sem retenção de payload. Validar em prova isolada o SQL parametrizado (`$1/$2/$3` via queryReplacement), GET/POST/OPTIONS e erros incertos. A leitura não pode virar mutação.
+3. Smoke autenticado somente leitura: capabilities deve mostrar configure/schedule false; lista vazia; operação ausente com ator correto; chave de template e principal sem `panel:` recusados. Nada de coorte ou campanha sintética em produção para provar interface.
+4. Publicar o ajuste específico do runtime de campanhas que traduz `AB_V2_CAMPAIGN_FROZEN` e `AB_V2_SCHEDULE_REQUIRED` como recusas definitivas, depois conferir recibos históricos. Preservar auth, limites, dados e resto do workflow. Timeout/5xx continua incerto.
+5. Provar o artefato custom em banco/serviço isolado: uma coorte 50/50, overlap zero, opt-out de origem antes do próximo lote, bloqueio global, campanha comum com mesmos IDs/ordem/checkpoints, falha do segundo braço sem agenda parcial, cancelamento/pausa e tracking interrompido sem vencedora. O serviço de prova deve ter transporte bloqueado, zero credenciais de destinatários/produção.
+6. Medir a carga das consultas com volume/índices equivalentes. O predicado evita execução por destinatário em campanha não A/B, mas ainda acrescenta custo de plano/consulta. Aprovar limites de regressão com o responsável; não declarar custo zero a partir do teste local.
+
+## Troca com emissor único
+
+A janela e execução pertencem ao responsável pelo host. Congelar novos agendamentos enquanto se troca o processo. Parar o emissor antigo e confirmar que não há outro worker/pipe usando a fila; conservar banco, checkpoints e parâmetros nativos. Iniciar **um único** emissor com o artefato verificado. Não fazer rolling deployment com dois emissores consumindo as mesmas campanhas.
+
+Conferir saúde, versão, hash real da query embutida e consultas de campanhas comuns. Só então o recibo de implantação pode receber o hash esperado e timestamp finito verificado. Essa linha no banco é uma atestação do operador, não detecta sozinha um binário incorreto, um segundo processo ou uma queda do host. Não habilitar o recurso confiando apenas nessa linha.
+
+Ligar o painel em conjunto: carregar contract → client → UI → panel, adicionar contêiner próprio (o cadastro v1 permanece), compor com GCA e acesso gestor, e incluir `contextStatus/preserve` no bloqueio de troca de marca. A composição exige `restoreBrand`: callback síncrono que preserva os demais rascunhos e restaura cabeçalho/contexto para a marca original de uma tentativa pendente; retornar true somente depois dessa restauração. Isso permite recuperar uma tentativa Fish quando a página reabrir em Aristo, sem reinterpretar marca/ator ou enviar outro POST. A mesma restauração é oferecida ao consultar uma pendência que chegou por outra aba. `ACTIVATION` fica OFF até essa revisão. O callback de preservação conserva o rascunho padrão antes da revisão de A/B; a seleção do journal de campanhas pode mudar, então o editor deve exigir reabrir sua revisão em vez de adotar outra silenciosamente. Depois da primeira operação real, manter acesso às consultas/cancelamento mesmo se runtime for desligado.
+
+Somente quando conjunto/host/UI estiverem comprovados, habilitar runtime/capacidade de novas operações. Preparação congela coorte e rascunhos, mas não agenda. Conferência usa versões/revisões vigentes. Agendamento exige confirmação humana de marca, dois braços, quantidade e horário. Um disparo real depende dessa ação do gestor; nós não enviamos para demonstrar a UI.
+
+## Provas de aceite após publicação
+
+Fish e Aristo: autenticar gestor existente, carregar dados, abrir/cancelar confirmação com zero mutação, preservar preparação entre trocas de seção e reload, impedir uma segunda identidade durante incerteza e conciliar por GET. Verificar mensagens de tentativa antiga sem alterar seu ator/payload. Não fabricar contagens/receita nem declarar vencedora antes da janela ou com fonte/interrupção desconhecida.
+
+As provas de envio real devem ser planejadas e autorizadas separadamente com público próprio. O resultado representa clique rastreado por pessoa alocada (inclui scanners), janela fixa e regra pré-declarada. Não representa compra, entrega ou clique humano garantido. Nenhuma vencedora gera envio automático.
+
+## Reversão
+
+Antes de voltar ao artefato original, parar/cancelar os dois braços de cada A/B e confirmar que não há pipe/lote A/B em memória ou campanha que possa retomar. Desligar runtime, manter recibos e evidência permanente, então parar o processo custom e iniciar apenas o artefato anterior verificado. **Nunca usar o binário padrão com uma campanha A/B executável**: ele ignoraria a coorte e usaria todas as listas originais.
+
+Manter tabelas/funções/guardas enquanto qualquer processo referenciar o filtro. Não limpar histórico para desbloquear a UI. Se uma ação ficar incerta, conservar journal/identidade e consultar recibo; ausência não permite criar nova tentativa. Limite local de1.000 históricos requer conciliação/exportação técnica revisada antes de criar novo armazenamento; nenhuma limpeza automática foi implementada.

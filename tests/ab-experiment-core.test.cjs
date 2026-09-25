@@ -6,7 +6,7 @@ test('database freezes deduplicated disjoint cohort, exact half split, replay, b
   const before=(await x.db.query('SELECT to_jsonb(c) x FROM campaigns c ORDER BY id')).rows,p=await x.protocol(),r=await x.prepare(p);
   assert.deepEqual(r.arms.map(a=>a.allocated),[500,500]);assert.equal(r.transport_bound,false);assert.equal(r.state,'prepared');assert.deepEqual(await x.prepare(p),r);
   const receipt=(await x.db.query('SELECT crm_ab_operation_v2($1,$2) x',['panel:synthetic','00000000-0000-4000-8000-000000000101'])).rows[0].x;
-  assert.equal(receipt.state,'completed');assert.deepEqual(receipt.response,r);assert.deepEqual(receipt.request_payload,p);
+  assert.equal(receipt.state,'completed');assert.deepEqual(receipt.response.body.experiment,r);assert.deepEqual(receipt.request_payload,p);
   assert.equal((await x.db.query('SELECT crm_ab_operation_v2($1,$2) x',['panel:other','00000000-0000-4000-8000-000000000101'])).rows[0].x.state,'missing');
   assert.deepEqual((await x.db.query('SELECT to_jsonb(c) x FROM campaigns c ORDER BY id')).rows,before);
   assert.equal((await x.db.query('SELECT count(DISTINCT subscriber_id)::int n FROM crm_ab_member_v2')).rows[0].n,1000);
@@ -32,7 +32,7 @@ test('native counts use distinct matching assigned IDs and fixed window; missing
   assert.equal(AB.result(p,await x.measure()).status,'unknown');
   await x.db.exec('DELETE FROM link_clicks WHERE id=(SELECT max(id) FROM link_clicks)');
   await x.db.exec(`INSERT INTO link_clicks(campaign_id,subscriber_id,created_at) VALUES(100,NULL,now()-interval '2 hours')`);assert.equal(AB.result(p,await x.measure()).status,'unknown');
-  await x.db.exec('DELETE FROM link_clicks WHERE subscriber_id IS NULL;DELETE FROM subscribers WHERE id=1');s=await x.measure();assert.equal(s.arms[0].allocated+s.arms[1].allocated,1000);assert.equal(s.arms[0].unknown+s.arms[1].unknown,1);assert.equal(AB.result(p,s).status,'unknown');
+  await x.db.exec('DELETE FROM link_clicks WHERE subscriber_id IS NULL;DELETE FROM subscriber_lists WHERE subscriber_id=1;DELETE FROM subscribers WHERE id=1');s=await x.measure();assert.equal(s.arms[0].allocated+s.arms[1].allocated,1000);assert.equal(s.arms[0].unknown+s.arms[1].unknown,1);assert.equal(AB.result(p,s).status,'unknown');
  }finally{await x.db.close();}
 });
 test('version, disabled recipients, different audience and insufficient size fail before allocation',async()=>{

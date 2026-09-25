@@ -9,13 +9,14 @@ CREATE TABLE public.crm_ab_experiment_v2(
  version integer NOT NULL DEFAULT 1 CHECK(version>0),prepared_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  window_start timestamptz,window_end timestamptz,transport_bound boolean NOT NULL DEFAULT false,
  tracking_continuous boolean NOT NULL DEFAULT false,source_complete boolean NOT NULL DEFAULT true,
+ transport_interrupted_at timestamptz,transport_interruption text,
  CHECK((window_start IS NULL)=(window_end IS NULL)),CHECK(window_end>window_start)
 );
 CREATE UNIQUE INDEX crm_ab_one_active_brand_v2 ON public.crm_ab_experiment_v2(brand) WHERE state IN ('prepared','scheduled');
 CREATE TABLE public.crm_ab_arm_v2(
  test_id uuid REFERENCES public.crm_ab_experiment_v2(test_id),arm text CHECK(arm IN ('a','b')),
  campaign_id integer NOT NULL UNIQUE,campaign_version text NOT NULL,list_id integer UNIQUE,allocated_count integer NOT NULL DEFAULT 0 CHECK(allocated_count>=0),
- finished_at timestamptz,PRIMARY KEY(test_id,arm)
+ finished_at timestamptz,transport_interrupted_at timestamptz,PRIMARY KEY(test_id,arm)
 );
 CREATE TABLE public.crm_ab_member_v2(
  test_id uuid NOT NULL,subscriber_id integer NOT NULL,arm text NOT NULL,
@@ -73,7 +74,8 @@ BEGIN
  SELECT * INTO prior FROM public.crm_ab_action_v2 WHERE operation_id=oid;
  IF FOUND THEN
   IF prior.actor IS DISTINCT FROM actor OR prior.request_payload IS DISTINCT FROM p THEN RAISE EXCEPTION 'AB_V2_IDENTITY';END IF;
-  RETURN prior.response;
+  IF prior.response->>'status' IS DISTINCT FROM '200' THEN RAISE EXCEPTION 'AB_V2_RECORDED_REJECTION';END IF;
+  RETURN prior.response#>'{body,experiment}';
  END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('crm-ab-v2-brand:'||b,0));
  IF EXISTS(SELECT 1 FROM public.crm_ab_experiment_v2 WHERE test_id=tid OR brand=b AND state IN ('prepared','scheduled')) THEN RAISE EXCEPTION 'AB_V2_ACTIVE_EXISTS';END IF;
@@ -115,7 +117,7 @@ BEGIN
  SELECT tid,id,CASE WHEN row_number() OVER(ORDER BY sha256(convert_to(seed_value::text||':'||id::text,'UTF8')),id)<=floor(n/2.0) THEN 'a' ELSE 'b' END FROM unnest(members) id;
  UPDATE public.crm_ab_arm_v2 a SET allocated_count=(SELECT count(*) FROM public.crm_ab_member_v2 m WHERE m.test_id=a.test_id AND m.arm=a.arm) WHERE a.test_id=tid;
  result:=public.crm_ab_snapshot_v2(tid);
- INSERT INTO public.crm_ab_action_v2(operation_id,actor,request_payload,response) VALUES(oid,actor,p,result);
+ INSERT INTO public.crm_ab_action_v2(operation_id,actor,request_payload,response) VALUES(oid,actor,p,jsonb_build_object('status',200,'body',jsonb_build_object('experiment',result)));
  RETURN result;
 END $fn$;
 
@@ -133,7 +135,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,public AS $$
  'window_start',to_char(e.window_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
  'window_end',to_char(e.window_end AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
  'integrity',jsonb_build_object('allocation_complete',(SELECT count(*)=2 FROM public.crm_ab_arm_v2 WHERE test_id=e.test_id),
- 'assignment_disjoint',true,'transport_bound',e.transport_bound,'tracking_continuous',e.tracking_continuous,
+ 'assignment_disjoint',true,'transport_bound',e.transport_bound,'transport_continuous',e.transport_interrupted_at IS NULL AND NOT EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 a WHERE a.test_id=e.test_id AND a.transport_interrupted_at IS NOT NULL),'tracking_continuous',e.tracking_continuous,
  'source_complete',e.source_complete AND NOT EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 a WHERE a.test_id=e.test_id AND a.allocated_count<>(SELECT count(*) FROM public.crm_ab_member_v2 m WHERE m.test_id=a.test_id AND m.arm=a.arm)) AND NOT EXISTS(SELECT 1 FROM public.link_clicks lc JOIN public.crm_ab_arm_v2 a ON a.campaign_id=lc.campaign_id
    LEFT JOIN public.crm_ab_member_v2 m ON m.test_id=a.test_id AND m.subscriber_id=lc.subscriber_id AND m.arm=a.arm
    WHERE a.test_id=e.test_id AND lc.created_at>=e.window_start AND lc.created_at<e.window_end AND m.subscriber_id IS NULL)),
