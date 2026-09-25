@@ -40,3 +40,8 @@ test('render hides for WhatsApp, escapes labels, and differentiates missing from
  assert.equal(el.hidden,false);assert(!el.innerHTML.includes('<img'));assert.match(el.innerHTML,/&lt;img/);assert.match(el.innerHTML,/Cobertura parcial/);assert.match(el.innerHTML,/<strong>0<\/strong>/);
  S.render({},'todas','2026-09-14','2026-09-14','email',ui);assert.match(el.innerHTML,/indisponíveis/);assert(!el.innerHTML.includes('<strong>0'));
 });
+test('explicit test rows and test-only coverage never enter operational totals',()=>{
+ const m=model(api([row(),row({is_test:true,aceitos:999,entregues:999})],[coverage(),{...coverage('fish','test-only'),is_test:true}]));
+ assert.equal(m.totals.aceitos,10);assert.equal(m.totals.entregues,8);assert.equal(m.coverage.length,1);
+ const n=model(api([row({piece:'test-only'})],[{...coverage('fish','test-only'),is_test:true}]));assert.equal(n.rows.length,0);
+});

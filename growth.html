@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=dbf3b1a8b1aa">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-hCNPkoUOnaMZI+70wxVa+sx4RP425gTLiEvFLvda74I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vau6ZOq2bTNEd4fEmP0qk+H5oiromuy7LT9W4byEUkM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -243,7 +243,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=58fb5cd89a3c"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6007e7eea14b"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -700,7 +700,7 @@ function render(){
 
 
   shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
-  $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'});
+  $('#relogio').textContent=GUI.sourceTime(new Date().toISOString());
   $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
 }
 
@@ -778,18 +778,18 @@ async function carregar(){
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
-    if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
+    if(window.avisoCredencial)window.avisoCredencial(GrowthFreshness.credentialAlerts(API.crm_credencial));
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
     CONSULTA={em:new Date().toISOString(),falhou:false};
     render();
     if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
     gravaHash();
     $('#load-state').hidden=true;
-    const horaBR=d=>new Date(d).toLocaleTimeString('pt-BR',{timeZone:G.TZ,hour:'2-digit',minute:'2-digit'});
+    const horaBR=d=>GUI.sourceTime(d);
     $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
-      ?'Dados de '+horaBR(next._cache_gerado_em)+' · cache renovado a cada 10 min · atualiza a cada 60s enquanto visível'
-      :'Consulta ao vivo às '+horaBR(Date.now())+' · atualiza a cada 60s enquanto visível';
-    $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "CRM — API cache" e servido de dash_payload_cache. Se o cache falhar ou envelhecer mais de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
+      ?'Dados de '+horaBR(next._cache_gerado_em)+' · renovados a cada 10 min · painel consulta a cada minuto enquanto visível'
+      :'Consulta direta de '+horaBR(Date.now())+' · painel consulta a cada minuto enquanto visível';
+    $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
     $('#load-state').hidden=true;
     CONSULTA={...CONSULTA,falhou:true};

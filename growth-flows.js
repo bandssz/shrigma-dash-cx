@@ -161,7 +161,7 @@ const GF={
   volumeTexto(e){
     const nf=v=>v===null||v===undefined?'—':new Intl.NumberFormat('pt-BR').format(v);
     if(!e.volume.linhas_periodo)return 'sem linha no período';
-    if(e.canal==='email')return `${nf(e.volume.enviados)} aceitos pela API (entrega individual não medida)`;
+    if(e.canal==='email')return `${nf(e.volume.enviados)} envios registrados (entregas no quadro de e-mail medido)`;
     return `${nf(e.volume.aceitos)} aceitos · ${nf(e.volume.entregues)} entregues`;
   },
 };

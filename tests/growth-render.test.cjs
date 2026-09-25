@@ -132,7 +132,7 @@ test('sombra sem erro não vira atenção e acompanhamento de e-mail é informat
  assert.equal(x.run('CANAL'),'email');assert.equal(x.run('SEC'),'regua');assert.equal(x.run('MARCA'),'aristo');
  section=x.document.querySelector('#automation-attention');
  assert.equal(section.querySelectorAll('.attention-stats').length,0);
- assert.match(section.textContent,/entrega e falhas individuais ainda não são medidas/);
+ assert.match(section.textContent,/entregas e falhas estão no quadro/);
  assert.equal(section.querySelectorAll('.attention-occurrence,.alerta-ruim').length,0);
 });
 test('acompanhamento informa campos e janela ausentes sem renderizar zero falso',async()=>{
@@ -190,14 +190,14 @@ test('faixa de fontes mostra um horário por origem, marca inventário ausente e
  const x=await boot();
  const fontes=[...x.document.querySelectorAll('#fontes .fonte')];
  assert.deepEqual(fontes.map(f=>f.querySelector('b').textContent),['Consulta','WhatsApp','Venda','E-mail','Inventário']);
- assert.match(fontes[0].textContent,/às 22:10/); // 01:10Z = 22:10 em Brasília, mesmo dia BRT
+ assert.match(fontes[0].textContent,/às 07\/09\/2026, 22:10 BRT/); // 01:10Z = 22:10 em Brasília, mesmo dia BRT
  assert.equal(fontes[0].dataset.estado,'ok');
- assert.match(fontes[2].textContent,/coletada até 21:40/);
+ assert.match(fontes[2].textContent,/coletada até 07\/09\/2026, 21:40 BRT/);
  assert.equal(fontes[4].dataset.estado,'falta');assert.match(fontes[4].textContent,/sem dado/);
  assert(fontes.every(f=>f.title.length>20));
  x.setResponse({},500);await x.run('carregar()');
  const consulta=x.document.querySelector('#fontes .fonte');
- assert.equal(consulta.dataset.estado,'ruim');assert.match(consulta.textContent,/falhou · exibindo 22:10/);
+ assert.equal(consulta.dataset.estado,'ruim');assert.match(consulta.textContent,/falhou · exibindo 07\/09\/2026, 22:10 BRT/);
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'192');
 });
 test('e-mail: KPI de CTR informa a base medida e o card lista o que é lacuna',async()=>{
@@ -206,8 +206,8 @@ test('e-mail: KPI de CTR informa a base medida e o card lista o que é lacuna',a
  assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);
  const gaps=[...x.document.querySelectorAll('.measure-gaps li')];
  assert.deepEqual(gaps.map(g=>g.dataset.gap),['ok','lacuna','lacuna']);
- assert.match(gaps[1].textContent,/entrega individual não medida/);
- assert.match(gaps[1].title,/não como 0% ou 100%/);
+ assert.match(gaps[1].textContent,/consulta de entregas indisponível/);
+ assert.match(gaps[1].title,/dentro dos intervalos medidos/);
 });
 test('atalhos dos KPIs levam à tabela certa preservando marca e período',async()=>{
  const x=await boot();x.document.querySelector('[data-marca="fish"]').click();const period=x.run('JSON.stringify(PER)');
@@ -427,7 +427,7 @@ test('saúde dos fluxos (F07/F06): chips são botões com detalhe visível por c
  assert.equal(chips.length,4);assert.equal(chips[0].tagName,'BUTTON');assert.equal(chips[0].dataset.estado,'alerta');assert.match(chips[0].textContent,/· alerta$/);assert.equal(chips[0].getAttribute('aria-expanded'),'false');
  const det=()=>x.document.getElementById(chips[0].getAttribute('aria-controls'));
  assert.equal(det().hidden,true);chips[0].click();assert.equal(det().hidden,false);assert.equal(chips[0].getAttribute('aria-expanded'),'true');
- assert.match(det().textContent,/40 aceites sem status · verificado 22:00 · em alerta desde 20:00/);
+ assert.match(det().textContent,/40 aceites sem status · verificado 07\/09\/2026, 22:00 BRT · em alerta desde 07\/09\/2026, 20:00 BRT/);
  chips[1].click();assert.match(x.document.getElementById(chips[1].getAttribute('aria-controls')).textContent,/Sem ocorrência na última verificação/);
  assert.equal(chips[2].dataset.estado,'desconhecido');assert.match(chips[2].textContent,/estado \?/);chips[2].click();assert.match(x.document.getElementById(chips[2].getAttribute('aria-controls')).textContent,/Estado não informado pela verificação · verificado —/);
  assert.match(chips[3].textContent,/2 registro\(s\) inválido\(s\)/);
@@ -708,7 +708,7 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  assert.match(cards[0].querySelector('.flow-badges').textContent,/Modo sombra/); // aristo_tx em sombra na fixture, consulta atual
  assert.match(cards[0].textContent,/Pedido pago e rastreio Aristocrata · modo configurado: sombra/);assert.match(cards[0].textContent,/aristo_confirmacao_exemplo · APPROVED/);
  assert.match(cards[1].querySelector('.flow-badges').textContent,/Workflow não declarado no manifesto/);
- assert.match(cards[1].textContent,/E-mail · carrinho-30min/);assert.match(cards[1].textContent,/50 aceitos pela API/);assert.match(cards[1].textContent,/42 aceitos · 40 entregues/);
+ assert.match(cards[1].textContent,/E-mail · carrinho-30min/);assert.match(cards[1].textContent,/50 envios registrados/);assert.match(cards[1].textContent,/42 aceitos · 40 entregues/);
  assert.equal([...root().querySelectorAll('button')].filter(b=>/editar|publicar|ativar|salvar|criar|nova etapa/i.test(b.textContent)).length,0);
  x.document.querySelector('[data-marca="fish"]').click();cards=[...root().querySelectorAll('.flow-card')];assert.deepEqual(cards.map(c=>c.dataset.flow),['fish|carrinho']);
  x.document.querySelector('[data-marca="todas"]').click();
@@ -877,4 +877,13 @@ test('email editor exposes a complete brand envelope and keeps it in preview, lo
  value('#d-from-email','O Aristocrata <contato@oaristocrata.com>');
  assert.ok(x.run('GR.valida(GRU.state.rascunho).erros.some(e=>e.includes("remetente"))'));
  assert.ok(x.calls.every(c=>c.init?.method!=='POST'));
+});
+test('Growth header and sources always show date and time in Brasília',async()=>{
+ const x=await boot();assert.match(x.document.querySelector('#atualizado-em').textContent,/07\/09\/2026, 22:10 BRT/);assert.match(x.document.querySelector('#relogio').textContent,/07\/09\/2026, 22:10 BRT/);
+ assert.match(x.document.querySelector('#fontes .fonte').textContent,/07\/09\/2026, 22:10 BRT/);
+ assert.doesNotMatch(x.document.querySelector('#atualizado-em').title,/Postgres|workflow|dash_payload/);
+});
+test('email overview acknowledges SES partial delivery coverage without adding it to campaign CTR',async()=>{
+ const p=fixture();p.crm_email_ses={schema_version:1,generated_at:'2026-09-08T01:00:00Z',rows:[],coverage:[{marca:'fish',flow:'carrinho',piece:'carrinho-30min',starts_at:'2026-09-01T12:00:00Z',ends_at:null,state:'partial'}]};
+ const x=await boot(p);x.document.querySelector('[data-canal="email"]').click();const gap=x.document.querySelectorAll('.measure-gaps li')[1];assert.equal(gap.dataset.gap,'parcial');assert.match(gap.textContent,/entregas e falhas com cobertura parcial/);assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);
 });
