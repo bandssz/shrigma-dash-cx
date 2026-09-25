@@ -7,7 +7,7 @@
 <title>Growth · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=64b25b58a919">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DRIpnBxiQbKt5yupgy2Ytqs8AdGCJIEGi74BGtFMZUs='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-PMFyDSvFV7iiUdujcvP2QC8Z9XihgWi7786ENHaWaMI='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -186,6 +186,7 @@
           Isso não identifica sozinho o grupo acompanhado nem comprova conversão em venda. Preserve os links e padrões atuais;
           não substitua as UTMs do envio para tentar obter um resultado neste quadro.</div>
       </div>
+      <div id="ab-experiment-panel" hidden></div>
       <div id="area-testes"></div>
     </section>
   </div>
@@ -241,7 +242,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=1ca30beba255"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=ed64cc11326c"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -465,7 +466,30 @@ async function encerrarTeste(id){
   await gravaTesteAB({k:wk,acao:'encerrar',teste:{teste_id:id,status:'inconclusivo',vencedor:null,conclusao:conc}},msg,btn);
 }
 
+let AB_EXPERIMENT_PANEL=null;
+function restoreABExperimentBrand(next){
+  if(!['fish','aristo'].includes(next))return false;
+  const campaign=GCE.contextStatus(),template=GRU.contextStatus();
+  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||
+    typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
+  try{GCE.preserve();GRU.preserve();GABF.preserve();}catch{return false;}
+  MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
+  GCE.mount({marca:MARCA,api:API});GABF.enter(MARCA,API);GRU.render({api:API,marca:MARCA});pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
+}
+function renderABExperiment(){
+  const element=$('#ab-experiment-panel');
+  // This candidate introduces no visible CTA or endpoint until deployment review.
+  if(typeof GABExperimentPanel==='undefined'||GABExperimentPanel.ACTIVATION.enabled!==true){if(element)element.hidden=true;return;}
+  if(!API||!element)return;
+  try{
+    if(!AB_EXPERIMENT_PANEL)AB_EXPERIMENT_PANEL=GABExperimentPanel.create({experimentClient:GABExperimentClient,experimentUI:GABExperimentUI,campaignAPI:GCA,
+      getManagerKey:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',restoreBrand:restoreABExperimentBrand,
+      campaignContext:{status:()=>GCE.contextStatus(),preserve:()=>GCE.preserve()},storage:localStorage,locks:navigator.locks,fetch});
+    AB_EXPERIMENT_PANEL.render({element,marca:MARCA,api:API,activation:GABExperimentPanel.ACTIVATION});
+  }catch(e){element.hidden=false;element.textContent=e.message;}
+}
 function render(){
+  renderABExperiment();
   GCE.mount({marca:MARCA,api:API});
   if(!API)return;
   GABF.enter(MARCA,API);
@@ -846,8 +870,9 @@ function trocaMarca(next){
   if(!['todas','fish','aristo','olivas'].includes(next))return false;
   if(next===MARCA)return true;
   const status=$('#brand-context-status'),notice=text=>{status.textContent=text;status.hidden=!text;};
-  const campaign=GCE.contextStatus(),template=GRU.contextStatus();
-  if(AB_BUSY||campaign.blocked||template.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+  const campaign=GCE.contextStatus(),template=GRU.contextStatus(),experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{};
+  if(AB_BUSY||campaign.blocked||template.blocked||experiment.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+  if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
   if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
     notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
   }
