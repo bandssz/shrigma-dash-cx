@@ -7,7 +7,7 @@ function boot(api=fixture(),{brand='fish',channel='email'}={}){
  const {document,window}=parseHTML('<html><body><section id="attribution-status"></section><section id="attribution-campaigns"></section></body></html>');
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused||document.body});
  const downloads=[],context=vm.createContext({document,window,Date,Intl,__downloads:downloads});
- for(const file of ['growth-table.js','growth-ui.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
+ for(const file of ['growth-table.js','growth-ui.js','growth-utm.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
  context.input=api;vm.runInContext(`GT.baixar=(name,text)=>__downloads.push({name,text});globalThis.render=()=>GA.render({api:input,marca:${JSON.stringify(brand)},ini:'2026-09-14',fim:'${day}',canal:${JSON.stringify(channel)},GUI,onModel:()=>{}});`,context);context.render();
  return {document,window,api,downloads,render:context.render,q:s=>document.querySelector(s)};
 }
@@ -45,4 +45,22 @@ test('attribution exports distinguish brands and channel while preserving the fi
  assert.match(fish.downloads[0].text,/fixture;fish;/);assert.doesNotMatch(fish.downloads[0].text,/aristo fixture;aristo/);assert.match(aristo.downloads[0].text,/aristo fixture;aristo;/);assert.doesNotMatch(aristo.downloads[0].text,/fixture;fish/);
  assert.equal(JSON.stringify(api),before);assert.equal(fish.downloads[0].text.split('\r\n')[0],aristo.downloads[0].text.split('\r\n')[0]);
  const wa=boot(api,{channel:'whatsapp'});wa.q('#attribution-export').click();assert.match(wa.downloads[0].name,/-fishermans-whatsapp-/);
+});
+
+test('campaign history displays all recorded UTM tuples in the selected brand without inferring source or altering results',()=>{
+ const api=fixture(),fish=api.crm_attribution.campaigns[0];
+ fish.utms=[{source:'fish-source-a',medium:'campanha',campaign:'fish-recorded',content:'hero',term:'dispatch-a'},{source:'fish-source-b',medium:'email',campaign:'fish-recorded',content:'footer',term:'dispatch-b'}];
+ api.crm_attribution.coverage.push({brand:'aristo',day,checked_at:day+'T13:00:00Z'});
+ api.crm_attribution.campaigns.push({...fish,marca:'aristo',emissor:'aristo',campanha_id:2,familia:'aristo-fixture',nome:'Aristo fixture',utms:[{source:'aristo-recorded',medium:'campanha',campaign:'aristo-only',content:'<script>unsafe</script>',term:''}]});
+ const before=JSON.stringify(api.crm_attribution),x=boot(api),y=boot(api,{brand:'aristo'}),fx=x.q('.ga-campaign .crm-utm'),ar=y.q('.ga-campaign .crm-utm');
+ assert.ok(fx);assert.match(fx.textContent,/UTMs registradas/);for(const value of ['fish-source-a','fish-source-b','fish-recorded','hero','footer','dispatch-a','dispatch-b'])assert.ok(fx.textContent.includes(value),value);
+ assert.doesNotMatch(fx.textContent,/aristo-recorded/);assert.match(ar.textContent,/aristo-recorded/);assert.doesNotMatch(ar.textContent,/fish-source/);assert.ok(ar.textContent.includes('<script>unsafe</script>'));assert.equal(ar.querySelector('script'),null);
+ assert.match(fx.textContent,/Links e histórico de cliques/);assert.match(fx.textContent,/15\/09\/2026, 11:00/);assert.equal(JSON.stringify(api.crm_attribution),before);
+});
+test('missing campaign history UTMs remain explicitly unavailable instead of assuming the campaign source policy',()=>{
+ for(const utms of [null,[]]){const api=fixture();api.crm_attribution.campaigns[0].utms=utms;const x=boot(api),el=x.q('.ga-campaign .crm-utm');assert.ok(el);assert.match(el.textContent,/UTMs não disponíveis nesta consulta/);assert.doesNotMatch(el.textContent,/listmonk|utm_source=listmonk/);}
+});
+
+test('campaign tracking presentation leaves other brands outside this Growth change',()=>{
+ const api=fixture();api.crm_attribution.coverage[0].brand='olivas';Object.assign(api.crm_attribution.campaigns[0],{marca:'olivas',emissor:'olivas',utms:[{source:'other',campaign:'existing'}]});const x=boot(api,{brand:'olivas'});assert.ok(x.q('.ga-campaign'));assert.equal(x.q('.ga-campaign .crm-utm'),null);
 });
