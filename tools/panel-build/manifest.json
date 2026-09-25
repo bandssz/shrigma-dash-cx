@@ -61,7 +61,8 @@
       "growth-template-journal.js",
       "growth-drafts-ui.js",
       "growth-canvas.js",
-      "growth-builder.js",
+      "growth-flow-journal.js",
+        "growth-builder.js",
       "growth-flows.js",
       "growth-flows-ui.js",
       "panel-bridge.js"

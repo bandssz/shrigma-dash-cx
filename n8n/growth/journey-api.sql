@@ -19,27 +19,31 @@ BEGIN
  IF FOUND THEN
   IF i.actor IS DISTINCT FROM actor OR i.payload IS DISTINCT FROM p THEN RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','idempotency_replay_mismatch'));END IF;
   RETURN i.response;END IF;
+ <<apply_request>>
+ BEGIN
  SELECT * INTO f FROM shrigma_flow_definition WHERE key=p->>'key' FOR UPDATE;
- IF NOT FOUND THEN RETURN jsonb_build_object('_http',404,'_body',jsonb_build_object('erro','fluxo_nao_encontrado'));END IF;
- IF f.binding->>'merged_into' IS NOT NULL THEN RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','jornada_unificada','key',f.binding->>'merged_into'));END IF;
+ IF NOT FOUND THEN response:=jsonb_build_object('_http',404,'_body',jsonb_build_object('erro','fluxo_nao_encontrado'));EXIT apply_request;END IF;
+ IF f.binding->>'merged_into' IS NOT NULL THEN response:=jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','jornada_unificada','key',f.binding->>'merged_into'));EXIT apply_request;END IF;
  expected:=(p->>'expected_version')::integer;
- IF f.version<>expected THEN RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','version_conflict','current_version',f.version,'changed_by',f.updated_by,'changed_at',f.updated_at));END IF;
+ IF f.version<>expected THEN response:=jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','version_conflict','current_version',f.version,'changed_by',f.updated_by,'changed_at',f.updated_at));EXIT apply_request;END IF;
  nextdef:=CASE WHEN a='fluxo_salvar' THEN p->'definition' ELSE f.draft END;
  errors:=shrigma_flow_validate(nextdef,f.binding);
- IF jsonb_array_length(errors)>0 THEN RETURN jsonb_build_object('_http',422,'_body',jsonb_build_object('erro','validation','messages',errors));END IF;
+ IF jsonb_array_length(errors)>0 THEN response:=jsonb_build_object('_http',422,'_body',jsonb_build_object('erro','validation','messages',errors));EXIT apply_request;END IF;
  IF a='fluxo_salvar' THEN
   UPDATE shrigma_flow_definition SET draft=nextdef,version=version+1,updated_by=actor,updated_at=now() WHERE key=f.key RETURNING * INTO f;
  ELSIF a='fluxo_publicar' THEN
-  IF NOT f.runtime_ready THEN RETURN jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','runtime_nao_conectado'));END IF;
-  IF p->>'confirm' IS DISTINCT FROM 'publicar' THEN RETURN jsonb_build_object('_http',400,'_body',jsonb_build_object('erro','confirm_obrigatorio'));END IF;
+  IF NOT f.runtime_ready THEN response:=jsonb_build_object('_http',409,'_body',jsonb_build_object('erro','runtime_nao_conectado'));EXIT apply_request;END IF;
+  IF p->>'confirm' IS DISTINCT FROM 'publicar' THEN response:=jsonb_build_object('_http',400,'_body',jsonb_build_object('erro','confirm_obrigatorio'));EXIT apply_request;END IF;
   INSERT INTO shrigma_flow_revision(flow_key,version,definition,actor) VALUES(f.key,f.version,f.draft,actor) ON CONFLICT DO NOTHING;
   UPDATE shrigma_flow_definition SET name=draft->>'name',published=draft,published_version=version,updated_by=actor,updated_at=now() WHERE key=f.key RETURNING * INTO f;
  ELSIF a='fluxo_estado' THEN
-  IF NOT f.runtime_ready OR jsonb_typeof(p->'enabled') IS DISTINCT FROM 'boolean' THEN RETURN jsonb_build_object('_http',422,'_body',jsonb_build_object('erro','estado_indisponivel'));END IF;
+  IF NOT f.runtime_ready OR jsonb_typeof(p->'enabled') IS DISTINCT FROM 'boolean' THEN response:=jsonb_build_object('_http',422,'_body',jsonb_build_object('erro','estado_indisponivel'));EXIT apply_request;END IF;
+  IF p->>'confirm' IS DISTINCT FROM (CASE WHEN (p->>'enabled')::boolean THEN 'retomar' ELSE 'pausar' END) THEN response:=jsonb_build_object('_http',400,'_body',jsonb_build_object('erro','confirm_obrigatorio'));EXIT apply_request;END IF;
   UPDATE shrigma_flow_definition SET enabled=(p->>'enabled')::boolean,version=version+1,published_version=CASE WHEN draft=published THEN version+1 ELSE published_version END,updated_by=actor,updated_at=now() WHERE key=f.key RETURNING * INTO f;
  END IF;
  INSERT INTO shrigma_flow_audit(flow_key,actor,action,version,detail) VALUES(f.key,actor,a,f.version,jsonb_build_object('enabled',f.enabled,'published_version',f.published_version));
  response:=jsonb_build_object('_http',200,'_body',jsonb_build_object('flow',shrigma_flow_public_row(f),'valid',true));
+ END apply_request;
  INSERT INTO shrigma_flow_request(idem,actor,payload,response) VALUES(v_idem,actor,p,response);
  RETURN response;
 END $function$;
