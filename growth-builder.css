@@ -18,3 +18,8 @@
 .flow-node-end{border-color:#d5e4df!important;background:#f8fcfa!important}
 .flow-node-end .flow-node-icon{background:#e7f2ed;color:#397962}
 @media(max-width:600px){.builder-journey-summary{padding:10px 12px}.builder-journey-summary p{flex-basis:100%}}
+/* Confirmation stays in the page; background editing remains blocked by busy. */
+.builder-confirm{width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:24px;border:1px solid var(--borda-forte);border-radius:12px;background:var(--card);color:var(--texto);box-shadow:0 16px 64px #0003}
+.builder-confirm::backdrop{background:#17221e66}.builder-confirm h2{margin:0 0 16px;font-size:20px}.builder-confirm dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px}.builder-confirm dt{color:var(--mudo)}.builder-confirm dd{margin:0;overflow-wrap:anywhere}.builder-confirm p{line-height:1.5}.builder-confirm-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px}
+
+.builder-confirm-actions button{padding:9px 13px;border:1px solid var(--borda-forte);border-radius:8px;background:var(--card);color:var(--texto);font:600 13px var(--ui);cursor:pointer}.builder-confirm-actions [data-flow-confirm]{background:var(--texto);color:var(--card)}

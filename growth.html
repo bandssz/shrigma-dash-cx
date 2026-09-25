@@ -6,7 +6,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Growth · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=dbf3b1a8b1aa">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=993d53fe9a4a">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vau6ZOq2bTNEd4fEmP0qk+H5oiromuy7LT9W4byEUkM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth">
@@ -107,10 +107,8 @@
       <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
         <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th><th>UTM</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Agendadas no Listmonk que ainda não dispararam. Não entram em nenhuma métrica.
-        A coluna UTM é checklist pré-disparo: peça sem UTM no corpo não terá receita atribuída depois,
-        e não dá para consertar retroativamente. Peça que aponta para fora da loja (grupo de WhatsApp,
-        por exemplo) aparece sem UTM por natureza — ali a atribuição é por cupom ou coorte.</div>
+      <div class="nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
+        <span class="control-badge" tabindex="0" title="Sem UTM no link da loja, a receita não pode ser atribuída depois. Links para fora da loja, como grupos de WhatsApp, usam outra forma de atribuição, como cupom ou coorte.">Como a UTM funciona</span></div>
     </section>
   </div>
 
@@ -196,7 +194,7 @@
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
       <button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates WhatsApp</button>
-      <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Fluxos</button>
+      <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
       <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar templates</button>
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
@@ -232,8 +230,7 @@
     <section class="painel">
       <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
       <div id="area-arvore"></div>
-      <div class="nota">A árvore é lida da tabela <code>crm_regra_galho</code>, não do workflow. Mudar um corte
-        de recência é um <code>UPDATE</code> — não precisa editar n8n.</div>
+      <div class="nota"><span class="control-badge" tabindex="0" title="A árvore mostra as regras atuais de segmentação da marca. Alterações nessas regras precisam de revisão antes de valerem para os próximos públicos.">Regras atuais da marca</span></div>
     </section>
   </div>
 
@@ -243,7 +240,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6007e7eea14b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=58928a66917d"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);

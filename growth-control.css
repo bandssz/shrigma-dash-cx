@@ -121,3 +121,5 @@
 .flow-saude{margin-top:10px}
 @media(max-width:1100px){.flows-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.flow-badges{justify-content:flex-start}}
+
+.control-explainer{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}.control-context .control-explainer{margin-bottom:0}.control-badge[title]:focus-visible{outline:2px solid var(--texto);outline-offset:2px}
