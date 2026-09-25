@@ -56,11 +56,21 @@ const GB={
   if(GB.hasDifferentDraft(op))return true;
   GB.state.selected=op.request_payload.key;GB.state.baseVersion=op.context.baseVersion;GB.state.draft=GB.clone(op.context.draft);GB.state.dirty=op.context.dirty;return true;
  },
- confirmation(action,f,payload){
+ async confirmation(action,f,payload){
   if(action==='fluxo_salvar')return true;
+  if(typeof document==='undefined'||!document.body)return false;
   const verb=action==='fluxo_publicar'?'Publicar alterações':payload.enabled?'Retomar jornada':'Pausar jornada';
   const effect=action==='fluxo_publicar'?'A versão salva passará a orientar os próximos eventos desta jornada.':payload.enabled?'Os próximos eventos elegíveis poderão seguir a versão publicada.':'Os próximos envios desta jornada ficarão pausados. Mensagens já aceitas ou em trânsito não são recolhidas.';
-  return confirm(`${verb}?\n\nMarca: ${GB.brandLabel(f.brand)}\nJornada: ${f.name}\nVersão: ${payload.expected_version}\n\n${effect}\nCompra, descadastro e as demais guardas continuam valendo.`);
+  const opener=document.activeElement,dialog=document.createElement('dialog');dialog.className='builder-confirm';dialog.id='builder-confirm';dialog.setAttribute('aria-labelledby','builder-confirm-title');dialog.setAttribute('aria-describedby','builder-confirm-effect');
+  dialog.innerHTML=`<h2 id="builder-confirm-title">${GB.e(verb)}</h2><dl><dt>Marca</dt><dd>${GB.e(GB.brandLabel(f.brand))}</dd><dt>Jornada</dt><dd>${GB.e(f.name)}</dd><dt>Versão</dt><dd>${GB.e(payload.expected_version)}</dd></dl><p id="builder-confirm-effect">${GB.e(effect)}</p><p class="mini">Compra, descadastro e as demais guardas continuam valendo.</p><div class="builder-confirm-actions"><button type="button" class="btn" data-flow-confirm>${GB.e(verb)}</button><button type="button" class="btn sec" data-flow-cancel>Cancelar</button></div>`;
+  document.body.append(dialog);
+  return new Promise(resolve=>{
+   let settled=false;const done=accepted=>{if(settled)return;settled=true;dialog.remove();opener?.focus?.();resolve(accepted);};
+   dialog.querySelector('[data-flow-confirm]').onclick=()=>done(true);dialog.querySelector('[data-flow-cancel]').onclick=()=>done(false);
+   dialog.addEventListener('cancel',e=>{e.preventDefault();done(false);});dialog.addEventListener('close',()=>done(false));
+   dialog.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();done(false);}if(e.key==='Tab'){const buttons=[...dialog.querySelectorAll('button')],first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+   if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');dialog.querySelector('[data-flow-cancel]').focus();
+  });
  },
  recovery(){
   const latest=[...(GB.journal()?.inspect().operations||[])].reverse().find(op=>op.request_payload.key===GB.state.selected);
@@ -76,7 +86,7 @@ const GB={
    const r=op.receipt,preserve=GB.hasDifferentDraft(op);
    if(r.ok){const updated=r.body.flow;GB.state.flows=GB.state.flows.map(x=>x.key===updated.key&&x.version<=updated.version?updated:x);
     if(!preserve){GB.state.selected=op.request_payload.key;GB.state.baseVersion=updated.version;GB.state.draft=GB.clone(updated.draft);GB.state.dirty=false;}
-    GB.state.error='';GB.state.notice=preserve?'Tentativa confirmada. Sua edição local foi preservada; confira a versão atual antes de salvar.':op.request_payload.acao==='fluxo_publicar'?'Versão publicada. Os próximos eventos usarão estas configurações.':op.request_payload.acao==='fluxo_estado'?(updated.enabled?'Fluxo retomado.':'Fluxo pausado.'):'Rascunho salvo no servidor.';
+    GB.state.error='';GB.state.notice=preserve?'Tentativa confirmada. Sua edição local foi preservada; confira a versão atual antes de salvar.':op.request_payload.acao==='fluxo_publicar'?'Versão publicada. Os próximos eventos usarão estas configurações.':op.request_payload.acao==='fluxo_estado'?(updated.enabled?'Jornada retomada.':'Jornada pausada.'):'Rascunho salvo no servidor.';
    }else{
     if(!preserve){GB.state.selected=op.request_payload.key;GB.state.baseVersion=op.context.baseVersion;GB.state.draft=GB.clone(op.context.draft);GB.state.dirty=op.context.dirty;}
     GB.state.notice=preserve?'Sua edição local foi preservada. A edição recusada continua guardada na jornada de origem.':'';GB.state.error=(r.body.messages||[]).join(' · ')||GTA.erro(r,op.request_payload.acao).texto||r.body.erro;
@@ -95,7 +105,7 @@ const GB={
   if(GB.state.busy)return;GB.state.busy=true;GB.render();
   const r=await GB.request('fluxos_listar');GB.state.busy=false;
   if(typeof GBC!=='undefined'&&GBC.drag){GBC.pendingRender=true;return;}
-  if(!r.ok||!Array.isArray(r.body?.flows)){GB.state.error=r.body?.erro||'Não foi possível carregar os fluxos.';GB.state.loaded=true;GB.render();return;}
+  if(!r.ok||!Array.isArray(r.body?.flows)){GB.state.error=r.body?.erro||'Não foi possível carregar as jornadas.';GB.state.loaded=true;GB.render();return;}
   GB.state.flows=r.body.flows;GB.state.loaded=true;GB.state.error='';GB.state.templates={};
   if(GB.restorePending()){GB.render();return;}
   if(!GB.state.dirty){const f=GB.visible().find(f=>f.key===GB.state.selected)||GB.visible()[0];if(f)GB.select(f.key,false);}
@@ -121,17 +131,21 @@ const GB={
   if(GB.editingBlocked())return;const f=GB.state.flows.find(f=>f.key===GB.state.selected);if(!f)return;
   if(action!=='fluxo_salvar'&&(GB.state.dirty||!f.runtime_ready))return;
   const payload={acao:action,key:f.key,expected_version:GB.state.baseVersion??f.version,...extra};
-  if(action==='fluxo_salvar')payload.definition=GB.clone(GB.state.draft);
-  if(!GB.confirmation(action,f,payload))return;
+  const context={brand:f.brand,name:f.name,baseVersion:payload.expected_version,draft:GB.clone(GB.state.draft),dirty:GB.state.dirty},viewBrand=GB.ctx.marca,flowVersion=f.version;
+  if(action==='fluxo_salvar')payload.definition=GB.clone(context.draft);
   if(action==='fluxo_publicar')payload.confirm='publicar';
   if(action==='fluxo_estado')payload.confirm=payload.enabled?'retomar':'pausar';
+  const openerId=typeof document!=='undefined'?document.activeElement?.id:null;
   const endpoint=GB.endpoint(),journal=GB.journal();if(!journal){GB.state.error='A proteção de tentativas não está disponível. Nenhuma alteração foi enviada.';GB.render();return;}
   const k=typeof GRU!=='undefined'?GRU.chaveEscrita(true):null;if(!k){GB.state.error='Informe o acesso de edição antes de alterar a jornada.';GB.render();return;}
   GB.state.busy=true;GB.state.error='';GB.render();
   try{
-   const result=await journal.run({request_payload:payload,context:{brand:f.brand,name:f.name,baseVersion:payload.expected_version,draft:GB.clone(GB.state.draft),dirty:GB.state.dirty}},{transport:p=>{const {acao,...body}=p;return GB.request(acao,body,true,k,endpoint);},lookup:(id,a)=>GB.request('fluxo_operacao',{idempotency_key:id,operation_action:a},false,k,endpoint)});
+   if(!await GB.confirmation(action,f,payload))return;
+   const current=GB.state.flows.find(x=>x.key===payload.key);
+   if(GB.state.selected!==payload.key||GB.ctx.marca!==viewBrand||GB.state.baseVersion!==context.baseVersion||GB.state.dirty!==context.dirty||!GB.same(GB.state.draft,context.draft)||current?.version!==flowVersion||current?.brand!==context.brand||GB.hasPending())throw Error('A jornada mudou durante a confirmação. Confira a versão atual antes de continuar. Nenhuma alteração foi enviada.');
+   const result=await journal.run({request_payload:payload,context},{transport:p=>{const {acao,...body}=p;return GB.request(acao,body,true,k,endpoint);},lookup:(id,a)=>GB.request('fluxo_operacao',{idempotency_key:id,operation_action:a},false,k,endpoint)});
    await GB.applyOperation(result,journal);
-  }catch(e){GB.state.error=e.message;}finally{GB.state.busy=false;GB.syncPending();GB.render();}
+  }catch(e){GB.state.error=e.message;}finally{GB.state.busy=false;GB.syncPending();GB.render();if(openerId)document.getElementById(openerId)?.focus();}
  },
  stepHtml(step,index,f){
   const e=GB.e,slot=f.available_steps.find(x=>x.key===step.key)||step;
@@ -163,8 +177,8 @@ const GB={
   const available=f?f.available_steps.filter(x=>!d?.steps.some(y=>y.key===x.key)):[];
   const recovery=GB.recovery();
   const feedback=`${recovery?`<div class="builder-notice" role="status">Uma edição recusada desta jornada está guardada neste navegador.<button type="button" id="builder-recover-draft" ${s.busy?'disabled':''}>Recuperar edição recusada</button></div>`:''}${s.pending?`<div class="builder-alert" role="status">${e(s.pending.context?GB.brandLabel(s.pending.context.brand)+' · '+s.pending.context.name+': tentativa sem confirmação. Consulte antes de editar ou repetir.':'O registro da tentativa precisa ser conciliado. Preserve este navegador.')}<button type="button" id="builder-reconcile" ${s.busy||!s.pending.request_payload?'disabled':''}>Consultar tentativa</button></div>`:''}${s.error?`<div class="builder-alert" role="alert">${e(s.error)}</div>`:''}${s.notice?`<div class="builder-notice" role="status">${e(s.notice)}</div>`:''}`;
-  const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome do fluxo" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||s.pending||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
-   ${GB.journeySummary(f,d)}${visual?GBC.html(f,d):`   <div class="builder-canvas"><div class="builder-trigger"><span class="builder-trigger-icon">↯</span><div><small>ENTRADA NO FLUXO</small><strong>${e(f.trigger)}</strong><p>${e(f.binding_description||'Cada evento mantém sua identidade para evitar envios repetidos.')}</p></div></div>
+  const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome da jornada" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||s.pending||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
+   ${GB.journeySummary(f,d)}${visual?GBC.html(f,d):`   <div class="builder-canvas"><div class="builder-trigger"><span class="builder-trigger-icon">↯</span><div><small>ENTRADA NA JORNADA</small><strong>${e(f.trigger)}</strong><p>${e(f.binding_description||'Cada evento mantém sua identidade para evitar envios repetidos.')}</p></div></div>
    ${GB.stagesHtml(f,d)}
    ${available.length?`<div class="builder-add"><select id="builder-add-slot" aria-label="Etapa para adicionar">${available.map(x=>`<option value="${e(x.key)}">${e(x.name)} · ${x.channel==='email'?'E-mail':'WhatsApp'}</option>`).join('')}</select><button type="button" id="builder-add">+ Adicionar etapa</button></div>`:''}
    <div class="builder-end">✓ Fim da jornada</div><div class="builder-exits"><strong>Saídas automáticas</strong><span>${e(f.exit_description||'Compra, cancelamento e descadastro são respeitados pelas guardas de cada jornada.')}</span></div>
