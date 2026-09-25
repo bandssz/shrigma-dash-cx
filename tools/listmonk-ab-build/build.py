@@ -191,8 +191,11 @@ def build(target, output, stuffbin, cache=None):
         require(output_zip.read_bytes() == candidate.read_bytes()[after['bin_size']:-24], 'Candidate official extractor disagrees')
         (bundle / 'LICENSE').write_bytes(release['LICENSE'])
         (bundle / 'UPSTREAM-README.md').write_bytes(release['README.md'])
-        for name in ('upstream.lock.json', 'README.md', 'build.py', 'patch-query.cjs', 'go.mod', 'go.sum', 'test_build.py'):
+        for name in ('upstream.lock.json', 'README.md', 'build.py', 'patch-query.cjs', 'go.mod', 'go.sum', 'test_build.py',
+                     'worker_smoke.py', 'worker_fixture.sql', 'test_worker_smoke.py', 'smtp_capture.py', 'test_smtp_capture.py'):
             shutil.copyfile(HERE / name, bundle / 'source' / name)
+        for name in ('ab-experiment-core.sql', 'ab-experiment-selection.sql'):
+            shutil.copyfile(REPO / 'n8n/growth' / name, bundle / 'source' / name)
         patch_source = REPO / 'n8n/growth/ab-listmonk-cohort-patch.cjs'
         shutil.copyfile(patch_source, bundle / 'source' / patch_source.name)
         (bundle / 'source' / 'campaigns.upstream.sql').write_bytes(original_query.read_bytes())

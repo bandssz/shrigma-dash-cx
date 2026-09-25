@@ -1,9 +1,12 @@
 # Listmonk 6.1.0 A/B — artifact for review, OFF
 
 This produces a candidate executable and an exact upstream rollback archive in CI.
-It does **not** access a database, start Listmonk, activate A/B, install SQL, access the
-host, run Docker, create a release or push to a registry. The dedicated workflow only
-uploads GitHub Actions artifacts for 14 days, with read-only repository permission.
+The packaging step does not start the executable or access a database. A separate
+amd64 smoke step starts the real worker **only in the disposable CI runner**, with an
+empty PostgreSQL service, synthetic contacts and a loopback SMTP capturer. It accesses
+no operational host or database, creates no release and pushes no registry image.
+The workflow uploads GitHub Actions artifacts for 14 days with read-only repository
+permission. The distributed artifact remains **OFF / not deployed**.
 
 ## Verified method
 
@@ -62,12 +65,64 @@ obtained exact locked files and performs no downloads. No credentials or configu
 file are accepted. Downloads are bounded to the known release sizes (under 10 MB each),
 expanded binary/assets are bounded, and each final artifact is capped at 64 MiB.
 The CLI receives explicit argument arrays; archive paths are never executed or extracted
-unchecked. Upstream binaries are never run by this workflow.
+unchecked. The original rollback executable is never run by this workflow.
+
+## Ephemeral worker smoke
+
+The amd64 job uses the verified candidate, its embedded native `schema.sql`, the
+current A/B core/selection SQL and a fixed synthetic fixture. The native schema and
+`v6.1.0` migration marker follow upstream
+[`installSchema`](https://github.com/knadh/listmonk/blob/1b5e8d38c778e869003486d3c38bc7a964661e91/cmd/install.go)
+and the [migration list](https://github.com/knadh/listmonk/blob/1b5e8d38c778e869003486d3c38bc7a964661e91/cmd/upgrade.go).
+It does not test the interactive installer or create its sample contacts/API users.
+
+The runner accepts no connection URL or application configuration. It requires
+GitHub Linux amd64 CI plus explicit isolation opt-in, refuses inherited PostgreSQL
+or Listmonk environment overrides, and checks that the fixed local database
+`ab_worker_smoke` has an empty public schema before initializing it. PostgreSQL 17.10
+is a disposable workflow service; the existing Ubuntu runner `psql` and Python
+standard library suffice. There are no added Python packages or service credentials.
+
+The actual Listmonk process binds HTTP to loopback and uses one SMTP server on
+`127.0.0.1`. The capture has **no forwarding implementation** and rejects sender or
+recipient addresses outside `example.invalid`; every transaction has exactly one
+recipient. It caps messages, bytes, commands, concurrent connections and timeouts.
+Update checks, bounce collection, external messengers, opt-in notifications and
+admin notification recipients are disabled. No production data is loaded.
+
+The fixed cohort deliberately has gaps and overlapping original lists. Before the
+worker starts, committed changes unsubscribe two contacts, globally block two,
+disable two, revoke two A/B memberships and leave two double opt-ins unconfirmed.
+Two further contacts are outside the frozen A/B cohort. With native batch size 1,
+the worker must finish all three campaigns and the capturer must observe:
+
+| Campaign | Exact SMTP captures | Required native behavior |
+| --- | ---: | --- |
+| A | 2 | Assigned recipients only; no B or suppressed contact |
+| B | 2 | Assigned recipients only; disjoint from A |
+| Ordinary control | 10 | Native list union/opt-out/blocklist semantics; no A/B restriction |
+
+Listmonk natively includes `disabled` contacts in ordinary campaigns; the fixture
+expects that behavior to remain unchanged. A/B explicitly excludes them. Every
+capture must contain the rendered synthetic subscriber and native loopback
+unsubscribe URL. Counters, completion and last-subscriber checkpoints must match;
+duplicates, missing sends or unexpected SMTP errors fail the job. The worker has a
+120-second deadline, is terminated in cleanup, and the disposable A/B runtime is
+returned to OFF. `worker-smoke.json` accompanies the amd64 artifact with results and
+source/binary hashes; it is not an operational activation receipt.
+
+Membership is explicitly seeded so the expected envelopes are independent of the
+allocator. This smoke therefore covers the real worker and patched query pairing,
+**not** UI approval, coordinator authorization, statistical results, SMTP delivery to
+real inboxes, mid-buffer opt-out races, interruption recovery or representative load.
+Existing A/B contract/concurrency tests cover separate layers. No binary is executed
+on the user's machine; arm64 is packaged and verified but not executed by this smoke.
 
 ## Before any operational use
 
-A green artifact build proves the transformation and preservation checks, **not service
-compatibility, throughput, operational readiness or zero impact**. The host must first
+A green packaging step proves the transformation and preservation checks. A green
+worker smoke adds only the bounded synthetic cases above, **not host compatibility,
+throughput, operational readiness or zero impact**. The host must first
 be verified as the same Listmonk version and target architecture. A separately reviewed
 rehearsal must cover the complete service, schema/functions installed **OFF**, opt-outs,
 native checkpoints/pagination, worker interruption/restart, rollback and performance of
