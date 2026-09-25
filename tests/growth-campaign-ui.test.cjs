@@ -26,7 +26,7 @@ function boot({payload=api,brand='fish',store=new Map(),timeout=false,locks=crea
    else{if(timeout)throw Error('lost transport response');if(req.acao==='campanha_salvar')current={...current,definition:req.definition};if(req.acao==='campanha_agendar')current={...current,status:'scheduled'};if(req.acao==='campanha_cancelar')current={...current,status:'cancelled',version:'v2'};if(req.acao==='campanha_validar')review=audienceFixture(current,clock,audiencePatch);body={campaign:current,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:current.version,ok:true,audience:review}}:{}),...(req.acao==='campanha_agendar'?{audience:{...review,rechecked_at:review.checked_at}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};
   }});
- for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+ for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-utm.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  vm.runInContext('GCE.mount({marca:'+JSON.stringify(brand)+',api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
  return {document,window,calls,store,advance:ms=>{clock+=ms;},setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
@@ -36,7 +36,7 @@ async function until(check){for(let i=0;i<100;i++){if(check())return;await new P
 test('absent capabilities keep local preparation and remote clicks do not issue requests; Olivas remains local',async()=>{
  const x=boot({payload:{}});assert.equal(x.q('[data-ce-remote]').hidden,true);x.q('[data-ce-save]').click();await new Promise(setImmediate);assert.equal(x.calls.length,0);
  const y=boot();y.run('GCE.preserve();GCE.mount({marca:"olivas",api:__api})');assert.equal(y.q('[data-ce-remote]').hidden,true);
- assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);
+ assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);assert.equal(y.q('[data-ce-utms]').hidden,true);assert.equal(y.q('[data-ce-utms]').textContent,'');
 });
 function persistedCampaign(brand='fish',phase='succeeded'){
  const d=definition();if(brand==='aristo'){d.brand=brand;d.from_email='Aristo <contato@oaristocrata.com>';d.reply_to='contato@oaristocrata.com';d.html=d.html.replaceAll('fishermans.com.br','oaristocrata.com');d.text=d.text.replaceAll('fishermans.com.br','oaristocrata.com');}
@@ -226,4 +226,22 @@ test('lost recovery response reloads safely, consults its new identity and prese
  const state=JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish')),newKey=state.operation.key;assert.notEqual(newKey,p.sourceKey);assert.deepEqual(state.sourceOperation.serverRecord,p.record);
  const y=boot({payload:recoveryApi,store:p.store,respond});assert.equal(y.q('[data-ce-save]').disabled,true);y.q('[data-ce-consult]').click();await until(()=>!y.q('[data-ce-save]').disabled);assert.equal(y.calls.find(c=>c.acao==='campanha_operacao').idempotency_key,newKey);assert.equal(y.calls.some(c=>c.acao==='campanha_recuperar'),false);assert.equal(y.q('[name=send_at]').value,'2099-09-20T12:00:00');assert.equal(y.q('[name=html]').value,p.original.html);
  y.q('[name=subject]').value='Correção local posterior';y.q('[name=subject]').dispatchEvent(new y.window.Event('input',{bubbles:true}));y.q('[data-ce-consult]').click();await until(()=>!y.run('GCE.contextStatus().blocked'));assert.equal(y.q('[name=subject]').value,'Correção local posterior');assert.deepEqual(JSON.parse(p.store.get('shrigma_campaign_operation_v1:fish')).sourceOperation.serverRecord,p.record);
+});
+
+test('campaign editor shows actual HTML and text UTM sources, preserves variables and never claims metadata is a tracked link',()=>{
+ const x=boot({payload:{}}),html=x.q('[name=html]'),text=x.q('[name=text]');
+ html.value='<a href="https://fishermans.com.br/products/kit?utm_source=fish-literal&amp;utm_medium=campanha&amp;utm_campaign=body-campaign&amp;utm_content=hero">Produto</a>';
+ text.value='https://fishermans.com.br/products/kit?utm_source={{ .Tx.Data.source }}&utm_campaign=text-campaign';html.dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ const panel=x.q('[data-ce-utms]');assert.match(panel.textContent,/fish-literal/);assert.match(panel.textContent,/body-campaign/);assert.match(panel.textContent,/text-campaign/);assert.ok(panel.textContent.includes('{{ .Tx.Data.source }}'));assert.match(panel.textContent,/Rascunho em edição/);
+ assert.equal(x.q('[name=utm_campaign]').value,'fixture');assert.doesNotMatch(panel.textContent,/utm_campaign=fixture/);assert.equal(x.calls.length,0);
+ panel.querySelector('details').open=true;html.value=html.value.replace('fish-literal','fish-edited');html.dispatchEvent(new x.window.Event('input',{bubbles:true}));assert.equal(panel.querySelector('details').open,true);assert.match(panel.textContent,/fish-edited/);assert.doesNotMatch(panel.textContent,/fish-literal/);
+ x.run('GCE.preserve();GCE.enterBrand("aristo")');assert.doesNotMatch(panel.textContent,/fish-edited|body-campaign|text-campaign/);assert.equal(x.calls.length,0);
+});
+test('saved campaign UTM preview is brand-specific and remains read-only when an operation is uncertain',()=>{
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand,'uncertain'),j=JSON.parse(p.store.get(p.journalKey)),local=JSON.parse(p.store.get(p.localKey));
+  j.campaign.definition.html='https://'+(brand==='fish'?'fishermans.com.br':'oaristocrata.com')+'/products/kit?utm_source='+brand+'-saved&utm_campaign=saved {{ UnsubscribeURL }}';j.campaign.definition.text=j.campaign.definition.html;
+  local.value.html=j.campaign.definition.html;local.value.text=j.campaign.definition.text;p.store.set(p.localKey,JSON.stringify(local));p.store.set(p.journalKey,JSON.stringify(j));const before=p.store.get(p.journalKey),x=boot({brand,store:p.store}),panel=x.q('[data-ce-utms]');
+  assert.match(panel.textContent,new RegExp(brand+'-saved'));assert.match(panel.textContent,/Conteúdo salvo desta campanha/);assert.equal(x.q('[name=html]').disabled,true);assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(p.store.get(p.journalKey),before);assert.equal(x.calls.length,0);
+ }
 });
