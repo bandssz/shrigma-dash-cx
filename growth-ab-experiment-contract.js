@@ -58,6 +58,10 @@
   if(!date(source.window_start)||!date(source.window_end)||!date(source.as_of)||Date.parse(source.window_end)-Date.parse(source.window_start)!==rule.window_hours*3600000)return unknown('window');
   if(Date.parse(source.as_of)<Date.parse(source.window_end))return {...out,status:'collecting',reason:'window_open'};
   if(source.arms.some(a=>a.finished_before_deadline!==true))return {...out,status:'inconclusive',reason:'transport_incomplete'};
+  // No per-person transport receipt exists here. A native 'finished' status
+  // may follow a lost in-memory batch; later opt-outs can overlap past sends.
+  // Preserve the original denominator and never fill a deficit with revocations.
+  if(arms.some(a=>a.native_sent!==a.allocated))return {...out,status:'inconclusive',reason:'transport_not_fully_accounted'};
   if(arms.some(a=>a.allocated<rule.minimum_per_arm))return {...out,status:'inconclusive',reason:'minimum_not_reached'};
   const pValue=fisher(arms[0].allocated,arms[0].unique_clickers,arms[1].allocated,arms[1].unique_clickers);
   const winner=pValue<rule.alpha&&Math.abs(out.difference_pp)>=rule.minimum_effect_pp&&out.difference_pp!==0?(out.difference_pp>0?'b':'a'):null;

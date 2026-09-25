@@ -99,3 +99,10 @@ test('reload or an already-mounted Aristo page restores pending Fish before rece
   assert.equal(f.client().inspect().operations[0].id,receipt.operation_id);assert.deepEqual(f.client().inspect().operations[0].request_payload,p);
  }finally{f.ui?.destroy();await f.db.close();}}
 });
+
+test('transport deficit is explained without claiming a detected crash or removing legitimate optouts from the denominator',async()=>{
+ const f=await fixture();try{
+  const p=await f.prepared();await f.db.exec(`UPDATE crm_ab_experiment_v2 SET state='scheduled',transport_bound=true,tracking_continuous=true,window_start=now()-interval '25 hours',window_end=now()-interval '1 hour';SELECT set_config('shrigma.ab_schedule_v2','${p.test_id}',false);UPDATE campaigns SET status='finished',sent=CASE id WHEN 100 THEN 500 ELSE 499 END WHERE id IN(100,101);SELECT set_config('shrigma.ab_schedule_v2','',false);UPDATE crm_ab_arm_v2 SET finished_at=now()-interval '2 hours'`);
+  await f.ui.refresh();assert.equal(f.ui.state.result.reason,'transport_not_fully_accounted');assert.equal(f.ui.state.result.winner,null);const heading=[...f.q('[data-abx-detail]').querySelectorAll('h4')].find(h=>h.textContent==='Envios não comprovados · sem vencedora');assert.ok(heading);assert.match(heading.getAttribute('title'),/contagem de envios.*Descadastros legítimos.*não confirma falha/);assert.match(heading.getAttribute('aria-label'),/Envios não comprovados.*Descadastros legítimos/);assert.doesNotMatch(f.q('[data-abx-detail]').textContent,/Descadastros legítimos|transporte|processo/);assert.deepEqual(f.ui.state.result.arms.map(a=>a.allocated),[500,500]);
+ }finally{f.ui?.destroy();await f.db.close();}
+});

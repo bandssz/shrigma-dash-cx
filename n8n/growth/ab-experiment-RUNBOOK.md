@@ -39,9 +39,9 @@ Somente quando conjunto/host/UI estiverem comprovados, habilitar runtime/capacid
 
 ## Provas de aceite após publicação
 
-Fish e Aristo: autenticar gestor existente, carregar dados, abrir/cancelar confirmação com zero mutação, preservar preparação entre trocas de seção e reload, impedir uma segunda identidade durante incerteza e conciliar por GET. Verificar mensagens de tentativa antiga sem alterar seu ator/payload. Não fabricar contagens/receita nem declarar vencedora antes da janela ou com fonte/interrupção desconhecida.
+Fish e Aristo: autenticar gestor existente, carregar dados, abrir/cancelar confirmação com zero mutação, preservar preparação entre trocas de seção e reload, impedir uma segunda identidade durante incerteza e conciliar por GET. Verificar mensagens de tentativa antiga sem alterar seu ator/payload. Não fabricar contagens/receita nem declarar vencedora antes da janela ou com fonte/interrupção desconhecida. Confirmar também que um braço finished com native_sent menor que allocated fica inconclusivo, sem somar revogados ou reduzir o denominador. Isso inclui opt-out legítimo: a UI deve explicar transporte não integralmente comprovado, sem afirmar que houve crash.
 
-As provas de envio real devem ser planejadas e autorizadas separadamente com público próprio. O resultado representa clique rastreado por pessoa alocada (inclui scanners), janela fixa e regra pré-declarada. Não representa compra, entrega ou clique humano garantido. Nenhuma vencedora gera envio automático.
+As provas de envio real devem ser planejadas e autorizadas separadamente com público próprio. O resultado representa clique rastreado por pessoa alocada (inclui scanners), janela fixa e regra pré-declarada. Não representa compra, entrega ou clique humano garantido. A flag de continuidade cobre apenas eventos observados no banco: um restart real sem mudança de runtime/status pode não deixar sinal. O contador agregado de Push não é recibo individual; igualdade com alocados é uma guarda conservadora necessária, não prova universal de entrega/ausência de queda. Nenhuma vencedora gera envio automático.
 
 ## Reversão
 

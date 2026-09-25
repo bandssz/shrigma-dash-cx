@@ -3,6 +3,7 @@
 // AB_UPSTREAM_SOURCE must be the unmodified SHA-pinned upstream SQL file.
 const fs=require('node:fs'),assert=require('node:assert/strict'),{performance}=require('node:perf_hooks');
 const {fixture,read}=require('./ab-experiment-fixture.cjs');
+const C=require('../growth-ab-experiment-contract.js');
 const {patchSource,section}=require('../n8n/growth/ab-listmonk-cohort-patch.cjs');
 async function proof(source){
  const patched=patchSource(source),x=await fixture();
@@ -50,9 +51,38 @@ async function proof(source){
    allocated:1000,arms:[500,500],overlap:0,after_source_optout_and_blocklist:498,native_checkpoints_preserved:true,non_ab_rows_equal:true,
    synthetic_non_ab_members:99998,fixture_engine:'PGlite PostgreSQL; not production sizing',batch_size:1000,samples:9,
    original_median_ms:+median(baselineMs).toFixed(3),patched_median_ms:+median(patchedMs).toFixed(3),
-   non_ab_plan_uses_init_or_hashed_subplan:/InitPlan|hashed SubPlan/.test(JSON.stringify(plan)),native_service_touched:false,real_recipients:0};
+   non_ab_plan_uses_init_or_hashed_subplan:/InitPlan|hashed SubPlan/.test(JSON.stringify(plan)),native_service_touched:false,real_recipients:0,transport_accounting:await transportAccountingProof(source)};
   return {result,source:patched.source};
  }finally{await x.db.close();}
 }
-module.exports={proof};
+// These SQL fixtures model native transitions after queue loss, not a process
+// kill/restart. The official batch query advances the checkpoint before Push.
+async function transportAccountingProof(source){
+ const patched=patchSource(source),results=[];
+ for(const scenario of ['lost_selected_batch','legitimate_source_optout']){
+  const x=await fixture();try{
+   await x.db.exec(`ALTER TABLE templates ADD COLUMN is_default boolean DEFAULT true;ALTER TABLE campaigns ADD COLUMN to_send integer DEFAULT 0;ALTER TABLE campaigns ADD COLUMN max_subscriber_id integer DEFAULT 0;ALTER TABLE campaigns ADD COLUMN last_subscriber_id integer DEFAULT 0;UPDATE campaigns SET send_at=now()-interval '1 minute'`);
+   const p=await x.protocol();await x.prepare(p);await x.db.exec(read('n8n/growth/ab-experiment-selection.sql'));
+   await x.db.exec(`UPDATE crm_ab_runtime_v2 SET enabled=true,native_query_sha256='${patched.patched_sha256}',verified_at=now();UPDATE crm_ab_experiment_v2 SET state='scheduled',window_start=now()-interval '1 minute',window_end=now()+interval '1439 minutes',transport_bound=true,tracking_continuous=true;SELECT set_config('shrigma.ab_schedule_v2','${p.test_id}',false);UPDATE campaigns SET status='scheduled' WHERE id IN(100,101);SELECT set_config('shrigma.ab_schedule_v2','',false)`);
+   const count=section(patched.source,'next-campaigns').text,batch=section(patched.source,'next-campaign-subscribers').text;
+   await x.db.query(count,[[],[]]);
+   if(scenario==='legitimate_source_optout')await x.db.exec("UPDATE subscriber_lists SET status='unsubscribed' WHERE list_id IN(3,17) AND subscriber_id=(SELECT subscriber_id FROM crm_ab_member_v2 WHERE arm='b' ORDER BY subscriber_id LIMIT 1)");
+   assert.equal((await x.db.query(batch,[100,'regular',0,1000,[3,17],500])).rows.length,500);
+   const selectedB=(await x.db.query(batch,[101,'regular',0,1000,[3,17],500])).rows.length;assert.equal(selectedB,scenario==='lost_selected_batch'?500:499);
+   await x.db.exec("UPDATE campaigns SET sent=500,status='finished' WHERE id=100;INSERT INTO link_clicks(campaign_id,subscriber_id,created_at) SELECT 100,subscriber_id,now() FROM crm_ab_member_v2 WHERE arm='a' LIMIT 50");
+   if(scenario==='lost_selected_batch'){
+    const cursor=(await x.db.query('SELECT last_subscriber_id,max_subscriber_id FROM campaigns WHERE id=101')).rows[0];await x.db.query(count,[[],[]]);
+    assert.equal((await x.db.query(batch,[101,'regular',cursor.last_subscriber_id,cursor.max_subscriber_id,[3,17],500])).rows.length,0);
+   }
+   await x.db.query("UPDATE campaigns SET sent=$1,status='finished' WHERE id=101",[scenario==='lost_selected_batch'?0:499]);
+   const m=await x.measure();m.as_of=m.window_end;const result=C.result(p,m);
+   assert.equal(m.integrity.transport_continuous,true,'neither scenario pretends that an interruption was observed');assert.equal(result.status,'inconclusive');assert.equal(result.reason,'transport_not_fully_accounted');assert.equal(result.winner,null);
+   assert.deepEqual(result.arms.map(a=>a.allocated),[500,500]);assert.deepEqual(result.arms.map(a=>a.native_sent),[500,scenario==='lost_selected_batch'?0:499]);
+   results.push({scenario,selected_b:selectedB,native_sent:result.arms.map(a=>a.native_sent),allocated:[500,500],observed_interruption:false,status:result.status,reason:result.reason,winner:null});
+  }finally{await x.db.close();}
+ }
+ return results;
+}
+module.exports={proof,transportAccountingProof};
+
 if(require.main===module)(async()=>{if(!process.env.AB_UPSTREAM_SOURCE)throw Error('Pinned AB_UPSTREAM_SOURCE required');const {result,source}=await proof(fs.readFileSync(process.env.AB_UPSTREAM_SOURCE,'utf8'));if(process.env.AB_PATCHED_SOURCE_OUT)fs.writeFileSync(process.env.AB_PATCHED_SOURCE_OUT,source);console.log(JSON.stringify(result,null,2));})().catch(e=>{console.error(e.message);process.exitCode=1;});
