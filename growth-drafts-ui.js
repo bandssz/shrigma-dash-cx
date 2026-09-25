@@ -327,7 +327,7 @@ const GRU={
     if(typeof GEC!=='undefined')r=GEC.draft(r);
     if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession)return false;
     if(GRU.ctx.marca&&r.marca!==GRU.ctx.marca){
-      if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca))return false;
+      if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca,()=>GRU.abrir(r,editando)))return false;
     }
     GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};GRU.render();document.getElementById('d-nome')?.focus();},
   fechar(persist=true){if(GRU.emailTestSession)return false;GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},

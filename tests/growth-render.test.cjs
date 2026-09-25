@@ -28,6 +28,9 @@ async function boot(payload=fixture(),opts={}){
  let focado=null;window.HTMLElement.prototype.focus=function(){focado=this;};window.HTMLElement.prototype.blur=function(){focado=null;};
  Object.defineProperty(document,'activeElement',{configurable:true,get(){return focado&&focado.isConnected?focado:document.body;}});
  window.HTMLElement.prototype.getBoundingClientRect=function(){return {top:0,width:1200,height:100};};
+ const brandDialog=document.querySelector('#brand-change-confirm');
+ Object.defineProperty(brandDialog,'open',{get(){return this.hasAttribute('open');}});
+ brandDialog.showModal=function(){this.setAttribute('open','');};brandDialog.close=function(){this.removeAttribute('open');this.onclose?.();};
  const store=new Map(opts.noReadKey?[]:[['shrigma_k_growth','synthetic-test-key']]);
  const requests=[],downloads=[],hashes=[],calls=[],uiActions=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
@@ -812,7 +815,8 @@ test('brand switch preserves template preparation, filters cards, and does not c
  x.run(`GR.guarda(GR.novo({id:'fish-local',marca:'fish',nome:'fish_template',corpo:'Fish'}));GR.guarda(GR.novo({id:'aristo-local',marca:'aristo',nome:'aristo_template',corpo:'Aristo'}));GRU.render();GRU.abrir(GR.novo({id:'working-fish',marca:'fish',nome:'incompleto',corpo:'Fish local https://fishermans.com.br/'}),null)`);
  const snapshot=x.run('JSON.stringify(GRU.state.rascunho)');
  x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');
- x.run('confirm=()=>true');x.document.querySelector('[data-marca="aristo"]').click();
+ x.document.querySelector('#brand-change-cancel').click();assert.equal(x.run('MARCA'),'fish');
+ x.document.querySelector('[data-marca="aristo"]').click();x.document.querySelector('#brand-change-accept').click();
  assert.equal(x.run('MARCA'),'aristo');assert.equal(x.document.querySelectorAll('[data-draft="fish-local"]').length,0);assert.ok(x.document.querySelector('[data-draft="aristo-local"]'));
  x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),snapshot);
  assert.equal(x.document.querySelector('#d-marca').disabled,true);
@@ -826,6 +830,34 @@ test('journey dirty, busy or unresolved state keeps the header and preference on
   assert.equal(x.document.querySelector('#brand-context-status').hidden,false);
  }
 });
+test('brand confirmation names both brands, cancels with Escape and rechecks an operation that started while open',async()=>{
+ const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"local",corpo:"Preparação intacta"}),null)');
+ const before=x.run('JSON.stringify(GRU.contextValue())'),dialog=x.document.querySelector('#brand-change-confirm');
+ x.run('confirm=()=>{throw Error("Native confirmation forbidden")};trocaMarca("aristo")');
+ assert.equal(dialog.open,true);assert.match(dialog.textContent,/Fishermans.*O Aristocrata/);assert.match(dialog.textContent,/Nada será enviado/);
+ assert.equal(x.document.activeElement.id,'brand-change-cancel');
+ assert.equal(x.run('trocaMarca("olivas")'),false);
+ const event=new x.window.Event('cancel',{cancelable:true});dialog.oncancel(event);
+ assert.equal(event.defaultPrevented,true);assert.equal(dialog.open,false);assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('JSON.stringify(GRU.contextValue())'),before);
+ x.run('trocaMarca("aristo");GB.state.busy=true');x.document.querySelector('#brand-change-accept').click();
+ assert.equal(x.run('MARCA'),'fish');assert.match(x.document.querySelector('#brand-context-status').textContent,/Conclua/);
+ x.run('GB.state.busy=false;trocaMarca("aristo")');const accept=x.document.querySelector('#brand-change-accept').onclick;accept();accept();
+ assert.equal(x.run('MARCA'),'aristo');assert.equal(x.run('AB_WRITE_EPOCH'),2);
+ assert.ok(x.calls.every(c=>c.init?.method!=='POST'));
+});
+test('a browser without HTML dialog support leaves the brand and preparation unchanged',async()=>{
+ const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"local",corpo:"Preservar"}),null)');
+ x.document.querySelector('#brand-change-confirm').showModal=undefined;x.run('trocaMarca("aristo")');
+ assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Preservar');assert.match(x.document.querySelector('#brand-context-status').textContent,/Não foi possível abrir/);
+});
+test('confirming a brand change completes the original flow or template shortcut once',async()=>{
+ const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"local",corpo:"Preservar Fish"}),null);openFlows("email",{marca:"aristo",flow:"transacional"})');
+ assert.equal(x.run('MARCA'),'fish');x.document.querySelector('#brand-change-accept').click();
+ assert.equal(x.run('MARCA'),'aristo');assert.equal(x.run('SEC'),'regua');assert.equal(x.run('CANAL'),'email');assert.equal(x.run('GC.activeTab'),'history');
+ x.run('GRU.abrir(GR.novo({marca:"aristo",nome:"local aristo",corpo:"Preservar Aristo"}),null);GRU.abrir(GR.novo({id:"target-fish",marca:"fish",nome:"Alvo Fish",corpo:"Abrir alvo"}),"target-fish")');
+ assert.equal(x.run('MARCA'),'aristo');x.document.querySelector('#brand-change-accept').click();
+ assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.editando'),'target-fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Abrir alvo');assert.ok(x.calls.every(c=>c.init?.method!=='POST'));
+});
 test('A/B brand and channel stay aligned, selection survives refresh, and changing channel explicitly clears incompatible arms',async()=>{
  const p=fixture();p.crm_campanha.push({...p.crm_campanha[0],marca:'aristo',campanha_id:2,nome:'Aristo e-mail'},{...p.crm_campanha[0],marca:'aristo',canal:'whatsapp',campanha_id:3,nome:'Aristo WA'});
  const x=await boot(p);x.run('trocaMarca("aristo")');x.document.querySelector('#btn-novo').click();
@@ -835,11 +867,11 @@ test('A/B brand and channel stay aligned, selection survives refresh, and changi
  const change=()=>{const c=x.document.querySelector('#f-canal');c.value='whatsapp';c.dispatchEvent(new x.window.Event('change'));};
  change();assert.equal(x.document.querySelector('#f-canal').value,'email');assert.equal(x.document.querySelector('#f-ca').value,'2');
  x.run('confirm=()=>true');change();assert.equal(x.document.querySelector('#f-ca').value,'');assert.deepEqual([...x.document.querySelector('#f-ca').options].map(o=>o.value),['','3']);
- x.document.querySelector('#f-ca').value='3';x.run('trocaMarca("fish");trocaMarca("aristo")');assert.equal(x.document.querySelector('#f-id').value,'aristo-test');assert.equal(x.document.querySelector('#f-ca').value,'3');
+ x.document.querySelector('#f-ca').value='3';x.run('trocaMarca("fish");document.getElementById("brand-change-accept").click();trocaMarca("aristo")');assert.equal(x.document.querySelector('#f-id').value,'aristo-test');assert.equal(x.document.querySelector('#f-ca').value,'3');
 });
 test('storage failure during a brand switch keeps the current editor, header and unsaved content',async()=>{
  const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"não perder",corpo:"Conteúdo local"}),null);confirm=()=>true;localStorage.setItem=()=>{throw Error("Dispositivo sem espaço")}');
- x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Conteúdo local');assert.match(x.document.querySelector('#brand-context-status').textContent,/sem espaço/);
+ x.document.querySelector('[data-marca="aristo"]').click();x.document.querySelector('#brand-change-accept').click();assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Conteúdo local');assert.match(x.document.querySelector('#brand-context-status').textContent,/sem espaço/);
 });
 
 test('a late A/B receipt for Fish does not close or clear the open Aristo preparation',async()=>{
@@ -850,11 +882,11 @@ test('a late A/B receipt for Fish does not close or clear the open Aristo prepar
  await pending;assert.equal(x.document.querySelector('#form-teste').hidden,false);assert.equal(x.document.querySelector('#f-id').value,'aristo-new');assert.equal(x.run('MARCA'),'aristo');
 });
 test('returning to a template keeps local content but cannot lower a newer reconciled server revision',async()=>{
- const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'same-id',version:1,estado:'rascunho'}}),null);confirm=()=>true;trocaMarca('aristo');GR.guarda(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Conteúdo do recibo',servidor:{draft_id:'same-id',version:2,estado:'validado'}}));trocaMarca('fish');`);
+ const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'same-id',version:1,estado:'rascunho'}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Conteúdo do recibo',servidor:{draft_id:'same-id',version:2,estado:'validado'}}));trocaMarca('fish');`);
  assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.equal(x.run('GRU.state.rascunho.servidor.version'),2);assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'same-id');
 });
 test('a template preparation cannot silently inherit a different server draft identity',async()=>{
- const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);confirm=()=>true;trocaMarca('aristo');GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
+ const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
  assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'original-server-id');assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.match(x.run('GRU.contextError'),/vínculo/);assert.equal(x.run('GRU.prontaEscrita(GRU.state.rascunho)'),false);
 });
 
@@ -872,7 +904,7 @@ test('email editor exposes a complete brand envelope and keeps it in preview, lo
  x.run('trocaMarca("aristo")');x.document.querySelector('#drafts-novo-email').click();
  assert.equal(x.document.querySelector('#d-from-email').value,'O Aristocrata <contato@oaristocrata.com>');
  value('#d-nome','envelope-aristo');value('#d-assunto','✅ FINAL — Outra marca');value('#d-preheader','Outro resumo');value('#d-corpo','<p>Outra marca</p>');
- x.run('confirm=()=>true;trocaMarca("fish")');
+ x.run('trocaMarca("fish");document.getElementById("brand-change-accept").click()');
  x.document.querySelector('[data-draft-edit]').click();
  assert.equal(x.document.querySelector('#d-preheader').value,'Resumo & seguro');assert.equal(x.document.querySelector('#d-reply-to').value,'respostas@fishermans.com.br');
  value('#d-from-email','O Aristocrata <contato@oaristocrata.com>');
