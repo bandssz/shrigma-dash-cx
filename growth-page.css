@@ -47,7 +47,7 @@ tr.det td{background:var(--neutro-bg,#f6f6f4);padding:10px 14px}
   font:600 12px/1 var(--ui);color:var(--mudo);cursor:pointer}
 .periodo .presets button.ativo{background:var(--card);color:var(--texto);box-shadow:var(--sombra)}
 .periodo label{font:500 12px/1 var(--ui);color:var(--mudo);display:flex;gap:5px;align-items:center;cursor:pointer}
-input[type=date],select,input[type=text],input[type=number],textarea{font:500 12.5px/1.35 var(--ui);
+input[type=date],select,input[type=text],input[type=number],.draft-form input[type=email],textarea{font:500 12.5px/1.35 var(--ui);
   padding:7px 9px;border:1px solid var(--borda-forte);border-radius:7px;background:var(--card);
   color:var(--texto);font-family:var(--ui)}
 textarea{width:100%;resize:vertical;min-height:58px}

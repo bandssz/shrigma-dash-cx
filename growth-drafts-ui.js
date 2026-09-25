@@ -309,6 +309,7 @@ const GRU={
   },
   enterBrand(brand){
     if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession)return false;
+    if(brand!==GRU.contextBrand)GRU.aviso('');
     let value=null;GRU.contextError='';
     try{value=GBS.read('template',brand);if(value?.rascunho?.marca&&value.rascunho.marca!==brand)throw Error('Preparação de template de outra marca. Os dados foram preservados.');}catch(e){value=null;GRU.contextError=e.message;}
     GRU.contextBrand=brand;GRU.fechar(false);
