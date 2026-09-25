@@ -1,7 +1,7 @@
 /* Campaign editor. Server actions require explicitly announced capabilities. */
 'use strict';
 const GCE=(()=>{
- let contextBrand=null,contextEpoch=0,localError='';
+ let contextBrand=null,contextEpoch=0,localError='',localCampaign=undefined,checkCampaign=false;
  const fields=['brand','initiative_name','initiative_key','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','send_at','tags','html','text'];
  let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[];
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
@@ -49,22 +49,27 @@ const GCE=(()=>{
   bindRemote();setupRemote();
  }
  const q=selector=>root.querySelector(selector);
- function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign;GBS.save('campaign',contextBrand,{...values(),_campaign:c?{id:c.id,version:c.version}:null});localError='';}
+ function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign,anchor=remote?(c?{id:c.id,version:c.version}:null):(localCampaign??null);GBS.save('campaign',contextBrand,{...values(),_campaign:anchor});localCampaign=anchor;checkCampaign=!remote;localError='';}
  function contextStatus(){return {blocked:!!(remoteBusy||confirmation||accessImporting),dirty:!!localError,pending:!!remote?.locked()};}
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
  function enterBrand(brand){
   if(remoteBusy||confirmation||accessImporting)return false;
   contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';
   let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
+  checkCampaign=Object.hasOwn(initial,'_campaign');localCampaign=checkCampaign?initial._campaign:undefined;
   initial.brand=GBS.validBrand(brand)?brand:'';fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
   q('[data-ce-brand]').textContent=({fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo'})[brand]||'Escolha uma marca no cabeçalho';
   q('[data-ce-definition]').hidden=!GBS.validBrand(brand);setupRemote();
-  if(!localError&&Object.hasOwn(initial,'_campaign')){
-   const c=remote?.snapshot()?.campaign,anchor=c?{id:c.id,version:c.version}:null;
-   if(JSON.stringify(initial._campaign)!==JSON.stringify(anchor)){localError='A campanha ou revisão desta marca mudou em outra aba. Exporte a preparação local e reabra a campanha antes de editar.';paintRemote();}
-  }
   if(localError)message(localError,true);else message(GBS.validBrand(brand)?'Preparação desta marca. Salvar localmente não envia a campanha.':'Escolha uma marca no cabeçalho para preparar uma campanha.');
-  return true;
+ return true;
+ }
+ function checkLocalCampaign(){
+  // Missing capabilities are not evidence of a missing campaign. Keep the saved
+  // anchor until a client has loaded and validated the actual persisted journal.
+  if(localError||!checkCampaign||!remote)return;
+  const c=remote.snapshot().campaign,anchor=c?{id:c.id,version:c.version}:null;
+  if(JSON.stringify(localCampaign)!==JSON.stringify(anchor)){localError='A campanha ou revisão desta marca mudou em outra aba. Exporte a preparação local e reabra a campanha antes de editar.';message(localError,true);}
+  checkCampaign=false;
  }
 
  function confirmationContext(){
@@ -143,7 +148,7 @@ const GCE=(()=>{
  function setupRemote(){
   if(typeof GCA==='undefined')return;
   const next=GCA.caps(api),brand=contextBrand;
-  if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);paintRemote();return;}
+  if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);checkLocalCampaign();paintRemote();return;}
   remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
   for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;
@@ -151,7 +156,7 @@ const GCE=(()=>{
    try{remote=GCA.createClient({capabilities:next,brand,readKey:()=>typeof GTA.chaveLeitura==='function'?GTA.chaveLeitura():typeof shrigmaChave==='function'?shrigmaChave('growth'):keyValue(GTA.CHAVE_LEITURA),writeKey:currentWriteKey});}
    catch(err){message(err.message,true);}
   }
-  paintRemote();
+  checkLocalCampaign();paintRemote();
  }
  const audienceNumber=n=>new Intl.NumberFormat('pt-BR').format(n);
  function paintAudience(s,c,clean){

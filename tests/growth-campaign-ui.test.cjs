@@ -8,7 +8,7 @@ const root=path.resolve(__dirname,'..'),END='https://campaign.example.test/opera
 const api={capabilities:{campaigns:{contract_version:C.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:END}}};
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Campanha de exemplo',subject:'Assunto',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[125],template_id:1,html:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',tags:[],send_at:'2030-09-20T15:00:00Z'});
 const catalog={brand:'fish',current:true,lists:[{id:125,name:'Clientes recorrentes',brand:'fish',available:true}],templates:[{id:1,name:'Modelo principal',type:'campaign',available:true,version:'t1'}],initiatives:[]};
-function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null,audiencePatch={},respond=null}={}){
+function boot({payload=api,brand='fish',store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null,audiencePatch={},respond=null}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');
  const proto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
@@ -27,7 +27,7 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
    return {status:200,json:async()=>structuredClone(body)};
   }});
  for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
- vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
+ vm.runInContext('GCE.mount({marca:'+JSON.stringify(brand)+',api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
  return {document,window,calls,store,advance:ms=>{clock+=ms;},setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
@@ -37,6 +37,42 @@ test('absent capabilities keep local preparation and remote clicks do not issue 
  const x=boot({payload:{}});assert.equal(x.q('[data-ce-remote]').hidden,true);x.q('[data-ce-save]').click();await new Promise(setImmediate);assert.equal(x.calls.length,0);
  const y=boot();y.run('GCE.preserve();GCE.mount({marca:"olivas",api:__api})');assert.equal(y.q('[data-ce-remote]').hidden,true);
  assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);
+});
+function persistedCampaign(brand='fish',phase='succeeded'){
+ const d=definition();if(brand==='aristo'){d.brand=brand;d.from_email='Aristo <contato@oaristocrata.com>';d.reply_to='contato@oaristocrata.com';d.html=d.html.replaceAll('fishermans.com.br','oaristocrata.com');d.text=d.text.replaceAll('fishermans.com.br','oaristocrata.com');}
+ const campaign={id:brand==='fish'?161:160,version:'cancelled-v6',status:'cancelled',sent:0,started_at:null,send_at:d.send_at,definition:d};
+ const localKey='shrigma_growth_editor_v1:campaign:'+brand,journalKey='shrigma_campaign_operation_v1:'+brand;
+ const journal={version:1,brand,endpoint:END,campaign,validation:null,operation:{phase,actorFingerprint:'fixture-fingerprint',key:'existing-operation',request:{acao:'campanha_cancelar',brand,id:campaign.id,expected_version:'scheduled-v5',idempotency_key:'existing-operation'}}};
+ const value={...Editor.fromDefinition(d),_campaign:{id:campaign.id,version:campaign.version}};
+ return {campaign,localKey,journalKey,store:new Map([[localKey,JSON.stringify({version:1,area:'campaign',brand,value})],[journalKey,JSON.stringify(journal)]])};
+}
+test('persisted campaign waits for capabilities before comparing its revision in both brands',()=>{
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand),local=p.store.get(p.localKey),journal=p.store.get(p.journalKey),x=boot({payload:{},brand,store:p.store});
+  assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.doesNotMatch(x.q('[data-ce-status]').textContent,/mudou em outra aba/);
+  assert.doesNotThrow(()=>x.run('GCE.preserve()'));assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),journal);
+  x.run('GCE.mount({marca:'+JSON.stringify(brand)+',api:'+JSON.stringify(api)+'})');
+  assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.match(x.q('[data-ce-server-state]').textContent,/Cancelada · 0 enviados/);assert.equal(x.q('[data-ce-save]').disabled,true);
+  x.run('GCE.preserve()');assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),journal);assert.equal(x.calls.length,0);
+ }
+});
+test('late capabilities still detect changed or missing campaigns without rebinding local content',()=>{
+ for(const changed of ['revision','identity','missing']){
+  const p=persistedCampaign(),x=boot({payload:{},store:p.store}),journal=JSON.parse(p.store.get(p.journalKey));
+  if(changed==='revision')journal.campaign.version='another-tab';if(changed==='identity')journal.campaign.id=999;if(changed==='missing')journal.campaign=null;
+  p.store.set(p.journalKey,JSON.stringify(journal));const local=p.store.get(p.localKey),savedJournal=p.store.get(p.journalKey);
+  x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(api)+'})');
+  assert.equal(x.run('GCE.contextStatus().dirty'),true,changed);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);assert.equal(x.q('[name=html]').disabled,true);
+  assert.throws(()=>x.run('GCE.preserve()'),/mudou em outra aba/);assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),savedJournal);assert.equal(x.calls.length,0);
+ }
+});
+test('local edits before capability arrival retain the anchor and an unresolved operation',()=>{
+ const p=persistedCampaign('fish','uncertain'),journal=p.store.get(p.journalKey),x=boot({payload:{},store:p.store});
+ x.q('[name=subject]').value='Edição local preservada';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ assert.deepEqual(JSON.parse(p.store.get(p.localKey)).value._campaign,{id:161,version:'cancelled-v6'});
+ x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(api)+'})');
+ assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.equal(x.q('[name=subject]').value,'Edição local preservada');assert.equal(x.q('[name=subject]').disabled,true);
+ assert.equal(p.store.get(p.journalKey),journal);assert.equal(x.calls.length,0);
 });
 test('operators select named catalogs, save, validate and explicitly schedule the reviewed date',async()=>{
  const x=boot();assert.ok(!x.q('[data-ce-server-state]').textContent.includes('Versão salva validada.'));x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]'));
