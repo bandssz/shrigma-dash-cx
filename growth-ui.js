@@ -105,6 +105,8 @@ const GUI = {
           <p>Testes identificados: <strong>${GUI.nf(wa.testes_aceitos)}</strong>, fora dos totais operacionais. Testes internos sem modo identificável podem permanecer nos indicadores.</p>
           ${+wa.conflitos_status > 0 ? `<p>${GUI.nf(wa.conflitos_status)} registro(s) com confirmações divergentes; confira o acompanhamento antes de avaliar a taxa.</p>` : ''}
         </details></div><button type="button" class="channel-jump" data-open-flows="whatsapp">Ver automações →</button></article>`;
+    const ses=typeof GSES!=='undefined'?GSES.model(api,marca,ini,fim):null;
+    const sesMeasured=!!ses?.coverage.length;
     const emailCard=`<article class="channel-card email" data-channel-card="email">
       <div class="channel-head"><h2>E-mail</h2>${channelButton('email')}</div>
       <div class="channel-main"><div><div class="big">${GUI.nf(email.enviados)}</div><span class="channel-label">disparos registrados · ${period}</span></div>
@@ -113,7 +115,7 @@ const GUI = {
         ${GUI.stat('CTR · campanhas',GUI.pf(email.ctr))}${GUI.stat('CTOR · campanhas',GUI.pf(email.ctor))}${GUI.stat('Abertura · campanhas',GUI.pf(email.abertura))}</div>
       <ul class="measure-gaps" aria-label="O que está medido no e-mail">
         <li data-gap="${GUI.number(email.medidasCliques)&&email.medidasCliques===email.pecas?'ok':'parcial'}" title="Abertura, CTR e CTOR consideram apenas campanhas Listmonk com a medição correspondente. Peça sem medição fica fora da taxa, nunca entra como zero."><strong>Campanhas</strong> ${GUI.number(email.pecas)?`${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças com clique medido`:'sem peças no período'}</li>
-        <li data-gap="lacuna" title="Automações registram o aceite da API Listmonk/SES. Entrega, abertura e clique por mensagem não são medidos neste contrato; a taxa fica como —, não como 0% ou 100%."><strong>Automações SES</strong> aceite da API · entrega individual não medida</li>
+        <li data-gap="${sesMeasured?'parcial':'lacuna'}" title="Entregas e falhas de automações aparecem no quadro de entregas confirmadas, dentro dos intervalos medidos. Aberturas e cliques das automações não estão medidos aqui."><strong>Automações SES</strong> ${sesMeasured?'entregas e falhas com cobertura parcial':ses?'sem cobertura de entrega neste período':'consulta de entregas indisponível'}</li>
         <li data-gap="lacuna" title="Os percentuais de rejeição e reclamação das campanhas selecionadas não são a reputação oficial da conta SES; a AWS usa volume representativo próprio."><strong>Reputação SES</strong> não derivada destes agregados</li>
       </ul>
       <div class="channel-foot"><p>Envios de campanhas e automações separados. Abertura, CTR e CTOR usam apenas campanhas Listmonk com a respectiva medição.</p>
@@ -122,7 +124,7 @@ const GUI = {
           <p class="substats">Campanhas com cliques medidos: <strong>${GUI.nf(email.medidasCliques)}</strong> · Base entregue para CTR: <strong>${GUI.nf(email.baseCliques)}</strong>.<br>
             Campanhas com abertura medida: <strong>${GUI.nf(email.medidas)}</strong> · Base entregue para abertura: <strong>${GUI.nf(email.baseAbertura)}</strong>.<br>
             Campanhas com ambas as medições, usadas no CTOR: <strong>${GUI.nf(email.medidasConjuntas)}</strong>.</p>
-          <p>Automações via SES não têm abertura, clique ou entrega individual confirmados nesta visão. Métrica ausente aparece como —.</p>
+          <p>Entregas e falhas das automações aparecem em “E-mail · entregas confirmadas”, com cobertura parcial. Abertura e clique das automações não estão medidos nesta visão. Métrica ausente aparece como —.</p>
           <p>Abertura pode incluir ações automáticas de provedores. Use cliques e pedidos para complementar a análise.</p>
         </details></div><button type="button" class="channel-jump" data-open-flows="email">Ver automações →</button></article>`;
     const cards=GUI.el('#channel-cards');
@@ -148,10 +150,7 @@ const GUI = {
   sourceTime(value){
     const date=new Date(value||'');
     if(!Number.isFinite(date.valueOf()))return null;
-    const hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
-    const dia=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(date);
-    const hora=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}).format(date);
-    return dia===hoje?hora:`${dia.slice(8,10)}/${dia.slice(5,7)} ${hora}`;
+    return GUI.timestamp(value)+' BRT';
   },
   sources(ctx={},summary={}){
     const el=GUI.el('#fontes');if(!el)return null;
@@ -194,7 +193,7 @@ const GUI = {
         {rot:'Venda',hora:GUI.sourceTime(GUI.sourceMax(api.crm_conversao,'coletado_em')),estado:Array.isArray(api.crm_conversao)?'ok':'falta',
           detalhe:'Última coleta de pedidos atribuídos na Shopify (último clique, data da compra). Vendas depois deste horário ainda não aparecem.',texto:'coletada até'},
         {rot:'E-mail',hora:GUI.sourceTime(GUI.sourceMax(api.crm_diario,'coletado_em')||GUI.sourceMax(api.crm_campanha,'coletado_em')),estado:Array.isArray(api.crm_campanha)?'ok':'falta',
-          detalhe:'Última coleta de campanhas e métricas do Listmonk. Automações via SES registram aceite da API, sem entrega individual.',texto:'coletado até'},
+          detalhe:'Última coleta de campanhas e métricas do Listmonk. Entregas das automações têm consulta própria no quadro de entregas confirmadas.',texto:'coletado até'},
         {rot:'Inventário',hora:GUI.sourceTime(op?.generated_at),estado:!op?'falta':Number.isFinite(invAge)&&invAge<900000&&invAge>-60000?'ok':'velho',
           detalhe:'Coleta do estado atual de workflows e templates (a cada 5 min; sinalizado a partir de 15 min). Independe do período selecionado.',texto:'coletado'},
       ];
@@ -255,7 +254,7 @@ const GUI = {
         <p>Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))}. Última atualização de status disponível: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))}. Horários de Brasília. Não inclui Reportana.</p>
       </details>`;
     const emailHtml=canal==='whatsapp'?'':`<div class="attention-email"><div><strong>E-mail · cobertura do acompanhamento</strong>
-      <p>Campanhas Listmonk têm métricas agregadas. Nas automações via SES, esta visão mostra os envios registrados; entrega e falhas individuais ainda não são medidas aqui.</p></div>
+      <p>Campanhas Listmonk têm métricas agregadas. Nas automações via SES, entregas e falhas estão no quadro “E-mail · entregas confirmadas”, com cobertura parcial.</p></div>
       <button type="button" class="refresh-btn" data-attention-email>Ver automações de e-mail →</button></div>`;
     el.innerHTML=`<div class="painel-cab"><h2 id="attention-title">Acompanhamento das automações</h2><span class="mini">Histórico do período</span></div>
       <p class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} · status disponíveis na consulta. Use os filtros de marca, canal e período para conferir cada operação.</p>${waHtml}${emailHtml}`;
@@ -315,7 +314,7 @@ const GUI = {
         const details=channel==='whatsapp'
           ? `<details class="flow-extra" data-gt-key="${key}"><summary>Detalhes dos disparos</summary><div>Lidos: ${GUI.nf(row.lidos)} · Aguardando confirmação: ${GUI.nf(row.pendentes_entrega)}<br>
               Sem disparo confirmado: ${GUI.nf(row.sem_disparo_confirmado)} · Erros antes do aceite: ${GUI.nf(row.erros_sincronos)}</div></details>`
-          : '<div class="flow-extra">Entrega e falhas individuais não medidas nesta visão.</div>';
+          : '<div class="flow-extra">Confira entregas e falhas no quadro “E-mail · entregas confirmadas”, com cobertura parcial.</div>';
         const ambiguous=row.atribuicao_ambigua?'<span class="tag nulo" title="Mais de um fluxo usa esta peça: pedidos e receita existem, mas não têm dono. Aparece em branco, não como zero.">indivisível</span>':'';
         return `<tr><td><div class="flow-name">${GUI.esc(row.piece || 'Sem peça')}</div><div class="flow-sub">${GUI.esc(row.flow || 'Sem fluxo')}</div>${details}</td>
           <td><span class="tag growth-table-tag ${brandClass}">${GUI.esc(brand)}</span><span class="tag ${channel}">${channel==='whatsapp'?'WhatsApp':'E-mail'}</span></td>
@@ -326,7 +325,7 @@ const GUI = {
       if(kept&&typeof GT!=='undefined')GT.restaura(GUI.el('#tab-regua tbody'),kept);
       GUI.el('#tab-regua [data-flows-clear]')?.addEventListener('click',()=>{GUI.flowsState.q='';if(search)search.value='';if(selector)selector.value='';render();});
       const anomalies=(G.REGUA_ANOMALIAS || []).filter(a=>canal!=='whatsapp' && a.dia>=ini && a.dia<=fim && (marca==='todas' || a.marca===marca));
-      GUI.html('#nota-regua',`Disparos de WhatsApp são mensagens aceitas pela Meta; sombra e tentativas sem aceite ficam nos detalhes. Não inclui Reportana. Automações de e-mail são envios registrados via SES; entrega e falhas individuais aparecem como —.<br>
+      GUI.html('#nota-regua',`Disparos de WhatsApp são mensagens aceitas pela Meta; sombra e tentativas sem aceite ficam nos detalhes. Não inclui Reportana. Automações de e-mail são envios registrados via SES; consulte entregas e falhas no quadro de e-mail medido, com cobertura parcial.<br>
         Pedidos e receita seguem a data da compra e a atribuição por último clique à peça. Não são conversão dos envios deste período. Busca, fluxo e ordenação alteram somente esta tabela e a exportação.`+
         anomalies.map(a=>`<div class="metric-note"><strong>${GUI.date(a.dia)} · ${GUI.esc(G.MARCA?.[a.marca] || a.marca)} · ${GUI.esc(a.piece)}:</strong> ${GUI.esc(a.motivo)}.</div>`).join(''));
       return visible;

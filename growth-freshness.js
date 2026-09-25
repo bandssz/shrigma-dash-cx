@@ -28,6 +28,8 @@ const GrowthFreshness=(()=>{
   }
   return out;
  }
- return {sources};
+ // This warning belongs to sentiment analysis, outside Growth CRM. Keep shared alerts untouched.
+ const credentialAlerts=rows=>(Array.isArray(rows)?rows:[]).filter(r=>r?.chave!=='openai_sentimento');
+ return {sources,credentialAlerts};
 })();
 if(typeof module!=='undefined')module.exports=GrowthFreshness;

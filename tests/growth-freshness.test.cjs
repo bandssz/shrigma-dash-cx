@@ -18,3 +18,7 @@ test('source receipts accept empty orders but reject partial GraphQL or paginati
  }
 });
 test('shared legacy badge compares absolute instants rather than timestamp strings',()=>{const el={classList:{toggle(k,v){el.red=v;}}};const t=new Date(now-60000);render({rows:[{coletado_em:'invalid'},{coletado_em:t.toISOString()}]},el);assert.equal(el.red,false);assert.match(el.textContent,/1 min/);});
+test('Growth excludes only the retired sentiment warning without changing shared source data',()=>{
+ const input=[{chave:'openai_sentimento',status:'quebrada'},{chave:'openai_growth',status:'quebrada'},{chave:'ses',status:'vencendo'}];
+ assert.deepEqual(F.credentialAlerts(input),input.slice(1));assert.equal(input.length,3);assert.deepEqual(F.credentialAlerts(null),[]);
+});

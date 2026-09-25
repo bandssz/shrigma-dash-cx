@@ -32,7 +32,7 @@ test('observado: agrupa por (marca, flow) sem inventar gatilho/ordem; volume só
  assert.equal(c.etapas[1].volume.entregues,45);
  assert.equal(c.modo.valor,'nao_declarado'); // sem mapped_in para carrinho
  assert.equal(c.saude.length,1);assert.equal(c.saude[0].estado,'alerta');
- assert.match(GF.volumeTexto(c.etapas[1]),/^— aceitos · 45 entregues$/);assert.match(GF.volumeTexto(c.etapas[0]),/50 aceitos pela API \(entrega individual não medida\)/);
+ assert.match(GF.volumeTexto(c.etapas[1]),/^— aceitos · 45 entregues$/);assert.match(GF.volumeTexto(c.etapas[0]),/50 envios registrados \(entregas no quadro de e-mail medido\)/);
  const a=o.fluxos[0];assert.equal(a.etapas[0].workflows.length,1);assert.equal(a.etapas[0].workflows[0].modo,'sombra');assert.equal(a.etapas[0].workflows[0].atual,null); // sem modelo da tela: não afirma atualidade
  assert.equal(a.etapas[0].templates[0].name,'aristo_confirmacao_exemplo');assert.equal(a.modo.valor,'nao_confirmado');
  assert.equal(GF.observados(api(),{marca:'fish'}).fluxos.length,1);
@@ -44,13 +44,13 @@ test('volume de e-mail ausente permanece desconhecido na tela e no CSV, inclusiv
   for(const rows of [[{...row,enviados:missing}],[{...row,enviados:50},{...row,enviados:missing}]]){
    const list=GF.lista({crm_fluxo:rows},ctx),step=list.observados[0].etapas[0];
    assert.equal(step.volume.enviados,null);
-   assert.match(GF.volumeTexto(step),/^— aceitos pela API/);
-   assert.match(GF.linhasCsv(list)[0].volume,/^— aceitos pela API/);
+   assert.match(GF.volumeTexto(step),/^— envios registrados/);
+   assert.match(GF.linhasCsv(list)[0].volume,/^— envios registrados/);
   }
  }
  const known=GF.lista({crm_fluxo:[{...row,enviados:0}]},ctx);
  assert.equal(known.observados[0].etapas[0].volume.enviados,0);
- assert.match(GF.linhasCsv(known)[0].volume,/^0 aceitos pela API/);
+ assert.match(GF.linhasCsv(known)[0].volume,/^0 envios registrados/);
 });
 test('modo sem consulta confirmada não recebe selo verificado, inclusive com outro workflow atual',()=>{
  const current={key:'atual',modo:'real',atual:true,ativo:true};

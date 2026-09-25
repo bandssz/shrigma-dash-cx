@@ -8,3 +8,13 @@ test('old, absent, future and malformed diagnostics never imply healthy operatio
 test('collector interruption and conflicts are global; failures and uncertainty are brand scoped',()=>{const a=fixture(),h=a.crm_email_ses.health;h.collector.last_poll_ok_at='2026-09-15T00:50:00Z';h.conflicts=2;h.brands[0].resultado_incerto=1;h.brands[1].falhas_24h=3;assert.match(S.health(a,'fish',now).alerts.map(a=>a.text).join(' '),/cinco minutos.*2 eventos.*1 envios/s);assert.doesNotMatch(S.health(a,'fish',now).alerts.map(a=>a.text).join(' '),/3 falhas/);});
 
 test('queue backlog warns and stale queue counts do not masquerade as zero',()=>{const a=fixture();a.crm_email_ses.health.queue.visible=300;assert.match(S.health(a,'fish',now).alerts.find(x=>x.text.startsWith('Fila SES')).text,/300 eventos/);a.crm_email_ses.health.queue.error_at='2026-09-15T01:00:00Z';assert.match(S.health(a,'fish',now).alerts.map(x=>x.text).join(' '),/Tamanho da fila sem medição/);});
+
+test('ten-minute cached snapshot never becomes a five-minute collector alarm',()=>{
+ const a=fixture(),h=a.crm_email_ses.health;h.checked_at='2026-09-15T00:50:00Z';h.collector.last_poll_ok_at='2026-09-15T00:49:55Z';h.queue.checked_at='2026-09-15T00:49:30Z';
+ const x=S.health(a,'fish',now);assert.equal(x.stale,false);assert.equal(x.alerts.some(a=>a.level==='danger'),false);assert.match(x.alerts[0].text,/anteriores à consulta/);assert.match(x.alerts[1].text,/0 eventos/);
+ h.collector.last_poll_ok_at='2026-09-15T00:44:00Z';assert.equal(S.health(a,'fish',now).alerts[0].level,'danger');
+});
+test('stale snapshot preserves factual backlog with its timestamp instead of implying live health',()=>{
+ const a=fixture(),h=a.crm_email_ses.health;h.checked_at='2026-09-15T00:40:00Z';h.collector.last_poll_ok_at='2026-09-15T00:39:55Z';h.queue.checked_at='2026-09-15T00:39:30Z';h.brands[0].resultado_incerto=2;
+ const x=S.health(a,'fish',now);assert.equal(x.stale,true);assert.equal(x.checked_at,h.checked_at);assert.equal(x.alerts.some(a=>a.level==='ok'),false);assert.match(x.alerts.map(x=>x.text).join(' '),/mais de 15 minutos.*2 envios com resultado incerto/);
+});

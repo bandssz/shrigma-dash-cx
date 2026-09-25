@@ -246,6 +246,19 @@ const GC={
       <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${row.usage_reason?`<p class="control-template-meta">${e(row.usage_reason)}</p>`:''}${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
   },
+  emailInventory(api,marca,canal,now=Date.now()) {
+    if(canal==='whatsapp'||!['fish','aristo','todas','todos'].includes(marca))return '';
+    const raw=api?.crm_operacao?.email_steps,e=GC.esc;
+    const heading='<h3>Etapas de e-mail configuradas</h3>';
+    if(!Array.isArray(raw))return heading+'<p class="nota">A lista de etapas de e-mail ainda não veio nesta consulta. Atualize o painel; os serviços abaixo não representam todas as etapas.</p>';
+    const chosen=raw.filter(r=>r&&(['todas','todos'].includes(marca)||r.brand===marca));
+    const valid=chosen.every(r=>['fish','aristo'].includes(r.brand)&&typeof r.key==='string'&&typeof r.piece==='string'&&typeof r.flow_key==='string'&&typeof r.enabled==='boolean'&&typeof r.runtime_ready==='boolean'&&Number.isFinite(Date.parse(r.checked_at)))&&new Set(chosen.map(r=>r.key)).size===chosen.length;
+    if(!valid)return heading+'<p class="nota">Não foi possível conferir as etapas de e-mail. Atualize o painel.</p>';
+    const flowLabel=k=>({'carrinho':'Carrinho','nps-d0':'Pesquisa de satisfação','pedido-recebido':'Acompanhamento do pedido','popup':'Boas-vindas'})[k.split(':')[1]]||'Outra jornada';
+    const stepLabel=p=>({'carrinho-30min':'Após 30 minutos','carrinho-1h':'Após 1 hora','carrinho-2h':'Após 2 horas','carrinho-24h':'Após 24 horas','carrinho-48h':'Após 48 horas','nps-d0':'Primeiro convite','nps-d3':'Lembrete após 3 dias','cupom-boas-vindas':'Cupom de boas-vindas','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento confirmado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido a caminho','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado'})[p]||p;
+    const status=r=>{const age=now-Date.parse(r.checked_at);return !Number.isFinite(age)||age < -60000||age>900000?'Configuração na consulta anterior':!r.enabled?'Pausada':!r.runtime_ready?'Integração pendente':'Habilitada na configuração';};
+    return '<section class="control-email-inventory">'+heading+`<p>${chosen.length} etapas · versão publicada das jornadas · independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.</p><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(flowLabel(r.flow_key))}</span></td><td>${e(stepLabel(r.piece))}</td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
+  },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
     const cob=ctx.api?.crm_wa_template_cobertura;
@@ -269,9 +282,9 @@ const GC={
       :`Nenhuma automação${GC.describe([fw.estado==='ativas'?'ativa':fw.estado==='inativas'?'inativa':fw.estado==='conferir'?'a conferir':'',
           fw.modo==='real'?'em modo real':fw.modo==='sombra'?'em modo sombra':fw.modo==='interno'?'em modo interno':fw.modo==='segue-origem'?'sem modo próprio':fw.modo==='nao-confirmado'?'com modo não confirmado':'',
           fw.q?`contendo "${e(fw.q)}"`:''])}${model.marca!=='todas'?` para ${e(GC.brand(model.marca))}`:''}${model.canal!=='todos'?` no canal ${e(GC.channel(model.canal))}`:''}. Modo sombra ou inativo não significa que a operação parou de existir: confira os filtros.`;
-    workflowRoot.innerHTML=GC.metadata(model)+`<div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Automações acompanhadas</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Ativas na coleta atual</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
-      <p class="control-explainer">Ativo indica configuração ligada; não confirma funcionamento ou entrega. O modo sombra não faz disparos reais. Serviços compartilhados aparecem também no filtro de cada marca. O inventário é a lista atual do coletor; as quantidades acima mudam com a operação.</p>
-      ${brandSpecific?`<p class="control-scope">Nenhuma automação específica de ${e(GC.brand(model.marca))} foi informada neste canal.${model.shared?' Abaixo estão os serviços compartilhados.':''}</p>`:''}
+    workflowRoot.innerHTML=GC.metadata(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
+      <p class="control-explainer">Ativo indica configuração ligada; não confirma funcionamento ou entrega. O modo sombra não faz disparos reais. Serviços compartilhados aparecem também no filtro de cada marca. As quantidades de serviços não representam o número de etapas de e-mail.</p>
+      ${brandSpecific?`<p class="control-scope">Nenhum serviço específico de ${e(GC.brand(model.marca))} foi informado neste canal.${model.shared?' Abaixo estão os serviços compartilhados.':''}</p>`:''}
       ${model.meta.valid?`<div class="gt-toolbar control-toolbar"><label class="gt-busca">Buscar automação<input type="search" id="control-workflow-search" placeholder="Nome ou chave" value="${e(fw.q)}" autocomplete="off"></label>
         ${GC.select('control-wf-estado',GC.ESTADOS_WF,fw.estado,'Estado')}${GC.select('control-wf-modo',GC.MODOS_WF,fw.modo,'Modo')}
         <span class="gt-contagem">${workflows.length} de ${model.workflows.length} automações</span>

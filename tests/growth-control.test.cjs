@@ -81,7 +81,7 @@ test('campos textuais são escapados e modo de retry não é inventado',()=>{
 test('filtro e-mail explica catálogo WhatsApp e marca sem cobertura não esconde compartilhados',()=>{
  const x=render(fixture(),{marca:'olivas',canal:'email'});
  assert.match(x.document.querySelector('#control-templates').textContent,/Selecione WhatsApp ou Todos os canais/);
- assert.match(x.document.querySelector('#control-workflows').textContent,/Nenhuma automação específica de Olivas/);
+ assert.match(x.document.querySelector('#control-workflows').textContent,/Nenhum serviço específico de Olivas/);
  assert.equal(x.document.querySelectorAll('[data-control-workflow]').length,2);
 });
 test('conferência manual não promete coleta automática e envelhece após 15 minutos',()=>{
@@ -104,4 +104,16 @@ test('optional and retired templates show reasons without a required integration
   assert.doesNotMatch(row.textContent,/Integração pendente|campos do template não confirmados/);assert.match(row.textContent,/Confirmação já coberta/);assert.equal(row.querySelectorAll('img').length,0);
   const model=GC.model(p,{now});assert.equal(model.templates.find(x=>x.key==='fish_native').fieldsValid,true);assert.equal(GC.templateMatches(t,{status:'todos',categoria:'todas',uso:usage}),true);assert.equal(GC.templateMatches(t,{status:'todos',categoria:'todas',uso:'current'}),false);
  }
+});
+test('email inventory is published configuration, brand scoped and independent of history period',()=>{
+ const p=fixture();p.email_steps=[{key:'fish:pedido-recebido',brand:'fish',flow_key:'fish:pedido-recebido',piece:'pedido-recebido',enabled:true,runtime_ready:true,checked_at:'2026-09-08T01:09:00Z'},{key:'aristo:nps-d0',brand:'aristo',flow_key:'aristo:nps-d0',piece:'nps-d0',enabled:false,runtime_ready:true,checked_at:'2026-09-08T01:09:00Z'}];
+ const x=render(p,{marca:'fish',canal:'email',ini:'2020-01-01',fim:'2020-01-01'});const section=x.document.querySelector('.control-email-inventory');
+ assert.equal(section.querySelectorAll('[data-email-step]').length,1);assert.match(section.textContent,/1 etapas.*não confirma envio ou entrega/);assert.match(section.textContent,/Habilitada na configuração/);
+ x.run('ctx.now+=16*60000;GC.render(ctx)');assert.match(x.document.querySelector('.control-email-inventory').textContent,/Configuração na consulta anterior/);assert.doesNotMatch(x.document.querySelector('.control-email-inventory').textContent,/Habilitada na configuração/);
+ const y=render(p,{marca:'fish',canal:'whatsapp'});assert.equal(y.document.querySelector('.control-email-inventory'),null);
+});
+test('email inventory missing, empty, malformed and paused are distinct states',()=>{
+ assert.match(GC.emailInventory({},'fish','email',now),/ainda não veio/);
+ const api={crm_operacao:{email_steps:[]}};assert.match(GC.emailInventory(api,'fish','email',now),/Nenhuma etapa.*Confira/);
+ api.crm_operacao.email_steps=[{brand:'fish'}];assert.match(GC.emailInventory(api,'fish','email',now),/Não foi possível conferir/);
 });
