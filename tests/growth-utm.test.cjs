@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const GUT=require('../growth-utm');
+const {parseHTML}=require('linkedom');
 test('reads all literal UTM patterns, HTML entities and encoded values without rewriting content',()=>{
  const input='<a href="https://fishermans.com.br/products/a?utm_source=email&amp;utm_medium=fluxo&amp;utm_campaign=fish-carrinho&amp;utm_content=30min">A</a>\nhttps://fishermans.com.br/products/b?utm_source=whatsapp&utm_medium=fluxo&utm_content=24h&utm_term=vers%C3%A3o-b';
  assert.deepEqual(GUT.fromContent(input),[{source:'email',medium:'fluxo',campaign:'fish-carrinho',content:'30min'},{source:'whatsapp',medium:'fluxo',content:'24h',term:'versão-b'}]);
@@ -46,4 +47,37 @@ test('automation uses exact selected template and brand; no channel-derived sour
 test('WhatsApp exposes the URL button source variable; body text is not a tracking rule',()=>{
  const t={channel:'whatsapp',components:[{type:'BODY',text:'Ignore https://x.test/?utm_source=body-only'},{type:'BUTTONS',buttons:[{type:'URL',url:'https://x.test/{{1}}?utm_source={{2}}&utm_medium=fluxo'},{type:'PHONE_NUMBER',url:'https://x.test/?utm_source=not-a-url-button'}]}]};
  const content=GUT.templateContent(t);assert.equal(GUT.fromContent(content)[0].source,'{{2}}');assert.doesNotMatch(content,/body-only|not-a-url-button/);
+});
+test('verified runtime source description stays escaped and separate from template links',()=>{
+ const context=vm.createContext({console,URLSearchParams,GURT:{read:()=>({rows:[{source:'whatsapp',campaign:'verified-cart'}],sourceExpression:"Valor fixo 'whatsapp' <script>blocked</script>",evidence:'Conferido em 25/09/2026',label:'Regra conferida do envio',scope:'Parâmetros anteriores são preservados.'})}});
+ for(const name of ['growth-utm.js','growth-builder.js'])vm.runInContext(fs.readFileSync(require.resolve('../'+name),'utf8'),context);
+ const html=vm.runInContext(`(()=>{const step={key:'wa',channel:'whatsapp',template_id:'1'},f={key:'fish:cart',brand:'fish',available_steps:[step]};GB.state.templates={'fish:whatsapp':[{brand:'fish',channel:'whatsapp',id:'1',name:'Template',components:[{type:'BUTTONS',buttons:[{type:'URL',url:'https://x.test/?utm_source=template-only'}]}]}]};return GB.trackingHtml(step,f,true);})()`,context);
+ const {document}=parseHTML(html);assert.equal(document.querySelector('script'),null);
+ assert.match(document.querySelector('.crm-utm').textContent,/Valor fixo 'whatsapp' <script>blocked<\/script>/);
+ assert.match(html,/utm_campaign=verified-cart/);assert.match(html,/Links escritos no template/);assert.match(html,/utm_source=template-only/);
+ assert.match(html,/Conferido em 25\/09\/2026/);assert.equal(document.querySelector('.crm-utm-note').getAttribute('title'),'Parâmetros anteriores são preservados.');
+ const empty=parseHTML(GUT.render({rows:[],sourceExpression:'Origem não comprovada'})).document;assert.match(empty.querySelector('.crm-utm-source-rule').textContent,/Origem não comprovada/);
+});
+test('thirteen patterns collapse common fields once and preserve every complete tuple',()=>{
+ const rows=Array.from({length:13},(_,i)=>({source:'listmonk',medium:'campanha',campaign:'fixture',content:i%2?'footer':'hero',term:'dispatch-'+i})),before=JSON.stringify(rows);
+ const {document}=parseHTML(GUT.render({rows,mode:'registered',evidence:'Consulta sintética'})),group=document.querySelector('.crm-utm-group'),common=group.querySelector('dl');
+ assert.deepEqual([...common.querySelectorAll('[data-utm-field]')].map(e=>e.dataset.utmField),['source','medium','campaign']);
+ assert.deepEqual([...group.querySelectorAll('thead [data-utm-field]')].map(e=>e.dataset.utmField),['content','term']);
+ const tableRows=[...group.querySelectorAll('tbody tr')];assert.equal(tableRows.length,13);
+ for(const [i,row] of tableRows.entries()){assert.equal(row.dataset.utmPattern,String(i+1));assert.equal(row.querySelector('[data-utm-value=content]').textContent,rows[i].content);assert.equal(row.querySelector('[data-utm-value=term]').textContent,rows[i].term);}
+ const queries=[...group.querySelectorAll('.crm-utm-complete li')];assert.equal(queries.length,13);
+ for(const [i,item] of queries.entries())assert.equal(item.querySelector('code').textContent,'utm_source=listmonk&utm_medium=campanha&utm_campaign=fixture&utm_content='+rows[i].content+'&utm_term='+rows[i].term);
+ assert.equal(group.querySelectorAll('dt').length,4);assert.equal((document.querySelector('.crm-utm').textContent.match(/Variável de source/g)||[]).length,1);assert.equal(document.querySelectorAll('.crm-utm-evidence').length,1);assert.equal(group.querySelector('.crm-utm-complete').hasAttribute('open'),false);assert.equal(JSON.stringify(rows),before);
+});
+test('grouping preserves original pairings, duplicate parameter order, missing fields and source variables',()=>{
+ const expression='{{ .Tx.Data.utm_source }}',rows=[{source:expression,campaign:'one',content:'hero',term:'a'},{source:expression,campaign:'one',content:'footer',term:'b'},{source:expression,campaign:'one',content:'hero',term:'a'}];
+ const {document}=parseHTML(GUT.render({rows}));assert.equal(document.querySelectorAll('tbody tr').length,2);assert.equal((document.querySelector('.crm-utm').textContent.match(/Variável de source/g)||[]).length,1);assert.ok(document.querySelector('dl').textContent.includes(expression));
+ const absent=parseHTML(GUT.render({rows:[{source:['a','b'],campaign:'one'},{source:['b','a'],campaign:'one',term:'second'}]})).document;
+ assert.deepEqual([...absent.querySelectorAll('tbody [data-utm-value=source]')].map(e=>[...e.querySelectorAll('code')].map(c=>c.textContent)),[['a','b'],['b','a']]);assert.equal(absent.querySelector('tbody [data-utm-value=term]').textContent,'Não informado');assert.equal(absent.querySelectorAll('.crm-utm-complete li').length,2);
+});
+test('one pattern retains the simple view and grouped values remain inert text',()=>{
+ const single=parseHTML(GUT.render({rows:[{source:'email',campaign:'fixture'}]})).document;
+ assert.equal(single.querySelector('table'),null);assert.equal(single.querySelector('.crm-utm-complete'),null);assert.equal(single.querySelectorAll('dl [data-utm-field]').length,5);assert.equal(single.querySelector('.crm-utm-query').textContent,'utm_source=email&utm_campaign=fixture');
+ const payload='<img src=x onerror=alert(1)>',html=GUT.render({rows:[{source:payload,content:'<script>one</script>'},{source:payload,content:'<svg onload=two>'}],evidence:'<script>evidence</script>'}),grouped=parseHTML(html).document;
+ assert.equal(grouped.querySelector('script,img,svg'),null);assert.equal(grouped.querySelectorAll('tbody tr').length,2);assert.ok(grouped.querySelector('dl').textContent.includes(payload));assert.ok(grouped.querySelector('tbody').textContent.includes('<script>one</script>'));assert.match(html,/&lt;svg/);
 });

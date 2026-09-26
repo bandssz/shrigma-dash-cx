@@ -152,6 +152,11 @@ const GB={
   const template=(GB.state.templates[f.brand+':'+step.channel]||[]).find(t=>t.brand===f.brand&&t.channel===step.channel&&String(t.id)===String(step.template_id));
   const content=GUT.templateContent(template),slot=f.available_steps.find(x=>x.key===step.key)||step;
   const key=f.key+':'+step.key+':'+(open?'inspector':'summary');
+  const runtime=typeof GURT!=='undefined'?GURT.read(f,step):null;
+  if(runtime){
+   const label=open?'UTMs e origem':`${step.channel==='email'?'E-mail':'WhatsApp'} · ${slot.name||step.key}`,expanded=GB.utmViews?.has(key)?GB.utmViews.get(key):open;
+   return `<details class="crm-utm" data-utm-key="${GB.e(key)}"${expanded?' open':''}><summary>${GB.e(label)}</summary>${GUT.render({rows:runtime.rows,label:runtime.label||'Parâmetros preenchidos pelo envio',mode:'content',evidence:runtime.evidence,empty:runtime.empty,sourceExpression:runtime.sourceExpression,open:true})}<span class="crm-utm-note" title="${GB.e(runtime.scope)}">Condições do link ⓘ</span>${GUT.render({rows:GUT.fromContent(content),dynamic:GUT.dynamicFields(content),label:'Links escritos no template',mode:'content',evidence:template?`Template selecionado: ${template.name}${GB.state.dirty?' · edição ainda não salva':''}`:'Conteúdo do template não disponível nesta consulta.',empty:template?'O template usa os endereços fornecidos pela etapa ou não declara UTMs próprias.':'Use Atualizar na jornada para consultar o template selecionado.'})}</details>`;
+  }
   return GUT.render({label:open?'UTMs e origem':`${step.channel==='email'?'E-mail':'WhatsApp'} · ${slot.name||step.key}`,rows:GUT.fromContent(content),dynamic:GUT.dynamicFields(content),mode:'content',key,open:GB.utmViews?.has(key)?GB.utmViews.get(key):open,
    evidence:template?`Template selecionado: ${template.name}. ${GB.state.dirty?'Edição ainda não salva.':'Confira a versão publicada antes de alterar.'}`:'Conteúdo do template não disponível nesta consulta.',
    empty:template?'Este template não declara UTMs nos links. O envio pode preencher o endereço; confira a variável da etapa.':'Use Atualizar na jornada para consultar os templates e confira a etapa selecionada.'});
