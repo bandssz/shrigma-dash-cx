@@ -425,7 +425,8 @@ const GC={
     return model;
   },
   setTab(tab){
-    if(!['history','workflows','templates','fluxos','drafts'].includes(tab))return;
+    if(!['history','workflows','templates','fluxos','drafts','graph'].includes(tab))return;
+    if(tab==='graph'&&(typeof document==='undefined'||document.getElementById('control-tab-graph')?.hidden!==false||document.getElementById('control-tab-graph')?.disabled))return;
     GC.activeTab=tab;
     if(typeof document==='undefined')return;
     document.querySelectorAll('[data-control-tab]').forEach(button=>{const selected=button.dataset.controlTab===tab;button.classList.toggle('ativo',selected);button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;});
@@ -438,7 +439,7 @@ const GC={
   init(){
     if(typeof document==='undefined')return;
     const allButtons=[...document.querySelectorAll('[data-control-tab]')];
-    allButtons.forEach(button=>{const buttons=allButtons.filter(b=>b.closest('[role=tablist]')===button.closest('[role=tablist]')),index=buttons.indexOf(button);button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();buttons[next].click();buttons[next].focus();};});
+    allButtons.forEach(button=>{button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{const buttons=allButtons.filter(b=>!b.hidden&&!b.disabled&&b.closest('[role=tablist]')===button.closest('[role=tablist]')),index=buttons.indexOf(button);let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();buttons[next].click();buttons[next].focus();};});
     GC.setTab(GC.activeTab);
   },
 };

@@ -1,4 +1,8 @@
-/* Unmounted, local-only candidate. No API, storage, transport or activation. */
+/* Draft editor: no API, storage, transport or activation.
+ * mount({onChange, persistence:'server'}) optionally notifies the host with
+ * detached {definition, server, dirty} after a real definition edit only.
+ * The host owns persistence and remounts a confirmed receipt as the new baseline;
+ * the callback never adopts a version or marks an edit saved. */
 (function(root,factory){'use strict';if(typeof module==='object'&&module.exports)module.exports=factory(require('./n8n/growth/journey-graph-contract.js'));else root.JourneyGraphEditor=factory(root.JourneyGraphContract);})(typeof globalThis!=='undefined'?globalThis:this,function(G){
  'use strict';
  const VERSION='journey_graph_editor_v1',ENABLED=false;
@@ -9,7 +13,7 @@
  let serial=0;
  function mount(options={}){
   if(!G||!options.root?.ownerDocument)throw Error('GRAPH_EDITOR_DEPENDENCY');
-  const root=options.root,prefix='jge-'+(++serial)+'-',brand=options.brand,readOnly=options.readOnly===true;
+  const root=options.root,prefix='jge-'+(++serial)+'-',brand=options.brand,readOnly=options.readOnly===true,serverPersistence=options.persistence==='server';
   if(!['fish','aristo'].includes(brand))throw Error('GRAPH_EDITOR_BRAND');
   const labels=options.labels||{},label=k=>Object.hasOwn(labels,k)&&typeof labels[k]==='string'?labels[k]:Object.hasOwn(terms,k)?terms[k]:String(k).replace(/[_.:-]+/g,' ');
   // The host supplies the server catalog; no operator control can change it.
@@ -21,13 +25,16 @@
   let server=null;
   if(options.server){const s=options.server,keys=['journey_id','brand','version','revision','published_revision','paused'];if(Object.keys(s).length!==keys.length||keys.some(k=>!Object.hasOwn(s,k))||s.brand!==brand||! /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(s.journey_id)||!Number.isSafeInteger(s.version)||s.version<1||!Number.isSafeInteger(s.revision)||s.revision<1||s.published_revision!==null&&(!Number.isSafeInteger(s.published_revision)||s.published_revision<1)||typeof s.paused!=='boolean')throw Error('GRAPH_EDITOR_SERVER');server=clone(s);}
   const baseline=JSON.stringify(graph),units=Object.create(null),scenario=Object.create(null);let pending=null,review=null,simulation=null,notice='',destroyed=false;
-  let simulationNow=options.simulationNow||new Date().toISOString();
+  let simulationNow=options.simulationNow||new Date().toISOString(),lastChange=baseline;
+  const dirty=()=>JSON.stringify(graph)!==baseline;
+  function dirtyText(){return dirty()?(serverPersistence?'Alterações ainda não salvas.':'Alterações apenas nesta tela.'):(serverPersistence?(server?'Rascunho salvo no painel.':'Rascunho ainda não salvo.'):'Sem alterações locais.');}
+  function notifyChange(){const current=JSON.stringify(graph);if(current===lastChange)return;lastChange=current;if(typeof options.onChange==='function')options.onChange({definition:clone(graph),server:clone(server),dirty:dirty()});}
   function trigger(){return graph.nodes.find(n=>n.type==='trigger');}
   function fields(){const allowed=catalog?.triggers.find(t=>t.key===trigger()?.event)?.fields||[];return (catalog?.fields||[]).filter(f=>f.available&&allowed.includes(f.key));}
   function emailBindings(){const allowed=new Set(fields().map(f=>f.key));return (catalog?.messages||[]).filter(m=>m.available&&m.channel==='email'&&m.required_fields.every(k=>allowed.has(k)));}
   function defaultValue(type){return type==='boolean'?false:type==='number'?0:type==='timestamp'?'':type==='string_set'?'': 'Valor';}
   function leaf(){const f=fields()[0];return {field:f?.key||'',op:G.CATALOG.operators[f?.type||'string'][0],value:defaultValue(f?.type)};}
-  function graphCheck(){if(!catalogOK)return {ok:false,errors:[{message:'Catálogo indisponível. Carregue as opções desta marca antes de editar ou conferir a publicação.'}]};const r=G.validateGraph(graph,{catalog});if(r.ok&&graph.nodes.some(n=>n.type==='message'&&!emailBindings().some(m=>m.key===n.binding)))return {ok:false,errors:[{message:'Escolha um modelo de e-mail disponível nesta marca.'}]};return r;}
+  function graphCheck(){if(!catalogOK)return {ok:false,errors:[{message:'Opções indisponíveis. Recarregue as opções desta marca para continuar.'}]};const r=G.validateGraph(graph,{catalog});if(r.ok&&graph.nodes.some(n=>n.type==='message'&&!emailBindings().some(m=>m.key===n.binding)))return {ok:false,errors:[{message:'Escolha um modelo de e-mail disponível nesta marca.'}]};return r;}
   function title(n){return (graph.nodes.indexOf(n)+1)+'. '+names[n.type];}
   const option=(value,text,selected)=>'<option value="'+esc(value)+'"'+(selected?' selected':'')+'>'+esc(text)+'</option>';
   const disabled=()=>readOnly||!catalogOK||pending!==null;
@@ -59,8 +66,8 @@
    let html='<article class="jge-node" data-node-id="'+esc(n.id)+'"><header><h3>'+esc(title(n))+'</h3>'+(n.type!=='trigger'?'<button type="button" data-action="remove" '+data+off+' aria-label="Remover '+esc(title(n))+'">Remover</button>':'')+'</header>';
    if(n.type==='trigger')html+=control('Quando começa',select('data-field="event" '+data+off,(catalog?.triggers||[]).filter(t=>t.available).map(t=>[t.key,label(t.key)]),n.event,'Escolha a entrada'));
    if(n.type==='wait'){const unit=units[n.id]||(n.seconds%86400===0?86400:n.seconds%3600===0?3600:n.seconds%60===0?60:1);units[n.id]=unit;html+='<div class="jge-inline">'+control('Aguardar','<input type="number" min="1" step="any" data-field="wait-amount" '+data+' value="'+esc(n.seconds/unit)+'"'+off+'>')+control('Unidade',select('data-field="wait-unit" '+data+off,[[1,'Segundos'],[60,'Minutos'],[3600,'Horas'],[86400,'Dias']],unit))+'</div>';}
-   if(n.type==='condition')html+=conditionHTML(n,n.expression)+'<details><summary>Se o dado ainda não chegou</summary><p>Aguardar informação; nunca assumir “Não”. Ao vencer o prazo, bloquear esta entrada.</p><div class="jge-inline">'+control('Prazo máximo (segundos)','<input type="number" min="1" max="86400" data-field="max_wait_seconds" '+data+' value="'+esc(n.on_unknown.max_wait_seconds)+'"'+off+'>')+control('Conferir novamente em (segundos)','<input type="number" min="1" data-field="retry_seconds" '+data+' value="'+esc(n.on_unknown.retry_seconds)+'"'+off+'>')+'</div></details>';
-   if(n.type==='message')html+=control('Modelo de e-mail',select('data-field="binding" '+data+off,emailBindings().map(m=>[m.key,label(m.key)]),n.binding,'Escolha um modelo'))+'<p class="jge-note">Descadastro, consentimento e bloqueios devem ser conferidos antes do envio. Esta etapa só simula uma intenção.</p>';
+   if(n.type==='condition')html+=conditionHTML(n,n.expression)+'<details><summary title="Aguardar informação; nunca assumir Não. Ao vencer o prazo, bloquear esta entrada.">Se o dado ainda não chegou</summary><div class="jge-inline">'+control('Prazo máximo (segundos)','<input type="number" min="1" max="86400" data-field="max_wait_seconds" '+data+' value="'+esc(n.on_unknown.max_wait_seconds)+'"'+off+'>')+control('Conferir novamente em (segundos)','<input type="number" min="1" data-field="retry_seconds" '+data+' value="'+esc(n.on_unknown.retry_seconds)+'"'+off+'>')+'</div></details>';
+   if(n.type==='message')html+=control('Modelo de e-mail',select('data-field="binding" '+data+off,emailBindings().map(m=>[m.key,label(m.key)]),n.binding,'Escolha um modelo'))+'<span class="jge-note" title="Descadastro, consentimento e bloqueios devem ser conferidos antes do envio. Esta etapa só simula uma intenção.">E-mail planejado · sem envio</span>';
    if(n.type==='exit')html+=control('Motivo do encerramento',select('data-field="reason" '+data+off,[...new Set(['finished','purchased','not_eligible','opted_out',n.reason])].map(k=>[k,label(k)]),n.reason));
    if(n.type!=='exit')for(const port of n.type==='condition'?['yes','no']:['next']){
     const target=graph.edges.find(e=>e.from===n.id&&e.port===port)?.to||'',destinations=graph.nodes.filter(x=>x.id!==n.id&&x.type!=='trigger').map(x=>[x.id,title(x)]);
@@ -69,7 +76,7 @@
    }
    return html+'</article>';
   }
-  function scenarioHTML(){return '<details class="jge-scenario"><summary>Dados fictícios para simular</summary><p>São observados no início. Uma espera longa pode tornar o dado antigo; a simulação mostrará essa falta de informação.</p>'+control('Início (data e hora UTC)','<input type="datetime-local" step="1" data-scenario-start value="'+esc(simulationNow.slice(0,19))+'">')+fields().map(f=>{
+  function scenarioHTML(){return '<details class="jge-scenario"><summary title="Dados fictícios observados no início. Uma espera longa pode torná-los antigos; a simulação mostrará essa falta de informação.">Dados fictícios para simular</summary>'+control('Início (data e hora UTC)','<input type="datetime-local" step="1" data-scenario-start value="'+esc(simulationNow.slice(0,19))+'">')+fields().map(f=>{
    const s=scenario[f.key]||(scenario[f.key]={known:false,value:defaultValue(f.type)}),attrs='data-scenario-value="'+esc(f.key)+'"';
    const value=f.type==='boolean'?select(attrs,[['false','Não'],['true','Sim']],String(s.value)):'<input '+attrs+' type="'+(f.type==='number'?'number':f.type==='timestamp'?'datetime-local':'text')+'" maxlength="1024" step="any" value="'+esc(f.type==='timestamp'?String(s.value).slice(0,19):s.value)+'">';
    return '<div class="jge-scenario-field"><label><input type="checkbox" data-scenario-known="'+esc(f.key)+'"'+(s.known?' checked':'')+'> Informar '+esc(label(f.key))+'</label>'+control(f.type==='timestamp'?'Valor (UTC)':f.type==='string_set'?'Valores separados por vírgula':'Valor fictício',value)+'</div>';
@@ -88,22 +95,21 @@
   function render(){
    if(destroyed)return;const valid=graphCheck(),off=disabled()?' disabled':'',atLimit=graph.nodes.length>=G.MAX_NODES;
    root.classList.add('jge-editor');
-   root.innerHTML='<div class="jge-content"'+(pending?' inert aria-hidden="true"':'')+'><header class="jge-heading"><div><h2>Construir jornada</h2><p>'+esc(brand==='fish'?'Fishermans':'O Aristocrata')+' · '+esc(server?'Revisão '+server.revision+' · '+(server.paused?'Pausada':'Estado informado pelo servidor'):'Nova jornada · ainda sem versão do servidor')+'</p></div><span>Preparação local</span></header>'+
-    '<p class="jge-safety">Nenhuma mensagem será enviada. Descadastro e bloqueios não podem ser desativados.</p>'+
-    (!catalogOK?'<p role="alert" class="jge-alert">Catálogo indisponível. Carregue as opções desta marca para continuar; publicação bloqueada.</p>':'')+
-    (readOnly?'<p class="jge-note">Somente leitura. Você pode conferir o fluxo e simular dados fictícios.</p>':'')+
+   root.innerHTML='<div class="jge-content"'+(pending?' inert aria-hidden="true"':'')+'><header class="jge-heading"><div><h2>Construir jornada</h2><p>'+esc(brand==='fish'?'Fishermans':'O Aristocrata')+' · '+esc(server?'Revisão '+server.revision:'Nova jornada')+'</p></div><span class="jge-badge" title="Nenhuma mensagem será enviada. Descadastro e bloqueios não podem ser desativados. Salvar um rascunho não ativa a jornada.">Rascunho · sem envio</span></header>'+
+    (!catalogOK?'<p role="alert" class="jge-alert">Opções indisponíveis. Recarregue as opções desta marca para continuar.</p>':'')+
+    (readOnly?'<span class="jge-note" title="Você pode conferir o fluxo e simular dados fictícios.">Somente leitura</span>':'')+
     control('Nome da jornada','<input data-name maxlength="120" value="'+esc(graph.name)+'"'+off+'>')+
     '<div class="jge-add" aria-label="Adicionar etapa">'+['wait','condition','message','exit'].map(type=>'<button type="button" data-action="add" data-type="'+type+'"'+off+(atLimit||type==='message'&&!emailBindings().length||type==='condition'&&!fields().length?' disabled':'')+'>Adicionar '+names[type].toLowerCase()+'</button>').join('')+'<span>'+graph.nodes.length+' de '+G.MAX_NODES+' etapas</span></div>'+
     '<div class="jge-nodes">'+graph.nodes.map(nodeHTML).join('')+'</div>'+
     '<section class="jge-validation" aria-live="polite" data-validation>'+validationHTML(valid)+'</section>'+scenarioHTML()+
     '<div class="jge-actions"><button type="button" data-action="simulate"'+(!valid.ok||pending?' disabled':'')+'>Simular caminho</button><button type="button" data-action="review"'+(!valid.ok||pending?' disabled':'')+'>Conferir revisão</button><button type="button" disabled title="A conexão de publicação ainda não está disponível.">Publicar indisponível</button></div>'+
-    '<p class="jge-note" data-dirty>'+(JSON.stringify(graph)!==baseline?'Alterações apenas nesta tela.':'Sem alterações locais.')+'</p>'+
+    '<p class="jge-note" data-dirty>'+dirtyText()+'</p>'+
     '<div role="status" data-notice>'+esc(notice)+'</div>'+
-    (review?'<section class="jge-review"><h3>Revisão conferida</h3><p>Conexões e opções válidas para '+esc(brand==='fish'?'Fishermans':'O Aristocrata')+'. '+(server?'Versão esperada: '+server.version+'. ':'')+'Nada publicado. A integração do servidor deverá conferir permissões, catálogo e versão novamente.</p></section>':'')+resultHTML()+'</div>'+
+    (review?'<section class="jge-review"><h3 title="Conexões e opções válidas. Antes de salvar, o painel confere permissões, opções e versão novamente.">Revisão conferida · nada publicado</h3></section>':'')+resultHTML()+'</div>'+
     (pending?'<div class="jge-confirm" role="alertdialog" aria-modal="true" aria-labelledby="'+prefix+'remove-title"><h3 id="'+prefix+'remove-title">Remover '+esc(title(graph.nodes.find(n=>n.id===pending)))+'?</h3><p>As conexões desta etapa serão removidas. Confira os caminhos antes de continuar.</p><button type="button" data-action="cancel-remove">Manter etapa</button><button type="button" data-action="confirm-remove">Remover etapa</button></div>':'');
   }
   function validationHTML(valid){return valid.ok?'<strong>Fluxo válido para simular</strong>':'<strong>Há ajustes no fluxo</strong><ul>'+valid.errors.map(e=>'<li>'+esc(e.message)+'</li>').join('')+'</ul>';}
-  function changed(full=true){review=null;simulation=null;notice='';if(full)render();else{const valid=graphCheck();root.querySelector('[data-validation]').innerHTML=validationHTML(valid);root.querySelector('[data-dirty]').textContent=JSON.stringify(graph)!==baseline?'Alterações apenas nesta tela.':'Sem alterações locais.';root.querySelector('.jge-review')?.remove();root.querySelector('.jge-result')?.remove();root.querySelector('[data-notice]').textContent='';for(const b of root.querySelectorAll('[data-action="review"],[data-action="simulate"]'))b.disabled=!valid.ok;}}
+  function changed(full=true){review=null;simulation=null;notice='';if(full)render();else{const valid=graphCheck();root.querySelector('[data-validation]').innerHTML=validationHTML(valid);root.querySelector('[data-dirty]').textContent=dirtyText();root.querySelector('.jge-review')?.remove();root.querySelector('.jge-result')?.remove();root.querySelector('[data-notice]').textContent='';for(const b of root.querySelectorAll('[data-action="review"],[data-action="simulate"]'))b.disabled=!valid.ok;}notifyChange();}
   function parseValue(raw,type){if(type==='boolean')return raw==='true'?true:raw==='false'?false:null;if(type==='number')return raw.trim()===''?null:Number(raw);if(type==='timestamp'){const normalized=raw.length===16?raw+':00.000Z':raw.length===19?raw+'.000Z':raw+'Z',d=new Date(normalized);return Number.isFinite(d.getTime())&&d.toISOString()===normalized?normalized:raw;}return raw;}
   function valueChange(event){
    const el=event.target;if(destroyed||pending||!root.contains(el))return;

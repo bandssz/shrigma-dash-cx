@@ -1,7 +1,7 @@
 /* Growth editor preparations only. Operation journals and credentials stay untouched. */
 'use strict';
 const GBS=(()=>{
- const brands=['fish','aristo','olivas'],areas=['campaign','template','ab'],seen=new Map();
+ const brands=['fish','aristo','olivas'],areas=['campaign','template','ab','graph'],seen=new Map();
  const validBrand=b=>brands.includes(b),copy=x=>JSON.parse(JSON.stringify(x));
  const store=()=>typeof localStorage!=='undefined'?localStorage:null;
  const slot=(area,brand)=>{if(!areas.includes(area)||!validBrand(brand))throw Error('Escolha uma marca para editar.');return `shrigma_growth_editor_v1:${area}:${brand}`;};

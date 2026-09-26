@@ -22,7 +22,7 @@ function built(brand='fish'){
 test('both brands construct a complete cart graph through visible controls, not JSON; publication stays OFF',()=>{
  for(const brand of ['fish','aristo']){const x=built(brand);assert.equal(x.editor.validate().ok,true);const graph=x.editor.getDefinition();assert.deepEqual(Object.keys(graph).sort(),['brand','edges','name','nodes','version']);assert.equal(graph.brand,brand);assert.equal(graph.nodes.length,6);assert.equal(graph.edges.find(e=>e.from==='step2'&&e.port==='yes').to,'step4');
   assert.equal(Editor.ENABLED,false);assert.equal(x.editor.enabled,false);assert.equal(x.editor.contextStatus().dirty,true);assert.equal(x.editor.contextStatus().publicationAvailable,false);assert.equal(x.root.querySelector('textarea'),null);
-  x.click('[data-action="review"]');const review=x.editor.prepareReview();assert.equal(review.ok,true);assert.equal(review.authorizes_publish,false);assert.equal(review.authorizes_send,false);assert.equal(review.server,null);assert.match(x.root.textContent,/Nada publicado/);assert.match(x.root.textContent,/Descadastro e bloqueios não podem ser desativados/);
+  x.click('[data-action="review"]');const review=x.editor.prepareReview();assert.equal(review.ok,true);assert.equal(review.authorizes_publish,false);assert.equal(review.authorizes_send,false);assert.equal(review.server,null);assert.match(x.root.textContent,/nada publicado/);assert.match(x.el('.jge-badge').title,/Descadastro e bloqueios não podem ser desativados/);
   const publish=[...x.root.querySelectorAll('button')].find(b=>b.textContent==='Publicar indisponível');assert.equal(publish.disabled,true);assert.equal(x.root.querySelector('[data-optout]'),null);
  }
 });
@@ -66,7 +66,7 @@ test('server identity and versions stay separate and immutable; unavailable or c
  const f=fixture({}),server={journey_id:id(500),brand:'fish',version:7,revision:3,published_revision:2,paused:true},before=JSON.stringify({server,catalog:f.catalog,definition:f.graph});
  const x=boot({server,catalog:f.catalog,definition:f.graph});x.change('[data-name]','Nova revisão local','input');const p=x.editor.prepareReview();assert.deepEqual(p.server,server);assert.equal(p.definition.journey_id,undefined);assert.equal(p.definition.revision,undefined);assert.equal(p.definition.enabled,undefined);
  p.server.version=99;p.definition.name='Mutated copy';assert.equal(x.editor.getServerIdentity().version,7);assert.equal(x.editor.getDefinition().name,'Nova revisão local');assert.equal(JSON.stringify({server,catalog:f.catalog,definition:f.graph}),before);
- for(const catalog of [null,fixture({},'aristo').catalog]){const missing=boot({catalog});assert.equal(missing.editor.prepareReview().ok,false);assert.match(missing.root.textContent,/Catálogo indisponível/);assert.equal(missing.el('[data-action="add"][data-type="wait"]').disabled,true);assert.equal(missing.el('[data-name]').disabled,true);}
+ for(const catalog of [null,fixture({},'aristo').catalog]){const missing=boot({catalog});assert.equal(missing.editor.prepareReview().ok,false);assert.match(missing.root.textContent,/Opções indisponíveis/);assert.equal(missing.el('[data-action="add"][data-type="wait"]').disabled,true);assert.equal(missing.el('[data-name]').disabled,true);}
  assert.throws(()=>boot({server:{...server,brand:'aristo'}}),/GRAPH_EDITOR_SERVER/);assert.throws(()=>boot({definition:fixture({},'aristo').graph}),/GRAPH_EDITOR_DOCUMENT/);
 });
 test('removal needs explicit HTML confirmation, preserves cancel and never silently reconnects branches',()=>{
@@ -74,10 +74,9 @@ test('removal needs explicit HTML confirmation, preserves cancel and never silen
  x.change('[data-name]','Must not change','input');assert.deepEqual(x.editor.getDefinition(),before);x.click('[data-action="cancel-remove"]');assert.deepEqual(x.editor.getDefinition(),before);
  x.click('[data-action="remove"][data-node="step3"]');x.click('[data-action="confirm-remove"]');assert.equal(x.editor.getDefinition().nodes.some(n=>n.id==='step3'),false);assert.equal(x.editor.getDefinition().edges.some(e=>e.from==='step3'||e.to==='step3'),false);assert.equal(x.editor.validate().ok,false);assert.equal(x.editor.getDefinition().edges.find(e=>e.from==='step2'&&e.port==='yes').to,'step4');
 });
-test('read-only mode cannot mutate but can simulate; labels are escaped and candidate remains unmounted',()=>{
+test('read-only mode cannot mutate but can simulate; labels are escaped and destroy removes listeners',()=>{
  const f=fixture({}),x=boot({definition:f.graph,readOnly:true,labels:{'cart.email':'<img src=x onerror=alert(1)>'}}),before=x.editor.getDefinition();
  assert.equal(x.root.querySelector('img'),null);assert.match(x.root.textContent,/<img src=x/);assert.equal(x.el('[data-name]').disabled,true);x.change('[data-name]','Cannot change','input');add(x,'exit');assert.deepEqual(x.editor.getDefinition(),before);x.click('[data-action="simulate"]');assert.equal(x.editor.getSimulation().sends,0);
- const manifest=fs.readFileSync(require.resolve('../tools/panel-build/manifest.json'),'utf8');assert.doesNotMatch(manifest,/growth-journey-graph-editor/);
  x.editor.destroy();assert.equal(x.root.innerHTML,'');assert.equal(x.root.classList.contains('jge-editor'),false);
 });
 test('bounded node count and expression depth/leaf count cannot grow through repeated controls',()=>{
@@ -89,10 +88,40 @@ test('unavailable or non-email releases are not selectable; malformed server str
  const x=boot({catalog:f.catalog,definition:f.graph});assert.deepEqual([...x.el('[data-field="binding"]').options].map(o=>o.value),['','cart.email']);
  const wa=JSON.parse(JSON.stringify(f.graph));wa.nodes.find(n=>n.type==='message').binding='cart.wa';const blocked=boot({catalog:f.catalog,definition:wa});assert.equal(blocked.editor.prepareReview().ok,false);assert.match(blocked.root.textContent,/modelo de e-mail disponível/);
  const broken=JSON.parse(JSON.stringify(f.graph));delete broken.nodes[2].expression;assert.throws(()=>boot({definition:broken}),/GRAPH_EDITOR_DOCUMENT/);
- const missing=boot({catalog:null,definition:broken});assert.equal(missing.editor.prepareReview().ok,false);assert.match(missing.root.textContent,/Catálogo indisponível/);
+ const missing=boot({catalog:null,definition:broken});assert.equal(missing.editor.prepareReview().ok,false);assert.match(missing.root.textContent,/Opções indisponíveis/);
 });
 test('candidate stylesheet parses, remains scoped and includes compact-screen layout without hiding workflow content',()=>{
  const css=fs.readFileSync(require.resolve('../growth-journey-graph-editor.css'),'utf8'),{document}=parseHTML('<style>'+css+'</style>'),rules=document.querySelector('style').sheet.cssRules;
  function scoped(list){for(const rule of list){if(rule.cssRules)scoped(rule.cssRules);else {let depth=0,parts=[''];for(const c of rule.selectorText){if(c==='(')depth++;if(c===')')depth--;if(c===','&&depth===0)parts.push('');else parts[parts.length-1]+=c;}assert.ok(parts.every(s=>s.trim().startsWith('.jge-')),'global selector: '+rule.selectorText);}}}
- scoped(rules);assert.ok(rules.length>20);assert.match(css,/@media\(max-width:760px\)/);assert.doesNotMatch(css,/display\s*:\s*none|visibility\s*:\s*hidden/);
+ scoped(rules);for(const name of ['crm-accent','texto','mudo','borda','card','card-2'])assert.match(css,new RegExp('var\\(--'+name+'[,]'));assert.ok(rules.length>20);assert.match(css,/@media\(max-width:760px\)/);assert.doesNotMatch(css,/display\s*:\s*none|visibility\s*:\s*hidden/);
+});
+
+test('onChange reports detached definition and original server identity once per real edit',()=>{
+ for(const brand of ['fish','aristo']){
+  const f=fixture({},brand),server={journey_id:id(501),brand,version:7,revision:3,published_revision:null,paused:true},events=[];
+  const x=boot({definition:f.graph,server,onChange:event=>events.push(event),persistence:'server'},brand);
+  assert.equal(events.length,0);assert.equal(x.el('[data-dirty]').textContent,'Rascunho salvo no painel.');
+  const name=x.change('[data-name]','Revisão alterada','input');assert.equal(events.length,1);
+  assert.equal(x.el('[data-name]'),name);assert.equal(events[0].dirty,true);assert.deepEqual(events[0].server,server);
+  events[0].definition.name='Não altera o editor';events[0].server.version=99;
+  assert.equal(x.editor.getDefinition().name,'Revisão alterada');assert.equal(x.editor.getServerIdentity().version,7);
+  x.change('[data-name]','Revisão alterada');assert.equal(events.length,1);
+  assert.equal(x.el('[data-dirty]').textContent,'Alterações ainda não salvas.');
+  x.click('[data-action="review"]');x.click('[data-action="simulate"]');assert.equal(events.length,1);
+  x.change('[data-scenario-known="purchase.confirmed"]',true);assert.equal(events.length,1);
+  x.change('[data-name]',f.graph.name,'input');assert.equal(events.length,2);assert.equal(events[1].dirty,false);
+  assert.equal(x.el('[data-dirty]').textContent,'Rascunho salvo no painel.');
+ }
+});
+test('onChange ignores blocked edits and cancellation; confirmed removal notifies without adopting a saved version',()=>{
+ const f=fixture({}),events=[],x=boot({definition:f.graph,onChange:e=>events.push(e),persistence:'server'});
+ assert.equal(x.el('[data-dirty]').textContent,'Rascunho ainda não salvo.');
+ x.click('[data-action="remove"][data-node="message"]');x.change('[data-name]','Bloqueado','input');
+ x.click('[data-action="cancel-remove"]');assert.equal(events.length,0);
+ x.click('[data-action="remove"][data-node="message"]');x.click('[data-action="confirm-remove"]');
+ assert.equal(events.length,1);assert.equal(events[0].server,null);assert.equal(events[0].dirty,true);
+ assert.equal(x.editor.contextStatus().publicationAvailable,false);assert.equal(x.editor.validate().ok,false);
+ const blocked=boot({definition:f.graph,readOnly:true,onChange:e=>events.push(e),persistence:'server'});
+ blocked.change('[data-name]','Bloqueado','input');add(blocked,'exit');assert.equal(events.length,1);
+ const stale=blocked.el('[data-name]');blocked.editor.destroy();stale.value='Destruído';stale.dispatchEvent(new blocked.window.Event('input',{bubbles:true}));assert.equal(events.length,1);
 });

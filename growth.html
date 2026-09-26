@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=3ec73f658204">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MDYRspykZFHMBsKqlYJi3Wccma8X/fhpFsDGxJpEHgw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=a726ac2eec2a">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gVzRi2QYNgxTKypHJyb/9tY83VoPIleAOKOiCpMCT9U='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -169,6 +169,7 @@
     </section></div></div>
   <div class="sec" id="sec-regua">
     <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
+      <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
 
@@ -176,6 +177,8 @@
 
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
+
+    <section class="painel control-panel" id="control-graph" data-control-panel="graph" role="tabpanel" aria-labelledby="control-tab-graph" hidden></section>
 
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
 
@@ -256,7 +259,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=b7ff51a91794"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6bba97ee7303"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -492,6 +495,10 @@ function renderPublicos(){
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
+  if(typeof GJG!=='undefined'){
+    GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+    if(GC.activeTab==='graph'&&(!GJG.available(API)||!['fish','aristo'].includes(MARCA)))GC.setTab('fluxos');
+  }
   if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
@@ -867,7 +874,7 @@ function trocaMarca(next,afterConfirm=null){
   if(dialog?.open){notice('Conclua a confirmação aberta antes de trocar de marca.');return false;}
   const ready=()=>{
     if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
-    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
     if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
       notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
     }
@@ -876,14 +883,14 @@ function trocaMarca(next,afterConfirm=null){
   const apply=()=>{
     if(!ready())return false;
     const campaign=GCE.contextStatus();
-    try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
+    try{GCE.preserve();GRU.preserve();GABF.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
     ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
     notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;
   };
   if(!ready())return false;
-  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty)return apply();
+  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty&&!(typeof GJG!=='undefined'&&GJG.contextStatus().dirty))return apply();
   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');return false;}
   const caller=document.activeElement;let settled=false;
   const finish=accepted=>{
@@ -905,7 +912,7 @@ function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
   SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
-  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows'].includes(tab)?tab:'fluxos'):null;
+  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
   if(SEC==='visao'||SEC==='resultados')render();else if(SEC==='base')renderPublicos();else renderJornadas();gravaHash();
 }
