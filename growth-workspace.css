@@ -2,15 +2,20 @@
 body[data-panel="growth"]{
   --crm-sidebar-width:204px;--crm-accent:#244b73;--crm-accent-bg:#eaf0f6;
   --crm-sidebar-bg:#f7f8fa;--crm-hover-bg:#edf0f4;--crm-accent-border:#a8bfd6;
+  --crm-sidebar-ink:var(--mudo);--crm-sidebar-soft:var(--mudo);--crm-wordmark-ink:var(--crm-accent);
+  --crm-nav-hover-bg:var(--crm-hover-bg);--crm-nav-hover-ink:var(--texto);
+  --crm-nav-active-bg:var(--crm-accent-bg);--crm-nav-active-ink:var(--crm-accent);
   --fundo:#fff;--card:#fff;--card-2:#f7f8fa;--borda:#e3e7ec;--borda-forte:#bdc6d0;
   --texto:#202d3a;--mudo:#5d6977;--rotulo:#596675;--neutro-bg:#f0f3f6;--sombra:none;
   padding-left:var(--crm-sidebar-width);background:var(--fundo);line-height:1.5;
 }
-/* Public storefront CSS, checked 2026-09-26: oaristocrata.com #0C3C21/#FFFBEC;
-   fishermans.com.br base background/text #1A1C2E/#F8F9FA. Selection tints are
-   dashboard adaptations. Status colors and the white content canvas stay unchanged. */
+/* CRM identity: Aristo sidebar/canvas explicitly chosen by the owner on 2026-09-26.
+   Fish keeps the storefront palette already verified. Status colors remain semantic. */
 body[data-panel="growth"][data-marca="aristo"]{
-  --crm-accent:#0c3c21;--crm-accent-bg:#ede9d9;--crm-sidebar-bg:#fffbec;
+  --crm-accent:#0c3c21;--crm-accent-bg:#ede9d9;--crm-sidebar-bg:#0c3c21;
+  --fundo:#f7f4ec;--crm-sidebar-ink:#f7f4ec;--crm-sidebar-soft:#c9d8cd;--crm-wordmark-ink:#f7f4ec;
+  --crm-nav-hover-bg:#184c31;--crm-nav-hover-ink:#f7f4ec;
+  --crm-nav-active-bg:#f7f4ec;--crm-nav-active-ink:#0c3c21;
   --crm-hover-bg:#f3efdf;--crm-accent-border:#a8b59d;--card-2:#fbfaf4;
   --marca:#0c3c21;--marca-texto:#0c3c21;--marca-fraca:#ede9d9;
 }
@@ -30,11 +35,11 @@ body[data-panel="growth"] .crm-sidebar{
   background:var(--crm-sidebar-bg);border-right:1px solid var(--borda);overflow-y:auto;
 }
 body[data-panel="growth"] .crm-wordmark{
-  padding:0 12px;font-size:20px;font-weight:700;letter-spacing:-.6px;color:var(--crm-accent);
+  padding:0 12px;font-size:20px;font-weight:700;letter-spacing:-.6px;color:var(--crm-wordmark-ink);
 }
 body[data-panel="growth"] .crm-wordmark small,
 body[data-panel="growth"] .crm-wordmark span{
-  display:block;margin-top:3px;font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--mudo);
+  display:block;margin-top:3px;font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--crm-sidebar-soft);
 }
 body[data-panel="growth"] #crm-brand-picker{position:relative;min-width:0}
 body[data-panel="growth"] #crm-brand-picker>summary{
@@ -44,7 +49,7 @@ body[data-panel="growth"] #crm-brand-picker>summary{
 body[data-panel="growth"] .crm-sidebar-label{display:block;margin-bottom:4px;font-size:10px;font-weight:500;line-height:1.2;letter-spacing:.04em;color:var(--mudo)}
 body[data-panel="growth"] #crm-brand-label{display:block;margin-right:5px;font-size:13px;font-weight:600;line-height:1.4}
 body[data-panel="growth"] #crm-brand-picker>nav.filtros{width:100%;margin-left:0}
-body[data-panel="growth"] .crm-sidebar-foot{margin-top:auto;padding:0 12px;font-size:11px;font-weight:400;line-height:1.5;color:var(--mudo)}
+body[data-panel="growth"] .crm-sidebar-foot{margin-top:auto;padding:0 12px;font-size:11px;font-weight:400;line-height:1.5;color:var(--crm-sidebar-soft)}
 body[data-panel="growth"] #seg-marca{
   width:100%;flex-direction:column;gap:3px;margin-top:6px;padding:4px;
   background:#fff;border:1px solid var(--borda);border-radius:6px;
@@ -66,14 +71,14 @@ body[data-panel="growth"] #secoes{
 body[data-panel="growth"] #secoes button{
   display:flex;align-items:center;gap:8px;width:100%;min-height:42px;margin:0;padding:11px 12px;
   border:0;border-radius:5px;text-align:left;font-size:13px;font-weight:550;
-  line-height:1.4;color:var(--mudo);background:transparent;white-space:normal;
+  line-height:1.4;color:var(--crm-sidebar-ink);background:transparent;white-space:normal;
 }
-body[data-panel="growth"] #secoes button:hover{background:var(--crm-hover-bg);color:var(--texto)}
-body[data-panel="growth"] #secoes button.ativo{background:var(--crm-accent-bg);color:var(--crm-accent);font-weight:650}
+body[data-panel="growth"] #secoes button:hover{background:var(--crm-nav-hover-bg);color:var(--crm-nav-hover-ink)}
+body[data-panel="growth"] #secoes button.ativo{background:var(--crm-nav-active-bg);color:var(--crm-nav-active-ink);font-weight:650}
 body[data-panel="growth"] #secoes .n{margin-left:auto;font-size:11px;color:inherit;font-weight:500}
 body[data-panel="growth"] .topo{
   position:relative;z-index:10;min-height:100px;padding:25px 36px;gap:12px 28px;
-  background:#fff;border-top:0;border-bottom:1px solid var(--borda);
+  background:var(--fundo);border-top:0;border-bottom:1px solid var(--borda);
 }
 body[data-panel="growth"] .topo .titulo{min-width:0;flex:1}
 body[data-panel="growth"] #crm-screen-title{font-size:24px;font-weight:650;line-height:1.25;letter-spacing:-.5px;color:var(--crm-accent)}
@@ -127,7 +132,7 @@ body[data-panel="growth"] .crm-home-actions button{
   min-height:74px;padding:17px 18px;background:#fff;border:1px solid var(--borda);
   border-radius:6px;color:var(--crm-accent);font:600 14px/1.4 var(--ui);text-align:left;cursor:pointer;
 }
-body[data-panel="growth"] .crm-home-actions button:hover{border-color:var(--crm-accent-border);background:var(--crm-sidebar-bg)}
+body[data-panel="growth"] .crm-home-actions button:hover{border-color:var(--crm-accent-border);background:var(--crm-hover-bg)}
 body[data-panel="growth"] .crm-home-actions button small{font-size:12px;font-weight:400;color:var(--mudo)}
 body[data-panel="growth"] #sec-visao .kpis{margin-bottom:24px;border:1px solid var(--borda);border-radius:6px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 body[data-panel="growth"] #sec-visao .kpi{padding:18px 20px}

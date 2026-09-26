@@ -165,6 +165,11 @@ const GB={
   if(typeof GUT==='undefined'||!['fish','aristo'].includes(f.brand))return '';
   return `<details class="crm-utm builder-utm" data-journey-utm data-utm-key="${GB.e(f.key)}"${GB.utmViews?.get(f.key)?' open':''}><summary>UTMs da automação · origem e variáveis</summary>${d.steps.map(s=>GB.trackingHtml(s,f)).join('')}</details>`;
  },
+ previewHtml(step,f){
+  if(typeof GC==='undefined'||typeof GC.previewButton!=='function')return '';
+  const draft=GB.state.dirty||f.version!==f.published_version;
+  return `<div class="control-preview-action">${GC.previewButton({brand:f.brand,channel:step.channel,id:step.template_id,selection:draft?'draft':'published'},GB.ctx.api)}<span class="control-badge" title="${draft?'A prévia usa o template selecionado neste rascunho; a jornada publicada permanece intacta.':'A prévia consulta o conteúdo do template selecionado nesta etapa.'}">${draft?'Seleção em rascunho':'Template da etapa'}</span></div>`;
+ },
  stepHtml(step,index,f){
   const e=GB.e,slot=f.available_steps.find(x=>x.key===step.key)||step;
   const choices=(GB.state.templates[f.brand+':'+step.channel]||[]).filter(t=>GB.compatible(t,slot));
@@ -173,7 +178,7 @@ const GB={
   const wait=Number(slot.max_wait)>0?`<div class="builder-wait"><span>◷</span><label>Após <input type="number" min="${e(slot.min_wait)}" max="${e(slot.max_wait)}" step="0.5" data-step="${index}" data-field="wait_min" value="${e(step.wait_min)}" ${Number(slot.min_wait)===Number(slot.max_wait)?'readonly':''}> minutos ${e(slot.wait_label||'do gatilho')}</label></div>`:'';
   return `<li class="builder-stage ${step.enabled?'':'is-off'}" data-stage="${e(step.key)}">${wait}<div class="builder-message"><div class="builder-message-head"><span class="builder-channel ${e(step.channel)}">${icon}</span><div><small>${step.channel==='email'?'E-MAIL':'WHATSAPP'}</small><strong>${e(slot.name)}</strong></div><label class="builder-toggle"><input type="checkbox" data-step="${index}" data-field="enabled" ${step.enabled?'checked':''} aria-label="Ativar ${e(slot.name)}"><span>Ativa</span></label></div>
    ${slot.kind==='interactive'?`<label>Mensagem<textarea data-step="${index}" data-field="body" rows="4" maxlength="1024">${e(step.body)}</textarea></label>`:`<label>Template<select data-step="${index}" data-field="template_id">${current?'':`<option value="${e(step.template_id)}">${e(step.template_name||'Selecionar template')}</option>`}${choices.map(t=>`<option value="${e(t.id)}" ${String(t.id)===String(step.template_id)?'selected':''}>${e(t.name)}</option>`).join('')}</select></label><button class="builder-text-button" type="button" data-create-template="${e(step.channel)}">+ Criar template de ${step.channel==='email'?'e-mail':'WhatsApp'}</button>`}
-   ${slot.variables?.length?`<details class="builder-variables"><summary>Dados usados nesta mensagem</summary><dl>${slot.variables.map(v=>`<dt>${e(({first_name:'Primeiro nome',customer_name:'Nome do cliente',checkout_url:'Link do carrinho',order_url:'Link do pedido',order_number:'Número do pedido',tracking_url:'Link de rastreio',tracking_code:'Código de rastreio',coupon:'Cupom',coupon_code:'Código do cupom',nps_url:'Link da pesquisa',p:'Identificação do pedido na pesquisa',e:'Contato da pesquisa',s:'Validação do link da pesquisa'})[v]||'Dado da mensagem')}</dt><dd><code>${e(v)}</code></dd>`).join('')}</dl></details>`:''}${GB.trackingHtml(step,f,true)}
+   ${slot.kind==='interactive'?'':GB.previewHtml(step,f)}${slot.variables?.length?`<details class="builder-variables"><summary>Dados usados nesta mensagem</summary><dl>${slot.variables.map(v=>`<dt>${e(({first_name:'Primeiro nome',customer_name:'Nome do cliente',checkout_url:'Link do carrinho',order_url:'Link do pedido',order_number:'Número do pedido',tracking_url:'Link de rastreio',tracking_code:'Código de rastreio',coupon:'Cupom',coupon_code:'Código do cupom',nps_url:'Link da pesquisa',p:'Identificação do pedido na pesquisa',e:'Contato da pesquisa',s:'Validação do link da pesquisa'})[v]||'Dado da mensagem')}</dt><dd><code>${e(v)}</code></dd>`).join('')}</dl></details>`:''}${GB.trackingHtml(step,f,true)}
    <div class="builder-stage-actions"><button type="button" data-remove="${index}">Remover etapa</button></div></div></li>`;
  },
  journeySummary(f,d){
@@ -205,6 +210,7 @@ const GB={
   root.innerHTML=`${visual&&f&&d?'':feedback}<div class="builder-layout ${visual?'builder-visual':''}" aria-busy="${s.busy}">${visual?'':rail}${main}</div>`;GB.bind(root);if(visual&&f&&d)GBC.mount(root,f,d);
  },
  bind(root){
+  if(typeof GC!=='undefined'&&typeof GC.bindPreviews==='function')GC.bindPreviews(root,GB.ctx);
   if(GB.editingBlocked())root.querySelectorAll('[data-step],[data-remove],[data-create-template],#builder-name,#builder-add,#builder-add-slot').forEach(el=>el.disabled=true);
   if(GB.state.busy||GB.state.pending&&!GB.state.pending.unavailable)root.querySelectorAll('[data-flow-key],#builder-flow-picker').forEach(el=>el.disabled=true);
   root.querySelectorAll('[data-flow-key]').forEach(b=>b.onclick=()=>GB.select(b.dataset.flowKey));

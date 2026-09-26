@@ -150,6 +150,44 @@ const GC={
   /* Fase A (11/09/2026): conteúdo publicado (R5.2) só quando `capabilities.templates.read_content` for true e a pessoa
      pedir. `conteudo` = null → nunca carregado; {} → carregado sem itens. Prévia vem de `components` da API, nunca do nome. */
   conteudo:null,conteudoEm:null,conteudoErro:null,historicos:{},carregando:null,
+  previewContext:null,
+  previewButton(ref,api){
+    if(!['fish','aristo'].includes(ref.brand)||!['email','whatsapp'].includes(ref.channel)||!/^\d+$/.test(String(ref.id||'')))return '<span class="mini">Prévia indisponível: template não identificado.</span>';
+    const caps=typeof GTA!=='undefined'?GTA.caps(api||GC.previewContext?.api||{}):null;
+    if(!caps?.pode?.read_content||typeof GMP==='undefined')return '<span class="mini">Prévia indisponível nesta consulta. Atualize o acesso.</span>';
+    return `<button type="button" class="refresh-btn" data-template-preview data-preview-brand="${GC.esc(ref.brand)}" data-preview-channel="${ref.channel}" data-preview-id="${GC.esc(ref.id)}" data-preview-selection="${ref.selection==='draft'?'draft':'published'}"${ref.key?` data-preview-key="${GC.esc(ref.key)}"`:''}>Ver prévia</button>`;
+  },
+  async previewTemplate(ref,ctx=GC.previewContext||{}){
+    if(typeof GTA==='undefined'||typeof GMP==='undefined'||!['fish','aristo'].includes(ref?.brand)||!['email','whatsapp'].includes(ref?.channel)||!/^\d+$/.test(String(ref.id||'')))return;
+    const caps=GTA.caps(ctx.api||{}),key=GTA.chaveLeitura(),scope=GC.previewContext?.marca,dialog=GMP.openPublished({brand:ref.brand,channel:ref.channel,selection:ref.selection});
+    const current=()=>dialog.current()&&key===GTA.chaveLeitura()&&(!GC.previewContext||scope===GC.previewContext.marca)&&GTA.caps(GC.previewContext?.api||ctx.api||{}).endpoint===caps.endpoint;
+    const check=()=>{if(!current())throw Error('A marca ou o acesso mudou. Feche e abra a prévia novamente.');};
+    try{
+      if(!caps.pode.read_content||!key)throw Error('Prévia indisponível neste acesso. Atualize o painel.');
+      const client=GTA.cliente({endpoint:caps.endpoint,chaveLeitura:key}),res=await client.listar(ref.brand,ref.channel);check();
+      if(!res.ok||!Array.isArray(res.body?.templates)||res.body.templates.length>250)throw Error('Não foi possível consultar o conteúdo publicado. Feche e tente novamente.');
+      const matches=res.body.templates.filter(t=>t&&t.brand===ref.brand&&t.channel===ref.channel&&String(t.id)===String(ref.id)&&(!ref.key||t.key===ref.key));
+      if(matches.length!==1)throw Error('O conteúdo deste template não foi confirmado. Atualize a lista antes de abrir a prévia.');
+      const t=matches[0];if(JSON.stringify(t.components||null).length>400000)throw Error('O conteúdo ultrapassa o limite de visualização.');
+      const checkedAt=GC.stamp(Number.isFinite(GC.time(res.body.consultado_em))?res.body.consultado_em:new Date().toISOString());
+      if(ref.channel==='whatsapp'){dialog.whatsapp(t,checkedAt);return;}
+      const c=t.components;if(!GC.object(c)||typeof c.body_html!=='string'||!c.body_html.trim()||typeof c.subject!=='string')throw Error('Conteúdo de e-mail indisponível nesta consulta.');
+      let source=c.body_html,subject=c.subject;
+      if(source.includes('{{')||subject.includes('{{')){
+        const capability=await client.emailCapacidades();check();const p=capability.body;
+        if(!capability.ok||p?.contract!=='crm_email_native_preview_v1'||p.policy_version!==1||p.native_email_preview!==true||!Array.isArray(p.brands)||!p.brands.includes(ref.brand))throw Error('A prévia com variáveis não está disponível neste acesso. Nenhum conteúdo foi inventado.');
+        const domain={fish:'fishermans.com.br',aristo:'oaristocrata.com'}[ref.brand];
+        // The renderer requires an envelope. These values are synthetic inputs
+        // only: never present them as the sender/preheader used by the workflow.
+        const r={canal:'email',marca:ref.brand,idioma:'pt_BR',categoria:'UTILITY',nome:'Prévia de conteúdo publicado',peca:'',cabecalho:'',corpo:/<html(?:\s|>)/i.test(source)?source:'<!doctype html><html><body>'+source+'</body></html>',rodape:'',assunto:subject,exemplos:{},botoes:[],from_email:'Prévia <contato@'+domain+'>',reply_to:'contato@'+domain,preheader:'Prévia com dados fictícios'};
+        const rendered=await client.emailPrevia(r);check();const body=rendered.body;
+        if(!rendered.ok||body?.contract!=='crm_email_native_preview_v1'||body.eligible!==true||body.brand!==ref.brand||!['synthetic','external'].includes(body.subscriber_context)||!/^[a-f0-9]{64}$/.test(body.source_hash||'')||typeof body.body_html!=='string'||!body.body_html.trim()||body.body_html.length>600000||body.body_html.includes('{{')||typeof body.subject!=='string'||body.subject.length>1000)throw Error('Não foi possível renderizar as variáveis deste template. Nenhum e-mail foi enviado.');
+        source=body.body_html;subject=body.subject;
+      }
+      check();dialog.email({source,subject,checkedAt});
+    }catch(error){if(dialog.current())dialog.status(error.message||'Prévia não confirmada. Feche e tente novamente.');}
+  },
+  bindPreviews(root,ctx){root?.querySelectorAll('[data-template-preview]').forEach(b=>b.onclick=()=>GC.previewTemplate({brand:b.dataset.previewBrand,channel:b.dataset.previewChannel,id:b.dataset.previewId,key:b.dataset.previewKey,selection:b.dataset.previewSelection},ctx));},
   publicacao(row){
     if(typeof GTA==='undefined'||row.status!=='APPROVED'||!Array.isArray(row.mapped_in))return null;
     return GTA.publicadoAtivo(row,GC.templateCtx.workflows);
@@ -245,7 +283,7 @@ const GC={
     const statusTone=current && row.fieldsValid && row.status!=='APPROVED'?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     const categoryTone=current && row.mismatch?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     const pub=GC.publicacao(row);
-    return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span>${GC.previaPublicada(row)}</td>
+    return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span>${GC.caps?.pode?.read_content?GC.previewButton(row):''}${GC.previaPublicada(row)}</td>
       <td>${GC.badge(GC.statusLabel(row.status),statusTone,"Status recebido da Meta: "+row.status)}${GC.badge(GC.categoryLabel(row.category),categoryTone,"Categoria recebida da Meta: "+row.category)}<span class="control-template-meta">Categoria esperada: ${e(GC.categoryLabel(row.expected_category))}</span>${pub?`<span class="control-template-pub" data-situacao="${e(pub.situacao)}" title="${e(pub.rotulo)}. Publicado significa aprovado pela Meta. Envio ativo indica automação vinculada ligada e configurada para envio; não comprova disparo ou entrega.">${GC.badge(GC.publicationLabel(pub,row),pub.tone)}</span>`:''}</td>
       <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${row.usage_reason?`<p class="control-template-meta">${e(row.usage_reason)}</p>`:''}${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
@@ -283,9 +321,17 @@ const GC={
     const valid=chosen.every(r=>['fish','aristo'].includes(r.brand)&&typeof r.key==='string'&&typeof r.piece==='string'&&typeof r.flow_key==='string'&&typeof r.enabled==='boolean'&&typeof r.runtime_ready==='boolean'&&Number.isFinite(Date.parse(r.checked_at)))&&new Set(chosen.map(r=>r.key)).size===chosen.length;
     if(!valid)return heading+'<p class="nota">Não foi possível conferir as etapas de e-mail. Atualize o painel.</p>';
     const status=r=>{const age=now-Date.parse(r.checked_at);return !Number.isFinite(age)||age < -60000||age>900000?'Configuração na consulta anterior':!r.enabled?'Pausada':!r.runtime_ready?'Integração pendente':'Habilitada na configuração';};
-    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(GC.emailFlowLabel(r.flow_key))}</span></td><td>${e(GC.emailStepLabel(r.piece))}<span class="mini" data-crm-owner-only> · ${e(r.piece)}</span></td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
+    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(GC.emailFlowLabel(r.flow_key))}</span></td><td>${e(GC.emailStepLabel(r.piece))}<div class="control-preview-action">${GC.previewButton({brand:r.brand,channel:'email',id:r.template_id},api)}</div><span class="mini" data-crm-owner-only> · ${e(r.piece)}</span></td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
+  },
+  emailCatalog(ctx){
+    if(ctx.canal==='whatsapp'||!['fish','aristo','todas','todos'].includes(ctx.marca))return '';
+    const raw=ctx.api?.crm_operacao?.email_steps,e=GC.esc;
+    if(!Array.isArray(raw))return '<section class="control-email-catalog"><h3>E-mails das jornadas</h3><p class="nota">Conteúdo não identificado nesta consulta. Atualize o painel.</p></section>';
+    const rows=raw.filter(r=>r&&['fish','aristo'].includes(r.brand)&&(['todas','todos'].includes(ctx.marca)||r.brand===ctx.marca));
+    return `<section class="control-email-catalog"><h3>E-mails das jornadas</h3><span class="control-badge" title="Conteúdo do template selecionado na configuração publicada. A prévia não altera a jornada.">Configuração publicada ⓘ</span><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Conteúdo</th></tr></thead><tbody>${rows.map(r=>`<tr data-email-template="${e(r.brand+':'+r.key)}"><td>${e(GC.brand(r.brand))} · ${e(GC.emailFlowLabel(r.flow_key))}</td><td>${e(GC.emailStepLabel(r.piece))}</td><td>${GC.previewButton({brand:r.brand,channel:'email',id:r.template_id},ctx.api)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhum e-mail de jornada informado para esta marca.</td></tr>'}</tbody></table></div></section>`;
   },
   render(ctx={}){
+    GC.previewContext=ctx;
     const model=GC.model(ctx.api?.crm_operacao,ctx);
     const cob=ctx.api?.crm_wa_template_cobertura;
     GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||'',
@@ -327,8 +373,8 @@ const GC={
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    templateRoot.innerHTML=GC.metadata(model)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
-      ${model.canal==='email'?'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>':`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
+    templateRoot.innerHTML=GC.metadata(model)+GC.emailCatalog(ctx)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
+      ${model.canal==='email'?(['fish','aristo','todas','todos'].includes(model.marca)?'<p class="mini">Para consultar também as mensagens de WhatsApp, selecione Todos os canais.</p>':'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>'):`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
         ${tplFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}
@@ -355,6 +401,7 @@ const GC={
     if(wfExport)wfExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('automacoes-operacao',m),GT.csv(GC.workflowColumns,workflows,m));};
     const tplExport=document.getElementById('control-tpl-export');
     document.querySelectorAll('[data-tpl-preview-email]').forEach(b=>b.onclick=()=>{const t=GC.conteudo?.[b.dataset.tplPreviewEmail];if(t?.components?.body_html)GMP.openEmail({source:t.components.body_html,subject:t.components.subject,label:'Prévia do template publicado'});});
+    GC.bindPreviews(workflowRoot,ctx);GC.bindPreviews(templateRoot,ctx);
     const tplConteudo=document.getElementById('control-tpl-conteudo');if(tplConteudo)tplConteudo.onclick=()=>GC.carregarConteudo(ctx);
     templateRoot.querySelectorAll('[data-tpl-historico]').forEach(b=>b.onclick=()=>GC.carregarHistorico(ctx,b.dataset.tplHistorico));
     if(tplExport)tplExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('templates',m),GT.csv(GC.templateColumns,templates,m));};
