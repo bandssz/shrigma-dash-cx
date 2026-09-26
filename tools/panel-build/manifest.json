@@ -32,6 +32,7 @@
       "growth-page.css",
       "growth-manager.css",
       "panel-ui.css",
+      "growth-audience.css",
       "growth-workspace.css"
     ],
     "scripts": [
@@ -64,6 +65,7 @@
       "growth-ui.js",
       "growth-pix.js",
       "growth-ses.js",
+      "growth-audience.js",
       "growth-control.js",
       "whatsapp-template-contract.js",
       "growth-drafts.js",

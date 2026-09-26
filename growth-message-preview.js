@@ -26,7 +26,7 @@ const GMP={
    const k=a.name.toLowerCase();
    if(k.startsWith('on')||['srcdoc','target','action','formaction','srcset','ping','background'].includes(k))n.removeAttribute(a.name);
    if(k==='href'){n.removeAttribute(a.name);if(n.tagName==='A')n.setAttribute('title','Link desativado na prévia');}
-   if(k==='src'&&(n.tagName!=='IMG'||!/^https:\/\//i.test(a.value)))n.removeAttribute(a.name);
+   if(k==='src'&&(!images||n.tagName!=='IMG'||!/^https:\/\//i.test(a.value)))n.removeAttribute(a.name);
   }
   doc.body.setAttribute('inert','');
   const policy=`default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src ${images?'https:':"'none'"}; base-uri 'none'; form-action 'none';`;
@@ -36,6 +36,29 @@ const GMP={
   return `<iframe class="mp-mail-frame" title="${GMP.esc(title)}" sandbox="" referrerpolicy="no-referrer" srcdoc="${GMP.esc(GMP.isolate(source,images))}"></iframe>`;
  },
  email(r){return `<div class="mp-mail-header"><small>De: ${GMP.esc(r.from_email||'Preencha o remetente')} · Responder para: ${GMP.esc(r.reply_to||'Preencha o e-mail de resposta')}</small><strong>${GMP.esc(r.assunto||'(sem assunto)')}</strong><small>${GMP.esc(r.preheader||'Preencha o pré-header')}</small></div>${GMP.frame(GMP.emailHTML(r))}`;},
+ publishedWhatsApp(template){
+  const cs=template.components;if(!Array.isArray(cs))throw Error('Conteúdo de WhatsApp indisponível.');
+  const part=type=>cs.find(c=>c&&c.type===type),body=part('BODY'),header=part('HEADER'),footer=part('FOOTER');
+  if(typeof body?.text!=='string'||!body.text.trim())throw Error('Conteúdo de WhatsApp indisponível.');
+  // Provider examples can contain customer data. Use visibly synthetic values,
+  // never example.body_text, a media URL, a payment code or button destination.
+  const fill=text=>String(text||'').replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g,(_,key)=>'[Exemplo '+key+']');
+  const r={marca:template.brand,corpo:fill(body.text),cabecalho:header?(header.format==='TEXT'||!header.format?fill(header.text):'['+({IMAGE:'Imagem',VIDEO:'Vídeo',DOCUMENT:'Documento',LOCATION:'Localização'}[header.format]||'Mídia')+' do envio não carregada]'):'',rodape:fill(footer?.text),botoes:(part('BUTTONS')?.buttons||[]).filter(b=>b&&typeof b.type==='string').map(b=>({tipo:({URL:'url',PHONE_NUMBER:'phone',ORDER_DETAILS:'order_details'}[b.type]||'quick_reply'),texto:typeof b.text==='string'?b.text:'Botão do template',valor:''}))};
+  return GMP.whatsapp(r);
+ },
+ openPublished({label='Prévia do template',brand,channel,selection}){
+  document.getElementById('message-preview-dialog')?.remove();
+  const opener=document.activeElement,dialog=document.createElement('dialog'),e=GMP.esc;
+  dialog.id='message-preview-dialog';dialog.className='mp-dialog mp-published';dialog.setAttribute('aria-label',label);
+  dialog.innerHTML=`<header class="mp-dialog-head"><div><small>${e(GMP.brand({marca:brand}))} · ${channel==='email'?'E-mail':'WhatsApp'}</small><h2>${e(label)}</h2></div><button type="button" class="refresh-btn" data-mp-close aria-label="Fechar prévia">Fechar ×</button></header><div class="mp-caption mp-preview-labels"><span class="control-badge" title="Consulta o conteúdo publicado do template escolhido, sem salvar ou alterar a jornada.">Conteúdo publicado</span><span class="control-badge" title="Variáveis usam dados fictícios. Imagens externas, links e botões ficam desativados; nenhum envio é feito.">Dados fictícios ⓘ</span>${selection==='draft'?'<span class="control-badge">Seleção em rascunho</span>':''}${channel==='email'?'<span class="control-badge" title="Remetente e destinatário não fazem parte desta prévia.">Só conteúdo ⓘ</span>':''}</div><p class="mp-preview-state" role="status">Consultando conteúdo publicado…</p><div class="mp-published-content"></div>`;
+  document.body.append(dialog);
+  const cleanup=()=>{dialog.remove();opener?.focus?.();};dialog.addEventListener('close',cleanup);
+  dialog.querySelector('[data-mp-close]').onclick=()=>{if(dialog.close)dialog.close();else cleanup();};
+  if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');dialog.querySelector('[data-mp-close]').focus();
+  const current=()=>document.getElementById('message-preview-dialog')===dialog;
+  const status=text=>{if(current())dialog.querySelector('[role=status]').textContent=text;};
+  return {current,status,email({source,subject,checkedAt}){if(!current())return;status('Consulta '+checkedAt+' · Brasília');dialog.querySelector('.mp-published-content').innerHTML='<h3 class="mp-published-subject">'+e(subject)+'</h3>'+GMP.frame(source,false,'Conteúdo publicado com dados fictícios');},whatsapp(template,checkedAt){if(!current())return;const html=GMP.publishedWhatsApp(template);status('Consulta '+checkedAt+' · Brasília');dialog.querySelector('.mp-published-content').innerHTML=html;}};
+ },
  openEmail({source,subject='',label='Prévia do e-mail'}){
   document.getElementById('message-preview-dialog')?.remove();
   const opener=document.activeElement,dialog=document.createElement('dialog');dialog.id='message-preview-dialog';dialog.className='mp-dialog';dialog.setAttribute('aria-label',label);

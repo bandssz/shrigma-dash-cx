@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=a354d1ac0a1f">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sbMmv+usnOXI8jnTKiAyBLPkv4+pW2qlpuLg6BIOe1w='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=b4b3f3f322db">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1jU4M7fCSs3jHTya/O4FYwOwmC3bwwsxAm6nlY2CfXI='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -202,16 +202,15 @@
   </div>
 
   <div class="sec" id="sec-base">
-    <p class="email-scope">Base de e-mail: a segmentação considera a marca selecionada, independentemente do filtro de canal.</p>
+
     <section class="painel">
-      <div class="painel-cab"><h2>Segmentos da base</h2><span class="mini" id="arv-rot"></span></div>
+      <div class="painel-cab"><h2>Públicos da marca</h2><span class="mini crm-help" id="arv-rot" tabindex="0" title="Base da marca na última coleta disponível, independente do período e do canal selecionados."></span></div>
       <div id="area-arvore"></div>
-      <div class="nota"><span class="control-badge" tabindex="0" title="A árvore mostra as regras atuais de segmentação da marca. Alterações nessas regras precisam de revisão antes de valerem para os próximos públicos.">Regras atuais da marca</span></div>
     </section>
   </div>
 
 
-<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Catálogo WhatsApp</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates em uso</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
       <div class="painel-cab"><h2>Evolução</h2>
         <select id="sel-metrica" aria-label="Métrica do gráfico">
           <option value="receita">Receita atribuída</option>
@@ -255,7 +254,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=c521b7cc80dd"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=259268b9a709"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -479,6 +478,7 @@ async function encerrarTeste(id){
   await gravaTesteAB({k:wk,acao:'encerrar',teste:{teste_id:id,status:'inconclusivo',vencedor:null,conclusao:conc}},msg,btn);
 }
 
+let CRM_AUDIENCE_VIEW=null;
 function render(){
   GCE.mount({marca:MARCA,api:API});
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
@@ -693,27 +693,10 @@ function render(){
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
 
-  const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
-  const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
-    if(!ult[k]||String(g.dia)>String(ult[k].dia))ult[k]=g;});
-  // movimento é gravado no dia que FECHOU (01:35 grava em ontem): a linha mais
-  // recente do galho nunca tem entraram/sairam — buscar a última linha MEDIDA.
-  const ultMov={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
-    if(g.entraram===null||g.entraram===undefined)return;
-    if(!ultMov[k]||String(g.dia)>String(ultMov[k].dia))ultMov[k]=g;});
-  const maxP=Math.max(1,...Object.values(ult).map(g=>+g.pessoas||0));
-  $('#n-arv').textContent=regras.length||'';
-  $('#arv-rot').textContent=regras.length?`${regras.length} segmento${regras.length===1?'':'s'}`:'';
-  $('#area-arvore').innerHTML=regras.length?regras.map(r=>{
-    const g=ult[r.marca+r.galho],p=g?+g.pessoas:undefined;
-    const mv=ultMov[r.marca+r.galho];
-    const mvTxt=mv?` · <span style="color:#2e7d32">+${nf(mv.entraram)}</span> <span style="color:#b3261e">−${nf(mv.sairam)}</span> em ${String(mv.dia).slice(8,10)}/${String(mv.dia).slice(5,7)}`:'';
-    return `<div class="galho"><div><div class="rot">${esc(r.rotulo)}</div>
-      <div class="flx">${esc(GUI.segmentFlow(r.fluxo))} · <span tabindex="0" title="Frequência registrada na regra deste segmento, em dias.">${r.cap_dias!==null&&r.cap_dias!==undefined&&String(r.cap_dias).trim()!==''&&Number.isFinite(+r.cap_dias)?'Frequência cadastrada · '+nf(+r.cap_dias)+' dias':'Frequência não informada'}</span>${g&&g.ltv_medio>0?' · <span tabindex="0" title="Média do total histórico de compras dos clientes deste segmento com valor informado, em reais.">Valor médio comprado · '+rf(g.ltv_medio)+'</span>':''}${mvTxt}</div></div>
-      <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
-      <div class="num tabn">${p===undefined?'—':nf(p)}</div>
-      <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;
-  }).join(''):'<div class="vazio">Nenhum segmento disponível nesta marca. Clique em Atualizar para conferir a segmentação da base.</div>';
+  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar()});
+  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA});
+  $('#n-arv').textContent=audience.total||'';
+  $('#arv-rot').textContent='Última contagem por público';
 
   renderTestes();
 
