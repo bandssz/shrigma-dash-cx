@@ -202,22 +202,36 @@ const GC={
       ${t.quality_score?`<p>Qualidade (Meta): ${e(typeof t.quality_score==='object'?JSON.stringify(t.quality_score):t.quality_score)}</p>`:''}${t.rejected_reason?`<p class="control-warning">Motivo de rejeição: ${e(t.rejected_reason)}</p>`:''}
       ${GC.caps?.pode?.list_history?(hist?`<ul class="control-template-hist">${hist.length?hist.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'?')} · ${e(x.action)}${x.from_version!=null||x.to_version!=null?` v${e(x.from_version??'—')}→v${e(x.to_version??'—')}`:''} · ${e(x.result||'')}</li>`).join(''):'<li>Nenhum evento devolvido pela API.</li>'}</ul>`:`<button type="button" class="refresh-btn" data-tpl-historico="${e(row.key)}"${GC.carregando?' disabled':''}>Carregar histórico</button>`):''}</details>`;
   },
+  readTicket:null,
+  startRead(ctx,action){
+    const ticket={brand:ctx.marca,endpoint:GC.caps.endpoint,key:GTA.chaveLeitura()};
+    GC.readTicket=ticket;GC.carregando=action;GC.render(ctx);return ticket;
+  },
+  currentRead(ticket){
+    return GC.readTicket===ticket&&GC.previewContext?.marca===ticket.brand&&GTA.caps(GC.previewContext?.api||{},{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}).endpoint===ticket.endpoint&&GTA.chaveLeitura()===ticket.key;
+  },
+  finishRead(ticket){
+    if(GC.readTicket!==ticket)return null;
+    const current=GC.currentRead(ticket),ctx=GC.previewContext;
+    GC.readTicket=null;GC.carregando=null;
+    if(!current){GC.render(ctx);return null;}return ctx;
+  },
   async carregarConteudo(ctx){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.read_content)return;
-    GC.carregando='listar';GC.conteudoErro=null;GC.render(ctx);
-    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura()});
+    GC.conteudoErro=null;const ticket=GC.startRead(ctx,'listar');
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
     let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
-    GC.carregando=null;
+    ctx=GC.finishRead(ticket);if(!ctx)return;
     if(!res.ok){GC.conteudoErro=GTA.erro(res,'listar').texto;GC.render(ctx);return;}
     const lista=Array.isArray(res.body?.templates)?res.body.templates.filter(t=>t&&typeof t==='object'&&typeof t.key==='string'):[];
     GC.conteudo=Object.fromEntries(lista.map(t=>[t.key,t]));GC.conteudoEm=new Date().toISOString();GC.render(ctx);
   },
   async carregarHistorico(ctx,key){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history)return;
-    GC.carregando='historico';GC.render(ctx);
-    const c=GTA.cliente({endpoint:GC.caps.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura()});
+    const ticket=GC.startRead(ctx,'historico');
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
     let res;try{res=await c.historico({key});}catch(_){res={ok:false,status:0,body:null,rede:true};}
-    GC.carregando=null;
+    ctx=GC.finishRead(ticket);if(!ctx)return;
     GC.historicos[key]=res.ok&&Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];
     if(!res.ok)GC.conteudoErro=GTA.erro(res,'historico').texto;
     GC.render(ctx);
@@ -337,6 +351,7 @@ const GC={
     GC.templateCtx={workflows:model.workflows||[],metrics:Array.isArray(ctx.api?.crm_wa_template)?ctx.api.crm_wa_template:null,ini:ctx.ini||'',fim:ctx.fim||'',
       cobertura:GC.object(cob)&&/^\d{4}-\d{2}-\d{2}$/.test(cob.inicio||'')&&/^\d{4}-\d{2}-\d{2}$/.test(cob.fim||'')?{inicio:cob.inicio,fim:cob.fim}:null};
     GC.caps=typeof GTA!=='undefined'?GTA.caps(ctx.api,{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}):null;
+    if(GC.readTicket&&!GC.currentRead(GC.readTicket)){GC.readTicket=null;GC.carregando=null;}
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');
     if(!workflowRoot||!templateRoot)return model;

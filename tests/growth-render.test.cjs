@@ -571,7 +571,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  assert.match(p1.body.idempotency_key,/^[0-9a-f-]{36}$/);assert.equal(p1.headers['Idempotency-Key'],p1.body.idempotency_key);
  assert.deepEqual(Object.keys(p1.body.rascunho).sort(),['assunto','botoes','cabecalho','canal','categoria','corpo','exemplos','idioma','marca','nome','peca','rodape']);
  assert.equal(p1.body.rascunho.corpo,'Olá {{1}}, seu pedido {{2}} saiu.');
- assert.match(root().textContent,/salvo no servidor como v1/);assert.match(root().querySelector('.draft-card .control-badge').textContent,/Rascunho no servidor · não submetido/);
+ assert.match(root().textContent,/salvo no CRM · versão 1/);assert.match(root().querySelector('.draft-card .control-badge').textContent,/Rascunho no servidor · não submetido/);
  assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
  assert.ok(root().querySelector('#d-validar'));assert.equal(root().querySelector('#d-submeter'),null); // valida antes de submeter
  assert.match(x.store.get('shrigma_growth_rascunhos'),/d_01J0000000000000000000EX/);assert.doesNotMatch(x.store.get('shrigma_growth_rascunhos'),/ESCRITA-TESTE/);
@@ -637,7 +637,7 @@ test('409/502 without a durable receipt stay frozen; a later exact GET recovers 
   if(status===502){
    api.confirma(sent.body,201,{draft_id:'d_recovered',version:1,estado:'rascunho',salvo_em:'2026-09-11T12:00:00Z'});
    await clickAction(x,root().querySelector('[data-template-operacao]'),'consultarOperacao');
-   assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'d_recovered');assert.match(root().textContent,/salvo no servidor como v1/);
+   assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'d_recovered');assert.match(root().textContent,/salvo no CRM · versão 1/);
    assert.equal(api.pedidos.filter(p=>p.acao==='rascunho').length,1);assert.equal(x.run('GRU.journal().inspect().blocked'),false);
   }
   for(const call of api.pedidos.filter(p=>p.acao==='operacao')){assert.equal(call.headers['X-Template-Key'],'ESCRITA-TESTE');assert.ok(!call.url.includes('ESCRITA-TESTE'));}
@@ -992,6 +992,41 @@ test('template ArrowRight routes to the catalog once, updates the shared URL and
  assert.equal(x.run('JSON.stringify(keyboardTabCalls)'),JSON.stringify(['templates']));const hash=x.hashes.at(-1),params=new URLSearchParams(hash.slice(1));assert.equal(params.get('sec'),'templates');assert.equal(params.get('aba'),'templates');assert.equal(params.get('marca'),'fish');
  assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),before);assert.equal(x.document.querySelector('#draft-editor'),editor);assert.equal(x.document.querySelector('#d-corpo'),body);assert.equal(body.value,'Conteúdo ainda não salvo');assert.equal(x.calls.length,requests);
  const reopened=await boot(fixture(),{hash});assert.equal(reopened.run('SEC'),'templates');assert.equal(reopened.run('GC.activeTab'),'templates');assert.equal(reopened.document.querySelector('#control-templates').hidden,false);assert.equal(reopened.document.querySelector('#sec-templates').classList.contains('ativa'),true);
+});
+
+test('CRM sweep: email results remain available with attribution v2 and explain a WhatsApp-only filter',async()=>{
+ const p=fixture();p.crm_attribution={schema_version:2,daily:[],coverage:[],campaigns:[],quality:[]};const x=await boot(p);
+ for(const brand of ['fish','aristo']){
+  x.run(`trocaMarca('${brand}');abrirSecaoCRM('resultados');CRMWorkspace.setReport('email');setCanal('email')`);
+  assert.equal(x.document.querySelector('#crm-report-email').hidden,false);
+  assert.equal(x.document.querySelector('#campaign-email-block').hidden,false);
+  assert.ok(x.document.querySelector('#tab-camp tbody').textContent.trim());
+  x.run("setCanal('whatsapp')");
+  const empty=x.document.querySelector('#campaign-email-channel-empty');assert.ok(empty);assert.equal(empty.hidden,false);
+  empty.querySelector('button').click();assert.equal(x.run('CANAL'),'email');assert.equal(empty.hidden,true);assert.equal(x.document.querySelector('#campaign-email-block').hidden,false);
+ }
+});
+test('CRM sweep: invalid dates restore the applied period with feedback; valid dates and presets clear it',async()=>{
+ const x=await boot(),q=s=>x.document.querySelector(s),before=x.run('JSON.stringify(PER)'),metric=q('#area-kpis').textContent,requests=x.calls.length;
+ for(const [start,end] of [['2099-01-01','2099-01-02'],['2026-09-07','2026-09-01'],['','2026-09-07'],['2026-02-30','2026-09-07']]){
+  q('#d-ini').value=start;q('#d-fim').value=end;q('#d-fim').dispatchEvent(new x.window.Event('change'));
+  const error=q('#crm-period-error');assert.ok(error);assert.equal(error.hidden,false);assert.match(error.textContent,/Período não aplicado/);
+  assert.equal(x.run('JSON.stringify(PER)'),before);assert.equal(q('#d-ini').value,x.run('PER.ini'));assert.equal(q('#d-fim').value,x.run('PER.fim'));assert.equal(q('#area-kpis').textContent,metric);
+ }
+ assert.equal(x.calls.length,requests);
+ q('#d-ini').value='2026-09-01';q('#d-fim').value='2026-09-06';q('#d-fim').dispatchEvent(new x.window.Event('change'));
+ assert.equal(x.run('PER.fim'),'2026-09-06');assert.equal(q('#crm-period-error').hidden,true);
+ q('#d-fim').value='2099-01-01';q('#d-fim').dispatchEvent(new x.window.Event('change'));q('#presets [data-p="7"]').click();assert.equal(q('#crm-period-error').hidden,true);
+});
+test('CRM sweep: attempt lookup is unavailable without a pending receipt and remains available for recovery',async()=>{
+ const x=await boot(),button=x.document.querySelector('#ab-consultar');x.run('sincronizaTestesAB()');assert.equal(button.disabled,true);
+ x.run(`AB_JOURNAL={inspect:()=>({blocked:false,operations:[{phase:'uncertain',server:{access:'crm_operator'},expected:{acao:'criar',teste:{teste_id:'synthetic-pending',marca:'fish'}}}]})};sincronizaTestesAB()`);
+ assert.equal(button.disabled,false);assert.equal(button.hidden,false);assert.match(x.document.querySelector('#ab-status').textContent,/aguardando confirmação/);
+ x.run(`AB_JOURNAL={inspect:()=>({blocked:false,operations:[]})};sincronizaTestesAB()`);assert.equal(button.disabled,true);
+});
+test('CRM sweep: scheduled campaign time is explicitly Brasilia regardless of the device timezone',async()=>{
+ const p=fixture();p.crm_campanha=[{marca:'fish',canal:'email',tipo:'agendada',nome:'Synthetic schedule',enviado_em:'2026-09-08T21:00:00Z',enviados:0}];
+ const x=await boot(p);x.run("trocaMarca('fish')");const row=x.document.querySelector('#tab-fila tbody tr');assert.ok(row);assert.match(row.textContent,/18:00/);assert.match(row.textContent,/Brasília/);
 });
 
 /* CRM-27: route-driven journey loading. Every request below is intercepted locally. */

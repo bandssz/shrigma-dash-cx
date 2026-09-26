@@ -6,6 +6,7 @@ const GCE=(()=>{
  let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[];
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
  let confirmation=null,deferredAccess='',audienceTimer=null;
+ let confirmedCatalog=null,onCatalog=null;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const blank=brand=>({brand:['fish','aristo','olivas'].includes(brand)?brand:'fish',initiative_name:'',initiative_key:'',utm_campaign:'',name:'',subject:'',from_email:'',reply_to:'',list_ids:'',template_id:'',send_at:'',tags:'',html:'',text:''});
  const split=v=>String(v||'').split(',').map(v=>v.trim()).filter(Boolean);
@@ -16,8 +17,8 @@ const GCE=(()=>{
  function keep(){if(confirmation||remoteBusy)return;if(localError){message(localError,true);paintRemote();return;}dirty=true;try{saveLocal();message('Alterações guardadas neste navegador.');}catch(e){localError=e.message;message(e.message,true);}paintRemote();}
  function fill(v){for(const k of fields)root.querySelector(`[name="${k}"]`).value=typeof v[k]==='string'?v[k]:'';}
  const input=(name,label,placeholder='',extra='')=>`<label>${label}<input name="${name}" autocomplete="off" placeholder="${esc(placeholder)}" ${extra}></label>`;
- function mount({marca='fish',api:payload=null}={}){
-  api=payload;
+ function mount({marca='fish',api:payload=null,onCatalog:catalogCallback=null}={}){
+  api=payload;onCatalog=typeof catalogCallback==='function'?catalogCallback:null;
   const target=typeof document!=='undefined'?document.getElementById('campaign-composer'):null;
   if(!target)return;if(target===root){if(contextBrand!==marca)enterBrand(marca);else setupRemote();return;}confirmation?.finish(false);root=target;
   root.innerHTML=`<details class="ce-shell"><summary><span class="ce-icon" aria-hidden="true">+</span><span class="ce-title"><strong>Preparar campanha</strong><span>Escolha o público, prepare a mensagem e revise o envio.</span></span><span class="ce-tag">Rascunho local</span></summary>
@@ -54,7 +55,7 @@ const GCE=(()=>{
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
  function enterBrand(brand){
   if(remoteBusy||confirmation||accessImporting)return false;
-  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';
+  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';clearCatalog();
   let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
   checkCampaign=Object.hasOwn(initial,'_campaign');localCampaign=checkCampaign?initial._campaign:undefined;
   initial.brand=GBS.validBrand(brand)?brand:'';fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
@@ -102,6 +103,18 @@ const GCE=(()=>{
  const keyValue=slot=>{try{return localStorage.getItem(slot)||'';}catch{return '';}};
  const validWriteKey=v=>typeof v==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(v.trim());
  const currentWriteKey=()=>{const k=sessionWrite||(legacyWrite?((typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'')||(typeof GTA!=='undefined'?keyValue(GTA.CHAVE_ESCRITA):'')):'');return validWriteKey(k)?k.trim():'';};
+ const currentReadKey=()=>typeof GTA!=='undefined'&&typeof GTA.chaveLeitura==='function'?GTA.chaveLeitura():typeof shrigmaChave==='function'?shrigmaChave('growth'):typeof GTA!=='undefined'?keyValue(GTA.CHAVE_LEITURA):'';
+ function catalogContext(){return {client:remote,brand:contextBrand,epoch:contextEpoch,endpoint:remoteCaps?.endpoint,reader:currentReadKey(),writer:currentWriteKey()};}
+ function catalogCurrent(before){const now=catalogContext();return !!before&&!!now.client&&!!now.reader&&remoteCaps?.read===true&&remoteCaps.brands.includes(now.brand)&&Object.keys(now).every(k=>now[k]===before[k]);}
+ function notifyCatalog(){try{onCatalog?.();}catch{/* A read-only consumer must not interrupt campaign operations. */}}
+ function clearCatalog(){if(!confirmedCatalog)return;confirmedCatalog=null;notifyCatalog();}
+ function catalogs(){return confirmedCatalog&&catalogCurrent(confirmedCatalog.context)?JSON.parse(JSON.stringify([confirmedCatalog.value])):[];}
+ async function readCatalog(client){
+  const context=catalogContext();clearCatalog();
+  const catalog=await client.catalog();if(!catalogCurrent(context)||client!==context.client)return null;
+  confirmedCatalog={context,value:{brand:catalog.brand,current:true,lists:catalog.lists.filter(l=>l?.brand===context.brand&&Number.isSafeInteger(l.id)&&l.id>0&&typeof l.available==='boolean').map(l=>({id:l.id,brand:l.brand,name:typeof l.name==='string'?l.name:typeof l.label==='string'?l.label:'Lista '+l.id,available:l.available}))}};
+  notifyCatalog();return catalog;
+ }
  function parseAccessFile(text){
   if(typeof text!=='string'||text.length>8192)throw Error('invalid_access_file');
   let p;try{p=JSON.parse(text);}catch(_){throw Error('invalid_access_file');}
@@ -132,7 +145,7 @@ const GCE=(()=>{
   form.onsubmit=e=>{
    e.preventDefault();if(form.hidden||remoteBusy||confirmation||accessImporting)return;
    const k=field.value.trim();if(accessFileError||!validWriteKey(k)){notice.textContent='Informe uma chave válida de escrita de campanhas.';field.setAttribute('aria-invalid','true');field.focus();return;}
-   sessionWrite=k;legacyWrite=false;closeAccess();paintRemote();message('Acesso preparado somente nesta página. Nenhuma operação foi enviada; confira e clique na ação desejada.');
+   sessionWrite=k;legacyWrite=false;clearCatalog();closeAccess();paintRemote();message('Acesso preparado somente nesta página. Nenhuma operação foi enviada; confira e clique na ação desejada.');
   };
   file.onchange=async()=>{
    if(form.hidden||remoteBusy||confirmation)return;
@@ -146,14 +159,15 @@ const GCE=(()=>{
  const stamp=v=>v?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(v))+' · Brasília':'Sem data';
  const statusName=s=>({draft:'Rascunho',scheduled:'Agendada',running:'Em envio',paused:'Pausada',finished:'Concluída',cancelled:'Cancelada'}[s]||s||'Não confirmado');
  function setupRemote(){
-  if(typeof GCA==='undefined')return;
+  if(typeof GCA==='undefined'){clearCatalog();return;}
   const next=GCA.caps(api),brand=contextBrand;
+  if(confirmedCatalog&&(!catalogCurrent(confirmedCatalog.context)||next.endpoint!==remoteCaps?.endpoint||!next.read||!next.brands.includes(brand)))clearCatalog();
   if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);checkLocalCampaign();paintRemote();return;}
   remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
   for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;
   if(next.endpoint&&next.brands.includes(brand)){
-   try{remote=GCA.createClient({capabilities:next,brand,readKey:()=>typeof GTA.chaveLeitura==='function'?GTA.chaveLeitura():typeof shrigmaChave==='function'?shrigmaChave('growth'):keyValue(GTA.CHAVE_LEITURA),writeKey:currentWriteKey});}
+   try{remote=GCA.createClient({capabilities:next,brand,readKey:currentReadKey,writeKey:currentWriteKey});}
    catch(err){message(err.message,true);}
   }
   checkLocalCampaign();paintRemote();
@@ -231,7 +245,7 @@ const GCE=(()=>{
    if(result?.readOnly){const status={pending:'em processamento',outcome_unknown:'resultado incerto',succeeded:'concluída',rejected:'recusada'}[result.consultation?.state]||'estado não confirmado';message(`Consulta recebida: ${status}. O registro local foi preservado. A confirmação local depende da proteção entre abas deste navegador.`);return;}
    if(!remote.locked()&&result?.operation?.request?.acao==='campanha_recuperar'){message('Rascunho existente recuperado. Seu conteúdo original foi preservado. Confira os links e salve as correções nesta mesma campanha.');return;}
    message(remote.locked()?'A tentativa continua pendente ou incerta. Consulte novamente; não crie outra tentativa.':'Operação conferida. Confira o resultado acima.',remote.locked());}
-  catch(err){message(err.message,true);contentError=['NO_COMMERCIAL_LINK','TRACKING_INVALID','TRACKING_CONFLICT','TRACKING_POLICY'].includes(err.code);if(write&&['UNAUTHORIZED','CAPABILITY_MISSING'].includes(err.code)){sessionWrite='';legacyWrite=false;accessDenied=err.code==='UNAUTHORIZED'?'Chave recusada. Confira a chave de escrita de campanhas.':'Esta chave não tem permissão para a ação. Confira o acesso; a tentativa foi preservada.';}}
+  catch(err){message(err.message,true);contentError=['NO_COMMERCIAL_LINK','TRACKING_INVALID','TRACKING_CONFLICT','TRACKING_POLICY'].includes(err.code);if(write&&['UNAUTHORIZED','CAPABILITY_MISSING'].includes(err.code)){sessionWrite='';legacyWrite=false;clearCatalog();accessDenied=err.code==='UNAUTHORIZED'?'Chave recusada. Confira a chave de escrita de campanhas.':'Esta chave não tem permissão para a ação. Confira o acesso; a tentativa foi preservada.';}}
   finally{remoteBusy=false;paintRemote();if(contentError&&!q('[name=html]').disabled)q('[name=html]').focus();if(accessDenied){if(confirmation)deferredAccess=accessDenied;else showAccess(accessDenied);}}
  }
  function renderCatalog(catalog){
@@ -246,13 +260,13 @@ const GCE=(()=>{
   q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||'<p>Nenhuma campanha salva nesta marca. Use Preparar novo rascunho para começar.</p>'}</div>`;
   q('[data-ce-campaigns]').querySelectorAll('[data-ce-open]').forEach(btn=>btn.addEventListener('click',()=>{
    if(confirmation||remoteBusy)return;const id=Number(btn.dataset.ceOpen),client=remote;
-   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await client.catalog();fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true});
+   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await readCatalog(client);if(!catalog)return;fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true});
    if(dirty)confirmAction('Substituir as alterações locais pelo conteúdo salvo desta campanha?','Reabrir campanha',work);else work(null);
   }));
  }
  function bindRemote(){
   bindAccess();
-  q('[data-ce-refresh]').addEventListener('click',()=>runRemote(async()=>{const catalog=await remote.catalog(),campaigns=await remote.list();renderCatalog(catalog);renderCampaigns(campaigns);}));
+  q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);renderCampaigns(campaigns);});});
   q('[data-ce-new]').addEventListener('click',()=>{
    if(!remote||remote.locked()||remoteBusy||confirmation||localError)return;const client=remote,brand=values().brand;
    const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();q('[data-ce-catalog]').innerHTML='';for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;return {localOnly:true};},{confirmed});
@@ -264,7 +278,7 @@ const GCE=(()=>{
    const c=proof.campaign,brand=contextBrand==='fish'?'Fishermans':'O Aristocrata';
    confirmAction(`Recuperar ${brand} · “${c.definition.name}” (campanha ${c.id})? Foi confirmado um rascunho com 0 envios, ainda não iniciado. Seu conteúdo original será preservado para correção. Esta ação não cria outra campanha, não agenda e não envia.`, 'Recuperar este rascunho',confirmed=>runRemote(()=>client.recover(proof,'recuperar'),{fillSaved:true,write:true,confirmed,recoverLocal:true}),{allowRecovery:true});
   });
-  q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;runRemote(async()=>{await remote.catalog();return remote.save(definition(values()));},{fillSaved:true,write:true});});
+  q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;const client=remote;runRemote(async()=>{if(!await readCatalog(client))return;return client.save(definition(values()));},{fillSaved:true,write:true});});
   q('[data-ce-validate]').addEventListener('click',()=>runRemote(()=>remote.validate(definition(values())),{fillSaved:true,write:true}));
   q('[data-ce-cancel]').addEventListener('click',()=>{
    const client=remote,c=client?.snapshot()?.campaign;if(!c||confirmation||remoteBusy)return;
@@ -278,6 +292,6 @@ const GCE=(()=>{
    confirmAction(`Agendar ${contextBrand==='fish'?'Fishermans':contextBrand==='aristo'?'O Aristocrata':contextBrand} · “${c.definition.name}” para ${stamp(c.send_at)}? ${audienceNumber(a.eligible_count)} ${a.eligible_count===1?'pessoa pode':'pessoas podem'} receber agora, sem duplicar contatos entre listas. Conferência válida até ${stamp(a.expires_at)}. O total pode mudar por inscrições e descadastros até o envio.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar',a.review_id),{fillSaved:true,write:true,confirmed}));
   });
  }
- return {contextStatus,preserve,enterBrand,mount,definition,fromDefinition,parseAccessFile};
+ return {contextStatus,preserve,enterBrand,mount,catalogs,definition,fromDefinition,parseAccessFile};
 })();
 if(typeof module!=='undefined')module.exports=GCE;

@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=b4b3f3f322db">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-XwnJ6kWy6vFjy5j+kQ00+GNl+z0kMvrn0/+3SgnDIns='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=2c2acb152aa6">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MDYRspykZFHMBsKqlYJi3Wccma8X/fhpFsDGxJpEHgw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -52,7 +52,8 @@
       <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
       <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
     </div>
-    <input type="date" id="d-ini" aria-label="Início do período"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período">
+    <input type="date" id="d-ini" aria-label="Início do período" aria-describedby="crm-period-error"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período" aria-describedby="crm-period-error">
+    <p id="crm-period-error" role="alert" hidden></p>
     <label><input type="checkbox" id="cmp" checked> comparar</label>
   </div></details>    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
   </div>
@@ -113,6 +114,7 @@
 
 <div class="sec" id="sec-camp"><div class="crm-report-tabs" role="tablist" aria-label="Campanhas"><button type="button" id="crm-campaign-list-tab" data-crm-campaign="list" role="tab" aria-selected="true" aria-controls="crm-campaign-list">Campanhas</button><button type="button" id="crm-campaign-tests-tab" data-crm-campaign="tests" role="tab" aria-selected="false" tabindex="-1" aria-controls="crm-campaign-tests">Testes A/B</button></div><div id="crm-campaign-list" data-crm-campaign-panel="list" role="tabpanel" aria-labelledby="crm-campaign-list-tab">
     <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail"></section>
+    <div id="attribution-campaign-status" role="status" hidden></div>
     <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
 
 
@@ -126,7 +128,7 @@
         <input id="ab-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="ab-chave-ajuda">
         <span id="ab-chave-ajuda" class="ajuda">Somente para consultar uma tentativa feita com o acesso antigo. Fica nesta página aberta; não será usado para salvar outra configuração nem repetir a gravação.</span></div>
       <p id="ab-status" class="mini" role="status"></p>
-      <button type="button" class="btn sec" id="ab-consultar">Consultar tentativa registrada</button>
+      <button type="button" class="btn sec" id="ab-consultar" disabled>Consultar tentativa registrada</button>
       <div id="form-teste" hidden>
         <div class="form">
           <div class="campo"><label for="f-id">Código do teste</label>
@@ -237,7 +239,7 @@
         <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
       </tr></thead><tbody></tbody></table></div>
       <div class="nota" id="nota-camp"></div>
-    </section></div><div id="crm-report-conversion" data-crm-report-panel="conversion" role="tabpanel" aria-labelledby="crm-report-conversion-tab" hidden><section class="painel" id="pix-conversion" aria-live="polite"></section><section class="painel">
+    </section><div id="campaign-email-channel-empty" class="vazio" hidden>Este relatório mostra campanhas de e-mail. <button type="button" class="refresh-btn" id="campaign-email-show">Ver campanhas de e-mail</button></div></div><div id="crm-report-conversion" data-crm-report-panel="conversion" role="tabpanel" aria-labelledby="crm-report-conversion-tab" hidden><section class="painel" id="pix-conversion" aria-live="polite"></section><section class="painel">
       <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
         <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
           <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
@@ -254,7 +256,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=259268b9a709"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=33a3ac57bf8e"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -427,6 +429,7 @@ function journalTesteAB(){
 function sincronizaTestesAB(){
   const state=journalTesteAB().inspect();AB_PENDENTES.clear();AB_BLOQUEADO=state.blocked;
   for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
+  $('#ab-consultar').disabled=!AB_PENDENTES.size||AB_BUSY||!!AB_RECONCILIACAO;
   $('#ab-acesso-legado').hidden=![...AB_PENDENTES.values()].some(p=>p.server&&p.server.access!=='crm_operator');
   $('#f-salvar').disabled=AB_BUSY||!GABF.valid(API)||AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
   if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
@@ -451,7 +454,7 @@ function reconciliaTestesAB(explicitKey=''){
         renderTestes();
       }
     }while(proof!==AB_PROVA_LEITURA); // A refresh that arrived during reconciliation must also be checked.
-  })().catch(e=>{if(e.code!=='AB_BUSY')$('#ab-status').textContent=e.message;}).finally(()=>{AB_RECONCILIACAO=null;});
+  })().catch(e=>{if(e.code!=='AB_BUSY')$('#ab-status').textContent=e.message;}).finally(()=>{AB_RECONCILIACAO=null;$('#ab-consultar').disabled=!AB_PENDENTES.size||AB_BUSY;});
   return AB_RECONCILIACAO;
 }
 async function gravaTesteAB(corpo,msg,btn){
@@ -479,6 +482,13 @@ async function encerrarTeste(id){
 }
 
 let CRM_AUDIENCE_VIEW=null;
+function renderPublicos(){
+  if(!API)return;
+  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar()});
+  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:GCE.catalogs?.()||[]});
+  $('#n-arv').textContent=audience.total||'';
+  $('#arv-rot').textContent='Última contagem por público';
+}
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
@@ -487,7 +497,7 @@ function renderJornadas(modeloOp){
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
 function render(){
-  GCE.mount({marca:MARCA,api:API});
+  GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   if(!API)return;
   GABF.enter(MARCA,API);
@@ -500,11 +510,12 @@ function render(){
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  GA.render({api:API,marca:MARCA,ini,fim,canal:CANAL,GUI,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
+  GA.render({api:API,marca:MARCA,ini,fim,canal:CANAL,GUI,onRefresh:carregar,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
   GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
   GSES.render(API,MARCA,ini,fim,CANAL,GUI);
   GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
-  $('#campaign-email-block').hidden=GA.valid(API)||CANAL==='whatsapp';
+  $('#campaign-email-block').hidden=CANAL==='whatsapp';
+  $('#campaign-email-channel-empty').hidden=CANAL!=='whatsapp';
   $('#email-comparison-block').hidden=GA.valid(API)||CANAL==='whatsapp';
   $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
 
@@ -656,7 +667,7 @@ function render(){
       const falta=h<0?'atrasada':h<24?`${h}h`:`${Math.round(h/24)}d`;
       return `<tr><td><strong>${esc((c.nome||'').slice(0,44))}</strong></td>
         <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
-        <td>${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+        <td>${dt.toLocaleString('pt-BR',{timeZone:G.TZ,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · Brasília</td>
         <td class="num tabn${h<0?' destaque':''}">${falta}</td>
         <td>${c.tem_utm?'<span class="mini">ok</span>':'<span class="tag nulo">sem UTM</span>'}</td></tr>`;
     }).join('');
@@ -700,10 +711,7 @@ function render(){
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
 
-  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar()});
-  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA});
-  $('#n-arv').textContent=audience.total||'';
-  $('#arv-rot').textContent='Última contagem por público';
+  renderPublicos();
 
   renderTestes();
 
@@ -744,7 +752,7 @@ function openFlows(canal,selection={}){
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
   }
-  document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
+  document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
   ativaBotao('#secoes button','s',SEC);
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
@@ -849,7 +857,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   if(p.preset&&ativaBotao('#presets button','p',p.preset))PER=G.preset(p.preset,HOJE);
   else if(p.ini&&p.fim&&p.fim<=HOJE){PER={ini:p.ini,fim:p.fim};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));}
   if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
-  if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+  if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 })();
 function trocaMarca(next,afterConfirm=null){
   if(!['todas','fish','aristo','olivas'].includes(next))return false;
@@ -895,19 +903,25 @@ window.growthChangeBrand=trocaMarca;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
 function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
-  SEC=section;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x===target));
+  SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
   const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows'].includes(tab)?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
-  if(SEC==='visao'||SEC==='resultados')render();else renderJornadas();gravaHash();
+  if(SEC==='visao'||SEC==='resultados')render();else if(SEC==='base')renderPublicos();else renderJornadas();gravaHash();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  $('#crm-period-error').hidden=true;$('#crm-period-error').textContent='';
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();$('#crm-period-picker').open=false;});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
-  const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b||b>G.diaBR(new Date()))return;
+  const a=$('#d-ini').value,b=$('#d-fim').value,notice=$('#crm-period-error');
+  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  const error=!validDate(a)||!validDate(b)?'Escolha duas datas válidas.':a>b?'A data inicial deve vir antes da data final.':b>G.diaBR(new Date())?'Escolha uma data final até hoje.':'';
+  notice.hidden=!error;notice.textContent=error?'Período não aplicado. '+error+' O período anterior foi mantido.':'';
+  if(error){$('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;return;}
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
+$('#campaign-email-show').onclick=()=>setCanal('email');
 document.querySelectorAll('#seg-canal button').forEach(b=>b.onclick=()=>setCanal(b.dataset.canal));
 $('#btn-atualizar').onclick=()=>carregar();
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
@@ -936,7 +950,7 @@ document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('c
 const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
 CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();gravaHash();},initial:crmInitialView});
 if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
-if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
 // Automatic refresh only while this panel is visible; server execution is independent.
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
