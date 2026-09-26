@@ -7,7 +7,7 @@ function fixture(opts={}){
  const {window,document}=parseHTML('<html><body><button id="caller">Salvar</button><section id="access"></section><aside id="i-editor" hidden><button id="drawer-save">Salvar cadastro</button></aside></body></html>');
  let focus=null;Object.defineProperty(document,'activeElement',{get:()=>focus});window.HTMLElement.prototype.focus=function(){if(this.closest('fieldset')?.disabled)return;focus=this;};
  const store=opts.storage||storage(),reads=[];
- const api=Access.bind({document,host:document.querySelector('#access'),readExisting:()=>store.getItem('read'),writeExisting:()=>store.getItem('write'),authorExisting:()=>store.getItem('author'),onRead:async()=>{reads.push(1);return opts.onRead?.();}});
+ const api=Access.bind({document,host:document.querySelector('#access'),unified:!!opts.unified,authorFallback:opts.authorFallback,readExisting:()=>store.getItem('read'),writeExisting:()=>store.getItem('write'),authorExisting:()=>store.getItem('author'),onRead:async()=>{reads.push(1);return opts.onRead?.();}});
  const $=s=>document.querySelector(s),submit=()=>{const e=new window.Event('submit',{bubbles:true,cancelable:true});$('#influ-access-form').dispatchEvent(e);assert.equal(e.defaultPrevented,true);};
  return {api,window,document,store,reads,$,submit,focused:()=>focus};
 }
@@ -62,12 +62,17 @@ function page({initial={},responses=[]}={}){
  const $=s=>document.querySelector(s),submit=()=>$('#influ-access-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
  return {ctx,$,calls,store,master,forgot,window,document,submit};
 }
-test('real page has no prompt and writer login waits for a second explicit save with author',async()=>{
+test('real page has no prompt; one panel key reads and writes, author asked once, save still needs a second explicit click',async()=>{
  const x=page();assert.doesNotMatch(html,/\bprompt\s*\(/);await tick();assert.equal(x.calls.length,0);
+ assert.equal(x.$('[data-influ-access="write"]'),null,'sem botão separado de cadastro e autoria');
  x.$('#i-f-slug').value='fixture-influ';x.$('#i-f-nome').value='Fixture';x.$('#i-f-com').value='5';
- await x.ctx.salvarInflu();assert.equal(x.calls.length,0);assert.match(x.$('#influ-access-title').textContent,/cadastro/);
- x.$('#influ-access-key').value='writer';x.$('#influ-access-author').value='Fixture Author';x.submit();await tick();assert.equal(x.calls.length,0);
- await x.ctx.salvarInflu();assert.equal(x.calls.length,1);assert.equal(x.calls[0].body.acao,'salvar_influ');assert.equal(x.calls[0].body.autor,'Fixture Author');assert.equal(x.calls[0].body.k,'writer');assert.equal(x.calls[0].redirect,'error');assert.deepEqual(x.store.writes,[]);
+ await x.ctx.salvarInflu();assert.equal(x.calls.length,0);assert.match(x.$('#influ-access-title').textContent,/leitura/,'sem chave, pede a chave do painel');
+ x.$('#influ-access-key').value='writer';x.submit();await tick();x.calls.length=0;
+ assert.equal(x.$('[data-influ-access="read"]').hidden,true,'com a chave, o botão de entrar some');
+ await x.ctx.salvarInflu();assert.equal(x.calls.length,0);assert.match(x.$('#influ-access-title').textContent,/cadastro/,'sem nome de acesso, pede só a autoria');
+ assert.equal(x.$('#influ-access-key').getAttribute('placeholder'),'Já informada; preencha somente para trocar');
+ x.$('#influ-access-author').value='Fixture Author';x.submit();await tick();assert.equal(x.calls.length,0);
+ await x.ctx.salvarInflu();const w=x.calls.filter(c=>c.body?.acao&&c.body.acao!=='listar');assert.equal(w.length,1);assert.equal(w[0].body.acao,'salvar_influ');assert.equal(w[0].body.autor,'Fixture Author');assert.equal(w[0].body.k,'writer');assert.equal(w[0].redirect,'error');assert.deepEqual(x.store.writes,[]);
 });
 test('real page rejects empty receipts and 401/403 without auto-retry or touching journal/TTS credentials',async()=>{
  for(const response of [{status:200,ok:true,json:async()=>{throw Error('empty');}},{status:200,ok:true,json:async()=>({})},{status:401,ok:false,json:async()=>({erro:'invalid'})},{status:403,ok:false,json:async()=>({erro:'denied'})}]){
@@ -79,4 +84,12 @@ test('new master reader stays in memory; legacy TTS read rejection also clears p
  const x=page();x.$('#influ-access-key').value='session-reader';x.submit();await tick();
  assert.equal(x.calls.filter(c=>c.body?.acao==='listar').length,1);assert.equal(x.master.length,0);assert.equal(x.ctx.chaveLeitura(),'session-reader');assert.deepEqual(x.store.writes,[]);
  x.ctx.shrigmaEsqueceChave('influs');assert.equal(x.ctx.chaveLeitura(),'');assert.deepEqual(x.forgot,['influs']);assert.equal(x.$('#influ-access-form').hidden,false);
+});
+
+test('acesso único: a chave de entrada grava e o nome do acesso vira autoria, sem formulário extra',()=>{
+ const x=fixture({unified:true,authorFallback:()=>'Gestor Influs e Afiliados',storage:storage({read:'panel-key'})});
+ assert.equal(x.$('[data-influ-access="write"]'),null);assert.equal(x.$('[data-influ-access="read"]').hidden,true);
+ assert.equal(x.api.requireWrite(),'panel-key');assert.equal(x.api.author(),'Gestor Influs e Afiliados');assert.equal(x.$('#influ-access-form').hidden,true);
+ x.api.reject('write','panel-key','Este acesso não pode gravar.');assert.equal(x.api.current('read'),'panel-key','recusa de gravação não derruba a leitura');
+ const y=fixture({unified:true,authorFallback:()=>''});assert.equal(y.api.requireWrite(),'');assert.match(y.$('#influ-access-title').textContent,/leitura/);assert.equal(y.$('[data-influ-access="read"]').hidden,false);
 });
