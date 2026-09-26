@@ -1,0 +1,95 @@
+/* Identidade das marcas em Influs & Afiliados e Orgânico (26/09/2026).
+   Cores conferidas no CSS público das lojas em 26/09/2026:
+   oaristocrata.com  fundo #0C3C21 / texto #FFFBEC, detalhe #EACEA9;
+   fishermans.com.br base #1A1C2E / #F8F9FA.
+   A cor identifica a marca filtrada; verde/vermelho de estado (bom/ruim) continuam semânticos. */
+body[data-panel=influs],body[data-panel=organico]{
+  --area-lateral:224px;--marca:#20272e;--marca-texto:#20272e;--marca-fraca:#f5f6f7;--marca-suave:#eceff2;--marca-borda:#c5cbd2;
+}
+body[data-panel=influs][data-marca=aristo],body[data-panel=organico][data-marca=aristo]{
+  --marca:#0c3c21;--marca-texto:#0c3c21;--marca-fraca:#fffbec;--marca-suave:#ede9d9;--marca-borda:#c9b99a;--card-2:#fbfaf4;
+}
+body[data-panel=influs][data-marca=fish],body[data-panel=organico][data-marca=fish]{
+  --marca:#1a1c2e;--marca-texto:#1a1c2e;--marca-fraca:#f8f9fa;--marca-suave:#e9ecf2;--marca-borda:#aeb8c8;--card-2:#f8f9fa;
+}
+body[data-panel=influs][data-marca=olivas],body[data-panel=organico][data-marca=olivas]{
+  --marca-suave:#eaeedc;--marca-borda:#bac2a6;
+}
+body[data-panel=influs] .topo .seg button[data-marca=aristo],body[data-panel=organico] .topo .seg button[data-marca=aristo]{border-bottom-color:#0c3c21}
+body[data-panel=influs] .topo .seg button[data-marca=fish],body[data-panel=organico] .topo .seg button[data-marca=fish]{border-bottom-color:#1a1c2e}
+body[data-panel=influs] .tag.aristo,body[data-panel=organico] .tag.aristo{background:#ede9d9;color:#0c3c21}
+body[data-panel=influs] .tag.fish,body[data-panel=organico] .tag.fish{background:#e9ecf2;color:#1a1c2e}
+body[data-panel=influs] .topo,body[data-panel=organico] .topo{background:linear-gradient(100deg,var(--marca-fraca) 0%,#fff 70%)}
+body[data-panel=influs] .titulo h1,body[data-panel=organico] .titulo h1{color:var(--marca-texto)}
+
+/* Acentos que eram fixos em azul-petróleo passam a seguir a marca filtrada. */
+body[data-panel=influs] .i-abas button.ativo{border-bottom-color:var(--marca)}
+body[data-panel=influs] .i-nome{border-bottom-color:var(--marca-borda)}
+body[data-panel=influs] .i-nome:hover{color:var(--marca-texto)}
+body[data-panel=influs] .nc-form{border-left-color:var(--marca)}
+body[data-panel=influs] .nc-passo h4{color:var(--marca-texto)}
+body[data-panel=influs] .nc-passo h4 i,body[data-panel=influs] .inbox-acoes .ib-sim{background:var(--marca-texto);border-color:var(--marca-texto)}
+
+/* Navegação por tarefa, no padrão do CRM: lateral fixa no desktop, faixa rolável no celular. */
+.area-lateral{display:none}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral{display:flex;flex-direction:column;gap:22px;position:fixed;inset:0 auto 0 0;z-index:20;
+  width:var(--area-lateral);padding:26px 14px;background:var(--marca-fraca);border-right:1px solid var(--borda);overflow-y:auto}
+:is(body[data-panel=influs],body[data-panel=organico]){padding-left:var(--area-lateral)}
+.area-marca{padding:0 10px;font-size:19px;font-weight:700;letter-spacing:-.5px;color:var(--marca-texto)}
+.area-marca span{display:block;margin-top:3px;font-size:12px;font-weight:500;letter-spacing:0;color:var(--mudo)}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes{display:flex;flex-direction:column;gap:3px;border:0;margin:0;overflow:visible}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+  padding:10px 12px;border:0;border-radius:5px;text-align:left;white-space:normal;font:600 13px/1.35 var(--ui);color:var(--texto);background:transparent;margin:0}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button small{font-size:11.5px;font-weight:400;color:var(--mudo)}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button:hover{background:var(--marca-suave)}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button.ativo{background:#fff;color:var(--marca-texto);box-shadow:inset 3px 0 0 var(--marca)}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes .n{position:absolute;right:10px;font-size:11px;color:var(--mudo)}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button{position:relative}
+:is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes .n:empty{display:none}
+.area-rodape{margin:auto 10px 0;font-size:11.5px;line-height:1.45;color:var(--mudo)}
+@media(max-width:1023px){
+  :is(body[data-panel=influs],body[data-panel=organico]){padding-left:0}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral{position:static;width:auto;padding:12px 16px 0;gap:8px;border-right:0;border-bottom:1px solid var(--borda)}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:10px;scrollbar-width:thin}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button{width:auto;flex:none;padding:8px 12px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button small,.area-rodape{display:none}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button.ativo{box-shadow:inset 0 -3px 0 var(--marca)}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button{flex-direction:row;align-items:center;gap:6px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes .n{position:static}
+}
+
+/* Ressalvas ficam acessíveis, recolhidas: o número vem primeiro. */
+details.ressalvas{margin-top:12px;font-size:12.5px}
+details.ressalvas>summary{cursor:pointer;color:var(--mudo);font-weight:600;list-style:revert}
+details.ressalvas>summary:hover{color:var(--texto)}
+details.ressalvas[open]>summary{margin-bottom:6px}
+details.ressalvas ul{margin:6px 0 0 18px;padding:0;line-height:1.55;color:var(--mudo)}
+
+/* Conferência com a Shopify */
+body.sec-conferencia #area-kpis,body.sec-conferencia #faixa-alertas,body.sec-conferencia #faixa-conferencia{display:none}
+#sec-conferencia:not(.ativa){display:none}#sec-conferencia.ativa{display:block}
+#area-conferencia{display:grid;gap:18px;min-width:0}#area-conferencia>*{min-width:0}
+#area-conferencia .rolagem{overflow-x:auto;max-width:100%}
+.conf-tabela td.num,.conf-saude td.tabn{white-space:nowrap}
+.conf-zero{color:var(--mudo);font-weight:400}
+#faixa-conferencia:empty{display:none}
+.conf-faixa{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;
+  border:1px solid var(--borda);border-left:3px solid var(--marca);border-radius:4px;background:#fff;font-size:12.5px;line-height:1.6}
+.conf-leitura{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.conf-leitura div{padding:10px 12px;border:1px solid var(--borda);border-radius:4px;background:var(--card-2);font-size:12.5px;line-height:1.5}
+.conf-leitura strong{display:block;margin-bottom:3px;color:var(--marca-texto)}
+.conf-leitura span{color:var(--mudo)}
+.conf-resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin:14px 0}
+.conf-marca{border:1px solid var(--borda);border-top:3px solid var(--marca);border-radius:4px;padding:12px 14px;background:#fff}
+.conf-marca[data-marca-conf=aristo]{border-top-color:#0c3c21}.conf-marca[data-marca-conf=fish]{border-top-color:#1a1c2e}
+.conf-marca h3{margin:0 0 8px;font:650 14px/1.3 var(--ui)}
+.conf-marca dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.conf-marca dt{font-size:11.5px;color:var(--mudo)}
+.conf-marca dd{margin:2px 0 0;font:650 16px/1.3 var(--ui);font-variant-numeric:tabular-nums}
+.conf-marca dd small{display:block;font-size:11.5px;font-weight:400;color:var(--mudo)}
+.conf-marca p{margin:8px 0 0}
+.conf-barra{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+.conf-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.conf-tabela th .mini{font-weight:400}
+.conf-det{max-width:360px;overflow-wrap:anywhere}
+@media(max-width:720px){.conf-leitura{grid-template-columns:1fr}.conf-marca dl{grid-template-columns:1fr 1fr}}
