@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'../../growth-test-tools/node_modules/@electric-sql/pglite');
+const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
 const C=require('../n8n/growth/journey-graph-catalog.cjs'),G=require('../n8n/growth/journey-graph-contract.js');
 const sql=fs.readFileSync(path.join(__dirname,'../n8n/growth/journey-graph-catalog.sql'),'utf8');
 async function setup(t){const db=new PGlite();t.after(()=>db.close());await db.exec(`CREATE SCHEMA crm_graph_candidate;
