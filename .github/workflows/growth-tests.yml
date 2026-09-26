@@ -78,6 +78,7 @@ jobs:
           node tests/panel-short-keys-postgres.cjs
           node tests/panel-operator-postgres.cjs
           node tests/creators-pilot-postgres.cjs
+          node tests/partner-operacao-postgres.cjs
       - name: Check Influs Shopify conciliation on isolated PostgreSQL
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite

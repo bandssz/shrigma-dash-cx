@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=7212ecc75f27">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5pPqURXfs+q4uOaRj/TiJw53GASP+KLvdKmz1TbY8sA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=4a74324bbab8">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Y7y0Jpn9ew+AIsuQ1VVhF7s56Z/XIwjyNrsAHIxsxk0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -242,7 +242,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=9d522e77ed74"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=db182fa1e2e1"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -541,7 +541,7 @@ async function carregarInflu(){
     'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
-  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo,pilot:SEC==='partners'||SEC==='meta'},{signal,vigente:()=>ativa()&&vigente()}));
+  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo,pilot:SEC==='meta'||(SEC==='afil'&&CANAL==='parceiros')},{signal,vigente:()=>ativa()&&vigente()}));
   INFLU_READ=leitura;
   try{
     const novo=await leitura.promise;

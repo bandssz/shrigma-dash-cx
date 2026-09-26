@@ -8,7 +8,7 @@
  // O valor a pagar continua fora: a base do grão de pedido inclui frete, e a comissão é sem frete.
  const linkStates={pausado:'Pausado',ativo:'Ativo',revogado:'Revogado'};
  function bind({document,getData,getMarca,getPeriod,getSection=()=>null,key,endpoint,reload,storage=localStorage,confirmRevoke=(nome)=>typeof confirm!=='function'||confirm(`Revogar o link de ${nome}? O código é preservado para os pedidos que já vieram por ele, e um novo link pode ser gerado depois.`)}){
-  const q=s=>document.querySelector(s);let search='',category='todos',page=0,editing=null,busy=false,message='';
+  const q=s=>document.querySelector(s);let search='',category='todos',page=0,editing=null,payEditing=null,busy=false,message='';
   const journal=()=>{try{const s=storage.getItem(SLOT);return s?JSON.parse(s):null;}catch(_){return {phase:'uncertain',unreadable:true};}};
   const pending=()=>journal()?.phase==='uncertain';
   const store=v=>storage.setItem(SLOT,JSON.stringify(v));
@@ -30,7 +30,7 @@
      const {r,j}=await response({acao:'piloto_salvar',kind,expected_version:version,request_id:record.request_id,data},k);
      if((r.status===401||r.status===403)||j.erro){store({...record,phase:'rejected'});status(j.erro||'Acesso de operação recusado.');return;}
      if(!r.ok||j.ok!==true||j.request_id!==record.request_id||!Number.isInteger(j.version))throw Error('Recibo incompleto.');
-     store({...record,phase:'confirmed',receipt:j});editing=null;status('Salvo no servidor. Atualizando a leitura…');await reload();status('Alteração salva e recibo confirmado.');
+     store({...record,phase:'confirmed',receipt:j});editing=null;payEditing=null;status('Salvo no servidor. Atualizando a leitura…');await reload();status('Alteração salva e recibo confirmado.');
     }catch(_){status(record?'Resposta não confirmada. Não repita a operação; use Conferir gravação pendente.':'Não foi possível registrar a operação com segurança. Nada foi enviado.');}
     finally{busy=false;render();}
    });
@@ -51,13 +51,20 @@
    const e=editing?payload.candidates.find(c=>c.id===editing):null,chosen=e?.marca||(brand==='aristo'?'aristo':'fish'),deadline=root.CreatorsMeta.paymentDeadline(getPeriod().fim.slice(0,7));
    const vivos=(payload.links||[]).filter(l=>l.state!=='revogado'),porCand=new Map(vivos.map(l=>[l.candidate_id,l]));
    const pedidos=new Map((payload.partner_orders||[]).map(o=>[o.ref,o]));
+   const pagamentos=new Map((payload.pagamentos||[]).map(x=>[x.candidate_id,x])),pagavel=payload.commission_payable===true;
+   const nomePorRef=new Map((payload.links||[]).map(l=>[l.ref,l.candidate_name])),fech=(payload.fechamento||[]).filter(f=>brand==='todas'||f.marca===brand);
+   const dataBR=d=>d?String(d).slice(0,10).split('-').reverse().join('/'):'—';
+   const comissaoPeriodo=[...pedidos.values()].filter(o=>brand==='todas'||o.marca===brand);
+   const totalComissao=comissaoPeriodo.every(o=>o.comissao!=null)?comissaoPeriodo.reduce((t,o)=>t+Number(o.comissao||0),0):null;
    const ativos=vivos.filter(l=>l.state==='ativo'&&(brand==='todas'||l.marca===brand)).length;
    const linkCell=c=>{
     const l=porCand.get(c.id),trav=busy||pending()?' disabled':'';
     if(!l)return c.state==='aprovado_piloto'
      ?`<button class="btn sec" data-link-new="${esc(c.id)}"${trav}>Gerar link</button>`
      :'<span class="mini">Só parceiro aprovado recebe link.</span>';
-    const o=pedidos.get(l.ref),vendas=o?`<span class="mini">${o.pedidos} pedido${o.pedidos>1?'s':''} atribuído${o.pedidos>1?'s':''} no período</span>`:'<span class="mini">Nenhum pedido atribuído ainda.</span>';
+    const o=pedidos.get(l.ref),resumo=o&&o.pedidos?(pagavel?(o.comissao!=null?` · base ${money(o.base_elegivel)} · comissão <strong>${money(o.comissao)}</strong>`:` · comissão em apuração${o.pedidos_sem_base?` (${o.pedidos_sem_base} sem base)`:''}`):''):'';
+    const extras=o?[o.pedidos_com_cupom?`${o.pedidos_com_cupom} também com cupom de influ (comissionam os dois)`:'',o.pedidos_link_inativo?`${o.pedidos_link_inativo} em dia de link pausado (não contam)`:''].filter(Boolean):[];
+    const vendas=o&&o.pedidos?`<span class="mini">${o.pedidos} pedido${o.pedidos>1?'s':''} atribuído${o.pedidos>1?'s':''} no período${resumo}</span>${extras.map(t=>`<span class="mini cp-extra">${t}</span>`).join('')}`:`<span class="mini">Nenhum pedido atribuído ainda.</span>${extras.map(t=>`<span class="mini cp-extra">${t}</span>`).join('')}`;
     const endereco=l.state==='ativo'&&l.url
      ?`<input class="cp-link-url" readonly value="${esc(l.url)}" aria-label="Endereço do link de ${esc(c.name)}"><button class="btn sec" type="button" data-link-copy="${esc(l.ref)}">Copiar</button>`
      :'<span class="mini">Endereço aparece quando o link estiver ativo.</span>';
@@ -66,11 +73,29 @@
      :`<button class="btn sec" data-link-state="${esc(c.id)}:ativo"${trav}>Ativar</button> <button class="btn sec" data-link-state="${esc(c.id)}:revogado"${trav}>Revogar</button>`;
     return `<code>${esc(l.ref)}</code> · ${linkStates[l.state]}${vendas}<div class="cp-link-row">${endereco}</div>${acao}`;
    };
+   const PIX={cpf:'CPF',cnpj:'CNPJ',email:'E-mail',telefone:'Telefone',aleatoria:'Chave aleatória'};
+   const pagCell=c=>{const x=pagamentos.get(c.id),trav=busy||pending()?' disabled':'';
+    if(c.state!=='aprovado_piloto'&&!x)return '<span class="mini">Depois da aprovação.</span>';
+    return x?`<span class="cp-pix-ok">Pix ${esc(PIX[x.pix_tipo]||x.pix_tipo)} · final ${esc(x.pix_final)}</span><span class="mini">${esc(x.titular)} · CPF ${esc(x.cpf_mascarado)}</span><button class="btn sec" data-pay-edit="${esc(c.id)}"${trav}>Trocar</button>`
+     :`<span class="mini">Sem cadastro de pagamento.</span><button class="btn sec" data-pay-edit="${esc(c.id)}"${trav}>Cadastrar Pix</button>`;};
+   const pe=payEditing?candidates.find(c=>c.id===payEditing):null,px=pe?pagamentos.get(pe.id):null;
+   const payForm=pe?`<details class="cp-editor" open id="cp-pay"><summary>Pagamento de ${esc(pe.name)}</summary><form id="cp-pay-form" autocomplete="off"><div class="cp-form-grid">
+    <label>Titular da conta<input name="titular" maxlength="120" minlength="3" required value="${esc(px?.titular)}"></label>
+    <label>CPF do titular<input name="cpf" inputmode="numeric" maxlength="14" required placeholder="${px?'cadastrado · '+esc(px.cpf_mascarado)+' · digite de novo para trocar':'000.000.000-00'}"></label>
+    <label>Tipo de chave Pix<select name="pix_tipo">${Object.entries(PIX).map(([k,v])=>`<option value="${k}" ${k===(px?.pix_tipo||'cpf')?'selected':''}>${v}</option>`).join('')}</select></label>
+    <label>Chave Pix<input name="pix_chave" maxlength="77" required placeholder="${px?'final '+esc(px.pix_final)+' · digite de novo para trocar':''}"></label></div>
+    <p class="mini">Os números são gravados completos no servidor e voltam para a tela só mascarados. O registro da operação guarda apenas um resumo criptográfico.</p>
+    <button class="btn" type="submit" data-pilot-save ${busy||pending()?'disabled':''}>Salvar pagamento</button> <button class="btn sec" type="button" id="cp-pay-cancel">Fechar</button></form></details>`:'';
+   const hojeBR=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
+   const sit=f=>!f.base_fechada?`<span class="tag alerta">aguardando base${f.pedidos_sem_base?` · ${f.pedidos_sem_base} pedido(s)`:''}</span>`:!f.mes_encerrado?'<span class="tag nulo">mês em curso</span>'
+    :String(f.prazo||'')>=hojeBR?`<span class="tag bom">a pagar até ${esc(dataBR(f.prazo))}</span>`:`<span class="tag nulo" title="O painel não registra o pagamento; confira no financeiro.">prazo era ${esc(dataBR(f.prazo))}</span>`;
+   const fechamento=pagavel&&fech.length?`<h3>Fechamento mensal</h3><p class="mini">Competência = mês do pedido. Fecha quando o mês acaba e todos os pedidos têm base da Shopify; pagamento até o dia 5 do mês seguinte.</p>
+    <div class="cp-table"><table><thead><tr><th>Competência</th><th>Parceiro</th><th>Pedidos</th><th>Base</th><th>Comissão</th><th>Situação</th></tr></thead><tbody>${fech.map(f=>`<tr><td>${esc(f.competencia.split('-').reverse().join('/'))}</td><td>${esc(nomePorRef.get(f.ref)||f.ref)}<span class="mini">${esc(f.ref)}${pagamentos.has((payload.links||[]).find(l=>l.ref===f.ref)?.candidate_id)?'':' · sem Pix cadastrado'}</span></td><td>${f.pedidos}</td><td>${money(f.base_elegivel)}</td><td>${f.comissao==null?'—':money(f.comissao)}</td><td>${sit(f)}</td></tr>`).join('')}</tbody></table></div>`:'';
    host.innerHTML=`<section class="painel"><div class="painel-cab"><div><h2>Parceiros do site</h2><p>Cadastros e regras do novo programa · piloto interno</p></div><button type="button" class="btn sec" data-pilot-refresh>Atualizar</button></div>
-   <div class="cp-programs">${programs.map(p=>`<article data-brand="${p.marca}"><h3>${BRANDS[p.marca]}</h3><strong class="cp-rate">7%</strong><p>Produtos após descontos. Frete, cancelamentos e estornos ficam fora da base.</p><p>Pagamento até o dia <strong>5 do mês seguinte</strong>.</p><a href="${PAGES[p.marca]}" target="_blank" rel="noopener noreferrer">Abrir Seja um Influenciador ↗</a></article>`).join('')}</div>
-   <p class="nota">As páginas existentes continuam recebendo candidaturas. Traga o cadastro para esta fila para análise. Um parceiro aprovado pode receber link de rastreio, que nasce pausado e só vira endereço utilizável quando você o ativa. Link não gera cupom, saldo nem valor a pagar: o painel mostra pedidos atribuídos, e a base de comissão depende da coleta de itens sem frete, ainda por fazer. Portal do parceiro ainda será integrado.</p>
-   <div class="cp-metrics"><span><strong>${candidates.length}</strong> candidatos registrados aqui</span><span><strong>${candidates.filter(c=>c.state==='em_analise').length}</strong> em análise</span><span><strong>${candidates.filter(c=>c.state==='aprovado_piloto').length}</strong> aprovados no piloto</span><span><strong>${ativos}</strong> links ativos</span><span title="Pedidos pagos cuja sessão vencedora veio de um link de parceiro, pelas mesmas regras do painel: pago, não cancelado, líquido positivo, último clique em 30 dias."><strong>${(payload.partner_orders||[]).reduce((t,o)=>t+Number(o.pedidos||0),0)}</strong> pedidos atribuídos no período</span><span><strong>Não liberado</strong> saldo para pagamento</span></div>
-   <p class="mini">Competência selecionada: ${esc(getPeriod().fim.slice(0,7))}. Prazo previsto: ${esc(deadline?.split('-').reverse().join('/')||'—')}. Limites de saque ainda não definidos. Comissões de contratos atuais permanecem na aba Creators.</p>${controls()}
+   <div class="cp-programs">${programs.map(p=>`<article data-brand="${p.marca}"><h3>${BRANDS[p.marca]}</h3><strong class="cp-rate">7%</strong><p>Produtos após descontos. Frete, cancelamentos e estornos ficam fora da base.</p><p>Pagamento até o dia <strong>${esc(p.payment_day||5)} do mês seguinte</strong>.</p><p class="mini">Link e cupom no mesmo pedido: ${p.link_cupom==='ambos'||!p.link_cupom?'comissionam os dois':'só '+esc(p.link_cupom)}. Link em ${esc(String(p.link_base||'').replace(/^https:\/\//,'').replace(/\/$/,''))}.</p><a href="${PAGES[p.marca]}" target="_blank" rel="noopener noreferrer">Abrir Seja um Influenciador ↗</a></article>`).join('')}</div>
+   <details class="ressalvas"><summary>Como funciona o programa</summary><ul><li>Candidaturas chegam pelas páginas Seja um Influenciador e entram aqui à mão.</li><li>Parceiro aprovado recebe link de rastreio, que nasce pausado. Só conta pedido de dia com link ativo.</li><li>${pagavel?'Comissão de 7% sobre a base coletada da Shopify, fechada por mês e paga até o dia 5 do mês seguinte. O pagamento em si continua fora do painel.':'Link não gera saldo nem valor a pagar enquanto a comissão não for liberada.'}</li><li>Pedido com link e cupom de influ comissiona os dois; a tela mostra quando isso acontece.</li><li>Portal do parceiro vem depois.</li></ul></details>
+   <div class="cp-metrics"><span><strong>${candidates.length}</strong> candidatos registrados aqui</span><span><strong>${candidates.filter(c=>c.state==='em_analise').length}</strong> em análise</span><span><strong>${candidates.filter(c=>c.state==='aprovado_piloto').length}</strong> aprovados no piloto</span><span><strong>${ativos}</strong> links ativos</span><span title="Pedidos pagos cuja sessão vencedora veio de um link de parceiro, pelas mesmas regras do painel: pago, não cancelado, líquido positivo, último clique em 30 dias."><strong>${(payload.partner_orders||[]).reduce((t,o)=>t+Number(o.pedidos||0),0)}</strong> pedidos atribuídos no período</span>${pagavel?`<span title="Soma das comissões do período. Só aparece número quando todos os pedidos têm base coletada da Shopify."><strong>${totalComissao==null?'Em apuração':money(totalComissao)}</strong> comissão no período</span>`:'<span><strong>Não liberado</strong> saldo para pagamento</span>'}</div>
+   <p class="mini">Competência selecionada: ${esc(getPeriod().fim.slice(0,7))}. Prazo previsto: ${esc(deadline?.split('-').reverse().join('/')||'—')}. Comissões de cupom dos contratos atuais continuam na aba Creators.</p>${controls()}
    <details class="cp-editor" ${e?'open':''}><summary>${e?'Editar candidato':'Adicionar candidato ao piloto'}</summary><form id="cp-candidate-form"><div class="cp-form-grid">
     <label>Marca<select name="marca" ${e?'disabled':''}>${Object.entries(BRANDS).map(([id,n])=>`<option value="${id}" ${id===chosen?'selected':''}>${n}</option>`).join('')}</select></label>
     <label>Nome<input name="name" maxlength="120" minlength="2" required value="${esc(e?.name)}"></label>
@@ -78,14 +103,19 @@
     <label>Origem<select name="source"><option value="formulario_site" ${e?.source==='formulario_site'?'selected':''}>Formulário do site</option><option value="manual" ${e?.source==='manual'?'selected':''}>Cadastro manual</option></select></label>
     <label>Referência do formulário / tarefa<input name="source_reference" maxlength="100" value="${esc(e?.source_reference)}" placeholder="Identificador, se houver"></label>
     <label>Situação<select name="state">${Object.entries(states).map(([id,n])=>`<option value="${id}" ${id===(e?.state||'novo')?'selected':''}>${n}</option>`).join('')}</select></label>
-    <label class="cp-wide">Observações<textarea name="note" maxlength="1000" placeholder="Critérios de seleção e próximos passos. Não incluir CPF, Pix ou dados bancários.">${esc(e?.note)}</textarea></label></div>
+    <label class="cp-wide">Observações<textarea name="note" maxlength="1000" placeholder="Critérios de seleção e próximos passos. CPF e Pix vão no cadastro de pagamento.">${esc(e?.note)}</textarea></label></div>
     <button class="btn" type="submit" data-pilot-save ${busy||pending()?'disabled':''}>Salvar candidato</button> <button class="btn sec" type="button" id="cp-candidate-cancel">Fechar edição</button></form></details>
-   <div class="cp-table"><table><thead><tr><th>Candidato</th><th>Marca</th><th>Origem</th><th>Situação</th><th title="O link nasce pausado. Ativar publica o endereço rastreável; revogar encerra o link e preserva o código para os pedidos que já vieram por ele.">Link de parceiro</th><th>Ação</th></tr></thead><tbody>${candidates.map(c=>`<tr><td><strong>${esc(c.name)}</strong><span class="mini">${esc(c.handle)}</span></td><td>${BRANDS[c.marca]}</td><td>${c.source==='manual'?'Manual':'Formulário do site'}<span class="mini">${esc(c.source_reference)}</span></td><td>${states[c.state]}</td><td>${linkCell(c)}</td><td><button class="btn sec" data-candidate-edit="${esc(c.id)}">Editar</button></td></tr>`).join('')||'<tr><td colspan="6">Nenhum candidato registrado neste piloto. A fila dos formulários existentes ainda não é sincronizada automaticamente.</td></tr>'}</tbody></table></div></section>`;
+   <div class="cp-table"><table><thead><tr><th>Candidato</th><th>Marca</th><th>Origem</th><th>Situação</th><th title="O link nasce pausado. Ativar publica o endereço rastreável; revogar encerra o link e preserva o código para os pedidos que já vieram por ele.">Link de parceiro</th><th title="Titular, CPF e chave Pix. A tela só mostra o final; o número completo não volta para o navegador.">Pagamento</th><th>Ação</th></tr></thead><tbody>${candidates.map(c=>`<tr><td><strong>${esc(c.name)}</strong><span class="mini">${esc(c.handle)}</span></td><td>${BRANDS[c.marca]}</td><td>${c.source==='manual'?'Manual':'Formulário do site'}<span class="mini">${esc(c.source_reference)}</span></td><td>${states[c.state]}</td><td>${linkCell(c)}</td><td>${pagCell(c)}</td><td><button class="btn sec" data-candidate-edit="${esc(c.id)}">Editar</button></td></tr>`).join('')||'<tr><td colspan="7">Nenhum candidato registrado neste piloto. A fila dos formulários existentes ainda não é sincronizada automaticamente.</td></tr>'}</tbody></table></div>${payForm}${fechamento}</section>`;
    const form=q('#cp-candidate-form');form.onsubmit=ev=>{ev.preventDefault();const read=n=>form.querySelector(`[name="${n}"]`).value;save('candidato',{id:e?.id||crypto.randomUUID(),marca:e?.marca||read('marca'),name:read('name').trim(),handle:read('handle').trim(),source:read('source'),source_reference:read('source_reference').trim(),state:read('state'),note:read('note').trim()},e?.version||0);};
    for(const b of host.querySelectorAll('[data-link-new]')){const c=candidates.find(x=>x.id===b.dataset.linkNew);b.onclick=()=>c&&save('link',{marca:c.marca,candidate_id:c.id,state:'pausado'},0);}
    for(const b of host.querySelectorAll('[data-link-state]')){const [id,estado]=b.dataset.linkState.split(':'),c=candidates.find(x=>x.id===id),l=porCand.get(id);
     b.onclick=()=>{if(!c||!l)return;if(estado==='revogado'&&!confirmRevoke(c.name))return;return save('link',{marca:c.marca,candidate_id:c.id,state:estado},l.version);};}
    for(const b of host.querySelectorAll('[data-link-copy]')){const campo=b.previousElementSibling;b.onclick=async()=>{try{await navigator.clipboard.writeText(campo.value);status('Endereço copiado.');}catch(_){campo.select();status('Selecionado: use Ctrl+C para copiar.');}};}
+   for(const b of host.querySelectorAll('[data-pay-edit]'))b.onclick=()=>{payEditing=b.dataset.payEdit;render();q('#cp-pay-form [name=titular]')?.focus();};
+   const pf=q('#cp-pay-form');if(pf&&pe){const read=n=>pf.querySelector(`[name="${n}"]`).value.trim();
+    pf.onsubmit=ev=>{ev.preventDefault();const d={marca:pe.marca,candidate_id:pe.id,titular:read('titular'),cpf:read('cpf'),pix_tipo:read('pix_tipo'),pix_chave:read('pix_chave')};
+     for(const n of ['cpf','pix_chave'])pf.querySelector(`[name="${n}"]`).value='';save('pagamento',d,px?.version||0);};
+    q('#cp-pay-cancel').onclick=()=>{payEditing=null;render();};}
    q('#cp-candidate-cancel').onclick=()=>{editing=null;render();};for(const b of host.querySelectorAll('[data-candidate-edit]'))b.onclick=()=>{editing=b.dataset.candidateEdit;render();q('#cp-candidate-form [name=name]').focus();};
   }
   function renderAds(payload,data){
