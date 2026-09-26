@@ -6,31 +6,56 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=2a4926d0925c">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-anJOkHqhMs10HdsBW6wOlMl5F+VayFnS93MbD6W3CVo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=be3076ef616f">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sbMmv+usnOXI8jnTKiAyBLPkv4+pW2qlpuLg6BIOe1w='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-<div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
+<aside class="crm-sidebar" aria-label="Navegação do CRM"><div class="crm-wordmark">Shrigma <span>CRM</span></div><details id="crm-brand-picker"><summary><span class="crm-sidebar-label">Marca</span><strong id="crm-brand-label">Todas as marcas</strong></summary><nav class="filtros" aria-label="Selecionar marca">
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo"><span class="crm-brand-name">Todas as marcas</span></button>
+      <button data-marca="aristo" aria-label="O Aristocrata"><span class="crm-brand-name">O Aristocrata</span></button>
+      <button data-marca="fish" aria-label="Fishermans"><span class="crm-brand-name">Fishermans</span></button>
+      <button data-marca="olivas" aria-label="Olivas do Campo"><span class="crm-brand-name">Olivas do Campo</span></button>
+    </div>
+  </nav></details><nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="visao" class="ativo">Início</button>
+    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
+    <button data-s="templates">Templates</button>
+    <button data-s="base">Público<span class="n" id="n-arv"></span></button>
+    <button data-s="resultados">Resultados</button>
+    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
+  </nav><span class="crm-sidebar-foot">Operação de CRM</span></aside>
 
 <header class="topo">
   <div class="titulo">
     <span class="marcas" id="marcas-topo"></span>
-    <div><h1>CRM</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
+    <div><h1 id="crm-screen-title">Início</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
-  <nav class="filtros" aria-label="Filtros">
-    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
-      <button data-marca="todas" class="ativo">Consolidada</button>
-      <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
-      <button data-marca="fish" aria-label="Fishermans"><img src="https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=120" alt="Fishermans"></button>
-      <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
-    </div>
-  </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
+
+  <div class="status" data-crm-owner-only><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
   <div id="crm-view-controls" class="crm-view-controls" hidden><label for="crm-view-select">Visualizar como</label><select id="crm-view-select"><option value="manager">Gerência CRM</option><option value="owner">Dono · diagnóstico</option></select><span id="crm-view-status" class="mini" aria-live="polite"></span></div>
 </header>
 
 <main id="conteudo" tabindex="-1">
+<div class="crm-toolbar">
+    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
+      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
+      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
+      <button data-canal="email" aria-pressed="false">E-mail</button>
+    </div>
+<details id="crm-period-picker"><summary id="crm-period-label">Últimos 7 dias</summary><div class="periodo" id="periodo">
+    <div class="presets" id="presets">
+      <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
+      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
+    </div>
+    <input type="date" id="d-ini" aria-label="Início do período"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período">
+    <label><input type="checkbox" id="cmp" checked> comparar</label>
+  </div></details>    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
+  </div>
   <div id="faixa-alertas" aria-live="polite"></div>
   <div id="crm-channel-status" data-crm-manager-only role="status" hidden></div>
   <div id="crm-connection-status" data-crm-manager-only class="crm-connection-status" role="status" hidden></div>
@@ -41,28 +66,13 @@
     <div class="ce-confirm-actions"><button type="button" id="brand-change-cancel" class="ce-secondary" autofocus>Continuar nesta marca</button><button type="button" id="brand-change-accept" class="ce-primary">Guardar e trocar</button></div>
   </dialog>
 
-  <div class="periodo" id="periodo">
-    <div class="presets" id="presets">
-      <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
-      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
-      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
-      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
-    </div>
-    <input type="date" id="d-ini" aria-label="Início do período"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período">
-    <label><input type="checkbox" id="cmp" checked> comparar</label>
-  </div>
 
-  <div class="canal-bar">
-    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
-      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
-      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
-      <button data-canal="email" aria-pressed="false">E-mail</button>
-    </div>
-    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
-  </div>
-  <div class="growth-context" id="growth-context">Disparos e resultados do período · horário de Brasília</div>
-  <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
-  <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
+
+
+  <div class="crm-status-bar"><details class="crm-data-freshness" id="crm-data-freshness"><summary id="crm-data-summary">Atualização por origem</summary><div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div></details>
+  <div class="growth-context" id="growth-context" hidden>Disparos e resultados do período · horário de Brasília</div>
+
+  <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div></div>
   <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando o CRM…</div>
   <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo" novalidate>
     <h2 id="growth-acesso-titulo">Acessar CRM</h2>
@@ -74,40 +84,20 @@
     </fieldset><button id="growth-acesso-cancelar" type="button" class="btn sec">Cancelar</button>
     <span id="growth-acesso-msg" class="mini" role="status" aria-live="polite"></span>
   </form>
-  <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
-  <section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section>
-  <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
+  <div id="wa-coverage" data-crm-analysis class="coverage-note" hidden role="status"></div>
 
-  <nav class="secoes" id="secoes" aria-label="Seções">
-    <button data-s="visao" class="ativo">Visão</button>
-    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
-    <button data-s="base">Base<span class="n" id="n-arv"></span></button>
-    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
-  </nav>
+
+
+
 
   <div class="sec ativa" id="sec-visao">
-    <div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div>
+<div class="crm-home-heading"><h2>Resumo do período</h2></div>
+<section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
+<div class="crm-home-actions"><button type="button" class="btn" data-crm-go="camp">Preparar campanha</button><button type="button" class="btn sec" data-crm-go="regua">Abrir automações</button><button type="button" class="btn sec" data-crm-go="templates">Criar template</button><button type="button" class="crm-text-button" data-crm-go="resultados">Ver resultados →</button></div>
+
     <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Evolução</h2>
-        <select id="sel-metrica" aria-label="Métrica do gráfico">
-          <option value="receita">Receita atribuída</option>
-          <option value="cliques">Cliques de e-mail</option>
-          <option value="enviados">Disparos registrados</option>
-          <option value="entregues">Entregues · WhatsApp</option>
-          <option value="falhas">Falhas de entrega · WhatsApp</option>
-          <option value="complaints">Reclamações de e-mail</option>
-          <option value="novos_subs">Novos inscritos de e-mail</option>
-        </select>
-      </div>
-      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
-      <div class="legenda" id="legenda-graf"></div>
-    </section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
-      <div id="area-top"></div>
-    </section>
+
+
     <section class="painel" id="painel-fila" hidden>
       <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
       <p class="mini" id="fila-indisponivel" hidden></p>
@@ -119,34 +109,16 @@
     </section>
   </div>
 
-  <div class="sec" id="sec-camp">
+
+
+<div class="sec" id="sec-camp"><div class="crm-report-tabs" role="tablist" aria-label="Campanhas"><button type="button" id="crm-campaign-list-tab" data-crm-campaign="list" role="tab" aria-selected="true" aria-controls="crm-campaign-list">Campanhas</button><button type="button" id="crm-campaign-tests-tab" data-crm-campaign="tests" role="tab" aria-selected="false" tabindex="-1" aria-controls="crm-campaign-tests">Testes A/B</button></div><div id="crm-campaign-list" data-crm-campaign-panel="list" role="tabpanel" aria-labelledby="crm-campaign-list-tab">
     <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail"></section>
     <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
-    <section class="painel" id="pix-conversion" aria-live="polite"></section>
-    <section class="painel" id="campaign-email-block">
-      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
-      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
-        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
-      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
-        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
-        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
-        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-camp"></div>
-    </section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
-        <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
-          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
-      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
-        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
-      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
-        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
-        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-conv"></div>
-    </section>
-    <section class="painel">
+
+
+
+
+  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel">
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Nova configuração</button></div>
       <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
@@ -192,21 +164,19 @@
         <span class="crm-help" tabindex="0" title="A configuração registra variações A/B, mas não distribui públicos nem comprova conversão. Preserve os links atuais; não substitua as UTMs para tentar obter um resultado neste quadro.">Preserve as UTMs atuais ⓘ</span>
       </div>
       <div id="area-testes"></div>
-    </section>
-  </div>
-
+    </section></div></div>
   <div class="sec" id="sec-regua">
-    <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações">
+    <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
-      <button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates WhatsApp</button>
-      <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
-      <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar templates</button>
+
+
+
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
-    <section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section>
+
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
-    <section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section>
+
     <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
     <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
     <section class="painel" id="email-comparison-block">
@@ -241,12 +211,51 @@
   </div>
 
 
+<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Catálogo WhatsApp</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+      <div class="painel-cab"><h2>Evolução</h2>
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
+          <option value="receita">Receita atribuída</option>
+          <option value="cliques">Cliques de e-mail</option>
+          <option value="enviados">Disparos registrados</option>
+          <option value="entregues">Entregues · WhatsApp</option>
+          <option value="falhas">Falhas de entrega · WhatsApp</option>
+          <option value="complaints">Reclamações de e-mail</option>
+          <option value="novos_subs">Novos inscritos de e-mail</option>
+        </select>
+      </div>
+      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
+      <div class="legenda" id="legenda-graf"></div>
+    </section><section class="painel">
+      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
+      <div id="area-top"></div>
+    </section></div></div><div id="crm-report-email" data-crm-report-panel="email" role="tabpanel" aria-labelledby="crm-report-email-tab" hidden><section class="painel" id="campaign-email-block">
+      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
+        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
+        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
+        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-camp"></div>
+    </section></div><div id="crm-report-conversion" data-crm-report-panel="conversion" role="tabpanel" aria-labelledby="crm-report-conversion-tab" hidden><section class="painel" id="pix-conversion" aria-live="polite"></section><section class="painel">
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
+        <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
+          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
+        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
+        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
+        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-conv"></div>
+    </section></div></div>
 </main>
 
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3367f67a0efa"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=c521b7cc80dd"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -472,6 +481,7 @@ async function encerrarTeste(id){
 
 function render(){
   GCE.mount({marca:MARCA,api:API});
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   if(!API)return;
   GABF.enter(MARCA,API);
   pintaMarca();
@@ -681,18 +691,7 @@ function render(){
   $('#tab-camp [data-limpar]')?.addEventListener('click',()=>{TABELAS.camp.q='';$('#camp-busca').value='';render();});
   document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
-  $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
-    e-mail que cai no spam conta como entregue. <strong>Abertura por provedor</strong> mostra quanto da abertura veio
-    de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.
-    <strong>Receita</strong> é só de último clique, casada por <code>utm_campaign + utm_content + utm_term</code>
-    na view <code>crm_campanha_receita</code> — receita assistida fica de fora de propósito: aqui a pergunta é
-    qual e-mail gerou receita atribuída. Os disparos são selecionados pela data de envio; a receita desta tabela é acumulada e pode incluir compras fora do período selecionado.`+
-    (ambig?`<div class="mini" style="margin-top:6px"><strong>${ambig} peça(s) marcada(s) como indivisível:</strong>
-      usam a mesma tupla de UTM que outra peça e não estão no mesmo grupo. Aparece em branco,
-      nunca como zero — zero diria "não vendeu".</div>`:'')+
-    `<div class="mini" style="margin-top:6px"><strong>mesmo UTM</strong>: disparos do mesmo e-mail para bases diferentes
-      aparecem como uma linha — a receita não dá para dividir entre eles, mas dá para somar. Para ver cada base separada,
-      dê <code>utm_term</code> próprio a cada disparo.</div>`;
+  $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
 
   const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
   const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
@@ -722,6 +721,7 @@ function render(){
   shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
   $('#relogio').textContent=GUI.sourceTime(new Date().toISOString());
   $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
 }
 
 // Atalhos dos KPIs: levam para a tabela que explica o número, sem mexer em marca/período.
@@ -729,16 +729,16 @@ function pular(alvo){
   if(alvo.startsWith('flows:')){const c=alvo.slice(6);openFlows(c==='todos'?CANAL:c);return;}
   if(alvo==='attention'){$('#automation-attention').scrollIntoView({behavior:'smooth',block:'start'});return;}
   if(alvo==='camp'||alvo==='conv'){
-    SEC='camp';salvaPref({sec:SEC});document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);
+    CRMWorkspace.setReport(alvo==='camp'?'email':'conversion');abrirSecaoCRM('resultados');
     $(alvo==='camp'?'#campaign-email-block':'#tab-conv').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
   }
 }
 // Estado da tela na URL: copiar o link entrega a mesma marca, canal, período, seção e aba.
 function estadoHash(){
   const preset=document.querySelector('#presets button.ativo')?.dataset.p||null;
-  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:SEC==='regua'?GC.activeTab:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
+  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:['regua','templates'].includes(SEC)?GC.activeTab:null,report:SEC==='resultados'?CRMWorkspace.state().report:null,campaign:SEC==='camp'?CRMWorkspace.state().campaign:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
 }
-function gravaHash(){try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
+function gravaHash(){CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
 function setCanal(canal){
   if(!['todos','email','whatsapp'].includes(canal))return;
   CANAL=canal;salvaPref({canal});
@@ -903,17 +903,18 @@ function trocaMarca(next,afterConfirm=null){
 }
 window.growthChangeBrand=trocaMarca;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
-document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
-  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');salvaPref({sec:SEC});
-  if(SEC==='visao')render();gravaHash();
-  // se a barra de secoes ficou acima da viewport, traz de volta
-  const r=$('#secoes').getBoundingClientRect();
-  if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
+function abrirSecaoCRM(section,{tab}={}){
+  const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
+  SEC=section;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x===target));
+  ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
+  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows'].includes(tab)?tab:'fluxos'):null;
+  if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
+  if(SEC==='visao'||SEC==='resultados')render();gravaHash();
+}
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();$('#crm-period-picker').open=false;});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b||b>G.diaBR(new Date()))return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
@@ -938,10 +939,14 @@ $('#ab-consultar').onclick=async()=>{await reconciliaTestesAB(chaveLegadaTesteAB
 $('#f-salvar').onclick=salvarTeste;
 
 
-addEventListener('resize',()=>API&&SEC==='visao'&&render());
+addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
 GC.init();GRU.render({api:null,marca:MARCA});
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
-document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',gravaHash));
+document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
+const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
+CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();gravaHash();},initial:crmInitialView});
+if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
+if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
 // Automatic refresh only while this panel is visible; server execution is independent.
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;

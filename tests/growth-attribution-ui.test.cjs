@@ -13,6 +13,8 @@ function boot(api=fixture(),{brand='fish',channel='email'}={}){
 }
 test('empty campaign search has a safe clear action that restores results and focus without changing the recorte',()=>{
  const x=boot(),before=JSON.stringify(x.api),summary=x.q('.ga-summary').textContent,input=x.q('#attribution-search');
+ assert.equal(x.q('#attribution-campaigns h2').textContent,'Campanhas no período');assert.equal(x.q('.ga-eyebrow'),null);assert.equal(x.q('.ga-subtitle'),null);
+ assert.match(x.q('.ga-context .ga-method').textContent,/Cada iniciativa reúne seus canais, disparos e segmentos/);assert.match(x.q('.ga-context .ga-method').textContent,/Assistências entre campanhas podem se sobrepor/);
  assert.equal(x.document.querySelectorAll('.ga-campaign').length,1);
  input.value='<img src=x onerror=fixture>';input.dispatchEvent(new x.window.Event('input'));
  assert.equal(x.document.querySelectorAll('.ga-campaign').length,0);assert.match(x.q('#attribution-list').textContent,/Nenhuma campanha ou segmento contém/);
@@ -63,4 +65,18 @@ test('missing campaign history UTMs remain explicitly unavailable instead of ass
 
 test('campaign tracking presentation leaves other brands outside this Growth change',()=>{
  const api=fixture();api.crm_attribution.coverage[0].brand='olivas';Object.assign(api.crm_attribution.campaigns[0],{marca:'olivas',emissor:'olivas',utms:[{source:'other',campaign:'existing'}]});const x=boot(api,{brand:'olivas'});assert.ok(x.q('.ga-campaign'));assert.equal(x.q('.ga-campaign .crm-utm'),null);
+});
+test('CRM managers retain campaign history patterns and the honest source-variable limit in both brands',()=>{
+ const page=parseHTML(fs.readFileSync(path.join(__dirname,'../growth.html'),'utf8')).document;
+ assert.equal(page.querySelector('#attribution-campaigns').closest('[data-crm-owner-only]'),null);
+ for(const brand of ['fish','aristo']){
+  const api=fixture(),campaign=api.crm_attribution.campaigns[0];api.crm_attribution.coverage[0].brand=brand;
+  Object.assign(campaign,{marca:brand,emissor:brand,utms:[{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'hero'},{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'footer'}]});
+  const before=JSON.stringify(api.crm_attribution),x=boot(api,{brand});x.document.body.dataset.crmView='manager';
+  const panel=x.q('.ga-campaign .crm-utm');assert.ok(panel);assert.equal(panel.closest('[data-crm-owner-only]'),null);panel.open=true;
+  const manager=x.q('#attribution-campaigns').cloneNode(true);manager.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());
+  const visible=manager.querySelector('.crm-utm');assert.ok(visible);assert.match(visible.textContent,/UTMs registradas/);assert.match(visible.textContent,/Variável de source/);assert.match(visible.textContent,/não informa a variável que o gerou/);
+  for(const value of [brand+'-registered',brand+'-launch','hero','footer'])assert.ok(visible.textContent.includes(value),value);
+  assert.equal(visible.querySelectorAll('.crm-utm-variants tbody tr').length,2);assert.equal(JSON.stringify(api.crm_attribution),before);assert.equal(x.downloads.length,0);
+ }
 });

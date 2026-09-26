@@ -215,7 +215,7 @@ test('e-mail: KPI de CTR informa a base medida e o card lista o que é lacuna',a
 test('atalhos dos KPIs levam à tabela certa preservando marca e período',async()=>{
  const x=await boot();x.document.querySelector('[data-marca="fish"]').click();const period=x.run('JSON.stringify(PER)');
  x.document.querySelector('[data-kpi-jump="conv"]').click();
- assert.equal(x.run('SEC'),'camp');assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('JSON.stringify(PER)'),period);
+ assert.equal(x.run('SEC'),'resultados');assert.equal(x.document.querySelector('#crm-report-conversion').hidden,false);assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('JSON.stringify(PER)'),period);
  x.document.querySelector('[data-s="visao"]').click();
  x.document.querySelector('[data-kpi-jump="flows:whatsapp"]').click();
  assert.equal(x.run('SEC'),'regua');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('MARCA'),'fish');
@@ -336,13 +336,13 @@ test('templates: filtros por status, categoria e uso, ordenação por peça e ex
 });
 test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave',async()=>{
  const x=await boot(fixture(),{hash:'#marca=fish&canal=whatsapp&p=30&sec=regua&aba=templates&flow=carrinho&k=nao-deve-entrar'});
- assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('SEC'),'regua');
+ assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('SEC'),'templates');
  assert.equal(x.document.querySelector('#presets button.ativo').dataset.p,'30');
  assert.equal(x.document.querySelector('#control-templates').hidden,false);
  assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
  x.document.querySelector('[data-marca="aristo"]').click();
  const ultimo=x.hashes[x.hashes.length-1];
- assert.match(ultimo,/^#marca=aristo&canal=whatsapp&p=30&sec=regua&aba=templates/);
+ assert.match(ultimo,/^#marca=aristo&canal=whatsapp&p=30&sec=templates&aba=templates/);
  assert.doesNotMatch(x.hashes.join(' '),/synthetic-test-key|k=/);
  // canal do filtro (segmento) vence a preferência salva quando o hash está presente
  const y=await boot(fixture(),{hash:'#canal=email'});
@@ -704,11 +704,11 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  p.crm_operacao.templates[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];
  const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="fluxos"]').click();
  const root=()=>x.document.querySelector('#control-fluxos');
- assert.equal(root().hidden,false);assert.match(root().textContent,/Gatilho, ordem e esperas não informados/);assert.match(root().textContent,/Somente leitura/);assert.doesNotMatch(root().textContent,/crm_fluxo_def|contrato R6|Fase B|BACKEND_REQUESTS/);
+ assert.equal(root().hidden,false);assert.match(root().textContent,/Sequência e esperas ainda não disponíveis/);assert.match(root().textContent,/Somente leitura/);assert.doesNotMatch(root().textContent,/crm_fluxo_def|contrato R6|Fase B|BACKEND_REQUESTS/);
  assert.match(root().querySelector('[data-gt-key="fluxos-como-ler"]').textContent,/"real" não confirma entrega.*WhatsApp aceitos e entregues; e-mail aceito pelo provedor/);
  let cards=[...root().querySelectorAll('.flow-card')];
  assert.deepEqual(cards.map(c=>c.dataset.flow),['aristo|transacional','fish|carrinho']);assert.ok(cards.every(c=>c.dataset.origem==='observado'));
- assert.match(cards[1].textContent,/Gatilho: não declarado pela API/);assert.match(cards[1].textContent,/ordem alfabética, não a sequência do fluxo/);
+ assert.match(cards[1].textContent,/Configuração indisponível/);assert.match(cards[1].textContent,/ordem alfabética, não na sequência de envio/);
  assert.match(cards[0].querySelector('.flow-badges').textContent,/Modo sombra/); // aristo_tx em sombra na fixture, consulta atual
  assert.match(cards[0].textContent,/Pedido pago e rastreio Aristocrata · modo configurado: sombra/);assert.match(cards[0].textContent,/aristo_confirmacao_exemplo · APPROVED/);
  assert.match(cards[1].querySelector('.flow-badges').textContent,/Workflow não declarado no manifesto/);
@@ -977,4 +977,16 @@ test('queue distinguishes unavailable native state from real schedules and clear
  assert.match(x.document.querySelector('#tab-fila tbody').textContent,/Fish future schedule/);
  assert.doesNotMatch(x.document.querySelector('#tab-fila tbody').textContent,/Aristo/);
  x.run("MARCA='aristo';CANAL='whatsapp';render()");assert.equal(x.document.querySelector('#painel-fila').hidden,true);
+});
+
+test('template ArrowRight routes to the catalog once, updates the shared URL and preserves its open draft',async()=>{
+ const x=await boot();x.run("trocaMarca('fish');GRU.abrir(GR.novo({marca:'fish',nome:'keyboard_draft',corpo:'Conteúdo ainda não salvo'}),null);abrirSecaoCRM('templates',{tab:'drafts'})");
+ const before=x.run('JSON.stringify(GRU.state.rascunho)'),editor=x.document.querySelector('#draft-editor'),body=x.document.querySelector('#d-corpo'),requests=x.calls.length;
+ assert.ok(editor);assert.ok(body);assert.equal(x.run('SEC'),'templates');assert.equal(x.document.querySelector('#control-drafts').hidden,false);
+ x.run("globalThis.keyboardTabCalls=[];const realSetTab=GC.setTab;GC.setTab=function(tab){keyboardTabCalls.push(tab);return realSetTab.call(GC,tab)}");
+ const event=new x.window.Event('keydown',{bubbles:true,cancelable:true});event.key='ArrowRight';x.document.querySelector('#control-tab-drafts').dispatchEvent(event);
+ assert.equal(event.defaultPrevented,true);assert.equal(x.run('SEC'),'templates');assert.equal(x.run('GC.activeTab'),'templates');assert.equal(x.document.querySelector('#control-templates').hidden,false);assert.equal(x.document.querySelector('#control-drafts').hidden,true);assert.equal(x.document.activeElement,x.document.querySelector('#control-tab-templates'));
+ assert.equal(x.run('JSON.stringify(keyboardTabCalls)'),JSON.stringify(['templates']));const hash=x.hashes.at(-1),params=new URLSearchParams(hash.slice(1));assert.equal(params.get('sec'),'templates');assert.equal(params.get('aba'),'templates');assert.equal(params.get('marca'),'fish');
+ assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),before);assert.equal(x.document.querySelector('#draft-editor'),editor);assert.equal(x.document.querySelector('#d-corpo'),body);assert.equal(body.value,'Conteúdo ainda não salvo');assert.equal(x.calls.length,requests);
+ const reopened=await boot(fixture(),{hash});assert.equal(reopened.run('SEC'),'templates');assert.equal(reopened.run('GC.activeTab'),'templates');assert.equal(reopened.document.querySelector('#control-templates').hidden,false);assert.equal(reopened.document.querySelector('#sec-templates').classList.contains('ativa'),true);
 });

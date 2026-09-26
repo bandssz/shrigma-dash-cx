@@ -122,7 +122,7 @@ const GT={
   /* ---------- atalho por URL ----------
      #marca=fish&canal=whatsapp&p=7&sec=regua&aba=workflows — quem recebe o link abre a
      mesma tela. Só chaves conhecidas; valores desconhecidos são ignorados na leitura. */
-  CHAVES_HASH:['marca','canal','p','ini','fim','sec','aba','flow'],
+  CHAVES_HASH:['marca','canal','p','ini','fim','sec','aba','flow','report','campaign'],
   leHash(hash){
     const out={};
     const s=String(hash||'').replace(/^#/,'');

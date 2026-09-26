@@ -375,8 +375,8 @@ const GC={
   },
   init(){
     if(typeof document==='undefined')return;
-    const buttons=[...document.querySelectorAll('[data-control-tab]')];
-    buttons.forEach((button,index)=>{button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();GC.setTab(buttons[next].dataset.controlTab);buttons[next].focus();};});
+    const allButtons=[...document.querySelectorAll('[data-control-tab]')];
+    allButtons.forEach(button=>{const buttons=allButtons.filter(b=>b.closest('[role=tablist]')===button.closest('[role=tablist]')),index=buttons.indexOf(button);button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();buttons[next].click();buttons[next].focus();};});
     GC.setTab(GC.activeTab);
   },
 };
