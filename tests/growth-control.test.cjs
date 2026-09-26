@@ -128,3 +128,33 @@ test('published preview omits unavailable versions and labels the actual content
  x.run('GC.conteudoEm=null');assert.equal(parseHTML(x.run("GC.previaPublicada({key:'fixture'})")).document.querySelector('summary').textContent,'Prévia publicada');
  x.run("GC.conteudo.fixture.version=3;GC.conteudo.fixture.published_at='2026-09-24T10:00:00Z'");assert.equal(parseHTML(x.run("GC.previaPublicada({key:'fixture'})")).document.querySelector('summary').textContent,'Prévia publicada · v3 · 24/09/2026, 07:00');
 });
+function managerProjection(root){const copy=root.cloneNode(true);copy.querySelectorAll('[data-crm-owner-only]').forEach(node=>node.remove());return copy;}
+test('manager operation retains published stages while service inventory and exports stay in collapsed owner details',()=>{
+ const p=fixture();p.email_steps=[{key:'fish:pedido-recebido',brand:'fish',flow_key:'fish:pedido-recebido',piece:'pedido-recebido',enabled:true,runtime_ready:true,checked_at:'2026-09-08T01:09:00Z'}];
+ const x=render(p,{marca:'fish',canal:'email'}),root=x.document.querySelector('#control-workflows'),owner=root.querySelector('[data-crm-owner-diagnostics]');
+ assert.equal(owner.hasAttribute('open'),false);
+ for(const selector of ['.control-summary','.control-workflows','#control-workflow-search','#control-wf-export'])assert.equal(root.querySelector(selector).closest('[data-crm-owner-only]'),owner);
+ const manager=managerProjection(root);assert.equal(manager.querySelectorAll('[data-email-step]').length,1);assert.match(manager.textContent,/Pedido recebido.*Habilitada na configuração.*07\/09\/2026, 22:09/);
+ assert.doesNotMatch(manager.textContent,/Serviços|Monitor de credenciais|shared_monitor|execução|retenção|pedido-recebido/);assert.match(manager.textContent,/não comprova envio ou entrega/);
+ owner.open=true;x.run('GC.render(ctx)');assert.equal(x.document.querySelector('[data-crm-owner-diagnostics]').hasAttribute('open'),true);
+});
+test('manager sees collection failure, age, unknown fields and unpublished changes without a retained error becoming a current incident',()=>{
+ const healthy=render(fixture(),{marca:'fish',canal:'whatsapp'});assert.equal(healthy.document.querySelector('.control-manager-operation .control-warning'),null);
+ for(const [change,expected] of [
+  [r=>Object.assign(r,{collection_status:'error',last_good_at:'2026-09-07T23:30:00Z'}),/Não foi possível atualizar.*Atualize.*07\/09\/2026, 20:30/s],
+  [r=>Object.assign(r,{checked_at:'2026-09-08T00:40:00Z',last_good_at:'2026-09-08T00:40:00Z'}),/desatualizadas.*Atualize/s],
+  [r=>r.collection_status='unknown',/Estado.*não confirmado.*não presuma/s],
+  [r=>r.active=null,/configuração não foi confirmada.*responsável/s],
+  [r=>r.has_unpublished_changes=true,/alterações ainda não publicadas.*versão/s]
+ ]){
+  const p=fixture();change(p.workflows[0]);const x=render(p,{marca:'fish',canal:'whatsapp'}),manager=managerProjection(x.document.querySelector('#control-workflows'));
+  assert.match(manager.textContent,expected);assert.doesNotMatch(manager.textContent,/Erro registrado|SQL|workflow|Retenção/);
+ }
+ const p=fixture();p.workflows[1].collection_status='error';const fish=render(p,{marca:'fish',canal:'whatsapp'});assert.equal(fish.document.querySelector('.control-manager-operation .control-warning'),null);
+});
+test('missing operation and unknown stage labels stay actionable without exposing identifiers to managers',()=>{
+ const x=render(null,{marca:'fish',canal:'email'});assert.match(managerProjection(x.document.querySelector('#control-workflows')).textContent,/indisponível.*Atualize/s);
+ const p=fixture();p.email_steps=[{key:'fish:private-stage-id',brand:'fish',flow_key:'fish:private-flow-id',piece:'private-stage-id',enabled:false,runtime_ready:true,checked_at:'2026-09-08T01:09:00Z'}];
+ const y=render(p,{marca:'fish',canal:'email'}),section=y.document.querySelector('.control-email-inventory');assert.match(section.textContent,/private-stage-id/);
+ const manager=managerProjection(section);assert.match(manager.textContent,/Jornada não identificada.*Etapa não identificada.*Pausada/);assert.doesNotMatch(manager.textContent,/private-stage-id|private-flow-id/);
+});

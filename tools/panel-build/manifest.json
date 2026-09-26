@@ -30,6 +30,7 @@
       "growth-message-preview.css",
       "growth-builder.css",
       "growth-page.css",
+      "growth-manager.css",
       "panel-ui.css"
     ],
     "scripts": [
@@ -37,6 +38,7 @@
       "growth-freshness.js",
       "config.js",
       "growth-access.js",
+      "growth-view.js",
       "alerta-credencial.js",
       "alerta-whatsapp.js",
       "growth-data.js",

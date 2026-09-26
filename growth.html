@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>Growth · Grupo Shrigma</title>
+<title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=55e7a5166877">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fK522evBQKx5WQ172zaU1ZCt7fDhfnJ1tNfy2TWGs74='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=2a4926d0925c">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-anJOkHqhMs10HdsBW6wOlMl5F+VayFnS93MbD6W3CVo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
-<body data-panel="growth">
+<body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
 <div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
 
@@ -26,11 +26,14 @@
       <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
     </div>
   </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
+  <div id="crm-view-controls" class="crm-view-controls" hidden><label for="crm-view-select">Visualizar como</label><select id="crm-view-select"><option value="manager">Gerência CRM</option><option value="owner">Dono · diagnóstico</option></select><span id="crm-view-status" class="mini" aria-live="polite"></span></div>
 </header>
 
 <main id="conteudo" tabindex="-1">
   <div id="faixa-alertas" aria-live="polite"></div>
+  <div id="crm-channel-status" data-crm-manager-only role="status" hidden></div>
+  <div id="crm-connection-status" data-crm-manager-only class="crm-connection-status" role="status" hidden></div>
   <p id="brand-context-status" class="nota" role="status" hidden></p>
   <dialog id="brand-change-confirm" class="ce-confirm" aria-labelledby="brand-change-title" aria-describedby="brand-change-description">
     <h3 id="brand-change-title">Guardar e trocar de marca</h3>
@@ -60,15 +63,13 @@
   <div class="growth-context" id="growth-context">Disparos e resultados do período · horário de Brasília</div>
   <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
   <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
-  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
+  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando o CRM…</div>
   <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo" novalidate>
-    <h2 id="growth-acesso-titulo">Acessar Growth</h2>
-    <p id="growth-acesso-ajuda">Use a chave de leitura já fornecida para este painel. A nova chave fica somente nesta página aberta; acessar não salva, agenda ou envia campanhas.</p>
+    <h2 id="growth-acesso-titulo">Acessar CRM</h2>
+    <p id="growth-acesso-ajuda">Entre com sua chave CRM. Ela fica somente nesta página aberta.</p>
     <fieldset id="growth-acesso-campos" style="border:0;padding:0;margin:0">
     <div class="campo"><label for="growth-chave">Chave de acesso</label>
       <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
-    <div class="campo"><label for="growth-acesso-arquivo">Importar arquivo de acesso de leitura Growth</label>
-      <input id="growth-acesso-arquivo" type="file" accept="application/json,.json" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
     <button type="submit" class="btn">Acessar painel</button>
     </fieldset><button id="growth-acesso-cancelar" type="button" class="btn sec">Cancelar</button>
     <span id="growth-acesso-msg" class="mini" role="status" aria-live="polite"></span>
@@ -156,9 +157,9 @@
       <button type="button" class="btn sec" id="ab-consultar">Consultar tentativa registrada</button>
       <div id="form-teste" hidden>
         <div class="form">
-          <div class="campo"><label for="f-id">Identificador</label>
+          <div class="campo"><label for="f-id">Código do teste</label>
             <input type="text" id="f-id" placeholder="fish-c2-assunto-01">
-            <span class="ajuda">Sem espaço. Vira a chave do teste.</span></div>
+            <span class="ajuda">Use um código único, sem espaços.</span></div>
           <div class="campo"><label for="f-marca">Marca</label>
             <select id="f-marca"><option value="fish">Fishermans</option>
               <option value="aristo">Aristocrata</option><option value="olivas">Olivas</option></select></div>
@@ -179,18 +180,16 @@
           <div class="campo"><label for="f-efeito">Efeito mínimo (p.p.)</label>
             <input type="number" id="f-efeito" step="0.1" value="1.0">
             <span class="ajuda">Diferença que valeria mudar a operação.</span></div>
-          <div class="campo"><label for="f-ca">Braço A — campanha</label>
-            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição do braço A" placeholder="descrição do braço A"></div>
-          <div class="campo"><label for="f-cb">Braço B — campanha</label>
-            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição do braço B" placeholder="descrição do braço B"></div>
+          <div class="campo"><label for="f-ca">Variação A — campanha</label>
+            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição da variação A" placeholder="descrição da variação A"></div>
+          <div class="campo"><label for="f-cb">Variação B — campanha</label>
+            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição da variação B" placeholder="descrição da variação B"></div>
           <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
             <button class="btn" id="f-salvar">Salvar configuração sem disparo</button>
             <button class="btn sec" id="f-cancelar">Cancelar</button>
             <span class="mini" id="f-msg" role="status"></span></div>
         </div>
-        <div class="nota">O cadastro legado guarda <code>utm_term=a</code> e <code>utm_term=b</code>.
-          Isso não identifica sozinho o grupo acompanhado nem comprova conversão em venda. Preserve os links e padrões atuais;
-          não substitua as UTMs do envio para tentar obter um resultado neste quadro.</div>
+        <span class="crm-help" tabindex="0" title="A configuração registra variações A/B, mas não distribui públicos nem comprova conversão. Preserve os links atuais; não substitua as UTMs para tentar obter um resultado neste quadro.">Preserve as UTMs atuais ⓘ</span>
       </div>
       <div id="area-testes"></div>
     </section>
@@ -209,9 +208,9 @@
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
     <section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section>
     <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
-    <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail medidas pelo SES"></section>
+    <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
     <section class="painel" id="email-comparison-block">
-      <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
+      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="mini">e-mail no período</span></div>
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
@@ -247,7 +246,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=19853b0f5758"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3367f67a0efa"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -761,8 +760,10 @@ function openFlows(canal,selection={}){
 }
 
 const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar()});
+GrowthView.init();
 function chave(){return ACESSO_GROWTH.current();}
 function mostraAcessoGrowth(mensagem=''){
+  GrowthView.resolve();
   ACESSO_GROWTH.show(mensagem);$('#load-state').hidden=true;
   $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
 }
@@ -779,6 +780,7 @@ async function consultaGrowth(url,k,timeoutMs){
 }
 // GROWTH_CACHE_READ_END
 async function carregar(){
+  GrowthView.resolve();
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
@@ -793,13 +795,16 @@ async function carregar(){
     if(!next&&!(r&&(r.status===401||r.status===403))){
       const v=await consultaGrowth(`${CX_API_URL}?painel=growth`,k,45000);r=v.r;if(v.r.ok&&payloadGrowthValido(v.payload)){next=v.payload;ORIGEM_LEITURA='vivo';}
     }
-    if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso a Growth.');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
-    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Esta chave não retornou os dados de Growth.');}
+    if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Esta chave não retornou os dados do CRM.');}
     API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
-    if(window.avisoCredencial)window.avisoCredencial(GrowthFreshness.credentialAlerts(API.crm_credencial));
+    const connectionAlerts=GrowthFreshness.credentialAlerts(API.crm_credencial);
+    if(window.avisoCredencial)window.avisoCredencial(connectionAlerts);
+    const connectionStatus=$('#crm-connection-status');connectionStatus.hidden=!connectionAlerts.some(c=>['vencida','quebrada','vencendo'].includes(c.estado));
+    connectionStatus.textContent=connectionStatus.hidden?'':'Há uma conexão que precisa de atenção. Confira as datas de atualização antes de usar os resultados.';
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
     CONSULTA={em:new Date().toISOString(),falhou:false};
     render();
@@ -808,8 +813,8 @@ async function carregar(){
     $('#load-state').hidden=true;
     const horaBR=d=>GUI.sourceTime(d);
     $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
-      ?'Dados de '+horaBR(next._cache_gerado_em)+' · renovados a cada 10 min · painel consulta a cada minuto enquanto visível'
-      :'Consulta direta de '+horaBR(Date.now())+' · painel consulta a cada minuto enquanto visível';
+      ?'Dados de '+horaBR(next._cache_gerado_em)
+      :'Consultado em '+horaBR(Date.now());
     $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
     $('#load-state').hidden=true;

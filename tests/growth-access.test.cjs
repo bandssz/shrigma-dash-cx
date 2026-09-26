@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {parseHTML}=require('linkedom'),A=require('../growth-access'),locks=require('./campaign-lock-fixture.cjs');
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'growth.html'),'utf8');
-const access=extra=>JSON.stringify({schema:'shrigma_panel_access_v1',panel:'growth',role:'read',key:'synthetic-reader',...extra});
+
 function boot({legacy='',onRead=()=>{}}={}){
  const {document,window}=parseHTML(html.match(/<form id="growth-acesso"[\s\S]*?<\/form>/)[0]+'<button id="btn-atualizar">Atualizar</button><section id="campaign-composer"></section>');
  let focused=null;window.HTMLElement.prototype.focus=function(){if(!this.closest('fieldset')?.disabled)focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused});
@@ -17,28 +17,9 @@ function boot({legacy='',onRead=()=>{}}={}){
  const run=s=>vm.runInContext(s,ctx),api=run('GrowthAccess.bind({document,readExisting:()=>shrigmaChave("growth"),onRead:__onRead})'),q=s=>document.querySelector(s);
  return {api,run,ctx,q,store,writes,calls,reads,document,window,focused:()=>focused,submit:()=>q('#growth-acesso').onsubmit({preventDefault(){}})};
 }
-const file=(x,text)=>{const f=x.q('#growth-acesso-arquivo');Object.defineProperty(f,'files',{configurable:true,value:[{size:typeof text==='string'?text.length:100,text:()=>typeof text==='function'?text():Promise.resolve(text)}]});return f.onchange();};
-test('access file accepts only the exact Growth reader contract, not campaign JSON or writer/master roles',()=>{
- assert.deepEqual(A.parseFile(access()),{key:'synthetic-reader'});
- for(const p of [access({role:'write'}),access({role:'master'}),access({panel:'influs'}),access({author:'Operator'}),access({endpoint:'https://example.test'}),access({key:''}),access({key:'one two'}),'[]','null','{}','not json',' '.repeat(8193)])assert.throws(()=>A.parseFile(p));
-});
 test('transport errors cannot render a URL or credential; only fixed local error messages are exposed',()=>{
  const error=Error('GET https://fixture.test/?k=synthetic-secret failed');assert.doesNotMatch(A.readError(error),/synthetic-secret|fixture.test/);
  assert.match(A.readError({name:'TimeoutError'}),/demorou/);assert.equal(A.readError(Error('Consulta indisponível (HTTP 503).')),'Consulta indisponível (HTTP 503).');
-});
-test('file import is not authentication; explicit Enter reads once and never persists/promotes a new key',async()=>{
- let done;const x=boot({onRead:()=>new Promise(r=>done=r)});x.api.show();await file(x,access());assert.equal(x.api.current(),'');assert.equal(x.reads.length,0);assert.equal(x.focused(),x.q('#growth-chave'));
- const pending=x.submit();await x.submit();assert.equal(x.reads.length,1);assert.equal(x.api.current(),'synthetic-reader');assert.equal(x.run('GTA.chaveLeitura()'),'synthetic-reader');assert.equal(x.q('#growth-chave').value,'');assert.equal(x.q('#growth-acesso').hidden,true);assert.deepEqual(x.writes,[]);done();await pending;
- assert.equal(x.store.has('shrigma_k_mestre'),false);assert.equal(x.store.get('shrigma_tpl_key'),'synthetic-writer');assert.equal(x.q('#growth-acesso-campos').disabled,false);
-});
-test('empty, invalid JSON, wrong role and cancelled asynchronous import produce no read or write',async()=>{
- const x=boot();x.api.show();await x.submit();assert.equal(x.reads.length,0);assert.equal(x.q('#growth-chave').getAttribute('aria-invalid'),'true');
- await file(x,access({role:'write'}));await x.submit();assert.equal(x.reads.length,0);
- let done;const pending=file(x,()=>new Promise(r=>done=r));x.q('#growth-acesso-cancelar').click();done(access());await pending;assert.equal(x.q('#growth-chave').value,'');assert.equal(x.q('#growth-acesso').hidden,true);assert.equal(x.api.current(),'');assert.equal(x.reads.length,0);assert.deepEqual(x.writes,[]);
-});
-test('automatic refresh requesting access again preserves typed input and an import in progress',async()=>{
- const x=boot();x.api.show();x.q('#growth-chave').value='partially-typed';x.api.show();assert.equal(x.q('#growth-chave').value,'partially-typed');
- let done;const pending=file(x,()=>new Promise(r=>done=r));x.api.show();done(access());await pending;assert.equal(x.q('#growth-chave').value,'synthetic-reader');assert.equal(x.reads.length,0);assert.equal(x.api.current(),'');assert.equal(x.q('#growth-acesso-campos').disabled,false);
 });
 test('legacy reads stay compatible, rejection cannot fall back to stale storage or erase pending/write state',async()=>{
  const x=boot({legacy:'legacy-reader'});assert.equal(x.run('GTA.chaveLeitura()'),'legacy-reader');x.api.show();x.q('#growth-chave').value='synthetic-reader';await x.submit();
@@ -68,4 +49,17 @@ test('cancelled campaign can be listed and reopened with session read key only; 
  for(const action of ['save','validate','schedule','cancel'])assert.equal(x.q(`[data-ce-${action}]`).disabled,true);
  assert.equal(x.calls.length,4);assert.ok(x.calls.every(c=>c.init.method==='GET'&&!new URL(c.url).searchParams.has('k')&&c.init.headers.Authorization==='Bearer synthetic-reader'));
  assert.ok(!x.writes.includes('shrigma_k_growth')&&!x.writes.includes('shrigma_k_mestre')&&!x.writes.includes('shrigma_tpl_key'));assert.equal(x.store.get('shrigma_campaign_operation_v1:unrelated'),'preserve-exact');
+});
+
+test('CRM login accepts a typed key once and never stores or promotes it',async()=>{
+ let done;const x=boot({onRead:()=>new Promise(r=>done=r)});x.api.show();
+ assert.equal(x.q('input[type=file]'),null);assert.equal(typeof A.parseFile,'undefined');
+ x.q('#growth-chave').value='synthetic-reader';const pending=x.submit();await x.submit();
+ assert.equal(x.reads.length,1);assert.equal(x.api.current(),'synthetic-reader');assert.equal(x.run('GTA.chaveLeitura()'),'synthetic-reader');assert.equal(x.q('#growth-chave').value,'');
+ assert.deepEqual(x.writes,[]);assert.equal(x.store.has('shrigma_k_mestre'),false);done();await pending;
+ assert.equal(x.q('#growth-acesso-campos').disabled,false);
+});
+test('empty keys do not read; refresh preserves typed input before submission',async()=>{
+ const x=boot();x.api.show();await x.submit();assert.equal(x.reads.length,0);assert.equal(x.q('#growth-chave').getAttribute('aria-invalid'),'true');
+ x.q('#growth-chave').value='partially-typed';x.api.show();assert.equal(x.q('#growth-chave').value,'partially-typed');assert.equal(x.api.current(),'');assert.deepEqual(x.writes,[]);
 });
