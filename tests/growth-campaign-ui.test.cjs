@@ -245,3 +245,19 @@ test('saved campaign UTM preview is brand-specific and remains read-only when an
   assert.match(panel.textContent,new RegExp(brand+'-saved'));assert.match(panel.textContent,/Conteúdo salvo desta campanha/);assert.equal(x.q('[name=html]').disabled,true);assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(p.store.get(p.journalKey),before);assert.equal(x.calls.length,0);
  }
 });
+test('CRM managers can inspect saved campaign patterns and dynamic source without changing either brand journal',()=>{
+ const page=parseHTML(fs.readFileSync(path.join(root,'growth.html'),'utf8')).document;
+ assert.equal(page.querySelector('#campaign-composer').closest('[data-crm-owner-only]'),null);
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand,'uncertain'),j=JSON.parse(p.store.get(p.journalKey)),local=JSON.parse(p.store.get(p.localKey)),domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';
+  j.campaign.definition.html=`<a href="https://${domain}/products/kit?utm_source=${brand}-literal&amp;utm_medium=campanha&amp;utm_campaign=${brand}-saved&amp;utm_content=hero">Produto</a> {{ UnsubscribeURL }}`;
+  j.campaign.definition.text=`https://${domain}/products/kit?utm_source={{ .Tx.Data.source }}&utm_medium=campanha&utm_campaign=${brand}-saved&utm_content=text {{ UnsubscribeURL }}`;
+  Object.assign(local.value,{html:j.campaign.definition.html,text:j.campaign.definition.text});p.store.set(p.localKey,JSON.stringify(local));p.store.set(p.journalKey,JSON.stringify(j));
+  const before=p.store.get(p.journalKey),x=boot({brand,store:p.store});x.document.body.dataset.crmView='manager';
+  const panel=x.q('[data-ce-utms]');assert.equal(panel.hidden,false);assert.equal(panel.closest('[data-crm-owner-only]'),null);panel.querySelector('details').open=true;
+  const manager=x.q('#campaign-composer').cloneNode(true);manager.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());const visible=manager.querySelector('[data-ce-utms]');assert.ok(visible);
+  for(const value of [brand+'-literal',brand+'-saved','{{ .Tx.Data.source }}','Variável de source','hero','text'])assert.ok(visible.textContent.includes(value),value);
+  assert.match(visible.textContent,/Conteúdo salvo desta campanha/);assert.doesNotMatch(visible.textContent,new RegExp((brand==='fish'?'aristo':'fish')+'-(literal|saved)'));
+  assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(p.store.get(p.journalKey),before);assert.equal(x.calls.length,0);
+ }
+});

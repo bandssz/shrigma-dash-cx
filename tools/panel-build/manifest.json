@@ -31,7 +31,8 @@
       "growth-builder.css",
       "growth-page.css",
       "growth-manager.css",
-      "panel-ui.css"
+      "panel-ui.css",
+      "growth-workspace.css"
     ],
     "scripts": [
       "frescor.js",
@@ -39,6 +40,7 @@
       "config.js",
       "growth-access.js",
       "growth-view.js",
+      "growth-workspace.js",
       "alerta-credencial.js",
       "alerta-whatsapp.js",
       "growth-data.js",
@@ -74,7 +76,7 @@
       "growth-email-replication-ui.js",
       "growth-canvas.js",
       "growth-flow-journal.js",
-        "growth-builder.js",
+      "growth-builder.js",
       "growth-flows.js",
       "growth-flows-ui.js",
       "panel-bridge.js"

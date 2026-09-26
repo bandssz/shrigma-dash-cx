@@ -58,6 +58,31 @@ test('verified runtime source description stays escaped and separate from templa
  assert.match(html,/Conferido em 25\/09\/2026/);assert.equal(document.querySelector('.crm-utm-note').getAttribute('title'),'Parâmetros anteriores são preservados.');
  const empty=parseHTML(GUT.render({rows:[],sourceExpression:'Origem não comprovada'})).document;assert.match(empty.querySelector('.crm-utm-source-rule').textContent,/Origem não comprovada/);
 });
+test('CRM managers retain journey and step UTM inspection for email and WhatsApp in both brands',()=>{
+ const page=parseHTML(fs.readFileSync(require.resolve('../growth.html'),'utf8')).document;
+ assert.equal(page.querySelector('#control-fluxos').closest('[data-crm-owner-only]'),null);
+ for(const brand of ['fish','aristo']){
+  const {document}=parseHTML('<html><body data-crm-view="manager"><section id="control-fluxos"></section></body></html>'),calls=[];
+  const ctx=vm.createContext({document,console,URLSearchParams,setTimeout,fetch:()=>{calls.push(true);throw Error('inspection must not request');},GTA:{caps:()=>({endpoint:'/fixture'})},brand});
+  for(const name of ['growth-utm.js','growth-runtime-utm.js','growth-builder.js'])vm.runInContext(fs.readFileSync(require.resolve('../'+name),'utf8'),ctx);
+  vm.runInContext(`(()=>{
+   const email={key:'email:carrinho-30min',channel:'email',flow:'carrinho',piece:'carrinho-30min',variant:'',template_id:'1',name:'Após 30 minutos',enabled:true};
+   const wa={key:'whatsapp:carrinho-24h:b',channel:'whatsapp',flow:'carrinho',piece:'carrinho-24h',variant:'b',template_id:'2',name:'Após 24 horas',enabled:true};
+   const f={key:brand+':carrinho',brand,name:'Carrinho',trigger:'Carrinho abandonado',version:6,published_version:6,runtime_ready:true,enabled:true,available_steps:[email,wa],draft:{name:'Carrinho',steps:[email,wa]}};
+   GB.ctx={marca:brand};GB.state.loaded=true;GB.state.selected=f.key;GB.state.flows=[f];GB.state.draft=JSON.parse(JSON.stringify(f.draft));GB.state.templates={
+    [brand+':email']:[{brand,channel:'email',id:'1',name:'Mensagem e-mail',components:{body_html:'{{ .Tx.Data.checkout_url }}?utm_source={{ .Tx.Data.source }}&utm_campaign='+brand+'-template'}}],
+    [brand+':whatsapp']:[{brand,channel:'whatsapp',id:'2',name:'Mensagem WhatsApp',components:[{type:'BUTTONS',buttons:[{type:'URL',url:'https://example.test/{{1}}?utm_source={{2}}&utm_campaign='+brand+'-wa-template'}]}]}]
+   };globalThis.before=JSON.stringify({draft:GB.state.draft,flows:GB.state.flows});GB.render();globalThis.after=JSON.stringify({draft:GB.state.draft,flows:GB.state.flows});
+  })()`,ctx);
+  const panel=document.querySelector('#control-fluxos'),summary=panel.querySelector('[data-journey-utm]');assert.ok(summary);assert.equal(summary.closest('[data-crm-owner-only]'),null);
+  for(const el of panel.querySelectorAll('.crm-utm')){assert.equal(el.closest('[data-crm-owner-only]'),null);assert.equal(el.hasAttribute('hidden'),false);el.open=true;}
+  const manager=panel.cloneNode(true);manager.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());
+  const expected=[brand+'-carrinho',brand==='fish'?'fishermans-carrinho':'aristocrata-carrinho','{{ .Tx.Data.source }}','{{2}}','Variável de source','Valor literal "email"','Valor literal "whatsapp"','Links escritos no template'];
+  for(const value of expected)assert.ok(manager.querySelector('[data-journey-utm]').textContent.includes(value),brand+': '+value);
+  assert.equal(manager.querySelectorAll('[data-stage] .crm-utm[data-utm-key]').length,2);assert.match(manager.querySelector('[data-journey-utm]').textContent,/Conferido em .*registro da regra/);assert.match(manager.querySelector('[data-journey-utm] .crm-utm-note').getAttribute('title'),/não é consulta da configuração ao vivo/);
+  assert.equal(ctx.before,ctx.after);assert.equal(calls.length,0);
+ }
+});
 test('thirteen patterns collapse common fields once and preserve every complete tuple',()=>{
  const rows=Array.from({length:13},(_,i)=>({source:'listmonk',medium:'campanha',campaign:'fixture',content:i%2?'footer':'hero',term:'dispatch-'+i})),before=JSON.stringify(rows);
  const {document}=parseHTML(GUT.render({rows,mode:'registered',evidence:'Consulta sintética'})),group=document.querySelector('.crm-utm-group'),common=group.querySelector('dl');
