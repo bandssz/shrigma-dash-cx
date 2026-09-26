@@ -610,7 +610,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  api.responde('submissao',200,{estado:'publicado',provider_status:'APPROVED',rejected_reason:null,checked_at:'2026-09-09T20:30:00Z'});
  await clickAction(x,root().querySelector('#d-verificar'),'verificarSubmissao');
  assert.match(root().textContent,/Template publicado\. Nenhuma automação foi ativada/);
- assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);
+ assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge [data-crm-owner-only]').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);assert.equal(root().querySelector('.draft-card .control-badge [data-crm-manager-only]').textContent,'Publicado · sem automação vinculada');
  assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'publicado');assert.equal(root().querySelector('#d-verificar'),null);
  // histórico com who/when de cada passo
  const hist=root().querySelector('.draft-historico').textContent;
