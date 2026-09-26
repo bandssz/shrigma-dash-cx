@@ -1,17 +1,36 @@
 /* CRM workspace only. Navigation/visibility and operation guards stay in JavaScript. */
 body[data-panel="growth"]{
   --crm-sidebar-width:204px;--crm-accent:#244b73;--crm-accent-bg:#eaf0f6;
+  --crm-sidebar-bg:#f7f8fa;--crm-hover-bg:#edf0f4;--crm-accent-border:#a8bfd6;
   --fundo:#fff;--card:#fff;--card-2:#f7f8fa;--borda:#e3e7ec;--borda-forte:#bdc6d0;
   --texto:#202d3a;--mudo:#5d6977;--rotulo:#596675;--neutro-bg:#f0f3f6;--sombra:none;
   padding-left:var(--crm-sidebar-width);background:var(--fundo);line-height:1.5;
 }
+/* Public storefront CSS, checked 2026-09-26: oaristocrata.com #0C3C21/#FFFBEC;
+   fishermans.com.br base background/text #1A1C2E/#F8F9FA. Selection tints are
+   dashboard adaptations. Status colors and the white content canvas stay unchanged. */
+body[data-panel="growth"][data-marca="aristo"]{
+  --crm-accent:#0c3c21;--crm-accent-bg:#ede9d9;--crm-sidebar-bg:#fffbec;
+  --crm-hover-bg:#f3efdf;--crm-accent-border:#a8b59d;--card-2:#fbfaf4;
+  --marca:#0c3c21;--marca-texto:#0c3c21;--marca-fraca:#ede9d9;
+}
+body[data-panel="growth"][data-marca="fish"]{
+  --crm-accent:#1a1c2e;--crm-accent-bg:#e9ecf2;--crm-sidebar-bg:#f8f9fa;
+  --crm-hover-bg:#eef0f4;--crm-accent-border:#aeb8c8;--card-2:#f8f9fa;
+  --marca:#1a1c2e;--marca-texto:#1a1c2e;--marca-fraca:#e9ecf2;
+}
+/* Retain the existing Olivas palette without introducing a new identity. */
+body[data-panel="growth"][data-marca="olivas"]{
+  --crm-accent:var(--marca-texto);--crm-accent-bg:var(--marca-fraca);
+  --crm-sidebar-bg:#f7f6f2;--crm-hover-bg:var(--marca-fraca);--crm-accent-border:#bac2a6;
+}
 body[data-panel="growth"] .crm-sidebar{
   position:fixed;inset:0 auto 0 0;z-index:20;width:var(--crm-sidebar-width);
   display:flex;flex-direction:column;gap:26px;padding:28px 14px;
-  background:#f7f8fa;border-right:1px solid var(--borda);overflow-y:auto;
+  background:var(--crm-sidebar-bg);border-right:1px solid var(--borda);overflow-y:auto;
 }
 body[data-panel="growth"] .crm-wordmark{
-  padding:0 12px;font-size:20px;font-weight:700;letter-spacing:-.6px;color:var(--texto);
+  padding:0 12px;font-size:20px;font-weight:700;letter-spacing:-.6px;color:var(--crm-accent);
 }
 body[data-panel="growth"] .crm-wordmark small,
 body[data-panel="growth"] .crm-wordmark span{
@@ -49,7 +68,7 @@ body[data-panel="growth"] #secoes button{
   border:0;border-radius:5px;text-align:left;font-size:13px;font-weight:550;
   line-height:1.4;color:var(--mudo);background:transparent;white-space:normal;
 }
-body[data-panel="growth"] #secoes button:hover{background:#edf0f4;color:var(--texto)}
+body[data-panel="growth"] #secoes button:hover{background:var(--crm-hover-bg);color:var(--texto)}
 body[data-panel="growth"] #secoes button.ativo{background:var(--crm-accent-bg);color:var(--crm-accent);font-weight:650}
 body[data-panel="growth"] #secoes .n{margin-left:auto;font-size:11px;color:inherit;font-weight:500}
 body[data-panel="growth"] .topo{
@@ -57,7 +76,7 @@ body[data-panel="growth"] .topo{
   background:#fff;border-top:0;border-bottom:1px solid var(--borda);
 }
 body[data-panel="growth"] .topo .titulo{min-width:0;flex:1}
-body[data-panel="growth"] #crm-screen-title{font-size:24px;font-weight:650;line-height:1.25;letter-spacing:-.5px}
+body[data-panel="growth"] #crm-screen-title{font-size:24px;font-weight:650;line-height:1.25;letter-spacing:-.5px;color:var(--crm-accent)}
 body[data-panel="growth"] #sub-topo{margin-top:5px;font-size:13px;color:var(--mudo)}
 body[data-panel="growth"] #crm-view-controls{margin-left:auto;gap:7px;font-size:11px}
 body[data-panel="growth"] #crm-view-controls select{font-size:12px;min-height:32px}
@@ -88,7 +107,7 @@ body[data-panel="growth"] #crm-period-picker .presets{
   display:flex;flex-wrap:wrap;width:100%;gap:5px;overflow:visible;padding:0;border:0;
 }
 body[data-panel="growth"] #crm-period-picker .presets button{min-height:34px;padding:7px 9px;border:1px solid var(--borda);background:#fff}
-body[data-panel="growth"] #crm-period-picker .presets button.ativo{background:var(--crm-accent-bg);border-color:#a8bfd6;color:var(--crm-accent)}
+body[data-panel="growth"] #crm-period-picker .presets button.ativo{background:var(--crm-accent-bg);border-color:var(--crm-accent-border);color:var(--crm-accent)}
 body[data-panel="growth"] #crm-period-picker input[type="date"]{width:144px;min-width:0;max-width:100%;font-size:12px}
 body[data-panel="growth"] #crm-period-picker label{font-size:12px;line-height:1.5}
 body[data-panel="growth"] .crm-data-freshness{font-size:12px;color:var(--mudo)}
@@ -108,7 +127,7 @@ body[data-panel="growth"] .crm-home-actions button{
   min-height:74px;padding:17px 18px;background:#fff;border:1px solid var(--borda);
   border-radius:6px;color:var(--crm-accent);font:600 14px/1.4 var(--ui);text-align:left;cursor:pointer;
 }
-body[data-panel="growth"] .crm-home-actions button:hover{border-color:#a8bfd6;background:#f8fafc}
+body[data-panel="growth"] .crm-home-actions button:hover{border-color:var(--crm-accent-border);background:var(--crm-sidebar-bg)}
 body[data-panel="growth"] .crm-home-actions button small{font-size:12px;font-weight:400;color:var(--mudo)}
 body[data-panel="growth"] #sec-visao .kpis{margin-bottom:24px;border:1px solid var(--borda);border-radius:6px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 body[data-panel="growth"] #sec-visao .kpi{padding:18px 20px}
@@ -152,7 +171,7 @@ body[data-panel="growth"] .ranking td{padding:14px;font-size:13px;vertical-align
 body[data-panel="growth"] .gt-toolbar{gap:12px;margin-bottom:16px}
 body[data-panel="growth"] .control-tabs{gap:8px;margin-bottom:24px}
 body[data-panel="growth"] .control-tabs button{padding:8px 12px;min-height:36px;border-color:var(--borda);font-size:12px}
-body[data-panel="growth"] .control-tabs button.ativo{background:var(--crm-accent-bg);color:var(--crm-accent);border-color:#a8bfd6}
+body[data-panel="growth"] .control-tabs button.ativo{background:var(--crm-accent-bg);color:var(--crm-accent);border-color:var(--crm-accent-border)}
 body[data-panel="growth"] .crm-health-notice{margin-bottom:10px;padding:12px 16px;line-height:1.55}
 body[data-panel="growth"] .crm-health-notice p+p{margin-top:5px}
 body[data-panel="growth"] .crm-health-notice[data-estado="alerta"]{border-left:3px solid var(--ruim);background:var(--ruim-bg);color:#8f2530}
