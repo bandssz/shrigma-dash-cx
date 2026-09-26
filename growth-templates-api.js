@@ -85,12 +85,18 @@ const GTA={
         if(b.erro==='idempotency_replay_mismatch')return {texto:'Esta tentativa repetiu uma chave de idempotência com conteúdo diferente. Preserve o identificador e confira esta mesma operação antes de continuar.',tipo:'conflito'};
         if(['revision_locked','revision_already_claimed','ja_submetido'].includes(b.erro))return {texto:'Esta revisão já tem uma submissão ou está bloqueada. Consulte o histórico antes de criar outra revisão.',tipo:'bloqueado'};
         return {texto:`Alterado por ${b.changed_by||'outra chave'} às ${GTA.stamp(b.changed_at)}${Number.isFinite(+b.current_version)?` (versão ${b.current_version})`:''}. Recarregue e refaça; nada foi sobrescrito.`,tipo:'conflito',conflito:{current_version:b.current_version,changed_by:b.changed_by||null,changed_at:b.changed_at||null}};
-      case 422:{const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
+      case 422:{
+        if(acao==='submeter'&&b.erro==='publication_not_started')return b.nothing_changed===true
+          ?{texto:'Publicação não iniciada. Conteúdo preservado. Salve e confira uma nova versão antes de publicar.',tipo:'bloqueado'}
+          :{texto:'Publicação não confirmada. Consulte a mesma tentativa antes de continuar.',tipo:'incerto'};
+        const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
       case 429:return {texto:`Muitas tentativas.${seg||' Aguarde um instante.'}`,tipo:'limite'};
       case 502:return b.nothing_changed===true?{texto:`Meta/Listmonk indisponível; nada foi alterado.${seg}`,tipo:'indisponivel'}:{texto:'Meta/Listmonk indisponível e estado incerto. Consulte o histórico antes de repetir.',tipo:'incerto'};
       default:return {texto:`A API respondeu ${res.status||'sem status'}. Nada foi confirmado.`,tipo:'incerto'};
     }
   },
+  // Present older local events without changing their evidence or the operation receipt.
+  detalheEvento(ev){return ev?.action==='submeter'&&String(ev.result)==='422'&&ev.detail==='publication_not_started'?'Publicação não iniciada. Confira o recibo desta tentativa.':ev?.detail;},
 
   /* ---------- estado do rascunho no servidor ----------
      `r.servidor` guarda o que a API confirmou: draft_id, version, estado, hash do conteúdo salvo, submissão e eventos.

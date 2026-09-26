@@ -1,0 +1,31 @@
+/* CRM presentation only. Roles never grant transport or publication permissions. */
+body:not([data-crm-view="owner"]) [data-crm-owner-only],
+body[data-crm-view="owner"] [data-crm-manager-only]{display:none!important}
+#crm-view-controls[hidden]{display:none!important}
+.crm-view-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;font:500 12px/1.4 var(--ui);color:var(--mudo)}
+.crm-view-controls select{background:var(--card);font-size:12px;max-width:220px}
+.crm-help{display:inline-block;font-size:12px;line-height:1.5;color:var(--mudo);cursor:help;margin:8px 0}
+.crm-help:focus-visible,.crm-utm-note:focus-visible{outline:2px solid var(--texto);outline-offset:3px}
+[data-crm-owner-only]>summary{font-weight:600;color:var(--mudo);cursor:pointer}
+.topo{gap:14px}
+.fontes{gap:8px;align-items:start}
+.fontes:empty,.fluxo-saude:empty{display:none}
+.fontes>details{flex-basis:100%}
+.control-badge:not(.control-warning):not(.control-danger):not(.control-error),
+.tag.aristo,.tag.fish,.tag.olivas,.tag.email,.tag.whatsapp{background:var(--neutro-bg);color:var(--rotulo)}
+.nota{background:transparent;border-left:0;padding:4px 0;border-radius:0}
+.channel-card,.control-workflow,.painel{box-shadow:none}
+.control-summary{gap:8px}
+.control-summary article{border-radius:6px}
+.ses-health{border-radius:6px}
+.crm-operation-notes{display:grid;gap:8px;margin:12px 0}
+.crm-operation-notes p{margin:0}
+.builder-variables summary{font-size:12px;cursor:pointer;color:var(--mudo)}
+.builder-variables dl{display:grid;grid-template-columns:minmax(120px,1fr) 2fr;gap:5px 12px;font-size:12px}
+.builder-variables dt,.builder-variables dd{margin:0;overflow-wrap:anywhere}
+body:not([data-crm-view="owner"]) #wa-saude,
+body:not([data-crm-view="owner"]) #aviso-cred,
+body:not([data-crm-view="owner"]) #aviso-wa{display:none!important}
+@media(max-width:700px){.crm-view-controls{width:100%;margin:0}.crm-view-controls select{flex:1}.topo{align-items:flex-start}.builder-variables dl{grid-template-columns:1fr}}
+
+.crm-sources{display:flex;flex-wrap:wrap;gap:8px 20px}.crm-source-group{display:flex;flex-direction:column;gap:3px;font-size:12px}.crm-source-group strong{font-weight:600}.crm-source-status{color:var(--mudo)}.crm-health-notice,.crm-connection-status{font-size:13px;line-height:1.5;padding:10px 12px;border:1px solid var(--borda);border-radius:6px}.crm-connection-status[hidden]{display:none}

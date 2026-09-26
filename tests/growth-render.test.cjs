@@ -72,7 +72,7 @@ test('front completo carrega, filtra canal/marca e mantém sombra fora dos dispa
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'192');
  x.document.querySelector('[data-canal="whatsapp"]').click();
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'42');
- assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-rot')].map(n=>n.textContent),['Aceitos pela Meta','Entregues','Falhas na entrega','Receita atribuída','Pedidos atribuídos']);
+ assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-rot')].map(n=>n.textContent),['Envios aceitos','Entregues','Falhas na entrega','Receita atribuída','Pedidos atribuídos']);
  assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-val')].slice(0,3).map(n=>n.textContent),['42','40','1']);
  assert.equal(x.document.querySelectorAll('.channel-card').length,1);
  assert.equal(x.document.querySelector('#campaign-email-block').hidden,true);
@@ -215,7 +215,7 @@ test('e-mail: KPI de CTR informa a base medida e o card lista o que é lacuna',a
 test('atalhos dos KPIs levam à tabela certa preservando marca e período',async()=>{
  const x=await boot();x.document.querySelector('[data-marca="fish"]').click();const period=x.run('JSON.stringify(PER)');
  x.document.querySelector('[data-kpi-jump="conv"]').click();
- assert.equal(x.run('SEC'),'camp');assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('JSON.stringify(PER)'),period);
+ assert.equal(x.run('SEC'),'resultados');assert.equal(x.document.querySelector('#crm-report-conversion').hidden,false);assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('JSON.stringify(PER)'),period);
  x.document.querySelector('[data-s="visao"]').click();
  x.document.querySelector('[data-kpi-jump="flows:whatsapp"]').click();
  assert.equal(x.run('SEC'),'regua');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('MARCA'),'fish');
@@ -336,13 +336,13 @@ test('templates: filtros por status, categoria e uso, ordenação por peça e ex
 });
 test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave',async()=>{
  const x=await boot(fixture(),{hash:'#marca=fish&canal=whatsapp&p=30&sec=regua&aba=templates&flow=carrinho&k=nao-deve-entrar'});
- assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('SEC'),'regua');
+ assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('SEC'),'templates');
  assert.equal(x.document.querySelector('#presets button.ativo').dataset.p,'30');
  assert.equal(x.document.querySelector('#control-templates').hidden,false);
  assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
  x.document.querySelector('[data-marca="aristo"]').click();
  const ultimo=x.hashes[x.hashes.length-1];
- assert.match(ultimo,/^#marca=aristo&canal=whatsapp&p=30&sec=regua&aba=templates/);
+ assert.match(ultimo,/^#marca=aristo&canal=whatsapp&p=30&sec=templates&aba=templates/);
  assert.doesNotMatch(x.hashes.join(' '),/synthetic-test-key|k=/);
  // canal do filtro (segmento) vence a preferência salva quando o hash está presente
  const y=await boot(fixture(),{hash:'#canal=email'});
@@ -418,7 +418,7 @@ test('faixa de fontes (F02): tabela explícita de estados — erro sinaliza falh
  assert.match(f[6].textContent,/status não informado/);assert.match(f[6].title,/recebido: weird/);
  assert.match(f[7].textContent,/2 registro\(s\) inválido\(s\) ignorado\(s\)/);
  const y=await boot({...fixture(),crm_fontes:[{fonte:'shopify_conversao',tipo:'coleta',coletado_em:'2026-09-07T22:00:00Z'}]}); // sem status: não é ok
- assert.equal(y.document.querySelector('#fontes .fonte:nth-child(2)').dataset.estado,'desconhecido');
+ assert.equal(y.document.querySelectorAll('#fontes .fonte')[1].dataset.estado,'desconhecido');
 });
 test('saúde dos fluxos (F07/F06): chips são botões com detalhe visível por clique/teclado, alerta destacado, estado desconhecido não vira "sem ocorrência", linha inválida contada, filtro por marca, ausência não vira saúde',async()=>{
  const p=fixture();
@@ -439,7 +439,7 @@ test('saúde dos fluxos (F07/F06): chips são botões com detalhe visível por c
  x.document.querySelector('[data-marca="fish"]').click();
  chips=[...x.document.querySelectorAll('#fluxo-saude .fluxo-chip')];assert.equal(chips.filter(c=>c.tagName==='BUTTON').length,2);assert.equal(chips[0].dataset.estado,'ok');
  const y=await boot(fixture());
- assert.equal(y.document.querySelector('#fluxo-saude').innerHTML,'');
+ assert.match(y.document.querySelector('#fluxo-saude').textContent,/não confirmada|não disponível|indisponível/i);assert.equal(y.document.querySelector('#fluxo-saude [data-crm-owner-only]'),null);
 });
 /* ---------- R3 (10/09/2026): mapped_in + crm_wa_template ---------- */
 test('templates (F01/F03/F04/F05/F06): vínculo diz se o modo é configurado ou só o último observado; métrica desconhecida vira "—", nunca zero; teste-motor fora da soma; CSV exporta o que a tela mostra; linha inválida não derruba a tela',async()=>{
@@ -589,7 +589,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  assert.match(root().textContent,/Conteúdo conferido com 1 aviso/);assert.ok(root().querySelector('#d-submeter'));assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'validado');
  // 4) submeter: confirmação textual obrigatória
  root().querySelector('#d-submeter').click();
- const conf=()=>root().querySelector('#d-confirmar');assert.ok(conf());assert.match(conf().textContent,/Submeter à Meta o rascunho v1/);assert.match(conf().textContent,/Tom promocional/);assert.match(conf().textContent,/vira "publicado · não ativo"\. Nenhum workflow muda/);
+ const conf=()=>root().querySelector('#d-confirmar');assert.ok(conf());assert.match(conf().textContent,/Submeter à Meta o rascunho v1/);assert.match(conf().textContent,/Tom promocional/);assert.match(conf().textContent,/A aprovação não ativa nenhuma automação/);
  assert.equal(conf().querySelector('#d-confirm-ok').disabled,true);
  set('#d-confirm-texto','errado');assert.equal(conf().querySelector('#d-confirm-ok').disabled,true);
  set('#d-confirm-texto',' Submeter ');assert.equal(conf().querySelector('#d-confirm-ok').disabled,false);
@@ -609,8 +609,8 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  assert.match(root().textContent,/Provedor devolveu "PAUSED": não é aprovação nem rejeição/);assert.equal(root().querySelector('.draft-card').dataset.estado,'submetido');
  api.responde('submissao',200,{estado:'publicado',provider_status:'APPROVED',rejected_reason:null,checked_at:'2026-09-09T20:30:00Z'});
  await clickAction(x,root().querySelector('#d-verificar'),'verificarSubmissao');
- assert.match(root().textContent,/Publicado pelo provedor \(APPROVED\)\. Publicado não é ativo: nenhum workflow mudou/);
- assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);
+ assert.match(root().textContent,/Template publicado\. Nenhuma automação foi ativada/);
+ assert.equal(root().querySelector('.draft-card').dataset.estado,'publicado');assert.match(root().querySelector('.draft-card .control-badge [data-crm-owner-only]').textContent,/^Publicado · não ativo \(sem workflow mapeado\)$/);assert.equal(root().querySelector('.draft-card .control-badge [data-crm-manager-only]').textContent,'Publicado · sem automação vinculada');
  assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'publicado');assert.equal(root().querySelector('#d-verificar'),null);
  // histórico com who/when de cada passo
  const hist=root().querySelector('.draft-historico').textContent;
@@ -690,7 +690,7 @@ test('aba Templates: publicado ≠ ativo pelo manifesto; conteúdo publicado só
  assert.match(api.pedidos[0].url,/\?acao=listar$/);assert.equal(api.pedidos[0].headers.Authorization,'Bearer synthetic-test-key'); // leitura: chave de leitura do painel, sem marca no recorte "todas"
  const prev=row('fish_paid').querySelector('.control-template-preview');assert.ok(prev);assert.match(prev.querySelector('summary').textContent,/Prévia publicada · v3 · 07\/09\/2026/);
  assert.match(prev.textContent,/Olá Ana, o pedido #48213 está a caminho/);assert.match(prev.textContent,/↗ Acompanhar pedido/);
- assert.match(row('aristo_paid').textContent,/Conteúdo publicado não veio na resposta da API/);
+ assert.match(row('aristo_paid').textContent,/Conteúdo publicado indisponível nesta consulta\. Recarregue o conteúdo para conferir/);
  api.responde('historico',200,CONTRATO.historico);prev.querySelector('[data-tpl-historico]').click();await waitFor(()=>row('fish_paid').querySelector('.control-template-hist')?.textContent.includes('chave-exemplo'),'template history receipt');
  assert.match(api.pedidos[1].url,/acao=historico&key=fish_paid$/);
  assert.match(row('fish_paid').querySelector('.control-template-hist').textContent,/chave-exemplo · submit v2→v3 · ok/);
@@ -704,11 +704,11 @@ test('aba Fluxos: sem crm_fluxo_def mostra só o observado, com gatilho "não de
  p.crm_operacao.templates[1].mapped_in=[{workflow_key:'aristo_tx',piece:'pedido-pago',mode_key:'modo_pedido_pago'}];
  const x=await boot(p);x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="fluxos"]').click();
  const root=()=>x.document.querySelector('#control-fluxos');
- assert.equal(root().hidden,false);assert.match(root().textContent,/Gatilho, ordem e esperas não informados/);assert.match(root().textContent,/Somente leitura/);assert.doesNotMatch(root().textContent,/crm_fluxo_def|contrato R6|Fase B|BACKEND_REQUESTS/);
+ assert.equal(root().hidden,false);assert.match(root().textContent,/Sequência e esperas ainda não disponíveis/);assert.match(root().textContent,/Somente leitura/);assert.doesNotMatch(root().textContent,/crm_fluxo_def|contrato R6|Fase B|BACKEND_REQUESTS/);
  assert.match(root().querySelector('[data-gt-key="fluxos-como-ler"]').textContent,/"real" não confirma entrega.*WhatsApp aceitos e entregues; e-mail aceito pelo provedor/);
  let cards=[...root().querySelectorAll('.flow-card')];
  assert.deepEqual(cards.map(c=>c.dataset.flow),['aristo|transacional','fish|carrinho']);assert.ok(cards.every(c=>c.dataset.origem==='observado'));
- assert.match(cards[1].textContent,/Gatilho: não declarado pela API/);assert.match(cards[1].textContent,/ordem alfabética, não a sequência do fluxo/);
+ assert.match(cards[1].textContent,/Configuração indisponível/);assert.match(cards[1].textContent,/ordem alfabética, não na sequência de envio/);
  assert.match(cards[0].querySelector('.flow-badges').textContent,/Modo sombra/); // aristo_tx em sombra na fixture, consulta atual
  assert.match(cards[0].textContent,/Pedido pago e rastreio Aristocrata · modo configurado: sombra/);assert.match(cards[0].textContent,/aristo_confirmacao_exemplo · APPROVED/);
  assert.match(cards[1].querySelector('.flow-badges').textContent,/Workflow não declarado no manifesto/);
@@ -806,7 +806,7 @@ test('Growth connection errors do not print request URL or reader key',async()=>
 test('Growth rejects a response from another scope or an error envelope and preserves the previous data',async()=>{
  const x=await boot();const before=x.document.querySelector('#area-kpis').textContent;
  for(const payload of [{...fixture(),_escopo:'influs'}, {...fixture(),erro:'synthetic-private-error'}, {...fixture(),error:'synthetic-private-error'}]){
-  x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/não retornou os dados de Growth/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
+  x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/não retornou os dados do CRM/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
  }
 });
 
@@ -948,8 +948,8 @@ test('Base uses plain segment labels and describes recorded frequency and histor
 });
 test('overview labels keep coverage, source clocks and occurrence warnings visible without duplicate card paragraphs',async()=>{
  const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';const x=await boot(p),wa=x.document.querySelector('[data-channel-card="whatsapp"]'),email=x.document.querySelector('[data-channel-card="email"]');
- assert.match(wa.querySelector('.operator-labels').textContent,/Envios próprios · sem Reportana/);assert.match(email.querySelector('.operator-labels').textContent,/Taxas só das campanhas/);for(const card of [wa,email])assert.match(card.querySelector('[title^="Receita e pedidos"]').title,/Não representam a taxa de conversão dos envios/);
- const section=x.document.querySelector('#automation-attention'),visible=section.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());assert.match(visible.textContent,/07\/09\/2026, 12:30/);assert.match(visible.textContent,/07\/09\/2026, 21:30/);assert.match(visible.textContent,/Automações SES · cobertura parcial/);assert.match(visible.textContent,/Falhas na entrega/);assert.match(section.querySelector('details').textContent,/não informa se o fluxo está ligado/);
+ assert.match(wa.querySelector('.operator-labels').textContent,/Envios deste painel/);assert.match(email.querySelector('.operator-labels').textContent,/Taxas só das campanhas/);for(const card of [wa,email])assert.match(card.querySelector('[title^="Receita e pedidos"]').title,/Não representam a taxa de conversão dos envios/);
+ const section=x.document.querySelector('#automation-attention'),visible=section.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());assert.match(visible.textContent,/07\/09\/2026, 12:30/);assert.match(visible.textContent,/07\/09\/2026, 21:30/);assert.match(visible.textContent,/Automações · cobertura parcial/);assert.match(visible.textContent,/Falhas na entrega/);assert.match(section.querySelector('details').textContent,/não informa se o fluxo está ligado/);
  const selector=x.document.querySelector('#sel-grao');assert.equal(selector.getAttribute('aria-label'),'Agrupar conversões');assert.doesNotMatch(selector.title,/crm_|de-para|Grão/);
 });
 test('compact conversion note retains model, refund basis, coverage exclusion and overlapping-assistance warning',async()=>{
@@ -977,4 +977,16 @@ test('queue distinguishes unavailable native state from real schedules and clear
  assert.match(x.document.querySelector('#tab-fila tbody').textContent,/Fish future schedule/);
  assert.doesNotMatch(x.document.querySelector('#tab-fila tbody').textContent,/Aristo/);
  x.run("MARCA='aristo';CANAL='whatsapp';render()");assert.equal(x.document.querySelector('#painel-fila').hidden,true);
+});
+
+test('template ArrowRight routes to the catalog once, updates the shared URL and preserves its open draft',async()=>{
+ const x=await boot();x.run("trocaMarca('fish');GRU.abrir(GR.novo({marca:'fish',nome:'keyboard_draft',corpo:'Conteúdo ainda não salvo'}),null);abrirSecaoCRM('templates',{tab:'drafts'})");
+ const before=x.run('JSON.stringify(GRU.state.rascunho)'),editor=x.document.querySelector('#draft-editor'),body=x.document.querySelector('#d-corpo'),requests=x.calls.length;
+ assert.ok(editor);assert.ok(body);assert.equal(x.run('SEC'),'templates');assert.equal(x.document.querySelector('#control-drafts').hidden,false);
+ x.run("globalThis.keyboardTabCalls=[];const realSetTab=GC.setTab;GC.setTab=function(tab){keyboardTabCalls.push(tab);return realSetTab.call(GC,tab)}");
+ const event=new x.window.Event('keydown',{bubbles:true,cancelable:true});event.key='ArrowRight';x.document.querySelector('#control-tab-drafts').dispatchEvent(event);
+ assert.equal(event.defaultPrevented,true);assert.equal(x.run('SEC'),'templates');assert.equal(x.run('GC.activeTab'),'templates');assert.equal(x.document.querySelector('#control-templates').hidden,false);assert.equal(x.document.querySelector('#control-drafts').hidden,true);assert.equal(x.document.activeElement,x.document.querySelector('#control-tab-templates'));
+ assert.equal(x.run('JSON.stringify(keyboardTabCalls)'),JSON.stringify(['templates']));const hash=x.hashes.at(-1),params=new URLSearchParams(hash.slice(1));assert.equal(params.get('sec'),'templates');assert.equal(params.get('aba'),'templates');assert.equal(params.get('marca'),'fish');
+ assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),before);assert.equal(x.document.querySelector('#draft-editor'),editor);assert.equal(x.document.querySelector('#d-corpo'),body);assert.equal(body.value,'Conteúdo ainda não salvo');assert.equal(x.calls.length,requests);
+ const reopened=await boot(fixture(),{hash});assert.equal(reopened.run('SEC'),'templates');assert.equal(reopened.run('GC.activeTab'),'templates');assert.equal(reopened.document.querySelector('#control-templates').hidden,false);assert.equal(reopened.document.querySelector('#sec-templates').classList.contains('ativa'),true);
 });

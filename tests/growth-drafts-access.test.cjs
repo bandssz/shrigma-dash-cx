@@ -45,7 +45,7 @@ test('missing key opens a labelled inline form; preparing access never resumes t
   await s.ui.salvarServidor(draft);
   assert.equal(s.calls.length,0);assert.ok(s.$('#drafts-acesso'));assert.equal(s.focused(),s.$('#drafts-chave-escrita'));
   assert.equal(s.$('#drafts-chave-escrita').type,'password');assert.ok(s.$('#drafts-chave-escrita').hasAttribute('required'));
-  assert.equal(s.$('label[for="drafts-chave-escrita"]').textContent,'Chave de escrita de templates');
+  assert.equal(s.$('label[for="drafts-chave-escrita"]').textContent,'Chave de acesso para editar templates');
   assert.equal(s.$('#drafts-acesso button[type="submit"]').textContent,'Preparar acesso');
   s.submit();assert.equal(s.calls.length,0);assert.match(s.$('#drafts-acesso-erro').textContent,/Informe a chave/);
   const field=s.$('#drafts-chave-escrita');field.value='fixture-new-key';s.submit();
@@ -165,11 +165,60 @@ test('unknown first creation stays frozen after reload, local deletion, import o
 test('published email receipt is applied as published without claiming activation, and its review is never posted twice',async()=>{
   const s=setup({legacyKey:'fixture-existing'}),draft=s.draft();await s.ui.salvarServidor(draft);await s.ui.validarServidor(draft);await s.ui.submeter(draft);
   assert.equal(s.calls.length,3);assert.equal(draft.servidor.estado,'publicado');assert.equal(draft.servidor.provider_status,'APPROVED');
-  assert.match(s.document.body.textContent,/Publicado não é ativo/);const op=s.ui.journal().inspect().operations.at(-1);
+  assert.match(s.document.body.textContent,/Template publicado\. Nenhuma automação foi ativada/);const op=s.ui.journal().inspect().operations.at(-1);
   await s.ui.consultarOperacao(op.id);assert.equal(s.calls.length,3);assert.equal(s.ctx.drafts.lista()[0].servidor.estado,'publicado');
   for(const read of s.reads){assert.equal(new URL(read.url).searchParams.has('k'),false);assert.equal(read.options.headers['X-Template-Key'],'fixture-existing');assert.equal(read.options.redirect,'error');assert.equal(read.options.credentials,'omit');assert.equal(read.options.cache,'no-store');}
 });
 
 test('area operator saves a template only after explicit action without a second credential or persisted secret',async()=>{
  const s=setup({operatorWrite:'synthetic-crm-operator'}),d=s.draft();assert.equal(s.calls.length,0);await s.ui.salvarServidor(d);assert.equal(s.calls.length,1);assert.equal(JSON.parse(s.calls[0].options.body).k,'synthetic-crm-operator');assert.equal(s.$('#drafts-acesso'),null);assert(![...s.values.values()].join('').includes('synthetic-crm-operator'));
+});
+
+
+test('recovered pre-provider publication rejection renders human guidance and preserves the draft, envelope and operation after reload',async()=>{
+ const first=setup({legacyKey:'fixture-existing',response:Error('lost response')}),draft=first.draft();
+ Object.assign(draft,{from_email:'Fishermans <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',preheader:'Resumo preservado'});
+ draft.servidor={draft_id:'fixture-draft',version:1,estado:'validado',hash:first.ctx.apiRules.hash(first.ctx.drafts.conteudo(draft))};
+ const content=JSON.stringify(first.ctx.drafts.conteudo(draft));await first.ui.submeter(draft);
+ assert.equal(first.calls.length,1);const pending=first.ui.journal().inspect().operations[0];assert.equal(pending.phase,'unknown');
+ const body={erro:'publication_not_started',code:'PUBLICATION_CONTEXT_NOT_FORWARDED',nothing_changed:true};
+ first.operations.set(pending.id,{idempotency_key:pending.id,acao:'submeter',actor:pending.actor,hash_schema:'json-stable-sha256-v1',claim_id:'20000000-0000-4000-8000-000000000001',request_payload:pending.request_payload,request_sha256:pending.request_sha256,state:'completed',response:{status:422,body}});
+ const reload=setup({sharedValues:first.values,operations:first.operations});await reload.ui.consultarOperacao(pending.id);
+ assert.equal(reload.calls.length,0);assert.equal(reload.reads.length,1);const recovered=reload.ctx.drafts.lista()[0];
+ assert.equal(JSON.stringify(reload.ctx.drafts.conteudo(recovered)),content);assert.equal(recovered.servidor.draft_id,'fixture-draft');assert.equal(recovered.servidor.version,1);assert.equal(recovered.servidor.estado,'validado');
+ assert.equal(reload.$('#d-from-email').value,draft.from_email);assert.equal(reload.$('#d-reply-to').value,draft.reply_to);
+ assert.match(reload.document.body.textContent,/Publicação não iniciada/);assert.match(reload.document.body.textContent,/nova versão/);assert.doesNotMatch(reload.document.body.textContent,/publication_not_started/);
+ const ops=reload.ui.journal().inspect().operations;assert.equal(ops.length,1);assert.equal(ops[0].id,pending.id);assert.equal(ops[0].phase,'rejected');assert.equal(ops[0].applied,true);assert.equal(JSON.stringify(ops[0].request_payload),JSON.stringify(pending.request_payload));assert.equal(JSON.stringify(ops[0].receipt.body),JSON.stringify(body));
+ // Existing events written by the old UI are translated only for display, never rewritten.
+ recovered.servidor.eventos.push({action:'submeter',result:'422',detail:'publication_not_started'});
+ assert.ok(reload.ctx.drafts.guarda(recovered));reload.ui.abrir(recovered,recovered.id);
+ await reload.ui.consultarOperacao(pending.id);assert.equal(reload.calls.length,0);assert.equal(reload.ui.journal().inspect().operations.length,1);
+ assert.doesNotMatch(reload.document.body.textContent,/publication_not_started/);assert.match(reload.document.body.textContent,/Confira o recibo desta tentativa/);
+ assert.equal(reload.ctx.drafts.lista()[0].servidor.eventos.at(-1).detail,'publication_not_started');
+});
+
+function roleMarkup(html,role){const {document}=parseHTML('<section>'+html+'</section>');document.querySelectorAll(role==='manager'?'[data-crm-owner-only]':'[data-crm-manager-only]').forEach(n=>n.remove());return document.querySelector('section');}
+test('template presentation keeps technical mapping in owner view and preserves unknown activation',()=>{
+ const s=setup(),d=s.draft();d.servidor={draft_id:'fixture-id',version:7,estado:'publicado',mapped_in:[]};
+ const before=JSON.stringify(d);let rot=s.ctx.apiRules.rotuloEstado(d),html=s.ui.estadoHtml(d,rot);
+ assert.match(roleMarkup(html,'manager').textContent,/Publicado · sem automação vinculada/);assert.doesNotMatch(roleMarkup(html,'manager').textContent,/workflow|servidor|v7/);
+ assert.match(roleMarkup(html,'owner').textContent,/sem workflow mapeado/);
+ d.servidor.mapped_in=[{workflow_key:'private-workflow-id',mode_key:'real'}];s.ui.ctx.api.crm_operacao={workflows:[{key:'private-workflow-id',active:true,modes:[{key:'real',value:'real'}],collection:{current:false,key:'error'}}]};
+ rot=s.ctx.apiRules.rotuloEstado(d,{workflows:s.ui.workflows(),mapped_in:d.servidor.mapped_in});html=s.ui.estadoHtml(d,rot);
+ assert.equal(roleMarkup(html,'manager').textContent,'Publicado · ativação não confirmada');assert.match(roleMarkup(html,'owner').textContent,/private-workflow-id/);
+ d.servidor.mapped_in=[];assert.equal(JSON.stringify(d),before);assert.equal(s.calls.length,0);
+});
+test('history exposes human outcomes while retaining original codes and evidence only for owner',()=>{
+ const s=setup(),event={at:'2026-09-26T13:00:00Z',who:'fixture-actor-id',action:'submeter',from_version:1,to_version:1,result:'422',detail:'publication_not_started'},before=JSON.stringify(event);
+ let html=s.ui.eventoHtml(event),manager=roleMarkup(html,'manager');assert.match(manager.textContent,/Publicação não iniciada.*Confira o recibo/);assert.doesNotMatch(manager.textContent,/fixture-actor-id|422|publication_not_started/);assert.match(roleMarkup(html,'owner').textContent,/fixture-actor-id.*422/);
+ const uncertain={...event,result:'502',detail:'operação fixture-operation-id <img src=x onerror=alert(1)>'};html=s.ui.eventoHtml(uncertain);manager=roleMarkup(html,'manager');assert.match(manager.textContent,/Resultado não confirmado/);assert.doesNotMatch(manager.textContent,/fixture-operation-id|502/);assert.equal(roleMarkup(html,'owner').querySelector('img'),null);assert.match(roleMarkup(html,'owner').textContent,/fixture-operation-id/);
+ const accepted=roleMarkup(s.ui.eventoHtml({...event,result:'202'}),'manager');assert.match(accepted.textContent,/Solicitação recebida · acompanhe a aprovação/);assert.doesNotMatch(accepted.textContent,/Confirmada/);
+ assert.equal(JSON.stringify(event),before);assert.equal(s.calls.length,0);
+});
+test('operation history keeps exact receipt buttons and uncertainty without visible operation IDs for managers',()=>{
+ const s=setup(),operations=[{id:'fixture-pending-id',phase:'unknown',request_payload:{acao:'submeter'}},{id:'fixture-confirmed-id',phase:'confirmed',request_payload:{acao:'rascunho'}}],before=JSON.stringify(operations);
+ s.ui.journal=()=>({inspect:()=>({operations,blocked:false})});const html=s.ui.operacoes(),manager=roleMarkup(html,'manager');
+ assert.match(manager.textContent,/resultado incerto/);assert.match(manager.textContent,/Ausência de recibo não libera um novo envio/);assert.doesNotMatch(manager.textContent,/fixture-pending-id|fixture-confirmed-id/);
+ assert.equal(manager.querySelector('[data-template-operacao="fixture-pending-id"]').textContent,'Conferir esta operação');assert.equal(manager.querySelector('[data-template-operacao="fixture-confirmed-id"]').textContent,'Abrir recibo');assert.equal(manager.querySelector('[data-template-operacao]').hasAttribute('disabled'),false);
+ assert.match(roleMarkup(html,'owner').textContent,/fixture-pending-id/);assert.equal(JSON.stringify(operations),before);assert.equal(s.calls.length,0);
 });

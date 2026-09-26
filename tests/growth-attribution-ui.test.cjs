@@ -7,12 +7,14 @@ function boot(api=fixture(),{brand='fish',channel='email'}={}){
  const {document,window}=parseHTML('<html><body><section id="attribution-status"></section><section id="attribution-campaigns"></section></body></html>');
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused||document.body});
  const downloads=[],context=vm.createContext({document,window,Date,Intl,__downloads:downloads});
- for(const file of ['growth-table.js','growth-ui.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
+ for(const file of ['growth-table.js','growth-ui.js','growth-utm.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
  context.input=api;vm.runInContext(`GT.baixar=(name,text)=>__downloads.push({name,text});globalThis.render=()=>GA.render({api:input,marca:${JSON.stringify(brand)},ini:'2026-09-14',fim:'${day}',canal:${JSON.stringify(channel)},GUI,onModel:()=>{}});`,context);context.render();
  return {document,window,api,downloads,render:context.render,q:s=>document.querySelector(s)};
 }
 test('empty campaign search has a safe clear action that restores results and focus without changing the recorte',()=>{
  const x=boot(),before=JSON.stringify(x.api),summary=x.q('.ga-summary').textContent,input=x.q('#attribution-search');
+ assert.equal(x.q('#attribution-campaigns h2').textContent,'Campanhas no período');assert.equal(x.q('.ga-eyebrow'),null);assert.equal(x.q('.ga-subtitle'),null);
+ assert.match(x.q('.ga-context .ga-method').textContent,/Cada iniciativa reúne seus canais, disparos e segmentos/);assert.match(x.q('.ga-context .ga-method').textContent,/Assistências entre campanhas podem se sobrepor/);
  assert.equal(x.document.querySelectorAll('.ga-campaign').length,1);
  input.value='<img src=x onerror=fixture>';input.dispatchEvent(new x.window.Event('input'));
  assert.equal(x.document.querySelectorAll('.ga-campaign').length,0);assert.match(x.q('#attribution-list').textContent,/Nenhuma campanha ou segmento contém/);
@@ -45,4 +47,36 @@ test('attribution exports distinguish brands and channel while preserving the fi
  assert.match(fish.downloads[0].text,/fixture;fish;/);assert.doesNotMatch(fish.downloads[0].text,/aristo fixture;aristo/);assert.match(aristo.downloads[0].text,/aristo fixture;aristo;/);assert.doesNotMatch(aristo.downloads[0].text,/fixture;fish/);
  assert.equal(JSON.stringify(api),before);assert.equal(fish.downloads[0].text.split('\r\n')[0],aristo.downloads[0].text.split('\r\n')[0]);
  const wa=boot(api,{channel:'whatsapp'});wa.q('#attribution-export').click();assert.match(wa.downloads[0].name,/-fishermans-whatsapp-/);
+});
+
+test('campaign history displays all recorded UTM tuples in the selected brand without inferring source or altering results',()=>{
+ const api=fixture(),fish=api.crm_attribution.campaigns[0];
+ fish.utms=[{source:'fish-source-a',medium:'campanha',campaign:'fish-recorded',content:'hero',term:'dispatch-a'},{source:'fish-source-b',medium:'email',campaign:'fish-recorded',content:'footer',term:'dispatch-b'}];
+ api.crm_attribution.coverage.push({brand:'aristo',day,checked_at:day+'T13:00:00Z'});
+ api.crm_attribution.campaigns.push({...fish,marca:'aristo',emissor:'aristo',campanha_id:2,familia:'aristo-fixture',nome:'Aristo fixture',utms:[{source:'aristo-recorded',medium:'campanha',campaign:'aristo-only',content:'<script>unsafe</script>',term:''}]});
+ const before=JSON.stringify(api.crm_attribution),x=boot(api),y=boot(api,{brand:'aristo'}),fx=x.q('.ga-campaign .crm-utm'),ar=y.q('.ga-campaign .crm-utm');
+ assert.ok(fx);assert.match(fx.textContent,/UTMs registradas/);for(const value of ['fish-source-a','fish-source-b','fish-recorded','hero','footer','dispatch-a','dispatch-b'])assert.ok(fx.textContent.includes(value),value);
+ assert.doesNotMatch(fx.textContent,/aristo-recorded/);assert.match(ar.textContent,/aristo-recorded/);assert.doesNotMatch(ar.textContent,/fish-source/);assert.ok(ar.textContent.includes('<script>unsafe</script>'));assert.equal(ar.querySelector('script'),null);
+ assert.match(fx.textContent,/Links e histórico de cliques/);assert.match(fx.textContent,/15\/09\/2026, 11:00/);assert.equal(JSON.stringify(api.crm_attribution),before);
+});
+test('missing campaign history UTMs remain explicitly unavailable instead of assuming the campaign source policy',()=>{
+ for(const utms of [null,[]]){const api=fixture();api.crm_attribution.campaigns[0].utms=utms;const x=boot(api),el=x.q('.ga-campaign .crm-utm');assert.ok(el);assert.match(el.textContent,/UTMs não disponíveis nesta consulta/);assert.doesNotMatch(el.textContent,/listmonk|utm_source=listmonk/);}
+});
+
+test('campaign tracking presentation leaves other brands outside this Growth change',()=>{
+ const api=fixture();api.crm_attribution.coverage[0].brand='olivas';Object.assign(api.crm_attribution.campaigns[0],{marca:'olivas',emissor:'olivas',utms:[{source:'other',campaign:'existing'}]});const x=boot(api,{brand:'olivas'});assert.ok(x.q('.ga-campaign'));assert.equal(x.q('.ga-campaign .crm-utm'),null);
+});
+test('CRM managers retain campaign history patterns and the honest source-variable limit in both brands',()=>{
+ const page=parseHTML(fs.readFileSync(path.join(__dirname,'../growth.html'),'utf8')).document;
+ assert.equal(page.querySelector('#attribution-campaigns').closest('[data-crm-owner-only]'),null);
+ for(const brand of ['fish','aristo']){
+  const api=fixture(),campaign=api.crm_attribution.campaigns[0];api.crm_attribution.coverage[0].brand=brand;
+  Object.assign(campaign,{marca:brand,emissor:brand,utms:[{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'hero'},{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'footer'}]});
+  const before=JSON.stringify(api.crm_attribution),x=boot(api,{brand});x.document.body.dataset.crmView='manager';
+  const panel=x.q('.ga-campaign .crm-utm');assert.ok(panel);assert.equal(panel.closest('[data-crm-owner-only]'),null);panel.open=true;
+  const manager=x.q('#attribution-campaigns').cloneNode(true);manager.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());
+  const visible=manager.querySelector('.crm-utm');assert.ok(visible);assert.match(visible.textContent,/UTMs registradas/);assert.match(visible.textContent,/Variável de source/);assert.match(visible.textContent,/não informa a variável que o gerou/);
+  for(const value of [brand+'-registered',brand+'-launch','hero','footer'])assert.ok(visible.textContent.includes(value),value);
+  assert.equal(visible.querySelectorAll('.crm-utm-variants tbody tr').length,2);assert.equal(JSON.stringify(api.crm_attribution),before);assert.equal(x.downloads.length,0);
+ }
 });
