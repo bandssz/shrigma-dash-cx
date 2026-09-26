@@ -94,6 +94,7 @@
     "scripts": [
       "frescor.js",
       "config.js",
+      "area-view.js",
       "alerta-credencial.js",
       "organico-access.js",
       "organico-attribution.js",
@@ -113,6 +114,7 @@
     "scripts": [
       "frescor.js",
       "config.js",
+      "area-view.js",
       "influs-access.js",
       "creators-meta.js",
       "creators-pilot-ui.js",

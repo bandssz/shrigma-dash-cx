@@ -66,15 +66,12 @@ details.ressalvas[open]>summary{margin-bottom:6px}
 details.ressalvas ul{margin:6px 0 0 18px;padding:0;line-height:1.55;color:var(--mudo)}
 
 /* Conferência com a Shopify */
-body.sec-conferencia #area-kpis,body.sec-conferencia #faixa-alertas,body.sec-conferencia #faixa-conferencia{display:none}
-#sec-conferencia:not(.ativa){display:none}#sec-conferencia.ativa{display:block}
+body.sec-diagnostico #area-kpis,body.sec-diagnostico #faixa-alertas{display:none}
+#sec-diagnostico:not(.ativa){display:none}#sec-diagnostico.ativa{display:block}
 #area-conferencia{display:grid;gap:18px;min-width:0}#area-conferencia>*{min-width:0}
 #area-conferencia .rolagem{overflow-x:auto;max-width:100%}
 .conf-tabela td.num,.conf-saude td.tabn{white-space:nowrap}
 .conf-zero{color:var(--mudo);font-weight:400}
-#faixa-conferencia:empty{display:none}
-.conf-faixa{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;
-  border:1px solid var(--borda);border-left:3px solid var(--marca);border-radius:4px;background:#fff;font-size:12.5px;line-height:1.6}
 .conf-leitura{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}
 .conf-leitura div{padding:10px 12px;border:1px solid var(--borda);border-radius:4px;background:var(--card-2);font-size:12.5px;line-height:1.5}
 .conf-leitura strong{display:block;margin-bottom:3px;color:var(--marca-texto)}
@@ -93,3 +90,23 @@ body.sec-conferencia #area-kpis,body.sec-conferencia #faixa-alertas,body.sec-con
 .conf-tabela th .mini{font-weight:400}
 .conf-det{max-width:360px;overflow-wrap:anywhere}
 @media(max-width:720px){.conf-leitura{grid-template-columns:1fr}.conf-marca dl{grid-template-columns:1fr 1fr}}
+
+/* Visão por papel (mesmo contrato do CRM). O gestor não vê diagnóstico técnico. */
+:is(body[data-panel=influs],body[data-panel=organico]):not([data-area-view=owner]) [data-area-owner-only],
+:is(body[data-panel=influs],body[data-panel=organico]):not([data-area-view=owner]) #aviso-cred{display:none!important}
+#area-view-controls[hidden]{display:none!important}
+.area-view{display:flex;flex-direction:column;gap:4px;padding:0 10px;font:500 11.5px/1.4 var(--ui);color:var(--mudo)}
+.area-view select{font-size:12.5px;min-height:32px;background:#fff}
+@media(max-width:1023px){.area-view{flex-direction:row;align-items:center;padding:0}}
+
+/* Leitura mais limpa: KPIs em duas linhas de quatro, avisos num bloco só, ações secundárias discretas. */
+@media(min-width:1100px){body[data-panel=influs] #area-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  body[data-panel=influs] #area-kpis .kpi:nth-child(4n){border-right:0}
+  body[data-panel=influs] #area-kpis .kpi:nth-child(-n+4){border-bottom:1px solid var(--borda)}}
+.avisos{border:1px solid #eadfbd;border-left:3px solid #b38b31;background:#fffcf4;color:#5f4a1c;border-radius:4px;padding:10px 14px;font-size:12.5px;line-height:1.5}
+.avisos>strong{display:block;margin-bottom:4px;color:#715720}
+.avisos ul{margin:0;padding-left:18px;display:grid;gap:4px}
+#influ-access .influ-access-toolbar .btn,.organico-acesso-bar .btn{min-height:30px;padding:6px 11px;font-size:12px;background:#fff;color:var(--texto);border:1px solid var(--borda-forte)}
+body[data-panel=organico] #aviso-carga:empty,body[data-panel=organico] #faixa-alertas:empty{display:none}
+body[data-panel=influs] .i-alerta ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+body[data-panel=influs] .i-alerta .btn{min-height:28px;padding:4px 10px;font-size:11.5px;margin-left:6px}
