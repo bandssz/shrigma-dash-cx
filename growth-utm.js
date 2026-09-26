@@ -39,17 +39,25 @@ const GUT=(()=>{
   if(template.channel==='email')return String(template.components?.body_html||'');
   return (Array.isArray(template.components)?template.components:[]).filter(c=>c?.type==='BUTTONS').flatMap(c=>(c.buttons||[]).filter(b=>b?.type==='URL'&&typeof b.url==='string').map(b=>b.url)).join('\n');
  }
- function render({rows=[],label='UTMs e origem',evidence='',empty='UTMs não disponíveis nesta consulta.',mode='content',dynamic=[],open=false,key=''}={}){
+ function render({rows=[],label='UTMs e origem',evidence='',empty='UTMs não disponíveis nesta consulta.',mode='content',dynamic=[],open=false,key='',sourceExpression=''}={}){
   const unique=[];const seen=new Set();
   for(const input of Array.isArray(rows)?rows:[]){if(!input||typeof input!=='object')continue;const row=Object.fromEntries(keys.map(k=>[k,values(input[k])]));if(!keys.some(k=>row[k].length))continue;const sig=JSON.stringify(row);if(!seen.has(sig)){unique.push(row);seen.add(sig);}}
-  const blocks=unique.map((row,index)=>{
-   const source=row.source,expressions=source.flatMap(v=>v.match(/\{\{[\s\S]*?\}\}/g)||[]);
-   const sourceRule=mode==='registered'?'A consulta registra o valor; não informa a variável que o gerou.':!source.length?'utm_source não informado no conteúdo.':expressions.length?[...new Set(expressions)].join(' · '):rows?.conditional?'Valor fixo em um dos caminhos do template':'Valor fixo no conteúdo';
-   const query=keys.flatMap(k=>row[k].map(v=>'utm_'+k+'='+v)).join('&');
-   return `<div class="crm-utm-pattern">${unique.length>1?`<strong>Padrão ${index+1}</strong>`:''}<dl>${keys.map(k=>`<div><dt>${labels[k]}</dt><dd>${row[k].length?row[k].map(v=>`<code>${esc(v)}</code>`).join(' · '):'<span>Não informado</span>'}</dd></div>`).join('')}<div><dt>Variável de source</dt><dd>${esc(sourceRule)}</dd></div></dl><code class="crm-utm-query">${esc(query)}</code></div>`;
-  }).join('');
+  const source=unique.flatMap(row=>row.source),expressions=source.flatMap(v=>v.match(/\{\{[\s\S]*?\}\}/g)||[]);
+  const sourceRule=sourceExpression|| (mode==='registered'?'A consulta registra o valor; não informa a variável que o gerou.':!source.length?'utm_source não informado no conteúdo.':expressions.length?[...new Set(expressions)].join(' · '):rows?.conditional?'Valor fixo em um dos caminhos do template':unique.length>1?'Valores fixos nos padrões do conteúdo':'Valor fixo no conteúdo');
+  const value=items=>items.length?items.map(v=>`<code>${esc(v)}</code>`).join(' · '):'<span>Não informado</span>';
+  const query=row=>keys.flatMap(k=>row[k].map(v=>'utm_'+k+'='+v)).join('&');
+  const field=(k,row)=>`<div data-utm-field="${k}"><dt>${labels[k]}</dt><dd>${value(row[k])}</dd></div>`;
+  let blocks='';
+  if(unique.length===1){
+   const row=unique[0];blocks=`<div class="crm-utm-pattern"><dl>${keys.map(k=>field(k,row)).join('')}<div><dt>Variável de source</dt><dd>${esc(sourceRule)}</dd></div></dl><code class="crm-utm-query">${esc(query(row))}</code></div>`;
+  }else if(unique.length>1){
+   // Only common fields collapse. Every remaining row is an original tuple;
+   // combining distinct values into a Cartesian product would invent patterns.
+   const common=keys.filter(k=>unique.every(row=>JSON.stringify(row[k])===JSON.stringify(unique[0][k]))),varying=keys.filter(k=>!common.includes(k));
+   blocks=`<div class="crm-utm-pattern crm-utm-group"><dl>${common.map(k=>field(k,unique[0])).join('')}<div><dt>Variável de source</dt><dd>${esc(sourceRule)}</dd></div></dl><div class="crm-utm-scroll" role="region" aria-label="Diferenças entre os padrões UTM" tabindex="0"><table class="crm-utm-variants"><caption>${unique.length} padrões · diferenças</caption><thead><tr><th scope="col">Padrão</th>${varying.map(k=>`<th scope="col" data-utm-field="${k}">${labels[k]}</th>`).join('')}</tr></thead><tbody>${unique.map((row,index)=>`<tr data-utm-pattern="${index+1}"><th scope="row">${index+1}</th>${varying.map(k=>`<td data-utm-value="${k}">${value(row[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div><details class="crm-utm-complete"><summary>Parâmetros completos</summary><ol>${unique.map((row,index)=>`<li data-utm-pattern="${index+1}"><strong>Padrão ${index+1}</strong><code class="crm-utm-query">${esc(query(row))}</code></li>`).join('')}</ol></details></div>`;
+  }
   const variables=[...new Set((Array.isArray(dynamic)?dynamic:[]).filter(x=>typeof x==='string'))];
-  return `<details class="crm-utm"${open?' open':''}${key?` data-utm-key="${esc(key)}"`:''}><summary>${esc(label)}</summary>${evidence?`<div class="crm-utm-evidence">${esc(evidence)}</div>`:''}${rows?.conditional?'<div class="crm-utm-evidence">O padrão varia conforme o caminho do template.</div>':''}${rows?.unresolvedConditional?'<p class="crm-utm-empty">Há UTMs montadas por condições. Confira as expressões no conteúdo do template; os valores não podem ser reduzidos a um padrão fixo.</p>':''}${blocks||(!rows?.unresolvedConditional?`<p class="crm-utm-empty">${esc(empty)}</p>`:'')}${variables.length?`<div class="crm-utm-dynamic">Endereço preenchido no disparo: ${variables.map(v=>`<code>${esc(v)}</code>`).join(' · ')}. As UTMs contidas nesse endereço dependem do evento.</div>`:''}</details>`;
+  return `<details class="crm-utm"${open?' open':''}${key?` data-utm-key="${esc(key)}"`:''}><summary>${esc(label)}</summary>${evidence?`<div class="crm-utm-evidence">${esc(evidence)}</div>`:''}${rows?.conditional?'<div class="crm-utm-evidence">O padrão varia conforme o caminho do template.</div>':''}${rows?.unresolvedConditional?'<p class="crm-utm-empty">Há UTMs montadas por condições. Confira as expressões no conteúdo do template; os valores não podem ser reduzidos a um padrão fixo.</p>':''}${blocks||(!rows?.unresolvedConditional?`<p class="crm-utm-empty">${esc(empty)}</p>`:'')}${!unique.length&&sourceExpression?`<div class="crm-utm-source-rule">Variável de source: ${esc(sourceExpression)}</div>`:''}${variables.length?`<div class="crm-utm-dynamic">Endereço preenchido no disparo: ${variables.map(v=>`<code>${esc(v)}</code>`).join(' · ')}. As UTMs contidas nesse endereço dependem do evento.</div>`:''}</details>`;
  }
  return {fromContent,dynamicFields,templateContent,render};
 })();
