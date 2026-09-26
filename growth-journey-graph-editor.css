@@ -1,0 +1,32 @@
+/* Candidate only. Not included in a panel or asset manifest. */
+.jge-editor{--jge-ink:#203b50;--jge-border:#dce3e7;max-width:1100px;color:#243540;font:15px/1.5 system-ui,sans-serif}
+.jge-editor *{box-sizing:border-box}
+.jge-editor h2,.jge-editor h3,.jge-editor p{margin:0}
+.jge-editor h2{font-size:23px;font-weight:650}.jge-editor h3{font-size:17px;font-weight:650}
+.jge-heading,.jge-node>header{display:flex;justify-content:space-between;align-items:start;gap:16px;margin-bottom:16px}
+.jge-heading p,.jge-heading>span,.jge-note,.jge-editor [data-dirty]{color:#536571;font-size:13px}
+.jge-editor .jge-safety{padding:12px 0;border-bottom:1px solid var(--jge-border);margin-bottom:20px}
+.jge-editor .jge-alert{padding:14px;border:1px solid #b76715;background:#fff7e8;color:#653800;margin-bottom:20px}
+.jge-field{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:13px;font-weight:550}
+.jge-editor input:not([type=checkbox]),.jge-editor select{font:inherit;font-weight:400;width:100%;min-height:38px;padding:8px 10px;border:1px solid #bac7cf;border-radius:5px;color:inherit;background:white}
+.jge-editor button{min-height:36px;padding:7px 12px;border:1px solid #b9c6ce;border-radius:5px;background:white;color:var(--jge-ink);font:inherit;font-size:13px;cursor:pointer}
+.jge-editor button:hover:enabled{background:#f1f5f7}.jge-editor button:disabled{cursor:not-allowed;color:#637480;background:#f5f7f8}
+.jge-editor :is(button,input,select,summary):focus-visible{outline:3px solid #24729b;outline-offset:2px}
+.jge-add,.jge-actions,.jge-inline{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+.jge-add{margin:20px 0}.jge-add>span{font-size:13px;color:#536571}.jge-inline>.jge-field{flex:1;min-width:160px}
+.jge-nodes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.jge-node{padding:20px;border:1px solid var(--jge-border);border-radius:7px;background:#fff;display:flex;flex-direction:column;gap:14px}
+.jge-node>header{margin:0}.jge-node>header button{font-size:12px;min-height:30px}
+.jge-expression{padding:12px;border-left:2px solid #c6d4dd;display:flex;flex-direction:column;gap:10px;background:#f9fbfc}
+.jge-expression .jge-expression{background:#fff}.jge-remove{align-self:start}
+.jge-editor details{font-size:13px}.jge-editor summary{cursor:pointer;font-weight:600;padding:8px 0}
+.jge-editor details p{color:#536571;margin:4px 0 12px}
+.jge-validation,.jge-review,.jge-result{margin:20px 0;padding:16px;border:1px solid var(--jge-border);border-radius:5px}
+.jge-validation ul,.jge-result ol{margin:8px 0 0;padding-left:22px}.jge-result li{padding:5px 0}
+.jge-scenario{margin:20px 0}.jge-scenario>.jge-field{max-width:320px}
+.jge-scenario-field{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center;margin:12px 0;padding:12px 0;border-bottom:1px solid var(--jge-border)}
+.jge-scenario-field input[type=checkbox]{width:17px;height:17px;vertical-align:middle;margin:0 6px 0 0}
+.jge-actions{margin:20px 0 10px}.jge-editor [data-notice]{margin-top:10px;font-size:14px}
+.jge-confirm{position:fixed;z-index:1000;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));padding:24px;background:#fff;border:2px solid #536571;border-radius:8px;box-shadow:0 0 0 100vmax #152c3e66}
+.jge-confirm p{margin:14px 0}.jge-confirm button{margin:4px 8px 0 0}
+@media(max-width:760px){.jge-nodes{grid-template-columns:1fr}.jge-heading{flex-wrap:wrap}.jge-node{padding:16px}.jge-scenario-field{grid-template-columns:1fr}.jge-expression{padding:9px}.jge-actions{align-items:stretch}.jge-actions button{flex:1 1 150px}}
