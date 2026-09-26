@@ -45,3 +45,20 @@ O webhook da Meta já grava todo evento em `cx_social_evento`, incluindo os come
 - deixa pendente o que ainda pode casar (post desconhecido por 7 dias, resposta sem pai por 2 dias).
 
 Não usa token. A função ainda **não foi instalada nem ligada** ao workflow de comentários: isso depende de aprovação. Teste: `tests/organico-webhook-comentarios-postgres.cjs` (PGlite, eventos sintéticos).
+
+## Prévia dos posts (26/09/2026)
+
+O Post a post mostra a miniatura de cada peça. Ela vem de um workflow próprio do Orgânico, **"Orgânico — Prévia dos posts (diário 05:55, Instagram)"**, gerado por `previa-posts.cjs`:
+
+- **Leitura:** lê todas as peças orgânicas do Instagram em `cx_social_objetos` (até 600) e pede à Graph `media_type,media_url,thumbnail_url`. Usa a mesma credencial "Meta WA — token permanente (Bearer)" e não guarda os dados de execução bem-sucedida.
+- **Imagem gravada:**
+  - vídeo e reels: a capa (`thumbnail_url`);
+  - imagem e carrossel: `media_url`;
+  - só é aceita URL https da CDN da Meta (`cdninstagram.com`, `fbcdn.net`).
+- **Tabela:** `cx_social_post_midia`, uma linha por post. Quando a Meta dá erro, a linha vira `ok=false` e a URL anterior é mantida, mas não é renovada.
+- **Painel:** o cache de 10 min (`Orgânico — API cache`) anexa `cx_post_midia` ao payload. O nó é `Prévias dos posts`, com `alwaysOutputData` ligado; se falhar, o cache sai sem prévia. Só entra URL verificada nas últimas 72 h, porque a URL da CDN expira.
+- **Quando não há prévia** (leitura ao vivo sem cache, URL expirada ou post removido): a célula mostra "sem prévia" e o link para o post.
+
+O coletor de posts, a API de leitura do CX e `cx_social_coleta_saude` não foram alterados.
+
+**Sentimento:** o sentimento dos comentários (coluna "Negativos" e "comentários negativos" no KPI de quedas) saiu da tela até o `openai_sentimento` funcionar. Ele segue parado pelo 429 da OpenAI. A coleta e a fila de comentários não mudaram.

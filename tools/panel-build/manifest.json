@@ -32,6 +32,7 @@
       "growth-page.css",
       "growth-manager.css",
       "panel-ui.css",
+      "growth-audience.css",
       "growth-workspace.css",
       "growth-ab-experiment.css"
     ],
@@ -69,6 +70,7 @@
       "growth-ui.js",
       "growth-pix.js",
       "growth-ses.js",
+      "growth-audience.js",
       "growth-control.js",
       "whatsapp-template-contract.js",
       "growth-drafts.js",
@@ -91,11 +93,13 @@
     "css": [
       "styles.css",
       "organico-page.css",
-      "panel-ui.css"
+      "panel-ui.css",
+      "area-brand.css"
     ],
     "scripts": [
       "frescor.js",
       "config.js",
+      "area-view.js",
       "alerta-credencial.js",
       "organico-access.js",
       "organico-attribution.js",
@@ -109,14 +113,18 @@
       "styles.css",
       "influs-page.css",
       "panel-ui.css",
-      "creators-pilot.css"
+      "creators-pilot.css",
+      "area-brand.css",
+      "tts-visual.css"
     ],
     "scripts": [
       "frescor.js",
       "config.js",
+      "area-view.js",
       "influs-access.js",
       "creators-meta.js",
       "creators-pilot-ui.js",
+      "influs-conferencia.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",
       "influs-tts.js",

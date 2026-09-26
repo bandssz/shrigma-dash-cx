@@ -62,7 +62,11 @@ const GTA={
     const get=params=>{const q=new URLSearchParams(params);return chama(`${endpoint}?${q}`,{headers:{Authorization:'Bearer '+(chaveLeitura||'')},cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
     const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
     return {
-      listar:marca=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{})}),
+      listar:(marca,canal)=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{}),...(['email','whatsapp'].includes(canal)?{canal}:{})}),
+      emailCapacidades:()=>get({acao:'email_capacidades'}),
+      // Native rendering is read-only. This path never uses the write key, a
+      // submission identity or a send action, and never creates a local draft.
+      emailPrevia:rascunho=>chama(endpoint,{method:'POST',headers:{Authorization:'Bearer '+(chaveLeitura||''),'Content-Type':'application/json'},body:JSON.stringify({acao:'email_previa',rascunho}),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
       historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
       submissao:submission_id=>get({acao:'submissao',submission_id}),
       operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),

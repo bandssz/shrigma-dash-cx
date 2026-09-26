@@ -32,7 +32,7 @@ async function boot(payload=fixture(),opts={}){
  Object.defineProperty(brandDialog,'open',{get(){return this.hasAttribute('open');}});
  brandDialog.showModal=function(){this.setAttribute('open','');};brandDialog.close=function(){this.removeAttribute('open');this.onclose?.();};
  const store=new Map(opts.noReadKey?[]:[['shrigma_k_growth','synthetic-test-key']]);
- const requests=[],downloads=[],hashes=[],calls=[],uiActions=[];let response=payload,code=200;
+ const requests=[],downloads=[],hashes=[],calls=[],uiActions=[],intervals=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
  const heldLocks=new Set(),locks={request:async(key,opts,fn)=>{if(heldLocks.has(key))return fn(null);heldLocks.add(key);try{return await fn({name:key});}finally{heldLocks.delete(key);}}};
  const cryptoProvider=opts.cryptoProvider||webcrypto;
@@ -41,7 +41,7 @@ async function boot(payload=fixture(),opts={}){
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
- addEventListener:()=>{},setInterval:()=>0,clearInterval:()=>{},setTimeout,clearTimeout,
+ addEventListener:()=>{},setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length;},clearInterval:()=>{},setTimeout,clearTimeout,
  fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}
   // The 10-minute cache serves the same payload stamped with its generation time; the panel reads it first and only falls back to the live API on a miss.
   const body=structuredClone(response);if(typeof url==='string'&&url.includes('cx-dash-cache')&&body&&typeof body==='object'&&!Array.isArray(body))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();
@@ -61,7 +61,7 @@ async function boot(payload=fixture(),opts={}){
  // Exportação: captura o CSV em vez de criar um download real.
  run('GT.baixar=(nome,texto)=>{__downloads.push({nome,texto});return true;}');
  for(let i=0;i<10&&run('LOADING');i++)await new Promise(setImmediate);
- return {document,window,run,requests,calls,store,downloads,hashes,uiActions,setResponse:(r,status=200)=>{response=r;code=status;}};
+ return {document,window,run,requests,calls,store,downloads,hashes,uiActions,intervals,setResponse:(r,status=200)=>{response=r;code=status;}};
 }
 test('front completo carrega, filtra canal/marca e mantém sombra fora dos disparos',async()=>{
  const x=await boot();assert.equal(x.document.querySelector('#load-state').hidden,true);
@@ -571,7 +571,7 @@ test('ciclo completo: salvar no servidor → alterar bloqueia → validar (422 e
  assert.match(p1.body.idempotency_key,/^[0-9a-f-]{36}$/);assert.equal(p1.headers['Idempotency-Key'],p1.body.idempotency_key);
  assert.deepEqual(Object.keys(p1.body.rascunho).sort(),['assunto','botoes','cabecalho','canal','categoria','corpo','exemplos','idioma','marca','nome','peca','rodape']);
  assert.equal(p1.body.rascunho.corpo,'Olá {{1}}, seu pedido {{2}} saiu.');
- assert.match(root().textContent,/salvo no servidor como v1/);assert.match(root().querySelector('.draft-card .control-badge').textContent,/Rascunho no servidor · não submetido/);
+ assert.match(root().textContent,/salvo no CRM · versão 1/);assert.match(root().querySelector('.draft-card .control-badge').textContent,/Rascunho no servidor · não submetido/);
  assert.equal(root().querySelector('.draft-steps [data-st="atual"]').dataset.passo,'rascunho');
  assert.ok(root().querySelector('#d-validar'));assert.equal(root().querySelector('#d-submeter'),null); // valida antes de submeter
  assert.match(x.store.get('shrigma_growth_rascunhos'),/d_01J0000000000000000000EX/);assert.doesNotMatch(x.store.get('shrigma_growth_rascunhos'),/ESCRITA-TESTE/);
@@ -637,7 +637,7 @@ test('409/502 without a durable receipt stay frozen; a later exact GET recovers 
   if(status===502){
    api.confirma(sent.body,201,{draft_id:'d_recovered',version:1,estado:'rascunho',salvo_em:'2026-09-11T12:00:00Z'});
    await clickAction(x,root().querySelector('[data-template-operacao]'),'consultarOperacao');
-   assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'d_recovered');assert.match(root().textContent,/salvo no servidor como v1/);
+   assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'d_recovered');assert.match(root().textContent,/salvo no CRM · versão 1/);
    assert.equal(api.pedidos.filter(p=>p.acao==='rascunho').length,1);assert.equal(x.run('GRU.journal().inspect().blocked'),false);
   }
   for(const call of api.pedidos.filter(p=>p.acao==='operacao')){assert.equal(call.headers['X-Template-Key'],'ESCRITA-TESTE');assert.ok(!call.url.includes('ESCRITA-TESTE'));}
@@ -941,10 +941,13 @@ test('replication blocks pending source, invalidates preview after edits, and de
  x.run(`GR.guarda({...GR.lista().find(r=>r.id===${JSON.stringify(id)}),corpo:'Alterado em outra aba'});GERU.session.confirmed=true;GERU.create()`);
  assert.equal(x.run('GR.lista().length'),1);assert.match(x.document.querySelector('#email-replication').textContent,/origem ou uma operação mudou/);x.document.querySelector('#rep-cancel').click();assert.equal(x.document.querySelector('#email-replication'),null);
 });
-test('Base uses plain segment labels and describes recorded frequency and historical average without changing values',async()=>{
- const p=fixture();p.crm_regra_galho=[{marca:'fish',galho:'C1',rotulo:'Clientes recorrentes',fluxo:'vip_campeao',cap_dias:30},{marca:'aristo',galho:'C2',rotulo:'Outro segmento',fluxo:null,cap_dias:null}];p.crm_galho=[{marca:'fish',galho:'C1',dia:'2026-09-07',pessoas:12,ltv_medio:125.5,entraram:2,sairam:1}];
- const before=JSON.stringify(p),x=await boot(p),base=x.document.querySelector('#sec-base');assert.match(base.textContent,/Segmentos da base/);assert.equal(x.document.querySelector('#arv-rot').textContent,'2 segmentos');assert.match(base.textContent,/Clientes VIP · Frequência cadastrada · 30 dias/);assert.match(base.textContent,/Valor médio comprado · R\$\s*126/);assert.match(base.textContent,/Sem automação vinculada · Frequência não informada/);assert.doesNotMatch(base.textContent,/cap 30d|vip_campeao|LTV|undefined/);
- assert.equal(base.querySelector('[title^="Média do total histórico"]').title,'Média do total histórico de compras dos clientes deste segmento com valor informado, em reais.');assert.match(base.querySelector('[title^="Frequência registrada"]').title,/regra deste segmento/);assert.equal(JSON.stringify(p),before);assert.deepEqual([...base.querySelectorAll('.num')].map(x=>x.textContent),['12','—']);
+test('Audience integrates measured brand segments, sorting and refresh without changing source data',async()=>{
+ const p=fixture();p.crm_regra_galho=[{marca:'fish',galho:'C1',rotulo:'Clientes recorrentes'},{marca:'aristo',galho:'C2',rotulo:'Outro segmento'}];p.crm_galho=[{marca:'fish',galho:'C1',dia:'2026-09-07',pessoas:12}];
+ const before=JSON.stringify(p),x=await boot(p),base=x.document.querySelector('#sec-base');assert.match(base.textContent,/Públicos da marca/);assert.equal(x.document.querySelector('#n-arv').textContent,'2');
+ assert.match(base.textContent,/Clientes recorrentes/);assert.match(base.textContent,/Outro segmento/);assert.match(base.textContent,/Sem contagem/);assert.equal(base.querySelectorAll('tbody tr').length,2);assert.equal(JSON.stringify(p),before);
+ const search=base.querySelector('[data-ga-search]');search.value='recorrentes';search.dispatchEvent(new x.window.Event('input'));assert.equal(base.querySelectorAll('tbody tr').length,1);
+ x.run('MARCA="aristo";render()');assert.match(base.textContent,/Nenhum público corresponde/);assert.doesNotMatch(base.querySelector('[data-ga-result]').textContent,/Clientes recorrentes/);
+ assert.equal(base.querySelector('[data-ga-refresh]').classList.contains('sec'),false);
 });
 test('overview labels keep coverage, source clocks and occurrence warnings visible without duplicate card paragraphs',async()=>{
  const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';const x=await boot(p),wa=x.document.querySelector('[data-channel-card="whatsapp"]'),email=x.document.querySelector('[data-channel-card="email"]');
@@ -989,4 +992,92 @@ test('template ArrowRight routes to the catalog once, updates the shared URL and
  assert.equal(x.run('JSON.stringify(keyboardTabCalls)'),JSON.stringify(['templates']));const hash=x.hashes.at(-1),params=new URLSearchParams(hash.slice(1));assert.equal(params.get('sec'),'templates');assert.equal(params.get('aba'),'templates');assert.equal(params.get('marca'),'fish');
  assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),before);assert.equal(x.document.querySelector('#draft-editor'),editor);assert.equal(x.document.querySelector('#d-corpo'),body);assert.equal(body.value,'Conteúdo ainda não salvo');assert.equal(x.calls.length,requests);
  const reopened=await boot(fixture(),{hash});assert.equal(reopened.run('SEC'),'templates');assert.equal(reopened.run('GC.activeTab'),'templates');assert.equal(reopened.document.querySelector('#control-templates').hidden,false);assert.equal(reopened.document.querySelector('#sec-templates').classList.contains('ativa'),true);
+});
+
+test('CRM sweep: email results remain available with attribution v2 and explain a WhatsApp-only filter',async()=>{
+ const p=fixture();p.crm_attribution={schema_version:2,daily:[],coverage:[],campaigns:[],quality:[]};const x=await boot(p);
+ for(const brand of ['fish','aristo']){
+  x.run(`trocaMarca('${brand}');abrirSecaoCRM('resultados');CRMWorkspace.setReport('email');setCanal('email')`);
+  assert.equal(x.document.querySelector('#crm-report-email').hidden,false);
+  assert.equal(x.document.querySelector('#campaign-email-block').hidden,false);
+  assert.ok(x.document.querySelector('#tab-camp tbody').textContent.trim());
+  x.run("setCanal('whatsapp')");
+  const empty=x.document.querySelector('#campaign-email-channel-empty');assert.ok(empty);assert.equal(empty.hidden,false);
+  empty.querySelector('button').click();assert.equal(x.run('CANAL'),'email');assert.equal(empty.hidden,true);assert.equal(x.document.querySelector('#campaign-email-block').hidden,false);
+ }
+});
+test('CRM sweep: invalid dates restore the applied period with feedback; valid dates and presets clear it',async()=>{
+ const x=await boot(),q=s=>x.document.querySelector(s),before=x.run('JSON.stringify(PER)'),metric=q('#area-kpis').textContent,requests=x.calls.length;
+ for(const [start,end] of [['2099-01-01','2099-01-02'],['2026-09-07','2026-09-01'],['','2026-09-07'],['2026-02-30','2026-09-07']]){
+  q('#d-ini').value=start;q('#d-fim').value=end;q('#d-fim').dispatchEvent(new x.window.Event('change'));
+  const error=q('#crm-period-error');assert.ok(error);assert.equal(error.hidden,false);assert.match(error.textContent,/Período não aplicado/);
+  assert.equal(x.run('JSON.stringify(PER)'),before);assert.equal(q('#d-ini').value,x.run('PER.ini'));assert.equal(q('#d-fim').value,x.run('PER.fim'));assert.equal(q('#area-kpis').textContent,metric);
+ }
+ assert.equal(x.calls.length,requests);
+ q('#d-ini').value='2026-09-01';q('#d-fim').value='2026-09-06';q('#d-fim').dispatchEvent(new x.window.Event('change'));
+ assert.equal(x.run('PER.fim'),'2026-09-06');assert.equal(q('#crm-period-error').hidden,true);
+ q('#d-fim').value='2099-01-01';q('#d-fim').dispatchEvent(new x.window.Event('change'));q('#presets [data-p="7"]').click();assert.equal(q('#crm-period-error').hidden,true);
+});
+test('CRM sweep: attempt lookup is unavailable without a pending receipt and remains available for recovery',async()=>{
+ const x=await boot(),button=x.document.querySelector('#ab-consultar');x.run('sincronizaTestesAB()');assert.equal(button.disabled,true);
+ x.run(`AB_JOURNAL={inspect:()=>({blocked:false,operations:[{phase:'uncertain',server:{access:'crm_operator'},expected:{acao:'criar',teste:{teste_id:'synthetic-pending',marca:'fish'}}}]})};sincronizaTestesAB()`);
+ assert.equal(button.disabled,false);assert.equal(button.hidden,false);assert.match(x.document.querySelector('#ab-status').textContent,/aguardando confirmação/);
+ x.run(`AB_JOURNAL={inspect:()=>({blocked:false,operations:[]})};sincronizaTestesAB()`);assert.equal(button.disabled,true);
+});
+test('CRM sweep: scheduled campaign time is explicitly Brasilia regardless of the device timezone',async()=>{
+ const p=fixture();p.crm_campanha=[{marca:'fish',canal:'email',tipo:'agendada',nome:'Synthetic schedule',enviado_em:'2026-09-08T21:00:00Z',enviados:0}];
+ const x=await boot(p);x.run("trocaMarca('fish')");const row=x.document.querySelector('#tab-fila tbody tr');assert.ok(row);assert.match(row.textContent,/18:00/);assert.match(row.textContent,/Brasília/);
+});
+
+/* CRM-27: route-driven journey loading. Every request below is intercepted locally. */
+const lazyJourneyEndpoint='https://example.invalid/crm-journeys';
+function lazyJourneyFixture(){
+ const p=fixture();p.capabilities={workflows:{editor:true},endpoints:{templates:lazyJourneyEndpoint}};return p;
+}
+function lazyJourneyFlows(){return ['fish','aristo'].map(brand=>{
+ const step={key:'email-30min',name:'E-mail 30 min',channel:'email',flow:'carrinho',piece:'carrinho-30min',wait_min:30,enabled:true,template_id:'1',required_variables:[],variables:[]};
+ return {key:brand+':carrinho',brand,name:'Carrinho '+brand,trigger:'Evento sintético',version:2,published_version:2,enabled:true,runtime_ready:true,available_steps:[step],draft:{name:'Carrinho '+brand,steps:[{...step}]}};
+});}
+const lazyResponse=body=>({ok:true,status:200,json:async()=>structuredClone(body)});
+const journeyReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')==='fluxos_listar');
+const templateReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')==='listar');
+async function settleJourneys(x){for(let i=0;i<25;i++){await new Promise(setImmediate);if(!x.run('GB.state.busy'))return;}assert.fail('Journey read did not settle');}
+function lazyFetch(url){const action=new URL(url).searchParams.get('acao');if(action==='fluxos_listar')return lazyResponse({flows:lazyJourneyFlows()});if(action==='listar')return lazyResponse({templates:[]});}
+
+test('CRM-27: Início and hidden timer read zero journeys; first opening reads once, pending and loaded reentry never duplicate it',async()=>{
+ let release;
+ const x=await boot(lazyJourneyFixture(),{fetchMock:url=>new URL(url).searchParams.get('acao')==='fluxos_listar'?new Promise(resolve=>release=()=>resolve(lazyResponse({flows:lazyJourneyFlows()}))):lazyFetch(url)});
+ assert.equal(journeyReads(x).length,0);assert.equal(templateReads(x).length,0);
+ const root=x.document.querySelector('#control-fluxos');assert.equal(root.children.length,0);
+ const tick=x.intervals.find(i=>i.ms===30000).fn;tick();assert.equal(root.children.length,0);assert.equal(journeyReads(x).length,0);
+ x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(journeyReads(x).length,0);
+ x.document.querySelector('[data-s="regua"]').click();assert.equal(x.run('GC.activeTab'),'fluxos');assert.equal(journeyReads(x).length,1);
+ x.document.querySelector('[data-s="visao"]').click();tick();x.document.querySelector('[data-s="regua"]').click();assert.equal(journeyReads(x).length,1);
+ release();await settleJourneys(x);assert.equal(x.run('GB.state.selected'),'fish:carrinho');assert.equal(templateReads(x).length,1);
+ x.document.querySelector('[data-s="visao"]').click();const child=root.firstElementChild;tick();assert.strictEqual(root.firstElementChild,child);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);
+ assert.equal(journeyReads(x).length,1);assert.equal(templateReads(x).length,1);assert.ok(x.calls.every(c=>!c.init.method||c.init.method==='GET'));
+});
+
+test('CRM-27: direct journey links load once; hidden brand changes select the right cached journey and dirty state still blocks changes',async()=>{
+ const x=await boot(lazyJourneyFixture(),{hash:'#marca=fish&sec=regua&aba=fluxos',fetchMock:lazyFetch});await settleJourneys(x);
+ assert.equal(journeyReads(x).length,1);assert.equal(x.run('GB.state.selected'),'fish:carrinho');
+ x.document.querySelector('[data-s="visao"]').click();x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'aristo');assert.equal(journeyReads(x).length,1);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);assert.equal(x.run('GB.state.selected'),'aristo:carrinho');assert.equal(x.run('GB.ctx.marca'),'aristo');
+ x.run('GB.state.draft.name="Edição preservada";GB.state.dirty=true');const before=x.run('JSON.stringify({draft:GB.state.draft,version:GB.state.baseVersion,selected:GB.state.selected})');
+ x.document.querySelector('[data-s="visao"]').click();x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'aristo');assert.match(x.document.querySelector('#brand-context-status').textContent,/Conclua a edição/);
+ x.intervals.find(i=>i.ms===30000).fn();x.document.querySelector('[data-s="regua"]').click();
+ assert.equal(x.run('JSON.stringify({draft:GB.state.draft,version:GB.state.baseVersion,selected:GB.state.selected})'),before);assert.equal(journeyReads(x).length,1);
+});
+
+test('CRM-27: durable unresolved attempt is guarded before lazy loading and restored on opening without replay or journal mutation',async()=>{
+ const x=await boot(lazyJourneyFixture(),{hash:'#marca=fish&sec=visao',fetchMock:lazyFetch});
+ const id='10000000-0000-4000-8000-000000000027',draft={name:'Rascunho pendente',steps:[]};
+ const op={id,actor:'synthetic-actor',endpoint:lazyJourneyEndpoint,phase:'unknown',started_at:1,applied:false,context:{brand:'fish',draft,baseVersion:2,dirty:true},request_payload:{acao:'fluxo_salvar',key:'fish:carrinho',expected_version:2,idempotency_key:id,definition:draft}};
+ const slot=x.run('GFJ.SLOT'),journal=JSON.stringify({version:1,revision:1,operations:[op]});x.store.set(slot,journal);
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(journeyReads(x).length,0);assert.match(x.document.querySelector('#brand-context-status').textContent,/tentativa de jornada sem confirmação/);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);assert.equal(journeyReads(x).length,1);assert.equal(x.run('GB.state.pending.id'),id);assert.equal(x.run('GB.state.draft.name'),'Rascunho pendente');assert.ok(x.document.querySelector('#builder-reconcile'));
+ const before=x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})');
+ x.document.querySelector('[data-s="visao"]').click();x.intervals.find(i=>i.ms===30000).fn();x.document.querySelector('[data-s="regua"]').click();
+ assert.equal(x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})'),before);assert.equal(x.store.get(slot),journal);assert.equal(journeyReads(x).length,1);assert.ok(x.calls.every(c=>!c.init.method||c.init.method==='GET'));
 });

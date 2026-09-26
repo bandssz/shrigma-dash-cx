@@ -125,3 +125,16 @@ tr.linha-venc td:first-child{box-shadow:inset 3px 0 0 var(--bom)}
 tr.linha-perd td:first-child{box-shadow:inset 3px 0 0 var(--ruim)}
 @media (max-width:640px){.periodo .presets{flex-wrap:wrap}}
 .organico-acesso-bar{margin-bottom:12px}#organico-acesso[hidden]{display:none}#organico-acesso fieldset{border:0;padding:0;display:grid;gap:10px;max-width:580px;min-width:0}#organico-acesso input{box-sizing:border-box;max-width:100%;min-width:0;padding:10px}#organico-acesso button{margin:8px 0}#organico-acesso p{line-height:1.5}#organico-acesso-msg{min-height:1.5em}
+
+/* Post a post com prévia (26/09/2026): miniatura da Meta; sem URL válida, moldura neutra com link para o post. */
+.post-cel{display:flex;gap:10px;align-items:center;min-width:260px}
+.post-thumb{flex:none;display:block;width:56px;height:56px;border-radius:4px;overflow:hidden;background:var(--neutro-bg);border:1px solid var(--borda)}
+.post-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.post-thumb.sem-previa{display:flex;align-items:center;justify-content:center}
+.post-thumb.sem-previa::after{content:'sem prévia';font:500 9.5px/1.2 var(--ui);color:var(--mudo);text-align:center;padding:0 4px}
+a.post-thumb:hover{border-color:var(--marca,var(--borda-forte))}
+.post-info{min-width:0}
+.post-data{font-weight:600;margin-right:4px}
+.post-formato{display:inline-flex;align-items:center;gap:6px;margin-left:12px}
+.post-formato select{min-height:30px;font-size:12.5px;padding:3px 8px;border:1px solid var(--borda-forte);border-radius:4px;background:#fff}
+@media(max-width:720px){.post-cel{min-width:220px}.post-thumb{width:44px;height:44px}.post-formato{margin:8px 0 0}}

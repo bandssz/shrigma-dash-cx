@@ -609,15 +609,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   }
 
   function renderKpisTTS() {
-    if (PANE === 'canal') { $('#tts-kpis').innerHTML = cardsCanal(); return; }
+    const kp = $('#tts-kpis'); if (kp?.dataset) kp.dataset.pane = PANE;
+    if (PANE === 'canal') { kp.innerHTML = cardsCanal(); return; }
     const m = marcaAtual(), k = TTS.kpis(DADOS, m), j = DADOS.janela || {};
     const urg = k.urgente ? TTS.horasAte(k.urgente) : null;
     const cards = [
       { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${j.ini} a ${j.fim}` },
       { r: 'Comissão paga', v: rf(k.comissao), s: k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV` : 'sem pedido na janela' },
       { r: 'Vídeo × Live', v: k.pctVideo === null ? '—' : `${pf(k.pctVideo)} <span class="mini">vídeo</span>`, s: k.pctVideo === null ? 'base menor que 30 pedidos' : `${pf(k.pctLive)} live · resto shop/link`, title: 'percentual do GMV por formato de conteúdo que gerou o pedido' },
-      { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: (k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora') + ' · agora, não segue o período', title: 'estado atual da fila no TikTok — não depende do período selecionado' },
-      { r: 'Perda operacional', v: k.perdaPct === null ? nf(k.perda) : pf(k.perdaPct), s: `${nf(k.perda)} de ${nf(k.amostrasTotal)} amostras · venceu sem decisão ou aprovada e não enviada · histórico completo, não segue o período`, title: 'histórico completo — a API do TikTok não devolve a data do pedido de amostra, então não dá para recortar por período' },
+      { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: (k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora') + ' · agora', title: 'estado atual da fila no TikTok — não depende do período selecionado' },
+      { r: 'Perda operacional', v: k.perdaPct === null ? nf(k.perda) : pf(k.perdaPct), s: `${nf(k.perda)} de ${nf(k.amostrasTotal)} amostras · histórico completo`, title: 'venceu sem decisão ou aprovada e não enviada. Histórico completo — a API do TikTok não devolve a data do pedido de amostra, então não dá para recortar por período' },
     ];
     $('#tts-kpis').innerHTML = cards.map(x => `<div class="kpi"${x.title ? ` title="${esc(x.title)}"` : ''}><div class="kpi-rot">${x.r}</div><div class="kpi-val tabn">${x.v}</div><div class="kpi-sub">${x.s}</div></div>`).join('');
   }
@@ -632,33 +633,46 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   }
 
   function renderFila() {
-    const m = marcaAtual(), fila = TTS.fila(DADOS, m), envio = TTS.filtra(DADOS.envio, m);
+    const m = marcaAtual(), fila = TTS.fila(DADOS, m), envio = TTS.filtra(DADOS.envio, m), todas = m === 'todas';
     const modo = (TTS.filtra(DADOS.regra, m)[0] || {}).modo || 'dry_run';
-    let html = '<div class="nota"><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p><button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>';
+    const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
+    // Trava explicada: quem libera e o que fazer enquanto isso. O estado real vem de travaAmostrasTTS().
+    let html = `<div class="tts-trava"><div><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p>
+      <p class="mini">Aprovar e Rejeitar só destravam depois de conferir o serviço com um acesso de escrita. Enquanto estiverem cinza, a decisão continua no Seller Center e esta fila serve para priorizar.</p></div>
+      <button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>`;
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
-      <div class="rolagem"><table class="comparativo"><thead><tr><th>Prazo</th><th>Marca</th><th>Criador</th><th>Produto</th><th>Pedido</th></tr></thead><tbody>${envio.map(e => `<tr><td>${prazo(TTS.horasAte(e.envio_expira_em))}</td><td>${tag(e.marca)}</td><td>@${esc(e.username)}</td><td>${esc(e.product_title)} <span class="mini">${esc(e.sku_name)}</span></td><td class="tabn">${esc(e.order_id || '—')}</td></tr>`).join('')}</tbody></table></div>`;
+      <div class="rolagem"><table class="comparativo tts-compacta"><thead><tr><th>Prazo</th>${thM}<th>Criador</th><th>Produto</th><th>Pedido</th></tr></thead><tbody>${envio.map(e => `<tr><td class="nowrap">${prazo(TTS.horasAte(e.envio_expira_em))}</td>${tdM(e)}<td>@${esc(e.username)}</td><td class="tts-prod"><span class="tts-1linha" title="${esc(e.product_title)}">${esc(e.product_title)}</span>${e.sku_name ? `<span class="tag nulo tts-sku">${esc(e.sku_name)}</span>` : ''}</td><td class="tabn">${esc(e.order_id || '—')}</td></tr>`).join('')}</tbody></table></div>`;
     if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; travaAmostrasTTS(); return; }
-    html += `<div class="rolagem"><table class="comparativo"><thead><tr>
-      <th title="prazo da plataforma para decidir (7 dias); vencido vira OVERDUE_CANCELLED">Vence em</th><th>Marca</th><th>Criador</th>
+    const sugestoes = [...new Set(fila.map(x => x.tier.rot))];
+    html += `<div class="tts-filtros" role="search"><label class="tts-busca"><span class="mini">Buscar</span><input type="search" id="tts-fila-busca" placeholder="criador ou produto" autocomplete="off"></label>
+      <label><span class="mini">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</span><select id="tts-fila-sug"><option value="">todas</option>${sugestoes.map(t => `<option value="${esc(t)}">${esc(t)} (${fila.filter(x => x.tier.rot === t).length})</option>`).join('')}</select></label>
+      <span class="mini" id="tts-fila-conta" aria-live="polite">${fila.length} pedido(s)</span></div>`;
+    html += `<div class="rolagem"><table class="comparativo tts-compacta tts-fila"><thead><tr>
+      <th title="prazo da plataforma para decidir (7 dias); vencido vira OVERDUE_CANCELLED">Vence em</th>${thM}<th>Criador</th>
       <th class="num" title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma), em R$">GMV 30d</th>
-      <th class="num" title="% das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo. 0% = sem histórico recente, não é 'não posta'">Postagem</th>
-      <th class="num" title="amostras completas / pedidas AQUI, nesta marca (histórico)">Amostras aqui</th>
+      <th class="num" title="Postagem: % das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo; 0% = sem histórico recente, não é 'não posta'. Aqui: amostras completas / pedidas nesta marca">Histórico <span class="mini">postagem · aqui</span></th>
       <th class="num" title="pedidos · GMV em R$ que esse criador já gerou para esta marca nos últimos 90 dias">Vendeu aqui 90d</th>
       <th>Produto pedido</th>
-      <th title="o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo humana">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</th>
-      <th title="depende da disponibilidade do serviço e de confirmação; o recibo é consultado sem repetir a decisão">Decidir</th></tr></thead><tbody>
-      ${fila.map(x => `<tr>
-        <td>${prazo(x.horas)}</td><td>${tag(x.marca)}</td>
-        <td><div class="nome">${esc(x.nickname || x.username)}</div><span class="mini">@${esc(x.username)} · ${nf(x.seguidores)} seg.</span></td>
-        <td class="num tabn">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</td>
-        <td class="num tabn">${pf(x.fulfillment_pct)}</td>
-        <td class="num tabn">${nf(x.amostras_completas)}/${nf(x.amostras_total)}</td>
-        <td class="num tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</td>
-        <td class="tts-prod" title="${esc(x.product_title)}">${esc(String(x.product_title || '').length > 52 ? String(x.product_title).slice(0, 50) + '…' : x.product_title)}<br><span class="mini">${esc(x.sku_name)}${x.is_approvable === false ? ` · <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</span></td>
-        <td><span class="tag ${x.tier.cls}" title="${esc(x.tier.det)}">${x.tier.rot}</span></td>
-        <td class="tts-acoes" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
+      <th title="Sugestão: o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo humana. Decidir depende da disponibilidade do serviço e de confirmação; o recibo é consultado sem repetir a decisão">Sugestão · decidir</th></tr></thead><tbody>
+      ${fila.map(x => `<tr data-busca="${esc([x.nickname, x.username, x.product_title, x.sku_name].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(x.tier.rot)}">
+        <td class="nowrap tts-f-prazo" data-rot="Vence em">${prazo(x.horas)}</td>${tdM(x)}
+        <td class="tts-quem tts-f-cheia"><div class="nome tts-1linha">${esc(x.nickname || x.username)}</div><span class="mini tts-1linha">@${esc(x.username)} · ${nf(x.seguidores)} seg.</span></td>
+        <td class="num tabn" data-rot="GMV 30d">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</td>
+        <td class="num tabn" data-rot="Postagem">${pf(x.fulfillment_pct)}<span class="mini tts-sub">${nf(x.amostras_completas)}/${nf(x.amostras_total)} aqui</span></td>
+        <td class="num tabn" data-rot="Vendeu 90d">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</td>
+        <td class="tts-prod tts-f-cheia"><span class="tts-1linha" title="${esc(x.product_title)}">${esc(x.product_title)}</span>${x.sku_name ? `<span class="tag nulo tts-sku" title="variante pedida">${esc(x.sku_name)}</span>` : ''}${x.is_approvable === false ? ` <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</td>
+        <td class="tts-acoes tts-f-cheia" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><span class="tag ${x.tier.cls} tts-sug" title="${esc(x.tier.det)}">${x.tier.rot}</span><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
     $('#tts-area').innerHTML = html;
     travaAmostrasTTS();
+    const busca = $('#tts-fila-busca'), sug = $('#tts-fila-sug'), conta = $('#tts-fila-conta');
+    const filtra = () => {
+      const q = String(busca?.value || '').trim().toLowerCase(), t = sug?.value || '';
+      let n = 0;
+      document.querySelectorAll('#tts-area .tts-fila tbody tr').forEach(tr => { const ok = (!q || (tr.dataset.busca || '').includes(q)) && (!t || tr.dataset.sug === t); tr.hidden = !ok; if (ok) n++; });
+      if (conta) conta.textContent = n === fila.length ? `${fila.length} pedido(s)` : `${n} de ${fila.length} pedido(s)`;
+    };
+    if (busca) busca.oninput = filtra;
+    if (sug) sug.onchange = filtra;
     document.querySelectorAll('#tts-area .tts-acoes .tts-ok,#tts-area .tts-acoes .tts-nao').forEach(b => b.onclick = () => {
       const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
       armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
@@ -705,6 +719,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     $('#tts-area').innerHTML = html;
   }
 
+  // Mensagem longa abre no toque (funciona no celular, ao contrário do title).
+  const msgTTS = t => { const txt = String(t || ''), primeira = txt.split('\n')[0]; if (!txt) return '<span class="mini">—</span>';
+    return txt.length <= 90 && !txt.includes('\n') ? esc(txt) : `<details class="tts-msg-det"><summary>${esc(primeira.slice(0, 90))}${primeira.length > 90 || txt.includes('\n') ? '…' : ''}</summary><div>${esc(txt)}</div></details>`; };
   function renderCobranca() {
     const m = marcaAtual(), c = TTS.cobranca(DADOS, m);
     const fila = TTS.filtra(DADOS.cobranca_fila || [], m);
@@ -717,20 +734,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Criador</th><th>Devia</th><th class="num" title="mensagens do criador que ninguém da loja abriu">Sem ler</th><th>Última mensagem</th><th>Quando</th></tr></thead><tbody>
       ${dobra(c.responderam.map(x => `<tr><td>${tag(x.marca)}</td><td>@${esc(x.username)}</td><td class="mini">${esc(ETAPA[x.etapa] || x.etapa)}</td>
         <td class="num tabn">${+x.nao_lidas ? `<span class="vm">${nf(x.nao_lidas)}</span>` : '—'}</td>
-        <td class="msg" title="${esc(x.ultimo_texto || '')}">${esc(x.ultimo_texto || '')}</td><td class="mini tabn">${dt(x.ultima_msg_em)}</td></tr>`), 10, 'todos')}</tbody></table></div>`;
+        <td class="msg">${msgTTS(x.ultimo_texto)}</td><td class="mini tabn">${dt(x.ultima_msg_em)}</td></tr>`), 10, 'todos')}</tbody></table></div>`;
     const linhas = fila.map(x => `<tr>
       <td>${tag(x.marca)}</td>
       <td>@${esc(x.username)}</td>
       <td>${esc(ETAPA[x.etapa] || x.etapa)}</td>
       <td class="num tabn" title="toque ${x.tentativa} da régua">${x.tentativa || 1}</td>
       <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
-      <td class="msg" title="${esc(x.texto || '')}">${esc((x.texto || '').split('\n')[0])}</td>
+      <td class="msg">${msgTTS(x.texto)}</td>
       <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`);
-    $('#tts-area').innerHTML = topo + `<div class="nota">Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.</div>${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : ''}<div class="rolagem"><table class="comparativo">
+    $('#tts-area').innerHTML = topo + `${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span> <span class="tag neutro" title="Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.">só simulação · nada é enviado</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : '<p class="mini">Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.</p>'}${fila.length ? `<div class="rolagem"><table class="comparativo tts-compacta">
       <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num" title="qual toque da régua">Toque</th>
         <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
-        <th>Mensagem <span class="mini">passe o mouse para ler inteira</span></th><th>Quando</th></tr></thead>
-      <tbody>${dobra(linhas, 12, 'todos os toques')}</tbody></table></div>
+        <th>Mensagem <span class="mini">toque para ler inteira</span></th><th>Quando</th></tr></thead>
+      <tbody>${dobra(linhas, 12, 'todos os toques')}</tbody></table></div>` : `<div class="vazio">${nf(c.pendentes)} criador(es) devendo conteúdo, nenhum toque registrado ainda nesta marca.</div>`}
       <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Configuração da cobrança</h3>
         <span class="mini">${c.modo === 'ativo' ? `até ${c.tetoDia} por dia · ${c.pendentes} na fila`
           : `${c.simuladas} prontas, nenhuma enviada · ${c.pendentes} devendo conteúdo`}</span></div>
@@ -764,8 +781,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function resumoOrigemCanal(c) {
     const o = c.origem, rot = {saldo_calculado:'Saldo calculado',divergente:'Fontes divergentes',indisponivel:'Conciliação indisponível'};
     const aviso = !o.contrato ? 'Esta consulta ainda não confirma o contrato de conciliação para todas as marcas selecionadas.' : o.estado === 'divergente' ? 'Há dias em que as fontes não conciliam. O saldo não afiliado permanece indisponível.' : o.estado === 'indisponivel' ? 'Falta componente necessário em parte do período. Ausência não é receita zero.' : 'O saldo é total da loja menos pedidos de afiliados. Não comprova venda própria atribuída.';
-    return `<div class="nota" role="status"><strong>${rot[o.estado]}.</strong> ${aviso} Shop Analytics e pedidos de afiliados são fontes distintas; não somar seus valores. GMV Max e live/vídeo/vitrine são outros cortes.</div>
-      <details class="nota"><summary>Conferir conciliação de origem</summary><p>Saldo não afiliado: <strong>${moedaOrigem(o.saldo)}</strong>. Diferença assinada: ${moedaOrigem(o.ajuste)}. Soma das diferenças absolutas por dia: ${moedaOrigem(o.ajusteAbsoluto)}.</p>
+    const cls = o.estado === 'saldo_calculado' && o.contrato ? 'bom' : o.estado === 'divergente' ? 'neutro' : 'nulo';
+    return `<div class="tts-origem" role="status"><span class="tag ${cls}">${rot[o.estado] || rot.indisponivel}</span> <span>${aviso}</span></div>
+      <details class="ressalvas tts-conc"><summary>Conferir conciliação de origem</summary><p>Shop Analytics e pedidos de afiliados são fontes distintas; não somar seus valores. GMV Max e live/vídeo/vitrine são outros cortes.</p><p>Saldo não afiliado: <strong>${moedaOrigem(o.saldo)}</strong>. Diferença assinada: ${moedaOrigem(o.ajuste)}. Soma das diferenças absolutas por dia: ${moedaOrigem(o.ajusteAbsoluto)}.</p>
       <p>${nf(o.diasDivergentes)} dia(s) × marca divergentes; ${nf(o.diasIndisponiveis)} sem componente confirmado. Diferença é ajuste de conciliação, não receita, reembolso ou crédito atribuído. Ausência de linha não comprova cobertura do período. “Próprio anterior” preserva o campo histórico apenas para auditoria.</p>
       <div class="rolagem" tabindex="0" role="region" aria-label="Conciliação de origem por dia e marca"><table class="comparativo"><thead><tr><th>Dia / marca</th><th>Total da loja</th><th>Afiliado</th><th>Próprio anterior</th><th>Saldo calculado</th><th>Diferença</th><th>Estado</th></tr></thead><tbody>${c.origemLinhas.map(r => `<tr><td>${esc(String(r.dia||'').slice(0,10))}<br>${esc(r.marca)}</td><td>${moedaOrigem(r.gmv)}</td><td>${moedaOrigem(r.gmv_afiliado)}</td><td>${moedaOrigem(r.gmv_proprio)}</td><td>${moedaOrigem(r.gmv_saldo_nao_afiliado)}</td><td>${moedaOrigem(r.gmv_ajuste_origem)}</td><td>${esc(rot[r.origem_estado]||'Conciliação indisponível')}</td></tr>`).join('')||'<tr><td colspan="7">Sem linhas diárias disponíveis.</td></tr>'}</tbody></table></div></details>`;
   }
@@ -794,51 +812,102 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   const indisponivelTTS = '<span class="mini" title="Dado ausente ou não confirmado neste recorte">indisponível</span>';
   const metricaSessaoTTS = (e, fields, value, format = nf) => TTS.camposConhecidos(e.sessoes,fields) ? format(value) : indisponivelTTS;
   const valorTTS = (value, format = nf) => TTS.camposConhecidos([{value}],['value']) ? format(value) : indisponivelTTS;
+  // Canal em três partes (visão geral, lives, vídeos): tudo é renderizado de uma vez e só a parte escolhida fica visível,
+  // assim trocar de parte é instantâneo e as ressalvas continuam no documento (recolhidas).
+  const VISTAS_CANAL = ['resumo', 'lives', 'videos'];
+  let canalVista = 'resumo';
+  try { const v = localStorage.getItem('shrigma_tts_canal_vista'); if (VISTAS_CANAL.includes(v)) canalVista = v; } catch (_) {}
+  const linkVideoTTS = v => /^\d{6,25}$/.test(String(v.video_id || '')) && /^[A-Za-z0-9._]{2,30}$/.test(String(v.username || '')) ? `https://www.tiktok.com/@${v.username}/video/${v.video_id}` : '';
   function renderCanal() {
     const m = marcaAtual(), c = TTS.canal(DADOS, m), todas = m === 'todas', cobertura = TTS.coberturaLiveVideo(DADOS,m), janela = DADOS.janela || {};
     const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
-    // barras empilhadas por dia (live / vídeo / vitrine) — SVG inline, sem biblioteca
-    let html = c.temDados ? resumoOrigemCanal(c) + graficoCanal(c.serie) : '<div class="vazio"><strong>Dados diários do canal indisponíveis nesta janela.</strong><br>Isso não comprova zero vendas. Lives e vídeos abaixo mantêm seus próprios recortes e cobertura.</div>';
+    const ev = c.eventos, vd = c.videos, evVenda = ev.filter(e => e.gmv > 0).length, emFech = ev.filter(e => e.emFechamento && e.gmv > 0).length;
+    const topLive = ev.reduce((a, e) => (e.gmv > 0 && (!a || e.gmv > a.gmv) ? e : a), null), topVideo = vd.reduce((a, v) => (Number(v.gmv) > 0 && (!a || Number(v.gmv) > Number(a.gmv)) ? v : a), null);
+    const quem = x => x.origem === 'proprio' ? '<span class="tag bom">loja</span>' : x.username ? '@' + esc(x.username) : '<span class="mini">criador não informado</span>';
+    const retratos = cobertura.retratos.map(r => `${esc(MARCA_N[r.marca] || r.marca)}: ${r.dias.length ? 'retrato de '+r.dias.map(esc).join(', ') : 'data do retrato indisponível nesta resposta'}`).join(' · ');
+    const limiteLives = cobertura.lives.disponivel && cobertura.lives.recebidos >= 60, limiteVideos = cobertura.videos.disponivel && cobertura.videos.recebidos >= 30;
 
-    // lives — por evento (sessões agrupadas), com sessões e produtos ao clicar
-    const ev = c.eventos, evVenda = ev.filter(e => e.gmv > 0).length, emFech = ev.filter(e => e.emFechamento && e.gmv > 0).length;
-    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0" title="a API devolve sessões; queda de sinal vira sessão nova. Sessões da mesma conta com até 30 min de intervalo são mostradas como uma live só. GMV = pago; pedido criado e não pago aparece como pendente. A plataforma revisa os números por ~72 h.">Eventos de live · sessões recebidas <span class="tag nulo">${ev.length}</span>${emFech ? ` <span class="tag neutro" title="terminou há menos de 72 h: a plataforma ainda revisa pedidos pagos, cancelados e pendentes">${emFech} em fechamento</span>` : ''}</h3><span class="mini">${evVenda} com GMV positivo registrado · clique na linha para ver sessões e produtos</span></div>`;
-    html += `<div class="nota">Janela selecionada: <strong>${esc(janela.ini || 'indisponível')} a ${esc(janela.fim || 'indisponível')}</strong>. Esta lista recebe até <strong>60 sessões com maior GMV entre as marcas</strong>, antes do filtro de marca e do agrupamento. ${cobertura.lives.disponivel ? `${nf(cobertura.lives.recebidos)} sessões recebidas no total; ${nf(cobertura.lives.selecionados)} neste filtro.` : 'Lista de sessões indisponível.'} Um evento pode estar incompleto. Sessões da mesma conta com intervalo de até 30 minutos são agrupadas; a contagem é de grupos das sessões recebidas, não um inventário completo de lives.<br><strong>Espectadores são somados por sessão, não pessoas únicas do evento.</strong> Quem retorna em outra sessão pode aparecer novamente. Zero só é exibido quando o campo foi informado; “indisponível” não é zero.</div>`;
+    let html = `<div class="tts-vistas" id="tts-canal-vistas" role="tablist" aria-label="Partes do canal">
+      <button type="button" role="tab" data-v="resumo">Visão geral</button>
+      <button type="button" role="tab" data-v="lives">Lives <span class="n">${ev.length}</span></button>
+      <button type="button" role="tab" data-v="videos">Vídeos <span class="n">${vd.length}</span></button></div>`;
+
+    // 1. Visão geral: origem da venda, GMV por dia e atalhos para as listas
+    html += '<section class="tts-vista" data-canal-vista="resumo" role="tabpanel">';
+    html += c.temDados ? resumoOrigemCanal(c) + graficoCanal(c.serie) : '<div class="vazio"><strong>Dados diários do canal indisponíveis nesta janela.</strong><br>Isso não comprova zero vendas. Lives e vídeos abaixo mantêm seus próprios recortes e cobertura.</div>';
+    html += `<div class="tts-atalhos">
+      <button type="button" class="tts-atalho" data-ir="lives"><span class="tts-atalho-rot">Lives · janela selecionada</span>
+        <strong>${nf(ev.length)} evento(s)</strong><span class="mini">${nf(evVenda)} com GMV registrado${topLive ? ` · maior: ${rf(topLive.gmv)} em ${esc(dtHora(topLive.inicio_em))}` : ''}</span><span class="tts-atalho-ir">ver lives →</span></button>
+      <button type="button" class="tts-atalho" data-ir="videos"><span class="tts-atalho-rot">Vídeos · retrato de 30 dias</span>
+        <strong>${nf(vd.length)} vídeo(s) com venda</strong><span class="mini">${topVideo ? `maior: ${valorTTS(topVideo.gmv,rf)} · ${topVideo.origem === 'proprio' ? 'loja' : '@' + esc(topVideo.username || '—')}` : 'nenhum vídeo recebido neste filtro'}</span><span class="tts-atalho-ir">ver vídeos →</span></button></div>`;
+    html += '</section>';
+
+    // 2. Lives — por evento (sessões agrupadas), com sessões e produtos ao clicar
+    html += '<section class="tts-vista" data-canal-vista="lives" role="tabpanel">';
+    html += `<div class="painel-cab"><h3 style="margin:0">Eventos de live <span class="tag nulo">${ev.length}</span>${emFech ? ` <span class="tag neutro" title="terminou há menos de 72 h: a plataforma ainda revisa pedidos pagos, cancelados e pendentes">${emFech} em fechamento</span>` : ''}</h3><span class="mini">${evVenda} com GMV positivo · toque na linha para ver sessões e produtos</span></div>`;
+    html += `<p class="tts-cobertura">Janela <strong>${esc(janela.ini || 'indisponível')} a ${esc(janela.fim || 'indisponível')}</strong>${cobertura.lives.disponivel ? ` · ${nf(cobertura.lives.selecionados)} de ${nf(cobertura.lives.recebidos)} sessões recebidas` : ''}${limiteLives ? ' <span class="tag neutro" title="a lista chegou ao limite de 60 sessões entre as marcas; pode haver lives fora dela">no limite · lista pode estar cortada</span>' : ''}</p>`;
+    html += `<details class="ressalvas"><summary>Como ler esta lista</summary><ul>
+      <li>Esta lista recebe até <strong>60 sessões com maior GMV entre as marcas</strong>, antes do filtro de marca e do agrupamento. ${cobertura.lives.disponivel ? `${nf(cobertura.lives.recebidos)} sessões recebidas no total; ${nf(cobertura.lives.selecionados)} neste filtro.` : 'Lista de sessões indisponível.'}</li>
+      <li>Um evento pode estar incompleto. Sessões da mesma conta com intervalo de até 30 minutos são agrupadas; a contagem é de grupos das sessões recebidas, não um inventário completo de lives.</li>
+      <li><strong>Espectadores são somados por sessão, não pessoas únicas do evento.</strong> Quem retorna em outra sessão pode aparecer novamente.</li>
+      <li>GMV = pago; pedido criado e não pago aparece como “+N” ao lado dos pedidos. A plataforma revisa os números por ~72 h (◔).</li>
+      <li>Zero só é exibido quando o campo foi informado; “indisponível” não é zero.</li></ul></details>`;
     if (!ev.length) html += '<div class="vazio">Nenhuma sessão de live recebida neste filtro. O limite global ou a cobertura da coleta podem omitir sessões; isso não comprova ausência de lives ou de vendas.</div>';
-    else html += `<div class="rolagem"><table class="comparativo tts-ev"><thead><tr>
+    else html += `<div class="rolagem"><table class="comparativo tts-ev tts-compacta"><thead><tr>
       <th>Quando</th>${thM}<th>Quem</th><th class="num" title="minutos ao vivo, somando as sessões">Duração</th>
-      <th class="num" title="espectadores únicos por sessão, somados — quem voltou depois da queda conta de novo">Espectadores · soma de sessões</th><th class="num" title="cliques em produto / impressões de produto">CTR</th>
-      <th class="num" title="pedidos pagos / cliques em produto">Clique→pedido</th><th class="num" title="pedidos pagos · pendentes de pagamento">Pedidos</th><th class="num" title="GMV pago somando as sessões">GMV</th>
-      <th class="num" title="GMV nas 24 h após a live (a plataforma fecha com atraso)">GMV 24 h</th><th class="num">Seguidores</th></tr></thead><tbody>
-      ${dobra(ev.slice(0, 60).map((e, i) => `<tr class="tts-ev-linha" data-i="${i}" style="cursor:pointer">
-        <td class="tabn">${dtHora(e.inicio_em)}${e.sessoes.length > 1 ? ` <span class="tag nulo" title="${e.sessoes.length} sessões agrupadas por conta e intervalo">${e.sessoes.length}×</span>` : ''}${e.emFechamento && e.gmv > 0 ? ' <span class="mini" title="terminou há menos de 72 h — números ainda em revisão pela plataforma">◔</span>' : ''}</td>${tdM(e)}
-        <td><div class="nome">${e.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(e.username || '—')}</div>${e.titulo ? `<span class="mini" title="${esc(e.titulo)}">${esc(String(e.titulo).slice(0, 40))}</span>` : ''}</td>
+      <th class="num" title="espectadores únicos por sessão, somados — quem voltou depois da queda conta de novo">Espectadores <span class="mini">soma</span></th>
+      <th class="num" title="CTR = cliques em produto / impressões de produto · clique→pedido = pedidos pagos / cliques">CTR <span class="mini">· cl→ped</span></th>
+      <th class="num" title="pedidos pagos · +pendentes de pagamento">Pedidos</th><th class="num" title="GMV pago somando as sessões">GMV</th>
+      <th class="num" title="GMV nas 24 h após a live (a plataforma fecha com atraso)">GMV 24 h</th><th class="num" title="novos seguidores">Seguid.</th><th aria-hidden="true"></th></tr></thead><tbody>
+      ${dobra(ev.slice(0, 60).map((e, i) => `<tr class="tts-ev-linha" data-i="${i}" tabindex="0" aria-expanded="false" style="cursor:pointer">
+        <td class="tabn nowrap">${dtHora(e.inicio_em)}${e.sessoes.length > 1 ? ` <span class="tag nulo" title="${e.sessoes.length} sessões agrupadas por conta e intervalo">${e.sessoes.length}×</span>` : ''}${e.emFechamento && e.gmv > 0 ? ' <span class="mini" title="terminou há menos de 72 h — números ainda em revisão pela plataforma">◔</span>' : ''}</td>${tdM(e)}
+        <td class="tts-quem"><div class="nome">${quem(e)}</div>${e.titulo ? `<span class="mini tts-1linha" title="${esc(e.titulo)}">${esc(String(e.titulo).slice(0, 70))}</span>` : ''}</td>
         <td class="num tabn">${metricaSessaoTTS(e,['duracao_min'],e.duracao_min,v=>nf(v)+' min')}</td>
-        <td class="num tabn">${metricaSessaoTTS(e,['espectadores'],e.espectadores)}</td><td class="num tabn">${metricaSessaoTTS(e,['cliques','impressoes_produto'],e.ctr_pct,v=>pctOu(v,1))}</td>
-        <td class="num tabn">${metricaSessaoTTS(e,['pedidos','cliques'],e.clique_pedido_pct,v=>pctOu(v,1))}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['espectadores'],e.espectadores)}</td>
+        <td class="num tabn">${metricaSessaoTTS(e,['cliques','impressoes_produto'],e.ctr_pct,v=>pctOu(v,1))}<span class="mini tts-sub">${metricaSessaoTTS(e,['pedidos','cliques'],e.clique_pedido_pct,v=>pctOu(v,1))}</span></td>
         <td class="num tabn">${metricaSessaoTTS(e,['pedidos'],e.pedidos)}${TTS.camposConhecidos(e.sessoes,['pedidos','pedidos_criados']) && e.pendentes ? ` <span class="mini" title="${e.pendentes} pedido(s) criado(s) e ainda não pago(s) — COD/PayLater; entra no GMV quando pagar">+${e.pendentes}</span>` : ''}</td><td class="num tabn"><b>${metricaSessaoTTS(e,['gmv'],e.gmv,rf)}</b></td>
         <td class="num tabn">${metricaSessaoTTS(e,['gmv_24h'],e.gmv_24h,rf)}</td>
-        <td class="num tabn">${metricaSessaoTTS(e,['novos_seguidores'],e.novos_seguidores,v=>(v>0?'+':'')+nf(v))}</td></tr>`), 8, 'todas as lives')}</tbody></table></div>`;
+        <td class="num tabn">${metricaSessaoTTS(e,['novos_seguidores'],e.novos_seguidores,v=>(v>0?'+':'')+nf(v))}</td><td class="tts-abre" aria-hidden="true"><span>▸</span></td></tr>`), 10, 'todas as lives')}</tbody></table></div>`;
+    html += '</section>';
 
-    // vídeos (retrato 30 dias)
-    const vd = c.videos;
-    html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Vídeos · retrato acumulado de 30 dias <span class="tag nulo">${vd.length}</span></h3><span class="mini">Este bloco não segue a janela de vendas selecionada</span></div>`;
-    html += `<div class="nota">Até <strong>30 vídeos com GMV positivo, ordenados por GMV entre as marcas</strong>, no último retrato disponível de cada marca. O limite é aplicado antes do filtro de marca. São valores acumulados de 30 dias da plataforma; não somar aos totais diários da janela escolhida.<br>${cobertura.retratos.map(r => `${esc(MARCA_N[r.marca] || r.marca)}: ${r.dias.length ? 'retrato de '+r.dias.map(esc).join(', ') : 'data do retrato indisponível nesta resposta'}`).join(' · ')}. ${cobertura.videos.disponivel ? `${nf(cobertura.videos.recebidos)} vídeos recebidos no total; ${nf(cobertura.videos.selecionados)} neste filtro.` : 'Lista de vídeos indisponível.'}</div>`;
+    // 3. Vídeos (retrato 30 dias)
+    html += '<section class="tts-vista" data-canal-vista="videos" role="tabpanel">';
+    html += `<div class="painel-cab"><h3 style="margin:0">Vídeos · retrato acumulado de 30 dias <span class="tag nulo">${vd.length}</span></h3><span class="mini">Este bloco não segue a janela de vendas selecionada</span></div>`;
+    html += `<p class="tts-cobertura">${retratos}${cobertura.videos.disponivel ? ` · ${nf(cobertura.videos.recebidos)} vídeos recebidos no total; ${nf(cobertura.videos.selecionados)} neste filtro.` : ' · Lista de vídeos indisponível.'}${limiteVideos ? ' <span class="tag neutro" title="a lista chegou ao limite de 30 vídeos entre as marcas">no limite · lista pode estar cortada</span>' : ''}</p>`;
+    html += `<details class="ressalvas"><summary>Como ler esta lista</summary><ul>
+      <li>Até <strong>30 vídeos com GMV positivo, ordenados por GMV entre as marcas</strong>, no último retrato disponível de cada marca. O limite é aplicado antes do filtro de marca.</li>
+      <li>São valores acumulados de 30 dias da plataforma; não somar aos totais diários da janela escolhida.</li>
+      <li>GPM = GMV por mil views, o rendimento do vídeo. CTR = cliques em produto / views.</li></ul></details>`;
     if (!vd.length) html += '<div class="vazio">Nenhum vídeo recebido neste filtro. Isso não comprova zero vendas: pode haver limite global, retrato ausente ou cobertura incompleta.</div>';
-    else html += `<div class="rolagem"><table class="comparativo"><thead><tr>
+    else html += `<div class="rolagem"><table class="comparativo tts-compacta"><thead><tr>
       <th>#</th><th>Criador</th>${thM}<th>Vídeo</th><th>Retrato</th><th class="num">Publicado</th><th class="num">Views · 30 dias</th>
       <th class="num" title="cliques em produto / views">CTR</th><th class="num">Pedidos · 30 dias</th><th class="num">GMV · 30 dias</th><th class="num" title="GMV por mil views — o rendimento do vídeo">GPM</th></tr></thead><tbody>
-      ${dobra(vd.slice(0, 50).map((v, i) => `<tr><td class="tabn">${i + 1}</td>
-        <td>${v.origem === 'proprio' ? '<span class="tag bom">loja</span>' : '@' + esc(v.username || '—')}</td>${tdM(v)}
-        <td class="tts-prod" title="${esc(v.titulo || '')}">${esc(String(v.titulo || '—').slice(0, 60))}${(v.titulo || '').length > 60 ? '…' : ''}${v.duracao_s ? ` <span class="mini">${v.duracao_s}s</span>` : ''}</td>
-        <td class="tabn">${v.retrato_em ? esc(String(v.retrato_em).slice(0,10)) : indisponivelTTS}</td><td class="num tabn">${dt(v.publicado_em)}</td><td class="num tabn">${valorTTS(v.visualizacoes)}</td>
+      ${dobra(vd.slice(0, 50).map((v, i) => { const url = linkVideoTTS(v), titulo = esc(String(v.titulo || '—').slice(0, 90)); return `<tr><td class="tabn">${i + 1}</td>
+        <td class="nowrap">${quem(v)}</td>${tdM(v)}
+        <td class="tts-prod"><span class="tts-1linha" title="${esc(v.titulo || '')}">${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${titulo}</a>` : titulo}</span>${v.duracao_s ? `<span class="mini tts-sub">${v.duracao_s}s</span>` : ''}</td>
+        <td class="tabn nowrap mini" title="${esc(String(v.retrato_em || '').slice(0,10))}">${v.retrato_em ? esc(String(v.retrato_em).slice(8,10) + '/' + String(v.retrato_em).slice(5,7)) : indisponivelTTS}</td><td class="num tabn">${dt(v.publicado_em)}</td><td class="num tabn">${valorTTS(v.visualizacoes)}</td>
         <td class="num tabn">${valorTTS(v.ctr_pct,v=>pctOu(+v,1))}</td>
-        <td class="num tabn">${valorTTS(v.pedidos)}</td><td class="num tabn"><b>${valorTTS(v.gmv,rf)}</b></td><td class="num tabn">${valorTTS(v.gpm,rf)}</td></tr>`), 10, 'todos os vídeos')}</tbody></table></div>`;
-    $('#tts-area').innerHTML = html;
+        <td class="num tabn">${valorTTS(v.pedidos)}</td><td class="num tabn"><b>${valorTTS(v.gmv,rf)}</b></td><td class="num tabn">${valorTTS(v.gpm,rf)}</td></tr>`; }), 12, 'todos os vídeos')}</tbody></table></div>`;
+    html += '</section>';
+
+    const area = $('#tts-area');
+    area.innerHTML = html;
     ligarDobras();
-    document.querySelectorAll('#tts-area .tts-ev-linha').forEach(tr => tr.onclick = () => {
+    const mostra = v => {
+      canalVista = VISTAS_CANAL.includes(v) ? v : 'resumo';
+      try { localStorage.setItem('shrigma_tts_canal_vista', canalVista); } catch (_) {}
+      area.querySelectorAll('[data-canal-vista]').forEach(s => { s.hidden = s.dataset.canalVista !== canalVista; });
+      area.querySelectorAll('#tts-canal-vistas button').forEach(b => { const on = b.dataset.v === canalVista; b.classList.toggle('ativo', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    };
+    area.querySelectorAll('#tts-canal-vistas button').forEach(b => { b.onclick = () => mostra(b.dataset.v); });
+    area.querySelectorAll('.tts-atalho').forEach(b => { b.onclick = () => { mostra(b.dataset.ir); area.querySelector('#tts-canal-vistas button.ativo')?.focus?.(); }; });
+    mostra(canalVista);
+    area.querySelectorAll('.tts-ev-linha').forEach(tr => {
+      tr.onkeydown = k => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault?.(); tr.onclick(); } };
+      tr.onclick = () => {
       const prox = tr.nextElementSibling;
-      if (prox && prox.classList.contains('tts-ev-det')) { prox.remove(); return; }
+      if (prox && prox.classList.contains('tts-ev-det')) { prox.remove(); tr.setAttribute('aria-expanded', 'false'); return; }
+      tr.setAttribute('aria-expanded', 'true');
       const e = ev[+tr.dataset.i], prods = TTS.produtosDoEvento(e, c.liveProdutos);
       const camposProduto = (p,keys) => TTS.camposConhecidos(c.liveProdutos.filter(x => e.live_ids.includes(String(x.live_id)) && x.product_id === p.product_id),keys);
       const metricaProduto = (p,keys,value,format=nf) => camposProduto(p,keys) ? format(value) : indisponivelTTS;
@@ -850,6 +919,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
           ${prods.length ? `<table class="comparativo mini"><thead><tr><th>Produto</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num" title="cliques / impressões">CTR</th><th class="num" title="pedidos pagos / cliques">Cl→ped</th><th class="num">Pedidos</th><th class="num">GMV direto</th></tr></thead><tbody>
           ${prods.slice(0, 12).map(p => `<tr><td class="tts-prod" title="${esc(p.nome || '')}">${esc(String(p.nome || p.product_id).slice(0, 48))}</td><td class="num tabn">${metricaProduto(p,['impressoes'],p.impressoes)}</td><td class="num tabn">${metricaProduto(p,['cliques'],p.cliques)}</td><td class="num tabn">${metricaProduto(p,['cliques','impressoes'],p.ctr_pct,v=>pctOu(v,1))}</td><td class="num tabn">${metricaProduto(p,['pedidos','cliques'],p.clique_pedido_pct,v=>pctOu(v,1))}</td><td class="num tabn">${metricaProduto(p,['pedidos'],p.pedidos)}${camposProduto(p,['pedidos','pedidos_criados']) && p.pedidos_criados > p.pedidos ? ` <span class="mini">+${p.pedidos_criados - p.pedidos}</span>` : ''}</td><td class="num tabn"><b>${metricaProduto(p,['gmv_direto'],p.gmv_direto,rf)}</b></td></tr>`).join('')}</tbody></table>` : ''}</div></div></td>`;
       tr.after(det);
+      };
     });
   }
   const dtHora = iso => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -897,7 +967,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
         <td><button class="btn tts-btn tts-salvar" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
-      <div class="nota">Aprovar e rejeitar amostra é <strong>manual</strong> — pelos botões da fila. A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</div>`;
+      <div class="tts-origem"><span class="tag neutro">decisão manual</span> <span>A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</span></div>`;
     if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {

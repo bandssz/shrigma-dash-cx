@@ -1,0 +1,97 @@
+/* TikTok Shop (aba Afiliados): leitura por tarefa, ressalvas recolhidas, tabelas de uma linha por item (26/09/2026). */
+body[data-panel=influs] .tts-abas{gap:22px}
+.tts-abas .n:empty{display:none}
+@media(min-width:1101px){
+  #tts-kpis[data-pane=canal]{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #tts-kpis[data-pane=canal] .kpi:nth-child(3n){border-right:0}
+  #tts-kpis[data-pane=canal] .kpi:nth-child(-n+3){border-bottom:1px solid var(--borda)}
+}
+
+/* Canal: três partes com controle segmentado */
+.tts-vistas{display:inline-flex;gap:2px;padding:3px;margin:2px 0 14px;background:var(--marca-suave,#eceff2);border-radius:6px;max-width:100%;overflow-x:auto}
+.tts-vistas button{border:0;background:transparent;padding:7px 16px;border-radius:4px;font:600 13px/1.2 var(--ui);color:var(--mudo);cursor:pointer;white-space:nowrap;min-height:32px}
+.tts-vistas button:hover{color:var(--texto)}
+.tts-vistas button.ativo{background:#fff;color:var(--marca-texto,var(--texto));box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tts-vistas .n{margin-left:6px;font-size:11px;font-weight:500;color:var(--mudo)}
+.tts-vista[hidden]{display:none!important}
+.tts-origem{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:0 0 4px;font-size:12.5px;line-height:1.5;color:var(--mudo)}
+.tts-origem .tag{flex:none}
+#tts-area details.ressalvas{margin:2px 0 12px}
+#tts-area details.ressalvas p{margin:6px 0;color:var(--mudo);line-height:1.55}
+.tts-conc{margin-bottom:16px!important}
+.tts-atalhos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.tts-atalho{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;border:1px solid var(--borda);border-left:3px solid var(--marca);border-radius:4px;background:#fff;text-align:left;font:inherit;color:var(--texto);cursor:pointer}
+.tts-atalho:hover{background:var(--marca-fraca,#f8f9fa)}
+.tts-atalho-rot{font-size:11.5px;color:var(--mudo)}
+.tts-atalho strong{font:650 18px/1.25 var(--ui)}
+.tts-atalho-ir{margin-top:4px;font-size:12px;font-weight:650;color:var(--marca-texto,var(--texto))}
+.tts-cobertura{margin:2px 0 4px;font-size:12.5px;line-height:1.5;color:var(--mudo)}
+
+/* Tabelas compactas: uma linha por item, número sem quebra */
+#tts-area .tts-compacta td{vertical-align:middle}
+#tts-area .tts-compacta td.num{white-space:nowrap}
+#tts-area .tts-compacta th{white-space:normal;line-height:1.3}
+#tts-area .nowrap{white-space:nowrap}
+.tts-1linha{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tts-area .tts-compacta .tts-prod{max-width:280px;min-width:160px}
+#tts-area .tts-quem{max-width:240px;min-width:140px}
+.tts-sub{display:block;margin-top:2px;font-weight:400}
+.tts-sku{display:inline-block;max-width:100%;margin-top:3px;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+.tts-abre{width:16px;padding-left:0!important;color:var(--mudo)}
+.tts-abre span{display:inline-block;transition:transform .15s}
+.tts-ev-linha[aria-expanded=true] .tts-abre span{transform:rotate(90deg)}
+.tts-ev-linha:focus-visible{outline:2px solid var(--marca);outline-offset:-2px}
+#tts-area .tts-compacta a{color:inherit;text-decoration:underline;text-decoration-color:var(--borda-forte,#c5cbd2);text-underline-offset:2px}
+
+/* Fila: trava explicada, busca e filtro */
+.tts-trava{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border:1px solid #eadfbd;border-left:3px solid #b38b31;border-radius:4px;background:#fffcf4;font-size:12.5px;line-height:1.5}
+.tts-trava p{margin:0}
+.tts-trava #tts-manual-status{font-weight:600;color:#5f4a1c}
+.tts-trava .mini{color:#6f5d38}
+.tts-filtros{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:0 0 10px}
+.tts-filtros label{display:flex;flex-direction:column;gap:3px}
+.tts-filtros input,.tts-filtros select{min-height:32px;padding:5px 9px;border:1px solid var(--borda-forte,#c5cbd2);border-radius:4px;background:#fff;font:13px var(--ui)}
+.tts-busca input{width:240px}
+#tts-fila-conta{padding-bottom:7px}
+.tts-fila tr[hidden]{display:none}
+
+/* Cobrança: mensagem abre no toque */
+#tts-area td.msg{white-space:normal;overflow:visible;max-width:380px}
+.tts-msg-det summary{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;list-style:none}
+.tts-msg-det summary::-webkit-details-marker{display:none}
+.tts-msg-det[open] summary{color:var(--mudo)}
+.tts-msg-det>div{max-width:420px;margin-top:6px;white-space:pre-wrap;color:var(--texto)}
+
+@media(max-width:720px){
+  body[data-panel=influs] .tts-abas{gap:16px}
+  .tts-atalhos{grid-template-columns:1fr}
+  .tts-vistas{display:flex;width:100%}.tts-vistas button{flex:1;padding:7px 8px}
+  .tts-filtros label.tts-busca{flex:1 1 100%}.tts-busca input{width:100%}
+  .tts-trava{padding:10px 12px}
+  #tts-area .tts-compacta .tts-prod{max-width:220px}
+}
+
+/* Fila sem rolagem lateral no desktop: sugestão e decisão na mesma célula */
+.tts-fila .tts-acoes .tts-sug{display:block;width:max-content;max-width:100%;margin:0 0 6px;overflow:hidden;text-overflow:ellipsis}
+.tts-fila .tts-quem{min-width:130px;max-width:190px}
+/* Detalhe da live empilhado: sessões em cima, produtos embaixo, nada sobreposto */
+#tts-area .tts-ev-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+#tts-area .tts-ev-grid>div{min-width:0;overflow-x:auto}
+#tts-area .tts-ev-grid>div:first-child .comparativo{width:auto;min-width:min(100%,520px)}
+
+/* Celular: cada pedido de amostra vira um cartão (criador, números lado a lado, produto, decisão) */
+@media(max-width:720px){
+  #tts-area .tts-fila thead{display:none}
+  #tts-area .tts-fila,#tts-area .tts-fila tbody{display:block;width:100%}
+  #tts-area .tts-fila tbody tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 10px;padding:12px 2px;border-bottom:1px solid var(--borda)}
+  #tts-area .tts-fila tbody tr[hidden]{display:none}
+  #tts-area .tts-fila td{display:block;padding:0!important;border:0!important;text-align:left;min-width:0;max-width:none}
+  #tts-area .tts-fila td[data-rot]::before{content:attr(data-rot);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 10.5px/1.3 var(--ui);color:var(--mudo)}
+  #tts-area .tts-fila td.tts-f-cheia{grid-column:1/-1}
+  #tts-area .tts-fila td.tts-quem{grid-column:1/-1;order:-2}
+  #tts-area .tts-fila td.tts-f-prazo{order:-1}
+  #tts-area .tts-fila td.num .tts-sub{display:inline;margin-left:4px}
+  #tts-area .tts-fila .tts-acoes{white-space:normal}
+  #tts-area .tts-fila .tts-acoes .btn{min-height:36px;padding:7px 14px}
+  #tts-area .tts-fila .tts-acoes .tts-sug{display:inline-block;margin:0 8px 6px 0}
+}

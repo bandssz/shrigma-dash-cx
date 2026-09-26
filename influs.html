@@ -6,12 +6,23 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=5a6b557a7a2c">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MS0T5M/uwrjCtGuK2Cy5pKCjO+n+RdU+46axbrh+sCQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=7212ecc75f27">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5pPqURXfs+q4uOaRj/TiJw53GASP+KLvdKmz1TbY8sA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
-<body data-panel="influs">
+<body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
 <div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
+<aside class="area-lateral" aria-label="Navegação de Influs e Afiliados">
+  <div class="area-marca">Shrigma <span>Influs &amp; Afiliados</span></div>
+  <div id="area-view-controls" class="area-view" hidden><label for="area-view-select">Visualizar como</label><select id="area-view-select"><option value="manager">Gestor da área</option><option value="owner">Dono · diagnóstico</option></select></div>
+  <nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="creators" class="ativo">Resultados e creators<small>cupons, custos, cadastro</small><span class="n" id="n-creators"></span></button>
+    <button data-s="meta">Conteúdo em anúncios<small>vínculo com Meta</small></button>
+    <button data-s="afil">Afiliados<small>parceiros do site, TikTok</small></button>
+    <button data-s="diagnostico" data-area-owner-only>Diagnóstico<small>saúde das fontes, conferência Shopify</small></button>
+  </nav>
+  <p class="area-rodape" id="coleta-lateral" aria-live="polite"></p>
+</aside>
 
 <header class="topo">
   <div class="titulo">
@@ -26,7 +37,7 @@
       <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
     </div>
   </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">—</span></div>
+  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor" data-area-owner-only>—</span><span id="coleta-influ" class="frescor" title="Pedidos por cupom são coletados uma vez por dia às 04:10; o relatório Shopify vai até ontem.">coleta —</span></div>
 </header>
 
 <main id="conteudo" tabindex="-1">
@@ -42,28 +53,24 @@
     <select id="i-nicho" class="i-sel" hidden aria-label="Nicho" title="Filtra KPIs, cortes, cupons e creators pelo nicho do cadastro"><option value="">Todos os nichos</option></select>
   </div>
 
-  <div id="faixa-alertas" aria-live="polite"></div>
-
   <section id="influ-access" aria-label="Acessos do painel"></section>
+
+  <div id="faixa-alertas" aria-live="polite"></div>
 
   <section class="kpis" id="area-kpis"></section>
 
-  <nav class="secoes" id="secoes" aria-label="Seções">
-    <button data-s="creators" class="ativo">Creators<span class="n" id="n-creators"></span></button>
-    <button data-s="meta">Conteúdo em anúncios</button>
-    <button data-s="afil">Afiliados</button>
-  </nav>
 
+  <div class="sec" id="sec-diagnostico" data-area-owner-only><div id="area-conferencia" data-escopo="lente"></div></div>
   <div class="sec" id="sec-meta"><div id="area-meta-creators"></div></div>
   <div class="sec ativa" id="sec-creators">
     <section class="painel">
       <div class="painel-cab"><h2>Onde o retorno est&aacute;</h2>
         <span class="mini">o corte que decide contrato</span></div>
       <div class="duas-colunas" id="area-cortes"></div>
-      <div class="nota">Alcance e &ldquo;valor equivalente&rdquo; ficaram <strong>fora</strong> do ROI de prop&oacute;sito.
+      <details class="ressalvas"><summary>O que fica fora do ROI</summary><div class="nota">Alcance e &ldquo;valor equivalente&rdquo; ficaram <strong>fora</strong> do ROI de prop&oacute;sito.
         A planilha convertia impress&otilde;es em dinheiro com CPM de R$ 25 assumido &mdash; isso infla o retorno
         com valor que nunca entrou no caixa. Compliance e conte&uacute;dos contratados tamb&eacute;m sa&iacute;ram:
-        vinham 100% e 6/6 para os 23 creators, ou seja constante, e constante n&atilde;o ajuda a decidir nada.</div>
+        vinham 100% e 6/6 para os 23 creators, ou seja constante, e constante n&atilde;o ajuda a decidir nada.</div></details>
     </section>
 
     <section class="painel">
@@ -186,10 +193,10 @@
         <div id="i-inbox"></div>
         <div id="area-cupons"></div>
       </div>
-      <div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
+      <details class="ressalvas"><summary>Regras de comissão e classificação</summary><div class="nota">Somente <code>tipo=influ</code> entra na base de comiss&atilde;o. <code>pendente</code>
         <strong>n&atilde;o</strong> entra &mdash; n&atilde;o se paga o que n&atilde;o foi confirmado. Linhas destacadas s&atilde;o cupons
         que hoje escapam da blacklist do relat&oacute;rio ShopifyQL e por isso poluem a apura&ccedil;&atilde;o.
-        Toda altera&ccedil;&atilde;o vai para <code>crm_cupom_log</code> com de&rarr;para e autor.</div>
+        Toda altera&ccedil;&atilde;o vai para <code>crm_cupom_log</code> com de&rarr;para e autor.</div></details>
     </section>
   </div>
 
@@ -220,13 +227,13 @@
         <span><span class="tag neutro tts-aviso" id="tts-aviso" hidden></span> <span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
       <div class="tts-aut" id="tts-autorizacao" hidden></div>
       <section class="kpis tts-kpis" id="tts-kpis"></section>
-      <nav class="i-abas" id="tts-abas">
-        <button data-p="fila" class="ativo" title="estado atual — não segue o período">Fila de amostras <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="criadores" title="quem vendeu no período selecionado">Criadores <span class="n"></span> <span class="mini">período</span></button>
-        <button data-p="colabs" title="colaborações ativas hoje — não segue o período">Colaborações <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="cobranca" title="criadores que aceitaram e pararam no meio — o gargalo de produção">Cobrança <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="canal" title="a loja inteira: quanto veio de afiliado, de live, de vídeo, de ads — e o que cada live fez com o dia">Canal <span class="n"></span> <span class="mini">período</span></button>
-        <button data-p="regras">Regras</button>
+      <nav class="i-abas tts-abas" id="tts-abas" aria-label="Partes do TikTok Shop">
+        <button data-p="fila" class="ativo" title="Pedidos de amostra esperando decisão · estado atual, não segue o período">Amostras <span class="n"></span></button>
+        <button data-p="criadores" title="Quem vendeu no período selecionado">Criadores <span class="n"></span></button>
+        <button data-p="colabs" title="Colaborações ativas hoje · não segue o período">Colaborações <span class="n"></span></button>
+        <button data-p="cobranca" title="Criadores que aceitaram e pararam no meio · estado atual">Cobrança <span class="n"></span></button>
+        <button data-p="canal" title="A loja inteira no período: origem da venda, lives e vídeos">Canal</button>
+        <button data-p="regras" title="Regras da esteira de amostras e da cobrança">Regras</button>
       </nav>
       <div id="tts-area"><div class="vazio">Carregando afiliados TikTok…</div></div>
     </section>
@@ -235,7 +242,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=4b1d2cb43662"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=9d522e77ed74"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -553,8 +560,24 @@ async function carregarInflu(){
   }finally{if(INFLU_READ===leitura)INFLU_READ=null;}
 }
 
-function renderTudo(){if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();if(!INFLU)return;pintaNichos();renderKPIs();renderCortes();renderTabela();
+function renderTudo(){if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();renderConferencia();if(!INFLU)return;pintaNichos();renderKPIs();renderCortes();renderTabela();
   if(ED){const e=$('#i-editor'); if(e&&!e.hidden) pintaCustos();}}
+// Conferência com a Shopify: módulo próprio (influs-conferencia.js). Sem dado, diz indisponível.
+async function pedidosConferencia(q){
+  const k=chaveLeitura();if(!k)throw new Error('Informe o acesso de leitura.');
+  const j=await influPost({k,acao:'listar',ini:q.ini,fim:q.fim,pilot:false,conciliacao_pedidos:true,marca:q.marca});
+  if(j.janela?.ini!==q.ini||j.janela?.fim!==q.fim)throw new Error('A resposta não confirmou o período pedido.');
+  return j.conciliacao_pedidos;
+}
+function renderConferencia(){
+  const C=window.InflusConferencia;if(!C)return;
+  const coleta=INFLU?C.coletaTexto(INFLU,MARCA):null;
+  const chip=$('#coleta-influ');if(chip)chip.textContent=coleta||'coleta —';
+  const lat=$('#coleta-lateral');if(lat)lat.textContent=coleta?coleta[0].toUpperCase()+coleta.slice(1)+' · diário 04:10':'';
+  // Diagnóstico é do dono: o gestor vê o número do painel, que é a base correta de comissão.
+  if(document.body.dataset.areaView==='owner')C.render(document,$('#area-conferencia'),{getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,fetchPedidos:pedidosConferencia});
+  if(typeof AREA_VIEW!=='undefined')AREA_VIEW.resolve();
+}
 function renderKPIs(){
   // So depende do G e do payload: o filtro de nicho pode nao existir em quem reaproveita esta funcao.
   const nicho=typeof NICHO==='string'?NICHO:'';
@@ -573,8 +596,8 @@ function renderKPIs(){
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
-    {r:'Receita rastreada'+etqSemDono,v:rf(k.receitaCupom),s:`cupom com creator · Shopify · ${PER.ini} a ${PER.fim}`},
-    {r:'Receita com dono',v:rf(k.receita),s:`${nf(k.creators)} creators associados`},
+    {r:'Receita rastreada'+etqSemDono,v:rf(k.receitaCupom),s:`cupom com creator · pedidos pagos, subtotal sem frete · ${PER.ini} a ${PER.fim}`},
+    {r:'Receita de influência',v:rf(k.receita),s:`cupom + linha assinada, sem contar a mesma venda duas vezes · ${nf(k.creators)} creators`},
     {r:'Pedidos',v:k.pedidos?nf(k.pedidos):'—',
      s:k.pedidos?`compras pagas por cupom de creator`:'nenhum pedido por cupom no período'},
     {r:'Ticket médio',v:k.ticketMedio==null?'—':rf(k.ticketMedio),
@@ -612,7 +635,8 @@ function renderKPIs(){
   if(!pendentes.disponivel||pendentes.receitaConhecida===null)av.push('Receita de cupons pendentes <strong>indisponível</strong>: falta uma fonte válida para conferir as associações. Ausência não significa zero.');
   else if(pendentes.naoConciliadas)av.push(`${nf(pendentes.naoConciliadas)} registro(s) de receita de cupom não puderam ser conciliados com a classificação. O valor pendente conhecido pode ser parcial.`);
   if(k.semReceita)av.push(`${k.semReceita} creator(s) sem receita informada na fonte nesta janela, com <strong>${rf(k.custoSemReceita)}</strong> de custo. O custo entra no ROI; a ausência de receita não comprova zero vendas.`);
-  $('#faixa-alertas').innerHTML=av.map(m=>`<div class="alerta">${m}</div>`).join('');
+  // Um bloco só, com os avisos em lista: a ressalva fica visível sem empilhar caixas.
+  $('#faixa-alertas').innerHTML=av.length?`<div class="avisos" role="note"><strong>Antes de ler os números</strong><ul>${av.map(m=>`<li>${m}</li>`).join('')}</ul></div>`:'';
 }
 const roiTxt=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
 const roiTxt2f=v=>v==null?'—':(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
@@ -1153,10 +1177,10 @@ function carregarAbaAtiva(){
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta').forEach(x=>x.classList.remove('ativa'));
+  document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta,#sec-diagnostico').forEach(x=>x.classList.remove('ativa'));
   b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
-  document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');document.body.classList.toggle('sec-meta',SEC==='meta');carregarAbaAtiva();});
+  document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');document.body.classList.toggle('sec-meta',SEC==='meta');document.body.classList.toggle('sec-diagnostico',SEC==='diagnostico');carregarAbaAtiva();});
 
 // Canais de afiliados. O TikTok só é carregado quando o canal dele é aberto — abrir Afiliados em
 // Parceiros não dispara a consulta pesada do TikTok Shop.
@@ -1171,6 +1195,10 @@ function trocaCanal(c){
 }
 document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disabled&&CANAL!==b.dataset.c)trocaCanal(b.dataset.c);});
 if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC==='afil'?(CANAL==='parceiros'?'partners':CANAL):SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
+// Visão por papel, como no CRM: gestor da área por padrão; acesso mestre pode ver o diagnóstico do dono.
+var AREA_VIEW=typeof AreaView!=='undefined'?AreaView.bind({document,panel:'influs',key:()=>INFLU_ACCESS.current('read'),apiUrl:()=>CX_API_URL,
+  onChange:v=>{if(v!=='owner'&&SEC==='diagnostico')$('#secoes [data-s="creators"]').click();else if(v==='owner'&&INFLU)renderConferencia();}}):null;
+if(AREA_VIEW)window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolve());
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 carregarAbaAtiva();

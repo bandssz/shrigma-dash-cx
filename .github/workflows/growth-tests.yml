@@ -78,6 +78,10 @@ jobs:
           node tests/panel-short-keys-postgres.cjs
           node tests/panel-operator-postgres.cjs
           node tests/creators-pilot-postgres.cjs
+      - name: Check Influs Shopify conciliation on isolated PostgreSQL
+        env:
+          CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
+        run: node tests/influ-conciliacao-postgres.cjs
       - name: Check organic attribution on isolated PostgreSQL
         env:
           ORGANICO_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite

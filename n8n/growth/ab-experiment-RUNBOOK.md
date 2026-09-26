@@ -18,6 +18,14 @@ No banco: conferir PostgreSQL compatível, nomes v2 ausentes, schema real de cam
 
 Não usar `GRANT ... TO PUBLIC`. O papel exato deve ser obtido no preflight. Como as funções usam SECURITY INVOKER, revisar privilégios mínimos de leitura das tabelas v2/runtime para o worker e escrita da evidência dos braços pelos triggers; o papel restrito da API precisa dos privilégios necessários à transação/recibo. Não copiar o usuário superadministrador para o navegador nem inserir chave em código.
 
+### Conferência do host em 26/09, 19h35–19h39 BRT
+
+A consulta MCP `getDockerContainers`, restrita a `comunicacao_listmonk`, agora comprova uma tarefa Linux/amd64 em execução. O ImageID é o índice imutável `sha256:179d00d9553c371b6fe88c9b145095d651e275bdd66db46b2e0b79daff316b6f`, que contém o manifesto amd64 `sha256:dbecf49c2ea6f3ebf400f2a8f102ec676d6b8a9a948ccbba14320b0a3bcb1999`. Os dois digests foram recalculados a partir do registro público. Esse manifesto permite fixar base e retorno específicos do host, sem depender da tag mutável. A configuração herdada e as camadas finais do entrypoint foram conferidas; só há volume em `/listmonk/uploads`, sem substituição configurada do binário. Isso não inspeciona alterações manuais na camada gravável.
+
+Uma sessão do banco, correlacionada aos endereços atuais desse contêiner, usa `postgres`/superuser. Não confundir esse fato com a escolha ou comprovação de uma credencial restrita da API. A leitura agregada encontrou zero campanhas running, três scheduled para27/09 às18hBRT e três paused; não prova drenagem nem autoriza interrupção. As consultas e o pacote local estão em `.private/runtime/ab-deploy-20260926/`, fora do código publicado.
+
+A receita específica foi preparada, **não construída nem publicada**: FROM pelo manifesto amd64 acima, seguido exclusivamente de COPY do executável já verificado em CI para `/listmonk/listmonk`. Não há RUN/install/upgrade. Preservar a configuração existente, revisar o comando de corte/retorno `./listmonk` sem install/upgrade depois de conferir o schema nativo6.1, e fixar o digest final da imagem antes de selecionar uma janela. A autorização de parada/inicialização continua com Felipe. SQL e workflow OFF podem ser preparados/instalados antes dessa janela mediante revisão própria, sem reiniciar o worker; credencial/grants e os smoke GET continuam necessários.
+
 ## Instalação técnica ainda desligada
 
 Com autorização do responsável e backup privado verificado:
