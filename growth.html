@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=b4b3f3f322db">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1jU4M7fCSs3jHTya/O4FYwOwmC3bwwsxAm6nlY2CfXI='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-XwnJ6kWy6vFjy5j+kQ00+GNl+z0kMvrn0/+3SgnDIns='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -479,6 +479,13 @@ async function encerrarTeste(id){
 }
 
 let CRM_AUDIENCE_VIEW=null;
+// Journeys retain their editor/journal state while hidden. Only the visible route
+// mounts the view; its existing loaded/busy guards own read deduplication.
+function renderJornadas(modeloOp){
+  if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
+  const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
+  GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
+}
 function render(){
   GCE.mount({marca:MARCA,api:API});
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
@@ -629,7 +636,7 @@ function render(){
   GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
   const modeloOp=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
   GRU.render({api:API,marca:MARCA});
-  GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp?.workflows||null});
+  renderJornadas(modeloOp);
 
   const fila=G.fila(API,MARCA,CANAL);
   const filaIndisponivel=G.filaIndisponivel(API,MARCA,CANAL);
@@ -805,7 +812,7 @@ async function carregar(){
     $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(GrowthAccess.readError(e))} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
-    const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp2?.workflows||null});
+    const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});renderJornadas(modeloOp2);
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
@@ -892,7 +899,7 @@ function abrirSecaoCRM(section,{tab}={}){
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
   const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows'].includes(tab)?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
-  if(SEC==='visao'||SEC==='resultados')render();gravaHash();
+  if(SEC==='visao'||SEC==='resultados')render();else renderJornadas();gravaHash();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
@@ -944,7 +951,12 @@ setInterval(atualizarGrowthVisivel,GROWTH_REFRESH_MS);
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden&&(GROWTH_LAST_AUTO_READ===null||Date.now()-GROWTH_LAST_AUTO_READ>=GROWTH_REFRESH_MS))atualizarGrowthVisivel();
 });
-setInterval(()=>{if(!document.hidden&&API){const m=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:m?.workflows||null});}},30000);
+setInterval(()=>{
+  if(document.hidden||!API)return;
+  if((SEC==='regua'&&GC.activeTab==='workflows')||(SEC==='templates'&&GC.activeTab==='templates'))
+    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
+  renderJornadas();
+},30000);
 </script>
 </body>
 </html>

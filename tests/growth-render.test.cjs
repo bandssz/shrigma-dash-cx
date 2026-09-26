@@ -32,7 +32,7 @@ async function boot(payload=fixture(),opts={}){
  Object.defineProperty(brandDialog,'open',{get(){return this.hasAttribute('open');}});
  brandDialog.showModal=function(){this.setAttribute('open','');};brandDialog.close=function(){this.removeAttribute('open');this.onclose?.();};
  const store=new Map(opts.noReadKey?[]:[['shrigma_k_growth','synthetic-test-key']]);
- const requests=[],downloads=[],hashes=[],calls=[],uiActions=[];let response=payload,code=200;
+ const requests=[],downloads=[],hashes=[],calls=[],uiActions=[],intervals=[];let response=payload,code=200;
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
  const heldLocks=new Set(),locks={request:async(key,opts,fn)=>{if(heldLocks.has(key))return fn(null);heldLocks.add(key);try{return await fn({name:key});}finally{heldLocks.delete(key);}}};
  const cryptoProvider=opts.cryptoProvider||webcrypto;
@@ -41,7 +41,7 @@ async function boot(payload=fixture(),opts={}){
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
- addEventListener:()=>{},setInterval:()=>0,clearInterval:()=>{},setTimeout,clearTimeout,
+ addEventListener:()=>{},setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length;},clearInterval:()=>{},setTimeout,clearTimeout,
  fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}
   // The 10-minute cache serves the same payload stamped with its generation time; the panel reads it first and only falls back to the live API on a miss.
   const body=structuredClone(response);if(typeof url==='string'&&url.includes('cx-dash-cache')&&body&&typeof body==='object'&&!Array.isArray(body))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();
@@ -61,7 +61,7 @@ async function boot(payload=fixture(),opts={}){
  // Exportação: captura o CSV em vez de criar um download real.
  run('GT.baixar=(nome,texto)=>{__downloads.push({nome,texto});return true;}');
  for(let i=0;i<10&&run('LOADING');i++)await new Promise(setImmediate);
- return {document,window,run,requests,calls,store,downloads,hashes,uiActions,setResponse:(r,status=200)=>{response=r;code=status;}};
+ return {document,window,run,requests,calls,store,downloads,hashes,uiActions,intervals,setResponse:(r,status=200)=>{response=r;code=status;}};
 }
 test('front completo carrega, filtra canal/marca e mantém sombra fora dos disparos',async()=>{
  const x=await boot();assert.equal(x.document.querySelector('#load-state').hidden,true);
@@ -992,4 +992,57 @@ test('template ArrowRight routes to the catalog once, updates the shared URL and
  assert.equal(x.run('JSON.stringify(keyboardTabCalls)'),JSON.stringify(['templates']));const hash=x.hashes.at(-1),params=new URLSearchParams(hash.slice(1));assert.equal(params.get('sec'),'templates');assert.equal(params.get('aba'),'templates');assert.equal(params.get('marca'),'fish');
  assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),before);assert.equal(x.document.querySelector('#draft-editor'),editor);assert.equal(x.document.querySelector('#d-corpo'),body);assert.equal(body.value,'Conteúdo ainda não salvo');assert.equal(x.calls.length,requests);
  const reopened=await boot(fixture(),{hash});assert.equal(reopened.run('SEC'),'templates');assert.equal(reopened.run('GC.activeTab'),'templates');assert.equal(reopened.document.querySelector('#control-templates').hidden,false);assert.equal(reopened.document.querySelector('#sec-templates').classList.contains('ativa'),true);
+});
+
+/* CRM-27: route-driven journey loading. Every request below is intercepted locally. */
+const lazyJourneyEndpoint='https://example.invalid/crm-journeys';
+function lazyJourneyFixture(){
+ const p=fixture();p.capabilities={workflows:{editor:true},endpoints:{templates:lazyJourneyEndpoint}};return p;
+}
+function lazyJourneyFlows(){return ['fish','aristo'].map(brand=>{
+ const step={key:'email-30min',name:'E-mail 30 min',channel:'email',flow:'carrinho',piece:'carrinho-30min',wait_min:30,enabled:true,template_id:'1',required_variables:[],variables:[]};
+ return {key:brand+':carrinho',brand,name:'Carrinho '+brand,trigger:'Evento sintético',version:2,published_version:2,enabled:true,runtime_ready:true,available_steps:[step],draft:{name:'Carrinho '+brand,steps:[{...step}]}};
+});}
+const lazyResponse=body=>({ok:true,status:200,json:async()=>structuredClone(body)});
+const journeyReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')==='fluxos_listar');
+const templateReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')==='listar');
+async function settleJourneys(x){for(let i=0;i<25;i++){await new Promise(setImmediate);if(!x.run('GB.state.busy'))return;}assert.fail('Journey read did not settle');}
+function lazyFetch(url){const action=new URL(url).searchParams.get('acao');if(action==='fluxos_listar')return lazyResponse({flows:lazyJourneyFlows()});if(action==='listar')return lazyResponse({templates:[]});}
+
+test('CRM-27: Início and hidden timer read zero journeys; first opening reads once, pending and loaded reentry never duplicate it',async()=>{
+ let release;
+ const x=await boot(lazyJourneyFixture(),{fetchMock:url=>new URL(url).searchParams.get('acao')==='fluxos_listar'?new Promise(resolve=>release=()=>resolve(lazyResponse({flows:lazyJourneyFlows()}))):lazyFetch(url)});
+ assert.equal(journeyReads(x).length,0);assert.equal(templateReads(x).length,0);
+ const root=x.document.querySelector('#control-fluxos');assert.equal(root.children.length,0);
+ const tick=x.intervals.find(i=>i.ms===30000).fn;tick();assert.equal(root.children.length,0);assert.equal(journeyReads(x).length,0);
+ x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(journeyReads(x).length,0);
+ x.document.querySelector('[data-s="regua"]').click();assert.equal(x.run('GC.activeTab'),'fluxos');assert.equal(journeyReads(x).length,1);
+ x.document.querySelector('[data-s="visao"]').click();tick();x.document.querySelector('[data-s="regua"]').click();assert.equal(journeyReads(x).length,1);
+ release();await settleJourneys(x);assert.equal(x.run('GB.state.selected'),'fish:carrinho');assert.equal(templateReads(x).length,1);
+ x.document.querySelector('[data-s="visao"]').click();const child=root.firstElementChild;tick();assert.strictEqual(root.firstElementChild,child);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);
+ assert.equal(journeyReads(x).length,1);assert.equal(templateReads(x).length,1);assert.ok(x.calls.every(c=>!c.init.method||c.init.method==='GET'));
+});
+
+test('CRM-27: direct journey links load once; hidden brand changes select the right cached journey and dirty state still blocks changes',async()=>{
+ const x=await boot(lazyJourneyFixture(),{hash:'#marca=fish&sec=regua&aba=fluxos',fetchMock:lazyFetch});await settleJourneys(x);
+ assert.equal(journeyReads(x).length,1);assert.equal(x.run('GB.state.selected'),'fish:carrinho');
+ x.document.querySelector('[data-s="visao"]').click();x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'aristo');assert.equal(journeyReads(x).length,1);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);assert.equal(x.run('GB.state.selected'),'aristo:carrinho');assert.equal(x.run('GB.ctx.marca'),'aristo');
+ x.run('GB.state.draft.name="Edição preservada";GB.state.dirty=true');const before=x.run('JSON.stringify({draft:GB.state.draft,version:GB.state.baseVersion,selected:GB.state.selected})');
+ x.document.querySelector('[data-s="visao"]').click();x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'aristo');assert.match(x.document.querySelector('#brand-context-status').textContent,/Conclua a edição/);
+ x.intervals.find(i=>i.ms===30000).fn();x.document.querySelector('[data-s="regua"]').click();
+ assert.equal(x.run('JSON.stringify({draft:GB.state.draft,version:GB.state.baseVersion,selected:GB.state.selected})'),before);assert.equal(journeyReads(x).length,1);
+});
+
+test('CRM-27: durable unresolved attempt is guarded before lazy loading and restored on opening without replay or journal mutation',async()=>{
+ const x=await boot(lazyJourneyFixture(),{hash:'#marca=fish&sec=visao',fetchMock:lazyFetch});
+ const id='10000000-0000-4000-8000-000000000027',draft={name:'Rascunho pendente',steps:[]};
+ const op={id,actor:'synthetic-actor',endpoint:lazyJourneyEndpoint,phase:'unknown',started_at:1,applied:false,context:{brand:'fish',draft,baseVersion:2,dirty:true},request_payload:{acao:'fluxo_salvar',key:'fish:carrinho',expected_version:2,idempotency_key:id,definition:draft}};
+ const slot=x.run('GFJ.SLOT'),journal=JSON.stringify({version:1,revision:1,operations:[op]});x.store.set(slot,journal);
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(journeyReads(x).length,0);assert.match(x.document.querySelector('#brand-context-status').textContent,/tentativa de jornada sem confirmação/);
+ x.document.querySelector('[data-s="regua"]').click();await settleJourneys(x);assert.equal(journeyReads(x).length,1);assert.equal(x.run('GB.state.pending.id'),id);assert.equal(x.run('GB.state.draft.name'),'Rascunho pendente');assert.ok(x.document.querySelector('#builder-reconcile'));
+ const before=x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})');
+ x.document.querySelector('[data-s="visao"]').click();x.intervals.find(i=>i.ms===30000).fn();x.document.querySelector('[data-s="regua"]').click();
+ assert.equal(x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})'),before);assert.equal(x.store.get(slot),journal);assert.equal(journeyReads(x).length,1);assert.ok(x.calls.every(c=>!c.init.method||c.init.method==='GET'));
 });
