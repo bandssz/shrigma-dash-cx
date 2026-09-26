@@ -6,7 +6,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=58ca06368067">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=7212ecc75f27">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5pPqURXfs+q4uOaRj/TiJw53GASP+KLvdKmz1TbY8sA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
@@ -227,13 +227,13 @@
         <span><span class="tag neutro tts-aviso" id="tts-aviso" hidden></span> <span class="mini frescor" id="tts-frescor" title="última coleta OK do coletor diário (03:30)">—</span></span></div>
       <div class="tts-aut" id="tts-autorizacao" hidden></div>
       <section class="kpis tts-kpis" id="tts-kpis"></section>
-      <nav class="i-abas" id="tts-abas">
-        <button data-p="fila" class="ativo" title="estado atual — não segue o período">Fila de amostras <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="criadores" title="quem vendeu no período selecionado">Criadores <span class="n"></span> <span class="mini">período</span></button>
-        <button data-p="colabs" title="colaborações ativas hoje — não segue o período">Colaborações <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="cobranca" title="criadores que aceitaram e pararam no meio — o gargalo de produção">Cobrança <span class="n"></span> <span class="mini">agora</span></button>
-        <button data-p="canal" title="a loja inteira: quanto veio de afiliado, de live, de vídeo, de ads — e o que cada live fez com o dia">Canal <span class="n"></span> <span class="mini">período</span></button>
-        <button data-p="regras">Regras</button>
+      <nav class="i-abas tts-abas" id="tts-abas" aria-label="Partes do TikTok Shop">
+        <button data-p="fila" class="ativo" title="Pedidos de amostra esperando decisão · estado atual, não segue o período">Amostras <span class="n"></span></button>
+        <button data-p="criadores" title="Quem vendeu no período selecionado">Criadores <span class="n"></span></button>
+        <button data-p="colabs" title="Colaborações ativas hoje · não segue o período">Colaborações <span class="n"></span></button>
+        <button data-p="cobranca" title="Criadores que aceitaram e pararam no meio · estado atual">Cobrança <span class="n"></span></button>
+        <button data-p="canal" title="A loja inteira no período: origem da venda, lives e vídeos">Canal</button>
+        <button data-p="regras" title="Regras da esteira de amostras e da cobrança">Regras</button>
       </nav>
       <div id="tts-area"><div class="vazio">Carregando afiliados TikTok…</div></div>
     </section>
@@ -242,7 +242,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=9d4c07311867"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=9d522e77ed74"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.

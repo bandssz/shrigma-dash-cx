@@ -102,7 +102,11 @@ body.sec-diagnostico #area-kpis,body.sec-diagnostico #faixa-alertas{display:none
 /* Leitura mais limpa: KPIs em duas linhas de quatro, avisos num bloco só, ações secundárias discretas. */
 @media(min-width:1100px){body[data-panel=influs] #area-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
   body[data-panel=influs] #area-kpis .kpi:nth-child(4n){border-right:0}
-  body[data-panel=influs] #area-kpis .kpi:nth-child(-n+4){border-bottom:1px solid var(--borda)}}
+  body[data-panel=influs] #area-kpis .kpi:nth-child(-n+4){border-bottom:1px solid var(--borda)}
+  body[data-panel=organico] #area-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  body[data-panel=organico] #area-kpis .kpi:nth-child(4n){border-right:0}
+  body[data-panel=organico] #area-kpis .kpi:nth-child(-n+4){border-bottom:1px solid var(--borda)}}
+.kpi-mais{margin-top:4px;color:var(--mudo);cursor:help;text-decoration:underline dotted;text-underline-offset:2px}
 .avisos{border:1px solid #eadfbd;border-left:3px solid #b38b31;background:#fffcf4;color:#5f4a1c;border-radius:4px;padding:10px 14px;font-size:12.5px;line-height:1.5}
 .avisos>strong{display:block;margin-bottom:4px;color:#715720}
 .avisos ul{margin:0;padding-left:18px;display:grid;gap:4px}
