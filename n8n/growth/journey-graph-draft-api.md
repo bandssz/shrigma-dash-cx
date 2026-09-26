@@ -2,7 +2,7 @@
 
 `journey_graph_draft_api_v1` é um handler privado, sem endpoint instalado ou capacidade anunciada. Reutiliza a persistência `crm_graph_candidate`, sem alterar seu schema. Só lê catálogo/rascunhos/recibos e cria/salva rascunhos. Não expõe publicar, pausar, ativar, participantes, execução, fonte ou transporte.
 
-`createDraftApi({pool,catalogFor}).handle({method,authorization,request})` retorna `{status,headers,body}`. O host futuro deve extrair **um único** header Authorization Bearer, limitar corpo/tempo/conexões e encaminhar somente esses três campos; não aceitar token em query/body. Aqui não há servidor HTTP, CORS, rate limit, logs nem rota n8n.
+`createDraftApi({pool,catalogFor}).handle({method,authorization,request})` retorna `{status,headers,body}`. O host futuro deve extrair **um único** header Authorization Bearer, limitar corpo/tempo/conexões e encaminhar somente esses três campos; não aceitar token em query/body. Este módulo de referência não instala servidor HTTP, CORS, rate limit, logs nem rota n8n. A integração implantável fica na [ponte de workflow](journey-graph-workflow.md), que reutiliza o mesmo contrato e ledger.
 
 ## Autoria e permissões existentes
 
