@@ -88,7 +88,8 @@
     "css": [
       "styles.css",
       "organico-page.css",
-      "panel-ui.css"
+      "panel-ui.css",
+      "area-brand.css"
     ],
     "scripts": [
       "frescor.js",
@@ -106,7 +107,8 @@
       "styles.css",
       "influs-page.css",
       "panel-ui.css",
-      "creators-pilot.css"
+      "creators-pilot.css",
+      "area-brand.css"
     ],
     "scripts": [
       "frescor.js",
@@ -114,6 +116,7 @@
       "influs-access.js",
       "creators-meta.js",
       "creators-pilot-ui.js",
+      "influs-conferencia.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",
       "influs-tts.js",

@@ -6,12 +6,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=e5c279b8a285">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=c9af51a0dc9c">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3IXJ17mRqcagPPSpLtoNHLdGnWtiB8khBJXyFAmqib4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
 <div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
+<aside class="area-lateral" aria-label="Navegação do Orgânico">
+  <div class="area-marca">Shrigma <span>Orgânico</span></div>
+  <nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="grade" class="ativo">Grade<small>engajamento qualificado por semana ou mês</small><span class="n" id="n-grade"></span></button>
+    <button data-s="posts">Post a post<small>o que ganhou e o que caiu</small><span class="n" id="n-posts"></span></button>
+    <button data-s="stories">Stories<small>links, toques e conversões</small><span class="n" id="n-stories"></span></button>
+    <button data-s="venda">Venda<small>pedidos atribuídos, modelo e cobertura</small><span class="n" id="n-venda"></span></button>
+  </nav>
+  <p class="area-rodape">Instagram e Facebook · leitura de snapshots no Postgres; a página nunca chama a Meta.</p>
+</aside>
 
 <header class="topo">
   <div class="titulo">
@@ -59,12 +69,6 @@
 
   <section class="kpis" id="area-kpis" aria-label="Indicadores principais"></section>
 
-  <nav class="secoes" id="secoes" aria-label="Seções">
-    <button data-s="grade" class="ativo">Grade<span class="n" id="n-grade"></span></button>
-    <button data-s="posts">Post a post<span class="n" id="n-posts"></span></button>
-    <button data-s="stories">Stories<span class="n" id="n-stories"></span></button>
-    <button data-s="venda">Venda<span class="n" id="n-venda"></span></button>
-  </nav>
 
   <section class="sec ativa" id="sec-grade">
     <div class="painel">
@@ -122,13 +126,13 @@
         <th>Marca</th><th>Rede</th><th>Superfície</th><th>Produto / iniciativa UTM</th>
         <th class="num">Pedidos · legado</th><th class="num">Receita · legado</th><th class="num">Incidências assistidas</th><th>Peça · vínculo legado</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota">Padrão da projeção histórica: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
+      <details class="ressalvas"><summary>UTMs e origem desta projeção histórica</summary><div class="nota">Padrão da projeção histórica: <code>utm_source=instagram|linktree|tiktok|youtube</code> ·
         <code>utm_medium=social</code> (ou <code>organico</code>) · <code>utm_campaign=venda</code> ·
         <code>utm_content</code>/<code>utm_term</code> = superfície (story, reels, bio, post) e produto, em qualquer ordem.
         Automação EU QUERO (Replient): <code>utm_medium=dm</code> ou <code>dm-automation</code> → superfície "dm (automação)".
         Os links recentes com <code>utm_source=instagram_social</code> e <code>utm_medium=story|linktree</code> não entram nesta projeção anterior.
         Os vínculos de peça informados pelo de-para legado ainda precisam de conciliação por marca; não distribuem a receita desta linha por post/story. Sem vínculo, a peça permanece desconhecida.
-        Valor indisponível não é zero: uma parcela ausente ou inválida impede publicar o total daquela métrica.</div>
+        Valor indisponível não é zero: uma parcela ausente ou inválida impede publicar o total daquela métrica.</div></details>
     </div>
   </section>
 </main>
