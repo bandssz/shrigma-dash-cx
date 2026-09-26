@@ -32,7 +32,8 @@
       "growth-page.css",
       "growth-manager.css",
       "panel-ui.css",
-      "growth-workspace.css"
+      "growth-workspace.css",
+      "growth-ab-experiment.css"
     ],
     "scripts": [
       "frescor.js",
@@ -60,6 +61,10 @@
       "growth-ab-server.js",
       "growth-ab-journal.js",
       "growth-ab-form.js",
+      "growth-ab-experiment-contract.js",
+      "growth-ab-experiment-client.js",
+      "growth-ab-experiment-ui.js",
+      "growth-ab-experiment-panel.js",
       "growth-table.js",
       "growth-ui.js",
       "growth-pix.js",
