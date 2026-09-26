@@ -161,3 +161,15 @@ test('capability button restores visible focus after Cancel, Escape and successf
   await read;assert.equal(s.focused(),btn);assert.equal(btn.disabled,false);assert.equal(s.calls.length,0);assert.equal(s.storage.data.size,0);assert.equal(s.reads.length,finish==='complete'?1:0);
  }
 });
+
+test('rejeitar pede o motivo no primeiro toque e envia o escolhido com a observação',async()=>{
+ const data={regra_contrato:'atomic_v1',regra:[],envio:[],fila:[{marca:'fish',application_id:request.application_id,product_title:'Synthetic item',is_approvable:true}]};
+ const s=setup({data});s.ui.renderFila();
+ const check=s.$('#tts-manual-check').onclick();await tick();s.$('#tts-acesso-chave').value='synthetic-secret';s.submit();await check;
+ const nao=s.$('.tts-nao');assert.equal(nao.disabled,false);assert.equal(s.$('.tts-motivo'),null,'o seletor só aparece quando a pessoa vai rejeitar');
+ nao.onclick();const sel=s.$('.tts-motivo');assert.ok(sel);assert.deepEqual([...sel.querySelectorAll('option')].map(o=>o.value),['NOT_MATCH','INSUFFICIENT_STOCK','OTHER']);
+ for(const o of sel.querySelectorAll('option'))o.toggleAttribute('selected',o.value==='INSUFFICIENT_STOCK');s.$('.tts-obs').value='  variante esgotada  ';
+ nao.onclick();await until(()=>s.$('#tts-acesso-autor')?.hasAttribute('required'),'operator form');s.$('#tts-acesso-autor').value='Fixture Operator';s.submit();
+ await until(()=>s.calls.length===1,'reject POST');
+ assert.equal(s.calls[0].body.resultado,'REJECT');assert.equal(s.calls[0].body.motivo_rejeicao,'INSUFFICIENT_STOCK');assert.equal(s.calls[0].body.observacao,'variante esgotada');
+});

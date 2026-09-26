@@ -102,3 +102,33 @@ test('uma gravação pendente trava também os botões de link', () => {
  const x=setup({storage,pilot:{candidates:[cand()],links:[link()]}});
  for(const b of x.document.querySelectorAll('[data-link-new],[data-link-state]')) assert.ok(b.disabled,'nada de novo link enquanto há recibo pendente');
 });
+
+// --- decisões de 26/09: comissão liberada, fechamento mensal e cadastro de pagamento ---------------
+test('com a comissão liberada, o link mostra base e comissão, a sobreposição com cupom e o fechamento', () => {
+ const x=setup({pilot:{commission_payable:true,candidates:[cand()],links:[link({state:'ativo',url:'https://fishermans.com.br/?utm_content=p-0123abcd'})],
+  partner_orders:[{ref:'p-0123abcd',marca:'fish',pedidos:3,base_elegivel:'150.00',comissao:'10.50',comissao_fechada:true,pedidos_com_cupom:1,pedidos_link_inativo:2}],
+  fechamento:[{ref:'p-0123abcd',marca:'fish',competencia:'2026-09',pedidos:3,base_elegivel:'150.00',comissao:'10.50',base_fechada:true,mes_encerrado:true,prazo:'2026-10-05'},
+   {ref:'p-0123abcd',marca:'fish',competencia:'2026-08',pedidos:1,base_elegivel:null,comissao:null,base_fechada:false,pedidos_sem_base:1,mes_encerrado:true,prazo:'2026-09-05'}]}});
+ const t=x.document.body.textContent;
+ assert.match(t,/comissão R\$\s*10,50/);assert.match(t,/1 também com cupom de influ \(comissionam os dois\)/);assert.match(t,/2 em dia de link pausado \(não contam\)/);
+ assert.match(t,/Fechamento mensal/);assert.match(t,/a pagar até 05\/10\/2026|prazo era 05\/10\/2026/);assert.match(t,/aguardando base · 1 pedido/);assert.match(t,/sem Pix cadastrado/);
+ assert.doesNotMatch(t,/Não liberado/);
+});
+test('comissão incompleta não vira número: fica em apuração', () => {
+ const x=setup({pilot:{commission_payable:true,candidates:[cand()],links:[link({state:'ativo',url:'https://fishermans.com.br/?utm_content=p-0123abcd'})],
+  partner_orders:[{ref:'p-0123abcd',marca:'fish',pedidos:2,base_elegivel:'80.00',comissao:null,comissao_fechada:false,pedidos_sem_base:1}]}});
+ assert.match(x.document.body.textContent,/comissão em apuração \(1 sem base\)/);assert.match(x.document.body.textContent,/Em apuração/);
+});
+test('cadastro de pagamento envia kind pagamento, mostra só o final e nada de CPF/Pix fica no navegador', async () => {
+ const x=setup({pilot:{commission_payable:true,candidates:[cand()],pagamentos:[]}});
+ x.document.querySelector('[data-pay-edit]').onclick();
+ const f=x.document.querySelector('#cp-pay-form');assert.ok(f);
+ f.querySelector('[name=titular]').value='Titular Sintético';f.querySelector('[name=cpf]').value='529.982.247-25';f.querySelector('[name=pix_chave]').value='titular@exemplo.com';
+ for(const o of f.querySelectorAll('[name=pix_tipo] option'))o.toggleAttribute('selected',o.value==='email');
+ f.onsubmit({preventDefault(){}});await new Promise(r=>setTimeout(r,20));
+ const post=x.posts.at(-1);assert.equal(post.kind,'pagamento');assert.equal(post.expected_version,0);assert.equal(post.data.cpf,'529.982.247-25');assert.equal(post.data.pix_tipo,'email');
+ const guardado=[...x.storage.values()].join('');assert(!guardado.includes('529.982'));assert(!guardado.includes('exemplo.com'));
+ const y=setup({pilot:{commission_payable:true,candidates:[cand()],pagamentos:[{candidate_id:cand().id,marca:'fish',titular:'Titular Sintético',cpf_mascarado:'***.982.247-**',pix_tipo:'email',pix_final:'.com',version:1}]}});
+ assert.match(y.document.body.textContent,/Pix E-mail · final \.com/);assert.match(y.document.body.textContent,/\*\*\*\.982\.247-\*\*/);
+ y.document.querySelector('[data-pay-edit]').onclick();assert.equal(y.document.querySelector('#cp-pay-form [name=cpf]').getAttribute('value'),null,'o CPF nunca é preenchido de volta');
+});

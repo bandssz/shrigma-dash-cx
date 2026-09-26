@@ -673,10 +673,25 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     };
     if (busca) busca.oninput = filtra;
     if (sug) sug.onchange = filtra;
+    // Rejeição: a Marcela escolhe um dos três motivos que a TikTok aceita e pode deixar uma observação curta.
+    const MOTIVOS = { NOT_MATCH: 'Perfil não combina', INSUFFICIENT_STOCK: 'Sem estoque', OTHER: 'Outro motivo' };
+    const motivoBox = td => {
+      let box = td.querySelector('.tts-motivo-box');
+      if (!box) {
+        box = document.createElement('div'); box.className = 'tts-motivo-box';
+        box.innerHTML = `<select class="tts-motivo i-sel" aria-label="Motivo da rejeição">${Object.entries(MOTIVOS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><input class="tts-obs i-sel" maxlength="200" placeholder="Observação (opcional)" aria-label="Observação da rejeição">`;
+        td.append(box);
+      }
+      return box;
+    };
     document.querySelectorAll('#tts-area .tts-acoes .tts-ok,#tts-area .tts-acoes .tts-nao').forEach(b => b.onclick = () => {
       const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
+      if (!aprova && !b.disabled && !b.dataset.armado) motivoBox(td);
       armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
-        await acaoTTS({ acao: 'revisar', marca: td.dataset.marca, application_id: td.dataset.id, resultado: aprova ? 'APPROVE' : 'REJECT', motivo_rejeicao: aprova ? null : 'NOT_MATCH', observacao: '' });
+        const m = td.querySelector('.tts-motivo'), obs = td.querySelector('.tts-obs');
+        const motivo = aprova ? null : (Object.prototype.hasOwnProperty.call(MOTIVOS, m?.value) ? m.value : 'NOT_MATCH');
+        const observacao = aprova ? '' : String(obs?.value || '').trim().slice(0, 200);
+        await acaoTTS({ acao: 'revisar', marca: td.dataset.marca, application_id: td.dataset.id, resultado: aprova ? 'APPROVE' : 'REJECT', motivo_rejeicao: motivo, observacao });
         await carregarTTS();
       });
     });
@@ -964,7 +979,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td><select class="i-sel tts-r" data-campo="modo" title="Aprovação automática indisponível enquanto as guardas de concorrência estiverem pendentes.">${['dry_run', 'pausado'].concat(r.modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${o === 'ativo' ? 'disabled' : ''} ${r.modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
         <td class="num">${inp(r, 'gmv_auto', 500, 'R$, GMV 30d')}</td><td class="num">${inp(r, 'gmv_manual', 500, 'R$, GMV 30d')}</td>
         <td class="num">${inp(r, 'fulfillment_min', 1, '% de amostras postadas em 90 dias')}</td><td class="num">${inp(r, 'teto_mensal', 5, 'amostras por mês')}</td>
-        <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
+        <td>${r.sku_regex ? `<span class="mini" title="${esc(r.sku_regex)}">padrão: ${esc(r.marca === 'fish' ? 'multi 150 m · mono 300 m' : r.marca === 'aristo' ? 'unitário ou kit de até 3, inclusive misto' : 'regex')}</span>` : ''}${(r.skus_permitidos || []).length ? `<span class="mini"> + ${r.skus_permitidos.length} SKU(s)</span>` : ''}${!r.sku_regex && !(r.skus_permitidos || []).length ? '<span class="tag alerta" title="sem lista nem padrão, a regra de SKU não filtra nada">sem filtro</span>' : ''}</td>
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
         <td><button class="btn tts-btn tts-salvar" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
       <div class="tts-origem"><span class="tag neutro">decisão manual</span> <span>A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</span></div>`;

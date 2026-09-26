@@ -21,3 +21,9 @@ body.sec-partners #area-kpis,body.sec-meta #area-kpis,body.sec-partners #faixa-a
 .cp-table .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 /* Keep visually hidden table labels inside the scrolling table's containing block. */
 .cp-table{position:relative}.cp-table .sr-only{left:0;top:0}
+
+/* Parceiros: comissão por link, pagamento e fechamento (26/09/2026) */
+#area-partners .cp-extra{display:block;color:var(--mudo)}
+#area-partners .cp-pix-ok{display:block;font-weight:600;color:var(--bom,#1e6b38)}
+#area-partners td .btn.sec{margin-top:4px}
+#area-partners h3{margin:22px 0 4px;font:650 14px/1.3 var(--ui)}
