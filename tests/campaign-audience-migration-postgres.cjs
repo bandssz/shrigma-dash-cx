@@ -7,7 +7,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
  try{
   for(const d of [db,fresh])await d.exec(read('tests/campaign-provider-schema.sql'));
   for(const f of ['tests/fixtures/campaign-store-pre-audience.sql','tests/fixtures/campaign-provider-pre-audience.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
-  for(const f of ['n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await fresh.exec(read(f));
+  for(const f of ['tests/fixtures/campaign-store-pre-recovery.sql','tests/fixtures/campaign-provider-pre-recovery.sql','n8n/growth/campaign-write-guard.sql'])await fresh.exec(read(f));
   const query=async(sql,p=[])=>(await db.query(sql,p)).rows;
   const call=async(a,p)=>(await query('SELECT shrigma_campaign_store($1,$2::jsonb) AS r',[a,JSON.stringify(p)]))[0].r;
   const c=(await query('SELECT shrigma_campaign_current(100) AS r'))[0].r;

@@ -74,11 +74,12 @@ test('published Growth permits its declared API origin without broadening other 
 });
 
 test('targeted Growth build writes only Growth artifacts and emits the matching policy',()=>{
- const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}'},writes=new Map();
+ const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}','/fixture/config.js':'const CX_API_URL="https://api.example.test";','/fixture/panel-entry.js':'const sharedEntry=true;','/fixture/crm-entry.js':'const crmEntry=true;','/fixture/panel-entry.css':'body{}'},writes=new Map();
  const fakeFS={mkdirSync(){},readFileSync:p=>{assert.ok(Object.hasOwn(files,p),'Unexpected read: '+p);return files[p];},writeFileSync:(p,s)=>writes.set(p,s)};
  const context={__dirname:'/fixture/tools/panel-build',process:{argv:['node','build.cjs','--panel=growth']},console:{log(){}},Buffer,
   require:name=>name==='node:fs'?fakeFS:name==='./manifest.json'?{growth:{scripts:['growth.js'],css:['growth.css']},index:{scripts:['unrelated.js'],css:[]}}:name.includes('esbuild')?{transformSync:s=>({code:s})}:require(name)};
  vm.runInNewContext(fs.readFileSync(path.join(root,'tools/panel-build/build.cjs'),'utf8'),context);
- assert.deepEqual([...writes.keys()].sort(),['/fixture/assets/panels/growth.css','/fixture/assets/panels/growth.js','/fixture/growth.html']);
+ assert.deepEqual([...writes.keys()].sort(),['/fixture/assets/panels/crm-entry.js','/fixture/assets/panels/growth.css','/fixture/assets/panels/growth.js','/fixture/crm/index.html','/fixture/growth.html']);
+ assert.match(writes.get('/fixture/crm/index.html'),/assets\/panels\/crm-entry\.js/);assert.doesNotMatch(writes.get('/fixture/crm/index.html'),/entry-file/);
  assert.deepEqual(connectSources(writes.get('/fixture/growth.html')),['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin]);
 });

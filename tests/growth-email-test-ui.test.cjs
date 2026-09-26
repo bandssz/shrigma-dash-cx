@@ -29,7 +29,7 @@ function setup({brand='fish',values=new Map(),operations=new Map(),mode='accepte
  draft=ctx.drafts.novo({id:'local-'+brand,canal:'email',marca:brand,nome:'fixture',assunto:'Olá {{ .Tx.Data.first_name }}',corpo:'<!doctype html><html><head></head><body><p>Conteúdo Felipe</p><a href="https://example.invalid/link">Link</a></body></html>',from_email:GEC.BRANDS[brand].name+' <contato@'+GEC.BRANDS[brand].domain+'>',reply_to:'contato@'+GEC.BRANDS[brand].domain,preheader:'Pré-header fixture',botoes:[]});
  draft.servidor={draft_id:'d_fixture_'+brand,version:1,estado:'publicado',provider_status:'APPROVED',hash:ctx.rules.hash(ctx.drafts.conteudo(draft))};
  if(!storageBlocked)ctx.drafts.guarda(draft);ctx.ui.abrir(draft,draft.id);ctx.ui.contextSaved=JSON.stringify(ctx.ui.contextValue());
- const html=source('growth.html'),change=html.slice(html.indexOf('function trocaMarca(next){'),html.indexOf('window.growthChangeBrand=trocaMarca;'));
+ const html=source('growth.html'),change=html.slice(html.indexOf('function trocaMarca(next,'),html.indexOf('window.growthChangeBrand=trocaMarca;'));
  vm.runInContext(`let MARCA='${brand}',AB_WRITE_EPOCH=0;const AB_BUSY=false,$=s=>document.querySelector(s),GCE={contextStatus:()=>({}),preserve:()=>{}},GABF={contextStatus:()=>({}),preserve:()=>{}},GB={state:{}},G={MARCA_CHEIA:{}};function ativaBotao(sel,attr,val){document.querySelectorAll(sel).forEach(b=>b.classList.toggle('ativo',b.dataset[attr]===val));}function salvaPref(){}function gravaHash(){}function render(){GRU.render({...GRU.ctx,marca:MARCA});}${change}window.growthChangeBrand=trocaMarca;globalThis.changeBrand=trocaMarca;`,ctx);
  return {ctx,ui:ctx.ui,draft,document,window,$:s=>document.querySelector(s),calls,values,operations,setKey:k=>currentKey=k,focused:()=>focused};
 }
@@ -71,4 +71,36 @@ test('a later complaint or failure remains visible even if delivery was recorded
   assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{delivery:'2026-09-24T23:00:00Z',[flag]:'2026-09-24T23:01:00Z'}}}),/falha ou reclamação/);
  }
  assert.match(s.ui.emailTestSummary({phase:'confirmed',operation:{http_accepted:true,ses:{}}}),/ainda não confirmada/);
+});
+test('content guidance follows the open channel without promising publication, delivery or an unavailable WhatsApp email test',()=>{
+ for(const brand of ['fish','aristo']){
+  const s=setup({brand}),title=()=>s.$('#d-checagens .control-badge').title;
+  assert.match(title(),/não confirma publicação nem entrega/);assert.match(title(),/envio de teste.*e-mail/);
+  s.ui.abrir(s.ctx.drafts.novo({marca:brand,canal:'whatsapp',nome:'fixture_whatsapp',corpo:'Mensagem sintética.',categoria:'UTILITY'}),null);
+  assert.match(title(),/não confirma publicação nem entrega/);assert.match(title(),/aprovação da Meta/);assert.doesNotMatch(title(),/e-mail|envio de teste/);
+  assert.equal(!!s.$('#d-email-test-preview'),false);assert.equal(s.calls.length,0);
+ }
+});
+test('switching brands clears only the transient test status and retains its labeled receipt and duplicate guard',async()=>{
+ for(const brand of ['fish','aristo'])for(const mode of ['accepted','missing']){
+  const s=setup({brand,mode}),other=brand==='fish'?'aristo':'fish';
+  await s.ui.emailTestPrepare(s.ui.state.rascunho);await s.ui.emailTestSend();
+  assert.ok(s.$('.drafts-msg'));
+  const stored=s.values.get('shrigma_crm_email_tests_v1'),operation=JSON.parse(stored).operations[0];
+  const receipt=()=>s.$('[data-email-test-receipt]').closest('li');
+  const receiptBefore=receipt().textContent;
+  assert.match(receipt().textContent,brand==='fish'?/Fishermans/:/O Aristocrata/);
+  assert.equal(s.ctx.changeBrand(other),true);
+  assert.equal(!!s.$('.drafts-msg'),false,'The previous brand transient status must not follow the header');
+  assert.equal(s.ui.state.msg,'');assert.equal(s.ui.state.msgTone,'ok');
+  assert.equal(s.values.get('shrigma_crm_email_tests_v1'),stored);
+  assert.equal(s.$('[data-email-test-receipt]').dataset.emailTestReceipt,operation.id);
+  assert.equal(receipt().textContent,receiptBefore);
+  assert.match(receipt().textContent,brand==='fish'?/Fishermans/:/O Aristocrata/);
+  assert.equal(s.ctx.changeBrand(brand),true);
+  assert.equal(!!s.$('.drafts-msg'),false);
+  assert.equal(s.$('#d-email-test-preview').disabled,true);
+  assert.equal(s.values.get('shrigma_crm_email_tests_v1'),stored);
+  assert.equal(s.calls.filter(x=>x.method==='POST').length,1);
+ }
 });

@@ -4,36 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>Growth · Grupo Shrigma</title>
+<title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=64b25b58a919">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ZCFNzLEogj6ZcYHGTY8mjYHEnFli1JMyJnhtIoq4FGo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=c9dabb9c35f1">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-zkdM5mXgiy89EdbzBQiebee65tJWE5oGepGKXVH1reo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
-<body data-panel="growth">
+<body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-<div class="workspace-nav"><span class="workspace-brand">Shrigma<span>Operação</span></span></div>
+<aside class="crm-sidebar" aria-label="Navegação do CRM"><div class="crm-wordmark">Shrigma <span>CRM</span></div><details id="crm-brand-picker"><summary><span class="crm-sidebar-label">Marca</span><strong id="crm-brand-label">Todas as marcas</strong></summary><nav class="filtros" aria-label="Selecionar marca">
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo"><span class="crm-brand-name">Todas as marcas</span></button>
+      <button data-marca="aristo" aria-label="O Aristocrata"><span class="crm-brand-name">O Aristocrata</span></button>
+      <button data-marca="fish" aria-label="Fishermans"><span class="crm-brand-name">Fishermans</span></button>
+      <button data-marca="olivas" aria-label="Olivas do Campo"><span class="crm-brand-name">Olivas do Campo</span></button>
+    </div>
+  </nav></details><nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="visao" class="ativo">Início</button>
+    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
+    <button data-s="templates">Templates</button>
+    <button data-s="base">Público<span class="n" id="n-arv"></span></button>
+    <button data-s="resultados">Resultados</button>
+    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
+  </nav><span class="crm-sidebar-foot">Operação de CRM</span></aside>
 
 <header class="topo">
   <div class="titulo">
     <span class="marcas" id="marcas-topo"></span>
-    <div><h1>CRM</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
+    <div><h1 id="crm-screen-title">Início</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
-  <nav class="filtros" aria-label="Filtros">
-    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
-      <button data-marca="todas" class="ativo">Consolidada</button>
-      <button data-marca="aristo" aria-label="O Aristocrata"><img src="logos/wm-aristocrata.png" alt="O Aristocrata"></button>
-      <button data-marca="fish" aria-label="Fishermans"><img src="https://fishermans.com.br/cdn/shop/files/Fishermans_logo_primario_RGB.png?height=120" alt="Fishermans"></button>
-      <button data-marca="olivas" aria-label="Olivas do Campo"><img src="logos/wm-olivas.png" alt="Olivas do Campo"></button>
-    </div>
-  </nav>
-  <div class="status"><span id="relogio">--:--</span><span id="frescor" class="frescor">coleta —</span></div>
+
+  <div class="status" data-crm-owner-only><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
+  <div id="crm-view-controls" class="crm-view-controls" hidden><label for="crm-view-select">Visualizar como</label><select id="crm-view-select"><option value="manager">Gerência CRM</option><option value="owner">Dono · diagnóstico</option></select><span id="crm-view-status" class="mini" aria-live="polite"></span></div>
 </header>
 
 <main id="conteudo" tabindex="-1">
-  <div id="faixa-alertas" aria-live="polite"></div>
-  <p id="brand-context-status" class="nota" role="status" hidden></p>
-
-  <div class="periodo" id="periodo">
+<div class="crm-toolbar">
+    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
+      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
+      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
+      <button data-canal="email" aria-pressed="false">E-mail</button>
+    </div>
+<details id="crm-period-picker"><summary id="crm-period-label">Últimos 7 dias</summary><div class="periodo" id="periodo">
     <div class="presets" id="presets">
       <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
       <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
@@ -42,104 +54,71 @@
     </div>
     <input type="date" id="d-ini" aria-label="Início do período"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período">
     <label><input type="checkbox" id="cmp" checked> comparar</label>
+  </div></details>    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
   </div>
+  <div id="faixa-alertas" aria-live="polite"></div>
+  <div id="crm-channel-status" data-crm-manager-only role="status" hidden></div>
+  <div id="crm-connection-status" data-crm-manager-only class="crm-connection-status" role="status" hidden></div>
+  <p id="brand-context-status" class="nota" role="status" hidden></p>
+  <dialog id="brand-change-confirm" class="ce-confirm" aria-labelledby="brand-change-title" aria-describedby="brand-change-description">
+    <h3 id="brand-change-title">Guardar e trocar de marca</h3>
+    <p id="brand-change-description"></p>
+    <div class="ce-confirm-actions"><button type="button" id="brand-change-cancel" class="ce-secondary" autofocus>Continuar nesta marca</button><button type="button" id="brand-change-accept" class="ce-primary">Guardar e trocar</button></div>
+  </dialog>
 
-  <div class="canal-bar">
-    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
-      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
-      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
-      <button data-canal="email" aria-pressed="false">E-mail</button>
-    </div>
-    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
-  </div>
-  <div class="growth-context" id="growth-context">Disparos e resultados do período · horário de Brasília</div>
-  <div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div>
-  <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div>
-  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando os dados de Growth…</div>
+
+
+
+  <div class="crm-status-bar"><details class="crm-data-freshness" id="crm-data-freshness"><summary id="crm-data-summary">Atualização por origem</summary><div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div></details>
+  <div class="growth-context" id="growth-context" hidden>Disparos e resultados do período · horário de Brasília</div>
+
+  <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div></div>
+  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando o CRM…</div>
   <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo" novalidate>
-    <h2 id="growth-acesso-titulo">Acessar Growth</h2>
-    <p id="growth-acesso-ajuda">Use a chave de leitura já fornecida para este painel. A nova chave fica somente nesta página aberta; acessar não salva, agenda ou envia campanhas.</p>
+    <h2 id="growth-acesso-titulo">Acessar CRM</h2>
+    <p id="growth-acesso-ajuda">Entre com sua chave CRM. Ela fica somente nesta página aberta.</p>
     <fieldset id="growth-acesso-campos" style="border:0;padding:0;margin:0">
     <div class="campo"><label for="growth-chave">Chave de acesso</label>
       <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
-    <div class="campo"><label for="growth-acesso-arquivo">Importar arquivo de acesso de leitura Growth</label>
-      <input id="growth-acesso-arquivo" type="file" accept="application/json,.json" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
     <button type="submit" class="btn">Acessar painel</button>
     </fieldset><button id="growth-acesso-cancelar" type="button" class="btn sec">Cancelar</button>
     <span id="growth-acesso-msg" class="mini" role="status" aria-live="polite"></span>
   </form>
-  <div id="wa-coverage" class="coverage-note" hidden role="status"></div>
-  <section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section>
-  <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
+  <div id="wa-coverage" data-crm-analysis class="coverage-note" hidden role="status"></div>
 
-  <nav class="secoes" id="secoes" aria-label="Seções">
-    <button data-s="visao" class="ativo">Visão</button>
-    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
-    <button data-s="base">Base<span class="n" id="n-arv"></span></button>
-    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
-  </nav>
+
+
+
 
   <div class="sec ativa" id="sec-visao">
-    <div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div>
+<div class="crm-home-heading"><h2>Resumo do período</h2></div>
+<section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
+<div class="crm-home-actions"><button type="button" class="btn" data-crm-go="camp">Preparar campanha</button><button type="button" class="btn sec" data-crm-go="regua">Abrir automações</button><button type="button" class="btn sec" data-crm-go="templates">Criar template</button><button type="button" class="crm-text-button" data-crm-go="resultados">Ver resultados →</button></div>
+
     <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Evolução</h2>
-        <select id="sel-metrica" aria-label="Métrica do gráfico">
-          <option value="receita">Receita atribuída</option>
-          <option value="cliques">Cliques de e-mail</option>
-          <option value="enviados">Disparos registrados</option>
-          <option value="entregues">Entregues · WhatsApp</option>
-          <option value="falhas">Falhas de entrega · WhatsApp</option>
-          <option value="complaints">Reclamações de e-mail</option>
-          <option value="novos_subs">Novos inscritos de e-mail</option>
-        </select>
-      </div>
-      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
-      <div class="legenda" id="legenda-graf"></div>
-    </section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
-      <div id="area-top"></div>
-    </section>
+
+
     <section class="painel" id="painel-fila" hidden>
       <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
+      <p class="mini" id="fila-indisponivel" hidden></p>
       <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
         <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th><th>UTM</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
+      <div class="nota" id="fila-nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
         <span class="control-badge" tabindex="0" title="Sem UTM no link da loja, a receita não pode ser atribuída depois. Links para fora da loja, como grupos de WhatsApp, usam outra forma de atribuição, como cupom ou coorte.">Como a UTM funciona</span></div>
     </section>
   </div>
 
-  <div class="sec" id="sec-camp">
+
+
+<div class="sec" id="sec-camp"><div class="crm-report-tabs" role="tablist" aria-label="Campanhas"><button type="button" id="crm-campaign-list-tab" data-crm-campaign="list" role="tab" aria-selected="true" aria-controls="crm-campaign-list">Campanhas</button><button type="button" id="crm-campaign-tests-tab" data-crm-campaign="tests" role="tab" aria-selected="false" tabindex="-1" aria-controls="crm-campaign-tests">Testes A/B</button></div><div id="crm-campaign-list" data-crm-campaign-panel="list" role="tabpanel" aria-labelledby="crm-campaign-list-tab">
     <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail"></section>
     <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
-    <section class="painel" id="pix-conversion" aria-live="polite"></section>
-    <section class="painel" id="campaign-email-block">
-      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
-      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
-        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
-      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
-        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
-        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
-        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-camp"></div>
-    </section>
-    <section class="painel">
-      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
-        <select id="sel-grao" title="Grão da tabela. Família = de-para em crm_familia_campanha (todos os e-mails de um lançamento juntos); campanha sem de-para fica na própria linha.">
-          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
-      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
-        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
-      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
-        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
-        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
-      </tr></thead><tbody></tbody></table></div>
-      <div class="nota" id="nota-conv"></div>
-    </section>
-    <section class="painel">
+
+
+
+
+  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel">
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Nova configuração</button></div>
       <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
@@ -150,9 +129,9 @@
       <button type="button" class="btn sec" id="ab-consultar">Consultar tentativa registrada</button>
       <div id="form-teste" hidden>
         <div class="form">
-          <div class="campo"><label for="f-id">Identificador</label>
+          <div class="campo"><label for="f-id">Código do teste</label>
             <input type="text" id="f-id" placeholder="fish-c2-assunto-01">
-            <span class="ajuda">Sem espaço. Vira a chave do teste.</span></div>
+            <span class="ajuda">Use um código único, sem espaços.</span></div>
           <div class="campo"><label for="f-marca">Marca</label>
             <select id="f-marca"><option value="fish">Fishermans</option>
               <option value="aristo">Aristocrata</option><option value="olivas">Olivas</option></select></div>
@@ -173,40 +152,36 @@
           <div class="campo"><label for="f-efeito">Efeito mínimo (p.p.)</label>
             <input type="number" id="f-efeito" step="0.1" value="1.0">
             <span class="ajuda">Diferença que valeria mudar a operação.</span></div>
-          <div class="campo"><label for="f-ca">Braço A — campanha</label>
-            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição do braço A" placeholder="descrição do braço A"></div>
-          <div class="campo"><label for="f-cb">Braço B — campanha</label>
-            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição do braço B" placeholder="descrição do braço B"></div>
+          <div class="campo"><label for="f-ca">Variação A — campanha</label>
+            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição da variação A" placeholder="descrição da variação A"></div>
+          <div class="campo"><label for="f-cb">Variação B — campanha</label>
+            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição da variação B" placeholder="descrição da variação B"></div>
           <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
             <button class="btn" id="f-salvar">Salvar configuração sem disparo</button>
             <button class="btn sec" id="f-cancelar">Cancelar</button>
             <span class="mini" id="f-msg" role="status"></span></div>
         </div>
-        <div class="nota">O cadastro legado guarda <code>utm_term=a</code> e <code>utm_term=b</code>.
-          Isso não identifica sozinho o grupo acompanhado nem comprova conversão em venda. Preserve os links e padrões atuais;
-          não substitua as UTMs do envio para tentar obter um resultado neste quadro.</div>
+        <span class="crm-help" tabindex="0" title="A configuração registra variações A/B, mas não distribui públicos nem comprova conversão. Preserve os links atuais; não substitua as UTMs para tentar obter um resultado neste quadro.">Preserve as UTMs atuais ⓘ</span>
       </div>
       <div id="ab-experiment-panel" hidden></div>
       <div id="area-testes"></div>
-    </section>
-  </div>
-
+    </section></div></div>
   <div class="sec" id="sec-regua">
-    <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações">
+    <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
-      <button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates WhatsApp</button>
-      <button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
-      <button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar templates</button>
+
+
+
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
-    <section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section>
+
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
-    <section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section>
+
     <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
-    <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail medidas pelo SES"></section>
+    <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
     <section class="painel" id="email-comparison-block">
-      <div class="painel-cab"><h2>Campanha × Régua</h2><span class="mini">e-mail no período</span></div>
+      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="mini">e-mail no período</span></div>
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
@@ -230,19 +205,58 @@
   <div class="sec" id="sec-base">
     <p class="email-scope">Base de e-mail: a segmentação considera a marca selecionada, independentemente do filtro de canal.</p>
     <section class="painel">
-      <div class="painel-cab"><h2>Árvore de segmentação</h2><span class="mini" id="arv-rot"></span></div>
+      <div class="painel-cab"><h2>Segmentos da base</h2><span class="mini" id="arv-rot"></span></div>
       <div id="area-arvore"></div>
       <div class="nota"><span class="control-badge" tabindex="0" title="A árvore mostra as regras atuais de segmentação da marca. Alterações nessas regras precisam de revisão antes de valerem para os próximos públicos.">Regras atuais da marca</span></div>
     </section>
   </div>
 
 
+<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Catálogo WhatsApp</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+      <div class="painel-cab"><h2>Evolução</h2>
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
+          <option value="receita">Receita atribuída</option>
+          <option value="cliques">Cliques de e-mail</option>
+          <option value="enviados">Disparos registrados</option>
+          <option value="entregues">Entregues · WhatsApp</option>
+          <option value="falhas">Falhas de entrega · WhatsApp</option>
+          <option value="complaints">Reclamações de e-mail</option>
+          <option value="novos_subs">Novos inscritos de e-mail</option>
+        </select>
+      </div>
+      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
+      <div class="legenda" id="legenda-graf"></div>
+    </section><section class="painel">
+      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
+      <div id="area-top"></div>
+    </section></div></div><div id="crm-report-email" data-crm-report-panel="email" role="tabpanel" aria-labelledby="crm-report-email-tab" hidden><section class="painel" id="campaign-email-block">
+      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
+        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
+        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
+        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-camp"></div>
+    </section></div><div id="crm-report-conversion" data-crm-report-panel="conversion" role="tabpanel" aria-labelledby="crm-report-conversion-tab" hidden><section class="painel" id="pix-conversion" aria-live="polite"></section><section class="painel">
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
+        <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
+          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
+        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
+        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
+        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-conv"></div>
+    </section></div></div>
 </main>
 
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=1d955999e0f7"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=82a81975efb8"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -274,7 +288,7 @@ const COLS_CAMP=[{chave:'nome',rotulo:'Peça'},{chave:'marca',rotulo:'Marca',peg
   {chave:'ctor_pct',rotulo:'CTOR %',pega:c=>c.medido&&c.medido_clique?c.ctor_pct:null},{chave:'hard',rotulo:'Hard bounce'},{chave:'complaints',rotulo:'Reclamações'},{chave:'compl_pct',rotulo:'Reclamação %'},
   {chave:'pedidos',rotulo:'Pedidos atribuídos',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.pedidos:null},{chave:'receita',rotulo:'Receita acumulada',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null},
   {chave:'utm_ambiguo',rotulo:'Receita indivisível',pega:c=>!!(c.rec&&c.rec.utm_ambiguo)},{chave:'grupo',rotulo:'Mesmo UTM (grupo)',pega:c=>c.grupo?`#${c.grupo.grupo}`:null},{chave:'truncado',rotulo:'Truncado',pega:c=>!!c.truncado}];
-const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Grão'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
+const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Agrupamento'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
   {chave:'campanha',rotulo:'utm_campaign'},{chave:'peca',rotulo:'utm_content'},{chave:'familia',rotulo:'Família'},{chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},
   {chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},{chave:'novos',rotulo:'Clientes novos'},{chave:'recorr',rotulo:'Clientes recorrentes'},{chave:'pct_novos',rotulo:'% novos'}];
 const HOJE=G.diaBR(new Date());
@@ -470,6 +484,7 @@ let AB_EXPERIMENT_PANEL=null;
 function restoreABExperimentBrand(next){
   if(!['fish','aristo'].includes(next))return false;
   const campaign=GCE.contextStatus(),template=GRU.contextStatus();
+  if($('#brand-change-confirm')?.open)return false;
   if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||
     typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
   try{GCE.preserve();GRU.preserve();GABF.preserve();}catch{return false;}
@@ -491,6 +506,7 @@ function renderABExperiment(){
 function render(){
   renderABExperiment();
   GCE.mount({marca:MARCA,api:API});
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   if(!API)return;
   GABF.enter(MARCA,API);
   pintaMarca();
@@ -618,7 +634,7 @@ function render(){
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
   }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
-  $('#nota-conv').innerHTML=GA.valid(API)?`<strong>${esc(GA.models[GA.model(API)])} · 30 dias.</strong> ${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'} Receita líquida recebida, descontados reembolsos. <strong>Assistido</strong> = outro toque CRM dentro da janela, sem crédito final nesta linha. A mesma compra pode assistir mais de uma linha; não some assistências entre campanhas. Família consolida pedidos únicos da iniciativa. Jornadas ainda indisponíveis ficam pendentes. Dados anteriores à cobertura conciliada ficam fora desta atribuição.`:`Fonte anterior: último clique não direto, janela nominal de 30 dias. Atribuição ainda não reconciliada para esta marca.`;
+  $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
 
   const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
   $('#n-regua').textContent=fl.length||'';
@@ -641,7 +657,15 @@ function render(){
   GFU.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,exportMeta,workflowsModel:modeloOp?.workflows||null});
 
   const fila=G.fila(API,MARCA,CANAL);
-  $('#painel-fila').hidden=!fila.length;
+  const filaIndisponivel=G.filaIndisponivel(API,MARCA,CANAL);
+  $('#painel-fila').hidden=!fila.length&&!filaIndisponivel.length;
+  $('#tab-fila').hidden=!fila.length;
+  $('#fila-nota').hidden=!fila.length;
+  $('#fila-rot').textContent=fila.length?`${fila.length} agendada${fila.length>1?'s':''}`:'';
+  $('#fila-indisponivel').hidden=!filaIndisponivel.length;
+  $('#fila-indisponivel').textContent=filaIndisponivel.length
+    ?`${filaIndisponivel.length} campanha${filaIndisponivel.length>1?'s':''} sem estado confirmado.`:'';
+  $('#fila-indisponivel').title='A fonte não confirmou o estado atual. Esta campanha não é contada como agendada nem como envio; confira o cadastro antes de operar.';
   if(fila.length){
     $('#fila-rot').textContent=`${fila.length} agendada${fila.length>1?'s':''}`;
     $('#tab-fila tbody').innerHTML=fila.map(c=>{
@@ -692,18 +716,7 @@ function render(){
   $('#tab-camp [data-limpar]')?.addEventListener('click',()=>{TABELAS.camp.q='';$('#camp-busca').value='';render();});
   document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
-  $('#nota-camp').innerHTML=`<strong>Entrega</strong> é enviado menos rejeição — não é caixa de entrada;
-    e-mail que cai no spam conta como entregue. <strong>Abertura por provedor</strong> mostra quanto da abertura veio
-    de provedor que não pré-carrega imagem; o resto é inflado por Apple MPP.
-    <strong>Receita</strong> é só de último clique, casada por <code>utm_campaign + utm_content + utm_term</code>
-    na view <code>crm_campanha_receita</code> — receita assistida fica de fora de propósito: aqui a pergunta é
-    qual e-mail gerou receita atribuída. Os disparos são selecionados pela data de envio; a receita desta tabela é acumulada e pode incluir compras fora do período selecionado.`+
-    (ambig?`<div class="mini" style="margin-top:6px"><strong>${ambig} peça(s) marcada(s) como indivisível:</strong>
-      usam a mesma tupla de UTM que outra peça e não estão no mesmo grupo. Aparece em branco,
-      nunca como zero — zero diria "não vendeu".</div>`:'')+
-    `<div class="mini" style="margin-top:6px"><strong>mesmo UTM</strong>: disparos do mesmo e-mail para bases diferentes
-      aparecem como uma linha — a receita não dá para dividir entre eles, mas dá para somar. Para ver cada base separada,
-      dê <code>utm_term</code> próprio a cada disparo.</div>`;
+  $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
 
   const regras=(API.crm_regra_galho||[]).filter(r=>MARCA==='todas'||r.marca===MARCA);
   const ult={};(API.crm_galho||[]).forEach(g=>{const k=g.marca+g.galho;
@@ -715,13 +728,13 @@ function render(){
     if(!ultMov[k]||String(g.dia)>String(ultMov[k].dia))ultMov[k]=g;});
   const maxP=Math.max(1,...Object.values(ult).map(g=>+g.pessoas||0));
   $('#n-arv').textContent=regras.length||'';
-  $('#arv-rot').textContent=regras.length?`${regras.length} galhos`:'';
+  $('#arv-rot').textContent=regras.length?`${regras.length} segmento${regras.length===1?'':'s'}`:'';
   $('#area-arvore').innerHTML=regras.length?regras.map(r=>{
     const g=ult[r.marca+r.galho],p=g?+g.pessoas:undefined;
     const mv=ultMov[r.marca+r.galho];
     const mvTxt=mv?` · <span style="color:#2e7d32">+${nf(mv.entraram)}</span> <span style="color:#b3261e">−${nf(mv.sairam)}</span> em ${String(mv.dia).slice(8,10)}/${String(mv.dia).slice(5,7)}`:'';
     return `<div class="galho"><div><div class="rot">${esc(r.rotulo)}</div>
-      <div class="flx">${esc(r.fluxo||'sem fluxo')} · cap ${r.cap_dias}d${g&&g.ltv_medio>0?' · LTV '+rf(g.ltv_medio):''}${mvTxt}</div></div>
+      <div class="flx">${esc(GUI.segmentFlow(r.fluxo))} · <span tabindex="0" title="Frequência registrada na regra deste segmento, em dias.">${r.cap_dias!==null&&r.cap_dias!==undefined&&String(r.cap_dias).trim()!==''&&Number.isFinite(+r.cap_dias)?'Frequência cadastrada · '+nf(+r.cap_dias)+' dias':'Frequência não informada'}</span>${g&&g.ltv_medio>0?' · <span tabindex="0" title="Média do total histórico de compras dos clientes deste segmento com valor informado, em reais.">Valor médio comprado · '+rf(g.ltv_medio)+'</span>':''}${mvTxt}</div></div>
       <div class="barra"><i style="width:${p?100*p/maxP:0}%;background:${cor(r.marca)}"></i></div>
       <div class="num tabn">${p===undefined?'—':nf(p)}</div>
       <div><span class="tag ${r.marca}">${G.MARCA[r.marca]||r.marca}</span></div></div>`;
@@ -733,6 +746,7 @@ function render(){
   shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
   $('#relogio').textContent=GUI.sourceTime(new Date().toISOString());
   $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
 }
 
 // Atalhos dos KPIs: levam para a tabela que explica o número, sem mexer em marca/período.
@@ -740,16 +754,16 @@ function pular(alvo){
   if(alvo.startsWith('flows:')){const c=alvo.slice(6);openFlows(c==='todos'?CANAL:c);return;}
   if(alvo==='attention'){$('#automation-attention').scrollIntoView({behavior:'smooth',block:'start'});return;}
   if(alvo==='camp'||alvo==='conv'){
-    SEC='camp';salvaPref({sec:SEC});document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);
+    CRMWorkspace.setReport(alvo==='camp'?'email':'conversion');abrirSecaoCRM('resultados');
     $(alvo==='camp'?'#campaign-email-block':'#tab-conv').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
   }
 }
 // Estado da tela na URL: copiar o link entrega a mesma marca, canal, período, seção e aba.
 function estadoHash(){
   const preset=document.querySelector('#presets button.ativo')?.dataset.p||null;
-  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:SEC==='regua'?GC.activeTab:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
+  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:['regua','templates'].includes(SEC)?GC.activeTab:null,report:SEC==='resultados'?CRMWorkspace.state().report:null,campaign:SEC==='camp'?CRMWorkspace.state().campaign:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
 }
-function gravaHash(){try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
+function gravaHash(){CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
 function setCanal(canal){
   if(!['todos','email','whatsapp'].includes(canal))return;
   CANAL=canal;salvaPref({canal});
@@ -760,7 +774,7 @@ function setCanal(canal){
   $('#sel-metrica').value=METRICA;render();gravaHash();
 }
 function openFlows(canal,selection={}){
-  if(selection.marca&&!trocaMarca(selection.marca))return;
+  if(selection.marca&&!trocaMarca(selection.marca,()=>openFlows(canal,selection)))return;
   setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
@@ -771,8 +785,10 @@ function openFlows(canal,selection={}){
 }
 
 const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar()});
+GrowthView.init();
 function chave(){return ACESSO_GROWTH.current();}
 function mostraAcessoGrowth(mensagem=''){
+  GrowthView.resolve();
   ACESSO_GROWTH.show(mensagem);$('#load-state').hidden=true;
   $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
 }
@@ -789,6 +805,7 @@ async function consultaGrowth(url,k,timeoutMs){
 }
 // GROWTH_CACHE_READ_END
 async function carregar(){
+  GrowthView.resolve();
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
@@ -803,13 +820,16 @@ async function carregar(){
     if(!next&&!(r&&(r.status===401||r.status===403))){
       const v=await consultaGrowth(`${CX_API_URL}?painel=growth`,k,45000);r=v.r;if(v.r.ok&&payloadGrowthValido(v.payload)){next=v.payload;ORIGEM_LEITURA='vivo';}
     }
-    if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso a Growth.');mostraAcessoGrowth('Chave recusada. Confira o acesso a Growth.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
-    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Esta chave não retornou os dados de Growth.');}
+    if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Esta chave não retornou os dados do CRM.');}
     API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
-    if(window.avisoCredencial)window.avisoCredencial(GrowthFreshness.credentialAlerts(API.crm_credencial));
+    const connectionAlerts=GrowthFreshness.credentialAlerts(API.crm_credencial);
+    if(window.avisoCredencial)window.avisoCredencial(connectionAlerts);
+    const connectionStatus=$('#crm-connection-status');connectionStatus.hidden=!connectionAlerts.some(c=>['vencida','quebrada','vencendo'].includes(c.estado));
+    connectionStatus.textContent=connectionStatus.hidden?'':'Há uma conexão que precisa de atenção. Confira as datas de atualização antes de usar os resultados.';
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
     CONSULTA={em:new Date().toISOString(),falhou:false};
     render();
@@ -818,8 +838,8 @@ async function carregar(){
     $('#load-state').hidden=true;
     const horaBR=d=>GUI.sourceTime(d);
     $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
-      ?'Dados de '+horaBR(next._cache_gerado_em)+' · renovados a cada 10 min · painel consulta a cada minuto enquanto visível'
-      :'Consulta direta de '+horaBR(Date.now())+' · painel consulta a cada minuto enquanto visível';
+      ?'Dados de '+horaBR(next._cache_gerado_em)
+      :'Consultado em '+horaBR(Date.now());
     $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
     $('#load-state').hidden=true;
@@ -866,38 +886,62 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
   if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 })();
-function trocaMarca(next){
+function trocaMarca(next,afterConfirm=null){
   if(!['todas','fish','aristo','olivas'].includes(next))return false;
   if(next===MARCA)return true;
   const status=$('#brand-context-status'),notice=text=>{status.textContent=text;status.hidden=!text;};
-  const campaign=GCE.contextStatus(),template=GRU.contextStatus(),experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{};
-  if(AB_BUSY||campaign.blocked||template.blocked||experiment.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
-  if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
-  if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
-    notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
-  }
-  if(campaign.dirty||template.dirty||GABF.contextStatus().dirty){
-    if(typeof confirm!=='function'||!confirm('Guardar as preparações desta marca neste dispositivo e trocar de marca? Nada será enviado ao servidor.'))return false;
-  }
-  try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
-  const previous=MARCA;MARCA=next;AB_WRITE_EPOCH++;
-  ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
-  notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
-  return true;
+  const dialog=$('#brand-change-confirm'),previous=MARCA;
+  if(dialog?.open){notice('Conclua a confirmação aberta antes de trocar de marca.');return false;}
+  const ready=()=>{
+    if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
+    const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{};
+    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked||experiment.blocked){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
+    if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
+      notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
+    }
+    return true;
+  };
+  const apply=()=>{
+    if(!ready())return false;
+    const campaign=GCE.contextStatus();
+    try{GCE.preserve();GRU.preserve();GABF.preserve();}catch(e){notice(e.message);return false;}
+    MARCA=next;AB_WRITE_EPOCH++;
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
+    return true;
+  };
+  if(!ready())return false;
+  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty)return apply();
+  if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');return false;}
+  const caller=document.activeElement;let settled=false;
+  const finish=accepted=>{
+    if(settled)return;settled=true;dialog.oncancel=null;dialog.onclose=null;
+    $('#brand-change-accept').onclick=null;$('#brand-change-cancel').onclick=null;
+    try{dialog.close();}catch{dialog.removeAttribute('open');}
+    if(accepted&&apply()&&typeof afterConfirm==='function')afterConfirm();
+    (caller?.isConnected?caller:$('#seg-marca .ativo'))?.focus();
+  };
+  $('#brand-change-description').textContent='Guardar as preparações de '+(G.MARCA_CHEIA[previous]||previous)+' neste dispositivo e abrir '+(G.MARCA_CHEIA[next]||(next==='todas'?'Consolidada':next))+'? Nada será enviado ao servidor.';
+  $('#brand-change-accept').onclick=()=>finish(true);$('#brand-change-cancel').onclick=()=>finish(false);
+  dialog.oncancel=e=>{e.preventDefault();finish(false);};dialog.onclose=()=>finish(false);
+  try{dialog.showModal();$('#brand-change-cancel').focus();}catch{finish(false);notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');}
+  return false;
 }
 window.growthChangeBrand=trocaMarca;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
-document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
-  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('ativa'));
-  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');salvaPref({sec:SEC});
-  if(SEC==='visao')render();gravaHash();
-  // se a barra de secoes ficou acima da viewport, traz de volta
-  const r=$('#secoes').getBoundingClientRect();
-  if(r.top<0)$('#secoes').scrollIntoView({behavior:'smooth',block:'start'});});
+function abrirSecaoCRM(section,{tab}={}){
+  const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
+  SEC=section;document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x===target));
+  ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
+  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows'].includes(tab)?tab:'fluxos'):null;
+  if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
+  if(SEC==='visao'||SEC==='resultados')render();gravaHash();
+}
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();$('#crm-period-picker').open=false;});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b||b>G.diaBR(new Date()))return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
@@ -922,10 +966,14 @@ $('#ab-consultar').onclick=async()=>{await reconciliaTestesAB(chaveLegadaTesteAB
 $('#f-salvar').onclick=salvarTeste;
 
 
-addEventListener('resize',()=>API&&SEC==='visao'&&render());
+addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
 GC.init();GRU.render({api:null,marca:MARCA});
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
-document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',gravaHash));
+document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
+const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
+CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();gravaHash();},initial:crmInitialView});
+if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
+if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
 // Automatic refresh only while this panel is visible; server execution is independent.
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;

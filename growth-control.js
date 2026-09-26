@@ -6,9 +6,9 @@ const GC={
      e o que a pessoa escolheu tem que sobreviver ao redesenho. */
   filters:{wf:{q:'',estado:'todas',modo:'todos'},tpl:{status:'todos',categoria:'todas',uso:'todos',sort:'piece',dir:'asc'}},
   ESTADOS_WF:[['todas','Todas'],['ativas','Ativas'],['inativas','Inativas'],['conferir','A conferir']],
-  MODOS_WF:[['todos','Qualquer modo'],['real','Real'],['sombra','Sombra'],['interno','Interno'],['segue-origem','Sem modo próprio'],['nao-confirmado','Modo não confirmado']],
+  MODOS_WF:[['todos','Qualquer modo'],['real','Envio real'],['sombra','Simulação'],['interno','Teste interno'],['segue-origem','Sem modo próprio'],['nao-confirmado','Modo não confirmado']],
   STATUS_TPL:[['todos','Qualquer status'],['APPROVED','Aprovado'],['outros','Não aprovado']],
-  CATEGORIAS_TPL:[['todas','Qualquer categoria'],['UTILITY','Utility'],['MARKETING','Marketing'],['AUTHENTICATION','Authentication'],['divergente','Categoria divergente']],
+  CATEGORIAS_TPL:[['todas','Qualquer categoria'],['UTILITY','Utilidade'],['MARKETING','Marketing'],['AUTHENTICATION','Autenticação'],['divergente','Categoria divergente']],
   USOS_TPL:[['todos','Qualquer uso'],['current','Mapeado no fluxo'],['native_pending','Integração pendente'],['optional','Opcional'],['retired','Retirado'],['available','Disponível'],['configured_paused','Etapa pausada']],
   usoLabel:usage=>({current:'Mapeado no fluxo · envio depende da ativação',native_pending:'Integração pendente · ainda fora do envio',optional:'Opcional · sem necessidade operacional',retired:'Retirado · sem integração a fazer',available:'Disponível · não selecionado',configured_paused:'Selecionado · etapa ou jornada pausada'}[usage]||'Uso não confirmado'),
   workflowMatches(row,f){
@@ -62,6 +62,10 @@ const GC={
   stamp(value){const time=GC.time(value);return Number.isFinite(time)?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(time)):'Não disponível';},
   fresh(value,now){const time=GC.time(value);return Number.isFinite(time) && time<=now+60000 && now-time<900000;},
   brand(key){return {fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo',shared:'Compartilhado'}[key] || 'Marca não informada';},
+  statusLabel(value){return {APPROVED:'Aprovado',PENDING:'Em análise',REJECTED:'Reprovado',PAUSED:'Pausado',DISABLED:'Desativado',DELETED:'Excluído'}[value]||GC.text(value,'Não informado');},
+  categoryLabel(value){return {UTILITY:'Utilidade',MARKETING:'Marketing',AUTHENTICATION:'Autenticação'}[value]||GC.text(value,'Não informada');},
+  modeValue(value){return {real:'envio real',sombra:'simulação',interno:'teste interno',unknown:'não confirmado'}[value]||value;},
+  publicationLabel(pub,row){return pub.situacao==='ativo'?'Publicado · envio ativo':pub.situacao==='nao_ativo'?(row.mapped_in?.length?'Publicado · envio não ativo':'Publicado · sem automação vinculada'):'Publicado · ativação não confirmada';},
   channel(key){return {whatsapp:'WhatsApp',email:'E-mail',shared:'Todos os canais'}[key] || 'Canal não informado';},
   badge(label,tone='neutral',detail=''){return `<span class="control-badge control-${tone}"${detail?` tabindex="0" title="${GC.esc(detail)}" aria-label="${GC.esc(label+': '+detail)}"`:''}>${GC.esc(label)}</span>`;},
   collection(row,meta,now){
@@ -126,7 +130,7 @@ const GC={
     const e=GC.esc,current=row.collection.current;
     const active=typeof row.active==='boolean'?(row.active?'Ativo':'Inativo'):'Ativação desconhecida';
     const published=typeof row.published==='boolean'?(row.published?'Versão publicada':'Sem versão publicada'):'Publicação não confirmada';
-    const modes=row.modes.map(mode=>`${GC.modeLabel(mode)}: ${{real:'real',sombra:'sombra',interno:'interno',unknown:'não confirmado'}[mode.value]}`).join(' · ');
+    const modes=row.modes.map(mode=>`${GC.modeLabel(mode)}: ${GC.modeValue(mode.value)}`).join(' · ');
     const execution=GC.object(row.last_retained_execution)?row.last_retained_execution:null;
     const status=execution?({success:'Concluída',error:'Erro registrado',running:'Em execução',waiting:'Aguardando',canceled:'Cancelada',crashed:'Interrompida',new:'Nova',unknown:'Não confirmado'}[execution.status] || 'Não confirmado'):null;
     const retention=kind=>({all:'Salvas',none:'Não salvas',unknown:'Não confirmado'}[row.retention[kind]] || 'Não confirmado');
@@ -136,7 +140,7 @@ const GC={
       ${!current?'<p class="control-warning">Os valores disponíveis são da última coleta; o estado atual não está confirmado.</p>':''}
       ${!row.fieldsValid?'<p class="control-warning">Há campos de configuração não confirmados.</p>':''}
       ${GC.collectionDetails(row)}
-      <details class="control-detail"><summary>Última execução retida e registros</summary><p>${execution?`${e(status)} · início ${e(GC.stamp(execution.started_at))}${execution.stopped_at?` · término ${e(GC.stamp(execution.stopped_at))}`:''}`:'Nenhuma execução retida foi informada pela fonte.'}</p>
+      <details class="control-detail"><summary>Registros técnicos disponíveis</summary><p>${execution?`${e(status)} · início ${e(GC.stamp(execution.started_at))}${execution.stopped_at?` · término ${e(GC.stamp(execution.stopped_at))}`:''}`:'Nenhuma execução retida foi informada pela fonte.'}</p>
       <p>Execuções concluídas: ${e(retention('success'))}. Execuções com erro: ${e(retention('error'))}.</p>
       <p>${row.retention.success==='none'?'Este fluxo não salva execuções concluídas; uma execução antiga com erro pode continuar sendo a última retida.':'A última execução retida pode não representar a última atividade do fluxo.'} Esse registro não comprova entrega ao cliente.</p></details></article>`;
   },
@@ -153,9 +157,9 @@ const GC={
   previaPublicada(row){
     if(!GC.conteudo||typeof GTA==='undefined')return '';
     const t=GC.conteudo[row.key]||Object.values(GC.conteudo).find(x=>x&&x.name===row.name&&x.brand===row.brand);
-    if(!t)return '<span class="control-template-meta">Conteúdo publicado não veio na resposta da API para este template.</span>';
-    const e=GC.esc,hist=GC.historicos[row.key];
-    return `<details class="control-detail control-template-preview" data-gt-key="prev-${e(row.key)}"><summary>Prévia publicada · v${e(t.version??'?')}${t.published_at?` · ${e(GC.stamp(t.published_at))}`:''}</summary>
+    if(!t)return '<span class="control-template-meta">Conteúdo publicado indisponível nesta consulta. Recarregue o conteúdo para conferir.</span>';
+    const e=GC.esc,hist=GC.historicos[row.key],version=/^[1-9]\d*$/.test(String(t.version??''))?' · v'+e(t.version):'',collected=!t.published_at&&Number.isFinite(GC.time(GC.conteudoEm))?' · consultada em '+e(GC.stamp(GC.conteudoEm)):'';
+    return `<details class="control-detail control-template-preview" data-gt-key="prev-${e(row.key)}"><summary>Prévia publicada${version}${collected}${t.published_at?` · ${e(GC.stamp(t.published_at))}`:''}</summary>
       <div class="control-template-preview-body">${GTA.previaComponents(t.components)}</div>${t.components?.body_html?`<button type="button" class="refresh-btn" data-tpl-preview-email="${e(t.key||row.key)}">Abrir prévia do HTML</button>`:''}
       ${t.quality_score?`<p>Qualidade (Meta): ${e(typeof t.quality_score==='object'?JSON.stringify(t.quality_score):t.quality_score)}</p>`:''}${t.rejected_reason?`<p class="control-warning">Motivo de rejeição: ${e(t.rejected_reason)}</p>`:''}
       ${GC.caps?.pode?.list_history?(hist?`<ul class="control-template-hist">${hist.length?hist.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'?')} · ${e(x.action)}${x.from_version!=null||x.to_version!=null?` v${e(x.from_version??'—')}→v${e(x.to_version??'—')}`:''} · ${e(x.result||'')}</li>`).join(''):'<li>Nenhum evento devolvido pela API.</li>'}</ul>`:`<button type="button" class="refresh-btn" data-tpl-historico="${e(row.key)}"${GC.carregando?' disabled':''}>Carregar histórico</button>`):''}</details>`;
@@ -184,7 +188,7 @@ const GC={
     const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
     if(links===null)return null;
     const validos=links.filter(l=>GC.object(l)&&typeof l.workflow_key==='string'&&l.workflow_key.trim()),invalidos=links.length-validos.length;
-    if(!validos.length)return row.usage==='native_pending'&&!invalidos?null:[{text:invalidos?`${invalidos} vínculo(s) em formato inválido`:'Sem vínculo declarado no manifesto',tone:invalidos?'warning':'neutral'}];
+    if(!validos.length)return row.usage==='native_pending'&&!invalidos?null:[{text:invalidos?`${invalidos} vínculo(s) em formato inválido`:'Sem automação vinculada',tone:invalidos?'warning':'neutral'}];
     const out=validos.map(l=>{
       const wf=GC.templateCtx.workflows.find(w=>w.key===l.workflow_key);
       const mode=wf?(wf.modes||[]).find(m=>m.key===l.mode_key):null;
@@ -197,7 +201,7 @@ const GC={
         if(atual){modeTxt=`modo configurado: ${val}`;tone=mode.value==='real'?'verified':'neutral';}
         else{modeTxt=`último modo observado: ${val} · consulta ${wf.collection?.key==='error'?'com falha':'desatualizada'} (${GC.stamp(wf.last_good_at)})`;tone='warning';}
       }else if(wf)modeTxt='modo não informado';
-      return {text:`${wf?wf.label||l.workflow_key:l.workflow_key} · ${piece}${modeTxt?` · ${modeTxt}`:''}`,tone};
+      return {text:`${wf?wf.label||l.workflow_key:l.workflow_key} · ${piece}${modeTxt?` · ${modeTxt}`:''}`,displayText:`${wf?.label||'Automação vinculada'} · ${piece}${modeTxt?` · ${modeTxt.replace(/\breal\b/g,'envio real').replace(/\bsombra\b/g,'simulação').replace(/\binterno\b/g,'teste interno')}`:''}`,tone};
     });
     if(invalidos)out.push({text:`${invalidos} vínculo(s) em formato inválido ignorado(s)`,tone:'warning'});
     return out;
@@ -230,34 +234,56 @@ const GC={
     const e=GC.esc,current=row.collection.current;
     const links=GC.templateLink(row),met=GC.templateMetrics(row);
     const nf=v=>new Intl.NumberFormat('pt-BR').format(v);
-    const linkHtml=links?(Array.isArray(links)?links:[links]).map(l=>`<span class="control-template-link" data-tone="${l.tone}">${e(l.text)}</span>`).join(''):'';
+    const linkHtml=links?(Array.isArray(links)?links:[links]).map(l=>`<span class="control-template-link" data-tone="${l.tone}" title="${e(l.text)}">${e(l.displayText||l.text)}</span>`).join(''):'';
     const metHtml=met?`<details class="control-template-metrics" data-gt-key="met-${e(row.key)}"><summary>${e(GC.metricaTexto(met))}${met.coberto?'':met.vazio?'':' · cobertura não declarada'}${met.linhas&&[met.registros,met.aceitos,met.entregues,met.falhas].some(v=>v===null)?' · parte não medida':''}</summary>
       <p>Linhas do motor para este template, na marca e no período selecionado, sem o fluxo de teste (mesma população de Envios). Registros incluem sombra; aceitos = wamid da Meta; entregues = delivered/read. "—" é contagem não informada em pelo menos uma linha, não zero.${met.testes?` ${met.testes} linha(s) de teste fora da soma.`:''}${met.invalidas?` ${met.invalidas} linha(s) da coleção em formato inválido, ignorada(s).`:''} ${met.coberto?`Cobertura declarada pela API: ${e(met.cobertura.inicio)} a ${e(met.cobertura.fim)}.`:'A API não declarou a cobertura desta coleção; ausência de linha não prova zero.'}</p></details>`:'';
     const note=GC.usoLabel(row.usage);
     const alerts=[];
-    if(row.mismatch)alerts.push(`Categoria recebida: ${row.category}; esperada: ${row.expected_category}.`);
-    if(row.status!=='APPROVED')alerts.push(`Status recebido: ${row.status}; aprovação não confirmada.`);
+    if(row.mismatch)alerts.push(`Categoria recebida: ${GC.categoryLabel(row.category)}; esperada: ${GC.categoryLabel(row.expected_category)}.`);
+    if(row.status!=='APPROVED')alerts.push(`Status recebido: ${GC.statusLabel(row.status)}; aprovação não confirmada.`);
     if(!row.fieldsValid)alerts.push('Há campos do template não confirmados.');
     const statusTone=current && row.fieldsValid && row.status!=='APPROVED'?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     const categoryTone=current && row.mismatch?'warning':row.eligible && row.usage==='current'?'verified':'neutral';
     const pub=GC.publicacao(row);
     return `<tr data-control-template="${e(row.key)}"><td><strong class="control-template-piece">${e(GC.text(row.piece,'Peça não informada'))}</strong><code>${e(GC.text(row.name,'Nome não informado'))}</code><span class="control-template-meta">${e(GC.brand(row.brand))} · ${e(GC.text(row.language,'Idioma não informado'))}</span>${GC.previaPublicada(row)}</td>
-      <td>${GC.badge(row.status,statusTone)}${GC.badge(row.category,categoryTone)}<span class="control-template-meta">Esperada: ${e(GC.text(row.expected_category,'Não informada'))}</span>${pub?`<span class="control-template-pub" data-situacao="${e(pub.situacao)}" title="Publicado = aprovado pela Meta. Ativo = algum workflow mapeado no manifesto está ativo e com o modo deste template em real. A tela nunca junta os dois.">${GC.badge(pub.rotulo,pub.tone)}</span>`:''}</td>
+      <td>${GC.badge(GC.statusLabel(row.status),statusTone,"Status recebido da Meta: "+row.status)}${GC.badge(GC.categoryLabel(row.category),categoryTone,"Categoria recebida da Meta: "+row.category)}<span class="control-template-meta">Categoria esperada: ${e(GC.categoryLabel(row.expected_category))}</span>${pub?`<span class="control-template-pub" data-situacao="${e(pub.situacao)}" title="${e(pub.rotulo)}. Publicado significa aprovado pela Meta. Envio ativo indica automação vinculada ligada e configurada para envio; não comprova disparo ou entrega.">${GC.badge(GC.publicationLabel(pub,row),pub.tone)}</span>`:''}</td>
       <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${row.usage_reason?`<p class="control-template-meta">${e(row.usage_reason)}</p>`:''}${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
+  },
+  emailFlowLabel(value,fallback='Jornada não identificada'){
+    const key=String(value||'').split(':').pop();
+    return ({carrinho:'Carrinho','nps-d0':'Pesquisa de satisfação','pedido-recebido':'Acompanhamento do pedido',popup:'Boas-vindas'})[key]||fallback;
+  },
+  emailStepLabel(value,fallback='Etapa não identificada'){
+    return ({'carrinho-30min':'Após 30 minutos','carrinho-1h':'Após 1 hora','carrinho-2h':'Após 2 horas','carrinho-24h':'Após 24 horas','carrinho-48h':'Após 48 horas','nps-d0':'Primeiro convite','nps-d3':'Lembrete após 3 dias','cupom-boas-vindas':'Cupom de boas-vindas','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento confirmado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido a caminho','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado'})[value]||fallback;
+  },
+  managerOperation(model){
+    const rows=model.workflows,notes=[];
+    const add=(text,affected=[])=>{
+      const stamps=[...new Set(affected.map(r=>GC.stamp(r.last_good_at)))];
+      notes.push(`<p class="control-warning">${GC.esc(text)}${stamps.length?` <span class="mini">Última consulta válida: ${GC.esc(stamps.join(' · '))} · Brasília.</span>`:''}</p>`);
+    };
+    if(!model.meta.valid||!rows.length)add('Estado das automações indisponível. Atualize o painel; ausência de dados não confirma ausência de automações.');
+    else{
+      const failed=rows.filter(r=>r.collection.key==='error'),stale=rows.filter(r=>r.collection.key==='stale'),unknown=rows.filter(r=>['unknown','invalid'].includes(r.collection.key));
+      if(failed.length)add('Não foi possível atualizar parte das automações. Atualize o painel; se persistir, peça conferência ao responsável.',failed);
+      if(stale.length)add('Parte das automações tem informações desatualizadas. Atualize o painel antes de avaliar a operação.',stale);
+      if(unknown.length)add('Estado de parte das automações não confirmado. Atualize o painel; não presuma que os envios estejam ativos.',unknown);
+      if(rows.some(r=>!r.fieldsValid))add('Parte da configuração não foi confirmada. Peça conferência ao responsável antes de alterar envios.');
+      if(rows.some(r=>r.has_unpublished_changes===true))add('Há alterações ainda não publicadas. Confirme com o responsável qual versão está em operação.');
+    }
+    return `<section class="control-manager-operation" data-crm-manager-only role="status"><strong>Acompanhamento da operação</strong>${notes.join('')}<p class="mini">Confira etapas, pausas e versões em Jornadas. Configuração habilitada não comprova envio ou entrega.</p></section>`;
   },
   emailInventory(api,marca,canal,now=Date.now()) {
     if(canal==='whatsapp'||!['fish','aristo','todas','todos'].includes(marca))return '';
     const raw=api?.crm_operacao?.email_steps,e=GC.esc;
     const heading='<h3>Etapas de e-mail configuradas</h3>';
-    if(!Array.isArray(raw))return heading+'<p class="nota">A lista de etapas de e-mail ainda não veio nesta consulta. Atualize o painel; os serviços abaixo não representam todas as etapas.</p>';
+    if(!Array.isArray(raw))return heading+'<p class="nota">A lista de etapas de e-mail ainda não veio nesta consulta. Atualize o painel para conferir as etapas.</p>';
     const chosen=raw.filter(r=>r&&(['todas','todos'].includes(marca)||r.brand===marca));
     const valid=chosen.every(r=>['fish','aristo'].includes(r.brand)&&typeof r.key==='string'&&typeof r.piece==='string'&&typeof r.flow_key==='string'&&typeof r.enabled==='boolean'&&typeof r.runtime_ready==='boolean'&&Number.isFinite(Date.parse(r.checked_at)))&&new Set(chosen.map(r=>r.key)).size===chosen.length;
     if(!valid)return heading+'<p class="nota">Não foi possível conferir as etapas de e-mail. Atualize o painel.</p>';
-    const flowLabel=k=>({'carrinho':'Carrinho','nps-d0':'Pesquisa de satisfação','pedido-recebido':'Acompanhamento do pedido','popup':'Boas-vindas'})[k.split(':')[1]]||'Outra jornada';
-    const stepLabel=p=>({'carrinho-30min':'Após 30 minutos','carrinho-1h':'Após 1 hora','carrinho-2h':'Após 2 horas','carrinho-24h':'Após 24 horas','carrinho-48h':'Após 48 horas','nps-d0':'Primeiro convite','nps-d3':'Lembrete após 3 dias','cupom-boas-vindas':'Cupom de boas-vindas','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento confirmado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido a caminho','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado'})[p]||p;
     const status=r=>{const age=now-Date.parse(r.checked_at);return !Number.isFinite(age)||age < -60000||age>900000?'Configuração na consulta anterior':!r.enabled?'Pausada':!r.runtime_ready?'Integração pendente':'Habilitada na configuração';};
-    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(flowLabel(r.flow_key))}</span></td><td>${e(stepLabel(r.piece))}</td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
+    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(GC.emailFlowLabel(r.flow_key))}</span></td><td>${e(GC.emailStepLabel(r.piece))}<span class="mini" data-crm-owner-only> · ${e(r.piece)}</span></td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
   },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
@@ -270,6 +296,7 @@ const GC={
     if(!workflowRoot||!templateRoot)return model;
     const hasGT=typeof GT!=='undefined';
     const keptWf=hasGT?GT.captura(workflowRoot):null,keptTpl=hasGT?GT.captura(templateRoot):null;
+    const ownerDetailsOpen=workflowRoot.querySelector('[data-crm-owner-diagnostics]')?.open===true;
     const openDetails=[...workflowRoot.querySelectorAll('[data-control-workflow]')].filter(card=>card.querySelector('details')?.open).map(card=>card.dataset.controlWorkflow);
     const oldInput=templateRoot.querySelector('#control-template-search'),restoreInput=oldInput&&document.activeElement===oldInput;
     const selection=restoreInput?[oldInput.selectionStart,oldInput.selectionEnd]:null;
@@ -280,27 +307,27 @@ const GC={
     const wfEmpty=!model.meta.valid?'Operação atual indisponível nesta consulta.'
       :!model.workflows.length?'Nenhuma automação disponível para estes filtros. Ausência de dados não confirma ausência de automações.'
       :`Nenhuma automação${GC.describe([fw.estado==='ativas'?'ativa':fw.estado==='inativas'?'inativa':fw.estado==='conferir'?'a conferir':'',
-          fw.modo==='real'?'em modo real':fw.modo==='sombra'?'em modo sombra':fw.modo==='interno'?'em modo interno':fw.modo==='segue-origem'?'sem modo próprio':fw.modo==='nao-confirmado'?'com modo não confirmado':'',
-          fw.q?`contendo "${e(fw.q)}"`:''])}${model.marca!=='todas'?` para ${e(GC.brand(model.marca))}`:''}${model.canal!=='todos'?` no canal ${e(GC.channel(model.canal))}`:''}. Modo sombra ou inativo não significa que a operação parou de existir: confira os filtros.`;
-    workflowRoot.innerHTML=GC.metadata(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
-      <div class="control-explainer">${GC.badge('Configuração dos serviços','neutral','Ativo indica configuração ligada; não confirma funcionamento ou entrega. As quantidades de serviços não representam o número de etapas de e-mail.')}${GC.badge('Sombra: sem disparos','neutral','O modo sombra não faz disparos reais.')}${GC.badge('Inclui serviços compartilhados','neutral','Serviços compartilhados aparecem também no filtro de cada marca.')}</div>
+          fw.modo==='real'?'com envio real':fw.modo==='sombra'?'em simulação':fw.modo==='interno'?'em teste interno':fw.modo==='segue-origem'?'sem modo próprio':fw.modo==='nao-confirmado'?'com modo não confirmado':'',
+          fw.q?`contendo "${e(fw.q)}"`:''])}${model.marca!=='todas'?` para ${e(GC.brand(model.marca))}`:''}${model.canal!=='todos'?` no canal ${e(GC.channel(model.canal))}`:''}. Simulação ou configuração inativa não significa que a operação parou de existir: confira os filtros.`;
+    workflowRoot.innerHTML=GC.metadata(model)+GC.managerOperation(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<details class="control-owner-diagnostics" data-crm-owner-only data-crm-owner-diagnostics data-gt-key="control-owner-diagnostics"${ownerDetailsOpen?' open':''}><summary>Detalhes técnicos da operação</summary><div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
+      <div class="control-explainer">${GC.badge('Configuração dos serviços','neutral','Ativo indica configuração ligada; não confirma funcionamento ou entrega. As quantidades de serviços não representam o número de etapas de e-mail.')}${GC.badge('Simulação: sem disparos','neutral','A simulação não faz disparos reais.')}${GC.badge('Inclui serviços compartilhados','neutral','Serviços compartilhados aparecem também no filtro de cada marca.')}</div>
       ${brandSpecific?`<p class="control-scope">Nenhum serviço específico de ${e(GC.brand(model.marca))} foi informado neste canal.${model.shared?' Abaixo estão os serviços compartilhados.':''}</p>`:''}
       ${model.meta.valid?`<div class="gt-toolbar control-toolbar"><label class="gt-busca">Buscar automação<input type="search" id="control-workflow-search" placeholder="Nome ou chave" value="${e(fw.q)}" autocomplete="off"></label>
         ${GC.select('control-wf-estado',GC.ESTADOS_WF,fw.estado,'Estado')}${GC.select('control-wf-modo',GC.MODOS_WF,fw.modo,'Modo')}
         <span class="gt-contagem">${workflows.length} de ${model.workflows.length} automações</span>
         ${wfFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}
         <button type="button" class="refresh-btn gt-export" id="control-wf-export"${workflows.length?'':' disabled'}>Exportar CSV</button></div>`:''}
-      <div class="control-workflows">${workflows.length?workflows.map(GC.workflow).join(''):`<div class="vazio">${wfEmpty}${wfFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}</div>`}</div>`;
+      <div class="control-workflows">${workflows.length?workflows.map(GC.workflow).join(''):`<div class="vazio">${wfEmpty}${wfFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}</div>`}</div></details>`;
     const search=GC.search.toLocaleLowerCase('pt-BR');
     const searched=model.templates.filter(row=>[row.name,row.piece,GC.brand(row.brand)].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(search))).filter(row=>GC.templateMatches(row,ft));
     const templates=hasGT?GT.ordena(searched,ft.sort,ft.dir,r=>ft.sort==='collection'?r.checked_at:r[ft.sort]):searched;
     const tplFiltered=!!GC.search||ft.status!=='todos'||ft.categoria!=='todas'||ft.uso!=='todos';
-    const tplEmpty=!model.templates.length?'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Templates.'
+    const tplEmpty=!model.templates.length?'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Criar templates.'
       :`Nenhum template${GC.describe([ft.status==='APPROVED'?'aprovado':ft.status==='outros'?'não aprovado':'',
-          ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?ft.categoria:ft.categoria==='divergente'?'com categoria divergente':'',
+          ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    templateRoot.innerHTML=GC.metadata(model)+`<div class="control-explainer">${GC.badge('Catálogo da Meta','neutral','Status e categoria consultados na Meta. O catálogo traz metadados; use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em sombra.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
+    templateRoot.innerHTML=GC.metadata(model)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
       ${model.canal==='email'?'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>':`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
@@ -308,7 +335,7 @@ const GC={
         ${GC.caps?.pode?.read_content?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Carrega a mensagem publicada para conferir a prévia. Esta consulta não altera o template.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
         <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
-      <span class="control-badge" title="Use Templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Fluxos.">Edição em Templates e Fluxos</span>`;
+      <span class="control-badge" title="Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.">Edição em Criar templates e Jornadas</span>`;
     if(hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
     workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);
@@ -348,8 +375,8 @@ const GC={
   },
   init(){
     if(typeof document==='undefined')return;
-    const buttons=[...document.querySelectorAll('[data-control-tab]')];
-    buttons.forEach((button,index)=>{button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();GC.setTab(buttons[next].dataset.controlTab);buttons[next].focus();};});
+    const allButtons=[...document.querySelectorAll('[data-control-tab]')];
+    allButtons.forEach(button=>{const buttons=allButtons.filter(b=>b.closest('[role=tablist]')===button.closest('[role=tablist]')),index=buttons.indexOf(button);button.onclick=()=>GC.setTab(button.dataset.controlTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();buttons[next].click();buttons[next].focus();};});
     GC.setTab(GC.activeTab);
   },
 };

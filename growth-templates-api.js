@@ -51,7 +51,7 @@ const GTA={
 
   /* ---------- cliente ----------
      Devolve sempre {ok,status,body,rede}. Nunca lança. Nunca loga chave. */
-  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita}){
+  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita,bearerWrite=false}){
     const fx=fetchFn||(typeof fetch==='function'?fetch:null);
     const parse=async r=>{try{return await r.json();}catch(_){return null;}};
     const chama=async(url,init)=>{
@@ -60,12 +60,12 @@ const GTA={
       catch(_){return {ok:false,status:0,body:null,rede:true};}
     };
     const get=params=>{const q=new URLSearchParams(params);return chama(`${endpoint}?${q}`,{headers:{Authorization:'Bearer '+(chaveLeitura||'')},cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
-    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
+    const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
     return {
       listar:marca=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{})}),
       historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
       submissao:submission_id=>get({acao:'submissao',submission_id}),
-      operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
+      operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
       rascunho:(rascunho,extra)=>post({acao:'rascunho',rascunho,...extra}),           // extra: idempotency_key, draft_id?, expected_version?
       validar:(draft_id,idempotency_key,expected_version)=>post({acao:'validar',draft_id,idempotency_key,...(expected_version!==undefined?{expected_version}:{})}),
       submeter:(draft_id,expected_version,confirm,idempotency_key)=>post({acao:'submeter',draft_id,expected_version,confirm,idempotency_key}),
@@ -85,12 +85,18 @@ const GTA={
         if(b.erro==='idempotency_replay_mismatch')return {texto:'Esta tentativa repetiu uma chave de idempotência com conteúdo diferente. Preserve o identificador e confira esta mesma operação antes de continuar.',tipo:'conflito'};
         if(['revision_locked','revision_already_claimed','ja_submetido'].includes(b.erro))return {texto:'Esta revisão já tem uma submissão ou está bloqueada. Consulte o histórico antes de criar outra revisão.',tipo:'bloqueado'};
         return {texto:`Alterado por ${b.changed_by||'outra chave'} às ${GTA.stamp(b.changed_at)}${Number.isFinite(+b.current_version)?` (versão ${b.current_version})`:''}. Recarregue e refaça; nada foi sobrescrito.`,tipo:'conflito',conflito:{current_version:b.current_version,changed_by:b.changed_by||null,changed_at:b.changed_at||null}};
-      case 422:{const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
+      case 422:{
+        if(acao==='submeter'&&b.erro==='publication_not_started')return b.nothing_changed===true
+          ?{texto:'Publicação não iniciada. Conteúdo preservado. Salve e confira uma nova versão antes de publicar.',tipo:'bloqueado'}
+          :{texto:'Publicação não confirmada. Consulte a mesma tentativa antes de continuar.',tipo:'incerto'};
+        const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
       case 429:return {texto:`Muitas tentativas.${seg||' Aguarde um instante.'}`,tipo:'limite'};
       case 502:return b.nothing_changed===true?{texto:`Meta/Listmonk indisponível; nada foi alterado.${seg}`,tipo:'indisponivel'}:{texto:'Meta/Listmonk indisponível e estado incerto. Consulte o histórico antes de repetir.',tipo:'incerto'};
       default:return {texto:`A API respondeu ${res.status||'sem status'}. Nada foi confirmado.`,tipo:'incerto'};
     }
   },
+  // Present older local events without changing their evidence or the operation receipt.
+  detalheEvento(ev){return ev?.action==='submeter'&&String(ev.result)==='422'&&ev.detail==='publication_not_started'?'Publicação não iniciada. Confira o recibo desta tentativa.':ev?.detail;},
 
   /* ---------- estado do rascunho no servidor ----------
      `r.servidor` guarda o que a API confirmou: draft_id, version, estado, hash do conteúdo salvo, submissão e eventos.

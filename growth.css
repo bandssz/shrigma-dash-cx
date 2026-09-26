@@ -137,3 +137,6 @@ body[data-marca] .kpi-falha .kpi-val:not(.vazio-val){color:var(--ruim)}
 .fluxo-chip[aria-expanded=true]{border-color:var(--texto)}
 .fluxo-chip[data-estado=desconhecido]{border-color:#d7b666;color:#82581c}
 .fluxo-detalhe{margin-top:6px;color:var(--mudo)}
+
+/* Operator labels retain short context while details hold the reading rules. */
+.operator-labels{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.attention-details ul{padding-left:18px}.attention-details li{margin:5px 0}

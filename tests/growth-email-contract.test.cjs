@@ -35,3 +35,24 @@ test('preview and provider use the same body including preheader and keep invali
  assert.match(P.emailHTML({...d,corpo:'<html>typing'}),/Complete o conteúdo/);
  const GR=require('../growth-drafts');assert.ok(GR.valida({...d,reply_to:'bad@wrong.invalid'}).erros.some(e=>e.includes('resposta')));
 });
+test('native body expressions preserve complete HTML and quoted fallback literals for both brands',()=>{
+ const GR=require('../growth-drafts');
+ for(const brand of ['fish','aristo']){
+  const body='<!doctype html><html><head><meta charset="UTF-8"><style>@media(max-width:600px){p{color:black}}</style></head><body>{{if .Tx.Data.first_name}}<p>{{.Tx.Data.first_name | upper}}</p>{{else}}<p>{{default "Cliente" .Subscriber.Name}}</p>{{end}}{{range .Tx.Data.items}}<a href="{{default "https://example.invalid/item" .image}}">{{default "Produto" .name}}</a>{{end}}</body></html>',d={...draft(brand),corpo:body};
+  assert.deepEqual(G.documentErrors(d),[]);assert.deepEqual(GR.valida(d).erros,[]);
+  const html=G.html(d);assert.equal(html.replace(G.preheaderHTML(d),''),body);
+  const parsed=G.templateExpressions(body,true);assert.equal(parsed.unsupported,false);assert.equal(parsed.native,true);assert.ok(parsed.fields.includes('.Subscriber.Name'));
+ }
+});
+test('masking Go never hides unsafe decoded fallback values or active HTML',()=>{
+ for(const body of [
+  '<a href="{{default "java\\x73cript:alert(1)" .Tx.Data.order_url}}">Link</a>',
+  '{{if .Tx.Data.first_name}}<script>bad()</script>{{end}}',
+  '<p style="color:{{.Tx.Data.first_name}}">Texto</p>',
+  '<{{.Tx.Data.first_name}}>Texto</{{.Tx.Data.first_name}}>',
+  '<p>{{default "\\x3cscript>alert(1)</script>" .Tx.Data.first_name}}</p>',
+  '<p>{{ Safe .Tx.Data.first_name }}</p>'
+ ])assert.ok(G.documentErrors({...draft(),corpo:body}).length,body);
+ assert.equal(G.templateExpressions('{{default "Cliente" .Tx.Data.first_name}}',false).unsupported,true);
+ assert.equal(G.templateExpressions('{{ .Tx.Data.first_name }}',false).unsupported,false);
+});

@@ -6,11 +6,28 @@
 const GRU={
   state:{editando:null,rascunho:null,msg:'',msgTone:'ok',filtro:'todos',ocupado:null,confirmando:false,confirmTexto:''},
   acesso:{aberto:false,chave:null,ignorarLegada:false,retorno:'drafts-chave'},
-  ctx:{},caps:null,contextBrand:null,contextSaved:null,contextError:'',emailTestSession:null,replicationSession:false,
+  ctx:{},caps:null,contextBrand:null,contextSaved:null,contextError:'',emailTestSession:null,replicationSession:false,nativeEmailSession:false,
   e:s=>GR.esc(s),
   stamp(v){return GTA.stamp(v);},
   rotulo(lista,k){return (lista.find(([v])=>v===k)||[])[1]||k;},
   opts(lista,val){return lista.map(([v,t])=>`<option value="${GRU.e(v)}"${v===val?' selected':''}>${GRU.e(t)}</option>`).join('');},
+  acaoHumana(acao){return ({rascunho:'Salvar rascunho',validar:'Conferir conteúdo',submeter:'Publicar ou solicitar aprovação',submit:'Publicar ou solicitar aprovação',refazer:'Revisar rascunho',publicado:'Publicação',rejeitado:'Aprovação recusada'})[acao]||'Atualização do template';},
+  estadoHtml(d,rot){
+    const {estado,sujo,servidor:s}=GTA.situacao(d);
+    let texto=sujo?'Alterações ainda não salvas':({local:'Rascunho neste dispositivo',rascunho:'Rascunho salvo · ainda não publicado',validado:'Conteúdo conferido · ainda não publicado',submetido:'Aguardando aprovação',rejeitado:'Aprovação recusada · confira o recibo'})[estado];
+    if(!sujo&&estado==='rascunho'&&s?.erros?.length)texto+=' · corrija as pendências';
+    if(!sujo&&estado==='submetido')texto+=` desde ${GRU.stamp(s?.submitted_at)}`;
+    if(!texto){
+      const uso=GTA.publicadoAtivo({key:s?.template_key,name:s?.provider_name||d.nome,status:'APPROVED',mapped_in:Array.isArray(s?.mapped_in)?s.mapped_in:[]},GRU.workflows());
+      texto=uso.situacao==='ativo'?'Publicado · em uso nas automações':uso.situacao==='desconhecido'?'Publicado · ativação não confirmada':s?.mapped_in?.length?'Publicado · automações sem envio ativo':'Publicado · sem automação vinculada';
+    }
+    return `<span data-crm-manager-only>${GRU.e(texto)}</span><span data-crm-owner-only>${GRU.e(rot.texto)}</span>`;
+  },
+  eventoHtml(x){
+    const result=String(x.result||''),ok=/^2\d\d$/.test(result)||['ok','APPROVED','publicado'].includes(result),recusado=/^4\d\d$/.test(result)||['REJECTED','rejeitado'].includes(result);
+    const resumo=x.action==='submeter'&&result==='422'&&x.detail==='publication_not_started'?'Publicação não iniciada. Confira o recibo desta tentativa.':result==='202'?'Solicitação recebida · acompanhe a aprovação':ok?'Confirmada':recusado?'Recusada · confira o recibo':'Resultado não confirmado · confira o recibo';
+    return `<li><time>${GRU.stamp(x.at)}</time><span data-crm-manager-only> · ${GRU.e(GRU.acaoHumana(x.action))} · ${GRU.e(resumo)}</span><span data-crm-owner-only> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(result)}${x.detail?` · ${GRU.e(GTA.detalheEvento(x))}`:''}</span></li>`;
+  },
   /* Catálogo: só associação por nome EXATO. Não inventa corpo, não diz que o rascunho é o template. */
   noCatalogo(nome,marca,canal){
     const tpls=GRU.ctx.api?.crm_operacao?.templates;
@@ -29,7 +46,7 @@ const GRU={
     try{GRU.store()?.removeItem(GTA.CHAVE_ESCRITA);}catch(_){}
   },
   abrirAcesso(){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     GRU.acesso.retorno=typeof document!=='undefined'?document.activeElement?.id||'drafts-chave':'drafts-chave';
     GRU.acesso.aberto=true;GRU.render();
     document.getElementById('drafts-chave-escrita')?.focus();
@@ -43,19 +60,19 @@ const GRU={
     if(!GRU.acesso.aberto)return '';
     return `<form class="drafts-scope" id="drafts-acesso" aria-labelledby="drafts-acesso-titulo">
       <strong id="drafts-acesso-titulo">Acesso para editar templates</strong>
-      <p id="drafts-acesso-ajuda">Informe a chave de escrita de templates. A nova chave fica disponível apenas enquanto esta página estiver aberta. Preparar o acesso não salva nem submete uma mensagem. Depois, escolha a ação desejada.</p>
-      <label for="drafts-chave-escrita">Chave de escrita de templates</label>
+      <p id="drafts-acesso-ajuda">Informe sua chave de acesso para editar templates. A nova chave fica disponível apenas enquanto esta página estiver aberta. Preparar o acesso não salva nem publica uma mensagem. Depois, escolha a ação desejada.</p>
+      <label for="drafts-chave-escrita">Chave de acesso para editar templates</label>
       <div class="draft-confirm-row"><input type="password" id="drafts-chave-escrita" required autocomplete="off" spellcheck="false" aria-describedby="drafts-acesso-ajuda drafts-acesso-erro">
       <button type="submit" class="btn">Preparar acesso</button><button type="button" class="btn sec" id="drafts-acesso-cancelar">Cancelar</button></div>
       <p id="drafts-acesso-erro" role="alert"></p></form>`;
   },
   prontaEscrita(r){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return false;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;
     if(GRU.contextError||GRU.ctx.marca&&r.marca!==GRU.ctx.marca){GRU.aviso(GRU.contextError||'Abra a marca deste template no cabeçalho antes de editar.','erro');GRU.render();return false;}
     const j=GRU.journal(),estado=j?.inspect();
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
     if(GRU.chaveEscrita())return true;
-    GRU.aviso('Sem chave de escrita: nada foi enviado.','erro');GRU.abrirAcesso();return false;
+    GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return false;
   },
   journal(){
     if(typeof GTJ==='undefined')return null;
@@ -74,24 +91,24 @@ const GRU={
     const estado=GRU.journal()?.inspect();
     if(!estado)return '<div class="drafts-scope" role="status">Proteção de operações indisponível. A escrita no servidor está bloqueada.</div>';
     const linhas=[...estado.operations].reverse().slice(0,8);
-    return `<div class="drafts-scope" aria-label="Registro de operações de templates">${estado.blocked?`<p role="status">${GRU.e(estado.message)}</p>`:''}${linhas.length?`<details${estado.operations.some(x=>['pending','unknown'].includes(x.phase))?' open':''}><summary>Operações registradas neste navegador (${estado.operations.length})</summary><ul>${linhas.map(op=>`<li>${GRU.e(op.request_payload.acao)} · ${GRU.e(op.id)} · ${GRU.e({pending:'aguardando confirmação',unknown:'resultado incerto',confirmed:'confirmada',rejected:'recusada com recibo'}[op.phase])} <button type="button" class="refresh-btn" data-template-operacao="${GRU.e(op.id)}"${GRU.state.ocupado?' disabled':''}>${['pending','unknown'].includes(op.phase)?'Conferir esta operação':'Abrir recibo'}</button></li>`).join('')}</ul><p>Conferir consulta somente esta tentativa. Não repete a operação. Ausência de recibo não libera um novo envio.</p></details>`:''}</div>`;
+    return `<div class="drafts-scope" aria-label="Registro de operações de templates">${estado.blocked?`<p role="status">${GRU.e(estado.message)}</p>`:''}${linhas.length?`<details${estado.operations.some(x=>['pending','unknown'].includes(x.phase))?' open':''}><summary>Operações registradas neste navegador (${estado.operations.length})</summary><ul>${linhas.map(op=>`<li><span data-crm-manager-only>${GRU.e(GRU.acaoHumana(op.request_payload.acao))}</span><span data-crm-owner-only>${GRU.e(op.request_payload.acao)} · ${GRU.e(op.id)}</span> · ${GRU.e({pending:'aguardando confirmação',unknown:'resultado incerto',confirmed:'confirmada',rejected:'recusada com recibo'}[op.phase])} <button type="button" class="refresh-btn" data-template-operacao="${GRU.e(op.id)}"${GRU.state.ocupado?' disabled':''}>${['pending','unknown'].includes(op.phase)?'Conferir esta operação':'Abrir recibo'}</button></li>`).join('')}</ul><p>Conferir consulta somente esta tentativa. Não repete a operação. Ausência de recibo não libera um novo envio.</p></details>`:''}</div>`;
   },
   preservarLocal(r){
     if(!GR.guarda(r))return false;
     try{const rows=JSON.parse(GRU.store().getItem(GR.CHAVE)),saved=rows.find(x=>x.id===r.id);return !!saved&&GTJ.canonical(GR.conteudo(saved))===GTJ.canonical(GR.conteudo(r))&&GTJ.canonical(saved.servidor||null)===GTJ.canonical(r.servidor||null);}catch(_){return false;}
   },
   clienteSeguro(escrita,r){
-    const client=GRU.cliente(escrita),journal=GRU.journal();
+    const client=GRU.cliente(escrita,typeof GENU!=='undefined'&&GENU.advanced(r)),journal=GRU.journal();
     const send=payload=>journal.run({local_id:r.id,request_payload:payload},{persistLocal:()=>GRU.preservarLocal(r),lookup:(id,acao)=>client.operacao(id,acao),transport:p=>p.acao==='rascunho'?client.rascunho(p.rascunho,{idempotency_key:p.idempotency_key,...(p.draft_id?{draft_id:p.draft_id,expected_version:p.expected_version}:{})}):p.acao==='validar'?client.validar(p.draft_id,p.idempotency_key,p.expected_version):client.submeter(p.draft_id,p.expected_version,p.confirm,p.idempotency_key)});
     return {...client,rascunho:(rascunho,extra)=>send({acao:'rascunho',rascunho,...extra}),validar:(draft_id,_idem,expected_version)=>send({acao:'validar',draft_id,expected_version}),submeter:(draft_id,expected_version,confirm)=>send({acao:'submeter',draft_id,expected_version,confirm})};
   },
-  cliente(escrita){
+  cliente(escrita,bearerWrite=false){
     const c=GRU.caps||GRU.capacidades();
-    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||''});
+    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||'',bearerWrite});
   },
   /* ---------- render ---------- */
   render(ctx){
-    if(ctx&&(GRU.emailTestSession||GRU.replicationSession)&&ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)return false;
+    if(ctx&&(GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)&&ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)return false;
     if(ctx){GRU.ctx=ctx;if(ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)GRU.enterBrand(ctx.marca);}
     GRU.caps=GRU.capacidades();
     const root=typeof document!=='undefined'?document.querySelector('#control-drafts'):null;
@@ -102,16 +119,18 @@ const GRU={
     const lista=todos.filter(d=>GRU.state.filtro==='todos'||GTA.situacao(d).estado===GRU.state.filtro||(GRU.state.filtro==='sujo'&&GTA.situacao(d).sujo));
     const submetidos=todos.filter(d=>GTA.situacao(d).estado==='submetido');
     const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template WhatsApp</button><button type="button" class="btn sec" id="drafts-novo-email"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template de e-mail</button>
-      <button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
+      ${typeof GENU!=='undefined'?`<button type="button" class="btn sec" id="drafts-native-email"${GRU.ctx.marca==='todas'?' disabled':''}>Copiar e-mail publicado</button>`:''}<button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
       ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no servidor</option></select></label>`:''}
       ${submetidos.length&&caps.endpoint?`<button type="button" class="refresh-btn" id="drafts-verificar"${GRU.state.ocupado?' disabled':''}>Verificar ${submetidos.length===1?'a submissão':`${submetidos.length} submissões`} agora</button>`:''}
       <span class="gt-contagem">${lista.length}${lista.length!==todos.length?` de ${todos.length}`:''} rascunho${todos.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" data-tone="${GRU.e(GRU.state.msgTone)}" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
     const listaHtml=lista.length?`<div class="draft-grid">${lista.map(d=>GRU.cartao(d,caps)).join('')}</div>`
       :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Criar template" ou importe um arquivo exportado em outro computador.'}</div>`;
-    root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+GRU.emailTestOperations()+ferramentas+(typeof GERU!=='undefined'?GERU.html():'')+(r?GRU.editor(r,caps):'')+listaHtml;
+    root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+GRU.emailTestOperations()+ferramentas+(typeof GERU!=='undefined'?GERU.html():'')+(typeof GENU!=='undefined'?GENU.html():'')+(r?GRU.editor(r,caps):'')+listaHtml;
     GRU.bind(root,caps);
     GRU.bindEmailTest(root);
     if(typeof GERU!=='undefined')GERU.bind(root);
+    if(typeof GENU!=='undefined')GENU.bind(root);
+    if(GRU.nativeEmailSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#email-native-import'))el.disabled=true;});
     if(GRU.replicationSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#email-replication'))el.disabled=true;});
     if(GRU.emailTestSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#d-email-test-confirm'))el.disabled=true;});
     GRU.agenda();
@@ -135,12 +154,12 @@ const GRU={
     const eventos=[...(s?.historico||[]).map(x=>({...x,origem:'api'})),...(s?.eventos||[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
     return `<article class="draft-card" data-draft="${GRU.e(d.id)}" data-estado="${GRU.e(sit.estado)}"><div class="draft-head"><div><span class="control-overline">${GRU.e(GRU.rotulo(GR.MARCAS,d.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,d.canal))}${d.canal==='whatsapp'?` · ${GRU.e(d.categoria||'')}`:''}</span>
       <h3>${GRU.e(d.nome||'(sem nome)')}</h3>${d.peca?`<span class="flow-sub">peça: ${GRU.e(d.peca)}</span>`:''}</div>
-      <span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
+      <span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(d,rot)}</span></div>
       ${caps.declaradas||sit.estado!=='local'?GRU.passos(d):''}
       <p class="draft-excerpt">${GRU.e((d.canal==='email'?(d.assunto?d.assunto+' — ':''):'')+String(d.corpo||'').slice(0,140))}${String(d.corpo||'').length>140?'…':''}</p>
       ${cat?`<p class="control-warning">Existe um template com este nome no catálogo da Meta (status ${GRU.e(cat.status||'?')}, categoria ${GRU.e(cat.category||'?')}). O rascunho não é esse template e o catálogo não traz o corpo dele para comparar.</p>`:''}
-      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão do rascunho no servidor e hora da última confirmação da API">servidor v${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última consulta do painel ao estado da submissão">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
-      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>`<li><time>${GRU.stamp(x.at)}</time> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(x.result||'')}${x.detail?` · ${GRU.e(x.detail)}`:''}</li>`).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
+      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão salva e hora da última confirmação">versão ${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última confirmação do envio para aprovação">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
+      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>GRU.eventoHtml(x)).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
       <div class="draft-actions"><button type="button" class="refresh-btn" data-draft-edit="${GRU.e(d.id)}">Editar</button>${acoes.verificar?`<button type="button" class="refresh-btn" data-draft-verificar="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Verificar agora</button>`:''}<button type="button" class="refresh-btn" data-draft-export="${GRU.e(d.id)}">Exportar arquivo</button><button type="button" class="refresh-btn" data-draft-dup="${GRU.e(d.id)}">Duplicar nesta marca</button>${d.canal==='email'&&['fish','aristo'].includes(d.marca)?`<button type="button" class="refresh-btn" data-email-replicate="${GRU.e(d.id)}">Copiar para ${d.marca==='fish'?'O Aristocrata':'Fishermans'}</button>`:''}<button type="button" class="refresh-btn draft-delete" data-draft-delete="${GRU.e(d.id)}">Excluir</button></div></article>`;
   },
   editor(r,caps){
@@ -150,18 +169,18 @@ const GRU={
       <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.tipo==='order_details'?'Copiar código Pix':b.texto)}"${b.tipo==='order_details'?' readonly':''} aria-label="Texto do botão ${i+1}">
       ${['quick_reply','order_details'].includes(b.tipo)?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
-    const provedor=wa?'Meta':'Listmonk';
+    const provedor=wa?'WhatsApp':'serviço de e-mail';
     const dis=oc?' disabled':'';
     const servidorBar=caps.pode.draft?`<div class="draft-server-actions">
         <button type="button" class="btn sec" id="d-servidor"${dis}>${oc==='rascunho'?'Salvando…':s?`Salvar no servidor (v${GRU.e(s.version)}${sit.sujo?' → nova versão':''})`:'Salvar no servidor'}</button>
         ${acoes.validar?`<button type="button" class="btn sec" id="d-validar"${dis}>${oc==='validar'?'Validando…':'Conferir conteúdo'}</button>`:''}
         ${acoes.submeter?`<button type="button" class="btn" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Enviar para aprovação…':'Publicar template…'}</button>`:''}
         ${acoes.verificar?`<button type="button" class="refresh-btn" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar aprovação'}</button>`:''}
-        <span class="mini">${s?`Servidor: v${GRU.e(s.version)} · ${GRU.e(rot.texto)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve no servidor para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
+        <span class="mini">${s?`Versão salva ${GRU.e(s.version)} · ${GRU.estadoHtml(r,rot)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve o rascunho para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
         ${s?.conflito?`<div class="draft-conflito control-warning"><strong>Alguém alterou este rascunho no servidor antes de você.</strong> ${GRU.e(`Por ${s.conflito.changed_by||'outra chave'} às ${GRU.stamp(s.conflito.changed_at)}; versão atual v${s.conflito.current_version??'?'}. Nada foi sobrescrito.`)} <button type="button" class="refresh-btn" id="d-refazer">Refazer sobre a v${GRU.e(s.conflito.current_version??'?')}</button> <span class="mini">Refazer só ajusta a versão esperada; o conteúdo continua o seu e nada é enviado até você salvar de novo.</span></div>`:''}
         ${GRU.state.confirmando&&acoes.submeter?GRU.confirmacao(r,provedor):''}`
       :caps.semEndpoint?'<p class="mini draft-server-off" role="status">Publicação indisponível. Atualize o painel para tentar novamente.</p>':'';
-    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
+    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(r,rot)}</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
         <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" disabled>${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
@@ -180,7 +199,7 @@ const GRU={
         <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Use Adicionar botão para incluir um link.</span>'}</div>
           ${(r.botoes||[]).length<GR.LIMITES.botoes?'<button type="button" class="refresh-btn" id="d-botao-add">Adicionar botão</button>':''}</div>
       </div>
-      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia<span class="control-badge" title="Mostra o conteúdo deste rascunho, que pode ser diferente da versão publicada.">Rascunho</span></div>${wa?'':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
+      <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia<span class="control-badge" title="Mostra o conteúdo deste rascunho, que pode ser diferente da versão publicada.">Rascunho</span></div>${wa?'':typeof GENU!=='undefined'&&GENU.advanced(r)?'<button type="button" class="refresh-btn" id="d-native-preview">Conferir prévia nativa</button>':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
         <div id="d-checagens">${GRU.checagens(v,s)}</div></div></div>
       <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini" title="Salvar neste dispositivo não publica o template nem envia mensagens.">Salvo só neste dispositivo</span>'}</div>
       ${servidorBar}${GRU.emailTestControls(r,caps)}</section>`;
@@ -190,14 +209,14 @@ const GRU={
   confirmacao(r,provedor){
     const s=r.servidor||{},ok=GRU.state.confirmTexto.trim().toLowerCase()==='submeter',wa=r.canal==='whatsapp';
     return `<div class="draft-confirm" id="d-confirmar" role="dialog" aria-label="Confirmar submissão"><strong>${wa?'Submeter à Meta o rascunho':'Publicar template'} v${GRU.e(s.version)}</strong>
-      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Cadastra o template no Listmonk. Não envia nenhum e-mail.'}</dd></dl>
+      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'O WhatsApp revisa o template. A aprovação não ativa nenhuma automação.':'Publica o template para uso nas campanhas. Não envia nenhum e-mail.'}</dd></dl>
       ${s.avisos?.length?`<p class="draft-aviso">Avisos da validação: ${GRU.e(s.avisos.map(a=>a.mensagem||a.codigo).join(' · '))}</p>`:''}
       <label for="d-confirm-texto">Digite <code>submeter</code> para liberar o botão</label><div class="draft-confirm-row"><input type="text" id="d-confirm-texto" value="${GRU.e(GRU.state.confirmTexto)}" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="d-confirm-ok"${ok&&!GRU.state.ocupado?'':' disabled'}>${GRU.state.ocupado==='submeter'?(wa?'Submetendo…':'Publicando…'):(wa?'Submeter agora':'Publicar template')}</button><button type="button" class="btn sec" id="d-confirm-cancel">Cancelar</button></div></div>`;
   },
-  preview(r){return r.canal==='email'?GMP.email(r):GMP.whatsapp(r);},
+  preview(r){return r.canal==='email'?(typeof GENU!=='undefined'&&GENU.advanced(r)?GENU.editorPreview(r):GMP.email(r)):GMP.whatsapp(r);},
   checagens(v,s){
     const api=s&&!GTA.situacao({servidor:s,...(GRU.state.rascunho||{})}).sujo?`${(s.erros||[]).map(x=>`<p class="control-warning draft-erro">${GRU.e(x.mensagem||x.codigo)}${x.campo?` (${GRU.e(x.campo)})`:''}</p>`).join('')}${(s.avisos||[]).map(x=>`<p class="draft-aviso">${GRU.e(x.mensagem||x.codigo)}</p>`).join('')}`:'';
-    if(!v.erros.length&&!v.avisos.length)return `<span class="control-badge" title="A conferência local não confirma publicação nem entrega. Confira o conteúdo no servidor e use o envio de teste para revisar o e-mail.">Conteúdo conferido</span>${api}`;
+    if(!v.erros.length&&!v.avisos.length)return `<span class="control-badge" title="A conferência local não confirma publicação nem entrega. ${GRU.state.rascunho?.canal==='email'?'Confira o conteúdo no servidor e use o envio de teste para revisar o e-mail.':'Confira a versão salva e a aprovação da Meta antes de usar o template.'}">Conteúdo conferido</span>${api}`;
     return `${v.erros.map(x=>`<p class="control-warning draft-erro">${GRU.e(x)}</p>`).join('')}${v.avisos.map(x=>`<p class="draft-aviso">${GRU.e(x)}</p>`).join('')}${api}`;
   },
   atualizaPreview(){
@@ -234,10 +253,10 @@ const GRU={
   emailTestSummary(op){
     const r=op.receipt||op.operation||{},s=r.ses||{};
     if(op.phase==='rejected')return GRU.emailTestReason(r.code);
-    if(s.bounce||s.complaint||s.reject||s.rendering_failure)return 'O SES registrou uma falha ou reclamação. Não repita esta versão.';
-    if(s.delivery)return 'Entrega confirmada pelo SES.';
+    if(s.bounce||s.complaint||s.reject||s.rendering_failure)return 'O serviço de e-mail registrou uma falha ou reclamação. Não repita esta versão.';
+    if(s.delivery)return 'Entrega confirmada pelo servidor do destinatário.';
     if(r.http_accepted)return 'Envio aceito; entrega ainda não confirmada.';
-    if(s.send)return 'Envio registrado pelo SES; entrega ainda não confirmada.';
+    if(s.send)return 'Envio registrado; entrega ainda não confirmada.';
     return 'Resultado não confirmado. Consulte esta tentativa; não envie novamente.';
   },
   emailTestLabel(op){const d=GR.lista().find(r=>r.servidor?.draft_id===op.request_payload.draft_id);return [d?.nome||'Template de e-mail',d?.marca?GRU.rotulo(GR.MARCAS,d.marca):'',`v${op.request_payload.expected_version}`].filter(Boolean).join(' · ');},
@@ -251,7 +270,7 @@ const GRU={
     if(r.canal!=='email'||!caps.endpoint||!caps.submit_email||typeof GETest==='undefined')return '';
     const session=GRU.emailTestSession;
     if(session?.preview){const p=session.preview;
-      return `<section class="draft-confirm" id="d-email-test-confirm" role="dialog" aria-labelledby="d-email-test-title" aria-describedby="d-email-test-help" tabindex="-1"><h3 id="d-email-test-title">Conferir teste · ${GRU.e(GRU.rotulo(GR.MARCAS,p.brand))} · v${GRU.e(p.version)}</h3><dl><dt>Para</dt><dd>${GRU.e(p.recipient)}</dd><dt>Assunto</dt><dd>${GRU.e(p.rendered_subject)}</dd><dt>Remetente</dt><dd>${GRU.e(p.from_email)}</dd><dt>Responder para</dt><dd>${GRU.e(p.reply_to)}</dd><dt>Dados fictícios</dt><dd>${Object.entries(p.data).map(([k,v])=>`${GRU.e(k)}: ${GRU.e(v)}`).join(' · ')||'Nenhuma variável'}</dd></dl><p id="d-email-test-help" class="mini">Uma tentativa desta versão. Assunto com prefixo ✅ FINAL — ; dados de exemplo. Links e imagens externas estão desativados na prévia.</p>${GMP.frame(p.body_html,false,'Prévia isolada do teste para Felipe')}<div class="draft-confirm-row"><button type="button" class="btn" id="d-email-test-send"${GRU.state.ocupado?' disabled':''}>${GRU.state.ocupado==='email_test_send'?'Conferindo resultado…':'Confirmar envio para Felipe'}</button><button type="button" class="btn sec" id="d-email-test-cancel"${GRU.state.ocupado?' disabled':''}>Cancelar</button></div></section>`;
+      return `<section class="draft-confirm" id="d-email-test-confirm" role="dialog" aria-labelledby="d-email-test-title" aria-describedby="d-email-test-help" tabindex="-1"><h3 id="d-email-test-title">Conferir teste · ${GRU.e(GRU.rotulo(GR.MARCAS,p.brand))} · v${GRU.e(p.version)}</h3><dl><dt>Para</dt><dd>${GRU.e(p.recipient)}</dd><dt>Assunto</dt><dd>${GRU.e(p.rendered_subject)}</dd><dt>Remetente</dt><dd>${GRU.e(p.from_email)}</dd><dt>Responder para</dt><dd>${GRU.e(p.reply_to)}</dd><dt>Dados fictícios</dt><dd>${Object.entries(p.data).map(([k,v])=>`${GRU.e(k)}: ${GRU.e(v&&typeof v==='object'?JSON.stringify(v):v)}`).join(' · ')||'Nenhuma variável'}</dd></dl><p id="d-email-test-help" class="mini">Uma tentativa desta versão. Assunto com prefixo ✅ FINAL — ; dados de exemplo. Links e imagens externas estão desativados na prévia.</p>${GMP.frame(p.body_html,false,'Prévia isolada do teste para Felipe')}<div class="draft-confirm-row"><button type="button" class="btn" id="d-email-test-send"${GRU.state.ocupado?' disabled':''}>${GRU.state.ocupado==='email_test_send'?'Conferindo resultado…':'Confirmar envio para Felipe'}</button><button type="button" class="btn sec" id="d-email-test-cancel"${GRU.state.ocupado?' disabled':''}>Cancelar</button></div></section>`;
     }
     const sit=GTA.situacao(r),j=GRU.emailTestClient()?.inspect(),previous=j?.operations.find(o=>o.request_payload.draft_id===r.servidor?.draft_id&&o.request_payload.expected_version===r.servidor?.version&&o.phase!=='rejected');
     const reason=previous?'Esta versão já tem uma tentativa. Consulte o resultado acima.':!GRU.emailTestKey()?'Entre com o acesso de gestor do CRM.':j?.blocked||!j?'O registro seguro de testes está indisponível.':sit.estado!=='publicado'||sit.sujo||!r.servidor?.hash?'Salve, valide e publique esta versão antes do teste.':GRU.contextError||r.servidor?.pendente?'Confira a operação de template pendente.':'';
@@ -262,13 +281,14 @@ const GRU={
     return !!r&&GRU.emailTestSession===s&&r.id===s.local_id&&r.marca===s.brand&&GRU.ctx.marca===s.brand&&r.servidor?.draft_id===s.draft_id&&r.servidor?.version===s.version&&JSON.stringify(GR.conteudo(r))===s.content&&(!latest?.servidor||latest.servidor.draft_id===s.draft_id&&latest.servidor.version===s.version);
   },
   async emailTestPrepare(r){
-    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession)return;
+    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const sit=GTA.situacao(r),key=GRU.emailTestKey(),client=GRU.emailTestClient(key),j=client?.inspect();
     if(!key||!client||j.blocked||GRU.contextError||r.marca!==GRU.ctx.marca||sit.estado!=='publicado'||sit.sujo||!r.servidor?.hash||r.servidor?.pendente){GRU.aviso('Use o acesso de gestor e uma versão salva, validada e publicada para testar.','erro');GRU.render();return;}
     if(j.operations.some(o=>o.request_payload.draft_id===r.servidor.draft_id&&o.request_payload.expected_version===r.servidor.version&&o.phase!=='rejected')){GRU.aviso('Esta versão já tem uma tentativa. Consulte o resultado existente.','aviso');GRU.render();return;}
     const session={client,local_id:r.id,brand:r.marca,draft_id:r.servidor.draft_id,version:r.servidor.version,content:JSON.stringify(GR.conteudo(r)),from_email:r.from_email,reply_to:r.reply_to};
     GRU.emailTestSession=session;GRU.state.ocupado='email_test_preview';GRU.aviso('');GRU.render();
     try{
+      if(typeof GENU!=='undefined'&&GENU.advanced(r))await GENU.requireCapability(r);
       const p=await client.preview({draft_id:session.draft_id,expected_version:session.version});
       if(!GRU.emailTestCurrent(session))throw Error('A preparação mudou. Reabra o template e confira a prévia novamente.');
       if(!p.eligible)throw Error(GRU.emailTestReason(p.code));
@@ -281,12 +301,12 @@ const GRU={
     const s=GRU.emailTestSession;if(!s?.preview||GRU.state.ocupado)return;
     if(!GRU.emailTestCurrent(s)){GRU.emailTestSession=null;GRU.aviso('A versão mudou. Reabra o template e confira uma nova prévia.','erro');GRU.render();return;}
     GRU.state.ocupado='email_test_send';GRU.render();
-    try{const result=await s.client.run({draft_id:s.draft_id,expected_version:s.version,confirm:'enviar_teste'});GRU.aviso(GRU.emailTestSummary(result),result.phase==='confirmed'?'ok':'aviso');}
+    try{const result=await s.client.run({draft_id:s.draft_id,expected_version:s.version,confirm:'enviar_teste',...(s.preview.render_policy?{render_policy:s.preview.render_policy,preview_token:s.preview.preview_token}:{})});GRU.aviso(GRU.emailTestSummary(result),result.phase==='confirmed'?'ok':'aviso');}
     catch(e){GRU.aviso(e.message||'Resultado não confirmado. Consulte a tentativa; não envie novamente.','erro');}
     finally{GRU.state.ocupado=null;GRU.emailTestSession=null;GRU.render();document.querySelector('[data-email-test-receipt]')?.focus();}
   },
   async emailTestReconcile(id){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const key=GRU.emailTestKey(),client=GRU.emailTestClient(key);if(!key||!client){GRU.aviso('Entre com o acesso de gestor do CRM para consultar esta tentativa.','erro');GRU.render();return;}
     GRU.state.ocupado='email_test_receipt';GRU.render();
     try{const result=await client.reconcile(id);GRU.aviso(GRU.emailTestSummary(result),result.phase==='confirmed'?'ok':'aviso');}
@@ -301,14 +321,15 @@ const GRU={
     const confirmation=root.querySelector('#d-email-test-confirm');if(confirmation)confirmation.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();GRU.emailTestCancel();}if(e.key==='Tab'){const buttons=[...confirmation.querySelectorAll('button:not([disabled])')];if(!buttons.length)return;const first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
   },
   contextValue(){return {editando:GRU.state.editando,rascunho:GRU.state.rascunho};},
-  contextStatus(){return {blocked:!!(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession),dirty:!!GRU.state.rascunho&&JSON.stringify(GRU.contextValue())!==GRU.contextSaved};},
+  contextStatus(){return {blocked:!!(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession),dirty:!!GRU.state.rascunho&&JSON.stringify(GRU.contextValue())!==GRU.contextSaved};},
   preserve(){
     if(GRU.contextError)throw Error(GRU.contextError);
     if(!GBS.validBrand(GRU.contextBrand))return;
     const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value);GRU.contextSaved=JSON.stringify(value);
   },
   enterBrand(brand){
-    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession)return false;
+    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;
+    if(brand!==GRU.contextBrand)GRU.aviso('');
     let value=null;GRU.contextError='';
     try{value=GBS.read('template',brand);if(value?.rascunho?.marca&&value.rascunho.marca!==brand)throw Error('Preparação de template de outra marca. Os dados foram preservados.');}catch(e){value=null;GRU.contextError=e.message;}
     GRU.contextBrand=brand;GRU.fechar(false);
@@ -324,12 +345,12 @@ const GRU={
   },
   abrir(r,editando){
     if(typeof GEC!=='undefined')r=GEC.draft(r);
-    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession)return false;
+    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;
     if(GRU.ctx.marca&&r.marca!==GRU.ctx.marca){
-      if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca))return false;
+      if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca,()=>GRU.abrir(r,editando)))return false;
     }
     GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};GRU.render();document.getElementById('d-nome')?.focus();},
-  fechar(persist=true){if(GRU.emailTestSession)return false;GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},
+  fechar(persist=true){if(GRU.emailTestSession||GRU.nativeEmailSession)return false;GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},
   aviso(msg,tone='ok'){GRU.state.msg=msg;GRU.state.msgTone=tone;},
   bind(root,caps){
     const $=s=>root.querySelector(s);
@@ -343,7 +364,7 @@ const GRU={
         event.preventDefault();
         if(!GRU.acesso.aberto||GRU.state.ocupado)return;
         const campo=$('#drafts-chave-escrita'),chave=campo.value.trim();
-        if(!chave){campo.setAttribute('aria-invalid','true');$('#drafts-acesso-erro').textContent='Informe a chave de escrita de templates.';campo.focus();return;}
+        if(!chave){campo.setAttribute('aria-invalid','true');$('#drafts-acesso-erro').textContent='Informe a chave de acesso para editar templates.';campo.focus();return;}
         // Authentication only: never replay an action or change a pending operation here.
         GRU.acesso.chave=chave;GRU.acesso.ignorarLegada=true;campo.value='';
         GRU.aviso('Acesso preparado para esta página aberta. Nenhuma operação foi enviada; escolha a ação desejada.');GRU.fecharAcesso();
@@ -395,11 +416,12 @@ const GRU={
      identities are preserved for explicit reconciliation. */
   who(res){return typeof res.body?.who==='string'&&res.body.who.trim()?res.body.who:'chave de escrita deste navegador';},
   async chamada(acao,r,fn){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return;
-    const escrita=['listar','historico','submissao'].includes(acao)?null:GRU.chaveEscrita();
-    if(escrita===null&&!['listar','historico','submissao'].includes(acao)){GRU.aviso('Sem chave de escrita: nada foi enviado.','erro');GRU.abrirAcesso();return;}
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
+    const advanced=typeof GENU!=='undefined'&&GENU.advanced(r);
+    const escrita=['listar','historico','submissao'].includes(acao)?null:advanced?GRU.emailTestKey():GRU.chaveEscrita();
+    if(escrita===null&&!['listar','historico','submissao'].includes(acao)){GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return;}
     GRU.state.ocupado=acao;GRU.aviso('');GRU.render();
-    let res;try{res=await fn(escrita?GRU.clienteSeguro(escrita,r):GRU.cliente(escrita));}catch(e){res={ok:false,status:0,body:null,rede:true,journalError:String(e?.code||'').startsWith('TPL_')?e.message:null,journalCode:e?.code};}
+    let res;try{if(advanced&&!['listar','historico','submissao'].includes(acao)){const content=GENU.content(r),brand=r.marca,endpoint=GRU.caps.endpoint;try{await GENU.requireCapability(r);if(GRU.ctx.marca!==brand||GENU.content(r)!==content||GRU.caps.endpoint!==endpoint||GRU.emailTestKey()!==escrita)throw Error('O rascunho mudou durante a conferência.');}catch(e){GRU.state.ocupado=null;GRU.aviso(e.message,'erro');GRU.render();return;}}res=await fn(escrita?GRU.clienteSeguro(escrita,r):GRU.cliente(escrita));}catch(e){res={ok:false,status:0,body:null,rede:true,journalError:advanced||String(e?.code||'').startsWith('TPL_')?e.message:null,journalCode:e?.code};}
     GRU.state.ocupado=null;
     if(!res.ok){const e=res.journalError?{texto:res.journalError,tipo:'incerto',chaveInvalida:res.journalCode==='TPL_AUTH'}:GTA.erro(res,acao);if(e.chaveInvalida)GRU.esqueceChave();return {res,erro:e};}
     return {res,erro:null};
@@ -432,7 +454,7 @@ const GRU={
     }else{
       r.servidor={...s,estado:b.estado,submission_id:b.submission_id,provider:b.provider,provider_id:b.provider_id||null,submitted_at:b.submitted_at||GR.agora(),provider_status:b.provider_status||null,checked_at:null,confirmado_em:GR.agora()};
       GRU.state.confirmando=false;GRU.state.confirmTexto='';
-      GRU.aviso(b.estado==='publicado'?'Publicado pelo provedor (APPROVED). Publicado não é ativo: nenhum workflow mudou.':`Submetido à ${b.provider==='listmonk'?'Listmonk':'Meta'}. Aguardando; o painel consulta a cada 60 s.`);
+      GRU.aviso(b.estado==='publicado'?'Template publicado. Nenhuma automação foi ativada.':`Submetido à ${b.provider==='listmonk'?'serviço de e-mail':'WhatsApp'}. Aguardando; o painel consulta a cada 60 s.`);
     }
     r.servidor.operacoes_aplicadas=[...(s.operacoes_aplicadas||[]),op.id];
     GTA.evento(r.servidor,{at:GR.agora(),who:GRU.who(res),action:acao==='submeter'?'submit':acao,to_version:r.servidor.version,result:String(res.status),detail:`operação ${op.id}`});
@@ -440,9 +462,9 @@ const GRU={
     GRU.render();
   },
   async consultarOperacao(id){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const escrita=GRU.chaveEscrita();
-    if(!escrita){GRU.aviso('Informe a chave de escrita para consultar esta operação. Nenhuma operação será repetida.');GRU.abrirAcesso();return;}
+    if(!escrita){GRU.aviso('Informe seu acesso de edição para consultar esta tentativa. Nenhuma operação será repetida.');GRU.abrirAcesso();return;}
     const journal=GRU.journal(),op=journal?.inspect().operations.find(x=>x.id===id);if(!op)return;
     GRU.state.ocupado='operacao';GRU.render();
     try{
@@ -484,13 +506,13 @@ const GRU={
     GR.guarda(r);
     // C03: provider_status é extensível (PAUSED, DISABLED, IN_APPEAL…). Só PENDING/IN_APPEAL é "aguardando"; o resto é dito pelo nome, sem virar aprovação.
     const aguardando=[undefined,null,'','PENDING','IN_APPEAL'].includes(b.provider_status);
-    if(!silencioso)GRU.aviso(novo==='publicado'?`Publicado pelo provedor (${b.provider_status}). Publicado não é ativo: nenhum workflow mudou.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`
+    if(!silencioso)GRU.aviso(novo==='publicado'?`Template publicado. Nenhuma automação foi ativada.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`
       :aguardando?`Ainda aguardando (${b.provider_status||'sem status'}) · verificado ${GRU.stamp(s.checked_at)}.`:`Provedor devolveu "${b.provider_status}": não é aprovação nem rejeição; estado mantido como submetido. Confira no provedor.`,novo==='rejeitado'||!aguardando&&novo==='submetido'?'aviso':'ok');
     if(GRU.state.rascunho&&GRU.state.rascunho.id===r.id)GRU.state.rascunho.servidor=JSON.parse(JSON.stringify(s));
     GRU.render();
   },
   async verificarSubmissoes(auto){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession)return;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const lista=GR.lista().filter(d=>GTA.situacao(d).estado==='submetido'&&d.servidor?.submission_id);
     for(const d of lista)await GRU.verificarSubmissao(d,auto);
     if(!auto&&!lista.length){GRU.aviso('Nenhuma submissão aguardando.');GRU.render();}

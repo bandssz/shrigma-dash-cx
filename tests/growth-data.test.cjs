@@ -206,3 +206,19 @@ test('A/B busca marca + ID local e não transforma clique ausente em fracasso', 
   for (const metrica_primaria of ['ctr', 'ctor'])
     assert.equal(G.metricaDoBraco(missing, { marca: 'fish', metrica_primaria }, { campanha_id: 1 }), null);
 });
+
+test('draft, paused, cancelled and unavailable snapshots are neither queued nor measured, retaining history',()=>{
+  const types=['rascunho','pausada','cancelada','indisponivel'];
+  const api={crm_campanha:[campanha(),campanha({campanha_id:2,tipo:'agendada',enviados:0}),
+    ...types.map((tipo,i)=>campanha({marca:'aristo',campanha_id:10+i,tipo,enviados:0}))]};
+  const before=JSON.stringify(api);
+  assert.equal(G.fila(api,'aristo','email').length,0);
+  assert.equal(G.fila(api,'fish','email').length,1);
+  assert.equal(G.campanhas(api,'aristo',DIA,DIA,false,'email').length,0);
+  assert.equal(G.campanhas(api,'fish',DIA,DIA,false,'email').length,1);
+  assert.deepEqual(G.filaIndisponivel(api,'aristo','email').map(r=>r.campanha_id),[13]);
+  assert.equal(G.filaIndisponivel(api,'fish','email').length,0);
+  assert.equal(G.filaIndisponivel(api,'aristo','whatsapp').length,0);
+  for(let i=0;i<types.length;i++)assert.equal(G.metricaDoBraco(api,{marca:'aristo',canal:'email',metrica_primaria:'ctr'},{campanha_id:10+i}),null);
+  assert.equal(JSON.stringify(api),before);
+});

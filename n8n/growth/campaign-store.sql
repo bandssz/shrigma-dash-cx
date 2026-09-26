@@ -6,7 +6,7 @@ CREATE TABLE public.shrigma_campaign_operation (
  operation_key text NOT NULL CHECK (operation_key ~ '^[A-Za-z0-9_-]{16,100}$'),
  request_hash text NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
  brand text NOT NULL CHECK (brand IN ('aristo','fish')),
- action text NOT NULL CHECK (action IN ('salvar','validar','agendar','cancelar')),
+ action text NOT NULL CHECK (action IN ('salvar','validar','agendar','cancelar','recuperar')),
  lease uuid NOT NULL DEFAULT gen_random_uuid(),
  state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','succeeded','rejected','outcome_unknown')),
  provider_id integer CHECK (provider_id > 0),
@@ -24,7 +24,7 @@ CREATE TABLE public.shrigma_campaign_validation (
 );
 REVOKE ALL ON public.shrigma_campaign_operation,public.shrigma_campaign_validation FROM PUBLIC;
 
-CREATE FUNCTION public.shrigma_campaign_store(p_action text,p jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.shrigma_campaign_store(p_action text,p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s'
 AS $fn$
 DECLARE r public.shrigma_campaign_operation%ROWTYPE; got boolean; v jsonb; pid integer;
@@ -39,7 +39,7 @@ BEGIN
  IF p_action='claim' THEN
   IF coalesce(p->>'hash','') !~ '^[0-9a-f]{64}$' OR
      coalesce(p->>'brand','') NOT IN ('aristo','fish') OR
-     coalesce(p->>'action','') NOT IN ('salvar','validar','agendar','cancelar') THEN
+     coalesce(p->>'action','') NOT IN ('salvar','validar','agendar','cancelar','recuperar') THEN
    RAISE EXCEPTION 'CAMPAIGN_STORE_CLAIM';
   END IF;
   -- Serialize exactly one actor/key, including concurrent insertion. Never reclaim
@@ -59,7 +59,7 @@ BEGIN
   SELECT * INTO r FROM public.shrigma_campaign_operation WHERE actor=p->>'actor' AND operation_key=p->>'key';
   IF NOT FOUND THEN RETURN 'null'::jsonb; END IF;
   -- Never expose the mutation token through operation polling.
-  RETURN jsonb_build_object('id',r.id,'brand',r.brand,'action',r.action,'state',r.state,
+  RETURN jsonb_build_object('id',r.id,'operation_key',r.operation_key,'brand',r.brand,'action',r.action,'state',r.state,
     'providerId',r.provider_id,'response',r.response,'created_at',r.created_at,'updated_at',r.updated_at);
  ELSIF p_action IN ('provider','finish') THEN
   SELECT * INTO r FROM public.shrigma_campaign_operation WHERE id=(p->>'id')::uuid FOR UPDATE;

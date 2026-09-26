@@ -147,6 +147,24 @@ const GB={
    await GB.applyOperation(result,journal);
   }catch(e){GB.state.error=e.message;}finally{GB.state.busy=false;GB.syncPending();GB.render();if(openerId)document.getElementById(openerId)?.focus();}
  },
+ trackingHtml(step,f,open=false){
+  if(typeof GUT==='undefined'||!['fish','aristo'].includes(f.brand))return '';
+  const template=(GB.state.templates[f.brand+':'+step.channel]||[]).find(t=>t.brand===f.brand&&t.channel===step.channel&&String(t.id)===String(step.template_id));
+  const content=GUT.templateContent(template),slot=f.available_steps.find(x=>x.key===step.key)||step;
+  const key=f.key+':'+step.key+':'+(open?'inspector':'summary');
+  const runtime=typeof GURT!=='undefined'?GURT.read(f,step):null;
+  if(runtime){
+   const label=open?'UTMs e origem':`${step.channel==='email'?'E-mail':'WhatsApp'} · ${slot.name||step.key}`,expanded=GB.utmViews?.has(key)?GB.utmViews.get(key):open;
+   return `<details class="crm-utm" data-utm-key="${GB.e(key)}"${expanded?' open':''}><summary>${GB.e(label)}</summary>${GUT.render({rows:runtime.rows,label:runtime.label||'Parâmetros preenchidos pelo envio',mode:'content',evidence:runtime.evidence,empty:runtime.empty,sourceExpression:runtime.sourceExpression,open:true})}<span class="crm-utm-note" title="${GB.e(runtime.scope)}">Condições do link ⓘ</span>${GUT.render({rows:GUT.fromContent(content),dynamic:GUT.dynamicFields(content),label:'Links escritos no template',mode:'content',evidence:template?`Template selecionado: ${template.name}${GB.state.dirty?' · edição ainda não salva':''}`:'Conteúdo do template não disponível nesta consulta.',empty:template?'O template usa os endereços fornecidos pela etapa ou não declara UTMs próprias.':'Use Atualizar na jornada para consultar o template selecionado.'})}</details>`;
+  }
+  return GUT.render({label:open?'UTMs e origem':`${step.channel==='email'?'E-mail':'WhatsApp'} · ${slot.name||step.key}`,rows:GUT.fromContent(content),dynamic:GUT.dynamicFields(content),mode:'content',key,open:GB.utmViews?.has(key)?GB.utmViews.get(key):open,
+   evidence:template?`Template selecionado: ${template.name}. ${GB.state.dirty?'Edição ainda não salva.':'Confira a versão publicada antes de alterar.'}`:'Conteúdo do template não disponível nesta consulta.',
+   empty:template?'Este template não declara UTMs nos links. O envio pode preencher o endereço; confira a variável da etapa.':'Use Atualizar na jornada para consultar os templates e confira a etapa selecionada.'});
+ },
+ trackingSummary(f,d){
+  if(typeof GUT==='undefined'||!['fish','aristo'].includes(f.brand))return '';
+  return `<details class="crm-utm builder-utm" data-journey-utm data-utm-key="${GB.e(f.key)}"${GB.utmViews?.get(f.key)?' open':''}><summary>UTMs da automação · origem e variáveis</summary>${d.steps.map(s=>GB.trackingHtml(s,f)).join('')}</details>`;
+ },
  stepHtml(step,index,f){
   const e=GB.e,slot=f.available_steps.find(x=>x.key===step.key)||step;
   const choices=(GB.state.templates[f.brand+':'+step.channel]||[]).filter(t=>GB.compatible(t,slot));
@@ -155,7 +173,7 @@ const GB={
   const wait=Number(slot.max_wait)>0?`<div class="builder-wait"><span>◷</span><label>Após <input type="number" min="${e(slot.min_wait)}" max="${e(slot.max_wait)}" step="0.5" data-step="${index}" data-field="wait_min" value="${e(step.wait_min)}" ${Number(slot.min_wait)===Number(slot.max_wait)?'readonly':''}> minutos ${e(slot.wait_label||'do gatilho')}</label></div>`:'';
   return `<li class="builder-stage ${step.enabled?'':'is-off'}" data-stage="${e(step.key)}">${wait}<div class="builder-message"><div class="builder-message-head"><span class="builder-channel ${e(step.channel)}">${icon}</span><div><small>${step.channel==='email'?'E-MAIL':'WHATSAPP'}</small><strong>${e(slot.name)}</strong></div><label class="builder-toggle"><input type="checkbox" data-step="${index}" data-field="enabled" ${step.enabled?'checked':''} aria-label="Ativar ${e(slot.name)}"><span>Ativa</span></label></div>
    ${slot.kind==='interactive'?`<label>Mensagem<textarea data-step="${index}" data-field="body" rows="4" maxlength="1024">${e(step.body)}</textarea></label>`:`<label>Template<select data-step="${index}" data-field="template_id">${current?'':`<option value="${e(step.template_id)}">${e(step.template_name||'Selecionar template')}</option>`}${choices.map(t=>`<option value="${e(t.id)}" ${String(t.id)===String(step.template_id)?'selected':''}>${e(t.name)}</option>`).join('')}</select></label><button class="builder-text-button" type="button" data-create-template="${e(step.channel)}">+ Criar template de ${step.channel==='email'?'e-mail':'WhatsApp'}</button>`}
-   ${slot.variables?.length?`<p class="builder-variables">Dados: ${slot.variables.map(e).join(' · ')}</p>`:''}
+   ${slot.variables?.length?`<details class="builder-variables"><summary>Dados usados nesta mensagem</summary><dl>${slot.variables.map(v=>`<dt>${e(({first_name:'Primeiro nome',customer_name:'Nome do cliente',checkout_url:'Link do carrinho',order_url:'Link do pedido',order_number:'Número do pedido',tracking_url:'Link de rastreio',tracking_code:'Código de rastreio',coupon:'Cupom',coupon_code:'Código do cupom',nps_url:'Link da pesquisa',p:'Identificação do pedido na pesquisa',e:'Contato da pesquisa',s:'Validação do link da pesquisa'})[v]||'Dado da mensagem')}</dt><dd><code>${e(v)}</code></dd>`).join('')}</dl></details>`:''}${GB.trackingHtml(step,f,true)}
    <div class="builder-stage-actions"><button type="button" data-remove="${index}">Remover etapa</button></div></div></li>`;
  },
  journeySummary(f,d){
@@ -170,6 +188,7 @@ const GB={
  render(ctx){
   if(typeof GBC!=='undefined'&&GBC.drag){if(ctx)GB.ctx=ctx;GBC.pendingRender=true;return;}
   if(ctx){const old=GB.ctx.marca;GB.ctx=ctx;if(old!==ctx.marca&&GB.state.loaded&&!GB.state.dirty&&!GB.hasPending()){const first=GB.visible()[0];if(first&&first.key!==GB.state.selected){GB.select(first.key,false);return;}}}const root=document.querySelector('#control-fluxos');if(!root)return;
+  GB.utmViews??=new Map();root.querySelectorAll('[data-utm-key]').forEach(el=>GB.utmViews.set(el.dataset.utmKey,el.open));
   GB.syncPending();const s=GB.state,e=GB.e,visible=GB.visible(),f=s.flows.find(x=>x.key===s.selected),d=s.draft;
   if(!s.loaded&&!s.busy){GB.load();return;}
   const rail=`<aside class="builder-rail"><div class="builder-rail-title">Jornadas <span>${visible.length}</span></div>${visible.map(x=>`<button type="button" class="builder-flow ${x.key===s.selected?'selected':''}" data-flow-key="${e(x.key)}"><span class="builder-dot ${x.enabled?'on':''}"></span><span><strong>${e(x.name)}</strong><small>${e(GB.brandLabel(x.brand))} · ${x.draft.steps.length} etapas</small></span></button>`).join('')}${!visible.length?`<p>${s.busy?'Carregando jornadas…':s.error?'Lista de jornadas indisponível.':'Nenhuma jornada nesta marca.'}</p>`:''}<button type="button" class="builder-reload" id="builder-reload" ${s.busy?'disabled':''}>${s.busy?'Carregando…':s.error?'Tentar novamente':'↻ Atualizar'}</button></aside>`;
@@ -178,7 +197,7 @@ const GB={
   const recovery=GB.recovery();
   const feedback=`${recovery?`<div class="builder-notice" role="status">Uma edição recusada desta jornada está guardada neste navegador.<button type="button" id="builder-recover-draft" ${s.busy?'disabled':''}>Recuperar edição recusada</button></div>`:''}${s.pending?`<div class="builder-alert" role="status">${e(s.pending.context?GB.brandLabel(s.pending.context.brand)+' · '+s.pending.context.name+': tentativa sem confirmação. Consulte antes de editar ou repetir.':'O registro da tentativa precisa ser conciliado. Preserve este navegador.')}<button type="button" id="builder-reconcile" ${s.busy||!s.pending.request_payload?'disabled':''}>Consultar tentativa</button></div>`:''}${s.error?`<div class="builder-alert" role="alert">${e(s.error)}</div>`:''}${s.notice?`<div class="builder-notice" role="status">${e(s.notice)}</div>`:''}`;
   const main=f&&d?`<main class="builder-main">${visual?feedback:''}<header class="builder-header"><div><label class="builder-flow-label">Jornada<select id="builder-flow-picker">${visible.map(x=>`<option value="${e(x.key)}" ${x.key===s.selected?'selected':''}>${e(GB.brandLabel(x.brand))} · ${e(x.name)}</option>`).join('')}</select></label><span class="builder-eyebrow">${e(GB.brandLabel(f.brand).toUpperCase())} / AUTOMAÇÃO</span><input class="builder-title" aria-label="Nome da jornada" id="builder-name" value="${e(d.name)}" maxlength="120"><div class="builder-status"><span class="builder-status-pill ${f.enabled?'live':''}">${!f.runtime_ready?'Em preparação':f.enabled?'Ativo':'Pausado'}</span><span>Publicada v${f.published_version}</span>${s.dirty||f.version!==f.published_version?'<span class="builder-draft-label">Alterações em rascunho</span>':''}</div></div><div class="builder-header-actions">${visual?`<button type="button" id="builder-reload" ${s.busy?'disabled':''}>↻ Atualizar</button>`:''}<button type="button" id="builder-toggle" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>${f.enabled?'Pausar':'Retomar'}</button><button type="button" id="builder-save" ${s.busy||s.pending||!s.dirty?'disabled':''}>Salvar rascunho</button><button type="button" class="builder-primary" id="builder-publish" ${s.busy||s.pending||s.dirty||!f.runtime_ready?'disabled':''}>Publicar alterações</button></div></header>
-   ${GB.journeySummary(f,d)}${visual?GBC.html(f,d):`   <div class="builder-canvas"><div class="builder-trigger"><span class="builder-trigger-icon">↯</span><div><small>ENTRADA NA JORNADA</small><strong>${e(f.trigger)}</strong><p>${e(f.binding_description||'Cada evento mantém sua identidade para evitar envios repetidos.')}</p></div></div>
+   ${GB.journeySummary(f,d)}${GB.trackingSummary(f,d)}${visual?GBC.html(f,d):`   <div class="builder-canvas"><div class="builder-trigger"><span class="builder-trigger-icon">↯</span><div><small>ENTRADA NA JORNADA</small><strong>${e(f.trigger)}</strong><p>${e(f.binding_description||'Cada evento mantém sua identidade para evitar envios repetidos.')}</p></div></div>
    ${GB.stagesHtml(f,d)}
    ${available.length?`<div class="builder-add"><select id="builder-add-slot" aria-label="Etapa para adicionar">${available.map(x=>`<option value="${e(x.key)}">${e(x.name)} · ${x.channel==='email'?'E-mail':'WhatsApp'}</option>`).join('')}</select><button type="button" id="builder-add">+ Adicionar etapa</button></div>`:''}
    <div class="builder-end">✓ Fim da jornada</div><div class="builder-exits"><strong>Saídas automáticas</strong><span>${e(f.exit_description||'Compra, cancelamento e descadastro são respeitados pelas guardas de cada jornada.')}</span></div>
@@ -205,6 +224,7 @@ const GB={
    if(field==='wait_min'&&step.channel==='whatsapp'&&step.variant)GB.state.draft.steps.filter(s=>s.channel===step.channel&&s.piece===step.piece).forEach(s=>s.wait_min=step.wait_min);
    GB.change();GB.refreshActions();
    if(field==='enabled')input.closest('.builder-stage')?.classList.toggle('is-off',!step.enabled);
+   if(field==='template_id'){GB.render();return;}
    if(typeof GBC!=='undefined')GBC.redraw();
    if(field==='wait_min'){
     root.querySelectorAll('[data-field="wait_min"]').forEach(el=>el.value=GB.state.draft.steps[Number(el.dataset.step)].wait_min);

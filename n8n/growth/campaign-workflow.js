@@ -7,8 +7,8 @@ const AUTH_SQL="SELECT CASE WHEN a IS NULL OR a='null'::jsonb THEN NULL ELSE jso
 const STORE_SQL='SELECT public.shrigma_campaign_store($1::text,$2::jsonb) AS result';
 const PROVIDER_SQL='SELECT public.shrigma_campaign_provider($1::text,$2::jsonb) AS result';
 const STORE_ACTIONS=['claim','get','provider','finish','validation_get','validation_set','validation_invalidate'];
-const PROVIDER_ACTIONS=['catalog','list','get','update','schedule','cancel','review'];
-const DB_ERRORS=['AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED','CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED'];
+const PROVIDER_ACTIONS=['catalog','list','get','update','schedule','cancel','review','recovery_inspect','recover'];
+const DB_ERRORS=['RECOVERY_UNAVAILABLE','RECOVERY_ALREADY_CLAIMED','RECOVERY_INVALID','AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED','CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED'];
 
 function buildWorkflow({name='Growth · Campanhas protegidas',webhookPath,listmonkOrigin,postgresCredential,listmonkCredential,bundle}={}){
  if(typeof webhookPath!=='string'||!/^[A-Za-z0-9_-]{8,120}$/.test(webhookPath))throw Error('Trusted webhook path required');
@@ -35,9 +35,9 @@ if(origin&&origin!==${JSON.stringify(PAGES_ORIGIN)})return reply(403,'ORIGIN_DEN
 const commandSource=method==='GET'?(req.query||{}):(req.body||{});
 if(method!=='GET'&&method!=='POST')return reply(405,'METHOD_INVALID','Método incompatível com a ação.');
 if(!commandSource||typeof commandSource!=='object'||Array.isArray(commandSource))return reply(422,'REQUEST_INVALID','Solicitação inválida.');
-const allowed=['k','acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id'];
+const allowed=['k','acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id','source_operation_id'];
 if(Object.keys(commandSource).some(k=>!allowed.includes(k)))return reply(422,'REQUEST_FIELD_INVALID','Campo não permitido.');
-const reads=['campanha_catalogo','campanha_listar','campanha_obter','campanha_operacao'],writes=['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar'];
+const reads=['campanha_catalogo','campanha_listar','campanha_obter','campanha_operacao'],writes=['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_recuperar'];
 if(!reads.includes(commandSource.acao)&&!writes.includes(commandSource.acao))return reply(400,'ACTION_INVALID','Ação desconhecida.');
 if((method==='GET'&&!reads.includes(commandSource.acao))||(method==='POST'&&!writes.includes(commandSource.acao)))return reply(405,'METHOD_INVALID','Método incompatível com a ação.');
 const key=commandSource.k;

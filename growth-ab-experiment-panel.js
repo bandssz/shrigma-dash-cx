@@ -15,7 +15,12 @@
    if(view&&target===element&&brand===marca&&!foreign)return view;
    if(view&&foreign&&current.dirty)view.preserve();
    if(activation.enabled!==true){if(view)throw Error('Preserve the mounted A/B recovery panel until all attempts are settled');if(element)element.hidden=true;return null;}
-   if(!element||!['fish','aristo'].includes(marca))return null;
+   if(!element||!['fish','aristo'].includes(marca)){
+    // A clean view may leave the supported brands. Unmount listeners without
+    // clearing durable drafts or receipts, and never expose its prior brand.
+    view?.destroy();if(target)target.hidden=true;if(element)element.hidden=true;
+    view=null;brand=null;target=null;return null;
+   }
    const key=()=>{const k=getManagerKey();if(typeof k!=='string'||!k)throw Error('Entre no CRM para continuar.');return k;};
    let client=experimentClient.create({brand:marca,endpoint:activation.endpoint,getKey:key,storage,locks,fetch,uuid});
    const operation=client.inspect().pending;

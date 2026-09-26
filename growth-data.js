@@ -214,6 +214,12 @@ const G = {
       .map(c=>({...c,canal:G.canal(c)||'email',tem_utm:rec.has(c.marca+'|'+c.campanha_id)}))
       .sort((x,y)=>new Date(x.enviado_em)-new Date(y.enviado_em));
   },
+  filaIndisponivel(api,marca,canal='todos'){
+    return (api.crm_campanha||[])
+      .filter(c=>c.tipo==='indisponivel')
+      .filter(c=>marca==='todas'||c.marca===marca)
+      .filter(c=>G.noCanal(c,canal,'email'));
+  },
   // agrupar: pecas que reivindicam a mesma tupla de UTM (mesmo e-mail para bases diferentes)
   // viram UMA linha, com envios/aberturas/cliques somados e a receita do GRUPO (view
   // crm_campanha_grupo). Antes cada uma aparecia com receita "indivisivel" e o dinheiro
@@ -251,7 +257,7 @@ const G = {
     return (api.crm_campanha||[])
       .filter(c=>marca==='todas'||c.marca===marca)
       .filter(c=>G.noCanal(c,canal,'email'))
-      .filter(c=>c.tipo!=='agendada')
+      .filter(c=>!['agendada','rascunho','pausada','cancelada','indisponivel'].includes(c.tipo))
       .filter(c=>G.noPeriodo(G.diaBR(c.enviado_em),ini,fim))
       .map(c=>({...c,canal:G.canal(c)||'email',
         rec:rec.get(c.marca+'|'+c.campanha_id)||null,
@@ -353,6 +359,8 @@ const G = {
     if(candidates.length!==1)return missing(candidates.length?'Mais de uma campanha corresponde ao vínculo; confira marca e canal.':'Campanha não disponível nos dados consultados.');
     const c=candidates[0];
     if(c.tipo==='agendada')return missing('Campanha agendada, ainda sem resultado de disparo.');
+    if(['rascunho','pausada','cancelada'].includes(c.tipo))return missing('Campanha sem disparo iniciado; taxa indisponível.');
+    if(c.tipo==='indisponivel')return missing('Estado da campanha não confirmado na fonte; taxa indisponível.');
     if(c.truncado===true)return missing('Dados da campanha incompletos; taxa indisponível.');
     const count=v=>(typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isSafeInteger(+v)&&+v>=0;
     const denominator=teste.metrica_primaria==='ctor'?c.abriram:c.entregues;

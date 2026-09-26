@@ -9,9 +9,9 @@ const {createProvider}=require('./campaign-provider');
 const {createNative}=require('./campaign-native');
 
 const VERSION='crm-campaign-runtime-v1';
-const REQUEST_KEYS=new Set(['acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id']);
+const REQUEST_KEYS=new Set(['acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id','source_operation_id']);
 const STORE_ACTIONS=new Set(['claim','get','provider','finish','validation_get','validation_set','validation_invalidate']);
-const PROVIDER_ACTIONS=new Set(['catalog','list','get','update','schedule','cancel','review']);
+const PROVIDER_ACTIONS=new Set(['catalog','list','get','update','schedule','cancel','review','recovery_inspect','recover']);
 const SQL={store:'SELECT public.shrigma_campaign_store($1::text,$2::jsonb) AS result',
  provider:'SELECT public.shrigma_campaign_provider($1::text,$2::jsonb) AS result'};
 const clone=v=>JSON.parse(JSON.stringify(v));

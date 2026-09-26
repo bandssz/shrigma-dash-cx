@@ -72,6 +72,18 @@ test('composition stays OFF by default, uses only current manager access and pre
  current.blocked=true;assert.equal(adapter.render({element,marca:'aristo',activation:{enabled:true,endpoint:'https://changed.invalid/ab'}}),view);assert.equal(calls.length,4);assert.equal(adapter.destroy(),false);
  assert.equal(adapter.render({element,marca:'fish'}),view,'routine render cannot replace a pending same-brand panel');assert.equal(calls.length,4);
 });
+test('leaving a supported brand hides the previous view, preserves durable state and remounts Fish; pending work blocks that transition',()=>{
+ const Panel=require('../growth-ab-experiment-panel.js');
+ for(const unsupported of ['todas','olivas']){
+  const element={hidden:true},stored=new Map([['journal','immutable-receipt']]),calls=[];let current={};
+  const view={contextStatus:()=>current,preserve:()=>assert.fail('No draft write on a clean brand transition'),destroy:()=>calls.push('unmount')};
+  const adapter=Panel.create({getManagerKey:()=> 'manager',restoreBrand:()=>true,storage:{getItem:k=>stored.get(k),setItem:()=>assert.fail('Journal must not change'),removeItem:()=>assert.fail('Journal must not clear')},campaignContext:{status:()=>({}),preserve(){}},campaignAPI:{caps:()=>({endpoint:'https://synthetic.invalid/campaign',brands:['fish','aristo'],read:true,validate:true,operation:true}),createClient:()=>({})},experimentClient:{create:()=>({inspect:()=>({pending:null})})},experimentUI:{createCampaignReviewer:()=>({}),mount:({brand})=>{calls.push(brand);return view;}}});
+  const activation={enabled:true,endpoint:'https://synthetic.invalid/ab'};
+  adapter.render({element,marca:'aristo',activation});current={pending:true};assert.equal(adapter.render({element,marca:unsupported,activation}),view);assert.deepEqual(calls,['aristo']);
+  current={};assert.equal(adapter.render({element,marca:unsupported,activation}),null);assert.equal(element.hidden,true);assert.deepEqual(calls,['aristo','unmount']);
+  adapter.render({element,marca:'fish',activation});assert.equal(element.hidden,false);assert.deepEqual(calls,['aristo','unmount','fish']);assert.equal(stored.get('journal'),'immutable-receipt');
+ }
+});
 
 test('defined prepare rejection preserves the original campaign versions after reload; refresh never silently adopts newer content',async()=>{
  const f=await fixture();try{

@@ -193,6 +193,15 @@ campaigns as well as A/B before stopping an emitter; a saved checkpoint alone is
 proof that its in-memory batch is empty. Do not run two emitters or infer safe rolling
 deployment from these CI tests.
 
+The authenticated native `GET /api/about` identifies version/build/architecture, but
+not the running image digest or executable bytes: the candidate intentionally reports
+the same upstream version. A host image recipe must pin the actual base digest, verify
+its binary against the packaged upstream, and preserve its user, working directory,
+entrypoint, command and mounts while replacing only the verified executable. An image
+build must not run the service's install/upgrade startup command. Its eventual execution
+and any migration require separate review. Keep the exact prior image available for
+rollback; the release tar alone cannot recreate its OS, configuration or filesystem.
+
 The source/checksum/manifest is not an activation receipt. Runtime stays OFF until the
 actual worker and SQL pairing are proven and a separately authorized rollout occurs.
 Rollback requires all A/B arms to be `finished`/`cancelled`, no pending buffered batch,

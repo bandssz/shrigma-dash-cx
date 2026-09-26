@@ -23,6 +23,7 @@ const GUI = {
   el(selector) { return typeof document === 'undefined' ? null : document.querySelector(selector); },
   html(selector, value) { const el=GUI.el(selector); if(el) el.innerHTML=value; },
   text(selector, value) { const el=GUI.el(selector); if(el) el.textContent=value; },
+  segmentFlow(value) { return ({boas_vindas:'Boas-vindas',lapsando:'Clientes em risco de inatividade',nutricao:'Relacionamento',pos_compra:'Pós-compra',reativacao:'Reativação',recompra_lembrete:'Lembrete de recompra',recompra_next_best:'Recomendação de recompra',resgate_alto_valor:'Retorno de clientes de alto valor',vip_campeao:'Clientes VIP'})[value] || value || 'Sem automação vinculada'; },
   period(ini, fim) { return ini === fim ? GUI.date(ini) : `${GUI.date(ini)} a ${GUI.date(fim)}`; },
   sum(rows, field) { return rows.reduce((total, row) => total + (+row[field] || 0),0); },
   stat(label, value, className='') {
@@ -51,14 +52,14 @@ const GUI = {
     };
     const jump=(label,target)=>`<button type="button" class="kpi-jump" data-kpi-jump="${target}">${label}</button>`;
     const waDelivery={label:'Entrega WhatsApp',value:wa.entrega_pct,before:previous?.wa?.entrega_pct,format:GUI.pf,
-      note:GUI.number(wa.entregues)?`${GUI.nf(wa.entregues)} entregues · ${GUI.nf(wa.falhas)} falhas · de ${GUI.nf(wa.aceitos)} aceitos`:'Entregues ÷ aceitos pela Meta',link:jump('Ver automações','flows:whatsapp')};
+      note:GUI.number(wa.entregues)?`${GUI.nf(wa.entregues)} entregues · ${GUI.nf(wa.falhas)} falhas · de ${GUI.nf(wa.aceitos)} aceitos`:'Entregues ÷ aceitos pelo WhatsApp',link:jump('Ver automações','flows:whatsapp')};
     const emailCtr={label:'CTR das campanhas de e-mail',value:email.ctr,before:previous?.email?.ctr,format:GUI.pf,
       note:GUI.number(email.medidasCliques)?`Clicaram ÷ entregues · ${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças medidas`:'Clicaram ÷ entregues · somente base medida',link:jump('Ver campanhas','camp')};
     const kpis=[
-      {label:canal==='whatsapp'?'Aceitos pela Meta':'Disparos registrados',value:summary.enviados,before:previous?.enviados,format:GUI.nf,
-        note:canal==='whatsapp' ? 'Aceite não é entrega · sem Reportana' : canal==='email' ? 'Campanhas Listmonk + automações SES' : 'WhatsApp próprio + e-mail',link:jump('Ver envios',`flows:${canal}`)},
+      {label:canal==='whatsapp'?'Envios aceitos':'Disparos registrados',value:summary.enviados,before:previous?.enviados,format:GUI.nf,
+        note:canal==='whatsapp' ? 'Aceite ainda não confirma entrega' : canal==='email' ? 'Campanhas + automações de e-mail' : 'WhatsApp próprio + e-mail',link:jump('Ver envios',`flows:${canal}`)},
       ...(canal==='whatsapp'?[
-        {label:'Entregues',value:wa.entregues,before:previous?.wa?.entregues,format:GUI.nf,note:GUI.number(wa.entrega_pct)?`${GUI.pf(wa.entrega_pct)} dos aceitos · delivered ou read`:'delivered ou read · sem duplicar',link:jump('Ver automações','flows:whatsapp')},
+        {label:'Entregues',value:wa.entregues,before:previous?.wa?.entregues,format:GUI.nf,note:GUI.number(wa.entrega_pct)?`${GUI.pf(wa.entrega_pct)} dos aceitos · entregues ou lidos`:'entregues ou lidos · sem duplicar',link:jump('Ver automações','flows:whatsapp')},
         {label:'Falhas na entrega',value:wa.falhas,before:previous?.wa?.falhas,format:GUI.nf,invert:true,note:GUI.number(wa.pendentes_entrega)?`${GUI.nf(wa.pendentes_entrega)} aguardando confirmação`:'Aguardando confirmação: —',link:jump('Ver ocorrências','attention'),failure:GUI.number(wa.falhas)&&+wa.falhas>0},
       ]:[]),
       {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
@@ -92,17 +93,17 @@ const GUI = {
       ? `<div class="delivery-bar" aria-hidden="true">${[['ok',wa.entregues],['pending',wa.pendentes_entrega],['failed',wa.falhas]].map(([cls,n])=>`<i class="${cls}" style="width:${Math.min(100,Math.max(0,100*n/wa.aceitos))}%"></i>`).join('')}</div>` : '';
     const waCard=`<article class="channel-card whatsapp" data-channel-card="whatsapp">
       <div class="channel-head"><h2>WhatsApp</h2>${channelButton('whatsapp')}</div>
-      <div class="channel-main"><div><div class="big">${GUI.nf(wa.aceitos)}</div><span class="channel-label">aceitos pela Meta · ${period}</span></div>
+      <div class="channel-main"><div><div class="big">${GUI.nf(wa.aceitos)}</div><span class="channel-label">envios aceitos · ${period}</span></div>
         <div class="amount"><strong>${GUI.rf(waConv.receita)}</strong><span class="channel-label">receita atribuída</span></div></div>
       <div class="channel-stats">${GUI.stat('Entregues',GUI.nf(wa.entregues))}${GUI.stat('Lidos',GUI.nf(wa.lidos))}${GUI.stat('Falhas na entrega',GUI.nf(wa.falhas),'failure')}
         ${GUI.stat('Aguardando confirmação',GUI.nf(wa.pendentes_entrega))}${GUI.stat('Pedidos atribuídos',GUI.nf(waConv.pedidos))}${GUI.stat('Taxa de entrega',GUI.pf(wa.entrega_pct))}</div>
-      ${waBar}<div class="channel-foot"><p>Envios próprios registrados no período; status atualizado até a consulta. Não inclui disparos da Reportana.</p>
+      ${waBar}<div class="channel-foot"><div class="operator-labels"><span class="control-badge" tabindex="0" title="Envios próprios registrados no período; status atualizado até a consulta.">Envios deste painel</span><span class="control-badge" tabindex="0" title="${GUI.esc(attributionNote)}">Receita por data da compra</span></div>
         <details data-gt-key="wa-como-ler"><summary>Como ler estas métricas</summary>
-          <p>${attributionNote}</p>
           <p>Entregues incluem mensagens lidas. Leituras dependem da confirmação disponível no WhatsApp; ausência de leitura não significa ausência de interesse.</p>
           <p class="substats">Sem disparo confirmado: <strong>${GUI.nf(wa.sem_disparo_confirmado)}</strong> · Erros antes do aceite: <strong>${GUI.nf(wa.erros_sincronos)}</strong>.</p>
-          <p>Sem disparo confirmado inclui sombra, reserva ou tentativa sem aceite da Meta. Esses registros não entram em disparos aceitos.</p>
+          <p>Sem disparo confirmado inclui simulações, mensagens reservadas ou tentativas sem confirmação de aceite. Esses registros não entram em disparos aceitos.</p>
           <p>Testes identificados: <strong>${GUI.nf(wa.testes_aceitos)}</strong>, fora dos totais operacionais. Testes internos sem modo identificável podem permanecer nos indicadores.</p>
+          <details data-crm-owner-only><summary>Origem técnica dos envios</summary><p>Aceites e confirmações da Meta, no motor próprio. Reportana não está incluída.</p></details>
           ${+wa.conflitos_status > 0 ? `<p>${GUI.nf(wa.conflitos_status)} registro(s) com confirmações divergentes; confira o acompanhamento antes de avaliar a taxa.</p>` : ''}
         </details></div><button type="button" class="channel-jump" data-open-flows="whatsapp">Ver automações →</button></article>`;
     const ses=typeof GSES!=='undefined'?GSES.model(api,marca,ini,fim):null;
@@ -111,21 +112,21 @@ const GUI = {
       <div class="channel-head"><h2>E-mail</h2>${channelButton('email')}</div>
       <div class="channel-main"><div><div class="big">${GUI.nf(email.enviados)}</div><span class="channel-label">disparos registrados · ${period}</span></div>
         <div class="amount"><strong>${GUI.rf(emailConv.receita)}</strong><span class="channel-label">receita atribuída</span></div></div>
-      <div class="channel-stats">${GUI.stat('Campanhas Listmonk',GUI.nf(email.campanhas_enviados))}${GUI.stat('Automações SES',GUI.nf(email.automacoes_enviados))}${GUI.stat('Pedidos atribuídos',GUI.nf(emailConv.pedidos))}
+      <div class="channel-stats">${GUI.stat('Campanhas',GUI.nf(email.campanhas_enviados))}${GUI.stat('Automações',GUI.nf(email.automacoes_enviados))}${GUI.stat('Pedidos atribuídos',GUI.nf(emailConv.pedidos))}
         ${GUI.stat('CTR · campanhas',GUI.pf(email.ctr))}${GUI.stat('CTOR · campanhas',GUI.pf(email.ctor))}${GUI.stat('Abertura · campanhas',GUI.pf(email.abertura))}</div>
       <ul class="measure-gaps" aria-label="O que está medido no e-mail">
-        <li data-gap="${GUI.number(email.medidasCliques)&&email.medidasCliques===email.pecas?'ok':'parcial'}" title="Abertura, CTR e CTOR consideram apenas campanhas Listmonk com a medição correspondente. Peça sem medição fica fora da taxa, nunca entra como zero."><strong>Campanhas</strong> ${GUI.number(email.pecas)?`${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças com clique medido`:'sem peças no período'}</li>
-        <li data-gap="${sesMeasured?'parcial':'lacuna'}" title="Entregas e falhas de automações aparecem no quadro de entregas confirmadas, dentro dos intervalos medidos. Aberturas e cliques das automações não estão medidos aqui."><strong>Automações SES</strong> ${sesMeasured?'entregas e falhas com cobertura parcial':ses?'sem cobertura de entrega neste período':'consulta de entregas indisponível'}</li>
-        <li data-gap="lacuna" title="Os percentuais de rejeição e reclamação das campanhas selecionadas não são a reputação oficial da conta SES; a AWS usa volume representativo próprio."><strong>Reputação SES</strong> não derivada destes agregados</li>
+        <li data-gap="${GUI.number(email.medidasCliques)&&email.medidasCliques===email.pecas?'ok':'parcial'}" title="Abertura, CTR e CTOR consideram apenas campanhas com a medição correspondente. Peça sem medição fica fora da taxa, nunca entra como zero."><strong>Campanhas</strong> ${GUI.number(email.pecas)?`${GUI.nf(email.medidasCliques)} de ${GUI.nf(email.pecas)} peças com clique medido`:'sem peças no período'}</li>
+        <li data-gap="${sesMeasured?'parcial':'lacuna'}" title="Entregas e falhas de automações aparecem no quadro de entregas confirmadas, dentro dos intervalos medidos. Aberturas e cliques das automações não estão medidos aqui."><strong>Automações</strong> ${sesMeasured?'entregas e falhas com cobertura parcial':ses?'sem cobertura de entrega neste período':'consulta de entregas indisponível'}</li>
+        <li data-gap="lacuna" title="Os percentuais de rejeição e reclamação das campanhas selecionadas não são a reputação oficial do serviço de envio; ela usa uma base própria."><strong>Reputação de envio</strong> não derivada destes agregados</li>
       </ul>
-      <div class="channel-foot"><p>Envios de campanhas e automações separados. Abertura, CTR e CTOR usam apenas campanhas Listmonk com a respectiva medição.</p>
-        <details data-gt-key="email-como-ler"><summary>Como ler estas métricas</summary><p>${attributionNote}</p>
+      <div class="channel-foot"><div class="operator-labels"><span class="control-badge" tabindex="0" title="${GUI.esc(attributionNote)}">Receita por data da compra</span><span class="control-badge" tabindex="0" title="Abertura, CTR e CTOR usam apenas campanhas com a respectiva medição.">Taxas só das campanhas</span></div>
+        <details data-gt-key="email-como-ler"><summary>Como ler estas métricas</summary>
           <p>CTR = pessoas que clicaram ÷ entregues; CTOR = pessoas que clicaram ÷ pessoas que abriram; abertura = pessoas que abriram ÷ entregues.</p>
           <p class="substats">Campanhas com cliques medidos: <strong>${GUI.nf(email.medidasCliques)}</strong> · Base entregue para CTR: <strong>${GUI.nf(email.baseCliques)}</strong>.<br>
             Campanhas com abertura medida: <strong>${GUI.nf(email.medidas)}</strong> · Base entregue para abertura: <strong>${GUI.nf(email.baseAbertura)}</strong>.<br>
             Campanhas com ambas as medições, usadas no CTOR: <strong>${GUI.nf(email.medidasConjuntas)}</strong>.</p>
-          <p>Entregas e falhas das automações aparecem em “E-mail · entregas confirmadas”, com cobertura parcial. Abertura e clique das automações não estão medidos nesta visão. Métrica ausente aparece como —.</p>
-          <p>Abertura pode incluir ações automáticas de provedores. Use cliques e pedidos para complementar a análise.</p>
+          <p>Métrica ausente: —. Aberturas e cliques das automações não estão medidos nesta visão.</p>
+          <p>Abertura pode incluir ações automáticas de provedores. Use cliques e pedidos para complementar a análise.</p><details data-crm-owner-only><summary>Origem técnica das métricas</summary><p>Campanhas Listmonk e automações SES. A reputação oficial da conta SES não é derivada destes agregados.</p></details>
         </details></div><button type="button" class="channel-jump" data-open-flows="email">Ver automações →</button></article>`;
     const cards=GUI.el('#channel-cards');
     if(cards) {
@@ -139,6 +140,7 @@ const GUI = {
       }));
     }
     GUI.sources(ctx,summary);
+    GUI.channelHealth(ctx);
     GUI.flowHealth(ctx);
     GUI.attention(ctx);
     return summary;
@@ -199,15 +201,59 @@ const GUI = {
       ];
     }
     // Sem hora, o estado é "falta" — exceto quando o próprio item já declara que a falta é erro/desconhecido (F02).
-    el.innerHTML=items.map(i=>`<span class="fonte" data-estado="${i.hora?i.estado:['ruim','desconhecido'].includes(i.estado)?i.estado:'falta'}" title="${GUI.esc(i.detalhe)}"><b>${GUI.esc(i.rot)}</b> ${i.hora?`${GUI.esc(i.texto)} ${GUI.esc(i.hora)}`:GUI.esc(i.texto&&i.texto!=='coletado'&&i.texto!=='às'?i.texto:'sem dado')}</span>`).join('');
+    const technical=items.map(i=>`<span class="fonte" data-estado="${i.hora?i.estado:['ruim','desconhecido'].includes(i.estado)?i.estado:'falta'}" title="${GUI.esc(i.detalhe)}"><b>${GUI.esc(i.rot)}</b> ${i.hora?`${GUI.esc(i.texto)} ${GUI.esc(i.hora)}`:GUI.esc(i.texto&&i.texto!=='coletado'&&i.texto!=='às'?i.texto:'sem dado')}</span>`).join('');
+    const status=i=>i.hora?i.estado:['ruim','desconhecido'].includes(i.estado)?i.estado:'falta';
+    const names={Venda:'Vendas','E-mail':'E-mail',WhatsApp:'WhatsApp',Inventário:'Automações'};
+    const groups=['Vendas','E-mail','WhatsApp','Automações'].map(label=>{
+      const primary=items.filter(i=>names[i.rot]===label);
+      const checks=items.filter(i=>(label==='WhatsApp'&&i.rot==='Saúde canal'||label==='Automações'&&i.rot==='Saúde fluxos')&&!['ok','evento'].includes(status(i)));
+      const selected=[...primary,...checks];
+      const detail=i=>{
+        const st=status(i),subject=i.rot==='Saúde canal'?'Verificação do canal':i.rot==='Saúde fluxos'?'Verificação de envios':null;
+        const impact=label==='Vendas'?'Vendas recentes podem faltar.':label==='E-mail'?'Números de campanhas podem estar incompletos.':label==='WhatsApp'?'A confirmação de entrega pode estar incompleta.':'A situação das automações pode estar desatualizada.';
+        const message=st==='ruim'?'Atualização falhou. '+impact+' Atualize o painel; se persistir, peça uma revisão à equipe responsável.':st==='velho'?'Atualização atrasada. '+impact+' Atualize o painel antes de avaliar o resultado.':['falta','desconhecido'].includes(st)?'Atualização não confirmada. '+impact+' Atualize o painel; se persistir, peça uma revisão à equipe responsável.':st==='evento'?'Última confirmação recebida. Intervalos sem novas confirmações não comprovam falha.':'Dados atualizados até o horário indicado.';
+        const clock=i.hora?(st==='ruim'?'Último sucesso: ':st==='evento'?'Última confirmação: ':'Atualizado até: ')+i.hora:'Horário não disponível';
+        const quiet=['ok','evento'].includes(st);
+        return `<div class="crm-source-status" data-estado="${GUI.esc(st)}">${subject?`<span>${subject}</span> · `:''}<span${quiet?` tabindex="0" title="${GUI.esc(message)}"`:''}>${GUI.esc(clock)}</span>${quiet?'':`<p>${GUI.esc(message)}</p>`}</div>`;
+      };
+      return `<div class="crm-source-group"><strong>${label}</strong>${selected.length?selected.map(detail).join(''):'<div class="crm-source-status" data-estado="falta">Horário não disponível. Atualize o painel para conferir estes dados.</div>'}</div>`;
+    }).join('');
+    const unknown=items.filter(i=>!names[i.rot]&&!['Consulta','Saúde canal','Saúde fluxos'].includes(i.rot)&&!['ok','evento'].includes(status(i)));
+    el.innerHTML=`<div data-crm-manager-only class="crm-sources">${consulta.falhou?'<p role="status">Não foi possível atualizar o painel. Os últimos dados continuam visíveis; confira os horários abaixo e tente Atualizar novamente.</p>':''}${groups}${unknown.length?'<p role="status">Parte das informações não pôde ser confirmada. Atualize o painel; se persistir, peça uma revisão à equipe responsável.</p>':''}</div><details data-crm-owner-only><summary>Fontes e atualização · detalhes técnicos</summary>${technical}</details>`;
     return items;
+  },
+  // Account health is separate from successful collection and per-flow checks.
+  // Only explicit CRM brands participate; SAC (Gleap) belongs to the CX surface.
+  channelHealth(ctx={}){
+    const el=GUI.el('#crm-channel-status');if(!el)return [];
+    const brand=ctx.marca||'todas',brands=['todas','todos'].includes(brand)?['fish','aristo']:['fish','aristo'].includes(brand)?[brand]:[];
+    const now=Number.isFinite(ctx.now)?ctx.now:Date.now(),rows=Array.isArray(ctx.api?.wa_saude)?ctx.api.wa_saude:[],notices=[];
+    const labels={fish:'Fishermans',aristo:'O Aristocrata'};
+    const time=v=>typeof v==='string'&&v.trim()?Date.parse(v):NaN;
+    for(const b of brands){
+      const accounts=rows.filter(r=>r&&typeof r==='object'&&!Array.isArray(r)&&r.brand===b&&!/\bSAC\s*\(\s*Gleap\s*\)/i.test(String(r.nome||'')));
+      if(!accounts.length){notices.push({brand:b,label:'Conta da marca',state:'desconhecido',checked:null,since:null,message:'Situação do WhatsApp indisponível. A ausência de verificação não confirma funcionamento.',action:'Atualize o painel; se persistir, peça conferência ao responsável.'});continue;}
+      for(const r of accounts){
+        const checked=time(r.verificado_em),validTime=Number.isFinite(checked)&&checked<=now+300000,stale=validTime&&now-checked>7200000;
+        const state=!validTime?'desconhecido':stale?'desatualizado':r.estado==='alerta'?'alerta':r.estado==='ok'?'ok':'desconhecido';
+        if(state==='ok')continue;
+        const since=time(r.alerta_desde);
+        notices.push({brand:b,label:/\btransacional\b/i.test(String(r.nome||''))?'WhatsApp transacional':'Conta da marca',state,
+          checked:validTime?GUI.sourceTime(r.verificado_em):null,since:state==='alerta'&&Number.isFinite(since)&&since<=checked?GUI.sourceTime(r.alerta_desde):null,
+          message:state==='alerta'?'Há um alerta nesta conta. Isso não comprova interrupção de todos os envios.':state==='desatualizado'?'Verificação com mais de 2 horas; a situação atual não está confirmada.'+(r.estado==='alerta'?' A última verificação registrou um alerta, que pode ser histórico.':''):'Não foi possível confirmar a situação desta conta.',
+          action:state==='alerta'?'Peça conferência ao responsável antes de repetir mensagens.':'Atualize o painel; se persistir, peça conferência ao responsável.'});
+      }
+    }
+    el.hidden=notices.length===0;
+    el.innerHTML=notices.map(n=>`<div class="crm-health-notice" data-estado="${n.state}"><strong>${GUI.esc(labels[n.brand])} · ${GUI.esc(n.label)}</strong><p>${GUI.esc(n.message)}</p><span>${n.checked?'Verificado: '+GUI.esc(n.checked):'Horário de verificação não confirmado'}${n.since?' · Alerta registrado desde: '+GUI.esc(n.since):''}</span><p>${GUI.esc(n.action)}</p></div>`).join('');
+    return notices;
   },
   /* Saúde dos fluxos (shrigma_wa_fluxo_saude, horária): gatilho de e-mail sem linha WhatsApp, aceite sem status
      da Meta, falhas. Só exibe o que a API devolveu; sem a chave, nada aparece (ausência não é saúde). */
   flowHealth(ctx={}){
     const el=GUI.el('#fluxo-saude');if(!el)return [];
     const bruto=Array.isArray(ctx.api?.wa_fluxo_saude)?ctx.api.wa_fluxo_saude:null;
-    if(!bruto){el.innerHTML='';return [];}
+    if(!bruto){el.innerHTML='<div data-crm-manager-only class="crm-health-notice" data-estado="desconhecido">Verificação das automações indisponível. Atualize o painel; a ausência de dados não confirma que os envios estejam funcionando.</div>';return [];}
     // F06: linha inválida é contada e ignorada, o resto renderiza. F07: motivo e horário visíveis por toque/teclado, não só no title.
     const rows=bruto.filter(r=>r&&typeof r==='object'&&typeof r.chave==='string'&&r.chave.trim());
     const invalidas=bruto.length-rows.length;
@@ -218,10 +264,21 @@ const GUI = {
     const kept=typeof GT!=='undefined'?GT.captura(el):null;
     const estado=r=>['ok','alerta'].includes(r.estado)?r.estado:'desconhecido';
     const motivo=r=>r.motivo?String(r.motivo):r.estado==='ok'?'Sem ocorrência na última verificação':'Estado não informado pela verificação';
-    el.innerHTML=vis.length||invalidas?`<div class="fluxo-saude-lista">${vis.map((r,i)=>{const id=`fluxo-det-${i}`,st=estado(r);
+    const technical=vis.length||invalidas?`<div class="fluxo-saude-lista">${vis.map((r,i)=>{const id=`fluxo-det-${i}`,st=estado(r);
         return `<button type="button" class="fluxo-chip" data-estado="${GUI.esc(st)}" data-gt-expand="fluxo-${GUI.esc(r.chave)}" data-gt-alvo="${id}" aria-expanded="false" aria-controls="${id}">${GUI.esc(r.nome||r.chave)}${st==='alerta'?' · alerta':st==='desconhecido'?' · estado ?':''}</button>`;}).join('')}${invalidas?`<span class="fluxo-chip" data-estado="desconhecido">${invalidas} registro(s) inválido(s) ignorado(s)</span>`:''}</div>
       ${vis.map((r,i)=>`<div class="fluxo-detalhe mini" id="fluxo-det-${i}" hidden>${GUI.esc(motivo(r))} · verificado ${stamp(r.verificado_em)}${r.alerta_desde?` · em alerta desde ${stamp(r.alerta_desde)}`:''}${r.estado==='alerta'&&GUI.sourceTime(r.verificado_em)===null?' · sem hora de verificação: trate como histórico':''}</div>`).join('')}`
       :`<span class="mini">Sem verificação de fluxo para este recorte.</span>`;
+    const operational=vis.filter(r=>['fish','aristo'].includes(r.brand)&&!r.chave.startsWith('qa:')&&estado(r)!=='ok');
+    const pieces={'pedido-pago':'Pagamento aprovado','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento aprovado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido em rota','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado','rastreio-criado':'Rastreio do pedido','carrinho-30min':'Lembrete de carrinho · 30 min','carrinho-24h':'Lembrete de carrinho · 24 h','pix-3min':'Lembrete PIX','pix-15min':'Lembrete PIX','auto-resposta':'Resposta automática'};
+    const notices=operational.map(r=>{
+      const st=estado(r),type=r.chave.split(':')[0],piece=pieces[r.chave.split(':')[2]],brand={fish:'Fishermans',aristo:'O Aristocrata'}[r.brand];
+      const title=(brand?brand+' · ':'')+(piece||'Acompanhamento das automações');
+      const issue=st==='desconhecido'?'Não foi possível confirmar a situação dos envios.':type==='aceite'?'Há envios aceitos sem confirmação suficiente de entrega.':type==='gatilho'?'Há uma diferença entre as mensagens previstas e os registros de WhatsApp.':'Há uma ocorrência na automação que precisa de revisão.';
+      const counts=type==='aceite'&&GUI.number(r.n_aceites)?`${GUI.nf(r.n_aceites)} envios aceitos.`:type==='gatilho'&&GUI.number(r.n_gatilho)&&GUI.number(r.n_saida)?`${GUI.nf(r.n_gatilho)} mensagens de referência · ${GUI.nf(r.n_saida)} registros de WhatsApp.`:'';
+      const time=`Verificado: ${stamp(r.verificado_em)}${r.alerta_desde?' · Ocorrência desde: '+stamp(r.alerta_desde):''}${!GUI.sourceTime(r.verificado_em)?' · Horário não confirmado; trate como histórico.':''}`;
+      return `<div class="crm-health-notice" data-estado="${st}"><strong>${GUI.esc(title)}</strong><p>${GUI.esc(issue)} ${GUI.esc(counts)}</p><span>${GUI.esc(time)}</span><p>Confira os envios desta automação antes de repetir uma mensagem. Atualize o painel; se persistir, peça uma revisão à equipe responsável.</p></div>`;
+    }).join('');
+    el.innerHTML=`<div data-crm-manager-only>${notices}${invalidas?'<p class="crm-health-notice" data-estado="desconhecido">Parte das verificações não pôde ser lida. Atualize o painel; a situação completa das automações ainda não está confirmada.</p>':''}${!vis.length&&!invalidas?'<p class="crm-health-notice" data-estado="desconhecido">Sem verificação para este recorte. Confira a marca e atualize o painel antes de avaliar os envios.</p>':''}</div><details data-crm-owner-only><summary>Diagnóstico das automações · detalhes técnicos</summary>${technical}</details>`;
     if(typeof el.querySelectorAll==='function')el.querySelectorAll('[data-gt-expand]').forEach(b=>b.onclick=()=>{const alvo=el.querySelector('#'+b.dataset.gtAlvo);const abre=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(abre));if(alvo)alvo.hidden=!abre;});
     if(kept&&typeof GT!=='undefined')GT.restaura(el,kept);
     return alertas;
@@ -248,16 +305,15 @@ const GUI = {
       : 'Nenhuma falha de entrega, erro antes do aceite ou aceite aguardando confirmação registrado neste recorte. Isso não confirma que os fluxos estejam ligados.';
     const waHtml=canal==='email'?'':`<div class="attention-stats">${totals}</div><p class="attention-state">${state}</p>
       ${rows.length?`<ul class="attention-list">${rows.map(rowHtml).join('')}</ul>`:''}
-      <details class="attention-details"><summary>O que este acompanhamento permite verificar</summary>
-        <p>Falhas e erros pertencem às tentativas registradas neste período; não indicam, sozinhos, uma falha atual da automação. Aguardando confirmação significa que a Meta aceitou a mensagem, mas ainda não há entrega ou falha registrada.</p>
-        <p>Registros sem aceite e sem erro, que podem incluir sombra, não entram nas falhas. O último registro é da peça inteira, não necessariamente da ocorrência. Este quadro não informa se o fluxo está ligado nem identifica a causa de cada erro.</p>
-        <p>Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))}. Última atualização de status disponível: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))}. Horários de Brasília. Não inclui Reportana.</p>
+      <div class="attention-time">Último registro WhatsApp no recorte: ${GUI.esc(GUI.timestamp(wa.ultimo_registro_em))} · Status atualizado: ${GUI.esc(GUI.timestamp(wa.ultimo_status_em))} · Horários de Brasília · Envios deste painel</div>
+      <details class="attention-details"><summary>Limites deste acompanhamento</summary>
+        <ul><li><strong>Histórico:</strong> falhas e erros pertencem às tentativas do período; não indicam, sozinhos, uma falha atual.</li><li><strong>Aguardando confirmação:</strong> o WhatsApp aceitou a mensagem; ainda não há entrega ou falha registrada.</li><li><strong>Fora das falhas:</strong> registros sem aceite e sem erro, inclusive modo sombra.</li><li><strong>Último registro:</strong> é da peça inteira, não necessariamente da ocorrência.</li><li>Este quadro não informa se o fluxo está ligado nem identifica a causa de cada erro.</li></ul>
       </details>`;
     const emailHtml=canal==='whatsapp'?'':`<div class="attention-email"><div><strong>E-mail · cobertura do acompanhamento</strong>
-      <p>Campanhas Listmonk têm métricas agregadas. Nas automações via SES, entregas e falhas estão no quadro “E-mail · entregas confirmadas”, com cobertura parcial.</p></div>
+      <div class="operator-labels"><span class="control-badge" tabindex="0" title="Campanhas têm métricas agregadas.">Campanhas · métricas agregadas</span><span class="control-badge">Automações · cobertura parcial</span></div><span class="mini">Entregas e falhas: quadro “E-mail · entregas confirmadas”.</span></div>
       <button type="button" class="refresh-btn" data-attention-email>Ver automações de e-mail →</button></div>`;
     el.innerHTML=`<div class="painel-cab"><h2 id="attention-title">Acompanhamento das automações</h2><span class="mini">Histórico do período</span></div>
-      <p class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} · status disponíveis na consulta. Use os filtros de marca, canal e período para conferir cada operação.</p>${waHtml}${emailHtml}`;
+      <div class="attention-intro">Envios de ${GUI.esc(GUI.period(ini,fim))} <span class="control-badge" tabindex="0" title="Use os filtros de marca, canal e período para conferir cada operação.">Status disponíveis na consulta</span></div>${waHtml}${emailHtml}`;
     el.querySelectorAll('[data-attention-flow]').forEach(button=>button.addEventListener('click',()=>{
       if(typeof ctx.onFlows==='function')ctx.onFlows('whatsapp',{marca:button.dataset.attentionBrand,flow:button.dataset.attentionFlow});
     }));
@@ -325,7 +381,7 @@ const GUI = {
       if(kept&&typeof GT!=='undefined')GT.restaura(GUI.el('#tab-regua tbody'),kept);
       GUI.el('#tab-regua [data-flows-clear]')?.addEventListener('click',()=>{GUI.flowsState.q='';if(search)search.value='';if(selector)selector.value='';render();});
       const anomalies=(G.REGUA_ANOMALIAS || []).filter(a=>canal!=='whatsapp' && a.dia>=ini && a.dia<=fim && (marca==='todas' || a.marca===marca));
-      GUI.html('#nota-regua',`Disparos de WhatsApp são mensagens aceitas pela Meta; sombra e tentativas sem aceite ficam nos detalhes. Não inclui Reportana. Automações de e-mail são envios registrados via SES; consulte entregas e falhas no quadro de e-mail medido, com cobertura parcial.<br>
+      GUI.html('#nota-regua',`Disparos de WhatsApp são mensagens aceitas para envio; simulações e tentativas sem aceite ficam nos detalhes. Esta visão acompanha os envios deste painel. Automações de e-mail são envios registrados; consulte entregas e falhas no quadro de e-mail medido, com cobertura parcial.<br>
         Pedidos e receita seguem a data da compra e a atribuição por último clique à peça. Não são conversão dos envios deste período. Busca, fluxo e ordenação alteram somente esta tabela e a exportação.`+
         anomalies.map(a=>`<div class="metric-note"><strong>${GUI.date(a.dia)} · ${GUI.esc(G.MARCA?.[a.marca] || a.marca)} · ${GUI.esc(a.piece)}:</strong> ${GUI.esc(a.motivo)}.</div>`).join(''));
       return visible;

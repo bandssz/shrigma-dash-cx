@@ -8,7 +8,7 @@ const root=path.resolve(__dirname,'..'),END='https://campaign.example.test/opera
 const api={capabilities:{campaigns:{contract_version:C.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:"listmonk-6.1-regular-v1"},endpoints:{campaigns:END}}};
 const definition=()=>({schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'fixture',name:'Fixture'},utm_campaign:'fixture',name:'Campanha de exemplo',subject:'Assunto',from_email:'Fish <contato@fishermans.com.br>',reply_to:'contato@fishermans.com.br',list_ids:[125],template_id:1,html:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/kit {{ UnsubscribeURL }}',tags:[],send_at:'2030-09-20T15:00:00Z'});
 const catalog={brand:'fish',current:true,lists:[{id:125,name:'Clientes recorrentes',brand:'fish',available:true}],templates:[{id:1,name:'Modelo principal',type:'campaign',available:true,version:'t1'}],initiatives:[]};
-function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null,audiencePatch={}}={}){
+function boot({payload=api,brand='fish',store=new Map(),timeout=false,locks=createLocks(),masterOnly=false,beforeResponse=null,audiencePatch={},respond=null}={}){
  const {document,window}=parseHTML('<section id="campaign-composer"></section>');
  const proto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
@@ -18,7 +18,7 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
  let clock=Date.now();const Clock=class extends Date{static now(){return clock;}};
  const context=vm.createContext({document,window,console,Date:Clock,Intl,URL,URLSearchParams,AbortSignal,TextEncoder,crypto:webcrypto,setTimeout,clearTimeout,navigator:{locks},shrigmaChave:panel=>panel==='growth'?(store.get('read-slot')||store.get('shrigma_k_mestre')||''):'',
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},GTA:{CHAVE_ESCRITA:'write-slot',CHAVE_LEITURA:'read-slot'},GMP:{openEmail:()=>{}},confirm:()=>{throw Error('native confirm must not be called');},__api:payload,
-  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);if(beforeResponse)await beforeResponse(req);let body;
+  fetch:async(url,init)=>{const req=init.method==='POST'?JSON.parse(init.body):Object.fromEntries(new URL(url).searchParams);if(init.method==='GET'){assert.equal(new URL(url).searchParams.has('k'),false);req.k=init.headers.Authorization?.slice(7);}calls.push(req);if(beforeResponse)await beforeResponse(req);if(respond){const custom=await respond(req,init,store);if(custom!==undefined)return {status:custom.status,json:async()=>structuredClone(custom.body)};}let body;
    if(req.acao==='campanha_catalogo')body=catalog;
    else if(req.acao==='campanha_listar')body={campaigns:[current]};
    else if(req.acao==='campanha_obter')body={campaign:current};
@@ -26,8 +26,8 @@ function boot({payload=api,store=new Map(),timeout=false,locks=createLocks(),mas
    else{if(timeout)throw Error('lost transport response');if(req.acao==='campanha_salvar')current={...current,definition:req.definition};if(req.acao==='campanha_agendar')current={...current,status:'scheduled'};if(req.acao==='campanha_cancelar')current={...current,status:'cancelled',version:'v2'};if(req.acao==='campanha_validar')review=audienceFixture(current,clock,audiencePatch);body={campaign:current,...(req.acao==='campanha_validar'?{validation:{policy:C.VERSION,version:current.version,ok:true,audience:review}}:{}),...(req.acao==='campanha_agendar'?{audience:{...review,rechecked_at:review.checked_at}}:{})};}
    return {status:200,json:async()=>structuredClone(body)};
   }});
- for(const file of ['campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
- vm.runInContext('GCE.mount({marca:"fish",api:__api})',context);
+ for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-utm.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+ vm.runInContext('GCE.mount({marca:'+JSON.stringify(brand)+',api:__api})',context);
  const dialog=require('./campaign-dialog-fixture.cjs')(document,window);
  return {document,window,calls,store,advance:ms=>{clock+=ms;},setCurrent:value=>{current=structuredClone(value);},confirmations:dialog.messages,accept:dialog.accept,run:code=>vm.runInContext(code,context),q:s=>document.querySelector(s)};
 }
@@ -36,7 +36,43 @@ async function until(check){for(let i=0;i<100;i++){if(check())return;await new P
 test('absent capabilities keep local preparation and remote clicks do not issue requests; Olivas remains local',async()=>{
  const x=boot({payload:{}});assert.equal(x.q('[data-ce-remote]').hidden,true);x.q('[data-ce-save]').click();await new Promise(setImmediate);assert.equal(x.calls.length,0);
  const y=boot();y.run('GCE.preserve();GCE.mount({marca:"olivas",api:__api})');assert.equal(y.q('[data-ce-remote]').hidden,true);
- assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);
+ assert.equal(y.q('[name=list_ids]').closest('label').hidden,false);assert.equal(y.q('[data-ce-utms]').hidden,true);assert.equal(y.q('[data-ce-utms]').textContent,'');
+});
+function persistedCampaign(brand='fish',phase='succeeded'){
+ const d=definition();if(brand==='aristo'){d.brand=brand;d.from_email='Aristo <contato@oaristocrata.com>';d.reply_to='contato@oaristocrata.com';d.html=d.html.replaceAll('fishermans.com.br','oaristocrata.com');d.text=d.text.replaceAll('fishermans.com.br','oaristocrata.com');}
+ const campaign={id:brand==='fish'?161:160,version:'cancelled-v6',status:'cancelled',sent:0,started_at:null,send_at:d.send_at,definition:d};
+ const localKey='shrigma_growth_editor_v1:campaign:'+brand,journalKey='shrigma_campaign_operation_v1:'+brand;
+ const journal={version:1,brand,endpoint:END,campaign,validation:null,operation:{phase,actorFingerprint:'fixture-fingerprint',key:'existing-operation',request:{acao:'campanha_cancelar',brand,id:campaign.id,expected_version:'scheduled-v5',idempotency_key:'existing-operation'}}};
+ const value={...Editor.fromDefinition(d),_campaign:{id:campaign.id,version:campaign.version}};
+ return {campaign,localKey,journalKey,store:new Map([[localKey,JSON.stringify({version:1,area:'campaign',brand,value})],[journalKey,JSON.stringify(journal)]])};
+}
+test('persisted campaign waits for capabilities before comparing its revision in both brands',()=>{
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand),local=p.store.get(p.localKey),journal=p.store.get(p.journalKey),x=boot({payload:{},brand,store:p.store});
+  assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.doesNotMatch(x.q('[data-ce-status]').textContent,/mudou em outra aba/);
+  assert.doesNotThrow(()=>x.run('GCE.preserve()'));assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),journal);
+  x.run('GCE.mount({marca:'+JSON.stringify(brand)+',api:'+JSON.stringify(api)+'})');
+  assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.match(x.q('[data-ce-server-state]').textContent,/Cancelada · 0 enviados/);assert.equal(x.q('[data-ce-save]').disabled,true);
+  x.run('GCE.preserve()');assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),journal);assert.equal(x.calls.length,0);
+ }
+});
+test('late capabilities still detect changed or missing campaigns without rebinding local content',()=>{
+ for(const changed of ['revision','identity','missing']){
+  const p=persistedCampaign(),x=boot({payload:{},store:p.store}),journal=JSON.parse(p.store.get(p.journalKey));
+  if(changed==='revision')journal.campaign.version='another-tab';if(changed==='identity')journal.campaign.id=999;if(changed==='missing')journal.campaign=null;
+  p.store.set(p.journalKey,JSON.stringify(journal));const local=p.store.get(p.localKey),savedJournal=p.store.get(p.journalKey);
+  x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(api)+'})');
+  assert.equal(x.run('GCE.contextStatus().dirty'),true,changed);assert.match(x.q('[data-ce-status]').textContent,/mudou em outra aba/);assert.equal(x.q('[name=html]').disabled,true);
+  assert.throws(()=>x.run('GCE.preserve()'),/mudou em outra aba/);assert.equal(p.store.get(p.localKey),local);assert.equal(p.store.get(p.journalKey),savedJournal);assert.equal(x.calls.length,0);
+ }
+});
+test('local edits before capability arrival retain the anchor and an unresolved operation',()=>{
+ const p=persistedCampaign('fish','uncertain'),journal=p.store.get(p.journalKey),x=boot({payload:{},store:p.store});
+ x.q('[name=subject]').value='Edição local preservada';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ assert.deepEqual(JSON.parse(p.store.get(p.localKey)).value._campaign,{id:161,version:'cancelled-v6'});
+ x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(api)+'})');
+ assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(x.run('GCE.contextStatus().dirty'),false);assert.equal(x.q('[name=subject]').value,'Edição local preservada');assert.equal(x.q('[name=subject]').disabled,true);
+ assert.equal(p.store.get(p.journalKey),journal);assert.equal(x.calls.length,0);
 });
 test('operators select named catalogs, save, validate and explicitly schedule the reviewed date',async()=>{
  const x=boot();assert.ok(!x.q('[data-ce-server-state]').textContent.includes('Versão salva validada.'));x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]'));
@@ -130,15 +166,98 @@ async function audienceReady(x){x.q('[data-ce-save]').click();await until(()=>!x
 test('audience display explains union, opt-out, exclusions and live count before confirmation',async()=>{
  const x=boot({audiencePatch:{eligible_count:1234,unique_members_count:1241,excluded_blocklisted_count:3,excluded_subscription_count:4}});await audienceReady(x);
  const text=x.q('[data-ce-audience]').textContent;assert.match(text,/1\.234 pessoas podem receber agora/);assert.match(text,/Descadastros e bloqueios conferidos/);assert.match(text,/outra lista selecionada/);assert.match(text,/3 bloqueados · 4 sem inscrição válida/);assert.match(text,/O total pode mudar até o envio/);
+ const visible=x.q('[data-ce-audience]').cloneNode(true);visible.querySelectorAll('details').forEach(el=>el.remove());
+ assert.match(visible.textContent,/1\.234 pessoas podem receber agora/);assert.match(visible.textContent,/Conferido em/);assert.match(visible.textContent,/Válido até/);assert.match(visible.textContent,/novos descadastros serão respeitados/);
+ assert.doesNotMatch(visible.textContent,/outra lista selecionada/);assert.match(x.q('[data-ce-audience] details').textContent,/Inscrições e exclusões.*3 bloqueados · 4 sem inscrição válida.*outra lista selecionada/);
  x.q('[data-ce-schedule]').click();assert.match(x.confirmations.at(-1),/Fishermans/);assert.match(x.confirmations.at(-1),/1\.234 pessoas/);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);x.accept();await until(()=>x.calls.some(c=>c.acao==='campanha_agendar'));
  assert.equal(x.calls.find(c=>c.acao==='campanha_agendar').audience_review_id,'00000000-0000-4000-8000-000000000001');
 });
 test('zero and disabled audiences remain visible but cannot open scheduling',async()=>{
- for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1}]){const x=boot({audiencePatch:patch});await audienceReady(x);assert.equal(x.q('[data-ce-schedule]').disabled,true);x.q('[data-ce-schedule]').click();assert.equal(x.confirmations.length,0);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-validate]').disabled,false);}
+ for(const patch of [{eligible_count:0,unique_members_count:0},{native_disabled_count:1}]){const x=boot({audiencePatch:patch});await audienceReady(x);assert.equal(x.q('[data-ce-schedule]').disabled,true);x.q('[data-ce-schedule]').click();assert.equal(x.confirmations.length,0);assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-validate]').disabled,false);if(patch.native_disabled_count)assert.match(x.q('[data-ce-audience] .ce-audience-warning').textContent,/Há contatos desativados.*Revise o público antes de agendar/);}
 });
 test('expiry while confirmation is open requires a new review with no schedule request',async()=>{
  const x=boot();await audienceReady(x);x.q('[data-ce-schedule]').click();x.advance(300001);x.accept();await until(()=>/venceu/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);assert.equal(x.q('[data-ce-schedule]').disabled,true);assert.equal(x.q('[data-ce-validate]').disabled,false);
 });
 test('another tab replacing only the audience review invalidates the displayed approval',async()=>{
  const x=boot();await audienceReady(x);x.q('[data-ce-schedule]').click();const key='shrigma_campaign_operation_v1:fish',s=JSON.parse(x.store.get(key));s.validation.audience.review_id='00000000-0000-4000-8000-000000000002';x.store.set(key,JSON.stringify(s));x.accept();await until(()=>/mudou durante a confirmação/.test(x.q('[data-ce-status]').textContent));assert.equal(x.calls.some(c=>c.acao==='campanha_agendar'),false);
+});
+
+const RECOVERY_SOURCE='00000000-0000-4000-8000-000000000160',RECOVERY_OPERATION='00000000-0000-4000-8000-000000000161';
+const recoveryApi={capabilities:{...api.capabilities,campaigns:{...api.capabilities.campaigns,recover:true,recovery_policy:'crm-campaign-recovery-v1'}}};
+function recoverySetup(){
+ const sourceKey='original-save-attempt-160',original={...definition(),send_at:'2099-09-20T15:00:00.000Z',html:'https://fishermans.com.br/ {{ UnsubscribeURL }}',text:'https://fishermans.com.br/ {{ UnsubscribeURL }}'},native={id:160,version:'native-160',status:'draft',sent:0,started_at:null,send_at:null,definition:{...original,send_at:null}},record={id:RECOVERY_SOURCE,operation_key:sourceKey,action:'salvar',brand:'fish',state:'outcome_unknown',providerId:160,response:{status:502,body:{error:'OUTCOME_UNKNOWN',message:'Original immutable receipt'}}};
+ const proof={policy:'crm-campaign-recovery-v1',source_operation_id:RECOVERY_SOURCE,campaign:native,frozen:false},receipt={campaign:native,operation_id:RECOVERY_OPERATION,source_operation_id:RECOVERY_SOURCE,recovery_policy:proof.policy};
+ const state={version:1,brand:'fish',endpoint:END,campaign:null,validation:null,operation:{phase:'uncertain',actorFingerprint:require('node:crypto').createHash('sha256').update('synthetic-write-secret').digest('hex'),key:sourceKey,request:{acao:'campanha_salvar',brand:'fish',definition:original,idempotency_key:sourceKey},created_at:'2026-09-25T12:00:00.000Z'}};
+ const store=new Map([['shrigma_campaign_composer_v1',JSON.stringify(Editor.fromDefinition(original))],['shrigma_campaign_operation_v1:fish',JSON.stringify(state)]]);
+ return {sourceKey,original,native,record,proof,receipt,store};
+}
+test('homepage-only campaign content stays editable with a specific error and never issues a save POST',async()=>{
+ const x=boot();for(const name of ['html','text'])x.q(`[name=${name}]`).value='https://fishermans.com.br/ {{ UnsubscribeURL }}';x.q('[name=html]').dispatchEvent(new x.window.Event('input',{bubbles:true}));x.q('[data-ce-save]').click();await until(()=>/produto, página ou coleção/.test(x.q('[data-ce-status]').textContent));
+ assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,0);assert.equal(x.store.has('shrigma_campaign_operation_v1:fish'),false);assert.equal(x.q('[name=html]').disabled,false);assert.equal(x.q('[name=html]').value,'https://fishermans.com.br/ {{ UnsubscribeURL }}');
+});
+test('existing-draft recovery requires an HTML confirmation and preserves requested content for update of the same ID',async()=>{
+ const p=recoverySetup();let current=p.native;
+ const x=boot({payload:recoveryApi,store:p.store,respond:async(req,init,store)=>{
+  if(req.acao==='campanha_operacao')return {status:200,body:req.idempotency_key===p.sourceKey?{operation:p.record,recovery:p.proof}:{operation:{id:RECOVERY_OPERATION,operation_key:req.idempotency_key,action:'recuperar',providerId:160,brand:'fish',state:'succeeded',response:{status:200,body:p.receipt}}}};
+  if(req.acao==='campanha_recuperar'){const s=JSON.parse(store.get('shrigma_campaign_operation_v1:fish'));assert.deepEqual(s.sourceOperation.serverRecord,p.record);assert.equal(s.sourceOperation.request.definition.send_at,p.original.send_at);assert.equal(s.operation.phase,'pending');return {status:200,body:p.receipt};}
+  if(req.acao==='campanha_obter')return {status:200,body:{campaign:current}};
+  if(req.acao==='campanha_salvar'){assert.equal(req.id,160);assert.equal(req.expected_version,'native-160');current={...current,definition:req.definition,send_at:req.definition.send_at,version:'edited-160'};return {status:200,body:{campaign:current}};}
+ }});
+ assert.equal(x.q('[data-ce-recover]').hidden,true);x.q('[data-ce-consult]').click();await until(()=>!x.q('[data-ce-recover]').hidden);assert.equal(x.q('[data-ce-save]').disabled,true);
+ x.q('[data-ce-recover]').click();assert.equal(x.confirmations.length,1);assert.match(x.confirmations[0],/Fishermans.*campanha 160.*0 envios.*não cria outra campanha, não agenda e não envia/);assert.equal(x.calls.some(c=>c.acao==='campanha_recuperar'),false);x.q('[data-ce-confirm-no]').click();await until(()=>!x.q('[data-ce-recover]').disabled);assert.equal(x.calls.some(c=>c.acao==='campanha_recuperar'),false);
+ x.q('[data-ce-recover]').click();x.accept();await until(()=>!x.q('[data-ce-save]').disabled);
+ assert.match(x.q('[data-ce-status]').textContent,/Seu conteúdo original foi preservado/);assert.equal(x.q('[name=send_at]').value,'2099-09-20T12:00:00');assert.equal(x.q('[name=html]').value,p.original.html);assert.match(x.q('[data-ce-server-state]').textContent,/Há alterações locais/);assert.equal(x.q('[data-ce-validate]').disabled,true);
+ const saved=JSON.parse(x.store.get('shrigma_growth_editor_v1:campaign:fish'));assert.deepEqual(saved.value._campaign,{id:160,version:'native-160'});assert.deepEqual(JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish')).sourceOperation.serverRecord,p.record);
+ for(const n of ['html','text']){x.q(`[name=${n}]`).value=definition()[n];x.q(`[name=${n}]`).dispatchEvent(new x.window.Event('input',{bubbles:true}));}x.q('[data-ce-save]').click();await until(()=>x.calls.some(c=>c.acao==='campanha_salvar'));assert.equal(x.calls.filter(c=>c.acao==='campanha_salvar').length,1);assert.equal(x.calls.find(c=>c.acao==='campanha_salvar').id,160);assert.equal(x.calls.find(c=>c.acao==='campanha_salvar').definition.send_at,p.original.send_at);
+});
+test('recovery confirmation refuses changed journal, access or context without a reconciliation POST',async()=>{
+ for(const change of ['journal','writer','brand']){
+  const p=recoverySetup(),x=boot({payload:recoveryApi,store:p.store,respond:async req=>req.acao==='campanha_operacao'?{status:200,body:{operation:p.record,recovery:p.proof}}:undefined});x.q('[data-ce-consult]').click();await until(()=>!x.q('[data-ce-recover]').hidden);x.q('[data-ce-recover]').click();
+  if(change==='journal'){const s=JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish'));s.recoveryProof.campaign.version='changed';x.store.set('shrigma_campaign_operation_v1:fish',JSON.stringify(s));}
+  if(change==='writer')x.store.set('write-slot','changed-key');
+  if(change==='brand'){assert.equal(x.run('GCE.enterBrand("aristo")'),false);x.q('[name=brand]').value='aristo';}
+  x.accept();await new Promise(setImmediate);assert.equal(x.calls.some(c=>c.acao==='campanha_recuperar'),false,change);assert.equal(JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish')).operation.key,p.sourceKey);
+ }
+});
+test('lost recovery response reloads safely, consults its new identity and preserves both the original request and newer edits',async()=>{
+ const p=recoverySetup();let accepted=false;
+ const respond=async req=>{if(req.acao==='campanha_recuperar'){accepted=true;throw Error('lost response');}if(req.acao==='campanha_operacao')return {status:200,body:accepted?{operation:{id:RECOVERY_OPERATION,operation_key:req.idempotency_key,action:'recuperar',providerId:160,brand:'fish',state:'succeeded',response:{status:200,body:p.receipt}}}:{operation:p.record,recovery:p.proof}};if(req.acao==='campanha_obter')return {status:200,body:{campaign:p.native}};};
+ const x=boot({payload:recoveryApi,store:p.store,respond});x.q('[data-ce-consult]').click();await until(()=>!x.q('[data-ce-recover]').hidden);x.q('[data-ce-recover]').click();x.accept();await until(()=>/Resultado não confirmado/.test(x.q('[data-ce-status]').textContent));assert.equal(x.q('[data-ce-save]').disabled,true);
+ const state=JSON.parse(x.store.get('shrigma_campaign_operation_v1:fish')),newKey=state.operation.key;assert.notEqual(newKey,p.sourceKey);assert.deepEqual(state.sourceOperation.serverRecord,p.record);
+ const y=boot({payload:recoveryApi,store:p.store,respond});assert.equal(y.q('[data-ce-save]').disabled,true);y.q('[data-ce-consult]').click();await until(()=>!y.q('[data-ce-save]').disabled);assert.equal(y.calls.find(c=>c.acao==='campanha_operacao').idempotency_key,newKey);assert.equal(y.calls.some(c=>c.acao==='campanha_recuperar'),false);assert.equal(y.q('[name=send_at]').value,'2099-09-20T12:00:00');assert.equal(y.q('[name=html]').value,p.original.html);
+ y.q('[name=subject]').value='Correção local posterior';y.q('[name=subject]').dispatchEvent(new y.window.Event('input',{bubbles:true}));y.q('[data-ce-consult]').click();await until(()=>!y.run('GCE.contextStatus().blocked'));assert.equal(y.q('[name=subject]').value,'Correção local posterior');assert.deepEqual(JSON.parse(p.store.get('shrigma_campaign_operation_v1:fish')).sourceOperation.serverRecord,p.record);
+});
+
+test('campaign editor shows actual HTML and text UTM sources, preserves variables and never claims metadata is a tracked link',()=>{
+ const x=boot({payload:{}}),html=x.q('[name=html]'),text=x.q('[name=text]');
+ html.value='<a href="https://fishermans.com.br/products/kit?utm_source=fish-literal&amp;utm_medium=campanha&amp;utm_campaign=body-campaign&amp;utm_content=hero">Produto</a>';
+ text.value='https://fishermans.com.br/products/kit?utm_source={{ .Tx.Data.source }}&utm_campaign=text-campaign';html.dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ const panel=x.q('[data-ce-utms]');assert.match(panel.textContent,/fish-literal/);assert.match(panel.textContent,/body-campaign/);assert.match(panel.textContent,/text-campaign/);assert.ok(panel.textContent.includes('{{ .Tx.Data.source }}'));assert.match(panel.textContent,/Rascunho em edição/);
+ assert.equal(x.q('[name=utm_campaign]').value,'fixture');assert.doesNotMatch(panel.textContent,/utm_campaign=fixture/);assert.equal(x.calls.length,0);
+ panel.querySelector('details').open=true;html.value=html.value.replace('fish-literal','fish-edited');html.dispatchEvent(new x.window.Event('input',{bubbles:true}));assert.equal(panel.querySelector('details').open,true);assert.match(panel.textContent,/fish-edited/);assert.doesNotMatch(panel.textContent,/fish-literal/);
+ x.run('GCE.preserve();GCE.enterBrand("aristo")');assert.doesNotMatch(panel.textContent,/fish-edited|body-campaign|text-campaign/);assert.equal(x.calls.length,0);
+});
+test('saved campaign UTM preview is brand-specific and remains read-only when an operation is uncertain',()=>{
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand,'uncertain'),j=JSON.parse(p.store.get(p.journalKey)),local=JSON.parse(p.store.get(p.localKey));
+  j.campaign.definition.html='https://'+(brand==='fish'?'fishermans.com.br':'oaristocrata.com')+'/products/kit?utm_source='+brand+'-saved&utm_campaign=saved {{ UnsubscribeURL }}';j.campaign.definition.text=j.campaign.definition.html;
+  local.value.html=j.campaign.definition.html;local.value.text=j.campaign.definition.text;p.store.set(p.localKey,JSON.stringify(local));p.store.set(p.journalKey,JSON.stringify(j));const before=p.store.get(p.journalKey),x=boot({brand,store:p.store}),panel=x.q('[data-ce-utms]');
+  assert.match(panel.textContent,new RegExp(brand+'-saved'));assert.match(panel.textContent,/Conteúdo salvo desta campanha/);assert.equal(x.q('[name=html]').disabled,true);assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(p.store.get(p.journalKey),before);assert.equal(x.calls.length,0);
+ }
+});
+test('CRM managers can inspect saved campaign patterns and dynamic source without changing either brand journal',()=>{
+ const page=parseHTML(fs.readFileSync(path.join(root,'growth.html'),'utf8')).document;
+ assert.equal(page.querySelector('#campaign-composer').closest('[data-crm-owner-only]'),null);
+ for(const brand of ['fish','aristo']){
+  const p=persistedCampaign(brand,'uncertain'),j=JSON.parse(p.store.get(p.journalKey)),local=JSON.parse(p.store.get(p.localKey)),domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';
+  j.campaign.definition.html=`<a href="https://${domain}/products/kit?utm_source=${brand}-literal&amp;utm_medium=campanha&amp;utm_campaign=${brand}-saved&amp;utm_content=hero">Produto</a> {{ UnsubscribeURL }}`;
+  j.campaign.definition.text=`https://${domain}/products/kit?utm_source={{ .Tx.Data.source }}&utm_medium=campanha&utm_campaign=${brand}-saved&utm_content=text {{ UnsubscribeURL }}`;
+  Object.assign(local.value,{html:j.campaign.definition.html,text:j.campaign.definition.text});p.store.set(p.localKey,JSON.stringify(local));p.store.set(p.journalKey,JSON.stringify(j));
+  const before=p.store.get(p.journalKey),x=boot({brand,store:p.store});x.document.body.dataset.crmView='manager';
+  const panel=x.q('[data-ce-utms]');assert.equal(panel.hidden,false);assert.equal(panel.closest('[data-crm-owner-only]'),null);panel.querySelector('details').open=true;
+  const manager=x.q('#campaign-composer').cloneNode(true);manager.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());const visible=manager.querySelector('[data-ce-utms]');assert.ok(visible);
+  for(const value of [brand+'-literal',brand+'-saved','{{ .Tx.Data.source }}','Variável de source','hero','text'])assert.ok(visible.textContent.includes(value),value);
+  assert.match(visible.textContent,/Conteúdo salvo desta campanha/);assert.doesNotMatch(visible.textContent,new RegExp((brand==='fish'?'aristo':'fish')+'-(literal|saved)'));
+  assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(p.store.get(p.journalKey),before);assert.equal(x.calls.length,0);
+ }
 });

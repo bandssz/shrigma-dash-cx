@@ -46,3 +46,10 @@ test('audience review binds identity, timezone, TTL and nonempty eligible compos
 });
 
 test('schedule rejects ambiguous local time and impossible calendar or clock dates',()=>{const now=Date.parse('2026-02-01T00:00:00Z'),c={id:987,version:'v1',status:'draft',sent:0,started_at:null,definition:base(),validation:{policy:C.VERSION,version:'v1',ok:true}};c.validation.audience=audience(c,now);const req={confirm:'agendar',expected_version:'v1',audience_review_id:c.validation.audience.review_id};for(const send_at of ['2026-02-02T12:00:00','2026-02-30T12:00:00Z','2026-02-02T24:00:00Z'])assert.throws(()=>C.schedule(req,{...c,send_at},{now,canPublish:true}),{code:'SCHEDULE_TIMEZONE'});});
+
+test('preflight validates the same links without inventing an identity or rewriting input',()=>{
+ const d=base(),before=JSON.stringify(d);assert.deepEqual(C.preflight(d,{catalog,tracking:T}),C.normalize(d));assert.equal(JSON.stringify(d),before);
+ for(const html of ['https://oaristocrata.com/ {{ UnsubscribeURL }}','https://elsewhere.example.invalid/products/x {{ UnsubscribeURL }}'])assert.throws(()=>C.preflight({...d,html,text:'{{ UnsubscribeURL }}'},{catalog,tracking:T}),{code:'NO_COMMERCIAL_LINK'});
+ assert.throws(()=>C.preflight({...d,html:'https://oaristocrata.com/products/x?utm_campaign=foreign {{ UnsubscribeURL }}'},{catalog,tracking:T}),{code:'TRACKING_INVALID'});
+ const checked=T.check({status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:[123],body:d.html,altbody:d.text},{brand:'aristo',campaign:d.utm_campaign});assert.deepEqual(checked,{commercial_links:2});
+});

@@ -83,11 +83,29 @@ const GEC={
   }
   return families>0;
  },
+ expressionParser(){return typeof GEE!=='undefined'?GEE:typeof require==='function'?require('./growth-email-expressions.js'):null;},
+ checkedHTML(source){
+  source=String(source||'');
+  if(!source.includes('{{'))return {...GEC.htmlTokens(source),expressions:null};
+  const parser=GEC.expressionParser();
+  if(!parser){
+   const expressions=GEC.templateExpressions(source,true);
+   return expressions.unsupported?{ok:false,tokens:[],expressionError:true}:{...GEC.htmlTokens(source),expressions:null};
+  }
+  const expressions=parser.parse(source,{html:true});
+  if(!expressions.ok)return {ok:false,tokens:[],expressionError:true,expressions};
+  return {...GEC.htmlTokens(expressions.safetySource),expressions};
+ },
  htmlSafety(source){
-  const parsed=GEC.htmlTokens(source);if(!parsed.ok)return 'EMAIL_HTML_MALFORMED';
+  source=String(source||'');
+  const parsed=GEC.checkedHTML(source);if(!parsed.ok)return parsed.expressionError?'EMAIL_EXPRESSION_UNSUPPORTED':'EMAIL_HTML_MALFORMED';
+  // The lexical mask never approves hidden literals. Check their decoded values
+  // as well as the full source; the native renderer's output is checked separately.
+  const decoded=(parsed.expressions?.literals||[]).filter(t=>t.type==='string').map(t=>t.value).join('\n');
+  const securitySource=source+'\n'+decoded;
   // Keep active content forbidden, including content hidden in Outlook comments.
-  if(/<\s*(?:script|iframe|object|embed|form|input|button|select|textarea|base|svg|math)\b|\bon[a-z]+\s*=/i.test(source))return 'EMAIL_ACTIVE_CONTENT';
-  let normalized=String(source).replace(/&#(x[0-9a-f]+|[0-9]+);?/gi,(_,n)=>{const hex=n[0].toLowerCase()==='x',cp=parseInt(hex?n.slice(1):n,hex?16:10);return cp<=0x10ffff?String.fromCodePoint(cp):'';}).replace(/&(colon|tab|newline);?/gi,(_,n)=>({colon:':',tab:'\t',newline:'\n'}[n.toLowerCase()])).replace(/\\([0-9a-f]{1,6})\s?/gi,(_,n)=>String.fromCodePoint(Math.min(parseInt(n,16),0x10ffff))).replace(/\\([():])/g,'$1');
+  if(/<\s*(?:script|iframe|object|embed|form|input|button|select|textarea|base|svg|math)\b|\bon[a-z]+\s*=/i.test(securitySource))return 'EMAIL_ACTIVE_CONTENT';
+  let normalized=securitySource.replace(/&#(x[0-9a-f]+|[0-9]+);?/gi,(_,n)=>{const hex=n[0].toLowerCase()==='x',cp=parseInt(hex?n.slice(1):n,hex?16:10);return cp<=0x10ffff?String.fromCodePoint(cp):'';}).replace(/&(colon|tab|newline);?/gi,(_,n)=>({colon:':',tab:'\t',newline:'\n'}[n.toLowerCase()])).replace(/\\([0-9a-f]{1,6})\s?/gi,(_,n)=>String.fromCodePoint(Math.min(parseInt(n,16),0x10ffff))).replace(/\\([():])/g,'$1');
   normalized=normalized.replace(/[\u0000-\u0020\u007f]/g,'');
   if(/(?:javascript|vbscript|data):|expression\(|-moz-binding:/i.test(normalized))return 'EMAIL_ACTIVE_CONTENT';
   for(const token of parsed.tokens){
@@ -99,7 +117,12 @@ const GEC={
   return null;
  },
  templateExpressions(source,html=false){
-  source=String(source||'');const parts=html?GEC.htmlTokens(source):{ok:true,tokens:[{type:'text',start:0,end:source.length}]},keys=new Set();let unsupported=!parts.ok;
+  source=String(source||'');
+  // Expanded expressions belong to HTML bodies. Subjects and plain-text fields
+  // keep their existing simple-variable contract and never pretend to be rendered.
+  const parser=html&&source.includes('{{')?GEC.expressionParser():null;
+  if(parser){const parsed=parser.parse(source,{html:true});return {keys:parsed.keys,fields:parsed.fields,unsupported:!parsed.ok,errors:parsed.errors,native:parsed.actions.some(a=>a.kind!=='output'||a.expression?.type!=='field'||!a.expression.path.startsWith('.Tx.Data.'))};}
+  const parts=html?GEC.htmlTokens(source):{ok:true,tokens:[{type:'text',start:0,end:source.length}]},keys=new Set();let unsupported=!parts.ok;
   for(const t of parts.tokens){
    const part=source.slice(t.start,t.end);
    // Adjacent CSS block closures are literal CSS, never a Go-template delimiter.
@@ -135,7 +158,7 @@ const GEC={
   const esc=GEC.esc,raw=String(r.corpo||''),preheader=GEC.preheaderHTML(r);
   // Complete documents retain their own layout; fragments/plain text use the brand shell.
   if(/<html(?:\s|>)/i.test(raw)){
-   const parsed=GEC.htmlTokens(raw);if(!parsed.ok)throw Error('EMAIL_HTML_MALFORMED');
+   const parsed=GEC.checkedHTML(raw);if(!parsed.ok)throw Error(parsed.expressionError?'EMAIL_EXPRESSION_UNSUPPORTED':'EMAIL_HTML_MALFORMED');
    const body=parsed.tokens.find(t=>t.type==='tag'&&t.name==='body'&&!t.closing);if(!body)throw Error('EMAIL_BODY_REQUIRED');
    if((r.botoes||[]).length||r.rodape)throw Error('EMAIL_DOCUMENT_EXTRAS');
    return raw.slice(0,body.end)+preheader+raw.slice(body.end);
@@ -148,10 +171,10 @@ const GEC={
   if(r?.canal!=='email')return [];
   try{
    const raw=String(r.corpo||'');
-   if(/<!--|<!doctype\b|<\/?[a-z]/i.test(raw)){const rawUnsafe=GEC.htmlSafety(raw);if(rawUnsafe)throw Error(rawUnsafe);}
+   if(/<!--|<!doctype\b|<\/?[a-z]|<\s*\/?\s*\{\{/i.test(raw)){const rawUnsafe=GEC.htmlSafety(raw);if(rawUnsafe)throw Error(rawUnsafe);}
    const html=GEC.html(r),unsafe=GEC.htmlSafety(html);if(unsafe)throw Error(unsafe);return [];
   }catch(e){
-   const messages={EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Use apenas metadados UTF-8, viewport padrão e esquemas de cores permitidos. Redirecionamentos e outras instruções meta não são permitidos.',EMAIL_LINK_UNSUPPORTED:'Use apenas a folha de fontes Google Fonts permitida. Outros recursos externos via link não são aceitos.'};
+   const messages={EMAIL_EXPRESSION_UNSUPPORTED:'Confira os campos, condições e repetições do e-mail. A expressão não é compatível com a prévia segura.',EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Use apenas metadados UTF-8, viewport padrão e esquemas de cores permitidos. Redirecionamentos e outras instruções meta não são permitidos.',EMAIL_LINK_UNSUPPORTED:'Use apenas a folha de fontes Google Fonts permitida. Outros recursos externos via link não são aceitos.'};
    return [{codigo:'EMAIL_CONTENT',campo:'corpo',mensagem:messages[e.message]||'Escolha a marca do e-mail.'}];
   }
  },

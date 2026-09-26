@@ -17,3 +17,29 @@ test('external changes invalidate the previously checked version before scheduli
 test('unknown finalization keeps the operation claimed and blocks a new transmission',async()=>{const f=fixture();f.store.finish=async()=>{throw Error('db unavailable');};const r=req('salvar',{definition:d()});const a=await f.service.handle(auth,r);assert.equal(a.status,502);await f.service.handle(auth,r);assert.equal(f.calls.create,1);});
 
 test('legacy validation stays readable but cannot authorize a fresh schedule',async()=>{const f=fixture(),saved=await f.service.handle(auth,req('salvar',{definition:d()})),{id,version}=saved.body.campaign;await f.store.setValidation(id,{policy:C.VERSION,version,ok:true,validated_at:'2026-09-17T12:00:00Z'});const old=await f.service.handle(auth,req('obter',{id}));assert.equal(old.status,200);assert.equal(old.body.campaign.id,id);assert.equal((await f.store.getValidation(id)).ok,true);const r=await f.service.handle(auth,req('agendar',{id,expected_version:version,confirm:'agendar'}));assert.equal(r.body.error,'AUDIENCE_REVIEW_REQUIRED');assert.equal(f.calls.schedule,0);});
+
+test('invalid commercial content is definitively rejected before reserving a native draft',async()=>{
+ for(const brand of ['fish','aristo']){
+  const f=fixture(),domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';
+  f.provider.catalog=async()=>({brand,current:true,lists:[{id:125,brand,available:true}],templates:[{id:1,type:'campaign',available:true}],initiatives:[]});
+  const input={...d(),brand,from_email:'qa@'+domain,reply_to:'qa@'+domain,html:`<a href="https://${domain}/">Store</a> {{ UnsubscribeURL }}`,text:`https://${domain}/ {{ UnsubscribeURL }}`};
+  const result=await f.service.handle(auth,{...req('salvar',{definition:input}),brand});
+  assert.equal(result.status,422);assert.equal(result.body.error,'NO_COMMERCIAL_LINK');assert.equal(f.calls.create,0);assert.equal(f.calls.update,0);assert.equal(f.calls.schedule,0);
+  assert.equal([...f.ops.values()][0].state,'rejected');assert.equal(result.body.provider_id,null);
+ }
+});
+test('conflicting tracking and coupon routing are rejected before native creation',async()=>{
+ for(const url of ['https://fishermans.com.br/products/kit?utm_campaign=another','https://fishermans.com.br/discount/X?redirect=https%3A%2F%2Fother.example.invalid%2Fproducts%2Fx']){
+  const f=fixture(),result=await f.service.handle(auth,req('salvar',{definition:{...d(),html:`<a href="${url}">X</a>{{ UnsubscribeURL }}`}}));
+  assert.equal(result.status,422);assert.equal(result.body.error,'TRACKING_INVALID');assert.equal(f.calls.create,0);
+ }
+});
+test('recovery has its own durable identity and confirmation, without creation or scheduling',async()=>{
+ const f=fixture(),source='00000000-0000-4000-8000-000000000001',campaign={id:160,version:'v1',definition:d(),status:'draft',sent:0,started_at:null,send_at:null};let recoveries=0;
+ f.provider.recover=async(id,p)=>{recoveries++;return {campaign,recovery_policy:'crm-campaign-recovery-v1',operation_id:p.operationId,source_operation_id:p.sourceOperationId};};
+ const r=req('recuperar',{id:160,expected_version:'v1',source_operation_id:source,confirm:'recuperar'});
+ assert.equal((await f.service.handle({...auth,caps:['read_content']},r)).status,403);assert.equal(recoveries,0);
+ assert.equal((await f.service.handle(auth,{...r,confirm:'no',idempotency_key:'recovery-no-confirm-001'})).body.error,'CONFIRM_REQUIRED');assert.equal(recoveries,0);
+ const result=await f.service.handle(auth,r);assert.equal(result.status,200);assert.equal(result.body.campaign.id,160);assert.equal(result.body.source_operation_id,source);
+ assert.deepEqual(await f.service.handle(auth,r),result);assert.equal(recoveries,1);assert.equal(f.calls.create,0);assert.equal(f.calls.update,0);assert.equal(f.calls.schedule,0);
+});
