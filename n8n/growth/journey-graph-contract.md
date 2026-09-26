@@ -90,13 +90,13 @@ aceitação **hipotética** para mensagens, salvo cenário explícito. Para em d
 indisponível, saída, falha, incerteza ou limite (1–256 passos). Retorna trace,
 `simulated:true`, `sends:0`, `persistence_writes:0`; nunca recibo operacional.
 
-Faltam: persistência transacional e concorrência/fencing; fonte com identidade,
-completude e frescor por marca; releases/cache comprovados; claim/finish do grafo;
-opt-out, consentimento, silêncio e rechecagem final; integração ao único emissor;
-recibos duráveis e recuperação; publicação/pausa/retomada com revisão de atrasados;
-API e editor. Reavaliar a mesma entrada desde o início sem persistir estado pode
-reproduzir intenções: somente o futuro ledger poderá impor deduplicação operacional.
-Não ligar este núcleo diretamente a HTTP de envio.
+O [adapter candidato](journey-graph-runtime.md) acrescenta persistência transacional,
+revisões imutáveis, CAS, deduplicação e recuperação de recibos internos para o recorte
+`cart.abandoned`/intenção de e-mail. Continua OFF, sem instalar ou tocar jornadas atuais.
+Sua fonte e elegibilidade são sintéticas; não há transporte nem prova de integração real.
+Faltam fonte por marca, releases/cache reais, scheduler/claim, consentimento/opt-out/silêncio
+e rechecagem final no emissor, recibos de transporte, revisão operacional de atrasados,
+autorização/API e editor. Não ligar este núcleo diretamente a HTTP de envio.
 
 Teste: `node --test tests/journey-graph-contract.test.cjs`. Fixtures sintéticas,
 ambas as marcas e canais; nenhum transporte, credencial ou dado de cliente.
