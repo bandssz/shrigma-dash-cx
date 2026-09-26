@@ -6,7 +6,7 @@
 const GRU={
   state:{editando:null,rascunho:null,msg:'',msgTone:'ok',filtro:'todos',ocupado:null,confirmando:false,confirmTexto:''},
   acesso:{aberto:false,chave:null,ignorarLegada:false,retorno:'drafts-chave'},
-  ctx:{},caps:null,contextBrand:null,contextSaved:null,contextError:'',emailTestSession:null,replicationSession:false,nativeEmailSession:false,
+  ctx:{},caps:null,contextBrand:null,contextSaved:null,contextError:'',emailTestSession:null,replicationSession:false,nativeEmailSession:false,editorChangeSession:null,emptyCreation:null,
   e:s=>GR.esc(s),
   stamp(v){return GTA.stamp(v);},
   rotulo(lista,k){return (lista.find(([v])=>v===k)||[])[1]||k;},
@@ -14,7 +14,7 @@ const GRU={
   acaoHumana(acao){return ({rascunho:'Salvar rascunho',validar:'Conferir conteúdo',submeter:'Publicar ou solicitar aprovação',submit:'Publicar ou solicitar aprovação',refazer:'Revisar rascunho',publicado:'Publicação',rejeitado:'Aprovação recusada'})[acao]||'Atualização do template';},
   estadoHtml(d,rot){
     const {estado,sujo,servidor:s}=GTA.situacao(d);
-    let texto=sujo?'Alterações ainda não salvas':({local:'Rascunho neste dispositivo',rascunho:'Rascunho salvo · ainda não publicado',validado:'Conteúdo conferido · ainda não publicado',submetido:'Aguardando aprovação',rejeitado:'Aprovação recusada · confira o recibo'})[estado];
+    let texto=sujo?'Alterações ainda não salvas no CRM':({local:'Rascunho neste dispositivo',rascunho:'Salvo no CRM · ainda não publicado',validado:'Conteúdo conferido · ainda não publicado',submetido:'Aguardando aprovação',rejeitado:'Aprovação recusada · confira o recibo'})[estado];
     if(!sujo&&estado==='rascunho'&&s?.erros?.length)texto+=' · corrija as pendências';
     if(!sujo&&estado==='submetido')texto+=` desde ${GRU.stamp(s?.submitted_at)}`;
     if(!texto){
@@ -67,7 +67,7 @@ const GRU={
       <p id="drafts-acesso-erro" role="alert"></p></form>`;
   },
   prontaEscrita(r){
-    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;
+    if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession||GRU.editorChangeSession)return false;
     if(GRU.contextError||GRU.ctx.marca&&r.marca!==GRU.ctx.marca){GRU.aviso(GRU.contextError||'Abra a marca deste template no cabeçalho antes de editar.','erro');GRU.render();return false;}
     const j=GRU.journal(),estado=j?.inspect();
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
@@ -89,7 +89,7 @@ const GRU={
   operacoes(){
     if(!GRU.caps?.endpoint)return '';
     const estado=GRU.journal()?.inspect();
-    if(!estado)return '<div class="drafts-scope" role="status">Proteção de operações indisponível. A escrita no servidor está bloqueada.</div>';
+    if(!estado)return '<div class="drafts-scope" role="status">Proteção de operações indisponível. A gravação no CRM está bloqueada.</div>';
     const linhas=[...estado.operations].reverse().slice(0,8);
     return `<div class="drafts-scope" aria-label="Registro de operações de templates">${estado.blocked?`<p role="status">${GRU.e(estado.message)}</p>`:''}${linhas.length?`<details${estado.operations.some(x=>['pending','unknown'].includes(x.phase))?' open':''}><summary>Operações registradas neste navegador (${estado.operations.length})</summary><ul>${linhas.map(op=>`<li><span data-crm-manager-only>${GRU.e(GRU.acaoHumana(op.request_payload.acao))}</span><span data-crm-owner-only>${GRU.e(op.request_payload.acao)} · ${GRU.e(op.id)}</span> · ${GRU.e({pending:'aguardando confirmação',unknown:'resultado incerto',confirmed:'confirmada',rejected:'recusada com recibo'}[op.phase])} <button type="button" class="refresh-btn" data-template-operacao="${GRU.e(op.id)}"${GRU.state.ocupado?' disabled':''}>${['pending','unknown'].includes(op.phase)?'Conferir esta operação':'Abrir recibo'}</button></li>`).join('')}</ul><p>Conferir consulta somente esta tentativa. Não repete a operação. Ausência de recibo não libera um novo envio.</p></details>`:''}</div>`;
   },
@@ -108,7 +108,7 @@ const GRU={
   },
   /* ---------- render ---------- */
   render(ctx){
-    if(ctx&&(GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)&&ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)return false;
+    if(ctx&&(GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession||GRU.editorChangeSession)&&ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)return false;
     if(ctx){GRU.ctx=ctx;if(ctx.marca!==undefined&&ctx.marca!==GRU.contextBrand)GRU.enterBrand(ctx.marca);}
     GRU.caps=GRU.capacidades();
     const root=typeof document!=='undefined'?document.querySelector('#control-drafts'):null;
@@ -118,14 +118,14 @@ const GRU={
     const comServidor=caps.declaradas||todos.some(d=>GTA.situacao(d).estado!=='local');
     const lista=todos.filter(d=>GRU.state.filtro==='todos'||GTA.situacao(d).estado===GRU.state.filtro||(GRU.state.filtro==='sujo'&&GTA.situacao(d).sujo));
     const submetidos=todos.filter(d=>GTA.situacao(d).estado==='submetido');
-    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><button type="button" class="btn" id="drafts-novo"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template WhatsApp</button><button type="button" class="btn sec" id="drafts-novo-email"${GRU.ctx.marca==='todas'?' disabled':''}>Criar template de e-mail</button>
+    const ferramentas=`<div class="gt-toolbar drafts-toolbar"><details class="draft-create" id="drafts-create"><summary class="btn">Criar template</summary><div class="draft-create-options" role="group" aria-label="Canal do novo template"><button type="button" class="btn sec${r?.canal==='whatsapp'?' ativo':''}" id="drafts-novo" aria-pressed="${r?.canal==='whatsapp'}"${GRU.ctx.marca==='todas'?' disabled':''}>WhatsApp</button><button type="button" class="btn sec${r?.canal==='email'?' ativo':''}" id="drafts-novo-email" aria-pressed="${r?.canal==='email'}"${GRU.ctx.marca==='todas'?' disabled':''}>E-mail</button></div></details>
       ${typeof GENU!=='undefined'?`<button type="button" class="btn sec" id="drafts-native-email"${GRU.ctx.marca==='todas'?' disabled':''}>Copiar e-mail publicado</button>`:''}<button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
-      ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no servidor</option></select></label>`:''}
+      ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(v==='rascunho'?'Salvo no CRM':t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no CRM</option></select></label>`:''}
       ${submetidos.length&&caps.endpoint?`<button type="button" class="refresh-btn" id="drafts-verificar"${GRU.state.ocupado?' disabled':''}>Verificar ${submetidos.length===1?'a submissão':`${submetidos.length} submissões`} agora</button>`:''}
       <span class="gt-contagem">${lista.length}${lista.length!==todos.length?` de ${todos.length}`:''} rascunho${todos.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" data-tone="${GRU.e(GRU.state.msgTone)}" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
     const listaHtml=lista.length?`<div class="draft-grid">${lista.map(d=>GRU.cartao(d,caps)).join('')}</div>`
       :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Criar template" ou importe um arquivo exportado em outro computador.'}</div>`;
-    root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+GRU.emailTestOperations()+ferramentas+(typeof GERU!=='undefined'?GERU.html():'')+(typeof GENU!=='undefined'?GENU.html():'')+(r?GRU.editor(r,caps):'')+listaHtml;
+    root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+GRU.emailTestOperations()+ferramentas+(typeof GERU!=='undefined'?GERU.html():'')+(typeof GENU!=='undefined'?GENU.html():'')+(r?GRU.editor(r,caps):'')+GRU.editorChangeHtml()+listaHtml;
     GRU.bind(root,caps);
     GRU.bindEmailTest(root);
     if(typeof GERU!=='undefined')GERU.bind(root);
@@ -133,6 +133,7 @@ const GRU={
     if(GRU.nativeEmailSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#email-native-import'))el.disabled=true;});
     if(GRU.replicationSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#email-replication'))el.disabled=true;});
     if(GRU.emailTestSession)root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#d-email-test-confirm'))el.disabled=true;});
+    if(GRU.editorChangeSession){root.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.closest('#d-editor-change'))el.disabled=true;});for(const child of root.children)if(child.id!=='d-editor-change')child.inert=true;}
     GRU.agenda();
     if(kept&&typeof GT!=='undefined')GT.restaura(root,kept);
   },
@@ -145,7 +146,7 @@ const GRU={
   },
   passos(d){
     const {estado,sujo}=GTA.situacao(d),ord=GTA.ORDEM[estado]??0;
-    return `<ol class="draft-steps" aria-label="Etapas do template">${GTA.ESTADOS.map(([k,t],i)=>{const st=estado==='rejeitado'&&k==='publicado'?'rejeitado':i<ord?'feito':i===ord?'atual':'';return `<li data-passo="${k}"${st?` data-st="${st}"`:''}>${GRU.e(estado==='rejeitado'&&k==='publicado'?'Rejeitado':t)}</li>`;}).join('')}</ol>${sujo?'<span class="mini draft-sujo">Alterações ainda não salvas no servidor</span>':''}`;
+    return `<ol class="draft-steps" aria-label="Etapas do template">${GTA.ESTADOS.map(([k,t],i)=>{const st=estado==='rejeitado'&&k==='publicado'?'rejeitado':i<ord?'feito':i===ord?'atual':'';return `<li data-passo="${k}"${st?` data-st="${st}"`:''}>${GRU.e(estado==='rejeitado'&&k==='publicado'?'Rejeitado':k==='rascunho'?'Salvo no CRM':t)}</li>`;}).join('')}</ol>${sujo?'<span class="mini draft-sujo">Alterações ainda não salvas no CRM</span>':''}`;
   },
   cartao(d,caps){
     const v=GR.valida(d),cat=GRU.noCatalogo(d.nome,d.marca,d.canal),sit=GTA.situacao(d),s=sit.servidor;
@@ -159,7 +160,7 @@ const GRU={
       <p class="draft-excerpt">${GRU.e((d.canal==='email'?(d.assunto?d.assunto+' — ':''):'')+String(d.corpo||'').slice(0,140))}${String(d.corpo||'').length>140?'…':''}</p>
       ${cat?`<p class="control-warning">Existe um template com este nome no catálogo da Meta (status ${GRU.e(cat.status||'?')}, categoria ${GRU.e(cat.category||'?')}). O rascunho não é esse template e o catálogo não traz o corpo dele para comparar.</p>`:''}
       <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão salva e hora da última confirmação">versão ${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última confirmação do envio para aprovação">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
-      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>GRU.eventoHtml(x)).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
+      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>GRU.eventoHtml(x)).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no CRM para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
       <div class="draft-actions"><button type="button" class="refresh-btn" data-draft-edit="${GRU.e(d.id)}">Editar</button>${acoes.verificar?`<button type="button" class="refresh-btn" data-draft-verificar="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Verificar agora</button>`:''}<button type="button" class="refresh-btn" data-draft-export="${GRU.e(d.id)}">Exportar arquivo</button><button type="button" class="refresh-btn" data-draft-dup="${GRU.e(d.id)}">Duplicar nesta marca</button>${d.canal==='email'&&['fish','aristo'].includes(d.marca)?`<button type="button" class="refresh-btn" data-email-replicate="${GRU.e(d.id)}">Copiar para ${d.marca==='fish'?'O Aristocrata':'Fishermans'}</button>`:''}<button type="button" class="refresh-btn draft-delete" data-draft-delete="${GRU.e(d.id)}">Excluir</button></div></article>`;
   },
   editor(r,caps){
@@ -171,16 +172,18 @@ const GRU={
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
     const provedor=wa?'WhatsApp':'serviço de e-mail';
     const dis=oc?' disabled':'';
+    const proxima=acoes.submeter?'submeter':acoes.validar?'validar':acoes.verificar?'verificar':sit.estado!=='publicado'||sit.sujo?'rascunho':null;
+    const destaque=acao=>proxima===acao?'btn':'btn sec';
     const servidorBar=caps.pode.draft?`<div class="draft-server-actions">
-        <button type="button" class="btn sec" id="d-servidor"${dis}>${oc==='rascunho'?'Salvando…':s?`Salvar no servidor (v${GRU.e(s.version)}${sit.sujo?' → nova versão':''})`:'Salvar no servidor'}</button>
-        ${acoes.validar?`<button type="button" class="btn sec" id="d-validar"${dis}>${oc==='validar'?'Validando…':'Conferir conteúdo'}</button>`:''}
-        ${acoes.submeter?`<button type="button" class="btn" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Enviar para aprovação…':'Publicar template…'}</button>`:''}
-        ${acoes.verificar?`<button type="button" class="refresh-btn" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar aprovação'}</button>`:''}
-        <span class="mini">${s?`Versão salva ${GRU.e(s.version)} · ${GRU.estadoHtml(r,rot)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve o rascunho para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
-        ${s?.conflito?`<div class="draft-conflito control-warning"><strong>Alguém alterou este rascunho no servidor antes de você.</strong> ${GRU.e(`Por ${s.conflito.changed_by||'outra chave'} às ${GRU.stamp(s.conflito.changed_at)}; versão atual v${s.conflito.current_version??'?'}. Nada foi sobrescrito.`)} <button type="button" class="refresh-btn" id="d-refazer">Refazer sobre a v${GRU.e(s.conflito.current_version??'?')}</button> <span class="mini">Refazer só ajusta a versão esperada; o conteúdo continua o seu e nada é enviado até você salvar de novo.</span></div>`:''}
+        <button type="button" class="${destaque('rascunho')}" id="d-servidor" aria-describedby="d-save-status" title="Salva uma versão no servidor e conserva a cópia neste dispositivo. Não publica nem envia mensagens."${dis}>${oc==='rascunho'?'Salvando…':'Salvar rascunho'}</button>
+        ${acoes.validar?`<button type="button" class="${destaque('validar')}" id="d-validar"${dis}>${oc==='validar'?'Conferindo…':'Conferir conteúdo'}</button>`:''}
+        ${acoes.submeter?`<button type="button" class="${destaque('submeter')}" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Enviar para aprovação…':'Publicar template…'}</button>`:''}
+        ${acoes.verificar?`<button type="button" class="${destaque('verificar')}" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar aprovação'}</button>`:''}
+        <span class="mini draft-save-status" id="d-save-status">${s?`${sit.sujo?'Alterações ainda não salvas no CRM':'Salvo no CRM'} · versão ${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}${sit.sujo?' · salve antes de continuar':''}`:'Salvamento no CRM · depois, confira o conteúdo e publique.'}</span></div>
+        ${s?.conflito?`<div class="draft-conflito control-warning"><strong>Alguém alterou este rascunho no CRM antes de você.</strong> ${GRU.e(`Por ${s.conflito.changed_by||'outra chave'} às ${GRU.stamp(s.conflito.changed_at)}; versão atual v${s.conflito.current_version??'?'}. Nada foi sobrescrito.`)} <button type="button" class="refresh-btn" id="d-refazer">Refazer sobre a v${GRU.e(s.conflito.current_version??'?')}</button> <span class="mini">Refazer só ajusta a versão esperada; o conteúdo continua o seu e nada é enviado até você salvar de novo.</span></div>`:''}
         ${GRU.state.confirmando&&acoes.submeter?GRU.confirmacao(r,provedor):''}`
       :caps.semEndpoint?'<p class="mini draft-server-off" role="status">Publicação indisponível. Atualize o painel para tentar novamente.</p>':'';
-    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(r,rot)}</span></div>
+    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar template':'Novo template'} · ${wa?'WhatsApp':'E-mail'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(r,rot)}</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
         <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" disabled>${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
@@ -201,8 +204,8 @@ const GRU={
       </div>
       <div class="draft-preview" aria-live="polite"><div class="draft-preview-head">Prévia<span class="control-badge" title="Mostra o conteúdo deste rascunho, que pode ser diferente da versão publicada.">Rascunho</span></div>${wa?'':typeof GENU!=='undefined'&&GENU.advanced(r)?'<button type="button" class="refresh-btn" id="d-native-preview">Conferir prévia nativa</button>':'<button type="button" class="refresh-btn mp-open" id="d-preview-open">Abrir prévia do HTML ↗</button>'}<div id="d-preview">${GRU.preview(r)}</div>
         <div id="d-checagens">${GRU.checagens(v,s)}</div></div></div>
-      <div class="draft-editor-actions"><button type="button" class="btn" id="d-salvar"${dis}>Salvar neste dispositivo</button><button type="button" class="btn sec" id="d-cancelar">Fechar sem salvar</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'':'<span class="mini" title="Salvar neste dispositivo não publica o template nem envia mensagens.">Salvo só neste dispositivo</span>'}</div>
-      ${servidorBar}${GRU.emailTestControls(r,caps)}</section>`;
+      ${servidorBar}<div class="draft-editor-actions">${caps.pode.draft?'<details class="draft-editor-more"><summary>Outras opções</summary><div>':''}<button type="button" class="${caps.pode.draft?'refresh-btn':'btn'}" id="d-salvar" title="Guarda apenas neste navegador. A versão no servidor não muda; nada é publicado ou enviado."${dis}>${caps.pode.draft?'Salvar só neste dispositivo':'Salvar neste dispositivo'}</button><button type="button" class="refresh-btn" id="d-exportar">Exportar arquivo</button>${caps.pode.draft?'</div></details>':'<span class="mini">Salvamento apenas neste dispositivo · não publica nem envia.</span>'}<button type="button" class="btn sec" id="d-cancelar">${GRU.contextStatus().dirty?'Fechar sem salvar':'Fechar'}</button></div>
+      ${GRU.emailTestControls(r,caps)}</section>`;
   },
   contaCorpo(r){return `${String(r.corpo||'').length}${r.canal==='whatsapp'?` de ${GR.LIMITES.corpo}`:''} caracteres${r.canal==='whatsapp'?' · variáveis como {{1}}, {{2}}':' · Texto ou HTML. Variáveis como {{ .Tx.Data.first_name }}; use apenas os dados indicados na etapa do fluxo.'}`;},
   /* Confirmação textual (R5.4): resumo do que vai para o provedor + a palavra digitada. O botão só liga com a palavra certa. */
@@ -226,6 +229,7 @@ const GRU={
     if(n)n.textContent=GRU.contaCorpo(r);
     const h=document.getElementById('d-cabecalho-conta');if(h)h.textContent=`${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}`;
     const f=document.getElementById('d-rodape-conta');if(f)f.textContent=`${String(r.rodape||'').length} de ${GR.LIMITES.rodape}`;
+    const close=document.getElementById('d-cancelar');if(close)close.textContent=GRU.contextStatus().dirty?'Fechar sem salvar':'Fechar';
   },
   /* Email test: preview is read-only; the captured client/version survives until
      confirmation finishes. The durable GETest journal owns transport identity. */
@@ -321,7 +325,26 @@ const GRU={
     const confirmation=root.querySelector('#d-email-test-confirm');if(confirmation)confirmation.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();GRU.emailTestCancel();}if(e.key==='Tab'){const buttons=[...confirmation.querySelectorAll('button:not([disabled])')];if(!buttons.length)return;const first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
   },
   contextValue(){return {editando:GRU.state.editando,rascunho:GRU.state.rascunho};},
-  contextStatus(){return {blocked:!!(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession),dirty:!!GRU.state.rascunho&&JSON.stringify(GRU.contextValue())!==GRU.contextSaved};},
+  contextStatus(){return {blocked:!!(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession||GRU.editorChangeSession),dirty:!!GRU.state.rascunho&&JSON.stringify(GRU.contextValue())!==GRU.contextSaved};},
+  trocarEditor(apply){
+    if(GRU.contextStatus().blocked)return false;
+    // Only an untouched creation opened through this UI may skip discard.
+    // Brand preservation keeps its own conservative contextStatus().dirty.
+    if(!GRU.contextStatus().dirty||GRU.emptyCreation===JSON.stringify(GRU.contextValue())){apply();return true;}
+    GRU.editorChangeSession={apply,brand:GRU.ctx.marca,snapshot:JSON.stringify(GRU.contextValue()),focus:document.activeElement?.id||'d-nome'};
+    GRU.render();document.getElementById('d-editor-change-cancel')?.focus();return false;
+  },
+  novoTemplate(canal){
+    if(GRU.ctx.marca==='todas')return false;
+    return GRU.trocarEditor(()=>{const r=GR.novo({canal,marca:GRU.ctx.marca||'fish'});GRU.abrir(r,null);if(GRU.state.rascunho?.id===r.id)GRU.emptyCreation=JSON.stringify(GRU.contextValue());});
+  },
+  editorChangeHtml(){return GRU.editorChangeSession?'<section class="draft-confirm" id="d-editor-change" role="dialog" aria-modal="true" aria-labelledby="d-editor-change-title" aria-describedby="d-editor-change-help"><h3 id="d-editor-change-title">Há alterações não salvas</h3><p id="d-editor-change-help">Para guardá-las, volte à edição e salve. Continuar descarta apenas a preparação aberta; versões salvas e recibos permanecem.</p><div class="draft-confirm-row"><button type="button" class="btn" id="d-editor-change-cancel">Continuar editando</button><button type="button" class="btn sec" id="d-editor-change-accept">Descartar alterações e continuar</button></div></section>':'';},
+  cancelEditorChange(){const session=GRU.editorChangeSession;if(!session)return;GRU.editorChangeSession=null;GRU.render();(document.getElementById(session.focus)||document.getElementById('d-nome'))?.focus();},
+  acceptEditorChange(){
+    const session=GRU.editorChangeSession;if(!session)return;
+    if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession||GRU.ctx.marca!==session.brand||JSON.stringify(GRU.contextValue())!==session.snapshot){GRU.editorChangeSession=null;GRU.aviso('A preparação mudou. Confira o conteúdo antes de continuar.','aviso');GRU.render();return;}
+    GRU.editorChangeSession=null;session.apply();
+  },
   preserve(){
     if(GRU.contextError)throw Error(GRU.contextError);
     if(!GBS.validBrand(GRU.contextBrand))return;
@@ -349,13 +372,18 @@ const GRU={
     if(GRU.ctx.marca&&r.marca!==GRU.ctx.marca){
       if(typeof window.growthChangeBrand!=='function'||!window.growthChangeBrand(r.marca,()=>GRU.abrir(r,editando)))return false;
     }
-    GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};GRU.render();document.getElementById('d-nome')?.focus();},
-  fechar(persist=true){if(GRU.emailTestSession||GRU.nativeEmailSession)return false;GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},
+    GRU.emptyCreation=null;GRU.state={...GRU.state,editando,rascunho:{...GR.novo(),...r,exemplos:{...(r.exemplos||{})},botoes:(r.botoes||[]).map(b=>({...b})),servidor:r.servidor?JSON.parse(JSON.stringify(r.servidor)):undefined},msg:'',confirmando:false,confirmTexto:''};
+    const saved=GR.lista().find(d=>d.id===r.id);if(saved&&JSON.stringify(GR.conteudo(saved))===JSON.stringify(GR.conteudo(r))&&JSON.stringify(saved.servidor||null)===JSON.stringify(r.servidor||null))GRU.contextSaved=JSON.stringify(GRU.contextValue());
+    GRU.render();document.getElementById('d-nome')?.focus();},
+  fechar(persist=true){if(GRU.emailTestSession||GRU.nativeEmailSession)return false;GRU.emptyCreation=null;GRU.state={...GRU.state,editando:null,rascunho:null,confirmando:false,confirmTexto:''};if(persist&&typeof GBS!=='undefined'&&GBS.validBrand(GRU.contextBrand))try{GRU.preserve();}catch(e){GRU.aviso(e.message,'erro');}},
   aviso(msg,tone='ok'){GRU.state.msg=msg;GRU.state.msgTone=tone;},
   bind(root,caps){
     const $=s=>root.querySelector(s);
-    $('#drafts-novo')?.addEventListener('click',()=>{if(GRU.ctx.marca==='todas')return;GRU.abrir(GR.novo({marca:GRU.ctx.marca||'fish'}),null);});
-    $('#drafts-novo-email')?.addEventListener('click',()=>{if(GRU.ctx.marca==='todas')return;GRU.abrir(GR.novo({canal:'email',marca:GRU.ctx.marca||'fish'}),null);});
+    $('#drafts-novo')?.addEventListener('click',()=>GRU.novoTemplate('whatsapp'));
+    $('#drafts-novo-email')?.addEventListener('click',()=>GRU.novoTemplate('email'));
+    $('#d-editor-change-cancel')?.addEventListener('click',()=>GRU.cancelEditorChange());
+    $('#d-editor-change-accept')?.addEventListener('click',()=>GRU.acceptEditorChange());
+    const change=$('#d-editor-change');if(change)change.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();GRU.cancelEditorChange();}if(e.key==='Tab'){const first=$('#d-editor-change-cancel'),last=$('#d-editor-change-accept');if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
     $('#drafts-chave')?.addEventListener('click',()=>GRU.abrirAcesso());
     root.querySelectorAll('[data-template-operacao]').forEach(b=>b.onclick=()=>GRU.consultarOperacao(b.dataset.templateOperacao));
     const acesso=$('#drafts-acesso');
@@ -378,12 +406,12 @@ const GRU={
     const arquivo=$('#drafts-arquivo');
     $('#drafts-importar')?.addEventListener('click',()=>arquivo?.click());
     if(arquivo)arquivo.onchange=()=>{const f=arquivo.files&&arquivo.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>GRU.importaTexto(String(rd.result||''));rd.readAsText(f);};
-    root.querySelectorAll('[data-draft-edit]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftEdit);if(d)GRU.abrir(d,d.id);});
+    root.querySelectorAll('[data-draft-edit]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftEdit);if(d)GRU.trocarEditor(()=>GRU.abrir(d,d.id));});
     root.querySelectorAll('[data-draft-export]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftExport);if(d)GRU.exporta(d);});
     root.querySelectorAll('[data-draft-verificar]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftVerificar);if(d)GRU.verificarSubmissao(d);});
     root.querySelectorAll('[data-draft-historico]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftHistorico);if(d)GRU.carregarHistorico(d);});
-    root.querySelectorAll('[data-draft-dup]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftDup);if(d){const copia={...d,id:GR.id(),nome:d.nome?d.nome+'_copia':'',criado_em:GR.agora()};delete copia.servidor;GR.guarda(GR.novo(copia));GRU.aviso('Rascunho duplicado (só o conteúdo; o estado no servidor não é copiado).');GRU.render();}});
-    root.querySelectorAll('[data-draft-delete]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftDelete);if(!d)return;const s=GTA.situacao(d);if(typeof confirm==='function'&&!confirm(`Excluir o rascunho "${d.nome||'(sem nome)'}" deste dispositivo?${s.estado!=='local'?' O que já foi ao servidor continua lá; este painel só perde o vínculo.':' Só o rascunho local é removido.'}`))return;GR.remove(d.id);if(GRU.state.editando===d.id)GRU.fechar();GRU.aviso('Rascunho excluído deste dispositivo.');GRU.render();});
+    root.querySelectorAll('[data-draft-dup]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftDup);if(d){const copia={...d,id:GR.id(),nome:d.nome?d.nome+'_copia':'',criado_em:GR.agora()};delete copia.servidor;GR.guarda(GR.novo(copia));GRU.aviso('Rascunho duplicado neste dispositivo. Publicação e histórico não são copiados.');GRU.render();}});
+    root.querySelectorAll('[data-draft-delete]').forEach(b=>b.onclick=()=>{const d=GR.lista().find(x=>x.id===b.dataset.draftDelete);if(!d)return;const s=GTA.situacao(d);if(typeof confirm==='function'&&!confirm(`Excluir o rascunho "${d.nome||'(sem nome)'}" deste dispositivo?${s.estado!=='local'?' O que já foi salvo no CRM continua lá; este painel só perde o vínculo.':' Só o rascunho local é removido.'}`))return;GR.remove(d.id);if(GRU.state.editando===d.id)GRU.fechar();GRU.aviso('Rascunho excluído deste dispositivo.');GRU.render();});
     const r=GRU.state.rascunho;if(!r)return;
     root.querySelectorAll('[data-campo]').forEach(el=>{
       const h=()=>{r[el.dataset.campo]=el.value;if(el.dataset.campo==='canal'&&typeof GEC!=='undefined')Object.assign(r,GEC.draft(r));const mudouEstrutura=el.dataset.campo==='canal'||(el.dataset.campo==='corpo'&&GR.variaveis(r.corpo).join()!==GRU._vars);const sujoAntes=GRU._sujo,sujoAgora=GTA.situacao(r).sujo;GRU._sujo=sujoAgora;if(mudouEstrutura||sujoAntes!==sujoAgora){GRU._vars=GR.variaveis(r.corpo).join();GRU.render();return;}GRU.atualizaPreview();};
@@ -395,13 +423,13 @@ const GRU={
     $('#d-botao-add')?.addEventListener('click',()=>{r.botoes=r.botoes||[];r.botoes.push({tipo:'url',texto:'',valor:''});GRU.render();});
     $('#d-salvar')?.addEventListener('click',()=>{const v=GR.valida(r);if(v.erros.length){GRU.aviso('');GRU.atualizaPreview();document.getElementById('d-checagens')?.scrollIntoView?.({block:'nearest'});return;}
       const salvo=GR.guarda(r);if(salvo){GRU.fechar();GRU.aviso(`Rascunho "${salvo.nome}" salvo neste dispositivo às ${GRU.stamp(salvo.atualizado_em)}.`);}else GRU.aviso('Não foi possível gravar no navegador (armazenamento cheio ou bloqueado). Exporte o arquivo para não perder.','erro');GRU.render();});
-    $('#d-cancelar')?.addEventListener('click',()=>{GRU.fechar();GRU.render();});
+    $('#d-cancelar')?.addEventListener('click',()=>GRU.trocarEditor(()=>{GRU.fechar();GRU.render();}));
     $('#d-exportar')?.addEventListener('click',()=>GRU.exporta(r));
     $('#d-preview-open')?.addEventListener('click',()=>GMP.openEmail({source:GMP.emailHTML(r),subject:r.assunto}));
     $('#d-servidor')?.addEventListener('click',()=>GRU.salvarServidor(r));
     $('#d-validar')?.addEventListener('click',()=>GRU.validarServidor(r));
     $('#d-verificar')?.addEventListener('click',()=>GRU.verificarSubmissao(r));
-    $('#d-refazer')?.addEventListener('click',()=>{if(!r.servidor?.conflito)return;r.servidor.version=r.servidor.conflito.current_version;GTA.evento(r.servidor,{at:GR.agora(),who:'este painel',action:'refazer',result:'ok',detail:`versão esperada ajustada para v${r.servidor.version}; nada enviado`});delete r.servidor.conflito;GR.guarda(r);GRU.aviso(`Versão esperada ajustada para v${r.servidor.version}. Revise o conteúdo e clique em Salvar no servidor.`);GRU.render();});
+    $('#d-refazer')?.addEventListener('click',()=>{if(!r.servidor?.conflito)return;r.servidor.version=r.servidor.conflito.current_version;GTA.evento(r.servidor,{at:GR.agora(),who:'este painel',action:'refazer',result:'ok',detail:`versão esperada ajustada para v${r.servidor.version}; nada enviado`});delete r.servidor.conflito;GR.guarda(r);GRU.aviso(`Versão esperada ajustada para v${r.servidor.version}. Revise o conteúdo e clique em Salvar rascunho.`);GRU.render();});
     $('#d-submeter')?.addEventListener('click',()=>{GRU.state.confirmando=true;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-confirm-texto')?.focus();});
     const ct=$('#d-confirm-texto');if(ct)ct.oninput=()=>{GRU.state.confirmTexto=ct.value;const ok=ct.value.trim().toLowerCase()==='submeter';const btn=document.getElementById('d-confirm-ok');if(btn)btn.disabled=!ok||!!GRU.state.ocupado;};
     $('#d-confirm-cancel')?.addEventListener('click',()=>{GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();});
@@ -409,7 +437,7 @@ const GRU={
   },
   mudou(r){const sujoAgora=GTA.situacao(r).sujo;if(sujoAgora!==GRU._sujo){GRU._sujo=sujoAgora;GRU.render();}else GRU.atualizaPreview();},
   exporta(d){if(typeof GT!=='undefined')GT.baixar(GR.nomeArquivo(d),GR.exporta(d),'application/json');},
-  importaTexto(texto){const res=GR.importa(texto);if(res.erro){GRU.aviso(res.erro,'erro');GRU.render();return;}GRU.abrir(res.rascunho,null);GRU.aviso('Arquivo importado como novo rascunho. Revise e salve.');GRU.render();},
+  importaTexto(texto){const res=GR.importa(texto);if(res.erro){GRU.aviso(res.erro,'erro');GRU.render();return;}GRU.trocarEditor(()=>{GRU.abrir(res.rascunho,null);GRU.aviso('Arquivo importado como novo rascunho. Revise e salve.');GRU.render();});},
 
   /* Writes use a durable operation journal. A lost reply is read back by its
      exact operation ID; no POST is automatically retried and legacy pending
@@ -431,7 +459,7 @@ const GRU={
     if(!op||!['confirmed','rejected'].includes(op.phase)||r.servidor?.pendente){GRU.aviso('O recibo precisa de conciliação antes de alterar este rascunho.','erro');GRU.render();return;}
     const p=op.request_payload,b=res.body,s=r.servidor||{},acao=p.acao;
     const confirmaLocal=async()=>{
-      try{await GRU.journal().markApplied(op.id,()=>GRU.preservarLocal(r));return true;}
+      try{await GRU.journal().markApplied(op.id,()=>GRU.preservarLocal(r));if(GRU.state.rascunho===r)GRU.contextSaved=JSON.stringify(GRU.contextValue());return true;}
       catch(_){GRU.aviso('Recibo confirmado, mas a atualização local permanece pendente. Abra o mesmo recibo para recuperar; nenhuma operação será repetida.','aviso');return false;}
     };
     if(s.operacoes_aplicadas?.includes(op.id)){if(await confirmaLocal())GRU.aviso('Recibo já conferido; nenhuma operação foi repetida.');GRU.render();return;}
@@ -447,7 +475,7 @@ const GRU={
     if(acao==='rascunho'){
       r.servidor={...s,draft_id:b.draft_id,version:b.version,estado:'rascunho',salvo_em:b.salvo_em||GR.agora(),confirmado_em:GR.agora(),hash:GTA.hash(p.rascunho),erros:[],avisos:[],eventos:s.eventos||[]};
       delete r.servidor.conflito;delete r.servidor.submission_id;
-      GRU.aviso(`Rascunho salvo no servidor como v${b.version}. Não submetido.`);
+      GRU.aviso(`Rascunho salvo no CRM · versão ${b.version}. Ainda não publicado.`);
     }else if(acao==='validar'){
       r.servidor={...s,estado:'validado',erros:[],avisos:Array.isArray(b.avisos)?b.avisos:[],validado_em:GR.agora(),confirmado_em:GR.agora()};
       GRU.aviso(`Conteúdo conferido${r.servidor.avisos.length?` com ${r.servidor.avisos.length} aviso(s)`:''}. Pronto para revisão antes da publicação.`);
@@ -477,7 +505,7 @@ const GRU={
     }catch(e){GRU.state.ocupado=null;GRU.aviso(String(e?.code||'').startsWith('TPL_')?e.message:'Não foi possível consultar o recibo. A operação permanece bloqueada.','erro');GRU.render();}
   },
   async salvarServidor(r){
-    const v=GR.valida(r);if(v.erros.length){GRU.aviso('Corrija as pendências locais antes de salvar no servidor.','erro');GRU.render();return;}
+    const v=GR.valida(r);if(v.erros.length){GRU.aviso('Corrija as pendências do conteúdo antes de salvar no CRM.','erro');GRU.render();return;}
     if(!GRU.prontaEscrita(r))return;
     const extra=r.servidor?.draft_id?{draft_id:r.servidor.draft_id,expected_version:r.servidor.version}:{};
     const out=await GRU.chamada('rascunho',r,c=>c.rascunho(GR.conteudo(r),extra));if(!out)return;
