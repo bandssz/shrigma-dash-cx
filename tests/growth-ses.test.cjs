@@ -45,3 +45,24 @@ test('explicit test rows and test-only coverage never enter operational totals',
  assert.equal(m.totals.aceitos,10);assert.equal(m.totals.entregues,8);assert.equal(m.coverage.length,1);
  const n=model(api([row({piece:'test-only'})],[{...coverage('fish','test-only'),is_test:true}]));assert.equal(n.rows.length,0);
 });
+const path=require('node:path');
+const {parseHTML}=require(require.resolve('linkedom',{paths:[path.resolve(__dirname,'../../growth-test-tools/node_modules')]}));
+function rendered(a){const {document}=parseHTML('<section id="ses-delivery"></section>');const ui={el:()=>document.querySelector('#ses-delivery'),esc:v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),nf:v=>v===null?'—':String(v),timestamp:v=>String(v),period:(a,b)=>a+' a '+b};S.render(a,'fish','2026-09-14','2026-09-14','email',ui);return document;}
+function managerText(doc){const copy=doc.querySelector('#ses-delivery').cloneNode(true);copy.querySelectorAll('[data-crm-owner-only]').forEach(el=>el.remove());return copy;}
+test('SES uses the published stage labels without merging accepted, sent and delivered counts',()=>{
+ const r=row({flow:'carrinho',piece:'carrinho-30min'}),c={...coverage('fish',r.piece),flow:r.flow,state:'instrumented'};
+ const doc=rendered(api([r,{...r,is_test:true,aceitos:999}],[c]));
+ const manager=managerText(doc),first=manager.querySelector('table tbody tr');
+ assert.match(first.textContent,/FishermansCarrinhoApós 30 minutos/);assert.deepEqual([...first.querySelectorAll('td.num')].map(x=>x.textContent),['10','9','8','1','1']);
+ assert.match(manager.textContent,/Aceitos para envio/);assert.match(manager.querySelector('th[title*="Envio confirmado"]').getAttribute('title'),/ainda não comprova entrega/);
+ assert.match(manager.textContent,/Medição habilitada/);assert.match(manager.textContent,/testes ficam fora/);assert.doesNotMatch(manager.textContent,/carrinho-30min|SES|999|fila|coletor|Instrumentado/);
+ assert.match(doc.querySelector('[data-crm-owner-only] summary').textContent,/Diagnóstico/);
+ assert.equal(doc.querySelector('[data-crm-owner-only]').hasAttribute('open'),false);
+});
+test('unmapped SES identifiers remain available only in owner details and never become invented business stages',()=>{
+ const r=row({flow:'private-flow-code',piece:'<img src=x onerror=alert(1)>'}),c={...coverage('fish',r.piece),flow:r.flow};
+ const doc=rendered(api([r],[c])),manager=managerText(doc);
+ assert.match(manager.textContent,/Jornada não identificada.*Etapa não identificada/);assert.doesNotMatch(manager.textContent,/private-flow-code|onerror/);
+ assert.equal(doc.querySelector('img'),null);assert.match(doc.querySelector('table [data-crm-owner-only]').textContent,/private-flow-code.*<img/);
+ assert.match(manager.textContent,/Resultados podem se sobrepor; não some/);assert.match(manager.textContent,/Não há histórico de entrega anterior/);
+});

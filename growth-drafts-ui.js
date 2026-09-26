@@ -11,6 +11,23 @@ const GRU={
   stamp(v){return GTA.stamp(v);},
   rotulo(lista,k){return (lista.find(([v])=>v===k)||[])[1]||k;},
   opts(lista,val){return lista.map(([v,t])=>`<option value="${GRU.e(v)}"${v===val?' selected':''}>${GRU.e(t)}</option>`).join('');},
+  acaoHumana(acao){return ({rascunho:'Salvar rascunho',validar:'Conferir conteúdo',submeter:'Publicar ou solicitar aprovação',submit:'Publicar ou solicitar aprovação',refazer:'Revisar rascunho',publicado:'Publicação',rejeitado:'Aprovação recusada'})[acao]||'Atualização do template';},
+  estadoHtml(d,rot){
+    const {estado,sujo,servidor:s}=GTA.situacao(d);
+    let texto=sujo?'Alterações ainda não salvas':({local:'Rascunho neste dispositivo',rascunho:'Rascunho salvo · ainda não publicado',validado:'Conteúdo conferido · ainda não publicado',submetido:'Aguardando aprovação',rejeitado:'Aprovação recusada · confira o recibo'})[estado];
+    if(!sujo&&estado==='rascunho'&&s?.erros?.length)texto+=' · corrija as pendências';
+    if(!sujo&&estado==='submetido')texto+=` desde ${GRU.stamp(s?.submitted_at)}`;
+    if(!texto){
+      const uso=GTA.publicadoAtivo({key:s?.template_key,name:s?.provider_name||d.nome,status:'APPROVED',mapped_in:Array.isArray(s?.mapped_in)?s.mapped_in:[]},GRU.workflows());
+      texto=uso.situacao==='ativo'?'Publicado · em uso nas automações':uso.situacao==='desconhecido'?'Publicado · ativação não confirmada':s?.mapped_in?.length?'Publicado · automações sem envio ativo':'Publicado · sem automação vinculada';
+    }
+    return `<span data-crm-manager-only>${GRU.e(texto)}</span><span data-crm-owner-only>${GRU.e(rot.texto)}</span>`;
+  },
+  eventoHtml(x){
+    const result=String(x.result||''),ok=/^2\d\d$/.test(result)||['ok','APPROVED','publicado'].includes(result),recusado=/^4\d\d$/.test(result)||['REJECTED','rejeitado'].includes(result);
+    const resumo=x.action==='submeter'&&result==='422'&&x.detail==='publication_not_started'?'Publicação não iniciada. Confira o recibo desta tentativa.':result==='202'?'Solicitação recebida · acompanhe a aprovação':ok?'Confirmada':recusado?'Recusada · confira o recibo':'Resultado não confirmado · confira o recibo';
+    return `<li><time>${GRU.stamp(x.at)}</time><span data-crm-manager-only> · ${GRU.e(GRU.acaoHumana(x.action))} · ${GRU.e(resumo)}</span><span data-crm-owner-only> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(result)}${x.detail?` · ${GRU.e(GTA.detalheEvento(x))}`:''}</span></li>`;
+  },
   /* Catálogo: só associação por nome EXATO. Não inventa corpo, não diz que o rascunho é o template. */
   noCatalogo(nome,marca,canal){
     const tpls=GRU.ctx.api?.crm_operacao?.templates;
@@ -43,8 +60,8 @@ const GRU={
     if(!GRU.acesso.aberto)return '';
     return `<form class="drafts-scope" id="drafts-acesso" aria-labelledby="drafts-acesso-titulo">
       <strong id="drafts-acesso-titulo">Acesso para editar templates</strong>
-      <p id="drafts-acesso-ajuda">Informe a chave de escrita de templates. A nova chave fica disponível apenas enquanto esta página estiver aberta. Preparar o acesso não salva nem submete uma mensagem. Depois, escolha a ação desejada.</p>
-      <label for="drafts-chave-escrita">Chave de escrita de templates</label>
+      <p id="drafts-acesso-ajuda">Informe sua chave de acesso para editar templates. A nova chave fica disponível apenas enquanto esta página estiver aberta. Preparar o acesso não salva nem publica uma mensagem. Depois, escolha a ação desejada.</p>
+      <label for="drafts-chave-escrita">Chave de acesso para editar templates</label>
       <div class="draft-confirm-row"><input type="password" id="drafts-chave-escrita" required autocomplete="off" spellcheck="false" aria-describedby="drafts-acesso-ajuda drafts-acesso-erro">
       <button type="submit" class="btn">Preparar acesso</button><button type="button" class="btn sec" id="drafts-acesso-cancelar">Cancelar</button></div>
       <p id="drafts-acesso-erro" role="alert"></p></form>`;
@@ -55,7 +72,7 @@ const GRU={
     const j=GRU.journal(),estado=j?.inspect();
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
     if(GRU.chaveEscrita())return true;
-    GRU.aviso('Sem chave de escrita: nada foi enviado.','erro');GRU.abrirAcesso();return false;
+    GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return false;
   },
   journal(){
     if(typeof GTJ==='undefined')return null;
@@ -74,7 +91,7 @@ const GRU={
     const estado=GRU.journal()?.inspect();
     if(!estado)return '<div class="drafts-scope" role="status">Proteção de operações indisponível. A escrita no servidor está bloqueada.</div>';
     const linhas=[...estado.operations].reverse().slice(0,8);
-    return `<div class="drafts-scope" aria-label="Registro de operações de templates">${estado.blocked?`<p role="status">${GRU.e(estado.message)}</p>`:''}${linhas.length?`<details${estado.operations.some(x=>['pending','unknown'].includes(x.phase))?' open':''}><summary>Operações registradas neste navegador (${estado.operations.length})</summary><ul>${linhas.map(op=>`<li>${GRU.e(op.request_payload.acao)} · ${GRU.e(op.id)} · ${GRU.e({pending:'aguardando confirmação',unknown:'resultado incerto',confirmed:'confirmada',rejected:'recusada com recibo'}[op.phase])} <button type="button" class="refresh-btn" data-template-operacao="${GRU.e(op.id)}"${GRU.state.ocupado?' disabled':''}>${['pending','unknown'].includes(op.phase)?'Conferir esta operação':'Abrir recibo'}</button></li>`).join('')}</ul><p>Conferir consulta somente esta tentativa. Não repete a operação. Ausência de recibo não libera um novo envio.</p></details>`:''}</div>`;
+    return `<div class="drafts-scope" aria-label="Registro de operações de templates">${estado.blocked?`<p role="status">${GRU.e(estado.message)}</p>`:''}${linhas.length?`<details${estado.operations.some(x=>['pending','unknown'].includes(x.phase))?' open':''}><summary>Operações registradas neste navegador (${estado.operations.length})</summary><ul>${linhas.map(op=>`<li><span data-crm-manager-only>${GRU.e(GRU.acaoHumana(op.request_payload.acao))}</span><span data-crm-owner-only>${GRU.e(op.request_payload.acao)} · ${GRU.e(op.id)}</span> · ${GRU.e({pending:'aguardando confirmação',unknown:'resultado incerto',confirmed:'confirmada',rejected:'recusada com recibo'}[op.phase])} <button type="button" class="refresh-btn" data-template-operacao="${GRU.e(op.id)}"${GRU.state.ocupado?' disabled':''}>${['pending','unknown'].includes(op.phase)?'Conferir esta operação':'Abrir recibo'}</button></li>`).join('')}</ul><p>Conferir consulta somente esta tentativa. Não repete a operação. Ausência de recibo não libera um novo envio.</p></details>`:''}</div>`;
   },
   preservarLocal(r){
     if(!GR.guarda(r))return false;
@@ -137,12 +154,12 @@ const GRU={
     const eventos=[...(s?.historico||[]).map(x=>({...x,origem:'api'})),...(s?.eventos||[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
     return `<article class="draft-card" data-draft="${GRU.e(d.id)}" data-estado="${GRU.e(sit.estado)}"><div class="draft-head"><div><span class="control-overline">${GRU.e(GRU.rotulo(GR.MARCAS,d.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,d.canal))}${d.canal==='whatsapp'?` · ${GRU.e(d.categoria||'')}`:''}</span>
       <h3>${GRU.e(d.nome||'(sem nome)')}</h3>${d.peca?`<span class="flow-sub">peça: ${GRU.e(d.peca)}</span>`:''}</div>
-      <span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
+      <span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(d,rot)}</span></div>
       ${caps.declaradas||sit.estado!=='local'?GRU.passos(d):''}
       <p class="draft-excerpt">${GRU.e((d.canal==='email'?(d.assunto?d.assunto+' — ':''):'')+String(d.corpo||'').slice(0,140))}${String(d.corpo||'').length>140?'…':''}</p>
       ${cat?`<p class="control-warning">Existe um template com este nome no catálogo da Meta (status ${GRU.e(cat.status||'?')}, categoria ${GRU.e(cat.category||'?')}). O rascunho não é esse template e o catálogo não traz o corpo dele para comparar.</p>`:''}
-      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão do rascunho no servidor e hora da última confirmação da API">servidor v${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última consulta do painel ao estado da submissão">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
-      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>`<li><time>${GRU.stamp(x.at)}</time> · ${GRU.e(x.who||'?')} · ${GRU.e(x.action)}${Number.isFinite(+x.from_version)||Number.isFinite(+x.to_version)?` v${GRU.e(x.from_version??'—')}→v${GRU.e(x.to_version??'—')}`:''} · ${GRU.e(x.result||'')}${x.detail?` · ${GRU.e(GTA.detalheEvento(x))}`:''}</li>`).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
+      <div class="draft-meta">${v.erros.length?`<span class="control-badge control-warning">${v.erros.length} pendência${v.erros.length===1?'':'s'}</span>`:v.avisos.length?`<span class="control-badge">${v.avisos.length} aviso${v.avisos.length===1?'':'s'}</span>`:'<span class="control-badge control-info">Conteúdo conferido</span>'}<span>editado ${GRU.stamp(d.atualizado_em)}</span>${s?`<span title="Versão salva e hora da última confirmação">versão ${GRU.e(s.version)} · ${GRU.stamp(s.confirmado_em||s.salvo_em)}</span>`:''}${sit.estado==='submetido'?`<span title="Última confirmação do envio para aprovação">verificado ${GRU.stamp(s.checked_at)||'—'}</span>`:''}</div>
+      ${s?`<details class="control-detail draft-historico" data-gt-key="hist-${GRU.e(d.id)}"><summary>Histórico (${eventos.length})</summary>${eventos.length?`<ul>${eventos.map(x=>GRU.eventoHtml(x)).join('')}</ul>`:'<p>Nenhuma alteração registrada. Salve no servidor para iniciar o histórico.</p>'}${acoes.historico?`<button type="button" class="refresh-btn" data-draft-historico="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Atualizar histórico</button>`:''}</details>`:''}
       <div class="draft-actions"><button type="button" class="refresh-btn" data-draft-edit="${GRU.e(d.id)}">Editar</button>${acoes.verificar?`<button type="button" class="refresh-btn" data-draft-verificar="${GRU.e(d.id)}"${GRU.state.ocupado?' disabled':''}>Verificar agora</button>`:''}<button type="button" class="refresh-btn" data-draft-export="${GRU.e(d.id)}">Exportar arquivo</button><button type="button" class="refresh-btn" data-draft-dup="${GRU.e(d.id)}">Duplicar nesta marca</button>${d.canal==='email'&&['fish','aristo'].includes(d.marca)?`<button type="button" class="refresh-btn" data-email-replicate="${GRU.e(d.id)}">Copiar para ${d.marca==='fish'?'O Aristocrata':'Fishermans'}</button>`:''}<button type="button" class="refresh-btn draft-delete" data-draft-delete="${GRU.e(d.id)}">Excluir</button></div></article>`;
   },
   editor(r,caps){
@@ -152,18 +169,18 @@ const GRU={
       <input type="text" data-botao-campo="texto" maxlength="${GR.LIMITES.botao}" placeholder="Texto do botão" value="${GRU.e(b.tipo==='order_details'?'Copiar código Pix':b.texto)}"${b.tipo==='order_details'?' readonly':''} aria-label="Texto do botão ${i+1}">
       ${['quick_reply','order_details'].includes(b.tipo)?'':`<input type="text" data-botao-campo="valor" placeholder="${b.tipo==='url'?'https://…':'+55…'}" value="${GRU.e(b.valor)}" aria-label="${b.tipo==='url'?'Link':'Telefone'} do botão ${i+1}">`}
       <button type="button" class="mais" data-botao-remover="${i}" title="Remover botão">–</button></div>`).join('');
-    const provedor=wa?'Meta':'Listmonk';
+    const provedor=wa?'WhatsApp':'serviço de e-mail';
     const dis=oc?' disabled':'';
     const servidorBar=caps.pode.draft?`<div class="draft-server-actions">
         <button type="button" class="btn sec" id="d-servidor"${dis}>${oc==='rascunho'?'Salvando…':s?`Salvar no servidor (v${GRU.e(s.version)}${sit.sujo?' → nova versão':''})`:'Salvar no servidor'}</button>
         ${acoes.validar?`<button type="button" class="btn sec" id="d-validar"${dis}>${oc==='validar'?'Validando…':'Conferir conteúdo'}</button>`:''}
         ${acoes.submeter?`<button type="button" class="btn" id="d-submeter"${dis||(GRU.state.confirmando?' disabled':'')}>${wa?'Enviar para aprovação…':'Publicar template…'}</button>`:''}
         ${acoes.verificar?`<button type="button" class="refresh-btn" id="d-verificar"${dis}>${oc==='submissao'?'Consultando…':'Verificar aprovação'}</button>`:''}
-        <span class="mini">${s?`Servidor: v${GRU.e(s.version)} · ${GRU.e(rot.texto)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve no servidor para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
+        <span class="mini">${s?`Versão salva ${GRU.e(s.version)} · ${GRU.estadoHtml(r,rot)}${sit.sujo?' · salve as alterações antes de continuar':''}`:'Salve o rascunho para conferir e publicar.'}${caps.validate&&s&&!sit.sujo&&sit.estado==='rascunho'&&caps.pode.submit?' · confira o conteúdo antes de publicar':''}</span></div>
         ${s?.conflito?`<div class="draft-conflito control-warning"><strong>Alguém alterou este rascunho no servidor antes de você.</strong> ${GRU.e(`Por ${s.conflito.changed_by||'outra chave'} às ${GRU.stamp(s.conflito.changed_at)}; versão atual v${s.conflito.current_version??'?'}. Nada foi sobrescrito.`)} <button type="button" class="refresh-btn" id="d-refazer">Refazer sobre a v${GRU.e(s.conflito.current_version??'?')}</button> <span class="mini">Refazer só ajusta a versão esperada; o conteúdo continua o seu e nada é enviado até você salvar de novo.</span></div>`:''}
         ${GRU.state.confirmando&&acoes.submeter?GRU.confirmacao(r,provedor):''}`
       :caps.semEndpoint?'<p class="mini draft-server-off" role="status">Publicação indisponível. Atualize o painel para tentar novamente.</p>':'';
-    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.e(rot.texto)}</span></div>
+    return `<section class="painel draft-editor" id="draft-editor" aria-label="Editor de rascunho"><div class="painel-cab"><h2>${GRU.state.editando?'Editar rascunho':'Novo rascunho'}</h2><span class="control-badge control-${GRU.e(rot.tone)}">${GRU.estadoHtml(r,rot)}</span></div>
       <div class="draft-form"><div class="form">
         <div class="campo"><label for="d-nome">${'Nome do template'}</label><input type="text" id="d-nome" data-campo="nome" value="${GRU.e(r.nome)}" placeholder="${wa?'fishermans_rastreio_v3':'carta-do-fundador-02'}"><span class="ajuda">${wa?'Como ficará na Meta: minúsculas, números e _.':'Este nome aparecerá no catálogo de e-mail.'}</span></div>
         <div class="campo"><label for="d-marca">Marca</label><select id="d-marca" disabled>${GRU.opts(GR.MARCAS.filter(([k])=>k!=='olivas'||r.marca==='olivas'),r.marca)}</select></div>
@@ -192,7 +209,7 @@ const GRU={
   confirmacao(r,provedor){
     const s=r.servidor||{},ok=GRU.state.confirmTexto.trim().toLowerCase()==='submeter',wa=r.canal==='whatsapp';
     return `<div class="draft-confirm" id="d-confirmar" role="dialog" aria-label="Confirmar submissão"><strong>${wa?'Submeter à Meta o rascunho':'Publicar template'} v${GRU.e(s.version)}</strong>
-      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'A Meta revisa; aprovado vira "publicado · não ativo". Nenhum workflow muda.':'Cadastra o template no Listmonk. Não envia nenhum e-mail.'}</dd></dl>
+      <dl><dt>Nome</dt><dd>${GRU.e(r.nome)}</dd><dt>Marca · canal</dt><dd>${GRU.e(GRU.rotulo(GR.MARCAS,r.marca))} · ${GRU.e(GRU.rotulo(GR.CANAIS,r.canal))}</dd>${wa?`<dt>Categoria · idioma</dt><dd>${GRU.e(r.categoria)} · ${GRU.e(r.idioma)}</dd>`:`<dt>Assunto</dt><dd>${GRU.e(r.assunto)}</dd>`}<dt>Depois</dt><dd>${wa?'O WhatsApp revisa o template. A aprovação não ativa nenhuma automação.':'Publica o template para uso nas campanhas. Não envia nenhum e-mail.'}</dd></dl>
       ${s.avisos?.length?`<p class="draft-aviso">Avisos da validação: ${GRU.e(s.avisos.map(a=>a.mensagem||a.codigo).join(' · '))}</p>`:''}
       <label for="d-confirm-texto">Digite <code>submeter</code> para liberar o botão</label><div class="draft-confirm-row"><input type="text" id="d-confirm-texto" value="${GRU.e(GRU.state.confirmTexto)}" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="d-confirm-ok"${ok&&!GRU.state.ocupado?'':' disabled'}>${GRU.state.ocupado==='submeter'?(wa?'Submetendo…':'Publicando…'):(wa?'Submeter agora':'Publicar template')}</button><button type="button" class="btn sec" id="d-confirm-cancel">Cancelar</button></div></div>`;
   },
@@ -236,10 +253,10 @@ const GRU={
   emailTestSummary(op){
     const r=op.receipt||op.operation||{},s=r.ses||{};
     if(op.phase==='rejected')return GRU.emailTestReason(r.code);
-    if(s.bounce||s.complaint||s.reject||s.rendering_failure)return 'O SES registrou uma falha ou reclamação. Não repita esta versão.';
-    if(s.delivery)return 'Entrega confirmada pelo SES.';
+    if(s.bounce||s.complaint||s.reject||s.rendering_failure)return 'O serviço de e-mail registrou uma falha ou reclamação. Não repita esta versão.';
+    if(s.delivery)return 'Entrega confirmada pelo servidor do destinatário.';
     if(r.http_accepted)return 'Envio aceito; entrega ainda não confirmada.';
-    if(s.send)return 'Envio registrado pelo SES; entrega ainda não confirmada.';
+    if(s.send)return 'Envio registrado; entrega ainda não confirmada.';
     return 'Resultado não confirmado. Consulte esta tentativa; não envie novamente.';
   },
   emailTestLabel(op){const d=GR.lista().find(r=>r.servidor?.draft_id===op.request_payload.draft_id);return [d?.nome||'Template de e-mail',d?.marca?GRU.rotulo(GR.MARCAS,d.marca):'',`v${op.request_payload.expected_version}`].filter(Boolean).join(' · ');},
@@ -347,7 +364,7 @@ const GRU={
         event.preventDefault();
         if(!GRU.acesso.aberto||GRU.state.ocupado)return;
         const campo=$('#drafts-chave-escrita'),chave=campo.value.trim();
-        if(!chave){campo.setAttribute('aria-invalid','true');$('#drafts-acesso-erro').textContent='Informe a chave de escrita de templates.';campo.focus();return;}
+        if(!chave){campo.setAttribute('aria-invalid','true');$('#drafts-acesso-erro').textContent='Informe a chave de acesso para editar templates.';campo.focus();return;}
         // Authentication only: never replay an action or change a pending operation here.
         GRU.acesso.chave=chave;GRU.acesso.ignorarLegada=true;campo.value='';
         GRU.aviso('Acesso preparado para esta página aberta. Nenhuma operação foi enviada; escolha a ação desejada.');GRU.fecharAcesso();
@@ -402,7 +419,7 @@ const GRU={
     if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const advanced=typeof GENU!=='undefined'&&GENU.advanced(r);
     const escrita=['listar','historico','submissao'].includes(acao)?null:advanced?GRU.emailTestKey():GRU.chaveEscrita();
-    if(escrita===null&&!['listar','historico','submissao'].includes(acao)){GRU.aviso('Sem chave de escrita: nada foi enviado.','erro');GRU.abrirAcesso();return;}
+    if(escrita===null&&!['listar','historico','submissao'].includes(acao)){GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return;}
     GRU.state.ocupado=acao;GRU.aviso('');GRU.render();
     let res;try{if(advanced&&!['listar','historico','submissao'].includes(acao)){const content=GENU.content(r),brand=r.marca,endpoint=GRU.caps.endpoint;try{await GENU.requireCapability(r);if(GRU.ctx.marca!==brand||GENU.content(r)!==content||GRU.caps.endpoint!==endpoint||GRU.emailTestKey()!==escrita)throw Error('O rascunho mudou durante a conferência.');}catch(e){GRU.state.ocupado=null;GRU.aviso(e.message,'erro');GRU.render();return;}}res=await fn(escrita?GRU.clienteSeguro(escrita,r):GRU.cliente(escrita));}catch(e){res={ok:false,status:0,body:null,rede:true,journalError:advanced||String(e?.code||'').startsWith('TPL_')?e.message:null,journalCode:e?.code};}
     GRU.state.ocupado=null;
@@ -437,7 +454,7 @@ const GRU={
     }else{
       r.servidor={...s,estado:b.estado,submission_id:b.submission_id,provider:b.provider,provider_id:b.provider_id||null,submitted_at:b.submitted_at||GR.agora(),provider_status:b.provider_status||null,checked_at:null,confirmado_em:GR.agora()};
       GRU.state.confirmando=false;GRU.state.confirmTexto='';
-      GRU.aviso(b.estado==='publicado'?'Publicado pelo provedor (APPROVED). Publicado não é ativo: nenhum workflow mudou.':`Submetido à ${b.provider==='listmonk'?'Listmonk':'Meta'}. Aguardando; o painel consulta a cada 60 s.`);
+      GRU.aviso(b.estado==='publicado'?'Template publicado. Nenhuma automação foi ativada.':`Submetido à ${b.provider==='listmonk'?'serviço de e-mail':'WhatsApp'}. Aguardando; o painel consulta a cada 60 s.`);
     }
     r.servidor.operacoes_aplicadas=[...(s.operacoes_aplicadas||[]),op.id];
     GTA.evento(r.servidor,{at:GR.agora(),who:GRU.who(res),action:acao==='submeter'?'submit':acao,to_version:r.servidor.version,result:String(res.status),detail:`operação ${op.id}`});
@@ -447,7 +464,7 @@ const GRU={
   async consultarOperacao(id){
     if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const escrita=GRU.chaveEscrita();
-    if(!escrita){GRU.aviso('Informe a chave de escrita para consultar esta operação. Nenhuma operação será repetida.');GRU.abrirAcesso();return;}
+    if(!escrita){GRU.aviso('Informe seu acesso de edição para consultar esta tentativa. Nenhuma operação será repetida.');GRU.abrirAcesso();return;}
     const journal=GRU.journal(),op=journal?.inspect().operations.find(x=>x.id===id);if(!op)return;
     GRU.state.ocupado='operacao';GRU.render();
     try{
@@ -489,7 +506,7 @@ const GRU={
     GR.guarda(r);
     // C03: provider_status é extensível (PAUSED, DISABLED, IN_APPEAL…). Só PENDING/IN_APPEAL é "aguardando"; o resto é dito pelo nome, sem virar aprovação.
     const aguardando=[undefined,null,'','PENDING','IN_APPEAL'].includes(b.provider_status);
-    if(!silencioso)GRU.aviso(novo==='publicado'?`Publicado pelo provedor (${b.provider_status}). Publicado não é ativo: nenhum workflow mudou.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`
+    if(!silencioso)GRU.aviso(novo==='publicado'?`Template publicado. Nenhuma automação foi ativada.`:novo==='rejeitado'?`Rejeitado${s.rejected_reason?`: ${s.rejected_reason}`:''}.`
       :aguardando?`Ainda aguardando (${b.provider_status||'sem status'}) · verificado ${GRU.stamp(s.checked_at)}.`:`Provedor devolveu "${b.provider_status}": não é aprovação nem rejeição; estado mantido como submetido. Confira no provedor.`,novo==='rejeitado'||!aguardando&&novo==='submetido'?'aviso':'ok');
     if(GRU.state.rascunho&&GRU.state.rascunho.id===r.id)GRU.state.rascunho.servidor=JSON.parse(JSON.stringify(s));
     GRU.render();

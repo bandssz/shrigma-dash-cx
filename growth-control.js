@@ -140,7 +140,7 @@ const GC={
       ${!current?'<p class="control-warning">Os valores disponíveis são da última coleta; o estado atual não está confirmado.</p>':''}
       ${!row.fieldsValid?'<p class="control-warning">Há campos de configuração não confirmados.</p>':''}
       ${GC.collectionDetails(row)}
-      <details class="control-detail"><summary>Última execução retida e registros</summary><p>${execution?`${e(status)} · início ${e(GC.stamp(execution.started_at))}${execution.stopped_at?` · término ${e(GC.stamp(execution.stopped_at))}`:''}`:'Nenhuma execução retida foi informada pela fonte.'}</p>
+      <details class="control-detail"><summary>Registros técnicos disponíveis</summary><p>${execution?`${e(status)} · início ${e(GC.stamp(execution.started_at))}${execution.stopped_at?` · término ${e(GC.stamp(execution.stopped_at))}`:''}`:'Nenhuma execução retida foi informada pela fonte.'}</p>
       <p>Execuções concluídas: ${e(retention('success'))}. Execuções com erro: ${e(retention('error'))}.</p>
       <p>${row.retention.success==='none'?'Este fluxo não salva execuções concluídas; uma execução antiga com erro pode continuar sendo a última retida.':'A última execução retida pode não representar a última atividade do fluxo.'} Esse registro não comprova entrega ao cliente.</p></details></article>`;
   },
@@ -157,7 +157,7 @@ const GC={
   previaPublicada(row){
     if(!GC.conteudo||typeof GTA==='undefined')return '';
     const t=GC.conteudo[row.key]||Object.values(GC.conteudo).find(x=>x&&x.name===row.name&&x.brand===row.brand);
-    if(!t)return '<span class="control-template-meta">Conteúdo publicado não veio na resposta da API para este template.</span>';
+    if(!t)return '<span class="control-template-meta">Conteúdo publicado indisponível nesta consulta. Recarregue o conteúdo para conferir.</span>';
     const e=GC.esc,hist=GC.historicos[row.key],version=/^[1-9]\d*$/.test(String(t.version??''))?' · v'+e(t.version):'',collected=!t.published_at&&Number.isFinite(GC.time(GC.conteudoEm))?' · consultada em '+e(GC.stamp(GC.conteudoEm)):'';
     return `<details class="control-detail control-template-preview" data-gt-key="prev-${e(row.key)}"><summary>Prévia publicada${version}${collected}${t.published_at?` · ${e(GC.stamp(t.published_at))}`:''}</summary>
       <div class="control-template-preview-body">${GTA.previaComponents(t.components)}</div>${t.components?.body_html?`<button type="button" class="refresh-btn" data-tpl-preview-email="${e(t.key||row.key)}">Abrir prévia do HTML</button>`:''}
@@ -250,18 +250,40 @@ const GC={
       <td><span class="control-usage${row.usage==='native_pending'?' control-planned':''}">${e(note)}</span>${row.usage_reason?`<p class="control-template-meta">${e(row.usage_reason)}</p>`:''}${linkHtml}${metHtml}${alerts.map(alert=>`<p class="control-warning">${e(alert)}</p>`).join('')}</td>
       <td>${GC.badge(row.collection.label,row.collection.tone)}${GC.collectionDetails(row)}</td></tr>`;
   },
+  emailFlowLabel(value,fallback='Jornada não identificada'){
+    const key=String(value||'').split(':').pop();
+    return ({carrinho:'Carrinho','nps-d0':'Pesquisa de satisfação','pedido-recebido':'Acompanhamento do pedido',popup:'Boas-vindas'})[key]||fallback;
+  },
+  emailStepLabel(value,fallback='Etapa não identificada'){
+    return ({'carrinho-30min':'Após 30 minutos','carrinho-1h':'Após 1 hora','carrinho-2h':'Após 2 horas','carrinho-24h':'Após 24 horas','carrinho-48h':'Após 48 horas','nps-d0':'Primeiro convite','nps-d3':'Lembrete após 3 dias','cupom-boas-vindas':'Cupom de boas-vindas','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento confirmado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido a caminho','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado'})[value]||fallback;
+  },
+  managerOperation(model){
+    const rows=model.workflows,notes=[];
+    const add=(text,affected=[])=>{
+      const stamps=[...new Set(affected.map(r=>GC.stamp(r.last_good_at)))];
+      notes.push(`<p class="control-warning">${GC.esc(text)}${stamps.length?` <span class="mini">Última consulta válida: ${GC.esc(stamps.join(' · '))} · Brasília.</span>`:''}</p>`);
+    };
+    if(!model.meta.valid||!rows.length)add('Estado das automações indisponível. Atualize o painel; ausência de dados não confirma ausência de automações.');
+    else{
+      const failed=rows.filter(r=>r.collection.key==='error'),stale=rows.filter(r=>r.collection.key==='stale'),unknown=rows.filter(r=>['unknown','invalid'].includes(r.collection.key));
+      if(failed.length)add('Não foi possível atualizar parte das automações. Atualize o painel; se persistir, peça conferência ao responsável.',failed);
+      if(stale.length)add('Parte das automações tem informações desatualizadas. Atualize o painel antes de avaliar a operação.',stale);
+      if(unknown.length)add('Estado de parte das automações não confirmado. Atualize o painel; não presuma que os envios estejam ativos.',unknown);
+      if(rows.some(r=>!r.fieldsValid))add('Parte da configuração não foi confirmada. Peça conferência ao responsável antes de alterar envios.');
+      if(rows.some(r=>r.has_unpublished_changes===true))add('Há alterações ainda não publicadas. Confirme com o responsável qual versão está em operação.');
+    }
+    return `<section class="control-manager-operation" data-crm-manager-only role="status"><strong>Acompanhamento da operação</strong>${notes.join('')}<p class="mini">Confira etapas, pausas e versões em Jornadas. Configuração habilitada não comprova envio ou entrega.</p></section>`;
+  },
   emailInventory(api,marca,canal,now=Date.now()) {
     if(canal==='whatsapp'||!['fish','aristo','todas','todos'].includes(marca))return '';
     const raw=api?.crm_operacao?.email_steps,e=GC.esc;
     const heading='<h3>Etapas de e-mail configuradas</h3>';
-    if(!Array.isArray(raw))return heading+'<p class="nota">A lista de etapas de e-mail ainda não veio nesta consulta. Atualize o painel; os serviços abaixo não representam todas as etapas.</p>';
+    if(!Array.isArray(raw))return heading+'<p class="nota">A lista de etapas de e-mail ainda não veio nesta consulta. Atualize o painel para conferir as etapas.</p>';
     const chosen=raw.filter(r=>r&&(['todas','todos'].includes(marca)||r.brand===marca));
     const valid=chosen.every(r=>['fish','aristo'].includes(r.brand)&&typeof r.key==='string'&&typeof r.piece==='string'&&typeof r.flow_key==='string'&&typeof r.enabled==='boolean'&&typeof r.runtime_ready==='boolean'&&Number.isFinite(Date.parse(r.checked_at)))&&new Set(chosen.map(r=>r.key)).size===chosen.length;
     if(!valid)return heading+'<p class="nota">Não foi possível conferir as etapas de e-mail. Atualize o painel.</p>';
-    const flowLabel=k=>({'carrinho':'Carrinho','nps-d0':'Pesquisa de satisfação','pedido-recebido':'Acompanhamento do pedido','popup':'Boas-vindas'})[k.split(':')[1]]||'Outra jornada';
-    const stepLabel=p=>({'carrinho-30min':'Após 30 minutos','carrinho-1h':'Após 1 hora','carrinho-2h':'Após 2 horas','carrinho-24h':'Após 24 horas','carrinho-48h':'Após 48 horas','nps-d0':'Primeiro convite','nps-d3':'Lembrete após 3 dias','cupom-boas-vindas':'Cupom de boas-vindas','pedido-recebido':'Pedido recebido','pedido-confirmado':'Pagamento confirmado','pedido-preparando':'Pedido em preparação','pedido-em_rota':'Pedido a caminho','pedido-entregue':'Pedido entregue','pedido-cancelado':'Pedido cancelado'})[p]||p;
     const status=r=>{const age=now-Date.parse(r.checked_at);return !Number.isFinite(age)||age < -60000||age>900000?'Configuração na consulta anterior':!r.enabled?'Pausada':!r.runtime_ready?'Integração pendente':'Habilitada na configuração';};
-    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(flowLabel(r.flow_key))}</span></td><td>${e(stepLabel(r.piece))}</td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
+    return '<section class="control-email-inventory">'+heading+`<div class="control-explainer">${GC.badge(chosen.length+(chosen.length===1?' etapa':' etapas'))}${GC.badge('Versão publicada','neutral','Configuração das jornadas, independente do período selecionado. Habilitada não confirma envio ou entrega; consulte os resultados medidos no histórico.')}</div><div class="rolagem"><table class="comparativo"><thead><tr><th>Marca / jornada</th><th>Etapa</th><th>Configuração</th><th>Consultado em · Brasília</th></tr></thead><tbody>${chosen.map(r=>`<tr data-email-step="${e(r.key)}"><td>${e(GC.brand(r.brand))}<br><span class="mini">${e(GC.emailFlowLabel(r.flow_key))}</span></td><td>${e(GC.emailStepLabel(r.piece))}<span class="mini" data-crm-owner-only> · ${e(r.piece)}</span></td><td>${e(status(r))}</td><td>${e(GC.stamp(r.checked_at))}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma etapa de e-mail publicada para esta marca. Confira a configuração das jornadas.</td></tr>'}</tbody></table></div></section>`;
   },
   render(ctx={}){
     const model=GC.model(ctx.api?.crm_operacao,ctx);
@@ -274,6 +296,7 @@ const GC={
     if(!workflowRoot||!templateRoot)return model;
     const hasGT=typeof GT!=='undefined';
     const keptWf=hasGT?GT.captura(workflowRoot):null,keptTpl=hasGT?GT.captura(templateRoot):null;
+    const ownerDetailsOpen=workflowRoot.querySelector('[data-crm-owner-diagnostics]')?.open===true;
     const openDetails=[...workflowRoot.querySelectorAll('[data-control-workflow]')].filter(card=>card.querySelector('details')?.open).map(card=>card.dataset.controlWorkflow);
     const oldInput=templateRoot.querySelector('#control-template-search'),restoreInput=oldInput&&document.activeElement===oldInput;
     const selection=restoreInput?[oldInput.selectionStart,oldInput.selectionEnd]:null;
@@ -286,7 +309,7 @@ const GC={
       :`Nenhuma automação${GC.describe([fw.estado==='ativas'?'ativa':fw.estado==='inativas'?'inativa':fw.estado==='conferir'?'a conferir':'',
           fw.modo==='real'?'com envio real':fw.modo==='sombra'?'em simulação':fw.modo==='interno'?'em teste interno':fw.modo==='segue-origem'?'sem modo próprio':fw.modo==='nao-confirmado'?'com modo não confirmado':'',
           fw.q?`contendo "${e(fw.q)}"`:''])}${model.marca!=='todas'?` para ${e(GC.brand(model.marca))}`:''}${model.canal!=='todos'?` no canal ${e(GC.channel(model.canal))}`:''}. Simulação ou configuração inativa não significa que a operação parou de existir: confira os filtros.`;
-    workflowRoot.innerHTML=GC.metadata(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
+    workflowRoot.innerHTML=GC.metadata(model)+GC.managerOperation(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<details class="control-owner-diagnostics" data-crm-owner-only data-crm-owner-diagnostics data-gt-key="control-owner-diagnostics"${ownerDetailsOpen?' open':''}><summary>Detalhes técnicos da operação</summary><div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
       <div class="control-explainer">${GC.badge('Configuração dos serviços','neutral','Ativo indica configuração ligada; não confirma funcionamento ou entrega. As quantidades de serviços não representam o número de etapas de e-mail.')}${GC.badge('Simulação: sem disparos','neutral','A simulação não faz disparos reais.')}${GC.badge('Inclui serviços compartilhados','neutral','Serviços compartilhados aparecem também no filtro de cada marca.')}</div>
       ${brandSpecific?`<p class="control-scope">Nenhum serviço específico de ${e(GC.brand(model.marca))} foi informado neste canal.${model.shared?' Abaixo estão os serviços compartilhados.':''}</p>`:''}
       ${model.meta.valid?`<div class="gt-toolbar control-toolbar"><label class="gt-busca">Buscar automação<input type="search" id="control-workflow-search" placeholder="Nome ou chave" value="${e(fw.q)}" autocomplete="off"></label>
@@ -294,7 +317,7 @@ const GC={
         <span class="gt-contagem">${workflows.length} de ${model.workflows.length} automações</span>
         ${wfFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}
         <button type="button" class="refresh-btn gt-export" id="control-wf-export"${workflows.length?'':' disabled'}>Exportar CSV</button></div>`:''}
-      <div class="control-workflows">${workflows.length?workflows.map(GC.workflow).join(''):`<div class="vazio">${wfEmpty}${wfFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}</div>`}</div>`;
+      <div class="control-workflows">${workflows.length?workflows.map(GC.workflow).join(''):`<div class="vazio">${wfEmpty}${wfFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="wf">Limpar filtros</button>':''}</div>`}</div></details>`;
     const search=GC.search.toLocaleLowerCase('pt-BR');
     const searched=model.templates.filter(row=>[row.name,row.piece,GC.brand(row.brand)].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(search))).filter(row=>GC.templateMatches(row,ft));
     const templates=hasGT?GT.ordena(searched,ft.sort,ft.dir,r=>ft.sort==='collection'?r.checked_at:r[ft.sort]):searched;
@@ -304,7 +327,7 @@ const GC={
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    templateRoot.innerHTML=GC.metadata(model)+`<div class="control-explainer">${GC.badge('Catálogo da Meta','neutral','Status e categoria consultados na Meta. O catálogo traz metadados; use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
+    templateRoot.innerHTML=GC.metadata(model)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
       ${model.canal==='email'?'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>':`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
