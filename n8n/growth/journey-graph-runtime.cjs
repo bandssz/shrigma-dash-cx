@@ -24,8 +24,8 @@ function exact(x,keys){if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys
 function time(t){if(typeof t!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)||!Number.isFinite(Date.parse(t))||new Date(t).toISOString()!==t)throw error('GRAPH_TIME');return Date.parse(t);}
 function uuid(v){if(typeof v!=='string'||!UUID.test(v))throw error('GRAPH_IDENTITY');}
 function expected(v){if(!Number.isSafeInteger(v)||v<1||v>=2147483647)throw error('GRAPH_VERSION');}
-function createGraphRuntime({pool,catalogFor,readSource,clock}={}){
- if(typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||clock!==undefined&&typeof clock!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
+function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={}){
+ if(typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||clock!==undefined&&typeof clock!=='function'||beforeCommand!==undefined&&typeof beforeCommand!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
  const queryOne=async(c,q,a=[])=>{const r=await c.query(q,a);if(!Array.isArray(r?.rows)||r.rows.length!==1)throw error('GRAPH_STORAGE_UNCONFIRMED');return r.rows[0];};
  const getTime=async c=>{const now=clock?await clock(): (await queryOne(c,"SELECT to_char(date_trunc('milliseconds',clock_timestamp()) AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS now")).now;time(now);return now;};
  const current=async(c,id,brand)=>{const r=await c.query('SELECT * FROM crm_graph_candidate.journey WHERE id=$1::uuid AND brand=$2 FOR UPDATE',[id,brand]);if(r.rows.length!==1)throw error('GRAPH_NOT_FOUND');return r.rows[0];};
@@ -59,6 +59,9 @@ function createGraphRuntime({pool,catalogFor,readSource,clock}={}){
   try{
    await c.query('BEGIN');await c.query("SET LOCAL lock_timeout='3s'");await c.query("SET LOCAL statement_timeout='8s'");
    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[p.request_id]);
+   // Trusted server hook, never request data. Rechecks authorization after the
+   // operation lock, including durable replays, before reading or changing rows.
+   if(beforeCommand)await beforeCommand({query:c.query.bind(c),actor:p.actor,brand:p.brand,action});
    const old=await c.query('SELECT * FROM crm_graph_candidate.operation WHERE request_id=$1::uuid',[p.request_id]);
    if(old.rows.length){const o=old.rows[0];if(o.actor!==p.actor||o.brand!==p.brand||o.action!==action||o.request_hash!==requestHash)throw error('GRAPH_REPLAY_MISMATCH');committing=true;await c.query('COMMIT');return o.response;}
    const control=await queryOne(c,'SELECT enabled FROM crm_graph_candidate.control WHERE singleton FOR SHARE');
