@@ -95,3 +95,7 @@ body[data-panel=influs] .tts-abas{gap:22px}
   #tts-area .tts-fila .tts-acoes .btn{min-height:36px;padding:7px 14px}
   #tts-area .tts-fila .tts-acoes .tts-sug{display:inline-block;margin:0 8px 6px 0}
 }
+
+/* Rejeição com motivo: aparece no primeiro toque em Rejeitar */
+.tts-motivo-box{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-width:220px}
+.tts-motivo-box .i-sel{min-height:30px;font-size:12px;padding:4px 6px;width:100%}
