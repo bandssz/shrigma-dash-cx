@@ -1,0 +1,101 @@
+name: Isolated Listmonk test transport proof
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-test-probe/**'
+      - '.github/workflows/listmonk-test-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-native-api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk_test_probe
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d listmonk_test_probe"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check local guards and bounded non-relaying SMTP capture
+        run: python3 -m unittest discover -s tools/listmonk-test-probe -p 'test_*.py'
+      - name: Verify official unmodified release against pinned checksums
+        run: python3 tools/listmonk-test-probe/upstream.py --out "$RUNNER_TEMP/listmonk-test-probe-official"
+      - name: Exercise real native API with synthetic fixtures and restricted egress
+        env:
+          PROBE_PG_CONTAINER: ${{ job.services.postgres.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo useradd --system --no-create-home listmonk-probe
+          probe_uid="$(id -u listmonk-probe)"
+          probe_db_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PROBE_PG_CONTAINER")"
+          python3 - "$probe_db_ip" <<'PY'
+          import ipaddress,sys
+          address=ipaddress.ip_address(sys.argv[1])
+          assert address.version==4 and address.is_private and not address.is_loopback
+          PY
+          sudo iptables -N CRM_TEST_PROBE
+          sudo iptables -A CRM_TEST_PROBE -d 127.0.0.0/8 -j ACCEPT
+          sudo iptables -A CRM_TEST_PROBE -p tcp -d "$probe_db_ip" --dport 5432 -j ACCEPT
+          sudo iptables -A CRM_TEST_PROBE -j REJECT
+          sudo iptables -I OUTPUT 1 -m owner --uid-owner "$probe_uid" -j CRM_TEST_PROBE
+          sudo ip6tables -I OUTPUT 1 -m owner --uid-owner "$probe_uid" -j REJECT
+          probe_dir="$(mktemp -d /tmp/crm-listmonk-probe.XXXXXXXX)"
+          sudo chown listmonk-probe:listmonk-probe "$probe_dir"
+          sudo chmod 755 "$probe_dir"
+          sudo install -d -m 755 -o listmonk-probe -g listmonk-probe "$probe_dir/source" "$probe_dir/official" "$probe_dir/report"
+          mkdir -p "$RUNNER_TEMP/listmonk-test-probe-report"
+          cleanup() {
+            sudo pkill -KILL -u "$probe_uid" 2>/dev/null || true
+            for probe_report in report.json report.log; do
+              if [ -f "$probe_dir/report/$probe_report" ]; then
+                sudo install -m 644 "$probe_dir/report/$probe_report" "$RUNNER_TEMP/listmonk-test-probe-report/$probe_report" || true
+              fi
+            done
+            sudo iptables -D OUTPUT -m owner --uid-owner "$probe_uid" -j CRM_TEST_PROBE || true
+            sudo iptables -F CRM_TEST_PROBE || true
+            sudo iptables -X CRM_TEST_PROBE || true
+            sudo ip6tables -D OUTPUT -m owner --uid-owner "$probe_uid" -j REJECT || true
+          }
+          trap cleanup EXIT
+          # Copy only the dependency closure and verified artifact, never the checkout,
+          # credentials or private runtime files. Do not relax any parent directory.
+          for probe_source in probe.py smtp_capture.py upstream.py upstream.lock.json fixture.sql; do
+            sudo install -m 644 -o listmonk-probe -g listmonk-probe "tools/listmonk-test-probe/$probe_source" "$probe_dir/source/$probe_source"
+          done
+          for probe_input in manifest.json schema.sql LICENSE; do
+            sudo install -m 644 -o listmonk-probe -g listmonk-probe "$RUNNER_TEMP/listmonk-test-probe-official/$probe_input" "$probe_dir/official/$probe_input"
+          done
+          sudo install -m 700 -o listmonk-probe -g listmonk-probe "$RUNNER_TEMP/listmonk-test-probe-official/listmonk" "$probe_dir/official/listmonk"
+          cd "$probe_dir"
+          # env -i deliberately omits repository/host credentials, proxy configuration
+          # and all external database/service settings. Only synthetic constants follow.
+          sudo -u listmonk-probe env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 TZ=UTC \
+            PYTHONDONTWRITEBYTECODE=1 GITHUB_ACTIONS=true CI=true RUNNER_OS=Linux RUNNER_ARCH=X64 \
+            LISTMONK_TEST_PROBE_ISOLATED=1 PROBE_EGRESS_RESTRICTED=1 PROBE_UID="$probe_uid" \
+            python3 "$probe_dir/source/probe.py" \
+            --artifact "$probe_dir/official" \
+            --report "$probe_dir/report/report.json"
+      - name: Upload synthetic evidence only; no image, deployment or release
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: listmonk-6.1.0-native-test-proof
+          path: |
+            ${{ runner.temp }}/listmonk-test-probe-report/
+            ${{ runner.temp }}/listmonk-test-probe-official/manifest.json
+          if-no-files-found: warn
+          retention-days: 14

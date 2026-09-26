@@ -1,0 +1,18 @@
+{
+  "version": "6.1.0",
+  "tag": "v6.1.0",
+  "commit": "1b5e8d38c778e869003486d3c38bc7a964661e91",
+  "checksums": {
+    "name": "listmonk_6.1.0_checksums.txt",
+    "bytes": 2026,
+    "sha256": "987cf4df015b6556d0d265d24df54e550ffbf8ebfd9a55131c32e6efcf058b5b"
+  },
+  "checksum_provenance": "Release checksums file downloaded from the official tag, SHA256 computed locally; each archive matched its entry. GitHub API asset digest was checked separately as consistency metadata, not treated as a detached signature or independent authentication.",
+  "release": {
+    "name": "listmonk_6.1.0_linux_amd64.tar.gz",
+    "bytes": 9572459,
+    "sha256": "08f44f8f2c598cbef76c948dcb319df235296a07d49a49be3253d65c16d26ff0"
+  },
+  "expected_assets": 130,
+  "query_sha256": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882"
+}
