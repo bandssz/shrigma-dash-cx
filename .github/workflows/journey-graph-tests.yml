@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'n8n/growth/journey-graph-*'
+      - 'growth-journey-graph-editor.js'
+      - 'growth-journey-graph-editor.css'
       - 'tests/journey-graph-*'
       - 'tests/fixtures/journey-graph-runtime.cjs'
       - '.github/workflows/journey-graph-tests.yml'
@@ -33,11 +35,11 @@ jobs:
         with:
           node-version: '22'
       - name: Install pinned isolated test dependencies
-        run: npm install --prefix ../graph-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+        run: npm install --prefix ../graph-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
       - name: Contract and durable-state regression
         env:
           NODE_PATH: ../graph-test-tools/node_modules
-        run: node --test tests/journey-graph-contract.test.cjs tests/journey-graph-runtime.test.cjs
+        run: node --test tests/journey-graph-contract.test.cjs tests/journey-graph-runtime.test.cjs tests/journey-graph-editor.test.cjs
       - name: Independent transactions and lost commit response
         env:
           NODE_PATH: ../graph-test-tools/node_modules
