@@ -109,7 +109,8 @@
       "influs-page.css",
       "panel-ui.css",
       "creators-pilot.css",
-      "area-brand.css"
+      "area-brand.css",
+      "tts-visual.css"
     ],
     "scripts": [
       "frescor.js",

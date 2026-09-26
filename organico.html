@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=6ebdcd134394">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-E+JlfkUrEN3P+8obVnMLeao4DPn+LVYDixOcb2YuKEM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=9a3c02ee4cd1">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iyUnno8FMiXCBx4jMSXvoJBBzFhv1oCdBvvmG7TziPQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -90,7 +90,7 @@
       <div class="painel-cab"><h2>Post a post</h2>
         <div class="seg-mini" role="group" aria-label="Filtro de posts">
           <button data-f="todos" class="ativo">Todos</button><button data-f="venc">Só vencedores</button><button data-f="perd">Só quedas</button>
-        </div></div>
+        </div><label class="post-formato"><span class="mini">Formato</span> <select id="post-formato" aria-label="Filtrar por formato"><option value="">todos</option></select></label></div>
       <div class="rolagem"><table class="comparativo" id="tab-posts"><thead><tr>
         <th class="ord" data-c="publicado_em">Post</th><th></th>
         <th class="ord" data-c="formato">Formato</th>
@@ -98,7 +98,6 @@
         <th class="num ord" data-c="salvos">Salvos</th>
         <th class="num ord" data-c="compartilh">Compart.</th>
         <th class="num ord" data-c="comentarios">Coment.</th>
-        <th class="num ord" data-c="neg">Negativos</th>
         <th class="num ord" data-c="eq">EQ</th>
         <th>vs. meta 1%</th><th class="num ord" data-c="percentil">Percentil</th><th></th>
       </tr></thead><tbody></tbody></table></div>
@@ -245,13 +244,21 @@ function comentarios(){
   COM={}; (API.cx_post_comentario||[]).forEach(c=>{COM[c.post_id]=c;});
   return COM;
 }
+let MIDIA=null;
+function previas(){
+  // Prévia do post (miniatura da Meta). Só chega pelo cache e expira: sem URL, a célula mostra o marcador.
+  if(MIDIA)return MIDIA;
+  MIDIA={};(Array.isArray(API.cx_post_midia)?API.cx_post_midia:[]).forEach(m=>{
+    if(m&&typeof m.post_id==='string'&&/^https:\/\/([a-z0-9-]+\.)*(cdninstagram\.com|fbcdn\.net)\//i.test(String(m.previa_url||'')))MIDIA[m.post_id]=m;});
+  return MIDIA;
+}
 function posts(ini,fim){
-  const c=comentarios();
+  const c=comentarios(),mid=previas();
   return (API.cx_post||[]).filter(p=>!p.impulsionado&&daMarca(p)
     &&G.diaBR(p.publicado_em)>=ini&&G.diaBR(p.publicado_em)<=fim)
     .map(p=>({...p,dia:G.diaBR(p.publicado_em),
       eq:p.alcance?100*((+p.salvos||0)+(+p.compartilh||0))/p.alcance:null,
-      neg:+((c[p.post_id]||{}).negativos||0),
+      previa:(mid[p.post_id]||{}).previa_url||null,
       aguardando:+((c[p.post_id]||{}).aguardando||0)}));
 }
 function stories(ini,fim){
@@ -299,7 +306,6 @@ function pintaKPIs(){
   const ag=agregado(A), agB=agregado(B);
   const vA=A.filter(p=>p.vencedor).length, vB=B.filter(p=>p.vencedor).length;
   const pA=A.filter(p=>p.perdedor).length,  pB=B.filter(p=>p.perdedor).length;
-  const negA=A.reduce((a,p)=>a+(p.neg||0),0);
   // Receita organica: so peca com de-para em crm_organico_utm entra como identificada.
   // Sem de-para a receita e ORFA, nunca zero -- zero diria "nao vendeu".
   const rec=(ini,fim)=>(Array.isArray(API.cx_organico_receita)?API.cx_organico_receita:[]).filter(r=>(MARCA==='todas'||OLegacy.brand(r.marca)===MARCA)
@@ -337,8 +343,10 @@ function pintaKPIs(){
   })();
   const modeloStory=ledgerStory&&typeof OA!=='undefined'?OA.MODELS[ledgerStory.model]:null;
   // KPI_STORY_LEDGER_END
-  const stA=stories(PER.ini,PER.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
-  const stB=stories(ant.ini,ant.fim).filter(s=>s.link_clicks!==null&&s.link_clicks!==undefined);
+  // Mesmo critério da aba Stories: só toque > 0 prova que a peça levava link. Story sem figurinha
+  // devolve toque zerado e diluía a taxa.
+  const stA=stories(PER.ini,PER.fim).filter(s=>(+s.link_clicks||0)>0);
+  const stB=stories(ant.ini,ant.fim).filter(s=>(+s.link_clicks||0)>0);
   const ctr=l=>{const a=l.reduce((x,s)=>x+(+s.alcance||0),0);
     return a?100*l.reduce((x,s)=>x+(+s.link_clicks||0),0)/a:null;};
 
@@ -359,10 +367,10 @@ function pintaKPIs(){
     {r:'Conteúdos vencedores', v:A.length?String(vA):'—',
      d:varia(vA,vB), s:`de ${nf(A.length)} posts · top 20% do período`, ir:'posts'},
     {r:'Quedas', v:A.length?String(pA):'—',
-     d:varia(pA,pB), s:`bottom 20% · ${nf(negA)} comentários negativos`, ir:'posts', inverso:true},
+     d:varia(pA,pB), s:'bottom 20% do período · o que parar de repetir', ir:'posts', inverso:true},
     {r:'CTR de story', v:stA.length?pc(ctr(stA)):'—',
      d:stB.length?varia(ctr(stA),ctr(stB)):null,
-     s:stA.length?`${stA.length} stories com link`:'coletando desde 22/08', ir:'stories'},
+     s:stA.length?`${stA.length} stories com toque no link`:'nenhuma story com toque no link', ir:'stories'},
     {r:'Seguidores ganhos', v:seg===null?'—':nf(seg),
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
@@ -385,7 +393,7 @@ function pintaKPIs(){
     <div class="kpi-rodape">${CMP?chip(k.inverso&&k.d!==null?-k.d:k.d,k.d):'<span class="mini">&nbsp;</span>'}</div>
     <div class="kpi-sub">${esc(k.s)}</div>
     ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
-    ${(k.detalhes||[]).map(d=>`<div class="kpi-sub">${esc(d)}</div>`).join('')}
+    ${(k.detalhes||[]).length?`<div class="kpi-sub kpi-mais" title="${esc(k.detalhes.join('\n'))}">+ ${k.detalhes.length} detalhe${k.detalhes.length>1?'s':''} de origem</div>`:''}
   </div>`).join('');
   renderVenda(Array.isArray(API.cx_organico_receita)?rA:null);
   if(typeof OA!=='undefined'){
@@ -432,13 +440,17 @@ function pintaGrade(){
       <td class="num tabn">${nf(x.qualificado)}</td>
       <td class="num tabn destaque">${pc(x.eq)}</td><td class="num tabn">${pc(x.mediana)}</td>
       <td>${leitura}</td></tr>`;}).join('')
-    :'<tr><td colspan="8"><div class="vazio">Nenhum post orgânico publicado neste período. Amplie a janela ou confira se a grade saiu.</div></td></tr>';
+    :'<tr><td colspan="8"><div class="vazio">Nenhum post orgânico coletado neste período. Amplie a janela; se houve publicação, confira a saúde da coleta.</div></td></tr>';
 }
 
 /* ---------- post a post ---------- */
 function pintaPosts(lista){
+  const fsel=$('#post-formato');let fmt='';
+  if(fsel){const atual=fsel.value,fmts=[...new Set(lista.map(p=>p.formato).filter(Boolean))].sort();fmt=fmts.includes(atual)?atual:'';
+    fsel.innerHTML='<option value="">todos</option>'+fmts.map(f=>`<option value="${esc(f)}"${f===fmt?' selected':''}>${esc(formatoRot(f))} (${lista.filter(p=>p.formato===f).length})</option>`).join('');}
   let L=FILTRO==='venc'?lista.filter(p=>p.vencedor)
        :FILTRO==='perd'?lista.filter(p=>p.perdedor):lista.slice();
+  if(fmt)L=L.filter(p=>p.formato===fmt);
   const c=ORD.col;
   L.sort((a,b)=>{
     let x=a[c],y=b[c];
@@ -455,24 +467,32 @@ function pintaPosts(lista){
     const imaturo=(Date.now()-dt.getTime())/864e5<3;
     const legenda=p.legenda?`<span class="post-id" title="${esc(p.legenda)}">${esc(p.legenda)}</span>`
       :'<span class="post-id sem">sem legenda coletada</span>';
+    const link=/^https:\/\/(www\.)?(instagram|facebook)\.com\//.test(String(p.permalink||''))?p.permalink:'';
+    const img=p.previa?`<img src="${esc(p.previa)}" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'';
+    const thumb=link?`<a class="post-thumb${img?'':' sem-previa'}" href="${esc(link)}" target="_blank" rel="noopener noreferrer" title="abrir o post">${img}</a>`
+      :`<span class="post-thumb${img?'':' sem-previa'}">${img}</span>`;
     return `<tr${p.vencedor?' class="linha-venc"':p.perdedor?' class="linha-perd"':''}>
-      <td>${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+      <td class="post-cel">${thumb}<div class="post-info"><span class="post-data">${dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</span>
         ${p.vencedor?'<span class="tag venc">vencedor</span>':''}
         ${p.perdedor?'<span class="tag perd">queda</span>':''}
         ${p.aguardando?`<span class="tag alerta">${p.aguardando} sem resposta</span>`:''}
-        ${imaturo?'<span class="tag alerta">imaturo</span>':''}${legenda}</td>
-      <td>${tag(p.marca)}</td><td><span class="mini">${esc(p.formato||'')}</span></td>
+        ${imaturo?'<span class="tag alerta">imaturo</span>':''}${legenda}</div></td>
+      <td>${tag(p.marca)}</td><td><span class="mini">${esc(formatoRot(p.formato))}</span></td>
       <td class="num tabn">${nf(p.alcance)}</td><td class="num tabn">${nf(p.salvos)}</td>
       <td class="num tabn">${nf(p.compartilh)}</td><td class="num tabn">${nf(p.comentarios)}</td>
-      <td class="num tabn${p.neg?' vm':''}">${p.neg?nf(p.neg):'—'}</td>
       <td class="num tabn destaque">${pc(p.eq)}</td>
       <td>${p.eq===null?'<span class="mini">—</span>':p.eq>=1?'<span class="mini">bate</span>':'<span class="tag alerta">abaixo</span>'}</td>
       <td class="num tabn">${p.percentil===null?'—':'p'+p.percentil}${p.amostraCurta?' <span class="tag nulo">amostra curta</span>':''}</td>
-      <td>${p.permalink?`<a href="${esc(p.permalink)}" target="_blank" rel="noopener" class="mini">abrir</a>`:''}</td>
+      <td>${link?`<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="mini">abrir</a>`:''}</td>
     </tr>`;}).join('')
-    :`<tr><td colspan="12"><div class="vazio">${FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.'
+    :`<tr><td colspan="11"><div class="vazio">${fmt&&FILTRO==='todos'?'Nenhum post deste formato no período.':FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.'
        :FILTRO==='perd'?'Nenhum post caiu no bottom 20% neste período.':'Nenhum post orgânico publicado neste período.'}</div></td></tr>`;
 }
+// Formato como a Meta chama (FEED/REELS/STORY, ou IMAGE/VIDEO/CAROUSEL_ALBUM nos mais antigos) em português.
+function formatoRot(f){return ({FEED:'feed',REELS:'reels',STORY:'story',IMAGE:'imagem',VIDEO:'vídeo',CAROUSEL_ALBUM:'carrossel'})[String(f||'').toUpperCase()]||String(f||'').toLowerCase();}
+// Prévia que expirou na CDN: troca pela moldura "sem prévia" (listener único; o CSP não aceita onerror inline).
+if(typeof document!=='undefined'&&document.getElementById&&document.getElementById('tab-posts'))document.getElementById('tab-posts').addEventListener('error',e=>{
+  const t=e.target;if(t&&t.tagName==='IMG'){const box=t.closest('.post-thumb');if(box)box.classList.add('sem-previa');t.remove();}},true);
 
 /* ---------- stories ---------- */
 let STORY_SO_LINK=false;
@@ -563,6 +583,7 @@ async function carrega(){
     if(!payload){if(r&&!r.ok)throw new Error('read_failed');throw new Error('invalid_payload');}
     ORIGEM_LEITURA=origem;
     API=payload;
+    try{COM=null;MIDIA=null;}catch(_){}  // índices por carga: comentários e prévias mudam a cada leitura
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();
@@ -595,6 +616,7 @@ document.querySelectorAll('#sec-grade .seg-mini button').forEach(b=>b.onclick=()
 document.querySelectorAll('#sec-posts .seg-mini button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#sec-posts .seg-mini button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');FILTRO=b.dataset.f;render();});
+if($('#post-formato'))$('#post-formato').onchange=()=>render();
 document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
   const c=th.dataset.c;
   ORD = ORD.col===c ? {col:c,dir:-ORD.dir} : {col:c,dir:-1};
