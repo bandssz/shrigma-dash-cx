@@ -1,8 +1,10 @@
 -- Synthetic, empty CI database only. No scheduled campaigns, customers or app SQL.
 INSERT INTO settings(key,value) VALUES('migrations','["v6.1.0"]');
-INSERT INTO roles(id,type,name,permissions) VALUES(1,'user','Synthetic superadmin',ARRAY['*']);
+-- Native internal permission checks use explicit permission names, not '*'.
+-- Use an ordinary API role so this proof exercises those checks too.
+INSERT INTO roles(id,type,name,permissions) VALUES(2,'user','Synthetic probe',ARRAY['campaigns:manage_all','lists:get_all','tx:send']);
 INSERT INTO users(username,password,email,name,type,user_role_id,status)
- VALUES('synthetic-api','synthetic-probe-token','operator@example.invalid','Synthetic operator','api',1,'enabled');
+ VALUES('synthetic-api','synthetic-probe-token','operator@example.invalid','Synthetic operator','api',2,'enabled');
 INSERT INTO templates(id,name,type,subject,body,is_default) VALUES
  (1,'Synthetic stored wrapper','campaign','','<html><body><header>WRAPPER-STORED</header>{{ template "content" . }}<footer>STORED-END</footer></body></html>',true),
  (2,'Synthetic override wrapper','campaign','','<html><body><header>WRAPPER-OVERRIDE</header>{{ template "content" . }}<footer>OVERRIDE-END</footer></body></html>',false),

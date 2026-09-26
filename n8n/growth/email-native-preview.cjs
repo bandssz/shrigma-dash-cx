@@ -26,7 +26,7 @@ const ENP=(()=>{
   if(fields.some(k=>typeof k!=='string')||keys.some(k=>typeof k!=='string'||forbiddenKeys.has(k)))throw fail('unsupported_template_expression');
   return {payload,fields,keys,requires_subscriber:fields.some(f=>f.startsWith('.Subscriber.'))};
  }
- function prepare(r,deps,{purpose='illustrative',subscriber=null}={}){
+ function prepare(r,deps,{purpose='illustrative',subscriber=null,recipientEmail=RECIPIENT}={}){
   try{
    if(!['illustrative','compile','test'].includes(purpose))throw fail('preview_context_invalid');
    const parsed=parseDraft(r,deps),all=profile(r.marca),data={};
@@ -34,7 +34,8 @@ const ENP=(()=>{
    let sub={Name:'',UUID:''},subscriber_context='external';
    if(parsed.requires_subscriber){
     if(purpose==='test'){
-     if(!subscriber||subscriber.email!==RECIPIENT||typeof subscriber.name!=='string'||subscriber.name.length>255||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(subscriber.uuid||''))throw fail('recipient_identity_unavailable');
+     // recipientEmail is a server dependency from an eligible snapshot, never a draft field.
+     if(typeof recipientEmail!=='string'||!subscriber||subscriber.email!==recipientEmail||typeof subscriber.name!=='string'||subscriber.name.length>255||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(subscriber.uuid||''))throw fail('recipient_identity_unavailable');
      sub={Name:subscriber.name,UUID:subscriber.uuid};subscriber_context='fixed_recipient';
     }else{sub={Name:'Assinante fictício',UUID:'00000000-0000-4000-8000-000000000001'};subscriber_context='synthetic';}
    }

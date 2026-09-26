@@ -75,6 +75,9 @@ class ProbeGuards(unittest.TestCase):
         self.assertNotIn('absent@example.invalid',sql);self.assertNotIn('external@example.invalid',sql)
         self.assertIn("'blocklisted'",sql);self.assertIn("'unsubscribed'",sql);self.assertIn("'draft'",sql)
         self.assertNotIn("'scheduled'",sql);self.assertNotIn('crm_ab_',sql)
+        self.assertIn("ARRAY['campaigns:manage_all','lists:get_all','tx:send']",sql)
+        self.assertIn("'api',2,'enabled'",sql)
+        self.assertNotIn("ARRAY['*']",sql)
 
     def test_html_url_extraction_decodes_attributes_without_fetching(self):
         self.assertEqual(probe.Links('<a href="http://127.0.0.1:9/link/x?a=1&amp;b=2">x</a><img src="http://127.0.0.1:9/campaign/x">').urls,

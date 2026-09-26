@@ -195,6 +195,10 @@ body[data-panel="growth"] .draft-create-options .btn[aria-pressed="true"]::after
 body[data-panel="growth"] .draft-server-actions,
 body[data-panel="growth"] .draft-actions{align-items:center;gap:8px}
 body[data-panel="growth"] .draft-save-status{flex-basis:100%;font-size:12px;color:var(--mudo)}
+body[data-panel="growth"] .draft-test-recipient>label{display:grid;gap:4px;flex:1 1 240px;max-width:420px;font-size:12px}
+body[data-panel="growth"] .draft-test-recipient input{min-height:36px;width:100%}
+body[data-panel="growth"] #d-email-test-confirm label{display:grid;gap:6px;max-width:420px}
+body[data-panel="growth"] #d-email-test-confirm li{padding:8px 0;overflow-wrap:anywhere}
 body[data-panel="growth"] .draft-editor-more>summary{cursor:pointer;font-size:12px;color:var(--mudo);padding:8px 0}
 body[data-panel="growth"] .draft-editor-more>div{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
 body[data-panel="growth"] #d-editor-change{border:1px solid var(--crm-accent-border);scroll-margin:24px}
