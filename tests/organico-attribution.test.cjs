@@ -102,12 +102,12 @@ test('troca de modelo mantém o foco e altera a leitura sem chamada externa',()=
  el.buttons[0].onclick();assert.match(el.innerHTML,/<strong>Último clique estrito/);
 });
 
-test('resumos diários dos outros canais preservam totais e não fingem UTMs desconhecidas no detalhe',()=>{
+test('resumos diários dos outros canais preservam totais nos dados, ficam fora da tela e não fingem UTMs no detalhe',()=>{
  const v=OA.select(fixture({daily:[row(),row({classification:'crm',detail_level:'channel_summary',rule_reason:'resumo_diario_canal',utm_source:null,utm_medium:null,utm_campaign:null,pedidos:12,receita_liquida:1000})]}),'aristo','2026-09-19','2026-09-19');
  assert.equal(group(v,'crm').pedidos,12);assert.equal(group(v,'crm').receita,1000);
  assert.equal(v.rows.length,2);assert.equal(v.detailRows.length,1);
  const html=OA.markup(v),detail=html.split('Conferir UTMs e regra de classificação')[1];
- assert.match(html,/resumos por dia, marca e modelo/);
+ assert.doesNotMatch(html,/data-org-group="crm"/);
  assert.doesNotMatch(detail,/source: não informado/);assert.doesNotMatch(detail,/resumo_diario_canal/);
 });
 
@@ -119,4 +119,11 @@ test('regra v2: padrão antigo aparece como bio/story com etiqueta; balde legado
  assert.ok(!/Social legado/.test(html));assert.equal(v.malformed,false);
  const velho=OA.select(fixture({daily:[row({classification:'legado_ambiguo'})]}),'aristo','2026-09-19','2026-09-19');
  assert.equal(velho.malformed,true,'payload antigo não é somado em silêncio');
+});
+
+test('painel do orgânico mostra só orgânico: mídia paga, CRM e sem classificação não aparecem',()=>{
+ const v=OA.select(fixture(),'aristo','2026-09-19','2026-09-19'),html=OA.markup(v);
+ for(const k of ['editorial','bio','automacao_dm'])assert.match(html,new RegExp(`data-org-group="${k}"`));
+ for(const k of ['midia_paga','crm','nao_classificado'])assert.ok(!html.includes(`data-org-group="${k}"`),k);
+ assert.ok(!/Mídia paga|Outros canais/.test(html));
 });

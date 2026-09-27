@@ -18,6 +18,7 @@ const OA=(()=>{
   social_antigo_sem_superficie:'Link social antigo sem superfície',
   medium_ou_source_paid_explicito:'UTM declara mídia paga',canal_crm_do_ledger:'Canal CRM registrado na jornada',modelo_conhecido_sem_toque:'Modelo conhecido sem toque não direto',
   toque_sem_utm_de_canal:'Visita sem UTM de canal',combinacao_sem_regra_comprovada:'Combinação sem regra comprovada'};
+ const ORGANICO=['editorial','bio','automacao_dm'],FORA=['midia_paga','crm','nao_classificado'];
  const keys=Object.keys(GROUPS),date=v=>String(v||'').slice(0,10);
  const brand=v=>({aristocrata:'aristo',fishermans:'fish'}[v]||v);
  const esc=v=>String(v??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
@@ -55,12 +56,13 @@ const OA=(()=>{
   const groups=keys.map(k=>{const rr=rows.filter(r=>r.classification===k);
    return {key:k,...GROUPS[k],rows:rr,pedidos:rr.length?sum(rr,'pedidos',count):complete&&!malformed?0:null,
     receita:rr.length?sum(rr,'receita_liquida'):complete&&!malformed?0:null};});
-  return {available:true,model:m,ini,fim,brands:bs,rows,detailRows:rows.filter(r=>r.detail_level==='utm'),quality,coverage,complete,malformed,groups,
+  return {available:true,model:m,ini,fim,brands:bs,rows,detailRows:rows.filter(r=>r.detail_level==='utm'&&!FORA.includes(r.classification)),quality,coverage,complete,malformed,groups,
    rule:p.rule_version||null,assistanceAvailable:p.assistance_available===true,rawAvailable:p.utm_raw_available===true};
  }
  function tableGroups(v,kk){
   return `<div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Origem classificada</th><th class="num">Pedidos</th><th class="num">Receita líquida</th><th>Como ler</th></tr></thead><tbody>${v.groups.filter(g=>kk.includes(g.key)).map(g=>`<tr data-org-group="${g.key}"><td><strong>${esc(g.name)}</strong></td><td class="num tabn">${nf(g.pedidos)}</td><td class="num tabn">${money(g.receita)}</td><td class="mini">${esc(g.note)}</td></tr>`).join('')}</tbody></table></div>`;
  }
+ // Painel do orgânico mostra só orgânico: mídia paga, CRM e sem classificação ficam fora da tela (os totais seguem no payload e em select()).
  function markup(v){
   const title='<div class="painel-cab"><h2>Conversões por UTM · Shopify</h2><span class="mini">Receita líquida · por pedido</span></div>';
   if(!v.available)return title+`<div class="nota" role="status">${v.reason==='filter'?'Marca ou período inválido para esta leitura.':'A atribuição por pedido está indisponível nesta consulta. Os dados históricos abaixo usam outra projeção e não substituem esta leitura.'}</div>`;
@@ -68,9 +70,8 @@ const OA=(()=>{
    <div class="nota"><strong>${esc(MODELS[v.model])} · janela de 30 dias.</strong> Compra pela data de Brasília. Pedidos pagos elegíveis em reais, sem testes/cancelamentos, com valor líquido de reembolsos. O crédito é exclusivo por pedido e modelo; os dois modelos não se somam. Atribuição não comprova venda causada pelo conteúdo.</div>
    ${!v.complete?'<div class="nota" role="status"><strong>Cobertura parcial no período.</strong> Os valores existentes são parciais; grupos sem dados ficam indisponíveis. Confira os dias cobertos por marca.</div>':''}
    ${v.malformed?'<div class="nota" role="status"><strong>Há linhas com valor ou classificação inválida.</strong> A conciliação está incompleta nesta leitura.</div>':''}
-   ${tableGroups(v,['editorial','bio','automacao_dm'])}
-   <div class="nota">“Zero” significa nenhum vencedor nessa categoria entre os pedidos conhecidos e dias cobertos. Pedidos com origem desconhecida continuam separados abaixo. Bio não identifica um post; campanha ou data no link não comprova qual peça levou à compra.</div>
-   <details><summary>Outros canais para conciliação</summary>${tableGroups(v,['midia_paga','crm','nao_classificado'])}<div class="nota">Estes canais são resumos por dia, marca e modelo; suas UTMs individuais não são carregadas neste painel. CRM pode aparecer também no Growth. Cupom de influenciador e assistência são perspectivas distintas. Venda nativa do TikTok Shop vem de outra fonte. Não somar novamente essas receitas entre abas.</div></details>
+   ${tableGroups(v,ORGANICO)}
+   <div class="nota">“Zero” significa nenhum vencedor nessa categoria entre os pedidos conhecidos e dias cobertos. Bio não identifica um post; campanha ou data no link não comprova qual peça levou à compra.</div>
    <div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Marca</th><th>Dias cobertos</th><th class="num">Pedidos elegíveis</th><th class="num">Origem desconhecida¹</th><th class="num">Jornada pendente / parcial</th><th>Coleta dos dias cobertos</th></tr></thead><tbody>${v.coverage.map(c=>`<tr><td>${esc(BRANDS[c.marca])}</td><td>${nf(c.covered)} de ${nf(c.expected)}</td><td class="num tabn">${nf(c.paid)}</td><td class="num tabn">${nf(c.unknown)}</td><td class="num tabn">${nf(c.pending)} / ${nf(c.partial)}</td><td class="mini">Mais antiga: ${esc(stamp(c.oldest))}<br>Mais recente: ${esc(stamp(c.latest))}</td></tr>`).join('')}</tbody></table></div>
    <div class="nota">¹ ${v.model==='last_click'?'Última sessão não confirmada':'Última origem não direta não confirmada'}: esses pedidos não recebem crédito neste modelo. Horário da coleta não é horário da compra ou da abertura desta página. ${!v.assistanceAvailable?'Assistências de Orgânico ainda não estão disponíveis nesta fonte.':''}</div>
    <details><summary>Conferir UTMs e regra de classificação</summary><div class="nota">Regra: ${esc(v.rule||'versão não informada')}. ${v.rawAvailable?'Valores fornecidos pela fonte.':'UTMs registradas no ledger, já normalizadas pelo coletor; não são uma cópia do texto original do link.'} Sem vínculo comprovado com post/story, a peça permanece desconhecida.</div>
