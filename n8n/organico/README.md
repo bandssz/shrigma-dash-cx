@@ -46,22 +46,29 @@ coverage: [marca, dia, checked_at]
 
 `model` é `last_click` ou `last_non_direct`. São alternativas: selecionar um antes de somar. `daily` inclui outros canais para conciliar a base conhecida; somente `editorial`, `bio` e `automacao_dm` são recortes identificados da frente, sempre separados. O payload não contém IDs individuais de pedido.
 
-O payload conserva detalhes UTM das classes `editorial`, `bio`, `automacao_dm` e `legado_ambiguo`, com `detail_level=utm`. Mídia paga, CRM e não classificado são resumidos por dia/marca/modelo/classe, com `detail_level=channel_summary`, motivo `resumo_diario_canal`, UTMs/rede/superfície nulos, `utm_provenance=channel_summary` e `piece_status=nao_aplicavel_resumo`. Esses nulos indicam detalhe deliberadamente não transmitido, não ausência na fonte. Os totais continuam exatos e as views retêm todo o detalhe para auditoria. A tabela de UTMs deve filtrar `detail_level=utm`; a conciliação inclui ambos os níveis, sem somar modelos.
+O payload conserva detalhes UTM das classes `editorial`, `bio` e `automacao_dm`, com `detail_level=utm`. Mídia paga, CRM e não classificado são resumidos por dia/marca/modelo/classe, com `detail_level=channel_summary`, motivo `resumo_diario_canal`, UTMs/rede/superfície nulos, `utm_provenance=channel_summary` e `piece_status=nao_aplicavel_resumo`. Esses nulos indicam detalhe deliberadamente não transmitido, não ausência na fonte. Os totais continuam exatos e as views retêm todo o detalhe para auditoria. A tabela de UTMs deve filtrar `detail_level=utm`; a conciliação inclui ambos os níveis, sem somar modelos.
 
 `payload-function.sql` contém exatamente a definição da função presente no SQL completo. Após instalar os objetos, usar esse arquivo para substituir apenas a função, preservando as três views e os dados. O teste prova igualdade dos totais por dia/marca/modelo/classe e igualdade de todos os detalhes UTM transmitidos com a view integral, além da identidade entre os dois trechos de função.
 
-## Regras v1
+## Regras v2 (27/09/2026, `organico-utm-20260927-v2`)
 
-| Evidência | Classificação | Superfície / limite |
+| Evidência | Classificação | Motivo (`rule_reason`) |
 |---|---|---|
-| `instagram_social/story` | `editorial` | story; controle fornecido, sem prova de peça exata ou incremento causal |
-| `instagram_social/linktree` | `bio` | Instagram/bio; nenhuma inferência de post |
-| `instagram_social/dm`, `instagram/dm`, `instagram/dm-automation` | `automacao_dm` | dm; aliases documentados preservados |
-| Instagram/Linktree/IG/IGShopping/Facebook + `social` | `legado_ambiguo` | sem crédito editorial presumido; paid anterior não é recuperado pelo vencedor |
-| Medium explicitamente paid/cpc/ppc/cpm/paid_social/paid-social/paid_search/display/ads ou source explícito de Ads | `midia_paga` | precede regras sociais; fora de editorial |
-| `winner.channel=email/whatsapp` | `crm` | preserva origem; não duplica receita CRM |
-| Outras combinações ou toque sem UTMs | `nao_classificado` | motivo explícito, sem adivinhar canal |
-| Modelo conhecido com winner nulo | `nao_classificado` | `modelo_conhecido_sem_toque`; não declarar desconhecido nem inferir direto |
+| Medium explicitamente paid/cpc/ppc/cpm/paid_social/paid-social/paid_search/display/ads ou source explícito de Ads | `midia_paga` | `medium_ou_source_paid_explicito` |
+| Parâmetros dinâmicos da Meta: medium de placement (`instagram_*`, `facebook_*`, `messenger_*`, `audience_network_*`, `whatsapp_*`, `others`) com source `ig/fb/facebook/instagram/an/msg/wa`; source `metaads` ou `{{site_source_name}}`; ou ID de anúncio da Meta (`120…`) no content | `midia_paga` | `anuncio_meta_parametros_dinamicos` |
+| `instagram_social/story` | `editorial` | `controle_utm_instagram_story` |
+| `instagram/social` com content `story` | `editorial` | `story_padrao_antigo` |
+| `instagram_social/linktree` | `bio` | `controle_utm_instagram_linktree` |
+| `ig/social` com content `link_in_bio` (UTM que o Instagram acrescenta sozinho ao link da bio) | `bio` | `bio_link_automatico_instagram` |
+| `linktree/social` | `bio` | `bio_linktree_padrao_antigo` |
+| `instagram_social/dm`, `instagram/dm`, `instagram/dm-automation` | `automacao_dm` | `controle_utm_ou_alias_dm_documentado` |
+| `winner.channel=email/whatsapp` | `crm` | `canal_crm_do_ledger` |
+| `igshopping/social` (tag de produto; pode incluir anúncio de catálogo) | `nao_classificado` | `tag_produto_instagram` |
+| Outro `*/social` sem superfície | `nao_classificado` | `social_antigo_sem_superficie` |
+| Modelo conhecido com winner nulo | `nao_classificado` | `modelo_conhecido_sem_toque` |
+| Toque sem UTM / outras combinações | `nao_classificado` | `toque_sem_utm_de_canal` / `combinacao_sem_regra_comprovada` |
+
+A classe `legado_ambiguo` da v1 deixou de existir. Os pedidos dela foram para Bio, Story ou "Sem classificação", sem mudar o total por marca e modelo. Na v1, os anúncios da Meta caíam em `nao_classificado` porque a UTM deles não declara `paid`.
 
 Winner nulo é esperado em `last_non_direct` quando a jornada está completa e não há toque não direto. Flags `strict_known=false` e `non_direct_known=false` não produzem crédito diário. População sem cobertura também não produz crédito: a view existente exige cobertura do dia. Qualidade/cobertura permanecem visíveis sem inventar porcentagem de completude global.
 

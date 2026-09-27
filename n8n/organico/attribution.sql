@@ -11,6 +11,7 @@ WITH observed AS (
    o.winner->>'campaign' AS utm_campaign,o.winner->>'content' AS utm_content,o.winner->>'term' AS utm_term,
    lower(btrim(coalesce(o.winner->>'source',''))) AS source_norm,
    lower(btrim(coalesce(o.winner->>'medium',''))) AS medium_norm,
+   lower(btrim(coalesce(o.winner->>'content',''))) AS content_norm,
    o.winner->>'channel' AS winner_channel,
    (o.winner IS NULL OR o.winner='null'::jsonb) AS sem_toque
  FROM public.crm_attribution_order_model_v2 o
@@ -26,27 +27,41 @@ WITH observed AS (
  CASE
    WHEN medium_norm IN ('paid','cpc','ppc','cpm','paid_social','paid-social','paid_search','display','ads')
      OR source_norm IN ('facebook_ads','instagram_ads','meta_ads','google_ads','googleads','tiktok_ads','fb_ads','ig_ads') THEN 'midia_paga'
+   -- Meta Ads (v2): parâmetros dinâmicos do anúncio. Placement ({{placement}}) só existe em link de anúncio,
+   -- e o ID numérico de anúncio/conjunto/campanha da Meta (120…) no content também.
+   WHEN source_norm IN ('metaads','{{site_source_name}}')
+     OR (source_norm IN ('ig','fb','facebook','instagram','an','msg','wa')
+         AND (medium_norm ~ '^(instagram|facebook|messenger|audience_network|an|whatsapp)_' OR medium_norm='others'))
+     OR content_norm ~ '^120[0-9]{12,}$' THEN 'midia_paga'
    WHEN source_norm='instagram_social' AND medium_norm='story' THEN 'editorial'
+   WHEN source_norm='instagram' AND medium_norm='social' AND content_norm='story' THEN 'editorial'
    WHEN source_norm='instagram_social' AND medium_norm='linktree' THEN 'bio'
+   WHEN source_norm='ig' AND medium_norm='social' AND content_norm='link_in_bio' THEN 'bio'
+   WHEN source_norm='linktree' AND medium_norm='social' THEN 'bio'
    WHEN source_norm IN ('instagram_social','instagram') AND medium_norm IN ('dm','dm-automation') THEN 'automacao_dm'
-   WHEN source_norm IN ('instagram','linktree','ig','igshopping','facebook') AND medium_norm='social' THEN 'legado_ambiguo'
    WHEN winner_channel IN ('email','whatsapp') THEN 'crm'
    ELSE 'nao_classificado'
  END AS classification
  FROM observed o
 )
 SELECT marca,order_id,dia,model,'shopify'::text AS source_system,'BRL'::text AS currency,
- classification,'organico-utm-20260919-v1'::text AS rule_version,
- CASE classification
-   WHEN 'editorial' THEN 'controle_utm_instagram_story'
-   WHEN 'bio' THEN 'controle_utm_instagram_linktree'
-   WHEN 'automacao_dm' THEN 'controle_utm_ou_alias_dm_documentado'
-   WHEN 'legado_ambiguo' THEN 'social_legado_sem_distincao_paid'
-   WHEN 'midia_paga' THEN 'medium_ou_source_paid_explicito'
-   WHEN 'crm' THEN 'canal_crm_do_ledger'
-   ELSE CASE WHEN sem_toque THEN 'modelo_conhecido_sem_toque'
-             WHEN source_norm='' AND medium_norm='' THEN 'toque_sem_utm_de_canal'
-             ELSE 'combinacao_sem_regra_comprovada' END
+ classification,'organico-utm-20260927-v2'::text AS rule_version,
+ CASE
+   WHEN classification='editorial' AND source_norm='instagram' THEN 'story_padrao_antigo'
+   WHEN classification='editorial' THEN 'controle_utm_instagram_story'
+   WHEN classification='bio' AND source_norm='ig' THEN 'bio_link_automatico_instagram'
+   WHEN classification='bio' AND source_norm='linktree' THEN 'bio_linktree_padrao_antigo'
+   WHEN classification='bio' THEN 'controle_utm_instagram_linktree'
+   WHEN classification='automacao_dm' THEN 'controle_utm_ou_alias_dm_documentado'
+   WHEN classification='midia_paga' AND (medium_norm IN ('paid','cpc','ppc','cpm','paid_social','paid-social','paid_search','display','ads')
+     OR source_norm IN ('facebook_ads','instagram_ads','meta_ads','google_ads','googleads','tiktok_ads','fb_ads','ig_ads')) THEN 'medium_ou_source_paid_explicito'
+   WHEN classification='midia_paga' THEN 'anuncio_meta_parametros_dinamicos'
+   WHEN classification='crm' THEN 'canal_crm_do_ledger'
+   WHEN sem_toque THEN 'modelo_conhecido_sem_toque'
+   WHEN source_norm='igshopping' AND medium_norm='social' THEN 'tag_produto_instagram'
+   WHEN medium_norm='social' THEN 'social_antigo_sem_superficie'
+   WHEN source_norm='' AND medium_norm='' THEN 'toque_sem_utm_de_canal'
+   ELSE 'combinacao_sem_regra_comprovada'
  END AS rule_reason,
  CASE WHEN source_norm IN ('instagram_social','instagram','linktree','ig','igshopping','instagram_ads','ig_ads') THEN 'instagram'
       WHEN source_norm IN ('facebook','facebook_ads','fb_ads') THEN 'facebook'
@@ -94,7 +109,7 @@ SET search_path=pg_catalog,public AS $function$
 BEGIN
  IF p_ini IS NULL OR p_fim IS NULL OR p_ini>p_fim THEN RAISE EXCEPTION 'ORGANICO_WINDOW_INVALID'; END IF;
  RETURN jsonb_build_object(
-  'schema_version',1,'rule_version','organico-utm-20260919-v1','default_model','last_click',
+  'schema_version',1,'rule_version','organico-utm-20260927-v2','default_model','last_click',
   'window_days',30,'source_system','shopify','currency','BRL',
   'utm_raw_available',false,'assistance_available',false,'piece_identity_available',false,
   'janela',jsonb_build_object('ini',p_ini,'fim',p_fim),'gerado_em',now(),
@@ -102,13 +117,13 @@ BEGIN
     WITH scoped AS MATERIALIZED (
       SELECT * FROM public.crm_organico_attribution_daily_v2 WHERE dia BETWEEN p_ini AND p_fim
     ), display_rows AS (
-      -- UTM details belong to the organic/DM/ambiguous lenses. Other channels
+      -- UTM details belong to the organic/DM lenses. Other channels
       -- retain their exact daily totals without exporting every campaign UTM.
       SELECT d.*,'utm'::text AS detail_level FROM scoped d
-      WHERE classification IN ('editorial','bio','automacao_dm','legado_ambiguo')
+      WHERE classification IN ('editorial','bio','automacao_dm')
       UNION ALL
       SELECT marca,dia,model,'shopify'::text AS source_system,'BRL'::text AS currency,
-        classification,'organico-utm-20260919-v1'::text AS rule_version,
+        classification,'organico-utm-20260927-v2'::text AS rule_version,
         'resumo_diario_canal'::text AS rule_reason,
         NULL::text AS rede,NULL::text AS superficie,
         NULL::text AS utm_source,NULL::text AS utm_medium,NULL::text AS utm_campaign,

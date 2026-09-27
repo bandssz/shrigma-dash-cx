@@ -20,9 +20,9 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
   await db.exec(projection);await db.exec(projection); // repeatable additive installation
   await db.query(`INSERT INTO crm_attribution_coverage_v2 VALUES
    ('aristo','2026-09-19','2026-09-19T18:00:00Z','fixture'),('fish','2026-09-19','2026-09-19T17:00:00Z','fixture')`);
-  const visit=(source,medium,campaign='20260919_Campanha',at='2026-09-19T12:00:00Z')=>({occurredAt:at,source:'direct',referrerUrl:null,utmParameters:{source,medium,campaign,content:'',term:''}});
+  const visit=(source,medium,campaign='20260919_Campanha',at='2026-09-19T12:00:00Z',content='')=>({occurredAt:at,source:'direct',referrerUrl:null,utmParameters:{source,medium,campaign,content,term:''}});
   async function insert(id,source,medium,opt={}){
-   const last=opt.last===undefined?visit(source,medium):opt.last,previous=opt.previous||[];
+   const last=opt.last===undefined?visit(source,medium,undefined,undefined,opt.content||''):opt.last,previous=opt.previous||[];
    const o={_marca:opt.brand||'aristo',id:`gid://shopify/Order/${id}`,name:'#synthetic',createdAt:opt.createdAt||'2026-09-19T15:00:00Z',updatedAt:'2026-09-19T16:00:00Z',test:opt.test||false,
     cancelledAt:opt.cancelled?'2026-09-19T16:00:00Z':null,displayFinancialStatus:opt.financial||'PAID',
     netPaymentSet:{shopMoney:{amount:String(opt.amount??100),currencyCode:opt.currency||'BRL'}},
@@ -44,11 +44,27 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
   await insert(21,'instagram_social','story',{amount:180,last:visit('instagram_social','story','outside','2026-08-19T10:00:00Z')});
   await insert(22,'instagram_social','story',{amount:190,createdAt:'2026-09-18T15:00:00Z',last:visit('instagram_social','story','uncovered','2026-09-18T12:00:00Z')});
   await insert(1,'instagram_social','story',{amount:200,brand:'fish',keepLedgerCase:true});
+  // Regra v2: padrões antigos reclassificados, Meta Ads pelos parâmetros dinâmicos, tag de produto fora do orgânico.
+  await insert(23,'ig','social',{amount:25,content:'link_in_bio'});
+  await insert(24,'instagram','social',{amount:35,content:'story'});
+  await insert(25,'IGShopping','Social',{amount:45,content:'facebook_ua'});
+  await insert(26,'ig','instagram_reels',{amount:55,content:'120249926604560253'});
+  await insert(27,'fb','facebook_mobile_feed',{amount:65});
+  await insert(28,'metaads','[ad-025.2] teste',{amount:75});
+  await insert(29,'[ad-072.2][multifilamento]','h1',{amount:85,content:'120250605677560253'});
+  await insert(30,'instagram','social',{amount:95,content:'amazonica'});
+  await insert(31,'facebook','',{amount:105});
   const rows=(await db.query('SELECT * FROM crm_organico_attribution_order_v2')).rows;
   const find=(id,model='last_click',marca='aristo')=>rows.find(r=>r.order_id===`gid://shopify/Order/${id}`&&r.model===model&&r.marca===marca);
-  for(const [id,expected] of [[1,'editorial'],[2,'bio'],[3,'automacao_dm'],[4,'automacao_dm'],[5,'legado_ambiguo'],[6,'legado_ambiguo'],[7,'midia_paga'],[8,'midia_paga'],[9,'midia_paga'],[10,'crm'],[11,'nao_classificado']])assert.equal(find(id).classification,expected,`classification ${id}`);
+  for(const [id,expected] of [[1,'editorial'],[2,'bio'],[3,'automacao_dm'],[4,'automacao_dm'],[5,'nao_classificado'],[6,'bio'],[23,'bio'],[24,'editorial'],[25,'nao_classificado'],[26,'midia_paga'],[27,'midia_paga'],[28,'midia_paga'],[29,'midia_paga'],[30,'nao_classificado'],[31,'nao_classificado'],[7,'midia_paga'],[8,'midia_paga'],[9,'midia_paga'],[10,'crm'],[11,'nao_classificado']])assert.equal(find(id).classification,expected,`classification ${id}`);
   assert.equal(find(2).rede,'instagram');assert.equal(find(2).superficie,'bio');assert.equal(find(2).piece_status,'nao_identificada');
   assert.equal(find(12,'last_non_direct').rule_reason,'modelo_conhecido_sem_toque');
+  for(const [id,reason] of [[5,'social_antigo_sem_superficie'],[6,'bio_linktree_padrao_antigo'],[23,'bio_link_automatico_instagram'],[24,'story_padrao_antigo'],[25,'tag_produto_instagram'],
+   [26,'anuncio_meta_parametros_dinamicos'],[28,'anuncio_meta_parametros_dinamicos'],[7,'medium_ou_source_paid_explicito'],[1,'controle_utm_instagram_story'],[2,'controle_utm_instagram_linktree']])
+   assert.equal(find(id).rule_reason,reason,`reason ${id}`);
+  assert.equal(find(23).superficie,'bio');assert.equal(find(23).rede,'instagram');assert.equal(find(24).superficie,'story');
+  assert.equal(rows.some(r=>r.classification==='legado_ambiguo'),false,'balde legado removido');
+  assert.equal(new Set(rows.map(r=>r.rule_version)).size,1);assert.equal(rows[0].rule_version,'organico-utm-20260927-v2');
   assert.equal(find(13).classification,'nao_classificado');assert.equal(find(13,'last_non_direct').classification,'editorial');
   assert.equal(Number(find(16).receita_liquida),65,'partially refunded retains net amount');
   for(const id of [14,15,17,18,19,20,22])assert.equal(rows.some(r=>r.order_id===`gid://shopify/Order/${id}`),false,`ineligible/unknown/uncovered ${id}`);
@@ -64,9 +80,9 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
   const payload=(await db.query("SELECT crm_organico_attribution_payload_v2('2026-09-19','2026-09-19') payload")).rows[0].payload;
   assert.equal(payload.default_model,'last_click');assert.equal(payload.window_days,30);assert.equal(payload.assistance_available,false);assert.equal(payload.utm_raw_available,false);
   assert.equal(payload.coverage.length,2);assert.equal(payload.quality.length,2,'quality not multiplied by model/UTM');
-  const aristo=payload.quality.find(q=>q.marca==='aristo');assert.equal(aristo.pedidos_lidos,21);assert.equal(aristo.pagos_elegiveis,17);assert.equal(aristo.ultima_sessao_desconhecida,3);assert.equal(aristo.origem_nao_direta_desconhecida,2);
+  const aristo=payload.quality.find(q=>q.marca==='aristo');assert.equal(aristo.pedidos_lidos,30);assert.equal(aristo.pagos_elegiveis,26);assert.equal(aristo.ultima_sessao_desconhecida,3);assert.equal(aristo.origem_nao_direta_desconhecida,2);
   assert.equal(payload.daily.some(r=>r.order_id),false,'API does not expose order identifiers');
-  const detailClasses=['editorial','bio','automacao_dm','legado_ambiguo'];
+  const detailClasses=['editorial','bio','automacao_dm'];
   for(const row of payload.daily){
    if(detailClasses.includes(row.classification))assert.equal(row.detail_level,'utm');
    else{
@@ -77,7 +93,7 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
   }
   const summaries=payload.daily.filter(r=>r.detail_level==='channel_summary');
   assert.equal(new Set(summaries.map(r=>[r.marca,r.dia,r.model,r.classification].join('|'))).size,summaries.length);
-  assert.equal(summaries.find(r=>r.marca==='aristo'&&r.model==='last_click'&&r.classification==='midia_paga').pedidos,3,'multiple paid UTMs retain total in one channel row');
+  assert.equal(summaries.find(r=>r.marca==='aristo'&&r.model==='last_click'&&r.classification==='midia_paga').pedidos,7,'multiple paid UTMs retain total in one channel row');
   const mismatch=(await db.query(`WITH p AS (
    SELECT marca,dia,model,classification,sum(pedidos) pedidos,sum(receita_liquida) receita
    FROM jsonb_to_recordset(crm_organico_attribution_payload_v2('2026-09-19','2026-09-19')->'daily')
@@ -92,7 +108,7 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
     SELECT x-'detail_level' row FROM jsonb_array_elements(crm_organico_attribution_payload_v2('2026-09-19','2026-09-19')->'daily') x
     WHERE x->>'detail_level'='utm'), v AS (
     SELECT to_jsonb(d) row FROM crm_organico_attribution_daily_v2 d WHERE dia='2026-09-19'
-      AND classification IN ('editorial','bio','automacao_dm','legado_ambiguo'))
+      AND classification IN ('editorial','bio','automacao_dm'))
     (SELECT * FROM p EXCEPT SELECT * FROM v) UNION ALL (SELECT * FROM v EXCEPT SELECT * FROM p)`)).rows;
   assert.deepEqual(detailMismatch,[],'organic UTM rows retain exact original details without conflation');
   const functionStart=projection.indexOf('CREATE OR REPLACE FUNCTION public.crm_organico_attribution_payload_v2(');
