@@ -14,11 +14,11 @@ async function fixture(t){
  await x.db.exec(fs.readFileSync(require.resolve('../n8n/growth/journey-graph-release.sql'),'utf8'));
  const provider=R.createReleaseProvider({query:x.query}),pool={connect:async()=>({query:x.query,release(){}})};let seq=1000;
  const sourceAdapter=createSourceAdapter({query:x.query,purchaseFor:async a=>({version:'journey_purchase_evidence_v1',source_ref:a.source_ref,subject_id:a.subject_id,brand:a.brand,complete:true,purchased:false,covered_from:a.occurred_at,covered_through:a.now,observed_at:a.now})});
- return {...x,provider,pool,sourceAdapter,async prepare(brand='fish'){
+ return {...x,provider,pool,sourceAdapter,async prepare(brand='fish',observed=false){
   const s=(await x.query('SELECT crm_graph_candidate.release_source_v1($1,$2) result',[brand,brand==='fish'?60:95])).rows[0].result;
-  const release=await provider.prepare('panel:synthetic',{request_id:id(seq++),brand,binding:s.binding,expected_snapshot:s.source_snapshot});
-  const catalog=R.bindCatalog(planning(s),[release]),graph=definition(brand,s.binding),source_ref=await x.capture(brand,id(seq++));
-  const settings={pool,catalogFor:async()=>copy(catalog),readSource:sourceAdapter.readSource},api=createGraphRuntime(settings),request=p=>({request_id:id(seq++),actor:'panel:synthetic',brand,...p});
+  const release=await provider.prepare('panel:synthetic',{request_id:id(seq++),brand,binding:s.binding,expected_snapshot:s.source_snapshot,...(observed?{purchase_policy:R.PURCHASE_POLICY.version}:{})});
+  const catalog=R.bindCatalog(observed?require('../n8n/growth/journey-graph-catalog.cjs').withObservedPurchase(planning(s),{observationPolicy:R.PURCHASE_POLICY.version}):planning(s),[release]),graph=definition(brand,s.binding),source_ref=await x.capture(brand,id(seq++));
+  const settings={pool,catalogFor:async()=>copy(catalog),readSource:async args=>{const p=await sourceAdapter.readSource(args);if(observed)p.facts['purchase.observed_for_cart']={value:false,complete:true,observed_at:p.observed_at};return p;}},api=createGraphRuntime(settings),request=p=>({request_id:id(seq++),actor:'panel:synthetic',brand,...p});
   return {s,release,catalog,graph,source_ref,settings,api,request,async atMessage(){let j=await api.create(request({definition:graph}));j=await api.publish(request({journey_id:j.journey_id,expected_version:j.version,confirm:'publicar'}));assert.equal(j.paused,true);await x.query('UPDATE crm_graph_candidate.control SET enabled=true');j=await api.pause(request({journey_id:j.journey_id,expected_version:j.version,paused:false,confirm:'retomar'}));let e=await api.enroll(request({journey_id:j.journey_id,expected_version:j.version,source_ref}));return api.step(request({entry_id:e.entry_id,expected_version:e.version}));}};
  }};
 }
@@ -63,4 +63,22 @@ test('materialization failure rolls back state and receipt before any intent; cu
  const bad=createGraphRuntime({...f.settings,readSource:async args=>{const p=await x.sourceAdapter.readSource(args);p.facts['cart.checkout_url'].value='https://oaristocrata.com/cart/synthetic';return p;}});
  await assert.rejects(bad.step(request),/GRAPH_RELEASE_CHECKOUT_INVALID/);assert.equal(await count(x,'intent'),0);assert.equal((await x.query('SELECT version FROM crm_graph_candidate.entry WHERE id=$1',[e.entry_id])).rows[0].version,e.version);assert.equal((await x.query('SELECT count(*)::int n FROM crm_graph_candidate.operation WHERE request_id=$1',[request.request_id])).rows[0].n,0);
  await x.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE list_id=17");const stopped=await f.api.step(request);assert.equal(stopped.kind,'stopped');assert.equal(stopped.reason,'consent_withdrawn');assert.equal(await count(x,'intent'),0);
+});
+
+
+test('observed release runs for both brands, blocks independent of conditions, and pins policy to existing entries',async t=>{
+ const x=await fixture(t);
+ for(const brand of ['fish','aristo']){
+  const f=await x.prepare(brand,true),e=await f.atMessage(),p=await f.settings.readSource({query:x.query,source_ref:f.source_ref,brand,trigger:'cart.abandoned',now:new Date().toISOString()});
+  assert.equal(f.release.material.version,R.OBSERVED_VERSION);assert.equal(G.validateGraph(f.graph,{catalog:f.catalog}).ok,true);
+  const simulate=facts=>G.simulate(f.graph,{catalog:f.catalog,now:p.observed_at,facts});assert.equal(simulate(p.facts).reason,'exit');
+  for(const mutate of [v=>delete v['purchase.observed_for_cart'],v=>v['purchase.observed_for_cart'].value=true,v=>v['purchase.observed_for_cart'].complete=false,v=>v['purchase.observed_for_cart'].observed_at=new Date(Date.parse(p.observed_at)-5001).toISOString(),v=>v['purchase.confirmed']={value:true,complete:true,observed_at:p.observed_at},v=>v['contact.email_allowed'].value=false]){const facts=copy(p.facts);mutate(facts);assert.equal(simulate(facts).reason,'blocked');assert.throws(()=>R.materialize(f.release.material,{...p,facts},{now:p.observed_at}),/UNCONFIRMED/);}
+  for(const mutate of [v=>delete v.messages[0].material.purchase_policy,v=>v.messages[0].material.purchase_policy.max_age_seconds=300,v=>v.messages[0].required_fields=['contact.email_allowed'],v=>v.fields.find(f=>f.key==='purchase.observed_for_cart').max_age_seconds=300]){const cat=copy(f.catalog);mutate(cat);assert.equal(G.validateGraph(f.graph,{catalog:cat}).ok,false);}
+  // Changing the current catalog to another policy cannot reinterpret an enrolled revision.
+  const legacy=await x.prepare(brand);f.catalog.messages[0]=legacy.catalog.messages[0];
+  const r=await f.api.step(f.request({entry_id:e.entry_id,expected_version:e.version}));assert.equal(r.kind,'message_intent');assert.equal(r.authorizes_send,false);
+  assert.equal((await x.query('SELECT release FROM crm_graph_candidate.intent WHERE entry_id=$1',[e.entry_id])).rows[0].release,'release_'+f.release.id);
+  const onlyObserved=copy(p.facts);delete onlyObserved['purchase.confirmed'];assert.equal(G.simulate(legacy.graph,{catalog:legacy.catalog,now:p.observed_at,facts:onlyObserved}).reason,'blocked');
+ }
+ assert.equal((await x.query('SELECT count(*)::int n FROM shrigma_email_dispatch')).rows[0].n,0);
 });

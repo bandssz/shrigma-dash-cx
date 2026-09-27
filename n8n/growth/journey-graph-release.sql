@@ -7,7 +7,7 @@ BEGIN
  CREATE TABLE crm_graph_candidate.message_release_v1(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),brand text NOT NULL CHECK(brand IN ('fish','aristo')),binding text NOT NULL,
   source_template_id integer NOT NULL,source_snapshot text NOT NULL CHECK(source_snapshot~'^snapshot_[a-f0-9]{48}$'),source jsonb NOT NULL,
-  material jsonb NOT NULL CHECK(material->>'version'='journey_graph_release_v1'),material_sha256 text NOT NULL CHECK(material_sha256~'^[a-f0-9]{64}$'),
+  material jsonb NOT NULL CHECK(material->>'version' IN ('journey_graph_release_v1','journey_graph_release_v2')),material_sha256 text NOT NULL CHECK(material_sha256~'^[a-f0-9]{64}$'),
   actor text NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(brand,binding,material_sha256));
  CREATE TABLE crm_graph_candidate.message_release_request_v1(
   request_id uuid PRIMARY KEY,actor text NOT NULL,payload jsonb NOT NULL,release_id uuid NOT NULL REFERENCES crm_graph_candidate.message_release_v1(id),created_at timestamptz NOT NULL DEFAULT clock_timestamp());
@@ -53,7 +53,8 @@ BEGIN
  CREATE FUNCTION crm_graph_candidate.release_prepare_v1(a text,p jsonb,expected jsonb,m jsonb) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public,crm_graph_candidate SET lock_timeout='3s' AS $fn$
  DECLARE rid uuid;tid integer;replay jsonb;actual jsonb;h text;
  BEGIN
-  IF a IS NULL OR a!~'^panel:.{1,194}$' OR jsonb_typeof(p) IS DISTINCT FROM 'object' OR p-ARRAY['request_id','brand','binding','expected_snapshot']<>'{}'::jsonb OR (SELECT count(*) FROM jsonb_object_keys(p))<>4
+  IF a IS NULL OR a!~'^panel:.{1,194}$' OR jsonb_typeof(p) IS DISTINCT FROM 'object' OR p-ARRAY['request_id','brand','binding','expected_snapshot','purchase_policy']<>'{}'::jsonb OR (SELECT count(*) FROM jsonb_object_keys(p))<>(CASE WHEN p?'purchase_policy' THEN 5 ELSE 4 END)
+   OR (p?'purchase_policy' AND p->>'purchase_policy' IS DISTINCT FROM 'cart_customer_order_observation_v1')
    OR p->>'brand' NOT IN ('fish','aristo') OR coalesce(p->>'binding','')!~'^email\.template\.[1-9][0-9]{0,8}$' OR coalesce(p->>'expected_snapshot','')!~'^snapshot_[a-f0-9]{48}$' OR coalesce(p->>'request_id','')!~'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$' THEN RAISE EXCEPTION 'GRAPH_RELEASE_REQUEST_INVALID';END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('graph-release-request:'||(p->>'request_id'),0));
   replay:=crm_graph_candidate.release_operation_v1(a,p);IF replay IS NOT NULL THEN RETURN replay;END IF;
@@ -64,7 +65,9 @@ BEGIN
   PERFORM 1 FROM public.shrigma_template_email_registry WHERE template_id=tid FOR SHARE;
   actual:=crm_graph_candidate.release_source_v1(p->>'brand',tid);
   IF actual IS DISTINCT FROM expected OR actual->>'source_snapshot' IS DISTINCT FROM p->>'expected_snapshot' THEN RAISE EXCEPTION 'GRAPH_RELEASE_SOURCE_CHANGED';END IF;
-  IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR octet_length(m::text)>300000 OR m->>'version' IS DISTINCT FROM 'journey_graph_release_v1' OR m->>'brand' IS DISTINCT FROM p->>'brand' OR m->>'binding' IS DISTINCT FROM p->>'binding' OR m->>'source_snapshot' IS DISTINCT FROM p->>'expected_snapshot' OR m->>'source_template_id' IS DISTINCT FROM tid::text OR m->'native' IS DISTINCT FROM actual->'native'
+  IF (p?'purchase_policy' AND (m->>'version' IS DISTINCT FROM 'journey_graph_release_v2' OR m->'purchase_policy' IS DISTINCT FROM '{"version":"cart_customer_order_observation_v1","field":"purchase.observed_for_cart","max_age_seconds":5}'::jsonb))
+   OR (NOT p?'purchase_policy' AND (m->>'version' IS DISTINCT FROM 'journey_graph_release_v1' OR m?'purchase_policy')) THEN RAISE EXCEPTION 'GRAPH_RELEASE_POLICY_INVALID';END IF;
+  IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR octet_length(m::text)>300000 OR m->>'brand' IS DISTINCT FROM p->>'brand' OR m->>'binding' IS DISTINCT FROM p->>'binding' OR m->>'source_snapshot' IS DISTINCT FROM p->>'expected_snapshot' OR m->>'source_template_id' IS DISTINCT FROM tid::text OR m->'native' IS DISTINCT FROM actual->'native'
    OR m->'readiness' IS DISTINCT FROM '{"snapshot_only":true,"native_cache_bound":false,"transport":false}'::jsonb OR jsonb_typeof(m->'variables') IS DISTINCT FROM 'object' OR jsonb_typeof(m->'required_fields') IS DISTINCT FROM 'array' OR jsonb_typeof(m->'required_item_fields') IS DISTINCT FROM 'array' OR m->'required_identity' IS DISTINCT FROM '["subject_id"]'::jsonb
    OR m#>>'{tracking,version}' IS DISTINCT FROM 'cart_email_utm_v1' OR m#>>'{tracking,source}' IS DISTINCT FROM 'email' OR m#>>'{tracking,medium}' IS DISTINCT FROM 'fluxo' OR m#>>'{tracking,campaign}' IS DISTINCT FROM (p->>'brand')||'-carrinho' OR m#>>'{tracking,content}' IS DISTINCT FROM 'carrinho-30min'
    THEN RAISE EXCEPTION 'GRAPH_RELEASE_MATERIAL_INVALID';END IF;

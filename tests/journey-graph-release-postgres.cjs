@@ -16,6 +16,11 @@ const assert=require('node:assert/strict'),{Pool}=require('pg'),R=require('../n8
   const latest=await f.provider.prepare(actor,await f.request());assert.notEqual(latest.id,both[0].id);assert.equal((await f.provider.read('fish',both[0].id)).material.native.subject,'Seu carrinho');
   await pool.query("CREATE FUNCTION crm_graph_candidate.receipt_fault() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic receipt failure';END$$;CREATE TRIGGER receipt_fault BEFORE INSERT ON crm_graph_candidate.message_release_request_v1 FOR EACH ROW EXECUTE FUNCTION crm_graph_candidate.receipt_fault();UPDATE templates SET subject='Another synthetic revision' WHERE id=60;");
   await assert.rejects(f.provider.prepare(actor,{...await f.request(),request_id:id(900)}),/synthetic receipt failure/);assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.message_release_v1')).rows[0].n,2);assert.equal((await pool.query('SELECT 1 ok')).rows[0].ok,1);
-  console.log(JSON.stringify({proof:'journey_graph_release_postgres_v1',concurrent_replay:true,content_dedup:true,source_lock_recheck:true,immutable_snapshot:true,receipt_failure_atomic:true,transport_calls:0}));
+  await pool.query('DROP TRIGGER receipt_fault ON crm_graph_candidate.message_release_request_v1');
+  const observedRequest={...await f.request(),purchase_policy:R.PURCHASE_POLICY.version};
+  const observed=await Promise.all([f.provider.prepare(actor,observedRequest),f.provider.prepare(actor,observedRequest)]);assert.equal(observed[0].id,observed[1].id);assert.equal(observed[0].material.version,R.OBSERVED_VERSION);
+  const {purchase_policy,...downgrade}=observedRequest;await assert.rejects(f.provider.prepare(actor,downgrade),/REPLAY_MISMATCH/);
+  const oldAfter=await f.provider.prepare(actor,await f.request());assert.notEqual(oldAfter.id,observed[0].id);assert.notEqual(oldAfter.material_sha256,observed[0].material_sha256);assert.equal(oldAfter.material.version,R.VERSION);
+  console.log(JSON.stringify({proof:'journey_graph_release_postgres_v1',concurrent_replay:true,content_dedup:true,source_lock_recheck:true,immutable_snapshot:true,receipt_failure_atomic:true,concurrent_observed_policy:true,policy_downgrade_rejected:true,transport_calls:0}));
  }finally{if(blocker){try{await blocker.query('ROLLBACK');}finally{blocker.release();}}await pool.end();}
 })().catch(e=>{console.error(e.code||e.message);process.exitCode=1;});

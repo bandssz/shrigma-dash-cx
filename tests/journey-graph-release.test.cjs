@@ -50,3 +50,14 @@ test('explicitly empty optional item text remains known; missing item keys are n
  const f=await setup(t),s=await f.source('fish');s.native.body=s.native.body.replace('<p>{{ .price }}', '<p>{{ if .variant }}{{ .variant }}{{ end }}{{ .price }}');const m=R.prepareMaterial(s),p=proof();p.facts['cart.items'].value[0].variant='';
  assert.equal(R.materialize(m,p,{now:T}).context.Tx.Data.items[0].variant,'');delete p.facts['cart.items'].value[0].variant;assert.throws(()=>R.materialize(m,p,{now:T}),/ITEM_FIELD_MISSING/);
 });
+
+
+test('observational policy has distinct immutable identity; changing policy on replay or forging request/material pair fails',async t=>{
+ const f=await setup(t),actor='panel:synthetic',p=await f.request(),old=await f.provider.prepare(actor,p),q={...await f.request(),purchase_policy:R.PURCHASE_POLICY.version},observed=await f.provider.prepare(actor,q);
+ assert.notEqual(old.id,observed.id);assert.notEqual(old.material_sha256,observed.material_sha256);assert.equal(old.material.version,R.VERSION);assert.equal(observed.material.version,R.OBSERVED_VERSION);assert.deepEqual(await f.provider.prepare(actor,q),observed);
+ await assert.rejects(f.provider.prepare(actor,{...p,purchase_policy:R.PURCHASE_POLICY.version}),/REPLAY_MISMATCH/);const {purchase_policy,...downgrade}=q;await assert.rejects(f.provider.prepare(actor,downgrade),/REPLAY_MISMATCH/);
+ const src=await f.source('fish'),pending=await f.request();
+ for(const [request,material]of [[pending,observed.material],[{...pending,purchase_policy:R.PURCHASE_POLICY.version},old.material],[{...pending,purchase_policy:R.PURCHASE_POLICY.version},{...observed.material,purchase_policy:null}]])await assert.rejects(f.query('SELECT crm_graph_candidate.release_prepare_v1($1,$2,$3,$4)',[actor,request,src,material]),/POLICY_INVALID/);
+ for(const value of [null,'unknown',{}])await assert.rejects(f.provider.prepare(actor,{...pending,purchase_policy:value}),/REQUEST_INVALID/);
+ assert.equal((await f.query('SELECT count(*)::int n FROM crm_graph_candidate.message_release_v1')).rows[0].n,2);
+});

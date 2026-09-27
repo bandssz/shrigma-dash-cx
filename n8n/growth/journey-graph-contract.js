@@ -33,12 +33,15 @@
  // or recipient values; the trusted runtime verifies its immutable release again.
  const MATERIAL_FIELDS={'contact.first_name':'string','cart.checkout_url':'string','cart.items':'cart_items','cart.total':'string'};
  const ITEM_FIELDS=['image','name','price','qty','quantity','title','variant'];
+ const PURCHASE_POLICY='cart_customer_order_observation_v1',OBSERVED_PURCHASE='purchase.observed_for_cart';
+ const purchaseField=d=>d?.version==='cart_email_material_v2'?OBSERVED_PURCHASE:'purchase.confirmed';
  function checkMaterialDescriptor(m){
-  const d=m.material;exact(d,['version','release_id','material_sha256','trigger','fields'],'catalog.message.material');
-  if(d.version!=='cart_email_material_v1'||!UUID.test(d.release_id)||!/^[a-f0-9]{64}$/.test(d.material_sha256)||d.trigger!=='cart.abandoned'||m.channel!=='email'||m.release!=='release_'+d.release_id)throw fail('GRAPH_MATERIAL','catalog.message.material','Revisão de mensagem incompatível.');
+  const d=m.material,observed=d?.version==='cart_email_material_v2';exact(d,['version','release_id','material_sha256','trigger','fields',...(observed?['purchase_policy']:[])],'catalog.message.material');
+  if(!['cart_email_material_v1','cart_email_material_v2'].includes(d.version)||!UUID.test(d.release_id)||!/^[a-f0-9]{64}$/.test(d.material_sha256)||d.trigger!=='cart.abandoned'||m.channel!=='email'||m.release!=='release_'+d.release_id)throw fail('GRAPH_MATERIAL','catalog.message.material','Revisão de mensagem incompatível.');
+  if(observed){exact(d.purchase_policy,['version','field','max_age_seconds'],'catalog.message.material.purchase_policy');if(d.purchase_policy.version!==PURCHASE_POLICY||d.purchase_policy.field!==OBSERVED_PURCHASE||d.purchase_policy.max_age_seconds!==5)throw fail('GRAPH_MATERIAL','catalog.message.material.purchase_policy','Conferência de pedidos incompatível.');}
   list(d.fields,4,'catalog.message.material.fields');const keys=new Set();
   for(const f of d.fields){exact(f,['key','type','max_age_seconds','item_fields'],'catalog.message.material.field');if(keys.has(f.key)||!Object.hasOwn(MATERIAL_FIELDS,f.key)||f.type!==MATERIAL_FIELDS[f.key]||f.max_age_seconds!==300)throw fail('GRAPH_MATERIAL','catalog.message.material.field','Material incompatível.');keys.add(f.key);list(f.item_fields,7,'catalog.message.material.item_fields');if(new Set(f.item_fields).size!==f.item_fields.length||f.item_fields.some(k=>!ITEM_FIELDS.includes(k))||f.type!=='cart_items'&&f.item_fields.length)throw fail('GRAPH_MATERIAL','catalog.message.material.item_fields','Campos de item incompatíveis.');}
-  if(!keys.has('cart.items')||!keys.has('cart.checkout_url')||!['purchase.confirmed','contact.email_allowed'].every(k=>m.required_fields.includes(k)))throw fail('GRAPH_MATERIAL','catalog.message.material','Requisitos da mensagem incompletos.');
+  if(!keys.has('cart.items')||!keys.has('cart.checkout_url')||![purchaseField(d),'contact.email_allowed'].every(k=>m.required_fields.includes(k)))throw fail('GRAPH_MATERIAL','catalog.message.material','Requisitos da mensagem incompletos.');
  }
  function checkCatalog(c,brand){
   json(c);exact(c,['version','brand','triggers','fields','messages'],'catalog');
@@ -50,7 +53,7 @@
   const triggers=unique(c.triggers,'key','catalog.triggers'),fields=unique(c.fields,'key','catalog.fields'),messages=unique(c.messages,'key','catalog.messages');
   for(const t of c.triggers)for(const k of t.fields)if(!fields.has(k))throw fail('GRAPH_FIELD','catalog.trigger.fields','Dado sem definição.');
   for(const m of c.messages)for(const k of m.required_fields)if(!fields.has(k))throw fail('GRAPH_FIELD','catalog.message.required_fields','Dado sem definição.');
-  for(const m of c.messages)if(m.material&&['purchase.confirmed','contact.email_allowed'].some(k=>fields.get(k)?.type!=='boolean'))throw fail('GRAPH_MATERIAL','catalog.message.material','Elegibilidade sem tipo confirmado.');
+  for(const m of c.messages)if(m.material){if([purchaseField(m.material),'contact.email_allowed'].some(k=>fields.get(k)?.type!=='boolean'))throw fail('GRAPH_MATERIAL','catalog.message.material','Elegibilidade sem tipo confirmado.');if(m.material.version==='cart_email_material_v2'&&fields.get(OBSERVED_PURCHASE)?.max_age_seconds!==5)throw fail('GRAPH_MATERIAL','catalog.message.material','Conferência de pedidos vencida.');}
   return {triggers,fields,messages};
  }
  function typed(v,type){if(type==='boolean')return typeof v==='boolean';if(type==='number')return typeof v==='number'&&Number.isFinite(v);if(type==='string')return typeof v==='string'&&v.length<=1024;if(type==='string_set')return Array.isArray(v)&&v.length<=100&&v.every(x=>typeof x==='string'&&x.length<=128)&&new Set(v).size===v.length;if(type==='timestamp'){try{instant(v,'value');return true;}catch(_){return false;}}return false;}
@@ -92,7 +95,8 @@
  function materialReasons(binding,facts,fields,now){
   if(!binding.material)return [];
   const reasons=[];
-  for(const [key,value]of [['purchase.confirmed',false],['contact.email_allowed',true]]){const r=readFact(key,facts,fields,now);if(!r.known)reasons.push(...r.reasons);else if(r.value!==value)reasons.push({field:key,reason:'ineligible'});}
+  if(binding.material.version==='cart_email_material_v2'&&facts['purchase.confirmed']?.value===true)reasons.push({field:'purchase.confirmed',reason:'ineligible'});
+  for(const [key,value]of [[purchaseField(binding.material),false],['contact.email_allowed',true]]){const r=readFact(key,facts,fields,now);if(!r.known)reasons.push(...r.reasons);else if(r.value!==value)reasons.push({field:key,reason:'ineligible'});}
   for(const f of binding.material.fields){
    const fact=facts[f.key],bad=reason=>reasons.push({field:f.key,reason});
    if(!object(fact)||Object.keys(fact).some(k=>!['value','observed_at','complete'].includes(k))||fact.complete!==true||!Object.hasOwn(fact,'value')){bad('missing_or_incomplete');continue;}

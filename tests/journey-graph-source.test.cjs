@@ -68,3 +68,15 @@ test('collector monetary parsing preserves explicit zero and refuses absent or i
  const code=patchNormalizer('return [Number(e.node.originalUnitPriceSet?.shopMoney?.amount || 0),Number(n.totalPriceSet?.shopMoney?.amount || 0)];');
  const result=new Function('e','n',code)({node:{originalUnitPriceSet:{shopMoney:{amount:null}}}},{totalPriceSet:{shopMoney:{amount:'0.00'}}});assert.deepEqual(result,[null,0]);assert.throws(()=>patchNormalizer('source changed'),/DRIFT/);assert.deepEqual(mapItems([{title:'Known',variante:''}]),[{name:'Known',title:'Known',variant:''}]);assert.ok(!Object.hasOwn(mapItems([{title:'Absent'}])[0],'variant'));
 });
+
+
+test('observed purchase is opt-in, identity-bound, complete, fresh, and never overrides a native positive',fixture(async x=>{
+ const ref=await x.capture(),policy='cart_customer_order_observation_v1';let mutate=()=>{};
+ const purchaseFor=async a=>{const p={version:'journey_purchase_observation_v1',brand:a.brand,source_ref:a.source_ref,subject_id:a.subject_id,purchased:null,complete:false,observation:{policy,found:false,brand:a.brand,source_ref:a.source_ref,subject_id:a.subject_id,occurred_at:a.occurred_at,check_at:a.now,shop_ref_hash:'a'.repeat(64),customer_ref_hash:'b'.repeat(64),checkout_ref_hash:'c'.repeat(64),enumerated:true,checkout_rechecked:true,head_rechecked:true}};mutate(p);return p;};
+ const api=createSourceAdapter({query:x.query,purchaseFor,observationPolicy:policy});
+ assert.equal((await x.read(ref,'fish',createSourceAdapter({query:x.query,purchaseFor}))).facts['purchase.observed_for_cart'],undefined);
+ const good=await x.read(ref,'fish',api);assert.equal(good.facts['purchase.observed_for_cart'].value,false);assert.equal(good.facts['purchase.confirmed'],undefined);
+ for(const change of [p=>p.observation.head_rechecked=false,p=>p.observation.checkout_rechecked=false,p=>p.observation.enumerated=false,p=>p.observation.brand='aristo',p=>p.observation.subject_id=id(999),p=>p.observation.source_ref=id(998),p=>p.observation.policy='changed',p=>p.observation.check_at=new Date(Date.parse(p.observation.check_at)-1).toISOString(),p=>p.observation.check_at=new Date(Date.parse(p.observation.check_at)+5001).toISOString(),p=>delete p.observation.customer_ref_hash]){mutate=change;assert.equal((await x.read(ref,'fish',api)).facts['purchase.observed_for_cart'],undefined);}
+ mutate=()=>{};await x.query("UPDATE subscribers SET attribs=jsonb_set(attribs,'{fish,last_order_at}',$1::jsonb)",[JSON.stringify(x.ref)]);const positive=await x.read(ref,'fish',api);assert.equal(positive.facts['purchase.observed_for_cart'].value,true);assert.equal(positive.facts['purchase.confirmed'].value,true);
+ assert.throws(()=>createSourceAdapter({query:x.query,observationPolicy:'unknown'}),/ADAPTER_REQUIRED/);
+}));
