@@ -1,0 +1,61 @@
+name: CRM transactional retention
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/maintenance-*'
+      - 'tools/maintenance-tx-deploy/**'
+      - 'tools/maintenance-cart-deploy/**'
+      - 'tests/maintenance-*'
+      - '.github/workflows/maintenance-tx-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transactional-retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: maintenance_tx_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d maintenance_tx_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned disposable test dependencies
+        run: npm install --prefix ../maintenance-tx-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: SQL, webhook acknowledgement, installer and reconciliation regression
+        env:
+          NODE_PATH: ../maintenance-tx-tools/node_modules
+        run: node --test tests/maintenance-tx-popup.test.cjs tests/maintenance-tx-popup-patch.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-api.test.cjs tests/maintenance-tx-deploy-sql.test.cjs tests/maintenance-tx-observation.test.cjs
+      - name: Concurrent admission, gate, claims and opt-out on PostgreSQL
+        env:
+          NODE_PATH: ../maintenance-tx-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/maintenance_tx_test
+          MAINTENANCE_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/maintenance-tx-popup-postgres.cjs
+      - name: Create separate disposable installation database
+        env:
+          NODE_PATH: ../maintenance-tx-tools/node_modules
+        run: |
+          node - <<'JS'
+          const {Client}=require('pg');
+          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/maintenance_tx_test'});await c.connect();try{await c.query('CREATE DATABASE maintenance_tx_install_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+          JS
+      - name: Atomic additive installation and rollback on PostgreSQL
+        env:
+          NODE_PATH: ../maintenance-tx-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@127.0.0.1:5432/maintenance_tx_install_test
+          MAINTENANCE_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/maintenance-tx-deploy-postgres.cjs
