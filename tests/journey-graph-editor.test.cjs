@@ -125,3 +125,52 @@ test('onChange ignores blocked edits and cancellation; confirmed removal notifie
  blocked.change('[data-name]','Bloqueado','input');add(blocked,'exit');assert.equal(events.length,1);
  const stale=blocked.el('[data-name]');blocked.editor.destroy();stale.value='Destruído';stale.dispatchEvent(new blocked.window.Event('input',{bubbles:true}));assert.equal(events.length,1);
 });
+
+const insert=(x,from,port,type)=>x.click('[data-action="insert"][data-node="'+from+'"][data-port="'+port+'"][data-type="'+type+'"]');
+test('contextual insertion preserves the selected continuation and all other paths for both brands',()=>{
+ for(const brand of ['fish','aristo']){
+  const f=fixture({},brand),events=[],x=boot({definition:f.graph,onChange:e=>events.push(e)},brand),before=x.editor.getDefinition();
+  insert(x,'condition','no','wait');let next=x.editor.getDefinition(),added=next.nodes.find(n=>!before.nodes.some(o=>o.id===n.id));
+  assert.equal(added.type,'wait');assert.equal(added.seconds,60);assert.equal(x.editor.validate().ok,true);
+  assert.deepEqual(next.nodes.filter(n=>n.id!==added.id),before.nodes);
+  assert.deepEqual(next.edges.filter(e=>e.from!=='condition'||e.port!=='no').filter(e=>e.from!==added.id),before.edges.filter(e=>e.from!=='condition'||e.port!=='no'));
+  assert.equal(next.edges.find(e=>e.from==='condition'&&e.port==='no').to,added.id);
+  assert.deepEqual(next.edges.find(e=>e.from===added.id),{from:added.id,to:'message',port:'next'});
+  assert.equal(events.length,1);assert.equal(events[0].dirty,true);assert.equal(events[0].server,null);
+  insert(x,added.id,'next','message');next=x.editor.getDefinition();const email=next.nodes.find(n=>n.type==='message'&&n.id!=='message');
+  assert.equal(email.binding,'cart.email');assert.equal(next.edges.find(e=>e.from===email.id).to,'message');assert.equal(x.editor.validate().ok,true);assert.equal(events.length,2);
+  assert.equal(x.editor.prepareReview().authorizes_send,false);assert.equal(x.editor.contextStatus().publicationAvailable,false);
+ }
+});
+test('inserted condition keeps Sim on the existing path and an explicit Não exit without dropping later steps',()=>{
+ for(const brand of ['fish','aristo']){
+  const f=fixture({},brand),x=boot({definition:f.graph},brand),before=x.editor.getDefinition();insert(x,'wait','next','condition');const next=x.editor.getDefinition(),condition=next.nodes.find(n=>n.type==='condition'&&n.id!=='condition'),exit=next.nodes.find(n=>!before.nodes.some(o=>o.id===n.id)&&n.type==='exit');
+  assert.ok(condition&&exit);assert.equal(x.editor.validate().ok,true);assert.deepEqual(next.nodes.filter(n=>before.nodes.some(o=>o.id===n.id)),before.nodes);
+  assert.equal(next.edges.find(e=>e.from==='wait').to,condition.id);assert.equal(next.edges.find(e=>e.from===condition.id&&e.port==='yes').to,'condition');assert.equal(next.edges.find(e=>e.from===condition.id&&e.port==='no').to,exit.id);
+  assert.deepEqual(next.edges.filter(e=>before.nodes.some(n=>n.id===e.from)&&e.from!=='wait'),before.edges.filter(e=>e.from!=='wait'));
+  assert.match(x.el('[data-notice]').textContent,/Sim.*continua.*Não.*encerra/);
+  assert.match(x.el('[data-node-summary="'+condition.id+'"]').textContent,/Sim: .*Condição.*Não: .*Saída/);
+ }
+});
+test('insertion respects readonly, catalog availability and the two-node condition capacity',()=>{
+ const f=fixture({}),blocked=boot({definition:f.graph,readOnly:true}),before=blocked.editor.getDefinition();insert(blocked,'start','next','wait');assert.deepEqual(blocked.editor.getDefinition(),before);
+ const noOptions=JSON.parse(JSON.stringify(f.catalog));noOptions.fields.forEach(v=>v.available=false);noOptions.messages=[];const empty=boot({catalog:noOptions});assert.equal(empty.el('[data-action="insert"][data-type="message"]').disabled,true);assert.equal(empty.el('[data-action="insert"][data-type="condition"]').disabled,true);
+ const definition={version:G.VERSION,brand:'fish',name:'Limite',nodes:[{id:'start',type:'trigger',event:'cart.abandoned'},...Array.from({length:29},(_,i)=>({id:'w'+i,type:'wait',seconds:60})),{id:'end',type:'exit',reason:'finished'}],edges:[]};
+ definition.edges=definition.nodes.slice(0,-1).map((n,i)=>({from:n.id,to:definition.nodes[i+1].id,port:'next'}));const x=boot({definition});
+ assert.equal(x.el('[data-action="insert"][data-node="start"][data-type="condition"]').disabled,true);insert(x,'start','next','condition');assert.equal(x.editor.getDefinition().nodes.length,31);
+ insert(x,'start','next','wait');assert.equal(x.editor.getDefinition().nodes.length,32);assert.equal(x.editor.validate().ok,true);assert.equal(x.el('[data-action="insert"][data-node="start"][data-type="wait"]').disabled,true);
+});
+test('human summaries track waits, conditions and template labels without replacing the edited input',()=>{
+ for(const brand of ['fish','aristo']){
+  const f=fixture({},brand),label=brand==='fish'?'Carrinho Fishermans':'Carrinho O Aristocrata',x=boot({definition:f.graph,labels:{'cart.email':label}},brand);
+  assert.equal(x.el('[data-node-summary="message"]').textContent,'Modelo: '+label);assert.match(x.el('[data-node-summary="condition"]').textContent,/Compra confirmada é igual a Sim/);
+  const input=x.change('[data-node="wait"][data-field="wait-amount"]','30','input');assert.equal(x.el('[data-node="wait"][data-field="wait-amount"]'),input);assert.equal(x.el('[data-node-summary="wait"]').textContent,'Aguardar 30 minutos');
+  x.change('[data-node="condition"][data-expr="value"]','false');assert.match(x.el('[data-node-summary="condition"]').textContent,/Compra confirmada é igual a Não/);
+  connect(x,'condition','yes','end');assert.match(x.el('[data-node-summary="condition"]').textContent,/Sim: 6\. Saída/);
+ }
+ const f=fixture({}),unsafe='<img src=x onerror=alert(1)>',x=boot({definition:f.graph,labels:{'cart.email':unsafe}});assert.equal(x.root.querySelector('img'),null);assert.equal(x.el('[data-node-summary="message"]').textContent,'Modelo: '+unsafe);
+});
+test('changing a connection immediately updates contextual insertion without replacing its selector',()=>{
+ const x=boot(),selector=x.el('[data-node="entry"][data-connection="next"]');connect(x,'entry','next','');assert.equal(x.root.querySelector('[data-action="insert"][data-node="entry"]'),null);
+ connect(x,'entry','next','end');assert.equal(x.el('[data-node="entry"][data-connection="next"]'),selector);insert(x,'entry','next','wait');assert.equal(x.editor.validate().ok,true);
+});

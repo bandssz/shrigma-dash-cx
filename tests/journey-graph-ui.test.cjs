@@ -40,6 +40,13 @@ test('capability and route gates perform no reads while absent or hidden; suppor
  await x.sync();assert.equal(x.ui.contextStatus().pending,false);assert.equal(x.s.calls.filter(x=>x.kind==='get').length,2);assert.ok(x.el('[data-name]'));
  await x.sync('todas');assert.equal(x.el('#control-tab-graph').disabled,true);assert.equal(x.s.calls.length,2);assert.match(x.root.textContent,/Escolha Fishermans ou O Aristocrata/);
 });
+test('contextual additions persist their paths per brand and save only after the explicit draft action',async()=>{
+ const x=boot();await x.sync();await x.click('[data-action="insert"][data-node="entry"][data-type="condition"]');
+ const fish=copy(x.s.store.get('fish'));assert.equal(fish.definition.nodes.length,4);assert.equal(x.ui.contextStatus().dirty,true);assert.equal(x.s.calls.filter(c=>c.kind==='run').length,0);
+ await x.sync('aristo');assert.equal(x.root.querySelector('[data-node-id="step1"]'),null);await x.click('[data-action="insert"][data-node="entry"][data-type="message"]');assert.equal(x.s.store.get('aristo').definition.nodes.length,3);
+ await x.sync('fish');assert.deepEqual(x.s.store.get('fish'),fish);await x.click('[data-graph="save"]');
+ const request=x.s.calls.find(c=>c.kind==='run');assert.equal(request.payload.brand,'fish');assert.deepEqual(request.payload.definition,fish.definition);assert.equal(x.s.store.get('fish').server.paused,true);assert.equal(x.s.store.get('fish').server.published_revision,null);assert.equal(x.s.store.get('aristo').server,null);
+});
 test('late catalog/list of the previous brand cannot restore it over the current brand',async()=>{
  const x=boot(),wait=deferred();x.s.setReadHook((a,b)=>b==='fish'?wait.promise.then(()=>a==='catalog'?{catalog:x.s.f.fish.catalog,labels:{}}:{journeys:[],next_cursor:null}):undefined);
  const old=x.sync();await x.sync('aristo');assert.match(x.root.textContent,/O Aristocrata/);wait.resolve();await old;
