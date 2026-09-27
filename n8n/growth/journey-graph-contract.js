@@ -107,6 +107,16 @@
   }
   return reasons;
  }
+ // The waiting-message state must recheck these facts before any future claim.
+ // This pure check does not reset an attempt or issue a transport permission.
+ function messageReadiness(binding,{catalog,trigger,facts={},now}={}){
+  json(facts);if(!object(facts))throw fail('GRAPH_FACTS','facts','Dados inválidos.');
+  const c=checkCatalog(catalog,catalog?.brand),m=c.messages.get(binding),t=c.triggers.get(trigger),at=instant(now,'now');
+  if(!m?.available||!t?.available||m.required_fields.some(k=>!t.fields.includes(k)||!c.fields.get(k)?.available)||m.material&&m.material.trigger!==trigger)throw fail('GRAPH_MESSAGE_UNAVAILABLE','binding','Mensagem indisponível para esta entrada.');
+  const missing=m.required_fields.map(k=>readFact(k,facts,c.fields,at)).filter(r=>!r.known);
+  const details=[...missing.flatMap(r=>r.reasons),...materialReasons(m,facts,c.fields,at)];
+  return {ready:details.length===0,details,authorizes_send:false};
+ }
  function conditionValue(e,facts,fields,now){
   if(e.all||e.any){const all=!!e.all,rs=(e.all||e.any).map(x=>conditionValue(x,facts,fields,now));const decisive=rs.find(r=>r.value===(all?false:true));if(decisive)return {value:all?false:true,reasons:[]};const unknown=rs.filter(r=>r.value==='unknown');return unknown.length?{value:'unknown',reasons:unknown.flatMap(r=>r.reasons)}:{value:all,reasons:[]};}
   const fact=readFact(e.field,facts,fields,now);if(!fact.known)return fact;
@@ -129,7 +139,7 @@
   if(n.type==='trigger')return advance('next');
   if(n.type==='wait'){const due=iso(entered+n.seconds*1000);if(at<Date.parse(due)){next.status='waiting';return result('wait',{due_at:due});}return advance('next');}
   if(n.type==='condition'){const deadline=iso(entered+n.on_unknown.max_wait_seconds*1000);if(state.status==='waiting_data'&&at>=Date.parse(deadline)){next.status='blocked';return result('blocked',{reason:'data_deadline_expired',deadline});}const decision=conditionValue(n.expression,facts,p.fields,at);if(decision.value!=='unknown')return {...advance(decision.value?'yes':'no'),decision};if(at>=Date.parse(deadline)){next.status='blocked';return result('blocked',{reason:'data_unavailable',decision,deadline});}next.status='waiting_data';return result('wait_data',{decision,deadline,recheck_at:iso(Math.min(Date.parse(deadline),at+n.on_unknown.retry_seconds*1000))});}
-  if(n.type==='message'){if(state.attempt_key!==null)return result(state.status==='unknown'?'unknown':'await_receipt',{attempt_key:key});const binding=p.messages.get(n.binding),missing=binding.required_fields.map(k=>readFact(k,facts,p.fields,at)).filter(r=>!r.known),details=[...missing.flatMap(r=>r.reasons),...materialReasons(binding,facts,p.fields,at)];if(details.length){next.status='blocked';return result('blocked',{reason:'message_data_unavailable',details});}next.status='waiting_message';next.attempt_key=key;return result('message_intent',{intent:{kind:'message_intent',binding:n.binding,release:binding.release,brand:def.brand,channel:binding.channel,entry_id:identity.entry_id,node_id:n.id,attempt_key:key}});}
+  if(n.type==='message'){if(state.attempt_key!==null)return result(state.status==='unknown'?'unknown':'await_receipt',{attempt_key:key});const binding=p.messages.get(n.binding),{details}=messageReadiness(n.binding,{catalog,trigger:p.trigger.event,facts,now});if(details.length){next.status='blocked';return result('blocked',{reason:'message_data_unavailable',details});}next.status='waiting_message';next.attempt_key=key;return result('message_intent',{intent:{kind:'message_intent',binding:n.binding,release:binding.release,brand:def.brand,channel:binding.channel,entry_id:identity.entry_id,node_id:n.id,attempt_key:key}});}
   next.status='completed';return result('exit',{reason:n.reason});
  }
  function simulate(def,{catalog,now,facts={},receipts={},maxSteps=128}={}){
@@ -138,5 +148,5 @@
   for(let i=0;i<maxSteps;i++){const r=nextTransition(def,state,{catalog,identity,now:clock,facts,messageReceipt});trace.push({...r,at:clock});state=r.state;messageReceipt=null;if(r.kind==='wait'){clock=r.due_at;continue;}if(r.kind==='message_intent'){messageReceipt={attempt_key:r.intent.attempt_key,status:receipts[r.intent.node_id]||'accepted'};continue;}if(r.kind==='advance')continue;return {version:VERSION,simulated:true,sends:0,persistence_writes:0,state,trace,reason:r.kind};}
   return {version:VERSION,simulated:true,sends:0,persistence_writes:0,state,trace,reason:'step_limit'};
  }
- return freeze({VERSION,ENABLED,MAX_NODES,CATALOG,validateGraph,evaluateCondition,createState,nextTransition,simulate});
+ return freeze({VERSION,ENABLED,MAX_NODES,CATALOG,validateGraph,evaluateCondition,messageReadiness,createState,nextTransition,simulate});
 });

@@ -13,14 +13,14 @@ BEGIN
   -- Availability means that a real published legacy source can be selected for
   -- planning. This does not attest freshness, enrollment or an installed worker.
   SELECT EXISTS(SELECT 1 FROM public.shrigma_flow_definition f WHERE f.key=b||':carrinho' AND f.brand=b AND f.runtime_ready IS TRUE AND f.published_version>0 AND jsonb_typeof(f.published)='object' AND jsonb_typeof(f.published->'steps')='array') INTO source_present;
-  SELECT count(*) INTO total FROM public.templates t WHERE t.type::text='tx' AND NOT starts_with(t.name,'__shrigma_journey_tx_v1_')
+  SELECT count(*) INTO total FROM public.templates t WHERE t.type::text='tx' AND NOT starts_with(t.name,'__shrigma_journey_tx_v1_') AND NOT starts_with(t.name,'__shrigma_graph_tx_v1_')
    AND EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand=b)
    AND NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand IS DISTINCT FROM b);
   IF total>64 THEN RAISE EXCEPTION 'GRAPH_CATALOG_LIMIT';END IF;
   SELECT coalesce(jsonb_agg(jsonb_build_object('key','email.template.'||t.id::text,'brand',b,'channel','email','available',true,
    'release','snapshot_'||substr(encode(sha256(convert_to(jsonb_build_object('type',t.type,'subject',t.subject,'body',t.body,'body_source',to_jsonb(t)->'body_source')::text,'UTF8')),'hex'),1,48),
    'required_fields','[]'::jsonb) ORDER BY t.id),'[]') INTO messages
-   FROM public.templates t WHERE t.type::text='tx' AND NOT starts_with(t.name,'__shrigma_journey_tx_v1_')
+   FROM public.templates t WHERE t.type::text='tx' AND NOT starts_with(t.name,'__shrigma_journey_tx_v1_') AND NOT starts_with(t.name,'__shrigma_graph_tx_v1_')
    AND EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand=b)
    AND NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand IS DISTINCT FROM b);
   RETURN jsonb_build_object('version','journey_graph_v1','brand',b,

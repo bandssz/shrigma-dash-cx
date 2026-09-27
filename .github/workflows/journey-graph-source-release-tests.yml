@@ -6,7 +6,9 @@ on:
       - 'growth-email-*.js'
       - 'tests/journey-graph-source*'
       - 'tests/journey-graph-release*'
-      - 'tests/journey-graph-material.test.cjs'
+      - 'tests/journey-graph-material*.cjs'
+      - 'tests/journey-graph-message*.cjs'
+      - 'tests/journey-graph-native*.cjs'
       - 'tests/journey-graph-refresh.test.cjs'
       - 'tests/journey-graph-purchase.test.cjs'
       - 'tests/sql/journey-collector-fixture.sql'
@@ -42,7 +44,7 @@ jobs:
       - name: Source and release regression with integrated materialization
         env:
           NODE_PATH: ../graph-source-tools/node_modules
-        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs
+        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs tests/journey-graph-message.test.cjs tests/journey-graph-native.test.cjs
       - name: Source concurrency and fresh native guard reads
         env:
           NODE_PATH: ../graph-source-tools/node_modules
@@ -55,7 +57,7 @@ jobs:
         run: |
           node - <<'JS'
           const {Client}=require('pg');
-          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');await c.query('CREATE DATABASE journey_graph_native_test');await c.query('CREATE DATABASE journey_graph_message_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
           JS
       - name: Immutable release concurrency and receipt atomicity
         env:
@@ -63,3 +65,16 @@ jobs:
           TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_release_test
           GRAPH_TEST_DATABASE_ISOLATED: '1'
         run: node tests/journey-graph-release-postgres.cjs
+
+      - name: Native clone concurrency and lost acknowledgements
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_native_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-native-postgres.cjs
+      - name: Message preflight and concurrent optout
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_message_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-message-postgres.cjs
