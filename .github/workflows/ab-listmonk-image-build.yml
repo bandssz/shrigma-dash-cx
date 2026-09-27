@@ -1,0 +1,47 @@
+name: Listmonk A/B OCI image (build only, OFF)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-image-build/**'
+      - '.github/workflows/ab-listmonk-image-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test archive, identity, layer and configuration guards
+        run: python3 -m unittest discover -s tools/listmonk-image-build -p 'test_*.py'
+      - name: Read the exact approved run and download its pinned artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/36277634831 > "$RUNNER_TEMP/ab-source-run.json"
+          python3 tools/listmonk-image-build/build.py verify-run --run-json "$RUNNER_TEMP/ab-source-run.json"
+          gh run download 36277634831 --repo bandssz/shrigma-dash-cx --name listmonk-6.1.0-crm-ab-candidate-linux_amd64 --dir "$RUNNER_TEMP/ab-approved-candidate"
+      - name: Build OCI and inspect bytes without starting Listmonk
+        id: image
+        env:
+          AB_IMAGE_BUILD_ONLY: '1'
+        run: >-
+          python3 tools/listmonk-image-build/build.py build
+          --run-json "$RUNNER_TEMP/ab-source-run.json"
+          --artifact-dir "$RUNNER_TEMP/ab-approved-candidate"
+          --out "$RUNNER_TEMP/ab-oci-image"
+      - name: Upload verified OCI, corresponding source, license and digests
+        if: steps.image.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: listmonk-6.1.0-crm-ab-oci-linux-amd64
+          path: ${{ runner.temp }}/ab-oci-image/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

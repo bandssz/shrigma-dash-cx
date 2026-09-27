@@ -1,0 +1,50 @@
+{
+  "policy": "crm-ab-oci-build-only-v1",
+  "repository": "bandssz/shrigma-dash-cx",
+  "run_id": 36277634831,
+  "source_head": "c97a0589f548831f285da1eaa1650429ddeb4393",
+  "ci_revision": "463c423c47af664e1a4d6f8d5c2cba8d0a3e3ff2",
+  "workflow_path": ".github/workflows/ab-listmonk-build.yml",
+  "artifact_name": "listmonk-6.1.0-crm-ab-candidate-linux_amd64",
+  "archive_name": "listmonk-6.1.0-crm-ab-candidate-linux_amd64.tar.gz",
+  "archive_sha256": "4d6df292fe8af464a30ecd0784f1a2a4ebcdaf1d0dad7aee86efe9e680b1e8bb",
+  "binary_sha256": "1aee36b6f3d6e509e4631a60b1771537d04444e47f4c69bf8c1dc4101651d3c4",
+  "query_sha256": "50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9",
+  "base_image": "listmonk/listmonk@sha256:dbecf49c2ea6f3ebf400f2a8f102ec676d6b8a9a948ccbba14320b0a3bcb1999",
+  "base_config_digest": "sha256:eb35ea8e82643273ef2e9d5ba8728a2c92bb4ca363ae247529b58603fc093f98",
+  "base_layers": [
+    {
+      "digest": "sha256:589002ba0eaed121a1dbf42f6648f29e5be55d5c8a6ee0f8eaa0285cc21ac153",
+      "size": 3861821
+    },
+    {
+      "digest": "sha256:57f805b4ea3c2bd69eb2c023b5d06fba8cc6288b86ec5fa199433e2ac9428334",
+      "size": 1318883
+    },
+    {
+      "digest": "sha256:8917115b94d04ac1fedc28e914fa9fa7d44f256476aff167a7c4d7fafab95fa7",
+      "size": 98
+    },
+    {
+      "digest": "sha256:59e306b0153c9cf478112182b9525e752b1a965f780e1412c6251c5b107a482c",
+      "size": 9582128
+    },
+    {
+      "digest": "sha256:15592ac51ced0a7159e6cdb6fb06e867199c462f8b293a40a6bc22c0eae3efeb",
+      "size": 536
+    },
+    {
+      "digest": "sha256:68417cc5f7ad098add638b85019a0aa89b26f100596141460473cec01ebc6b93",
+      "size": 1188
+    },
+    {
+      "digest": "sha256:5976797b8237f0ad0c2748895b758faabac1a0e1a9e105ab4fe82bf1550695cd",
+      "size": 1183
+    }
+  ],
+  "builder_image": "moby/buildkit@sha256:040d34121c27906c4ff9ac152a30d52bf2c5d328d3bb748916bb3d2743c02528",
+  "builder_provenance": "Docker Hub moby/buildkit buildx-stable-1 resolved read-only to Linux/amd64 manifest on 2026-09-27; tag not used by CI",
+  "platform": "linux/amd64",
+  "max_archive_bytes": 67108864,
+  "max_oci_bytes": 268435456
+}
