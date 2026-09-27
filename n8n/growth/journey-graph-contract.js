@@ -19,16 +19,29 @@
  function iso(ms){if(!Number.isSafeInteger(ms)||ms<0||ms>253402300799999)throw fail('GRAPH_TIME','$','Instante fora do intervalo suportado.');return new Date(ms).toISOString();}
  function list(x,max,path){if(!Array.isArray(x)||x.length>max)throw fail('GRAPH_SIZE',path,'Lista inválida ou excessiva.');}
  function unique(items,key,path){const m=new Map();items.forEach((x,i)=>{const k=x[key];token(k,path+'.'+i+'.'+key);if(m.has(k))throw fail('GRAPH_DUPLICATE',path,'Identificador repetido.');m.set(k,x);});return m;}
+ // Material for a cart email is not a condition field. In particular, structured
+ // items are never advertised as string_set. This descriptor contains no content
+ // or recipient values; the trusted runtime verifies its immutable release again.
+ const MATERIAL_FIELDS={'contact.first_name':'string','cart.checkout_url':'string','cart.items':'cart_items','cart.total':'string'};
+ const ITEM_FIELDS=['image','name','price','qty','quantity','title','variant'];
+ function checkMaterialDescriptor(m){
+  const d=m.material;exact(d,['version','release_id','material_sha256','trigger','fields'],'catalog.message.material');
+  if(d.version!=='cart_email_material_v1'||!UUID.test(d.release_id)||!/^[a-f0-9]{64}$/.test(d.material_sha256)||d.trigger!=='cart.abandoned'||m.channel!=='email'||m.release!=='release_'+d.release_id)throw fail('GRAPH_MATERIAL','catalog.message.material','Revisão de mensagem incompatível.');
+  list(d.fields,4,'catalog.message.material.fields');const keys=new Set();
+  for(const f of d.fields){exact(f,['key','type','max_age_seconds','item_fields'],'catalog.message.material.field');if(keys.has(f.key)||!Object.hasOwn(MATERIAL_FIELDS,f.key)||f.type!==MATERIAL_FIELDS[f.key]||f.max_age_seconds!==300)throw fail('GRAPH_MATERIAL','catalog.message.material.field','Material incompatível.');keys.add(f.key);list(f.item_fields,7,'catalog.message.material.item_fields');if(new Set(f.item_fields).size!==f.item_fields.length||f.item_fields.some(k=>!ITEM_FIELDS.includes(k))||f.type!=='cart_items'&&f.item_fields.length)throw fail('GRAPH_MATERIAL','catalog.message.material.item_fields','Campos de item incompatíveis.');}
+  if(!keys.has('cart.items')||!keys.has('cart.checkout_url')||!['purchase.confirmed','contact.email_allowed'].every(k=>m.required_fields.includes(k)))throw fail('GRAPH_MATERIAL','catalog.message.material','Requisitos da mensagem incompletos.');
+ }
  function checkCatalog(c,brand){
   json(c);exact(c,['version','brand','triggers','fields','messages'],'catalog');
   if(c.version!==VERSION||c.brand!==brand||!['fish','aristo'].includes(brand))throw fail('GRAPH_CATALOG','catalog','Catálogo incompatível com a marca ou versão.');
   list(c.triggers,16,'catalog.triggers');list(c.fields,64,'catalog.fields');list(c.messages,64,'catalog.messages');
   for(const t of c.triggers){exact(t,['key','brand','available','fields'],'catalog.trigger');if(t.brand!==brand||typeof t.available!=='boolean')throw fail('GRAPH_CATALOG','catalog.trigger','Gatilho incompatível.');list(t.fields,64,'catalog.trigger.fields');if(new Set(t.fields).size!==t.fields.length)throw fail('GRAPH_DUPLICATE','catalog.trigger.fields','Campo repetido.');t.fields.forEach(k=>token(k,'catalog.trigger.fields'));}
   for(const f of c.fields){exact(f,['key','type','available','max_age_seconds'],'catalog.field');if(!CATALOG.field_types.includes(f.type)||typeof f.available!=='boolean')throw fail('GRAPH_CATALOG','catalog.field','Tipo de dado incompatível.');integer(f.max_age_seconds,1,2592000,'catalog.field.max_age_seconds');}
-  for(const m of c.messages){exact(m,['key','brand','channel','available','release','required_fields'],'catalog.message');if(m.brand!==brand||!['email','whatsapp'].includes(m.channel)||typeof m.available!=='boolean')throw fail('GRAPH_CATALOG','catalog.message','Mensagem incompatível com a marca.');token(m.release,'catalog.message.release');list(m.required_fields,64,'catalog.message.required_fields');m.required_fields.forEach(k=>token(k,'catalog.message.required_fields'));if(new Set(m.required_fields).size!==m.required_fields.length)throw fail('GRAPH_DUPLICATE','catalog.message.required_fields','Campo repetido.');}
+  for(const m of c.messages){exact(m,['key','brand','channel','available','release','required_fields',...(Object.hasOwn(m,'material')?['material']:[])],'catalog.message');if(m.brand!==brand||!['email','whatsapp'].includes(m.channel)||typeof m.available!=='boolean')throw fail('GRAPH_CATALOG','catalog.message','Mensagem incompatível com a marca.');token(m.release,'catalog.message.release');list(m.required_fields,64,'catalog.message.required_fields');m.required_fields.forEach(k=>token(k,'catalog.message.required_fields'));if(new Set(m.required_fields).size!==m.required_fields.length)throw fail('GRAPH_DUPLICATE','catalog.message.required_fields','Campo repetido.');if(Object.hasOwn(m,'material'))checkMaterialDescriptor(m);}
   const triggers=unique(c.triggers,'key','catalog.triggers'),fields=unique(c.fields,'key','catalog.fields'),messages=unique(c.messages,'key','catalog.messages');
   for(const t of c.triggers)for(const k of t.fields)if(!fields.has(k))throw fail('GRAPH_FIELD','catalog.trigger.fields','Dado sem definição.');
   for(const m of c.messages)for(const k of m.required_fields)if(!fields.has(k))throw fail('GRAPH_FIELD','catalog.message.required_fields','Dado sem definição.');
+  for(const m of c.messages)if(m.material&&['purchase.confirmed','contact.email_allowed'].some(k=>fields.get(k)?.type!=='boolean'))throw fail('GRAPH_MATERIAL','catalog.message.material','Elegibilidade sem tipo confirmado.');
   return {triggers,fields,messages};
  }
  function typed(v,type){if(type==='boolean')return typeof v==='boolean';if(type==='number')return typeof v==='number'&&Number.isFinite(v);if(type==='string')return typeof v==='string'&&v.length<=1024;if(type==='string_set')return Array.isArray(v)&&v.length<=100&&v.every(x=>typeof x==='string'&&x.length<=128)&&new Set(v).size===v.length;if(type==='timestamp'){try{instant(v,'value');return true;}catch(_){return false;}}return false;}
@@ -49,7 +62,7 @@
    if(n.type==='trigger'){exact(n,['id','type','event'],path);}
    else if(n.type==='wait'){exact(n,['id','type','seconds'],path);integer(n.seconds,1,CATALOG.limits.max_wait_seconds,path+'.seconds');}
    else if(n.type==='condition'){exact(n,['id','type','expression','on_unknown'],path);checkExpression(n.expression,caps.fields,allowed,path+'.expression');exact(n.on_unknown,['max_wait_seconds','retry_seconds'],path+'.on_unknown');integer(n.on_unknown.max_wait_seconds,1,86400,path+'.max_wait_seconds');integer(n.on_unknown.retry_seconds,1,n.on_unknown.max_wait_seconds,path+'.retry_seconds');}
-   else if(n.type==='message'){exact(n,['id','type','binding'],path);const m=caps.messages.get(n.binding);if(!m?.available)throw fail('GRAPH_MESSAGE_UNAVAILABLE',path,'Mensagem sem integração disponível.');for(const k of m.required_fields)if(!allowed.has(k)||!caps.fields.get(k)?.available)throw fail('GRAPH_MESSAGE_FIELDS',path,'O gatilho não fornece os dados da mensagem.');}
+   else if(n.type==='message'){exact(n,['id','type','binding'],path);const m=caps.messages.get(n.binding);if(!m?.available)throw fail('GRAPH_MESSAGE_UNAVAILABLE',path,'Mensagem sem integração disponível.');for(const k of m.required_fields)if(!allowed.has(k)||!caps.fields.get(k)?.available)throw fail('GRAPH_MESSAGE_FIELDS',path,'O gatilho não fornece os dados da mensagem.');if(m.material&&m.material.trigger!==trigger.event)throw fail('GRAPH_MATERIAL',path,'Material não corresponde à entrada.');}
    else if(n.type==='exit'){exact(n,['id','type','reason'],path);token(n.reason,path+'.reason');}
    else throw fail('GRAPH_NODE_TYPE',path,'Bloco não suportado.');
   }
@@ -66,6 +79,20 @@
   const f=fields.get(key),fact=facts[key],unknown=reason=>({value:'unknown',reasons:[{field:key,reason}]});
   if(!object(fact)||Object.keys(fact).some(k=>!['value','observed_at','complete'].includes(k))||fact.complete!==true||!Object.hasOwn(fact,'value'))return unknown('missing_or_incomplete');
   if(!typed(fact.value,f.type))return unknown('invalid_type');let observed;try{observed=instant(fact.observed_at,'fact.observed_at');}catch(_){return unknown('invalid_time');}if(observed>now)return unknown('future');if(now-observed>f.max_age_seconds*1000)return unknown('stale');return {known:true,value:fact.value};
+ }
+ function materialReasons(binding,facts,fields,now){
+  if(!binding.material)return [];
+  const reasons=[];
+  for(const [key,value]of [['purchase.confirmed',false],['contact.email_allowed',true]]){const r=readFact(key,facts,fields,now);if(!r.known)reasons.push(...r.reasons);else if(r.value!==value)reasons.push({field:key,reason:'ineligible'});}
+  for(const f of binding.material.fields){
+   const fact=facts[f.key],bad=reason=>reasons.push({field:f.key,reason});
+   if(!object(fact)||Object.keys(fact).some(k=>!['value','observed_at','complete'].includes(k))||fact.complete!==true||!Object.hasOwn(fact,'value')){bad('missing_or_incomplete');continue;}
+   let observed;try{observed=instant(fact.observed_at,'material.observed_at');}catch(_){bad('invalid_time');continue;}if(observed>now){bad('future');continue;}if(now-observed>f.max_age_seconds*1000){bad('stale');continue;}
+   const v=fact.value;
+   if(f.type==='string'){if(typeof v!=='string'||!v.length||v.length>2048)bad('invalid_type');continue;}
+   if(!Array.isArray(v)||!v.length||v.length>20||v.some(item=>!object(item)||Object.keys(item).some(k=>!ITEM_FIELDS.includes(k))||f.item_fields.some(k=>!Object.hasOwn(item,k))||Object.entries(item).some(([k,x])=>['qty','quantity'].includes(k)?!Number.isSafeInteger(x)||x<=0:typeof x!=='string'||x.length>2048)))bad('invalid_type');
+  }
+  return reasons;
  }
  function conditionValue(e,facts,fields,now){
   if(e.all||e.any){const all=!!e.all,rs=(e.all||e.any).map(x=>conditionValue(x,facts,fields,now));const decisive=rs.find(r=>r.value===(all?false:true));if(decisive)return {value:all?false:true,reasons:[]};const unknown=rs.filter(r=>r.value==='unknown');return unknown.length?{value:'unknown',reasons:unknown.flatMap(r=>r.reasons)}:{value:all,reasons:[]};}
@@ -89,7 +116,7 @@
   if(n.type==='trigger')return advance('next');
   if(n.type==='wait'){const due=iso(entered+n.seconds*1000);if(at<Date.parse(due)){next.status='waiting';return result('wait',{due_at:due});}return advance('next');}
   if(n.type==='condition'){const deadline=iso(entered+n.on_unknown.max_wait_seconds*1000);if(state.status==='waiting_data'&&at>=Date.parse(deadline)){next.status='blocked';return result('blocked',{reason:'data_deadline_expired',deadline});}const decision=conditionValue(n.expression,facts,p.fields,at);if(decision.value!=='unknown')return {...advance(decision.value?'yes':'no'),decision};if(at>=Date.parse(deadline)){next.status='blocked';return result('blocked',{reason:'data_unavailable',decision,deadline});}next.status='waiting_data';return result('wait_data',{decision,deadline,recheck_at:iso(Math.min(Date.parse(deadline),at+n.on_unknown.retry_seconds*1000))});}
-  if(n.type==='message'){if(state.attempt_key!==null)return result(state.status==='unknown'?'unknown':'await_receipt',{attempt_key:key});const binding=p.messages.get(n.binding),missing=binding.required_fields.map(k=>readFact(k,facts,p.fields,at)).filter(r=>!r.known);if(missing.length){next.status='blocked';return result('blocked',{reason:'message_data_unavailable',details:missing.flatMap(r=>r.reasons)});}next.status='waiting_message';next.attempt_key=key;return result('message_intent',{intent:{kind:'message_intent',binding:n.binding,release:binding.release,brand:def.brand,channel:binding.channel,entry_id:identity.entry_id,node_id:n.id,attempt_key:key}});}
+  if(n.type==='message'){if(state.attempt_key!==null)return result(state.status==='unknown'?'unknown':'await_receipt',{attempt_key:key});const binding=p.messages.get(n.binding),missing=binding.required_fields.map(k=>readFact(k,facts,p.fields,at)).filter(r=>!r.known),details=[...missing.flatMap(r=>r.reasons),...materialReasons(binding,facts,p.fields,at)];if(details.length){next.status='blocked';return result('blocked',{reason:'message_data_unavailable',details});}next.status='waiting_message';next.attempt_key=key;return result('message_intent',{intent:{kind:'message_intent',binding:n.binding,release:binding.release,brand:def.brand,channel:binding.channel,entry_id:identity.entry_id,node_id:n.id,attempt_key:key}});}
   next.status='completed';return result('exit',{reason:n.reason});
  }
  function simulate(def,{catalog,now,facts={},receipts={},maxSteps=128}={}){
