@@ -28,10 +28,10 @@ async function run(){
   // SQL-only reservation is explicitly synthetic; there is no transport caller.
   const raced=await Promise.all([x.maintenance.claim(ar.event_id),a.claim.claim(a.request)]);
   assert.equal(raced[0].reason,'delegated');assert.equal(raced[0].dispatch_id,null);assert.equal(raced[1].should_send,true);assert.equal(await x.count('shrigma_email_dispatch'),1);assert.equal(await x.count('crm_graph_candidate.maintenance_delegation_v1'),2);
-  const replay=await a.claim.claim(a.request);assert.equal(replay.should_send,false);assert.equal(replay.claim_token,null);assert.equal((await x.maintenance.claim(ar.event_id)).reason,'already_delegated');assert.equal((await x.maintenance.reconcile(ar.event_id)).drained,false);
+  const recorded=await x.bridge.dispatch('aristo',a.intent.intent_id);assert.equal(recorded.dispatch_id,raced[1].dispatch_id);assert.equal(recorded.transport_state,'in_flight');assert.equal(Object.hasOwn(recorded,'claim_token'),false);assert.equal((await x.maintenance.claim(ar.event_id)).reason,'already_delegated');assert.equal((await x.maintenance.reconcile(ar.event_id)).drained,false);
   assert.equal(await x.count('shrigma_send_log'),0);
   await pool.query("UPDATE crm_maintenance_candidate.control SET mode='closed',enabled=false;UPDATE crm_graph_candidate.control SET enabled=false;UPDATE crm_graph_candidate.cart_control_v1 SET enabled=false");
-  console.log('PASS concurrent graph/retention: one native synthetic reservation belongs only to graph; replay has no second token; zero HTTP/send-log, final OFF and never declared drained.');
+  console.log('PASS concurrent graph/retention: one native synthetic reservation belongs only to graph; reconciliation reads that dispatch without a token; zero HTTP/send-log, final OFF and never declared drained.');
  }finally{
   if(blocker){try{await blocker.query('ROLLBACK');}finally{blocker.release();}}
   if(pending)await pending.catch(()=>{});if(worker)worker.release();await pool.end();
