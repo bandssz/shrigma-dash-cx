@@ -40,6 +40,15 @@ function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={})
   return {definition,catalog,content_hash:hash({definition,catalog})};
  }
  async function insertRevision(c,j,prepared,now){await c.query('INSERT INTO crm_graph_candidate.revision(journey_id,brand,revision,definition,catalog,content_hash,created_at) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7)',[j.id,j.brand,j.head_revision,JSON.stringify(prepared.definition),JSON.stringify(prepared.catalog),prepared.content_hash,now]);}
+ async function verifyMaterial(c,message,sourceProof,now){
+  if(!message.material)return; // Legacy planning bindings remain intent-only.
+  const R=require('./journey-graph-release.cjs'),provider=R.createReleaseProvider({query:c.query.bind(c)});
+  const release=await provider.read(message.brand,message.material.release_id);
+  if(canonical(R.catalogMessage(release))!==canonical(message))throw error('GRAPH_RELEASE_BINDING_CHANGED');
+  // Native content remains untouched. Typed variables are checked in memory and
+  // discarded: no recipient/material values enter intents, transitions or receipts.
+  if(sourceProof)R.materialize(release.material,sourceProof,{now});
+ }
  async function source(c,ref,brand,trigger,now){
   const p=safeJSON(await readSource({source_ref:ref,brand,trigger,now,query:c.query.bind(c)}));
   exact(p,['version','source_ref','brand','trigger','event_id','subject_id','source_revision','occurred_at','observed_at','complete','eligible','consent','suppressed','facts']);
@@ -86,6 +95,7 @@ function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={})
   publish(input){return command('publish',input,['journey_id','expected_version','confirm'],async(c,p)=>{
    if(p.confirm!=='publicar')throw error('GRAPH_CONFIRM_REQUIRED');const j=await current(c,p.journey_id,p.brand);version(j,p.expected_version);
    const r=await revision(c,j.id,j.head_revision),fresh=await prepare(c,r.definition,p.brand);if(fresh.content_hash!==r.content_hash)throw error('GRAPH_CATALOG_CHANGED');
+   for(const binding of new Set(r.definition.nodes.filter(n=>n.type==='message').map(n=>n.binding)))await verifyMaterial(c,r.catalog.messages.find(m=>m.key===binding));
    return summary(await queryOne(c,'UPDATE crm_graph_candidate.journey SET version=version+1,published_revision=head_revision,paused=true WHERE id=$1 RETURNING *',[j.id]));
   });},
   pause(input){return command('pause',input,['journey_id','expected_version','paused','confirm'],async(c,p,now,enabled)=>{
@@ -119,6 +129,7 @@ function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={})
    const s=await source(c,e.source_ref,p.brand,e.identity.trigger,now);
    if(s.event_key!==e.event_key||s.identity_hash!==e.source_identity_hash)throw error('GRAPH_SOURCE_CHANGED');
    const t=s.stop?{kind:'stopped',state:e.state,reason:s.stop}:G.nextTransition(r.definition,e.state,{catalog:r.catalog,identity:e.identity,now,facts:s.proof.facts});
+   if(t.kind==='message_intent')await verifyMaterial(c,r.catalog.messages.find(m=>m.key===t.intent.binding),s.proof,now);
    const due=t.kind==='advance'?now:t.kind==='wait'?t.due_at:t.kind==='wait_data'?t.recheck_at:null;
    const updated=await queryOne(c,'UPDATE crm_graph_candidate.entry SET state=$2::jsonb,version=version+1,next_due_at=$3,stopped_reason=$4,updated_at=$5 WHERE id=$1 RETURNING *',[e.id,JSON.stringify(t.state),due,s.stop,now]);
    let intentId=null;
