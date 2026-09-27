@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=4a74324bbab8">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-2pwRzw/PYE8WkLhXbOUoHGROs2iTCBHzQD0I/6+8u+c='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=a5453ef5782f">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-zrdNXE9omsdEEDP7sEB16uCpParWwki3/ZLBiWm01wM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -242,7 +242,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=ead254f80e7e"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=17a5ef8b789f"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -258,6 +258,8 @@ shrigmaEsqueceChave=function(painel){if(painel==='influs')INFLU_ACCESS.forgetRea
 function chaveLeitura(){return INFLU_ACCESS.requireRead();}
 // TikTok usa a mesma chave e o mesmo nome no histórico (sem formulário à parte).
 function chavePainelTTS(){return INFLU_ACCESS.current('read');}
+// Cobrança v2 do TikTok (aba Cobrança): mensagens aprovadas, simulação, envios e pendências. Não envia nada à TikTok.
+var TTS_COBRANCA_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-cobranca-painel-a3ac4c25d1e85399';
 function autorPainelTTS(){return INFLU_ACCESS.author();}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});

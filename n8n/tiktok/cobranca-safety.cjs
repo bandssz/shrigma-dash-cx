@@ -29,13 +29,18 @@ function evaluateConversation(open,read,identity,now=Date.now()){
  if(!messages.length&&!c.is_new)return blocked('im_historico_ausente');
  for(const message of messages){
   const body=message&&message.message_body;
-  if(!body||!['TEXT','IMAGE','EMOTICONS'].includes(body.type)||!id(body.sender_id))return blocked('im_mensagem_desconhecida');
+  // Cartões da loja/plataforma (convite, amostra, produto) têm outros tipos. Tipo bem formado vindo de quem não é o
+  // criador conta como mensagem da loja (e ainda passa pela regra de recência). Do criador, qualquer tipo é resposta.
+  if(!body||typeof body.type!=='string'||!/^[A-Z][A-Z0-9_]{1,39}$/.test(body.type)||!id(body.sender_id))return blocked('im_mensagem_desconhecida');
   const raw=body.create_time;
   if(typeof raw!=='number'&&(typeof raw!=='string'||!/^\d+(?:\.\d+)?$/.test(raw)))return blocked('im_data_invalida');
   const seconds=Number(raw),stamp=seconds*1000;
   if(!Number.isFinite(seconds)||seconds<=0||!Number.isFinite(now)||stamp>now+60000)return blocked('im_data_invalida');
   // Human replies always require a human review/suppression decision; never infer consent from age.
-  if(id(body.sender_id)===id(c.creator_im_id))return blocked('im_resposta_criador');
+  // Exceção única: mensagens do criador até o momento em que a Marcela devolveu a pessoa à régua (ciente_ate,
+  // vindo do banco, nunca do navegador). Resposta nova depois disso bloqueia de novo.
+  const ciente=Number(identity&&identity.creator_ack_until_ms);
+  if(id(body.sender_id)===id(c.creator_im_id)&&!(Number.isFinite(ciente)&&ciente>0&&stamp<=ciente))return blocked('im_resposta_criador');
   if(now-stamp<7*864e5)return blocked('im_conversa_recente');
  }
  return{allowed:true,conversation_id:id(c.conversation_id)};
@@ -95,4 +100,4 @@ async function executeIntent({reviewId,owner,simulate=false},{store,transport,no
   return finish('aceito','api_aceitou',id(response.data?.message_id));
  }catch{return finish('incerto','transporte_resultado_incerto');}
 }
-module.exports={evaluateConversation,createPostgresStore,executeIntent};
+module.exports={evaluateOpening,evaluateConversation,createPostgresStore,executeIntent};
