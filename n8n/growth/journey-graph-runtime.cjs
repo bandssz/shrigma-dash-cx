@@ -1,6 +1,7 @@
 /* Backend-only candidate. No HTTP, recipient, sender, credentials or transport.
  * Pool, catalogFor and readSource are trusted server adapters, not request data.
- * There is deliberately no activation, message receipt or intent consumer API. */
+ * Dispatch receipts are read from a trusted persisted join; never from input.
+ * This module does not perform transport or grant permission to send. */
 'use strict';
 const {createHash}=require('node:crypto'),G=require('./journey-graph-contract.js');
 const VERSION='journey_graph_store_v1',ENABLED=false,SOURCE_VERSION='journey_source_v1';
@@ -24,8 +25,8 @@ function exact(x,keys){if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys
 function time(t){if(typeof t!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)||!Number.isFinite(Date.parse(t))||new Date(t).toISOString()!==t)throw error('GRAPH_TIME');return Date.parse(t);}
 function uuid(v){if(typeof v!=='string'||!UUID.test(v))throw error('GRAPH_IDENTITY');}
 function expected(v){if(!Number.isSafeInteger(v)||v<1||v>=2147483647)throw error('GRAPH_VERSION');}
-function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={}){
- if(typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||clock!==undefined&&typeof clock!=='function'||beforeCommand!==undefined&&typeof beforeCommand!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
+function createGraphRuntime({pool,catalogFor,readSource,readDispatch,clock,beforeCommand}={}){
+ if(typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||readDispatch!==undefined&&typeof readDispatch!=='function'||clock!==undefined&&typeof clock!=='function'||beforeCommand!==undefined&&typeof beforeCommand!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
  const queryOne=async(c,q,a=[])=>{const r=await c.query(q,a);if(!Array.isArray(r?.rows)||r.rows.length!==1)throw error('GRAPH_STORAGE_UNCONFIRMED');return r.rows[0];};
  const getTime=async c=>{const now=clock?await clock(): (await queryOne(c,"SELECT to_char(date_trunc('milliseconds',clock_timestamp()) AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS now")).now;time(now);return now;};
  const current=async(c,id,brand)=>{const r=await c.query('SELECT * FROM crm_graph_candidate.journey WHERE id=$1::uuid AND brand=$2 FOR UPDATE',[id,brand]);if(r.rows.length!==1)throw error('GRAPH_NOT_FOUND');return r.rows[0];};
@@ -63,7 +64,7 @@ function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={})
   const p=safeJSON(input);exact(p,['request_id','actor','brand',...fields]);uuid(p.request_id);
   if(typeof p.actor!=='string'||!/^[A-Za-z0-9_.:-]{1,128}$/.test(p.actor)||!['fish','aristo'].includes(p.brand))throw error('GRAPH_IDENTITY');
   if(Object.hasOwn(p,'expected_version'))expected(p.expected_version);
-  for(const k of ['journey_id','entry_id','source_ref'])if(Object.hasOwn(p,k))uuid(p[k]);
+  for(const k of ['journey_id','entry_id','source_ref','intent_id'])if(Object.hasOwn(p,k))uuid(p[k]);
   const requestHash=hash({action,request:p}),c=await pool.connect();let committing=false,discard=null;
   try{
    await c.query('BEGIN');await c.query("SET LOCAL lock_timeout='3s'");await c.query("SET LOCAL statement_timeout='8s'");
@@ -139,6 +140,32 @@ function createGraphRuntime({pool,catalogFor,readSource,clock,beforeCommand}={})
    }
    await c.query('INSERT INTO crm_graph_candidate.transition(entry_id,entry_version,kind,node_id,state,reason,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)',[e.id,updated.version,t.kind,t.state.node_id,updated.state.status,t.reason||null,now]);
    return entrySummary(updated,{kind:t.kind,node_id:t.state.node_id,next_due_at:due,intent_id:intentId,...(t.reason?{reason:t.reason}:{})});
+  });},
+  applyDispatch(input){return command('apply_dispatch',input,['entry_id','expected_version','intent_id'],async(c,p,now)=>{
+   if(!readDispatch)throw error('GRAPH_DISPATCH_ADAPTER_REQUIRED');
+   const initial=await c.query('SELECT journey_id FROM crm_graph_candidate.entry WHERE id=$1 AND brand=$2',[p.entry_id,p.brand]);if(initial.rows.length!==1)throw error('GRAPH_NOT_FOUND');
+   const j=await current(c,initial.rows[0].journey_id,p.brand),e=await queryOne(c,'SELECT * FROM crm_graph_candidate.entry WHERE id=$1 FOR UPDATE',[p.entry_id]);version(e,p.expected_version);
+   const found=await c.query('SELECT * FROM crm_graph_candidate.intent WHERE id=$1 AND entry_id=$2 AND brand=$3 FOR SHARE',[p.intent_id,e.id,p.brand]);if(found.rows.length!==1)throw error('GRAPH_DISPATCH_IDENTITY');const i=found.rows[0];
+   const r=await revision(c,j.id,e.revision),node=r.definition.nodes.find(n=>n.id===i.node_id),binding=r.catalog.messages.find(m=>m.key===i.binding);
+   if(e.brand!==p.brand||e.identity.entry_id!==e.id||e.identity.journey_id!==j.id||e.identity.revision!==e.revision||e.identity.brand!==p.brand||e.identity.event_id!==e.event_key||node?.type!=='message'||node.binding!==i.binding||binding?.release!==i.release||binding.brand!==p.brand||binding.channel!=='email'||i.channel!=='email'||i.authorizes_send!==false||i.attempt_key!==JSON.stringify([G.VERSION,e.id,i.node_id]))throw error('GRAPH_DISPATCH_IDENTITY');
+   // Validate the current pinned state, even when this is a repeat of an older
+   // receipt after the entry advanced. Paused/OFF never erases an actual result.
+   G.nextTransition(r.definition,e.state,{catalog:r.catalog,identity:e.identity,now,paused:true});
+   const d=safeJSON(await readDispatch({query:c.query.bind(c),brand:p.brand,intent_id:i.id}));
+   if(d===null)throw error('GRAPH_DISPATCH_UNCONFIRMED');
+   exact(d,['contract','brand','intent_id','entry_id','revision','node_id','attempt_key','dispatch_id','transport_state']);uuid(d.dispatch_id);
+   if(d.contract!=='journey_graph_cart_dispatch_v1'||d.brand!==p.brand||d.intent_id!==i.id||d.entry_id!==e.id||d.revision!==e.revision||d.node_id!==i.node_id||d.attempt_key!==i.attempt_key||!['in_flight','accepted','rejected','outcome_unknown'].includes(d.transport_state))throw error('GRAPH_DISPATCH_IDENTITY');
+   const prior=(await c.query('SELECT * FROM crm_graph_candidate.dispatch_receipt_v1 WHERE intent_id=$1',[i.id])).rows;
+   if(prior.some(x=>x.dispatch_id!==d.dispatch_id||x.entry_id!==e.id||x.brand!==p.brand||x.revision!==e.revision||x.node_id!==i.node_id||x.attempt_key!==i.attempt_key))throw error('GRAPH_DISPATCH_IDENTITY');
+   if(prior.some(x=>['accepted','rejected'].includes(x.transport_state)&&x.transport_state!==d.transport_state)||d.transport_state==='in_flight'&&prior.some(x=>x.transport_state!=='in_flight'))throw error('GRAPH_DISPATCH_REGRESSION');
+   if(prior.some(x=>x.transport_state===d.transport_state))return entrySummary(e,{kind:'receipt_already_applied',intent_id:i.id,dispatch_id:d.dispatch_id,transport_state:d.transport_state,node_id:e.state.node_id,next_due_at:e.next_due_at?new Date(e.next_due_at).toISOString():null});
+   if(e.stopped_reason||!['waiting_message','unknown'].includes(e.state.status)||e.state.node_id!==i.node_id||e.state.attempt_key!==i.attempt_key)throw error('GRAPH_DISPATCH_NOT_PENDING');
+   const t=d.transport_state==='in_flight'?{kind:'await_receipt',state:e.state}:G.nextTransition(r.definition,e.state,{catalog:r.catalog,identity:e.identity,now,messageReceipt:{attempt_key:i.attempt_key,status:d.transport_state}});
+   const due=t.kind==='advance'?now:null;
+   const updated=await queryOne(c,'UPDATE crm_graph_candidate.entry SET state=$2::jsonb,version=version+1,next_due_at=$3,updated_at=$4 WHERE id=$1 RETURNING *',[e.id,JSON.stringify(t.state),due,now]);
+   await c.query('INSERT INTO crm_graph_candidate.transition(entry_id,entry_version,kind,node_id,state,reason,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)',[e.id,updated.version,t.kind,t.state.node_id,updated.state.status,d.transport_state,now]);
+   await c.query('INSERT INTO crm_graph_candidate.dispatch_receipt_v1(intent_id,dispatch_id,entry_id,brand,revision,node_id,attempt_key,transport_state,entry_version,transition_kind,operation_id,observed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[i.id,d.dispatch_id,e.id,p.brand,e.revision,i.node_id,i.attempt_key,d.transport_state,updated.version,t.kind,p.request_id,now]);
+   return entrySummary(updated,{kind:t.kind,intent_id:i.id,dispatch_id:d.dispatch_id,transport_state:d.transport_state,node_id:t.state.node_id,next_due_at:due});
   });},
   async due({brand,limit=50}={}){
    if(!['fish','aristo'].includes(brand)||!Number.isInteger(limit)||limit<1||limit>100)throw error('GRAPH_BATCH_LIMIT');

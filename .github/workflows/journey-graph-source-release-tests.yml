@@ -9,6 +9,12 @@ on:
       - 'tests/journey-graph-material*.cjs'
       - 'tests/journey-graph-message*.cjs'
       - 'tests/journey-graph-native*.cjs'
+      - 'tests/journey-graph-cart*.cjs'
+      - 'tests/journey-graph-cart-legacy-fixture.sql'
+      - 'tests/journey-graph-maintenance*.cjs'
+      - 'tests/journey-graph-delivery*.cjs'
+      - 'tests/journey-graph-dispatch-receipt*.cjs'
+      - 'tests/fixtures/journey-graph-dispatch-receipt.cjs'
       - 'tests/journey-graph-refresh.test.cjs'
       - 'tests/journey-graph-purchase.test.cjs'
       - 'tests/sql/journey-collector-fixture.sql'
@@ -19,7 +25,7 @@ permissions:
 jobs:
   source-release-postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     services:
       postgres:
         image: postgres:17.10
@@ -44,7 +50,7 @@ jobs:
       - name: Source and release regression with integrated materialization
         env:
           NODE_PATH: ../graph-source-tools/node_modules
-        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs tests/journey-graph-message.test.cjs tests/journey-graph-native.test.cjs
+        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs tests/journey-graph-message.test.cjs tests/journey-graph-native.test.cjs tests/journey-graph-cart.test.cjs tests/journey-graph-delivery.test.cjs tests/journey-graph-delivery-integration.test.cjs tests/journey-graph-dispatch-receipt.test.cjs tests/journey-graph-maintenance.test.cjs
       - name: Source concurrency and fresh native guard reads
         env:
           NODE_PATH: ../graph-source-tools/node_modules
@@ -57,7 +63,7 @@ jobs:
         run: |
           node - <<'JS'
           const {Client}=require('pg');
-          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');await c.query('CREATE DATABASE journey_graph_native_test');await c.query('CREATE DATABASE journey_graph_message_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');await c.query('CREATE DATABASE journey_graph_native_test');await c.query('CREATE DATABASE journey_graph_message_test');await c.query('CREATE DATABASE journey_graph_receipt_test');await c.query('CREATE DATABASE journey_graph_cart_test');await c.query('CREATE DATABASE journey_graph_maintenance_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
           JS
       - name: Immutable release concurrency and receipt atomicity
         env:
@@ -78,3 +84,21 @@ jobs:
           TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_message_test
           GRAPH_TEST_DATABASE_ISOLATED: '1'
         run: node tests/journey-graph-message-postgres.cjs
+      - name: Original cart claim and graph contention
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_cart_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-cart-postgres.cjs
+      - name: Durable dispatch receipt application
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_receipt_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-dispatch-receipt-postgres.cjs
+      - name: Retained cart delegation and graph contention
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_maintenance_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-maintenance-postgres.cjs
