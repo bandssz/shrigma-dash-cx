@@ -57,3 +57,24 @@ create a service or restart from the image-manifest. The host command `./listmon
 (without install/upgrade), a drained single emitter and rollback by the pinned
 original image belong to the later cutover. Runtime OFF or paused alone does not
 make rollback safe while an A/B arm or buffered batch can still execute.
+
+## Reviewed registry copy
+
+`ab-listmonk-image-publish.yml` verifies the already successful OCI build
+36282672565, including its exact archive, source and manifest hashes. Its PR job
+only verifies. After merge, a manual run on main copies those same bytes to
+`ghcr.io/bandssz/shrigma-crm-listmonk:ab-v2-c97a058` with digest preservation;
+it never rebuilds or starts the application. Package write permission exists
+only on that manual job. An existing different manifest is a hard collision;
+the exact existing manifest is reconciled without another copy.
+
+The fixed initial-create option handles GHCR denying reads before a package
+exists. It permits one authenticated copy to this single reviewed destination,
+does not claim the denial proves absence, and never changes permissions. Tag
+and digest are both read back afterward. Login uses stdin and a private,
+temporary authentication file; provider error output is not echoed.
+
+The resulting package may remain private. The receipt deliberately leaves
+`public_pull_verified=false`; pull access must be confirmed independently
+before a service change. Neither this workflow nor its receipt changes the
+Easypanel service, activates A/B or grants restart permission.
