@@ -33,6 +33,8 @@
       "growth-manager.css",
       "panel-ui.css",
       "growth-audience.css",
+      "growth-journey-graph-editor.css",
+      "growth-journey-graph-ui.css",
       "growth-workspace.css",
       "growth-ab-experiment.css"
     ],
@@ -86,6 +88,10 @@
       "growth-builder.js",
       "growth-flows.js",
       "growth-flows-ui.js",
+      "n8n/growth/journey-graph-contract.js",
+      "growth-journey-graph-editor.js",
+      "growth-journey-graph-api.js",
+      "growth-journey-graph-ui.js",
       "panel-bridge.js"
     ]
   },

@@ -66,6 +66,14 @@ test('abas funcionam por clique e teclado e pesquisa mantém filtro durante a tr
  assert.equal(x.document.querySelector('#control-history').hidden,false);
  x.run('GC.render(ctx)');assert.equal(x.document.querySelector('#control-template-search').value,'card');
 });
+test('graph navigation skips the absent capability and disabled brand in clicks and keyboard',()=>{
+ const x=render(),graph=x.document.querySelector('#control-tab-graph'),journeys=x.document.querySelector('#control-tab-fluxos');
+ x.run("GC.setTab('fluxos');GC.setTab('graph')");assert.equal(x.run('GC.activeTab'),'fluxos');
+ const right=()=>{const e=new x.window.Event('keydown');e.key='ArrowRight';journeys.dispatchEvent(e);};
+ right();assert.equal(x.run('GC.activeTab'),'history');
+ graph.hidden=false;graph.disabled=true;x.run("GC.setTab('fluxos')");right();assert.equal(x.run('GC.activeTab'),'history');
+ graph.disabled=false;x.run("GC.setTab('fluxos')");right();assert.equal(x.run('GC.activeTab'),'graph');assert.equal(x.document.querySelector('#control-graph').hidden,false);
+});
 test('reconsulta preserva detalhes abertos e envelhece a coleta mesmo sem payload novo',()=>{
  const x=render();x.document.querySelector('[data-control-workflow="fish_tx"] details').open=true;
  x.run('ctx.now+=16*60*1000;GC.render(ctx)');
