@@ -27,7 +27,7 @@ BEGIN
   IF (SELECT count(*) FROM jsonb_array_elements(f.published->'steps') s WHERE s->>'key'='email:carrinho-30min')<>1 THEN RAISE EXCEPTION 'GRAPH_RELEASE_SLOT_UNAVAILABLE';END IF;
   SELECT s INTO slot FROM jsonb_array_elements(f.published->'steps') s WHERE s->>'key'='email:carrinho-30min';
   IF slot->>'channel' IS DISTINCT FROM 'email' OR slot->>'flow' IS DISTINCT FROM 'carrinho' OR slot->>'piece' IS DISTINCT FROM 'carrinho-30min' OR slot->>'enabled' IS DISTINCT FROM 'true' OR slot->>'template_id' IS DISTINCT FROM tid::text THEN RAISE EXCEPTION 'GRAPH_RELEASE_SLOT_UNAVAILABLE';END IF;
-  SELECT jsonb_build_object('type',x.type,'subject',x.subject,'body',x.body,'body_source',to_jsonb(x)->'body_source') INTO t FROM public.templates x WHERE x.id=tid AND x.type::text='tx' AND NOT starts_with(x.name,'__shrigma_journey_tx_v1_')
+  SELECT jsonb_build_object('type',x.type,'subject',x.subject,'body',x.body,'body_source',to_jsonb(x)->'body_source') INTO t FROM public.templates x WHERE x.id=tid AND x.type::text='tx' AND NOT starts_with(x.name,'__shrigma_journey_tx_v1_') AND NOT starts_with(x.name,'__shrigma_graph_tx_v1_')
    AND EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand=b)
    AND NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand IS DISTINCT FROM b);
   IF t IS NULL THEN RAISE EXCEPTION 'GRAPH_RELEASE_TEMPLATE_UNAVAILABLE';END IF;
