@@ -12,5 +12,5 @@ async function main(args){
  else result=await i.phase(mode,rest[0],{activationApproval:rest[1]});
  process.stdout.write(JSON.stringify(result)+'\n');
 }
-if(require.main===module)main(process.argv.slice(2)).catch(e=>{const safe=/^(TX_DEPLOY_[A-Z_]+|MAINTENANCE_TX_[A-Z_]+|HTTP_[0-9]{3}|RESPONSE_LIMIT|NETWORK_RESPONSE_LOST)$/.test(e.message)?e.message:'TX_DEPLOY_UNKNOWN_CHECK_PRIVATE_STATE';process.stderr.write(safe+'\n');process.exitCode=1;});
+if(require.main===module)main(process.argv.slice(2)).catch(e=>{const safe=/^(TX_DEPLOY_[A-Z_]+|TX_N8N_202_[A-Z_]+|MAINTENANCE_TX_[A-Z_]+|HTTP_[0-9]{3}|RESPONSE_LIMIT|NETWORK_RESPONSE_LOST)$/.test(e.message)?e.message:'TX_DEPLOY_UNKNOWN_CHECK_PRIVATE_STATE';process.stderr.write(safe+'\n');process.exitCode=1;});
 module.exports={main};
