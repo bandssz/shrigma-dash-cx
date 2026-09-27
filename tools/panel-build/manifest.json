@@ -100,7 +100,8 @@
       "styles.css",
       "organico-page.css",
       "panel-ui.css",
-      "area-brand.css"
+      "area-brand.css",
+      "organico-mobile.css"
     ],
     "scripts": [
       "frescor.js",
@@ -112,6 +113,7 @@
       "organico-stories.js",
       "organico-legacy.js",
       "organico-links.js",
+      "painel-tabelas.js",
       "panel-bridge.js"
     ]
   },
