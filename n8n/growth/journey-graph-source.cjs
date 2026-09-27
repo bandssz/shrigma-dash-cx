@@ -4,6 +4,7 @@
 'use strict';
 const {createHash}=require('node:crypto');
 const VERSION='journey_graph_source_v1',UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const OBSERVATION_POLICY='cart_customer_order_observation_v1';
 const error=code=>Object.assign(Error(code),{code});
 const iso=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(s)&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString()===s;
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -20,8 +21,8 @@ function mapItems(items){
  }
  return JSON.stringify(out).length>24000?null:out;
 }
-function createSourceAdapter({query,purchaseFor,materialFor,collectorWorkflowIds={}}={}){
- if(typeof query!=='function'||[purchaseFor,materialFor].some(f=>f!==undefined&&typeof f!=='function'))throw error('GRAPH_SOURCE_ADAPTER_REQUIRED');
+function createSourceAdapter({query,purchaseFor,materialFor,observationPolicy,collectorWorkflowIds={}}={}){
+ if(typeof query!=='function'||[purchaseFor,materialFor].some(f=>f!==undefined&&typeof f!=='function')||observationPolicy!==undefined&&observationPolicy!==OBSERVATION_POLICY)throw error('GRAPH_SOURCE_ADAPTER_REQUIRED');
  const one=async(q,args,read=query)=>{const r=await read(q,args);if(!Array.isArray(r?.rows)||r.rows.length!==1||!Object.hasOwn(r.rows[0],'result'))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');return r.rows[0].result;};
  const adapter={
   async captureHandoff(handoff){
@@ -69,6 +70,15 @@ function createSourceAdapter({query,purchaseFor,materialFor,collectorWorkflowIds
    // supplied by default: until integrated and verified, the No branch waits.
    else if(purchaseFor&&r.eligible&&r.consent&&!r.suppressed){
     if(p&&p.version==='journey_purchase_evidence_v1'&&p.source_ref===source_ref&&p.subject_id===r.subject_id&&p.brand===brand&&p.complete===true&&typeof p.purchased==='boolean'&&[p.covered_from,p.covered_through,p.observed_at].every(iso)&&Date.parse(p.covered_from)<=Date.parse(r.occurred_at)&&Date.parse(p.covered_through)>=Date.parse(now)&&Date.parse(p.covered_through)<=Date.parse(p.observed_at)&&Date.parse(p.observed_at)<=Date.parse(r.observed_at)+5000&&Date.parse(p.observed_at)>=Date.parse(now))facts['purchase.confirmed']=fact(p.purchased);
+   }
+   if(observationPolicy===OBSERVATION_POLICY){
+    // Separate operational fact: the old authoritative field is never set false
+    // from an empty Shopify response. A native/confirmed positive always wins.
+    if(facts['purchase.confirmed']?.value===true)facts['purchase.observed_for_cart']=fact(true);
+    else if(r.eligible&&r.consent&&!r.suppressed){
+     const o=p?.observation;
+     if(p?.version==='journey_purchase_observation_v1'&&p.source_ref===source_ref&&p.subject_id===r.subject_id&&p.brand===brand&&o?.policy===OBSERVATION_POLICY&&o.source_ref===source_ref&&o.subject_id===r.subject_id&&o.brand===brand&&o.occurred_at===r.occurred_at&&typeof o.found==='boolean'&&iso(o.check_at)&&Date.parse(o.check_at)>=Date.parse(now)&&Date.parse(o.check_at)<=Date.parse(now)+5000&&['shop_ref_hash','customer_ref_hash','checkout_ref_hash'].every(k=>/^[a-f0-9]{64}$/.test(o[k]||''))&&(o.found===true||o.enumerated===true&&o.checkout_rechecked===true&&o.head_rechecked===true))facts['purchase.observed_for_cart']=fact(o.found);
+    }
    }
    if(matches&&m&&typeof m==='object'){
     const values={'contact.first_name':text(m['contact.first_name']),'cart.checkout_url':url(m['cart.checkout_url']),'cart.items':mapItems(m['cart.items']),'cart.total':money(m['cart.total'])};

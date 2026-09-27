@@ -16,6 +16,15 @@ async function read({brand,query},name){
  return r.rows[0].result;
 }
 async function catalogFor(options){return validateCatalog(await read(options,'catalog_v1'),options.brand);}
+// Trusted composition for a worker whose purchase adapter uses this exact policy.
+// Existing public SQL catalogs and their capability remain unchanged.
+function withObservedPurchase(catalog,{observationPolicy}={}){
+ if(observationPolicy!=='cart_customer_order_observation_v1')fail('GRAPH_CATALOG_POLICY_UNCONFIRMED');
+ validateCatalog(catalog,catalog?.brand);const c=JSON.parse(JSON.stringify(catalog)),key='purchase.observed_for_cart';
+ if(c.fields.some(f=>f.key===key))fail('GRAPH_CATALOG_POLICY_COLLISION');
+ const trigger=c.triggers.find(t=>t.key==='cart.abandoned');if(!trigger?.available)fail('GRAPH_CATALOG_POLICY_UNCONFIRMED');
+ trigger.fields.push(key);c.fields.push({key,type:'boolean',available:true,max_age_seconds:5});return c;
+}
 async function catalogUIFor(options){
  const result=await read(options,'catalog_ui_v1');validateCatalog(result.catalog,options.brand);
  const r=result.readiness;
@@ -26,4 +35,4 @@ async function catalogUIFor(options){
  if(typeof result.checked_at!=='string'||!Number.isFinite(Date.parse(result.checked_at)))fail('GRAPH_CATALOG_UNCONFIRMED');
  return result;
 }
-module.exports={VERSION,ENABLED,catalogFor,catalogUIFor};
+module.exports={VERSION,ENABLED,catalogFor,catalogUIFor,withObservedPurchase};

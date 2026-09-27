@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {VERSION,ENABLED,IDENTITY_QUERY,ORDERS_QUERY,createPurchaseProvider}=require('../n8n/growth/journey-graph-purchase.cjs');
+const {VERSION,OBSERVATION_POLICY,ENABLED,IDENTITY_QUERY,ORDERS_QUERY,createPurchaseProvider}=require('../n8n/growth/journey-graph-purchase.cjs');
 const now='2026-09-27T12:00:00.000Z',occurred='2026-09-27T11:00:00.000Z';
 const uuid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const gid=(type,n)=>'gid://shopify/'+type+'/'+n;
@@ -111,4 +111,79 @@ test('configuration is copied and server routing cannot be replaced through inpu
  const x=setup();const r=await x.provider({...x.input,shop:'attacker.invalid',customer:gid('Customer',999),email:'attacker@example.invalid'});assert.equal(r.purchased,null);assert.equal(x.calls[0].shop,shops.fish.myshopifyDomain);assert.equal(x.calls[1].variables.customer,x.customer.id);
  assert.throws(()=>createPurchaseProvider({...x.config,shops:{fish:{id:gid('Shop',1),myshopifyDomain:'https://attacker.invalid'}}}),/CONFIG/);
  await assert.rejects(x.provider({...x.input,brand:'olivas'}),/IDENTITY/);
+});
+
+function observational(options={}){
+ const x=setup({observationPolicy:OBSERVATION_POLICY,...options});x.responses.push(copy(x.first),x.page());return x;
+}
+test('explicit observational policy binds exhaustive rechecked absence to the native cart, without changing authoritative fields',async()=>{
+ const hashes=[];
+ for(const brand of ['fish','aristo']){
+  const x=observational({brand}),r=await x.provider(x.input),o=r.observation;
+  assert.deepEqual(x.calls.map(c=>c.document),[IDENTITY_QUERY,ORDERS_QUERY,IDENTITY_QUERY,ORDERS_QUERY]);
+  assert.deepEqual(x.calls.filter(c=>c.document===ORDERS_QUERY).map(c=>c.variables.after),[null,null]);
+  assert.equal(r.purchased,null);assert.equal(r.complete,false);assert.equal(r.query_complete,true);assert.equal(r.covered_through,undefined);
+  assert.deepEqual({...o,shop_ref_hash:null,customer_ref_hash:null,checkout_ref_hash:null},{policy:OBSERVATION_POLICY,found:false,brand,source_ref:x.input.source_ref,subject_id:x.input.subject_id,occurred_at:occurred,check_at:now,shop_ref_hash:null,customer_ref_hash:null,checkout_ref_hash:null,enumerated:true,checkout_rechecked:true,head_rechecked:true});
+  for(const key of ['shop_ref_hash','customer_ref_hash','checkout_ref_hash'])assert.match(o[key],/^[a-f0-9]{64}$/);
+  assert.ok(!JSON.stringify(r).includes('gid://'));assert.ok(!JSON.stringify(r).includes('synthetic@example'));hashes.push(o.customer_ref_hash);assert.equal(x.resolverCalls(),2);
+ }
+ assert.notEqual(...hashes);
+});
+test('policy is server opt-in; a caller field cannot enable it and unsupported policy fails',async()=>{
+ const x=setup(),r=await x.provider({...x.input,observationPolicy:OBSERVATION_POLICY});assert.equal(r.observation,undefined);assert.equal(x.calls.length,2);
+ assert.throws(()=>createPurchaseProvider({...x.config,observationPolicy:'unapproved'}),/CONFIG/);
+});
+test('exhaustive multi-page history is rechecked at the head before found:false',async()=>{
+ const x=observational({pageSize:1});const head=x.page([x.order(5,'2026-09-27T10:00:00Z')],true,'next');
+ x.responses.splice(1,3,head,x.page([x.order(6,'2026-09-27T09:00:00Z')],false,'last'),copy(x.first),copy(head));
+ const r=await x.provider(x.input);assert.equal(r.observation.found,false);assert.equal(r.coverage.exhausted,true);assert.equal(r.coverage.pages,3);assert.equal(x.calls.length,5);assert.deepEqual(x.calls.filter(c=>c.document===ORDERS_QUERY).map(c=>c.variables.after),[null,'next',null]);
+});
+test('purchase appearing between pages is caught on the final head and dominates prior absence',async()=>{
+ const x=observational({pageSize:1});x.responses.splice(1,3,x.page([x.order(5,'2026-09-27T10:00:00Z')],true,'next'),x.page([x.order(6,'2026-09-27T09:00:00Z')]),copy(x.first),x.page([x.order(7,'2026-09-27T11:30:00Z')],true,'new'));
+ const r=await x.provider(x.input);assert.equal(r.observation.found,true);assert.equal(r.purchased,true);assert.equal(r.observation.checkout_rechecked,true);assert.equal(r.observation.head_rechecked,true);assert.equal(r.purchase_at,'2026-09-27T11:30:00.000Z');
+});
+test('a newly visible order on a later page is positive even when insertion changes cross-page ordering',async()=>{
+ const x=observational({pageSize:1});x.responses.splice(1,3,x.page([x.order(5,'2026-09-27T10:00:00Z')],true,'next'),x.page([x.order(7,'2026-09-27T11:30:00Z')]));
+ const r=await x.provider(x.input);assert.equal(r.purchased,true);assert.equal(r.observation.found,true);assert.equal(x.calls.length,3);assert.equal(r.observation.enumerated,false);
+});
+test('checkout completed during enumeration dominates, without pretending orders were rechecked',async()=>{
+ const x=observational();x.responses[2].node.completedAt='2026-09-27T11:30:00Z';const r=await x.provider(x.input);
+ assert.equal(r.purchased,true);assert.equal(r.basis,'checkout_completed');assert.equal(r.observation.found,true);assert.equal(r.observation.checkout_rechecked,true);assert.equal(r.observation.head_rechecked,false);assert.equal(x.calls.length,3);
+});
+test('final checkout, scope, customer and head failures cannot emit found:false',async()=>{
+ for(const change of [
+  x=>{x.responses[2].node=null;},
+  x=>{x.responses[2].node.customer.id=gid('Customer',99);},
+  x=>{x.responses[2].node.customer.defaultEmailAddress.emailAddress='changed@example.invalid';},
+  x=>{x.responses[2].node.createdAt=now;},
+  x=>{x.responses[2].currentAppInstallation.accessScopes=[{handle:'read_orders'}];},
+  x=>{x.responses[3].shop=shops.aristo;},
+  x=>{x.responses[3].customer.orders.pageInfo.hasNextPage=true;},
+  x=>{x.responses[3]=Error('private provider failure');}
+ ]){const x=observational();change(x);const r=await x.provider(x.input);assert.equal(r.observation,undefined);assert.equal(r.purchased,null);assert.equal(r.complete,false);assert.equal(r.query_complete,false);}
+});
+test('head history changing without a positive order stays unknown rather than recycling the old enumeration',async()=>{
+ const x=observational();x.responses[3]=x.page([x.order(8,'2026-09-27T09:00:00Z')]);const r=await x.provider(x.input);assert.equal(r.code,'GRAPH_PURCHASE_HEAD_CHANGED');assert.equal(r.observation,undefined);
+});
+test('window, page limit and partial proofs cannot emit an observed negative',async()=>{
+ const x=observational();x.input.occurred_at=x.identity.occurred_at='2026-06-01T11:00:00.000Z';x.first.node.createdAt=x.input.occurred_at;let r=await x.provider(x.input);assert.equal(r.code,'GRAPH_PURCHASE_HISTORY_UNAVAILABLE');assert.equal(r.observation,undefined);assert.equal(x.calls.length,2);
+ const y=observational({maxPages:1});y.responses[1]=y.page([y.order(5,'2026-09-27T10:00:00Z')],true,'more');r=await y.provider(y.input);assert.equal(r.code,'GRAPH_PURCHASE_PAGE_LIMIT');assert.equal(r.observation,undefined);
+ const z=observational();z.input.occurred_at=z.identity.occurred_at='2026-06-01T11:00:00.000Z';z.first.node.createdAt=z.input.occurred_at;z.first.currentAppInstallation.accessScopes.push({handle:'read_all_orders'});z.responses[2]=copy(z.first);z.responses[2].currentAppInstallation.accessScopes.pop();r=await z.provider(z.input);assert.equal(r.code,'GRAPH_PURCHASE_HISTORY_UNAVAILABLE');assert.equal(r.observation,undefined);assert.equal(z.calls.length,3);
+});
+test('observational final native identity check rejects changes after the last Shopify response',async()=>{
+ const x=observational(),base=x.config.request;let n=0;
+ const provider=createPurchaseProvider({...x.config,request:async req=>{const r=await base(req);if(++n===4)x.identity.checkout_id=gid('AbandonedCheckout',999);return r;}});
+ const r=await provider(x.input);assert.equal(r.code,'GRAPH_PURCHASE_IDENTITY_CHANGED');assert.equal(r.observation,undefined);assert.equal(r.purchased,null);
+});
+test('the same total timeout and external abort include final observational rechecks',async()=>{
+ for(const outer of [false,true]){
+  const x=observational({timeoutMs:20}),base=x.config.request,controller=new AbortController();let n=0,lastSignal,entered;const started=new Promise(r=>{entered=r;});
+  const provider=createPurchaseProvider({...x.config,request:async req=>{if(++n===4){lastSignal=req.signal;entered();return new Promise(()=>{});}return base(req);}});
+  const pending=provider({...x.input,signal:controller.signal});await started;if(outer)controller.abort();const r=await pending;assert.equal(r.code,outer?'GRAPH_PURCHASE_ABORTED':'GRAPH_PURCHASE_TIMEOUT');assert.equal(r.observation,undefined);assert.equal(lastSignal.aborted,true);assert.equal(n,4);
+ }
+});
+test('successful individual reads do not renew the total observational deadline',async()=>{
+ const x=observational({timeoutMs:20}),base=x.config.request;let calls=0;
+ const provider=createPurchaseProvider({...x.config,request:async req=>{calls++;await new Promise(resolve=>setTimeout(resolve,8));return base(req);}});
+ const r=await provider(x.input);assert.equal(r.code,'GRAPH_PURCHASE_TIMEOUT');assert.equal(r.observation,undefined);assert.ok(calls<4);
 });
