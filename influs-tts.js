@@ -732,8 +732,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   const produtoTTS = (marca, titulo) => PRODUTOS_TTS?.get(marca + '|' + String(titulo || '').trim().toLowerCase()) || null;
   const iniciais = s => String(s || '?').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
   // Miniatura do produto: foto da loja quando o anúncio identifica a variação; senão, um quadro com as iniciais.
-  const thumbTTS = (p, titulo) => p?.imagem_url && /^https:\/\/cdn\.shopify\.com\//.test(p.imagem_url)
-    ? `<img class="tts-thumb" src="${esc(p.imagem_url)}${p.imagem_url.includes('?') ? '&' : '?'}width=160" alt="" loading="lazy" width="56" height="56">`
+  const FOTO_OK = /^https:\/\/(cdn\.shopify\.com|[a-z0-9.-]+\.(ibyteimg|tiktokcdn|tiktokcdn-us|byteimg|ttwstatic)\.com)\//;
+  const thumbTTS = (p, titulo) => p?.imagem_url && FOTO_OK.test(p.imagem_url)
+    ? `<img class="tts-thumb" src="${esc(p.imagem_url)}${/cdn\.shopify\.com/.test(p.imagem_url) ? (p.imagem_url.includes('?') ? '&' : '?') + 'width=160' : ''}" alt="" loading="lazy" width="56" height="56" referrerpolicy="no-referrer">`
     : `<span class="tts-thumb tts-thumb-vazia" aria-hidden="true">${esc(iniciais(p?.rotulo || titulo))}</span>`;
   const produtoCelTTS = (x, extra = '') => {
     const p = produtoTTS(x.marca, x.product_title), rot = p?.rotulo || x.product_title;
