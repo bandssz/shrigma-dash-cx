@@ -1,0 +1,68 @@
+/* Orgânico · leitura rápida no celular e no desktop (27/09/2026). */
+
+/* Ressalvas viram etiquetas: o detalhe fica no title (e no foco, para teclado). */
+.org-ressalvas{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 12px}
+.org-ressalvas strong{font:600 12.5px/1.3 var(--ui);margin-right:2px}
+.tag.ressalva{cursor:help;font-weight:500}
+.kpi-ref .tag{white-space:normal}
+.tag.ressalva:focus-visible{outline:2px solid var(--texto);outline-offset:1px}
+details.org-cobertura{margin-top:14px}
+details.org-cobertura>summary{cursor:pointer;font:600 13px/1.6 var(--ui);color:var(--mudo);display:flex;flex-wrap:wrap;gap:6px;align-items:center;list-style:none}
+details.org-cobertura>summary .tag{font-weight:500}
+details.org-cobertura>summary::-webkit-details-marker{display:none}
+details.org-cobertura>summary::before{content:'▸';font-size:11px;transition:transform .12s}
+details.org-cobertura[open]>summary::before{transform:rotate(90deg)}
+.tab-mais{display:block;margin:10px auto 0;min-height:36px}
+
+@media(max-width:720px){
+  /* Período: presets numa linha rolável, datas lado a lado */
+  body[data-panel=organico] .periodo{gap:8px}
+  body[data-panel=organico] .periodo .presets{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:100%}
+  body[data-panel=organico] .periodo .presets::-webkit-scrollbar{display:none}
+  body[data-panel=organico] .periodo .presets button{flex:none;min-height:34px;padding:8px 11px}
+  body[data-panel=organico] .periodo input[type=date]{flex:1 1 0;width:auto;min-height:38px}
+  body[data-panel=organico] .periodo label{width:100%}
+
+  /* KPIs: faixa rolável para o lado, o conteúdo da aba aparece logo abaixo */
+  body[data-panel=organico] #area-kpis{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  body[data-panel=organico] #area-kpis::-webkit-scrollbar{display:none}
+  body[data-panel=organico] #area-kpis .kpi{flex:0 0 72%;scroll-snap-align:start;border-right:1px solid var(--borda)!important;border-bottom:0!important}
+  body[data-panel=organico] #area-kpis .kpi:last-child{border-right:0!important}
+  body[data-panel=organico] #area-kpis .kpi-val:not(.vazio-val){font-size:26px;overflow-wrap:anywhere}
+  body[data-panel=organico] #area-kpis .kpi-sub{font-size:11.5px}
+  body[data-panel=organico] #area-kpis .kpi-ref .tag{white-space:normal}
+
+  /* Controles com área de toque de verdade */
+  body[data-panel=organico] .seg-mini button,body[data-panel=organico] .seg-mini-btn{min-height:36px}
+  body[data-panel=organico] main .btn{min-height:40px}
+  body[data-panel=organico] main select,body[data-panel=organico] main input[type=text]{min-height:38px}
+  body[data-panel=organico] .painel-cab{flex-wrap:wrap;gap:8px}
+  body[data-panel=organico] .painel-cab .seg-mini-btn{margin-left:0}
+
+  /* Tabelas viram cartões: rótulo da coluna em cima do valor (data-label vem de painel-tabelas.js) */
+  body[data-panel=organico] .rolagem:has(>table.tab-cartao:not(#tab-posts)){overflow:visible}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts){display:block;width:100%;min-width:0!important}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>thead{display:none}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody{display:block}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;padding:12px 2px;border-bottom:1px solid var(--borda)}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr[hidden]{display:none}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td{display:block;padding:0!important;border:0!important;text-align:left!important;min-width:0!important;max-width:none!important;white-space:normal;overflow-wrap:anywhere;box-shadow:none!important}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td[data-label]:not([data-label=""])::before{content:attr(data-label);display:block;font:500 10.5px/1.3 var(--ui);color:var(--mudo);margin-bottom:2px}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td:first-child{grid-column:1/-1;font-weight:600}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td:first-child::before{display:none!important}
+  /* segunda coluna sem título (ex.: etiqueta da marca) fica ao lado do título do cartão */
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td:first-child:has(+td[data-label=""]){grid-column:auto}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td:first-child+td[data-label=""]{justify-self:end;align-self:center}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td[colspan]{grid-column:1/-1}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr>td:empty{display:none}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr.linha-venc{box-shadow:inset 3px 0 0 var(--bom);padding-left:10px}
+  body[data-panel=organico] table.tab-cartao:not(#tab-posts)>tbody>tr.linha-perd{box-shadow:inset 3px 0 0 var(--ruim);padding-left:10px}
+
+  /* Post a post: a faixa de vencedor/queda fica na borda do cartão, não em cima da miniatura */
+  body[data-panel=organico] #tab-posts tbody tr td:first-child{box-shadow:none!important}
+  body[data-panel=organico] #tab-posts tbody tr.linha-venc{box-shadow:inset 3px 0 0 var(--bom);padding-left:10px}
+  body[data-panel=organico] #tab-posts tbody tr.linha-perd{box-shadow:inset 3px 0 0 var(--ruim);padding-left:10px}
+  body[data-panel=organico] #tab-posts tbody tr[hidden]{display:none}
+  body[data-panel=organico] #tab-posts td:last-child a{display:inline-block;min-height:32px;line-height:32px}
+  body[data-panel=organico] .post-thumb{width:56px;height:56px}
+}

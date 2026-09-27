@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=ee947506c2a3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vJN0ijNgF/krmnNXZD8tRbA2xPjc7QCWzivTCU2JMYY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=7a1432ad7e93">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kVdT1gZHDITUbL4wz9GTzMhqAMl84aNiVsewg9ZGb/s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -142,7 +142,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=5de5827a57de"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=330ff6982f75"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -232,6 +232,8 @@ const tag=m=>`<span class="tag ${G.CLASSE[m]||m}">${G.MARCA[m]||m}</span>`;
 const chip=(sinal,exibe)=>{
   const d=exibe===undefined?sinal:exibe;
   if(d===null||d===undefined)return '<span class="mini">sem base de comparação</span>';
+  // Base anterior pequena demais: +30.000% não ajuda decisão nenhuma.
+  if(Math.abs(d)>300)return `<span class="mini" title="O período anterior é pequeno demais para comparar (variação de ${d.toLocaleString('pt-BR')}%).">sem base comparável</span>`;
   return `<span class="chip ${sinal>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
 };
 const varia=(a,b)=>(b===null||b===undefined||!b)?null:Math.round(100*(a-b)/b);
@@ -357,6 +359,16 @@ function pintaKPIs(){
   const som=(l,c)=>l.length?l.reduce((a,r)=>a+(+r[c]||0),0):null;
   const seg=som(cA,'seguidores_novos'), segB=som(cB,'seguidores_novos');
   const cli=som(cA,'website_clicks'), cliB=som(cB,'website_clicks');
+  // A Meta pode parar de contar uma métrica de conta sem avisar (website_clicks caiu de ~1.000/dia a ~5/dia).
+  // Quebra = média dos últimos 14 dias da série abaixo de 5% da média dos 30 dias anteriores; aí não há comparação honesta.
+  const quebraCli=(()=>{const por={};(API.cx_conta_dia||[]).filter(daMarca).forEach(r=>{const d=String(r.dia).slice(0,10);por[d]=(por[d]||0)+(+r.website_clicks||0);});
+    const dias=Object.keys(por).sort(),v=dias.map(d=>por[d]),med=l=>{const o=l.slice().sort((x,y)=>x-y);return o.length?o[Math.floor(o.length/2)]:0;};
+    // Degrau: 7 dias antes com mediana > 50 e 7 dias depois abaixo de 5% disso; a quebra vale se os últimos 14 dias continuam lá embaixo.
+    const degrau=i=>{const antes=med(v.slice(i-7,i));return antes>50&&v[i]<antes*0.05&&med(v.slice(i,i+7))<antes*0.05?antes:0;};
+    for(let i=v.length-7;i>=7;i--){const antes=degrau(i);if(!antes)continue;
+      while(i>7&&degrau(i-1))i--; // volta ao primeiro dia do degrau
+      return med(v.slice(-14))<antes*0.1?dias[i]:null;}
+    return null;})();
   // seguidores_total e retrato, nao soma: pega o dia mais recente de cada conta.
   const ultimos={};
   (API.cx_conta_dia||[]).filter(daMarca).forEach(r=>{const d=String(r.dia).slice(0,10);
@@ -377,7 +389,8 @@ function pintaKPIs(){
     {r:'Seguidores ganhos', v:seg===null?'—':nf(seg),
      d:varia(seg,segB), s:base?`base de ${nf(base)}`:'sem série no período'},
     {r:'Toques no link do site', v:cli===null?'—':nf(cli),
-     d:varia(cli,cliB), s:'nível de conta, não da peça'},
+     d:quebraCli?null:varia(cli,cliB), s:'nível de conta, não da peça',
+     alerta:quebraCli?`Meta parou de contar em ${quebraCli.slice(8,10)}/${quebraCli.slice(5,7)}`:null},
     ledgerStory?
     {r:'Receita de Stories', v:ledgerStory.storyRevenue===null?'—':moeda(ledgerStory.storyRevenue),
      d:ledgerStory.storyRevenue!==null&&ledgerStoryAnterior&&ledgerStoryAnterior.storyRevenue!==null?varia(ledgerStory.storyRevenue,ledgerStoryAnterior.storyRevenue):null,
@@ -605,7 +618,10 @@ async function carrega(){
      origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':'Consulta ao vivo às '+hora(Date.now());
      origemRot.title=ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
     }
-    shrigmaFrescor(API,$('#frescor'));
+    // O payload do Orgânico não traz coletado_em por linha: a coleta é confirmada pelos carimbos que existem.
+    {const maxT=l=>l.reduce((m,x)=>{const t=Date.parse(x||'');return Number.isFinite(t)&&(m===null||t>m)?t:m;},null),iso=t=>t===null?null:new Date(t).toISOString();
+     const stories=maxT((API.cx_story||[]).map(s=>s.ultima_coleta)),vendas=maxT((API.organico_attribution?.coverage||[]).map(c=>c.checked_at));
+     shrigmaFrescor(API,$('#frescor'),{collections:[{name:'Stories (Instagram)',checked_at:iso(stories),required:true},{name:'Vendas (Shopify)',checked_at:iso(vendas),required:true}]});}
     if(typeof AREA_VIEW!=='undefined'&&AREA_VIEW)AREA_VIEW.resolve();
   }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
   finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}
@@ -622,6 +638,8 @@ document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>troca(b.dataset.s));
+// Tabelas: cartão no celular, 20 linhas por vez; abas centralizadas no celular.
+if(typeof PainelTabelas!=='undefined')PainelTabelas.bind({document,root:document.querySelector('main'),tabs:'#secoes button'});
 document.querySelectorAll('#sec-grade .seg-mini button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#sec-grade .seg-mini button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');AGREG=b.dataset.g;pintaGrade();});

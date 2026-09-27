@@ -114,3 +114,23 @@ body.sec-diagnostico #area-kpis,body.sec-diagnostico #faixa-alertas{display:none
 body[data-panel=organico] #aviso-carga:empty,body[data-panel=organico] #faixa-alertas:empty{display:none}
 body[data-panel=influs] .i-alerta ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 body[data-panel=influs] .i-alerta .btn{min-height:28px;padding:4px 10px;font-size:11.5px;margin-left:6px}
+
+/* Celular (27/09/2026): um cabeçalho só, abas sempre à mão, marca em largura total. */
+@media(max-width:720px){
+  :is(body[data-panel=influs],body[data-panel=organico]) .workspace-nav,
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-marca{display:none}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral{position:sticky;top:0;z-index:30;background:var(--card,#fff);padding:6px 0 0;box-shadow:0 1px 0 var(--borda)}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes{padding:0 16px 0;gap:2px;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes::-webkit-scrollbar{display:none}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button{min-height:44px;padding:10px 12px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .area-lateral .secoes button:last-child{margin-right:40px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .topo{padding:14px 16px 12px;gap:10px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .topo .titulo .marcas{display:none}
+  :is(body[data-panel=influs],body[data-panel=organico]) .topo .titulo h1{font-size:20px}
+  :is(body[data-panel=influs],body[data-panel=organico]) .topo .sub{font-size:12px}
+  :is(body[data-panel=influs],body[data-panel=organico]) #seg-marca{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+  :is(body[data-panel=influs],body[data-panel=organico]) #seg-marca button{min-height:42px;padding:6px 4px;justify-content:center}
+  :is(body[data-panel=influs],body[data-panel=organico]) #seg-marca button img{max-width:100%;max-height:22px;object-fit:contain}
+  :is(body[data-panel=influs],body[data-panel=organico]) .topo .status{gap:8px;font-size:11px}
+}
