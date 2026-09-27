@@ -26,6 +26,16 @@ async function run(){
   await query('ALTER TABLE crm_graph_candidate.revision ENABLE TRIGGER graph_immutable');assert.deepEqual(await meta(),before);
   console.log('PASS fresh trigger-state drift blocks before writing any migration or worker role.');
 
+  // Timeout must already be active on the connection when this DO starts.
+  assert.equal(before.statement_timeout_ms,20000);
+  for(const timeout of [0,30001]){
+   await query('SET statement_timeout='+timeout);const unbounded=await meta();assert.equal(unbounded.statement_timeout_ms,timeout);
+   assert.throws(()=>D.atomicInstall(F.ROOT,unbounded,F.NONCE),/STATEMENT_TIMEOUT_REQUIRED/);
+   await assert.rejects(query(m.sql),/STATEMENT_TIMEOUT_REQUIRED/);assert.deepEqual(await meta(),unbounded);assert.deepEqual(await F.rowSnapshot(db),rows);assert.equal(unbounded.worker_role,null);
+  }
+  await query('SET statement_timeout=20000');assert.deepEqual(await meta(),before);
+  console.log('PASS metadata and first DO guard reject missing execution budget before locks/DDL; restoring bounded connection permits the same compiled DO.');
+
   // Only this disposable synthetic database is modified to reproduce a legacy
   // PUBLIC grant. The installer must report it, never repair shared privileges.
   await query('GRANT CREATE ON SCHEMA public TO PUBLIC');

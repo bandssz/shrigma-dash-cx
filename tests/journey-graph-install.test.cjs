@@ -105,3 +105,15 @@ test('worker can invoke recipient helper but cannot read its secret or enable ei
 });
 
 module.exports={metadataSQL,meta,migrate,failMidway};
+
+test('the same compiled DO refuses an unbounded/excessive execution session before locks or migrations',async t=>{
+ const x=await F.installBase(t),before=await meta(x.db),rows=await F.rowSnapshot(x.db),m=migrate(before);assert.equal(before.statement_timeout_ms,20000);
+ assert.ok(m.sql.indexOf('GRAPH_INSTALL_STATEMENT_TIMEOUT_REQUIRED')<m.sql.indexOf("set_config('lock_timeout'"));
+ for(const timeout of [0,30001]){
+  await x.db.exec('SET statement_timeout='+timeout);const changed=await meta(x.db);assert.equal(changed.statement_timeout_ms,timeout);assert.throws(()=>migrate(changed),/STATEMENT_TIMEOUT_REQUIRED/);
+  await assert.rejects(x.db.exec(m.sql),/STATEMENT_TIMEOUT_REQUIRED/);assert.deepEqual(await meta(x.db),changed);assert.deepEqual(await F.rowSnapshot(x.db),rows);assert.equal(changed.worker_role,null);
+  assert.equal((await x.query("SELECT to_regclass('crm_graph_candidate.source_event_v1') value")).rows[0].value,null);
+ }
+ await x.db.exec('SET statement_timeout=20000');assert.deepEqual(await meta(x.db),before);
+ const result=await x.db.exec(m.sql);assert.equal(result.length,1);
+});
