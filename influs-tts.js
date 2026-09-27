@@ -329,10 +329,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     msg.textContent = texto; msg.hidden = !texto;
   }
   function manualDisponivelTTS() {
-    return !!DADOS && MANUAL_TTS_CAPS?.write === true && MANUAL_TTS_CAPS.key === ACESSO_TTS.k && Date.now()-MANUAL_TTS_CAPS.checkedAt < 60000 && !DADOS?._cache && !DADOS?._caiu;
+    return !!DADOS && MANUAL_TTS_CAPS?.write === true && MANUAL_TTS_CAPS.key === ACESSO_TTS.k && Date.now()-MANUAL_TTS_CAPS.checkedAt < 600000 && !DADOS?._cache && !DADOS?._caiu;
+  }
+  // Com a chave do painel na página, a disponibilidade é conferida sozinha (sem clique), uma vez por leitura.
+  let AUTO_CAPS_TTS = 0;
+  function autoCapacidadesTTS() {
+    if (manualDisponivelTTS() || ACAO_TTS_EM_CURSO || !DADOS || DADOS._cache || DADOS._caiu || AUTO_CAPS_TTS === SEQ) return;
+    if (typeof chavePainelTTS !== 'function' || !chavePainelTTS()) return;
+    AUTO_CAPS_TTS = SEQ;
+    consultaManualTTS({ acao: 'capacidades', marca: marcaAtual() }).catch(() => {});
   }
   function travaAmostrasTTS() {
     const pronto = manualDisponivelTTS(), nota = $('#tts-manual-status');
+    if (!pronto) setTimeout(autoCapacidadesTTS, 0);
     const verificar=$('#tts-manual-check');if(verificar)verificar.onclick=()=>acionaConsultaTTS({acao:'capacidades',marca:marcaAtual()},verificar);
     if (nota) nota.textContent = pronto ? 'Serviço disponível. Cada decisão exige nova conferência e confirmação; consulta do recibo não repete a ação.' : MANUAL_TTS_CAPS?.write === false ? 'Decisões indisponíveis: o serviço mantém a operação protegida. A fila, as regras e os recibos continuam disponíveis.' : 'Decisões protegidas. Consulte a disponibilidade com seu acesso de escrita antes de decidir.';
     document.querySelectorAll('#tts-area .tts-acoes').forEach(td => {
@@ -393,6 +402,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     finally { ACAO_TTS_EM_CURSO=false;travaAmostrasTTS(); }
   }
   function acessoGuardadoTTS() {
+    // Acesso único: a chave com que a pessoa entrou no painel também decide e edita regra; o nome no histórico
+    // vem do acesso. O formulário abaixo só aparece se a página não tiver chave ou nome.
+    if (!ACESSO_TTS.k && typeof chavePainelTTS === 'function') { try { ACESSO_TTS.k = String(chavePainelTTS() || '').trim(); } catch (_) {} }
+    if (!ACESSO_TTS.autor && typeof autorPainelTTS === 'function') { try { ACESSO_TTS.autor = String(autorPainelTTS() || '').trim().slice(0,40); } catch (_) {} }
     try {
       if (!ACESSO_TTS.k) ACESSO_TTS.k = (localStorage.getItem('shrigma_tts_wkey') || '').trim();
       if (!ACESSO_TTS.autor) ACESSO_TTS.autor = (localStorage.getItem('shrigma_autor') || '').trim().slice(0,40);
@@ -638,7 +651,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
     // Trava explicada: quem libera e o que fazer enquanto isso. O estado real vem de travaAmostrasTTS().
     let html = `<div class="tts-trava"><div><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p>
-      <p class="mini">Aprovar e Rejeitar só destravam depois de conferir o serviço com um acesso de escrita. Enquanto estiverem cinza, a decisão continua no Seller Center e esta fila serve para priorizar.</p></div>
+      <p class="mini">Com a chave do painel, a disponibilidade é conferida sozinha e cada decisão pede só uma confirmação. Se os botões ficarem cinza, decida no Seller Center.</p></div>
       <button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>`;
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
       <div class="rolagem"><table class="comparativo tts-compacta"><thead><tr><th>Prazo</th>${thM}<th>Criador</th><th>Produto</th><th>Pedido</th></tr></thead><tbody>${envio.map(e => `<tr><td class="nowrap">${prazo(TTS.horasAte(e.envio_expira_em))}</td>${tdM(e)}<td>@${esc(e.username)}</td><td class="tts-prod"><span class="tts-1linha" title="${esc(e.product_title)}">${esc(e.product_title)}</span>${e.sku_name ? `<span class="tag nulo tts-sku">${esc(e.sku_name)}</span>` : ''}</td><td class="tabn">${esc(e.order_id || '—')}</td></tr>`).join('')}</tbody></table></div>`;

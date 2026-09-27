@@ -105,6 +105,7 @@
       "organico-attribution.js",
       "organico-stories.js",
       "organico-legacy.js",
+      "organico-links.js",
       "panel-bridge.js"
     ]
   },
