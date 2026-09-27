@@ -7,13 +7,15 @@ const OA=(()=>{
   editorial:{name:'Editorial orgânico',note:'Combinação de UTM reconhecida pela regra vigente.'},
   bio:{name:'Bio / Linktree',note:'Superfície compartilhada; pode haver mídia paga antes da visita.'},
   automacao_dm:{name:'Automação DM',note:'Link recebido por automação de mensagem direta.'},
-  legado_ambiguo:{name:'Social legado ambíguo',note:'A UTM disponível não separa orgânico de mídia paga.'},
-  midia_paga:{name:'Mídia paga',note:'Contexto de conciliação; fora da receita orgânica.'},
+  midia_paga:{name:'Mídia paga',note:'Anúncios (UTM de mídia paga ou parâmetros dinâmicos da Meta); fora da receita orgânica.'},
   crm:{name:'CRM',note:'Contexto de conciliação; o mesmo crédito pode aparecer no Growth.'},
   nao_classificado:{name:'Sem classificação de canal',note:'O pedido conhecido não tem combinação reconhecida pela regra.'},
  };
  const REASONS={controle_utm_instagram_story:'Padrão de story do controle de links',controle_utm_instagram_linktree:'Padrão de bio do controle de links',
-  controle_utm_ou_alias_dm_documentado:'Automação DM documentada',social_legado_sem_distincao_paid:'Padrão social antigo, sem distinção de mídia paga',
+  controle_utm_ou_alias_dm_documentado:'Automação DM documentada',story_padrao_antigo:'Story · link no padrão antigo',
+  bio_link_automatico_instagram:'Link da bio · UTM automática do Instagram',bio_linktree_padrao_antigo:'Linktree · link no padrão antigo',
+  anuncio_meta_parametros_dinamicos:'Anúncio da Meta (placement ou ID do anúncio)',tag_produto_instagram:'Tag de produto do Instagram (pode ser anúncio de catálogo)',
+  social_antigo_sem_superficie:'Link social antigo sem superfície',
   medium_ou_source_paid_explicito:'UTM declara mídia paga',canal_crm_do_ledger:'Canal CRM registrado na jornada',modelo_conhecido_sem_toque:'Modelo conhecido sem toque não direto',
   toque_sem_utm_de_canal:'Visita sem UTM de canal',combinacao_sem_regra_comprovada:'Combinação sem regra comprovada'};
  const keys=Object.keys(GROUPS),date=v=>String(v||'').slice(0,10);
@@ -66,7 +68,7 @@ const OA=(()=>{
    <div class="nota"><strong>${esc(MODELS[v.model])} · janela de 30 dias.</strong> Compra pela data de Brasília. Pedidos pagos elegíveis em reais, sem testes/cancelamentos, com valor líquido de reembolsos. O crédito é exclusivo por pedido e modelo; os dois modelos não se somam. Atribuição não comprova venda causada pelo conteúdo.</div>
    ${!v.complete?'<div class="nota" role="status"><strong>Cobertura parcial no período.</strong> Os valores existentes são parciais; grupos sem dados ficam indisponíveis. Confira os dias cobertos por marca.</div>':''}
    ${v.malformed?'<div class="nota" role="status"><strong>Há linhas com valor ou classificação inválida.</strong> A conciliação está incompleta nesta leitura.</div>':''}
-   ${tableGroups(v,['editorial','bio','automacao_dm','legado_ambiguo'])}
+   ${tableGroups(v,['editorial','bio','automacao_dm'])}
    <div class="nota">“Zero” significa nenhum vencedor nessa categoria entre os pedidos conhecidos e dias cobertos. Pedidos com origem desconhecida continuam separados abaixo. Bio não identifica um post; campanha ou data no link não comprova qual peça levou à compra.</div>
    <details><summary>Outros canais para conciliação</summary>${tableGroups(v,['midia_paga','crm','nao_classificado'])}<div class="nota">Estes canais são resumos por dia, marca e modelo; suas UTMs individuais não são carregadas neste painel. CRM pode aparecer também no Growth. Cupom de influenciador e assistência são perspectivas distintas. Venda nativa do TikTok Shop vem de outra fonte. Não somar novamente essas receitas entre abas.</div></details>
    <div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Marca</th><th>Dias cobertos</th><th class="num">Pedidos elegíveis</th><th class="num">Origem desconhecida¹</th><th class="num">Jornada pendente / parcial</th><th>Coleta dos dias cobertos</th></tr></thead><tbody>${v.coverage.map(c=>`<tr><td>${esc(BRANDS[c.marca])}</td><td>${nf(c.covered)} de ${nf(c.expected)}</td><td class="num tabn">${nf(c.paid)}</td><td class="num tabn">${nf(c.unknown)}</td><td class="num tabn">${nf(c.pending)} / ${nf(c.partial)}</td><td class="mini">Mais antiga: ${esc(stamp(c.oldest))}<br>Mais recente: ${esc(stamp(c.latest))}</td></tr>`).join('')}</tbody></table></div>

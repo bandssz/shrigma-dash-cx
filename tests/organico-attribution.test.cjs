@@ -1,14 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const OA=require('../organico-attribution.js');
-const row=(o={})=>({marca:'aristo',dia:'2026-09-19',model:'last_click',classification:'editorial',detail_level:'utm',rule_version:'organico-utm-20260919-v1',
+const row=(o={})=>({marca:'aristo',dia:'2026-09-19',model:'last_click',classification:'editorial',detail_level:'utm',rule_version:'organico-utm-20260927-v2',
  rede:'instagram',superficie:'story',utm_source:'instagram_social',utm_medium:'story',utm_campaign:'20260919_teste',utm_content:'',utm_term:'',
  pedidos:2,receita_liquida:'300.50',...o});
 const quality=(marca='aristo',o={})=>({marca,dia:'2026-09-19',pedidos_lidos:11,pagos_elegiveis:10,jornada_pendente:1,jornada_parcial:0,
  ultima_sessao_conhecida:9,ultima_sessao_desconhecida:1,origem_nao_direta_desconhecida:2,...o});
-const fixture=(o={})=>({organico_attribution:{schema_version:1,rule_version:'organico-utm-20260919-v1',default_model:'last_click',window_days:30,
+const fixture=(o={})=>({organico_attribution:{schema_version:1,rule_version:'organico-utm-20260927-v2',default_model:'last_click',window_days:30,
  source_system:'shopify',currency:'BRL',utm_raw_available:false,assistance_available:false,
  daily:[row(),row({classification:'bio',superficie:'bio',receita_liquida:100}),row({classification:'automacao_dm',utm_medium:'dm',receita_liquida:200}),
-  row({classification:'legado_ambiguo',utm_source:'ig',utm_medium:'social',receita_liquida:40}),row({classification:'midia_paga',utm_source:'facebook',utm_medium:'paid',receita_liquida:90}),
+  row({classification:'midia_paga',utm_source:'facebook',utm_medium:'paid',receita_liquida:90}),
   row({classification:'crm',utm_source:'listmonk',utm_medium:'campanha',receita_liquida:70}),row({classification:'nao_classificado',utm_source:'',utm_medium:'',receita_liquida:50}),
   row({model:'last_non_direct',pedidos:4,receita_liquida:600}),row({marca:'fish',pedidos:1,receita_liquida:80}),row({dia:'2026-09-18',receita_liquida:999})],
  quality:[quality(),quality('fish'),quality('olivas')],
@@ -17,10 +17,10 @@ const group=(v,k)=>v.groups.find(g=>g.key===k);
 
 test('modelo estrito é padrão; mantém cada classe e marca separada sem somar comparação',()=>{
  const api=fixture(),before=JSON.stringify(api),v=OA.select(api,'aristo','2026-09-19','2026-09-19');
- assert.equal(v.model,'last_click');assert.equal(v.rows.length,7);
+ assert.equal(v.model,'last_click');assert.equal(v.rows.length,6);
  assert.equal(group(v,'editorial').pedidos,2);assert.equal(group(v,'editorial').receita,300.5);
  assert.equal(group(v,'bio').receita,100);assert.equal(group(v,'automacao_dm').receita,200);
- assert.equal(group(v,'legado_ambiguo').receita,40);assert.equal(group(v,'midia_paga').receita,90);
+ assert.equal(group(v,'legado_ambiguo'),undefined,'balde legado não existe mais');assert.equal(group(v,'midia_paga').receita,90);
  assert.equal(group(v,'crm').receita,70);assert.equal(group(v,'nao_classificado').receita,50);
  const comparison=OA.select(api,'aristo','2026-09-19','2026-09-19','last_non_direct');
  assert.equal(group(comparison,'editorial').receita,600);assert.equal(comparison.coverage[0].unknown,2);
@@ -86,7 +86,7 @@ test('classificação inesperada fica explícita e não é rebatizada como orgâ
 test('interface escapa dados externos e expõe limites, regra, reembolso e origem desconhecida',()=>{
  const html=OA.markup(OA.select(fixture({daily:[row({utm_campaign:'<img src=x onerror=alert(1)>',utm_content:'<script>bad</script>'})]}),'aristo','2026-09-19','2026-09-19'));
  assert(!html.includes('<img src=x'));assert(!html.includes('<script>bad'));
- assert.match(html,/&lt;img/);assert.match(html,/organico-utm-20260919-v1/);
+ assert.match(html,/&lt;img/);assert.match(html,/organico-utm-20260927-v2/);
  for(const evidence of ['30 dias','líquido de reembolsos','não se somam','não comprova','Assistências de Orgânico ainda não','já normalizadas','peça permanece desconhecida','Origem desconhecida'])assert(html.includes(evidence),evidence);
  assert.match(html,/aria-pressed="true"/);assert(!/taxa de conversão/i.test(html));
 });
@@ -109,4 +109,14 @@ test('resumos diários dos outros canais preservam totais e não fingem UTMs des
  const html=OA.markup(v),detail=html.split('Conferir UTMs e regra de classificação')[1];
  assert.match(html,/resumos por dia, marca e modelo/);
  assert.doesNotMatch(detail,/source: não informado/);assert.doesNotMatch(detail,/resumo_diario_canal/);
+});
+
+test('regra v2: padrão antigo aparece como bio/story com etiqueta; balde legado vira classificação inválida',()=>{
+ const api=fixture({daily:[row({classification:'bio',superficie:'bio',utm_source:'ig',utm_medium:'social',utm_content:'link_in_bio',rule_reason:'bio_link_automatico_instagram'}),
+  row({rule_reason:'story_padrao_antigo',utm_source:'instagram',utm_medium:'social',utm_content:'story'})]});
+ const v=OA.select(api,'aristo','2026-09-19','2026-09-19'),html=OA.markup(v);
+ assert.match(html,/Link da bio · UTM automática do Instagram/);assert.match(html,/Story · link no padrão antigo/);
+ assert.ok(!/Social legado/.test(html));assert.equal(v.malformed,false);
+ const velho=OA.select(fixture({daily:[row({classification:'legado_ambiguo'})]}),'aristo','2026-09-19','2026-09-19');
+ assert.equal(velho.malformed,true,'payload antigo não é somado em silêncio');
 });
