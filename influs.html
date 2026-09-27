@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=4a74324bbab8">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-roPmUSvNeRUwCvpBBjydEMNL2Zr1jdRaWej5X2buHTo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-2pwRzw/PYE8WkLhXbOUoHGROs2iTCBHzQD0I/6+8u+c='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -554,6 +554,7 @@ async function carregarInflu(){
     if(!novo||!['roi','influs','cupons','custos','receita_cupom','termos'].every(c=>Array.isArray(novo[c]))||
        novo.janela?.ini!==periodo.ini||novo.janela?.fim!==periodo.fim)throw new Error('A resposta não confirmou os dados e o período solicitado.');
     INFLU=novo;
+    if(typeof INFLU_ACCESS!=='undefined'&&INFLU_ACCESS.refresh)INFLU_ACCESS.refresh(); // chave aceita (inclusive a que veio da entrada do site): some o botão de entrar
     renderTudo();
   }catch(e){
     // A current authorization refusal may already have cleared the key inside influPost.
