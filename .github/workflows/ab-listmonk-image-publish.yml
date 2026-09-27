@@ -1,0 +1,57 @@
+name: Listmonk A/B registry (no deployment)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-image-build/**'
+      - '.github/workflows/ab-listmonk-image-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: crm-ab-registry-fixed-candidate
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tools/listmonk-image-build -p 'test_*.py'
+      - name: Verify the exact built image and source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/36282672565 > "$RUNNER_TEMP/ab-oci-run.json"
+          gh run download 36282672565 --repo bandssz/shrigma-dash-cx --name listmonk-6.1.0-crm-ab-oci-linux-amd64 --dir "$RUNNER_TEMP/ab-oci"
+          python3 tools/listmonk-image-build/publish.py verify --run-json "$RUNNER_TEMP/ab-oci-run.json" --artifact-dir "$RUNNER_TEMP/ab-oci"
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install registry copier in disposable runner
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Copy verified OCI bytes; preserve digest and reconcile an existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/36282672565 > "$RUNNER_TEMP/ab-oci-run.json"
+          gh run download 36282672565 --repo bandssz/shrigma-dash-cx --name listmonk-6.1.0-crm-ab-oci-linux-amd64 --dir "$RUNNER_TEMP/ab-oci"
+          python3 tools/listmonk-image-build/publish.py publish --initial-create --run-json "$RUNNER_TEMP/ab-oci-run.json" --artifact-dir "$RUNNER_TEMP/ab-oci" --receipt "$RUNNER_TEMP/registry-receipt.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: listmonk-crm-ab-registry-receipt
+          path: ${{ runner.temp }}/registry-receipt.json
+          if-no-files-found: error
+          retention-days: 30
