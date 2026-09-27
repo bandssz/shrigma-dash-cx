@@ -7,7 +7,7 @@
 | peça | onde | estado |
 |---|---|---|
 | `partner-candidatura.sql` | termos versionados e imutáveis, candidatura, prints (bytea), recibos | em produção |
-| `partner-candidatura-workflow.cjs` | webhook `FVJBhFsdlbhjW013` em n8n.shrigma.com.br (`parceiros-candidatura-bc82004eb9363032`) | ativo, sem guardar execução |
+| `partner-candidatura-workflow.cjs` | webhook `FVJBhFsdlbhjW013` (LP usa n8n.shrigma.com.br; o painel, n8n-n8n.tazdb8.easypanel.host, por causa da CSP) (`parceiros-candidatura-bc82004eb9363032`) | ativo, sem guardar execução |
 | `shopify/parceiros/shrigma-parceiros.liquid` | seção "Parceiros · LP", a mesma nas duas lojas | publicada nos temas principais |
 | `shopify/parceiros/page.parceiros.*.json` | template `page.parceiros` com textos e cores de cada marca | publicado |
 | `partner-candidaturas.js` | cartões "Candidaturas do site" na aba Parceiros | entra com o merge |
