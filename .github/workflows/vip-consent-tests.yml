@@ -1,0 +1,46 @@
+name: CRM VIP consent
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/vip-consent*'
+      - 'tests/vip-consent*'
+      - 'tools/vip-consent-install.cjs'
+      - '.github/workflows/vip-consent-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vip-consent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: vip_consent_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d vip_consent_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned disposable PostgreSQL test dependencies
+        run: npm install --prefix ../vip-consent-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Guarded workflow patch
+        env:
+          NODE_PATH: ../vip-consent-tools/node_modules
+        run: node --test tests/vip-consent-patch.test.cjs tests/vip-consent-install.test.cjs
+      - name: Native opt-out races on disposable PostgreSQL
+        env:
+          NODE_PATH: ../vip-consent-tools/node_modules
+          TEST_POSTGRES_URL: postgres://synthetic@127.0.0.1:5432/vip_consent_test
+          VIP_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/vip-consent-postgres.cjs
