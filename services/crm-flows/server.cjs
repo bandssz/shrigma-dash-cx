@@ -5,7 +5,7 @@ const ROUTES={'/internal/source':'captureHandoff','/internal/tick':'tick','/inte
 const safeCode=e=>/^GRAPH_[A-Z0-9_]{1,80}$/.test(e?.code||'')?e.code:'GRAPH_SERVICE_UNCONFIRMED';
 function createServer({worker,token,revision,enabled=false,maxInFlight=2}={}){
  if(!worker||['captureHandoff','tick','reconcile'].some(k=>typeof worker[k]!=='function')||typeof token!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(token)||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4)throw Error('GRAPH_SERVICE_CONFIG');
- let inFlight=0,closing=false,stopPromise;const expected=Buffer.from('Bearer '+token);
+ let inFlight=0,closing=false,stopPromise;const idleWaiters=new Set(),expected=Buffer.from('Bearer '+token);
  const reply=(res,status,body)=>{if(res.destroyed||res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Connection':'close'});res.end(JSON.stringify(body));};
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:15000,headersTimeout:10000},async(req,res)=>{
   if(req.method==='GET'&&req.url==='/healthz')return reply(res,closing?503:200,{service:'crm-flows',revision,execution_enabled:enabled,stopping:closing});
@@ -27,9 +27,17 @@ function createServer({worker,token,revision,enabled=false,maxInFlight=2}={}){
    // supplies the strict per-operation schema and durable reconciliation contract.
    const result=await worker[action](input);reply(res,200,result);
   }catch(e){reply(res,503,{error:safeCode(e),reconcile_only:true});}
-  finally{inFlight--;}
+  finally{inFlight--;if(inFlight===0){for(const done of idleWaiters)done();idleWaiters.clear();}}
  });
  server.on('clientError',(_e,socket)=>{if(socket.writable)socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');});
- return Object.freeze({server,stop:()=>{closing=true;if(!stopPromise)stopPromise=new Promise((resolve,reject)=>{server.close(e=>e?reject(e):resolve());server.closeIdleConnections();});return stopPromise;},active:()=>inFlight});
+ return Object.freeze({server,stop:()=>{
+  closing=true;if(!stopPromise){
+   const idle=inFlight===0?Promise.resolve():new Promise(resolve=>idleWaiters.add(resolve));
+   const closed=new Promise((resolve,reject)=>{server.close(e=>e?reject(e):resolve());server.closeIdleConnections();});
+   // A disconnected caller does not cancel its durable operation. Wait for the
+   // handler as well as the socket before allowing the database pool to close.
+   stopPromise=Promise.all([closed,idle]).then(()=>undefined);
+  }return stopPromise;
+ },active:()=>inFlight});
 }
 module.exports={createServer,MAX_BODY};
