@@ -2,7 +2,7 @@
 // Workflow "TikTok — Cobrança (painel)": ler, aprovar mensagens e resolver pendências da cobrança v2.
 // A regra inteira (chave, permissão, validação, estados) mora em crm_tts_cobranca_painel_v1 (cobranca-auto.sql);
 // o workflow só repassa o corpo como parâmetro nativo do PostgreSQL e devolve a resposta com CORS do painel.
-const NAME = 'TikTok — Cobrança (painel, chave de Influs)';
+const NAME = 'TikTok — Cobrança e produtos (painel, chave de Influs)';
 const POSTGRES = { id: 'uALf0AHnEuLCgOtx', name: 'Postgres account 2' };
 const ORIGEM = 'https://bandssz.github.io';
 
@@ -11,6 +11,8 @@ const b = $json.body;
 if (!b || typeof b !== 'object' || Array.isArray(b)) throw new Error('corpo invalido');
 const txt = JSON.stringify(b);
 if (txt.length > 4000) throw new Error('corpo grande demais');
+// 'produtos' (27/09): foto e nome curto dos produtos da TikTok para a fila de amostras e as colabs (produto-visual.sql).
+if (b.acao === 'produtos') return [{ json: { sql: 'SELECT public.crm_tts_produto_painel_v1($1::jsonb) AS r', args: [txt] } }];
 if (!['ler', 'modelo_salvar', 'modelo_revogar', 'resolver', 'reativar'].includes(b.acao)) throw new Error('acao invalida');
 return [{ json: { sql: 'SELECT public.crm_tts_cobranca_painel_v1($1::jsonb) AS r', args: [txt] } }];`;
 

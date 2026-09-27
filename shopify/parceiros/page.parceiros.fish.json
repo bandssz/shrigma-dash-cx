@@ -1,0 +1,139 @@
+{
+  "sections": {
+    "parceiros": {
+      "type": "shrigma-parceiros",
+      "blocks": {
+        "passo_1": {
+          "type": "passo",
+          "settings": {
+            "titulo": "Candidate-se",
+            "texto": "Mande seu perfil e os prints das suas estatísticas. Leva uns 3 minutos."
+          }
+        },
+        "passo_2": {
+          "type": "passo",
+          "settings": {
+            "titulo": "Análise",
+            "texto": "A gente olha seu conteúdo e a sua pesca, seja pesqueiro, rio, represa ou mar, e responde pelo WhatsApp ou e-mail."
+          }
+        },
+        "passo_3": {
+          "type": "passo",
+          "settings": {
+            "titulo": "Link e cupom",
+            "texto": "Aprovado, você recebe seu link e seu cupom exclusivos e passa a ganhar [comissao]5%[/comissao] de cada venda."
+          }
+        },
+        "ganho_1": {
+          "type": "ganho",
+          "settings": {
+            "titulo": "Comissão em cada venda",
+            "texto": "[comissao]5%[/comissao] sobre o valor dos produtos, depois dos descontos, em todo pedido feito com seu link ou seu cupom.",
+            "selecionados": false
+          }
+        },
+        "ganho_2": {
+          "type": "ganho",
+          "settings": {
+            "titulo": "Pagamento todo dia 5",
+            "texto": "A comissão das vendas de um mês é paga no dia 5 do mês seguinte, via Pix.",
+            "selecionados": false
+          }
+        },
+        "ganho_3": {
+          "type": "ganho",
+          "settings": {
+            "titulo": "Cupom para a sua turma",
+            "texto": "Seu cupom dá desconto para quem te acompanha, e cada venda feita com ele ou com seu link conta para você.",
+            "selecionados": false
+          }
+        },
+        "ganho_4": {
+          "type": "ganho",
+          "settings": {
+            "titulo": "Linha para testar, permuta ou valor fixo",
+            "texto": "Para perfis selecionados, a parceria pode incluir linha para criar conteúdo, permuta ou um valor fixo. Isso é conversado caso a caso.",
+            "selecionados": true
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "pergunta": "Preciso ter muitos seguidores?",
+            "resposta": "<p>A análise olha o conjunto: views, engajamento e afinidade com a marca, não só o número de seguidores.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "pergunta": "Como a venda é contada?",
+            "resposta": "<p>Vale o pedido feito com seu cupom, ou pelo seu link em até 30 dias depois do clique.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "pergunta": "Sobre o que é a comissão?",
+            "resposta": "<p>[comissao]5%[/comissao] sobre o valor dos produtos depois dos descontos. Frete e pedidos cancelados ou devolvidos ficam de fora.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq",
+          "settings": {
+            "pergunta": "Quando e como eu recebo?",
+            "resposta": "<p>Todo dia 5 você recebe a comissão das vendas do mês anterior, via Pix, na chave que cadastrar depois de aprovado.</p>"
+          }
+        },
+        "faq_5": {
+          "type": "faq",
+          "settings": {
+            "pergunta": "O que eu assino?",
+            "resposta": "<p>O termo de parceria que aparece no formulário. Marcar a caixa de aceite vale como sua assinatura, e a versão que você aceitou fica registrada.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "passo_1",
+        "passo_2",
+        "passo_3",
+        "ganho_1",
+        "ganho_2",
+        "ganho_3",
+        "ganho_4",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5"
+      ],
+      "settings": {
+        "marca": "fish",
+        "endpoint": "https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032",
+        "eyebrow": "Programa de parceiros Fishermans",
+        "titulo": "Você já mostra a pescaria de verdade. Agora ganhe com ela.",
+        "subtitulo": "<p>Link e cupom só seus. Cada compra feita com eles rende [comissao]5%[/comissao] para você, pago todo dia 5 via Pix.</p>",
+        "comissao_padrao": "5%",
+        "cta_texto": "Quero me candidatar",
+        "titulo_passos": "Como funciona",
+        "titulo_ganhos": "O que você ganha",
+        "titulo_sobre": "Pescador que fala a real",
+        "sobre": "<p>Mais de 153 mil pescadores usam Fishermans. A gente não procura influencer de lago particular: procura quem pesca, mede a bitola e conta o que viu. Se a Fishermans já está no seu carretel, faz sentido indicar para quem te acompanha.</p>",
+        "titulo_form": "Candidatura",
+        "nicho_exemplo": "ex.: pesca esportiva, pesqueiro, mar",
+        "enviar_texto": "Enviar candidatura",
+        "texto_ok": "Vamos analisar seu perfil e falar com você pelo WhatsApp ou e-mail.",
+        "cor_tinta": "#1A1C2E",
+        "cor_fundo": "#F8F9FA",
+        "cor_superficie": "#FFFFFF",
+        "cor_apoio": "#5A5C6B",
+        "cor_contorno": "#E7E7EA",
+        "cor_cta": "#FF5A36",
+        "cor_cta_txt": "#FFFFFF",
+        "cor_realce": "#FF5A36"
+      }
+    }
+  },
+  "order": [
+    "parceiros"
+  ]
+}

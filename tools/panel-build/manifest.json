@@ -131,6 +131,7 @@
       "influs-access.js",
       "creators-meta.js",
       "creators-pilot-ui.js",
+      "partner-candidaturas.js",
       "influs-conferencia.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",
