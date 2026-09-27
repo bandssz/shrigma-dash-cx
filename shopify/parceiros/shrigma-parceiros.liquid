@@ -1,0 +1,351 @@
+{%- comment -%}
+  Programa de parceiros · LP "Seja um Parceiro" com formulário próprio (27/09/2026).
+  Mesma seção nas duas lojas: marca, cores e textos vêm das configurações.
+  O formulário fala direto com o n8n (crm_partner_candidatura_v1). Sem termo publicado para a marca,
+  a seção mostra "inscrições abrem em breve" e não aceita envio. A comissão exibida vem do servidor.
+  Fonte do repositório: shrigma-dash-cx/shopify/parceiros/. Editar lá e publicar de novo.
+{%- endcomment -%}
+
+{%- if section.settings.carregar_fonte -%}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap">
+{%- endif -%}
+
+{%- liquid
+  assign passos = section.blocks | where: 'type', 'passo'
+  assign ganhos = section.blocks | where: 'type', 'ganho'
+  assign faqs = section.blocks | where: 'type', 'faq'
+-%}
+
+<section
+  id="shp-{{ section.id }}"
+  class="shp"
+  data-marca="{{ section.settings.marca }}"
+  data-endpoint="{{ section.settings.endpoint }}"
+  style="
+    --shp-tinta:{{ section.settings.cor_tinta }};
+    --shp-fundo:{{ section.settings.cor_fundo }};
+    --shp-superficie:{{ section.settings.cor_superficie }};
+    --shp-apoio:{{ section.settings.cor_apoio }};
+    --shp-contorno:{{ section.settings.cor_contorno }};
+    --shp-cta:{{ section.settings.cor_cta }};
+    --shp-cta-txt:{{ section.settings.cor_cta_txt }};
+    --shp-realce:{{ section.settings.cor_realce }};
+  "
+>
+  <header class="shp__hero{% if section.settings.imagem != blank %} shp__hero--img{% endif %}">
+    <div class="shp__hero-txt">
+      {%- if section.settings.eyebrow != blank -%}<p class="shp__eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+      <h1 class="shp__h1">{{ section.settings.titulo }}</h1>
+      {%- if section.settings.subtitulo != blank -%}<div class="shp__sub">{{ section.settings.subtitulo | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</div>{%- endif -%}
+      <ul class="shp__pills">
+        <li><strong data-shp-comissao>{{ section.settings.comissao_padrao }}</strong> de cada venda</li>
+        <li>Pagamento todo dia <strong data-shp-dia>5</strong></li>
+        <li>Link e cupom exclusivos</li>
+      </ul>
+      <a class="shp__cta" href="#shp-form-{{ section.id }}">{{ section.settings.cta_texto }} <span aria-hidden="true">&#8595;</span></a>
+    </div>
+    {%- if section.settings.imagem != blank -%}
+      <div class="shp__hero-img">
+        {{ section.settings.imagem | image_url: width: 1400 | image_tag: loading: 'eager', alt: section.settings.imagem_alt, sizes: '(min-width: 900px) 50vw, 100vw' }}
+      </div>
+    {%- endif -%}
+  </header>
+
+  {%- if passos.size > 0 -%}
+    <div class="shp__bloco">
+      <h2 class="shp__h2">{{ section.settings.titulo_passos }}</h2>
+      <ol class="shp__passos">
+        {%- for block in passos -%}
+          <li class="shp__passo" {{ block.shopify_attributes }}>
+            <span class="shp__num" aria-hidden="true">{{ forloop.index }}</span>
+            <div><h3>{{ block.settings.titulo }}</h3><p>{{ block.settings.texto | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</p></div>
+          </li>
+        {%- endfor -%}
+      </ol>
+    </div>
+  {%- endif -%}
+
+  {%- if ganhos.size > 0 -%}
+    <div class="shp__bloco">
+      <h2 class="shp__h2">{{ section.settings.titulo_ganhos }}</h2>
+      <ul class="shp__ganhos">
+        {%- for block in ganhos -%}
+          <li class="shp__ganho{% if block.settings.selecionados %} shp__ganho--sel{% endif %}" {{ block.shopify_attributes }}>
+            <h3>{{ block.settings.titulo }}{% if block.settings.selecionados %} <span class="shp__tag">perfis selecionados</span>{% endif %}</h3>
+            <p>{{ block.settings.texto | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</p>
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  {%- endif -%}
+
+  {%- if section.settings.sobre != blank -%}
+    <div class="shp__bloco shp__sobre">
+      {%- if section.settings.titulo_sobre != blank -%}<h2 class="shp__h2">{{ section.settings.titulo_sobre }}</h2>{%- endif -%}
+      <div class="shp__rte">{{ section.settings.sobre | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</div>
+    </div>
+  {%- endif -%}
+
+  <div class="shp__bloco shp__form-wrap" id="shp-form-{{ section.id }}">
+    <h2 class="shp__h2">{{ section.settings.titulo_form }}</h2>
+    <p class="shp__nota">Leva uns 3 minutos. Tenha à mão os prints das suas estatísticas de stories ou reels.</p>
+    <div class="shp__estado" data-shp-estado role="status" aria-live="polite">Carregando…</div>
+    <form class="shp__form" data-shp-form novalidate hidden>
+      <fieldset>
+        <legend>Você</legend>
+        <label>Nome completo<input name="nome" autocomplete="name" required maxlength="120"></label>
+        <div class="shp__duo">
+          <label>E-mail<input name="email" type="email" autocomplete="email" required maxlength="160"></label>
+          <label>WhatsApp<input name="whatsapp" type="tel" autocomplete="tel" inputmode="tel" placeholder="(DDD) número" required></label>
+        </div>
+        <div class="shp__duo">
+          <label>Cidade<input name="cidade" autocomplete="address-level2" maxlength="80"></label>
+          <label>Estado<select name="uf" autocomplete="address-level1"><option value="">—</option>{%- assign ufs = 'AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO' | split: ',' -%}{%- for uf in ufs -%}<option>{{ uf }}</option>{%- endfor -%}</select></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Seu perfil</legend>
+        <div class="shp__duo">
+          <label>Instagram<input name="instagram" placeholder="@seuperfil" autocapitalize="none" spellcheck="false" maxlength="31"></label>
+          <label>TikTok<input name="tiktok" placeholder="@seuperfil" autocapitalize="none" spellcheck="false" maxlength="25"></label>
+        </div>
+        <div class="shp__duo">
+          <label>Seguidores (no perfil principal)<input name="seguidores" inputmode="numeric" required placeholder="ex.: 12000"></label>
+          <label>Sobre o que você fala<input name="nicho" maxlength="80" placeholder="{{ section.settings.nicho_exemplo }}"></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Seus números</legend>
+        <p class="shp__nota">Média dos últimos 30 dias. Se você cobra por publicação, informe o valor: a análise fica mais rápida.</p>
+        <div class="shp__duo">
+          <label>Views médias por story<input name="views_stories" inputmode="numeric" placeholder="ex.: 1500"></label>
+          <label>Views médias por reels<input name="views_reels" inputmode="numeric" placeholder="ex.: 4000"></label>
+        </div>
+        <div class="shp__duo">
+          <label>Quanto cobra por story (R$, opcional)<input name="preco_story" inputmode="decimal" placeholder="ex.: 150"></label>
+          <label>Quanto cobra por reels (R$, opcional)<input name="preco_reels" inputmode="decimal" placeholder="ex.: 300"></label>
+        </div>
+        <label>Prints das estatísticas (1 a 3 imagens)
+          <input name="prints" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
+          <span class="shp__ajuda">Estatísticas de stories ou reels, como aparecem no app. JPG ou PNG.</span>
+        </label>
+        <ul class="shp__prev" data-shp-prev></ul>
+      </fieldset>
+      <fieldset>
+        <legend>Algo mais?</legend>
+        <label>Por que você quer ser parceiro (opcional)<textarea name="mensagem" rows="3" maxlength="1000"></textarea></label>
+        <label class="shp__isca" aria-hidden="true">Site<input name="website" tabindex="-1" autocomplete="off"></label>
+      </fieldset>
+      <div class="shp__termo">
+        <details><summary data-shp-termo-titulo>Termo de parceria</summary><div class="shp__termo-txt" data-shp-termo tabindex="0"></div></details>
+        <label class="shp__aceite"><input type="checkbox" name="aceite" required> <span>Li e aceito o <strong data-shp-termo-nome>termo de parceria</strong>. Marcar esta caixa vale como minha assinatura.</span></label>
+      </div>
+      <p class="shp__erro" data-shp-erro role="alert" hidden></p>
+      <button type="submit" class="shp__cta shp__enviar">{{ section.settings.enviar_texto }}</button>
+      <p class="shp__nota">Seus dados são usados só para analisar a parceria e falar com você, conforme o termo.</p>
+    </form>
+    <div class="shp__ok" data-shp-ok hidden tabindex="-1">
+      <h3>Candidatura recebida</h3>
+      <p>Protocolo <strong data-shp-protocolo></strong>. {{ section.settings.texto_ok }}</p>
+    </div>
+  </div>
+
+  {%- if faqs.size > 0 -%}
+    <div class="shp__bloco">
+      <h2 class="shp__h2">Perguntas frequentes</h2>
+      <div class="shp__faq">
+        {%- for block in faqs -%}
+          <details {{ block.shopify_attributes }}><summary>{{ block.settings.pergunta }}</summary><div class="shp__rte">{{ block.settings.resposta | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</div></details>
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endif -%}
+</section>
+
+<script>
+(function(){
+  var raiz=document.getElementById('shp-{{ section.id }}');if(!raiz||raiz.dataset.pronto)return;raiz.dataset.pronto='1';
+  var URL_=raiz.dataset.endpoint,MARCA=raiz.dataset.marca,$=function(s){return raiz.querySelector(s)},$$=function(s){return raiz.querySelectorAll(s)};
+  var form=$('[data-shp-form]'),estado=$('[data-shp-estado]'),erro=$('[data-shp-erro]'),inicio=Date.now(),termo=null,enviando=false;
+  var rid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,function(c){return(c^Math.random()*16>>c/4).toString(16)});
+  // Origem da visita (UTM e ref) guardada na sessão para a candidatura.
+  var origem={};try{var q=new URLSearchParams(location.search);['utm_source','utm_medium','utm_campaign','utm_content','ref'].forEach(function(k){if(q.get(k))origem[k]=q.get(k)});
+    if(Object.keys(origem).length)sessionStorage.setItem('shp_origem',JSON.stringify(origem));else origem=JSON.parse(sessionStorage.getItem('shp_origem')||'{}')}catch(e){}
+  origem.pagina=location.pathname;
+  function post(corpo){return fetch(URL_,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo),credentials:'omit',cache:'no-store'}).then(function(r){return r.json()})}
+  function pct(r){var n=Number(r);return isFinite(n)&&n>0?(Math.round(n*1000)/10).toLocaleString('pt-BR')+'%':null}
+  function fechado(msg){estado.textContent=msg||'As inscrições abrem em breve.';estado.hidden=false;form.hidden=true}
+  if(!URL_){fechado();return}
+  post({acao:'termo',marca:MARCA}).then(function(t){
+    if(!t||!t.aberto){fechado(t&&t.mensagem);return}
+    termo=t;var p=pct(t.comissao);if(p)$$('[data-shp-comissao]').forEach(function(el){el.textContent=p});
+    if(t.dia_pagamento)$$('[data-shp-dia]').forEach(function(el){el.textContent=t.dia_pagamento});
+    $('[data-shp-termo-titulo]').textContent=t.titulo+' (versão '+t.versao+')';$('[data-shp-termo-nome]').textContent=t.titulo;
+    var box=$('[data-shp-termo]');box.textContent='';String(t.texto).split(/\n{2,}/).forEach(function(par){var el=document.createElement('p');el.textContent=par.trim();box.appendChild(el)});
+    estado.hidden=true;form.hidden=false;
+  }).catch(function(){fechado('Não foi possível carregar o formulário agora. Tente de novo em alguns minutos.')});
+  // Prints: reduz para no máximo 1600 px em JPEG antes de enviar (screenshot de celular passa de 3 MB).
+  function reduz(file){return new Promise(function(ok,falha){
+    if(!/^image\/(jpeg|png|webp)$/.test(file.type)){falha(new Error('tipo'));return}
+    var img=new Image(),u=URL.createObjectURL(file);img.onload=function(){var m=1600,w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,m/Math.max(w,h));
+      var c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      var data=c.toDataURL('image/jpeg',0.82);ok({mime:'image/jpeg',base64:data.split(',')[1],tipo:'outro'})};
+    img.onerror=function(){URL.revokeObjectURL(u);falha(new Error('imagem'))};img.src=u})}
+  var input=form.querySelector('[name=prints]'),prev=$('[data-shp-prev]');
+  input.addEventListener('change',function(){prev.textContent='';Array.prototype.slice.call(input.files,0,3).forEach(function(f){var li=document.createElement('li');li.textContent=f.name;prev.appendChild(li)})});
+  function mostraErro(msg,campo){erro.textContent=msg;erro.hidden=false;var el=campo&&form.querySelector('[name='+campo+']');if(el){el.setAttribute('aria-invalid','true');el.focus()}else erro.scrollIntoView({block:'center'})}
+  form.addEventListener('input',function(e){e.target.removeAttribute('aria-invalid')});
+  form.addEventListener('submit',function(ev){ev.preventDefault();if(enviando||!termo)return;erro.hidden=true;
+    var v=function(n){var el=form.querySelector('[name='+n+']');return el?String(el.value||'').trim():''};
+    var dig=function(n){return v(n).replace(/\D/g,'')};
+    if(v('nome').length<2)return mostraErro('Informe seu nome.','nome');
+    if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v('email')))return mostraErro('E-mail inválido.','email');
+    if(dig('whatsapp').length<10)return mostraErro('WhatsApp com DDD, por favor.','whatsapp');
+    if(!v('instagram')&&!v('tiktok'))return mostraErro('Informe seu Instagram ou TikTok.','instagram');
+    if(!dig('seguidores'))return mostraErro('Informe quantos seguidores você tem.','seguidores');
+    if(!(Number(dig('views_stories'))>0)&&!(Number(dig('views_reels'))>0))return mostraErro('Informe a média de views dos stories ou dos reels.','views_stories');
+    var arquivos=Array.prototype.slice.call(input.files||[]);
+    if(arquivos.length<1||arquivos.length>3)return mostraErro('Anexe de 1 a 3 prints das suas estatísticas.','prints');
+    if(!form.querySelector('[name=aceite]').checked)return mostraErro('Para enviar, marque que leu e aceita o termo.','aceite');
+    enviando=true;var btn=form.querySelector('.shp__enviar'),rot=btn.textContent;btn.disabled=true;btn.textContent='Enviando…';
+    Promise.all(arquivos.map(reduz)).then(function(prints){
+      var preco=function(n){return v(n).replace(/[^\d,\.]/g,'')};
+      return post({acao:'enviar',marca:MARCA,request_id:rid,data:{nome:v('nome'),email:v('email'),whatsapp:v('whatsapp'),cidade:v('cidade'),uf:v('uf'),
+        instagram:v('instagram'),tiktok:v('tiktok'),seguidores:dig('seguidores'),nicho:v('nicho'),views_stories:dig('views_stories'),views_reels:dig('views_reels'),
+        preco_story:preco('preco_story'),preco_reels:preco('preco_reels'),mensagem:v('mensagem'),website:v('website'),t_ms:Date.now()-inicio,
+        aceite:true,termo_versao:termo.versao,termo_sha256:termo.sha256,prints:prints,origem:origem}});
+    },function(){throw {local:'Um dos prints não abriu. Envie em JPG ou PNG.',campo:'prints'}}).then(function(r){
+      if(r&&r.ok){form.hidden=true;var ok=$('[data-shp-ok]');$('[data-shp-protocolo]').textContent=r.protocolo;ok.hidden=false;ok.focus();
+        try{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'parceiro_candidatura',marca:MARCA})}catch(e){}return}
+      mostraErro((r&&r.erro)||'Não foi possível enviar agora.',r&&r.campo);
+    }).catch(function(e){mostraErro(e&&e.local?e.local:'Sem resposta do servidor. Confira a conexão e tente de novo; o envio não duplica.',e&&e.campo)})
+    .then(function(){enviando=false;btn.disabled=false;btn.textContent=rot});
+  });
+})();
+</script>
+
+{% stylesheet %}
+.shp{color:var(--shp-tinta);background:var(--shp-fundo);font-family:'Roboto',system-ui,sans-serif;line-height:1.5;padding:0 0 48px}
+.shp *{box-sizing:border-box}
+.shp__hero{display:grid;gap:24px;padding:40px 16px 32px;max-width:1160px;margin:0 auto}
+.shp__hero--img{grid-template-columns:1fr}
+.shp__hero-img img{width:100%;height:auto;border-radius:6px;display:block}
+.shp__eyebrow{margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--shp-realce)}
+.shp__h1{margin:0 0 12px;font-size:32px;line-height:1.15;font-weight:800;color:var(--shp-tinta)}
+.shp__sub{font-size:17px;color:var(--shp-apoio);margin:0 0 18px}
+.shp__sub p{margin:0 0 8px}
+.shp__pills{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.shp__pills li{padding:6px 12px;border:1px solid var(--shp-contorno);border-radius:999px;background:var(--shp-superficie);font-size:14px}
+.shp__cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 26px;border:0;border-radius:4px;background:var(--shp-cta);color:var(--shp-cta-txt);font:700 16px/1.2 'Roboto',system-ui,sans-serif;text-decoration:none;cursor:pointer}
+.shp__cta:hover{filter:brightness(1.08)}
+.shp__cta:disabled{opacity:.6;cursor:wait}
+.shp__bloco{max-width:1160px;margin:0 auto;padding:28px 16px}
+.shp__h2{margin:0 0 18px;font-size:24px;line-height:1.2;font-weight:800;color:var(--shp-tinta)}
+.shp__passos{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.shp__passo{display:flex;gap:14px;align-items:flex-start;padding:16px;background:var(--shp-superficie);border:1px solid var(--shp-contorno);border-radius:6px}
+.shp__passo h3,.shp__ganho h3{margin:0 0 4px;font-size:17px;font-weight:700}
+.shp__passo p,.shp__ganho p{margin:0;color:var(--shp-apoio);font-size:15px}
+.shp__num{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--shp-tinta);color:var(--shp-fundo);font-weight:800}
+.shp__ganhos{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.shp__ganho{padding:16px;background:var(--shp-superficie);border:1px solid var(--shp-contorno);border-left:3px solid var(--shp-tinta);border-radius:6px}
+.shp__ganho--sel{border-left-color:var(--shp-realce)}
+.shp__tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:var(--shp-fundo);border:1px solid var(--shp-contorno);font-size:12px;font-weight:600;color:var(--shp-apoio);vertical-align:middle}
+.shp__rte{color:var(--shp-apoio);font-size:16px}
+.shp__rte p{margin:0 0 10px}
+.shp__form-wrap{background:var(--shp-superficie);border:1px solid var(--shp-contorno);border-radius:8px;margin-top:12px;margin-bottom:12px;max-width:760px;padding:24px 16px}
+.shp__nota{margin:0 0 14px;font-size:14px;color:var(--shp-apoio)}
+.shp__estado{padding:14px;border:1px dashed var(--shp-contorno);border-radius:6px;font-size:15px}
+.shp__form fieldset{border:0;margin:0 0 18px;padding:0}
+.shp__form legend{font-weight:800;font-size:17px;margin:0 0 10px;padding:0}
+.shp__form label{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:14px;font-weight:600;min-width:0}
+.shp__form input:not([type=checkbox]),.shp__form select,.shp__form textarea{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--shp-contorno);border-radius:4px;background:#fff;color:#1b1b1b;font:400 16px/1.3 'Roboto',system-ui,sans-serif}
+.shp__form input[type=file]{padding:10px;min-height:0}
+.shp__form [aria-invalid=true]{border-color:#b3261e;outline:2px solid #b3261e33}
+.shp__duo{display:grid;grid-template-columns:1fr;gap:0 12px}
+.shp__ajuda{font-weight:400;color:var(--shp-apoio);font-size:13px}
+.shp__prev{margin:-4px 0 8px;padding-left:18px;font-size:13px;color:var(--shp-apoio)}
+.shp__isca{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+.shp__termo{margin:6px 0 14px}
+.shp__termo details{border:1px solid var(--shp-contorno);border-radius:4px;background:#fff;margin-bottom:10px}
+.shp__termo summary{cursor:pointer;padding:12px;font-weight:700;font-size:15px}
+.shp__termo-txt{max-height:320px;overflow:auto;padding:0 14px 12px;font-size:14px;color:#2a2a2a}
+.shp__termo-txt p{margin:0 0 10px;white-space:pre-line}
+.shp__aceite{flex-direction:row!important;align-items:flex-start;gap:10px!important;font-weight:400!important;font-size:15px!important}
+.shp__aceite input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:var(--shp-tinta)}
+.shp__erro{margin:0 0 12px;padding:10px 12px;border-radius:4px;background:#fdecea;color:#8a1c14;font-size:15px}
+.shp__enviar{width:100%}
+.shp__ok{padding:18px;border-radius:6px;background:var(--shp-fundo);border:1px solid var(--shp-contorno)}
+.shp__ok h3{margin:0 0 6px;font-size:20px}
+.shp__faq details{border-bottom:1px solid var(--shp-contorno);padding:4px 0}
+.shp__faq summary{cursor:pointer;padding:12px 0;font-weight:700;font-size:16px;list-style-position:outside}
+.shp__faq .shp__rte{padding:0 0 12px}
+@media(min-width:760px){
+  .shp__duo{grid-template-columns:1fr 1fr}
+  .shp__form-wrap{padding:32px}
+  .shp__passos{grid-template-columns:repeat(3,1fr)}
+  .shp__ganhos{grid-template-columns:repeat(2,1fr)}
+}
+@media(min-width:900px){
+  .shp__hero{padding:64px 24px 40px}
+  .shp__hero--img{grid-template-columns:1.05fr 1fr;align-items:center;gap:48px}
+  .shp__h1{font-size:44px}
+  .shp__bloco{padding:36px 24px}
+  .shp__form-wrap{padding:36px}
+  .shp__enviar{width:auto}
+}
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Parceiros · LP",
+  "tag": "div",
+  "class": "secao-shp",
+  "settings": [
+    { "type": "select", "id": "marca", "label": "Marca", "options": [{ "value": "aristo", "label": "O Aristocrata" }, { "value": "fish", "label": "Fishermans" }], "default": "aristo" },
+    { "type": "text", "id": "endpoint", "label": "Endereço do formulário (n8n)", "info": "Webhook de crm_partner_candidatura_v1. Sem ele, a seção mostra inscrições fechadas." },
+    { "type": "checkbox", "id": "carregar_fonte", "label": "Carregar a Roboto", "default": true },
+    { "type": "header", "content": "Topo" },
+    { "type": "text", "id": "eyebrow", "label": "Chamada pequena", "default": "Programa de parceiros" },
+    { "type": "text", "id": "titulo", "label": "Título", "default": "Seja um parceiro" },
+    { "type": "richtext", "id": "subtitulo", "label": "Subtítulo" },
+    { "type": "text", "id": "comissao_padrao", "label": "Comissão exibida antes de carregar", "default": "5%", "info": "Troca sozinha pela taxa do programa quando a página carrega." },
+    { "type": "text", "id": "cta_texto", "label": "Botão do topo", "default": "Quero me candidatar" },
+    { "type": "image_picker", "id": "imagem", "label": "Imagem do topo" },
+    { "type": "text", "id": "imagem_alt", "label": "Alt da imagem" },
+    { "type": "header", "content": "Blocos" },
+    { "type": "text", "id": "titulo_passos", "label": "Título de como funciona", "default": "Como funciona" },
+    { "type": "text", "id": "titulo_ganhos", "label": "Título do que você ganha", "default": "O que você ganha" },
+    { "type": "text", "id": "titulo_sobre", "label": "Título sobre a marca" },
+    { "type": "richtext", "id": "sobre", "label": "Sobre a marca" },
+    { "type": "header", "content": "Formulário" },
+    { "type": "text", "id": "titulo_form", "label": "Título do formulário", "default": "Candidatura" },
+    { "type": "text", "id": "nicho_exemplo", "label": "Exemplo de nicho", "default": "ex.: estilo de vida, pesca, treino" },
+    { "type": "text", "id": "enviar_texto", "label": "Botão de envio", "default": "Enviar candidatura" },
+    { "type": "text", "id": "texto_ok", "label": "Texto depois do envio", "default": "Vamos analisar seu perfil e falar com você pelo WhatsApp ou e-mail." },
+    { "type": "header", "content": "Cores" },
+    { "type": "color", "id": "cor_tinta", "label": "Texto e títulos", "default": "#0C3C21" },
+    { "type": "color", "id": "cor_fundo", "label": "Fundo", "default": "#F7F4EC" },
+    { "type": "color", "id": "cor_superficie", "label": "Cartões", "default": "#FFFFFF" },
+    { "type": "color", "id": "cor_apoio", "label": "Texto de apoio", "default": "#46574B" },
+    { "type": "color", "id": "cor_contorno", "label": "Contornos", "default": "#DED6C2" },
+    { "type": "color", "id": "cor_cta", "label": "Botão", "default": "#944F32" },
+    { "type": "color", "id": "cor_cta_txt", "label": "Texto do botão", "default": "#F7F4EC" },
+    { "type": "color", "id": "cor_realce", "label": "Realce", "default": "#944F32" }
+  ],
+  "blocks": [
+    { "type": "passo", "name": "Passo", "settings": [
+      { "type": "text", "id": "titulo", "label": "Título", "default": "Passo" },
+      { "type": "textarea", "id": "texto", "label": "Texto" } ] },
+    { "type": "ganho", "name": "Ganho", "settings": [
+      { "type": "text", "id": "titulo", "label": "Título", "default": "Benefício" },
+      { "type": "textarea", "id": "texto", "label": "Texto", "info": "[comissao][/comissao] vira a taxa do programa." },
+      { "type": "checkbox", "id": "selecionados", "label": "Só para perfis selecionados", "default": false } ] },
+    { "type": "faq", "name": "Pergunta", "settings": [
+      { "type": "text", "id": "pergunta", "label": "Pergunta", "default": "Pergunta" },
+      { "type": "richtext", "id": "resposta", "label": "Resposta" } ] }
+  ],
+  "presets": [{ "name": "Parceiros · LP" }]
+}
+{% endschema %}

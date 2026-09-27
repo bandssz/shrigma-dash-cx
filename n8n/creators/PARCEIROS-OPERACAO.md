@@ -4,7 +4,7 @@ Estas regras foram decididas pelo Felipe. Estão em `partner-operacao.sql` (migr
 
 | Regra | Onde fica |
 |---|---|
-| Comissão de 7% sobre produtos após descontos, sem frete, menos reembolso | `crm_partner_program_v1.rate` e `commission_payable = true` |
+| Comissão de 5% (27/09/2026; era 7% antes do primeiro link) sobre produtos após descontos, sem frete, menos reembolso — `partner-comissao.sql` | `crm_partner_program_v1.rate` e `commission_payable = true` |
 | Pedido com link de parceiro e cupom de influ: comissionam os dois | `crm_partner_program_v1.link_cupom = 'ambos'`. A leitura conta `pedidos_com_cupom` para mostrar a sobreposição. |
 | Fechamento por competência (mês do pedido), pagamento até o dia 5 do mês seguinte | `fechamento` em `crm_partner_link_read_v1`: comissão, base fechada, mês encerrado e prazo |
 | Link do Aristo em `oaristocrata.com` | `crm_partner_program_v1.link_base` |

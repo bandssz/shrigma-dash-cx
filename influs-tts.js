@@ -648,41 +648,44 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderFila() {
     const m = marcaAtual(), fila = TTS.fila(DADOS, m), envio = TTS.filtra(DADOS.envio, m), todas = m === 'todas';
     const modo = (TTS.filtra(DADOS.regra, m)[0] || {}).modo || 'dry_run';
-    const thM = todas ? '<th>Marca</th>' : '', tdM = x => todas ? `<td>${tag(x.marca)}</td>` : '';
+    carregarProdutosTTS();
     // Trava explicada: quem libera e o que fazer enquanto isso. O estado real vem de travaAmostrasTTS().
     let html = `<div class="tts-trava"><div><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p>
       <p class="mini">Com a chave do painel, a disponibilidade é conferida sozinha e cada decisão pede só uma confirmação. Se os botões ficarem cinza, decida no Seller Center.</p></div>
       <button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>`;
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
-      <div class="rolagem"><table class="comparativo tts-compacta"><thead><tr><th>Prazo</th>${thM}<th>Criador</th><th>Produto</th><th>Pedido</th></tr></thead><tbody>${envio.map(e => `<tr><td class="nowrap">${prazo(TTS.horasAte(e.envio_expira_em))}</td>${tdM(e)}<td>@${esc(e.username)}</td><td class="tts-prod"><span class="tts-1linha" title="${esc(e.product_title)}">${esc(e.product_title)}</span>${e.sku_name ? `<span class="tag nulo tts-sku">${esc(e.sku_name)}</span>` : ''}</td><td class="tabn">${esc(e.order_id || '—')}</td></tr>`).join('')}</tbody></table></div>`;
+      <ul class="tts-envio">${envio.map(e => `<li class="tts-item">${produtoCelTTS(e)}<div class="tts-item-meta">${todas ? tag(e.marca) : ''}<span>@${esc(e.username)}</span><span class="mini tabn">pedido ${esc(e.order_id || '—')}</span></div><div class="tts-item-prazo">${prazo(TTS.horasAte(e.envio_expira_em))}</div></li>`).join('')}</ul>`;
     if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; travaAmostrasTTS(); return; }
     const sugestoes = [...new Set(fila.map(x => x.tier.rot))];
+    // Um cartão por criador: quem pede várias amostras aparece uma vez, com cada produto numa linha.
+    const grupos = [];
+    for (const x of fila) { const k = x.marca + '|' + x.username; let g = grupos.find(y => y.k === k); if (!g) grupos.push(g = { k, c: x, itens: [] }); g.itens.push(x); }
     html += `<div class="tts-filtros" role="search"><label class="tts-busca"><span class="mini">Buscar</span><input type="search" id="tts-fila-busca" placeholder="criador ou produto" autocomplete="off"></label>
       <label><span class="mini">Sugestão · ${esc(modo === 'dry_run' ? 'simulação' : modo)}</span><select id="tts-fila-sug"><option value="">todas</option>${sugestoes.map(t => `<option value="${esc(t)}">${esc(t)} (${fila.filter(x => x.tier.rot === t).length})</option>`).join('')}</select></label>
-      <span class="mini" id="tts-fila-conta" aria-live="polite">${fila.length} pedido(s)</span></div>`;
-    html += `<div class="rolagem"><table class="comparativo tts-compacta tts-fila"><thead><tr>
-      <th title="prazo da plataforma para decidir (7 dias); vencido vira OVERDUE_CANCELLED">Vence em</th>${thM}<th>Criador</th>
-      <th class="num" title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma), em R$">GMV 30d</th>
-      <th class="num" title="Postagem: % das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo; 0% = sem histórico recente, não é 'não posta'. Aqui: amostras completas / pedidas nesta marca">Histórico <span class="mini">postagem · aqui</span></th>
-      <th class="num" title="pedidos · GMV em R$ que esse criador já gerou para esta marca nos últimos 90 dias">Vendeu aqui 90d</th>
-      <th>Produto pedido</th>
-      <th title="Sugestão: o que a esteira faria com a regra atual (crm_tts_regra). Modo ${esc(modo)}: a decisão continua sendo humana. Decidir depende da disponibilidade do serviço e de confirmação; o recibo é consultado sem repetir a decisão">Sugestão · decidir</th></tr></thead><tbody>
-      ${fila.map(x => `<tr data-busca="${esc([x.nickname, x.username, x.product_title, x.sku_name].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(x.tier.rot)}">
-        <td class="nowrap tts-f-prazo" data-rot="Vence em">${prazo(x.horas)}</td>${tdM(x)}
-        <td class="tts-quem tts-f-cheia"><div class="nome tts-1linha">${esc(x.nickname || x.username)}</div><span class="mini tts-1linha">@${esc(x.username)} · ${nf(x.seguidores)} seg.</span></td>
-        <td class="num tabn" data-rot="GMV 30d">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</td>
-        <td class="num tabn" data-rot="Postagem">${pf(x.fulfillment_pct)}<span class="mini tts-sub">${nf(x.amostras_completas)}/${nf(x.amostras_total)} aqui</span></td>
-        <td class="num tabn" data-rot="Vendeu 90d">${x.pedidos_90d ? `${nf(x.pedidos_90d)} · ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</td>
-        <td class="tts-prod tts-f-cheia"><span class="tts-1linha" title="${esc(x.product_title)}">${esc(x.product_title)}</span>${x.sku_name ? `<span class="tag nulo tts-sku" title="variante pedida">${esc(x.sku_name)}</span>` : ''}${x.is_approvable === false ? ` <span class="tag alerta" title="${esc(x.motivo_nao_aprovavel || '')}">não aprovável</span>` : ''}</td>
-        <td class="tts-acoes tts-f-cheia" data-marca="${esc(x.marca)}" data-id="${esc(x.application_id)}"><span class="tag ${x.tier.cls} tts-sug" title="${esc(x.tier.det)}">${x.tier.rot}</span><button class="btn tts-btn tts-ok" ${x.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></td></tr>`).join('')}</tbody></table></div>`;
+      <span class="mini" id="tts-fila-conta" aria-live="polite">${fila.length} pedido(s) de ${grupos.length} criador(es)</span></div>`;
+    const perfil = u => /^[A-Za-z0-9._]{2,30}$/.test(String(u || '')) ? `<a href="https://www.tiktok.com/@${esc(u)}" target="_blank" rel="noopener noreferrer">@${esc(u)}</a>` : `@${esc(u)}`;
+    html += `<div class="tts-fila">${grupos.map(g => { const x = g.c;
+      return `<article class="tts-cr">
+        <header class="tts-cr-cab"><span class="tts-av" aria-hidden="true">${esc(iniciais(x.nickname || x.username))}</span>
+          <div class="tts-cr-quem"><strong class="tts-1linha">${esc(x.nickname || x.username)}</strong><span class="mini tts-1linha">${perfil(x.username)} · ${nf(x.seguidores)} seguidores${todas ? ' · ' + esc(MARCA_N[x.marca] || x.marca) : ''}</span></div>
+          <dl class="tts-cr-nums">
+            <div title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma)"><dt>GMV 30d (R$)</dt><dd class="tabn">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</dd></div>
+            <div title="% das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo; 0% = sem histórico recente. Aqui: completas / pedidas nesta marca"><dt>Postagem</dt><dd class="tabn">${pf(x.fulfillment_pct)} <span class="mini">${nf(x.amostras_completas)}/${nf(x.amostras_total)} aqui</span></dd></div>
+            <div title="pedidos · GMV que esse criador já gerou para esta marca nos últimos 90 dias"><dt>Vendeu aqui 90d</dt><dd class="tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} ped. · R$ ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</dd></div>
+          </dl>${g.itens.length > 1 ? `<span class="tag neutro">${g.itens.length} pedidos</span>` : ''}</header>
+        <ul class="tts-itens">${g.itens.map(i => `<li class="tts-item" data-busca="${esc([i.nickname, i.username, i.product_title, i.sku_name, produtoTTS(i.marca, i.product_title)?.rotulo].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(i.tier.rot)}">
+          ${produtoCelTTS(i, i.is_approvable === false ? `<span class="tag alerta" title="${esc(i.motivo_nao_aprovavel || '')}">não aprovável</span>` : '')}
+          <div class="tts-item-prazo" title="prazo da plataforma para decidir; vencido vira OVERDUE_CANCELLED">${prazo(i.horas)}</div>
+          <div class="tts-acoes" data-marca="${esc(i.marca)}" data-id="${esc(i.application_id)}"><span class="tag ${i.tier.cls} tts-sug" title="${esc(i.tier.det)}">${i.tier.rot}</span><button class="btn tts-btn tts-ok" ${i.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></div></li>`).join('')}</ul></article>`; }).join('')}</div>`;
     $('#tts-area').innerHTML = html;
     travaAmostrasTTS();
     const busca = $('#tts-fila-busca'), sug = $('#tts-fila-sug'), conta = $('#tts-fila-conta');
     const filtra = () => {
       const q = String(busca?.value || '').trim().toLowerCase(), t = sug?.value || '';
       let n = 0;
-      document.querySelectorAll('#tts-area .tts-fila tbody tr').forEach(tr => { const ok = (!q || (tr.dataset.busca || '').includes(q)) && (!t || tr.dataset.sug === t); tr.hidden = !ok; if (ok) n++; });
-      if (conta) conta.textContent = n === fila.length ? `${fila.length} pedido(s)` : `${n} de ${fila.length} pedido(s)`;
+      document.querySelectorAll('#tts-area .tts-fila .tts-item').forEach(li => { const ok = (!q || (li.dataset.busca || '').includes(q)) && (!t || li.dataset.sug === t); li.hidden = !ok; if (ok) n++; });
+      document.querySelectorAll('#tts-area .tts-fila .tts-cr').forEach(c => { c.hidden = ![...c.querySelectorAll('.tts-item')].some(li => !li.hidden); });
+      if (conta) conta.textContent = n === fila.length ? `${fila.length} pedido(s) de ${grupos.length} criador(es)` : `${n} de ${fila.length} pedido(s)`;
     };
     if (busca) busca.oninput = filtra;
     if (sug) sug.onchange = filtra;
@@ -698,7 +701,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       return box;
     };
     document.querySelectorAll('#tts-area .tts-acoes .tts-ok,#tts-area .tts-acoes .tts-nao').forEach(b => b.onclick = () => {
-      const td = b.closest('td'), aprova = b.classList.contains('tts-ok');
+      const td = b.closest('.tts-acoes'), aprova = b.classList.contains('tts-ok');
       if (!aprova && !b.disabled && !b.dataset.armado) motivoBox(td);
       armar(b, aprova ? 'Confirmar aprovação?' : 'Confirmar rejeição?', async () => {
         const m = td.querySelector('.tts-motivo'), obs = td.querySelector('.tts-obs');
@@ -710,6 +713,34 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     });
   }
 
+  // Produtos (foto + nome curto) vêm do endpoint da cobrança, ação 'produtos'. Casados pelo título do anúncio.
+  let PRODUTOS_TTS = null, PRODUTOS_CHAVE = null, PRODUTOS_BUSY = false;
+  async function carregarProdutosTTS() {
+    const k = (typeof chavePainelTTS === 'function' ? chavePainelTTS() : '') || '';
+    if (!k || typeof TTS_COBRANCA_URL !== 'string' || PRODUTOS_BUSY || PRODUTOS_CHAVE === k) return;
+    PRODUTOS_BUSY = true;
+    try {
+      const r = await fetch(TTS_COBRANCA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'produtos', k }), credentials: 'omit', cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.produtos)) {
+        PRODUTOS_TTS = new Map(j.produtos.map(p => [p.marca + '|' + String(p.titulo || '').trim().toLowerCase(), p]));
+        PRODUTOS_CHAVE = k;
+        if (DADOS && ['fila', 'colabs'].includes(PANE)) renderPane();
+      }
+    } catch (_) {} finally { PRODUTOS_BUSY = false; }
+  }
+  const produtoTTS = (marca, titulo) => PRODUTOS_TTS?.get(marca + '|' + String(titulo || '').trim().toLowerCase()) || null;
+  const iniciais = s => String(s || '?').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+  // Miniatura do produto: foto da loja quando o anúncio identifica a variação; senão, um quadro com as iniciais.
+  const thumbTTS = (p, titulo) => p?.imagem_url && /^https:\/\/cdn\.shopify\.com\//.test(p.imagem_url)
+    ? `<img class="tts-thumb" src="${esc(p.imagem_url)}${p.imagem_url.includes('?') ? '&' : '?'}width=160" alt="" loading="lazy" width="56" height="56">`
+    : `<span class="tts-thumb tts-thumb-vazia" aria-hidden="true">${esc(iniciais(p?.rotulo || titulo))}</span>`;
+  const produtoCelTTS = (x, extra = '') => {
+    const p = produtoTTS(x.marca, x.product_title), rot = p?.rotulo || x.product_title;
+    return `<div class="tts-produto">${thumbTTS(p, x.product_title)}<div class="tts-produto-txt"><strong class="tts-rotulo">${esc(rot)}</strong>
+      <span class="tts-chips">${p?.quantidade ? `<span class="tag neutro">kit ${esc(p.quantidade)}</span>` : ''}${x.sku_name && x.sku_name !== 'Padrão' ? `<span class="tag nulo tts-sku" title="variante pedida">${esc(x.sku_name)}</span>` : ''}${extra}</span>
+      <span class="mini tts-1linha" title="${esc(x.product_title)}">${esc(x.product_title)}</span></div></div>`;
+  };
   function renderCriadores() {
     const m = marcaAtual(), lista = TTS.filtra(DADOS.criadores, m);
     if (!lista.length) { $('#tts-area').innerHTML = '<div class="vazio">Nenhum criador vendeu nesta janela.</div>'; return; }
@@ -731,6 +762,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   function renderColabs() {
     const m = marcaAtual(), tg = TTS.filtra(DADOS.target, m), op = TTS.filtra(DADOS.open, m);
+    carregarProdutosTTS();
     const st = s => s === 'ONGOING' ? '<span class="tag bom">em curso</span>' : s === 'EXPIRING' ? '<span class="tag alerta">expirando</span>' : `<span class="tag nulo">${esc(String(s || '').toLowerCase())}</span>`;
     const ps = s => s === 'LIVE' ? '<span class="tag bom">no ar</span>' : `<span class="tag alerta" title="${esc(s)}">${esc(s === 'OUT_OF_STOCK' ? 'sem estoque' : s === 'SELLER_DEACTIVATE' ? 'desativado' : s === 'PLATFORM_DEACTIVATE' ? 'desativado pela plataforma' : String(s || '').toLowerCase())}</span>`;
     let html = `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Target collabs <span class="mini">${tg.length}</span></h3><span class="mini" title="convidados → adicionaram à vitrine → postaram conteúdo. Taxa só com 10+ convidados">funil por campanha</span></div>`;
@@ -738,10 +770,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       ${tg.map(t => { const tx = TTS.targetTaxa(t); return `<tr><td class="nome">${esc(t.nome)}</td><td>${tag(t.marca)}</td><td>${st(t.status)}</td><td class="tabn mini">${dt(t.inicio_em)}–${dt(t.fim_em)}</td>
         <td class="num tabn">${nf(t.invited_count)}</td><td class="num tabn">${nf(t.showcase_count)}</td><td class="num tabn">${nf(t.content_creator_count)}</td>
         <td class="num tabn ${tx !== null ? (tx >= 30 ? 'vd' : tx < 10 ? 'vm' : '') : ''}">${tx === null ? '—' : pf(tx)}</td><td class="num tabn">${pf(t.comissao_pct, 1)}</td>
-        <td><span class="mini" title="${esc((t.produtos || []).join('\n'))}">${nf(t.product_count)} produto(s)${t.produtos_fora_do_ar ? ` · <span class="tag alerta">${t.produtos_fora_do_ar} fora do ar</span>` : ''}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="vazio">Nenhuma target collab.</div>';
+        <td><span class="tts-mini-thumbs">${(t.produtos || []).slice(0, 4).map(pt => thumbTTS(produtoTTS(t.marca, pt), pt)).join('')}</span><span class="mini" title="${esc((t.produtos || []).join('\n'))}">${nf(t.product_count)} produto(s)${t.produtos_fora_do_ar ? ` · <span class="tag alerta">${t.produtos_fora_do_ar} fora do ar</span>` : ''}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="vazio">Nenhuma target collab.</div>';
     html += `<div class="painel-cab" style="margin-top:18px"><h3 style="margin:0">Open collab <span class="mini">${op.length} produtos</span></h3><span class="mini" title="quantos criadores adicionaram à vitrine e quantos já postaram, acumulado desde que o produto entrou na open">vitrine e conteúdo acumulados</span></div>`;
     html += op.length ? `<div class="rolagem"><table class="comparativo"><thead><tr><th>Produto</th><th>Marca</th><th>Status</th><th class="num">Comissão</th><th class="num">Vitrine</th><th class="num">Conteúdo</th><th class="num">Estoque</th><th class="num">Preço</th></tr></thead><tbody>
-      ${op.map(o => `<tr><td class="nome">${esc(o.product_title)}</td><td>${tag(o.marca)}</td><td>${ps(o.product_status)}</td><td class="num tabn">${pf(o.comissao_pct, 1)}</td>
+      ${op.map(o => `<tr><td class="nome tts-prod-col">${produtoCelTTS(o)}</td><td>${tag(o.marca)}</td><td>${ps(o.product_status)}</td><td class="num tabn">${pf(o.comissao_pct, 1)}</td>
         <td class="num tabn">${nf(o.showcase_count)}</td><td class="num tabn">${nf(o.content_creator_count)}</td><td class="num tabn">${nf(o.inventario)}</td>
         <td class="num tabn mini">${o.preco_min === o.preco_max ? rf(o.preco_min) : rf(o.preco_min) + '–' + rf(o.preco_max)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vazio">Nenhum produto na open collab.</div>';
     $('#tts-area').innerHTML = html;

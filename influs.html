@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=a5453ef5782f">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-zrdNXE9omsdEEDP7sEB16uCpParWwki3/ZLBiWm01wM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=3400e80e15f5">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hu1QESbzWgXALiZ8ZljE14TEsMt2JtYQEmIQXTJahM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -212,7 +212,7 @@
       <button data-c="shopee" data-plataforma="shopee" disabled title="Ainda não conectado: nenhuma venda foi lida desta plataforma">Shopee <span class="mini">em breve</span></button>
     </nav>
 
-    <div class="canal" id="canal-parceiros" data-plataforma="parceiros"><div id="area-partners"></div></div>
+    <div class="canal" id="canal-parceiros" data-plataforma="parceiros"><div id="area-candidaturas"></div><div id="area-partners"></div></div>
 
     <div class="canal" id="canal-meli" data-plataforma="meli" hidden>
       <section class="painel"><div class="vazio">Mercado Livre ainda não está conectado. Quando a coleta existir, este canal aparece aqui com as mesmas colunas dos outros — até lá não há número nenhum a mostrar, e zero seria mentira.</div></section>
@@ -242,7 +242,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=17a5ef8b789f"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=16c2f38cefc7"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -1203,6 +1203,10 @@ function trocaCanal(c){
 }
 document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disabled&&CANAL!==b.dataset.c)trocaCanal(b.dataset.c);});
 if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC==='afil'?(CANAL==='parceiros'?'partners':CANAL):SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
+// Candidaturas do formulário do site (LP "Seja um Parceiro"): leitura com a chave do painel; a decisão segue no cadastro.
+var CANDIDATURA_URL='https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032';
+var CANDIDATURAS=typeof PartnerCandidaturas!=='undefined'?PartnerCandidaturas.create({document,endpoint:()=>CANDIDATURA_URL,key:()=>INFLU_ACCESS.current('read'),getMarca:()=>MARCA}):null;
+if(window.CREATORS_PILOT&&CANDIDATURAS){const renderPiloto=window.CREATORS_PILOT.render;window.CREATORS_PILOT.render=(...a)=>{const r=renderPiloto(...a);if(SEC==='afil'&&CANAL==='parceiros'&&document.getElementById('area-candidaturas'))CANDIDATURAS.mount(document.getElementById('area-candidaturas'));return r;};}
 // Visão por papel, como no CRM: gestor da área por padrão; acesso mestre pode ver o diagnóstico do dono.
 var AREA_VIEW=typeof AreaView!=='undefined'?AreaView.bind({document,panel:'influs',key:()=>INFLU_ACCESS.current('read'),apiUrl:()=>CX_API_URL,
   onChange:v=>{if(v!=='owner'&&SEC==='diagnostico')$('#secoes [data-s="creators"]').click();else if(v==='owner'&&INFLU)renderConferencia();}}):null;
