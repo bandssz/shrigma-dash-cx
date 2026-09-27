@@ -18,10 +18,13 @@ test('synthetic base matches deployed draft/CART prerequisites without exposing 
  assert.equal((await F.rowSnapshot(x.db)).journeys.length,2);
 });
 
-test('composed single batch installs OFF once, preserves drafts/retained rows and seals current structure',async t=>{
+test('compiled installation executes one top-level DO, stays OFF and preserves drafts/retained rows',async t=>{
  const x=await F.installBase(t),before=await meta(x.db),rows=await F.rowSnapshot(x.db),m=migrate(before);
  assert.doesNotMatch(m.sql,/^\s*(?:BEGIN|COMMIT);\s*$/m);
- await x.db.exec(m.sql);const after=await meta(x.db);
+ // PGlite returns one result per top-level command. A SET prefix or SELECT
+ // suffix would produce a second result even when the installation succeeds.
+ const results=await x.db.exec(m.sql);assert.equal(results.length,1);assert.deepEqual(results[0].rows,[]);
+ const after=await meta(x.db);
  assert.deepEqual(await F.rowSnapshot(x.db),rows);
  assert.deepEqual((await x.query('SELECT enabled,cache_target FROM crm_graph_candidate.cart_control_v1 ORDER BY brand')).rows,[{enabled:false,cache_target:null},{enabled:false,cache_target:null}]);
  assert.equal(after.worker_role.name,'crm_graph_worker');
@@ -40,7 +43,21 @@ test('injected middle failure rolls every schema/function/grant back and keeps s
  assert.equal((await x.query('SELECT 2 ok')).rows[0].ok,2);
  assert.deepEqual(await meta(x.db),before);assert.deepEqual(await F.rowSnapshot(x.db),rows);
  assert.equal((await x.query("SELECT to_regclass('crm_graph_candidate.source_event_v1') value")).rows[0].value,null);
- await x.db.exec(m.sql);assert.equal((await meta(x.db)).worker_role.name,'crm_graph_worker');
+ const results=await x.db.exec(m.sql);assert.equal(results.length,1);assert.equal((await meta(x.db)).worker_role.name,'crm_graph_worker');
+});
+
+test('catalog exposes inherited PUBLIC CREATE and stale compiled SQL refuses it without changing shared grants',async t=>{
+ const x=await F.installBase(t),before=await meta(x.db),m=migrate(before);
+ assert.deepEqual(before.public_create_schemas,[]);
+ await x.db.exec('CREATE SCHEMA fixture_shared;GRANT CREATE ON SCHEMA public,fixture_shared TO PUBLIC');
+ const changed=await meta(x.db),rows=await F.rowSnapshot(x.db);
+ assert.deepEqual(changed.public_create_schemas,['fixture_shared','public']);
+ assert.throws(()=>migrate(changed),/PUBLIC_CREATE_INHERITED/);
+ await assert.rejects(x.db.exec(m.sql),/PUBLIC_CREATE_INHERITED/);
+ assert.equal((await x.query('SELECT 4 ok')).rows[0].ok,4);
+ assert.deepEqual(await meta(x.db),changed);assert.deepEqual(await F.rowSnapshot(x.db),rows);
+ assert.equal((await x.query("SELECT to_regclass('crm_graph_candidate.source_event_v1') value")).rows[0].value,null);
+ assert.equal((await meta(x.db)).worker_role,null);
 });
 
 test('fresh pre-write guards reject legacy-body, structure and gate drift before installation',async t=>{

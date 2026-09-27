@@ -4,7 +4,7 @@ const G=require('../tools/graph-install/deploy.cjs');
 const ROOT=path.join(__dirname,'..'),copy=x=>JSON.parse(JSON.stringify(x));
 function fixture(){
  const store=new G.FileStore(fs.mkdtempSync(path.join(os.tmpdir(),'graph-install-protocol-')));
- let metadata={database:'listmonk',role:'postgres',graph_shape:'a'.repeat(32),maintenance_shape:'a'.repeat(32),maintenance_legacy_shape:'a'.repeat(32),public_shape:'a'.repeat(32),graph_seal:null,maintenance_seal:JSON.stringify({contract:'maintenance-cart-install-v1',nonce:'00000000-0000-4000-8000-000000000001',ddl:'a'.repeat(64),shape:'a'.repeat(32)}),graph_tables:G.BASE_TABLES,graph_control:{singleton:true,enabled:false},maintenance_control:{singleton:true,enabled:true,mode:'open',version:2,cutoff_at:null},send_log_sequence:'public.shrigma_send_log_id_seq',recipient_key:{signature:'public.shrigma_email_recipient_key(text)',sha256:'a'.repeat(64),definer:true},worker_role:null};
+ let metadata={database:'listmonk',role:'postgres',graph_shape:'a'.repeat(32),maintenance_shape:'a'.repeat(32),maintenance_legacy_shape:'a'.repeat(32),public_shape:'a'.repeat(32),public_create_schemas:[],graph_seal:null,maintenance_seal:JSON.stringify({contract:'maintenance-cart-install-v1',nonce:'00000000-0000-4000-8000-000000000001',ddl:'a'.repeat(64),shape:'a'.repeat(32)}),graph_tables:G.BASE_TABLES,graph_control:{singleton:true,enabled:false},maintenance_control:{singleton:true,enabled:true,mode:'open',version:2,cutoff_at:null},send_log_sequence:'public.shrigma_send_log_id_seq',recipient_key:{signature:'public.shrigma_email_recipient_key(text)',sha256:'a'.repeat(64),definer:true},worker_role:null};
  const workflows=Object.fromEntries(G.WORKFLOWS.map(id=>[id,{id,active:true,versionId:'v1',activeVersionId:'v1',nodes:[{credentials:{postgres:{id:'synthetic'}}}],connections:{},activeVersion:{versionId:'v1',nodes:[{credentials:{postgres:{id:'synthetic'}}}],connections:{}}}]));
  let writes=0,lose=false,effect=true;
  const io={getWorkflow:async id=>copy(workflows[id]),metadata:async()=>copy(metadata),utilityPG:async()=>({ids:['synthetic'],version:'v1',node_hash:'a'.repeat(64)}),off:async()=>({cart_off:true,epochs:'0',owners:'0',sources:'0',clones:'0'}),sql:async sql=>{
@@ -35,6 +35,18 @@ test('wrong approval and tampered plan cannot write; missing intent cannot recon
 });
 test('postinstall catalog drift or role LOGIN never verifies',async()=>{
  const f=fixture(),p=await f.prepare();await f.installer.install(p.plan_hash);f.change(m=>({...m,worker_role:{...m.worker_role,login:true}}));await assert.rejects(f.installer.verify(),/SEAL_DRIFT/);assert.equal(f.writes(),1);
+});
+test('inherited PUBLIC CREATE or missing audit refuses preparation before plan, intent or write',async()=>{
+ for(const public_create_schemas of [['public'],undefined]){
+  const f=fixture();f.change(m=>({...m,public_create_schemas}));
+  await assert.rejects(f.prepare(),/PUBLIC_CREATE_INHERITED/);
+  assert.equal(f.writes(),0);assert.equal(f.store.has('plan'),false);assert.equal(f.store.has('install-intent'),false);
+ }
+});
+test('a PUBLIC CREATE grant introduced after installation invalidates readback',async()=>{
+ const f=fixture(),p=await f.prepare();await f.installer.install(p.plan_hash);
+ f.change(m=>({...m,public_create_schemas:['public']}));
+ await assert.rejects(f.installer.verify(),/PUBLIC_CREATE_INHERITED/);assert.equal(f.writes(),1);
 });
 test('only a fully linked TX extension preserves the graph readback',async()=>{
  const f=fixture(),p=await f.prepare();await f.installer.install(p.plan_hash);const old=f.metadata(),gs=JSON.parse(old.graph_seal),ms=JSON.parse(old.maintenance_seal),extension={contract:'maintenance-tx-install-v1',nonce:'00000000-0000-4000-8000-000000000002',ddl:'c'.repeat(64),previous_maintenance_shape:old.maintenance_shape};
