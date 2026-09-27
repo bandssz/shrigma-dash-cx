@@ -38,7 +38,7 @@ jobs:
       - name: SQL, webhook acknowledgement, installer and reconciliation regression
         env:
           NODE_PATH: ../maintenance-tx-tools/node_modules
-        run: node --test tests/maintenance-tx-popup.test.cjs tests/maintenance-tx-popup-patch.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-api.test.cjs tests/maintenance-tx-deploy-sql.test.cjs tests/maintenance-tx-observation.test.cjs
+        run: node --test tests/maintenance-tx-popup.test.cjs tests/maintenance-tx-popup-patch.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-api.test.cjs tests/maintenance-tx-deploy-sql.test.cjs tests/maintenance-tx-observation.test.cjs tests/maintenance-tx-n8n-write.test.cjs
       - name: Concurrent admission, gate, claims and opt-out on PostgreSQL
         env:
           NODE_PATH: ../maintenance-tx-tools/node_modules

@@ -7,7 +7,7 @@ const P=require('../../n8n/growth/maintenance-tx-popup-patch.cjs');
 const {FileStore,canonical,sha,projection,projects,SHAPE,STATE_SQL}=C;
 const CONTRACT='maintenance-tx-install-v1',SCHEMA='crm_maintenance_candidate';
 const DEP=['shrigma_email_claim_cart','shrigma_email_finish_cart','shrigma_flow_email_claim_tx','shrigma_email_claim_engagement','shrigma_email_claim_fish','shrigma_email_claim_aristo','shrigma_flow_slot','shrigma_flow_slot_wa_versioned_v1','shrigma_email_finish_fish','shrigma_email_finish_aristo','shrigma_email_transport_outcome'];
-const FILES=['n8n/growth/maintenance-tx-popup.sql','n8n/growth/maintenance-tx-popup-protocol.cjs','n8n/growth/maintenance-tx-popup-patch.cjs','n8n/growth/maintenance-cart-patch.cjs','tools/maintenance-cart-deploy/deploy.cjs','tools/maintenance-tx-deploy/deploy.cjs','tools/maintenance-tx-deploy/api-adapter.cjs','tools/maintenance-tx-deploy/cli.cjs'];
+const FILES=['n8n/growth/maintenance-tx-popup.sql','n8n/growth/maintenance-tx-popup-protocol.cjs','n8n/growth/maintenance-tx-popup-patch.cjs','n8n/growth/maintenance-cart-patch.cjs','tools/maintenance-cart-deploy/deploy.cjs','tools/maintenance-tx-deploy/deploy.cjs','tools/maintenance-tx-deploy/api-adapter.cjs','tools/maintenance-tx-deploy/n8n-2.0.2.cjs','tools/maintenance-tx-deploy/cli.cjs'];
 const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>canonical(a)===canonical(b),lit=x=>"'"+String(x).replaceAll("'","''")+"'";
 const extra=w=>Object.fromEntries(['description','pinData','tags','meta'].filter(k=>w[k]!==undefined).map(k=>[k,w[k]]));
 const pg=w=>[...new Set(w.nodes.filter(n=>n.credentials?.postgres).map(n=>n.credentials.postgres.id))].sort();

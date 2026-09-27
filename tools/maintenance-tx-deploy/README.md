@@ -37,6 +37,14 @@ Cada fase grava um intent durável antes da escrita. Resposta perdida ou timeout
 
 Antes do PUT há GET fresco do produtor TX, conferindo versão, conteúdo, credenciais, projeto e publicação. O PUT do n8n 2.0.2 pode publicar imediatamente: `publish` confirma o corpo publicado exato e não reativa se já estiver correto. Quando necessário, ativa somente a versão salva. A API não oferece CAS de versão no PUT: exige janela sem outro editor, e o readback não elimina a corrida de um administrador entre GET e PUT. O consumidor só é ativado após confirmação do produtor e nova conferência de selo/gate/CART.
 
+### Contrato de escrita do n8n 2.0.2
+
+O GET pode devolver `settings.timeSavedMode`, mas o [schema público dessa versão](https://github.com/n8n-io/n8n/blob/n8n%402.0.2/packages/cli/src/public-api/v1/handlers/workflows/spec/schemas/workflowSettings.yml) não aceita esse campo. A validação de entrada é configurada [antes do handler](https://github.com/n8n-io/n8n/blob/n8n%402.0.2/packages/cli/src/public-api/index.ts#L53-L61). Copiar o objeto de leitura integral para o PUT produz um corpo incompatível.
+
+O adaptador usa `n8n-2.0.2.cjs`: somente no PUT, omite `timeSavedMode` da cópia enviada, aceitando apenas os valores conhecidos `fixed`/`dynamic`. A versão original permanece integral no plano/readback. O [serviço de atualização mescla as configurações armazenadas com as recebidas](https://github.com/n8n-io/n8n/blob/n8n%402.0.2/packages/cli/src/workflows/workflow.service.ts#L296-L302), preservando esse valor. CREATE com esse campo, propriedades desconhecidas e tipos inválidos são recusados antes de qualquer chamada. Não há remoção genérica de configurações, mudança de versão, enfraquecimento da guarda ou repetição de escrita incerta. O módulo participa do hash do plano.
+
+Na tentativa da observação de 27/09, o status HTTP do erro não foi preservado; o readback confirmou a versão e o export original inteiros. O payload era incompatível com o schema fixado. Isso não permite atribuir um status HTTP exato à tentativa. Seu intent permanece guardado, e uma eventual publicação corrigida exige plano novo, fonte fresca, contrato revisado e nova CI.
+
 `halt DRIVER STATE PLAN_HASH` desativa somente o consumidor TX novo, preservando entrada durável, fila, tokens e carrinho. Não significa drenagem e não restaura o produtor antigo que desviaria da retenção. Fechamento de manutenção e comprovação de execução/entrega continuam separados desta instalação.
 
 Testes usam apenas fixtures sintéticas. O runner PostgreSQL exige `MAINTENANCE_TEST_DATABASE_ISOLATED=1`, PG **17.10**, usuário `synthetic`, `127.0.0.1:5432`, banco exclusivo `maintenance_tx_install_test`, sem senha. Execute `tests/maintenance-tx-deploy-postgres.cjs` na CI descartável; nenhum endpoint real é chamado.
