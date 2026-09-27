@@ -1,5 +1,7 @@
 # Guardas da cobrança: candidato v2
 
+**26/09/2026: SQL instalado em produção; integração ao sender descrita em `COBRANCA-AUTO.md`.** Texto original abaixo.
+
 **Código e SQL para revisão; ainda não integrados ao workflow.** O sender legado não é alterado por importar estes arquivos. A instalação só pode ocorrer com todas as regras de cobrança pausadas. Publicar o código não autoriza ativação nem comprova execução/entrega.
 
 ## Componentes
@@ -33,9 +35,9 @@ As funções rodam como invocador, com `search_path` fixo. O acesso público às
 
 ## Conversa: falha bloqueia
 
-A abertura precisa retornar identidade, username correspondente, `is_new` booleano e contagem conhecida de não lidas. Não lidas bloqueiam mesmo sem mensagens na lista. A leitura precisa de código de sucesso e array válido; conversa existente vazia é desconhecida, não “sem resposta”. Mensagem de tipo/sender/timestamp desconhecido bloqueia. Timestamp aceita número finito positivo ou sua representação decimal estrita; booleano, objeto, array, vazio e texto com coerção não viram uma mensagem antiga.
+A abertura precisa retornar identidade, username correspondente, `is_new` booleano e contagem conhecida de não lidas. Não lidas bloqueiam mesmo sem mensagens na lista. A leitura precisa de código de sucesso e array válido; conversa existente vazia é desconhecida, não “sem resposta”. Mensagem de tipo malformado, sender ausente ou timestamp desconhecido bloqueia; cartão com tipo bem formado vindo de quem não é o criador conta como mensagem da loja (26/09). Timestamp aceita número finito positivo ou sua representação decimal estrita; booleano, objeto, array, vazio e texto com coerção não viram uma mensagem antiga.
 
-Qualquer resposta do criador no histórico retornado exige tratamento humano, inclusive antiga. A idade da resposta não prova consentimento nem ausência de opt-out. Mensagem recente da loja também bloqueia. O guardião não faz NLP para presumir consentimento; a supressão permanente deve ser registrada pelo fluxo autorizado de operação. O adaptador de leitura deve esgotar a paginação e devolver `coverage: {complete: true, conversation_id}` vinculado à conversa exata. Ausência, falso, identidade diferente ou indicação nativa contraditória de mais páginas bloqueiam antes de dispatch. O adaptador real e a evidência dessa cobertura ainda precisam de implementação/validação; a flag não pode vir do navegador nem ser inferida de lista vazia. Ingestão de opt-out continua necessária.
+Qualquer resposta do criador no histórico retornado exige tratamento humano, inclusive antiga. Depois que a operadora trata e devolve a pessoa à régua, as mensagens até aquele momento (`crm_tts_cobranca_ciente_v2.ate`, vindo do banco) deixam de bloquear; resposta nova bloqueia de novo. A idade da resposta não prova consentimento nem ausência de opt-out. Mensagem recente da loja também bloqueia. O guardião não faz NLP para presumir consentimento; a supressão permanente deve ser registrada pelo fluxo autorizado de operação. O adaptador de leitura deve esgotar a paginação e devolver `coverage: {complete: true, conversation_id}` vinculado à conversa exata. Ausência, falso, identidade diferente ou indicação nativa contraditória de mais páginas bloqueiam antes de dispatch. O adaptador real e a evidência dessa cobertura ainda precisam de implementação/validação; a flag não pode vir do navegador nem ser inferida de lista vazia. Ingestão de opt-out continua necessária.
 
 ## Contrato de integração
 

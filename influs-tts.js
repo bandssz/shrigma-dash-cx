@@ -750,53 +750,58 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   // Mensagem longa abre no toque (funciona no celular, ao contrário do title).
   const msgTTS = t => { const txt = String(t || ''), primeira = txt.split('\n')[0]; if (!txt) return '<span class="mini">—</span>';
     return txt.length <= 90 && !txt.includes('\n') ? esc(txt) : `<details class="tts-msg-det"><summary>${esc(primeira.slice(0, 90))}${primeira.length > 90 || txt.includes('\n') ? '…' : ''}</summary><div>${esc(txt)}</div></details>`; };
+  // Cobrança v2 (26/09): modelos aprovados, simulação, envios e pendências vêm de TTSCobranca (tts-cobranca.js).
+  let COB_V2 = null;
+  function cobrancaV2() {
+    if (!COB_V2 && typeof TTSCobranca !== 'undefined' && typeof TTS_COBRANCA_URL === 'string')
+      COB_V2 = TTSCobranca.create({ document, endpoint: () => TTS_COBRANCA_URL, key: () => (typeof chavePainelTTS === 'function' ? chavePainelTTS() : '') || '',
+        getMarca: marcaAtual, onChange: () => { if (PANE === 'cobranca' && DADOS) renderCobranca(); } });
+    return COB_V2;
+  }
   function renderCobranca() {
     const m = marcaAtual(), c = TTS.cobranca(DADOS, m);
-    const fila = TTS.filtra(DADOS.cobranca_fila || [], m);
-    if (!fila.length && !c.pendentes && !c.responderam.length) { $('#tts-area').innerHTML = '<div class="vazio">Ninguém devendo conteúdo agora.</div>'; return; }
+    const fila = TTS.filtra(DADOS.cobranca_fila || [], m), cob = cobrancaV2();
     const ETAPA = { vitrine_sem_video: 'Pôs na vitrine, não gravou', amostra_sem_video: 'Recebeu amostra, não postou' };
     // Responderam: o robô parou de propósito — a próxima palavra é da Marcela, no Seller Center.
     let topo = '';
-    if (c.responderam.length) topo = `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Responderam e estão esperando <span class="tag alerta">${c.responderam.length}</span></h3>
-        <span class="mini" title="o robô leu a conversa antes de cobrar e parou: a última mensagem é do criador. Responder é no chat do Seller Center.">${c.naoLidas ? c.naoLidas + ' mensagens sem ler · ' : ''}robô não cobra quem respondeu</span></div>
+    if (c.responderam.length) topo = `<details class="cob-det cob-responderam"><summary>Responderam e estão esperando <span class="tag alerta">${c.responderam.length}</span>${c.naoLidas ? ` <span class="mini">${c.naoLidas} mensagens sem ler</span>` : ''}</summary>
+        <p class="mini">O robô leu a conversa antes de cobrar e parou. Responder é no chat do Seller Center.</p>
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Criador</th><th>Devia</th><th class="num" title="mensagens do criador que ninguém da loja abriu">Sem ler</th><th>Última mensagem</th><th>Quando</th></tr></thead><tbody>
       ${dobra(c.responderam.map(x => `<tr><td>${tag(x.marca)}</td><td>@${esc(x.username)}</td><td class="mini">${esc(ETAPA[x.etapa] || x.etapa)}</td>
         <td class="num tabn">${+x.nao_lidas ? `<span class="vm">${nf(x.nao_lidas)}</span>` : '—'}</td>
-        <td class="msg">${msgTTS(x.ultimo_texto)}</td><td class="mini tabn">${dt(x.ultima_msg_em)}</td></tr>`), 10, 'todos')}</tbody></table></div>`;
-    const linhas = fila.map(x => `<tr>
-      <td>${tag(x.marca)}</td>
-      <td>@${esc(x.username)}</td>
-      <td>${esc(ETAPA[x.etapa] || x.etapa)}</td>
-      <td class="num tabn" title="toque ${x.tentativa} da régua">${x.tentativa || 1}</td>
-      <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td>
-      <td class="msg">${msgTTS(x.texto)}</td>
-      <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`);
-    $('#tts-area').innerHTML = topo + `${fila.length ? `<div class="painel-cab" style="margin-top:${topo ? 18 : 4}px"><h3 style="margin:0">Toques da régua <span class="tag nulo">${fila.length}</span> <span class="tag neutro" title="Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.">só simulação · nada é enviado</span></h3><span class="mini">${c.conversasAtivas ? c.conversasAtivas + ' pulados por conversa em andamento' : ''}</span></div>` : '<p class="mini">Ativação indisponível enquanto as guardas de envio e de concorrência não estiverem integradas e comprovadas. A configuração permite pausar ou simular.</p>'}${fila.length ? `<div class="rolagem"><table class="comparativo tts-compacta">
-      <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num" title="qual toque da régua">Toque</th>
-        <th title="simulada = gravada, nada foi enviado ao criador">Estado</th>
-        <th>Mensagem <span class="mini">toque para ler inteira</span></th><th>Quando</th></tr></thead>
-      <tbody>${dobra(linhas, 12, 'todos os toques')}</tbody></table></div>` : `<div class="vazio">${nf(c.pendentes)} criador(es) devendo conteúdo, nenhum toque registrado ainda nesta marca.</div>`}
+        <td class="msg">${msgTTS(x.ultimo_texto)}</td><td class="mini tabn">${dt(x.ultima_msg_em)}</td></tr>`), 10, 'todos')}</tbody></table></div></details>`;
+    // Log do envio antigo (anterior às guardas v2): só aparece se existir.
+    const antigo = fila.length ? `<details class="cob-det"><summary>Histórico do envio antigo <span class="tag nulo">${fila.length}</span></summary><div class="rolagem"><table class="comparativo tts-compacta">
+      <thead><tr><th>Marca</th><th>Criador</th><th>Por quê</th><th class="num">Toque</th><th>Estado</th><th>Mensagem</th><th>Quando</th></tr></thead>
+      <tbody>${dobra(fila.map(x => `<tr><td>${tag(x.marca)}</td><td>@${esc(x.username)}</td><td>${esc(ETAPA[x.etapa] || x.etapa)}</td><td class="num tabn">${x.tentativa || 1}</td>
+      <td><span class="tag ${x.dry_run ? 'neutro' : (x.ok ? 'bom' : 'ruim')}">${x.dry_run ? 'simulada' : (x.ok ? 'enviada' : 'falhou')}</span></td><td class="msg">${msgTTS(x.texto)}</td>
+      <td class="mini tabn">${x.erro ? esc(x.erro) : dt(x.enviado_em)}</td></tr>`), 12, 'todos')}</tbody></table></div></details>` : '';
+    const pronta = marca => !!cob && cob.pronta(marca);
+    $('#tts-area').innerHTML = `<p class="mini cob-intro">${nf(c.pendentes)} criador(es) devendo conteúdo nesta visão.</p><div id="tts-cob-v2">${cob ? '' : '<div class="vazio">Serviço da cobrança não configurado.</div>'}</div>` + topo + antigo + `
       <div class="painel-cab" style="margin-top:16px"><h3 style="margin:0">Configuração da cobrança</h3>
-        <span class="mini">${c.modo === 'ativo' ? `até ${c.tetoDia} por dia · ${c.pendentes} na fila`
-          : `${c.simuladas} prontas, nenhuma enviada · ${c.pendentes} devendo conteúdo`}</span></div>
+        <span class="mini">simulação mostra o que sairia; envio ligado manda de verdade, até o teto do dia</span></div>
       <div class="rolagem"><table class="comparativo"><thead><tr><th>Marca</th><th>Cobrança</th><th class="num">Máx/dia</th><th class="num" title="quantas vezes cobrar a mesma pessoa">Toques</th><th class="num" title="dias entre um toque e o próximo">Intervalo</th><th></th></tr></thead><tbody>
-      ${TTS.filtra(DADOS.cobranca_regra || [], m).map(r => `<tr data-marca="${esc(r.marca)}">
+      ${TTS.filtra(DADOS.cobranca_regra || [], m).map(r => { const podeLigar = pronta(r.marca) || r.cobranca_modo === 'ativo';
+        return `<tr data-marca="${esc(r.marca)}">
         <td>${tag(r.marca)}</td>
-        <td><select class="i-sel tts-c" data-campo="cobranca_modo" title="Ativação indisponível enquanto as guardas de envio estiverem pendentes.">${['dry_run', 'pausado'].concat(r.cobranca_modo === 'ativo' ? ['ativo'] : []).map(o => `<option value="${o}" ${o === 'ativo' ? 'disabled' : ''} ${r.cobranca_modo === o ? 'selected' : ''}>${o === 'dry_run' ? 'simulação' : o}</option>`).join('')}</select></td>
-        <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="5" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
+        <td><select class="i-sel tts-c" data-campo="cobranca_modo" data-lido="${esc(r.cobranca_modo)}" title="${podeLigar ? 'envio ligado manda mensagem de verdade para o criador' : 'para ligar o envio, aprove ao menos uma mensagem desta marca'}">${['dry_run', 'pausado', 'ativo'].map(o => `<option value="${o}" ${o === 'ativo' && !podeLigar ? 'disabled' : ''} ${r.cobranca_modo === o ? 'selected' : ''}>${({ dry_run: 'simulação', pausado: 'pausada', ativo: 'envio ligado' })[o]}</option>`).join('')}</select></td>
+        <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_dia" value="${esc(r.cobranca_max_dia)}" step="1" min="0" style="width:88px" title="teto de mensagens por dia nesta marca"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_max_tentativas" value="${esc(r.cobranca_max_tentativas)}" step="1" min="1" style="width:80px" title="quantas vezes cobrar a mesma pessoa antes de parar"></td>
         <td class="num"><input type="number" class="i-sel tts-c" data-campo="cobranca_dias_entre" value="${esc(r.cobranca_dias_entre)}" step="1" min="1" style="width:80px" title="dias de espera entre um toque e o próximo"></td>
-        <td><button class="btn tts-btn tts-salvar-cob" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}
+        <td><button class="btn tts-btn tts-salvar-cob" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`; }).join('')}
       </tbody></table></div>`;
+    if (cob) cob.mount($('#tts-cob-v2'));
     if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar-cob').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
       tr.querySelectorAll('.tts-c').forEach(el => { regra[el.dataset.campo] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
-      armar(b, 'Confirmar?', async () => {
+      const liga = regra.cobranca_modo === 'ativo' && tr.querySelector('[data-campo="cobranca_modo"]').dataset.lido !== 'ativo';
+      armar(b, liga ? 'Enviar de verdade?' : 'Confirmar?', async () => {
         const j = await acaoTTS(TTS.pedidoRegra(regrasLidas.get(tr.dataset.marca),regra));
         msg.textContent = j.mensagem || 'ok'; b.disabled = false; b.textContent = 'Salvar';
         await carregarTTS();
+        if (COB_V2) COB_V2.carregar();
       });
     });
     ligarDobras();

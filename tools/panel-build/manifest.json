@@ -134,6 +134,7 @@
       "influs-conferencia.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",
+      "tts-cobranca.js",
       "influs-tts.js",
       "alerta-credencial.js",
       "panel-bridge.js"

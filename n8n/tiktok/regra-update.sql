@@ -1,5 +1,5 @@
 -- Incremental, no seed/backfill/row mutation. The caller still authenticates at the server.
--- Pending sender safeguards make activation unavailable through this API.
+-- Sample-decision activation stays unavailable; content-reminder activation requires crm_tts_cobranca_pronta_v2.
 BEGIN;
 CREATE OR REPLACE FUNCTION public.crm_tts_regra_patch_v1(
  p_marca text, p_patch jsonb, p_autor text, p_esperado_atualizado_em text DEFAULT NULL
@@ -8,7 +8,7 @@ DECLARE
  atual public.crm_tts_regra%ROWTYPE;
  final public.crm_tts_regra%ROWTYPE;
  campo text; valor jsonb; numero numeric; minimo numeric; maximo numeric;
- codigo text; mensagem text; esperado timestamptz;
+ codigo text; mensagem text; esperado timestamptz; pronta boolean;
  campos text[] := ARRAY['gmv_auto','gmv_manual','fulfillment_min','teto_mensal','modo',
   'cobranca_modo','cobranca_max_dia','cobranca_max_tentativas','cobranca_dias_entre'];
 BEGIN
@@ -28,9 +28,20 @@ BEGIN
     IF jsonb_typeof(valor)<>'string' OR valor#>>'{}' NOT IN ('dry_run','pausado','ativo') THEN
      codigo:='modo_invalido'; mensagem:='Modo inválido.'; EXIT validar;
     END IF;
-    -- No activation, including a stale UI attempting to restore a previously active mode.
+    -- Decisão automática de amostra (modo) continua sem ativação. A cobrança (cobranca_modo) só liga quando
+    -- o sender v2 está publicado e conferido e a marca tem ao menos um modelo de mensagem aprovado
+    -- (crm_tts_cobranca_pronta_v2, de cobranca-auto.sql). Sem essa função instalada, nada liga.
     IF valor#>>'{}'='ativo' THEN
-     codigo:='ativacao_bloqueada'; mensagem:='Ativação indisponível: as guardas de envio e de concorrência ainda precisam ser integradas e comprovadas.'; EXIT validar;
+     IF campo='cobranca_modo' AND to_regprocedure('public.crm_tts_cobranca_pronta_v2(text)') IS NOT NULL THEN
+      EXECUTE 'SELECT public.crm_tts_cobranca_pronta_v2($1)' INTO pronta USING p_marca;
+     END IF;
+     IF campo='modo' OR pronta IS NOT TRUE THEN
+      codigo:='ativacao_bloqueada';
+      mensagem:=CASE WHEN campo='cobranca_modo' AND to_regprocedure('public.crm_tts_cobranca_pronta_v2(text)') IS NOT NULL
+       THEN 'Para ligar a cobrança, aprove ao menos um modelo de mensagem desta marca.'
+       ELSE 'Ativação indisponível: as guardas de envio e de concorrência ainda precisam ser integradas e comprovadas.' END;
+      EXIT validar;
+     END IF;
     END IF;
    ELSE
     IF jsonb_typeof(valor)<>'number' THEN codigo:='tipo_invalido'; mensagem:='Os limites devem ser números, sem texto, booleanos ou nulos.'; EXIT validar; END IF;

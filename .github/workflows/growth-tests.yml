@@ -108,7 +108,9 @@ jobs:
       - name: Check paused TikTok collection safeguards
         env:
           CAMPAIGN_PGLITE_MODULE: ../../growth-test-tools/node_modules/@electric-sql/pglite
-        run: node tests/tts-cobranca-safety-postgres.cjs
+        run: |
+          node tests/tts-cobranca-safety-postgres.cjs
+          node tests/tts-cobranca-auto-postgres.cjs
       - name: Save test result
         if: always()
         uses: actions/upload-artifact@v4

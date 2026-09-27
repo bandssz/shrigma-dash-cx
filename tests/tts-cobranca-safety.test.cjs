@@ -37,7 +37,8 @@ test('IM absence, failed read, unread, unknown identity/type/time and human resp
   [open(),{code:403},'im_leitura_invalida'],
   [open(),{code:0,data:{}},'im_leitura_invalida'],
   [open(),read([]),'im_historico_ausente'],
-  [open(),read([message('seller',9,'UNKNOWN')]),'im_mensagem_desconhecida'],
+  [open(),read([message('seller',9,'lower-case')]),'im_mensagem_desconhecida'],
+  [open(),read([message('creator-im',60,'PRODUCT_CARD')]),'im_resposta_criador'],
   [open(),read([message('seller',-1)]),'im_data_invalida'],
   [open(),read([message('creator-im',100)]),'im_resposta_criador'],
   [open(),read([message('seller',1)]),'im_conversa_recente'],
@@ -119,4 +120,13 @@ test('dispatch acknowledgement must prove committed state and match both review 
   assert.equal(h.state(),'em_transporte','durable reservation is preserved despite a malformed receipt');assert.equal(h.events.includes('send'),false);assert.equal(h.records.length,0,'no guessed terminal state is written');
   await h.run();assert.equal(h.events.includes('send'),false,'another call cannot bypass the held reservation');
  }
+});
+test('reply acknowledged by the operator does not block, a newer reply does',()=>{
+ const ack={...identity,creator_ack_until_ms:now-5*864e5};
+ assert.equal(evaluateConversation(open(),read([message('creator-im',20)]),ack,now).allowed,true);
+ assert.equal(evaluateConversation(open(),read([message('creator-im',20)]),identity,now).reason,'im_resposta_criador');
+ assert.equal(evaluateConversation(open(),read([message('creator-im',3)]),ack,now).reason,'im_resposta_criador');
+ assert.equal(evaluateConversation(open(),read([message('seller',30,'TARGET_COLLABORATION_CARD')]),identity,now).allowed,true);
+ assert.equal(evaluateConversation(open(),read([message('seller',2,'TARGET_COLLABORATION_CARD')]),identity,now).reason,'im_conversa_recente');
+ assert.equal(evaluateConversation(open(),read([message('creator-im',20)]),{...identity,creator_ack_until_ms:'x'},now).reason,'im_resposta_criador');
 });
