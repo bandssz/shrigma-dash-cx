@@ -37,7 +37,7 @@
   <header class="shp__hero{% if section.settings.imagem != blank %} shp__hero--img{% endif %}">
     <div class="shp__hero-txt">
       {%- if section.settings.eyebrow != blank -%}<p class="shp__eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
-      <h1 class="shp__h1">{{ section.settings.titulo }}</h1>
+      <h1 class="shp__h1">{{ section.settings.titulo | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</h1>
       {%- if section.settings.subtitulo != blank -%}<div class="shp__sub">{{ section.settings.subtitulo | replace: '[comissao]', '<span data-shp-comissao>' | replace: '[/comissao]', '</span>' }}</div>{%- endif -%}
       <ul class="shp__pills">
         <li><strong data-shp-comissao>{{ section.settings.comissao_padrao }}</strong> de cada venda</li>
@@ -92,6 +92,9 @@
     <h2 class="shp__h2">{{ section.settings.titulo_form }}</h2>
     <p class="shp__nota">Leva uns 3 minutos. Tenha à mão os prints das suas estatísticas de stories ou reels.</p>
     <div class="shp__estado" data-shp-estado role="status" aria-live="polite">Carregando…</div>
+    {%- if section.settings.reserva_url != blank -%}
+      <p class="shp__reserva" data-shp-reserva hidden>{{ section.settings.reserva_texto }} <a class="shp__cta" href="{{ section.settings.reserva_url }}" target="_blank" rel="noopener">{{ section.settings.reserva_botao }}</a></p>
+    {%- endif -%}
     <form class="shp__form" data-shp-form novalidate hidden>
       <fieldset>
         <legend>Você</legend>
@@ -176,7 +179,7 @@
   origem.pagina=location.pathname;
   function post(corpo){return fetch(URL_,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo),credentials:'omit',cache:'no-store'}).then(function(r){return r.json()})}
   function pct(r){var n=Number(r);return isFinite(n)&&n>0?(Math.round(n*1000)/10).toLocaleString('pt-BR')+'%':null}
-  function fechado(msg){estado.textContent=msg||'As inscrições abrem em breve.';estado.hidden=false;form.hidden=true}
+  function fechado(msg){var r=$('[data-shp-reserva]');estado.textContent=r?'O formulário novo abre em breve.':(msg||'As inscrições abrem em breve.');estado.hidden=false;form.hidden=true;if(r)r.hidden=false;var n=raiz.querySelector('.shp__form-wrap > .shp__nota');if(n)n.hidden=true}
   if(!URL_){fechado();return}
   post({acao:'termo',marca:MARCA}).then(function(t){
     if(!t||!t.aberto){fechado(t&&t.mensagem);return}
@@ -257,6 +260,7 @@
 .shp__form-wrap{background:var(--shp-superficie);border:1px solid var(--shp-contorno);border-radius:8px;margin-top:12px;margin-bottom:12px;max-width:760px;padding:24px 16px}
 .shp__nota{margin:0 0 14px;font-size:14px;color:var(--shp-apoio)}
 .shp__estado{padding:14px;border:1px dashed var(--shp-contorno);border-radius:6px;font-size:15px}
+.shp__reserva{margin:14px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:12px;font-size:15px}
 .shp__form fieldset{border:0;margin:0 0 18px;padding:0}
 .shp__form legend{font-weight:800;font-size:17px;margin:0 0 10px;padding:0}
 .shp__form label{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:14px;font-weight:600;min-width:0}
@@ -323,6 +327,9 @@
     { "type": "text", "id": "titulo_form", "label": "Título do formulário", "default": "Candidatura" },
     { "type": "text", "id": "nicho_exemplo", "label": "Exemplo de nicho", "default": "ex.: estilo de vida, pesca, treino" },
     { "type": "text", "id": "enviar_texto", "label": "Botão de envio", "default": "Enviar candidatura" },
+    { "type": "url", "id": "reserva_url", "label": "Formulário de reserva", "info": "Enquanto o formulário novo estiver fechado (sem termo publicado), a seção mostra este link." },
+    { "type": "text", "id": "reserva_texto", "label": "Texto do formulário de reserva", "default": "Enquanto isso, a candidatura segue pelo formulário atual." },
+    { "type": "text", "id": "reserva_botao", "label": "Botão do formulário de reserva", "default": "Candidatar pelo formulário atual" },
     { "type": "text", "id": "texto_ok", "label": "Texto depois do envio", "default": "Vamos analisar seu perfil e falar com você pelo WhatsApp ou e-mail." },
     { "type": "header", "content": "Cores" },
     { "type": "color", "id": "cor_tinta", "label": "Texto e títulos", "default": "#0C3C21" },
