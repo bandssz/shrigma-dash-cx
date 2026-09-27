@@ -1,4 +1,4 @@
-body.sec-escopo #area-kpis,body.sec-escopo #faixa-alertas{display:none}
+body.sec-escopo #area-kpis,body.sec-escopo #faixa-alertas,body.sec-escopo #periodo{display:none} /* o escopo tem o próprio mês */
 /* Escopo dos creators (27/09/2026): combinado × feito no mês, cartões por creator. */
 .es-topo{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
 .es-mes{display:inline-flex;gap:8px;align-items:center}
