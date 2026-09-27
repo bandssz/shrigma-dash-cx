@@ -14,12 +14,13 @@ O evento é definido por marca+assinante+cart_id+ref. Uma mudança de compra ou 
 ## Fatos e limites reais
 
 - `purchase.confirmed=true`: `last_order_at >= ref`, sem aceitar carimbo futuro. Ausente, inválido ou anterior não equivale a Não.
-- A opção `purchaseFor` é adaptador de servidor **ainda não conectado**, sem implementação padrão. Só aceita prova exaustiva ligada à mesma marca/assinante/evento, cobrindo de antes do abandono até o instante da decisão. O consumidor deve confirmar paginação completa e erros da origem. Webhook e contador vazio não constituem essa prova.
+- A opção `purchaseFor` aceita prova exaustiva ligada à mesma marca/assinante/evento, cobrindo de antes do abandono até o instante da decisão. O novo provedor Shopify, composto em `journey-graph-shopify.cjs`, comprova positivos pelo checkout/pedido associado, mas não produz essa cobertura negativa: consulta esgotada permanece desconhecida. Webhook e contador vazio não constituem prova de Não. O código continua sem ligação à produção.
+- `materialFor` pode atualizar o material diretamente do checkout Shopify, sem modificar observação persistida nem renovar o snapshot antigo. A composição revalida identidade e opt-out após a rede; erro/timeout aborta sem fallback silencioso. Contrato e prova real limitada em [journey-graph-refresh.md](journey-graph-refresh.md).
 - `contact.email_allowed`: exige enabled, associação à lista de carrinho e nenhum descadastro em base/listas da marca; recusa consentimento explicitamente negado. Conserva a semântica nativa de confirmed/unconfirmed; não cria ou reinscreve contatos.
 - `contact.first_name`, `cart.checkout_url`, `cart.items`, `cart.total` só quando presentes/tipados e com hash igual ao recibo. Itens preservam apenas campos reais. URL exige HTTPS, mas vínculo de domínio Shopify da marca ainda deve ser validado na integração do consumidor. Items são material para o release, não tipo de condição do GraphContract.
 - Qualquer reserva operacional do carrinho, inclusive resultado desconhecido, envio histórico ou flag de toque bloqueia esta entrada conservadoramente. Isso não é um mutex de envio: o consumidor **precisa reutilizar claim/dedupe atômico legado e repetir compra/opt-out antes do transporte**, inclusive após `waiting_message`.
 
-A coleta Fish atual é horária. Os materiais expiram após 5 min na liberação de mensagem: precisamos de refresh confiável ao vencer a espera, não apenas ligar esse ledger. Também faltam consulta completa de compra para Não, consumidor do handoff, ownership/claim contra o legado, autorização operacional e transporte. Nenhum desses pontos foi declarado pronto por esta peça. O construtor não está completo.
+A coleta Fish atual é horária. Os materiais expiram após 5 min na liberação de mensagem. A atualização pontual após a espera foi implementada e conferida em leitura nas duas lojas, mas ainda não ligada ao executor em produção. Faltam consulta completa de compra para Não, consumidor do handoff, ownership/claim contra o legado, autorização operacional e transporte. O construtor não está completo.
 
 ## Instalação e provas
 

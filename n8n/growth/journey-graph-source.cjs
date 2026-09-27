@@ -20,8 +20,8 @@ function mapItems(items){
  }
  return JSON.stringify(out).length>24000?null:out;
 }
-function createSourceAdapter({query,purchaseFor,collectorWorkflowIds={}}={}){
- if(typeof query!=='function'||purchaseFor!==undefined&&typeof purchaseFor!=='function')throw error('GRAPH_SOURCE_ADAPTER_REQUIRED');
+function createSourceAdapter({query,purchaseFor,materialFor,collectorWorkflowIds={}}={}){
+ if(typeof query!=='function'||[purchaseFor,materialFor].some(f=>f!==undefined&&typeof f!=='function'))throw error('GRAPH_SOURCE_ADAPTER_REQUIRED');
  const one=async(q,args,read=query)=>{const r=await read(q,args);if(!Array.isArray(r?.rows)||r.rows.length!==1||!Object.hasOwn(r.rows[0],'result'))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');return r.rows[0].result;};
  const adapter={
   async captureHandoff(handoff){
@@ -39,19 +39,40 @@ function createSourceAdapter({query,purchaseFor,collectorWorkflowIds={}}={}){
   },
   async readSource({source_ref,brand,trigger,now,query:transactionQuery=query}){
    if(!UUID.test(source_ref||'')||!['fish','aristo'].includes(brand)||trigger!=='cart.abandoned'||!iso(now)||typeof transactionQuery!=='function')throw error('GRAPH_SOURCE_IDENTITY');
-   const r=await one('SELECT crm_graph_candidate.source_read_v1($1::text,$2::uuid) AS result',[brand,source_ref],transactionQuery);
-   if(r?.source_ref!==source_ref||r.brand!==brand||!UUID.test(r.subject_id||'')||!/^[a-f0-9]{64}$/.test(r.source_revision||'')||!iso(r.occurred_at)||!iso(r.observed_at)||!iso(r.material_observed_at)||Math.abs(Date.parse(now)-Date.parse(r.observed_at))>5000||Date.parse(r.occurred_at)>Date.parse(now)||![r.eligible,r.consent,r.suppressed,r.material_matches].every(x=>typeof x==='boolean')||![true,false,null].includes(r.purchase_positive))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');
+   const nativeRead=async()=>{
+    const v=await one('SELECT crm_graph_candidate.source_read_v1($1::text,$2::uuid) AS result',[brand,source_ref],transactionQuery);
+    if(v?.source_ref!==source_ref||v.brand!==brand||!UUID.test(v.subject_id||'')||!/^[a-f0-9]{64}$/.test(v.source_revision||'')||!iso(v.occurred_at)||!iso(v.observed_at)||!iso(v.material_observed_at)||Math.abs(Date.parse(now)-Date.parse(v.observed_at))>5000||Date.parse(v.occurred_at)>Date.parse(now)||![v.eligible,v.consent,v.suppressed,v.material_matches].every(x=>typeof x==='boolean')||![true,false,null].includes(v.purchase_positive))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');return v;
+   };
+   let r=await nativeRead(),p,material;
+   if((purchaseFor||materialFor)&&r.purchase_positive!==true&&r.eligible&&r.consent&&!r.suppressed){
+    // One shared I/O budget. Abort is propagated into both HTTP adapters; no retry.
+    const controller=new AbortController(),input={source_ref,subject_id:r.subject_id,brand,occurred_at:r.occurred_at,now,query:transactionQuery,signal:controller.signal};let timer;
+    try{[p,material]=await Promise.race([Promise.all([purchaseFor?purchaseFor(input):undefined,materialFor?materialFor(input):undefined]),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(error('GRAPH_SOURCE_REFRESH_UNCONFIRMED'));},4500);})]);}
+    catch{controller.abort();throw error('GRAPH_SOURCE_REFRESH_UNCONFIRMED');}finally{clearTimeout(timer);}
+    const current=await nativeRead();
+    if(['subject_id','source_revision','occurred_at'].some(k=>current[k]!==r[k]))throw error('GRAPH_SOURCE_CHANGED');
+    r=current;
+   }
    const fact=(value,at=now)=>({value,observed_at:at,complete:true}),facts={'cart.abandoned_at':fact(r.occurred_at,r.material_observed_at),'contact.email_allowed':fact(r.consent)};
+   let m=r.material,materialAt=r.material_observed_at,matches=r.material_matches;
+   if(materialFor&&r.purchase_positive!==true&&r.eligible&&r.consent&&!r.suppressed){
+    if(material?.version!=='journey_material_evidence_v1'||material.source_ref!==source_ref||material.subject_id!==r.subject_id||material.brand!==brand||material.source_revision!==r.source_revision||material.complete!==true||material.observed_at!==now||typeof material.purchase_positive!=='boolean'||typeof material.consent_allowed!=='boolean')throw error('GRAPH_MATERIAL_UNCONFIRMED');
+    if(material.purchase_positive)r.purchase_positive=true;
+    r.consent=r.consent&&material.consent_allowed;facts['contact.email_allowed']=fact(r.consent);
+    m=material.material;materialAt=material.observed_at;matches=true;
+   }
    if(r.purchase_positive===true)facts['purchase.confirmed']=fact(true);
+   // A positive checkout/order observation proves existence without fabricating
+   // a negative-history watermark. Unknown/observed absence never means No.
+   else if(p?.version==='journey_purchase_observation_v1'&&p.source_ref===source_ref&&p.subject_id===r.subject_id&&p.brand===brand&&p.purchased===true&&p.complete===true&&['checkout_completed','customer_order'].includes(p.basis)&&iso(p.purchase_at)&&iso(p.observed_at)&&Date.parse(p.purchase_at)>=Date.parse(r.occurred_at)&&Date.parse(p.purchase_at)<=Date.parse(p.observed_at)&&Date.parse(p.observed_at)>=Date.parse(now)&&Date.parse(p.observed_at)<=Date.parse(now)+5000&&(p.basis!=='customer_order'||/^[a-f0-9]{64}$/.test(p.order_ref_hash||'')))facts['purchase.confirmed']=fact(true);
    // Optional trusted, exhaustive per-subject purchase evidence. No provider is
    // supplied by default: until integrated and verified, the No branch waits.
-   else if(purchaseFor&&r.eligible&&r.consent&&!r.suppressed){let p,timer;try{p=await Promise.race([purchaseFor({source_ref,subject_id:r.subject_id,brand,occurred_at:r.occurred_at,now,query:transactionQuery}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(error('GRAPH_PURCHASE_UNCONFIRMED')),5000);})]);}catch{throw error('GRAPH_PURCHASE_UNCONFIRMED');}finally{clearTimeout(timer);}
+   else if(purchaseFor&&r.eligible&&r.consent&&!r.suppressed){
     if(p&&p.version==='journey_purchase_evidence_v1'&&p.source_ref===source_ref&&p.subject_id===r.subject_id&&p.brand===brand&&p.complete===true&&typeof p.purchased==='boolean'&&[p.covered_from,p.covered_through,p.observed_at].every(iso)&&Date.parse(p.covered_from)<=Date.parse(r.occurred_at)&&Date.parse(p.covered_through)>=Date.parse(now)&&Date.parse(p.covered_through)<=Date.parse(p.observed_at)&&Date.parse(p.observed_at)<=Date.parse(r.observed_at)+5000&&Date.parse(p.observed_at)>=Date.parse(now))facts['purchase.confirmed']=fact(p.purchased);
    }
-   const m=r.material;
-   if(r.material_matches&&m&&typeof m==='object'){
+   if(matches&&m&&typeof m==='object'){
     const values={'contact.first_name':text(m['contact.first_name']),'cart.checkout_url':url(m['cart.checkout_url']),'cart.items':mapItems(m['cart.items']),'cart.total':money(m['cart.total'])};
-    for(const [key,value]of Object.entries(values))if(value!==null)facts[key]=fact(value,r.material_observed_at);
+    for(const [key,value]of Object.entries(values))if(value!==null)facts[key]=fact(value,materialAt);
    }
    // observed_at represents this native-state read. Material facts retain the
    // collector's timestamp; complete does not mean complete Shopify order history.
