@@ -110,7 +110,7 @@
         "marca": "fish",
         "endpoint": "https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032",
         "eyebrow": "Programa de parceiros Fishermans",
-        "titulo": "Você já mostra a pescaria de verdade. Agora ganhe com ela.",
+        "titulo": "Indique a Fishermans e ganhe [comissao]5%[/comissao] em cada venda",
         "subtitulo": "<p>Link e cupom só seus. Cada compra feita com eles rende [comissao]5%[/comissao] para você, pago todo dia 5 via Pix.</p>",
         "comissao_padrao": "5%",
         "cta_texto": "Quero me candidatar",
@@ -129,7 +129,12 @@
         "cor_contorno": "#E7E7EA",
         "cor_cta": "#FF5A36",
         "cor_cta_txt": "#FFFFFF",
-        "cor_realce": "#FF5A36"
+        "cor_realce": "#FF5A36",
+        "imagem": "shopify://shop_images/parceiros-hero-pescador.png",
+        "imagem_alt": "Pescador parceiro da Fishermans segurando um peixe na água",
+        "reserva_url": "https://forms.clickup.com/90132798157/f/2ky5appd-13053/J2SXR0EI5C8WH0PG2J",
+        "reserva_texto": "Enquanto isso, a candidatura segue pelo formulário atual.",
+        "reserva_botao": "Candidatar pelo formulário atual"
       }
     }
   },

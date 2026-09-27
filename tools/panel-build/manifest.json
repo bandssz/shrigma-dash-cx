@@ -122,7 +122,8 @@
       "panel-ui.css",
       "creators-pilot.css",
       "area-brand.css",
-      "tts-visual.css"
+      "tts-visual.css",
+      "influ-escopo.css"
     ],
     "scripts": [
       "frescor.js",
@@ -132,6 +133,7 @@
       "creators-meta.js",
       "creators-pilot-ui.js",
       "partner-candidaturas.js",
+      "influ-escopo.js",
       "influs-conferencia.js",
       "influs-tts-actions.js",
       "influs-tts-manual.js",

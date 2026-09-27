@@ -110,12 +110,12 @@
         "marca": "aristo",
         "endpoint": "https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032",
         "eyebrow": "Programa de parceiros O Aristocrata",
-        "titulo": "Indique o ritual que você já usa. Ganhe em cada venda.",
+        "titulo": "Indique O Aristocrata e ganhe [comissao]5%[/comissao] em cada venda",
         "subtitulo": "<p>Você recebe um link e um cupom só seus. Cada compra feita com eles rende [comissao]5%[/comissao] para você, pago todo dia 5 via Pix.</p>",
         "comissao_padrao": "5%",
         "cta_texto": "Quero me candidatar",
-        "imagem": "shopify://shop_images/bannertopo.webp",
-        "imagem_alt": "Produtos O Aristocrata",
+        "imagem": "shopify://shop_images/institucional-topview-v3.png",
+        "imagem_alt": "Sabonetes Frescor da Mata e Alma da Roça e o desodorante, na embalagem nova",
         "titulo_passos": "Como funciona",
         "titulo_ganhos": "O que você ganha",
         "titulo_sobre": "O Aristocrata não é só sabonete",
@@ -131,7 +131,10 @@
         "cor_contorno": "#DED6C2",
         "cor_cta": "#944F32",
         "cor_cta_txt": "#F7F4EC",
-        "cor_realce": "#944F32"
+        "cor_realce": "#944F32",
+        "reserva_url": "https://forms.clickup.com/90132798157/f/2ky5appd-13093/QDU4N9ZBYJM6FXQL4B",
+        "reserva_texto": "Enquanto isso, a candidatura segue pelo formulário atual.",
+        "reserva_botao": "Candidatar pelo formulário atual"
       }
     }
   },
