@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=9a3c02ee4cd1">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iyUnno8FMiXCBx4jMSXvoJBBzFhv1oCdBvvmG7TziPQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=ee947506c2a3">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vJN0ijNgF/krmnNXZD8tRbA2xPjc7QCWzivTCU2JMYY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -20,6 +20,7 @@
     <button data-s="posts">Post a post<small>o que ganhou e o que caiu</small><span class="n" id="n-posts"></span></button>
     <button data-s="stories">Stories<small>links, toques e conversões</small><span class="n" id="n-stories"></span></button>
     <button data-s="venda">Venda<small>pedidos atribuídos, modelo e cobertura</small><span class="n" id="n-venda"></span></button>
+    <button data-s="links">Links UTM<small>gerar, registrar e ver o que vendeu</small></button>
   </nav>
   <p class="area-rodape">Instagram e Facebook · leitura de snapshots no Postgres; a página nunca chama a Meta.</p>
 </aside>
@@ -43,7 +44,7 @@
 <main id="conteudo" tabindex="-1">
   <div id="faixa-alertas" aria-live="polite"></div>
   <div id="aviso-carga" role="status" aria-live="polite"></div>
-  <div class="organico-acesso-bar"><button type="button" class="btn" id="organico-acesso-abrir">Acesso de leitura</button></div>
+  <div class="organico-acesso-bar" id="organico-acesso-bar"><button type="button" class="btn" id="organico-acesso-abrir">Entrar com a chave do painel</button></div>
   <form id="organico-acesso" class="painel" hidden aria-labelledby="organico-acesso-titulo">
     <h2 id="organico-acesso-titulo">Acessar Orgânico</h2>
     <p id="organico-acesso-ajuda">Use a chave de leitura já fornecida ou o arquivo de acesso deste painel. O novo acesso fica apenas na memória enquanto esta página estiver aberta.</p>
@@ -90,7 +91,7 @@
       <div class="painel-cab"><h2>Post a post</h2>
         <div class="seg-mini" role="group" aria-label="Filtro de posts">
           <button data-f="todos" class="ativo">Todos</button><button data-f="venc">Só vencedores</button><button data-f="perd">Só quedas</button>
-        </div><label class="post-formato"><span class="mini">Formato</span> <select id="post-formato" aria-label="Filtrar por formato"><option value="">todos</option></select></label></div>
+        </div><label class="post-formato"><span class="mini">Formato</span> <select id="post-formato" aria-label="Filtrar por formato"><option value="">todos</option></select></label><label class="post-formato"><span class="mini">Buscar</span> <input type="search" id="post-busca" placeholder="texto da legenda" autocomplete="off" aria-label="Buscar na legenda"></label></div>
       <div class="rolagem"><table class="comparativo" id="tab-posts"><thead><tr>
         <th class="ord" data-c="publicado_em">Post</th><th></th>
         <th class="ord" data-c="formato">Formato</th>
@@ -117,11 +118,13 @@
     </div>
   </section>
 
+  <section class="sec" id="sec-links"><div id="organico-links"></div></section>
+
   <section class="sec" id="sec-venda">
     <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <div class="painel">
       <div class="painel-cab"><h2>Histórico de conversões · projeção anterior</h2><span class="mini" id="venda-rot"></span></div>
-      <div class="nota">Comparação histórica da coleta Shopify, agrupada por marca, rede, superfície e produto/campanha UTM no período selecionado. A regra financeira e o modelo ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas. Assistências são incidências do legado: podem contar o mesmo pedido mais de uma vez e não se somam à receita exclusiva.</div>
+      <details class="ressalvas"><summary>Como ler esta tabela</summary><div class="nota">Comparação histórica da coleta Shopify, agrupada por marca, rede, superfície e produto/campanha UTM no período selecionado. A regra financeira e o modelo ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas. Assistências são incidências do legado: podem contar o mesmo pedido mais de uma vez e não se somam à receita exclusiva.</div></details>
       <div class="rolagem" tabindex="0" role="region" aria-label="Tabela histórica de conversões; use as setas para rolar"><table class="comparativo" id="tab-venda"><thead><tr>
         <th>Marca</th><th>Rede</th><th>Superfície</th><th>Produto / iniciativa UTM</th>
         <th class="num">Pedidos · legado</th><th class="num">Receita · legado</th><th class="num">Incidências assistidas</th><th>Peça · vínculo legado</th>
@@ -139,7 +142,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=87bd350a1a84"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=b1278e230de8"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -451,6 +454,8 @@ function pintaPosts(lista){
   let L=FILTRO==='venc'?lista.filter(p=>p.vencedor)
        :FILTRO==='perd'?lista.filter(p=>p.perdedor):lista.slice();
   if(fmt)L=L.filter(p=>p.formato===fmt);
+  const busca=String(($('#post-busca')||{}).value||'').trim().toLowerCase();
+  if(busca)L=L.filter(p=>String(p.legenda||'').toLowerCase().includes(busca));
   const c=ORD.col;
   L.sort((a,b)=>{
     let x=a[c],y=b[c];
@@ -485,7 +490,7 @@ function pintaPosts(lista){
       <td class="num tabn">${p.percentil===null?'—':'p'+p.percentil}${p.amostraCurta?' <span class="tag nulo">amostra curta</span>':''}</td>
       <td>${link?`<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" class="mini">abrir</a>`:''}</td>
     </tr>`;}).join('')
-    :`<tr><td colspan="11"><div class="vazio">${fmt&&FILTRO==='todos'?'Nenhum post deste formato no período.':FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.'
+    :`<tr><td colspan="11"><div class="vazio">${busca?'Nenhuma legenda com esse texto no período.':fmt&&FILTRO==='todos'?'Nenhum post deste formato no período.':FILTRO==='venc'?'Nenhum post passou do top 20% neste período. Troque para Todos para ver a fila inteira.'
        :FILTRO==='perd'?'Nenhum post caiu no bottom 20% neste período.':'Nenhum post orgânico publicado neste período.'}</div></td></tr>`;
 }
 // Formato como a Meta chama (FEED/REELS/STORY, ou IMAGE/VIDEO/CAROUSEL_ALBUM nos mais antigos) em português.
@@ -508,7 +513,7 @@ function pintaStories(){
   if(botao){botao.textContent=STORY_SO_LINK?'Mostrando só com link':'Só as que têm link';botao.setAttribute('aria-pressed',String(STORY_SO_LINK));botao.classList.toggle('ativo',STORY_SO_LINK);
    botao.title=STORY_SO_LINK?'Ordenadas por toques no link. Clique para ver todas as stories do período.':`${comLink} de ${st.length} stories carregaram link no período. Só essas podem gerar pedido rastreado.`;}
   $('#tab-story tbody').innerHTML=lista.length?lista.map(x=>
-    `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+    `<tr><td>${new Date(x.publicado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${x.tipo?` <span class="mini">${esc(String(x.tipo).toLowerCase()==='video'?'vídeo':String(x.tipo).toLowerCase()==='image'?'imagem':String(x.tipo).toLowerCase())}</span>`:''}${/^https:\/\/(www\.)?instagram\.com\//.test(String(x.permalink||''))?` <a class="mini" href="${esc(x.permalink)}" target="_blank" rel="noopener noreferrer" title="A story só abre enquanto está no ar ou no arquivo da conta">abrir</a>`:''}</td>
       <td>${tag(x.marca)}</td><td class="num tabn">${nf(x.alcance)}</td>
       <td class="num tabn">${nf(x.views)}</td><td class="num tabn">${nf(x.link_clicks)}</td>
       <td class="num tabn destaque">${x.ctr===null||x.ctr===undefined?'—':pc(x.ctr)}</td>
@@ -527,12 +532,18 @@ function render(){
   $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
   const lista=pintaKPIs();
   pintaGrade(); pintaPosts(lista); pintaStories();
+  if(SEC==='links'&&typeof LINKS_ORG!=='undefined'&&LINKS_ORG)LINKS_ORG.paint();
 }
 function troca(s){
   SEC=s;
   document.querySelectorAll('#secoes button').forEach(b=>b.classList.toggle('ativo',b.dataset.s===s));
   document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+s));
+  document.body.classList.toggle('sec-links',s==='links');
+  if(s==='links'&&typeof LINKS_ORG!=='undefined'&&LINKS_ORG)LINKS_ORG.mount($('#organico-links'));
 }
+// Registro de links UTM: grava com a mesma chave de leitura do Orgânico (acesso único).
+var ORGANICO_LINKS_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/organico-links-utm-8f07a61f3f3c';
+var LINKS_ORG=typeof OrganicoLinks!=='undefined'?OrganicoLinks.create({document,endpoint:()=>ORGANICO_LINKS_URL,key:()=>ACESSO_ORGANICO.current(),getApi:()=>API,getMarca:()=>MARCA,getPeriod:()=>PER}):null;
 
 /* ---------- carga ---------- */
 const ACESSO_ORGANICO=OrganicAccess.bind({document,readExisting:()=>shrigmaChave('organico'),onAccess:()=>carrega()});
@@ -583,6 +594,7 @@ async function carrega(){
     if(!payload){if(r&&!r.ok)throw new Error('read_failed');throw new Error('invalid_payload');}
     ORIGEM_LEITURA=origem;
     API=payload;
+    {const barra=$('#organico-acesso-bar');if(barra)barra.hidden=true;} // com a chave aceita, o botão de entrar some (acesso único)
     try{COM=null;MIDIA=null;}catch(_){}  // índices por carga: comentários e prévias mudam a cada leitura
     $('#aviso-carga').innerHTML='';
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
@@ -617,6 +629,7 @@ document.querySelectorAll('#sec-posts .seg-mini button').forEach(b=>b.onclick=()
   document.querySelectorAll('#sec-posts .seg-mini button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');FILTRO=b.dataset.f;render();});
 if($('#post-formato'))$('#post-formato').onchange=()=>render();
+if($('#post-busca'))$('#post-busca').oninput=()=>{if(API)pintaPosts(classifica(posts(PER.ini,PER.fim)));};
 document.querySelectorAll('#tab-posts th.ord').forEach(th=>th.onclick=()=>{
   const c=th.dataset.c;
   ORD = ORD.col===c ? {col:c,dir:-ORD.dir} : {col:c,dir:-1};

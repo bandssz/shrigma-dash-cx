@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=4a74324bbab8">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Y7y0Jpn9ew+AIsuQ1VVhF7s56Z/XIwjyNrsAHIxsxk0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-roPmUSvNeRUwCvpBBjydEMNL2Zr1jdRaWej5X2buHTo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -242,18 +242,23 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=db182fa1e2e1"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=ead254f80e7e"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
 const INFLU_ACCESS=InflusAccess.bind({document,host:$('#influ-access'),
   readExisting:()=>shrigmaChave('influs'),writeExisting:()=>(typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('influs','creators_edit'):'')||localStorage.getItem('shrigma_influ_key'),
   authorExisting:()=>(typeof shrigmaAutorOperador==='function'?shrigmaAutorOperador('influs'):'')||localStorage.getItem('shrigma_autor'),
+  // Acesso único (decisão de 26/09): a chave de entrada lê e grava; a autoria vem do nome do acesso.
+  unified:true,authorFallback:()=>typeof AREA_VIEW!=='undefined'&&AREA_VIEW&&AREA_VIEW.owner?AREA_VIEW.owner():'',
   onRead:async()=>{await Promise.allSettled([carregarAbaAtiva(),faixaCredencial()]);}});
 // O TTS conserva seu próprio acesso de escrita/journal; a leitura compartilha este painel.
 const esqueceChaveExistente=shrigmaEsqueceChave;
 shrigmaEsqueceChave=function(painel){if(painel==='influs')INFLU_ACCESS.forgetRead();return esqueceChaveExistente(painel);};
 function chaveLeitura(){return INFLU_ACCESS.requireRead();}
+// TikTok usa a mesma chave e o mesmo nome no histórico (sem formulário à parte).
+function chavePainelTTS(){return INFLU_ACCESS.current('read');}
+function autorPainelTTS(){return INFLU_ACCESS.author();}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
