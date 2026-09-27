@@ -1,0 +1,69 @@
+name: CRM graph installation and restricted role
+on:
+  pull_request:
+    paths:
+      - 'tools/graph-install/**'
+      - 'tools/maintenance-tx-deploy/**'
+      - 'tests/maintenance-tx-graph-install*'
+      - 'n8n/growth/journey-graph-*'
+      - 'tests/journey-graph-install*'
+      - 'tests/journey-graph-worker-role*'
+      - '.github/workflows/journey-graph-install-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install-and-role-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: journey_graph_install_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d journey_graph_install_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated pinned test dependencies
+        run: npm install --prefix ../graph-install-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Installation, uncertain response and role regression
+        env:
+          NODE_PATH: ../graph-install-tools/node_modules
+        run: node --test tests/journey-graph-install.test.cjs tests/journey-graph-install-protocol.test.cjs tests/journey-graph-worker-role.test.cjs tests/maintenance-tx-graph-install.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-sql.test.cjs
+      - name: Atomic composition on existing drafts and CART
+        env:
+          NODE_PATH: ../graph-install-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@127.0.0.1:5432/journey_graph_install_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-install-postgres.cjs
+      - name: Create separate disposable role database
+        env:
+          NODE_PATH: ../graph-install-tools/node_modules
+        run: |
+          node - <<'JS'
+          const {Client}=require('pg');
+          (async()=>{const c=new Client({connectionString:'postgres://synthetic@127.0.0.1:5432/journey_graph_install_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_worker_role_test');await c.query('CREATE DATABASE maintenance_tx_graph_install_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+          JS
+      - name: TX retention after graph installation preserves both seals
+        env:
+          NODE_PATH: ../graph-install-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@127.0.0.1:5432/maintenance_tx_graph_install_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/maintenance-tx-graph-install-postgres.cjs
+      - name: Restricted runtime with real PostgreSQL role and concurrency
+        env:
+          NODE_PATH: ../graph-install-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/journey_graph_worker_role_test
+          GRAPH_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/journey-graph-worker-role-postgres.cjs
