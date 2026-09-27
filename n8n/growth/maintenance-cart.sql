@@ -71,6 +71,9 @@ BEGIN
  IF brand IS NULL OR brand NOT IN('fish','aristo') THEN RAISE EXCEPTION 'MAINTENANCE_CART_BATCH';END IF;
  SELECT * INTO STRICT c FROM crm_maintenance_candidate.control WHERE singleton FOR SHARE;
  IF NOT c.enabled OR c.mode<>'open' THEN RETURN;END IF;
+ -- Serialize queue selection per brand BEFORE taking its statement snapshot.
+ -- SKIP LOCKED alone can reuse an old joined last_turn after another commit.
+ PERFORM pg_advisory_xact_lock(hashtextextended('maintenance-cart-turn:'||brand,0));
  SELECT e.id INTO eid FROM crm_maintenance_candidate.event e
  LEFT JOIN crm_maintenance_candidate.cart_attempt a ON a.event_id=e.id
  WHERE e.kind='cart' AND e.flow='carrinho' AND e.brand=cart_next_v1.brand AND e.state='queued'
