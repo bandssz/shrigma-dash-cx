@@ -65,7 +65,7 @@ BEGIN
  RETURN jsonb_build_object('schema','creator_pilot_v1','since',d1,'until',d2,
  'programs',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY marca),'[]') FROM public.crm_partner_program_v1 p),
  'candidates',(SELECT coalesce(jsonb_agg(to_jsonb(p)-'actor' ORDER BY updated_at DESC),'[]') FROM public.crm_partner_candidate_v1 p),
- 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('covers_period',s.state='ok' AND s.since<=d1 AND s.until>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v2 s),
+ 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('since',coalesce(s.covered_since,s.since),'until',coalesce(s.covered_until,s.until),'covers_period',s.state='ok' AND coalesce(s.covered_since,s.since)<=d1 AND coalesce(s.covered_until,s.until)>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v2 s),
  'ads',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY spend DESC),'[]') FROM (
   SELECT x.account_id,x.ad_id,s.marca,s.currency,s.timezone,x.model,
    (array_agg(x.ad_name ORDER BY x.day DESC))[1] AS ad_name,

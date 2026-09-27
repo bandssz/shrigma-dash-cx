@@ -168,3 +168,8 @@ body[data-panel=influs] .tts-abas{gap:22px}
 }
 .tts-cr-quem a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}
 .tts-rotulo{font-size:14px;line-height:1.3;overflow-wrap:anywhere}
+
+/* Decisões liberadas: a caixa da trava vira uma linha verde (27/09/2026). */
+#tts-area .tts-trava.pronta{background:var(--bom-bg,#e7f5ec);border:1px solid transparent;border-left:3px solid var(--bom,#1e8e4e);padding:8px 12px}
+#tts-area .tts-trava.pronta .mini,#tts-area .tts-trava.pronta #tts-manual-check{display:none}
+#tts-area .tts-trava.pronta #tts-manual-status{color:var(--bom,#1e8e4e);font-weight:600;margin:0}

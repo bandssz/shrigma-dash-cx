@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=56bef2d90fcc">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kTIVmxkz0EBFephk6fJlAqtkwSPYPyGNlRi5mG+BRno='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=51c556f55619">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fdA4xJayvJPfd5XjPqxszSgp2M3BjmTqtfZnC2tSth0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -244,7 +244,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=00390a6e9c54"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=2135f26116e4"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -1219,6 +1219,8 @@ var AREA_VIEW=typeof AreaView!=='undefined'?AreaView.bind({document,panel:'influ
 if(AREA_VIEW)window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolve());
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+// Tabelas viram cartões no celular; aba centralizada. Sem limitar linhas: algumas tabelas daqui têm linha de total.
+if(typeof PainelTabelas!=='undefined')PainelTabelas.bind({document,root:document.querySelector('main'),tabs:'#secoes button',limitar:false});
 carregarAbaAtiva();
 </script>
 </body>

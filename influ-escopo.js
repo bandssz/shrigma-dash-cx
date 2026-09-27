@@ -55,6 +55,12 @@
     ${conts?`<div class="es-conts">${conts}</div>`:''}
     ${pode&&!form?`<div class="es-acoes"><button class="btn sec" type="button" data-es="story">Marcar story</button><button class="btn sec" type="button" data-es="escopo">${e?'Editar escopo':'Definir escopo'}</button></div>`:''}${form}</article>`;
   }
+  // Sem escopo e sem entrega: uma linha só (nome, @, definir). Abre o cartão inteiro quando alguém clica.
+  const compacto=c=>!TIPOS.some(([t])=>+c.feito[t]>0)&&!(aberto||'').startsWith(`${c.marca}|${c.influ}|`);
+  function linha(c,todas,pode){
+   const ig=igOk(c.instagram)?`@${esc(c.instagram)}`:'<span class="tag alerta">sem @</span>';
+   return `<div class="es-card es-linha-c" data-k="${esc(c.marca+'|'+c.influ)}" data-marca="${esc(c.marca)}" data-influ="${esc(c.influ)}"><div><strong>${esc(c.nome)}</strong> <span class="mini">${ig}${todas?' · '+esc(BRANDS[c.marca]||c.marca):''}</span></div>${pode?'<button class="btn sec" type="button" data-es="escopo">Definir escopo</button>':''}</div>`;
+  }
   function paint(){
    if(!host)return;
    if(!dados){host.innerHTML=erro?`<div class="vazio">${esc(erro)} <button class="btn sec" data-es="recarregar">Tentar de novo</button></div>`:'<div class="vazio">Carregando escopo…</div>';ligar();return;}
@@ -75,7 +81,7 @@
       <div class="es-orfaos">${orf.map(s=>`<div class="es-orfao" data-marca="${esc(s.marca)}" data-ig="${esc(s.username)}"><a href="https://instagram.com/${esc(s.username)}" target="_blank" rel="noopener noreferrer">@${esc(s.username)}</a><span class="mini">${esc(s.n)} marcação(ões)${todas?' · '+esc(BRANDS[s.marca]):''}</span>
        ${pode?`<select aria-label="Creator de @${esc(s.username)}"><option value="">ligar a…</option>${opts(s.marca)}</select><button class="btn sec" type="button" data-es="vincular">Ligar</button>`:''}</div>`).join('')}</div></details>`:''}
     <details class="es-det"${com.length?'':' open'}><summary>Sem escopo definido <span class="tag nulo">${sem.length}</span>${entregaram.length?` <span class="mini">${entregaram.length} já entregaram algo</span>`:''}</summary>
-     <div class="es-lista">${sem.map(c=>cartao(c,todas,pode)).join('')}</div></details>
+     <div class="es-lista">${sem.map(c=>compacto(c)?linha(c,todas,pode):cartao(c,todas,pode)).join('')}</div></details>
     <details class="ressalvas"><summary>Como conta</summary><ul><li>Reels e posts contam quando o creator marca @ da marca na publicação (a conta principal ou a reserva). A leitura é diária, às 06:10.</li>
      <li>Stories e TikTok, por enquanto, a Marcela marca à mão em "Marcar story".</li><li>O ritmo compara o que saiu com o combinado proporcional aos dias já passados do mês.</li><li>Marcação feita por quem não tem @ ligado aparece na lista para ligar a um creator; ao ligar, as marcações antigas passam a contar.</li></ul></details></section>`;
    ligar();

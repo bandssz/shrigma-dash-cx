@@ -29,14 +29,15 @@
   if(btn.textContent!==rot)btn.textContent=rot;
   btn.onclick=()=>{t.dataset.visiveis=String(n+LIMITE);limitar(t,doc);};
  }
- function aplicar(scope,doc){
-  for(const t of scope.querySelectorAll('table.comparativo')){rotular(t);limitar(t,doc);}
+ function aplicar(scope,doc,opts){
+  for(const t of scope.querySelectorAll('table.comparativo')){rotular(t);if(!opts||opts.limitar!==false)limitar(t,doc);}
  }
- function bind({document:doc,root:scope,tabs}){
+ function bind({document:doc,root:scope,tabs,limitar:lim}){
+  const opts={limitar:lim!==false};
   const alvo=scope||doc.querySelector('main');if(!alvo)return null;
   let fila=0;
-  const rodar=()=>{fila=0;aplicar(alvo,doc);};
-  aplicar(alvo,doc);
+  const rodar=()=>{fila=0;aplicar(alvo,doc,opts);};
+  aplicar(alvo,doc,opts);
   const obs=new (doc.defaultView||root).MutationObserver(ms=>{
    if(ms.every(m=>[...m.addedNodes].every(n=>n.nodeType!==1||n.classList?.contains('tab-mais'))))return;
    if(!fila)fila=(doc.defaultView||root).requestAnimationFrame(rodar);
@@ -47,7 +48,7 @@
    if(b.scrollIntoView)b.scrollIntoView({block:'nearest',inline:'center'});
    const m=doc.querySelector('main');if(m&&w.scrollY>m.offsetTop)w.scrollTo({top:Math.max(0,m.offsetTop-60)});
   });
-  return {aplicar:()=>aplicar(alvo,doc),parar:()=>obs.disconnect()};
+  return {aplicar:()=>aplicar(alvo,doc,opts),parar:()=>obs.disconnect()};
  }
  root.PainelTabelas={bind,aplicar,rotular,limitar,LIMITE};
 })(typeof window!=='undefined'?window:globalThis);

@@ -142,6 +142,7 @@
       "tts-cobranca.js",
       "influs-tts.js",
       "alerta-credencial.js",
+      "painel-tabelas.js",
       "panel-bridge.js"
     ]
   }
