@@ -8,5 +8,29 @@ const assert=require('node:assert/strict'),{Pool}=require('pg'),{setup,id}=requi
  const next={...r,receipt_id:id(104)};blocker=await pool.connect();await blocker.query('BEGIN');await blocker.query('SELECT id FROM subscribers WHERE id=1 FOR UPDATE');const pending=x.api.capture(next).then(value=>({value}),error=>({error}));let waiting=false;for(let i=0;i<80&&!waiting;i++){waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='synthetic-graph-source-proof' AND wait_event_type='Lock' AND query LIKE 'SELECT crm_graph_candidate.source_capture_v1%') waiting")).rows[0].waiting;if(!waiting)await new Promise(r=>setTimeout(r,20));}assert.equal(waiting,true);await blocker.query("UPDATE subscribers SET attribs=jsonb_set(attribs,'{fish,cart_id}','\"new-event\"') WHERE id=1");await blocker.query('COMMIT');blocker.release();blocker=null;const changed=await pending;assert.match(changed.error?.message||'',/GRAPH_SOURCE_CHANGED/);assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.source_batch_v1 WHERE receipt_id=$1',[next.receipt_id])).rows[0].n,0);console.log('PASS source identity recheck after row wait: stale receipt cannot capture a changed cart.');
  await pool.query("UPDATE subscribers SET attribs=jsonb_set(attribs,'{fish,cart_id}','\"synthetic-cart\"'),status='blocklisted' WHERE id=1");assert.equal((await x.read(a.source_refs[0])).consent,false);await pool.query("UPDATE subscribers SET status='enabled' WHERE id=1");await pool.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE list_id=17");assert.equal((await x.read(a.source_refs[0])).consent,false);console.log('PASS current global and brand opt-out rechecked on every source read.');
  await pool.query("UPDATE subscriber_lists SET status='confirmed' WHERE list_id=17");assert.equal((await x.read(a.source_refs[0])).facts['purchase.confirmed'],undefined);await pool.query("UPDATE subscribers SET attribs=jsonb_set(attribs,'{fish,last_order_at}',$1::jsonb)",[JSON.stringify(x.ref)]);assert.equal((await x.read(a.source_refs[0])).facts['purchase.confirmed'].value,true);assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.entry')).rows[0].n,0);assert.equal((await pool.query('SELECT enabled FROM crm_graph_candidate.control')).rows[0].enabled,false);console.log('PASS absent purchase stays unknown; positive marker proves Yes; no enrollment or activation.');
+ // Independent transaction changes opt-out while the Shopify read is in flight.
+ const {createSourceAdapter}=require('../n8n/growth/journey-graph-source.cjs');
+ const {createMaterialProvider}=require('../n8n/growth/journey-graph-refresh.cjs');
+ const cartRef=new Date(Date.parse(x.ref)+1000).toISOString();
+ await pool.query("UPDATE subscribers SET attribs=jsonb_set(jsonb_set(attribs #- '{fish,last_order_at}', '{fish,cart_id}','\"gid://shopify/AbandonedCheckout/1\"'),'{fish,cart_abandoned_at}',$1::jsonb)",[JSON.stringify(cartRef)]);
+ const freshRef=await x.capture('fish',id(105));
+ const reader=await pool.connect();
+ try{
+  await reader.query('BEGIN');const read=reader.query.bind(reader);
+  const data={shop:{myshopifyDomain:'synthetic-fish.myshopify.com'},node:{id:'gid://shopify/AbandonedCheckout/1',createdAt:cartRef,updatedAt:cartRef,completedAt:null,abandonedCheckoutUrl:'https://example.invalid/checkouts/synthetic',customer:{id:'gid://shopify/Customer/2',email:'synthetic@example.invalid',firstName:'Synthetic',emailMarketingConsent:{marketingState:'SUBSCRIBED'}},totalPriceSet:{shopMoney:{amount:'24.60',currencyCode:'BRL'}},lineItems:{nodes:[{id:'gid://shopify/AbandonedCheckoutLineItem/3',title:'Synthetic',quantity:2,variantTitle:null,image:{url:'https://example.invalid/item.png'},originalUnitPriceSet:{shopMoney:{amount:'12.30',currencyCode:'BRL'}}}],pageInfo:{hasNextPage:false}}}};
+  const race=async mutate=>{
+   let reached,release;const reachedPromise=new Promise(r=>{reached=r;}),releasePromise=new Promise(r=>{release=r;});
+   const materialFor=createMaterialProvider({query:read,stores:{fish:'synthetic-fish.myshopify.com',aristo:'synthetic-aristo.myshopify.com'},graphql:async()=>{reached();await releasePromise;return {data};}});
+   const api=createSourceAdapter({query:read,materialFor});
+   const pending=x.read(freshRef,'fish',api).then(value=>({value}),error=>({error}));
+   await reachedPromise;try{await mutate();}finally{release();}return pending;
+  };
+  const opted=await race(()=>pool.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=17"));assert.equal(opted.value.consent,false);assert.equal(opted.value.facts['contact.email_allowed'].value,false);
+  await pool.query("UPDATE subscriber_lists SET status='confirmed' WHERE subscriber_id=1 AND list_id=17");
+  const changedEmail=await race(()=>pool.query("UPDATE subscribers SET email='changed@example.invalid' WHERE id=1"));assert.equal(changedEmail.error?.code,'GRAPH_SOURCE_REFRESH_UNCONFIRMED');
+  await reader.query('COMMIT');
+  assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.intent')).rows[0].n,0);
+  console.log('PASS Shopify refresh uses fresh native reads across independent opt-out/email transactions; no intent or transport.');
+ }finally{await reader.query('ROLLBACK').catch(()=>{});reader.release();}
  }finally{if(blocker){await blocker.query('ROLLBACK').catch(()=>{});blocker.release();}await pool.end();}
 })().catch(e=>{console.error('FAIL graph source proof:',e.code||'',e.message);process.exitCode=1;});
