@@ -33,3 +33,22 @@ A new workflow version cannot revoke an older execution that already has a decis
 `tests/tts-manual-runtime.test.cjs` executes the generated graph in a synthetic VM harness with an isolated PostgreSQL database and a provider stub. It covers disabled controls, independent closed gates, preserved rules, lost claim/dispatch/finish responses, timeout, empty/contradictory provider replies, token failures, exact GET recovery, no repeated transport, and automatic removal. Fixtures that exercise the full transport explicitly open both gates only in their in-memory synthetic graph; generated deployment candidates remain closed.
 
 The repository's dashboard CI runs this test through `tests/*.test.cjs`; the existing manual decision CI separately exercises the PR45 controller and concurrent PostgreSQL contract. These are not hosted n8n or provider proofs. Native PG bindings, hosted node pairing, Code helper response shape, CORS, and worker recovery semantics still need a safe synthetic replica before enablement. The [effect contract](manual-decision-effect.README.md) describes the same-invocation CAS, reviewed utility binding and official helper options. Actual host compatibility must be verified. Repository/VM tests do not claim global exactly-once provider delivery.
+
+## Acesso único e portões abertos (26/09/2026)
+
+Decisão do Felipe: a Marcela entra no painel de Influs com uma chave só, e essa mesma chave lê, decide amostra e edita regra. `acesso-unico-patch.cjs` aplicou isso na API de ação (`LCODPC1y6kRPQ6hI`, versão `9f5ea10d`), em quatro mudanças:
+
+- **Chave:** vale a chave de escrita antiga ou uma chave de painel cujo SHA-256 esteja em `PAINEL_ESCRITA` (gestor de Influs e mestre). Revogar uma chave é tirar o hash dela dessa lista.
+- **Principal:** o principal do recibo passa a ser o hash da chave usada. Com isso, o navegador confere o recibo com a mesma chave que começou a decisão.
+- **Portões de corte e admissão:** agora abertos. As pré-condições foram conferidas em produção:
+  - a esteira automática (`U7MNDRQYwvM4ovPG`) não tem transporte de decisão;
+  - nunca houve log `acao_painel`;
+  - as regras só aceitam `dry_run` ou `pausado`.
+- **Painel:** usa a chave de entrada e o nome do acesso (identidade `owner`) e confere a disponibilidade sozinho.
+
+**Pendente, e só com o aceite explícito do Felipe:**
+
+1. `crm_tts_manual_control_v1.enabled = true`, com `eligible_from = installed_at`;
+2. `capacidades` volta a `write:true`. Hoje responde `write:false, aguardando:"controle_por_marca"` (versão `fa154b4c`), para o painel não oferecer um botão que o SQL recusaria.
+
+Enquanto isso, todo pedido de decisão para no SQL com `disabled`, sem chamar a TikTok.

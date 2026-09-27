@@ -13,7 +13,7 @@ const AreaView=(()=>{
   return null;
  }
  function bind({document:doc,panel,key,apiUrl,fetchImpl,onChange}){
-  const attempts=new Map();let activeKey='',generation=0,role=null,view='manager';
+  const attempts=new Map();let activeKey='',generation=0,role=null,owner='',view='manager';
   const validKey=v=>typeof v==='string'&&/^[a-z0-9-]{8,128}$/.test(v)?v:'';
   const readKey=()=>{try{return validKey(key());}catch(_){return '';}};
   function paint(){
@@ -25,7 +25,7 @@ const AreaView=(()=>{
    if(select){select.disabled=role!=='master';try{select.value=view;}catch(_){for(const o of select.querySelectorAll('option'))o.toggleAttribute('selected',o.value===view);}}
    if(before&&before!==view&&typeof onChange==='function')onChange(view);
   }
-  function reset(next){activeKey=next;generation++;role=null;view='manager';paint();}
+  function reset(next){activeKey=next;generation++;role=null;owner='';view='manager';paint();}
   async function readIdentity(k){
    let timer;
    try{
@@ -36,7 +36,9 @@ const AreaView=(()=>{
     return await Promise.race([expired,(async()=>{
      const r=await (fetchImpl||fetch)(url.href,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
      if(!r.ok||r.status!==200)return null;
-     return identityRole(await r.json(),panel);
+     const j=await r.json(),papel=identityRole(j,panel);
+     // o nome do acesso vira a autoria no histórico (ex.: Gestor Influs e Afiliados)
+     return papel?{role:papel,owner:typeof j.owner==='string'?j.owner.replace(/[\x00-\x1f\x7f]/g,'').trim().slice(0,40):''}:null;
     })()]);
    }catch(_){return null;}
    finally{if(timer!==undefined)clearTimeout(timer);}
@@ -50,7 +52,7 @@ const AreaView=(()=>{
     const now=readKey();
     if(ticket!==generation)return view;
     if(now!==k){reset(now);return view;}
-    role=confirmed;if(role!=='master')view='manager';paint();return view;
+    role=confirmed?.role||null;owner=confirmed?.owner||'';if(role!=='master')view='manager';paint();return view;
    });
   }
   const select=doc?.getElementById('area-view-select');
@@ -59,7 +61,7 @@ const AreaView=(()=>{
    view=role==='master'&&select.value==='owner'?'owner':'manager';paint();
   });
   paint();
-  return {resolve,current:()=>view,role:()=>role};
+  return {resolve,current:()=>view,role:()=>role,owner:()=>owner};
  }
  return {bind,identityRole};
 })();

@@ -1,5 +1,14 @@
 /* Pure candidate contract. No storage, clock, network, transport or activation. */
-(function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.JourneyGraphContract=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+(function(root,factory){'use strict';
+ // The relaxed record predicate is private and receives ONLY JSON.parse output.
+ // The public object API keeps rejecting classes, custom prototypes and accessors.
+ const strict=factory(false),parsed=factory(true);
+ function validateGraphJSON(definitionText,catalogText){try{
+  for(const text of [definitionText,catalogText])if(typeof text!=='string'||text.length>131072||unescape(encodeURIComponent(text)).length>131072)throw Error();
+  return parsed.validateGraph(JSON.parse(definitionText),{catalog:JSON.parse(catalogText)});
+ }catch{return {ok:false,version:strict.VERSION,errors:[{code:'GRAPH_JSON',path:'$',message:'Use somente texto JSON válido dentro do limite.'}]};}}
+ const api=Object.freeze({...strict,validateGraphJSON});if(typeof module==='object'&&module.exports)module.exports=api;else root.JourneyGraphContract=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(jsonInput){
  'use strict';
  const VERSION='journey_graph_v1',ENABLED=false,MAX_NODES=32;
  const TOKEN=/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
@@ -7,10 +16,10 @@
  const CATALOG=freeze({version:VERSION,enabled:false,node_types:['trigger','wait','condition','message','exit'],field_types:['boolean','number','string','timestamp','string_set'],operators:{boolean:['eq','ne'],number:['eq','ne','gt','gte','lt','lte'],string:['eq','ne'],timestamp:['before','after'],string_set:['contains','not_contains']},limits:{nodes:32,expression_depth:4,expression_leaves:16,fields:64,triggers:16,messages:64,bytes:131072,max_wait_seconds:2592000,max_data_wait_seconds:86400}});
  function freeze(x){if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x);}return x;}
  function fail(code,path,message){return Object.assign(new Error(message),{code,path});}
- const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&[Object.prototype,null].includes(Object.getPrototypeOf(x));
+ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&(jsonInput||[Object.prototype,null].includes(Object.getPrototypeOf(x)));
  const copy=x=>JSON.parse(JSON.stringify(x));
  function canonical(x){if(Array.isArray(x))return '['+x.map(canonical).join(',')+']';if(object(x))return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}';return JSON.stringify(x);}
- function json(x,maxBytes=CATALOG.limits.bytes){let count=0;const seen=new Set();function visit(v,depth){if(++count>20000||depth>16)throw fail('GRAPH_SIZE','$','Documento excede o limite.');if(v===null||typeof v==='boolean')return;if(typeof v==='number'&&Number.isFinite(v))return;if(typeof v==='string'&&v.length<=131072)return;if(typeof v!=='object'||!v||seen.has(v)||!Array.isArray(v)&&!object(v))throw fail('GRAPH_JSON','$','Use somente dados JSON.');if(Object.getOwnPropertySymbols(v).length)throw fail('GRAPH_JSON','$','Use somente propriedades JSON.');if(Array.isArray(v)&&(Object.keys(v).length!==v.length||Object.keys(v).some((k,i)=>k!==String(i))))throw fail('GRAPH_JSON','$','Lista incompleta ou com propriedades extras.');seen.add(v);const ds=Object.getOwnPropertyDescriptors(v);for(const [k,d]of Object.entries(ds)){if(Array.isArray(v)&&k==='length')continue;if(!d.enumerable||!Object.hasOwn(d,'value')||['__proto__','prototype','constructor'].includes(k))throw fail('GRAPH_JSON','$','Propriedade não permitida.');visit(d.value,depth+1);}seen.delete(v);}visit(x,0);if(canonical(x).length*3>maxBytes)throw fail('GRAPH_SIZE','$','Documento excede o limite.');}
+ function json(x,maxBytes=CATALOG.limits.bytes){let count=0;const seen=new Set();function visit(v,depth){if(++count>20000||depth>16)throw fail('GRAPH_SIZE','$','Documento excede o limite.');if(v===null||typeof v==='boolean')return;if(typeof v==='number'&&Number.isFinite(v))return;if(typeof v==='string'&&v.length<=131072)return;if(typeof v!=='object'||!v||seen.has(v)||!Array.isArray(v)&&!object(v))throw fail('GRAPH_JSON','$','Use somente dados JSON.');if(!jsonInput&&Object.getOwnPropertySymbols(v).length)throw fail('GRAPH_JSON','$','Use somente propriedades JSON.');if(Array.isArray(v)&&(Object.keys(v).length!==v.length||Object.keys(v).some((k,i)=>k!==String(i))))throw fail('GRAPH_JSON','$','Lista incompleta ou com propriedades extras.');seen.add(v);const ds=jsonInput?Object.keys(v).map(k=>[k,{value:v[k],enumerable:true}]):Object.entries(Object.getOwnPropertyDescriptors(v));for(const [k,d]of ds){if(Array.isArray(v)&&k==='length')continue;if(!d.enumerable||!Object.hasOwn(d,'value')||['__proto__','prototype','constructor'].includes(k))throw fail('GRAPH_JSON','$','Propriedade não permitida.');visit(d.value,depth+1);}seen.delete(v);}visit(x,0);if(canonical(x).length*3>maxBytes)throw fail('GRAPH_SIZE','$','Documento excede o limite.');}
  function exact(x,keys,path){if(!object(x)||Object.keys(x).some(k=>!keys.includes(k))||keys.some(k=>!Object.hasOwn(x,k)))throw fail('GRAPH_SHAPE',path,'Campos ausentes ou não permitidos.');}
  function token(v,path){if(typeof v!=='string'||!TOKEN.test(v))throw fail('GRAPH_ID',path,'Identificador inválido.');}
  function text(v,max,path){if(typeof v!=='string'||!v.trim()||v.length>max)throw fail('GRAPH_TEXT',path,'Texto inválido.');}
