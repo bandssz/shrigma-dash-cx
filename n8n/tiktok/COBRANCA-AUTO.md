@@ -10,7 +10,7 @@ Decisão do Felipe (26/09/2026): **modelo aprovado, envio sozinho**. A Marcela a
 | `cobranca-auto.sql` | aprovação de modelo, fila do dia, resolução, painel, prontidão | instalado em produção |
 | `regra-update.sql` | `cobranca_modo = ativo` só com `crm_tts_cobranca_pronta_v2` | instalado em produção |
 | `cobranca-painel-workflow.cjs` | endpoint da aba Cobrança (`2t4252NQIhmVr9Xq`) | ativo |
-| `cobranca-v2-workflow.cjs` | novo miolo do sender `37W8obVhxFccuHgv` | **não aplicado: espera o aceite do Felipe** |
+| `cobranca-v2-workflow.cjs` | novo miolo do sender `37W8obVhxFccuHgv` | aplicado em 27/09 com o aceite do Felipe (versão `445a3d72`); simulação real: 15 + 15, sem reserva nem chamada à TikTok |
 | `tts-cobranca.js` | aba Cobrança do painel | entra no ar com o merge |
 
 ## Como a mensagem sai
@@ -51,10 +51,12 @@ Tudo o que não segue o fluxo normal fica em `crm_tts_cobranca_resolucao_v2`, co
 
 ## Para ligar
 
-1. Aplicar `buildSender(fresh, {expectedVersionId})` no export fresco do `37W8obVhxFccuHgv`. O sender legado sai do workflow.
-2. Conferir o workflow nó a nó. Rodar com as marcas em simulação e ler o resultado na aba.
-3. Gravar `crm_tts_cobranca_config_v2` com a versão conferida.
-4. A Marcela aprova as mensagens. Depois, alguém liga a marca na configuração da aba. O botão pede "Enviar de verdade?".
+Já feito em 27/09:
+1. `buildSender` aplicado no export fresco, conferido nó a nó; o sender legado saiu do workflow.
+2. As duas marcas estão em simulação, e uma rodada real gerou 30 mensagens simuladas, visíveis na aba.
+3. `crm_tts_cobranca_config_v2` foi gravada com a versão `445a3d72`.
+
+Falta: a Marcela aprovar as mensagens e alguém ligar a marca na configuração da aba. O botão pede "Enviar de verdade?".
 
 Sugestão para o primeiro dia: teto de 3 por marca. O primeiro envio real também confirma o formato do corpo da mensagem.
 
