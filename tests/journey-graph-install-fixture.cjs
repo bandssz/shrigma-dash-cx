@@ -10,6 +10,9 @@ const NONCE='20000000-0000-4000-8000-000000000001';
 const read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 async function installBase(t,{db,pool}={}){
  const x=await Cart.install(t,db,pool);
+ // Configure only the disposable in-process connection. External PG runners
+ // supply their own connection timeout and the installer never changes it.
+ if(!db)await x.db.exec("SET statement_timeout='20s'");
  await x.db.exec(`DROP SCHEMA crm_graph_candidate CASCADE;
  DROP INDEX public.graph_native_template_name_v1;
  DROP TABLE crm_maintenance_candidate.control;DROP SCHEMA crm_maintenance_candidate;

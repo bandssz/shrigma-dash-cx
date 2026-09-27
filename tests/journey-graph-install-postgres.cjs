@@ -26,14 +26,36 @@ async function run(){
   await query('ALTER TABLE crm_graph_candidate.revision ENABLE TRIGGER graph_immutable');assert.deepEqual(await meta(),before);
   console.log('PASS fresh trigger-state drift blocks before writing any migration or worker role.');
 
-  await query(m.sql);createdRole=true;const after=await meta();assert.deepEqual(await F.rowSnapshot(db),rows);
+  // Timeout must already be active on the connection when this DO starts.
+  assert.equal(before.statement_timeout_ms,20000);
+  for(const timeout of [0,30001]){
+   await query('SET statement_timeout='+timeout);const unbounded=await meta();assert.equal(unbounded.statement_timeout_ms,timeout);
+   assert.throws(()=>D.atomicInstall(F.ROOT,unbounded,F.NONCE),/STATEMENT_TIMEOUT_REQUIRED/);
+   await assert.rejects(query(m.sql),/STATEMENT_TIMEOUT_REQUIRED/);assert.deepEqual(await meta(),unbounded);assert.deepEqual(await F.rowSnapshot(db),rows);assert.equal(unbounded.worker_role,null);
+  }
+  await query('SET statement_timeout=20000');assert.deepEqual(await meta(),before);
+  console.log('PASS metadata and first DO guard reject missing execution budget before locks/DDL; restoring bounded connection permits the same compiled DO.');
+
+  // Only this disposable synthetic database is modified to reproduce a legacy
+  // PUBLIC grant. The installer must report it, never repair shared privileges.
+  await query('GRANT CREATE ON SCHEMA public TO PUBLIC');
+  const inherited=await meta();assert.deepEqual(inherited.public_create_schemas,['public']);
+  assert.throws(()=>D.atomicInstall(F.ROOT,inherited,F.NONCE),/PUBLIC_CREATE_INHERITED/);
+  await assert.rejects(query(m.sql),/PUBLIC_CREATE_INHERITED/);
+  assert.equal((await query('SELECT 3 ok')).rows[0].ok,3);assert.deepEqual(await meta(),inherited);assert.deepEqual(await F.rowSnapshot(db),rows);assert.equal(inherited.worker_role,null);
+  await query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');assert.deepEqual(await meta(),before);
+  console.log('PASS inherited PUBLIC CREATE blocks compilation and stale SQL before migrations; shared grant remains untouched by installer and no role exists.');
+
+  const installed=await query(m.sql);createdRole=true;
+  assert.equal(Array.isArray(installed),false);assert.equal(installed.command,'DO');
+  const after=await meta();assert.deepEqual(await F.rowSnapshot(db),rows);
   const graphSeal=JSON.parse(after.graph_seal),maintenanceSeal=JSON.parse(after.maintenance_seal);
   assert.equal(graphSeal.graph_shape,after.graph_shape);assert.equal(graphSeal.maintenance_shape,after.maintenance_shape);assert.equal(graphSeal.public_shape,after.public_shape);assert.equal(graphSeal.ddl,m.seal.ddl);
   assert.equal(maintenanceSeal.shape,after.maintenance_legacy_shape);assert.equal(maintenanceSeal.contract,D.MAINTENANCE_CONTRACT);assert.deepEqual(maintenanceSeal.previous,JSON.parse(before.maintenance_seal));
   assert.deepEqual((await query(D.OFF_SQL)).rows[0],{cart_off:true,epochs:'0',owners:'0',sources:'0',clones:'0'});
   assert.equal(after.worker_role.login,false);assert.equal(after.worker_role.superuser,false);assert.equal(after.worker_role.memberships,0);
   await assert.rejects(query(m.sql),/GRAPH_INSTALL_/);assert.equal((await query('SELECT 2 ok')).rows[0].ok,2);assert.deepEqual(await meta(),after);
-  console.log('PASS composed installation seals both schemas once, keeps graph OFF and preserves both brand drafts plus retained CART receipt.');
+  console.log('PASS compiled installation returns exactly one DO result, seals both schemas once, keeps graph OFF and preserves both brand drafts plus retained CART receipt.');
 
   await query('SET ROLE crm_graph_worker');
   try{
