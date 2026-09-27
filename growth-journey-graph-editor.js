@@ -8,7 +8,7 @@
  const VERSION='journey_graph_editor_v1',ENABLED=false;
  const clone=x=>JSON.parse(JSON.stringify(x)),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const names={trigger:'Entrada',wait:'Espera',condition:'Condição',message:'E-mail',exit:'Saída'};
- const terms={'cart.abandoned':'Carrinho abandonado','purchase.confirmed':'Compra confirmada',first_name:'Nome','order.total':'Valor do pedido',tags:'Marcadores','last.purchase':'Última compra','cart.email':'Mensagem de carrinho',finished:'Concluído',purchased:'Compra realizada',not_eligible:'Não elegível',opted_out:'Descadastro'};
+ const terms={'cart.abandoned':'Carrinho abandonado','purchase.confirmed':'Compra confirmada','purchase.observed_for_cart':'Pedido observado após o abandono','contact.email_allowed':'Permissão atual de e-mail',first_name:'Nome','order.total':'Valor do pedido',tags:'Marcadores','last.purchase':'Última compra','cart.email':'Mensagem de carrinho',finished:'Concluído',purchased:'Compra realizada',not_eligible:'Não elegível',opted_out:'Descadastro'};
  const operators={eq:'é igual a',ne:'é diferente de',gt:'é maior que',gte:'é maior ou igual a',lt:'é menor que',lte:'é menor ou igual a',before:'é anterior a',after:'é posterior a',contains:'contém',not_contains:'não contém'};
  let serial=0;
  function mount(options={}){
@@ -36,6 +36,24 @@
   function leaf(){const f=fields()[0];return {field:f?.key||'',op:G.CATALOG.operators[f?.type||'string'][0],value:defaultValue(f?.type)};}
   function graphCheck(){if(!catalogOK)return {ok:false,errors:[{message:'Opções indisponíveis. Recarregue as opções desta marca para continuar.'}]};const r=G.validateGraph(graph,{catalog});if(r.ok&&graph.nodes.some(n=>n.type==='message'&&!emailBindings().some(m=>m.key===n.binding)))return {ok:false,errors:[{message:'Escolha um modelo de e-mail disponível nesta marca.'}]};return r;}
   function title(n){return (graph.nodes.indexOf(n)+1)+'. '+names[n.type];}
+  function expressionSummary(e){
+   if(e.all||e.any)return '('+(e.all||e.any).map(expressionSummary).join(e.all?' E ':' OU ')+')';
+   const value=typeof e.value==='boolean'?(e.value?'Sim':'Não'):e.value===null||e.value===''?'valor pendente':String(e.value);
+   return label(e.field)+' '+(operators[e.op]||'comparação pendente')+' '+value;
+  }
+  function nodeSummary(n){
+   if(n.type==='trigger')return label(n.event);
+   if(n.type==='message')return n.binding?'Modelo: '+label(n.binding):'Escolha o modelo de e-mail';
+   if(n.type==='exit')return 'Encerrar: '+label(n.reason);
+   if(n.type==='wait'){if(!Number.isSafeInteger(n.seconds)||n.seconds<1)return 'Defina o tempo de espera';const [size,name]=[[86400,'dia'],[3600,'hora'],[60,'minuto'],[1,'segundo']].find(([v])=>n.seconds%v===0),amount=n.seconds/size;return 'Aguardar '+amount+' '+name+(amount===1?'':'s');}
+   return expressionSummary(n.expression)+' · '+['yes','no'].map(port=>{const to=graph.nodes.find(x=>x.id===graph.edges.find(e=>e.from===n.id&&e.port===port)?.to);return (port==='yes'?'Sim':'Não')+': '+(to?title(to):'escolha a próxima etapa');}).join(' · ');
+  }
+  function summaryHTML(n){const text=nodeSummary(n);return '<p class="jge-note" data-node-summary="'+esc(n.id)+'" title="'+esc(text)+'">'+esc(text.length>180?text.slice(0,177)+'…':text)+'</p>';}
+  function updateSummaries(){for(const el of root.querySelectorAll('[data-node-summary]')){const n=graph.nodes.find(x=>x.id===el.dataset.nodeSummary);if(n){const text=nodeSummary(n);el.textContent=text.length>180?text.slice(0,177)+'…':text;el.title=text;}}}
+  function insertionEdge(n,port){const matches=graph.edges.filter(e=>e.from===n.id&&e.port===port);return matches.length===1&&(n.type==='condition'?['yes','no']:n.type==='exit'?[]:['next']).includes(port)&&graph.nodes.some(x=>x.id===matches[0].to&&x.id!==n.id&&x.type!=='trigger')?matches[0]:null;}
+  function canInsert(n,port,type){return !disabled()&&!!insertionEdge(n,port)&&['wait','condition','message'].includes(type)&&graph.nodes.length+(type==='condition'?2:1)<=G.MAX_NODES&&(type!=='condition'||fields().length>0)&&(type!=='message'||emailBindings().length>0);}
+  function insertionHTML(n,port){if(!insertionEdge(n,port))return '';return '<details><summary>+ Adicionar aqui'+(port==='next'?'':' · '+(port==='yes'?'Sim':'Não'))+'</summary><div class="jge-inline">'+['wait','message','condition'].map(type=>'<button type="button" data-action="insert" data-node="'+esc(n.id)+'" data-port="'+port+'" data-type="'+type+'"'+(canInsert(n,port,type)?'':' disabled')+(type==='condition'?' title="Sim mantém a continuação deste caminho; Não encerra em uma nova saída. Você pode editar os dois destinos."':'')+'>'+names[type]+'</button>').join('')+'</div></details>';}
+  function updateInsertion(n,port){const area=[...root.querySelectorAll('[data-insert-slot]')].find(el=>el.dataset.node===n.id&&el.dataset.insertSlot===port);if(area){const open=area.querySelector('details')?.open;area.innerHTML=insertionHTML(n,port);if(open&&area.querySelector('details'))area.querySelector('details').open=true;}}
   const option=(value,text,selected)=>'<option value="'+esc(value)+'"'+(selected?' selected':'')+'>'+esc(text)+'</option>';
   const disabled=()=>readOnly||!catalogOK||pending!==null;
   function select(attrs,items,value,empty){return '<select '+attrs+'>'+ (empty?option('',empty,!value):'')+items.map(([v,t])=>option(v,t,v===value)).join('')+'</select>';}
@@ -63,7 +81,7 @@
   function nodeHTML(n){
    const off=disabled()?' disabled':'',data='data-node="'+esc(n.id)+'"';
    if(!catalogOK)return '<article class="jge-node"><h3>'+esc(title(n))+'</h3><p>Opções desta etapa indisponíveis até carregar o catálogo da marca.</p></article>';
-   let html='<article class="jge-node" data-node-id="'+esc(n.id)+'"><header><h3>'+esc(title(n))+'</h3>'+(n.type!=='trigger'?'<button type="button" data-action="remove" '+data+off+' aria-label="Remover '+esc(title(n))+'">Remover</button>':'')+'</header>';
+   let html='<article class="jge-node" data-node-id="'+esc(n.id)+'"><header><h3>'+esc(title(n))+'</h3>'+(n.type!=='trigger'?'<button type="button" data-action="remove" '+data+off+' aria-label="Remover '+esc(title(n))+'">Remover</button>':'')+'</header>'+summaryHTML(n);
    if(n.type==='trigger')html+=control('Quando começa',select('data-field="event" '+data+off,(catalog?.triggers||[]).filter(t=>t.available).map(t=>[t.key,label(t.key)]),n.event,'Escolha a entrada'));
    if(n.type==='wait'){const unit=units[n.id]||(n.seconds%86400===0?86400:n.seconds%3600===0?3600:n.seconds%60===0?60:1);units[n.id]=unit;html+='<div class="jge-inline">'+control('Aguardar','<input type="number" min="1" step="any" data-field="wait-amount" '+data+' value="'+esc(n.seconds/unit)+'"'+off+'>')+control('Unidade',select('data-field="wait-unit" '+data+off,[[1,'Segundos'],[60,'Minutos'],[3600,'Horas'],[86400,'Dias']],unit))+'</div>';}
    if(n.type==='condition')html+=conditionHTML(n,n.expression)+'<details><summary title="Aguardar informação; nunca assumir Não. Ao vencer o prazo, bloquear esta entrada.">Se o dado ainda não chegou</summary><div class="jge-inline">'+control('Prazo máximo (segundos)','<input type="number" min="1" max="86400" data-field="max_wait_seconds" '+data+' value="'+esc(n.on_unknown.max_wait_seconds)+'"'+off+'>')+control('Conferir novamente em (segundos)','<input type="number" min="1" data-field="retry_seconds" '+data+' value="'+esc(n.on_unknown.retry_seconds)+'"'+off+'>')+'</div></details>';
@@ -72,7 +90,7 @@
    if(n.type!=='exit')for(const port of n.type==='condition'?['yes','no']:['next']){
     const target=graph.edges.find(e=>e.from===n.id&&e.port===port)?.to||'',destinations=graph.nodes.filter(x=>x.id!==n.id&&x.type!=='trigger').map(x=>[x.id,title(x)]);
     if(target&&!destinations.some(x=>x[0]===target))destinations.push([target,'Etapa indisponível']);
-    html+=control(port==='yes'?'Se Sim, seguir para':port==='no'?'Se Não, seguir para':'Depois, seguir para',select('data-connection="'+port+'" '+data+off,destinations,target,'Escolha a próxima etapa'));
+    html+=control(port==='yes'?'Se Sim, seguir para':port==='no'?'Se Não, seguir para':'Depois, seguir para',select('data-connection="'+port+'" '+data+off,destinations,target,'Escolha a próxima etapa'))+'<div data-insert-slot="'+port+'" '+data+'>'+insertionHTML(n,port)+'</div>';
    }
    return html+'</article>';
   }
@@ -109,7 +127,7 @@
     (pending?'<div class="jge-confirm" role="alertdialog" aria-modal="true" aria-labelledby="'+prefix+'remove-title"><h3 id="'+prefix+'remove-title">Remover '+esc(title(graph.nodes.find(n=>n.id===pending)))+'?</h3><p>As conexões desta etapa serão removidas. Confira os caminhos antes de continuar.</p><button type="button" data-action="cancel-remove">Manter etapa</button><button type="button" data-action="confirm-remove">Remover etapa</button></div>':'');
   }
   function validationHTML(valid){return valid.ok?'<strong>Fluxo válido para simular</strong>':'<strong>Há ajustes no fluxo</strong><ul>'+valid.errors.map(e=>'<li>'+esc(e.message)+'</li>').join('')+'</ul>';}
-  function changed(full=true){review=null;simulation=null;notice='';if(full)render();else{const valid=graphCheck();root.querySelector('[data-validation]').innerHTML=validationHTML(valid);root.querySelector('[data-dirty]').textContent=dirtyText();root.querySelector('.jge-review')?.remove();root.querySelector('.jge-result')?.remove();root.querySelector('[data-notice]').textContent='';for(const b of root.querySelectorAll('[data-action="review"],[data-action="simulate"]'))b.disabled=!valid.ok;}notifyChange();}
+  function changed(full=true){review=null;simulation=null;notice='';if(full)render();else{const valid=graphCheck();root.querySelector('[data-validation]').innerHTML=validationHTML(valid);root.querySelector('[data-dirty]').textContent=dirtyText();root.querySelector('.jge-review')?.remove();root.querySelector('.jge-result')?.remove();root.querySelector('[data-notice]').textContent='';updateSummaries();for(const b of root.querySelectorAll('[data-action="review"],[data-action="simulate"]'))b.disabled=!valid.ok;}notifyChange();}
   function parseValue(raw,type){if(type==='boolean')return raw==='true'?true:raw==='false'?false:null;if(type==='number')return raw.trim()===''?null:Number(raw);if(type==='timestamp'){const normalized=raw.length===16?raw+':00.000Z':raw.length===19?raw+'.000Z':raw+'Z',d=new Date(normalized);return Number.isFinite(d.getTime())&&d.toISOString()===normalized?normalized:raw;}return raw;}
   function valueChange(event){
    const el=event.target;if(destroyed||pending||!root.contains(el))return;
@@ -118,7 +136,7 @@
    if(disabled())return;
    if(el.hasAttribute('data-name')){graph.name=el.value;changed(false);return;}
    const n=graph.nodes.find(x=>x.id===el.dataset.node);if(!n)return;
-   if(el.dataset.connection){graph.edges=graph.edges.filter(e=>!(e.from===n.id&&e.port===el.dataset.connection));if(el.value)graph.edges.push({from:n.id,to:el.value,port:el.dataset.connection});changed(false);return;}
+   if(el.dataset.connection){graph.edges=graph.edges.filter(e=>!(e.from===n.id&&e.port===el.dataset.connection));if(el.value)graph.edges.push({from:n.id,to:el.value,port:el.dataset.connection});updateInsertion(n,el.dataset.connection);changed(false);return;}
    if(el.dataset.expr){const e=expressionAt(n,el.dataset.path||''),kind=el.dataset.expr;if(kind==='group'){const children=e.all||e.any;delete e.all;delete e.any;e[el.value]=children;changed();return;}if(kind==='field'){const f=fields().find(x=>x.key===el.value);e.field=el.value;e.op=G.CATALOG.operators[f?.type||'string'][0];e.value=defaultValue(f?.type);changed();return;}if(kind==='op')e.op=el.value;else e.value=parseValue(el.value,fields().find(f=>f.key===e.field)?.type);changed(false);return;}
    const key=el.dataset.field;if(!key)return;
    if(key==='wait-unit'){const amount=Number(el.closest('[data-node-id]').querySelector('[data-field="wait-amount"]').value);units[n.id]=Number(el.value);n.seconds=amount*units[n.id];changed(false);}
@@ -134,6 +152,16 @@
    if(disabled())return;
    if(action==='add'){if(graph.nodes.length>=G.MAX_NODES)return;let i=1;while(graph.nodes.some(n=>n.id==='step'+i))i++;const type=b.dataset.type,n={id:'step'+i,type};if(type==='wait')n.seconds=60;else if(type==='condition')Object.assign(n,{expression:{all:[leaf()]},on_unknown:{max_wait_seconds:120,retry_seconds:30}});else if(type==='message')n.binding=emailBindings()[0]?.key||'';else if(type==='exit')n.reason='finished';else return;graph.nodes.push(n);changed();return;}
    const n=graph.nodes.find(x=>x.id===b.dataset.node);if(!n)return;
+   if(action==='insert'){
+    const port=b.dataset.port,type=b.dataset.type;if(!canInsert(n,port,type))return;const edge=insertionEdge(n,port),destination=edge.to;
+    let i=1;while(graph.nodes.some(x=>x.id==='step'+i))i++;const added={id:'step'+i,type},extra=[];
+    if(type==='wait')added.seconds=60;else if(type==='message')added.binding=emailBindings()[0].key;
+    else {Object.assign(added,{expression:{all:[leaf()]},on_unknown:{max_wait_seconds:120,retry_seconds:30}});let j=i+1;while(graph.nodes.some(x=>x.id==='step'+j))j++;extra.push({id:'step'+j,type:'exit',reason:'finished'});}
+    graph.nodes.splice(graph.nodes.indexOf(n)+1,0,added,...extra);edge.to=added.id;
+    graph.edges.push({from:added.id,to:destination,port:type==='condition'?'yes':'next'});if(extra.length)graph.edges.push({from:added.id,to:extra[0].id,port:'no'});
+    changed();notice=type==='condition'?'Condição adicionada: Sim continua pelo caminho anterior; Não encerra. Confira os dois destinos.':'Etapa adicionada; a continuação foi mantida.';root.querySelector('[data-notice]').textContent=notice;
+    [...root.querySelectorAll('[data-node-id]')].find(el=>el.dataset.nodeId===added.id)?.querySelector('input,select')?.focus();return;
+   }
    if(action==='remove'){if(n.type!=='trigger'){pending=n.id;render();root.querySelector('[data-action="cancel-remove"]')?.focus();}return;}
    if(action.startsWith('expr-')){const path=b.dataset.path||'',e=expressionAt(n,path),before=clone(n.expression);if(action==='expr-wrap')n.expression={all:[e,leaf()]};else if(action==='expr-add'||action==='expr-group')(e.all||e.any).push(action==='expr-add'?leaf():{any:[leaf()]});else if(action==='expr-remove'&&path){const {parent,index}=expressionParent(n,path),children=parent.all||parent.any;if(children.length===1){notice='Mantenha ao menos uma condição no grupo.';render();return;}children.splice(index,1);}if(expressionBound(n.expression)>16){n.expression=before;notice='Limite: até 16 condições e quatro níveis de grupos.';render();return;}changed();}
   }
