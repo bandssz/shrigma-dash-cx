@@ -1,0 +1,10 @@
+#ab-experiment-panel [hidden]{display:none!important}
+#ab-experiment-panel .painel{border:0;padding:20px 0;box-shadow:none}
+#ab-experiment-panel fieldset{border:0;border-top:1px solid var(--borda);margin:20px 0 0;padding:18px 0;min-width:0}
+#ab-experiment-panel legend{font-size:13px;font-weight:600;padding-right:12px}
+#ab-experiment-panel .ce-grid textarea{min-height:82px}
+#ab-experiment-panel [data-abx-recent]{display:flex;flex-direction:column;gap:8px;margin-top:20px;font-size:12px;max-width:480px}
+#ab-experiment-panel [data-abx-recent] select{font:inherit;color:var(--texto);background:var(--papel,#fff);border:1px solid var(--borda);border-radius:6px;padding:10px;width:100%}
+#ab-experiment-panel .crm-help{margin:12px 0}
+#ab-experiment-panel [data-abx-message]:empty{display:none}
+#ab-experiment-panel button:disabled{opacity:.55;cursor:not-allowed}
