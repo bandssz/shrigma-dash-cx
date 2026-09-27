@@ -104,3 +104,32 @@ BEGIN
   FROM public.crm_tts_produto_v1 t LEFT JOIN public.crm_tts_loja_produto_v1 l ON l.marca=t.marca AND l.handle=t.handle));
 END $$;
 REVOKE ALL ON FUNCTION public.crm_tts_produto_classifica_v1(text,text),public.crm_tts_loja_produto_upsert_v1(jsonb),public.crm_tts_produto_sync_v1(),public.crm_tts_produto_painel_v1(jsonb) FROM PUBLIC;
+
+-- Foto direto da TikTok (27/09): a imagem principal do anúncio, lida pela cadeia "Fotos 05:50" do workflow 37W8.
+ALTER TABLE public.crm_tts_produto_v1 ADD COLUMN IF NOT EXISTS imagem_tiktok text;
+ALTER TABLE public.crm_tts_produto_v1 ADD COLUMN IF NOT EXISTS foto_em timestamptz;
+CREATE OR REPLACE FUNCTION public.crm_tts_produto_foto_v1(p jsonb)
+RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
+DECLARE x jsonb; n int:=0;
+BEGIN
+ IF jsonb_typeof(p->'fotos') IS DISTINCT FROM 'array' THEN RETURN jsonb_build_object('erro','entrada invalida'); END IF;
+ FOR x IN SELECT * FROM jsonb_array_elements(p->'fotos') LOOP
+  UPDATE public.crm_tts_produto_v1 SET foto_em=now(),
+   imagem_tiktok=CASE WHEN x->>'imagem' ~ '^https://[a-z0-9.-]+\.(ibyteimg|tiktokcdn|tiktokcdn-us|byteimg|ttwstatic)\.com/' THEN left(x->>'imagem',800) ELSE imagem_tiktok END
+  WHERE marca=x->>'marca' AND product_id=x->>'product_id';
+  n:=n+CASE WHEN FOUND THEN 1 ELSE 0 END;
+ END LOOP;
+ RETURN jsonb_build_object('ok',true,'atualizados',n);
+END $$;
+REVOKE ALL ON FUNCTION public.crm_tts_produto_foto_v1(jsonb) FROM PUBLIC;
+-- Leitura do painel: a foto da TikTok é a do próprio anúncio; a da loja fica de reserva.
+CREATE OR REPLACE FUNCTION public.crm_tts_produto_painel_v1(p jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,public AS $$
+BEGIN
+ IF public.shrigma_panel_operator_v1(p->>'k','influs') IS NULL THEN RETURN jsonb_build_object('erro','Entre com a chave do painel de Influs.'); END IF;
+ RETURN jsonb_build_object('ok',true,'produtos',(SELECT coalesce(jsonb_agg(jsonb_build_object('marca',t.marca,'product_id',t.product_id,'titulo',t.titulo,'rotulo',t.rotulo,
+   'quantidade',t.quantidade,'imagem_url',coalesce(t.imagem_tiktok,l.imagem_url),'imagem_fonte',CASE WHEN t.imagem_tiktok IS NOT NULL THEN 'tiktok' WHEN l.imagem_url IS NOT NULL THEN 'loja' END,
+   'url',l.url,'fonte',t.fonte)),'[]')
+  FROM public.crm_tts_produto_v1 t LEFT JOIN public.crm_tts_loja_produto_v1 l ON l.marca=t.marca AND l.handle=t.handle));
+END $$;
+REVOKE ALL ON FUNCTION public.crm_tts_produto_painel_v1(jsonb) FROM PUBLIC;
