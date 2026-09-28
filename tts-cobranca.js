@@ -24,23 +24,24 @@
   return s.length<=90&&!s.includes('\n')?esc(s):`<details class="tts-msg-det"><summary>${esc(p.slice(0,90))}…</summary><div>${esc(s)}</div></details>`;};
  function create({document,endpoint,key,getMarca,fetchImpl,onChange}){
   let dados=null,chave=null,erro='',aviso='',busy=false,host=null,editando=null;
+  const REDE=()=>root.PainelRede||{ler:fn=>fn(),mensagem:e=>e.message,transitorio:()=>false,marca:e=>e};
   const f=()=>fetchImpl||root.fetch.bind(root);
   async function call(acao,data){
    const k=key();if(!k)throw Error('Entre com a chave do painel.');
    const url=endpoint();if(!url)throw Error('Serviço da cobrança não configurado.');
    const r=await f()(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acao,data,k}),credentials:'omit',redirect:'error',cache:'no-store'});
-   let j;try{j=await r.json();}catch(_){throw Error('Resposta não confirmada. Recarregue antes de repetir.');}
-   if(!r.ok||!j||j.erro)throw Error(j?.erro||'Não foi possível concluir.');return j;
+   let j;try{j=await r.json();}catch(_){throw REDE().marca(Error('Resposta não confirmada. Recarregue antes de repetir.'),r.status);}
+   if(!r.ok||!j||j.erro)throw REDE().marca(Error(j?.erro||'Não foi possível concluir.'),r.ok?0:r.status);return j;
   }
   async function carregar(){
    if(busy)return;busy=true;erro='';paint();
-   try{const k=key();dados=await call('ler');chave=k;}catch(e){erro=e.message;}
+   try{const k=key();dados=await REDE().ler(()=>call('ler'));chave=k;}catch(e){erro=REDE().mensagem(e);}
    finally{busy=false;paint();if(onChange)onChange();}
   }
   async function escreve(acao,data){
    busy=true;aviso='Gravando…';paint();
    try{const j=await call(acao,data);aviso=j.mensagem||'Feito.';editando=null;dados=await call('ler');}
-   catch(e){aviso=e.message;}finally{busy=false;paint();if(onChange)onChange();}
+   catch(e){aviso=REDE().transitorio(e)?'Resposta não confirmada. Recarregue a lista antes de repetir.':e.message;}finally{busy=false;paint();if(onChange)onChange();}
   }
   const daMarca=xs=>{const m=getMarca();return (xs||[]).filter(x=>m==='todas'||x.marca===m);};
   const tagM=m=>`<span class="tag nulo">${esc(MARCA[m]||m)}</span>`;

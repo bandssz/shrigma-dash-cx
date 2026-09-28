@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=cee2f430cd6a">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-D83vy41v2J0+9a6tanNfbGUVTXCeJnHAvPne0vZh7Qc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rO3ux3VvDdEl4qG7aaAZn4Z2gIAdt4AmxhVcImyIEfU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -244,7 +244,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=9738d32c48dc"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=358b24f3a0eb"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -488,7 +488,7 @@ async function influPost(corpo,leitura={}){
   }
   let r;try{r=await fetch(INFLU_API_URL,{method:'POST',headers:{'Content-Type':'application/json',...(!escrita?{Authorization:'Bearer '+corpo.k}:{})},
     redirect:'error',credentials:'omit',cache:'no-store',...(escrita?{}:{signal:leitura.signal}),body:JSON.stringify(escrita?corpo:Object.fromEntries(Object.entries(corpo).filter(([k])=>k!=='k')))});}
-  catch(_){throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Não foi possível consultar os dados agora.');}
+  catch(e){const err=new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Não foi possível consultar os dados agora.');if(!escrita&&e.name!=='AbortError')err.transitorio=true;throw err;}
   let j=null;try{j=await r.json();}catch(_){}
   if(!escrita&&leitura.vigente&&!leitura.vigente())throw new Error('Consulta substituída.');
   if(r.status===401||r.status===403){
@@ -497,7 +497,7 @@ async function influPost(corpo,leitura={}){
     const error=new Error(message);error.status=r.status;throw error;
   }
   const valid=j&&typeof j==='object'&&!Array.isArray(j)&&Object.keys(j).length>0;
-  if(!valid)throw new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Resposta de leitura indisponível; tente atualizar novamente.');
+  if(!valid){const err=new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Resposta de leitura indisponível; tente atualizar novamente.');if(!escrita&&(r.status>=500||r.status===429))err.transitorio=true;throw err;}
   if(!r.ok||j.erro){
     const message=typeof j.erro==='string'?j.erro.slice(0,400):'Não foi possível concluir a operação (HTTP '+r.status+').';
     throw new Error(corpo.k?message.split(corpo.k).join('[acesso ocultado]'):message);
@@ -550,7 +550,9 @@ async function carregarInflu(){
     'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
     'Digitar a chave'); return; }
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
-  const leitura=leituraInfluLimitada((signal,ativa)=>influPost({k,acao:'listar',...periodo,pilot:SEC==='meta'||(SEC==='afil'&&CANAL==='parceiros')},{signal,vigente:()=>ativa()&&vigente()}));
+  // Leitura: se o servidor engasgar, tenta de novo sozinha (1,5 s e 4 s) dentro do limite de 20 s.
+  const tenta=typeof PainelRede!=='undefined'?PainelRede.ler:fn=>fn();
+  const leitura=leituraInfluLimitada((signal,ativa)=>tenta(()=>influPost({k,acao:'listar',...periodo,pilot:SEC==='meta'||(SEC==='afil'&&CANAL==='parceiros')},{signal,vigente:()=>ativa()&&vigente()}),{parar:()=>!(ativa()&&vigente())}));
   INFLU_READ=leitura;
   try{
     const novo=await leitura.promise;
@@ -565,7 +567,7 @@ async function carregarInflu(){
     if(seq!==INFLU_SEQ||(!vigente()&&e.status!==401&&e.status!==403))return;
     const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
     avisoTela(chaveRuim?'Acesso não confirmado':'Falha ao carregar',
-      esc(e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
+      esc(e.transitorio&&typeof PainelRede!=='undefined'?PainelRede.mensagem(e):e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
       chaveRuim?'Informar acesso':'Tentar de novo');
   }finally{if(INFLU_READ===leitura)INFLU_READ=null;}
 }
