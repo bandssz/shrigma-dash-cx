@@ -142,8 +142,7 @@
         <label class="shp__isca" aria-hidden="true">Site<input name="website" tabindex="-1" autocomplete="off"></label>
       </fieldset>
       <div class="shp__termo">
-        <details><summary data-shp-termo-titulo>Termo de parceria</summary><div class="shp__termo-txt" data-shp-termo tabindex="0"></div></details>
-        <label class="shp__aceite"><input type="checkbox" name="aceite" required> <span>Li e aceito o <strong data-shp-termo-nome>termo de parceria</strong>. Marcar esta caixa vale como minha assinatura.</span></label>
+        <label class="shp__aceite"><input type="checkbox" name="aceite" required> <span>Li e Aceito os <a href="{{ section.settings.termos_url | default: '/pages/termos-parceiros' }}" target="_blank" rel="noopener">Termos e Condições</a>.</span></label>
       </div>
       <p class="shp__erro" data-shp-erro role="alert" hidden></p>
       <button type="submit" class="shp__cta shp__enviar">{{ section.settings.enviar_texto }}</button>
@@ -185,8 +184,6 @@
     if(!t||!t.aberto){fechado(t&&t.mensagem);return}
     termo=t;var p=pct(t.comissao);if(p)$$('[data-shp-comissao]').forEach(function(el){el.textContent=p});
     if(t.dia_pagamento)$$('[data-shp-dia]').forEach(function(el){el.textContent=t.dia_pagamento});
-    $('[data-shp-termo-titulo]').textContent=t.titulo+' (versão '+t.versao+')';$('[data-shp-termo-nome]').textContent=t.titulo;
-    var box=$('[data-shp-termo]');box.textContent='';String(t.texto).split(/\n{2,}/).forEach(function(par){var el=document.createElement('p');el.textContent=par.trim();box.appendChild(el)});
     estado.hidden=true;form.hidden=false;
   }).catch(function(){fechado('Não foi possível carregar o formulário agora. Tente de novo em alguns minutos.')});
   // Prints: reduz para no máximo 1600 px em JPEG antes de enviar (screenshot de celular passa de 3 MB).
@@ -272,10 +269,7 @@
 .shp__prev{margin:-4px 0 8px;padding-left:18px;font-size:13px;color:var(--shp-apoio)}
 .shp__isca{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
 .shp__termo{margin:6px 0 14px}
-.shp__termo details{border:1px solid var(--shp-contorno);border-radius:4px;background:#fff;margin-bottom:10px}
-.shp__termo summary{cursor:pointer;padding:12px;font-weight:700;font-size:15px}
-.shp__termo-txt{max-height:320px;overflow:auto;padding:0 14px 12px;font-size:14px;color:#2a2a2a}
-.shp__termo-txt p{margin:0 0 10px;white-space:pre-line}
+.shp__aceite a{color:var(--shp-realce);font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .shp__aceite{flex-direction:row!important;align-items:flex-start;gap:10px!important;font-weight:400!important;font-size:15px!important}
 .shp__aceite input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:var(--shp-tinta)}
 .shp__erro{margin:0 0 12px;padding:10px 12px;border-radius:4px;background:#fdecea;color:#8a1c14;font-size:15px}
@@ -326,6 +320,7 @@
     { "type": "header", "content": "Formulário" },
     { "type": "text", "id": "titulo_form", "label": "Título do formulário", "default": "Candidatura" },
     { "type": "text", "id": "nicho_exemplo", "label": "Exemplo de nicho", "default": "ex.: estilo de vida, pesca, treino" },
+    { "type": "text", "id": "termos_url", "label": "Página dos Termos e Condições", "default": "/pages/termos-parceiros", "info": "Abre em nova aba a partir da frase do aceite." },
     { "type": "text", "id": "enviar_texto", "label": "Botão de envio", "default": "Enviar candidatura" },
     { "type": "url", "id": "reserva_url", "label": "Formulário de reserva", "info": "Enquanto o formulário novo estiver fechado (sem termo publicado), a seção mostra este link." },
     { "type": "text", "id": "reserva_texto", "label": "Texto do formulário de reserva", "default": "Enquanto isso, a candidatura segue pelo formulário atual." },

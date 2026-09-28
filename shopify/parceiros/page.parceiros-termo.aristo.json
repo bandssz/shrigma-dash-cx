@@ -1,0 +1,22 @@
+{
+  "sections": {
+    "termo": {
+      "type": "shrigma-parceiros-termo",
+      "settings": {
+        "marca": "aristo",
+        "endpoint": "https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032",
+        "eyebrow": "Programa de Parceiros · O Aristocrata",
+        "voltar_url": "/pages/seja-um-influenciador",
+        "voltar_texto": "Voltar para a inscrição",
+        "cor_tinta": "#0C3C21",
+        "cor_fundo": "#F7F4EC",
+        "cor_apoio": "#46574B",
+        "cor_contorno": "#DED6C2",
+        "cor_realce": "#944F32"
+      }
+    }
+  },
+  "order": [
+    "termo"
+  ]
+}
