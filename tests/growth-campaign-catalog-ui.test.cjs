@@ -40,6 +40,29 @@ const apiFor=endpoint=>({capabilities:{...api.capabilities,endpoints:{campaigns:
 const currentCatalog=brand=>({brand,current:true,lists:[{id:125,brand,name:'Lista '+brand,available:true,total:999},{id:126,brand:brand==='fish'?'aristo':'fish',name:'Outra marca',available:true}],templates:[],initiatives:[]});
 function dynamicReply(req){if(req.acao==='campanha_catalogo')return {status:200,body:currentCatalog(req.brand)};if(req.acao==='campanha_listar')return {status:200,body:{campaigns:[]}};}
 async function load(x){x.q('[data-ce-refresh]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));}
+test('a new local draft keeps usable selectors from the current brand and access without any remote write',async()=>{
+ for(const brand of ['fish','aristo']){
+  const x=boot({brand,respond:req=>req.acao==='campanha_catalogo'?{status:200,body:{...currentCatalog(req.brand),templates:[{id:1,name:'Modelo '+req.brand,type:'campaign',available:true}]}}:dynamicReply(req)});
+  await load(x);
+  x.q('[name=subject]').value='Preparação anterior';x.q('[name=subject]').dispatchEvent(new x.window.Event('input',{bubbles:true}));
+  x.q('[data-ce-list]').checked=true;x.q('[data-ce-list]').dispatchEvent(new x.window.Event('change'));
+  x.q('[data-ce-template]').value='1';x.q('[data-ce-template]').dispatchEvent(new x.window.Event('change'));
+  x.q('[data-ce-new]').click();assert.match(x.confirmations.at(-1),/nova preparação/);x.accept();await until(()=>!x.run('GCE.contextStatus().blocked'));
+  assert.equal(x.q('[name=subject]').value,'');assert.equal(x.q('[name=list_ids]').value,'');assert.equal(x.q('[name=template_id]').value,'');
+  assert.ok(x.q('[data-ce-list]'),brand);assert.equal(x.q('[data-ce-list]').checked,false);assert.equal(x.q('[data-ce-list]').disabled,false);
+  assert.equal(x.q('[data-ce-template]').value,'');assert.equal(x.q('[data-ce-template]').disabled,false);assert.match(x.q('[data-ce-template]').textContent,new RegExp('Modelo '+brand));
+  assert.equal(x.q('[name=list_ids]').closest('label').hidden,true);assert.equal(x.q('[name=template_id]').closest('label').hidden,true);
+  assert.doesNotMatch(x.q('[data-ce-catalog]').textContent,/Outra marca/);assert.equal(x.run('GCE.catalogs()[0].brand'),brand);
+  const note=x.q('[data-ce-audience-note]');assert.ok(note);assert.equal(note.hidden,false);
+  assert.match(note.textContent,/Os públicos chamados popup incluem inscritos sem compras e ainda não comprovam origem exclusiva no popup\./);
+  if(brand==='aristo')assert.match(note.textContent,/A lista VIP reúne Alma da Roça e Desodorante; ela não separa os lançamentos\./);else assert.doesNotMatch(note.textContent,/VIP|Alma da Roça|Desodorante/);
+  x.q('[data-ce-list]').checked=true;x.q('[data-ce-list]').dispatchEvent(new x.window.Event('change'));
+  x.q('[data-ce-template]').value='1';x.q('[data-ce-template]').dispatchEvent(new x.window.Event('change'));
+  assert.equal(x.q('[name=list_ids]').value,'125');assert.equal(x.q('[name=template_id]').value,'1');
+  assert.deepEqual(x.calls.map(r=>r.acao),['campanha_catalogo','campanha_listar']);assert.ok(x.calls.every(r=>r.brand===brand));
+  const journal=JSON.parse(x.store.get('shrigma_campaign_operation_v1:'+brand));assert.equal(journal.campaign,null);assert.equal(journal.operation,null);
+ }
+});
 test('confirmed catalogs update Public without extra requests, stay brand-bound and never invent list counts',async()=>{
  const x=boot({respond:dynamicReply});let notifications=0;const target=x.document.createElement('section'),view=Audience.mount({element:target});x.document.body.append(target);
  x.window.onCatalog=()=>{notifications++;view.update({brand:x.q('[name=brand]').value,catalogs:clone(x.run('GCE.catalogs()'))});};
@@ -64,7 +87,17 @@ test('read and write access changes, absent capabilities and endpoint changes in
   if(change==='read')x.store.set('read-slot','synthetic-new-read');
   if(change==='write')x.store.set('write-slot','synthetic-new-write');
   const payload=change==='capabilities'?{}:change==='endpoint'?apiFor('https://another.example.test/operations'):api;
-  x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(payload)+'})');assert.deepEqual(clone(x.run('GCE.catalogs()')),[],change);assert.equal(x.calls.length,2);
+  x.run('GCE.mount({marca:"fish",api:'+JSON.stringify(payload)+'})');assert.deepEqual(clone(x.run('GCE.catalogs()')),[],change);assert.equal(x.q('[data-ce-catalog]').textContent,'',change);assert.equal(x.calls.length,2);
+ }
+});
+test('a new draft withdraws old selectors after a read or write access change even without remounting',async()=>{
+ for(const change of ['read','write']){
+  const x=boot({respond:dynamicReply});await load(x);x.store.set(change+'-slot','synthetic-replaced-access');
+  x.q('[data-ce-new]').click();x.accept();await until(()=>!x.run('GCE.contextStatus().blocked'));
+  assert.equal(x.q('[name=subject]').value,'');assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);
+  assert.equal(x.q('[data-ce-catalog]').textContent,'',change);assert.equal(x.calls.length,2);
+  await load(x);assert.ok(x.q('[data-ce-list]'));assert.equal(x.run('GCE.catalogs().length'),1);assert.equal(x.calls.length,4);
+  assert.ok(x.calls.every(r=>['campanha_catalogo','campanha_listar'].includes(r.acao)));
  }
 });
 test('late catalog from a replaced endpoint or access cannot publish or paint its old source',async()=>{
@@ -80,5 +113,5 @@ test('late catalog from a replaced endpoint or access cannot publish or paint it
 });
 test('failed catalog refresh withdraws previous confirmation and empty Public explains how to load lists',async()=>{
  let fail=false;const x=boot({respond:req=>fail?{status:503,body:{error:'unavailable'}}:dynamicReply(req)});await load(x);assert.equal(x.run('GCE.catalogs().length'),1);fail=true;await load(x);
- assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);const el=x.document.createElement('div');Audience.mount({element:el}).update({brand:'fish',catalogs:[]});assert.match(el.textContent,/Campanhas/);
+ assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);assert.equal(x.q('[data-ce-catalog]').textContent,'');const el=x.document.createElement('div');Audience.mount({element:el}).update({brand:'fish',catalogs:[]});assert.match(el.textContent,/Campanhas/);
 });

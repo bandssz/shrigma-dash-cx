@@ -13,7 +13,7 @@ function boot(fetcher){
   fetch:async(url,init)=>{calls.push({url,init});return fetcher(url,init,calls.length);}});
  for(const name of ['growth-canvas.js','growth-builder.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});
  const run=code=>vm.runInContext(code,context);run('GB.ctx={marca:"aristo"}');
- return {document,calls,timeouts,run,q:s=>document.querySelector(s)};
+ return {document,window,calls,timeouts,run,q:s=>document.querySelector(s)};
 }
 const response=body=>({ok:true,status:200,json:async()=>body});
 async function settled(x){for(let i=0;i<30;i++){await new Promise(setImmediate);if(!x.run('GB.state.busy'))return;}assert.fail('Read did not settle');}
@@ -82,4 +82,24 @@ test('targeted Growth build writes only Growth artifacts and emits the matching 
  assert.deepEqual([...writes.keys()].sort(),['/fixture/assets/panels/crm-entry.js','/fixture/assets/panels/growth.css','/fixture/assets/panels/growth.js','/fixture/crm/index.html','/fixture/growth.html']);
  assert.match(writes.get('/fixture/crm/index.html'),/assets\/panels\/crm-entry\.js/);assert.doesNotMatch(writes.get('/fixture/crm/index.html'),/entry-file/);
  assert.deepEqual(connectSources(writes.get('/fixture/growth.html')),['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin]);
+});
+
+
+test('visual journeys explain runtime and unsaved restrictions for both brands without changing action guards',async()=>{
+ for(const brand of ['fish','aristo']){
+  const f={...flow(brand),runtime_ready:false};
+  const x=boot(()=>response({flows:[f]}));x.run('GB.ctx.marca='+JSON.stringify(brand));await x.run('GB.load()');
+  assert.ok(x.q('#flow-viewport'),'real visual canvas is mounted');
+  const note=x.q('#builder-action-note');assert.equal(note.hidden,false);assert.match(note.textContent,/conexão com a operação/);
+  for(const id of ['builder-publish','builder-toggle']){assert.equal(x.q('#'+id).disabled,true);assert.equal(x.q('#'+id).getAttribute('aria-describedby'),note.id);}
+  const input=x.q('#builder-name');input.value='Edição local';input.dispatchEvent(new x.window.Event('input'));
+  assert.strictEqual(x.q('#builder-name'),input,'typing does not rebuild the input');assert.match(note.textContent,/Salvar rascunho/);assert.match(note.textContent,/conexão com a operação/);
+  assert.equal(x.q('#builder-save').disabled,false);assert.equal(x.q('#builder-publish').disabled,true);
+  const count=x.calls.length;await x.run('GB.mutate("fluxo_publicar");GB.mutate("fluxo_estado",{enabled:false})');assert.equal(x.calls.length,count,'blocked actions perform no request');
+  x.run('GB.state.dirty=false;GB.render()');assert.equal(x.q('#builder-action-note').hidden,false);assert.doesNotMatch(x.q('#builder-action-note').textContent,/não salvas/);assert.equal(x.q('#builder-publish').disabled,true);
+  x.run('GB.state.flows[0].runtime_ready=true;GB.render()');assert.equal(x.q('#builder-action-note').hidden,true);assert.equal(x.q('#builder-publish').disabled,false);assert.equal(x.q('#builder-toggle').disabled,false);
+  const current=x.q('#builder-name');current.value='Outra edição';current.dispatchEvent(new x.window.Event('input'));
+  assert.equal(x.q('#builder-action-note').hidden,false);assert.match(x.q('#builder-action-note').textContent,/não salvas/);assert.doesNotMatch(x.q('#builder-action-note').textContent,/conexão com a operação/);assert.equal(x.q('#builder-publish').disabled,true);assert.equal(x.q('#builder-toggle').disabled,true);
+  assert.ok(x.calls.every(c=>!c.init.method),'no write was sent');
+ }
 });

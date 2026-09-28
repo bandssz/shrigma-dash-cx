@@ -197,6 +197,8 @@ const GCE=(()=>{
  }
  function paintRemote(){
   if(!root)return;
+  if(confirmedCatalog&&!catalogCurrent(confirmedCatalog.context))clearCatalog();
+  if(!confirmedCatalog)q('[data-ce-catalog]').innerHTML='';
   const exists=!!remote,section=q('[data-ce-remote]');section.hidden=!exists;
   for(const name of ['list_ids','template_id'])q(`[name=${name}]`).closest('label').hidden=exists;
   q('[data-ce-tracking-note]').title=exists?'Ao salvar, as UTMs são aplicadas aos links desta campanha. Confira a versão salva antes de agendar.':'O arquivo exportado prepara a campanha; não confirma envio ou agendamento.';
@@ -250,7 +252,8 @@ const GCE=(()=>{
  }
  function renderCatalog(catalog){
   const e=esc,d=values(),selected=new Set(split(d.list_ids).map(Number)),templates=catalog.templates.filter(t=>Number.isSafeInteger(t.id)&&t.id>0&&t.available===true&&t.type==='campaign');
-  q('[data-ce-catalog]').innerHTML=`<div class="ce-catalog"><fieldset><legend>Públicos disponíveis</legend>${catalog.lists.filter(l=>Number.isSafeInteger(l.id)&&l.id>0&&l.available===true&&l.brand===remoteBrand).map(l=>`<label><input type="checkbox" data-ce-list value="${l.id}" ${selected.has(l.id)?'checked':''}> ${e(l.name||l.label||'Lista '+l.id)}</label>`).join('')||'<p>Nenhum público disponível nesta marca. Use Carregar catálogo e campanhas para conferir as listas sincronizadas.</p>'}</fieldset><label>Modelo de e-mail<select data-ce-template><option value="">Escolha um modelo</option>${templates.map(t=>`<option value="${t.id}" ${String(t.id)===d.template_id?'selected':''}>${e(t.name||'Template '+t.id)}</option>`).join('')}</select></label>${templates.length?'':'<p role="status">Nenhum modelo de campanha disponível. Use Carregar catálogo e campanhas antes de preparar o envio.</p>'}</div>`;
+  const audienceNote='Os públicos chamados popup incluem inscritos sem compras e ainda não comprovam origem exclusiva no popup.'+(remoteBrand==='aristo'?' A lista VIP reúne Alma da Roça e Desodorante; ela não separa os lançamentos.':'');
+  q('[data-ce-catalog]').innerHTML=`<div class="ce-catalog"><fieldset><legend>Públicos disponíveis</legend><p data-ce-audience-note>${e(audienceNote)}</p>${catalog.lists.filter(l=>Number.isSafeInteger(l.id)&&l.id>0&&l.available===true&&l.brand===remoteBrand).map(l=>`<label><input type="checkbox" data-ce-list value="${l.id}" ${selected.has(l.id)?'checked':''}> ${e(l.name||l.label||'Lista '+l.id)}</label>`).join('')||'<p>Nenhum público disponível nesta marca. Use Carregar catálogo e campanhas para conferir as listas sincronizadas.</p>'}</fieldset><label>Modelo de e-mail<select data-ce-template><option value="">Escolha um modelo</option>${templates.map(t=>`<option value="${t.id}" ${String(t.id)===d.template_id?'selected':''}>${e(t.name||'Template '+t.id)}</option>`).join('')}</select></label>${templates.length?'':'<p role="status">Nenhum modelo de campanha disponível. Use Carregar catálogo e campanhas antes de preparar o envio.</p>'}</div>`;
   q('[name=list_ids]').closest('label').hidden=true;q('[name=template_id]').closest('label').hidden=true;
   q('[data-ce-catalog]').querySelectorAll('[data-ce-list]').forEach(el=>el.addEventListener('change',()=>{if(localError||confirmation||remoteBusy||remote?.locked()){paintRemote();return;}q('[name=list_ids]').value=[...q('[data-ce-catalog]').querySelectorAll('[data-ce-list]')].filter(x=>x.checked).map(x=>x.value).join(', ');keep();}));
   q('[data-ce-template]').addEventListener('change',e=>{if(localError||confirmation||remoteBusy||remote?.locked()){paintRemote();return;}q('[name=template_id]').value=e.target.value;keep();});
@@ -269,7 +272,7 @@ const GCE=(()=>{
   q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);renderCampaigns(campaigns);});});
   q('[data-ce-new]').addEventListener('click',()=>{
    if(!remote||remote.locked()||remoteBusy||confirmation||localError)return;const client=remote,brand=values().brand;
-   const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();q('[data-ce-catalog]').innerHTML='';for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;return {localOnly:true};},{confirmed});
+   const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();return {localOnly:true};},{confirmed});
    if(dirty)confirmAction('Guardar uma nova preparação local no lugar do conteúdo atual?','Preparar novo rascunho',work);else work(null);
   });
   q('[data-ce-consult]').addEventListener('click',()=>runRemote(()=>remote.consult(),{fillSaved:true,write:true,recoverLocal:true}));
