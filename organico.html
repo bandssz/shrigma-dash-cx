@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=89edab155430">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-J0+6RZEnJUfZeIEuOmNIU8qcKnYONtIEXr0BW3KeWaw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-wr7gJx/KfiHdNw2gPRVuR5KZ2Hg1J0fsiFsYQwCVbGk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -142,7 +142,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=2d6b4250444f"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=7f0bdf2c0188"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -590,17 +590,26 @@ async function carrega(){
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
   try{
     // Cache de 10 min primeiro, como CX e CRM; a API viva fica de reserva.
-    let r=null,payload=null,origem='';
+    // Cache velho (mais de 20 min) não vence a consulta ao vivo, mas fica guardado: se o ao vivo falhar,
+    // o painel mostra esse retrato e avisa que caiu para ele, em vez de ficar sem dado.
+    let r=null,payload=null,origem='',antigo=null;
+    const tenta=typeof PainelRede!=='undefined'?PainelRede.ler:fn=>fn();
     if(typeof CX_CACHE_URL==='string'&&CX_CACHE_URL){
       try{
-        const c=await fetch(CX_CACHE_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
-        r=c;
-        if(c.ok){const corpo=payloadOrganico(await c.json().catch(()=>null));if(cacheOrganicoValido(corpo)){payload=corpo;origem='cache';}}
+        await tenta(async()=>{
+          const c=await fetch(CX_CACHE_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
+          r=c;
+          if(c.status>=500){const e=new Error('cache_indisponivel');e.transitorio=true;throw e;}
+          if(c.ok){const corpo=payloadOrganico(await c.json().catch(()=>null));if(cacheOrganicoValido(corpo)){payload=corpo;origem='cache';}else if(payloadOrganicoValido(corpo))antigo=corpo;}
+        },{espera:[1500],parar:()=>controller.signal.aborted});
       }catch(e){if(controller.signal.aborted)throw e;payload=null;}
     }
     if(!payload&&!(r&&(r.status===401||r.status===403))){
-      r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
-      if(r.ok){const corpo=payloadOrganico(await r.json());if(payloadOrganicoValido(corpo)){payload=corpo;origem='vivo';}}
+      try{
+        r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
+        if(r.ok){const corpo=payloadOrganico(await r.json());if(payloadOrganicoValido(corpo)){payload=corpo;origem='vivo';}}
+      }catch(e){if(!antigo)throw e;}
+      if(!payload&&antigo&&!(r&&(r.status===401||r.status===403))){payload=antigo;origem='cache_antigo';}
     }
     if(r&&(r.status===401||r.status===403)){
       avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
@@ -609,14 +618,16 @@ async function carrega(){
     API=payload;
     {const barra=$('#organico-acesso-bar');if(barra)barra.hidden=true;} // com a chave aceita, o botão de entrar some (acesso único)
     try{COM=null;MIDIA=null;}catch(_){}  // índices por carga: comentários e prévias mudam a cada leitura
-    $('#aviso-carga').innerHTML='';
+    {const hora=d=>new Date(d).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+     $('#aviso-carga').innerHTML=origem==='cache_antigo'?`<p class="aviso-antigo"><span class="tag alerta" title="A consulta ao vivo não respondeu. O painel mostra o último retrato salvo, de ${esc(hora(API._cache_gerado_em))}. Os números não são de agora.">retrato de ${esc(hora(API._cache_gerado_em))} · ao vivo não respondeu</span> <button type="button" class="btn sec" id="btn-retry">Atualizar leitura</button></p>`:'';
+     const b=$('#btn-retry');if(b)b.onclick=()=>carrega();}
     if(window.avisoCredencial)window.avisoCredencial(API.crm_credencial||[]);
     render();
     const origemRot=$('#origem-leitura');
     if(origemRot){
      const hora=d=>new Date(d).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
-     origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':'Consulta ao vivo às '+hora(Date.now());
-     origemRot.title=ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
+     origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':ORIGEM_LEITURA==='cache_antigo'?'Dados de '+hora(API._cache_gerado_em)+' · retrato antigo':'Consulta ao vivo às '+hora(Date.now());
+     origemRot.title=ORIGEM_LEITURA==='cache_antigo'?'O cache estava velho e a consulta ao vivo não respondeu: esta tela mostra o último retrato salvo.':ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
     }
     // O payload do Orgânico não traz coletado_em por linha: a coleta é confirmada pelos carimbos que existem.
     {const maxT=l=>l.reduce((m,x)=>{const t=Date.parse(x||'');return Number.isFinite(t)&&(m===null||t>m)?t:m;},null),iso=t=>t===null?null:new Date(t).toISOString();

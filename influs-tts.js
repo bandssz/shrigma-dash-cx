@@ -571,18 +571,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     });
     const leitura = {cancel}; READ_TTS = leitura;
     try {
-      const consulta = (async () => {
+      // Se o servidor engasgar (rede ou 5xx), tenta de novo sozinha dentro do limite de 20 s.
+      const tenta = typeof PainelRede !== 'undefined' ? PainelRede.ler : fn => fn();
+      const consulta = tenta(async () => {
         let r;
         try { r = await fetch(TTS_API_URL, { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},
           body:JSON.stringify(periodo), signal:controller.signal, redirect:'error', credentials:'omit', cache:'no-store' }); }
-        catch (_) { throw new Error('Não foi possível consultar os afiliados agora.'); }
+        catch (e) { const erro = new Error('Não foi possível consultar os afiliados agora.'); if (e.name !== 'AbortError') erro.transitorio = true; throw erro; }
         if (r.status === 401 || r.status === 403) { const erro = new Error('Chave inválida ou sem acesso a esta consulta.'); erro.status = r.status; throw erro; }
-        if (!r.ok) throw new Error('Consulta indisponível (HTTP ' + r.status + ').');
+        if (!r.ok) { const erro = new Error('Consulta indisponível (HTTP ' + r.status + ').'); if (r.status >= 500 || r.status === 429) erro.transitorio = true; throw erro; }
         let novo; try { novo = await r.json(); } catch (_) { throw new Error('Resposta de consulta inválida. Tente atualizar novamente.'); }
         if (!novo || Array.isArray(novo) || !['kpis','amostras','fila'].every(c => Array.isArray(novo[c])) ||
             novo.janela?.ini !== periodo.ini || novo.janela?.fim !== periodo.fim) throw new Error('A resposta não confirmou os dados e o período solicitado.');
         return novo;
-      })();
+      }, { parar: () => controller.signal.aborted || !vigente() });
       const novo = await Promise.race([consulta, limite]);
       if (!vigente()) return;
       CACHE_TTS = {key:k,em:new Date().toISOString(),...periodo,payload:novo};

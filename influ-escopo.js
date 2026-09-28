@@ -14,15 +14,16 @@
  const igOk=h=>/^[a-z0-9._]{1,30}$/.test(String(h||''));
  function create({document,endpoint,key,getMarca,fetchImpl,uuid}){
   let dados=null,erro='',busy=false,host=null,mes=hojeSP().slice(0,7),aberto=null,aviso='';
+  const REDE=()=>root.PainelRede||{ler:fn=>fn(),mensagem:e=>e.message,transitorio:()=>false,marca:e=>e};
   const f=()=>fetchImpl||root.fetch.bind(root),novoId=()=>(uuid||(()=>root.crypto.randomUUID()))();
   async function call(acao,data){
    const k=key();if(!k)throw Error('Entre com a chave do painel.');
    const r=await f()(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acao,mes,data,k}),credentials:'omit',redirect:'error',cache:'no-store'});
-   let j;try{j=await r.json();}catch(_){throw Error('Resposta não confirmada. Recarregue antes de repetir.');}
-   if(!r.ok||!j||j.erro)throw Error(j?.erro||'Não foi possível concluir.');return j;
+   let j;try{j=await r.json();}catch(_){throw REDE().marca(Error('Resposta não confirmada. Recarregue antes de repetir.'),r.status);}
+   if(!r.ok||!j||j.erro)throw REDE().marca(Error(j?.erro||'Não foi possível concluir.'),r.ok?0:r.status);return j;
   }
-  async function carregar(){busy=true;erro='';paint();try{dados=await call('ler');}catch(e){erro=e.message;}finally{busy=false;paint();}}
-  async function escreve(acao,data){busy=true;aviso='Gravando…';paint();try{const j=await call(acao,data);aviso=j.mensagem||'Feito.';aberto=null;dados=await call('ler');}catch(e){aviso=e.message;}finally{busy=false;paint();}}
+  async function carregar(){busy=true;erro='';paint();try{dados=await REDE().ler(()=>call('ler'));}catch(e){erro=REDE().mensagem(e);}finally{busy=false;paint();}}
+  async function escreve(acao,data){busy=true;aviso='Gravando…';paint();try{const j=await call(acao,data);aviso=j.mensagem||'Feito.';aberto=null;dados=await call('ler');}catch(e){aviso=REDE().transitorio(e)?'Resposta não confirmada. Recarregue a lista antes de repetir.':e.message;}finally{busy=false;paint();}}
   // Ritmo do mês corrente: esperado até hoje = combinado × dias passados ÷ dias do mês.
   function ritmo(c){
    const e=c.escopo;if(!e)return null;const tot=TIPOS.reduce((t,[k])=>t+(+e[k==='story'?'stories':k]||0),0);if(!tot)return null;

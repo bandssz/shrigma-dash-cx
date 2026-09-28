@@ -18,21 +18,23 @@
  const uuid=()=>root.crypto&&root.crypto.randomUUID?root.crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g,()=>Math.floor(Math.random()*16).toString(16));
  function create({document,endpoint,key,getMarca,fetchImpl,aprovacaoEndpoint,chaveEscrita,piloto}){
   let dados=null,apr=null,erro='',busy=false,host=null,filtro='abertas',aberto=null,aviso=null;const imgs=new Map(),pedidos=new Map(),salvando=new Set();
+  const REDE=()=>root.PainelRede||{ler:fn=>fn(),mensagem:e=>e.message,transitorio:()=>false,marca:e=>e};
   const f=()=>fetchImpl||root.fetch.bind(root);
   const pil=()=>(piloto&&piloto())||{};
   async function post(url,corpo,k){
    if(!k)throw Error('Entre com a chave do painel.');
    const r=await f()(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...corpo,k}),credentials:'omit',redirect:'error',cache:'no-store'});
-   let j;try{j=await r.json();}catch(_){throw Error('Resposta não confirmada.');}
-   if(!r.ok||!j||j.erro){const e=Error(j?.erro||'Não foi possível carregar.');e.campo=j?.campo;throw e;}return j;
+   let j;try{j=await r.json();}catch(_){throw REDE().marca(Error('Resposta não confirmada.'),r.status);}
+   if(!r.ok||!j||j.erro){const e=REDE().marca(Error(j?.erro||'Não foi possível carregar.'),r.ok?0:r.status);e.campo=j?.campo;throw e;}return j;
   }
   const call=corpo=>post(endpoint(),corpo,key());
   const callApr=(corpo,escrita)=>post(aprovacaoEndpoint(),corpo,escrita?(chaveEscrita||key)():key());
   async function carregar(){if(busy)return;busy=true;erro='';paint();
-   try{const [c,a]=await Promise.all([call({acao:'ler'}),aprovacaoEndpoint?callApr({acao:'ler'}).catch(()=>null):null]);dados=c;apr=a;}catch(e){erro=e.message;}finally{busy=false;paint();}}
+   const ler=REDE().ler;
+   try{const [c,a]=await Promise.all([ler(()=>call({acao:'ler'})),aprovacaoEndpoint?ler(()=>callApr({acao:'ler'})).catch(()=>null):null]);dados=c;apr=a;}catch(e){erro=REDE().mensagem(e);}finally{busy=false;paint();}}
   async function prints(app){
    for(const p of app.prints){if(imgs.has(p.id))continue;imgs.set(p.id,'carregando');paint();
-    try{const j=await call({acao:'print',id:p.id});imgs.set(p.id,/^image\/(jpeg|png|webp)$/.test(j.mime)&&/^[A-Za-z0-9+/=]+$/.test(j.base64)?`data:${j.mime};base64,${j.base64}`:'erro');}catch(_){imgs.set(p.id,'erro');}
+    try{const j=await REDE().ler(()=>call({acao:'print',id:p.id}));imgs.set(p.id,/^image\/(jpeg|png|webp)$/.test(j.mime)&&/^[A-Za-z0-9+/=]+$/.test(j.base64)?`data:${j.mime};base64,${j.base64}`:'erro');}catch(_){imgs.set(p.id,'erro');}
     paint();}
   }
   // Estado mais novo que existir: o do cadastro do piloto (atualiza na hora depois de salvar) vence o da última leitura.
@@ -156,7 +158,7 @@
    try{const r=await callApr({acao:'aprovar',request_id:pd.id,data:{candidate_id:a.candidate_id,codigo:cod}},true);
     pedidos.delete(a.id);aberto=null;texto(a.id,r.mensagem||'Parceiro aprovado.',true);filtro='aprovados';
     await carregar();if(piloto&&pil().reload)pil().reload();
-   }catch(e){texto(a.id,e.message,false,e.campo);}
+   }catch(e){texto(a.id,REDE().transitorio(e)?'Resposta não confirmada. Clique em Aprovar de novo: o sistema confere o que já foi feito e não duplica.':e.message,false,e.campo);}
    finally{salvando.delete(a.id);paint();}
   }
   async function recusar(a){
@@ -172,12 +174,12 @@
    const inp=host.querySelector(`.pc-card[data-id="${CSS.escape(a.id)}"] input[name=rastreio]`);
    salvando.add(a.id);aviso=null;paint();
    try{await callApr({acao:'envio',data:{candidate_id:a.candidate_id,estado,rastreio:estado==='enviado'?(inp?.value||'').trim():''}},true);aberto=null;await carregar();}
-   catch(e){texto(a.id,e.message,false);}finally{salvando.delete(a.id);paint();}
+   catch(e){texto(a.id,REDE().transitorio(e)?'Resposta não confirmada. Recarregue a lista antes de repetir.':e.message,false);}finally{salvando.delete(a.id);paint();}
   }
   async function encerrar(a){
    salvando.add(a.id);aviso=null;paint();
    try{const r=await callApr({acao:'encerrar',data:{candidate_id:a.candidate_id}},true);aberto=null;texto(a.id,r.mensagem||'Parceria encerrada.',true);await carregar();if(piloto&&pil().reload)pil().reload();}
-   catch(e){texto(a.id,e.message,false);}finally{salvando.delete(a.id);paint();}
+   catch(e){texto(a.id,REDE().transitorio(e)?'Resposta não confirmada. Recarregue a lista antes de repetir.':e.message,false);}finally{salvando.delete(a.id);paint();}
   }
   function ligar(){
    host.querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{const acao=b.dataset.pc;

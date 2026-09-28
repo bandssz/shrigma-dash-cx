@@ -69,7 +69,8 @@ textarea{width:100%;resize:vertical;min-height:58px}
 .form .ajuda{font:400 11px/1.4 var(--ui);color:var(--mudo)}
 .btn{border:0;border-radius:8px;padding:9px 16px;font:600 13px/1 var(--ui);cursor:pointer;
   background:var(--texto);color:#fff}
-.btn.sec{background:var(--neutro-bg);color:var(--texto)}
+/* .sec também é a classe das abas (display:none quando inativa): o botão secundário precisa reafirmar o display. */
+.btn.sec{display:inline-block;background:var(--neutro-bg);color:var(--texto)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .veredito{padding:12px 14px;border-radius:9px;font:500 13px/1.5 var(--ui);margin-top:10px}
 .veredito.conclusivo{background:var(--bom-bg);color:var(--bom)}
@@ -166,8 +167,8 @@ body.sec-links #area-kpis{display:none}
 .ol-form .ol-largo{grid-column:1/-1}
 .ol-previa code{display:block;margin-top:4px;padding:8px 10px;border-radius:4px;background:#fff;border:1px dashed var(--borda-forte);font-size:12px;overflow-wrap:anywhere}
 .ol-sub{display:block;margin-top:2px}.ol-alerta{color:var(--ruim)}
-.ol-tabela code{font-size:12px}
-.ol-destino{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--mudo)}
+.ol-tabela code{font-size:12px;overflow-wrap:anywhere}
+.ol-destino{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--mudo)}
 .ol-tabela .nowrap{white-space:nowrap}
 @media(max-width:720px){.ol-form{grid-template-columns:1fr 1fr}.ol-form label:has(input[name=destino]),.ol-form label:has(input[name=observacao]){grid-column:1/-1}}
 .ol-quem{display:block;margin-bottom:4px}

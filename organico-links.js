@@ -28,14 +28,15 @@
  }
  function create({document,endpoint,key,getApi,getMarca,getPeriod,fetchImpl}){
   let links=null,erro='',msg='',busy=false,host=null;
+  const REDE=()=>root.PainelRede||{ler:fn=>fn(),mensagem:e=>e.message,transitorio:()=>false,marca:e=>e};
   const q=s=>host?.querySelector(s);
   async function call(body){
    const k=key();if(!k)throw Error('Entre com a chave do painel para usar os links.');
    const r=await (fetchImpl||fetch)(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,k}),credentials:'omit',redirect:'error',cache:'no-store'});
-   let j;try{j=await r.json();}catch(_){throw Error('Resposta não confirmada. Atualize a lista antes de tentar de novo.');}
-   if(!r.ok||!j||j.erro)throw Error(j?.erro||'Não foi possível concluir.');return j;
+   let j;try{j=await r.json();}catch(_){throw REDE().marca(Error('Resposta não confirmada. Atualize a lista antes de tentar de novo.'),r.status);}
+   if(!r.ok||!j||j.erro)throw REDE().marca(Error(j?.erro||'Não foi possível concluir.'),r.ok?0:r.status);return j;
   }
-  async function carregar(){if(busy)return;busy=true;erro='';paint();try{links=(await call({acao:'listar'})).links||[];}catch(e){erro=e.message;}finally{busy=false;paint();}}
+  async function carregar(){if(busy)return;busy=true;erro='';paint();try{links=(await REDE().ler(()=>call({acao:'listar'}))).links||[];}catch(e){erro=REDE().mensagem(e);}finally{busy=false;paint();}}
   function paint(){
    if(!host)return;const brand=getMarca(),per=getPeriod(),api=getApi(),hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
    const lista=(links||[]).filter(l=>brand==='todas'||l.marca===brand),marcaForm=brand==='todas'?'aristo':brand;
@@ -65,10 +66,10 @@
    f.onsubmit=async ev=>{ev.preventDefault();if(busy)return;const d=ler(),e=valida(d);if(e){msg=e;q('#ol-msg').textContent=e;return;}
     busy=true;msg='Salvando…';paint();
     try{const j=await call({acao:'salvar',data:{...d,id:(root.crypto?.randomUUID?.()||'')}});msg=j.repetido?'Esse link já existia; copiado.':'Salvo e copiado.';try{await navigator.clipboard.writeText(j.link.url);}catch(_){msg+=' (copie pelo botão da lista)';}
-     links=(await call({acao:'listar'})).links||links;}catch(err){msg=err.message;}finally{busy=false;paint();}};
+     links=(await call({acao:'listar'})).links||links;}catch(err){msg=REDE().transitorio(err)?'Resposta não confirmada. Atualize a lista antes de salvar de novo.':err.message;}finally{busy=false;paint();}};
    host.querySelectorAll('.ol-copiar').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.url);b.textContent='Copiado';}catch(_){b.textContent='Não copiou';}});
    host.querySelectorAll('.ol-arquivar').forEach(b=>b.onclick=async()=>{if(b.dataset.armado!=='1'){b.dataset.armado='1';b.textContent='Confirmar?';return;}b.disabled=true;
-    try{await call({acao:'arquivar',data:{id:b.dataset.id}});links=links.filter(l=>l.id!==b.dataset.id);msg='Link arquivado.';}catch(err){msg=err.message;}paint();});
+    try{await call({acao:'arquivar',data:{id:b.dataset.id}});links=links.filter(l=>l.id!==b.dataset.id);msg='Link arquivado.';}catch(err){msg=REDE().transitorio(err)?'Resposta não confirmada. Atualize a lista antes de repetir.':err.message;}paint();});
    q('#ol-recarregar')?.addEventListener('click',carregar);
   }
   return {mount(el){host=el;if(!links&&!busy)carregar();else paint();},paint,carregar,_links:()=>links};

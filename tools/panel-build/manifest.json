@@ -106,6 +106,7 @@
     "scripts": [
       "frescor.js",
       "config.js",
+      "painel-rede.js",
       "area-view.js",
       "alerta-credencial.js",
       "organico-access.js",
@@ -130,6 +131,7 @@
     "scripts": [
       "frescor.js",
       "config.js",
+      "painel-rede.js",
       "area-view.js",
       "influs-access.js",
       "creators-meta.js",
