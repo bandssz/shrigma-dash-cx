@@ -47,3 +47,5 @@ details.org-cobertura[open]>summary::before{transform:rotate(90deg)}
   body[data-panel=organico] #tab-posts td:last-child a{display:inline-block;min-height:32px;line-height:32px}
   body[data-panel=organico] .post-thumb{width:56px;height:56px}
 }
+/* Desktop: Post a post cabe sem rolagem lateral em 1366px */
+@media(min-width:721px){body[data-panel=organico] #tab-posts .post-cel{min-width:220px}body[data-panel=organico] #tab-posts .post-id{max-width:230px}}

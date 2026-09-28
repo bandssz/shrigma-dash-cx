@@ -765,7 +765,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   function renderColabs() {
     const m = marcaAtual(), tg = TTS.filtra(DADOS.target, m), op = TTS.filtra(DADOS.open, m);
     carregarProdutosTTS();
-    const st = s => s === 'ONGOING' ? '<span class="tag bom">em curso</span>' : s === 'EXPIRING' ? '<span class="tag alerta">expirando</span>' : `<span class="tag nulo">${esc(String(s || '').toLowerCase())}</span>`;
+    const ST_ROT = { COMPLETED: 'encerrada', ENDED: 'encerrada', EXPIRED: 'expirada', NOT_STARTED: 'agendada', UPCOMING: 'agendada', CANCELLED: 'cancelada', CANCELED: 'cancelada', DELETED: 'removida', PAUSED: 'pausada' };
+    const st = s => { const k = String(s || '').toUpperCase(); return k === 'ONGOING' ? '<span class="tag bom">em curso</span>' : k === 'EXPIRING' ? '<span class="tag alerta">expirando</span>' : `<span class="tag nulo" title="${esc(k)}">${esc(ST_ROT[k] || String(s || '—').toLowerCase())}</span>`; };
     const ps = s => s === 'LIVE' ? '<span class="tag bom">no ar</span>' : `<span class="tag alerta" title="${esc(s)}">${esc(s === 'OUT_OF_STOCK' ? 'sem estoque' : s === 'SELLER_DEACTIVATE' ? 'desativado' : s === 'PLATFORM_DEACTIVATE' ? 'desativado pela plataforma' : String(s || '').toLowerCase())}</span>`;
     let html = `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Target collabs <span class="mini">${tg.length}</span></h3><span class="mini" title="convidados → adicionaram à vitrine → postaram conteúdo. Taxa só com 10+ convidados">funil por campanha</span></div>`;
     html += tg.length ? `<div class="rolagem"><table class="comparativo"><thead><tr><th>Campanha</th><th>Marca</th><th>Status</th><th>Período</th><th class="num">Convidados</th><th class="num">Vitrine</th><th class="num">Conteúdo</th><th class="num" title="conteúdo ÷ convidados">Taxa</th><th class="num">Comissão</th><th>Produtos</th></tr></thead><tbody>
