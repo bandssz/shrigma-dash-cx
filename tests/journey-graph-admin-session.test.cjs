@@ -6,7 +6,9 @@ const SID='00000000-0000-4000-8000-000000000001',OTHER='00000000-0000-4000-8000-
 const columns=[...D.IDENTITY_COLUMNS],tick=()=>new Promise(r=>setImmediate(r));
 function fixture(options={}){
  const calls=[],records=new Map(),intervals=new Map(),timeouts=new Map();let sse,closed=false,sequence=2,timeout=0,appName='DbGate',pid=101,writes=0,statsPolls=0,intent=false,xid=1000,cancelledBodies=0;
- const timers={setTimeout(fn,ms){const timer=setTimeout(()=>{timeouts.delete(timer);fn();},ms===50?0:ms);if(ms>=5000)timer.unref();timeouts.set(timer,{fn,ms});return timer;},clearTimeout(timer){clearTimeout(timer);timeouts.delete(timer);},setInterval(fn,ms){const key={};intervals.set(key,{fn,ms});return key;},clearInterval(key){intervals.delete(key);}};
+ // Deadlines stay referenced exactly as in production. In Node 22, unref'ing the
+ // close deadline cancels the pending lost-SSE test when no other handles exist.
+ const timers={setTimeout(fn,ms){const timer=setTimeout(()=>{timeouts.delete(timer);fn();},ms===50?0:ms);timeouts.set(timer,{fn,ms});return timer;},clearTimeout(timer){clearTimeout(timer);timeouts.delete(timer);},setInterval(fn,ms){const key={};intervals.set(key,{fn,ms});return key;},clearInterval(key){intervals.delete(key);}};
  const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json'}});
  const emit=(name,data=null)=>{if(!closed)sse.enqueue(new TextEncoder().encode('event: '+name+'\ndata: '+JSON.stringify(data)+'\n\n'));};
  function result(rows,cols){const id='00000000-0000-4000-8000-'+String(sequence++).padStart(12,'0');records.set(id,{rows,columns:cols.map(columnName=>({columnName}))});emit('session-recordset-'+SID,{jslid:id,resultIndex:0});}
