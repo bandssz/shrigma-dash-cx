@@ -1,0 +1,88 @@
+name: CRM flow image registry (candidate OFF, no deployment)
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full main commit SHA; empty selects this workflow's main revision
+        required: false
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: crm-flow-image-registry
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main' && github.repository == 'bandssz/shrigma-dash-cx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Check offline image and publication guards
+        run: python3 -m unittest discover -s tools/crm-flow-image -p 'test_*.py'
+      - name: Select an exact source revision
+        id: source
+        env:
+          REQUESTED_SHA: ${{ inputs.source_sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          sha=os.environ['REQUESTED_SHA'] or os.environ['WORKFLOW_SHA']
+          if not re.fullmatch(r'[a-f0-9]{40}',sha): raise SystemExit('CRM_IMAGE_SOURCE_SHA')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('sha='+sha+'\n')
+          PY
+      - name: Install OCI copier in the disposable build runner
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Build clean main source, require dedicated role and prove the exact image OFF
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: python3 tools/crm-flow-image/image.py --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/crm-flow-image"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-flows-oci-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-flow-image/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'bandssz/shrigma-dash-cx'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install registry copier in the disposable publication runner
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Download only this run's verified artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "crm-flows-oci-$GITHUB_RUN_ID" --dir "$RUNNER_TEMP/crm-flow-image"
+      - name: Publish verified bytes once and reconcile tag and digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        run: python3 tools/crm-flow-image/publish.py --source-sha "$SOURCE_SHA" --artifact-dir "$RUNNER_TEMP/crm-flow-image" --receipt "$RUNNER_TEMP/crm-flow-registry-receipt.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-flows-registry-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-flow-registry-receipt.json
+          if-no-files-found: error
+          retention-days: 30

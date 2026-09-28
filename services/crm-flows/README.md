@@ -25,6 +25,24 @@ Plano de instalação: um novo app interno `comunicacao/crm-flows`, uma réplica
 
 Ainda faltam instalador composto dos schemas/grants, confirmação da instância/cache, ponte autenticada n8n para os coletores, admissão controlada e publicação/ativação pelo painel. `healthz=200` não elimina essas etapas. Não anunciar ativação no helper de capabilities antes do aceite real.
 
+## Imagem candidata OFF no registro
+
+O workflow manual `crm-flow-image-publish.yml` prepara `ghcr.io/bandssz/shrigma-crm-flows`. Este código não comprova imagem publicada e não cria serviço. Executar somente depois do merge e dos checks da revisão escolhida:
+
+```sh
+gh workflow run crm-flow-image-publish.yml --repo bandssz/shrigma-dash-cx --ref main -f source_sha="<SHA completo revisado da main>"
+```
+
+O SHA precisa ter 40 caracteres hexadecimais e pertencer à história de `origin/main`; vazio seleciona a revisão da main que iniciou o workflow. Um probe independente exige a configuração e a autorização efetiva fixadas em `crm_graph_worker`, recusando revisões anteriores a essa guarda. Isso não concede LOGIN: o papel continua indisponível para conexão até a transição operacional autorizada.
+
+O primeiro job copia somente fontes permitidas do Git para um contexto limpo, confere os hashes do Dockerfile/package/lock existentes, roda testes, constrói Linux/amd64 e testa o boot OFF sem rede. Não recebe credenciais de produção ou token do registro. O OCI acompanha revisão, hashes do arquivo/manifest/config e identificação do run. Antes do teste, o digest da configuração OCI precisa ser o mesmo da imagem Docker que será iniciada; o teste usa apenas configuração sintética.
+
+Somente o job seguinte recebe `packages: write`. Ele verifica novamente o artefato daquele mesmo run e copia seus bytes com preservação do digest, sem reconstrução ou execução do artefato. A tag é `sha-<SHA completo>`: digest já igual é conciliado, diferente é recusado. Não existe tag operacional `latest`. Resposta incerta gera somente readback; não há segundo push automático. Negação de acesso ou timeout não são tratados como ausência de pacote.
+
+O recibo `crm-flows-registry-receipt-<run>` registra `REGISTRY_VERIFIED_NOT_DEPLOYED`, revisão e referência `ghcr.io/bandssz/shrigma-crm-flows@sha256:…`; a futura instalação deve usar essa referência por digest. Publicação autenticada não comprova pull público, serviço instalado, cache nativo, execução ou entrega. Nenhuma ativação decorre deste workflow.
+
+Verificação local sem Docker, registro ou produção: `python3 -m unittest discover -s tools/crm-flow-image -p 'test_*.py'`. A CI existente `Private CRM flow service` também executa essas guardas e mantém sua prova de Docker OFF.
+
 ## Provas e retorno
 
 CI usa PostgreSQL isolado, HTTP sintético e imagem sem rede externa para provar boot OFF, fronteira, execução única entre dois workers e recuperação. Fonte Node22 fixada por digest oficial; dependência `pg` com lockfile. Nenhum teste cria assinante ou envia e-mail real.

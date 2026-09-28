@@ -7,6 +7,8 @@ on:
       - 'growth-email-contract.js'
       - 'growth-email-expressions.js'
       - 'tests/journey-graph-service.test.cjs'
+      - 'tools/crm-flow-image/**'
+      - '.github/workflows/crm-flow-image-publish.yml'
       - '.github/workflows/crm-flow-service.yml'
   workflow_dispatch:
 permissions:
@@ -24,6 +26,8 @@ jobs:
           node-version: '22'
       - name: Boundary and token tests with synthetic loopback HTTP
         run: node --test tests/journey-graph-service.test.cjs
+      - name: Offline image and registry guards
+        run: python3 -m unittest discover -s tools/crm-flow-image -p 'test_*.py'
       - name: Build pinned production image without credentials
         run: docker build --file services/crm-flows/Dockerfile --tag crm-flows-synthetic .
       - name: Boot disabled image with synthetic configuration and no external network
