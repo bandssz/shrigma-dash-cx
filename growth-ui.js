@@ -328,7 +328,7 @@ const GUI = {
     {chave:'enviados',rotulo:'Disparos'},{chave:'entregues',rotulo:'Entregues'},{chave:'falhas',rotulo:'Falhas'},{chave:'lidos',rotulo:'Lidos'},
     {chave:'pendentes_entrega',rotulo:'Aguardando confirmação'},{chave:'sem_disparo_confirmado',rotulo:'Sem disparo confirmado'},{chave:'erros_sincronos',rotulo:'Erros antes do aceite'},
     {chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},{chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},
-    {chave:'atribuicao_ambigua',rotulo:'Atribuição ambígua',pega:r=>!!r.atribuicao_ambigua},{chave:'ultimo_registro_em',rotulo:'Último registro'},{chave:'ultimo_status_em',rotulo:'Último status'},
+    {chave:'atribuicao_ambigua',rotulo:'Atribuição ambígua',pega:r=>!!r.atribuicao_ambigua},{chave:'atribuicao_sem_vinculo',rotulo:'Conversão sem vínculo confirmado',pega:r=>!!r.atribuicao_sem_vinculo},{chave:'ultimo_registro_em',rotulo:'Último registro'},{chave:'ultimo_status_em',rotulo:'Último status'},
   ],
   flows(ctx={}) {
     const {G,GD,marca='todas',ini='',fim='',canal='todos'}=ctx;
@@ -372,10 +372,11 @@ const GUI = {
               Sem disparo confirmado: ${GUI.nf(row.sem_disparo_confirmado)} · Erros antes do aceite: ${GUI.nf(row.erros_sincronos)}</div></details>`
           : '<div class="flow-extra">Confira entregas e falhas no quadro “E-mail · entregas confirmadas”, com cobertura parcial.</div>';
         const ambiguous=row.atribuicao_ambigua?'<span class="tag nulo" title="Mais de um fluxo usa esta peça: pedidos e receita existem, mas não têm dono. Aparece em branco, não como zero.">indivisível</span>':'';
+        const unmapped=row.atribuicao_sem_vinculo?'<span class="tag nulo" title="O envio está registrado, mas a fonte não confirmou o vínculo desta automação com a conversão. Não significa zero vendas.">Sem vínculo</span>':'';
         return `<tr><td><div class="flow-name">${GUI.esc(row.piece || 'Sem peça')}</div><div class="flow-sub">${GUI.esc(row.flow || 'Sem fluxo')}</div>${details}</td>
           <td><span class="tag growth-table-tag ${brandClass}">${GUI.esc(brand)}</span><span class="tag ${channel}">${channel==='whatsapp'?'WhatsApp':'E-mail'}</span></td>
           <td class="num tabn">${GUI.nf(row.enviados)}</td><td class="num tabn">${GUI.nf(channel==='whatsapp'?row.entregues:null)}</td>
-          <td class="num tabn${channel==='whatsapp'&&+row.falhas>0?' vm':''}">${GUI.nf(channel==='whatsapp'?row.falhas:null)}</td><td class="num tabn">${ambiguous||GUI.nf(row.pedidos)}</td>
+          <td class="num tabn${channel==='whatsapp'&&+row.falhas>0?' vm':''}">${GUI.nf(channel==='whatsapp'?row.falhas:null)}</td><td class="num tabn">${ambiguous||unmapped||GUI.nf(row.pedidos)}</td>
           <td class="num tabn destaque">${ambiguous?'':GUI.rf(row.receita)}</td></tr>`;
       }).join(''):`<tr><td colspan="7"><div class="vazio">${empty}${clear}</div></td></tr>`);
       if(kept&&typeof GT!=='undefined')GT.restaura(GUI.el('#tab-regua tbody'),kept);
