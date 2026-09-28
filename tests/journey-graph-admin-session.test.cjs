@@ -21,7 +21,7 @@ function fixture(options={}){
   assert.equal(request.headers.authorization,'Bearer synthetic.payload.signature');
   if(u.pathname==='/connections/list')return json([{_id:'EASYPANEL',server:'comunicacao_postgres',user:'postgres',engine:'postgres@dbgate-plugin-postgres',useDatabaseUrl:false,...options.connection}]);
   if(u.pathname==='/stream')return new Response(new ReadableStream({start(c){sse=c;},cancel(){closed=true;}}),{headers:{'content-type':'text/event-stream'}});
-  if(u.pathname==='/sessions/create'){assert.deepEqual(body,{conid:'EASYPANEL',database:'listmonk'});return json({conid:'EASYPANEL',database:'listmonk',sesid:SID});}
+  if(u.pathname==='/sessions/create'){if(options.loseCreateAck)throw Error('secret create response');assert.deepEqual(body,{conid:'EASYPANEL',database:'listmonk'});return json({conid:'EASYPANEL',database:'listmonk',sesid:SID});}
   if(u.pathname==='/sessions/ping'){assert.equal(body.sesid,SID);return json(options.pingFailure?{status:'error'}:{state:'ok'});}
   if(u.pathname==='/sessions/execute-query'){
    assert.equal(body.sesid,SID);const sql=body.sql;
@@ -50,7 +50,7 @@ function fixture(options={}){
  };
  const client=D.createDbGateSession({origin:'https://dbgate.example.test',accessToken:'syntheticEasypanelToken',connection:{id:'EASYPANEL',server:'comunicacao_postgres'},reads:[{sql:READ,columns:['count'],maxRows:1}],fetch,timers,
   authorizeWrite:async request=>{assert.equal(request.sql,WRITE);assert.equal(request.sha256,crypto.createHash('sha256').update(WRITE).digest('hex'));assert.equal(request.session.pid,pid);if(options.authorizeThrow)throw Error('secret callback');intent=true;return options.authorized!==false;}});
- return {client,calls,intervals,timeouts,writeCount:()=>writes,hasIntent:()=>intent,statsPolls:()=>statsPolls,cancelledBodies:()=>cancelledBodies,setPid:value=>{pid=value;},emit,
+ return {client,calls,intervals,timeouts,writeCount:()=>writes,hasIntent:()=>intent,streamClosed:()=>closed,statsPolls:()=>statsPolls,cancelledBodies:()=>cancelledBodies,setPid:value=>{pid=value;},emit,
   async dispose(){try{await client.close();}catch{}for(const timer of timeouts.keys())timers.clearTimeout(timer);},
   fireDeadline(){for(const [timer,item] of timeouts)if(item.ms===35000){timers.clearTimeout(timer);item.fn();}}
  };
@@ -109,4 +109,12 @@ test('full response-body deadlines abort both authentication and an execution ac
 test('bootstrap accepts absolute same-origin root only, without following redirects',async()=>{
  const f=fixture({redirect:'https://dbgate.example.test/'});try{await f.client.open();assert.equal(f.calls.filter(c=>c.url.pathname==='/').length,1);}finally{await f.dispose();}
  for(const redirect of ['https://other.example.test/','https://user@dbgate.example.test/','http://dbgate.example.test/','https://dbgate.example.test/?token=private','https://dbgate.example.test/#private','https://dbgate.example.test/other']){const f=fixture({redirect});try{await assert.rejects(f.client.open(),/AUTH_REDIRECT/);assert.equal(f.calls.length,1);}finally{await f.dispose();}}
+});
+
+test('result collection is included in the execution deadline, even after done',async()=>{
+ const options={},f=fixture(options);try{await f.client.open();options.hangBody='/jsldata/get-rows';const read=f.client.sql(READ);await tick();f.fireDeadline();await assert.rejects(read,/SESSION_UNKNOWN|TRANSPORT_UNKNOWN/);await assert.rejects(f.client.sql(READ),/NOT_OPEN/);}finally{await f.dispose();}
+});
+
+test('uncertain session creation cancels local SSE without guessing a session to kill',async()=>{
+ const f=fixture({loseCreateAck:true});try{await assert.rejects(f.client.open(),/TRANSPORT_UNKNOWN/);await assert.rejects(f.client.close(),/NO_OWN_SESSION/);assert.equal(f.streamClosed(),true);assert.equal(f.calls.some(c=>c.url.pathname==='/sessions/kill'),false);assert.equal(f.writeCount(),0);}finally{await f.dispose();}
 });

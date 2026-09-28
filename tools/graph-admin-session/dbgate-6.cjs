@@ -72,8 +72,9 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
  async function execute(sql,spec){
   check(sid&&!poisoned&&!pending,'SESSION_UNKNOWN');
   let resolve,reject;const completion=new Promise((a,b)=>{resolve=a;reject=b;});completion.catch(()=>{});
-  pending={resolve,reject,error:false,records:[]};const timeout=timers.setTimeout(()=>poison(),35000);
-  try{
+  pending={resolve,reject,error:false,records:[]};let rejectDeadline;const deadline=new Promise((resolve,reject)=>{rejectDeadline=reject;});deadline.catch(()=>{});
+  const timeout=timers.setTimeout(()=>{poison();rejectDeadline(Error('GRAPH_ADMIN_SESSION_UNKNOWN'));},35000);
+  const operation=(async()=>{
    const ack=await post('/sessions/execute-query',{sesid:sid,sql});check(ack?.state==='ok','EXECUTE_ACK_UNKNOWN');const done=await completion;
    check(!done.error,'SQL_REJECTED');
    if(!spec){check(done.records.length===0,'UNEXPECTED_RECORDSET');return [];}
@@ -81,8 +82,9 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
    for(let attempt=0;attempt<10;attempt++){stats=await post('/jsldata/get-stats',{jslid});if(stats.isFinished===true)break;await new Promise(r=>timers.setTimeout(r,50));}
    check(stats.isFinished===true&&Number.isSafeInteger(stats.rowCount)&&stats.rowCount>=0&&stats.rowCount<=spec.maxRows,'RESULT_NOT_FINISHED_OR_LIMIT');
    const header=await post('/jsldata/get-info',{jslid});check(Array.isArray(header.columns)&&JSON.stringify(header.columns.map(c=>c.columnName).sort())===JSON.stringify([...spec.columns].sort()),'RESULT_COLUMNS');
-   const rows=await post('/jsldata/get-rows',{jslid,offset:0,limit:spec.maxRows+1});check(Array.isArray(rows)&&rows.length===stats.rowCount&&rows.every(row=>object(row)&&JSON.stringify(Object.keys(row).sort())===JSON.stringify([...spec.columns].sort())),'RESULT_ROWS');return rows;
-  }catch(error){if(error.message!=='GRAPH_ADMIN_SQL_REJECTED')poison();throw error;}finally{timers.clearTimeout(timeout);pending=null;}
+   const rows=await post('/jsldata/get-rows',{jslid,offset:0,limit:spec.maxRows+1});check(Array.isArray(rows)&&rows.length===stats.rowCount&&rows.every(row=>object(row)&&JSON.stringify(Object.keys(row).sort())===JSON.stringify([...spec.columns].sort())),'RESULT_ROWS');check(!poisoned,'SESSION_UNKNOWN');return rows;
+  })();
+  try{return await Promise.race([operation,deadline]);}catch(error){if(error.message!=='GRAPH_ADMIN_SQL_REJECTED')poison();throw error;}finally{timers.clearTimeout(timeout);pending=null;}
  }
  async function identity(requireTimeout=true){
   let previous=null,proof;
@@ -116,9 +118,9 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
    return execute(sql,null);
   }),
   close:()=>exclusive(async()=>{
-   check(sid&&state!=='closed','NO_OWN_SESSION');state='closing';if(pingTimer)timers.clearInterval(pingTimer);
+   check(state!=='closed','NO_OWN_SESSION');state='closing';if(pingTimer)timers.clearInterval(pingTimer);
    let timeout;const closed=new Promise((resolve,reject)=>{closeWait=resolve;timeout=timers.setTimeout(()=>reject(Error('GRAPH_ADMIN_CLOSE_UNKNOWN')),5000);});closed.catch(()=>{});
-   try{if(!ownedClosed){const ack=await post('/sessions/kill',{sesid:sid});check(ack?.state==='ok','CLOSE_UNKNOWN');await closed;}return {closed:true};}
+   try{check(sid,'NO_OWN_SESSION');if(!ownedClosed){const ack=await post('/sessions/kill',{sesid:sid});check(ack?.state==='ok','CLOSE_UNKNOWN');await closed;}return {closed:true};}
    finally{state='closed';timers.clearTimeout(timeout);closeWait=null;await streamReader?.cancel().catch(()=>{});streamController?.abort();cookie=null;bearer=null;}
   })
  });
