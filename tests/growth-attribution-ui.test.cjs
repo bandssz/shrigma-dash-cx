@@ -63,13 +63,13 @@ test('missing campaign history UTMs remain explicitly unavailable instead of ass
  for(const utms of [null,[]]){const api=fixture();api.crm_attribution.campaigns[0].utms=utms;const x=boot(api),el=x.q('.ga-campaign .crm-utm');assert.ok(el);assert.match(el.textContent,/UTMs não disponíveis nesta consulta/);assert.doesNotMatch(el.textContent,/listmonk|utm_source=listmonk/);}
 });
 
-test('campaign tracking presentation leaves other brands outside this Growth change',()=>{
- const api=fixture();api.crm_attribution.coverage[0].brand='olivas';Object.assign(api.crm_attribution.campaigns[0],{marca:'olivas',emissor:'olivas',utms:[{source:'other',campaign:'existing'}]});const x=boot(api,{brand:'olivas'});assert.ok(x.q('.ga-campaign'));assert.equal(x.q('.ga-campaign .crm-utm'),null);
+test('Olivas campaign history displays its recorded UTMs with safe rendering',()=>{
+ const api=fixture();api.crm_attribution.coverage[0].brand='olivas';Object.assign(api.crm_attribution.campaigns[0],{marca:'olivas',emissor:'olivas',utms:[{source:'olivas-recorded',medium:'campanha',campaign:'olivas-existing',content:'<img src=x onerror=fixture>',term:'dispatch-olivas'}]});const x=boot(api,{brand:'olivas'}),panel=x.q('.ga-campaign .crm-utm');assert.ok(panel);for(const value of ['olivas-recorded','olivas-existing','<img src=x onerror=fixture>','dispatch-olivas'])assert.ok(panel.textContent.includes(value),value);assert.equal(panel.querySelector('img'),null);
 });
-test('CRM managers retain campaign history patterns and the honest source-variable limit in both brands',()=>{
+test('CRM managers retain campaign history patterns and the honest source-variable limit in every supported brand',()=>{
  const page=parseHTML(fs.readFileSync(path.join(__dirname,'../growth.html'),'utf8')).document;
  assert.equal(page.querySelector('#attribution-campaigns').closest('[data-crm-owner-only]'),null);
- for(const brand of ['fish','aristo']){
+ for(const brand of ['fish','aristo','olivas']){
   const api=fixture(),campaign=api.crm_attribution.campaigns[0];api.crm_attribution.coverage[0].brand=brand;
   Object.assign(campaign,{marca:brand,emissor:brand,utms:[{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'hero'},{source:brand+'-registered',medium:'campanha',campaign:brand+'-launch',content:'footer'}]});
   const before=JSON.stringify(api.crm_attribution),x=boot(api,{brand});x.document.body.dataset.crmView='manager';

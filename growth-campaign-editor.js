@@ -102,6 +102,7 @@ const GCE=(()=>{
  }
  const keyValue=slot=>{try{return localStorage.getItem(slot)||'';}catch{return '';}};
  const validWriteKey=v=>typeof v==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(v.trim());
+ const operatorWriteKey=()=>legacyWrite&&typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'';
  const currentWriteKey=()=>{const k=sessionWrite||(legacyWrite?((typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'')||(typeof GTA!=='undefined'?keyValue(GTA.CHAVE_ESCRITA):'')):'');return validWriteKey(k)?k.trim():'';};
  const currentReadKey=()=>typeof GTA!=='undefined'&&typeof GTA.chaveLeitura==='function'?GTA.chaveLeitura():typeof shrigmaChave==='function'?shrigmaChave('growth'):typeof GTA!=='undefined'?keyValue(GTA.CHAVE_LEITURA):'';
  function catalogContext(){return {client:remote,brand:contextBrand,epoch:contextEpoch,endpoint:remoteCaps?.endpoint,reader:currentReadKey(),writer:currentWriteKey()};}
@@ -210,7 +211,7 @@ const GCE=(()=>{
   for(const el of q('[data-ce-catalog]').querySelectorAll('input,select'))el.disabled=frozen||!!localError;
   const selected=new Set(split(values().list_ids));for(const el of q('[data-ce-catalog]').querySelectorAll('[data-ce-list]'))el.checked=selected.has(el.value);
   if(q('[data-ce-template]'))q('[data-ce-template]').value=values().template_id;
-  q('[data-ce-key-state]').textContent=sessionWrite?'Acesso de edição disponível nesta página.':currentWriteKey()?'Acesso legado disponível neste navegador.':'Informe a chave para salvar, validar, agendar ou cancelar.';
+  q('[data-ce-key-state]').textContent=sessionWrite?'Acesso de edição disponível nesta página.':currentWriteKey()?(operatorWriteKey()?'Acesso de edição do CRM disponível.':'Acesso legado disponível neste navegador.'):'Informe a chave para salvar, validar, agendar ou cancelar.';
   q('[data-ce-access-open]').disabled=remoteBusy||!!confirmation;q('[data-ce-access-fields]').disabled=remoteBusy||accessImporting||!!confirmation;q('[data-ce-access-cancel]').disabled=!!confirmation;
   if(!exists){if(audienceTimer!==null){clearTimeout(audienceTimer);audienceTimer=null;}q('[data-ce-audience]').textContent='';return;}
   let d=null;try{d=definition(values());}catch{}

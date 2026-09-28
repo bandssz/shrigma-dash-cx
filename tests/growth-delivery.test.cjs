@@ -44,6 +44,20 @@ test('fonte de conversão ausente permanece desconhecida nas linhas de automaç�
  const p=base();delete p.crm_conversao;
  assert(GD.flows(G,p,'fish',day,day).every(r=>r.receita===null&&r.pedidos===null));
 });
+test('WhatsApp presente só na fonte de entregas não inventa vendas nem taxa zero em nenhuma marca',()=>{
+ for(const marca of ['olivas','fish','aristo']){
+  const p=base();p.crm_fluxo=[];p.crm_wa_envios=[{...p.crm_wa_envios[0],marca}];
+  const [r]=GD.flows(G,p,marca,day,day,'whatsapp');
+  assert.equal(r.enviados,20);assert.equal(r.entregues,18);assert.equal(r.atribuicao_sem_vinculo,true);
+  for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(r[field],null,field);
+ }
+});
+test('zero confirmado na fonte existente continua zero; conversão desconhecida mantém taxa desconhecida',()=>{
+ const p=base();p.crm_fluxo[0].pedidos_ultimo=0;p.crm_fluxo[0].receita_ultimo=0;
+ const [known]=GD.flows(G,p,'fish',day,day,'whatsapp');assert.equal(known.pedidos,0);assert.equal(known.porMil,0);assert.equal(known.atribuicao_sem_vinculo,undefined);
+ const unknown={...G,regua:()=>[{...known,pedidos:null,receita:null}]};
+ assert.equal(GD.flows(unknown,p,'fish',day,day,'whatsapp')[0].porMil,null);
+});
 test('acompanhamento agrupa apenas ocorrências operacionais e respeita marca, canal e período',()=>{
  const p=base();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);
  p.crm_wa_envios.push({...p.crm_wa_envios[0],marca:'aristo',flow:'transacional',piece:'pedido-pago',

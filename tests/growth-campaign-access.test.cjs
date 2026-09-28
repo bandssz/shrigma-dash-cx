@@ -53,7 +53,7 @@ test('wrong-role and cancelled async imports cannot authenticate or replay an ac
 test('legacy means the existing writer slot only; refresh keeps session and does not promote read credentials or replay',async()=>{
  const x=boot({legacyWrite:'legacy-template-writer'});x.prepare();assert.equal(x.store.get('write'),'legacy-template-writer');x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-open]'));assert.equal(posts(x).length,0);
  x.q('[data-ce-save]').click();await until(()=>posts(x).length===1);assert.equal(posts(x)[0].req.k,'synthetic-campaign-writer');assert.equal(x.store.get('read'),'synthetic-reader');assert.ok(!x.writes.includes('write')&&!x.writes.includes('read'));
- const legacy=boot({legacyWrite:'existing-writer'});legacy.q('[data-ce-save]').click();await until(()=>posts(legacy).length===1);assert.equal(posts(legacy)[0].req.k,'existing-writer');
+ const legacy=boot({legacyWrite:'existing-writer'});assert.equal(legacy.q('[data-ce-key-state]').textContent,'Acesso legado disponível neste navegador.');legacy.q('[data-ce-save]').click();await until(()=>posts(legacy).length===1);assert.equal(posts(legacy)[0].req.k,'existing-writer');
 });
 test('catalog-to-save window cannot replace author in the middle of an operation',async()=>{
  let done;const x=boot({beforeCatalog:()=>new Promise(r=>done=r)});x.prepare('original-writer');x.q('[data-ce-save]').click();await until(()=>!!done);assert.equal(x.q('[data-ce-access-open]').disabled,true);assert.equal(x.q('[data-ce-access-fields]').disabled,true);
@@ -147,5 +147,13 @@ test('the real styles keep the open dialog and both controls visible with bound 
 
 test('authenticated CRM operator uses its area session only after an explicit Save, retaining the journal guard',async()=>{
  const x=boot({operatorWrite:'synthetic-area-operator'});assert.equal(x.calls.length,0);assert.equal(x.q('[data-ce-access-form]').hidden,true);
+ assert.equal(x.q('[data-ce-key-state]').textContent,'Acesso de edição do CRM disponível.');
  x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);assert.equal(posts(x).length,1);assert.equal(posts(x)[0].req.k,'synthetic-area-operator');assert.equal(x.store.has('write'),false);assert.ok(![...x.store.values()].join('').includes('synthetic-area-operator'));
+});
+
+test('invalid CRM operator session cannot fall back to a saved legacy writer',async()=>{
+ const x=boot({operatorWrite:'invalid operator key',legacyWrite:'existing-writer'});
+ assert.equal(x.q('[data-ce-key-state]').textContent,'Informe a chave para salvar, validar, agendar ou cancelar.');
+ x.q('[data-ce-save]').click();await new Promise(setImmediate);
+ assert.equal(x.calls.length,0);assert.equal(x.q('[data-ce-access-form]').hidden,false);assert.equal(x.store.get('write'),'existing-writer');
 });

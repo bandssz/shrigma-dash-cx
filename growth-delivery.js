@@ -72,7 +72,7 @@ const GD = {
       const k = key({...r,canal:'whatsapp'});
       if (!map.has(k)) map.set(k,{marca:r.marca,canal:'whatsapp',flow:r.flow,piece:r.piece,
         enviados:0,entregues:0,falhas:0,lidos:0,pendentes_entrega:0,sem_disparo_confirmado:0,erros_sincronos:0,
-        pedidos:0,receita:0,assist:0,receita_assist:0});
+        pedidos:null,receita:null,assist:null,receita_assist:null,atribuicao_sem_vinculo:true});
       const row = map.get(k);
       for (const field of ['aceitos','entregues','falhas','lidos','pendentes_entrega','sem_disparo_confirmado','erros_sincronos']) {
         const dest = field === 'aceitos' ? 'enviados' : field;
@@ -93,7 +93,7 @@ const GD = {
     }
     if(!Array.isArray(api.crm_conversao))for(const r of map.values()){r.pedidos=null;r.receita=null;r.assist=null;r.receita_assist=null;}
     return [...map.values()].map(r => ({...r,
-      porMil:r.enviados ? 1000*r.pedidos/r.enviados : null}))
+      porMil:r.enviados && r.pedidos !== null && r.pedidos !== undefined ? 1000*r.pedidos/r.enviados : null}))
       .sort((a,b) => b.receita-a.receita || (+b.enviados||0)-(+a.enviados||0)
         || a.piece.localeCompare(b.piece));
   },
