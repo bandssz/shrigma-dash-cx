@@ -126,3 +126,4 @@ span.pc-foto{cursor:default}
  .pc-acoes{flex-wrap:wrap}
  .pc-gaveta{padding:12px}.pc-campo,.pc-campo input{width:100%}.pc-gaveta-acoes{width:100%;margin-left:0}.pc-gaveta-acoes .btn{flex:1 1 0;justify-content:center}
 }
+.cp-ressalvas,.i-ressalvas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}.cp-ressalvas .tag,.i-ressalvas .tag,h3 .tag[title]{cursor:help;font-weight:500}

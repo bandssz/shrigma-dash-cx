@@ -155,7 +155,9 @@ body[data-panel=influs] .tts-abas{gap:22px}
 .tts-chips{display:flex;gap:4px;flex-wrap:wrap}
 .tts-thumb{flex:none;width:56px;height:56px;border-radius:6px;object-fit:cover;background:var(--marca-fraca,#f8f9fa);border:1px solid var(--borda)}
 .tts-thumb-vazia{display:grid;place-items:center;font:700 13px/1 var(--ui);color:var(--mudo)}
-.tts-prod-col{min-width:240px}
+.tts-prod-col{min-width:220px;max-width:360px;white-space:normal}
+.tts-prod-col .tts-produto-txt{min-width:0;overflow-wrap:anywhere}
+.tts-prod-col .tts-chips{flex-wrap:wrap}
 .tts-mini-thumbs{display:flex;gap:4px;margin-bottom:2px}
 .tts-mini-thumbs .tts-thumb{width:32px;height:32px;border-radius:4px;font-size:10px}
 @media(min-width:900px){

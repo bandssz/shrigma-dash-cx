@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=24e87c8d9000">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ta3nzi2K9ePPTxqkSMylUwyUT10K2bIM5xhhf4TIs1w='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=5e32bcadef98">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-D83vy41v2J0+9a6tanNfbGUVTXCeJnHAvPne0vZh7Qc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -244,7 +244,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=490680cac924"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=0b45bb3c25da"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -847,7 +847,7 @@ function renderTabela(){
         <div class="mini">${det}</div></td></tr>`;}).join('');
 
   const avisoOculto = ocultos
-    ? `<div class="nota">${nf(ocultos)} cupom(ns) sem venda nesta janela${custoOculto>0?`, custando <strong>${rf(custoOculto)}</strong>,`:''} escondido(s) da tabela. <strong>O custo continua contando nos KPIs acima.</strong> Para ver, troque o filtro para “Inclui quem não vendeu”.</div>`
+    ? `<div class="i-ressalvas"><span class="tag alerta" title="Cupons sem venda nesta janela ficam fora da tabela, mas o custo deles continua nos KPIs acima. Para ver, troque o filtro para “Inclui quem não vendeu”.">${nf(ocultos)} sem venda escondidos${custoOculto>0?` · custo ${rf(custoOculto)}`:''}</span></div>`
     : '';
   $('#area-tabela').innerHTML=avisoOculto+`<div class="rolagem"><table class="comparativo"><thead><tr>
     <th>Cupom</th><th>Creator</th><th class="num">Pedidos</th><th class="num">Receita</th>
@@ -1223,7 +1223,7 @@ if(AREA_VIEW)window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolv
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 // Tabelas viram cartões no celular; aba centralizada. Sem limitar linhas: algumas tabelas daqui têm linha de total.
-if(typeof PainelTabelas!=='undefined')PainelTabelas.bind({document,root:document.querySelector('main'),tabs:'#secoes button',limitar:false});
+if(typeof PainelTabelas!=='undefined')PainelTabelas.bind({document,root:document.querySelector('main'),tabs:'#secoes button'});
 carregarAbaAtiva();
 </script>
 </body>
