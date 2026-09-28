@@ -2,11 +2,12 @@
 """Isolated CI design probe, NOT a production migration or a LOGIN transition.
 
 Needs an empty crm_pgp_prototype database on PostgreSQL 17.10 in a disposable
-loopback container, synthetic admin password, GnuPG, psql and Docker log access.
+loopback container, synthetic admin password, Node, GnuPG, psql and Docker logs.
 No credential, key, ciphertext, SQL error text or raw log is printed.
 """
 import argparse
 import base64
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -62,7 +63,7 @@ BEGIN
   {after}
   INSERT INTO crm_pgp_probe.receipt(nonce,role_oid,key_sha256,ciphertext,auth_proof_hash)
   SELECT '{nonce}'::uuid,target_oid,'{key_hash}',encrypted,
-    encode(sha256(convert_to(jsonb_build_object('role_oid',oid,'role',rolname,'can_login',rolcanlogin,'verifier',rolpassword)::text,'UTF8')),'hex') FROM pg_authid WHERE oid=target_oid AND NOT rolcanlogin;
+    encode(sha256(convert_to(jsonb_build_object('role_oid',oid,'role',rolname,'verifier',rolpassword)::text,'UTF8')),'hex') FROM pg_authid WHERE oid=target_oid AND NOT rolcanlogin;
  EXCEPTION
   WHEN query_canceled OR assert_failure THEN secret:=NULL; RAISE EXCEPTION 'PGP_PROTOTYPE_CANCELLED';
   WHEN OTHERS THEN secret:=NULL; RAISE EXCEPTION 'PGP_PROTOTYPE_FAILED';
@@ -71,8 +72,15 @@ BEGIN
 END $pgp_probe$;"""
 
 
-def check_logs(evidence, known_secrets):
-    require(b'crm_pgp_probe' in evidence and b'PGP_PROTOTYPE_CANCELLED' in evidence, 'LOG_COVERAGE')
+def check_logs(server_logs, client_outputs, known_secrets, server_markers):
+    # Prove the server stream independently: client errors repeat these codes
+    # and must never make an empty/truncated Docker log look complete.
+    require(server_markers and all(marker and marker in server_logs for marker in server_markers)
+            and b'statement: DO $pgp_probe$' in server_logs
+            and all(re.search(rb'ERROR:[^\r\n]*\b' + code + rb'\b', server_logs)
+                    for code in (b'PGP_PROTOTYPE_ALREADY_PREPARED', b'PGP_PROTOTYPE_FAILED',
+                                 b'PGP_PROTOTYPE_CANCELLED', b'PGP_PROTOTYPE_HOOKS')), 'LOG_COVERAGE')
+    evidence = server_logs + b'\n' + client_outputs
     require(all(secret and secret not in evidence for secret in known_secrets), 'LOG_SECRET')
     require(not re.search(rb"ALTER ROLE\s+crm_pgp_probe_\w+\s+NOLOGIN\s+PASSWORD\s+'[a-f0-9]{64}'", evidence), 'LOG_DYNAMIC_SECRET')
 
@@ -101,45 +109,70 @@ def main():
     checks = []
     known_secrets = []
     try:
-        with tempfile.TemporaryDirectory(prefix='crm-pgp-synthetic-') as temp:
+        with tempfile.TemporaryDirectory(prefix='crm-pgp-synthetic-') as temp, ExitStack() as cleanup:
             os.chmod(temp, 0o700)
             gpg = ['gpg', '--homedir', temp, '--batch', '--no-tty']
-            key_spec = b'Key-Type: RSA\nKey-Length: 3072\nKey-Usage: sign\nSubkey-Type: RSA\nSubkey-Length: 3072\nSubkey-Usage: encrypt\nName-Real: CRM synthetic probe\nName-Email: probe@example.invalid\nExpire-Date: 1d\n%no-protection\n%commit\n'
-            require(process(gpg + ['--generate-key'], data=key_spec).returncode == 0, 'KEYGEN')
-            key = process(gpg + ['--export', 'probe@example.invalid'])
-            require(key.returncode == 0, 'KEY_EXPORT')
-            nonce = str(uuid.uuid4())
-            statement = prepare_sql(key.stdout, nonce)
+            operator_dir = str(Path(temp) / 'operator')
+            operator = ['node', str(Path(__file__).with_name('operator.cjs').resolve())]
+            operator_env = {**os.environ, 'CRM_PGP_PROTOTYPE_CAPTURE': '1'}
+            generated = process(operator + ['generate', '--directory', operator_dir], env=operator_env)
+            require(generated.returncode == 0, 'OPERATOR_GENERATE')
+            public = json.loads(generated.stdout)
+            require(set(public) == {'version', 'library', 'nonce', 'role', 'database', 'key_sha256', 'key_fingerprint', 'public_key_b64'}
+                    and public['version'] == 1 and public['library'] == 'openpgp@6.3.1'
+                    and public['role'] == ROLE and public['database'] == DB, 'OPERATOR_PUBLIC')
+            public_key = base64.b64decode(public['public_key_b64'], validate=True)
+            require(public['key_sha256'] == hashlib.sha256(public_key).hexdigest(), 'OPERATOR_KEY_HASH')
+            nonce = public['nonce']
+            reopened = process(operator + ['public', '--directory', operator_dir], env=operator_env)
+            require(reopened.returncode == 0 and json.loads(reopened.stdout) == public, 'OPERATOR_DURABLE_KEY')
+            # GnuPG is only an independent CI reference. It imports the same
+            # persisted Node key; no second keypair can mask interoperability.
+            cleanup.callback(lambda: require(process(['gpgconf', '--homedir', temp, '--kill', 'gpg-agent'], timeout=10).returncode == 0, 'GPG_REFERENCE_CLEANUP'))
+            require(process(gpg + ['--import', str(Path(operator_dir) / 'private-key.bin')]).returncode == 0, 'GPG_REFERENCE_IMPORT')
+            server_markers = [nonce.encode()]
+            statement = prepare_sql(public_key, nonce)
             sql(statement)
             # Simulate a lost write acknowledgement: only a new read obtains the
             # same durable receipt. Do not generate a new key/nonce or retry write.
-            read = "SELECT json_build_object('ciphertext',encode(ciphertext,'base64'),'key_sha256',key_sha256,'auth_proof_hash',auth_proof_hash,'no_login',NOT a.rolcanlogin,'scram',a.rolpassword LIKE 'SCRAM-SHA-256$%','matches',auth_proof_hash=encode(sha256(convert_to(jsonb_build_object('role_oid',a.oid,'role',a.rolname,'can_login',a.rolcanlogin,'verifier',a.rolpassword)::text,'UTF8')),'hex')) FROM crm_pgp_probe.receipt r JOIN pg_authid a ON a.oid=r.role_oid;"
+            read = "SELECT json_build_object('ciphertext',encode(ciphertext,'base64'),'key_sha256',key_sha256,'auth_proof_hash',auth_proof_hash,'no_login',NOT a.rolcanlogin,'scram',a.rolpassword LIKE 'SCRAM-SHA-256$%','matches',auth_proof_hash=encode(sha256(convert_to(jsonb_build_object('role_oid',a.oid,'role',a.rolname,'verifier',a.rolpassword)::text,'UTF8')),'hex')) FROM crm_pgp_probe.receipt r JOIN pg_authid a ON a.oid=r.role_oid;"
             receipt_raw = sql(read)
             receipt = json.loads(receipt_raw)
-            require(receipt['no_login'] and receipt['scram'] and receipt['matches'] and receipt['key_sha256'] == hashlib.sha256(key.stdout).hexdigest(), 'PREPARED_RECEIPT')
+            require(receipt['no_login'] and receipt['scram'] and receipt['matches'] and receipt['key_sha256'] == public['key_sha256'], 'PREPARED_RECEIPT')
+            operator_read = process(operator + ['decrypt', '--directory', operator_dir],
+                                    data=json.dumps({'ciphertext': receipt['ciphertext'], 'key_sha256': receipt['key_sha256'], 'nonce': nonce}).encode(),
+                                    env=operator_env)
+            require(operator_read.returncode == 0, 'OPERATOR_DECRYPT')
+            payload = json.loads(operator_read.stdout)
             decrypted = process(gpg + ['--decrypt'], data=base64.b64decode(receipt['ciphertext']))
             require(decrypted.returncode == 0, 'DECRYPT')
-            payload = json.loads(decrypted.stdout)
+            require(json.loads(decrypted.stdout) == payload, 'INDEPENDENT_DECRYPT_MATCH')
             require(set(payload) == {'nonce', 'role', 'database', 'password'} and payload['nonce'] == nonce and payload['role'] == ROLE and payload['database'] == DB and re.fullmatch(r'[a-f0-9]{64}', payload['password']), 'PLAINTEXT_IDENTITY')
             known_secrets += [payload['password'].encode(), sql("SELECT rolpassword FROM pg_authid WHERE rolname='crm_pgp_probe_worker';")]
             sql(statement, error=True)
             require(sql(read) == receipt_raw, 'REPLAY_MUTATED_RECEIPT')
-            checks += ['pgcrypto_to_gnupg_roundtrip', 'no_login', 'scram_server_only', 'lost_ack_readback', 'replay_refused', 'auth_proof_hash_matches_catalog']
+            checks += ['node_durable_key_before_sql', 'pgcrypto_to_openpgpjs_roundtrip', 'gnupg_independent_same_ciphertext', 'no_login', 'scram_server_generated', 'lost_ack_readback', 'replay_refused', 'auth_proof_hash_matches_catalog']
             for mode in ('rollback', 'cancel', 'alter_error'):
                 sql("TRUNCATE crm_pgp_probe.receipt; ALTER ROLE crm_pgp_probe_worker PASSWORD NULL;")
-                sql(prepare_sql(key.stdout, str(uuid.uuid4()), mode), error=True, timeout=500 if mode == 'cancel' else 20000)
+                mode_nonce = str(uuid.uuid4())
+                server_markers.append(mode_nonce.encode())
+                sql(prepare_sql(public_key, mode_nonce, mode), error=True, timeout=500 if mode == 'cancel' else 20000)
                 require(sql("SELECT NOT rolcanlogin AND rolpassword IS NULL AND NOT EXISTS(SELECT 1 FROM crm_pgp_probe.receipt) FROM pg_authid WHERE rolname='crm_pgp_probe_worker';") == b't', 'ROLLBACK_STATE')
                 checks.append(mode + '_atomic')
             for setting in ('pgaudit.log', 'auto_explain.log_min_duration'):
-                sql("SET " + setting + ("='role';" if setting == 'pgaudit.log' else "='0';") + prepare_sql(key.stdout, str(uuid.uuid4())), error=True)
+                hook_nonce = str(uuid.uuid4())
+                server_markers.append(hook_nonce.encode())
+                sql("SET " + setting + ("='role';" if setting == 'pgaudit.log' else "='0';") + prepare_sql(public_key, hook_nonce), error=True)
                 require(sql("SELECT rolpassword IS NULL AND NOT EXISTS(SELECT 1 FROM crm_pgp_probe.receipt) FROM pg_authid WHERE rolname='crm_pgp_probe_worker';") == b't', 'HOOK_REFUSAL_STATE')
             checks.append('dynamic_audit_settings_refused_before_secret')
             # No raw logs leave this process. A positive no-leak result requires
             # actual server logs, including verbose failures and cancellation.
+            end_marker = 'PGP_PROTOTYPE_LOG_END_' + uuid.uuid4().hex
+            server_markers.append(end_marker.encode())
+            sql("SELECT '" + end_marker + "';")
             logs = process(['docker', 'logs', args.container_id])
             require(logs.returncode == 0, 'LOG_READ')
-            evidence = logs.stdout + logs.stderr + b'\n'.join(client_outputs)
-            check_logs(evidence, known_secrets)
+            check_logs(logs.stdout + logs.stderr, b'\n'.join(client_outputs), known_secrets, server_markers)
             checks.append('client_and_server_logs_no_plaintext_or_verifier')
     finally:
         sql("DROP SCHEMA crm_pgp_probe CASCADE; DROP ROLE crm_pgp_probe_worker; DROP EXTENSION pgcrypto;")
