@@ -55,13 +55,14 @@
   }
   // Parceiro aprovado: cupom, link e envio no lugar dos números.
   function funcionando(p){
-   const envio=p.envio_estado==='enviado'
+   const envio=p.encerrado_em?`<span class="tag nulo" title="Encerrada por ${esc(p.encerrado_por||'—')} em ${dt(p.encerrado_em)}. Link desligado e comissão zerada; o cupom segue ativo e as vendas continuam em Influs.">parceria encerrada ${curto(p.encerrado_em).split(',')[0]}</span>`
+    :p.envio_estado==='enviado'
     ?`<span class="tag bom" title="Enviado em ${dt(p.envio_em)}${p.envio_rastreio?' · rastreio '+esc(p.envio_rastreio):''}">produto enviado${p.envio_rastreio?' · '+esc(p.envio_rastreio):''}</span>`
     :'<span class="tag alerta">envio pendente</span>';
    return `<div class="pc-ok">
     <div class="pc-ok-item"><span>cupom</span><button type="button" class="pc-copia" data-pc="copiar" data-v="${esc(p.cupom)}" title="Copiar cupom">${esc(p.cupom)}</button><small>${pc(p.desconto)} para quem compra</small></div>
-    <div class="pc-ok-item pc-ok-link"><span>link</span><button type="button" class="pc-copia" data-pc="copiar" data-v="${esc(p.url||'')}" title="${esc(p.url||'link indisponível')}">${esc(p.ref)}</button><small>${p.link_estado==='ativo'?'ativo':esc(p.link_estado||'—')}</small></div>
-    <div class="pc-ok-item"><span>envio</span>${envio}</div></div>`;
+    <div class="pc-ok-item pc-ok-link"><span>link</span><button type="button" class="pc-copia" data-pc="copiar" data-v="${esc(p.url||'')}" title="${esc(p.url||'link indisponível')}">${esc(p.ref)}</button><small>${p.link_estado==='ativo'?'ativo':p.link_estado==='revogado'?'desligado':esc(p.link_estado||'—')}</small></div>
+    <div class="pc-ok-item"><span>${p.encerrado_em?'parceria':'envio'}</span>${envio}</div></div>`;
   }
   function acoes(a,est,p){
    const zap=/^\d{12,13}$/.test(a.whatsapp)?`<a class="btn sec pc-btn" href="https://wa.me/${esc(a.whatsapp)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:'';
@@ -69,7 +70,8 @@
    if(p){
     const msg=encodeURIComponent(`Oi, ${String(a.nome||'').split(' ')[0]}! Sua parceria com ${BRANDS[a.marca]||''} foi aprovada.\n\nSeu cupom: ${p.cupom} (${pc(p.desconto)} de desconto para quem compra)\nSeu link: ${p.url||''}\n\nCada venda com o cupom ou pelo link rende 5% para você, pago todo dia 5 via Pix.`);
     const zapMsg=/^\d{12,13}$/.test(a.whatsapp)?`<a class="btn sec pc-btn" href="https://wa.me/${esc(a.whatsapp)}?text=${msg}" target="_blank" rel="noopener noreferrer" title="Abre o WhatsApp com a mensagem pronta; você confere e envia">Mandar cupom e link</a>`:'';
-    return `<div class="pc-acoes">${zapMsg}${p.envio_estado==='enviado'?'<button type="button" class="btn sec pc-btn" data-pc="envio-desfaz">Envio pendente</button>':'<button type="button" class="btn pc-btn" data-pc="envio">Marcar enviado</button>'}</div>`;
+    if(p.encerrado_em)return `<div class="pc-acoes">${zap}${mail}</div>`;
+    return `<div class="pc-acoes">${zapMsg}${p.envio_estado==='enviado'?'<button type="button" class="btn sec pc-btn" data-pc="envio-desfaz">Envio pendente</button>':'<button type="button" class="btn pc-btn" data-pc="envio">Marcar enviado</button>'}<button type="button" class="btn sec pc-btn pc-recusa" data-pc="encerrar" title="Desliga o link e zera a comissão a partir de hoje. O cupom segue ativo.">Encerrar</button></div>`;
    }
    if(!ABERTA.includes(est))return `<div class="pc-acoes">${zap}${mail}</div>`;
    return `<div class="pc-acoes">${zap}${mail}<button type="button" class="btn sec pc-btn pc-recusa" data-pc="recusar">Recusar</button><button type="button" class="btn pc-btn" data-pc="aprovar">Aprovar</button></div>`;
@@ -87,6 +89,8 @@
    }
    if(aberto.modo==='recusar')return `<div class="pc-gaveta" data-gaveta="recusar"><p>Recusar a candidatura de <strong>${esc(a.nome)}</strong>? Ela sai de "Para analisar" e fica em "Todas".</p>${msg}
      <div class="pc-gaveta-acoes"><button type="button" class="btn sec pc-btn" data-pc="fechar">Cancelar</button><button type="button" class="btn pc-btn pc-perigo" data-pc="confirma-recusar" ${ocupado?'disabled':''}>${ocupado?'Recusando…':'Recusar candidatura'}</button></div></div>`;
+   if(aberto.modo==='encerrar')return `<div class="pc-gaveta" data-gaveta="encerrar"><p>Encerrar a parceria com <strong>${esc(a.nome)}</strong>? O link para de contar e a comissão fica zerada a partir de hoje. O cupom <strong>${esc(p?.cupom||'')}</strong> continua ativo e as vendas seguem aparecendo em Influs.</p>${msg}
+     <div class="pc-gaveta-acoes"><button type="button" class="btn sec pc-btn" data-pc="fechar">Cancelar</button><button type="button" class="btn pc-btn pc-perigo" data-pc="confirma-encerrar" ${ocupado?'disabled':''}>${ocupado?'Encerrando…':'Encerrar parceria'}</button></div></div>`;
    if(aberto.modo==='envio')return `<div class="pc-gaveta" data-gaveta="envio"><label class="pc-campo">Código de rastreio (opcional)<input name="rastreio" maxlength="80" autocomplete="off" spellcheck="false" value="${esc(p?.envio_rastreio||'')}"></label>${msg}
      <div class="pc-gaveta-acoes"><button type="button" class="btn sec pc-btn" data-pc="fechar">Cancelar</button><button type="button" class="btn pc-btn" data-pc="confirma-envio" ${ocupado?'disabled':''}>${ocupado?'Salvando…':'Marcar produto enviado'}</button></div></div>`;
    return msg?`<div class="pc-gaveta">${msg}</div>`:'';
@@ -127,7 +131,7 @@
    if(!host)return;
    if(!dados){host.innerHTML=erro?`<div class="vazio">${esc(erro)} <button class="btn sec" data-pc="recarregar">Tentar de novo</button></div>`:'<div class="vazio">Carregando candidaturas…</div>';ligar();return;}
    const m=getMarca(),todas=m==='todas',todasApps=(dados.candidaturas||[]).filter(a=>todas||a.marca===m);
-   const abertas=todasApps.filter(a=>ABERTA.includes(estadoDe(a))&&!parceiroDe(a)),aprovados=todasApps.filter(a=>parceiroDe(a));
+   const abertas=todasApps.filter(a=>ABERTA.includes(estadoDe(a))&&!parceiroDe(a)),aprovados=todasApps.filter(a=>parceiroDe(a)&&!parceiroDe(a).encerrado_em);
    const pendentes=aprovados.filter(a=>parceiroDe(a).envio_estado!=='enviado').length;
    const lista=filtro==='abertas'?abertas:filtro==='aprovados'?aprovados:todasApps;
    const termo=(dados.termos||[]).filter(t=>(todas||t.marca===m)&&t.publicado_em&&!t.retirado_em);
@@ -170,6 +174,11 @@
    try{await callApr({acao:'envio',data:{candidate_id:a.candidate_id,estado,rastreio:estado==='enviado'?(inp?.value||'').trim():''}},true);aberto=null;await carregar();}
    catch(e){texto(a.id,e.message,false);}finally{salvando.delete(a.id);paint();}
   }
+  async function encerrar(a){
+   salvando.add(a.id);aviso=null;paint();
+   try{const r=await callApr({acao:'encerrar',data:{candidate_id:a.candidate_id}},true);aberto=null;texto(a.id,r.mensagem||'Parceria encerrada.',true);await carregar();if(piloto&&pil().reload)pil().reload();}
+   catch(e){texto(a.id,e.message,false);}finally{salvando.delete(a.id);paint();}
+  }
   function ligar(){
    host.querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{const acao=b.dataset.pc;
     if(acao==='recarregar')return carregar();
@@ -177,11 +186,12 @@
     if(acao==='copiar'){const v=b.dataset.v;if(v&&root.navigator?.clipboard)root.navigator.clipboard.writeText(v).then(()=>{b.classList.add('copiado');setTimeout(()=>b.classList.remove('copiado'),1200);},()=>{});return;}
     const app=(dados?.candidaturas||[]).find(x=>x.id===b.closest('.pc-card')?.dataset.id);if(!app)return;
     if(acao==='prints'){visor(app);return prints(app).then(()=>{if(document.querySelector('.pc-visor'))visor(app);});}
-    if(acao==='aprovar'||acao==='recusar'||acao==='envio'){aberto={id:app.id,modo:acao,foco:acao!=='recusar'};aviso=null;return paint();}
+    if(acao==='aprovar'||acao==='recusar'||acao==='envio'||acao==='encerrar'){aberto={id:app.id,modo:acao,foco:acao==='aprovar'||acao==='envio'};aviso=null;return paint();}
     if(acao==='fechar'){aberto=null;aviso=null;return paint();}
     if(acao==='confirma-aprovar')return aprovar(app);
     if(acao==='confirma-recusar')return recusar(app);
     if(acao==='confirma-envio')return envio(app,'enviado');
+    if(acao==='confirma-encerrar')return encerrar(app);
     if(acao==='envio-desfaz')return envio(app,'pendente');
    });
    host.querySelectorAll('.pc-gaveta input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.closest('.pc-gaveta').querySelector('[data-pc^=confirma]')?.click();}if(e.key==='Escape'){aberto=null;aviso=null;paint();}});

@@ -62,6 +62,30 @@ const OA=(()=>{
  function tableGroups(v,kk){
   return `<div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Origem classificada</th><th class="num">Pedidos</th><th class="num">Receita líquida</th></tr></thead><tbody>${v.groups.filter(g=>kk.includes(g.key)).map(g=>`<tr data-org-group="${g.key}"><td><strong>${esc(g.name)}</strong> <span class="tag nulo ressalva" tabindex="0" title="${esc(g.note)}">?</span></td><td class="num tabn">${nf(g.pedidos)}</td><td class="num tabn">${money(g.receita)}</td></tr>`).join('')}</tbody></table></div>`;
  }
+
+ // Venda por iniciativa (28/09/2026): o produto/ação do link mora em utm_campaign no padrão novo
+ // (AAAAMMDD_nome) e em utm_term no antigo (campaign=venda). Soma os dias; links da mesma ação em datas diferentes viram uma linha.
+ const SUPERF={story:'story',bio:'bio',dm:'DM (automação)'};
+ function iniciativa(r){
+  const c=String(r.utm_campaign||'').trim().toLowerCase(),t=String(r.utm_term||'').trim().toLowerCase(),m=c.match(/^(\d{8})_(.+)$/);
+  if((c===''||c==='venda')&&t)return {slug:t,data:null};
+  if(m)return {slug:m[2],data:m[1]};
+  return {slug:c||String(r.utm_content||'').trim().toLowerCase()||'',data:null};
+ }
+ function porIniciativa(rows){
+  const acc=new Map();
+  for(const r of rows||[]){const i=iniciativa(r),k=[brand(r.marca),r.superficie||'',i.slug].join('|');
+   const o=acc.get(k)||{marca:brand(r.marca),superficie:r.superficie||'',slug:i.slug,nome:i.slug?i.slug.replace(/[_-]+/g,' '):'sem campanha no link',datas:new Set(),pedidos:0,receita:0,ok:true};
+   const pe=count(r.pedidos),re=number(r.receita_liquida);if(pe===null||re===null)o.ok=false;else{o.pedidos+=pe;o.receita+=re;}
+   if(i.data)o.datas.add(i.data);acc.set(k,o);}
+  return [...acc.values()].map(o=>({...o,links:o.datas.size,datas:undefined,receita:o.ok?Math.round(o.receita*100)/100:null,pedidos:o.ok?o.pedidos:null}))
+   .sort((a,b)=>(b.receita??-1)-(a.receita??-1)||(b.pedidos??-1)-(a.pedidos??-1)||a.nome.localeCompare(b.nome));
+ }
+ function tabelaIniciativas(v){
+  const L=porIniciativa(v.detailRows);if(!L.length)return '';
+  return `<div class="org-iniciativas"><div class="org-ressalvas"><strong>Por iniciativa</strong>${ressalva('campanha do link','Iniciativa = utm_campaign sem a data (links novos) ou utm_term (padrão antigo do Linktree, campaign=venda). Links da mesma ação em datas diferentes somam numa linha. Mesmo modelo e período da tabela acima.')}</div>
+   <div class="rolagem" tabindex="0" role="region" aria-label="Vendas por iniciativa; use as setas para rolar"><table class="comparativo"><thead><tr><th>Iniciativa</th><th>Marca</th><th>Superfície</th><th class="num">Pedidos</th><th class="num">Receita líquida</th></tr></thead><tbody>${L.map(o=>`<tr><td><strong>${esc(o.nome)}</strong>${o.links>1?` <span class="tag nulo" title="${o.links} links desta ação, em datas diferentes">${o.links} links</span>`:''}</td><td>${esc(BRANDS[o.marca]||o.marca)}</td><td>${esc(SUPERF[o.superficie]||o.superficie||'—')}</td><td class="num tabn">${nf(o.pedidos)}</td><td class="num tabn">${money(o.receita)}</td></tr>`).join('')}</tbody></table></div></div>`;
+ }
  // Painel do orgânico mostra só orgânico: mídia paga, CRM e sem classificação ficam fora da tela (os totais seguem no payload e em select()).
  const ressalva=(rotulo,texto)=>`<span class="tag nulo ressalva" tabindex="0" title="${esc(texto)}">${esc(rotulo)}</span>`;
  function markup(v){
@@ -72,6 +96,7 @@ const OA=(()=>{
    ${!v.complete?'<div class="nota" role="status"><strong>Cobertura parcial no período.</strong> Os valores existentes são parciais; grupos sem dados ficam indisponíveis. Confira os dias cobertos por marca.</div>':''}
    ${v.malformed?'<div class="nota" role="status"><strong>Há linhas com valor ou classificação inválida.</strong> A conciliação está incompleta nesta leitura.</div>':''}
    ${tableGroups(v,ORGANICO)}
+   ${tabelaIniciativas(v)}
    <details class="org-cobertura"><summary>Cobertura da coleta ${ressalva('origem desconhecida não recebe crédito',`${v.model==='last_click'?'Última sessão não confirmada':'Última origem não direta não confirmada'}: esses pedidos não recebem crédito neste modelo. Horário da coleta não é horário da compra ou da abertura desta página. ${!v.assistanceAvailable?'Assistências de Orgânico ainda não estão disponíveis nesta fonte.':''}`)}</summary>
    <div class="rolagem" tabindex="0" role="region" aria-label="Tabela de atribuição; use as setas para rolar"><table class="comparativo"><thead><tr><th>Marca</th><th>Dias cobertos</th><th class="num">Pedidos elegíveis</th><th class="num">Origem desconhecida</th><th class="num">Jornada pendente / parcial</th><th>Coleta dos dias cobertos</th></tr></thead><tbody>${v.coverage.map(c=>`<tr><td>${esc(BRANDS[c.marca])}</td><td>${nf(c.covered)} de ${nf(c.expected)}</td><td class="num tabn">${nf(c.paid)}</td><td class="num tabn">${nf(c.unknown)}</td><td class="num tabn">${nf(c.pending)} / ${nf(c.partial)}</td><td class="mini">Mais antiga: ${esc(stamp(c.oldest))}<br>Mais recente: ${esc(stamp(c.latest))}</td></tr>`).join('')}</tbody></table></div></details>
    <details><summary>Conferir UTMs e regra de classificação</summary><div class="nota">Regra: ${esc(v.rule||'versão não informada')}. ${v.rawAvailable?'Valores fornecidos pela fonte.':'UTMs registradas no ledger, já normalizadas pelo coletor; não são uma cópia do texto original do link.'} Sem vínculo comprovado com post/story, a peça permanece desconhecida.</div>
@@ -88,6 +113,6 @@ const OA=(()=>{
    el.querySelector(`[data-org-model="${activeModel}"]`)?.focus();
   };});
  }
- return {DEFAULT_MODEL,MODELS,GROUPS,valid,select,markup,render,getModel:()=>activeModel,setModel:model=>{if(MODELS[model])activeModel=model;}};
+ return {DEFAULT_MODEL,MODELS,GROUPS,valid,select,markup,render,porIniciativa,getModel:()=>activeModel,setModel:model=>{if(MODELS[model])activeModel=model;}};
 })();
 if(typeof module!=='undefined')module.exports=OA;

@@ -23,7 +23,7 @@ const CRIA = `mutation($d:DiscountCodeBasicInput!){ discountCodeBasicCreate(basi
 
 const MONTA = `const b = $json.body;
 if (!b || typeof b !== 'object' || Array.isArray(b)) throw new Error('corpo invalido');
-if (!['ler', 'aprovar', 'envio'].includes(b.acao)) throw new Error('acao invalida');
+if (!['ler', 'aprovar', 'envio', 'encerrar'].includes(b.acao)) throw new Error('acao invalida');
 const txt = JSON.stringify(b);
 if (txt.length > 4000) throw new Error('corpo grande demais');
 const corpo = b.acao === 'aprovar' ? { k: b.k, acao: 'preparar', request_id: b.request_id, data: b.data } : b;

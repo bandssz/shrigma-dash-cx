@@ -16,6 +16,7 @@ const jpg=Buffer.concat([Buffer.from([0xff,0xd8,0xff,0xe0]),crypto.randomBytes(3
    CHECK((tipo='influ')=(influ IS NOT NULL)),FOREIGN KEY(marca,influ) REFERENCES crm_influ(marca,influ));
   CREATE TABLE crm_cupom_log(id bigserial,em timestamptz NOT NULL DEFAULT now(),marca text NOT NULL,codigo text NOT NULL,campo text NOT NULL,de text,para text,autor text NOT NULL DEFAULT '',origem text NOT NULL DEFAULT '');
   CREATE TABLE crm_influ_pedido(marca text,order_id text,influ text,dia date,via text,pago boolean,receita_base numeric);
+  CREATE TABLE crm_influ_termo(marca text NOT NULL,influ text NOT NULL,vigente_desde date NOT NULL,modelo text,comissao_pct numeric,autor text NOT NULL DEFAULT '',criado_em timestamptz DEFAULT now(),PRIMARY KEY(marca,influ,vigente_desde),FOREIGN KEY(marca,influ) REFERENCES crm_influ(marca,influ));
   CREATE FUNCTION shrigma_panel_operator_v1(text,text) RETURNS jsonb LANGUAGE sql AS $$ SELECT CASE WHEN $2<>'influs' THEN NULL
    WHEN $1='chave-gestao' THEN '{"who":"marcela","label":"Marcela","caps":["creators_edit"]}'::jsonb WHEN $1='chave-leitura' THEN '{"who":"leitor","label":"Leitor","caps":[]}'::jsonb END $$;`);
  await db.exec(sql('pilot.sql'));
@@ -90,6 +91,21 @@ const jpg=Buffer.concat([Buffer.from([0xff,0xd8,0xff,0xe0]),crypto.randomBytes(3
  const po=rd.partner_orders.find(p=>p.ref===ok.ref);assert.deepEqual([po.pedidos,po.pedidos_pelo_proprio_cupom,Number(po.comissao)],[1,1,4.5]);
  const fe=rd.fechamento.find(f=>f.ref===ok.ref);assert.equal(fe.pedidos,1);assert.equal(Number(fe.comissao),4.5);checks++;
 
+
+ // Encerrar a parceria: link desligado, comissão 0% a partir de hoje, cupom e creator seguem ativos
+ const t0=(await db.query("SELECT modelo,comissao_pct::text p FROM crm_influ_termo WHERE influ='riobravo-2' ORDER BY vigente_desde")).rows;
+ assert.deepEqual(t0.map(r=>[r.modelo,r.p]),[['comissao','0.05']],'aprovar grava o termo de comissão do dia');
+ assert.match((await ap({k:'chave-leitura',acao:'encerrar',data:{candidate_id:cid}})).erro,/só lê/);
+ const enc=await ap({k:G,acao:'encerrar',data:{candidate_id:cid}});assert.equal(enc.ok,true);assert.match(enc.mensagem,/RIOBRAVO segue ativo/);
+ const t1=(await db.query("SELECT modelo,comissao_pct::numeric p FROM crm_influ_termo WHERE influ='riobravo-2' ORDER BY vigente_desde DESC LIMIT 1")).rows[0];
+ assert.deepEqual([t1.modelo,Number(t1.p)],['encerrado',0],'aprovado e encerrado no mesmo dia: o termo do dia vira 0%');
+ const inf2=(await db.query("SELECT ativo,modelo FROM crm_influ WHERE influ='riobravo-2'")).rows[0];assert.deepEqual([inf2.ativo,inf2.modelo],[true,'encerrado']);
+ assert.equal((await db.query("SELECT count(*)::int n FROM crm_cupom WHERE codigo='RIOBRAVO' AND tipo='influ'")).rows[0].n,1,'cupom continua cadastrado');
+ assert.equal((await db.query("SELECT state FROM crm_partner_link_v1 WHERE ref=$1",[ok.ref])).rows[0].state,'revogado');
+ assert.equal((await db.query("SELECT state FROM crm_partner_candidate_v1 WHERE id=$1",[cid])).rows[0].state,'pausado');
+ assert.equal((await ap({k:G,acao:'encerrar',data:{candidate_id:cid}})).repetido,true);
+ assert.ok((await ap({k:G,acao:'ler'})).parceiros.find(p=>p.candidate_id===cid).encerrado_em);
+ assert.match((await ap({k:G,acao:'encerrar',data:{candidate_id:cid2}})).erro,/não encontrado/);checks++;
  // Workflow: Monta leva a chave só para o banco; Decide e Confere traduzem a Shopify
  const run=(js,json,nodes)=>new Function('$json','$',js)(json,n=>({first:()=>({json:nodes[n]})}));
  const monta=run(W.MONTA,{body:{k:G,acao:'aprovar',request_id:R1,data:{candidate_id:cid,codigo:'X'}}},{})[0].json;

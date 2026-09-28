@@ -332,13 +332,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     return !!DADOS && MANUAL_TTS_CAPS?.write === true && MANUAL_TTS_CAPS.key === ACESSO_TTS.k && Date.now()-MANUAL_TTS_CAPS.checkedAt < 600000 && !DADOS?._cache && !DADOS?._caiu;
   }
   // Com a chave do painel na página, a disponibilidade é conferida sozinha (sem clique), uma vez por leitura.
-  let AUTO_CAPS_TTS = 0;
+  // A disponibilidade vale 10 min. Antes (28/09) ela só era conferida uma vez por leitura: com a página aberta
+  // por mais de 10 min, Aprovar/Rejeitar ficavam travados até recarregar. Agora reconfere sozinha quando vence
+  // (no máximo uma vez a cada 30 s) e, com a fila aberta, renova antes de vencer.
+  let AUTO_CAPS_EM = 0;
   function autoCapacidadesTTS() {
-    if (manualDisponivelTTS() || ACAO_TTS_EM_CURSO || !DADOS || DADOS._cache || DADOS._caiu || AUTO_CAPS_TTS === SEQ) return;
+    if (manualDisponivelTTS() || ACAO_TTS_EM_CURSO || !DADOS || DADOS._cache || DADOS._caiu || Date.now() - AUTO_CAPS_EM < 30000) return;
     if (typeof chavePainelTTS !== 'function' || !chavePainelTTS()) return;
-    AUTO_CAPS_TTS = SEQ;
+    AUTO_CAPS_EM = Date.now();
     consultaManualTTS({ acao: 'capacidades', marca: marcaAtual() }).catch(() => {});
   }
+  if (typeof setInterval === 'function' && typeof document !== 'undefined') setInterval(() => {
+    if (PANE !== 'fila' || !DADOS || ACAO_TTS_EM_CURSO || (document.visibilityState && document.visibilityState !== 'visible')) return;
+    if (!MANUAL_TTS_CAPS || Date.now() - MANUAL_TTS_CAPS.checkedAt > 480000) { AUTO_CAPS_EM = 0; autoCapacidadesTTS(); }
+  }, 60000);
   function travaAmostrasTTS() {
     const pronto = manualDisponivelTTS(), nota = $('#tts-manual-status');
     if (!pronto) setTimeout(autoCapacidadesTTS, 0);
@@ -511,10 +518,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     return (await enviar()).body;
     } catch(e) { if(e.code==='TTS_CONTRACT')MANUAL_TTS_CAPS=null;if(e.code==='TTS_WRITE_CLOSED')MANUAL_TTS_CAPS={write:false,key:ACESSO_TTS.k,checkedAt:Date.now()};if(e.code==='TTS_AUTH_REQUIRED')esqueceAcessoTTS();throw e; } finally { ACAO_TTS_EM_CURSO = false; travaAmostrasTTS(); }
   }
+  // O aviso geral fica no topo da aba; com a fila rolada ele some da vista. O erro aparece também na linha clicada.
+  function erroNaLinhaTTS(btn, texto) {
+    const td = btn && btn.closest && btn.closest('.tts-acoes'); if (!td) return;
+    let el = td.querySelector('.tts-linha-erro');
+    if (!texto) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('span'); el.className = 'mini tts-linha-erro'; el.setAttribute('role', 'alert'); td.append(el); }
+    el.textContent = texto;
+  }
   // botão de duas etapas: 1º clique arma ("Confirmar?"), 2º clique executa; desarma sozinho em 6 s
   function armar(btn, rotuloConfirma, fn) {
     if (btn.disabled) return;
-    if (btn.dataset.armado) { btn.dataset.armado = ''; btn.disabled = true; btn.textContent = '…'; Promise.resolve().then(fn).catch(e => { btn.disabled = e.code === 'TTS_OUTCOME_UNKNOWN'; btn.textContent = e.code === 'TTS_CANCELLED' ? (btn.dataset.original || 'Continuar') : e.code === 'TTS_OUTCOME_UNKNOWN' ? 'Resultado incerto' : 'erro: ' + e.message; mensagemAcaoTTS(e.code === 'TTS_CANCELLED' ? 'Ação cancelada. Nenhuma solicitação foi enviada.' : e.message); travaAmostrasTTS(); if (e.code === 'TTS_CANCELLED') (btn.isConnected ? btn : $('#tts-abas button.ativo'))?.focus(); }); return; }
+    if (btn.dataset.armado) { btn.dataset.armado = ''; btn.disabled = true; btn.textContent = '…'; Promise.resolve().then(fn).catch(e => { btn.disabled = e.code === 'TTS_OUTCOME_UNKNOWN'; btn.textContent = e.code === 'TTS_CANCELLED' ? (btn.dataset.original || 'Continuar') : e.code === 'TTS_OUTCOME_UNKNOWN' ? 'Resultado incerto' : 'erro: ' + e.message; mensagemAcaoTTS(e.code === 'TTS_CANCELLED' ? 'Ação cancelada. Nenhuma solicitação foi enviada.' : e.message); erroNaLinhaTTS(btn, e.code === 'TTS_CANCELLED' ? '' : e.message); travaAmostrasTTS(); if (e.code === 'TTS_CANCELLED') (btn.isConnected ? btn : $('#tts-abas button.ativo'))?.focus(); }); return; }
     const orig = btn.dataset.original || btn.textContent; btn.dataset.armado = '1'; btn.textContent = rotuloConfirma;
     btn.dataset.original = orig;
     mensagemAcaoTTS('');
@@ -860,7 +875,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (!c.temDados) return '';
     const cards = [
       { r: 'GMV da loja', v: rf(c.gmv), s: `${nf(c.pedidos)} pedidos · ticket ${rf(c.ticket)} · ${String(j.ini||'').split('-').slice(1).reverse().join('/')} a ${String(j.fim||'').split('-').slice(1).reverse().join('/')}`, t: 'GMV total da loja no TikTok Shop (plataforma), todas as origens' },
-      { r: 'GMV de afiliados', v: rf(c.afiliado), s: `${pctOu(c.pctAfiliado)} do total da loja · comparação de fontes`, t: 'Pedidos de afiliados e total da loja vêm de fontes distintas. Divergências permanecem explícitas, sem limitar artificialmente o valor a 100%.' },
+      { r: 'GMV de afiliados', v: rf(c.afiliado), s: `${pctOu(c.pctAfiliado)} do total da loja · valor pago pelos clientes`, t: 'Pedidos de afiliados e total da loja vêm de fontes distintas. Divergências permanecem explícitas, sem limitar artificialmente o valor a 100%.' },
       { r: 'Saldo não afiliado · calculado', v: c.origem.saldo === null ? '—' : moedaOrigem(c.origem.saldo), s: c.origem.estado === 'saldo_calculado' ? 'total menos afiliados · não é venda própria atribuída' : 'indisponível · conferir conciliação de origem', t: 'Só calculado quando todos os dias conhecidos conciliam. Não substitui atribuição de venda própria.' },
       { r: 'Live · Vídeo · Vitrine', v: `${pctOu(c.pctLive)} <span class="mini">live</span>`, s: `${pctOu(c.pctVideo)} vídeo · ${pctOu(c.pctVitrine)} vitrine/link`, t: 'corte da plataforma por tipo de conteúdo que gerou o pedido — inclui lives e vídeos de afiliados' },
       { r: 'GMV Max (ads TikTok)', v: pctOu(c.pctAds, 1), s: c.ads ? `${rf(c.ads)} com ads da própria TikTok` : 'sem GMV Max na janela', t: 'parte da receita bruta que a plataforma marca como GMV Max' },

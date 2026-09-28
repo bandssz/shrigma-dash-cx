@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS public.crm_partner_aprovacao_req_v1(
  criado_em timestamptz NOT NULL DEFAULT now(),
  atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+-- Encerrar a parceria (28/09/2026): o link para de contar e a comissão para a partir do dia; o cupom segue
+-- ativo e as vendas continuam atribuídas ao creator em Influs (crm_influ_termo com modelo 'encerrado', 0%).
+ALTER TABLE public.crm_partner_parceiro_v1 ADD COLUMN IF NOT EXISTS encerrado_em timestamptz;
+ALTER TABLE public.crm_partner_parceiro_v1 ADD COLUMN IF NOT EXISTS encerrado_por text NOT NULL DEFAULT '';
 REVOKE ALL ON public.crm_partner_parceiro_v1,public.crm_partner_aprovacao_req_v1 FROM PUBLIC;
 
 -- Código sugerido a partir do @: só letras e números, maiúsculo, até 20.
@@ -52,7 +56,7 @@ CREATE OR REPLACE FUNCTION public.crm_partner_aprovacao_v1(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE op jsonb; quem text; actor_id text; acao text:=p->>'acao'; d jsonb:=coalesce(p->'data','{}'::jsonb); rid uuid; cid uuid;
  c public.crm_partner_candidate_v1; a record; pr public.crm_partner_program_v1; rq public.crm_partner_aprovacao_req_v1;
- cod text; slug text; base_slug text; n int:=1; novo_ref text; url text; resp jsonb; v_nicho text; ig text; hoje date:=(now() AT TIME ZONE 'America/Sao_Paulo')::date;
+ cod text; slug text; base_slug text; px public.crm_partner_parceiro_v1; n int:=1; novo_ref text; url text; resp jsonb; v_nicho text; ig text; hoje date:=(now() AT TIME ZONE 'America/Sao_Paulo')::date;
 BEGIN
  op:=public.shrigma_panel_operator_v1(p->>'k','influs');
  IF op IS NULL THEN RETURN jsonb_build_object('erro','Entre com a chave do painel de Influs.'); END IF;
@@ -62,7 +66,8 @@ BEGIN
    'descontos',(SELECT jsonb_object_agg(marca,cupom_desconto) FROM public.crm_partner_program_v1),
    'parceiros',(SELECT coalesce(jsonb_agg(jsonb_build_object('candidate_id',x.candidate_id,'marca',x.marca,'influ',x.influ,'cupom',x.cupom,'ref',x.ref,
      'url',public.crm_partner_link_url_v1(x.marca,x.ref),'link_estado',l.state,'desconto',x.desconto,'cupom_origem',x.cupom_origem,
-     'envio_estado',x.envio_estado,'envio_rastreio',x.envio_rastreio,'envio_em',x.envio_em,'aprovado_em',x.aprovado_em,'aprovado_por',x.aprovado_por)),'[]')
+     'envio_estado',x.envio_estado,'envio_rastreio',x.envio_rastreio,'envio_em',x.envio_em,'aprovado_em',x.aprovado_em,'aprovado_por',x.aprovado_por,
+     'encerrado_em',x.encerrado_em,'encerrado_por',x.encerrado_por)),'[]')
     FROM public.crm_partner_parceiro_v1 x JOIN public.crm_partner_link_v1 l ON l.ref=x.ref));
  END IF;
  IF NOT coalesce(op->'caps' ? 'creators_edit',false) THEN RETURN jsonb_build_object('erro','Esta chave só lê. Aprovar parceiro pede a chave de gestão de Influs.'); END IF;
@@ -74,6 +79,26 @@ BEGIN
   WHERE candidate_id=(d->>'candidate_id')::uuid;
   IF NOT FOUND THEN RETURN jsonb_build_object('erro','Parceiro aprovado não encontrado.'); END IF;
   RETURN jsonb_build_object('ok',true,'mensagem',CASE d->>'estado' WHEN 'enviado' THEN 'Envio marcado.' ELSE 'Envio voltou para pendente.' END);
+ END IF;
+ IF acao='encerrar' THEN
+  IF coalesce(d->>'candidate_id','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RETURN jsonb_build_object('erro','Parceiro inválido.'); END IF;
+  cid:=(d->>'candidate_id')::uuid;
+  PERFORM pg_advisory_xact_lock(hashtextextended('partner-aprovar:'||cid,0));
+  SELECT * INTO px FROM public.crm_partner_parceiro_v1 WHERE candidate_id=cid FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('erro','Parceiro aprovado não encontrado.'); END IF;
+  IF px.encerrado_em IS NOT NULL THEN RETURN jsonb_build_object('ok',true,'repetido',true,'mensagem','Parceria já estava encerrada.'); END IF;
+  -- Histórico de comissão: termo do início (se faltar) e termo de fim hoje, com 0%. O coletor usa o termo do dia do pedido.
+  INSERT INTO public.crm_influ_termo(marca,influ,vigente_desde,modelo,comissao_pct,autor)
+   SELECT px.marca,px.influ,(px.aprovado_em AT TIME ZONE 'America/Sao_Paulo')::date,'comissao',pp.rate,quem FROM public.crm_partner_program_v1 pp WHERE pp.marca=px.marca ON CONFLICT DO NOTHING;
+  INSERT INTO public.crm_influ_termo(marca,influ,vigente_desde,modelo,comissao_pct,autor) VALUES(px.marca,px.influ,hoje,'encerrado',0,quem)
+   ON CONFLICT(marca,influ,vigente_desde) DO UPDATE SET modelo='encerrado',comissao_pct=0,autor=EXCLUDED.autor;
+  -- O creator continua ativo: é isso que mantém o cupom atribuindo as vendas em Influs.
+  UPDATE public.crm_influ SET modelo='encerrado',obs=left(obs||' Parceria encerrada em '||to_char(hoje,'DD/MM/YYYY')||' por '||quem||'; cupom segue ativo.',2000),atualizado_em=now()
+   WHERE marca=px.marca AND influ=px.influ;
+  UPDATE public.crm_partner_link_v1 SET state='revogado',version=version+1,actor=actor_id,updated_at=now() WHERE ref=px.ref AND state<>'revogado';
+  UPDATE public.crm_partner_candidate_v1 SET state='pausado',version=version+1,actor=actor_id,updated_at=now() WHERE id=cid AND state<>'pausado';
+  UPDATE public.crm_partner_parceiro_v1 SET encerrado_em=now(),encerrado_por=quem,atualizado_em=now() WHERE candidate_id=cid;
+  RETURN jsonb_build_object('ok',true,'mensagem','Parceria encerrada: link desligado e comissão zerada a partir de hoje. O cupom '||px.cupom||' segue ativo.');
  END IF;
  IF coalesce(p->>'request_id','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RETURN jsonb_build_object('erro','Operação inválida. Recarregue.'); END IF;
  rid:=(p->>'request_id')::uuid;
@@ -123,6 +148,8 @@ BEGIN
   INSERT INTO public.crm_influ(marca,influ,nome,handle,comissao_pct,ativo,desde,obs,seguidores,modelo,nicho)
   VALUES(rq.marca,slug,left(coalesce(nullif(a.nome,''),c.name),120),CASE WHEN ig IS NOT NULL THEN '@'||ig ELSE '' END,pr.rate,true,hoje,
    'Parceiro do site: candidatura '||upper(left(coalesce(a.id::text,c.id::text),8))||', aprovado por '||quem||' em '||to_char(hoje,'DD/MM/YYYY')||'.',a.seguidores,'comissao',v_nicho);
+  -- histórico de comissão por data: o coletor de cupom usa o termo vigente no dia do pedido
+  INSERT INTO public.crm_influ_termo(marca,influ,vigente_desde,modelo,comissao_pct,autor) VALUES(rq.marca,slug,hoje,'comissao',pr.rate,quem) ON CONFLICT DO NOTHING;
   INSERT INTO public.crm_cupom(marca,codigo,tipo,influ,desconto_pct,desde,shopify_node_id,obs)
   VALUES(rq.marca,rq.codigo,'influ',slug,rq.desconto,hoje,d->>'node_id','Parceiro do site ('||CASE d->>'origem' WHEN 'criado' THEN 'criado pelo painel' ELSE 'já existia na loja' END||').');
   INSERT INTO public.crm_cupom_log(em,marca,codigo,campo,de,para,autor,origem) VALUES(now(),rq.marca,rq.codigo,'cadastro','',slug,quem,'parceiros-aprovacao');
