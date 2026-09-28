@@ -3,12 +3,13 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const C=require('../maintenance-cart-deploy/deploy.cjs');
 const G=require('../graph-install/deploy.cjs');
+const A=require('../graph-worker-access/contract.cjs');
 const CART=require('../../n8n/growth/maintenance-cart-patch.cjs');
 const P=require('../../n8n/growth/maintenance-tx-popup-patch.cjs');
 const {FileStore,canonical,sha,projection,projects,SHAPE,STATE_SQL}=C;
 const CONTRACT='maintenance-tx-install-v1',SCHEMA='crm_maintenance_candidate';
 const DEP=['shrigma_email_claim_cart','shrigma_email_finish_cart','shrigma_flow_email_claim_tx','shrigma_email_claim_engagement','shrigma_email_claim_fish','shrigma_email_claim_aristo','shrigma_flow_slot','shrigma_flow_slot_wa_versioned_v1','shrigma_email_finish_fish','shrigma_email_finish_aristo','shrigma_email_transport_outcome'];
-const FILES=['n8n/growth/maintenance-tx-popup.sql','n8n/growth/maintenance-tx-popup-protocol.cjs','n8n/growth/maintenance-tx-popup-patch.cjs','n8n/growth/maintenance-cart-patch.cjs','tools/maintenance-cart-deploy/deploy.cjs','tools/maintenance-tx-deploy/deploy.cjs','tools/maintenance-tx-deploy/api-adapter.cjs','tools/maintenance-tx-deploy/n8n-2.0.2.cjs','tools/maintenance-tx-deploy/cli.cjs','tools/graph-install/deploy.cjs'];
+const FILES=['n8n/growth/maintenance-tx-popup.sql','n8n/growth/maintenance-tx-popup-protocol.cjs','n8n/growth/maintenance-tx-popup-patch.cjs','n8n/growth/maintenance-cart-patch.cjs','tools/maintenance-cart-deploy/deploy.cjs','tools/maintenance-tx-deploy/deploy.cjs','tools/maintenance-tx-deploy/api-adapter.cjs','tools/maintenance-tx-deploy/n8n-2.0.2.cjs','tools/maintenance-tx-deploy/cli.cjs','tools/graph-install/deploy.cjs','tools/graph-worker-access/contract.cjs'];
 const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>canonical(a)===canonical(b),lit=x=>"'"+String(x).replaceAll("'","''")+"'";
 const extra=w=>Object.fromEntries(['description','pinData','tags','meta'].filter(k=>w[k]!==undefined).map(k=>[k,w[k]]));
 const pg=w=>[...new Set(w.nodes.filter(n=>n.credentials?.postgres).map(n=>n.credentials.postgres.id))].sort();
@@ -25,40 +26,44 @@ const METADATA_SQL=`SELECT current_database() AS database,current_user AS role,
  (SELECT obj_description(n.oid,'pg_namespace') FROM pg_namespace n WHERE n.nspname='${SCHEMA}') AS seal,
  ${GRAPH_SEAL_SQL} AS graph_seal,${graphField(G.GRAPH_SHAPE)} AS graph_shape,
  ${graphField(G.MAINTENANCE_SHAPE)} AS graph_maintenance_shape,${graphField(OPTIONAL_PUBLIC_SHAPE)} AS graph_public_shape,
- ${graphField(G.ROLE_SQL)} AS graph_worker_role;`;
+ ${graphField(G.ROLE_SQL)} AS graph_worker_role,${A.ROLE_IDENTITY_SQL} AS graph_worker_identity;`;
 function sourceFiles(root){return Object.fromEntries(FILES.map(f=>[f,sha(fs.readFileSync(path.join(root,f),'utf8'))]));}
 function depGuard(s){check(typeof s.database==='string'&&/^[a-zA-Z0-9_]+$/.test(s.database)&&typeof s.role==='string'&&s.dependencies?.length===DEP.length,'DB_IDENTITY');check(same(s.dependencies.map(f=>f.name).sort(),DEP.slice().sort())&&s.dependencies.every(f=>f.execute===true&&/^[a-f0-9]{32}$/.test(f.hash)),'DB_DEPENDENCIES');}
 const keys=(o,k)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&same(Object.keys(o).sort(),k.slice().sort());
 const md5=x=>typeof x==='string'&&/^[a-f0-9]{32}$/.test(x),digest=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),nonce=x=>typeof x==='string'&&/^[a-f0-9-]{36}$/.test(x);
 function cartSeal(seal){return keys(seal,['contract','ddl','nonce','shape'])&&seal.contract===C.CONTRACT&&nonce(seal.nonce)&&digest(seal.ddl)&&md5(seal.shape);}
-function graphSeal(s,maintenance){
+function operationalMetadata(s){return {database:s.database,role:s.role,graph_seal:s.graph_seal,maintenance_seal:s.seal,graph_shape:s.graph_shape,maintenance_shape:s.graph_maintenance_shape,public_shape:s.graph_public_shape,maintenance_legacy_shape:s.shape,worker_role:s.graph_worker_role,worker_role_identity:s.graph_worker_identity};}
+function graphSeal(s,maintenance,accessProof=null){
  let graph;try{graph=JSON.parse(s.graph_seal);}catch{throw Error('TX_DEPLOY_GRAPH_SEAL');}
  check(keys(maintenance,['contract','ddl','nonce','previous','shape'])&&maintenance.contract===G.MAINTENANCE_CONTRACT&&cartSeal(maintenance.previous)&&md5(maintenance.shape),'GRAPH_MAINTENANCE_CHAIN');
- check(keys(graph,['contract','ddl','nonce','previous','graph_shape','maintenance_shape','public_shape','worker_role'])&&graph.contract===G.CONTRACT&&nonce(graph.nonce)&&digest(graph.ddl)&&same(graph.previous,maintenance.previous)&&graph.nonce===maintenance.nonce&&graph.ddl===maintenance.ddl,'GRAPH_SEAL_CHAIN');
+ const access=Object.hasOwn(graph||{},'worker_access_extension');
+ check(keys(graph,['contract','ddl','nonce','previous','graph_shape','maintenance_shape','public_shape','worker_role',...(access?['worker_access_extension']:[])])&&graph.contract===G.CONTRACT&&nonce(graph.nonce)&&digest(graph.ddl)&&same(graph.previous,maintenance.previous)&&graph.nonce===maintenance.nonce&&graph.ddl===maintenance.ddl,'GRAPH_SEAL_CHAIN');
  check(md5(s.graph_shape)&&md5(s.graph_maintenance_shape)&&md5(s.graph_public_shape)&&graph.graph_shape===s.graph_shape&&graph.maintenance_shape===s.graph_maintenance_shape&&graph.public_shape===s.graph_public_shape&&same(graph.worker_role,s.graph_worker_role),'GRAPH_SEAL_DRIFT');
- check(keys(graph.worker_role,['name','login','superuser','createdb','createrole','inherit','replication','bypassrls','memberships'])&&graph.worker_role.name==='crm_graph_worker'&&['login','superuser','createdb','createrole','inherit','replication','bypassrls'].every(k=>graph.worker_role[k]===false)&&graph.worker_role.memberships===0,'GRAPH_ROLE');
+ if(access){check(keys(accessProof,['baseAnchor','accessReceipt','accessPlan','accessReview']),'GRAPH_ACCESS_PROOF');A.validateOperational({metadata:operationalMetadata(s),...accessProof});}
+ else{check(accessProof===null,'GRAPH_ACCESS_UNEXPECTED');check(keys(graph.worker_role,['name','login','superuser','createdb','createrole','inherit','replication','bypassrls','memberships'])&&graph.worker_role.name==='crm_graph_worker'&&['login','superuser','createdb','createrole','inherit','replication','bypassrls'].every(k=>graph.worker_role[k]===false)&&graph.worker_role.memberships===0,'GRAPH_ROLE');}
  return graph;
 }
-function previousSeal(s){
+function previousSeal(s,accessProof=null){
  let seal;try{seal=JSON.parse(s.seal);}catch{throw Error('TX_DEPLOY_OLD_SEAL');}
  check(seal&&s.schema===SCHEMA&&md5(s.shape)&&s.shape===seal.shape,'OLD_SEAL');
- if(seal.contract===G.MAINTENANCE_CONTRACT)graphSeal(s,seal);else check(cartSeal(seal),'OLD_SEAL');return seal;
+ if(seal.contract===G.MAINTENANCE_CONTRACT)graphSeal(s,seal,accessProof);else{check(accessProof===null,'GRAPH_ACCESS_UNEXPECTED');check(cartSeal(seal),'OLD_SEAL');}return seal;
 }
 function graphExtensionGuard(s,planned){
  if(!planned)return;
  let graph;try{graph=JSON.parse(s.graph_seal);}catch{throw Error('TX_DEPLOY_GRAPH_SEAL');}
  check(same(graph,{...planned.before,maintenance_shape:s.graph_maintenance_shape,maintenance_extension:planned.extension})&&md5(s.graph_maintenance_shape)&&s.graph_shape===planned.before.graph_shape&&s.graph_public_shape===planned.before.public_shape&&same(s.graph_worker_role,planned.before.worker_role),'GRAPH_EXTENSION_DRIFT');
+ if(planned.access_proof){const proof=planned.access_proof;A.validateOperational({metadata:operationalMetadata(s),...proof,txReceipt:{contract:CONTRACT,before:proof.accessReceipt.after,after:{graph_seal:graph,maintenance_seal:JSON.parse(s.seal),role_identity:s.graph_worker_identity},extension:planned.extension}});}
 }
 function gateGuard(s,expected){check(s?.control?.enabled===true&&s.control.mode==='open','GATE_NOT_OPEN');check(s.control.version===2&&(!expected||same(s.control,expected)),'GATE_DRIFT');}
 function dependencySQL(s){return `IF current_database()<>${lit(s.database)} OR current_user<>${lit(s.role)} THEN RAISE EXCEPTION 'TX_DEPLOY_DB_IDENTITY';END IF;\n`+s.dependencies.map(f=>`IF (SELECT md5(pg_get_functiondef(to_regprocedure(${lit(f.signature)})))) IS DISTINCT FROM ${lit(f.hash)} THEN RAISE EXCEPTION 'TX_DEPLOY_DEPENDENCY_DRIFT';END IF;`).join('\n');}
-function atomicInstall(root,before,control,nonce){
- depGuard(before);const previous=previousSeal(before);gateGuard({control});
+function atomicInstall(root,before,control,nonce,accessProof=null){
+ depGuard(before);const previous=previousSeal(before,accessProof);gateGuard({control});
  const src=fs.readFileSync(path.join(root,FILES[0]),'utf8');check(/^--[^]*?\bBEGIN;/.test(src)&&/COMMIT;\s*$/.test(src),'SQL_BOUNDARY');
  const ddl=src.replace(/\bBEGIN;/,'').replace(/COMMIT;\s*$/,'');check(!ddl.includes('$tx_ddl$'),'SQL_DELIMITER');
  const seal={contract:CONTRACT,nonce,ddl:sha(ddl),previous};
- const graph=previous.contract===G.MAINTENANCE_CONTRACT?{before:graphSeal(before,previous),extension:{contract:CONTRACT,nonce,ddl:seal.ddl,previous_maintenance_shape:before.graph_maintenance_shape}}:null;
+ const graph=previous.contract===G.MAINTENANCE_CONTRACT?{before:graphSeal(before,previous,accessProof),extension:{contract:CONTRACT,nonce,ddl:seal.ddl,previous_maintenance_shape:before.graph_maintenance_shape},...(accessProof?{access_proof:clone(accessProof)}:{})}:null;
  const graphGuard=graph?`IF NOT pg_try_advisory_xact_lock(hashtextextended('crm-graph-install',0)) THEN RAISE EXCEPTION 'TX_DEPLOY_GRAPH_BUSY';END IF;
- IF ${GRAPH_SEAL_SQL} IS DISTINCT FROM ${lit(before.graph_seal)} OR ${G.GRAPH_SHAPE} IS DISTINCT FROM ${lit(before.graph_shape)} OR ${G.MAINTENANCE_SHAPE} IS DISTINCT FROM ${lit(before.graph_maintenance_shape)} OR ${G.PUBLIC_SHAPE} IS DISTINCT FROM ${lit(before.graph_public_shape)} OR ${G.ROLE_SQL} IS DISTINCT FROM ${lit(JSON.stringify(before.graph_worker_role))}::jsonb THEN RAISE EXCEPTION 'TX_DEPLOY_GRAPH_DRIFT';END IF;`:'';
+ IF ${GRAPH_SEAL_SQL} IS DISTINCT FROM ${lit(before.graph_seal)} OR ${G.GRAPH_SHAPE} IS DISTINCT FROM ${lit(before.graph_shape)} OR ${G.MAINTENANCE_SHAPE} IS DISTINCT FROM ${lit(before.graph_maintenance_shape)} OR ${G.PUBLIC_SHAPE} IS DISTINCT FROM ${lit(before.graph_public_shape)} OR ${G.ROLE_SQL} IS DISTINCT FROM ${lit(JSON.stringify(before.graph_worker_role))}::jsonb${accessProof?` OR ${A.ROLE_IDENTITY_SQL} IS DISTINCT FROM ${lit(JSON.stringify(before.graph_worker_identity))}::jsonb`:''} THEN RAISE EXCEPTION 'TX_DEPLOY_GRAPH_DRIFT';END IF;`:'';
  const sql=`SET LOCAL lock_timeout='3s'; SET LOCAL statement_timeout='15s';
 DO $tx_install$ DECLARE current_control jsonb; next_seal jsonb; next_graph_seal jsonb; BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('maintenance-cart-install',0));
@@ -93,8 +98,8 @@ class Installer{
   }
   check(cart[0].nodes.some(n=>n.parameters?.query==='SELECT * FROM crm_maintenance_candidate.cart_admit_claim_v1($1::jsonb);')&&cart[1].nodes.some(n=>n.parameters?.query==='SELECT * FROM crm_maintenance_candidate.cart_next_v1($1::text);'),'CART_NOT_RETAINED');
   const before=await this.io.metadata();this.evidence('prepare-sql',before);depGuard(before);check(before.database==='listmonk','DATABASE_SCOPE');
-  const old=previousSeal(before);check(guard.retention.seal_sha256===sha(old)&&guard.retention.shape===before.shape&&guard.retention.control_version===2,'UNREVIEWED_RETENTION');
-  const state=await this.io.state();gateGuard(state);const nonce=crypto.randomUUID(),migration=atomicInstall(this.root,before,state.control,nonce);
+  const accessProof=guard.worker_access??null;const old=previousSeal(before,accessProof);check(guard.retention.seal_sha256===sha(old)&&guard.retention.shape===before.shape&&guard.retention.control_version===2,'UNREVIEWED_RETENTION');
+  const state=await this.io.state();gateGuard(state);const nonce=crypto.randomUUID(),migration=atomicInstall(this.root,before,state.control,nonce,accessProof);
   consumer.name='Growth · Pedidos retidos · '+nonce;
   const p={contract:CONTRACT,nonce,prepared_at:new Date().toISOString(),sources:sourceFiles(this.root),before,control:state.control,source:w,producer,consumer,cart,projects:pr,pg:ids,utility,migration};
   p.hash=sha(p);this.store.put('plan',p);return this.summary(p);
@@ -104,7 +109,7 @@ class Installer{
  async db(p,installed=true){
   const s=await this.io.metadata();this.evidence('sql',s);depGuard(s);check(s.database===p.before.database&&s.role===p.before.role&&same(s.dependencies,p.before.dependencies),'DEPENDENCY_DRIFT');
   if(installed){let seal;try{seal=JSON.parse(s.seal);}catch{throw Error('TX_DEPLOY_SEAL');}check(s.schema===SCHEMA&&same({...seal,shape:undefined},{...p.migration.seal,shape:undefined})&&seal.shape===s.shape&&s.shape,'SCHEMA_DRIFT');graphExtensionGuard(s,p.migration.graph);}
-  else check(same(previousSeal(s),p.migration.seal.previous)&&s.shape===p.before.shape,'OLD_SEAL_DRIFT');
+  else check(same(previousSeal(s,p.migration.graph?.access_proof??null),p.migration.seal.previous)&&s.shape===p.before.shape,'OLD_SEAL_DRIFT');
   check(same(await this.io.utilityPG(),p.utility),'UTILITY_DRIFT');return s;
  }
  async protectedCart(p){for(const original of p.cart){const w=await this.io.getWorkflow(original.id);this.evidence('protected-cart',w);published(w);check(same(w,original),'CART_DRIFT');}}

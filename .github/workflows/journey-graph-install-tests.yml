@@ -3,11 +3,13 @@ on:
   pull_request:
     paths:
       - 'tools/graph-install/**'
+      - 'tools/graph-worker-access/**'
       - 'tools/maintenance-tx-deploy/**'
       - 'tests/maintenance-tx-graph-install*'
       - 'n8n/growth/journey-graph-*'
       - 'tests/journey-graph-install*'
       - 'tests/journey-graph-worker-role*'
+      - 'tests/graph-worker-access*'
       - '.github/workflows/journey-graph-install-tests.yml'
   workflow_dispatch:
 permissions:
@@ -40,7 +42,7 @@ jobs:
       - name: Installation, uncertain response and role regression
         env:
           NODE_PATH: ../graph-install-tools/node_modules
-        run: node --test tests/journey-graph-install.test.cjs tests/journey-graph-install-protocol.test.cjs tests/journey-graph-worker-role.test.cjs tests/maintenance-tx-graph-install.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-sql.test.cjs
+        run: node --test tests/journey-graph-install.test.cjs tests/journey-graph-install-protocol.test.cjs tests/journey-graph-worker-role.test.cjs tests/graph-worker-access-contract.test.cjs tests/graph-worker-access-tx.test.cjs tests/maintenance-tx-graph-install.test.cjs tests/maintenance-tx-deploy.test.cjs tests/maintenance-tx-deploy-sql.test.cjs
       - name: Atomic composition on existing drafts and CART
         env:
           NODE_PATH: ../graph-install-tools/node_modules
