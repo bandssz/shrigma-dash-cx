@@ -1,0 +1,49 @@
+name: CRM existing role preservation and old plan retirement
+on:
+  pull_request:
+    paths:
+      - 'tools/graph-acl-migration/**'
+      - 'tools/graph-install/**'
+      - 'tools/maintenance-cart-deploy/**'
+      - 'n8n/growth/journey-graph-*'
+      - 'tests/graph-acl-*'
+      - 'tests/journey-graph-install-fixture.cjs'
+      - '.github/workflows/graph-acl-migration-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acl-and-retirement-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: graph_acl_migration_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d graph_acl_migration_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated pinned test dependencies
+        run: npm install --prefix ../graph-acl-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: ACL, retirement barrier and uncertain response protocol
+        env:
+          NODE_PATH: ../graph-acl-tools/node_modules
+        run: node --test tests/graph-acl-migration.test.cjs tests/graph-acl-protocol.test.cjs
+      - name: Real PostgreSQL privileges, SET ROLE, concurrency and composed installation
+        env:
+          NODE_PATH: ../graph-acl-tools/node_modules
+          TEST_DATABASE_URL: postgres://synthetic@127.0.0.1:5432/graph_acl_migration_test
+          GRAPH_ACL_TEST_DATABASE_ISOLATED: '1'
+        run: node tests/graph-acl-postgres.cjs
