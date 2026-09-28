@@ -1,5 +1,5 @@
 'use strict';
-const {Pool}=require('pg'),{config}=require('./config.cjs'),{createTokenProvider}=require('./oauth.cjs'),{createServer}=require('./server.cjs');
+const {Pool}=require('pg'),{config,WORKER_DB_USER}=require('./config.cjs'),{createTokenProvider}=require('./oauth.cjs'),{createServer}=require('./server.cjs');
 const {createWorker}=require('../../n8n/growth/journey-graph-worker.cjs'),{createWorkerHttp}=require('../../n8n/growth/journey-graph-worker-http.cjs');
 function start(env=process.env){
  const c=config(env),pool=new Pool(c.pg);
@@ -7,8 +7,9 @@ function start(env=process.env){
  const adapters=createWorkerHttp({listmonkOrigin:c.listmonkOrigin,listmonkAuthorization:c.listmonkAuthorization,cacheTarget:c.cacheTarget,shops:c.shops,shopifyTokenFor:createTokenProvider(c)});
  const worker=createWorker({pool,enabled:c.enabled,actor:'worker:graph-cart-v1',cacheTarget:c.cacheTarget,shops:c.shops,collectorWorkflowIds:c.collectorWorkflowIds,shopifyRequest:adapters.shopifyRequest,sendTx:adapters.sendTx,
   // These operations are internal and already authenticated by the HTTP boundary.
-  // The worker independently enforces SQL controls and fixed ownership per effect.
-  authorizeWorker:async({query,actor})=>actor==='worker:graph-cart-v1'&&(await query('SELECT current_user AS role')).rows[0]?.role===c.pg.user});
+  // Require the dedicated SQL role independently of the configured username.
+  // The worker also enforces SQL controls and fixed ownership per effect.
+  authorizeWorker:async({query,actor})=>actor==='worker:graph-cart-v1'&&(await query('SELECT current_user AS role')).rows[0]?.role===WORKER_DB_USER});
  const app=createServer({worker,token:c.token,revision:c.revision,enabled:c.enabled});
  // The process never self-enrolls, opens epochs or schedules ticks. Only the
  // reviewed n8n integration may invoke the fixed internal operations.

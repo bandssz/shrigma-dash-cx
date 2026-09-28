@@ -35,7 +35,7 @@ jobs:
           docker run -d --name crm-flow-proof --network none \
             -e CRM_FLOWS_ENABLED=false -e CRM_FLOWS_REVISION=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
             -e CRM_FLOWS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-            -e CRM_PG_HOST=synthetic_database -e CRM_PG_USER=synthetic -e CRM_PG_PASSWORD=synthetic-password -e CRM_PG_DATABASE=listmonk \
+            -e CRM_PG_HOST=synthetic_database -e CRM_PG_USER=crm_graph_worker -e CRM_PG_PASSWORD=synthetic-password -e CRM_PG_DATABASE=listmonk \
             -e CRM_LISTMONK_ORIGIN=https://email.shrigma.com.br -e CRM_LISTMONK_AUTHORIZATION='Basic c3ludGhldGljOnN5bnRoZXRpYw==' -e CRM_LISTMONK_CACHE_TARGET=synthetic-instance \
             -e CRM_FISH_SHOP=synthetic-fish.myshopify.com -e CRM_FISH_SHOP_ID=gid://shopify/Shop/1 -e CRM_FISH_CLIENT_ID=synthetic-fish -e CRM_FISH_CLIENT_SECRET=synthetic-secret -e CRM_FISH_COLLECTOR=syntheticFish \
             -e CRM_ARISTO_SHOP=synthetic-aristo.myshopify.com -e CRM_ARISTO_SHOP_ID=gid://shopify/Shop/2 -e CRM_ARISTO_CLIENT_ID=synthetic-aristo -e CRM_ARISTO_CLIENT_SECRET=synthetic-secret -e CRM_ARISTO_COLLECTOR=syntheticAristo \
