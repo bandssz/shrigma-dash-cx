@@ -215,7 +215,8 @@ async function run() {
 
     stage='decrypt_and_scram_binding';
     const recovery = Object.fromEntries(['ciphertext','nonce','key_sha256','key_fingerprint','validation_receipt_hash'].map(k=>[k,receipt[k]]));
-    const payload = await O.decryptReceipt(keyDir,recovery);
+    let payload = await O.decryptReceipt(keyDir,recovery);
+    assert.equal(Object.isFrozen(payload),true);
     assert.equal(payload.nonce,publicKey.nonce);assert.equal(payload.role,'crm_graph_worker');assert.equal(payload.database,'listmonk');
     const verifier = (await one("SELECT rolpassword verifier FROM pg_authid WHERE rolname='crm_graph_worker'",independent)).verifier;
     F.assertScramMatches(payload.password,verifier);
@@ -356,7 +357,8 @@ async function run() {
     stage='finalizer_replay_refused';
     await refused(finalSQL,'GRAPH_WORKER_FINALIZE_PREFLIGHT_DRIFT',client,false);
     assert.equal(finalWrites,1);assert.deepEqual(await metadata(),finalMetadata);
-    await worker.end();workerConnected=false;payload.password='';workerOptions.password='';
+    stage='release_authenticated_clients';
+    await worker.end();workerConnected=false;worker=null;payload=null;workerOptions.password='';
     stage='private_server_log_scan';
     const finalMarker = 'GRAPH_CREDENTIAL_LOG_END_'+crypto.randomUUID().replaceAll('-','');markers.push(finalMarker);
     await client.query("SELECT '"+finalMarker+"';");
