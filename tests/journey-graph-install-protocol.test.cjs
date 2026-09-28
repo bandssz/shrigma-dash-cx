@@ -66,3 +66,67 @@ test('timeout changed before install blocks writes; missing or disabled readback
  const stale=fixture(),p=await stale.prepare();stale.change(m=>({...m,statement_timeout_ms:0}));await assert.rejects(stale.installer.install(p.plan_hash),/PREFLIGHT_DRIFT/);assert.equal(stale.writes(),0);assert.equal(stale.store.has('install-intent'),false);
  for(const statement_timeout_ms of [undefined,0,30001]){const f=fixture(),plan=await f.prepare();await f.installer.install(plan.plan_hash);f.change(m=>({...m,statement_timeout_ms}));await assert.rejects(f.installer.verify(),/STATEMENT_TIMEOUT_REQUIRED/);assert.equal(f.writes(),1);}
 });
+
+function auditFixture(){
+ const f=fixture();
+ for(const w of Object.values(f.workflows)){
+  w.updatedAt='2026-09-28T00:00:00.000Z';
+  w.settings={executionOrder:'v1',timeSavedMode:'fixed',errorWorkflow:'syntheticError'};
+  w.staticData={global:{dedupe_cursor:'synthetic-cursor'}};
+  w.shared=[{role:'workflow:owner',projectId:'synthetic-project',project:{id:'synthetic-project',type:'personal',updatedAt:'2026-09-28T00:00:00.000Z',projectRelations:[{role:'project:personalOwner',userId:'synthetic-user',user:{id:'synthetic-user',role:{slug:'global:owner'},email:'synthetic@example.invalid',firstName:'Synthetic',updatedAt:'2026-09-28T00:00:00.000Z'}}]}}];
+ }
+ return f;
+}
+const auditUser=w=>w.shared[0].project.projectRelations[0].user;
+test('only valid user audit updatedAt changes allow snapshot, prepare, install and readback; raw exports remain intact',async()=>{
+ const f=auditFixture(),raw=copy(f.workflows);f.io.getWorkflow=async id=>f.workflows[id];
+ const reviewed=await f.installer.snapshot();assert.deepEqual(f.workflows,raw);
+ for(const w of Object.values(f.workflows))auditUser(w).updatedAt='2026-09-28T00:01:00.123Z';
+ const changed=copy(f.workflows);assert.deepEqual(await f.installer.snapshot(),reviewed);assert.deepEqual(f.workflows,changed);
+ const p=await f.installer.prepare({snapshot_sha256:G.sha(reviewed)});
+ for(const w of Object.values(f.workflows))auditUser(w).updatedAt='2026-09-28T00:02:00.456Z';
+ assert.equal((await f.installer.install(p.plan_hash)).installed,true);assert.equal(f.writes(),1);
+ for(const w of Object.values(f.workflows))auditUser(w).updatedAt='2026-09-28T00:03:00.789Z';
+ assert.equal((await f.installer.verify()).readback_verified,true);assert.equal(f.writes(),1);
+ assert.equal(auditUser(f.workflows[G.WORKFLOWS[0]]).updatedAt,'2026-09-28T00:03:00.789Z');
+});
+test('user audit normalization preserves access, profiles, runtime, publication and every other updatedAt guard',async()=>{
+ const cases=[
+  w=>{w.shared[0].role='workflow:editor';},
+  w=>{w.shared[0].projectId='other-project';},
+  w=>{w.shared[0].project.projectRelations[0].role='project:viewer';},
+  w=>{w.shared[0].project.projectRelations.push(copy(w.shared[0].project.projectRelations[0]));},
+  w=>{w.shared[0].project.projectRelations[0].userId='other-user';},
+  w=>{auditUser(w).role.slug='global:member';},
+  w=>{auditUser(w).email='other@example.invalid';},
+  w=>{auditUser(w).firstName='Changed';},
+  w=>{w.settings.errorWorkflow='changedError';},
+  w=>{w.staticData.global.dedupe_cursor='changed-cursor';},
+  w=>{w.nodes[0].credentials.httpBasicAuth={id:'changed-auth'};w.activeVersion.nodes=copy(w.nodes);},
+  w=>{w.nodes[0].parameters={path:'changed-route',authentication:'basicAuth'};w.activeVersion.nodes=copy(w.nodes);},
+  w=>{w.nodes[0].webhookId='changed-webhook';w.activeVersion.nodes=copy(w.nodes);},
+  w=>{w.connections={start:{main:[[{node:'changed-target',type:'main',index:0}]]}};w.activeVersion.connections=copy(w.connections);},
+  w=>{w.versionId='v2';w.activeVersionId='v2';w.activeVersion.versionId='v2';},
+  w=>{w.active=false;},
+  w=>{w.activeVersion.nodes=[];},
+  w=>{w.updatedAt='2026-09-28T01:00:00.000Z';},
+  w=>{w.shared[0].project.updatedAt='2026-09-28T01:00:00.000Z';},
+  w=>{w.activeVersion.updatedAt='2026-09-28T01:00:00.000Z';},
+  w=>{delete auditUser(w).updatedAt;},
+  w=>{delete w.shared;}
+ ];
+ for(const mutate of cases){
+  const f=auditFixture(),p=await f.prepare();mutate(f.workflows[G.WORKFLOWS[0]]);
+  await assert.rejects(f.installer.install(p.plan_hash),/PREFLIGHT_DRIFT|WORKFLOW_UNPUBLISHED/);
+  assert.equal(f.writes(),0);assert.equal(f.store.has('install-intent'),false);
+ }
+});
+test('audit updatedAt must be an actual canonical ISO UTC timestamp; omission stays distinct from presence',async()=>{
+ for(const stamp of [null,42,{},'not-a-date','2026-02-30T00:00:00.000Z','2026-09-28','2026-09-28T00:00:00.000Z extra']){
+  const f=auditFixture(),p=await f.prepare();auditUser(f.workflows[G.WORKFLOWS[0]]).updatedAt=stamp;
+  await assert.rejects(f.installer.install(p.plan_hash),/WORKFLOW_USER_AUDIT_TIMESTAMP/);assert.equal(f.writes(),0);assert.equal(f.store.has('install-intent'),false);
+ }
+ const f=auditFixture();delete auditUser(f.workflows[G.WORKFLOWS[0]]).updatedAt;const p=await f.prepare();
+ auditUser(f.workflows[G.WORKFLOWS[0]]).updatedAt='2026-09-28T00:00:00.000Z';
+ await assert.rejects(f.installer.install(p.plan_hash),/PREFLIGHT_DRIFT/);assert.equal(f.writes(),0);assert.equal(f.store.has('install-intent'),false);
+});

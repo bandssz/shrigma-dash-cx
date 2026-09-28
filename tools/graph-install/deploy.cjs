@@ -87,7 +87,23 @@ function atomicInstall(root,before,nonce){
 END $graph_install$;`;
  return {sql,seal,maintenanceSeal};
 }
-function workflowSnapshot(w){check(w?.active===true&&w.versionId&&w.activeVersionId===w.versionId&&w.activeVersion?.versionId===w.versionId&&same(w.nodes,w.activeVersion.nodes)&&same(w.connections,w.activeVersion.connections),'WORKFLOW_UNPUBLISHED');return {id:w.id,version:w.versionId,hash:sha(w),pg_ids:[...new Set(w.nodes.filter(n=>n.credentials?.postgres).map(n=>n.credentials.postgres.id))].sort()};}
+function workflowHash(w){
+ // n8n may refresh this user's audit timestamp while GET returns the same
+ // published workflow. Keep the field's presence and all access/runtime data;
+ // never mutate the raw export or normalize updatedAt anywhere else.
+ const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+ const contract=Array.isArray(w.shared)?{...w,shared:w.shared.map(s=>{
+  if(!record(s)||!record(s.project)||!Array.isArray(s.project.projectRelations))return s;
+  return {...s,project:{...s.project,projectRelations:s.project.projectRelations.map(r=>{
+   if(!record(r)||!record(r.user)||!Object.hasOwn(r.user,'updatedAt'))return r;
+   const stamp=r.user.updatedAt;
+   check(typeof stamp==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(stamp)&&Number.isFinite(Date.parse(stamp))&&new Date(stamp).toISOString()===stamp,'WORKFLOW_USER_AUDIT_TIMESTAMP');
+   return {...r,user:{...r.user,updatedAt:'1970-01-01T00:00:00.000Z'}};
+  })}};
+ })}:w;
+ return sha(contract);
+}
+function workflowSnapshot(w){check(w?.active===true&&w.versionId&&w.activeVersionId===w.versionId&&w.activeVersion?.versionId===w.versionId&&same(w.nodes,w.activeVersion.nodes)&&same(w.connections,w.activeVersion.connections),'WORKFLOW_UNPUBLISHED');return {id:w.id,version:w.versionId,hash:workflowHash(w),pg_ids:[...new Set(w.nodes.filter(n=>n.credentials?.postgres).map(n=>n.credentials.postgres.id))].sort()};}
 class Installer{
  constructor({root,io,store}){this.root=root;this.io=io;this.store=store;}
  async snapshot(){const utility=await this.io.utilityPG();check(Array.isArray(utility.ids)&&utility.ids.length===1,'UTILITY_PG');const workflows=[];for(const id of WORKFLOWS){const w=await this.io.getWorkflow(id);check(w.id===id,'WORKFLOW_ID');const proof=workflowSnapshot(w);check(same(proof.pg_ids,utility.ids),'RUNTIME_PG_REFERENCE');workflows.push(proof);}const metadata=await this.io.metadata();check(metadata.role==='postgres','RUNTIME_ROLE');return {metadata,workflows,utility};}
