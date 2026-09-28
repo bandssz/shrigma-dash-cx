@@ -23,7 +23,11 @@ async function run() {
   assert.throws(()=>F.checkLogs(Buffer.alloc(0),fixtureLog,logPins));
   assert.throws(()=>F.checkLogs(fixtureLog,Buffer.alloc(0),{...logPins,errorCodes:['GRAPH_CREDENTIAL_FAILED','GRAPH_CREDENTIAL_FAILED']}));
   assert.throws(()=>F.checkLogs(fixtureLog,Buffer.from('synthetic-log-guard'),logPins));
-  const {Client} = require('pg');
+  const {Client,types} = require('pg');
+  // pg 8.13.1 leaves the native name[] OID as text. The production query must
+  // return JSON explicitly; the safety guard must never parse/accept this text.
+  assert.equal(types.getTypeParser(1003)('{pg_catalog,public}'),'{pg_catalog,public}');
+  assert.deepEqual(types.getTypeParser(114)('["pg_catalog","public"]'),['pg_catalog','public']);
   const client = new Client(options), independent = new Client(options);
   const outputs = [], errorCodes = [], markers = [], secrets = [], connectionErrors = [];
   let temp, connected=false, independentConnected=false, worker, workerConnected=false, verdict;

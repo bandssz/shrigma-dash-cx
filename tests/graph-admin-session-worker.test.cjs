@@ -23,7 +23,7 @@ function fixture(options={}){
   if(route==='/sessions/ping')return json({state:'ok'});
   if(route==='/sessions/execute-query'){
    assert.equal(body.sesid,SID);const sql=body.sql;statements.push(sql);
-   if(sql===D.WORKER_IDENTITY_SQL)result([{database:options.identityDatabase||actualDatabase,role:options.role||'postgres',pid,statement_timeout_ms:timeout,application_name:app,transaction_isolation:options.isolation||'read committed',transaction_read_only:readonly,transaction_id:String(options.fixedXid||xid++),search_schemas:search}],D.WORKER_IDENTITY_COLUMNS);
+   if(sql===D.WORKER_IDENTITY_SQL)result([{database:options.identityDatabase||actualDatabase,role:options.role||'postgres',pid,statement_timeout_ms:timeout,application_name:app,transaction_isolation:options.isolation||'read committed',transaction_read_only:readonly,transaction_id:String(options.fixedXid||xid++),search_schemas:options.searchRepresentation??(sql.includes('pg_catalog.to_json(pg_catalog.current_schemas(true))')?search:'{'+search.join(',')+'}')}],D.WORKER_IDENTITY_COLUMNS);
    else if(sql==='SET statement_timeout = 20000;')timeout=options.rejectTimeout?0:20000;
    else if(sql.startsWith('SET application_name = '))app=sql.match(/'([^']+)'/)[1];
    else if(sql==='SET search_path = pg_catalog,public;'){if(!options.rejectSearch)search=['pg_catalog','public'];}
@@ -78,4 +78,11 @@ test('scope read-only/search-path/identity drift blocks the next read before dis
 });
 test('worker read specs cannot register a DO or a SELECT-prefixed command batch',()=>{
  for(const mode of ['worker-access','worker-scope-read'])for(const sql of [PREPARE,'SELECT 1; '+PREPARE,'SELECT 1; SET search_path=public;','SELECT \'unterminated','SELECT 1 /* missing'])assert.throws(()=>fixture({mode,reads:[{sql,columns:['count'],maxRows:1}]}),/READ_SPEC/);
+});
+
+test('worker search path is native JSON on the wire and text name-array representations never bypass the guard',async()=>{
+ assert.match(D.WORKER_IDENTITY_SQL,/pg_catalog\.to_json\(pg_catalog\.current_schemas\(true\)\) AS search_schemas/);
+ for(const mode of ['worker-access','worker-scope-read'])for(const searchRepresentation of ['{pg_catalog,public}','["pg_catalog","public"]']){
+  const f=fixture({mode,searchRepresentation});try{await assert.rejects(f.client.open(),/DB_SEARCH_PATH/);assert.equal(f.writes(),0);assert.equal(f.readCount(),0);}finally{await f.dispose();}
+ }
 });
