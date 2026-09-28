@@ -32,14 +32,14 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
       - name: Build pinned production image without credentials
         run: |
-          docker build --platform linux/amd64 --file services/crm-flows/Dockerfile --tag crm-flows-synthetic \
+          docker build --platform linux/amd64 --file services/crm-flows/Dockerfile --tag crm-flows-synthetic:ci \
             --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.version=$GITHUB_SHA" \
             --label io.shrigma.crm.execution=off .
       - name: Convert and prove the OCI image OFF with no external network
         run: |
-          skopeo copy docker-daemon:crm-flows-synthetic "oci-archive:$RUNNER_TEMP/crm-flows-ci.oci.tar"
+          skopeo copy docker-daemon:crm-flows-synthetic:ci "oci-archive:$RUNNER_TEMP/crm-flows-ci.oci.tar"
           python3 tools/crm-flow-image/smoke.py --source-sha "$GITHUB_SHA" --archive "$RUNNER_TEMP/crm-flows-ci.oci.tar"
       - name: Remove disposable container
         if: always()
