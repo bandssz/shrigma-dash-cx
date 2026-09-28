@@ -12,6 +12,7 @@ const sql=f=>fs.readFileSync(path.join(__dirname,'../n8n/creators',f),'utf8');
  await db.exec('CREATE TABLE crm_organico_attribution_order_v2(marca text,order_id text,dia date,model text,utm_source text,utm_content text,receita_liquida numeric);');
  await db.exec(sql('partner-link.sql'));await db.exec(sql('partner-commission-base.sql'));
  await db.exec(P.SQL);await db.exec(P.SQL);checks++; // idempotente
+ await db.exec(sql('partner-aprovacao.sql')); // crm_partner_parceiro_v1: a leitura desconta o cupom do próprio parceiro
  const def=(await db.query("SELECT pg_get_functiondef('public.crm_creator_pilot_write_v1(jsonb)'::regprocedure) d")).rows[0].d;
  await db.exec(P.patchWrite(def));assert.throws(()=>P.patchWrite(P.patchWrite(def)),/já existe/);assert.throws(()=>P.patchWrite('CREATE FUNCTION public.crm_creator_pilot_write_v1 x'),/marcador/);checks++;
 

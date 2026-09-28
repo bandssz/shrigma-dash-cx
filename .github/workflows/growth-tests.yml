@@ -83,6 +83,7 @@ jobs:
           node tests/partner-operacao-postgres.cjs
           node tests/partner-comissao-postgres.cjs
           node tests/partner-candidatura-postgres.cjs
+          node tests/partner-aprovacao-postgres.cjs
           node tests/influ-escopo-postgres.cjs
       - name: Check Influs Shopify conciliation on isolated PostgreSQL
         env:

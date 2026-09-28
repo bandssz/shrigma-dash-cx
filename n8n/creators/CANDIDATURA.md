@@ -40,3 +40,20 @@ A LP passa a mostrar a versão mais alta publicada. Quem aceitou uma versão ant
 - **Idempotência:** o `request_id` devolve o mesmo protocolo, sem gravar de novo.
 - **Prints:** de 1 a 3, em JPEG, PNG ou WebP, até 3 MB cada, conferidos pelos primeiros bytes. A LP reduz para 1600 px em JPEG antes de enviar.
 - **CPM:** preço declarado ÷ views declaradas × 1.000, calculado na leitura do painel.
+
+## Aprovação pelo painel (28/09/2026)
+
+Na linha da candidatura, **Aprovar** cria o parceiro inteiro de uma vez:
+
+| o quê | onde |
+|---|---|
+| Cupom na Shopify (Aristo 6%, Fish 5%, todos os produtos, sem acumular, sem limite, igual aos cupons de influ) | workflow `VJbQ5f8URk7GmTB5` (`partner-aprovacao-workflow.cjs`) |
+| Creator em `crm_influ` (modelo comissão, 5%) e cupom em `crm_cupom`: o coletor de cupom atribui as vendas sozinho | `partner-aprovacao.sql` |
+| Link de parceiro ativo (`utm_source=parceiro`, `utm_content=p-xxxxxxxx`) | `crm_partner_link_v1` |
+| Envio do produto: pendente → enviado, com rastreio | `crm_partner_parceiro_v1` |
+
+- **Código do cupom:** sugerido pelo @ e editável. Se o código já existir no cadastro da marca, o sistema recusa. Se existir na loja com a mesma regra, reaproveita; com outra regra, recusa.
+- **Repetir é seguro:** o mesmo `request_id` com o mesmo código não cria dois cupons. A busca acha o cupom que já foi criado e só confere a regra.
+- **Fishermans:** o app da loja só tem `read_discounts`. Até alguém liberar `write_discounts`, a aprovação para e explica: "crie o cupom X na Shopify e clique em Aprovar de novo". O sistema então confere o cupom e cadastra. Com a permissão liberada, passa a criar sozinho, sem mudar código.
+- **Link e cupom no mesmo pedido do mesmo parceiro:** a comissão sai uma vez, pelo cupom (`crm_influ`). A leitura do link mostra `pedidos_pelo_proprio_cupom` e não soma esses pedidos na comissão do link.
+- **Recusar:** grava pelo cadastro do piloto (`kind='candidato'`, `state='recusado'`). A linha sai de "Para analisar" na hora.

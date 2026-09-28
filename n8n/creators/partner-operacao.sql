@@ -115,26 +115,30 @@ BEGIN
   FROM public.crm_partner_link_v1 l JOIN public.crm_partner_candidate_v1 c ON c.id=l.candidate_id) x),
  'partner_orders',(SELECT coalesce(jsonb_agg(to_jsonb(o) ORDER BY o.pedidos DESC),'[]') FROM (
   SELECT a.ref,a.marca,
-   count(*) FILTER(WHERE a.ativo)::integer AS pedidos,
-   sum(a.receita_liquida) FILTER(WHERE a.ativo) AS receita_liquida_com_frete,
-   min(a.dia) FILTER(WHERE a.ativo) AS primeiro_dia,max(a.dia) FILTER(WHERE a.ativo) AS ultimo_dia,
+   count(*) FILTER(WHERE a.ativo AND NOT a.proprio)::integer AS pedidos,
+   sum(a.receita_liquida) FILTER(WHERE a.ativo AND NOT a.proprio) AS receita_liquida_com_frete,
+   min(a.dia) FILTER(WHERE a.ativo AND NOT a.proprio) AS primeiro_dia,max(a.dia) FILTER(WHERE a.ativo AND NOT a.proprio) AS ultimo_dia,
    count(*) FILTER(WHERE NOT a.ativo)::integer AS pedidos_link_inativo,
-   count(a.b_order) FILTER(WHERE a.ativo)::integer AS pedidos_com_base,
-   count(*) FILTER(WHERE a.ativo AND a.b_order IS NULL)::integer AS pedidos_sem_base,
-   count(*) FILTER(WHERE a.ativo AND a.b_order IS NOT NULL AND NOT a.completa)::integer AS pedidos_base_estimada,
-   count(*) FILTER(WHERE a.ativo AND a.b_order IS NOT NULL AND a.velha)::integer AS pedidos_base_desatualizada,
-   count(*) FILTER(WHERE a.ativo AND a.cupom IS NOT NULL)::integer AS pedidos_com_cupom,
-   sum(a.base_elegivel) FILTER(WHERE a.ativo) AS base_elegivel,
-   CASE WHEN coalesce(bool_and(a.b_order IS NOT NULL AND a.completa AND NOT a.velha) FILTER(WHERE a.ativo),true)
-    THEN round(coalesce(sum(a.base_elegivel) FILTER(WHERE a.ativo),0)*max(a.rate),2) END AS comissao,
-   coalesce(bool_and(a.b_order IS NOT NULL AND a.completa AND NOT a.velha) FILTER(WHERE a.ativo),true) AS comissao_fechada
+   count(*) FILTER(WHERE a.ativo AND a.proprio)::integer AS pedidos_pelo_proprio_cupom,
+   count(a.b_order) FILTER(WHERE a.ativo AND NOT a.proprio)::integer AS pedidos_com_base,
+   count(*) FILTER(WHERE a.ativo AND NOT a.proprio AND a.b_order IS NULL)::integer AS pedidos_sem_base,
+   count(*) FILTER(WHERE a.ativo AND NOT a.proprio AND a.b_order IS NOT NULL AND NOT a.completa)::integer AS pedidos_base_estimada,
+   count(*) FILTER(WHERE a.ativo AND NOT a.proprio AND a.b_order IS NOT NULL AND a.velha)::integer AS pedidos_base_desatualizada,
+   count(*) FILTER(WHERE a.ativo AND NOT a.proprio AND a.cupom IS NOT NULL)::integer AS pedidos_com_cupom,
+   sum(a.base_elegivel) FILTER(WHERE a.ativo AND NOT a.proprio) AS base_elegivel,
+   CASE WHEN coalesce(bool_and(a.b_order IS NOT NULL AND a.completa AND NOT a.velha) FILTER(WHERE a.ativo AND NOT a.proprio),true)
+    THEN round(coalesce(sum(a.base_elegivel) FILTER(WHERE a.ativo AND NOT a.proprio),0)*max(a.rate),2) END AS comissao,
+   coalesce(bool_and(a.b_order IS NOT NULL AND a.completa AND NOT a.velha) FILTER(WHERE a.ativo AND NOT a.proprio),true) AS comissao_fechada
   FROM (
    SELECT o.utm_content AS ref,o.marca,o.dia,o.receita_liquida,p.rate,b.order_id AS b_order,b.base_elegivel,
     coalesce(b.base_exata AND b.detalhes_completos,false) AS completa,
     coalesce(b.coletado_em<now()-interval '24 hours',false) AS velha,
     public.crm_partner_link_ativo_no_dia_v1(o.utm_content,o.dia) AS ativo,
     (SELECT i.influ FROM public.crm_influ_pedido i WHERE i.marca=o.marca AND i.via='cupom' AND i.pago
-      AND 'gid://shopify/Order/'||i.order_id=o.order_id LIMIT 1) AS cupom
+      AND 'gid://shopify/Order/'||i.order_id=o.order_id LIMIT 1) AS cupom,
+    -- pedido com o cupom do próprio parceiro: a comissão sai pelo cupom (crm_influ), não pelo link de novo
+    EXISTS(SELECT 1 FROM public.crm_partner_parceiro_v1 pp JOIN public.crm_influ_pedido ip ON ip.marca=pp.marca AND ip.influ=pp.influ AND ip.via='cupom' AND ip.pago
+      AND 'gid://shopify/Order/'||ip.order_id=o.order_id WHERE pp.ref=o.utm_content) AS proprio
    FROM public.crm_organico_attribution_order_v2 o
    JOIN public.crm_partner_program_v1 p ON p.marca=o.marca
    LEFT JOIN public.crm_partner_commission_base_v1 b ON b.marca=o.marca AND b.order_id=o.order_id
@@ -160,6 +164,8 @@ BEGIN
    WHERE o.utm_source='parceiro' AND o.model='last_click' AND o.dia BETWEEN d1 AND d2
     AND EXISTS(SELECT 1 FROM public.crm_partner_link_v1 l WHERE l.ref=o.utm_content AND l.marca=o.marca)
     AND public.crm_partner_link_ativo_no_dia_v1(o.utm_content,o.dia)
+    AND NOT EXISTS(SELECT 1 FROM public.crm_partner_parceiro_v1 pp JOIN public.crm_influ_pedido ip ON ip.marca=pp.marca AND ip.influ=pp.influ AND ip.via='cupom' AND ip.pago
+      AND 'gid://shopify/Order/'||ip.order_id=o.order_id WHERE pp.ref=o.utm_content)
   ) a GROUP BY a.ref,a.marca,a.mes) f),
  -- Cadastro de pagamento, sempre mascarado. O número completo não volta para o navegador.
  'pagamentos',(SELECT coalesce(jsonb_agg(jsonb_build_object('candidate_id',x.candidate_id,'marca',x.marca,'titular',x.titular,

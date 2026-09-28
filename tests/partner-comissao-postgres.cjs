@@ -9,7 +9,7 @@ async function base(){
   CREATE FUNCTION shrigma_panel_operator_v1(text,text) RETURNS jsonb LANGUAGE sql AS $$ SELECT NULL::jsonb $$;
   CREATE TABLE crm_organico_attribution_order_v2(marca text,order_id text,dia date,model text,utm_source text,utm_content text,receita_liquida numeric);`);
  for(const f of ['pilot.sql','partner-link.sql','partner-commission-base.sql'])await db.exec(sql(f));
- await db.exec(P.SQL);return db;
+ await db.exec(P.SQL);await db.exec(sql('partner-aprovacao.sql'));return db;
 }
 (async()=>{
  let db=await base();
