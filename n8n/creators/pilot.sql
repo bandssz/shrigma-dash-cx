@@ -58,6 +58,11 @@ INSERT INTO public.crm_creator_meta_source_v2(account_id,marca,account_name,curr
  SELECT account_id,marca,account_name,currency,timezone,'explicit_7d_click_v2'
  FROM public.crm_creator_meta_source_v1 ON CONFLICT(account_id) DO NOTHING;
 REVOKE ALL ON public.crm_creator_meta_source_v2,public.crm_creator_meta_day_v2 FROM PUBLIC;
+-- Cobertura real (27/09/2026): since/until guardam só a última janela lida (7 dias). covered_* guardam a
+-- união contínua das janelas confirmadas; é o que decide se um período está coberto.
+ALTER TABLE public.crm_creator_meta_source_v2 ADD COLUMN IF NOT EXISTS covered_since date;
+ALTER TABLE public.crm_creator_meta_source_v2 ADD COLUMN IF NOT EXISTS covered_until date;
+UPDATE public.crm_creator_meta_source_v2 SET covered_since=since,covered_until=until WHERE covered_since IS NULL AND state='ok' AND since IS NOT NULL;
 -- END explicit-window shadow schema.
 
 CREATE OR REPLACE FUNCTION public.crm_creator_pilot_read_v1(d1 date,d2 date) RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,public AS $$
@@ -66,7 +71,7 @@ BEGIN
  RETURN jsonb_build_object('schema','creator_pilot_v1','since',d1,'until',d2,
  'programs',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY marca),'[]') FROM public.crm_partner_program_v1 p),
  'candidates',(SELECT coalesce(jsonb_agg(to_jsonb(p)-'actor' ORDER BY updated_at DESC),'[]') FROM public.crm_partner_candidate_v1 p),
- 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('covers_period',s.state='ok' AND s.since<=d1 AND s.until>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v2 s),
+ 'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s)||jsonb_build_object('since',coalesce(s.covered_since,s.since),'until',coalesce(s.covered_until,s.until),'covers_period',s.state='ok' AND coalesce(s.covered_since,s.since)<=d1 AND coalesce(s.covered_until,s.until)>=d2) ORDER BY marca,account_name),'[]') FROM public.crm_creator_meta_source_v2 s),
  'ads',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY spend DESC),'[]') FROM (
   SELECT x.account_id,x.ad_id,s.marca,s.currency,s.timezone,x.model,
    (array_agg(x.ad_name ORDER BY x.day DESC))[1] AS ad_name,
@@ -181,7 +186,11 @@ BEGIN
  INSERT INTO public.crm_creator_meta_day_v2(account_id,ad_id,day,ad_name,adset_name,campaign_name,model,spend,impressions,clicks,purchases,purchase_value,collected_at)
  SELECT account,r->>'ad_id',(r->>'date_start')::date,coalesce(r->>'ad_name',''),coalesce(r->>'adset_name',''),coalesce(r->>'campaign_name',''),'7d_click_conversion',(r->>'spend')::numeric,(r->>'impressions')::bigint,(r->>'clicks')::bigint,(r->>'purchases')::numeric,(r->>'purchase_value')::numeric,started FROM jsonb_array_elements(p->'rows') r;
  GET DIAGNOSTICS n=ROW_COUNT;
- UPDATE public.crm_creator_meta_source_v2 SET state='ok',since=d1,until=d2,last_success=started,last_attempt=started,error=NULL,rows_count=n WHERE account_id=account;
+ UPDATE public.crm_creator_meta_source_v2 SET state='ok',since=d1,until=d2,last_success=started,last_attempt=started,error=NULL,rows_count=n,
+  -- janela que encosta ou cruza a cobertura estende; janela mais nova com buraco recomeça a cobertura; mais velha com buraco não mexe
+  covered_since=CASE WHEN s.covered_since IS NULL THEN d1 WHEN d1<=s.covered_until+1 AND d2>=s.covered_since-1 THEN least(s.covered_since,d1) WHEN d1>s.covered_until+1 THEN d1 ELSE s.covered_since END,
+  covered_until=CASE WHEN s.covered_until IS NULL THEN d2 WHEN d1<=s.covered_until+1 AND d2>=s.covered_since-1 THEN greatest(s.covered_until,d2) WHEN d1>s.covered_until+1 THEN d2 ELSE s.covered_until END
+ WHERE account_id=account;
  RETURN jsonb_build_object('ok',true,'collected',true,'rows',n,'account_id',account);
 END $$;
 REVOKE ALL ON FUNCTION public.crm_creator_meta_ingest_v2(jsonb) FROM PUBLIC;

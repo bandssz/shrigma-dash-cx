@@ -12,7 +12,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const op=await run({k:cmd.k,acao:'piloto_operacao',request_id:rid});assert.deepEqual(op.receipt,r);checks++;
  assert((await run({...cmd,request_id:next(),expected_version:2,data:{...cmd.data,state:'ativo_pagamento'}})).erro);checks++;
  await db.exec("INSERT INTO crm_influ VALUES('fish','creator-fish'),('aristo','creator-aristo');INSERT INTO crm_creator_meta_source_v2(account_id,marca,account_name,currency,timezone,state,since,until) VALUES('111','fish','Test','BRL','America/Sao_Paulo','ok','2026-09-01','2026-09-20');INSERT INTO crm_creator_meta_day_v2 VALUES('111','222','2026-09-01','[X][UGC-NT][S-FM][Test]','','','7d_click_conversion',10,100,10,2,80,now()),('111','222','2026-09-02','Renamed','','','7d_click_conversion',20,100,10,null,null,now());");
- await db.exec("INSERT INTO crm_creator_meta_source_v1 SELECT * FROM crm_creator_meta_source_v2;INSERT INTO crm_creator_meta_day_v1 SELECT * FROM crm_creator_meta_day_v2;");
+ await db.exec("INSERT INTO crm_creator_meta_source_v1 SELECT account_id,marca,account_name,currency,timezone,state,since,until,last_success,last_attempt,error,collection_mode,rows_count FROM crm_creator_meta_source_v2;INSERT INTO crm_creator_meta_day_v1 SELECT * FROM crm_creator_meta_day_v2;");
  const legacyBefore=(await db.query('SELECT to_jsonb(d) AS d FROM crm_creator_meta_day_v1 d ORDER BY day')).rows;
  const link={k:cmd.k,acao:'piloto_salvar',kind:'vinculo',expected_version:0,request_id:next(),data:{marca:'fish',account_id:'111',ad_id:'222',influ:'creator-fish'}};
  assert((await run({...link,data:{...link.data,influ:'creator-aristo'}})).erro);checks++;assert((await run({...link,data:{...link.data,marca:'aristo'}})).erro);checks++;assert((await run(link)).ok);checks++;assert((await run({...link,request_id:next()})).erro);checks++;
@@ -29,6 +29,17 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  await assert.rejects(ingest({...batch,rows:[{...batch.rows[0],account_id:'999'}]}),/scope/);checks++;
  const failed=await ingest({...batch,started_at:'2026-09-22T09:00:00Z',complete:false,rows:[],error:'API unavailable'});assert.equal(failed.collected,false);assert.equal((await db.query('SELECT sum(spend) AS n FROM crm_creator_meta_day_v2')).rows[0].n,'15');checks++;
  const last=(await db.query("SELECT crm_creator_pilot_read_v1('2026-09-01','2026-09-02') AS p")).rows[0].p;assert.equal(last.sources[0].covers_period,false);assert.equal(last.ads[0].spend,15);checks++;
+ // cobertura real: união das janelas confirmadas, não só a última janela de 7 dias
+ await db.exec("INSERT INTO crm_creator_meta_source_v2(account_id,marca,account_name,currency,timezone) VALUES('333','aristo','Cob','BRL','America/Sao_Paulo')");
+ const w=(s1,u1,t)=>ingest({metric_basis:'explicit_7d_click',account_id:'333',started_at:t,since:s1,until:u1,complete:true,rows:[]});
+ await w('2026-09-20','2026-09-26','2026-09-27T09:00:00Z');await w('2026-09-11','2026-09-19','2026-09-27T10:00:00Z');await w('2026-08-01','2026-08-05','2026-09-27T11:00:00Z');
+ let cob=(await db.query("SELECT covered_since::text a,covered_until::text b,since::text c FROM crm_creator_meta_source_v2 WHERE account_id='333'")).rows[0];
+ assert.deepEqual([cob.a,cob.b,cob.c],['2026-09-11','2026-09-26','2026-08-01'],'janela velha com buraco não estende a cobertura');checks++;
+ const src=async(a,b)=>(await db.query('SELECT crm_creator_pilot_read_v1($1,$2) AS p',[a,b])).rows[0].p.sources.find(x=>x.account_id==='333');
+ assert.equal((await src('2026-09-12','2026-09-25')).covers_period,true);assert.equal((await src('2026-09-12','2026-09-25')).since,'2026-09-11');assert.equal((await src('2026-08-02','2026-09-25')).covers_period,false);checks++;
+ await w('2026-09-21','2026-09-27','2026-09-28T09:00:00Z');await w('2026-10-05','2026-10-11','2026-10-12T09:00:00Z');
+ cob=(await db.query("SELECT covered_since::text a,covered_until::text b FROM crm_creator_meta_source_v2 WHERE account_id='333'")).rows[0];
+ assert.deepEqual([cob.a,cob.b],['2026-10-05','2026-10-11'],'buraco para frente recomeça a cobertura');checks++;
  const ledger=(await db.query('SELECT request FROM crm_creator_pilot_operation_v1')).rows;assert(ledger.every(x=>!JSON.stringify(x).includes('synthetic-creators-key')));checks++;
  await assert.rejects(ingest({...batch,metric_basis:'generic_value'}),/Explicit attribution/);checks++;
  assert.deepEqual((await db.query('SELECT to_jsonb(d) AS d FROM crm_creator_meta_day_v1 d ORDER BY day')).rows,legacyBefore);checks++;

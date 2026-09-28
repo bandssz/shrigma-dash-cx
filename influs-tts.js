@@ -343,7 +343,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const pronto = manualDisponivelTTS(), nota = $('#tts-manual-status');
     if (!pronto) setTimeout(autoCapacidadesTTS, 0);
     const verificar=$('#tts-manual-check');if(verificar)verificar.onclick=()=>acionaConsultaTTS({acao:'capacidades',marca:marcaAtual()},verificar);
-    if (nota) nota.textContent = pronto ? 'Serviço disponível. Cada decisão exige nova conferência e confirmação; consulta do recibo não repete a ação.' : MANUAL_TTS_CAPS?.write === false ? 'Decisões indisponíveis: o serviço mantém a operação protegida. A fila, as regras e os recibos continuam disponíveis.' : 'Decisões protegidas. Consulte a disponibilidade com seu acesso de escrita antes de decidir.';
+    const trava = nota && nota.closest('.tts-trava'); if (trava) trava.classList.toggle('pronta', pronto); // liberado: caixa vira uma linha
+    if (nota) nota.textContent = pronto ? 'Decisões liberadas · cada uma pede confirmação; o recibo não repete a ação.' : MANUAL_TTS_CAPS?.write === false ? 'Decisões indisponíveis: o serviço mantém a operação protegida. A fila, as regras e os recibos continuam disponíveis.' : 'Decisões protegidas. Consulte a disponibilidade com seu acesso de escrita antes de decidir.';
     document.querySelectorAll('#tts-area .tts-acoes').forEach(td => {
       let estado;
       try { estado = journalTTS().inspect({marca:td.dataset.marca,application_id:td.dataset.id}); }
@@ -992,14 +993,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
   // Barras empilhadas por dia. Cores fixas por superfície; barra com contorno = dia parcial (hoje).
   function graficoCanal(serie) {
     if (!serie.length) return '';
-    const W = 960, H = 190, PAD = { l: 44, r: 8, t: 10, b: 26 };
+    // No celular o desenho nasce na largura da tela: com 960 fixo, eixo e datas ficavam com ~3px.
+    const cel = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:720px)').matches;
+    const W = cel ? 380 : 960, H = cel ? 170 : 190, PAD = { l: cel ? 34 : 44, r: 6, t: 10, b: 26 }, FS = cel ? 11 : 10;
     const max = Math.max(1, ...serie.map(x => x.gmv));
     const iw = (W - PAD.l - PAD.r) / serie.length, bw = Math.max(2, iw * 0.68);
     const y = v => PAD.t + (H - PAD.t - PAD.b) * (1 - v / max);
     const COR = { live: '#c0392b', video: '#2c6fbb', vitrine: '#9aa5b1' };
-    const passo = Math.max(1, Math.ceil(serie.length / 12));
+    const passo = Math.max(1, Math.ceil(serie.length / (cel ? 6 : 12)));
     let g = '';
-    for (const t of [0.5, 1]) g += `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y(max * t)}" y2="${y(max * t)}" stroke="#e6e2dc"/><text x="${PAD.l - 6}" y="${y(max * t) + 4}" text-anchor="end" font-size="10" fill="#888">${Math.round(max * t / 1000 * 10) / 10}k</text>`;
+    for (const t of [0.5, 1]) g += `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y(max * t)}" y2="${y(max * t)}" stroke="#e6e2dc"/><text x="${PAD.l - 6}" y="${y(max * t) + 4}" text-anchor="end" font-size="${FS}" fill="#888">${Math.round(max * t / 1000 * 10) / 10}k</text>`;
     serie.forEach((x, i) => {
       const cx = PAD.l + iw * i + (iw - bw) / 2; let base = 0;
       const title = `${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)} · R$ ${Math.round(x.gmv).toLocaleString('pt-BR')} · live ${Math.round(x.live)} · vídeo ${Math.round(x.video)} · vitrine ${Math.round(x.vitrine)} · afiliado ${x.pctAfiliado === null ? '—' : Math.round(x.pctAfiliado) + '%'}${x.parcial ? ' · parcial' : ''}`;
@@ -1009,7 +1012,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         g += `<rect x="${cx.toFixed(1)}" y="${y(base + v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(base) - y(base + v)).toFixed(1)}" fill="${COR[k]}" ${x.parcial ? 'opacity=".45"' : ''}/>`;
         base += v;
       }
-      if (i % passo === 0) g += `<text x="${(cx + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#777">${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)}</text>`;
+      if (i % passo === 0) g += `<text x="${(cx + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="${FS}" fill="#777">${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)}</text>`;
       g += '</g>';
     });
     const leg = Object.entries({ live: 'Live', video: 'Vídeo', vitrine: 'Vitrine / link' }).map(([k, r]) => `<span class="mini"><span style="display:inline-block;width:10px;height:10px;background:${COR[k]};border-radius:2px;vertical-align:-1px;margin-right:4px"></span>${r}</span>`).join(' &nbsp; ');
