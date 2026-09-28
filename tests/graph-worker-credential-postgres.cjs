@@ -15,6 +15,7 @@ const G = require('../tools/graph-install/deploy.cjs');
 const GF = require('./journey-graph-install-fixture.cjs');
 const F = require('./graph-worker-credential-pg-fixture.cjs');
 let stage = 'isolation';
+let logScanStatus='not_started',cleanupFailed=false;
 async function run() {
   const options = F.connectionOptions();
   const fixtureLog=Buffer.from('LOG: marker\nERROR: P0001: GRAPH_CREDENTIAL_FAILED\n');
@@ -23,6 +24,8 @@ async function run() {
   assert.throws(()=>F.checkLogs(Buffer.alloc(0),fixtureLog,logPins));
   assert.throws(()=>F.checkLogs(fixtureLog,Buffer.alloc(0),{...logPins,errorCodes:['GRAPH_CREDENTIAL_FAILED','GRAPH_CREDENTIAL_FAILED']}));
   assert.throws(()=>F.checkLogs(fixtureLog,Buffer.from('synthetic-log-guard'),logPins));
+  assert.throws(()=>F.checkLogs(fixtureLog,Buffer.from('synthetic-log-guard'),{...logPins,markers:['missing-marker']}),/CREDENTIAL_LOG_LEAK/);
+  assert.throws(()=>F.checkLogs(Buffer.alloc(0),Buffer.from('synthetic-log-guard'),logPins),/CREDENTIAL_LOG_LEAK/);
   const {Client,types} = require('pg');
   // pg 8.13.1 leaves the native name[] OID as text. The production query must
   // return JSON explicitly; the safety guard must never parse/accept this text.
@@ -30,7 +33,8 @@ async function run() {
   assert.deepEqual(types.getTypeParser(114)('["pg_catalog","public"]'),['pg_catalog','public']);
   const client = new Client(options), independent = new Client(options);
   const outputs = [], errorCodes = [], markers = [], secrets = [], connectionErrors = [];
-  let temp, connected=false, independentConnected=false, worker, workerConnected=false, verdict;
+  let temp, connected=false, independentConnected=false, worker, workerConnected=false, verdict,failure;
+  let expectedCredentialSQL=false,expectedFinalizeSQL=false;
   const one = async (sql, connection=client) => {
     const rows = (await connection.query(sql)).rows;assert.equal(rows.length,1);return rows[0];
   };
@@ -74,6 +78,7 @@ async function run() {
     // scenarios below enable all statements, errors and verbose server context.
     const logging = "SET log_statement='all'; SET log_min_error_statement='error'; SET log_error_verbosity='verbose';";
     await client.query(logging);await independent.query(logging);
+    await client.query("SELECT '"+publicKey.nonce+"';");
 
     stage='read_only_transaction_boundary';
     await independent.query('SET default_transaction_read_only=on');
@@ -86,6 +91,7 @@ async function run() {
     assert.deepEqual(await metadata(independent),initial);
 
     stage='oid_drift';
+    expectedCredentialSQL=true;
     await client.query(`ALTER ROLE crm_graph_worker RENAME TO credential_fixture_saved_worker;
       CREATE ROLE crm_graph_worker NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;`);
     try {
@@ -278,6 +284,7 @@ async function run() {
     try {
       await assert.rejects(finalizer.finalize(finalSummary.plan_hash),/GRAPH_WORKER_FINALIZE_PREFLIGHT_DRIFT/);
       assert.equal(finalWrites,0);assert.equal(finalStore.has('finalize-intent'),false);
+      expectedFinalizeSQL=true;
       await refused(finalSQL,'GRAPH_WORKER_FINALIZE_RECEIPT_DRIFT',client,false);
     } finally {await client.query(`UPDATE ${D.SCHEMA}.receipt SET completed_at=completed_at-interval '1 second'`);}
     assert.deepEqual(await one(D.RECEIPT_SQL),receipt);assert.deepEqual(await metadata(),after);
@@ -357,31 +364,43 @@ async function run() {
     stage='finalizer_replay_refused';
     await refused(finalSQL,'GRAPH_WORKER_FINALIZE_PREFLIGHT_DRIFT',client,false);
     assert.equal(finalWrites,1);assert.deepEqual(await metadata(),finalMetadata);
-    stage='release_authenticated_clients';
-    await worker.end();workerConnected=false;worker=null;payload=null;workerOptions.password='';
-    stage='private_server_log_scan';
-    const finalMarker = 'GRAPH_CREDENTIAL_LOG_END_'+crypto.randomUUID().replaceAll('-','');markers.push(finalMarker);
-    await client.query("SELECT '"+finalMarker+"';");
-    const logs = await F.rawLogs(process.env.POSTGRES_CONTAINER);
-    assert.ok(logs.includes('statement: DO $credential_prepare$'));
-    assert.ok(logs.includes('statement: DO $worker_access$'));
-    const logProof = F.checkLogs(logs,Buffer.concat(outputs),{markers,secrets,errorCodes});
-    assert.equal(connectionErrors.length,0);
+    payload=null;workerOptions.password='';
     verdict={status:'PASSED_POSTGRES_17_10_PREPARE_AND_LOGIN_ISOLATED',prepared_nologin_verified:true,login_enabled:true,
       online_auth_verified:true,wrong_password_rejected:true,worker_boundaries_verified:true,execution_enabled:false,
       independent_commit_verified:true,preparation_writes:writes,finalization_writes:finalWrites,
-      normal_and_failure_logs_verified:true,server_log_bytes:logProof.server_log_bytes,
       plaintext_logged:false,production_access:false};
+  } catch(error) {
+    failure=error;
   } finally {
-    if(workerConnected)await worker.end();
-    if(independentConnected)await independent.end();if(connected)await client.end();
-    if(temp)await fs.rm(temp,{recursive:true,force:true});
+    // Cleanup errors never prevent the private server/client leak scanner from
+    // running, and never replace the original failure with a raw driver error.
+    const cleanup=async operation=>{try {await operation();}catch(error){capture(error);cleanupFailed=true;}};
+    if(connected)await cleanup(async()=>{
+      const finalMarker='GRAPH_CREDENTIAL_LOG_END_'+crypto.randomUUID().replaceAll('-','');markers.push(finalMarker);
+      await client.query("SELECT '"+finalMarker+"';");
+    });
+    if(workerConnected)await cleanup(()=>worker.end());worker=null;
+    if(independentConnected)await cleanup(()=>independent.end());
+    if(connected)await cleanup(()=>client.end());
+    if(!failure)stage='private_server_log_scan';
+    logScanStatus='failed';
+    try {
+      const logs=await F.rawLogs(process.env.POSTGRES_CONTAINER);
+      const logProof=F.checkLogs(logs,Buffer.concat(outputs),{markers,secrets,errorCodes});
+      if(expectedCredentialSQL)assert.ok(logs.includes('statement: DO $credential_prepare$'));
+      if(expectedFinalizeSQL)assert.ok(logs.includes('statement: DO $worker_access$'));
+      logScanStatus='passed';
+      if(verdict)Object.assign(verdict,{normal_and_failure_logs_verified:true,server_log_bytes:logProof.server_log_bytes});
+    } catch(error) {if(!failure)failure=error;}
+    if(temp)await cleanup(()=>fs.rm(temp,{recursive:true,force:true}));
     for(const secret of secrets)secret.fill(0);
+    if(!failure&&(cleanupFailed||connectionErrors.length))failure=Error('GRAPH_CREDENTIAL_FIXTURE_CLEANUP');
   }
+  if(failure)throw failure;
   console.log(JSON.stringify(verdict));
 }
 run().catch(error=>{
   const code = typeof error?.message==='string' && /^(?:GRAPH_CREDENTIAL_|GRAPH_WORKER_CREDENTIAL_OPERATOR_|GRAPH_WORKER_FINALIZE_|GRAPH_WORKER_ACCESS_|GRAPH_DATABASE_SCOPE_)[A-Z_]+$/.test(error.message)
     ? error.message : 'GRAPH_CREDENTIAL_TEST_UNCONFIRMED';
-  console.error(JSON.stringify({status:'FAILED',stage,code}));process.exitCode=1;
+  console.error(JSON.stringify({status:'FAILED',stage,code,log_scan:logScanStatus,cleanup_failed:cleanupFailed}));process.exitCode=1;
 });

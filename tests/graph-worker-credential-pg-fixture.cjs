@@ -123,17 +123,20 @@ async function rawLogs(container) {
 function checkLogs(server, client, {markers,secrets,errorCodes}) {
   // Client stderr must not satisfy server coverage. All supplied values are
   // held only in memory; failure messages deliberately contain no raw output.
-  assert.ok(Buffer.isBuffer(server) && server.length > 0, 'SERVER_LOG_MISSING');
+  assert.ok(Buffer.isBuffer(server) && Buffer.isBuffer(client), 'SERVER_LOG_MISSING');
+  // Always inspect captured bytes before judging completeness, including when
+  // an earlier fixture error prevented one of the expected coverage markers.
+  const both = Buffer.concat([server,client]);
+  for (const secret of secrets) assert.ok(secret && !both.includes(secret), 'CREDENTIAL_LOG_LEAK');
+  assert.doesNotMatch(both.toString(), /ALTER ROLE\s+crm_graph_worker\s+(?:NOLOGIN\s+)?PASSWORD\s+'[a-f0-9]{64}'/, 'EXPANDED_CREDENTIAL_LOG_LEAK');
+  assert.doesNotMatch(both.toString(), /SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/]+=*\$[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*/, 'VERIFIER_LOG_LEAK');
+  assert.ok(server.length>0,'SERVER_LOG_MISSING');
   assert.ok(markers.length > 0 && markers.every(x=>x && server.includes(x)), 'SERVER_LOG_COVERAGE');
   for (const code of new Set(errorCodes)) {
     assert.match(code,/^[A-Z_]+$/);
     const count = (server.toString().match(new RegExp('ERROR:[^\\r\\n]*\\b'+code+'\\b','g'))||[]).length;
     assert.ok(count>=errorCodes.filter(x=>x===code).length, 'SERVER_ERROR_COVERAGE');
   }
-  const both = Buffer.concat([server,client]);
-  for (const secret of secrets) assert.ok(secret && !both.includes(secret), 'CREDENTIAL_LOG_LEAK');
-  assert.doesNotMatch(both.toString(), /ALTER ROLE\s+crm_graph_worker\s+(?:NOLOGIN\s+)?PASSWORD\s+'[a-f0-9]{64}'/, 'EXPANDED_CREDENTIAL_LOG_LEAK');
-  assert.doesNotMatch(both.toString(), /SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/]+=*\$[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*/, 'VERIFIER_LOG_LEAK');
   return {server_log_bytes:server.length,server_log_sha256:sha(server),marker_count:markers.length};
 }
 function assertScramMatches(password, verifier) {
