@@ -159,3 +159,8 @@ body[data-panel=influs] .i-alerta .btn{min-height:28px;padding:4px 10px;font-siz
   :is(body[data-panel=influs],body[data-panel=organico]) table.tab-cartao:not(#tab-posts):not(.tts-fila)>tbody>tr.linha-perd{box-shadow:inset 3px 0 0 var(--ruim);padding-left:10px}
 
 }
+/* Cartão no celular: conteúdo da célula nunca empurra a largura (miniaturas e etiquetas quebram linha). */
+@media(max-width:720px){
+  :is(body[data-panel=influs],body[data-panel=organico]) table.tab-cartao:not(#tab-posts):not(.tts-fila)>tbody>tr>td>*{max-width:100%}
+  :is(body[data-panel=influs],body[data-panel=organico]) table.tab-cartao:not(#tab-posts):not(.tts-fila) .tts-mini-thumbs{display:flex;flex-wrap:wrap;gap:4px}
+}
