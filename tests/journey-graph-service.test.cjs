@@ -1,5 +1,5 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),http=require('node:http');
+const {test}=require('node:test'),assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
 const {createServer,MAX_BODY}=require('../services/crm-flows/server.cjs'),{config}=require('../services/crm-flows/config.cjs'),{createTokenProvider}=require('../services/crm-flows/oauth.cjs');
 const token='x'.repeat(43),revision='a'.repeat(40);
 async function harness(t,overrides={}){
@@ -37,6 +37,24 @@ function env(){return {CRM_FLOWS_REVISION:revision,CRM_FLOWS_TOKEN:token,CRM_PG_
 test('fixed configuration starts disabled, separates shops and never includes raw environment values in errors',()=>{
  const c=config(env());assert.equal(c.enabled,false);assert.equal(c.pg.max,4);assert.notEqual(c.shops.fish.id,c.shops.aristo.id);
  for(const patch of [{CRM_FLOWS_ENABLED:'yes'},{CRM_LISTMONK_ORIGIN:'https://example.invalid'},{CRM_PG_DATABASE:'chatwoot'},{CRM_FLOWS_TOKEN:'short'},{CRM_FISH_SHOP_ID:'gid://shopify/Shop/2'},{CRM_PG_PASSWORD:'synthetic\nsecret'},{CRM_ARISTO_SHOP:'synthetic-fish.myshopify.com'}])assert.throws(()=>config({...env(),...patch}),e=>e.message==='GRAPH_SERVICE_CONFIG');
+});
+test('only the dedicated SQL user is configurable; connection limits and TLS policy remain fixed',()=>{
+ const c=config(env());assert.equal(c.pg.user,'crm_graph_worker');assert.deepEqual({port:c.pg.port,ssl:c.pg.ssl,max:c.pg.max,connectionTimeoutMillis:c.pg.connectionTimeoutMillis,idleTimeoutMillis:c.pg.idleTimeoutMillis,statement_timeout:c.pg.statement_timeout},{port:5432,ssl:false,max:4,connectionTimeoutMillis:3000,idleTimeoutMillis:30000,statement_timeout:10000});
+ for(const user of ['postgres','central_leitor','synthetic','crm_graph_worker_other','CRM_GRAPH_WORKER',' crm_graph_worker','crm_graph_worker ',undefined])assert.throws(()=>config({...env(),CRM_PG_USER:user}),e=>e.message==='GRAPH_SERVICE_CONFIG');
+});
+test('main independently authorizes only the dedicated current_user and fixed worker actor',async()=>{
+ const filename=require.resolve('../services/crm-flows/main.cjs'),realRequire=createRequire(filename),module={exports:{}};let workerOptions,poolOptions,listening=false;
+ const imports={
+  pg:{Pool:class{constructor(options){poolOptions=options;}on(){}async end(){}}},
+  './server.cjs':{createServer:()=>({server:{listen(){listening=true;}},async stop(){}})},
+  '../../n8n/growth/journey-graph-worker.cjs':{createWorker:options=>{workerOptions=options;return {};}}
+ };
+ vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:name=>Object.hasOwn(imports,name)?imports[name]:realRequire(name),process:{once(){}}},{filename});
+ const running=module.exports.start(env());assert.equal(listening,true);assert.equal(poolOptions.user,'crm_graph_worker');assert.equal(workerOptions.enabled,false);
+ let queries=0;const call=async(role,actor='worker:graph-cart-v1')=>workerOptions.authorizeWorker({actor,query:async sql=>{queries++;assert.equal(sql,'SELECT current_user AS role');return {rows:[{role}]};}});
+ assert.equal(await call('crm_graph_worker'),true);
+ for(const role of ['postgres','central_leitor','synthetic','crm_graph_worker_other',null])assert.equal(await call(role),false);
+ const before=queries;assert.equal(await call('crm_graph_worker','panel:synthetic'),false);assert.equal(queries,before);await running.stop();
 });
 test('OAuth is isolated per brand, single-flight, bounded, renewable and has no automatic retry',async()=>{
  const c=config(env());let now=0;const calls=[];
