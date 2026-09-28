@@ -1,0 +1,9 @@
+{
+  "name": "crm-graph-worker-credential-operator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local API for durable OpenPGP credential recovery; no SQL or plaintext CLI",
+  "engines": { "node": ">=22" },
+  "dependencies": { "openpgp": "6.3.1" },
+  "scripts": { "test": "node --test ../../tests/graph-worker-credential-operator.test.cjs" }
+}

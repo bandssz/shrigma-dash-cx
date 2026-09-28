@@ -44,6 +44,8 @@ jobs:
           node-version: '22'
       - name: Install test dependencies
         run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Install the pinned worker credential operator dependency
+        run: npm ci --prefix tools/graph-worker-credential --ignore-scripts --no-audit --no-fund
       - name: Run synthetic regression tests
         shell: bash
         env:
