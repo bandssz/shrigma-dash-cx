@@ -70,7 +70,7 @@ const InflusAccess=(()=>{
    status.textContent=role==='read'?'Consultando o acesso de leitura…':'Acesso e autoria informados nesta página. Nenhuma alteração foi enviada; clique novamente na ação desejada.';
    if(selectedRole==='write')return; // Never retain or resume the action that opened authentication.
    setBusy(true);
-   try{await onRead?.();if(form.hidden)status.textContent='Consultas finalizadas; confira no painel os dados e eventuais avisos de falha.';}
+   try{await onRead?.();if(form.hidden)status.textContent='Leitura concluída às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.';}
    catch(_){status.textContent='Não foi possível concluir a leitura. Tente novamente pelo painel.';}
    finally{setBusy(false);}
   };
