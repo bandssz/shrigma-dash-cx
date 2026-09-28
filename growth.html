@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4c3d41fa3145">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-bB/ZofJfYCGsE0UJvQGMsrrCWIZvxqmgvCwqbjVEkps='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5GJ3cyF9LQ5w6UeBJICeZr0xllFkEO0Ocb4i0i5OTsY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -260,7 +260,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=9ec6ff689d46"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=04a369dffddd"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -521,8 +521,15 @@ function renderPublicos(){
 function renderJornadas(modeloOp){
   if(typeof GJG!=='undefined'){
     GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+    if(PENDENTE_GRAPH&&API){
+      PENDENTE_GRAPH=false;
+      if(SEC==='regua'&&GJG.available(API)&&['fish','aristo'].includes(MARCA)){
+        GC.setTab('graph');GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+      }
+    }
     if(GC.activeTab==='graph'&&(!GJG.available(API)||!['fish','aristo'].includes(MARCA)))GC.setTab('fluxos');
   }
+  if(PENDENTE_GRAPH&&API)PENDENTE_GRAPH=false;
   if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
@@ -766,7 +773,7 @@ function pular(alvo){
 // Estado da tela na URL: copiar o link entrega a mesma marca, canal, período, seção e aba.
 function estadoHash(){
   const preset=document.querySelector('#presets button.ativo')?.dataset.p||null;
-  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:['regua','templates'].includes(SEC)?GC.activeTab:null,report:SEC==='resultados'?CRMWorkspace.state().report:null,campaign:SEC==='camp'?CRMWorkspace.state().campaign:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
+  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:SEC==='regua'&&PENDENTE_GRAPH?'graph':['regua','templates'].includes(SEC)?GC.activeTab:null,report:SEC==='resultados'?CRMWorkspace.state().report:null,campaign:SEC==='camp'?CRMWorkspace.state().campaign:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
 }
 function gravaHash(){CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
 function setCanal(canal){
@@ -780,7 +787,7 @@ function setCanal(canal){
 }
 function openFlows(canal,selection={}){
   if(selection.marca&&!trocaMarca(selection.marca,()=>openFlows(canal,selection)))return;
-  setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
+  PENDENTE_GRAPH=false;setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
   }
@@ -875,6 +882,7 @@ async function salvarTeste(){
 // todo dia nao refaz os mesmos quatro cliques. Sem preferencia salva vale o padrao da pagina.
 const PREF_K='shrigma_growth_pref';
 let PENDENTE_FLOW=null; // fluxo pedido pela URL, aplicado na primeira carga com dados
+let PENDENTE_GRAPH=false; // restaurar só após confirmar a capability; Jornadas é a alternativa segura
 function salvaPref(p){try{localStorage.setItem(PREF_K,JSON.stringify({...(lePref()||{}),...p}));}catch(e){}}
 function lePref(){try{return JSON.parse(localStorage.getItem(PREF_K)||'null');}catch(e){return null;}}
 function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).forEach(b=>{const on=b.dataset[attr]===val;b.classList.toggle('ativo',on);ok=ok||on;});return ok;}
@@ -883,6 +891,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
     ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
   if(h.aba&&['history','workflows','templates','fluxos','drafts'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.aba==='graph'&&(!h.sec||h.sec==='regua')){PENDENTE_GRAPH=true;GC.activeTab='fluxos';p.sec='regua';}
   if(h.flow)PENDENTE_FLOW=h.flow;
   if(!Object.keys(p).length)return;
   if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
@@ -937,7 +946,7 @@ window.growthChangeBrand=trocaMarca;
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
 function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
-  SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
+  PENDENTE_GRAPH=false;SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
   const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);

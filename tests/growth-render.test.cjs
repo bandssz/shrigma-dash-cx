@@ -50,6 +50,7 @@ async function boot(payload=fixture(),opts={}){
   const src=script.getAttribute('src');
   const code=src?fs.readFileSync(path.join(root,src.split('?')[0]),'utf8'):script.textContent;
   vm.runInContext(code,context,{filename:src||'growth-inline.js'});
+  if(src&&opts.operatorSession)vm.runInContext("SHRIGMA_OPERATOR_SESSION.growth={caps:['draft'],label:'Synthetic operator'}",context);
  }
  const run=code=>vm.runInContext(code,context);
  // DOM click() does not return its async listener's promise. Track the real
@@ -1080,4 +1081,58 @@ test('CRM-27: durable unresolved attempt is guarded before lazy loading and rest
  const before=x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})');
  x.document.querySelector('[data-s="visao"]').click();x.intervals.find(i=>i.ms===30000).fn();x.document.querySelector('[data-s="regua"]').click();
  assert.equal(x.run('JSON.stringify({draft:GB.state.draft,pending:GB.state.pending,version:GB.state.baseVersion})'),before);assert.equal(x.store.get(slot),journal);assert.equal(journeyReads(x).length,1);assert.ok(x.calls.every(c=>!c.init.method||c.init.method==='GET'));
+});
+
+
+/* Direct graph links wait for confirmed capabilities; every transport is local. */
+const graphLinkEndpoint='https://example.invalid/crm-graph-links';
+function graphLinkFixture(){const p=fixture();p.capabilities={journeys:{graph_drafts:'journey_graph_draft_api_v1'},endpoints:{journey_graph:graphLinkEndpoint}};return p;}
+function graphLinkFetch(url){
+ const u=new URL(url);if(u.origin+u.pathname!==graphLinkEndpoint)return;
+ const action=u.searchParams.get('action'),brand=u.searchParams.get('brand');
+ const common={contract:'journey_graph_draft_api_v1',authorizes_send:false,authorizes_publish:false};
+ if(action==='list')return lazyResponse({...common,journeys:[],next_cursor:null});
+ assert.equal(action,'catalog');assert.ok(['fish','aristo'].includes(brand));
+ const f=require('./fixtures/journey-graph-runtime.cjs').fixture({connect:()=>{throw Error('No database in panel test');}},brand);
+ return lazyResponse({...common,catalog:f.catalog,labels:{}});
+}
+const graphLinkReads=x=>x.calls.filter(c=>c.url.startsWith(graphLinkEndpoint));
+async function settleGraphLink(x){for(let i=0;i<25;i++){await new Promise(setImmediate);if(!x.run('GJG.contextStatus().blocked'))return;}assert.fail('Graph route did not settle');}
+
+test('graph URL and reload restore the supported brand, tab and read-only draft editor',async()=>{
+ for(const brand of ['fish','aristo']){
+  const x=await boot(graphLinkFixture(),{hash:'#marca='+brand+'&sec=regua&aba=graph',operatorSession:true,fetchMock:graphLinkFetch});await settleGraphLink(x);
+  assert.equal(x.run('SEC'),'regua');assert.equal(x.run('GC.activeTab'),'graph');assert.equal(x.run('PENDENTE_GRAPH'),false);
+  assert.equal(x.document.querySelector('#control-graph').hidden,false);assert.equal(x.document.querySelector('#control-fluxos').hidden,true);assert.equal(x.document.querySelector('#control-tab-graph').getAttribute('aria-selected'),'true');assert.ok(x.document.querySelector('[data-graph-editor] [data-name]'));
+  assert.deepEqual(graphLinkReads(x).map(c=>new URL(c.url).searchParams.get('action')).sort(),['catalog','list']);
+  assert.ok(graphLinkReads(x).every(c=>new URL(c.url).searchParams.get('brand')===brand&&c.init.method==='GET'));assert.equal(journeyReads(x).length,0);
+  const hash=x.hashes.at(-1);assert.equal(new URLSearchParams(hash.slice(1)).get('aba'),'graph');
+  const reopened=await boot(graphLinkFixture(),{hash,operatorSession:true,fetchMock:graphLinkFetch});await settleGraphLink(reopened);
+  assert.equal(reopened.run('GC.activeTab'),'graph');assert.equal(reopened.run('MARCA'),brand);assert.equal(reopened.document.querySelector('#control-graph').hidden,false);assert.equal(graphLinkReads(reopened).length,2);
+ }
+});
+
+test('graph link waits through missing access and preserves its URL until a confirmed capability arrives',async()=>{
+ const x=await boot(graphLinkFixture(),{hash:'#marca=fish&aba=graph',noReadKey:true,operatorSession:true,fetchMock:graphLinkFetch});
+ assert.equal(x.run('SEC'),'regua');assert.equal(x.run('GC.activeTab'),'fluxos');assert.equal(x.run('PENDENTE_GRAPH'),true);assert.equal(x.document.querySelector('#control-graph').hidden,true);assert.equal(x.calls.length,0);assert.ok(x.hashes.every(h=>new URLSearchParams(h.slice(1)).get('aba')==='graph'));
+ await x.run("SHRIGMA_READ_SESSION.growth='synthetic-test-key';carregar()");await settleGraphLink(x);
+ assert.equal(x.run('GC.activeTab'),'graph');assert.equal(graphLinkReads(x).length,2);assert.equal(x.run('PENDENTE_GRAPH'),false);
+});
+
+test('explicit navigation while graph capability is pending wins over a late successful read',async()=>{
+ const x=await boot(graphLinkFixture(),{hash:'#marca=fish&sec=regua&aba=graph',noReadKey:true,operatorSession:true,fetchMock:graphLinkFetch});
+ x.document.querySelector('#control-tab-history').click();assert.equal(x.run('GC.activeTab'),'history');assert.equal(x.run('PENDENTE_GRAPH'),false);
+ await x.run("SHRIGMA_READ_SESSION.growth='synthetic-test-key';carregar()");await settleGraphLink(x);
+ assert.equal(x.run('GC.activeTab'),'history');assert.equal(x.document.querySelector('#control-history').hidden,false);assert.equal(graphLinkReads(x).length,0);
+ assert.equal(new URLSearchParams(x.hashes.at(-1).slice(1)).get('aba'),'history');
+});
+
+test('absent or invalid graph capability and unsupported brand fall back without graph requests or later surprise activation',async()=>{
+ const wrong=graphLinkFixture();wrong.capabilities.journeys.graph_drafts='unrecognized';
+ const missing=graphLinkFixture();delete missing.capabilities.endpoints.journey_graph;
+ for(const [p,brand] of [[fixture(),'fish'],[wrong,'fish'],[missing,'aristo'],[graphLinkFixture(),'todas']]){
+  const x=await boot(p,{hash:'#marca='+brand+'&sec=regua&aba=graph',operatorSession:true,fetchMock:graphLinkFetch});
+  assert.equal(x.run('GC.activeTab'),'fluxos');assert.equal(x.run('PENDENTE_GRAPH'),false);assert.equal(x.document.querySelector('#control-fluxos').hidden,false);assert.equal(x.document.querySelector('#control-graph').hidden,true);assert.equal(graphLinkReads(x).length,0);assert.equal(new URLSearchParams(x.hashes.at(-1).slice(1)).get('aba'),'fluxos');
+  x.setResponse(graphLinkFixture());await x.run('carregar()');assert.equal(x.run('GC.activeTab'),'fluxos');assert.equal(graphLinkReads(x).length,0);
+ }
 });
