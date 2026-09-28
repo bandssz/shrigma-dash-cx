@@ -80,7 +80,7 @@ def file_sha(file):
         return stream_sha(stream)
 
 
-def verify_oci(archive, revision):
+def oci_metadata(archive, revision):
     require(archive.is_file() and not archive.is_symlink() and archive.stat().st_size <= MAX_ARCHIVE, 'ARCHIVE_LIMIT')
     with tarfile.open(archive, 'r:') as tar:
         members = tar.getmembers()
@@ -109,6 +109,11 @@ def verify_oci(archive, revision):
         config = json.loads(blob(manifest['config'], 1024 * 1024))
         for layer in manifest['layers']:
             blob(layer)
+        rootfs = config.get('rootfs', {})
+        diff_ids = rootfs.get('diff_ids')
+        require(rootfs.get('type') == 'layers' and isinstance(diff_ids, list) and
+                len(diff_ids) == len(manifest['layers']) and
+                all(isinstance(digest, str) and DIGEST.fullmatch(digest) for digest in diff_ids), 'ROOTFS')
         require(config.get('os') == 'linux' and config.get('architecture') == 'amd64', 'PLATFORM')
         c = config.get('config', {})
         require(c.get('User') == 'node' and c.get('WorkingDir') == '/app/services/crm-flows' and c.get('Cmd') == ['node', 'main.cjs'], 'RUNTIME')
@@ -116,7 +121,42 @@ def verify_oci(archive, revision):
         require(isinstance(variables, list) and all(isinstance(v, str) and v.split('=', 1)[0] in ('PATH', 'NODE_VERSION', 'YARN_VERSION', 'NODE_ENV') for v in variables) and 'NODE_ENV=production' in variables, 'IMAGE_ENV')
         labels = c.get('Labels', {})
         require(labels.get('org.opencontainers.image.source') == SOURCE and labels.get('org.opencontainers.image.revision') == revision and labels.get('org.opencontainers.image.version') == revision and labels.get('io.shrigma.crm.execution') == 'off', 'LABELS')
-        return {'manifest_digest': descriptor['digest'], 'config_digest': manifest['config']['digest']}
+        return {'manifest_digest': descriptor['digest'], 'config_digest': manifest['config']['digest']}, config
+
+
+def verify_oci(archive, revision):
+    return oci_metadata(archive, revision)[0]
+
+
+def test_oci_image(archive, revision, container):
+    """Run the imported OCI config/layers, never the Docker source before conversion."""
+    require(bool(SHA.fullmatch(revision)), 'SOURCE_SHA')
+    identity, config = oci_metadata(archive, revision)
+    archive_hash = file_sha(archive)
+    imported = 'crm-flows-oci-proof:' + revision
+    # OCI -> Docker changes the manifest envelope only. The OCI config blob and
+    # rootfs must survive unchanged; otherwise fail before starting a container.
+    command(['skopeo', 'copy', 'oci-archive:' + str(archive), 'docker-daemon:' + imported])
+    loaded = json.loads(command(['docker', 'image', 'inspect', imported]))[0]
+    require(loaded['Id'] == identity['config_digest'], 'TESTED_IMAGE_ID')
+    require(loaded.get('RootFS', {}).get('Type') == 'layers' and
+            loaded['RootFS'].get('Layers') == config['rootfs']['diff_ids'], 'TESTED_ROOTFS')
+    env = json.loads(command(['node', '-e', 'process.stdout.write(JSON.stringify(require(process.argv[1]).syntheticEnv(process.argv[2])))', str(HERE / 'probe.cjs'), revision]))
+    runtime = ['docker', 'run', '-d', '--name', container, '--network', 'none']
+    for key, value in env.items():
+        runtime += ['-e', key + '=' + value]
+    try:
+        command(runtime + [identity['config_digest']])
+        require(json.loads(command(['docker', 'inspect', container]))[0]['Image'] == identity['config_digest'], 'CONTAINER_IMAGE_ID')
+        smoke = "(async()=>{for(let i=0;i<30;i++){try{const r=await fetch('http://127.0.0.1:8080/healthz');const b=await r.json();if(r.status===200&&b.execution_enabled===false&&b.revision===process.env.CRM_FLOWS_REVISION)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('OFF proof failed');})().catch(()=>process.exit(1))"
+        command(['docker', 'exec', container, 'node', '-e', smoke])
+        command(['docker', 'stop', '--time', '10', container])
+        stopped = json.loads(command(['docker', 'inspect', container]))[0]
+        require(stopped['Image'] == identity['config_digest'] and stopped['State']['ExitCode'] == 0, 'SHUTDOWN')
+    finally:
+        command(['docker', 'rm', '-f', container])
+    require(file_sha(archive) == archive_hash, 'TESTED_ARCHIVE_CHANGED')
+    return identity
 
 
 def verify_artifact(directory, expected_sha, expected_run):
@@ -153,20 +193,7 @@ def build(repo, revision, output):
         command(args + [str(context)])
         archive = output / 'crm-flows.oci.tar'
         command(['skopeo', 'copy', 'docker-daemon:' + local, 'oci-archive:' + str(archive)])
-        identity = verify_oci(archive, revision)
-        require(json.loads(command(['docker', 'image', 'inspect', local]))[0]['Id'] == identity['config_digest'], 'TESTED_IMAGE_ID')
-        env = json.loads(command(['node', '-e', 'process.stdout.write(JSON.stringify(require(process.argv[1]).syntheticEnv(process.argv[2])))', str(HERE / 'probe.cjs'), revision]))
-        runtime = ['docker', 'run', '-d', '--name', container, '--network', 'none']
-        for key, value in env.items():
-            runtime += ['-e', key + '=' + value]
-        try:
-            command(runtime + [local])
-            smoke = "(async()=>{for(let i=0;i<30;i++){try{const r=await fetch('http://127.0.0.1:8080/healthz');const b=await r.json();if(r.status===200&&b.execution_enabled===false&&b.revision===process.env.CRM_FLOWS_REVISION)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('OFF proof failed');})().catch(()=>process.exit(1))"
-            command(['docker', 'exec', container, 'node', '-e', smoke])
-            command(['docker', 'stop', '--time', '10', container])
-            require(json.loads(command(['docker', 'inspect', container]))[0]['State']['ExitCode'] == 0, 'SHUTDOWN')
-        finally:
-            command(['docker', 'rm', '-f', container])
+        identity = test_oci_image(archive, revision, container)
         data = {'source_sha': revision, 'run_id': run, 'image': IMAGE, 'tag': 'sha-' + revision, 'archive_sha256': file_sha(archive), **identity, 'runtime_enabled': False, 'service_changed': False}
         (output / 'image.json').write_text(json.dumps(data, indent=2) + '\n')
         verify_artifact(output, revision, run)

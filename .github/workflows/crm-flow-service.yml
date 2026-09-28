@@ -15,8 +15,8 @@ permissions:
   contents: read
 jobs:
   internal-service:
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,22 +28,19 @@ jobs:
         run: node --test tests/journey-graph-service.test.cjs
       - name: Offline image and registry guards
         run: python3 -m unittest discover -s tools/crm-flow-image -p 'test_*.py'
+      - name: Install OCI copier in the disposable test runner
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
       - name: Build pinned production image without credentials
-        run: docker build --file services/crm-flows/Dockerfile --tag crm-flows-synthetic .
-      - name: Boot disabled image with synthetic configuration and no external network
         run: |
-          docker run -d --name crm-flow-proof --network none \
-            -e CRM_FLOWS_ENABLED=false -e CRM_FLOWS_REVISION=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-            -e CRM_FLOWS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-            -e CRM_PG_HOST=synthetic_database -e CRM_PG_USER=crm_graph_worker -e CRM_PG_PASSWORD=synthetic-password -e CRM_PG_DATABASE=listmonk \
-            -e CRM_LISTMONK_ORIGIN=https://email.shrigma.com.br -e CRM_LISTMONK_AUTHORIZATION='Basic c3ludGhldGljOnN5bnRoZXRpYw==' -e CRM_LISTMONK_CACHE_TARGET=synthetic-instance \
-            -e CRM_FISH_SHOP=synthetic-fish.myshopify.com -e CRM_FISH_SHOP_ID=gid://shopify/Shop/1 -e CRM_FISH_CLIENT_ID=synthetic-fish -e CRM_FISH_CLIENT_SECRET=synthetic-secret -e CRM_FISH_COLLECTOR=syntheticFish \
-            -e CRM_ARISTO_SHOP=synthetic-aristo.myshopify.com -e CRM_ARISTO_SHOP_ID=gid://shopify/Shop/2 -e CRM_ARISTO_CLIENT_ID=synthetic-aristo -e CRM_ARISTO_CLIENT_SECRET=synthetic-secret -e CRM_ARISTO_COLLECTOR=syntheticAristo \
-            crm-flows-synthetic
-          docker exec crm-flow-proof node -e "(async()=>{for(let i=0;i<30;i++){try{const r=await fetch('http://127.0.0.1:8080/healthz');const b=await r.json();if(r.status===200&&b.execution_enabled===false&&b.revision==='a'.repeat(40))return;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('Synthetic disabled boot failed');})().catch(e=>{console.error(e.message);process.exit(1)})"
-          test "$(docker inspect --format '{{.Config.User}}' crm-flow-proof)" = node
-          docker stop --time 10 crm-flow-proof
-          test "$(docker inspect --format '{{.State.ExitCode}}' crm-flow-proof)" = 0
+          docker build --platform linux/amd64 --file services/crm-flows/Dockerfile --tag crm-flows-synthetic \
+            --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$GITHUB_SHA" \
+            --label io.shrigma.crm.execution=off .
+      - name: Convert and prove the OCI image OFF with no external network
+        run: |
+          skopeo copy docker-daemon:crm-flows-synthetic "oci-archive:$RUNNER_TEMP/crm-flows-ci.oci.tar"
+          python3 tools/crm-flow-image/smoke.py --source-sha "$GITHUB_SHA" --archive "$RUNNER_TEMP/crm-flows-ci.oci.tar"
       - name: Remove disposable container
         if: always()
-        run: docker rm -f crm-flow-proof || true
+        run: docker rm -f crm-flows-oci-ci-proof || true
