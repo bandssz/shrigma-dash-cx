@@ -5,23 +5,43 @@ const crypto=require('node:crypto');
 const VERSION='6.0.0',BUILD_TIME='2024-12-05T11:13:04.194Z',TIMEOUT_MS=20000;
 const IDENTITY_SQL="SELECT current_database() AS database,current_user AS role,pg_backend_pid() AS pid,(SELECT setting::integer FROM pg_settings WHERE name='statement_timeout') AS statement_timeout_ms,current_setting('application_name') AS application_name,current_setting('transaction_isolation') AS transaction_isolation,current_setting('transaction_read_only') AS transaction_read_only,txid_current()::text AS transaction_id;";
 const IDENTITY_COLUMNS=['database','role','pid','statement_timeout_ms','application_name','transaction_isolation','transaction_read_only','transaction_id'];
+const WORKER_IDENTITY_SQL="SELECT pg_catalog.current_database() AS database,current_user AS role,pg_catalog.pg_backend_pid() AS pid,(SELECT setting::integer FROM pg_catalog.pg_settings WHERE name='statement_timeout') AS statement_timeout_ms,pg_catalog.current_setting('application_name') AS application_name,pg_catalog.current_setting('transaction_isolation') AS transaction_isolation,pg_catalog.current_setting('transaction_read_only') AS transaction_read_only,pg_catalog.txid_current()::text AS transaction_id,pg_catalog.current_schemas(true) AS search_schemas;";
+const WORKER_IDENTITY_COLUMNS=[...IDENTITY_COLUMNS,'search_schemas'];
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 const fail=code=>{throw Error('GRAPH_ADMIN_'+code);};
 const check=(ok,code)=>{if(!ok)fail(code);};
 const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(x);
 
-function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[],authorizeWrite,fetch:fetchImpl=globalThis.fetch,timers={setTimeout,clearTimeout,setInterval,clearInterval}}){
+// Worker read specs are reviewed SQL, not caller-entered queries. Prevent a
+// SELECT-prefixed batch from smuggling another command through that allowlist.
+function singleSelect(sql){
+ if(!/^\s*SELECT\b/i.test(sql))return false;
+ for(let i=0;i<sql.length;i++){
+  const c=sql[i];
+  if(c==='\''||c==='"'){const quote=c,escaped=quote==="'"&&/(?:^|[^A-Za-z_0-9])E$/i.test(sql.slice(0,i));let ended=false;for(i++;i<sql.length;i++){if(escaped&&sql[i]==='\\'){i++;continue;}if(sql[i]===quote){if(sql[i+1]===quote){i++;continue;}ended=true;break;}}if(!ended)return false;continue;}
+  if(sql.slice(i,i+2)==='--'){const end=sql.indexOf('\n',i+2);if(end<0)return true;i=end;continue;}
+  if(sql.slice(i,i+2)==='/*'){let depth=1;i+=2;while(i<sql.length&&depth){if(sql.slice(i,i+2)==='/*'){depth++;i+=2;}else if(sql.slice(i,i+2)==='*/'){depth--;i+=2;}else i++;}if(depth)return false;i--;continue;}
+  if(c==='$'){const delimiter=/^\$(?:[A-Za-z_][A-Za-z_0-9]*)?\$/.exec(sql.slice(i))?.[0];if(delimiter){const end=sql.indexOf(delimiter,i+delimiter.length);if(end<0)return false;i=end+delimiter.length-1;continue;}}
+  if(c===';')return sql.slice(i+1).trim()==='';
+ }
+ return true;
+}
+function createDbGateSession({origin:inputOrigin,accessToken,connection,mode='legacy',database,reads=[],authorizeWrite,fetch:fetchImpl=globalThis.fetch,timers={setTimeout,clearTimeout,setInterval,clearInterval}}){
+ check(['legacy','worker-access','worker-scope-read'].includes(mode),'MODE');
+ const scopedRead=mode==='worker-scope-read',workerMode=mode!=='legacy';
+ check(scopedRead?(typeof database==='string'&&/^[a-z][a-z0-9_]{0,62}$/.test(database)&&!/^template[01]$/.test(database)):(database===undefined||database==='listmonk'),'DATABASE_CONFIG');
+ const expectedDatabase=scopedRead?database:'listmonk',identitySQL=workerMode?WORKER_IDENTITY_SQL:IDENTITY_SQL,identityColumns=workerMode?WORKER_IDENTITY_COLUMNS:IDENTITY_COLUMNS;
  let origin;try{const u=new URL(inputOrigin);check(u.protocol==='https:'&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash&&(!u.port||u.port==='443'),'ORIGIN');origin=u.origin;}catch{fail('ORIGIN');}
  check(typeof accessToken==='string'&&/^[A-Za-z0-9_-]{16,256}$/.test(accessToken),'ACCESS_TOKEN');
  check(object(connection)&&typeof connection.id==='string'&&connection.id.length>0&&connection.id.length<=128&&/^[a-z][a-z0-9_-]{0,100}$/.test(connection.server),'CONNECTION_CONFIG');
- check(typeof fetchImpl==='function'&&typeof authorizeWrite==='function'&&Array.isArray(reads),'CONFIG');
+ check(typeof fetchImpl==='function'&&(scopedRead?authorizeWrite===undefined:typeof authorizeWrite==='function')&&Array.isArray(reads),'CONFIG');
  const expected={id:connection.id,server:connection.server};
  const readSpecs=new Map();
- for(const item of reads){check(object(item)&&typeof item.sql==='string'&&/^\s*SELECT\b/i.test(item.sql)&&Array.isArray(item.columns)&&item.columns.length>0&&item.columns.every(x=>typeof x==='string'&&x.length>0)&&new Set(item.columns).size===item.columns.length&&Number.isSafeInteger(item.maxRows)&&item.maxRows>=1&&item.maxRows<=100,'READ_SPEC');check(!readSpecs.has(item.sql),'DUPLICATE_READ');readSpecs.set(item.sql,{columns:[...item.columns],maxRows:item.maxRows});}
+ for(const item of reads){check(object(item)&&typeof item.sql==='string'&&/^\s*SELECT\b/i.test(item.sql)&&Array.isArray(item.columns)&&item.columns.length>0&&item.columns.every(x=>typeof x==='string'&&x.length>0)&&new Set(item.columns).size===item.columns.length&&Number.isSafeInteger(item.maxRows)&&item.maxRows>=1&&item.maxRows<=100,'READ_SPEC');if(workerMode)check(singleSelect(item.sql),'READ_SPEC_COMMAND');check(!readSpecs.has(item.sql),'DUPLICATE_READ');readSpecs.set(item.sql,{columns:[...item.columns],maxRows:item.maxRows});}
  let cookie=null,bearer=null,sid=null,streamController=null,streamReader=null,pingTimer=null,pending=null,closeWait=null;
  let state='new',busy=false,poisoned=false,writeAttempted=false,ownedClosed=false,pid=null;
- const appName='crm-graph-install-'+crypto.randomUUID(),streamId=crypto.randomUUID();
+ const appName=(mode==='legacy'?'crm-graph-install-':scopedRead?'crm-graph-worker-scope-':'crm-graph-worker-access-')+crypto.randomUUID(),streamId=crypto.randomUUID();
  function poison(){poisoned=true;if(pending){pending.reject(Error('GRAPH_ADMIN_SESSION_UNKNOWN'));pending=null;}}
  async function fetchRaw(path,{method='POST',body,bootstrap=false,stream=false,consume}={}){
   const url=new URL(path,origin);if(bootstrap)url.searchParams.set('easypanel-token',accessToken);
@@ -91,10 +111,10 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
   // Consecutive independently dispatched SELECTs must receive distinct transaction
   // IDs. Never publish those changing IDs as part of the pinned session identity.
   for(let attempt=0;attempt<2;attempt++){
-   const rows=await execute(IDENTITY_SQL,{columns:IDENTITY_COLUMNS,maxRows:1}),r=rows[0];check(rows.length===1&&r.database==='listmonk'&&r.role==='postgres'&&Number.isSafeInteger(r.pid)&&r.pid>0&&(pid===null||pid===r.pid),'DB_IDENTITY');
-   check(r.transaction_isolation==='read committed'&&r.transaction_read_only==='off'&&typeof r.transaction_id==='string'&&/^[0-9]+$/.test(r.transaction_id),'DB_TRANSACTION');
+   const rows=await execute(identitySQL,{columns:identityColumns,maxRows:1}),r=rows[0];check(rows.length===1&&r.database===expectedDatabase&&r.role==='postgres'&&Number.isSafeInteger(r.pid)&&r.pid>0&&(pid===null||pid===r.pid),'DB_IDENTITY');
+   check(r.transaction_isolation==='read committed'&&(scopedRead?(requireTimeout?r.transaction_read_only==='on':['on','off'].includes(r.transaction_read_only)):r.transaction_read_only==='off')&&typeof r.transaction_id==='string'&&/^[0-9]+$/.test(r.transaction_id),'DB_TRANSACTION');
    check(previous===null||previous!==r.transaction_id,'AUTOCOMMIT_UNPROVEN');previous=r.transaction_id;
-   if(requireTimeout)check(r.statement_timeout_ms===TIMEOUT_MS&&r.application_name===appName,'DB_TIMEOUT');
+   if(requireTimeout){check(r.statement_timeout_ms===TIMEOUT_MS&&r.application_name===appName,'DB_TIMEOUT');if(workerMode)check(JSON.stringify(r.search_schemas)===JSON.stringify(['pg_catalog','public']),'DB_SEARCH_PATH');}
    pid=r.pid;const {transaction_id,...stable}=r;proof={version:VERSION,sessionid:sid,...stable,autocommit:true};
   }
   return proof;
@@ -103,16 +123,20 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
  return Object.freeze({
   open:()=>exclusive(async()=>{
    check(state==='new','OPEN_ALREADY_ATTEMPTED');state='opening';await authenticate();await startStream();
-   const created=await post('/sessions/create',{conid:expected.id,database:'listmonk'});check(uuid(created.sesid)&&created.conid===expected.id&&created.database==='listmonk','CREATE_UNKNOWN');sid=created.sesid;
+   const created=await post('/sessions/create',{conid:expected.id,database:expectedDatabase});check(uuid(created.sesid)&&created.conid===expected.id&&created.database===expectedDatabase,'CREATE_UNKNOWN');sid=created.sesid;
    const ping=async()=>{try{const ack=await post('/sessions/ping',{sesid:sid});if(ack?.state!=='ok')poison();}catch{poison();}};
    await ping();check(!poisoned,'PING_UNKNOWN');pingTimer=timers.setInterval(ping,10000);pingTimer?.unref?.();
-   await identity(false);await execute('SET statement_timeout = 20000;',null);await execute("SET application_name = '"+appName+"';",null);const proof=await identity();state='open';return {opened:true,...proof};
+   await identity(false);await execute('SET statement_timeout = 20000;',null);await execute("SET application_name = '"+appName+"';",null);
+   if(workerMode)await execute('SET search_path = pg_catalog,public;',null);
+   if(scopedRead)await execute('SET default_transaction_read_only = on;',null);
+   const proof=await identity();state='open';return {opened:true,...proof};
   }),
   identity:()=>exclusive(async()=>{check(state==='open'&&!poisoned,'NOT_OPEN');return identity();}),
   sql:sql=>exclusive(async()=>{
    check(state==='open'&&!poisoned,'NOT_OPEN');check(typeof sql==='string'&&Buffer.byteLength(sql)>0&&Buffer.byteLength(sql)<=1024*1024,'SQL_SIZE');
-   const spec=readSpecs.get(sql);if(spec)return execute(sql,spec);
-   const block=sql.match(/^DO \$(graph_install|acl_preservation)\$([\s\S]*)\$\1\$;\s*$/);check(block&&!block[2].includes('$'+block[1]+'$'),'SQL_NOT_ALLOWED');check(!writeAttempted,'WRITE_ALREADY_ATTEMPTED');
+   const spec=readSpecs.get(sql);if(spec){if(workerMode)await identity();return execute(sql,spec);}
+   check(!scopedRead,'SQL_NOT_ALLOWED');
+   const block=sql.match(mode==='worker-access'?/^DO \$(credential_prepare|worker_access)\$([\s\S]*)\$\1\$;\s*$/:/^DO \$(graph_install|acl_preservation)\$([\s\S]*)\$\1\$;\s*$/);check(block&&!block[2].includes('$'+block[1]+'$'),'SQL_NOT_ALLOWED');check(!writeAttempted,'WRITE_ALREADY_ATTEMPTED');
    const proof=await identity();let authorized=false;try{authorized=await authorizeWrite({sql,sha256:sha(sql),session:proof});}catch{writeAttempted=true;fail('INTENT_UNKNOWN');}
    check(authorized===true,'WRITE_NOT_AUTHORIZED');writeAttempted=true;
    return execute(sql,null);
@@ -125,4 +149,4 @@ function createDbGateSession({origin:inputOrigin,accessToken,connection,reads=[]
   })
  });
 }
-module.exports={createDbGateSession,VERSION,BUILD_TIME,TIMEOUT_MS,IDENTITY_SQL,IDENTITY_COLUMNS};
+module.exports={createDbGateSession,VERSION,BUILD_TIME,TIMEOUT_MS,IDENTITY_SQL,IDENTITY_COLUMNS,WORKER_IDENTITY_SQL,WORKER_IDENTITY_COLUMNS};
