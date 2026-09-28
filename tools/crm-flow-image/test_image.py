@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def artifact(directory, mutate_config=None, mutate_receipt=None, extra=None):
-    config = {'os': 'linux', 'architecture': 'amd64', 'config': {'User': 'node',
+    config = {'os': 'linux', 'architecture': 'amd64',
+              'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + image.sha(b'synthetic layer')]}, 'config': {'User': 'node',
               'WorkingDir': '/app/services/crm-flows', 'Cmd': ['node', 'main.cjs'],
               'Env': ['NODE_ENV=production', 'PATH=/usr/local/bin'], 'Labels': {
                   'org.opencontainers.image.source': image.SOURCE,
@@ -50,6 +51,89 @@ def artifact(directory, mutate_config=None, mutate_receipt=None, extra=None):
 
 
 class ImageTests(unittest.TestCase):
+    def runtime_commands(self, receipt, *, loaded_changes=None, container_changes=None, execute_error=False, mutate_archive=None):
+        loaded = {'Id': receipt['config_digest'], 'RootFS': {'Type': 'layers', 'Layers': ['sha256:' + image.sha(b'synthetic layer')]}}
+        running = {'Image': receipt['config_digest'], 'State': {'ExitCode': 0}}
+        if loaded_changes:
+            loaded.update(loaded_changes)
+        if container_changes:
+            running.update(container_changes)
+        def run(args, **kw):
+            if args[:3] == ['docker', 'image', 'inspect']:
+                return json.dumps([loaded]).encode()
+            if args[:2] == ['docker', 'inspect']:
+                return json.dumps([running]).encode()
+            if args[0] == 'node':
+                return json.dumps({'CRM_FLOWS_ENABLED': 'false', 'CRM_FLOWS_REVISION': REVISION}).encode()
+            if args[:2] == ['docker', 'exec'] and execute_error:
+                raise ValueError('CRM_IMAGE_SYNTHETIC_OFF_FAILED')
+            if args[:2] == ['docker', 'stop'] and mutate_archive:
+                mutate_archive()
+            return b''
+        return run
+
+    def test_runtime_imports_oci_and_starts_its_config_digest_not_original_docker_image(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder); archive, receipt = artifact(directory)
+            before = archive.read_bytes()
+            # Docker-only fields/JSON serialization may change the original build
+            # ID. That unrelated ID must never be the input to the runtime proof.
+            original_id = 'sha256:' + 'f' * 64
+            self.assertNotEqual(original_id, receipt['config_digest'])
+            with patch.object(image, 'command', side_effect=self.runtime_commands(receipt)) as command:
+                actual = image.test_oci_image(archive, REVISION, 'synthetic-proof')
+            self.assertEqual(actual, {k: receipt[k] for k in ('manifest_digest', 'config_digest')})
+            calls = [call.args[0] for call in command.call_args_list]
+            self.assertEqual(calls[0], ['skopeo', 'copy', 'oci-archive:' + str(archive), 'docker-daemon:crm-flows-oci-proof:' + REVISION])
+            self.assertEqual(calls[1], ['docker', 'image', 'inspect', 'crm-flows-oci-proof:' + REVISION])
+            start = next(c for c in calls if c[:2] == ['docker', 'run'])
+            self.assertEqual(start[-1], receipt['config_digest'])
+            self.assertEqual(start[start.index('--network') + 1], 'none')
+            self.assertNotIn(original_id, json.dumps(calls))
+            self.assertEqual(sum(c[:2] == ['docker', 'inspect'] for c in calls), 2)
+            self.assertEqual(archive.read_bytes(), before)
+
+    def test_import_config_or_rootfs_drift_fails_before_starting_container(self):
+        changes = [({'Id': 'sha256:' + 'f' * 64}, 'TESTED_IMAGE_ID'),
+                   ({'RootFS': {'Type': 'layers', 'Layers': ['sha256:' + 'f' * 64]}}, 'TESTED_ROOTFS'),
+                   ({'RootFS': {'Type': 'other', 'Layers': ['sha256:' + image.sha(b'synthetic layer')]}}, 'TESTED_ROOTFS')]
+        for change, code in changes:
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as folder:
+                archive, receipt = artifact(Path(folder))
+                with patch.object(image, 'command', side_effect=self.runtime_commands(receipt, loaded_changes=change)) as command:
+                    with self.assertRaisesRegex(ValueError, code):
+                        image.test_oci_image(archive, REVISION, 'synthetic-proof')
+                self.assertFalse(any(c.args[0][:2] == ['docker', 'run'] for c in command.call_args_list))
+
+    def test_wrong_container_image_and_failed_off_proof_fail_and_remove_container(self):
+        for changes, execute_error, code in [({'Image': 'sha256:' + 'f' * 64}, False, 'CONTAINER_IMAGE_ID'),
+                                              (None, True, 'SYNTHETIC_OFF_FAILED'),
+                                              ({'State': {'ExitCode': 1}}, False, 'SHUTDOWN')]:
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as folder:
+                archive, receipt = artifact(Path(folder))
+                with patch.object(image, 'command', side_effect=self.runtime_commands(receipt, container_changes=changes, execute_error=execute_error)) as command:
+                    with self.assertRaisesRegex(ValueError, code):
+                        image.test_oci_image(archive, REVISION, 'synthetic-proof')
+                self.assertEqual(command.call_args.args[0], ['docker', 'rm', '-f', 'synthetic-proof'])
+
+    def test_runtime_refuses_archive_changed_after_import(self):
+        with tempfile.TemporaryDirectory() as folder:
+            archive, receipt = artifact(Path(folder))
+            mutate = lambda: archive.write_bytes(archive.read_bytes() + b'changed after import')
+            with patch.object(image, 'command', side_effect=self.runtime_commands(receipt, mutate_archive=mutate)):
+                with self.assertRaisesRegex(ValueError, 'TESTED_ARCHIVE_CHANGED'):
+                    image.test_oci_image(archive, REVISION, 'synthetic-proof')
+
+    def test_missing_invalid_or_wrong_count_rootfs_is_not_publishable(self):
+        changes = [lambda c: c.pop('rootfs'), lambda c: c['rootfs'].update(type='other'),
+                   lambda c: c['rootfs'].update(diff_ids=[]),
+                   lambda c: c['rootfs'].update(diff_ids=['not-a-digest'])]
+        for change in changes:
+            with tempfile.TemporaryDirectory() as folder:
+                directory = Path(folder); artifact(directory, mutate_config=change)
+                with self.assertRaisesRegex(ValueError, 'ROOTFS'):
+                    image.verify_artifact(directory, REVISION, RUN)
+
     def test_exact_oci_bytes_and_receipt_are_verified_without_execution(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(image, 'command') as command:
             directory = Path(folder); archive, receipt = artifact(directory)
@@ -143,6 +227,21 @@ class ImageTests(unittest.TestCase):
         self.assertNotIn('image.py --source-sha', publish)
         self.assertNotIn(':latest', workflow)
         self.assertNotIn('secrets.', workflow)
+
+    def test_pull_request_ci_runs_real_oci_runtime_helper_without_registry_receipt(self):
+        workflow = (ROOT / '.github/workflows/crm-flow-service.yml').read_text()
+        self.assertIn('  pull_request:', workflow)
+        self.assertIn('runs-on: ubuntu-24.04', workflow)
+        self.assertIn('--tag crm-flows-synthetic:ci', workflow)
+        self.assertIn('skopeo copy docker-daemon:crm-flows-synthetic:ci ', workflow)
+        self.assertIn('python3 tools/crm-flow-image/smoke.py --source-sha "$GITHUB_SHA"', workflow)
+        self.assertIn('org.opencontainers.image.revision=$GITHUB_SHA', workflow)
+        self.assertNotIn('packages: write', workflow)
+        self.assertNotIn('publish.py', workflow)
+        smoke = (ROOT / 'tools/crm-flow-image/smoke.py').read_text()
+        self.assertIn('image.test_oci_image(', smoke)
+        self.assertNotIn('image.json', smoke)
+        self.assertNotIn('image.build(', smoke)
 
 
 if __name__ == '__main__':
