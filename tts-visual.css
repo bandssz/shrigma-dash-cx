@@ -175,3 +175,5 @@ body[data-panel=influs] .tts-abas{gap:22px}
 #tts-area .tts-trava.pronta{background:var(--bom-bg,#e7f5ec);border:1px solid transparent;border-left:3px solid var(--bom,#1e8e4e);padding:8px 12px}
 #tts-area .tts-trava.pronta .mini,#tts-area .tts-trava.pronta #tts-manual-check{display:none}
 #tts-area .tts-trava.pronta #tts-manual-status{color:var(--bom,#1e8e4e);font-weight:600;margin:0}
+
+#tts-area .tts-linha-erro{display:block;flex-basis:100%;margin-top:6px;padding:6px 8px;border-radius:4px;background:var(--ruim-bg,#fbeceb);color:var(--ruim,#b3261e);white-space:normal}

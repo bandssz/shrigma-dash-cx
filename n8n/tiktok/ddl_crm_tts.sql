@@ -481,7 +481,7 @@ fat AS (
   FROM crm_tts_canal_dia WHERE superficie <> 'total' GROUP BY 1,2
 ),
 afi AS (  -- fatia de afiliado no dia, vinda dos pedidos de afiliado (a API de analytics não separa)
-  SELECT marca, dia, round(sum(COALESCE(base_real, base_estimada, 0)), 2) AS gmv_afiliado,
+  SELECT marca, dia, round(sum(COALESCE(preco, 0) * COALESCE(quantidade, 1)), 2) AS gmv_afiliado, -- valor pago (28/09/2026): a base de comissão é antes do desconto e passava do total da loja
          count(DISTINCT order_id)::int AS pedidos_afiliado
   FROM crm_tts_pedido WHERE COALESCE(settlement_status,'') <> 'INELIGIBLE' GROUP BY 1,2
 )

@@ -48,7 +48,7 @@ const {ORIGINAL,RECONCILED,patchCode}=require('../n8n/tiktok/canal-reconciliatio
    // Existing runtime column, confirmed via information_schema; absent from legacy repository DDL.
    await full.exec('ALTER TABLE crm_tts_token ADD COLUMN granted_scopes text[]');
    await full.exec(`INSERT INTO crm_tts_canal_dia(marca,dia,superficie,origem,gmv) VALUES ('fixture','2026-09-01','total','total',100),('fixture','2026-09-02','total','total',200);
-    INSERT INTO crm_tts_pedido(marca,order_id,sku_id,dia,base_real,settlement_status) VALUES ('fixture','synthetic-one','sku','2026-09-01',110,'SETTLED'),('fixture','synthetic-two','sku','2026-09-02',100,'SETTLED'),('fixture','synthetic-ineligible','sku','2026-09-02',999,'INELIGIBLE');`);
+    INSERT INTO crm_tts_pedido(marca,order_id,sku_id,dia,base_real,preco,quantidade,settlement_status) VALUES ('fixture','synthetic-one','sku','2026-09-01',130,55,2,'SETTLED'),('fixture','synthetic-two','sku','2026-09-02',120,100,1,'SETTLED'),('fixture','synthetic-ineligible','sku','2026-09-02',999,999,1,'INELIGIBLE');`);
    const source=read('n8n/tiktok/api_sql.js');
    const execute=code=>new vm.Script('(function(){'+code+'})()').runInNewContext({$json:{body:{ini:'2026-09-01',fim:'2026-09-02'}}})[0].json.sql;
    const originalPayload=(await full.query(execute(patchCode(source,{remove:true})))).rows[0].payload;
@@ -57,7 +57,7 @@ const {ORIGINAL,RECONCILED,patchCode}=require('../n8n/tiktok/canal-reconciliatio
    for(const key of Object.keys(originalPayload))if(!['gerado_em','canal','canal_total'].includes(key))assert.deepEqual(newPayload[key],originalPayload[key],`full payload ${key}`);
    for(const key of ['canal','canal_total'])for(let i=0;i<originalPayload[key].length;i++)for(const field of Object.keys(originalPayload[key][i]))assert.deepEqual(newPayload[key][i][field],originalPayload[key][i][field],`full original ${key}.${field}`);
    assert.equal(newPayload.canal_total[0].gmv_saldo_nao_afiliado,null);
-   assert.equal(newPayload.canal_total[0].gmv_afiliado,210,'ineligible excluded by actual source view');
+   assert.equal(newPayload.canal_total[0].gmv_afiliado,210,'valor pago (preço × quantidade), não a base de comissão; ineligible fica fora');
    assert.equal(newPayload.canal_total[0].gmv_ajuste_origem,-10);
    assert.equal(newPayload.canal_total[0].origem_dias_divergentes,1);
   }finally{await full.close();}

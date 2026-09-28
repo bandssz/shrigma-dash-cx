@@ -127,3 +127,19 @@ test('painel do orgânico mostra só orgânico: mídia paga, CRM e sem classific
  for(const k of ['midia_paga','crm','nao_classificado'])assert.ok(!html.includes(`data-org-group="${k}"`),k);
  assert.ok(!/Mídia paga|Outros canais/.test(html));
 });
+
+test('Venda por iniciativa: campanha sem data (links novos) ou utm_term (padrão antigo), somando datas; valor inválido fica indisponível',()=>{
+ const OA=require('../organico-attribution.js');
+ const L=OA.porIniciativa([
+  {marca:'aristo',superficie:'story',utm_campaign:'20260915_semana_do_cliente',pedidos:3,receita_liquida:'100.50'},
+  {marca:'aristo',superficie:'story',utm_campaign:'20260920_semana_do_cliente',pedidos:1,receita_liquida:20},
+  {marca:'fish',superficie:'bio',utm_campaign:'venda',utm_term:'amazonica8x',pedidos:2,receita_liquida:50},
+  {marca:'fishermans',superficie:'bio',utm_campaign:'venda',utm_term:'amazonica8x',pedidos:1,receita_liquida:5},
+  {marca:'aristo',superficie:'bio',utm_campaign:'',utm_content:'link_in_bio',pedidos:1,receita_liquida:7},
+  {marca:'aristo',superficie:'dm',utm_campaign:'x',pedidos:'dois',receita_liquida:10}]);
+ const semana=L.find(x=>x.slug==='semana_do_cliente');assert.deepEqual([semana.nome,semana.pedidos,semana.receita,semana.links],['semana do cliente',4,120.5,2]);
+ const amaz=L.find(x=>x.slug==='amazonica8x');assert.deepEqual([amaz.marca,amaz.pedidos,amaz.receita],['fish',3,55],'alias de marca soma na mesma linha');
+ assert.equal(L.find(x=>x.slug==='link_in_bio').nome,'link in bio');
+ const inval=L.find(x=>x.slug==='x');assert.equal(inval.pedidos,null);assert.equal(inval.receita,null);
+ assert.equal(L[0].slug,'semana_do_cliente','ordena por receita');
+});

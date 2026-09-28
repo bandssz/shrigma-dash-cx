@@ -60,3 +60,4 @@ details.org-legado>summary #venda-rot{margin-left:auto}
 body[data-panel=organico] .seg-mini button,body[data-panel=organico] .seg-mini-btn{min-height:32px}
 body[data-panel=organico] table.comparativo td a[target=_blank]{display:inline-flex;align-items:center;min-height:32px}
 #organico-attribution details:not(.org-cobertura)>summary{cursor:pointer;font:600 13px/1.6 var(--ui);color:var(--mudo)}
+.org-iniciativas{margin-top:16px}.org-iniciativas .org-ressalvas{margin:0 0 8px}

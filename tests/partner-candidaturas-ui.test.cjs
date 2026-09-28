@@ -53,6 +53,7 @@ function setupDecisao(apps,{falhaPrimeira=false}={}){
    if(b.acao==='ler')j={ok:true,pode_escrever:true,descontos:{aristo:0.06,fish:0.05},parceiros};
    else if(b.acao==='aprovar'){if(!falhou){falhou=true;j={erro:'Shopify: fora do ar',campo:'codigo'};}
     else{parceiros.push({candidate_id:b.data.candidate_id,marca:'aristo',cupom:b.data.codigo,ref:'p-0000abcd',url:'https://oaristocrata.com/?utm_content=p-0000abcd',link_estado:'ativo',desconto:0.06,envio_estado:'pendente',envio_rastreio:''});j={ok:true,mensagem:'Parceiro aprovado: cupom '+b.data.codigo+' e link ativos.'};}}
+   else if(b.acao==='encerrar'){Object.assign(parceiros[0],{encerrado_em:'2026-09-28T18:00:00Z',encerrado_por:'Marcela',link_estado:'revogado'});j={ok:true,mensagem:'Parceria encerrada: link desligado e comissão zerada a partir de hoje. O cupom CARLOSSILVA segue ativo.'};}
    else if(b.acao==='envio'){Object.assign(parceiros[0],{envio_estado:b.data.estado,envio_rastreio:b.data.rastreio,envio_em:'2026-09-28T15:00:00Z'});j={ok:true};}
   }else j=b.acao==='ler'?{ok:true,termos:[{marca:'aristo',versao:1,publicado_em:'2026-09-27'}],candidaturas:apps}:{ok:true,mime:'image/jpeg',base64:'QUJD'};
   return {ok:true,json:async()=>j};};
@@ -96,4 +97,15 @@ test('envio: marcar enviado com rastreio e voltar para pendente',async()=>{
  t.host.querySelector('[data-pc=envio]').onclick();t.host.querySelector('input[name=rastreio]').value=' BR123 ';t.host.querySelector('[data-pc=confirma-envio]').onclick();await espera();
  const e=t.posts.find(p=>p.acao==='envio');assert.deepEqual([e.data.estado,e.data.rastreio,e.k],['enviado','BR123','gestao']);
  assert.match(t.host.querySelector('.pc-card').textContent,/produto enviado · BR123/);assert.equal(t.host.querySelector('.pc-ponto'),null,'sem envio pendente');
+});
+
+test('encerrar a parceria: confirma, sai de Aprovados e fica em Todas como encerrada, cupom segue visível',async()=>{
+ const t=setupDecisao([app({nome:'Carlos'})]);t.c.mount(t.host);await espera();
+ t.host.querySelector('[data-pc=aprovar]').onclick();t.host.querySelector('[data-pc=confirma-aprovar]').onclick();await espera();
+ t.host.querySelector('[data-pc=encerrar]').onclick();assert.match(t.host.querySelector('[data-gaveta=encerrar]').textContent,/continua ativo/);
+ t.host.querySelector('[data-pc=confirma-encerrar]').onclick();await espera();
+ const e=t.posts.find(p=>p.acao==='encerrar');assert.deepEqual([e.k,e.data.candidate_id],['gestao','c1']);
+ assert.equal(t.host.querySelector('[data-f=aprovados] .pc-cont').textContent,'0');
+ t.host.querySelector('[data-f=todas]').onclick();const card=t.host.querySelector('.pc-card');
+ assert.match(card.textContent,/parceria encerrada/);assert.match(card.textContent,/CARLOSSILVA/);assert.match(card.textContent,/desligado/);assert.equal(card.querySelector('[data-pc=encerrar]'),null);
 });
