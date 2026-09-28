@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=59420f013717">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fdA4xJayvJPfd5XjPqxszSgp2M3BjmTqtfZnC2tSth0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=24e87c8d9000">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ta3nzi2K9ePPTxqkSMylUwyUT10K2bIM5xhhf4TIs1w='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -244,7 +244,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=fc36b7091c7d"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=490680cac924"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -1208,7 +1208,10 @@ document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disa
 if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC==='afil'?(CANAL==='parceiros'?'partners':CANAL):SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
 // Candidaturas do formulário do site (LP "Seja um Parceiro"): leitura com a chave do painel; a decisão segue no cadastro.
 var CANDIDATURA_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/parceiros-candidatura-bc82004eb9363032';
-var CANDIDATURAS=typeof PartnerCandidaturas!=='undefined'?PartnerCandidaturas.create({document,endpoint:()=>CANDIDATURA_URL,key:()=>INFLU_ACCESS.current('read'),getMarca:()=>MARCA}):null;
+var APROVACAO_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/parceiros-aprovacao-c58b68db6d3a02f0';
+var CANDIDATURAS=typeof PartnerCandidaturas!=='undefined'?PartnerCandidaturas.create({document,endpoint:()=>CANDIDATURA_URL,key:()=>INFLU_ACCESS.current('read'),getMarca:()=>MARCA,
+  aprovacaoEndpoint:()=>APROVACAO_URL,chaveEscrita:()=>INFLU_ACCESS.current('write')||INFLU_ACCESS.current('read'),
+  piloto:()=>({candidates:INFLU&&INFLU.pilot&&INFLU.pilot.candidates,save:window.CREATORS_PILOT&&window.CREATORS_PILOT.save,reload:carregarInflu})}):null;
 if(window.CREATORS_PILOT&&CANDIDATURAS){const renderPiloto=window.CREATORS_PILOT.render;window.CREATORS_PILOT.render=(...a)=>{const r=renderPiloto(...a);if(SEC==='afil'&&CANAL==='parceiros'&&document.getElementById('area-candidaturas'))CANDIDATURAS.mount(document.getElementById('area-candidaturas'));return r;};}
 // Escopo dos creators: combinado × entregue no mês (reels/posts pelas marcações no Instagram; story à mão).
 var ESCOPO_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/influs-escopo-7d79357c9b85b871';
