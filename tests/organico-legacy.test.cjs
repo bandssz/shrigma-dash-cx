@@ -45,7 +45,7 @@ test('legacy DM and bio presentation remain unchanged, campaigns are preserved, 
  const out=L.aggregate([row({produto_utm:'link_in_bio'}),row({utm_medium:'dm',utm_content:'REPLIENT_EUQUERO',utm_campaign:'replient_euquero'}),row({utm_medium:'dm-automation',utm_content:'replient-eu-quero',utm_campaign:'aristocrata-quero-evergreen'})]);
  const bio=out.rows.find(r=>r.sup==='bio');assert.equal(bio.prod,null);assert.deepEqual(bio.ident,[]);
  const dm=out.rows.filter(r=>r.sup==='dm (automação)');assert.equal(dm.length,2);assert.equal(dm[0].camp,'replient_euquero');assert.deepEqual(dm[0].ident,[]);
- assert.match(render([row({utm_campaign:'20260919_story',produto_utm:'Story Produto'})]).text,/Sem vínculo comprovado/);
+ {const r=render([row({utm_campaign:'20260919_story',produto_utm:'Story Produto'})]);const c=r.rows[0].lastElementChild.querySelector('span');assert.equal(c.textContent,'—');assert.match(c.getAttribute('title'),/Sem vínculo comprovado/);}
 });
 test('piece references are reported as unverified legacy information, never matched or used to divide revenue',()=>{
  const rows=[row({post_id:'fixture-post',apelido:'Peça teste'}),row({story_id:'fixture-story',apelido:'Peça teste'}),row({produto_utm:'Produto'})],out=L.aggregate(rows);

@@ -49,3 +49,14 @@ details.org-cobertura[open]>summary::before{transform:rotate(90deg)}
 }
 /* Desktop: Post a post cabe sem rolagem lateral em 1366px */
 @media(min-width:721px){body[data-panel=organico] #tab-posts .post-cel{min-width:220px}body[data-panel=organico] #tab-posts .post-id{max-width:230px}}
+/* Venda: a projeção anterior fica recolhida; os totais oficiais são os da regra v2 (28/09/2026). */
+details.org-legado>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+details.org-legado>summary::-webkit-details-marker{display:none}
+details.org-legado>summary h2::before{content:'▸';display:inline-block;margin-right:8px;font-size:12px;transition:transform .12s}
+details.org-legado[open]>summary h2::before{transform:rotate(90deg)}
+details.org-legado>summary .tag{cursor:help}
+details.org-legado>summary #venda-rot{margin-left:auto}
+/* Área de toque mínima também no desktop: filtros e o "abrir" das tabelas */
+body[data-panel=organico] .seg-mini button,body[data-panel=organico] .seg-mini-btn{min-height:32px}
+body[data-panel=organico] table.comparativo td a[target=_blank]{display:inline-flex;align-items:center;min-height:32px}
+#organico-attribution details:not(.org-cobertura)>summary{cursor:pointer;font:600 13px/1.6 var(--ui);color:var(--mudo)}

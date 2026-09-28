@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=65f7a3506b19">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kVdT1gZHDITUbL4wz9GTzMhqAMl84aNiVsewg9ZGb/s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=60ef37898f60">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-J0+6RZEnJUfZeIEuOmNIU8qcKnYONtIEXr0BW3KeWaw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -122,8 +122,8 @@
 
   <section class="sec" id="sec-venda">
     <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
-    <div class="painel">
-      <div class="painel-cab"><h2>Histórico de conversões · projeção anterior</h2><span class="mini" id="venda-rot"></span></div>
+    <details class="painel org-legado">
+      <summary class="painel-cab"><h2>Histórico por produto · projeção anterior</h2><span class="tag nulo" title="Modelo anterior à regra v2 (27/09). Serve para ver produto por produto; os totais oficiais são os da tabela acima. Não some as duas.">legado · não somar</span><span class="tag alerta" title="Anúncio → perfil → toque no link da bio vira último clique bio. Não dá para separar do orgânico puro.">bio pode ter mídia</span><span class="mini" id="venda-rot"></span></summary>
       <details class="ressalvas"><summary>Como ler esta tabela</summary><div class="nota">Comparação histórica da coleta Shopify, agrupada por marca, rede, superfície e produto/campanha UTM no período selecionado. A regra financeira e o modelo ainda estão em conciliação com a atribuição por pedido acima. Não some as duas tabelas. Assistências são incidências do legado: podem contar o mesmo pedido mais de uma vez e não se somam à receita exclusiva.</div></details>
       <div class="rolagem" tabindex="0" role="region" aria-label="Tabela histórica de conversões; use as setas para rolar"><table class="comparativo" id="tab-venda"><thead><tr>
         <th>Marca</th><th>Rede</th><th>Superfície</th><th>Produto / iniciativa UTM</th>
@@ -136,7 +136,7 @@
         Os links recentes com <code>utm_source=instagram_social</code> e <code>utm_medium=story|linktree</code> não entram nesta projeção anterior.
         Os vínculos de peça informados pelo de-para legado ainda precisam de conciliação por marca; não distribuem a receita desta linha por post/story. Sem vínculo, a peça permanece desconhecida.
         Valor indisponível não é zero: uma parcela ausente ou inválida impede publicar o total daquela métrica.</div></details>
-    </div>
+    </details>
   </section>
 </main>
 
@@ -199,9 +199,9 @@ function renderVenda(linhas){
   $('#venda-rot').textContent=rows.length?`Pedidos: ${numero(tot.ped)} · Receita: ${moeda(tot.rec)} · Incidências assistidas: ${numero(tot.ass)}`:available?'Sem linhas históricas no recorte':'Projeção histórica indisponível';
   $('#tab-venda tbody').innerHTML=rows.length?rows.map(x=>`<tr>
     <td>${esc(Object.hasOwn(OLegacy.BRANDS,x.marca)?OLegacy.BRANDS[x.marca]:x.marca?'Marca não reconhecida: '+x.marca:'Marca não informada')}</td>
-    <td>${esc(x.rede||'não informada')}</td><td>${esc(x.sup||'não informada')}${x.sup==='bio'?' <span class="tag alerta" title="Anúncio → perfil → toque no link da bio vira último clique bio. Não dá para separar do orgânico puro.">pode ter mídia</span>':''}</td><td><strong>${esc(x.prod||'não informado')}</strong>${x.camp?` <span class="tag nulo" title="utm_campaign diferente de venda">${esc(x.camp)}</span>`:''}</td>
+    <td>${esc(x.rede||'não informada')}</td><td>${esc(x.sup||'não informada')}</td><td><strong>${esc(x.prod||'não informado')}</strong>${x.camp?` <span class="tag nulo" title="utm_campaign diferente de venda">${esc(x.camp)}</span>`:''}</td>
     <td class="num tabn">${numero(x.ped)}</td><td class="num tabn">${moeda(x.rec)}</td>
-    <td class="num tabn">${numero(x.ass)}</td><td class="mini">${x.ident.length?`${x.ident.slice(0,3).map(esc).join(', ')}${x.ident.length>3?` · e mais ${nf(x.ident.length-3)}`:''}<br>Informado no legado; vínculo ainda não conciliado.${x.unidentified?' Há também linhas sem vínculo.':''}`:'Sem vínculo comprovado'}</td></tr>`).join('')
+    <td class="num tabn">${numero(x.ass)}</td><td class="mini">${x.ident.length?`${x.ident.slice(0,3).map(esc).join(', ')}${x.ident.length>3?` · e mais ${nf(x.ident.length-3)}`:''}<br>Informado no legado; vínculo ainda não conciliado.${x.unidentified?' Há também linhas sem vínculo.':''}`:'<span title="Sem vínculo comprovado com post ou story">—</span>'}</td></tr>`).join('')
     :`<tr><td colspan="8"><div class="vazio">${available?'Sem linhas desta projeção histórica para os filtros selecionados. A ausência de linhas não comprova zero vendas.':'A projeção histórica não está disponível nesta consulta. Ausência de dados não é zero.'}</div></td></tr>`;
 }
 let ORD={col:'publicado_em',dir:-1};
@@ -378,7 +378,7 @@ function pintaKPIs(){
   const cards=[
     {r:'EQ do período', v:ag.eq===null?'—':pc(ag.eq),
      d:varia(ag.eq,agB.eq), s:`mediana ${pc(ag.mediana)} · meta 1%`,
-     alerta:ag.eq!==null&&ag.mediana!==null&&ag.eq>=1&&ag.mediana<ag.eq/2?'um post carregou':null},
+     alerta:ag.eq!==null&&ag.mediana!==null&&ag.eq>=1&&ag.mediana<ag.eq/2?'um post carregou':null,alertaTit:'A média do período está puxada por poucos posts: a mediana é menos da metade da média. A grade em si ainda não bate a meta.'},
     {r:'Conteúdos vencedores', v:A.length?String(vA):'—',
      d:varia(vA,vB), s:`de ${nf(A.length)} posts · top 20% do período`, ir:'posts'},
     {r:'Quedas', v:A.length?String(pA):'—',
@@ -408,7 +408,7 @@ function pintaKPIs(){
     <div class="kpi-val tabn${k.v==='—'?' vazio-val':''}">${k.v==='—'?'sem dado':k.v}</div>
     <div class="kpi-rodape">${CMP?chip(k.inverso&&k.d!==null?-k.d:k.d,k.d):'<span class="mini">&nbsp;</span>'}</div>
     <div class="kpi-sub">${esc(k.s)}</div>
-    ${k.alerta?`<div class="kpi-ref"><span class="tag alerta">${k.alerta}</span></div>`:''}
+    ${k.alerta?`<div class="kpi-ref"><span class="tag alerta"${k.alertaTit?` title="${k.alertaTit}" style="cursor:help"`:''}>${k.alerta}</span></div>`:''}
     ${(k.detalhes||[]).length?`<div class="kpi-sub kpi-mais" title="${esc(k.detalhes.join('\n'))}">+ ${k.detalhes.length} detalhe${k.detalhes.length>1?'s':''} de origem</div>`:''}
   </div>`).join('');
   renderVenda(Array.isArray(API.cx_organico_receita)?rA:null);
@@ -449,7 +449,7 @@ function pintaGrade(){
     const bateu=x.eq!==null&&x.eq>=1;
     const loteria=bateu&&x.mediana!==null&&x.mediana<x.eq/2;
     const leitura=!bateu?'<span class="mini">abaixo da meta</span>'
-      :loteria?'<span class="tag alerta">um post carregou</span>'
+      :loteria?'<span class="tag alerta" title="Poucos posts puxaram a média: a mediana da semana é menos da metade." style="cursor:help">um post carregou</span>'
       :'<span class="mini">grade puxando</span>';
     return `<tr><td>${rotulo(x)}</td><td>${tag(x.marca)}</td>
       <td class="num tabn">${nf(x.posts)}</td><td class="num tabn">${nf(x.alcance)}</td>

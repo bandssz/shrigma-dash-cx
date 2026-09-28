@@ -394,7 +394,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         const cap=await journalTTS().capabilities(acesso.k);
         if (SEQ!==leitura || PANE!==pane || acesso.k!==ACESSO_TTS.k) throw new Error('A tela ou o acesso mudou. Consulte novamente.');
         MANUAL_TTS_CAPS={...cap,key:acesso.k,checkedAt:Date.now()};
-        mensagemAcaoTTS(cap.write ? 'Disponibilidade confirmada. Nenhuma decisão foi enviada.' : TTSManual.CLOSED);
+        mensagemAcaoTTS(cap.write ? '' : TTSManual.CLOSED); // liberado não precisa de aviso: a trava some sozinha
       } else {
         const found=await journalTTS().lookup(corpo,acesso.k);
         mensagemAcaoTTS(found.state==='accepted' ? 'Recibo confirmado: a API aceitou esta decisão. A evolução da amostra continua na fila.' : found.state==='blocked' ? 'O serviço bloqueou esta tentativa. A reserva foi preservada; não repita.' : TTSManual.UNKNOWN);
@@ -628,7 +628,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const m = marcaAtual(), k = TTS.kpis(DADOS, m), j = DADOS.janela || {};
     const urg = k.urgente ? TTS.horasAte(k.urgente) : null;
     const cards = [
-      { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${j.ini} a ${j.fim}` },
+      { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${String(j.ini||'').split('-').slice(1).reverse().join('/')} a ${String(j.fim||'').split('-').slice(1).reverse().join('/')}` },
       { r: 'Comissão paga', v: rf(k.comissao), s: k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV` : 'sem pedido na janela' },
       { r: 'Vídeo × Live', v: k.pctVideo === null ? '—' : `${pf(k.pctVideo)} <span class="mini">vídeo</span>`, s: k.pctVideo === null ? 'base menor que 30 pedidos' : `${pf(k.pctLive)} live · resto shop/link`, title: 'percentual do GMV por formato de conteúdo que gerou o pedido' },
       { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: (k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora') + ' · agora', title: 'estado atual da fila no TikTok — não depende do período selecionado' },
@@ -859,7 +859,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const m = marcaAtual(), c = TTS.canal(DADOS, m), j = DADOS.janela || {};
     if (!c.temDados) return '';
     const cards = [
-      { r: 'GMV da loja', v: rf(c.gmv), s: `${nf(c.pedidos)} pedidos · ticket ${rf(c.ticket)} · ${j.ini} a ${j.fim}`, t: 'GMV total da loja no TikTok Shop (plataforma), todas as origens' },
+      { r: 'GMV da loja', v: rf(c.gmv), s: `${nf(c.pedidos)} pedidos · ticket ${rf(c.ticket)} · ${String(j.ini||'').split('-').slice(1).reverse().join('/')} a ${String(j.fim||'').split('-').slice(1).reverse().join('/')}`, t: 'GMV total da loja no TikTok Shop (plataforma), todas as origens' },
       { r: 'GMV de afiliados', v: rf(c.afiliado), s: `${pctOu(c.pctAfiliado)} do total da loja · comparação de fontes`, t: 'Pedidos de afiliados e total da loja vêm de fontes distintas. Divergências permanecem explícitas, sem limitar artificialmente o valor a 100%.' },
       { r: 'Saldo não afiliado · calculado', v: c.origem.saldo === null ? '—' : moedaOrigem(c.origem.saldo), s: c.origem.estado === 'saldo_calculado' ? 'total menos afiliados · não é venda própria atribuída' : 'indisponível · conferir conciliação de origem', t: 'Só calculado quando todos os dias conhecidos conciliam. Não substitui atribuição de venda própria.' },
       { r: 'Live · Vídeo · Vitrine', v: `${pctOu(c.pctLive)} <span class="mini">live</span>`, s: `${pctOu(c.pctVideo)} vídeo · ${pctOu(c.pctVitrine)} vitrine/link`, t: 'corte da plataforma por tipo de conteúdo que gerou o pedido — inclui lives e vídeos de afiliados' },
