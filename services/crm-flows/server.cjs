@@ -1,10 +1,10 @@
 'use strict';
 const http=require('node:http'),{timingSafeEqual}=require('node:crypto');
 const MAX_BODY=196608;
-const ROUTES={'/internal/source':'captureHandoff','/internal/tick':'tick','/internal/reconcile':'reconcile'};
+const ROUTES={'/internal/source':'captureHandoff','/internal/tick':'tick','/internal/reconcile':'reconcile','/internal/inspect':'inspect'};
 const safeCode=e=>/^GRAPH_[A-Z0-9_]{1,80}$/.test(e?.code||'')?e.code:'GRAPH_SERVICE_UNCONFIRMED';
 function createServer({worker,token,revision,enabled=false,maxInFlight=2}={}){
- if(!worker||['captureHandoff','tick','reconcile'].some(k=>typeof worker[k]!=='function')||typeof token!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(token)||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4)throw Error('GRAPH_SERVICE_CONFIG');
+ if(!worker||['captureHandoff','tick','reconcile','inspect'].some(k=>typeof worker[k]!=='function')||typeof token!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(token)||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4)throw Error('GRAPH_SERVICE_CONFIG');
  let inFlight=0,closing=false,stopPromise;const idleWaiters=new Set(),expected=Buffer.from('Bearer '+token);
  const reply=(res,status,body)=>{if(res.destroyed||res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Connection':'close'});res.end(JSON.stringify(body));};
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:15000,headersTimeout:10000},async(req,res)=>{
@@ -23,10 +23,13 @@ function createServer({worker,token,revision,enabled=false,maxInFlight=2}={}){
    for await(const part of req){bytes+=part.length;if(bytes>MAX_BODY){reply(res,413,{error:'GRAPH_SERVICE_BODY_LIMIT'});req.destroy();return;}chunks.push(part);}
    let input;try{input=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{return reply(res,400,{error:'GRAPH_SERVICE_JSON'});}
    if(!input||typeof input!=='object'||Array.isArray(input))return reply(res,400,{error:'GRAPH_SERVICE_INPUT'});
+   // Inspect is authenticated even while OFF and accepts no caller data. Its
+   // existing worker implementation reads only aggregate storage/control state.
+   if(action==='inspect'&&Object.keys(input).length!==0)return reply(res,400,{error:'GRAPH_SERVICE_INPUT'});
    // No retries, redirected calls or caller-selected operation names. The worker
    // supplies the strict per-operation schema and durable reconciliation contract.
    const result=await worker[action](input);reply(res,200,result);
-  }catch(e){reply(res,503,{error:safeCode(e),reconcile_only:true});}
+  }catch(e){reply(res,503,{error:safeCode(e),...(action==='inspect'?{}:{reconcile_only:true})});}
   finally{inFlight--;if(inFlight===0){for(const done of idleWaiters)done();idleWaiters.clear();}}
  });
  server.on('clientError',(_e,socket)=>{if(socket.writable)socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');});
