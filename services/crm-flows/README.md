@@ -9,6 +9,7 @@ A configuração observada do n8n 2.0.2 não disponibiliza `pg` no Code node. Es
 Porta interna 8080, sem domínio público, portas publicadas ou CORS. Um bearer aleatório de pelo menos 43 caracteres, em configuração privada, autentica todas as operações. O n8n deve usar credencial própria de header, nunca código contendo a chave. A chave gestor do painel não serve nesta fronteira.
 
 - `GET /healthz`: somente vivacidade, revisão e execução habilitada/desabilitada. Não afirma disponibilidade do banco, autorização de envio, cache ou entrega.
+- `POST /internal/inspect`: corpo exatamente `{}`, com o mesmo bearer interno. Disponível também OFF; exige autorização SQL de `crm_graph_worker` e retorna somente contagens agregadas e disponibilidade por marca, sem capturar, reconciliar ou enviar. `execution_open=false` quando OFF não comprova o estado de cada controle SQL; a inspeção não prova cache, admissão, ativação ou entrega.
 - `POST /internal/source`: recibos estritos do coletor allowlisted. Captura não inscreve pessoas.
 - `POST /internal/tick`: marca e limite 1–5. Usar 1 na primeira integração. Sem retry; recibos/reservas existentes são consultados antes de novo trabalho.
 - `POST /internal/reconcile`: marca e intenção. Só concilia; não repete transporte.
