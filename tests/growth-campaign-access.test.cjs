@@ -150,3 +150,10 @@ test('authenticated CRM operator uses its area session only after an explicit Sa
  assert.equal(x.q('[data-ce-key-state]').textContent,'Acesso de edição do CRM disponível.');
  x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);assert.equal(posts(x).length,1);assert.equal(posts(x)[0].req.k,'synthetic-area-operator');assert.equal(x.store.has('write'),false);assert.ok(![...x.store.values()].join('').includes('synthetic-area-operator'));
 });
+
+test('invalid CRM operator session cannot fall back to a saved legacy writer',async()=>{
+ const x=boot({operatorWrite:'invalid operator key',legacyWrite:'existing-writer'});
+ assert.equal(x.q('[data-ce-key-state]').textContent,'Informe a chave para salvar, validar, agendar ou cancelar.');
+ x.q('[data-ce-save]').click();await new Promise(setImmediate);
+ assert.equal(x.calls.length,0);assert.equal(x.q('[data-ce-access-form]').hidden,false);assert.equal(x.store.get('write'),'existing-writer');
+});
