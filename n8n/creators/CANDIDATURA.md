@@ -57,3 +57,12 @@ Na linha da candidatura, **Aprovar** cria o parceiro inteiro de uma vez:
 - **Fishermans:** o app da loja só tem `read_discounts`. Até alguém liberar `write_discounts`, a aprovação para e explica: "crie o cupom X na Shopify e clique em Aprovar de novo". O sistema então confere o cupom e cadastra. Com a permissão liberada, passa a criar sozinho, sem mudar código.
 - **Link e cupom no mesmo pedido do mesmo parceiro:** a comissão sai uma vez, pelo cupom (`crm_influ`). A leitura do link mostra `pedidos_pelo_proprio_cupom` e não soma esses pedidos na comissão do link.
 - **Recusar:** grava pelo cadastro do piloto (`kind='candidato'`, `state='recusado'`). A linha sai de "Para analisar" na hora.
+
+## Termos e Condições em página própria (28/09/2026)
+
+- **Aceite no formulário:** a caixa diz só "Li e Aceito os Termos e Condições.", e "Termos e Condições" é um link que abre `/pages/termos-parceiros` em nova aba. O termo não aparece mais dentro do formulário.
+- **Página dos termos:** seção `shrigma-parceiros-termo.liquid` com o template `page.parceiros-termo`, uma por marca. O texto vem do servidor (`acao:'termo'`), então é o mesmo termo, na mesma versão e com o mesmo hash que o aceite registra. O tema não guarda cópia do texto.
+- **Páginas criadas em 28/09:**
+  - Aristo: `gid://shopify/Page/165852381346`
+  - Fish: `gid://shopify/Page/139454120293`
+  - As duas estão fora da busca (`seo.hidden`).

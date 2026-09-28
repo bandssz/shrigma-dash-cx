@@ -1,0 +1,80 @@
+{%- comment -%}
+  Programa de parceiros · página dos Termos e Condições (28/09/2026).
+  Mostra o termo vigente da marca direto do servidor (crm_partner_terms_v1, acao 'termo'): é o mesmo texto,
+  versão e hash que o formulário da LP registra no aceite. Não há cópia do texto no tema.
+  Fonte do repositório: shrigma-dash-cx/shopify/parceiros/. Editar lá e publicar de novo.
+{%- endcomment -%}
+<section id="spt-{{ section.id }}" class="spt" data-marca="{{ section.settings.marca }}" data-endpoint="{{ section.settings.endpoint }}"
+  style="--spt-tinta:{{ section.settings.cor_tinta }};--spt-fundo:{{ section.settings.cor_fundo }};--spt-apoio:{{ section.settings.cor_apoio }};--spt-contorno:{{ section.settings.cor_contorno }};--spt-realce:{{ section.settings.cor_realce }};">
+  <div class="spt__caixa">
+    <a class="spt__voltar" href="{{ section.settings.voltar_url }}">&#8592; {{ section.settings.voltar_texto }}</a>
+    <p class="spt__eyebrow">{{ section.settings.eyebrow }}</p>
+    <h1 class="spt__h1" data-spt-titulo>Termos e Condições</h1>
+    <p class="spt__versao" data-spt-versao hidden></p>
+    <div class="spt__texto" data-spt-texto><p class="spt__estado">Carregando os termos…</p></div>
+    <p class="spt__rodape"><a href="{{ section.settings.voltar_url }}">{{ section.settings.voltar_texto }}</a></p>
+  </div>
+</section>
+<script>
+(function(){
+  var raiz=document.getElementById('spt-{{ section.id }}');if(!raiz)return;
+  var box=raiz.querySelector('[data-spt-texto]'),tit=raiz.querySelector('[data-spt-titulo]'),ver=raiz.querySelector('[data-spt-versao]');
+  function falha(msg){box.textContent='';var p=document.createElement('p');p.className='spt__estado';p.textContent=msg;box.appendChild(p)}
+  function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+  fetch(raiz.dataset.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acao:'termo',marca:raiz.dataset.marca}),credentials:'omit',cache:'no-store'})
+  .then(function(r){return r.json()}).then(function(t){
+    if(!t||!t.aberto||!t.texto){falha((t&&t.mensagem)||'Os termos ainda não foram publicados.');return}
+    ver.textContent=t.titulo+' · versão '+t.versao;ver.hidden=false;
+    box.textContent='';
+    String(t.texto).split(/\n{2,}/).forEach(function(bloco){
+      var linhas=bloco.split('\n').map(function(l){return l.trim()}).filter(Boolean);if(!linhas.length)return;
+      // O título e a versão do próprio texto já estão no topo da página.
+      if(/^TERMO DE PARCERIA/i.test(linhas[0])){return}
+      var sec=el('section','spt__clausula');
+      if(/^\d+\.\s+\S/.test(linhas[0])&&!/^\d+\.\d/.test(linhas[0])){sec.appendChild(el('h2','spt__h2',linhas.shift()))}
+      linhas.forEach(function(l){sec.appendChild(el('p',/^[a-z]\)\s/.test(l)?'spt__item':(/^\d+\.\d+\s/.test(l)?'spt__sub':null),l))});
+      box.appendChild(sec);
+    });
+  }).catch(function(){falha('Não foi possível carregar os termos agora. Tente de novo em alguns minutos.')});
+})();
+</script>
+{% stylesheet %}
+.spt{background:var(--spt-fundo);color:var(--spt-tinta);font-family:'Roboto',system-ui,sans-serif;padding:32px 16px 56px}
+.spt *{box-sizing:border-box}
+.spt__caixa{max-width:760px;margin:0 auto}
+.spt__voltar{display:inline-block;margin-bottom:22px;font-size:14px;font-weight:400;color:var(--spt-apoio);text-decoration:none}
+.spt__voltar:hover{text-decoration:underline}
+.spt__eyebrow{margin:0 0 6px;font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--spt-realce)}
+.spt__h1{margin:0 0 6px;font-size:30px;line-height:1.2;font-weight:800;color:var(--spt-tinta)}
+.spt__versao{margin:0 0 26px;font-size:14px;font-weight:400;color:var(--spt-apoio)}
+.spt__texto{border-top:1px solid var(--spt-contorno);padding-top:8px}
+.spt__clausula{padding:18px 0;border-bottom:1px solid var(--spt-contorno)}
+.spt__clausula:last-child{border-bottom:0}
+.spt__h2{margin:0 0 10px;font-size:15px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--spt-tinta)}
+.spt__clausula p{margin:0 0 8px;font-size:15.5px;line-height:1.65;font-weight:400;color:#2a2a2a;letter-spacing:0}
+.spt__clausula p:last-child{margin-bottom:0}
+.spt__item{padding-left:18px}
+.spt__estado{color:var(--spt-apoio);font-size:15px;padding:18px 0}
+.spt__rodape{margin:28px 0 0;font-size:14px}
+.spt__rodape a{color:var(--spt-realce);font-weight:700}
+@media(max-width:640px){.spt{padding:22px 16px 44px}.spt__h1{font-size:25px}.spt__clausula p{font-size:15px}}
+@media print{.spt{background:#fff;padding:0}.spt__voltar,.spt__rodape{display:none}}
+{% endstylesheet %}
+{% schema %}
+{
+  "name": "Parceiros · Termos",
+  "settings": [
+    { "type": "select", "id": "marca", "label": "Marca", "options": [{ "value": "aristo", "label": "O Aristocrata" }, { "value": "fish", "label": "Fishermans" }], "default": "aristo" },
+    { "type": "text", "id": "endpoint", "label": "Endereço do termo (n8n)", "info": "O mesmo webhook do formulário da LP." },
+    { "type": "text", "id": "eyebrow", "label": "Linha acima do título", "default": "Programa de Parceiros" },
+    { "type": "text", "id": "voltar_url", "label": "Link de volta", "default": "/pages/seja-um-influenciador" },
+    { "type": "text", "id": "voltar_texto", "label": "Texto do link de volta", "default": "Voltar para a inscrição" },
+    { "type": "color", "id": "cor_tinta", "label": "Texto e títulos", "default": "#0C3C21" },
+    { "type": "color", "id": "cor_fundo", "label": "Fundo", "default": "#F7F4EC" },
+    { "type": "color", "id": "cor_apoio", "label": "Texto de apoio", "default": "#46574B" },
+    { "type": "color", "id": "cor_contorno", "label": "Contornos", "default": "#DED6C2" },
+    { "type": "color", "id": "cor_realce", "label": "Realce", "default": "#944F32" }
+  ],
+  "presets": [{ "name": "Parceiros · Termos" }]
+}
+{% endschema %}

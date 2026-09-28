@@ -1,0 +1,22 @@
+{
+  "sections": {
+    "termo": {
+      "type": "shrigma-parceiros-termo",
+      "settings": {
+        "marca": "fish",
+        "endpoint": "https://n8n.shrigma.com.br/webhook/parceiros-candidatura-bc82004eb9363032",
+        "eyebrow": "Programa de Parceiros · Fishermans",
+        "voltar_url": "/pages/seja-um-influenciador",
+        "voltar_texto": "Voltar para a inscrição",
+        "cor_tinta": "#1A1C2E",
+        "cor_fundo": "#F8F9FA",
+        "cor_apoio": "#5A5C6B",
+        "cor_contorno": "#E7E7EA",
+        "cor_realce": "#FF5A36"
+      }
+    }
+  },
+  "order": [
+    "termo"
+  ]
+}
