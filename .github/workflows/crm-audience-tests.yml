@@ -1,0 +1,83 @@
+name: CRM audience runtime
+on:
+  pull_request:
+    paths:
+      - 'campaign-contract.js'
+      - 'growth-campaign-audience-client.js'
+      - 'growth-campaign-audience-ui.js'
+      - 'growth-campaign-editor.js'
+      - 'growth-segment-*'
+      - 'n8n/growth/campaign-tracking.js'
+      - 'n8n/growth/segment-*'
+      - 'services/crm-audience/**'
+      - 'tests/campaign-lock-fixture.cjs'
+      - 'tests/crm-audience-*'
+      - 'tests/growth-campaign-audience-path.test.cjs'
+      - 'tests/segment-audience-store-fixture.cjs'
+      - 'tests/segment-campaign-*'
+      - '.github/workflows/crm-audience-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  node-and-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d listmonk"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated test dependencies
+        run: npm install --prefix ../crm-audience-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Build pinned production image without credentials
+        run: docker build --platform linux/amd64 --file services/crm-audience/Dockerfile --tag crm-audience-synthetic:ci .
+      - name: Prove the image defaults OFF with loopback health only
+        run: |
+          docker run --detach --name crm-audience-ci-proof --network none \
+            --env "CRM_AUDIENCE_REVISION=$GITHUB_SHA" \
+            --env CRM_PG_HOST=postgres.invalid \
+            --env CRM_PG_USER=crm_audience_api \
+            --env CRM_PG_DATABASE=listmonk \
+            --env CRM_PG_PASSWORD=synthetic-unused \
+            crm-audience-synthetic:ci
+          node - <<'NODE'
+          const {execFileSync}=require('node:child_process');
+          for(let attempt=0;attempt<60;attempt++){
+            const status=execFileSync('docker',['inspect','--format','{{.State.Health.Status}}','crm-audience-ci-proof'],{encoding:'utf8'}).trim();
+            if(status==='healthy')process.exit(0);
+            if(status!=='starting')throw Error(`unexpected container health: ${status}`);
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1000);
+          }
+          throw Error('container health did not become ready');
+          NODE
+          docker exec crm-audience-ci-proof node -e "fetch('http://127.0.0.1:8080/healthz').then(async r=>{const b=await r.json();if(r.status!==200||b.service!=='crm-audience'||b.revision!==process.env.CRM_AUDIENCE_REVISION||b.enabled!==false||b.stopping!==false)throw Error('unexpected OFF health')}).catch(e=>{console.error(e);process.exit(1)})"
+          docker exec crm-audience-ci-proof node -e "const c=require('./config.cjs').config(process.env);if(c.enabled!==false||c.bindingEnabled!==false)throw Error('runtime did not default OFF')"
+      - name: Check audience service and browser contracts
+        env:
+          NODE_PATH: ../crm-audience-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+        run: node --test tests/crm-audience-service.test.cjs tests/segment-campaign-validation.test.cjs tests/growth-campaign-audience-path.test.cjs
+      - name: Check DOM to HTTP to PostgreSQL runtime
+        env:
+          NODE_PATH: ../crm-audience-test-tools/node_modules
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/listmonk
+          CRM_AUDIENCE_TEST_ISOLATED: '1'
+        run: node tests/crm-audience-runtime-postgres.cjs
+      - name: Remove disposable audience container
+        if: always()
+        run: docker rm -f crm-audience-ci-proof || true

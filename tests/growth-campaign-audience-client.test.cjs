@@ -1,0 +1,46 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {C,api,audience,fixture}=require('./growth-campaign-audience-fixture.cjs');
+test('binding client is OFF unless exact capability, complete brand scope and HTTPS endpoint are explicit',()=>{
+ assert.equal(C.caps({}).bind,false);assert.equal(C.caps(api).authorizes_send,false);
+ for(const edit of [x=>x.capabilities.campaign_audience.contract_version='other',x=>x.capabilities.campaign_audience.brands=['fish','olivas'],x=>x.capabilities.campaign_audience.brands=['fish','fish'],x=>x.capabilities.endpoints.campaign_audience='http://binding.test',x=>x.capabilities.endpoints.campaign_audience='https://binding.test/?key=secret',x=>x.capabilities.endpoints.campaign_audience='https://user:pass@binding.test']){const a=structuredClone(api);edit(a);assert.equal(C.caps(a).read,false);}
+ const a=structuredClone(api);a.capabilities.campaign_audience.operation=false;assert.equal(C.caps(a).bind,false);assert.equal(C.caps(a).inspect,true);
+});
+test('read/inspect/bind expose snapshots, pin exact campaign, accept final native touch version and keep execution OFF',async()=>{
+ const f=fixture();for(const [brand,id]of [['fish',100],['aristo',200]]){const c=f.create(brand,id),r=await c.read(id);assert.equal(r.binding,null);const s=await c.inspect(id,audience);assert.equal(s.inspection.intent.brand,brand);assert.equal(c.canWrite(),true);const saved=await c.bind(s.inspection.intent);assert.equal(saved.operation.phase,'confirmed');assert.equal(saved.binding.binding_version,1);assert.equal(saved.campaign_version,'b'.repeat(32));assert.notEqual(saved.campaign_version,s.inspection.intent.expected_campaign_version);assert.equal(saved.binding.authorizes_send,false);assert.equal(saved.inspection,null);assert.throws(()=>c.read(id+1),{code:'SEGMENT_BINDING_CAMPAIGN_CHANGED'});}
+ assert.ok(f.calls.every(c=>c.init.credentials==='omit'&&c.init.redirect==='error'&&c.init.headers.Authorization==='Bearer synthetic-manager-key'));assert.ok(f.calls.every(c=>!('actor'in c.p)&&!('caps'in c.p)&&!('key'in c.p)));assert.ok([...f.store.values()].every(v=>!v.includes('synthetic-manager-key')));
+});
+test('lost ACK survives reload and resolves using original operation then fresh read, with no POST replay',async()=>{
+ const f=fixture(),c=f.create(),s=await c.inspect(100,audience);f.control.lose=true;await assert.rejects(c.bind(s.inspection.intent),{code:'SEGMENT_BINDING_OPERATION_UNCONFIRMED'});const before=c.snapshot().operation.request;
+ const restored=f.create();assert.equal(restored.pending(),true);assert.equal(restored.canWrite(),false);await assert.rejects(restored.read(),{code:'SEGMENT_BINDING_OPERATION_PENDING'});await assert.rejects(restored.inspect(100,audience),{code:'SEGMENT_BINDING_OPERATION_PENDING'});f.control.lose=false;const result=await restored.consult();assert.equal(result.operation.phase,'confirmed');assert.deepEqual(result.operation.request,before);assert.equal(result.binding.campaign_version,'b'.repeat(32));assert.equal(f.calls.filter(c=>c.p.acao===C.ACTIONS.bind).length,1);assert.deepEqual(f.calls.slice(-2).map(c=>c.p.acao),[C.ACTIONS.operation,C.ACTIONS.read]);
+});
+test('unknown receipt, another identity, malformed receipt or unavailable current GET cannot unlock a pending attempt',async()=>{
+ const f=fixture(),c=f.create(),s=await c.inspect(100,audience);f.control.lose=true;await assert.rejects(c.bind(s.inspection.intent));const original=f.store.get(C.SLOT+'fish:100');f.control.unknown=true;await assert.rejects(c.consult(),{code:'SEGMENT_BINDING_OPERATION_UNCONFIRMED'});assert.equal(f.store.get(C.SLOT+'fish:100'),original);
+ const other=f.create('fish',100,{key:()=> 'another-manager-key'}),n=f.calls.length;await assert.rejects(other.consult(),{code:'SEGMENT_BINDING_OPERATION_ACTOR_CHANGED'});assert.equal(f.calls.length,n);
+ f.control.unknown=false;f.control.failCurrent=true;await assert.rejects(c.consult(),{code:'SEGMENT_BINDING_READ_UNCONFIRMED'});assert.equal(c.pending(),true);f.control.failCurrent=false;f.control.patch=(r,p)=>{if(p.acao===C.ACTIONS.operation)r.body.binding.context_hash='9'.repeat(64);return r;};await assert.rejects(c.consult(),{code:'SEGMENT_BINDING_OPERATION_UNCONFIRMED'});assert.equal(f.store.get(C.SLOT+'fish:100'),original);
+});
+test('durable rejection requires operation and fresh read; direct conflict never clears the journal',async()=>{
+ const f=fixture(),c=f.create(),s=await c.inspect(100,audience);f.control.reject=true;await assert.rejects(c.bind(s.inspection.intent));assert.equal(c.pending(),true);const final=await c.consult();assert.equal(final.operation.phase,'rejected');assert.equal(final.binding,null);assert.equal(c.pending(),false);assert.equal(f.calls.filter(x=>x.p.acao===C.ACTIONS.bind).length,1);
+});
+test('WebLocks and durable storage are mandatory before mutation; concurrent tabs cannot overwrite a pending operation',async()=>{
+ for(const mode of ['locks','storage']){const f=fixture(),c=f.create('fish',100,mode==='locks'?{locks:null}:{storage:{getItem:()=>null,setItem(){throw Error();}}});if(mode==='locks'){await assert.rejects(c.inspect(100,audience),{code:'SEGMENT_BINDING_LOCK_UNAVAILABLE'});}else{const s=await c.inspect(100,audience);await assert.rejects(c.bind(s.inspection.intent),{code:'SEGMENT_BINDING_STORAGE_UNAVAILABLE'});}assert.equal(f.calls.filter(x=>x.p.acao===C.ACTIONS.bind).length,0);}
+ const f=fixture(),a=f.create(),b=f.create(),sa=await a.inspect(100,audience);await b.inspect(100,audience);let release,entered;const wait=new Promise(r=>release=r),started=new Promise(r=>entered=r);f.control.before=async p=>{if(p.acao===C.ACTIONS.bind){entered();await wait;}};const work=a.bind(sa.inspection.intent);await started;await assert.rejects(b.read(),{code:'SEGMENT_BINDING_BUSY'});release();await work;
+});
+test('intent substitution, expired review, changed credential and capability withdrawal prevent transport',async()=>{
+ const f=fixture();let key='synthetic-manager-key';const c=f.create('fish',100,{key:()=>key}),s=await c.inspect(100,audience);await assert.rejects(c.bind({...s.inspection.intent,expected_context_hash:'9'.repeat(64)}),{code:'SEGMENT_BINDING_INSPECTION_REQUIRED'});key='replacement-manager-key';await assert.rejects(c.bind(s.inspection.intent),{code:'SEGMENT_BINDING_ACCESS_CHANGED'});key='synthetic-manager-key';c.update({});await assert.rejects(c.bind(s.inspection.intent),{code:'SEGMENT_BINDING_CAPABILITY_UNAVAILABLE'});assert.equal(f.calls.filter(x=>x.p.acao===C.ACTIONS.bind).length,0);
+ const x=fixture();x.control.expiry=15;const d=x.create(),r=await d.inspect(100,audience);await new Promise(r=>setTimeout(r,25));await assert.rejects(d.bind(r.inspection.intent),{code:'SEGMENT_BINDING_INSPECTION_REQUIRED'});
+});
+test('journal corruption cannot manufacture confirmation, and endpoint changes cannot hide an unresolved attempt',async()=>{
+ const f=fixture(),c=f.create(),s=await c.inspect(100,audience);f.control.lose=true;await assert.rejects(c.bind(s.inspection.intent));const original=f.store.get(C.SLOT+'fish:100');
+ for(const mutate of [j=>j.operation.phase='confirmed',j=>j.operation.phase='rejected',j=>j.operation.request.actor='forged',j=>j.operation.request.expected_binding_version=-1,j=>j.actor_hash='no-hash']){const j=JSON.parse(original);mutate(j);f.store.set(C.SLOT+'fish:100',JSON.stringify(j));assert.throws(()=>f.create(),{code:'SEGMENT_BINDING_JOURNAL_INVALID'});}f.store.set(C.SLOT+'fish:100',original);const changed=structuredClone(api);changed.capabilities.endpoints.campaign_audience='https://different.example.test/api';assert.throws(()=>f.create('fish',100,{api:changed}),{code:'SEGMENT_BINDING_JOURNAL_INVALID'});
+});
+test('base hint is validated and read-only; extra response fields or oversized bodies are never exposed',async()=>{
+ const f=fixture(),c=f.create();f.control.base=true;await assert.rejects(c.inspect(100,audience),e=>e.code==='SEGMENT_BINDING_BASE_REQUIRED'&&e.baseList.id===17&&e.baseList.name==='Base fish');assert.equal(c.snapshot().inspection,null);assert.equal(c.snapshot().operation,null);
+ f.control.patch=r=>({...r,body:{...r.body,email:'private@example.test'}});await assert.rejects(c.inspect(100,audience),e=>e.code==='SEGMENT_BINDING_READ_UNCONFIRMED'&&!JSON.stringify(e).includes('private'));
+ const huge=f.create('fish',100,{fetch:async()=>({status:200,text:async()=>'x'.repeat(64001)})});await assert.rejects(huge.read(),{code:'SEGMENT_BINDING_READ_UNCONFIRMED'});
+});
+test('streaming reply is bounded before accumulation and transport is aborted without unlocking the write',async()=>{
+ const f=fixture();let reads=0,released=false,signal;
+ const fetch=async(url,init)=>{if(JSON.parse(init.body||'{}').acao!==C.ACTIONS.bind)return f.fetch(url,init);signal=init.signal;return {status:201,body:{getReader:()=>({read:async()=>{reads++;return {done:false,value:new Uint8Array(8192)};},releaseLock(){released=true;}})}};};
+ const c=f.create('fish',100,{fetch}),s=await c.inspect(100,audience);await assert.rejects(c.bind(s.inspection.intent),{code:'SEGMENT_BINDING_OPERATION_UNCONFIRMED'});assert.equal(reads,8);assert.equal(released,true);assert.equal(signal.aborted,true);assert.equal(c.pending(),true);
+});

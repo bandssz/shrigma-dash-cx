@@ -20,7 +20,7 @@ for(const [page,{css,scripts}] of Object.entries(manifest)){
  output(path.join(out,page+'.js'),js);output(path.join(out,page+'.css'),style);
  const file=path.join(root,page+'.html');let html=fs.readFileSync(file,'utf8');
  const inlineHashes=[...html.matchAll(/<script\s*>([\s\S]*?)<\/script>/g)].map(m=>"'sha256-"+crypto.createHash('sha256').update(m[1]).digest('base64')+"'");
- const connectSources='https://n8n-n8n.tazdb8.easypanel.host'+(page==='growth'?' https://n8n.shrigma.com.br':'');
+ const connectSources='https://n8n-n8n.tazdb8.easypanel.host'+(page==='growth'?' https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host':'');
  const csp="default-src 'self'; script-src 'self' "+inlineHashes.join(' ')+"; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src "+connectSources+"; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
  const security='<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="'+csp+'">';
  if(!html.includes('<!-- PANEL_SECURITY -->'))html=html.replace('</head>','<!-- PANEL_SECURITY -->\n</head>');
