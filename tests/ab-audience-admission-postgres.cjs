@@ -1,0 +1,39 @@
+'use strict';
+// Synthetic isolated local database only. Inspector makes no data writes.
+const assert=require('node:assert/strict'),{Pool}=require('pg');
+const F=require('./ab-audience-admission-fixture.cjs'),I=require('../n8n/growth/ab-audience-admission-inspect.cjs'),R=require('../n8n/growth/ab-audience-review.cjs');
+const connectionString=process.env.TEST_DATABASE_URL;
+if(process.env.AB_ADMISSION_TEST_DATABASE_ISOLATED!=='1'||!connectionString)throw Error('ISOLATED_DATABASE_REQUIRED');
+const url=new URL(connectionString);if(url.protocol!=='postgresql:'||url.hostname!=='127.0.0.1'||url.pathname!=='/ab_audience_admission_test'||!url.port||url.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
+const pool=new Pool({connectionString,options:'-c timezone=UTC -c datestyle=ISO,YMD',max:8,statement_timeout:20000,connectionTimeoutMillis:5000}),clients=[];
+const db={query:(q,v)=>pool.query(q,v),exec:q=>pool.query(q),transaction:async work=>{const c=await pool.connect();let destroy=false;try{await c.query('BEGIN ISOLATION LEVEL READ COMMITTED');const r=await work(c);await c.query('COMMIT');return r;}catch(e){try{await c.query('ROLLBACK');}catch{destroy=true;}throw e;}finally{c.release(destroy);}}};
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+function service(c,beforeQuery){return I.createAdmissionInspection({timeoutMs:10000,transaction:async work=>{await c.query('BEGIN ISOLATION LEVEL READ COMMITTED');try{const r=await work({query:async(q,v)=>{if(beforeQuery)await beforeQuery(q,c);return c.query(q,v);}});await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK');throw e;}}});}
+(async()=>{try{
+ const info=(await db.query("SELECT current_database() db,current_setting('server_version_num')::int version,(SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','v','m','S')) existing")).rows[0];assert.equal(info.db,'ab_audience_admission_test');assert.equal(info.version,170010);assert.equal(info.existing,0);
+ const x=await F.setup(db);let fish=await x.prepared('fish');const aristo=await x.prepared('aristo'),initial=await x.snapshot();
+ for(const p of [fish,aristo]){const r=await x.inspectAdmission(p);assert.equal(r.status,200,JSON.stringify(r));assert.equal(r.body.execution_blocked,true);assert.equal(r.body.external_dependencies_complete,false);}assert.deepEqual(await x.snapshot(),initial);
+ const a=await pool.connect(),blocker=await pool.connect(),other=await pool.connect();clients.push(a,blocker,other);
+ const pids=await Promise.all(clients.map(c=>c.query('SELECT pg_backend_pid() pid').then(r=>r.rows[0].pid)));assert.equal(new Set(pids).size,3);
+ const blocked=async pid=>{const until=Date.now()+350;while(Date.now()<until){if((await db.query('SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1',[pid])).rows[0]?.wait_event_type==='Lock')return true;await pause(5);}return false;};
+ // An allocated member loses a leaf before review. A later new membership
+ // may be inserted after the last resolver snapshot, without joining it.
+ await other.query('DELETE FROM subscriber_lists WHERE subscriber_id=1 AND list_id=101');
+ const missing=await x.review(fish),missingP={...fish,review:missing._body.review};let insertedLate=false;
+ const phantom=await service(a,async q=>{if(q===I.SQL.finish&&!insertedLate){insertedLate=true;await other.query("INSERT INTO subscriber_lists VALUES(1,101,'confirmed')");}}).execute({key:'synthetic-manager-key',request:x.admissionRequest(missingP)});
+ assert.equal(insertedLate,true);assert.equal(phantom._http,200,JSON.stringify(phantom));assert.equal(phantom._body.inspection.audience.snapshot_only,true);assert.equal(phantom._body.inspection.audience.arms.reduce((n,a)=>n+a.eligible,0),3);assert.ok(phantom._body.inspection.audience.checked_at<=phantom._body.inspection.checked_at);assert.equal(phantom._body.authorizes_send,false);
+ assert.equal((await x.inspectAdmission(missingP)).body.error,'AB_ADMISSION_AUDIENCE_CHANGED');const restored=await x.review(fish);fish={...fish,review:restored._body.review};assert.equal((await x.inspectAdmission(fish)).status,200);
+ await blocker.query('BEGIN');await blocker.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=17");
+ const optout=service(a).execute({key:'synthetic-manager-key',request:x.admissionRequest(fish)});assert.equal(await blocked(pids[0]),true);await other.query("INSERT INTO subscriber_lists VALUES(9,101,'confirmed')");await blocker.query('COMMIT');
+ assert.equal((await optout)._body.error,'AB_ADMISSION_AUDIENCE_CHANGED');assert.deepEqual(await x.members(fish.protocol.test_id),initial.crm_ab_member_v2.filter(m=>m.test_id===fish.protocol.test_id).map(m=>({subscriber_id:m.subscriber_id,arm:m.arm})).sort((a,b)=>a.subscriber_id-b.subscriber_id));
+ const next=await x.review(fish),current={...fish,review:next._body.review},read=await x.inspectAdmission(current);assert.equal(read.status,200,JSON.stringify(read));assert.equal(read.body.inspection.audience.arms.reduce((n,a)=>n+a.eligible,0),3);assert.equal(read.body.inspection.audience.arms.reduce((n,a)=>n+a.allocated,0),4);
+ assert.equal((await x.inspectAdmission(fish)).body.error,'AB_ADMISSION_REVIEW_CHANGED');
+ const beforeAuth=await x.snapshot();await blocker.query('BEGIN');await blocker.query(R.SQL.brandLock,['aristo']);
+ const revoked=service(a).execute({key:'synthetic-manager-key',request:x.admissionRequest(aristo)});assert.equal(await blocked(pids[0]),true);await other.query("UPDATE shrigma_panel_permission_v1 SET caps='[\"draft\",\"read_content\"]' WHERE principal_id='manager'");await blocker.query('COMMIT');assert.equal((await revoked)._http,403);assert.deepEqual(await x.snapshot(),beforeAuth);
+ await other.query("UPDATE shrigma_panel_permission_v1 SET caps='[\"draft\",\"validate\",\"read_content\"]' WHERE principal_id='manager'");
+ await db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '2 seconds' WHERE brand='fish'");let delayed=false;
+ const expired=await service(a,async(q,c)=>{if(q===I.SQL.finish&&!delayed){delayed=true;await c.query('SELECT pg_sleep(2.2)');}}).execute({key:'synthetic-manager-key',request:x.admissionRequest(current)});assert.equal(delayed,true);assert.equal(expired._body.error,'AB_ADMISSION_REVIEW_EXPIRED',JSON.stringify(expired));
+ let keyExpired=false;const expiredKey=await service(a,async q=>{if(q===I.SQL.finish&&!keyExpired){keyExpired=true;await other.query("UPDATE crm_dash_chave SET expira_em=clock_timestamp()-interval '1 second' WHERE chave='manager'");}}).execute({key:'synthetic-manager-key',request:x.admissionRequest(aristo)});assert.equal(keyExpired,true);assert.equal(expiredKey._http,401);
+ assert.deepEqual((await db.query('SELECT DISTINCT status,sent,started_at FROM campaigns WHERE id IN(100,101,200,201)')).rows,[{status:'draft',sent:0,started_at:null}]);assert.equal((await db.query('SELECT enabled FROM crm_ab_runtime_v2')).rows[0].enabled,false);
+ console.log(JSON.stringify({ok:true,postgres_version:info.version,independent_connections:3,all_candidate_routes_use_utc_iso:true,both_brands_inspected:true,inspector_creates_no_ledger_or_native_mutation:true,late_membership_insert_outside_declared_snapshot:true,fresh_review_required_for_late_eligibility:true,optout_after_real_wait_rejected:true,outside_insertion_not_added:true,new_review_required:true,original_denominator_preserved:true,permission_revoked_after_real_wait:true,expiry_at_final_database_trip_rejected:true,key_expiry_at_final_database_trip_rejected:true,runtime_off:true,transport:false}));
+}finally{for(const c of clients){try{await c.query('ROLLBACK');}catch{}c.release();}await pool.end();}})().catch(e=>{console.error('AB_ADMISSION_POSTGRES_PROOF_FAILED',e.code||e.name,e.message);process.exitCode=1;});

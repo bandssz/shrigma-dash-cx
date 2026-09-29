@@ -1,0 +1,67 @@
+name: CRM saved audience A/B (OFF)
+on:
+  pull_request:
+    paths:
+      - 'growth-ab-experiment-*'
+      - 'growth.html'
+      - 'n8n/growth/ab-*'
+      - 'n8n/growth/segment-*'
+      - 'services/crm-audience/**'
+      - 'tests/ab-*'
+      - 'tests/segment-audience-*'
+      - '.github/workflows/crm-ab-audience-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        proof: [runtime, regular]
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d listmonk"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.14.0'
+      - name: Install pinned isolated test libraries
+        run: npm install --prefix "$RUNNER_TEMP/ab-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Reproduce the already published worker query by its exact hash
+        run: |
+          python3 - <<'PY'
+          import hashlib,os,pathlib,urllib.request
+          with urllib.request.urlopen('https://raw.githubusercontent.com/knadh/listmonk/1b5e8d38c778e869003486d3c38bc7a964661e91/queries/campaigns.sql',timeout=30) as response:
+              body=response.read(262145)
+          assert len(body)<=262144 and hashlib.sha256(body).hexdigest()=='37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882'
+          pathlib.Path(os.environ['RUNNER_TEMP'],'ab-upstream.sql').write_bytes(body)
+          PY
+          node - <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const p=require('./n8n/growth/segment-listmonk-selection.cjs').patchRegularWorkerSource(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'ab-upstream.sql'),'utf8'));
+          if(p.patched_sha256!=='3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de')throw Error('Worker query drift');
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'ab-worker.sql'),p.source);
+          NODE
+      - name: Prove actual API login or wait for the real paired schedule
+        env:
+          NODE_PATH: ${{ runner.temp }}/ab-test-tools/node_modules
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/listmonk
+          CRM_AUDIENCE_TEST_ISOLATED: '1'
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+          LISTMONK_CAMPAIGNS_SQL: ${{ runner.temp }}/ab-worker.sql
+        run: node tests/ab-audience-${{ matrix.proof }}-postgres.cjs
