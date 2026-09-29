@@ -12,7 +12,7 @@ test('nightly facts -> persisted audience -> bound native campaign -> review agr
   const row=(await db.query('SELECT definition,context FROM crm_audience_v2.revision WHERE audience_id=$1 AND version=$2',[audience.id,audience.version])).rows[0];
   const current=await Store.readCatalog(db.query.bind(db),brand);
   assert.deepEqual(Store.pins(row.definition,current),row.context);assert.equal(current.catalog.shopify_snapshot.current,true);
-  for(const field of Facts.FIELDS)assert.equal((await db.query('SELECT crm_audience_v2.shopify_source_hash($1,$2,$3) AS hash',[brand,field,JSON.stringify(current.catalog)])).rows[0].hash,Facts.sourceHash(brand,field,current.catalog));
+  for(const field of Facts.AGGREGATE_FIELDS)assert.equal((await db.query('SELECT crm_audience_v2.shopify_source_hash($1,$2,$3) AS hash',[brand,field,JSON.stringify(current.catalog)])).rows[0].hash,Facts.sourceHash(brand,field,current.catalog));
   assert.equal(await match(brand,1),true);assert.equal(await match(brand,2),false);assert.equal(await match(brand,3),false);
   const result=await f.call(await f.prepareRequest(brand));assert.equal(result.status,200,JSON.stringify(result.body));
   assert.equal((await db.query('SELECT count(*)::integer AS n FROM shrigma_email_dispatch')).rows[0].n,0);

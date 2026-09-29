@@ -1,0 +1,33 @@
+query CrmAudienceCustomerProductBulk {
+  customers {
+    edges {
+      node {
+        id
+        email
+        defaultEmailAddress { emailAddress }
+        firstName
+        numberOfOrders
+        amountSpent { amount currencyCode }
+        lastOrder { createdAt }
+        createdAt
+        updatedAt
+        orders {
+          edges {
+            node {
+              id
+              lineItems {
+                edges {
+                  node {
+                    id
+                    quantity
+                    product { id title }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

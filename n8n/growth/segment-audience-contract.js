@@ -7,7 +7,7 @@ const FIELDS=Object.freeze({
  'purchase.count':{label:'Quantidade de pedidos na Shopify',type:'integer',source:'shopify',operators:['eq','gt','gte','lt','lte']},
  'purchase.last_date':{label:'Data do último pedido',type:'date',source:'shopify',operators:['eq','before','on_or_before','after','on_or_after']},
  'purchase.amount':{label:'Valor gasto na loja',type:'money',source:'shopify',operators:['eq','gt','gte','lt','lte']},
- 'purchase.product':{label:'Produto comprado',type:'product',source:'shopify',operators:['purchased','not_purchased']},
+ 'purchase.product':{label:'Produto nos pedidos',type:'product',source:'shopify',operators:['purchased','not_purchased']},
  'signup.origin':{label:'Origem comprovada da inscrição',type:'origin',source:'crm',operators:['is','is_not']},
  'email.opened':{label:'Abertura de e-mail registrada',type:'days',source:'email',operators:['within_last_days','not_within_last_days']},
  'email.clicked':{label:'Clique em e-mail registrado',type:'days',source:'email',operators:['within_last_days','not_within_last_days']}
