@@ -61,6 +61,9 @@ async function claim(f,campaign,row,outcome){const did=randomUUID(),snapshot=row
 
  const contexts=(await db.query('SELECT id,crm_audience_v2.selection_worker_context(id) IS NOT NULL AS valid FROM campaigns WHERE id=ANY($1) ORDER BY id',[[100,101,200,201]])).rows;assert.equal(contexts.length,4);assert.ok(contexts.every(x=>x.valid));proof.contexts_valid_before_wait=true;
 
+ // Parse and exercise the complete scanner before waiting, while the real
+ // schedule is still in the future. No campaign may start early.
+ assert.equal((await scanCampaigns()).rows.length,0);
  await waitUntilDue(f);await heartbeat(f);const scanned=await scanCampaigns();assert.equal(scanned.rows.length,4);const selected={};
  for(const cid of [100,101,200,201]){const c=(await db.query('SELECT type,last_subscriber_id,max_subscriber_id FROM campaigns WHERE id=$1',[cid])).rows[0],lists=(await db.query('SELECT array_agg(list_id ORDER BY list_id) ids FROM campaign_lists WHERE campaign_id=$1',[cid])).rows[0].ids;selected[cid]=(await db.query(nextSubscribers,[cid,c.type,c.last_subscriber_id,c.max_subscriber_id,lists,100])).rows;}
  const fishA=new Set(selected[100].map(x=>x.id)),fishB=new Set(selected[101].map(x=>x.id));assert.equal(fishA.has(revoked.subscriber_id)||fishB.has(revoked.subscriber_id),false);assert.equal(fishA.has(optout.subscriber_id)||fishB.has(optout.subscriber_id),false);assert.equal([...fishA].some(x=>fishB.has(x)),false);proof.revoked_excluded=true;proof.optout_excluded=true;proof.arms_disjoint=true;

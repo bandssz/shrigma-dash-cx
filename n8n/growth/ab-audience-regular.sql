@@ -218,8 +218,8 @@ CREATE FUNCTION crm_audience_v2.ab_regular_quarantine(current_ids integer[]) RET
  BEGIN
   FOR p IN SELECT pair.* FROM crm_audience_v2.ab_regular_pair pair
    WHERE NOT(pair.campaign_a=ANY(current_ids) OR pair.campaign_b=ANY(current_ids))
-    AND EXISTS(SELECT 1 FROM public.campaigns c WHERE c.id IN(pair.campaign_a,pair.campaign_b)
-     AND (c.status::text='running' OR c.status::text='scheduled' AND c.send_at<=clock_timestamp()))
+    AND EXISTS(SELECT 1 FROM public.campaigns candidate WHERE candidate.id IN(pair.campaign_a,pair.campaign_b)
+     AND (candidate.status::text='running' OR candidate.status::text='scheduled' AND candidate.send_at<=clock_timestamp()))
    ORDER BY least(pair.campaign_a,pair.campaign_b)
   LOOP
    BEGIN

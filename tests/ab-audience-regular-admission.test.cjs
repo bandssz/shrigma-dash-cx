@@ -20,6 +20,7 @@ for(const brand of ['fish','aristo'])test(brand+': inspection hooks create a bou
  assert.equal(review.body.review.contract,R.VERSION);assert.equal(review.body.review.arms.length,2);assert.ok(Date.parse(review.body.review.expires_at)-Date.parse(review.body.review.checked_at)<=60000);
  const request=f.scheduleRequest(p,review,'schedule-'+brand+'-0001'),scheduled=await f.call(request);assert.equal(scheduled.status,200,JSON.stringify(scheduled));assert.equal(scheduled.body.scheduled.campaigns.length,2);
  assert.deepEqual(await f.call(request),scheduled);assert.deepEqual(await f.call({acao:R.ACTIONS.operation,brand,idempotency_key:request.idempotency_key}),scheduled);
+ assert.deepEqual((await f.db.query('SELECT crm_audience_v2.regular_delivery_quarantine($1::integer[]) result',[[]])).rows[0].result,[]);
  assert.equal((await f.db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_regular_request')).rows[0].n,1);
  assert.equal((await f.db.query('SELECT count(*)::int n FROM crm_audience_v2.regular_delivery_campaign WHERE enabled AND NOT suspended')).rows[0].n,2);
  assert.equal((await f.db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_regular_pair WHERE test_id=$1',[p.test_id])).rows[0].n,1);
