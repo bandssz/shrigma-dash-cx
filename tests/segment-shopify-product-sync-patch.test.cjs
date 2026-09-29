@@ -1,9 +1,11 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const V1=require('../n8n/growth/segment-shopify-sync-patch.cjs'),P=require('../n8n/growth/segment-shopify-product-sync-patch.cjs'),Fixture=require('./fixtures/segment-shopify-sync.cjs');
 const by=(workflow,name)=>workflow.nodes.find(node=>node.name===name);
 const shop=brand=>'synthetic-'+brand;
-function installed(brand){const first=V1.patchWorkflow(Fixture.workflow(brand),{brand,shop:shop(brand),revision:P.OLD_REVISION,expectedVersionId:'fixture-v1-'+brand}).workflow;first.versionId='fixture-products-'+brand;return first;}
+const customerQuery=fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-shopify-customer-bulk.graphql'),'utf8');
+const startMutation='mutation CrmAudienceRunCustomerBulk($query: String!) { bulkOperationRunQuery(query: $query) { bulkOperation { id status } userErrors { field message } } }';
+function installed(brand){const first=V1.patchWorkflow(Fixture.workflow(brand),{brand,shop:shop(brand),revision:P.OLD_REVISION,expectedVersionId:'fixture-v1-'+brand}).workflow;first.versionId='fixture-products-'+brand;by(first,'Bulk Clientes — Start').parameters.jsonBody=`={{ ${JSON.stringify({query:startMutation,variables:{query:customerQuery}})} }}`;return first;}
 const config=brand=>({brand,shop:shop(brand),revision:'crm-shopify-product-evidence-20260929-v2',expectedVersionId:'fixture-products-'+brand});
 
 for(const brand of ['fish','aristo'])test(brand+': v2 replaces only Customer query, evidence code and ingest function',()=>{
@@ -31,6 +33,14 @@ test('old Customer query, status query and producer revision are pinned before r
   [workflow=>by(workflow,P.CRM.evidence).parameters.jsCode+=' ',/EVIDENCE_PIN_DRIFT/],
   [workflow=>by(workflow,P.CRM.ingest).parameters.query+=' ',/INGEST_PIN_DRIFT/]
  ]){const workflow=installed('aristo');mutate(workflow);assert.throws(()=>P.patchProductWorkflow(workflow,config('aristo')),code);}
+});
+
+test('product Bulk Start is static JSON and preserves escaped newlines and closing braces byte-for-byte',()=>{
+ const body=by(P.patchProductWorkflow(installed('fish'),config('fish')).workflow,'Bulk Clientes — Start').parameters.jsonBody;
+ const expected=fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-shopify-customer-products-bulk.graphql'),'utf8'),parsed=JSON.parse(body);
+ assert.equal(body.startsWith('={{'),false);assert.equal(body.includes('\n'),false);assert.equal(body.includes('\\n'),true);assert.equal(body.endsWith('}}'),true);
+ assert.equal(parsed.query,startMutation);
+ assert.deepEqual(parsed.variables,{query:expected});assert.equal(parsed.variables.query.endsWith('}\n'),true);
 });
 
 test('node types, options, credential reference and retry behavior cannot drift',()=>{
