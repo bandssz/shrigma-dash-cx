@@ -1,0 +1,11 @@
+# Carregamento Growth — saúde de e-mail
+
+A consulta completa observada levou 14,71s, com 8,80s de compilação JIT. A leitura de saúde estimava custo elevado porque as verificações de cobertura eram planejadas sobre todos os dispatches antes de limitar os candidatos por marca, teste, prazo e pendências. O candidato materializa esse conjunto inicial e aplica as mesmas condições de cobertura/eventos em seguida. Na leitura isolada proposta, a consulta completa levou 6,00s, com 0,45s de JIT. Medições pontuais, sem promessa de latência fixa.
+
+A migração altera somente a definição de `public.shrigma_growth_email_ses_health_v1`. Preserva Fish, Aristo e Olivas, inclusive a exceção de cobertura unconfigured de Olivas, os estados incertos antigos e todas as métricas, collector e fila. A ordem pública Fish→Aristo→Olivas torna-se explícita para evitar reordenação por Merge Join. Nenhum transporte, registro, credencial, permissão ou configuração global do banco é modificado.
+
+`ses-health-performance.cjs` aceita somente a definição observada fixada por SHA-256. `buildMigration` gera o SQL versionado; um drift recusa a instalação. O DO é atômico e tem limite de espera por lock de 500ms. Uma leitura LIMIT 0 adquire o lock de leitura da view antes de conferir o hash e o mantém até a substituição; outra DDL não passa nessa janela e escritas de dados nas fontes continuam compatíveis. Resposta de aplicação incerta exige conferir a definição atual; não repetir automaticamente. CREATE OR REPLACE preserva owner e ACL.
+
+Provas: fixture sintética compara payload inteiro, excluindo apenas `checked_at`, e verifica estados, testes, cobertura, bordas de tempo e consumer ausente. PostgreSQL 17.10 descartável cobre bloqueio de leitura concorrente, migração, owner/ACL e recusa da reaplicação. A comparação live antes da instalação é somente leitura, no mesmo snapshot e sem retornar valores de eventos/contatos.
+
+Publicação exige PR/CI verde e leitura fresca do hash da view. Depois da aplicação, conferir o hash decompilado esperado, owner/ACL e capacidades Growth com Gestor CRM. Reversão: substituir pela definição baseline somente após conferir o hash instalado registrado; preservar as permissões e aplicar o mesmo timeout. Não executar uma reversão cega se outra frente tiver alterado a view.
