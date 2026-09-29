@@ -27,14 +27,15 @@ const W=require('../n8n/influs/escopo-workflow.cjs');
  assert.equal(bz.feito.feed,1,'marcação antiga casa quando o @ é cadastrado');assert.equal(bz.escopo.stories,4);assert.equal(L.sem_cadastro.length,0);checks++;
  const id=()=>require('node:crypto').randomUUID();
  assert.match((await pan({k:'gestor',acao:'conteudo_marcar',data:{marca:'aristo',influ:'buzzo10',tipo:'story',dia:'2020-01-01',id:id()}})).erro,/janela/);
- const hoje=new Date().toISOString().slice(0,10),sid=id();
+ // "Hoje" é o dia em São Paulo, como no servidor: entre 21h e 24h o dia UTC já virou e seria recusado como futuro.
+ const hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()),sid=id();
  assert.equal((await pan({k:'gestor',acao:'conteudo_marcar',data:{marca:'aristo',influ:'buzzo10',tipo:'story',dia:hoje,link:'',id:sid}})).ok,true);
  await pan({k:'gestor',acao:'conteudo_marcar',data:{marca:'aristo',influ:'buzzo10',tipo:'story',dia:hoje,id:sid}});
  L=await pan({k:'gestor',acao:'ler'});assert.equal(L.creators.find(c=>c.influ==='buzzo10').feito.story,1,'mesmo id não conta duas vezes');checks++;
  assert.equal((await pan({k:'gestor',acao:'conteudo_ignorar',data:{marca:'aristo',influ:'buzzo10',id:'manual:'+sid,ignorar:true}})).ok,true);
  L=await pan({k:'gestor',acao:'ler'});assert.equal(L.creators.find(c=>c.influ==='buzzo10').feito.story,0);checks++;
  await ing({marca:'fish',conta:'fishermans.com.br',midias:[m('20001','pedro.pesca','REELS',new Date().toISOString())]});
- assert.equal((await pan({k:'gestor',acao:'vincular',mes:new Date().toISOString().slice(0,7),data:{marca:'fish',influ:'pedro',instagram:'@Pedro.Pesca'}})).ok,true);
+ assert.equal((await pan({k:'gestor',acao:'vincular',mes:hoje.slice(0,7),data:{marca:'fish',influ:'pedro',instagram:'@Pedro.Pesca'}})).ok,true);
  L=await pan({k:'gestor',acao:'ler'});const pe=L.creators.find(c=>c.influ==='pedro');assert.equal(pe.feito.reels,1);assert.equal(pe.escopo.reels,0,'vincular não inventa quantidade');checks++;
  // Workflow: só contas das marcas; pareamento por índice.
  const sep=new Function('$json',W.SEPARA)({data:[{instagram_business_account:{id:'1',username:'oaristocrata.br'}},{instagram_business_account:{id:'2',username:'olivasdocampo'}},{}]});
