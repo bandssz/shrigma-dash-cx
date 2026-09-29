@@ -5,7 +5,7 @@ const GrowthAccess=(()=>{
  const validKey=v=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=2048&&!/[\x00-\x20\x7f]/.test(v.trim());
  function readError(e){
   if(['TimeoutError','AbortError'].includes(e?.name))return 'A consulta demorou além do esperado.';
-  const allowed=['Acesso recusado. Informe uma chave válida no formulário.','Esta chave não retornou os dados do CRM.'];
+  const allowed=['Acesso recusado. Informe uma chave válida no formulário.','Esta chave não retornou os dados do CRM.','O servidor demorou para responder. Tente atualizar novamente.','Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.'];
   if(allowed.includes(e?.message)||/^Consulta indisponível \(HTTP [1-5][0-9]{2}\)\.$/.test(e?.message||''))return e.message;
   return 'A consulta falhou. Confira a conexão e tente novamente.';
  }

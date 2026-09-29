@@ -37,7 +37,7 @@ for(const [page,{css,scripts}] of Object.entries(manifest)){
 if(!panel||panel==='growth'){
 const entryJS=esbuild.transformSync(['config.js','panel-entry.js'].map(f=>fs.readFileSync(path.join(root,f),'utf8')).join('\n;\n'),{loader:'js',target:'es2022',minifyWhitespace:true,minifySyntax:true,minifyIdentifiers:false,charset:'utf8'}).code;
 const entryCSS=esbuild.transformSync(fs.readFileSync(path.join(root,'panel-entry.css'),'utf8'),{loader:'css',minify:true}).code;
-const crmEntryJS=esbuild.transformSync(['config.js','crm-entry.js'].map(f=>fs.readFileSync(path.join(root,f),'utf8')).join('\n;\n'),{loader:'js',target:'es2022',minifyWhitespace:true,minifySyntax:true,minifyIdentifiers:false,charset:'utf8'}).code;
+const crmEntryJS=esbuild.transformSync(['config.js','crm-read-config.js','crm-entry.js'].map(f=>fs.readFileSync(path.join(root,f),'utf8')).join('\n;\n'),{loader:'js',target:'es2022',minifyWhitespace:true,minifySyntax:true,minifyIdentifiers:false,charset:'utf8'}).code;
 if(!panel){output(path.join(out,'entry.js'),entryJS);output(path.join(out,'entry.css'),entryCSS);}
 output(path.join(out,'crm-entry.js'),crmEntryJS);
 for(const [folder,area,label] of [['cx','cx','CX/CS'],['crm','growth','CRM'],['organico','organico','Orgânico'],['creators','influs','Influs & Afiliados'],['gestao','todos','Gestão geral']]){

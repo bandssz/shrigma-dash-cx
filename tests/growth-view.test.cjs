@@ -12,7 +12,7 @@ function boot({credential='synthetic-growth-key',fetcher=async()=>response(manag
  Object.defineProperty(select,'value',{configurable:true,get:()=>selected,set:v=>{selected=v;}});
  const calls=[],timers=new Map(),storage=new Map([['journal','uncertain-original']]),state={dirty:true,pending:'original-operation',caps:['draft'],actor:'same-actor'};
  let sequence=0;
- const ctx=vm.createContext({document,window,URL,AbortController,Promise,console,CX_API_URL:'https://fixture.invalid/identity',
+ const ctx=vm.createContext({document,window,URL,AbortController,Promise,console,CRM_READ_API_URL:'https://fixture.invalid/crm-panel-read-v1',
   shrigmaChave:area=>area==='growth'?credential:'',GrowthAccess:{ready:()=>sessionReady,current:()=>sessionKey},
   fetch:async(url,options)=>{calls.push({url,options});return fetcher(url,options);},
   setTimeout:(fn,ms)=>{timers.set(++sequence,{fn,ms});return sequence;},clearTimeout:id=>timers.delete(id),
@@ -34,7 +34,7 @@ test('master is confirmed once per key; toggling changes only presentation and p
  x.toggle('manager');assert.equal(x.api.current(),'manager');assert.equal(x.calls.length,1);
  assert.equal(x.document.getElementById('draft'),form);assert.equal(x.document.getElementById('preview'),iframe);assert.equal(form.querySelector('input').value,'conteúdo não salvo');
  assert.equal(JSON.stringify(x.state),before);assert.equal(x.storage.get('journal'),'uncertain-original');
- const call=x.calls[0],url=new URL(call.url);assert.equal(url.searchParams.get('access'),'1');assert.equal(url.searchParams.get('painel'),'growth');assert.equal(url.searchParams.has('k'),false);
+ const call=x.calls[0],url=new URL(call.url);assert.equal(url.searchParams.get('action'),'identity');assert.equal(url.searchParams.get('painel'),'growth');assert.equal(url.searchParams.has('k'),false);
  assert.equal(call.options.headers.Authorization,'Bearer synthetic-growth-key');assert.equal(call.options.method,undefined);assert.equal(call.options.credentials,'omit');assert.equal(call.options.redirect,'error');assert.equal(call.options.cache,'no-store');assert.equal(x.timers.size,0);
 });
 test('manager, malformed or foreign identities cannot enable owner view even through a forced change event',async()=>{

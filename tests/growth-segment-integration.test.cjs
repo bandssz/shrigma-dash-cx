@@ -20,12 +20,12 @@ async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='f
  Object.defineProperty(document,'activeElement',{configurable:true,get:()=>focused?.isConnected?focused:document.body});
  const intervals=[],requests=[],hashes=[];let response=payload(enabled?f.api.capabilities:undefined);
  const NativeDate=Date;class FixedDate extends Date{constructor(...a){super(...(a.length?a:['2026-09-28T12:10:00Z']));}static now(){return Date.parse('2026-09-28T12:10:00Z');}}
- const context=vm.createContext({document,window,URL,URLSearchParams,Date:FixedDate,Intl,AbortSignal,TextEncoder,crypto:webcrypto,navigator:{locks:f.locks},console,
+ const context=vm.createContext({document,window,URL,URLSearchParams,Date:FixedDate,Intl,AbortSignal,AbortController,TextEncoder,crypto:webcrypto,navigator:{locks:f.locks},console,
  localStorage:f.storage,location:{hash:'#marca='+brand+'&sec='+section,search:''},history:{replaceState:(_a,_b,url)=>hashes.push(url)},
  addEventListener(){},setInterval(fn,ms){intervals.push({fn,ms});return intervals.length;},clearInterval(){},setTimeout,clearTimeout,queueMicrotask,
  Image:class{},Blob:class{},prompt:()=>null,confirm:()=>false,
  fetch:async(url,init)=>{requests.push({url,init});const u=new URL(url);if(u.hostname==='segments.example.test'||u.hostname==='changed.example.test')return f.fetch(url,init);
-  const body=structuredClone(response);if(u.pathname.includes('cx-dash-cache'))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();return {status:200,ok:true,json:async()=>body};}});
+  const body=structuredClone(response);if(u.searchParams.get('action')==='cache_growth')body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();return {status:200,ok:true,json:async()=>body};}});
  const run=code=>vm.runInContext(code,context);
  for(const script of manifest.scripts)vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
  run("shrigmaGuardaChave('growth','synthetic-manager-key');"+(manager?"SHRIGMA_OPERATOR_SESSION.growth={caps:['read_content','draft'],label:'Synthetic manager'};":''));

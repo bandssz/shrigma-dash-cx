@@ -74,7 +74,7 @@ test('published Growth permits its declared API origin without broadening other 
 });
 
 test('targeted Growth build writes only Growth artifacts and emits the matching policy',()=>{
- const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}','/fixture/config.js':'const CX_API_URL="https://api.example.test";','/fixture/panel-entry.js':'const sharedEntry=true;','/fixture/crm-entry.js':'const crmEntry=true;','/fixture/panel-entry.css':'body{}'},writes=new Map();
+ const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}','/fixture/config.js':'const CX_API_URL="https://api.example.test";','/fixture/panel-entry.js':'const sharedEntry=true;','/fixture/crm-read-config.js':'const CRM_READ_API_URL="https://fixture.invalid/read";','/fixture/crm-entry.js':'const crmEntry=true;','/fixture/panel-entry.css':'body{}'},writes=new Map();
  const fakeFS={mkdirSync(){},readFileSync:p=>{assert.ok(Object.hasOwn(files,p),'Unexpected read: '+p);return files[p];},writeFileSync:(p,s)=>writes.set(p,s)};
  const context={__dirname:'/fixture/tools/panel-build',process:{argv:['node','build.cjs','--panel=growth']},console:{log(){}},Buffer,
   require:name=>name==='node:fs'?fakeFS:name==='./manifest.json'?{growth:{scripts:['growth.js'],css:['growth.css']},index:{scripts:['unrelated.js'],css:[]}}:name.includes('esbuild')?{transformSync:s=>({code:s})}:require(name)};
