@@ -2,8 +2,8 @@
 const http=require('node:http');
 const ORIGIN='https://bandssz.github.io',MAX_BODY=32768;
 const ROUTES=new Set(['/segments','/campaign-audience']);
-function createServer({segments,binding,revision,enabled=false,bindingEnabled=false,maxInFlight=4,operationTimeoutMs=12000}={}){
- if(typeof bindingEnabled!=='boolean')throw Error('CRM_AUDIENCE_SERVER_CONFIG');
+function createServer({segments,binding,revision,enabled=false,bindingEnabled=false,regularEnabled=false,maxInFlight=4,operationTimeoutMs=12000}={}){
+ if(typeof bindingEnabled!=='boolean'||typeof regularEnabled!=='boolean')throw Error('CRM_AUDIENCE_SERVER_CONFIG');
  if(typeof segments?.handle!=='function'||typeof binding?.handle!=='function'||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4||!Number.isInteger(operationTimeoutMs)||operationTimeoutMs<1000||operationTimeoutMs>30000)throw Error('CRM_AUDIENCE_SERVER_CONFIG');
  let inFlight=0,closing=false,stopPromise;const idleWaiters=new Set();
  const cors=(req,headers={})=>req.headers.origin===ORIGIN?{'Access-Control-Allow-Origin':ORIGIN,'Vary':'Origin',...headers}:headers;
@@ -36,6 +36,7 @@ function createServer({segments,binding,revision,enabled=false,bindingEnabled=fa
     let bytes=0;const chunks=[];for await(const part of req){bytes+=part.length;if(bytes>MAX_BODY){controller.abort();return reply(req,res,413,{error:'CRM_AUDIENCE_BODY_LIMIT'});}chunks.push(part);}
     try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{return reply(req,res,400,{error:'CRM_AUDIENCE_JSON'});}
     if(!body||typeof body!=='object'||Array.isArray(body))return reply(req,res,400,{error:'CRM_AUDIENCE_INPUT'});
+    if(url.pathname==='/campaign-audience'&&['campanha_publico_preparar_envio','campanha_publico_agendar'].includes(body.acao)&&(!regularEnabled||!bindingEnabled))return reply(req,res,503,{error:'REGULAR_ADMISSION_UNAVAILABLE'});
     if(url.pathname==='/campaign-audience'&&body.acao==='campanha_publico_vincular'&&!bindingEnabled)return reply(req,res,503,{error:'SEGMENT_BINDING_UNAVAILABLE'});
    }
    timer=setTimeout(()=>controller.abort(),operationTimeoutMs);timer.unref?.();

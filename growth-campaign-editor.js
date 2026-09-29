@@ -126,7 +126,7 @@ const GCE=(()=>{
   return {key:p.key.trim()};
  }
  function showAccess(text=''){
-  if(remoteBusy||confirmation)return;
+  if(remoteBusy||confirmation||audienceFrozen())return;
   const form=q('[data-ce-access-form]');if(!form.hidden){if(text)q('[data-ce-access-message]').textContent=text;return;}
   accessCaller=document.activeElement;accessEpoch++;accessImporting=false;accessFileError=false;
   q('[data-ce-key]').value='';q('[data-ce-key]').removeAttribute('aria-invalid');q('[data-ce-access-file]').value='';
@@ -134,7 +134,7 @@ const GCE=(()=>{
   form.hidden=false;q('[data-ce-access-fields]').disabled=false;q('[data-ce-key]').focus();
  }
  function closeAccess(){
-  if(confirmation)return;
+  if(confirmation||audienceFrozen())return;
   accessEpoch++;accessImporting=false;accessFileError=false;q('[data-ce-key]').value='';q('[data-ce-access-file]').value='';q('[data-ce-access-form]').hidden=true;q('[data-ce-access-fields]').disabled=remoteBusy;
   const target=accessCaller?.isConnected&&!accessCaller.disabled?accessCaller:q('[data-ce-access-open]');
   (target.disabled?q('.ce-shell > summary'):target).focus();
@@ -146,12 +146,12 @@ const GCE=(()=>{
   form.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeAccess();}};
   field.oninput=()=>{accessFileError=false;field.removeAttribute('aria-invalid');};
   form.onsubmit=e=>{
-   e.preventDefault();if(form.hidden||remoteBusy||confirmation||accessImporting)return;
+   e.preventDefault();if(form.hidden||remoteBusy||confirmation||audienceFrozen()||accessImporting)return;
    const k=field.value.trim();if(accessFileError||!validWriteKey(k)){notice.textContent='Informe uma chave válida de escrita de campanhas.';field.setAttribute('aria-invalid','true');field.focus();return;}
    sessionWrite=k;legacyWrite=false;clearCatalog();closeAccess();paintRemote();message('Acesso preparado somente nesta página. Nenhuma operação foi enviada; confira e clique na ação desejada.');
   };
   file.onchange=async()=>{
-   if(form.hidden||remoteBusy||confirmation)return;
+   if(form.hidden||remoteBusy||confirmation||audienceFrozen())return;
    const f=file.files?.[0],ticket=++accessEpoch;if(!f)return;let focusWhenReady=false;
    accessImporting=true;accessFileError=false;field.value='';q('[data-ce-access-fields]').disabled=true;notice.textContent='Lendo arquivo de acesso…';
    try{if(f.size>8192)throw Error('invalid_access_file');const parsed=parseAccessFile(await f.text());if(ticket!==accessEpoch)return;field.value=parsed.key;notice.textContent='Arquivo conferido. Clique em Usar nesta página; nenhuma operação será enviada.';focusWhenReady=true;}
@@ -200,7 +200,7 @@ const GCE=(()=>{
  }
  function paintSavedAudience(c,clean){
   if(typeof GCAudienceUI==='undefined')return;
-  if(!audienceView)audienceView=GCAudienceUI.create({element:q('[data-ce-saved-audience]'),key:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',onChange:()=>paintRemote(),getCampaignContext:()=>JSON.stringify({brand:contextBrand,values:values(),journal:remote?localStorage.getItem(GCA.JOURNAL+remoteBrand):null}),onBound:async id=>{
+  if(!audienceView)audienceView=GCAudienceUI.create({element:q('[data-ce-saved-audience]'),key:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',onChange:()=>paintRemote(),getCampaignContext:()=>JSON.stringify({brand:contextBrand,values:values(),writer:currentWriteKey(),journal:remote?localStorage.getItem(GCA.JOURNAL+remoteBrand):null}),onBound:async id=>{
    const client=remote,epoch=contextEpoch;
    if(!client||client.locked()||client.snapshot().campaign?.id!==id||!client.clean(definition(values())))throw Error('CAMPAIGN_AUDIENCE_REOPEN_REQUIRED');
    remoteBusy=true;paintRemote();
@@ -227,15 +227,15 @@ const GCE=(()=>{
   const selected=new Set(split(values().list_ids));for(const el of q('[data-ce-catalog]').querySelectorAll('[data-ce-list]'))el.checked=selected.has(el.value);
   if(q('[data-ce-template]'))q('[data-ce-template]').value=values().template_id;
   q('[data-ce-key-state]').textContent=sessionWrite?'Acesso de edição disponível nesta página.':currentWriteKey()?(operatorWriteKey()?'Acesso de edição do CRM disponível.':'Acesso legado disponível neste navegador.'):'Informe a chave para salvar, validar, agendar ou cancelar.';
-  q('[data-ce-access-open]').disabled=remoteBusy||!!confirmation;q('[data-ce-access-fields]').disabled=remoteBusy||accessImporting||!!confirmation;q('[data-ce-access-cancel]').disabled=!!confirmation;
+  q('[data-ce-access-open]').disabled=remoteBusy||!!confirmation||audienceFrozen();q('[data-ce-access-fields]').disabled=remoteBusy||accessImporting||!!confirmation||audienceFrozen();q('[data-ce-access-cancel]').disabled=!!confirmation||audienceFrozen();
   if(!exists){if(audienceTimer!==null){clearTimeout(audienceTimer);audienceTimer=null;}q('[data-ce-audience]').textContent='';return;}
   const writes=remote.canWrite()&&!localError,draft=c?.status==='draft'&&c.sent===0&&!c.started_at;
   const set=(name,shown,disabled)=>{const b=q(`[data-ce-${name}]`);b.hidden=!shown;b.disabled=disabled;};
   set('refresh',remoteCaps.read,remoteBusy||!!confirmation||audienceFrozen());set('new',remoteCaps.save,frozen||!writes);set('consult',remoteCaps.operation,remoteBusy||!!confirmation||audienceFrozen()||!s.operation);
   set('recover',remoteCaps.recover&&remote.canRecover(),remoteBusy||!!confirmation||!writes);
   set('save',remoteCaps.save,frozen||!writes||!!c&&!draft);set('validate',remoteCaps.validate,frozen||!writes||!draft||!clean||(audienceState().legacyBlocked&&!audienceState().canValidate));
-  const audience=audienceState().legacyBlocked?(q('[data-ce-audience]').textContent='Confira o público salvo acima. O envio desse vínculo ainda não está disponível.',null):paintAudience(s,c,clean);
-  set('schedule',remoteCaps.schedule,frozen||!writes||!draft||!clean||!audience);
+  const audience=audienceState().legacyBlocked?(q('[data-ce-audience]').textContent=audienceState().canSchedule?'Confira os dados do público salvo e confirme o agendamento.':'Confira o público salvo antes de agendar.',null):paintAudience(s,c,clean);
+  set('schedule',remoteCaps.schedule,frozen||!writes||!draft||!clean||!(audienceState().legacyBlocked?audienceState().canSchedule:audience));
   set('cancel',remoteCaps.cancel,frozen||!writes||c?.status!=='scheduled'||c?.sent!==0||c?.started_at!==null||!c?.send_at||Date.parse(c.send_at)<=Date.now());
   const op=s.operation;
   const parts=[c?`${statusName(c.status)} · ${c.sent} enviados · ${stamp(c.send_at)}`:'Ainda sem campanha cadastrada neste editor.'];
@@ -304,6 +304,7 @@ const GCE=(()=>{
    confirmAction(`Cancelar o agendamento de “${c.definition.name}” para ${stamp(c.send_at)}? A campanha agendada será cancelada; as alterações locais não serão salvas.`,'Cancelar agendamento',confirmed=>runRemote(()=>client.cancel('cancelar'),{fillSaved:true,write:true,confirmed}));
   });
   q('[data-ce-schedule]').addEventListener('click',()=>{
+   if(audienceState().legacyBlocked){if(audienceState().canSchedule)void audienceView.schedule();return;}
    const client=remote,s=client?.snapshot(),c=s?.campaign;if(!c||confirmation||remoteBusy||audienceState().legacyBlocked)return;
    if(!requireWriteAccess())return;
    let d,a;try{d=definition(values());a=CampaignContract.audienceReview(s.validation?.audience,c);CampaignContract.schedule({confirm:'agendar',expected_version:c.version,audience_review_id:a.review_id},{...c,validation:s.validation},{canPublish:remoteCaps.schedule===true});}catch(e){message(e.message,true);paintRemote();return;}

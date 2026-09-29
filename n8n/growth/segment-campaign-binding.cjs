@@ -69,7 +69,7 @@ function view(row,current,catalog){
  const shopify=b.context.rules.filter(x=>x.source==='shopify'),currency=shopify[0]?.currency??null,timezone=shopify[0]?.timezone??null;
  return {contract:VERSION,brand:b.brand,campaign_id:b.campaign_id,campaign_version:b.campaign_version,binding_version:b.binding_version,audience_id:b.audience_id,audience_revision:b.audience_revision,definition_hash:b.definition_hash,context_hash:b.context_hash,base_list_id:b.base_list_id,catalog_hash:b.catalog_hash,binding_hash:row.binding_hash,campaign_current:current?.version===b.campaign_version,semantic_context:{currency,timezone,current:contextCurrent},...FLAGS};
 }
-function createSegmentCampaignBinding({transaction,countProvider=null,refreshCatalog=null,timeoutMs=25000}={}){
+function createSegmentCampaignBinding({transaction,countProvider=null,refreshCatalog=null,timeoutMs=25000,validationHooks=null}={}){
  if(typeof transaction!=='function'||refreshCatalog!==null&&typeof refreshCatalog!=='function'||countProvider!==null&&typeof countProvider!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<10||timeoutMs>30000)throw fail('SEGMENT_BINDING_ADAPTER');
  async function execute({key,request:input,signal:external}={}){
   let p;try{p=request(input);}catch(e){return error(400,e.code||'SEGMENT_BINDING_INPUT');}
@@ -82,7 +82,8 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
    const query=async(q,v=[])=>{active();const r=await tx.query(q,v);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_BINDING_CORRUPT');return r;};
    await query(S.SQL.setup);const session=(await query(S.SQL.boundary)).rows[0];if(session?.isolation!=='read committed'||!(Number(session.timeout_ms)>0&&Number(session.timeout_ms)<=30000))throw fail('SEGMENT_SESSION_BOUNDARY');
    const auth=async()=>{const a=await S.readAuth(query,key,p.acao===ACTIONS.validate?'validate':writing?'draft':'read_content');if((writing||p.acao===ACTIONS.validate)&&!a.caps.includes('read_content'))throw fail('SEGMENT_ACCESS_DENIED',403);return a;};
-   const who=await auth(),reauth=async()=>{if((await auth()).actor!==who.actor)throw fail('SEGMENT_UNAUTHORIZED',401);};
+   const who=await auth(),reauth=async()=>{const again=await auth();if(again.actor!==who.actor)throw fail('SEGMENT_UNAUTHORIZED',401);if(validationHooks?.authorize)await validationHooks.authorize(again);};
+   if(validationHooks){if(p.acao!==ACTIONS.validate)throw fail('SEGMENT_BINDING_ADAPTER');await reauth();const early=await validationHooks.before?.({query,who,reauth,signal});if(early)return early;}
    if(writing)await query(SQL.lock,[who.actor,p.idempotency_key]);await reauth();
    if(writing||p.acao===ACTIONS.operation){
     const old=(await query(SQL.operation,[who.actor,p.idempotency_key])).rows[0];
@@ -98,7 +99,7 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
     await reauth();return c;
    }
    try{
-    const rows=(await query(p.acao===ACTIONS.validate?SQL.campaignRead:SQL.campaign,[p.campaign_id])).rows;if(rows.length!==1)throw fail('SEGMENT_BINDING_CAMPAIGN_NOT_FOUND',404);
+    const rows=(await query(p.acao===ACTIONS.validate&&!validationHooks?SQL.campaignRead:SQL.campaign,[p.campaign_id])).rows;if(rows.length!==1)throw fail('SEGMENT_BINDING_CAMPAIGN_NOT_FOUND',404);
     campaign=nativeSnapshot(rows[0],p.brand,p.campaign_id,p.acao!==ACTIONS.read);
     await query(SQL.dependencies,[p.campaign_id]);
     current=currentSnapshot((await query(SQL.current,[p.campaign_id])).rows[0]?.current,p.brand,p.campaign_id);
@@ -128,7 +129,8 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
      const now=new Date((await query(SQL.clock)).rows[0]?.now).getTime(),checked=Date.parse(count.checked_at),expires=Math.min(checked+60000,Date.parse(catalog.expires_at));
      if(!Number.isFinite(now)||checked>now+1000||expires<=now)throw fail('SEGMENT_BINDING_UNAVAILABLE');
      await reauth();
-     return response(200,{validation:{contract:'crm-audience-campaign-validation-v1',binding:view(record,current,catalog),content,audience:{source_confirmed:count.source_confirmed,eligible_count:count.eligible_count,unknown_reason:count.unknown_reason},checked_at:count.checked_at,expires_at:new Date(expires).toISOString(),...FLAGS}});
+     const validation={contract:'crm-audience-campaign-validation-v1',binding:view(record,current,catalog),content,audience:{source_confirmed:count.source_confirmed,eligible_count:count.eligible_count,unknown_reason:count.unknown_reason},checked_at:count.checked_at,expires_at:new Date(expires).toISOString(),...FLAGS};
+     return validationHooks?await validationHooks.after({query,who,reauth,signal,validation,current,campaign,binding:record,catalog}):response(200,{validation});
     }
     const records=(await query(SQL.audience,[p.audience_id,p.audience_revision,p.brand])).rows;if(records.length!==1)throw fail('SEGMENT_BINDING_AUDIENCE_NOT_FOUND',404);a=audience(records[0],p);
     if(ids.length!==1||ids[0]!==a.context.base.id){

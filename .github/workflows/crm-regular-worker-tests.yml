@@ -1,0 +1,77 @@
+name: CRM regular audience worker (OFF)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-regular-*/**'
+      - 'n8n/growth/segment-*'
+      - 'n8n/growth/ab-audience-material.cjs'
+      - 'n8n/growth/campaign-*'
+      - 'growth-campaign-*'
+      - 'services/crm-audience/**'
+      - 'tests/segment-regular-*'
+      - 'tests/segment-listmonk-selection-*'
+      - 'tests/growth-campaign-audience-path.test.cjs'
+      - '.github/workflows/crm-regular-worker-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-native-and-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+      REGULAR_NATIVE_PROOF_ISOLATED: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.14.0'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Install pinned disposable PostgreSQL and test libraries
+        run: |
+          npm install --prefix "$RUNNER_TEMP/regular-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0 @electric-sql/pglite@0.3.14 linkedom@0.18.12 @embedded-postgres/linux-x64@17.10.0-beta.17
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Download and verify pinned public source and dependency archives
+        run: python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/regular-inputs" --go "$(command -v go)"
+      - name: Build exact Linux executable and corresponding source offline
+        run: |
+          python3 -m unittest discover -s tools/listmonk-regular-build -p 'test_*.py'
+          python3 -m unittest discover -s tools/listmonk-regular-package -p 'test_*.py'
+          python3 tools/listmonk-regular-package/build.py --source-archive "$RUNNER_TEMP/regular-inputs/listmonk-upstream.tar.gz" --smtp-archive "$RUNNER_TEMP/regular-inputs/smtppool.zip" --release-cache "$RUNNER_TEMP/regular-inputs" --go "$(command -v go)" --target linux_amd64 --out "$RUNNER_TEMP/regular-package"
+      - name: Exercise actual native manager and SMTP boundary with race detector
+        run: |
+          cd "$RUNNER_TEMP/regular-package/source/listmonk"
+          GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./internal/manager ./internal/messenger/email
+          cd "$RUNNER_TEMP/regular-package/source/smtppool"
+          GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./guardedproof
+      - name: Prove contracts and full analyst DOM path
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/regular-test-tools/node_modules"
+          export CAMPAIGN_PGLITE_MODULE=@electric-sql/pglite
+          export AB_UPSTREAM_SOURCE="$RUNNER_TEMP/regular-inputs/source/queries/campaigns.sql"
+          node --test tests/ab-audience-material-contract.test.cjs tests/segment-regular-*.test.cjs tests/segment-listmonk-selection-regular.test.cjs tests/growth-campaign-audience-path.test.cjs tests/crm-audience-service.test.cjs
+      - name: Prove HTTP admission, permissions, concurrency and SQL delivery in PostgreSQL 17
+        run: python3 tools/listmonk-regular-package/postgres_proofs.py --pg-bin "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --node-path "$RUNNER_TEMP/regular-test-tools/node_modules" --upstream-query "$RUNNER_TEMP/regular-inputs/source/queries/campaigns.sql" --out "$RUNNER_TEMP/regular-pg-proof"
+      - name: Run complete Linux worker with real schema and synthetic loopback SMTP
+        run: |
+          mkdir -p "$RUNNER_TEMP/regular-native"
+          python3 tools/listmonk-regular-build/native_proof.py --binary "$RUNNER_TEMP/regular-package/candidate/listmonk" --report "$RUNNER_TEMP/regular-native/native-proof.json" --pg-bin "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --source-dir "$RUNNER_TEMP/regular-inputs/source" --runtime-dir "$RUNNER_TEMP/regular-native" --node-path "$RUNNER_TEMP/regular-test-tools/node_modules"
+      - name: Build OCI and verify the exact tested binary and inherited runtime configuration
+        run: python3 tools/listmonk-regular-package/image.py --package "$RUNNER_TEMP/regular-package" --native-proof "$RUNNER_TEMP/regular-native/native-proof.json" --revision "$GITHUB_SHA" --out "$RUNNER_TEMP/regular-image"
+      - name: Upload verified image, corresponding source and proofs only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-regular-worker-oci-linux-amd64
+          path: |
+            ${{ runner.temp }}/regular-image/
+            ${{ runner.temp }}/regular-pg-proof/postgres-proof.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
