@@ -27,7 +27,7 @@ function createTransaction({pool,statementTimeoutMs=10000,role=DB_USER}={}){
    }});
    const result=await work(tx);
    if(signal?.aborted)throw fail('CRM_AUDIENCE_TRANSACTION_ABORTED');
-   try{await client.query('COMMIT');}catch(e){destroy=true;throw fail('CRM_AUDIENCE_COMMIT_UNCONFIRMED');}
+   try{const committed=await client.query('COMMIT');if(committed?.command!=='COMMIT')throw fail('CRM_AUDIENCE_COMMIT_UNCONFIRMED');}catch(e){destroy=true;throw fail('CRM_AUDIENCE_COMMIT_UNCONFIRMED');}
    begun=false;return result;
   }catch(e){
    destroy=true;

@@ -79,6 +79,7 @@
       "growth-segment-client.js",
       "growth-segment-ui.js",
       "growth-campaign-audience-client.js",
+      "growth-campaign-regular-client.js",
       "growth-campaign-audience-ui.js",
       "growth-control.js",
       "whatsapp-template-contract.js",

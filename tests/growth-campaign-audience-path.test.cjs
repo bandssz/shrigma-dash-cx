@@ -12,10 +12,11 @@ const caps=()=>({capabilities:{endpoints,
  campaigns:{contract_version:'crm-campaign-v1',brands:['fish','aristo'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:'listmonk-6.1-regular-v1'},
  segments:{contract_version:'crm-audience-v2',brands:['fish','aristo'],read:true,save:true,count:true,operation:true},
  campaign_audience:{contract_version:'crm-audience-campaign-binding-v1',brands:['fish','aristo'],read:true,inspect:true,bind:true,operation:true}}});
-async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaignCapability=false,lose=false,store=new Map(),fixture=null}={}){
- const db=fixture?.db||new PGlite();if(!fixture)t.after(()=>db.close());const f=fixture||await F.setup(db,{countProvider:require('../n8n/growth/segment-audience-listmonk.cjs').countAudience}),bindingAPI=API.createCampaignBindingAPI({store:f.service});
+async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaignCapability=false,lose=false,regular=false,store=new Map(),fixture=null}={}){
+ const db=fixture?.db||new PGlite();if(!fixture)t.after(()=>db.close());const f=fixture||(regular?await require('./segment-regular-admission-fixture.cjs').setup(db):await F.setup(db,{countProvider:require('../n8n/growth/segment-audience-listmonk.cjs').countAudience})),bindingAPI=API.createCampaignBindingAPI({store:f.bindingService||f.service}),regularAPI=regular?require('../n8n/growth/segment-regular-admission-api.cjs').createRegularAdmissionAPI({store:f.service}):null;
+ if(regular&&!fixture)await f.approve();
  // Prepare valid synthetic content before any binding; keep all triggers installed.
- if(!fixture)for(const id of [100,200])await db.transaction(async tx=>{await tx.query("SELECT set_config('shrigma.campaign_writer',$1,true)",[String(id)]);await tx.query("UPDATE campaigns SET body=body||' {{ UnsubscribeURL }}',altbody=altbody||' {{ UnsubscribeURL }}' WHERE id=$1",[id]);});
+ if(!fixture&&!regular)for(const id of [100,200])await db.transaction(async tx=>{await tx.query("SELECT set_config('shrigma.campaign_writer',$1,true)",[String(id)]);await tx.query("UPDATE campaigns SET body=body||' {{ UnsubscribeURL }}',altbody=altbody||' {{ UnsubscribeURL }}' WHERE id=$1",[id]);});
  const campaignId=brand==='fish'?100:200,existing=(await db.query('SELECT id,version FROM crm_audience_v2.audience WHERE brand=$1',[brand])).rows[0];
  const audience=existing||await f.createAudience(brand,'ui-audience-'+brand,{op:'in_list',list_id:brand==='fish'?101:201}),current=await f.current(campaignId);
  const journal='shrigma_campaign_operation_v1:'+brand,local='shrigma_growth_editor_v1:campaign:'+brand;
@@ -26,7 +27,7 @@ async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaig
  dialogProto.showModal=function(){this.setAttribute('open','');};dialogProto.close=function(){this.removeAttribute('open');this.onclose?.();};
  Object.defineProperty(dialogProto,'open',{configurable:true,get(){return this.hasAttribute('open');}});
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{configurable:true,get:()=>focused?.isConnected?focused:document.body});
- const calls=[],control={lose,before:null},payload=caps();if(!enabled)delete payload.capabilities.campaign_audience;if(noCapabilities)payload.capabilities={};if(noCampaignCapability)delete payload.capabilities.campaigns;
+ const calls=[],control={lose,before:null,failReopen:0},payload=caps();if(regular)Object.assign(payload.capabilities.campaign_audience,{validate:true,regular:{contract_version:'crm-audience-regular-admission-v1',prepare:true,schedule:true,operation:true}});if(!enabled)delete payload.capabilities.campaign_audience;if(noCapabilities)payload.capabilities={};if(noCampaignCapability)delete payload.capabilities.campaigns;
  class Clock extends Date{}
  const context=vm.createContext({document,window,console,Date:Clock,Intl,URL,URLSearchParams,AbortSignal,AbortController,TextEncoder,TextDecoder,crypto:webcrypto,setTimeout,clearTimeout,
   navigator:{locks:require('./campaign-lock-fixture.cjs')()},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
@@ -36,13 +37,13 @@ async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaig
    const input={method:init.method,request:{headers:{...init.headers},[init.method==='POST'?'body':'query']:request}};
    let r;
    if(u.origin==='https://audience.test')r=await f.api.handle(input);
-   else if(u.origin==='https://binding.test')r=await bindingAPI.handle(input);
-   else if(u.origin==='https://campaign.test'&&request.acao==='campanha_obter')r={status:200,body:{campaign:await f.current(Number(request.id))}};
+   else if(u.origin==='https://binding.test')r=await (regularAPI&&Object.values(require('../n8n/growth/segment-regular-admission.cjs').ACTIONS).includes(request.acao)?regularAPI:bindingAPI).handle(input);
+   else if(u.origin==='https://campaign.test'&&request.acao==='campanha_obter'){if(control.failReopen>0){control.failReopen--;throw Error('synthetic reopen failure');}r={status:200,body:{campaign:await f.current(Number(request.id))}};}
    else throw Error('UNEXPECTED_LEGACY_ACTION');
-   if(control.lose&&request.acao==='campanha_publico_vincular')throw Error('synthetic lost ACK');
+   if(control.lose&&(regular?request.acao==='campanha_publico_agendar':request.acao==='campanha_publico_vincular'))throw Error('synthetic lost ACK');
    return {status:r.status,ok:r.status>=200&&r.status<300,json:async()=>structuredClone(r.body),text:async()=>JSON.stringify(r.body)};
   }});
- for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-utm.js','n8n/growth/segment-contract.js','n8n/growth/segment-audience-contract.js','growth-segment-client.js','growth-campaign-audience-client.js','growth-campaign-audience-ui.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+ for(const file of ['n8n/growth/campaign-tracking.js','campaign-contract.js','growth-brand-state.js','growth-campaign-api.js','growth-utm.js','n8n/growth/segment-contract.js','n8n/growth/segment-audience-contract.js','growth-segment-client.js','growth-campaign-audience-client.js','growth-campaign-regular-client.js','growth-campaign-audience-ui.js','growth-campaign-editor.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
  const run=code=>vm.runInContext(code,context);run('GCE.mount({marca:'+JSON.stringify(brand)+',api:__api})');
  return {db,f,store,audience,campaignId,document,window,context,run,calls,control,payload,q:s=>document.querySelector(s)};
 }
@@ -138,4 +139,47 @@ test('the local campaign anchor preserves an uncertain binding when native or al
  y.payload.capabilities=caps().capabilities;y.run('GCE.mount({marca:"fish",api:__api})');assert.equal(y.run('GCE.contextStatus().pending'),true);
  y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));assert.equal(posts(y).length,0);assert.match(y.q('[data-ce-saved-audience]').textContent,/Público vinculado/);
  }
+});
+
+for(const brand of ['fish','aristo'])test(brand+': Gestor selects, validates, explicitly confirms and reconciles a saved audience schedule',async t=>{
+ const x=await setup(t,brand,{regular:true});
+ await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ assert.equal(x.q('[data-ce-validate]').disabled,false);x.q('[data-ce-validate]').click();
+ await until(()=>!!x.q('[data-ca-regular-review]')&&!x.run('GCE.contextStatus().blocked'));
+ assert.equal(x.q('[data-ce-schedule]').disabled,false,x.q('[data-ca-status]').textContent);
+ x.q('[data-ce-schedule]').click();assert.equal(x.q('[data-ca-dialog]').open,true);x.q('[data-ca-no]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ assert.equal(x.calls.filter(c=>c.request.acao==='campanha_publico_agendar').length,0);
+ x.control.lose=true;x.q('[data-ce-schedule]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending')&&!x.q('[data-ca-dialog]')?.open);
+ assert.equal((await x.f.current(x.campaignId)).status,'scheduled');
+ const y=await setup(t,brand,{regular:true,store:x.store,fixture:x.f});assert.equal(y.run('GCE.contextStatus().pending'),true);
+ y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));
+ assert.match(y.q('[data-ca-status]').textContent,/Agendamento confirmado/);assert.match(y.q('[data-ce-server-state]').textContent,/Agendada/);
+ assert.equal(x.calls.filter(c=>c.request.acao==='campanha_publico_agendar').length,1);assert.equal(y.calls.filter(c=>c.request.acao==='campanha_publico_agendar').length,0);
+ assert.equal(x.calls.filter(c=>['campanha_validar','campanha_agendar'].includes(c.request.acao)).length,0);
+ assert.equal((await x.db.query('SELECT count(*)::int n FROM shrigma_email_dispatch')).rows[0].n,0);
+ for(const [k,v]of x.store)assert.doesNotMatch(k+v,/synthetic-manager-key/);
+});
+
+for(const action of ['vínculo','agendamento'])test('programmatic access changes cannot cross the '+action+' confirmation',async t=>{
+ const regular=action==='agendamento',open=async x=>{await inspect(x);if(!regular){x.q('[data-ca="bind"]').click();return;}x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));x.q('[data-ce-validate]').click();await until(()=>!!x.q('[data-ca-regular-review]')&&!x.run('GCE.contextStatus().blocked'));x.q('[data-ce-schedule]').click();};
+ const actionName=regular?'campanha_publico_agendar':'campanha_publico_vincular';
+ const x=await setup(t,'fish',{regular});await open(x);assert.equal(x.q('[data-ca-dialog]').open,true);assert.equal(x.q('[data-ce-access-open]').disabled,true);
+ x.q('[data-ce-access-open]').dispatchEvent(new x.window.Event('click',{bubbles:true,cancelable:true}));assert.equal(x.q('[data-ce-access-form]').hidden,true);
+ const form=x.q('[data-ce-access-form]');form.hidden=false;x.q('[data-ce-key]').value='replacement-writer-key';form.dispatchEvent(new x.window.Event('submit',{bubbles:true,cancelable:true}));
+ x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ const sent=x.calls.filter(c=>c.request.acao===actionName);assert.equal(sent.length,1);assert.equal(sent[0].headers.Authorization,'Bearer synthetic-manager-key');
+ const y=await setup(t,'fish',{regular});await open(y);assert.equal(y.q('[data-ca-dialog]').open,true);y.run('__manager="replacement-operator-key"');y.q('[data-ca-yes]').click();
+ await until(()=>!y.q('[data-ca-dialog]')?.open&&!y.run('GCE.contextStatus().blocked'));assert.equal(y.calls.filter(c=>c.request.acao===actionName).length,0);
+});
+
+test('a confirmed regular receipt remains recoverable after reopen fails and reload never repeats the POST',async t=>{
+ const x=await setup(t,'fish',{regular:true});await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ x.q('[data-ce-validate]').click();await until(()=>!!x.q('[data-ca-regular-review]')&&!x.run('GCE.contextStatus().blocked'));
+ x.control.lose=true;x.q('[data-ce-schedule]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending'));
+ const y=await setup(t,'fish',{regular:true,store:x.store,fixture:x.f});y.control.failReopen=1;y.q('[data-ca="consult"]').click();
+ await until(()=>y.q('[data-ca-status]')?.dataset.error==='true'&&y.calls.some(c=>c.request.acao==='campanha_obter'));
+ assert.equal(y.run('GCE.contextStatus().pending'),true);assert.equal(y.calls.filter(c=>c.request.acao==='campanha_publico_agendamento_operacao').length,1);
+ const z=await setup(t,'fish',{regular:true,store:x.store,fixture:x.f});assert.equal(z.run('GCE.contextStatus().pending'),true);z.q('[data-ca="consult"]').click();
+ await until(()=>!z.run('GCE.contextStatus().pending')&&!z.run('GCE.contextStatus().blocked'));
+ assert.match(z.q('[data-ce-server-state]').textContent,/Agendada/);assert.equal(z.calls.filter(c=>c.request.acao==='campanha_publico_agendar').length,0);assert.equal(z.calls.filter(c=>c.request.acao==='campanha_publico_agendamento_operacao').length,0);
 });

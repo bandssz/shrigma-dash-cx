@@ -34,7 +34,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,10 +46,21 @@ jobs:
         run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
       - name: Install the pinned worker credential operator dependency
         run: npm ci --prefix tools/graph-worker-credential --ignore-scripts --no-audit --no-fund
+      - name: Fetch the exact native SQL fixture for complete worker regression
+        run: |
+          python3 - <<'PYFIXTURE'
+          import hashlib,os,pathlib,urllib.request
+          url='https://raw.githubusercontent.com/knadh/listmonk/1b5e8d38c778e869003486d3c38bc7a964661e91/queries/campaigns.sql'
+          with urllib.request.urlopen(url,timeout=30) as response:
+              body=response.read(262145)
+          assert len(body)<=262144 and hashlib.sha256(body).hexdigest()=='37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882'
+          pathlib.Path(os.environ['RUNNER_TEMP'],'listmonk-campaigns.sql').write_bytes(body)
+          PYFIXTURE
       - name: Run synthetic regression tests
         shell: bash
         env:
           NODE_PATH: ../growth-test-tools/node_modules
+          AB_UPSTREAM_SOURCE: ${{ runner.temp }}/listmonk-campaigns.sql
         run: |
           set -o pipefail
           node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
