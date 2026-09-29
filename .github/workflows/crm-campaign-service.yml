@@ -1,0 +1,53 @@
+name: CRM campaign gateway
+on:
+  pull_request:
+    paths:
+      - 'services/crm-campaign/**'
+      - 'services/crm-panel-read/server.cjs'
+      - 'n8n/growth/campaign-*'
+      - 'n8n/growth/crm-campaign-gateway-role.sql'
+      - 'n8n/access/panel-*.sql'
+      - 'tests/crm-campaign-*'
+      - '.github/workflows/crm-campaign-service.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  campaign-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned application and test dependencies
+        run: |
+          npm ci --prefix services/crm-campaign --ignore-scripts --no-audit --no-fund
+          npm install --prefix ../campaign-test-tools --no-save --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.3.14
+      - name: Check HTTP deadlines, native transport and database authorization
+        env:
+          NODE_PATH: ../campaign-test-tools/node_modules
+        run: node --test tests/crm-campaign-service.test.cjs tests/crm-campaign-gateway-role.test.cjs tests/campaign-runtime.test.cjs tests/campaign-provider.test.cjs
+      - name: Prove complete synthetic HTTP operations with a restricted PostgreSQL login
+        env:
+          NODE_PATH: ./services/crm-campaign/node_modules
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/listmonk
+          CRM_CAMPAIGN_GATEWAY_TEST_ISOLATED: '1'
+        run: node --test tests/crm-campaign-gateway-postgres.cjs
+      - name: Build the service image without credentials
+        run: docker build --file services/crm-campaign/Dockerfile --tag crm-campaign-local-proof .
