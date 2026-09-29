@@ -158,8 +158,9 @@ test('catalog expiry after waits rejects before write, and expiry after write ro
  f.control.afterQuery=null;await expireSoon();delayed=false;f.control.afterQuery=async text=>{if(text===S.SQL.create&&!delayed){delayed=true;await new Promise(resolve=>setTimeout(resolve,200));}};
  const after=await f.call(f.create('fish','expire-after-write'));assert.equal(after.status,202);assert.equal((await rows(f,'audience')).length,0);assert.equal((await rows(f,'revision')).length,0);assert.equal((await rows(f,'request')).length,1);
  f.control.afterQuery=null;assert.equal((await f.call({acao:'segmento_operacao',brand:'fish',idempotency_key:'expire-after-write'})).body.error,'SEGMENT_OPERATION_UNCONFIRMED');
- const counted=await fixture(t,{countProvider:async args=>{const result=await countAudience(args);await new Promise(resolve=>setTimeout(resolve,200));return result;},timeoutMs:2000});
- await counted.db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '100 milliseconds' WHERE brand='fish'");
+ // Expire at the intended boundary; CPU load must not expire the catalog before counting.
+ const counted=await fixture(t,{countProvider:async args=>{const result=await countAudience(args);await args.query("UPDATE crm_audience_v2.config SET expires_at=clock_timestamp()-interval '1 millisecond' WHERE brand='fish'",[]);return result;},timeoutMs:2000});
+ await counted.db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '1 minute' WHERE brand='fish'");
  const result=await counted.call({acao:'segmento_contar',brand:'fish',definition:F.definition('fish',{op:'in_list',list_id:101}),expected_catalog_hash:counted.catalogHashes.fish});assert.equal(result.status,503);assert.equal(result.body.error,'SEGMENT_SERVICE_UNAVAILABLE');
 });
 

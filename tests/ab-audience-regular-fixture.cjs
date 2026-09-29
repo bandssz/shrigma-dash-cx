@@ -9,7 +9,7 @@ const Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
 
 const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
 
-const renewableCatalog=brand=>{const source=StoreFixture.source(brand),shopify=new Set(Facts.FIELDS);return {...source,products:[],origins:[],fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>shopify.has(key)?{key,available:true,source_hash:Facts.sourceHash(brand,key,source)}:['email.opened','email.clicked'].includes(key)?{key,available:true,source_hash:Counter.engagementSourceHash(brand,key)}:{key,available:false,source_hash:null})};};
+const renewableCatalog=brand=>{const source=StoreFixture.source(brand),shopify=new Set(Facts.AGGREGATE_FIELDS);return {...source,products:[],origins:[],fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>shopify.has(key)?{key,available:true,source_hash:Facts.sourceHash(brand,key,source)}:['email.opened','email.clicked'].includes(key)?{key,available:true,source_hash:Counter.engagementSourceHash(brand,key)}:{key,available:false,source_hash:null})};};
 
 async function setup(db,{beforeWorkerReady=null,sendAfterSeconds=null,prepareCases=true,renewableCatalogBeforeBinding=false}={}){
  if(beforeWorkerReady!==null&&typeof beforeWorkerReady!=='function')throw Error('AB_REGULAR_FIXTURE_CALLBACK');
@@ -57,7 +57,7 @@ async function setup(db,{beforeWorkerReady=null,sendAfterSeconds=null,prepareCas
   [JSON.stringify(meta),0,JSON.stringify(customers)])).rows[0].receipt;};
  for(const [index,brand]of ['fish','aristo'].entries()){
   const evidence=ShopifyFixture.evidence(brand,undefined,String(index+1)),source=StoreFixture.source(brand);
-  const fieldHashes=Object.fromEntries(Facts.FIELDS.map(field=>[field,Facts.sourceHash(brand,field,source)]));
+  const fieldHashes=Object.fromEntries(Facts.AGGREGATE_FIELDS.map(field=>[field,Facts.sourceHash(brand,field,source)]));
   await db.query(`INSERT INTO crm_audience_v2.shopify_source
    (brand,shop_id,domain,currency,timezone,query_sha256,workflow_id,producer_revision,field_hashes,ingestion_enabled)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true)`,[brand,source.shop_id,evidence.shop,source.currency,source.timezone,evidence.query_sha256,evidence.workflow_id,evidence.workflow_version,JSON.stringify(fieldHashes)]);
