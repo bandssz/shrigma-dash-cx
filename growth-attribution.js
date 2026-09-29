@@ -89,7 +89,15 @@ const GA=(()=>{
   return [...map.values()].filter(v=>commercial.has(v.marca+'|'+v.familia)||names[v.familia]).filter(v=>v.pedidos||v.assist||v.members.some(m=>m.in_period||m.future&&inPeriod(day(m.agendado_em),a,z))).filter(v=>norm([v.nome,v.familia,...v.members.flatMap(m=>[m.nome,...m.segmentos||[]])].join(' ')).includes(norm(search)))
    .sort((a,b)=>(b.familia==='semana-do-cliente-2026')-(a.familia==='semana-do-cliente-2026')||b.receita-a.receita||b.sent-a.sent);
  }
- function install(G){const oldFlows=G.regua;G.regua=function(api,b,a,z,c='todos'){const list=oldFlows.call(G,api,b,a,z,c);if(!valid(api))return list;return list.map(r=>{if(!brands.includes(r.marca))return r;const covered=coverage(api,r.marca,a,z).complete;const v=sum(rows(api,r.marca,a,z,'flow_piece',r.canal).filter(x=>x.dimension[1]===r.marca+'-'+r.flow&&x.dimension[2]===r.piece));return {...r,pedidos:covered?v.pedidos:null,receita:covered?v.receita:null,assist:covered?v.assist:null,receita_assist:covered?v.receita_assist:null,porMil:covered&&r.enviados?1000*v.pedidos/r.enviados:null};});};const old=G.conversao;G.conversao=function(api,b,a,z,g,c){if(valid(api)&&supported(b))return conversion(api,b,a,z,g,c);return old.call(G,api,b,a,z,g,c);};}
+ function install(G){const oldFlows=G.regua;G.regua=function(api,b,a,z,c='todos'){const list=oldFlows.call(G,api,b,a,z,c);return list.map(r=>{
+   if(!brands.includes(r.marca))return r;
+   // Daily order coverage proves that orders were reconciled. It does not prove
+   // which automation produced a matching UTM. The legacy flow view joins only
+   // by piece/day, while flow_piece dimensions have no reviewed flow identity.
+   // Keep operational delivery counts, but do not turn either source into an
+   // automation conversion or a measured zero.
+   return {...r,pedidos:null,receita:null,assist:null,receita_assist:null,porMil:null,atribuicao_sem_vinculo:true};
+  });};const old=G.conversao;G.conversao=function(api,b,a,z,g,c){if(valid(api)&&supported(b))return conversion(api,b,a,z,g,c);return old.call(G,api,b,a,z,g,c);};}
  let search='',opened=new Set();
  function render(ctx){
   const {api,marca:b,ini:a,fim:z,canal:channel='todos',GUI:U,onModel,onRefresh}=ctx;

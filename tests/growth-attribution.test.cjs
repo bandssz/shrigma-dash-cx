@@ -22,6 +22,22 @@ test('family and channel credit come from independent order-deduplicated grains'
 test('exclusive links keep their revenue when the dispatch also has a shared coupon link',()=>{const f=fixture(),shared={...utm,content:'coupon'};f.crm_attribution.campaigns[0].utms.push(shared);f.crm_attribution.campaigns.push({...f.crm_attribution.campaigns[0],campanha_id:128,utms:[shared]});const [v]=GA.campaigns(f,'aristo',day,day);const m=v.members.find(m=>m.campanha_id===127);assert.equal(m.shared,true);assert.equal(m.result.receita,100);assert.equal(v.members.find(m=>m.campanha_id===128).result,null);});
 test('automatic recovery flows remain in conversion data, outside the commercial initiative list',()=>{const f=fixture();f.crm_attribution.daily.push({marca:'aristo',dia:day,model:'last_click',grain:'family',dimension:['workflow_123_carrinho'],pedidos:5,receita:500});assert.equal(GA.campaigns(f,'aristo',day,day).length,1);assert.equal(GA.conversion(f,'aristo',day,day,'familia').length,2);});
 
+test('automation rows for every reconciled CRM brand stay unknown without reviewed identity evidence',()=>{
+ const rows=['fish','aristo','olivas'].map(marca=>({marca,canal:'email',flow:'carrinho',piece:'carrinho-1h',enviados:10,pedidos:9,receita:900,assist:2,receita_assist:200,porMil:900}));
+ const G={regua:()=>rows.map(r=>({...r})),conversao:()=>[{legacy:true}]};GA.install(G);
+ const api={crm_attribution:{schema_version:2,coverage:['fish','aristo','olivas'].map(brand=>({brand,day,checked_at:day+'T13:00:00Z'})),daily:['fish','aristo','olivas'].map(marca=>({marca,dia:day,model:'last_click',grain:'flow_piece',dimension:['email',marca+'-carrinho','carrinho-1h'],pedidos:1,receita:100,assistidos:0}))}};
+ const projected=G.regua(api,'todas',day,day,'email');assert.equal(projected.length,3);
+ for(const row of projected){for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(row[field],null,field);assert.equal(row.atribuicao_sem_vinculo,true);assert.equal(row.enviados,10);}
+});
+
+test('missing or invalid attribution cannot restore legacy automation conversion',()=>{
+ for(const api of [{},{crm_attribution:{schema_version:1}}]){
+  const source={marca:'olivas',canal:'email',flow:'carrinho',piece:'carrinho-1h',enviados:12,pedidos:3,receita:450,assist:1,receita_assist:90,porMil:250};
+  const G={regua:()=>[{...source}],conversao:()=>[{legacy:true}]};GA.install(G);const [row]=G.regua(api,'olivas',day,day,'email');
+  assert.equal(row.enviados,12);for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(row[field],null,field);assert.equal(row.atribuicao_sem_vinculo,true);
+ }
+});
+
 test('historical commercial WhatsApp stays visible without inventing an email campaign association',()=>{const f=fixture(),c='workflow-175919-semana-do-pescador-02';for(const grain of ['family','family_channel','piece'])f.crm_attribution.daily.push({marca:'fish',dia:day,model:'last_click',grain,dimension:grain==='family'?[c]:grain==='family_channel'?[c,'whatsapp']:['whatsapp','reportana',c,'cta','','rptn'],pedidos:2,receita:205.13,assistidos:0});const [v]=GA.campaigns(f,'fish',day,day,'whatsapp');assert.equal(v.pedidos,2);assert.equal(v.receita,205.13);assert.equal(v.members.length,0);assert.equal(v.channels[0].canal,'whatsapp');assert.equal(v.familia,c);});
 
 test('scheduled link reuse is visible before sending without removing current exclusive credit',()=>{const f=fixture();f.crm_attribution.campaigns[1].utms=[utm];const [v]=GA.campaigns(f,'aristo',day,day);const sent=v.members.find(m=>m.campanha_id===127),future=v.members.find(m=>m.campanha_id===126);assert.equal(sent.tracking_state,'shared');assert.equal(future.tracking_state,'shared');assert.equal(sent.result.receita,100);assert.equal(future.result,null);f.crm_attribution.campaigns[1].utms=[{...utm,term:'lm-126-l123'}];assert(GA.campaigns(f,'aristo',day,day)[0].members.every(m=>m.tracking_state==='exclusive'));});

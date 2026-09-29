@@ -8,7 +8,10 @@ function fixture(){
  return {crm_campanha:[],crm_conversao:[],crm_wa_cobertura:{inicio:day,fim:day},
   crm_fluxo:[email('carrinho','carrinho-1h',12),email('transacional','pedido-pago',7),{...email('carrinho','carrinho-1h',999),marca:'fish'}],
   crm_wa_envios:[wa('carrinho','carrinho-24h',5,3),wa('transacional','pedido-pago',4,4),wa('teste-motor','teste',99,99),{...wa('carrinho','carrinho-24h',888,888),marca:'aristo'},{...wa('carrinho','fora-do-periodo',100,100),dia:'2026-09-26'}],
-  crm_attribution:{schema_version:2,coverage:[{brand:'olivas',day,checked_at:day+'T23:00:00Z'}],daily:[{marca:'olivas',dia:day,model:'last_click',grain:'flow_piece',dimension:['email','olivas-carrinho','carrinho-1h'],pedidos:1,receita:100,assistidos:0,receita_assistida:0}]}};
+  crm_attribution:{schema_version:2,coverage:[{brand:'olivas',day,checked_at:day+'T23:00:00Z'}],daily:[
+   {marca:'olivas',dia:day,model:'last_click',grain:'flow_piece',dimension:['email','olivas-carrinho','carrinho-1h'],pedidos:1,receita:100,assistidos:0,receita_assistida:0},
+   {marca:'olivas',dia:day,model:'last_click',grain:'piece',dimension:['email','fluxo','olivas-carrinho','carrinho-1h','','email'],pedidos:1,receita:100,assistidos:0,receita_assistida:0}
+  ]}};
 }
 function boot(api=fixture(),channel='todos'){
  const {document,window}=parseHTML('<html><body><select id="sel-flow"></select><input id="regua-busca"><button id="regua-export"></button><span id="n-regua"></span><span id="regua-rot"></span><table id="tab-regua"><thead></thead><tbody></tbody></table><p id="nota-regua"></p></body></html>');
@@ -16,8 +19,8 @@ function boot(api=fixture(),channel='todos'){
  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||'';},set(value){for(const o of this.options)o.toggleAttribute('selected',o.value===value);}});
  const downloads=[],context=vm.createContext({document,window,Intl,Date,api,__download:(name,text)=>downloads.push({name,text})});
  for(const file of ['growth-table.js','growth-data.js','growth-attribution.js','growth-delivery.js','growth-ui.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
- vm.runInContext(`GA.install(G);GT.baixar=__download;globalThis.rows=GUI.flows({G,GD,api,marca:'olivas',ini:'${day}',fim:'${day}',canal:${JSON.stringify(channel)},exportMeta:()=>({marca:'olivas',canal:${JSON.stringify(channel)},ini:'${day}',fim:'${day}'})});`,context);
- return {document,window,rows:context.rows,downloads,q:s=>document.querySelector(s),tableRows:()=>[...document.querySelectorAll('tbody tr')]};
+ vm.runInContext(`GA.install(G);GT.baixar=__download;globalThis.rows=GUI.flows({G,GD,api,marca:'olivas',ini:'${day}',fim:'${day}',canal:${JSON.stringify(channel)},exportMeta:()=>({marca:'olivas',canal:${JSON.stringify(channel)},ini:'${day}',fim:'${day}'})});globalThis.utmTotals=G.conversao(api,'olivas','${day}','${day}','peca',${JSON.stringify(channel)});`,context);
+ return {document,window,rows:context.rows,utmTotals:context.utmTotals,downloads,q:s=>document.querySelector(s),tableRows:()=>[...document.querySelectorAll('tbody tr')]};
 }
 test('Olivas shows cart and transactional sends in each channel without tests, other brands or duplicate delivery rows',()=>{
  const x=boot();assert.equal(x.rows.length,4);assert.equal(x.tableRows().length,4);
@@ -35,9 +38,34 @@ test('Olivas delivery-only rows show an unknown conversion and preserve the reas
  x.q('#regua-export').click();assert.equal(x.downloads.length,1);assert.match(x.downloads[0].text,/Conversão sem vínculo confirmado/);
  assert.match(x.downloads[0].text,/carrinho-24h/);assert.doesNotMatch(x.downloads[0].text,/teste-motor|fora-do-periodo/);
 });
-test('recorded email attribution remains visible and partial coverage stays unknown',()=>{
- const api=fixture(),x=boot(api,'email'),cart=x.rows.find(r=>r.flow==='carrinho');assert.equal(cart.pedidos,1);assert.equal(cart.receita,100);
- api.crm_attribution.coverage=[];const partial=boot(api,'email');for(const row of partial.rows){assert.equal(row.receita,null);assert.equal(row.pedidos,null);assert.equal(row.porMil,null);}
+test('complete order coverage and a nominal flow-piece match do not prove automation identity',()=>{
+ const api=fixture(),x=boot(api,'email'),cart=x.rows.find(r=>r.flow==='carrinho');
+ for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(cart[field],null,field);
+ assert.equal(cart.atribuicao_sem_vinculo,true);assert.equal(x.utmTotals.length,1);assert.equal(x.utmTotals[0].pedidos,1);assert.equal(x.utmTotals[0].receita,100);
+ for(const tr of x.tableRows())assert.match(tr.textContent,/Sem vínculo/);
+ x.q('#regua-export').click();assert.match(x.downloads[0].text,/Conversão sem vínculo confirmado/);
+});
+test('complete coverage without a flow-piece row remains unknown instead of becoming zero',()=>{
+ const api=fixture();api.crm_attribution.daily=api.crm_attribution.daily.filter(row=>row.grain!=='flow_piece');const x=boot(api,'email');
+ for(const row of x.rows)for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(row[field],null,field);
+ assert.ok(x.rows.every(row=>row.atribuicao_sem_vinculo));assert.equal(x.utmTotals.length,1);assert.equal(x.utmTotals[0].pedidos,1);
+});
+test('missing or invalid attribution keeps legacy automation sends visible but conversion unknown',()=>{
+ for(const mode of ['missing','invalid']){const api=fixture();if(mode==='missing')delete api.crm_attribution;else api.crm_attribution.schema_version=1;
+  const x=boot(api,'email');assert.deepEqual([...x.rows].map(row=>row.enviados).sort((a,b)=>a-b),[7,12]);
+  for(const row of x.rows){for(const field of ['pedidos','receita','assist','receita_assist','porMil'])assert.equal(row[field],null,mode+' '+field);assert.equal(row.atribuicao_sem_vinculo,true);}
+  assert.ok(x.tableRows().every(tr=>tr.textContent.includes('Sem vínculo')));x.q('#regua-export').click();assert.match(x.downloads[0].text,/Conversão sem vínculo confirmado/);
+ }
+});
+test('reused pieces are ambiguous and never duplicate legacy or nominal conversion',()=>{
+ const api=fixture();api.crm_fluxo.push({...api.crm_fluxo[0],flow:'reativacao'});const x=boot(api,'email'),same=x.rows.filter(r=>r.piece==='carrinho-1h');
+ assert.equal(same.length,2);assert.ok(same.every(r=>r.atribuicao_ambigua&&r.atribuicao_sem_vinculo));
+ assert.ok(same.every(r=>r.pedidos===null&&r.receita===null&&r.porMil===null));assert.equal(x.utmTotals[0].pedidos,1);
+});
+test('automation rows stay unknown across attribution models while UTM totals remain separated',()=>{
+ const api=fixture();api.crm_attribution.daily.push(...api.crm_attribution.daily.map(row=>({...row,model:'last_non_direct',pedidos:2,receita:250})));
+ const last=boot(api,'email');assert.equal(last.utmTotals[0].pedidos,1);assert.ok(last.rows.every(r=>r.pedidos===null));
+ api._attribution_model='last_non_direct';const nonDirect=boot(api,'email');assert.equal(nonDirect.utmTotals[0].pedidos,2);assert.equal(nonDirect.utmTotals[0].receita,250);assert.ok(nonDirect.rows.every(r=>r.pedidos===null));
 });
 test('search and exports stay on Olivas and escape piece content',()=>{
  const api=fixture();api.crm_wa_envios[0].piece='<img src=x onerror=fixture>';const x=boot(api,'whatsapp');
