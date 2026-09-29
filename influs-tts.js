@@ -549,6 +549,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const b = $('#tts-retry'); if (b) b.onclick = carregarTTS;
   }
 
+  // Por que a edição de regras está travada, em uma linha que quem opera entende.
+  function notaEdicaoTTS() {
+    const msg = DADOS?._caiu ? 'Edição pausada: a leitura atual não respondeu e a tela mostra a anterior. Atualize para editar.'
+      : DADOS?._cache ? 'Edição pausada até a leitura atual chegar (alguns segundos).'
+      : 'Edição de regras indisponível: o serviço ainda não confirmou o formato atual das regras.';
+    return '<div class="nota" role="status">' + msg + '</div>';
+  }
+
   async function carregarTTS() {
     const seq = ++SEQ, periodo = { ini: per().ini, fim: per().fim };
     if (READ_TTS) READ_TTS.cancel();
@@ -567,7 +575,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     let timer, cancel;
     const limite = new Promise((_, reject) => {
       cancel = () => { controller.abort(); reject(new Error('Consulta substituída.')); };
-      timer = setTimeout(() => { controller.abort(); reject(new Error('A consulta demorou mais de 20 segundos. Tente atualizar novamente.')); }, 20000);
+      timer = setTimeout(() => { controller.abort(); reject(new Error('A consulta demorou mais de 35 segundos. Tente atualizar novamente.')); }, 35000);
     });
     const leitura = {cancel}; READ_TTS = leitura;
     try {
@@ -843,7 +851,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td><button class="btn tts-btn tts-salvar-cob" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`; }).join('')}
       </tbody></table></div>`;
     if (cob) cob.mount($('#tts-cob-v2'));
-    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
+    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin',notaEdicaoTTS());
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar-cob').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
@@ -1055,7 +1063,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         <td class="mini">${esc(r.atualizado_por || '')} · ${dt(r.atualizado_em)}</td>
         <td><button class="btn tts-btn tts-salvar" ${TTS.regrasEditaveis(DADOS) ? '' : 'disabled title="Edição temporariamente indisponível; recarregue após a confirmação do serviço."'}>Salvar</button> <span class="mini tts-msg"></span></td></tr>`).join('')}</tbody></table></div>
       <div class="tts-origem"><span class="tag neutro">decisão manual</span> <span>A esteira roda a cada 2 h só em <strong>simulação</strong>: grava o que faria, não toca no TikTok. Aprovação automática indisponível enquanto as guardas de concorrência não estiverem comprovadas.</span></div>`;
-    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin','<div class="nota" role="status">Edição de regras temporariamente indisponível. A confirmação do serviço precisa estar atualizada.</div>');
+    if (!TTS.regrasEditaveis(DADOS)) $('#tts-area').insertAdjacentHTML('afterbegin',notaEdicaoTTS());
     const regrasLidas = new Map((DADOS.regra || []).map(r => [r.marca,{...r}]));
     document.querySelectorAll('#tts-area .tts-salvar').forEach(b => b.onclick = () => {
       const tr = b.closest('tr'), msg = tr.querySelector('.tts-msg'), regra = {};
