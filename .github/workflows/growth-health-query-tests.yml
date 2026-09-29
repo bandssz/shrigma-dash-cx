@@ -1,0 +1,46 @@
+name: Growth health query
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/ses-health-performance.*'
+      - 'tests/ses-health-performance*'
+      - 'tests/fixtures/ses-health-*'
+      - '.github/workflows/growth-health-query-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: crm_growth_health_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d crm_growth_health_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install pinned isolated test dependencies
+        run: npm install --prefix ../crm-health-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14
+      - name: Compare complete payload, permissions and guarded migration
+        env:
+          NODE_PATH: ../crm-health-test-tools/node_modules
+        run: node --test tests/ses-health-performance.test.cjs
+      - name: Check PostgreSQL 17.10 and a concurrent reader
+        env:
+          NODE_PATH: ../crm-health-test-tools/node_modules
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/crm_growth_health_test
+          CRM_HEALTH_TEST_ISOLATED: '1'
+        run: node tests/ses-health-performance-postgres.cjs
