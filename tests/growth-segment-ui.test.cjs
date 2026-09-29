@@ -49,6 +49,13 @@ test('v2 typed filters cover purchases, dates, money, product, confirmed origin 
   x.input('[data-gs-value]',value);x.q('[data-gs="remove"][data-path="0"]').click();assert.equal(x.q('[data-gs="save"]').disabled,false,field);await click(x,'save');const d=[...x.f.rows.values()][0].definition;assert.equal(d.schema_version,Audience.VERSION);assert.equal(d.rule.field,field);assert.equal(d.rule.value,expected);assert.equal(d.rule.op,'condition');assert.match(x.element.textContent,/não autoriza envio/);
  }
 });
+test('negative product choice says never bought only for identified Shopify orders and keeps unknown scope visible',async()=>{
+ const Audience=require('../n8n/growth/segment-audience-contract.js'),x=boot(fixture({version:Audience.VERSION}));await x.ui.sync({api:x.f.api,brand:'fish'});
+ x.input('[data-gs-name]','Nunca comprou o produto','input');x.q('[data-gs="add-condition"]').click();x.input('[data-gs-field]','purchase.product');x.input('[data-gs-operator]','not_purchased');
+ const selected=[...x.q('[data-gs-operator]').options].find(o=>o.hasAttribute('selected'));assert.match(selected.textContent,/não comprou este produto nos pedidos identificados do cadastro Shopify/);
+ assert.match(x.q('[data-gs-product-scope]').textContent,/produto identificado deixa a ausência desconhecida/);
+ assert.doesNotMatch(selected.textContent,/sem pedido com no histórico/);
+});
 test('v2 unavailable fields, unproven origin and missing currency are not offered; missing count stays unknown',async()=>{
  const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION});f.control.catalogPatch={fields:Object.keys(Audience.FIELDS).map(key=>({key,available:key!=='email.opened'})),origins:[],currency:null};const x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});x.input('[data-gs-name]','Sem inferir dados','input');x.q('[data-gs="add-condition"]').click();
  const values=[...x.q('[data-gs-field]').options].map(o=>o.value);assert.ok(!values.includes('email.opened'));assert.ok(!values.includes('signup.origin'));assert.ok(!values.includes('purchase.amount'));

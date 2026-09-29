@@ -3,6 +3,7 @@
  const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const brandName=b=>b==='fish'?'Fishermans':'O Aristocrata';
+ const operatorName={eq:'igual a',gt:'maior que',gte:'maior ou igual a',lt:'menor que',lte:'menor ou igual a',before:'antes de',on_or_before:'até',after:'depois de',on_or_after:'a partir de',purchased:'comprou',not_purchased:'não comprou nos pedidos identificados',is:'é',is_not:'não é',within_last_days:'nos últimos dias',not_within_last_days:'sem registro nos últimos dias'};
  const messages={
   REGULAR_ADMISSION_EMPTY:'Nenhuma pessoa está elegível neste público. Confira as condições e o consentimento.',
   REGULAR_ADMISSION_CHANGED:'O conteúdo, público ou serviço de envio mudou. Confira novamente antes de agendar.',
@@ -32,7 +33,7 @@
  const fail=code=>{throw Object.assign(Error(code),{code});};
  function create({element,key,storage=localStorage,fetch:fetcher=fetch,locks=globalThis.navigator?.locks,identity,id,now=()=>Date.now(),onChange=()=>{},onBound=async()=>{},getCampaignContext=()=>null,Client=Binding,SegmentClient=Segments}={}){
   if(!element||typeof key!=='function'||!Client||!SegmentClient)throw Error('CAMPAIGN_AUDIENCE_UI_CONFIG');
-  let ctx=null,client=null,regular=null,segments=null,rows=[],offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,confirmation=null,error='',notice='',baseList=null,fatal=false,reviewTimer=null;
+  let ctx=null,client=null,regular=null,segments=null,rows=[],catalog=null,offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,confirmation=null,error='',notice='',baseList=null,fatal=false,reviewTimer=null;
   const q=s=>element.querySelector(s),pending=()=>!!client?.pending()||!!regular?.pending(),selectedRow=()=>rows.find(r=>r.id===selected&&!r.archived&&r.semantic_context?.current===true);
   const available=x=>!!x&&!!x.token&&['fish','aristo'].includes(x.brand)&&Client.caps(x.api).read&&Client.caps(x.api).brands.includes(x.brand)&&SegmentClient.caps(x.api).read&&SegmentClient.caps(x.api).contract_version==='crm-audience-v2'&&SegmentClient.caps(x.api).brands.includes(x.brand);
   const eligible=()=>available(ctx)&&ctx.campaign?.id&&ctx.campaign.status==='draft'&&ctx.campaign.sent===0&&ctx.campaign.started_at===null;
@@ -45,6 +46,17 @@
   const canValidate=()=>eligible()&&ctx.clean&&!locked()&&readConfirmed&&!!state().binding?.campaign_current&&state().binding?.semantic_context?.current===true&&Client.caps(ctx.api).validate===true;
   const canSchedule=()=>{const r=regular?.snapshot().review;return !!(regular&&canValidate()&&regular.capabilities().schedule&&r&&r.campaign_version===ctx.campaign.version&&r.binding_hash===state().binding?.binding_hash&&Date.parse(r.expires_at)>now());};
   const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),pending:pending(),bound:!!state().binding,readConfirmed,legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
+  function audienceSummary(row){
+   const contract=SegmentClient.contractFor(ctx.api),rule=row.definition.rule,value=(r,f)=>{if(f.type==='product')return catalog?.products.find(x=>x.id===r.value)?.name||'produto indisponível';if(f.type==='origin')return catalog?.origins.find(x=>x.key===r.value)?.name||'origem indisponível';if(f.type==='money')return `${r.value} ${row.semantic_context?.currency||catalog?.currency||''}`.trim();return r.value;};
+   const walk=r=>{if(r.op==='in_list')return `lista ${catalog?.lists.find(x=>x.id===r.list_id)?.name||'indisponível'}`;if(r.op==='condition'){const f=contract.FIELDS[r.field];return `${f.label}: ${operatorName[r.operator]} ${value(r,f)}`;}return `(${r.rules.map(walk).join(r.op==='and'?' E ':' OU ')})`;};
+   return walk(rule);
+  }
+  function audienceFreshness(row){
+   const contract=SegmentClient.contractFor(ctx.api),usesShopify=rule=>rule.op==='condition'?contract.FIELDS[rule.field]?.source==='shopify':(rule.rules||[]).some(usesShopify),updated=`Atualizado no painel em ${new Date(row.updated_at).toLocaleString('pt-BR')}.`;
+   if(!usesShopify(row.definition.rule))return updated+' Este público não usa condição Shopify.';
+   const s=catalog?.shopify_snapshot;if(!s?.current)return updated+' A atualização Shopify não está confirmada; revise o público antes de usar.';
+   return `${updated} Dados Shopify coletados até ${new Date(s.observed_at).toLocaleString('pt-BR')}, válidos até ${new Date(s.expires_at).toLocaleString('pt-BR')}. A sincronização é noturna.`;
+  }
   function render(){
    if(reviewTimer!==null){clearTimeout(reviewTimer);reviewTimer=null;}
    element.hidden=!available(ctx)&&!history()&&!state().binding;if(element.hidden)return;
@@ -63,6 +75,7 @@
    element.innerHTML=`<h4>Público salvo</h4><p>${esc(description)}</p><p class="ce-audience-warning">${regular?.capabilities().prepare?'A quantidade é conferida novamente ao confirmar. Descadastros continuam sendo respeitados até o envio.':'A escolha pode ser preparada aqui. O envio por público salvo ainda não está disponível.'}</p>
     <div class="ce-actions"><button type="button" class="ce-secondary" data-ca="load" ${locked()?'disabled':''}>Carregar públicos salvos</button><button type="button" class="ce-secondary" data-ca="consult" ${!pending()||busy||!!ctx.blocked?'disabled':''} ${pending()?'':'hidden'}>Consultar tentativa</button></div>
     ${rows.length?`<label>Escolha o público de ${brandName(ctx.brand)}<select data-ca-select ${!can?'disabled':''}><option value="">Selecione um público</option>${rows.filter(r=>!r.archived).map(r=>`<option value="${esc(r.id)}" ${r.id===selected?'selected':''} ${r.semantic_context?.current!==true?'disabled':''}>${esc(r.name)} · versão ${r.version}${r.semantic_context?.current!==true?' · precisa de revisão':''}</option>`).join('')}</select></label>`:readConfirmed?'<p>Nenhum público disponível nesta página. Crie e salve um público na seção Público.</p>':''}
+    ${row?`<div data-ca-audience-details><p data-ca-audience-summary><strong>Regras salvas:</strong> ${esc(audienceSummary(row))}</p><p data-ca-audience-freshness>${esc(audienceFreshness(row))}</p><p data-ca-audience-count-guidance>Para conferir a quantidade atual, abra Público, reabra esta versão e use Contar público.</p></div>`:''}
     ${offset||more?`<div class="ce-actions"><button type="button" class="ce-secondary" data-ca="previous" ${locked()||offset===0?'disabled':''}>Anteriores</button><button type="button" class="ce-secondary" data-ca="next" ${locked()||!more?'disabled':''}>Próximos</button></div>`:''}
     ${!ctx.clean?'<p>Salve as alterações da campanha antes de conferir ou vincular um público.</p>':''}
     ${baseList?`<p data-ca-base>Lista base necessária: <strong>${esc(baseList.name)}</strong>. Selecione somente essa lista no catálogo da campanha e salve.</p>`:''}
@@ -82,7 +95,7 @@
    if(!eligible())fail('UI_CAMPAIGN_CHANGED');const before=identityContext();inspection=null;readConfirmed=false;
    const listed=await segments.list({offset:page,limit:50});if(!current(before))fail('UI_CONTEXT_CHANGED');
    await client.read(ctx.campaign.id);if(!current(before))fail('UI_CONTEXT_CHANGED');syncedVersion();
-   rows=listed.segments;offset=page;more=rows.length===50;selected='';readConfirmed=true;
+   rows=listed.segments;catalog=listed.catalog;offset=page;more=rows.length===50;selected='';readConfirmed=true;
   });}
   async function inspect(){if(!eligible()||!ctx.clean||locked()||!Client.caps(ctx.api).inspect)return;const row=selectedRow();if(!row)return;await guarded(async()=>{
    const before=identityContext();inspection=null;await client.inspect(ctx.campaign.id,{id:row.id,version:row.version});if(!current(before)||selected!==row.id)fail('UI_CONTEXT_CHANGED');
@@ -146,10 +159,10 @@
    const sameAccess=sameId&&ctx.token===target.token&&Client.caps(ctx.api).endpoint===Client.caps(target.api).endpoint&&SegmentClient.caps(ctx.api).endpoint===SegmentClient.caps(target.api).endpoint;
    if(!sameAccess){
     if((busy||confirmation||pending())&&ctx){ctx={...ctx,api:target.api,token:target.token};client?.update(target.api);regular?.update(target.api);inspection=null;readConfirmed=false;error=messages.UI_CONTEXT_CHANGED;render();return false;}
-    client=null;regular=null;segments=null;rows=[];offset=0;more=false;selected='';inspection=null;readConfirmed=false;error='';notice='';baseList=null;fatal=false;ctx=target;
+    client=null;regular=null;segments=null;rows=[];catalog=null;offset=0;more=false;selected='';inspection=null;readConfirmed=false;error='';notice='';baseList=null;fatal=false;ctx=target;
     if(available(ctx)&&ctx.campaign?.id){try{client=Client.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity,id});if(Regular)regular=Regular.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity:identity||Client.fingerprint,id});segments=SegmentClient.create({api:ctx.api,brand:ctx.brand,key,storage,fetch:fetcher,locks,identity});}catch{fatal=true;error='O registro desta preparação não foi confirmado. Preserve os dados deste navegador e restaure o acesso original.';}}
    }else{
-    if(ctx.campaign?.version!==target.campaign?.version||!same(ctx.api,target.api)){inspection=null;readConfirmed=false;regular?.invalidate();}
+    if(ctx.campaign?.version!==target.campaign?.version||!same(ctx.api,target.api)){inspection=null;readConfirmed=false;catalog=null;regular?.invalidate();}
     if(!target.clean)regular?.invalidate();
     ctx=target;client?.update(target.api);regular?.update(target.api);segments?.update(target.api);
    }
