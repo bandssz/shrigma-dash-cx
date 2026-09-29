@@ -4,6 +4,8 @@ on:
     paths:
       - 'n8n/growth/segment-*'
       - 'growth-segment-*'
+      - 'services/crm-shopify-sync/**'
+      - 'tests/crm-shopify-sync*'
       - 'tests/segment-shopify-*'
       - 'tests/segment-audience-store-fixture.cjs'
       - 'tests/fixtures/segment-shopify-sync.cjs'
@@ -24,17 +26,21 @@ jobs:
             script: tests/segment-shopify-postgres.cjs
           - proof: products
             script: tests/segment-shopify-products-postgres.cjs
+          - proof: confirmed
+            script: tests/segment-shopify-confirmed-postgres.cjs
+          - proof: isolated-sync
+            script: tests/crm-shopify-sync-postgres.cjs
     services:
       postgres:
         image: postgres:17.10
         env:
           POSTGRES_DB: listmonk
-          POSTGRES_USER: synthetic
+          POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U synthetic -d listmonk"
+          --health-cmd "pg_isready -U postgres -d listmonk"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
@@ -50,11 +56,45 @@ jobs:
         env:
           NODE_PATH: ../crm-shopify-test-tools/node_modules
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
-        run: node --test --test-concurrency=2 tests/segment-shopify-*.test.cjs
+        run: node --test --test-concurrency=2 tests/segment-shopify-*.test.cjs tests/crm-shopify-sync*.test.cjs
+      - name: Build the isolated collector and prove startup OFF without credentials
+        if: matrix.proof == 'isolated-sync'
+        run: |
+          docker build --platform linux/amd64 --file services/crm-shopify-sync/Dockerfile --tag crm-shopify-sync-synthetic:ci .
+          docker run --detach --name crm-shopify-sync-ci --network none --memory 1g \
+            --env "CRM_SHOPIFY_SYNC_REVISION=$GITHUB_SHA" \
+            --env CRM_SHOPIFY_PRODUCER_REVISION=shopify-products-fixture-v2 \
+            --env CRM_SHOPIFY_SYNC_ENABLED=false \
+            --env CRM_SHOPIFY_SYNC_KEY=synthetic-ci-unused-private-key-1234 \
+            --env PGHOST=postgres.invalid --env PGDATABASE=listmonk \
+            --env PGUSER=crm_shopify_sync --env PGPASSWORD=synthetic-unused \
+            --env CRM_SHOPIFY_FISH_SHOP=fish-fixture.myshopify.com \
+            --env CRM_SHOPIFY_ARISTO_SHOP=aristo-fixture.myshopify.com \
+            --env CRM_SHOPIFY_FISH_CLIENT_ID=synthetic-client-id \
+            --env CRM_SHOPIFY_ARISTO_CLIENT_ID=synthetic-client-id \
+            --env CRM_SHOPIFY_FISH_CLIENT_SECRET=synthetic-client-secret-unused \
+            --env CRM_SHOPIFY_ARISTO_CLIENT_SECRET=synthetic-client-secret-unused \
+            --env CRM_SHOPIFY_FISH_WORKFLOW_ID=fixture-fish \
+            --env CRM_SHOPIFY_ARISTO_WORKFLOW_ID=fixture-aristo \
+            crm-shopify-sync-synthetic:ci
+          node - <<'NODE'
+          const {execFileSync}=require('node:child_process');
+          for(let attempt=0;attempt<60;attempt++){
+            const state=execFileSync('docker',['inspect','--format','{{.State.Health.Status}}','crm-shopify-sync-ci'],{encoding:'utf8'}).trim();
+            if(state==='healthy')process.exit(0);
+            if(state!=='starting')throw Error('Collector OFF health failed');
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1000);
+          }
+          throw Error('Collector OFF health timeout');
+          NODE
+          docker exec crm-shopify-sync-ci node -e "fetch('http://127.0.0.1:8080/healthz').then(async r=>{const b=await r.json();if(r.status!==200||b.enabled!==false||b.revision!==process.env.CRM_SHOPIFY_SYNC_REVISION)throw Error('OFF health mismatch')}).catch(()=>process.exit(1))"
       - name: Check role boundaries, concurrent ingestion and full-size count
         env:
           NODE_PATH: ../crm-shopify-test-tools/node_modules
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
-          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/listmonk
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/listmonk
           CRM_AUDIENCE_TEST_ISOLATED: '1'
         run: node "${{ matrix.script }}"
+      - name: Remove disposable collector container
+        if: always() && matrix.proof == 'isolated-sync'
+        run: docker rm -f crm-shopify-sync-ci || true

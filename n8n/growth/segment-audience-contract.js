@@ -53,6 +53,11 @@ function normalize(input){
   const op=Object.getOwnPropertyDescriptor(rule,'op');if(!op||!own(op,'value'))fail('AUDIENCE_FIELDS');
   if(op.value==='condition')return condition(rule);
   if(op.value==='in_list'){exact(rule,['op','list_id']);if(!integer(rule.list_id)||rule.list_id===0)fail('AUDIENCE_LIST');return {op:'in_list',list_id:rule.list_id};}
+  if(op.value==='confirmed'){
+   exact(rule,['op','rule']);if(Object.getOwnPropertyDescriptor(rule.rule||{},'op')?.value!=='condition')fail('AUDIENCE_CONFIRMED_RULE');active.add(rule);const child=walk(rule.rule,depth+1);active.delete(rule);
+   if(child.op!=='condition'||FIELDS[child.field].source!=='shopify')fail('AUDIENCE_CONFIRMED_RULE');
+   return {op:'confirmed',rule:child};
+  }
   exact(rule,['op','rules']);
   if(!['and','or'].includes(rule.op)||!Array.isArray(rule.rules)||rule.rules.length<1||rule.rules.length>LIMITS.children)fail('AUDIENCE_RULE');
   active.add(rule);const normalized=rule.rules.map(r=>walk(r,depth+1));active.delete(rule);
@@ -64,7 +69,7 @@ function normalize(input){
 }
 function leaves(input){
  const d=normalize(input),out=new Map();
- const visit=r=>r.op==='and'||r.op==='or'?r.rules.forEach(visit):out.set(JSON.stringify(r),r);visit(d.rule);
+ const visit=r=>r.op==='and'||r.op==='or'?r.rules.forEach(visit):r.op==='confirmed'?visit(r.rule):out.set(JSON.stringify(r),r);visit(d.rule);
  return [...out.entries()].sort(([a],[b])=>a<b?-1:a>b?1:0).map(([key,rule])=>({key,rule}));
 }
 function checkCatalog(input,catalog){
@@ -106,6 +111,7 @@ function evaluate(input,{subject_ref,revision,evidence,now}={}){
   lookup.set(e.rule_key,e);
  }
  const visit=r=>{
+  if(r.op==='confirmed')return visit(r.rule)===true;
   if(r.op==='and'||r.op==='or'){
    const results=r.rules.map(visit);
    if(r.op==='and')return results.includes(false)?false:results.every(x=>x===true)?true:null;

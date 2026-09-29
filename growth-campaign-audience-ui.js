@@ -48,11 +48,11 @@
   const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),pending:pending(),bound:!!state().binding,readConfirmed,legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
   function audienceSummary(row){
    const contract=SegmentClient.contractFor(ctx.api),rule=row.definition.rule,value=(r,f)=>{if(f.type==='product')return catalog?.products.find(x=>x.id===r.value)?.name||'produto indisponível';if(f.type==='origin')return catalog?.origins.find(x=>x.key===r.value)?.name||'origem indisponível';if(f.type==='money')return `${r.value} ${row.semantic_context?.currency||catalog?.currency||''}`.trim();return r.value;};
-   const walk=r=>{if(r.op==='in_list')return `lista ${catalog?.lists.find(x=>x.id===r.list_id)?.name||'indisponível'}`;if(r.op==='condition'){const f=contract.FIELDS[r.field];return `${f.label}: ${operatorName[r.operator]} ${value(r,f)}`;}return `(${r.rules.map(walk).join(r.op==='and'?' E ':' OU ')})`;};
+   const walk=r=>{if(r.op==='confirmed')return walk(r.rule)+' · somente cadastros com dados confirmados';if(r.op==='in_list')return `lista ${catalog?.lists.find(x=>x.id===r.list_id)?.name||'indisponível'}`;if(r.op==='condition'){const f=contract.FIELDS[r.field];return `${f.label}: ${operatorName[r.operator]} ${value(r,f)}`;}return `(${r.rules.map(walk).join(r.op==='and'?' E ':' OU ')})`;};
    return walk(rule);
   }
   function audienceFreshness(row){
-   const contract=SegmentClient.contractFor(ctx.api),usesShopify=rule=>rule.op==='condition'?contract.FIELDS[rule.field]?.source==='shopify':(rule.rules||[]).some(usesShopify),updated=`Atualizado no painel em ${new Date(row.updated_at).toLocaleString('pt-BR')}.`;
+   const contract=SegmentClient.contractFor(ctx.api),usesShopify=rule=>rule.op==='confirmed'?usesShopify(rule.rule):rule.op==='condition'?contract.FIELDS[rule.field]?.source==='shopify':(rule.rules||[]).some(usesShopify),updated=`Atualizado no painel em ${new Date(row.updated_at).toLocaleString('pt-BR')}.`;
    if(!usesShopify(row.definition.rule))return updated+' Este público não usa condição Shopify.';
    const s=catalog?.shopify_snapshot;if(!s?.current)return updated+' A atualização Shopify não está confirmada; revise o público antes de usar.';
    return `${updated} Dados Shopify coletados até ${new Date(s.observed_at).toLocaleString('pt-BR')}, válidos até ${new Date(s.expires_at).toLocaleString('pt-BR')}. A sincronização é noturna.`;

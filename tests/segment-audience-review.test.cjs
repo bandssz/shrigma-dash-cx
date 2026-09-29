@@ -28,6 +28,10 @@ function fixture({brand='fish',rule=purchase,values=[[true],[false],[null]],time
  const reviewer=R.createAudienceReviewer({provider,clock:()=>START+elapsed,timeoutMs}),request={brand,audience_id:AUDIENCE_ID,expected_revision:3,expected_definition_hash:R.digest(definition)};
  return {state,calls,counts,hooks,rehash,request,reviewer,review:options=>reviewer.review(request,{authorization,...options}),advance:n=>{elapsed=n;}};
 }
+test('explicit confirmed Shopify choice excludes individual unknowns while an unavailable whole source blocks review',async()=>{
+ const rule={op:'confirmed',rule:purchase},f=fixture({rule,values:[[true],[false],[null]]}),r=await f.review();assert.equal(r.complete,true);assert.equal(r.counts.eligible_count,1);assert.equal(r.counts.excluded_count,2);
+ for(const expired of [false,true]){const broken=fixture({rule,values:[[true],[null]]});if(expired)broken.state.readEvidence.sources[0].expires_at=time(0);else{broken.state.readEvidence.sources[0].coverage='unavailable';broken.state.readEvidence.sources[0].negative_evidence_supported=false;}broken.rehash();const value=await broken.review();assert.equal(value.complete,false);assert.equal(value.counts.eligible_count,null);assert.ok(value.blockers.includes('catalog_unavailable'));}
+});
 test('canonical hash is explicit, key order independent, array order sensitive and refuses accessors',()=>{
  assert.equal(R.digest({b:[2,1],a:1}),R.digest({a:1,b:[2,1]}));assert.notEqual(R.digest({b:[2,1]}),R.digest({b:[1,2]}));
  assert.equal(R.HASH_CONTRACT,'canonical-json-sorted-keys-sha256-v1');assert.equal(R.ENABLED,false);
