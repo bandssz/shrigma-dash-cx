@@ -1,0 +1,20 @@
+# Candidate source for the existing nightly bulk export. Never run as an
+# unbounded synchronous query. Keep legacy selected fields while adding the
+# Customer identity and typed monetary/source revision fields.
+query CrmAudienceCustomerBulk {
+  customers {
+    edges {
+      node {
+        id
+        email
+        defaultEmailAddress { emailAddress }
+        firstName
+        numberOfOrders
+        amountSpent { amount currencyCode }
+        lastOrder { createdAt }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}

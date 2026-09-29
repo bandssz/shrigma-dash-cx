@@ -1,9 +1,21 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{createHash}=require('node:crypto');
-const S=require('../n8n/growth/segment-audience-store.cjs'),API=require('../n8n/growth/segment-audience-api.cjs'),H=require('../n8n/growth/segment-audience-review.cjs');
+const S=require('../n8n/growth/segment-audience-store.cjs'),API=require('../n8n/growth/segment-audience-api.cjs'),H=require('../n8n/growth/segment-audience-review.cjs'),Shopify=require('../n8n/growth/segment-shopify-facts.cjs');
 const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8'),hash=x=>createHash('sha256').update(x).digest('hex');
 const definition=(brand='fish',rule={op:'condition',field:'purchase.count',operator:'gt',value:0})=>({schema_version:'crm-audience-v2',brand,name:'Synthetic audience '+brand,rule});
-function source(brand){return {currency:'BRL',timezone:'America/Sao_Paulo',shop_id:'gid://shopify/Shop/'+(brand==='fish'?'1':'2'),fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>({key,available:true,source_hash:H.digest({brand,key})})),products:[{id:'gid://shopify/Product/'+(brand==='fish'?'101':'201'),brand,name:'Synthetic product',available:true}],origins:['popup','vip_alma','vip_desodorante'].map(key=>({key,brand,name:key,available:true,provenance_hash:H.digest({brand,key,kind:'synthetic'})}))};}
+function source(brand){const catalog={currency:'BRL',timezone:'America/Sao_Paulo',shop_id:'gid://shopify/Shop/'+(brand==='fish'?'1':'2'),products:[{id:'gid://shopify/Product/'+(brand==='fish'?'101':'201'),brand,name:'Synthetic product',available:true}],origins:['popup','vip_alma','vip_desodorante'].map(key=>({key,brand,name:key,available:true,provenance_hash:H.digest({brand,key,kind:'synthetic'})}))};catalog.fields=Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>({key,available:true,source_hash:Shopify.FIELDS.includes(key)?Shopify.sourceHash(brand,key,catalog):H.digest({brand,key})}));return catalog;}
+// Generic Store/Binding fixtures need valid semantic pins before the private
+// facts schema exists. These stubs expose only aggregate freshness and make
+// every per-subscriber fact unknown; real Shopify fixtures drop all three.
+const SHOPIFY_STUB_SQL=`
+CREATE FUNCTION crm_audience_v2.shopify_snapshot(text) RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT jsonb_build_object('current',true,'started_at','2026-09-29T00:00:00Z'::timestamptz,
+  'observed_at','2026-09-29T00:01:00Z'::timestamptz,'expires_at','2026-09-30T02:00:00Z'::timestamptz,
+  'customers',0,'mapped',0,'unresolved',0)
+$$;
+CREATE FUNCTION crm_audience_v2.shopify_source_current(text,text,text) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT true$$;
+CREATE FUNCTION crm_audience_v2.shopify_customer_match(jsonb,integer,text,text) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT NULL::boolean$$;`;
+async function dropShopifyStubs(db){await db.exec('DROP FUNCTION IF EXISTS crm_audience_v2.shopify_customer_match(jsonb,integer,text,text),crm_audience_v2.shopify_source_current(text,text,text),crm_audience_v2.shopify_snapshot(text)');}
 async function setup(db,{enabled=true,countProvider=null,timeoutMs=1000}={}){
  await db.exec(read('tests/fixtures/journey-graph-auth.sql'));
  await db.exec('CREATE TABLE public.shrigma_panel_permission_v1(principal_id text,area text,caps jsonb,PRIMARY KEY(principal_id,area));');
@@ -16,7 +28,7 @@ async function setup(db,{enabled=true,countProvider=null,timeoutMs=1000}={}){
  INSERT INTO subscribers VALUES(1,'enabled'),(2,'enabled'),(3,'blocklisted'),(4,'disabled'),(5,'enabled');
  INSERT INTO subscriber_lists SELECT n,l,CASE WHEN n=2 THEN 'unconfirmed' WHEN n=5 THEN 'unsubscribed' ELSE 'confirmed' END FROM generate_series(1,5)n CROSS JOIN unnest(ARRAY[17,101,16,201])l;`);
  const provider=read('n8n/growth/campaign-provider.sql');await db.exec(provider.slice(provider.indexOf('CREATE OR REPLACE FUNCTION public.shrigma_campaign_list_brand'),provider.indexOf('CREATE OR REPLACE FUNCTION public.shrigma_campaign_catalog')));
- await db.exec(read('n8n/growth/segment-audience-store.sql'));await db.exec("SET statement_timeout='20s'");
+ await db.exec(read('n8n/growth/segment-audience-store.sql'));await db.exec(SHOPIFY_STUB_SQL);await db.exec("SET statement_timeout='20s'");
  const refresh=async brand=>db.query("UPDATE crm_audience_v2.config SET enabled=true,base_list_id=$2,revision=revision+1,catalog=$3::jsonb,checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '4 minutes' WHERE brand=$1",[brand,brand==='fish'?17:16,JSON.stringify(source(brand))]);
  if(enabled)for(const brand of ['fish','aristo'])await refresh(brand);
  const trace=[],control={beforeQuery:null,afterQuery:null,afterCommit:null},transaction=async(work,options)=>{
@@ -29,4 +41,4 @@ async function setup(db,{enabled=true,countProvider=null,timeoutMs=1000}={}){
  const create=(brand='fish',idempotency_key='create-0001',rule)=>({acao:'segmento_criar',brand,idempotency_key,definition:definition(brand,rule),expected_catalog_hash:catalogHashes[brand]});
  return {db,store,api,call,create,control,trace,transaction,refresh,catalogHashes};
 }
-module.exports={setup,definition,source,read};
+module.exports={setup,definition,source,read,dropShopifyStubs};

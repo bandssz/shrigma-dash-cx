@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {PGlite}=require('@electric-sql/pglite');
-const F=require('./segment-campaign-binding-fixture.cjs'),B=require('../n8n/growth/segment-campaign-binding.cjs'),S=require('../n8n/growth/segment-audience-store.cjs'),A=require('./segment-audience-store-fixture.cjs'),H=require('../n8n/growth/segment-audience-review.cjs');
+const F=require('./segment-campaign-binding-fixture.cjs'),B=require('../n8n/growth/segment-campaign-binding.cjs'),S=require('../n8n/growth/segment-audience-store.cjs'),A=require('./segment-audience-store-fixture.cjs'),H=require('../n8n/growth/segment-audience-review.cjs'),Shopify=require('../n8n/growth/segment-shopify-facts.cjs');
 async function fixture(t){const db=new PGlite();t.after(()=>db.close());return F.setup(db);}
 const count=async(f,table)=>(await f.db.query('SELECT count(*)::int AS n FROM crm_audience_v2.'+table)).rows[0].n;
 test('wire is separate, exact and bounded, with no actor/capabilities/unlink/send command',()=>{
@@ -50,7 +50,9 @@ test('campaign, binding, audience and catalog drift produce durable rejections; 
  assert.equal((await f.bind(preview,'first-binding')).status,201);const stale=await f.bind(preview,'stale-binding');assert.equal(stale.status,409);assert.equal(stale.body.error,'SEGMENT_BINDING_VERSION_CONFLICT');assert.deepEqual(await f.operation('fish','stale-binding'),stale);
  const refreshed=(await f.inspect('fish',100,a)).body.intent;await f.db.transaction(async tx=>{await tx.query("SELECT set_config('shrigma.campaign_writer','100',true)");await tx.query("UPDATE campaigns SET subject='another',updated_at=clock_timestamp() WHERE id=100");});
  assert.equal((await f.bind(refreshed,'stale-campaign')).status,409);
- const p=(await f.inspect('fish',100,a)).body.intent;await f.db.query("UPDATE crm_audience_v2.config SET catalog=jsonb_set(catalog,'{currency}','\"USD\"') WHERE brand='fish'");assert.equal((await f.bind(p,'stale-catalog')).status,409);
+ const p=(await f.inspect('fish',100,a)).body.intent,changed=(await f.db.query("SELECT catalog FROM crm_audience_v2.config WHERE brand='fish'")).rows[0].catalog;changed.currency='USD';
+ for(const field of changed.fields)if(Shopify.FIELDS.includes(field.key))field.source_hash=Shopify.sourceHash('fish',field.key,changed);
+ await f.db.query("UPDATE crm_audience_v2.config SET catalog=$1::jsonb WHERE brand='fish'",[JSON.stringify(changed)]);assert.equal((await f.bind(p,'stale-catalog')).status,409);
  await f.refresh('fish');const foreign=await f.createAudience('aristo','other-brand');assert.equal((await f.inspect('fish',100,foreign)).status,404);assert.equal((await f.inspect('fish',200,a)).status,404);assert.equal((await f.inspect('fish',400,a)).status,404);
  const latest=(await f.inspect('fish',100,a)).body.intent;await f.call({acao:'segmento_arquivar',brand:'fish',id:a.id,expected_version:1,idempotency_key:'archive-bound-audience'});assert.equal((await f.bind(latest,'archived-audience')).body.error,'SEGMENT_BINDING_AUDIENCE_CHANGED');assert.equal(await count(f,'campaign_binding_revision'),1);
 });
