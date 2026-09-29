@@ -1,0 +1,66 @@
+name: CRM regular worker registry (OFF, no deployment)
+on:
+  pull_request:
+    paths:
+      - 'tools/crm-regular-registry/**'
+      - '.github/workflows/crm-regular-image-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: crm-regular-registry-fixed-candidate
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test registry boundary
+        run: python3 -m unittest discover -s tools/crm-regular-registry -p 'test_*.py'
+      - name: Download and verify the exact pinned OCI directory and proofs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["run_id"])')"
+          ARTIFACT="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["artifact_name"])')"
+          PR_NUMBER="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["pull_request"])')"
+          gh api "repos/bandssz/shrigma-dash-cx/pulls/$PR_NUMBER" > "$RUNNER_TEMP/regular-pr.json"
+          gh api "repos/bandssz/shrigma-dash-cx/actions/runs/$RUN_ID" > "$RUNNER_TEMP/regular-run.json"
+          gh run download "$RUN_ID" --repo bandssz/shrigma-dash-cx --name "$ARTIFACT" --dir "$RUNNER_TEMP/regular-artifact"
+          python3 tools/crm-regular-registry/publish.py verify --run-json "$RUNNER_TEMP/regular-run.json" --pr-json "$RUNNER_TEMP/regular-pr.json" --artifact-dir "$RUNNER_TEMP/regular-artifact"
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'bandssz/shrigma-dash-cx'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install registry copier in disposable runner
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Copy pinned OCI bytes, preserve digest and reconcile the fixed tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["run_id"])')"
+          ARTIFACT="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["artifact_name"])')"
+          PR_NUMBER="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["pull_request"])')"
+          gh api "repos/bandssz/shrigma-dash-cx/pulls/$PR_NUMBER" > "$RUNNER_TEMP/regular-pr.json"
+          gh api "repos/bandssz/shrigma-dash-cx/actions/runs/$RUN_ID" > "$RUNNER_TEMP/regular-run.json"
+          gh run download "$RUN_ID" --repo bandssz/shrigma-dash-cx --name "$ARTIFACT" --dir "$RUNNER_TEMP/regular-artifact"
+          python3 tools/crm-regular-registry/publish.py publish --run-json "$RUNNER_TEMP/regular-run.json" --pr-json "$RUNNER_TEMP/regular-pr.json" --artifact-dir "$RUNNER_TEMP/regular-artifact" --receipt "$RUNNER_TEMP/regular-registry-receipt.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-regular-worker-registry-receipt
+          path: ${{ runner.temp }}/regular-registry-receipt.json
+          if-no-files-found: error
+          retention-days: 30
