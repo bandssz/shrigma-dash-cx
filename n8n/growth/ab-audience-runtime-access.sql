@@ -2,7 +2,9 @@
 -- Native contacts, consent, content, settings and schedules remain read-only.
 DO $install$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='crm_audience_api' AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole)
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='crm_audience_api' AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT rolinherit AND NOT rolcreatedb AND NOT rolreplication)
+  OR EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles p ON p.oid=m.roleid JOIN pg_roles r ON r.oid=m.member WHERE p.rolname='crm_audience_api' OR r.rolname='crm_audience_api')
+  OR EXISTS(SELECT 1 FROM unnest(ARRAY['public.campaigns','public.subscribers','public.subscriber_lists','public.lists','public.templates','public.settings']) t WHERE has_any_column_privilege('crm_audience_api',t,'UPDATE'))
   OR to_regprocedure('crm_audience_v2.ab_regular_schedule(uuid,text)') IS NULL
   OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled)
   OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign) THEN

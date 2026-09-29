@@ -35,3 +35,15 @@ async function prove(db,{createRoleTransaction=null}={}){
 }
 if(require.main===module)test('restricted API role completes both panel paths without native write grants',async t=>{const db=new PGlite();t.after(()=>db.close());await prove(db);});
 module.exports={prove};
+
+if(require.main===module)test('access installation refuses inherited, member or native-writer authority atomically',async t=>{
+ const db=new PGlite();t.after(()=>db.close());
+ await F.setup(db,{prepareCases:false,beforeWorkerReady:async()=>{
+  await db.exec(read('ab-audience-regular.sql'));
+  for(const drift of ["ALTER ROLE crm_audience_api INHERIT","GRANT SELECT ON subscribers TO crm_audience_api; GRANT UPDATE(status) ON subscribers TO crm_audience_api","CREATE ROLE synthetic_parent NOLOGIN; GRANT synthetic_parent TO crm_audience_api","CREATE ROLE synthetic_member NOLOGIN; GRANT crm_audience_api TO synthetic_member"]){
+   await assert.rejects(db.transaction(async tx=>{await tx.exec(drift);await tx.exec(read('ab-audience-runtime-access.sql'));}),e=>e.message.includes('AB_AUDIENCE_ACCESS_UNAVAILABLE'));
+   assert.equal((await db.query("SELECT has_function_privilege('crm_audience_api','crm_audience_v2.ab_regular_schedule(uuid,text)','EXECUTE') allowed")).rows[0].allowed,false);
+  }
+  await db.exec(read('ab-audience-runtime-access.sql'));
+ }});
+});

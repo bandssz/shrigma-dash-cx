@@ -62,5 +62,6 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ab-test-tools/node_modules
           TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/listmonk
           CRM_AUDIENCE_TEST_ISOLATED: '1'
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
           LISTMONK_CAMPAIGNS_SQL: ${{ runner.temp }}/ab-worker.sql
         run: node tests/ab-audience-${{ matrix.proof }}-postgres.cjs
