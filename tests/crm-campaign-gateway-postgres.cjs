@@ -22,7 +22,8 @@ async function install(owner){
 }
 test('real HTTP runtime uses restricted login for reads, existing/new saves, review and schedule',async t=>{
  const owner=new Client({connectionString:ownerUrl});await owner.connect();t.after(()=>owner.end());await install(owner);
- const version=(await owner.query('SHOW server_version')).rows[0].server_version;assert.equal(version,'17.10');
+ const version=(await owner.query('SHOW server_version')).rows[0].server_version;
+ assert.equal((await owner.query('SHOW server_version_num')).rows[0].server_version_num,'170010');
  const pool=new Pool({connectionString:apiUrl,max:4,statement_timeout:12000,query_timeout:12500});t.after(()=>pool.end());
  const failures=[],guardedPool={query:async(sql,params)=>{try{return await pool.query(sql,params);}catch(e){const effect=params?.[2]&&JSON.parse(params[2]);failures.push({kind:effect?.kind,action:effect?.action,code:e.code,message:e.message});throw e;}}};
  let next=300,nativeCreates=0,previews=0,loseCreate=false,losePreview=false;
