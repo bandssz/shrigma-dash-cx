@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=589e9c9c1f22">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-oKbMPbh/rLNriF3L6NZ4njGJOTIC3zus1xeMX6OyxUM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-9PZoWxJFw+X6o65SADettktZjbJqv36XWSQwPWmE59M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -265,7 +265,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=a50706ee0166"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=5b0d9fedbca7"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -503,14 +503,16 @@ function restoreABExperimentBrand(next){
 }
 function renderABExperiment(){
   const element=$('#ab-experiment-panel');
-  // This candidate introduces no visible CTA or endpoint until deployment review.
-  if(typeof GABExperimentPanel==='undefined'||GABExperimentPanel.ACTIVATION.enabled!==true){if(element)element.hidden=true;return;}
+  if(typeof GABExperimentPanel==='undefined'){if(element)element.hidden=true;return;}
+  const activation=GABExperimentPanel.activation(API,MARCA);
+  // Preserve an existing journal when an operational capability disappears.
+  if(!AB_EXPERIMENT_PANEL&&activation.enabled!==true){if(element)element.hidden=true;return;}
   if(!API||!element)return;
   try{
     if(!AB_EXPERIMENT_PANEL)AB_EXPERIMENT_PANEL=GABExperimentPanel.create({experimentClient:GABExperimentClient,experimentUI:GABExperimentUI,campaignAPI:GCA,
       getManagerKey:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',restoreBrand:restoreABExperimentBrand,
       campaignContext:{status:()=>GCE.contextStatus(),preserve:()=>GCE.preserve()},storage:localStorage,locks:navigator.locks,fetch});
-    AB_EXPERIMENT_PANEL.render({element,marca:MARCA,api:API,activation:GABExperimentPanel.ACTIVATION});
+    AB_EXPERIMENT_PANEL.render({element,marca:MARCA,api:API,activation});
   }catch(e){element.hidden=false;element.textContent=e.message;}
 }
 let CRM_AUDIENCE_VIEW=null,CRM_SEGMENT_VIEW=null,CRM_SEGMENT_SYNC=null,CRM_SEGMENT_NEXT=null;

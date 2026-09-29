@@ -9,7 +9,7 @@ function fakePool(control={}){
 }
 test('config is OFF by default and pins the dedicated role, pool and timeout',()=>{
  const c=config({CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'postgres.internal',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'secret',CRM_PG_DATABASE:'listmonk'});
- assert.equal(c.enabled,false);assert.equal(c.regularEnabled,false);assert.equal(c.pg.user,'crm_audience_api');assert.equal(c.pg.max,4);assert.equal(c.pg.statement_timeout,10000);
+ assert.equal(c.enabled,false);assert.equal(c.regularEnabled,false);assert.equal(c.abEnabled,false);assert.equal(c.pg.user,'crm_audience_api');assert.equal(c.pg.max,4);assert.equal(c.pg.statement_timeout,10000);
  assert.throws(()=>config({...process.env,CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'db',CRM_PG_USER:'postgres',CRM_PG_PASSWORD:'x',CRM_PG_DATABASE:'listmonk'}),/CRM_AUDIENCE_CONFIG/);
 });
 test('transaction commits once on a dedicated verified connection',async()=>{

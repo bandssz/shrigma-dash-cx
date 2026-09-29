@@ -9,7 +9,7 @@ function fixture(){
  const ctx=vm.createContext({console,API:{},MARCA:'aristo',AB_BUSY:false,AB_WRITE_EPOCH:0,GB:{state:{}},G:{MARCA_CHEIA:{}},
   document:{activeElement:{isConnected:true,focus(){}}},$:s=>({'#ab-experiment-panel':element,'#brand-change-confirm':dialog,'#brand-change-accept':accept,'#brand-change-cancel':cancel,'#brand-change-description':description}[s]||notice),ativaBotao:(s,k,b)=>calls.push(['header',b]),salvaPref:v=>calls.push(['preference',v.marca]),gravaHash:()=>{},pintaMarca:()=>{},render:()=>calls.push(['render']),queueMicrotask:fn=>calls.push(['queued-render',fn]),
   GCE:{contextStatus:()=>({}),preserve:()=>calls.push(['preserve-campaign']),mount:v=>calls.push(['campaign',v.marca])},GRU:{contextStatus:()=>({}),preserve:()=>calls.push(['preserve-template']),render:v=>calls.push(['template',v.marca])},GABF:{contextStatus:()=>({}),preserve:()=>calls.push(['preserve-legacy']),enter:b=>calls.push(['legacy',b])},
-  GABExperimentPanel:{ACTIVATION:require('../growth-ab-experiment-panel.js').ACTIVATION,create:opts=>{calls.push(['create',opts]);return {contextStatus:()=>status,render:v=>calls.push(['mount',v.marca])};}},GABExperimentClient:{},GABExperimentUI:{},GCA:{},localStorage:{},navigator:{locks:{}},fetch:()=>{throw Error('OFF must not fetch');},shrigmaChaveOperador:(area,cap)=>{assert.equal(area,'growth');assert.equal(cap,'draft');return access;}});
+  GABExperimentPanel:{activation:require('../growth-ab-experiment-panel.js').activation,ACTIVATION:require('../growth-ab-experiment-panel.js').ACTIVATION,create:opts=>{calls.push(['create',opts]);return {contextStatus:()=>status,render:v=>calls.push(['mount',v.marca])};}},GABExperimentClient:{},GABExperimentUI:{},GCA:{},localStorage:{},navigator:{locks:{}},fetch:()=>{throw Error('OFF must not fetch');},shrigmaChaveOperador:(area,cap)=>{assert.equal(area,'growth');assert.equal(cap,'draft');return access;}});
  vm.runInContext(composition+brandChange,ctx);return {ctx,calls,element,notice,dialog,accept,cancel,setStatus:s=>status=s,setKey:k=>access=k,run:s=>vm.runInContext(s,ctx)};
 }
 test('shipped Growth composition is strict OFF: hidden container, no new client/network/CTA and ordered modules',()=>{
@@ -18,7 +18,7 @@ test('shipped Growth composition is strict OFF: hidden container, no new client/
  const {document}=require('linkedom').parseHTML(html);assert.equal(document.querySelectorAll('#ab-experiment-panel').length,1);assert.equal(document.querySelector('#ab-experiment-panel').closest('[data-crm-campaign-panel]')?.id,'crm-campaign-tests');
 });
 test('real page composition uses existing manager session and brand guard blocks pending/dirty/confirming A/B',()=>{
- const f=fixture();f.run("GABExperimentPanel.ACTIVATION={enabled:true,endpoint:'https://synthetic.invalid/ab'};renderABExperiment()");const opts=f.calls.find(c=>c[0]==='create')[1];assert.equal(opts.getManagerKey(),'manager');f.setKey('rotated');assert.equal(opts.getManagerKey(),'rotated');
+ const f=fixture();f.run("API={capabilities:{endpoints:{ab_experiment:'https://synthetic.invalid/ab'},ab_experiment:{contract_version:'crm-ab-email-v2',audience_mode:'saved-audience-v1',enabled:true,operation:true,brands:['fish','aristo']}}};renderABExperiment()");const opts=f.calls.find(c=>c[0]==='create')[1];assert.equal(opts.getManagerKey(),'manager');f.setKey('rotated');assert.equal(opts.getManagerKey(),'rotated');
  for(const state of [{blocked:true},{pending:true},{dirty:true}]){f.setStatus(state);assert.equal(f.run("trocaMarca('fish')"),false);assert.equal(f.ctx.MARCA,'aristo');}
  f.setStatus({});assert.equal(f.run("trocaMarca('fish')"),true);assert.equal(f.ctx.MARCA,'fish');
 });
@@ -27,7 +27,7 @@ test('recovery callback restores original header and all editors only after pres
  f.ctx.GB.state.busy=false;assert.equal(f.run("restoreABExperimentBrand('fish')"),true);assert.equal(f.ctx.MARCA,'fish');assert.deepEqual(f.calls.slice(0,3).map(c=>c[0]),['preserve-campaign','preserve-template','preserve-legacy']);for(const part of ['header','campaign','template','legacy'])assert.ok(f.calls.some(c=>c[0]===part&&c[1]==='fish'));assert.equal(f.calls.at(-1)[0],'queued-render');
 });
 test('current brand dialog remains cancellable and rechecks A/B state before accepting a switch',()=>{
- const f=fixture();f.run("GABExperimentPanel.ACTIVATION={enabled:true,endpoint:'https://synthetic.invalid/ab'};renderABExperiment()");
+ const f=fixture();f.run("API={capabilities:{endpoints:{ab_experiment:'https://synthetic.invalid/ab'},ab_experiment:{contract_version:'crm-ab-email-v2',audience_mode:'saved-audience-v1',enabled:true,operation:true,brands:['fish','aristo']}}};renderABExperiment()");
  f.ctx.GCE.contextStatus=()=>({dirty:true});assert.equal(f.run("trocaMarca('fish')"),false);assert.equal(f.dialog.open,true);
  assert.equal(f.run("restoreABExperimentBrand('fish')"),false);f.cancel.onclick();assert.equal(f.ctx.MARCA,'aristo');
  assert.equal(f.run("trocaMarca('fish')"),false);f.setStatus({pending:true});f.accept.onclick();assert.equal(f.ctx.MARCA,'aristo');assert.match(f.notice.textContent,/tentativa A\/B/);assert.equal(f.dialog.open,false);

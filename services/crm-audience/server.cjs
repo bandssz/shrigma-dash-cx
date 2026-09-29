@@ -1,8 +1,8 @@
 'use strict';
 const http=require('node:http');
 const ORIGIN='https://bandssz.github.io',MAX_BODY=32768;
-const ROUTES=new Set(['/segments','/campaign-audience']);
-function createServer({segments,binding,revision,enabled=false,bindingEnabled=false,regularEnabled=false,maxInFlight=4,operationTimeoutMs=12000}={}){
+const ROUTES=new Set(['/segments','/campaign-audience','/ab-experiments']);
+function createServer({segments,binding,experiments=null,revision,enabled=false,bindingEnabled=false,regularEnabled=false,maxInFlight=4,operationTimeoutMs=12000}={}){
  if(typeof bindingEnabled!=='boolean'||typeof regularEnabled!=='boolean')throw Error('CRM_AUDIENCE_SERVER_CONFIG');
  if(typeof segments?.handle!=='function'||typeof binding?.handle!=='function'||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4||!Number.isInteger(operationTimeoutMs)||operationTimeoutMs<1000||operationTimeoutMs>30000)throw Error('CRM_AUDIENCE_SERVER_CONFIG');
  let inFlight=0,closing=false,stopPromise;const idleWaiters=new Set();
@@ -41,7 +41,9 @@ function createServer({segments,binding,revision,enabled=false,bindingEnabled=fa
    }
    timer=setTimeout(()=>controller.abort(),operationTimeoutMs);timer.unref?.();
    const request={headers:{Authorization:req.headers.authorization,...(req.headers.origin?{Origin:req.headers.origin}:{})},...(req.method==='GET'?{query:Object.fromEntries(pairs)}:{body})};
-   const api=url.pathname==='/segments'?segments:binding,result=await api.handle({method:req.method,request},{signal:controller.signal});
+   const api=url.pathname==='/segments'?segments:url.pathname==='/ab-experiments'?experiments:binding;
+   if(typeof api?.handle!=='function')return reply(req,res,503,{error:'AB_V2_UNAVAILABLE'});
+   const result=await api.handle({method:req.method,request},{signal:controller.signal});
    if(!disconnected)reply(req,res,result.status,result.body,result.headers||{});
   }catch{if(!disconnected)reply(req,res,503,{error:'CRM_AUDIENCE_UNCONFIRMED'});}
   finally{clearTimeout(timer);req.removeListener('aborted',abort);inFlight--;if(inFlight===0){for(const done of idleWaiters)done();idleWaiters.clear();}}

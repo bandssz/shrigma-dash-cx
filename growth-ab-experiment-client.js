@@ -16,7 +16,7 @@
   if(action){const version=action==='prepare'?1:p.expected_version+(action==='review'?0:1),state={prepare:'prepared',review:'prepared',schedule:'scheduled',cancel:'cancelled',close:'closed'}[action];if(e.version!==version||e.state!==state)throw fail('AB_V2_RECEIPT',UNKNOWN);}
   return e;
  }
- function create({endpoint,brand,getKey,fetch:fetcher=globalThis.fetch,storage=globalThis.localStorage,locks=globalThis.navigator?.locks,uuid:makeId=()=>crypto.randomUUID(),now=()=>Date.now()}={}){
+ function create({endpoint,brand,getKey,audienceMode=false,fetch:fetcher=globalThis.fetch,storage=globalThis.localStorage,locks=globalThis.navigator?.locks,uuid:makeId=()=>crypto.randomUUID(),now=()=>Date.now()}={}){
   let url;try{url=new URL(endpoint);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw Error();}catch{throw fail('AB_V2_ENDPOINT','Endereço do experimento indisponível.');}
   if(!['fish','aristo'].includes(brand)||typeof getKey!=='function'||typeof fetcher!=='function')throw fail('AB_V2_CONTEXT','Marca ou acesso indisponível.');
   let memory=null;
@@ -36,15 +36,16 @@
   async function exclusive(fn){if(!available())throw fail('AB_V2_STORAGE','Armazenamento local e proteção entre abas são necessários.');return locks.request(SLOT,{mode:'exclusive',ifAvailable:true},lock=>{if(!lock)throw fail('AB_V2_BUSY','Outra aba está conferindo o experimento.');return fn();});}
   async function call(method,data,key=access()){
    const target=new URL(url.href),write=method==='mutate';let init={method:write?'POST':'GET',credentials:'omit',redirect:'error',cache:'no-store',headers:write?{'Content-Type':'application/json'}:{'X-AB-Write-Key':key},signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(write?90000:20000):undefined};
-   if(write)init.body=JSON.stringify({method,k:key,...data});else for(const [name,value]of Object.entries({method,...data}))target.searchParams.set(name,value);
+   if(audienceMode)init.headers={Authorization:'Bearer '+key,...(write?{'Content-Type':'application/json'}:{})};
+   if(write)init.body=JSON.stringify({method,...(audienceMode?{}:{k:key}),...data});else for(const [name,value]of Object.entries({method,...data}))target.searchParams.set(name,value);
    try{const response=await fetcher(target.href,init);return {status:response.status,body:await response.json()};}catch{throw fail('AB_V2_NETWORK',UNKNOWN);}
   }
   const lookup=(op,key)=>call('operation',{brand:op.request_payload.brand,operation_id:op.id,action:C.action(op.request_payload)},key);
   function validateResult(op,result){
    const p=op.request_payload,action=C.action(p);if(!result||!Number.isInteger(result.status)||!result.body||typeof result.body!=='object'||Array.isArray(result.body))throw fail('AB_V2_UNKNOWN',UNKNOWN);
    if(result.status===200){snapshot(result.body.experiment,p,op.protocol,action);
-    if(['review','schedule'].includes(action)){const r=result.body.review;if(!uuid(r?.review_id)||r.version!==p.expected_version||!Array.isArray(r.arms)||r.arms.length!==2||!Number.isFinite(Date.parse(r.checked_at))||Date.parse(r.expires_at)-Date.parse(r.checked_at)!==300000||!Number.isFinite(Date.parse(r.send_at)))throw fail('AB_V2_UNKNOWN',UNKNOWN);
-     for(let i=0;i<2;i++){const a=r.arms[i],count=a?.counts,allocated=result.body.experiment.arms[i].allocated;if(a?.arm!==['a','b'][i]||a.campaign_id!==op.protocol.arms[i].campaign_id||!uuid(a.source_review_id)||count?.allocated!==allocated||!Number.isInteger(count.eligible)||count.eligible<0||count.eligible>allocated||count.excluded!==allocated-count.eligible||action==='review'&&a.source_review_id!==p.source_reviews[a.arm])throw fail('AB_V2_UNKNOWN',UNKNOWN);}
+    if(['review','schedule'].includes(action)){const r=result.body.review,duration=Date.parse(r?.expires_at)-Date.parse(r?.checked_at),saved=r?.mode==='saved-audience';if(!uuid(r?.review_id)||r.version!==p.expected_version||!Array.isArray(r.arms)||r.arms.length!==2||!Number.isFinite(Date.parse(r.checked_at))||(saved?duration<=0||duration>60000:duration!==300000)||!Number.isFinite(Date.parse(r.send_at))||saved&&(!uuid(r.audience_review_id)||!/^[a-f0-9]{64}$/.test(r.scope_hash)))throw fail('AB_V2_UNKNOWN',UNKNOWN);
+     for(let i=0;i<2;i++){const a=r.arms[i],count=a?.counts,allocated=result.body.experiment.arms[i].allocated;if(a?.arm!==['a','b'][i]||a.campaign_id!==op.protocol.arms[i].campaign_id||!saved&&!uuid(a.source_review_id)||count?.allocated!==allocated||!Number.isInteger(count.eligible)||count.eligible<0||count.eligible>allocated||count.excluded!==allocated-count.eligible||action==='review'&&(p.action==='review_saved'?!saved:a.source_review_id!==p.source_reviews[a.arm]))throw fail('AB_V2_UNKNOWN',UNKNOWN);}
      if(action==='schedule'&&(r.review_id!==p.review_id||Date.parse(result.body.experiment.window_start)!==Date.parse(r.send_at)))throw fail('AB_V2_UNKNOWN',UNKNOWN);
     }
    }
@@ -67,7 +68,7 @@
    return exclusive(async()=>{
     const j=readJournal();if(j.operations.length>=1000)throw fail('AB_V2_CAPACITY','O histórico local atingiu o limite. Preserve os registros e solicite conciliação antes de uma nova operação.');if(j.operations.some(o=>!o.applied)||legacyPending())throw fail('AB_V2_PENDING',UNKNOWN);
     const cap=await call('capabilities',{brand},key),required={prepare:'configure',review:'review',schedule:'schedule',cancel:'cancel',close:'close'}[action];
-    if(cap.status!==200||cap.body.contract!==C.CONTRACT||cap.body.brand!==brand||cap.body.operation!==true||cap.body[required]!==true)throw fail('AB_V2_PREFLIGHT','Esta ação ainda não está disponível para o seu acesso. Nenhuma tentativa foi enviada.');
+    if(cap.status!==200||cap.body.contract!==C.CONTRACT||cap.body.brand!==brand||cap.body.operation!==true||cap.body[required]!==true||audienceMode&&cap.body.audience_mode!=='saved-audience-v1'||!audienceMode&&p.action==='review_saved')throw fail('AB_V2_PREFLIGHT','Esta ação ainda não está disponível para o seu acesso. Nenhuma tentativa foi enviada.');
     const id=makeId();if(!uuid(id)||j.operations.some(o=>o.id===id))throw fail('AB_V2_IDENTITY','Não foi possível preparar uma identidade nova.');
     const op={id,endpoint:url.href,request_payload:p,protocol:cfg,phase:'pending',applied:false,started_at:now()};
     const preflight=await lookup(op,key),o=preflight?.body?.operation;
@@ -81,7 +82,7 @@
   async function reconcile(){return exclusive(async()=>{const j=readJournal(),op=j.operations.find(o=>!o.applied);if(!op)return null;if(op.endpoint!==url.href)throw fail('AB_V2_ENDPOINT','A origem da tentativa mudou. Preserve o registro.');return op.receipt?{operation_id:op.id,...clone(op.receipt)}:settle(j,op,access());});}
   async function apply(id,restore){return exclusive(async()=>{const j=readJournal(),op=j.operations.find(o=>o.id===id);if(!op?.receipt||await restore(clone(op))!==true)throw fail('AB_V2_RESTORE','O recibo está confirmado, mas o rascunho ainda precisa ser recuperado.');const next={...j,operations:j.operations.map(o=>o.id===id?{...o,applied:true,applied_at:now()}:o)};persist(next);return true;});}
   async function read(method,data={}){if(!['capabilities','list','get','campaigns'].includes(method))throw fail('AB_V2_REQUEST','Consulta indisponível.');const r=await call(method,{...data,brand});if(r.status!==200||r.body?.contract!==C.CONTRACT)throw fail('AB_V2_READ','Consulta não confirmada. Tente novamente; seus dados foram preservados.');if(method==='get'){snapshot(r.body.experiment,{test_id:data.test_id,brand},C.protocol(r.body.experiment.protocol));r.body.result=C.result(r.body.experiment.protocol,r.body.measurement);}return r.body;}
-  return Object.freeze({inspect,mutate,reconcile,apply,read});
+  return Object.freeze({inspect,mutate,reconcile,apply,read,audienceMode});
  }
  return Object.freeze({SLOT,LEGACY_SLOT,create});
 });

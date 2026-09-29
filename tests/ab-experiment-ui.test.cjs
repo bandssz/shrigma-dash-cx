@@ -71,6 +71,7 @@ test('composition stays OFF by default, uses only current manager access and pre
  adapter.render({element,marca:'fish',activation:{enabled:true,endpoint:'https://synthetic.invalid/ab'}});assert.equal(element.hidden,false);assert.equal(calls[1].writeKey(),'manager');assert.equal(calls[0].getKey(),'manager');key='rotated';assert.equal(calls[1].writeKey(),'rotated');
  current.blocked=true;assert.equal(adapter.render({element,marca:'aristo',activation:{enabled:true,endpoint:'https://changed.invalid/ab'}}),view);assert.equal(calls.length,4);assert.equal(adapter.destroy(),false);
  assert.equal(adapter.render({element,marca:'fish'}),view,'routine render cannot replace a pending same-brand panel');assert.equal(calls.length,4);
+ current={};assert.equal(adapter.render({element,marca:'fish'}),null,'clean view hides after capability withdrawal');assert.equal(element.hidden,true);assert.equal(calls.at(-1),'destroy');
 });
 test('leaving a supported brand hides the previous view, preserves durable state and remounts Fish; pending work blocks that transition',()=>{
  const Panel=require('../growth-ab-experiment-panel.js');

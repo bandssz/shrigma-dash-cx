@@ -69,12 +69,12 @@
  }
  function request(p){
   if(object(p)&&Object.hasOwn(p,'allocation'))return protocol(p);
-  const actions={review:['source_reviews'],schedule:['review_id','confirm'],cancel:['confirm'],close:['confirm']};
+  const actions={review:['source_reviews'],review_saved:[],schedule:['review_id','confirm'],cancel:['confirm'],close:['confirm']};
   if(!object(p)||!Object.hasOwn(actions,p.action)||!exact(p,['contract','action','test_id','brand','expected_version',...actions[p.action]])||p.contract!==CONTRACT||!uuid(p.test_id)||!['fish','aristo'].includes(p.brand)||!integer(p.expected_version,1,999999999))throw Error('AB_V2_REQUEST');
   if(p.action==='review'&&(!exact(p.source_reviews,['a','b'])||!uuid(p.source_reviews.a)||!uuid(p.source_reviews.b)))throw Error('AB_V2_REVIEW');
   if(p.action==='schedule'&&(!uuid(p.review_id)||p.confirm!=='schedule_both')||p.action==='cancel'&&p.confirm!=='cancel_both'||p.action==='close'&&p.confirm!=='close_measurement')throw Error('AB_V2_CONFIRM');
   return clone(p);
  }
- const action=p=>Object.hasOwn(request(p),'allocation')?'prepare':p.action;
+ const action=p=>Object.hasOwn(request(p),'allocation')?'prepare':p.action==='review_saved'?'review':p.action;
  return {CONTRACT,RULE,protocol,request,action,result,fisher,canonical:x=>JSON.stringify(stable(x)),createContract:createExperimentContract};
 });

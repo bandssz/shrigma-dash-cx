@@ -1,0 +1,45 @@
+'use strict';
+// Dedicated, empty, loopback-only PG17.10 database; synthetic contacts only.
+const assert=require('node:assert/strict'),{Pool}=require('pg');
+const F=require('./ab-audience-review-fixture.cjs'),R=require('../n8n/growth/ab-audience-review.cjs');
+const connectionString=process.env.TEST_DATABASE_URL;
+if(process.env.AB_REVIEW_TEST_DATABASE_ISOLATED!=='1'||!connectionString)throw Error('ISOLATED_DATABASE_REQUIRED');
+const url=new URL(connectionString);
+if(url.protocol!=='postgresql:'||url.hostname!=='127.0.0.1'||url.pathname!=='/ab_audience_review_test'||!url.port||url.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
+const pool=new Pool({connectionString,max:8,statement_timeout:20000,connectionTimeoutMillis:5000});
+const db={query:(q,v)=>pool.query(q,v),exec:q=>pool.query(q),transaction:async work=>{const c=await pool.connect();let destroy=false;try{await c.query('BEGIN ISOLATION LEVEL READ COMMITTED');const r=await work(c);await c.query('COMMIT');return r;}catch(e){try{await c.query('ROLLBACK');}catch{destroy=true;}throw e;}finally{c.release(destroy);}}};
+const clients=[],wait=ms=>new Promise(r=>setTimeout(r,ms));
+function service(c,afterQuery){return R.createAudienceReview({timeoutMs:10000,transaction:async work=>{await c.query('BEGIN ISOLATION LEVEL READ COMMITTED');try{const r=await work({query:async(q,v)=>{const result=await c.query(q,v);if(afterQuery)await afterQuery(q,c);return result;}});await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK');throw e;}}});}
+const sum=(r,key)=>r._body.review.arms.reduce((n,a)=>n+a[key],0);
+(async()=>{try{
+ const info=(await db.query("SELECT current_database() AS db,current_setting('server_version_num')::int AS version,(SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','v','m','S')) AS existing")).rows[0];
+ assert.equal(info.db,'ab_audience_review_test');assert.equal(info.version,170010);assert.equal(info.existing,0);
+ const x=await F.setup(db),fish=await x.prepared('fish'),aristo=await x.prepared('aristo');
+ const a=await pool.connect(),b=await pool.connect(),blocker=await pool.connect();clients.push(a,b,blocker);
+ const pids=await Promise.all(clients.map(c=>c.query('SELECT pg_backend_pid() AS pid').then(r=>r.rows[0].pid)));assert.equal(new Set(pids).size,3);
+ const blocked=async pid=>{const until=Date.now()+350;while(Date.now()<until){if((await db.query('SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1',[pid])).rows[0]?.wait_event_type==='Lock')return true;await wait(5);}return false;};
+ const request=x.reviewRequest(fish,F.uuid(61001));
+ const pair=await Promise.all([service(a).execute({key:'synthetic-manager-key',request}),service(b).execute({key:'synthetic-manager-key',request})]);
+ assert.equal(pair[0]._http,201,JSON.stringify(pair));assert.deepEqual(pair[0],pair[1]);assert.equal(pair[0]._body.review.status,'confirmed');assert.equal(sum(pair[0],'eligible'),4);
+ assert.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_review')).rows[0].n,1);assert.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_review_request')).rows[0].n,1);
+ const originalMembers=await x.members(fish.protocol.test_id);
+ await blocker.query('BEGIN');await blocker.query("UPDATE subscribers SET status='disabled' WHERE id=1");
+ const disabled=service(a).execute({key:'synthetic-manager-key',request:x.reviewRequest(fish,F.uuid(61002))});assert.equal(await blocked(pids[0]),true);
+ await db.query("INSERT INTO subscriber_lists VALUES(9,101,'confirmed')");await blocker.query('COMMIT');
+ const disabledResult=await disabled;assert.equal(disabledResult._http,201,JSON.stringify(disabledResult));assert.equal(sum(disabledResult,'allocated'),4);assert.equal(sum(disabledResult,'eligible'),3);
+ await blocker.query('BEGIN');await blocker.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=2 AND list_id=17");
+ const optedout=service(a).execute({key:'synthetic-manager-key',request:x.reviewRequest(fish,F.uuid(61003))});assert.equal(await blocked(pids[0]),true);await blocker.query('COMMIT');
+ const optedoutResult=await optedout;assert.equal(optedoutResult._http,201,JSON.stringify(optedoutResult));assert.equal(sum(optedoutResult,'allocated'),4);assert.equal(sum(optedoutResult,'eligible'),2);assert.equal(sum(optedoutResult,'excluded'),2);assert.deepEqual(await x.members(fish.protocol.test_id),originalMembers);
+ const op=F.uuid(61004);await blocker.query('BEGIN');await blocker.query(R.SQL.operationLock,[op]);
+ const unauthorized=service(a).execute({key:'synthetic-manager-key',request:x.reviewRequest(aristo,op)});assert.equal(await blocked(pids[0]),true);
+ await db.query("UPDATE shrigma_panel_permission_v1 SET caps='[\"draft\",\"read_content\"]' WHERE principal_id='manager'");await blocker.query('COMMIT');assert.equal((await unauthorized)._http,403);
+ assert.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_review_request WHERE operation_key=$1',[op])).rows[0].n,0);assert.equal((await db.query("SELECT count(*)::int n FROM crm_audience_v2.ab_review WHERE brand='aristo'")).rows[0].n,0);
+ await db.query("UPDATE shrigma_panel_permission_v1 SET caps='[\"draft\",\"validate\",\"read_content\"]' WHERE principal_id='manager'");
+ await db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '1 second' WHERE brand='fish'");let delayed=false;
+ const expired=await service(a,async(q,c)=>{if(!delayed&&q.includes('member_candidates AS MATERIALIZED')){delayed=true;await c.query('SELECT pg_sleep(1.2)');}}).execute({key:'synthetic-manager-key',request:x.reviewRequest(fish,F.uuid(61005))});
+ assert.equal(delayed,true);assert.equal(expired._http,201,JSON.stringify(expired));assert.equal(expired._body.review.status,'unavailable');assert.equal(expired._body.review.reason,'source_expired');assert.equal(expired._body.review.expires_at,expired._body.review.checked_at);assert.equal(sum(expired,'allocated'),4);for(const arm of expired._body.review.arms)assert.equal(arm.eligible,null);
+ const latest=await service(b).execute({key:'synthetic-manager-key',request:{acao:R.ACTIONS.get,brand:'fish',test_id:fish.protocol.test_id}});assert.equal(latest._http,200);assert.deepEqual(latest._body.review,expired._body.review);
+ const receipt=await service(b).execute({key:'synthetic-manager-key',request:{acao:R.ACTIONS.operation,brand:'fish',operation_id:request.operation_id}});assert.deepEqual(receipt,pair[0]);
+ assert.deepEqual((await db.query('SELECT DISTINCT status,sent,started_at FROM campaigns WHERE id IN(100,101,200,201)')).rows,[{status:'draft',sent:0,started_at:null}]);assert.equal((await db.query('SELECT enabled FROM crm_ab_runtime_v2')).rows[0].enabled,false);
+ console.log(JSON.stringify({ok:true,postgres_version:info.version,independent_connections:true,parallel_review_replay:true,global_disabled_after_real_wait:true,optout_after_real_wait:true,outside_insertion_excluded:true,denominator_and_arms_unchanged:true,permission_revoked_after_real_wait:true,no_partial_unauthorized_review:true,expiry_during_resolution_supersedes_latest:true,original_receipt_immutable:true,operational_runtime_off:true,transport:false}));
+}finally{for(const c of clients){try{await c.query('ROLLBACK');}catch{}c.release();}await pool.end();}})().catch(e=>{console.error('AB_REVIEW_POSTGRES_PROOF_FAILED',e.code||e.name,e.message);process.exitCode=1;});
