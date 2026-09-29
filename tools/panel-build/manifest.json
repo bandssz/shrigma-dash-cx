@@ -43,6 +43,7 @@
       "frescor.js",
       "growth-freshness.js",
       "config.js",
+      "crm-read-config.js",
       "growth-access.js",
       "growth-view.js",
       "growth-workspace.js",

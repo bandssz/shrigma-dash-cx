@@ -28,9 +28,9 @@ const GrowthView=(()=>{
  async function readIdentity(k){
   let timer;
   try{
-   if(typeof CX_API_URL!=='string'||typeof fetch!=='function')return null;
-   const url=new URL(CX_API_URL);if(url.protocol!=='https:'||url.username||url.password)return null;
-   url.searchParams.delete('k');url.searchParams.set('access','1');url.searchParams.set('painel','growth');
+   if(typeof CRM_READ_API_URL!=='string'||typeof fetch!=='function')return null;
+   const url=new URL(CRM_READ_API_URL);if(url.protocol!=='https:'||url.username||url.password)return null;
+   url.searchParams.delete('k');url.searchParams.set('action','identity');url.searchParams.set('painel','growth');
    const controller=new AbortController();
    const expired=new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve(null);},WAIT_MS);});
    return await Promise.race([expired,(async()=>{

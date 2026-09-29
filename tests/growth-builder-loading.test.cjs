@@ -67,21 +67,22 @@ test('failed refresh and retry preserve dirty draft, layout, base version and pe
 });
 
 function connectSources(html){const csp=html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];return csp.split(';').find(s=>s.trim().startsWith('connect-src ')).trim().split(/\s+/).slice(1);}
-test('published Growth permits its declared API origin without broadening other panels or login',()=>{
+test('published Growth permits its declared API origin without broadening other panels or their login',()=>{
  const sources=connectSources(fs.readFileSync(path.join(root,'growth.html'),'utf8'));
- assert.deepEqual(sources,['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin,'https://comunicacao-crm-audience.tazdb8.easypanel.host']);
- for(const file of ['index.html','organico.html','influs.html','cx/index.html','crm/index.html','organico/index.html','creators/index.html','gestao/index.html'])assert.deepEqual(connectSources(fs.readFileSync(path.join(root,file),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host'],file);
+ assert.deepEqual(connectSources(fs.readFileSync(path.join(root,'crm/index.html'),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host','https://comunicacao-crm-panel-read.tazdb8.easypanel.host']);
+ assert.deepEqual(sources,['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin,'https://comunicacao-crm-audience.tazdb8.easypanel.host','https://comunicacao-crm-panel-read.tazdb8.easypanel.host']);
+ for(const file of ['index.html','organico.html','influs.html','cx/index.html','organico/index.html','creators/index.html','gestao/index.html'])assert.deepEqual(connectSources(fs.readFileSync(path.join(root,file),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host'],file);
 });
 
 test('targeted Growth build writes only Growth artifacts and emits the matching policy',()=>{
- const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}','/fixture/config.js':'const CX_API_URL="https://api.example.test";','/fixture/panel-entry.js':'const sharedEntry=true;','/fixture/crm-entry.js':'const crmEntry=true;','/fixture/panel-entry.css':'body{}'},writes=new Map();
+ const files={'/fixture/growth.html':'<head><!-- PANEL_SECURITY --></head><body><!-- PANEL_CSS --><!-- PANEL_JS --></body>','/fixture/growth.js':'const synthetic=true;','/fixture/growth.css':'body{}','/fixture/config.js':'const CX_API_URL="https://api.example.test";','/fixture/panel-entry.js':'const sharedEntry=true;','/fixture/crm-read-config.js':'const CRM_READ_API_URL="https://fixture.invalid/read";','/fixture/crm-entry.js':'const crmEntry=true;','/fixture/panel-entry.css':'body{}'},writes=new Map();
  const fakeFS={mkdirSync(){},readFileSync:p=>{assert.ok(Object.hasOwn(files,p),'Unexpected read: '+p);return files[p];},writeFileSync:(p,s)=>writes.set(p,s)};
  const context={__dirname:'/fixture/tools/panel-build',process:{argv:['node','build.cjs','--panel=growth']},console:{log(){}},Buffer,
   require:name=>name==='node:fs'?fakeFS:name==='./manifest.json'?{growth:{scripts:['growth.js'],css:['growth.css']},index:{scripts:['unrelated.js'],css:[]}}:name.includes('esbuild')?{transformSync:s=>({code:s})}:require(name)};
  vm.runInNewContext(fs.readFileSync(path.join(root,'tools/panel-build/build.cjs'),'utf8'),context);
  assert.deepEqual([...writes.keys()].sort(),['/fixture/assets/panels/crm-entry.js','/fixture/assets/panels/growth.css','/fixture/assets/panels/growth.js','/fixture/crm/index.html','/fixture/growth.html']);
  assert.match(writes.get('/fixture/crm/index.html'),/assets\/panels\/crm-entry\.js/);assert.doesNotMatch(writes.get('/fixture/crm/index.html'),/entry-file/);
- assert.deepEqual(connectSources(writes.get('/fixture/growth.html')),['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin,'https://comunicacao-crm-audience.tazdb8.easypanel.host']);
+ assert.deepEqual(connectSources(writes.get('/fixture/growth.html')),['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin,'https://comunicacao-crm-audience.tazdb8.easypanel.host','https://comunicacao-crm-panel-read.tazdb8.easypanel.host']);
 });
 
 

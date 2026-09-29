@@ -36,15 +36,15 @@ async function boot(payload=fixture(),opts={}){
  const NativeDate=Date;class FixedDate extends NativeDate{constructor(...args){super(...(args.length?args:['2026-09-08T01:10:00Z']));}static now(){return new NativeDate('2026-09-08T01:10:00Z').valueOf();}}
  const heldLocks=new Set(),locks={request:async(key,opts,fn)=>{if(heldLocks.has(key))return fn(null);heldLocks.add(key);try{return await fn({name:key});}finally{heldLocks.delete(key);}}};
  const cryptoProvider=opts.cryptoProvider||webcrypto;
- const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,crypto:cryptoProvider,TextEncoder,navigator:{locks},console,__downloads:downloads,
+ const context=vm.createContext({document,window,Date:FixedDate,Intl,URL,URLSearchParams,AbortSignal,AbortController,crypto:cryptoProvider,TextEncoder,navigator:{locks},console,__downloads:downloads,
  __trackUiAction:(name,promise)=>uiActions.push({name,promise}),
  Image:class{set src(x){}},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
  location:{reload:()=>{throw Error('unexpected reload');},hash:opts.hash||''},history:{replaceState:(a,b,url)=>hashes.push(url)},
  Blob:class{constructor(parts){this.text=parts.join('');}},prompt:opts.prompt||(()=>null),confirm:()=>false,
  addEventListener:()=>{},setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length;},clearInterval:()=>{},setTimeout,clearTimeout,
  fetch:async(url,init)=>{requests.push(url);calls.push({url,init});if(opts.fetchMock){const r=await opts.fetchMock(url,init);if(r)return r;}
-  // The 10-minute cache serves the same payload stamped with its generation time; the panel reads it first and only falls back to the live API on a miss.
-  const body=structuredClone(response);if(typeof url==='string'&&url.includes('cx-dash-cache')&&body&&typeof body==='object'&&!Array.isArray(body))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();
+  // The isolated cache endpoint serves an authenticated snapshot with its generation time.
+  const body=structuredClone(response);if(typeof url==='string'&&url.includes('action=cache_growth')&&body&&typeof body==='object'&&!Array.isArray(body))body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();
   return {status:code,ok:code>=200&&code<300,json:async()=>body};},});
  for(const script of document.querySelectorAll('script')){
   const src=script.getAttribute('src');
@@ -351,7 +351,7 @@ test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave
 });
 /* ---------- Entrega 2: rascunhos locais ---------- */
 test('rascunhos: criar, salvar só no navegador, sobreviver ao refresh, exportar, importar e excluir — sem publicar/ativar',async()=>{
- const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const x=await boot(),initialRequests=x.requests.length;x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=()=>x.document.querySelector('#control-drafts');
  assert.equal(root().hidden,false);assert.match(root().textContent,/Rascunhos neste dispositivo/);assert.match(root().textContent,/Nenhum rascunho neste dispositivo/);
  x.run('trocaMarca("fish")');root().querySelector('#drafts-novo').click();
@@ -370,7 +370,7 @@ test('rascunhos: criar, salvar só no navegador, sobreviver ao refresh, exportar
  assert.match(root().textContent,/salvo neste dispositivo/);
  assert.equal(root().querySelectorAll('[data-draft]').length,1);
  assert.match(x.store.get('shrigma_growth_rascunhos'),/fish_rastreio_v3/);
- assert.equal(x.requests.length,1); // nenhuma chamada nova à API por causa do rascunho
+ assert.equal(x.requests.length,initialRequests); // nenhuma chamada nova à API por causa do rascunho
  await x.run('carregar()');
  assert.equal(root().querySelectorAll('[data-draft]').length,1);assert.equal(root().hidden,false);
  root().querySelector('[data-draft-export]').click();
@@ -544,7 +544,7 @@ test('the UI harness waits for the action promise while native crypto is still p
 });
 
 test('sem capabilities nada muda: nenhum botão de servidor, rascunho segue só neste dispositivo',async()=>{
- const x=await boot();x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
+ const x=await boot(),initialRequests=x.requests.length;x.document.querySelector('[data-s="regua"]').click();x.document.querySelector('[data-control-tab="drafts"]').click();
  const root=x.document.querySelector('#control-drafts');root.querySelector('#drafts-novo').click();
  assert.match(root.textContent,/Rascunhos neste dispositivo/);
  assert.equal([...root.querySelectorAll('button')].filter(b=>/servidor|validar|submeter|publicar|ativar/i.test(b.textContent)).length,0);
@@ -758,7 +758,7 @@ test('WhatsApp preview updates examples and PIX card without live payment action
  assert.equal(x.document.querySelectorAll('#d-preview a[href]').length,0);
 });
 test('email preview opens isolated HTML with devices, images opt-in and restored focus',async()=>{
- const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'});
+ const x=await boot(fixture(),{hash:'#sec=regua&aba=drafts'}),initialRequests=x.requests.length;
  x.run('trocaMarca("fish")');x.document.querySelector('#drafts-novo-email').click();
  const set=(id,v)=>{const el=x.document.querySelector(id);el.value=v;el.dispatchEvent(new x.window.Event('input'));};
  set('#d-assunto','Sua compra');set('#d-corpo','<h1>Olá {{ .Tx.Data.first_name }}</h1><img src="https://example.com/photo.png"><script>alert(1)</script><a href="https://example.com/pay" onclick="alert(1)">Pagar</a>');
@@ -769,7 +769,7 @@ test('email preview opens isolated HTML with devices, images opt-in and restored
  modal.querySelector('[data-mp-device="mobile"]').click();assert.equal(modal.querySelector('.mp-mail-stage').dataset.device,'mobile');
  const images=modal.querySelector('[data-mp-images]');images.checked=true;images.dispatchEvent(new x.window.Event('change'));assert.match(modal.querySelector('iframe').getAttribute('srcdoc'),/img-src https:/);
  modal.querySelector('[data-mp-close]').click();assert.equal(x.document.querySelector('#message-preview-dialog'),null);assert.equal(x.document.activeElement,open);
- assert.equal(x.requests.length,1);
+ assert.equal(x.requests.length,initialRequests);
 });
 
 
@@ -807,7 +807,7 @@ test('Growth connection errors do not print request URL or reader key',async()=>
 test('Growth rejects a response from another scope or an error envelope and preserves the previous data',async()=>{
  const x=await boot();const before=x.document.querySelector('#area-kpis').textContent;
  for(const payload of [{...fixture(),_escopo:'influs'}, {...fixture(),erro:'synthetic-private-error'}, {...fixture(),error:'synthetic-private-error'}]){
-  x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/não retornou os dados do CRM/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
+  x.setResponse(payload);await x.run('carregar()');assert.equal(x.document.querySelector('#area-kpis').textContent,before);assert.match(x.document.querySelector('#faixa-alertas').textContent,/dados atualizados do CRM ainda não estão disponíveis/);assert.doesNotMatch(x.document.body.textContent,/synthetic-private-error/);
  }
 });
 

@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=589e9c9c1f22">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-9PZoWxJFw+X6o65SADettktZjbJqv36XWSQwPWmE59M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FmaswdD9mFi8Y0zgv75t4a/Vc0jMBMYK+0x32UILfwE='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -265,7 +265,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=61618822b27f"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=25292e4f8811"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -844,15 +844,23 @@ function mostraAcessoGrowth(mensagem=''){
   $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
 }
 // GROWTH_CACHE_READ_BEGIN
-// Leitura em cache (mesmo padrao do CX, 17/09): payload de growth montado a cada 10 min pelo workflow
-// "CRM — API cache" e servido por um SELECT. A API viva (~20-30 s de Postgres) fica como reserva.
+// Authenticated CRM cache read: never start the expensive live query on each login or retry.
 const GROWTH_CACHE_MAX_MS=20*60*1000; // duas geracoes esperadas do cache
 function payloadGrowthValido(p){return !!p&&typeof p==='object'&&p._escopo==='growth'&&!p.error&&!p.erro&&Array.isArray(p.crm_campanha)&&Array.isArray(p.crm_fluxo)&&Array.isArray(p.crm_conversao);}
 function cacheGrowthValido(p,agora=Date.now()){const t=Date.parse(p&&p._cache_gerado_em||'');return payloadGrowthValido(p)&&Number.isFinite(t)&&agora-t>=-60000&&agora-t<=GROWTH_CACHE_MAX_MS;}
 async function consultaGrowth(url,k,timeoutMs){
-  const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(timeoutMs)});
-  let payload=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
-  return {r,payload};
+  const controller=new AbortController();let timer;
+  const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error('O servidor demorou para responder. Tente atualizar novamente.'));controller.abort();},timeoutMs);});
+  try{return await Promise.race([expired,(async()=>{
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
+    let payload=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
+    return {r,payload};
+  })()]);}finally{clearTimeout(timer);}
+}
+async function leCacheGrowth(k){
+  const url=new URL(CRM_READ_API_URL);url.searchParams.set('action','cache_growth');url.searchParams.set('painel','growth');
+  const c=await consultaGrowth(url.href,k,12000);
+  return {r:c.r,next:c.r.ok&&cacheGrowthValido(c.payload)?c.payload:null};
 }
 // GROWTH_CACHE_READ_END
 async function carregar(){
@@ -863,16 +871,9 @@ async function carregar(){
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
-    // 1o o cache (pronto, < 3 s); se falhar por qualquer motivo que nao seja chave recusada, a API viva.
-    let next=null,r=null,ORIGEM_LEITURA='';
-    if(typeof CX_CACHE_URL==='string'&&CX_CACHE_URL){
-      try{const c=await consultaGrowth(CX_CACHE_URL+'?painel=growth',k,8000);r=c.r;if(c.r.ok&&cacheGrowthValido(c.payload)){next=c.payload;ORIGEM_LEITURA='cache';}}catch(_){next=null;}
-    }
-    if(!next&&!(r&&(r.status===401||r.status===403))){
-      const v=await consultaGrowth(`${CX_API_URL}?painel=growth`,k,45000);r=v.r;if(v.r.ok&&payloadGrowthValido(v.payload)){next=v.payload;ORIGEM_LEITURA='vivo';}
-    }
+    const {next,r}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
-    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Esta chave não retornou os dados do CRM.');}
+    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.');}
     API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
