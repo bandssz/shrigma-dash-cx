@@ -37,6 +37,11 @@ jobs:
       - name: Install pinned disposable PostgreSQL and test libraries
         run: |
           npm install --prefix "$RUNNER_TEMP/regular-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0 @electric-sql/pglite@0.3.14 linkedom@0.18.12 @embedded-postgres/linux-x64@17.10.0-beta.17
+          # npm --ignore-scripts skips the package's required SONAME symlinks.
+          # Run only this reviewed, pinned package hydration before any build.
+          (cd "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
+          "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin/initdb" --version
+          "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin/postgres" --version
           sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
       - name: Download and verify pinned public source and dependency archives
         run: python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/regular-inputs" --go "$(command -v go)"
