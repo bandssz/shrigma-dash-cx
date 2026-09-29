@@ -1,4 +1,5 @@
 /* Growth segment definition + aggregate query only. No I/O, native campaign payload or transport. */
+var SegmentContract=(()=>{
 'use strict';
 const VERSION='crm-segment-v1',LIMITS=Object.freeze({depth:4,nodes:32,children:16,bytes:12000}),TRANSPORT_SUPPORTED=false;
 const own=(v,k)=>Object.prototype.hasOwnProperty.call(v,k);
@@ -50,4 +51,6 @@ SELECT scope.confirmed AS source_confirmed,
  statement_timestamp() AS checked_at FROM scope`;
  return {definition,canonical:JSON.stringify(definition),list_ids:ids,base_list_id:baseListId,text,values,transport_supported:false};
 }
-module.exports={VERSION,LIMITS,TRANSPORT_SUPPORTED,normalize,compileCount};
+return {VERSION,LIMITS,TRANSPORT_SUPPORTED,normalize,compileCount};
+})();
+if(typeof module!=='undefined'&&module.exports)module.exports=SegmentContract;

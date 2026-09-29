@@ -9,3 +9,9 @@
 .ce-audience-tags .ce-tag{margin-left:0;white-space:normal}.ce-audience-details{margin-top:10px;font-size:11px;line-height:1.7;color:#777168}
 .ce-audience-details summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}.ce-audience-details p{margin-top:6px}
 .ce-tracking .ce-audience-warning strong{margin:8px 0 0;color:#82581c}
+.ce-saved-audience{margin:20px 0;padding:18px;border:1px solid #dfe5d7;border-radius:9px;background:#fafbf8}
+.ce-saved-audience h4{margin:0 0 10px;font-size:14px}.ce-saved-audience p{font-size:12px;line-height:1.65;color:#62695b}
+.ce-saved-audience>label{display:flex;flex-direction:column;gap:8px;font-size:12px;margin-top:16px}
+.ce-saved-audience select{max-width:100%;padding:11px;border:1px solid #dfddd5;border-radius:7px;font:inherit;background:white}
+.ce-saved-audience [data-error=true]{color:#a44736}.ce-saved-audience .ce-audience-warning{color:#82581c}
+@media(max-width:640px){.ce-saved-audience{padding:13px}.ce-saved-audience select{font-size:16px}}

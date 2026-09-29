@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4c3d41fa3145">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5GJ3cyF9LQ5w6UeBJICeZr0xllFkEO0Ocb4i0i5OTsY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=589e9c9c1f22">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-oKbMPbh/rLNriF3L6NZ4njGJOTIC3zus1xeMX6OyxUM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -209,6 +209,11 @@
 
   <div class="sec" id="sec-base">
 
+    <section class="painel" id="crm-segments-panel" hidden aria-label="Públicos reutilizáveis">
+      <p id="crm-segments-status" role="status" hidden></p>
+      <div id="crm-segments-editor"></div>
+    </section>
+
     <section class="painel">
       <div class="painel-cab"><h2>Públicos da marca</h2><span class="mini crm-help" id="arv-rot" tabindex="0" title="Base da marca na última coleta disponível, independente do período e do canal selecionados."></span></div>
       <div id="area-arvore"></div>
@@ -260,7 +265,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=92eec1611e87"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=b7fb5e617727"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -488,11 +493,11 @@ async function encerrarTeste(id){
 let AB_EXPERIMENT_PANEL=null;
 function restoreABExperimentBrand(next){
   if(!['fish','aristo'].includes(next))return false;
-  const campaign=GCE.contextStatus(),template=GRU.contextStatus();
+  const campaign=GCE.contextStatus(),template=GRU.contextStatus(),segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
   if($('#brand-change-confirm')?.open)return false;
-  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||
+  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||segments.blocked||segments.pending||
     typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
-  try{GCE.preserve();GRU.preserve();GABF.preserve();}catch{return false;}
+  try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();}catch{return false;}
   MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
   GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});GABF.enter(MARCA,API);GRU.render({api:API,marca:MARCA});pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
 }
@@ -508,13 +513,45 @@ function renderABExperiment(){
     AB_EXPERIMENT_PANEL.render({element,marca:MARCA,api:API,activation:GABExperimentPanel.ACTIVATION});
   }catch(e){element.hidden=false;element.textContent=e.message;}
 }
-let CRM_AUDIENCE_VIEW=null;
+let CRM_AUDIENCE_VIEW=null,CRM_SEGMENT_VIEW=null,CRM_SEGMENT_SYNC=null,CRM_SEGMENT_NEXT=null;
+function contextoSegmentos(){
+  const caps=typeof GSC!=='undefined'?GSC.caps(API):null;
+  return {api:API,brand:MARCA,caps,key:typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):''};
+}
+function mesmoContextoSegmentos(a,b){return a.brand===b.brand&&a.key===b.key&&JSON.stringify(a.caps)===JSON.stringify(b.caps);}
+function renderSegmentos(){
+  const host=$('#crm-segments-panel'),editor=$('#crm-segments-editor'),status=$('#crm-segments-status'),next=contextoSegmentos();
+  const available=!!next.key&&next.caps?.read===true&&next.caps.brands.includes(next.brand)&&typeof GSU!=='undefined';
+  host.hidden=!available;
+  // A missing capability leaves the existing audience view intact. Mount only
+  // when Público is opened; once mounted retain its journal while navigating.
+  if(!CRM_SEGMENT_VIEW&&(!available||SEC!=='base'))return Promise.resolve(false);
+  if(!CRM_SEGMENT_VIEW){
+    try{CRM_SEGMENT_VIEW=GSU.create({element:editor,document,key:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',storage:localStorage,fetch,locks:navigator.locks});}
+    catch{editor.hidden=true;status.hidden=false;status.textContent='Não foi possível abrir os públicos reutilizáveis. A consulta atual foi preservada.';return Promise.resolve(false);}
+  }
+  CRM_SEGMENT_NEXT=next;
+  if(CRM_SEGMENT_VIEW.contextStatus().brand!==next.brand){editor.hidden=true;status.hidden=false;status.textContent='Conferindo os públicos desta marca…';}
+  if(CRM_SEGMENT_SYNC)return CRM_SEGMENT_SYNC;
+  CRM_SEGMENT_SYNC=(async()=>{
+    while(CRM_SEGMENT_NEXT){
+      const desired=CRM_SEGMENT_NEXT;CRM_SEGMENT_NEXT=null;let accepted=false;
+      try{accepted=await CRM_SEGMENT_VIEW.sync({api:desired.api,brand:desired.brand});}catch{}
+      const current=contextoSegmentos(),same=mesmoContextoSegmentos(desired,current);
+      // Never present a previous brand/access/endpoint as the current editor.
+      editor.hidden=!accepted||!same;status.hidden=accepted&&same;
+      if(!status.hidden)status.textContent='A preparação anterior foi preservada. Conclua ou confira a tentativa original antes de abrir outro contexto de públicos.';
+    }
+  })().finally(()=>{CRM_SEGMENT_SYNC=null;});
+  return CRM_SEGMENT_SYNC;
+}
 function renderPublicos(){
   if(!API)return;
   if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar()});
   const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:GCE.catalogs?.()||[]});
   $('#n-arv').textContent=audience.total||'';
   $('#arv-rot').textContent='Última contagem por público';
+  void renderSegmentos();
 }
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
@@ -908,8 +945,9 @@ function trocaMarca(next,afterConfirm=null){
   if(dialog?.open){notice('Conclua a confirmação aberta antes de trocar de marca.');return false;}
   const ready=()=>{
     if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
-    const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{};
-    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked||experiment.blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{},segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
+    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked||experiment.blocked||segments.blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(segments.pending){notice('Há uma tentativa de público sem confirmação. Consulte a mesma tentativa antes de trocar de marca.');return false;}
     if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
     if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
       notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
@@ -919,14 +957,14 @@ function trocaMarca(next,afterConfirm=null){
   const apply=()=>{
     if(!ready())return false;
     const campaign=GCE.contextStatus();
-    try{GCE.preserve();GRU.preserve();GABF.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
+    try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
     ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
     notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;
   };
   if(!ready())return false;
-  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty&&!(typeof GJG!=='undefined'&&GJG.contextStatus().dirty))return apply();
+  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty&&!CRM_SEGMENT_VIEW?.contextStatus().dirty&&!(typeof GJG!=='undefined'&&GJG.contextStatus().dirty))return apply();
   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');return false;}
   const caller=document.activeElement;let settled=false;
   const finish=accepted=>{
