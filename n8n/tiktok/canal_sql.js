@@ -1,6 +1,12 @@
 // Monta 1 upsert por item (marca, fonte) do coletor de canal + a linha de crm_tts_coleta_log no mesmo
 // statement (CTE), para o frescor do painel. Colunas fixas por tabela; VALUES escapados.
-const q = s => (s === null || s === undefined) ? 'NULL' : "'" + String(s).split("'").join("''") + "'";
+// O nó Postgres do n8n lê "$1", "$29", "${x}" como parâmetro até dentro de texto (29/09: título de vídeo da Fish
+// com "R$29" derrubou a gravação dos vídeos desde 26/09). Por isso o "$" sai como chr(36), fora das aspas.
+const q = s => {
+  if (s === null || s === undefined) return 'NULL';
+  const partes = String(s).split("'").join("''").split('$');
+  return partes.length === 1 ? "'" + partes[0] + "'" : '(' + partes.map(p => "'" + p + "'").join(' || chr(36) || ') + ')';
+};
 const n = v => (v === null || v === undefined || v === '' || Number.isNaN(Number(v))) ? 'NULL' : String(Number(v));
 const t = v => v ? q(v) + '::timestamptz' : 'NULL';
 const d = v => v ? q(v) + '::date' : 'NULL';

@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=cee2f430cd6a">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tVTpx+eIfeFFFk2bddxl8v2ACW/mWHQlvUEd/7QOH2s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=9d723386a6a4">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3ZLc5vc8t9vJvnKCxxleUNBHGAP9oXxxdmL5H419J4g='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -244,7 +244,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=358b24f3a0eb"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=4c4a468d938b"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -451,6 +451,10 @@ function pintaMarca(){
 // "CRM — Dashboard · API de influs", nao pela API de leitura do painel:
 // dominio de falha separado, igual ao coletor de conversao.
 let INFLU=null, INFLU_SEQ=0, INFLU_READ=null, CRED_READ=null;
+// Última leitura boa (mesma chave e mesmo período): se a atual falhar, a tela mostra esta e avisa que caiu.
+let INFLU_ULTIMA=null;
+// Limite de uma leitura (já com as novas tentativas). Nos picos do n8n (:00 e :30) a resposta passa de 20 s.
+const LEITURA_INFLU_MS=35000;
 // Filtro de nicho: escopa KPIs, cortes, cupons e creators, como a marca.
 let NICHO='';
 const mapaNicho=()=>new Map(((INFLU&&INFLU.influs)||[]).map(i=>[i.marca+'|'+i.influ,i.nicho||null]));
@@ -472,7 +476,7 @@ function leituraInfluLimitada(run){
   const controller=new AbortController();let active=true,timer,cancel;
   const limit=new Promise((_,reject)=>{
     cancel=()=>{active=false;controller.abort();reject(new Error('Consulta substituída.'));};
-    timer=setTimeout(()=>{active=false;controller.abort();reject(new Error('A consulta demorou mais de 20 segundos. Tente atualizar novamente.'));},20000);
+    timer=setTimeout(()=>{active=false;controller.abort();reject(new Error('A consulta demorou mais de '+Math.round(LEITURA_INFLU_MS/1000)+' segundos. Tente atualizar novamente.'));},LEITURA_INFLU_MS);
   });
   const promise=Promise.race([run(controller.signal,()=>active),limit]).finally(()=>{active=false;clearTimeout(timer);});
   return {promise,cancel};
@@ -559,13 +563,20 @@ async function carregarInflu(){
     if(!vigente())return;
     if(!novo||!['roi','influs','cupons','custos','receita_cupom','termos'].every(c=>Array.isArray(novo[c]))||
        novo.janela?.ini!==periodo.ini||novo.janela?.fim!==periodo.fim)throw new Error('A resposta não confirmou os dados e o período solicitado.');
-    INFLU=novo;
+    INFLU=novo;INFLU_ULTIMA={k,ini:periodo.ini,fim:periodo.fim,em:Date.now(),dados:novo};
     if(typeof INFLU_ACCESS!=='undefined'&&INFLU_ACCESS.refresh)INFLU_ACCESS.refresh(); // chave aceita (inclusive a que veio da entrada do site): some o botão de entrar
     renderTudo();
   }catch(e){
     // A current authorization refusal may already have cleared the key inside influPost.
     if(seq!==INFLU_SEQ||(!vigente()&&e.status!==401&&e.status!==403))return;
     const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
+    const ult=INFLU_ULTIMA;
+    if(!chaveRuim&&ult&&ult.k===k&&ult.ini===periodo.ini&&ult.fim===periodo.fim){
+      INFLU=ult.dados;renderTudo();
+      const hora=new Date(ult.em).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+      const f=$('#faixa-alertas');if(f&&f.insertAdjacentHTML){f.insertAdjacentHTML('afterbegin',`<p class="aviso-antigo"><span class="tag alerta" title="A leitura atual não respondeu (${esc(e.message)}). A tela mostra a última leitura boa deste período, de ${hora}.">leitura de ${hora} · a atual não respondeu</span> <button type="button" class="btn sec" id="btn-retry-influ">Tentar de novo</button></p>`);const b=$('#btn-retry-influ');if(b)b.onclick=()=>carregarInflu();}
+      return;
+    }
     avisoTela(chaveRuim?'Acesso não confirmado':'Falha ao carregar',
       esc(e.transitorio&&typeof PainelRede!=='undefined'?PainelRede.mensagem(e):e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
       chaveRuim?'Informar acesso':'Tentar de novo');

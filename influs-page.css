@@ -201,3 +201,5 @@ body.sec-afil #area-kpis,body.sec-afil #faixa-alertas{display:none} /* KPIs/aler
 .canais button[data-plataforma=tiktok]{--plat:#E8114B}
 .canais button[data-plataforma=meli]{--plat:#3E6FC0}
 .canais button[data-plataforma=shopee]{--plat:#D9431F}
+/* Leitura anterior na tela (29/09): etiqueta + botão numa linha. */
+.aviso-antigo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}

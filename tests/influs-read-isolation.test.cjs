@@ -22,7 +22,7 @@ function page(code=source){
  assert(start>=0&&end>start);vm.runInContext(code.slice(start,end),ctx);
  return {ctx,document,calls,paints,rejected,stored,writes,timers,load:()=>ctx.carregarTTS(),key:v=>{key=v;},
   async good(payload=data()){const p=ctx.carregarTTS();calls.at(-1).resolve(response(payload));await p;},
-  timeout(){const entry=[...timers.values()][0];assert(entry,'a stalled read must have a deadline');assert.equal(entry.ms,20000);entry.fn();}};
+  timeout(){const entry=[...timers.values()][0];assert(entry,'a stalled read must have a deadline');assert.equal(entry.ms,35000);entry.fn();}};
 }
 test('never paints a legacy persistent cache before authorization; only that data cache is retired',async()=>{
  const p=page(),pending=p.load();assert.equal(p.paints.length,0);assert.equal(p.ctx.DADOS,null);
@@ -55,7 +55,7 @@ test('20-second deadline covers both headers and a stalled body; late results ca
   const p=page();let resolveBody;const pending=p.load();
   if(bodyStalls){p.calls[0].resolve({status:200,ok:true,json:()=>new Promise(r=>resolveBody=r)});await tick();}
   p.timeout();await pending;assert.equal(p.calls[0].init.signal.aborted,true);assert.equal(p.ctx.DADOS,null);
-  assert.match(p.document.querySelector('#tts-area').textContent,/20 segundos/);assert.equal(p.timers.size,0);
+  assert.match(p.document.querySelector('#tts-area').textContent,/35 segundos/);assert.equal(p.timers.size,0);
   if(bodyStalls)resolveBody(data());else p.calls[0].resolve(response(data()));await tick();assert.equal(p.ctx.DADOS,null);
  }
 });

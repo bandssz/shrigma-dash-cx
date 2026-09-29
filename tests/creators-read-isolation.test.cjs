@@ -15,7 +15,7 @@ function page(){
   fetch:(url,init)=>new Promise((resolve,reject)=>calls.push({url,init,resolve,reject})),
   renderTudo:()=>paints.push(vm.runInContext('INFLU',ctx))});
  vm.runInContext(section('let INFLU=null,','/* Faixa de credencial.')+section('async function faixaCredencial(){','faixaCredencial();')+section('async function carregarInflu(){','function renderTudo(){'),ctx);
- return {ctx,calls,paints,notices,banners,master,rejects,timers,fresh,key:k=>key=k,data:()=>vm.runInContext('INFLU',ctx),load:()=>ctx.carregarInflu(),banner:()=>ctx.faixaCredencial(),expire(){const t=[...timers.values()][0];assert.equal(t.ms,20000);t.fn();}};
+ return {ctx,calls,paints,notices,banners,master,rejects,timers,fresh,key:k=>key=k,data:()=>vm.runInContext('INFLU',ctx),load:()=>ctx.carregarInflu(),banner:()=>ctx.faixaCredencial(),expire(){const t=[...timers.values()][0];assert.equal(t.ms,35000);t.fn();}};
 }
 test('Creators cancels superseded period reads and only renders the matching response',async()=>{
  const p=page(),old=p.load();p.ctx.PER={ini:'2026-08-01',fim:'2026-08-31'};const current=p.load();assert(p.calls[0].init.signal.aborted);
@@ -29,7 +29,7 @@ test('Creators deadline covers fetch and JSON body; a late rejection cannot forg
  for(const bodyStalls of [false,true]){
   const p=page();let resolveBody;const r=p.load();
   if(bodyStalls){p.calls[0].resolve({status:401,ok:false,json:()=>new Promise(resolve=>resolveBody=resolve)});await tick();}
-  p.expire();await r;assert(p.calls[0].init.signal.aborted);assert.match(p.notices.at(-1)[1],/20 segundos/);
+  p.expire();await r;assert(p.calls[0].init.signal.aborted);assert.match(p.notices.at(-1)[1],/35 segundos/);
   if(bodyStalls)resolveBody({erro:'old'});else p.calls[0].resolve(response({},401));await tick();
   assert.deepEqual(p.rejects,[]);assert.equal(p.data(),null);assert.equal(p.timers.size,0);
  }
@@ -52,4 +52,15 @@ test('credential timeout cannot block Creators and writes retain their own unbou
  const p=page(),banner=p.banner(),load=p.load();p.calls[1].resolve(response(data()));await load;p.expire();await banner;assert.equal(p.data().roi[0].receita,125);
  const written=p.ctx.influPost({k:'reader-a',acao:'salvar_custo'});assert.equal(p.timers.size,0);assert.equal(p.calls[2].init.signal,undefined);
  p.calls[2].reject(Error('offline'));await assert.rejects(written,/Resposta não confirmada/);assert.equal(p.calls.length,3);
+});
+
+test('se a leitura atual falha, a tela volta para a última leitura boa do mesmo período e da mesma chave',async()=>{
+ const p=page();let r=p.load();p.calls[0].resolve(response(data()));await r;assert.equal(p.paints.length,1);
+ r=p.load();p.calls[1].reject(Error('offline'));await r;
+ assert.equal(p.data().roi[0].receita,125,'mostra a leitura anterior');assert.equal(p.paints.length,2);
+ const avisos=p.notices.filter(n=>/Falha ao carregar/.test(n[0]));assert.equal(avisos.length,0,'não troca a tela pelo erro');
+ p.ctx.PER={ini:'2026-08-01',fim:'2026-08-31'};r=p.load();p.calls[2].reject(Error('offline'));await r;
+ assert.equal(p.data(),null,'outro período não herda dado');assert.match(p.notices.at(-1)[0],/Falha ao carregar/);
+ p.ctx.PER={ini:'2026-09-14',fim:'2026-09-20'};p.key('reader-b');r=p.load();p.calls[3].reject(Error('offline'));await r;
+ assert.equal(p.data(),null,'outra chave não herda dado');
 });
