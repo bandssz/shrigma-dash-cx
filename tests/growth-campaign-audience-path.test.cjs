@@ -51,6 +51,17 @@ async function until(check){for(let i=0;i<1500;i++){if(check())return;await new 
 async function load(x){x.q('[data-ca="load"]').click();try{await until(()=>x.q('[data-ca-select]')&&!x.run('GCE.contextStatus().blocked'));}catch{assert.fail(JSON.stringify({status:x.q('[data-ca-status]')?.textContent,calls:x.calls.map(c=>c.request.acao)}));}}
 async function inspect(x){await load(x);const s=x.q('[data-ca-select]');s.value=x.audience.id;s.dispatchEvent(new x.window.Event('change',{bubbles:true}));x.q('[data-ca="inspect"]').click();await until(()=>x.q('[data-ca-inspection]')&&!x.run('GCE.contextStatus().blocked'));}
 const posts=x=>x.calls.filter(c=>c.request.acao==='campanha_publico_vincular');
+test('selector explains saved Shopify rules and freshness without counting or changing local records',async t=>{
+ const db=new PGlite();t.after(()=>db.close());const f=await F.setup(db,{countProvider:require('../n8n/growth/segment-audience-listmonk.cjs').countAudience});
+ await f.createAudience('fish','shopify-selector-proof',{op:'condition',field:'purchase.product',operator:'not_purchased',value:'gid://shopify/Product/101'});
+ for(const id of [100,200])await db.transaction(async tx=>{await tx.query("SELECT set_config('shrigma.campaign_writer',$1,true)",[String(id)]);await tx.query("UPDATE campaigns SET body=body||' {{ UnsubscribeURL }}',altbody=altbody||' {{ UnsubscribeURL }}' WHERE id=$1",[id]);});
+ const x=await setup(t,'fish',{fixture:f});await load(x);const select=x.q('[data-ca-select]'),beforeCalls=x.calls.length;
+ select.value=x.audience.id;const beforeStore=[...x.store.entries()];select.dispatchEvent(new x.window.Event('change',{bubbles:true}));
+ assert.match(x.q('[data-ca-audience-summary]').textContent,/Produto nos pedidos: não comprou nos pedidos identificados Synthetic product/);
+ assert.match(x.q('[data-ca-audience-freshness]').textContent,/Atualizado no painel em/);assert.match(x.q('[data-ca-audience-freshness]').textContent,/Dados Shopify coletados até/);assert.match(x.q('[data-ca-audience-freshness]').textContent,/sincronização é noturna/);
+ assert.match(x.q('[data-ca-audience-count-guidance]').textContent,/abra Público, reabra esta versão e use Contar público/);
+ assert.equal(x.calls.length,beforeCalls);assert.equal(x.calls.filter(c=>c.request.acao==='segmento_contar').length,0);assert.deepEqual([...x.store.entries()],beforeStore);assert.equal(x.q('[data-ca-inspection]'),null);
+});
 for(const brand of ['fish','aristo'])test(brand+': bound validation counts the saved expression and rechecks consent without calling legacy review',async t=>{
  const x=await setup(t,brand);
  await x.db.exec("UPDATE shrigma_panel_permission_v1 SET caps=caps||'[\"validate\"]'::jsonb WHERE principal_id='manager'");
