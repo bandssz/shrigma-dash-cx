@@ -27,9 +27,11 @@ jobs:
         run: |
           RUN_ID="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["run_id"])')"
           ARTIFACT="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["artifact_name"])')"
+          PR_NUMBER="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["pull_request"])')"
+          gh api "repos/bandssz/shrigma-dash-cx/pulls/$PR_NUMBER" > "$RUNNER_TEMP/regular-pr.json"
           gh api "repos/bandssz/shrigma-dash-cx/actions/runs/$RUN_ID" > "$RUNNER_TEMP/regular-run.json"
           gh run download "$RUN_ID" --repo bandssz/shrigma-dash-cx --name "$ARTIFACT" --dir "$RUNNER_TEMP/regular-artifact"
-          python3 tools/crm-regular-registry/publish.py verify --run-json "$RUNNER_TEMP/regular-run.json" --artifact-dir "$RUNNER_TEMP/regular-artifact"
+          python3 tools/crm-regular-registry/publish.py verify --run-json "$RUNNER_TEMP/regular-run.json" --pr-json "$RUNNER_TEMP/regular-pr.json" --artifact-dir "$RUNNER_TEMP/regular-artifact"
   publish:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'bandssz/shrigma-dash-cx'
     needs: verify
@@ -51,9 +53,11 @@ jobs:
         run: |
           RUN_ID="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["run_id"])')"
           ARTIFACT="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["artifact_name"])')"
+          PR_NUMBER="$(python3 -c 'import json; print(json.load(open("tools/crm-regular-registry/lock.json"))["pull_request"])')"
+          gh api "repos/bandssz/shrigma-dash-cx/pulls/$PR_NUMBER" > "$RUNNER_TEMP/regular-pr.json"
           gh api "repos/bandssz/shrigma-dash-cx/actions/runs/$RUN_ID" > "$RUNNER_TEMP/regular-run.json"
           gh run download "$RUN_ID" --repo bandssz/shrigma-dash-cx --name "$ARTIFACT" --dir "$RUNNER_TEMP/regular-artifact"
-          python3 tools/crm-regular-registry/publish.py publish --run-json "$RUNNER_TEMP/regular-run.json" --artifact-dir "$RUNNER_TEMP/regular-artifact" --receipt "$RUNNER_TEMP/regular-registry-receipt.json"
+          python3 tools/crm-regular-registry/publish.py publish --run-json "$RUNNER_TEMP/regular-run.json" --pr-json "$RUNNER_TEMP/regular-pr.json" --artifact-dir "$RUNNER_TEMP/regular-artifact" --receipt "$RUNNER_TEMP/regular-registry-receipt.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: crm-regular-worker-registry-receipt

@@ -49,6 +49,7 @@ def load_lock(path=LOCK_PATH):
     require(re.fullmatch(r'[0-9a-f]{40}', str(lock.get('source_head', ''))) is not None, 'LOCK_HEAD')
     require(re.fullmatch(r'[0-9a-f]{40}', str(lock.get('ci_revision', ''))) is not None, 'LOCK_REVISION')
     require(re.fullmatch(r'sha256:[0-9a-f]{64}', str(lock.get('manifest_digest', ''))) is not None, 'LOCK_MANIFEST')
+    require(re.fullmatch(r'[0-9a-f]{40}', str(lock.get('source_merge', ''))) is not None, 'LOCK_MERGE')
     require(lock.get('tag') == 'regular-v1-' + lock['source_head'], 'LOCK_TAG')
     require(lock.get('image') == 'ghcr.io/bandssz/shrigma-crm-listmonk', 'LOCK_IMAGE')
     require(isinstance(lock.get('run_id'), int) and lock['run_id'] > 0 and
@@ -136,17 +137,23 @@ def verify_oci(directory, lock):
     return oci
 
 
-def verify_run(run, lock):
+def verify_run(run, lock, source_pr):
+    # GitHub can empty run.pull_requests after a merge. Verify the PR directly.
+    require(isinstance(source_pr, dict) and source_pr.get('number') == lock['pull_request'] and
+            source_pr.get('merged') is True and source_pr.get('state') == 'closed' and
+            source_pr.get('head', {}).get('sha') == lock['source_head'] and
+            source_pr.get('head', {}).get('repo', {}).get('full_name') == lock['repository'] and
+            source_pr.get('base', {}).get('repo', {}).get('full_name') == lock['repository'] and
+            source_pr.get('base', {}).get('ref') == 'main' and
+            source_pr.get('merge_commit_sha') == lock['source_merge'], 'SOURCE_PR')
     prs = run.get('pull_requests')
-    expected_pr = lock['pull_request']
-    pr_ok = isinstance(prs, list) and any(
-        p.get('number') == expected_pr and p.get('head', {}).get('sha') == lock['source_head']
-        for p in prs if isinstance(p, dict)
-    )
+    require(isinstance(prs, list) and (not prs or any(
+        p.get('number') == lock['pull_request'] and p.get('head', {}).get('sha') == lock['source_head']
+        for p in prs if isinstance(p, dict))), 'SOURCE_RUN_PR')
     require(run.get('id') == lock['run_id'] and run.get('head_sha') == lock['source_head'] and
             run.get('conclusion') == 'success' and run.get('status') == 'completed' and
             run.get('event') == 'pull_request' and run.get('path') == lock['workflow_path'] and
-            run.get('repository', {}).get('full_name') == lock['repository'] and pr_ok,
+            run.get('repository', {}).get('full_name') == lock['repository'],
             'SOURCE_RUN')
 
 
@@ -196,9 +203,9 @@ def verify_proofs(directory, lock):
             'POSTGRES_PROOF')
 
 
-def verify(run, directory, lock=None):
+def verify(run, directory, lock=None, source_pr=None):
     lock = load_lock() if lock is None else lock
-    verify_run(run, lock)
+    verify_run(run, lock, source_pr)
     verify_inventory(directory, lock)
     oci = verify_oci(directory, lock)
     verify_proofs(directory, lock)
@@ -279,12 +286,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('verify', 'publish'))
     parser.add_argument('--run-json', type=Path, required=True)
+    parser.add_argument('--pr-json', type=Path, required=True)
     parser.add_argument('--artifact-dir', type=Path, required=True)
     parser.add_argument('--receipt', type=Path)
     args = parser.parse_args()
     lock = load_lock()
     run = load_json(args.run_json)
-    oci = verify(run, args.artifact_dir, lock)
+    oci = verify(run, args.artifact_dir, lock, load_json(args.pr_json))
     if args.action == 'publish':
         require(args.receipt is not None, 'RECEIPT')
         publish(oci, args.receipt, lock)

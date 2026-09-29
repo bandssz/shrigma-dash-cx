@@ -123,6 +123,7 @@ class PublishTests(unittest.TestCase):
             'run_id': 123,
             'pull_request': 174,
             'source_head': head,
+            'source_merge': '6' * 40,
             'ci_revision': revision,
             'image': 'ghcr.io/bandssz/shrigma-crm-listmonk',
             'tag': 'regular-v1-' + head,
@@ -143,6 +144,10 @@ class PublishTests(unittest.TestCase):
             'repository': {'full_name': lock['repository']},
             'pull_requests': [{'number': 174, 'head': {'sha': head}}],
         }
+        self.source_pr = {'number': 174, 'merged': True, 'state': 'closed',
+                          'head': {'sha': head, 'repo': {'full_name': lock['repository']}},
+                          'base': {'ref': 'main', 'repo': {'full_name': lock['repository']}},
+                          'merge_commit_sha': lock['source_merge']}
         return artifact, lock, run
 
     def setUp(self):
@@ -158,7 +163,7 @@ class PublishTests(unittest.TestCase):
     def test_exact_inventory_and_disabled_lock_verify(self):
         with tempfile.TemporaryDirectory() as folder:
             artifact, lock, run = self.fixture(Path(folder))
-            self.assertEqual(publish.verify(run, artifact, lock), artifact / 'regular-image' / 'oci')
+            self.assertEqual(publish.verify(run, artifact, lock, self.source_pr), artifact / 'regular-image' / 'oci')
             self.assertFalse(lock['enabled'])
 
     def test_inventory_extra_drift_and_symlink_fail(self):
@@ -172,7 +177,7 @@ class PublishTests(unittest.TestCase):
                 else:
                     os.symlink(artifact / 'regular-image' / 'LICENSE', artifact / 'link')
                 with self.assertRaisesRegex(ValueError, code):
-                    publish.verify(run, artifact, lock)
+                    publish.verify(run, artifact, lock, self.source_pr)
 
     def test_run_and_head_mismatch_fail_before_artifact(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -181,7 +186,22 @@ class PublishTests(unittest.TestCase):
                 with self.subTest(mutation=mutation):
                     bad = {**run, **mutation}
                     with self.assertRaisesRegex(ValueError, 'SOURCE_RUN'):
-                        publish.verify(bad, artifact, lock)
+                        publish.verify(bad, artifact, lock, self.source_pr)
+
+    def test_merged_run_without_pr_array_requires_direct_merged_pr(self):
+        with tempfile.TemporaryDirectory() as folder:
+            artifact, lock, run = self.fixture(Path(folder))
+            run['pull_requests'] = []
+            publish.verify(run, artifact, lock, self.source_pr)
+            for mutation in ({'merged': False}, {'number': 175}, {'merge_commit_sha': '9' * 40},
+                             {'head': {'sha': '9' * 40}}, {'base': {'ref': 'other'}}):
+                with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, 'SOURCE_PR'):
+                    publish.verify(run, artifact, lock, {**self.source_pr, **mutation})
+            with self.assertRaisesRegex(ValueError, 'SOURCE_PR'):
+                publish.verify(run, artifact, lock)
+            run['pull_requests'] = [{'number': 175, 'head': {'sha': lock['source_head']}}]
+            with self.assertRaisesRegex(ValueError, 'SOURCE_RUN_PR'):
+                publish.verify(run, artifact, lock, self.source_pr)
 
     def test_only_manual_main_repository_context(self):
         with patch.dict(os.environ, self.env, clear=True):

@@ -39,5 +39,6 @@
     "regular-image/package-manifest.json": "7701817fef7d544f7d63f57e0692505551491038e763cbae991768764c0f5749",
     "regular-image/source.tar.gz": "9927b40933694e75049e2edc5cec759ad421eab7a3264167a130be58f826755d",
     "regular-pg-proof/postgres-proof.json": "e0131374b864817131a714e951ca879fb6bdc037cb909fad37346749a76c3d7f"
-  }
+  },
+  "source_merge": "a7f938c42877cdc6720954535e86596c627943d3"
 }
