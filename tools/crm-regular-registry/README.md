@@ -11,7 +11,7 @@ Manual publication is additionally restricted to GitHub Actions on `main` in the
 Run local unit tests with:
 
 ```sh
-python3 -m unittest discover -s tools/listmonk-regular-registry -p 'test_*.py'
+python3 -m unittest discover -s tools/crm-regular-registry -p 'test_*.py'
 ```
 
 For future candidates, replace every pin and the complete inventory through a reviewed PR after the source PR is green. Never retarget the fixed tag to different bytes.
