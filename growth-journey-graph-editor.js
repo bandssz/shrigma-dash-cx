@@ -27,7 +27,7 @@
   const baseline=JSON.stringify(graph),units=Object.create(null),scenario=Object.create(null);let pending=null,review=null,simulation=null,notice='',destroyed=false;
   let simulationNow=options.simulationNow||new Date().toISOString(),lastChange=baseline;
   const dirty=()=>JSON.stringify(graph)!==baseline;
-  function dirtyText(){return dirty()?(serverPersistence?'Alterações ainda não salvas.':'Alterações apenas nesta tela.'):(serverPersistence?(server?'Rascunho salvo no painel.':'Rascunho ainda não salvo.'):'Sem alterações locais.');}
+  function dirtyText(){if(server?.published_revision!==null&&server?.published_revision!==undefined)return 'Revisão publicada · consulta sem edição.';return dirty()?(serverPersistence?'Alterações ainda não salvas.':'Alterações apenas nesta tela.'):(serverPersistence?(server?'Rascunho salvo no painel.':'Rascunho ainda não salvo.'):'Sem alterações locais.');}
   function notifyChange(){const current=JSON.stringify(graph);if(current===lastChange)return;lastChange=current;if(typeof options.onChange==='function')options.onChange({definition:clone(graph),server:clone(server),dirty:dirty()});}
   function trigger(){return graph.nodes.find(n=>n.type==='trigger');}
   function fields(){const allowed=catalog?.triggers.find(t=>t.key===trigger()?.event)?.fields||[];return (catalog?.fields||[]).filter(f=>f.available&&allowed.includes(f.key));}
@@ -113,14 +113,14 @@
   function render(){
    if(destroyed)return;const valid=graphCheck(),off=disabled()?' disabled':'',atLimit=graph.nodes.length>=G.MAX_NODES;
    root.classList.add('jge-editor');
-   root.innerHTML='<div class="jge-content"'+(pending?' inert aria-hidden="true"':'')+'><header class="jge-heading"><div><h2>Construir jornada</h2><p>'+esc(brand==='fish'?'Fishermans':'O Aristocrata')+' · '+esc(server?'Revisão '+server.revision:'Nova jornada')+'</p></div><span class="jge-badge" title="Nenhuma mensagem será enviada. Descadastro e bloqueios não podem ser desativados. Salvar um rascunho não ativa a jornada.">Rascunho · sem envio</span></header>'+
+   root.innerHTML='<div class="jge-content"'+(pending?' inert aria-hidden="true"':'')+'><header class="jge-heading"><div><h2>Construir jornada</h2><p>'+esc(brand==='fish'?'Fishermans':'O Aristocrata')+' · '+esc(server?'Revisão '+server.revision:'Nova jornada')+'</p></div><span class="jge-badge" title="Nenhuma mensagem será enviada. Descadastro e bloqueios não podem ser desativados. Salvar um rascunho não ativa a jornada.">' +(server?.published_revision?'Publicado · pausado':'Rascunho · sem envio')+'</span></header>'+
     (!catalogOK?'<p role="alert" class="jge-alert">Opções indisponíveis. Recarregue as opções desta marca para continuar.</p>':'')+
     (readOnly?'<span class="jge-note" title="Você pode conferir o fluxo e simular dados fictícios.">Somente leitura</span>':'')+
     control('Nome da jornada','<input data-name maxlength="120" value="'+esc(graph.name)+'"'+off+'>')+
     '<div class="jge-add" aria-label="Adicionar etapa">'+['wait','condition','message','exit'].map(type=>'<button type="button" data-action="add" data-type="'+type+'"'+off+(atLimit||type==='message'&&!emailBindings().length||type==='condition'&&!fields().length?' disabled':'')+'>Adicionar '+names[type].toLowerCase()+'</button>').join('')+'<span>'+graph.nodes.length+' de '+G.MAX_NODES+' etapas</span></div>'+
     '<div class="jge-nodes">'+graph.nodes.map(nodeHTML).join('')+'</div>'+
     '<section class="jge-validation" aria-live="polite" data-validation>'+validationHTML(valid)+'</section>'+scenarioHTML()+
-    '<div class="jge-actions"><button type="button" data-action="simulate"'+(!valid.ok||pending?' disabled':'')+'>Simular caminho</button><button type="button" data-action="review"'+(!valid.ok||pending?' disabled':'')+'>Conferir revisão</button><button type="button" disabled title="A conexão de publicação ainda não está disponível.">Publicar indisponível</button></div>'+
+    '<div class="jge-actions"><button type="button" data-action="simulate"'+(!valid.ok||pending?' disabled':'')+'>Simular caminho</button><button type="button" data-action="review"'+(!valid.ok||pending?' disabled':'')+'>Conferir revisão</button><span class="mini">A ativação de fluxos ainda está indisponível.</span></div>'+
     '<p class="jge-note" data-dirty>'+dirtyText()+'</p>'+
     '<div role="status" data-notice>'+esc(notice)+'</div>'+
     (review?'<section class="jge-review"><h3 title="Conexões e opções válidas. Antes de salvar, o painel confere permissões, opções e versão novamente.">Revisão conferida · nada publicado</h3></section>':'')+resultHTML()+'</div>'+

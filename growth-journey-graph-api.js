@@ -1,23 +1,26 @@
 /* Draft-only client. Durable attempts never authorize publication or sending. */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.GJGApi=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
- const CONTRACT='journey_graph_draft_api_v1',SLOT='shrigma_graph_draft_operations_v1';
+ const CONTRACT='journey_graph_draft_api_v1',LIFECYCLE='journey_graph_lifecycle_panel_v1',SLOT='shrigma_graph_draft_operations_v1';
  const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
  const clone=x=>JSON.parse(JSON.stringify(x));
  const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])):x;
  const same=(a,b)=>JSON.stringify(stable(a))===JSON.stringify(stable(b));
  const fail=(code,message)=>Object.assign(Error(message),{code});
- const messages={GRAPH_UNAUTHORIZED:'Entre com o acesso de gestor CRM.',GRAPH_PERMISSION_REQUIRED:'Seu acesso não permite salvar fluxos.',GRAPH_VERSION_CONFLICT:'Outra pessoa salvou uma versão mais recente. Sua edição foi preservada; confira a versão salva.',GRAPH_CATALOG_CHANGED:'As opções deste fluxo mudaram. Atualize o catálogo antes de salvar.',GRAPH_NOT_FOUND:'O fluxo não foi encontrado nesta marca.',GRAPH_REPLAY_MISMATCH:'A tentativa não corresponde à gravação original. Preserve a edição e consulte o recibo.',GRAPH_SERVICE_UNAVAILABLE:'Não foi possível confirmar a gravação. Consulte a mesma tentativa.'};
+ const messages={GRAPH_PUBLISHED_READ_ONLY:'Esta revisão já foi publicada. Abra a publicação para consultar; crie um novo fluxo para outra preparação.',GRAPH_UNAUTHORIZED:'Entre com o acesso de gestor CRM.',GRAPH_PERMISSION_REQUIRED:'Seu acesso não permite salvar fluxos.',GRAPH_VERSION_CONFLICT:'Outra pessoa salvou uma versão mais recente. Sua edição foi preservada; confira a versão salva.',GRAPH_CATALOG_CHANGED:'As opções deste fluxo mudaram. Atualize o catálogo antes de salvar.',GRAPH_NOT_FOUND:'O fluxo não foi encontrado nesta marca.',GRAPH_REPLAY_MISMATCH:'A tentativa não corresponde à gravação original. Preserve a edição e consulte o recibo.',GRAPH_SERVICE_UNAVAILABLE:'Não foi possível confirmar a gravação. Consulte a mesma tentativa.'};
  const unresolved=op=>['pending','unknown'].includes(op.phase)||op.phase==='confirmed'&&op.applied!==true;
  const unknown=()=>fail('GRAPH_UNKNOWN','Salvamento sem confirmação. Consulte a mesma tentativa; não crie outra cópia.');
+ const lifecycle=p=>['prepare','publish'].includes(p?.action),hash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
  function validRequest(p){
+  if(lifecycle(p)){const fields=['action','brand','request_id','journey_id','expected_version','confirm',...(p.action==='prepare'?['review_hash']:['prepared_revision','prepared_hash'])];return ['fish','aristo'].includes(p.brand)&&UUID.test(p.request_id||'')&&UUID.test(p.journey_id||'')&&same(Object.keys(p).sort(),fields.sort())&&Number.isSafeInteger(p.expected_version)&&p.expected_version>0&&p.expected_version<2147483647&&(p.action==='prepare'?hash(p.review_hash)&&p.confirm==='preparar':hash(p.prepared_hash)&&Number.isSafeInteger(p.prepared_revision)&&p.prepared_revision>0&&p.prepared_revision<2147483647&&p.confirm==='publicar');}
   const fields=['action','brand','request_id','definition',...(p?.action==='save'?['journey_id','expected_version']:[])];
   return p&&['create','save'].includes(p.action)&&['fish','aristo'].includes(p.brand)&&UUID.test(p.request_id||'')&&same(Object.keys(p).sort(),fields.sort())&&p.definition?.brand===p.brand&&p.definition?.version==='journey_graph_v1'&&Array.isArray(p.definition.nodes)&&Array.isArray(p.definition.edges)&&(p.action==='create'||UUID.test(p.journey_id||'')&&Number.isSafeInteger(p.expected_version)&&p.expected_version>0&&p.expected_version<2147483647)&&unescape(encodeURIComponent(JSON.stringify(p))).length<=196608;
  }
- function create({endpoint,key,storage=globalThis.localStorage,locks=globalThis.navigator?.locks,crypto=globalThis.crypto,fetch:request=globalThis.fetch}={}){
+ function create({endpoint,lifecycleEndpoint=null,key,storage=globalThis.localStorage,locks=globalThis.navigator?.locks,crypto=globalThis.crypto,fetch:request=globalThis.fetch}={}){
   let url;try{url=new URL(endpoint);}catch{throw fail('GRAPH_ENDPOINT','O construtor não está disponível.');}
   if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw fail('GRAPH_ENDPOINT','O construtor não está disponível.');
-  const origin=url.href;let seen=null;
+  const origin=url.href;let operational=null;if(lifecycleEndpoint!==null){try{const v=new URL(lifecycleEndpoint);if(v.protocol!=='https:'||v.username||v.password||v.search||v.hash||v.href===origin)throw Error();operational=v.href;}catch{throw fail('GRAPH_ENDPOINT','A publicação pausada não está disponível.');}}let seen=null;
+  const endpointFor=p=>{if(lifecycle(p)){if(!operational)throw fail('GRAPH_ENDPOINT','A publicação pausada não está disponível.');return operational;}return origin;};
   function access(){const k=typeof key==='function'?key():key;if(typeof k!=='string'||!k||/\s/.test(k))throw fail('GRAPH_ACCESS','Entre com o acesso de gestor CRM.');return k;}
   function read(){
    try{const raw=storage.getItem(SLOT);if(raw===null){if(seen?.operations.length)throw Error();return {version:1,operations:[]};}
@@ -34,23 +37,29 @@
   function persist(j){try{const raw=JSON.stringify(j);storage.setItem(SLOT,raw);if(storage.getItem(SLOT)!==raw)throw Error();seen=clone(j);}catch{throw fail('GRAPH_STORAGE','Não foi possível guardar a tentativa neste navegador. Preserve a edição.');}}
   function inspect(){try{const j=read(),pending=j.operations.find(unresolved);return {...clone(j),pending:pending?clone(pending):null,blocked:!!pending||!locks?.request||!crypto?.randomUUID};}catch(e){return {operations:[],pending:null,blocked:true,error:e.message};}}
   async function exclusive(fn){if(!locks?.request||!crypto?.randomUUID)throw fail('GRAPH_STORAGE','Use um navegador com armazenamento e proteção entre abas para salvar.');return locks.request(SLOT,{mode:'exclusive',ifAvailable:true},l=>{if(!l)throw fail('GRAPH_BUSY','Outra aba está salvando um fluxo. Aguarde.');return fn();});}
-  async function call(p,k,post=false){
-   const target=new URL(origin);if(!post)for(const [name,value]of Object.entries(p))target.searchParams.set(name,value===null?'':value);
-   try{const r=await request(target.href,{method:post?'POST':'GET',headers:{Authorization:'Bearer '+k,...(post?{'Content-Type':'application/json'}:{})},...(post?{body:JSON.stringify(p)}:{}),credentials:'omit',redirect:'error',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});const body=await r.json();if(body?.contract!==CONTRACT||body.authorizes_send!==false||body.authorizes_publish!==false)throw Error();return {status:r.status,body};}catch{throw unknown();}
+  async function call(p,k,post=false,endpoint=origin,isLifecycle=false){
+   const target=new URL(endpoint);if(!post)for(const [name,value]of Object.entries(p))target.searchParams.set(name,value===null?'':value);
+   try{const r=await request(target.href,{method:post?'POST':'GET',headers:{Authorization:'Bearer '+k,...(post?{'Content-Type':'application/json'}:{})},...(post?{body:JSON.stringify(p)}:{}),credentials:'omit',redirect:'error',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});const body=await r.json();if(body?.contract!==(isLifecycle?LIFECYCLE:CONTRACT)||body.authorizes_send!==false||body.authorizes_publish!==false||isLifecycle&&['authorizes_activate','authorizes_enrollment'].some(k=>body[k]!==false))throw Error();return {status:r.status,body};}catch{throw unknown();}
   }
-  const lookup=(p,k)=>call({action:'operation',brand:p.brand,request_id:p.request_id},k);
+  const lookup=(p,k,endpoint=endpointFor(p))=>call({action:'operation',brand:p.brand,request_id:p.request_id},k,false,endpoint,lifecycle(p));
+  const absent=(p,b)=>lifecycle(p)?b.automatic_retry===false:b.retry_same_request_only===true;
   function confirmed(op,r){
    const b=r.body,v=b?.receipt,p=op.payload;
+   if(lifecycle(p)){
+    if(![200,201].includes(r.status)||b?.state!=='succeeded'||b.actor!==op.actor||b.request_id!==p.request_id||!same(b.request_payload,p)||v?.request_id!==p.request_id||v.brand!==p.brand||v.journey_id!==p.journey_id||v.base_version!==p.expected_version||!Number.isSafeInteger(v.base_revision)||v.base_revision<1||!UUID.test(v.release_id||'')||!hash(v.prepared_hash)||['authorizes_activate','authorizes_enrollment','authorizes_send'].some(k=>v[k]!==false)||op.phase==='confirmed'&&!same(v,op.receipt))throw unknown();
+    if(p.action==='prepare'?(v.contract!=='journey_graph_lifecycle_prepare_v1'||v.state!=='prepared'||v.prepared_id!==p.request_id||v.review_hash!==p.review_hash||v.revision_reserved!==false||v.authorizes_publish!==false):(v.contract!=='journey_graph_lifecycle_publication_v1'||v.state!=='published_paused'||v.version!==p.expected_version+1||v.published_revision!==p.prepared_revision||v.published_revision!==v.base_revision+1||v.prepared_hash!==p.prepared_hash||!UUID.test(v.prepared_id||'')||!hash(v.publication_hash)||!hash(v.content_hash)||v.paused!==true))throw unknown();
+    return clone(v);
+   }
    if(![200,201].includes(r.status)||b?.state!=='succeeded'||b.actor!==op.actor||b.request_id!==p.request_id||!same(b.request_payload,p)||v?.contract!=='journey_graph_store_v1'||v.operation_id!==p.request_id||v.brand!==p.brand||!UUID.test(v.journey_id||'')||!Number.isSafeInteger(v.version)||v.version<1||!Number.isSafeInteger(v.revision)||v.revision<1||v.revision>v.version||p.action==='create'&&(v.version!==1||v.revision!==1)||v.published_revision!==null||v.paused!==true||v.authorizes_send!==false||p.action==='save'&&(v.journey_id!==p.journey_id||v.version!==p.expected_version+1)||op.phase==='confirmed'&&!same(v,op.receipt))throw unknown();
    return clone(v);
   }
   async function recoverInside(j,op,k){
-   const r=await lookup(op.payload,k);
-   if(r.status===202&&r.body.state==='unconfirmed'&&r.body.request_id===op.payload.request_id&&r.body.actor===op.actor&&r.body.retry_same_request_only===true){if(op.phase==='confirmed'||op.phase==='rejected')throw unknown();op.phase='unknown';persist(j);return {state:'unconfirmed',request_id:op.payload.request_id};}
+   const r=await lookup(op.payload,k,op.endpoint);
+   if(r.status===202&&r.body.state==='unconfirmed'&&r.body.request_id===op.payload.request_id&&r.body.actor===op.actor&&absent(op.payload,r.body)){if(op.phase==='confirmed'||op.phase==='rejected')throw unknown();op.phase='unknown';persist(j);return {state:'unconfirmed',request_id:op.payload.request_id};}
    op.receipt=confirmed(op,r);op.phase='confirmed';persist(j);return {state:'succeeded',receipt:clone(op.receipt),request_payload:clone(op.payload)};
   }
   async function postInside(j,op,k){
-   const wasUncertain=op.phase==='unknown';let result;try{result=await call(op.payload,k,true);}catch{}
+   const wasUncertain=op.phase==='unknown';let result;try{result=await call(op.payload,k,true,op.endpoint,lifecycle(op.payload));}catch{}
    if(result&&[200,201].includes(result.status)){op.receipt=confirmed(op,result);op.phase='confirmed';persist(j);return {state:'succeeded',receipt:clone(op.receipt),request_payload:clone(op.payload)};}
    if(!wasUncertain&&result&&[400,401,403,404,409,413,422].includes(result.status)&&result.body.state!=='unconfirmed'&&typeof result.body.error==='string'&&result.body.error.startsWith('GRAPH_')){op.phase='rejected';op.error=result.body.error;persist(j);throw fail(op.error,messages[op.error]||'Confira as etapas e os campos deste fluxo antes de salvar.');}
    op.phase='unknown';persist(j);try{return await recoverInside(j,op,k);}catch{throw unknown();}
@@ -59,14 +68,20 @@
    const p={...clone(input),request_id:crypto?.randomUUID?.()};if(!validRequest(p)||Object.hasOwn(input,'request_id'))throw fail('GRAPH_INPUT','Confira a marca, o fluxo e a versão antes de salvar.');const k=access();
    return exclusive(async()=>{const j=read();if(j.operations.some(unresolved))throw unknown();
     if(j.operations.some(o=>o.payload.request_id===p.request_id))throw fail('GRAPH_INPUT','Não foi possível identificar esta gravação.');
-    const pre=await lookup(p,k);if(pre.status!==202||pre.body.state!=='unconfirmed'||pre.body.request_id!==p.request_id||!/^panel:[A-Za-z0-9_.:-]{1,122}$/.test(pre.body.actor||'')||pre.body.retry_same_request_only!==true)throw unknown();
-    const op={payload:p,actor:pre.body.actor,endpoint:origin,phase:'pending',applied:false,at:Date.now()};j.operations.push(op);persist(j);return postInside(j,op,k);
+    const destination=endpointFor(p),pre=await lookup(p,k,destination);if(pre.status!==202||pre.body.state!=='unconfirmed'||pre.body.request_id!==p.request_id||!/^panel:[A-Za-z0-9_.:-]{1,122}$/.test(pre.body.actor||'')||!absent(p,pre.body))throw unknown();
+    const op={payload:p,actor:pre.body.actor,endpoint:destination,phase:'pending',applied:false,at:Date.now()};j.operations.push(op);persist(j);return postInside(j,op,k);
    });
   }
-  async function recover(id,{resume=false}={}){const k=access();return exclusive(async()=>{const j=read(),op=j.operations.find(o=>o.payload.request_id===id);if(!op||op.endpoint!==origin)throw fail('GRAPH_ORIGIN','Abra a origem da tentativa para recuperá-la.');if(op.phase==='rejected')throw fail('GRAPH_REJECTED','Esta tentativa foi recusada. Preserve o recibo e revise a edição antes de salvar.');const r=await recoverInside(j,op,k);if(r.state==='succeeded'||!resume)return r;return postInside(j,op,k);});}
+  async function recover(id,{resume=false}={}){const k=access();return exclusive(async()=>{const j=read(),op=j.operations.find(o=>o.payload.request_id===id);if(!op||(lifecycle(op.payload)?operational!==null&&op.endpoint!==operational:op.endpoint!==origin))throw fail('GRAPH_ORIGIN','Abra a origem da tentativa para recuperá-la.');if(op.phase==='rejected')throw fail('GRAPH_REJECTED','Esta tentativa foi recusada. Preserve o recibo e revise a edição antes de salvar.');const r=await recoverInside(j,op,k);if(r.state==='succeeded'||!resume||lifecycle(op.payload))return r;return postInside(j,op,k);});}
   async function get(action,brand,params={}){const fields={capabilities:[],catalog:[],list:['after','limit'],get:['journey_id']};if(!Object.hasOwn(fields,action)||!['fish','aristo'].includes(brand)||!params||Array.isArray(params)||Object.keys(params).some(k=>!fields[action].includes(k)))throw fail('GRAPH_INPUT','Escolha Fishermans ou O Aristocrata.');const r=await call({action,brand,...params},access());if(r.status!==200)throw fail(r.body.error||'GRAPH_READ',messages[r.body.error]||'Não foi possível carregar os fluxos. Tente atualizar.');if(action==='catalog'&&r.body.catalog?.brand!==brand||action==='get'&&(r.body.server?.brand!==brand||r.body.definition?.brand!==brand||r.body.catalog?.brand!==brand||r.body.server?.journey_id!==params.journey_id)||action==='list'&&(!Array.isArray(r.body.journeys)||r.body.journeys.some(j=>j.brand!==brand)))throw fail('GRAPH_READ','A resposta não corresponde à marca selecionada. Atualize sem substituir sua edição.');return clone(r.body);}
-  async function acknowledge(id){return exclusive(async()=>{const j=read(),op=j.operations.find(o=>o.payload.request_id===id);if(!op||op.endpoint!==origin||op.phase!=='confirmed'||!op.receipt)throw unknown();op.applied=true;persist(j);return true;});}
-  return Object.freeze({get,run,recover,inspect,acknowledge});
+  async function acknowledge(id){return exclusive(async()=>{const j=read(),op=j.operations.find(o=>o.payload.request_id===id);if(!op||(lifecycle(op.payload)?operational!==null&&op.endpoint!==operational:op.endpoint!==origin)||op.phase!=='confirmed'||!op.receipt)throw unknown();op.applied=true;persist(j);return true;});}
+  async function readLifecycle(action,brand,params={}){
+   const target=operational||(action==='status'?read().operations.filter(o=>o.payload.action==='publish'&&o.payload.brand===brand&&o.payload.journey_id===params.journey_id&&o.phase==='confirmed').at(-1)?.endpoint:null);
+   if(!target||!['review','status'].includes(action)||!['fish','aristo'].includes(brand)||!params||!same(Object.keys(params).sort(),(action==='review'?['expected_version','journey_id']:['journey_id']))||!UUID.test(params.journey_id||'')||action==='review'&&(!Number.isSafeInteger(params.expected_version)||params.expected_version<1))throw fail('GRAPH_INPUT','Salve e confira o fluxo antes de continuar.');
+   const r=await call({action,brand,...params},access(),action==='review',target,true);if(r.status!==200)throw fail(r.body.error||'GRAPH_READ','Não foi possível conferir a publicação. Sua edição foi preservada.');
+   if(action==='review'&&(!['reviewed','blocked'].includes(r.body.state)||r.body.review?.original?.brand!==brand||r.body.review.original.journey_id!==params.journey_id||r.body.review.original.version!==params.expected_version||!hash(r.body.review.review_hash)||r.body.state==='reviewed'&&r.body.review.state!=='compatible_for_preparation')||action==='status'&&(r.body.server?.brand!==brand||r.body.server.journey_id!==params.journey_id||!['draft','published_paused'].includes(r.body.state)||r.body.state==='published_paused'&&(r.body.definition?.brand!==brand||r.body.catalog?.brand!==brand||r.body.server.paused!==true||r.body.receipt?.journey_id!==params.journey_id||!hash(r.body.receipt.publication_hash))))throw unknown();return clone(r.body);
+  }
+  return Object.freeze({get,run,recover,inspect,acknowledge,readLifecycle});
  }
- return Object.freeze({CONTRACT,SLOT,create,validRequest});
+ return Object.freeze({CONTRACT,LIFECYCLE,SLOT,create,validRequest});
 });

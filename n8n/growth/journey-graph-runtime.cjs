@@ -25,8 +25,8 @@ function exact(x,keys){if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys
 function time(t){if(typeof t!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)||!Number.isFinite(Date.parse(t))||new Date(t).toISOString()!==t)throw error('GRAPH_TIME');return Date.parse(t);}
 function uuid(v){if(typeof v!=='string'||!UUID.test(v))throw error('GRAPH_IDENTITY');}
 function expected(v){if(!Number.isSafeInteger(v)||v<1||v>=2147483647)throw error('GRAPH_VERSION');}
-function createGraphRuntime({pool,catalogFor,readSource,readDispatch,clock,beforeCommand}={}){
- if(typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||readDispatch!==undefined&&typeof readDispatch!=='function'||clock!==undefined&&typeof clock!=='function'||beforeCommand!==undefined&&typeof beforeCommand!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
+function createGraphRuntime({pool,catalogFor,readSource,readDispatch,clock,beforeCommand,draftOnly=false}={}){
+ if(typeof draftOnly!=='boolean'||typeof pool?.connect!=='function'||typeof catalogFor!=='function'||typeof readSource!=='function'||readDispatch!==undefined&&typeof readDispatch!=='function'||clock!==undefined&&typeof clock!=='function'||beforeCommand!==undefined&&typeof beforeCommand!=='function')throw error('GRAPH_ADAPTER_REQUIRED');
  const queryOne=async(c,q,a=[])=>{const r=await c.query(q,a);if(!Array.isArray(r?.rows)||r.rows.length!==1)throw error('GRAPH_STORAGE_UNCONFIRMED');return r.rows[0];};
  const getTime=async c=>{const now=clock?await clock(): (await queryOne(c,"SELECT to_char(date_trunc('milliseconds',clock_timestamp()) AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS now")).now;time(now);return now;};
  const current=async(c,id,brand)=>{const r=await c.query('SELECT * FROM crm_graph_candidate.journey WHERE id=$1::uuid AND brand=$2 FOR UPDATE',[id,brand]);if(r.rows.length!==1)throw error('GRAPH_NOT_FOUND');return r.rows[0];};
@@ -90,7 +90,7 @@ function createGraphRuntime({pool,catalogFor,readSource,readDispatch,clock,befor
    await insertRevision(c,j,prepared,now);return summary(j);
   });},
   save(input){return command('save',input,['journey_id','expected_version','definition'],async(c,p,now)=>{
-   const j=await current(c,p.journey_id,p.brand);version(j,p.expected_version);const prepared=await prepare(c,p.definition,p.brand);
+   const j=await current(c,p.journey_id,p.brand);version(j,p.expected_version);if(draftOnly&&j.published_revision!==null)throw error('GRAPH_PUBLISHED_READ_ONLY');const prepared=await prepare(c,p.definition,p.brand);
    const next=await queryOne(c,'UPDATE crm_graph_candidate.journey SET version=version+1,head_revision=head_revision+1 WHERE id=$1 RETURNING *',[j.id]);await insertRevision(c,next,prepared,now);return summary(next);
   });},
   publish(input){return command('publish',input,['journey_id','expected_version','confirm'],async(c,p)=>{

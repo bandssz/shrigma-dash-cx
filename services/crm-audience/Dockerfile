@@ -6,6 +6,8 @@ RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean -
 COPY --chown=node:node services/crm-audience/*.cjs ./
 COPY --chown=node:node n8n/growth/segment-*.cjs n8n/growth/segment-*.js /app/n8n/growth/
 COPY --chown=node:node n8n/growth/ab-audience-*.cjs /app/n8n/growth/
+COPY --chown=node:node n8n/growth/journey-graph-lifecycle-*.cjs n8n/growth/journey-graph-contract.js n8n/growth/journey-graph-release.cjs n8n/growth/journey-graph-catalog.cjs /app/n8n/growth/
+COPY --chown=node:node growth-email-expressions.js growth-email-contract.js /app/
 COPY --chown=node:node n8n/growth/campaign-contract.js n8n/growth/campaign-tracking.js /app/n8n/growth/
 COPY --chown=node:node growth-campaign-audience-client.js growth-campaign-regular-client.js growth-ab-experiment-contract.js /app/
 USER node
