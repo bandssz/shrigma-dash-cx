@@ -3,6 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {PGlite}=require('@electric-sql/pglite');
 const F=require('./segment-audience-store-fixture.cjs'),S=require('../n8n/growth/segment-audience-store.cjs'),API=require('../n8n/growth/segment-audience-api.cjs'),H=require('../n8n/growth/segment-audience-review.cjs');
 const {countAudience}=require('../n8n/growth/segment-audience-listmonk.cjs');
+const Shopify=require('../n8n/growth/segment-shopify-facts.cjs');
 const list=brand=>({acao:'segmentos_listar',brand,limit:50,offset:0}),get=(brand,id)=>({acao:'segmento_obter',brand,id});
 async function fixture(t,options){const db=new PGlite();t.after(()=>db.close());return F.setup(db,options);}
 const rows=async(f,table)=>(await f.db.query('SELECT * FROM crm_audience_v2.'+table)).rows;
@@ -80,7 +81,9 @@ test('server normalization cannot be bypassed through execute; SQL text is fixed
 test('catalog scopes, base/brand and semantic pins are trusted and fresh; changed semantics require a new saved revision',async t=>{
  const f=await fixture(t,{countProvider:countAudience}),p=f.create('fish','context-first'),s=(await f.call(p)).body.segment;
  const wrong=f.create('fish','wrong-list',{op:'in_list',list_id:201});assert.equal((await f.call(wrong)).body.error,'SEGMENT_LIST_UNAVAILABLE');
- await f.db.query("UPDATE crm_audience_v2.config SET catalog=jsonb_set(catalog,'{currency}','\"USD\"'),revision=revision+1 WHERE brand='fish'");
+ const changed=(await f.db.query("SELECT catalog FROM crm_audience_v2.config WHERE brand='fish'")).rows[0].catalog;changed.currency='USD';
+ for(const field of changed.fields)if(Shopify.FIELDS.includes(field.key))field.source_hash=Shopify.sourceHash('fish',field.key,changed);
+ await f.db.query("UPDATE crm_audience_v2.config SET catalog=$1::jsonb,revision=revision+1 WHERE brand='fish'",[JSON.stringify(changed)]);
  const count=await f.call({acao:'segmento_contar',brand:'fish',expected_catalog_hash:f.catalogHashes.fish,id:s.id,expected_version:s.version});assert.equal(count.status,409);assert.equal(count.body.error,'SEGMENT_CATALOG_CHANGED');
  assert.equal((await f.call(get('fish',s.id))).body.segment.definition.name,s.name);assert.equal((await f.call({...p,idempotency_key:'context-second',expected_catalog_hash:(await f.call(list('fish'))).body.catalog.catalog_hash})).status,201);
  await f.db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '10 minutes',expires_at=clock_timestamp()-interval '6 minutes' WHERE brand='fish'");

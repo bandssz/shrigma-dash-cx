@@ -1,0 +1,20 @@
+# Candidate readback of the exact server-selected bulk operation. Partial
+# output never supplies negative evidence or a complete source checkpoint.
+query CrmAudienceBulkState($operation: ID!) {
+  shop { id myshopifyDomain currencyCode ianaTimezone }
+  currentAppInstallation { accessScopes { handle } }
+  node(id: $operation) {
+    ... on BulkOperation {
+      id
+      status
+      errorCode
+      objectCount
+      rootObjectCount
+      createdAt
+      completedAt
+      fileSize
+      url
+      partialDataUrl
+    }
+  }
+}

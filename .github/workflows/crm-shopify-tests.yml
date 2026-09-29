@@ -1,0 +1,50 @@
+name: CRM Shopify audience evidence (OFF)
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/segment-*'
+      - 'growth-segment-*'
+      - 'tests/segment-shopify-*'
+      - 'tests/segment-audience-store-fixture.cjs'
+      - 'tests/fixtures/segment-shopify-sync.cjs'
+      - '.github/workflows/crm-shopify-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-and-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d listmonk"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated test dependencies
+        run: npm install --prefix ../crm-shopify-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Check collector, migration, campaign and analyst panel
+        env:
+          NODE_PATH: ../crm-shopify-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+        run: node --test --test-concurrency=2 tests/segment-shopify-*.test.cjs
+      - name: Check role boundaries, concurrent ingestion and full-size count
+        env:
+          NODE_PATH: ../crm-shopify-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55432/listmonk
+          CRM_AUDIENCE_TEST_ISOLATED: '1'
+        run: node tests/segment-shopify-postgres.cjs

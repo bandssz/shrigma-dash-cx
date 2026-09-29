@@ -3,6 +3,7 @@
 // operational default is created here. See segment-audience-store.md.
 const A=require('./segment-audience-contract.js');
 const H=require('./segment-audience-review.cjs');
+const Shopify=require('./segment-shopify-facts.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
 const fields={segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_operacao:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
@@ -34,6 +35,7 @@ const SQL=Object.freeze({
  lock:"SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('crm-audience-v2-request:'||pg_catalog.jsonb_build_array($1::text,$2::text)::text,0))",
  operation:"SELECT brand,payload,payload_hash,response FROM crm_audience_v2.request WHERE actor=$1::text AND operation_key=$2::text",
  config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at FROM crm_audience_v2.config_snapshot($1::text)",
+ shopify:"SELECT crm_audience_v2.shopify_snapshot($1::text) AS source",
  lists:"SELECT id,name,status,optin FROM crm_audience_v2.catalog_lists($1::text)",
  list:"SELECT * FROM crm_audience_v2.audience WHERE brand=$1::text ORDER BY updated_at DESC,id LIMIT $2::integer OFFSET $3::integer",
  get:"SELECT * FROM crm_audience_v2.audience WHERE id=$1::uuid AND brand=$2::text FOR SHARE",
@@ -65,12 +67,28 @@ async function readCatalog(query,brand){
  const c=rows[0],base=listRows.find(x=>x.id===c.base_list_id);let source,ready=false;
  const empty={currency:null,timezone:null,shop_id:null,fields:Object.keys(A.FIELDS).map(key=>({key,available:false,source_hash:null})),products:[],origins:[]};
  try{source=sourceConfig(c.catalog,brand);ready=c.enabled===true&&positive(c.base_list_id)&&positive(c.revision)&&!!base&&base.status==='active'&&['single','double'].includes(base.optin)&&date(c.checked_at)<=date(c.read_at)&&date(c.expires_at)>date(c.read_at)&&date(c.expires_at)-date(c.checked_at)<=300000;}catch{source=empty;}
+ source.fields=source.fields.map(field=>Shopify.FIELDS.includes(field.key)&&field.available&&!Shopify.sourceReady(brand,field.key,source)?{...field,available:false}:field);
+ let shopify=null;
+ if(Shopify.FIELDS.some(field=>Shopify.sourceReady(brand,field,source))){
+  const evidence=(await query(SQL.shopify,[brand])).rows;
+  const v=evidence?.length===1?evidence[0].source:null;
+  if(!v||typeof v.current!=='boolean')throw fail('SEGMENT_UNAVAILABLE');
+  if(v.started_at!==undefined){
+   if(!exact(v,['current','started_at','observed_at','expires_at','customers','mapped','unresolved'])
+    ||![v.customers,v.mapped,v.unresolved].every(n=>Number.isSafeInteger(n)&&n>=0)
+    ||v.mapped+v.unresolved!==v.customers||date(v.started_at)>date(v.observed_at)
+    ||date(v.expires_at)-date(v.started_at)!==93600000)throw fail('SEGMENT_UNAVAILABLE');
+   shopify={current:v.current,started_at:iso(v.started_at),observed_at:iso(v.observed_at),expires_at:iso(v.expires_at)};
+  }else if(!exact(v,['current'])||v.current)throw fail('SEGMENT_UNAVAILABLE');
+  else shopify={current:false};
+  if(!v.current)source.fields=source.fields.map(f=>Shopify.FIELDS.includes(f.key)?{...f,available:false}:f);
+ }
  const lists=listRows.map(l=>{if(!positive(l.id)||typeof l.name!=='string'||l.name.length>500)throw fail('SEGMENT_UNAVAILABLE');return {id:l.id,brand,name:l.name,available:l.status==='active'&&['single','double'].includes(l.optin)};});
  // Times and configuration revision refreshes are intentionally excluded. The
  // public hash pins the semantics the operator actually saw, including base
  // opt-in, native list state, currency/timezone and origin provenance.
  const catalog_hash=H.digest({contract:'crm-audience-catalog-semantics-v1',brand,base_list_id:c.base_list_id,lists:listRows,source});
- const catalog={brand,current:ready,...source,lists,coverage:'unconfirmed',checked_at:iso(c.read_at),catalog_hash};
+ const catalog={brand,current:ready,...source,lists,coverage:'unconfirmed',checked_at:iso(c.read_at),catalog_hash,...(shopify?{shopify_snapshot:shopify}:{})};
  return {catalog,ready,base_list_id:c.base_list_id,config_revision:c.revision,base:base?{id:base.id,brand,optin:base.optin}:null,lists:listRows,expires_at:c.expires_at===null?null:iso(c.expires_at)};
 }
 function pins(definition,current){

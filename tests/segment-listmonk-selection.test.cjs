@@ -192,9 +192,9 @@ test('OFF, incomplete binding, changed context, invalid catalog and external OR 
   await x.db.query("UPDATE crm_audience_v2.config SET catalog=$1::jsonb,revision=revision+1,checked_at=now(),expires_at=now()+interval '4 minutes' WHERE brand='fish'",[JSON.stringify({...catalog(),currency:'USD',timezone:'UTC'})]);
   assert.deepEqual((await x.batch(100)).map(r=>r.id),baseline);
   // A valid external OR leaf remains unsupported, even when the list branch is true.
-  const cfg={...catalog(),fields:[{key:'purchase.count',available:true,source_hash:'a'.repeat(64)}],currency:'BRL',timezone:'UTC',shop_id:'gid://shopify/Shop/1'};
+  const cfg={...catalog(),fields:[{key:'signup.origin',available:true,source_hash:'a'.repeat(64)}],origins:[{key:'popup',brand:'fish',name:'Synthetic confirmed origin',available:true,provenance_hash:'b'.repeat(64)}]};
   await x.db.query("UPDATE crm_audience_v2.config SET catalog=$1::jsonb WHERE brand='fish'",[JSON.stringify(cfg)]);
-  await x.bind('fish',{op:'or',rules:[{op:'in_list',list_id:21},{op:'condition',field:'purchase.count',operator:'gt',value:0}]});
+  await x.bind('fish',{op:'or',rules:[{op:'in_list',list_id:21},{op:'condition',field:'signup.origin',operator:'is',value:'popup'}]});
   assert.equal((await x.batch(100)).length,0);assert.equal((await x.batch(101)).length,0);
   assert.deepEqual(await x.batch(300),await x.batch(300,{sql:source}));
  }finally{await x.db.close();}
