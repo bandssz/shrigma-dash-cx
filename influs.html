@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=cee2f430cd6a">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rO3ux3VvDdEl4qG7aaAZn4Z2gIAdt4AmxhVcImyIEfU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tVTpx+eIfeFFFk2bddxl8v2ACW/mWHQlvUEd/7QOH2s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -46,7 +46,7 @@
     <div class="presets" id="presets">
       <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
       <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
-      <button data-p="mes">Este mês</button><button data-p="mesant" class="ativo">Mês passado</button>
+      <button data-p="mes" class="ativo">Este mês</button><button data-p="mesant">Mês passado</button>
       <button data-p="7">7 dias</button><button data-p="30">30 dias</button>
       <button data-p="90">90 dias</button>
     </div>
@@ -430,7 +430,7 @@ function preset(p){
   if(p==='mesant'){const f=dm(HOJE.slice(0,8)+'01',-1);return {ini:f.slice(0,8)+'01',fim:f};}
   return {ini:dm(HOJE,-(+p-1)),fim:HOJE};
 }
-let PER=preset('mesant');
+let PER=preset('mes'); // abre em Este mês (decisão do Felipe, 28/09)
 const LOGO={
   aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
   fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
