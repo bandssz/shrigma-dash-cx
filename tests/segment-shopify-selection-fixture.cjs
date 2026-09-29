@@ -11,7 +11,7 @@ async function setupShopifySelection(db){
  await db.exec(A.read('n8n/growth/segment-shopify-selection.sql'));
  const ingest=async(e)=>{const {customers,...meta}=e;return (await db.query('SELECT crm_audience_v2.shopify_ingest_chunk($1,$2,$3) AS receipt',[JSON.stringify(meta),0,JSON.stringify(customers)])).rows[0].receipt;};
  for(const brand of ['fish','aristo']){
-  const source=A.source(brand),e=evidence(brand),hashes=Object.fromEntries(Facts.FIELDS.map(k=>[k,Facts.sourceHash(brand,k,source)]));
+  const source=A.source(brand),e=evidence(brand),hashes=Object.fromEntries(Facts.AGGREGATE_FIELDS.map(k=>[k,Facts.sourceHash(brand,k,source)]));
   await db.query('INSERT INTO crm_audience_v2.shopify_source(brand,shop_id,domain,currency,timezone,query_sha256,workflow_id,producer_revision,field_hashes,ingestion_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true)',[brand,source.shop_id,e.shop,source.currency,source.timezone,e.query_sha256,e.workflow_id,e.workflow_version,JSON.stringify(hashes)]);
   await ingest(e);await db.query('UPDATE crm_audience_v2.shopify_source SET enabled=true WHERE brand=$1',[brand]);
   await db.query('SELECT crm_audience_v2.refresh_native_catalog($1)',[brand]);

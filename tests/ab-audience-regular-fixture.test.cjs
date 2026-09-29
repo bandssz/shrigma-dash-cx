@@ -4,7 +4,8 @@ const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'../../growth-test-to
 const F=require('./ab-audience-regular-fixture.cjs');
 
 test('A/B regular fixture exposes two reviewed drafts per brand while admission remains inspection-only',async t=>{
- const db=new PGlite();t.after(()=>db.close());const x=await F.setup(db);
+ const db=new PGlite();t.after(()=>db.close());const x=await F.setup(db,{renewableCatalogBeforeBinding:true});
+ assert.equal(x.catalogRenewal.length,2);assert.ok(x.catalogRenewal.every(row=>row.fresh));
  const runtime=await x.workerState();
  assert.equal(runtime.deployment_enabled,true);assert.equal(runtime.suspended,false);assert.equal(runtime.lease_current,true);
  assert.equal(runtime.policies_enabled,true);assert.equal(Number(runtime.delivery_controls),0);

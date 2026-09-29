@@ -11,7 +11,7 @@ test('public catalog demotes each advertised Shopify field whose semantic pin dr
  assert.equal(one.fields[1].key,'purchase.last_date');assert.equal(one.fields[1].available,false);
  for(const field of Shopify.FIELDS.filter(x=>x!=='purchase.last_date'))assert.equal(one.fields.find(x=>x.key===field).available,true);
  assert.notEqual(one.catalog_hash,before.catalog_hash);
- await db.query("UPDATE crm_audience_v2.config SET catalog=jsonb_set(jsonb_set(jsonb_set(catalog,ARRAY['fields','0','source_hash'],to_jsonb($2::text)),ARRAY['fields','1','source_hash'],to_jsonb($2::text)),ARRAY['fields','2','source_hash'],to_jsonb($2::text)) WHERE brand=$1",['fish','e'.repeat(64)]);
+ await db.query("UPDATE crm_audience_v2.config SET catalog=jsonb_set(catalog,'{fields}',(SELECT jsonb_agg(CASE WHEN f->>'key'=ANY($3::text[]) THEN f||jsonb_build_object('source_hash',$2::text) ELSE f END ORDER BY n) FROM jsonb_array_elements(catalog->'fields') WITH ORDINALITY x(f,n))) WHERE brand=$1",['fish','e'.repeat(64),Shopify.FIELDS]);
  const all=(await f.call(list('fish'))).body.catalog;
  assert.ok(Shopify.FIELDS.every(field=>all.fields.find(x=>x.key===field).available===false));
  assert.equal(all.current,true);assert.equal(all.shopify_snapshot,undefined);

@@ -20,8 +20,8 @@ async function setup(t){
  await F.dropShopifyStubs(db); // Install real source functions for every Shopify proof.
  await db.exec(read('n8n/growth/segment-shopify-facts.sql'));
  for(const brand of ['fish','aristo']){
-  const e=evidence(brand),catalog={...F.source(brand),fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>({key,available:Facts.FIELDS.includes(key),source_hash:Facts.FIELDS.includes(key)?Facts.sourceHash(brand,key,F.source(brand)):null})),products:[],origins:[]};
-  const hashes=Object.fromEntries(Facts.FIELDS.map(key=>[key,Facts.sourceHash(brand,key,catalog)]));
+  const e=evidence(brand),catalog={...F.source(brand),fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>({key,available:Facts.AGGREGATE_FIELDS.includes(key),source_hash:Facts.AGGREGATE_FIELDS.includes(key)?Facts.sourceHash(brand,key,F.source(brand)):null})),products:[],origins:[]};
+  const hashes=Object.fromEntries(Facts.AGGREGATE_FIELDS.map(key=>[key,Facts.sourceHash(brand,key,catalog)]));
   await db.query('INSERT INTO crm_audience_v2.shopify_source(brand,shop_id,domain,currency,timezone,query_sha256,workflow_id,producer_revision,field_hashes,ingestion_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true)',[brand,catalog.shop_id,e.shop,catalog.currency,catalog.timezone,e.query_sha256,e.workflow_id,e.workflow_version,JSON.stringify(hashes)]);
   await db.query('UPDATE crm_audience_v2.config SET catalog=$2::jsonb WHERE brand=$1',[brand,JSON.stringify(catalog)]);
  }
