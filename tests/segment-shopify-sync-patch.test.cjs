@@ -26,6 +26,14 @@ test('reviewed versions, node sources, customer queries and graph anchors are pi
  const once=P.patchWorkflow(source('fish'),config('fish')).workflow;assert.throws(()=>P.patchWorkflow(once,config('fish')),/SHOPIFY_SYNC_PATCH_COLLISION/);
 });
 
+test('Bulk Start uses static JSON and round-trips multiline GraphQL without expression delimiters',()=>{
+ const body=by(P.patchWorkflow(source('fish'),config('fish')).workflow,'Bulk Clientes — Start').parameters.jsonBody;
+ const expected=fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-shopify-customer-bulk.graphql'),'utf8'),parsed=JSON.parse(body);
+ assert.equal(body.startsWith('={{'),false);assert.equal(body.includes('\n'),false);assert.equal(body.includes('\\n'),true);
+ assert.equal(parsed.query,'mutation CrmAudienceRunCustomerBulk($query: String!) { bulkOperationRunQuery(query: $query) { bulkOperation { id status } userErrors { field message } } }');
+ assert.deepEqual(parsed.variables,{query:expected});assert.equal(parsed.variables.query.endsWith('}\n'),true);
+});
+
 if(fs.existsSync(PRIVATE))test('optional local snapshots still satisfy the production pins without exposing their contents',()=>{
  const inventory=JSON.parse(fs.readFileSync(PRIVATE,'utf8'));
  for(const brand of ['fish','aristo']){const workflow=structuredClone(inventory.find(w=>w?.id===P.PINS[brand].id));assert.ok(workflow);const result=P.patchWorkflow(workflow,{...config(brand),expectedVersionId:P.PINS[brand].version});assert.equal(result.workflow.nodes.length,21);}

@@ -22,7 +22,7 @@ const NAMES={empty:'CRM Shopify · Bulk vazio?',legacy:'CRM Shopify · Tem lote 
 const edge=node=>({node,type:'main',index:0});
 const onlyNode=(workflow,name,type)=>{const found=workflow.nodes.filter(n=>n.name===name);if(found.length!==1||type&&found[0].type!==type)throw Error('SHOPIFY_SYNC_NODE_DRIFT');return found[0];};
 const exactEdges=(workflow,name,expected)=>{const actual=workflow.connections[name]?.main;if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('SHOPIFY_SYNC_GRAPH_DRIFT');};
-const startBody=()=>`={{ ${JSON.stringify({query:'mutation CrmAudienceRunCustomerBulk($query: String!) { bulkOperationRunQuery(query: $query) { bulkOperation { id status } userErrors { field message } } }',variables:{query:CUSTOMER_QUERY}})} }}`;
+const startBody=()=>JSON.stringify({query:'mutation CrmAudienceRunCustomerBulk($query: String!) { bulkOperationRunQuery(query: $query) { bulkOperation { id status } userErrors { field message } } }',variables:{query:CUSTOMER_QUERY}});
 const pollBody=()=>`={{ ({ query: ${JSON.stringify(STATE_QUERY)}, variables: { operation: $('Bulk Clientes — Start').item.json.data.bulkOperationRunQuery.bulkOperation.id } }) }}`;
 function evidenceCode({brand,shop,revision}){
  return `const buildCustomerEvidence=${Evidence.buildCustomerEvidenceSource};
