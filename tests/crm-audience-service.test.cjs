@@ -78,3 +78,13 @@ test('regular prepare and schedule require their separate gate; original operati
   assert.equal(x.calls.length,0);assert.equal((await inject(x.app,{path:'/campaign-audience?acao=campanha_publico_agendamento_operacao&brand=fish&idempotency_key=original-op',headers:{Authorization:'Bearer human-key-123'}})).status,200);
  }
 });
+
+test('paused graph publication uses the existing service and an independent OFF configuration',async()=>{
+ const env={CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'db',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'synthetic',CRM_PG_DATABASE:'listmonk'};
+ assert.equal(config(env).graphLifecycleEnabled,false);assert.equal(config({...env,CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED:'true'}).graphLifecycleEnabled,true);assert.throws(()=>config({...env,CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED:'yes'}),/CRM_AUDIENCE_CONFIG/);
+ const calls=[],graphLifecycle={async handle(input){calls.push(input);return {status:200,body:{contract:'journey_graph_lifecycle_panel_v1',authorizes_send:false}};}},x=serve({graphLifecycle});
+ const headers={Authorization:'Bearer synthetic-key','Content-Type':'application/json',Origin:ORIGIN};
+ assert.equal((await inject(x.app,{method:'POST',path:'/journey-graph-lifecycle',headers,body:JSON.stringify({action:'review',brand:'fish'})})).status,200);
+ assert.equal(calls.length,1);assert.equal(x.calls.length,0);
+ const missing=serve();assert.equal((await inject(missing.app,{path:'/journey-graph-lifecycle?action=operation',headers:{Authorization:headers.Authorization}})).body.error,'GRAPH_LIFECYCLE_UNAVAILABLE');
+});

@@ -23,7 +23,7 @@ test('both brands construct a complete cart graph through visible controls, not 
  for(const brand of ['fish','aristo']){const x=built(brand);assert.equal(x.editor.validate().ok,true);const graph=x.editor.getDefinition();assert.deepEqual(Object.keys(graph).sort(),['brand','edges','name','nodes','version']);assert.equal(graph.brand,brand);assert.equal(graph.nodes.length,6);assert.equal(graph.edges.find(e=>e.from==='step2'&&e.port==='yes').to,'step4');
   assert.equal(Editor.ENABLED,false);assert.equal(x.editor.enabled,false);assert.equal(x.editor.contextStatus().dirty,true);assert.equal(x.editor.contextStatus().publicationAvailable,false);assert.equal(x.root.querySelector('textarea'),null);
   x.click('[data-action="review"]');const review=x.editor.prepareReview();assert.equal(review.ok,true);assert.equal(review.authorizes_publish,false);assert.equal(review.authorizes_send,false);assert.equal(review.server,null);assert.match(x.root.textContent,/nada publicado/);assert.match(x.el('.jge-badge').title,/Descadastro e bloqueios não podem ser desativados/);
-  const publish=[...x.root.querySelectorAll('button')].find(b=>b.textContent==='Publicar indisponível');assert.equal(publish.disabled,true);assert.equal(x.root.querySelector('[data-optout]'),null);
+  assert.match(x.root.textContent,/A ativação de fluxos ainda está indisponível/);assert.equal(x.root.querySelector('[data-action=publish]'),null);assert.equal(x.root.querySelector('[data-optout]'),null);
  }
 });
 test('incomplete connections, equal branches, cycles and orphans cannot prepare a publication review',()=>{

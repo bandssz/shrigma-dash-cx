@@ -5,6 +5,7 @@ const {createSegmentCampaignBinding}=require('../../n8n/growth/segment-campaign-
 const Regular=require('../../n8n/growth/segment-regular-admission.cjs'),{createRegularAdmissionAPI}=require('../../n8n/growth/segment-regular-admission-api.cjs');
 const Counter=require('../../n8n/growth/segment-audience-listmonk.cjs');
 const {createABPanelAPI}=require('../../n8n/growth/ab-audience-panel-api.cjs');
+const {createLifecyclePanelAPI}=require('../../n8n/growth/journey-graph-lifecycle-panel-api.cjs');
 function start(env=process.env,{Pool=require('pg').Pool}={}){
  const c=config(env),pool=new Pool(c.pg),transaction=createTransaction({pool,statementTimeoutMs:c.pg.statement_timeout});
  pool.on('error',()=>process.stderr.write('CRM_AUDIENCE_DATABASE_UNAVAILABLE\n'));
@@ -14,7 +15,8 @@ function start(env=process.env,{Pool=require('pg').Pool}={}){
  const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider:Counter.countAudience,refreshCatalog})});
  const binding={handle(input,options){const action=input?.request?.body?.acao??input?.request?.query?.acao;return (Object.values(Regular.ACTIONS).includes(action)?regular:bindingOnly).handle(input,options);}};
  const experiments=createABPanelAPI({transaction,enabled:c.abEnabled&&c.regularEnabled&&c.bindingEnabled});
- const app=createServer({segments,binding,experiments,revision:c.revision,enabled:c.enabled,bindingEnabled:c.bindingEnabled,regularEnabled:c.regularEnabled});
+ const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled});
+ const app=createServer({segments,binding,experiments,graphLifecycle,revision:c.revision,enabled:c.enabled,bindingEnabled:c.bindingEnabled,regularEnabled:c.regularEnabled});
  app.server.listen(c.port,'0.0.0.0');let stopping=false,stopPromise;
  const stop=()=>{if(!stopPromise)stopPromise=(async()=>{stopping=true;try{await app.stop();await transaction.drain();await pool.end();}catch{process.exitCode=1;}})();return stopPromise;};
  process.once('SIGTERM',stop);process.once('SIGINT',stop);

@@ -85,6 +85,7 @@ BEGIN
  IF p->>'action'='save' THEN
   SELECT * INTO j FROM crm_graph_candidate.journey WHERE id=(p->>'journey_id')::uuid AND brand=p->>'brand' FOR UPDATE;
   IF NOT FOUND THEN RETURN crm_graph_candidate.workflow_response_v1(404,'{"error":"GRAPH_NOT_FOUND"}');END IF;
+  IF j.published_revision IS NOT NULL THEN RETURN crm_graph_candidate.workflow_response_v1(409,'{"error":"GRAPH_PUBLISHED_READ_ONLY"}');END IF;
   IF j.version<>(p->>'expected_version')::integer THEN RETURN crm_graph_candidate.workflow_response_v1(409,'{"error":"GRAPH_VERSION_CONFLICT"}');END IF;
  END IF;
  -- Control and journey row locks can also wait. Reauthorize after every

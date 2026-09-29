@@ -68,3 +68,17 @@ negação de escrita nativa e concorrência de tracking) e
 `tests/ab-audience-regular-postgres.cjs` (espera pelo horário real, query exata do
 worker, consentimento, braços disjuntos, pausa conjunta e recibos). São provas
 sintéticas, sem envio a clientes; não substituem readback nem aceite de produção.
+
+## Publicação pausada de fluxos — gate independente OFF
+
+A rota `/journey-graph-lifecycle` integra o construtor existente. O gate
+`CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED=false` bloqueia conferência/preparação/publicação;
+consulta de recibos e status permanece autenticada. Uma publicação cria revisão
+imutável na mesma jornada, mantém a jornada pausada e preserva o histórico.
+Não admite participantes nem envia. Usa o mesmo pool limitado e o login
+`crm_audience_api`, com helpers SQL próprios sem UPDATE nativo.
+
+O cliente compartilha o diário de rascunhos e consulta respostas incertas por GET,
+sem repetir a publicação. O código não anuncia a capacidade: são necessários
+SQL/grants, atualização da API na janela de Felipe e aceite nas duas marcas.
+Contrato, limites e provas em [publicação pausada](../../n8n/growth/journey-graph-lifecycle-publication.md).

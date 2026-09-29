@@ -13,3 +13,16 @@ test('HTTP bridge and existing Node API share identical ledger hashes and immuta
 test('malformed permission object cannot impersonate the helper array grants or reserve a draft',async()=>{const x=await setup();try{const p=req(x.fish.graph),e=x.entry(p),proof=W.API.prepare(e,await x.sqlRead(e)).proof;await x.db.query("UPDATE shrigma_panel_permission_v1 SET caps='{\"draft\":true,\"read_content\":true}' WHERE principal_id='manager'");assert.equal((await x.call({action:'catalog',brand:'fish'})).status,401);assert.equal((await x.sqlCommit(e,proof)).status,401);assert.equal((await x.db.query('SELECT count(*)::int n FROM crm_graph_candidate.operation')).rows[0].n,0);}finally{await x.db.close();}});
 
 test('embedded bridge executes without require/crypto and does not depend on sandbox module exports',()=>{const input={method:'GET',request:{headers:{authorization:'Bearer synshort'},query:{action:'capabilities',brand:'fish'}}};for(const context of [{},{module:{exports:{}}}]){const out=vm.runInNewContext('(function(){'+W.BUNDLE+'\nreturn GraphHttp.parse('+JSON.stringify(input)+');})()',context);assert.equal(out.route,'read');assert.equal(out.request.action,'capabilities');}});
+
+test('draft save cannot overwrite a published revision, while its earlier receipt remains recoverable',async()=>{
+ const x=await setup();try{
+  const p=req(x.fish.graph,901),created=await x.call(p),j=created.body.receipt.journey_id;
+  await x.db.query('UPDATE crm_graph_candidate.journey SET published_revision=head_revision,paused=true WHERE id=$1',[j]);
+  const save={action:'save',brand:'fish',request_id:id(902),journey_id:j,expected_version:1,definition:{...x.fish.graph,name:'Overwrite forbidden'}};
+  assert.equal((await x.call(save)).body.error,'GRAPH_PUBLISHED_READ_ONLY');
+  assert.deepEqual((await x.call(p)).body.receipt,created.body.receipt);
+  const {createDraftApi}=require('../n8n/growth/journey-graph-draft-api.cjs'),api=createDraftApi({pool:x.pool,catalogFor:async()=>x.fish.catalog});
+  assert.equal((await api.handle({method:'POST',authorization:'Bearer synshort',request:save})).body.error,'GRAPH_PUBLISHED_READ_ONLY');
+  assert.equal((await x.db.query('SELECT count(*)::int n FROM crm_graph_candidate.revision')).rows[0].n,1);
+ }finally{await x.db.close();}
+});

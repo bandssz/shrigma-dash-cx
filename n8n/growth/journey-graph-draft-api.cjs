@@ -87,7 +87,7 @@ function createDraftApi({pool,catalogFor}={}){
    // Never accept actor/caps from the request. Author is resolved by the current
    // manager helper, then checked again inside the runtime transaction/replay.
    const actor=await withRead(key,'draft',async(_,who)=>who);
-   const runtime=createGraphRuntime({pool,catalogFor,readSource:async()=>{throw Error('GRAPH_SOURCE_DISABLED');},beforeCommand:async({query,actor:claimed,action,brand})=>{
+   const runtime=createGraphRuntime({pool,catalogFor,draftOnly:true,readSource:async()=>{throw Error('GRAPH_SOURCE_DISABLED');},beforeCommand:async({query,actor:claimed,action,brand})=>{
     if(!['create','save'].includes(action)||brand!==p.brand||claimed!==actor)throw fail(403,'GRAPH_PERMISSION_REQUIRED');
     const current=await authenticate(query,key,'draft');if(current!==claimed)throw fail(401,'GRAPH_UNAUTHORIZED');
    }});
@@ -96,7 +96,7 @@ function createDraftApi({pool,catalogFor}={}){
   }catch(e){
    if(e[API_ERROR])return response(e.status,{error:e.code});
    if(e.code==='GRAPH_OUTCOME_UNKNOWN')return response(202,{state:'unconfirmed',request_id:request?.request_id,retry_same_request_only:true,error:'GRAPH_OUTCOME_UNKNOWN'});
-   const status={GRAPH_NOT_FOUND:404,GRAPH_VERSION_CONFLICT:409,GRAPH_REPLAY_MISMATCH:409,GRAPH_CATALOG_CHANGED:409,GRAPH_REVISION_CORRUPT:503}[e.code];
+   const status={GRAPH_PUBLISHED_READ_ONLY:409,GRAPH_NOT_FOUND:404,GRAPH_VERSION_CONFLICT:409,GRAPH_REPLAY_MISMATCH:409,GRAPH_CATALOG_CHANGED:409,GRAPH_REVISION_CORRUPT:503}[e.code];
    if(status)return response(status,{error:e.code});
    const validation=['GRAPH_SHAPE','GRAPH_VERSION','GRAPH_TEXT','GRAPH_ID','GRAPH_RANGE','GRAPH_SIZE','GRAPH_JSON','GRAPH_CATALOG','GRAPH_DUPLICATE','GRAPH_FIELD','GRAPH_CONDITION','GRAPH_CONDITION_TYPE','GRAPH_TRIGGER','GRAPH_TRIGGER_UNAVAILABLE','GRAPH_MESSAGE_UNAVAILABLE','GRAPH_MESSAGE_FIELDS','GRAPH_NODE_TYPE','GRAPH_EDGE','GRAPH_PARALLEL','GRAPH_PORTS','GRAPH_BRANCH','GRAPH_CYCLE','GRAPH_ORPHAN','GRAPH_CANDIDATE_SCOPE','GRAPH_INPUT_SHAPE','GRAPH_INPUT_JSON','GRAPH_INPUT_SIZE'];
    if(validation.includes(e.code))return response(422,{error:e.code});
