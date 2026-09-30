@@ -40,6 +40,15 @@ original; em resposta incerta, conferir os hashes das funções antes de qualque
 nova tentativa. Fontes, consentimento, públicos salvos e permissões permanecem
 preservados; essa atualização não libera envio com públicos salvos.
 
+Depois dessa migração, `n8n/growth/segment-shopify-count-inline.sql` permite ao
+PostgreSQL integrar os fatos de produtos à consulta, evitando uma cópia
+temporária desse conjunto. Altera uma única anotação na função agregada e
+preserva o compilador, dados, limites e permissões. Exige PostgreSQL 17.10,
+os hashes PR191 exatos e os mesmos três controles desligados; recusa deriva
+ou reaplicação. Aplique com intenção durável e conferência dos hashes antes
+e depois. A prova nativa usa 159.900 fatos e quatro contagens concorrentes,
+com `work_mem=4MB`; não substitui a medição nas lojas após a implantação.
+
 ## A/B com público salvo — gate independente, inicialmente OFF
 
 `CRM_AUDIENCE_AB_ENABLED=false` é o padrão. A rota `/ab-experiments` só admite
