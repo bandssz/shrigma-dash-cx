@@ -1,0 +1,7 @@
+#crm-media{margin-top:20px}#crm-media .painel-cab{padding:0 0 12px;border:0}#crm-media h2{font-size:20px;text-transform:none;letter-spacing:-.02em}#crm-media p{font-size:12px;line-height:1.6;margin:9px 0}
+.crm-media-hosts,.crm-media-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}.crm-media-hosts a{text-decoration:none;line-height:1.4}
+#crm-media-fields{border:1px solid var(--borda);border-radius:8px;padding:16px;margin-top:18px;min-width:0}#crm-media-fields legend{font-size:13px;font-weight:600;padding:0 6px}
+#crm-media label{display:flex;flex-direction:column;gap:5px;margin:12px 0;font-size:12px}#crm-media label[hidden]{display:none}
+#crm-media input{width:100%;min-width:0;font:inherit;padding:9px 11px;border:1px solid var(--borda-forte);border-radius:6px;background:var(--card);color:var(--texto)}
+#crm-media-picture{background:var(--card-2);border:1px solid var(--borda);padding:14px;border-radius:8px}#crm-media-picture img{display:block;max-width:100%;max-height:360px;width:auto;height:auto;margin:auto}
+#crm-media-output{font-family:monospace;font-size:11px;overflow-wrap:anywhere}

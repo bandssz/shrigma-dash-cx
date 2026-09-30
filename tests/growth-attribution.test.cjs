@@ -95,3 +95,39 @@ test('an unknown dispatch time cannot be reported as measured zero revenue',()=>
  const m=GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
  assert.equal(m.result,null);
 });
+
+test('orders per 100 sends uses exclusive server evidence, selected model and accumulated sends without truncating values above 100',()=>{
+ const f=fixture();f.crm_attribution.campaigns[0].enviados=2;f.crm_attribution.campaigns[0].enviado_em='2026-09-14T11:30:00Z';
+ f.crm_attribution.dispatch_evidence={schema_version:1,daily:[
+  {marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:3,receita:300},
+  {marca:'aristo',dia:day,model:'last_non_direct',campanha_id:127,pedidos:1,receita:100}
+ ]};
+ let m=GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
+ assert.equal(m.in_period,false);assert.equal(m.result.pedidos,3);assert.equal(m.orders_per_100,150);assert.equal(m.orders_per_100_reason,null);
+ f._attribution_model='last_non_direct';m=GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
+ assert.equal(m.result.pedidos,1);assert.equal(m.orders_per_100,50);
+});
+
+test('orders per 100 sends preserves measured zero and makes every unproved denominator or numerator unavailable with a reason',()=>{
+ const complete=fixture();complete.crm_attribution.dispatch_evidence={schema_version:1,daily:[]};
+ let m=GA.campaigns(complete,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
+ assert.equal(m.orders_per_100,0);assert.equal(m.orders_per_100_reason,null);
+ const cases=[
+  ['Cobertura incompleta',f=>{f.crm_attribution.coverage=[];}],
+  ['Evidência por disparo indisponível',f=>{f.crm_attribution.dispatch_evidence={schema_version:2,daily:[]};}],
+  ['UTM do disparo indisponível',f=>{f.crm_attribution.campaigns[0].utms=[];}],
+  ['UTM não exclusiva',f=>{f.crm_attribution.campaigns.push({...f.crm_attribution.campaigns[0],campanha_id:128});}],
+  ['Horário de envio indisponível',f=>{f.crm_attribution.campaigns[0].enviado_em=null;}],
+  ['Pedidos identificados indisponíveis',f=>{f.crm_attribution.dispatch_evidence.daily=[{marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:'invalid',receita:100}];}],
+  ['Pedidos identificados indisponíveis',f=>{f.crm_attribution.dispatch_evidence.daily=[{marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:Number.MAX_SAFE_INTEGER,receita:100},{marca:'aristo',dia:day,model:'last_click',campanha_id:127,pedidos:1,receita:100}];}],
+  ['Total acumulado de envios indisponível',f=>{f.crm_attribution.campaigns[0].enviados=Number.MAX_SAFE_INTEGER+1;}],
+  ['Disparo ainda não enviado',f=>{f.crm_attribution.campaigns[0].enviados=0;f.crm_attribution.campaigns[0].status='finished';}]
+ ];
+ for(const [reason,change] of cases){const f=fixture();f.crm_attribution.dispatch_evidence={schema_version:1,daily:[]};change(f);const row=GA.campaigns(f,'aristo',day,day)[0].members.find(x=>x.campanha_id===127);assert.equal(row.orders_per_100,null,reason);assert.match(row.orders_per_100_reason,new RegExp(reason));}
+});
+
+test('invalid dispatch timestamps stay unavailable instead of throwing during period classification',()=>{
+ const f=fixture();f.crm_attribution.campaigns[0].enviado_em='not-a-date';f.crm_attribution.dispatch_evidence={schema_version:1,daily:[]};
+ const m=GA.campaigns(f,'aristo',day,day)[0].members.find(m=>m.campanha_id===127);
+ assert.equal(m.in_period,false);assert.equal(m.orders_per_100,null);assert.equal(m.orders_per_100_reason,'Horário de envio indisponível');
+});

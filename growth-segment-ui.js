@@ -42,7 +42,7 @@
   function shopifyNotice(){
    const s=catalog?.shopify_snapshot;if(!s)return '';
    const date=v=>esc(new Date(v).toLocaleString('pt-BR',{timeZone:catalog.timezone||'America/Sao_Paulo'}));
-   return '<p data-gs-shopify-snapshot>'+(s.current?'Dados Shopify coletados entre '+date(s.started_at)+' e '+date(s.observed_at)+'. Válidos até '+date(s.expires_at)+'.':'A sincronização Shopify ainda não está confirmada ou venceu. As condições de compra estão indisponíveis.')+' A sincronização é noturna; pedidos posteriores podem ainda não aparecer. Quantidade e última data consideram os pedidos do cadastro Shopify, sem filtro de pagamento. Clientes ausentes ou com identidade ambígua permanecem desconhecidos.</p>';
+   return '<p data-gs-shopify-snapshot>'+(s.current?'Dados Shopify coletados entre '+date(s.started_at)+' e '+date(s.observed_at)+'. Válidos até '+date(s.expires_at)+'.':'A sincronização Shopify ainda não está confirmada ou venceu. As condições de compra estão indisponíveis.')+' Confira a data da coleta e a validade; pedidos posteriores podem ainda não aparecer. Quantidade e última data consideram os pedidos do cadastro Shopify, sem filtro de pagamento. Clientes ausentes ou com identidade ambígua permanecem desconhecidos.</p>';
   }
   function render(){
    const enabled=ctx&&Client.caps(ctx.api).read&&Client.caps(ctx.api).brands.includes(ctx.brand);
