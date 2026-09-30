@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=9d723386a6a4">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3ZLc5vc8t9vJvnKCxxleUNBHGAP9oXxxdmL5H419J4g='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L3FJGWQBN4mTSocasKZ+JrlC/8UCq72fzkdOvG6jl6s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -616,6 +616,19 @@ function renderKPIs(){
   const etqSemDono=!nicho&&porDono.semDono>0
     ?` <span class="tag alerta" title="${escT('Cupom sem creator associado (campanha da loja, pendente ou desconhecido), fora da receita rastreada: '+porDono.semDonoCupons.slice(0,8).map(([c,v])=>c+' '+rf(v)).join(' · ')+(porDono.semDonoCupons.length>8?' · …':''))}">+ ${rf(porDono.semDono)} sem dono</span>`:'';
   const roiTxt2=roiTxt2f(k.roiTotal);
+  // CAC por cliente novo: investimento de influência ÷ clientes que fizeram o 1º pedido na loja pelo cupom.
+  // Mesmos creators dos KPIs (marca e nicho). Pedido sem índice de cliente não conta como novo.
+  const cli=(()=>{
+    if(!Array.isArray(INFLU.clientes))return null; // leitura antiga, sem o bloco
+    const rows=G.comNicho(INFLU.roi,INFLU.influs).filter(x=>G.passaNicho(x.nicho,nicho)).filter(x=>MARCA==='todas'||x.marca===MARCA);
+    const chaves=new Set(rows.map(x=>x.marca+'|'+x.influ)),t={pedidos:0,novos:0,sem:0};
+    for(const c of INFLU.clientes)if(chaves.has(c.marca+'|'+c.influ)){t.pedidos+=+c.pedidos||0;t.novos+=+c.novos||0;t.sem+=+c.sem_indice||0;}
+    return t;})();
+  const cacTxt=cli==null?'—':(cli.novos>0&&k.investimento>0?rf(k.investimento/cli.novos):'—');
+  const cacSub=cli==null?'a leitura ainda não traz clientes novos'
+    :cli.novos>0?`${nf(cli.novos)} clientes novos · ${Math.round(100*cli.novos/Math.max(1,cli.pedidos))}% dos pedidos · investimento ÷ novos`
+    :'nenhum 1º pedido pelo cupom no período';
+  const etqSemIndice=cli&&cli.sem>0?` <span class="tag alerta" title="${nf(cli.sem)} pedido(s) sem índice de cliente no ledger da Shopify: não contam como novos nem como recompra.">${nf(cli.sem)} sem índice</span>`:'';
   const roiTxt=k.roi==null?'—':k.roi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x';
   const cls=k.roi==null?'':(k.roi>=3?' vd':(k.roi<1?' vm':''));
   $('#area-kpis').innerHTML=[
@@ -625,6 +638,7 @@ function renderKPIs(){
      s:k.pedidos?`compras pagas por cupom de creator`:'nenhum pedido por cupom no período'},
     {r:'Ticket médio',v:k.ticketMedio==null?'—':rf(k.ticketMedio),
      s:k.ticketMedio==null?'sem pedido para calcular':'receita ÷ pedidos, só pela lente do cupom'},
+    {r:'CAC por cliente novo'+etqSemIndice,v:cacTxt,s:cacSub},
     {r:k.patrocinio>0?'ROI de influência':'ROI',
      v:`<span class="${cls.trim()}">${roiTxt}</span>`,
      s:k.patrocinio>0
@@ -775,6 +789,8 @@ function renderTabela(){
   const ROI=new Map((INFLU.roi||[]).map(x=>[x.marca+'|'+x.influ,x]));
   // receita e do CUPOM, nao do influ: cupom sem dono tambem tem receita e precisa aparecer
   const RC=new Map((INFLU.receita_cupom||[]).map(x=>[x.marca+'|'+x.codigo,x]));
+  // Clientes novos por creator (bloco 'clientes'); sem o bloco, as colunas ficam em —.
+  const CLI=Array.isArray(INFLU.clientes)?new Map(INFLU.clientes.map(x=>[x.marca+'|'+x.influ,x])):null;
   // Lente 2, separada: receita da linha assinada. NUNCA somar com a receita de cupom -
   // 'sobreposicao' e a parte que caiu no mesmo pedido e somar contaria a venda duas vezes.
   const RS=new Map((INFLU.receita_sku||[]).map(x=>[x.marca+'|'+x.influ,x]));
@@ -810,6 +826,7 @@ function renderTabela(){
   const linhas=cs.map(c=>{
     const v=ROI.get(c.marca+'|'+c.influ);
     const rc=RC.get(c.marca+'|'+c.codigo);
+    const cl=c.influ&&CLI?(CLI.get(c.marca+'|'+c.influ)||{pedidos:0,novos:0,recorrentes:0,sem_indice:0}):null;
     const rs=RS.get(c.marca+'|'+c.influ);
     const meus=(INFLU.influs||[]).filter(i=>i.marca===c.marca);
     const optI=['<option value="">— sem influ —</option>']
@@ -851,8 +868,10 @@ function renderTabela(){
       <td class="num tabn">${rc?rf(rc.receita):'—'}</td>
       <td class="num tabn">${v&&+v.investimento?rf(v.investimento):'—'}</td>
       <td class="num ${v?roiCls(v.roi):''}"><strong class="tabn">${v?roiTxt(v.roi):'—'}</strong></td>
+      <td class="num tabn" title="${cl?esc(nf(cl.novos)+' novos · '+nf(cl.recorrentes)+' recompra'+(cl.sem_indice?' · '+nf(cl.sem_indice)+' sem índice':'')):''}">${cl&&cl.pedidos?nf(cl.novos):'—'}</td>
+      <td class="num tabn">${cl&&cl.novos>0&&v&&+v.investimento>0?rf(v.investimento/cl.novos):'—'}</td>
       <td class="i-acoes">${c.influ?`<button class="btn sec i-edit" data-influ="${esc(c.influ)}" data-m="${esc(c.marca)}">Editar</button>`:''}</td></tr>
-      <tr class="i-det" hidden><td colspan="7" class="i-obs">
+      <tr class="i-det" hidden><td colspan="9" class="i-obs">
         <div class="i-reclass"><span class="mini">Reclassificar:</span>
           <label>creator <select class="i-sel i-i">${optI}</select></label>
           <label>tipo <select class="i-sel i-t">${optT}</select></label>
@@ -864,7 +883,8 @@ function renderTabela(){
     : '';
   $('#area-tabela').innerHTML=avisoOculto+`<div class="rolagem"><table class="comparativo"><thead><tr>
     <th>Cupom</th><th>Creator</th><th class="num">Pedidos</th><th class="num">Receita</th>
-    <th class="num" title="cachê pro-rata + comissão + produto + frete no período">Investido</th><th class="num">ROI</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+    <th class="num" title="cachê pro-rata + comissão + produto + frete no período">Investido</th><th class="num">ROI</th>
+    <th class="num" title="Clientes do creator cujo 1º pedido na loja foi pelo cupom, no período">Novos</th><th class="num" title="Investido ÷ clientes novos do creator">CAC</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
 
   document.querySelectorAll('#area-tabela .i-edit').forEach(b=>b.onclick=e=>{e.preventDefault();abrirEditor(b.dataset.m,b.dataset.influ);});
   document.querySelectorAll('#area-tabela .i-mais').forEach(b=>b.onclick=()=>{
