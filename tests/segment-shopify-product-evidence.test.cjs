@@ -9,13 +9,21 @@ const item=(id,parent,product,quantity=1)=>({id:`gid://shopify/LineItem/${id}`,q
 const value=(rows=[],more={})=>{const jsonl=rows.map(row=>JSON.stringify(row)).join('\n')+(rows.length?'\n':'');const roots=rows.filter(row=>!Object.hasOwn(row,'__parentId')).length;return {brand:'fish',shop:'synthetic-fish',operation:{data:{shop:{id:'gid://shopify/Shop/11',myshopifyDomain:'synthetic-fish.myshopify.com',currencyCode:'BRL',ianaTimezone:'America/Sao_Paulo'},currentAppInstallation:{accessScopes:scopes.map(handle=>({handle}))},node:{id:'gid://shopify/BulkOperation/91',status:'COMPLETED',errorCode:null,objectCount:String(rows.length),rootObjectCount:String(roots),createdAt:at.started,completedAt:at.completed,fileSize:String(Buffer.byteLength(jsonl)),url:rows.length?'https://storage.example.invalid/customer-products':null,partialDataUrl:null}}},jsonl,observedAt:at.observed,querySha256:'b'.repeat(64),workflowId:'synthetic-workflow',workflowVersion:'shopify-customer-products-v2',...more};};
 const rejects=(v,code)=>assert.throws(()=>E.buildCustomerProductEvidence(v),error=>error?.message===code);
 
-test('v2 preserves the v1 Customer projection and proves the complete JSONL provenance',()=>{
+test('the historical v1 product semantics preserve the Customer projection and complete JSONL provenance',()=>{
  const rows=[customer(1),order(10,1),item(100,10,['9','Zeta']),item(101,10,['2','Alpha']),order(11,1),item(102,11,['2','Alpha'],0)],v=value(rows),out=E.buildCustomerProductEvidence(v);
  const rootInput=value([rows[0]]),legacy=V1.buildCustomerEvidence({...rootInput,querySha256:v.querySha256,workflowId:v.workflowId,workflowVersion:v.workflowVersion});
  assert.equal(out.version,2);for(const key of ['customer_gid','email','orders_count','amount_spent','currency','last_order_at','created_at','updated_at','identity_ambiguous','identity_resolvable'])assert.deepEqual(out.customers[0][key],legacy.customers[0][key]);
  assert.deepEqual(out.customers[0].products,[{id:'gid://shopify/Product/2',name:'Alpha'},{id:'gid://shopify/Product/9',name:'Zeta'}]);assert.equal(out.customers[0].unresolved_product_items,0);assert.equal(out.customers[0].product_history_complete,true);
  assert.equal(out.source_sha256,crypto.createHash('sha256').update(v.jsonl).digest('hex'));assert.deepEqual(out.counts,{...legacy.counts,bytes:Buffer.byteLength(v.jsonl),object_count:'6',root_object_count:'1',orders:2,line_items:3,product_missing:0,product_history_incomplete:0});
  assert.deepEqual(out.bulk.required_scopes,scopes);assert.equal(out.bulk.file_size,String(Buffer.byteLength(v.jsonl)));
+ assert.equal(Object.hasOwn(out.bulk,'product_history_semantics'),false);
+});
+
+test('explicit v2 mode fails closed per Customer on missing or extra Order nodes',()=>{
+ const missing=value([customer(1),order(10,1),item(100,10,['2','Alpha'])]),extra=value([customer(1,null,{numberOfOrders:'0',amountSpent:{amount:'0.00',currencyCode:'BRL'},lastOrder:null}),order(10,1),item(100,10,['2','Alpha'])]);
+ const legacy=E.buildCustomerProductEvidence(missing),v2missing=E.buildCustomerProductEvidenceV2(missing),v2extra=E.buildCustomerProductEvidenceV2(extra);
+ assert.equal(legacy.customers[0].product_history_complete,true);assert.equal(legacy.counts.product_history_incomplete,0);
+ for(const out of [v2missing,v2extra]){assert.equal(out.customers[0].product_history_complete,false);assert.equal(out.customers[0].unresolved_product_items,0);assert.equal(out.counts.product_history_incomplete,1);assert.equal(out.bulk.product_history_semantics,'customer-order-parity-v2');assert.deepEqual(out.customers[0].products,[{id:'gid://shopify/Product/2',name:'Alpha'}]);}
 });
 
 test('null product makes only its Customer history incomplete, including quantity zero',()=>{
@@ -30,7 +38,7 @@ test('unresolved item totals and distinct incomplete Customers are independently
  assert.deepEqual(out.customers.map(c=>[c.unresolved_product_items,c.product_history_complete]),[[2,false],[1,false],[0,true]]);assert.equal(out.counts.product_missing,3);assert.equal(out.counts.product_history_incomplete,2);
 });
 
-test('empty completed export is v2 evidence and does not manufacture roots or products',()=>{
+test('empty completed product export preserves the default v1 envelope without manufacturing roots or products',()=>{
  const out=E.buildCustomerProductEvidence(value([]));assert.equal(out.version,2);assert.deepEqual(out.customers,[]);assert.equal(out.counts.object_count,'0');assert.equal(out.counts.root_object_count,'0');assert.equal(out.counts.orders,0);assert.equal(out.counts.line_items,0);assert.equal(out.counts.product_missing,0);assert.equal(out.counts.product_history_incomplete,0);
 });
 
@@ -72,4 +80,5 @@ test('explicit root, all-node, byte and distinct-product limits fail before part
 
 test('serialized n8n source is dependency-free and byte-equivalent',()=>{
  assert.doesNotMatch(E.buildCustomerProductEvidenceSource,/require\s*\(/);const isolated=vm.runInNewContext(E.buildCustomerProductEvidenceSource),v=value([customer(1,'üser@example.com'),order(10,1),item(100,10,['2','Peixe 🐟'])]);assert.deepEqual(JSON.parse(JSON.stringify(isolated(v))),E.buildCustomerProductEvidence(v));
+ assert.doesNotMatch(E.buildCustomerProductEvidenceV2Source,/require\s*\(/);const isolatedV2=vm.runInNewContext(E.buildCustomerProductEvidenceV2Source);assert.deepEqual(JSON.parse(JSON.stringify(isolatedV2(v))),E.buildCustomerProductEvidenceV2(v));
 });

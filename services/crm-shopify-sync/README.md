@@ -15,3 +15,26 @@ The last chunk also finalizes the full snapshot's customer identities and produc
 If the final chunk is uncertain, first reconcile its durable receipt and the pending journal. After proving the chunk absent and the old lease expired, deploy the corrected collector once and let startup recovery reclaim the same idempotency key and bulk. It preserves `observed_at`, exact evidence and committed chunk hashes. Do not repeat the HTTP POST, start another bulk or manually replay an uncertain chunk.
 
 Credentials may instead come from `CRM_SHOPIFY_SYNC_SECRETS_FILE`: a regular private JSON file mounted for the `node` user, maximum 4096 bytes, with no group/other permissions or symlink. Its exact six keys are `PGPASSWORD`, `CRM_SHOPIFY_SYNC_KEY` and the client id/secret pair for each brand. Public environment settings retain all activation, lease and memory controls; duplicate credentials in environment and file are rejected. Deploy the bind mount through Easypanel without returning credential values through tool outputs.
+
+## Product-history semantic mode
+
+`CRM_SHOPIFY_PRODUCT_SEMANTICS` accepts exactly `v1` or `v2` and defaults to
+`v1`. The worker captures the selected parser when it is created; existing v1
+exports retain their original behavior. In v2, a Customer's product history is
+complete only when unresolved line items are zero and the exported Order-node
+count equals `Customer.numberOfOrders`. The service rejects v2 unless
+`CRM_SHOPIFY_PRODUCER_REVISION` equals the full
+`CRM_SHOPIFY_SYNC_REVISION`, and `/healthz` reports `product_semantics`.
+
+Do not enable v2 merely because the image contains both parsers. Verify every
+compatible audience API replica in v1 and an idle journal/mutex with delivery
+gates OFF. Stage this collector image OFF in v2, with producer revision equal to
+its image revision, and read back its health. Install the guarded v2 database
+graph, derive attestations for the frozen snapshots and refresh the catalog
+while the source producer revision remains unchanged. Then move every audience
+API replica to v2 and prove its counts. Prepare the exact old-to-new producer
+transition in the ledger only after those checks; enable this collector last.
+The committed ledger does not lock the scheduler, so the service must remain
+OFF until preparation is complete. Do not start another Bulk or replay the
+current frozen exports. Historical chunks and their provenance remain
+immutable.

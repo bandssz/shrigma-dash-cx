@@ -2,7 +2,7 @@
 
 const Customer=require('./segment-shopify-bulk-evidence.cjs');
 
-function buildCustomerProductEvidenceWith(buildCustomerEvidence,input){
+function buildCustomerProductEvidenceWith(buildCustomerEvidence,input,productSemantics){
  const LIMITS={bytes:128*1024*1024,roots:250000,nodes:1000000,lineBytes:256*1024,products:1000,urlLength:8192};
  const REQUIRED_SCOPES=['read_customers','read_orders','read_all_orders','read_products'];
  const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -25,6 +25,7 @@ function buildCustomerProductEvidenceWith(buildCustomerEvidence,input){
   const put=v=>{block[used++]=v;total++;if(used===64)compress();};eachUtf8(s,put);const bit=BigInt(total)*8n;put(0x80);while(used!==56)put(0);for(let shift=56n;shift>=0n;shift-=8n)put(Number((bit>>shift)&255n));return Array.from(H).map(v=>v.toString(16).padStart(8,'0')).join('');
  };
 
+ if(!['v1','v2'].includes(productSemantics))fail('SHOPIFY_PRODUCT_SEMANTICS_MODE');
  if(!object(input)||typeof input.jsonl!=='string')fail('SHOPIFY_BULK_JSONL_INVALID');
  const rawBytes=utf8Length(input.jsonl);if(rawBytes>LIMITS.bytes)fail('SHOPIFY_BULK_LIMIT');
  const response=input.operation;
@@ -46,11 +47,11 @@ function buildCustomerProductEvidenceWith(buildCustomerEvidence,input){
   if(!object(row))fail('SHOPIFY_BULK_NODE_INVALID');
   if(!own(row,'__parentId')){
    exact(row,CUSTOMER_KEYS,'SHOPIFY_CUSTOMER_INVALID');if(!gid(row.id,'Customer')||nodeGids.has(row.id))fail(nodeGids.has(row.id)?'SHOPIFY_BULK_GID_DUPLICATE':'SHOPIFY_CUSTOMER_GID_INVALID');
-   nodeGids.add(row.id);roots.push(row);customers.set(row.id,{unresolved:0,products:new Map()});continue;
+   nodeGids.add(row.id);roots.push(row);customers.set(row.id,{expectedOrders:productSemantics==='v2'?uint64(row.numberOfOrders,'SHOPIFY_CUSTOMER_ORDERS_INVALID'):null,observedOrders:0n,unresolved:0,products:new Map()});continue;
   }
   if(Object.keys(row).length===2&&own(row,'id')){
    exact(row,['id','__parentId'],'SHOPIFY_ORDER_INVALID');if(!gid(row.id,'Order')||nodeGids.has(row.id))fail(nodeGids.has(row.id)?'SHOPIFY_BULK_GID_DUPLICATE':'SHOPIFY_ORDER_INVALID');
-   if(!gid(row.__parentId,'Customer')||!customers.has(row.__parentId))fail('SHOPIFY_BULK_PARENT_INVALID');nodeGids.add(row.id);orders.set(row.id,row.__parentId);orderCount++;continue;
+   if(!gid(row.__parentId,'Customer')||!customers.has(row.__parentId))fail('SHOPIFY_BULK_PARENT_INVALID');nodeGids.add(row.id);orders.set(row.id,row.__parentId);customers.get(row.__parentId).observedOrders++;orderCount++;continue;
   }
   exact(row,['id','quantity','product','__parentId'],'SHOPIFY_LINE_ITEM_INVALID');if(!gid(row.id,'LineItem')||nodeGids.has(row.id))fail(nodeGids.has(row.id)?'SHOPIFY_BULK_GID_DUPLICATE':'SHOPIFY_LINE_ITEM_INVALID');
   if(!gid(row.__parentId,'Order')||!orders.has(row.__parentId))fail('SHOPIFY_BULK_PARENT_INVALID');if(!Number.isSafeInteger(row.quantity)||row.quantity<0||row.quantity>2147483647)fail('SHOPIFY_LINE_ITEM_INVALID');nodeGids.add(row.id);lineItemCount++;
@@ -65,12 +66,14 @@ function buildCustomerProductEvidenceWith(buildCustomerEvidence,input){
  const rootJsonl=roots.map(row=>JSON.stringify(row)).join('\n')+(roots.length?'\n':'');
  const projected={...input,jsonl:rootJsonl,operation:JSON.parse(JSON.stringify(input.operation))};projected.operation.data.node.objectCount=String(roots.length);projected.operation.data.node.rootObjectCount=String(roots.length);projected.operation.data.node.fileSize=String(utf8Length(rootJsonl));projected.operation.data.node.url=roots.length?op.url:null;
  const base=buildCustomerEvidence(projected);if(base.customers.length!==roots.length)fail('SHOPIFY_BULK_COUNT_MISMATCH');
- let productHistoryIncomplete=0;for(const customer of base.customers){const state=customers.get(customer.customer_gid);customer.products=Array.from(state.products,([id,name])=>({id,name})).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);customer.unresolved_product_items=state.unresolved;customer.product_history_complete=state.unresolved===0;if(state.unresolved>0)productHistoryIncomplete++;}
+ let productHistoryIncomplete=0;for(const customer of base.customers){const state=customers.get(customer.customer_gid);customer.products=Array.from(state.products,([id,name])=>({id,name})).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);customer.unresolved_product_items=state.unresolved;customer.product_history_complete=state.unresolved===0&&(productSemantics==='v1'||state.observedOrders===state.expectedOrders);if(!customer.product_history_complete)productHistoryIncomplete++;}
  base.version=2;base.source_sha256=sha256(input.jsonl);base.counts.bytes=rawBytes;base.counts.object_count=op.objectCount;base.counts.root_object_count=op.rootObjectCount;base.counts.orders=orderCount;base.counts.line_items=lineItemCount;base.counts.product_missing=productMissing;base.counts.product_history_incomplete=productHistoryIncomplete;
- base.bulk.file_size=op.fileSize;base.bulk.required_scope='read_customers';base.bulk.required_scopes=REQUIRED_SCOPES.slice();return base;
+ base.bulk.file_size=op.fileSize;base.bulk.required_scope='read_customers';base.bulk.required_scopes=REQUIRED_SCOPES.slice();if(productSemantics==='v2')base.bulk.product_history_semantics='customer-order-parity-v2';return base;
 }
 
-function buildCustomerProductEvidence(input){return buildCustomerProductEvidenceWith(Customer.buildCustomerEvidence,input);}
-const buildCustomerProductEvidenceSource='((buildCustomerEvidence)=>((input)=>('+buildCustomerProductEvidenceWith.toString()+')(buildCustomerEvidence,input)))('+Customer.buildCustomerEvidenceSource+')';
+function buildCustomerProductEvidence(input){return buildCustomerProductEvidenceWith(Customer.buildCustomerEvidence,input,'v1');}
+function buildCustomerProductEvidenceV2(input){return buildCustomerProductEvidenceWith(Customer.buildCustomerEvidence,input,'v2');}
+const source=mode=>'((buildCustomerEvidence)=>((input)=>('+buildCustomerProductEvidenceWith.toString()+')(buildCustomerEvidence,input,'+JSON.stringify(mode)+')))('+Customer.buildCustomerEvidenceSource+')';
+const buildCustomerProductEvidenceSource=source('v1'),buildCustomerProductEvidenceV2Source=source('v2');
 
-module.exports={buildCustomerProductEvidence,buildCustomerProductEvidenceSource};
+module.exports={buildCustomerProductEvidence,buildCustomerProductEvidenceV2,buildCustomerProductEvidenceSource,buildCustomerProductEvidenceV2Source};
