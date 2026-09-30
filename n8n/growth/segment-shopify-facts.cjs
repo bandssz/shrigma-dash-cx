@@ -33,4 +33,16 @@ function sourceReady(brand,field,catalog){
  const rows=catalog.fields?.filter(x=>x?.key===field);
  return rows?.length===1&&rows[0].available===true&&rows[0].source_hash===pin;
 }
-module.exports={VERSION,QUERY_SHA256,PRODUCT_QUERY_SHA256,AGGREGATE_FIELDS,FIELDS,SEMANTICS,PRODUCT_SEMANTICS,sourceHash,sourceReady};
+// Forward compatibility is restricted to aggregate dispatch. Product readiness
+// continues to require the currently active semantic pin via sourceReady().
+const NEXT_PRODUCT_SEMANTICS=Object.freeze({...PRODUCT_SEMANTICS,
+ version:'shopify-customer-products-v2',
+ coverage:PRODUCT_SEMANTICS.coverage+'; each Customer Order-node count equals Customer.numberOfOrders'});
+function aggregateSourceReady(brand,catalog){
+ const current=sourceHash(brand,'purchase.product',catalog);if(!current)return false;
+ const rows=catalog.fields?.filter(x=>x?.key==='purchase.product');
+ if(rows?.length!==1||typeof rows[0].source_hash!=='string')return false;
+ const next=H.digest({semantics:NEXT_PRODUCT_SEMANTICS,brand,field:'purchase.product',shop_id:catalog.shop_id,currency:catalog.currency,timezone:catalog.timezone});
+ return rows[0].source_hash===current||rows[0].source_hash===next;
+}
+module.exports={VERSION,QUERY_SHA256,PRODUCT_QUERY_SHA256,AGGREGATE_FIELDS,FIELDS,SEMANTICS,PRODUCT_SEMANTICS,sourceHash,sourceReady,aggregateSourceReady};
