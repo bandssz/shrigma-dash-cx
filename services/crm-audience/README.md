@@ -110,3 +110,21 @@ The existing Aristo export contains one Customer whose declared order count exce
 Keep the product semantic hash in the unavailable catalog field: the real count provider uses it to select the aggregate wrapper even for scalar Shopify rules. Removing that hash sends scalar counts back to the older per-subscriber path. The native quarantine test exercises the real Counter with the API role and a ten-second limit, checks strict/confirmed product unknowns, scalar aggregate dispatch, Fish isolation, private permissions, immutable evidence, replay refusal and subsequent ingestion.
 
 Apply only at an idle collector boundary after CI and exact runtime readback guards; no service restart or customer send is required. This is temporary containment, not the definitive parser/pin migration. Re-enable Aristo products only after coordinated parser, ingestion, SQL/JavaScript product semantics and source evidence validation. Never rewrite historical chunks to hide the discrepancy.
+
+### Compatibilidade da contagem antes de migrar produtos
+
+A API deve receber primeiro a compatibilidade de despacho agregado, antes de
+qualquer migração SQL para `shopify-customer-products-v2`. O helper aceita somente
+os hashes v1 e v2 calculados para a marca, loja, moeda e fuso verificados. Esse
+suporte serve para escolher o contador agregado dos campos escalares; a prontidão
+de produto continua exigindo o hash da semântica ativa e o campo disponível.
+Produto com hash divergente segue pelo caminho existente de lógica de três
+valores, preservando E/OU e a distinção entre desconhecido e zero.
+
+Publicar e conferir os arquivos físicos de todas as réplicas da API ainda com
+SQL PR194. Esta etapa não migra fatos, hashes de fontes, parser, SQL, públicos
+salvos ou gates. A migração definitiva de produto só pode ocorrer depois desse
+readback. A prova `segment-shopify-count-dispatch-compat-postgres.cjs` usa a role
+da API com limite de dez segundos, duas marcas, 253.479 assinantes, 1,45 milhão
+de memberships e uma rotação controlada de hash em fixture; ela não substitui a
+prova da migração SQL v2 completa.

@@ -42,7 +42,7 @@ function compileCount({definition,baseListId,catalog}={}){
  let q;
  if(!valid)q={text:UNKNOWN_SQL,values:[]};
  else if(leaves.every(x=>x.rule.op==='in_list'))q=S.compileCount({...d,schema_version:S.VERSION},{baseListId,catalog:c});
- else if(leaves.some(x=>x.rule.op==='condition'&&Shopify.FIELDS.includes(x.rule.field))&&c.fields.some(f=>f.key==='purchase.product'&&f.source_hash===Shopify.sourceHash(d.brand,'purchase.product',c))){
+ else if(leaves.some(x=>x.rule.op==='condition'&&Shopify.FIELDS.includes(x.rule.field))&&Shopify.aggregateSourceReady(d.brand,c)&&leaves.every(x=>x.rule.field!=='purchase.product'||sourceReady('purchase.product'))){
   // The product-source migration installs a SECURITY DEFINER aggregate wrapper.
   // The API role submits only a normalized declarative tree and pinned catalog;
   // it never receives EXECUTE on the internal set-returning match helper.
