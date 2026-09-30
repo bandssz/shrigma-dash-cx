@@ -32,6 +32,8 @@ jobs:
             script: tests/segment-shopify-count-performance-postgres.cjs
           - proof: real-shape
             script: tests/segment-shopify-count-real-shape-postgres.cjs
+          - proof: quarantine
+            script: tests/segment-shopify-product-quarantine-postgres.cjs
           - proof: isolated-sync
             script: tests/crm-shopify-sync-postgres.cjs
     services:
