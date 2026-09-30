@@ -40,14 +40,13 @@ original; em resposta incerta, conferir os hashes das funções antes de qualque
 nova tentativa. Fontes, consentimento, públicos salvos e permissões permanecem
 preservados; essa atualização não libera envio com públicos salvos.
 
-Depois dessa migração, `n8n/growth/segment-shopify-count-inline.sql` permite ao
-PostgreSQL integrar os fatos de produtos à consulta, evitando uma cópia
-temporária desse conjunto. Altera uma única anotação na função agregada e
-preserva o compilador, dados, limites e permissões. Exige PostgreSQL 17.10,
-os hashes PR191 exatos e os mesmos três controles desligados; recusa deriva
-ou reaplicação. Aplique com intenção durável e conferência dos hashes antes
-e depois. A prova nativa usa 159.900 fatos e quatro contagens concorrentes,
-com `work_mem=4MB`; não substitui a medição nas lojas após a implantação.
+A migração inline da PR192 foi retirada: na base real, as oito contagens
+das duas marcas atingiram o limite de dez segundos. A função agregada foi
+restaurada ao corpo PR191, com `shopify_facts AS MATERIALIZED`, sem repetir
+instaladores ou alterar dados, fontes e permissões. Não aplicar o SQL inline
+histórico. Uma futura otimização deve provar regras escalares e de produto,
+ambas as marcas e a cardinalidade de múltiplas listas, com o mesmo limite
+de dez segundos da API; benchmarks de uma marca não bastam.
 
 ## A/B com público salvo — gate independente, inicialmente OFF
 
