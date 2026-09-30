@@ -49,6 +49,42 @@ const READ=Object.freeze({
   aprovacao:{area:'influs',slot:'influs-read',method:'POST',selector:'acao',bodyKey:true,actions:{ler:rule()}},
   escopo:{area:'influs',slot:'influs-read',method:'POST',selector:'acao',bodyKey:true,actions:{ler:rule(['mes'])}}
 });
+// Keep these exact URLs in sync with build.cjs ENDPOINTS. The runtime pack
+// contains proxy.cjs but not build.cjs; the test suite checks that parity.
+const FIXED_DESTINATIONS=Object.freeze({
+  cx:'https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-api-306742284c6fac1d',
+  cache:'https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-cache-a91f3c7e2d4b',
+  'crm-read':'https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read',
+  ab:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-teste-api-01d240f09eff8e39',
+  influ:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-influ-api-7c41e0b93a5d8f26',
+  tts:'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-painel-api-9d3f7a1c',
+  'tts-action':'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-acao-api-2c7e9f41',
+  'organico-links':'https://n8n-n8n.tazdb8.easypanel.host/webhook/organico-links-utm-8f07a61f3f3c',
+  'tts-cobranca':'https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-cobranca-painel-a3ac4c25d1e85399',
+  candidaturas:'https://n8n-n8n.tazdb8.easypanel.host/webhook/parceiros-candidatura-bc82004eb9363032',
+  aprovacao:'https://n8n-n8n.tazdb8.easypanel.host/webhook/parceiros-aprovacao-c58b68db6d3a02f0',
+  escopo:'https://n8n-n8n.tazdb8.easypanel.host/webhook/influs-escopo-7d79357c9b85b871'
+});
+const DYNAMIC_MANIFEST_SCHEMA='shrigma_dashboard_dynamic_upstreams_v1';
+// Candidate destinations reviewed against the source at this commit. The
+// campaign URL preserves its published n8n-host path, which Easypanel maps to
+// crm-campaign; the direct service alias must not replace that journal origin.
+// This pin does not prove live application readiness. Templates and
+// journey_graph stay unpinned.
+const REVIEWED_DYNAMIC=Object.freeze({
+  sourceRevision:'e180f4ca484efa9a3fc8ba430b3a714e5ecbb907',
+  sourceSha256:Object.freeze({
+    'services/crm-audience/server.cjs':'00ba6588e552a5fb262e220d8599dff719ced9b770d3d8813bbda21f84916480',
+    'services/crm-campaign/server.cjs':'2a0c37f9a225163191657a0ff4e2a06b500d78b24149f6831303fb17eee56807'
+  }),
+  routes:Object.freeze({
+    campaigns:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35',
+    segments:'https://comunicacao-crm-audience.tazdb8.easypanel.host/segments',
+    campaign_audience:'https://comunicacao-crm-audience.tazdb8.easypanel.host/campaign-audience',
+    ab_experiment:'https://comunicacao-crm-audience.tazdb8.easypanel.host/ab-experiments',
+    journey_graph_lifecycle:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph-lifecycle'
+  })
+});
 const MAX_REQUEST=128*1024,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
@@ -111,12 +147,19 @@ function decide(route,method,query,body){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts){
-  const out=Object.create(null),hosts=new Set(allowedHosts);
-  for(const [route,raw]of Object.entries(config||{})){
-    if(!Object.hasOwn(READ,route))throw new Error('Unknown upstream route');
-    let url;try{url=new URL(raw);}catch{throw new Error('Invalid upstream URL');}
-    if(url.protocol!=='https:'||!hosts.has(url.hostname)||url.username||url.password||url.search||url.hash||url.port||url.pathname==='/'||url.pathname.includes('..'))throw new Error('Unapproved upstream destination');
+function validateUpstreams(config,allowedHosts,dynamicManifest=null){
+  if(!plain(config)||!Array.isArray(allowedHosts)||allowedHosts.some(h=>typeof h!=='string'))throw Error('Invalid upstream configuration');
+  const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
+  if(dynamic.length){
+    if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');
+  }else if(dynamicManifest!==null)throw Error('Unexpected dynamic upstream manifest');
+  for(const [route,raw]of Object.entries(config)){
+    if(!Object.hasOwn(READ,route))throw Error('Unknown upstream route');
+    const expected=Object.hasOwn(FIXED_DESTINATIONS,route)?FIXED_DESTINATIONS[route]:REVIEWED_DYNAMIC.routes[route];
+    const value=raw instanceof URL?raw.href:raw;
+    if(typeof value!=='string'||typeof expected!=='string'||value!==expected||!Object.hasOwn(FIXED_DESTINATIONS,route)&&dynamicManifest.routes[route]!==expected)throw Error('Unapproved upstream destination');
+    let url;try{url=new URL(value);}catch{throw Error('Invalid upstream URL');}
+    if(url.href!==value||url.protocol!=='https:'||!hosts.has(url.hostname)||url.username||url.password||url.search||url.hash||url.port||url.pathname==='/'||url.pathname.includes('..'))throw Error('Unapproved upstream destination');
     out[route]=url;
   }
   return Object.freeze(out);
@@ -171,4 +214,4 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch{throw new ProxyError(502,'UPSTREAM_INVALID_JSON');}
   return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin)};
 }
-module.exports={READ,ProxyError,MAX_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward};
+module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward};

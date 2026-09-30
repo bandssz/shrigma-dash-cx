@@ -1,9 +1,12 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict');
-const {decide,validateUpstreams,forward,ProxyError,MAX_PRINT_RESPONSE}=require('../services/dashboard-operational/proxy.cjs');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {decide,validateUpstreams,forward,ProxyError,MAX_PRINT_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
+const {ENDPOINTS,DYNAMIC_ROUTES}=require('../services/dashboard-operational/build.cjs');
 const params=value=>new URLSearchParams(value);
 const denied=fn=>assert.throws(fn,e=>e instanceof ProxyError&&e.status>=400&&e.status<500);
 const U='123e4567-e89b-42d3-a456-426614174000',K='a'.repeat(32);
+const hostsFor=routes=>[...new Set(Object.values(routes).map(value=>new URL(value).hostname))];
+const review=routes=>({schema:DYNAMIC_MANIFEST_SCHEMA,sourceRevision:REVIEWED_DYNAMIC.sourceRevision,routes});
 
 test('each area has only its exact read contract and individual credential slot',()=>{
   const cases=[
@@ -95,28 +98,36 @@ test('unknown, writable, malformed and widened read requests fail before network
   assert.equal(decide('organico-links','POST',params(''),{acao:'listar',k:'ui-'+'a'.repeat(32)}).credentialSlot,'organico-links');
 });
 
-test('upstream configuration allows only exact trusted HTTPS hosts and routes',()=>{
-  const hosts=['read.internal.example'];
-  assert.equal(validateUpstreams({'crm-read':'https://read.internal.example/read'},hosts)['crm-read'].pathname,'/read');
+test('fixed destinations match the frontend build and reject wrong paths on an approved host',()=>{
+  assert.deepEqual(FIXED_DESTINATIONS,Object.fromEntries(Object.entries(ENDPOINTS).map(([url,route])=>[route,url])));
+  assert.deepEqual(Object.keys(REVIEWED_DYNAMIC.routes).filter(route=>!DYNAMIC_ROUTES.includes(route)),[]);
+  for(const [source,expected]of Object.entries(REVIEWED_DYNAMIC.sourceSha256))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'..',source))).digest('hex'),expected,source);
+  const hosts=hostsFor(FIXED_DESTINATIONS),read=FIXED_DESTINATIONS['crm-read'];
+  assert.equal(validateUpstreams({'crm-read':read},hosts)['crm-read'].pathname,'/read');
   for(const bad of [
-    {'crm-read':'http://read.internal.example/read'},
+    {'crm-read':read.replace('https:','http:')},
     {'crm-read':'https://evil.invalid/read'},
-    {'crm-read':'https://read.internal.example@evil.invalid/read'},
-    {'crm-read':'https://read.internal.example/read?to=evil'},
-    {unknown:'https://read.internal.example/read'}
+    {'crm-read':read.replace('/read','/other-read')},
+    {'crm-read':read.replace('/read','/read?to=evil')},
+    {'crm-read':read.replace('/read','/read#fragment')},
+    {'crm-read':read.replace('/read',':443/read')},
+    {'crm-read':read.replace('https://','https://user@')},
+    {unknown:read},
+    {cx:FIXED_DESTINATIONS.cache,cache:FIXED_DESTINATIONS.cx}
   ])assert.throws(()=>validateUpstreams(bad,hosts));
+  assert.throws(()=>validateUpstreams({'crm-read':read},[]));
 });
 
 test('the gateway sends only the selected backend credential and rewrites trusted capabilities',async()=>{
-  const upstreams=validateUpstreams({'crm-read':'https://read.internal.example/read'},['read.internal.example']);
+  const read=FIXED_DESTINATIONS['crm-read'],upstreams=validateUpstreams({'crm-read':read},hostsFor(FIXED_DESTINATIONS));
   let called=0;
   const fetchImpl=async(url,options)=>{
     called++;
-    assert.equal(url.href,'https://read.internal.example/read?action=cache_growth&painel=growth');
+    assert.equal(url.href,read+'?action=cache_growth&painel=growth');
     assert.equal(options.headers.Authorization,'Bearer backend-individual-key');
     assert.equal(Object.hasOwn(options.headers,'Origin'),false);
     assert.equal(options.redirect,'manual');
-    return new Response(JSON.stringify({capabilities:{endpoints:{read:'https://read.internal.example/read',evil:'https://evil.invalid'}}}),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({capabilities:{endpoints:{read,evil:'https://evil.invalid'}}}),{status:200,headers:{'Content-Type':'application/json'}});
   };
   const result=await forward({route:'crm-read',method:'GET',query:params('action=cache_growth&painel=growth'),user:{role:'manager',areas:['growth']},credential:'backend-individual-key',upstreams,origin:'https://crm.shrigma.com.br',fetchImpl});
   assert.equal(called,1);
@@ -124,18 +135,27 @@ test('the gateway sends only the selected backend credential and rewrites truste
   assert.equal(Object.hasOwn(result.body.capabilities.endpoints,'evil'),false);
 });
 
-test('all seven dynamic CRM capabilities resolve to the same origin and unknown endpoints disappear',async()=>{
-  const paths={templates:'/templates',campaigns:'/campaigns',segments:'/segments',campaign_audience:'/campaign-audience',ab_experiment:'/ab-experiments',journey_graph:'/journey-graph',journey_graph_lifecycle:'/journey-graph-lifecycle'};
-  const source=Object.fromEntries(Object.entries(paths).map(([route,pathname])=>[route,'https://read.internal.example'+pathname]));
-  const upstreams=validateUpstreams({'crm-read':'https://read.internal.example/read',...source},['read.internal.example']);
-  const fetchImpl=async()=>new Response(JSON.stringify({capabilities:{endpoints:{...source,unrecognized:'https://unknown.invalid/private'}}}),{status:200,headers:{'Content-Type':'application/json'}});
+test('reviewed dynamic CRM URLs resolve to the same origin; unreviewed endpoints disappear',async()=>{
+  const source=REVIEWED_DYNAMIC.routes,configured={'crm-read':FIXED_DESTINATIONS['crm-read'],...source};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review(source));
+  const fetchImpl=async()=>new Response(JSON.stringify({capabilities:{endpoints:{...source,templates:'https://unknown.invalid/templates',journey_graph:'https://unknown.invalid/graph',unrecognized:'https://unknown.invalid/private'}}}),{status:200,headers:{'Content-Type':'application/json'}});
   const result=await forward({route:'crm-read',method:'GET',query:params('action=cache_growth&painel=growth'),user:{role:'manager',areas:['growth']},credential:'backend-individual-key',upstreams,origin:'https://crm.shrigma.com.br',fetchImpl});
   assert.equal(result.status,200);
-  assert.deepEqual(result.body.capabilities.endpoints,Object.fromEntries(Object.keys(paths).map(route=>[route,'https://crm.shrigma.com.br/api/'+route])));
+  assert.deepEqual(result.body.capabilities.endpoints,Object.fromEntries(Object.keys(source).map(route=>[route,'https://crm.shrigma.com.br/api/'+route])));
+});
+
+test('dynamic destinations require a source-pinned exact route manifest',()=>{
+  const segments=REVIEWED_DYNAMIC.routes.segments,bindings=REVIEWED_DYNAMIC.routes.campaign_audience,config={segments};
+  const hosts=hostsFor(REVIEWED_DYNAMIC.routes);
+  assert.equal(validateUpstreams(config,hosts,review(config)).segments.href,segments);
+  for(const manifest of [null,review({segments:bindings}),review({segments,extra:segments}),{...review(config),sourceRevision:'0'.repeat(40)}])assert.throws(()=>validateUpstreams(config,hosts,manifest));
+  assert.throws(()=>validateUpstreams({segments:bindings},hosts,review({segments:bindings}))); // another approved route on the same host
+  assert.throws(()=>validateUpstreams({templates:'https://n8n-n8n.tazdb8.easypanel.host/webhook/templates'},hostsFor(FIXED_DESTINATIONS),review({templates:'https://n8n-n8n.tazdb8.easypanel.host/webhook/templates'})));
+  assert.throws(()=>validateUpstreams({journey_graph:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph'},hosts,review({journey_graph:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph'})));
 });
 
 test('body-key reads receive only their private key in the body, without browser credential or Origin',async()=>{
-  const upstreams=validateUpstreams({'organico-links':'https://read.internal.example/links'},['read.internal.example']);
+  const upstreams=validateUpstreams({'organico-links':FIXED_DESTINATIONS['organico-links']},hostsFor(FIXED_DESTINATIONS));
   let payload;
   const fetchImpl=async(_url,options)=>{
     payload=JSON.parse(options.body);
@@ -148,7 +168,7 @@ test('body-key reads receive only their private key in the body, without browser
 });
 
 test('receipt lookups preserve their dedicated authentication transport',async()=>{
-  const upstreams=validateUpstreams({ab:'https://read.internal.example/ab','tts-action':'https://read.internal.example/tts',templates:'https://read.internal.example/templates'},['read.internal.example']);
+  const upstreams={...validateUpstreams({ab:FIXED_DESTINATIONS.ab,'tts-action':FIXED_DESTINATIONS['tts-action']},hostsFor(FIXED_DESTINATIONS)),templates:new URL('https://unconfigured.test/templates')};
   const headers=[];
   const fetchImpl=async(_url,options)=>{headers.push(options.headers);return new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});};
   const user={role:'superadmin',areas:['growth','organico','influs']};
@@ -164,8 +184,10 @@ test('receipt lookups preserve their dedicated authentication transport',async()
 });
 
 test('saved-audience and legacy A/B reads use their respective header contracts',async()=>{
-  const upstreams=validateUpstreams({ab_experiment:'https://comunicacao-crm-audience.tazdb8.easypanel.host/ab-experiments'},['comunicacao-crm-audience.tazdb8.easypanel.host']);
-  const legacy=validateUpstreams({ab_experiment:'https://legacy.internal.example/ab-experiments'},['legacy.internal.example']);
+  const configured={ab_experiment:REVIEWED_DYNAMIC.routes.ab_experiment};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review(configured));
+  assert.throws(()=>validateUpstreams({ab_experiment:'https://legacy.internal.example/ab-experiments'},['legacy.internal.example'],review({ab_experiment:'https://legacy.internal.example/ab-experiments'})));
+  const legacy={ab_experiment:new URL('https://legacy.internal.example/ab-experiments')}; // transport-only unit branch, never admitted at startup
   const seen=[];
   const fetchImpl=async(_url,options)=>{seen.push(options.headers);return new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});};
   const context={route:'ab_experiment',method:'GET',query:params('method=capabilities&brand=fish'),user:{role:'manager',areas:['growth']},credential:'backend-ab-read-key',origin:'https://crm.shrigma.com.br',fetchImpl};
@@ -179,7 +201,7 @@ test('saved-audience and legacy A/B reads use their respective header contracts'
 
 test('private print response has a separate 5 MiB cap; scope check precedes network',async()=>{
   assert.equal(MAX_PRINT_RESPONSE,5*1024*1024);
-  const upstreams=validateUpstreams({'candidaturas':'https://read.internal.example/candidates','crm-read':'https://read.internal.example/read'},['read.internal.example']);
+  const upstreams=validateUpstreams({candidaturas:FIXED_DESTINATIONS.candidaturas,'crm-read':FIXED_DESTINATIONS['crm-read']},hostsFor(FIXED_DESTINATIONS));
   let called=0;
   const fetchImpl=async()=>{called++;return new Response('redirect',{status:302,headers:{Location:'https://evil.invalid'}});};
   await assert.rejects(forward({route:'crm-read',method:'GET',query:params('action=cache_growth&painel=growth'),user:{role:'manager',areas:['organico']},credential:'backend-individual-key',upstreams,origin:'https://crm.shrigma.com.br',fetchImpl}),e=>e.status===403);

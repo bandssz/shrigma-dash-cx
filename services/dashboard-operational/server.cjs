@@ -11,16 +11,16 @@ const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 function settingsFromEnv(env=process.env){
   const mode=env.DASHBOARD_MODE;if(!['synthetic','operational'].includes(mode))throw Error('DASHBOARD_MODE invalid');
   const managerHost=env.DASHBOARD_MANAGER_HOST;
-  let areaHosts,domains,upstreamConfig,allowedHosts;
-  try{areaHosts=JSON.parse(env.DASHBOARD_AREA_HOSTS);domains=JSON.parse(env.DASHBOARD_EMAIL_DOMAINS);upstreamConfig=JSON.parse(env.DASHBOARD_UPSTREAMS||'{}');allowedHosts=JSON.parse(env.DASHBOARD_UPSTREAM_HOSTS||'[]');}catch{throw Error('Dashboard configuration invalid');}
+  let areaHosts,domains,upstreamConfig,allowedHosts,dynamicRouteManifest;
+  try{areaHosts=JSON.parse(env.DASHBOARD_AREA_HOSTS);domains=JSON.parse(env.DASHBOARD_EMAIL_DOMAINS);upstreamConfig=JSON.parse(env.DASHBOARD_UPSTREAMS||'{}');allowedHosts=JSON.parse(env.DASHBOARD_UPSTREAM_HOSTS||'[]');dynamicRouteManifest=JSON.parse(env.DASHBOARD_DYNAMIC_ROUTE_MANIFEST||'null');}catch{throw Error('Dashboard configuration invalid');}
   if(!areaHosts||!domains||!Array.isArray(domains)||!domains.length||!Array.isArray(allowedHosts))throw Error('Dashboard configuration invalid');
-  const upstreams=validateUpstreams(upstreamConfig,allowedHosts);
+  const upstreams=validateUpstreams(upstreamConfig,allowedHosts,dynamicRouteManifest);
   if(mode==='synthetic'&&Object.keys(upstreams).length)throw Error('Synthetic mode cannot configure external upstreams');
   if(mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY};
+  return {mode,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY};
 }
 function safeRequestPath(raw){
   if(typeof raw!=='string'||raw.length>4096||!raw.startsWith('/')||raw.startsWith('//'))throw jsonError(400,'PATH_INVALID');
@@ -74,6 +74,8 @@ function serveFile(req,res,url,host,s,auth){
 }
 function createServer(s,{auth,fetchImpl=fetch}={}){
   if(!auth)throw Error('Auth required');
+  const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest):Object.freeze(Object.create(null));
+  if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   let upstreamInFlight=0;const upstreamByUser=new Map();
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>{
@@ -135,7 +137,7 @@ function createServer(s,{auth,fetchImpl=fetch}={}){
         if(typeof principal!=='string'||upstreamInFlight>=16||(upstreamByUser.get(principal)||0)>=4)throw jsonError(429,'UPSTREAM_BUSY');
         upstreamInFlight++;upstreamByUser.set(principal,(upstreamByUser.get(principal)||0)+1);
         let result;
-        try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams:s.upstreams,origin,fetchImpl});}
+        try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,fetchImpl});}
         finally{
           upstreamInFlight--;
           const remaining=upstreamByUser.get(principal)-1;

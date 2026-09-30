@@ -1,7 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
-const {createServer,fileForHost,safeRequestPath}=require('../services/dashboard-operational/server.cjs');
+const {createServer,fileForHost,safeRequestPath,settingsFromEnv}=require('../services/dashboard-operational/server.cjs');
 const {AuthError}=require('../services/dashboard-operational/auth.cjs');
+const {FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
 const HOSTS={manager:'gerencial.shrigma.com.br',growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'};
 const settings={mode:'synthetic',managerHost:HOSTS.manager,areaHosts:{growth:HOSTS.growth,organico:HOSTS.organico,influs:HOSTS.influs},upstreams:{}};
 function request(port,host,pathname,method='GET',body,headersExtra={}){
@@ -47,6 +48,24 @@ test('encoded traversal and ambiguous raw paths are rejected before file lookup'
   assert.equal(fileForHost('/organico/',HOSTS.growth,settings),null);
 });
 
+test('operational startup pins each full destination and its reviewed source revision',()=>{
+  const configured={cx:FIXED_DESTINATIONS.cx},fixedHost=new URL(FIXED_DESTINATIONS.cx).hostname;
+  const env={DASHBOARD_MODE:'operational',DASHBOARD_MANAGER_HOST:HOSTS.manager,DASHBOARD_AREA_HOSTS:JSON.stringify({growth:HOSTS.growth,organico:HOSTS.organico,influs:HOSTS.influs}),DASHBOARD_EMAIL_DOMAINS:'["shrigma.com.br"]',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify([fixedHost]),DASHBOARD_UPSTREAMS:JSON.stringify(configured)};
+  assert.equal(settingsFromEnv(env).upstreams.cx.href,FIXED_DESTINATIONS.cx);
+  assert.throws(()=>settingsFromEnv({...env,DASHBOARD_UPSTREAMS:JSON.stringify({cx:FIXED_DESTINATIONS.cache})}),/Unapproved upstream destination/);
+  assert.throws(()=>settingsFromEnv({...env,DASHBOARD_UPSTREAMS:JSON.stringify({cx:FIXED_DESTINATIONS.cx+'/other'})}),error=>error.message==='Unapproved upstream destination');
+  const dynamic={segments:REVIEWED_DYNAMIC.routes.segments};
+  const manifest={schema:DYNAMIC_MANIFEST_SCHEMA,sourceRevision:REVIEWED_DYNAMIC.sourceRevision,routes:dynamic};
+  const dynamicEnv={...env,DASHBOARD_UPSTREAM_HOSTS:JSON.stringify([new URL(dynamic.segments).hostname]),DASHBOARD_UPSTREAMS:JSON.stringify(dynamic),DASHBOARD_DYNAMIC_ROUTE_MANIFEST:JSON.stringify(manifest)};
+  assert.equal(settingsFromEnv(dynamicEnv).upstreams.segments.href,dynamic.segments);
+  assert.throws(()=>settingsFromEnv({...dynamicEnv,DASHBOARD_DYNAMIC_ROUTE_MANIFEST:undefined}),/Unreviewed dynamic upstream manifest/);
+  assert.throws(()=>settingsFromEnv({...dynamicEnv,DASHBOARD_DYNAMIC_ROUTE_MANIFEST:JSON.stringify({...manifest,sourceRevision:'0'.repeat(40)})}),/Unreviewed dynamic upstream manifest/);
+  assert.throws(()=>settingsFromEnv({...dynamicEnv,DASHBOARD_UPSTREAMS:JSON.stringify({segments:REVIEWED_DYNAMIC.routes.campaign_audience}),DASHBOARD_DYNAMIC_ROUTE_MANIFEST:JSON.stringify({...manifest,routes:{segments:REVIEWED_DYNAMIC.routes.campaign_audience}})}),/Unapproved upstream destination/);
+  const auth={};
+  assert.throws(()=>createServer({...settings,mode:'operational',upstreams:{cx:new URL(FIXED_DESTINATIONS.cache)},allowedUpstreamHosts:[fixedHost]},{auth}),/Unapproved upstream destination/);
+  assert.doesNotThrow(()=>createServer({...settings,mode:'synthetic',upstreams:{}},{auth}));
+});
+
 test('operational gateway bounds simultaneous upstream calls per user',async t=>{
   let release,notify;
   const gate=new Promise(resolve=>release=resolve),fourReached=new Promise(resolve=>notify=resolve);
@@ -57,7 +76,7 @@ test('operational gateway bounds simultaneous upstream calls per user',async t=>
     await gate;
     return new Response(JSON.stringify({ok:true}),{status:200,headers:{'content-type':'application/json'}});
   };
-  const server=createServer({...settings,mode:'operational',upstreams:{cx:new URL('https://trusted.example.test/read')}},{auth,fetchImpl});
+  const server=createServer({...settings,mode:'operational',upstreams:{cx:new URL(FIXED_DESTINATIONS.cx)},allowedUpstreamHosts:[new URL(FIXED_DESTINATIONS.cx).hostname]},{auth,fetchImpl});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
   const port=server.address().port,route='/api/cx?painel=growth';
