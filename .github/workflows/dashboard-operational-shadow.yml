@@ -1,6 +1,7 @@
 name: Dashboard operacional · sombra
 
 'on':
+  workflow_dispatch:
   push:
     branches:
       - 'codex/dashboard-operational-*'
