@@ -42,6 +42,12 @@ function compileCount({definition,baseListId,catalog}={}){
  let q;
  if(!valid)q={text:UNKNOWN_SQL,values:[]};
  else if(leaves.every(x=>x.rule.op==='in_list'))q=S.compileCount({...d,schema_version:S.VERSION},{baseListId,catalog:c});
+ else if(leaves.some(x=>x.rule.op==='condition'&&Shopify.FIELDS.includes(x.rule.field))&&c.fields.some(f=>f.key==='purchase.product'&&f.source_hash===Shopify.sourceHash(d.brand,'purchase.product',c))){
+  // The product-source migration installs a SECURITY DEFINER aggregate wrapper.
+  // The API role submits only a normalized declarative tree and pinned catalog;
+  // it never receives EXECUTE on the internal set-returning match helper.
+  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(c)]};
+ }
  else{
   const sorted=ids.slice().sort((a,b)=>a-b),values=[d.brand,sorted,...sorted],parameter=new Map(sorted.map((n,i)=>[n,'$'+(i+3)+'::integer'])),days=new Map(),sourceChecks=new Map();
   const membership=listId=>`EXISTS (SELECT 1 FROM public.subscriber_lists sl JOIN valid_lists l ON l.id=sl.list_id WHERE sl.subscriber_id=s.id AND l.id=${parameter.get(listId)} AND ((l.optin='double' AND sl.status::text='confirmed') OR (l.optin='single' AND sl.status::text IN ('confirmed','unconfirmed'))))`;
@@ -59,8 +65,9 @@ function compileCount({definition,baseListId,catalog}={}){
    if(!sourceChecks.has(r.field))sourceChecks.set(r.field,`crm_audience_v2.shopify_source_current($1::text,'${r.field}',${pinParam})`);
    return `crm_audience_v2.shopify_customer_match(${ruleParam},s.id,$1::text,${pinParam})`;
   };
-  const rule=r=>r.op==='in_list'?membership(r.list_id):r.op==='condition'?(['email.opened','email.clicked'].includes(r.field)?engagement(r):Shopify.FIELDS.includes(r.field)?shopify(r):'NULL::boolean'):'('+r.rules.map(rule).join(r.op==='and'?' AND ':' OR ')+')';
-  const expression=rule(d.rule),base=membership(baseListId),sourceCheck=sourceChecks.size?' AND '+[...sourceChecks.values()].join(' AND '):'';
+  let confirmedSourceUnavailable=false;
+  const rule=r=>r.op==='in_list'?membership(r.list_id):r.op==='confirmed'?(sourceReady(r.rule.field)?'coalesce('+shopify(r.rule)+',false)':(confirmedSourceUnavailable=true,'NULL::boolean')):r.op==='condition'?(['email.opened','email.clicked'].includes(r.field)?engagement(r):Shopify.FIELDS.includes(r.field)?shopify(r):'NULL::boolean'):'('+r.rules.map(rule).join(r.op==='and'?' AND ':' OR ')+')';
+  const expression=rule(d.rule),base=membership(baseListId),sourceCheck=(sourceChecks.size?' AND '+[...sourceChecks.values()].join(' AND '):'')+(confirmedSourceUnavailable?' AND false':'');
   const text=`WITH valid_lists AS MATERIALIZED (
  SELECT l.id,l.optin::text AS optin FROM public.lists l WHERE l.id=ANY($2::integer[])
  AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=$1::text AND l.optin::text IN ('single','double')

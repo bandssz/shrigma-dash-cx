@@ -14,8 +14,20 @@ CREATE FUNCTION crm_audience_v2.shopify_snapshot(text) RETURNS jsonb LANGUAGE sq
   'customers',0,'mapped',0,'unresolved',0)
 $$;
 CREATE FUNCTION crm_audience_v2.shopify_source_current(text,text,text) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT true$$;
-CREATE FUNCTION crm_audience_v2.shopify_customer_match(jsonb,integer,text,text) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT NULL::boolean$$;`;
-async function dropShopifyStubs(db){await db.exec('DROP FUNCTION IF EXISTS crm_audience_v2.shopify_customer_match(jsonb,integer,text,text),crm_audience_v2.shopify_source_current(text,text,text),crm_audience_v2.shopify_snapshot(text)');}
+CREATE FUNCTION crm_audience_v2.shopify_customer_match(jsonb,integer,text,text) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT NULL::boolean$$;
+-- Generic fixtures have no private facts: their scalar leaf is unknown for
+-- every eligible native contact. Real Shopify fixtures drop this stub too.
+CREATE FUNCTION crm_audience_v2.shopify_count_for_rule(rule jsonb,b text,base_list_id integer,catalog jsonb)
+RETURNS TABLE(source_confirmed boolean,eligible_count bigint,checked_at timestamptz) LANGUAGE plpgsql STABLE AS $$
+BEGIN
+ IF rule->>'op' IS DISTINCT FROM 'condition' OR rule->>'field' NOT IN('purchase.count','purchase.amount','purchase.last_date','purchase.product') THEN RAISE EXCEPTION 'SYNTHETIC_SCALAR_LEAF_REQUIRED'; END IF;
+ RETURN QUERY SELECT count(*)=0,CASE WHEN count(*)=0 THEN 0::bigint ELSE NULL::bigint END,statement_timestamp()
+ FROM public.subscribers s JOIN public.subscriber_lists sl ON sl.subscriber_id=s.id
+ JOIN public.lists l ON l.id=sl.list_id WHERE s.status='enabled' AND sl.list_id=base_list_id
+ AND l.status='active' AND public.shrigma_campaign_list_brand(l)=b
+ AND ((l.optin='double' AND sl.status='confirmed') OR (l.optin='single' AND sl.status IN('confirmed','unconfirmed')));
+END $$;`;
+async function dropShopifyStubs(db){await db.exec('DROP FUNCTION IF EXISTS crm_audience_v2.shopify_count_for_rule(jsonb,text,integer,jsonb),crm_audience_v2.shopify_customer_match(jsonb,integer,text,text),crm_audience_v2.shopify_source_current(text,text,text),crm_audience_v2.shopify_snapshot(text)');}
 async function setup(db,{enabled=true,countProvider=null,timeoutMs=1000}={}){
  await db.exec(read('tests/fixtures/journey-graph-auth.sql'));
  await db.exec('CREATE TABLE public.shrigma_panel_permission_v1(principal_id text,area text,caps jsonb,PRIMARY KEY(principal_id,area));');

@@ -20,6 +20,7 @@ async function setupProducts(db){
  await db.exec("UPDATE subscriber_lists SET status='confirmed' WHERE subscriber_id=2 AND list_id IN(16,17)");
  await db.exec('UPDATE crm_audience_v2.shopify_source SET enabled=false');
  await db.exec(A.read('n8n/growth/segment-shopify-products.sql'));
+ await db.exec(A.read('n8n/growth/segment-shopify-count.sql'));
  for(const brand of ['fish','aristo']){
   const hashes=Object.fromEntries(Facts.FIELDS.map(k=>[k,Facts.sourceHash(brand,k,A.source(brand))]));
   await db.query('UPDATE crm_audience_v2.shopify_source SET query_sha256=$2,producer_revision=$3,field_hashes=$4 WHERE brand=$1',[brand,Facts.PRODUCT_QUERY_SHA256,'shopify-products-fixture-v2',JSON.stringify(hashes)]);
