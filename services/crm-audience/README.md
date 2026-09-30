@@ -101,3 +101,12 @@ O cliente compartilha o diário de rascunhos e consulta respostas incertas por G
 sem repetir a publicação. O código não anuncia a capacidade: são necessários
 SQL/grants, atualização da API na janela de Felipe e aceite nas duas marcas.
 Contrato, limites e provas em [publicação pausada](../../n8n/growth/journey-graph-lifecycle-publication.md).
+
+
+### Temporary Aristo product quarantine
+
+The existing Aristo export contains one Customer whose declared order count exceeds its exported Order nodes. Its product absence must stay unknown. The guarded operational migration `n8n/growth/segment-shopify-product-quarantine.sql` disables only Aristo product availability in the catalog, source readiness and Customer matcher. It preserves scalar Shopify fields, Fish products, frozen export payloads/provenance, saved definitions, semantic pins and delivery gates. A subsequent nightly ingestion cannot automatically reopen this field.
+
+Keep the product semantic hash in the unavailable catalog field: the real count provider uses it to select the aggregate wrapper even for scalar Shopify rules. Removing that hash sends scalar counts back to the older per-subscriber path. The native quarantine test exercises the real Counter with the API role and a ten-second limit, checks strict/confirmed product unknowns, scalar aggregate dispatch, Fish isolation, private permissions, immutable evidence, replay refusal and subsequent ingestion.
+
+Apply only at an idle collector boundary after CI and exact runtime readback guards; no service restart or customer send is required. This is temporary containment, not the definitive parser/pin migration. Re-enable Aristo products only after coordinated parser, ingestion, SQL/JavaScript product semantics and source evidence validation. Never rewrite historical chunks to hide the discrepancy.
