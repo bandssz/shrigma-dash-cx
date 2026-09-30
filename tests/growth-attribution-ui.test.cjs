@@ -2,15 +2,28 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {parseHTML}=require('linkedom');
 const day='2026-09-15';
-function fixture(){return {crm_attribution:{schema_version:2,generated_at:day+'T14:00:00Z',coverage:[{brand:'fish',day,checked_at:day+'T13:00:00Z'}],quality:[{marca:'fish',dia:day,pedidos_lidos:4,pagos_elegiveis:3,pagos_com_ultima_sessao:2,pagos_sem_ultima_sessao:1,jornada_pendente:1,jornada_parcial:1}],daily:[],campaigns:[{marca:'fish',emissor:'fish',canal:'email',campanha_id:1,nome:'Campanha sintética',familia:'fixture',segmentos:['Recorrentes'],status:'finished',enviados:3,enviado_em:day+'T12:00:00Z',utms:[]}],dispatch_evidence:{schema_version:1,checked_at:day+'T13:30:00Z',daily:[]}}};}
-function boot(api=fixture(),{brand='fish',channel='email'}={}){
+function fixture(){return {crm_attribution:{schema_version:2,generated_at:day+'T14:00:00Z',coverage:[{brand:'fish',day,checked_at:day+'T13:00:00Z'}],quality:[{marca:'fish',dia:day,pedidos_lidos:4,pagos_elegiveis:3,pagos_com_ultima_sessao:2,pagos_sem_ultima_sessao:1,jornada_pendente:1,jornada_parcial:1}],daily:[],campaigns:[{marca:'fish',emissor:'fish',canal:'email',campanha_id:1,nome:'Campanha sintética',familia:'fixture',segmentos:['Recorrentes'],status:'finished',enviados:3,enviado_em:day+'T12:00:00Z',utms:[]}],dispatch_evidence:{schema_version:1,basis:'utm_and_chronology',checked_at:day+'T13:30:00Z',daily:[]}}};}
+function boot(api=fixture(),{brand='fish',channel='email',renderCampaigns=true}={}){
  const {document,window}=parseHTML('<html><body><section id="attribution-status"></section><section id="attribution-campaigns"></section></body></html>');
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{get:()=>focused||document.body});
  const downloads=[],context=vm.createContext({document,window,Date,Intl,__downloads:downloads});
  for(const file of ['growth-table.js','growth-ui.js','growth-utm.js','growth-attribution.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
- context.input=api;vm.runInContext(`GT.baixar=(name,text)=>__downloads.push({name,text});globalThis.render=()=>GA.render({api:input,marca:${JSON.stringify(brand)},ini:'2026-09-14',fim:'${day}',canal:${JSON.stringify(channel)},GUI,onModel:()=>{}});`,context);context.render();
- return {document,window,api,downloads,render:context.render,q:s=>document.querySelector(s)};
+ context.input=api;context.defaultRenderCampaigns=renderCampaigns;vm.runInContext(`GT.baixar=(name,text)=>__downloads.push({name,text});globalThis.render=(flag=defaultRenderCampaigns)=>GA.render({api:input,marca:${JSON.stringify(brand)},ini:'2026-09-14',fim:'${day}',canal:${JSON.stringify(channel)},GUI,onModel:()=>{},renderCampaigns:flag});`,context);const result=context.render();
+ return {document,window,api,downloads,result,render:context.render,q:s=>document.querySelector(s)};
 }
+test('status-only render preserves campaign DOM and model state without reading campaign rows',()=>{
+ const api=fixture(),source=api.crm_attribution.campaigns;let reads=0;Object.defineProperty(api.crm_attribution,'campaigns',{configurable:true,get(){reads++;return source;}});api._attribution_model='last_non_direct';
+ const x=boot(api,{renderCampaigns:false}),root=x.q('#attribution-campaigns');assert.equal(reads,0);assert.equal(root.innerHTML,'');assert.equal(x.result.campaignCount,null);
+ root.innerHTML='<p data-preserved>campanhas ocultas preservadas</p>';const result=x.render(false);
+ assert.equal(reads,0);assert.ok(root.querySelector('[data-preserved]'));assert.equal(result.campaignCount,null);assert.equal(x.q('#attribution-status select').value,'last_non_direct');assert.match(x.q('#attribution-status').textContent,/Cobertura parcial/);
+});
+test('full render computes campaigns once and reuses the unfiltered result for search and both CSV exports',()=>{
+ const api=fixture(),source=api.crm_attribution.campaigns;let reads=0;Object.defineProperty(api.crm_attribution,'campaigns',{configurable:true,get(){reads++;return source;}});
+ const x=boot(api),input=x.q('#attribution-search');assert.equal(reads,1);assert.equal(x.result.campaignCount,1);
+ input.focus();input.value='não existe';input.dispatchEvent(new x.window.Event('input'));assert.equal(x.document.activeElement,input);assert.equal(x.document.querySelectorAll('.ga-campaign').length,0);
+ x.q('#attribution-export').click();x.q('#attribution-export-dispatches').click();assert.equal(x.downloads.length,2);assert.equal(reads,1);assert.equal(x.result.campaignCount,1);
+ input.value='sintética';input.dispatchEvent(new x.window.Event('input'));assert.equal(x.document.querySelectorAll('.ga-campaign').length,1);assert.equal(reads,1);
+});
 test('empty campaign search has a safe clear action that restores results and focus without changing the recorte',()=>{
  const x=boot(),before=JSON.stringify(x.api),summary=x.q('.ga-summary').textContent,input=x.q('#attribution-search');
  assert.equal(x.q('#attribution-campaigns h2').textContent,'Campanhas no período');assert.equal(x.q('.ga-eyebrow'),null);assert.equal(x.q('.ga-subtitle'),null);
@@ -47,6 +60,28 @@ test('attribution exports distinguish brands and channel while preserving the fi
  assert.match(fish.downloads[0].text,/fixture;fish;/);assert.doesNotMatch(fish.downloads[0].text,/aristo fixture;aristo/);assert.match(aristo.downloads[0].text,/aristo fixture;aristo;/);assert.doesNotMatch(aristo.downloads[0].text,/fixture;fish/);
  assert.equal(JSON.stringify(api),before);assert.equal(fish.downloads[0].text.split('\r\n')[0],aristo.downloads[0].text.split('\r\n')[0]);
  const wa=boot(api,{channel:'whatsapp'});wa.q('#attribution-export').click();assert.match(wa.downloads[0].name,/-fishermans-whatsapp-/);
+});
+
+test('dispatch table and CSV present orders per 100 accumulated sends as a non-causal order ratio',()=>{
+ const api=fixture(),campaign=api.crm_attribution.campaigns[0];api.crm_attribution.coverage.push({brand:'fish',day:'2026-09-14',checked_at:day+'T13:00:00Z'});
+ campaign.utms=[{source:'listmonk',medium:'campanha',campaign:'fish-fixture',content:'cta',term:'dispatch-1'}];
+ api.crm_attribution.campaigns.push({...campaign,campanha_id:2,nome:'Segundo disparo',utms:[{source:'listmonk',medium:'campanha',campaign:'fish-fixture',content:'cta',term:'dispatch-2'}]});
+ api.crm_attribution.dispatch_evidence.daily=[{marca:'fish',dia:day,model:'last_click',campanha_id:1,pedidos:4,receita:400},{marca:'fish',dia:day,model:'last_click',campanha_id:2,pedidos:0,receita:0}];
+ const x=boot(api),cell=x.q('.ga-send-orders'),method=x.q('.ga-campaign-method');
+ assert.match(cell.textContent,/133,33/);assert.match(cell.textContent,/pedidos no período.*envios totais acumulados/);
+ assert.match(method.textContent,/razão de pedidos/);assert.match(method.textContent,/taxa de pessoas destinatárias compradoras.*não está disponível/);
+ x.q('#attribution-export').click();const initiatives=x.downloads[0].text;
+ assert.doesNotMatch(initiatives,/Pedidos por 100 envios|ID disparo|Segundo disparo/);assert.equal((initiatives.match(/fixture;fish/g)||[]).length,1);
+ x.q('#attribution-export-dispatches').click();const dispatches=x.downloads[1].text;
+ assert.match(dispatches,/Pedidos por 100 envios/);assert.match(dispatches,/Emails enviados total acumulado/);assert.match(dispatches,/133[,.]333/);assert.match(dispatches,/Segundo disparo/);
+ assert.doesNotMatch(dispatches,/Receita BRL iniciativa|Pedidos iniciativa/);assert.match(x.downloads[1].name,/growth-disparos-/);
+});
+
+test('dispatch ratio is unavailable with an explicit reason when period coverage is incomplete',()=>{
+ const api=fixture(),campaign=api.crm_attribution.campaigns[0];campaign.utms=[{source:'listmonk',medium:'campanha',campaign:'fish-fixture',content:'cta',term:'dispatch-1'}];
+ api.crm_attribution.dispatch_evidence.daily=[{marca:'fish',dia:day,model:'last_click',campanha_id:1,pedidos:1,receita:100}];
+ const x=boot(api);assert.match(x.q('.ga-send-orders').textContent,/Cobertura incompleta da marca no período/);assert.doesNotMatch(x.q('.ga-send-orders').textContent,/0,00/);
+ x.q('#attribution-export-dispatches').click();assert.match(x.downloads[0].text,/Cobertura incompleta da marca no período/);
 });
 
 test('campaign history displays all recorded UTM tuples in the selected brand without inferring source or altering results',()=>{

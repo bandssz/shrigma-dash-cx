@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=589e9c9c1f22">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FmaswdD9mFi8Y0zgv75t4a/Vc0jMBMYK+0x32UILfwE='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=efc5db70c85e">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Y7MaUOUbbBuNPSHbWS/kt+rT67a7tAEvq/U+QKXMa80='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -113,6 +113,7 @@
 
 
 <div class="sec" id="sec-camp"><div class="crm-report-tabs" role="tablist" aria-label="Campanhas"><button type="button" id="crm-campaign-list-tab" data-crm-campaign="list" role="tab" aria-selected="true" aria-controls="crm-campaign-list">Campanhas</button><button type="button" id="crm-campaign-tests-tab" data-crm-campaign="tests" role="tab" aria-selected="false" tabindex="-1" aria-controls="crm-campaign-tests">Testes A/B</button></div><div id="crm-campaign-list" data-crm-campaign-panel="list" role="tabpanel" aria-labelledby="crm-campaign-list-tab">
+    <section class="painel" id="campaign-monitor" aria-label="Acompanhar e-mails enviados e agendados"></section>
     <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail"></section>
     <div id="attribution-campaign-status" role="status" hidden></div>
     <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
@@ -221,7 +222,7 @@
   </div>
 
 
-<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates em uso</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+<div class="sec" id="sec-templates"><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Meus templates</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Templates em uso</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section><section class="painel" id="crm-media" aria-label="Imagens públicas para e-mail"></section></div><div class="sec" id="sec-resultados"><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
       <div class="painel-cab"><h2>Evolução</h2>
         <select id="sel-metrica" aria-label="Métrica do gráfico">
           <option value="receita">Receita atribuída</option>
@@ -265,7 +266,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=12d51f079414"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3749f08f0312"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -573,14 +574,26 @@ function renderJornadas(modeloOp){
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
+function renderRelatoriosCampanha(){
+  const campaigns=SEC==='camp'&&CRMWorkspace.state().campaign==='list';
+  if(!API||(!campaigns&&SEC!=='resultados'))return;
+  const result=GA.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,GUI,onRefresh:carregar,renderCampaigns:campaigns,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
+  if(campaigns){
+    GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
+    $('#n-camp').textContent=result?.campaignCount||'';
+  }
+}
 function render(){
   renderABExperiment();
   GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
+  if(SEC==='templates')GMedia.mount({marca:MARCA});
   if(!API)return;
   GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
+  // Coverage also drives the home overview while campaign history stays unmounted.
+  if(GA.valid(API))API._attribution_missing=!GA.coverage(API,MARCA,ini,fim).covered;
   const GRAO=($('#sel-grao')||{}).value||'peca';
   const cs=G.campanhas(API,MARCA,ini,fim,true,CANAL),conv=G.conversao(API,MARCA,ini,fim,GRAO,CANAL);
   const tot=G.totais(cs,conv);
@@ -588,7 +601,7 @@ function render(){
   $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  GA.render({api:API,marca:MARCA,ini,fim,canal:CANAL,GUI,onRefresh:carregar,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
+  renderRelatoriosCampanha();
   GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
   GSES.render(API,MARCA,ini,fim,CANAL,GUI);
   GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
@@ -751,7 +764,7 @@ function render(){
     }).join('');
   }
 
-  $('#n-camp').textContent=(GA.valid(API)?GA.campaigns(API,MARCA,ini,fim,CANAL).length:cs.length)||'';
+  if(SEC!=='camp'||CRMWorkspace.state().campaign!=='list')$('#n-camp').textContent='';
   $('#camp-rot').textContent=`${cs.length} peças`;
   const campVis=GT.ordena(GT.busca(cs,TABELAS.camp.q,['nome','utm_campaign','utm_content',c=>G.MARCA[c.marca]||c.marca]),TABELAS.camp.sort,TABELAS.camp.dir,
     c=>TABELAS.camp.sort==='receita'?(c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null):TABELAS.camp.sort==='abertura_pct'?(c.medido?c.abertura_pct:null):c[TABELAS.camp.sort]);
@@ -899,6 +912,7 @@ async function carregar(){
     $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(GrowthAccess.readError(e))} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
+    if(SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
     const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});renderJornadas(modeloOp2);
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
@@ -991,7 +1005,7 @@ function abrirSecaoCRM(section,{tab}={}){
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
   const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
-  if(SEC==='visao'||SEC==='resultados')render();else if(SEC==='base')renderPublicos();else renderJornadas();gravaHash();
+  if(SEC==='visao'||SEC==='resultados')render();else if(SEC==='base')renderPublicos();else if(SEC==='camp')renderRelatoriosCampanha();else renderJornadas();if(SEC==='templates')GMedia.mount({marca:MARCA});gravaHash();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
@@ -1032,7 +1046,7 @@ GC.init();GRU.render({api:null,marca:MARCA});
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
 document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
 const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
-CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();gravaHash();},initial:crmInitialView});
+CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();if(kind==='campaign'&&API&&SEC==='camp')renderRelatoriosCampanha();gravaHash();},initial:crmInitialView});
 if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
 if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
