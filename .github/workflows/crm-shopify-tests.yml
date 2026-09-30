@@ -36,6 +36,10 @@ jobs:
             script: tests/segment-shopify-product-quarantine-postgres.cjs
           - proof: dispatch-compat
             script: tests/segment-shopify-count-dispatch-compat-postgres.cjs
+          - proof: product-history-v2
+            script: tests/segment-shopify-product-history-completeness-v2-postgres.cjs
+          - proof: product-history-v2-real-shape
+            script: tests/segment-shopify-product-history-completeness-v2-real-shape-postgres.cjs
           - proof: isolated-sync
             script: tests/crm-shopify-sync-postgres.cjs
     services:

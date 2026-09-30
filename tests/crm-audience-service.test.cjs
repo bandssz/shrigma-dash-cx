@@ -3,14 +3,22 @@ const test=require('node:test'),assert=require('node:assert/strict'),{Readable}=
 const {createTransaction}=require('../services/crm-audience/transaction.cjs');
 const {createServer,MAX_BODY,ORIGIN}=require('../services/crm-audience/server.cjs');
 const {config}=require('../services/crm-audience/config.cjs');
+const {start}=require('../services/crm-audience/main.cjs');
 
 function fakePool(control={}){
  const clients=[],pool={async connect(){const log=[],client={log,released:null,async query(input){const text=typeof input==='string'?input:input.text;log.push(text);if(text==='SELECT current_user AS role')return {rows:[{role:control.role||'crm_audience_api'}]};if(text==='COMMIT'&&control.commitFails)throw Error('lost commit ack');if(text==='COMMIT')return {command:control.commitRolledBack?'ROLLBACK':'COMMIT',rows:[]};if(text==='SELECT held'){await control.held;return {rows:[]};}return {rows:[]};},release(destroy){this.released=destroy;}};clients.push(client);return client;}};return {pool,clients};
 }
 test('config is OFF by default and pins the dedicated role, pool and timeout',()=>{
  const c=config({CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'postgres.internal',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'secret',CRM_PG_DATABASE:'listmonk'});
- assert.equal(c.enabled,false);assert.equal(c.regularEnabled,false);assert.equal(c.abEnabled,false);assert.equal(c.pg.user,'crm_audience_api');assert.equal(c.pg.max,4);assert.equal(c.pg.statement_timeout,10000);
+ assert.equal(c.enabled,false);assert.equal(c.regularEnabled,false);assert.equal(c.abEnabled,false);assert.equal(c.productSemantics,'v1');assert.equal(c.pg.user,'crm_audience_api');assert.equal(c.pg.max,4);assert.equal(c.pg.statement_timeout,10000);
+ assert.equal(config({CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'postgres.internal',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'secret',CRM_PG_DATABASE:'listmonk',CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS:'v2'}).productSemantics,'v2');
+ for(const value of ['','V2','v3',' v2','v2\n'])assert.throws(()=>config({CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'postgres.internal',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'secret',CRM_PG_DATABASE:'listmonk',CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS:value}),/CRM_AUDIENCE_CONFIG/);
  assert.throws(()=>config({...process.env,CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'db',CRM_PG_USER:'postgres',CRM_PG_PASSWORD:'x',CRM_PG_DATABASE:'listmonk'}),/CRM_AUDIENCE_CONFIG/);
+});
+test('startup refuses a configured semantic mode different from the process-captured Facts graph',()=>{
+ const env={CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'postgres.internal',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'secret',CRM_PG_DATABASE:'listmonk',CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS:'v2'};
+ class Pool{constructor(){assert.fail('pool must not open for a mixed semantic graph');}}
+ assert.throws(()=>start(env,{Pool}),/CRM_AUDIENCE_PRODUCT_SEMANTICS/);
 });
 test('transaction commits once on a dedicated verified connection',async()=>{
  const f=fakePool(),transaction=createTransaction({pool:f.pool});const value=await transaction(async tx=>{await tx.query('SELECT work');return 7;});
@@ -58,8 +66,12 @@ test('HTTP boundary rejects ambiguous or malformed inputs before either API',asy
 });
 test('OFF health has no secret and operations remain unavailable',async t=>{
  const api={async handle(){assert.fail('API must stay off');}},app=createServer({segments:api,binding:api,revision:'c'.repeat(40),enabled:false});
- const health=await inject(app);assert.deepEqual(health.body,{service:'crm-audience',revision:'c'.repeat(40),enabled:false,stopping:false});
+ const health=await inject(app);assert.deepEqual(health.body,{service:'crm-audience',revision:'c'.repeat(40),product_semantics:'v1',enabled:false,stopping:false});
  const denied=await inject(app,{path:'/segments',headers:{Authorization:'Bearer human-key-123'}});assert.equal(denied.status,503);assert.deepEqual(denied.body,{error:'CRM_AUDIENCE_DISABLED'});
+});
+test('health reports the captured v2 semantic mode and rejects unknown modes',async()=>{
+ const api={async handle(){assert.fail('API must stay off');}},app=createServer({segments:api,binding:api,revision:'e'.repeat(40),productSemantics:'v2'});
+ assert.equal((await inject(app)).body.product_semantics,'v2');assert.throws(()=>createServer({segments:api,binding:api,revision:'e'.repeat(40),productSemantics:'future'}),/CRM_AUDIENCE_SERVER_CONFIG/);
 });
 test('enabling audience management does not enable campaign binding',async()=>{
  const x=serve(),request={method:'POST',path:'/campaign-audience',headers:{Authorization:'Bearer human-key-123','Content-Type':'application/json'},body:JSON.stringify({acao:'campanha_publico_vincular'})};

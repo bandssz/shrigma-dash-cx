@@ -130,3 +130,33 @@ readback. A prova `segment-shopify-count-dispatch-compat-postgres.cjs` usa a rol
 da API com limite de dez segundos, duas marcas, 253.479 assinantes, 1,45 milhão
 de memberships e uma rotação controlada de hash em fixture; ela não substitui a
 prova da migração SQL v2 completa.
+
+### Modo explícito da semântica de histórico de produtos
+
+`CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS` aceita somente `v1` ou `v2`, assume
+`v1` e é capturada quando o processo carrega o módulo de fatos. A configuração
+e o módulo carregado precisam concordar antes de abrir o pool. O healthcheck
+publica `product_semantics`, permitindo comprovar todas as réplicas ainda em
+`v1` durante a primeira fase e, depois, a troca completa para `v2`. A API
+compatível reconhece somente os pins exatos v1/v2 para escolher o agregador;
+isso não torna produto disponível e não substitui a prontidão imposta pelo SQL.
+
+A sequência v2 é única e fail-closed:
+
+1. conferir a API compatível ainda em `v1` em todas as réplicas e confirmar
+   journal pendente zero, mutex livre e gates de seleção/entrega desligados;
+2. deixar a nova imagem do coletor em `v2`, ainda OFF, com revisão de produtor
+   igual à revisão da imagem, e conferir seu healthcheck;
+3. instalar o SQL v2, derivar as atestações dos snapshots congelados e atualizar
+   o catálogo, sem mudar a revisão de produtor vigente nas fontes;
+4. trocar todas as réplicas da API para `v2`, reler o modo e provar as contagens;
+5. preparar no ledger a transição da revisão antiga para a revisão exata do novo
+   coletor; só então habilitar o coletor v2 e conferir seu readback.
+
+O ledger autoriza a próxima ingestão, mas não bloqueia o scheduler depois do
+commit; por isso o coletor permanece OFF até as etapas 1–5 terminarem. Não inicie
+outro Bulk nem repita os arquivos congelados atuais. Durante a transição,
+produtos permanecem indisponíveis até a evidência v2 ou uma atestação derivada
+válida. Os campos escalares continuam no contador agregado em ambas as versões.
+Não misture modos num mesmo conjunto de réplicas e não trate o suporte de
+despacho como prova de que a API original entendia o novo pin.
