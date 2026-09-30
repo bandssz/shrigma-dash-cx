@@ -29,6 +29,17 @@ A implantação candidata usa uma réplica inicialmente OFF, pool máximo 4, sem
 Provas disponíveis: testes DOM/PGlite do editor e `tests/crm-audience-runtime-postgres.cjs` com PostgreSQL 17.10 real, socket HTTP local, role dedicada e ambas as marcas. O runner verifica criação, vínculo, conteúdo, opt-out, bloqueio de schedule legado, escrita nativa recusada e prazo do lock. Não é prova de produção nem de transporte.
 
 
+## Atualização da contagem Shopify
+
+Depois da instalação existente de `segment-shopify-count.sql`, a migração
+adicional `n8n/growth/segment-shopify-count-performance.sql` substitui somente
+duas funções de contagem. Deve ser aplicada em uma transação com conferência
+prévia e posterior dos metadados. Exige os corpos PR187 exatos e os controles
+de seleção, worker e campanhas regulares desligados. Não repetir o instalador
+original; em resposta incerta, conferir os hashes das funções antes de qualquer
+nova tentativa. Fontes, consentimento, públicos salvos e permissões permanecem
+preservados; essa atualização não libera envio com públicos salvos.
+
 ## A/B com público salvo — gate independente, inicialmente OFF
 
 `CRM_AUDIENCE_AB_ENABLED=false` é o padrão. A rota `/ab-experiments` só admite
