@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=efc5db70c85e">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Hb74Z+Ycwm7gJAMEn6kQhEZPzqMNjnEGVcdknoS58Xg='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=0cb579dd5f85">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xhzYZOSc7sbFaktrQjV2FGz53TVl+z8QNloSCXlNvXo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -266,7 +266,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=ea8e3a8f16b0"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=a27906ebd64a"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -591,7 +591,7 @@ function render(){
   const resultsEmail=SEC==='resultados'&&reportTab==='email',resultsConversion=SEC==='resultados'&&reportTab==='conversion';
   if(tests)renderABExperiment();
   if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
-  if(SEC==='templates')GMedia.mount({marca:MARCA});
+  if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
   if(!API)return;
   if(tests)GABF.enter(MARCA,API);
   pintaMarca();
