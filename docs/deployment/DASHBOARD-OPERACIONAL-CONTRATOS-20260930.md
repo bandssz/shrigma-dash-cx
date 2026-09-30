@@ -39,7 +39,7 @@ Os valores exatos dos webhooks já públicos estão nas constantes indicadas. Os
 | `/api/aprovacao` | `APROVACAO_URL`, mesmo host n8n, webhook `parceiros-aprovacao-*` | Aprovação / envio / encerramento Creators | `influs.html:1224`, `partner-candidaturas.js:31` |
 | `/api/escopo` | `ESCOPO_URL`, mesmo host n8n, webhook `influs-escopo-*` | Contratos e conteúdos de Creators | `influs.html:1230`, `influ-escopo.js:19` |
 
-Na implantação, recuperar os valores integrais destas constantes do checkout, em configuração privada do gateway. Não copiar parâmetros `k`, cabeçalhos de autenticação ou valores de credenciais para configuração pública, imagem, logs, Markdown ou respostas.
+Na implantação, a configuração privada do gateway deve coincidir com as URLs integrais fixadas em `services/dashboard-operational/proxy.cjs`; um caminho diferente no mesmo host recusa a inicialização. Não copiar parâmetros `k`, cabeçalhos de autenticação ou valores de credenciais para configuração pública, imagem, logs, Markdown ou respostas.
 
 ## Endpoints dinâmicos CRM
 
@@ -48,7 +48,7 @@ Estes endereços vêm de `API.capabilities.endpoints` no payload Growth. Sua aus
 | Rota local sugerida | Campo recebido | Família backend esperada | Fonte / validação |
 | --- | --- | --- | --- |
 | `/api/templates` | `endpoints.templates`; fallback opcional global `TEMPLATE_API_URL` | API n8n de templates, e-mail, testes e builder de jornadas | `growth-templates-api.js:27`, `growth-builder.js:30`; endpoint e capabilities obrigatórios |
-| `/api/campaigns` | `endpoints.campaigns` | `crm-campaign`, caminho fixo definido por `services/crm-campaign/server.cjs:6` | `growth-campaign-api.js`; contrato `crm-campaign-v1`, marcas `fish` / `aristo` |
+| `/api/campaigns` | `endpoints.campaigns` | `crm-campaign`, via alias n8n publicado no caminho fixo de `services/crm-campaign/server.cjs:6` | `growth-campaign-api.js`; contrato `crm-campaign-v1`, marcas `fish` / `aristo` |
 | `/api/segments` | `endpoints.segments` | `crm-audience`, `/segments` | `growth-segment-client.js`; contrato e marcas conferidos |
 | `/api/campaign-audience` | `endpoints.campaign_audience` | `crm-audience`, `/campaign-audience` | `growth-campaign-audience-client.js`, `growth-campaign-regular-client.js` |
 | `/api/ab-experiment` | `endpoints.ab_experiment` | `crm-audience`, `/ab-experiments`, ou endpoint legado explicitamente conferido | `growth-ab-experiment-client.js`, `growth-ab-experiment-panel.js`; modo muda o transporte de autenticação |
@@ -56,6 +56,8 @@ Estes endereços vêm de `API.capabilities.endpoints` no payload Growth. Sua aus
 | `/api/journey-graph-lifecycle` | `endpoints.journey_graph_lifecycle` | `crm-audience`, `/journey-graph-lifecycle` | `growth-journey-graph-api.js`; publicação deve permanecer pausada |
 
 Vários clientes usam `new URL(endpoint)` sem base e exigem HTTPS, sem usuário/senha, query ou fragmento. O gateway precisa devolver **URLs absolutas HTTPS da sua própria origem**, como `https://<host-autorizado>/api/segments`, em todos os campos anunciados. Substituir por apenas `/api/segments` quebra esses clientes. Origem deve vir de configuração confiável; não refletir `Host` / forwarded headers arbitrários. Endpoints externos desconhecidos devem ser removidos e capacidades associadas desabilitadas, sem proxy genérico.
+
+Nesta revisão, `campaigns`, `segments`, `campaign_audience`, `ab_experiment` e `journey_graph_lifecycle` têm destinos candidatos exatos no manifesto de código e exigem revisão do serviço ativo antes de receber credenciais. O alias publicado de campanhas foi confirmado por leitura no Easypanel. `templates` e `journey_graph` não têm destino aprovado e falham fechado; a opção de endpoint legado de AB também não foi liberada. A revisão final do CRM paralelo pode mudar esses caminhos e invalida os hashes de fonte pinados nos testes.
 
 ## Contratos de identidade e consultas comuns
 
