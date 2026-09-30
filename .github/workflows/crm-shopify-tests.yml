@@ -30,6 +30,8 @@ jobs:
             script: tests/segment-shopify-confirmed-postgres.cjs
           - proof: performance
             script: tests/segment-shopify-count-performance-postgres.cjs
+          - proof: inline
+            script: tests/segment-shopify-count-inline-postgres.cjs
           - proof: isolated-sync
             script: tests/crm-shopify-sync-postgres.cjs
     services:
