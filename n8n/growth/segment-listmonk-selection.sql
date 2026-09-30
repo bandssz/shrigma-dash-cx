@@ -211,7 +211,7 @@ DECLARE b crm_audience_v2.campaign_binding%ROWTYPE; r crm_audience_v2.revision%R
  c crm_audience_v2.config%ROWTYPE; result jsonb; base_result jsonb; current_context jsonb;
  current_pins jsonb; seen_at timestamptz:=statement_timestamp();
 BEGIN
- SELECT * INTO b FROM crm_audience_v2.campaign_binding WHERE campaign_id=cid;
+ SELECT * INTO b FROM crm_audience_v2.campaign_binding_effective(cid);
  IF NOT FOUND THEN RETURN jsonb_build_object('bound',false); END IF; -- Preserve unbound native selection.
  IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.selection_runtime rt WHERE rt.singleton AND rt.enabled
   AND rt.candidate_query_sha256=expected_query_sha256

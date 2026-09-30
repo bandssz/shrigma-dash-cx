@@ -355,6 +355,7 @@ const GC={
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');
     if(!workflowRoot||!templateRoot)return model;
+    const drawWorkflows=ctx.visiblePanel!=='templates',drawTemplates=ctx.visiblePanel!=='workflows';
     const hasGT=typeof GT!=='undefined';
     const keptWf=hasGT?GT.captura(workflowRoot):null,keptTpl=hasGT?GT.captura(templateRoot):null;
     const ownerDetailsOpen=workflowRoot.querySelector('[data-crm-owner-diagnostics]')?.open===true;
@@ -370,7 +371,7 @@ const GC={
       :`Nenhuma automação${GC.describe([fw.estado==='ativas'?'ativa':fw.estado==='inativas'?'inativa':fw.estado==='conferir'?'a conferir':'',
           fw.modo==='real'?'com envio real':fw.modo==='sombra'?'em simulação':fw.modo==='interno'?'em teste interno':fw.modo==='segue-origem'?'sem modo próprio':fw.modo==='nao-confirmado'?'com modo não confirmado':'',
           fw.q?`contendo "${e(fw.q)}"`:''])}${model.marca!=='todas'?` para ${e(GC.brand(model.marca))}`:''}${model.canal!=='todos'?` no canal ${e(GC.channel(model.canal))}`:''}. Simulação ou configuração inativa não significa que a operação parou de existir: confira os filtros.`;
-    workflowRoot.innerHTML=GC.metadata(model)+GC.managerOperation(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<details class="control-owner-diagnostics" data-crm-owner-only data-crm-owner-diagnostics data-gt-key="control-owner-diagnostics"${ownerDetailsOpen?' open':''}><summary>Detalhes técnicos da operação</summary><div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
+    if(drawWorkflows)workflowRoot.innerHTML=GC.metadata(model)+GC.managerOperation(model)+GC.emailInventory(ctx.api,model.marca,model.canal,ctx.now??Date.now())+`<details class="control-owner-diagnostics" data-crm-owner-only data-crm-owner-diagnostics data-gt-key="control-owner-diagnostics"${ownerDetailsOpen?' open':''}><summary>Detalhes técnicos da operação</summary><div class="control-summary"><div><strong>${model.meta.valid?model.workflows.length:'—'}</strong><span>Serviços acompanhados</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.collection.current&&row.active===true).length:'—'}</strong><span>Serviços ativos na coleta</span></div><div><strong>${model.meta.valid?model.workflows.filter(row=>row.attention).length:'—'}</strong><span>Consultas ou campos a conferir</span></div></div>
       <div class="control-explainer">${GC.badge('Configuração dos serviços','neutral','Ativo indica configuração ligada; não confirma funcionamento ou entrega. As quantidades de serviços não representam o número de etapas de e-mail.')}${GC.badge('Simulação: sem disparos','neutral','A simulação não faz disparos reais.')}${GC.badge('Inclui serviços compartilhados','neutral','Serviços compartilhados aparecem também no filtro de cada marca.')}</div>
       ${brandSpecific?`<p class="control-scope">Nenhum serviço específico de ${e(GC.brand(model.marca))} foi informado neste canal.${model.shared?' Abaixo estão os serviços compartilhados.':''}</p>`:''}
       ${model.meta.valid?`<div class="gt-toolbar control-toolbar"><label class="gt-busca">Buscar automação<input type="search" id="control-workflow-search" placeholder="Nome ou chave" value="${e(fw.q)}" autocomplete="off"></label>
@@ -388,7 +389,7 @@ const GC={
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    templateRoot.innerHTML=GC.metadata(model)+GC.emailCatalog(ctx)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
+    if(drawTemplates)templateRoot.innerHTML=GC.metadata(model)+GC.emailCatalog(ctx)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
       ${model.canal==='email'?(['fish','aristo','todas','todos'].includes(model.marca)?'<p class="mini">Para consultar também as mensagens de WhatsApp, selecione Todos os canais.</p>':'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>'):`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
@@ -397,31 +398,31 @@ const GC={
         <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
       <span class="control-badge" title="Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.">Edição em Criar templates e Jornadas</span>`;
-    if(hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
-    workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
+    if(drawTemplates&&hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
+    if(drawWorkflows)workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);
-    const input=templateRoot.querySelector('#control-template-search');
+    const input=drawTemplates?templateRoot.querySelector('#control-template-search'):null;
     if(restoreInput&&input){input.focus();input.setSelectionRange?.(...selection);}
     if(input)input.oninput=()=>{const position=input.selectionStart;GC.search=input.value;GC.render(ctx);const next=templateRoot.querySelector('#control-template-search');next?.focus();next?.setSelectionRange?.(position,position);};
-    const wfInput=workflowRoot.querySelector('#control-workflow-search');
+    const wfInput=drawWorkflows?workflowRoot.querySelector('#control-workflow-search'):null;
     if(wfInput)wfInput.oninput=()=>{const position=wfInput.selectionStart;GC.filters.wf.q=wfInput.value;GC.render(ctx);const next=workflowRoot.querySelector('#control-workflow-search');next?.focus();next?.setSelectionRange?.(position,position);};
     const bind=(id,apply)=>{const el=document.getElementById(id);if(el)el.onchange=()=>{apply(el.value);rerender();};};
     bind('control-wf-estado',v=>GC.filters.wf.estado=v);bind('control-wf-modo',v=>GC.filters.wf.modo=v);
     bind('control-tpl-status',v=>GC.filters.tpl.status=v);bind('control-tpl-categoria',v=>GC.filters.tpl.categoria=v);bind('control-tpl-uso',v=>GC.filters.tpl.uso=v);
-    document.querySelectorAll('#control-workflows [data-clear="wf"]').forEach(b=>b.onclick=()=>{GC.filters.wf={q:'',estado:'todas',modo:'todos'};rerender();});
-    document.querySelectorAll('#control-templates [data-clear="tpl"]').forEach(b=>b.onclick=()=>{GC.search='';GC.filters.tpl={...GC.filters.tpl,status:'todos',categoria:'todas',uso:'todos'};rerender();});
-    templateRoot.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{if(!hasGT)return;GC.filters.tpl={...GC.filters.tpl,...GT.proximaOrdem(GC.filters.tpl,th.dataset.sort,false)};rerender();});
+    if(drawWorkflows)document.querySelectorAll('#control-workflows [data-clear="wf"]').forEach(b=>b.onclick=()=>{GC.filters.wf={q:'',estado:'todas',modo:'todos'};rerender();});
+    if(drawTemplates)document.querySelectorAll('#control-templates [data-clear="tpl"]').forEach(b=>b.onclick=()=>{GC.search='';GC.filters.tpl={...GC.filters.tpl,status:'todos',categoria:'todas',uso:'todos'};rerender();});
+    if(drawTemplates)templateRoot.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{if(!hasGT)return;GC.filters.tpl={...GC.filters.tpl,...GT.proximaOrdem(GC.filters.tpl,th.dataset.sort,false)};rerender();});
     const meta=()=>typeof ctx.exportMeta==='function'?ctx.exportMeta({}):{};
     const wfExport=document.getElementById('control-wf-export');
     if(wfExport)wfExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('automacoes-operacao',m),GT.csv(GC.workflowColumns,workflows,m));};
     const tplExport=document.getElementById('control-tpl-export');
-    document.querySelectorAll('[data-tpl-preview-email]').forEach(b=>b.onclick=()=>{const t=GC.conteudo?.[b.dataset.tplPreviewEmail];if(t?.components?.body_html)GMP.openEmail({source:t.components.body_html,subject:t.components.subject,label:'Prévia do template publicado'});});
-    GC.bindPreviews(workflowRoot,ctx);GC.bindPreviews(templateRoot,ctx);
+    if(drawTemplates)document.querySelectorAll('[data-tpl-preview-email]').forEach(b=>b.onclick=()=>{const t=GC.conteudo?.[b.dataset.tplPreviewEmail];if(t?.components?.body_html)GMP.openEmail({source:t.components.body_html,subject:t.components.subject,label:'Prévia do template publicado'});});
+    if(drawWorkflows)GC.bindPreviews(workflowRoot,ctx);if(drawTemplates)GC.bindPreviews(templateRoot,ctx);
     const tplConteudo=document.getElementById('control-tpl-conteudo');if(tplConteudo)tplConteudo.onclick=()=>GC.carregarConteudo(ctx);
     templateRoot.querySelectorAll('[data-tpl-historico]').forEach(b=>b.onclick=()=>GC.carregarHistorico(ctx,b.dataset.tplHistorico));
     if(tplExport)tplExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('templates',m),GT.csv(GC.templateColumns,templates,m));};
-    if(hasGT){if(keptWf&&!restoreInput)GT.restaura(workflowRoot,keptWf);if(keptTpl&&!restoreInput)GT.restaura(templateRoot,keptTpl);}
-    GC.setTab(GC.activeTab);
+    if(hasGT){if(drawWorkflows&&keptWf&&!restoreInput)GT.restaura(workflowRoot,keptWf);if(drawTemplates&&keptTpl&&!restoreInput)GT.restaura(templateRoot,keptTpl);}
+    if(ctx.syncTab!==false)GC.setTab(GC.activeTab);
     return model;
   },
   setTab(tab){

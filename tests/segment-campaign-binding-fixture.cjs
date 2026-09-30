@@ -18,6 +18,7 @@ async function setup(db,options={}){
  const createAudience=async(brand='fish',name='binding-audience',rule)=>{const r=await f.call(f.create(brand,name,rule));if(r.status!==201)throw Error('BINDING_FIXTURE_AUDIENCE');return r.body.segment;};
  const inspect=(brand,campaign_id,a)=>call({acao:B.ACTIONS.inspect,brand,campaign_id,audience_id:a.id,audience_revision:a.version});
  const bind=(intent,idempotency_key='binding-operation-0001',key)=>call({acao:B.ACTIONS.bind,...intent,idempotency_key},key);
+ const release=(brand,campaign_id,binding,idempotency_key='binding-release-0001',key,campaign_version=binding.campaign_version)=>call({acao:B.ACTIONS.release,brand,campaign_id,expected_campaign_version:campaign_version,expected_binding_version:binding.binding_version,expected_binding_hash:binding.binding_hash,idempotency_key},key);
  const current=async id=>(await db.query('SELECT public.shrigma_campaign_current($1) AS current',[id])).rows[0].current;
  const operation=(brand,idempotency_key,key)=>call({acao:B.ACTIONS.operation,brand,idempotency_key},key);
  const bound=async id=>(await db.query('SELECT * FROM crm_audience_v2.campaign_binding WHERE campaign_id=$1',[id])).rows[0];
@@ -27,6 +28,6 @@ async function setup(db,options={}){
   const op=(await db.query("SELECT public.shrigma_campaign_store('claim',$1::jsonb) AS operation",[JSON.stringify({actor:'fixture-legacy',key:'legacy-schedule-'+String(++sequence).padStart(8,'0'),hash:'a'.repeat(64),brand:c.definition.brand,action:'agendar'})])).rows[0].operation;
   return (await db.query("SELECT public.shrigma_campaign_provider('schedule',$1::jsonb) AS campaign",[JSON.stringify({id,expectedVersion:c.version,operationId:op.id,audienceReviewId:v.audience.review_id})])).rows[0].campaign;
  };
- return {...f,service,bindingCall:call,createAudience,inspect,bind,current,operation,bound,legacySchedule};
+ return {...f,service,bindingCall:call,createAudience,inspect,bind,release,current,operation,bound,legacySchedule};
 }
 module.exports={setup};

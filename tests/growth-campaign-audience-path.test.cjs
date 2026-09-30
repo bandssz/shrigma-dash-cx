@@ -11,7 +11,7 @@ const endpoints={campaigns:'https://campaign.test/api',segments:'https://audienc
 const caps=()=>({capabilities:{endpoints,
  campaigns:{contract_version:'crm-campaign-v1',brands:['fish','aristo'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:'listmonk-6.1-regular-v1'},
  segments:{contract_version:'crm-audience-v2',brands:['fish','aristo'],read:true,save:true,count:true,operation:true},
- campaign_audience:{contract_version:'crm-audience-campaign-binding-v1',brands:['fish','aristo'],read:true,inspect:true,bind:true,operation:true}}});
+ campaign_audience:{contract_version:'crm-audience-campaign-binding-v1',brands:['fish','aristo'],read:true,inspect:true,bind:true,release:true,operation:true}}});
 async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaignCapability=false,lose=false,regular=false,store=new Map(),fixture=null}={}){
  const db=fixture?.db||new PGlite();if(!fixture)t.after(()=>db.close());const f=fixture||(regular?await require('./segment-regular-admission-fixture.cjs').setup(db):await F.setup(db,{countProvider:require('../n8n/growth/segment-audience-listmonk.cjs').countAudience})),bindingAPI=API.createCampaignBindingAPI({store:f.bindingService||f.service}),regularAPI=regular?require('../n8n/growth/segment-regular-admission-api.cjs').createRegularAdmissionAPI({store:f.service}):null;
  if(regular&&!fixture)await f.approve();
@@ -98,6 +98,15 @@ test('lost acknowledgement survives reload and consults one original operation w
  assert.equal(posts(x).length,1);assert.equal(x.run('GCE.enterBrand("aristo")'),false);assert.equal(x.q('[data-ce-new]').disabled,true);
  const y=await setup(t,'fish',{store:x.store,fixture:x.f});assert.equal(y.run('GCE.contextStatus().pending'),true);y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));
  assert.equal(posts(y).length,0);assert.equal((await x.db.query('SELECT count(*)::int n FROM crm_audience_v2.campaign_binding_request')).rows[0].n,1);assert.match(y.q('[data-ce-saved-audience]').textContent,/Público vinculado/);
+});
+test('a saved binding remains releasable when the audience listing is unavailable',async t=>{
+ const x=await setup(t);await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ const before=x.calls.length;x.control.before=async entry=>{if(entry.endpoint==='https://audience.test'&&entry.request.acao==='segmentos_listar')throw Error('synthetic audience listing unavailable');};
+ x.q('[data-ca="load"]').click();await until(()=>/não puderam ser listados/.test(x.q('[data-ca-status]')?.textContent||'')&&!x.run('GCE.contextStatus().blocked'));
+ const actions=x.calls.slice(before).map(c=>c.request.acao);assert.deepEqual(actions.slice(0,2),['campanha_publico_obter','segmentos_listar']);assert.equal(x.q('[data-ca="release"]').disabled,false);
+ x.q('[data-ca="release"]').click();assert.equal(x.q('[data-ca-dialog]').open,true);x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ assert.equal((await x.f.bindingCall({acao:'campanha_publico_obter',brand:'fish',campaign_id:x.campaignId})).body.binding,null);assert.equal((await x.f.current(x.campaignId)).status,'draft');
+ assert.equal(x.calls.filter(c=>['campanha_validar','campanha_agendar','campanha_publico_validar'].includes(c.request.acao)).length,0);
 });
 test('changed manager, unsaved fields, expired confirmation and a different revision never post a binding',async t=>{
  for(const change of ['key','dirty','expired','version']){

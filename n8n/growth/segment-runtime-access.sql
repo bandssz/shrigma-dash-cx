@@ -13,16 +13,17 @@ BEGIN
  ALTER ROLE crm_audience_api SET idle_in_transaction_session_timeout='15s';
 GRANT USAGE ON SCHEMA public,crm_audience_v2 TO crm_audience_api;
 GRANT SELECT ON crm_audience_v2.audience,crm_audience_v2.revision,crm_audience_v2.request,
- crm_audience_v2.campaign_binding,crm_audience_v2.campaign_binding_revision,crm_audience_v2.campaign_binding_request TO crm_audience_api;
+ crm_audience_v2.campaign_binding,crm_audience_v2.campaign_binding_revision,crm_audience_v2.campaign_binding_request,crm_audience_v2.campaign_binding_release TO crm_audience_api;
 GRANT INSERT,UPDATE ON crm_audience_v2.audience,crm_audience_v2.campaign_binding TO crm_audience_api;
 GRANT INSERT ON crm_audience_v2.revision,crm_audience_v2.request,crm_audience_v2.campaign_binding_revision,crm_audience_v2.campaign_binding_request TO crm_audience_api;
+GRANT INSERT ON crm_audience_v2.campaign_binding_release TO crm_audience_api;
 GRANT SELECT ON public.lists,public.campaigns,public.campaign_lists,public.templates,public.media,public.campaign_media,public.crm_familia_campanha TO crm_audience_api;
 GRANT SELECT(id,status) ON public.subscribers TO crm_audience_api;
 GRANT SELECT(subscriber_id,list_id,status) ON public.subscriber_lists TO crm_audience_api;
 GRANT SELECT(subscriber_id,campaign_id,created_at) ON public.campaign_views,public.link_clicks TO crm_audience_api;
 GRANT EXECUTE ON FUNCTION crm_audience_v2.authenticate(text),public.shrigma_campaign_list_brand(public.lists),
  public.shrigma_campaign_provider(text,jsonb),public.shrigma_campaign_current(integer),public.shrigma_campaign_catalog(text),
- crm_audience_v2.campaign_snapshot(integer,boolean),crm_audience_v2.touch_campaign(integer),crm_audience_v2.config_snapshot(text),crm_audience_v2.catalog_lists(text),crm_audience_v2.lock_campaign_dependencies(integer) TO crm_audience_api;
+ crm_audience_v2.campaign_snapshot(integer,boolean),crm_audience_v2.touch_campaign(integer),crm_audience_v2.config_snapshot(text),crm_audience_v2.catalog_lists(text),crm_audience_v2.lock_campaign_dependencies(integer),crm_audience_v2.campaign_binding_effective(integer),crm_audience_v2.campaign_binding_release_blocked(integer) TO crm_audience_api;
 
 EXECUTE $ddl$CREATE FUNCTION crm_audience_v2.refresh_native_catalog(b text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $fn$

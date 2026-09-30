@@ -20,6 +20,9 @@
   SEGMENT_BINDING_VERSION_CONFLICT:'A campanha ou o público mudou. Reabra a campanha e confira novamente.',
   SEGMENT_BINDING_AUDIENCE_CHANGED:'O público mudou ou foi arquivado. Atualize a lista e confira a versão atual.',
   SEGMENT_BINDING_CHANGED:'A conferência mudou. Reabra a campanha e confira novamente.',
+  SEGMENT_BINDING_RELEASE_BLOCKED:'Esta campanha tem preparação ou operação em andamento. Conclua ou cancele essa etapa antes de voltar às listas.',
+  SEGMENT_BINDING_RELEASE_CHANGED:'A campanha ou o vínculo mudou. Reabra a campanha antes de voltar às listas.',
+  SEGMENT_AUDIENCE_LIST_UNAVAILABLE:'Os públicos salvos não puderam ser listados. O vínculo atual foi conferido e ainda pode ser removido.',
   SEGMENT_BINDING_UNCONFIRMED:'O resultado ainda não foi confirmado. Consulte a mesma tentativa antes de continuar.',
   SEGMENT_BINDING_OPERATION_PENDING:'Há uma tentativa sem confirmação. Consulte a mesma tentativa.',
   SEGMENT_BINDING_ACCESS_CHANGED:'O acesso mudou. Restaure o acesso da tentativa original para consultar.',
@@ -80,7 +83,7 @@
     ${!ctx.clean?'<p>Salve as alterações da campanha antes de conferir ou vincular um público.</p>':''}
     ${baseList?`<p data-ca-base>Lista base necessária: <strong>${esc(baseList.name)}</strong>. Selecione somente essa lista no catálogo da campanha e salve.</p>`:''}
     ${inspection?`<p data-ca-inspection>Conferido: <strong>${esc(inspection.audience_name)}</strong>, versão ${inspection.intent.audience_revision}. Esta conferência confirma a configuração; não informa quantidade de destinatários nem libera o envio.</p>`:''}
-    <div class="ce-actions"><button type="button" class="ce-secondary" data-ca="inspect" ${!can||!row||!Client.caps(ctx.api).inspect?'disabled':''}>Conferir público escolhido</button><button type="button" class="ce-primary" data-ca="bind" ${!can||!inspected||!client?.canWrite()?'disabled':''}>Usar este público</button></div>
+    <div class="ce-actions"><button type="button" class="ce-secondary" data-ca="inspect" ${!can||!row||!Client.caps(ctx.api).inspect?'disabled':''}>Conferir público escolhido</button><button type="button" class="ce-primary" data-ca="bind" ${!can||!inspected||!client?.canWrite()?'disabled':''}>Usar este público</button>${bound?`<button type="button" class="ce-secondary" data-ca="release" ${!can||!client?.canRelease()?'disabled':''}>Voltar a listas existentes</button>`:''}</div>
     ${ready?`<p data-ca-regular-review>${regularValid?esc(ready.eligible_count+' pessoas elegíveis. Agendamento preparado para '+new Date(ready.send_at).toLocaleString('pt-BR')+'. Confirme antes de '+new Date(ready.expires_at).toLocaleTimeString('pt-BR')+'.'):'A conferência venceu ou a campanha mudou. Confira conteúdo e público novamente.'}</p>`:''}
     ${reviewText?`<p data-ca-validation role="status">${esc(reviewText)}</p>`:''}
     <p data-ca-status role="status" aria-live="polite" data-error="${!!error}">${esc(error||notice||(busy?'Conferindo…':''))}</p>
@@ -93,8 +96,9 @@
   async function guarded(work){if(busy||confirmation)return;busy=true;error='';notice='';baseList=null;changed();try{await work();}catch(e){error=messages[e?.code]||'Não foi possível confirmar esta ação. Preserve a tentativa e confira o estado atual.';if(e?.code==='SEGMENT_BINDING_BASE_REQUIRED'&&e.baseList)baseList=clone(e.baseList);}finally{busy=false;changed();}}
   async function load(page=0){if(pending()||fatal)return;await guarded(async()=>{
    if(!eligible())fail('UI_CAMPAIGN_CHANGED');const before=identityContext();inspection=null;readConfirmed=false;
-   const listed=await segments.list({offset:page,limit:50});if(!current(before))fail('UI_CONTEXT_CHANGED');
    await client.read(ctx.campaign.id);if(!current(before))fail('UI_CONTEXT_CHANGED');syncedVersion();
+   readConfirmed=true;rows=[];catalog=null;offset=0;more=false;selected='';
+   let listed;try{listed=await segments.list({offset:page,limit:50});}catch{fail('SEGMENT_AUDIENCE_LIST_UNAVAILABLE');}if(!current(before))fail('UI_CONTEXT_CHANGED');
    rows=listed.segments;catalog=listed.catalog;offset=page;more=rows.length===50;selected='';readConfirmed=true;
   });}
   async function inspect(){if(!eligible()||!ctx.clean||locked()||!Client.caps(ctx.api).inspect)return;const row=selectedRow();if(!row)return;await guarded(async()=>{
@@ -122,6 +126,24 @@
    }catch(e){accepted=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}
    finally{confirmation=null;changed();}
    if(accepted)await guarded(async()=>{await client.bind(review.intent);inspection=null;readConfirmed=true;notice='Público vinculado. Atualizando a versão salva da campanha…';await onBound(ctx.campaign.id);notice='Público vinculado. O disparo ainda aguarda liberação.';});
+   (caller?.isConnected&&!caller.disabled?caller:q('[data-ca="load"]'))?.focus();
+  }
+  async function confirmRelease(){
+   if(!eligible()||!ctx.clean||locked()||!state().binding||!client.canRelease())return;
+   const caller=element.ownerDocument.activeElement,before=identityContext(),bound=clone(state().binding),dialog=q('[data-ca-dialog]');
+   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
+   let accepted=false;error='';confirmation={};onChange();
+   try{
+    accepted=await new Promise(resolve=>{
+     let finished=false;const done=value=>{if(finished)return;finished=true;dialog.oncancel=null;dialog.onclose=null;q('[data-ca-yes]').onclick=null;q('[data-ca-no]').onclick=null;try{dialog.close();}catch{dialog.removeAttribute('open');}resolve(value);};
+     q('#ca-confirm-title').textContent='Voltar a listas existentes';q('[data-ca-yes]').textContent='Voltar às listas';
+     q('[data-ca-confirm-text]').textContent=`Remover o uso do público salvo nesta campanha de ${brandName(ctx.brand)}? A campanha continuará em rascunho e voltará a usar somente as listas escolhidas. O histórico do vínculo será preservado.`;
+     q('[data-ca-yes]').onclick=()=>done(true);q('[data-ca-no]').onclick=()=>done(false);dialog.oncancel=e=>{e.preventDefault();done(false);};dialog.onclose=()=>done(false);confirmation.finish=done;
+     try{dialog.showModal();q('[data-ca-no]').focus();}catch{done(false);error=messages.UI_CONFIRMATION_UNAVAILABLE;}
+    });
+    if(accepted&&(!current(before)||!ctx.clean||state().binding?.binding_hash!==bound.binding_hash||state().binding?.binding_version!==bound.binding_version))fail('UI_CONTEXT_CHANGED');
+   }catch(e){accepted=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}finally{confirmation=null;changed();}
+   if(accepted)await guarded(async()=>{await client.release();inspection=null;readConfirmed=true;await onBound(ctx.campaign.id);notice='Vínculo removido. A campanha voltou a usar as listas existentes.';});
    (caller?.isConnected&&!caller.disabled?caller:q('[data-ca="load"]'))?.focus();
   }
   async function validate(){if(!canValidate())return;await guarded(async()=>{
@@ -169,7 +191,7 @@
    render();return !fatal;
   }
   element.addEventListener('click',e=>{const b=e.target.closest('[data-ca]');if(!b||b.disabled||!element.contains(b))return;const action=b.dataset.ca;
-   if(action==='load')void load();if(action==='previous')void load(Math.max(0,offset-50));if(action==='next')void load(offset+50);if(action==='inspect')void inspect();if(action==='bind')void confirmBinding();if(action==='consult')void consult();
+   if(action==='load')void load();if(action==='previous')void load(Math.max(0,offset-50));if(action==='next')void load(offset+50);if(action==='inspect')void inspect();if(action==='bind')void confirmBinding();if(action==='release')void confirmRelease();if(action==='consult')void consult();
   });
   element.addEventListener('change',e=>{if(!e.target.matches('[data-ca-select]')||locked())return;selected=e.target.value;inspection=null;baseList=null;error='';notice='';changed();});
   return {sync,validate,schedule,contextStatus:status};

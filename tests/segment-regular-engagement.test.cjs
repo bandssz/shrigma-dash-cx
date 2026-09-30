@@ -62,7 +62,7 @@ test('regular selector matches the published engagement counter for both brands 
  for(const field of ['email.opened','email.clicked'])for(const operator of ['within_last_days','not_within_last_days']){
   const matrixRules={fish:{op:'and',rules:[leaf(22),condition(field,operator,7)]},aristo:{op:'or',rules:[leaf(31),condition(field,operator,7)]}};
   const {db,fixture}=await setup(t,matrixRules);
-  if(!reportedHashes){assert.equal(fixture.regular.patched_sha256,'be2a4a422574fe328bf23f6f9cfef84a71a9f4be0f95ce9d3970a5ecf949933f');
+  if(!reportedHashes){assert.equal(fixture.regular.patched_sha256,'7abbff0c76a874e233f8cd6ae99c15b33632e34d1ac93b0b3ca337ed08868d9a');
    t.diagnostic(JSON.stringify({query_sha256:fixture.regular.patched_sha256,selection_sql_sha256:sha('n8n/growth/segment-listmonk-selection.sql'),readiness_sql_sha256:sha('n8n/growth/segment-regular-readiness.sql')}));reportedHashes=true;}
   for(const brand of ['fish','aristo'])for(const sourceField of ['email.opened','email.clicked']){
    const sql=(await db.query('SELECT crm_audience_v2.selection_engagement_source_hash($1,$2) AS value',[brand,sourceField])).rows[0].value;
