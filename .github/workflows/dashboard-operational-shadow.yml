@@ -1,0 +1,55 @@
+name: Dashboard operacional · sombra
+
+'on':
+  push:
+    branches:
+      - 'codex/dashboard-operational-*'
+    paths:
+      - '.github/workflows/dashboard-operational-shadow.yml'
+      - 'services/dashboard-operational/**'
+      - 'tests/dashboard-operational-*.test.cjs'
+      - 'tests/influ-cac-cliente-novo.test.cjs'
+      - 'growth.html'
+      - 'organico.html'
+      - 'influs.html'
+      - 'assets/panels/**'
+      - 'logos/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/dashboard-operational-shadow.yml'
+      - 'services/dashboard-operational/**'
+      - 'tests/dashboard-operational-*.test.cjs'
+      - 'tests/influ-cac-cliente-novo.test.cjs'
+      - 'growth.html'
+      - 'organico.html'
+      - 'influs.html'
+      - 'assets/panels/**'
+      - 'logos/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Testar autenticação, acesso por área, gateway e pacote
+        run: node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/influ-cac-cliente-novo.test.cjs
+      - name: Gerar pacote fechado sem segredos
+        run: |
+          node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
+          node services/dashboard-operational/pack-runtime.cjs "$RUNNER_TEMP/shrigma-build" "$RUNNER_TEMP/shrigma-pack"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/shrigma-pack/source-revision.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-operational-shadow-${{ github.sha }}
+          path: ${{ runner.temp }}/shrigma-pack/
+          if-no-files-found: error
+          retention-days: 7
