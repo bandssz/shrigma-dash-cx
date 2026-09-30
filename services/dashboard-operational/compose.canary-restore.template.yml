@@ -1,0 +1,35 @@
+# The live source volume is intentionally absent from this restore service.
+services:
+  restore:
+    image: REPLACE_WITH_MAINTENANCE_IMAGE_AT_SHA256
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    command: ["restore", "drill-20260930-01"]
+    volumes:
+      - type: volume
+        source: snapshot_output
+        target: /backup-data
+        read_only: true
+      - type: volume
+        source: restored_identity
+        target: /restore-data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  snapshot_output:
+    external: true
+    name: dashboard-canary-snapshot-drill-20260930-01
+  restored_identity:
+    name: dashboard-canary-restore-drill-20260930-01

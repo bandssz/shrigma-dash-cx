@@ -57,6 +57,10 @@ jobs:
           trap 'docker volume rm "$CANARY_TEST_VOLUME" >/dev/null 2>&1 || true' EXIT
           docker volume create "$CANARY_TEST_VOLUME" >/dev/null
           docker run --rm --network none --cap-drop ALL --memory 512m --cpus 0.5 --volume "$CANARY_TEST_VOLUME:/dashboard-data" --entrypoint node shrigma-dashboard-canary:ci --max-old-space-size=128 -e 'const fs=require("node:fs"),start=require("/app/canary-start.cjs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const first=start.prepare(),file="/dashboard-data/runtime-pack.json",inode=fs.statSync(file).ino,bytes=fs.readFileSync(file); start.prepare(); if(fs.statSync(file).ino!==inode||!fs.readFileSync(file).equals(bytes)||fs.readdirSync("/dashboard-data").join()!=="runtime-pack.json")throw Error("Seed changed identity volume"); console.log("Immutable artifact verified; UID1000; seed once; no database or worker started.");'
+      - name: Validar imagem de manutenção sem dados nem rede
+        run: |
+          docker build --file services/dashboard-operational/Dockerfile.backup-canary --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-backup-canary:ci .
+          docker run --rm --network none --cap-drop ALL --read-only --memory 512m --cpus 0.5 --entrypoint node shrigma-backup-canary:ci -e 'const fs=require("node:fs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); if(fs.readdirSync("/app").sort().join()!=="artifact-policy.cjs,backup-canary-job.cjs,backup-identity.cjs")throw Error("Maintenance image contents mismatch"); console.log("Maintenance image verified; UID1000; three reviewed files; no network.");'
       - uses: actions/upload-artifact@v4
         with:
           name: dashboard-operational-shadow-${{ github.sha }}
@@ -88,3 +92,28 @@ jobs:
           docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           printf 'Imagem candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-backup-canary-image:
+    needs: validate-and-package
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-operational-easypanel-20260930' &&
+      contains(github.event.head_commit.message, '[publish-backup-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Entrar no registry com o token efêmero do workflow
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publicar somente a imagem de manutenção sintética da revisão validada
+        run: |
+          IMAGE="ghcr.io/bandssz/shrigma-dash-backup-canary:$GITHUB_SHA"
+          docker build --file services/dashboard-operational/Dockerfile.backup-canary --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          printf 'Imagem de manutenção sintética: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
