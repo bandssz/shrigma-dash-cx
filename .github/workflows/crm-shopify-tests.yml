@@ -28,6 +28,8 @@ jobs:
             script: tests/segment-shopify-products-postgres.cjs
           - proof: confirmed
             script: tests/segment-shopify-confirmed-postgres.cjs
+          - proof: performance
+            script: tests/segment-shopify-count-performance-postgres.cjs
           - proof: isolated-sync
             script: tests/crm-shopify-sync-postgres.cjs
     services:
