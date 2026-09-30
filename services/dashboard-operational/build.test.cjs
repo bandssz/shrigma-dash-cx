@@ -58,13 +58,17 @@ test('entry uses email/password, fragment invites and same-origin CSP',()=>withA
 
 test('invite links match the exact production or test host for their area',()=>{
  const token='A'.repeat(43);
- const hosts={growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host'],organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host'],influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host']};
+ const hosts={
+  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host'],
+  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host'],
+  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host']
+ };
  for(const [area,allowed]of Object.entries(hosts))for(const host of allowed){
   const url=`https://${host}/#invite=${token}`;
   assert.equal(inviteUrlForArea(url,area),url);
   for(const other of Object.keys(hosts).filter(x=>x!==area))assert.equal(inviteUrlForArea(url,other),null);
  }
- for(const host of ['dashboard-op-gerencial.tazdb8.easypanel.host','dashboard-op-other.tazdb8.easypanel.host','shrigma.com.br','evil.example'])assert.equal(inviteUrlForArea(`https://${host}/#invite=${token}`,'growth'),null);
+ for(const host of ['dashboard-op-gerencial.tazdb8.easypanel.host','dashboard-v4-gerencial.tazdb8.easypanel.host','dashboard-v5-gerencial.tazdb8.easypanel.host','dashboard-v6-gerencial.tazdb8.easypanel.host','dashboard-op-other.tazdb8.easypanel.host','shrigma.com.br','evil.example'])assert.equal(inviteUrlForArea(`https://${host}/#invite=${token}`,'growth'),null);
  for(const bad of [`http://crm.shrigma.com.br/#invite=${token}`,`https://crm.shrigma.com.br/?token=${token}#invite=${token}`,`https://crm.shrigma.com.br/gestao/#invite=${token}`,`https://crm.shrigma.com.br/#invite=${token}&area=influs`])assert.equal(inviteUrlForArea(bad,'growth'),null);
 });
 

@@ -1,9 +1,9 @@
 /* Same-origin entry. The cookie session, not anything in this file, grants access. */
 function inviteUrlForArea(raw,area){
  const hosts={
-  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host'],
-  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host'],
-  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host']
+  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host'],
+  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host'],
+  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host']
  };
  if(!Object.hasOwn(hosts,area))return null;
  let url;try{url=new URL(raw);}catch(_){return null;}
