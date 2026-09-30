@@ -118,6 +118,8 @@ qualquer migração SQL para `shopify-customer-products-v2`. O helper aceita som
 os hashes v1 e v2 calculados para a marca, loja, moeda e fuso verificados. Esse
 suporte serve para escolher o contador agregado dos campos escalares; a prontidão
 de produto continua exigindo o hash da semântica ativa e o campo disponível.
+Uma quarentena com hash da versão ativa mantém o contador agregado, cuja
+função SQL continua impondo prontidão e retornando desconhecido.
 Produto com hash divergente segue pelo caminho existente de lógica de três
 valores, preservando E/OU e a distinção entre desconhecido e zero.
 

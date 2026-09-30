@@ -13,6 +13,11 @@ for(const brand of ['fish','aristo'])test(brand+': scalar aggregate dispatch acc
  for(const bad of [null,'f'.repeat(64),'',17]){const c=catalog(brand);c.fields.find(x=>x.key==='purchase.product').source_hash=bad;assert.equal(Facts.aggregateSourceReady(brand,c),false);}
  const duplicated=catalog(brand);duplicated.fields.push({...duplicated.fields.find(x=>x.key==='purchase.product')});assert.equal(Facts.aggregateSourceReady(brand,duplicated),false);
  const wrong=catalog(brand);wrong.brand=brand==='fish'?'aristo':'fish';assert.equal(Facts.aggregateSourceReady(wrong.brand,wrong),false);
+ // Same-version quarantine stays on the installed SQL aggregate path. SQL
+ // source_current still enforces readiness; dispatch does not enable products.
+ const unavailable=catalog(brand);unavailable.fields.find(x=>x.key==='purchase.product').available=false;
+ assert.equal(Facts.sourceReady(brand,'purchase.product',unavailable),false);
+ assert.match(Counter.compileCount({definition:def(brand,leaf('purchase.product','not_purchased','gid://shopify/Product/101')),baseListId:17,catalog:unavailable}).text,/FROM crm_audience_v2\.shopify_count_for_rule/);
 });
 test('a v2 product leaf retains the established NULL/E/OU path under v1 semantics',()=>{
  const c=catalog('fish',true),unknown=leaf('purchase.product','not_purchased','gid://shopify/Product/101');
