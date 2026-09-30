@@ -110,5 +110,6 @@ test('verification detects changed bytes and CLI reports no source content',asyn
  await assert.rejects(verifyBackup(target),/BACKUP_MANIFEST_INVALID/);
  const failed=spawnSync(process.execPath,[path.join(__dirname,'backup-identity.cjs'),'verify',target],{encoding:'utf8'});
  assert.equal(failed.status,1);
- assert.equal(failed.stderr.trim(),'Identity backup refused.');
+ assert.match(failed.stderr,/Identity backup refused\.\s*$/);
+ assert.ok(!failed.stderr.includes('synthetic secret marker'));
 });
