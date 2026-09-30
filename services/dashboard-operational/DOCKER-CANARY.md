@@ -1,0 +1,25 @@
+# Imagem fechada do novo canário
+
+Este caminho cria uma imagem separada a partir dos arquivos desta revisão, com a mesma lista fechada do build/pack existente. A base Node22 está fixada por digest; não há instalação de dependências. O contexto tem uma allowlist própria, e a imagem final contém só o pacote de 26 arquivos, os módulos de inicialização e um manifesto imutável com revisão Git e SHA-256. Git, documentos, SQL, n8n, testes, banco e credenciais ficam fora da imagem. O utilitário de backup continua fora do runtime HTTP.
+
+Na raiz do checkout exclusivo, informar a revisão completa de 40 caracteres, sem passar segredos ou outros build args:
+
+```sh
+docker build --file services/dashboard-operational/Dockerfile \
+  --build-arg GIT_SHA=<commit-de-40-caracteres> \
+  --tag shrigma-dashboard-canary:<commit-de-40-caracteres> .
+```
+
+Usar contexto `/` relativo à raiz do repositório e caminho do Dockerfile `services/dashboard-operational/Dockerfile`. O arquivo específico `Dockerfile.dockerignore` prevalece sobre o ignore da raiz. O CI executa esse build e um ensaio de seed com volume novo, sem push, rede do container ou segredos. O manifesto registra a revisão informada; para vincular código e revisão, construir somente o checkout exato desse commit, sem alterações locais.
+
+O container já começa como UID/GID1000, com heap128MiB, sem `su`, `chown` em runtime ou capacidades adicionais. Associar **um volume novo, exclusivo e vazio** em `/dashboard-data`; Docker copia a propriedade do diretório UID/GID1000 da imagem para o volume novo. O Easypanel deve preservar esse dono. Se o painel entregar um volume root-owned, a inicialização recusa o volume; corrigir somente a propriedade do volume novo antes de usar o serviço. Não conectar o volume de outro serviço. Aplicar 512MiB, 0,5CPU, uma réplica, `capDrop=ALL`, sem zero-downtime sobre SQLite.
+
+Antes de semear, a inicialização valida identidade, modo permitido, caminhos fixos, SHA da imagem, checksum, encoding e a allowlist inteira. Ela copia o pacote somente quando `readdir` confirma volume completamente vazio, usando criação exclusiva, modo0600 e fsync. Qualquer arquivo prévio, inclusive oculto ou banco, impede o seed se não existir um pacote válido. Um pacote existente deve corresponder ao SHA imutável da imagem; nunca é sobrescrito. Uma cópia parcial ou corrupção falha fechada. O dono1000 pode restaurar somente o modo0700 do diretório quando o Easypanel reaplica permissões durante restart; banco e pacote não são modificados. A mudança de revisão do pacote exige procedimento explícito, backup e validação; restart não efetua upgrade nem recuperação silenciosa.
+
+O SHA vem de `/app/image-pin.json`. `DASHBOARD_PACK_SHA256` pode ser omitido; se informado, tem de coincidir com esse SHA. Os caminhos `/app` e `/dashboard-data` não são configuráveis via env. Não montar arquivos sobre `/app`, não sobrescrever command e não reutilizar o volume do ensaio sintético para identidade real.
+
+O padrão da imagem é `DASHBOARD_MODE=synthetic` e upstreams vazios. Somente o servidor HTTP e a identidade SQLite são iniciados; não há jobs, workers, sincronizações, pipelines ou migrações comerciais. Os hosts, domínios de e-mail e credenciais de bootstrap/identidade exigidos pelo servidor continuam sendo configuração privada de runtime; o build não os recebe. O HTTP real, saúde, login, scopes, navegação, reinício e persistência ainda precisam ser validados no serviço novo.
+
+O Easypanel pode passar env de projeto/serviço como build args. Portanto Git+Dockerfile no Easypanel é apenas uma opção de **ensaio sintético sem segredos**: construir o serviço antes de adicionar qualquer segredo e não colocar credenciais reais em um serviço que rebuilda do Git. O caminho de produção deve construir a imagem fora do Easypanel sem segredos, publicar por processo autorizado e puxar um digest fixo; depois injetar segredos somente em runtime por canal privado. Não declarar ARG de segredo, não usar logs para transmitir valores e não habilitar produção apenas porque um build foi aceito.
+
+Os testes locais verificam determinismo, contexto fechado, pin, seed único, preservação de identidade, recusa de volume não vazio/corrompido, symlinks/hardlinks, UID e ausência de valores privados no erro. Sem daemon Docker local, o build Docker e o volume Docker reais são validados pelo CI, e seu resultado deve ser confirmado antes da criação do serviço. Este caminho não publica serviço, imagem ou domínio e não altera a instalação remota existente.
