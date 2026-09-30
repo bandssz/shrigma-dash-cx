@@ -1,6 +1,6 @@
 # Contratos HTTP para o dashboard operacional — 30/09/2026
 
-Auditoria dos fontes no commit `257a9ec6a7b697445c567da2b30afea18a3e0c17`, no worktree exclusivo `dashboard-operational-20260930`. Esta análise não executou chamadas autenticadas, operações de escrita, SQL, migrações ou alterações no Easypanel. O único arquivo produzido por esta auditoria é este documento. Configurações privadas, credenciais, hashes de acessos reais e conteúdos de clientes não foram copiados.
+Auditoria dos contratos de origem a partir do commit `257a9ec6a7b697445c567da2b30afea18a3e0c17`, no worktree exclusivo `dashboard-operational-20260930`. A branch também incorporou a melhoria publicada de Influs em `e180f4ca484efa9a3fc8ba430b3a714e5ecbb907`, que acrescenta o KPI de clientes novos ao frontend e não libera novas ações no gateway. Esta **auditoria de contratos** não executou chamadas autenticadas, operações de escrita, SQL ou migrações. Configurações privadas, credenciais, hashes de acessos reais e conteúdos de clientes não foram copiados. A instalação sintética posterior está registrada no plano operacional, separado deste inventário de contratos.
 
 ## Conclusão e limites da evidência
 
