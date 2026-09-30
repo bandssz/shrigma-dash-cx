@@ -61,6 +61,14 @@ jobs:
         run: |
           docker build --file services/dashboard-operational/Dockerfile.backup-canary --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-backup-canary:ci .
           docker run --rm --network none --cap-drop ALL --read-only --memory 512m --cpus 0.5 --entrypoint node shrigma-backup-canary:ci -e 'const fs=require("node:fs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); if(fs.readdirSync("/app").sort().join()!=="artifact-policy.cjs,backup-canary-job.cjs,backup-identity.cjs")throw Error("Maintenance image contents mismatch"); console.log("Maintenance image verified; UID1000; three reviewed files; no network.");'
+      - name: Validar modelos de manutenção sem credenciais
+        env:
+          DASHBOARD_ENCRYPTION_KEY: synthetic-ci-only
+          DASHBOARD_BOOTSTRAP_SHA256: synthetic-ci-only
+        run: |
+          for file in services/dashboard-operational/compose.canary-*.template.yml; do
+            docker compose --file "$file" config --quiet
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: dashboard-operational-shadow-${{ github.sha }}
