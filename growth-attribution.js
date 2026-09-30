@@ -65,12 +65,18 @@ const GA=(()=>{
   if(!m.tracked)return unavailable('UTM do disparo indisponível');
   if(m.tracking_state!=='exclusive')return unavailable('UTM não exclusiva entre disparos');
   if(!Number.isFinite(Date.parse(m.enviado_em)))return unavailable('Horário de envio indisponível');
+  if(!m.evidence_receipt_valid)return unavailable('Evidência por disparo indisponível');
   if(m.evidence_orders_valid!==true)return unavailable('Pedidos identificados indisponíveis');
   const sent=count(m.enviados),orders=count(m.evidence_orders_total);
   if(sent===null)return unavailable('Total acumulado de envios indisponível');
   if(sent===0)return unavailable('Sem envios acumulados');
   if(orders===null)return unavailable('Pedidos identificados indisponíveis');
   return {orders_per_100:100*orders/sent,orders_per_100_reason:null};
+ }
+ function dispatchEvidenceReceipt(api,cov,evidence){
+  const timestamp=value=>typeof value==='string'&&value.trim()?Date.parse(value):NaN;
+  const checked=timestamp(evidence?.checked_at),generated=timestamp(api?.crm_attribution?.generated_at),covered=timestamp(cov?.latest);
+  return evidence?.basis==='utm_and_chronology'&&[checked,generated,covered].every(Number.isFinite)&&checked>=covered&&checked<=generated;
  }
  const tuple=(brand,u)=>JSON.stringify([brand,norm(u.source),norm(u.medium),norm(u.campaign),norm(u.content),norm(u.term)]);
  const safeCountSum=(rr,key)=>{let total=0;for(const r of rr){const value=Number(r[key]);if(!((typeof r[key]==='number'||typeof r[key]==='string'&&r[key].trim()!=='')&&Number.isSafeInteger(value)&&value>=0&&Number.isSafeInteger(total+value)))return null;total+=value;}return total;};
@@ -89,16 +95,16 @@ const GA=(()=>{
   const commercial=new Set(members.map(m=>m.marca+'|'+m.familia));for(const r of pieces)if(r.dimension[1]==='campanha')commercial.add(r.marca+'|'+family(api,r.marca,r.dimension[2]));
   for(const v of map.values()){
    const brandCoverage=coverage(api,v.marca,a,z);
-   const evidence=api.crm_attribution.dispatch_evidence,hasEvidence=evidence!==undefined,verified=evidence?.schema_version===1&&Array.isArray(evidence.daily);
+   const evidence=api.crm_attribution.dispatch_evidence,hasEvidence=evidence!==undefined,verified=evidence?.schema_version===1&&Array.isArray(evidence.daily),receiptValid=dispatchEvidenceReceipt(api,brandCoverage,evidence);
    v.members=v.members.map(m=>{
     const tuples=new Set((m.utms||[]).map(u=>tuple(m.marca,u)));
     const matches=pieces.filter(r=>tuples.has(tuple(r.marca,{source:r.dimension[5],medium:r.dimension[1],campaign:r.dimension[2],content:r.dimension[3],term:r.dimension[4]})));
     const shared=[...tuples].some(k=>(claimants.get(k)?.size||0)>1),tracked=tuples.size>0,sent=num(m.enviados)>0;
     const exclusive=[...tuples].filter(k=>(claimants.get(k)?.size||0)===1);const uniqueMatches=matches.filter(r=>exclusive.includes(tuple(r.marca,{source:r.dimension[5],medium:r.dimension[1],campaign:r.dimension[2],content:r.dimension[3],term:r.dimension[4]})));
     const verifiedRows=verified?(evidence.daily||[]).filter(r=>r.model===model(api)&&r.marca===m.marca&&String(r.campanha_id)===String(m.campanha_id)&&inPeriod(r.dia,a,z)):[];
-    const evidenceOrdersTotal=verified?safeCountSum(verifiedRows,'pedidos'):null,evidenceOrdersValid=evidenceOrdersTotal!==null;
+    const evidenceOrdersTotal=verified?safeCountSum(verifiedRows,'pedidos'):null,evidenceOrdersValid=receiptValid&&verifiedRows.length>0&&evidenceOrdersTotal>0;
     const verifiedResult=verified&&sent&&tracked&&Number.isFinite(Date.parse(m.enviado_em))&&(!shared||verifiedRows.length)?sum(verifiedRows):null;
-    const member={...m,tracking_state:!tracked?'missing':[...tuples].some(k=>(plannedClaimants.get(k)?.size||0)>1)?'shared':'exclusive',in_period:sent&&inPeriod(day(m.enviado_em),a,z),future:!sent,shared,tracked,evidence_verified:verified,evidence_orders_valid:evidenceOrdersValid,evidence_orders_total:evidenceOrdersTotal,result:hasEvidence?(verified?verifiedResult:null):sent&&tracked&&exclusive.length?sum(uniqueMatches):null};
+    const member={...m,tracking_state:!tracked?'missing':[...tuples].some(k=>(plannedClaimants.get(k)?.size||0)>1)?'shared':'exclusive',in_period:sent&&inPeriod(day(m.enviado_em),a,z),future:!sent,shared,tracked,evidence_verified:verified,evidence_receipt_valid:receiptValid,evidence_orders_valid:evidenceOrdersValid,evidence_orders_total:evidenceOrdersTotal,result:hasEvidence?(verified?verifiedResult:null):sent&&tracked&&exclusive.length?sum(uniqueMatches):null};
     return {...member,...dispatchOrderRate(member,brandCoverage)};
    }).sort((x,y)=>Number(x.future)-Number(y.future)||String(y.enviado_em||y.agendado_em).localeCompare(String(x.enviado_em||x.agendado_em)));
    v.sent=v.members.filter(m=>m.in_period).reduce((s,m)=>s+num(m.enviados),0);
