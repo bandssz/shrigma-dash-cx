@@ -50,7 +50,7 @@ O PR #205 avançou o `main` a `e6ba3056ef21a4918b1616d2266f25a90bcee339` e tamb�
 
 A aba Gestores permite cadastrar e-mail corporativo, selecionar um único painel e escolher leitura ou **solicitar edição geral daquele painel**. O pedido de edição fica persistido e visível na lista, mas o convite e a sessão permanecem somente leitura; o servidor segue recusando grants de escrita. Escolher leitura depois revoga sessões e credenciais de escrita por precaução. Não há disparo automático de e-mail: o link único deve ser distribuído por canal privado. O superadmin definitivo será associado ao e-mail corporativo informado pelo titular, em outro volume e com senha/TOTP definidos por ele; nenhum segredo inicial será colocado no repositório ou nesta conversa.
 
-O novo pacote de cadastro foi gerado localmente a partir desta branch, com 27 arquivos públicos, quatro módulos de runtime, seed de 851.244 bytes e SHA-256 `e2e38d15edb14a3fce68834e199a8bd5df6350c32019b4e699284ee8956a29dd`. A suíte isolada passou em 84 testes. A publicação da imagem e o ensaio no navegador ainda devem ser confirmados pelo digest exato da revisão; este resultado local não prova o canário remoto.
+O novo pacote de cadastro foi gerado localmente a partir desta branch, com 27 arquivos públicos, quatro módulos de runtime, seed de 851.268 bytes e SHA-256 `bf18f2dc3465790d33e3ed4348775902af57d1bd61cf4b7cd75ac0d6d326dd09`. A suíte isolada passou em 84 testes, incluindo a validação dos quatro novos aliases `dashboard-v8-*`. A publicação da imagem e o ensaio no navegador ainda devem ser confirmados pelo digest exato da revisão; este resultado local não prova o canário remoto.
 
 Critério objetivo para escolher e integrar a revisão final:
 

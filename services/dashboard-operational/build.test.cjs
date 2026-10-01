@@ -126,9 +126,9 @@ test('operational iframe suppresses legacy access files and unavailable write co
 test('invite links match the exact production or test host for their area',()=>{
  const token='A'.repeat(43);
  const hosts={
-  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host','dashboard-v7-crm.tazdb8.easypanel.host'],
-  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host','dashboard-v7-organico.tazdb8.easypanel.host'],
-  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host','dashboard-v7-influs.tazdb8.easypanel.host']
+  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host','dashboard-v7-crm.tazdb8.easypanel.host','dashboard-v8-crm.tazdb8.easypanel.host'],
+  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host','dashboard-v7-organico.tazdb8.easypanel.host','dashboard-v8-organico.tazdb8.easypanel.host'],
+  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host','dashboard-v7-influs.tazdb8.easypanel.host','dashboard-v8-influs.tazdb8.easypanel.host']
  };
  for(const [area,allowed]of Object.entries(hosts))for(const host of allowed){
   const url=`https://${host}/#invite=${token}`;
