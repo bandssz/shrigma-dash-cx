@@ -40,3 +40,4 @@
 !services/dashboard-operational/public/entry.js
 !services/dashboard-operational/public/entry.css
 !services/dashboard-operational/public/guard.js
+!services/dashboard-operational/public/media-read.js
