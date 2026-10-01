@@ -17,7 +17,7 @@ async function boot(t,brand){
  await ui.sync({api:memory.api,brand});return {...actual,memory,element,ui,q,input,click,settle,calls};
 }
 for(const brand of ['fish','aristo'])test(brand+': analyst creates/reopens/counts Shopify audience and sees collection coverage and expiry',async t=>{
- const x=await boot(t,brand);assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/Dados Shopify coletados entre.*Válidos até/);assert.match(x.element.textContent,/Confira a data da coleta e a validade; pedidos posteriores podem ainda não aparecer/);
+ const x=await boot(t,brand);assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/Dados importados da Shopify.*Coleta entre.*Válida até/);assert.match(x.element.textContent,/Pedidos posteriores à coleta podem ainda não aparecer/);
  x.input('[data-gs-name]','Clientes sem compras · '+brand,'input');await x.click('add-condition');x.input('[data-gs-field]','purchase.count');x.input('[data-gs-value]','0');x.q('[data-gs="remove"][data-path="0"]').click();
  await x.click('save');assert.equal(x.ui.contextStatus().dirty,false);await x.click('count');assert.match(x.q('[data-gs-count]').textContent,/1 pessoas/);
  const id=(await x.db.query('SELECT id FROM crm_audience_v2.audience WHERE brand=$1',[brand])).rows[0].id;
