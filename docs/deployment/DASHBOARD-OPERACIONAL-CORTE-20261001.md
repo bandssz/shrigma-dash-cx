@@ -1,6 +1,6 @@
 # Critérios de liberação do dashboard operacional
 
-O alvo de uso pela equipe em 01/10/2026 não autoriza encaminhar tráfego antes das provas abaixo. O projeto de teste no Easypanel contém somente contas e respostas sintéticas. Seus quatro endereços `dashboard-v7-*.tazdb8.easypanel.host` agora servem a imagem candidata v9 e comprovam TLS, login, convites, navegação, isolamento de áreas, prévia de imagem pública, abertura de um atalho HTTPS permitido com tráfego externo simulado e bloqueio de GET de edição sem Origin, CSRF ou grant. Não comprovam dados reais, permissões nos serviços de origem nem paridade das ações diárias.
+O alvo de uso pela equipe em 01/10/2026 não autoriza encaminhar tráfego antes das provas abaixo. O projeto de teste no Easypanel contém somente contas e respostas sintéticas. Seus quatro endereços `dashboard-v7-*.tazdb8.easypanel.host` agora servem a imagem candidata v10 e comprovam TLS, login, convites, navegação, isolamento de áreas, diagnóstico CRM sintético por sessão, prévia de imagem pública, abertura de um atalho HTTPS permitido com tráfego externo simulado e bloqueio de GET de edição sem Origin, CSRF ou grant. Não comprovam dados reais, permissões nos serviços de origem nem paridade das ações diárias.
 
 ## Opções de entrega
 
