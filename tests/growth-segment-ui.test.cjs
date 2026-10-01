@@ -1,15 +1,16 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),{parseHTML}=require('linkedom');
-const {fixture,definition,api}=require('./growth-segment-fixture.cjs'),UI=require('../growth-segment-ui.js');
-function boot(f=fixture()){
+const {fixture,definition,api,Client}=require('./growth-segment-fixture.cjs'),UI=require('../growth-segment-ui.js');
+function boot(f=fixture(),options={}){
  const {document,window}=parseHTML('<html><body><section id="segments"></section></body></html>');
  const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  const dialogProto=Object.getPrototypeOf(document.createElement('dialog'));dialogProto.showModal=function(){this.setAttribute('open','');};dialogProto.close=function(){this.removeAttribute('open');this.onclose?.();};
- window.HTMLElement.prototype.focus=function(){};let key='synthetic-actor-one';const element=document.querySelector('#segments'),ui=UI.create({element,document,key:()=>key,storage:f.storage,fetch:f.fetch,locks:f.locks});
+ window.HTMLElement.prototype.focus=function(){};let key=options.key||'synthetic-actor-one';const element=document.querySelector('#segments'),ui=UI.create({element,document,key:()=>key,storage:options.storage||f.storage,fetch:options.fetch||f.fetch,locks:options.locks===undefined?f.locks:options.locks,...(options.identity?{identity:options.identity}:{})});
  const q=s=>element.querySelector(s),input=(selector,value,event='change')=>{q(selector).value=value;q(selector).dispatchEvent(new window.Event(event,{bubbles:true}));};
  return {f,ui,element,q,input,document,window,setKey:v=>{key=v;}};
 }
 async function settled(x){for(let i=0;i<100;i++){if(!x.ui.contextStatus().blocked)return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI pending');}
+async function idle(x){for(let i=0;i<100;i++){if(!x.ui.contextStatus().busy)return;await new Promise(r=>setTimeout(r,2));}assert.fail('UI busy');}
 async function click(x,action){x.q('[data-gs="'+action+'"]').click();await settled(x);}
 function fill(x,brand){x.input('[data-gs-name]','Público de '+brand,'input');x.input('[data-gs-list]',brand==='fish'?'11':'21');}
 test('without capability segments stay OFF and issue no requests',async()=>{const x=boot();await x.ui.sync({api:{},brand:'fish'});assert.match(x.element.textContent,/ainda não está disponível/);assert.equal(x.f.calls.length,0);assert.equal(x.q('[data-gs-name]'),null);});
@@ -74,4 +75,72 @@ test('v2 local drafts keep their original currency across refresh and reload whe
  assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
  reloaded.q('[data-gs="new"]').click();assert.equal(reloaded.q('[data-gs-dialog]').hasAttribute('open'),true);reloaded.q('[data-gs="accept"]').click();await settled(reloaded);assert.equal(reloaded.q('[data-gs-name]').value,'');assert.equal(reloaded.q('[data-gs-context-changed]'),null);
  assert.equal(JSON.parse(f.storage.getItem(UI.SLOT+'fish')).draft_catalog_hash,'b'.repeat(64));assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
+
+const listRequest=(url,init)=>init?.method==='GET'&&new URL(url).searchParams.get('acao')==='segmentos_listar';
+const unavailable=()=>({status:503,json:async()=>({error:'SEGMENT_SERVICE_UNAVAILABLE'})});
+function assertSafeReadError(status){assert.equal(typeof status.error,'string');assert.ok(status.error.length>0);assert.doesNotMatch(status.error,/SEGMENT_|https?:\/\/|\bat\s+\S+\s*\(/);}
+
+test('Create public retries one failed catalog GET explicitly, opens a fresh draft and never writes',async()=>{
+ const f=fixture();let reads=0;const fetch=async(url,init)=>{if(listRequest(url,init)&&++reads===1)return unavailable();return f.fetch(url,init);};const x=boot(f,{fetch});
+ await x.ui.sync({api,brand:'fish'});const status=x.ui.contextStatus();assert.equal(status.brand,'fish');assert.equal(status.blocked,false);assert.equal(status.busy,false);assert.equal(status.dirty,false);assert.equal(status.pending,false);assert.equal(status.catalogReady,false);assert.equal(status.availableClient,true);assertSafeReadError(status);
+ assert.equal(await x.ui.startNew(),'started');assert.equal(reads,2);assert.equal(x.ui.contextStatus().catalogReady,true);assert.equal(x.ui.contextStatus().error,'');assert.equal(x.q('[data-gs-name]').value,'');assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
+
+test('Create public reports a safe catalog read error when the explicit retry also fails',async()=>{
+ const f=fixture();let reads=0;const fetch=async(url,init)=>{if(listRequest(url,init)){reads++;return unavailable();}return f.fetch(url,init);};const x=boot(f,{fetch});
+ await x.ui.sync({api,brand:'fish'});assert.equal(await x.ui.startNew(),false);const status=x.ui.contextStatus();assert.equal(reads,2);assert.equal(status.catalogReady,false);assert.equal(status.availableClient,true);assert.equal(status.pending,false);assertSafeReadError(status);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
+
+test('a restored pending operation blocks Create public without another GET or any local mutation',async()=>{
+ const f=fixture(),seed=boot(f);await seed.ui.sync({api,brand:'fish'});fill(seed,'fish');f.control.lose=true;await click(seed,'save');assert.equal(seed.ui.contextStatus().pending,true);
+ const restored=boot(f);await restored.ui.sync({api,brand:'fish'});const before={editor:f.store.get(UI.SLOT+'fish'),journal:f.store.get(Client.SLOT+'fish'),calls:f.calls.length,posts:f.calls.filter(c=>c.method==='POST').length};
+ assert.equal(await restored.ui.startNew(),false);assert.equal(restored.ui.contextStatus().pending,true);assert.equal(f.calls.length,before.calls);assert.equal(f.calls.filter(c=>c.method==='POST').length,before.posts);assert.equal(f.store.get(UI.SLOT+'fish'),before.editor);assert.equal(f.store.get(Client.SLOT+'fish'),before.journal);
+});
+
+test('a fatal actor mismatch preserves both local journals and makes no recovery request',async()=>{
+ const f=fixture(),seed=boot(f);await seed.ui.sync({api,brand:'fish'});fill(seed,'fish');const editor=f.store.get(UI.SLOT+'fish'),journal=f.store.get(Client.SLOT+'fish')??null;
+ const changed=boot(f,{key:'another-synthetic-actor'}),calls=f.calls.length;await changed.ui.sync({api,brand:'fish'});const beforeCalls=f.calls.length;assert.equal(beforeCalls,calls);assert.equal(await changed.ui.startNew(),false);assert.equal(f.calls.length,beforeCalls);assert.equal(f.store.get(UI.SLOT+'fish'),editor);assert.equal(f.store.get(Client.SLOT+'fish')??null,journal);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assert.equal(changed.ui.contextStatus().availableClient,false);
+});
+
+test('an invalid client journal is preserved byte-for-byte and cannot trigger catalog recovery',async()=>{
+ const f=fixture(),invalid='{"version":1,"brand":"fish","tampered":true}';f.store.set(Client.SLOT+'fish',invalid);const x=boot(f);
+ await x.ui.sync({api,brand:'fish'});const beforeCalls=f.calls.length;assert.equal(x.ui.contextStatus().availableClient,false);assertSafeReadError(x.ui.contextStatus());assert.equal(await x.ui.startNew(),false);assert.equal(f.calls.length,beforeCalls);assert.equal(f.store.get(Client.SLOT+'fish'),invalid);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
+
+test('an access-key change during the recovery GET rejects the draft without local writes',async()=>{
+ const f=fixture();let reads=0,release,enteredResolve;const entered=new Promise(resolve=>{enteredResolve=resolve;});const wait=new Promise(resolve=>{release=resolve;});const fetch=async(url,init)=>{if(listRequest(url,init)){reads++;if(reads===1)return unavailable();enteredResolve();await wait;}return f.fetch(url,init);};const x=boot(f,{fetch});
+ await x.ui.sync({api,brand:'fish'});const editor=f.store.get(UI.SLOT+'fish'),journal=f.store.get(Client.SLOT+'fish');const attempt=x.ui.startNew();await entered;x.setKey('another-synthetic-actor');release();assert.equal(await attempt,false);assert.equal(reads,2);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assert.equal(f.store.get(UI.SLOT+'fish'),editor);assert.equal(f.store.get(Client.SLOT+'fish'),journal);assert.equal(x.ui.contextStatus().catalogReady,false);assertSafeReadError(x.ui.contextStatus());
+});
+
+async function legacyEditor(mode='absent'){
+ const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION}),actor=await Client.fingerprint('synthetic-actor-one'),draft={schema_version:Audience.VERSION,brand:'fish',name:'Preparação legada',rule:{op:'and',rules:[{op:'in_list',list_id:11}]}},saved={version:1,brand:'fish',endpoint:f.api.capabilities.endpoints.segments,actor,draft,base:structuredClone(draft),server:null};
+ if(mode==='null')saved.draft_catalog_hash=null;if(mode==='malformed')saved.draft_catalog_hash='not-a-catalog-hash';const raw=JSON.stringify(saved);f.store.set(UI.SLOT+'fish',raw);return {f,raw,draft};
+}
+const backups=f=>[...f.store.entries()].filter(([key])=>key.startsWith(UI.SLOT+'fish:preserved:'));
+
+test('explicit legacy recovery confirms first; cancel preserves exact bytes and performs no request',async()=>{
+ for(const mode of ['absent','null']){const {f,raw}=await legacyEditor(mode),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(f.calls.length,0);assert.equal(await x.ui.startNew(),'confirmation');assert.match(x.q('[data-gs-confirm-text]').textContent,/guardar.*preparação antiga.*começar um público novo/i);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);x.q('[data-gs="back"]').click();await idle(x);assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),false);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);}
+});
+
+test('accepting legacy recovery stores an exact immutable backup and starts empty in the fresh catalog without POST',async()=>{
+ for(const mode of ['absent','null']){const {f,raw}=await legacyEditor(mode),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');await click(x,'accept');
+  const hash=await Client.fingerprint(raw),backupSlot=UI.SLOT+'fish:preserved:'+hash,active=f.store.get(UI.SLOT+'fish'),saved=JSON.parse(active);assert.equal(f.store.get(backupSlot),raw);assert.equal(backups(f).length,1);assert.equal(saved.draft_catalog_hash,'a'.repeat(64));assert.equal(saved.draft_currency,'BRL');assert.equal(saved.draft_timezone,null);assert.equal(saved.draft.name,'');assert.equal(saved.draft.rule.rules[0].list_id,0);assert.deepEqual(saved.base,saved.draft);assert.equal(saved.server,null);assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.ui.contextStatus().catalogReady,true);assert.equal(f.calls.filter(c=>c.method==='GET').length,1);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+ }
+});
+
+test('pending legacy state, malformed hash and actor mismatch never enter recovery or issue a read',async()=>{
+ {const {f,raw,draft}=await legacyEditor(),client=f.create();await client.list();f.control.lose=true;await assert.rejects(client.save(draft));f.store.set(UI.SLOT+'fish',raw);const x=boot(f),before=f.calls.length;await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),false);assert.equal(f.calls.length,before);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);}
+ for(const kind of ['malformed','actor']){const state=await legacyEditor(kind==='malformed'?'malformed':'absent'),{f,raw}=state;if(kind==='actor'){const value=JSON.parse(raw);value.actor=await Client.fingerprint('other-actor');f.store.set(UI.SLOT+'fish',JSON.stringify(value));}const original=f.store.get(UI.SLOT+'fish'),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),false);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),original);assert.deepEqual(backups(f),[]);}
+});
+
+test('key or editor drift during the recovery GET aborts without backup, overwrite or POST',async()=>{
+ for(const drift of ['key','raw']){const {f,raw}=await legacyEditor();let release,enteredResolve;const entered=new Promise(resolve=>{enteredResolve=resolve;}),wait=new Promise(resolve=>{release=resolve;}),fetch=async(url,init)=>{if(listRequest(url,init)){enteredResolve();await wait;}return f.fetch(url,init);},x=boot(f,{fetch});await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');x.q('[data-gs="accept"]').click();await entered;
+  const changed=drift==='raw'?raw+' ':raw;if(drift==='key')x.setKey('other-actor');else f.store.set(UI.SLOT+'fish',changed);release();await idle(x);assert.equal(f.store.get(UI.SLOT+'fish'),changed);assert.deepEqual(backups(f),[]);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assertSafeReadError(x.ui.contextStatus());
+ }
+});
+
+test('legacy recovery fails closed on journal-lock contention and backup storage failure',async()=>{
+ {const {f,raw}=await legacyEditor(),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');await f.locks.request(Client.SLOT+'fish',{mode:'exclusive',ifAvailable:true},async()=>{x.q('[data-gs="accept"]').click();await idle(x);});assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assertSafeReadError(x.ui.contextStatus());}
+ {const {f,raw}=await legacyEditor(),storage={getItem:key=>f.storage.getItem(key),removeItem:key=>f.storage.removeItem(key),setItem(key,value){if(key.startsWith(UI.SLOT+'fish:preserved:'))throw Error('synthetic backup failure');f.storage.setItem(key,value);}},x=boot(f,{storage});await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');x.q('[data-gs="accept"]').click();await idle(x);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assertSafeReadError(x.ui.contextStatus());}
 });

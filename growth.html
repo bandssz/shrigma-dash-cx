@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=991cc7fe1d14">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sYcav7Y+3kpVAWYDwncyGV86reWTNDEoD64ihFSL4vY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L4ODoucD1MPhpsd5+1FkEFzn6tSh38n9oh3cq4KuHPg='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3ff3665b22ce"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6eccb07901bb"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -550,9 +550,13 @@ async function beginAudienceDraft(brand){
     await renderSegmentos();
     if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==brand)return;
     const result=await CRM_SEGMENT_VIEW.startNew();
-    if(result==='confirmation'){CRM_AUDIENCE_CREATE_NOTICE='Confirme no diálogo se deseja substituir a preparação local.';return;}
-    if(result!=='started'){CRM_AUDIENCE_CREATE_NOTICE='Aguarde a consulta dos públicos ou confira a tentativa pendente antes de criar outro público.';return;}
+    if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==brand)return;
     const host=$('#crm-segments-panel');host.scrollIntoView?.({behavior:'smooth',block:'start'});
+    if(result==='confirmation'){CRM_AUDIENCE_CREATE_NOTICE='Confirme no diálogo se deseja substituir a preparação local.';return;}
+    if(result!=='started'){
+      const state=CRM_SEGMENT_VIEW.contextStatus();
+      CRM_AUDIENCE_CREATE_NOTICE=state.pending?'Há uma tentativa pendente. Use Consultar tentativa no editor abaixo antes de criar outro público.':state.error||(state.blocked?'Aguarde a consulta dos públicos terminar.':'Não foi possível carregar o editor. Use Atualizar públicos para consultar novamente; sua preparação foi preservada.');return;
+    }
     if(!CRM_SEGMENT_VIEW.contextStatus().blocked)host.querySelector('[data-gs-name]')?.focus({preventScroll:true});
   }catch{CRM_AUDIENCE_CREATE_NOTICE='Não foi possível abrir um novo público. Sua preparação atual foi preservada.';}
   finally{CRM_AUDIENCE_CREATE_BUSY=false;renderPublicCreation();}
@@ -587,7 +591,7 @@ function renderSegmentos(){
       const current=contextoSegmentos(),same=mesmoContextoSegmentos(desired,current);
       // Never present a previous brand/access/endpoint as the current editor.
       editor.hidden=!accepted||!same;status.hidden=accepted&&same;
-      if(!status.hidden)status.textContent='A preparação anterior foi preservada. Conclua ou confira a tentativa original antes de abrir outro contexto de públicos.';
+      if(!status.hidden)status.textContent=same&&CRM_SEGMENT_VIEW.contextStatus().brand===desired.brand&&CRM_SEGMENT_VIEW.contextStatus().error||'A preparação anterior foi preservada. Conclua ou confira a tentativa original antes de abrir outro contexto de públicos.';
     }
   })().finally(()=>{CRM_SEGMENT_SYNC=null;});
   return CRM_SEGMENT_SYNC;
