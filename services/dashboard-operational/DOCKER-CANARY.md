@@ -1,6 +1,6 @@
 # Imagem fechada do novo canário
 
-Este caminho cria uma imagem separada a partir dos arquivos desta revisão, com a mesma lista fechada do build/pack existente. A base Node22 está fixada por digest; não há instalação de dependências. O contexto tem uma allowlist própria, e a imagem final contém só o pacote de 26 arquivos, os módulos de inicialização e um manifesto imutável com revisão Git e SHA-256. Git, documentos, SQL, n8n, testes, banco e credenciais ficam fora da imagem. O utilitário de backup continua fora do runtime HTTP.
+Este caminho cria uma imagem separada a partir dos arquivos desta revisão, com a mesma lista fechada do build/pack existente. A base Node22 está fixada por digest; não há instalação de dependências. O contexto tem uma allowlist própria, e a imagem final contém só o pacote de 27 arquivos públicos e quatro módulos de runtime, os módulos de inicialização e um manifesto imutável com revisão Git e SHA-256. Git, documentos, SQL, n8n, testes, banco e credenciais ficam fora da imagem. O utilitário de backup continua fora do runtime HTTP.
 
 Na raiz do checkout exclusivo, informar a revisão completa de 40 caracteres, sem passar segredos ou outros build args:
 

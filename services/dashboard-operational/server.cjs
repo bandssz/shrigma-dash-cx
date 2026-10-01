@@ -112,10 +112,11 @@ function createServer(s,{auth,fetchImpl=fetch}={}){
           if(b.action==='invite'){
             if(b.role!=='manager')throw jsonError(400,'ROLE_DENIED');
             if(Object.values(b.permissions||{}).some(grant=>grant?.edit===true))throw jsonError(403,'EDIT_NOT_READY');
-            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions});
+            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess});
             return sendJson(req,res,201,{userId:invite.userId,inviteUrl:'https://'+invite.host+'/#invite='+encodeURIComponent(invite.token)});
           }
           if(b.action==='revoke')return sendJson(req,res,200,auth.revokeUser({context:ctx,userId:b.userId}));
+          if(b.action==='access_request')return sendJson(req,res,200,auth.setRequestedAccess({context:ctx,userId:b.userId,requestedAccess:b.requestedAccess}));
           if(b.action==='grant'){
             if(Object.values(b.permissions||{}).some(grant=>grant?.edit===true))throw jsonError(403,'EDIT_NOT_READY');
             return sendJson(req,res,200,auth.setGrants({context:ctx,userId:b.userId,permissions:b.permissions}));

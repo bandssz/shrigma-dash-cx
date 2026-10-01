@@ -59,13 +59,14 @@
   <main>
    <div id="entry-frame"></div>
    <section id="admin-panel" class="admin-panel" hidden aria-label="Gestão de acessos">
-    <div class="admin-heading"><h2>Gestores</h2><p>Convide um gestor para uma área. O link de convite aparece uma única vez após a criação.</p></div>
+    <div class="admin-heading"><h2>Gestores</h2><p>Cadastre cada pessoa pelo e-mail corporativo, painel e nível de acesso. O link de convite aparece uma única vez após a criação.</p></div>
     <form id="admin-invite-form" method="post" action="/auth/users">
      <label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required>
-     <label for="admin-area">Área</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs &amp; Afiliados</option></select>
-     <p class="muted">Acesso de leitura nesta etapa. Operações da área serão liberadas após validação separada.</p>
+     <label for="admin-area">Painel</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs &amp; Afiliados</option></select>
+     <label for="admin-access">Nível de acesso</label><select id="admin-access"><option value="read">Somente leitura</option><option value="edit">Edição geral do painel (pendente)</option></select>
      <button type="submit">Criar convite</button>
     </form>
+    <p class="admin-access-note">Ao solicitar edição, o convite começa em somente leitura. A edição só será ativada após validação das permissões e credenciais individuais do painel; nenhuma ação comercial é liberada por este cadastro.</p>
     <div id="admin-invite-result" hidden><label for="admin-invite-link">Link de convite, exibido somente agora</label><input id="admin-invite-link" type="text" readonly><button id="admin-copy" type="button">Copiar link</button><button id="admin-invite-hide" type="button">Ocultar link</button></div>
     <p id="admin-message" role="status" aria-live="polite"></p>
     <div id="admin-users" class="user-list"></div>

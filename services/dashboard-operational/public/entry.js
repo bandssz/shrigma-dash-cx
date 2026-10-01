@@ -194,9 +194,35 @@ else (function(){'use strict';
   const row=document.createElement('div');row.className='user-row';const info=document.createElement('div');
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
-  details.textContent=[areas,String(user.status||'')].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
-  if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){const button=document.createElement('button');button.type='button';button.textContent='Revogar acesso ao portal';button.addEventListener('click',()=>revoke(user,button));row.append(button);}
+  const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
+  const access=granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
+  const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
+  details.textContent=[areas,access,state].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
+  if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
+   const actions=document.createElement('div');actions.className='user-row-actions';
+   const label=document.createElement('label');label.textContent='Nível solicitado';
+   const select=document.createElement('select');select.setAttribute('aria-label',`Nível de acesso de ${user.email}`);
+   for(const [value,title] of [['read','Somente leitura'],['edit','Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
+   const currentAccess=granted||user.requestedAccess==='edit'?'edit':'read';
+   select.value=currentAccess;
+   const save=document.createElement('button');save.type='button';save.textContent='Salvar';save.disabled=true;
+   select.addEventListener('change',()=>{save.disabled=select.value===currentAccess;});
+   save.addEventListener('click',()=>saveAccessRequest(user,select,save));
+   const revokeButton=document.createElement('button');revokeButton.type='button';revokeButton.textContent='Revogar acesso';revokeButton.addEventListener('click',()=>revoke(user,revokeButton));
+   label.append(select);actions.append(label,save,revokeButton);row.append(actions);
+  }
   return row;
+ }
+ async function saveAccessRequest(user,select,button){
+  if(session?.user?.role!=='superadmin'||requested!=='todos')return;
+  const requestedAccess=select.value;if(!['read','edit'].includes(requestedAccess))return;
+  if(requestedAccess==='read'&&user.permissions?.[user.areas?.[0]]?.edit===true&&!window.confirm(`Retirar agora a edição de ${user.email}? A sessão atual será encerrada.`))return;
+  button.disabled=true;select.disabled=true;adminMessage.textContent='Salvando nível solicitado…';
+  try{
+   const {response}=await post('/auth/users',{action:'access_request',userId:user.id,requestedAccess});
+   if(!response.ok)throw Error('access_request_failed');
+   await loadUsers();adminMessage.textContent=requestedAccess==='edit'?'Edição solicitada. O acesso continua somente leitura até a validação técnica.':'Acesso definido como somente leitura.';
+  }catch(_){button.disabled=false;select.disabled=false;adminMessage.textContent='Não foi possível salvar o nível de acesso.';}
  }
  async function loadUsers(){
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
@@ -211,18 +237,18 @@ else (function(){'use strict';
  });
  $('admin-invite-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
-  const email=$('admin-email').value.trim().toLowerCase(),area=$('admin-area').value;
-  if(!AREAS[area])return;
+  const email=$('admin-email').value.trim().toLowerCase(),area=$('admin-area').value,requestedAccess=$('admin-access').value;
+  if(!AREAS[area]||!['read','edit'].includes(requestedAccess))return;
   busy=true;const button=$('admin-invite-form').querySelector('button');button.disabled=true;
   inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Criando convite…';
   try{
-   const body={action:'invite',email,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}}};
+   const body={action:'invite',email,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess};
    const {response,data}=await post('/auth/users',body);
    if(!response.ok)throw Error('invite_failed');
    const safeUrl=inviteUrlForArea(data?.inviteUrl,area);
    if(!safeUrl)throw Error('invite_failed');
-   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent='Convite criado. Compartilhe o link por um canal seguro com a pessoa indicada.';
-   $('admin-email').value='';await loadUsers();
+   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=requestedAccess==='edit'?'Convite criado em somente leitura. O pedido de edição ficou pendente de validação; compartilhe o link por um canal seguro.':'Convite de leitura criado. Compartilhe o link por um canal seguro com a pessoa indicada.';
+   $('admin-email').value='';$('admin-access').value='read';await loadUsers();
   }catch(_){adminMessage.textContent='Não foi possível criar o convite. Confira os dados e tente novamente.';}
   finally{busy=false;button.disabled=false;}
  });

@@ -1,6 +1,6 @@
 # Pacote e inicialização do dashboard operacional
 
-Usa a imagem prebuilt oficial `node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402`, sem build ou instalação de dependências no servidor. O runtime usa stdlib, inclusive `node:sqlite`. O pacote fechado contém exatamente 22 arquivos públicos e quatro módulos (`server`, `auth`, `proxy`, `fixtures`). Não inclui Git, SQL, n8n, documentação, `.env`, banco, credenciais ou fontes privadas.
+Usa a imagem prebuilt oficial `node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402`, sem build ou instalação de dependências no servidor. O runtime usa stdlib, inclusive `node:sqlite`. O pacote fechado contém exatamente 27 arquivos públicos e quatro módulos (`server`, `auth`, `proxy`, `fixtures`). Não inclui Git, SQL, n8n, documentação, `.env`, banco, credenciais ou fontes privadas.
 
 ## Preparação local
 

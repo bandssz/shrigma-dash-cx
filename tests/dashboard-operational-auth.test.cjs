@@ -104,6 +104,13 @@ test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',asyn
   f.auth.setUpstreamCredential({context,userId:invitation.userId,slot:'growth-audience',bearer});
   assert.throws(()=>f.auth.setUpstreamCredential({context,userId:second.userId,slot:'growth-audience',bearer}),error('CREDENTIAL_REUSED',409));
   assert.throws(()=>f.auth.setUpstreamCredential({context,userId:invitation.userId,slot:'cx-read',bearer}),error('CREDENTIAL_INVALID',400));
+  f.auth.setRequestedAccess({context,userId:invitation.userId,requestedAccess:'edit'});
+  assert.equal(f.auth.users({context}).find(user=>user.id===invitation.userId).requestedAccess,'edit');
+  f.auth.setRequestedAccess({context,userId:invitation.userId,requestedAccess:'read'});
+  assert.equal(f.auth.users({context}).find(user=>user.id===invitation.userId).permissions.growth.edit,false);
+  assert.equal(f.auth.session({cookieHeader:cookieHeader(manager.cookie),host:hosts.growth}).authenticated,false);
+  const downgraded=new DatabaseSync(f.dbPath);
+  try{assert.equal(downgraded.prepare('SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=?').get(invitation.userId).n,0);}finally{downgraded.close();}
   f.auth.setGrants({context,userId:invitation.userId,permissions:{growth:{read:true,edit:false}}});
   assert.equal(f.auth.session({cookieHeader:cookieHeader(manager.cookie),host:hosts.growth}).authenticated,false);
   const viewOnly=await f.auth.login({email:'gestor@shrigma.test',password:'gestor-synthetic-password',host:hosts.growth,origin:origin(hosts.growth),ip:'192.0.2.11'});

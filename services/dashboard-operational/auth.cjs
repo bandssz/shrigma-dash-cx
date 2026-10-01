@@ -5,7 +5,7 @@
  * createAuth({dbPath, managerHost, areaHosts, allowedEmailDomains,
  *   bootstrapAdminEmail, bootstrapTokenSha256, encryptionKey, now?}) returns:
  *   beginBootstrap/completeBootstrap, login, session, authorize, logout,
- *   createInvite, acceptInvite, users, setGrants, revokeUser,
+ *   createInvite, acceptInvite, users, setGrants, setRequestedAccess, revokeUser,
  *   setUpstreamCredential, getUpstreamCredential, close.
  *
  * `context` is {cookieHeader, host, method, origin, csrf}. An admin mutation
@@ -157,6 +157,10 @@ function createAuth(options){
  CREATE TABLE IF NOT EXISTS invites (
   token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   host TEXT NOT NULL,expires_at INTEGER NOT NULL,used_at INTEGER);
+ CREATE TABLE IF NOT EXISTS access_requests (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  requested_access TEXT NOT NULL CHECK(requested_access='edit'),
+  requested_at INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS upstream_credentials (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,slot TEXT NOT NULL,
   encrypted_key TEXT NOT NULL,key_digest TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,slot));
@@ -290,8 +294,9 @@ function createAuth(options){
  }
  function logout(ctx){const h=requireWriteContext(ctx),found=lookup({...ctx,host:h},false);if(found){authorize({...ctx,host:h});db.prepare('DELETE FROM sessions WHERE token_hash=?').run(found.tokenHash);}return {cookie:cookie('',0)};}
  function adminContext(context){const ctx={...context,admin:true};if(ctx.method!=='POST')err('METHOD_DENIED',405);return authorize(ctx);}
- function createInvite({context,email,areas,permissions:requested,expiresMs=INVITE_MS}){
+ function createInvite({context,email,areas,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
   adminContext(context);const e=emailAddress(email,domainSet),p=invitePermissions(areas,requested);
+  if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
@@ -301,6 +306,8 @@ function createAuth(options){
    else db.prepare('INSERT INTO users(id,email,role,state,created_at,updated_at) VALUES(?,?,?,?,?,?)').run(id,e,'manager','invited',t,t);
    db.prepare('DELETE FROM grants WHERE user_id=?').run(id);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(id,area,g.edit?1:0);
+   db.prepare('DELETE FROM access_requests WHERE user_id=?').run(id);
+   if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(id,t);
    db.prepare('INSERT INTO invites(token_hash,user_id,host,expires_at) VALUES(?,?,?,?)').run(sha(token),id,host,t+expiresMs);
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
@@ -322,7 +329,30 @@ function createAuth(options){
  }
  function users({context}){
   authorize({...context,admin:true,method:'GET'});
-  return db.prepare('SELECT id,email,role,state FROM users ORDER BY email').all().map(u=>({id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>permissions(u.id)[a]?.read),status:u.state}));
+  return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
+   const p=permissions(u.id);
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state};
+  });
+ }
+ function setRequestedAccess({context,userId,requestedAccess}){
+  adminContext(context);
+  if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
+  const user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
+  if(!user||user.role!=='manager'||!['active','invited'].includes(user.state))err('USER_DENIED',404);
+  const p=permissions(userId);
+  if(Object.keys(p).length!==1)err('GRANTS_INVALID',400);
+  const t=current();db.exec('BEGIN IMMEDIATE');try{
+   db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
+   if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
+   else{
+    db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
+    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+    for(const [slot,definition]of Object.entries(CREDENTIAL_SLOTS))if(definition.mayWrite)db.prepare('DELETE FROM upstream_credentials WHERE user_id=? AND slot=?').run(userId,slot);
+   }
+   db.prepare('UPDATE users SET updated_at=? WHERE id=?').run(t,userId);
+   db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}
+  return {ok:true,requestedAccess};
  }
  function setGrants({context,userId,permissions:requested}){
   const actor=adminContext(context),user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
@@ -345,7 +375,8 @@ function createAuth(options){
    db.prepare("UPDATE users SET state='disabled',password_hash=NULL,updated_at=? WHERE id=?").run(current(),userId);
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM upstream_credentials WHERE user_id=?').run(userId);
-   db.prepare('DELETE FROM invites WHERE user_id=?').run(userId);db.exec('COMMIT');
+   db.prepare('DELETE FROM invites WHERE user_id=?').run(userId);
+   db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
  }
  function setUpstreamCredential({context,userId,slot,bearer}){
@@ -367,6 +398,6 @@ function createAuth(options){
   return row?decrypt(row.encrypted_key):null;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,revokeUser,setUpstreamCredential,getUpstreamCredential,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE,totpAt};
