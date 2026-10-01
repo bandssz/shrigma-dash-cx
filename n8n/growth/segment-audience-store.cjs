@@ -4,6 +4,7 @@
 const A=require('./segment-audience-contract.js');
 const H=require('./segment-audience-review.cjs');
 const Shopify=require('./segment-shopify-facts.cjs');
+const RFM=require('./segment-shopify-rfm.cjs');
 const Recorded=require('./segment-recorded-origin.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
@@ -38,6 +39,7 @@ const SQL=Object.freeze({
  config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at FROM crm_audience_v2.config_snapshot($1::text)",
  recorded:"SELECT crm_audience_v2.recorded_origin_source_current($1::text,$2::text,$3::text) AS current",
  shopify:"SELECT crm_audience_v2.shopify_snapshot($1::text) AS source",
+ rfm:"SELECT crm_audience_v2.rfm_snapshot($1::text) AS source",
  lists:"SELECT id,name,status,optin FROM crm_audience_v2.catalog_lists($1::text)",
  list:"SELECT * FROM crm_audience_v2.audience WHERE brand=$1::text ORDER BY updated_at DESC,id LIMIT $2::integer OFFSET $3::integer",
  get:"SELECT * FROM crm_audience_v2.audience WHERE id=$1::uuid AND brand=$2::text FOR SHARE",
@@ -95,12 +97,20 @@ async function readCatalog(query,brand){
   else shopify={current:false};
   if(!v.current)source.fields=source.fields.map(f=>Shopify.FIELDS.includes(f.key)?{...f,available:false}:f);
  }
+ let rfm=null;
+ if(source.fields.some(f=>f.key===RFM.FIELD&&f.available)){
+  const evidence=(await query(SQL.rfm,[brand])).rows,v=evidence?.length===1?evidence[0].source:null;
+  if(!v||v.brand!==brand||typeof v.current!=='boolean'||typeof v.history_complete!=='boolean')throw fail('SEGMENT_UNAVAILABLE');
+  if(v.current){if(!exact(v,['brand','current','history_complete','source_hash','operation_id','started_at','observed_at','expires_at','customers','resolved','unresolved','category_counts','category_scope','semantics_version'])||typeof v.source_hash!=='string'||!HASH.test(v.source_hash)||!UUID.test(v.operation_id)||![v.customers,v.resolved,v.unresolved].every(n=>Number.isSafeInteger(n)&&n>=0)||v.resolved+v.unresolved!==v.customers||v.category_scope!=='shopify_customers'||v.semantics_version!==RFM.VERSION||!exact(v.category_counts,RFM.TAGS)||!RFM.TAGS.every(t=>Number.isSafeInteger(v.category_counts[t])&&v.category_counts[t]>=0)||RFM.TAGS.reduce((n,t)=>n+v.category_counts[t],0)>v.customers||date(v.started_at)>date(v.observed_at)||date(v.observed_at)>=date(v.expires_at)||date(v.expires_at)-date(v.started_at)>93600000)throw fail('SEGMENT_UNAVAILABLE');rfm={...v,started_at:iso(v.started_at),observed_at:iso(v.observed_at),expires_at:iso(v.expires_at)};}
+  else{if(!exact(v,['brand','current','history_complete']))throw fail('SEGMENT_UNAVAILABLE');rfm=v;}
+  if(!RFM.sourceReady(brand,{...source,rfm_snapshot:rfm}))source.fields=source.fields.map(f=>f.key===RFM.FIELD?{...f,available:false}:f);
+ }
  const lists=listRows.map(l=>{if(!positive(l.id)||typeof l.name!=='string'||l.name.length>500)throw fail('SEGMENT_UNAVAILABLE');return {id:l.id,brand,name:l.name,available:l.status==='active'&&['single','double'].includes(l.optin)};});
  // Times and configuration revision refreshes are intentionally excluded. The
  // public hash pins the semantics the operator actually saw, including base
  // opt-in, native list state, currency/timezone and origin provenance.
  const catalog_hash=H.digest({contract:'crm-audience-catalog-semantics-v1',brand,base_list_id:c.base_list_id,lists:listRows,source});
- const catalog={brand,current:ready,...source,lists,coverage:'unconfirmed',checked_at:iso(c.read_at),catalog_hash,...(shopify?{shopify_snapshot:shopify}:{})};
+ const catalog={brand,current:ready,...source,lists,coverage:'unconfirmed',checked_at:iso(c.read_at),catalog_hash,...(shopify?{shopify_snapshot:shopify}:{}),...(rfm?{rfm_snapshot:rfm}:{})};
  return {catalog,ready,base_list_id:c.base_list_id,config_revision:c.revision,base:base?{id:base.id,brand,optin:base.optin}:null,lists:listRows,expires_at:c.expires_at===null?null:iso(c.expires_at)};
 }
 function pins(definition,current){
@@ -112,6 +122,7 @@ function pins(definition,current){
    if(!current.catalog.shop_id||!current.catalog.timezone||!current.catalog.currency)throw fail('SEGMENT_LIST_UNAVAILABLE',422);
    Object.assign(value,{shop_id:current.catalog.shop_id,currency:current.catalog.currency,timezone:current.catalog.timezone});
   }
+  if(rule.field===RFM.FIELD&&!RFM.sourceReady(definition.brand,current.catalog))throw fail('SEGMENT_LIST_UNAVAILABLE',422);
   if(rule.field===Recorded.FIELD){if(!Recorded.sourceReady(definition.brand,rule.value,current.catalog))throw fail('SEGMENT_LIST_UNAVAILABLE',422);value.recorded_origin_provenance_hash=current.catalog.recorded_origins.find(x=>x.key===rule.value).provenance_hash;}
   if(rule.field==='signup.origin')value.origin_provenance_hash=current.catalog.origins.find(x=>x.key===rule.value).provenance_hash;
   return value;

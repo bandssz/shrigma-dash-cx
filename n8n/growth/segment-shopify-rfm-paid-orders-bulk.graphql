@@ -1,0 +1,13 @@
+query CrmAudienceRfmPaidOrdersBulk {
+  orders(query: "financial_status:paid") {
+    edges {
+      node {
+        id
+        createdAt
+        displayFinancialStatus
+        customer { id }
+        currentTotalPriceSet { shopMoney { amount currencyCode } }
+      }
+    }
+  }
+}

@@ -50,6 +50,13 @@ test('v2 typed filters cover purchases, dates, money, product, confirmed origin 
   x.input('[data-gs-value]',value);x.q('[data-gs="remove"][data-path="0"]').click();assert.equal(x.q('[data-gs="save"]').disabled,false,field);await click(x,'save');const d=[...x.f.rows.values()][0].definition;assert.equal(d.schema_version,Audience.VERSION);assert.equal(d.rule.field,field);assert.equal(d.rule.value,expected);assert.equal(d.rule.op,'condition');assert.match(x.element.textContent,/não autoriza envio/);
  }
 });
+test('RFM preset is offered only by a current versioned source and prepares a draft without writing',async()=>{
+ const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION}),x=boot(f),pin='a'.repeat(64);
+ f.control.catalogPatch={fields:Object.keys(Audience.FIELDS).map(key=>({key,available:key!=='relationship.rfm',...(key==='relationship.rfm'?{source_hash:pin}:{})}))};
+ await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startPreset({field:'relationship.rfm',value:'campeao',name:'Campeões'}),false);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+ f.control.catalogPatch={fields:Object.keys(Audience.FIELDS).map(key=>({key,available:true,...(key==='relationship.rfm'?{source_hash:pin}:{})})),rfm_snapshot:{brand:'fish',current:true,history_complete:true,source_hash:pin}};await click(x,'refresh');
+ assert.equal(await x.ui.startPreset({field:'relationship.rfm',value:'campeao',name:'Campeões'}),'started');assert.equal(x.q('[data-gs-name]').value,'Campeões');assert.equal(x.q('[data-gs-field]').value,'relationship.rfm');assert.equal(x.q('[data-gs-value]').value,'campeao');assert.match(x.q('[data-gs-rfm-scope]').textContent,/histórico acessível de pedidos pagos/);assert.equal(x.ui.contextStatus().dirty,true);assert.equal(await x.ui.startNew(),'confirmation');assert.equal(x.q('[data-gs-name]').value,'Campeões');x.q('[data-gs="back"]').click();assert.equal(x.q('[data-gs-name]').value,'Campeões');assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
 test('negative product choice says never bought only for identified Shopify orders and keeps unknown scope visible',async()=>{
  const Audience=require('../n8n/growth/segment-audience-contract.js'),x=boot(fixture({version:Audience.VERSION}));await x.ui.sync({api:x.f.api,brand:'fish'});
  x.input('[data-gs-name]','Nunca comprou o produto','input');x.q('[data-gs="add-condition"]').click();x.input('[data-gs-field]','purchase.product');x.input('[data-gs-operator]','not_purchased');
@@ -119,6 +126,10 @@ async function legacyEditor(mode='absent'){
 }
 const backups=f=>[...f.store.entries()].filter(([key])=>key.startsWith(UI.SLOT+'fish:preserved:'));
 
+test('RFM preset delegates a legacy null-hash draft to the hotfix recovery confirmation',async()=>{
+ const {f,raw}=await legacyEditor(),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startPreset({field:'relationship.rfm',value:'campeao',name:'Campeões'}),'confirmation');assert.match(x.q('[data-gs-confirm-text]').textContent,/guardar.*preparação antiga/i);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);x.q('[data-gs="back"]').click();assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);
+});
+
 test('explicit legacy recovery confirms first; cancel preserves exact bytes and performs no request',async()=>{
  for(const mode of ['absent','null']){const {f,raw}=await legacyEditor(mode),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(f.calls.length,0);assert.equal(await x.ui.startNew(),'confirmation');assert.match(x.q('[data-gs-confirm-text]').textContent,/guardar.*preparação antiga.*começar um público novo/i);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);x.q('[data-gs="back"]').click();await idle(x);assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),false);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);}
 });
@@ -143,4 +154,8 @@ test('key or editor drift during the recovery GET aborts without backup, overwri
 test('legacy recovery fails closed on journal-lock contention and backup storage failure',async()=>{
  {const {f,raw}=await legacyEditor(),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');await f.locks.request(Client.SLOT+'fish',{mode:'exclusive',ifAvailable:true},async()=>{x.q('[data-gs="accept"]').click();await idle(x);});assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assertSafeReadError(x.ui.contextStatus());}
  {const {f,raw}=await legacyEditor(),storage={getItem:key=>f.storage.getItem(key),removeItem:key=>f.storage.removeItem(key),setItem(key,value){if(key.startsWith(UI.SLOT+'fish:preserved:'))throw Error('synthetic backup failure');f.storage.setItem(key,value);}},x=boot(f,{storage});await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startNew(),'confirmation');x.q('[data-gs="accept"]').click();await idle(x);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assertSafeReadError(x.ui.contextStatus());}
+});
+
+test('the shared audience catalog is a read-only copy of the existing read with no draft, key or additional I/O',async()=>{
+ const x=boot();assert.equal(x.ui.sourceCatalog(),null);await x.ui.sync({api,brand:'fish'});const before=x.f.calls.length,catalog=x.ui.sourceCatalog();assert.equal(catalog.brand,'fish');catalog.lists.length=0;catalog.brand='aristo';assert.equal(x.ui.sourceCatalog().brand,'fish');assert.ok(x.ui.sourceCatalog().lists.length>0);assert.equal(x.f.calls.length,before);assert.doesNotMatch(JSON.stringify(x.ui.sourceCatalog()),/synthetic-manager-key|draft_rule|draft_name/);
 });
