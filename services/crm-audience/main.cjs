@@ -17,7 +17,7 @@ function start(env=process.env,{Pool=require('pg').Pool}={}){
  const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider:Counter.countAudience,refreshCatalog})});
  const binding={handle(input,options){const action=input?.request?.body?.acao??input?.request?.query?.acao;return (Object.values(Regular.ACTIONS).includes(action)?regular:bindingOnly).handle(input,options);}};
  const experiments=createABPanelAPI({transaction,enabled:c.abEnabled&&c.regularEnabled&&c.bindingEnabled});
- const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled});
+ const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled,activationEnabled:c.graphActivationEnabled});
  const app=createServer({segments,binding,experiments,graphLifecycle,revision:c.revision,productSemantics:c.productSemantics,enabled:c.enabled,bindingEnabled:c.bindingEnabled,regularEnabled:c.regularEnabled});
  app.server.listen(c.port,'0.0.0.0');let stopping=false,stopPromise;
  const stop=()=>{if(!stopPromise)stopPromise=(async()=>{stopping=true;try{await app.stop();await transaction.drain();await pool.end();}catch{process.exitCode=1;}})();return stopPromise;};

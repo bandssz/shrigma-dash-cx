@@ -61,7 +61,8 @@ function preflight(before,{predecessor,scopeReview,publicKey:key}){
  check(same(before.hooks,{shared_preload_libraries:'',session_preload_libraries:'',local_preload_libraries:'',pgaudit_log:null,auto_explain_log_min_duration:null}),'AUDIT_HOOKS');
  check(before.receipt_schema===null&&before.auth?.password_null===true&&before.auth.scram===false&&digest(before.auth.auth_proof_hash),'ALREADY_PREPARED');
  check(same(before.off,{cart_off:true,epochs:'0',owners:'0',sources:'0',clones:'0'})&&same(before.graph?.graph_control,{singleton:true,enabled:false})&&before.graph?.maintenance_control?.enabled===true&&before.graph.maintenance_control.mode==='open'&&before.graph.maintenance_control.version===2&&before.graph.maintenance_control.cutoff_at===null&&same(before.graph.public_create_schemas,[]),'NOT_OFF');
- check(keys(predecessor,['baseAnchor','txReceipt']),'PREDECESSOR');
+ const runtimeFields=['runtimeReceipt','runtimePlan','runtimeReview'];const hasRuntime=runtimeFields.some(k=>Object.hasOwn(predecessor||{},k));
+ check(keys(predecessor,['baseAnchor','txReceipt',...(hasRuntime?runtimeFields:[])]),'PREDECESSOR');
  A.validateOperational({metadata:{...before.graph,worker_role_identity:before.worker_identity},...predecessor});check(before.worker_identity.role.login===false,'LOGIN');
  check(object(scopeReview)&&digest(scopeReview.scope_hash)&&scopeReview.scope_hash===sha(scopeReview.connection_scope)&&same(scopeReview.database_inventory,before.database_inventory),'SCOPE_REVIEW');A.validateConnectionScope(scopeReview.connection_scope,before.worker_identity.oid,scopeReview);
  cryptoGuard(before.crypto,before.role_oid);check(Array.isArray(before.default_acls),'DEFAULT_ACLS');publicKey(key);return before;

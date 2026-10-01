@@ -1,10 +1,10 @@
 'use strict';
 const http=require('node:http'),{timingSafeEqual}=require('node:crypto');
 const MAX_BODY=196608;
-const ROUTES={'/internal/source':'captureHandoff','/internal/tick':'tick','/internal/reconcile':'reconcile','/internal/inspect':'inspect'};
+const ROUTES={'/internal/source':'captureHandoff','/internal/source-operation':'sourceOperation','/internal/tick':'tickRequest','/internal/tick-operation':'tickOperation','/internal/reconcile':'reconcile','/internal/inspect':'inspect'};
 const safeCode=e=>/^GRAPH_[A-Z0-9_]{1,80}$/.test(e?.code||'')?e.code:'GRAPH_SERVICE_UNCONFIRMED';
 function createServer({worker,token,revision,enabled=false,maxInFlight=2}={}){
- if(!worker||['captureHandoff','tick','reconcile','inspect'].some(k=>typeof worker[k]!=='function')||typeof token!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(token)||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4)throw Error('GRAPH_SERVICE_CONFIG');
+ if(!worker||['captureHandoff','sourceOperation','tickRequest','tickOperation','reconcile','inspect'].some(k=>typeof worker[k]!=='function')||typeof token!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(token)||typeof revision!=='string'||!/^[a-f0-9]{40}$/.test(revision)||typeof enabled!=='boolean'||!Number.isInteger(maxInFlight)||maxInFlight<1||maxInFlight>4)throw Error('GRAPH_SERVICE_CONFIG');
  let inFlight=0,closing=false,stopPromise;const idleWaiters=new Set(),expected=Buffer.from('Bearer '+token);
  const reply=(res,status,body)=>{if(res.destroyed||res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Connection':'close'});res.end(JSON.stringify(body));};
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:15000,headersTimeout:10000},async(req,res)=>{

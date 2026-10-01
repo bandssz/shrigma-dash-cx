@@ -6,6 +6,8 @@ This package verifies one immutable GitHub Actions artifact and can copy its exi
 
 The verifier requires a completed successful pull-request run from the expected repository, workflow and a direct merged-PR readback pinned to its merge commit (the run PR array may be empty after merge), an exact artifact inventory with no links or special entries, a complete Linux/amd64 OCI graph, and consistent image, package, native and PostgreSQL proofs. Native and PostgreSQL clusters must be stopped, and all proof records must state that production was unchanged.
 
+A package containing the graph cache runtime additionally requires its exact runtime identity in the lock and a native HTTP proof from the same executable. That proof must create one immutable template for each brand through the real API, reconcile without another creation, and observe both snapshots from the process heartbeat. Empty caches cannot authorize activation. All graph/cart gates remain OFF and SMTP, entries, dispatches and send logs stay at zero during this proof. The registry verifier rejects an incomplete, synthetic-only or mismatched proof.
+
 Manual publication is additionally restricted to GitHub Actions on `main` in the pinned repository. Authentication is passed to `skopeo login` over stdin. The registry package already exists, so authorization failures are never interpreted as absence. A missing fixed tag may be created with `skopeo copy --preserve-digests`; an existing different tag is a collision, while an existing exact tag is reconciled without another copy. Both tag and digest are read back. The resulting receipt states that the image remains OFF and was not deployed.
 
 Run local unit tests with:

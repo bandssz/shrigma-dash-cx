@@ -6,7 +6,7 @@ const {createWorker,ACTOR}=require('../n8n/growth/journey-graph-worker.cjs');
 const read=name=>fs.readFileSync(require.resolve(name),'utf8');
 async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepareRole=true}={}){
  if(pool&&!workerPool)throw Error('isolated worker pool required');
- const cleanup=[];const x=await install({after:f=>cleanup.push(f)},db,pool);
+ const cleanup=[];const x=await install({after:f=>cleanup.push(f)},db,pool,{cacheIdentity:false});
  await x.db.exec(read('../n8n/growth/journey-graph-dispatch-receipt.sql'));
  const f=await x.prepare(brand);
  // The base fixture supplies an immutable release/cache clone and a historical
@@ -22,7 +22,23 @@ async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepare
  REVOKE ALL ON FUNCTION public.shrigma_email_recipient_key(text) FROM PUBLIC;`);
  const fingerprint=(await x.query("SELECT encode(sha256(convert_to(pg_get_functiondef('public.shrigma_email_recipient_key(text)'::regprocedure),'UTF8')),'hex') h")).rows[0].h;
  const sql=buildWorkerRoleSql({sendLogSequence:'public.synthetic_cart_send_log',recipientKeySha256:fingerprint});
- if(prepareRole)await x.db.exec('BEGIN;'+sql+'COMMIT;');
+ if(prepareRole){
+  // Production installs the restricted role before the additive cache identity
+  // migration. Preserve that order so the migration can grant only its bounded
+  // issue function to the already-existing worker role.
+  await x.db.exec('BEGIN;'+sql+'COMMIT;');
+  await x.db.exec(read('../n8n/growth/journey-graph-cart-admission.sql'));
+  await x.db.exec(read('../n8n/growth/journey-graph-cache-identity.sql'));
+  const identity='a'.repeat(64),runtime='b'.repeat(64),instance=id(70001),token=id(70002),action=id(70003);
+  await x.query(`INSERT INTO crm_graph_candidate.cache_identity_deployment_v1
+   (cache_target,enabled,executable_sha256,runtime_sha256,expected_role,heartbeat_seconds,lease_seconds,action_key)
+   VALUES($1,true,$2,$3,session_user,30,120,$4)`,[x.cacheTarget,identity,runtime,action]);
+  const snapshots=(await x.query(`SELECT jsonb_agg(jsonb_build_object('template_id',n.clone_template_id)||n.snapshot ORDER BY n.clone_template_id) value
+   FROM crm_graph_candidate.native_template_v1 n WHERE n.cache_target=$1 AND n.state='ready'`,[x.cacheTarget])).rows[0].value;
+  const heartbeat=(await x.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) value',
+   [x.cacheTarget,instance,token,identity,runtime,JSON.stringify(snapshots)])).rows[0].value;
+  assert.equal(heartbeat.ready,true);assert.equal(heartbeat.template_count,snapshots.length);
+ }
  const rawQuery=x.query;
  const asWorker=async()=>{if(!pool)await rawQuery('SET ROLE '+ROLE);},asAdmin=async()=>{if(!pool)await rawQuery('RESET ROLE');};
  const rolePool=pool?{
@@ -41,9 +57,8 @@ async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepare
   const handoff={version:'journey_graph_source_v1',brand,reconciled:true,observed_at:now,items:[item],workflow_id:brand==='fish'?'syntheticFish':'syntheticAristo',execution_id:'987',batch_index:0,authorizes_enrollment:false,authorizes_send:false};
   const receipt=await worker.captureHandoff(handoff);assert.deepEqual(await worker.captureHandoff(handoff),receipt);assert.equal(receipt.authorizes_enrollment,false);assert.equal(receipt.authorizes_send,false);
   if(!pool)await asAdmin();
-  const source_ref=receipt.source_refs[0],j=(await rawQuery('SELECT version FROM crm_graph_candidate.journey WHERE id=$1',[f.entry.journey_id])).rows[0];
-  const e=await f.api.enroll(f.runtimeRequest({journey_id:f.entry.journey_id,expected_version:j.version,source_ref}));
-  await x.bridge.enroll(brand,e.entry_id);
+  const source_ref=receipt.source_refs[0],e=(await rawQuery('SELECT e.* FROM crm_graph_candidate.cart_admission_receipt_v1 r JOIN crm_graph_candidate.entry e ON e.id=r.entry_id WHERE r.source_ref=$1',[source_ref])).rows[0];
+  assert.ok(e?.id);e.entry_id=e.id;
   if(!pool)await asWorker();
   return e;
  }

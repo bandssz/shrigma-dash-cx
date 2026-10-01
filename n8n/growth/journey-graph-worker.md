@@ -12,7 +12,7 @@ Encaixe: serviço separado `comunicacao/crm-flows`, uma réplica e sem domínio 
 
 ## Operações internas
 
-- `inspect()`: contagens e gates por marca, sem pessoas ou material. Informa sempre `admissions:false`, `publish:false` e `panel_activation:false`; disponibilidade de tabelas não comprova instalação operacional completa.
+- `inspect()`: contagens e gates por marca, sem pessoas ou material. `admissions` acompanha o modo explícito do worker; `publish:false` e `panel_activation:false` continuam fixos porque o processo não publica nem ativa jornadas.
 - `captureHandoff(handoff)`: captura apenas o recibo allowlisted do coletor após reconciliação, com sua identidade estável. Pode preparar a fonte com execução OFF. Nunca cria entrada, propriedade ou intenção.
 - `tick({brand,limit=5})`: limite de 1 a 5 ações, uma chamada por marca de cada vez, sem fila implícita. Recomenda-se `limit:1` no primeiro agendamento. Primeiro concilia reservas existentes; depois avança entradas vencidas já pertencentes à coorte e, havendo orçamento, processa intenções sem reserva. Não admite novos participantes, cria release/clone, publica jornada, abre época ou altera flags. Config OFF recusa execução. Gates SQL e manutenção são conferidos novamente pelo caminho de reserva.
 - `reconcile({brand,intent_id})`: somente consulta e aplica o resultado persistido. Funciona durante pausa/OFF; jamais recupera token/payload ou repete HTTP.

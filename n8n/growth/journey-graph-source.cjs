@@ -10,6 +10,11 @@ const iso=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$
 const clone=x=>JSON.parse(JSON.stringify(x));
 const text=x=>typeof x==='string'&&x.length>0&&x.length<=2048&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(x)?x:null;
 const money=x=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=1e9?'R$ '+x.toFixed(2).replace('.',','):null;
+function handoffId(p,collectorWorkflowIds,operation=false){
+ const keys=operation?'batch_index,brand,execution_id,workflow_id':'authorizes_enrollment,authorizes_send,batch_index,brand,execution_id,items,observed_at,reconciled,version,workflow_id';
+ if(!p||Object.keys(p).sort().join(',')!==keys||!['fish','aristo'].includes(p.brand)||typeof collectorWorkflowIds[p.brand]!=='string'||p.workflow_id!==collectorWorkflowIds[p.brand]||!/^[0-9]{1,20}$/.test(p.execution_id||'')||!Number.isSafeInteger(p.batch_index)||p.batch_index<0||p.batch_index>10000)throw error('GRAPH_SOURCE_HANDOFF');
+ const h=createHash('sha256').update(JSON.stringify([VERSION,p.workflow_id,p.execution_id,p.batch_index])).digest('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-8'+h.slice(17,20)+'-'+h.slice(20,32);
+}
 function url(x){if(!text(x))return null;try{const u=new URL(x);return u.protocol==='https:'&&!u.username&&!u.password?x:null;}catch{return null;}}
 function mapItems(items){
  if(!Array.isArray(items)||items.length<1||items.length>100)return null;
@@ -26,9 +31,15 @@ function createSourceAdapter({query,purchaseFor,materialFor,observationPolicy,co
  const one=async(q,args,read=query)=>{const r=await read(q,args);if(!Array.isArray(r?.rows)||r.rows.length!==1||!Object.hasOwn(r.rows[0],'result'))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');return r.rows[0].result;};
  const adapter={
   async captureHandoff(handoff){
-   const p=handoff;if(!p||p.version!==VERSION||p.authorizes_enrollment!==false||p.authorizes_send!==false||!['fish','aristo'].includes(p.brand)||typeof collectorWorkflowIds[p.brand]!=='string'||p.workflow_id!==collectorWorkflowIds[p.brand]||!/^\d{1,20}$/.test(p.execution_id||'')||!Number.isSafeInteger(p.batch_index)||p.batch_index<0||p.batch_index>10000)throw error('GRAPH_SOURCE_HANDOFF');
-   const h=createHash('sha256').update(JSON.stringify([VERSION,p.workflow_id,p.execution_id,p.batch_index])).digest('hex');const receipt_id=h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-8'+h.slice(17,20)+'-'+h.slice(20,32);
+   const p=handoff;if(p?.version!==VERSION||p?.authorizes_enrollment!==false||p?.authorizes_send!==false)throw error('GRAPH_SOURCE_HANDOFF');const receipt_id=handoffId(p,collectorWorkflowIds);
    return adapter.capture({version:VERSION,brand:p.brand,receipt_id,reconciled:p.reconciled,observed_at:p.observed_at,items:p.items});
+  },
+  async readHandoff(operation){
+   const receipt_id=handoffId(operation,collectorWorkflowIds,true),r=await query('SELECT crm_graph_candidate.source_handoff_read_v1($1,$2) result',[operation.brand,receipt_id]);
+   if(!Array.isArray(r?.rows)||r.rows.length!==1||!Object.hasOwn(r.rows[0],'result'))throw error('GRAPH_SOURCE_READ_UNCONFIRMED');
+   const v=r.rows[0].result;if(v?.state==='missing'&&v.brand===operation.brand&&v.receipt_id===receipt_id)return {contract:'journey_graph_source_operation_v1',state:'missing',brand:operation.brand,workflow_id:operation.workflow_id,execution_id:operation.execution_id,batch_index:operation.batch_index,receipt_id,authorizes_enrollment:false,authorizes_send:false};
+   if(v?.state!=='found'||v.brand!==operation.brand||v.receipt_id!==receipt_id||!Array.isArray(v.response?.source_refs)||v.response.source_refs.some(x=>!UUID.test(x))||v.response.authorizes_enrollment!==false||v.response.authorizes_send!==false)throw error('GRAPH_SOURCE_READ_UNCONFIRMED');
+   return {contract:'journey_graph_source_operation_v1',state:'found',brand:operation.brand,workflow_id:operation.workflow_id,execution_id:operation.execution_id,batch_index:operation.batch_index,receipt_id,response:clone(v.response),authorizes_enrollment:false,authorizes_send:false};
   },
   // Receipt is delivered by a trusted collector integration, never editor/body.
   async capture(receipt){

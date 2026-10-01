@@ -3,11 +3,12 @@
 const C=require('./journey-graph-lifecycle-contract.cjs');
 const {createLifecyclePreparer}=require('./journey-graph-lifecycle-prepare.cjs');
 const {createLifecyclePublisher}=require('./journey-graph-lifecycle-publication.cjs');
+const {createLifecycleActivation}=require('./journey-graph-lifecycle-activation.cjs');
 const VERSION='journey_graph_lifecycle_panel_v1',ORIGIN='https://bandssz.github.io';
 const FLAGS=Object.freeze({authorizes_publish:false,authorizes_activate:false,authorizes_enrollment:false,authorizes_send:false});
 const fail=code=>Object.assign(Error(code),{code});
-function createLifecyclePanelAPI({pool,checkoutSha,enabled=false,preparerFactory=createLifecyclePreparer,publisherFactory=createLifecyclePublisher}={}){
- if(typeof pool?.connect!=='function'||typeof enabled!=='boolean'||!/^[a-f0-9]{40}$/.test(checkoutSha||''))throw fail('GRAPH_LIFECYCLE_ADAPTER');
+function createLifecyclePanelAPI({pool,checkoutSha,enabled=false,activationEnabled=false,preparerFactory=createLifecyclePreparer,publisherFactory=createLifecyclePublisher,activationFactory=createLifecycleActivation}={}){
+ if(typeof pool?.connect!=='function'||typeof enabled!=='boolean'||typeof activationEnabled!=='boolean'||!/^[a-f0-9]{40}$/.test(checkoutSha||''))throw fail('GRAPH_LIFECYCLE_ADAPTER');
  const reply=(status,body)=>({status,headers:{'Cache-Control':'no-store'},body:{contract:VERSION,...body,...FLAGS}});
  function scopedPool(signal){return {async connect(){
   if(signal?.aborted)throw fail('GRAPH_LIFECYCLE_TIMEOUT');
@@ -33,11 +34,19 @@ function createLifecyclePanelAPI({pool,checkoutSha,enabled=false,preparerFactory
    if(origins.length>1||origins.length===1&&origins[0][1]!==ORIGIN)return reply(403,{error:'GRAPH_LIFECYCLE_ACCESS'});
    if(!['GET','POST'].includes(method)||method==='GET'&&request.body!==undefined||method==='POST'&&request.query!==undefined)throw fail('GRAPH_LIFECYCLE_INPUT');
    p=C.validateRequest(method==='GET'?request.query:request.body);
-   if(!['review','prepare','publish','operation','status'].includes(p.action)||(['operation','status'].includes(p.action)?method!=='GET':method!=='POST'))throw fail('GRAPH_LIFECYCLE_INPUT');
+   if(!['review','prepare','publish','operation','status','activation_review','activation_operation','activate'].includes(p.action)||(['operation','status','activation_operation'].includes(p.action)?method!=='GET':method!=='POST'))throw fail('GRAPH_LIFECYCLE_INPUT');
    // Reconciliation remains readable if publication is withdrawn later.
-   if(!enabled&&!['operation','status'].includes(p.action))return reply(503,{error:'GRAPH_LIFECYCLE_UNAVAILABLE'});
-   const options={pool:scopedPool(signal),checkoutSha,runtimeAccess:true},preparer=preparerFactory(options),publisher=publisherFactory(options),access={authorization:auth[0][1]};
-   if(p.action==='status'){const result=await publisher.status(p,access);return reply(200,{...result,server:Object.fromEntries(['journey_id','brand','version','revision','published_revision','paused'].map(k=>[k,result.server[k]]))});}
+   if(!enabled&&!['operation','status','activation_operation'].includes(p.action))return reply(503,{error:'GRAPH_LIFECYCLE_UNAVAILABLE'});
+   if(['activation_review','activate'].includes(p.action)&&!activationEnabled)return reply(503,{error:'GRAPH_ACTIVATION_UNAVAILABLE'});
+   const options={pool:scopedPool(signal),checkoutSha,runtimeAccess:true},preparer=preparerFactory(options),publisher=publisherFactory(options),activation=activationFactory({pool:scopedPool(signal),enabled:activationEnabled}),access={authorization:auth[0][1]};
+   if(p.action==='activation_review')return reply(200,await activation.review(p,access));
+   if(p.action==='activate'){
+    const r=await activation.activate(p,access);return reply(200,r);
+   }
+   if(p.action==='activation_operation'){
+    const r=await activation.operation(p,access);return reply(r.state==='unconfirmed'?202:200,r);
+   }
+   if(p.action==='status'){const active=activationEnabled?await activation.status(p,access):null,result=active||await publisher.status(p,access);return reply(200,{...result,server:Object.fromEntries(['journey_id','brand','version','revision','published_revision','paused'].map(k=>[k,result.server[k]]))});}
    if(p.action==='review')return reply(200,await preparer.review(p,access));
    let r;
    if(p.action==='operation'){
@@ -49,7 +58,7 @@ function createLifecyclePanelAPI({pool,checkoutSha,enabled=false,preparerFactory
    if(!['prepared','published_paused'].includes(r.state)||!r.actor||!r.request_payload||!r.receipt)throw fail('GRAPH_LIFECYCLE_CORRUPT');
    return reply(200,{state:'succeeded',actor:r.actor,request_id:p.request_id,request_payload:r.request_payload,receipt:r.receipt});
   }catch(e){
-   const code=/^GRAPH_(LIFECYCLE|PREPARE|PUBLICATION|RELEASE|CATALOG)_[A-Z_]+$/.test(e?.code||'')?e.code:'GRAPH_LIFECYCLE_READ_UNCONFIRMED';
+   const code=/^GRAPH_(LIFECYCLE|PREPARE|PUBLICATION|ACTIVATION|RELEASE|CATALOG)_[A-Z_]+$/.test(e?.code||'')?e.code:'GRAPH_LIFECYCLE_READ_UNCONFIRMED';
    if(code.endsWith('_OUTCOME_UNKNOWN'))return reply(202,{state:'unconfirmed',request_id:p?.request_id,automatic_retry:false,error:code});
    const status=code.endsWith('_ACCESS')?403:code.endsWith('_INPUT')?400:code.endsWith('_NOT_FOUND')?404:/_(VERSION|DRIFT|EXPIRED|CONSUMED|MISMATCH|CONTROL|SOURCE_CHANGED|CATALOG_CHANGED|ALREADY_PUBLISHED)$/.test(code)?409:503;
    return reply(status,{error:code});

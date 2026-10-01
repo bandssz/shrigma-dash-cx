@@ -102,6 +102,20 @@ sem repetir a publicação. O código não anuncia a capacidade: são necessári
 SQL/grants, atualização da API na janela de Felipe e aceite nas duas marcas.
 Contrato, limites e provas em [publicação pausada](../../n8n/growth/journey-graph-lifecycle-publication.md).
 
+`CRM_AUDIENCE_GRAPH_ACTIVATION_ENABLED=false` é um terceiro gate, independente.
+Quando ligado após a instalação SQL e os readbacks do worker/cache, expõe somente
+“Conferir ativação” e “Ativar” para uma publicação CART já pausada. A conferência
+não muda estado; a confirmação usa a mesma identidade, abre um único epoch da
+marca e mantém a outra marca desligada. Respostas incertas são conciliadas por
+GET, sem repetir o POST.
+
+O worker admite apenas recibos imutáveis capturados depois do início desse epoch,
+através de `cart_admit_source_v1`; o papel não recebe INSERT/UPDATE amplo. A
+admissão relê versão, consentimento, identidade, material, controle e cache sob
+locks, grava um recibo por `source_ref` e continua com `authorizes_send=false`.
+A instalação e a configuração permanecem OFF por padrão e não ativam jornada,
+coleta, transporte ou envio automaticamente.
+
 
 ### Temporary Aristo product quarantine
 

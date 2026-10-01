@@ -4,7 +4,7 @@ const {createServer,MAX_BODY}=require('../services/crm-flows/server.cjs'),{confi
 const {createWorker}=require('../n8n/growth/journey-graph-worker.cjs');
 const token='x'.repeat(43),revision='a'.repeat(40);
 async function harness(t,overrides={}){
- const calls=[];const worker=Object.fromEntries(['captureHandoff','tick','reconcile','inspect'].map(k=>[k,async p=>{calls.push({action:k,input:p});return {ok:true};}]));
+ const calls=[];const worker=Object.fromEntries(['captureHandoff','sourceOperation','tickRequest','tickOperation','reconcile','inspect'].map(k=>[k,async p=>{calls.push({action:k,input:p});return {ok:true};}]));
  const app=createServer({worker:{...worker,...overrides},token,revision});await new Promise(r=>app.server.listen(0,'127.0.0.1',r));t.after(()=>app.stop());
  const request=(path,body={},extra={})=>new Promise((resolve,reject)=>{
   const raw=typeof body==='string'?body:JSON.stringify(body),req=http.request({hostname:'127.0.0.1',port:app.server.address().port,path,method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...extra.headers},...extra},res=>{let data='';res.on('data',x=>data+=x);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body:JSON.parse(data)}));});req.on('error',reject);req.end(extra.method==='GET'?'':raw);
@@ -13,8 +13,12 @@ async function harness(t,overrides={}){
 test('fixed internal routes require one bearer and reject query/body authentication before worker I/O',async t=>{
  const x=await harness(t);
  for(const [url,extra,status]of [ ['/internal/tick',{headers:{'Content-Type':'application/json'}},401],['/internal/tick?key='+token,{},404],['/internal/tick',{headers:{Authorization:['Bearer '+token,'Bearer '+token],'Content-Type':'application/json'}},401],['/internal/tick',{headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Origin:'https://example.invalid'}},403],['/internal/tick',{method:'GET'},404] ])assert.equal((await x.request(url,{token},extra)).status,status);
- assert.equal(x.calls.length,0);assert.equal((await x.request('/internal/tick',{brand:'fish',limit:1})).status,200);assert.deepEqual(x.calls,[{action:'tick',input:{brand:'fish',limit:1}}]);
+ assert.equal(x.calls.length,0);assert.equal((await x.request('/internal/tick',{brand:'fish',limit:1,request_id:'91000000-0000-4000-8000-000000000001'})).status,200);assert.deepEqual(x.calls,[{action:'tickRequest',input:{brand:'fish',limit:1,request_id:'91000000-0000-4000-8000-000000000001'}}]);
  const health=await x.request('/healthz','',{method:'GET',headers:{}});assert.equal(health.status,200);assert.equal(health.body.execution_enabled,false);assert.equal(health.headers['cache-control'],'no-store');assert.equal(health.headers['access-control-allow-origin'],undefined);
+});
+test('source and tick recovery routes are distinct authenticated reads and never call their mutation methods',async t=>{
+ const x=await harness(t),source={brand:'fish',workflow_id:'syntheticFish',execution_id:'123',batch_index:0},tick={brand:'fish',request_id:'91000000-0000-4000-8000-000000000001'};
+ assert.equal((await x.request('/internal/source-operation',source)).status,200);assert.equal((await x.request('/internal/tick-operation',tick)).status,200);assert.deepEqual(x.calls,[{action:'sourceOperation',input:source},{action:'tickOperation',input:tick}]);
 });
 test('inspect requires one bearer, exact POST route and an empty JSON object before worker I/O',async t=>{
  const x=await harness(t);
@@ -47,7 +51,7 @@ test('OFF inspect reaches the real worker using SELECT-only storage and never ca
  const worker=createWorker({pool,enabled:false,cacheTarget:'synthetic-instance',collectorWorkflowIds:{fish:'syntheticFish',aristo:'syntheticAristo'},
   readSource:forbidden('readSource'),shopifyRequest:forbidden('shopifyRequest'),sendTx:forbidden('sendTx'),
   authorizeWorker:async({query,actor,brand,action})=>{actions.push({actor,brand,action});return actor==='worker:graph-cart-v1'&&(await query('SELECT current_user AS role')).rows[0].role==='crm_graph_worker';}});
- const x=await harness(t,{inspect:worker.inspect,captureHandoff:forbidden('captureHandoff'),tick:forbidden('tick'),reconcile:forbidden('reconcile')});
+ const x=await harness(t,{inspect:worker.inspect,captureHandoff:forbidden('captureHandoff'),sourceOperation:forbidden('sourceOperation'),tickRequest:forbidden('tickRequest'),tickOperation:forbidden('tickOperation'),reconcile:forbidden('reconcile')});
  const r=await x.request('/internal/inspect',{});assert.equal(r.status,200);
  assert.deepEqual(r.body,{contract:'journey_graph_worker_v1',enabled:false,admissions:false,publish:false,panel_activation:false,brands:{
   fish:{storage_available:true,execution_open:false,owned_entries:2,pending_intents:1,unapplied_receipts:0},
@@ -61,20 +65,20 @@ test('inspect storage failures remain private without suggesting reconciliation 
  const r=await x.request('/internal/inspect',{});assert.equal(r.status,503);assert.deepEqual(r.body,{error:'GRAPH_SERVICE_UNCONFIRMED'});assert.equal(calls,1);assert.deepEqual(x.calls,[]);
 });
 test('input limits and malformed JSON never reach the worker; untrusted exception details stay private',async t=>{
- const x=await harness(t,{tick:async()=>{throw Error('synthetic private customer payload');}});
+ const x=await harness(t,{tickRequest:async()=>{throw Error('synthetic private customer payload');}});
  assert.equal((await x.request('/internal/source','{')).status,400);assert.equal((await x.request('/internal/source',[])).status,400);
  assert.equal((await x.request('/internal/source',{}, {headers:{Authorization:'Bearer '+token,'Content-Type':'text/plain'}})).status,415);
  assert.equal((await x.request('/internal/source',{}, {headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','Content-Length':MAX_BODY+1}})).status,413);
  assert.equal(x.calls.length,0);const r=await x.request('/internal/tick',{brand:'fish'});assert.equal(r.status,503);assert.equal(r.body.error,'GRAPH_SERVICE_UNCONFIRMED');assert.equal(JSON.stringify(r.body).includes('customer'),false);
 });
 test('bounded concurrency does not queue or repeat mutations and shutdown waits for an in-flight command',async t=>{
- let release,started;const ready=new Promise(r=>started=r),pending=new Promise(r=>release=r),x=await harness(t,{tick:async()=>{started();await pending;return {ok:true};}});
+ let release,started;const ready=new Promise(r=>started=r),pending=new Promise(r=>release=r),x=await harness(t,{tickRequest:async()=>{started();await pending;return {ok:true};}});
  const a=x.request('/internal/tick',{brand:'fish'});await ready;
  const b=x.request('/internal/tick',{brand:'aristo'});while(x.app.active()<2)await new Promise(r=>setImmediate(r));
  assert.equal((await x.request('/internal/tick',{brand:'fish'})).status,503);let stopped=false;const stop=x.app.stop().then(()=>{stopped=true;});await new Promise(r=>setImmediate(r));assert.equal(stopped,false);release();assert.equal((await a).status,200);assert.equal((await b).status,200);await stop;assert.equal(stopped,true);
 });
 test('disconnected caller does not let shutdown close the pool before its command finishes',async t=>{
- let release,entered;const started=new Promise(r=>entered=r),pending=new Promise(r=>release=r),x=await harness(t,{tick:async()=>{entered();await pending;return {ok:true};}});
+ let release,entered;const started=new Promise(r=>entered=r),pending=new Promise(r=>release=r),x=await harness(t,{tickRequest:async()=>{entered();await pending;return {ok:true};}});
  const req=http.request({hostname:'127.0.0.1',port:x.app.server.address().port,path:'/internal/tick',method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}},()=>{});req.on('error',()=>{});req.end(JSON.stringify({brand:'fish'}));await started;req.destroy();
  await new Promise(r=>setImmediate(r));let stopped=false;const stop=x.app.stop().then(()=>{stopped=true;});await new Promise(r=>setImmediate(r));assert.equal(stopped,false);assert.equal(x.app.active(),1);release();await stop;assert.equal(stopped,true);assert.equal(x.app.active(),0);
 });
@@ -95,7 +99,7 @@ test('main independently authorizes only the dedicated current_user and fixed wo
   '../../n8n/growth/journey-graph-worker.cjs':{createWorker:options=>{workerOptions=options;return {};}}
  };
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:name=>Object.hasOwn(imports,name)?imports[name]:realRequire(name),process:{once(){}}},{filename});
- const running=module.exports.start(env());assert.equal(listening,true);assert.equal(poolOptions.user,'crm_graph_worker');assert.equal(workerOptions.enabled,false);
+ const running=module.exports.start(env(),{leaseFactory:options=>{assert.equal(options.enabled,false);return {async start(){},async stop(){}};}});assert.equal(listening,true);assert.equal(poolOptions.user,'crm_graph_worker');assert.equal(workerOptions.enabled,false);
  let queries=0;const call=async(role,actor='worker:graph-cart-v1')=>workerOptions.authorizeWorker({actor,query:async sql=>{queries++;assert.equal(sql,'SELECT current_user AS role');return {rows:[{role}]};}});
  assert.equal(await call('crm_graph_worker'),true);
  for(const role of ['postgres','central_leitor','synthetic','crm_graph_worker_other',null])assert.equal(await call(role),false);
