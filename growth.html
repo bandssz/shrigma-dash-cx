@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=991cc7fe1d14">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-VVc5vpYHMTYKQm0th9FayBWodUstFrEaj+mjV2Zpt4c='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-VQ+epQomV0VL+j+/y2V2Ce9JlyZORRErEtxaGvm1g2I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=dcca17ce9497"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3ff3665b22ce"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -953,7 +953,7 @@ async function leCacheGrowth(k){
 }
 // GROWTH_CACHE_READ_END
 async function carregar(){
-  GrowthView.resolve();
+  GrowthView.resolve({retry:true});
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
@@ -1125,6 +1125,7 @@ $('#f-salvar').onclick=salvarTeste;
 addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
 GC.init();GRU.enterBrand(MARCA);GRU.ctx={api:null,marca:MARCA};
 $('#crm-audience-create').onclick=()=>openAudienceCreation();
+window.addEventListener('shrigma:operator-ready',()=>{if(API)render();});
 document.querySelectorAll('[data-audience-create-brand]').forEach(b=>b.onclick=()=>openAudienceCreation(b.dataset.audienceCreateBrand));
 
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
