@@ -8,8 +8,9 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,'tools/panel-build/mani
 function payload(capabilities){return {_escopo:'growth',_painel:'growth',gerado_em:'2026-09-28T12:00:00Z',capabilities,
  ...Object.fromEntries(['crm_campanha','crm_fluxo','crm_conversao','crm_campanha_receita','crm_campanha_grupo','crm_diario','crm_intradia','crm_carrinho','crm_galho','crm_regra_galho','crm_teste','crm_teste_braco','crm_credencial','wa_saude'].map(k=>[k,[]])),
  crm_base:['fish','aristo'].map(marca=>({marca,dia:'2026-09-28',coletado_em:'2026-09-28T12:00:00Z',total:marca==='fish'?12:34,segmentos:{}}))};}
-async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='fish',section='base',directLogin=false,directCaps=['draft','validate','submit','read_content','list_history','submission'],built=false}={}){
+async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='fish',section='base',directLogin=false,directCaps=['draft','validate','submit','read_content','list_history','submission'],built=false,setupFixture=null,segmentFailures=0}={}){
  const f=F.fixture({version}),html=fs.readFileSync(path.join(root,'growth.html'),'utf8'),{document,window}=parseHTML(html);
+ if(setupFixture)await setupFixture(f);
  const selectProto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(selectProto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  const dialogProto=Object.getPrototypeOf(document.createElement('dialog'));
@@ -24,7 +25,7 @@ async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='f
  localStorage:f.storage,location:{hash:'#marca='+brand+'&sec='+section,search:''},history:{replaceState:(_a,_b,url)=>hashes.push(url)},
  addEventListener(){},setInterval(fn,ms){intervals.push({fn,ms});return intervals.length;},clearInterval(){},setTimeout,clearTimeout,queueMicrotask,
  Image:class{},Blob:class{},prompt:()=>null,confirm:()=>false,
- fetch:async(url,init)=>{requests.push({url,init});const u=new URL(url);if(u.hostname==='segments.example.test'||u.hostname==='changed.example.test')return f.fetch(url,init);
+  fetch:async(url,init)=>{requests.push({url,init});const u=new URL(url);if(u.hostname==='segments.example.test'||u.hostname==='changed.example.test'){if(segmentFailures>0&&u.searchParams.get('acao')==='segmentos_listar'){segmentFailures--;return {status:503,json:async()=>({error:'temporarily_unavailable'})};}return f.fetch(url,init);}
   if(u.searchParams.get('action')==='identity'&&directLogin)return {status:200,ok:true,json:async()=>({schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',allowedPanels:['growth'],permissions:{growth:{who:'panel:synthetic-manager',label:'Synthetic manager',caps:directCaps}}})};
   const body=structuredClone(response);if(u.searchParams.get('action')==='cache_growth')body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();return {status:200,ok:true,json:async()=>body};}});
  const run=code=>vm.runInContext(code,context);
@@ -36,7 +37,7 @@ async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='f
  const x={f,document,window,run,requests,intervals,hashes,q:s=>document.querySelector(s),setResponse:v=>{response=v;},response:()=>structuredClone(response)};
  await settled(x);return x;
 }
-async function settled(x){for(let i=0;i<200;i++){if(!x.run('LOADING||CRM_SEGMENT_SYNC||CRM_AUDIENCE_CREATE_BUSY||CRM_SEGMENT_VIEW?.contextStatus().blocked'))return;await new Promise(r=>setTimeout(r,2));}assert.fail('Local panel did not settle');}
+async function settled(x){for(let i=0;i<200;i++){if(!x.run('LOADING||CRM_SEGMENT_SYNC||CRM_AUDIENCE_CREATE_BUSY||CRM_SEGMENT_VIEW?.contextStatus().busy'))return;await new Promise(r=>setTimeout(r,2));}assert.fail('Local panel did not settle');}
 function fill(x,brand){const input=x.q('[data-gs-name]');input.value='Preparação '+brand;input.dispatchEvent(new x.window.Event('input',{bubbles:true}));const select=x.q('[data-gs-list]');select.value=brand==='fish'?'11':'21';select.dispatchEvent(new x.window.Event('change',{bubbles:true}));}
 async function changeBrand(x,brand,{confirm=true}={}){x.q('[data-marca="'+brand+'"]').click();if(confirm&&x.q('#brand-change-confirm').open)x.q('#brand-change-accept').click();await settled(x);}
 
@@ -135,4 +136,27 @@ test('direct read-only CRM login does not acquire draft permission from visible 
  const x=await boot({directLogin:true,directCaps:['read_content'],version:'crm-audience-v2'});
  assert.equal(x.q('#crm-audience-create').disabled,true);assert.equal(x.f.calls.length,0);
  x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,0);
+});
+
+for(const built of [false,true])for(const brand of ['fish','aristo'])test(brand+': direct login recovers an unconfirmed legacy preparation through the actual create CTA, built='+built,async()=>{
+ let original;
+ const x=await boot({directLogin:true,built,brand,version:'crm-audience-v2',setupFixture:async f=>{
+  const actor=Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode('synthetic-manager-key'))).toString('hex');
+  const draft={schema_version:'crm-audience-v2',brand,name:'Preparação antiga preservada',rule:{op:'condition',field:'purchase.amount',operator:'gte',value:'123.45'}};
+  original=JSON.stringify({version:1,brand,endpoint:f.api.capabilities.endpoints.segments,actor,draft,base:structuredClone(draft),server:null,draft_catalog_hash:null,draft_currency:null,draft_timezone:null});f.storage.setItem('shrigma_segment_editor_v1:'+brand,original);
+ }});
+ assert.match(x.q('#crm-segments-status').textContent,/contexto desta preparação/);assert.equal(x.f.calls.length,0);
+ x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]')?.open;i++)await new Promise(r=>setTimeout(r,2));
+ assert.ok(x.q('[data-gs-dialog]').open);assert.match(x.q('[data-gs-confirm-text]').textContent,/Guardar a preparação antiga/);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
+ x.q('[data-gs="back"]').click();await settled(x);assert.equal(x.f.calls.length,0);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
+ x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]')?.open;i++)await new Promise(r=>setTimeout(r,2));x.q('[data-gs="accept"]').click();await settled(x);
+ assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.q('#crm-segments-editor').hidden,false);assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].method,'GET');
+ const backup=[...x.f.store].filter(([k])=>k.startsWith('shrigma_segment_editor_v1:'+brand+':preserved:'));assert.equal(backup.length,1);assert.equal(backup[0][1],original);
+ const fresh=JSON.parse(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand));assert.match(fresh.draft_catalog_hash,/^[a-f0-9]{64}$/);assert.equal(fresh.draft.name,'');assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);
+ fill(x,brand);assert.equal(x.q('[data-gs="save"]').disabled,false);x.q('[data-gs="save"]').click();await settled(x);assert.equal(x.f.rows.size,1);assert.equal([...x.f.rows.values()][0].brand,brand);assert.equal(backup[0][1],original);
+});
+for(const built of [false,true])test('actual create CTA retries a failed first GET without reporting an invented pending save, built='+built,async()=>{
+ const x=await boot({directLogin:true,built,version:'crm-audience-v2',segmentFailures:1});
+ assert.match(x.q('[data-gs-status]').textContent,/carregar os públicos/);assert.equal(x.f.calls.length,0);
+ x.q('#crm-audience-create').click();await settled(x);assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.f.calls.length,1);assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);assert.doesNotMatch(x.q('#crm-audience-create-status').textContent,/tentativa pendente/);
 });
