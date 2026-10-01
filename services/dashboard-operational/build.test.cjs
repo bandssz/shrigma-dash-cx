@@ -93,7 +93,7 @@ test('entry uses email/password, fragment invites and same-origin CSP',()=>withA
 
 test('operational iframe suppresses legacy access files and unavailable write controls without changing source panels',()=>{
  const expected={
-  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]'],
+  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]','#crm-audience-create','#crm-audience-brand-choices','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open'],
   organico:['#organico-acesso','#organico-acesso-bar','#ol-form','.ol-arquivar'],
   influs:['#influ-access','#i-form','.cr-edit','[data-pilot-save]','[data-cob]:not([data-cob="recarregar"])','#tts-acesso']
  };
