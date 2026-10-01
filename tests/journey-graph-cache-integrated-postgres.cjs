@@ -75,6 +75,18 @@ async function main(){
   assert.equal(empty.ready,true);assert.equal(empty.template_count,0);
   assert.equal((await pool.query('SELECT crm_graph_candidate.cache_identity_readiness_v1($1) r',[x.cacheTarget])).rows[0].r.ready,false);
   proof.empty_cache_identity_without_activation=true;
+  const crossingTarget=x.cacheTarget+':lock-expiry',crossingOld=randomUUID(),crossingOldToken=randomUUID(),crossingNew=randomUUID(),crossingNewToken=randomUUID();
+  await pool.query('INSERT INTO crm_graph_candidate.cache_identity_deployment_v1(cache_target,enabled,executable_sha256,runtime_sha256,expected_role) VALUES($1,true,$2,$3,$4)',[crossingTarget,executable,runtime,expectedRole]);
+  await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb)',[crossingTarget,crossingOld,crossingOldToken,executable,runtime,'[]']);
+  const holding=await pool.connect();try{
+   await holding.query('BEGIN');
+   await holding.query("UPDATE crm_graph_candidate.cache_identity_lease_v1 SET checked_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()+interval '300 milliseconds' WHERE cache_target=$1",[crossingTarget]);
+   const waiting=pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[crossingTarget,crossingNew,crossingNewToken,executable,runtime,'[]']);
+   await new Promise(resolve=>setTimeout(resolve,650));await holding.query('COMMIT');
+   assert.equal((await waiting).rows[0].r.ready,true);
+  }finally{holding.release();}
+  assert.deepEqual((await pool.query('SELECT instance_id=$2 AND lease_token=$3 new_instance,suspended_at IS NULL clean FROM crm_graph_candidate.cache_identity_lease_v1 WHERE cache_target=$1',[crossingTarget,crossingNew,crossingNewToken])).rows[0],{new_instance:true,clean:true});
+  proof.lease_expiry_during_lock_wait=true;
   const f=await x.prepare('fish');
   const native=(await pool.query('SELECT id,cache_target,state,clone_template_id,native_sha256,snapshot FROM crm_graph_candidate.native_template_v1 WHERE id=$1',[f.preparedClone.native_id])).rows[0];
   assert.equal(native.state,'ready');assert.equal(native.cache_target,x.cacheTarget);assert.ok(Number.isInteger(native.clone_template_id));
@@ -84,8 +96,21 @@ async function main(){
   const changed=(await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,instance,token,executable,runtime,'[]'])).rows[0].r;
   assert.deepEqual(changed,{ready:false,code:'template_set_changed'});
   assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.cache_identity_snapshot_v1')).rows[0].n,0);
-  assert.equal((await pool.query('SELECT suspended_at IS NULL clean,instance_id=$1 same_instance FROM crm_graph_candidate.cache_identity_lease_v1',[instance])).rows[0].clean,true);
+  assert.deepEqual((await pool.query('SELECT suspended_at IS NULL clean,instance_id=$2 same_instance FROM crm_graph_candidate.cache_identity_lease_v1 WHERE cache_target=$1',[x.cacheTarget,instance])).rows[0],{clean:true,same_instance:true});
   const competitor=await pool.connect();try{await competitor.query('BEGIN');const blocked=(await competitor.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,randomUUID(),randomUUID(),executable,runtime,JSON.stringify(snapshot)])).rows[0].r;assert.deepEqual(blocked,{ready:false,code:'concurrent_instance'});await competitor.query('ROLLBACK');}finally{competitor.release();}
+  const restarted=await pool.connect();try{
+   await restarted.query('BEGIN');
+   await restarted.query("UPDATE crm_graph_candidate.cache_identity_lease_v1 SET checked_at=clock_timestamp()-interval '120 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE cache_target=$1",[x.cacheTarget]);
+   const nextInstance=randomUUID(),nextToken=randomUUID();
+   const pending=(await restarted.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,nextInstance,nextToken,executable,runtime,'[]'])).rows[0].r;
+   assert.deepEqual(pending,{ready:false,code:'template_set_changed'});
+   assert.deepEqual((await restarted.query('SELECT instance_id=$2 AND lease_token=$3 new_instance,suspended_at IS NULL clean FROM crm_graph_candidate.cache_identity_lease_v1 WHERE cache_target=$1',[x.cacheTarget,nextInstance,nextToken])).rows[0],{new_instance:true,clean:true});
+   const recovered=(await restarted.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,nextInstance,nextToken,executable,runtime,JSON.stringify(snapshot)])).rows[0].r;assert.equal(recovered.ready,true);
+   const old=(await restarted.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,instance,token,executable,runtime,JSON.stringify(snapshot)])).rows[0].r;assert.deepEqual(old,{ready:false,code:'concurrent_instance'});
+   assert.equal((await restarted.query('SELECT suspended_reason FROM crm_graph_candidate.cache_identity_lease_v1 WHERE cache_target=$1',[x.cacheTarget])).rows[0].suspended_reason,'concurrent_instance');
+   await restarted.query('ROLLBACK');
+  }finally{restarted.release();}
+  proof.expired_lease_restart_pending_then_exact=true;
   proof.expected_set_growth_denied_then_recovered=true;
   proof.competing_instance_still_suspends=true;
   const heartbeat=(await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',

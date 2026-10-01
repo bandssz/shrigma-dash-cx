@@ -25,9 +25,9 @@ async function install(t,db,pool,{cacheIdentity=true}={}){
    (cache_target,enabled,executable_sha256,runtime_sha256,expected_role,heartbeat_seconds,lease_seconds,action_key)
    VALUES($1,true,$2,$3,session_user,30,120,$4)`,[cacheTarget,'a'.repeat(64),'b'.repeat(64),id(70003)]);
  }
- let seq=15000;const bridge=C.createCartBridge({query:q,cacheTarget});
- return {...x,bridge,cacheTarget,originalFinish,async prepare(brand='fish',{ownership=true,cohort=true}={}){
-  const f=await x.prepare(brand,true),e=await f.atMessage(),intent=await f.api.step(f.request({entry_id:e.entry_id,expected_version:e.version}));
+ let seq=15000;const bridge=C.createCartBridge({query:q,cacheTarget}),materialPrepare=x.prepare;
+ return {...x,bridge,cacheTarget,originalFinish,materialPrepare,async prepare(brand='fish',{ownership=true,cohort=true}={}){
+  const f=await materialPrepare(brand,true),e=await f.atMessage(),intent=await f.api.step(f.request({entry_id:e.entry_id,expected_version:e.version}));
   const options={query:q,cacheTarget,nativeRead:async()=>{throw Error('NO_HTTP');},nativeCreate:async b=>({status:200,body:{data:(await q('INSERT INTO templates(id,name,type,subject,body,body_source) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[seq++,b.name,b.type,b.subject,b.body,b.body_source])).rows[0]}})};
   const provider=N.createNativeProvider(options),reserved=await provider.prepare('panel:synthetic',{request_id:id(seq++),brand,release_id:f.release.id,expected_material_sha256:f.release.material_sha256}),preparedClone=await provider.create(brand,reserved.native_id);
   if(cacheIdentity){

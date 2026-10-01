@@ -5,6 +5,7 @@ on:
       - 'growth-journey-graph-*'
       - 'n8n/growth/journey-graph-*'
       - 'services/crm-audience/**'
+      - 'services/crm-flows/**'
       - 'tests/journey-graph-*'
       - '.github/workflows/crm-graph-lifecycle-tests.yml'
   workflow_dispatch:
@@ -46,3 +47,37 @@ jobs:
           GRAPH_LIFECYCLE_TEST_ISOLATED: '1'
           GRAPH_PROOF: ${{ matrix.proof }}
         run: node "tests/journey-graph-lifecycle-${GRAPH_PROOF}-postgres.cjs"
+  cart-activation-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: journey_graph_cart_activation_test
+          POSTGRES_USER: synthetic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic -d journey_graph_cart_activation_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.14.0'
+      - name: Install pinned isolated test libraries
+        run: npm install --prefix "$RUNNER_TEMP/graph-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Prove browser journal and activation adapter contracts
+        env:
+          NODE_PATH: ${{ runner.temp }}/graph-test-tools/node_modules
+        run: node --test tests/journey-graph-cart-activation-browser.test.cjs tests/journey-graph-cart-activation-adapter.test.cjs tests/journey-graph-cart-admission.test.cjs tests/journey-graph-service-wiring.test.cjs
+      - name: Prove activation, admission, brand isolation and lost acknowledgement
+        env:
+          NODE_PATH: ${{ runner.temp }}/graph-test-tools/node_modules
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:55433/journey_graph_cart_activation_test
+          GRAPH_CART_ACTIVATION_TEST_ISOLATED: '1'
+        run: node tests/journey-graph-cart-activation-postgres.cjs

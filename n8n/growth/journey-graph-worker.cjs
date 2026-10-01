@@ -1,4 +1,4 @@
-/* Private Node worker. No routes, timers, admissions, lifecycle or activation. */
+/* Private Node worker. Source admission is bounded to the explicit active CART epoch. */
 'use strict';
 const {createHash}=require('node:crypto');
 const {createGraphRuntime}=require('./journey-graph-runtime.cjs');
@@ -52,15 +52,30 @@ function createWorker({pool,enabled=false,actor=ACTOR,authorizeWorker,cacheTarge
  function identity(p){if(!p||Object.keys(p).sort().join(',')!=='brand,intent_id'||!['fish','aristo'].includes(p.brand)||!UUID.test(p.intent_id||''))throw fail('GRAPH_WORKER_INPUT');return p;}
  async function reconcile(p){identity(p);await authorize(p.brand,'reconcile');const e=await query('SELECT e.version FROM crm_graph_candidate.entry e JOIN crm_graph_candidate.intent i ON i.entry_id=e.id AND i.brand=e.brand WHERE i.id=$1 AND i.brand=$2',[p.intent_id,p.brand]);if(e.rows.length!==1)throw fail('GRAPH_WORKER_NOT_FOUND');return delivery.reconcile({...p,expected_entry_version:e.rows[0].version});}
  async function gate(brand){const r=await query("SELECT ctl.enabled AND cc.enabled AND cc.cache_target=$2 AND m.enabled AND m.mode='open' open FROM crm_graph_candidate.control ctl CROSS JOIN crm_graph_candidate.cart_control_v1 cc CROSS JOIN crm_maintenance_candidate.control m WHERE ctl.singleton AND m.singleton AND cc.brand=$1",[brand,cacheTarget]);return r.rows?.length===1&&r.rows[0].open===true;}
- return Object.freeze({
+ const api={
   async inspect(){
    const brands={};for(const brand of ['fish','aristo']){await authorize(brand,'inspect');const r=await query(`SELECT
     (SELECT count(*)::int FROM crm_graph_candidate.cart_owner_v1 WHERE brand=$1) owned_entries,
     (SELECT count(*)::int FROM crm_graph_candidate.intent i JOIN crm_graph_candidate.entry e ON e.id=i.entry_id WHERE i.brand=$1 AND e.state->>'status' IN ('waiting_message','unknown')) pending_intents,
     (SELECT count(*)::int FROM crm_graph_candidate.cart_delivery_v1 l JOIN public.shrigma_email_dispatch d ON d.dispatch_id=l.dispatch_id WHERE l.brand=$1 AND NOT EXISTS(SELECT 1 FROM crm_graph_candidate.dispatch_receipt_v1 r WHERE r.intent_id=l.intent_id AND r.transport_state=d.transport_state)) unapplied_receipts`,[brand]);if(r.rows?.length!==1)throw fail('GRAPH_WORKER_STORAGE_UNCONFIRMED');brands[brand]={storage_available:true,execution_open:enabled&&await gate(brand),...r.rows[0]};}
-   return {contract:VERSION,enabled,admissions:false,publish:false,panel_activation:false,brands};
+   return {contract:VERSION,enabled,admissions:enabled,publish:false,panel_activation:false,brands};
   },
-  async captureHandoff(handoff){await authorize(handoff?.brand,'capture');try{return await source.captureHandoff(handoff);}catch(e){throw fail(safeCode(e));}},
+  async captureHandoff(handoff){
+   await authorize(handoff?.brand,'capture');try{
+    const captured=await source.captureHandoff(handoff);
+    // The collector route is the sole source ingress.  When execution remains
+    // OFF it only persists the immutable source receipt.  Once an explicit
+    // activation has opened the brand epoch, admit each exact persisted source
+    // through the narrow SECURITY DEFINER boundary; no request supplies a
+    // journey, version or cache target.
+    if(enabled&&await gate(handoff.brand)){
+     const active=await query(`SELECT e.journey_id,j.version,e.cache_target FROM crm_graph_candidate.cart_epoch_v1 e JOIN crm_graph_candidate.journey j ON j.id=e.journey_id AND j.brand=e.brand WHERE e.brand=$1 AND e.ends_at IS NULL AND NOT j.paused`,[handoff.brand]);
+     if(active.rows?.length!==1)throw fail('GRAPH_WORKER_ADMISSION_UNAVAILABLE');
+     const a=active.rows[0];for(const sourceRef of captured.source_refs){const admitted=await query('SELECT crm_graph_candidate.cart_admit_source_v1($1,$2,$3,$4,$5) result',[handoff.brand,sourceRef,a.journey_id,a.version,a.cache_target]);if(admitted.rows?.length!==1||admitted.rows[0].result?.contract!=='journey_graph_cart_admission_v1'||admitted.rows[0].result.authorizes_send!==false)throw fail('GRAPH_WORKER_ADMISSION_UNCONFIRMED');}
+    }
+    return captured;
+   }catch(e){throw fail(safeCode(e));}
+  },
   async reconcile(p){try{return await reconcile(p);}catch(e){throw fail(safeCode(e));}},
   async tick({brand,limit=5,...extra}={}){
    if(Object.keys(extra).length||!['fish','aristo'].includes(brand)||!Number.isSafeInteger(limit)||limit<1||limit>5)throw fail('GRAPH_WORKER_INPUT');
@@ -87,6 +102,17 @@ function createWorker({pool,enabled=false,actor=ACTOR,authorizeWorker,cacheTarge
     return {...result,state:result.processed?'processed':'idle'};
    }catch(e){report(e);return {...result,state:'blocked'};}finally{busy.delete(brand);}
   }
- });
+ };
+ api.sourceOperation=async p=>{await authorize(p?.brand,'capture');try{return await source.readHandoff(p);}catch(e){throw fail(safeCode(e));}};
+ api.tickRequest=async p=>{
+  if(!p||Object.keys(p).sort().join(',')!=='brand,limit,request_id'||!UUID.test(p.request_id||''))throw fail('GRAPH_WORKER_INPUT');
+  await authorize(p.brand,'tick');const first=(await query('SELECT crm_graph_candidate.worker_request_begin_v1($1,$2,$3::jsonb) result',[p.brand,p.request_id,JSON.stringify(p)])).rows?.[0]?.result;
+  if(first?.contract!=='journey_graph_worker_request_v1'||first.brand!==p.brand||first.request_id!==p.request_id||first.authorizes_send!==false)throw fail('GRAPH_WORKER_REQUEST_UNCONFIRMED');
+  if(first.state==='completed')return first;if(first.fresh!==true)throw fail('GRAPH_WORKER_REQUEST_UNCONFIRMED');
+  const response=await api.tick({brand:p.brand,limit:p.limit}),done=(await query('SELECT crm_graph_candidate.worker_request_finish_v1($1,$2,$3::jsonb) result',[p.brand,p.request_id,JSON.stringify(response)])).rows?.[0]?.result;
+  if(done?.contract!=='journey_graph_worker_request_v1'||done.state!=='completed'||done.brand!==p.brand||done.request_id!==p.request_id||done.authorizes_send!==false)throw fail('GRAPH_WORKER_REQUEST_UNCONFIRMED');return done;
+ };
+ api.tickOperation=async p=>{if(!p||Object.keys(p).sort().join(',')!=='brand,request_id'||!['fish','aristo'].includes(p.brand)||!UUID.test(p.request_id||''))throw fail('GRAPH_WORKER_INPUT');await authorize(p.brand,'tick');const v=(await query('SELECT crm_graph_candidate.worker_request_read_v1($1,$2) result',[p.brand,p.request_id])).rows?.[0]?.result;if(v?.contract!=='journey_graph_worker_request_v1'||v.brand!==p.brand||v.request_id!==p.request_id||!['missing','in_flight','completed'].includes(v.state)||v.authorizes_send!==false)throw fail('GRAPH_WORKER_REQUEST_UNCONFIRMED');return v;};
+ return Object.freeze(api);
 }
 module.exports={VERSION,ENABLED:false,ACTOR,operationId,createWorker};

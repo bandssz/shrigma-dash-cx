@@ -12,7 +12,7 @@ test('Node worker closes existing Fish and Aristo intents through original claim
   const a=await setup(t,brand),r=await a.worker.tick({brand,limit:1});assert.equal(r.transport_started,1);assert.equal(r.reconciled,1);assert.equal(r.errors.length,0);assert.equal(a.sends(),1);
   assert.equal((await a.worker.reconcile({brand,intent_id:a.f.intent.intent_id})).receipt_applied,true);assert.equal(a.sends(),1);
   const again=await a.worker.tick({brand,limit:1});assert.equal(again.transport_started,0);assert.equal(a.sends(),1);
-  const status=await a.worker.inspect();assert.equal(status.admissions,false);assert.equal(status.panel_activation,false);assert.equal(status.brands[brand].owned_entries,1);assert.ok(!JSON.stringify([r,status]).includes('synthetic@example.invalid'));
+  const status=await a.worker.inspect();assert.equal(status.admissions,true);assert.equal(status.panel_activation,false);assert.equal(status.brands[brand].owned_entries,1);assert.ok(!JSON.stringify([r,status]).includes('synthetic@example.invalid'));
   assert.ok(a.calls.includes('claim'));assert.ok(a.calls.includes('apply_dispatch'));assert.equal((await a.x.query('SELECT count(*)::int n FROM shrigma_send_log')).rows[0].n,1);
  }
 });

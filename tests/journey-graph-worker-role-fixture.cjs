@@ -27,6 +27,7 @@ async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepare
   // migration. Preserve that order so the migration can grant only its bounded
   // issue function to the already-existing worker role.
   await x.db.exec('BEGIN;'+sql+'COMMIT;');
+  await x.db.exec(read('../n8n/growth/journey-graph-cart-admission.sql'));
   await x.db.exec(read('../n8n/growth/journey-graph-cache-identity.sql'));
   const identity='a'.repeat(64),runtime='b'.repeat(64),instance=id(70001),token=id(70002),action=id(70003);
   await x.query(`INSERT INTO crm_graph_candidate.cache_identity_deployment_v1
@@ -56,9 +57,8 @@ async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepare
   const handoff={version:'journey_graph_source_v1',brand,reconciled:true,observed_at:now,items:[item],workflow_id:brand==='fish'?'syntheticFish':'syntheticAristo',execution_id:'987',batch_index:0,authorizes_enrollment:false,authorizes_send:false};
   const receipt=await worker.captureHandoff(handoff);assert.deepEqual(await worker.captureHandoff(handoff),receipt);assert.equal(receipt.authorizes_enrollment,false);assert.equal(receipt.authorizes_send,false);
   if(!pool)await asAdmin();
-  const source_ref=receipt.source_refs[0],j=(await rawQuery('SELECT version FROM crm_graph_candidate.journey WHERE id=$1',[f.entry.journey_id])).rows[0];
-  const e=await f.api.enroll(f.runtimeRequest({journey_id:f.entry.journey_id,expected_version:j.version,source_ref}));
-  await x.bridge.enroll(brand,e.entry_id);
+  const source_ref=receipt.source_refs[0],e=(await rawQuery('SELECT e.* FROM crm_graph_candidate.cart_admission_receipt_v1 r JOIN crm_graph_candidate.entry e ON e.id=r.entry_id WHERE r.source_ref=$1',[source_ref])).rows[0];
+  assert.ok(e?.id);e.entry_id=e.id;
   if(!pool)await asWorker();
   return e;
  }

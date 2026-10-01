@@ -157,6 +157,7 @@ BEGIN
     RETURN jsonb_build_object('ready',false,'code','identity_drift');
   END IF;
   SELECT * INTO l FROM crm_graph_candidate.cache_identity_lease_v1 WHERE cache_target=target FOR UPDATE;
+  now_at:=clock_timestamp();
   IF FOUND AND l.suspended_at IS NOT NULL THEN RETURN jsonb_build_object('ready',false,'code',l.suspended_reason);END IF;
   IF FOUND AND l.expires_at>now_at AND (l.instance_id<>instance OR l.lease_token<>token) THEN
     UPDATE crm_graph_candidate.cache_identity_lease_v1 SET suspended_at=now_at,suspended_reason='concurrent_instance',checked_at=now_at WHERE cache_target=target;
@@ -172,7 +173,9 @@ BEGIN
     -- above; byte divergence and duplicate IDs still suspend durably below.
     INSERT INTO crm_graph_candidate.cache_identity_lease_v1(cache_target,instance_id,lease_token,executable_sha256,runtime_sha256,checked_at,expires_at,suspended_at,suspended_reason)
     VALUES(target,instance,token,executable_sha,runtime_sha,now_at,now_at+make_interval(secs=>d.lease_seconds),NULL,NULL)
-    ON CONFLICT(cache_target) DO UPDATE SET checked_at=excluded.checked_at,expires_at=excluded.expires_at;
+    ON CONFLICT(cache_target) DO UPDATE SET instance_id=excluded.instance_id,lease_token=excluded.lease_token,
+      executable_sha256=excluded.executable_sha256,runtime_sha256=excluded.runtime_sha256,
+      checked_at=excluded.checked_at,expires_at=excluded.expires_at;
     DELETE FROM crm_graph_candidate.cache_identity_snapshot_v1 WHERE cache_target=target;
     RETURN jsonb_build_object('ready',false,'code','template_set_changed');
   END IF;
