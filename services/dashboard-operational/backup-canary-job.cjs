@@ -40,17 +40,18 @@ function canaryIdentity(file){
   if(users.length!==1||users[0].email!==ADMIN)fail('CANARY_IDENTITY_INVALID');
  }finally{db.close();}
 }
-function writeExclusive(file,bytes){
+function writeExclusive(file,bytes,onCreate=()=>{}){
  const fd=fs.openSync(file,fileFlags,0o600);
- try{fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+ try{onCreate();fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
  privateFile(file);
 }
-function copyExclusive(source,target){
+function copyExclusive(source,target,onCreate=()=>{}){
  privateFile(source);
  const from=fs.openSync(source,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
  try{
   const to=fs.openSync(target,fileFlags,0o600);
   try{
+   onCreate();
    const buffer=Buffer.alloc(64*1024);let count;
    while((count=fs.readSync(from,buffer,0,buffer.length,null))>0){
     let offset=0;while(offset<count){const written=fs.writeSync(to,buffer,offset,count-offset);if(written<=0)fail('CANARY_COPY_INVALID');offset+=written;}
@@ -111,8 +112,8 @@ async function restoreCanary(name,{backupRoot='/backup-data',restoreDir='/restor
  const pack=path.join(restoreDir,PACK),database=path.join(restoreDir,'dashboard.sqlite');
  let createdPack=false,createdDb=false;
  try{
-  createdPack=true;writeExclusive(pack,fs.readFileSync(snapshot.pack));
-  createdDb=true;copyExclusive(snapshot.identity,database);
+  writeExclusive(pack,fs.readFileSync(snapshot.pack),()=>{createdPack=true;});
+  copyExclusive(snapshot.identity,database,()=>{createdDb=true;});
   if(sha(fs.readFileSync(database))!==snapshot.identitySha256||packAt(pack).sha256!==snapshot.packSha256)fail('CANARY_RESTORE_HASH_INVALID');
   canaryIdentity(database);
   const db=new DatabaseSync(database,{readOnly:true});
@@ -123,11 +124,36 @@ async function restoreCanary(name,{backupRoot='/backup-data',restoreDir='/restor
   return {restored:true};
  }catch(e){if(createdPack)fs.rmSync(pack,{force:true});if(createdDb)fs.rmSync(database,{force:true});throw e;}
 }
+async function restoreShadowCanary(name,expectedPackSha256,{backupRoot='/backup-data',restoreDir='/restore-data'}={}){
+ if(typeof expectedPackSha256!=='string'||!/^[a-f0-9]{64}$/.test(expectedPackSha256))fail('CANARY_SHADOW_PIN_INVALID');
+ const snapshot=await verifySnapshot(name,{backupRoot});
+ canaryIdentity(snapshot.identity);
+ // The new image must have seeded precisely one pack into a separate volume.
+ // Never replace that pack, and never copy the old pack from the snapshot.
+ privateDir(restoreDir);
+ expectedContents(restoreDir,[PACK]);
+ const packFile=path.join(restoreDir,PACK),before=packAt(packFile),initial=stat(packFile);
+ if(before.sha256!==expectedPackSha256)fail('CANARY_SHADOW_PACK_MISMATCH');
+ const database=path.join(restoreDir,'dashboard.sqlite');
+ let createdDb=false;
+ try{
+  copyExclusive(snapshot.identity,database,()=>{createdDb=true;});
+  const after=packAt(packFile),final=stat(packFile);
+  if(initial.dev!==final.dev||initial.ino!==final.ino||sha(before.bytes)!==sha(after.bytes)||after.sha256!==expectedPackSha256||sha(fs.readFileSync(database))!==snapshot.identitySha256)fail('CANARY_SHADOW_HASH_INVALID');
+  canaryIdentity(database);
+  const db=new DatabaseSync(database,{readOnly:true});
+  try{
+   if(db.prepare('PRAGMA integrity_check').get().integrity_check!=='ok'||db.prepare('PRAGMA foreign_key_check').all().length)fail('CANARY_SHADOW_INTEGRITY_INVALID');
+  }finally{db.close();}
+  expectedContents(restoreDir,[PACK,'dashboard.sqlite']);
+  return {restored:true,packSha256:expectedPackSha256};
+ }catch(error){if(createdDb)fs.rmSync(database,{force:true});throw error;}
+}
 if(require.main===module){
  const [action,name,...extra]=process.argv.slice(2);
  const preflight=action==='preflight'&&name===undefined;
  const hold=action==='preflight-hold'&&name===undefined;
- const run=preflight||hold?Promise.resolve().then(()=>preflightCanary()).then(()=>hold?new Promise(resolve=>setTimeout(resolve,90000)):undefined):extra.length===0&&action==='backup'?backupCanary(name):extra.length===0&&action==='verify'?verifySnapshot(name):extra.length===0&&action==='restore'?restoreCanary(name):Promise.reject(Error('CANARY_USAGE_INVALID'));
+ const run=preflight||hold?Promise.resolve().then(()=>preflightCanary()).then(()=>hold?new Promise(resolve=>setTimeout(resolve,90000)):undefined):extra.length===0&&action==='backup'?backupCanary(name):extra.length===0&&action==='verify'?verifySnapshot(name):extra.length===0&&action==='restore'?restoreCanary(name):extra.length===1&&action==='restore-shadow'?restoreShadowCanary(name,extra[0]):Promise.reject(Error('CANARY_USAGE_INVALID'));
  run.then(()=>console.log('Synthetic canary maintenance verified.')).catch(()=>{console.error('Synthetic canary maintenance refused.');process.exitCode=1;});
 }
-module.exports={ADMIN,SNAPSHOT_SCHEMA,preflightCanary,backupCanary,verifySnapshot,restoreCanary};
+module.exports={ADMIN,SNAPSHOT_SCHEMA,preflightCanary,backupCanary,verifySnapshot,restoreCanary,restoreShadowCanary};
