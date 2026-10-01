@@ -13,6 +13,12 @@ Do not disable the legacy workflow while an existing execution may still run.
 Both transports share the durable operation claim, so an uncertain request
 must continue using its original idempotency key.
 
+A future media rollout must also route the exact `<campaign path>/media`
+subpath to this same service. The base campaign path and every unrelated n8n
+path remain unchanged. Keep `CRM_CAMPAIGN_MEDIA_ENABLED=false` until that
+mapping, the new image and the read-only library checks are verified; this
+candidate does not assert that the media route has been published.
+
 GET accepts the published Bearer header, with legacy query `k` only when no
 header was provided. POST preserves `body.k`. Origin is restricted to
 `https://bandssz.github.io` when present. Keys, server contexts, leases, SQL,
@@ -39,7 +45,22 @@ Configuration: `CRM_CAMPAIGN_REVISION` (40-character source commit),
 `LISTMONK_ORIGIN`, `LISTMONK_USERNAME`, `LISTMONK_TOKEN`. Provision secrets
 directly in the service environment. Startup defaults to disabled.
 
-`GET /healthz` reports process/configuration state and revision. It does not
+The same service can expose `GET|POST <campaign path>/media` when
+`CRM_CAMPAIGN_MEDIA_ENABLED=true`; it is off by default. `GET` requires the
+existing `read_content` capability. `POST` requires `edit_content`, checks the
+same actor again immediately before the native request, and accepts only PNG,
+JPEG or GIF files up to 2 MB and 4 megapixels. Filenames contain the brand, a
+new operation UUID and the content hash, never the browser filename. Existing
+unsupported Listmonk media are filtered from a page rather than making the
+whole library fail.
+
+An upload uses one native POST and no automatic retry. The browser records the
+operation in session storage before sending and reconciles an uncertain result
+with an exact filename lookup. A manual retry is offered only after that lookup
+reports the file missing, with an explicit duplicate warning. This reduces
+duplicates but is not durable idempotency across browsers or cleared sessions.
+
+`GET /healthz` reports process/configuration state, media flag and revision. It does not
 prove database or Listmonk availability. Before cutover, verify authenticated
 GETs for both brands on the new service domain. Prove writes only against the
 isolated PostgreSQL/native fixture; do not create or schedule real campaigns

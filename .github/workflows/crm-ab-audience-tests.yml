@@ -42,7 +42,7 @@ jobs:
           node-version: '22.14.0'
       - name: Install pinned isolated test libraries
         run: npm install --prefix "$RUNNER_TEMP/ab-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0 @electric-sql/pglite@0.3.14 linkedom@0.18.12
-      - name: Reproduce the already published worker query by its exact hash
+      - name: Reproduce the candidate worker query by its exact hash
         run: |
           python3 - <<'PY'
           import hashlib,os,pathlib,urllib.request
@@ -54,7 +54,7 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs'),path=require('node:path');
           const p=require('./n8n/growth/segment-listmonk-selection.cjs').patchRegularWorkerSource(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'ab-upstream.sql'),'utf8'));
-          if(p.patched_sha256!=='3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de')throw Error('Worker query drift');
+          if(p.patched_sha256!=='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d')throw Error('Worker query drift');
           fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'ab-worker.sql'),p.source);
           NODE
       - name: Prove actual API login or wait for the real paired schedule

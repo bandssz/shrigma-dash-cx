@@ -5,6 +5,7 @@ const A=require('./segment-audience-contract.js');
 const S=require('./segment-contract.js');
 const R=require('./segment-audience-review.cjs');
 const Shopify=require('./segment-shopify-facts.cjs');
+const Recorded=require('./segment-recorded-origin.cjs');
 const ENABLED=false,VERSION='crm-audience-listmonk-count-v1';
 const deepFreeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(deepFreeze);Object.freeze(value);}return value;};
 const ENGAGEMENT_SOURCE_SEMANTICS=deepFreeze({
@@ -29,8 +30,8 @@ function compileCount({definition,baseListId,catalog}={}){
  if(c.brand!==d.brand||!Array.isArray(c.lists)||c.lists.length>1000||!Array.isArray(c.fields)||c.fields.length>Object.keys(A.FIELDS).length||typeof c.current!=='boolean')throw fail('AUDIENCE_COUNT_CATALOG');
  const leaves=A.leaves(d),ids=[...new Set([baseListId,...leaves.filter(x=>x.rule.op==='in_list').map(x=>x.rule.list_id)])];
  const valid=c.current&&ids.every(id=>{const rows=c.lists.filter(x=>x?.id===id);return rows.length===1&&rows[0].brand===d.brand&&rows[0].available===true;});
- const sourceReady=key=>{if(Shopify.FIELDS.includes(key))return Shopify.sourceReady(d.brand,key,c);const rows=c.fields.filter(x=>x?.key===key);return rows.length===1&&rows[0].available===true&&rows[0].source_hash===engagementSourceHash(d.brand,key);};
- const unknownLeaf=leaves.some(({rule})=>rule.op!=='in_list'&&(!['email.opened','email.clicked',...Shopify.FIELDS].includes(rule.field)||!sourceReady(rule.field)));
+ const sourceReady=(key,value)=>{if(key===Recorded.FIELD)return Recorded.sourceReady(d.brand,value,c);if(Shopify.FIELDS.includes(key))return Shopify.sourceReady(d.brand,key,c);const rows=c.fields.filter(x=>x?.key===key);return rows.length===1&&rows[0].available===true&&rows[0].source_hash===engagementSourceHash(d.brand,key);};
+ const unknownLeaf=leaves.some(({rule})=>rule.op!=='in_list'&&(!['email.opened','email.clicked',Recorded.FIELD,...Shopify.FIELDS].includes(rule.field)||!sourceReady(rule.field,rule.value)));
  const reason=!valid?'list_source_unavailable':unknownLeaf?'external_source_unavailable':null;
  // Reuse the same consent predicate already exercised against native Listmonk:
  // enabled globally; active same-brand base and leaves; confirmed for double
@@ -42,11 +43,15 @@ function compileCount({definition,baseListId,catalog}={}){
  let q;
  if(!valid)q={text:UNKNOWN_SQL,values:[]};
  else if(leaves.every(x=>x.rule.op==='in_list'))q=S.compileCount({...d,schema_version:S.VERSION},{baseListId,catalog:c});
- else if(leaves.some(x=>x.rule.op==='condition'&&Shopify.FIELDS.includes(x.rule.field))&&Shopify.aggregateSourceReady(d.brand,c)&&leaves.every(x=>x.rule.field!=='purchase.product'||c.fields.find(f=>f?.key==='purchase.product').source_hash===Shopify.sourceHash(d.brand,'purchase.product',c))){
+ else if(!leaves.some(x=>x.rule.field===Recorded.FIELD)&&leaves.some(x=>x.rule.op==='condition'&&Shopify.FIELDS.includes(x.rule.field))&&Shopify.aggregateSourceReady(d.brand,c)&&leaves.every(x=>x.rule.field!=='purchase.product'||c.fields.find(f=>f?.key==='purchase.product').source_hash===Shopify.sourceHash(d.brand,'purchase.product',c))){
   // The product-source migration installs a SECURITY DEFINER aggregate wrapper.
   // The API role submits only a normalized declarative tree and pinned catalog;
   // it never receives EXECUTE on the internal set-returning match helper.
-  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(c)]};
+  // Recorded origin is a prospective source unknown to that wrapper. A rule
+  // containing it stays on the legacy compiler above; otherwise remove only
+  // its catalog extension before applying the wrapper's exact seven-field cap.
+  const aggregateCatalog={...c,fields:c.fields.filter(f=>f?.key!==Recorded.FIELD)};delete aggregateCatalog.recorded_origins;
+  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(aggregateCatalog)]};
  }
  else{
   const sorted=ids.slice().sort((a,b)=>a-b),values=[d.brand,sorted,...sorted],parameter=new Map(sorted.map((n,i)=>[n,'$'+(i+3)+'::integer'])),days=new Map(),sourceChecks=new Map();
@@ -65,8 +70,17 @@ function compileCount({definition,baseListId,catalog}={}){
    if(!sourceChecks.has(r.field))sourceChecks.set(r.field,`crm_audience_v2.shopify_source_current($1::text,'${r.field}',${pinParam})`);
    return `crm_audience_v2.shopify_customer_match(${ruleParam},s.id,$1::text,${pinParam})`;
   };
+  const recorded=r=>{
+   if(!sourceReady(r.field,r.value))return 'NULL::boolean';
+   const origin=c.recorded_origins.find(o=>o.key===r.value);
+   values.push(r.value);const originParam='$'+values.length+'::text';
+   values.push(origin.provenance_hash);const pinParam='$'+values.length+'::text';
+   values.push(JSON.stringify(r));const ruleParam='$'+values.length+'::jsonb';
+   sourceChecks.set(r.field+':'+r.value,`crm_audience_v2.recorded_origin_source_current($1::text,${originParam},${pinParam})`);
+   return `crm_audience_v2.recorded_origin_match(${ruleParam},s.id,$1::text,${pinParam})`;
+  };
   let confirmedSourceUnavailable=false;
-  const rule=r=>r.op==='in_list'?membership(r.list_id):r.op==='confirmed'?(sourceReady(r.rule.field)?'coalesce('+shopify(r.rule)+',false)':(confirmedSourceUnavailable=true,'NULL::boolean')):r.op==='condition'?(['email.opened','email.clicked'].includes(r.field)?engagement(r):Shopify.FIELDS.includes(r.field)?shopify(r):'NULL::boolean'):'('+r.rules.map(rule).join(r.op==='and'?' AND ':' OR ')+')';
+  const rule=r=>r.op==='in_list'?membership(r.list_id):r.op==='confirmed'?(sourceReady(r.rule.field)?'coalesce('+shopify(r.rule)+',false)':(confirmedSourceUnavailable=true,'NULL::boolean')):r.op==='condition'?(['email.opened','email.clicked'].includes(r.field)?engagement(r):Shopify.FIELDS.includes(r.field)?shopify(r):r.field===Recorded.FIELD?recorded(r):'NULL::boolean'):'('+r.rules.map(rule).join(r.op==='and'?' AND ':' OR ')+')';
   const expression=rule(d.rule),base=membership(baseListId),sourceCheck=(sourceChecks.size?' AND '+[...sourceChecks.values()].join(' AND '):'')+(confirmedSourceUnavailable?' AND false':'');
   const text=`WITH valid_lists AS MATERIALIZED (
  SELECT l.id,l.optin::text AS optin FROM public.lists l WHERE l.id=ANY($2::integer[])
@@ -84,7 +98,7 @@ SELECT scope.confirmed AND summary.unknown_count=0 AS source_confirmed,
  pg_catalog.statement_timestamp() AS checked_at FROM scope CROSS JOIN summary`;
   q={text,values};
  }
- return Object.freeze({definition:d,definition_hash:R.digest(d),base_list_id:baseListId,text:q.text,values:q.values,unknown_reason:reason,has_external_facts:leaves.some(({rule})=>Shopify.FIELDS.includes(rule.field)),transport_supported:false});
+ return Object.freeze({definition:d,definition_hash:R.digest(d),base_list_id:baseListId,text:q.text,values:q.values,unknown_reason:reason,has_external_facts:leaves.some(({rule})=>Shopify.FIELDS.includes(rule.field)||rule.field===Recorded.FIELD),transport_supported:false});
 }
 
 async function countAudience({definition,baseListId,catalog,query,signal,timeoutMs=10000,clock=Date.now}={}){

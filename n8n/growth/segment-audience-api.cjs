@@ -30,14 +30,14 @@ function segment(s,brand){
  try{const d=A.normalize(s.definition);return d.brand===brand&&d.name===s.name&&H.digest(d)===H.digest(s.definition);}catch{return false;}
 }
 function catalog(c,brand){
- if(!exact(c,['brand','current','currency','timezone','shop_id','fields','products','origins','lists','coverage','checked_at','catalog_hash',...(Object.hasOwn(c,'shopify_snapshot')?['shopify_snapshot']:[])])||typeof c.catalog_hash!=='string'||!/^[a-f0-9]{64}$/.test(c.catalog_hash)||c.brand!==brand||typeof c.current!=='boolean'||c.coverage!=='unconfirmed'||!Number.isFinite(Date.parse(c.checked_at))||!Array.isArray(c.lists)||c.lists.length>1000||new Set(c.lists.map(x=>x?.id)).size!==c.lists.length||c.lists.some(x=>!exact(x,['id','brand','name','available'])||!Number.isSafeInteger(x.id)||x.id<1||x.id>2147483647||x.brand!==brand||typeof x.name!=='string'||x.name.length>500||typeof x.available!=='boolean'))return false;
+ if(!exact(c,['brand','current','currency','timezone','shop_id','fields','products','origins','lists','coverage','checked_at','catalog_hash',...(Object.hasOwn(c,'recorded_origins')?['recorded_origins']:[]),...(Object.hasOwn(c,'shopify_snapshot')?['shopify_snapshot']:[])])||typeof c.catalog_hash!=='string'||!/^[a-f0-9]{64}$/.test(c.catalog_hash)||c.brand!==brand||typeof c.current!=='boolean'||c.coverage!=='unconfirmed'||!Number.isFinite(Date.parse(c.checked_at))||!Array.isArray(c.lists)||c.lists.length>1000||new Set(c.lists.map(x=>x?.id)).size!==c.lists.length||c.lists.some(x=>!exact(x,['id','brand','name','available'])||!Number.isSafeInteger(x.id)||x.id<1||x.id>2147483647||x.brand!==brand||typeof x.name!=='string'||x.name.length>500||typeof x.available!=='boolean'))return false;
  if(Object.hasOwn(c,'shopify_snapshot')){
   const v=c.shopify_snapshot;
   if(!v||typeof v.current!=='boolean'||!(exact(v,['current'])&&!v.current||exact(v,['current','started_at','observed_at','expires_at'])
    &&[v.started_at,v.observed_at,v.expires_at].every(x=>typeof x==='string'&&Number.isFinite(Date.parse(x)))
    &&Date.parse(v.started_at)<=Date.parse(v.observed_at)&&Date.parse(v.expires_at)-Date.parse(v.started_at)===93600000))return false;
  }
- try{S.sourceConfig(Object.fromEntries(['currency','timezone','shop_id','fields','products','origins'].map(k=>[k,c[k]])),brand);return true;}catch{return false;}
+ try{S.sourceConfig(Object.fromEntries(['currency','timezone','shop_id','fields','products','origins',...(Object.hasOwn(c,'recorded_origins')?['recorded_origins']:[])].map(k=>[k,c[k]])),brand);return true;}catch{return false;}
 }
 function project(entry,value){
  const r=copy(value,MAX_RESPONSE),p=entry.request,b=r?._body,status=r?._http;if(!exact(r,['_http','_body'])||!b||typeof b!=='object'||Array.isArray(b))throw fail('SEGMENT_READBACK_UNCONFIRMED');

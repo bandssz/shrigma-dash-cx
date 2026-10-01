@@ -17,7 +17,7 @@ BEGIN
  LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$
  DECLARE ctx jsonb;
  BEGIN
-  ctx:=crm_audience_v2.selection_context(cid,'be2a4a422574fe328bf23f6f9cfef84a71a9f4be0f95ce9d3970a5ecf949933f',true);
+  ctx:=crm_audience_v2.selection_context(cid,'7abbff0c76a874e233f8cd6ae99c15b33632e34d1ac93b0b3ca337ed08868d9a',true);
   IF ctx IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;
   IF ctx->'bound'='true'::jsonb THEN
    SELECT ctx||jsonb_build_object('list_ids',jsonb_agg(DISTINCT pin->'list_id'),
@@ -81,7 +81,7 @@ BEGIN
  LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$
  DECLARE ctx jsonb;
  BEGIN
-  ctx:=crm_audience_v2.selection_context(cid,'3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de',true);
+  ctx:=crm_audience_v2.selection_context(cid,'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',true);
   IF ctx IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;
   IF ctx->'bound'='true'::jsonb THEN
    SELECT ctx||jsonb_build_object('list_ids',jsonb_agg(DISTINCT pin->'list_id'),

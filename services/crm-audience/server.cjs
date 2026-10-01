@@ -37,7 +37,7 @@ function createServer({segments,binding,experiments=null,graphLifecycle=null,rev
     try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{return reply(req,res,400,{error:'CRM_AUDIENCE_JSON'});}
     if(!body||typeof body!=='object'||Array.isArray(body))return reply(req,res,400,{error:'CRM_AUDIENCE_INPUT'});
     if(url.pathname==='/campaign-audience'&&['campanha_publico_preparar_envio','campanha_publico_agendar'].includes(body.acao)&&(!regularEnabled||!bindingEnabled))return reply(req,res,503,{error:'REGULAR_ADMISSION_UNAVAILABLE'});
-    if(url.pathname==='/campaign-audience'&&body.acao==='campanha_publico_vincular'&&!bindingEnabled)return reply(req,res,503,{error:'SEGMENT_BINDING_UNAVAILABLE'});
+    if(url.pathname==='/campaign-audience'&&['campanha_publico_vincular','campanha_publico_desvincular'].includes(body.acao)&&!bindingEnabled)return reply(req,res,503,{error:'SEGMENT_BINDING_UNAVAILABLE'});
    }
    timer=setTimeout(()=>controller.abort(),operationTimeoutMs);timer.unref?.();
    const request={headers:{Authorization:req.headers.authorization,...(req.headers.origin?{Origin:req.headers.origin}:{})},...(req.method==='GET'?{query:Object.fromEntries(pairs)}:{body})};

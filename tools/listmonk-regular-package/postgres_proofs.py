@@ -11,6 +11,9 @@ import tempfile
 
 REPO=Path(__file__).resolve().parents[2]
 CASES=('admission','worker-lease','operation-guard','delivery','recovery')
+PROOFS=tuple((case,f'tests/segment-regular-{case}-postgres.cjs') for case in CASES)+(
+    ('binding-release','tests/segment-campaign-binding-release-postgres.cjs'),
+)
 
 
 def run(args):
@@ -29,12 +32,12 @@ def run(args):
         with (work/'lifecycle.log').open('w') as log:
             subprocess.run([str(args.pg_bin/'pg_ctl'),'-D',str(work/'data'),'-l',str(work/'server.log'),'-o',f'-h 127.0.0.1 -k {sock} -p {port}','-w','-t','15','start'],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=20)
         started=True
-        for case in CASES:
+        for case,script_path in PROOFS:
             script="const {Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.TEST_DATABASE_URL.replace('/listmonk','/postgres')});await c.connect();try{await c.query('DROP DATABASE IF EXISTS listmonk WITH (FORCE)');await c.query('DROP OWNED BY crm_audience_api').catch(()=>{});await c.query('DROP ROLE IF EXISTS crm_audience_api');await c.query('CREATE DATABASE listmonk');}finally{await c.end();}})().catch(e=>{console.error(e);process.exit(1)});"
             subprocess.run(['node','-e',script],env=env,check=True,timeout=20)
             path=work/(case+'.log')
             with path.open('w') as log:
-                result=subprocess.run(['node',str(REPO/f'tests/segment-regular-{case}-postgres.cjs')],env=env,stdout=log,stderr=subprocess.STDOUT,timeout=180)
+                result=subprocess.run(['node',str(REPO/script_path)],env=env,stdout=log,stderr=subprocess.STDOUT,timeout=180)
             body=path.read_text();item={'case':case,'exit_code':result.returncode,'log_sha256':hashlib.sha256(body.encode()).hexdigest()}
             report['runs'].append(item)
             if result.returncode:

@@ -17,7 +17,7 @@ CREATE TABLE crm_audience_v2.regular_worker_deployment (
  enabled boolean NOT NULL DEFAULT false,
  worker_sha256 text CHECK(worker_sha256 ~ '^[0-9a-f]{64}$'),
  runtime_sha256 text CHECK(runtime_sha256 ~ '^[0-9a-f]{64}$'),
- query_sha256 text CHECK(query_sha256='3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de'),
+ query_sha256 text CHECK(query_sha256='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d'),
  database_role name,
  approved_at timestamptz,
  approved_by text,

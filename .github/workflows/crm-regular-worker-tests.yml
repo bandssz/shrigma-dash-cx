@@ -10,6 +10,7 @@ on:
       - 'services/crm-audience/**'
       - 'tests/segment-regular-*'
       - 'tests/segment-listmonk-selection-*'
+      - 'tests/segment-campaign-binding-*'
       - 'tests/growth-campaign-audience-path.test.cjs'
       - '.github/workflows/crm-regular-worker-tests.yml'
   workflow_dispatch:
@@ -61,7 +62,7 @@ jobs:
           export NODE_PATH="$RUNNER_TEMP/regular-test-tools/node_modules"
           export CAMPAIGN_PGLITE_MODULE=@electric-sql/pglite
           export AB_UPSTREAM_SOURCE="$RUNNER_TEMP/regular-inputs/source/queries/campaigns.sql"
-          node --test tests/ab-audience-material-contract.test.cjs tests/segment-regular-*.test.cjs tests/segment-listmonk-selection-regular.test.cjs tests/growth-campaign-audience-path.test.cjs tests/crm-audience-service.test.cjs
+          node --test tests/ab-audience-material-contract.test.cjs tests/segment-regular-*.test.cjs tests/segment-listmonk-selection-regular.test.cjs tests/segment-campaign-binding-release.test.cjs tests/growth-campaign-audience-path.test.cjs tests/crm-audience-service.test.cjs
       - name: Prove HTTP admission, permissions, concurrency and SQL delivery in PostgreSQL 17
         run: python3 tools/listmonk-regular-package/postgres_proofs.py --pg-bin "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --node-path "$RUNNER_TEMP/regular-test-tools/node_modules" --upstream-query "$RUNNER_TEMP/regular-inputs/source/queries/campaigns.sql" --out "$RUNNER_TEMP/regular-pg-proof"
       - name: Run complete Linux worker with real schema and synthetic loopback SMTP

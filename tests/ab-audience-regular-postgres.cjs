@@ -10,7 +10,7 @@ if(process.env.CRM_AUDIENCE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.h
 const sourcePath=process.env.LISTMONK_CAMPAIGNS_SQL;
 if(!sourcePath)throw Error('LISTMONK_CAMPAIGNS_SQL_REQUIRED');
 const source=fs.readFileSync(sourcePath,'utf8'),querySHA=createHash('sha256').update(source).digest('hex');
-assert.equal(querySHA,'3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de');
+assert.equal(querySHA,'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d');
 function section(name){const begin=source.indexOf('-- name: '+name),end=source.indexOf('-- name:',begin+9);assert.ok(begin>=0&&end>begin);return source.slice(begin,end);}
 const nextCampaigns=section('next-campaigns'),nextSubscribers=section('next-campaign-subscribers');
 const sql=fs.readFileSync(path.resolve(__dirname,'../n8n/growth/ab-audience-regular.sql'),'utf8');

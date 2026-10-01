@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=efc5db70c85e">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Y7MaUOUbbBuNPSHbWS/kt+rT67a7tAEvq/U+QKXMa80='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=0cb579dd5f85">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xhzYZOSc7sbFaktrQjV2FGz53TVl+z8QNloSCXlNvXo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -266,7 +266,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3749f08f0312"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=a27906ebd64a"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -500,7 +500,7 @@ function restoreABExperimentBrand(next){
     typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
   try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();}catch{return false;}
   MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
-  GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});GABF.enter(MARCA,API);GRU.render({api:API,marca:MARCA});pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
+  GRU.enterBrand(MARCA);GRU.ctx={...GRU.ctx,api:API,marca:MARCA};pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
 }
 function renderABExperiment(){
   const element=$('#ab-experiment-panel');
@@ -584,33 +584,44 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
-  renderABExperiment();
-  GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
-  if(SEC==='templates')GMedia.mount({marca:MARCA});
+  const campaignTab=CRMWorkspace.state().campaign,reportTab=CRMWorkspace.state().report;
+  const home=SEC==='visao',campaigns=SEC==='camp'&&campaignTab==='list',tests=SEC==='camp'&&campaignTab==='tests';
+  const automationHistory=SEC==='regua'&&GC.activeTab==='history',resultsOverview=SEC==='resultados'&&reportTab==='overview';
+  const resultsEmail=SEC==='resultados'&&reportTab==='email',resultsConversion=SEC==='resultados'&&reportTab==='conversion';
+  if(tests)renderABExperiment();
+  if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
+  if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
   if(!API)return;
-  GABF.enter(MARCA,API);
+  if(tests)GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
+  $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
   // Coverage also drives the home overview while campaign history stays unmounted.
-  if(GA.valid(API))API._attribution_missing=!GA.coverage(API,MARCA,ini,fim).covered;
+  if((home||resultsOverview)&&GA.valid(API))API._attribution_missing=!GA.coverage(API,MARCA,ini,fim).covered;
   const GRAO=($('#sel-grao')||{}).value||'peca';
-  const cs=G.campanhas(API,MARCA,ini,fim,true,CANAL),conv=G.conversao(API,MARCA,ini,fim,GRAO,CANAL);
-  const tot=G.totais(cs,conv);
+  const cs=(home||resultsEmail)?G.campanhas(API,MARCA,ini,fim,true,CANAL):[];
+  const conv=(home||resultsOverview||resultsConversion)?G.conversao(API,MARCA,ini,fim,GRAO,CANAL):[];
+  const tot=home?G.totais(cs,conv):null;
+  // A faixa de fontes pertence ao shell do CRM e precisa refletir marca/consulta
+  // mesmo quando a rota ativa não monta os cartões de Início ou Resultados.
+  GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,ini,fim,CANAL));
 
-  $('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
+  if(home)$('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
     .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
 
-  renderRelatoriosCampanha();
-  GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
-  GSES.render(API,MARCA,ini,fim,CANAL,GUI);
-  GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA});
-  $('#campaign-email-block').hidden=CANAL==='whatsapp';
-  $('#campaign-email-channel-empty').hidden=CANAL!=='whatsapp';
-  $('#email-comparison-block').hidden=GA.valid(API)||CANAL==='whatsapp';
-  $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
+  if(campaigns||SEC==='resultados')renderRelatoriosCampanha();
+  if(resultsConversion)GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
+  if(automationHistory)GSES.render(API,MARCA,ini,fim,CANAL,GUI);
+  if(home||resultsOverview)GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA,visiblePanel:home?'home':'results',renderSources:false});
+  if(resultsEmail){
+    $('#campaign-email-block').hidden=CANAL==='whatsapp';
+    $('#campaign-email-channel-empty').hidden=CANAL!=='whatsapp';
+  }
+  if(automationHistory)$('#email-comparison-block').hidden=GA.valid(API)||CANAL==='whatsapp';
 
   // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
+  if(resultsOverview){
   const umDia = ini===fim;
   const agoraH = G.horaBR(new Date());
   const hojeIso = G.diaBR(new Date());
@@ -631,7 +642,9 @@ function render(){
     (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':'',
     fim===hojeIso?'<span>Hoje é parcial</span>':'',
     ['entregues','falhas'].includes(METRICA)?'<span>Status dos disparos registrados em cada dia · WhatsApp próprio</span>':''].filter(Boolean).join('');
+  }
 
+  if(automationHistory){
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
   if(!car){
@@ -684,7 +697,9 @@ function render(){
             <div><span class="tag ${m.marca}">${nf(m.voltou)}</span></div></div>`;}).join('')+`</div>`:''}
       </div>`;
   }
+  }
 
+  if(resultsOverview){
   $('#area-top').innerHTML=conv.length?conv.slice(0,5).map(c=>{
     const mx=conv[0].receita||1;
     return `<div class="galho"><div><div class="rot">${esc((c.peca||c.campanha||'—').slice(0,30))}</div>
@@ -693,7 +708,9 @@ function render(){
       <div class="num tabn">${rf(c.receita)}</div>
       <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
   }).join(''):'<div class="vazio">Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.</div>';
+  }
 
+  if(resultsConversion){
   $('#n-conv').textContent=conv.length||'';
   $('#th-conv-grao').textContent=GRAO==='peca'?'Peça':GRAO==='campanha'?'Campanha':'Família';
   const convLinhas=conv.map(c=>{const t2=c.novos+c.recorr;return {...c,grao:GRAO,
@@ -719,7 +736,9 @@ function render(){
   }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
   $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
+  }
 
+  if(automationHistory){
   const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
   $('#n-regua').textContent=fl.length||'';
   $('#regua-rot').textContent=fl.length?`${fl.length} peças`:'';
@@ -736,10 +755,18 @@ function render(){
         <div><span class="tag email">e-mail</span></div></div>`).join('');
   }
   GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
-  const modeloOp=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
-  GRU.render({api:API,marca:MARCA});
-  renderJornadas(modeloOp);
+  }
+  if(SEC==='regua'){
+    const controlCtx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
+    const modeloOp=GC.activeTab==='workflows'?GC.render({...controlCtx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,controlCtx);
+    renderJornadas(modeloOp);
+  }
+  if(SEC==='templates'){
+    if(GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
+  }
 
+  if(home){
   const fila=G.fila(API,MARCA,CANAL);
   const filaIndisponivel=G.filaIndisponivel(API,MARCA,CANAL);
   $('#painel-fila').hidden=!fila.length&&!filaIndisponivel.length;
@@ -763,7 +790,9 @@ function render(){
         <td>${c.tem_utm?'<span class="mini">ok</span>':'<span class="tag nulo">sem UTM</span>'}</td></tr>`;
     }).join('');
   }
+  }
 
+  if(resultsEmail){
   if(SEC!=='camp'||CRMWorkspace.state().campaign!=='list')$('#n-camp').textContent='';
   $('#camp-rot').textContent=`${cs.length} peças`;
   const campVis=GT.ordena(GT.busca(cs,TABELAS.camp.q,['nome','utm_campaign','utm_content',c=>G.MARCA[c.marca]||c.marca]),TABELAS.camp.sort,TABELAS.camp.dir,
@@ -801,10 +830,11 @@ function render(){
   document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
   const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
   $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
+  }
 
-  renderPublicos();
+  if(SEC==='base')renderPublicos();
 
-  renderTestes();
+  if(tests)renderTestes();
 
 
   shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
@@ -840,11 +870,12 @@ function setCanal(canal){
 function openFlows(canal,selection={}){
   if(selection.marca&&!trocaMarca(selection.marca,()=>openFlows(canal,selection)))return;
   PENDENTE_GRAPH=false;setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
+  document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
+  ativaBotao('#secoes button','s',SEC);
+  render();
   if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
     $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
   }
-  document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
-  ativaBotao('#secoes button','s',SEC);
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
 
@@ -913,7 +944,12 @@ async function carregar(){
     $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
     if(SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
-    const modeloOp2=GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});renderJornadas(modeloOp2);
+    if(SEC==='regua'){
+      const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
+      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
+      renderJornadas(modeloOp2);
+    }else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
     $('#tentar-novamente').onclick=()=>carregar();
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
@@ -1005,7 +1041,7 @@ function abrirSecaoCRM(section,{tab}={}){
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
   const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
-  if(SEC==='visao'||SEC==='resultados')render();else if(SEC==='base')renderPublicos();else if(SEC==='camp')renderRelatoriosCampanha();else renderJornadas();if(SEC==='templates')GMedia.mount({marca:MARCA});gravaHash();
+  render();gravaHash();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
@@ -1042,11 +1078,11 @@ $('#f-salvar').onclick=salvarTeste;
 
 
 addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
-GC.init();GRU.render({api:null,marca:MARCA});
+GC.init();GRU.enterBrand(MARCA);GRU.ctx={api:null,marca:MARCA};
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
 document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
 const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
-CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();if(kind==='campaign'&&API&&SEC==='camp')renderRelatoriosCampanha();gravaHash();},initial:crmInitialView});
+CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();if(kind==='campaign'&&API&&SEC==='camp')render();gravaHash();},initial:crmInitialView});
 if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
 if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
@@ -1065,9 +1101,9 @@ document.addEventListener('visibilitychange',()=>{
 });
 setInterval(()=>{
   if(document.hidden||!API)return;
-  if((SEC==='regua'&&GC.activeTab==='workflows')||(SEC==='templates'&&GC.activeTab==='templates'))
-    GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim});
-  renderJornadas();
+  if(SEC==='regua'&&GC.activeTab==='workflows')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'workflows',syncTab:false});
+  else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+  if(SEC==='regua')renderJornadas();
 },30000);
 </script>
 </body>
