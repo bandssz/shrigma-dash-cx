@@ -36,7 +36,7 @@ test('real v2 DOM → API → SQL: both brands save, reopen and count the persis
   await click(x,'save');assert.match(x.element.textContent,/Público salvo/);assert.equal(x.ui.contextStatus().dirty,false);
   const record=(await rows(f)).find(r=>r.brand===brand);assert.equal(record.version,1);assert.equal(record.definition.schema_version,'crm-audience-v2');
   const reopened=boot(f);await reopened.ui.sync({api,brand});assert.equal(reopened.q('[data-gs-name]').value,'Público '+brand);
-  await click(reopened,'count');assert.match(reopened.q('[data-gs-count]').textContent,/1 pessoas/);assert.match(reopened.element.textContent,/Confira no editor da campanha se o uso deste público e o agendamento estão disponíveis/);
+  await click(reopened,'count');assert.match(reopened.q('[data-gs-count]').textContent,/1 pessoas/);assert.match(reopened.element.textContent,/Campanhas → Público salvo.*Contar não autoriza envio/);
   const base=brand==='fish'?17:16;await f.db.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=$1",[base]);
   await click(reopened,'count');assert.match(reopened.q('[data-gs-count]').textContent,/0 pessoas/);
   reopened.input('[data-gs-name]','Público revisto '+brand,'input');await click(reopened,'save');assert.equal((await rows(f)).find(r=>r.brand===brand).version,2);
@@ -123,7 +123,7 @@ test('engagement DOM → persisted source pins → SQL counts registered events 
   assert.equal(revision.context.rules.find(r=>r.source==='email').source_hash,Counter.engagementSourceHash(brand,'email.clicked'));
   await f.db.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=$1",[brand==='fish'?17:16]);
   await click(reopened,'count');assert.match(reopened.q('[data-gs-count]').textContent,/0 pessoas/);
-  assert.match(reopened.element.textContent,/Confira no editor da campanha se o uso deste público e o agendamento estão disponíveis/);
+  assert.match(reopened.element.textContent,/Campanhas → Público salvo.*Contar não autoriza envio/);
  }
  assert.equal((await f.db.query('SELECT count(*) AS n FROM campaigns')).rows[0].n,3);
 });

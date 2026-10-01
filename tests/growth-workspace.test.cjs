@@ -41,7 +41,7 @@ test('brand, section and period summaries preserve independent source clocks and
  sources.children[0].dataset.estado='falta';sources.children[0].textContent='Vendas · 26/09, 10:02 BRT · atualização indisponível';s.api.sync();assert.equal(box.open,true);assert.match(s.q('#crm-data-summary').textContent,/3 pontos de atenção/);assert.match(sources.textContent,/25\/09, 21:30 BRT · dados antigos/);
 });
 test('quick actions call the supplied router once after repeated initialization and Escape closes only its picker',()=>{
- const s=setup();s.api.init(s.options);for(const b of s.all('[data-crm-go]'))b.click();assert.deepEqual(s.navigation,['camp','regua','templates','resultados']);
+ const s=setup();s.api.init(s.options);for(const b of s.all('[data-crm-go]'))b.click();assert.deepEqual(s.navigation,['base','templates','camp','regua','resultados']);
  const brand=s.q('#crm-brand-picker'),period=s.q('#crm-period-picker');brand.open=true;period.open=true;s.key(period.querySelector('input'),'Escape');assert.equal(period.open,false);assert.equal(brand.open,true);assert.equal(s.focused(),period.querySelector('summary'));
  s.key(brand.querySelector('button'),'Escape');assert.equal(brand.open,false);assert.equal(s.focused(),brand.querySelector('summary'));
 });
@@ -52,4 +52,15 @@ test('six operational sections own their panels; automation UTMs and campaign co
  s.ctx.GUT=require('../growth-utm.js');vm.runInContext(fs.readFileSync(require.resolve('../growth-builder.js'),'utf8'),s.ctx);
  const html=vm.runInContext(`(()=>{const step={key:'email-30',channel:'email',template_id:'fixture-template'};const flow={key:'fixture-flow',brand:'fish',available_steps:[{...step,name:'Carrinho'}]};GB.state.templates={'fish:email':[{id:'fixture-template',brand:'fish',channel:'email',name:'Fixture',components:{body_html:'<a href="https://fixture.invalid/?utm_source=email&utm_medium=fluxo&utm_campaign=fixture&utm_content=cart">Abrir</a>'}}]};return GB.trackingHtml(step,flow,true);})()`,s.ctx);
  s.q('#control-fluxos').innerHTML=html;const utm=s.q('#control-fluxos .crm-utm');assert.ok(utm);assert.equal(utm.closest('[data-crm-owner-only]'),null);assert.match(utm.textContent,/UTMs e origem/);assert.match(utm.textContent,/email/);s.api.sync({section:'regua',brand:'fish'});assert.equal(s.q('#control-fluxos .crm-utm'),utm);
+});
+
+test('preparation shortcut opens the current editor and keeps its fields, while an existing confirmation keeps focus',()=>{
+ const s=setup(),host=s.q('#campaign-composer');host.innerHTML='<details class="ce-shell"><summary>Preparar</summary><input value="Minha preparação"></details>';
+ const input=host.querySelector('input'),summary=host.querySelector('summary'),button=s.q('#crm-campaign-open');s.api.setCampaign('tests');button.click();onlyPanel(s,'campaign','list');assert.equal(host.querySelector('.ce-shell').open,true);assert.equal(host.querySelector('input'),input);assert.equal(input.value,'Minha preparação');assert.equal(s.focused(),summary);
+ const modal=s.q('#brand-change-confirm');modal.setAttribute('open','');const cancel=s.q('#brand-change-cancel');cancel.focus();button.click();assert.equal(s.focused(),cancel);assert.equal(host.querySelector('input'),input);
+});
+test('model and public-image shortcuts reuse existing tab buttons and never replace editor nodes',()=>{
+ const s=setup();let selected=0;s.q('#control-tab-drafts').addEventListener('click',()=>selected++);s.q('[data-crm-open-tab="control-tab-drafts"]').click();assert.equal(selected,1);
+ const media=s.q('#crm-media');media.innerHTML='<button type="button">Abrir biblioteca</button><input value="https://fixture.invalid/image.png">';const input=media.querySelector('input');s.q('[data-crm-focus="crm-media"]').click();assert.equal(s.focused(),media.querySelector('button'));assert.equal(input.value,'https://fixture.invalid/image.png');
+ assert.equal(s.q('#ab-experiment-panel').closest('details'),null);assert.ok(s.q('#form-teste').closest('.crm-legacy-records'));assert.equal(s.q('.crm-legacy-records').hasAttribute('open'),false);
 });

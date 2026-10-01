@@ -17,6 +17,13 @@ const CRMWorkspace=(()=>{
   notify=onChange;select('report',initial.report||report);select('campaign',initial.campaign||campaign);
   if(bound||typeof document==='undefined')return;bound=true;
   document.querySelectorAll('[data-crm-go]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.crmGo)));
+  document.querySelectorAll('[data-crm-open-tab]').forEach(b=>b.addEventListener('click',()=>el(b.dataset.crmOpenTab)?.click()));
+  document.querySelectorAll('[data-crm-focus]').forEach(b=>b.addEventListener('click',()=>{
+   const target=el(b.dataset.crmFocus);if(!target)return;
+   if(b.dataset.crmFocus==='campaign-composer'){select('campaign','list');notify('campaign');const editor=target.querySelector('.ce-shell');if(editor)editor.open=true;}
+   target.scrollIntoView?.({behavior:'smooth',block:'start'});
+   if(!document.querySelector('dialog[open]')){const focus=target.querySelector('.ce-shell>summary,button:not(:disabled),input:not(:disabled)')||target;focus.focus?.({preventScroll:true});}
+  }));
   for(const kind of ['report','campaign']){
    const buttons=[...document.querySelectorAll('[data-crm-'+kind+']')];
    buttons.forEach((b,i)=>{
