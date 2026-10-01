@@ -147,7 +147,7 @@ for(const built of [false,true])for(const brand of ['fish','aristo'])test(brand+
  }});
  assert.match(x.q('#crm-segments-status').textContent,/contexto desta preparação/);assert.equal(x.f.calls.length,0);
  x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]')?.open;i++)await new Promise(r=>setTimeout(r,2));
- assert.ok(x.q('[data-gs-dialog]').open);assert.match(x.q('[data-gs-confirm-text]').textContent,/Guardar a preparação antiga/);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
+ assert.ok(x.q('[data-gs-dialog]').open);assert.match(x.q('[data-gs-confirm-text]').textContent,/rascunho antigo.*cópia/i);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
  x.q('[data-gs="back"]').click();await settled(x);assert.equal(x.f.calls.length,0);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
  x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]')?.open;i++)await new Promise(r=>setTimeout(r,2));x.q('[data-gs="accept"]').click();await settled(x);
  assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.q('#crm-segments-editor').hidden,false);assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].method,'GET');
