@@ -33,7 +33,7 @@ async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='f
  const x={f,document,window,run,requests,intervals,hashes,q:s=>document.querySelector(s),setResponse:v=>{response=v;},response:()=>structuredClone(response)};
  await settled(x);return x;
 }
-async function settled(x){for(let i=0;i<200;i++){if(!x.run('LOADING||CRM_SEGMENT_SYNC||CRM_SEGMENT_VIEW?.contextStatus().blocked'))return;await new Promise(r=>setTimeout(r,2));}assert.fail('Local panel did not settle');}
+async function settled(x){for(let i=0;i<200;i++){if(!x.run('LOADING||CRM_SEGMENT_SYNC||CRM_AUDIENCE_CREATE_BUSY||CRM_SEGMENT_VIEW?.contextStatus().blocked'))return;await new Promise(r=>setTimeout(r,2));}assert.fail('Local panel did not settle');}
 function fill(x,brand){const input=x.q('[data-gs-name]');input.value='Preparação '+brand;input.dispatchEvent(new x.window.Event('input',{bubbles:true}));const select=x.q('[data-gs-list]');select.value=brand==='fish'?'11':'21';select.dispatchEvent(new x.window.Event('change',{bubbles:true}));}
 async function changeBrand(x,brand,{confirm=true}={}){x.q('[data-marca="'+brand+'"]').click();if(confirm&&x.q('#brand-change-confirm').open)x.q('#brand-change-accept').click();await settled(x);}
 
@@ -50,7 +50,7 @@ for(const brand of ['fish','aristo']){
  for(const version of ['crm-segment-v1','crm-audience-v2'])test(brand+': '+version+' mounts only on Público and uses the current manager session for its own endpoint',async()=>{
   const x=await boot({version,brand,section:'visao'});assert.equal(x.f.calls.length,0);x.q('[data-s="base"]').click();await settled(x);
   assert.equal(x.q('#crm-segments-panel').hidden,false);assert.equal(x.q('#crm-segments-editor').hidden,false);assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].actor,'Bearer synthetic-manager-key');assert.equal(x.f.calls[0].body.brand,brand);assert.equal(x.f.calls[0].body.acao,'segmentos_listar');
-  assert.ok(x.q('#area-arvore [data-ga-row]'));assert.ok(x.q('[data-gs-list]').textContent.includes('Lista principal '+brand));assert.match(x.q('#crm-segments-editor').textContent,/Confira no editor da campanha se o uso deste público e o agendamento estão disponíveis/);
+  assert.ok(x.q('#area-arvore [data-ga-row]'));assert.ok(x.q('[data-gs-list]').textContent.includes('Lista principal '+brand));assert.match(x.q('#crm-segments-editor').textContent,/Campanhas → Público salvo.*Contar não autoriza envio/);
   assert.equal(!!x.q('[data-gs="add-condition"]'),version==='crm-audience-v2');assert.equal(x.requests.filter(r=>r.init.method==='POST').length,0);
   for(const [k,v]of x.f.store)assert.doesNotMatch(k+v,/synthetic-manager-key/);assert.ok(x.requests.every(r=>!r.url.includes('synthetic-manager-key')));
  });
@@ -84,4 +84,32 @@ test('changed endpoint or session cannot silently move the preserved preparation
   await x.run('carregar()');for(let i=0;i<100&&x.run('LOADING||CRM_SEGMENT_SYNC');i++)await new Promise(r=>setTimeout(r,2));
   assert.equal(x.f.store.get('shrigma_segment_editor_v1:fish'),saved);assert.equal(x.f.calls.length,before);assert.equal(x.q('#crm-segments-editor').hidden,true);assert.match(x.q('#crm-segments-status').textContent,/preservada/);
  }
+});
+
+test('visible audience creation from consolidated or Olivas requires an explicit supported brand and only prepares locally',async()=>{
+ for(const brand of ['todas','olivas']){const x=await boot({brand,version:'crm-audience-v2'});assert.equal(x.q('#crm-audience-create').disabled,false);assert.equal(x.f.calls.length,0);
+  x.q('#crm-audience-create').click();assert.equal(x.q('#crm-audience-brand-choices').hidden,false);assert.equal(x.run('MARCA'),brand);assert.equal(x.f.calls.length,0);
+  x.q('[data-audience-create-brand="fish"]').click();await settled(x);assert.equal(x.run('MARCA'),'fish');assert.equal(x.q('#crm-audience-brand-choices').hidden,true);
+  assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.document.activeElement,x.q('[data-gs-name]'));assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].body.acao,'segmentos_listar');assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);
+ }
+});
+test('new audience CTA preserves dirty conditions until the existing replacement confirmation is accepted',async()=>{
+ const x=await boot({version:'crm-audience-v2'});fill(x,'fish');const original=x.f.store.get('shrigma_segment_editor_v1:fish'),reads=x.f.calls.length;
+ x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]').open;i++)await new Promise(r=>setTimeout(r,2));
+ assert.equal(x.q('[data-gs-dialog]').open,true);assert.equal(x.q('[data-gs-name]').value,'Preparação fish');assert.equal(x.f.store.get('shrigma_segment_editor_v1:fish'),original);
+ assert.equal(x.document.activeElement,x.q('[data-gs="back"]'));x.q('[data-gs="back"]').click();await settled(x);assert.equal(x.q('[data-gs-name]').value,'Preparação fish');
+ x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]').open;i++)await new Promise(r=>setTimeout(r,2));x.q('[data-gs="accept"]').click();await settled(x);
+ assert.equal(x.q('[data-gs-name]').value,'');assert.equal(x.f.calls.length,reads);assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);
+});
+test('visible create CTA cannot bypass a pending save or revoked manager capability',async()=>{
+ const x=await boot();fill(x,'fish');x.f.control.lose=true;x.q('[data-gs="save"]').click();await settled(x);const stored=x.f.store.get('shrigma_segment_editor_v1:fish');
+ x.q('#crm-audience-create').click();await settled(x);assert.equal(x.run('CRM_SEGMENT_VIEW.contextStatus().pending'),true);assert.equal(x.f.store.get('shrigma_segment_editor_v1:fish'),stored);assert.equal(x.f.calls.filter(c=>c.method==='POST').length,1);assert.match(x.q('#crm-audience-create-status').textContent,/tentativa pendente/);
+ for(const options of [{enabled:false},{manager:false}]){const y=await boot(options);assert.equal(y.q('#crm-audience-create').disabled,true);y.q('#crm-audience-create').click();await settled(y);assert.equal(y.f.calls.length,0);}
+});
+
+test('create CTA respects the selected brand capability and clears a prior brand notice after a guarded switch',async()=>{
+ const x=await boot({section:'visao'}),p=x.response();p.capabilities.segments.brands=['aristo'];x.setResponse(p);await x.run('carregar()');x.q('[data-s="base"]').click();await settled(x);
+ assert.equal(x.q('#crm-audience-create').disabled,true);x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,0);assert.equal(x.run('MARCA'),'fish');
+ await changeBrand(x,'aristo');assert.equal(x.q('#crm-audience-create').disabled,false);x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].body.brand,'aristo');
+ x.run("CRM_AUDIENCE_CREATE_NOTICE='Aviso anterior Aristo';CRM_AUDIENCE_CREATE_NOTICE_BRAND='aristo';renderPublicCreation()");await changeBrand(x,'todas');assert.doesNotMatch(x.q('#crm-audience-create-status').textContent,/Aviso anterior/);
 });

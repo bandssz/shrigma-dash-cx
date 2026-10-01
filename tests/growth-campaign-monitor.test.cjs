@@ -14,6 +14,22 @@ test('progress uses sent / total, never total as remaining, and refuses unknown 
  assert.equal(M.model(input([campaign({enviados:'0',publico:'100'})])).rows[0].progress,0);
  const x=boot(input([campaign({status:'finished'})]));assert.equal(x.q('progress'),null);assert.match(x.q('#gcm-list').textContent,/Envio encerrado/);assert.doesNotMatch(x.q('#gcm-list').textContent,/100%/);
 });
+test('visual summary counts real states from the same scoped snapshot and does not follow search or status filters',()=>{
+ const list=[campaign(),campaign({campanha_id:2,status:'scheduled',agendado_em:'2026-10-05T12:00:00Z'}),campaign({campanha_id:3,status:'finished'}),campaign({campanha_id:4,status:'paused'}),campaign({campanha_id:5,status:'paused',marca:'aristo'})];
+ const summary=M.model(input(list,{search:'sem correspondência',filter:'finished'})).summary;
+ assert.deepEqual(summary,{running:1,scheduled:1,finished:1,paused:1});
+ const x=boot(input(list));
+ assert.deepEqual([...x.document.querySelectorAll('.gcm-summary-card strong')].map(node=>node.textContent),['1','1','1','1']);
+ assert.match(x.q('[data-summary-status="finished"] small').textContent,/no período/);
+});
+test('summary never presents zero when the source is unavailable or the selected channel is not covered',()=>{
+ const value=input([campaign()]),x=boot(value);value.api={};x.render();
+ assert.deepEqual([...x.document.querySelectorAll('.gcm-summary-card strong')].map(node=>node.textContent),['—','—','—','—']);
+ assert.match(x.q('.gcm-summary').textContent,/Fonte indisponível/);
+ value.api=input([campaign()]).api;value.canal='whatsapp';x.render();
+ assert.deepEqual([...x.document.querySelectorAll('.gcm-summary-card strong')].map(node=>node.textContent),['—','—','—','—']);
+ assert.match(x.q('.gcm-summary').textContent,/Somente para campanhas de e-mail/);
+});
 test('brand, email channel, unknown status and missing source never inherit another source or imply a completed send',()=>{
  const v=input([campaign(),campaign({marca:'aristo',campanha_id:2}),campaign({canal:'whatsapp',campanha_id:3}),campaign({status:'unrecognized',campanha_id:4})]);assert.deepEqual(M.model(v).rows.map(m=>m.campanha_id),[1,4]);assert.equal(M.model({...v,canal:'whatsapp'}).rows.length,0);
  const x=boot(v);assert.match(x.q('#gcm-list').textContent,/Situação não informada/);assert.equal(x.document.querySelectorAll('.gcm-row').length,2);
