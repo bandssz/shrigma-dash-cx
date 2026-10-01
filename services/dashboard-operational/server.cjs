@@ -124,7 +124,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const url=safeRequestPath(req.url),origin='https://'+host;
       if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,identity:true,runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin,csrf:req.headers['x-csrf-token']};
-      if(url.pathname==='/auth/session'&&req.method==='GET')return sendJson(req,res,200,auth.session(ctx));
+      if(url.pathname==='/auth/session'&&req.method==='GET'){
+        const state=auth.session(ctx);
+        // The owner view validates invite links against this service's exact
+        // host configuration, so a new isolated canary needs no JS allowlist.
+        if(state.authenticated&&state.user?.role==='superadmin'&&host===s.managerHost)
+          return sendJson(req,res,200,{...state,areaHosts:s.areaHosts});
+        return sendJson(req,res,200,state);
+      }
       if(url.pathname==='/auth/users'&&req.method==='GET')return sendJson(req,res,200,{users:auth.users({context:ctx})});
       if(url.pathname==='/auth/login'&&req.method==='POST'){
         const release=reserveLogin(req.socket.remoteAddress);

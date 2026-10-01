@@ -2,13 +2,15 @@
 -- Entregar ao DBA para revisao e execucao com papel pessoal limitado a metadados.
 -- Nao executar via webhook SQL do n8n, papel de aplicacao ou credencial compartilhada.
 -- Nao consulta linhas das tabelas de negocio, valores de chaves, corpos de funcoes
--- (prosrc/pg_get_functiondef), definicoes de constraints ou configuracoes secretas.
--- Resultados: nomes fixos e booleanos. NULL significa objeto/papel ausente ou
+-- (o hash de prosrc e comparado no servidor, sem retorna-lo), definicoes de
+-- constraints ou configuracoes secretas.
+-- Resultados: nomes fixos, booleanos e contagens agregadas. NULL significa objeto/papel ausente ou
 -- atributo nao aplicavel; FALSE exige investigacao, nao instalacao automatica.
 -- Fontes versionadas: n8n/access/panel-{auth,short-keys,operator}.sql,
 -- n8n/growth/crm-{read-fast,panel-reader-role}.sql.
--- Esta auditoria NAO demonstra equivalencia do codigo SQL em producao, nem
--- verifica identidade/permissoes de uma chave real ou ausencia de efeito tecnico
+-- A comparacao booleana de hash cobre tres funcoes versionadas; as demais
+-- funcoes e os grants fora da lista ainda exigem classificacao do DBA. Esta
+-- auditoria NAO verifica identidade/permissoes de uma chave real ou efeito tecnico
 -- da autenticacao (shrigma_panel_auth_v1 atualiza telemetria de uso).
 
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY;
@@ -123,14 +125,15 @@ LEFT JOIN pg_index x
  AND x.indrelid = to_regclass('public.crm_dash_chave')
 ORDER BY e.nome;
 
--- Assinaturas fixas e flags de seguranca; nenhuma leitura de prosrc/probin.
-WITH esperado(assinatura, linguagem, volatilidade, definer, search_path_exato) AS (
+-- Assinaturas fixas, flags e hash booleano das tres funcoes com corpo pinado.
+-- Nenhum corpo ou hash calculado e retornado ao operador.
+WITH esperado(assinatura, linguagem, volatilidade, definer, search_path_exato, body_md5) AS (
   VALUES
-    ('public.shrigma_panel_auth_v1(text,text,text)', 'sql', 'v', false, 'search_path=pg_catalog, public'),
-    ('public.shrigma_panel_operator_v1(text,text)', 'sql', 's', false, 'search_path=pg_catalog, public'),
-    ('public.shrigma_crm_operator_auth_v1(text)', 'sql', 's', false, 'search_path=pg_catalog, public'),
-    ('public.shrigma_template_auth_v2(text)', 'sql', 's', false, 'search_path=public, pg_catalog'),
-    ('public.shrigma_crm_read_fast_v1(text,text,jsonb)', 'plpgsql', 'v', true, 'search_path=pg_catalog, public')
+    ('public.shrigma_panel_auth_v1(text,text,text)', 'sql', 'v', false, 'search_path=pg_catalog, public', '488ee373b461fd61418c0489c42e3df7'),
+    ('public.shrigma_panel_operator_v1(text,text)', 'sql', 's', false, 'search_path=pg_catalog, public', '2092629644f901de260051084d2fb2c2'),
+    ('public.shrigma_crm_operator_auth_v1(text)', 'sql', 's', false, 'search_path=pg_catalog, public', NULL),
+    ('public.shrigma_template_auth_v2(text)', 'sql', 's', false, 'search_path=public, pg_catalog', NULL),
+    ('public.shrigma_crm_read_fast_v1(text,text,jsonb)', 'plpgsql', 'v', true, 'search_path=pg_catalog, public', '0c3b2e1b3094cccae44fa2b89fbfb18b')
 )
 SELECT e.assinatura AS alvo,
        p.oid IS NOT NULL AS existe,
@@ -139,6 +142,8 @@ SELECT e.assinatura AS alvo,
        CASE WHEN p.oid IS NOT NULL THEN p.prosecdef = e.definer END AS definer_confere,
        CASE WHEN p.oid IS NOT NULL THEN pg_get_userbyid(p.proowner) = 'postgres' END AS dono_postgres,
        CASE WHEN p.oid IS NOT NULL THEN p.proconfig = ARRAY[e.search_path_exato] END AS search_path_confere,
+       CASE WHEN p.oid IS NOT NULL AND e.body_md5 IS NOT NULL
+         THEN md5(p.prosrc) = e.body_md5 END AS corpo_versionado_confere,
        CASE WHEN p.oid IS NOT NULL THEN EXISTS (
          SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
          WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
@@ -160,6 +165,20 @@ SELECT 'crm_panel_reader' AS alvo,
        CASE WHEN r.oid IS NOT NULL THEN r.rolsuper END AS superusuario,
        CASE WHEN r.oid IS NOT NULL THEN r.rolbypassrls END AS ignora_rls,
        CASE WHEN r.oid IS NOT NULL THEN r.rolcreatedb OR r.rolcreaterole END AS pode_administrar,
+       CASE WHEN r.oid IS NOT NULL THEN r.rolinherit END AS herda_papeis,
+       CASE WHEN r.oid IS NOT NULL THEN r.rolreplication END AS replica,
+       CASE WHEN r.oid IS NOT NULL THEN r.rolconnlimit = 4 END AS limite_quatro_conexoes,
+       CASE WHEN r.oid IS NOT NULL THEN has_database_privilege(r.oid,current_database(),'CREATE') END AS pode_criar_no_banco,
+       CASE WHEN r.oid IS NOT NULL THEN has_database_privilege(r.oid,current_database(),'TEMP') END AS pode_criar_temporarios,
+       CASE WHEN r.oid IS NOT NULL THEN coalesce(
+         cardinality(r.rolconfig) = 3
+         AND 'statement_timeout=8s' = ANY(r.rolconfig)
+         AND 'lock_timeout=500ms' = ANY(r.rolconfig)
+         AND 'search_path=pg_catalog, public' = ANY(r.rolconfig), false)
+       END AS configuracao_versionada_confere,
+       CASE WHEN r.oid IS NOT NULL THEN EXISTS (
+         SELECT 1 FROM pg_auth_members m WHERE m.member = r.oid
+       ) END AS membro_de_outro_papel,
        CASE WHEN r.oid IS NOT NULL AND n.oid IS NOT NULL
          THEN has_schema_privilege(r.oid, n.oid, 'USAGE') END AS pode_usar_public,
        CASE WHEN r.oid IS NOT NULL AND n.oid IS NOT NULL
@@ -171,5 +190,46 @@ SELECT 'crm_panel_reader' AS alvo,
 FROM (SELECT 1) raiz
 LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader'
 LEFT JOIN pg_namespace n ON n.nspname = 'public';
+
+-- Inventario agregado de privilegios efetivos em TODOS os objetos de aplicacao.
+-- Zero e necessario para o isolamento pretendido; resultados nao zero exigem
+-- revisao antes de qualquer revogacao coordenada. Nao retornar nomes ou dados.
+SELECT 'crm_panel_reader_privilegios_fora_da_funcao' AS alvo,
+       CASE WHEN r.oid IS NOT NULL THEN (
+         SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE left(n.nspname,3) <> 'pg_' AND n.nspname <> 'information_schema'
+           AND c.relkind IN ('r','p','v','m','f')
+           AND (has_table_privilege(r.oid,c.oid,'SELECT')
+             OR has_table_privilege(r.oid,c.oid,'INSERT')
+             OR has_table_privilege(r.oid,c.oid,'UPDATE')
+             OR has_table_privilege(r.oid,c.oid,'DELETE')
+             OR has_table_privilege(r.oid,c.oid,'TRUNCATE')
+             OR has_table_privilege(r.oid,c.oid,'REFERENCES')
+             OR has_table_privilege(r.oid,c.oid,'TRIGGER')
+             OR has_any_column_privilege(r.oid,c.oid,'SELECT')
+             OR has_any_column_privilege(r.oid,c.oid,'INSERT')
+             OR has_any_column_privilege(r.oid,c.oid,'UPDATE')
+             OR has_any_column_privilege(r.oid,c.oid,'REFERENCES'))
+       ) END AS relacoes_com_privilegio,
+       CASE WHEN r.oid IS NOT NULL THEN (
+         SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE left(n.nspname,3) <> 'pg_' AND n.nspname <> 'information_schema'
+           AND c.relkind = 'S'
+           AND (has_sequence_privilege(r.oid,c.oid,'USAGE')
+             OR has_sequence_privilege(r.oid,c.oid,'SELECT')
+             OR has_sequence_privilege(r.oid,c.oid,'UPDATE'))
+       ) END AS sequencias_com_privilegio,
+       CASE WHEN r.oid IS NOT NULL THEN (
+         SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE left(n.nspname,3) <> 'pg_' AND n.nspname <> 'information_schema'
+           AND p.oid <> to_regprocedure('public.shrigma_crm_read_fast_v1(text,text,jsonb)')
+           AND has_function_privilege(r.oid,p.oid,'EXECUTE')
+       ) END AS outras_funcoes_executaveis,
+       CASE WHEN r.oid IS NOT NULL THEN (
+         SELECT count(*) FROM pg_namespace n
+         WHERE left(n.nspname,3) <> 'pg_' AND n.nspname <> 'information_schema'
+           AND has_schema_privilege(r.oid,n.oid,'CREATE')
+       ) END AS esquemas_com_create
+FROM (SELECT 1) raiz LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader';
 
 ROLLBACK;

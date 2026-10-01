@@ -1,13 +1,10 @@
 /* Same-origin entry. The cookie session, not anything in this file, grants access. */
-function inviteUrlForArea(raw,area){
- const hosts={
-  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host','dashboard-v7-crm.tazdb8.easypanel.host','dashboard-v8-crm.tazdb8.easypanel.host','dashboard-v9-crm.tazdb8.easypanel.host','dashboard-v10-crm.tazdb8.easypanel.host','dashboard-v11-crm.tazdb8.easypanel.host'],
-  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host','dashboard-v7-organico.tazdb8.easypanel.host','dashboard-v8-organico.tazdb8.easypanel.host','dashboard-v9-organico.tazdb8.easypanel.host','dashboard-v10-organico.tazdb8.easypanel.host','dashboard-v11-organico.tazdb8.easypanel.host'],
-  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host','dashboard-v7-influs.tazdb8.easypanel.host','dashboard-v8-influs.tazdb8.easypanel.host','dashboard-v9-influs.tazdb8.easypanel.host','dashboard-v10-influs.tazdb8.easypanel.host','dashboard-v11-influs.tazdb8.easypanel.host']
- };
- if(!Object.hasOwn(hosts,area))return null;
+function inviteUrlForArea(raw,area,areaHosts){
+ if(!areaHosts||typeof areaHosts!=='object'||!Object.hasOwn(areaHosts,area)||typeof areaHosts[area]!=='string')return null;
+ const expectedHost=areaHosts[area];
+ if(!/^[a-z0-9.-]{1,253}$/.test(expectedHost)||expectedHost.startsWith('.')||expectedHost.endsWith('.'))return null;
  let url;try{url=new URL(raw);}catch(_){return null;}
- if(url.protocol!=='https:'||url.port||url.username||url.password||url.pathname!=='/'||url.search||!/^#invite=[A-Za-z0-9_-]{16,256}$/.test(url.hash)||!hosts[area].includes(url.hostname))return null;
+ if(url.protocol!=='https:'||url.port||url.username||url.password||url.pathname!=='/'||url.search||!/^#invite=[A-Za-z0-9_-]{16,256}$/.test(url.hash)||url.hostname!==expectedHost)return null;
  return url.href;
 }
 // Presentation only: the BFF still validates every operation on the server.
@@ -240,13 +237,16 @@ else (function(){'use strict';
   event.preventDefault();if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
   const email=$('admin-email').value.trim().toLowerCase(),area=$('admin-area').value,requestedAccess=$('admin-access').value;
   if(!AREAS[area]||!['read','edit'].includes(requestedAccess))return;
+  if(typeof session.areaHosts?.[area]!=='string'){
+   adminMessage.textContent='Não foi possível confirmar o endereço deste painel. Atualize a página e tente novamente.';return;
+  }
   busy=true;const button=$('admin-invite-form').querySelector('button');button.disabled=true;
   inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Criando convite…';
   try{
    const body={action:'invite',email,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess};
    const {response,data}=await post('/auth/users',body);
    if(!response.ok)throw Error('invite_failed');
-   const safeUrl=inviteUrlForArea(data?.inviteUrl,area);
+   const safeUrl=inviteUrlForArea(data?.inviteUrl,area,session.areaHosts);
    if(!safeUrl)throw Error('invite_failed');
    inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=requestedAccess==='edit'?'Convite criado em somente leitura. O pedido de edição ficou pendente de validação; compartilhe o link por um canal seguro.':'Convite de leitura criado. Compartilhe o link por um canal seguro com a pessoa indicada.';
    $('admin-email').value='';$('admin-access').value='read';await loadUsers();
@@ -263,5 +263,11 @@ else (function(){'use strict';
  $('admin-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(inviteLink.value);adminMessage.textContent='Link copiado.';}catch(_){inviteLink.select();adminMessage.textContent='Selecione e copie o link de convite.';}});
  $('admin-invite-hide').addEventListener('click',()=>{inviteLink.value='';inviteResult.hidden=true;});
  window.addEventListener('pagehide',()=>{version++;session=null;inviteToken='';bootstrapToken='';$('bootstrap-secret').value='';inviteLink.value='';frame?.remove();});
- (async()=>{try{const s=await readSession();if(s?.authenticated===true)showShell(s);else showLogin();}catch(_){showLogin('Não foi possível consultar sua sessão agora. Você pode tentar entrar.');}})();
+ (async()=>{
+  // An invite is for a new identity. A cookie from another account on the
+  // same team host must not consume or hide its one-time URL fragment.
+  if(inviteToken||bootstrapToken){showLogin();return;}
+  try{const s=await readSession();if(s?.authenticated===true)showShell(s);else showLogin();}
+  catch(_){showLogin('Não foi possível consultar sua sessão agora. Você pode tentar entrar.');}
+ })();
 })();

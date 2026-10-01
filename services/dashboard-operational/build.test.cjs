@@ -123,20 +123,46 @@ test('operational iframe suppresses legacy access files and unavailable write co
  });
 });
 
-test('invite links match the exact production or test host for their area',()=>{
+test('invite links match the exact host published by the authenticated service',()=>{
  const token='A'.repeat(43);
- const hosts={
-  growth:['crm.shrigma.com.br','dashboard-op-crm.tazdb8.easypanel.host','dashboard-v4-crm.tazdb8.easypanel.host','dashboard-v5-crm.tazdb8.easypanel.host','dashboard-v6-crm.tazdb8.easypanel.host','dashboard-v7-crm.tazdb8.easypanel.host','dashboard-v8-crm.tazdb8.easypanel.host','dashboard-v9-crm.tazdb8.easypanel.host','dashboard-v10-crm.tazdb8.easypanel.host','dashboard-v11-crm.tazdb8.easypanel.host'],
-  organico:['organico.shrigma.com.br','dashboard-op-organico.tazdb8.easypanel.host','dashboard-v4-organico.tazdb8.easypanel.host','dashboard-v5-organico.tazdb8.easypanel.host','dashboard-v6-organico.tazdb8.easypanel.host','dashboard-v7-organico.tazdb8.easypanel.host','dashboard-v8-organico.tazdb8.easypanel.host','dashboard-v9-organico.tazdb8.easypanel.host','dashboard-v10-organico.tazdb8.easypanel.host','dashboard-v11-organico.tazdb8.easypanel.host'],
-  influs:['influs.shrigma.com.br','dashboard-op-influs.tazdb8.easypanel.host','dashboard-v4-influs.tazdb8.easypanel.host','dashboard-v5-influs.tazdb8.easypanel.host','dashboard-v6-influs.tazdb8.easypanel.host','dashboard-v7-influs.tazdb8.easypanel.host','dashboard-v8-influs.tazdb8.easypanel.host','dashboard-v9-influs.tazdb8.easypanel.host','dashboard-v10-influs.tazdb8.easypanel.host','dashboard-v11-influs.tazdb8.easypanel.host']
- };
- for(const [area,allowed]of Object.entries(hosts))for(const host of allowed){
+ for(const areaHosts of [
+  {growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'},
+  {growth:'dashboard-v12-crm.tazdb8.easypanel.host',organico:'dashboard-v12-organico.tazdb8.easypanel.host',influs:'dashboard-v12-influs.tazdb8.easypanel.host'}
+ ])for(const [area,host]of Object.entries(areaHosts)){
   const url=`https://${host}/#invite=${token}`;
-  assert.equal(inviteUrlForArea(url,area),url);
-  for(const other of Object.keys(hosts).filter(x=>x!==area))assert.equal(inviteUrlForArea(url,other),null);
+  assert.equal(inviteUrlForArea(url,area,areaHosts),url);
+  for(const other of Object.keys(areaHosts).filter(x=>x!==area))assert.equal(inviteUrlForArea(url,other,areaHosts),null);
+  assert.equal(inviteUrlForArea(url,area),null);
+  assert.equal(inviteUrlForArea(url,area,{...areaHosts,[area]:'evil.example'}),null);
  }
- for(const host of ['dashboard-op-gerencial.tazdb8.easypanel.host','dashboard-v4-gerencial.tazdb8.easypanel.host','dashboard-v5-gerencial.tazdb8.easypanel.host','dashboard-v6-gerencial.tazdb8.easypanel.host','dashboard-v7-gerencial.tazdb8.easypanel.host','dashboard-v8-gerencial.tazdb8.easypanel.host','dashboard-v9-gerencial.tazdb8.easypanel.host','dashboard-v10-gerencial.tazdb8.easypanel.host','dashboard-v11-gerencial.tazdb8.easypanel.host','dashboard-op-other.tazdb8.easypanel.host','shrigma.com.br','evil.example'])assert.equal(inviteUrlForArea(`https://${host}/#invite=${token}`,'growth'),null);
- for(const bad of [`http://crm.shrigma.com.br/#invite=${token}`,`https://crm.shrigma.com.br/?token=${token}#invite=${token}`,`https://crm.shrigma.com.br/gestao/#invite=${token}`,`https://crm.shrigma.com.br/#invite=${token}&area=influs`])assert.equal(inviteUrlForArea(bad,'growth'),null);
+ const production={growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'};
+ for(const host of ['dashboard-v12-gerencial.tazdb8.easypanel.host','dashboard-v12-other.tazdb8.easypanel.host','shrigma.com.br','evil.example'])assert.equal(inviteUrlForArea(`https://${host}/#invite=${token}`,'growth',production),null);
+ for(const bad of [`http://crm.shrigma.com.br/#invite=${token}`,`https://crm.shrigma.com.br/?token=${token}#invite=${token}`,`https://crm.shrigma.com.br/gestao/#invite=${token}`,`https://crm.shrigma.com.br/#invite=${token}&area=influs`])assert.equal(inviteUrlForArea(bad,'growth',production),null);
+});
+
+test('an invite opens its activation form even when another account has a session cookie',()=>{
+ const nodes=new Map(),listeners={};let sessionReads=0,historyReplacements=0,focused='';
+ const element=id=>{
+  if(!nodes.has(id))nodes.set(id,{
+   hidden:false,value:'',textContent:'',required:false,disabled:false,
+   focus(){focused=id;},replaceChildren(){},addEventListener(){},setAttribute(){},
+   querySelector(){return {disabled:false};}
+  });
+  return nodes.get(id);
+ };
+ const document={body:{dataset:{accessPanel:'growth'}},getElementById:element};
+ const location={hash:'#invite='+'A'.repeat(43),pathname:'/',search:'',origin:'https://dashboard-v12-crm.tazdb8.easypanel.host'};
+ const window={addEventListener(type,handler){listeners[type]=handler;},fetch:async()=>{
+  sessionReads++;return new Response(JSON.stringify({authenticated:true,user:{role:'manager',areas:['growth']}}));
+ }};
+ const context={window,document,location,history:{replaceState(){historyReplacements++;}},URL,URLSearchParams,Headers,AbortController,Response,setTimeout,clearTimeout};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8'),context);
+ assert.equal(sessionReads,0);
+ assert.equal(historyReplacements,1);
+ assert.equal(element('invite-form').hidden,false);
+ assert.equal(element('login-form').hidden,true);
+ assert.equal(element('entry-shell').hidden,true);
+ assert.equal(focused,'invite-password');
 });
 
 test('every transformed inline script has a matching CSP hash and guard loads first',()=>withArtifact(publicRoot=>{
