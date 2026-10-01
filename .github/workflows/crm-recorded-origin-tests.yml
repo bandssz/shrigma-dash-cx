@@ -1,0 +1,92 @@
+name: CRM recorded form receipts
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/vip-*'
+      - 'n8n/growth/segment-*'
+      - 'growth-segment-*'
+      - 'services/crm-audience/**'
+      - 'tests/vip-recorded-origin*'
+      - 'tests/segment-recorded-origin*'
+      - 'tests/segment-recorded-count-compat-postgres.cjs'
+      - 'tests/segment-audience-store-fixture.cjs'
+      - 'tests/crm-audience-package.test.cjs'
+      - 'n8n/access/panel-short-keys.sql'
+      - 'n8n/growth/ab-audience-material.cjs'
+      - 'n8n/growth/campaign-contract.js'
+      - 'n8n/growth/campaign-provider.sql'
+      - 'n8n/growth/campaign-store.sql'
+      - 'n8n/growth/campaign-tracking.js'
+      - 'n8n/growth/campaign-write-guard.sql'
+      - 'tests/campaign-lock-fixture.cjs'
+      - 'tests/campaign-provider-schema.sql'
+      - 'tests/fixtures/journey-graph-auth.sql'
+      - 'tests/growth-segment-fixture.cjs'
+      - 'tests/segment-campaign-binding-fixture.cjs'
+      - 'tests/segment-regular-admission-fixture.cjs'
+      - 'tests/segment-shopify-facts-fixture.cjs'
+      - 'tests/segment-shopify-products-fixture.cjs'
+      - 'tests/segment-shopify-selection-fixture.cjs'
+      - 'tests/sql/journey-cart-fixture.sql'
+      - '.github/workflows/crm-recorded-origin-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-component:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated dependencies
+        run: npm install --prefix ../crm-origin-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Portable Recorded component behavior (PGlite; install guard not claimed)
+        env:
+          NODE_PATH: ../crm-origin-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+        run: node --test tests/vip-recorded-origin*.test.cjs tests/segment-recorded-origin*.test.cjs tests/crm-audience-package.test.cjs
+
+  native-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        script:
+          - tests/segment-recorded-origin-postgres.cjs
+          - tests/segment-recorded-count-compat-postgres.cjs
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated dependencies
+        run: npm install --prefix ../crm-origin-test-tools --no-save --ignore-scripts --no-audit --no-fund pg@8.13.1 @electric-sql/pglite@0.3.14 linkedom@0.18.12
+      - name: Full v2 graph and unmodified Recorded guarded install on PostgreSQL 17.10
+        env:
+          NODE_PATH: ../crm-origin-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/listmonk
+          RECORDED_ORIGIN_TEST_ISOLATED: '1'
+          RECORDED_COUNT_COMPAT_TEST_ISOLATED: '1'
+          CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS: 'v2'
+        run: node ${{ matrix.script }}

@@ -84,14 +84,14 @@ CREATE FUNCTION crm_audience_v2.regular_admission_schedule(rid uuid,actor_id tex
   rt:=crm_audience_v2.regular_admission_runtime(r.brand);
   SELECT * INTO STRICT c FROM public.campaigns WHERE id=r.campaign_id FOR UPDATE;
   PERFORM crm_audience_v2.regular_admission_snapshot(c.id);
-  PERFORM 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=c.id FOR SHARE;
+  PERFORM 1 FROM crm_audience_v2.campaign_binding_effective(c.id);
   PERFORM 1 FROM crm_audience_v2.config WHERE brand=r.brand FOR SHARE;
-  PERFORM 1 FROM crm_audience_v2.audience a JOIN crm_audience_v2.campaign_binding b ON b.audience_id=a.id WHERE b.campaign_id=c.id FOR SHARE OF a;
+  PERFORM 1 FROM crm_audience_v2.audience a JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON b.audience_id=a.id FOR SHARE OF a;
   IF r.expires_at<=clock_timestamp() OR r.checked_at>clock_timestamp() OR rt IS DISTINCT FROM r.runtime
    OR r.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(c.id)
    OR public.shrigma_campaign_current(c.id)->>'version' IS DISTINCT FROM r.campaign_version
    OR c.send_at IS NULL OR c.send_at<clock_timestamp()+interval '15 minutes'
-   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=c.id AND b.brand=r.brand
+   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(c.id) b WHERE b.brand=r.brand
     AND b.binding_version=r.binding_version AND b.binding_hash=r.binding_hash)
    OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=c.id)
    OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch WHERE flow='campaign' AND piece='audience-regular-v1:'||c.id::text) THEN

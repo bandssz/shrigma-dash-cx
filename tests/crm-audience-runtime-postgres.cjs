@@ -8,7 +8,7 @@ const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.CRM_AUDIENCE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.pathname!=='/listmonk'||!u.port||u.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
 const owner=new Pool({connectionString:uri,max:4,statement_timeout:10000}),db={query:(q,p)=>owner.query(q,p),exec:q=>owner.query(q),transaction:async work=>{const c=await owner.connect();try{await c.query('BEGIN');const r=await work(c);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}};
 let pool,app,transaction;const activeUIs=[];
-const source=brand=>({currency:null,timezone:null,shop_id:null,fields:Object.keys(A.FIELDS).map(key=>({key,available:key.startsWith('email.'),source_hash:key.startsWith('email.')?Counter.engagementSourceHash(brand,key):null})),products:[],origins:[]});
+const source=brand=>({currency:null,timezone:null,shop_id:null,fields:Object.keys(A.FIELDS).filter(key=>key!=='signup.recorded_origin').map(key=>({key,available:key.startsWith('email.'),source_hash:key.startsWith('email.')?Counter.engagementSourceHash(brand,key):null})),products:[],origins:[]});
 const until=async predicate=>{for(let n=0;n<3000;n++){if(predicate())return;await new Promise(r=>setTimeout(r,2));}throw Error('DOM_DID_NOT_SETTLE');};
 (async()=>{try{
  const info=(await db.query("SELECT current_database() AS db,current_setting('server_version_num')::int AS version,(SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','v','m','S')) AS existing")).rows[0];assert.equal(info.db,'listmonk');assert.equal(info.version,170010);assert.equal(info.existing,0);

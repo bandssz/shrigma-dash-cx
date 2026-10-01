@@ -46,6 +46,12 @@ async function setupRegularPostgres(db,{subscribersPerBrand,rulesByBrand={},cata
   UPDATE campaign_lists SET list_id=17,list_name='Base Fish' WHERE campaign_id=100;
   UPDATE campaign_lists SET list_id=16,list_name='Base Aristo' WHERE campaign_id=200;
   UPDATE campaigns SET status='scheduled',send_at=clock_timestamp()-interval '1 minute' WHERE id IN(100,200);`);
+ const bindingSQL=read('n8n/growth/segment-campaign-binding.sql');
+ const releaseStart=bindingSQL.indexOf(' CREATE TABLE crm_audience_v2.campaign_binding_release (');
+ const releaseEnd=bindingSQL.indexOf(' EXECUTE $ddl$CREATE FUNCTION crm_audience_v2.campaign_binding_effective',releaseStart);
+ const effective=bindingSQL.match(/ EXECUTE \$ddl\$(CREATE FUNCTION crm_audience_v2\.campaign_binding_effective\(cid integer\)[\s\S]*?)\$ddl\$;/);
+ assert.ok(releaseStart>=0&&releaseEnd>releaseStart&&effective,'REGULAR_POSTGRES_EFFECTIVE_BINDING_SOURCE');
+ await exec(bindingSQL.slice(releaseStart,releaseEnd)+effective[1]+';\nREVOKE ALL ON crm_audience_v2.campaign_binding_release FROM PUBLIC;');
  await db.query(`INSERT INTO subscribers(id,status) SELECT n,CASE WHEN n=3 OR n=$1+3 THEN 'blocklisted' ELSE 'enabled' END FROM generate_series(1,$1*2)n`,[subscribersPerBrand]);
  await db.query("INSERT INTO subscriber_lists SELECT n,17,CASE WHEN n=2 THEN 'unsubscribed' ELSE 'confirmed' END FROM generate_series(1,$1)n",[subscribersPerBrand]);
  await db.query("INSERT INTO subscriber_lists SELECT $1+n,16,CASE WHEN n=2 THEN 'unsubscribed' ELSE 'confirmed' END FROM generate_series(1,$1)n",[subscribersPerBrand]);

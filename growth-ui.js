@@ -66,10 +66,10 @@ const GUI = {
       {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
       ...(canal==='todos'?[waDelivery,emailCtr]:canal==='email'?[emailCtr]:[]),
     ];
-    GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi${k.failure?' kpi-falha':''}"><div class="kpi-rot">${k.label}</div>
+    if(ctx.visiblePanel!=='results')GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi${k.failure?' kpi-falha':''}"><div class="kpi-rot">${k.label}</div>
       <div class="kpi-val tabn${GUI.number(k.value)?'':' vazio-val'}">${k.format(k.value)}</div>
       <div class="kpi-rodape">${compare(k.value,k.before,k.invert)}</div><div class="kpi-sub">${k.note}${k.link?` · ${k.link}`:''}</div></div>`).join(''));
-    GUI.el('#area-kpis')?.querySelectorAll('[data-kpi-jump]').forEach(button=>button.addEventListener('click',()=>{
+    if(ctx.visiblePanel!=='results')GUI.el('#area-kpis')?.querySelectorAll('[data-kpi-jump]').forEach(button=>button.addEventListener('click',()=>{
       if(typeof ctx.onJump==='function')ctx.onJump(button.dataset.kpiJump);
     }));
 
@@ -129,7 +129,7 @@ const GUI = {
           <p>Abertura pode incluir ações automáticas de provedores. Use cliques e pedidos para complementar a análise.</p><details data-crm-owner-only><summary>Origem técnica das métricas</summary><p>Campanhas Listmonk e automações SES. A reputação oficial da conta SES não é derivada destes agregados.</p></details>
         </details></div><button type="button" class="channel-jump" data-open-flows="email">Ver automações →</button></article>`;
     const cards=GUI.el('#channel-cards');
-    if(cards) {
+    if(cards&&ctx.visiblePanel!=='home') {
       cards.classList.toggle('single',canal!=='todos');
       cards.innerHTML=canal==='whatsapp'?waCard:canal==='email'?emailCard:waCard+emailCard;
       cards.querySelectorAll('[data-select-channel]').forEach(button=>button.addEventListener('click',()=>{
@@ -139,10 +139,10 @@ const GUI = {
         if(typeof ctx.onFlows==='function') ctx.onFlows(button.dataset.openFlows);
       }));
     }
-    GUI.sources(ctx,summary);
+    if(ctx.renderSources!==false)GUI.sources(ctx,summary);
     GUI.channelHealth(ctx);
     GUI.flowHealth(ctx);
-    GUI.attention(ctx);
+    if(ctx.visiblePanel!=='results')GUI.attention(ctx);
     return summary;
   },
   /* Faixa de fontes: cada origem tem seu próprio horário. Horário não é veredito de

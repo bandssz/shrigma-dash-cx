@@ -68,23 +68,27 @@ test('front completo carrega, filtra canal/marca e mantém sombra fora dos dispa
  const x=await boot();assert.equal(x.document.querySelector('#load-state').hidden,true);
  assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length,5);
  assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-rot')].map(n=>n.textContent),['Disparos registrados','Receita atribuída','Pedidos atribuídos','Entrega WhatsApp','CTR das campanhas de e-mail']);
- assert.equal(x.document.querySelectorAll('.channel-card').length,2);
+ assert.equal(x.document.querySelectorAll('.channel-card').length,0);
  assert(x.requests[0].includes('painel=growth'));
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'192');
+ x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados')");assert.equal(x.document.querySelectorAll('.channel-card').length,2);
+ x.document.querySelector('[data-s="visao"]').click();
  x.document.querySelector('[data-canal="whatsapp"]').click();
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'42');
  assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-rot')].map(n=>n.textContent),['Envios aceitos','Entregues','Falhas na entrega','Receita atribuída','Pedidos atribuídos']);
  assert.deepEqual([...x.document.querySelectorAll('#area-kpis .kpi-val')].slice(0,3).map(n=>n.textContent),['42','40','1']);
- assert.equal(x.document.querySelectorAll('.channel-card').length,1);
- assert.equal(x.document.querySelector('#campaign-email-block').hidden,true);
+ x.run("CRMWorkspace.setReport('email');abrirSecaoCRM('resultados')");assert.equal(x.document.querySelector('#campaign-email-block').hidden,true);
+ x.document.querySelector('[data-s="visao"]').click();
  assert.equal(x.document.querySelector('[data-canal="whatsapp"]').getAttribute('aria-pressed'),'true');
  x.document.querySelector('[data-marca="aristo"]').click();
  assert.equal(x.document.querySelector('#area-kpis .kpi-val').textContent,'0');
+ x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados')");
+ assert.equal(x.document.querySelectorAll('.channel-card').length,1);
  assert.match(x.document.querySelector('.channel-card').textContent,/102/);
  assert(!/NaN|Infinity/.test(x.document.body.textContent));
 });
 test('automações preservam canal e seleção de fluxo altera somente a tabela',async()=>{
- const x=await boot();x.document.querySelector('[data-open-flows="whatsapp"]').click();
+ const x=await boot();x.document.querySelector('[data-kpi-jump="flows:whatsapp"]').click();
  assert.equal(x.run('SEC'),'regua');assert.equal(x.run('CANAL'),'whatsapp');
  const before=x.document.querySelector('#area-kpis').textContent;
  const sel=x.document.querySelector('#sel-flow');sel.value='transacional';sel.dispatchEvent(new x.window.Event('change'));
@@ -208,6 +212,7 @@ test('e-mail: KPI de CTR informa a base medida e o card lista o que é lacuna',a
  const x=await boot();x.document.querySelector('[data-canal="email"]').click();
  assert.equal(x.document.querySelectorAll('#area-kpis .kpi').length,4);
  assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);
+ x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados')");
  const gaps=[...x.document.querySelectorAll('.measure-gaps li')];
  assert.deepEqual(gaps.map(g=>g.dataset.gap),['ok','lacuna','lacuna']);
  assert.match(gaps[1].textContent,/consulta de entregas indisponível/);
@@ -224,7 +229,7 @@ test('atalhos dos KPIs levam à tabela certa preservando marca e período',async
 });
 test('campanhas: ordenação por cabeçalho, busca com vazio específico e linha aberta sobrevive à reconsulta',async()=>{
  const p=fixture();p.crm_campanha.push({marca:'aristo',canal:'email',tipo:'enviada',campanha_id:7,nome:'Zebra maior',enviado_em:'2026-09-06T14:00:00Z',enviados:500,entregues:490,abriram:null,clicaram:20,hard:0,complaints:0,utm_campaign:'zebra',utm_content:'a'});
- const x=await boot(p);
+ const x=await boot(p);x.run("CRMWorkspace.setReport('email');abrirSecaoCRM('resultados')");
  const nomes=()=>[...x.document.querySelectorAll('#tab-camp tbody tr:not(.det) strong')].map(n=>n.textContent);
  assert.deepEqual(nomes(),['Campanha exemplo','Zebra maior']); // padrão: mais recente primeiro
  x.document.querySelector('#tab-camp th[data-sort="enviados"]').click();
@@ -250,7 +255,7 @@ test('campanhas: ordenação por cabeçalho, busca com vazio específico e linha
 test('exportação CSV sai igual à tela: filtro, recorte, ausente vazio, indivisível em branco e sem chave',async()=>{
  const p=fixture();p.crm_campanha.push({marca:'aristo',canal:'email',tipo:'enviada',campanha_id:7,nome:'Zebra; "aspas"',enviado_em:'2026-09-06T14:00:00Z',enviados:500,entregues:490,abriram:null,clicaram:20,hard:0,complaints:0,utm_campaign:'zebra',utm_content:'a'});
  p.crm_campanha_receita=[{marca:'aristo',campanha_id:7,pedidos:3,receita:900,utm_ambiguo:true}];
- const x=await boot(p);x.document.querySelector('[data-canal="email"]').click();
+ const x=await boot(p);x.run("CRMWorkspace.setReport('email');abrirSecaoCRM('resultados')");x.document.querySelector('[data-canal="email"]').click();
  const busca=x.document.querySelector('#camp-busca');busca.value='zebra';busca.dispatchEvent(new x.window.Event('input'));
  x.document.querySelector('#camp-export').click();
  assert.equal(x.downloads.length,1);
@@ -262,13 +267,13 @@ test('exportação CSV sai igual à tela: filtro, recorte, ausente vazio, indivi
  // abertura não medida → vazio; CTOR sem abertura → vazio; receita indivisível → vazio + sim
  assert.match(linhas[1],/;500;490;98;;4,08;;0;0;0;;;sim;;não;Consolidada;E-mail;2026-09-01;2026-09-07;Fonte anterior não reconciliada;07\/09\/2026, 22:10;zebra$/);
  assert.doesNotMatch(texto,/synthetic-test-key|shrigma_k/);
- x.document.querySelector('[data-s="camp"]').click();
+ x.run("CRMWorkspace.setReport('conversion');abrirSecaoCRM('resultados')");
  x.document.querySelector('#conv-export').click();
  assert.equal(x.downloads.length,2);assert.match(x.downloads[1].nome,/^growth-conversao-peca-/);
  assert.match(x.downloads[1].texto,/lancamento;primeiro;lancamento;1;100/);
 });
 test('automações: busca, ordenação, exportação e vazio específico com fluxo selecionado',async()=>{
- const x=await boot();x.document.querySelector('[data-open-flows="whatsapp"]').click();
+ const x=await boot();x.document.querySelector('[data-kpi-jump="flows:whatsapp"]').click();
  const pecas=()=>[...x.document.querySelectorAll('#tab-regua tbody .flow-name')].map(n=>n.textContent);
  assert.deepEqual(pecas(),['carrinho-30min','pedido-pago']);
  x.document.querySelector('#tab-regua th[data-sort="enviados"]').click();assert.deepEqual(pecas(),['carrinho-30min','pedido-pago']);
@@ -340,7 +345,9 @@ test('hash da URL abre a tela pedida e é atualizado ao mudar filtros, sem chave
  assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('CANAL'),'whatsapp');assert.equal(x.run('SEC'),'templates');
  assert.equal(x.document.querySelector('#presets button.ativo').dataset.p,'30');
  assert.equal(x.document.querySelector('#control-templates').hidden,false);
- assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
+ assert.equal(x.document.querySelector('#sel-flow').value,'');
+ x.run("openFlows('whatsapp',{flow:'carrinho'})");assert.equal(x.document.querySelector('#sel-flow').value,'carrinho');
+ x.run("abrirSecaoCRM('templates',{tab:'templates'})");
  x.document.querySelector('[data-marca="aristo"]').click();
  const ultimo=x.hashes[x.hashes.length-1];
  assert.match(ultimo,/^#marca=aristo&canal=whatsapp&p=30&sec=templates&aba=templates/);
@@ -533,7 +540,7 @@ test('the UI harness waits for the action promise while native crypto is still p
  const barrier=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
  const cryptoProvider={randomUUID:()=>webcrypto.randomUUID(),subtle:{digest:async(...args)=>{entered();await barrier;return webcrypto.subtle.digest(...args);}}};
  const x=await boot(comCaps({submit:true}),{fetchMock:api.mock,cryptoProvider});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'delayed-worker-template',nome:'fixture_template',corpo:'Conteúdo sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.state.rascunho=GR.novo({id:'delayed-worker-template',nome:'fixture_template',corpo:'Conteúdo sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_delayed',version:1,estado:'rascunho'});
  const pending=clickAction(x,x.document.querySelector('#d-servidor'),'salvarServidor');pending.then(()=>{finished=true;},()=>{});
  try{
@@ -646,7 +653,7 @@ test('409/502 without a durable receipt stay frozen; a later exact GET recovers 
 });
 test('opening an older confirmed template receipt never lowers the current revision or replays a POST',async()=>{
  const api=apiFalsa(),x=await boot(comCaps({submit:true}),{fetchMock:api.mock});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'versioned-template',nome:'fixture_template',corpo:'Primeira versão sintética.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.state.rascunho=GR.novo({id:'versioned-template',nome:'fixture_template',corpo:'Primeira versão sintética.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_versioned',version:1,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
  const firstId=x.run('GRU.journal().inspect().operations[0].id');
  x.run('GRU.state.rascunho.corpo="Segunda versão sintética."');api.responde('rascunho',200,{draft_id:'d_versioned',version:2,estado:'rascunho'});await x.run('GRU.salvarServidor(GRU.state.rascunho)');
@@ -659,7 +666,7 @@ test('editing during a pending save keeps the new text local and dirty after the
  const api=apiFalsa();let release,entered;
  const reached=new Promise(resolve=>entered=resolve),barrier=new Promise(resolve=>release=resolve);
  const x=await boot(comCaps({submit:true}),{fetchMock:async(url,init)=>{if(url.startsWith(TPL_END)&&init?.method==='POST'){entered();await barrier;}return api.mock(url,init);}});x.store.set('shrigma_tpl_key','ESCRITA-TESTE');
- x.run("trocaMarca('fish');GRU.state.rascunho=GR.novo({id:'edited-template',nome:'fixture_template',corpo:'Texto enviado sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
+ x.run("trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.state.rascunho=GR.novo({id:'edited-template',nome:'fixture_template',corpo:'Texto enviado sintético.'});GRU.state.editando=GRU.state.rascunho.id;GRU.render()");
  api.responde('rascunho',201,{draft_id:'d_edited',version:1,estado:'rascunho'});const pending=x.run('GRU.salvarServidor(GRU.state.rascunho)');await reached;
  x.run('GRU.state.rascunho.corpo="Nova edição local durante a espera."');release();await pending;
  assert.equal(api.pedidos.find(p=>p.body).body.rascunho.corpo,'Texto enviado sintético.');assert.equal(x.run('GR.lista()[0].corpo'),'Nova edição local durante a espera.');
@@ -812,7 +819,7 @@ test('Growth rejects a response from another scope or an error envelope and pres
 });
 
 test('brand switch preserves template preparation, filters cards, and does not convert brands or operation journals',async()=>{
- const x=await boot();x.run('trocaMarca("fish")');
+ const x=await boot();x.run('trocaMarca("fish");abrirSecaoCRM("templates",{tab:"drafts"})');
  x.run(`GR.guarda(GR.novo({id:'fish-local',marca:'fish',nome:'fish_template',corpo:'Fish'}));GR.guarda(GR.novo({id:'aristo-local',marca:'aristo',nome:'aristo_template',corpo:'Aristo'}));GRU.render();GRU.abrir(GR.novo({id:'working-fish',marca:'fish',nome:'incompleto',corpo:'Fish local https://fishermans.com.br/'}),null)`);
  const snapshot=x.run('JSON.stringify(GRU.state.rascunho)');
  x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');
@@ -861,7 +868,7 @@ test('confirming a brand change completes the original flow or template shortcut
 });
 test('A/B brand and channel stay aligned, selection survives refresh, and changing channel explicitly clears incompatible arms',async()=>{
  const p=fixture();p.crm_campanha.push({...p.crm_campanha[0],marca:'aristo',campanha_id:2,nome:'Aristo e-mail'},{...p.crm_campanha[0],marca:'aristo',canal:'whatsapp',campanha_id:3,nome:'Aristo WA'});
- const x=await boot(p);x.run('trocaMarca("aristo")');x.document.querySelector('#btn-novo').click();
+ const x=await boot(p);x.run('trocaMarca("aristo");abrirSecaoCRM("camp")');x.document.querySelector('[data-crm-campaign="tests"]').click();x.document.querySelector('#btn-novo').click();
  assert.equal(x.document.querySelector('#f-marca').value,'aristo');assert.equal(x.document.querySelector('#f-marca').disabled,true);
  assert.deepEqual([...x.document.querySelector('#f-ca').options].map(o=>o.value),['','2']);
  x.document.querySelector('#f-id').value='aristo-test';x.document.querySelector('#f-ca').value='2';await x.run('carregar()');assert.equal(x.document.querySelector('#f-ca').value,'2');
@@ -871,7 +878,7 @@ test('A/B brand and channel stay aligned, selection survives refresh, and changi
  x.document.querySelector('#f-ca').value='3';x.run('trocaMarca("fish");document.getElementById("brand-change-accept").click();trocaMarca("aristo")');assert.equal(x.document.querySelector('#f-id').value,'aristo-test');assert.equal(x.document.querySelector('#f-ca').value,'3');
 });
 test('storage failure during a brand switch keeps the current editor, header and unsaved content',async()=>{
- const x=await boot();x.run('trocaMarca("fish");GRU.abrir(GR.novo({marca:"fish",nome:"não perder",corpo:"Conteúdo local"}),null);confirm=()=>true;localStorage.setItem=()=>{throw Error("Dispositivo sem espaço")}');
+ const x=await boot();x.run('trocaMarca("fish");abrirSecaoCRM("templates",{tab:"drafts"});GRU.abrir(GR.novo({marca:"fish",nome:"não perder",corpo:"Conteúdo local"}),null);confirm=()=>true;localStorage.setItem=()=>{throw Error("Dispositivo sem espaço")}');
  x.document.querySelector('[data-marca="aristo"]').click();x.document.querySelector('#brand-change-accept').click();assert.equal(x.run('MARCA'),'fish');assert.equal(x.run('GRU.state.rascunho.corpo'),'Conteúdo local');assert.match(x.document.querySelector('#brand-context-status').textContent,/sem espaço/);
 });
 
@@ -883,16 +890,16 @@ test('a late A/B receipt for Fish does not close or clear the open Aristo prepar
  await pending;assert.equal(x.document.querySelector('#form-teste').hidden,false);assert.equal(x.document.querySelector('#f-id').value,'aristo-new');assert.equal(x.run('MARCA'),'aristo');
 });
 test('returning to a template keeps local content but cannot lower a newer reconciled server revision',async()=>{
- const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'same-id',version:1,estado:'rascunho'}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Conteúdo do recibo',servidor:{draft_id:'same-id',version:2,estado:'validado'}}));trocaMarca('fish');`);
+ const x=await boot();x.run(`trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.abrir(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'same-id',version:1,estado:'rascunho'}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'receipt-progress',marca:'fish',nome:'local',corpo:'Conteúdo do recibo',servidor:{draft_id:'same-id',version:2,estado:'validado'}}));trocaMarca('fish');`);
  assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.equal(x.run('GRU.state.rascunho.servidor.version'),2);assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'same-id');
 });
 test('a template preparation cannot silently inherit a different server draft identity',async()=>{
- const x=await boot();x.run(`trocaMarca('fish');GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
+ const x=await boot();x.run(`trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.abrir(GR.novo({id:'same-local-id',marca:'fish',nome:'local',corpo:'Minha edição',servidor:{draft_id:'original-server-id',version:1}}),null);trocaMarca('aristo');document.getElementById('brand-change-accept').click();GR.guarda(GR.novo({id:'same-local-id',marca:'fish',nome:'other',servidor:{draft_id:'different-server-id',version:5}}));trocaMarca('fish');`);
  assert.equal(x.run('GRU.state.rascunho.servidor.draft_id'),'original-server-id');assert.equal(x.run('GRU.state.rascunho.corpo'),'Minha edição');assert.match(x.run('GRU.contextError'),/vínculo/);assert.equal(x.run('GRU.prontaEscrita(GRU.state.rascunho)'),false);
 });
 
 test('email editor exposes a complete brand envelope and keeps it in preview, local save and brand restoration',async()=>{
- const x=await boot();x.run('trocaMarca("fish")');x.document.querySelector('#drafts-novo-email').click();
+ const x=await boot();x.run('trocaMarca("fish");abrirSecaoCRM("templates",{tab:"drafts"})');x.document.querySelector('#drafts-novo-email').click();
  const value=(id,text)=>{const input=x.document.querySelector(id);assert.ok(input);input.value=text;input.oninput();};
  assert.equal(x.document.querySelector('#d-from-email').value,'Fishermans <contato@fishermans.com.br>');
  assert.equal(x.document.querySelector('#d-reply-to').value,'contato@fishermans.com.br');
@@ -919,7 +926,7 @@ test('Growth header and sources always show date and time in Brasília',async()=
 });
 test('email overview acknowledges SES partial delivery coverage without adding it to campaign CTR',async()=>{
  const p=fixture();p.crm_email_ses={schema_version:1,generated_at:'2026-09-08T01:00:00Z',rows:[],coverage:[{marca:'fish',flow:'carrinho',piece:'carrinho-30min',starts_at:'2026-09-01T12:00:00Z',ends_at:null,state:'partial'}]};
- const x=await boot(p);x.document.querySelector('[data-canal="email"]').click();const gap=x.document.querySelectorAll('.measure-gaps li')[1];assert.equal(gap.dataset.gap,'parcial');assert.match(gap.textContent,/entregas e falhas com cobertura parcial/);assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);
+ const x=await boot(p);x.document.querySelector('[data-canal="email"]').click();assert.match(x.document.querySelector('#area-kpis .kpi:last-child').textContent,/1 de 1 peças medidas/);x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados')");const gap=x.document.querySelectorAll('.measure-gaps li')[1];assert.equal(gap.dataset.gap,'parcial');assert.match(gap.textContent,/entregas e falhas com cobertura parcial/);
 });
 function replicationSource(x,brand='fish'){
  return x.run(`(()=>{const r=GEC.draft(GR.novo({canal:'email',marca:${JSON.stringify(brand)},nome:'carta',assunto:'Novidades',preheader:'Confira',corpo:'<p>'+GEC.BRANDS[${JSON.stringify(brand)}].name+'</p><a href="https://'+GEC.BRANDS[${JSON.stringify(brand)}].domain+'/products/origem?utm_source='+${JSON.stringify(brand)}+'&amp;utm_campaign=lm-123&amp;utm_term=warm--lm-123-l7&amp;crm_dispatch_id=12345678-1234-4567-890a-1234567890ab">Ver</a>'}));GR.guarda(r);GRU.render();return r.id;})()`);
@@ -944,20 +951,20 @@ test('replication blocks pending source, invalidates preview after edits, and de
 });
 test('Audience integrates measured brand segments, sorting and refresh without changing source data',async()=>{
  const p=fixture();p.crm_regra_galho=[{marca:'fish',galho:'C1',rotulo:'Clientes recorrentes'},{marca:'aristo',galho:'C2',rotulo:'Outro segmento'}];p.crm_galho=[{marca:'fish',galho:'C1',dia:'2026-09-07',pessoas:12}];
- const before=JSON.stringify(p),x=await boot(p),base=x.document.querySelector('#sec-base');assert.match(base.textContent,/Públicos da marca/);assert.equal(x.document.querySelector('#n-arv').textContent,'2');
+ const before=JSON.stringify(p),x=await boot(p);x.document.querySelector('[data-s="base"]').click();const base=x.document.querySelector('#sec-base');assert.match(base.textContent,/Públicos da marca/);assert.equal(x.document.querySelector('#n-arv').textContent,'2');
  assert.match(base.textContent,/Clientes recorrentes/);assert.match(base.textContent,/Outro segmento/);assert.match(base.textContent,/Sem contagem/);assert.equal(base.querySelectorAll('tbody tr').length,2);assert.equal(JSON.stringify(p),before);
  const search=base.querySelector('[data-ga-search]');search.value='recorrentes';search.dispatchEvent(new x.window.Event('input'));assert.equal(base.querySelectorAll('tbody tr').length,1);
  x.run('MARCA="aristo";render()');assert.match(base.textContent,/Nenhum público corresponde/);assert.doesNotMatch(base.querySelector('[data-ga-result]').textContent,/Clientes recorrentes/);
  assert.equal(base.querySelector('[data-ga-refresh]').classList.contains('sec'),false);
 });
 test('overview labels keep coverage, source clocks and occurrence warnings visible without duplicate card paragraphs',async()=>{
- const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';const x=await boot(p),wa=x.document.querySelector('[data-channel-card="whatsapp"]'),email=x.document.querySelector('[data-channel-card="email"]');
+ const p=fixture();p.crm_wa_envios.forEach(r=>r.erros_sincronos=0);p.crm_wa_envios[0].ultimo_registro_em='2026-09-07T15:30:00Z';p.crm_wa_envios[0].ultimo_status_em='2026-09-08T00:30:00Z';const x=await boot(p),section=x.document.querySelector('#automation-attention'),visible=section.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados')");const wa=x.document.querySelector('[data-channel-card="whatsapp"]'),email=x.document.querySelector('[data-channel-card="email"]');
  assert.match(wa.querySelector('.operator-labels').textContent,/Envios deste painel/);assert.match(email.querySelector('.operator-labels').textContent,/Taxas só das campanhas/);for(const card of [wa,email])assert.match(card.querySelector('[title^="Receita e pedidos"]').title,/Não representam a taxa de conversão dos envios/);
- const section=x.document.querySelector('#automation-attention'),visible=section.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());assert.match(visible.textContent,/07\/09\/2026, 12:30/);assert.match(visible.textContent,/07\/09\/2026, 21:30/);assert.match(visible.textContent,/Automações · cobertura parcial/);assert.match(visible.textContent,/Falhas na entrega/);assert.match(section.querySelector('details').textContent,/não informa se o fluxo está ligado/);
+ assert.match(visible.textContent,/07\/09\/2026, 12:30/);assert.match(visible.textContent,/07\/09\/2026, 21:30/);assert.match(visible.textContent,/Automações · cobertura parcial/);assert.match(visible.textContent,/Falhas na entrega/);assert.match(section.querySelector('details').textContent,/não informa se o fluxo está ligado/);
  const selector=x.document.querySelector('#sel-grao');assert.equal(selector.getAttribute('aria-label'),'Agrupar conversões');assert.doesNotMatch(selector.title,/crm_|de-para|Grão/);
 });
 test('compact conversion note retains model, refund basis, coverage exclusion and overlapping-assistance warning',async()=>{
- const p=fixture();p.crm_attribution={schema_version:2,daily:[],coverage:[],campaigns:[],quality:[]};const x=await boot(p),note=x.document.querySelector('#nota-conv'),visible=note.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());
+ const p=fixture();p.crm_attribution={schema_version:2,daily:[],coverage:[],campaigns:[],quality:[]};const x=await boot(p);x.run("CRMWorkspace.setReport('conversion');abrirSecaoCRM('resultados')");const note=x.document.querySelector('#nota-conv'),visible=note.cloneNode(true);visible.querySelectorAll('details').forEach(n=>n.remove());
  assert.match(visible.textContent,/Último clique · 30 dias/);assert.match(visible.textContent,/Receita após reembolsos/);assert.match(visible.textContent,/Jornadas indisponíveis ficam pendentes/);assert.match(visible.textContent,/Datas fora da cobertura conciliada/);assert.match(visible.textContent,/Não some assistências entre campanhas/);assert.match(note.querySelector('details').textContent,/sem crédito final.*pedidos únicos/);assert.match(note.querySelector('[title*="última visita"]').title,/inclusive retorno direto/);
  x.run("API._attribution_model='last_non_direct';render()");assert.match(x.document.querySelector('#nota-conv').textContent,/Último clique não direto · 30 dias/);assert.match(x.document.querySelector('#nota-conv [title]').title,/Desconsidera retornos diretos/);
 });
@@ -984,7 +991,7 @@ test('queue distinguishes unavailable native state from real schedules and clear
 });
 
 test('template ArrowRight routes to the catalog once, updates the shared URL and preserves its open draft',async()=>{
- const x=await boot();x.run("trocaMarca('fish');GRU.abrir(GR.novo({marca:'fish',nome:'keyboard_draft',corpo:'Conteúdo ainda não salvo'}),null);abrirSecaoCRM('templates',{tab:'drafts'})");
+ const x=await boot();x.run("trocaMarca('fish');abrirSecaoCRM('templates',{tab:'drafts'});GRU.abrir(GR.novo({marca:'fish',nome:'keyboard_draft',corpo:'Conteúdo ainda não salvo'}),null)");
  const before=x.run('JSON.stringify(GRU.state.rascunho)'),editor=x.document.querySelector('#draft-editor'),body=x.document.querySelector('#d-corpo'),requests=x.calls.length;
  assert.ok(editor);assert.ok(body);assert.equal(x.run('SEC'),'templates');assert.equal(x.document.querySelector('#control-drafts').hidden,false);
  x.run("globalThis.keyboardTabCalls=[];const realSetTab=GC.setTab;GC.setTab=function(tab){keyboardTabCalls.push(tab);return realSetTab.call(GC,tab)}");
@@ -1044,6 +1051,54 @@ const journeyReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')=
 const templateReads=x=>x.calls.filter(c=>new URL(c.url).searchParams.get('acao')==='listar');
 async function settleJourneys(x){for(let i=0;i<25;i++){await new Promise(setImmediate);if(!x.run('GB.state.busy'))return;}assert.fail('Journey read did not settle');}
 function lazyFetch(url){const action=new URL(url).searchParams.get('acao');if(action==='fluxos_listar')return lazyResponse({flows:lazyJourneyFlows()});if(action==='listar')return lazyResponse({templates:[]});}
+
+test('CRM-27: a carga grande monta só a rota ativa; rotas, subabas e refresh preservam a preparação local',async()=>{
+ const p=fixture(),copies=180;
+ p.crm_campanha=Array.from({length:copies},(_,i)=>({...p.crm_campanha[0],campanha_id:i+1,nome:'Campanha sintética '+i,enviado_em:`2026-09-${String(1+i%7).padStart(2,'0')}T14:00:00Z`}));
+ p.crm_conversao=Array.from({length:copies},(_,i)=>({...p.crm_conversao[i%p.crm_conversao.length],utm_campaign:'campanha-'+i,utm_content:'peca-'+i}));
+ p.crm_fluxo=Array.from({length:copies},(_,i)=>({...p.crm_fluxo[i%p.crm_fluxo.length],piece:'peca-'+i}));
+ const x=await boot(p),initialRequests=x.requests.length;
+ x.run(`globalThis.__crm27Calls={};
+   for(const [key,obj,name] of [['overview',GUI,'overview'],['attribution',GA,'render'],['pix',GPIX,'render'],['ses',GSES,'render'],['control',GC,'render'],['drafts',GRU,'render'],['campaignEditor',GCE,'mount'],['abForm',GABF,'enter'],['media',GMedia,'mount'],['campaignMonitor',GCM,'render'],['flows',GUI,'flows']]){
+     const original=obj[name];__crm27Calls[key]=[];obj[name]=function(...args){__crm27Calls[key].push(args[0]?.visiblePanel||true);return original.apply(this,args);};
+   }
+   const originalPublicos=renderPublicos,originalTestes=renderTestes,originalExperiment=renderABExperiment;
+   __crm27Calls.publicos=[];renderPublicos=function(...args){__crm27Calls.publicos.push(true);return originalPublicos.apply(this,args);};
+   __crm27Calls.testes=[];renderTestes=function(...args){__crm27Calls.testes.push(true);return originalTestes.apply(this,args);};
+   __crm27Calls.experiment=[];renderABExperiment=function(...args){__crm27Calls.experiment.push(true);return originalExperiment.apply(this,args);};
+   for(const rows of Object.values(__crm27Calls))rows.length=0;render();`);
+ const calls=()=>JSON.parse(x.run('JSON.stringify(__crm27Calls)'));
+ let c=calls();assert.deepEqual(c.overview,['home']);
+ for(const key of ['attribution','pix','ses','control','drafts','campaignEditor','abForm','media','campaignMonitor','flows','publicos','testes','experiment'])assert.equal(c[key].length,0,key);
+ assert.ok(x.document.querySelectorAll('#area-kpis .kpi').length);assert.equal(x.document.querySelector('#control-workflows').children.length,0);assert.equal(x.document.querySelector('#control-templates').children.length,0);assert.equal(x.document.querySelector('#control-drafts').children.length,0);assert.equal(x.document.querySelector('#tab-camp tbody').children.length,0);assert.equal(x.document.querySelector('#tab-conv tbody').children.length,0);
+
+ x.document.querySelector('[data-s="base"]').click();assert.ok(x.document.querySelector('#area-arvore').textContent.trim());
+ x.document.querySelector('[data-s="camp"]').click();assert.ok(x.document.querySelector('#campaign-monitor').textContent.trim());
+ x.document.querySelector('[data-crm-campaign="tests"]').click();assert.equal(x.document.querySelector('#crm-campaign-tests').hidden,false);assert.ok(x.document.querySelector('#area-testes').textContent.trim());
+ x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'fish');
+ x.run("abrirSecaoCRM('templates',{tab:'drafts'});GR.guarda(GR.novo({id:'crm27-preserved',marca:'fish',nome:'crm27_preserved',corpo:'Preparação preservada'}));GRU.render({api:API,marca:MARCA})");
+ const draft=x.run("JSON.stringify(GR.lista().find(row=>row.id==='crm27-preserved'))"),journalSlot=x.run('GABJ.SLOT'),journal='{"version":1,"revision":27,"operations":[]}';x.store.set(journalSlot,journal);assert.ok(x.document.querySelector('#control-drafts').textContent.includes('crm27_preserved'));
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'aristo');x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'fish');assert.equal(x.store.get(journalSlot),journal);assert.equal(x.run("JSON.stringify(GR.lista().find(row=>row.id==='crm27-preserved'))"),draft);
+ x.run("abrirSecaoCRM('templates',{tab:'templates'})");assert.ok(x.document.querySelector('#control-templates').textContent.trim());
+ x.run("abrirSecaoCRM('regua',{tab:'history'})");assert.ok(x.document.querySelector('#tab-regua tbody').textContent.trim());
+ x.run("abrirSecaoCRM('regua',{tab:'workflows'})");assert.ok(x.document.querySelector('#control-workflows').textContent.trim());
+ x.document.querySelector('[data-s="visao"]').click();x.run(`globalThis.__crm27JumpRebinds=0;for(const button of document.querySelectorAll('#area-kpis [data-kpi-jump]')){const add=button.addEventListener.bind(button);button.addEventListener=(...args)=>{__crm27JumpRebinds++;return add(...args);};}`);
+ x.run("CRMWorkspace.setReport('overview');abrirSecaoCRM('resultados');render()");assert.ok(x.document.querySelectorAll('#channel-cards .channel-card').length);assert.equal(x.run('__crm27JumpRebinds'),0,'Resultados não registra novamente os listeners dos KPIs preservados');
+ x.document.querySelector('[data-crm-report="email"]').click();assert.ok(x.document.querySelector('#tab-camp tbody').textContent.trim());
+ x.document.querySelector('[data-crm-report="conversion"]').click();assert.ok(x.document.querySelector('#tab-conv tbody').textContent.trim());
+ assert.equal(x.requests.length,initialRequests,'navegar e montar dados locais não inicia outra leitura');
+ await x.run('carregar()');assert.equal(x.requests.length,initialRequests+1);assert.equal(x.document.querySelector('#crm-report-conversion').hidden,false);assert.ok(x.document.querySelector('#tab-conv tbody').textContent.trim());
+ x.run("abrirSecaoCRM('templates',{tab:'drafts'})");assert.equal(x.run("JSON.stringify(GR.lista().find(row=>row.id==='crm27-preserved'))"),draft);assert.ok(x.document.querySelector('#control-drafts').textContent.includes('crm27_preserved'));
+ c=calls();assert.ok(c.publicos.length&&c.testes.length&&c.experiment.length&&c.campaignMonitor.length&&c.drafts.length&&c.media.length);
+ assert.deepEqual(new Set(c.control),new Set(['templates','workflows']));assert.ok(c.overview.includes('results'));assert.ok(c.pix.length&&c.ses.length&&c.flows.length);
+});
+
+test('CRM-27: entrada direta e refresh em Públicos mantêm a faixa global de fontes sem montar Início',async()=>{
+ const x=await boot(fixture(),{hash:'#marca=fish&sec=base'}),initial=x.requests.length;
+ assert.equal(x.run('SEC'),'base');assert.ok(x.document.querySelector('#fontes').textContent.trim());assert.equal(x.document.querySelector('#area-kpis').children.length,0);assert.ok(x.document.querySelector('#area-arvore').textContent.trim());
+ const next=fixture();next.crm_fontes=[{fonte:'shopify_conversao',rotulo:'Venda (Shopify)',tipo:'coleta',coletado_em:'2026-09-08T00:55:00Z',cadencia_seg:86400,status:'ok'}];x.setResponse(next);await x.run('carregar()');
+ assert.equal(x.requests.length,initial+1);assert.equal(x.run('SEC'),'base');assert.match(x.document.querySelector('#fontes').textContent,/07\/09\/2026, 21:55 BRT/);assert.equal(x.document.querySelector('#area-kpis').children.length,0);assert.ok(x.document.querySelector('#area-arvore').textContent.trim());
+});
 
 test('CRM-27: Início and hidden timer read zero journeys; first opening reads once, pending and loaded reentry never duplicate it',async()=>{
  let release;

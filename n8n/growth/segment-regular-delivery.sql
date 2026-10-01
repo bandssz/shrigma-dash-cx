@@ -75,7 +75,7 @@ CREATE FUNCTION crm_audience_v2.regular_delivery_claim(
   -- One campaign lock serializes attempts across processes as well as workers.
   SELECT * INTO STRICT c FROM public.campaigns WHERE id=cid FOR UPDATE;
   SELECT * INTO STRICT e FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=cid FOR UPDATE;
-  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding WHERE campaign_id=cid FOR SHARE;
+  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding_effective(cid);
   IF NOT e.enabled OR e.suspended OR c.status::text<>'running'
    OR c.sent IS DISTINCT FROM e.acknowledged_sent OR c.last_subscriber_id IS DISTINCT FROM e.acknowledged_subscriber_id
    OR e.binding_version IS DISTINCT FROM b.binding_version OR e.binding_hash IS DISTINCT FROM b.binding_hash
@@ -229,7 +229,7 @@ CREATE FUNCTION crm_audience_v2.regular_delivery_quarantine(current_ids integer[
    RAISE EXCEPTION 'SEGMENT_QUARANTINE_BOUNDARY';
   END IF;
   FOR cid IN SELECT c.id FROM public.campaigns c
-   JOIN crm_audience_v2.campaign_binding b ON b.campaign_id=c.id
+   JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
    WHERE NOT(c.id=ANY(current_ids))
     AND (c.status::text='running' OR (c.status::text='scheduled' AND c.send_at<=clock_timestamp()))
    ORDER BY c.id FOR UPDATE OF c SKIP LOCKED

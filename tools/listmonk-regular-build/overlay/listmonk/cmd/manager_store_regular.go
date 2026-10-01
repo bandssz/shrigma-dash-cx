@@ -49,7 +49,7 @@ func (s *store) RegularDeliveryGate(campaignID int) (manager.RegularDeliveryGate
 	}
 	err = tx.GetContext(ctx, &row, `
 WITH binding AS (
- SELECT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=$1) AS bound
+ SELECT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective($1)) AS bound
 ), control AS (
  SELECT enabled,suspended,configuration_set FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=$1
 )
@@ -243,7 +243,7 @@ func (s *store) FinalizeRegularDelivery(campaignID int) error {
 	}
 	if err := tx.GetContext(ctx, &control, `SELECT c.status::text,r.enabled,r.suspended
  FROM public.campaigns c
- JOIN crm_audience_v2.campaign_binding b ON b.campaign_id=c.id
+ JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
  JOIN crm_audience_v2.regular_delivery_campaign r ON r.campaign_id=c.id
  WHERE c.id=$1 FOR UPDATE OF c,r`, campaignID); err != nil {
 		return errors.New("regular delivery finalization unavailable")

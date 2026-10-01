@@ -23,12 +23,12 @@ function patchRegularSource(source){
   ["JOIN subscribers s ON (s.id = sl.subscriber_id AND s.status != 'blocklisted')",
    "JOIN subscribers s ON (s.id = sl.subscriber_id AND s.status != 'blocklisted')\n        AND "+predicate('ac.context','selection_regular_matches')],
   ["),\nupdateCounts AS (",
-   "),\ncounts AS (\n    SELECT * FROM eligibleCounts\n    UNION ALL\n    SELECT camps.id AS campaign_id, 0::bigint AS to_send, 0::integer AS max_subscriber_id\n    FROM camps\n    WHERE EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id = camps.id)\n        AND NOT EXISTS (SELECT 1 FROM eligibleCounts e WHERE e.campaign_id = camps.id)\n),\nupdateCounts AS ("]
+   "),\ncounts AS (\n    SELECT * FROM eligibleCounts\n    UNION ALL\n    SELECT camps.id AS campaign_id, 0::bigint AS to_send, 0::integer AS max_subscriber_id\n    FROM camps\n    WHERE EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding_effective(camps.id))\n        AND NOT EXISTS (SELECT 1 FROM eligibleCounts e WHERE e.campaign_id = camps.id)\n),\nupdateCounts AS ("]
  ]);
  replace('next-campaign-subscribers',[
   ['WITH campLists AS (','WITH audienceContext AS MATERIALIZED (\n    SELECT crm_audience_v2.selection_regular_context($1) AS context\n),\ncampLists AS ('],
   ['WHERE campaign_lists.campaign_id = $1',
-   "WHERE campaign_lists.campaign_id = $1\n        AND (NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id = $1)\n            OR EXISTS (SELECT 1 FROM campaigns ca WHERE ca.id = $1 AND ca.status = 'running'))"],
+   "WHERE campaign_lists.campaign_id = $1\n        AND (NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding_effective($1))\n            OR EXISTS (SELECT 1 FROM campaigns ca WHERE ca.id = $1 AND ca.status = 'running'))"],
   ["AND s.status != 'blocklisted'",
    "AND s.status != 'blocklisted'\n            AND "+predicate('(SELECT context FROM audienceContext)','selection_regular_matches')],
   ['SELECT * FROM subs;',
@@ -73,13 +73,13 @@ function patchRegularWorkerSource(source){
   next=next.slice(0,section.start)+section.text.replaceAll('selection_regular_context(', 'selection_worker_context(')+next.slice(section.end);
  }
  replace('next-campaigns','FROM uc WHERE campaigns.id = uc.campaign_id',
-  'FROM uc WHERE campaigns.id = uc.campaign_id\n        AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id = campaigns.id)');
+  'FROM uc WHERE campaigns.id = uc.campaign_id\n        AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding_effective(campaigns.id))');
  replace('next-campaign-subscribers','WHERE (SELECT COUNT(id) FROM subs) > 0 AND id=$1',
-  'WHERE (SELECT COUNT(id) FROM subs) > 0 AND id=$1\n        AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id = $1)');
+  'WHERE (SELECT COUNT(id) FROM subs) > 0 AND id=$1\n        AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding_effective($1))');
  replace('next-campaign-subscribers','    SELECT s.*\n    FROM (',
   '    SELECT s.*, to_jsonb(s) AS crm_delivery_snapshot\n    FROM (');
  replace('update-campaign-counts','WHERE id=$1;',
-  'WHERE id=$1\n    AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id = $1);');
+  'WHERE id=$1\n    AND NOT EXISTS (SELECT 1 FROM crm_audience_v2.campaign_binding_effective($1));');
  return {...regular,source:next,patched_sha256:sha(next),variant:'regular-worker-checkpoint',
   changed_queries:[...regular.changed_queries,'update-campaign-counts'],
   requires_durable_finish:true,requires_serial_recipient_ack:true};

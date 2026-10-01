@@ -20,6 +20,14 @@ test('browser plus HTTP candidate plus actual durable store recovers lost ACK fo
  assert.equal(posts,2);assert.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.campaign_binding_request')).rows[0].n,2);
  const a=await f.createAudience('fish','wrong-base'),c=ui.create('fish',300,{fetch});await assert.rejects(c.inspect(300,{id:a.id,version:a.version}),e=>e.code==='SEGMENT_BINDING_BASE_REQUIRED'&&e.baseList.id===17&&typeof e.baseList.name==='string');assert.equal((await db.query('SELECT list_id FROM campaign_lists WHERE campaign_id=300')).rows[0].list_id,101);
 });
+test('release journal confirms historical commit across a native edit and a later rebind',async()=>{
+ const ui=CF.fixture(),c=ui.create('fish',100);await c.read();const inspected=await c.inspect(100,CF.audience),bound=await c.bind(inspected.inspection.intent);
+ ui.control.currentVersion='c'.repeat(32);const stale=await c.read();assert.equal(stale.binding.campaign_current,false);
+ ui.control.lose=true;await assert.rejects(c.release(),{code:'SEGMENT_BINDING_OPERATION_UNCONFIRMED'});ui.control.lose=false;
+ let installed=false;ui.control.before=async p=>{if(p.acao===C.ACTIONS.read&&!installed){installed=true;const prior=bound.binding;ui.rows.set(100,{...prior,campaign_version:'d'.repeat(32),binding_version:2,binding_hash:'8'.repeat(64),campaign_current:true});ui.control.currentVersion='d'.repeat(32);}};
+ const restored=ui.create('fish',100),done=await restored.consult();assert.equal(done.operation.phase,'confirmed');assert.equal(done.operation.receipt.body.released.binding_version,1);assert.equal(done.binding.binding_version,2);assert.equal(done.campaign_version,'d'.repeat(32));
+ assert.equal(ui.calls.filter(x=>x.method==='POST'&&x.p.acao===C.ACTIONS.release).length,1);
+});
 test('leaf archived after inspection yields durable 422; consultation and fresh GET resolve rejection without a second POST',async t=>{
  const db=new PGlite();t.after(()=>db.close());const f=await F.setup(db),api=API.createCampaignBindingAPI({store:f.service}),ui=CF.fixture(),calls=[];
  const fetch=async(url,init)=>{const p=init.method==='GET'?Object.fromEntries(new URL(url).searchParams):JSON.parse(init.body);calls.push(p);const r=await api.handle({method:init.method,request:{headers:init.headers,[init.method==='GET'?'query':'body']:p}});return {status:r.status,text:async()=>JSON.stringify(r.body)};};

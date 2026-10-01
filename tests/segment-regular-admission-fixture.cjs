@@ -39,7 +39,7 @@ async function setup(db){
  const instance=randomUUID(),worker='a'.repeat(64),runtime='b'.repeat(64);
  const approve=async()=>{
   await db.query("UPDATE crm_audience_v2.regular_sender_policy SET enabled=true");
-  await db.query("UPDATE crm_audience_v2.regular_worker_deployment SET enabled=true,worker_sha256=$1,runtime_sha256=$2,query_sha256='3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de',database_role=session_user,approved_at=clock_timestamp(),approved_by='fixture-only',topology_receipt_sha256=repeat('f',64)",[worker,runtime]);
+  await db.query("UPDATE crm_audience_v2.regular_worker_deployment SET enabled=true,worker_sha256=$1,runtime_sha256=$2,query_sha256='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',database_role=session_user,approved_at=clock_timestamp(),approved_by='fixture-only',topology_receipt_sha256=repeat('f',64)",[worker,runtime]);
   await db.query('SELECT crm_audience_v2.regular_worker_heartbeat($1,$2,$3)',[instance,worker,runtime]);
  };
  const service=R.createRegularAdmission({transaction:f.transaction,countProvider:Counter.countAudience,refreshCatalog:({query,brand})=>query('SELECT crm_audience_v2.refresh_native_catalog($1)',[brand])});

@@ -1,0 +1,35 @@
+'use strict';
+process.env.CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS='v2';
+// Disposable PostgreSQL only: composed Recorded + confirmed/count migration.
+const assert=require('node:assert/strict'),{Pool}=require('pg');
+const {setupRecordedNativeV2,rule:recorded}=require('./segment-recorded-origin-fixture.cjs');
+const Store=require('../n8n/growth/segment-audience-store.cjs'),Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
+const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
+if(process.env.RECORDED_COUNT_COMPAT_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.pathname!=='/listmonk'||!u.port||u.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
+const owner=new Pool({connectionString:uri,max:4,statement_timeout:30000,connectionTimeoutMillis:5000});
+const db={query:(q,p)=>owner.query(q,p),exec:q=>owner.query(q),transaction:async work=>{const c=await owner.connect();try{await c.query('BEGIN');const out=await work({query:(q,p)=>c.query(q,p)});await c.query('COMMIT');return out;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}};
+const leaf=(field,operator,value)=>({op:'condition',field,operator,value}),confirmed=rule=>({op:'confirmed',rule});
+const buyers=leaf('purchase.count','gt',0),never=leaf('purchase.count','eq',0);
+const definition=rule=>({schema_version:'crm-audience-v2',brand:'aristo',name:'Recorded confirmed composition',rule});
+(async()=>{let api;try{
+ assert.equal((await db.query('SHOW server_version_num')).rows[0].server_version_num,'170010');
+ const x=await setupRecordedNativeV2(db);assert.equal(x.tier,'native-postgres17-v2-guarded-install');assert.equal(x.count_body_before_recorded,'4adcbdd47bcb8d731c2d35bd60ea0ff9');
+ const installGates=(await db.query('SELECT NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled) AS worker_off,NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE enabled) AS delivery_off')).rows[0];assert.deepEqual(installGates,{worker_off:true,delivery_off:true});
+ await x.record(1,'alma');
+ await db.exec("INSERT INTO subscribers(id,uuid,email,name,status,attribs) VALUES(6,gen_random_uuid(),'person6@example.test','Synthetic','enabled','{}');INSERT INTO subscriber_lists(subscriber_id,list_id,status) VALUES(6,16,'confirmed')");
+ await db.query('ALTER ROLE crm_audience_api LOGIN');const roleURL=new URL(uri);roleURL.username='crm_audience_api';api=new Pool({connectionString:roleURL.href,max:4,statement_timeout:10000,connectionTimeoutMillis:5000});
+ const count=async r=>{const c=await Store.readCatalog((q,p)=>api.query(q,p),'aristo');return Counter.countAudience({definition:definition(r),baseListId:16,catalog:c.catalog,query:(q,p)=>api.query(q,p)});};
+ const pure=await count(recorded());assert.deepEqual([pure.source_confirmed,pure.eligible_count],[true,1]);
+ const mixed={op:'or',rules:[recorded(),confirmed(never)]},mixedCount=await count(mixed);assert.deepEqual([mixedCount.source_confirmed,mixedCount.eligible_count],[true,2]);
+ const mixedAnd={op:'and',rules:[recorded(),confirmed(buyers)]},andCount=await count(mixedAnd);assert.deepEqual([andCount.source_confirmed,andCount.eligible_count],[true,1]);
+ const strict=await count(never);assert.equal(strict.source_confirmed,false);assert.equal(strict.eligible_count,null);
+ const strictMixed={op:'or',rules:[recorded(),never]},strictMixedCount=await count(strictMixed);assert.equal(strictMixedCount.source_confirmed,false);assert.equal(strictMixedCount.eligible_count,null);
+ const scoped=await count(confirmed(never));assert.deepEqual([scoped.source_confirmed,scoped.eligible_count],[true,1]);
+ await x.rebind('aristo',mixed);await x.f.approve();assert.equal(await x.match('aristo',1),true);assert.equal(await x.match('aristo',2),true);assert.equal(await x.match('aristo',6),false);
+ await db.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=16");const opted=await count(recorded());assert.deepEqual([opted.source_confirmed,opted.eligible_count],[true,0]);assert.equal(await x.match('aristo',1),false);
+ for(const sql of ['SELECT email FROM subscribers','SELECT * FROM crm_audience_v2.recorded_origin_receipt','SELECT * FROM crm_audience_v2.shopify_customer_fact','SELECT * FROM crm_audience_v2.shopify_identity',"SELECT * FROM crm_audience_v2.shopify_matches_for_rule('{}','aristo','x')","SELECT crm_audience_v2.shopify_ingest_product_chunk('{}',0,'[]')"])await assert.rejects(api.query(sql),e=>e.code==='42501');
+ const privileges=(await api.query("SELECT has_function_privilege(current_user,'crm_audience_v2.shopify_matches_for_rule(jsonb,text,text)','EXECUTE') AS helper,has_function_privilege(current_user,'crm_audience_v2.shopify_count_rule_sql(jsonb,jsonb,integer)','EXECUTE') AS compiler,has_function_privilege(current_user,'crm_audience_v2.shopify_count_for_rule(jsonb,text,integer,jsonb)','EXECUTE') AS aggregate")).rows[0];assert.deepEqual(privileges,{helper:false,compiler:false,aggregate:true});
+ assert.equal((await db.query('SELECT count(*)::int n FROM shrigma_email_dispatch')).rows[0].n,0);
+ await db.exec("UPDATE crm_audience_v2.recorded_origin_source SET enabled=false WHERE canonical_origin='vip_alma'");const off=await count(mixed);assert.equal(off.source_confirmed,false);assert.equal(off.eligible_count,null);
+ console.log(JSON.stringify({postgres:'17.10',tier:x.tier,composition:'full_product_history_v2_then_recorded',count_body_before_recorded:x.count_body_before_recorded,pure_recorded:true,mixed_confirmed:true,strict_unknown_preserved:true,confirmed_unknown_excluded:true,identity_absent_not_zero:true,optout_rechecked:true,selection_parity:true,source_off_blocks:true,aggregate_wrapper_preserved:true,api_aggregate_only:true,private_facts_denied:true,install_worker_off:true,install_delivery_off:true,sends:0,remote_hosts:0,production_changed:false}));
+}finally{if(api)await api.end();await owner.end();}})().catch(e=>{console.error(e);process.exitCode=1;});

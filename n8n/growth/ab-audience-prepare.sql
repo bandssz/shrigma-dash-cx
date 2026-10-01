@@ -78,7 +78,7 @@ BEGIN
   SELECT array_agg((value->>'campaign_id')::integer ORDER BY (value->>'campaign_id')::integer) INTO ids FROM jsonb_array_elements(NEW.scope->'bindings');
   PERFORM campaign_id FROM crm_audience_v2.campaign_binding WHERE campaign_id=ANY(ids) ORDER BY campaign_id FOR SHARE;
   FOR pin IN SELECT value FROM jsonb_array_elements(NEW.scope->'bindings') LOOP
-   SELECT * INTO b FROM crm_audience_v2.campaign_binding WHERE campaign_id=(pin->>'campaign_id')::integer;
+   SELECT * INTO b FROM crm_audience_v2.campaign_binding_effective((pin->>'campaign_id')::integer);
    IF b.campaign_id IS NULL OR b.brand IS DISTINCT FROM NEW.brand
     OR b.binding_version IS DISTINCT FROM (pin->>'binding_version')::integer OR b.binding_hash IS DISTINCT FROM pin->>'binding_hash'
     OR b.campaign_version IS DISTINCT FROM pin->>'campaign_version'
@@ -126,7 +126,7 @@ BEGIN
   SELECT * INTO s FROM crm_audience_v2.ab_scope WHERE test_id=tid;
   IF TG_TABLE_NAME='crm_ab_arm_v2' THEN
    IF TG_OP='INSERT' AND s.test_id IS NULL
-    AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=NEW.campaign_id)
+    AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(NEW.campaign_id))
    THEN RAISE EXCEPTION 'AB_AUDIENCE_SCOPE_REQUIRED';END IF;
   END IF;
   IF s.test_id IS NULL AND NOT old_scoped THEN IF TG_OP='DELETE' THEN RETURN OLD;END IF;RETURN NEW;END IF;

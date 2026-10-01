@@ -6,7 +6,7 @@ const Campaign=require('./campaign-contract.js'),Tracking=require('./campaign-tr
 const VERSION='crm-audience-campaign-binding-v1',ENABLED=false,MAX=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,CAMPAIGN_VERSION=/^[a-f0-9]{32}$/;
 const FLAGS=Object.freeze({selector_ready:false,execution_blocked:true,authorizes_selection:false,authorizes_send:false});
-const ACTIONS=Object.freeze({inspect:'campanha_publico_conferir',bind:'campanha_publico_vincular',read:'campanha_publico_obter',operation:'campanha_publico_operacao',validate:'campanha_publico_validar'});
+const ACTIONS=Object.freeze({inspect:'campanha_publico_conferir',bind:'campanha_publico_vincular',release:'campanha_publico_desvincular',read:'campanha_publico_obter',operation:'campanha_publico_operacao',validate:'campanha_publico_validar'});
 const exact=(v,keys)=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const positive=v=>Number.isSafeInteger(v)&&v>0&&v<=2147483647;
 const fail=(code,status=503)=>Object.assign(Error(code),{code,status});
@@ -15,13 +15,13 @@ const response=(status,body)=>({_http:status,_body:body});
 const error=(status,code)=>response(status,{error:code});
 function request(input){
  let p;try{p=copy(input);if(Buffer.byteLength(JSON.stringify(p))>12000)throw Error();}catch{throw fail('SEGMENT_BINDING_INPUT',400);}
- const fields={[ACTIONS.validate]:['campaign_id','expected_campaign_version','expected_binding_version','expected_binding_hash'],[ACTIONS.inspect]:['campaign_id','audience_id','audience_revision'],[ACTIONS.read]:['campaign_id'],[ACTIONS.operation]:['idempotency_key'],[ACTIONS.bind]:['campaign_id','expected_campaign_version','expected_binding_version','audience_id','audience_revision','expected_definition_hash','expected_context_hash','expected_catalog_hash','idempotency_key']};
+ const fields={[ACTIONS.validate]:['campaign_id','expected_campaign_version','expected_binding_version','expected_binding_hash'],[ACTIONS.release]:['campaign_id','expected_campaign_version','expected_binding_version','expected_binding_hash','idempotency_key'],[ACTIONS.inspect]:['campaign_id','audience_id','audience_revision'],[ACTIONS.read]:['campaign_id'],[ACTIONS.operation]:['idempotency_key'],[ACTIONS.bind]:['campaign_id','expected_campaign_version','expected_binding_version','audience_id','audience_revision','expected_definition_hash','expected_context_hash','expected_catalog_hash','idempotency_key']};
  if(!p||!['fish','aristo'].includes(p.brand)||!Object.hasOwn(fields,p.acao)||!exact(p,['acao','brand',...fields[p.acao]]))throw fail('SEGMENT_BINDING_INPUT',400);
  if(Object.hasOwn(p,'campaign_id')&&!positive(p.campaign_id)||Object.hasOwn(p,'audience_revision')&&(!positive(p.audience_revision)||p.audience_revision>MAX)||Object.hasOwn(p,'expected_binding_version')&&(!Number.isSafeInteger(p.expected_binding_version)||p.expected_binding_version<0||p.expected_binding_version>=MAX))throw fail('SEGMENT_BINDING_INPUT',400);
  if(Object.hasOwn(p,'audience_id')){if(typeof p.audience_id!=='string'||!UUID.test(p.audience_id))throw fail('SEGMENT_BINDING_INPUT',400);p.audience_id=p.audience_id.toLowerCase();}
  if(Object.hasOwn(p,'expected_campaign_version')&&(typeof p.expected_campaign_version!=='string'||!CAMPAIGN_VERSION.test(p.expected_campaign_version)))throw fail('SEGMENT_BINDING_INPUT',400);
  for(const name of ['expected_definition_hash','expected_context_hash','expected_catalog_hash','expected_binding_hash'])if(Object.hasOwn(p,name)&&(typeof p[name]!=='string'||!HASH.test(p[name])))throw fail('SEGMENT_BINDING_INPUT',400);
- if(p.acao===ACTIONS.validate&&p.expected_binding_version<1)throw fail('SEGMENT_BINDING_INPUT',400);
+ if([ACTIONS.validate,ACTIONS.release].includes(p.acao)&&p.expected_binding_version<1)throw fail('SEGMENT_BINDING_INPUT',400);
  if(Object.hasOwn(p,'idempotency_key')&&(typeof p.idempotency_key!=='string'||!/^[A-Za-z0-9_.:-]{8,128}$/.test(p.idempotency_key)))throw fail('SEGMENT_BINDING_INPUT',400);return p;
 }
 const SQL=Object.freeze({
@@ -36,6 +36,10 @@ const SQL=Object.freeze({
  dependencies:"SELECT crm_audience_v2.lock_campaign_dependencies($1::integer)",
  head:"SELECT * FROM crm_audience_v2.campaign_binding WHERE campaign_id=$1::integer FOR UPDATE",
  headRead:"SELECT * FROM crm_audience_v2.campaign_binding WHERE campaign_id=$1::integer FOR SHARE",
+ releaseStatus:"SELECT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_release WHERE campaign_id=$1::integer AND binding_version=$2::integer AND binding_hash=$3::text) AS released",
+ releaseBlocked:"SELECT crm_audience_v2.campaign_binding_release_blocked($1::integer) AS blocked",
+ release:"INSERT INTO crm_audience_v2.campaign_binding_release(campaign_id,binding_version,brand,binding_hash,campaign_version,release,release_hash,actor) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8) RETURNING campaign_id,binding_version,brand,binding_hash,campaign_version,release,release_hash",
+ releaseRead:"SELECT campaign_id,binding_version,brand,binding_hash,campaign_version,release,release_hash FROM crm_audience_v2.campaign_binding_release WHERE campaign_id=$1::integer AND binding_version=$2::integer",
  audience:"SELECT r.*,a.brand,a.archived AS head_archived,a.version AS head_version FROM crm_audience_v2.audience a JOIN crm_audience_v2.revision r ON r.audience_id=a.id AND r.version=$2::integer WHERE a.id=$1::uuid AND a.brand=$3::text FOR SHARE OF a",
  // A row-version barrier, not an authorization bypass. Besides preventing old
  // RR snapshots from ignoring a new binding, it allows a native updated_at
@@ -48,7 +52,7 @@ const SQL=Object.freeze({
 });
 function nativeSnapshot(row,brand,id,requireDraft){
  const c=row?.native;if(!c||c.id!==id||c.attribs?.crm?.policy!=='crm-campaign-v1'||c.attribs.crm.brand!==brand)throw fail('SEGMENT_BINDING_CAMPAIGN_NOT_FOUND',404);
- if(requireDraft&&(c.status!=='draft'||c.sent!==0||c.started_at!==null||c.type!=='regular'||c.messenger!=='email'||c.content_type!=='html'||c.body_source!==null))throw fail('SEGMENT_BINDING_CAMPAIGN_LOCKED',409);
+ if(requireDraft&&(c.status!=='draft'||c.sent!==0||(c.last_subscriber_id??0)!==0||c.started_at!==null||c.type!=='regular'||c.messenger!=='email'||c.content_type!=='html'||c.body_source!==null))throw fail('SEGMENT_BINDING_CAMPAIGN_LOCKED',409);
  return copy(c);
 }
 function currentSnapshot(raw,brand,id){
@@ -75,7 +79,7 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
   let p;try{p=request(input);}catch(e){return error(400,e.code||'SEGMENT_BINDING_INPUT');}
   if(typeof key!=='string'||!/^[a-z0-9-]{8,128}$/.test(key))return error(401,'SEGMENT_UNAUTHORIZED');
   if(external!==undefined&&!(external instanceof AbortSignal))return error(400,'SEGMENT_BINDING_INPUT');
-  const writing=p.acao===ACTIONS.bind,controller=new AbortController(),signal=controller.signal;let timer,abortHandler;
+  const writing=[ACTIONS.bind,ACTIONS.release].includes(p.acao),controller=new AbortController(),signal=controller.signal;let timer,abortHandler;
   const active=()=>{if(signal.aborted)throw fail('SEGMENT_BINDING_UNCONFIRMED');};
   async function work(tx){
    if(typeof tx?.query!=='function')throw fail('SEGMENT_BINDING_ADAPTER');
@@ -90,7 +94,7 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
     if(old){await reauth();if(old.brand!==p.brand||writing&&(old.payload_hash!==H.digest(p)||H.digest(old.payload)!==H.digest(p)))return error(409,'SEGMENT_BINDING_OPERATION_MISMATCH');return copy(old.response);}
     if(!writing){await reauth();return error(404,'SEGMENT_BINDING_OPERATION_UNCONFIRMED');}
    }
-   if(refreshCatalog){await refreshCatalog({query,brand:p.brand,signal});await reauth();}
+   if(refreshCatalog&&p.acao!==ACTIONS.release){await refreshCatalog({query,brand:p.brand,signal});await reauth();}
    let result,applied=false,campaign=null,current=null,catalog=null,a=null,record=null;
    async function fresh({afterWrite=false,requireAudience=false}={}){
     const c=await S.readCatalog(query,p.brand),now=(await query(SQL.current,[p.campaign_id])).rows[0]?.current;
@@ -103,14 +107,34 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
     campaign=nativeSnapshot(rows[0],p.brand,p.campaign_id,p.acao!==ACTIONS.read);
     await query(SQL.dependencies,[p.campaign_id]);
     current=currentSnapshot((await query(SQL.current,[p.campaign_id])).rows[0]?.current,p.brand,p.campaign_id);
-    const heads=(await query(p.acao===ACTIONS.validate?SQL.headRead:SQL.head,[p.campaign_id])).rows;record=heads.length===1?heads[0]:null;if(record)binding(record);
+    const heads=(await query(p.acao===ACTIONS.validate?SQL.headRead:SQL.head,[p.campaign_id])).rows;record=heads.length===1?heads[0]:null;
+    if(record){binding(record);record.released=(await query(SQL.releaseStatus,[p.campaign_id,record.binding_version,record.binding_hash])).rows[0]?.released===true;}
+    if(p.acao===ACTIONS.release){
+     // Releasing is an escape hatch for a still-draft campaign. A legitimate
+     // native edit may make the saved binding stale, so CAS the current native
+     // version supplied by the caller while keeping the historical head pins
+     // exact. Audience/catalog freshness is deliberately irrelevant here.
+     if(!record||record.released||current.version!==p.expected_campaign_version||record.binding_version!==p.expected_binding_version||record.binding_hash!==p.expected_binding_hash)throw fail('SEGMENT_BINDING_VERSION_CONFLICT',409);
+     const history=(await query(SQL.bindingHistory,[p.campaign_id,record.binding_version])).rows;
+     if(history.length!==1||history[0].binding_hash!==record.binding_hash||H.digest(history[0].binding)!==record.binding_hash)throw fail('SEGMENT_BINDING_CORRUPT');
+     if((await query(SQL.releaseBlocked,[p.campaign_id])).rows[0]?.blocked!==false)throw fail('SEGMENT_BINDING_RELEASE_BLOCKED',409);
+     const released={contract:'crm-audience-campaign-binding-release-v1',brand:p.brand,campaign_id:p.campaign_id,campaign_version:current.version,binding_version:record.binding_version,binding_hash:record.binding_hash},releaseHash=H.digest(released);
+     let saved;try{saved=(await query(SQL.release,[released.campaign_id,released.binding_version,released.brand,released.binding_hash,released.campaign_version,JSON.stringify(released),releaseHash,who.actor])).rows;}
+     catch(e){if(['SEGMENT_BINDING_RELEASE_BLOCKED','SEGMENT_BINDING_RELEASE_CHANGED','SEGMENT_BINDING_RELEASE_SHAPE'].includes(e?.message))throw fail(e.message,409);throw e;}
+     if(saved.length!==1||H.digest(saved[0].release)!==saved[0].release_hash||saved[0].release_hash!==releaseHash)throw fail('SEGMENT_BINDING_CORRUPT');
+     applied=true;await reauth();
+     const confirmed=(await query(SQL.releaseRead,[released.campaign_id,released.binding_version])).rows;
+     if(confirmed.length!==1||confirmed[0].release_hash!==releaseHash||H.digest(confirmed[0].release)!==releaseHash)throw fail('SEGMENT_BINDING_UNCONFIRMED');
+     result=response(200,{released:{...released,release_hash:releaseHash},binding:null,transport_supported:false});
+    }
+    if(result===undefined){
     catalog=await S.readCatalog(query,p.brand);
-    if(p.acao===ACTIONS.read){await reauth();return response(200,{binding:record?view(record,current,catalog):null,campaign_id:p.campaign_id,campaign_version:current.version,...FLAGS});}
+    if(p.acao===ACTIONS.read){await reauth();return response(200,{binding:record&&!record.released?view(record,current,catalog):null,campaign_id:p.campaign_id,campaign_version:current.version,...FLAGS});}
     if(!catalog.ready)throw fail('SEGMENT_BINDING_UNAVAILABLE');
     const ids=current.definition.list_ids;if(ids.length<1||ids.length>30||new Set(ids).size!==ids.length||ids.some(id=>!positive(id)||!catalog.catalog.lists.some(l=>l.id===id&&l.available)))throw fail('SEGMENT_BINDING_CAMPAIGN_SCOPE',409);
     if(p.acao===ACTIONS.validate){
      if(!countProvider)throw fail('SEGMENT_BINDING_UNAVAILABLE');
-     if(!record||current.version!==p.expected_campaign_version||record.campaign_version!==current.version||record.binding_version!==p.expected_binding_version||record.binding_hash!==p.expected_binding_hash)throw fail('SEGMENT_BINDING_VERSION_CONFLICT',409);
+     if(!record||record.released||current.version!==p.expected_campaign_version||record.campaign_version!==current.version||record.binding_version!==p.expected_binding_version||record.binding_hash!==p.expected_binding_hash)throw fail('SEGMENT_BINDING_VERSION_CONFLICT',409);
      const b=binding(record),history=(await query(SQL.bindingHistory,[p.campaign_id,b.binding_version])).rows;
      if(history.length!==1||history[0].binding_hash!==record.binding_hash||H.digest(history[0].binding)!==record.binding_hash)throw fail('SEGMENT_BINDING_CORRUPT');
      const ref={brand:p.brand,audience_id:b.audience_id,audience_revision:b.audience_revision},revisions=(await query(SQL.audience,[b.audience_id,b.audience_revision,p.brand])).rows;
@@ -151,12 +175,13 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
     const saved=(await query(record?SQL.update:SQL.insert,params)).rows;if(saved.length!==1)throw fail('SEGMENT_BINDING_CORRUPT');record=saved[0];binding(record);
     await query(SQL.revision,[b.campaign_id,b.binding_version,JSON.stringify(b),hash,who.actor]);
     result=response(b.binding_version===1?201:200,{binding:view(record,current,catalog),transport_supported:false});
+    }
    }catch(e){
-    if(applied||!['SEGMENT_BINDING_CAMPAIGN_NOT_FOUND','SEGMENT_BINDING_CAMPAIGN_LOCKED','SEGMENT_BINDING_CAMPAIGN_SCOPE','SEGMENT_BINDING_BASE_REQUIRED','SEGMENT_BINDING_AUDIENCE_CHANGED','SEGMENT_BINDING_AUDIENCE_NOT_FOUND','SEGMENT_BINDING_UNAVAILABLE','SEGMENT_BINDING_VERSION_CONFLICT','SEGMENT_BINDING_CHANGED','SEGMENT_LIST_UNAVAILABLE'].includes(e?.code))throw e;
+    if(applied||!['SEGMENT_BINDING_CAMPAIGN_NOT_FOUND','SEGMENT_BINDING_CAMPAIGN_LOCKED','SEGMENT_BINDING_CAMPAIGN_SCOPE','SEGMENT_BINDING_BASE_REQUIRED','SEGMENT_BINDING_AUDIENCE_CHANGED','SEGMENT_BINDING_AUDIENCE_NOT_FOUND','SEGMENT_BINDING_UNAVAILABLE','SEGMENT_BINDING_VERSION_CONFLICT','SEGMENT_BINDING_CHANGED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_BINDING_RELEASE_BLOCKED','SEGMENT_BINDING_RELEASE_CHANGED','SEGMENT_BINDING_RELEASE_SHAPE'].includes(e?.code))throw e;
     result=error(e.status||503,e.code);
    }
    if(writing)await query(SQL.receipt,[who.actor,p.idempotency_key,p.brand,JSON.stringify(p),H.digest(p),JSON.stringify(result)]);
-   if(applied)await fresh({afterWrite:true,requireAudience:true});else await reauth();active();return result;
+   if(applied&&p.acao===ACTIONS.bind)await fresh({afterWrite:true,requireAudience:true});else await reauth();active();return result;
   }
   const uncertain=()=>response(writing?202:503,{error:'SEGMENT_BINDING_UNCONFIRMED',...(writing?{state:'unconfirmed',idempotency_key:p.idempotency_key,automatic_retry:false}:{})});
   if(external?.aborted)return uncertain();
