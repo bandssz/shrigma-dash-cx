@@ -4,6 +4,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
+const {readOnlyStyles}=require('./public/entry.js');
 
 const root=path.resolve(__dirname,'../..');
 const CONTENT=[
@@ -36,7 +37,10 @@ const LOGOS={
 };
 const LEGACY_MASTER_CHECK='panels.length===4&&new Set(panels).size===4&&["cx","growth","organico","influs"].every(p=>panels.includes(p))';
 const OPERATIONAL_MASTER_CHECK='panels.length===3&&new Set(panels).size===3&&["growth","organico","influs"].every(p=>panels.includes(p))';
-const CSP_BASE="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'";
+// Images are public assets already used by the panels. Meta serves signed thumbnails
+// from region-specific subdomains, so only its two CDN suffixes need subdomain matching.
+const IMAGE_SOURCES='https://cdn.shopify.com/s/files/ https://email.shrigma.com.br/uploads/ https://cdninstagram.com/ https://*.cdninstagram.com/ https://fbcdn.net/ https://*.fbcdn.net/ https://*.ibyteimg.com/ https://*.tiktokcdn.com/ https://*.tiktokcdn-us.com/ https://*.byteimg.com/ https://*.ttwstatic.com/';
+const CSP_BASE=`default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${IMAGE_SOURCES}; connect-src 'self'; font-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'`;
 function cspFor(html){
  const hashes=[...html.matchAll(/<script\s*>([\s\S]*?)<\/script>/gi)].map(m=>`'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
  return `script-src 'self' ${hashes.join(' ')}; ${CSP_BASE}`;
@@ -58,6 +62,9 @@ function transform(input,file){
  }
  for(const [url,local]of Object.entries(LOGOS))output=output.split(url).join(local);
  if(file.endsWith('.html')){
+  const area=file.slice(0,-'.html'.length),css=readOnlyStyles(area,{embeddedOnly:false});
+  if(!css||output.includes('id="dashboard-operational-readonly"'))throw Error('Missing or duplicate read-only panel presentation: '+file);
+  output=output.replace(/<\/head>/i,`<style id="dashboard-operational-readonly">${css}</style></head>`);
   output=putCsp(output,file);
   const firstScript=output.search(/<script\b/i),headEnd=output.search(/<\/head>/i);
   if(headEnd<0||firstScript>=0&&firstScript<headEnd)throw Error('Guard cannot load before content scripts: '+file);

@@ -2,6 +2,8 @@
 
 Meta solicitada: equipe utilizando `crm.shrigma.com.br`, `organico.shrigma.com.br` e `influs.shrigma.com.br` e gestão utilizando `gerencial.shrigma.com.br` na manhã de 01/10/2026 (horário de São Paulo). A data é alvo de execução, não critério para pular verificações de segurança ou interromper o CRM em andamento.
 
+Os critérios de liberação, as opções de entrega e a reversão estão sintetizados em [DASHBOARD-OPERACIONAL-CORTE-20261001.md](DASHBOARD-OPERACIONAL-CORTE-20261001.md). A auditoria funcional do frontend publicado no PR #199 identificou que o canário v7 ainda bloqueia prévias de imagem, atalhos externos e a biblioteca de mídia integrada; uma correção isolada está em preparação. A identidade respondida pelo novo dashboard é local e não valida a chave do backend. O webhook de links do Orgânico aceita escrita com a mesma chave de leitura, de modo que esse slot não pode ser provisionado como leitura estrita sem mudar o contrato de origem.
+
 ## Estado confirmado em 30/09–01/10/2026
 
 - Instalação paralela sintética já passou em 228 verificações remotas. Ela **não** usa dados reais e continua separada do serviço operacional.

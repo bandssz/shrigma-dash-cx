@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib'),http=require('node:http');
 const {spawnSync}=require('node:child_process');
 const policy=require('./artifact-policy.cjs'),boot=require('./bootstrap.cjs'),{pack}=require('./pack-runtime.cjs');
+const {build}=require('./build.cjs'),{readOnlyStyles}=require('./public/entry.js');
 function temp(t){const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-runtime-test-')));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
 function source(t){const dir=temp(t),dist=path.join(dir,'dist');fs.mkdirSync(path.join(dist,'public'),{recursive:true});
  for(const file of policy.PUBLIC_FILES){const to=path.join(dist,'public',file);fs.mkdirSync(path.dirname(to),{recursive:true});fs.writeFileSync(to,policy.isText(file)?'<!doctype html>TEST SYNTHETIC '+file:Buffer.from([0,255,1,2,3]));}
@@ -80,4 +81,26 @@ test('extracted actual runtime serves health and entry, denies panel/API without
  assert.equal(fs.statSync(dbPath).mode&0o777,0o600);
  const {DatabaseSync}=require('node:sqlite'),database=new DatabaseSync(dbPath);const count=database.prepare('SELECT count(*) n FROM users').get().n;database.close();assert.equal(count,1);
  const reopened=createAuth(options);reopened.close();const again=new DatabaseSync(dbPath);assert.equal(again.prepare('SELECT count(*) n FROM users').get().n,count);again.close();
+});
+test('extracted runtime serves read-only presentation on direct panel URLs',async t=>{
+ const dir=temp(t),dist=path.join(dir,'dist');build(dist);
+ const meta=pack(dist,path.join(dir,'pack'));
+ const artifact=policy.unpack(path.join(dir,'pack','runtime-pack.json'),path.join(dir,'artifact'),{expectedSha256:meta.packSha256});
+ const {createServer}=require(path.join(artifact.runtimeDir,'server.cjs'));
+ const areaHosts={growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'};
+ const auth={authorize:ctx=>{assert.equal(ctx.cookieHeader,'synthetic-session');return {role:'manager',areas:[ctx.area]};}};
+ const server=createServer({mode:'synthetic',managerHost:'manager.synthetic.invalid',areaHosts,upstreams:{},publicDir:artifact.publicDir},{auth});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ for(const [area,host]of Object.entries(areaHosts)){
+  const result=await new Promise((resolve,reject)=>{
+   const req=http.get({hostname:'127.0.0.1',port:server.address().port,path:'/'+area+'.html',headers:{Host:host,Cookie:'synthetic-session'}},res=>{
+    const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,html:Buffer.concat(chunks).toString('utf8')}));
+   });req.on('error',reject);
+  });
+  assert.equal(result.status,200,area);
+  const style=result.html.match(/<style id="dashboard-operational-readonly">([\s\S]*?)<\/style>/);
+  assert.ok(style,area);assert.equal(style[1],readOnlyStyles(area,{embeddedOnly:false}));
+  assert.equal(result.headers['content-security-policy'],result.html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1]);
+ }
 });

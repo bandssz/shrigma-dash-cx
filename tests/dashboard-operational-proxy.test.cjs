@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {decide,validateUpstreams,forward,ProxyError,MAX_PRINT_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
+const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_PRINT_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
 const {ENDPOINTS,DYNAMIC_ROUTES}=require('../services/dashboard-operational/build.cjs');
 const params=value=>new URLSearchParams(value);
 const denied=fn=>assert.throws(fn,e=>e instanceof ProxyError&&e.status>=400&&e.status<500);
@@ -136,6 +136,60 @@ test('the gateway sends only the selected backend credential and rewrites truste
   assert.equal(called,1);
   assert.equal(result.body.capabilities.endpoints.read,'https://crm.shrigma.com.br/api/crm-read');
   assert.equal(Object.hasOwn(result.body.capabilities.endpoints,'evil'),false);
+});
+
+test('published capabilities cannot announce operations the BFF has not enabled',()=>{
+  const configured={campaigns:REVIEWED_DYNAMIC.routes.campaigns,segments:REVIEWED_DYNAMIC.routes.segments,ab:FIXED_DESTINATIONS.ab,'tts-action':FIXED_DESTINATIONS['tts-action']};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review({campaigns:configured.campaigns,segments:configured.segments}));
+  const payload={pode_escrever:true,capabilities:{
+    write:true,write_key_required:true,
+    endpoints:{campaigns:configured.campaigns,segments:configured.segments,ab:configured.ab,'tts-action':configured['tts-action'],templates:'https://unreviewed.invalid/templates'},
+    campaigns:{contract_version:'crm-campaign-v1',brands:['fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,recover:true,audience_review:'legacy',recovery_policy:'legacy'},
+    segments:{contract_version:'crm-audience-v2',brands:['fish'],read:true,save:true,count:true,operation:true},
+    templates:{read_content:true,list_history:true,draft:true,submit:true,submit_email:true,email_test_recipient:'legacy'},
+    workflows:{set_mode:true,activate:true},
+    ab_experiment:{enabled:true,operation:true,read:true},
+    journeys:{graph_drafts:'legacy',graph_lifecycle:{prepare:true,publish_paused:true,activate:false}}
+  }};
+  const actual=rewriteCapabilities(payload,upstreams,'https://crm.shrigma.com.br');
+  assert.equal(actual.pode_escrever,false);
+  assert.deepEqual(actual.capabilities.endpoints,{campaigns:'https://crm.shrigma.com.br/api/campaigns',segments:'https://crm.shrigma.com.br/api/segments'});
+  for(const flag of ['save','validate','schedule','cancel','operation','recover'])assert.equal(actual.capabilities.campaigns[flag],false,flag);
+  assert.equal(actual.capabilities.campaigns.read,true);
+  for(const flag of ['save','count','operation'])assert.equal(actual.capabilities.segments[flag],false,flag);
+  assert.equal(actual.capabilities.segments.read,true);
+  for(const flag of ['read_content','list_history','draft','submit','submit_email'])assert.equal(actual.capabilities.templates[flag],false,flag);
+  assert.equal(actual.capabilities.workflows.activate,false);
+  assert.equal(actual.capabilities.ab_experiment.enabled,false);
+  assert.equal(actual.capabilities.ab_experiment.operation,false);
+  assert.equal(actual.capabilities.ab_experiment.read,false);
+  assert.deepEqual(actual.capabilities.journeys,{});
+  for(const policy of ['write_key_required','audience_review','recovery_policy'])assert.equal(JSON.stringify(actual.capabilities).includes(`"${policy}"`),false,policy);
+  assert.equal(payload.pode_escrever,true);
+  assert.equal(payload.capabilities.campaigns.save,true);
+});
+
+test('route-local capability flags are downgraded even without an endpoints map',()=>{
+  const original={capabilities:{draft:true,count:true,send:false,read:true}};
+  const actual=rewriteCapabilities(original,{},'https://crm.shrigma.com.br');
+  assert.deepEqual(actual,{capabilities:{draft:false,count:false,send:false,read:true}});
+  assert.deepEqual(original,{capabilities:{draft:true,count:true,send:false,read:true}});
+});
+
+test('capability action arrays retain only gateway reads and reject a writable endpoint alias',()=>{
+  const campaigns=REVIEWED_DYNAMIC.routes.campaigns,upstreams={campaigns:new URL(campaigns)};
+  const payload={capabilities:{
+    endpoints:{campaigns,write_api:campaigns},
+    actions:['read','campanha_listar','campanha_operacao','save','unreviewed'],
+    campaigns:{brands:['fish','aristo'],caps:['read','schedule'],permissions:[{action:'list',read:true,save:true},{action:'create',create:true}]}
+  }};
+  const actual=rewriteCapabilities(payload,upstreams,'https://crm.shrigma.com.br').capabilities;
+  assert.deepEqual(actual.endpoints,{campaigns:'https://crm.shrigma.com.br/api/campaigns'});
+  assert.deepEqual(actual.actions,['read','campanha_listar']);
+  assert.deepEqual(actual.campaigns.brands,['fish','aristo']);
+  assert.deepEqual(actual.campaigns.caps,['read']);
+  assert.deepEqual(actual.campaigns.permissions,[{action:'list',read:true,save:false}]);
+  assert.deepEqual(rewriteCapabilities({capabilities:['read','save','list','delete']},upstreams,'https://crm.shrigma.com.br').capabilities,['read','list']);
 });
 
 test('reviewed dynamic CRM URLs resolve to the same origin; unreviewed endpoints disappear',async()=>{

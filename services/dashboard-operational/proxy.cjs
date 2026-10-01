@@ -176,14 +176,67 @@ async function readResponse(res,max=MAX_RESPONSE){
   finally{reader.releaseLock();}
   return Buffer.concat(chunks);
 }
-function rewriteCapabilities(value,upstreams,origin){
-  if(!plain(value)||!plain(value.capabilities)||!plain(value.capabilities.endpoints))return value;
-  const urls=Object.fromEntries(Object.entries(upstreams).map(([name,url])=>[url.href,origin+'/api/'+name]));
-  const clone={...value,capabilities:{...value.capabilities,endpoints:{...value.capabilities.endpoints}}};
-  for(const [name,url]of Object.entries(clone.capabilities.endpoints)){
-    if(typeof url==='string'&&urls[url])clone.capabilities.endpoints[name]=urls[url];
-    else delete clone.capabilities.endpoints[name];
+// The legacy payload announces writer features independently of this gateway.
+// Browser capabilities must describe the BFF contract, never the upstream's
+// broader permissions or a feature that happens to be enabled there.
+const BLOCKED_CAPABILITY_FLAGS=new Set([
+  'write','save','draft','validate','submit','submit_email','set_mode','activate',
+  'schedule','cancel','recover','operation','bind','release','inspect','count',
+  'send','prepare','publish','publish_paused','create','update','edit','delete',
+  'archive','approve','reject','upload','drafts','mutate','set_tester','send_test'
+]);
+const BLOCKED_CAPABILITY_POLICIES=new Set(['graph_drafts','graph_lifecycle','email_test_recipient','audience_review','recovery_policy','write_key_required']);
+const CAPABILITY_ACTION_LISTS=new Set(['actions','operations','caps','allowed_actions','allowedActions','permissions']);
+const SAFE_READ_ACTIONS=new Set([
+  'read','view','get','list','catalog','status','identity','print','read_content','list_history',
+  ...Object.values(READ).flatMap(spec=>Object.entries(spec.actions)
+    .filter(([,policy])=>policy.edit!==true).map(([action])=>action))
+]);
+function scrubActionList(value,depth){
+  if(!Array.isArray(value)||depth>12)return [];
+  return value.filter(item=>{
+    const action=typeof item==='string'?item:plain(item)?item.action||item.name||item.method||item.id:null;
+    return typeof action==='string'&&SAFE_READ_ACTIONS.has(action);
+  }).map(item=>plain(item)?scrubCapabilityFlags(item,depth+1):item);
+}
+function scrubCapabilityFlags(value,depth=0){
+  if(depth>12)return Array.isArray(value)?[]:{};
+  if(Array.isArray(value))return value.map(item=>plain(item)||Array.isArray(item)?scrubCapabilityFlags(item,depth+1):item);
+  if(!plain(value))return value;
+  const safe={};
+  for(const [key,item]of Object.entries(value)){
+    if(BLOCKED_CAPABILITY_POLICIES.has(key))continue;
+    safe[key]=CAPABILITY_ACTION_LISTS.has(key)&&Array.isArray(item)?scrubActionList(item,depth+1):
+      BLOCKED_CAPABILITY_FLAGS.has(key)&&typeof item==='boolean'?false:
+      plain(item)||Array.isArray(item)?scrubCapabilityFlags(item,depth+1):item;
   }
+  return safe;
+}
+function rewriteCapabilities(value,upstreams,origin){
+  if(!plain(value))return value;
+  const clone={...value};
+  if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
+  if(Array.isArray(value.capabilities)){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
+  if(!plain(value.capabilities))return clone;
+  const caps=scrubCapabilityFlags(value.capabilities);
+  if(plain(value.capabilities.endpoints)){
+    const urls=Object.fromEntries(Object.entries(upstreams)
+      .filter(([route])=>Object.values(READ[route]?.actions||{}).some(action=>action.edit!==true))
+      .map(([route,url])=>[url.href,route]));
+    caps.endpoints={};
+    for(const [name,url]of Object.entries(value.capabilities.endpoints)){
+      const route=typeof url==='string'?urls[url]:null;
+      if(route&&(name===route||name==='read'&&route==='crm-read'))caps.endpoints[name]=origin+'/api/'+route;
+    }
+  }else delete caps.endpoints;
+  for(const name of ['templates','campaigns','segments','campaign_audience','ab_experiment']){
+    if(!plain(caps[name]))continue;
+    if(!caps.endpoints?.[name]){
+      for(const flag of ['read','read_content','list_history'])if(Object.hasOwn(caps[name],flag))caps[name][flag]=false;
+    }
+  }
+  if(plain(caps.ab_experiment))caps.ab_experiment.enabled=false;
+  clone.capabilities=caps;
   return clone;
 }
 async function forward({route,method,query,body,user,credential,upstreams,origin,fetchImpl=fetch}){

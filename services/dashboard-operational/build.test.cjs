@@ -7,7 +7,8 @@ const path=require('node:path');
 const vm=require('node:vm');
 const crypto=require('node:crypto');
 const {build,CONTENT,ENDPOINTS}=require('./build.cjs');
-const {inviteUrlForArea}=require('./public/entry.js');
+const {typeAndCsp}=require('./server.cjs');
+const {inviteUrlForArea,readOnlyStyles}=require('./public/entry.js');
 
 function withArtifact(fn){const dest=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-operational-'));try{build(dest);return fn(path.join(dest,'public'));}finally{fs.rmSync(dest,{recursive:true,force:true});}}
 function sha(source){return crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');}
@@ -56,6 +57,38 @@ test('entry uses email/password, fragment invites and same-origin CSP',()=>withA
  assert.doesNotMatch(js,/localStorage\.setItem|sessionStorage\.setItem|fetch\(['"]https:\/\//);
 }));
 
+test('operational iframe suppresses legacy access files and unavailable write controls without changing source panels',()=>{
+ const expected={
+  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]'],
+  organico:['#organico-acesso','#organico-acesso-bar','#ol-form','.ol-arquivar'],
+  influs:['#influ-access','#i-form','.cr-edit','[data-pilot-save]','[data-cob]:not([data-cob="recarregar"])','#tts-acesso']
+ };
+ for(const [area,selectors]of Object.entries(expected)){
+  const css=readOnlyStyles(area);
+  for(const selector of selectors)assert.ok(css.includes('body.panel-embedded '+selector),area+' '+selector);
+  assert.match(css,/display:none!important/);
+ }
+ assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #crm-media,/);
+ assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #crm-media-fields/);
+ assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #crm-segments-panel,/);
+ assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #control-drafts,/);
+ assert.ok(readOnlyStyles('growth',{embeddedOnly:false}).includes('body #crm-media-library-load'));
+ assert.equal(readOnlyStyles('cx'),'');
+ withArtifact(publicRoot=>{
+  assert.match(fs.readFileSync(path.join(publicRoot,'entry.js'),'utf8'),/installReadOnlyPresentation\(selected\)/);
+  for(const area of ['growth','organico','influs']){
+   const html=fs.readFileSync(path.join(publicRoot,area+'.html'),'utf8');
+   const style=html.match(/<style id="dashboard-operational-readonly">([\s\S]*?)<\/style>/);
+   assert.ok(style,'direct page must carry read-only presentation: '+area);
+   assert.equal(style[1],readOnlyStyles(area,{embeddedOnly:false}));
+   assert.ok(html.indexOf(style[0])<html.indexOf('<script src="/guard.js"'),area);
+  }
+  assert.match(fs.readFileSync(path.join(publicRoot,'growth.html'),'utf8'),/id="crm-media"/);
+  assert.match(fs.readFileSync(path.join(publicRoot,'organico.html'),'utf8'),/id="organico-chave-arquivo"/);
+  assert.match(fs.readFileSync(path.join(publicRoot,'influs.html'),'utf8'),/id="influ-access"/);
+ });
+});
+
 test('invite links match the exact production or test host for their area',()=>{
  const token='A'.repeat(43);
  const hosts={
@@ -73,28 +106,82 @@ test('invite links match the exact production or test host for their area',()=>{
 });
 
 test('every transformed inline script has a matching CSP hash and guard loads first',()=>withArtifact(publicRoot=>{
- for(const file of ['growth.html','organico.html','influs.html']){
+ for(const file of ['growth.html','organico.html','influs.html','crm/index.html','organico/index.html','creators/index.html','gestao/index.html']){
   const html=fs.readFileSync(path.join(publicRoot,file),'utf8');
-  assert.ok(html.indexOf('<script src="/guard.js"')<html.indexOf('<script>'));
+  if(!file.includes('/'))assert.ok(html.indexOf('<script src="/guard.js"')<html.indexOf('<script>'));
   const csp=html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1];
+  assert.equal(typeAndCsp(file,Buffer.from(html)).csp,csp,'header and meta CSP must match: '+file);
   for(const match of html.matchAll(/<script\s*>([\s\S]*?)<\/script>/g)){
    const hash=crypto.createHash('sha256').update(match[1]).digest('base64');assert.ok(csp.includes(`'sha256-${hash}'`),file);
   }
-  assert.match(csp,/connect-src 'self'/);assert.doesNotMatch(csp,/https:\/\//);
+  assert.equal(csp.split('; ').find(part=>part.startsWith('img-src ')),"img-src 'self' data: blob: https://cdn.shopify.com/s/files/ https://email.shrigma.com.br/uploads/ https://cdninstagram.com/ https://*.cdninstagram.com/ https://fbcdn.net/ https://*.fbcdn.net/ https://*.ibyteimg.com/ https://*.tiktokcdn.com/ https://*.tiktokcdn-us.com/ https://*.byteimg.com/ https://*.ttwstatic.com/");
+  for(const directive of ["connect-src 'self'","frame-src 'self' blob:","form-action 'self'","worker-src 'none'"])assert.ok(csp.split('; ').includes(directive),directive);
+  assert.doesNotMatch(csp.split('; ').find(part=>part.startsWith('script-src ')),/https?:\/\//);
  }
 }));
 
 function guardHarness(session={authenticated:true,csrf:'csrf-test'}){
- const calls=[];
+ const calls=[],opens=[],listeners={};
  const origin='https://crm.shrigma.com.br';
  const browser={fetch:async(url,options)=>{
   calls.push({url:String(url),options});
   return new Response(JSON.stringify(String(url).endsWith('/auth/session')?session:{ok:true}),{status:200,headers:{'Content-Type':'application/json'}});
- },open:()=>({})};browser.parent=browser;
- const context={window:browser,location:{origin,href:origin+'/growth.html'},navigator:{sendBeacon:()=>true},document:{addEventListener:()=>{}},Request,Response,Headers,URL,URLSearchParams,FormData,HTMLFormElement:class{},console};
+ },open:(...args)=>{opens.push(args);return {};}};browser.parent=browser;
+ const context={window:browser,location:{origin,href:origin+'/growth.html'},navigator:{sendBeacon:()=>true},document:{addEventListener:(type,handler)=>{listeners[type]=handler;}},Request,Response,Headers,URL,URLSearchParams,FormData,HTMLFormElement:class{},console};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/guard.js'),'utf8'),context);
- return {browser,calls,origin};
+ return {browser,calls,opens,listeners,origin};
 }
+
+test('only known HTTPS external paths open without opener or referrer',()=>{
+ const {browser,opens,listeners}=guardHarness();
+ const allowed=[
+  'https://email.shrigma.com.br/admin/campaigns/media',
+  'https://admin.shopify.com/',
+  'https://admin.shopify.com/store/gwx20u-vw/orders/123456789',
+  'https://fishermans.com.br/pages/seja-um-influenciador',
+  'https://www.instagram.com/reel/C1Ab_2/',
+  'https://instagram.com/creator.name',
+  'https://www.tiktok.com/@creator.name/video/1234567890',
+  'https://partner.tiktokshop.com/',
+  'https://services.tiktokshop.com/open/authorize?service_id=7670181171502434055',
+  'https://wa.me/5511999999999?text=Mensagem%20de%20teste'
+ ];
+ for(const href of allowed){
+  const link={href,target:'_self',rel:'',referrerPolicy:''},event={target:{closest:()=>link},preventDefault:()=>assert.fail('allowed link blocked'),stopImmediatePropagation:()=>assert.fail('allowed link stopped')};
+  listeners.click(event);
+  assert.equal(link.target,'_blank',href);assert.equal(link.rel,'noopener noreferrer',href);assert.equal(link.referrerPolicy,'no-referrer',href);
+  assert.ok(browser.open(href));
+  assert.deepEqual(Array.from(opens.at(-1)),[href,'_blank','noopener,noreferrer']);
+ }
+});
+
+test('lookalike hosts, unsafe schemes, paths and queries remain blocked',()=>{
+ const {browser,opens,listeners}=guardHarness();
+ const denied=[
+  'http://email.shrigma.com.br/admin/campaigns/media',
+  'https://email.shrigma.com.br.evil.test/admin/campaigns/media',
+  'https://user@email.shrigma.com.br/admin/campaigns/media',
+  'https://email.shrigma.com.br:8443/admin/campaigns/media',
+  'https://email.shrigma.com.br/admin/campaigns/media?token=secret',
+  'https://email.shrigma.com.br/uploads/example.png',
+  'https://admin.shopify.com/store/other/orders/123456789',
+  'https://www.tiktok.com/@creator.name/settings',
+  'https://services.tiktokshop.com/open/authorize?service_id=other',
+  'https://wa.me/5511999999999?text=hello&token=secret',
+  'https://www.instagram.com/reel/C1Ab_2/?token=secret',
+  'https://graph.facebook.com/v22.0/me',
+  'mailto:user@example.com',
+  'javascript:alert(1)'
+ ];
+ for(const href of denied){
+  let prevented=0,stopped=0;
+  const link={href,target:'_self',rel:''},event={target:{closest:()=>link},preventDefault:()=>prevented++,stopImmediatePropagation:()=>stopped++};
+  listeners.click(event);
+  assert.equal(prevented,1,href);assert.equal(stopped,1,href);
+  assert.equal(browser.open(href),null,href);
+ }
+ assert.equal(opens.length,0);
+});
 
 test('guard rejects external and unknown routes before any network request',async()=>{
  const {browser,calls}=guardHarness();

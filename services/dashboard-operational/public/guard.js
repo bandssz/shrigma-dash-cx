@@ -1,4 +1,4 @@
-/* Loaded before panel code. Browser requests can reach only the same-origin BFF. */
+/* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
  const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
  const nativeFetch=window.fetch.bind(window);
@@ -73,11 +73,32 @@
  window.WebSocket=class{constructor(){throw Error('Conexão externa bloqueada.');}};
  window.EventSource=class{constructor(){throw Error('Conexão externa bloqueada.');}};
  try{navigator.sendBeacon=()=>false;}catch(_){}
+ function approvedExternal(url){
+  if(url.protocol!=='https:'||url.username||url.password||url.port||url.hash||url.href.length>8192)return false;
+  const path=url.pathname,host=url.hostname;
+  if(host==='email.shrigma.com.br')return path==='/admin/campaigns/media'&&!url.search;
+  if(host==='admin.shopify.com')return !url.search&&(path==='/'||/^\/store\/(?:gwx20u-vw|c0kfm1-qt)\/orders\/[0-9]+\/?$/.test(path));
+  if(host==='fishermans.com.br'||host==='oaristocrata.com')return !url.search&&(path==='/'||path==='/pages/seja-um-influenciador');
+  if(host==='instagram.com'||host==='www.instagram.com')return !url.search&&/^\/(?:[A-Za-z0-9._]{1,30}|(?:p|reel|tv)\/[A-Za-z0-9_-]{1,80})\/?$/.test(path);
+  if(host==='www.tiktok.com')return !url.search&&/^\/@[A-Za-z0-9._]{2,30}(?:\/video\/[0-9]{6,25})?\/?$/.test(path);
+  if(host==='partner.tiktokshop.com')return path==='/'&&!url.search;
+  if(host==='services.tiktokshop.com')return path==='/open/authorize'&&url.search==='?service_id=7670181171502434055';
+  if(host==='wa.me'&&/^\/[0-9]{12,13}\/?$/.test(path)){
+   const params=[...url.searchParams];return !params.length||params.length===1&&params[0][0]==='text'&&params[0][1].length<=2048;
+  }
+  return false;
+ }
  const nativeOpen=window.open?.bind(window);
- window.open=function(destination,...args){try{const url=new URL(destination,location.href);if(url.origin===location.origin)return nativeOpen?.(url.href,...args);}catch(_){}return null;};
+ window.open=function(destination,...args){try{const url=new URL(destination,location.href);if(url.origin===location.origin)return nativeOpen?.(url.href,...args);if(approvedExternal(url))return nativeOpen?.(url.href,'_blank','noopener,noreferrer');}catch(_){}return null;};
  document.addEventListener('click',event=>{
   const link=event.target.closest?.('a[href]');if(!link)return;
-  try{const url=new URL(link.href,location.href);if(url.origin===location.origin||['blob:','data:'].includes(url.protocol))return;}catch(_){}
+  try{
+   const url=new URL(link.href,location.href);
+   if(url.origin===location.origin||['blob:','data:'].includes(url.protocol))return;
+   if(approvedExternal(url)){
+    link.target='_blank';link.rel='noopener noreferrer';link.referrerPolicy='no-referrer';return;
+   }
+  }catch(_){}
   event.preventDefault();event.stopImmediatePropagation();link.title='Destino externo indisponível neste painel.';
  },true);
  document.addEventListener('submit',event=>{

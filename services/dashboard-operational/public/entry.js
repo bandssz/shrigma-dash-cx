@@ -10,7 +10,49 @@ function inviteUrlForArea(raw,area){
  if(url.protocol!=='https:'||url.port||url.username||url.password||url.pathname!=='/'||url.search||!/^#invite=[A-Za-z0-9_-]{16,256}$/.test(url.hash)||!hosts[area].includes(url.hostname))return null;
  return url.href;
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea};
+// Presentation only: the BFF still validates every operation on the server.
+// The build can reuse the unscoped version for direct panel URLs, without
+// changing the legacy source pages or the separate CX dashboard.
+function readOnlyStyles(area,{embeddedOnly=true}={}){
+ const common=['#growth-acesso','#organico-acesso-bar','#organico-acesso','#influ-access'];
+ const areas={
+  growth:[
+   '#ab-acesso-legado','#ab-consultar','#btn-novo','#form-teste','.e-salvar','#ab-experiment-panel',
+   '#control-tab-graph','#control-graph',
+   '#control-drafts #drafts-create','#control-drafts #drafts-importar',
+   '#control-drafts #drafts-arquivo','#control-drafts #drafts-native-email',
+   '#control-drafts .drafts-key','#control-drafts #drafts-acesso',
+   '#control-drafts #draft-editor','#control-drafts [data-draft-edit]',
+   '#control-drafts [data-draft-dup]','#control-drafts [data-draft-delete]',
+   '#control-drafts [data-email-replicate]',
+   '#crm-segments-panel .gs-shell > header > p',
+   '#crm-segments-panel [data-gs="new"]','#crm-segments-panel [data-gs-fields]',
+   '#crm-segments-panel [data-gs="save"]','#crm-segments-panel [data-gs="count"]',
+   '#crm-segments-panel [data-gs="archive"]','#crm-segments-panel [data-gs-dialog]',
+   '#crm-media-library-load','#crm-media .crm-media-integrated',
+   '[data-crm-go="templates"]',
+   '#campaign-composer .ce-import','#campaign-composer [data-ce-access-open]',
+   '#campaign-composer [data-ce-access-form]','#campaign-composer [data-ce-new]',
+   '#campaign-composer [data-ce-recover]','#campaign-composer [data-ce-save]',
+   '#campaign-composer [data-ce-validate]','#campaign-composer [data-ce-schedule]',
+   '#campaign-composer [data-ce-cancel]','#campaign-composer [data-ce-saved-audience]'
+  ],
+  organico:['#ol-form','.ol-arquivar'],
+  influs:[
+   '#i-form','#i-editor','#i-btn-novo','.cr-edit','.i-edit','.cp-salvar','.i-salvar','.nc-salvar',
+   '[data-pilot-save]','[data-pilot-reconcile]','[data-link-new]','[data-candidate-edit]',
+   '[data-pay-edit]','[data-map-save]','[data-cob]:not([data-cob="recarregar"])',
+   '[data-pc="aprovar"]','[data-pc="recusar"]','[data-pc="encerrar"]',
+   '[data-pc="envio"]','[data-pc="envio-desfaz"]','[data-pc^="confirma-"]',
+   '[data-es="escopo"]','[data-es="story"]','[data-es="vincular"]','[data-es-form]',
+   '#tts-acesso','.tts-ok','.tts-nao','.tts-salvar','.tts-salvar-cob','.tts-consultar'
+  ]
+ };
+ if(!Object.hasOwn(areas,area))return '';
+ const scope=embeddedOnly?'body.panel-embedded':'body';
+ return [...common,...areas[area]].map(selector=>`${scope} ${selector}`).join(',')+'{display:none!important}';
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles};
 else (function(){'use strict';
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs & Afiliados',page:'/influs.html'}};
  const requested=document.body.dataset.accessPanel;
@@ -58,6 +100,14 @@ else (function(){'use strict';
  function permission(area){
   return {caps:[],label:session.user.email};
  }
+ function installReadOnlyPresentation(area){
+  const doc=frame?.contentDocument;
+  if(!doc?.head||doc.body?.dataset.panel!==area)return false;
+  if(doc.getElementById('dashboard-operational-readonly'))return true;
+  const css=readOnlyStyles(area);if(!css)return false;
+  const style=doc.createElement('style');style.id='dashboard-operational-readonly';style.textContent=css;doc.head.append(style);
+  return true;
+ }
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
@@ -80,6 +130,7 @@ else (function(){'use strict';
   if(event.data?.type!=='shrigma:ready'||event.data.panel!==selected)return;
   const target=new URL(AREAS[selected].page,location.origin);
   try{if(frame.contentWindow.location.pathname!==target.pathname)return;}catch(_){return;}
+  if(!installReadOnlyPresentation(selected)){showLogin('A apresentação segura deste painel não pôde iniciar. Entre novamente.');return;}
   frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key:session.uiKey,permission:permission(selected)},location.origin);
  });
  loginForm.addEventListener('submit',async event=>{
