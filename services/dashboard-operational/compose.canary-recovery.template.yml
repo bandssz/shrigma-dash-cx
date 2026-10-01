@@ -1,5 +1,6 @@
 # Replace the image with the reviewed canary digest and provide only disposable
 # synthetic DASHBOARD_ENCRYPTION_KEY and DASHBOARD_BOOTSTRAP_SHA256 at runtime.
+# In Easypanel Compose, enable createDotEnv so these ${...} values interpolate.
 # No source/live volume is mounted. The restored volume is external and unique.
 services:
   recovery:
