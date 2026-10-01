@@ -18,6 +18,8 @@ Mesmo algumas consultas fazem escrita técnica: `shrigma_panel_auth_v1` atualiza
 
 Os contratos abaixo são os implementados no checkout. Os fontes de patches descrevem mudanças possíveis e históricas; sua presença não comprova a versão ativa do workflow remoto, grants atuais, flag de envio, política de destinatários ou ausência de deriva. Consultas operacionais posteriores devem comparar a configuração ativa sem exportar credenciais. “Deploy aceito” ou capability anunciada não substitui recibo e validação da operação.
 
+Atualização de 01/10/2026: a configuração de `crm-audience` e `crm-campaign` informa a revisão de fonte `03a02b4c98f471e6739c8a7cbe46e49aa4cbf285`, com flags de público (binding, regular, A/B e ciclo de grafos) e mídia de campanhas ativas. Essa revisão e o merge `6cf7d09eb5db4616d88eb0bd524b1d84418f8854`, fixado no manifesto do gateway, têm a mesma árvore Git `4d5cfcde60596a70b3a18f4ce389628af74331f6`; os arquivos de origem pinados têm checksums idênticos. A diferença de IDs de commit, isoladamente, não exige reconstruir as rotas já revisadas. A configuração ativa, porém, não comprova grants no PostgreSQL nem o mapping externo de `<campaign path>/media`; a biblioteca integrada continua fechada para dados reais até essa verificação.
+
 Legenda: **L** = consulta de negócio; **P** = preparação, renderização, avaliação ou contagem que exige análise própria de efeito/custo; **W** = altera estado; **E** = pode enviar, criar cupom comercial, decidir amostra ou liberar execução futura. L não garante ausência da telemetria de autenticação descrita acima. A coluna de autenticação descreve o transporte atual do cliente até o backend, não um segredo a publicar no navegador.
 
 ## Endpoints fixos e rotas propostas
@@ -49,6 +51,7 @@ Estes endereços vêm de `API.capabilities.endpoints` no payload Growth. Sua aus
 | --- | --- | --- | --- |
 | `/api/templates` | `endpoints.templates`; fallback opcional global `TEMPLATE_API_URL` | API n8n de templates, e-mail, testes e builder de jornadas | `growth-templates-api.js:27`, `growth-builder.js:30`; endpoint e capabilities obrigatórios |
 | `/api/campaigns` | `endpoints.campaigns` | `crm-campaign`, via alias n8n publicado no caminho fixo de `services/crm-campaign/server.cjs:6` | `growth-campaign-api.js`; contrato `crm-campaign-v1`, marcas `fish` / `aristo` |
+| Sub-rota de mídia de campanhas | Derivada de `endpoints.campaigns` com sufixo `/media`, não anunciada separadamente | `crm-campaign`, `<campaign path>/media` | `growth-media.js`, `services/crm-campaign/server.cjs`; GET de biblioteca requer `read_content`, POST de upload requer `edit_content`. O mapping público dessa sub-rota ainda não foi comprovado. |
 | `/api/segments` | `endpoints.segments` | `crm-audience`, `/segments` | `growth-segment-client.js`; contrato e marcas conferidos |
 | `/api/campaign-audience` | `endpoints.campaign_audience` | `crm-audience`, `/campaign-audience` | `growth-campaign-audience-client.js`, `growth-campaign-regular-client.js` |
 | `/api/ab-experiment` | `endpoints.ab_experiment` | `crm-audience`, `/ab-experiments`, ou endpoint legado explicitamente conferido | `growth-ab-experiment-client.js`, `growth-ab-experiment-panel.js`; modo muda o transporte de autenticação |
@@ -57,7 +60,7 @@ Estes endereços vêm de `API.capabilities.endpoints` no payload Growth. Sua aus
 
 Vários clientes usam `new URL(endpoint)` sem base e exigem HTTPS, sem usuário/senha, query ou fragmento. O gateway precisa devolver **URLs absolutas HTTPS da sua própria origem**, como `https://<host-autorizado>/api/segments`, em todos os campos anunciados. Substituir por apenas `/api/segments` quebra esses clientes. Origem deve vir de configuração confiável; não refletir `Host` / forwarded headers arbitrários. Endpoints externos desconhecidos devem ser removidos e capacidades associadas desabilitadas, sem proxy genérico.
 
-Nesta revisão, `campaigns`, `segments`, `campaign_audience`, `ab_experiment` e `journey_graph_lifecycle` têm destinos candidatos exatos no manifesto de código e exigem revisão do serviço ativo antes de receber credenciais. O alias publicado de campanhas foi confirmado por leitura no Easypanel. `templates` e `journey_graph` não têm destino aprovado e falham fechado; a opção de endpoint legado de AB também não foi liberada. A revisão final do CRM paralelo pode mudar esses caminhos e invalida os hashes de fonte pinados nos testes.
+Nesta revisão, `campaigns`, `segments`, `campaign_audience`, `ab_experiment` e `journey_graph_lifecycle` têm destinos candidatos exatos no manifesto de código e exigem revisão do serviço ativo antes de receber credenciais. O alias publicado da rota **base** de campanhas foi confirmado por leitura no Easypanel; a sub-rota `/media` permanece sem comprovação de mapping. `templates` e `journey_graph` não têm destino aprovado e falham fechado; a opção de endpoint legado de AB também não foi liberada. Um novo commit que mude o conteúdo dos arquivos CRM pinados exigirá nova revisão, mesmo que a etiqueta de revisão ativa permaneça igual.
 
 ## Contratos de identidade e consultas comuns
 
@@ -78,6 +81,8 @@ Há uma diferença a conferir no cache: o frontend Orgânico consulta `painel=or
 | Família | Método e ação exata | Classe | Transporte atual de credencial | Efeito / permissão que o gateway deve preservar |
 | --- | --- | --- | --- | --- |
 | campaigns | GET `acao=campanha_catalogo`, `campanha_listar`, `campanha_obter`, `campanha_operacao` | L | Bearer; legado GET `k` apenas se não houver cabeçalho | `brand`, IDs e operação limitados ao escopo. Origem e campos validados pelo serviço. |
+| campaigns `/media` | GET `brand`, paginação ou consulta de uma tentativa por `operation_id`/`filename`/`sha256` | L + telemetria de acesso | Bearer obrigatório | Biblioteca de imagens Listmonk, com `read_content`; só a listagem paginada é candidata à primeira ponte de leitura. A flag ativa não comprova a publicação da sub-rota nem seus grants. |
+| campaigns `/media` | POST multipart de imagem | W | Bearer obrigatório | Upload real para Listmonk com `edit_content`; permanece bloqueado no gateway paralelo. Não exercitar contra serviço real no ensaio de hospedagem. |
 | campaigns | POST `acao=campanha_salvar` | W | `body.k`; cliente não manda Bearer no POST | Persiste campanha/material no Listmonk. `expected_version` + `idempotency_key`; sem retry automático. |
 | campaigns | POST `acao=campanha_validar` | P/W | `body.k` | Valida versão/material; não assumir função pura nem liberar no teste. |
 | campaigns | POST `acao=campanha_agendar`, `campanha_cancelar`, `campanha_recuperar` | W/E | `body.k` | Agendamento altera envio real; cancelar/recuperar muda estado real. Confirmação, versão e recibo são obrigatórios. |
@@ -212,6 +217,6 @@ Reversão da hospedagem não desfaz uma mensagem enviada, cupom criado ou transp
 
 ## Verificação deste documento
 
-A varredura incluiu chamadas `fetch`, wrappers de transporte e seletores nos fontes de CRM/Orgânico/Influs, entradas de autenticação, services Node e patches/SQLs associados. Links para Shopify Admin, Listmonk/media, Instagram/TikTok, Partner Center, OAuth e `wa.me` são navegação externa ou mídia, não novos endpoints autenticados do gateway. Não proxyar URL extraída de dados livremente; imagens externas demandam CSP/allowlist própria e não recebem credenciais do dashboard.
+A varredura incluiu chamadas `fetch`, wrappers de transporte e seletores nos fontes de CRM/Orgânico/Influs, entradas de autenticação, services Node e patches/SQLs associados. Atalhos para Shopify Admin, administração do Listmonk, Instagram/TikTok, Partner Center, OAuth e `wa.me` são navegação externa; a biblioteca integrada de campanhas é um contrato autenticado separado, descrito acima. Não proxyar URL extraída de dados livremente; imagens externas demandam CSP/allowlist própria e não recebem credenciais do dashboard.
 
 Não foram executados testes HTTP comerciais para confirmar os efeitos. A documentação distingue contrato de fonte, autenticação técnica e operação real. A publicação operacional, mudança de Origin/DNS, instalação de SQL e liberação de escrita permanecem fora desta auditoria e dependem do escopo/autorização específicos.

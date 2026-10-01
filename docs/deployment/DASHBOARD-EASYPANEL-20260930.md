@@ -27,7 +27,7 @@ MCP autenticado confirmado para <https://comando.shrigma.com.br>. Consultas de c
 
 Incidente de leitura: a resposta inicial do inventário foi exibida pelo executor sem a projeção necessária e incluiu credenciais de serviços existentes no registro da conversa. As consultas posteriores foram filtradas antes de exibição. Os valores não foram incorporados a arquivos, Git, imagens ou à instalação de teste. Nenhuma credencial existente foi alterada. Eventual rotação deve ser tratada em procedimento seguro, com aprovação e avaliação de impacto, fora desta preparação.
 
-| Serviço existente em `comunicacao` | Relação com o dashboard | Revisão observada | Recursos CPU / RAM |
+| Serviço existente em `comunicacao` | Relação com o dashboard | Revisão observada em 30/09 | Recursos CPU / RAM |
 |---|---|---|---|
 | `crm-panel-read` | Identidade CRM e cache autenticado em GET `/read`; PostgreSQL com role de leitura | `9bc7ee8fffdcc51a3cdab99a52242f65ad9643e2` | 0,5 / 512 MB |
 | `crm-audience` | Públicos, segmentos, vínculos e ciclo de vida de grafos; algumas leituras podem renovar catálogo | `79861de6f9c3628885e7840858011180b5af9899` | 0,5 / 512 MB |
@@ -36,7 +36,9 @@ Incidente de leitura: a resposta inicial do inventário foi exibida pelo executo
 
 Os quatro estavam em execução e saudáveis antes da preparação. Cada um mantém sua origem, revisão, flags, mounts, credenciais e limites. O caminho legado de campanhas no domínio n8n já aponta para `crm-campaign`; essa rota foi somente consultada.
 
-Variáveis existentes, apenas nomes: `CRM_READ_ENABLED`, `CRM_READ_REVISION`, `CRM_AUDIENCE_*`, `CRM_CAMPAIGN_*`, `CRM_SHOPIFY_*`, `PG*`, `CRM_PG_*`, `LISTMONK_ORIGIN`, `LISTMONK_USERNAME`, `LISTMONK_TOKEN`. O sync possui arquivo privado de segredos montado; não será copiado. `CRM_AUDIENCE_BINDING_ENABLED`, `CRM_AUDIENCE_REGULAR_ENABLED`, `CRM_AUDIENCE_AB_ENABLED` e `CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED` foram observadas desativadas e não foram alteradas.
+Variáveis existentes, apenas nomes: `CRM_READ_ENABLED`, `CRM_READ_REVISION`, `CRM_AUDIENCE_*`, `CRM_CAMPAIGN_*`, `CRM_SHOPIFY_*`, `PG*`, `CRM_PG_*`, `LISTMONK_ORIGIN`, `LISTMONK_USERNAME`, `LISTMONK_TOKEN`. O sync possui arquivo privado de segredos montado; não será copiado. Na leitura inicial de 30/09, `CRM_AUDIENCE_BINDING_ENABLED`, `CRM_AUDIENCE_REGULAR_ENABLED`, `CRM_AUDIENCE_AB_ENABLED` e `CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED` estavam desativadas. Essa observação histórica não descreve o estado atual.
+
+**Atualização de 01/10/2026, somente leitura:** `crm-panel-read` continuou habilitado na revisão `9bc7ee8fffdcc51a3cdab99a52242f65ad9643e2bc2`. `crm-audience` e `crm-campaign` passaram a informar a revisão de fonte `03a02b4c98f471e6739c8a7cbe46e49aa4cbf285`; as flags `CRM_AUDIENCE_BINDING_ENABLED`, `CRM_AUDIENCE_REGULAR_ENABLED`, `CRM_AUDIENCE_AB_ENABLED`, `CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED` e `CRM_CAMPAIGN_MEDIA_ENABLED` foram observadas ativas. O commit de fonte `03a02b4` e o merge `6cf7d09eb5db4616d88eb0bd524b1d84418f8854` fixado pelo gateway têm a mesma árvore Git `4d5cfcde60596a70b3a18f4ce389628af74331f6`; os arquivos pinados de audience/campaign têm conteúdo idêntico. Isso não comprova grants ativos do banco, nem publicação da sub-rota de mídia no host legado. Nenhum desses serviços ou suas configurações foi modificado pela migração.
 
 O frontend usa URLs públicas em `config.js`: API/cache CX, A/B, cadastro de influenciadores, leitura e ação TikTok. `crm-read-config.js` aponta para `crm-panel-read`. Endpoints de campanhas, templates, públicos e grafos podem vir dinamicamente de `capabilities.endpoints`. Integrações externas de negócio ficam nos backends: n8n, PostgreSQL/Listmonk, Shopify, Meta/WhatsApp, SES, Gleap, TikTok e Troquecommerce. O frontend não coleta diretamente do Gleap.
 
