@@ -1,0 +1,955 @@
+{
+  "id": "JkQ4xbNZFjqaWQbY",
+  "name": "Attribution collector — synthetic surrounding workflow",
+  "versionId": "4a5eb5d2-b807-4d54-ab94-b9b7562c0af2",
+  "activeVersionId": "4a5eb5d2-b807-4d54-ab94-b9b7562c0af2",
+  "active": true,
+  "nodes": [
+    {
+      "id": "synthetic-node-0",
+      "name": "Synthetic 0",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-1",
+      "name": "Synthetic 1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        50
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-2",
+      "name": "Synthetic 2",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-3",
+      "name": "Synthetic 3",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        150
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-4",
+      "name": "Synthetic 4",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-5",
+      "name": "Synthetic 5",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        250
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-6",
+      "name": "Synthetic 6",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-7",
+      "name": "Synthetic 7",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        350
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-8",
+      "name": "Synthetic 8",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-9",
+      "name": "Synthetic 9",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        450
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-10",
+      "name": "Synthetic 10",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-11",
+      "name": "Synthetic 11",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        550
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-12",
+      "name": "Synthetic 12",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        600
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-13",
+      "name": "Synthetic 13",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        650
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-14",
+      "name": "Synthetic 14",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        700
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-15",
+      "name": "Synthetic 15",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        750
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-16",
+      "name": "Synthetic 16",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        800
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-17",
+      "name": "Synthetic 17",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        850
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-18",
+      "name": "Synthetic 18",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        900
+      ],
+      "parameters": {}
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gwx20u-vw.myshopify.com/admin/api/2025-01/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "variables",
+                    "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+              "limitPagesFetched": true,
+              "maxRequestsElement": 100,
+              "requestInterval": 600
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "64ac293d-0d81-4809-8669-3fd6dc6b230b",
+      "name": "Atribuição lê aristo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CkOtCPF6b7FIyTjx",
+          "name": "Shopify Admin — Aristocrata (header)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "synthetic-node-20",
+      "name": "Synthetic 20",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1000
+      ],
+      "parameters": {}
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://c0kfm1-qt.myshopify.com/admin/api/2025-01/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "variables",
+                    "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+              "limitPagesFetched": true,
+              "maxRequestsElement": 100,
+              "requestInterval": 600
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "dbbafe25-5609-4c05-9307-0ebbb1f61ef6",
+      "name": "Atribuição lê fish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Xv9XgNyJ1wyJFCTJ",
+          "name": "Shopify Admin — Fishermans (header)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "synthetic-node-22",
+      "name": "Synthetic 22",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-23",
+      "name": "Synthetic 23",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1150
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "8fb1447d-1411-4211-821c-de4f0b0bed58",
+      "name": "Atribuição por pedido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        750
+      ],
+      "parameters": {
+        "jsCode": "/* Order-level attribution. No transport, credentials or browser identity matching. */\nconst CRMAttribution=(()=>{\n const VERSION='last-non-direct-30d-v2',DAY=864e5;\n const norm=v=>String(v??'').trim().toLowerCase();\n const time=v=>v?Date.parse(v):NaN;\n const own={fish:['fishermans.com.br','c0kfm1-qt.myshopify.com'],aristo:['oaristocrata.com','gwx20u-vw.myshopify.com'],olivas:['olivasdocampo.com.br','6r9bqn-ic.myshopify.com']};\n function host(url){const m=String(url||'').match(/^(?:https?:)?\\/\\/([^/?#]+)/i);return m?m[1].split('@').pop().split(':')[0].toLowerCase().replace(/\\.$/,''):'';}\n function internal(url,brand){const h=host(url);return !!h&&(h==='pix-on-site.appmax.com.br'||(own[brand]||[]).some(d=>h===d||h.endsWith('.'+d)));}\n function channel(u){\n  const s=norm(u?.source),m=norm(u?.medium);\n  if(['organico','social','dm','dm-automation'].includes(m))return null;\n  if(['email','listmonk'].includes(s)||s.includes('listmonk'))return 'email';\n  if(['whatsapp','rptn'].includes(s)||s.includes('reportana'))return 'whatsapp';\n  return null;\n }\n function visit(v,brand){\n  if(!v||!Number.isFinite(time(v.occurredAt)))return null;\n  const u=Object.fromEntries(['source','medium','campaign','content','term'].map(k=>[k,norm(v.utmParameters?.[k])]));\n  const tagged=Object.values(u).some(Boolean),ref=String(v.referrerUrl||''),source=norm(v.source);\n  const nonDirect=tagged||!!(ref&&!internal(ref,brand))||!!(source&&!['direct','unknown','(direct)'].includes(source)&&!internal(source.includes('://')?source:'https://'+source,brand));\n  return {at:new Date(v.occurredAt).toISOString(),source:u.source,medium:u.medium,campaign:u.campaign,content:u.content,term:u.term,\n   channel:channel(u),non_direct:nonDirect};\n }\n function classify(o){\n  const brand=o._marca;if(!['fish','aristo','olivas'].includes(brand))throw Error('ATTRIBUTION_BRAND_INVALID');\n  if(!/^gid:\\/\\/shopify\\/Order\\/\\d+$/.test(o.id||'')||!Number.isFinite(time(o.createdAt))||!Number.isFinite(time(o.updatedAt)))throw Error('ATTRIBUTION_ORDER_INVALID');\n  const j=o.customerJourneySummary,created=time(o.createdAt),money=o.netPaymentSet?.shopMoney;\n  const financial=o.displayFinancialStatus,amount=money?.amount==null?null:Number(money.amount),currency=money?.currencyCode||null;\n  const eligible=o.test===false&&!o.cancelledAt&&['PAID','PARTIALLY_REFUNDED'].includes(financial)&&currency==='BRL'&&Number.isFinite(amount)&&amount>0;\n  const ready=j?.ready===true,complete=ready&&j.moments?.pageInfo?.hasNextPage===false;\n  const valid=v=>v&&time(v.at)<=created&&time(v.at)>=created-30*DAY;\n  const all=[...(j?.moments?.nodes||[]),...(complete?[j?.firstVisit]:[]),j?.lastVisit].map(v=>visit(v,brand)).filter(valid);\n  const moments=[...new Map(all.map(v=>[[v.at,v.source,v.medium,v.campaign,v.content,v.term].join('|'),v])).values()].sort((a,b)=>time(a.at)-time(b.at));\n  const last=visit(j?.lastVisit,brand),strict=valid(last)?last:null;\n  const winner=[...moments].reverse().find(v=>v.non_direct)||null;\n  // Recent-first pagination proves a found latest non-direct touch. Without a\n  // winner, incomplete history must remain unknown, never \"direct\" by default.\n  const nonDirectKnown=ready&&(!!winner||complete),strictKnown=ready&&!!strict;\n  let reason=!eligible?'order_ineligible':!ready?'journey_not_ready':!nonDirectKnown?'journey_incomplete':winner?'attributed_visit':'direct_or_untracked';\n  return {brand,order_id:o.id,order_name:String(o.name||''),created_at:o.createdAt,updated_at:o.updatedAt,\n   test:o.test===true,cancelled:!!o.cancelledAt,financial_status:financial||'UNKNOWN',currency,net_amount:Number.isFinite(amount)?amount:null,\n   eligible,ready,complete,strict_known:strictKnown,non_direct_known:nonDirectKnown,\n   last_click:strictKnown?strict:null,last_non_direct:nonDirectKnown?winner:null,\n   touches:ready?moments.filter(v=>v.channel):[],customer_order_index:Number(j?.customerOrderIndex)||null,\n   reason,model_version:VERSION};\n }\n return {VERSION,norm,channel,visit,classify};\n})();\n\nconst raw=$input.all().map(i=>i.json);for(const b of ['aristo','fish','olivas'])if(!raw.some(x=>x._marca===b&&x._coverage_complete))throw Error('ATTRIBUTION_BRAND_INCOMPLETE');const rows=raw.filter(x=>!x._coverage_complete).map(x=>CRMAttribution.classify(x));return [{json:{orders:rows,scope:$('Janela').first().json.attrib}}];"
+      }
+    },
+    {
+      "id": "synthetic-node-25",
+      "name": "Synthetic 25",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1250
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-26",
+      "name": "Synthetic 26",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1300
+      ],
+      "parameters": {}
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://6r9bqn-ic.myshopify.com/admin/api/2025-01/graphql.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "variables",
+                    "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+              "limitPagesFetched": true,
+              "maxRequestsElement": 100,
+              "requestInterval": 600
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "timeout": 120000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Shopify-Access-Token",
+              "value": "={{ $('Token Olivas (24h)').first().json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "id": "a1ca755c-f53b-4876-bf51-db71f621e291",
+      "name": "Atribuição lê olivas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        1150
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "synthetic-node-28",
+      "name": "Synthetic 28",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "synthetic-node-29",
+      "name": "Synthetic 29",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1450
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {},
+  "settings": {},
+  "activeVersion": {
+    "versionId": "4a5eb5d2-b807-4d54-ab94-b9b7562c0af2",
+    "nodes": [
+      {
+        "id": "synthetic-node-0",
+        "name": "Synthetic 0",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-1",
+        "name": "Synthetic 1",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          50
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-2",
+        "name": "Synthetic 2",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          100
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-3",
+        "name": "Synthetic 3",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          150
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-4",
+        "name": "Synthetic 4",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          200
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-5",
+        "name": "Synthetic 5",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          250
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-6",
+        "name": "Synthetic 6",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          300
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-7",
+        "name": "Synthetic 7",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          350
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-8",
+        "name": "Synthetic 8",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          400
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-9",
+        "name": "Synthetic 9",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          450
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-10",
+        "name": "Synthetic 10",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          500
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-11",
+        "name": "Synthetic 11",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          550
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-12",
+        "name": "Synthetic 12",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          600
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-13",
+        "name": "Synthetic 13",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          650
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-14",
+        "name": "Synthetic 14",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          700
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-15",
+        "name": "Synthetic 15",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          750
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-16",
+        "name": "Synthetic 16",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          800
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-17",
+        "name": "Synthetic 17",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          850
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-18",
+        "name": "Synthetic 18",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          900
+        ],
+        "parameters": {}
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://gwx20u-vw.myshopify.com/admin/api/2025-01/graphql.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+          "options": {
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "body",
+                      "name": "variables",
+                      "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+                "limitPagesFetched": true,
+                "maxRequestsElement": 100,
+                "requestInterval": 600
+              }
+            },
+            "response": {
+              "response": {
+                "neverError": false
+              }
+            },
+            "timeout": 120000
+          }
+        },
+        "id": "64ac293d-0d81-4809-8669-3fd6dc6b230b",
+        "name": "Atribuição lê aristo",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          600,
+          600
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CkOtCPF6b7FIyTjx",
+            "name": "Shopify Admin — Aristocrata (header)"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "synthetic-node-20",
+        "name": "Synthetic 20",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1000
+        ],
+        "parameters": {}
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://c0kfm1-qt.myshopify.com/admin/api/2025-01/graphql.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+          "options": {
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "body",
+                      "name": "variables",
+                      "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+                "limitPagesFetched": true,
+                "maxRequestsElement": 100,
+                "requestInterval": 600
+              }
+            },
+            "response": {
+              "response": {
+                "neverError": false
+              }
+            },
+            "timeout": 120000
+          }
+        },
+        "id": "dbbafe25-5609-4c05-9307-0ebbb1f61ef6",
+        "name": "Atribuição lê fish",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          600,
+          900
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Xv9XgNyJ1wyJFCTJ",
+            "name": "Shopify Admin — Fishermans (header)"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "synthetic-node-22",
+        "name": "Synthetic 22",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1100
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-23",
+        "name": "Synthetic 23",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1150
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "8fb1447d-1411-4211-821c-de4f0b0bed58",
+        "name": "Atribuição por pedido",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1500,
+          750
+        ],
+        "parameters": {
+          "jsCode": "/* Order-level attribution. No transport, credentials or browser identity matching. */\nconst CRMAttribution=(()=>{\n const VERSION='last-non-direct-30d-v2',DAY=864e5;\n const norm=v=>String(v??'').trim().toLowerCase();\n const time=v=>v?Date.parse(v):NaN;\n const own={fish:['fishermans.com.br','c0kfm1-qt.myshopify.com'],aristo:['oaristocrata.com','gwx20u-vw.myshopify.com'],olivas:['olivasdocampo.com.br','6r9bqn-ic.myshopify.com']};\n function host(url){const m=String(url||'').match(/^(?:https?:)?\\/\\/([^/?#]+)/i);return m?m[1].split('@').pop().split(':')[0].toLowerCase().replace(/\\.$/,''):'';}\n function internal(url,brand){const h=host(url);return !!h&&(h==='pix-on-site.appmax.com.br'||(own[brand]||[]).some(d=>h===d||h.endsWith('.'+d)));}\n function channel(u){\n  const s=norm(u?.source),m=norm(u?.medium);\n  if(['organico','social','dm','dm-automation'].includes(m))return null;\n  if(['email','listmonk'].includes(s)||s.includes('listmonk'))return 'email';\n  if(['whatsapp','rptn'].includes(s)||s.includes('reportana'))return 'whatsapp';\n  return null;\n }\n function visit(v,brand){\n  if(!v||!Number.isFinite(time(v.occurredAt)))return null;\n  const u=Object.fromEntries(['source','medium','campaign','content','term'].map(k=>[k,norm(v.utmParameters?.[k])]));\n  const tagged=Object.values(u).some(Boolean),ref=String(v.referrerUrl||''),source=norm(v.source);\n  const nonDirect=tagged||!!(ref&&!internal(ref,brand))||!!(source&&!['direct','unknown','(direct)'].includes(source)&&!internal(source.includes('://')?source:'https://'+source,brand));\n  return {at:new Date(v.occurredAt).toISOString(),source:u.source,medium:u.medium,campaign:u.campaign,content:u.content,term:u.term,\n   channel:channel(u),non_direct:nonDirect};\n }\n function classify(o){\n  const brand=o._marca;if(!['fish','aristo','olivas'].includes(brand))throw Error('ATTRIBUTION_BRAND_INVALID');\n  if(!/^gid:\\/\\/shopify\\/Order\\/\\d+$/.test(o.id||'')||!Number.isFinite(time(o.createdAt))||!Number.isFinite(time(o.updatedAt)))throw Error('ATTRIBUTION_ORDER_INVALID');\n  const j=o.customerJourneySummary,created=time(o.createdAt),money=o.netPaymentSet?.shopMoney;\n  const financial=o.displayFinancialStatus,amount=money?.amount==null?null:Number(money.amount),currency=money?.currencyCode||null;\n  const eligible=o.test===false&&!o.cancelledAt&&['PAID','PARTIALLY_REFUNDED'].includes(financial)&&currency==='BRL'&&Number.isFinite(amount)&&amount>0;\n  const ready=j?.ready===true,complete=ready&&j.moments?.pageInfo?.hasNextPage===false;\n  const valid=v=>v&&time(v.at)<=created&&time(v.at)>=created-30*DAY;\n  const all=[...(j?.moments?.nodes||[]),...(complete?[j?.firstVisit]:[]),j?.lastVisit].map(v=>visit(v,brand)).filter(valid);\n  const moments=[...new Map(all.map(v=>[[v.at,v.source,v.medium,v.campaign,v.content,v.term].join('|'),v])).values()].sort((a,b)=>time(a.at)-time(b.at));\n  const last=visit(j?.lastVisit,brand),strict=valid(last)?last:null;\n  const winner=[...moments].reverse().find(v=>v.non_direct)||null;\n  // Recent-first pagination proves a found latest non-direct touch. Without a\n  // winner, incomplete history must remain unknown, never \"direct\" by default.\n  const nonDirectKnown=ready&&(!!winner||complete),strictKnown=ready&&!!strict;\n  let reason=!eligible?'order_ineligible':!ready?'journey_not_ready':!nonDirectKnown?'journey_incomplete':winner?'attributed_visit':'direct_or_untracked';\n  return {brand,order_id:o.id,order_name:String(o.name||''),created_at:o.createdAt,updated_at:o.updatedAt,\n   test:o.test===true,cancelled:!!o.cancelledAt,financial_status:financial||'UNKNOWN',currency,net_amount:Number.isFinite(amount)?amount:null,\n   eligible,ready,complete,strict_known:strictKnown,non_direct_known:nonDirectKnown,\n   last_click:strictKnown?strict:null,last_non_direct:nonDirectKnown?winner:null,\n   touches:ready?moments.filter(v=>v.channel):[],customer_order_index:Number(j?.customerOrderIndex)||null,\n   reason,model_version:VERSION};\n }\n return {VERSION,norm,channel,visit,classify};\n})();\n\nconst raw=$input.all().map(i=>i.json);for(const b of ['aristo','fish','olivas'])if(!raw.some(x=>x._marca===b&&x._coverage_complete))throw Error('ATTRIBUTION_BRAND_INCOMPLETE');const rows=raw.filter(x=>!x._coverage_complete).map(x=>CRMAttribution.classify(x));return [{json:{orders:rows,scope:$('Janela').first().json.attrib}}];"
+        }
+      },
+      {
+        "id": "synthetic-node-25",
+        "name": "Synthetic 25",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1250
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-26",
+        "name": "Synthetic 26",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1300
+        ],
+        "parameters": {}
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://6r9bqn-ic.myshopify.com/admin/api/2025-01/graphql.json",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({query:\"query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }\\n customerJourneySummary{ready customerOrderIndex\\n firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }\\n moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }\",variables:{search:$('Janela').first().json.attrib.search,after:null} }) }}",
+          "options": {
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "body",
+                      "name": "variables",
+                      "value": "={{ { search:$('Janela').first().json.attrib.search,after:$response.body.data.orders.pageInfo.endCursor } }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ $response.body.data.orders.pageInfo.hasNextPage === false }}",
+                "limitPagesFetched": true,
+                "maxRequestsElement": 100,
+                "requestInterval": 600
+              }
+            },
+            "response": {
+              "response": {
+                "neverError": false
+              }
+            },
+            "timeout": 120000
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Shopify-Access-Token",
+                "value": "={{ $('Token Olivas (24h)').first().json.access_token }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        "id": "a1ca755c-f53b-4876-bf51-db71f621e291",
+        "name": "Atribuição lê olivas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          650,
+          1150
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "synthetic-node-28",
+        "name": "Synthetic 28",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1400
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "synthetic-node-29",
+        "name": "Synthetic 29",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          0,
+          1450
+        ],
+        "parameters": {}
+      }
+    ],
+    "connections": {}
+  }
+}
