@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=991cc7fe1d14">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-VVc5vpYHMTYKQm0th9FayBWodUstFrEaj+mjV2Zpt4c='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sYcav7Y+3kpVAWYDwncyGV86reWTNDEoD64ihFSL4vY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=dcca17ce9497"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3ff3665b22ce"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -924,7 +924,7 @@ function openFlows(canal,selection={}){
   $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
 }
 
-const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar()});
+const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar({retryIdentity:true})});
 GrowthView.init();
 function chave(){return ACESSO_GROWTH.current();}
 function mostraAcessoGrowth(mensagem=''){
@@ -952,8 +952,8 @@ async function leCacheGrowth(k){
   return {r:c.r,next:c.r.ok&&cacheGrowthValido(c.payload)?c.payload:null};
 }
 // GROWTH_CACHE_READ_END
-async function carregar(){
-  GrowthView.resolve();
+async function carregar({retryIdentity=false}={}){
+  GrowthView.resolve({retry:retryIdentity});
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
@@ -995,7 +995,7 @@ async function carregar(){
       renderJornadas(modeloOp2);
     }else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
     else if(SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
-    $('#tentar-novamente').onclick=()=>carregar();
+    $('#tentar-novamente').onclick=()=>carregar({retryIdentity:true});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
   }
@@ -1102,7 +1102,7 @@ document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
 $('#campaign-email-show').onclick=()=>setCanal('email');
 document.querySelectorAll('#seg-canal button').forEach(b=>b.onclick=()=>setCanal(b.dataset.canal));
-$('#btn-atualizar').onclick=()=>carregar();
+$('#btn-atualizar').onclick=()=>carregar({retryIdentity:true});
 $('#cmp').onchange=e=>{CMP=e.target.checked;render();};
 $('#sel-grao').onchange=()=>render();
 $('#camp-busca').oninput=e=>{TABELAS.camp.q=e.target.value;render();};
@@ -1125,6 +1125,7 @@ $('#f-salvar').onclick=salvarTeste;
 addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
 GC.init();GRU.enterBrand(MARCA);GRU.ctx={api:null,marca:MARCA};
 $('#crm-audience-create').onclick=()=>openAudienceCreation();
+window.addEventListener('shrigma:operator-ready',()=>{if(API)render();});
 document.querySelectorAll('[data-audience-create-brand]').forEach(b=>b.onclick=()=>openAudienceCreation(b.dataset.audienceCreateBrand));
 
 // depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova

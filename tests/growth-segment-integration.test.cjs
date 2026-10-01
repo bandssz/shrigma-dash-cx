@@ -1,6 +1,6 @@
 'use strict';
 // The manifest sources and the real page run in a local DOM. No generated
-// assets, browser, API, credentials or external transport are used here.
+// browser, API, credentials or external transport are used here.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {webcrypto}=require('node:crypto'),{parseHTML}=require('linkedom');
 const F=require('./growth-segment-fixture.cjs'),root=path.resolve(__dirname,'..');
@@ -8,7 +8,7 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,'tools/panel-build/mani
 function payload(capabilities){return {_escopo:'growth',_painel:'growth',gerado_em:'2026-09-28T12:00:00Z',capabilities,
  ...Object.fromEntries(['crm_campanha','crm_fluxo','crm_conversao','crm_campanha_receita','crm_campanha_grupo','crm_diario','crm_intradia','crm_carrinho','crm_galho','crm_regra_galho','crm_teste','crm_teste_braco','crm_credencial','wa_saude'].map(k=>[k,[]])),
  crm_base:['fish','aristo'].map(marca=>({marca,dia:'2026-09-28',coletado_em:'2026-09-28T12:00:00Z',total:marca==='fish'?12:34,segmentos:{}}))};}
-async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='fish',section='base'}={}){
+async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='fish',section='base',directLogin=false,directCaps=['draft','validate','submit','read_content','list_history','submission'],built=false}={}){
  const f=F.fixture({version}),html=fs.readFileSync(path.join(root,'growth.html'),'utf8'),{document,window}=parseHTML(html);
  const selectProto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(selectProto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
@@ -25,11 +25,14 @@ async function boot({version='crm-segment-v1',enabled=true,manager=true,brand='f
  addEventListener(){},setInterval(fn,ms){intervals.push({fn,ms});return intervals.length;},clearInterval(){},setTimeout,clearTimeout,queueMicrotask,
  Image:class{},Blob:class{},prompt:()=>null,confirm:()=>false,
  fetch:async(url,init)=>{requests.push({url,init});const u=new URL(url);if(u.hostname==='segments.example.test'||u.hostname==='changed.example.test')return f.fetch(url,init);
+  if(u.searchParams.get('action')==='identity'&&directLogin)return {status:200,ok:true,json:async()=>({schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',allowedPanels:['growth'],permissions:{growth:{who:'panel:synthetic-manager',label:'Synthetic manager',caps:directCaps}}})};
   const body=structuredClone(response);if(u.searchParams.get('action')==='cache_growth')body._cache_gerado_em=new NativeDate(FixedDate.now()).toISOString();return {status:200,ok:true,json:async()=>body};}});
  const run=code=>vm.runInContext(code,context);
- for(const script of manifest.scripts)vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
- run("shrigmaGuardaChave('growth','synthetic-manager-key');"+(manager?"SHRIGMA_OPERATOR_SESSION.growth={caps:['read_content','draft'],label:'Synthetic manager'};":''));
+ if(built)vm.runInContext(fs.readFileSync(path.join(root,'assets/panels/growth.js'),'utf8'),context,{filename:'published-growth.js'});
+ else for(const script of manifest.scripts)vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
+ if(!directLogin)run("shrigmaGuardaChave('growth','synthetic-manager-key');"+(manager?"SHRIGMA_OPERATOR_SESSION.growth={caps:['read_content','draft'],label:'Synthetic manager'};":''));
  for(const script of document.querySelectorAll('script:not([src])'))vm.runInContext(script.textContent,context,{filename:'growth-inline.js'});
+ if(directLogin){document.querySelector('#growth-chave').value='synthetic-manager-key';await document.querySelector('#growth-acesso').onsubmit({preventDefault(){}});}
  const x={f,document,window,run,requests,intervals,hashes,q:s=>document.querySelector(s),setResponse:v=>{response=v;},response:()=>structuredClone(response)};
  await settled(x);return x;
 }
@@ -112,4 +115,24 @@ test('create CTA respects the selected brand capability and clears a prior brand
  assert.equal(x.q('#crm-audience-create').disabled,true);x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,0);assert.equal(x.run('MARCA'),'fish');
  await changeBrand(x,'aristo');assert.equal(x.q('#crm-audience-create').disabled,false);x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].body.brand,'aristo');
  x.run("CRM_AUDIENCE_CREATE_NOTICE='Aviso anterior Aristo';CRM_AUDIENCE_CREATE_NOTICE_BRAND='aristo';renderPublicCreation()");await changeBrand(x,'todas');assert.doesNotMatch(x.q('#crm-audience-create-status').textContent,/Aviso anterior/);
+});
+
+// Real direct form route: no seeded operator session or manually inserted grant.
+test('direct Gerência CRM login enables audience creation from the server identity permission',async()=>{
+ for(const built of [false,true])for(const brand of ['fish','aristo']){const x=await boot({directLogin:true,built,brand:'todas',version:'crm-audience-v2'});
+  assert.equal(x.q('#crm-audience-create').disabled,false,'direct form create, built='+built);
+  assert.equal(x.run("chave()"),'synthetic-manager-key');
+  x.q('#crm-audience-create').click();x.q('[data-audience-create-brand="'+brand+'"]').click();await settled(x);
+  assert.equal(x.run('MARCA'),brand);assert.ok(x.q('[data-gs-name]'));assert.equal(x.q('[data-gs="save"]').disabled,true);
+  assert.equal(x.f.calls.length,1);assert.equal(x.f.calls[0].method,'GET');assert.equal(x.f.calls[0].body.acao,'segmentos_listar');
+  assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);
+  fill(x,brand);assert.equal(x.q('[data-gs="save"]').disabled,false);x.q('[data-gs="save"]').click();await settled(x);
+  assert.equal(x.f.rows.size,1);assert.equal([...x.f.rows.values()][0].brand,brand);assert.equal(x.f.calls.filter(c=>c.method==='POST').length,1);
+  for(const [k,v]of x.f.store)assert.doesNotMatch(k+v,/synthetic-manager-key/);
+ }
+});
+test('direct read-only CRM login does not acquire draft permission from visible server feature capabilities',async()=>{
+ const x=await boot({directLogin:true,directCaps:['read_content'],version:'crm-audience-v2'});
+ assert.equal(x.q('#crm-audience-create').disabled,true);assert.equal(x.f.calls.length,0);
+ x.q('#crm-audience-create').click();await settled(x);assert.equal(x.f.calls.length,0);
 });
