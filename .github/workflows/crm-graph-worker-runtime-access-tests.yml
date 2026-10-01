@@ -1,0 +1,42 @@
+name: CRM graph worker runtime access
+on:
+  pull_request:
+    paths:
+      - 'n8n/growth/journey-graph-worker-runtime-access.sql'
+      - 'n8n/growth/journey-graph-worker-lease.sql'
+      - 'tests/journey-graph-worker-runtime-access-postgres.cjs'
+      - '.github/workflows/crm-graph-worker-runtime-access-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: graph_worker_access_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55436:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d graph_worker_access_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.14.0'
+      - name: Install pinned PostgreSQL client
+        run: npm install --prefix "$RUNNER_TEMP/graph-access-test-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.0
+      - name: Prove minimal worker and API runtime access
+        env:
+          NODE_PATH: ${{ runner.temp }}/graph-access-test-tools/node_modules
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:55436/graph_worker_access_test
+          GRAPH_WORKER_RUNTIME_ACCESS_TEST_ISOLATED: '1'
+        run: node tests/journey-graph-worker-runtime-access-postgres.cjs
