@@ -36,6 +36,7 @@ type graphCacheDB interface {
 
 type graphHeartbeatResult struct {
 	Ready         bool      `json:"ready"`
+	Code          string    `json:"code"`
 	TemplateCount int       `json:"template_count"`
 	ExpiresAt     time.Time `json:"expires_at"`
 	Snapshots     []struct {
@@ -128,6 +129,18 @@ func (r *graphCacheRuntime) heartbeat(ctx context.Context) error {
 	var result graphHeartbeatResult
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return err
+	}
+	if !result.Ready && result.Code == "template_set_changed" {
+		// A newly confirmed clone changed the expected set during this read.
+		// SQL cleared all send snapshots but retained this physical lease. Keep
+		// HTTP available to create/review templates; no guard can send until an
+		// exact subsequent heartbeat confirms the actual compiled cache.
+		r.mu.Lock()
+		r.ready = false
+		r.snapshots = make(map[int]string)
+		r.rawSnapshots = make(map[int]manager.GraphTemplateSnapshot)
+		r.mu.Unlock()
+		return nil
 	}
 	next := make(map[int]string, len(result.Snapshots))
 	rawNext := make(map[int]manager.GraphTemplateSnapshot, len(snapshots))

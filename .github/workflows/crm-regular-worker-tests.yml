@@ -79,8 +79,16 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/regular-native"
           python3 tools/listmonk-regular-build/native_proof.py --binary "$RUNNER_TEMP/regular-package/candidate/listmonk" --report "$RUNNER_TEMP/regular-native/native-proof.json" --pg-bin "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --source-dir "$RUNNER_TEMP/regular-inputs/source" --runtime-dir "$RUNNER_TEMP/regular-native" --node-path "$RUNNER_TEMP/regular-test-tools/node_modules"
+      - name: Prove real HTTP clones and process-owned graph cache without SMTP
+        env:
+          GRAPH_CACHE_NATIVE_PROOF_ISOLATED: '1'
+        run: |
+          mkdir -p "$RUNNER_TEMP/graph-native"
+          python3 tools/listmonk-regular-build/graph_native_proof.py --package "$RUNNER_TEMP/regular-package" --receipt "$RUNNER_TEMP/graph-native/graph-native-proof.json" --pg-bin "$RUNNER_TEMP/regular-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --node-path "$RUNNER_TEMP/regular-test-tools/node_modules"
       - name: Build OCI and verify the exact tested binary and inherited runtime configuration
         run: python3 tools/listmonk-regular-package/image.py --package "$RUNNER_TEMP/regular-package" --native-proof "$RUNNER_TEMP/regular-native/native-proof.json" --revision "$GITHUB_SHA" --out "$RUNNER_TEMP/regular-image"
+      - name: Include verified graph HTTP cache proof in the immutable artifact
+        run: cp "$RUNNER_TEMP/graph-native/graph-native-proof.json" "$RUNNER_TEMP/regular-image/graph-native-proof.json"
       - name: Upload verified image, corresponding source and proofs only
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

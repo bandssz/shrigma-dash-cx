@@ -188,6 +188,59 @@ class PublishTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'SOURCE_RUN'):
                         publish.verify(bad, artifact, lock, self.source_pr)
 
+    def graph_fixture(self, artifact, lock):
+        runtime = 'a' * 64
+        lock['graph_cache_runtime_sha256'] = runtime
+        package_path = artifact / 'regular-image' / 'package-manifest.json'
+        package = json.loads(package_path.read_text())
+        package.update(graph_cache_runtime_sha256=runtime, graph_cache_enabled_by_default=False)
+        write_json(package_path, package)
+        graph = {
+            'schema': 'crm-graph-real-http-cache-native-v1', 'success': True,
+            'postgres': '17.10', 'binary_sha256': lock['binary_sha256'],
+            'runtime_sha256': runtime, 'regular_native_schema_prepared': True,
+            'cluster_stopped': True, 'database_removed': True, 'production_changed': False,
+            'smtp_calls': 0, 'customer_sends': 0,
+            'proof': {'success': True, 'actual_http_clone': True, 'creates': 2,
+                      'extra_create_on_replay': False, 'process_generated_heartbeat': True,
+                      'actual_compiled_cache_snapshots': 2, 'brands': ['fish', 'aristo'],
+                      'graph_enabled': False, 'cart_enabled': False, 'entries': 0,
+                      'dispatches': 0, 'send_logs': 0},
+        }
+        write_json(artifact / 'regular-image' / 'graph-native-proof.json', graph)
+        return graph
+
+    def test_graph_artifact_requires_exact_process_http_proof(self):
+        for mutation in [None, {'success': False}, {'binary_sha256': 'f' * 64},
+                         {'runtime_sha256': 'f' * 64}, {'customer_sends': 1},
+                         {'cluster_stopped': False}]:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as folder:
+                artifact, lock, run = self.fixture(Path(folder))
+                graph = self.graph_fixture(artifact, lock)
+                if mutation:
+                    graph.update(mutation)
+                    write_json(artifact / 'regular-image' / 'graph-native-proof.json', graph)
+                    with self.assertRaisesRegex(ValueError, 'GRAPH_NATIVE_PROOF'):
+                        publish.verify_proofs(artifact, lock)
+                else:
+                    publish.verify_proofs(artifact, lock)
+                    del lock['graph_cache_runtime_sha256']
+                    with self.assertRaisesRegex(ValueError, 'GRAPH_PACKAGE_PROOF'):
+                        publish.verify_proofs(artifact, lock)
+
+    def test_graph_proof_cannot_substitute_synthetic_or_incomplete_cache(self):
+        for mutation in [{'actual_http_clone': False}, {'process_generated_heartbeat': False},
+                         {'actual_compiled_cache_snapshots': 0}, {'brands': ['fish', 'fish']},
+                         {'extra_create_on_replay': True}, {'graph_enabled': True},
+                         {'dispatches': 1}]:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as folder:
+                artifact, lock, run = self.fixture(Path(folder))
+                graph = self.graph_fixture(artifact, lock)
+                graph['proof'].update(mutation)
+                write_json(artifact / 'regular-image' / 'graph-native-proof.json', graph)
+                with self.assertRaisesRegex(ValueError, 'GRAPH_NATIVE_PROOF'):
+                    publish.verify_proofs(artifact, lock)
+
     def test_merged_run_without_pr_array_requires_direct_merged_pr(self):
         with tempfile.TemporaryDirectory() as folder:
             artifact, lock, run = self.fixture(Path(folder))

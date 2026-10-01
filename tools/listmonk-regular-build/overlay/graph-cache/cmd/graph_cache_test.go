@@ -40,6 +40,7 @@ type graphRuntimeDB struct {
 	expiresAt   time.Time
 	consumed    bool
 	uncertain   bool
+	pendingSet  bool
 }
 
 func (d *graphRuntimeDB) SelectContext(_ context.Context, dest any, query string, _ ...any) error {
@@ -62,6 +63,10 @@ func (d *graphRuntimeDB) GetContext(_ context.Context, dest any, query string, a
 		if !ok || len(args) != 6 {
 			return errors.New("invalid heartbeat call")
 		}
+		if d.pendingSet {
+			*out = []byte(`{"ready":false,"code":"template_set_changed"}`)
+			return nil
+		}
 		*out = []byte(fmt.Sprintf(`{"ready":true,"template_count":1,"expires_at":%q,"snapshots":[{"template_id":71,"snapshot_sha256":%q}]}`, d.expiresAt.UTC().Format(time.RFC3339Nano), d.snapshotSHA))
 		return nil
 	}
@@ -82,6 +87,33 @@ func (d *graphRuntimeDB) GetContext(_ context.Context, dest any, query string, a
 		return nil
 	}
 	return errors.New("unexpected get")
+}
+
+func TestExpectedSetGrowthBlocksPushUntilExactHeartbeat(t *testing.T) {
+	runtime, db, guard := readyGraphRuntime(t)
+	tpl, snapshot := heldGraphTemplate(t, runtime)
+	db.pendingSet = true
+	if err := runtime.heartbeat(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	pushes := 0
+	push := func() error { pushes++; return nil }
+	if err := guardedGraphPush(context.Background(), runtime, guard, 71, 7, tpl, snapshot, push); !errors.Is(err, errGraphGuardRejected) {
+		t.Fatalf("pending set allowed transport: %v", err)
+	}
+	if pushes != 0 || db.consumed {
+		t.Fatal("pending cache set reached consume or push")
+	}
+	db.pendingSet = false
+	if err := runtime.heartbeat(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := guardedGraphPush(context.Background(), runtime, guard, 71, 7, tpl, snapshot, push); err != nil {
+		t.Fatal(err)
+	}
+	if pushes != 1 {
+		t.Fatal("exact cache heartbeat did not restore one guarded push")
+	}
 }
 
 func graphRuntimeManager(t *testing.T, body string) *manager.Manager {

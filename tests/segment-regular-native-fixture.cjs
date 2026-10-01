@@ -247,7 +247,8 @@ async function prepare(){
    VALUES($1,$2,$3,'panel:native',$4::jsonb,$5)`,[spec.review,spec.test,brand,JSON.stringify(evidence),H.digest(evidence)]);
   await pool.query(`INSERT INTO crm_audience_v2.ab_regular_review
    (id,actor,brand,test_id,experiment_version,scope_hash,audience_review_id,inspection,materials,runtime,checked_at,expires_at)
-   VALUES($1,'panel:native',$2,$3,1,$4,$5,'{"synthetic_boundary":"prepared"}'::jsonb,'[{},{}]'::jsonb,'{}'::jsonb,clock_timestamp(),clock_timestamp()+interval '60 seconds')`,
+   SELECT $1,'panel:native',$2,$3,1,$4,$5,'{"synthetic_boundary":"prepared"}'::jsonb,'[{},{}]'::jsonb,'{}'::jsonb,t,t+interval '60 seconds'
+   FROM (SELECT clock_timestamp() t) observed`,
    [spec.regularReview,brand,spec.test,H.digest(scope),spec.review]);
  }
  const fishMembers=(await pool.query('SELECT subscriber_id,arm FROM public.crm_ab_member_v2 WHERE test_id=$1 ORDER BY arm,subscriber_id',[ab.fish.test])).rows;

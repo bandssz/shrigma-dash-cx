@@ -201,6 +201,31 @@ def verify_proofs(directory, lock):
             postgres.get('production_changed') is False and postgres.get('sends') == 0 and
             isinstance(runs, list) and runs and all(r.get('exit_code') == 0 for r in runs),
             'POSTGRES_PROOF')
+    if ('graph_cache_runtime_sha256' in package or
+            'regular-image/graph-native-proof.json' in lock['artifact_files']):
+        runtime = package.get('graph_cache_runtime_sha256')
+        require(re.fullmatch(r'[0-9a-f]{64}', str(runtime)) is not None and
+                runtime == lock.get('graph_cache_runtime_sha256') and
+                package.get('graph_cache_enabled_by_default') is False,
+                'GRAPH_PACKAGE_PROOF')
+        graph = load_json(directory / 'regular-image' / 'graph-native-proof.json')
+        proof = graph.get('proof', {})
+        require(graph.get('schema') == 'crm-graph-real-http-cache-native-v1' and
+                graph.get('success') is True and graph.get('postgres') == '17.10' and
+                graph.get('binary_sha256') == lock['binary_sha256'] and
+                graph.get('runtime_sha256') == runtime and
+                graph.get('regular_native_schema_prepared') is True and
+                graph.get('cluster_stopped') is True and graph.get('database_removed') is True and
+                graph.get('production_changed') is False and
+                graph.get('smtp_calls') == 0 and graph.get('customer_sends') == 0 and
+                proof.get('success') is True and proof.get('actual_http_clone') is True and
+                proof.get('creates') == 2 and proof.get('extra_create_on_replay') is False and
+                proof.get('process_generated_heartbeat') is True and
+                proof.get('actual_compiled_cache_snapshots') == 2 and
+                sorted(proof.get('brands', [])) == ['aristo', 'fish'] and
+                proof.get('graph_enabled') is False and proof.get('cart_enabled') is False and
+                proof.get('entries') == 0 and proof.get('dispatches') == 0 and
+                proof.get('send_logs') == 0, 'GRAPH_NATIVE_PROOF')
 
 
 def verify(run, directory, lock=None, source_pr=None):

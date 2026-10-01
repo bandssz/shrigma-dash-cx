@@ -165,12 +165,16 @@ BEGIN
   END IF;
   SELECT count(*) INTO expected_count FROM crm_graph_candidate.native_template_v1
    WHERE cache_target=target AND state='ready' AND clone_template_id IS NOT NULL;
-  IF expected_count=0 OR jsonb_array_length(snapshots)<>expected_count THEN
+  IF jsonb_array_length(snapshots)<>expected_count THEN
+    -- A clone may become ready between the worker's expected-set read and this
+    -- heartbeat. Clear every send snapshot, retain the same physical lease and
+    -- allow a subsequent exact heartbeat. Competing instances were rejected
+    -- above; byte divergence and duplicate IDs still suspend durably below.
     INSERT INTO crm_graph_candidate.cache_identity_lease_v1(cache_target,instance_id,lease_token,executable_sha256,runtime_sha256,checked_at,expires_at,suspended_at,suspended_reason)
-    VALUES(target,instance,token,executable_sha,runtime_sha,now_at,now_at+make_interval(secs=>d.lease_seconds),now_at,'template_set_drift')
-    ON CONFLICT(cache_target) DO UPDATE SET suspended_at=excluded.suspended_at,suspended_reason=excluded.suspended_reason,checked_at=excluded.checked_at;
+    VALUES(target,instance,token,executable_sha,runtime_sha,now_at,now_at+make_interval(secs=>d.lease_seconds),NULL,NULL)
+    ON CONFLICT(cache_target) DO UPDATE SET checked_at=excluded.checked_at,expires_at=excluded.expires_at;
     DELETE FROM crm_graph_candidate.cache_identity_snapshot_v1 WHERE cache_target=target;
-    RETURN jsonb_build_object('ready',false,'code','template_set_drift');
+    RETURN jsonb_build_object('ready',false,'code','template_set_changed');
   END IF;
   until_at:=now_at+make_interval(secs=>d.lease_seconds);
   FOR item IN SELECT value FROM jsonb_array_elements(snapshots) x(value) LOOP
@@ -325,6 +329,7 @@ CREATE FUNCTION crm_graph_candidate.cache_identity_readiness_v1(target text) RET
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,crm_graph_candidate AS $f$
   SELECT jsonb_build_object('contract','journey_graph_cache_readiness_v1','cache_target',target,
     'ready',coalesce(d.enabled AND l.suspended_at IS NULL AND l.expires_at>clock_timestamp()+interval '3 seconds'
+      AND EXISTS(SELECT 1 FROM crm_graph_candidate.native_template_v1 n WHERE n.cache_target=target AND n.state='ready')
       AND (SELECT count(*) FROM crm_graph_candidate.cache_identity_snapshot_v1 s WHERE s.cache_target=target AND s.instance_id=l.instance_id AND s.lease_token=l.lease_token AND s.expires_at>clock_timestamp()+interval '3 seconds')
           =(SELECT count(*) FROM crm_graph_candidate.native_template_v1 n WHERE n.cache_target=target AND n.state='ready'),false),
     'checked_at',l.checked_at,'expires_at',l.expires_at)

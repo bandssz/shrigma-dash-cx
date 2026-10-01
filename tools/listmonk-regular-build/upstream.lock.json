@@ -2,22 +2,23 @@
   "graph_cache": {
     "enabled_by_default": false,
     "overlay": {
-      "cmd/graph_cache.go": "681f07f0121e15fc021953af1e1f6649f688d3d1fb0d1554614a06c26915680f",
-      "cmd/graph_cache_test.go": "ebde432099fac1da489337e3f81ac001e5b083afe18efbbd0c280f136fcaa815",
+      "cmd/graph_cache.go": "42bb627f00fb75944cb12ca5ed09af2f9325a30ba4774c3978e849f40b6201ba",
+      "cmd/graph_cache_test.go": "baf90579071168801b0b50bb8cddec69cbab1ee83c8da1068825832273ee370e",
       "internal/manager/graph_cache.go": "5d29459d2a657f157cc0eb92af55bbc0ea6174f5ef790111ed662fe471429aa7",
       "internal/manager/graph_cache_test.go": "ddc29908dbfaf8ca78da1f2b502aae13ac6c7c2c3299937abbbd7b88061e7e22",
       "models/graph_cache_test.go": "5aa720d90dec556532206618d3ba82a1f25ae84a9ea14b2f2902fe96a75891cd"
     },
-    "runtime_sha256": "b3ac8589c6532e41003de47d36ec23b78847c242c656a26dc68880727db42f97",
+    "runtime_sha256": "df0cf59e2d3a51e6aae34872de73c4f9a49ed651144dfaf081fad302a68cb3af",
     "runtime_sources": {
       "repo": {
-        "n8n/growth/journey-graph-cache-identity.sql": "99080bcfdb0f27b35c15bbb78775a60e290a37b00e7a5e795e6815bc46957f6a",
+        "n8n/growth/journey-graph-cache-identity.sql": "4964c6bba8de6950786a62cd91366930b17ae3285f2275c7ea9f2e7ab595ff3b",
         "n8n/growth/journey-graph-cart.cjs": "ab19cc98fa840d2d8914f1006258854d01296aceb4fac93107e67b6c096efa93"
       },
       "worker": [
         "cmd/graph_cache.go",
         "cmd/graph_cache_test.go",
         "cmd/main.go",
+        "cmd/templates.go",
         "cmd/tx.go",
         "internal/manager/graph_cache.go",
         "internal/manager/graph_cache_test.go",
@@ -30,6 +31,10 @@
       "cmd/main.go": {
         "base_sha256": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
         "sha256": "e95edd4dc35c5c13ac483c0d6448c0efe0d5cd6035c02f9cc73d74170c400049"
+      },
+      "cmd/templates.go": {
+        "base_sha256": "96ed968ceae5b59b48e8e8034e859efdf5d005a708a244b87d9292be8437c18d",
+        "sha256": "32d1841328a7d5275474698a5ef204492cccaeededb0aba32cdd6c4241dd134e"
       },
       "cmd/tx.go": {
         "base_sha256": "554184511684b6d0b3cd0c531094d9ac594bc18dcbfa0b2ae72b0f94a8821f23",

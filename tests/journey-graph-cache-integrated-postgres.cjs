@@ -66,17 +66,28 @@ async function main(){
    has_function_privilege('crm_audience_api','crm_graph_candidate.lifecycle_activation_readiness_v1(uuid,text,integer,integer,text)','EXECUTE') api_activation`)).rows[0];
   assert.deepEqual(acl,{worker_issue:true,worker_consume:false,api_readiness:true,api_activation:true});proof.acl=true;
 
-  const f=await x.prepare('fish');
-  const native=(await pool.query('SELECT id,cache_target,state,clone_template_id,native_sha256,snapshot FROM crm_graph_candidate.native_template_v1 WHERE id=$1',[f.preparedClone.native_id])).rows[0];
-  assert.equal(native.state,'ready');assert.equal(native.cache_target,x.cacheTarget);assert.ok(Number.isInteger(native.clone_template_id));
-  proof.actual_native_clone=true;
   const executable=hash('synthetic-executable'),runtime=hash('synthetic-runtime');
   await pool.query(`INSERT INTO crm_graph_candidate.cache_identity_deployment_v1
    (cache_target,enabled,executable_sha256,runtime_sha256,expected_role,heartbeat_seconds,lease_seconds,action_key)
    VALUES($1,true,$2,$3,$4,5,15,$5)`,[x.cacheTarget,executable,runtime,expectedRole,randomUUID()]);
+  const instance=randomUUID(),token=randomUUID();
+  const empty=(await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,instance,token,executable,runtime,'[]'])).rows[0].r;
+  assert.equal(empty.ready,true);assert.equal(empty.template_count,0);
+  assert.equal((await pool.query('SELECT crm_graph_candidate.cache_identity_readiness_v1($1) r',[x.cacheTarget])).rows[0].r.ready,false);
+  proof.empty_cache_identity_without_activation=true;
+  const f=await x.prepare('fish');
+  const native=(await pool.query('SELECT id,cache_target,state,clone_template_id,native_sha256,snapshot FROM crm_graph_candidate.native_template_v1 WHERE id=$1',[f.preparedClone.native_id])).rows[0];
+  assert.equal(native.state,'ready');assert.equal(native.cache_target,x.cacheTarget);assert.ok(Number.isInteger(native.clone_template_id));
+  proof.actual_native_clone=true;
   const template=(await pool.query('SELECT id,type::text,subject,body,body_source FROM public.templates WHERE id=$1',[native.clone_template_id])).rows[0];
   const snapshot=[{template_id:template.id,type:template.type,subject:template.subject,body:template.body,body_source:template.body_source}];
-  const instance=randomUUID(),token=randomUUID();
+  const changed=(await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,instance,token,executable,runtime,'[]'])).rows[0].r;
+  assert.deepEqual(changed,{ready:false,code:'template_set_changed'});
+  assert.equal((await pool.query('SELECT count(*)::int n FROM crm_graph_candidate.cache_identity_snapshot_v1')).rows[0].n,0);
+  assert.equal((await pool.query('SELECT suspended_at IS NULL clean,instance_id=$1 same_instance FROM crm_graph_candidate.cache_identity_lease_v1',[instance])).rows[0].clean,true);
+  const competitor=await pool.connect();try{await competitor.query('BEGIN');const blocked=(await competitor.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',[x.cacheTarget,randomUUID(),randomUUID(),executable,runtime,JSON.stringify(snapshot)])).rows[0].r;assert.deepEqual(blocked,{ready:false,code:'concurrent_instance'});await competitor.query('ROLLBACK');}finally{competitor.release();}
+  proof.expected_set_growth_denied_then_recovered=true;
+  proof.competing_instance_still_suspends=true;
   const heartbeat=(await pool.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) r',
    [x.cacheTarget,instance,token,executable,runtime,JSON.stringify(snapshot)])).rows[0].r;
   assert.equal(heartbeat.ready,true);assert.equal(heartbeat.template_count,1);
