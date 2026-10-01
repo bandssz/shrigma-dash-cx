@@ -199,8 +199,9 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
     processes = []
     report = {'schema': 'segment-regular-native-proof-v1', 'status': 'FAILED',
         'local_disposable': True, 'production_changed': False, 'remote_hosts': 0,
-        'query_sha256': '3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de',
-        'binary_sha256': sha(binary.read_bytes()), 'proof_directory': str(run_dir)}
+        'query_sha256': '084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',
+        'binary_sha256': sha(binary.read_bytes()), 'proof_directory': str(run_dir),
+        'proof_scope': 'synthetic prepared/due schedule boundary; real admission proof composed separately'}
     try:
         with (run_dir/'init.log').open('wb') as log:
             subprocess.run([str(pg_bin/'initdb'), '-D', str(data), '-U', 'crm_shadow', '--auth-local=trust',
@@ -223,6 +224,21 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
             prepare = subprocess.run(['node', str(REPO/'tests/segment-regular-native-fixture.cjs'), 'prepare'],
                 env=node_env, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=45)
             require(prepare.returncode == 0, 'Native fixture prepare failed: ' + prepare.stderr[-5000:])
+            released_history_sql = """SELECT json_build_object(
+                'head',(SELECT count(*) FROM crm_audience_v2.campaign_binding WHERE campaign_id=500),
+                'revision',(SELECT count(*) FROM crm_audience_v2.campaign_binding_revision WHERE campaign_id=500),
+                'release',(SELECT count(*) FROM crm_audience_v2.campaign_binding_release WHERE campaign_id=500),
+                'effective',(SELECT count(*) FROM crm_audience_v2.campaign_binding_effective(500)),
+                'controls',(SELECT count(*) FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=500),
+                'digest',md5(concat(
+                    (SELECT to_jsonb(b)::text FROM crm_audience_v2.campaign_binding b WHERE campaign_id=500),
+                    (SELECT to_jsonb(r)::text FROM crm_audience_v2.campaign_binding_revision r WHERE campaign_id=500),
+                    (SELECT to_jsonb(t)::text FROM crm_audience_v2.campaign_binding_release t WHERE campaign_id=500))));"""
+            released_history = db(released_history_sql)
+            release_state = json.loads(released_history)
+            require(all(release_state[k] == 1 for k in ('head','revision','release'))
+                and release_state['effective'] == 0 and release_state['controls'] == 0,
+                'Released history/effective state invalid before worker')
             identity = subprocess.run([str(binary), '--config', str(config_path), '--crm-regular-identity'],
                 cwd=run_dir, env=clean_env(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
             require(identity.returncode == 0 and len(identity.stdout) < 262144, 'Identity mode failed')
@@ -258,22 +274,46 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
             schedule = subprocess.run(['node', str(REPO/'tests/segment-regular-native-fixture.cjs'), 'schedule'],
                 env=node_env, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
             require(schedule.returncode == 0, 'Native fixture scheduling failed: ' + schedule.stderr[-5000:])
+            scheduled = json.loads(schedule.stdout.strip().splitlines()[-1])
+            require(scheduled == {'mode':'schedule','ok':True,'synthetic_boundary':'scheduled','pairs':2,
+                'scheduled_campaigns':4,'scheduled_experiments':2,'active_controls':4},
+                'Synthetic post-admission boundary invalid')
+            state_sql = """SELECT json_build_object(
+ 'campaigns',(SELECT json_agg(to_jsonb(x) ORDER BY id) FROM (SELECT id,status::text,sent,last_subscriber_id FROM campaigns WHERE id IN(100,101,200,201,300,400,500))x),
+ 'dispatch',(SELECT json_agg(to_jsonb(d) ORDER BY campaign_id,subscriber_id) FROM (SELECT dispatch_id::text,brand,transport_state,payload_sha256,split_part(piece,':',2)::integer campaign_id,(dedupe_key::jsonb->>2)::integer subscriber_id FROM shrigma_email_dispatch)d),
+ 'controls',(SELECT json_agg(to_jsonb(r) ORDER BY campaign_id) FROM (SELECT campaign_id,enabled,suspended,acknowledged_sent,acknowledged_subscriber_id FROM crm_audience_v2.regular_delivery_campaign)r),
+ 'arms',(SELECT json_agg(to_jsonb(a) ORDER BY brand,arm) FROM (SELECT e.brand,a.arm,a.campaign_id,a.finished_at IS NOT NULL finished,a.transport_interrupted_at IS NOT NULL interrupted FROM crm_ab_arm_v2 a JOIN crm_ab_experiment_v2 e USING(test_id))a),
+ 'members',(SELECT json_agg(to_jsonb(m) ORDER BY brand,arm,subscriber_id) FROM (SELECT e.brand,m.arm,m.subscriber_id,m.revoked_at IS NOT NULL revoked,EXISTS(SELECT 1 FROM subscriber_lists sl WHERE sl.subscriber_id=m.subscriber_id AND sl.list_id=CASE e.brand WHEN 'fish' THEN 17 ELSE 16 END AND sl.status IN('confirmed','unconfirmed')) consented FROM crm_ab_member_v2 m JOIN crm_ab_experiment_v2 e USING(test_id))m),
+ 'experiments',(SELECT json_agg(to_jsonb(e) ORDER BY brand) FROM (SELECT brand,state,transport_bound,tracking_continuous,source_complete FROM crm_ab_experiment_v2)e),
+ 'pairs',(SELECT count(*)::integer FROM crm_audience_v2.ab_regular_pair),
+ 'lease',(SELECT to_jsonb(l) FROM crm_audience_v2.regular_worker_lease l),
+ 'deployment',(SELECT to_jsonb(d) FROM crm_audience_v2.regular_worker_deployment d))::text;"""
             deadline = time.monotonic() + TIMEOUT
             state = None
             while time.monotonic() < deadline:
                 require(worker.poll() is None, 'Native worker exited early')
-                raw = db("SELECT json_build_object('campaigns',(SELECT json_agg(to_jsonb(x) ORDER BY id) FROM (SELECT id,status::text,sent,last_subscriber_id FROM campaigns WHERE id IN(100,200,300,400))x),'dispatch',(SELECT json_agg(to_jsonb(d) ORDER BY brand) FROM (SELECT dispatch_id::text,brand,transport_state,payload_sha256 FROM shrigma_email_dispatch)d),'controls',(SELECT json_agg(to_jsonb(r) ORDER BY campaign_id) FROM (SELECT campaign_id,enabled,suspended FROM crm_audience_v2.regular_delivery_campaign)r));")
+                raw = db(state_sql)
                 state = json.loads(raw)
                 campaigns = {x['id']: x for x in state['campaigns']}
-                dispatch = {x['brand']: x for x in state['dispatch'] or []}
-                if campaigns[100]['status'] == 'finished' and campaigns[200]['status'] == 'paused' and campaigns[300]['status'] == 'finished' and campaigns[400]['status'] == 'paused' and dispatch.get('fish',{}).get('transport_state') == 'accepted' and dispatch.get('aristo',{}).get('transport_state') == 'outcome_unknown':
+                dispatch = state['dispatch'] or []
+                fish_dispatch = [x for x in dispatch if x['campaign_id'] in (100,101)]
+                aristo_dispatch = [x for x in dispatch if x['campaign_id'] in (200,201)]
+                aristo_statuses = (campaigns[200]['status'], campaigns[201]['status'])
+                if (campaigns[100]['status'] == campaigns[101]['status'] == 'finished'
+                    and all(value in ('finished','paused') for value in aristo_statuses)
+                    and 'paused' in aristo_statuses
+                    and campaigns[300]['status'] == 'finished' and campaigns[400]['status'] == 'paused'
+                    and campaigns[500]['status'] == 'finished'
+                    and len(fish_dispatch) == 2 and all(x['transport_state']=='accepted' for x in fish_dispatch)
+                    and sum(x['transport_state']=='outcome_unknown' for x in aristo_dispatch) == 1
+                    and not any(x['transport_state']=='in_flight' for x in dispatch)):
                     break
                 time.sleep(.25)
             else:
                 raise RuntimeError('Native worker proof timed out')
             worker.terminate(); worker.wait(timeout=8); processes.pop()[1].close()
             before = list(smtp.messages)
-            require(len(before) == 3, 'Expected exactly three SMTP attempts')
+            require(len(before) in (5,6), 'Unexpected synthetic SMTP attempt cardinality')
             # A clean process replacement is allowed only after the previous
             # nonsuspended lease expires. The disposable fixture advances that
             # lease explicitly instead of waiting a production-length minute.
@@ -283,40 +323,131 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
             require(restarted.poll() is None, 'Restarted worker exited early')
             restarted.terminate(); restarted.wait(timeout=8); processes.pop()[1].close()
             require(smtp.messages == before, 'Unknown delivery replayed after restart')
-            final = json.loads(db("SELECT json_build_object('campaigns',(SELECT json_agg(to_jsonb(x) ORDER BY id) FROM (SELECT id,status::text,sent,last_subscriber_id FROM campaigns WHERE id IN(100,200,300,400))x),'dispatch',(SELECT json_agg(to_jsonb(d) ORDER BY brand) FROM (SELECT dispatch_id::text,brand,transport_state,payload_sha256 FROM shrigma_email_dispatch)d),'controls',(SELECT json_agg(to_jsonb(r) ORDER BY campaign_id) FROM (SELECT campaign_id,enabled,suspended,acknowledged_sent,acknowledged_subscriber_id FROM crm_audience_v2.regular_delivery_campaign)r),'lease',(SELECT to_jsonb(l) FROM crm_audience_v2.regular_worker_lease l),'deployment',(SELECT to_jsonb(d) FROM crm_audience_v2.regular_worker_deployment d));"))
+            final = json.loads(db(state_sql))
             messages = {m['recipient'].split('@')[0]: m for m in before}
-            dispatch = {x['brand']: x for x in final['dispatch']}
+            messages_by_dispatch = {m['dispatch_id']:m for m in before if m['dispatch_id']}
+            dispatch = final['dispatch']
             campaigns = {x['id']: x for x in final['campaigns']}
             controls = {x['campaign_id']: x for x in final['controls']}
-            for brand in ('fish','aristo'):
-                m=messages[brand]; d=dispatch[brand]
+            members = final['members']; arms = final['arms']
+            for d in dispatch:
+                m=messages_by_dispatch.get(d['dispatch_id']);brand=d['brand']
+                require(m is not None, 'Dispatch did not reach synthetic SMTP')
                 expected_sender = 'contato@fishermans.com.br' if brand == 'fish' else 'contato@oaristocrata.com'
                 require(m['sender']==expected_sender and m['dispatch_id']==d['dispatch_id'], 'Envelope/dispatch mismatch')
                 require(m['raw_sha256']==d['payload_sha256'], 'Payload digest mismatch')
                 require(f'crm_dispatch_id={d["dispatch_id"]}' in m['ses_tags'] and 'crm_test=false' in m['ses_tags'], 'Reserved SES tags missing')
                 require(m['configuration_sets']==['native-fixture'], 'Private configuration set was not unique in final bytes')
                 require('@TrackLink' not in m['body'] and '/link/' in m['body'], 'Panel TrackLink material was not rendered')
-            require(campaigns[100]['status']=='finished' and campaigns[100]['sent']==1 and campaigns[100]['last_subscriber_id']==1, 'Fish accepted checkpoint mismatch')
-            require(campaigns[200]['status']=='paused' and campaigns[200]['sent']==0 and campaigns[200]['last_subscriber_id']==0 and controls[200]['suspended'], 'Aristo unknown state mismatch')
+            fish_dispatch=[x for x in dispatch if x['campaign_id'] in (100,101)]
+            fish_members=[x for x in members if x['brand']=='fish']
+            require(len(fish_dispatch)==2 and {x['campaign_id'] for x in fish_dispatch}=={100,101}
+                and all(x['transport_state']=='accepted' for x in fish_dispatch), 'Fish pair dispatch mismatch')
+            require(len({x['subscriber_id'] for x in fish_dispatch})==2, 'Fish A/B recipients overlap')
+            for d in fish_dispatch:
+                arm=next((a for a in arms if a['brand']=='fish' and a['campaign_id']==d['campaign_id']),None)
+                member=next((m for m in fish_members if m['subscriber_id']==d['subscriber_id']),None)
+                require(arm and member and member['arm']==arm['arm'] and not member['revoked'] and member['consented'],
+                    'Fish A/B dispatch escaped allocation or consent')
+                require(campaigns[d['campaign_id']]['status']=='finished' and campaigns[d['campaign_id']]['sent']==1
+                    and campaigns[d['campaign_id']]['last_subscriber_id']==d['subscriber_id'], 'Fish pair checkpoint mismatch')
+                require(controls[d['campaign_id']]['acknowledged_sent']==1
+                    and controls[d['campaign_id']]['acknowledged_subscriber_id']==d['subscriber_id'],
+                    'Fish delivery acknowledgement mismatch')
+            excluded={m['subscriber_id'] for m in fish_members if m['revoked'] or not m['consented']}
+            require(len(excluded)==2 and not excluded.intersection({x['subscriber_id'] for x in fish_dispatch}),
+                'Revoked or opted-out Fish member was dispatched')
+            require(all(a['finished'] and not a['interrupted'] for a in arms if a['brand']=='fish'),
+                'Fish pair arm completion mismatch')
+            aristo_dispatch=[x for x in dispatch if x['campaign_id'] in (200,201)]
+            require(len(aristo_dispatch) in (1,2) and sum(x['transport_state']=='outcome_unknown' for x in aristo_dispatch)==1
+                and all(x['transport_state'] in ('accepted','outcome_unknown') for x in aristo_dispatch),
+                'Aristo concurrent transport outcome mismatch')
+            aristo_campaigns=[campaigns[200],campaigns[201]]
+            require(all(c['status'] in ('finished','paused') for c in aristo_campaigns)
+                and any(c['status']=='paused' for c in aristo_campaigns)
+                and controls[200]['suspended'] and controls[201]['suspended'], 'Aristo pair-wide suspension mismatch')
+            aristo_arms=[a for a in arms if a['brand']=='aristo']
+            require(len(aristo_arms)==2 and any(a['interrupted'] for a in aristo_arms)
+                and all((a['finished'] and not a['interrupted']) or (a['interrupted'] and not a['finished']) for a in aristo_arms),
+                'Aristo arm terminal/interruption evidence mismatch')
+            aristo_members=[x for x in members if x['brand']=='aristo']
+            for d in aristo_dispatch:
+                campaign=campaigns[d['campaign_id']]
+                arm=next((a for a in aristo_arms if a['campaign_id']==d['campaign_id']),None)
+                member=next((m for m in aristo_members if m['subscriber_id']==d['subscriber_id']),None)
+                require(arm and member and member['arm']==arm['arm'] and not member['revoked'] and member['consented'],
+                    'Aristo A/B dispatch escaped allocation or consent')
+                if d['transport_state']=='accepted':
+                    require(campaign['status'] in ('finished','paused') and campaign['sent']==1
+                        and campaign['last_subscriber_id']==d['subscriber_id'], 'Accepted Aristo checkpoint mismatch')
+                    require(controls[d['campaign_id']]['acknowledged_sent']==1
+                        and controls[d['campaign_id']]['acknowledged_subscriber_id']==d['subscriber_id'],
+                        'Accepted Aristo acknowledgement mismatch')
+                else:
+                    require(campaign['status']=='paused' and campaign['sent']==0 and campaign['last_subscriber_id']==0
+                        and controls[d['campaign_id']]['acknowledged_sent']==0
+                        and controls[d['campaign_id']]['acknowledged_subscriber_id']==0,
+                        'Unknown Aristo checkpoint was not preserved')
+            attempted_aristo={d['campaign_id'] for d in aristo_dispatch}
+            for campaign_id in ({200,201}-attempted_aristo):
+                require(campaigns[campaign_id]['status']=='paused' and campaigns[campaign_id]['sent']==0
+                    and campaigns[campaign_id]['last_subscriber_id']==0
+                    and controls[campaign_id]['acknowledged_sent']==0
+                    and controls[campaign_id]['acknowledged_subscriber_id']==0,
+                    'Unattempted Aristo peer checkpoint changed')
+            require(final['pairs']==2 and all(e['state']=='scheduled' and e['transport_bound'] for e in final['experiments']),
+                'A/B scheduled boundary changed')
             legacy=messages['legacy']
             require(legacy['sender']=='smoke@example.invalid' and legacy['subject']=='Native Legacy', 'Legacy envelope changed')
             require('legacy@example.invalid' in legacy['body'].lower(), 'Legacy rendered body changed')
             require(legacy['dispatch_id'] is None and legacy['ses_tags'] is None, 'Legacy message received guarded metadata')
             require(campaigns[300]['status']=='finished' and campaigns[300]['sent']==1 and campaigns[300]['last_subscriber_id']==3, 'Legacy checkpoint mismatch')
+            released = messages['released']
+            require(released['sender']=='smoke@example.invalid' and released['subject']=='Native Released', 'Released legacy envelope changed')
+            require('released@example.invalid' in released['body'].lower(), 'Released campaign used its old audience')
+            require(released['dispatch_id'] is None and released['ses_tags'] is None and not released['configuration_sets'], 'Released campaign received guarded metadata')
+            require(campaigns[500]['status']=='finished' and campaigns[500]['sent']==1 and campaigns[500]['last_subscriber_id']==4, 'Released legacy checkpoint mismatch')
+            require(db(released_history_sql)==released_history, 'Released history changed or delivery control was created')
             require(campaigns[400]['status']=='paused' and campaigns[400]['sent']==0 and campaigns[400]['last_subscriber_id']==0, 'Invalid bound campaign was not quarantined')
-            require(len(final['dispatch'])==2 and len(final['controls'])==3, 'Unexpected guarded state cardinality')
+            require(len(final['dispatch']) in (3,4) and len(final['controls'])==5, 'Unexpected guarded state cardinality')
             require(final['lease']['instance_id']!=first_lease['instance_id'] and not final['lease']['suspended'], 'Expired lease was not replaced safely')
             report.update({'status':'PASSED_EPHEMERAL_ONLY_NOT_DEPLOYED','postgres_version':db("SHOW server_version;"),
                 'identity':ident,'native_schema_sha256':sha(native_schema.encode()),'smtp_attempts':before,
                 'state':final,'accepted_finish':True,'ack_lost_unknown':True,'restart_no_replay':True,
+                'ab_native_pair_accepted':True,'ab_revoked_excluded':True,'ab_optout_excluded':True,
+                'ab_arms_disjoint':True,'ab_unknown_suspended_pair':True,
+                'ab_unknown_peer_may_finish_before_pause':any(c['status']=='finished' for c in aristo_campaigns),
+                'ab_unknown_concurrent_attempts':len(aristo_dispatch),
+                'synthetic_boundary':scheduled,
                 'payload_digest_matches_bytes':True,'reserved_tags_match_dispatch':True,
                 'private_configuration_set_unique_and_claimed':True,
                 'panel_campaign_prepare_tracklink_rendered':True,
                 'unbound_legacy_preserved':True,'invalid_bound_quarantined_without_scan_block':True,
+                'released_legacy_preserved':True,'released_history_preserved':True,
+                'released_campaign_uses_current_lists':True,
                 'initial_heartbeat_committed_before_bound_schedule':True,'native_catalog_refresh':True,
                 'expired_nonsuspended_lease_replaced':True,'local_worker_concurrency':2,
+                'source_sha256':{
+                    'tools/listmonk-regular-build/native_proof.py':sha(Path(__file__).read_bytes()),
+                    'tests/segment-regular-native-fixture.cjs':sha((REPO/'tests/segment-regular-native-fixture.cjs').read_bytes())},
                 'sql_sha256':{name:sha((REPO/'n8n/growth'/name).read_bytes()) for name in (
-                    'segment-regular-delivery.sql','segment-regular-worker-lease.sql','segment-regular-operation-guard.sql')}})
+                    'segment-audience-store.sql','campaign-provider.sql','segment-campaign-binding.sql','ab-experiment-core.sql',
+                    'ab-experiment-selection.sql','ab-audience-prepare.sql','segment-listmonk-selection.sql',
+                    'segment-regular-readiness.sql','segment-regular-delivery.sql','segment-runtime-access.sql',
+                    'segment-regular-recovery.sql','segment-regular-worker-lease.sql',
+                    'segment-regular-operation-guard.sql','segment-regular-admission.sql',
+                    'segment-shopify-facts.sql','segment-shopify-selection.sql','ab-audience-regular.sql')},
+                'function_prosrc_md5':json.loads(db("""SELECT coalesce(json_object_agg(signature,body_md5 ORDER BY signature),'{}'::json)::text FROM (
+ SELECT p.oid::regprocedure::text signature,md5(p.prosrc) body_md5 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname IN('crm_audience_v2','public') AND p.proname IN('campaign_send_guard','ab_assignment_guard','ab_experiment_guard',
+  'regular_delivery_claim','regular_delivery_finish','regular_delivery_quarantine','regular_delivery_recover',
+  'regular_admission_schedule','ab_regular_fence','ab_regular_context','ab_regular_pause','crm_ab_campaign_guard_v2',
+  'shrigma_campaign_current')) q;""")),
+                'trigger_definition_md5':json.loads(db("""SELECT coalesce(json_object_agg(trigger_name,definition_md5 ORDER BY trigger_name),'{}'::json)::text FROM (
+ SELECT c.oid::regclass::text||'.'||t.tgname trigger_name,md5(pg_get_triggerdef(t.oid,false)) definition_md5
+ FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE NOT t.tgisinternal AND n.nspname IN('crm_audience_v2','public')) q;"""))})
     finally:
         for process, log in processes:
             if process.poll() is None:

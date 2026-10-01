@@ -5,14 +5,14 @@ DO $install$
 BEGIN
  IF to_regprocedure('crm_audience_v2.regular_delivery_claim_live(uuid,integer,integer,uuid,text,text,text,text,text,jsonb,text)') IS NULL
  OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.campaign_send_guard()')
-  AND md5(prosrc)='56a2d648923ca728f740a2b3c05451bf' AND prosecdef AND provolatile='v'
+  AND md5(prosrc)='9500dc7c5de39c3a3e9f9542c1e36b65' AND prosecdef AND provolatile='v'
   AND proconfig=ARRAY['search_path=pg_catalog'])
  OR NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.campaigns'::regclass
   AND tgname='shrigma_audience_campaign_send_guard_v1' AND tgenabled='O' AND tgtype=27
   AND tgfoid='crm_audience_v2.campaign_send_guard()'::regprocedure)
  OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled)
  OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE enabled)
- OR EXISTS(SELECT 1 FROM public.campaigns c JOIN crm_audience_v2.campaign_binding b ON b.campaign_id=c.id
+ OR EXISTS(SELECT 1 FROM public.campaigns c JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
   WHERE c.status::text<>'draft' OR c.sent<>0 OR c.started_at IS NOT NULL OR c.last_subscriber_id<>0) THEN
   RAISE EXCEPTION 'SEGMENT_OPERATION_GUARD_INSTALL_UNAVAILABLE';
  END IF;
@@ -23,8 +23,13 @@ BEGIN
  ctx jsonb;at timestamptz;
  progress text[]:=ARRAY['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'];
  BEGIN
-  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=OLD.id;
-  IF NOT FOUND THEN IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW; END IF;
+  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding_effective(OLD.id) b;
+  IF NOT FOUND THEN
+   IF TG_OP='DELETE' AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=OLD.id) THEN
+    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_HISTORY_RETAINED';
+   END IF;
+   IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW;
+  END IF;
   IF TG_OP='DELETE' OR NEW.id IS DISTINCT FROM OLD.id
    OR NEW.type::text IS DISTINCT FROM 'regular' OR NEW.messenger IS DISTINCT FROM 'email'
    OR NEW.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'
@@ -60,8 +65,8 @@ BEGIN
    AND NEW.max_subscriber_id IS NOT DISTINCT FROM OLD.max_subscriber_id
    AND NEW.started_at IS NOT DISTINCT FROM OLD.started_at THEN RETURN NEW; END IF;
   IF NOT ctl.enabled OR ctl.suspended OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(OLD.id)
-   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=OLD.id
-    AND b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN
+   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(OLD.id) b
+    WHERE b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN
    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE';
   END IF;
   -- Do not acquire deployment/lease row locks after the native campaign lock.

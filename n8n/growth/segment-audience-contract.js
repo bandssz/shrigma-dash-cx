@@ -8,6 +8,7 @@ const FIELDS=Object.freeze({
  'purchase.last_date':{label:'Data do último pedido',type:'date',source:'shopify',operators:['eq','before','on_or_before','after','on_or_after']},
  'purchase.amount':{label:'Valor gasto na loja',type:'money',source:'shopify',operators:['eq','gt','gte','lt','lte']},
  'purchase.product':{label:'Produto nos pedidos',type:'product',source:'shopify',operators:['purchased','not_purchased']},
+ 'signup.recorded_origin':{label:'Inscrição registrada no formulário',type:'recorded_origin',source:'crm',operators:['is']},
  'signup.origin':{label:'Origem comprovada da inscrição',type:'origin',source:'crm',operators:['is','is_not']},
  'email.opened':{label:'Abertura de e-mail registrada',type:'days',source:'email',operators:['within_last_days','not_within_last_days']},
  'email.clicked':{label:'Clique em e-mail registrado',type:'days',source:'email',operators:['within_last_days','not_within_last_days']}
@@ -38,6 +39,7 @@ function condition(input){
  }
  if(field.type==='product'&&(typeof value!=='string'||!/^gid:\/\/shopify\/Product\/[1-9]\d{0,19}$/.test(value)))fail('AUDIENCE_PRODUCT');
  if(field.type==='origin'&&!['popup','vip_alma','vip_desodorante'].includes(value))fail('AUDIENCE_ORIGIN');
+ if(field.type==='recorded_origin'&&!['vip_alma','vip_desodorante'].includes(value))fail('AUDIENCE_ORIGIN');
  if(field.type==='days'&&(!Number.isSafeInteger(value)||value<1||value>3650))fail('AUDIENCE_DAYS');
  return {op:'condition',field:input.field,operator:input.operator,value};
 }
@@ -72,9 +74,16 @@ function leaves(input){
  const visit=r=>r.op==='and'||r.op==='or'?r.rules.forEach(visit):r.op==='confirmed'?visit(r.rule):out.set(JSON.stringify(r),r);visit(d.rule);
  return [...out.entries()].sort(([a],[b])=>a<b?-1:a>b?1:0).map(([key,rule])=>({key,rule}));
 }
+function recordedOriginsValid(rows,brand){
+ if(!Array.isArray(rows)||rows.length>2||new Set(rows.map(x=>x?.key)).size!==rows.length)return false;
+ return rows.every(o=>{try{exact(o,['key','brand','name','available','scope_id','producer_id','producer_revision','coverage_started_at','provenance_hash']);}catch{return false;}
+  return brand==='aristo'&&o.brand===brand&&['vip_alma','vip_desodorante'].includes(o.key)&&typeof o.name==='string'&&o.name.length>0&&o.name.length<=500&&!/[\x00-\x1f\x7f]/.test(o.name)&&typeof o.available==='boolean'&&typeof o.scope_id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(o.scope_id)&&o.producer_id===(o.key==='vip_alma'?'NAmTWZ7vddQ8LX1k':'ywJDsgBDhZOBgoxb')&&typeof o.producer_revision==='string'&&/^[a-f0-9]{64}$/.test(o.producer_revision)&&stamp(o.coverage_started_at)&&typeof o.provenance_hash==='string'&&/^[a-f0-9]{64}$/.test(o.provenance_hash);
+ });
+}
 function checkCatalog(input,catalog){
  const d=normalize(input);
  if(catalog?.brand!==d.brand||catalog.current!==true||!Array.isArray(catalog.fields)||!Array.isArray(catalog.lists)||!Array.isArray(catalog.products)||!Array.isArray(catalog.origins))fail('AUDIENCE_CATALOG');
+ if(!recordedOriginsValid(Object.hasOwn(catalog,'recorded_origins')?catalog.recorded_origins:[],d.brand))fail('AUDIENCE_CATALOG');
  const blocked=[];
  for(const {key,rule} of leaves(d)){
   const only=(rows,predicate)=>{const found=rows.filter(predicate);return found.length===1&&found[0].available===true;};
@@ -83,6 +92,7 @@ function checkCatalog(input,catalog){
   }
   if(!only(catalog.fields,x=>x.key===rule.field))blocked.push({key,reason:'field_unavailable'});
   if(rule.field==='purchase.product'&&!only(catalog.products,x=>x.id===rule.value&&x.brand===d.brand))blocked.push({key,reason:'product_unavailable'});
+  if(rule.field==='signup.recorded_origin'&&!only(Object.hasOwn(catalog,'recorded_origins')?catalog.recorded_origins:[],x=>x.key===rule.value&&x.brand===d.brand))blocked.push({key,reason:'recorded_origin_unconfirmed'});
   if(rule.field==='signup.origin'&&!only(catalog.origins,x=>x.key===rule.value&&x.brand===d.brand))blocked.push({key,reason:'origin_unconfirmed'});
   if(rule.field==='purchase.amount'&&!/^[A-Z]{3}$/.test(catalog.currency||''))blocked.push({key,reason:'currency_unconfirmed'});
  }
@@ -123,6 +133,6 @@ function evaluate(input,{subject_ref,revision,evidence,now}={}){
  };
  const match=visit(d.rule);return {match,unknown_rules:[...unknown].sort(),authorizes_send:false};
 }
-return {VERSION,ENABLED,LIMITS,FIELDS,normalize,leaves,checkCatalog,shopifyQuery,evaluate};
+return {VERSION,ENABLED,LIMITS,FIELDS,normalize,leaves,recordedOriginsValid,checkCatalog,shopifyQuery,evaluate};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=SegmentAudienceContract;

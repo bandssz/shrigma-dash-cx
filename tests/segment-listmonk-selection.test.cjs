@@ -1,6 +1,6 @@
 'use strict';
 // SQL selection proof only. This disposable structural database deliberately
-// does not install the binding guard: complete upstream count changes status.
+// does not install the binding mutation guard: complete upstream count changes status.
 // No guard is disabled, no runtime process runs, and no SMTP delivery is modeled.
 // Real guarded binding transitions are covered by segment-campaign-binding tests.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -54,6 +54,12 @@ async function setup(){
    audience_id uuid,audience_revision integer,definition_hash text,context_hash text,base_list_id integer,
    catalog_hash text,binding jsonb,binding_hash text);
    CREATE TABLE crm_audience_v2.campaign_binding_revision(campaign_id integer,binding_version integer,binding jsonb,binding_hash text,PRIMARY KEY(campaign_id,binding_version));`);
+  const bindingSQL=read('n8n/growth/segment-campaign-binding.sql');
+  const releaseStart=bindingSQL.indexOf(' CREATE TABLE crm_audience_v2.campaign_binding_release (');
+  const releaseEnd=bindingSQL.indexOf(' EXECUTE $ddl$CREATE FUNCTION crm_audience_v2.campaign_binding_effective',releaseStart);
+  const effective=bindingSQL.match(/ EXECUTE \$ddl\$(CREATE FUNCTION crm_audience_v2\.campaign_binding_effective\(cid integer\)[\s\S]*?)\$ddl\$;/);
+  assert.ok(releaseStart>=0&&releaseEnd>releaseStart&&effective,'SELECTION_EFFECTIVE_BINDING_SOURCE');
+  await db.exec(bindingSQL.slice(releaseStart,releaseEnd)+effective[1]+';\nREVOKE ALL ON crm_audience_v2.campaign_binding_release FROM PUBLIC;');
   for(const brand of ['fish','aristo'])await db.query(`UPDATE crm_audience_v2.config SET enabled=true,base_list_id=$2,catalog=$3::jsonb,
    checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '4 minutes' WHERE brand=$1`,[brand,brand==='fish'?17:16,JSON.stringify(catalog())]);
   const protocols=[];

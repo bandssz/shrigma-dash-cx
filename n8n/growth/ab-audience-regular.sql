@@ -147,7 +147,7 @@ CREATE FUNCTION crm_audience_v2.ab_regular_schedule(rid uuid,actor_id text) RETU
   PERFORM 1 FROM public.subscriber_lists WHERE subscriber_id IN(SELECT subscriber_id FROM public.crm_ab_member_v2 WHERE test_id=e.test_id) ORDER BY subscriber_id,list_id FOR SHARE;
   FOR c IN SELECT * FROM public.campaigns WHERE id=ANY(ids) ORDER BY id LOOP
    PERFORM crm_audience_v2.regular_admission_snapshot(c.id);
-   SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding WHERE campaign_id=c.id;
+   SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding_effective(c.id);
    SELECT value INTO pin FROM jsonb_array_elements(s.scope->'bindings') WHERE (value->>'campaign_id')::integer=c.id;
    SELECT value INTO material FROM jsonb_array_elements(r.materials) WHERE (value#>>'{campaign,id}')::integer=c.id;
    IF pin IS NULL OR material IS NULL OR material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(c.id)
@@ -327,22 +327,22 @@ REVOKE ALL ON FUNCTION crm_audience_v2.ab_regular_ready(text) FROM PUBLIC;
 -- Exact reviewed function extensions. Fail on dependency drift; retain ACLs.
 DO $extend$
 BEGIN
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_worker_context(integer)')) IS DISTINCT FROM '6dda8e57d4468f8c859b076eac1cff29' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_worker_context(integer)')) IS DISTINCT FROM '46593ba37f5bb6df9f27deb1f2ff3328' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_regular_matches(jsonb,integer)')) IS DISTINCT FROM 'bec9897a1b8ed1601afd67e73bb79df2' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)')) IS DISTINCT FROM '93ac37b8dda33b3700e92ff2c25950ea' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)')) IS DISTINCT FROM '2b1e9e092e43af5f81bef24816faed61' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_finish(integer,integer,uuid,uuid,text)')) IS DISTINCT FROM '6fc3493c29d54df85692e672a7bdbc4b' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_quarantine(integer[])')) IS DISTINCT FROM 'd4439b911f2a27ee439ecddc0b455458' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_quarantine(integer[])')) IS DISTINCT FROM 'b134c68245ea1dff826acbc5f0d67b8e' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_recover(integer,integer,uuid,boolean)')) IS DISTINCT FROM '4d413875f179c714f16695d8028441cb' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_admission_schedule(uuid,text)')) IS DISTINCT FROM 'c13fe0ec14a4dde2f95dee7d49ba1174' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.ab_assignment_guard()')) IS DISTINCT FROM '9791a27e9ed040c114df9f7500c6cb5c' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_admission_schedule(uuid,text)')) IS DISTINCT FROM '5ae16b18ecc073b228f15833aac5ac40' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.ab_assignment_guard()')) IS DISTINCT FROM 'b2d7563d75f0ca48354551671a64964c' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.ab_experiment_guard()')) IS DISTINCT FROM 'f9f10c9d3dceb3358ac72cd751ff1f74' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('public.crm_ab_campaign_guard_v2()')) IS DISTINCT FROM '6d1d65be352afdba9adbd1e0cda0c828' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.campaign_send_guard()')) IS DISTINCT FROM '8e7096ecbd7d7165ea3e4de41417222e' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.campaign_send_guard()')) IS DISTINCT FROM 'fd78540ab055343a810a33575047d3de' THEN RAISE EXCEPTION 'AB_REGULAR_FUNCTION_DRIFT'; END IF;
  EXECUTE $replacement$CREATE OR REPLACE FUNCTION crm_audience_v2.selection_worker_context(cid integer) RETURNS jsonb
  LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$
  DECLARE ctx jsonb;
  BEGIN
-  ctx:=crm_audience_v2.selection_context(cid,'3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de',true);
+  ctx:=crm_audience_v2.selection_context(cid,'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',true);
   IF ctx IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;
   IF ctx->'bound'='true'::jsonb THEN
    SELECT ctx||jsonb_build_object('list_ids',jsonb_agg(DISTINCT pin->'list_id'),
@@ -397,7 +397,7 @@ BEGIN
   -- One campaign lock serializes attempts across processes as well as workers.
   SELECT * INTO STRICT c FROM public.campaigns WHERE id=cid FOR UPDATE;
   SELECT * INTO STRICT e FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=cid FOR UPDATE;
-  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding WHERE campaign_id=cid FOR SHARE;
+  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding_effective(cid);
   IF NOT e.enabled OR e.suspended OR c.status::text<>'running'
    OR c.sent IS DISTINCT FROM e.acknowledged_sent OR c.last_subscriber_id IS DISTINCT FROM e.acknowledged_subscriber_id
    OR e.binding_version IS DISTINCT FROM b.binding_version OR e.binding_hash IS DISTINCT FROM b.binding_hash
@@ -545,7 +545,7 @@ $fn$$replacement$;
   END IF;
   result:=crm_audience_v2.ab_regular_quarantine(current_ids);
   FOR cid IN SELECT c.id FROM public.campaigns c
-   JOIN crm_audience_v2.campaign_binding b ON b.campaign_id=c.id
+   JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
    WHERE NOT(c.id=ANY(current_ids))
     AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.ab_regular_pair WHERE c.id IN(campaign_a,campaign_b))
     AND (c.status::text='running' OR (c.status::text='scheduled' AND c.send_at<=clock_timestamp()))
@@ -732,12 +732,12 @@ $fn$$replacement$;
   PERFORM crm_audience_v2.regular_admission_snapshot(c.id);
   PERFORM 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=c.id FOR SHARE;
   PERFORM 1 FROM crm_audience_v2.config WHERE brand=r.brand FOR SHARE;
-  PERFORM 1 FROM crm_audience_v2.audience a JOIN crm_audience_v2.campaign_binding b ON b.audience_id=a.id WHERE b.campaign_id=c.id FOR SHARE OF a;
+  PERFORM 1 FROM crm_audience_v2.audience a JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON b.audience_id=a.id FOR SHARE OF a;
   IF r.expires_at<=clock_timestamp() OR r.checked_at>clock_timestamp() OR rt IS DISTINCT FROM r.runtime
    OR r.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(c.id)
    OR public.shrigma_campaign_current(c.id)->>'version' IS DISTINCT FROM r.campaign_version
    OR c.send_at IS NULL OR c.send_at<clock_timestamp()+interval '15 minutes'
-   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=c.id AND b.brand=r.brand
+   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(c.id) b WHERE b.brand=r.brand
     AND b.binding_version=r.binding_version AND b.binding_hash=r.binding_hash)
    OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=c.id)
    OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch WHERE flow='campaign' AND piece='audience-regular-v1:'||c.id::text) THEN
@@ -769,7 +769,7 @@ $fn$$replacement$;
   SELECT * INTO s FROM crm_audience_v2.ab_scope WHERE test_id=tid;
   IF TG_TABLE_NAME='crm_ab_arm_v2' THEN
    IF TG_OP='INSERT' AND s.test_id IS NULL
-    AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=NEW.campaign_id)
+    AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(NEW.campaign_id))
    THEN RAISE EXCEPTION 'AB_AUDIENCE_SCOPE_REQUIRED';END IF;
   END IF;
   IF s.test_id IS NULL AND NOT old_scoped THEN IF TG_OP='DELETE' THEN RETURN OLD;END IF;RETURN NEW;END IF;
@@ -898,8 +898,13 @@ END $$$replacement$;
  ctx jsonb;at timestamptz;
  progress text[]:=ARRAY['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'];
  BEGIN
-  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=OLD.id;
-  IF NOT FOUND THEN IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW; END IF;
+  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding_effective(OLD.id) b;
+  IF NOT FOUND THEN
+   IF TG_OP='DELETE' AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=OLD.id) THEN
+    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_HISTORY_RETAINED';
+   END IF;
+   IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW;
+  END IF;
   IF TG_OP='DELETE' OR NEW.id IS DISTINCT FROM OLD.id
    OR NEW.type::text IS DISTINCT FROM 'regular' OR NEW.messenger IS DISTINCT FROM 'email'
    OR NEW.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'
@@ -940,8 +945,8 @@ END $$$replacement$;
    AND NEW.max_subscriber_id IS NOT DISTINCT FROM OLD.max_subscriber_id
    AND NEW.started_at IS NOT DISTINCT FROM OLD.started_at THEN RETURN NEW; END IF;
   IF NOT ctl.enabled OR ctl.suspended OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(OLD.id)
-   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=OLD.id
-    AND b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN
+   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(OLD.id) b
+    WHERE b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN
    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE';
   END IF;
   -- Do not acquire deployment/lease row locks after the native campaign lock.

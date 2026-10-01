@@ -49,6 +49,12 @@ async function setup(){
    INSERT INTO campaigns SELECT (jsonb_populate_record(NULL::campaigns,to_jsonb(c)||'{"id":301}'::jsonb)).* FROM campaigns c WHERE id=100;
    INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(300,3,'Legacy Fish'),(301,3,'Legacy Fish');
    UPDATE campaigns SET status='scheduled',send_at=clock_timestamp()-interval '1 minute' WHERE id IN(100,200,300,301);`);
+  const bindingSQL=read('n8n/growth/segment-campaign-binding.sql');
+  const releaseStart=bindingSQL.indexOf(' CREATE TABLE crm_audience_v2.campaign_binding_release (');
+  const releaseEnd=bindingSQL.indexOf(' EXECUTE $ddl$CREATE FUNCTION crm_audience_v2.campaign_binding_effective',releaseStart);
+  const effective=bindingSQL.match(/ EXECUTE \$ddl\$(CREATE FUNCTION crm_audience_v2\.campaign_binding_effective\(cid integer\)[\s\S]*?)\$ddl\$;/);
+  assert.ok(releaseStart>=0&&releaseEnd>releaseStart&&effective,'REGULAR_EFFECTIVE_BINDING_SOURCE');
+  await db.exec(bindingSQL.slice(releaseStart,releaseEnd)+effective[1]+';\nREVOKE ALL ON crm_audience_v2.campaign_binding_release FROM PUBLIC;');
   for(const brand of ['fish','aristo'])await db.query(`UPDATE crm_audience_v2.config SET enabled=true,base_list_id=$2,catalog=$3::jsonb,
    checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '4 minutes' WHERE brand=$1`,[brand,brand==='fish'?17:16,JSON.stringify(catalog())]);
   for(const [brand,cid]of [['fish',100],['aristo',200]]){
@@ -79,7 +85,7 @@ test('selection-only transforms the two complete upstream queries without A/B de
  const regular=P.patchRegularSource(source),combined=P.patchSource(source);
  assert.equal(regular.variant,'selection-only');assert.equal(regular.requires_ab,false);
  assert.equal(regular.source_sha256,'37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882');
- assert.equal(regular.patched_sha256,'be2a4a422574fe328bf23f6f9cfef84a71a9f4be0f95ce9d3970a5ecf949933f');
+ assert.equal(regular.patched_sha256,'7abbff0c76a874e233f8cd6ae99c15b33632e34d1ac93b0b3ca337ed08868d9a');
  assert.equal(combined.patched_sha256,'3fd5311813ee746c8059796ef5aa713154430cf06e998e5be7424cb163d62daa');
  assert.doesNotMatch(regular.source,/crm_ab_/);assert.throws(()=>P.patchRegularSource(source+'\n'),/SOURCE_DRIFT/);
  for(const name of regular.changed_queries)assert.match(P.section(regular.source,name).text,/crm_audience_v2\.selection_regular_matches\([^,]+, s\.id\)/);

@@ -42,7 +42,7 @@ jobs:
       - name: Check HTTP deadlines, native transport and database authorization
         env:
           NODE_PATH: ../campaign-test-tools/node_modules
-        run: node --test tests/crm-campaign-service.test.cjs tests/crm-campaign-gateway-role.test.cjs tests/campaign-runtime.test.cjs tests/campaign-provider.test.cjs
+        run: node --test tests/crm-campaign-service.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-gateway-role.test.cjs tests/campaign-runtime.test.cjs tests/campaign-provider.test.cjs
       - name: Prove complete synthetic HTTP operations with a restricted PostgreSQL login
         env:
           NODE_PATH: ./services/crm-campaign/node_modules

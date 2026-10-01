@@ -4,6 +4,7 @@
 const A=require('./segment-audience-contract.js');
 const H=require('./segment-audience-review.cjs');
 const Shopify=require('./segment-shopify-facts.cjs');
+const Recorded=require('./segment-recorded-origin.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
 const fields={segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_operacao:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
@@ -35,6 +36,7 @@ const SQL=Object.freeze({
  lock:"SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('crm-audience-v2-request:'||pg_catalog.jsonb_build_array($1::text,$2::text)::text,0))",
  operation:"SELECT brand,payload,payload_hash,response FROM crm_audience_v2.request WHERE actor=$1::text AND operation_key=$2::text",
  config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at FROM crm_audience_v2.config_snapshot($1::text)",
+ recorded:"SELECT crm_audience_v2.recorded_origin_source_current($1::text,$2::text,$3::text) AS current",
  shopify:"SELECT crm_audience_v2.shopify_snapshot($1::text) AS source",
  lists:"SELECT id,name,status,optin FROM crm_audience_v2.catalog_lists($1::text)",
  list:"SELECT * FROM crm_audience_v2.audience WHERE brand=$1::text ORDER BY updated_at DESC,id LIMIT $2::integer OFFSET $3::integer",
@@ -55,11 +57,12 @@ async function readAuth(query,key,needed){
  return {actor:op.who,caps:op.caps};
 }
 function sourceConfig(raw,brand){
- if(!exact(raw,['currency','timezone','shop_id','fields','products','origins'])||raw.currency!==null&&(typeof raw.currency!=='string'||!/^([A-Z]{3})$/.test(raw.currency))||raw.shop_id!==null&&(typeof raw.shop_id!=='string'||!/^gid:\/\/shopify\/Shop\/[1-9]\d{0,19}$/.test(raw.shop_id))||raw.timezone!==null&&typeof raw.timezone!=='string')throw fail('SEGMENT_UNAVAILABLE');
+ if(!exact(raw,['currency','timezone','shop_id','fields','products','origins',...(Object.hasOwn(raw,'recorded_origins')?['recorded_origins']:[])])||raw.currency!==null&&(typeof raw.currency!=='string'||!/^([A-Z]{3})$/.test(raw.currency))||raw.shop_id!==null&&(typeof raw.shop_id!=='string'||!/^gid:\/\/shopify\/Shop\/[1-9]\d{0,19}$/.test(raw.shop_id))||raw.timezone!==null&&typeof raw.timezone!=='string')throw fail('SEGMENT_UNAVAILABLE');
  if(raw.timezone!==null){try{new Intl.DateTimeFormat('en',{timeZone:raw.timezone});}catch{throw fail('SEGMENT_UNAVAILABLE');}}
  if(!Array.isArray(raw.fields)||raw.fields.length>Object.keys(A.FIELDS).length||new Set(raw.fields.map(x=>x?.key)).size!==raw.fields.length||raw.fields.some(x=>!exact(x,['key','available','source_hash'])||!Object.hasOwn(A.FIELDS,x.key)||typeof x.available!=='boolean'||x.source_hash!==null&&(typeof x.source_hash!=='string'||!HASH.test(x.source_hash))||x.available&&x.source_hash===null))throw fail('SEGMENT_UNAVAILABLE');
  if(!Array.isArray(raw.products)||raw.products.length>1000||new Set(raw.products.map(x=>x?.id)).size!==raw.products.length||raw.products.some(x=>!exact(x,['id','brand','name','available'])||x.brand!==brand||typeof x.id!=='string'||!/^gid:\/\/shopify\/Product\/[1-9]\d{0,19}$/.test(x.id)||typeof x.name!=='string'||x.name.length>500||typeof x.available!=='boolean'))throw fail('SEGMENT_UNAVAILABLE');
- if(!Array.isArray(raw.origins)||raw.origins.length>3||new Set(raw.origins.map(x=>x?.key)).size!==raw.origins.length||raw.origins.some(x=>!exact(x,['key','brand','name','available','provenance_hash'])||!['popup','vip_alma','vip_desodorante'].includes(x.key)||x.brand!==brand||typeof x.name!=='string'||x.name.length>500||typeof x.available!=='boolean'||x.provenance_hash!==null&&(typeof x.provenance_hash!=='string'||!HASH.test(x.provenance_hash))||x.available&&x.provenance_hash===null))throw fail('SEGMENT_UNAVAILABLE');return copy(raw);
+ if(!Array.isArray(raw.origins)||raw.origins.length>3||new Set(raw.origins.map(x=>x?.key)).size!==raw.origins.length||raw.origins.some(x=>!exact(x,['key','brand','name','available','provenance_hash'])||!['popup','vip_alma','vip_desodorante'].includes(x.key)||x.brand!==brand||typeof x.name!=='string'||x.name.length>500||typeof x.available!=='boolean'||x.provenance_hash!==null&&(typeof x.provenance_hash!=='string'||!HASH.test(x.provenance_hash))||x.available&&x.provenance_hash===null))throw fail('SEGMENT_UNAVAILABLE');
+ if(!Recorded.validOrigins(Object.hasOwn(raw,'recorded_origins')?raw.recorded_origins:[],brand))throw fail('SEGMENT_UNAVAILABLE');return copy(raw);
 }
 async function readCatalog(query,brand){
  const rows=(await query(SQL.config,[brand])).rows,listRows=(await query(SQL.lists,[brand])).rows;
@@ -68,6 +71,15 @@ async function readCatalog(query,brand){
  const empty={currency:null,timezone:null,shop_id:null,fields:Object.keys(A.FIELDS).map(key=>({key,available:false,source_hash:null})),products:[],origins:[]};
  try{source=sourceConfig(c.catalog,brand);ready=c.enabled===true&&positive(c.base_list_id)&&positive(c.revision)&&!!base&&base.status==='active'&&['single','double'].includes(base.optin)&&date(c.checked_at)<=date(c.read_at)&&date(c.expires_at)>date(c.read_at)&&date(c.expires_at)-date(c.checked_at)<=300000;}catch{source=empty;}
  source.fields=source.fields.map(field=>Shopify.FIELDS.includes(field.key)&&field.available&&!Shopify.sourceReady(brand,field.key,source)?{...field,available:false}:field);
+ if(source.recorded_origins){
+  for(const o of source.recorded_origins){
+   if(!Recorded.sourceReady(brand,o.key,source)){o.available=false;continue;}
+   const rows=(await query(SQL.recorded,[brand,o.key,o.provenance_hash])).rows;
+   if(rows?.length!==1||typeof rows[0].current!=='boolean')throw fail('SEGMENT_UNAVAILABLE');
+   if(!rows[0].current)o.available=false;
+  }
+  if(!source.recorded_origins.some(o=>o.available))source.fields=source.fields.map(f=>f.key===Recorded.FIELD?{...f,available:false}:f);
+ }
  let shopify=null;
  if(Shopify.FIELDS.some(field=>Shopify.sourceReady(brand,field,source))){
   const evidence=(await query(SQL.shopify,[brand])).rows;
@@ -100,6 +112,7 @@ function pins(definition,current){
    if(!current.catalog.shop_id||!current.catalog.timezone||!current.catalog.currency)throw fail('SEGMENT_LIST_UNAVAILABLE',422);
    Object.assign(value,{shop_id:current.catalog.shop_id,currency:current.catalog.currency,timezone:current.catalog.timezone});
   }
+  if(rule.field===Recorded.FIELD){if(!Recorded.sourceReady(definition.brand,rule.value,current.catalog))throw fail('SEGMENT_LIST_UNAVAILABLE',422);value.recorded_origin_provenance_hash=current.catalog.recorded_origins.find(x=>x.key===rule.value).provenance_hash;}
   if(rule.field==='signup.origin')value.origin_provenance_hash=current.catalog.origins.find(x=>x.key===rule.value).provenance_hash;
   return value;
  });

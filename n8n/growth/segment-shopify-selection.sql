@@ -12,10 +12,10 @@ BEGIN
   RAISE EXCEPTION 'SHOPIFY_INTEGRATION_REQUIRES_WORKER_OFF';
  END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_rule(jsonb,integer,text,integer,jsonb)')) IS DISTINCT FROM '3a73d33fd5047912f81e708affba8641' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_context(integer,text,boolean)')) IS DISTINCT FROM 'a0cc673ff61db43f073d9d1ead066091' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_context(integer,text,boolean)')) IS DISTINCT FROM '6d8519c41390e45c83de81d0a29d493c' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_regular_rule_match(jsonb,integer[],integer,text)')) IS DISTINCT FROM '6a466c3c4940a082dbc38c0713b97c76' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.selection_regular_matches(jsonb,integer)')) IS DISTINCT FROM '498bedcb16841d5422733d25043c78ed' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)')) IS DISTINCT FROM '87d39e16eb28b33dd3c891814614e1b5' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)')) IS DISTINCT FROM 'e7d321f4e826aa0dd501c9dc26300441' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('crm_audience_v2.refresh_native_catalog(text)')) IS DISTINCT FROM 'a5d67bc9482f704ec18cffa06b12b17d' THEN RAISE EXCEPTION 'SHOPIFY_INTEGRATION_BASE_DRIFT'; END IF;
 END $boundary$;
 
@@ -119,7 +119,7 @@ DECLARE b crm_audience_v2.campaign_binding%ROWTYPE; r crm_audience_v2.revision%R
  c crm_audience_v2.config%ROWTYPE; result jsonb; base_result jsonb; current_context jsonb;
  current_pins jsonb; seen_at timestamptz:=statement_timestamp();
 BEGIN
- SELECT * INTO b FROM crm_audience_v2.campaign_binding WHERE campaign_id=cid;
+ SELECT * INTO b FROM crm_audience_v2.campaign_binding_effective(cid);
  IF NOT FOUND THEN RETURN jsonb_build_object('bound',false); END IF; -- Preserve unbound native selection.
  IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.selection_runtime rt WHERE rt.singleton AND rt.enabled
   AND rt.candidate_query_sha256=expected_query_sha256
@@ -245,7 +245,7 @@ CREATE OR REPLACE FUNCTION crm_audience_v2.regular_delivery_claim(
   -- One campaign lock serializes attempts across processes as well as workers.
   SELECT * INTO STRICT c FROM public.campaigns WHERE id=cid FOR UPDATE;
   SELECT * INTO STRICT e FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=cid FOR UPDATE;
-  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding WHERE campaign_id=cid FOR SHARE;
+  SELECT * INTO STRICT b FROM crm_audience_v2.campaign_binding_effective(cid);
   IF NOT e.enabled OR e.suspended OR c.status::text<>'running'
    OR c.sent IS DISTINCT FROM e.acknowledged_sent OR c.last_subscriber_id IS DISTINCT FROM e.acknowledged_subscriber_id
    OR e.binding_version IS DISTINCT FROM b.binding_version OR e.binding_hash IS DISTINCT FROM b.binding_hash

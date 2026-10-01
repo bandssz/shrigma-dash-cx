@@ -9,7 +9,7 @@ const Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
 
 const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
 
-const renewableCatalog=brand=>{const source=StoreFixture.source(brand),shopify=new Set(Facts.AGGREGATE_FIELDS);return {...source,products:[],origins:[],fields:Object.keys(require('../n8n/growth/segment-audience-contract.js').FIELDS).map(key=>shopify.has(key)?{key,available:true,source_hash:Facts.sourceHash(brand,key,source)}:['email.opened','email.clicked'].includes(key)?{key,available:true,source_hash:Counter.engagementSourceHash(brand,key)}:{key,available:false,source_hash:null})};};
+const renewableCatalog=brand=>{const source=StoreFixture.source(brand),shopify=new Set(Facts.AGGREGATE_FIELDS);return {...source,products:[],origins:[],fields:source.fields.map(({key})=>shopify.has(key)?{key,available:true,source_hash:Facts.sourceHash(brand,key,source)}:['email.opened','email.clicked'].includes(key)?{key,available:true,source_hash:Counter.engagementSourceHash(brand,key)}:{key,available:false,source_hash:null})};};
 
 async function setup(db,{beforeWorkerReady=null,sendAfterSeconds=null,prepareCases=true,renewableCatalogBeforeBinding=false}={}){
  if(beforeWorkerReady!==null&&typeof beforeWorkerReady!=='function')throw Error('AB_REGULAR_FIXTURE_CALLBACK');
@@ -68,7 +68,7 @@ async function setup(db,{beforeWorkerReady=null,sendAfterSeconds=null,prepareCas
  if(beforeWorkerReady)await beforeWorkerReady({db,fixture,cases});
  const instance=randomUUID(),worker='a'.repeat(64),runtime='b'.repeat(64);
  await db.query(`UPDATE crm_audience_v2.regular_worker_deployment SET enabled=true,
-  worker_sha256=$1,runtime_sha256=$2,query_sha256='3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de',
+  worker_sha256=$1,runtime_sha256=$2,query_sha256='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',
   database_role=session_user,approved_at=clock_timestamp(),approved_by='fixture-only',topology_receipt_sha256=repeat('f',64)`,[worker,runtime]);
  const catalogBefore=renewableCatalogBeforeBinding?(await db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '5 minutes',expires_at=clock_timestamp()-interval '1 second' RETURNING brand,checked_at,expires_at")).rows:null;
  await db.query('SELECT crm_audience_v2.regular_worker_heartbeat($1,$2,$3)',[instance,worker,runtime]);

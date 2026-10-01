@@ -20,7 +20,7 @@ async function setup(){
 }
 test('bound selection and repeated reads never acknowledge a recipient',async()=>{
  const x=await setup();try{
-  assert.equal(x.worker.patched_sha256,'3dc9433187c4ee16f0516503c6cc3efae63e9a607f9a15748e52a43217c6f7de');
+  assert.equal(x.worker.patched_sha256,'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d');
   assert.equal(x.worker.requires_durable_finish,true);assert.equal(x.worker.authorizes_send,false);
   for(const cid of [100,200]){
    const before=await x.state(cid),first=await x.batch(cid),again=await x.batch(cid);

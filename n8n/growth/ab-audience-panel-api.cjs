@@ -22,7 +22,7 @@ const SQL=Object.freeze({
  list:'SELECT public.crm_ab_snapshot_v2(e.test_id) AS experiment FROM public.crm_ab_experiment_v2 e JOIN crm_audience_v2.ab_scope s USING(test_id) WHERE e.brand=$1 ORDER BY e.prepared_at DESC,e.test_id LIMIT 21',
  campaigns:`SELECT c.id,c.name,c.subject,c.send_at,public.shrigma_campaign_current(c.id)->>'version' AS version,
   b.audience_id,b.audience_revision,a.name AS audience_name
-  FROM public.campaigns c JOIN crm_audience_v2.campaign_binding b ON b.campaign_id=c.id
+  FROM public.campaigns c JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
   JOIN crm_audience_v2.audience a ON a.id=b.audience_id
   WHERE b.brand=$1 AND c.attribs#>>'{crm,brand}'=$1 AND c.status::text='draft' AND c.sent=0 AND c.started_at IS NULL
    AND NOT a.archived AND a.version=b.audience_revision
