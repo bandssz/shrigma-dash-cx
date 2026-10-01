@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),{parseHTML}
 const A=require('../growth-audience.js');
 const rule=(marca,galho,rotulo=galho)=>({marca,galho,rotulo});
 const snap=(marca,galho,dia,pessoas)=>({marca,galho,dia,pessoas});
+function rfmCatalog(brand='fish',now=Date.now()){const hash='a'.repeat(64),category_counts=Object.fromEntries(['campeao','leal','um_x','um_x_lapsando','dormant','needs_attention','ex_campeao_at_risk'].map(t=>[t,t==='campeao'?2:0]));return {brand,current:true,fields:[{key:'relationship.rfm',available:true,source_hash:hash}],rfm_snapshot:{brand,current:true,history_complete:true,source_hash:hash,operation_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',started_at:new Date(now-120000).toISOString(),observed_at:new Date(now-60000).toISOString(),expires_at:new Date(now+3600000).toISOString(),customers:3,resolved:2,unresolved:1,category_counts,category_scope:'shopify_customers',semantics_version:'shopify-customer-rfm-v4'}};}
 test('latest snapshot wins, including a smaller count, zero or an explicitly missing count; brands never join by ID alone',()=>{
  const api={crm_regra_galho:[rule('fish','C1','Clientes'),rule('aristo','C1','Clientes')],crm_galho:[snap('fish','C1','2026-09-01',1000),snap('fish','C1','2026-09-26',12),snap('aristo','C1','2026-09-25',900)]},before=JSON.stringify(api);
  assert.deepEqual(A.rows(api,{brand:'fish'}).map(r=>[r.brand,r.count,r.measuredAt]),[['fish',12,'2026-09-26']]);assert.equal(JSON.stringify(api),before);
@@ -61,6 +62,12 @@ test('RFM cards show the real snapshot by brand and date, keep unknown distinct 
  const selected=e.querySelector('[data-ga-rfm-key][aria-pressed="true"]');e.querySelector('[data-ga-rfm]').onclick({target:selected});assert.equal(e.querySelectorAll('[data-ga-row]').length,7);assert.equal(refreshes,0);
  ui.update({api,brand:'aristo',now});assert.equal(e.querySelectorAll('[data-ga-rfm-key]').length,1);assert.equal(e.querySelector('[data-ga-rfm-key]').getAttribute('aria-pressed'),'false');assert.match(e.querySelector('[data-ga-rfm]').textContent,/O Aristocrata/);assert.doesNotMatch(e.querySelector('[data-ga-rfm]').textContent,/Fishermans/);
 });
+test('relationship card creates only a local draft when a separate versioned RFM source is current',async()=>{
+ const {document}=parseHTML('<div id="audience"></div>'),element=document.querySelector('#audience'),created=[];
+ const api={crm_base:[{marca:'fish',coletado_em:'2026-09-26T16:30:00Z',segmentos:{rfm:{campeao:5}}}]},base={brand:'fish',current:true,fields:[{key:'relationship.rfm',available:false,source_hash:'a'.repeat(64)}],rfm_snapshot:{brand:'fish',current:false}};
+ const ui=A.mount({element,onCreateRfm:p=>created.push(p)});ui.update({api,brand:'fish',catalogs:[base]});let button=element.querySelector('[data-ga-rfm-create]');assert.equal(button.disabled,true);button.click();assert.equal(created.length,0);
+ const ready=rfmCatalog();ui.update({api,brand:'fish',catalogs:[ready]});button=element.querySelector('[data-ga-rfm-create]');assert.equal(button.disabled,false);button.click();assert.deepEqual(created,[{brand:'fish',tag:'campeao',name:'Campeões'}]);
+});
 test('empty and filtered states distinguish absent data from zero people',()=>{
  const {document}=parseHTML('<div id="audience"></div>'),e=document.querySelector('#audience'),ui=A.mount({element:e});ui.update({api:{},brand:'fish'});assert.match(e.querySelector('[data-ga-result]').textContent,/Nenhum público disponível/);
  ui.update({api:{crm_regra_galho:[rule('fish','a','Ativos')],crm_galho:[snap('fish','a','2026-09-26',0)]},brand:'fish'});assert.equal(e.querySelector('.ga-count span'),null);assert.match(e.querySelector('tbody .ga-count').textContent,/^0$/);
@@ -81,4 +88,17 @@ test('relationship cards retain keyboard focus through filtering and a refreshed
  const e=document.querySelector('#audience'),ui=A.mount({element:e}),api={crm_base:[{marca:'fish',coletado_em:'2026-09-26T16:30:00Z',segmentos:{rfm:{campeao:5}}}]};ui.update({api,brand:'fish'});
  const card=e.querySelector('[data-ga-rfm-id="campeao"]');card.focus();e.querySelector('[data-ga-rfm]').onclick({target:card});assert.equal(document.activeElement,e.querySelector('[data-ga-rfm-id="campeao"]'));assert.equal(document.activeElement.getAttribute('aria-pressed'),'true');
  api.crm_base[0].segmentos.rfm.campeao=6;api.crm_base[0].coletado_em='2026-09-26T17:30:00Z';ui.update({api,brand:'fish'});assert.equal(document.activeElement,e.querySelector('[data-ga-rfm-id="campeao"]'));assert.equal(document.activeElement.querySelector('strong').textContent,'6');
+});
+
+test('versioned relationship counts replace legacy analysis, retain zero and isolate brands without authorizing sends',()=>{
+ const now=Date.now(),catalog=rfmCatalog('fish',now),api={crm_base:[{marca:'fish',coletado_em:new Date(now-300000).toISOString(),segmentos:{rfm:{campeao:999}}},{marca:'aristo',coletado_em:new Date(now-300000).toISOString(),segmentos:{rfm:{campeao:4}}}]},before=JSON.stringify({catalog,api});
+ const r=A.rows(api,{catalogs:[catalog],now}).filter(x=>x.group==='rfm');assert.equal(r.filter(x=>x.brand==='fish').length,7);assert.equal(r.find(x=>x.brand==='fish'&&x.id==='campeao').count,2);assert.equal(r.find(x=>x.brand==='fish'&&x.id==='leal').count,0);assert.equal(r.find(x=>x.brand==='aristo').count,4);assert.equal(r.find(x=>x.brand==='fish').source,'rfm_snapshot');assert.equal(r.find(x=>x.brand==='fish').measuredAt,catalog.rfm_snapshot.observed_at);assert.equal(JSON.stringify({catalog,api}),before);
+ const {document}=parseHTML('<div id="audience"></div>'),e=document.querySelector('#audience'),ui=A.mount({element:e,onCreateRfm(){}});ui.update({api,brand:'fish',catalogs:[catalog],now});assert.match(e.textContent,/Clientes Shopify · pedidos pagos/);assert.match(e.textContent,/incluindo identidades ainda não resolvidas/);assert.equal(e.querySelector('[data-ga-rfm-id="campeao"] strong').textContent,'2');
+});
+test('unproven, expired, cross-brand, mismatched and conflicting relationship sources never prepare sending audiences',()=>{
+ const now=Date.now(),base=rfmCatalog('fish',now),api={crm_base:[{marca:'fish',coletado_em:new Date(now-300000).toISOString(),segmentos:{rfm:{campeao:999}}}]};
+ for(const mutate of [c=>c.rfm_snapshot.brand='aristo',c=>c.rfm_snapshot.source_hash='b'.repeat(64),c=>c.rfm_snapshot.history_complete=false,c=>c.rfm_snapshot.semantics_version='legacy',c=>c.rfm_snapshot.category_scope='eligible_contacts',c=>delete c.rfm_snapshot.category_counts.leal,c=>c.rfm_snapshot.category_counts.leal=null,c=>c.rfm_snapshot.category_counts.leal=4,c=>c.rfm_snapshot.expires_at=new Date(now).toISOString(),c=>c.rfm_snapshot.observed_at=new Date(now+1).toISOString()]){
+  const bad=structuredClone(base);mutate(bad);assert.equal(A.rfmCatalogSources([bad],now).size,0);const {document}=parseHTML('<div id="audience"></div>'),e=document.querySelector('#audience');A.mount({element:e,onCreateRfm(){assert.fail('unproven source');}}).update({api,brand:'fish',catalogs:[bad],now});assert.equal(e.querySelector('[data-ga-rfm-create]').disabled,true);assert.match(e.textContent,/Retrato de análise/);
+ }
+ const conflict=structuredClone(base);conflict.rfm_snapshot.category_counts.campeao=1;assert.equal(A.rfmCatalogSources([base,conflict],now).size,0);assert.equal(A.rfmCatalogSources([base,structuredClone(base)],now).size,1);
 });

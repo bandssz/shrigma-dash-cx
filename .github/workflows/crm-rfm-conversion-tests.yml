@@ -1,0 +1,43 @@
+name: CRM RFM and recipient evidence candidates (OFF)
+on:
+  pull_request:
+    paths:
+      - 'growth-audience*'
+      - 'growth-segment-*'
+      - 'n8n/growth/segment-*'
+      - 'n8n/growth/recipient-conversion-*'
+      - 'services/crm-shopify-sync/**'
+      - 'tests/growth-rfm-*'
+      - 'tests/segment-shopify-rfm*'
+      - 'tests/recipient-conversion-*'
+      - '.github/workflows/crm-rfm-conversion-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable-off:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned disposable test dependencies
+        run: npm install --prefix ../crm-rfm-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Test the file consumer, catalog, panel and OFF conversion compiler
+        env:
+          NODE_PATH: ../crm-rfm-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+        run: >-
+          node --test --test-concurrency=2
+          tests/segment-shopify-rfm.test.cjs
+          tests/segment-shopify-rfm-evidence.test.cjs
+          tests/segment-shopify-rfm-selection.test.cjs
+          tests/segment-shopify-rfm-postgres.cjs
+          tests/growth-rfm-preset-context.test.cjs
+          tests/growth-rfm-panel-path.test.cjs
+          tests/recipient-conversion-evidence.test.cjs
+          tests/recipient-conversion-install.test.cjs
