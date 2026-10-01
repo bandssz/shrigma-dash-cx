@@ -9,7 +9,7 @@ const PUBLIC_FILES=Object.freeze([
  'logos/icone-aristocrata.png','logos/icone-fishermans.svg','logos/icone-olivas.jpg',
  'logos/wm-aristocrata.png','logos/wm-fishermans.png','logos/wm-olivas.png',
  'crm/index.html','organico/index.html','creators/index.html','gestao/index.html',
- 'entry.js','entry.css','guard.js'
+ 'entry.js','entry.css','guard.js','media-read.js'
 ].sort());
 const RUNTIME_FILES=Object.freeze(['server.cjs','auth.cjs','proxy.cjs','fixtures.cjs'].sort());
 const FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...RUNTIME_FILES.map(f=>'runtime/'+f)].sort());

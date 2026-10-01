@@ -1,10 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_PRINT_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
+const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
 const {ENDPOINTS,DYNAMIC_ROUTES}=require('../services/dashboard-operational/build.cjs');
+const {PATH:CAMPAIGN_PATH,MEDIA_PATH}=require('../services/crm-campaign/server.cjs');
 const params=value=>new URLSearchParams(value);
 const denied=fn=>assert.throws(fn,e=>e instanceof ProxyError&&e.status>=400&&e.status<500);
 const U='123e4567-e89b-42d3-a456-426614174000',K='a'.repeat(32);
+const draftDefinition=brand=>({schema_version:'crm-campaign-v1',brand,channel:'email',initiative:{key:'gateway-proof',name:'Gateway proof'},utm_campaign:'gateway-proof',name:'Gateway proof',subject:'Proof subject',from_email:brand==='fish'?'Fish <contato@fishermans.com.br>':'Aristo <contato@oaristocrata.com>',reply_to:brand==='fish'?'contato@fishermans.com.br':'contato@oaristocrata.com',list_ids:[3],template_id:1,html:'<a href="https://fishermans.com.br/products/proof">Proof</a> {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/proof\n{{ UnsubscribeURL }}',tags:[],send_at:null});
 const hostsFor=routes=>[...new Set(Object.values(routes).map(value=>new URL(value).hostname))];
 const review=routes=>({schema:DYNAMIC_MANIFEST_SCHEMA,sourceRevision:REVIEWED_DYNAMIC.sourceRevision,routes});
 
@@ -18,7 +20,9 @@ test('each area has only its exact read contract and individual credential slot'
     ['campaigns','GET','acao=campanha_catalogo&brand=fish',undefined,'growth','growth-campaign-read',false],
     ['campaigns','GET','acao=campanha_listar&brand=aristo',undefined,'growth','growth-campaign-read',false],
     ['campaigns','GET','acao=campanha_obter&brand=fish&id=12',undefined,'growth','growth-campaign-read',false],
+    ['campaigns_media','GET','brand=fish&page=1&per_page=24',undefined,'growth','growth-campaign-read',false],
     ['campaigns','GET',`acao=campanha_operacao&brand=fish&idempotency_key=${K}`,undefined,'growth','growth-campaign',true],
+    ['campaigns','POST','',{acao:'campanha_salvar',brand:'fish',definition:draftDefinition('fish'),idempotency_key:K},'growth','growth-campaign',true],
     ['segments','GET','acao=segmentos_listar&brand=fish&offset=0&limit=50',undefined,'growth','growth-audience-read',false],
     ['segments','GET',`acao=segmento_obter&brand=fish&id=${U}`,undefined,'growth','growth-audience-read',false],
     ['segments','GET',`acao=segmento_operacao&brand=fish&idempotency_key=${K}`,undefined,'growth','growth-audience',true],
@@ -74,6 +78,12 @@ test('unknown, writable, malformed and widened read requests fail before network
     ['crm-read','GET','action=identity&painel=growth&acao=cache_growth'],
     ['campaigns','GET','acao=campanha_salvar&brand=fish'],
     ['campaigns/media','GET','brand=fish&page=1'],
+    ['campaigns_media','GET','brand=fish&filename=crm-fish-test.png'],
+    ['campaigns_media','GET','brand=fish&operation_id=123'],
+    ['campaigns_media','GET','brand=fish&page=0'],
+    ['campaigns_media','GET','brand=aristo&per_page=51'],
+    ['campaigns_media','GET','brand=fish&k=secret'],
+    ['campaigns_media','GET','brand=fish&brand=aristo'],
     ['campaigns','GET','acao=campanha_obter&brand=fish&id=1&confirm=agendar'],
     ['segments','GET','acao=segmento_contar&brand=fish'],
     ['segments','GET','acao=segmentos_listar&brand=fish&offset=-1&limit=50'],
@@ -90,6 +100,7 @@ test('unknown, writable, malformed and widened read requests fail before network
   for(const [route,body]of [
     ['campaign_audience',{acao:'campanha_publico_desvincular',brand:'fish',campaign_id:1}],
     ['campaigns/media',{brand:'fish',file:'synthetic'}],
+    ['campaigns_media',{brand:'fish',page:'1'}],
     ['influ',{acao:'salvar_influ'}],['influ',{acao:'listar',ini:'2026-02-30',fim:'2026-09-30'}],
     ['organico-links',{acao:'salvar'}],['organico-links',{acao:'listar',data:{url:'https://evil.invalid'}}],
     ['candidaturas',{acao:'enviar'}],['aprovacao',{acao:'aprovar'}],
@@ -99,6 +110,52 @@ test('unknown, writable, malformed and widened read requests fail before network
   denied(()=>decide('tts','PUT',params(''),{}));
   denied(()=>decide('organico-links','POST',params(''),{acao:'listar',k:'real-secret'}));
   assert.equal(decide('organico-links','POST',params(''),{acao:'listar',k:'ui-'+'a'.repeat(32)}).credentialSlot,'organico-links');
+});
+
+test('campaign draft request admits only bounded, unscheduled content and paired edit version',()=>{
+  const base={acao:'campanha_salvar',brand:'fish',definition:draftDefinition('fish'),idempotency_key:K};
+  assert.equal(decide('campaigns','POST',params(''),base).credentialSlot,'growth-campaign');
+  assert.equal(decide('campaigns','POST',params(''),{...base,id:12,expected_version:'a'.repeat(32)}).edit,true);
+  for(const body of [
+    {...base,acao:'campanha_agendar'},
+    {...base,confirm:'agendar'},
+    {...base,id:12},
+    {...base,expected_version:'a'.repeat(32)},
+    {...base,id:'12',expected_version:'a'.repeat(32)},
+    {...base,id:12,expected_version:'old'},
+    {...base,brand:'aristo'},
+    {...base,definition:{...base.definition,send_at:'2026-12-01T12:00:00Z'}},
+    {...base,definition:{...base.definition,extra:'write'}},
+    {...base,definition:{...base.definition,html:'x'.repeat(220001)}},
+    {...base,definition:{...base.definition,initiative:{key:'proof',name:'Proof',k:'secret'}}}
+  ])denied(()=>decide('campaigns','POST',params(''),body));
+  denied(()=>decide('campaigns','POST',params('brand=fish'),base));
+  denied(()=>decide('campaigns','GET',params('acao=campanha_salvar&brand=fish'),undefined));
+  assert.equal(MAX_REQUEST,128*1024);assert.equal(MAX_CAMPAIGN_REQUEST,256*1024);
+  assert.equal(decide('campaigns','POST',params(''),{...base,definition:{...base.definition,html:'x'.repeat(150000)}}).edit,true);
+  assert.throws(()=>decide('campaigns','POST',params(''),{...base,definition:{...base.definition,html:'x'.repeat(220000),text:'x'.repeat(50000)}}),e=>e.code==='BODY_TOO_LARGE');
+});
+
+test('campaign writer rejects unconfirmed draft state and unrelated operation receipts',async()=>{
+ const endpoint=REVIEWED_DYNAMIC.routes.campaigns,upstreams=validateUpstreams({campaigns:endpoint},hostsFor({campaigns:endpoint}),review({campaigns:endpoint}));
+ const context={route:'campaigns',user:{role:'manager',areas:['growth']},credential:'individual-campaign-writer',upstreams,origin:'https://crm.shrigma.com.br',crmDraftWrite:true};
+ const body={acao:'campanha_salvar',brand:'fish',definition:draftDefinition('fish'),idempotency_key:K};
+ let calls=0;
+ const fetchImpl=async(_url,options)=>{
+  calls++;assert.equal(options.method,'POST');
+  assert.equal(Object.hasOwn(options.headers,'Authorization'),false);
+  assert.equal(JSON.parse(options.body).k,'individual-campaign-writer');
+  return new Response(JSON.stringify({campaign:{status:'scheduled',sent:0,started_at:null,send_at:null,definition:body.definition}}),{status:200,headers:{'Content-Type':'application/json'}});
+ };
+ await assert.rejects(forward({...context,method:'POST',query:params(''),body,fetchImpl}),e=>e.code==='UPSTREAM_DRAFT_UNCONFIRMED');
+ assert.equal(calls,1);
+ await assert.rejects(forward({...context,method:'POST',query:params(''),body,crmDraftWrite:false,fetchImpl}),e=>e.code==='EDIT_NOT_READY');
+ assert.equal(calls,1);
+ const receipt={...context,method:'GET',query:params(`acao=campanha_operacao&brand=fish&idempotency_key=${K}`)};
+ await assert.rejects(forward({...receipt,fetchImpl:async(_url,options)=>{
+  assert.equal(options.headers.Authorization,'Bearer individual-campaign-writer');
+  return new Response(JSON.stringify({operation:{action:'agendar',brand:'fish'}}),{status:200,headers:{'Content-Type':'application/json'}});
+ }}),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
 });
 
 test('graph activation review, activation and receipt lookup are denied before fetch',async()=>{
@@ -123,6 +180,8 @@ test('fixed destinations match the frontend build and reject wrong paths on an a
   assert.deepEqual(FIXED_DESTINATIONS,Object.fromEntries(Object.entries(ENDPOINTS).map(([url,route])=>[route,url])));
   assert.deepEqual(Object.keys(REVIEWED_DYNAMIC.routes).filter(route=>!DYNAMIC_ROUTES.includes(route)),[]);
   for(const [source,expected]of Object.entries(REVIEWED_DYNAMIC.sourceSha256))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'..',source))).digest('hex'),expected,source);
+  assert.equal(MEDIA_PATH,CAMPAIGN_PATH+'/media');
+  assert.equal(new URL(REVIEWED_DYNAMIC.routes.campaigns_media).pathname,MEDIA_PATH);
   const hosts=hostsFor(FIXED_DESTINATIONS),read=FIXED_DESTINATIONS['crm-read'];
   assert.equal(validateUpstreams({'crm-read':read},hosts)['crm-read'].pathname,'/read');
   for(const bad of [
@@ -137,6 +196,55 @@ test('fixed destinations match the frontend build and reject wrong paths on an a
     {cx:FIXED_DESTINATIONS.cache,cache:FIXED_DESTINATIONS.cx}
   ])assert.throws(()=>validateUpstreams(bad,hosts));
   assert.throws(()=>validateUpstreams({'crm-read':read},[]));
+});
+
+test('media library opt-in forwards only bounded JSON GET with the individual read key',async()=>{
+  const endpoint=REVIEWED_DYNAMIC.routes.campaigns_media;
+  const configured={campaigns_media:endpoint};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review(configured));
+  let calls=0;
+  const response={contract:'crm-media-v1',brand:'fish',items:[],total:0,page:1,per_page:24,next_page:null};
+  const fetchImpl=async(url,options)=>{
+    calls++;
+    assert.equal(url.href,endpoint+'?brand=fish&page=1&per_page=24');
+    assert.equal(options.method,'GET');
+    assert.equal(options.headers.Authorization,'Bearer individual-read-content-key');
+    assert.equal(options.headers.Accept,'application/json');
+    assert.equal(Object.hasOwn(options.headers,'Origin'),false);
+    assert.equal(Object.hasOwn(options,'body'),false);
+    return new Response(JSON.stringify(response),{status:200,headers:{'Content-Type':'application/json; charset=utf-8'}});
+  };
+  const context={route:'campaigns_media',method:'GET',query:params('brand=fish&page=1&per_page=24'),
+    user:{role:'manager',areas:['growth']},credential:'individual-read-content-key',upstreams,
+    origin:'https://crm.shrigma.com.br',fetchImpl};
+  const result=await forward(context);
+  assert.equal(result.status,200);assert.deepEqual(result.body,response);assert.equal(calls,1);
+  for(const change of [
+    {user:{role:'manager',areas:['influs']}},
+    {credential:null},
+    {method:'POST',query:params(''),body:{brand:'fish',file:'synthetic'}},
+    {query:params('brand=fish&operation_id=123')},
+    {query:params('brand=fish&page=1&page=2')}
+  ]){
+    await assert.rejects(forward({...context,...change}),e=>e instanceof ProxyError&&e.status>=400);
+    assert.equal(calls,1);
+  }
+  await assert.rejects(forward({...context,upstreams:{}}),e=>e.code==='UPSTREAM_NOT_CONFIGURED');
+  assert.equal(calls,1);
+  assert.throws(()=>validateUpstreams({campaigns_media:endpoint.replace('/media','/media/')},hostsFor(configured),review({campaigns_media:endpoint.replace('/media','/media/')})));
+});
+
+test('media listing rejects non-JSON, redirects and responses beyond its two MiB limit',async()=>{
+  const endpoint=REVIEWED_DYNAMIC.routes.campaigns_media;
+  const upstreams=validateUpstreams({campaigns_media:endpoint},hostsFor({campaigns_media:endpoint}),review({campaigns_media:endpoint}));
+  const context={route:'campaigns_media',method:'GET',query:params('brand=aristo'),user:{role:'superadmin',areas:['growth']},
+    credential:'individual-read-content-key',upstreams,origin:'https://gerencial.shrigma.com.br'};
+  assert.equal(MAX_MEDIA_RESPONSE,2*1024*1024);
+  for(const [response,code]of [
+    [new Response('{}',{status:200,headers:{'Content-Type':'text/html'}}),'UPSTREAM_CONTENT_TYPE_DENIED'],
+    [new Response(null,{status:302,headers:{Location:'https://evil.invalid'}}),'UPSTREAM_REDIRECT_DENIED'],
+    [new Response(' '.repeat(MAX_MEDIA_RESPONSE+1),{status:200,headers:{'Content-Type':'application/json'}}),'UPSTREAM_RESPONSE_TOO_LARGE']
+  ])await assert.rejects(forward({...context,fetchImpl:async()=>response}),e=>e.code===code);
 });
 
 test('the gateway sends only the selected backend credential and rewrites trusted capabilities',async()=>{
@@ -259,20 +367,17 @@ test('body-key reads receive only their private key in the body, without browser
   assert.deepEqual(payload,{acao:'listar',k:'backend-organico-key'});
 });
 
-test('receipt lookups preserve their dedicated authentication transport',async()=>{
+test('all unrelated edit receipts remain closed even if a writer credential exists',async()=>{
   const upstreams={...validateUpstreams({ab:FIXED_DESTINATIONS.ab,'tts-action':FIXED_DESTINATIONS['tts-action']},hostsFor(FIXED_DESTINATIONS)),templates:new URL('https://unconfigured.test/templates')};
   const headers=[];
   const fetchImpl=async(_url,options)=>{headers.push(options.headers);return new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});};
   const user={role:'superadmin',areas:['growth','organico','influs']};
-  await forward({route:'ab',method:'GET',query:params('acao=capacidades'),user,credential:'backend-ab-write-key',upstreams,origin:'https://gerencial.shrigma.com.br',fetchImpl});
-  await forward({route:'tts-action',method:'GET',query:params('acao=capacidades'),user,credential:'backend-tts-write-key',upstreams,origin:'https://gerencial.shrigma.com.br',fetchImpl});
-  await forward({route:'templates',method:'GET',query:params(`acao=operacao&idempotency_key=${K}&operacao=rascunho`),user,credential:'backend-template-key',upstreams,origin:'https://gerencial.shrigma.com.br',fetchImpl});
-  assert.equal(headers[0]['X-AB-Write-Key'],'backend-ab-write-key');
-  assert.equal(Object.hasOwn(headers[0],'Authorization'),false);
-  assert.equal(headers[1]['X-TTS-Write-Key'],'backend-tts-write-key');
-  assert.equal(Object.hasOwn(headers[1],'Authorization'),false);
-  assert.equal(headers[2]['X-Template-Key'],'backend-template-key');
-  assert.equal(headers[2].Authorization,'Bearer backend-template-key');
+  for(const request of [
+    {route:'ab',query:params('acao=capacidades')},
+    {route:'tts-action',query:params('acao=capacidades')},
+    {route:'templates',query:params(`acao=operacao&idempotency_key=${K}&operacao=rascunho`)}
+  ])await assert.rejects(forward({...request,method:'GET',user,credential:'backend-individual-writer',upstreams,origin:'https://gerencial.shrigma.com.br',crmDraftWrite:true,fetchImpl}),e=>e.code==='EDIT_NOT_READY');
+  assert.equal(headers.length,0);
 });
 
 test('saved-audience and legacy A/B reads use their respective header contracts',async()=>{

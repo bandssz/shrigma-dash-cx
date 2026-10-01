@@ -1,7 +1,7 @@
 'use strict';
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {createAuth,AuthError}=require('./auth.cjs');
-const {decide,validateUpstreams,readJson,forward,ProxyError}=require('./proxy.cjs');
+const {createAuth,AuthError,CREDENTIAL_SLOTS}=require('./auth.cjs');
+const {decide,validateUpstreams,readJson,forward,ProxyError,MAX_CAMPAIGN_REQUEST}=require('./proxy.cjs');
 const {fixture}=require('./fixtures.cjs');
 const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',influs:'/influs.html'});
 const AREA_ENTRY=Object.freeze({growth:'/crm/index.html',organico:'/organico/index.html',influs:'/creators/index.html'});
@@ -46,6 +46,8 @@ function cspFor(html){
 
 function settingsFromEnv(env=process.env){
   const mode=env.DASHBOARD_MODE;if(!['synthetic','operational'].includes(mode))throw Error('DASHBOARD_MODE invalid');
+  const crmDraftWrite=env.DASHBOARD_CRM_DRAFT_WRITE==='enabled';
+  if(env.DASHBOARD_CRM_DRAFT_WRITE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_DRAFT_WRITE)||crmDraftWrite&&mode!=='operational')throw Error('DASHBOARD_CRM_DRAFT_WRITE invalid');
   const managerHost=env.DASHBOARD_MANAGER_HOST;
   let areaHosts,domains,upstreamConfig,allowedHosts,dynamicRouteManifest;
   try{areaHosts=JSON.parse(env.DASHBOARD_AREA_HOSTS);domains=JSON.parse(env.DASHBOARD_EMAIL_DOMAINS);upstreamConfig=JSON.parse(env.DASHBOARD_UPSTREAMS||'{}');allowedHosts=JSON.parse(env.DASHBOARD_UPSTREAM_HOSTS||'[]');dynamicRouteManifest=JSON.parse(env.DASHBOARD_DYNAMIC_ROUTE_MANIFEST||'null');}catch{throw Error('Dashboard configuration invalid');}
@@ -56,7 +58,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY};
+  return {mode,crmDraftWrite,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY};
 }
 function safeRequestPath(raw){
   if(typeof raw!=='string'||raw.length>4096||!raw.startsWith('/')||raw.startsWith('//'))throw jsonError(400,'PATH_INVALID');
@@ -86,7 +88,7 @@ function typeAndCsp(file,data){
 }
 function fileForHost(pathname,host,s){
   const area=Object.entries(s.areaHosts).find(([,h])=>h===host)?.[0]||null;
-  if(['/growth-diagnostico.html','/growth-control.js','/growth-delivery.js','/growth-diagnostic.js','/growth-diagnostic-ui.js'].includes(pathname)&&host!==s.managerHost&&area!=='growth')return null;
+  if(['/growth-diagnostico.html','/growth-control.js','/growth-delivery.js','/growth-diagnostic.js','/growth-diagnostic-ui.js','/media-read.js'].includes(pathname)&&host!==s.managerHost&&area!=='growth')return null;
   if(pathname==='/'||pathname==='/index.html')return host===s.managerHost?'/gestao/index.html':area?AREA_ENTRY[area]:null;
   if(pathname==='/gestao/'||pathname==='/gestao/index.html')return host===s.managerHost?'/gestao/index.html':null;
   for(const [a,entry]of Object.entries(AREA_ENTRY))if(pathname===entry||pathname===path.posix.dirname(entry)+'/')return host===s.managerHost||area===a?entry:null;
@@ -98,7 +100,7 @@ function fileForHost(pathname,host,s){
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
   const file=fileForHost(url.pathname,host,s);
-  if(!file||!/^\/(?:gestao\/index\.html|crm\/index\.html|organico\/index\.html|creators\/index\.html|growth\.html|growth-diagnostico\.html|growth-(?:control|delivery|diagnostic|diagnostic-ui)\.js|organico\.html|influs\.html|entry\.(?:js|css)|guard\.js|assets\/panels\/[A-Za-z0-9._-]+\.(?:js|css)|logos\/[A-Za-z0-9._-]+\.(?:png|jpg|svg))$/.test(file))throw jsonError(404,'NOT_FOUND');
+  if(!file||!/^\/(?:gestao\/index\.html|crm\/index\.html|organico\/index\.html|creators\/index\.html|growth\.html|growth-diagnostico\.html|growth-(?:control|delivery|diagnostic|diagnostic-ui)\.js|media-read\.js|organico\.html|influs\.html|entry\.(?:js|css)|guard\.js|assets\/panels\/[A-Za-z0-9._-]+\.(?:js|css)|logos\/[A-Za-z0-9._-]+\.(?:png|jpg|svg))$/.test(file))throw jsonError(404,'NOT_FOUND');
   const area=file==='/growth-diagnostico.html'?'growth':Object.entries(AREA_PAGE).find(([,p])=>p===file)?.[0];
   if(area)auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area});
   const realRoot=fs.realpathSync(s.publicDir),candidate=path.resolve(realRoot,'.'+file);
@@ -113,6 +115,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');
   const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest):Object.freeze(Object.create(null));
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
+  if(s.crmDraftWrite!==undefined&&typeof s.crmDraftWrite!=='boolean'||s.crmDraftWrite===true&&s.mode!=='operational')throw Error('Invalid CRM draft write gate');
+  const allowCampaignDraft=s.mode==='operational'&&s.crmDraftWrite===true;
+  const editGrantsAllowed=permissions=>Object.entries(permissions||{}).every(([area,grant])=>grant?.edit!==true||allowCampaignDraft&&area==='growth');
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   const reserveLogin=loginGate();
   let upstreamInFlight=0;const upstreamByUser=new Map();
@@ -154,17 +159,20 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(url.pathname==='/auth/users'){
           if(b.action==='invite'){
             if(b.role!=='manager')throw jsonError(400,'ROLE_DENIED');
-            if(Object.values(b.permissions||{}).some(grant=>grant?.edit===true))throw jsonError(403,'EDIT_NOT_READY');
+            if(!editGrantsAllowed(b.permissions))throw jsonError(403,'EDIT_NOT_READY');
             const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess});
             return sendJson(req,res,201,{userId:invite.userId,inviteUrl:'https://'+invite.host+'/#invite='+encodeURIComponent(invite.token)});
           }
           if(b.action==='revoke')return sendJson(req,res,200,auth.revokeUser({context:ctx,userId:b.userId}));
           if(b.action==='access_request')return sendJson(req,res,200,auth.setRequestedAccess({context:ctx,userId:b.userId,requestedAccess:b.requestedAccess}));
           if(b.action==='grant'){
-            if(Object.values(b.permissions||{}).some(grant=>grant?.edit===true))throw jsonError(403,'EDIT_NOT_READY');
+            if(!editGrantsAllowed(b.permissions))throw jsonError(403,'EDIT_NOT_READY');
             return sendJson(req,res,200,auth.setGrants({context:ctx,userId:b.userId,permissions:b.permissions}));
           }
-          if(b.action==='credential')return sendJson(req,res,200,auth.setUpstreamCredential({context:ctx,userId:b.userId,slot:b.slot,bearer:b.bearer}));
+          if(b.action==='credential'){
+            if(CREDENTIAL_SLOTS[b.slot]?.mayWrite&&!(allowCampaignDraft&&b.slot==='growth-campaign'))throw jsonError(403,'EDIT_NOT_READY');
+            return sendJson(req,res,200,auth.setUpstreamCredential({context:ctx,userId:b.userId,slot:b.slot,bearer:b.bearer}));
+          }
           throw jsonError(400,'ACTION_DENIED');
         }
         throw jsonError(404,'NOT_FOUND');
@@ -174,8 +182,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const route=url.pathname.slice('/api/'.length);
         if(!/^[a-z0-9_-]{1,48}$/.test(route))throw jsonError(404,'NOT_FOUND');
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
-        const body=req.method==='POST'?await readJson(req):undefined;
+        const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:undefined):undefined;
         const d=decide(route,req.method,url.searchParams,body);
+        if(d.edit&&!(allowCampaignDraft&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action)))throw jsonError(403,'EDIT_NOT_READY');
         const user=auth.authorize({...ctx,area:d.area,edit:d.edit});
         const identity=route==='cx'&&url.searchParams.get('access')==='1'||route==='crm-read'&&d.action==='identity';
         if(identity)return sendJson(req,res,200,{schema:'shrigma_access_identity_v1',role:user.role==='superadmin'?'master':'manager',panel:user.role==='superadmin'?'todos':d.area,allowedPanels:user.areas,owner:user.email});
@@ -188,7 +197,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(typeof principal!=='string'||upstreamInFlight>=16||(upstreamByUser.get(principal)||0)>=4)throw jsonError(429,'UPSTREAM_BUSY');
         upstreamInFlight++;upstreamByUser.set(principal,(upstreamByUser.get(principal)||0)+1);
         let result;
-        try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,fetchImpl});}
+        try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,fetchImpl});}
         finally{
           upstreamInFlight--;
           const remaining=upstreamByUser.get(principal)-1;

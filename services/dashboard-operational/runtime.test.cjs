@@ -10,9 +10,9 @@ function source(t){const dir=temp(t),dist=path.join(dir,'dist');fs.mkdirSync(pat
 function mutatePack(input,change){const old=JSON.parse(input),files=JSON.parse(zlib.gunzipSync(Buffer.from(old.gzipBase64,'base64')));change(files);const raw=Buffer.from(JSON.stringify(files)),sha256=policy.sha(raw);return {input:JSON.stringify({schema:policy.SCHEMA,sha256,gzipBase64:zlib.gzipSync(raw).toString('base64')}),sha256};}
 test('closed public/runtime package roundtrip preserves all bytes and stays below MCP transport limit',t=>{
  const {dir,dist}=source(t),out=path.join(dir,'pack'),meta=pack(dist,out),input=fs.readFileSync(path.join(out,'runtime-pack.json'),'utf8');
- assert.equal(meta.publicFiles,27);assert.equal(meta.runtimeFiles,4);assert(meta.seedMountsBytes<950000);
+ assert.equal(meta.publicFiles,28);assert.equal(meta.runtimeFiles,4);assert(meta.seedMountsBytes<950000);
  const result=policy.unpack(path.join(out,'runtime-pack.json'),path.join(dir,'unpacked'),{expectedSha256:meta.packSha256});
- assert.equal(result.files,31);assert.equal(result.sha256,meta.packSha256);
+ assert.equal(result.files,32);assert.equal(result.sha256,meta.packSha256);
  for(const file of policy.PUBLIC_FILES)assert.deepEqual(fs.readFileSync(path.join(result.publicDir,file)),fs.readFileSync(path.join(dist,'public',file)));
  for(const file of policy.RUNTIME_FILES)assert.deepEqual(fs.readFileSync(path.join(result.runtimeDir,file)),fs.readFileSync(path.join(__dirname,file)));
  assert.equal(JSON.parse(fs.readFileSync(path.join(out,'mounts.json'))).length,2);

@@ -9,7 +9,11 @@ const READ=Object.freeze({
   'crm-read':{area:'growth',slot:'growth-read',method:'GET',selector:'action',actions:{identity:rule(['painel']),cache_growth:rule(['painel'])}},
   campaigns:{area:'growth',slot:'growth-campaign-read',method:'GET',selector:'acao',actions:{
     campanha_catalogo:rule(['brand']),campanha_listar:rule(['brand']),campanha_obter:rule(['brand','id']),
-    campanha_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-campaign',edit:true})}},
+    campanha_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-campaign',edit:true}),
+    campanha_salvar:rule(['brand','definition','idempotency_key'],['id','expected_version'],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true})}},
+  // Media is an independent, opt-in route. Only the bounded library listing
+  // is admitted; upload and recovery remain unavailable through this BFF.
+  campaigns_media:{area:'growth',slot:'growth-campaign-read',method:'GET',actions:{'':rule(['brand'],['page','per_page'])}},
   segments:{area:'growth',slot:'growth-audience-read',method:'GET',selector:'acao',actions:{
     segmentos_listar:rule(['brand','offset','limit']),segmento_obter:rule(['brand','id']),
     segmento_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-audience',edit:true})}},
@@ -75,17 +79,19 @@ const REVIEWED_DYNAMIC=Object.freeze({
   sourceRevision:'6cf7d09eb5db4616d88eb0bd524b1d84418f8854',
   sourceSha256:Object.freeze({
     'services/crm-audience/server.cjs':'2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480',
-    'services/crm-campaign/server.cjs':'df4298022372e18afde1ac89b1600cd56475da92c86a0063a873d6f83c1c3c53'
+    'services/crm-campaign/server.cjs':'df4298022372e18afde1ac89b1600cd56475da92c86a0063a873d6f83c1c3c53',
+    'services/crm-campaign/media.cjs':'d94b0c7faa776ee4cfdc5f4ac81e6486d870517c34b2e577f90d1cc77b25d3f8'
   }),
   routes:Object.freeze({
     campaigns:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35',
+    campaigns_media:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35/media',
     segments:'https://comunicacao-crm-audience.tazdb8.easypanel.host/segments',
     campaign_audience:'https://comunicacao-crm-audience.tazdb8.easypanel.host/campaign-audience',
     ab_experiment:'https://comunicacao-crm-audience.tazdb8.easypanel.host/ab-experiments',
     journey_graph_lifecycle:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph-lifecycle'
   })
 });
-const MAX_REQUEST=128*1024,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024;
+const MAX_REQUEST=128*1024,MAX_CAMPAIGN_REQUEST=256*1024,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024,MAX_MEDIA_RESPONSE=2*1024*1024;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
@@ -104,6 +110,8 @@ const validField=(route,name,value)=>{
     case 'canal':return ['email','whatsapp'].includes(value);
     case 'offset':return /^\d{1,5}$/.test(value)&&Number(value)<=10000;
     case 'limit':return /^[1-9]\d?$|^100$/.test(value)&&Number(value)<=(route==='journey_graph'?50:100);
+    case 'page':return route==='campaigns_media'&&/^[1-9]\d{0,4}$/.test(value)&&Number(value)<=10000;
+    case 'per_page':return route==='campaigns_media'&&/^[1-9]\d?$/.test(value)&&Number(value)<=50;
     case 'after':return value===''||UUID.test(value);
     case 'id':return route==='candidaturas'?UUID.test(value):route==='segments'?UUID.test(value):positive(value);
     case 'campaign_id':return positive(value);
@@ -121,9 +129,23 @@ const validField=(route,name,value)=>{
 };
 class ProxyError extends Error{constructor(status,code){super(code);this.status=status;this.code=code;}}
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
+const CAMPAIGN_DEFINITION_FIELDS=new Set(['schema_version','brand','channel','initiative','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','html','text','tags','send_at']);
+function validCampaignDefinition(value,brand){
+  if(!plain(value)||Object.keys(value).some(k=>!CAMPAIGN_DEFINITION_FIELDS.has(k))||
+    value.schema_version!=='crm-campaign-v1'||value.brand!==brand||value.channel!=='email'||
+    !plain(value.initiative)||Object.keys(value.initiative).some(k=>!['key','name'].includes(k))||
+    !Array.isArray(value.list_ids)||value.list_ids.length<1||value.list_ids.length>30||
+    !value.list_ids.every(n=>Number.isSafeInteger(n)&&n>0)||!Number.isSafeInteger(value.template_id)||value.template_id<1||
+    !Array.isArray(value.tags)||value.tags.length>20||!value.tags.every(s=>typeof s==='string'&&s.length>0&&s.length<=100)||
+    value.send_at!==undefined&&value.send_at!==null)return false;
+  for(const [name,max]of Object.entries({utm_campaign:100,name:200,subject:250,from_email:254,reply_to:254,html:220000,text:50000}))
+    if(typeof value[name]!=='string'||!value[name].trim()||value[name].length>max)return false;
+  return typeof value.initiative.key==='string'&&value.initiative.key.length>0&&value.initiative.key.length<=100&&
+    typeof value.initiative.name==='string'&&value.initiative.name.length>0&&value.initiative.name.length<=160;
+}
 function decide(route,method,query,body){
   const spec=READ[route];if(!spec)throw new ProxyError(403,'ROUTE_DENIED');
-  if(method!==spec.method)throw new ProxyError(403,'METHOD_DENIED');
+  if(method!==spec.method&&!(route==='campaigns'&&method==='POST'))throw new ProxyError(403,'METHOD_DENIED');
   if(!(query instanceof URLSearchParams)||query.toString().length>2048)throw new ProxyError(413,'QUERY_TOO_LARGE');
   if(method==='GET'&&body!==undefined)throw new ProxyError(400,'GET_BODY_DENIED');
   if(method==='POST'&&(!plain(body)||query.toString()!==''))throw new ProxyError(400,'JSON_OBJECT_REQUIRED');
@@ -133,16 +155,23 @@ function decide(route,method,query,body){
   const selector=spec.selector,action=selector?fields[selector]:'';
   if(typeof action!=='string'||!Object.hasOwn(spec.actions,action))throw new ProxyError(403,'ACTION_DENIED');
   const policy=spec.actions[action],required=[...(selector?[selector]:[]),...policy.required];
+  if(method!==(policy.method||spec.method))throw new ProxyError(403,'METHOD_DENIED');
   const allowed=new Set([...required,...policy.optional,...(method==='POST'?['k']:[])]);
   if(Object.keys(fields).some(k=>!allowed.has(k))||required.some(k=>!Object.hasOwn(fields,k)))throw new ProxyError(403,'FIELD_DENIED');
   if(route==='templates'&&action==='historico'&&(Object.hasOwn(fields,'key')===Object.hasOwn(fields,'draft_id')))throw new ProxyError(403,'FIELD_DENIED');
   if(method==='POST'&&Object.hasOwn(fields,'k')&&!/^ui-[a-f0-9]{32,64}$/.test(fields.k))throw new ProxyError(403,'CREDENTIAL_DENIED');
   for(const [name,value]of Object.entries(fields)){
-    if(name===selector||name==='k')continue;
+    if(name===selector||name==='k'||route==='campaigns'&&action==='campanha_salvar'&&['definition','id','expected_version'].includes(name))continue;
     if(typeof value==='string'&&value.length>256||!validField(route,name,value))throw new ProxyError(403,'FIELD_DENIED');
   }
+  if(route==='campaigns'&&action==='campanha_salvar'){
+    if(!validCampaignDefinition(fields.definition,fields.brand)||
+      Object.hasOwn(fields,'id')!==Object.hasOwn(fields,'expected_version')||
+      Object.hasOwn(fields,'id')&&(!Number.isSafeInteger(fields.id)||fields.id<1||!/^[a-f0-9]{32}$/i.test(fields.expected_version)))
+      throw new ProxyError(403,'FIELD_DENIED');
+  }
   if(route==='crm-read'&&fields.painel!=='growth')throw new ProxyError(403,'AREA_DENIED');
-  if(method==='POST'&&JSON.stringify(body).length>MAX_REQUEST)throw new ProxyError(413,'BODY_TOO_LARGE');
+  if(method==='POST'&&Buffer.byteLength(JSON.stringify(body),'utf8')>(route==='campaigns'&&action==='campanha_salvar'?MAX_CAMPAIGN_REQUEST:MAX_REQUEST))throw new ProxyError(413,'BODY_TOO_LARGE');
   const area=spec.area==='panel'?fields.painel:spec.area;
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
@@ -239,8 +268,9 @@ function rewriteCapabilities(value,upstreams,origin){
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,fetchImpl=fetch}){
   const d=decide(route,method,query,body),target=upstreams[route];
+  if(d.edit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');
   if(!user||!(user.role==='superadmin'||user.areas?.includes(d.area)))throw new ProxyError(403,'AREA_DENIED');
   if(typeof credential!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(credential))throw new ProxyError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
@@ -252,7 +282,10 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   // dedicated header. The configured destination remains an exact allowlist URL.
   const abLegacy=route==='ab_experiment'&&target.hostname!=='comunicacao-crm-audience.tazdb8.easypanel.host';
   const header=keyInBody?null:abLegacy?'X-AB-Write-Key':policy.header||spec.header||'Authorization';
-  const options={method,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(method==='GET'?25000:45000),headers:{Accept:'application/json'}};
+  // The campaign backend may reconcile a draft for up to 85 seconds. A longer
+  // gateway deadline lets that result arrive; an uncertain outcome is resolved
+  // through the same idempotency key, never by minting a new request.
+  const options={method,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(route==='campaigns'&&d.action==='campanha_salvar'?93000:method==='GET'?25000:45000),headers:{Accept:'application/json'}};
   if(header)options.headers[header]=header==='Authorization'?'Bearer '+credential:credential;
   if(header==='X-Template-Key')options.headers.Authorization='Bearer '+credential;
   if(method==='POST'){
@@ -263,8 +296,14 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   let result;try{result=await fetchImpl(url,options);}catch{throw new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
   if(result.status>=300&&result.status<400)throw new ProxyError(502,'UPSTREAM_REDIRECT_DENIED');
   if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||''))throw new ProxyError(502,'UPSTREAM_CONTENT_TYPE_DENIED');
-  const bytes=await readResponse(result,route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:MAX_RESPONSE);
+  const bytes=await readResponse(result,route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);
   let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch{throw new ProxyError(502,'UPSTREAM_INVALID_JSON');}
+  if(route==='campaigns'&&d.action==='campanha_salvar'&&result.status>=200&&result.status<300&&
+    (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||parsed.campaign.send_at!==null||parsed.campaign.definition?.brand!==body.brand))
+    throw new ProxyError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
+  if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&
+    (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
+    throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin)};
 }
-module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward};
+module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward};

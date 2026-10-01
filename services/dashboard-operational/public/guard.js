@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
+ const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
  const nativeFetch=window.fetch.bind(window);
  let csrfPromise=null;
  const uiKey=value=>typeof value==='string'&&/^ui-[a-f0-9]{16,128}$/.test(value);
@@ -57,10 +57,12 @@
   if(!ROUTES.has(route))return reject();
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
+  if(route==='campaigns_media'&&method!=='GET')return reject(405);
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  if(!['GET','HEAD'].includes(method)){
+  const editReceipt=route==='campaigns'&&method==='GET'&&url.searchParams.get('acao')==='campanha_operacao';
+  if(!['GET','HEAD'].includes(method)||editReceipt){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');
   try{

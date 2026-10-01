@@ -18,7 +18,8 @@ test('artifact contains only three team panels and management, without CX or bac
  for(const absent of ['cx/index.html','index.html','assets/panels/index.js','assets/panels/index.css','assets/panels/entry.js','services','n8n','.git'])assert.equal(fs.existsSync(path.join(publicRoot,absent)),false,absent);
  const manifest=JSON.parse(fs.readFileSync(path.join(path.dirname(publicRoot),'artifact-manifest.json')));
  assert.deepEqual(manifest.areas,['growth','organico','influs','todos']);
- assert.equal(manifest.publicFiles.length,27);
+ assert.equal(manifest.publicFiles.length,28);
+ assert.ok(manifest.publicFiles.includes('media-read.js'));
 }));
 
 test('build leaves original sources untouched and rewrites all literal upstream APIs',()=>{
@@ -34,6 +35,19 @@ test('build leaves original sources untouched and rewrites all literal upstream 
  });
  for(const file of CONTENT)assert.equal(sha(path.join(root,file)),before[file],file);
 });
+
+test('operational CRM replaces the reviewed legacy media module with the read-only library',()=>withArtifact(publicRoot=>{
+ const html=fs.readFileSync(path.join(publicRoot,'growth.html'),'utf8');
+ const panel=fs.readFileSync(path.join(publicRoot,'assets/panels/growth.js'),'utf8');
+ const media=fs.readFileSync(path.join(publicRoot,'media-read.js'),'utf8');
+ assert.match(html,/<script src="\/media-read\.js"><\/script><script src="assets\/panels\/growth\.js\?/);
+ assert.match(html,/GMediaRead\.mount\(\{marca:MARCA,api:API\}\)/);
+ assert.doesNotMatch(html,/\bGMedia\.mount\b/);
+ assert.doesNotMatch(panel,/\bGMedia\b|shrigma_media_upload_v1|crm-media-upload|\/api\/campaigns\/media/);
+ assert.doesNotMatch(html+panel,/https:\/\/email\.shrigma\.com\.br\/admin\/campaigns\/media/);
+ assert.doesNotMatch(media,/fetch\([^)]*https?:|<img|createElement\(['"]img['"]\)|FormData|sessionStorage|localStorage|Authorization|Bearer |method:\s*['"]POST['"]/);
+ assert.match(media,/\/api\/campaigns_media/);
+}));
 
 test('payment diagnostic is a CRM-only cookie-session page with no browser key form',()=>withArtifact(publicRoot=>{
  const html=fs.readFileSync(path.join(publicRoot,'growth-diagnostico.html'),'utf8');
@@ -298,6 +312,20 @@ test('guard sends GET only to the same-origin BFF with cookie and no legacy bear
  assert.equal(calls[0].options.credentials,'same-origin');
 });
 
+test('guard admits only a same-origin GET for the opt-in media listing',async()=>{
+ const {browser,calls,origin}=guardHarness();
+ const key='ui-0123456789abcdef0123456789abcdef';
+ const allowed=await browser.fetch('/api/campaigns_media?brand=fish&page=1&per_page=24&k='+key,{headers:{Authorization:'Bearer '+key}});
+ assert.equal(allowed.status,200);assert.equal(calls.length,1);
+ assert.equal(calls[0].url,origin+'/api/campaigns_media?brand=fish&page=1&per_page=24');
+ assert.equal(calls[0].options.headers.has('Authorization'),false);
+ assert.equal(calls[0].options.credentials,'same-origin');
+ assert.equal((await browser.fetch('/api/campaigns_media',{method:'POST',body:'{}'})).status,405);
+ assert.equal((await browser.fetch('/api/campaigns_media',{method:'HEAD'})).status,405);
+ assert.equal((await browser.fetch('https://evil.invalid/api/campaigns_media?brand=fish')).status,403);
+ assert.equal(calls.length,1);
+});
+
 test('guard obtains session and CSRF before POST, then strips nested uiKey and k',async()=>{
  const {browser,calls,origin}=guardHarness();
  const key='ui-0123456789abcdef0123456789abcdef';
@@ -308,6 +336,18 @@ test('guard obtains session and CSRF before POST, then strips nested uiKey and k
  assert.equal(calls[1].options.headers.has('Authorization'),false);
  assert.equal(calls[1].options.headers.has('X-TTS-Write-Key'),false);
  assert.deepEqual(JSON.parse(calls[1].options.body),{acao:'listar',nested:{value:'ok'}});
+});
+
+test('campaign receipt GET obtains session CSRF while ordinary campaign GET stays read only',async()=>{
+ const {browser,calls,origin}=guardHarness();
+ const receipt=await browser.fetch('/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key=campaign-save-key-0000001');
+ assert.equal(receipt.status,200);assert.equal(calls.length,2);
+ assert.equal(calls[0].url,'/auth/session');
+ assert.equal(calls[1].url,origin+'/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key=campaign-save-key-0000001');
+ assert.equal(calls[1].options.headers.get('X-CSRF-Token'),'csrf-test');
+ const read=await browser.fetch('/api/campaigns?acao=campanha_listar&brand=fish');
+ assert.equal(read.status,200);assert.equal(calls.length,3);
+ assert.equal(calls[2].options.headers.has('X-CSRF-Token'),false);
 });
 
 test('guard with no authenticated session does not transmit POST to the BFF',async()=>{

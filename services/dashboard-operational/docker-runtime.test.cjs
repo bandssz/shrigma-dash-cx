@@ -28,7 +28,7 @@ test('fresh empty volume seeds once; restart preserves artifact and existing ide
  const db=path.join(dataDir,'dashboard.sqlite');fs.writeFileSync(db,'SYNTHETIC IDENTITY SENTINEL',{mode:0o600});
  fs.chmodSync(dataDir,0o755);assert.equal(canary.seedVolume(options).seeded,false);
  assert.equal(fs.statSync(dataDir).mode&0o777,0o700);assert.equal(fs.statSync(packFile).ino,inode);assert.deepEqual(fs.readFileSync(packFile),before);
- assert.equal(fs.readFileSync(db,'utf8'),'SYNTHETIC IDENTITY SENTINEL');assert.equal(policy.decodePack(before.toString(),pin.packSha256).stats.files,31);
+ assert.equal(fs.readFileSync(db,'utf8'),'SYNTHETIC IDENTITY SENTINEL');assert.equal(policy.decodePack(before.toString(),pin.packSha256).stats.files,32);
 });
 test('nonempty volumes including hidden or partial seed files never get seeded',t=>{
  const {dir,imageDir}=prepared(t);
@@ -73,7 +73,7 @@ test('Docker context is an exact source allowlist; final stage imports only immu
 test('real frontend build and closed pack are deterministic from the same sources',t=>{
  const dir=temp(t),pins=[],packages=[];
  for(const n of [1,2]){const dist=path.join(dir,'dist-'+n),out=path.join(dir,'pack-'+n);build(dist);const metadata=pack(dist,out);pins.push(metadata.packSha256);packages.push(fs.readFileSync(path.join(out,'runtime-pack.json')));}
- assert.equal(pins[0],pins[1]);assert.deepEqual(packages[0],packages[1]);assert.equal(policy.decodePack(packages[0].toString(),pins[0]).stats.files,31);
+ assert.equal(pins[0],pins[1]);assert.deepEqual(packages[0],packages[1]);assert.equal(policy.decodePack(packages[0].toString(),pins[0]).stats.files,32);
 });
 test('startup rejects root or a wrong UID before artifact access and never prints environment secrets',()=>{
  if(process.getuid()===1000&&process.getgid()===1000)return;

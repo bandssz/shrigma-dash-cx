@@ -158,6 +158,10 @@ test('operational startup pins each full destination and its reviewed source rev
   const configured={cx:FIXED_DESTINATIONS.cx},fixedHost=new URL(FIXED_DESTINATIONS.cx).hostname;
   const env={DASHBOARD_MODE:'operational',DASHBOARD_MANAGER_HOST:HOSTS.manager,DASHBOARD_AREA_HOSTS:JSON.stringify({growth:HOSTS.growth,organico:HOSTS.organico,influs:HOSTS.influs}),DASHBOARD_EMAIL_DOMAINS:'["shrigma.com.br"]',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify([fixedHost]),DASHBOARD_UPSTREAMS:JSON.stringify(configured)};
   assert.equal(settingsFromEnv(env).upstreams.cx.href,FIXED_DESTINATIONS.cx);
+  assert.equal(settingsFromEnv(env).crmDraftWrite,false);
+  assert.equal(settingsFromEnv({...env,DASHBOARD_CRM_DRAFT_WRITE:'enabled'}).crmDraftWrite,true);
+  assert.throws(()=>settingsFromEnv({...env,DASHBOARD_CRM_DRAFT_WRITE:'true'}),/DASHBOARD_CRM_DRAFT_WRITE invalid/);
+  assert.throws(()=>settingsFromEnv({...env,DASHBOARD_MODE:'synthetic',DASHBOARD_UPSTREAMS:'{}',DASHBOARD_UPSTREAM_HOSTS:'[]',DASHBOARD_CRM_DRAFT_WRITE:'enabled'}),/DASHBOARD_CRM_DRAFT_WRITE invalid/);
   assert.throws(()=>settingsFromEnv({...env,DASHBOARD_UPSTREAMS:JSON.stringify({cx:FIXED_DESTINATIONS.cache})}),/Unapproved upstream destination/);
   assert.throws(()=>settingsFromEnv({...env,DASHBOARD_UPSTREAMS:JSON.stringify({cx:FIXED_DESTINATIONS.cx+'/other'})}),error=>error.message==='Unapproved upstream destination');
   const dynamic={segments:REVIEWED_DYNAMIC.routes.segments};
