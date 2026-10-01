@@ -7,6 +7,35 @@ const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',i
 const AREA_ENTRY=Object.freeze({growth:'/crm/index.html',organico:'/organico/index.html',influs:'/creators/index.html'});
 const MIME=Object.freeze({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml'});
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
+const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
+const LOGIN_BODY_TIMEOUT_MS=10*1000;
+function loginGate(){
+  const pendingBySocket=new Map();
+  return socketAddress=>{
+    // The socket peer is the only client identity available without a verified
+    // proxy chain. Browser-supplied Forwarded/X-Forwarded-For must not split it.
+    // A reverse proxy may present one peer for the whole team, so this is only
+    // a concurrency cap; persistent account limits remain in auth.cjs.
+    const key=typeof socketAddress==='string'&&socketAddress?socketAddress:'unknown';
+    const pending=pendingBySocket.get(key)||0;
+    if(pending>=LOGIN_PENDING_PER_SOCKET||pending===0&&pendingBySocket.size>=LOGIN_SOCKET_KEYS_MAX)throw jsonError(429,'AUTH_BUSY');
+    pendingBySocket.set(key,pending+1);
+    return ()=>{const remaining=pendingBySocket.get(key)-1;if(remaining)pendingBySocket.set(key,remaining);else pendingBySocket.delete(key);};
+  };
+}
+async function readLoginJson(req,timeoutMs){
+  let timer;
+  const deadline=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{
+      // A partial body must not occupy one of the login slots until the
+      // server-wide request timeout. Drop this connection; never extend the
+      // deadline into the password hash, which begins after readJson resolves.
+      req.destroy();reject(jsonError(408,'LOGIN_BODY_TIMEOUT'));
+    },timeoutMs);
+  });
+  try{return await Promise.race([readJson(req,32768),deadline]);}
+  finally{clearTimeout(timer);}
+}
 // Keep in sync with build.cjs; build.test.cjs checks the resulting header against every meta tag.
 const IMAGE_SOURCES='https://cdn.shopify.com/s/files/ https://email.shrigma.com.br/uploads/ https://cdninstagram.com/ https://*.cdninstagram.com/ https://fbcdn.net/ https://*.fbcdn.net/ https://*.ibyteimg.com/ https://*.tiktokcdn.com/ https://*.tiktokcdn-us.com/ https://*.byteimg.com/ https://*.ttwstatic.com/';
 const CSP_BASE=`default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${IMAGE_SOURCES}; connect-src 'self'; font-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'`;
@@ -79,11 +108,13 @@ function serveFile(req,res,url,host,s,auth){
   res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);
   res.setHeader('Cache-Control',file.endsWith('.html')?'no-store':'public, max-age=300');res.end(req.method==='HEAD'?undefined:data);
 }
-function createServer(s,{auth,fetchImpl=fetch}={}){
+function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS}={}){
   if(!auth)throw Error('Auth required');
+  if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');
   const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest):Object.freeze(Object.create(null));
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
+  const reserveLogin=loginGate();
   let upstreamInFlight=0;const upstreamByUser=new Map();
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>{
     headers(res);
@@ -95,13 +126,18 @@ function createServer(s,{auth,fetchImpl=fetch}={}){
       const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin,csrf:req.headers['x-csrf-token']};
       if(url.pathname==='/auth/session'&&req.method==='GET')return sendJson(req,res,200,auth.session(ctx));
       if(url.pathname==='/auth/users'&&req.method==='GET')return sendJson(req,res,200,{users:auth.users({context:ctx})});
+      if(url.pathname==='/auth/login'&&req.method==='POST'){
+        const release=reserveLogin(req.socket.remoteAddress);
+        try{
+          if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
+          const b=await readLoginJson(req,loginBodyTimeoutMs);
+          const result=await auth.login({email:b.email,password:b.password,totp:b.totp,host,origin:ctx.origin,ip:req.socket.remoteAddress||'unknown'});
+          res.setHeader('Set-Cookie',result.cookie);return sendJson(req,res,200,{authenticated:true,user:result.user,csrf:result.csrf,uiKey:result.uiKey});
+        }finally{release();}
+      }
       if(url.pathname.startsWith('/auth/')&&req.method==='POST'){
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const b=await readJson(req,32768);
-        if(url.pathname==='/auth/login'){
-          const result=await auth.login({email:b.email,password:b.password,totp:b.totp,host,origin:ctx.origin,ip:req.socket.remoteAddress||'unknown'});
-          res.setHeader('Set-Cookie',result.cookie);return sendJson(req,res,200,{authenticated:true,user:result.user,csrf:result.csrf,uiKey:result.uiKey});
-        }
         if(url.pathname==='/auth/logout'){
           const result=auth.logout(ctx);res.setHeader('Set-Cookie',result.cookie);return sendJson(req,res,200,{ok:true});
         }
@@ -156,6 +192,7 @@ function createServer(s,{auth,fetchImpl=fetch}={}){
       return serveFile(req,res,url,host,s,auth);
     };
     handle().catch(error=>{
+      if(res.destroyed)return;
       if(res.headersSent)return res.destroy();
       const status=error instanceof AuthError||error instanceof ProxyError||Number.isInteger(error.status)?error.status:500;
       const code=status===500?'INTERNAL_ERROR':error.code||'REQUEST_DENIED';

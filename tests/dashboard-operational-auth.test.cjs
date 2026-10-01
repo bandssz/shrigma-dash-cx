@@ -160,7 +160,18 @@ test('login rate limits, host binding, and absolute session expiry',async()=>{
 
 test('credential slots are fixed and scoped to their own area',()=>{
  assert.deepEqual(Object.keys(CREDENTIAL_SLOTS).filter(x=>x.startsWith('cx')),[]);
+ assert.equal(Object.hasOwn(CREDENTIAL_SLOTS,'organico-links'),false);
  for(const [slot,rule] of Object.entries(CREDENTIAL_SLOTS)){assert.match(slot,/^(growth|organico|influs|tts)-/);assert.ok(['growth','organico','influs'].includes(rule.area));}
+});
+
+test('organic links cannot accept or use a bearer that also permits writes',async()=>{
+ const f=fixture();try{
+  const admin=await activateAdmin(f),userId=admin.login.user.id;
+  assert.throws(()=>f.auth.setUpstreamCredential({context:admin.context,userId,slot:'organico-links',bearer:'synthetic-organic-links-key'}),error('CREDENTIAL_INVALID',400));
+  const db=new DatabaseSync(f.dbPath);
+  try{db.prepare('INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,?,?,?,?)').run(userId,'organico-links','stale-encrypted-value','0'.repeat(64),f.clock);}finally{db.close();}
+  assert.throws(()=>f.auth.getUpstreamCredential({cookieHeader:cookieHeader(admin.login.cookie),host:hosts.manager,method:'GET',area:'organico',slot:'organico-links'}),error('CREDENTIAL_DENIED',403));
+ }finally{f.close();}
 });
 
 test('password hashing has a bounded queue and recovers after concurrent attempts',async()=>{

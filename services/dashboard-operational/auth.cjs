@@ -39,7 +39,8 @@ const CREDENTIAL_SLOTS=Object.freeze({
  'growth-ab-read':{area:'growth',mayWrite:false},
  'growth-ab-write':{area:'growth',mayWrite:true},
  'organico-read':{area:'organico',mayWrite:false},
- 'organico-links':{area:'organico',mayWrite:false},
+ // The organico-links backend bearer also permits writes. Until it has a
+ // verified read-only identity, no user may provision or use that slot.
  'influs-read':{area:'influs',mayWrite:false},
  'influs-write':{area:'influs',mayWrite:true},
  'tts-read':{area:'influs',mayWrite:false},

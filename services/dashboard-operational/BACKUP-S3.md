@@ -1,0 +1,29 @@
+# Cópia externa versionada da identidade
+
+`backup-s3.cjs` transporta o diretório `identity` gerado por `backup-identity.cjs` ou `backup-canary-job.cjs` para um bucket S3 compatível, **sem tocar o banco ativo**. O snapshot precisa conter somente `identity.sqlite` e `manifest.json`, com dono UID do processo e modos 0600/0700. Antes do upload, o transporte valida o manifesto, SHA-256, `PRAGMA integrity_check` e chaves estrangeiras. Ele copia o snapshot para uma área privada temporária; a origem pode permanecer montada somente para leitura.
+
+O transporte exige [versionamento `Enabled`](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html), endpoint HTTPS e resposta `ServerSideEncryption=AES256` em cada `put-object`. Cada execução usa uma chave nova com data e UUID; a resposta precisa trazer `VersionId` real, diferente de `null`. O job baixa **aquelas mesmas versões** com `get-object`, compara tamanho e SHA-256 dos dois arquivos e executa de novo as verificações do SQLite. Só depois envia `receipt.json` ao mesmo prefixo, também versionado/cifrado, lê de volta sua versão exata e grava uma cópia local privada 0600. O recibo contém bucket, endpoint, chaves, versões e hashes dos dois arquivos. A restauração recusa destino preexistente, baixa as versões indicadas no recibo e verifica tudo antes de deixar os arquivos no diretório novo 0700. Um upload parcial pode deixar objetos órfãos; o job não apaga versões remotas automaticamente.
+
+## Pré-requisitos operacionais
+
+- Escolher um provedor que suporte de fato `GetBucketVersioning`, `PutObject` com SSE `AES256` e `VersionId`, e `GetObject` por versão. A compatibilidade deve ser provada com uma identidade **sintética** antes de qualquer identidade real. O código não configura o bucket nem enfraquece as exigências se uma API faltar.
+- Criar bucket privado, fora do servidor Easypanel, com versionamento ativo, bloqueio de acesso público, criptografia em repouso e retenção/versionamento segundo a política da empresa. Limitar a identidade do job ao bucket/prefixo necessário: `GetBucketVersioning`, `PutObject` e `GetObjectVersion`; sem exclusão. Separar e guardar a `DASHBOARD_ENCRYPTION_KEY` no gerenciador de segredos. O backup **não** contém essa chave, mas o SQLite contém identidade, TOTP e credenciais cifradas: tratá-lo como dado sensível.
+- Executar em job de manutenção isolado com Node 22+ e AWS CLI v2 já instalados por imagem revisada e fixada por digest; nenhum dos dois binários é instalado no Easypanel durante o job. Injetar credencial de curta duração em runtime por canal privado/identidade de workload, jamais em argumento, Git, imagem ou log. Montar o snapshot apenas para leitura e montar diretório de recibos 0700 em volume separado. Permitir saída de rede somente ao endpoint de armazenamento. Usar uma réplica, sem restart, sem portas/domínios, `capDrop=ALL`, `no-new-privileges`, 0,5 CPU e 512 MiB como limite inicial, após medir capacidade. Reservar disco temporário de pelo menos 2× o tamanho do snapshot, além da margem operacional. O banco é limitado a 512 MiB pelo transporte.
+- Definir por segredo/configuração de runtime `DASHBOARD_BACKUP_BUCKET`, `DASHBOARD_BACKUP_PREFIX`, `DASHBOARD_BACKUP_ENDPOINT_URL` (HTTPS, sem caminho/usuário/senha), `AWS_REGION` e credenciais AWS pela cadeia padrão do CLI. Não usar `--no-verify-ssl`; a CA do endpoint precisa ser confiável. No caso de S3 da AWS, usar o endpoint regional HTTPS. O recibo registra apenas metadados de recuperação, mas continua privado.
+
+## Execução isolada
+
+Com os mounts e o destino já conferidos, o job usa o seguinte formato; `<nome-unico>` deve ser novo em cada execução:
+
+```sh
+node /app/backup-s3.cjs export /backup-data/<nome-unico>/identity /receipt-data/<nome-unico>.json
+node /app/backup-s3.cjs restore /receipt-data/<nome-unico>.json /restore-data/<nome-unico>/identity
+```
+
+O segundo comando deve rodar em outro job/volume novo, sem montar o volume de origem. A restauração fornece um **snapshot de identidade verificado**, não instala a aplicação nem troca o volume do serviço. Para recuperar o serviço, usar uma imagem/pacote fixados por digest e restaurar o SQLite para outro volume por procedimento revisado; iniciar isolado com a mesma chave externa e comprovar login/TOTP, permissões e navegação antes de qualquer roteamento. Nunca executar migração de produção como parte deste ensaio.
+
+Se o job falhar, a CLI imprime somente mensagem genérica, sem stderr do provedor nem conteúdo do banco. Inspecionar código/estado por canal privado; não habilitar `--debug` nem enviar logs brutos do CLI a sistemas públicos. Sem recibo e verificação de leitura de volta, um upload não conta como backup concluído. Em perda total do servidor, um operador com permissões de listar o prefixo e suas versões encontra `*/receipt.json` no bucket, identifica um `VersionId` preservado, baixa essa versão para diretório privado 0600 e executa `restore` com o arquivo. Essas permissões de listagem podem ficar restritas ao operador de recuperação; o job de upload não precisa delas. Guardar o inventário de imagem/pacote e a chave de criptografia separadamente do bucket.
+
+## Validação feita e limite atual
+
+`node --test services/dashboard-operational/backup-s3.test.cjs` exercita um SQLite de autenticação sintético com WAL, três versões remotas simuladas (incluindo o recibo), recuperação do recibo remoto depois de excluir sua cópia local, download por `VersionId`, abertura com a mesma chave sintética, recusa de bucket sem versão ou SSE, adulteração do objeto, destino ocupado e endpoint sem HTTPS. O AWS CLI não está instalado no Mac desta tarefa e não há destino/credencial externo fornecido à tarefa. Portanto, **nenhuma cópia externa real foi publicada ou recuperada**; o primeiro ensaio com um bucket novo continua pendente. O job atual de snapshot/restauração no mesmo servidor, descrito em [BACKUP-CANARY.md](BACKUP-CANARY.md), continua independente.
