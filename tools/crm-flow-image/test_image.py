@@ -201,6 +201,13 @@ class ImageTests(unittest.TestCase):
                 self.assertEqual(command.call_args.args[0][-3:], ['--is-ancestor', REVISION, 'refs/remotes/origin/main'])
                 self.assertFalse(destination.exists())
 
+    def test_identity_probe_accepts_current_service_without_opening_a_connection(self):
+        result = subprocess.run(['node', str(image.HERE / 'probe.cjs'), str(ROOT)],
+                                capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertEqual(result.stdout, b'')
+        self.assertEqual(result.stderr, b'')
+
     def test_identity_probe_refuses_pre_guard_source(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder); service = directory / 'services/crm-flows'; service.mkdir(parents=True)

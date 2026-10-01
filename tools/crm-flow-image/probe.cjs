@@ -8,7 +8,7 @@ async function guard(directory){
  for(const user of ['postgres','synthetic','central_leitor',undefined])assert.throws(()=>C.config({...env,CRM_PG_USER:user}));
  const module={exports:{}};let worker;
  // Even a misconfigured pool cannot authorize a different effective SQL role.
- const imports={pg:{Pool:class{on(){}}},'./config.cjs':{...C,config:()=>{const c=C.config(env);c.pg.user='postgres';return c;}},'./server.cjs':{createServer:()=>({server:{listen(){}}})},'../../n8n/growth/journey-graph-worker.cjs':{createWorker:options=>{worker=options;return {};}}};
+ const imports={pg:{Pool:class{on(){}connect(){throw Error('OFF probe must not connect');}}},'./config.cjs':{...C,config:()=>{const c=C.config(env);c.pg.user='postgres';return c;}},'./server.cjs':{createServer:()=>({server:{listen(){}}})},'../../n8n/growth/journey-graph-worker.cjs':{createWorker:options=>{worker=options;return {};}}};
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:name=>Object.hasOwn(imports,name)?imports[name]:localRequire(name),process:{once(){}}},{filename});module.exports.start(env);
  for(const role of ['crm_graph_worker','postgres','synthetic','central_leitor'])assert.equal(await worker.authorizeWorker({actor:'worker:graph-cart-v1',query:async()=>({rows:[{role}]})}),role==='crm_graph_worker');
  assert.equal(await worker.authorizeWorker({actor:'panel:synthetic',query:async()=>{throw Error('must not query');}}),false);
