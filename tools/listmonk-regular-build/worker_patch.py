@@ -23,6 +23,33 @@ def sha(body):
     return hashlib.sha256(body).hexdigest()
 
 
+def graph_runtime_sha(repo_root, transforms, overlays):
+    """Hash the exact graph-cache sources that affect claim or /api/tx."""
+    graph = LOCK["graph_cache"]
+    values = []
+    for relative in graph["runtime_sources"]["worker"]:
+        if relative in transforms:
+            body = transforms[relative][0]
+        else:
+            require(relative in overlays, f"graph runtime worker source missing: {relative}")
+            body = overlays[relative][0]
+        values.append(("listmonk/" + relative, body))
+    for relative, expected in graph["runtime_sources"]["repo"].items():
+        path = repo_root / relative
+        require(path.is_file() and not path.is_symlink(), f"graph runtime repo source missing: {relative}")
+        body = path.read_bytes()
+        require(sha(body) == expected, f"graph runtime repo source drift: {relative}")
+        values.append((relative, body))
+    digest = hashlib.sha256(b"journey-graph-cache-runtime-v1\0")
+    for relative, body in sorted(values):
+        name = relative.encode("utf-8")
+        digest.update(len(name).to_bytes(4, "big"))
+        digest.update(name)
+        digest.update(len(body).to_bytes(8, "big"))
+        digest.update(body)
+    return digest.hexdigest(), {relative: sha(body) for relative, body in sorted(values)}
+
+
 def replace_once(source, old, new, label):
     require(source.count(old) == 1, f"worker patch anchor drift: {label}")
     return source.replace(old, new)
@@ -367,17 +394,47 @@ def build_plan(listmonk_root, repo_root):
         current = target.read_bytes() if target.exists() else None
         require(current is None or current == body, f"worker output conflict: {relative}")
         overlays[relative] = (body, current)
-    return transforms, overlays
+
+    # Compose the optional graph cache into the same exact regular worker. The
+    # three existing files are accepted only from the regular/upstream hashes
+    # pinned above; the remaining files must not exist in upstream.
+    graph_root = HERE / "overlay/graph-cache"
+    for relative, pins in LOCK["graph_cache"]["transforms"].items():
+        source = graph_root / relative
+        body = source.read_bytes()
+        require(sha(body) == pins["sha256"], f"graph cache transform drift: {relative}")
+        current = transforms[relative][0] if relative in transforms else (listmonk_root / relative).read_bytes()
+        require(sha(current) == pins["base_sha256"], f"graph cache base drift: {relative}")
+        original = transforms[relative][1] if relative in transforms else current
+        transforms[relative] = (body, original)
+    for relative, expected in LOCK["graph_cache"]["overlay"].items():
+        source = graph_root / relative
+        body = source.read_bytes()
+        require(sha(body) == expected, f"graph cache overlay drift: {relative}")
+        target = listmonk_root / relative
+        current = target.read_bytes() if target.exists() else None
+        require(current is None or current == body, f"graph cache output conflict: {relative}")
+        overlays[relative] = (body, current)
+    runtime_sha, runtime_sources = graph_runtime_sha(repo_root, transforms, overlays)
+    require(runtime_sha == LOCK["graph_cache"]["runtime_sha256"], "graph cache runtime identity drift")
+    return transforms, overlays, runtime_sha, runtime_sources
 
 
 def apply(listmonk_root, repo_root):
     listmonk_root = listmonk_root.resolve(strict=True)
     repo_root = repo_root.resolve(strict=True)
-    transforms, overlays = build_plan(listmonk_root, repo_root)
+    transforms, overlays, runtime_sha, runtime_sources = build_plan(listmonk_root, repo_root)
     result = {}
     for relative, (body, original) in {**transforms, **overlays}.items():
         result[relative] = {"status": atomic_write(listmonk_root / relative, body, {original}), "sha256": sha(body)}
-    return {"schema": "listmonk-regular-worker-overlay-v1", "status": "CANDIDATE_LOCAL_ONLY_NOT_DEPLOYED", "files": result}
+    return {
+        "schema": "listmonk-regular-worker-overlay-v2",
+        "status": "CANDIDATE_LOCAL_ONLY_NOT_DEPLOYED",
+        "graph_cache_enabled_by_default": False,
+        "graph_cache_runtime_sha256": runtime_sha,
+        "graph_cache_runtime_sources": runtime_sources,
+        "files": result,
+    }
 
 
 def main():

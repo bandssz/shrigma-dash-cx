@@ -2,12 +2,13 @@
 const fs=require('node:fs'),path=require('node:path');
 const {createSourceAdapter}=require('../n8n/growth/journey-graph-source.cjs');
 const id=n=>'30000000-0000-4000-8000-'+String(n).padStart(12,'0');
-async function setup(db){
+async function setup(db,{requestBoundary=false}={}){
  if(!db){const {PGlite}=require('@electric-sql/pglite');db=new PGlite();}
  await db.exec(`CREATE TABLE subscribers(id integer PRIMARY KEY,uuid uuid NOT NULL,email text,status text,attribs jsonb);CREATE TABLE lists(id integer PRIMARY KEY,tags varchar[]);CREATE TABLE subscriber_lists(subscriber_id integer,list_id integer,status text,PRIMARY KEY(subscriber_id,list_id));CREATE TABLE shrigma_email_dispatch(dispatch_id uuid PRIMARY KEY,brand text,flow text,piece text,dedupe_key text,is_test boolean,transport_state text);CREATE TABLE shrigma_send_log(id integer PRIMARY KEY,brand text,flow text,piece text,channel text,subscriber_id integer,ref text);
  INSERT INTO lists VALUES(17,ARRAY['fish']),(22,ARRAY['fish']),(16,ARRAY['aristo']),(21,ARRAY['aristo']);`);
  await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/growth/journey-graph-store.sql'),'utf8'));
  await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/growth/journey-graph-source.sql'),'utf8'));
+ if(requestBoundary){await db.exec("CREATE ROLE crm_graph_worker NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/growth/journey-graph-worker-request.sql'),'utf8'));}
  const now=(await db.query("SELECT to_char(date_trunc('milliseconds',clock_timestamp()) AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') t")).rows[0].t;
  const ref=new Date(Date.parse(now)-1800000).toISOString();
  const a={cart_id:'synthetic-cart',cart_abandoned_at:ref,cart_url:'https://example.invalid/checkouts/synthetic',cart_items:[{titulo:'Synthetic',qtd:2,preco:12.3,imagem:'https://example.invalid/product.png'}],cart_value:24.6,mkt_consent:'subscribed',flows:{}};

@@ -11,7 +11,9 @@ Porta interna 8080, sem domínio público, portas publicadas ou CORS. Um bearer 
 - `GET /healthz`: somente vivacidade, revisão e execução habilitada/desabilitada. Não afirma disponibilidade do banco, autorização de envio, cache ou entrega.
 - `POST /internal/inspect`: corpo exatamente `{}`, com o mesmo bearer interno. Disponível também OFF; exige autorização SQL de `crm_graph_worker` e retorna somente contagens agregadas e disponibilidade por marca, sem capturar, reconciliar ou enviar. `execution_open=false` quando OFF não comprova o estado de cada controle SQL; a inspeção não prova cache, admissão, ativação ou entrega.
 - `POST /internal/source`: recibos estritos do coletor allowlisted. Captura não inscreve pessoas.
-- `POST /internal/tick`: marca e limite 1–5. Usar 1 na primeira integração. Sem retry; recibos/reservas existentes são consultados antes de novo trabalho.
+- `POST /internal/source-operation`: leitura pelo mesmo workflow, execução e lote após resposta incerta; nunca captura nem repete o POST.
+- `POST /internal/tick`: marca, limite 1–5 e UUID da chamada. Usar 1 na primeira integração. O journal é gravado antes do tick; não há retry.
+- `POST /internal/tick-operation`: leitura pelo UUID após resposta incerta. `in_flight` continua bloqueado e nunca autoriza repetir o tick.
 - `POST /internal/reconcile`: marca e intenção. Só concilia; não repete transporte.
 
 JSON até 196.608 bytes, cabeçalhos até 8 KiB, duas operações concorrentes, sem fila HTTP interna. Falhas retornam código estático, sem payload, contatos ou erros remotos. Resposta perdida exige conciliação durável; não tratar 503 como licença de reenvio. Conexões são encerradas após a resposta; desligamento deixa a chamada atual terminar antes de fechar o pool. Uma parada forçada pode deixar tentativa incerta, que continua bloqueada.
@@ -24,7 +26,7 @@ Variáveis necessárias: `CRM_FLOWS_REVISION`, `CRM_FLOWS_TOKEN`, `CRM_PG_HOST`,
 
 Plano de instalação: um novo app interno `comunicacao/crm-flows`, uma réplica, sem sobreposição na atualização, pool máximo 4, sem portas públicas, build do Dockerfile deste diretório com contexto da raiz e ref Git imutável. Revisar capacidade do host e papel PostgreSQL antes de criar. Configurar inicialmente OFF; conferir revisão, vivacidade e leitura agregada do worker antes de ligar qualquer entrada. Nenhum serviço foi criado por esta implementação.
 
-Ainda faltam instalador composto dos schemas/grants, confirmação da instância/cache, ponte autenticada n8n para os coletores, admissão controlada e publicação/ativação pelo painel. `healthz=200` não elimina essas etapas. Não anunciar ativação no helper de capabilities antes do aceite real.
+O repositório contém um candidato puro para a ponte autenticada n8n: acrescenta aos coletores uma única submissão de recibo com recuperação somente por leitura e gera um workflow de tick limitado, inicialmente inativo. Ele não cria a credencial, não faz PUT no n8n e não ativa cron. Ainda faltam a instalação composta dos schemas/grants, a confirmação física da instância/cache, os exports frescos e versões exatas dos dois workflows, a credencial privada conferida e a publicação controlada da ponte. `healthz=200` não elimina essas etapas. Não anunciar ativação no helper de capabilities antes desses readbacks e do aceite real.
 
 ## Imagem candidata OFF no registro
 

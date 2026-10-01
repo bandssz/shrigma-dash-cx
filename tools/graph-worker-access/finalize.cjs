@@ -68,7 +68,7 @@ END $worker_access$;`;
  const accessPlan={contract:A.CONTRACT,nonce,before:prior,connection_scope:clone(scopeReview.connection_scope),database_inventory:clone(scopeReview.database_inventory),auth_proof_hash:extension.auth_proof_hash,sources:sources(root),migration:{body,sql,extension}};accessPlan.hash=sha(accessPlan);
  const accessReceipt={contract:A.CONTRACT,nonce,plan_hash:accessPlan.hash,sql_hash:sha(sql),before:prior,after,connection_scope:clone(scopeReview.connection_scope),auth_proof_hash:extension.auth_proof_hash};
  const accessReview={plan_hash:accessPlan.hash,receipt_hash:sha(accessReceipt),sql_hash:sha(sql),body_hash:sha(body),sources:clone(accessPlan.sources),database_inventory:clone(scopeReview.database_inventory),diagnostic_read_exceptions:clone(scopeReview.diagnostic_read_exceptions)};
- const proof={baseAnchor:original.baseAnchor,accessPlan,accessReceipt,accessReview,txReceipt:original.txReceipt};
+ const proof={...original,accessPlan,accessReceipt,accessReview};
  A.validateOperational({metadata:operational({...expected,graph:{...expected.graph,graph_seal:after.graph_seal,maintenance_seal:after.maintenance_seal}}),...proof});
  return {accessPlan,accessReceipt,accessReview,expected_metadata:expected};
 }

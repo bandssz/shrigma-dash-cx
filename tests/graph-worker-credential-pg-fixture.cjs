@@ -42,7 +42,7 @@ async function installGraph(client) {
   const fixture = await F.installBase({after(){}},{db,pool});
   // Existing graph fixtures emulate digest in PGlite. This proof requires real
   // pgcrypto, installed BEFORE composing/sealing the graph's public shape.
-  await query('DROP FUNCTION public.digest(bytea,text); CREATE EXTENSION pgcrypto WITH SCHEMA public; SET search_path=pg_catalog,public;');
+  await query('DROP FUNCTION public.digest(bytea,text);DROP FUNCTION public.hmac(bytea,bytea,text); CREATE EXTENSION pgcrypto WITH SCHEMA public; SET search_path=pg_catalog,public;');
   const graphBefore = (await query(G.METADATA_SQL)).rows[0];
   const migration = G.atomicInstall(F.ROOT, graphBefore, F.NONCE);
   const result = await query(migration.sql);

@@ -36,11 +36,13 @@ const FIELDS=freeze({
  review:['journey_id','expected_version'],status:['journey_id'],operation:['request_id'],
  prepare:['journey_id','expected_version','request_id','review_hash','confirm'],
  publish:['journey_id','expected_version','request_id','prepared_revision','prepared_hash','confirm'],
+ activation_review:['journey_id','expected_version','request_id','published_revision','publication_hash'],
+ activation_operation:['request_id'],
  activate:['journey_id','expected_version','request_id','published_revision','publication_hash','admission_review_hash','confirm'],
  pause:['journey_id','expected_version','request_id','published_revision','confirm']
 });
 const CONFIRM=Object.freeze({prepare:'preparar',publish:'publicar',activate:'ativar',pause:'pausar'});
-const PERMISSIONS=freeze({review:['read_content','validate'],status:['read_content'],operation:['read_content'],prepare:['read_content','submit'],publish:['read_content','submit'],activate:['read_content','submit'],pause:['read_content','submit']});
+const PERMISSIONS=freeze({review:['read_content','validate'],status:['read_content'],operation:['read_content'],activation_review:['read_content','validate'],activation_operation:['read_content'],prepare:['read_content','submit'],publish:['read_content','submit'],activate:['read_content','submit'],pause:['read_content','submit']});
 function validateRequest(value){
  const p=copy(value,8192);
  if(!p||typeof p!=='object'||Array.isArray(p)||typeof p.action!=='string'||!Object.hasOwn(FIELDS,p.action)||!exact(p,['action','brand',...FIELDS[p.action]])||!['fish','aristo'].includes(p.brand))throw fail('GRAPH_LIFECYCLE_INPUT');

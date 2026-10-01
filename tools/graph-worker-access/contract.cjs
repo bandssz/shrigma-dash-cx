@@ -3,10 +3,12 @@
 // authority to enable LOGIN. The caller supplies independently reviewed pins.
 const {canonical,sha}=require('../maintenance-cart-deploy/deploy.cjs');
 const CONTRACT='crm-graph-worker-access-v1',GRAPH='crm-graph-install-v1',MAINTENANCE='maintenance-cart-graph-install-v1',CART='maintenance-cart-install-v1',TX='maintenance-tx-install-v1';
+const RUNTIME='crm-graph-runtime-lineage-v1';
 const ROLE='crm_graph_worker';
 const ROLE_KEYS=['name','login','superuser','createdb','createrole','inherit','replication','bypassrls','memberships'];
 const GRAPH_KEYS=['contract','nonce','ddl','previous','graph_shape','maintenance_shape','public_shape','worker_role'];
 const EXTENSION_KEYS=['contract','nonce','ddl','base_plan_hash','base_receipt_hash','previous_graph_seal_hash','role_oid','previous_role','connection_scope_hash','credential_version','auth_proof_hash'];
+const RUNTIME_KEYS=['contract','nonce','ddl','base_plan_hash','base_receipt_hash','previous_graph_seal_hash','role_oid','review_hash','observed_metadata_hash','graph_shape','public_shape'];
 const SCOPE_POLICY='audited-current-database-privileges-v1';
 const APP_PRIVILEGES=['non_system_read','non_system_write','non_system_create','non_system_definer_execute','foreign_server_usage'];
 const DIAGNOSTIC_KEYS=['relation_oid','extension_oid','extension_name','extension_version','definition_hash','acl_hash','dependency_hash'];
@@ -26,10 +28,11 @@ function identity(value,login){
 }
 function cart(seal){check(keys(seal,['contract','nonce','ddl','shape'])&&seal.contract===CART&&nonce(seal.nonce)&&digest(seal.ddl)&&md5(seal.shape),'CART_SEAL');return seal;}
 function graph(seal){
- const extensions=['maintenance_extension','worker_access_extension'].filter(k=>Object.hasOwn(seal||{},k));
+ const extensions=['maintenance_extension','worker_access_extension','runtime_lineage_extension'].filter(k=>Object.hasOwn(seal||{},k));
  check(keys(seal,[...GRAPH_KEYS,...extensions])&&seal.contract===GRAPH&&nonce(seal.nonce)&&digest(seal.ddl)&&['graph_shape','maintenance_shape','public_shape'].every(k=>md5(seal[k])),'GRAPH_SEAL');cart(seal.previous);role(seal.worker_role,extensions.includes('worker_access_extension'));
  if(seal.maintenance_extension){const e=seal.maintenance_extension;check(keys(e,['contract','nonce','ddl','previous_maintenance_shape'])&&e.contract===TX&&nonce(e.nonce)&&digest(e.ddl)&&md5(e.previous_maintenance_shape),'TX_EXTENSION');}
  if(seal.worker_access_extension){const e=seal.worker_access_extension;check(keys(e,EXTENSION_KEYS)&&e.contract===CONTRACT&&nonce(e.nonce)&&['ddl','base_plan_hash','base_receipt_hash','previous_graph_seal_hash','connection_scope_hash','auth_proof_hash'].every(k=>digest(e[k]))&&oid(e.role_oid)&&typeof e.credential_version==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(e.credential_version),'ACCESS_EXTENSION');role(e.previous_role,false);}
+ if(seal.runtime_lineage_extension){const e=seal.runtime_lineage_extension;check(keys(e,RUNTIME_KEYS)&&e.contract===RUNTIME&&nonce(e.nonce)&&['ddl','base_plan_hash','base_receipt_hash','previous_graph_seal_hash','review_hash','observed_metadata_hash'].every(k=>digest(e[k]))&&oid(e.role_oid)&&['graph_shape','public_shape'].every(k=>md5(e[k])),'RUNTIME_EXTENSION');}
  return seal;
 }
 function maintenance(seal){
@@ -78,7 +81,7 @@ function baseState(anchor){
  check(object(v)&&sha(v)===r.receipt_hash&&v.contract===GRAPH&&v.plan_hash===hash&&v.sql_hash===sha(p.migration?.sql)&&v.installed===true&&v.readback_verified===true&&v.execution_enabled===false&&v.worker_login===false&&v.activation_available===false,'BASE_RECEIPT');
  check(object(m)&&sha(m)===r.metadata_hash&&m.database==='listmonk'&&m.role==='postgres'&&sha(i)===r.identity_hash,'BASE_METADATA');identity(i,false);
  const g=graph(parse(m.graph_seal,'BASE_GRAPH')),ms=maintenance(parse(m.maintenance_seal,'BASE_MAINTENANCE'));
- check(!g.worker_access_extension&&!g.maintenance_extension&&ms.contract===MAINTENANCE,'BASE_EXTENSIONS');
+ check(!g.worker_access_extension&&!g.maintenance_extension&&!g.runtime_lineage_extension&&ms.contract===MAINTENANCE,'BASE_EXTENSIONS');
  const {graph_shape,maintenance_shape,public_shape,worker_role,...base}=g;
  check(same(base,p.migration.seal)&&same(ms,{...p.migration.maintenanceSeal,shape:m.maintenance_legacy_shape})&&same(v.baseline,{graph_shape,maintenance_shape,public_shape,worker_role,maintenance_legacy_shape:m.maintenance_legacy_shape}),'BASE_LINEAGE');
  check(g.graph_shape===m.graph_shape&&g.maintenance_shape===m.maintenance_shape&&g.public_shape===m.public_shape&&same(g.worker_role,m.worker_role)&&same(i.role,m.worker_role),'BASE_DRIFT');
@@ -105,20 +108,47 @@ function txTransition(receipt){
  check(same(after,{graph_seal:{...before.graph_seal,maintenance_shape:after.graph_seal.maintenance_shape,maintenance_extension:e},maintenance_seal:{contract:TX,nonce:e.nonce,ddl:e.ddl,previous:before.maintenance_seal,shape:after.maintenance_seal.shape},role_identity:before.role_identity}),'TX_DIFFERENCE');
  return {kind:'tx',before,after};
 }
-function validateOperational({metadata,baseAnchor,accessReceipt=null,accessPlan=null,accessReview=null,txReceipt=null}={}){
+function runtimeTransition(receipt,anchor,plan,review){
+ check(keys(receipt,['contract','nonce','plan_hash','sql_hash','before','after','review_hash','observed_metadata_hash'])&&receipt.contract===RUNTIME&&nonce(receipt.nonce)&&['plan_hash','sql_hash','review_hash','observed_metadata_hash'].every(k=>digest(receipt[k])),'RUNTIME_RECEIPT');
+ check(keys(review,['plan_hash','receipt_hash','sql_hash','body_hash','sources','adoption_review_hash','observed_metadata_hash'])&&['plan_hash','receipt_hash','sql_hash','body_hash','adoption_review_hash','observed_metadata_hash'].every(k=>digest(review[k])),'RUNTIME_REVIEW');
+ check(keys(plan,['contract','nonce','before','observed_metadata_hash','adoption_review_hash','sources','migration','hash'])&&plan.contract===RUNTIME&&plan.nonce===receipt.nonce&&plan.hash===review.plan_hash&&receipt.plan_hash===plan.hash,'RUNTIME_PLAN');const {hash,...body}=plan;
+ check(sha(body)===hash&&same(plan.sources,review.sources)&&object(review.sources)&&Object.keys(review.sources).length>0&&Object.values(review.sources).every(digest),'RUNTIME_PLAN');
+ check(keys(plan.migration,['body','sql','extension'])&&typeof plan.migration.body==='string'&&plan.migration.body.length>0&&typeof plan.migration.sql==='string'&&plan.migration.sql.length>0&&sha(plan.migration.body)===review.body_hash&&sha(plan.migration.sql)===review.sql_hash&&receipt.sql_hash===review.sql_hash&&sha(receipt)===review.receipt_hash,'RUNTIME_EXECUTION_PIN');
+ check(same(plan.before,receipt.before)&&plan.observed_metadata_hash===receipt.observed_metadata_hash&&review.observed_metadata_hash===receipt.observed_metadata_hash&&plan.adoption_review_hash===receipt.review_hash&&review.adoption_review_hash===receipt.review_hash,'RUNTIME_PLAN_RECEIPT');
+ const before=state(receipt.before),after=state(receipt.after),g=before.graph_seal,e=after.graph_seal.runtime_lineage_extension;
+ check(!g.runtime_lineage_extension&&!g.worker_access_extension&&g.worker_role.login===false&&e&&same(e,plan.migration.extension)&&e.ddl===review.body_hash&&e.nonce===receipt.nonce&&e.base_plan_hash===anchor.reviewed.plan_hash&&e.base_receipt_hash===anchor.reviewed.receipt_hash&&e.previous_graph_seal_hash===sha(g)&&e.role_oid===before.role_identity.oid&&e.review_hash===receipt.review_hash&&e.observed_metadata_hash===receipt.observed_metadata_hash,'RUNTIME_PREDECESSOR');
+ check(same(after,{...before,graph_seal:{...g,runtime_lineage_extension:e}}),'RUNTIME_DIFFERENCE');
+ return {kind:'runtime',before,after};
+}
+function lineage({baseAnchor,accessReceipt=null,accessPlan=null,accessReview=null,txReceipt=null,runtimeReceipt=null,runtimePlan=null,runtimeReview=null}={}){
  let current=baseState(baseAnchor);const transitions=[];
  if(accessReceipt!==null)transitions.push(accessTransition(accessReceipt,baseAnchor,accessPlan,accessReview));
  else check(accessPlan===null&&accessReview===null,'ACCESS_UNEXPECTED');
  if(txReceipt!==null)transitions.push(txTransition(txReceipt));
+ if(runtimeReceipt!==null)transitions.push(runtimeTransition(runtimeReceipt,baseAnchor,runtimePlan,runtimeReview));
+ else check(runtimePlan===null&&runtimeReview===null,'RUNTIME_UNEXPECTED');
  const order=['base'];
  while(transitions.length){const matches=transitions.map((x,n)=>same(x.before,current)?n:-1).filter(n=>n>=0);check(matches.length===1,'CHAIN_ORDER');const next=transitions.splice(matches[0],1)[0];current=next.after;order.push(next.kind);}
+ return {current,order};
+}
+function matchState(metadata,current){
  check(object(metadata)&&metadata.database==='listmonk'&&metadata.role==='postgres','METADATA');
  const actual=state({graph_seal:parse(metadata.graph_seal,'GRAPH_SEAL'),maintenance_seal:parse(metadata.maintenance_seal,'MAINTENANCE_SEAL'),role_identity:metadata.worker_role_identity});
- check(same(actual,current),'CURRENT_CHAIN');
- check(actual.graph_seal.graph_shape===metadata.graph_shape&&actual.graph_seal.maintenance_shape===metadata.maintenance_shape&&actual.graph_seal.public_shape===metadata.public_shape&&actual.maintenance_seal.shape===metadata.maintenance_legacy_shape&&same(actual.graph_seal.worker_role,metadata.worker_role),'CURRENT_DRIFT');
- return Object.freeze({contract:CONTRACT,structural_valid:true,policy_valid:accessReceipt!==null,online_auth_verified:false,login_authorized:false,execution_authorized:false,worker_login:actual.graph_seal.worker_role.login,role_oid:actual.role_identity.oid,order:Object.freeze(order),connection_isolated:false});
+ check(same(actual,current),'CURRENT_CHAIN');return actual;
+}
+// This narrowly checks the preserved historical seal/role chain for an explicit
+// adoption review. It deliberately provides no current structural attestation.
+function validateHistoricalState({metadata,baseAnchor,txReceipt=null}={}){
+ const {current,order}=lineage({baseAnchor,txReceipt});const actual=matchState(metadata,current);
+ check(!actual.graph_seal.worker_access_extension&&!actual.graph_seal.runtime_lineage_extension&&!actual.graph_seal.worker_role.login,'HISTORICAL_ONLY');
+ return Object.freeze({contract:CONTRACT,historical_chain_valid:true,structural_valid:false,login_authorized:false,execution_authorized:false,role_oid:actual.role_identity.oid,order:Object.freeze(order)});
+}
+function validateOperational(input={}){
+ const {current,order}=lineage(input),actual=matchState(input.metadata,current),g=actual.graph_seal,r=g.runtime_lineage_extension;
+ check((r?r.graph_shape:g.graph_shape)===input.metadata.graph_shape&&g.maintenance_shape===input.metadata.maintenance_shape&&(r?r.public_shape:g.public_shape)===input.metadata.public_shape&&actual.maintenance_seal.shape===input.metadata.maintenance_legacy_shape&&same(g.worker_role,input.metadata.worker_role),'CURRENT_DRIFT');
+ return Object.freeze({contract:CONTRACT,structural_valid:true,policy_valid:input.accessReceipt!=null,online_auth_verified:false,login_authorized:false,execution_authorized:false,worker_login:g.worker_role.login,role_oid:actual.role_identity.oid,order:Object.freeze(order),connection_isolated:false});
 }
 // Read-only catalog expression; the OID anchor is established by a fresh
 // reviewed NOLOGIN read, not retroactively attributed to the old base receipt.
 const ROLE_IDENTITY_SQL=`(SELECT jsonb_build_object('oid',r.oid::text,'role',jsonb_build_object('name',r.rolname,'login',r.rolcanlogin,'superuser',r.rolsuper,'createdb',r.rolcreatedb,'createrole',r.rolcreaterole,'inherit',r.rolinherit,'replication',r.rolreplication,'bypassrls',r.rolbypassrls,'memberships',(SELECT count(*) FROM pg_auth_members m WHERE m.member=r.oid OR m.roleid=r.oid)),'settings',r.rolconfig,'valid_until',r.rolvaliduntil::text,'connection_limit',r.rolconnlimit,'database_settings',(SELECT coalesce(jsonb_agg(jsonb_build_object('database_oid',s.setdatabase::text,'settings',s.setconfig) ORDER BY s.setdatabase),'[]'::jsonb) FROM pg_db_role_setting s WHERE s.setrole=r.oid)) FROM pg_roles r WHERE r.rolname='crm_graph_worker')`;
-module.exports={CONTRACT,ROLE,SCOPE_POLICY,ROLE_IDENTITY_SQL,validateOperational,validateConnectionScope};
+module.exports={CONTRACT,RUNTIME,ROLE,SCOPE_POLICY,ROLE_IDENTITY_SQL,validateOperational,validateHistoricalState,validateConnectionScope};

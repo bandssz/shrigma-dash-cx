@@ -1,0 +1,11 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {start}=require('../services/crm-flows/main.cjs');
+function env(extra={}){return {CRM_FLOWS_ENABLED:'false',CRM_FLOWS_REVISION:'a'.repeat(40),CRM_FLOWS_TOKEN:'x'.repeat(43),CRM_PG_HOST:'postgres',CRM_PG_USER:'crm_graph_worker',CRM_PG_DATABASE:'listmonk',CRM_PG_PASSWORD:'synthetic',CRM_LISTMONK_ORIGIN:'https://email.shrigma.com.br',CRM_LISTMONK_AUTHORIZATION:'Basic c3ludGhldGlj',CRM_LISTMONK_CACHE_TARGET:'synthetic-cache',CRM_FISH_SHOP:'fish.myshopify.com',CRM_FISH_SHOP_ID:'gid://shopify/Shop/1',CRM_FISH_CLIENT_ID:'fish-client',CRM_FISH_CLIENT_SECRET:'fish-secret',CRM_FISH_COLLECTOR:'FishCollect01',CRM_ARISTO_SHOP:'aristo.myshopify.com',CRM_ARISTO_SHOP_ID:'gid://shopify/Shop/2',CRM_ARISTO_CLIENT_ID:'aristo-client',CRM_ARISTO_CLIENT_SECRET:'aristo-secret',CRM_ARISTO_COLLECTOR:'AristoCollect02',...extra};}
+test('main heartbeat is separate explicit opt-in, uses secret-free effective identity and stops before pool close',async()=>{
+ const events=[];class Pool{constructor(){this.query=async()=>({rows:[{role:'crm_graph_worker'}]});}on(){}async connect(){return {query:this.query,release(){}};}async end(){events.push('pool.end');}}
+ let options;const leaseFactory=o=>(options=o,{async start(){events.push('lease.start');return {ready:false};},async stop(){events.push('lease.stop');}}),serverFactory=()=>({server:{listen(){events.push('listen');}},async stop(){events.push('app.stop');}});
+ const a=start(env(),{PoolImpl:Pool,leaseFactory,serverFactory});assert.equal(options.enabled,false);await a.stop();await a.stop();assert.deepEqual(events,['listen','lease.start','lease.stop','app.stop','pool.end']);
+ events.length=0;const b=start(env({CRM_GRAPH_WORKER_HEARTBEAT_ENABLED:'true'}),{PoolImpl:Pool,leaseFactory,serverFactory});assert.equal(options.enabled,true);const identity=options.runtimeIdentity();assert.equal(identity.execution_enabled,false);assert.equal(identity.database.user,'crm_graph_worker');assert.equal(JSON.stringify(identity).includes('secret'),false);assert.equal(JSON.stringify(identity).includes('Basic'),false);await b.stop();
+ assert.throws(()=>start(env({CRM_GRAPH_WORKER_HEARTBEAT_ENABLED:'1'}),{PoolImpl:Pool,leaseFactory,serverFactory}),/CONFIG/);
+});

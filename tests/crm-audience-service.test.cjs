@@ -91,9 +91,9 @@ test('regular prepare and schedule require their separate gate; original operati
  }
 });
 
-test('paused graph publication uses the existing service and an independent OFF configuration',async()=>{
+test('paused graph publication and reviewed activation use independent OFF configurations',async()=>{
  const env={CRM_AUDIENCE_REVISION:'a'.repeat(40),CRM_PG_HOST:'db',CRM_PG_USER:'crm_audience_api',CRM_PG_PASSWORD:'synthetic',CRM_PG_DATABASE:'listmonk'};
- assert.equal(config(env).graphLifecycleEnabled,false);assert.equal(config({...env,CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED:'true'}).graphLifecycleEnabled,true);assert.throws(()=>config({...env,CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED:'yes'}),/CRM_AUDIENCE_CONFIG/);
+ assert.equal(config(env).graphLifecycleEnabled,false);assert.equal(config(env).graphActivationEnabled,false);assert.equal(config({...env,CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED:'true',CRM_AUDIENCE_GRAPH_ACTIVATION_ENABLED:'true'}).graphActivationEnabled,true);for(const key of ['CRM_AUDIENCE_GRAPH_LIFECYCLE_ENABLED','CRM_AUDIENCE_GRAPH_ACTIVATION_ENABLED'])assert.throws(()=>config({...env,[key]:'yes'}),/CRM_AUDIENCE_CONFIG/);
  const calls=[],graphLifecycle={async handle(input){calls.push(input);return {status:200,body:{contract:'journey_graph_lifecycle_panel_v1',authorizes_send:false}};}},x=serve({graphLifecycle});
  const headers={Authorization:'Bearer synthetic-key','Content-Type':'application/json',Origin:ORIGIN};
  assert.equal((await inject(x.app,{method:'POST',path:'/journey-graph-lifecycle',headers,body:JSON.stringify({action:'review',brand:'fish'})})).status,200);
