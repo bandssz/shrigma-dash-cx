@@ -31,6 +31,8 @@ O frontend operacional preparado neste worktree parte de `44415610439f0980371863
 
 O commit-base original do worktree é `44415610439f098037186333aee579ded424578f`. A revisão publicada `e180f4ca484efa9a3fc8ba430b3a714e5ecbb907` do KPI de Influs foi integrada primeiro, somente nesta branch. Em 01/10 o `main` avançou pelo PR #199 para `6cf7d09eb5db4616d88eb0bd524b1d84418f8854`; esse commit também foi mesclado sem conflito **somente** na branch exclusiva, e os hashes de `crm-audience/server.cjs` e `crm-campaign/server.cjs` foram renovados após revisão das mudanças. O tracking local `origin/main` pode permanecer atrás do servidor, por isso a revisão publicada deve ser reconfirmada antes de cada candidato. Nenhum código foi enviado à branch de produção pela migração. O PR #198 continua em rascunho. Antes de publicar ao time, ainda é necessário reconciliar o resultado final do chat do CRM e verificar as integrações ativas.
 
+Depois do ensaio v7, o PR #200 avançou o `main` para `3a55f6c382a19ad9b26c7812110c11f001372a01`, mudando apenas o README e o lock do registro de imagem do worker CRM. Nenhum arquivo do frontend, dos serviços revisados ou do pacote operacional mudou; esse merge também foi incorporado somente à branch exclusiva. O pin do proxy continua em `6cf7d09`, a revisão que efetivamente alterou seus arquivos de origem. O registro do worker não o ativa no canário.
+
 Critério objetivo para escolher e integrar a revisão final:
 
 1. O chat do sprint de CRM deve concluir o trabalho e apontar quaisquer commits/PRs posteriores ao #199 que representem a entrega. Conferir separadamente os arquivos locais não publicados; não copiá-los por suposição.
