@@ -1,0 +1,5 @@
+query Attribution($search:String!,$after:String){orders(first:100,after:$after,query:$search,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor}nodes{id name customer{id} createdAt updatedAt test cancelledAt displayFinancialStatus netPaymentSet{shopMoney{amount currencyCode} }
+ customerJourneySummary{ready customerOrderIndex
+ firstVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }
+ lastVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} }
+ moments(first:50,reverse:true){pageInfo{hasNextPage endCursor}nodes{... on CustomerVisit{id occurredAt referrerUrl landingPage source utmParameters{source medium campaign content term} } } } } } } }

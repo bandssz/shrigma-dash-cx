@@ -21,6 +21,14 @@ const CRMAttribution=(()=>{
   return {at:new Date(v.occurredAt).toISOString(),source:u.source,medium:u.medium,campaign:u.campaign,content:u.content,term:u.term,
    channel:channel(u),non_direct:nonDirect};
  }
+ function customerIdentity(customer){
+  if(customer==null)return {customer_gid:null,customer_identity_state:'absent'};
+  if(typeof customer!=='object'||Array.isArray(customer))return {customer_gid:null,customer_identity_state:'invalid'};
+  if(customer.id==null)return {customer_gid:null,customer_identity_state:'absent'};
+  if(typeof customer.id!=='string'||!/^gid:\/\/shopify\/Customer\/[1-9][0-9]{0,24}$/.test(customer.id))
+   return {customer_gid:null,customer_identity_state:'invalid'};
+  return {customer_gid:customer.id,customer_identity_state:'confirmed'};
+ }
  function classify(o){
   const brand=o._marca;if(!['fish','aristo','olivas'].includes(brand))throw Error('ATTRIBUTION_BRAND_INVALID');
   if(!/^gid:\/\/shopify\/Order\/\d+$/.test(o.id||'')||!Number.isFinite(time(o.createdAt))||!Number.isFinite(time(o.updatedAt)))throw Error('ATTRIBUTION_ORDER_INVALID');
@@ -36,14 +44,16 @@ const CRMAttribution=(()=>{
   // Recent-first pagination proves a found latest non-direct touch. Without a
   // winner, incomplete history must remain unknown, never "direct" by default.
   const nonDirectKnown=ready&&(!!winner||complete),strictKnown=ready&&!!strict;
+  const customer=customerIdentity(o.customer);
   let reason=!eligible?'order_ineligible':!ready?'journey_not_ready':!nonDirectKnown?'journey_incomplete':winner?'attributed_visit':'direct_or_untracked';
   return {brand,order_id:o.id,order_name:String(o.name||''),created_at:o.createdAt,updated_at:o.updatedAt,
+   ...(['fish','aristo'].includes(brand)?{customer_gid:customer.customer_gid,customer_identity_state:customer.customer_identity_state}:{}),
    test:o.test===true,cancelled:!!o.cancelledAt,financial_status:financial||'UNKNOWN',currency,net_amount:Number.isFinite(amount)?amount:null,
    eligible,ready,complete,strict_known:strictKnown,non_direct_known:nonDirectKnown,
    last_click:strictKnown?strict:null,last_non_direct:nonDirectKnown?winner:null,
    touches:ready?moments.filter(v=>v.channel):[],customer_order_index:Number(j?.customerOrderIndex)||null,
    reason,model_version:VERSION};
  }
- return {VERSION,norm,channel,visit,classify};
+ return {VERSION,norm,channel,visit,customerIdentity,classify};
 })();
 if(typeof module!=='undefined')module.exports=CRMAttribution;
