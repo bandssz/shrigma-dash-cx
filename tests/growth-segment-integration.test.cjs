@@ -145,7 +145,7 @@ for(const built of [false,true])for(const brand of ['fish','aristo'])test(brand+
   const draft={schema_version:'crm-audience-v2',brand,name:'Preparação antiga preservada',rule:{op:'condition',field:'purchase.amount',operator:'gte',value:'123.45'}};
   original=JSON.stringify({version:1,brand,endpoint:f.api.capabilities.endpoints.segments,actor,draft,base:structuredClone(draft),server:null,draft_catalog_hash:null,draft_currency:null,draft_timezone:null});f.storage.setItem('shrigma_segment_editor_v1:'+brand,original);
  }});
- assert.match(x.q('#crm-segments-status').textContent,/contexto desta preparação/);assert.equal(x.f.calls.length,0);
+ assert.match(x.q('#crm-segments-status').textContent,/rascunho antigo.*Criar público/);assert.equal(x.f.calls.length,0);
  x.q('#crm-audience-create').click();for(let i=0;i<100&&!x.q('[data-gs-dialog]')?.open;i++)await new Promise(r=>setTimeout(r,2));
  assert.ok(x.q('[data-gs-dialog]').open);assert.match(x.q('[data-gs-confirm-text]').textContent,/rascunho antigo.*cópia/i);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
  x.q('[data-gs="back"]').click();await settled(x);assert.equal(x.f.calls.length,0);assert.equal(x.f.storage.getItem('shrigma_segment_editor_v1:'+brand),original);
