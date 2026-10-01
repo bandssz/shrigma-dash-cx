@@ -2,7 +2,7 @@
 const fs=require('node:fs'),{fixture}=require('./journey-graph-material-fixture.cjs'),{id}=require('./journey-graph-source-fixture.cjs');
 const N=require('../n8n/growth/journey-graph-native.cjs'),C=require('../n8n/growth/journey-graph-cart.cjs'),{createMessagePreflight,createMessageClaim}=require('../n8n/growth/journey-graph-message.cjs');
 const read=name=>fs.readFileSync(require.resolve(name),'utf8');
-async function install(t,db,pool){
+async function install(t,db,pool,{cacheIdentity=true}={}){
  const x=await fixture(t,db,pool),q=x.query,cacheTarget='synthetic-instance';
  await x.db.exec(`CREATE SCHEMA crm_maintenance_candidate;CREATE TABLE crm_maintenance_candidate.control(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),version integer NOT NULL DEFAULT 1,enabled boolean NOT NULL DEFAULT false,mode text NOT NULL DEFAULT 'closed');INSERT INTO crm_maintenance_candidate.control VALUES(true,1,true,'open');
  ALTER TABLE subscribers ADD COLUMN updated_at timestamptz;
@@ -12,17 +12,31 @@ async function install(t,db,pool){
  CREATE SEQUENCE synthetic_cart_send_log;ALTER TABLE shrigma_send_log ALTER COLUMN id SET DEFAULT nextval('synthetic_cart_send_log');ALTER TABLE shrigma_send_log ADD COLUMN email text,ADD COLUMN kind text,ADD COLUMN template_id integer;
  CREATE TABLE shrigma_exposure_7d(subscriber_id integer PRIMARY KEY,marketing_7d integer);
  CREATE FUNCTION digest(data bytea,algorithm text) RETURNS bytea LANGUAGE sql IMMUTABLE AS $$SELECT sha256(data)$$;
+ CREATE FUNCTION hmac(data bytea,key bytea,algorithm text) RETURNS bytea LANGUAGE sql IMMUTABLE AS $$SELECT sha256(data||key)$$;
  CREATE FUNCTION shrigma_email_recipient_key(email text) RETURNS TABLE(recipient_key text,key_version text) LANGUAGE sql IMMUTABLE AS $$SELECT md5(lower(email)),'fixture'$$;`);
  const helpers=read('./sql/journey-cart-fixture.sql');await x.db.exec(helpers.slice(helpers.indexOf('CREATE FUNCTION shrigma_flow_slot'),helpers.indexOf('CREATE FUNCTION shrigma_email_claim_cart')));
  await x.db.exec(read('./journey-graph-cart-legacy-fixture.sql'));
  await x.db.exec(read('../n8n/growth/journey-graph-native.sql'));
  const originalFinish=(await q("SELECT md5(pg_get_functiondef('shrigma_email_finish_cart(uuid,uuid,text,jsonb)'::regprocedure)) hash")).rows[0].hash;
  await x.db.exec(read('../n8n/growth/journey-graph-cart.sql'));
+ if(cacheIdentity){
+  await x.db.exec(read('../n8n/growth/journey-graph-cache-identity.sql'));
+  await q(`INSERT INTO crm_graph_candidate.cache_identity_deployment_v1
+   (cache_target,enabled,executable_sha256,runtime_sha256,expected_role,heartbeat_seconds,lease_seconds,action_key)
+   VALUES($1,true,$2,$3,session_user,30,120,$4)`,[cacheTarget,'a'.repeat(64),'b'.repeat(64),id(70003)]);
+ }
  let seq=15000;const bridge=C.createCartBridge({query:q,cacheTarget});
  return {...x,bridge,cacheTarget,originalFinish,async prepare(brand='fish',{ownership=true,cohort=true}={}){
   const f=await x.prepare(brand,true),e=await f.atMessage(),intent=await f.api.step(f.request({entry_id:e.entry_id,expected_version:e.version}));
   const options={query:q,cacheTarget,nativeRead:async()=>{throw Error('NO_HTTP');},nativeCreate:async b=>({status:200,body:{data:(await q('INSERT INTO templates(id,name,type,subject,body,body_source) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[seq++,b.name,b.type,b.subject,b.body,b.body_source])).rows[0]}})};
   const provider=N.createNativeProvider(options),reserved=await provider.prepare('panel:synthetic',{request_id:id(seq++),brand,release_id:f.release.id,expected_material_sha256:f.release.material_sha256}),preparedClone=await provider.create(brand,reserved.native_id);
+  if(cacheIdentity){
+   const snapshots=(await q(`SELECT jsonb_agg(jsonb_build_object('template_id',n.clone_template_id)||n.snapshot ORDER BY n.clone_template_id) value
+    FROM crm_graph_candidate.native_template_v1 n WHERE n.cache_target=$1 AND n.state='ready'`,[cacheTarget])).rows[0].value;
+   const heartbeat=(await q('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) value',
+    [cacheTarget,id(70001),id(70002),'a'.repeat(64),'b'.repeat(64),JSON.stringify(snapshots)])).rows[0].value;
+   if(heartbeat?.ready!==true||heartbeat.template_count!==snapshots.length)throw Error('synthetic cache identity heartbeat failed');
+  }
   const settings={pool:x.pool,cacheTarget,readSource:f.settings.readSource,resolveNative:({query,...a})=>N.createNativeProvider({...options,query}).resolve(a.brand,a.release_id,a.material_sha256)};
   const request={brand,intent_id:intent.intent_id,expected_entry_version:intent.version};
   await q('UPDATE crm_graph_candidate.cart_control_v1 SET enabled=true,cache_target=$1 WHERE brand=$2',[cacheTarget,brand]);

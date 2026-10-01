@@ -95,7 +95,7 @@ test('main independently authorizes only the dedicated current_user and fixed wo
   '../../n8n/growth/journey-graph-worker.cjs':{createWorker:options=>{workerOptions=options;return {};}}
  };
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:name=>Object.hasOwn(imports,name)?imports[name]:realRequire(name),process:{once(){}}},{filename});
- const running=module.exports.start(env());assert.equal(listening,true);assert.equal(poolOptions.user,'crm_graph_worker');assert.equal(workerOptions.enabled,false);
+ const running=module.exports.start(env(),{leaseFactory:options=>{assert.equal(options.enabled,false);return {async start(){},async stop(){}};}});assert.equal(listening,true);assert.equal(poolOptions.user,'crm_graph_worker');assert.equal(workerOptions.enabled,false);
  let queries=0;const call=async(role,actor='worker:graph-cart-v1')=>workerOptions.authorizeWorker({actor,query:async sql=>{queries++;assert.equal(sql,'SELECT current_user AS role');return {rows:[{role}]};}});
  assert.equal(await call('crm_graph_worker'),true);
  for(const role of ['postgres','central_leitor','synthetic','crm_graph_worker_other',null])assert.equal(await call(role),false);

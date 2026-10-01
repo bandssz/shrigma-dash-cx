@@ -141,8 +141,11 @@ def build(args):
     target_env = dict(env, GOOS=goos, GOARCH=goarch)
     raw = args.out / 'listmonk.unstuffed'
     build_id = 'v6.1.0-crm-regular-' + sha((overlay / 'upstream.lock.json').read_bytes())[:12]
+    graph_runtime_sha = worker_receipt['graph_cache_runtime_sha256']
+    require(len(graph_runtime_sha) == 64, 'Graph cache runtime source identity required')
     command([args.go, 'build', '-trimpath', '-buildvcs=false', '-o', raw.resolve(),
-             '-ldflags=-s -w -X main.buildString=' + build_id + ' -X main.versionString=v6.1.0', './cmd'], listmonk, target_env)
+             '-ldflags=-s -w -X main.buildString=' + build_id + ' -X main.versionString=v6.1.0'
+             + ' -X main.graphCacheRuntimeSHA=' + graph_runtime_sha, './cmd'], listmonk, target_env)
     raw_bytes = read(raw)
     if args.target == 'linux_amd64':
         require(raw_bytes[:6] == b'\x7fELF\x02\x01' and raw_bytes[18:20] == b'\x3e\x00', 'Expected Linux amd64 ELF')
@@ -189,6 +192,16 @@ def build(args):
     recipes = source / 'recipe'
     shutil.copytree(overlay, recipes / 'listmonk-regular-build', ignore=shutil.ignore_patterns('__pycache__'))
     shutil.copytree(HERE, recipes / 'listmonk-regular-package', ignore=shutil.ignore_patterns('__pycache__'))
+    graph_recipe = recipes / 'graph-cache-runtime'
+    graph_recipe_files = {}
+    for name, expected in sorted(lock['graph_cache']['runtime_sources']['repo'].items()):
+        source_file = REPO / name
+        body = read(source_file)
+        require(sha(body) == expected, 'Graph cache recipe source drift')
+        target = graph_recipe / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(body)
+        graph_recipe_files[name] = expected
     query_sources = source / 'query-composer'
     query_sources.mkdir()
     for name in ('segment-listmonk-selection.cjs', 'ab-listmonk-cohort-patch.cjs'):
@@ -202,6 +215,9 @@ def build(args):
         'source_lock_sha256': sha((overlay / 'upstream.lock.json').read_bytes()),
         'compiled_prefix_sha256': sha(raw_bytes), 'binary_sha256': sha(read(binary)),
         'query_sha256': sha(query), 'asset_count': 130, 'changed_assets': changed,
+        'graph_cache_runtime_sha256': graph_runtime_sha,
+        'graph_cache_runtime_recipe': graph_recipe_files,
+        'graph_cache_enabled_by_default': False,
         'smtp_overlay': smtp_receipt, 'worker_overlay': worker_receipt,
         'runtime_activation': False, 'listmonk_executed': False, 'registry_push': False,
         'production_changed': False,
@@ -214,7 +230,10 @@ def build(args):
         'and locked transformation recipes are included. Go dependencies remain pinned in go.sum.\n\n'
         'Upstream commit: https://github.com/knadh/listmonk/tree/' + lock['listmonk']['commit'] + '\n\n'
         '130 assets were preserved from the official v6.1.0 release except /queries/campaigns.sql. '
-        'The Go executable prefix is newly compiled. BUILDINFO.txt records the compiler and modules.\n\n'
+        'The Go executable prefix is newly compiled. BUILDINFO.txt records the compiler and modules. '
+        'The executable includes the pinned graph-cache guard and its deterministic runtime source identity, '
+        'and source/recipe/graph-cache-runtime preserves the two repository inputs included in that identity. '
+        'The graph-cache deployment remains disabled by default and this package does not authorize delivery.\n\n'
         'No image was published or target process started. This build is not operational admission. '
         'The production guard remains unchanged. Do not replace a running service with this candidate.\n')
     # Keep only deliverable inputs and outputs, not throwaway stuffing intermediates.

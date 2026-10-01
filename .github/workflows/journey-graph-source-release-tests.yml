@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'n8n/growth/journey-graph-*'
+      - 'services/crm-flows/**'
       - 'growth-email-*.js'
       - 'tests/journey-graph-source*'
       - 'tests/journey-graph-release*'
@@ -13,6 +14,8 @@ on:
       - 'tests/journey-graph-cart-legacy-fixture.sql'
       - 'tests/journey-graph-maintenance*.cjs'
       - 'tests/journey-graph-worker*.cjs'
+      - 'tests/journey-graph-cache-*.cjs'
+      - 'tests/journey-graph-activation-readiness*.cjs'
       - 'tests/journey-graph-delivery*.cjs'
       - 'tests/journey-graph-dispatch-receipt*.cjs'
       - 'tests/fixtures/journey-graph-dispatch-receipt.cjs'
@@ -51,7 +54,7 @@ jobs:
       - name: Source and release regression with integrated materialization
         env:
           NODE_PATH: ../graph-source-tools/node_modules
-        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs tests/journey-graph-message.test.cjs tests/journey-graph-native.test.cjs tests/journey-graph-cart.test.cjs tests/journey-graph-delivery.test.cjs tests/journey-graph-delivery-integration.test.cjs tests/journey-graph-dispatch-receipt.test.cjs tests/journey-graph-maintenance.test.cjs tests/journey-graph-worker.test.cjs tests/journey-graph-worker-http.test.cjs
+        run: node --test tests/journey-graph-source.test.cjs tests/journey-graph-release.test.cjs tests/journey-graph-source-release.test.cjs tests/journey-graph-material.test.cjs tests/journey-graph-refresh.test.cjs tests/journey-graph-purchase.test.cjs tests/journey-graph-message.test.cjs tests/journey-graph-native.test.cjs tests/journey-graph-cart.test.cjs tests/journey-graph-delivery.test.cjs tests/journey-graph-delivery-integration.test.cjs tests/journey-graph-dispatch-receipt.test.cjs tests/journey-graph-maintenance.test.cjs tests/journey-graph-worker.test.cjs tests/journey-graph-worker-http.test.cjs tests/journey-graph-cache-identity.test.cjs tests/journey-graph-worker-lease-main.test.cjs tests/journey-graph-worker-lease-sql.test.cjs tests/journey-graph-worker-lease.test.cjs tests/journey-graph-activation-readiness.test.cjs
       - name: Source concurrency and fresh native guard reads
         env:
           NODE_PATH: ../graph-source-tools/node_modules
@@ -64,8 +67,16 @@ jobs:
         run: |
           node - <<'JS'
           const {Client}=require('pg');
-          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');await c.query('CREATE DATABASE journey_graph_native_test');await c.query('CREATE DATABASE journey_graph_message_test');await c.query('CREATE DATABASE journey_graph_receipt_test');await c.query('CREATE DATABASE journey_graph_cart_test');await c.query('CREATE DATABASE journey_graph_maintenance_test');await c.query('CREATE DATABASE journey_graph_worker_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+          (async()=>{const c=new Client({connectionString:'postgres://synthetic@localhost:5432/journey_graph_source_test'});await c.connect();try{await c.query('CREATE DATABASE journey_graph_release_test');await c.query('CREATE DATABASE journey_graph_native_test');await c.query('CREATE DATABASE journey_graph_message_test');await c.query('CREATE DATABASE journey_graph_receipt_test');await c.query('CREATE DATABASE journey_graph_cart_test');await c.query('CREATE DATABASE journey_graph_maintenance_test');await c.query('CREATE DATABASE journey_graph_worker_test');await c.query('CREATE DATABASE journey_graph_cache_integrated_test');}finally{await c.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
           JS
+      - name: Integrated native clone, cart claim, lifecycle, lease and cache identity
+        env:
+          NODE_PATH: ../graph-source-tools/node_modules
+          TEST_DATABASE_URL: postgresql://synthetic@127.0.0.1:5432/journey_graph_cache_integrated_test
+          GRAPH_CACHE_INTEGRATED_TEST_ISOLATED: '1'
+          GRAPH_CACHE_EXPECTED_ROLE: synthetic
+          GRAPH_CACHE_INTEGRATED_CI_FIXED_PORT: '1'
+        run: node tests/journey-graph-cache-integrated-postgres.cjs
       - name: Immutable release concurrency and receipt atomicity
         env:
           NODE_PATH: ../graph-source-tools/node_modules

@@ -8,10 +8,18 @@ on:
       - 'n8n/growth/campaign-*'
       - 'growth-campaign-*'
       - 'services/crm-audience/**'
+      - 'services/crm-flows/**'
       - 'tests/segment-regular-*'
       - 'tests/segment-listmonk-selection-*'
       - 'tests/segment-campaign-binding-*'
       - 'tests/growth-campaign-audience-path.test.cjs'
+      - 'n8n/growth/journey-graph-cache-identity.sql'
+      - 'n8n/growth/journey-graph-cart.cjs'
+      - 'n8n/growth/journey-graph-worker-lease.*'
+      - 'n8n/growth/journey-graph-activation-readiness.*'
+      - 'tests/journey-graph-cache-*'
+      - 'tests/journey-graph-worker-lease-*'
+      - 'tests/journey-graph-activation-readiness*'
       - '.github/workflows/crm-regular-worker-tests.yml'
   workflow_dispatch:
 permissions:
@@ -55,6 +63,8 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/regular-package/source/listmonk"
           GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./internal/manager ./internal/messenger/email
+          GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./models
+          GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./cmd/graph_cache.go ./cmd/graph_cache_test.go
           cd "$RUNNER_TEMP/regular-package/source/smtppool"
           GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./guardedproof
       - name: Prove contracts and full analyst DOM path

@@ -1,22 +1,54 @@
 {
-  "schema": "listmonk-regular-guarded-overlay-v1",
+  "graph_cache": {
+    "enabled_by_default": false,
+    "overlay": {
+      "cmd/graph_cache.go": "681f07f0121e15fc021953af1e1f6649f688d3d1fb0d1554614a06c26915680f",
+      "cmd/graph_cache_test.go": "ebde432099fac1da489337e3f81ac001e5b083afe18efbbd0c280f136fcaa815",
+      "internal/manager/graph_cache.go": "5d29459d2a657f157cc0eb92af55bbc0ea6174f5ef790111ed662fe471429aa7",
+      "internal/manager/graph_cache_test.go": "ddc29908dbfaf8ca78da1f2b502aae13ac6c7c2c3299937abbbd7b88061e7e22",
+      "models/graph_cache_test.go": "5aa720d90dec556532206618d3ba82a1f25ae84a9ea14b2f2902fe96a75891cd"
+    },
+    "runtime_sha256": "b3ac8589c6532e41003de47d36ec23b78847c242c656a26dc68880727db42f97",
+    "runtime_sources": {
+      "repo": {
+        "n8n/growth/journey-graph-cache-identity.sql": "99080bcfdb0f27b35c15bbb78775a60e290a37b00e7a5e795e6815bc46957f6a",
+        "n8n/growth/journey-graph-cart.cjs": "ab19cc98fa840d2d8914f1006258854d01296aceb4fac93107e67b6c096efa93"
+      },
+      "worker": [
+        "cmd/graph_cache.go",
+        "cmd/graph_cache_test.go",
+        "cmd/main.go",
+        "cmd/tx.go",
+        "internal/manager/graph_cache.go",
+        "internal/manager/graph_cache_test.go",
+        "models/graph_cache_test.go",
+        "models/messages.go"
+      ]
+    },
+    "schema": "journey-graph-cache-worker-overlay-v1",
+    "transforms": {
+      "cmd/main.go": {
+        "base_sha256": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
+        "sha256": "e95edd4dc35c5c13ac483c0d6448c0efe0d5cd6035c02f9cc73d74170c400049"
+      },
+      "cmd/tx.go": {
+        "base_sha256": "554184511684b6d0b3cd0c531094d9ac594bc18dcbfa0b2ae72b0f94a8821f23",
+        "sha256": "7e517e38e2c1c1034b345b2404801473b785490719b7e321a74ef66b862268e1"
+      },
+      "models/messages.go": {
+        "base_sha256": "91c6f03684f580d914e433db793e7167fc15fa3cb67ecfb6a105bcbf33a99d1e",
+        "sha256": "2d05917ab9e64fb1114f1acbeff8cb4b53039bb0ce5fbf2785b03d031962f53a"
+      }
+    }
+  },
   "listmonk": {
-    "version": "6.1.0",
     "commit": "1b5e8d38c778e869003486d3c38bc7a964661e91",
-    "source": "https://github.com/knadh/listmonk",
     "files": {
       "go.mod": "c3c0ba9b03709c32ba81b716e758150580ddcb64930403dc4dc07fb49c57b982",
       "internal/messenger/email/email.go": "7538708c2a1774ca0dacd81d4e6e7b21af68b62b16aca9fe019de8205241e265"
-    }
-  },
-  "smtppool": {
-    "version": "2.0.2",
-    "source": "https://github.com/knadh/smtppool",
-    "files": {
-      "go.mod": "feb7148148fb9b810b883d58a7171a9b4c76ea37c9d5c2ba851a1e4ce5271850",
-      "email.go": "3e58d46257d4efd76e0fa58add8a11cff26eded4a41d1cb172cc9ddeefdc326b",
-      "pool.go": "5c07dfaa0df40125e033cac72e61a231d9e5e754545c4b13e28d9aff3dad427f"
-    }
+    },
+    "source": "https://github.com/knadh/listmonk",
+    "version": "6.1.0"
   },
   "overlay": {
     "listmonk": {
@@ -28,34 +60,44 @@
       "guardedproof/guarded_test.go": "be015cdb4ece153f3706cab7f472eecfa8081bc13025f5d7a86d85d2a452b4f0"
     }
   },
+  "schema": "listmonk-regular-guarded-overlay-v1",
+  "smtppool": {
+    "files": {
+      "email.go": "3e58d46257d4efd76e0fa58add8a11cff26eded4a41d1cb172cc9ddeefdc326b",
+      "go.mod": "feb7148148fb9b810b883d58a7171a9b4c76ea37c9d5c2ba851a1e4ce5271850",
+      "pool.go": "5c07dfaa0df40125e033cac72e61a231d9e5e754545c4b13e28d9aff3dad427f"
+    },
+    "source": "https://github.com/knadh/smtppool",
+    "version": "2.0.2"
+  },
   "transforms": {
     "smtppool/pool.go": "277094a1b9b1dc266424d7505dfc88ca995f322cecd24fcfc81ddfc8fb9a63dd"
   },
   "worker": {
-    "regular_query_sha256": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
     "original": {
+      "cmd/init.go": "83ee1f81074c30986c0c9992f7b053c8753a911545287923f0369bc0726818b2",
+      "cmd/main.go": "b74a7c865049990fb0302feff48b1ec8c5478cc5af281486c8e50d16cbe94ba2",
+      "cmd/manager_store.go": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240",
       "internal/manager/manager.go": "ecbd1d0a55081d624a82993d0860477d5bd267af35229f8bf2cd794f03730331",
       "internal/manager/pipe.go": "26e85aaff0575ff10385507a3672ca118bee802e62c55f65b6b476fb958db15e",
       "models/subscribers.go": "68ced5df35d1b6f7aa00b45c933fc013bc3f3d8000dacd0c41eb7e99cf45c49b",
-      "queries/campaigns.sql": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882",
-      "cmd/init.go": "83ee1f81074c30986c0c9992f7b053c8753a911545287923f0369bc0726818b2",
-      "cmd/main.go": "b74a7c865049990fb0302feff48b1ec8c5478cc5af281486c8e50d16cbe94ba2",
-      "cmd/manager_store.go": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240"
+      "queries/campaigns.sql": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882"
+    },
+    "overlay": {
+      "cmd/manager_store_regular.go": "02cb4d31427f459d84c11746846237c46a4c03c437da9a7f75ec41d72d2628d2",
+      "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
+      "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
+      "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3"
     },
     "patched": {
+      "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
+      "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
+      "cmd/manager_store.go": "e7622122090d751446a4dacb30ef0017de13e3641b3868c64989cd1fc194d191",
       "internal/manager/manager.go": "121cf871f0ee8a421a6ebd99329c13a5c67267dfdcf5732428dbea03fdc1000b",
       "internal/manager/pipe.go": "ecd49661bb50f68958663be366fc1b23489914951ba3296df4d5fee5320e0b99",
       "models/subscribers.go": "2468127669cc10798b06a7c39f3605a1940793a95535e2641588796081894dc0",
-      "queries/campaigns.sql": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
-      "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
-      "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
-      "cmd/manager_store.go": "e7622122090d751446a4dacb30ef0017de13e3641b3868c64989cd1fc194d191"
+      "queries/campaigns.sql": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d"
     },
-    "overlay": {
-      "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
-      "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
-      "cmd/manager_store_regular.go": "02cb4d31427f459d84c11746846237c46a4c03c437da9a7f75ec41d72d2628d2",
-      "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6"
-    }
+    "regular_query_sha256": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d"
   }
 }

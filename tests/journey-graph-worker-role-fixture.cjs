@@ -6,7 +6,7 @@ const {createWorker,ACTOR}=require('../n8n/growth/journey-graph-worker.cjs');
 const read=name=>fs.readFileSync(require.resolve(name),'utf8');
 async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepareRole=true}={}){
  if(pool&&!workerPool)throw Error('isolated worker pool required');
- const cleanup=[];const x=await install({after:f=>cleanup.push(f)},db,pool);
+ const cleanup=[];const x=await install({after:f=>cleanup.push(f)},db,pool,{cacheIdentity:false});
  await x.db.exec(read('../n8n/growth/journey-graph-dispatch-receipt.sql'));
  const f=await x.prepare(brand);
  // The base fixture supplies an immutable release/cache clone and a historical
@@ -22,7 +22,22 @@ async function setup({db,pool,workerPool,brand='fish',outcome='accepted',prepare
  REVOKE ALL ON FUNCTION public.shrigma_email_recipient_key(text) FROM PUBLIC;`);
  const fingerprint=(await x.query("SELECT encode(sha256(convert_to(pg_get_functiondef('public.shrigma_email_recipient_key(text)'::regprocedure),'UTF8')),'hex') h")).rows[0].h;
  const sql=buildWorkerRoleSql({sendLogSequence:'public.synthetic_cart_send_log',recipientKeySha256:fingerprint});
- if(prepareRole)await x.db.exec('BEGIN;'+sql+'COMMIT;');
+ if(prepareRole){
+  // Production installs the restricted role before the additive cache identity
+  // migration. Preserve that order so the migration can grant only its bounded
+  // issue function to the already-existing worker role.
+  await x.db.exec('BEGIN;'+sql+'COMMIT;');
+  await x.db.exec(read('../n8n/growth/journey-graph-cache-identity.sql'));
+  const identity='a'.repeat(64),runtime='b'.repeat(64),instance=id(70001),token=id(70002),action=id(70003);
+  await x.query(`INSERT INTO crm_graph_candidate.cache_identity_deployment_v1
+   (cache_target,enabled,executable_sha256,runtime_sha256,expected_role,heartbeat_seconds,lease_seconds,action_key)
+   VALUES($1,true,$2,$3,session_user,30,120,$4)`,[x.cacheTarget,identity,runtime,action]);
+  const snapshots=(await x.query(`SELECT jsonb_agg(jsonb_build_object('template_id',n.clone_template_id)||n.snapshot ORDER BY n.clone_template_id) value
+   FROM crm_graph_candidate.native_template_v1 n WHERE n.cache_target=$1 AND n.state='ready'`,[x.cacheTarget])).rows[0].value;
+  const heartbeat=(await x.query('SELECT crm_graph_candidate.cache_identity_heartbeat_v1($1,$2,$3,$4,$5,$6::jsonb) value',
+   [x.cacheTarget,instance,token,identity,runtime,JSON.stringify(snapshots)])).rows[0].value;
+  assert.equal(heartbeat.ready,true);assert.equal(heartbeat.template_count,snapshots.length);
+ }
  const rawQuery=x.query;
  const asWorker=async()=>{if(!pool)await rawQuery('SET ROLE '+ROLE);},asAdmin=async()=>{if(!pool)await rawQuery('RESET ROLE');};
  const rolePool=pool?{

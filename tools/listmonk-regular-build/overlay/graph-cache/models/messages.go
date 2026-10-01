@@ -1,0 +1,209 @@
+package models
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"html/template"
+	"io"
+	"net/textproto"
+	"strings"
+	txttpl "text/template"
+)
+
+// Message is the message pushed to a Messenger.
+type Message struct {
+	From        string
+	To          []string
+	Subject     string
+	ContentType string
+	Body        []byte
+	AltBody     []byte
+	Headers     textproto.MIMEHeader
+	Attachments []Attachment
+
+	Subscriber Subscriber
+
+	// Campaign is generally the same instance for a large number of subscribers.
+	Campaign *Campaign
+
+	// Messenger is the messenger backend to use: email|postback.
+	Messenger string
+}
+
+// Attachment represents a file or blob attachment that can be
+// sent along with a message by a Messenger.
+type Attachment struct {
+	Name    string
+	Header  textproto.MIMEHeader
+	Content []byte
+}
+
+// TxMessage subscriber modes.
+const (
+	TxSubModeDefault  = "default"
+	TxSubModeFallback = "fallback"
+	TxSubModeExternal = "external"
+)
+
+// TxMessage represents an e-mail campaign.
+type TxMessage struct {
+	SubscriberMode   string   `json:"subscriber_mode"`
+	SubscriberEmails []string `json:"subscriber_emails"`
+	SubscriberIDs    []int    `json:"subscriber_ids"`
+
+	// Deprecated.
+	SubscriberEmail string `json:"subscriber_email"`
+	SubscriberID    int    `json:"subscriber_id"`
+
+	TemplateID  int              `json:"template_id"`
+	Data        map[string]any   `json:"data"`
+	FromEmail   string           `json:"from_email"`
+	Headers     Headers          `json:"headers"`
+	ContentType string           `json:"content_type"`
+	Messenger   string           `json:"messenger"`
+	Subject     string           `json:"subject"`
+	AltBody     string           `json:"altbody"`
+	GraphGuard  *GraphCacheGuard `json:"graph_guard,omitempty"`
+
+	// File attachments added from multi-part form data.
+	Attachments []Attachment `json:"-"`
+
+	Body       []byte             `json:"-"`
+	Tpl        *template.Template `json:"-"`
+	SubjectTpl *txttpl.Template   `json:"-"`
+}
+
+// GraphCacheGuard is emitted only by the private graph claim. Legacy /api/tx
+// payloads omit it and retain their original behavior.
+type GraphCacheGuard struct {
+	Contract       string `json:"contract"`
+	CacheTarget    string `json:"cache_target"`
+	InstanceID     string `json:"instance_id"`
+	TemplateID     int    `json:"template_id"`
+	SubscriberID   int    `json:"subscriber_id"`
+	NativeSHA256   string `json:"native_sha256"`
+	SnapshotSHA256 string `json:"snapshot_sha256"`
+	DispatchID     string `json:"dispatch_id"`
+	Token          string `json:"token"`
+	ExpiresAt      string `json:"expires_at"`
+}
+
+func (g *GraphCacheGuard) UnmarshalJSON(body []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return fmt.Errorf("invalid graph_guard shape")
+	}
+	raw := make(map[string]json.RawMessage, 10)
+	for decoder.More() {
+		name, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := name.(string)
+		if !ok {
+			return fmt.Errorf("invalid graph_guard field")
+		}
+		if _, exists := raw[key]; exists {
+			return fmt.Errorf("duplicate graph_guard field")
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return err
+		}
+		raw[key] = value
+	}
+	if token, err = decoder.Token(); err != nil || token != json.Delim('}') {
+		return fmt.Errorf("invalid graph_guard shape")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("invalid graph_guard trailing value")
+		}
+		return err
+	}
+	expected := map[string]bool{
+		"contract": true, "cache_target": true, "instance_id": true,
+		"template_id": true, "subscriber_id": true, "native_sha256": true, "snapshot_sha256": true,
+		"dispatch_id": true, "token": true, "expires_at": true,
+	}
+	if len(raw) != len(expected) {
+		return fmt.Errorf("invalid graph_guard shape")
+	}
+	for key := range raw {
+		if !expected[key] {
+			return fmt.Errorf("invalid graph_guard field")
+		}
+	}
+	type plain GraphCacheGuard
+	var out plain
+	if err := json.Unmarshal(body, &out); err != nil {
+		return err
+	}
+	*g = GraphCacheGuard(out)
+	return nil
+}
+
+func (m *TxMessage) Render(sub Subscriber, tpl *Template, funcs txttpl.FuncMap) error {
+	data := struct {
+		Subscriber Subscriber
+		Tx         *TxMessage
+	}{sub, m}
+
+	// Render the body.
+	b := bytes.Buffer{}
+	if err := tpl.Tpl.ExecuteTemplate(&b, BaseTpl, data); err != nil {
+		return err
+	}
+	m.Body = make([]byte, b.Len())
+	copy(m.Body, b.Bytes())
+	b.Reset()
+
+	// Render alt body if it has any templating strings.
+	if m.AltBody != "" && strings.Contains(m.AltBody, "{{") {
+		t, err := txttpl.New(BaseTpl).Funcs(funcs).Parse(m.AltBody)
+		if err != nil {
+			return fmt.Errorf("error compiling alt body: %v", err)
+		}
+		if err := t.ExecuteTemplate(&b, BaseTpl, data); err != nil {
+			return err
+		}
+		m.AltBody = b.String()
+		b.Reset()
+	}
+
+	// Was a subject provided in the message?
+	var (
+		subjTpl *txttpl.Template
+		subject = m.Subject
+	)
+	if subject != "" {
+		if strings.Contains(m.Subject, "{{") {
+			// If the subject has a template string, render that.
+			s, err := txttpl.New(BaseTpl).Funcs(funcs).Parse(m.Subject)
+			if err != nil {
+				return fmt.Errorf("error compiling subject: %v", err)
+			}
+			subjTpl = s
+		}
+	} else {
+		// Use the subject from the template.
+		subject = tpl.Subject
+		subjTpl = tpl.SubjectTpl
+	}
+
+	// If the subject is also a template, render that.
+	if subjTpl != nil {
+		if err := subjTpl.ExecuteTemplate(&b, BaseTpl, data); err != nil {
+			return err
+		}
+		m.Subject = b.String()
+		b.Reset()
+	} else {
+		m.Subject = subject
+	}
+
+	return nil
+}
