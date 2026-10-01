@@ -44,7 +44,7 @@ test('job snapshots a live synthetic identity and restores a fresh volume with m
  try{
   assert.ok(fs.statSync(dbPath+'-wal').size>0);
   assert.deepEqual(preflightCanary(paths),{ready:true});
-  const original=auth.beginBootstrap(context).totpSecret;
+  const original=auth.beginBootstrap(context);
   const snapshot=await backupCanary('snapshot-01',paths);
   assert.equal(snapshot.snapshot,path.join(paths.backupRoot,'snapshot-01'));
   assert.deepEqual(fs.readdirSync(snapshot.snapshot).sort(),['identity','runtime-pack.json','snapshot.json'].sort());
@@ -56,7 +56,7 @@ test('job snapshots a live synthetic identity and restores a fresh volume with m
   assert.deepEqual(fs.readdirSync(paths.restoreDir).sort(),['dashboard.sqlite','runtime-pack.json']);
   for(const file of fs.readdirSync(paths.restoreDir))assert.equal(fs.statSync(path.join(paths.restoreDir,file)).mode&0o777,0o600);
   const restored=createAuth({...options,dbPath:path.join(paths.restoreDir,'dashboard.sqlite')});
-  try{assert.ok(crypto.timingSafeEqual(Buffer.from(restored.beginBootstrap(context).totpSecret),Buffer.from(original)));}finally{restored.close();}
+  try{assert.deepEqual(restored.beginBootstrap(context),original);}finally{restored.close();}
  }finally{auth.close();}
 });
 
@@ -100,7 +100,7 @@ test('shadow update seeds the new pack without a database and restores only a WA
  const {auth,options,context}=syntheticAuth(dbPath);
  try{
   assert.ok(fs.statSync(dbPath+'-wal').size>0);
-  const original=auth.beginBootstrap(context).totpSecret;
+  const original=auth.beginBootstrap(context);
   await backupCanary('shadow-snapshot',paths);
   assert.deepEqual(await restoreShadowCanary('shadow-snapshot',newSha,paths),{restored:true,packSha256:newSha});
   assert.deepEqual(fs.readdirSync(paths.restoreDir).sort(),['dashboard.sqlite','runtime-pack.json']);
@@ -109,7 +109,7 @@ test('shadow update seeds the new pack without a database and restores only a WA
   const restoredPath=path.join(paths.restoreDir,'dashboard.sqlite');
   assert.throws(()=>createAuth({...options,dbPath:restoredPath,encryptionKey:crypto.randomBytes(32)}),/CREDENTIAL_UNAVAILABLE/);
   const restored=createAuth({...options,dbPath:restoredPath});
-  try{assert.equal(restored.beginBootstrap(context).totpSecret,original);}finally{restored.close();}
+  try{assert.deepEqual(restored.beginBootstrap(context),original);}finally{restored.close();}
   assert.equal(fs.statSync(dbPath+'-wal').isFile(),true);
  }finally{auth.close();}
 });

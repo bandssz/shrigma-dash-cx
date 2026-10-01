@@ -82,14 +82,52 @@ test('entry uses email/password, fragment invites and same-origin CSP',()=>withA
  for(const entry of ['crm','organico','creators','gestao']){
   const html=fs.readFileSync(path.join(publicRoot,entry,'index.html'),'utf8');
   assert.match(html,/type="email"/);assert.match(html,/type="password"/);
+  assert.doesNotMatch(html,/name="totp"|login-totp|bootstrap-totp|bootstrap-begin|bootstrap-secret|duas etapas|Código de verificação/);
   assert.doesNotMatch(html,/type="file"|entry-key|preview-api|\/cx\//);
   assert.match(html,/connect-src 'self'/);assert.match(html,/frame-src 'self'/);
  }
  const js=fs.readFileSync(path.join(publicRoot,'entry.js'),'utf8');
  assert.match(js,/fragment\.get\('invite'\)/);assert.match(js,/fragment\.get\('bootstrap'\)/);
  assert.match(js,/history\.replaceState/);assert.match(js,/session\.uiKey/);
+ assert.doesNotMatch(js,/login-totp|bootstrap-totp|bootstrap-begin|bootstrap-secret|mfa_required|\/auth\/bootstrap\/begin/);
  assert.doesNotMatch(js,/localStorage\.setItem|sessionStorage\.setItem|fetch\(['"]https:\/\//);
 }));
+
+test('login and initial admin activation send email and password without a verification code',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8');
+ async function submit(hash,formId,values){
+  const nodes=new Map(),handlers=new Map(),calls=[];
+  const element=id=>{
+   if(!nodes.has(id))nodes.set(id,{
+    hidden:false,value:'',textContent:'',disabled:false,
+    addEventListener(type,handler){handlers.set(`${id}:${type}`,handler);},
+    focus(){},replaceChildren(){},setAttribute(){},querySelector(){return {disabled:false};}
+   });
+   return nodes.get(id);
+  };
+  const location={hash,pathname:'/',search:'',origin:'https://dashboard-v12-gerencial.tazdb8.easypanel.host'};
+  const fetch=async(url,options)=>{
+   calls.push({url,method:options?.method||'GET',body:options?.body&&JSON.parse(options.body)});
+   if(url==='/auth/session')return new Response(JSON.stringify({authenticated:false}),{status:200});
+   return new Response('{}',{status:url==='/auth/login'?401:200});
+  };
+  const context={window:{addEventListener(){}},document:{body:{dataset:{accessPanel:'todos'}},getElementById:element},
+   location,history:{replaceState(){}},fetch,URL,URLSearchParams,Headers,AbortController,Response,setTimeout,clearTimeout};
+  vm.runInNewContext(source,context);
+  await new Promise(resolve=>setImmediate(resolve));
+  for(const [id,value]of Object.entries(values))element(id).value=value;
+  await handlers.get(`${formId}:submit`)({preventDefault(){}});
+  return {calls,message:element('entry-message').textContent};
+ }
+ const login=await submit('','login-form',{'login-email':' FELIPEBANDEIRA@OARISTOCRATA.COM ','login-password':'example-password'});
+ assert.deepEqual(login.calls.find(call=>call.url==='/auth/login'),{url:'/auth/login',method:'POST',body:{email:'felipebandeira@oaristocrata.com',password:'example-password'}});
+ assert.match(login.message,/E-mail ou senha/);
+ const bootstrap=await submit('#bootstrap='+'A'.repeat(43),'bootstrap-form',{
+  'bootstrap-email':' FELIPEBANDEIRA@OARISTOCRATA.COM ','bootstrap-password':'example-password','bootstrap-confirm':'example-password'
+ });
+ assert.deepEqual(bootstrap.calls,[{url:'/auth/bootstrap/complete',method:'POST',body:{email:'felipebandeira@oaristocrata.com',token:'A'.repeat(43),password:'example-password'}}]);
+ assert.match(bootstrap.message,/Entre com e-mail e senha/);
+});
 
 test('operational iframe suppresses legacy access files and unavailable write controls without changing source panels',()=>{
  const expected={

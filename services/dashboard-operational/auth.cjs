@@ -13,8 +13,8 @@
  * gateway must never serialize getUpstreamCredential() or invite tokens into
  * logs. Invite tokens are delivered once, via a URL fragment or another secure
  * channel. No bearer key or password is stored in clear text in this database.
- * Recovery of a lost superadmin TOTP requires a verified offline maintenance
- * procedure against the private database backup; no public reset route exists.
+ * Admin activation uses a one-time private bootstrap token. There is no public
+ * password reset route; recovery requires verified offline maintenance.
  */
 const {DatabaseSync}=require('node:sqlite');
 const fs=require('node:fs');
@@ -54,7 +54,6 @@ const RATE_MS=15*60*1000;
 const GLOBAL_LOGIN_ATTEMPTS=120;
 const SCRYPT=Object.freeze({N:1<<17,r:8,p:1,maxmem:256*1024*1024});
 const DUMMY_SALT=Buffer.from('shrigma-login-dummy-salt-v1');
-const base32Alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 class AuthError extends Error {
  constructor(code,status=403){super(code);this.name='AuthError';this.code=code;this.status=status;}
@@ -76,24 +75,6 @@ function emailAddress(value,domains){
 function validPassword(value){
  if(typeof value!=='string'||value.length<12||value.length>128||Buffer.byteLength(value,'utf8')>256||value.includes('\0'))err('PASSWORD_INVALID',400);
  return value;
-}
-function encodeBase32(bytes){
- let bits=0,acc=0,out='';for(const byte of bytes){acc=(acc<<8)|byte;bits+=8;while(bits>=5){bits-=5;out+=base32Alphabet[(acc>>>bits)&31];}}if(bits)out+=base32Alphabet[(acc<<(5-bits))&31];return out;
-}
-function decodeBase32(value){
- if(typeof value!=='string'||!/^[A-Z2-7]{16,64}$/.test(value))err('TOTP_INVALID',400);
- let bits=0,acc=0,bytes=[];for(const ch of value){acc=(acc<<5)|base32Alphabet.indexOf(ch);bits+=5;if(bits>=8){bits-=8;bytes.push((acc>>>bits)&255);}}return Buffer.from(bytes);
-}
-function totpAt(secret,timeMs){
- const counter=Math.floor(timeMs/30000),b=Buffer.alloc(8);b.writeBigUInt64BE(BigInt(counter));
- const digest=crypto.createHmac('sha1',decodeBase32(secret)).update(b).digest();const o=digest[19]&15;
- return String((digest.readUInt32BE(o)&0x7fffffff)%1000000).padStart(6,'0');
-}
-function totpStep(secret,code,timeMs,lastStep=-1){
- if(typeof code!=='string'||!/^[0-9]{6}$/.test(code))return -1;
- const step=Math.floor(timeMs/30000);
- for(const offset of [0,-1,1]){const candidate=step+offset;if(candidate>lastStep&&candidate>=0&&crypto.timingSafeEqual(Buffer.from(totpAt(secret,candidate*30000)),Buffer.from(code)))return candidate;}
- return -1;
 }
 function cookieToken(header){
  if(typeof header!=='string'||header.length>4096)return null;
@@ -167,21 +148,29 @@ function createAuth(options){
   encrypted_key TEXT NOT NULL,key_digest TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,slot));
  CREATE INDEX IF NOT EXISTS upstream_key_digest ON upstream_credentials(key_digest);
  CREATE TABLE IF NOT EXISTS login_limits (
-  bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);`);
+  bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS identity_metadata (
+  key TEXT PRIMARY KEY,encrypted_value TEXT NOT NULL);`);
  const findUser=db.prepare('SELECT * FROM users WHERE email=?');
  db.exec('BEGIN IMMEDIATE');
  try{
   const admins=db.prepare("SELECT * FROM users WHERE role='superadmin'").all();
   if(admins.length>1||admins.length===1&&admins[0].email!==adminEmail)err('ADMIN_CONFIG_DRIFT',500);
+  const verifier=db.prepare("SELECT encrypted_value FROM identity_metadata WHERE key='encryption_verifier'").get();
+  // Older identity volumes kept an encrypted TOTP secret. Verify that key
+  // before establishing the new encrypted verifier; never silently accept a
+  // different key for an existing identity.
+  if(verifier){if(decrypt(verifier.encrypted_value)!=='shrigma-identity-v1')err('CREDENTIAL_UNAVAILABLE',503);}
+  else if(admins.length&&admins[0].totp_secret)decrypt(admins[0].totp_secret);
+  if(!verifier)db.prepare("INSERT INTO identity_metadata(key,encrypted_value) VALUES('encryption_verifier',?)").run(encrypt('shrigma-identity-v1'));
   if(!admins.length){
    if(findUser.get(adminEmail))err('ADMIN_CONFIG_DRIFT',500);
-   const id=crypto.randomUUID(),t=current(),totp=encodeBase32(crypto.randomBytes(20));
-   db.prepare('INSERT INTO users(id,email,role,state,totp_secret,bootstrap_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)').run(id,adminEmail,'superadmin','bootstrap',encrypt(totp),options.bootstrapTokenSha256,t,t);
+   const id=crypto.randomUUID(),t=current();
+   db.prepare('INSERT INTO users(id,email,role,state,bootstrap_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(id,adminEmail,'superadmin','bootstrap',options.bootstrapTokenSha256,t,t);
    for(const a of AREAS)db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,0)').run(id,a);
   }else{
    const admin=admins[0],grants=db.prepare('SELECT area,can_read FROM grants WHERE user_id=?').all(admin.id);
    if(!['bootstrap','active'].includes(admin.state)||grants.length!==3||AREAS.some(a=>!grants.some(g=>g.area===a&&g.can_read===1))||admin.state==='bootstrap'&&admin.bootstrap_hash!==options.bootstrapTokenSha256)err('ADMIN_CONFIG_DRIFT',500);
-   decrypt(admin.totp_secret);
   }
   db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
@@ -212,23 +201,20 @@ function createAuth(options){
   const h=knownHost(host);if(h!==managerHost)err('HOST_DENIED',403);checkOrigin(h,origin);
   const user=findUser.get(emailAddress(email,domainSet));
   if(!user||user.email!==adminEmail||user.role!=='superadmin'||user.state!=='bootstrap'||!equalHex(sha(String(token||'')),user.bootstrap_hash))err('BOOTSTRAP_DENIED',403);
-  const secret=decrypt(user.totp_secret);
-  return {totpSecret:secret,otpauthUrl:`otpauth://totp/${encodeURIComponent('Shrigma:'+user.email)}?secret=${secret}&issuer=Shrigma&algorithm=SHA1&digits=6&period=30`};
+  return {ready:true};
  }
- async function completeBootstrap({email,token,password,totp,host,origin}){
+ async function completeBootstrap({email,token,password,host,origin}){
   const h=knownHost(host);if(h!==managerHost)err('HOST_DENIED',403);checkOrigin(h,origin);
   const user=findUser.get(emailAddress(email,domainSet));
   if(!user||user.email!==adminEmail||user.state!=='bootstrap'||!equalHex(sha(String(token||'')),user.bootstrap_hash))err('BOOTSTRAP_DENIED',403);
-  const step=totpStep(decrypt(user.totp_secret),totp,current());if(step<0)err('TOTP_INVALID',401);
   const hash=await hashPassword(password),t=current();
-  // The first regular login may immediately reuse the enrollment code once.
-  const result=db.prepare("UPDATE users SET state='active',password_hash=?,bootstrap_hash=NULL,totp_last_step=?,updated_at=? WHERE id=? AND state='bootstrap' AND bootstrap_hash=?").run(hash,step-1,t,user.id,user.bootstrap_hash);
+  const result=db.prepare("UPDATE users SET state='active',password_hash=?,bootstrap_hash=NULL,updated_at=? WHERE id=? AND state='bootstrap' AND bootstrap_hash=?").run(hash,t,user.id,user.bootstrap_hash);
   if(result.changes!==1)err('BOOTSTRAP_DENIED',403);return {ok:true};
  }
  function bucket(key,t){const row=db.prepare('SELECT * FROM login_limits WHERE bucket=?').get(key);if(!row||t-row.first_at>=RATE_MS){db.prepare('INSERT INTO login_limits(bucket,attempts,first_at,locked_until) VALUES(?,0,?,0) ON CONFLICT(bucket) DO UPDATE SET attempts=0,first_at=excluded.first_at,locked_until=0').run(key,t);return {attempts:0,locked_until:0};}return row;}
  function recordAttempt(keys,t){for(const [key,limit]of keys){const row=bucket(key,t),attempts=row.attempts+1;db.prepare('UPDATE login_limits SET attempts=?,locked_until=? WHERE bucket=?').run(attempts,attempts>=limit?t+RATE_MS:row.locked_until,key);}}
  function cleanSuccess(keys){for(const [key]of keys)db.prepare('DELETE FROM login_limits WHERE bucket=?').run(key);}
- async function login({email,password,totp,host,origin,ip='unknown'}){
+ async function login({email,password,host,origin,ip='unknown'}){
   const h=knownHost(host);checkOrigin(h,origin);const t=current();
   // Random nonexistent emails must not leave permanent rows. The process-wide
   // ceiling also bounds scrypt work and new buckets until the next window;
@@ -248,14 +234,8 @@ function createAuth(options){
   const user=findUser.get(normalized),valid=await verifyPassword(password,user?.state==='active'?user.password_hash:null);
   const area=Object.entries(areaHosts).find(([,value])=>value===h)?.[0];
   const managerAreas=user?.role==='manager'?AREAS.filter(a=>permissions(user.id)[a]?.read):[];
-  let allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost:user.role==='manager'&&area&&managerAreas.length===1&&managerAreas[0]===area));
-  let step=-1;
-  if(allowed&&user.role==='superadmin'){
-   step=totpStep(decrypt(user.totp_secret),totp,t,user.totp_last_step);
-   allowed=step>=0;
-  }
+  const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost:user.role==='manager'&&area&&managerAreas.length===1&&managerAreas[0]===area));
   if(!allowed)err('AUTH_INVALID',401);
-  if(step>=0&&db.prepare('UPDATE users SET totp_last_step=? WHERE id=? AND totp_last_step<?').run(step,user.id,step).changes!==1)err('AUTH_INVALID',401);
   cleanSuccess(keys);
   const token=random(),uiKey='ui-'+crypto.randomBytes(16).toString('hex');
   db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(t,t);
@@ -401,4 +381,4 @@ function createAuth(options){
  function close(){db.close();}
  return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,close});
 }
-module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE,totpAt};
+module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

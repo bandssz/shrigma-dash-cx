@@ -138,7 +138,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         try{
           if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
           const b=await readLoginJson(req,loginBodyTimeoutMs);
-          const result=await auth.login({email:b.email,password:b.password,totp:b.totp,host,origin:ctx.origin,ip:req.socket.remoteAddress||'unknown'});
+          const result=await auth.login({email:b.email,password:b.password,host,origin:ctx.origin,ip:req.socket.remoteAddress||'unknown'});
           res.setHeader('Set-Cookie',result.cookie);return sendJson(req,res,200,{authenticated:true,user:result.user,csrf:result.csrf,uiKey:result.uiKey});
         }finally{release();}
       }
@@ -149,7 +149,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const result=auth.logout(ctx);res.setHeader('Set-Cookie',result.cookie);return sendJson(req,res,200,{ok:true});
         }
         if(url.pathname==='/auth/bootstrap/begin')return sendJson(req,res,200,auth.beginBootstrap({email:b.email,token:b.token,host,origin:ctx.origin}));
-        if(url.pathname==='/auth/bootstrap/complete')return sendJson(req,res,200,await auth.completeBootstrap({email:b.email,token:b.token,password:b.password,totp:b.totp,host,origin:ctx.origin}));
+        if(url.pathname==='/auth/bootstrap/complete')return sendJson(req,res,200,await auth.completeBootstrap({email:b.email,token:b.token,password:b.password,host,origin:ctx.origin}));
         if(url.pathname==='/auth/invite/accept')return sendJson(req,res,200,await auth.acceptInvite({token:b.token,password:b.password,host,origin:ctx.origin}));
         if(url.pathname==='/auth/users'){
           if(b.action==='invite'){

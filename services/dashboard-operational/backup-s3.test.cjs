@@ -46,9 +46,9 @@ test('exports an active synthetic identity to versioned encrypted objects and re
  const root=temporary(t),live=dir(root,'live'),receipts=dir(root,'receipts'),restores=dir(root,'restores');
  const {token,options}=syntheticOptions(path.join(live,'dashboard.sqlite'));
  const auth=createAuth(options),context={email:options.bootstrapAdminEmail,token,host:options.managerHost,origin:'https://'+options.managerHost};
- let secret;
+ let activation;
  try{
-  secret=auth.beginBootstrap(context).totpSecret;
+  activation=auth.beginBootstrap(context);
   privateDbFiles(options.dbPath);
   await createBackup(options.dbPath,path.join(root,'source-snapshot'));
  }finally{auth.close();}
@@ -70,7 +70,7 @@ test('exports an active synthetic identity to versioned encrypted objects and re
  assert.deepEqual(await restoreBackup(recoveredReceipt,restoredDir,config,remote.aws),{verified:true,targetDir:restoredDir});
  assert.deepEqual(fs.readdirSync(restoredDir).sort(),['identity.sqlite','manifest.json']);
  const recovered=createAuth({...options,dbPath:path.join(restoredDir,'identity.sqlite')});
- try{assert.equal(recovered.beginBootstrap(context).totpSecret,secret);}finally{recovered.close();}
+ try{assert.deepEqual(recovered.beginBootstrap(context),activation);}finally{recovered.close();}
  assert.equal(fs.statSync(restoredDir).mode&0o777,0o700);
  for(const file of fs.readdirSync(restoredDir))assert.equal(fs.statSync(path.join(restoredDir,file)).mode&0o777,0o600);
 });

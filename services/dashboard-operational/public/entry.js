@@ -91,7 +91,7 @@ else (function(){'use strict';
  function showLogin(text=''){
   version++;session=null;selected='';frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
-  $('login-password').value='';$('login-totp').value='';$('totp-group').hidden=requested!=='todos';$('login-totp').required=requested==='todos';
+  $('login-password').value='';
   loginForm.hidden=!!inviteToken||!!bootstrapToken;inviteForm.hidden=!inviteToken;bootstrapForm.hidden=!bootstrapToken;message.textContent=text;
   (bootstrapToken?$('bootstrap-email'):inviteToken?$('invite-password'):$('login-email')).focus();
  }
@@ -133,13 +133,12 @@ else (function(){'use strict';
  });
  loginForm.addEventListener('submit',async event=>{
   event.preventDefault();if(busy)return;busy=true;const ticket=++version;
-  const email=$('login-email').value.trim().toLowerCase(),password=$('login-password').value,totp=$('login-totp').value.trim();
+  const email=$('login-email').value.trim().toLowerCase(),password=$('login-password').value;
   message.textContent='Conferindo acesso…';loginForm.querySelector('button').disabled=true;
   try{
-   const {response,data}=await post('/auth/login',{email,password,...(totp?{totp}:{})});if(ticket!==version)return;
+   const {response}=await post('/auth/login',{email,password});if(ticket!==version)return;
    if(!response.ok){
-    if(data?.error==='mfa_required'||data?.code==='mfa_required'||data?.mfa_required===true){$('totp-group').hidden=false;message.textContent='Informe o código de verificação da sua conta.';$('login-totp').focus();return;}
-    message.textContent=response.status===429?'Muitas tentativas. Aguarde antes de tentar novamente.':'E-mail, senha ou código não confirmados.';return;
+    message.textContent=response.status===429?'Muitas tentativas. Aguarde antes de tentar novamente.':'E-mail ou senha não conferem. Confira os dados e tente novamente.';return;
    }
    const s=await readSession();if(ticket!==version)return;showShell(s);
   }catch(_){if(ticket===version)message.textContent='Não foi possível confirmar o acesso agora. Tente novamente.';}
@@ -158,28 +157,18 @@ else (function(){'use strict';
   }catch(_){message.textContent='Não foi possível ativar o convite agora.';}
   finally{busy=false;inviteForm.querySelector('button').disabled=false;}
  });
- $('bootstrap-begin').addEventListener('click',async()=>{
-  if(busy||!bootstrapToken||!$('bootstrap-email').reportValidity())return;
-  const email=$('bootstrap-email').value.trim().toLowerCase();busy=true;$('bootstrap-begin').disabled=true;message.textContent='Preparando verificação…';
-  try{
-   const {response,data}=await post('/auth/bootstrap/begin',{email,token:bootstrapToken});
-   if(!response.ok||typeof data?.totpSecret!=='string'||!data.totpSecret)throw Error('bootstrap_failed');
-   $('bootstrap-secret').value=data.totpSecret;$('bootstrap-verify').hidden=false;message.textContent='Configure a chave no aplicativo autenticador e informe o código.';
-  }catch(_){message.textContent='Não foi possível iniciar o acesso superior. Confira o convite inicial.';}
-  finally{busy=false;$('bootstrap-begin').disabled=false;}
- });
  bootstrapForm.addEventListener('submit',async event=>{
-  event.preventDefault();if(busy||!bootstrapToken||$('bootstrap-verify').hidden)return;
+  event.preventDefault();if(busy||!bootstrapToken)return;
   const password=$('bootstrap-password').value,confirm=$('bootstrap-confirm').value;
   if(password!==confirm){message.textContent='As senhas não coincidem.';return;}
   busy=true;const button=bootstrapForm.querySelector('button[type=submit]');button.disabled=true;message.textContent='Ativando acesso superior…';
   try{
-   const email=$('bootstrap-email').value.trim().toLowerCase(),totp=$('bootstrap-totp').value.trim();
-   const {response}=await post('/auth/bootstrap/complete',{email,token:bootstrapToken,password,totp});
+   const email=$('bootstrap-email').value.trim().toLowerCase();
+   const {response}=await post('/auth/bootstrap/complete',{email,token:bootstrapToken,password});
    if(!response.ok)throw Error('bootstrap_failed');
-   bootstrapToken='';$('bootstrap-secret').value='';$('bootstrap-password').value='';$('bootstrap-confirm').value='';$('bootstrap-totp').value='';
-   $('login-email').value=email;showLogin('Acesso superior ativado. Entre com senha e código do aplicativo.');
-  }catch(_){message.textContent='Não foi possível ativar. Confira o código e tente novamente.';}
+   bootstrapToken='';$('bootstrap-password').value='';$('bootstrap-confirm').value='';
+   $('login-email').value=email;showLogin('Acesso superior ativado. Entre com e-mail e senha.');
+  }catch(_){message.textContent='Não foi possível ativar. Confira o link de ativação e tente novamente.';}
   finally{busy=false;button.disabled=false;}
  });
  $('entry-logout').addEventListener('click',async()=>{
@@ -262,7 +251,7 @@ else (function(){'use strict';
  }
  $('admin-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(inviteLink.value);adminMessage.textContent='Link copiado.';}catch(_){inviteLink.select();adminMessage.textContent='Selecione e copie o link de convite.';}});
  $('admin-invite-hide').addEventListener('click',()=>{inviteLink.value='';inviteResult.hidden=true;});
- window.addEventListener('pagehide',()=>{version++;session=null;inviteToken='';bootstrapToken='';$('bootstrap-secret').value='';inviteLink.value='';frame?.remove();});
+ window.addEventListener('pagehide',()=>{version++;session=null;inviteToken='';bootstrapToken='';inviteLink.value='';frame?.remove();});
  (async()=>{
   // An invite is for a new identity. A cookie from another account on the
   // same team host must not consume or hide its one-time URL fragment.

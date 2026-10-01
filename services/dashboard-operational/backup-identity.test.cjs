@@ -58,14 +58,13 @@ test('a copied identity opens with the same synthetic encryption key',async t=>{
   privateDbFiles(source);
   assert.ok(fs.statSync(source+'-wal').size>0);
   const context={email:options.bootstrapAdminEmail,token,host:options.managerHost,origin:'https://'+options.managerHost};
-  const originalSecret=auth.beginBootstrap(context).totpSecret;
+  const activation=auth.beginBootstrap(context);
   const backupResult=await createBackup(source,path.join(root,'backup'));
   const restore=privateDir(root,'restore'),restored=path.join(restore,'dashboard.sqlite');
   fs.copyFileSync(backupResult.database,restored);fs.chmodSync(restored,0o600);
   const recovered=createAuth({...options,dbPath:restored});
   try{
-   const recoveredSecret=recovered.beginBootstrap(context).totpSecret;
-   assert.ok(crypto.timingSafeEqual(Buffer.from(originalSecret),Buffer.from(recoveredSecret)));
+   assert.deepEqual(recovered.beginBootstrap(context),activation);
   }finally{recovered.close();}
  }finally{auth.close();}
 });

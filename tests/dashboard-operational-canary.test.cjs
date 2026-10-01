@@ -7,7 +7,7 @@ const os=require('node:os');
 const path=require('node:path');
 const http=require('node:http');
 const crypto=require('node:crypto');
-const {createAuth,totpAt}=require('../services/dashboard-operational/auth.cjs');
+const {createAuth}=require('../services/dashboard-operational/auth.cjs');
 const {createServer}=require('../services/dashboard-operational/server.cjs');
 const {FIXED_DESTINATIONS}=require('../services/dashboard-operational/proxy.cjs');
 
@@ -65,11 +65,10 @@ test('operational canary binds every request to its user, area, slot and pinned 
   const port=server.address().port;
   const post=(host,pathname,body,credentials={})=>request(port,host,pathname,{method:'POST',body,...credentials});
   const begin=await post(hosts.manager,'/auth/bootstrap/begin',{email:'owner@canary.test',token:bootstrap});
-  assert.equal(begin.status,200);
+  assert.equal(begin.status,200);assert.deepEqual(begin.json,{ready:true});
   const adminPassword='Synthetic Admin Passphrase 2026!';
-  const totp=totpAt(begin.json.totpSecret,now);
-  assert.equal((await post(hosts.manager,'/auth/bootstrap/complete',{email:'owner@canary.test',token:bootstrap,password:adminPassword,totp})).status,200);
-  const adminLogin=await post(hosts.manager,'/auth/login',{email:'owner@canary.test',password:adminPassword,totp});
+  assert.equal((await post(hosts.manager,'/auth/bootstrap/complete',{email:'owner@canary.test',token:bootstrap,password:adminPassword})).status,200);
+  const adminLogin=await post(hosts.manager,'/auth/login',{email:'owner@canary.test',password:adminPassword});
   assert.equal(adminLogin.status,200);
   const admin={cookie:adminLogin.headers['set-cookie'][0].split(';')[0],csrf:adminLogin.json.csrf};
 

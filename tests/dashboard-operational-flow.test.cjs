@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto');
 const {build}=require('../services/dashboard-operational/build.cjs');
-const {createAuth,totpAt}=require('../services/dashboard-operational/auth.cjs');
+const {createAuth}=require('../services/dashboard-operational/auth.cjs');
 const {createServer}=require('../services/dashboard-operational/server.cjs');
 const {FIXED_DESTINATIONS}=require('../services/dashboard-operational/proxy.cjs');
 
@@ -23,7 +23,7 @@ function call(port,host,pathname,{method='GET',body,cookie,csrf}={}){
  });
 }
 
-test('complete isolated flow: TOTP admin, invite, team scope, CSRF and revoke',async t=>{
+test('complete isolated flow: password admin, invite, team scope, CSRF and revoke',async t=>{
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-op-flow-'));
  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
  build(directory);
@@ -35,11 +35,11 @@ test('complete isolated flow: TOTP admin, invite, team scope, CSRF and revoke',a
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const port=server.address().port,post=(host,pathname,body,credentials={})=>call(port,host,pathname,{...credentials,method:'POST',body});
  const begin=await post(HOSTS.manager,'/auth/bootstrap/begin',{email:'admin@example.test',token:bootstrap});
- assert.equal(begin.status,200);
+ assert.equal(begin.status,200);assert.deepEqual(begin.json,{ready:true});
  const password='Example-only Admin Password 2026!';
- const complete=await post(HOSTS.manager,'/auth/bootstrap/complete',{email:'admin@example.test',token:bootstrap,password,totp:totpAt(begin.json.totpSecret,Date.now())});
+ const complete=await post(HOSTS.manager,'/auth/bootstrap/complete',{email:'admin@example.test',token:bootstrap,password});
  assert.equal(complete.status,200);
- const login=await post(HOSTS.manager,'/auth/login',{email:'admin@example.test',password,totp:totpAt(begin.json.totpSecret,Date.now())});
+ const login=await post(HOSTS.manager,'/auth/login',{email:'admin@example.test',password});
  assert.equal(login.status,200);
  const adminCookie=login.headers['set-cookie'][0].split(';')[0],adminCsrf=login.json.csrf;
  assert.deepEqual(login.json.user.areas,['growth','organico','influs']);
@@ -113,12 +113,12 @@ test('CRM-only operational canary forwards only an individual read and stops at 
  t.after(()=>new Promise(resolve=>server.close(resolve)));
  const port=server.address().port,post=(host,pathname,body,credentials={})=>call(port,host,pathname,{...credentials,method:'POST',body});
  const begin=await post(HOSTS.manager,'/auth/bootstrap/begin',{email:identity.bootstrapAdminEmail,token:bootstrap});
- assert.equal(begin.status,200);
+ assert.equal(begin.status,200);assert.deepEqual(begin.json,{ready:true});
  const adminPassword='Example-only Admin Password 2026!';
  assert.equal((await post(HOSTS.manager,'/auth/bootstrap/complete',{
-  email:identity.bootstrapAdminEmail,token:bootstrap,password:adminPassword,totp:totpAt(begin.json.totpSecret,Date.now())})).status,200);
+  email:identity.bootstrapAdminEmail,token:bootstrap,password:adminPassword})).status,200);
  const login=await post(HOSTS.manager,'/auth/login',{
-  email:identity.bootstrapAdminEmail,password:adminPassword,totp:totpAt(begin.json.totpSecret,Date.now())});
+  email:identity.bootstrapAdminEmail,password:adminPassword});
  assert.equal(login.status,200);
  const admin={cookie:login.headers['set-cookie'][0].split(';')[0],csrf:login.json.csrf};
  const invite=await post(HOSTS.manager,'/auth/users',{

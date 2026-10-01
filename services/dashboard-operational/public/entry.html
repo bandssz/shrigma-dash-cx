@@ -20,10 +20,6 @@
     <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" required>
     <label for="login-password">Senha</label>
     <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-    <div id="totp-group" hidden>
-     <label for="login-totp">Código de verificação</label>
-     <input id="login-totp" name="totp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" maxlength="8">
-    </div>
     <button type="submit">Entrar</button>
    </form>
    <form id="invite-form" method="post" action="/auth/invite/accept" hidden>
@@ -35,17 +31,11 @@
    <button type="submit">Criar acesso</button>
    </form>
    <form id="bootstrap-form" method="post" action="/auth/bootstrap/complete" hidden>
-    <p>Ative o acesso superior e a verificação em duas etapas.</p>
+    <p>Crie sua senha para ativar o acesso superior. Não é preciso confirmar o e-mail.</p>
     <label for="bootstrap-email">Seu e-mail corporativo</label><input id="bootstrap-email" type="email" autocomplete="username" required>
     <label for="bootstrap-password">Nova senha</label><input id="bootstrap-password" type="password" autocomplete="new-password" minlength="12" required>
     <label for="bootstrap-confirm">Confirmar senha</label><input id="bootstrap-confirm" type="password" autocomplete="new-password" minlength="12" required>
-    <button id="bootstrap-begin" type="button">Preparar verificação</button>
-    <div id="bootstrap-verify" hidden>
-     <p>Adicione esta chave no seu aplicativo autenticador. Depois informe o código exibido nele.</p>
-     <label for="bootstrap-secret">Chave de autenticação</label><input id="bootstrap-secret" type="text" readonly autocomplete="off">
-     <label for="bootstrap-totp">Código do aplicativo</label><input id="bootstrap-totp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" maxlength="8" required>
-     <button type="submit">Ativar acesso superior</button>
-    </div>
+    <button type="submit">Ativar acesso superior</button>
    </form>
    <p id="entry-message" role="status" aria-live="polite"></p>
   </div>
