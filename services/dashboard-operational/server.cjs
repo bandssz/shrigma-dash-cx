@@ -117,6 +117,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   if(s.crmDraftWrite!==undefined&&typeof s.crmDraftWrite!=='boolean'||s.crmDraftWrite===true&&s.mode!=='operational')throw Error('Invalid CRM draft write gate');
   const allowCampaignDraft=s.mode==='operational'&&s.crmDraftWrite===true;
+  if(allowCampaignDraft&&!upstreams.campaigns)throw Error('CRM draft write needs pinned campaigns upstream');
   const editGrantsAllowed=permissions=>Object.entries(permissions||{}).every(([area,grant])=>grant?.edit!==true||allowCampaignDraft&&area==='growth');
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   const reserveLogin=loginGate();
@@ -138,6 +139,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         return sendJson(req,res,200,state);
       }
       if(url.pathname==='/auth/users'&&req.method==='GET')return sendJson(req,res,200,{users:auth.users({context:ctx})});
+      if(url.pathname==='/auth/campaign-draft'&&req.method==='GET'){
+        if(!allowCampaignDraft)throw jsonError(403,'EDIT_NOT_READY');
+        if([...url.searchParams.keys()].some(key=>key!=='brand')||url.searchParams.getAll('brand').length!==1)throw jsonError(400,'QUERY_DENIED');
+        return sendJson(req,res,200,{operation:auth.campaignDraft(ctx,url.searchParams.get('brand'))});
+      }
       if(url.pathname==='/auth/login'&&req.method==='POST'){
         const release=reserveLogin(req.socket.remoteAddress);
         try{
@@ -193,11 +199,45 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           return sendJson(req,res,200,result);
         }
         const credential=auth.getUpstreamCredential({...ctx,slot:d.credentialSlot,area:d.area,edit:d.edit});
+        if(allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_salvar'&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         const principal=user.id;
         if(typeof principal!=='string'||upstreamInFlight>=16||(upstreamByUser.get(principal)||0)>=4)throw jsonError(429,'UPSTREAM_BUSY');
         upstreamInFlight++;upstreamByUser.set(principal,(upstreamByUser.get(principal)||0)+1);
         let result;
-        try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,fetchImpl});}
+        const draftSave=allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_salvar';
+        const draftReceipt=allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_operacao';
+        const draftBrand=draftSave?body.brand:draftReceipt?url.searchParams.get('brand'):null;
+        const draftKey=draftSave?body.idempotency_key:draftReceipt?url.searchParams.get('idempotency_key'):null;
+        try{
+          if(draftReceipt){
+            const existing=auth.campaignDraft(ctx,draftBrand);
+            if(!existing||existing.operationKey!==draftKey)throw jsonError(404,'OPERATION_NOT_FOUND');
+          }
+          if(draftSave)auth.reserveCampaignDraft(ctx,draftBrand,draftKey);
+          try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,fetchImpl});}
+          catch(error){if(draftSave)auth.campaignDraftOutcome(principal,draftBrand,draftKey,'uncertain');throw error;}
+          if(draftSave){
+            const campaign=result.body?.campaign;
+            const confirmed=result.status>=200&&result.status<300&&campaign?.status==='draft'&&campaign.sent===0&&campaign.started_at==null&&campaign.send_at===null&&campaign.definition?.brand===draftBrand&&Number.isSafeInteger(campaign.id)&&campaign.id>0;
+            auth.campaignDraftOutcome(principal,draftBrand,draftKey,confirmed?'succeeded':'uncertain',{receiptState:confirmed?'succeeded':null,campaignId:confirmed?campaign.id:null});
+            if(result.status>=200&&result.status<300&&!confirmed)throw jsonError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
+          }
+          if(draftReceipt&&result.status===200){
+            const receipt=result.body?.operation;
+            if(receipt?.operation_key!==draftKey)throw jsonError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+            let phase='uncertain',campaignId=null;
+            if(receipt.state==='succeeded'){
+              const saved=receipt.response?.body?.campaign;
+              if(receipt.response?.status>=200&&receipt.response.status<300&&saved?.status==='draft'&&saved.sent===0&&saved.started_at==null&&saved.send_at===null&&saved.definition?.brand===draftBrand&&Number.isSafeInteger(saved.id)&&saved.id>0){phase='succeeded';campaignId=saved.id;}
+            }else if(receipt.state==='rejected'&&receipt.action==='salvar'&&
+              typeof receipt.id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receipt.id)&&
+              receipt.providerId===null&&receipt.response&&typeof receipt.response==='object'&&!Array.isArray(receipt.response)&&
+              Number.isInteger(receipt.response.status)&&receipt.response.status>=400&&receipt.response.status<=599&&
+              receipt.response.body&&typeof receipt.response.body==='object'&&!Array.isArray(receipt.response.body)&&
+              receipt.response.body.provider_id===null&&typeof receipt.response.body.error==='string'&&receipt.response.body.error.length>0)phase='rejected';
+            auth.campaignDraftOutcome(principal,draftBrand,draftKey,phase,{receiptState:receipt.state,campaignId});
+          }
+        }
         finally{
           upstreamInFlight--;
           const remaining=upstreamByUser.get(principal)-1;

@@ -38,7 +38,7 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
    assert.equal(options.headers.Authorization,'Bearer individual-campaign-writer');
    assert.equal(url.searchParams.get('acao'),'campanha_operacao');
    const operation=operations.get(url.searchParams.get('idempotency_key'));
-   return operation?reply(200,{operation:{action:'salvar',brand:operation.body.brand,state:operation.response.status<300?'succeeded':'rejected'}}):reply(404,{error:'OPERATION_NOT_FOUND'});
+   return operation?reply(200,{operation:{operation_key:url.searchParams.get('idempotency_key'),action:'salvar',brand:operation.body.brand,state:operation.response.status<300?'succeeded':'rejected',providerId:operation.response.body.campaign?.id??null,response:operation.response}}):reply(404,{error:'OPERATION_NOT_FOUND'});
   }
   assert.equal(options.method,'POST');
   assert.equal(url.search,'');
@@ -96,7 +96,7 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
  const saved=await post(port,hosts.growth,'/api/campaigns',{...create,k:'ui-'+'a'.repeat(32)},manager);
  assert.equal(saved.status,201);assert.equal(saved.json.campaign.status,'draft');assert.equal(saved.json.campaign.send_at,null);assert.equal(effects,1);
  const replay=await post(port,hosts.growth,'/api/campaigns',create,manager);
- assert.equal(replay.status,201);assert.deepEqual(replay.json,saved.json);assert.equal(effects,1);
+ assert.equal(replay.status,409);assert.equal(replay.json.error,'OPERATION_PENDING');assert.equal(effects,1);
  assert.equal((await post(port,hosts.growth,'/api/campaigns',{...create,definition:{...definition(),subject:'Changed'}},manager)).status,409);
  assert.equal(effects,1);
  const receipt='/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key='+key;

@@ -147,6 +147,12 @@ function createAuth(options){
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,slot TEXT NOT NULL,
   encrypted_key TEXT NOT NULL,key_digest TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,slot));
  CREATE INDEX IF NOT EXISTS upstream_key_digest ON upstream_credentials(key_digest);
+ CREATE TABLE IF NOT EXISTS campaign_draft_operations (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),
+  operation_key TEXT NOT NULL,phase TEXT NOT NULL CHECK(phase IN ('pending','uncertain','succeeded','rejected')),
+  receipt_state TEXT,campaign_id INTEGER,updated_at INTEGER NOT NULL,
+  PRIMARY KEY(user_id,brand));
  CREATE TABLE IF NOT EXISTS login_limits (
   bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS identity_metadata (
@@ -280,6 +286,7 @@ function createAuth(options){
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
+  if(existing&&p.growth?.edit&&unresolvedCampaignDraft(existing.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
   db.exec('BEGIN IMMEDIATE');try{
    db.prepare('DELETE FROM invites WHERE expires_at<=? OR used_at IS NOT NULL').run(t);
@@ -341,6 +348,7 @@ function createAuth(options){
   const p=normalizePermissions(requested);
   if(user.role==='superadmin'&&(Object.keys(p).length!==3||AREAS.some(a=>!p[a]?.read)))err('GRANTS_INVALID',400);
   if(user.role==='manager'&&Object.keys(p).length!==1)err('GRANTS_INVALID',400);
+  if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   db.exec('BEGIN IMMEDIATE');try{
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(userId,area,g.edit?1:0);
@@ -365,6 +373,7 @@ function createAuth(options){
   if(!definition||typeof bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(bearer))err('CREDENTIAL_INVALID',400);
   const user=db.prepare('SELECT state FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
+  if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
   db.exec('BEGIN IMMEDIATE');try{
    if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
@@ -378,7 +387,38 @@ function createAuth(options){
   const user=authorize(ctx),row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
   return row?decrypt(row.encrypted_key):null;
  }
+ const draftBrand=brand=>{if(!['fish','aristo'].includes(brand))err('BRAND_INVALID',400);return brand;};
+ const draftKey=key=>{if(typeof key!=='string'||!(/^[A-Za-z0-9_-]{16,100}$/).test(key))err('OPERATION_KEY_INVALID',400);return key;};
+ const unresolvedCampaignDraft=userId=>!!db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
+ function campaignDraft(context,brand){
+  const user=authorize({...context,area:'growth'});
+  if(!user.permissions.growth?.edit)err('GRANT_DENIED',403);
+  return db.prepare('SELECT operation_key AS operationKey,phase,receipt_state AS receiptState,campaign_id AS campaignId,updated_at AS updatedAt FROM campaign_draft_operations WHERE user_id=? AND brand=?').get(user.id,draftBrand(brand))||null;
+ }
+ function reserveCampaignDraft(context,brand,key){
+  const user=authorize({...context,area:'growth',edit:true});draftBrand(brand);draftKey(key);
+  const result=db.prepare(`INSERT INTO campaign_draft_operations(user_id,brand,operation_key,phase,updated_at)
+   VALUES(?,?,?,'pending',?) ON CONFLICT(user_id,brand) DO UPDATE SET
+   operation_key=excluded.operation_key,phase='pending',receipt_state=NULL,campaign_id=NULL,updated_at=excluded.updated_at
+   WHERE campaign_draft_operations.phase IN ('succeeded','rejected')
+   AND campaign_draft_operations.operation_key<>excluded.operation_key`).run(user.id,brand,key,current());
+  if(result.changes!==1)err('OPERATION_PENDING',409);
+  return user.id;
+ }
+ function campaignDraftOutcome(userId,brand,key,phase,{receiptState=null,campaignId=null}={}){
+  if(typeof userId!=='string'||!['uncertain','succeeded','rejected'].includes(phase))err('OPERATION_INVALID',500);
+  draftBrand(brand);draftKey(key);
+  if(receiptState!==null&&!['pending','outcome_unknown','succeeded','rejected'].includes(receiptState))err('OPERATION_INVALID',500);
+  if(campaignId!==null&&(!Number.isSafeInteger(campaignId)||campaignId<1))err('OPERATION_INVALID',500);
+  const result=db.prepare("UPDATE campaign_draft_operations SET phase=?,receipt_state=?,campaign_id=?,updated_at=? WHERE user_id=? AND brand=? AND operation_key=? AND phase IN ('pending','uncertain')").run(phase,receiptState,campaignId,current(),userId,brand,key);
+  if(result.changes!==1){
+   const row=db.prepare('SELECT phase FROM campaign_draft_operations WHERE user_id=? AND brand=? AND operation_key=?').get(userId,brand,key);
+   if(row&&['succeeded','rejected'].includes(row.phase))return false;
+   err('OPERATION_CHANGED',409);
+  }
+  return true;
+ }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

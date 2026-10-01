@@ -66,6 +66,7 @@ test('complete isolated flow: password admin, invite, team scope, CSRF and revok
  assert.equal(manager.status,200);
  assert.equal(manager.json.user.permissions.growth.edit,false);
  const managerCookie=manager.headers['set-cookie'][0].split(';')[0];
+ assert.equal((await call(port,HOSTS.growth,'/auth/campaign-draft?brand=fish',{cookie:managerCookie})).status,403);
  assert.equal(Object.hasOwn((await call(port,HOSTS.growth,'/auth/session',{cookie:managerCookie})).json,'areaHosts'),false);
  assert.equal((await call(port,HOSTS.growth,'/api/cx?access=1&painel=growth',{cookie:managerCookie})).json.role,'manager');
  assert.equal((await call(port,HOSTS.growth,'/api/cx?access=1&painel=influs',{cookie:managerCookie})).status,403);
