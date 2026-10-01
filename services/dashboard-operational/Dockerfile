@@ -4,6 +4,7 @@ WORKDIR /source
 # Only this public revision argument exists. No secret is a build argument.
 ARG GIT_SHA
 COPY growth.html organico.html influs.html ./
+COPY growth-diagnostico.html growth-control.js growth-delivery.js growth-diagnostic.js growth-diagnostic-ui.js ./
 COPY assets/panels/growth.js assets/panels/growth.css assets/panels/organico.js assets/panels/organico.css assets/panels/influs.js assets/panels/influs.css ./assets/panels/
 COPY logos/icone-aristocrata.png logos/icone-fishermans.svg logos/icone-olivas.jpg logos/wm-aristocrata.png logos/wm-fishermans.png logos/wm-olivas.png ./logos/
 COPY services/dashboard-operational/build.cjs services/dashboard-operational/pack-runtime.cjs services/dashboard-operational/artifact-policy.cjs services/dashboard-operational/bootstrap.cjs services/dashboard-operational/server.cjs services/dashboard-operational/auth.cjs services/dashboard-operational/proxy.cjs services/dashboard-operational/fixtures.cjs services/dashboard-operational/canary-start.cjs services/dashboard-operational/canary-image.cjs ./services/dashboard-operational/

@@ -9,6 +9,7 @@ const {readOnlyStyles}=require('./public/entry.js');
 const root=path.resolve(__dirname,'../..');
 const CONTENT=[
  'growth.html','organico.html','influs.html',
+ 'growth-diagnostico.html','growth-control.js','growth-delivery.js','growth-diagnostic.js','growth-diagnostic-ui.js',
  ...['growth','organico','influs'].flatMap(p=>['js','css'].map(ext=>`assets/panels/${p}.${ext}`)),
  'logos/icone-aristocrata.png','logos/icone-fishermans.svg','logos/icone-olivas.jpg',
  'logos/wm-aristocrata.png','logos/wm-fishermans.png','logos/wm-olivas.png'
@@ -50,8 +51,49 @@ function putCsp(html,file){
  if(!/<meta\s+http-equiv="Content-Security-Policy"\s+content="[^"]*">/i.test(html))throw Error('Missing CSP meta: '+file);
  return html.replace(/<meta\s+http-equiv="Content-Security-Policy"\s+content="[^"]*">/gi,`<meta http-equiv="Content-Security-Policy" content="${csp}">`);
 }
+function transformDiagnosticUi(source){
+ const start=source.indexOf('  async function load(explicitKey){');
+ const end=source.indexOf("  $('#start').value=brDay();",start);
+ const submit="  $('#auth-form').onsubmit=e=>{e.preventDefault();const key=$('#auth-key').value.trim();if(key)load(key);};\n";
+ if(start<0||end<0||source.indexOf('  async function load(explicitKey){',start+1)!==-1||!source.includes(submit))throw Error('Diagnostic request contract changed');
+ const load=`  async function load(){
+    if(loading)return;
+    loading=true;$('#refresh').disabled=true;$('#status').textContent='Consultando o CRM…';
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+    try{
+      const response=await fetch('/api/cx?painel=growth',{method:'GET',headers:{Accept:'application/json'},credentials:'same-origin',signal:controller.signal,redirect:'error',cache:'no-store'});
+      if(response.status===401)throw new Error('session_expired');
+      if(!response.ok)throw new Error('http_'+response.status);
+      const next=await response.json();
+      if(!next||next._escopo!=='growth'||!Array.isArray(next.crm_campanha)||!Array.isArray(next.crm_fluxo)||!Array.isArray(next.crm_conversao))throw new Error('wrong_scope');
+      api=next;receivedAt=new Date().toISOString();failed=false;
+      $('#status').textContent='Consulta recebida. Os horários de cada fonte estão indicados abaixo.';
+    }catch(e){
+      failed=true;
+      $('#status').textContent=e.message==='session_expired'?'Sua sessão terminou. Entre novamente no CRM.':e.message==='wrong_scope'?'A resposta não confirmou o escopo Growth. Nenhum dado novo foi aplicado.':e.name==='AbortError'?'A consulta excedeu 20 segundos. Nenhuma alteração foi realizada.':'Não foi possível consultar o CRM. Nenhuma alteração foi realizada.';
+    }finally{clearTimeout(timeout);loading=false;$('#refresh').disabled=false;render();}
+  }
+`;
+ const output=(source.slice(0,start)+load+source.slice(end)).replace(submit,'');
+ if(/\b(?:shrigmaChave|shrigmaGuardaChave|shrigmaEsqueceChave|shrigmaMarcaMestra|CX_API_URL|Authorization|auth-key|auth-form)\b/.test(output))throw Error('Legacy diagnostic credential remains');
+ return output;
+}
 function transform(input,file){
  let output=input;
+ if(file==='growth-diagnostic-ui.js')output=transformDiagnosticUi(output);
+ if(file==='growth-diagnostico.html'){
+  const auth=/<section class="panel" id="auth" hidden>[\s\S]*?<\/section>\n/;
+  if(!auth.test(output)||!/<script src="config\.js\?[^\"]+"><\/script>/.test(output)||!output.includes('</head>'))throw Error('Legacy diagnostic page contract changed');
+  output=output.replace(auth,'').replace(/<script src="config\.js\?[^\"]+"><\/script>\n/,'');
+  output=output.replace('#auth-form{max-width:540px}#auth-key{width:100%;margin-bottom:10px}','');
+  output=output.replace('</head>','<meta http-equiv="Content-Security-Policy" content=""></head>');
+  if(/\b(?:config\.js|auth-key|auth-form|Chave de leitura)\b/.test(output))throw Error('Legacy diagnostic access remains');
+ }
+ if(file==='growth.html'){
+  const target='<div class="crm-home-heading"><h2>Resumo do período</h2></div>';
+  if(output.split(target).length!==2)throw Error('CRM diagnostic navigation anchor changed');
+  output=output.replace(target,target+'<p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>');
+ }
  if(/^assets\/panels\/(?:growth|organico|influs)\.js$/.test(file)){
   if(output.split(LEGACY_MASTER_CHECK).length!==2)throw Error('Master role contract changed: '+file);
   output=output.replace(LEGACY_MASTER_CHECK,OPERATIONAL_MASTER_CHECK);
@@ -63,8 +105,10 @@ function transform(input,file){
  for(const [url,local]of Object.entries(LOGOS))output=output.split(url).join(local);
  if(file.endsWith('.html')){
   const area=file.slice(0,-'.html'.length),css=readOnlyStyles(area,{embeddedOnly:false});
-  if(!css||output.includes('id="dashboard-operational-readonly"'))throw Error('Missing or duplicate read-only panel presentation: '+file);
-  output=output.replace(/<\/head>/i,`<style id="dashboard-operational-readonly">${css}</style></head>`);
+  if(file!=='growth-diagnostico.html'){
+   if(!css||output.includes('id="dashboard-operational-readonly"'))throw Error('Missing or duplicate read-only panel presentation: '+file);
+   output=output.replace(/<\/head>/i,`<style id="dashboard-operational-readonly">${css}</style></head>`);
+  }
   output=putCsp(output,file);
   const firstScript=output.search(/<script\b/i),headEnd=output.search(/<\/head>/i);
   if(headEnd<0||firstScript>=0&&firstScript<headEnd)throw Error('Guard cannot load before content scripts: '+file);

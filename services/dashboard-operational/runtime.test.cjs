@@ -10,9 +10,9 @@ function source(t){const dir=temp(t),dist=path.join(dir,'dist');fs.mkdirSync(pat
 function mutatePack(input,change){const old=JSON.parse(input),files=JSON.parse(zlib.gunzipSync(Buffer.from(old.gzipBase64,'base64')));change(files);const raw=Buffer.from(JSON.stringify(files)),sha256=policy.sha(raw);return {input:JSON.stringify({schema:policy.SCHEMA,sha256,gzipBase64:zlib.gzipSync(raw).toString('base64')}),sha256};}
 test('closed public/runtime package roundtrip preserves all bytes and stays below MCP transport limit',t=>{
  const {dir,dist}=source(t),out=path.join(dir,'pack'),meta=pack(dist,out),input=fs.readFileSync(path.join(out,'runtime-pack.json'),'utf8');
- assert.equal(meta.publicFiles,22);assert.equal(meta.runtimeFiles,4);assert(meta.seedMountsBytes<950000);
+ assert.equal(meta.publicFiles,27);assert.equal(meta.runtimeFiles,4);assert(meta.seedMountsBytes<950000);
  const result=policy.unpack(path.join(out,'runtime-pack.json'),path.join(dir,'unpacked'),{expectedSha256:meta.packSha256});
- assert.equal(result.files,26);assert.equal(result.sha256,meta.packSha256);
+ assert.equal(result.files,31);assert.equal(result.sha256,meta.packSha256);
  for(const file of policy.PUBLIC_FILES)assert.deepEqual(fs.readFileSync(path.join(result.publicDir,file)),fs.readFileSync(path.join(dist,'public',file)));
  for(const file of policy.RUNTIME_FILES)assert.deepEqual(fs.readFileSync(path.join(result.runtimeDir,file)),fs.readFileSync(path.join(__dirname,file)));
  assert.equal(JSON.parse(fs.readFileSync(path.join(out,'mounts.json'))).length,2);
@@ -88,7 +88,8 @@ test('extracted runtime serves read-only presentation on direct panel URLs',asyn
  const artifact=policy.unpack(path.join(dir,'pack','runtime-pack.json'),path.join(dir,'artifact'),{expectedSha256:meta.packSha256});
  const {createServer}=require(path.join(artifact.runtimeDir,'server.cjs'));
  const areaHosts={growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'};
- const auth={authorize:ctx=>{assert.equal(ctx.cookieHeader,'synthetic-session');return {role:'manager',areas:[ctx.area]};}};
+ const {AuthError}=require(path.join(artifact.runtimeDir,'auth.cjs'));
+ const auth={authorize:ctx=>{if(ctx.cookieHeader!=='synthetic-session')throw new AuthError('SESSION_REQUIRED',401);return {role:'manager',areas:[ctx.area]};}};
  const server=createServer({mode:'synthetic',managerHost:'manager.synthetic.invalid',areaHosts,upstreams:{},publicDir:artifact.publicDir},{auth});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -102,5 +103,27 @@ test('extracted runtime serves read-only presentation on direct panel URLs',asyn
   const style=result.html.match(/<style id="dashboard-operational-readonly">([\s\S]*?)<\/style>/);
   assert.ok(style,area);assert.equal(style[1],readOnlyStyles(area,{embeddedOnly:false}));
   assert.equal(result.headers['content-security-policy'],result.html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1]);
+ }
+ const get=(host,pathname,cookie)=>new Promise((resolve,reject)=>{
+  http.get({hostname:'127.0.0.1',port:server.address().port,path:pathname,headers:{Host:host,...(cookie?{Cookie:cookie}:{})}},res=>{
+   const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve({status:res.statusCode,body:Buffer.concat(chunks).toString('utf8')}));
+  }).on('error',reject);
+ });
+ const crmPage=await get(areaHosts.growth,'/growth.html','synthetic-session');
+ assert.equal(crmPage.status,200);
+ const diagnosticLink=crmPage.body.match(/href="(\/growth-diagnostico\.html)">Diagnóstico de pedido pago<\/a>/)?.[1];
+ assert.equal(diagnosticLink,'/growth-diagnostico.html');
+ const navigated=await get(areaHosts.growth,diagnosticLink,'synthetic-session');
+ assert.equal(navigated.status,200);assert.match(navigated.body,/href="growth\.html">Voltar ao Growth<\/a>/);
+ assert.equal((await get(areaHosts.growth,'/growth.html','synthetic-session')).status,200);
+ for(const host of ['manager.synthetic.invalid',areaHosts.growth]){
+  assert.equal((await get(host,'/growth-diagnostico.html')).status,401,host);
+  const page=await get(host,'/growth-diagnostico.html','synthetic-session');
+  assert.equal(page.status,200,host);assert.match(page.body,/Diagnóstico de pedido pago/);
+  assert.equal((await get(host,'/growth-diagnostic-ui.js')).status,200,host);
+ }
+ for(const host of [areaHosts.organico,areaHosts.influs]){
+  assert.equal((await get(host,'/growth-diagnostico.html','synthetic-session')).status,404,host);
+  assert.equal((await get(host,'/growth-diagnostic-ui.js')).status,404,host);
  }
 });

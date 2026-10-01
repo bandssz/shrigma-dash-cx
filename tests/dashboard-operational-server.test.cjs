@@ -46,6 +46,12 @@ test('encoded traversal and ambiguous raw paths are rejected before file lookup'
   for(const raw of ['//evil.invalid','/%2e%2e/private','/%2fadmin','/a\\b'])assert.throws(()=>safeRequestPath(raw));
   assert.equal(fileForHost('/cx/',HOSTS.manager,settings),null);
   assert.equal(fileForHost('/organico/',HOSTS.growth,settings),null);
+  for(const file of ['/growth-diagnostico.html','/growth-control.js','/growth-delivery.js','/growth-diagnostic.js','/growth-diagnostic-ui.js']){
+    assert.equal(fileForHost(file,HOSTS.growth,settings),file);
+    assert.equal(fileForHost(file,HOSTS.manager,settings),file);
+    assert.equal(fileForHost(file,HOSTS.organico,settings),null);
+    assert.equal(fileForHost(file,HOSTS.influs,settings),null);
+  }
 });
 
 test('operational startup pins each full destination and its reviewed source revision',()=>{

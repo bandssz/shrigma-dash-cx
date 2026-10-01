@@ -4,6 +4,7 @@ const SCHEMA='shrigma_dashboard_operational_pack_v1';
 const MAX_BYTES=16*1024*1024,MAX_PACK_BYTES=950000;
 const PUBLIC_FILES=Object.freeze([
  'growth.html','organico.html','influs.html',
+ 'growth-diagnostico.html','growth-control.js','growth-delivery.js','growth-diagnostic.js','growth-diagnostic-ui.js',
  ...['growth','organico','influs'].flatMap(p=>['js','css'].map(e=>`assets/panels/${p}.${e}`)),
  'logos/icone-aristocrata.png','logos/icone-fishermans.svg','logos/icone-olivas.jpg',
  'logos/wm-aristocrata.png','logos/wm-fishermans.png','logos/wm-olivas.png',

@@ -57,6 +57,7 @@ function typeAndCsp(file,data){
 }
 function fileForHost(pathname,host,s){
   const area=Object.entries(s.areaHosts).find(([,h])=>h===host)?.[0]||null;
+  if(['/growth-diagnostico.html','/growth-control.js','/growth-delivery.js','/growth-diagnostic.js','/growth-diagnostic-ui.js'].includes(pathname)&&host!==s.managerHost&&area!=='growth')return null;
   if(pathname==='/'||pathname==='/index.html')return host===s.managerHost?'/gestao/index.html':area?AREA_ENTRY[area]:null;
   if(pathname==='/gestao/'||pathname==='/gestao/index.html')return host===s.managerHost?'/gestao/index.html':null;
   for(const [a,entry]of Object.entries(AREA_ENTRY))if(pathname===entry||pathname===path.posix.dirname(entry)+'/')return host===s.managerHost||area===a?entry:null;
@@ -68,8 +69,8 @@ function fileForHost(pathname,host,s){
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
   const file=fileForHost(url.pathname,host,s);
-  if(!file||!/^\/(?:gestao\/index\.html|crm\/index\.html|organico\/index\.html|creators\/index\.html|growth\.html|organico\.html|influs\.html|entry\.(?:js|css)|guard\.js|assets\/panels\/[A-Za-z0-9._-]+\.(?:js|css)|logos\/[A-Za-z0-9._-]+\.(?:png|jpg|svg))$/.test(file))throw jsonError(404,'NOT_FOUND');
-  const area=Object.entries(AREA_PAGE).find(([,p])=>p===file)?.[0];
+  if(!file||!/^\/(?:gestao\/index\.html|crm\/index\.html|organico\/index\.html|creators\/index\.html|growth\.html|growth-diagnostico\.html|growth-(?:control|delivery|diagnostic|diagnostic-ui)\.js|organico\.html|influs\.html|entry\.(?:js|css)|guard\.js|assets\/panels\/[A-Za-z0-9._-]+\.(?:js|css)|logos\/[A-Za-z0-9._-]+\.(?:png|jpg|svg))$/.test(file))throw jsonError(404,'NOT_FOUND');
+  const area=file==='/growth-diagnostico.html'?'growth':Object.entries(AREA_PAGE).find(([,p])=>p===file)?.[0];
   if(area)auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area});
   const realRoot=fs.realpathSync(s.publicDir),candidate=path.resolve(realRoot,'.'+file);
   if(!candidate.startsWith(realRoot+path.sep))throw jsonError(404,'NOT_FOUND');

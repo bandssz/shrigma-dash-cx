@@ -1,6 +1,11 @@
 # Closed root context. No Git data, env, SQL, exports, CI, docs or private files.
 **
 !growth.html
+!growth-diagnostico.html
+!growth-control.js
+!growth-delivery.js
+!growth-diagnostic.js
+!growth-diagnostic-ui.js
 !organico.html
 !influs.html
 !assets/

@@ -18,7 +18,7 @@ test('artifact contains only three team panels and management, without CX or bac
  for(const absent of ['cx/index.html','index.html','assets/panels/index.js','assets/panels/index.css','assets/panels/entry.js','services','n8n','.git'])assert.equal(fs.existsSync(path.join(publicRoot,absent)),false,absent);
  const manifest=JSON.parse(fs.readFileSync(path.join(path.dirname(publicRoot),'artifact-manifest.json')));
  assert.deepEqual(manifest.areas,['growth','organico','influs','todos']);
- assert.equal(manifest.publicFiles.length,22);
+ assert.equal(manifest.publicFiles.length,27);
 }));
 
 test('build leaves original sources untouched and rewrites all literal upstream APIs',()=>{
@@ -33,6 +33,40 @@ test('build leaves original sources untouched and rewrites all literal upstream 
   for(const url of Object.keys(ENDPOINTS))assert.ok(!growth.includes(url),url);
  });
  for(const file of CONTENT)assert.equal(sha(path.join(root,file)),before[file],file);
+});
+
+test('payment diagnostic is a CRM-only cookie-session page with no browser key form',()=>withArtifact(publicRoot=>{
+ const html=fs.readFileSync(path.join(publicRoot,'growth-diagnostico.html'),'utf8');
+ const ui=fs.readFileSync(path.join(publicRoot,'growth-diagnostic-ui.js'),'utf8');
+ const growth=fs.readFileSync(path.join(publicRoot,'growth.html'),'utf8');
+ assert.match(growth,/href="\/growth-diagnostico\.html">Diagnóstico de pedido pago<\/a>/);
+ for(const file of ['growth-control.js','growth-delivery.js','growth-diagnostic.js','growth-diagnostic-ui.js'])assert.equal(fs.existsSync(path.join(publicRoot,file)),true,file);
+ assert.match(html,/src="\/guard\.js"/);assert.match(html,/src="growth-diagnostic-ui\.js\?/);
+ assert.match(html,/href="growth\.html"/);
+ assert.doesNotMatch(html,/config\.js|auth-form|auth-key|type="password"|<script[^>]*src="https?:/);
+ assert.doesNotMatch(ui,/CX_API_URL|shrigmaChave|shrigmaGuardaChave|shrigmaEsqueceChave|shrigmaMarcaMestra|Authorization|auth-key|auth-form|localStorage|sessionStorage/);
+ assert.match(ui,/fetch\('\/api\/cx\?painel=growth',\{method:'GET'/);
+ assert.match(ui,/credentials:'same-origin'/);
+ assert.doesNotMatch(ui,/method:'POST'|\/api\/cx\?painel=cx/);
+}));
+
+test('payment diagnostic UI reads the approved Growth GET without transmitting a key or writing data',async()=>{
+ const ui=withArtifact(publicRoot=>fs.readFileSync(path.join(publicRoot,'growth-diagnostic-ui.js'),'utf8'));
+ const elements=new Map(),element=selector=>{
+  if(!elements.has(selector))elements.set(selector,{value:'',hidden:false,disabled:false,textContent:'',innerHTML:'',addEventListener(){}});
+  return elements.get(selector);
+ };
+ const calls=[];
+ const context={document:{querySelector:element},GC:require('../../growth-control.js'),GDI:require('../../growth-diagnostic.js'),
+  fetch:async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify(require('./fixtures.cjs').fixture('growth')),{status:200,headers:{'Content-Type':'application/json'}});},
+  Response,AbortController,Blob,URL,Date,Intl,setTimeout,clearTimeout,setInterval:()=>0,console};
+ vm.runInNewContext(ui,context);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/cx?painel=growth');
+ assert.equal(calls[0].options.method,'GET');assert.equal(calls[0].options.credentials,'same-origin');
+ assert.equal(calls[0].options.headers.Authorization,undefined);assert.equal(calls[0].options.body,undefined);
+ assert.match(element('#status').textContent,/Consulta recebida/);assert.equal(element('#result').hidden,false);
+ assert.equal(typeof element('#export').onclick,'function');
 });
 
 test('the operational owner view accepts exactly CRM, Orgânico and Influs without CX',()=>withArtifact(publicRoot=>{
@@ -106,9 +140,9 @@ test('invite links match the exact production or test host for their area',()=>{
 });
 
 test('every transformed inline script has a matching CSP hash and guard loads first',()=>withArtifact(publicRoot=>{
- for(const file of ['growth.html','organico.html','influs.html','crm/index.html','organico/index.html','creators/index.html','gestao/index.html']){
+ for(const file of ['growth.html','growth-diagnostico.html','organico.html','influs.html','crm/index.html','organico/index.html','creators/index.html','gestao/index.html']){
   const html=fs.readFileSync(path.join(publicRoot,file),'utf8');
-  if(!file.includes('/'))assert.ok(html.indexOf('<script src="/guard.js"')<html.indexOf('<script>'));
+  if(!file.includes('/'))assert.match(html.match(/<script\b[^>]*>/)?.[0]||'',/^<script src="\/guard\.js">$/);
   const csp=html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1];
   assert.equal(typeAndCsp(file,Buffer.from(html)).csp,csp,'header and meta CSP must match: '+file);
   for(const match of html.matchAll(/<script\s*>([\s\S]*?)<\/script>/g)){
