@@ -101,6 +101,24 @@ test('unknown, writable, malformed and widened read requests fail before network
   assert.equal(decide('organico-links','POST',params(''),{acao:'listar',k:'ui-'+'a'.repeat(32)}).credentialSlot,'organico-links');
 });
 
+test('graph activation review, activation and receipt lookup are denied before fetch',async()=>{
+  const route='journey_graph_lifecycle',configured={[route]:REVIEWED_DYNAMIC.routes[route]};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review(configured));
+  const publication={brand:'fish',journey_id:U,expected_version:2,request_id:U,published_revision:2,publication_hash:'b'.repeat(64)};
+  let called=0;
+  const fetchImpl=async()=>{called++;return new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});};
+  const context={route,user:{role:'superadmin',areas:['growth']},credential:'synthetic-backend-flows-key',upstreams,origin:'https://crm.shrigma.com.br',fetchImpl};
+  const cases=[
+    {method:'POST',query:params(''),body:{action:'activation_review',...publication},code:'METHOD_DENIED'},
+    {method:'POST',query:params(''),body:{action:'activate',...publication,admission_review_hash:'c'.repeat(64),confirm:'ativar'},code:'METHOD_DENIED'},
+    {method:'GET',query:params(`action=activation_operation&brand=fish&request_id=${U}`),code:'ACTION_DENIED'}
+  ];
+  for(const {code,...request}of cases){
+    await assert.rejects(forward({...context,...request}),e=>e instanceof ProxyError&&e.status===403&&e.code===code);
+    assert.equal(called,0,request.body?.action||request.query.get('action'));
+  }
+});
+
 test('fixed destinations match the frontend build and reject wrong paths on an approved host',()=>{
   assert.deepEqual(FIXED_DESTINATIONS,Object.fromEntries(Object.entries(ENDPOINTS).map(([url,route])=>[route,url])));
   assert.deepEqual(Object.keys(REVIEWED_DYNAMIC.routes).filter(route=>!DYNAMIC_ROUTES.includes(route)),[]);
@@ -167,6 +185,23 @@ test('published capabilities cannot announce operations the BFF has not enabled'
   for(const policy of ['write_key_required','audience_review','recovery_policy'])assert.equal(JSON.stringify(actual.capabilities).includes(`"${policy}"`),false,policy);
   assert.equal(payload.pode_escrever,true);
   assert.equal(payload.capabilities.campaigns.save,true);
+});
+
+test('upstream graph activate true cannot enable activation in published capabilities',()=>{
+  const route='journey_graph_lifecycle',configured={[route]:REVIEWED_DYNAMIC.routes[route]};
+  const upstreams=validateUpstreams(configured,hostsFor(configured),review(configured));
+  const payload={capabilities:{
+    activate:true,endpoints:{[route]:configured[route]},
+    journeys:{graph_drafts:'journey_graph_draft_api_v1',graph_lifecycle:{contract:'journey_graph_lifecycle_panel_v1',prepare:true,publish_paused:true,activate:true,brands:['fish','aristo']}},
+    actions:['status','activation_review','activate','activation_operation']
+  }};
+  const actual=rewriteCapabilities(payload,upstreams,'https://crm.shrigma.com.br').capabilities;
+  assert.equal(actual.activate,false);
+  assert.deepEqual(actual.journeys,{});
+  assert.deepEqual(actual.actions,['status']);
+  assert.deepEqual(actual.endpoints,{[route]:'https://crm.shrigma.com.br/api/'+route});
+  assert.equal(payload.capabilities.activate,true);
+  assert.equal(payload.capabilities.journeys.graph_lifecycle.activate,true);
 });
 
 test('route-local capability flags are downgraded even without an endpoints map',()=>{
