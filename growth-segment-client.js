@@ -67,7 +67,31 @@
     if(!Array.isArray(b.segments)||!b.segments.every(validSegment)||b.offset!==offset||b.limit!==limit||b.capabilities?.send!==false||typeof b.capabilities?.draft!=='boolean'||typeof b.capabilities?.count!=='boolean'||b.catalog?.brand!==brand||typeof b.catalog.current!=='boolean'||(!b.catalog.current&&(b.capabilities.draft||b.capabilities.count))||!Array.isArray(b.catalog.lists)||b.catalog.lists.some(l=>!positive(l.id)||l.brand!==brand||typeof l.name!=='string'||typeof l.available!=='boolean')||new Set(b.catalog.lists.map(l=>l.id)).size!==b.catalog.lists.length||!typedCatalog(b.catalog))fail('SEGMENT_CATALOG_UNCONFIRMED');
     access('read');catalog=clone(b.catalog);permissions=clone(b.capabilities);return clone(b);},
    async open(id){if(!uuid(id))fail('SEGMENT_ID_INVALID');return exclusive(async()=>{if(pending())fail('SEGMENT_OPERATION_PENDING');const b=requireOK(await call('GET',{acao:'segmento_obter',brand,id},'read'));if(!validSegment(b.segment)||b.segment.id!==id)fail('SEGMENT_READ_UNCONFIRMED');persist({...state,segment:b.segment});return snapshot();});},
-   async newDraft(){return exclusive(async()=>{access('read');if(pending())fail('SEGMENT_OPERATION_PENDING');persist({...state,segment:null});return snapshot();});},
+   async newDraft({preserveDraft}={}){return exclusive(async()=>{
+    access('read');if(pending())fail('SEGMENT_OPERATION_PENDING');
+    if(preserveDraft){
+     // Only an explicitly confirmed legacy preparation may move to a fresh slot.
+     // Keep its exact bytes before replacing the active editor, under its journal lock.
+     const p=preserveDraft,editorSlot='shrigma_segment_editor_v1:'+brand;
+     if(!exact(p,['expectedRaw','nextRaw','backupSlot'])||typeof p.expectedRaw!=='string'||p.expectedRaw.length>200000||typeof p.nextRaw!=='string'||p.nextRaw.length>200000)fail('SEGMENT_STORAGE_UNAVAILABLE');
+     let old,next;try{old=JSON.parse(p.expectedRaw);next=JSON.parse(p.nextRaw);}catch{fail('SEGMENT_JOURNAL_INVALID');}
+     const actorHash=await identity(actor),backupHash=await identity(p.expectedRaw);access('save');refresh();if(pending())fail('SEGMENT_OPERATION_PENDING');
+     if(!catalog||catalog.current!==true||permissions?.draft!==true||old.version!==1||old.brand!==brand||old.endpoint!==endpoint||old.actor!==actorHash||old.draft?.brand!==brand||old.draft.schema_version!==Contract.VERSION||old.draft_catalog_hash!=null
+      ||!exact(next,['version','brand','endpoint','actor','draft','base','server','draft_catalog_hash','draft_currency','draft_timezone'])||next.version!==1||next.brand!==brand||next.endpoint!==endpoint||next.actor!==actorHash||next.server!==null||next.draft_catalog_hash!==catalog.catalog_hash||next.draft_currency!==(catalog.currency??null)||next.draft_timezone!==(catalog.timezone??null)
+      ||!same(next.draft,{schema_version:Contract.VERSION,brand,name:'',rule:{op:'and',rules:[{op:'in_list',list_id:0}]}})||!same(next.base,next.draft)||p.backupSlot!==editorSlot+':preserved:'+backupHash)fail('SEGMENT_CATALOG_UNCONFIRMED');
+     try{
+      if(storage.getItem(editorSlot)!==p.expectedRaw)fail('SEGMENT_SELECTION_CHANGED');
+      const backup=storage.getItem(p.backupSlot);if(backup!==null&&backup!==p.expectedRaw)fail('SEGMENT_STORAGE_UNAVAILABLE');
+      if(backup===null)storage.setItem(p.backupSlot,p.expectedRaw);
+      if(storage.getItem(p.backupSlot)!==p.expectedRaw||storage.getItem(editorSlot)!==p.expectedRaw)fail('SEGMENT_STORAGE_UNAVAILABLE');
+      storage.setItem(editorSlot,p.nextRaw);if(storage.getItem(editorSlot)!==p.nextRaw)fail('SEGMENT_STORAGE_UNAVAILABLE');
+     }catch(e){fail(e.code||'SEGMENT_STORAGE_UNAVAILABLE');}
+    }
+    try{persist({...state,segment:null});}catch(e){
+     if(preserveDraft)try{const slot='shrigma_segment_editor_v1:'+brand;if(storage.getItem(slot)===preserveDraft.nextRaw)storage.setItem(slot,preserveDraft.expectedRaw);}catch{}
+     throw e;
+    }return snapshot();
+   });},
    save(input,expected=null){const d=checkDefinition(input);return write(expected?'segmento_salvar':'segmento_criar',{definition:d,...(expected?{id:expected.id,expected_version:expected.version}:{}),...(Contract.FIELDS?{expected_catalog_hash:catalog.catalog_hash}:{})},expected);},
    archive(expected){if(!uuid(expected?.id)||!positive(expected?.version))fail('SEGMENT_VERSION_REQUIRED');return write('segmento_arquivar',{id:expected.id,expected_version:expected.version},expected);},
    async count(input,expected=null){access('count');if(permissions?.count!==true)fail('SEGMENT_CAPABILITY_UNAVAILABLE');refresh();if(pending())fail('SEGMENT_OPERATION_PENDING');const d=checkDefinition(input);if(expected){selected(expected);if(!definitionSame(d,state.segment.definition))fail('SEGMENT_UNSAVED_COUNT');}
