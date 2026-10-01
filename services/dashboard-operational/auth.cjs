@@ -273,8 +273,11 @@ function createAuth(options){
  function authorize(ctx={}){
   const found=lookup(ctx);if(!found)err('SESSION_REQUIRED',401);
   const method=ctx.method||'GET';if(!['GET','HEAD','POST'].includes(method))err('METHOD_DENIED',405);
-  if(method==='POST'){
-   requireWriteContext(ctx);
+  // Legacy upstream mutations use GET. Treat the edit policy as a mutation
+  // regardless of the HTTP verb, including for same-site sibling origins.
+  if(method==='POST'||ctx.edit===true){
+   if(method==='POST')requireWriteContext(ctx);
+   else checkOrigin(found.host,ctx.origin);
    if(typeof ctx.csrf!=='string'||ctx.csrf.length!==found.csrf.length||!crypto.timingSafeEqual(Buffer.from(ctx.csrf),Buffer.from(found.csrf)))err('CSRF_DENIED',403);
   }
   if(ctx.admin){if(found.host!==managerHost||found.user.role!=='superadmin')err('ADMIN_REQUIRED',403);}

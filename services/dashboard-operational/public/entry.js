@@ -195,7 +195,7 @@ else (function(){'use strict';
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
   details.textContent=[areas,String(user.status||'')].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
-  if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){const button=document.createElement('button');button.type='button';button.textContent='Revogar';button.addEventListener('click',()=>revoke(user,button));row.append(button);}
+  if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){const button=document.createElement('button');button.type='button';button.textContent='Revogar acesso ao portal';button.addEventListener('click',()=>revoke(user,button));row.append(button);}
   return row;
  }
  async function loadUsers(){
@@ -227,9 +227,9 @@ else (function(){'use strict';
   finally{busy=false;button.disabled=false;}
  });
  async function revoke(user,button){
-  if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email}?`))return;
+  if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? Chaves individuais dos serviços de origem exigem revogação separada.`))return;
   button.disabled=true;adminMessage.textContent='Revogando acesso…';
-  try{const {response}=await post('/auth/users',{action:'revoke',userId:user.id});if(!response.ok)throw Error('revoke_failed');inviteResult.hidden=true;inviteLink.value='';await loadUsers();adminMessage.textContent='Acesso revogado.';}
+  try{const {response}=await post('/auth/users',{action:'revoke',userId:user.id});if(!response.ok)throw Error('revoke_failed');inviteResult.hidden=true;inviteLink.value='';await loadUsers();adminMessage.textContent='Acesso ao portal revogado. Revogue também a chave individual no serviço de origem, se existir.';}
   catch(_){adminMessage.textContent='Não foi possível revogar o acesso agora.';}
   finally{button.disabled=false;}
  }

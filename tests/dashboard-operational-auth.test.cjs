@@ -114,6 +114,27 @@ test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',asyn
  }finally{f.close();}
 });
 
+test('legacy GET edits require exact Origin, CSRF and an edit grant',async()=>{
+ const f=fixture();try{
+  const admin=await activateAdmin(f);
+  const base={cookieHeader:cookieHeader(admin.login.cookie),host:hosts.manager,method:'GET',area:'growth'};
+  assert.equal(f.auth.authorize(base).email,'owner@shrigma.test');
+  const edit={...base,edit:true};
+  assert.throws(()=>f.auth.authorize(edit),error('ORIGIN_DENIED',403));
+  assert.throws(()=>f.auth.authorize({...edit,origin:'https://other.shrigma.test',csrf:admin.login.csrf}),error('ORIGIN_DENIED',403));
+  assert.throws(()=>f.auth.authorize({...edit,origin:origin(hosts.manager)}),error('CSRF_DENIED',403));
+  assert.throws(()=>f.auth.authorize({...edit,origin:origin(hosts.manager),csrf:admin.login.csrf}),error('GRANT_DENIED',403));
+
+  f.auth.setGrants({context:admin.context,userId:admin.login.user.id,permissions:{growth:{read:true,edit:true},organico:{read:true,edit:false},influs:{read:true,edit:false}}});
+  f.advance(30000);
+  const granted=await f.auth.login({email:'owner@shrigma.test',password:'test-owner-passphrase-2026',totp:totpAt(admin.secret,f.clock),host:hosts.manager,origin:origin(hosts.manager),ip:'192.0.2.10'});
+  const permitted={...edit,cookieHeader:cookieHeader(granted.cookie)};
+  assert.throws(()=>f.auth.authorize(permitted),error('ORIGIN_DENIED',403));
+  assert.throws(()=>f.auth.authorize({...permitted,origin:origin(hosts.manager)}),error('CSRF_DENIED',403));
+  assert.equal(f.auth.authorize({...permitted,origin:origin(hosts.manager),csrf:granted.csrf}).email,'owner@shrigma.test');
+ }finally{f.close();}
+});
+
 test('login rate limits, host binding, and absolute session expiry',async()=>{
  const f=fixture();try{
   const admin=await activateAdmin(f);
