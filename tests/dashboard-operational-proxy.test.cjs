@@ -73,6 +73,7 @@ test('unknown, writable, malformed and widened read requests fail before network
     ['crm-read','GET','action=identity&painel=growth&action=cache_growth'],
     ['crm-read','GET','action=identity&painel=growth&acao=cache_growth'],
     ['campaigns','GET','acao=campanha_salvar&brand=fish'],
+    ['campaigns/media','GET','brand=fish&page=1'],
     ['campaigns','GET','acao=campanha_obter&brand=fish&id=1&confirm=agendar'],
     ['segments','GET','acao=segmento_contar&brand=fish'],
     ['segments','GET','acao=segmentos_listar&brand=fish&offset=-1&limit=50'],
@@ -87,6 +88,8 @@ test('unknown, writable, malformed and widened read requests fail before network
   ];
   for(const [route,method,query]of cases)denied(()=>decide(route,method,params(query),undefined));
   for(const [route,body]of [
+    ['campaign_audience',{acao:'campanha_publico_desvincular',brand:'fish',campaign_id:1}],
+    ['campaigns/media',{brand:'fish',file:'synthetic'}],
     ['influ',{acao:'salvar_influ'}],['influ',{acao:'listar',ini:'2026-02-30',fim:'2026-09-30'}],
     ['organico-links',{acao:'salvar'}],['organico-links',{acao:'listar',data:{url:'https://evil.invalid'}}],
     ['candidaturas',{acao:'enviar'}],['aprovacao',{acao:'aprovar'}],

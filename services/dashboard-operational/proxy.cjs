@@ -72,10 +72,10 @@ const DYNAMIC_MANIFEST_SCHEMA='shrigma_dashboard_dynamic_upstreams_v1';
 // This pin does not prove live application readiness. Templates and
 // journey_graph stay unpinned.
 const REVIEWED_DYNAMIC=Object.freeze({
-  sourceRevision:'e180f4ca484efa9a3fc8ba430b3a714e5ecbb907',
+  sourceRevision:'6cf7d09eb5db4616d88eb0bd524b1d84418f8854',
   sourceSha256:Object.freeze({
-    'services/crm-audience/server.cjs':'00ba6588e552a5fb262e220d8599dff719ced9b770d3d8813bbda21f84916480',
-    'services/crm-campaign/server.cjs':'2a0c37f9a225163191657a0ff4e2a06b500d78b24149f6831303fb17eee56807'
+    'services/crm-audience/server.cjs':'2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480',
+    'services/crm-campaign/server.cjs':'df4298022372e18afde1ac89b1600cd56475da92c86a0063a873d6f83c1c3c53'
   }),
   routes:Object.freeze({
     campaigns:'https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35',
