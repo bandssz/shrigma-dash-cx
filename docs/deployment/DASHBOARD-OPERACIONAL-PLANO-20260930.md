@@ -46,6 +46,8 @@ Os PRs #201 e #202 avançaram o `main` para `a3f7810e995cbd75ce7729bc1cc5ecdcc9f
 
 Os PRs #203 e #204 levaram o `main` a `2d091d3ea58ca03ae5cd4e922749007b13424629` e foram incorporados somente à branch exclusiva. Mudaram quatro arquivos de ferramentas/registro do worker CRM, nenhum arquivo público ou runtime do dashboard. O build fechado foi repetido nessa revisão e produziu exatamente o mesmo SHA-256 de pacote `d0dfbdfd6d114d73fe1ff0cc11a1eea0e32af25e915547fab2926d6b67bf8484`; a imagem v11 por digest continua representando o pacote do portal. Os workers CRM existentes não foram reiniciados por esta migração.
 
+O PR #205 avançou o `main` a `e6ba3056ef21a4918b1616d2266f25a90bcee339` e também foi incorporado somente à branch exclusiva. Acrescenta uma workflow de teste, um script SQL de acesso mínimo do worker graph e seu teste PostgreSQL; não altera frontend, gateway ou arquivos runtime do dashboard. Nenhum SQL foi aplicado ao banco de produção nesta migração. O pacote fechado foi repetido e conservou exatamente o SHA-256 `d0dfbdfd6d114d73fe1ff0cc11a1eea0e32af25e915547fab2926d6b67bf8484`, portanto a imagem isolada v11 continua compatível.
+
 Critério objetivo para escolher e integrar a revisão final:
 
 1. O chat do sprint de CRM deve concluir o trabalho e apontar quaisquer commits/PRs posteriores ao #199 que representem a entrega. Conferir separadamente os arquivos locais não publicados; não copiá-los por suposição.
