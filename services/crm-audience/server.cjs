@@ -15,7 +15,7 @@ function createServer({segments,binding,experiments=null,graphLifecycle=null,rev
   if(!ROUTES.has(url.pathname))return reply(req,res,404,{error:'CRM_AUDIENCE_ROUTE'});
   if(req.headers.origin!==undefined&&req.headers.origin!==ORIGIN||duplicate(req,'origin')>1)return reply(req,res,403,{error:'CRM_AUDIENCE_ORIGIN'});
   if(req.method==='OPTIONS'){
-   if(url.search||req.headers.origin!==ORIGIN||req.headers['access-control-request-method']&&!['GET','POST'].includes(req.headers['access-control-request-method']))return reply(req,res,403,{error:'CRM_AUDIENCE_ORIGIN'});
+   if(req.headers.origin!==ORIGIN||req.headers['access-control-request-method']&&!['GET','POST'].includes(req.headers['access-control-request-method']))return reply(req,res,403,{error:'CRM_AUDIENCE_ORIGIN'});
    return reply(req,res,204,null,{'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'});
   }
   if(!enabled||closing)return reply(req,res,503,{error:'CRM_AUDIENCE_DISABLED'});
