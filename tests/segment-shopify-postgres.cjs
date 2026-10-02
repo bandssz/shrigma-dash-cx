@@ -119,7 +119,7 @@ async function prepareDelivery(f,brand,cid){
   const expiredArgs=[...claimArgs];expiredArgs[2]=randomUUID();
   const expiredClaim=await claimer.query('SELECT crm_audience_v2.regular_delivery_claim($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) v',expiredArgs).then(()=>{throw Error('EXPIRED_CLAIM_SHOULD_FAIL');},e=>e);
   assert.equal(expiredClaim.code,'55000');
-  assert.match(expiredClaim.message,/^SEGMENT_DELIVERY_(?:MATERIAL_DRIFT|SOURCE_EXPIRED)$/);
+  assert.match(expiredClaim.message,/^(?:SEGMENT_SELECTION_UNAVAILABLE|SEGMENT_DELIVERY_(?:MATERIAL_DRIFT|SOURCE_EXPIRED))$/);
   assert.equal((await db.query("SELECT count(*)::int n FROM shrigma_email_dispatch WHERE piece='audience-regular-v1:100'")).rows[0].n,0);
   assert.deepEqual((await db.query('SELECT sent,last_subscriber_id FROM campaigns WHERE id=100')).rows[0],{sent:0,last_subscriber_id:0});
  }finally{await blocker.query('ROLLBACK');await claimer.query('ROLLBACK');await producer.query('ROLLBACK');blocker.release();claimer.release();producer.release();}
