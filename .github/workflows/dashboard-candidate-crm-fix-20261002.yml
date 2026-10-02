@@ -68,9 +68,9 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Publicar somente revisão validada em repositório novo
+      - name: Publicar somente tag candidata nova no registry público
         run: |
-          IMAGE="ghcr.io/bandssz/shrigma-dash-operational-candidate-crm:$GITHUB_SHA"
+          IMAGE="ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-$GITHUB_SHA"
           docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           printf 'Imagem candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
