@@ -4,7 +4,7 @@ Este documento é o índice de execução e aceite deste sprint. Atualizar as li
 
 ## Resultado esperado e preservações
 
-Primeiro manter o CRM atual utilizável no GitHub Pages. Depois liberar o gerencial e os três painéis no Easypanel, com cadastro de gestores, e-mail/senha e permissões efetivas por área. Concluir também as pendências funcionais do CRM já solicitadas, sem apresentar código OFF como recurso entregue.
+Primeiro manter o CRM atual utilizável no GitHub Pages e liberar CRM/gerencial no Easypanel, com cadastro de gestores, e-mail/senha e permissões efetivas do CRM. Por direcionamento posterior de Felipe, a revisão e migração de Orgânico e Influs ficam depois desse primeiro marco; continuam no objetivo geral, preservando a operação atual. Concluir também as pendências funcionais do CRM já solicitadas, sem apresentar código OFF como recurso entregue.
 
 Preservar a pasta e a branch atuais do Mac, a infraestrutura do CX, os serviços CRM existentes, campanhas e envios programados. Nenhum teste pode disparar mensagens para clientes, repetir uma operação incerta, criar um segundo emissor/coletor ou alterar dados reais para produzir uma prova. Operações comerciais de homologação usam banco, destinatários e transporte de teste. O corte depende da validação da entrega e da decisão explícita do titular antes de direcionar tráfego real.
 
@@ -44,7 +44,7 @@ Preservar a pasta e a branch atuais do Mac, a infraestrutura do CX, os serviços
 | P3.3 | Melhorias Orgânico ainda sem aceite | Sentimento e histórico com ressalvas em handoff; webhook de comentários candidato OFF | Confirmar estado fresco de sentimento, cobertura histórica, vínculo de peça/assistências e comentários; testes isolados; não duplicar coleta nem alterar tabelas/workflows compartilhados cx_social_* |
 | P3.4 | Melhorias Influs ainda sem aceite | Conciliação multicupom/comissão, financeiro e decisões TikTok exigem revisão do estado real | Confirmar regras vigentes antes de exibir/cobrar; scopes da loja exata; fixtures de conciliação/financeiro e decisões com recibos/concorrência; nenhuma cobrança ou escrita comercial como QA |
 
-P0 e P1 formam a migração operacional solicitada. P2 e P3 permanecem no backlog do projeto e têm aceite próprio; não habilitar função incompleta para cumprir uma data. Funções já disponíveis no CRM atual devem manter paridade no novo portal; funcionalidades novas desligadas não impedem a entrega da migração básica se continuarem claramente desligadas e não forem necessárias aos percursos aprovados.
+P0 e P1 formam a migração operacional solicitada. O primeiro corte avalia CRM/gerencial; P1.3/P1.4 e os domínios Orgânico/Influs têm corte posterior próprio, sem impedir o marco CRM. P2 e P3 permanecem no backlog do projeto e têm aceite próprio; não habilitar função incompleta para cumprir uma data. Funções já disponíveis no CRM atual devem manter paridade no novo portal; funcionalidades novas desligadas não impedem a entrega da migração básica se continuarem claramente desligadas e não forem necessárias aos percursos aprovados.
 
 Os testes base do portal cobrem auth/proxy/server/canary. A seleção de regressão de Orgânico cobre access/cache-read/attribution/stories/render; a de Influs cobre access/active-read/read-isolation e creators-read-isolation. As 56 verificações focais locais de Orgânico passaram no Node22 neste inventário; elas não comprovam a origem ou a interação autenticada no novo portal. Para cada área, exigir master e gestor próprios, resposta real por sessão/host, negativas cruzadas, revogação, novo login e reinício. Prefixos `cx_social_*` podem identificar infraestrutura compartilhada: retirar a aba CX do gerencial não autoriza remover essas dependências.
 
@@ -65,6 +65,12 @@ Estimativa em 02/10, sujeita às provas ainda ausentes:
 Reestimar quando P0.2/P0.3 e o inventário real de P1.3/P1.4 passarem. Execução contínua reduz esperas, mas não substitui integrações, ensaios, disponibilidade do host/app e limites de uso. Não converter capacidade “24h/dia” em garantia de prazo.
 
 ## Como reduzir a demora
+
+Felipe autorizou uma frente Claude. O handoff local foi preparado com snapshot main `565ab590`, contrato, matriz de aceite e cofre cifrado dos acessos de produção necessários, chave fora do ZIP. A autenticação do mesmo MCP Easypanel e uma consulta de estatísticas somente-leitura passaram; abertura do cofre, negativas de chave/adulteração e integridade do ZIP passaram. Claude Code 2.1.228 está instalado no Mac, mas a consulta encontrou login ausente: a frente está preparada, não iniciada. Cofre/chave/ZIP não pertencem ao GitHub.
+
+- Claude: correções e QA funcional CRM em clone/branch exclusivos; marcas/listas/públicos, conferência/agenda/cancelamento/recibos, templates/mídia e UX desses percursos; PR draft e transporte sintético.
+- Codex: Easypanel, identidade, gestores e permissões, BFF real, recuperação e integração/corte. Somente uma coordenação de release; Claude não altera produção ou cria deployments concorrentes.
+- Orgânico/Influs: revisão e migração depois do primeiro marco CRM/gerencial. As provas faltantes continuam registradas acima; não declarar objetivo geral concluído com apenas o CRM.
 
 1. Uma fila de prioridades neste documento; uma revisão/imagem candidata; um responsável pelo corte. Novos canários apenas se surgir necessidade técnica concreta de isolamento ou compatibilidade persistida.
 2. Paralelizar inventário de Orgânico/Influs, revisão de permissões e fixtures CRM. Manter snapshot, importação, promoção e operações dependentes sequenciais.
