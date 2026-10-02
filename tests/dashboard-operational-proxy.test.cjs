@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation}=require('../services/dashboard-operational/proxy.cjs');
+const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation}=require('../services/dashboard-operational/proxy.cjs');
 const AudienceHash=require('../n8n/growth/segment-audience-review.cjs');
 const {ENDPOINTS,DYNAMIC_ROUTES}=require('../services/dashboard-operational/build.cjs');
 const {PATH:CAMPAIGN_PATH,MEDIA_PATH}=require('../services/crm-campaign/server.cjs');
@@ -303,6 +303,48 @@ test('the gateway sends only the selected backend credential and rewrites truste
   assert.equal(called,1);
   assert.equal(result.body.capabilities.endpoints.read,'https://crm.shrigma.com.br/api/crm-read');
   assert.equal(Object.hasOwn(result.body.capabilities.endpoints,'evil'),false);
+});
+
+test('only Growth CRM cache admits eight MiB and cancels oversized or failed streams',async()=>{
+  assert.equal(MAX_RESPONSE,4*1024*1024);
+  assert.equal(MAX_CRM_CACHE_RESPONSE,8*1024*1024);
+  const read=FIXED_DESTINATIONS['crm-read'],upstreams=validateUpstreams({'crm-read':read},hostsFor(FIXED_DESTINATIONS));
+  const context={route:'crm-read',method:'GET',query:params('action=cache_growth&painel=growth'),
+    user:{role:'manager',areas:['growth']},credential:'backend-individual-key',upstreams,origin:'https://crm.shrigma.com.br'};
+  const fit={_escopo:'growth',crm_campanha:[],crm_fluxo:[],crm_conversao:[],padding:'x'.repeat(5*1024*1024)};
+  const text=JSON.stringify(fit);
+  assert(Buffer.byteLength(text)>MAX_RESPONSE&&Buffer.byteLength(text)<MAX_CRM_CACHE_RESPONSE);
+  const accepted=await forward({...context,fetchImpl:async()=>new Response(text,{status:200,headers:{'Content-Type':'application/json'}})});
+  assert.equal(accepted.status,200);assert.equal(accepted.body.padding.length,fit.padding.length);
+  await assert.rejects(forward({...context,query:params('action=identity&painel=growth'),
+    fetchImpl:async()=>new Response(text,{status:200,headers:{'Content-Type':'application/json'}})}),e=>e.code==='UPSTREAM_RESPONSE_TOO_LARGE');
+  let cancelled=0,released=0,reads=0;
+  const oversized={status:200,headers:new Headers({'Content-Type':'application/json'}),body:{getReader:()=>({
+    read:async()=>({done:false,value:new Uint8Array(++reads===1?MAX_CRM_CACHE_RESPONSE:1)}),
+    cancel:()=>{cancelled++;return Promise.resolve();},releaseLock:()=>{released++;}
+  })}};
+  await assert.rejects(forward({...context,fetchImpl:async()=>oversized}),e=>e.code==='UPSTREAM_RESPONSE_TOO_LARGE');
+  assert.equal(reads,2);assert.equal(cancelled,1);assert.equal(released,1);
+  let errorCancelled=0,errorReleased=0;
+  const broken={status:200,headers:new Headers({'Content-Type':'application/json'}),body:{getReader:()=>({
+    read:async()=>{throw Error('synthetic transport failure');},
+    cancel:()=>{errorCancelled++;return Promise.resolve();},releaseLock:()=>{errorReleased++;}
+  })}};
+  await assert.rejects(forward({...context,fetchImpl:async()=>broken}),e=>e.code==='UPSTREAM_UNAVAILABLE');
+  assert.equal(errorCancelled,1);assert.equal(errorReleased,1);
+  let rejectedReleased=0;
+  const rejectedCancel={status:200,headers:new Headers({'Content-Type':'application/json'}),body:{getReader:()=>({
+    read:async()=>{throw Error('synthetic transport failure');},
+    cancel:async()=>{throw Error('synthetic cancel failure');},releaseLock:()=>{rejectedReleased++;}
+  })}};
+  await assert.rejects(forward({...context,fetchImpl:async()=>rejectedCancel}),e=>e.code==='UPSTREAM_UNAVAILABLE');
+  assert.equal(rejectedReleased,1);
+  for(const [status,contentType,code]of [[302,'application/json','UPSTREAM_REDIRECT_DENIED'],[200,'text/plain','UPSTREAM_CONTENT_TYPE_DENIED']]){
+    let cancelled=0;
+    const refused={status,headers:new Headers({'Content-Type':contentType}),body:{cancel:async()=>{cancelled++;}}};
+    await assert.rejects(forward({...context,fetchImpl:async()=>refused}),e=>e.code===code);
+    assert.equal(cancelled,1);
+  }
 });
 
 test('published capabilities cannot announce operations the BFF has not enabled',()=>{

@@ -36,6 +36,16 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/shrigma-pack/source-revision.txt"
       - name: Construir imagem imutável fora do servidor
         run: docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-dashboard-crm-candidate:ci .
+      - name: Provar limite CRM de 8 MiB na imagem sem rede
+        run: |
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --user 1000:1000 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/services/dashboard-operational,target=/proof/services/dashboard-operational,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/tests/dashboard-operational-crm-cache-limit.test.cjs,target=/proof/tests/dashboard-operational-crm-cache-limit.test.cjs,readonly" \
+            --entrypoint node shrigma-dashboard-crm-candidate:ci \
+            --max-old-space-size=128 --test /proof/tests/dashboard-operational-crm-cache-limit.test.cjs
       - name: Validar UID, revisão e volume vazio sem rede
         run: |
           test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-dashboard-crm-candidate:ci)" = "$GITHUB_SHA"

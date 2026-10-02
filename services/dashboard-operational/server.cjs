@@ -137,7 +137,22 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   };
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   const reserveLogin=loginGate();
-  let upstreamInFlight=0;const upstreamByUser=new Map();
+  let upstreamInFlight=0,crmCacheInFlight=false;const upstreamByUser=new Map();
+  const reserveCrmCache=res=>{
+    if(crmCacheInFlight)throw jsonError(503,'CRM_CACHE_BUSY');
+    crmCacheInFlight=true;
+    let workDone=false,responseDone=res.destroyed||res.writableFinished,released=false;
+    const release=()=>{
+      if(released||!workDone||!responseDone)return;
+      released=true;crmCacheInFlight=false;
+      res.off('finish',onResponse);res.off('close',onResponse);
+    };
+    const onResponse=()=>{responseDone=true;release();};
+    res.once('finish',onResponse);res.once('close',onResponse);
+    // A client disconnect alone cannot free the slot while the upstream
+    // read/parse still retains the large payload in this process.
+    return ()=>{workDone=true;release();};
+  };
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>{
     headers(res);
     const handle=async()=>{
@@ -220,6 +235,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         throw jsonError(404,'NOT_FOUND');
       }
       if(url.pathname.startsWith('/api/')){
+        let releaseCacheWork;
+        try{
         if(!['GET','POST'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
         const route=url.pathname.slice('/api/'.length);
         if(!/^[a-z0-9_-]{1,48}$/.test(route))throw jsonError(404,'NOT_FOUND');
@@ -248,6 +265,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(audienceAction&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         const principal=user.id;
         if(typeof principal!=='string'||upstreamInFlight>=16||(upstreamByUser.get(principal)||0)>=4)throw jsonError(429,'UPSTREAM_BUSY');
+        if(route==='crm-read'&&d.action==='cache_growth')releaseCacheWork=reserveCrmCache(res);
         upstreamInFlight++;upstreamByUser.set(principal,(upstreamByUser.get(principal)||0)+1);
         let result;
         const draftSave=allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_salvar';
@@ -324,6 +342,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(remaining)upstreamByUser.set(principal,remaining);else upstreamByUser.delete(principal);
         }
         return sendJson(req,res,result.status,result.body);
+        }finally{if(releaseCacheWork)releaseCacheWork();}
       }
       return serveFile(req,res,url,host,s,auth);
     };
@@ -332,6 +351,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(res.headersSent)return res.destroy();
       const status=error instanceof AuthError||error instanceof ProxyError||Number.isInteger(error.status)?error.status:500;
       const code=status===500?'INTERNAL_ERROR':error.code||'REQUEST_DENIED';
+      if(status===503&&code==='CRM_CACHE_BUSY')res.setHeader('Retry-After','2');
       sendJson(req,res,status,{error:code});
     });
   });

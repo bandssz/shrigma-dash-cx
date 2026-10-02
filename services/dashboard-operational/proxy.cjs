@@ -101,7 +101,7 @@ const REVIEWED_DYNAMIC=Object.freeze({
     journey_graph_lifecycle:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph-lifecycle'
   })
 });
-const MAX_REQUEST=128*1024,MAX_CAMPAIGN_REQUEST=256*1024,MAX_AUDIENCE_REQUEST=16000,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024,MAX_MEDIA_RESPONSE=2*1024*1024;
+const MAX_REQUEST=128*1024,MAX_CAMPAIGN_REQUEST=256*1024,MAX_AUDIENCE_REQUEST=16000,MAX_RESPONSE=4*1024*1024,MAX_CRM_CACHE_RESPONSE=8*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024,MAX_MEDIA_RESPONSE=2*1024*1024;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const AUDIENCE_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
@@ -279,10 +279,12 @@ async function readJson(req,max=MAX_REQUEST){
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new ProxyError(400,'INVALID_JSON');}
 }
 async function readResponse(res,max=MAX_RESPONSE){
-  const reader=res.body?.getReader();if(!reader){const bytes=Buffer.from(await res.arrayBuffer());if(bytes.length>max)throw new ProxyError(502,'UPSTREAM_RESPONSE_TOO_LARGE');return bytes;}
+  let reader;try{reader=res.body?.getReader();}catch{throw new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
+  if(!reader)throw new ProxyError(502,'UPSTREAM_BODY_UNAVAILABLE');
   let bytes=0;const chunks=[];
   try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>max)throw new ProxyError(502,'UPSTREAM_RESPONSE_TOO_LARGE');chunks.push(Buffer.from(value));}}
-  finally{reader.releaseLock();}
+  catch(error){try{await reader.cancel();}catch{}throw error instanceof ProxyError?error:new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
+  finally{try{reader.releaseLock();}catch{}}
   return Buffer.concat(chunks);
 }
 // The legacy payload announces writer features independently of this gateway.
@@ -386,9 +388,9 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     options.headers['Content-Type']='application/json';options.body=JSON.stringify(payload);
   }
   let result;try{result=await fetchImpl(url,options);}catch{throw new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
-  if(result.status>=300&&result.status<400)throw new ProxyError(502,'UPSTREAM_REDIRECT_DENIED');
-  if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||''))throw new ProxyError(502,'UPSTREAM_CONTENT_TYPE_DENIED');
-  const bytes=await readResponse(result,route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);
+  if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_REDIRECT_DENIED');}
+  if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||'')){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_CONTENT_TYPE_DENIED');}
+  const bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);
   let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch{throw new ProxyError(502,'UPSTREAM_INVALID_JSON');}
   if(route==='campaigns'&&d.action==='campanha_salvar'&&result.status>=200&&result.status<300&&
     (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||parsed.campaign.send_at!==null||parsed.campaign.definition?.brand!==body.brand))
@@ -398,4 +400,4 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,route})};
 }
-module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
+module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
