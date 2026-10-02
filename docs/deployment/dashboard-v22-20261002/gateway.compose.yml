@@ -1,0 +1,47 @@
+# OFFLINE V22 INTENT: corrected candidate image passed CI; root must verify runtime gates before deploy.
+# OFFLINE INTENT. createDotEnv required only for root-memory private runtime injection.
+# Do not materialize actual values into a Mac file, commit, image or console.
+services:
+  gateway:
+    image: ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:07a5ea4f3be76f15b36f2fd58199b51d9ea5fb44543d2207d91bce3493053cdc
+    user: "1000:1000"
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    networks:
+      gateway_proxy:
+        aliases: ["dashboard-image-20260930_web-access-v22-3878990bc6d3-gateway", "dashboard-image-20260930_web-access-v22-3878990bc6d3_gateway"]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,uid=1000,gid=1000,mode=0700
+    command: ["node", "--max-old-space-size=128", "/app/canary-start.cjs"]
+    environment: {"NODE_ENV": "production", "DASHBOARD_MODE": "operational", "DASHBOARD_UPSTREAM_PROFILE": "production", "DASHBOARD_CRM_DRAFT_WRITE": "disabled", "DASHBOARD_CRM_AUDIENCE_DRAFT": "disabled", "DASHBOARD_EXPECT_UID": "1000", "DASHBOARD_EXPECT_GID": "1000", "DASHBOARD_DB_PATH": "/dashboard-data/dashboard.sqlite", "DASHBOARD_MANAGER_HOST": "dashboard-v22-gerencial.tazdb8.easypanel.host", "DASHBOARD_AREA_HOSTS": "{\"growth\":\"dashboard-v22-crm.tazdb8.easypanel.host\",\"organico\":\"dashboard-v22-organico.tazdb8.easypanel.host\",\"influs\":\"dashboard-v22-influs.tazdb8.easypanel.host\"}", "DASHBOARD_UPSTREAMS": "{\"crm-read\":\"https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read\"}", "DASHBOARD_UPSTREAM_HOSTS": "[\"comunicacao-crm-panel-read.tazdb8.easypanel.host\"]", "HOST": "0.0.0.0", "PORT": "8080", "DASHBOARD_ENCRYPTION_KEY": "${DASHBOARD_ENCRYPTION_KEY:?existing V21 runtime value via private MCP only}", "DASHBOARD_BOOTSTRAP_SHA256": "${DASHBOARD_BOOTSTRAP_SHA256:?existing V21 runtime value via private MCP only}", "DASHBOARD_ADMIN_EMAIL": "${DASHBOARD_ADMIN_EMAIL:?existing V21 runtime value via private MCP only}", "DASHBOARD_EMAIL_DOMAINS": "${DASHBOARD_EMAIL_DOMAINS:?existing V21 runtime value via private MCP only}"}
+    healthcheck:
+      test: ["CMD", "node", "--max-old-space-size=128", "-e", "const fs=require('node:fs'),http=require('node:http');try{const rows=fs.readFileSync('/proc/self/mountinfo','utf8').split('\\n').filter(Boolean).map(x=>({fields:x.split(' - ')[0].split(' '),type:x.split(' - ')[1].split(' ')[0]})),mount=p=>{const a=rows.filter(x=>x.fields[4]===p);if(a.length!==1)throw Error('MOUNT');return a[0];},root=mount('/'),data=mount('/dashboard-data'),tmp=mount('/tmp'),status=fs.readFileSync('/proc/self/status','utf8'),val=k=>new RegExp('^'+k+':\\\\s*([^\\\\n]+)','m').exec(status)?.[1]?.trim(),memory=fs.readFileSync('/sys/fs/cgroup/memory.max','utf8').trim(),pids=fs.readFileSync('/sys/fs/cgroup/pids.max','utf8').trim(),cpu=/^(\\d+) (\\d+)\\s*$$/.exec(fs.readFileSync('/sys/fs/cgroup/cpu.max','utf8'));if(process.getuid()!==1000||process.getgid()!==1000||!root.fields[5].split(',').includes('ro')||!data.fields[5].split(',').includes('rw')||tmp.type!=='tmpfs'||!['rw','nosuid','nodev'].every(x=>tmp.fields[5].split(',').includes(x))||!['CapEff','CapPrm','CapBnd','CapAmb'].every(k=>/^0+$$/.test(val(k)||''))||val('NoNewPrivs')!=='1'||!/^[1-9][0-9]*$$/.test(memory)||Number(memory)>536870912||!/^[1-9][0-9]*$$/.test(pids)||Number(pids)>64||!cpu||Number(cpu[1])<=0||Number(cpu[2])<=0||Number(cpu[1])/Number(cpu[2])>0.5||require('/app/canary-image.cjs').verifyImagePack('/app').pin.sourceRevision!=='10fee73e150b5685e18ab0ff1d9abc41da4e1cdd')throw Error('RUNTIME');const r=http.get({host:'127.0.0.1',port:8080,path:'/healthz',headers:{host:'dashboard-v22-gerencial.tazdb8.easypanel.host'}},res=>{res.resume();process.exitCode=res.statusCode===200?0:1;});r.setTimeout(2000,()=>{r.destroy();process.exitCode=1;});r.on('error',()=>{process.exitCode=1;});}catch{process.exitCode=1;}"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 2
+    volumes:
+      - type: volume
+        source: v22_identity
+        target: /dashboard-data
+    deploy:
+      replicas: 1
+      restart_policy: {condition: none}
+      resources:
+        limits: {cpus: "0.5", memory: 512M, pids: 64}
+        reservations: {cpus: "0.1", memory: 128M}
+      update_config: {parallelism: 1, order: stop-first}
+volumes:
+  v22_identity:
+    external: true
+    name: dashboard-access-identity-20261002-v22-3878990bc6d3
+networks:
+  gateway_proxy:
+    external: true
+    name: easypanel
