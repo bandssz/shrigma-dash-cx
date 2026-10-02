@@ -6,6 +6,7 @@ const {Pool}=require('pg');
 const {setupRecordedNativeV2}=require('./segment-recorded-origin-fixture.cjs');
 const {buildNativePlan}=require('./segment-shopify-rfm-install-fixture.cjs');
 const Install=require('../n8n/growth/segment-shopify-rfm-install.cjs');
+const Rollback=require('../n8n/growth/segment-shopify-rfm-rollback.cjs');
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.RFM_NATIVE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.port!=='55432'||u.pathname!=='/listmonk')
  throw Error('ISOLATED_DATABASE_REQUIRED');
@@ -68,7 +69,9 @@ async function main(){
   await rejected(injected,/RFM_TEST_SECOND_PHASE/);
   await absent();
 
+  const rollbackBaseline=(await db.query(Rollback.baselineSQL())).rows[0].baseline;
   const fresh=await buildNativePlan(db);
+  assert.equal(Install.sha(Install.canonical(rollbackBaseline.snapshot)),fresh.snapshot_sha256);
   await db.exec(fresh.sql);
   const receipt=(await db.query(Install.readbackSQL())).rows[0].readback;
   assert.deepEqual(Install.reconcileReadback(fresh,receipt),{state:'committed_off',authorizes_send:false});
@@ -78,7 +81,30 @@ async function main(){
   assert.equal((await db.query("SELECT NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.pronamespace='crm_audience_v2'::regnamespace AND p.proname LIKE 'rfm_%' AND a.grantee=0) AS no_public")).rows[0].no_public,true);
   await rejected(fresh.sql,/RFM_INSTALL_METADATA_DRIFT/);
   assert.deepEqual(Install.reconcileReadback(fresh,(await db.query(Install.readbackSQL())).rows[0].readback),{state:'committed_off',authorizes_send:false});
-  console.log(JSON.stringify({success:true,postgres:'17.10',raw_refused:true,inherited_write_refused_before_ddl:true,metadata_drift_refused:true,second_phase_rollback:true,replay_refused:true,readback_committed_off:true,private_acl:true,effective_access_checked:true,sources:0,sends:0,production_changed:false}));
+
+  const installedPost=(await db.query(Rollback.postSQL())).rows[0].post;
+  const currentPost=(await db.query(Rollback.postSQL())).rows[0].post;
+  const installed=Date.parse(installedPost.installed_at),now=Date.now();
+  const rollback=Rollback.compile({
+   installPlan:fresh,baseline:rollbackBaseline,installedPost,currentPost,
+   expectedInstalledPostSha256:Install.sha(Install.canonical(installedPost)),
+   pins:Rollback.sourcePins(),reviewSha256:Install.sha('SYNTHETIC_RFM_ROLLBACK_REVIEW_ONLY'),
+   notBefore:new Date(installed).toISOString(),expiresAt:new Date(now+5*60*1000).toISOString()
+  });
+  // A caller outside the captured schemas can still depend on a new object.
+  // RESTRICT must abort the whole rollback, including function restoration.
+  await db.exec('CREATE SCHEMA rfm_rollback_probe');
+  await db.exec('CREATE VIEW rfm_rollback_probe.source AS SELECT brand FROM crm_audience_v2.rfm_source');
+  await rejected(rollback.sql,/depend on it|depends on it|dependent objects still exist/);
+  assert.equal((await db.query("SELECT to_regclass('crm_audience_v2.rfm_source') IS NOT NULL AS installed")).rows[0].installed,true);
+  assert.deepEqual(Install.reconcileReadback(fresh,(await db.query(Install.readbackSQL())).rows[0].readback),{state:'committed_off',authorizes_send:false});
+  await db.exec('DROP VIEW rfm_rollback_probe.source RESTRICT');
+  await db.exec('DROP SCHEMA rfm_rollback_probe RESTRICT');
+  await db.exec(rollback.sql);
+  const afterRollback=(await db.query(Rollback.readbackSQL())).rows[0].readback;
+  assert.deepEqual(Rollback.reconcileReadback(rollback,afterRollback),{state:'rolled_back_off',authorizes_send:false});
+  await absent();
+  console.log(JSON.stringify({success:true,postgres:'17.10',raw_refused:true,inherited_write_refused_before_ddl:true,metadata_drift_refused:true,second_phase_rollback:true,replay_refused:true,readback_committed_off:true,private_acl:true,effective_access_checked:true,external_dependency_refused:true,rollback_restored_baseline:true,sources:0,sends:0,production_changed:false}));
  }finally{await pool.end();}
 }
 main().catch(e=>{
