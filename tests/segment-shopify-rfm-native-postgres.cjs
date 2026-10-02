@@ -5,6 +5,7 @@ process.env.CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS='v2';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Pool}=require('pg');
 const {setupRecordedNativeV2}=require('./segment-recorded-origin-fixture.cjs');
+const {installNative}=require('./segment-shopify-rfm-install-fixture.cjs');
 const Store=require('../n8n/growth/segment-audience-store.cjs');
 const Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
 const RFM=require('../n8n/growth/segment-shopify-rfm.cjs');
@@ -53,7 +54,7 @@ async function main(){
   const fixture=await setupRecordedNativeV2(db);assert.equal(fixture.tier,'native-postgres17-v2-guarded-install');
   const gates=(await db.query('SELECT NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled) worker_off,NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE enabled) delivery_off')).rows[0];
   assert.deepEqual(gates,{worker_off:true,delivery_off:true});
-  await db.exec(read('n8n/growth/segment-shopify-rfm.sql'));
+  await installNative(db);
 	  const installed=(await db.query("SELECT count(*)::int functions FROM pg_proc WHERE pronamespace='crm_audience_v2'::regnamespace AND proname LIKE 'rfm_%'")).rows[0];assert.equal(installed.functions,13);
   const metadata=(await db.query("SELECT proname,prosecdef,provolatile,pg_get_userbyid(proowner) owner,coalesce(array_to_string(proacl,','),'') acl FROM pg_proc WHERE pronamespace='crm_audience_v2'::regnamespace AND proname LIKE 'rfm_%' ORDER BY proname")).rows;
   assert.equal(metadata.every(x=>x.owner==='postgres'),true);assert.equal(metadata.find(x=>x.proname==='rfm_ingest_snapshot').prosecdef,true);

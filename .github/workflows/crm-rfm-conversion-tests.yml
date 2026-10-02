@@ -27,7 +27,7 @@ jobs:
           node-version: '22'
       - name: Install pinned disposable test dependencies
         run: npm install --prefix ../crm-rfm-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
-      - name: Test the file consumer, catalog, panel and OFF conversion compiler
+      - name: Test the file consumer, catalog, panel and OFF installation compilers
         env:
           NODE_PATH: ../crm-rfm-test-tools/node_modules
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
@@ -36,6 +36,7 @@ jobs:
           tests/segment-shopify-rfm.test.cjs
           tests/segment-shopify-rfm-evidence.test.cjs
           tests/segment-shopify-rfm-selection.test.cjs
+          tests/segment-shopify-rfm-install.test.cjs
           tests/segment-shopify-rfm-postgres.cjs
           tests/growth-rfm-preset-context.test.cjs
           tests/growth-rfm-panel-path.test.cjs

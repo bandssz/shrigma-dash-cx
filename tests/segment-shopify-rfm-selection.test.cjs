@@ -2,13 +2,12 @@
 // Portable native-selection component proof. The source remains fixture-only;
 // this does not activate a producer, filter, worker, UI or production rollout.
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const fs=require('node:fs'),path=require('node:path');
 const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
 const {setupRecordedComponent}=require('./segment-recorded-origin-fixture.cjs');
+const {componentSql}=require('./segment-shopify-rfm-install-fixture.cjs');
 const RFM=require('../n8n/growth/segment-shopify-rfm.cjs');
 
-const ROOT=path.resolve(__dirname,'..');
-const sql=fs.readFileSync(path.join(ROOT,'n8n/growth/segment-shopify-rfm.sql'),'utf8');
+const sql=componentSql();
 const H={customer:'a'.repeat(64),orders:'b'.repeat(64),customerPayload:'c'.repeat(64),ordersPayload:'d'.repeat(64),algorithm:'e'.repeat(64)};
 const op={fish:'11111111-1111-4111-8111-111111111111',aristo:'22222222-2222-4222-8222-222222222222'};
 const emailDigest=id=>crypto.createHash('sha256').update(`person${id}@example.test`).digest('hex');
