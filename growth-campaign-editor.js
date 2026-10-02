@@ -3,7 +3,7 @@
 const GCE=(()=>{
  let contextBrand=null,contextEpoch=0,localError='',localCampaign=undefined,checkCampaign=false;
  const fields=['brand','initiative_name','initiative_key','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','send_at','tags','html','text'];
- let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[];
+ let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[],hiddenCampaigns=0;
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
  let confirmation=null,deferredAccess='',audienceTimer=null;
  let confirmedCatalog=null,onCatalog=null,audienceView=null,queuedSavedAudience=null;
@@ -58,7 +58,7 @@ const GCE=(()=>{
  function enterBrand(brand){
   if(contextStatus().navigationBlocked)return false;
   if(brand!==contextBrand){audienceView?.destroy();audienceView=null;queuedSavedAudience=null;} // Per-brand journals remain in storage for consultation on return.
-  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';clearCatalog();
+  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];hiddenCampaigns=0;localError='';clearCatalog();
   let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
   checkCampaign=Object.hasOwn(initial,'_campaign');localCampaign=checkCampaign?initial._campaign:undefined;
   initial.brand=GBS.validBrand(brand)?brand:'';fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
@@ -167,7 +167,7 @@ const GCE=(()=>{
   const next=GCA.caps(api),brand=contextBrand;
   if(confirmedCatalog&&(!catalogCurrent(confirmedCatalog.context)||next.endpoint!==remoteCaps?.endpoint||!next.read||!next.brands.includes(brand)))clearCatalog();
   if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);checkLocalCampaign();paintRemote();return;}
-  remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];
+  remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];hiddenCampaigns=0;
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
   for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;
   if(next.endpoint&&next.brands.includes(brand)){
@@ -177,6 +177,8 @@ const GCE=(()=>{
   checkLocalCampaign();paintRemote();
  }
  const audienceNumber=n=>new Intl.NumberFormat('pt-BR').format(n);
+ // Nomes das listas conferidas: catálogo confirmado desta marca quando houver; senão, o ID.
+ const audienceLists=ids=>{const known=confirmedCatalog&&catalogCurrent(confirmedCatalog.context)?confirmedCatalog.value.lists:[];return (Array.isArray(ids)?ids:[]).map(id=>known.find(l=>l.id===id&&l.brand===contextBrand)?.name||'lista '+id).join(', ');};
  function paintAudience(s,c,clean){
   if(audienceTimer!==null){clearTimeout(audienceTimer);audienceTimer=null;}
   const el=q('[data-ce-audience]');el.hidden=false;
@@ -187,7 +189,7 @@ const GCE=(()=>{
   let ready=true,reason='';
   try{CampaignContract.schedule({confirm:'agendar',expected_version:c.version,audience_review_id:a.review_id},{...c,validation:s.validation},{canPublish:remoteCaps.schedule===true});}catch(e){ready=false;reason=e.code==='AUDIENCE_DISABLED'?'Há contatos desativados. Revise o público antes de agendar.':e.message;}
   const count=audienceNumber(a.eligible_count),label=a.eligible_count===1?'pessoa pode receber agora':'pessoas podem receber agora';
-  el.innerHTML=`<strong>${count} ${label}</strong><div class="ce-audience-tags"><span class="ce-tag">Descadastros e bloqueios conferidos</span><span class="ce-tag" title="Contatos repetidos entre as listas selecionadas são contados uma vez.">Sem duplicatas</span></div><div class="ce-audience-validity"><span>Conferido em ${esc(stamp(a.checked_at))}</span><span>Válido até ${esc(stamp(a.expires_at))}</span></div><p>O total pode mudar até o envio; novos descadastros serão respeitados.</p>${reason?`<p class="ce-audience-warning"><strong>${esc(reason)}</strong></p>`:''}<details class="ce-audience-details"><summary>Inscrições e exclusões</summary><p>${audienceNumber(a.excluded_blocklisted_count)} bloqueados · ${audienceNumber(a.excluded_subscription_count)} sem inscrição válida · ${audienceNumber(a.native_disabled_count)} desativados.</p><p>Contatos repetidos entre listas são contados uma vez. Quem saiu de uma lista não entra por ela; a pessoa ainda pode estar inscrita em outra lista selecionada.</p></details>`;
+  el.innerHTML=`<strong>${count} ${label}</strong><p data-ce-audience-lists>Listas conferidas: ${esc(audienceLists(a.list_ids))}</p><div class="ce-audience-tags"><span class="ce-tag">Descadastros e bloqueios conferidos</span><span class="ce-tag" title="Contatos repetidos entre as listas selecionadas são contados uma vez.">Sem duplicatas</span></div><div class="ce-audience-validity"><span>Conferido em ${esc(stamp(a.checked_at))}</span><span>Válido até ${esc(stamp(a.expires_at))}</span></div><p>O total pode mudar até o envio; novos descadastros serão respeitados.</p>${reason?`<p class="ce-audience-warning"><strong>${esc(reason)}</strong></p>`:''}<details class="ce-audience-details"><summary>Inscrições e exclusões</summary><p>${audienceNumber(a.excluded_blocklisted_count)} bloqueados · ${audienceNumber(a.excluded_subscription_count)} sem inscrição válida · ${audienceNumber(a.native_disabled_count)} desativados.</p><p>Contatos repetidos entre listas são contados uma vez. Quem saiu de uma lista não entra por ela; a pessoa ainda pode estar inscrita em outra lista selecionada.</p></details>`;
   const remaining=Date.parse(a.expires_at)-Date.now();
   if(remaining>0){audienceTimer=setTimeout(()=>{audienceTimer=null;if(root?.isConnected)paintRemote();},Math.min(remaining+1,2147483647));audienceTimer?.unref?.();}
   return ready?a:null;
@@ -283,16 +285,18 @@ const GCE=(()=>{
  }
  function renderCampaigns(campaigns){
   remoteCampaigns=campaigns;
-  q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||'<p>Nenhuma campanha salva nesta marca. Use Preparar novo rascunho para começar.</p>'}</div>`;
+  q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||'<p>Nenhuma campanha salva nesta marca. Use Preparar novo rascunho para começar.</p>'}</div>${hiddenCampaigns>0?`<p class="mini" data-ce-campaigns-hidden>${hiddenCampaigns===1?'1 campanha antiga desta marca está fora do contrato atual e não pode ser reaberta aqui':hiddenCampaigns+' campanhas antigas desta marca estão fora do contrato atual e não podem ser reabertas aqui'}. Ela${hiddenCampaigns===1?' continua':'s continuam'} preservada${hiddenCampaigns===1?'':'s'} no serviço de envio.</p>`:''}`;
   q('[data-ce-campaigns]').querySelectorAll('[data-ce-open]').forEach(btn=>btn.addEventListener('click',()=>{
    if(confirmation||remoteBusy)return;const id=Number(btn.dataset.ceOpen),client=remote;
-   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await readCatalog(client);if(!catalog)return;fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true,confirmSavedAudience:true});
+   // Catálogo antes da reabertura: se a leitura falhar, o diário continua na campanha anterior
+   // e o conteúdo local nunca fica vinculado (nem é salvo) sobre a campanha reaberta.
+   const work=confirmed=>runRemote(async()=>{const catalog=await readCatalog(client);if(!catalog)return;const s=await client.reopen(id);fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true,confirmSavedAudience:true});
    if(dirty)confirmAction('Substituir as alterações locais pelo conteúdo salvo desta campanha?','Reabrir campanha',work);else work(null);
   }));
  }
  function bindRemote(){
   bindAccess();
-  q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);renderCampaigns(campaigns);});});
+  q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);hiddenCampaigns=client.listSkipped?.()||0;renderCampaigns(campaigns);});});
   q('[data-ce-new]').addEventListener('click',()=>{
    if(!remote||remote.locked()||remoteBusy||confirmation||audienceFrozen()||localError)return;const client=remote,brand=values().brand;
    const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();return {localOnly:true};},{confirmed});
@@ -316,7 +320,7 @@ const GCE=(()=>{
    const client=remote,s=client?.snapshot(),c=s?.campaign;if(!c||confirmation||remoteBusy||audienceState().legacyBlocked)return;
    if(!requireWriteAccess())return;
    let d,a;try{d=definition(values());a=CampaignContract.audienceReview(s.validation?.audience,c);CampaignContract.schedule({confirm:'agendar',expected_version:c.version,audience_review_id:a.review_id},{...c,validation:s.validation},{canPublish:remoteCaps.schedule===true});}catch(e){message(e.message,true);paintRemote();return;}
-   confirmAction(`Agendar ${contextBrand==='fish'?'Fishermans':contextBrand==='aristo'?'O Aristocrata':contextBrand} · “${c.definition.name}” para ${stamp(c.send_at)}? ${audienceNumber(a.eligible_count)} ${a.eligible_count===1?'pessoa pode':'pessoas podem'} receber agora, sem duplicar contatos entre listas. Conferência válida até ${stamp(a.expires_at)}. O total pode mudar por inscrições e descadastros até o envio.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar',a.review_id),{fillSaved:true,write:true,confirmed}));
+   confirmAction(`Agendar ${contextBrand==='fish'?'Fishermans':contextBrand==='aristo'?'O Aristocrata':contextBrand} · “${c.definition.name}” para ${stamp(c.send_at)}? ${audienceNumber(a.eligible_count)} ${a.eligible_count===1?'pessoa pode':'pessoas podem'} receber agora, sem duplicar contatos entre listas. Listas: ${audienceLists(a.list_ids)}. Conferência válida até ${stamp(a.expires_at)}. O total pode mudar por inscrições e descadastros até o envio.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar',a.review_id),{fillSaved:true,write:true,confirmed}));
   });
  }
  return {contextStatus,preserve,enterBrand,mount,catalogs,definition,fromDefinition,parseAccessFile};

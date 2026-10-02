@@ -20,7 +20,7 @@ const GCA=(()=>{
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(x=>x.toString(16).padStart(2,'0')).join('');
  }
  function createClient({capabilities,brand,storage=localStorage,fetch:fetchFn=fetch,readKey,writeKey,now=()=>Date.now(),uuid=()=>crypto.randomUUID(),keyFingerprint=fingerprint,locks=typeof navigator!=='undefined'?navigator.locks:null}={}){
-  let availability=capabilities,catalog=null,busy=false;
+  let availability=capabilities,catalog=null,busy=false,listSkipped=0;
   // The brand slot survives endpoint changes; a changed endpoint must not hide
   // an unresolved operation and silently start a second creation.
   const endpoint=capabilities?.endpoint,slot=JOURNAL+brand;
@@ -46,8 +46,9 @@ const GCA=(()=>{
    }catch{return {status:0,body:null,ok:false};}
   }
   const responseError=res=>error(res.body?.error||'RESPONSE_UNCONFIRMED',res.status===401?'Chave inválida. Informe a chave correta; a tentativa existente será preservada.':res.status===403?'Esta chave não tem permissão para a ação.':res.body?.message||'Resultado não confirmado. Consulte a operação antes de repetir.');
+  function validRecord(c){return !!c&&Number.isSafeInteger(c.id)&&c.id>0&&typeof c.version==='string'&&!!c.version&&typeof c.status==='string'&&Number.isSafeInteger(c.sent)&&c.sent>=0&&Object.hasOwn(c,'started_at')&&Object.hasOwn(c,'send_at')&&(c.send_at===null||Number.isFinite(Date.parse(c.send_at)))&&c.definition?.brand===brand;}
   function validCampaign(c){
-   if(!c||!Number.isSafeInteger(c.id)||c.id<=0||typeof c.version!=='string'||!c.version||typeof c.status!=='string'||!Number.isSafeInteger(c.sent)||c.sent<0||!Object.hasOwn(c,'started_at')||!Object.hasOwn(c,'send_at')||(c.send_at!==null&&!Number.isFinite(Date.parse(c.send_at)))||c.definition?.brand!==brand)return false;
+   if(!validRecord(c))return false;
    try{CampaignContract.normalize(c.definition);return true;}catch{return false;}
   }
   function uuidValue(v){return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);}
@@ -148,7 +149,9 @@ const GCA=(()=>{
   return {
    snapshot,locked,clean,canWrite,canRecover,recover,updateCapabilities:c=>{availability=c;},
    async catalog(){const c=await read('catalogo');if(c?.brand!==brand||c.current!==true||!Array.isArray(c.lists)||!Array.isArray(c.templates))throw error('CATALOG_UNAVAILABLE','Catálogo da marca não confirmado.');catalog=c;return copy(c);},
-   async list(){const b=await read('listar');if(!Array.isArray(b?.campaigns)||!b.campaigns.every(validCampaign))throw error('CAMPAIGNS_UNCONFIRMED','A lista de campanhas não foi confirmada.');return copy(b.campaigns);},
+   // Formato e marca continuam validando a resposta inteira (outra marca recusa tudo).
+   // Uma campanha antiga fora do contrato atual só fica fora da lista de reabertura.
+   async list(){const b=await read('listar');if(!Array.isArray(b?.campaigns)||!b.campaigns.every(validRecord))throw error('CAMPAIGNS_UNCONFIRMED','A lista de campanhas não foi confirmada.');const open=b.campaigns.filter(validCampaign);listSkipped=b.campaigns.length-open.length;return copy(open);},listSkipped:()=>listSkipped,
    async reopen(id){const work=async()=>{writable();const b=await read('obter',{id});if(!validCampaign(b?.campaign)||b.campaign.id!==id)throw error('CAMPAIGN_UNCONFIRMED','Campanha não confirmada.');const next={...state,campaign:b.campaign,validation:null,recoveryId:null};if(canWrite())persist(next);else state=copy(next);return snapshot();};return canWrite()?exclusive(work):work();},
    async newDraft(){return exclusive(()=>{writable();persist({...state,campaign:null,validation:null,operation:null,recoveryId:null});return snapshot();});},
    async save(input){const d=CampaignContract.normalize(input);if(d.brand!==brand)throw error('BRAND_CONFLICT','Marca do conteúdo difere da solicitação.');CampaignContract.checkCatalog(d,catalog);if(typeof CampaignContract.preflight!=='function')throw error('CONTENT_CHECK_UNAVAILABLE','Atualize o painel para conferir os links antes de salvar.');CampaignContract.preflight(d,{catalog,tracking:typeof CampaignTracking!=='undefined'?CampaignTracking:null});const c=state.campaign;if(c&&(c.status!=='draft'||c.sent!==0||c.started_at))throw error('CAMPAIGN_LOCKED','Reabra um rascunho disponível para edição.');return mutate('salvar',{definition:d,...(c?{id:c.id,expected_version:c.version}:{})});},

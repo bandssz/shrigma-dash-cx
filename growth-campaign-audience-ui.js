@@ -3,9 +3,13 @@
  const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const brandName=b=>b==='fish'?'Fishermans':'O Aristocrata';
+ // Agendamento sempre em Brasília, como no editor; nunca no fuso do navegador.
+ const brasilia=v=>new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(v))+' · Brasília';
+ const brasiliaClock=v=>new Date(v).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'})+' (Brasília)';
  const operatorName={eq:'igual a',gt:'maior que',gte:'maior ou igual a',lt:'menor que',lte:'menor ou igual a',before:'antes de',on_or_before:'até',after:'depois de',on_or_after:'a partir de',purchased:'comprou',not_purchased:'não comprou nos pedidos identificados',is:'é',is_not:'não é',within_last_days:'nos últimos dias',not_within_last_days:'sem registro nos últimos dias'};
  const messages={
   REGULAR_ADMISSION_EMPTY:'Nenhuma pessoa está elegível neste público. Confira as condições e o consentimento.',
+  REGULAR_ADMISSION_SOURCE_UNAVAILABLE:'A fonte deste público não está disponível agora; a quantidade está desconhecida (não é zero). Nada foi agendado. Confira novamente mais tarde.',
   REGULAR_ADMISSION_CHANGED:'O conteúdo, público ou serviço de envio mudou. Confira novamente antes de agendar.',
   REGULAR_ADMISSION_EXPIRED:'A conferência venceu. Confira conteúdo e público novamente.',
   REGULAR_ADMISSION_SCHEDULE_TOO_SOON:'Salve a campanha com pelo menos 15 minutos de antecedência.',
@@ -85,7 +89,7 @@
     ${baseList?`<p data-ca-base>Lista base necessária: <strong>${esc(baseList.name)}</strong>. Selecione somente essa lista no catálogo da campanha e salve.</p>`:''}
     ${inspection?`<p data-ca-inspection>Conferido: <strong>${esc(inspection.audience_name)}</strong>, versão ${inspection.intent.audience_revision}. Esta conferência confirma a configuração; não informa quantidade de destinatários nem libera o envio.</p>`:''}
     <div class="ce-actions"><button type="button" class="ce-secondary" data-ca="inspect" ${!can||!row||!Client.caps(ctx.api).inspect?'disabled':''}>Conferir público escolhido</button><button type="button" class="ce-primary" data-ca="bind" ${!can||!inspected||!client?.canWrite()?'disabled':''}>Usar este público</button>${bound?`<button type="button" class="ce-secondary" data-ca="release" ${!can||!client?.canRelease()?'disabled':''}>Voltar a listas existentes</button>`:''}</div>
-    ${ready?`<p data-ca-regular-review>${regularValid?esc(ready.eligible_count+' pessoas elegíveis. Agendamento preparado para '+new Date(ready.send_at).toLocaleString('pt-BR')+'. Confirme antes de '+new Date(ready.expires_at).toLocaleTimeString('pt-BR')+'.'):'A conferência venceu ou a campanha mudou. Confira conteúdo e público novamente.'}</p>`:''}
+    ${ready?`<p data-ca-regular-review>${regularValid?esc(ready.eligible_count+' pessoas elegíveis. Agendamento preparado para '+brasilia(ready.send_at)+'. Confirme antes de '+brasiliaClock(ready.expires_at)+'.'):'A conferência venceu ou a campanha mudou. Confira conteúdo e público novamente.'}</p>`:''}
     ${reviewText?`<p data-ca-validation role="status">${esc(reviewText)}</p>`:''}
     <p data-ca-status role="status" aria-live="polite" data-error="${!!error}">${esc(error||notice||(busy?'Conferindo…':''))}</p>
     <dialog class="ce-confirm" data-ca-dialog aria-labelledby="ca-confirm-title"><h4 id="ca-confirm-title">Confirmar público</h4><p data-ca-confirm-text></p><div class="ce-actions"><button type="button" class="ce-secondary" data-ca-no autofocus>Voltar</button><button type="button" class="ce-primary" data-ca-yes>Confirmar público</button></div></dialog>`;
@@ -172,7 +176,7 @@
     accepted=await new Promise(resolve=>{
      let done=false;const finish=value=>{if(done)return;done=true;dialog.oncancel=null;dialog.onclose=null;q('[data-ca-yes]').onclick=null;q('[data-ca-no]').onclick=null;try{dialog.close();}catch{dialog.removeAttribute('open');}resolve(value);};
      q('#ca-confirm-title').textContent='Confirmar agendamento';q('[data-ca-yes]').textContent='Agendar campanha';
-     q('[data-ca-confirm-text]').textContent=`Agendar “${ctx.campaign.definition.name}” de ${brandName(ctx.brand)} para ${new Date(review.send_at).toLocaleString('pt-BR')}? ${review.eligible_count} pessoas estão elegíveis no público escolhido. O total pode mudar até o envio; descadastros serão respeitados.`;
+     q('[data-ca-confirm-text]').textContent=`Agendar “${ctx.campaign.definition.name}” de ${brandName(ctx.brand)} para ${brasilia(review.send_at)}? ${review.eligible_count} pessoas estão elegíveis no público escolhido. O total pode mudar até o envio; descadastros serão respeitados.`;
      q('[data-ca-yes]').onclick=()=>finish(true);q('[data-ca-no]').onclick=()=>finish(false);dialog.oncancel=e=>{e.preventDefault();finish(false);};dialog.onclose=()=>finish(false);confirmation.finish=finish;
      try{dialog.showModal();q('[data-ca-no]').focus();}catch{finish(false);error=messages.UI_CONFIRMATION_UNAVAILABLE;}
     });
