@@ -89,6 +89,18 @@ test('selection-only transforms the two complete upstream queries without A/B de
  assert.equal(combined.patched_sha256,'3fd5311813ee746c8059796ef5aa713154430cf06e998e5be7424cb163d62daa');
  assert.doesNotMatch(regular.source,/crm_ab_/);assert.throws(()=>P.patchRegularSource(source+'\n'),/SOURCE_DRIFT/);
  for(const name of regular.changed_queries)assert.match(P.section(regular.source,name).text,/crm_audience_v2\.selection_regular_matches\([^,]+, s\.id\)/);
+	const historicalWorker=P.patchRegularWorkerSource(source),rfmWorker=P.patchRfmWorkerSource(source);
+	assert.equal(historicalWorker.patched_sha256,P.REGULAR_WORKER_SOURCE_SHA256,'the proven 084a worker remains byte-identical');
+	assert.equal(rfmWorker.base_worker_sha256,historicalWorker.patched_sha256);assert.equal(rfmWorker.patched_sha256,P.RFM_WORKER_SOURCE_SHA256);assert.notEqual(rfmWorker.patched_sha256,historicalWorker.patched_sha256);
+	assert.equal(rfmWorker.variant,'regular-worker-rfm-fast-path');assert.equal(rfmWorker.authorizes_send,false);
+	assert.match(P.section(rfmWorker.source,'next-campaigns').text,/rfm_native_count\(ac\.context\)/);
+	assert.match(P.section(rfmWorker.source,'next-campaigns').text,/NOT crm_audience_v2\.rfm_native_context_fast\(context\)/,'A\/B contexts remain on their proven membership-aware matcher');
+	assert.match(P.section(rfmWorker.source,'next-campaign-subscribers').text,/rfm_native_subscriber_ids\(/);
+	assert.doesNotMatch(P.section(rfmWorker.source,'next-campaign-subscribers').text,/LEFT JOIN rfmIDs|CASE WHEN crm_audience_v2\.rfm_native_context_fast/);
+	assert.match(P.section(rfmWorker.source,'next-campaign-subscribers').text,/campLists AS \([\s\S]*fastContext AS MATERIALIZED \([\s\S]*EXISTS \(SELECT 1 FROM campLists\)[\s\S]*CROSS JOIN LATERAL crm_audience_v2\.rfm_native_subscriber_ids/);
+	assert.match(P.section(rfmWorker.source,'next-campaign-subscribers').text,/selectedIDs AS MATERIALIZED[\s\S]*SELECT id FROM rfmIDs[\s\S]*UNION ALL[\s\S]*SELECT id FROM legacyIDs/);
+	assert.match(P.section(rfmWorker.source,'next-campaign-subscribers').text,/legacyIDs AS MATERIALIZED[\s\S]*selection_regular_matches/);
+	assert.equal(P.patchRegularWorkerSource(source).source,historicalWorker.source,'constructing the new candidate never mutates the historical worker');
  const x=await setup();try{
   const abObjects=(await x.db.query("SELECT count(*)::integer AS value FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname LIKE 'crm_ab_%'")).rows[0].value;
   assert.equal(abObjects,0);await x.count();
@@ -96,6 +108,40 @@ test('selection-only transforms the two complete upstream queries without A/B de
   assert.deepEqual(counts,[{id:100,to_send:3},{id:200,to_send:4},{id:300,to_send:3},{id:301,to_send:3}]);
   assert.deepEqual(await x.batch(100),[5,7,8]);assert.deepEqual(await x.batch(200),[1,2,8,9]);
   assert.deepEqual(await x.batch(300),await x.batch(301,{sql:source}),'unbound regular campaign preserves upstream rows and order');
+ }finally{await x.db.close();}
+});
+
+test('RFM worker query uses a disjoint fast branch while synthetic legacy contexts keep non-RFM, mixed, unbound and A/B behavior',options,async()=>{
+ const x=await setup();try{
+  const candidate=P.patchRfmWorkerSource(source);
+  await x.db.exec(`INSERT INTO campaigns SELECT (jsonb_populate_record(NULL::campaigns,to_jsonb(c)||'{"id":302}'::jsonb)).* FROM campaigns c WHERE id=300;
+   INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(302,3,'Legacy Fish');
+   CREATE FUNCTION crm_audience_v2.rfm_rule_valid(rule jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$SELECT rule->>'op'='condition' AND rule->>'field'='relationship.rfm'$$;
+   CREATE FUNCTION crm_audience_v2.rfm_native_context_fast(ctx jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$SELECT ctx->'bound'='true'::jsonb AND crm_audience_v2.rfm_rule_valid(ctx#>'{definition,rule}') AND NOT(ctx ?| ARRAY['ab_test_id','ab_arm','ab_scope_hash'])$$;
+   CREATE FUNCTION crm_audience_v2.rfm_native_count(ctx jsonb) RETURNS TABLE(to_send bigint,max_subscriber_id integer) LANGUAGE sql STABLE AS $$SELECT 2::bigint,7 WHERE crm_audience_v2.rfm_native_context_fast(ctx)$$;
+	   CREATE FUNCTION crm_audience_v2.rfm_native_subscriber_ids(ctx jsonb,campaign_type text,list_ids integer[],after_id integer,max_id integer,batch_limit integer) RETURNS TABLE(id integer) LANGUAGE plpgsql STABLE AS $$BEGIN
+	    IF NOT crm_audience_v2.rfm_native_context_fast(ctx) THEN RETURN;END IF;
+	    IF (SELECT ca.status::text FROM campaigns ca WHERE ca.id=100)<>'running' THEN RAISE EXCEPTION 'SYNTHETIC_FAST_HELPER_CALLED_BEFORE_RUNNING';END IF;
+	    RETURN QUERY SELECT candidate FROM unnest(ARRAY[5,7]) candidate WHERE candidate>after_id AND candidate<=max_id ORDER BY candidate LIMIT batch_limit;
+	   END$$;
+   CREATE OR REPLACE FUNCTION crm_audience_v2.selection_worker_context(cid integer) RETURNS jsonb LANGUAGE sql STABLE AS $$SELECT CASE cid
+    WHEN 100 THEN '{"bound":true,"brand":"fish","base_list_id":17,"definition":{"rule":{"op":"condition","field":"relationship.rfm","operator":"is","value":"campeao"}}}'::jsonb
+    WHEN 200 THEN '{"bound":true,"brand":"aristo","base_list_id":16,"definition":{"rule":{"op":"condition","field":"relationship.rfm","operator":"is","value":"campeao"}},"allowed_ids":[1,8],"ab_test_id":"00000000-0000-4000-8000-000000000099","ab_arm":"a","ab_scope_hash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}'::jsonb
+    WHEN 300 THEN '{"bound":true,"brand":"fish","base_list_id":3,"definition":{"rule":{"op":"in_list","list_id":3}},"allowed_ids":[1,3]}'::jsonb
+    WHEN 302 THEN '{"bound":true,"brand":"fish","base_list_id":3,"definition":{"rule":{"op":"and","rules":[{"op":"in_list","list_id":3},{"op":"condition","field":"relationship.rfm","operator":"is","value":"campeao"}]}},"allowed_ids":[3]}'::jsonb
+    ELSE '{"bound":false}'::jsonb END$$;
+   CREATE OR REPLACE FUNCTION crm_audience_v2.selection_regular_matches(ctx jsonb,sid integer) RETURNS boolean LANGUAGE sql STABLE AS $$SELECT CASE WHEN ctx->'bound'='false'::jsonb THEN true ELSE ctx->'allowed_ids' @> to_jsonb(sid) END$$;`);
+	  const batch=async(id,list)=>(await x.db.query(P.section(candidate.source,'next-campaign-subscribers').text,[id,'regular',0,12,[list],100])).rows.map(r=>r.id);
+	  await x.db.exec("UPDATE campaigns SET status='draft' WHERE id=100");assert.deepEqual(await batch(100,17),[],'bound draft does not invoke the synthetic fast helper');
+	  await x.db.exec("UPDATE campaigns SET status='scheduled',send_at=clock_timestamp()-interval '1 minute' WHERE id=100");assert.deepEqual(await batch(100,17),[],'bound scheduled does not invoke the synthetic fast helper');
+	  await x.db.query(P.section(candidate.source,'next-campaigns').text,[[],[]]);
+  const counts=(await x.db.query('SELECT id,to_send,max_subscriber_id FROM campaigns WHERE id IN(100,200,300,301,302) ORDER BY id')).rows;
+  assert.deepEqual(counts,[{id:100,to_send:2,max_subscriber_id:7},{id:200,to_send:2,max_subscriber_id:8},{id:300,to_send:2,max_subscriber_id:3},{id:301,to_send:3,max_subscriber_id:12},{id:302,to_send:1,max_subscriber_id:3}]);
+  assert.deepEqual(await batch(100,17),[5,7],'exact root RFM uses the fast ID branch');
+  assert.deepEqual(await batch(200,16),[1,8],'synthetic A/B markers keep the legacy matcher branch');
+  assert.deepEqual(await batch(300,3),[1,3],'non-RFM remains legacy');
+  assert.deepEqual(await batch(301,3),[1,3,12],'unbound preserves native list behavior');
+  assert.deepEqual(await batch(302,3),[3],'mixed RFM remains legacy');
  }finally{await x.db.close();}
 });
 

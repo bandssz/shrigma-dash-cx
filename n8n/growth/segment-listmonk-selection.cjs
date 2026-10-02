@@ -4,6 +4,8 @@
 const {createHash}=require('node:crypto');
 const AB=require('./ab-listmonk-cohort-patch.cjs');
 const AB_SOURCE_SHA256='50a7d13f140674e8e252d1a47a70862f083a20fcaf1a8c771803c589bdb1adb9';
+const REGULAR_WORKER_SOURCE_SHA256='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d';
+const RFM_WORKER_SOURCE_SHA256='f8bfbb7fe60c22e0bcc937fb5bbc49414a8cd080265d076d4098606d68000c2f';
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const predicate=(campaign,helper='selection_allowed')=>'crm_audience_v2.'+helper+'('+campaign+', s.id)';
 function patchRegularSource(source){
@@ -84,4 +86,97 @@ function patchRegularWorkerSource(source){
   changed_queries:[...regular.changed_queries,'update-campaign-counts'],
   requires_durable_finish:true,requires_serial_recipient_ack:true};
 }
-module.exports={AB_SOURCE_SHA256,patchRegularSource,patchRegularWorkerSource,patchSource,section:AB.section};
+// Future OFF-only RFM worker composition. The historical 084a worker remains
+// byte-identical above; this adds a separately pinned query candidate that
+// replaces per-subscriber RFM source/config reads only for an exact root leaf.
+// Mixed rules, unbound campaigns, A/B composition and all existing native
+// consent/status predicates retain their prior paths.
+function patchRfmWorkerSource(source){
+ const worker=patchRegularWorkerSource(source);
+ if(worker.patched_sha256!==REGULAR_WORKER_SOURCE_SHA256)throw Error('RFM_NATIVE_WORKER_SOURCE_DRIFT');
+ let next=worker.source;
+ const replace=(name,anchor,replacement)=>{
+  const section=AB.section(next,name);
+  if(section.text.split(anchor).length!==2)throw Error('RFM_NATIVE_WORKER_ANCHOR');
+  next=next.slice(0,section.start)+section.text.replace(anchor,replacement)+next.slice(section.end);
+ };
+ replace('next-campaigns',
+  '    SELECT eligibleCamps.* FROM eligibleCamps JOIN audienceContexts USING (id) WHERE context IS NOT NULL\n),\ncampLists AS (',
+  `    SELECT eligibleCamps.* FROM eligibleCamps JOIN audienceContexts USING (id) WHERE context IS NOT NULL
+),
+genericAudienceContexts AS MATERIALIZED (
+    SELECT * FROM audienceContexts WHERE NOT crm_audience_v2.rfm_native_context_fast(context)
+),
+rfmAudienceContexts AS MATERIALIZED (
+    SELECT * FROM audienceContexts WHERE crm_audience_v2.rfm_native_context_fast(context)
+),
+campLists AS (`);
+ replace('next-campaigns','eligibleCounts AS (','genericCounts AS (');
+ replace('next-campaigns','    JOIN audienceContexts ac ON ac.id = camps.id\n    JOIN campLists',
+  '    JOIN genericAudienceContexts ac ON ac.id = camps.id\n    JOIN campLists');
+ replace('next-campaigns',
+  '        AND crm_audience_v2.selection_regular_matches(ac.context, s.id)\n    GROUP BY camps.id\n),\ncounts AS (',
+  `        AND crm_audience_v2.selection_regular_matches(ac.context, s.id)
+    GROUP BY camps.id
+),
+rfmCounts AS MATERIALIZED (
+    SELECT camps.id AS campaign_id, r.to_send, r.max_subscriber_id
+    FROM camps
+    JOIN rfmAudienceContexts ac ON ac.id = camps.id
+    CROSS JOIN LATERAL crm_audience_v2.rfm_native_count(ac.context) r
+),
+eligibleCounts AS (
+    SELECT * FROM genericCounts
+    UNION ALL
+    SELECT * FROM rfmCounts
+),
+counts AS (`);
+ replace('next-campaign-subscribers',
+  '),\nsubs AS (',
+  `),
+fastContext AS MATERIALIZED (
+    SELECT context FROM audienceContext
+    WHERE crm_audience_v2.rfm_native_context_fast(context)
+      AND EXISTS (SELECT 1 FROM campLists)
+),
+rfmIDs AS MATERIALIZED (
+    SELECT ids.id FROM fastContext
+    CROSS JOIN LATERAL crm_audience_v2.rfm_native_subscriber_ids(
+        fastContext.context,$2::text,$5::integer[],$3::integer,$4::integer,$6::integer) ids
+),
+subs AS (`);
+ {
+  const section=AB.section(next,'next-campaign-subscribers'),start=section.text.indexOf('subs AS ('),end=section.text.indexOf('),\nu AS (',start);
+  if(start<0||end<0||section.text.indexOf('subs AS (',start+1)>=0)throw Error('RFM_NATIVE_SUBSCRIBER_BRANCH_ANCHOR');
+  const replacement=`legacyIDs AS MATERIALIZED (
+    SELECT DISTINCT s.id
+    FROM subscriber_lists sl
+    JOIN campLists ON sl.list_id = campLists.list_id
+    JOIN subscribers s ON s.id = sl.subscriber_id
+    WHERE NOT crm_audience_v2.rfm_native_context_fast((SELECT context FROM audienceContext))
+        AND sl.list_id = ANY($5::INT[])
+        AND s.id > $3 AND s.id <= $4
+        AND s.status != 'blocklisted'
+        AND crm_audience_v2.selection_regular_matches((SELECT context FROM audienceContext), s.id)
+        AND (($2 = 'optin' AND sl.status = 'unconfirmed' AND campLists.optin = 'double')
+          OR ($2 != 'optin' AND ((campLists.optin = 'double' AND sl.status = 'confirmed')
+            OR (campLists.optin != 'double' AND sl.status != 'unsubscribed'))))
+    ORDER BY s.id LIMIT $6
+),
+selectedIDs AS MATERIALIZED (
+    SELECT id FROM rfmIDs
+    UNION ALL
+    SELECT id FROM legacyIDs
+),
+subs AS (
+    SELECT s.*, to_jsonb(s) AS crm_delivery_snapshot
+    FROM selectedIDs selected JOIN subscribers s ON s.id=selected.id ORDER BY s.id
+)`;
+  const changed=section.text.slice(0,start)+replacement+section.text.slice(end+1);
+  next=next.slice(0,section.start)+changed+next.slice(section.end);
+ }
+ const patched=sha(next);if(patched!==RFM_WORKER_SOURCE_SHA256)throw Error('RFM_NATIVE_WORKER_ASSEMBLY_DRIFT');
+ return {...worker,source:next,patched_sha256:patched,variant:'regular-worker-rfm-fast-path',
+  base_worker_sha256:worker.patched_sha256,rfm_fast_path:true,authorizes_selection:false,authorizes_send:false};
+}
+module.exports={AB_SOURCE_SHA256,REGULAR_WORKER_SOURCE_SHA256,RFM_WORKER_SOURCE_SHA256,patchRegularSource,patchRegularWorkerSource,patchRfmWorkerSource,patchSource,section:AB.section};

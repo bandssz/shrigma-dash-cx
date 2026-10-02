@@ -42,6 +42,10 @@ jobs:
             script: tests/segment-shopify-product-history-completeness-v2-real-shape-postgres.cjs
           - proof: isolated-sync
             script: tests/crm-shopify-sync-postgres.cjs
+          - proof: rfm-native-off
+            script: tests/segment-shopify-rfm-native-postgres.cjs
+          - proof: rfm-file-consumer-off
+            script: tests/segment-shopify-rfm-producer-native-postgres.cjs
     services:
       postgres:
         image: postgres:17.10
@@ -106,6 +110,7 @@ jobs:
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
           TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/listmonk
           CRM_AUDIENCE_TEST_ISOLATED: '1'
+          RFM_NATIVE_TEST_ISOLATED: '1'
         run: node "${{ matrix.script }}"
       - name: Remove disposable collector container
         if: always() && matrix.proof == 'isolated-sync'

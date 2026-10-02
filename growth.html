@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=991cc7fe1d14">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L4ODoucD1MPhpsd5+1FkEFzn6tSh38n9oh3cq4KuHPg='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4ed8407a99b1">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1jRy5HXN0+A51hESCh2ZZHhQIMjhwZ31x9dzkySW8+M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6eccb07901bb"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3a329dc8807b"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -589,6 +589,7 @@ function renderSegmentos(){
       const desired=CRM_SEGMENT_NEXT;CRM_SEGMENT_NEXT=null;let accepted=false;
       try{accepted=await CRM_SEGMENT_VIEW.sync({api:desired.api,brand:desired.brand});}catch{}
       const current=contextoSegmentos(),same=mesmoContextoSegmentos(desired,current);
+      if(accepted&&same&&CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:catalogosPublicos()});
       // Never present a previous brand/access/endpoint as the current editor.
       editor.hidden=!accepted||!same;status.hidden=accepted&&same;
       if(!status.hidden)status.textContent=same&&CRM_SEGMENT_VIEW.contextStatus().brand===desired.brand&&CRM_SEGMENT_VIEW.contextStatus().error||'A preparação anterior foi preservada. Conclua ou confira a tentativa original antes de abrir outro contexto de públicos.';
@@ -596,11 +597,23 @@ function renderSegmentos(){
   })().finally(()=>{CRM_SEGMENT_SYNC=null;});
   return CRM_SEGMENT_SYNC;
 }
+function catalogosPublicos(){
+  const catalog=CRM_SEGMENT_VIEW?.sourceCatalog?.();
+  return [...(GCE.catalogs?.()||[]),...(catalog?[catalog]:[])];
+}
 function renderPublicos(){
   if(!API)return;
   renderPublicCreation();
-  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar()});
-  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:GCE.catalogs?.()||[]});
+  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar(),onCreateRfm:async preset=>{
+    const before=contextoSegmentos();
+    if(!preset||!['fish','aristo'].includes(preset.brand)||before.brand!==preset.brand)return false;
+    await renderSegmentos();
+    if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==preset.brand)return false;
+    const result=await CRM_SEGMENT_VIEW?.startPreset({field:'relationship.rfm',value:preset.tag,name:preset.name});
+    if(result==='started')$('#crm-segments-panel').scrollIntoView?.({behavior:'smooth',block:'start'});
+    return result;
+  }});
+  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:catalogosPublicos()});
   $('#n-arv').textContent=audience.total||'';
   $('#arv-rot').textContent='Última contagem por público';
   void renderSegmentos();
