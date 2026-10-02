@@ -45,10 +45,16 @@ async function harness(t){
    assert.equal(action,'segmento_operacao_v2');state.lookupCalls++;
    const key=url.searchParams.get('idempotency_key'),record=records.get(key);
    if(!record||record.hiddenReceipt)return reply(404,{error:'SEGMENT_OPERATION_UNCONFIRMED'});
-   const envelope={schema:'crm-audience-operation-v2',idempotency_key:key,brand:record.payload.brand,action:record.payload.acao,actor_sha256:actorSha256,payload_sha256:AudienceHash.digest(request(record.payload)),receipt:record.response};
+   const envelope={schema:'crm-audience-operation-v2',idempotency_key:key,brand:record.payload.brand,action:record.payload.acao,actor_sha256:actorSha256,payload_sha256:AudienceHash.digest(request(record.payload)),receipt:JSON.parse(JSON.stringify(record.response))};
    if(record.tamper==='action')envelope.action='segmento_salvar';
    if(record.tamper==='payload')envelope.payload_sha256='f'.repeat(64);
    if(record.tamper==='actor')envelope.actor_sha256='e'.repeat(64);
+   if(record.tamper==='id')envelope.receipt.body.segment.id='523e4567-e89b-42d3-a456-426614174000';
+   if(record.tamper==='version')envelope.receipt.body.segment.version=999;
+   if(record.tamper==='definition'){
+    envelope.receipt.body.segment.name='Different audience';
+    envelope.receipt.body.segment.definition={...definition(record.payload.brand),name:'Different audience'};
+   }
    return reply(200,{operation:envelope});
   }
   assert.equal(options.method,'POST');assert.equal(url.search,'');state.postCalls++;
@@ -140,12 +146,21 @@ test('absent or contradictory receipts never clear uncertainty; a durable reject
  assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
  h.records.get(aristoKey).tamper='actor';
  assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
+ h.records.get(aristoKey).tamper='definition';
+ assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
  assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',crypto.randomUUID()),h.manager)).status,409);
  h.records.get(aristoKey).tamper=null;
  assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,201);
+ const saveKey=crypto.randomUUID();h.state.next={tamper:'id'};
+ assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',saveKey,1),h.manager)).status,502);
+ h.records.get(saveKey).tamper='version';
+ assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,h.manager)).status,502);
+ assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',crypto.randomUUID(),1),h.manager)).status,409);
+ h.records.get(saveKey).tamper=null;
+ assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,h.manager)).status,200);
  const rejectionKey=crypto.randomUUID();h.state.next={rejection:true};
  const rejected=await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',rejectionKey),h.manager);
  assert.equal(rejected.status,409);assert.equal(rejected.json.error,'SEGMENT_CATALOG_CHANGED');
  assert.equal((await h.call(h.port,hosts.growth,'/auth/audience-draft?brand=aristo',h.manager)).json.operation.phase,'rejected');
- assert.equal(h.state.postCalls,3,'no write was replayed during receipt recovery');
+ assert.equal(h.state.postCalls,4,'no write was replayed during receipt recovery');
 });

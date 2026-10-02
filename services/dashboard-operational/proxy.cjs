@@ -161,21 +161,31 @@ function verifiedAudienceScope(body,brand){
  if(!exact(body,['scope'])||!exact(scope,['schema','brand','actor_sha256'])||scope.schema!=='crm-audience-writer-scope-v2'||scope.brand!==brand||typeof scope.actor_sha256!=='string'||!/^[a-f0-9]{64}$/.test(scope.actor_sha256))throw new ProxyError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
  return scope.actor_sha256;
 }
-function verifiedAudienceOperation(body,{brand,key,action,payloadMatches,actorMatches}){
+function verifiedAudienceOperation(body,{brand,key,action,requestId,expectedVersion,payloadMatches,actorMatches,definitionMatches}){
  const op=body?.operation,receipt=op?.receipt,inner=receipt?.body;
+ const creating=action==='segmento_criar',saving=action==='segmento_salvar',archiving=action==='segmento_arquivar';
+ const invalidMetadata=creating?requestId!==null||expectedVersion!==null:
+   typeof requestId!=='string'||!UUID.test(requestId)||requestId!==requestId.toLowerCase()||!Number.isSafeInteger(expectedVersion)||expectedVersion<1||expectedVersion>999999999;
+ if(!(creating||saving||archiving)||invalidMetadata)
+   throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
  if(!exact(body,['operation'])||!exact(op,['schema','idempotency_key','brand','action','actor_sha256','payload_sha256','receipt'])||
    op.schema!=='crm-audience-operation-v2'||op.idempotency_key!==key||op.brand!==brand||op.action!==action||
    typeof op.actor_sha256!=='string'||!/^[a-f0-9]{64}$/.test(op.actor_sha256)||!actorMatches(op.actor_sha256)||
    typeof op.payload_sha256!=='string'||!/^[a-f0-9]{64}$/.test(op.payload_sha256)||!payloadMatches(op.payload_sha256)||
    !exact(receipt,['status','body'])||!plain(inner))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
  if(Object.hasOwn(inner,'error')){
-  if(audienceRejections[inner.error]!==receipt.status||!exact(inner,['error',...(inner.error==='SEGMENT_VERSION_CONFLICT'?['current_version']:[])])||inner.error==='SEGMENT_VERSION_CONFLICT'&&(!Number.isSafeInteger(inner.current_version)||inner.current_version<1))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+  if(audienceRejections[inner.error]!==receipt.status||!exact(inner,['error',...(inner.error==='SEGMENT_VERSION_CONFLICT'?['current_version']:[])])||
+    inner.error==='SEGMENT_VERSION_CONFLICT'&&(!Number.isSafeInteger(inner.current_version)||inner.current_version<1||inner.current_version===expectedVersion)||
+    creating&&['SEGMENT_NOT_FOUND','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED'].includes(inner.error)||
+    archiving&&['SEGMENT_SHAPE','SEGMENT_BRAND_MISMATCH','SEGMENT_LIST_UNAVAILABLE'].includes(inner.error))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   return {phase:'rejected',status:receipt.status,body:inner,receiptCode:inner.error,segmentId:null,segmentVersion:null};
  }
  const segment=inner.segment;
  if(!exact(inner,['segment','transport_supported'])||inner.transport_supported!==false||!plain(segment)||!UUID.test(segment.id)||segment.brand!==brand||!Number.isSafeInteger(segment.version)||segment.version<1||segment.version>999999999||typeof segment.archived!=='boolean'||
-   (action==='segmento_criar'?(receipt.status!==201||segment.version!==1||segment.archived):(receipt.status!==200||segment.archived!==(action==='segmento_arquivar')))||
-   !validAudienceDefinition(segment.definition)||segment.definition.brand!==brand||segment.name!==AudienceContract.normalize(segment.definition).name)throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+   (creating?(receipt.status!==201||segment.version!==1||segment.archived):
+    (receipt.status!==200||segment.id!==requestId||segment.version!==expectedVersion+1||segment.archived!==archiving))||
+   !validAudienceDefinition(segment.definition)||segment.definition.brand!==brand||segment.name!==AudienceContract.normalize(segment.definition).name||
+   !archiving&&(typeof definitionMatches!=='function'||!definitionMatches(audiencePayloadHash(AudienceContract.normalize(segment.definition)))))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
  return {phase:'succeeded',status:receipt.status,body:inner,receiptCode:null,segmentId:segment.id,segmentVersion:segment.version};
 }
 const CAMPAIGN_DEFINITION_FIELDS=new Set(['schema_version','brand','channel','initiative','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','html','text','tags','send_at']);

@@ -1,7 +1,9 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto');
 const {PGlite}=require('@electric-sql/pglite');
 const F=require('./segment-audience-store-fixture.cjs'),S=require('../n8n/growth/segment-audience-store.cjs'),API=require('../n8n/growth/segment-audience-api.cjs'),H=require('../n8n/growth/segment-audience-review.cjs');
+const {createAuth}=require('../services/dashboard-operational/auth.cjs'),{createServer}=require('../services/dashboard-operational/server.cjs');
+const {DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
 const {countAudience}=require('../n8n/growth/segment-audience-listmonk.cjs');
 const Shopify=require('../n8n/growth/segment-shopify-facts.cjs');
 const list=brand=>({acao:'segmentos_listar',brand,limit:50,offset:0}),get=(brand,id)=>({acao:'segmento_obter',brand,id});
@@ -59,6 +61,51 @@ test('v2 operation lookup proves stored action and canonical payload hash withou
  const rejected=await f.call({...save,idempotency_key:'v2-reject-key'}),rejectedOp=await f.call({...lookup,idempotency_key:'v2-reject-key'});
  assert.equal(rejected.status,409);assert.equal(rejectedOp.status,200);assert.equal(rejectedOp.body.operation.action,'segmento_salvar');assert.deepEqual(rejectedOp.body.operation.receipt,{status:409,body:rejected.body});
  assert.equal((await rows(f,'request')).length,3);
+});
+
+test('real store, API and isolated BFF reconcile create, save, archive and stale-version rejection',async t=>{
+ const f=await fixture(t),dir=await fs.mkdtemp(path.join(os.tmpdir(),'audience-real-bff-'));
+ const managerHost='manager.synthetic.invalid',areaHosts={growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'};
+ const bootstrap=crypto.randomBytes(32).toString('base64url'),password='Synthetic Owner Password 2026!';
+ const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost,areaHosts,allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'owner@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(bootstrap).digest('hex'),encryptionKey:crypto.randomBytes(32).toString('hex')});
+ const origin='https://'+managerHost,writer='synthetic-manager-key',endpoint=REVIEWED_DYNAMIC.routes.segments;
+ await auth.completeBootstrap({email:'owner@synthetic.invalid',token:bootstrap,password,host:managerHost,origin});
+ const login=()=>auth.login({email:'owner@synthetic.invalid',password,host:managerHost,origin,ip:'192.0.2.40'});
+ let session=await login(),context=()=>({cookieHeader:session.cookie.split(';')[0],host:managerHost,origin,method:'POST',csrf:session.csrf});
+ auth.setGrants({context:context(),userId:session.user.id,permissions:{growth:{read:true,edit:true},organico:{read:true,edit:false},influs:{read:true,edit:false}}});
+ session=await login();
+ auth.setUpstreamCredential({context:context(),userId:session.user.id,slot:'growth-audience',bearer:writer});
+ let upstreamPosts=0;
+ const fetchImpl=async(url,options)=>{
+  assert.equal(url.origin,new URL(endpoint).origin);assert.equal(url.pathname,new URL(endpoint).pathname);
+  assert.equal(options.headers.Authorization,'Bearer '+writer);
+  const request=options.method==='POST'?JSON.parse(options.body):Object.fromEntries(url.searchParams);
+  if(options.method==='POST')upstreamPosts++;
+  const result=await f.api.handle({method:options.method,request:{headers:{Authorization:options.headers.Authorization},[options.method==='POST'?'body':'query']:request}});
+  return new Response(JSON.stringify(result.body),{status:result.status,headers:{'Content-Type':'application/json'}});
+ };
+ const server=createServer({mode:'operational',crmAudienceDraft:true,managerHost,areaHosts,upstreams:{segments:new URL(endpoint)},allowedUpstreamHosts:[new URL(endpoint).hostname],dynamicRouteManifest:{schema:DYNAMIC_MANIFEST_SCHEMA,sourceRevision:REVIEWED_DYNAMIC.sourceRevision,routes:{segments:endpoint}},publicDir:dir},{auth,fetchImpl});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));auth.close();await fs.rm(dir,{recursive:true,force:true});});
+ const call=(pathname,{method='GET',body}={})=>new Promise((resolve,reject)=>{
+  const headers={Host:managerHost,Origin:origin,Cookie:session.cookie.split(';')[0],'X-CSRF-Token':session.csrf};
+  if(body!==undefined)headers['Content-Type']='application/json';
+  const req=http.request({host:'127.0.0.1',port:server.address().port,path:pathname,method,headers},res=>{
+   const chunks=[];res.on('data',part=>chunks.push(part));res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))}));
+  });req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));
+ });
+ const post=body=>call('/api/segments',{method:'POST',body});
+ const create=f.create('fish',crypto.randomUUID()),created=await post(create);
+ assert.equal(created.status,201);assert.equal(created.body.segment.version,1);
+ const id=created.body.segment.id,save={acao:'segmento_salvar',brand:'fish',id,expected_version:1,definition:{...create.definition,name:'Updated audience'},expected_catalog_hash:f.catalogHashes.fish,idempotency_key:crypto.randomUUID()};
+ const saved=await post(save);assert.equal(saved.status,200);assert.equal(saved.body.segment.version,2);
+ const archive={acao:'segmento_arquivar',brand:'fish',id,expected_version:2,idempotency_key:crypto.randomUUID()};
+ const archived=await post(archive);assert.equal(archived.status,200);assert.equal(archived.body.segment.version,3);assert.equal(archived.body.segment.archived,true);
+ const staleKey=crypto.randomUUID(),stale=await post({...save,expected_version:1,idempotency_key:staleKey});
+ assert.equal(stale.status,409);assert.deepEqual(stale.body,{error:'SEGMENT_VERSION_CONFLICT',current_version:3});
+ const receipt=await call(`/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=${staleKey}`);
+ assert.equal(receipt.status,409);assert.deepEqual(receipt.body,stale.body);
+ assert.equal(upstreamPosts,4);assert.equal((await rows(f,'audience')).length,1);assert.equal((await rows(f,'revision')).length,3);assert.equal((await rows(f,'request')).length,4);
 });
 
 test('conflicts, archived rows, disabled catalog and invalid definitions have durable rejection receipts',async t=>{

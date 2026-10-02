@@ -14,6 +14,9 @@ const password='synthetic-audience-owner-password';
 const managerPassword='synthetic-audience-manager-password';
 const payloadHash='a'.repeat(64);
 const actorHash='b'.repeat(64);
+const definitionHash='c'.repeat(64);
+const requestId='123e4567-e89b-42d3-a456-426614174000';
+const metadata=action=>action==='segmento_criar'?{definitionSha256:definitionHash}:action==='segmento_salvar'?{id:requestId,expectedVersion:1,definitionSha256:definitionHash}:{id:requestId,expectedVersion:1};
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const origin=host=>'https://'+host;
 const cookieHeader=value=>value.split(';')[0];
@@ -45,18 +48,19 @@ test('audience journal survives lost ACK, restart and relogin; only a matching t
   assert.equal(f.auth.audienceDraft({...ctx,method:'GET'},'fish'),null);
   assert.throws(()=>f.auth.audienceDraft({...ctx,method:'GET',csrf:undefined},'fish'),error('CSRF_DENIED',403));
   assert.throws(()=>f.auth.audienceDraft({...ctx,method:'GET',origin:'https://other.test'},'fish'),error('ORIGIN_DENIED',403));
-  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,method:'GET'},'fish',key,'segmento_criar',payloadHash,actorHash),error('METHOD_DENIED',405));
-  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,csrf:'invalid'},'fish',key,'segmento_criar',payloadHash,actorHash),error('CSRF_DENIED',403));
-  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,origin:'https://other.test'},'fish',key,'segmento_criar',payloadHash,actorHash),error('ORIGIN_DENIED',403));
-  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish','customer@example.test','segmento_criar',payloadHash,actorHash),error('OPERATION_KEY_INVALID',400));
-  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_contar',payloadHash,actorHash),error('OPERATION_INVALID',400));
-  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_criar','invalid',actorHash),error('OPERATION_HASH_INVALID',400));
-  assert.equal(f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_criar',payloadHash,actorHash),userId);
+  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,method:'GET'},'fish',key,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),error('METHOD_DENIED',405));
+  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,csrf:'invalid'},'fish',key,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),error('CSRF_DENIED',403));
+  assert.throws(()=>f.auth.reserveAudienceDraft({...ctx,origin:'https://other.test'},'fish',key,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),error('ORIGIN_DENIED',403));
+  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish','customer@example.test','segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),error('OPERATION_KEY_INVALID',400));
+  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_contar',payloadHash,actorHash,metadata('segmento_criar')),error('OPERATION_INVALID',400));
+  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_criar','invalid',actorHash,metadata('segmento_criar')),error('OPERATION_HASH_INVALID',400));
+  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_salvar',payloadHash,actorHash,{id:requestId,expectedVersion:1}),error('OPERATION_METADATA_INVALID',400));
+  assert.equal(f.auth.reserveAudienceDraft(ctx,'fish',key,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),userId);
   assert.equal(f.auth.audiencePayloadMatches(f.auth.audienceDraft({...ctx,method:'GET'},'fish').payloadMac,payloadHash),true);
   assert.equal(f.auth.audiencePayloadMatches(f.auth.audienceDraft({...ctx,method:'GET'},'fish').payloadMac,'b'.repeat(64)),false);
   assert.equal(f.auth.audienceActorMatches(f.auth.audienceDraft({...ctx,method:'GET'},'fish').actorMac,actorHash),true);
   assert.equal(f.auth.audienceDraft({...ctx,method:'GET'},'fish').phase,'pending');
-  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',nextKey,'segmento_salvar',payloadHash,actorHash),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
+  assert.throws(()=>f.auth.reserveAudienceDraft(ctx,'fish',nextKey,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar')),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
   // The upstream may have committed even though its acknowledgement was lost.
   assert.equal(f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','uncertain'),true);
   f.restart();
@@ -64,7 +68,7 @@ test('audience journal survives lost ACK, restart and relogin; only a matching t
   assert.notEqual(again.result.uiKey,writer.result.uiKey);
   const saved=f.auth.audienceDraft({...again.context,method:'GET'},'fish');
   assert.equal(saved.operationKey,key);assert.equal(saved.phase,'uncertain');assert.equal(saved.receiptStatus,null);
-  assert.throws(()=>f.auth.reserveAudienceDraft(again.context,'fish',nextKey,'segmento_salvar',payloadHash,actorHash),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
+  assert.throws(()=>f.auth.reserveAudienceDraft(again.context,'fish',nextKey,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar')),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
   assert.throws(()=>f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','rejected',{receiptStatus:404,receiptCode:'SEGMENT_OPERATION_UNCONFIRMED'}),error('OPERATION_INVALID',500));
   assert.equal(f.auth.audienceDraft({...again.context,method:'GET'},'fish').phase,'uncertain');
   assert.throws(()=>f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_salvar','succeeded',{receiptStatus:200,segmentId,segmentVersion:1}),error('OPERATION_CHANGED',409));
@@ -72,7 +76,7 @@ test('audience journal survives lost ACK, restart and relogin; only a matching t
   assert.equal(f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','uncertain'),false);
   assert.equal(f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','succeeded',{receiptStatus:201,segmentId,segmentVersion:1}),false);
   assert.throws(()=>f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','succeeded',{receiptStatus:201,segmentId:crypto.randomUUID(),segmentVersion:1}),error('OPERATION_CHANGED',409));
-  assert.equal(f.auth.reserveAudienceDraft(again.context,'fish',nextKey,'segmento_salvar',payloadHash,actorHash),userId);
+  assert.equal(f.auth.reserveAudienceDraft(again.context,'fish',nextKey,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar')),userId);
   assert.throws(()=>f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','succeeded',{receiptStatus:201,segmentId,segmentVersion:1}),error('OPERATION_CHANGED',409));
   assert.equal(f.auth.audienceDraft({...again.context,method:'GET'},'fish').operationKey,nextKey);
   assert.equal(f.auth.audienceDraft({...again.context,method:'GET'},'fish').phase,'pending');
@@ -85,7 +89,7 @@ test('an uncertain audience write blocks write-key rotation and re-grant but per
   await f.auth.acceptInvite({token:invite.token,password:managerPassword,host:hosts.growth,origin:origin(hosts.growth)});
   const editor=await login(f.auth,'editor@shrigma.test',managerPassword,hosts.growth),key=crypto.randomUUID();
   f.auth.setUpstreamCredential({context:owner.context,userId:invite.userId,slot:'growth-audience',bearer:'synthetic-individual-audience-key-1'});
-  assert.equal(f.auth.reserveAudienceDraft(editor.context,'aristo',key,'segmento_arquivar',payloadHash,actorHash),invite.userId);
+  assert.equal(f.auth.reserveAudienceDraft(editor.context,'aristo',key,'segmento_arquivar',payloadHash,actorHash,metadata('segmento_arquivar')),invite.userId);
   f.auth.audienceDraftOutcome(invite.userId,'aristo',key,'segmento_arquivar','uncertain');
   assert.throws(()=>f.auth.setUpstreamCredential({context:owner.context,userId:invite.userId,slot:'growth-audience',bearer:'synthetic-individual-audience-key-2'}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
   assert.throws(()=>f.auth.setGrants({context:owner.context,userId:invite.userId,permissions:{growth:{read:true,edit:true}}}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
@@ -112,20 +116,48 @@ test('journal stores only generated identifiers and receipt metadata; brands rem
   const first=await admin(f);
   f.auth.setGrants({context:first.context,userId:first.result.user.id,permissions:{growth:{read:true,edit:true},organico:{read:true,edit:false},influs:{read:true,edit:false}}});
   const writer=await login(f.auth,'owner@shrigma.test',password,hosts.manager),keyFish=crypto.randomUUID(),keyAristo=crypto.randomUUID();
-  f.auth.reserveAudienceDraft(writer.context,'fish',keyFish,'segmento_criar',payloadHash,actorHash);
-  f.auth.reserveAudienceDraft(writer.context,'aristo',keyAristo,'segmento_salvar',payloadHash,actorHash);
+  f.auth.reserveAudienceDraft(writer.context,'fish',keyFish,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar'));
+  f.auth.reserveAudienceDraft(writer.context,'aristo',keyAristo,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar'));
   assert.throws(()=>f.auth.audienceDraftOutcome(writer.result.user.id,'fish',keyFish,'segmento_criar','succeeded',{receiptStatus:201,segmentId:'person@example.test',segmentVersion:1}),error('OPERATION_INVALID',500));
   assert.equal(f.auth.audienceDraftOutcome(writer.result.user.id,'fish',keyFish,'segmento_criar','rejected',{receiptStatus:422,receiptCode:'SEGMENT_SHAPE'}),true);
   assert.equal(f.auth.audienceDraft({...writer.context,method:'GET'},'aristo').phase,'pending');
   const db=new DatabaseSync(f.dbPath);try{
    const columns=db.prepare('PRAGMA table_info(audience_draft_operations)').all().map(x=>x.name);
-   assert.deepEqual(columns,['user_id','brand','operation_key','payload_mac','actor_mac','action','phase','receipt_status','receipt_code','segment_id','segment_version','updated_at']);
+   assert.deepEqual(columns,['user_id','brand','operation_key','payload_mac','actor_mac','definition_mac','request_id','expected_version','action','phase','receipt_status','receipt_code','segment_id','segment_version','updated_at']);
    const rows=db.prepare('SELECT * FROM audience_draft_operations ORDER BY brand').all();
    assert.equal(rows.length,2);assert.equal(JSON.stringify(rows).includes('@'),false);
    assert.equal(JSON.stringify(rows).includes(payloadHash),false);
    assert.equal(JSON.stringify(rows).includes(actorHash),false);
-   assert.equal(JSON.stringify(rows).includes('definition'),false);
+   assert.equal(JSON.stringify(rows).includes(definitionHash),false);
+   assert.equal(JSON.stringify(rows).includes('Synthetic audience'),false);
+   assert.equal(JSON.stringify(rows).includes('in_list'),false);
    assert.equal(JSON.stringify(rows).includes('synthetic-individual-audience-key'),false);
   }finally{db.close();}
+ }finally{f.close();}
+});
+
+test('a pending v1 row stays locked when v2 receipt metadata is added to an existing volume',async()=>{
+ const f=fixture();try{
+  const first=await admin(f);
+  f.auth.setGrants({context:first.context,userId:first.result.user.id,permissions:{growth:{read:true,edit:true},organico:{read:true,edit:false},influs:{read:true,edit:false}}});
+  const writer=await login(f.auth,'owner@shrigma.test',password,hosts.manager),key=crypto.randomUUID(),uncertainKey=crypto.randomUUID(),next=crypto.randomUUID();
+  f.auth.reserveAudienceDraft(writer.context,'fish',key,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar'));
+  f.auth.reserveAudienceDraft(writer.context,'aristo',uncertainKey,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar'));
+  f.auth.audienceDraftOutcome(writer.result.user.id,'aristo',uncertainKey,'segmento_salvar','uncertain');
+  const db=new DatabaseSync(f.dbPath);try{
+   for(const name of ['payload_mac','actor_mac','definition_mac','request_id','expected_version'])db.exec(`ALTER TABLE audience_draft_operations DROP COLUMN ${name}`);
+   assert.equal(db.prepare('SELECT phase FROM audience_draft_operations WHERE operation_key=?').get(key).phase,'pending');
+   assert.equal(db.prepare('SELECT phase FROM audience_draft_operations WHERE operation_key=?').get(uncertainKey).phase,'uncertain');
+  }finally{db.close();}
+  f.restart();
+  const again=await login(f.auth,'owner@shrigma.test',password,hosts.manager),row=f.auth.audienceDraft({...again.context,method:'GET'},'fish');
+  assert.equal(row.operationKey,key);assert.equal(row.phase,'pending');
+  for(const field of ['payloadMac','actorMac','definitionMac','requestId','expectedVersion'])assert.equal(row[field],null);
+  assert.throws(()=>f.auth.reserveAudienceDraft(again.context,'fish',next,'segmento_criar',payloadHash,actorHash,metadata('segmento_criar')),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
+  assert.throws(()=>f.auth.audienceDraftOutcome(again.result.user.id,'fish',key,'segmento_criar','succeeded',{receiptStatus:201,segmentId:requestId,segmentVersion:1}),error('OPERATION_CHANGED',409));
+  assert.equal(f.auth.audienceDraft({...again.context,method:'GET'},'fish').phase,'pending');
+  const uncertain=f.auth.audienceDraft({...again.context,method:'GET'},'aristo');
+  assert.equal(uncertain.phase,'uncertain');assert.equal(uncertain.operationKey,uncertainKey);
+  assert.throws(()=>f.auth.reserveAudienceDraft(again.context,'aristo',next,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar')),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
  }finally{f.close();}
 });

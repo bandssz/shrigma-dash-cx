@@ -95,8 +95,20 @@ test('audience BFF request hash matches backend canonical payload for every draf
  assert.equal(verifiedAudienceScope({scope:{schema:'crm-audience-writer-scope-v2',brand:'fish',actor_sha256:actor}},'fish'),actor);
  const segment={id:U,brand:'fish',name:'Synthetic audience',definition:segmentDefinition('fish'),version:1,archived:false};
  const receipt={operation:{schema:'crm-audience-operation-v2',idempotency_key:U,brand:'fish',action:'segmento_criar',actor_sha256:actor,payload_sha256:hash,receipt:{status:201,body:{segment,transport_supported:false}}}};
- assert.equal(verifiedAudienceOperation(receipt,{brand:'fish',key:U,action:'segmento_criar',payloadMatches:x=>x===hash,actorMatches:x=>x===actor}).phase,'succeeded');
- assert.throws(()=>verifiedAudienceOperation({operation:{...receipt.operation,action:'segmento_salvar'}},{brand:'fish',key:U,action:'segmento_criar',payloadMatches:()=>true,actorMatches:()=>true}),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
+ const match={brand:'fish',key:U,action:'segmento_criar',requestId:null,expectedVersion:null,payloadMatches:x=>x===hash,actorMatches:x=>x===actor,definitionMatches:x=>x===audiencePayloadHash(segmentDefinition('fish'))};
+ assert.equal(verifiedAudienceOperation(receipt,match).phase,'succeeded');
+ assert.throws(()=>verifiedAudienceOperation({operation:{...receipt.operation,action:'segmento_salvar'}},match),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
+ assert.throws(()=>verifiedAudienceOperation({operation:{...receipt.operation,receipt:{...receipt.operation.receipt,body:{segment:{...segment,name:'Changed',definition:{...segment.definition,name:'Changed'}},transport_supported:false}}}},match),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
+ const saveHash=audiencePayloadHash(operations[1]);
+ const saveReceipt={operation:{...receipt.operation,action:'segmento_salvar',payload_sha256:saveHash,receipt:{status:200,body:{segment:{...segment,version:2},transport_supported:false}}}};
+ const saveMatch={...match,action:'segmento_salvar',requestId:U,expectedVersion:1,payloadMatches:x=>x===saveHash};
+ assert.equal(verifiedAudienceOperation(saveReceipt,saveMatch).phase,'succeeded');
+ for(const divergent of [{...segment,id:'223e4567-e89b-42d3-a456-426614174000',version:2},{...segment,version:999},{...segment,name:'Changed',definition:{...segment.definition,name:'Changed'},version:2}])
+  assert.throws(()=>verifiedAudienceOperation({operation:{...saveReceipt.operation,receipt:{status:200,body:{segment:divergent,transport_supported:false}}}},saveMatch),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
+ const conflict=current_version=>({operation:{...saveReceipt.operation,receipt:{status:409,body:{error:'SEGMENT_VERSION_CONFLICT',current_version}}}});
+ assert.throws(()=>verifiedAudienceOperation(conflict(1),saveMatch),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
+ assert.equal(verifiedAudienceOperation(conflict(2),saveMatch).phase,'rejected');
+ assert.throws(()=>verifiedAudienceOperation({operation:{...receipt.operation,receipt:{status:404,body:{error:'SEGMENT_NOT_FOUND'}}}},match),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
 });
 
 test('unknown, writable, malformed and widened read requests fail before network',()=>{

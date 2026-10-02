@@ -2,6 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {createAuth,AuthError,CREDENTIAL_SLOTS}=require('./auth.cjs');
 const {decide,validateUpstreams,readJson,forward,ProxyError,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation}=require('./proxy.cjs');
+const AudienceContract=require('./segment-audience-contract.js');
 const {fixture}=require('./fixtures.cjs');
 const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',influs:'/influs.html'});
 const AREA_ENTRY=Object.freeze({growth:'/crm/index.html',organico:'/organico/index.html',influs:'/creators/index.html'});
@@ -231,7 +232,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               const scope=await forward({route:'segments',method:'GET',query:scopeQuery,user,credential,upstreams,origin,crmAudienceDraft:true,fetchImpl});
               if(scope.status!==200)throw jsonError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
               const actorSha256=verifiedAudienceScope(scope.body,brand),payloadSha256=audiencePayloadHash(body);
-              auth.reserveAudienceDraft(ctx,brand,key,d.action,payloadSha256,actorSha256);
+              auth.reserveAudienceDraft(ctx,brand,key,d.action,payloadSha256,actorSha256,{
+                id:d.action==='segmento_criar'?null:body.id,
+                expectedVersion:d.action==='segmento_criar'?null:body.expected_version,
+                definitionSha256:d.action==='segmento_arquivar'?null:audiencePayloadHash(AudienceContract.normalize(body.definition))
+              });
               journal=auth.audienceDraft(ctx,brand);
               try{await forward({route,method:'POST',query:url.searchParams,body,user,credential,upstreams,origin,crmAudienceDraft:true,fetchImpl});}
               catch(error){auth.audienceDraftOutcome(principal,brand,key,d.action,'uncertain');throw error;}
@@ -248,7 +253,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               return sendJson(req,res,lookup.status,lookup.body);
             }
             let verified;
-            try{verified=verifiedAudienceOperation(lookup.body,{brand,key,action:journal.action,payloadMatches:hash=>auth.audiencePayloadMatches(journal.payloadMac,hash),actorMatches:hash=>auth.audienceActorMatches(journal.actorMac,hash)});}
+            try{verified=verifiedAudienceOperation(lookup.body,{brand,key,action:journal.action,requestId:journal.requestId,expectedVersion:journal.expectedVersion,payloadMatches:hash=>auth.audiencePayloadMatches(journal.payloadMac,hash),actorMatches:hash=>auth.audienceActorMatches(journal.actorMac,hash),definitionMatches:hash=>auth.audienceDefinitionMatches(journal.definitionMac,hash)});}
             catch(error){if(writing)auth.audienceDraftOutcome(principal,brand,key,d.action,'uncertain');throw error;}
             auth.audienceDraftOutcome(principal,brand,key,journal.action,verified.phase,{receiptStatus:verified.status,receiptCode:verified.receiptCode,segmentId:verified.segmentId,segmentVersion:verified.segmentVersion});
             return sendJson(req,res,verified.status,verified.body);
