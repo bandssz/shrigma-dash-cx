@@ -6,7 +6,7 @@ O pacote de publicação parte de main `f7f1739` e preserva as PR206/207/208. A 
 
 - Login Gerência conserva a autorização CRM; a chave permanece somente na aba.
 - Públicos personalizados permitem escolher Fishermans/O Aristocrata, combinar as condições disponíveis, contar, salvar e selecionar na campanha da mesma marca.
-- Uma preparação antiga sem contexto pode ser guardada separadamente, após confirmação, para iniciar um público novo. Não apagar o armazenamento do navegador para recuperar o editor.
+- Uma preparação antiga sem contexto pode ser guardada separadamente na ação “Guardar e começar”, em um diálogo centralizado, para iniciar um público novo. Não apagar o armazenamento do navegador para recuperar o editor.
 - Campanhas têm navegação e estados visuais de envio, agendamento e histórico; o monitor e as imagens públicas existentes permanecem preservados.
 - A coleta Shopify existente é noturna. Dados ausentes ou expirados não significam “nunca comprou”.
 
@@ -55,3 +55,11 @@ Topologia ativa, campanhas específicas, acessos e recibos operacionais estão n
 Públicos por perfil realmente atualizados da Shopify; ponte e taxa de conversão por destinatário; execução natural dos novos fluxos; aceite A/B; cobertura/aceite Olivas e origens VIP/popup; diagnóstico histórico n8n; primeiro uso do analista. Não declarar conclusão pelo push ou pela presença de arquivos no servidor.
 
 Os checkpoints completos e recibos permanecem no projeto local em `deliverables/crm/RETOMADA-CURTA-CRM-2026-09-28.md` e nos índices privados de runtime. Esses diretórios e credenciais não fazem parte deste pacote Git.
+
+## Segmentação simples e dinâmica
+
+O editor oferece condições visuais de listas, compras, produto e interação com e-mails conforme o catálogo da marca. Os atalhos adicionam condições vazias, sem substituir o rascunho ou inventar valores. Fonte, data da coleta e validade devem ficar próximas ao editor; recarregar um catálogo não inicia uma coleta Shopify.
+
+As regras salvas atuais pertencem ao CRM/Listmonk e são reavaliadas sobre os fatos disponíveis da Shopify. Não há criação de objetos nativos Customer Segments da Shopify neste pacote, nem atualização em tempo real. A migração deve conservar a definição e reavaliar quem pertence à fatia quando as fontes forem atualizadas; uma lista exportada apenas uma vez não atende esse requisito.
+
+Se for acrescentada a ponte nativa Shopify, conferir a identidade OAuth e `read_customers`/`write_customers`, validar cada tradução de condição, armazenar loja/ID/revisão/query e reconciliar membros/opt-out antes de seleção. Origem, interação com campanhas, inscrição e RFM não podem ser traduzidos para filtros com significado diferente. Resultados assíncronos de membros exigem executar novamente a consulta para atualizá-los; ver [segmentos de clientes](https://shopify.dev/docs/apps/build/marketing/customer-segments/manage) e [consultas assíncronas](https://shopify.dev/docs/apps/build/marketing/customer-segments/migrate-to-async-queries).

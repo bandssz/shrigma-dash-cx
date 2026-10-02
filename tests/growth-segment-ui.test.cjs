@@ -5,7 +5,7 @@ function boot(f=fixture(),options={}){
  const {document,window}=parseHTML('<html><body><section id="segments"></section></body></html>');
  const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  const dialogProto=Object.getPrototypeOf(document.createElement('dialog'));dialogProto.showModal=function(){this.setAttribute('open','');};dialogProto.close=function(){this.removeAttribute('open');this.onclose?.();};
- window.HTMLElement.prototype.focus=function(){};let key=options.key||'synthetic-actor-one';const element=document.querySelector('#segments'),ui=UI.create({element,document,key:()=>key,storage:options.storage||f.storage,fetch:options.fetch||f.fetch,locks:options.locks===undefined?f.locks:options.locks,...(options.identity?{identity:options.identity}:{})});
+ window.HTMLElement.prototype.focus=function(){document._focused=this;};let key=options.key||'synthetic-actor-one';const element=document.querySelector('#segments'),ui=UI.create({element,document,key:()=>key,storage:options.storage||f.storage,fetch:options.fetch||f.fetch,locks:options.locks===undefined?f.locks:options.locks,...(options.identity?{identity:options.identity}:{})});
  const q=s=>element.querySelector(s),input=(selector,value,event='change')=>{q(selector).value=value;q(selector).dispatchEvent(new window.Event(event,{bubbles:true}));};
  return {f,ui,element,q,input,document,window,setKey:v=>{key=v;}};
 }
@@ -25,12 +25,12 @@ test('both brands use named lists and nested E/OU, save reusable identity and ke
  }
 });
 test('archive and replacing dirty content require explicit confirmation; cancel does nothing',async()=>{
- const x=boot();await x.ui.sync({api,brand:'fish'});fill(x,'fish');await click(x,'save');const before=x.f.calls.length;x.q('[data-gs="archive"]').click();assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),true);assert.match(x.q('[data-gs-confirm-text]').textContent,/Fishermans.*versão 1/);x.q('[data-gs="back"]').click();assert.equal(x.f.calls.length,before);
+ const x=boot();await x.ui.sync({api,brand:'fish'});fill(x,'fish');await click(x,'save');const before=x.f.calls.length;x.q('[data-gs="archive"]').click();assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),true);assert.equal(x.q('#gs-dialog-title').textContent,'Confirmar ação');assert.equal(x.q('[data-gs="back"]').textContent,'Voltar sem alterar');assert.equal(x.q('[data-gs="accept"]').textContent,'Confirmar');assert.strictEqual(x.document._focused,x.q('[data-gs="back"]'));assert.match(x.q('[data-gs-confirm-text]').textContent,/Fishermans.*versão 1/);x.q('[data-gs="back"]').click();assert.equal(x.f.calls.length,before);
  x.q('[data-gs="archive"]').click();x.q('[data-gs="accept"]').click();await settled(x);assert.equal([...x.f.rows.values()][0].archived,true);assert.equal(x.q('[data-gs-fields]').hasAttribute('disabled'),true);
  await click(x,'new');fill(x,'fish');x.q('[data-gs="new"]').click();assert.match(x.q('[data-gs-confirm-text]').textContent,/alterações locais/);x.q('[data-gs="back"]').click();assert.equal(x.q('[data-gs-name]').value,'Público de fish');
 });
 test('uncertain save freezes edits and reload consults only the original operation',async()=>{
- const x=boot();await x.ui.sync({api,brand:'fish'});fill(x,'fish');x.f.control.lose=true;await click(x,'save');assert.equal(x.ui.contextStatus().pending,true);assert.equal(x.q('[data-gs-fields]').hasAttribute('disabled'),true);assert.ok(x.q('[data-gs="consult"]'));
+ const x=boot();await x.ui.sync({api,brand:'fish'});fill(x,'fish');x.f.control.lose=true;await click(x,'save');assert.equal(x.ui.contextStatus().pending,true);assert.equal(x.q('[data-gs-fields]').hasAttribute('disabled'),true);assert.ok(x.q('[data-gs="consult"]'));assert.ok([...x.element.querySelectorAll('[data-gs="quick"]')].every(b=>b.disabled));
  const restored=boot(x.f);await restored.ui.sync({api,brand:'fish'});assert.equal(restored.ui.contextStatus().pending,true);x.f.control.lose=false;await click(restored,'consult');assert.equal(restored.ui.contextStatus().pending,false);assert.equal(restored.q('[data-gs-name]').value,'Público de fish');assert.equal(x.f.calls.filter(c=>c.body.acao==='segmento_criar').length,1);
 });
 test('brand switch preserves separate local drafts; repeated same-context sync retains catalog without extra reads',async()=>{
@@ -50,6 +50,18 @@ test('v2 typed filters cover purchases, dates, money, product, confirmed origin 
   x.input('[data-gs-value]',value);x.q('[data-gs="remove"][data-path="0"]').click();assert.equal(x.q('[data-gs="save"]').disabled,false,field);await click(x,'save');const d=[...x.f.rows.values()][0].definition;assert.equal(d.schema_version,Audience.VERSION);assert.equal(d.rule.field,field);assert.equal(d.rule.value,expected);assert.equal(d.rule.op,'condition');assert.match(x.element.textContent,/não autoriza envio/);
  }
 });
+test('visual shortcuts come only from current available fields and add no invented values',async()=>{
+ const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION});f.control.catalogPatch={shopify_snapshot:{current:true,started_at:'2026-10-01T03:30:00.000Z',observed_at:'2026-10-01T03:45:00.000Z',expires_at:'2026-10-02T05:30:00.000Z'}};const x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});
+ const buttons=[...x.element.querySelectorAll('[data-gs="quick"]')];assert.deepEqual(buttons.map(b=>b.dataset.id),['purchase.count','purchase.last_date','purchase.amount','purchase.product','email.opened','email.clicked']);assert.deepEqual(buttons.map(b=>b.textContent),['Pedidos','Última compra','Valor gasto','Produto','Abriu e-mail','Clicou no e-mail']);
+ assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/Dados importados da Shopify.*Coleta entre.*Válida até.*não inicia uma sincronização da loja/i);assert.match(x.q('.gs-shortcuts').textContent,/Escolha uma condição e informe o valor/);
+ x.input('[data-gs-name]','Meu público preservado','input');x.input('[data-gs-list]','11');x.input('[data-gs-op]','or');const requests=f.calls.length,posts=f.calls.filter(c=>c.method==='POST').length;
+ x.q('[data-gs="quick"][data-id="purchase.amount"]').click();const state=JSON.parse(f.store.get(UI.SLOT+'fish')),rules=state.draft.rule.rules;assert.equal(state.draft.name,'Meu público preservado');assert.equal(state.draft.rule.op,'or');assert.deepEqual(rules[0],{op:'in_list',list_id:11});assert.deepEqual(rules[1],{op:'condition',field:'purchase.amount',operator:'eq',value:''});assert.equal(x.q('[data-gs-value="1"]').value,'');assert.strictEqual(x.document._focused,x.q('[data-gs-value="1"]'));assert.match(x.q('[data-gs-status]').textContent,/Preencha o valor/);assert.equal(x.q('[data-gs="save"]').disabled,true);assert.equal(f.calls.length,requests);assert.equal(f.calls.filter(c=>c.method==='POST').length,posts);
+});
+test('visual shortcuts stop at the existing root limit without mutation or I/O',async()=>{
+ const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION}),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});const requests=f.calls.length;
+ for(let i=0;i<15;i++){const button=x.q('[data-gs="quick"][data-id="purchase.count"]');assert.equal(button.disabled,false);button.click();}
+ const button=x.q('[data-gs="quick"][data-id="purchase.count"]'),before=f.store.get(UI.SLOT+'fish');assert.equal(button.disabled,true);button.click();assert.equal(f.store.get(UI.SLOT+'fish'),before);assert.equal(JSON.parse(before).draft.rule.rules.length,16);assert.equal(f.calls.length,requests);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
 test('RFM preset is offered only by a current versioned source and prepares a draft without writing',async()=>{
  const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION}),x=boot(f),pin='a'.repeat(64);
  f.control.catalogPatch={fields:Object.keys(Audience.FIELDS).map(key=>({key,available:key!=='relationship.rfm',...(key==='relationship.rfm'?{source_hash:pin}:{})}))};
@@ -66,7 +78,7 @@ test('negative product choice says never bought only for identified Shopify orde
 });
 test('v2 unavailable fields, unproven origin and missing currency are not offered; missing count stays unknown',async()=>{
  const Audience=require('../n8n/growth/segment-audience-contract.js'),f=fixture({version:Audience.VERSION});f.control.catalogPatch={fields:Object.keys(Audience.FIELDS).map(key=>({key,available:key!=='email.opened'})),origins:[],currency:null};const x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});x.input('[data-gs-name]','Sem inferir dados','input');x.q('[data-gs="add-condition"]').click();
- const values=[...x.q('[data-gs-field]').options].map(o=>o.value);assert.ok(!values.includes('email.opened'));assert.ok(!values.includes('signup.origin'));assert.ok(!values.includes('purchase.amount'));
+ const values=[...x.q('[data-gs-field]').options].map(o=>o.value),shortcuts=[...x.element.querySelectorAll('[data-gs="quick"]')].map(b=>b.dataset.id);assert.ok(!values.includes('email.opened'));assert.ok(!values.includes('signup.origin'));assert.ok(!values.includes('purchase.amount'));assert.ok(!shortcuts.includes('email.opened'));assert.ok(!shortcuts.includes('purchase.amount'));
  x.input('[data-gs-field]','purchase.count');assert.equal(x.q('[data-gs-value]').value,'');assert.equal(x.q('[data-gs="save"]').disabled,true,'missing value does not become zero');x.input('[data-gs-value]','0');x.q('[data-gs="remove"][data-path="0"]').click();f.control.countUnknown=true;await click(x,'count');assert.match(x.q('[data-gs-count]').textContent,/quantidade permanece desconhecida/);assert.doesNotMatch(x.q('[data-gs-count]').textContent,/0 pessoas/);assert.match(x.element.textContent,/não comprova consentimento/);assert.doesNotMatch(x.q('[data-gs-count]').textContent,/origem das listas/);
 });
 test('a draft-only preparation cannot move silently to a different endpoint or contract',async()=>{
@@ -77,7 +89,7 @@ test('v2 local drafts keep their original currency across refresh and reload whe
  await x.ui.sync({api:f.api,brand:'fish'});x.input('[data-gs-name]','Gasto em reais','input');x.q('[data-gs="add-condition"]').click();x.input('[data-gs-field]','purchase.amount');x.input('[data-gs-value]','100,00');x.q('[data-gs="remove"][data-path="0"]').click();
  assert.match(x.element.textContent,/Valor em BRL/);const original=JSON.parse(f.storage.getItem(UI.SLOT+'fish'));
  f.control.catalogPatch={currency:'USD',timezone:'Pacific/Honolulu',catalog_hash:'b'.repeat(64)};await click(x,'refresh');
- assert.match(x.element.textContent,/Valor em BRL/);assert.doesNotMatch(x.element.textContent,/Valor em USD/);assert.ok(x.q('[data-gs-context-changed]'));assert.equal(x.q('[data-gs="save"]').disabled,true);assert.equal(x.q('[data-gs="count"]').disabled,true);
+ assert.match(x.element.textContent,/Valor em BRL/);assert.doesNotMatch(x.element.textContent,/Valor em USD/);assert.ok(x.q('[data-gs-context-changed]'));assert.equal(x.q('[data-gs="save"]').disabled,true);assert.equal(x.q('[data-gs="count"]').disabled,true);assert.ok([...x.element.querySelectorAll('[data-gs="quick"]')].every(b=>b.disabled));
  const reloaded=boot(f);await reloaded.ui.sync({api:f.api,brand:'fish'});assert.match(reloaded.element.textContent,/Valor em BRL/);assert.equal(reloaded.q('[data-gs="save"]').disabled,true);assert.equal(JSON.parse(f.storage.getItem(UI.SLOT+'fish')).draft_catalog_hash,original.draft_catalog_hash);
  assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
  reloaded.q('[data-gs="new"]').click();assert.equal(reloaded.q('[data-gs-dialog]').hasAttribute('open'),true);reloaded.q('[data-gs="accept"]').click();await settled(reloaded);assert.equal(reloaded.q('[data-gs-name]').value,'');assert.equal(reloaded.q('[data-gs-context-changed]'),null);
@@ -96,7 +108,12 @@ test('Create public retries one failed catalog GET explicitly, opens a fresh dra
 
 test('Create public reports a safe catalog read error when the explicit retry also fails',async()=>{
  const f=fixture();let reads=0;const fetch=async(url,init)=>{if(listRequest(url,init)){reads++;return unavailable();}return f.fetch(url,init);};const x=boot(f,{fetch});
- await x.ui.sync({api,brand:'fish'});assert.equal(await x.ui.startNew(),false);const status=x.ui.contextStatus();assert.equal(reads,2);assert.equal(status.catalogReady,false);assert.equal(status.availableClient,true);assert.equal(status.pending,false);assertSafeReadError(status);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+ await x.ui.sync({api,brand:'fish'});assert.equal(x.q('.gs-saved-count').textContent,'Ainda não carregados');assert.match(x.q('.gs-empty-saved').textContent,/não foi possível carregar os públicos/i);assert.match(x.q('[data-gs-empty-editor]').textContent,/dados desta marca não foram carregados/i);assert.equal(await x.ui.startNew(),false);const status=x.ui.contextStatus();assert.equal(reads,2);assert.equal(status.catalogReady,false);assert.equal(status.availableClient,true);assert.equal(status.pending,false);assertSafeReadError(status);assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+});
+
+test('pending catalog read shows transient loading copy and performs one read',async()=>{
+ const f=fixture();let release,enteredResolve,reads=0;const entered=new Promise(resolve=>{enteredResolve=resolve;}),wait=new Promise(resolve=>{release=resolve;}),fetch=async(url,init)=>{if(listRequest(url,init)){reads++;enteredResolve();await wait;}return f.fetch(url,init);},x=boot(f,{fetch});
+ const syncing=x.ui.sync({api,brand:'fish'});await entered;assert.equal(x.q('.gs-saved-count').textContent,'Carregando…');assert.equal(x.q('.gs-empty-saved').textContent,'Carregando públicos…');assert.equal(x.q('[data-gs-empty-editor]').textContent,'Carregando listas e condições…');assert.equal(reads,1);release();await syncing;assert.equal(reads,1);assert.ok(x.q('[data-gs-name]'));
 });
 
 test('a restored pending operation blocks Create public without another GET or any local mutation',async()=>{
@@ -127,11 +144,11 @@ async function legacyEditor(mode='absent'){
 const backups=f=>[...f.store.entries()].filter(([key])=>key.startsWith(UI.SLOT+'fish:preserved:'));
 
 test('RFM preset delegates a legacy null-hash draft to the hotfix recovery confirmation',async()=>{
- const {f,raw}=await legacyEditor(),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startPreset({field:'relationship.rfm',value:'campeao',name:'Campeões'}),'confirmation');assert.match(x.q('[data-gs-confirm-text]').textContent,/guardar.*preparação antiga/i);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);x.q('[data-gs="back"]').click();assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);
+ const {f,raw}=await legacyEditor(),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(await x.ui.startPreset({field:'relationship.rfm',value:'campeao',name:'Campeões'}),'confirmation');assert.equal(x.q('#gs-dialog-title').textContent,'Começar novo público');assert.match(x.q('[data-gs-confirm-text]').textContent,/rascunho antigo.*cópia.*públicos salvos permanecem/i);assert.equal(x.q('[data-gs="back"]').textContent,'Voltar');assert.equal(x.q('[data-gs="accept"]').textContent,'Guardar e começar');assert.strictEqual(x.document._focused,x.q('[data-gs="back"]'));assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);x.q('[data-gs="back"]').click();assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);
 });
 
 test('explicit legacy recovery confirms first; cancel preserves exact bytes and performs no request',async()=>{
- for(const mode of ['absent','null']){const {f,raw}=await legacyEditor(mode),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(f.calls.length,0);assert.equal(await x.ui.startNew(),'confirmation');assert.match(x.q('[data-gs-confirm-text]').textContent,/guardar.*preparação antiga.*começar um público novo/i);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);x.q('[data-gs="back"]').click();await idle(x);assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),false);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);}
+ for(const mode of ['absent','null']){const {f,raw}=await legacyEditor(mode),x=boot(f);await x.ui.sync({api:f.api,brand:'fish'});assert.equal(f.calls.length,0);assert.match(x.q('[data-gs-empty-editor]').textContent,/Use Criar público/);assert.equal(x.q('.gs-saved-count').textContent,'Ainda não carregados');assert.equal(await x.ui.startNew(),'confirmation');assert.equal(x.q('#gs-dialog-title').textContent,'Começar novo público');assert.match(x.q('[data-gs-confirm-text]').textContent,/rascunho antigo.*cópia.*públicos salvos permanecem/i);assert.equal(x.q('[data-gs="back"]').textContent,'Voltar');assert.equal(x.q('[data-gs="accept"]').textContent,'Guardar e começar');assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);x.q('[data-gs="back"]').click();await idle(x);assert.equal(x.q('[data-gs-dialog]').hasAttribute('open'),false);assert.equal(f.calls.length,0);assert.equal(f.store.get(UI.SLOT+'fish'),raw);assert.deepEqual(backups(f),[]);}
 });
 
 test('accepting legacy recovery stores an exact immutable backup and starts empty in the fresh catalog without POST',async()=>{
