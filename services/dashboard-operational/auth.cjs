@@ -530,6 +530,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setCrmPanelReadCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setCrmPanelReadCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};
