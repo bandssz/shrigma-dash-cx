@@ -46,6 +46,8 @@ jobs:
             script: tests/segment-shopify-rfm-native-postgres.cjs
           - proof: rfm-file-consumer-off
             script: tests/segment-shopify-rfm-producer-native-postgres.cjs
+          - proof: rfm-sealed-install-off
+            script: tests/segment-shopify-rfm-install-native-postgres.cjs
     services:
       postgres:
         image: postgres:17.10

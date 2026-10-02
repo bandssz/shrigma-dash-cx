@@ -18,7 +18,9 @@ Um Customer GID só pode resolver para o mesmo contato nativo, UUID e e-mail vig
 
 Ingestão e disponibilidade começam desligadas. A atualização valida tudo antes de trocar a operação atual e mantém a anterior em caso de erro. Operação/Bulk repetidos, snapshot mais antigo, fonte pausada e vencimento são rejeitados. Uma fonte pausada não é reativada por uma atualização. Fatos sem identidade permanecem desconhecidos; uma base elegível com qualquer resultado desconhecido não recebe contagem confirmada nem seleção liberada. O consentimento e opt-out são conferidos novamente no caminho regular da campanha.
 
-O SQL atual é candidato, com guardas de contexto e dependências para ensaio local. Ainda não tem o instalador de produção selado com baseline, ACL/ownership completos, revisão e recuperação após resultado incerto. Não executar o arquivo diretamente em produção, nem reutilizar um plano ou recibo histórico como autorização atual.
+O SQL bruto continua candidato e agora recusa execução sem o marcador transacional do compilador. O instalador puro em segment-shopify-rfm-install.cjs exige snapshot fresco de catálogos e flags, hash do baseline, pins de arquivos relevantes, revisão e janela de até dez minutos; reúne os dois blocos SQL em **uma transação**, confere deriva antes e depois, revoga grants padrão e grava um recibo privado. O resultado começa sem linhas de fonte RFM e com enabled=false; não ativa produtor, emissor ou envio. O código ainda exige prova nativa PG17 na revisão exata e baseline/revisão operacionais antes de qualquer instalação. Não executar o arquivo bruto em produção, nem reutilizar plano ou recibo histórico como autorização atual.
+
+Um executor futuro deve usar uma conexão dedicada e fazer ROLLBACK ou descartar a conexão após qualquer falha. Se a resposta do commit for incerta, consultar somente leitura com readbackSQL() em conexão nova e aceitar apenas reconcileReadback() com marcador, pins, baseline e estado OFF idênticos; ausência ou divergência do recibo exige investigação, nunca repetição cega do plano. O compilador não estabelece a identidade OAuth do coletor, histórico completo, cadência ou pin do emissor.
 
 ## Cartões, contagem e consentimento
 
@@ -62,4 +64,4 @@ As revisões49/54/58 e as integrações recusadas52/59 ficaram preservadas com s
 
 ## Próxima entrega integrada
 
-Provar regras compostas/A-B com cardinalidade nativa quando aplicável. Integrar no coletor existente o journal durável dos dois Bulks, downloads, recuperação após resposta incerta, lease global, ingestão em partes e finalização atômica. Preparar instalador OFF selado, imagem exata, cadência e leitura final nas duas lojas. Publicar somente em uma janela permitida e após esses gates. Não abrir outra instância, executar workflows à força ou enviar e-mails de QA a clientes.
+Provar regras compostas/A-B com cardinalidade nativa quando aplicável. Integrar no coletor existente o journal durável dos dois Bulks, downloads, recuperação após resposta incerta, lease global, ingestão em partes e finalização atômica. Validar o instalador OFF em PostgreSQL 17 descartável, depois a imagem exata, os papéis reais, a cadência e a leitura final nas duas lojas. Publicar somente em uma janela permitida e após esses gates. Não abrir outra instância, executar workflows à força ou enviar e-mails de QA a clientes.
