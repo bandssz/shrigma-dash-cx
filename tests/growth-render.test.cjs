@@ -829,6 +829,15 @@ test('brand switch preserves template preparation, filters cards, and does not c
  x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('JSON.stringify(GRU.state.rascunho)'),snapshot);
  assert.equal(x.document.querySelector('#d-marca').disabled,true);
 });
+test('brand header permits navigation past a durable campaign attempt while an active RPC still blocks it',async()=>{
+ const x=await boot();x.run('trocaMarca("fish")');
+ x.run('GCE.contextStatus=(()=>{const original=GCE.contextStatus;return ()=>({...original(),blocked:true,pending:true,navigationBlocked:false})})()');
+ x.document.querySelector('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'aristo');
+ assert.equal(x.calls.filter(c=>c.init?.method==='POST').length,0);
+ x.run('GCE.contextStatus=(()=>{const original=GCE.contextStatus;return ()=>({...original(),navigationBlocked:true})})()');
+ x.document.querySelector('[data-marca="fish"]').click();assert.equal(x.run('MARCA'),'aristo');
+ assert.match(x.document.querySelector('#brand-context-status').textContent,/Conclua a operação/);
+});
 test('journey dirty, busy or unresolved state keeps the header and preference on the original brand',async()=>{
  const x=await boot();x.run('trocaMarca("fish")');
  for(const state of [{dirty:true},{busy:true},{pending:{id:'same-attempt'}}]){

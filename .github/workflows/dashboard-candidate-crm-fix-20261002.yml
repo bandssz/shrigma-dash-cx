@@ -1,0 +1,76 @@
+name: Dashboard operacional · CRM candidato isolado
+
+'on':
+  push:
+    branches: ['codex/dashboard-candidate-crm-fix-20261002']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar ferramentas fixadas somente na CI
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Conferir bundle CRM e segurança do pacote operacional
+        run: |
+          node tools/panel-build/build.cjs --panel=growth --check
+          node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs
+      - name: Exercitar listas, vínculo, recibos e troca de marca
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test tests/growth-campaign-audience-path.test.cjs tests/growth-campaign-catalog-ui.test.cjs tests/growth-campaign-editor.test.cjs tests/growth-campaign-audience-client.test.cjs tests/growth-render.test.cjs
+      - name: Gerar pacote fechado sem dados nem credenciais
+        run: |
+          node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
+          node services/dashboard-operational/pack-runtime.cjs "$RUNNER_TEMP/shrigma-build" "$RUNNER_TEMP/shrigma-pack"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/shrigma-pack/source-revision.txt"
+      - name: Construir imagem imutável fora do servidor
+        run: docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-dashboard-crm-candidate:ci .
+      - name: Validar UID, revisão e volume vazio sem rede
+        run: |
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-dashboard-crm-candidate:ci)" = "$GITHUB_SHA"
+          CANDIDATE_TEST_VOLUME="shrigma-crm-candidate-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker volume rm "$CANDIDATE_TEST_VOLUME" >/dev/null 2>&1 || true' EXIT
+          docker volume create "$CANDIDATE_TEST_VOLUME" >/dev/null
+          docker run --rm --network none --cap-drop ALL --memory 512m --cpus 0.5 --volume "$CANDIDATE_TEST_VOLUME:/dashboard-data" --entrypoint node shrigma-dashboard-crm-candidate:ci --max-old-space-size=128 -e 'const fs=require("node:fs"),start=require("/app/canary-start.cjs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const first=start.prepare(),file="/dashboard-data/runtime-pack.json",inode=fs.statSync(file).ino,bytes=fs.readFileSync(file); start.prepare(); if(fs.statSync(file).ino!==inode||!fs.readFileSync(file).equals(bytes)||fs.readdirSync("/dashboard-data").join()!=="runtime-pack.json")throw Error("Seed changed identity volume"); console.log("Candidate pack verified; UID1000; seed once; no backend or worker started.");'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-crm-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/shrigma-pack/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-candidate-image:
+    needs: validate-and-package
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-candidate-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Entrar no registry com token efêmero
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publicar somente revisão validada em repositório novo
+        run: |
+          IMAGE="ghcr.io/bandssz/shrigma-dash-operational-candidate-crm:$GITHUB_SHA"
+          docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          printf 'Imagem candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"

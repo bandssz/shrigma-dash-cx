@@ -6,7 +6,7 @@ const GCE=(()=>{
  let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[];
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
  let confirmation=null,deferredAccess='',audienceTimer=null;
- let confirmedCatalog=null,onCatalog=null,audienceView=null;
+ let confirmedCatalog=null,onCatalog=null,audienceView=null,queuedSavedAudience=null;
  const audienceState=()=>audienceView?.contextStatus()||{};
  const audienceFrozen=()=>!!(audienceState().blocked||audienceState().pending);
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -22,7 +22,7 @@ const GCE=(()=>{
  function mount({marca='fish',api:payload=null,onCatalog:catalogCallback=null}={}){
   api=payload;onCatalog=typeof catalogCallback==='function'?catalogCallback:null;
   const target=typeof document!=='undefined'?document.getElementById('campaign-composer'):null;
-  if(!target)return;if(target===root){if(contextBrand!==marca)enterBrand(marca);else setupRemote();return;}confirmation?.finish(false);root=target;audienceView=null;
+  if(!target)return;if(target===root){if(contextBrand!==marca)enterBrand(marca);else setupRemote();return;}confirmation?.finish(false);audienceView?.destroy();contextEpoch++;root=target;audienceView=null;queuedSavedAudience=null;
   root.innerHTML=`<details class="ce-shell"><summary><span class="ce-icon" aria-hidden="true">+</span><span class="ce-title"><strong>Preparar campanha</strong><span>Escolha o público, prepare a mensagem e revise o envio.</span></span><span class="ce-tag">Rascunho local</span></summary>
    <div class="ce-body"><ol class="crm-workflow-path" aria-label="Etapas da campanha"><li><b>1</b> Preparar conteúdo e público</li><li><b>2</b> Salvar rascunho</li><li><b>3</b> Conferir e agendar</li></ol><div class="ce-intro"><div><h3>Nova campanha de e-mail</h3><span class="ce-tag" title="A iniciativa reúne os disparos no relatório. Cada disparo mantém seu público e rastreamento próprios.">Agrupada por iniciativa</span></div><label class="ce-import">Importar JSON<input type="file" accept=".json,application/json" data-ce-import></label></div>
    <section class="ce-remote" data-ce-remote hidden aria-label="Campanhas salvas"><div class="ce-remote-access"><button type="button" class="ce-secondary" data-ce-access-open>Acesso de escrita de campanhas</button><span data-ce-key-state role="status"></span></div>
@@ -53,10 +53,11 @@ const GCE=(()=>{
  }
  const q=selector=>root.querySelector(selector);
  function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign,anchor=remote?(c?{id:c.id,version:c.version}:null):(localCampaign??null);GBS.save('campaign',contextBrand,{...values(),_campaign:anchor});localCampaign=anchor;checkCampaign=!remote;localError='';}
- function contextStatus(){const a=audienceState();return {blocked:!!(remoteBusy||confirmation||accessImporting||a.blocked||a.pending),dirty:!!localError,pending:!!(remote?.locked()||a.pending)};}
+ function contextStatus(){const a=audienceState();return {blocked:!!(remoteBusy||confirmation||accessImporting||a.blocked||a.pending),navigationBlocked:!!(remoteBusy||confirmation||accessImporting||a.activeOperation),dirty:!!localError,pending:!!(remote?.locked()||a.pending)};}
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
  function enterBrand(brand){
-  if(remoteBusy||confirmation||accessImporting||audienceFrozen())return false;
+  if(contextStatus().navigationBlocked)return false;
+  if(brand!==contextBrand){audienceView?.destroy();audienceView=null;queuedSavedAudience=null;} // Per-brand journals remain in storage for consultation on return.
   contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];localError='';clearCatalog();
   let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
   checkCampaign=Object.hasOwn(initial,'_campaign');localCampaign=checkCampaign?initial._campaign:undefined;
@@ -100,7 +101,7 @@ const GCE=(()=>{
    if(confirmation!==token||!sameContext(before,{allowRecovery})){message('A campanha, o acesso ou o rascunho mudou durante a confirmação. Confira o estado atual antes de continuar.',true);return;}
    await work(token,before.client);
   }catch{message('Não foi possível confirmar o estado desta ação. Nenhuma nova tentativa será iniciada; confira o registro existente.',true);}
-  finally{if(confirmation===token)confirmation=null;paintRemote();if(deferredAccess){const text=deferredAccess;deferredAccess='';showAccess(text);}else if(root?.isConnected){const target=caller?.isConnected&&!caller.disabled?caller:q('.ce-shell > summary');target?.focus();}}
+  finally{if(confirmation===token)confirmation=null;paintRemote();finishSavedAudienceRead();if(deferredAccess){const text=deferredAccess;deferredAccess='';showAccess(text);}else if(root?.isConnected){const target=caller?.isConnected&&!caller.disabled?caller:q('.ce-shell > summary');target?.focus();}}
  }
  const keyValue=slot=>{try{return localStorage.getItem(slot)||'';}catch{return '';}};
  const validWriteKey=v=>typeof v==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(v.trim());
@@ -231,10 +232,12 @@ const GCE=(()=>{
   if(!exists){if(audienceTimer!==null){clearTimeout(audienceTimer);audienceTimer=null;}q('[data-ce-audience]').textContent='';return;}
   const writes=remote.canWrite()&&!localError,draft=c?.status==='draft'&&c.sent===0&&!c.started_at;
   const set=(name,shown,disabled)=>{const b=q(`[data-ce-${name}]`);b.hidden=!shown;b.disabled=disabled;};
-  set('refresh',remoteCaps.read,remoteBusy||!!confirmation||audienceFrozen());set('new',remoteCaps.save,frozen||!writes);set('consult',remoteCaps.operation,remoteBusy||!!confirmation||audienceFrozen()||!s.operation);
+  set('refresh',remoteCaps.read,remoteBusy||!!confirmation||audienceFrozen());set('new',remoteCaps.save,frozen||!writes);set('consult',remoteCaps.operation,remoteBusy||!!confirmation||audienceState().activeOperation||!s.operation);
   set('recover',remoteCaps.recover&&remote.canRecover(),remoteBusy||!!confirmation||!writes);
   set('save',remoteCaps.save,frozen||!writes||!!c&&!draft);set('validate',remoteCaps.validate,frozen||!writes||!draft||!clean||(audienceState().legacyBlocked&&!audienceState().canValidate));
-  const audience=audienceState().legacyBlocked?(q('[data-ce-audience]').textContent=audienceState().canSchedule?'Confira os dados do público salvo e confirme o agendamento.':'Confira o público salvo antes de agendar.',null):paintAudience(s,c,clean);
+  const audienceStatus=audienceState();
+  const audienceMessage=audienceStatus.pending?'Há uma tentativa de público sem confirmação. Use Consultar tentativa antes de agendar.':remote?.locked()?'Há uma tentativa de campanha sem confirmação. Use Consultar tentativa antes de agendar.':audienceStatus.activeOperation?'Conferindo se esta campanha usa um público salvo…':audienceStatus.recoveryRequired?'O registro do público não foi confirmado. Preserve este navegador e restaure o acesso original.':audienceStatus.readError?'Não foi possível confirmar o vínculo do público. Tente Carregar públicos salvos novamente.':audienceStatus.bound?'Esta campanha usa um público salvo. Confira o vínculo e a liberação do agendamento.':'Confirme se há um público salvo vinculado antes de agendar.';
+  const audience=audienceStatus.legacyBlocked?(q('[data-ce-audience]').textContent=audienceStatus.canSchedule?'Confira os dados do público salvo e confirme o agendamento.':audienceMessage,null):paintAudience(s,c,clean);
   set('schedule',remoteCaps.schedule,frozen||!writes||!draft||!clean||!(audienceState().legacyBlocked?audienceState().canSchedule:audience));
   set('cancel',remoteCaps.cancel,frozen||!writes||c?.status!=='scheduled'||c?.sent!==0||c?.started_at!==null||!c?.send_at||Date.parse(c.send_at)<=Date.now());
   const op=s.operation;
@@ -250,20 +253,25 @@ const GCE=(()=>{
   q('.ce-tag').textContent=c?statusName(c.status):'Rascunho local';
   for(const btn of q('[data-ce-campaigns]').querySelectorAll('button'))btn.disabled=frozen;
  }
- async function runRemote(work,{fillSaved=false,write=false,confirmed=null,recoverLocal=false}={}){
-  if(!remote||remoteBusy||audienceFrozen()||(confirmation&&confirmation!==confirmed))return;
+ function finishSavedAudienceRead(){
+  if(!queuedSavedAudience||confirmation||remoteBusy)return;
+  const {epoch,client}=queuedSavedAudience;queuedSavedAudience=null;
+  if(epoch===contextEpoch&&client===remote)void audienceView?.confirmBindingRead();
+ }
+ async function runRemote(work,{fillSaved=false,write=false,confirmed=null,recoverLocal=false,confirmSavedAudience=false,allowAudiencePendingRecovery=false}={}){
+  if(!remote||remoteBusy||(allowAudiencePendingRecovery?audienceState().activeOperation:audienceFrozen())||(confirmation&&confirmation!==confirmed))return;
   if(write&&localError&&!recoverLocal){message(localError,true);return;}
   if(write&&!requireWriteAccess())return;
-  let accessDenied=null,contentError=false;
+  let accessDenied=null,contentError=false,readSavedAudience=false;
   const epoch=contextEpoch,client=remote,wasLocked=client.locked(),beforeValues=values();remoteBusy=true;paintRemote();
-  try{const result=await work();if(epoch!==contextEpoch||client!==remote)return;if(fillSaved&&result?.campaign){const recovered=result.operation?.request?.acao==='campanha_recuperar'&&result.sourceOperation?.request?.definition;fill(recovered?(wasLocked?fromDefinition(recovered):beforeValues):fromDefinition(result.campaign.definition));saveLocal({recover:recoverLocal});dirty=!remote.clean(definition(values()));renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);}
+  try{const result=await work();if(epoch!==contextEpoch||client!==remote)return;if(fillSaved&&result?.campaign){const recovered=result.operation?.request?.acao==='campanha_recuperar'&&result.sourceOperation?.request?.definition;fill(recovered?(wasLocked?fromDefinition(recovered):beforeValues):fromDefinition(result.campaign.definition));saveLocal({recover:recoverLocal});dirty=!remote.clean(definition(values()));renderCampaigns([...remoteCampaigns.filter(c=>c.id!==result.campaign.id),result.campaign]);readSavedAudience=confirmSavedAudience&&!!result.campaign;}
    if(localError){message(localError,true);return;}
    if(result?.localOnly){message('Nova preparação local aberta. Nenhuma campanha foi criada ou enviada.');return;}
    if(result?.readOnly){const status={pending:'em processamento',outcome_unknown:'resultado incerto',succeeded:'concluída',rejected:'recusada'}[result.consultation?.state]||'estado não confirmado';message(`Consulta recebida: ${status}. O registro local foi preservado. A confirmação local depende da proteção entre abas deste navegador.`);return;}
    if(!remote.locked()&&result?.operation?.request?.acao==='campanha_recuperar'){message('Rascunho existente recuperado. Seu conteúdo original foi preservado. Confira os links e salve as correções nesta mesma campanha.');return;}
    message(remote.locked()?'A tentativa continua pendente ou incerta. Consulte novamente; não crie outra tentativa.':'Operação conferida. Confira o resultado acima.',remote.locked());}
   catch(err){message(err.message,true);contentError=['NO_COMMERCIAL_LINK','TRACKING_INVALID','TRACKING_CONFLICT','TRACKING_POLICY'].includes(err.code);if(write&&['UNAUTHORIZED','CAPABILITY_MISSING'].includes(err.code)){sessionWrite='';legacyWrite=false;clearCatalog();accessDenied=err.code==='UNAUTHORIZED'?'Chave recusada. Confira a chave de escrita de campanhas.':'Esta chave não tem permissão para a ação. Confira o acesso; a tentativa foi preservada.';}}
-  finally{remoteBusy=false;paintRemote();if(contentError&&!q('[name=html]').disabled)q('[name=html]').focus();if(accessDenied){if(confirmation)deferredAccess=accessDenied;else showAccess(accessDenied);}}
+  finally{remoteBusy=false;paintRemote();if(readSavedAudience)queuedSavedAudience={epoch,client};finishSavedAudienceRead();if(contentError&&!q('[name=html]').disabled)q('[name=html]').focus();if(accessDenied){if(confirmation)deferredAccess=accessDenied;else showAccess(accessDenied);}}
  }
  function renderCatalog(catalog){
   const e=esc,d=values(),selected=new Set(split(d.list_ids).map(Number)),templates=catalog.templates.filter(t=>Number.isSafeInteger(t.id)&&t.id>0&&t.available===true&&t.type==='campaign');
@@ -278,7 +286,7 @@ const GCE=(()=>{
   q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||'<p>Nenhuma campanha salva nesta marca. Use Preparar novo rascunho para começar.</p>'}</div>`;
   q('[data-ce-campaigns]').querySelectorAll('[data-ce-open]').forEach(btn=>btn.addEventListener('click',()=>{
    if(confirmation||remoteBusy)return;const id=Number(btn.dataset.ceOpen),client=remote;
-   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await readCatalog(client);if(!catalog)return;fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true});
+   const work=confirmed=>runRemote(async()=>{const s=await client.reopen(id);const catalog=await readCatalog(client);if(!catalog)return;fill(fromDefinition(s.campaign.definition));renderCatalog(catalog);return s;},{fillSaved:true,confirmed,recoverLocal:true,confirmSavedAudience:true});
    if(dirty)confirmAction('Substituir as alterações locais pelo conteúdo salvo desta campanha?','Reabrir campanha',work);else work(null);
   }));
  }
@@ -290,13 +298,13 @@ const GCE=(()=>{
    const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();return {localOnly:true};},{confirmed});
    if(dirty)confirmAction('Guardar uma nova preparação local no lugar do conteúdo atual?','Preparar novo rascunho',work);else work(null);
   });
-  q('[data-ce-consult]').addEventListener('click',()=>runRemote(()=>remote.consult(),{fillSaved:true,write:true,recoverLocal:true}));
+  q('[data-ce-consult]').addEventListener('click',()=>runRemote(()=>remote.consult(),{fillSaved:true,write:true,recoverLocal:true,confirmSavedAudience:true,allowAudiencePendingRecovery:true}));
   q('[data-ce-recover]').addEventListener('click',()=>{
    const client=remote,proof=client?.snapshot()?.recoveryProof;if(!client?.canRecover()||confirmation||remoteBusy||!requireWriteAccess())return;
    const c=proof.campaign,brand=contextBrand==='fish'?'Fishermans':'O Aristocrata';
    confirmAction(`Recuperar ${brand} · “${c.definition.name}” (campanha ${c.id})? Foi confirmado um rascunho com 0 envios, ainda não iniciado. Seu conteúdo original será preservado para correção. Esta ação não cria outra campanha, não agenda e não envia.`, 'Recuperar este rascunho',confirmed=>runRemote(()=>client.recover(proof,'recuperar'),{fillSaved:true,write:true,confirmed,recoverLocal:true}),{allowRecovery:true});
   });
-  q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;const client=remote;runRemote(async()=>{if(!await readCatalog(client))return;return client.save(definition(values()));},{fillSaved:true,write:true});});
+  q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;const client=remote;runRemote(async()=>{if(!await readCatalog(client))return;return client.save(definition(values()));},{fillSaved:true,write:true,confirmSavedAudience:true});});
   q('[data-ce-validate]').addEventListener('click',()=>{if(audienceState().legacyBlocked){if(audienceState().canValidate)void audienceView.validate();return;}runRemote(()=>remote.validate(definition(values())),{fillSaved:true,write:true});});
   q('[data-ce-cancel]').addEventListener('click',()=>{
    const client=remote,c=client?.snapshot()?.campaign;if(!c||confirmation||remoteBusy)return;

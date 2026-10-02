@@ -36,7 +36,7 @@
  const fail=code=>{throw Object.assign(Error(code),{code});};
  function create({element,key,storage=localStorage,fetch:fetcher=fetch,locks=globalThis.navigator?.locks,identity,id,now=()=>Date.now(),onChange=()=>{},onBound=async()=>{},getCampaignContext=()=>null,Client=Binding,SegmentClient=Segments}={}){
   if(!element||typeof key!=='function'||!Client||!SegmentClient)throw Error('CAMPAIGN_AUDIENCE_UI_CONFIG');
-  let ctx=null,client=null,regular=null,segments=null,rows=[],catalog=null,offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,confirmation=null,error='',notice='',baseList=null,fatal=false,reviewTimer=null;
+  let ctx=null,client=null,regular=null,segments=null,rows=[],catalog=null,offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,confirmation=null,error='',notice='',baseList=null,fatal=false,reviewTimer=null,destroyed=false;
   const q=s=>element.querySelector(s),pending=()=>!!client?.pending()||!!regular?.pending(),selectedRow=()=>rows.find(r=>r.id===selected&&!r.archived&&r.semantic_context?.current===true);
   const available=x=>!!x&&!!x.token&&['fish','aristo'].includes(x.brand)&&Client.caps(x.api).read&&Client.caps(x.api).brands.includes(x.brand)&&SegmentClient.caps(x.api).read&&SegmentClient.caps(x.api).contract_version==='crm-audience-v2'&&SegmentClient.caps(x.api).brands.includes(x.brand);
   const eligible=()=>available(ctx)&&ctx.campaign?.id&&ctx.campaign.status==='draft'&&ctx.campaign.sent===0&&ctx.campaign.started_at===null;
@@ -48,7 +48,7 @@
   const unresolvedHistory=()=>history()&&(!available(ctx)||!ctx?.campaign);
   const canValidate=()=>eligible()&&ctx.clean&&!locked()&&readConfirmed&&!!state().binding?.campaign_current&&state().binding?.semantic_context?.current===true&&Client.caps(ctx.api).validate===true;
   const canSchedule=()=>{const r=regular?.snapshot().review;return !!(regular&&canValidate()&&regular.capabilities().schedule&&r&&r.campaign_version===ctx.campaign.version&&r.binding_hash===state().binding?.binding_hash&&Date.parse(r.expires_at)>now());};
-  const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),pending:pending(),bound:!!state().binding,readConfirmed,legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
+  const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),activeOperation:busy||!!confirmation,pending:pending(),bound:!!state().binding,readConfirmed,readError:!!error,recoveryRequired:fatal||unresolvedHistory(),legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
   function audienceSummary(row){
    const contract=SegmentClient.contractFor(ctx.api),rule=row.definition.rule,value=(r,f)=>{if(f.type==='product')return catalog?.products.find(x=>x.id===r.value)?.name||'produto indisponível';if(f.type==='origin')return catalog?.origins.find(x=>x.key===r.value)?.name||'origem indisponível';if(f.type==='money')return `${r.value} ${row.semantic_context?.currency||catalog?.currency||''}`.trim();return r.value;};
    const walk=r=>{if(r.op==='confirmed')return walk(r.rule)+' · somente cadastros com dados confirmados';if(r.op==='in_list')return `lista ${catalog?.lists.find(x=>x.id===r.list_id)?.name||'indisponível'}`;if(r.op==='condition'){const f=contract.FIELDS[r.field];return `${f.label}: ${operatorName[r.operator]} ${value(r,f)}`;}return `(${r.rules.map(walk).join(r.op==='and'?' E ':' OU ')})`;};
@@ -61,6 +61,7 @@
    return `${updated} Dados Shopify coletados até ${new Date(s.observed_at).toLocaleString('pt-BR')}, válidos até ${new Date(s.expires_at).toLocaleString('pt-BR')}. A sincronização é noturna.`;
   }
   function render(){
+   if(destroyed)return;
    if(reviewTimer!==null){clearTimeout(reviewTimer);reviewTimer=null;}
    element.hidden=!available(ctx)&&!history()&&!state().binding;if(element.hidden)return;
    if(!available(ctx)||unresolvedHistory()){if(!confirmation)element.innerHTML='<h4>Público salvo</h4><p role="status">A consulta deste vínculo está indisponível. O registro foi preservado; confira o vínculo com o acesso original antes de agendar.</p>';return;}
@@ -89,7 +90,7 @@
     <p data-ca-status role="status" aria-live="polite" data-error="${!!error}">${esc(error||notice||(busy?'Conferindo…':''))}</p>
     <dialog class="ce-confirm" data-ca-dialog aria-labelledby="ca-confirm-title"><h4 id="ca-confirm-title">Confirmar público</h4><p data-ca-confirm-text></p><div class="ce-actions"><button type="button" class="ce-secondary" data-ca-no autofocus>Voltar</button><button type="button" class="ce-primary" data-ca-yes>Confirmar público</button></div></dialog>`;
   }
-  function changed(){render();onChange();}
+  function changed(){if(destroyed)return;render();onChange();}
   const identityContext=()=>({brand:ctx?.brand,campaign:ctx?.campaign?.id,version:ctx?.campaign?.version,token:key(),bindingEndpoint:Client.caps(ctx?.api).endpoint,segmentsEndpoint:SegmentClient.caps(ctx?.api).endpoint,caps:JSON.stringify(ctx?.api),clean:ctx?.clean,blocked:ctx?.blocked,campaignContext:getCampaignContext()});
   function current(before){return same(before,identityContext())&&ctx?.token===key();}
   function syncedVersion(){if(state().campaign_version!==ctx.campaign.version)fail('UI_CAMPAIGN_CHANGED');}
@@ -101,6 +102,18 @@
    let listed;try{listed=await segments.list({offset:page,limit:50});}catch{fail('SEGMENT_AUDIENCE_LIST_UNAVAILABLE');}if(!current(before))fail('UI_CONTEXT_CHANGED');
    rows=listed.segments;catalog=listed.catalog;offset=page;more=rows.length===50;selected='';readConfirmed=true;
   });}
+  // Reopening a saved campaign first checks its current binding with a GET.
+  // A null binding permits the existing list-based validation path; a binding
+  // keeps that path blocked until the saved-audience flow is reconciled.
+  async function confirmBindingRead(){
+   if(!eligible()||!ctx.clean||locked())return false;
+   await guarded(async()=>{
+    const before=identityContext();inspection=null;readConfirmed=false;
+    await client.read(ctx.campaign.id);if(!current(before))fail('UI_CONTEXT_CHANGED');syncedVersion();
+    readConfirmed=true;notice=state().binding?'Vínculo do público salvo confirmado. Confira o conteúdo e a liberação antes de agendar.':'Nenhum público salvo vinculado a esta campanha. Confira o conteúdo e as listas antes de agendar.';
+   });
+   return readConfirmed;
+  }
   async function inspect(){if(!eligible()||!ctx.clean||locked()||!Client.caps(ctx.api).inspect)return;const row=selectedRow();if(!row)return;await guarded(async()=>{
    const before=identityContext();inspection=null;await client.inspect(ctx.campaign.id,{id:row.id,version:row.version});if(!current(before)||selected!==row.id)fail('UI_CONTEXT_CHANGED');
    const fresh=state().inspection;
@@ -175,6 +188,7 @@
    if(state().binding){await onBound(ctx.campaign.id);notice='Vínculo confirmado pela tentativa original. O disparo ainda aguarda liberação.';}else notice='Tentativa conferida. Atualize os públicos antes de uma nova escolha.';
   });}
   function sync(next){
+   if(destroyed)return false;
    const minimal={capabilities:{campaign_audience:next.api?.capabilities?.campaign_audience,segments:next.api?.capabilities?.segments,endpoints:{campaign_audience:next.api?.capabilities?.endpoints?.campaign_audience,segments:next.api?.capabilities?.endpoints?.segments}}};
    const target={...next,api:clone(minimal),token:key()},sameId=ctx&&ctx.brand===target.brand&&ctx.campaign?.id===target.campaign?.id;
    if(!sameId&&(busy||confirmation||pending()))return false;
@@ -190,11 +204,17 @@
    }
    render();return !fatal;
   }
-  element.addEventListener('click',e=>{const b=e.target.closest('[data-ca]');if(!b||b.disabled||!element.contains(b))return;const action=b.dataset.ca;
+  function onClick(e){if(destroyed)return;const b=e.target.closest('[data-ca]');if(!b||b.disabled||!element.contains(b))return;const action=b.dataset.ca;
    if(action==='load')void load();if(action==='previous')void load(Math.max(0,offset-50));if(action==='next')void load(offset+50);if(action==='inspect')void inspect();if(action==='bind')void confirmBinding();if(action==='release')void confirmRelease();if(action==='consult')void consult();
-  });
-  element.addEventListener('change',e=>{if(!e.target.matches('[data-ca-select]')||locked())return;selected=e.target.value;inspection=null;baseList=null;error='';notice='';changed();});
-  return {sync,validate,schedule,contextStatus:status};
+  }
+  function onSelectionChange(e){if(destroyed||!e.target.matches('[data-ca-select]')||locked())return;selected=e.target.value;inspection=null;baseList=null;error='';notice='';changed();}
+  element.addEventListener('click',onClick);element.addEventListener('change',onSelectionChange);
+  function destroy(){
+   if(destroyed)return;
+   destroyed=true;confirmation?.finish?.(false);if(reviewTimer!==null){clearTimeout(reviewTimer);reviewTimer=null;}
+   element.removeEventListener('click',onClick);element.removeEventListener('change',onSelectionChange);
+  }
+  return {sync,validate,schedule,confirmBindingRead,contextStatus:status,destroy};
  }
  return {create};
 });
