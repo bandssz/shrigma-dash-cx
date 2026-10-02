@@ -9,13 +9,25 @@ const Install=require('../n8n/growth/segment-shopify-rfm-install.cjs');
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.RFM_NATIVE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.port!=='55432'||u.pathname!=='/listmonk')
  throw Error('ISOLATED_DATABASE_REQUIRED');
-const pool=new Pool({connectionString:uri,max:1,statement_timeout:30000,connectionTimeoutMillis:5000,application_name:'rfm-sealed-install-fixture'});
-const db={query:(q,p)=>pool.query(q,p),exec:q=>pool.query(q)};
+const pool=new Pool({connectionString:uri,max:6,statement_timeout:30000,connectionTimeoutMillis:5000,application_name:'rfm-sealed-install-fixture'});
+// The Recorded v2 fixture exercises the audience store's transactional API.
+// Match the native RFM fixture so catalog failures cannot mask setup errors.
+const db={query:(q,p)=>pool.query(q,p),exec:q=>pool.query(q),transaction:async work=>{
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const result=await work({query:(q,p)=>client.query(q,p)});
+  await client.query('COMMIT');
+  return result;
+ }catch(e){await client.query('ROLLBACK');throw e;}
+ finally{client.release();}
+}};
 const raw=fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-shopify-rfm.sql'),'utf8');
 async function rejected(sql,pattern){
- try{await db.exec(sql);assert.fail('INSTALL_SHOULD_REJECT');}
+ const client=await pool.connect();
+ try{await client.query(sql);assert.fail('INSTALL_SHOULD_REJECT');}
  catch(e){if(e.message==='INSTALL_SHOULD_REJECT')throw e;assert.match(e.message,pattern);}
- finally{await db.exec('ROLLBACK').catch(()=>{});}
+ finally{await client.query('ROLLBACK').catch(()=>{});client.release();}
 }
 async function absent(){
  const row=(await db.query("SELECT to_regclass('crm_audience_v2.rfm_source') IS NULL AS source_absent,to_regclass('crm_audience_v2.rfm_install_receipt') IS NULL AS receipt_absent,NOT EXISTS(SELECT 1 FROM pg_proc WHERE pronamespace='crm_audience_v2'::regnamespace AND proname LIKE 'rfm_%') AS functions_absent")).rows[0];
@@ -24,7 +36,8 @@ async function absent(){
 async function main(){
  try{
   assert.equal((await db.query("SELECT current_setting('server_version_num') AS version")).rows[0].version,'170010');
-  await setupRecordedNativeV2(db);
+  const fixture=await setupRecordedNativeV2(db);
+  assert.equal(fixture.tier,'native-postgres17-v2-guarded-install');
   await rejected(raw,/RFM_INSTALL_COMPILER_REQUIRED/);
   await absent();
 
@@ -55,4 +68,8 @@ async function main(){
   console.log(JSON.stringify({success:true,postgres:'17.10',raw_refused:true,metadata_drift_refused:true,second_phase_rollback:true,replay_refused:true,readback_committed_off:true,private_acl:true,sources:0,sends:0,production_changed:false}));
  }finally{await pool.end();}
 }
-main().catch(e=>{process.stderr.write(String(e.message||e)+'\n');process.exitCode=1;});
+main().catch(e=>{
+ const frames=String(e.stack||'').split('\n').slice(1).filter(line=>/^\s+at\s/.test(line)).slice(0,8);
+ process.stderr.write(String(e.message||e)+'\n'+frames.join('\n')+'\n');
+ process.exitCode=1;
+});
