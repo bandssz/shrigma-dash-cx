@@ -1,5 +1,6 @@
 'use strict';
 const R=require('./template-operation-receipt.cjs');
+const Response=require('./template-response-route.cjs');
 const MARKER='TEMPLATE_OPERATION_RECEIPT_V1';
 const AUTH_ANCHOR="const req=$json,k=String(req.body?.k||req.query?.k||'');";
 const AUTH_PATCH=`// ${MARKER}: operation lookups authenticate through a header, never a URL key.
@@ -45,6 +46,12 @@ function patchWorkflow(fresh,{expectedVersionId}={}){
  const node=(name,type)=>{const a=workflow.nodes.filter(n=>n.name===name);if(a.length!==1||a[0].type!==type)throw Error('Expected one '+name+' node');return a[0];};
  for(const [name,anchor,patch,replace] of [['Autenticação entrada',AUTH_ANCHOR,AUTH_PATCH,true],['Prepara',PREP_ANCHOR,PREP_PATCH,false],['Formata leitura',FORMAT_ANCHOR,FORMAT_PATCH,false]]){
   const n=node(name,'n8n-nodes-base.code'),before=n.parameters.jsCode;n.parameters.jsCode=insert(before,anchor,patch,replace);if(before!==n.parameters.jsCode)changes.push({node:name,field:'jsCode'});
+ }
+ Response.assertResponseRoute(workflow);
+ const prepare=node('Prepara','n8n-nodes-base.code'),finalized=Response.finalizePrepareCode(prepare.parameters.jsCode);
+ if(finalized!==prepare.parameters.jsCode){
+  prepare.parameters.jsCode=finalized;
+  if(!changes.some(c=>c.node==='Prepara'&&c.field==='jsCode'))changes.push({node:'Prepara',field:'jsCode'});
  }
  const pg=node('PG leitura','n8n-nodes-base.postgres');
  if(pg.typeVersion!==2.5||pg.parameters.operation!=='executeQuery'||pg.parameters.query!=='={{ $json.sql }}')throw Error('PG read contract changed');

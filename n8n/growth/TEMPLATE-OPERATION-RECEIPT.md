@@ -38,6 +38,12 @@ For submission, `claim_id` is a different identifier from `idempotency_key`. Com
 
 ## Deployment checks
 
+`template-response-route.cjs` finalizes `Prepara` after the receipt patch. A terminal item with its own valid `_http` and `_body`, and without `_step`, `sql` or `sqlParameters`, receives `_step:'resposta'` so the existing Switch can reach `Responde`. SQL items, explicit routes, response bodies and authenticated actors are preserved. The builder checks the existing response branch before applying the wrapper; an unknown or damaged wrapper fails instead of being replaced. The wrapper is idempotent and recognizes the form already published by the response hotfix.
+
+When composing other template builders, finalize responses after all Code transformations, using `assertResponseRoute(workflow)` and `finalizePrepareCode(prepare.parameters.jsCode)`. Builders that preserve the wrapper remain compatible; a generator that replaces the entire Code may discard it. This finalizer supports the existing synchronous Code contract. Do not copy production exports into source or test fixtures.
+
 Install against a newly exported matching version, inspect the five-node diff and preserve unrelated changes. Read back the active workflow before enabling clients. Verify a known own-actor receipt, a nonexistent UUID, read-capability denial and wrong-actor isolation using only GETs. Verify the actual proxy/n8n `OPTIONS` response for `X-Template-Key` from the dashboard origin: response headers alone do not prove browser preflight works. Responses declare `Cache-Control: private, no-store`, `Vary: Origin, X-Template-Key`, and the permitted method/header names. No browser automatic retry is permitted.
+
+Publication acceptance, a working HTTP 401, and a real authenticated save are separate proofs. The public n8n 2.0.2 workflow PUT uses `forceSave` and does not provide atomic version comparison; fresh checks reduce drift but do not remove that race. Check the current version immediately before publication and read back the active source afterward. If activation is required, specify the saved `versionId` explicitly instead of activating an implicit latest version. Rollback must preserve concurrent unrelated changes.
 
 The Node tests exercise the generated Code paths and run the fixed query in isolated PostgreSQL with `BEGIN READ ONLY`, synthetic records and unchanged-row assertions. They do not prove deployment, cross-origin routing or an actual provider receipt.
