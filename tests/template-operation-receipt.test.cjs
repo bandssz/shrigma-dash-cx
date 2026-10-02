@@ -60,12 +60,13 @@ test('unknown never becomes completed from status or nothing_changed, while stor
  cl.state='rejected';i.response.body.nothing_changed=true;assert.equal(op({receipts:[i],claims:[cl]},c).state,'completed');
  cl.state='outcome_unknown';i.response.status=400;cl.response._http=400;assert.equal(op({receipts:[i],claims:[cl]},c).state,'outcome_unknown');
 });
-function fixture(){return {versionId:'fixture-fresh',connections:{existing:'untouched'},nodes:[
+function fixture(){return {versionId:'fixture-fresh',connections:{existing:'untouched',Prepara:{main:[[{node:'Etapa',type:'main',index:0}]]},Etapa:{main:[[{node:'Responde',type:'main',index:0}]]}},nodes:[
  {name:'Autenticação entrada',type:'n8n-nodes-base.code',parameters:{jsCode:P.AUTH_ANCHOR+"return [{json:{req,k}}];"}},
  {name:'Prepara',type:'n8n-nodes-base.code',parameters:{jsCode:"const req=$('Autenticação entrada').first().json.req;const q=req.query||{},method=req.method,acao=q.acao,auth=$json.auth;const out=(s,b)=>({json:{_http:s,_body:b}});"+P.PREP_ANCHOR+"return [{json:{legacy:true}}];"}},
  {name:'Formata leitura',type:'n8n-nodes-base.code',parameters:{jsCode:P.FORMAT_ANCHOR+"throw Error('provider path sentinel');"}},
  {name:'PG leitura',type:'n8n-nodes-base.postgres',typeVersion:2.5,parameters:{operation:'executeQuery',query:'={{ $json.sql }}',options:{}}},
- {name:'Responde',type:'n8n-nodes-base.respondToWebhook',parameters:{options:{responseHeaders:{entries:[{name:'Access-Control-Allow-Origin',value:'*'}]}}}},
+ {name:'Responde',type:'n8n-nodes-base.respondToWebhook',parameters:{respondWith:'json',responseBody:'={{ $json._body }}',options:{responseCode:'={{ $json._http }}',responseHeaders:{entries:[{name:'Access-Control-Allow-Origin',value:'*'}]}}}},
+ {name:'Etapa',type:'n8n-nodes-base.switch',parameters:{rules:{values:[{conditions:{conditions:[{leftValue:'={{ $json._step }}',rightValue:'resposta',operator:{type:'string',operation:'equals'}}]}}]}}},
  {name:'Native transport',parameters:{untouched:true}}
 ]};}
 const fn=(w,name)=>new Function('$json','$','$input',w.nodes.find(n=>n.name===name).parameters.jsCode);
