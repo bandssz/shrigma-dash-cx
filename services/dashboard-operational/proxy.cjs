@@ -321,7 +321,7 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false}={}){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,route=null}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
@@ -345,6 +345,12 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false}
     }
   }
   if(plain(caps.ab_experiment))caps.ab_experiment.enabled=false;
+  if(sandboxAudienceDraft===true&&route==='segments'&&upstreams.segments?.href===SANDBOX_DESTINATIONS.segments&&plain(value.catalog)&&['fish','aristo'].includes(value.catalog.brand)&&value.catalog.current===true&&value.capabilities.count===false&&value.capabilities.send===false){
+    // A catalogue is fetched with the person's read-only key. Its browser
+    // draft grant comes from the separately attested writer/session, not from
+    // widening that read-only backend key.
+    caps.draft=true;
+  }
   if(sandboxAudienceDraft===true&&value.synthetic===true&&caps.endpoints?.segments===origin+'/api/segments'&&upstreams.segments?.href===SANDBOX_DESTINATIONS.segments&&plain(caps.segments)&&caps.segments.read===true&&caps.segments.contract_version===AudienceContract.VERSION){
     // Restore only the reviewed audience CRUD/receipt contract. Counts,
     // campaign bindings, workers and delivery stay unavailable.
@@ -390,6 +396,6 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft})};
+  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,route})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

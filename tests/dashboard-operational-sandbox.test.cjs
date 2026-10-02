@@ -45,6 +45,10 @@ test('capabilities permit only audience CRUD in the explicit synthetic contract'
  const allowed=rewriteCapabilities(payload,upstreams,origin,{sandboxAudienceDraft:true}).capabilities;
  assert.equal(allowed.segments.save,true);assert.equal(allowed.segments.operation,true);assert.equal(allowed.segments.count,false);assert.equal(allowed.segments.send,false);assert.equal(allowed.campaigns.save,false);assert.equal(allowed.campaigns.schedule,false);assert.equal(allowed.write,false);
  for(const bad of [{...payload,synthetic:false},{...payload,capabilities:{...payload.capabilities,endpoints:{segments:'https://production.test/segments'}}}])assert.equal(rewriteCapabilities(bad,upstreams,origin,{sandboxAudienceDraft:true}).capabilities.segments.save,false);
+ const catalogue={catalog:{brand:'fish',current:true},capabilities:{draft:false,count:false,send:false}};
+ assert.equal(rewriteCapabilities(catalogue,upstreams,origin,{sandboxAudienceDraft:true,route:'segments'}).capabilities.draft,true);
+ for(const options of [{sandboxAudienceDraft:false,route:'segments'},{sandboxAudienceDraft:true,route:'templates'},{}])assert.equal(rewriteCapabilities(catalogue,upstreams,origin,options).capabilities.draft,false);
+ assert.equal(rewriteCapabilities({...catalogue,catalog:{brand:'fish',current:false}},upstreams,origin,{sandboxAudienceDraft:true,route:'segments'}).capabilities.draft,false);
 });
 
 function request(port,host,route,{method='GET',body,cookie,csrf,extra={}}={}){
