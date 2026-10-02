@@ -29,7 +29,10 @@ function snapshot(){
    {name:'crm_audience_api',super:false,bypassrls:false},
    {name:'crm_shopify_sync',super:false,bypassrls:false}
   ],memberships:[],default_acls:[],extensions:[],
-  guards:{worker_off:true,delivery_off:true,shopify_sources:[
+  guards:{worker_off:true,delivery_off:true,role_access:[
+   {role:'crm_audience_api',owner_member:false,schema_create:false,peer_member:false},
+   {role:'crm_shopify_sync',owner_member:false,schema_create:false,peer_member:false}
+  ],shopify_sources:[
    {brand:'aristo',shop_id:'gid://shopify/Shop/2',query_sha256:H},
    {brand:'fish',shop_id:'gid://shopify/Shop/1',query_sha256:H}
   ]}
@@ -47,6 +50,7 @@ test('the compiled RFM plan is one transaction and remains OFF',()=>{
  assert.equal((plan.sql.match(/^COMMIT;$/gm)||[]).length,1);
  assert.match(plan.sql,/RFM_INSTALL_METADATA_DRIFT/);
  assert.match(plan.sql,/RFM_INSTALL_PRIVATE_ACCESS/);
+ assert.match(plan.sql,/RFM_INSTALL_EFFECTIVE_ACCESS/);
  assert.match(plan.sql,/shrigma\.rfm\.install_guard/);
  assert.deepEqual([plan.enabled,plan.authorizes_send],[false,false]);
  assert.equal(plan.sql_sha256,Install.sha(plan.sql));
@@ -76,6 +80,24 @@ test('active delivery, pre-existing RFM objects and privileged runtime roles are
   const s=snapshot();mutate(s);
   assert.throws(()=>Install.compile(args(s)),/RFM_INSTALL_(WORKER_ACTIVE|ALREADY_INSTALLED|ROLE_BOUNDARY)/);
  }
+});
+test('owner membership, inherited schema writes and cross-role membership fail before SQL compilation',()=>{
+ for(const field of ['owner_member','schema_create','peer_member']){
+  const s=snapshot();s.guards.role_access[0][field]=true;
+  assert.throws(()=>Install.compile(args(s)),/RFM_INSTALL_ROLE_EFFECTIVE_ACCESS/);
+ }
+ const missing=snapshot();delete missing.guards.role_access;
+ assert.throws(()=>Install.compile(args(missing)),/RFM_INSTALL_ROLE_EFFECTIVE_ACCESS/);
+});
+test('a disposable catalog proves a group-inherited write grant is refused before DDL',async t=>{
+ const db=new PGlite();t.after(()=>db.close());
+ await setupRecordedComponent(db);
+ await db.exec('CREATE ROLE crm_shopify_sync NOLOGIN NOINHERIT; CREATE ROLE rfm_inherited_writer NOLOGIN NOINHERIT');
+ await db.exec('GRANT CREATE ON SCHEMA crm_audience_v2 TO rfm_inherited_writer; GRANT rfm_inherited_writer TO crm_shopify_sync WITH INHERIT TRUE');
+ assert.equal((await db.query("SELECT has_schema_privilege('crm_shopify_sync','crm_audience_v2','CREATE') AS inherited_write")).rows[0].inherited_write,true);
+ const unsafe=(await db.query(Install.snapshotSQL())).rows[0].snapshot;
+ assert.throws(()=>Install.compile(args(unsafe)),/RFM_INSTALL_ROLE_EFFECTIVE_ACCESS/);
+ assert.equal((await db.query("SELECT to_regclass('crm_audience_v2.rfm_source') IS NULL AS absent")).rows[0].absent,true);
 });
 test('direct SQL requires a compiler marker; only the component fixture removes that boundary',()=>{
  const raw=fs.readFileSync(path.join(ROOT,'n8n/growth/segment-shopify-rfm.sql'),'utf8');

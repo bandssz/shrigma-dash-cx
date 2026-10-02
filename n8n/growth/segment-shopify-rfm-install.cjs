@@ -32,10 +32,15 @@ function captureSources(){
 function sourcePins(){return captureSources().pins;}
 function snapshotSQL(){
  const source="SELECT coalesce(jsonb_agg(jsonb_build_object('brand',brand,'shop_id',shop_id,'enabled',enabled,'current_operation',current_operation,'query_sha256',query_sha256,'producer_revision',producer_revision) ORDER BY brand),'[]'::jsonb) FROM crm_audience_v2.shopify_source";
+ const roleAccess="SELECT coalesce(jsonb_agg(jsonb_build_object('role',r.rolname,"+
+  "'owner_member',pg_has_role(r.oid,(SELECT nspowner FROM pg_namespace WHERE nspname='crm_audience_v2'),'MEMBER'),"+
+  "'schema_create',has_schema_privilege(r.oid,'crm_audience_v2','CREATE'),"+
+  "'peer_member',pg_has_role(r.oid,(CASE WHEN r.rolname='crm_audience_api' THEN 'crm_shopify_sync' ELSE 'crm_audience_api' END)::regrole::oid,'MEMBER')) ORDER BY r.rolname),'[]'::jsonb) "+
+  "FROM pg_roles r WHERE r.rolname IN('crm_audience_api','crm_shopify_sync')";
  return "SELECT (s.snapshot-'contract')||jsonb_build_object('contract','crm-rfm-install-snapshot-v1','guards',jsonb_build_object("+
   "'worker_off',NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled),"+
   "'delivery_off',NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE enabled),"+
-  "'shopify_sources',("+source+"))) AS snapshot FROM ("+Catalog.snapshotSQL()+") s";
+  "'shopify_sources',("+source+"),'role_access',("+roleAccess+"))) AS snapshot FROM ("+Catalog.snapshotSQL()+") s";
 }
 function validateSnapshot(s){
  fail(s&&s.contract==='crm-rfm-install-snapshot-v1'&&s.owner==='postgres'&&s.session_owner==='postgres','IDENTITY');
@@ -68,6 +73,9 @@ function validateSnapshot(s){
  }
  const g=s.guards;
  fail(g&&g.worker_off===true&&g.delivery_off===true,'WORKER_ACTIVE');
+ fail(Array.isArray(g.role_access)&&g.role_access.length===2&&
+  ['crm_audience_api','crm_shopify_sync'].every(name=>g.role_access.some(x=>
+   x.role===name&&x.owner_member===false&&x.schema_create===false&&x.peer_member===false)),'ROLE_EFFECTIVE_ACCESS');
  fail(Array.isArray(g.shopify_sources)&&g.shopify_sources.length===2&&
   ['aristo','fish'].every(b=>g.shopify_sources.some(x=>x.brand===b&&/^gid:\/\/shopify\/Shop\/[1-9][0-9]*$/.test(x.shop_id)&&HASH.test(x.query_sha256))),'SOURCE_BASELINE');
  return sha(canonical(s));
@@ -115,6 +123,16 @@ function compile({expectedSnapshot,expectedSnapshotSha256,pins,reviewSha256,notB
  const marker=sha(canonical({snapshotHash,pins,reviewSha256,notBefore,expiresAt}));
  const pinsHash=sha(canonical(pins));
  const freshness="IF clock_timestamp()<"+literal(new Date(begin).toISOString())+"::timestamptz OR clock_timestamp()>="+literal(new Date(end).toISOString())+"::timestamptz THEN RAISE EXCEPTION 'RFM_INSTALL_EXPIRED'; END IF;";
+ const effectiveAccessGuard=
+  "IF EXISTS(SELECT 1 FROM (VALUES('crm_audience_api'),('crm_shopify_sync')) runtime(role_name) "+
+  "CROSS JOIN (VALUES('crm_audience_v2.rfm_source'),('crm_audience_v2.rfm_batch'),('crm_audience_v2.rfm_fact'),('crm_audience_v2.rfm_install_receipt')) objects(table_name) "+
+  "WHERE has_table_privilege(runtime.role_name,objects.table_name,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')) "+
+  "OR EXISTS(SELECT 1 FROM (VALUES('crm_audience_api'),('crm_shopify_sync')) runtime(role_name) CROSS JOIN pg_proc p "+
+  "WHERE p.pronamespace='crm_audience_v2'::regnamespace AND p.proname LIKE 'rfm_%' "+
+  "AND has_function_privilege(runtime.role_name,p.oid,'EXECUTE') "+
+  "AND NOT(runtime.role_name='crm_audience_api' AND p.proname IN('rfm_snapshot','rfm_source_current','rfm_match','rfm_count_for_rule')) "+
+  "AND NOT(runtime.role_name='crm_shopify_sync' AND p.proname='rfm_ingest_snapshot')) "+
+  "THEN RAISE EXCEPTION 'RFM_INSTALL_EFFECTIVE_ACCESS'; END IF;";
  const ddl=[
   'BEGIN;',
   'SET LOCAL standard_conforming_strings=on;',
@@ -154,7 +172,7 @@ function compile({expectedSnapshot,expectedSnapshotSha256,pins,reviewSha256,notB
    "WHERE p.pronamespace='crm_audience_v2'::regnamespace AND p.proname LIKE 'rfm_%' AND a.grantee<>p.proowner "+
    "AND NOT(a.grantee=to_regrole('crm_audience_api')::oid AND p.proname IN('rfm_snapshot','rfm_source_current','rfm_match','rfm_count_for_rule')) "+
    "AND NOT(a.grantee=to_regrole('crm_shopify_sync')::oid AND p.proname='rfm_ingest_snapshot')) "+
-   "THEN RAISE EXCEPTION 'RFM_INSTALL_PRIVATE_ACCESS'; END IF; "+afterGuard+" END $sealed$;",
+   "THEN RAISE EXCEPTION 'RFM_INSTALL_PRIVATE_ACCESS'; END IF; "+effectiveAccessGuard+' '+afterGuard+" END $sealed$;",
   'COMMIT;',
   ''
  ].join('\n');

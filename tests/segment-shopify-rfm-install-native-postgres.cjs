@@ -41,6 +41,19 @@ async function main(){
   await rejected(raw,/RFM_INSTALL_COMPILER_REQUIRED/);
   await absent();
 
+  // A group role can pass an inherited CREATE right to a runtime role even
+  // when no grant names that runtime role directly. Refuse it before DDL.
+  await db.exec('CREATE ROLE rfm_inherited_writer NOLOGIN NOINHERIT');
+  await db.exec('GRANT CREATE ON SCHEMA crm_audience_v2 TO rfm_inherited_writer');
+  await db.exec('GRANT rfm_inherited_writer TO crm_shopify_sync WITH INHERIT TRUE');
+  assert.equal((await db.query("SELECT has_schema_privilege('crm_shopify_sync','crm_audience_v2','CREATE') AS inherited_write")).rows[0].inherited_write,true);
+  const unsafe=(await db.query(Install.snapshotSQL())).rows[0].snapshot;
+  assert.throws(()=>Install.validateSnapshot(unsafe),/RFM_INSTALL_ROLE_EFFECTIVE_ACCESS/);
+  await absent();
+  await db.exec('REVOKE rfm_inherited_writer FROM crm_shopify_sync');
+  await db.exec('REVOKE CREATE ON SCHEMA crm_audience_v2 FROM rfm_inherited_writer');
+  await db.exec('DROP ROLE rfm_inherited_writer');
+
   const plan=await buildNativePlan(db);
   await db.exec('ALTER TABLE crm_audience_v2.shopify_source ENABLE ROW LEVEL SECURITY');
   await rejected(plan.sql,/RFM_INSTALL_METADATA_DRIFT/);
@@ -65,7 +78,7 @@ async function main(){
   assert.equal((await db.query("SELECT NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.pronamespace='crm_audience_v2'::regnamespace AND p.proname LIKE 'rfm_%' AND a.grantee=0) AS no_public")).rows[0].no_public,true);
   await rejected(fresh.sql,/RFM_INSTALL_METADATA_DRIFT/);
   assert.deepEqual(Install.reconcileReadback(fresh,(await db.query(Install.readbackSQL())).rows[0].readback),{state:'committed_off',authorizes_send:false});
-  console.log(JSON.stringify({success:true,postgres:'17.10',raw_refused:true,metadata_drift_refused:true,second_phase_rollback:true,replay_refused:true,readback_committed_off:true,private_acl:true,sources:0,sends:0,production_changed:false}));
+  console.log(JSON.stringify({success:true,postgres:'17.10',raw_refused:true,inherited_write_refused_before_ddl:true,metadata_drift_refused:true,second_phase_rollback:true,replay_refused:true,readback_committed_off:true,private_acl:true,effective_access_checked:true,sources:0,sends:0,production_changed:false}));
  }finally{await pool.end();}
 }
 main().catch(e=>{
