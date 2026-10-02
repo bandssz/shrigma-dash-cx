@@ -1,0 +1,82 @@
+# Sprint final do dashboard e CRM — 02/10/2026
+
+Este documento é o índice de execução e aceite deste sprint. Atualizar as linhas abaixo quando uma entrega mudar de estado; os documentos históricos conservam os recibos e o contexto, mas não definem a próxima prioridade. Fuso: America/Sao_Paulo. Responsável pela integração: chat **Concluir CRM e migração do dashboard**.
+
+## Resultado esperado e preservações
+
+Primeiro manter o CRM atual utilizável no GitHub Pages. Depois liberar o gerencial e os três painéis no Easypanel, com cadastro de gestores, e-mail/senha e permissões efetivas por área. Concluir também as pendências funcionais do CRM já solicitadas, sem apresentar código OFF como recurso entregue.
+
+Preservar a pasta e a branch atuais do Mac, a infraestrutura do CX, os serviços CRM existentes, campanhas e envios programados. Nenhum teste pode disparar mensagens para clientes, repetir uma operação incerta, criar um segundo emissor/coletor ou alterar dados reais para produzir uma prova. Operações comerciais de homologação usam banco, destinatários e transporte de teste. O corte depende da validação da entrega e da decisão explícita do titular antes de direcionar tráfego real.
+
+## Estado comprovado
+
+- **CRM atual:** PRs [#212](https://github.com/bandssz/shrigma-dash-cx/pull/212), [#213](https://github.com/bandssz/shrigma-dash-cx/pull/213) e [#215](https://github.com/bandssz/shrigma-dash-cx/pull/215) incorporadas ao main `565ab590ecbbaf021a05fdaa31bb570246ad52b3`. CORS de públicos corrigido e confirmado pelo analista; correção de campanhas por listas e navegação entre marcas publicada e conferida por HTTPS. Templates têm respostas de leitura/preflight comprovadas, sem salvar um template real durante o teste. **Falta aceite operacional dos percursos corrigidos; não afirmar que uma campanha real foi agendada.**
+- **Campanhas por listas:** público salvo é opcional. Listas continuam válidas quando a leitura confirma que a campanha não tem vínculo com público salvo. Vínculo existente, leitura falha, deriva ou tentativa incerta continuam exigindo conferência. Os rascunhos #167/#168 não devem ser convertidos em públicos salvos para contornar o problema.
+- **Identidade:** o titular confirmou e-mail/senha sem 2FA no v13. Cadastro, convite, isolamento e revogação passaram em canários sintéticos. A identidade corporativa foi copiada ao v21, que recebeu somente uma nova chave individual de leitura CRM por 14 dias. Isso não concede automaticamente integração ou edição aos gestores.
+- **Origem CRM:** leitura real retornou HTTP 200, 5.624.379 bytes, cache com 423 segundos e formato Growth esperado, sem registrar o conteúdo. Esse retorno excede o limite de 4 MiB do portal v21.
+- **Correção candidata:** [PR #214](https://github.com/bandssz/shrigma-dash-cx/pull/214), commit `10fee73e150b5685e18ab0ff1d9abc41da4e1cdd`, CI [37053827818](https://github.com/bandssz/shrigma-dash-cx/actions/runs/37053827818) aprovada, 68 testes locais do portal e prova HTTP dentro da imagem com recursos limitados. Imagem `ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:07a5ea4f3be76f15b36f2fd58199b51d9ea5fb44543d2207d91bce3493053cdc`. Limite de 8 MiB apenas para cache Growth e uma leitura simultânea por instância. **Ainda não instalada/validada no portal v22.**
+- **Recuperação:** backup corporativo cifrado fora do servidor e restauração isolada comprovados para a identidade anterior. Falta atualizar o backup após alterações de identidade e definir custódia independente da chave de recuperação.
+- **Produção nova:** DNS publicado pelo titular; domínios definitivos ainda não promovidos. Estado **NO-GO** para corte enquanto as linhas críticas abaixo estiverem pendentes.
+
+## Ordem e critérios de conclusão
+
+| Prioridade | Entrega | Estado atual | Prova necessária para encerrar |
+| --- | --- | --- | --- |
+| P0.1 | CRM atual: marcas, listas, públicos e templates | Correções publicadas; aceite operacional pendente | Abrir as duas marcas; campanhas com listas sem vínculo e com vínculo; conferir conteúdo/público; agendar em transporte de teste; público criar/contar/salvar/reabrir; template salvar/reabrir no teste; erro e resultado incerto sem repetição |
+| P0.2 | Uma instalação candidata do portal com leitura CRM real | Imagem corrigida pronta; v22 não instalado | Snapshot consistente da identidade v21, volume novo, importação só do SQLite; HTTPS; leitura autenticada pelo BFF; formato/escopo/frescor e latência; concorrência/erro controlados; comparação com origem sem expor dados |
+| P0.3 | Acesso mestre e cadastro utilizável de gestores | Fluxos sintéticos provados; falta identidade final | Preservar senha do titular; e-mail/senha; convite de uso único/expiração; cadastrar gestor de cada área; escolher área e nível; revogar; persistir após reinício; impedir acesso cruzado; sem 2FA conforme pedido |
+| P0.4 | Permissões efetivas de leitura e edição | Leitura individual só do titular/CRM; edição pendente | Identidade e capacidades na origem por usuário/área; gestor de leitura não grava; edição autorizada funciona em teste; nenhuma chave master/CX compartilhada; revogação corta acesso; status da UI coincide com a permissão efetiva |
+| P1.1 | CRM no servidor: públicos e campanhas | Leitura de origem provada; operações não homologadas no portal | Públicos/listas da mesma marca; vínculo/versionamento; contagem/frescor; rascunho; conferência; agenda/fuso; cancelamento; histórico/progresso; consentimento; recibos/idempotência; erro e tentativa incerta; uma única infraestrutura de envio |
+| P1.2 | Templates e mídia no servidor | Leitura templates corrigida; biblioteca legada preservada | Listar/criar/editar/reabrir template em teste; validar HTML e erro; biblioteca/GET autenticado e upload isolado; URLs já usadas permanecem válidas; acesso e limites de mídia |
+| P1.3 | Orgânico com dados e permissões | Frontend empacotado; leitura real pelo gateway não comprovada; organico.edit negado | Posts, stories, filtros, métricas, atribuição Shopify/último clique com legado separado, miniaturas, cache/fallback e links UTM; comparar marcas/períodos/frescor; identidade própria da área; listar links com permissão própria; salvar/arquivar só em teste e para editor; gestor não abre CRM/Influs |
+| P1.4 | Influs & Afiliados com dados e permissões | Frontend empacotado; leitura real pelo gateway e escritores não comprovados | Criadores/cupons/custos, parceiros/candidaturas, Meta Ads, TikTok Shop, Escopo, atribuição/Shopify e mídia; comparar marcas/períodos/frescor; confirmar scopes Shopify e regras atuais de comissão; leitura própria por usuário; creators_edit e demais escritores apenas quando comprovados; nenhuma ampliação para CX |
+| P1.5 | Segurança e recuperação da instalação final | Várias provas históricas; aplicação à candidata pendente | TLS em cada host; cookies/sessões; CSRF/Origin/CSP; área/host; login limitado por cliente confiável no proxy; senha/convite e revogação; segredos fora de assets/logs; limites efetivos; backup cifrado atualizado e restauração; custódia da chave |
+| P1.6 | Corte dos quatro domínios e reversão | Pendente, após aceite | Mesma revisão aprovada; capacidade; certificados e rota correta; login/dados/permissões por domínio; nenhum worker adicional; decisão do titular; retirar só rotas novas em falha; Pages e serviços atuais preservados |
+| P2.1 | Públicos dinâmicos sobre dados Shopify | Regras CRM existentes; coleta diária; sem tempo real | Recontar definição após refresh; comprovar marca/moeda/consentimento e validade; ausência de dados não vira “nunca comprou”; fonte vencida bloqueia envio |
+| P2.2 | Sete perfis RFM utilizáveis para envio | Retratos analíticos; candidato OFF; PR#211 draft | Instalador selado revisado; imagem/pin/papel real; Customer → Paid Orders pareados com histórico/scopes exatos; mutex/journal e resposta incerta; finalização atômica; fonte vigente nas duas marcas; catálogo→editor→contar→seleção; sem coletor paralelo |
+| P2.3 | Conversão por comprador único | Evidência prospectiva candidataOFF | Instalação revisada; envio aceito→identidade imutável→comprador único→API/UI; deduplicação, janela, cobertura e opt-out; não confundir pedidos/100envios com taxa de compradores |
+| P2.4 | A/B operacional e novos recortes | Preparação existente; aceite completo pendente | Duas variantes/públicos sem sobreposição; agenda; concorrência e resultado incerto; consentimento; envio único; stack completa e papel real em teste; nada enviado a clientes como QA |
+| P2.5 | Execução dos novos fluxos | Preparação/publicação pausada; executor OFF | Serviço/imagem/identidade do worker; entradas naturais, prazo e saída; opt-out; deduplicação/concorrência; recibos; execução fim a fim com transporte de teste antes de qualquer ativação |
+| P2.6 | Olivas, VIP/popup e pendências de aceite | Cobertura incompleta no handoff | Inventário fresco, origens e métricas comprovadas; percursos por marca; conciliar resultados antigos incertos sem replay; preservar transporte Olivas |
+| P3.1 | Segmentos nativos na Shopify, se mantidos no escopo final | Não implementados; públicos atuais são do CRM | Definir ponte por loja/ID/revisão/query; equivalência semântica; scopes da identidade exata; criação/consulta/atualização em loja de teste; reconciliar membros e consentimento antes de envio |
+| P3.2 | Diagnóstico histórico de pressão/lentidão n8n | Causa não comprovada | Medir runtime/latências sem mudança destrutiva; separar cache frontend/API/worker; corrigir causa comprovada; não usar limpeza/VACUUM ou remoção de workflows por inferência |
+| P3.3 | Melhorias Orgânico ainda sem aceite | Sentimento e histórico com ressalvas em handoff; webhook de comentários candidato OFF | Confirmar estado fresco de sentimento, cobertura histórica, vínculo de peça/assistências e comentários; testes isolados; não duplicar coleta nem alterar tabelas/workflows compartilhados cx_social_* |
+| P3.4 | Melhorias Influs ainda sem aceite | Conciliação multicupom/comissão, financeiro e decisões TikTok exigem revisão do estado real | Confirmar regras vigentes antes de exibir/cobrar; scopes da loja exata; fixtures de conciliação/financeiro e decisões com recibos/concorrência; nenhuma cobrança ou escrita comercial como QA |
+
+P0 e P1 formam a migração operacional solicitada. P2 e P3 permanecem no backlog do projeto e têm aceite próprio; não habilitar função incompleta para cumprir uma data. Funções já disponíveis no CRM atual devem manter paridade no novo portal; funcionalidades novas desligadas não impedem a entrega da migração básica se continuarem claramente desligadas e não forem necessárias aos percursos aprovados.
+
+Os testes base do portal cobrem auth/proxy/server/canary. A seleção de regressão de Orgânico cobre access/cache-read/attribution/stories/render; a de Influs cobre access/active-read/read-isolation e creators-read-isolation. As 56 verificações focais locais de Orgânico passaram no Node22 neste inventário; elas não comprovam a origem ou a interação autenticada no novo portal. Para cada área, exigir master e gestor próprios, resposta real por sessão/host, negativas cruzadas, revogação, novo login e reinício. Prefixos `cx_social_*` podem identificar infraestrutura compartilhada: retirar a aba CX do gerencial não autoriza remover essas dependências.
+
+## Próxima ação exata
+
+Concluir a instalação da imagem corrigida em **um único candidato v22**, preservando o v21 como reversão. O pacote persistido do v21 é pinado: não trocar sua imagem diretamente. Fazer cópia consistente da identidade com origem RO e destino novo, validar integridade, retomar imediatamente o gateway de teste v21, importar somente SQLite para o volume v22 e conferir o portal com integração real. Nenhum novo ensaio deve envolver os emissores, campanhas ou banco de negócio da produção.
+
+## Previsão de planejamento, sem garantia de horário
+
+Estimativa em 02/10, sujeita às provas ainda ausentes:
+
+| Marco | Janela de planejamento | Confiança e dependências |
+| --- | --- | --- |
+| CRM/gerencial candidato com leitura real e cadastro homologado | Próximas24–48 h, 03–04/10 | Média-baixa: importação da identidade, login corporativo e BFF ainda precisam passar; não é promessa de produção |
+| Migração operacional dos três painéis e permissões | Semana 05–09/10 | Baixa a média: Orgânico/Influs e edição precisam de contratos individuais e homologação; corte só depois dos critérios acima |
+| Fechamento de todas as funções CRM pendentes | Reserva de mais 1–2 semanas após a migração, 12–23/10 | Baixa: produtor RFM, conversão, fluxos e cobertura Olivas ainda têm trabalho de implementação/integração; segmentos nativos Shopify podem ampliar a reserva |
+
+Reestimar quando P0.2/P0.3 e o inventário real de P1.3/P1.4 passarem. Execução contínua reduz esperas, mas não substitui integrações, ensaios, disponibilidade do host/app e limites de uso. Não converter capacidade “24h/dia” em garantia de prazo.
+
+## Como reduzir a demora
+
+1. Uma fila de prioridades neste documento; uma revisão/imagem candidata; um responsável pelo corte. Novos canários apenas se surgir necessidade técnica concreta de isolamento ou compatibilidade persistida.
+2. Paralelizar inventário de Orgânico/Influs, revisão de permissões e fixtures CRM. Manter snapshot, importação, promoção e operações dependentes sequenciais.
+3. Reusar evidência já válida para a mesma revisão. Repetir testes somente quando a mudança, falha ou dúvida exigir; privilegiar os percursos do gestor e integração real, não apenas quantidade de checks.
+4. Atualizações ao titular por entrega, falha relevante ou decisão crítica; nenhuma pergunta de continuidade. Registrar o motivo concreto de bloqueio e seguir o trabalho independente.
+5. Preservar o trabalho dos outros chats; consultar seus recibos/readbacks, sem presumir que um handoff antigo descreve o runtime atual.
+
+## Dot e continuidade entre chats
+
+Recomendação: seguir no chat atual, com meta ativa e autorizações preservadas. Um novo chat exige repasse deste índice, commits, recibos sanitizados e limites; estar no mesmo projeto não transfere automaticamente todo o contexto de uma conversa.
+
+O Dot pode coordenar agentes em paralelo, acompanhar entregas e continuar uma tarefa Codex existente no computador conectado. Para trabalho local, a documentação exige computador online e app ChatGPT aberto; trabalho cloud exige ambiente Codex previamente configurado. Nesta tarefa não há ferramenta callable para criar/configurar o Dot, portanto **nenhum Dot foi ativado**. Seu uso seria coordenação do chat existente e deste backlog, sem outro deploy concorrente. Não é dependência para avançar a migração. Fontes: [tarefas e memória](https://learn.chatgpt.com/docs/dots/tasks-and-memory), [computadores e apps](https://learn.chatgpt.com/docs/dots/computers-and-apps).
+
+## Evidências e limites
+
+O [registro da migração](DASHBOARD-MIGRACAO-SEMANA-20261005.md), o [plano de corte](DASHBOARD-OPERACIONAL-CORTE-20261001.md) e a [prova de recuperação](DASHBOARD-IDENTITY-OFFSITE-20261002.md) guardam os detalhes. O handoff local `deliverables/crm/HANDOFF-SERVIDOR-INTERNO-CRM-2026-10-01.md` registra as funções CRM anteriores ao main atual; seus números de aceite e campanhas são históricos e exigem conferência fresca. Não promover CI, deploy aceito, health ou catálogo GET a prova de edição/agendamento real. Não publicar recibos privados, payloads, credenciais ou chaves junto deste índice.
