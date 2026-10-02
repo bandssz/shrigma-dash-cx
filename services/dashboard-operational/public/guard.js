@@ -61,7 +61,7 @@
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  const editReceipt=route==='campaigns'&&method==='GET'&&url.searchParams.get('acao')==='campanha_operacao';
+  const editReceipt=method==='GET'&&(route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao');
   if(!['GET','HEAD'].includes(method)||editReceipt){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');

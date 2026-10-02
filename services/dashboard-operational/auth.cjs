@@ -157,7 +157,7 @@ function createAuth(options){
  CREATE TABLE IF NOT EXISTS audience_draft_operations (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),
-  operation_key TEXT NOT NULL,
+  operation_key TEXT NOT NULL,payload_mac TEXT,actor_mac TEXT,
   action TEXT NOT NULL CHECK(action IN ('segmento_criar','segmento_salvar','segmento_arquivar')),
   phase TEXT NOT NULL CHECK(phase IN ('pending','uncertain','succeeded','rejected')),
   receipt_status INTEGER,receipt_code TEXT,segment_id TEXT,segment_version INTEGER,
@@ -170,6 +170,12 @@ function createAuth(options){
   bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS identity_metadata (
   key TEXT PRIMARY KEY,encrypted_value TEXT NOT NULL);`);
+ // Existing shadow volumes may already contain an unresolved v1 audience
+ // journal. Keep that row locked; a missing MAC cannot authorize a v2 receipt.
+ if(!db.prepare('PRAGMA table_info(audience_draft_operations)').all().some(column=>column.name==='payload_mac'))
+  db.exec('ALTER TABLE audience_draft_operations ADD COLUMN payload_mac TEXT');
+ if(!db.prepare('PRAGMA table_info(audience_draft_operations)').all().some(column=>column.name==='actor_mac'))
+  db.exec('ALTER TABLE audience_draft_operations ADD COLUMN actor_mac TEXT');
  const findUser=db.prepare('SELECT * FROM users WHERE email=?');
  db.exec('BEGIN IMMEDIATE');
  try{
@@ -409,18 +415,22 @@ function createAuth(options){
  // The audience journal accepts generated UUIDs only: keys are identifiers,
  // never a place for a segment name, customer data or other request content.
  const audienceKey=key=>{if(typeof key!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(key))err('OPERATION_KEY_INVALID',400);return key;};
+ const audienceHash=hash=>{if(typeof hash!=='string'||!/^[a-f0-9]{64}$/.test(hash))err('OPERATION_HASH_INVALID',400);return hash;};
+ const audienceMac=hash=>crypto.createHmac('sha256',encKey).update('audience-payload-v2:'+audienceHash(hash)).digest('hex');
+ const audienceActorMac=hash=>crypto.createHmac('sha256',encKey).update('audience-actor-v2:'+audienceHash(hash)).digest('hex');
+ const audiencePayloadMatches=(mac,hash)=>typeof mac==='string'&&/^[a-f0-9]{64}$/.test(mac)&&typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash)&&crypto.timingSafeEqual(Buffer.from(mac,'hex'),Buffer.from(audienceMac(hash),'hex'));
+ const audienceActorMatches=(mac,hash)=>typeof mac==='string'&&/^[a-f0-9]{64}$/.test(mac)&&typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash)&&crypto.timingSafeEqual(Buffer.from(mac,'hex'),Buffer.from(audienceActorMac(hash),'hex'));
  const unresolvedCampaignDraft=userId=>!!db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
  const unresolvedAudienceDraft=userId=>!!db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
  const audienceActions=new Set(['segmento_criar','segmento_salvar','segmento_arquivar']);
  const audienceRejectCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
  function audienceDraft(context,brand){
-  const user=authorize({...context,area:'growth'});
-  if(!user.permissions.growth?.edit)err('GRANT_DENIED',403);
-  return db.prepare('SELECT operation_key AS operationKey,action,phase,receipt_status AS receiptStatus,receipt_code AS receiptCode,segment_id AS segmentId,segment_version AS segmentVersion,updated_at AS updatedAt FROM audience_draft_operations WHERE user_id=? AND brand=?').get(user.id,draftBrand(brand))||null;
+  const user=authorize({...context,area:'growth',edit:true});
+  return db.prepare('SELECT operation_key AS operationKey,payload_mac AS payloadMac,actor_mac AS actorMac,action,phase,receipt_status AS receiptStatus,receipt_code AS receiptCode,segment_id AS segmentId,segment_version AS segmentVersion,updated_at AS updatedAt FROM audience_draft_operations WHERE user_id=? AND brand=?').get(user.id,draftBrand(brand))||null;
  }
- function reserveAudienceDraft(context,brand,key,action){
+ function reserveAudienceDraft(context,brand,key,action,payloadSha256,actorSha256){
   if(context?.method!=='POST')err('METHOD_DENIED',405);
-  draftBrand(brand);audienceKey(key);
+  draftBrand(brand);audienceKey(key);const payloadMac=audienceMac(payloadSha256),actorMac=audienceActorMac(actorSha256);
   if(!audienceActions.has(action))err('OPERATION_INVALID',400);
   // Serialize permission checking and reservation with admin grant/credential
   // changes, including when a future gateway runs in another process.
@@ -428,12 +438,12 @@ function createAuth(options){
    const user=authorize({...context,area:'growth',edit:true});
    // Reserve before any future upstream call. An unresolved operation can
    // never be overwritten or retried under another key.
-   const result=db.prepare(`INSERT INTO audience_draft_operations(user_id,brand,operation_key,action,phase,updated_at)
-    VALUES(?,?,?,?,'pending',?) ON CONFLICT(user_id,brand) DO UPDATE SET
-    operation_key=excluded.operation_key,action=excluded.action,phase='pending',
+   const result=db.prepare(`INSERT INTO audience_draft_operations(user_id,brand,operation_key,payload_mac,actor_mac,action,phase,updated_at)
+    VALUES(?,?,?,?,?,?,'pending',?) ON CONFLICT(user_id,brand) DO UPDATE SET
+    operation_key=excluded.operation_key,payload_mac=excluded.payload_mac,actor_mac=excluded.actor_mac,action=excluded.action,phase='pending',
     receipt_status=NULL,receipt_code=NULL,segment_id=NULL,segment_version=NULL,updated_at=excluded.updated_at
     WHERE audience_draft_operations.phase IN ('succeeded','rejected')
-    AND audience_draft_operations.operation_key<>excluded.operation_key`).run(user.id,brand,key,action,current());
+    AND audience_draft_operations.operation_key<>excluded.operation_key`).run(user.id,brand,key,payloadMac,actorMac,action,current());
    if(result.changes!==1)err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.exec('COMMIT');return user.id;
   }catch(e){db.exec('ROLLBACK');throw e;}
@@ -449,8 +459,8 @@ function createAuth(options){
   const rejection=phase==='rejected'&&[404,409,422,503].includes(receiptStatus)&&audienceRejectCodes.has(receiptCode)&&segmentId===null&&segmentVersion===null;
   const uncertain=phase==='uncertain'&&receiptStatus===null&&receiptCode===null&&segmentId===null&&segmentVersion===null;
   if(!success&&!rejection&&!uncertain)err('OPERATION_INVALID',500);
-  const result=db.prepare("UPDATE audience_draft_operations SET phase=?,receipt_status=?,receipt_code=?,segment_id=?,segment_version=?,updated_at=? WHERE user_id=? AND brand=? AND operation_key=? AND action=? AND phase IN ('pending','uncertain')")
-   .run(phase,receiptStatus,receiptCode,segmentId,segmentVersion,current(),userId,brand,key,action);
+  const result=db.prepare("UPDATE audience_draft_operations SET phase=?,receipt_status=?,receipt_code=?,segment_id=?,segment_version=?,updated_at=? WHERE user_id=? AND brand=? AND operation_key=? AND action=? AND phase IN ('pending','uncertain') AND (?='uncertain' OR payload_mac IS NOT NULL AND actor_mac IS NOT NULL)")
+   .run(phase,receiptStatus,receiptCode,segmentId,segmentVersion,current(),userId,brand,key,action,phase);
   if(result.changes!==1){
    const row=db.prepare('SELECT phase,receipt_status,receipt_code,segment_id,segment_version FROM audience_draft_operations WHERE user_id=? AND brand=? AND operation_key=? AND action=?').get(userId,brand,key,action);
    if(row&&['succeeded','rejected'].includes(row.phase)){
@@ -491,6 +501,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

@@ -1,11 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC}=require('../services/dashboard-operational/proxy.cjs');
+const {decide,validateUpstreams,forward,rewriteCapabilities,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation}=require('../services/dashboard-operational/proxy.cjs');
+const AudienceHash=require('../n8n/growth/segment-audience-review.cjs');
 const {ENDPOINTS,DYNAMIC_ROUTES}=require('../services/dashboard-operational/build.cjs');
 const {PATH:CAMPAIGN_PATH,MEDIA_PATH}=require('../services/crm-campaign/server.cjs');
 const params=value=>new URLSearchParams(value);
 const denied=fn=>assert.throws(fn,e=>e instanceof ProxyError&&e.status>=400&&e.status<500);
 const U='123e4567-e89b-42d3-a456-426614174000',K='a'.repeat(32);
+const segmentDefinition=brand=>({schema_version:'crm-audience-v2',brand,name:'Synthetic audience',rule:{op:'in_list',list_id:101}});
 const draftDefinition=brand=>({schema_version:'crm-campaign-v1',brand,channel:'email',initiative:{key:'gateway-proof',name:'Gateway proof'},utm_campaign:'gateway-proof',name:'Gateway proof',subject:'Proof subject',from_email:brand==='fish'?'Fish <contato@fishermans.com.br>':'Aristo <contato@oaristocrata.com>',reply_to:brand==='fish'?'contato@fishermans.com.br':'contato@oaristocrata.com',list_ids:[3],template_id:1,html:'<a href="https://fishermans.com.br/products/proof">Proof</a> {{ UnsubscribeURL }}',text:'https://fishermans.com.br/products/proof\n{{ UnsubscribeURL }}',tags:[],send_at:null});
 const hostsFor=routes=>[...new Set(Object.values(routes).map(value=>new URL(value).hostname))];
 const review=routes=>({schema:DYNAMIC_MANIFEST_SCHEMA,sourceRevision:REVIEWED_DYNAMIC.sourceRevision,routes});
@@ -25,7 +27,11 @@ test('each area has only its exact read contract and individual credential slot'
     ['campaigns','POST','',{acao:'campanha_salvar',brand:'fish',definition:draftDefinition('fish'),idempotency_key:K},'growth','growth-campaign',true],
     ['segments','GET','acao=segmentos_listar&brand=fish&offset=0&limit=50',undefined,'growth','growth-audience-read',false],
     ['segments','GET',`acao=segmento_obter&brand=fish&id=${U}`,undefined,'growth','growth-audience-read',false],
-    ['segments','GET',`acao=segmento_operacao&brand=fish&idempotency_key=${K}`,undefined,'growth','growth-audience',true],
+    ['segments','GET',`acao=segmento_operacao&brand=fish&idempotency_key=${U}`,undefined,'growth','growth-audience',true],
+    ['segments','GET','acao=segmento_contexto_v2&brand=fish',undefined,'growth','growth-audience',true],
+    ['segments','POST','',{acao:'segmento_criar',brand:'fish',definition:segmentDefinition('fish'),expected_catalog_hash:'a'.repeat(64),idempotency_key:U},'growth','growth-audience',true],
+    ['segments','POST','',{acao:'segmento_salvar',brand:'fish',id:U,expected_version:1,definition:segmentDefinition('fish'),expected_catalog_hash:'a'.repeat(64),idempotency_key:U},'growth','growth-audience',true],
+    ['segments','POST','',{acao:'segmento_arquivar',brand:'fish',id:U,expected_version:1,idempotency_key:U},'growth','growth-audience',true],
     ['campaign_audience','GET','acao=campanha_publico_obter&brand=fish&campaign_id=23',undefined,'growth','growth-audience-read',false],
     ['campaign_audience','GET',`acao=campanha_publico_operacao&brand=fish&idempotency_key=${K}`,undefined,'growth','growth-audience',true],
     ['campaign_audience','GET',`acao=campanha_publico_agendamento_operacao&brand=fish&idempotency_key=${K}`,undefined,'growth','growth-audience',true],
@@ -68,6 +74,29 @@ test('each area has only its exact read contract and individual credential slot'
     let decision;try{decision=decide(route,method,params(query),body);}catch(e){throw Error(`${route} ${query||JSON.stringify(body)}: ${e.code}`);}
     assert.deepEqual([decision.area,decision.credentialSlot,decision.edit],[area,slot,edit],`${route} ${query||JSON.stringify(body)}`);
   }
+});
+
+test('audience BFF request hash matches backend canonical payload for every draft action',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-audience-contract.js'),'utf8');
+ assert.equal(fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/segment-audience-contract.js'),'utf8'),source);
+ const operations=[
+  {acao:'segmento_criar',brand:'fish',definition:segmentDefinition('fish'),expected_catalog_hash:'a'.repeat(64),idempotency_key:U},
+  {idempotency_key:U,expected_catalog_hash:'a'.repeat(64),definition:segmentDefinition('fish'),expected_version:1,id:U,brand:'fish',acao:'segmento_salvar'},
+  {expected_version:2,id:U,brand:'fish',acao:'segmento_arquivar',idempotency_key:U}
+ ];
+ for(const body of operations){
+  assert.equal(decide('segments','POST',params(''),body).credentialSlot,'growth-audience');
+  assert.equal(audiencePayloadHash(body),AudienceHash.digest(body));
+  assert.equal(audiencePayloadHash(body),AudienceHash.digest(require('../n8n/growth/segment-audience-store.cjs').request(body)));
+ }
+ assert.equal(MAX_AUDIENCE_REQUEST,16000);
+ for(const bad of [{...operations[0],k:'ui-'+'a'.repeat(32)},{...operations[0],acao:'segmento_contar'},{...operations[0],definition:{...segmentDefinition('fish'),brand:'aristo'}},{...operations[1],expected_version:0},{...operations[1],id:U.toUpperCase()},{...operations[2],extra:'x'},{...operations[0],idempotency_key:'free-form-key-001'}])denied(()=>decide('segments','POST',params(''),bad));
+ const actor='b'.repeat(64),hash=audiencePayloadHash(operations[0]);
+ assert.equal(verifiedAudienceScope({scope:{schema:'crm-audience-writer-scope-v2',brand:'fish',actor_sha256:actor}},'fish'),actor);
+ const segment={id:U,brand:'fish',name:'Synthetic audience',definition:segmentDefinition('fish'),version:1,archived:false};
+ const receipt={operation:{schema:'crm-audience-operation-v2',idempotency_key:U,brand:'fish',action:'segmento_criar',actor_sha256:actor,payload_sha256:hash,receipt:{status:201,body:{segment,transport_supported:false}}}};
+ assert.equal(verifiedAudienceOperation(receipt,{brand:'fish',key:U,action:'segmento_criar',payloadMatches:x=>x===hash,actorMatches:x=>x===actor}).phase,'succeeded');
+ assert.throws(()=>verifiedAudienceOperation({operation:{...receipt.operation,action:'segmento_salvar'}},{brand:'fish',key:U,action:'segmento_criar',payloadMatches:()=>true,actorMatches:()=>true}),e=>e.code==='UPSTREAM_RECEIPT_UNCONFIRMED');
 });
 
 test('unknown, writable, malformed and widened read requests fail before network',()=>{

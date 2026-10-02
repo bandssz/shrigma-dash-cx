@@ -341,7 +341,7 @@ test('guard obtains session and CSRF before POST, then strips nested uiKey and k
  assert.deepEqual(JSON.parse(calls[1].options.body),{acao:'listar',nested:{value:'ok'}});
 });
 
-test('campaign receipt GET obtains session CSRF while ordinary campaign GET stays read only',async()=>{
+test('campaign and audience receipt GET obtain session CSRF while ordinary reads stay read only',async()=>{
  const {browser,calls,origin}=guardHarness();
  const receipt=await browser.fetch('/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key=campaign-save-key-0000001');
  assert.equal(receipt.status,200);assert.equal(calls.length,2);
@@ -351,6 +351,10 @@ test('campaign receipt GET obtains session CSRF while ordinary campaign GET stay
  const read=await browser.fetch('/api/campaigns?acao=campanha_listar&brand=fish');
  assert.equal(read.status,200);assert.equal(calls.length,3);
  assert.equal(calls[2].options.headers.has('X-CSRF-Token'),false);
+ const audience=await browser.fetch('/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=123e4567-e89b-42d3-a456-426614174000');
+ assert.equal(audience.status,200);assert.equal(calls.length,4);
+ assert.equal(calls[3].url,origin+'/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=123e4567-e89b-42d3-a456-426614174000');
+ assert.equal(calls[3].options.headers.get('X-CSRF-Token'),'csrf-test');
 });
 
 test('guard with no authenticated session does not transmit POST to the BFF',async()=>{

@@ -1,4 +1,6 @@
 'use strict';
+const crypto=require('node:crypto');
+const AudienceContract=require('./segment-audience-contract.js');
 // Browser-to-upstream contract. Each action has its own exact method, selector,
 // fields and credential slot. A receipt lookup is a read, but must use the
 // writer's principal; edit:true makes the session grant mandatory as well.
@@ -16,7 +18,11 @@ const READ=Object.freeze({
   campaigns_media:{area:'growth',slot:'growth-campaign-read',method:'GET',actions:{'':rule(['brand'],['page','per_page'])}},
   segments:{area:'growth',slot:'growth-audience-read',method:'GET',selector:'acao',actions:{
     segmentos_listar:rule(['brand','offset','limit']),segmento_obter:rule(['brand','id']),
-    segmento_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-audience',edit:true})}},
+    segmento_contexto_v2:rule(['brand'],[],{slot:'growth-audience',edit:true}),
+    segmento_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-audience',edit:true}),
+    segmento_criar:rule(['brand','definition','expected_catalog_hash','idempotency_key'],[],{method:'POST',slot:'growth-audience',edit:true}),
+    segmento_salvar:rule(['brand','id','expected_version','definition','expected_catalog_hash','idempotency_key'],[],{method:'POST',slot:'growth-audience',edit:true}),
+    segmento_arquivar:rule(['brand','id','expected_version','idempotency_key'],[],{method:'POST',slot:'growth-audience',edit:true})}},
   campaign_audience:{area:'growth',slot:'growth-audience-read',method:'GET',selector:'acao',actions:{
     campanha_publico_obter:rule(['brand','campaign_id']),
     campanha_publico_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-audience',edit:true}),
@@ -91,8 +97,9 @@ const REVIEWED_DYNAMIC=Object.freeze({
     journey_graph_lifecycle:'https://comunicacao-crm-audience.tazdb8.easypanel.host/journey-graph-lifecycle'
   })
 });
-const MAX_REQUEST=128*1024,MAX_CAMPAIGN_REQUEST=256*1024,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024,MAX_MEDIA_RESPONSE=2*1024*1024;
+const MAX_REQUEST=128*1024,MAX_CAMPAIGN_REQUEST=256*1024,MAX_AUDIENCE_REQUEST=16000,MAX_RESPONSE=4*1024*1024,MAX_PRINT_RESPONSE=5*1024*1024,MAX_MEDIA_RESPONSE=2*1024*1024;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const AUDIENCE_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 const BRAND=/^(fish|aristo)$/;
@@ -113,12 +120,13 @@ const validField=(route,name,value)=>{
     case 'page':return route==='campaigns_media'&&/^[1-9]\d{0,4}$/.test(value)&&Number(value)<=10000;
     case 'per_page':return route==='campaigns_media'&&/^[1-9]\d?$/.test(value)&&Number(value)<=50;
     case 'after':return value===''||UUID.test(value);
-    case 'id':return route==='candidaturas'?UUID.test(value):route==='segments'?UUID.test(value):positive(value);
+    case 'id':return route==='candidaturas'?UUID.test(value):route==='segments'?UUID.test(value)&&value===value.toLowerCase():positive(value);
     case 'campaign_id':return positive(value);
     case 'journey_id':case 'request_id':case 'test_id':case 'operation_id':return UUID.test(value);
     case 'application_id':return /^[1-9]\d{0,79}$/.test(value);
     case 'teste_id':return typeof value==='string'&&value.length>=1&&value.length<=256&&value===value.trim()&&!/[\x00-\x1f\x7f]/.test(value);
-    case 'idempotency_key':return route==='campaigns'?/^[A-Za-z0-9_-]{16,100}$/.test(value):KEY.test(value);
+    case 'idempotency_key':return route==='campaigns'?/^[A-Za-z0-9_-]{16,100}$/.test(value):route==='segments'?AUDIENCE_KEY.test(value):KEY.test(value);
+    case 'expected_catalog_hash':return route==='segments'&&typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
     case 'draft_id':return /^d_[A-Za-z0-9_-]{1,96}$/.test(value);
     case 'key':case 'submission_id':return /^[A-Za-z0-9_.:-]{1,128}$/.test(value);
     case 'operacao':return route==='ab'?['criar','encerrar'].includes(value):['rascunho','validar','submeter'].includes(value);
@@ -129,6 +137,47 @@ const validField=(route,name,value)=>{
 };
 class ProxyError extends Error{constructor(status,code){super(code);this.status=status;this.code=code;}}
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
+const exact=(value,keys)=>plain(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
+const audienceRejections=Object.freeze({SEGMENT_SHAPE:422,SEGMENT_BRAND_MISMATCH:422,SEGMENT_LIST_UNAVAILABLE:422,SEGMENT_UNAVAILABLE:503,SEGMENT_NOT_FOUND:404,SEGMENT_VERSION_CONFLICT:409,SEGMENT_ARCHIVED:409,SEGMENT_CATALOG_CHANGED:409});
+function validAudienceDefinition(value){try{return !!AudienceContract.normalize(value);}catch{return false;}}
+function audiencePayloadHash(value){
+ let nodes=0;
+ function canonical(item,depth){
+  if(++nodes>300000||depth>32)throw new ProxyError(403,'FIELD_DENIED');
+  if(item===null||typeof item==='boolean'||typeof item==='number'&&Number.isFinite(item))return JSON.stringify(item);
+  if(typeof item==='string'&&item.length<=32768)return JSON.stringify(item);
+  if(Array.isArray(item)){if(Object.keys(item).length!==item.length)throw new ProxyError(403,'FIELD_DENIED');return '['+item.map(v=>canonical(v,depth+1)).join(',')+']';}
+  if(!plain(item))throw new ProxyError(403,'FIELD_DENIED');
+  const keys=Object.keys(item);
+  if(Reflect.ownKeys(item).length!==keys.length||keys.some(k=>{const d=Object.getOwnPropertyDescriptor(item,k);return !d||!Object.hasOwn(d,'value')||!d.enumerable;}))throw new ProxyError(403,'FIELD_DENIED');
+  return '{'+keys.sort().map(k=>JSON.stringify(k)+':'+canonical(item[k],depth+1)).join(',')+'}';
+ }
+ const serialized=canonical(value,0);
+ if(Buffer.byteLength(serialized,'utf8')>MAX_AUDIENCE_REQUEST)throw new ProxyError(413,'BODY_TOO_LARGE');
+ return crypto.createHash('sha256').update(serialized,'utf8').digest('hex');
+}
+function verifiedAudienceScope(body,brand){
+ const scope=body?.scope;
+ if(!exact(body,['scope'])||!exact(scope,['schema','brand','actor_sha256'])||scope.schema!=='crm-audience-writer-scope-v2'||scope.brand!==brand||typeof scope.actor_sha256!=='string'||!/^[a-f0-9]{64}$/.test(scope.actor_sha256))throw new ProxyError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
+ return scope.actor_sha256;
+}
+function verifiedAudienceOperation(body,{brand,key,action,payloadMatches,actorMatches}){
+ const op=body?.operation,receipt=op?.receipt,inner=receipt?.body;
+ if(!exact(body,['operation'])||!exact(op,['schema','idempotency_key','brand','action','actor_sha256','payload_sha256','receipt'])||
+   op.schema!=='crm-audience-operation-v2'||op.idempotency_key!==key||op.brand!==brand||op.action!==action||
+   typeof op.actor_sha256!=='string'||!/^[a-f0-9]{64}$/.test(op.actor_sha256)||!actorMatches(op.actor_sha256)||
+   typeof op.payload_sha256!=='string'||!/^[a-f0-9]{64}$/.test(op.payload_sha256)||!payloadMatches(op.payload_sha256)||
+   !exact(receipt,['status','body'])||!plain(inner))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+ if(Object.hasOwn(inner,'error')){
+  if(audienceRejections[inner.error]!==receipt.status||!exact(inner,['error',...(inner.error==='SEGMENT_VERSION_CONFLICT'?['current_version']:[])])||inner.error==='SEGMENT_VERSION_CONFLICT'&&(!Number.isSafeInteger(inner.current_version)||inner.current_version<1))throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+  return {phase:'rejected',status:receipt.status,body:inner,receiptCode:inner.error,segmentId:null,segmentVersion:null};
+ }
+ const segment=inner.segment;
+ if(!exact(inner,['segment','transport_supported'])||inner.transport_supported!==false||!plain(segment)||!UUID.test(segment.id)||segment.brand!==brand||!Number.isSafeInteger(segment.version)||segment.version<1||segment.version>999999999||typeof segment.archived!=='boolean'||
+   (action==='segmento_criar'?(receipt.status!==201||segment.version!==1||segment.archived):(receipt.status!==200||segment.archived!==(action==='segmento_arquivar')))||
+   !validAudienceDefinition(segment.definition)||segment.definition.brand!==brand||segment.name!==AudienceContract.normalize(segment.definition).name)throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
+ return {phase:'succeeded',status:receipt.status,body:inner,receiptCode:null,segmentId:segment.id,segmentVersion:segment.version};
+}
 const CAMPAIGN_DEFINITION_FIELDS=new Set(['schema_version','brand','channel','initiative','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','html','text','tags','send_at']);
 function validCampaignDefinition(value,brand){
   if(!plain(value)||Object.keys(value).some(k=>!CAMPAIGN_DEFINITION_FIELDS.has(k))||
@@ -145,7 +194,7 @@ function validCampaignDefinition(value,brand){
 }
 function decide(route,method,query,body){
   const spec=READ[route];if(!spec)throw new ProxyError(403,'ROUTE_DENIED');
-  if(method!==spec.method&&!(route==='campaigns'&&method==='POST'))throw new ProxyError(403,'METHOD_DENIED');
+  if(method!==spec.method&&!(method==='POST'&&['campaigns','segments'].includes(route)))throw new ProxyError(403,'METHOD_DENIED');
   if(!(query instanceof URLSearchParams)||query.toString().length>2048)throw new ProxyError(413,'QUERY_TOO_LARGE');
   if(method==='GET'&&body!==undefined)throw new ProxyError(400,'GET_BODY_DENIED');
   if(method==='POST'&&(!plain(body)||query.toString()!==''))throw new ProxyError(400,'JSON_OBJECT_REQUIRED');
@@ -159,9 +208,10 @@ function decide(route,method,query,body){
   const allowed=new Set([...required,...policy.optional,...(method==='POST'?['k']:[])]);
   if(Object.keys(fields).some(k=>!allowed.has(k))||required.some(k=>!Object.hasOwn(fields,k)))throw new ProxyError(403,'FIELD_DENIED');
   if(route==='templates'&&action==='historico'&&(Object.hasOwn(fields,'key')===Object.hasOwn(fields,'draft_id')))throw new ProxyError(403,'FIELD_DENIED');
+  if(route==='segments'&&method==='POST'&&Object.hasOwn(fields,'k'))throw new ProxyError(403,'CREDENTIAL_DENIED');
   if(method==='POST'&&Object.hasOwn(fields,'k')&&!/^ui-[a-f0-9]{32,64}$/.test(fields.k))throw new ProxyError(403,'CREDENTIAL_DENIED');
   for(const [name,value]of Object.entries(fields)){
-    if(name===selector||name==='k'||route==='campaigns'&&action==='campanha_salvar'&&['definition','id','expected_version'].includes(name))continue;
+    if(name===selector||name==='k'||route==='campaigns'&&action==='campanha_salvar'&&['definition','id','expected_version'].includes(name)||route==='segments'&&method==='POST'&&['definition','expected_version'].includes(name))continue;
     if(typeof value==='string'&&value.length>256||!validField(route,name,value))throw new ProxyError(403,'FIELD_DENIED');
   }
   if(route==='campaigns'&&action==='campanha_salvar'){
@@ -170,8 +220,13 @@ function decide(route,method,query,body){
       Object.hasOwn(fields,'id')&&(!Number.isSafeInteger(fields.id)||fields.id<1||!/^[a-f0-9]{32}$/i.test(fields.expected_version)))
       throw new ProxyError(403,'FIELD_DENIED');
   }
+  if(route==='segments'&&method==='POST'){
+    if(Object.hasOwn(fields,'expected_version')&&(!Number.isSafeInteger(fields.expected_version)||fields.expected_version<1||fields.expected_version>999999999)||
+      Object.hasOwn(fields,'definition')&&(!plain(fields.definition)||fields.definition.brand!==fields.brand||!validAudienceDefinition(fields.definition))||
+      Buffer.byteLength(JSON.stringify(fields),'utf8')>MAX_AUDIENCE_REQUEST)throw new ProxyError(403,'FIELD_DENIED');
+  }
   if(route==='crm-read'&&fields.painel!=='growth')throw new ProxyError(403,'AREA_DENIED');
-  if(method==='POST'&&Buffer.byteLength(JSON.stringify(body),'utf8')>(route==='campaigns'&&action==='campanha_salvar'?MAX_CAMPAIGN_REQUEST:MAX_REQUEST))throw new ProxyError(413,'BODY_TOO_LARGE');
+  if(method==='POST'&&Buffer.byteLength(JSON.stringify(body),'utf8')>(route==='campaigns'&&action==='campanha_salvar'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:MAX_REQUEST))throw new ProxyError(413,'BODY_TOO_LARGE');
   const area=spec.area==='panel'?fields.painel:spec.area;
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
@@ -268,13 +323,14 @@ function rewriteCapabilities(value,upstreams,origin){
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmAudienceDraft=false,fetchImpl=fetch}){
   const d=decide(route,method,query,body),target=upstreams[route];
-  if(d.edit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
+  if(d.edit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');
   if(!user||!(user.role==='superadmin'||user.areas?.includes(d.area)))throw new ProxyError(403,'AREA_DENIED');
   if(typeof credential!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(credential))throw new ProxyError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
   const url=new URL(target.href);url.search=query.toString();
+  if(route==='segments'&&d.action==='segmento_operacao')url.searchParams.set('acao','segmento_operacao_v2');
   // Origin and browser cookies are never forwarded. The gateway already checked
   // session, exact browser Origin and CSRF before selecting the person/slot.
   const spec=READ[route],policy=spec.actions[d.action],keyInBody=policy.bodyKey||spec.bodyKey;
@@ -306,4 +362,4 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin)};
 }
-module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward};
+module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

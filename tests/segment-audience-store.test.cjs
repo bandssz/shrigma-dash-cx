@@ -42,6 +42,25 @@ test('idempotent receipts bind principal, exact payload, and brand; replay never
  assert.equal((await f.call(p,'synthetic-other-key')).status,201);assert.equal((await rows(f,'audience')).length,2);
 });
 
+test('v2 operation lookup proves stored action and canonical payload hash without exposing the request',async t=>{
+ const f=await fixture(t),p=f.create('fish','v2-create-key'),created=await f.call(p),lookup={acao:'segmento_operacao_v2',brand:'fish',idempotency_key:p.idempotency_key};
+ const scope=await f.call({acao:'segmento_contexto_v2',brand:'fish'});assert.deepEqual(scope.body,{scope:{schema:'crm-audience-writer-scope-v2',brand:'fish',actor_sha256:H.digest('panel:manager')}});
+ const found=await f.call(lookup);assert.equal(found.status,200);
+ assert.deepEqual(found.body,{operation:{schema:'crm-audience-operation-v2',idempotency_key:p.idempotency_key,brand:'fish',action:'segmento_criar',actor_sha256:scope.body.scope.actor_sha256,payload_sha256:H.digest(p),receipt:{status:201,body:created.body}}});
+ assert.deepEqual(await f.call(p),created);assert.deepEqual(await f.call(lookup),found);
+ assert.equal(JSON.stringify(found.body).includes(p.definition.name),true); // The successful segment is public; the private original request is not included.
+ assert.equal(Object.hasOwn(found.body.operation,'payload'),false);
+ assert.equal((await f.call(lookup,'synthetic-other-key')).body.error,'SEGMENT_OPERATION_UNCONFIRMED');
+ assert.equal((await f.call({acao:'segmento_contexto_v2',brand:'fish'},'synthetic-reader-key')).status,403);
+ assert.equal((await f.call({...lookup,brand:'aristo'})).body.error,'SEGMENT_OPERATION_MISMATCH');
+ const save={acao:'segmento_salvar',brand:'fish',id:created.body.segment.id,expected_version:1,definition:{...p.definition,name:'Version two'},expected_catalog_hash:f.catalogHashes.fish,idempotency_key:'v2-save-key'};
+ const saved=await f.call(save),savedOp=await f.call({...lookup,idempotency_key:save.idempotency_key});
+ assert.equal(savedOp.body.operation.action,'segmento_salvar');assert.equal(savedOp.body.operation.payload_sha256,H.digest(save));assert.deepEqual(savedOp.body.operation.receipt,{status:200,body:saved.body});
+ const rejected=await f.call({...save,idempotency_key:'v2-reject-key'}),rejectedOp=await f.call({...lookup,idempotency_key:'v2-reject-key'});
+ assert.equal(rejected.status,409);assert.equal(rejectedOp.status,200);assert.equal(rejectedOp.body.operation.action,'segmento_salvar');assert.deepEqual(rejectedOp.body.operation.receipt,{status:409,body:rejected.body});
+ assert.equal((await rows(f,'request')).length,3);
+});
+
 test('conflicts, archived rows, disabled catalog and invalid definitions have durable rejection receipts',async t=>{
  const f=await fixture(t),first=(await f.call(f.create())).body.segment;
  const save={acao:'segmento_salvar',brand:'fish',expected_catalog_hash:f.catalogHashes.fish,id:first.id,expected_version:1,definition:{...first.definition,name:'new'},idempotency_key:'save-winner'};assert.equal((await f.call(save)).status,200);
