@@ -99,6 +99,7 @@ async function prepareDelivery(f,brand,cid){
  await prepareDelivery(f,'fish',100);
  const sid=1,snapshot=(await db.query('SELECT to_jsonb(s) v FROM subscribers s WHERE id=$1',[sid])).rows[0].v;
  const expiresAt=Date.parse((await db.query("SELECT (crm_audience_v2.shopify_snapshot('fish')->>'expires_at')::text v")).rows[0].v),untilWindow=expiresAt-Date.now()-450;if(untilWindow>0)await delay(untilWindow);
+ let contendedClaimCode=null;
  const blocker=await owner.connect(),claimer=await owner.connect(),producer=await owner.connect();
  try{
   await blocker.query('BEGIN');await blocker.query('SELECT 1 FROM subscriber_lists WHERE subscriber_id=$1 AND list_id=17 FOR UPDATE',[sid]);
@@ -107,12 +108,22 @@ async function prepareDelivery(f,brand,cid){
   let early=false,earlyValue;claim.then(v=>{early=true;earlyValue=v;});await delay(20);if(early){console.log(JSON.stringify({stage:'claim_ended_before_wait',code:earlyValue.code,message:earlyValue.message}));throw earlyValue;}
   await waitLock(blocker,claimer.processID);
   await producer.query('BEGIN');const sourceUpdate=producer.query("UPDATE crm_audience_v2.shopify_source SET producer_revision=producer_revision WHERE brand='fish'");await waitLock(blocker,producer.processID);
-  await delay(470);await blocker.query('COMMIT');const claimError=await claim;assert.equal(claimError.code,'55000');
+  await delay(470);await blocker.query('COMMIT');const claimError=await claim;
+  // The function has a 500 ms lock timeout. Under CI load it can fail closed
+  // before the source expires, so both bounded aborts are valid here.
+  assert.ok(['55000','55P03'].includes(claimError.code),`unexpected claim abort: ${claimError.code}`);
+  contendedClaimCode=claimError.code;
   await sourceUpdate;await producer.query('COMMIT');
+  const expired=(await db.query("SELECT (crm_audience_v2.shopify_snapshot('fish')->>'expires_at')::timestamptz<=clock_timestamp() expired")).rows[0].expired;
+  assert.equal(expired,true);
+  const expiredArgs=[...claimArgs];expiredArgs[2]=randomUUID();
+  const expiredClaim=await claimer.query('SELECT crm_audience_v2.regular_delivery_claim($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) v',expiredArgs).then(()=>{throw Error('EXPIRED_CLAIM_SHOULD_FAIL');},e=>e);
+  assert.equal(expiredClaim.code,'55000');
+  assert.match(expiredClaim.message,/^SEGMENT_DELIVERY_(?:MATERIAL_DRIFT|SOURCE_EXPIRED)$/);
   assert.equal((await db.query("SELECT count(*)::int n FROM shrigma_email_dispatch WHERE piece='audience-regular-v1:100'")).rows[0].n,0);
   assert.deepEqual((await db.query('SELECT sent,last_subscriber_id FROM campaigns WHERE id=100')).rows[0],{sent:0,last_subscriber_id:0});
  }finally{await blocker.query('ROLLBACK');await claimer.query('ROLLBACK');await producer.query('ROLLBACK');blocker.release();claimer.release();producer.release();}
 
- const sha=p=>createHash('sha256').update(fs.readFileSync(require.resolve(p))).digest('hex'),proof={postgres:'17.10',brands:['fish','aristo'],contacts_per_brand:50000,source_sha256:{facts_sql:sha('../n8n/growth/segment-shopify-facts.sql'),selection_sql:sha('../n8n/growth/segment-shopify-selection.sql'),counter:sha('../n8n/growth/segment-audience-listmonk.cjs')},metrics,api_role:'crm_audience_api',aggregate_count_only:true,aggregate_snapshot_only:true,private_facts_denied:true,identity_denied:true,email_denied:true,ingest_denied:true,grant_denied:true,duplicate_chunk_one_finalize:true,concurrent_duplicate:concurrentDuplicate,replay_after_race:true,native_uuid_drift_unknown:true,claim_source_lock:true,expiry_after_wait:true,receipt_or_cursor_advanced:false,statement_timeout_ms:10000,sends:0,remote_hosts:0};
+ const sha=p=>createHash('sha256').update(fs.readFileSync(require.resolve(p))).digest('hex'),proof={postgres:'17.10',brands:['fish','aristo'],contacts_per_brand:50000,source_sha256:{facts_sql:sha('../n8n/growth/segment-shopify-facts.sql'),selection_sql:sha('../n8n/growth/segment-shopify-selection.sql'),counter:sha('../n8n/growth/segment-audience-listmonk.cjs')},metrics,api_role:'crm_audience_api',aggregate_count_only:true,aggregate_snapshot_only:true,private_facts_denied:true,identity_denied:true,email_denied:true,ingest_denied:true,grant_denied:true,duplicate_chunk_one_finalize:true,concurrent_duplicate:concurrentDuplicate,replay_after_race:true,native_uuid_drift_unknown:true,claim_source_lock:true,contended_claim_abort:contendedClaimCode,expiry_after_wait:contendedClaimCode==='55000',expired_source_55000:true,receipt_or_cursor_advanced:false,statement_timeout_ms:10000,sends:0,remote_hosts:0};
  console.log(JSON.stringify(proof));
 }finally{if(roleTransaction)await roleTransaction.drain();if(rolePool)await rolePool.end();await owner.end();}})().catch(e=>{console.error(e);process.exitCode=1;});
