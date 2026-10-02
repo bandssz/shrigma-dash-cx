@@ -307,3 +307,40 @@ test('successful login and new invitation purge expired sessions and spent invit
   }finally{inspect.close();}
  }finally{f.close();}
 });
+
+
+test('admin uses only a self-owned Growth reader for CRM while backend identity stays area-scoped',async()=>{
+ const f=fixture();try{
+  const admin=await activateAdmin(f),userId=admin.login.user.id;
+  const bearer='synthetic-owner-growth-read-bearer-2026';
+  const valid={schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',
+   owner:'owner@shrigma.test',allowedPanels:['growth'],
+   permissions:{growth:{who:'panel:owner-growth-reader',label:'owner@shrigma.test',caps:['read_content']},influs:null}};
+  let answer=valid,checks=0;
+  const fetchImpl=async(_url,options)=>{
+   checks++;assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer '+bearer);
+   return new Response(JSON.stringify(answer),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  const attach=()=>f.auth.setCrmPanelReadCredential({context:admin.context,userId,slot:'crm-panel-read',bearer,fetchImpl});
+  await attach();
+  const stored=()=>f.auth.getUpstreamCredential({...admin.context,area:'growth',slot:'crm-panel-read',edit:false});
+  assert.equal(stored(),bearer);
+  assert.deepEqual(f.auth.session({cookieHeader:cookieHeader(admin.login.cookie),host:hosts.manager}).user.areas,['growth','organico','influs']);
+  for(const invalid of [
+   {...valid,role:'master',panel:'todos',allowedPanels:['cx','growth','organico','influs']},
+   {...valid,owner:'other@shrigma.test'},
+   {...valid,permissions:{growth:{...valid.permissions.growth,caps:['read_content','draft']},influs:null}},
+   {...valid,permissions:{growth:valid.permissions.growth,influs:{who:'panel:other',label:'owner@shrigma.test',caps:['read_creators']}}}
+  ]){
+   answer=invalid;
+   await assert.rejects(attach(),error('CREDENTIAL_ATTESTATION_FAILED',403));
+   assert.equal(stored(),bearer);
+  }
+  const invited=f.auth.createInvite({context:admin.context,email:'pending@shrigma.test',areas:['growth']});
+  const before=checks;
+  await assert.rejects(f.auth.setCrmPanelReadCredential({context:admin.context,userId:invited.userId,slot:'crm-panel-read',bearer,fetchImpl}),error('GRANT_DENIED',403));
+  f.auth.revokeUser({context:admin.context,userId:invited.userId});
+  await assert.rejects(f.auth.setCrmPanelReadCredential({context:admin.context,userId:invited.userId,slot:'crm-panel-read',bearer,fetchImpl}),error('GRANT_DENIED',403));
+  assert.equal(checks,before);
+ }finally{f.close();}
+});

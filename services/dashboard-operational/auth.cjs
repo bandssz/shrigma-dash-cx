@@ -402,14 +402,17 @@ function createAuth(options){
  function credentialTarget({context,userId,slot,bearer}){
   adminContext(context);const definition=CREDENTIAL_SLOTS[slot];
   if(!definition||typeof bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(bearer))err('CREDENTIAL_INVALID',400);
-  const user=db.prepare('SELECT email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
+  const user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   return user;
  }
+ function crmPanelReadOwner(user,context){
+  return user.role==='manager'||user.role==='superadmin'&&user.id===adminContext(context).id;
+ }
  function storeUpstreamCredential({context,userId,slot,bearer},{crmAttested=false,expectedOwner,expectedUpdatedAt}={}){
   const user=credentialTarget({context,userId,slot,bearer});
-  if(slot==='crm-panel-read'&&(!crmAttested||user.role!=='manager'||user.state!=='active'||user.email!==expectedOwner||user.updated_at!==expectedUpdatedAt))err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  if(slot==='crm-panel-read'&&(!crmAttested||!crmPanelReadOwner(user,context)||user.state!=='active'||user.email!==expectedOwner||user.updated_at!==expectedUpdatedAt))err('CREDENTIAL_ATTESTATION_REQUIRED',403);
   const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
   db.exec('BEGIN IMMEDIATE');try{
    if(slot==='growth-audience'&&unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
@@ -433,7 +436,7 @@ function createAuth(options){
  async function setCrmPanelReadCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
   if(slot!=='crm-panel-read')err('CREDENTIAL_INVALID',400);
   const user=credentialTarget({context,userId,slot,bearer});
-  if(user.role!=='manager'||user.state!=='active')err('GRANT_DENIED',403);
+  if(!crmPanelReadOwner(user,context)||user.state!=='active')err('GRANT_DENIED',403);
   let proof;
   try{proof=await verifyCredential({slot,expectedOwner:user.email,bearer},{fetchImpl});}
   catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
