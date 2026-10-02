@@ -57,8 +57,8 @@ Estimativa em 02/10, sujeita às provas ainda ausentes:
 
 | Marco | Janela de planejamento | Confiança e dependências |
 | --- | --- | --- |
-| CRM/gerencial candidato com leitura real e cadastro homologado | Próximas24–48 h, 03–04/10 | Média-baixa: importação da identidade, login corporativo e BFF ainda precisam passar; não é promessa de produção |
-| Migração operacional dos três painéis e permissões | Semana 05–09/10 | Baixa a média: Orgânico/Influs e edição precisam de contratos individuais e homologação; corte só depois dos critérios acima |
+| CRM/gerencial candidato de leitura com cadastro homologado | Meta 03–05/10; reserva 05–09/10 se snapshot/permissões falharem | Baixa para 03–05, média para a reserva: importação da identidade, login corporativo e BFF ainda precisam passar; não inclui edição geral nem é promessa de produção |
+| Migração operacional dos três painéis e permissões | Semana 05–09/10 | Baixa para o corte integral até 09/10: Orgânico/Influs e edição precisam de contratos individuais e homologação; corte só depois dos critérios acima |
 | Fechamento de todas as funções CRM pendentes | Reserva de mais 1–2 semanas após a migração, 12–23/10 | Baixa: produtor RFM, conversão, fluxos e cobertura Olivas ainda têm trabalho de implementação/integração; segmentos nativos Shopify podem ampliar a reserva |
 
 Reestimar quando P0.2/P0.3 e o inventário real de P1.3/P1.4 passarem. Execução contínua reduz esperas, mas não substitui integrações, ensaios, disponibilidade do host/app e limites de uso. Não converter capacidade “24h/dia” em garantia de prazo.
