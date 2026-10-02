@@ -76,6 +76,10 @@ const FIXED_DESTINATIONS=Object.freeze({
   escopo:'https://n8n-n8n.tazdb8.easypanel.host/webhook/influs-escopo-7d79357c9b85b871'
 });
 const DYNAMIC_MANIFEST_SCHEMA='shrigma_dashboard_dynamic_upstreams_v1';
+// An explicit test profile has a closed destination set. It cannot replace,
+// mix with, or redirect any production destination through environment input.
+const SANDBOX_HOST='dashboard-crm-sandbox-20261002.tazdb8.easypanel.host';
+const SANDBOX_DESTINATIONS=Object.freeze({cx:'https://'+SANDBOX_HOST+'/dashboard',cache:'https://'+SANDBOX_HOST+'/dashboard',segments:'https://'+SANDBOX_HOST+'/segments'});
 // Candidate destinations reviewed against the source at this commit. The
 // campaign URL preserves its published n8n-host path, which Easypanel maps to
 // crm-campaign; the direct service alias must not replace that journal origin.
@@ -241,8 +245,19 @@ function decide(route,method,query,body){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts,dynamicManifest=null){
+function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production'){
   if(!plain(config)||!Array.isArray(allowedHosts)||allowedHosts.some(h=>typeof h!=='string'))throw Error('Invalid upstream configuration');
+  if(!['production','crm-sandbox'].includes(profile))throw Error('Invalid upstream profile');
+  if(profile==='crm-sandbox'){
+    if(dynamicManifest!==null||allowedHosts.length!==1||allowedHosts[0]!==SANDBOX_HOST||Object.keys(config).sort().join(',')!=='cache,cx,segments')throw Error('Invalid sandbox upstream configuration');
+    const out=Object.create(null);
+    for(const [route,raw]of Object.entries(config)){
+      const value=raw instanceof URL?raw.href:raw;
+      if(value!==SANDBOX_DESTINATIONS[route])throw Error('Unapproved sandbox destination');
+      out[route]=new URL(value);
+    }
+    return Object.freeze(out);
+  }
   const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
   if(dynamic.length){
     if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');
@@ -306,7 +321,7 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
@@ -330,10 +345,15 @@ function rewriteCapabilities(value,upstreams,origin){
     }
   }
   if(plain(caps.ab_experiment))caps.ab_experiment.enabled=false;
+  if(sandboxAudienceDraft===true&&value.synthetic===true&&caps.endpoints?.segments===origin+'/api/segments'&&upstreams.segments?.href===SANDBOX_DESTINATIONS.segments&&plain(caps.segments)&&caps.segments.read===true&&caps.segments.contract_version===AudienceContract.VERSION){
+    // Restore only the reviewed audience CRUD/receipt contract. Counts,
+    // campaign bindings, workers and delivery stay unavailable.
+    caps.segments.save=true;caps.segments.operation=true;
+  }
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmAudienceDraft=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,fetchImpl=fetch}){
   const d=decide(route,method,query,body),target=upstreams[route];
   if(d.edit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');
@@ -370,6 +390,6 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin)};
+  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft})};
 }
-module.exports={READ,FIXED_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
+module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

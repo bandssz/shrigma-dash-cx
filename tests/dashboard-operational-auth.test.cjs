@@ -85,6 +85,22 @@ test('an existing active admin with legacy TOTP data signs in with password afte
  }finally{upgraded?.close();try{f.close();}catch{}}
 });
 
+test('public journal marker survives login and restart without authenticating or replacing fresh CSRF',async()=>{
+ const f=fixture();let reopened;
+ try{
+  const first=await activateAdmin(f);
+  const second=await f.auth.login({email:'owner@shrigma.test',password:'test-owner-passphrase-2026',host:hosts.manager,origin:origin(hosts.manager)});
+  assert.equal(first.login.uiKey,second.uiKey);assert.notEqual(first.login.cookie,second.cookie);assert.notEqual(first.login.csrf,second.csrf);
+  assert.equal(f.auth.session({cookieHeader:'__Host-shrigma_sid='+second.uiKey,host:hosts.manager}).authenticated,false);
+  assert.throws(()=>f.auth.authorize({...first.context,cookieHeader:cookieHeader(second.cookie)}),error('CSRF_DENIED',403));
+  f.auth.logout({...first.context,cookieHeader:cookieHeader(second.cookie),csrf:second.csrf});
+  assert.equal(f.auth.session({cookieHeader:cookieHeader(second.cookie),host:hosts.manager}).authenticated,false);
+  f.auth.close();reopened=createAuth(f.config);
+  const third=await reopened.login({email:'owner@shrigma.test',password:'test-owner-passphrase-2026',host:hosts.manager,origin:origin(hosts.manager)});
+  assert.equal(third.uiKey,second.uiKey);assert.notEqual(third.cookie,second.cookie);
+ }finally{reopened?.close();try{f.close();}catch{}}
+});
+
 test('a legacy unactivated admin completes private bootstrap without a verification code',async()=>{
  const f=fixture();let upgraded;
  try{

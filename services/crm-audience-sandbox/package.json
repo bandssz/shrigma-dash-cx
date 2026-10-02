@@ -1,0 +1,13 @@
+{
+  "name": "shrigma-crm-audience-sandbox",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Disposable synthetic CRM audience HTTP sandbox",
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.14"
+  },
+  "scripts": {
+    "start": "node main.cjs"
+  }
+}

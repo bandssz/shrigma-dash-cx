@@ -12,6 +12,13 @@ function inviteUrlForArea(raw,area,areaHosts){
 // changing the legacy source pages or the separate CX dashboard.
 function readOnlyStyles(area,{embeddedOnly=true}={}){
  const common=['#growth-acesso','#organico-acesso-bar','#organico-acesso','#influ-access'];
+ const audienceDraft=[
+  '#crm-segments-panel .gs-shortcuts',
+  '#crm-segments-panel [data-gs="new"]','#crm-segments-panel [data-gs-fields]',
+  '#crm-segments-panel [data-gs="save"]','#crm-segments-panel [data-gs="archive"]',
+  '#crm-segments-panel [data-gs-dialog]',
+  '#crm-audience-create','#crm-audience-brand-choices','#area-arvore .ga-rfm-create'
+ ];
  const areas={
   growth:[
    '#ab-acesso-legado','#ab-consultar','#btn-novo','#form-teste','.e-salvar','#ab-experiment-panel',
@@ -23,12 +30,7 @@ function readOnlyStyles(area,{embeddedOnly=true}={}){
    '#control-drafts [data-draft-dup]','#control-drafts [data-draft-delete]',
    '#control-drafts [data-email-replicate]',
    '#crm-segments-panel .gs-shell > header > p',
-   '#crm-segments-panel .gs-shortcuts',
-   '#crm-segments-panel [data-gs="new"]','#crm-segments-panel [data-gs-fields]',
-   '#crm-segments-panel [data-gs="save"]','#crm-segments-panel [data-gs="count"]',
-   '#crm-segments-panel [data-gs="archive"]','#crm-segments-panel [data-gs-dialog]',
-   '#crm-audience-create','#crm-audience-brand-choices',
-   '#area-arvore .ga-rfm-create',
+   '#crm-segments-panel [data-gs="count"]',
    '#crm-media-library-load','#crm-media .crm-media-integrated',
    '[data-crm-go="templates"]','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open',
    '#campaign-composer .ce-import','#campaign-composer [data-ce-access-open]',
@@ -50,9 +52,25 @@ function readOnlyStyles(area,{embeddedOnly=true}={}){
  };
  if(!Object.hasOwn(areas,area))return '';
  const scope=embeddedOnly?'body.panel-embedded':'body';
- return [...common,...areas[area]].map(selector=>`${scope} ${selector}`).join(',')+'{display:none!important}';
+ const always=[...common,...areas[area]].map(selector=>`${scope} ${selector}`).join(',')+'{display:none!important}';
+ if(area!=='growth')return always;
+ // Direct URLs and embedded panels start closed. Only the authenticated entry
+ // can add this presentation class after checking both durable journals.
+ const closed=audienceDraft.map(selector=>`${scope}:not(.dashboard-audience-draft-ready) ${selector}`).join(',')+'{display:none!important}';
+ return always+closed;
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles};
+function audienceDraftOperation(payload){
+ if(!payload||typeof payload!=='object'||!Object.hasOwn(payload,'operation'))return undefined;
+ const operation=payload.operation;
+ if(operation===null)return null;
+ if(!operation||typeof operation!=='object'||!['pending','uncertain','succeeded','rejected'].includes(operation.phase)
+  ||!['segmento_criar','segmento_salvar','segmento_arquivar'].includes(operation.action)
+  ||typeof operation.operationKey!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(operation.operationKey))return undefined;
+ if(operation.phase==='succeeded'&&(![200,201].includes(operation.receiptStatus)||typeof operation.segmentId!=='string'||!Number.isSafeInteger(operation.segmentVersion)||operation.segmentVersion<1))return undefined;
+ if(operation.phase==='rejected'&&(![404,409,422,503].includes(operation.receiptStatus)||typeof operation.receiptCode!=='string'||!operation.receiptCode))return undefined;
+ return operation;
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation};
 else (function(){'use strict';
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs & Afiliados',page:'/influs.html'}};
  const requested=document.body.dataset.accessPanel;
@@ -65,24 +83,88 @@ else (function(){'use strict';
  let inviteToken=bootstrapToken?'':fragment.get('invite')||'';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  let session=null,frame=null,selected='',busy=false,version=0;
+ let audienceGate={state:'off'},audienceGatePromise=Promise.resolve(audienceGate),audienceConsulting=false;
  const uiKeyOk=x=>typeof x==='string'&&/^ui-[a-f0-9]{16,128}$/.test(x);
+ const AUDIENCE_BRANDS={fish:'Fishermans',aristo:'O Aristocrata'};
  function clearLegacy(){
   const slots=['shrigma_k_cx','shrigma_k_growth','shrigma_k_organico','shrigma_k_influs','shrigma_k_mestre','shrigma_tpl_key','shrigma_ab_key','shrigma_influ_key','shrigma_tts_wkey'];
   for(const name of ['localStorage','sessionStorage'])for(const slot of slots)try{window[name].removeItem(slot);}catch(_){}
  }
  async function request(url,options={}){
-  const controller=new AbortController(),deadline=setTimeout(()=>controller.abort(),60000);
+  const {editReceipt=false,deadlineMs=60000,...fetchOptions}=options;
+  const controller=new AbortController(),deadline=setTimeout(()=>controller.abort(),deadlineMs);
   try{
-   const headers=new Headers(options.headers||{});
-   if(options.body!==undefined)headers.set('Content-Type','application/json');
-   if(options.method&&options.method!=='GET'&&session?.csrf)headers.set('X-CSRF-Token',session.csrf);
-   const response=await fetch(url,{...options,headers,credentials:'same-origin',cache:'no-store',redirect:'error',signal:controller.signal});
+   const headers=new Headers(fetchOptions.headers||{});
+   if(fetchOptions.body!==undefined)headers.set('Content-Type','application/json');
+   if((fetchOptions.method&&fetchOptions.method!=='GET'||editReceipt)&&session?.csrf)headers.set('X-CSRF-Token',session.csrf);
+   const response=await fetch(url,{...fetchOptions,headers,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
    let data={};try{data=await response.json();}catch(_){}
    return {response,data};
   }finally{clearTimeout(deadline);}
  }
  const post=(url,body)=>request(url,{method:'POST',body:JSON.stringify(body)});
  async function readSession(){const {response,data}=await request('/auth/session');if(!response.ok)throw Error('session_unavailable');return data;}
+ async function loadAudienceGate(currentSession){
+  if(currentSession?.features?.audienceDraft!==true||currentSession.user?.permissions?.growth?.edit!==true)return {state:'off'};
+  try{
+   const operations=await Promise.all(Object.keys(AUDIENCE_BRANDS).map(async brand=>{
+    const {response,data}=await request('/auth/audience-draft?brand='+brand,{editReceipt:true,deadlineMs:20000});
+    if(!response.ok)throw Error('journal_unavailable');
+    const operation=audienceDraftOperation(data);
+    if(operation===undefined)throw Error('journal_invalid');
+    return {brand,operation};
+   }));
+   const unresolved=operations.filter(({operation})=>['pending','uncertain'].includes(operation?.phase));
+   if(unresolved.length)return {state:'pending',operations:unresolved};
+   // A terminal receipt is useful only after a fresh read of the current
+   // catalogue. It also prevents a stale page from presenting a new attempt.
+   await Promise.all(Object.keys(AUDIENCE_BRANDS).map(async brand=>{
+    const query=new URLSearchParams({acao:'segmentos_listar',brand,offset:'0',limit:'50'});
+    const {response,data}=await request('/api/segments?'+query,{deadlineMs:20000});
+    if(!response.ok||!Array.isArray(data?.segments)||data?.catalog?.brand!==brand||data.catalog.current!==true
+     ||data.capabilities?.draft!==true||data.capabilities?.send!==false)throw Error('catalog_unavailable');
+   }));
+   return {state:'ready'};
+  }catch(_){return {state:'unavailable'};}
+ }
+ function showAudienceNotice(gate){
+  frameHost.querySelector?.('#entry-audience-status')?.remove();
+  if(selected!=='growth'||['ready','off'].includes(gate.state)){
+   if(frameHost.style){frameHost.style.display='';frameHost.style.flexDirection='';}
+   if(frame?.style){frame.style.flex='';frame.style.minHeight='';frame.style.height='';}
+   return;
+  }
+  const notice=document.createElement('section');notice.id='entry-audience-status';notice.setAttribute('role','status');
+  notice.style.cssText='display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 18px;background:#fff7e6;color:#65420a;border-bottom:1px solid #e1c788;font:14px system-ui,sans-serif';
+  const label=document.createElement('span');notice.append(label);
+  if(gate.state==='checking')label.textContent='Conferindo os públicos e tentativas anteriores…';
+  else if(gate.state==='unavailable')label.textContent='A edição de públicos aguarda confirmação do diário e dos dados de origem. A leitura continua disponível.';
+  else label.textContent='Há uma tentativa de público sem resultado confirmado. Consulte o mesmo registro antes de editar novamente.';
+  if(gate.state==='pending')for(const {brand,operation} of gate.operations){
+   const button=document.createElement('button');button.type='button';button.textContent='Consultar tentativa · '+AUDIENCE_BRANDS[brand];button.disabled=audienceConsulting;
+   button.addEventListener('click',()=>void consultAudienceOperation(brand,operation.operationKey));notice.append(button);
+  }
+  if(gate.state==='unavailable'){
+   const retry=document.createElement('button');retry.type='button';retry.textContent='Conferir novamente';
+   retry.addEventListener('click',()=>{if(selected==='growth'&&session)openPanel('growth');});notice.append(retry);
+  }
+  frameHost.prepend(notice);
+  frameHost.style.display='flex';frameHost.style.flexDirection='column';
+  if(frame?.style){frame.style.flex='1 1 auto';frame.style.minHeight='0';frame.style.height='auto';}
+ }
+ async function consultAudienceOperation(brand,key){
+  if(audienceConsulting||selected!=='growth'||!session||!Object.hasOwn(AUDIENCE_BRANDS,brand))return;
+  const currentSession=session,currentFrame=frame;audienceConsulting=true;showAudienceNotice(audienceGate);
+  try{
+   const query=new URLSearchParams({acao:'segmento_operacao',brand,idempotency_key:key});
+   await request('/api/segments?'+query,{editReceipt:true,deadlineMs:20000});
+   const next=await loadAudienceGate(currentSession);
+   if(session!==currentSession||frame!==currentFrame||selected!=='growth')return;
+   audienceGate=next;
+   if(next.state==='ready')openPanel('growth');else showAudienceNotice(next);
+  }catch(_){if(session===currentSession&&frame===currentFrame)showAudienceNotice(audienceGate);}
+  finally{audienceConsulting=false;if(session===currentSession&&frame===currentFrame)showAudienceNotice(audienceGate);}
+ }
  function validSession(s){
   const u=s?.user;
   if(s?.authenticated!==true||!u||typeof u.email!=='string'||!uiKeyOk(s.uiKey)||typeof s.csrf!=='string'||!Array.isArray(u.areas)||!u.areas.length)return false;
@@ -91,14 +173,14 @@ else (function(){'use strict';
   return Object.hasOwn(AREAS,requested)&&u.areas.includes(requested)&&(u.role==='superadmin'||u.role==='manager'&&u.areas.length===1);
  }
  function showLogin(text=''){
-  version++;session=null;selected='';frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
+  version++;session=null;selected='';audienceGate={state:'off'};audienceGatePromise=Promise.resolve(audienceGate);frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
   $('login-password').value='';
   loginForm.hidden=!!inviteToken||!!bootstrapToken;inviteForm.hidden=!inviteToken;bootstrapForm.hidden=!bootstrapToken;message.textContent=text;
   (bootstrapToken?$('bootstrap-email'):inviteToken?$('invite-password'):$('login-email')).focus();
  }
  function permission(area){
-  return {caps:[],label:session.user.email};
+  return {caps:area==='growth'&&audienceGate.state==='ready'?['draft']:[],label:session.user.email};
  }
  function installReadOnlyPresentation(area){
   const doc=frame?.contentDocument;
@@ -111,9 +193,11 @@ else (function(){'use strict';
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
+  audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
+  audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
   frame=document.createElement('iframe');frame.title=AREAS[area].label;frame.referrerPolicy='no-referrer';
   const target=new URL(AREAS[area].page,location.origin);target.searchParams.set('embed','1');frame.src=target.href;
-  frameHost.replaceChildren(frame);$('entry-area').textContent=AREAS[area].label;
+  frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=AREAS[area].label;
   for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area?'page':'false');
  }
  function showShell(s){
@@ -124,13 +208,18 @@ else (function(){'use strict';
   if(managerial)for(const area of s.user.areas){const button=document.createElement('button');button.type='button';button.dataset.area=area;button.textContent=AREAS[area].label;button.addEventListener('click',()=>openPanel(area));nav.append(button);}
   openPanel(requested==='todos'?s.user.areas[0]:requested);
  }
- window.addEventListener('message',event=>{
+ window.addEventListener('message',async event=>{
   if(!session||!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
   if(event.data?.type==='shrigma:session-expired'){showLogin('Sua sessão terminou. Entre novamente.');return;}
   if(event.data?.type!=='shrigma:ready'||event.data.panel!==selected)return;
+  const currentFrame=frame,currentSession=session,currentArea=selected;
+  const gate=await audienceGatePromise;
+  if(frame!==currentFrame||session!==currentSession||selected!==currentArea)return;
+  audienceGate=gate;showAudienceNotice(gate);
   const target=new URL(AREAS[selected].page,location.origin);
   try{if(frame.contentWindow.location.pathname!==target.pathname)return;}catch(_){return;}
   if(!installReadOnlyPresentation(selected)){showLogin('A apresentação segura deste painel não pôde iniciar. Entre novamente.');return;}
+  frame.contentDocument?.body?.classList.toggle('dashboard-audience-draft-ready',selected==='growth'&&gate.state==='ready');
   frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key:session.uiKey,permission:permission(selected)},location.origin);
  });
  loginForm.addEventListener('submit',async event=>{

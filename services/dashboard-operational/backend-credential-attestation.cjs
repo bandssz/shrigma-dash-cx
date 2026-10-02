@@ -2,7 +2,7 @@
 // Direct, bounded backend identity check shared by the private operator CLI
 // and the HTTP gateway. The gateway must still pin its sole upstream to
 // crm-panel-read before accepting the dedicated CRM credential slot.
-const {FIXED_DESTINATIONS}=require('./proxy.cjs');
+const {FIXED_DESTINATIONS,SANDBOX_HOST}=require('./proxy.cjs');
 
 const MAX_RESPONSE_BYTES=8192,TIMEOUT_MS=5000;
 const SLOTS=Object.freeze({
@@ -109,4 +109,14 @@ async function verifyCredential(input,{fetchImpl=globalThis.fetch}={}){
  return Object.freeze({ok:true,slot:input.slot,area,identityVerified:true,readOnlyProven:false,capabilityEvidence:grants,status:'partial'});
 }
 
-module.exports={SLOTS,MAX_RESPONSE_BYTES,TIMEOUT_MS,directIdentityUrl,validateInput,verifyCredential};
+async function verifySandboxCredential(input,{fetchImpl=globalThis.fetch}={}){
+ if(!plain(input)||Object.keys(input).sort().join(',')!=='bearer,expectedOwner,slot'||!['growth-read','growth-audience-read','growth-audience'].includes(input.slot)||typeof input.expectedOwner!=='string'||!/^[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@synthetic\.invalid$/.test(input.expectedOwner)||typeof input.bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(input.bearer)||typeof fetchImpl!=='function')refuse();
+ let response;
+ try{response=await fetchImpl('https://'+SANDBOX_HOST+'/identity',{method:'GET',redirect:'manual',cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(TIMEOUT_MS),headers:{Accept:'application/json',Authorization:'Bearer '+input.bearer}});}catch{refuse();}
+ const identity=await boundedJson(response);
+ const expectedCaps=input.slot==='growth-audience'?['draft','read_content']:['read_content'];
+ if(Object.keys(identity).sort().join(',')!=='allowedPanels,capabilities,owner,panel,role,schema,synthetic'||identity.schema!=='crm-audience-sandbox-identity-v1'||identity.role!=='manager'||identity.panel!=='growth'||identity.owner!==input.expectedOwner||identity.synthetic!==true||!Array.isArray(identity.allowedPanels)||identity.allowedPanels.length!==1||identity.allowedPanels[0]!=='growth'||!Array.isArray(identity.capabilities)||identity.capabilities.length!==expectedCaps.length||identity.capabilities.some((cap,index)=>cap!==expectedCaps[index]))refuse();
+ return Object.freeze({ok:true,synthetic:true,ownerVerified:true});
+}
+
+module.exports={SLOTS,MAX_RESPONSE_BYTES,TIMEOUT_MS,directIdentityUrl,validateInput,verifyCredential,verifySandboxCredential};

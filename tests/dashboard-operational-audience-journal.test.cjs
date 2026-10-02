@@ -65,7 +65,9 @@ test('audience journal survives lost ACK, restart and relogin; only a matching t
   assert.equal(f.auth.audienceDraftOutcome(userId,'fish',key,'segmento_criar','uncertain'),true);
   f.restart();
   const again=await login(f.auth,'owner@shrigma.test',password,hosts.manager);
-  assert.notEqual(again.result.uiKey,writer.result.uiKey);
+  assert.equal(again.result.uiKey,writer.result.uiKey);
+  assert.notEqual(again.result.cookie,writer.result.cookie);
+  assert.notEqual(again.result.csrf,writer.result.csrf);
   const saved=f.auth.audienceDraft({...again.context,method:'GET'},'fish');
   assert.equal(saved.operationKey,key);assert.equal(saved.phase,'uncertain');assert.equal(saved.receiptStatus,null);
   assert.throws(()=>f.auth.reserveAudienceDraft(again.context,'fish',nextKey,'segmento_salvar',payloadHash,actorHash,metadata('segmento_salvar')),error('AUDIENCE_RECONCILIATION_REQUIRED',409));

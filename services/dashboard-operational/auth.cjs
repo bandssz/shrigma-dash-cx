@@ -21,7 +21,7 @@ const {DatabaseSync}=require('node:sqlite');
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const {promisify}=require('node:util');
-const {verifyCredential}=require('./backend-credential-attestation.cjs');
+const {verifyCredential,verifySandboxCredential}=require('./backend-credential-attestation.cjs');
 const scrypt=promisify(crypto.scrypt);
 
 const AREAS=Object.freeze(['growth','organico','influs']);
@@ -267,9 +267,12 @@ function createAuth(options){
   const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost:user.role==='manager'&&area&&managerAreas.length===1&&managerAreas[0]===area));
   if(!allowed)err('AUTH_INVALID',401);
   cleanSuccess(keys);
-  const token=random(),uiKey='ui-'+crypto.randomBytes(16).toString('hex');
+  // This public marker identifies a legacy browser journal, not a session.
+  // Keep it stable across sign-ins so a lost acknowledgement can be consulted
+  // by the same person. Cookies and CSRF secrets still rotate on every login.
+  const token=random(),uiKey=publicUiKey(user.id),sessionMarker='ui-'+crypto.randomBytes(16).toString('hex');
   db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(t,t);
-  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,uiKey,t,t+SESSION_MS,t+IDLE_MS);
+  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,sessionMarker,t,t+SESSION_MS,t+IDLE_MS);
   return {cookie:cookie(token,Math.floor(SESSION_MS/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
  }
  function lookup(ctx,refresh=true){
@@ -282,8 +285,9 @@ function createAuth(options){
   if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+IDLE_MS),row.token_hash);
   const user={id:row.user_id,email:row.email,role:row.role,areas:AREAS.filter(a=>perms[a]?.read),permissions:perms};
   const csrf=crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url');
-  return {user,csrf,uiKey:row.ui_key,tokenHash:row.token_hash,host:h};
+  return {user,csrf,uiKey:publicUiKey(user.id),tokenHash:row.token_hash,host:h};
  }
+ function publicUiKey(userId){return 'ui-'+crypto.createHmac('sha256',encKey).update('ui-principal-v2:'+userId).digest('hex').slice(0,32);}
  function session(ctx){const found=lookup(ctx);return found?{authenticated:true,user:found.user,csrf:found.csrf,uiKey:found.uiKey}:{authenticated:false};}
  function authorize(ctx={}){
   const found=lookup(ctx);if(!found)err('SESSION_REQUIRED',401);
@@ -416,6 +420,16 @@ function createAuth(options){
   return {ok:true};
  }
  function setUpstreamCredential(args){return storeUpstreamCredential(args);}
+ async function setSandboxCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
+  if(!['growth-read','growth-audience-read','growth-audience'].includes(slot))err('CREDENTIAL_INVALID',400);
+  const user=credentialTarget({context,userId,slot,bearer});
+  if(user.role!=='manager'||user.state!=='active')err('GRANT_DENIED',403);
+  try{await verifySandboxCredential({slot,expectedOwner:user.email,bearer},{fetchImpl});}
+  catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+  const currentUser=credentialTarget({context,userId,slot,bearer});
+  if(currentUser.email!==user.email||currentUser.updated_at!==user.updated_at||currentUser.role!=='manager'||currentUser.state!=='active')err('CREDENTIAL_ATTESTATION_FAILED',403);
+  return storeUpstreamCredential({context,userId,slot,bearer});
+ }
  async function setCrmPanelReadCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
   if(slot!=='crm-panel-read')err('CREDENTIAL_INVALID',400);
   const user=credentialTarget({context,userId,slot,bearer});
@@ -430,6 +444,10 @@ function createAuth(options){
   const definition=CREDENTIAL_SLOTS[ctx?.slot];if(!definition||ctx.area!==definition.area||!!ctx.edit!==definition.mayWrite)err('CREDENTIAL_DENIED',403);
   const user=authorize(ctx),row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
   return row?decrypt(row.encrypted_key):null;
+ }
+ function audienceDraftReady(ctx){
+  const user=authorize({...ctx,method:'GET',area:'growth',edit:false});
+  return user.role==='manager'&&user.permissions.growth?.edit===true&&db.prepare("SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-read','growth-audience-read','growth-audience')").get(user.id).n===3;
  }
  const draftBrand=brand=>{if(!['fish','aristo'].includes(brand))err('BRAND_INVALID',400);return brand;};
  const draftKey=key=>{if(typeof key!=='string'||!(/^[A-Za-z0-9_-]{16,100}$/).test(key))err('OPERATION_KEY_INVALID',400);return key;};
@@ -530,6 +548,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setCrmPanelReadCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

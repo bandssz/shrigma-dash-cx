@@ -8,7 +8,7 @@ const vm=require('node:vm');
 const crypto=require('node:crypto');
 const {build,CONTENT,ENDPOINTS}=require('./build.cjs');
 const {typeAndCsp}=require('./server.cjs');
-const {inviteUrlForArea,readOnlyStyles}=require('./public/entry.js');
+const {inviteUrlForArea,readOnlyStyles,audienceDraftOperation}=require('./public/entry.js');
 
 function withArtifact(fn){const dest=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-operational-'));try{build(dest);return fn(path.join(dest,'public'));}finally{fs.rmSync(dest,{recursive:true,force:true});}}
 function sha(source){return crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');}
@@ -143,9 +143,9 @@ test('login and initial admin activation send email and password without a verif
  assert.match(bootstrap.message,/Entre com e-mail e senha/);
 });
 
-test('operational iframe suppresses legacy access files and unavailable write controls without changing source panels',()=>{
+test('operational iframe opens only audience draft controls after a scoped presentation gate',()=>{
  const expected={
-  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]','#crm-segments-panel .gs-shortcuts','#crm-audience-create','#crm-audience-brand-choices','#area-arvore .ga-rfm-create','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open'],
+  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="count"]','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open'],
   organico:['#organico-acesso','#organico-acesso-bar','#ol-form','.ol-arquivar'],
   influs:['#influ-access','#i-form','.cr-edit','[data-pilot-save]','[data-cob]:not([data-cob="recarregar"])','#tts-acesso']
  };
@@ -153,6 +153,10 @@ test('operational iframe suppresses legacy access files and unavailable write co
   const css=readOnlyStyles(area);
   for(const selector of selectors)assert.ok(css.includes('body.panel-embedded '+selector),area+' '+selector);
   assert.match(css,/display:none!important/);
+ }
+ for(const selector of ['#crm-segments-panel [data-gs="new"]','#crm-segments-panel [data-gs-fields]','#crm-segments-panel [data-gs="save"]','#crm-segments-panel [data-gs="archive"]','#crm-segments-panel [data-gs-dialog]','#crm-segments-panel .gs-shortcuts','#crm-audience-create','#crm-audience-brand-choices','#area-arvore .ga-rfm-create']){
+  assert.ok(readOnlyStyles('growth').includes('body.panel-embedded:not(.dashboard-audience-draft-ready) '+selector),selector);
+  assert.ok(readOnlyStyles('growth',{embeddedOnly:false}).includes('body:not(.dashboard-audience-draft-ready) '+selector),selector);
  }
  assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #crm-media,/);
  assert.doesNotMatch(readOnlyStyles('growth'),/body\.panel-embedded #crm-media-fields/);
@@ -176,6 +180,15 @@ test('operational iframe suppresses legacy access files and unavailable write co
   assert.match(fs.readFileSync(path.join(publicRoot,'organico.html'),'utf8'),/id="organico-chave-arquivo"/);
   assert.match(fs.readFileSync(path.join(publicRoot,'influs.html'),'utf8'),/id="influ-access"/);
  });
+});
+
+test('durable audience journal shape rejects malformed or unverified terminal operations',()=>{
+ const key='123e4567-e89b-42d3-a456-426614174000';
+ assert.equal(audienceDraftOperation({operation:null}),null);
+ assert.equal(audienceDraftOperation({operation:{phase:'pending',action:'segmento_criar',operationKey:key}}).phase,'pending');
+ assert.equal(audienceDraftOperation({operation:{phase:'uncertain',action:'segmento_salvar',operationKey:key}}).phase,'uncertain');
+ assert.equal(audienceDraftOperation({operation:{phase:'succeeded',action:'segmento_criar',operationKey:key,receiptStatus:201,segmentId:key,segmentVersion:1}}).phase,'succeeded');
+ for(const bad of [{}, {operation:{}}, {operation:{phase:'succeeded',action:'segmento_criar',operationKey:key}}, {operation:{phase:'rejected',action:'segmento_criar',operationKey:key,receiptStatus:409}}, {operation:{phase:'pending',action:'segmento_criar',operationKey:'wrong'}}])assert.equal(audienceDraftOperation(bad),undefined);
 });
 
 test('invite links match the exact host published by the authenticated service',()=>{
