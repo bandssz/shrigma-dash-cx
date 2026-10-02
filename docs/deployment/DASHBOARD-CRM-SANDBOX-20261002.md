@@ -1,0 +1,45 @@
+# CRM no portal: validação em base isolada
+
+O sprint final e a migração continuam nesta tarefa, sem automação agendada. A descrição da meta nativa segue ativa; o escopo atualizado está no plano operacional. O corte dos domínios finais permanece condicionado às provas das integrações reais, das permissões na origem e da recuperação externa.
+
+## Candidato em execução
+
+- Portal v20: `https://dashboard-v20-gerencial.tazdb8.easypanel.host` e `https://dashboard-v20-crm.tazdb8.easypanel.host`; Orgânico e Influs têm hosts v20 próprios. Somente identidades `@synthetic.invalid`.
+- Código do portal: `405525e0134cf55032b05785311702f1d9eb20dc`; imagem `ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:01fc42849ea4261393ba383c430713ac870abdcca8ebb1f996ab5f097b4fc205`; pacote `b0241d19d8694ea39c6d805fe2bbd8e7876e890c2588679a0ad035b8c1d8fda6`.
+- API de teste: `https://dashboard-crm-sandbox-20261002.tazdb8.easypanel.host`, imagem `ghcr.io/bandssz/shrigma-dash-crm-audience-sandbox@sha256:fc133118592d166832b75e85d14f61fbedab4f33f7544d2d751304eef82eb647`, código `fbf0d923e9d548cc0c647c26ac0085aa58776fe5`. O v18 é um registro anterior de QA; usa essa mesma base sintética. Seus serviços/configurações foram preservados.
+- Projeto Easypanel `dashboard-image-20260930`, serviços `web-access-v20` e `crm-sandbox-20261002`; limites respectivos de 0,5 CPU/512 MiB e 0,5 CPU/768 MiB, uma réplica, 128 MiB de reserva cada, UID 1000, capacidades removidas, portas públicas diretas ausentes. Build ocorre no CI. Antes da criação do v20 havia 8 CPUs, 20.887 MB de memória livre e 336,1 GB de disco livre.
+- Volumes exclusivos da preparação: identidade v20 `dashboard-access-identity-20261002-v20`; base sintética `dashboard-crm-sandbox-20261002-data`. Nenhum volume corporativo foi montado ou copiado para este ensaio. V18/v19 e os demais serviços anteriores foram preservados.
+
+## Contrato e evidências
+
+O perfil `crm-sandbox` aceita exatamente três URLs no host de teste (`/dashboard` para cx/cache e `/segments`). Não admite mistura com produção, manifestos dinâmicos, outros hosts ou domínios corporativos de identidade. A API usa o controlador, store e contrato reais de públicos, sobre PGlite em volume descartável. Chaves de exemplo do fixture são revogadas antes do listener. Credenciais separadas de leitura/edição são fornecidas somente no runtime e vinculadas ao proprietário sintético; `/identity` valida essa vinculação diretamente.
+
+A UI só recebe edição com perfil de teste explícito, flag de públicos, grant Growth edit e os três slots individuais atestados. O catálogo usa a chave de leitura; seu grant `draft` é anunciado pelo portal somente para esse gestor com escritor separado. Contagem, vínculo a campanhas, disparo, workers, sincronizações, fluxos e demais escritas permanecem indisponíveis. O catálogo sintético renova timestamps somente sob requisição local; isso não prova frescor dos dados reais.
+
+O marcador público do diário permanece estável por usuário após novo login; cookie e CSRF continuam novos. O marcador sozinho não autentica. Consultas GET de diário/recibo exigem cookie e CSRF. Quando Chrome omite Origin, o gateway aceita apenas Fetch Metadata estrito `same-origin`/`cors` ou `same-origin`/`same-origin`, destino `empty`, no host permitido; Origin estrangeiro ou metadata ausente continuam recusados.
+
+Verificado até esta etapa:
+
+- 136 testes do portal e cinco do sandbox/componente real combinado, em bases/portas descartáveis, com Node 22. O componente cobriu criar/editar/arquivar, propriedade, escopo, perda de ACK, novo login e consulta do mesmo recibo sem reenviar POST. O builder oficial e os quatro testes do handshake executado também passaram.
+- [CI de publicação do código `405525e`](https://github.com/bandssz/shrigma-dash-cx/actions/runs/36991561978) aprovada; pacote publicado conferido por checksum, revisão, allowlist de 34 arquivos e ausência dos segredos concretos do runtime. Imagem e UID/reabertura dos volumes passaram no CI sem rede; HTTPS real e saúde dos quatro aliases passaram.
+- 29 verificações remotas de API no v20, incluindo login sem 2FA, convite, isolamento, cache usado pelo CRM atual, catálogo com escritor individual atestado, criação/edição/arquivamento de público sintético, marcas isoladas e recusa de contagem/envio.
+- Prova visual local do pacote real: 15 verificações. O transporte local de testes injeta Fetch Metadata e não é prova desses cabeçalhos no navegador remoto.
+- Prova visual remota real no v20: 14 verificações, incluindo criação e leitura do público em novo navegador, isolamento dos domínios, gerencial com três áreas sem CX, cadastro de gestor, aceite, login por senha, acesso limitado e revogação. Os convites com edição desejada conservaram concessão efetiva somente leitura e pedido pendente. Os dois gestores de smoke foram revogados. A primeira tentativa remota falhou na leitura em novo navegador; a repetição passou, sem causa precisa comprovada para a falha transitória. A partir da instrução posterior do titular, nenhuma nova interação de navegador é permitida; operações no servidor usam MCP.
+- Reinício somente de `web-access-v20` e da API sintética: seis verificações passaram; quatro identidades, cinco públicos sintéticos e o diário conservaram os estados, sessões anteriores funcionaram e novos logins geraram cookie/CSRF novos. Nenhum serviço atual ou volume corporativo foi reiniciado.
+- Os 110 mapeamentos anteriores ao v20 continuaram byte-exatos; oito rotas exclusivas v20 foram acrescentadas, totalizando 118. Os quatro domínios finais continuam sem mapeamento novo. Serviços atuais de CRM e acesso corporativo v13 responderam 200, com revisões dos backends iguais às leituras anteriores.
+- Nova leitura por MCP: quatro serviços CRM `running/healthy`, uma tarefa de uma prevista; v13 `running`, uma tarefa, sem healthcheck Docker. PR #198 na fonte `405525e` com 35 checks aprovados, sete pulados por condição e zero falhas; PR #211 com 25/25 aprovados.
+- Sonda HTTP anônima do limitador somente no gerencial v20: oito corpos parciais sem senha com IPs forjados, nona requisição 429; saúde e assets dos quatro hosts continuaram 200. Após o timeout, o acesso à rota foi liberado. A prova não fez verificação de senha e não demonstra dois clientes independentes no v20; esse ensaio anterior cobre os aliases v16.
+
+O v19 é histórico: 28 verificações remotas de API e os checks básicos de navegador passaram, mas a prova completa encontrou dois bloqueios. O handshake do iframe recusava a raiz e faltava `crm-read/cache_growth` no perfil sintético. O v20 corrige ambos: a raiz exige marcador de área e iframe contido no gerencial, preservando Origin/source; o alias de cache só existe no perfil de teste e conserva a autorização/filtros antes de chamar o reader já atestado. As regras de produção não foram ampliadas por essas correções.
+
+## Limites e entrada em produção
+
+PGlite demonstra o componente funcional; não certifica roles/grants reais PostgreSQL, concorrência multiprocesso, Listmonk, Shopify, consentimento ou frescor das fontes. Nenhuma identidade/chave real foi usada nesta base. O administrador corporativo atual continua em seu serviço anterior.
+
+O [executor administrativo fechado via MCP](DASHBOARD-CATALOG-AUDIT-20261002.md) concluiu a auditoria real de catálogo: oito seções, 33 alvos e modo de leitura confirmado. O esquema e os três hashes esperados conferiram; a classificação de 71 funções executáveis adicionais e do privilégio TEMP ainda falta. Os dois serviços e a rota temporária foram removidos, com os oito serviços originais e os 118 mappings byte-idênticos à baseline. Nenhuma chave ou linha comercial foi consultada.
+
+Antes do corte: concluir essa classificação; validar credenciais individuais na origem, revogação e cada integração; comprovar backup fora do servidor com restore; preparar uma identidade operacional distinta e conferir TLS nos hosts finais. A leitura SQL compartilhada do n8n não é usada como acesso de auditoria. Edição de públicos sintéticos não prova edição geral de CRM, Orgânico ou Influs.
+
+O titular delegou a escolha do backup. O repositório é público e não receberá banco de contas nem credenciais. Uma tentativa única de criar bucket externo novo, com nome aleatório, usando a identidade AWS já existente no cofre, recebeu `403 AccessDenied`. Nenhum dado foi enviado, nenhum bucket existente ou IAM foi modificado. A imagem de transporte e os testes com armazenamento simulado não substituem a prova externa; o [primeiro ensaio cifrado no Mac](DASHBOARD-IDENTITY-OFFSITE-20261002.md) está em preparação e passou um roundtrip sintético local, sem snapshot/transferência de conta real nem prova de recuperação funcional.
+
+O corte terá baseline novo, liberação por área e comparação das rotas antes/depois. A reversão restaura somente as rotas do portal para a versão anterior preservada; não toca campanhas, workers existentes, bancos ou eventos já executados. Rascunhos incertos exigem consulta do mesmo recibo antes de qualquer nova tentativa. Este ensaio não autoriza instalar RFM OFF ou alterar a operação de envios.

@@ -1,32 +1,33 @@
--- Auditoria SOMENTE de catalogo para o canario real do dashboard.
--- Preferir papel pessoal limitado a metadados para execucao manual pelo DBA.
--- Em 02/10, o titular indicou o Easypanel como acesso administrativo e autorizou
--- a preparacao autonoma. O executor fechado em DASHBOARD-CATALOG-AUDIT-20261002.md
--- permite uma conexao administrativa exclusiva, somente leitura, em servico
--- temporario sem endpoint publico. Nao usa papel de aplicacao nem webhook SQL.
--- Nao consulta linhas das tabelas de negocio, valores de chaves, corpos de funcoes
--- (o hash de prosrc e comparado no servidor, sem retorna-lo), definicoes de
--- constraints ou configuracoes secretas.
--- Resultados: nomes fixos, booleanos e contagens agregadas. NULL significa objeto/papel ausente ou
--- atributo nao aplicavel; FALSE exige investigacao, nao instalacao automatica.
--- Fontes versionadas: n8n/access/panel-{auth,short-keys,operator}.sql,
--- n8n/growth/crm-{read-fast,panel-reader-role}.sql.
--- A comparacao booleana de hash cobre tres funcoes versionadas; as demais
--- funcoes e os grants fora da lista ainda exigem classificacao do DBA. Esta
--- auditoria NAO verifica identidade/permissoes de uma chave real ou efeito tecnico
--- da autenticacao (shrigma_panel_auth_v1 atualiza telemetria de uso).
-
+-- One-use administrative catalog audit; no application function invocation.
+-- Outputs contain only fixed names, booleans, counts, and nulls.
+-- Administrative connection is supplied to psql at runtime, never in this file.
+-- This audit does not provision keys, alter grants, validate real credentials,
+-- or authorize a domain cutover. Any unexpected result requires review.
+\set ON_ERROR_STOP on
+\pset pager off
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY;
 SET LOCAL search_path TO pg_catalog;
 SET LOCAL statement_timeout TO '5s';
 SET LOCAL lock_timeout TO '250ms';
+SET LOCAL idle_in_transaction_session_timeout TO '15s';
+SELECT current_database() = 'listmonk'
+  AND current_user = 'postgres'
+  AND session_user = 'postgres'
+  AND current_setting('transaction_read_only') = 'on'
+  AS catalog_audit_target_ok
+\gset
+\if :catalog_audit_target_ok
+\else
+\quit 7
+\endif
 
+SELECT pg_catalog.jsonb_build_object('section', 'database', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 SELECT 'listmonk_database' AS alvo,
        current_database() = 'listmonk' AS ok,
-       current_setting('transaction_read_only') = 'on' AS transacao_somente_leitura;
+       current_setting('transaction_read_only') = 'on' AS transacao_somente_leitura
+) catalog_audit_row;
 
--- Apenas tres relacoes conhecidas. Privilegios do reader sao efetivos, inclusive
--- heranca/PUBLIC; os flags PUBLIC consultam as ACLs do objeto explicitamente.
+SELECT pg_catalog.jsonb_build_object('section', 'relations', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 WITH esperado(nome) AS (
   VALUES ('crm_dash_chave'),
          ('shrigma_panel_permission_v1'),
@@ -55,10 +56,10 @@ SELECT 'public.' || e.nome AS alvo,
 FROM esperado e
 LEFT JOIN pg_class c ON c.oid = to_regclass('public.' || e.nome)
 LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader'
-ORDER BY e.nome;
+ORDER BY e.nome
+) catalog_audit_row;
 
--- Colunas que os patches e o leitor usam. Tipo NULL significa que a criacao
--- original nao consta desses patches: a consulta confirma so a existencia.
+SELECT pg_catalog.jsonb_build_object('section', 'columns', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 WITH esperado(relacao, coluna, tipo, exige_not_null) AS (
   VALUES
     ('crm_dash_chave', 'chave', NULL::regtype, false),
@@ -88,10 +89,10 @@ FROM esperado e
 LEFT JOIN pg_attribute a
   ON a.attrelid = to_regclass('public.' || e.relacao)
  AND a.attname = e.coluna AND a.attnum > 0 AND NOT a.attisdropped
-ORDER BY e.relacao, e.coluna;
+ORDER BY e.relacao, e.coluna
+) catalog_audit_row;
 
--- Nomes gerados pelo DDL versionado. A existencia com tipo/validade nao prova
--- colunas nem expressao dos CHECKs; o DBA deve confirmar a semantica separadamente.
+SELECT pg_catalog.jsonb_build_object('section', 'constraints', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 WITH esperado(nome, tipo) AS (
   VALUES
     ('shrigma_panel_permission_v1_pkey', 'p'),
@@ -107,10 +108,10 @@ FROM esperado e
 LEFT JOIN pg_constraint co
   ON co.conrelid = to_regclass('public.shrigma_panel_permission_v1')
  AND co.conname = e.nome
-ORDER BY e.nome;
+ORDER BY e.nome
+) catalog_audit_row;
 
--- Indices parciais esperados. Nao compara o predicado ou colunas por meio de
--- pg_get_indexdef; o resultado sozinho nao valida a unicidade pretendida.
+SELECT pg_catalog.jsonb_build_object('section', 'indexes', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 WITH esperado(nome) AS (
   VALUES ('crm_dash_chave_hash_uq'), ('crm_dash_chave_curta_uq')
 )
@@ -126,10 +127,10 @@ LEFT JOIN pg_class i
 LEFT JOIN pg_index x
   ON x.indexrelid = i.oid
  AND x.indrelid = to_regclass('public.crm_dash_chave')
-ORDER BY e.nome;
+ORDER BY e.nome
+) catalog_audit_row;
 
--- Assinaturas fixas, flags e hash booleano das tres funcoes com corpo pinado.
--- Nenhum corpo ou hash calculado e retornado ao operador.
+SELECT pg_catalog.jsonb_build_object('section', 'functions', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 WITH esperado(assinatura, linguagem, volatilidade, definer, search_path_exato, body_md5) AS (
   VALUES
     ('public.shrigma_panel_auth_v1(text,text,text)', 'sql', 'v', false, 'search_path=pg_catalog, public', '488ee373b461fd61418c0489c42e3df7'),
@@ -157,11 +158,10 @@ FROM esperado e
 LEFT JOIN pg_proc p ON p.oid = to_regprocedure(e.assinatura)
 LEFT JOIN pg_language l ON l.oid = p.prolang
 LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader'
-ORDER BY e.assinatura;
+ORDER BY e.assinatura
+) catalog_audit_row;
 
--- O leitor de CRM deve poder executar somente a funcao dedicada e nao obter
--- SELECT/DML direto por grants herdados. Essas flags nao substituem revisao
--- de todos os papeis e de grants indiretos de outras identidades de workflow.
+SELECT pg_catalog.jsonb_build_object('section', 'reader_role', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 SELECT 'crm_panel_reader' AS alvo,
        r.oid IS NOT NULL AS existe,
        CASE WHEN r.oid IS NOT NULL THEN r.rolcanlogin END AS pode_login,
@@ -192,11 +192,10 @@ SELECT 'crm_panel_reader' AS alvo,
        ) END AS public_pode_criar_em_public
 FROM (SELECT 1) raiz
 LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader'
-LEFT JOIN pg_namespace n ON n.nspname = 'public';
+LEFT JOIN pg_namespace n ON n.nspname = 'public'
+) catalog_audit_row;
 
--- Inventario agregado de privilegios efetivos em TODOS os objetos de aplicacao.
--- Zero e necessario para o isolamento pretendido; resultados nao zero exigem
--- revisao antes de qualquer revogacao coordenada. Nao retornar nomes ou dados.
+SELECT pg_catalog.jsonb_build_object('section', 'reader_privileges', 'rows', coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(catalog_audit_row)), '[]'::jsonb)) FROM (
 SELECT 'crm_panel_reader_privilegios_fora_da_funcao' AS alvo,
        CASE WHEN r.oid IS NOT NULL THEN (
          SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -233,6 +232,7 @@ SELECT 'crm_panel_reader_privilegios_fora_da_funcao' AS alvo,
          WHERE left(n.nspname,3) <> 'pg_' AND n.nspname <> 'information_schema'
            AND has_schema_privilege(r.oid,n.oid,'CREATE')
        ) END AS esquemas_com_create
-FROM (SELECT 1) raiz LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader';
+FROM (SELECT 1) raiz LEFT JOIN pg_roles r ON r.rolname = 'crm_panel_reader'
+) catalog_audit_row;
 
 ROLLBACK;
