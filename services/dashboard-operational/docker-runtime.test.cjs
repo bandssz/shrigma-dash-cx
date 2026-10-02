@@ -4,6 +4,11 @@ const {spawnSync}=require('node:child_process');
 const policy=require('./artifact-policy.cjs'),{pack,IMAGE}=require('./pack-runtime.cjs'),{build,CONTENT}=require('./build.cjs');
 const image=require('./canary-image.cjs'),canary=require('./canary-start.cjs');
 const REVISION='06f4144cb0a03faf3ad90eeb1233f68f7a94aca6';
+test('Docker build stage copies every runtime module in the package allowlist',()=>{
+ const dockerfile=fs.readFileSync(path.join(__dirname,'Dockerfile'),'utf8');
+ const copies=dockerfile.split('\n').filter(line=>line.startsWith('COPY ')).join(' ');
+ for(const file of policy.RUNTIME_FILES)assert.match(copies,new RegExp('services/dashboard-operational/'+file.replaceAll('.','\\.')+'(?:\\s|$)'),file);
+});
 function temp(t){const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-docker-test-')));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
 function prepared(t){
  const dir=temp(t),dist=path.join(dir,'dist');fs.mkdirSync(path.join(dist,'public'),{recursive:true});
@@ -28,7 +33,7 @@ test('fresh empty volume seeds once; restart preserves artifact and existing ide
  const db=path.join(dataDir,'dashboard.sqlite');fs.writeFileSync(db,'SYNTHETIC IDENTITY SENTINEL',{mode:0o600});
  fs.chmodSync(dataDir,0o755);assert.equal(canary.seedVolume(options).seeded,false);
  assert.equal(fs.statSync(dataDir).mode&0o777,0o700);assert.equal(fs.statSync(packFile).ino,inode);assert.deepEqual(fs.readFileSync(packFile),before);
- assert.equal(fs.readFileSync(db,'utf8'),'SYNTHETIC IDENTITY SENTINEL');assert.equal(policy.decodePack(before.toString(),pin.packSha256).stats.files,32);
+ assert.equal(fs.readFileSync(db,'utf8'),'SYNTHETIC IDENTITY SENTINEL');assert.equal(policy.decodePack(before.toString(),pin.packSha256).stats.files,policy.FILES.length);
 });
 test('nonempty volumes including hidden or partial seed files never get seeded',t=>{
  const {dir,imageDir}=prepared(t);
@@ -60,7 +65,7 @@ test('symlink and hardlink image/volume artifacts fail closed',t=>{
 });
 test('Docker context is an exact source allowlist; final stage imports only immutable package files',()=>{
  const docker=fs.readFileSync(path.join(__dirname,'Dockerfile'),'utf8'),ignore=fs.readFileSync(path.join(__dirname,'Dockerfile.dockerignore'),'utf8');
- const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','proxy.cjs','fixtures.cjs','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
+ const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','proxy.cjs','fixtures.cjs','segment-audience-contract.js','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
  const rules=ignore.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));assert.equal(rules[0],'**');
  const files=rules.slice(1).filter(l=>!l.endsWith('/')).map(l=>{assert(l.startsWith('!'));assert(!/[?*]/.test(l));return l.slice(1);}).sort();assert.deepEqual(files,expected);
  const stages=docker.split(/^FROM /m).slice(1);assert.equal(stages.length,2);for(const stage of stages)assert(stage.startsWith(IMAGE+' AS '));
@@ -73,7 +78,7 @@ test('Docker context is an exact source allowlist; final stage imports only immu
 test('real frontend build and closed pack are deterministic from the same sources',t=>{
  const dir=temp(t),pins=[],packages=[];
  for(const n of [1,2]){const dist=path.join(dir,'dist-'+n),out=path.join(dir,'pack-'+n);build(dist);const metadata=pack(dist,out);pins.push(metadata.packSha256);packages.push(fs.readFileSync(path.join(out,'runtime-pack.json')));}
- assert.equal(pins[0],pins[1]);assert.deepEqual(packages[0],packages[1]);assert.equal(policy.decodePack(packages[0].toString(),pins[0]).stats.files,32);
+ assert.equal(pins[0],pins[1]);assert.deepEqual(packages[0],packages[1]);assert.equal(policy.decodePack(packages[0].toString(),pins[0]).stats.files,policy.FILES.length);
 });
 test('startup rejects root or a wrong UID before artifact access and never prints environment secrets',()=>{
  if(process.getuid()===1000&&process.getgid()===1000)return;

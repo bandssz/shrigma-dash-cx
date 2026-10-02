@@ -33,6 +33,7 @@
 !services/dashboard-operational/auth.cjs
 !services/dashboard-operational/proxy.cjs
 !services/dashboard-operational/fixtures.cjs
+!services/dashboard-operational/segment-audience-contract.js
 !services/dashboard-operational/canary-start.cjs
 !services/dashboard-operational/canary-image.cjs
 !services/dashboard-operational/public/
