@@ -503,7 +503,7 @@ function restoreABExperimentBrand(next){
   if(!['fish','aristo'].includes(next))return false;
   const campaign=GCE.contextStatus(),template=GRU.contextStatus(),segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
   if($('#brand-change-confirm')?.open)return false;
-  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||segments.blocked||segments.pending||
+  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||segments.navigationBlocked||segments.pending||
     typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
   try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();}catch{return false;}
   MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
@@ -647,6 +647,8 @@ function renderRelatoriosCampanha(){
 }
 function render(){
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
+  // Contadores da navegação valem só para a marca em que foram calculados.
+  document.querySelectorAll('#secoes .n').forEach(n=>{if(n.dataset.marca!==MARCA){n.textContent='';n.dataset.marca=MARCA;}});
   const campaignTab=CRMWorkspace.state().campaign,reportTab=CRMWorkspace.state().report;
   const home=SEC==='visao',campaigns=SEC==='camp'&&campaignTab==='list',tests=SEC==='camp'&&campaignTab==='tests';
   const automationHistory=SEC==='regua'&&GC.activeTab==='history',resultsOverview=SEC==='resultados'&&reportTab==='overview';
@@ -1061,7 +1063,7 @@ function trocaMarca(next,afterConfirm=null){
   const ready=()=>{
     if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
     const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{},segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
-    if(AB_BUSY||GCE.contextStatus().navigationBlocked||GRU.contextStatus().blocked||experiment.blocked||segments.blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(AB_BUSY||GCE.contextStatus().navigationBlocked||GRU.contextStatus().blocked||experiment.blocked||segments.navigationBlocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
     if(segments.pending){notice('Há uma tentativa de público sem confirmação. Consulte a mesma tentativa antes de trocar de marca.');return false;}
     if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
     if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
@@ -1075,7 +1077,8 @@ function trocaMarca(next,afterConfirm=null){
     try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
     ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
-    notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
+    // The editor may still hold a brand opened before the current header brand.
+    notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[campaign.brand]||G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;
   };
   if(!ready())return false;

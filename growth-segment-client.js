@@ -35,7 +35,9 @@
    if(method==='GET')url.search=new URLSearchParams(request).toString();else{init.headers['Content-Type']='application/json';init.body=JSON.stringify(request);}
    try{const response=await fetcher(url.href,init),body=await response.json();return {status:response.status,body};}catch{return {status:0,body:null};}}
   function ok(r){return r.status>=200&&r.status<300;}
-  function requireOK(r){if(!ok(r))fail(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE'].includes(r.body?.error)?r.body.error:'SEGMENT_READ_UNCONFIRMED');return r.body;}
+  // Exact access refusals are shown as such; every other failure stays unconfirmed.
+  const accessRefused=r=>exact(r?.body,['error'])&&(r.status===401&&r.body.error==='SEGMENT_UNAUTHORIZED'||r.status===403&&r.body.error==='SEGMENT_ACCESS_DENIED');
+  function requireOK(r){if(!ok(r))fail(accessRefused(r)||['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE'].includes(r.body?.error)?r.body.error:'SEGMENT_READ_UNCONFIRMED');return r.body;}
   async function exclusive(work){if(typeof locks?.request!=='function')fail('SEGMENT_LOCK_UNAVAILABLE');return locks.request(slot,{mode:'exclusive',ifAvailable:true},async lock=>{if(!lock||busy)fail('SEGMENT_BUSY');busy=true;try{refresh();return await work();}finally{busy=false;}});}
   function writable(){access('save');if(pending())fail('SEGMENT_OPERATION_PENDING');if(!catalog||permissions?.draft!==true)fail('SEGMENT_CATALOG_UNCONFIRMED');}
   function checkDefinition(input){const d=normalized(input);if(d.brand!==brand||!catalog||catalog.brand!==brand||catalog.current!==true)fail('SEGMENT_CATALOG_UNCONFIRMED');if(Contract.checkCatalog){if(!Contract.checkCatalog(d,catalog).ok)fail('SEGMENT_CATALOG_UNCONFIRMED');return d;}const walk=r=>{if(r.op==='in_list'){const matches=catalog.lists.filter(l=>l.id===r.list_id);if(matches.length!==1||matches[0].available!==true||matches[0].brand!==brand)fail('SEGMENT_LIST_UNAVAILABLE');}else r.rules.forEach(walk);};walk(d.rule);return d;}

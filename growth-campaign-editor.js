@@ -53,7 +53,7 @@ const GCE=(()=>{
  }
  const q=selector=>root.querySelector(selector);
  function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign,anchor=remote?(c?{id:c.id,version:c.version}:null):(localCampaign??null);GBS.save('campaign',contextBrand,{...values(),_campaign:anchor});localCampaign=anchor;checkCampaign=!remote;localError='';}
- function contextStatus(){const a=audienceState();return {blocked:!!(remoteBusy||confirmation||accessImporting||a.blocked||a.pending),navigationBlocked:!!(remoteBusy||confirmation||accessImporting||a.activeOperation),dirty:!!localError,pending:!!(remote?.locked()||a.pending)};}
+ function contextStatus(){const a=audienceState();return {blocked:!!(remoteBusy||confirmation||accessImporting||a.blocked||a.pending),navigationBlocked:!!(remoteBusy||confirmation||accessImporting||a.activeOperation),dirty:!!localError,pending:!!(remote?.locked()||a.pending),brand:contextBrand};}
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
  function enterBrand(brand){
   if(contextStatus().navigationBlocked)return false;
