@@ -20,7 +20,7 @@ jobs:
       - name: Instalar ferramentas fixadas somente na CI
         run: |
           npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
-          npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+          npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
       - name: Conferir bundle CRM e segurança do pacote operacional
         run: |
           node tools/panel-build/build.cjs --panel=growth --check
