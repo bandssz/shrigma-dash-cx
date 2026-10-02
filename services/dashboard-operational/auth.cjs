@@ -6,7 +6,8 @@
  *   bootstrapAdminEmail, bootstrapTokenSha256, encryptionKey, now?}) returns:
  *   beginBootstrap/completeBootstrap, login, session, authorize, logout,
  *   createInvite, acceptInvite, users, setGrants, setRequestedAccess, revokeUser,
- *   setUpstreamCredential, getUpstreamCredential, close.
+ *   setUpstreamCredential, getUpstreamCredential, audienceDraft,
+ *   reserveAudienceDraft, audienceDraftOutcome, close.
  *
  * `context` is {cookieHeader, host, method, origin, csrf}. An admin mutation
  * requires a valid superadmin session plus POST, exact Origin and CSRF. The
@@ -153,6 +154,18 @@ function createAuth(options){
   operation_key TEXT NOT NULL,phase TEXT NOT NULL CHECK(phase IN ('pending','uncertain','succeeded','rejected')),
   receipt_state TEXT,campaign_id INTEGER,updated_at INTEGER NOT NULL,
   PRIMARY KEY(user_id,brand));
+ CREATE TABLE IF NOT EXISTS audience_draft_operations (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),
+  operation_key TEXT NOT NULL,
+  action TEXT NOT NULL CHECK(action IN ('segmento_criar','segmento_salvar','segmento_arquivar')),
+  phase TEXT NOT NULL CHECK(phase IN ('pending','uncertain','succeeded','rejected')),
+  receipt_status INTEGER,receipt_code TEXT,segment_id TEXT,segment_version INTEGER,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(user_id,brand),
+  CHECK ((phase IN ('pending','uncertain') AND receipt_status IS NULL AND receipt_code IS NULL AND segment_id IS NULL AND segment_version IS NULL)
+   OR (phase='succeeded' AND receipt_status IN (200,201) AND receipt_code IS NULL AND segment_id IS NOT NULL AND segment_version>0)
+   OR (phase='rejected' AND receipt_status IN (404,409,422,503) AND receipt_code IS NOT NULL AND segment_id IS NULL AND segment_version IS NULL)));
  CREATE TABLE IF NOT EXISTS login_limits (
   bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS identity_metadata (
@@ -286,9 +299,10 @@ function createAuth(options){
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
-  if(existing&&p.growth?.edit&&unresolvedCampaignDraft(existing.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
   db.exec('BEGIN IMMEDIATE');try{
+   if(existing&&unresolvedAudienceDraft(existing.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   if(existing&&p.growth?.edit&&unresolvedCampaignDraft(existing.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM invites WHERE expires_at<=? OR used_at IS NOT NULL').run(t);
    if(existing){db.prepare("UPDATE users SET role='manager',state='invited',password_hash=NULL,totp_secret=NULL,totp_last_step=-1,updated_at=? WHERE id=? AND state='disabled'").run(t,id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);db.prepare('DELETE FROM upstream_credentials WHERE user_id=?').run(id);db.prepare('DELETE FROM invites WHERE user_id=?').run(id);}
    else db.prepare('INSERT INTO users(id,email,role,state,created_at,updated_at) VALUES(?,?,?,?,?,?)').run(id,e,'manager','invited',t,t);
@@ -330,6 +344,7 @@ function createAuth(options){
   const p=permissions(userId);
   if(Object.keys(p).length!==1)err('GRANTS_INVALID',400);
   const t=current();db.exec('BEGIN IMMEDIATE');try{
+   if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
    else{
@@ -350,6 +365,7 @@ function createAuth(options){
   if(user.role==='manager'&&Object.keys(p).length!==1)err('GRANTS_INVALID',400);
   if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   db.exec('BEGIN IMMEDIATE');try{
+   if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(userId,area,g.edit?1:0);
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
@@ -376,6 +392,7 @@ function createAuth(options){
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
   db.exec('BEGIN IMMEDIATE');try{
+   if(slot==='growth-audience'&&unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
    db.prepare('INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at').run(userId,slot,encrypt(bearer),digest,current());
    db.exec('COMMIT');
@@ -389,7 +406,62 @@ function createAuth(options){
  }
  const draftBrand=brand=>{if(!['fish','aristo'].includes(brand))err('BRAND_INVALID',400);return brand;};
  const draftKey=key=>{if(typeof key!=='string'||!(/^[A-Za-z0-9_-]{16,100}$/).test(key))err('OPERATION_KEY_INVALID',400);return key;};
+ // The audience journal accepts generated UUIDs only: keys are identifiers,
+ // never a place for a segment name, customer data or other request content.
+ const audienceKey=key=>{if(typeof key!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(key))err('OPERATION_KEY_INVALID',400);return key;};
  const unresolvedCampaignDraft=userId=>!!db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
+ const unresolvedAudienceDraft=userId=>!!db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
+ const audienceActions=new Set(['segmento_criar','segmento_salvar','segmento_arquivar']);
+ const audienceRejectCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
+ function audienceDraft(context,brand){
+  const user=authorize({...context,area:'growth'});
+  if(!user.permissions.growth?.edit)err('GRANT_DENIED',403);
+  return db.prepare('SELECT operation_key AS operationKey,action,phase,receipt_status AS receiptStatus,receipt_code AS receiptCode,segment_id AS segmentId,segment_version AS segmentVersion,updated_at AS updatedAt FROM audience_draft_operations WHERE user_id=? AND brand=?').get(user.id,draftBrand(brand))||null;
+ }
+ function reserveAudienceDraft(context,brand,key,action){
+  if(context?.method!=='POST')err('METHOD_DENIED',405);
+  draftBrand(brand);audienceKey(key);
+  if(!audienceActions.has(action))err('OPERATION_INVALID',400);
+  // Serialize permission checking and reservation with admin grant/credential
+  // changes, including when a future gateway runs in another process.
+  db.exec('BEGIN IMMEDIATE');try{
+   const user=authorize({...context,area:'growth',edit:true});
+   // Reserve before any future upstream call. An unresolved operation can
+   // never be overwritten or retried under another key.
+   const result=db.prepare(`INSERT INTO audience_draft_operations(user_id,brand,operation_key,action,phase,updated_at)
+    VALUES(?,?,?,?,'pending',?) ON CONFLICT(user_id,brand) DO UPDATE SET
+    operation_key=excluded.operation_key,action=excluded.action,phase='pending',
+    receipt_status=NULL,receipt_code=NULL,segment_id=NULL,segment_version=NULL,updated_at=excluded.updated_at
+    WHERE audience_draft_operations.phase IN ('succeeded','rejected')
+    AND audience_draft_operations.operation_key<>excluded.operation_key`).run(user.id,brand,key,action,current());
+   if(result.changes!==1)err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   db.exec('COMMIT');return user.id;
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ // A future gateway caller must first verify the upstream operation lookup
+ // against this user, brand, key and action. An unconfirmed lookup (including
+ // a 404) is not a terminal rejection; it leaves this journal uncertain.
+ function audienceDraftOutcome(userId,brand,key,action,phase,{receiptStatus=null,receiptCode=null,segmentId=null,segmentVersion=null}={}){
+  if(typeof userId!=='string'||!userId||!['uncertain','succeeded','rejected'].includes(phase))err('OPERATION_INVALID',500);
+  draftBrand(brand);audienceKey(key);
+  if(!audienceActions.has(action))err('OPERATION_INVALID',500);
+  const success=phase==='succeeded'&&receiptStatus===(action==='segmento_criar'?201:200)&&receiptCode===null&&typeof segmentId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(segmentId)&&Number.isSafeInteger(segmentVersion)&&segmentVersion>0;
+  const rejection=phase==='rejected'&&[404,409,422,503].includes(receiptStatus)&&audienceRejectCodes.has(receiptCode)&&segmentId===null&&segmentVersion===null;
+  const uncertain=phase==='uncertain'&&receiptStatus===null&&receiptCode===null&&segmentId===null&&segmentVersion===null;
+  if(!success&&!rejection&&!uncertain)err('OPERATION_INVALID',500);
+  const result=db.prepare("UPDATE audience_draft_operations SET phase=?,receipt_status=?,receipt_code=?,segment_id=?,segment_version=?,updated_at=? WHERE user_id=? AND brand=? AND operation_key=? AND action=? AND phase IN ('pending','uncertain')")
+   .run(phase,receiptStatus,receiptCode,segmentId,segmentVersion,current(),userId,brand,key,action);
+  if(result.changes!==1){
+   const row=db.prepare('SELECT phase,receipt_status,receipt_code,segment_id,segment_version FROM audience_draft_operations WHERE user_id=? AND brand=? AND operation_key=? AND action=?').get(userId,brand,key,action);
+   if(row&&['succeeded','rejected'].includes(row.phase)){
+    // A delayed timeout cannot undo a verified receipt. A contradictory
+    // terminal receipt is a reconciliation error, not a harmless duplicate.
+    if(phase==='uncertain'||row.phase===phase&&row.receipt_status===receiptStatus&&row.receipt_code===receiptCode&&row.segment_id===segmentId&&row.segment_version===segmentVersion)return false;
+   }
+   err('OPERATION_CHANGED',409);
+  }
+  return true;
+ }
  function campaignDraft(context,brand){
   const user=authorize({...context,area:'growth'});
   if(!user.permissions.growth?.edit)err('GRANT_DENIED',403);
@@ -419,6 +491,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};
