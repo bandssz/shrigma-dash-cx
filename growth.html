@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4ed8407a99b1">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1jRy5HXN0+A51hESCh2ZZHhQIMjhwZ31x9dzkySW8+M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-EdwNAftj+A8QMdlS0TZElLbokFON077byMKa7t6PSyw='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3a329dc8807b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=94c94de154cf"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -1061,7 +1061,7 @@ function trocaMarca(next,afterConfirm=null){
   const ready=()=>{
     if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
     const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{},segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
-    if(AB_BUSY||GCE.contextStatus().blocked||GRU.contextStatus().blocked||experiment.blocked||segments.blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    if(AB_BUSY||GCE.contextStatus().navigationBlocked||GRU.contextStatus().blocked||experiment.blocked||segments.blocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
     if(segments.pending){notice('Há uma tentativa de público sem confirmação. Consulte a mesma tentativa antes de trocar de marca.');return false;}
     if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
     if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
