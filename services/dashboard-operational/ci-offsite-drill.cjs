@@ -45,7 +45,9 @@ function create(alias,imageRef,{mounts=[],command=[],entrypoint=null,environment
  if(stdin)args.push('--interactive');
  for(const [key,value]of Object.entries(environment)){if(!/^[A-Z0-9_]+$/.test(key))fail();args.push('--env',key+'='+value);}
  if(entrypoint)args.push('--entrypoint',entrypoint);
- if(health)args.push('--health-cmd',health,'--health-interval','1s','--health-timeout','10s','--health-retries','2','--health-start-period','5s');
+ // Docker CLI health commands use /bin/sh, which adds PWD. Compose uses exec
+ // form. Remove only that shell-added variable; preserve every credential gate.
+ if(health)args.push('--health-cmd','exec env -u PWD '+health,'--health-interval','1s','--health-timeout','10s','--health-retries','2','--health-start-period','5s');
  args.push(imageRef,...command);
  const cid=docker(args).trim();if(!/^[a-f0-9]{64}$/.test(cid))fail();
  ownedContainers.push(cid);activeContainer=cid;const metadata=inspect('container',cid);
