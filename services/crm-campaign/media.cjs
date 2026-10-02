@@ -81,7 +81,10 @@ function createMediaExecutor({pool,native}){
   const auth=await authorize(pool,key,method==='GET'?'read_content':'edit_content');if(auth.status)return auth;
   if(method==='GET'){
    if(input.filename!==undefined){const parts=filenameParts(input.filename);if(!parts||parts.brand!==input.brand||parts.operation_id!==input.operation_id||parts.sha256!==input.sha256)return result(422,{error:'MEDIA_RECOVERY_INVALID',message:'A tentativa de upload não confere.',posted:false});const {item}=await lookup({brand:input.brand,filename:input.filename});return result(200,{contract:'crm-media-v1',brand:input.brand,state:item?'found':'missing',media:item||null,operation_id:input.operation_id,filename:input.filename,sha256:input.sha256});}
-   const response=await native.list({page:input.page,perPage:input.per_page,query:''}),page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
+   const response=await native.list({page:input.page,perPage:input.per_page,query:''}),page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');
+   // The shared Listmonk library keeps files generated for the other brand; never list them here. Unattributed legacy files stay visible.
+   page.items=page.items.filter(entry=>{const part=filenameParts(entry.filename);return !part||part.brand===input.brand;});
+   return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
   }
   if(busy.has(input.brand))return result(409,{error:'MEDIA_BUSY',message:'Outro upload desta marca está em andamento.',posted:false});
   busy.add(input.brand);

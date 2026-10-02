@@ -197,7 +197,7 @@ const GRU={
         <div class="campo"><label for="d-peca">Nome da etapa (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
         ${wa?`<div class="campo largo"><label for="d-cabecalho">Cabeçalho (opcional)</label><input type="text" id="d-cabecalho" data-campo="cabecalho" maxlength="${GR.LIMITES.cabecalho}" value="${GRU.e(r.cabecalho)}"><span class="ajuda" id="d-cabecalho-conta">${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}</span></div>`:''}
         <div class="campo largo"><label for="d-corpo">Corpo</label><textarea id="d-corpo" data-campo="corpo" rows="7" placeholder="${wa?'Olá {{1}}, seu pedido {{2}} saiu para entrega…':'Texto do e-mail…'}">${GRU.e(r.corpo)}</textarea><span class="ajuda" id="d-corpo-conta">${GRU.contaCorpo(r)}</span></div>
-        ${wa?`<div class="campo largo"><label for="d-rodape">Rodapé (opcional)</label><input type="text" id="d-rodape" data-campo="rodape" maxlength="${GR.LIMITES.rodape}" value="${GRU.e(r.rodape)}"><span class="ajuda" id="d-rodape-conta">${String(r.rodape||'').length} de ${GR.LIMITES.rodape}</span></div>`:''}
+        ${wa||r.rodape?`<div class="campo largo"><label for="d-rodape">Rodapé (opcional)</label><input type="text" id="d-rodape" data-campo="rodape" maxlength="${GR.LIMITES.rodape}" value="${GRU.e(r.rodape)}"><span class="ajuda" id="d-rodape-conta">${String(r.rodape||'').length} de ${GR.LIMITES.rodape}</span></div>`:''}
         ${wa&&vars.length?`<div class="campo largo"><label>Exemplos das variáveis</label><div class="draft-exemplos">${vars.map(n=>`<label>{{${n}}}<input type="text" data-exemplo="${n}" value="${GRU.e((r.exemplos||{})[n]||'')}" placeholder="exemplo real, sem dado de cliente"></label>`).join('')}</div><span class="ajuda">A Meta pede um exemplo por variável. Use valores fictícios.</span></div>`:''}
         <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Use Adicionar botão para incluir um link.</span>'}</div>
           ${(r.botoes||[]).length<GR.LIMITES.botoes?'<button type="button" class="refresh-btn" id="d-botao-add">Adicionar botão</button>':''}</div>
@@ -572,7 +572,10 @@ const GRU={
       let r=GRU.state.rascunho?.id===op.local_id?GRU.state.rascunho:GR.lista().find(x=>x.id===op.local_id);
       if(!r&&op.request_payload.rascunho)r=GR.novo({...op.request_payload.rascunho,id:op.local_id});
       GRU.state.ocupado=null;
-      if(r){GRU.state.rascunho=r;GRU.state.editando=r.id;await GRU.aplicarRecibo(r,res);}
+      // Open the receipt's draft only in its own brand and never over another unsaved preparation.
+      const outraMarca=!!GRU.ctx.marca&&r?.marca!==GRU.ctx.marca,abrir=!!r&&(r===GRU.state.rascunho||!outraMarca&&!GRU.contextStatus().dirty);
+      if(r&&abrir){GRU.state.rascunho=r;GRU.state.editando=r.id;await GRU.aplicarRecibo(r,res);}
+      else if(r){await GRU.aplicarRecibo(r,res);GRU.aviso(`${GRU.state.msg} ${outraMarca?`O template é de ${GRU.rotulo(GR.MARCAS,r.marca)}; selecione essa marca no cabeçalho para editá-lo.`:'A edição aberta foi preservada; salve ou feche-a para abrir este template.'}`.trim(),GRU.state.msgTone);GRU.render();}
       else{GRU.aviso('Recibo conferido e preservado. O rascunho local não está disponível; consulte o integrador para recuperar o conteúdo.','aviso');GRU.render();}
     }catch(e){GRU.state.ocupado=null;GRU.aviso(String(e?.code||'').startsWith('TPL_')?e.message:'Não foi possível consultar o recibo. A operação permanece bloqueada.','erro');GRU.render();}
   },
