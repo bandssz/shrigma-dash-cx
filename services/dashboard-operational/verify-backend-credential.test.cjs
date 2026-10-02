@@ -15,6 +15,7 @@ const response=(body,options={})=>new Response(typeof body==='string'?body:JSON.
 
 test('direct identity uses only the reviewed HTTPS backend URLs and Bearer header',async()=>{
  for(const [slot,area,host,path,query] of [
+  ['crm-panel-read','growth','comunicacao-crm-panel-read.tazdb8.easypanel.host','/read','action=identity&painel=growth'],
   ['growth-read','growth','comunicacao-crm-panel-read.tazdb8.easypanel.host','/read','action=identity&painel=growth'],
   ['organico-read','organico','n8n-n8n.tazdb8.easypanel.host','/webhook/cx-dash-api-306742284c6fac1d','access=1&painel=organico'],
   ['influs-read','influs','n8n-n8n.tazdb8.easypanel.host','/webhook/cx-dash-api-306742284c6fac1d','access=1&painel=influs']
@@ -28,7 +29,7 @@ test('direct identity uses only the reviewed HTTPS backend URLs and Bearer heade
    assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(options.cache,'no-store');
    assert.equal(options.headers.Authorization,'Bearer '+KEY);assert.equal(options.headers.Accept,'application/json');
    assert.ok(!Object.hasOwn(options.headers,'Origin'));assert.ok(options.signal);
-   return response(identity(area,area==='growth'?{growth:{caps:['read_content']},influs:null}:undefined));
+   return response(identity(area,area==='growth'?{growth:slot==='crm-panel-read'?{who:'panel:test-key',label:OWNER,caps:['read_content']}:{caps:['read_content']},influs:null}:undefined));
   }});
   assert.equal(called,1);assert.deepEqual(result,{ok:true,slot,area,identityVerified:true,readOnlyProven:false,capabilityEvidence:area==='growth'?'read-caps-only':'unreported',status:'partial'});
   assert.ok(!JSON.stringify(result).includes(KEY)&&!JSON.stringify(result).includes(OWNER));
@@ -37,10 +38,28 @@ test('direct identity uses only the reviewed HTTPS backend URLs and Bearer heade
 
 test('read-only slots can use identity check but it remains explicitly partial',async()=>{
  for(const [slot,area] of Object.entries(V.SLOTS)){
-  const permissions=area==='growth'?{growth:null,influs:null}:area==='influs'?{growth:null,influs:{caps:['read_creators']}}:undefined;
+  const permissions=area==='growth'?{growth:slot==='crm-panel-read'?{who:'panel:test-key',label:OWNER,caps:['read_content']}:null,influs:null}:area==='influs'?{growth:null,influs:{caps:['read_creators']}}:undefined;
   const got=await V.verifyCredential(source(slot),{fetchImpl:async()=>response(identity(area,permissions))});
   assert.equal(got.readOnlyProven,false);assert.equal(got.status,'partial');
  }
+});
+
+test('dedicated CRM slot requires an exact nonempty individual read grant and owner',async()=>{
+ const valid=identity('growth',{growth:{who:'panel:test-key',label:OWNER,caps:['read_content']},influs:null});
+ for(const changed of [
+  {...valid,owner:'Other owner'},
+  {...valid,role:'master',panel:'todos',allowedPanels:['cx','growth','organico','influs']},
+  {...valid,preview:false},
+  {...valid,synthetic:true},
+  {...valid,allowedPanels:['growth','influs']},
+  {...valid,permissions:{...valid.permissions,growth:{...valid.permissions.growth,label:'Other owner'}}},
+  {...valid,permissions:{...valid.permissions,growth:{...valid.permissions.growth,who:'panel:wrong key'}}},
+  {...valid,permissions:{...valid.permissions,growth:{...valid.permissions.growth,caps:[]}}},
+  {...valid,permissions:{...valid.permissions,growth:{...valid.permissions.growth,caps:['read_content','draft']}}},
+  {...valid,permissions:{...valid.permissions,growth:{...valid.permissions.growth,extra:true}}},
+  {...valid,permissions:{...valid.permissions,influs:{who:'panel:other',label:OWNER,caps:['read_creators']}}},
+  {...valid,permissions:{...valid.permissions,organico:null}}
+ ])await assert.rejects(V.verifyCredential(source('crm-panel-read'),{fetchImpl:async()=>response(changed)}),/CREDENTIAL_VERIFICATION_REFUSED/);
 });
 
 test('wrong owner, CX/master, cross-area, preview and broader panel lists are refused',async()=>{

@@ -32,6 +32,7 @@
 !services/dashboard-operational/server.cjs
 !services/dashboard-operational/auth.cjs
 !services/dashboard-operational/proxy.cjs
+!services/dashboard-operational/backend-credential-attestation.cjs
 !services/dashboard-operational/fixtures.cjs
 !services/dashboard-operational/segment-audience-contract.js
 !services/dashboard-operational/canary-start.cjs

@@ -21,6 +21,7 @@ const {DatabaseSync}=require('node:sqlite');
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const {promisify}=require('node:util');
+const {verifyCredential}=require('./backend-credential-attestation.cjs');
 const scrypt=promisify(crypto.scrypt);
 
 const AREAS=Object.freeze(['growth','organico','influs']);
@@ -28,6 +29,7 @@ const AREA_SET=new Set(AREAS);
 // The HTTP gateway, never browser input, selects one of these fixed slots.
 // A slot can contain an individual upstream bearer for the named user only.
 const CREDENTIAL_SLOTS=Object.freeze({
+ 'crm-panel-read':{area:'growth',mayWrite:false},
  'growth-read':{area:'growth',mayWrite:false},
  'growth-campaign-read':{area:'growth',mayWrite:false},
  'growth-campaign':{area:'growth',mayWrite:true},
@@ -393,12 +395,17 @@ function createAuth(options){
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
  }
- function setUpstreamCredential({context,userId,slot,bearer}){
+ function credentialTarget({context,userId,slot,bearer}){
   adminContext(context);const definition=CREDENTIAL_SLOTS[slot];
   if(!definition||typeof bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(bearer))err('CREDENTIAL_INVALID',400);
-  const user=db.prepare('SELECT state FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
+  const user=db.prepare('SELECT email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  return user;
+ }
+ function storeUpstreamCredential({context,userId,slot,bearer},{crmAttested=false,expectedOwner,expectedUpdatedAt}={}){
+  const user=credentialTarget({context,userId,slot,bearer});
+  if(slot==='crm-panel-read'&&(!crmAttested||user.role!=='manager'||user.state!=='active'||user.email!==expectedOwner||user.updated_at!==expectedUpdatedAt))err('CREDENTIAL_ATTESTATION_REQUIRED',403);
   const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
   db.exec('BEGIN IMMEDIATE');try{
    if(slot==='growth-audience'&&unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
@@ -407,6 +414,17 @@ function createAuth(options){
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true};
+ }
+ function setUpstreamCredential(args){return storeUpstreamCredential(args);}
+ async function setCrmPanelReadCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
+  if(slot!=='crm-panel-read')err('CREDENTIAL_INVALID',400);
+  const user=credentialTarget({context,userId,slot,bearer});
+  if(user.role!=='manager'||user.state!=='active')err('GRANT_DENIED',403);
+  let proof;
+  try{proof=await verifyCredential({slot,expectedOwner:user.email,bearer},{fetchImpl});}
+  catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+  if(proof?.ok!==true||proof.slot!==slot||proof.area!=='growth'||proof.identityVerified!==true||proof.capabilityEvidence!=='read-caps-only'||proof.status!=='partial'||proof.readOnlyProven!==false)err('CREDENTIAL_ATTESTATION_FAILED',403);
+  return storeUpstreamCredential({context,userId,slot,bearer},{crmAttested:true,expectedOwner:user.email,expectedUpdatedAt:user.updated_at});
  }
  function getUpstreamCredential(ctx){
   const definition=CREDENTIAL_SLOTS[ctx?.slot];if(!definition||ctx.area!==definition.area||!!ctx.edit!==definition.mayWrite)err('CREDENTIAL_DENIED',403);
@@ -512,6 +530,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setCrmPanelReadCredential,getUpstreamCredential,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

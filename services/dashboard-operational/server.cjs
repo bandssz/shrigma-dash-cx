@@ -124,6 +124,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const allowAudienceDraft=s.mode==='operational'&&s.crmAudienceDraft===true;
   if(allowCampaignDraft&&!upstreams.campaigns)throw Error('CRM draft write needs pinned campaigns upstream');
   if(allowAudienceDraft&&!upstreams.segments)throw Error('CRM audience draft needs pinned segments upstream');
+  const crmReadOnly=s.mode==='operational'&&Object.keys(upstreams).length===1&&Boolean(upstreams['crm-read'])&&!allowCampaignDraft&&!allowAudienceDraft;
   const editGrantsAllowed=permissions=>Object.entries(permissions||{}).every(([area,grant])=>grant?.edit!==true||(allowCampaignDraft||allowAudienceDraft)&&area==='growth');
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   const reserveLogin=loginGate();
@@ -188,6 +189,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             return sendJson(req,res,200,auth.setGrants({context:ctx,userId:b.userId,permissions:b.permissions}));
           }
           if(b.action==='credential'){
+            if(crmReadOnly&&b.slot!=='crm-panel-read')throw jsonError(403,'CREDENTIAL_SLOT_DENIED');
+            if(b.slot==='crm-panel-read'){
+              if(!crmReadOnly)throw jsonError(403,'CREDENTIAL_ATTESTATION_NOT_READY');
+              return sendJson(req,res,200,await auth.setCrmPanelReadCredential({context:ctx,userId:b.userId,slot:b.slot,bearer:b.bearer,fetchImpl}));
+            }
             if(CREDENTIAL_SLOTS[b.slot]?.mayWrite&&!(allowCampaignDraft&&b.slot==='growth-campaign')&&!(allowAudienceDraft&&b.slot==='growth-audience'))throw jsonError(403,'EDIT_NOT_READY');
             return sendJson(req,res,200,auth.setUpstreamCredential({context:ctx,userId:b.userId,slot:b.slot,bearer:b.bearer}));
           }

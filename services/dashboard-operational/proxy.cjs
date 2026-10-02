@@ -8,7 +8,7 @@ const rule=(required=[],optional=[],options={})=>Object.freeze({required,optiona
 const READ=Object.freeze({
   cx:{area:'panel',slot:'growth-read',method:'GET',actions:{'':rule(['painel'],['access'])}},
   cache:{area:'panel',slot:'growth-read',method:'GET',actions:{'':rule(['painel'])}},
-  'crm-read':{area:'growth',slot:'growth-read',method:'GET',selector:'action',actions:{identity:rule(['painel']),cache_growth:rule(['painel'])}},
+  'crm-read':{area:'growth',slot:'crm-panel-read',method:'GET',selector:'action',actions:{identity:rule(['painel']),cache_growth:rule(['painel'])}},
   campaigns:{area:'growth',slot:'growth-campaign-read',method:'GET',selector:'acao',actions:{
     campanha_catalogo:rule(['brand']),campanha_listar:rule(['brand']),campanha_obter:rule(['brand','id']),
     campanha_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-campaign',edit:true}),

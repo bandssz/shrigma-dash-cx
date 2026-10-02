@@ -128,6 +128,8 @@ test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',asyn
   assert.throws(()=>f.auth.getUpstreamCredential({...managerCtx,slot:'growth-read'}),error('CREDENTIAL_DENIED',403));
   assert.equal(f.auth.getUpstreamCredential({...managerCtx,slot:'growth-campaign'}),null);
   const bearer='individual-test-upstream-bearer-111';
+  assert.throws(()=>f.auth.setUpstreamCredential({context,userId:invitation.userId,slot:'crm-panel-read',bearer}),error('CREDENTIAL_ATTESTATION_REQUIRED',403));
+  assert.equal(f.auth.getUpstreamCredential({...managerCtx,slot:'crm-panel-read',edit:false}),null);
   f.auth.setUpstreamCredential({context,userId:invitation.userId,slot:'growth-campaign',bearer});
   assert.equal(f.auth.getUpstreamCredential({...managerCtx,slot:'growth-campaign'}),bearer);
   assert.equal(fs.readFileSync(f.dbPath).includes(Buffer.from(bearer)),false);
@@ -203,7 +205,7 @@ test('login rate limits, host binding, and absolute session expiry',async()=>{
 test('credential slots are fixed and scoped to their own area',()=>{
  assert.deepEqual(Object.keys(CREDENTIAL_SLOTS).filter(x=>x.startsWith('cx')),[]);
  assert.equal(Object.hasOwn(CREDENTIAL_SLOTS,'organico-links'),false);
- for(const [slot,rule] of Object.entries(CREDENTIAL_SLOTS)){assert.match(slot,/^(growth|organico|influs|tts)-/);assert.ok(['growth','organico','influs'].includes(rule.area));}
+ for(const [slot,rule] of Object.entries(CREDENTIAL_SLOTS)){assert.match(slot,/^(crm-panel|growth|organico|influs|tts)-/);assert.ok(['growth','organico','influs'].includes(rule.area));}
 });
 
 test('organic links cannot accept or use a bearer that also permits writes',async()=>{
