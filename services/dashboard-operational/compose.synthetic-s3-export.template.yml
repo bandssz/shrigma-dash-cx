@@ -1,0 +1,44 @@
+# Run only after replacing the image digest and supplying private runtime S3
+# configuration. The source is the disposable canary snapshot, mounted RO.
+services:
+  synthetic-s3-export:
+    image: ghcr.io/bandssz/shrigma-dash-backup-s3@sha256:REPLACE_WITH_VALID_DIGEST
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m
+    command: ["export", "/backup-data/drill-20260930-01/identity", "/receipt-data/synthetic-drill-20261002-01.json"]
+    environment:
+      DASHBOARD_BACKUP_BUCKET: ${DASHBOARD_BACKUP_BUCKET:?set in private runtime configuration}
+      DASHBOARD_BACKUP_PREFIX: dashboard/synthetic-drill
+      DASHBOARD_BACKUP_ENDPOINT_URL: ${DASHBOARD_BACKUP_ENDPOINT_URL:?set a private HTTPS test endpoint}
+      AWS_REGION: ${AWS_REGION:?set the test bucket region}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN-}
+    volumes:
+      - type: volume
+        source: synthetic_snapshot
+        target: /backup-data
+        read_only: true
+      - type: volume
+        source: synthetic_receipt
+        target: /receipt-data
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  synthetic_snapshot:
+    external: true
+    name: dashboard-canary-snapshot-drill-20260930-01
+  synthetic_receipt:
+    name: dashboard-s3-receipt-drill-20261002-01

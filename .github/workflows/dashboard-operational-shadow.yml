@@ -76,6 +76,31 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  validate-backup-s3-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Validar transporte S3 e modelos sem bucket real
+        env:
+          DASHBOARD_BACKUP_BUCKET: synthetic-backup-ci
+          DASHBOARD_BACKUP_ENDPOINT_URL: https://s3.synthetic.invalid
+          AWS_REGION: us-east-1
+        run: |
+          node --test services/dashboard-operational/backup-s3.test.cjs services/dashboard-operational/backup-s3-image.test.cjs
+          for file in services/dashboard-operational/compose.synthetic-s3-*.template.yml; do
+            docker compose --file "$file" config --quiet
+          done
+      - name: Validar imagem isolada do transporte S3 sem dados nem rede
+        run: |
+          docker build --file services/dashboard-operational/Dockerfile.backup-s3 --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-backup-s3:ci .
+          docker run --rm --network none --cap-drop ALL --read-only --memory 512m --cpus 0.5 --entrypoint node shrigma-backup-s3:ci -e 'const fs=require("node:fs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); if(fs.readdirSync("/app").sort().join()!=="backup-identity.cjs,backup-s3.cjs")throw Error("S3 image contents mismatch"); if(Number(process.versions.node.split(".")[0])<22)throw Error("Node version mismatch"); console.log("S3 image verified; UID1000; two reviewed files; no network.");'
+          AWS_VERSION="$(docker run --rm --network none --cap-drop ALL --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m --memory 512m --cpus 0.5 --entrypoint aws shrigma-backup-s3:ci --version 2>&1)"
+          case "$AWS_VERSION" in aws-cli/2.37.7\ *) echo 'AWS CLI v2 pinned version verified.' ;; *) echo 'AWS CLI version mismatch.' >&2; exit 1 ;; esac
+
   publish-candidate-image:
     needs: validate-and-package
     if: >-
@@ -125,3 +150,28 @@ jobs:
           docker build --file services/dashboard-operational/Dockerfile.backup-canary --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           printf 'Imagem de manutenção sintética: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-backup-s3-image:
+    needs: validate-backup-s3-image
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-operational-easypanel-20260930' &&
+      contains(github.event.head_commit.message, '[publish-s3-backup-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Entrar no registry com o token efêmero do workflow
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publicar somente a imagem S3 da revisão validada
+        run: |
+          IMAGE="ghcr.io/bandssz/shrigma-dash-backup-s3:$GITHUB_SHA"
+          docker build --file services/dashboard-operational/Dockerfile.backup-s3 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          printf 'Imagem S3 candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
