@@ -1,0 +1,38 @@
+# Run only AFTER the separate preflight service is healthy and MCP confirms
+# source RW=false, exact intended source volume and a NEW output volume.
+services:
+  identity-snapshot-once:
+    image: ${SNAPSHOT_IMAGE_REF:?pin reviewed snapshot image digest}
+    command: ["backup"]
+    user: "1000:1000"
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=32m,uid=1000,gid=1000,mode=0700
+    healthcheck:
+      test: ["CMD", "node", "/app/jobguard.cjs", "health"]
+      interval: 5m
+      timeout: 90s
+      start_period: 2m
+      retries: 1
+    volumes:
+      - type: volume
+        source: corporate_identity_source
+        target: /source-data
+        read_only: true
+      - type: volume
+        source: new_snapshot
+        target: /snapshot-data
+volumes:
+  corporate_identity_source:
+    external: true
+    name: ${CORP_IDENTITY_VOLUME:?private source volume name required}
+  new_snapshot:
+    external: true
+    name: ${NEW_SNAPSHOT_VOLUME:?new isolated volume name required}

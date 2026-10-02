@@ -1,0 +1,29 @@
+# Expose only through a dedicated TLS ingress on BACKUP_READER_HOST. Stop and
+# remove the service after the short deadline; no plaintext/source mounts.
+services:
+  identity-cipher-reader:
+    image: ${READER_IMAGE_REF:?pin reviewed digest}
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.25
+    environment:
+      PORT: "3000"
+      BACKUP_READER_DIR: /cipher-data/envelope
+      BACKUP_READER_HOST: ${BACKUP_READER_HOST:?dedicated TLS host required}
+      BACKUP_READER_TOKEN_SHA256: ${BACKUP_READER_TOKEN_SHA256:?sha256 of bearer required}
+      BACKUP_READER_EXPIRES_AT: ${BACKUP_READER_EXPIRES_AT:?UTC deadline no more than 30 minutes ahead required}
+    expose: ["3000"]
+    volumes:
+      - type: volume
+        source: new_ciphertext
+        target: /cipher-data
+        read_only: true
+volumes:
+  new_ciphertext:
+    external: true
+    name: ${NEW_CIPHERTEXT_VOLUME:?isolated ciphertext volume name required}

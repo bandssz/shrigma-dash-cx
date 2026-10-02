@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="referrer" content="no-referrer">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+ <title>__LABEL__ · Shrigma</title>
+ <link rel="stylesheet" href="/entry.css">
+</head>
+<body data-access-panel="__PANEL__">
+ <section id="entry-login" class="login-screen">
+  <div class="login-card">
+   <div class="brand">Shrigma</div>
+   <p class="eyebrow">Acesso à operação</p>
+   <h1>__LABEL__</h1>
+   <p>Entre com seu e-mail corporativo e senha.</p>
+   <form id="login-form" method="post" action="/auth/login">
+    <label for="login-email">E-mail corporativo</label>
+    <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" required>
+    <label for="login-password">Senha</label>
+    <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+   </form>
+   <form id="invite-form" method="post" action="/auth/invite/accept" hidden>
+    <p>Seu convite está pronto. Crie uma senha para ativar o acesso.</p>
+    <label for="invite-password">Nova senha</label>
+    <input id="invite-password" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="invite-confirm">Confirmar senha</label>
+    <input id="invite-confirm" type="password" autocomplete="new-password" minlength="12" required>
+   <button type="submit">Criar acesso</button>
+   </form>
+   <form id="bootstrap-form" method="post" action="/auth/bootstrap/complete" hidden>
+    <p>Crie sua senha para ativar o acesso superior. Não é preciso confirmar o e-mail.</p>
+    <label for="bootstrap-email">Seu e-mail corporativo</label><input id="bootstrap-email" type="email" autocomplete="username" required>
+    <label for="bootstrap-password">Nova senha</label><input id="bootstrap-password" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="bootstrap-confirm">Confirmar senha</label><input id="bootstrap-confirm" type="password" autocomplete="new-password" minlength="12" required>
+    <button type="submit">Ativar acesso superior</button>
+   </form>
+   <p id="entry-message" role="status" aria-live="polite"></p>
+  </div>
+ </section>
+ <section id="entry-shell" hidden>
+  <header class="topbar">
+   <div class="topbar-brand">Shrigma <small id="entry-area"></small></div>
+   <nav id="entry-nav" aria-label="Áreas" hidden></nav>
+   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-manage" type="button" hidden>Gestores</button><button id="entry-logout" type="button">Sair</button></div>
+  </header>
+  <main>
+   <div id="entry-frame"></div>
+   <section id="admin-panel" class="admin-panel" hidden aria-label="Gestão de acessos">
+    <div class="admin-heading"><h2>Gestores</h2><p>Cadastre cada pessoa pelo e-mail corporativo, painel e nível de acesso. O link de convite aparece uma única vez após a criação.</p></div>
+    <form id="admin-invite-form" method="post" action="/auth/users">
+     <label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required>
+     <label for="admin-area">Painel</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs &amp; Afiliados</option></select>
+     <label for="admin-access">Nível de acesso</label><select id="admin-access"><option value="read">Somente leitura</option><option value="edit">Edição geral do painel (pendente)</option></select>
+     <button type="submit">Criar convite</button>
+    </form>
+    <p class="admin-access-note">Ao solicitar edição, o convite começa em somente leitura. A edição só será ativada após validação das permissões e credenciais individuais do painel; nenhuma ação comercial é liberada por este cadastro.</p>
+    <div id="admin-invite-result" hidden><label for="admin-invite-link">Link de convite, exibido somente agora</label><input id="admin-invite-link" type="text" readonly><button id="admin-copy" type="button">Copiar link</button><button id="admin-invite-hide" type="button">Ocultar link</button></div>
+    <p id="admin-message" role="status" aria-live="polite"></p>
+    <div id="admin-users" class="user-list"></div>
+   </section>
+  </main>
+ </section>
+ <script src="/entry.js"></script>
+</body>
+</html>

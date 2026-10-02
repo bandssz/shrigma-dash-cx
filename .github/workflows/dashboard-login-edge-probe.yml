@@ -1,0 +1,26 @@
+name: Dashboard v16 · prova de login na borda
+
+'on':
+  push:
+    branches:
+      - codex/dashboard-operational-easypanel-20260930
+    paths:
+      - .github/workflows/dashboard-login-edge-probe.yml
+      - tests/dashboard-login-edge-probe.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-client:
+    # This workflow has no production deployment or credential access.
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/dashboard-operational-easypanel-20260930'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Ensaiar apenas GET anônimo no host sintético v16
+        run: python3 tests/dashboard-login-edge-probe.py external-burst

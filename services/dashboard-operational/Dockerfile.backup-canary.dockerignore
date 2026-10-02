@@ -1,0 +1,7 @@
+# No Git data, env, database, assets, documents or tests in the build context.
+**
+!services/
+!services/dashboard-operational/
+!services/dashboard-operational/artifact-policy.cjs
+!services/dashboard-operational/backup-identity.cjs
+!services/dashboard-operational/backup-canary-job.cjs

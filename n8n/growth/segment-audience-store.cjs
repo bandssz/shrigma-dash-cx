@@ -8,7 +8,7 @@ const RFM=require('./segment-shopify-rfm.cjs');
 const Recorded=require('./segment-recorded-origin.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
-const fields={segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_operacao:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
+const fields={segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_contexto_v2:[],segmento_operacao:['idempotency_key'],segmento_operacao_v2:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
 const mutations=['segmento_criar','segmento_salvar','segmento_arquivar'];
 const fail=(code,status=503)=>Object.assign(Error(code),{code,status});
 const exact=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
@@ -147,6 +147,25 @@ function countResult(raw,d,c,id,version){
  const v=copy(raw);if(!exact(v,['source_confirmed','eligible_count','checked_at','definition','definition_hash','base_list_id','transport_supported','unknown_reason'])||typeof v.source_confirmed!=='boolean'||(v.source_confirmed?!Number.isSafeInteger(v.eligible_count)||v.eligible_count<0:v.eligible_count!==null)||H.digest(v.definition)!==H.digest(d)||v.definition_hash!==H.digest(d)||v.base_list_id!==c.base_list_id||v.transport_supported!==false||v.source_confirmed&&v.unknown_reason!==null||!v.source_confirmed&&!['external_source_unavailable','list_source_unavailable'].includes(v.unknown_reason))throw fail('SEGMENT_READBACK_UNCONFIRMED');
  v.checked_at=iso(v.checked_at);return response(200,{...v,segment_id:id,version});
 }
+const rejectionStatus=Object.freeze({SEGMENT_SHAPE:422,SEGMENT_BRAND_MISMATCH:422,SEGMENT_LIST_UNAVAILABLE:422,SEGMENT_UNAVAILABLE:503,SEGMENT_NOT_FOUND:404,SEGMENT_VERSION_CONFLICT:409,SEGMENT_ARCHIVED:409,SEGMENT_CATALOG_CHANGED:409});
+function operationV2(old,p,actor){
+ let original;try{original=request(old.payload);}catch{throw fail('SEGMENT_READBACK_UNCONFIRMED');}
+ if(!mutations.includes(original.acao)||original.brand!==old.brand||original.idempotency_key!==p.idempotency_key||old.payload_hash!==H.digest(original))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+ const receipt=copy(old.response),status=receipt?._http,body=receipt?._body;
+ if(!exact(receipt,['_http','_body'])||!body||typeof body!=='object'||Array.isArray(body))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+ if(Object.hasOwn(body,'error')){
+  if(rejectionStatus[body.error]!==status||!exact(body,['error',...(body.error==='SEGMENT_VERSION_CONFLICT'?['current_version']:[])])||body.error==='SEGMENT_VERSION_CONFLICT'&&!positive(body.current_version))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+ }else{
+  const s=body.segment;
+  if(!exact(body,['segment','transport_supported'])||body.transport_supported!==false||!s||!UUID.test(s.id)||s.brand!==p.brand||s.updated_by!==actor||!positive(s.version)||s.version>MAX_VERSION||typeof s.archived!=='boolean')throw fail('SEGMENT_READBACK_UNCONFIRMED');
+  if(original.acao==='segmento_criar'&&(status!==201||s.version!==1||s.archived)||original.acao==='segmento_salvar'&&(status!==200||s.id!==original.id||s.version!==original.expected_version+1||s.archived)||original.acao==='segmento_arquivar'&&(status!==200||s.id!==original.id||s.version!==original.expected_version+1||!s.archived))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+  if(original.acao!=='segmento_arquivar'){
+   let definition;try{definition=normalized(original.definition,p.brand);}catch{throw fail('SEGMENT_READBACK_UNCONFIRMED');}
+   if(H.digest(definition)!==H.digest(s.definition))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+  }
+ }
+ return response(200,{operation:{schema:'crm-audience-operation-v2',idempotency_key:p.idempotency_key,brand:p.brand,action:original.acao,actor_sha256:H.digest(actor),payload_sha256:old.payload_hash,receipt:{status,body}}});
+}
 function createAudienceStore({transaction,countProvider=null,refreshCatalog=null,timeoutMs=25000}={}){
  if(typeof transaction!=='function'||refreshCatalog!==null&&typeof refreshCatalog!=='function'||countProvider!==null&&typeof countProvider!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<10||timeoutMs>30000)throw fail('SEGMENT_ADAPTER_INVALID');
  async function execute({key,request:input,signal:external}={}){
@@ -161,11 +180,15 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
    await query(SQL.setup);const boundary=(await query(SQL.boundary)).rows[0];
    if(boundary?.isolation!=='read committed'||!(Number(boundary.timeout_ms)>0&&Number(boundary.timeout_ms)<=30000))throw fail('SEGMENT_SESSION_BOUNDARY');
    const first=await readAuth(query,key,needed),reauth=async()=>{const a=await readAuth(query,key,needed);if(a.actor!==first.actor)throw fail('SEGMENT_UNAUTHORIZED',401);return a;};
+   if(p.acao==='segmento_contexto_v2'){
+    if(!first.caps.includes('draft'))throw fail('SEGMENT_ACCESS_DENIED',403);
+    await reauth();return response(200,{scope:{schema:'crm-audience-writer-scope-v2',brand:p.brand,actor_sha256:H.digest(first.actor)}});
+   }
    if(writing)await query(SQL.lock,[first.actor,p.idempotency_key]);
    await reauth();
-   if(writing||p.acao==='segmento_operacao'){
+   if(writing||p.acao==='segmento_operacao'||p.acao==='segmento_operacao_v2'){
     const old=(await query(SQL.operation,[first.actor,p.idempotency_key])).rows[0];
-    if(old){if(old.brand!==p.brand||writing&&(old.payload_hash!==H.digest(p)||H.digest(old.payload)!==H.digest(p)))return error(409,'SEGMENT_OPERATION_MISMATCH');await reauth();return copy(old.response);}
+    if(old){if(old.brand!==p.brand||writing&&(old.payload_hash!==H.digest(p)||H.digest(old.payload)!==H.digest(p)))return error(409,'SEGMENT_OPERATION_MISMATCH');await reauth();return p.acao==='segmento_operacao_v2'?operationV2(old,p,first.actor):copy(old.response);}
     if(!writing)return error(404,'SEGMENT_OPERATION_UNCONFIRMED');
    }
    if(refreshCatalog){await refreshCatalog({query,brand:p.brand,signal});await reauth();}

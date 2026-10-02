@@ -1,0 +1,65 @@
+# Replace the image with the reviewed canary digest and provide only disposable
+# synthetic DASHBOARD_ENCRYPTION_KEY and DASHBOARD_BOOTSTRAP_SHA256 at runtime.
+# In Easypanel Compose, enable createDotEnv so these ${...} values interpolate.
+# No source/live volume is mounted. The restored volume is external and unique.
+services:
+  recovery:
+    image: REPLACE_WITH_CANARY_IMAGE_AT_SHA256
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint:
+      - node
+      - --max-old-space-size=128
+      - -e
+      - >-
+        const fs=require('node:fs');
+        for(const name of ['runtime-pack.json','dashboard.sqlite'])
+        if(!fs.statSync('/dashboard-data/'+name).isFile()||fs.statSync('/dashboard-data/'+name).size===0)
+        throw Error('RESTORED_VOLUME_EMPTY');
+        require('/app/canary-start.cjs').start();
+    environment:
+      DASHBOARD_MODE: synthetic
+      DASHBOARD_MANAGER_HOST: restored-gerencial.synthetic.invalid
+      DASHBOARD_AREA_HOSTS: '{"growth":"restored-crm.synthetic.invalid","organico":"restored-organico.synthetic.invalid","influs":"restored-influs.synthetic.invalid"}'
+      DASHBOARD_EMAIL_DOMAINS: '["shrigma.com.br"]'
+      DASHBOARD_ADMIN_EMAIL: ensaio@shrigma.com.br
+      DASHBOARD_BOOTSTRAP_SHA256: ${DASHBOARD_BOOTSTRAP_SHA256}
+      DASHBOARD_ENCRYPTION_KEY: ${DASHBOARD_ENCRYPTION_KEY}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const {DatabaseSync}=require('node:sqlite');
+          const db=new DatabaseSync('/dashboard-data/dashboard.sqlite',{readOnly:true});
+          try{const user=db.prepare("SELECT email FROM users WHERE role='superadmin'").get();
+          if(user?.email!=='ensaio@shrigma.com.br'||db.prepare('PRAGMA quick_check').get().quick_check!=='ok')
+          process.exitCode=1;}finally{db.close();}
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - type: volume
+        source: restored_identity
+        target: /dashboard-data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  restored_identity:
+    external: true
+    name: dashboard-canary-restore-drill-20260930-01

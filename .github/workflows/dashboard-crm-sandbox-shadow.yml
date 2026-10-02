@@ -1,0 +1,73 @@
+name: Dashboard CRM · base sintética isolada
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: ['codex/dashboard-operational-easypanel-20260930']
+    paths:
+      - '.github/workflows/dashboard-crm-sandbox-shadow.yml'
+      - 'services/crm-audience-sandbox/**'
+      - 'services/dashboard-operational/**'
+      - 'services/crm-audience/server.cjs'
+      - 'n8n/growth/segment-audience*'
+      - 'tests/crm-audience-sandbox.test.cjs'
+      - 'tests/dashboard-crm-sandbox-integration.test.cjs'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/dashboard-crm-sandbox-shadow.yml'
+      - 'services/crm-audience-sandbox/**'
+      - 'services/dashboard-operational/**'
+      - 'tests/crm-audience-sandbox.test.cjs'
+      - 'tests/dashboard-crm-sandbox-integration.test.cjs'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-audience-sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Instalar apenas a dependência fixada da base descartável
+        working-directory: services/crm-audience-sandbox
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validar API real, persistência, scopes e gateway sem serviços externos
+        run: node --test tests/crm-audience-sandbox.test.cjs tests/dashboard-crm-sandbox-integration.test.cjs
+      - name: Construir imagem fechada sem dados nem credenciais
+        run: docker build --file services/crm-audience-sandbox/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-crm-audience-sandbox:ci .
+      - name: Validar UID e reabertura em volume novo sem rede
+        run: |
+          SANDBOX_CI_VOLUME="shrigma-crm-sandbox-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker volume rm "$SANDBOX_CI_VOLUME" >/dev/null 2>&1 || true' EXIT
+          docker volume create "$SANDBOX_CI_VOLUME" >/dev/null
+          docker run --rm --network none --cap-drop ALL --memory 768m --cpus 0.5 --volume "$SANDBOX_CI_VOLUME:/sandbox-data" --env SANDBOX_SOURCE_REVISION="$GITHUB_SHA" --entrypoint node shrigma-crm-audience-sandbox:ci -e 'const crypto=require("node:crypto"),{createSandbox}=require("./factory.cjs"); (async()=>{if(process.getuid()!==1000)throw Error("UID mismatch"); const options={root:"/sandbox-data",owner:"ci@synthetic.invalid",revision:process.env.SANDBOX_SOURCE_REVISION,credentials:{reader:crypto.randomBytes(32).toString("hex"),writer:crypto.randomBytes(32).toString("hex")}}; const first=await createSandbox(options);await first.close();const second=await createSandbox(options);await second.close();console.log("Synthetic CRM image verified; UID1000; isolated volume reopened; no network or worker.");})().catch(()=>{console.error("Synthetic CRM image validation failed");process.exitCode=1});'
+
+  publish-sandbox-image:
+    needs: isolated-audience-sandbox
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-operational-easypanel-20260930' &&
+      contains(github.event.head_commit.message, '[publish-crm-sandbox-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Autenticar registry com token efêmero
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publicar somente o backend sintético validado
+        run: |
+          IMAGE="ghcr.io/bandssz/shrigma-dash-crm-audience-sandbox:$GITHUB_SHA"
+          docker build --file services/crm-audience-sandbox/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          printf 'Imagem sintética: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,35 @@
+# Deploy only after the read-only preflight mount has been verified.
+services:
+  snapshot:
+    image: REPLACE_WITH_MAINTENANCE_IMAGE_AT_SHA256
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    command: ["backup", "drill-20260930-01"]
+    volumes:
+      - type: volume
+        source: canary_identity
+        target: /source-data
+        read_only: true
+      - type: volume
+        source: snapshot_output
+        target: /backup-data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  canary_identity:
+    external: true
+    name: dashboard-canary-20260930_web_dashboard-canary-identity-20260930
+  snapshot_output:
+    name: dashboard-canary-snapshot-drill-20260930-01

@@ -1,0 +1,44 @@
+# Independent one-shot recovery rehearsal. The source snapshot volume is absent.
+# The receipt is RO; the restored identity is written only to a fresh volume.
+services:
+  synthetic-s3-restore:
+    image: ghcr.io/bandssz/shrigma-dash-backup-s3@sha256:REPLACE_WITH_VALID_DIGEST
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m
+    command: ["restore", "/receipt-data/synthetic-drill-20261002-01.json", "/restore-data/identity"]
+    environment:
+      DASHBOARD_BACKUP_BUCKET: ${DASHBOARD_BACKUP_BUCKET:?set in private runtime configuration}
+      DASHBOARD_BACKUP_PREFIX: dashboard/synthetic-drill
+      DASHBOARD_BACKUP_ENDPOINT_URL: ${DASHBOARD_BACKUP_ENDPOINT_URL:?set a private HTTPS test endpoint}
+      AWS_REGION: ${AWS_REGION:?set the test bucket region}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN-}
+    volumes:
+      - type: volume
+        source: synthetic_receipt
+        target: /receipt-data
+        read_only: true
+      - type: volume
+        source: restored_identity
+        target: /restore-data
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  synthetic_receipt:
+    external: true
+    name: dashboard-s3-receipt-drill-20261002-01
+  restored_identity:
+    name: dashboard-s3-restore-drill-20261002-01

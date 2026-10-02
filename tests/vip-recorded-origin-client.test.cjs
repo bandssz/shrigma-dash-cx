@@ -41,8 +41,21 @@ test('form binding waits for confirmed receipt and turns uncertain submit into a
 test('form input failure before a journal keeps correction available and makes no request',async()=>{const listeners={},form={addEventListener:(n,f)=>listeners[n]=f},email={value:'invalid',disabled:false},button={disabled:false,textContent:'Entrar'},error={textContent:''},calls=[],{client}=make(calls);client.bindForm({form,email,button,error,origin:'lp-alma',navigate:()=>assert.fail('must not navigate')});await listeners.submit({preventDefault(){}});assert.equal(calls.length,0);assert.equal(client.status(),null);assert.equal(email.disabled,false);assert.equal(button.textContent,'Entrar');assert.match(error.textContent,/Confira os dados/);});
 
 test('shared Web Lock serializes two instances and permits exactly one POST',async()=>{
- const calls=[],store=storage(),locks=lockManager();let release;const held=new Promise(resolve=>release=resolve),handler=async()=>{await held;return response(accepted());};
- const a=make(calls,store,handler,locks).client,b=make(calls,store,handler,locks).client,p1=a.submit({email:'person@example.invalid',origin:'lp-alma'}),p2=b.submit({email:'person@example.invalid',origin:'lp-alma'});try{for(let i=0;i<20&&calls.length===0;i++)await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.length,1);}finally{release();}const [x,y]=await Promise.all([p1,p2]);assert.equal(x.posted,true);assert.equal(y.posted,false);assert.equal(calls.length,1);
+ const calls=[],store=storage(),locks=lockManager();let release,signalFetch;
+ const held=new Promise(resolve=>release=resolve),fetchStarted=new Promise(resolve=>signalFetch=resolve);
+ const handler=async()=>{signalFetch();await held;return response(accepted());};
+ const a=make(calls,store,handler,locks).client,b=make(calls,store,handler,locks).client;
+ const p1=a.submit({email:'person@example.invalid',origin:'lp-alma'}),p2=b.submit({email:'person@example.invalid',origin:'lp-alma'});
+ const settled=Promise.allSettled([p1,p2]);
+ let timer,startError;
+ try{
+  await Promise.race([fetchStarted,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('FETCH_START_TIMEOUT')),5000);})]);
+  assert.equal(calls.length,1);
+ }catch(error){startError=error;}finally{clearTimeout(timer);release();}
+ const results=await settled;if(startError)throw startError;
+ for(const result of results)if(result.status==='rejected')throw result.reason;
+ const [x,y]=results.map(result=>result.value);
+ assert.equal(x.posted,true);assert.equal(y.posted,false);assert.equal(calls.length,1);
 });
 
 test('deadline aborts a hanging request and a late response cannot confirm the journal',async()=>{
