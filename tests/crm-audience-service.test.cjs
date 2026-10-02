@@ -45,6 +45,16 @@ function serve(options={}){
  const calls=[],api={async handle(value){calls.push(value);return {status:200,headers:{'Cache-Control':'no-store'},body:{ok:true}};}},app=createServer({segments:api,binding:api,revision:'b'.repeat(40),enabled:true,...options});
  return {app,calls};
 }
+test('browser preflight preserves read queries without authorizing a data operation',async()=>{
+ const x=serve(),headers={Origin:ORIGIN,'Access-Control-Request-Method':'GET','Access-Control-Request-Headers':'authorization, content-type'};
+ for(const path of ['/segments?acao=segmentos_listar&brand=fish&offset=0&limit=50','/campaign-audience?acao=campanha_publico_agendamento_operacao&brand=fish&idempotency_key=original-op','/ab-experiments?acao=experimentos_listar','/journey-graph-lifecycle?action=operation']){
+  const r=await inject(x.app,{method:'OPTIONS',path,headers});assert.equal(r.status,204);assert.equal(r.body,null);assert.equal(r.headers['access-control-allow-origin'],ORIGIN);assert.equal(r.headers['access-control-allow-methods'],'GET, POST, OPTIONS');assert.equal(r.headers['access-control-allow-headers'],'Authorization, Content-Type');
+  assert.equal((await inject(x.app,{path,headers:{Origin:ORIGIN}})).status,401);
+ }
+ assert.equal((await inject(x.app,{method:'OPTIONS',path:'/campaign-audience',headers:{...headers,'Access-Control-Request-Method':'POST'}})).status,204);
+ for(const c of [{path:'/segments?acao=segmentos_listar',headers:{...headers,Origin:'https://evil.invalid'},status:403},{path:'/unknown?acao=segmentos_listar',headers,status:404},{path:'/segments?acao=segmentos_listar',headers:{...headers,'Access-Control-Request-Method':'DELETE'},status:403},{path:'/segments?acao=segmentos_listar',headers:{'Access-Control-Request-Method':'GET'},status:403}])assert.equal((await inject(x.app,{method:'OPTIONS',...c})).status,c.status);
+ assert.equal(x.calls.length,0);
+});
 test('HTTP boundary passes one human bearer and exact request to each API',async t=>{
  const x=serve(),headers={Authorization:'Bearer human-key-123',Origin:ORIGIN};
  let r=await inject(x.app,{path:'/segments?acao=segmentos_listar&brand=fish',headers});assert.equal(r.status,200);assert.equal(r.headers['access-control-allow-origin'],ORIGIN);
