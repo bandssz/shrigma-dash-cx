@@ -145,7 +145,7 @@ test('login and initial admin activation send email and password without a verif
 
 test('operational iframe suppresses legacy access files and unavailable write controls without changing source panels',()=>{
  const expected={
-  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]','#crm-audience-create','#crm-audience-brand-choices','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open'],
+  growth:['#growth-acesso','#ab-acesso-legado','#crm-media-library-load','#crm-media .crm-media-integrated','#campaign-composer [data-ce-save]','#campaign-composer .ce-import','#control-drafts #drafts-importar','#control-drafts #draft-editor','#crm-segments-panel [data-gs="save"]','#crm-segments-panel .gs-shortcuts','#crm-audience-create','#crm-audience-brand-choices','#area-arvore .ga-rfm-create','[data-crm-open-tab="control-tab-drafts"]','#crm-campaign-open'],
   organico:['#organico-acesso','#organico-acesso-bar','#ol-form','.ol-arquivar'],
   influs:['#influ-access','#i-form','.cr-edit','[data-pilot-save]','[data-cob]:not([data-cob="recarregar"])','#tts-acesso']
  };
@@ -162,6 +162,9 @@ test('operational iframe suppresses legacy access files and unavailable write co
  assert.equal(readOnlyStyles('cx'),'');
  withArtifact(publicRoot=>{
   assert.match(fs.readFileSync(path.join(publicRoot,'entry.js'),'utf8'),/installReadOnlyPresentation\(selected\)/);
+  const panel=fs.readFileSync(path.join(publicRoot,'assets/panels/growth.js'),'utf8');
+  assert.match(panel,/ga-rfm-create/,'the packaged CRM includes the new RFM preset action');
+  assert.match(panel,/gs-shortcuts/,'the packaged CRM includes the new condition shortcuts');
   for(const area of ['growth','organico','influs']){
    const html=fs.readFileSync(path.join(publicRoot,area+'.html'),'utf8');
    const style=html.match(/<style id="dashboard-operational-readonly">([\s\S]*?)<\/style>/);
