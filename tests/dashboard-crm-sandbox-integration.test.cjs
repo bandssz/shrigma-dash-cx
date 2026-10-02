@@ -26,7 +26,7 @@ test('real disposable CRM and portal verify create/save/archive, scoped reads an
   const upstreamBase='http://127.0.0.1:'+sandbox.server.address().port,state={writes:0,lostAck:false,urls:[]};
   const fetchImpl=async(raw,options)=>{
    const url=new URL(raw);assert.equal(url.hostname,SANDBOX_HOST);assert.ok(['/identity','/dashboard','/segments'].includes(url.pathname));assert.equal(options.redirect,'manual');assert.equal(options.headers.Origin,undefined);assert.equal(options.headers.Cookie,undefined);
-   state.urls.push(url.pathname);if(options.method==='POST')state.writes++;
+   state.urls.push(url.pathname);if(url.pathname==='/dashboard'){assert.equal(url.search,'?painel=growth');assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer '+keys.reader);}if(options.method==='POST')state.writes++;
    const result=await fetch(upstreamBase+url.pathname+url.search,options);
    if(state.lostAck&&options.method==='POST'){state.lostAck=false;await result.arrayBuffer();throw Error('simulated lost ACK after actual local database commit');}
    return result;
@@ -42,6 +42,10 @@ test('real disposable CRM and portal verify create/save/archive, scoped reads an
   for(const [slot,bearer]of [['growth-read',keys.reader],['growth-audience-read',keys.reader],['growth-audience',keys.writer]])assert.equal((await post(hosts.manager,'/auth/users',{action:'credential',userId:invite.body.userId,slot,bearer},admin)).status,200);
   assert.equal((await get('/auth/session',editor)).body.features.audienceDraft,true);
   const dashboard=await get('/api/cx?painel=growth',editor);assert.equal(dashboard.status,200);assert.equal(dashboard.body.synthetic,true);assert.equal(dashboard.body.capabilities.segments.save,true);assert.equal(dashboard.body.capabilities.segments.count,false);assert.equal(dashboard.body.capabilities.write,false);
+  const crmCache=await get('/api/crm-read?action=cache_growth&painel=growth',editor);assert.equal(crmCache.status,200);assert.equal(crmCache.body._escopo,'growth');assert.ok(Array.isArray(crmCache.body.crm_campanha));assert.ok(Array.isArray(crmCache.body.crm_fluxo));assert.ok(Array.isArray(crmCache.body.crm_conversao));assert.ok(Math.abs(Date.now()-Date.parse(crmCache.body._cache_gerado_em))<60000);assert.equal(crmCache.body.capabilities.segments.save,true);
+  const callsBeforeDenied=state.urls.length;
+  for(const denied of ['/api/crm-read?action=cache_growth&painel=organico','/api/crm-read?action=cache_growth&painel=growth&url=https%3A%2F%2Fproduction.test','/api/crm-read?action=live_growth&painel=growth'])assert.equal((await get(denied,editor)).status,403);
+  assert.equal(state.urls.length,callsBeforeDenied,'invalid CRM cache requests never reach any upstream');
   const list=await get('/api/segments?acao=segmentos_listar&brand=fish&offset=0&limit=50',editor);assert.equal(list.status,200);assert.equal(list.body.catalog.current,true);assert.equal(list.body.capabilities.draft,true,'browser catalogue reflects the separately attested writer grant');assert.equal(list.body.capabilities.count,false);assert.equal(list.body.capabilities.send,false);
   const catalogHash=list.body.catalog.catalog_hash,definition={schema_version:'crm-audience-v2',brand:'fish',name:'Synthetic component audience',rule:{op:'in_list',list_id:17}};
   const create=(key,name=definition.name)=>({acao:'segmento_criar',brand:'fish',definition:{...definition,name},expected_catalog_hash:catalogHash,idempotency_key:key});

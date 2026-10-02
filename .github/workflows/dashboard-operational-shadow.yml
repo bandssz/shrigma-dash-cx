@@ -9,6 +9,8 @@ name: Dashboard operacional · sombra
       - '.github/workflows/dashboard-operational-shadow.yml'
       - 'services/dashboard-operational/**'
       - 'tests/dashboard-operational-*.test.cjs'
+      - 'tests/config-embed-handshake.test.cjs'
+      - 'config.js'
       - 'tests/influ-cac-cliente-novo.test.cjs'
       - 'growth.html'
       - 'organico.html'
@@ -22,6 +24,8 @@ name: Dashboard operacional · sombra
       - '.github/workflows/dashboard-operational-shadow.yml'
       - 'services/dashboard-operational/**'
       - 'tests/dashboard-operational-*.test.cjs'
+      - 'tests/config-embed-handshake.test.cjs'
+      - 'config.js'
       - 'tests/influ-cac-cliente-novo.test.cjs'
       - 'growth.html'
       - 'organico.html'
@@ -42,7 +46,7 @@ jobs:
         with:
           node-version: '22'
       - name: Testar autenticação, acesso por área, gateway e pacote
-        run: node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/influ-cac-cliente-novo.test.cjs
+        run: node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs
       - name: Gerar pacote fechado sem segredos
         run: |
           node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"

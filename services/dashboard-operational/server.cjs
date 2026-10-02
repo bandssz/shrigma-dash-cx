@@ -236,7 +236,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const result=fixture(['cx','cache','crm-read'].includes(route)?d.area:route,Object.fromEntries(url.searchParams));
           return sendJson(req,res,200,result);
         }
-        const credential=auth.getUpstreamCredential({...ctx,slot:d.credentialSlot,area:d.area,edit:d.edit});
+        // The current CRM UI reads cache_growth through crm-read. Only this
+        // explicit synthetic profile translates that validated GET to its
+        // already pinned dashboard reader; production keeps its own slot and
+        // destination. No additional upstream or credential scope is admitted.
+        const sandboxCache=sandbox&&route==='crm-read'&&d.action==='cache_growth';
+        const proxyRoute=sandboxCache?'cache':route;
+        const proxyQuery=sandboxCache?new URLSearchParams({painel:'growth'}):url.searchParams;
+        const credential=auth.getUpstreamCredential({...ctx,slot:sandboxCache?'growth-read':d.credentialSlot,area:d.area,edit:d.edit});
         if(allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_salvar'&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         if(audienceAction&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         const principal=user.id;
@@ -287,7 +294,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(!existing||existing.operationKey!==draftKey)throw jsonError(404,'OPERATION_NOT_FOUND');
           }
           if(draftSave)auth.reserveCampaignDraft(ctx,draftBrand,draftKey);
-          try{result=await forward({route,method:req.method,query:url.searchParams,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,sandboxAudienceDraft:audienceFeature(ctx),fetchImpl});}
+          try{result=await forward({route:proxyRoute,method:req.method,query:proxyQuery,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,sandboxAudienceDraft:audienceFeature(ctx),fetchImpl});}
           catch(error){if(draftSave)auth.campaignDraftOutcome(principal,draftBrand,draftKey,'uncertain');throw error;}
           if(draftSave){
             const campaign=result.body?.campaign;
