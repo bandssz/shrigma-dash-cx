@@ -39,7 +39,7 @@ function validateFile(bytes,declaredType,expectedHash){
 }
 function canonicalFilename(brand,operationId,hash,ext){return `crm-${brand}-${operationId}-${hash}.${ext}`;}
 const MEDIA_LIST_SCAN_PAGES=4;
-function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-f-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
+function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-fA-F-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
 
 async function boundedJSON(response,maxBytes=MAX_RESPONSE_BYTES){
  if(!response||!Number.isInteger(response.status)||response.status<200||response.status>599||!response.body)throw Error('MEDIA_NATIVE_RESPONSE');
@@ -88,6 +88,7 @@ function createMediaExecutor({pool,native}){
    const visible=entry=>{const part=filenameParts(entry.filename);return !part||part.brand===input.brand;};
    let number=input.page,page=null;
    for(let scanned=0;scanned<MEDIA_LIST_SCAN_PAGES;scanned++){
+    if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A consulta da biblioteca foi interrompida.',posted:false});
     const response=await native.list({page:number,perPage:input.per_page,query:''});page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');
     page.items=page.items.filter(visible);if(page.items.length||page.next_page===null)break;number=page.next_page;
    }
