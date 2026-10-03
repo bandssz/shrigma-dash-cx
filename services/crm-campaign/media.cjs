@@ -38,7 +38,8 @@ function validateFile(bytes,declaredType,expectedHash){
  return {...image,hash,bytes};
 }
 function canonicalFilename(brand,operationId,hash,ext){return `crm-${brand}-${operationId}-${hash}.${ext}`;}
-function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-f-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
+const MEDIA_LIST_SCAN_PAGES=4;
+function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-fA-F-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
 
 async function boundedJSON(response,maxBytes=MAX_RESPONSE_BYTES){
  if(!response||!Number.isInteger(response.status)||response.status<200||response.status>599||!response.body)throw Error('MEDIA_NATIVE_RESPONSE');
@@ -81,7 +82,17 @@ function createMediaExecutor({pool,native}){
   const auth=await authorize(pool,key,method==='GET'?'read_content':'edit_content');if(auth.status)return auth;
   if(method==='GET'){
    if(input.filename!==undefined){const parts=filenameParts(input.filename);if(!parts||parts.brand!==input.brand||parts.operation_id!==input.operation_id||parts.sha256!==input.sha256)return result(422,{error:'MEDIA_RECOVERY_INVALID',message:'A tentativa de upload não confere.',posted:false});const {item}=await lookup({brand:input.brand,filename:input.filename});return result(200,{contract:'crm-media-v1',brand:input.brand,state:item?'found':'missing',media:item||null,operation_id:input.operation_id,filename:input.filename,sha256:input.sha256});}
-   const response=await native.list({page:input.page,perPage:input.per_page,query:''}),page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
+   // The shared Listmonk library keeps files generated for the other brand; never list them here. Unattributed legacy files stay visible.
+   // A native page holding only the other brand's files is skipped (bounded) so the first answer is not an empty library.
+   // page/next_page follow the last native page read; total stays the native library total.
+   const visible=entry=>{const part=filenameParts(entry.filename);return !part||part.brand===input.brand;};
+   let number=input.page,page=null;
+   for(let scanned=0;scanned<MEDIA_LIST_SCAN_PAGES;scanned++){
+    if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A consulta da biblioteca foi interrompida.',posted:false});
+    const response=await native.list({page:number,perPage:input.per_page,query:''});page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');
+    page.items=page.items.filter(visible);if(page.items.length||page.next_page===null)break;number=page.next_page;
+   }
+   return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
   }
   if(busy.has(input.brand))return result(409,{error:'MEDIA_BUSY',message:'Outro upload desta marca está em andamento.',posted:false});
   busy.add(input.brand);
