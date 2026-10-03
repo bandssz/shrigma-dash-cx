@@ -12,7 +12,8 @@
 // marca nenhuma. O serviço o mostra nas duas marcas; aqui ele sai com
 // legacy:true (ou é retirado com legacy:'exclude') e NUNCA é contado como da
 // marca. Nome canônico de outra marca é violação de contrato: a resposta
-// inteira é recusada (o filtro por marca do serviço não está ativo).
+// inteira é recusada (o filtro por marca do serviço não está ativo). A marca
+// também é lida no nome da url e da miniatura (thumb_url): ver BRAND_MARK.
 const ALLOWED_ORIGIN='https://email.shrigma.com.br';
 const BRANDS=Object.freeze(['fish','aristo']);
 const TYPES=Object.freeze({'image/png':['png'],'image/jpeg':['jpg','jpeg'],'image/gif':['gif']});
@@ -29,6 +30,11 @@ const CANONICAL=/^crm-(fish|aristo)-([0-9a-fA-F-]{36})-([0-9a-f]{64})[.](png|jpg
 // Prefixo de marca sem nome canônico (inclui olivas e caixa diferente): não é
 // legado neutro, parece de uma marca. Só fica se a marca for a pedida.
 const BRAND_PREFIX=/^crm-(fish|aristo|olivas)-/i;
+// Marca em QUALQUER ponto do nome de um arquivo do item (filename, url e
+// thumb_url decodificados), ex.: thumb_crm-aristo-<uuid>-<sha>.png. Serve para
+// achar arquivo de outra marca escondido na miniatura ou na URL.
+const BRAND_MARK=/crm-(fish|aristo|olivas)-/gi;
+const marks=name=>[...name.matchAll(BRAND_MARK)].map(m=>m[1].toLowerCase());
 class MediaReadValidationError extends Error{constructor(code){super(code);this.code=code;this.status=502;}}
 const deny=(code='MEDIA_READ_RESPONSE_DENIED')=>{throw new MediaReadValidationError(code);};
 function plain(v){return !!v&&typeof v==='object'&&Object.getPrototypeOf(v)===Object.prototype;}
@@ -85,17 +91,26 @@ function validateMediaLibraryResponse(body,{brand,page,per_page:perPage,allowedO
   if(!Object.hasOwn(TYPES,type)||!int(width,1,MAX_PIXELS)||!int(height,1,MAX_PIXELS)||width*height>MAX_PIXELS)deny('MEDIA_READ_ITEM_INVALID');
   if(item.created_at!==null&&(typeof item.created_at!=='string'||item.created_at.length>64||!Number.isFinite(Date.parse(item.created_at))))deny('MEDIA_READ_ITEM_INVALID');
   const url=uploadUrl(item.url,origin.hostname);if(!url)deny('MEDIA_READ_URL_DENIED');
-  if(item.thumb_url!==null&&!uploadUrl(item.thumb_url,origin.hostname))deny('MEDIA_READ_URL_DENIED');
+  const thumb=item.thumb_url===null?null:uploadUrl(item.thumb_url,origin.hostname);
+  if(item.thumb_url!==null&&!thumb)deny('MEDIA_READ_URL_DENIED');
   const extOk=TYPES[type].includes(url.ext);
   const parts=filenameParts(name);
+  // Marca de cada arquivo apontado pelo item (url e miniatura) e do filename.
+  const fileMarks=[name,url.name,...(thumb?[thumb.name]:[])].flatMap(marks),foreignFile=fileMarks.some(b=>b!==brand);
   if(parts){
    // Nome canônico: a marca é a do nome. Outra marca = filtro do serviço ausente.
-   if(parts.brand!==brand)deny('MEDIA_READ_FOREIGN_BRAND');
+   // Vale também para url e miniatura: arquivo de outra marca recusa a página.
+   if(parts.brand!==brand||foreignFile)deny('MEDIA_READ_FOREIGN_BRAND');
+   // Miniatura sem marca (legado) em item canônico: o legado não pertence a
+   // marca nenhuma e não vira da marca por estar na miniatura. Recusa a página.
+   if(thumb&&!marks(thumb.name).includes(brand))deny('MEDIA_READ_THUMB_DENIED');
    if(CANONICAL_EXT[parts.ext]!==type||url.name!==name||!extOk)deny('MEDIA_READ_ITEM_INVALID');
    summary.brand_items++;out.push({...pick(item),legacy:false});continue;
   }
   const prefix=BRAND_PREFIX.exec(name);
-  if(prefix&&prefix[1].toLowerCase()!==brand){summary.excluded_foreign_prefix++;continue;}
+  // Legado com arquivo de outra marca no nome, na url ou na miniatura: sai da
+  // lista como o prefixo de outra marca (o legado aparece nas duas marcas).
+  if(prefix&&prefix[1].toLowerCase()!==brand||foreignFile){summary.excluded_foreign_prefix++;continue;}
   // Legado: a URL precisa apontar para o próprio arquivo, com extensão do
   // tipo declarado (o painel só prevê png/jpg/gif); senão sai da lista.
   if(url.name!==name||!extOk){summary.excluded_irregular++;continue;}

@@ -107,6 +107,14 @@ function responseShape(d,v){
    !nullable(v.rejected_reason,x=>text(x,2000))||!nullable(v.checked_at,date)||!date(v.read_at)||v.provider_polled!==false)deny();
  }
 }
+// Eco da credencial: a varredura bruta não basta, porque um escape \uXXXX no
+// JSON some no JSON.parse. Por isso toda string e toda chave DECODIFICADA é
+// conferida (iterativo, sem recursão; caixa ignorada). O valor nunca sai.
+function echoes(value,secret){
+ const s=String(secret).toLowerCase(),hit=t=>typeof t==='string'&&t.toLowerCase().includes(s),stack=[value];
+ while(stack.length){const v=stack.pop();if(hit(v))return true;if(v&&typeof v==='object')for(const k of Reflect.ownKeys(v)){if(hit(k))return true;stack.push(v[k]);}}
+ return false;
+}
 function createTemplateReadBridge(config,{fetchImpl=globalThis.fetch,now=()=>Date.now()}={}){
  if(!record(config,['auth','upstreams','enabled'])||typeof config.enabled!=='boolean'||typeof fetchImpl!=='function'||typeof now!=='function'||
   typeof config.auth?.managedCrmReadAuthorization!=='function'||typeof config.auth?.getUpstreamCredential!=='function')fail();
@@ -144,6 +152,7 @@ function createTemplateReadBridge(config,{fetchImpl=globalThis.fetch,now=()=>Dat
    const raw=(()=>{try{return new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));}catch{return deny();}})();
    if(raw.includes(credential))deny();
    let body;try{body=JSON.parse(raw);}catch{deny();}
+   if(echoes(body,credential))deny();
    responseShape(d,body);
    try{if(initial!==binding(sync(auth.managedCrmReadAuthorization(ctx)),now()))fail();}catch{fail(503,'TEMPLATE_READ_NOT_READY');}
    return {status:200,body};

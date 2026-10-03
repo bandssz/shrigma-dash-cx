@@ -102,6 +102,7 @@ O módulo novo é `services/dashboard-operational/crm-audience-read-bridge.cjs`.
   - 404 vira 404 `AUDIENCE_READ_NOT_FOUND`; 401 ou 403 viram 403. Nesses casos o corpo não é lido e a consulta não se repete.
   - Outros status ou redirect viram 502.
   - O content-type precisa ser JSON e o encoding identity. Content-length e stream são limitados a 2 MiB, o UTF-8 é estrito, e eco da credencial é recusado.
+  - **Eco da credencial é conferido DEPOIS do `JSON.parse`** (correção K2): varredura iterativa de toda string e toda chave decodificada, em qualquer profundidade, ignorando caixa. A varredura do texto bruto continua, mas sozinha não basta: um único escape `\uXXXX` no JSON (ex.: `\u0062` no lugar de `b`) some no parse e devolveria a credencial inteira em `name`. Eco dá 502 `AUDIENCE_READ_RESPONSE_DENIED`; o valor não aparece no retorno, no erro nem em log. Prova: `tests/claude-read-bridge-secret-echo.test.cjs`.
 - **Validação da resposta:**
   - Chaves exatas e marca conferida em cada lista, público, catálogo e vínculo.
   - `capabilities` precisam ser todas `false`.
@@ -232,10 +233,15 @@ Prova: `claude-media-read-validator.test.cjs` › "GET de mídia não tem efeito
   - O texto precisa já estar canônico.
   - Um único segmento sob `/uploads/`, sem `%2f`, `%5c` ou `%00`.
   - Violar qualquer regra recusa a resposta **inteira** (502).
-- **Credencial:** eco da credencial do principal em qualquer campo recusa tudo (`MEDIA_READ_SECRET_ECHO`).
+- **Credencial:** eco da credencial do principal em qualquer campo recusa tudo (`MEDIA_READ_SECRET_ECHO`). A conferência é sobre o corpo já decodificado (`JSON.stringify` do objeto recebido).
 - **Marca pelo nome canônico** `crm-<marca>-<uuid4>-<sha256>.<png|jpg|gif>`. A regex é a mesma de `media.cjs`, e o teste confere a equivalência.
   - Nome canônico de **outra marca** recusa a resposta inteira (`MEDIA_READ_FOREIGN_BRAND`). Isso significa que o filtro por marca do serviço não está ativo (imagem 23e472ab).
   - No nome canônico, a extensão precisa casar com o tipo e a URL apontar para o próprio arquivo.
+- **Marca de toda URL de arquivo do item** (correção K2): a marca é lida em qualquer ponto do nome decodificado de `filename`, `url` e `thumb_url` (`crm-(fish|aristo|olivas)-`, sem diferenciar caixa; ex.: `thumb_crm-aristo-<uuid>-<sha>.png`).
+  - Item canônico com `url` ou `thumb_url` de **outra marca** (inclusive olivas, ou nome com duas marcas): recusa a página inteira (`MEDIA_READ_FOREIGN_BRAND`), igual ao filename de outra marca.
+  - Item canônico com **miniatura legada** (sem marca no nome): recusa a página inteira (`MEDIA_READ_THUMB_DENIED`). Escolha: recusar, não remover. O Listmonk gera `thumb_<filename>`, então miniatura sem marca em item canônico é anomalia; e removê-la em silêncio esconderia o defeito. Legado nunca é atribuído a uma marca por estar na miniatura.
+  - Item **legado** com `url`/`thumb_url` de outra marca: sai da lista (`excluded_foreign_prefix`), como o prefixo de outra marca, porque o serviço mostra o legado nas duas marcas. Miniatura sem marca ou da própria marca mantém o item como `legacy:true`, fora de `brand_items`.
+  - `thumb_url: null` segue aceito.
 - **Decisão sobre legado (sem nome canônico):** o serviço mostra o arquivo nas duas marcas. O validador o devolve com `legacy:true`, e os itens da marca saem com `legacy:false`. Ele **nunca** entra em `summary.brand_items`. Com `legacy:'exclude'`, sai da lista.
   - Nome com prefixo de outra marca (inclusive `crm-olivas-` ou em maiúsculas) sem ser canônico: excluído, nunca mostrado como neutro.
   - Legado cuja URL não aponta para o próprio arquivo ou cuja extensão não é do tipo: excluído (`excluded_irregular`), sem derrubar a página.
@@ -321,7 +327,7 @@ Detalhes do contrato:
   - credencial de 64 hex;
   - 401/403/404 sem ler o corpo nem repetir;
   - JSON identity até 8 MiB e UTF-8 estrito;
-  - eco da credencial é recusado.
+  - eco da credencial é recusado, conferido no texto bruto **e** em toda string e chave decodificada após o `JSON.parse` (escape `\uXXXX` não contorna; correção K2). 502 `TEMPLATE_READ_RESPONSE_DENIED`, sem eco do valor.
 - **Pedido** no vocabulário do cliente `GTA`: `acao=listar&marca[&canal=email][&offset][&limit]`, `historico&marca&draft_id`, `submissao&marca&submission_id`.
   - `marca` ausente, `todas`, `olivas` ou vazia é recusada sem I/O. O mesmo vale para `canal=whatsapp`, `historico` por `key`, chave `k`, ações de escrita e query acima de 512 bytes.
   - A ponte reescreve para `brand` em ordem canônica.
@@ -350,6 +356,8 @@ Detalhes do contrato:
 | Mídia: GET sem efeito | `claude-media-read-validator.test.cjs` teste 2 (executor real com pool e Listmonk sintéticos, SQL da cadeia de auth) |
 | Mídia: marca, legado e contagem | testes 1 e 4: resposta real do executor nas duas marcas; legado `legacy:true` fora de `brand_items`; política `exclude`; prefixo de outra marca e legado irregular excluídos |
 | Mídia: recusa estrita | teste 5: outra marca canônica, 13 variantes de URL (http, host, userinfo, porta, query, `?` vazio, hash, fora de `/uploads/`, subpasta, `%2f`, host em maiúsculas, `javascript:`, espaço), thumb, eco de segredo, 11 itens malformados, id duplicado e 9 casos de paginação |
+| Mídia: marca da miniatura e da URL (K2) | `claude-media-read-thumb-brand.test.cjs`: miniatura da própria marca aceita; canônico com miniatura de outra marca recusa a página nas duas direções (fish→aristo, aristo→fish), em caixa alta, olivas e marca mista; canônico com miniatura legada recusa (`MEDIA_READ_THUMB_DENIED`); legado com miniatura de outra marca sai, sem marca ou da própria marca continua legado. Falha em `ed138b9` |
+| Pontes: eco de credencial escapado (K2) | `claude-read-bridge-secret-echo.test.cjs`: credencial sintética com `\uXXXX` no primeiro, último, meio, todos (hex minúsculo e maiúsculo), alternado e em maiúsculas; em valor, chave de objeto e array aninhado, nas pontes de públicos e templates. Sempre 502, sem o valor no retorno, erro ou log, zero sockets. Falha em `ed138b9` (devolvia 200 com a credencial em `name`) |
 | Mídia: equivalência com `media.cjs` | teste 3: `filenameParts` igual em 10 nomes; `mediaRequest` canônico e recuperação recusada |
 | Templates: isolamento de marca no servidor | `claude-template-read-store.test.cjs` testes 1 e 2 (PGlite): fish = 1, 6 e 8, e aristo = 2 e 9. Ficam fora: legado sem registro, ambíguo, Olivas e clone interno. Histórico e submissão cruzados, Olivas e órfãos dão `NOT_FOUND`. A ponte aceita a saída real do SQL e recusa a de outra marca |
 | Templates: zero efeito | testes 1 e 2: hash de linhas, xmin e xmax iguais e `txid_current_if_assigned()` nulo. Teste 4: o owner lê em `READ ONLY`; as funções são STABLE e sem escrita no `prosrc`. **PG16 16.15** (`claude-template-read-pg16-postgres.cjs`, cluster descartável em `/tmp`, porta 55435, já derrubado): arquivo **sem alteração** instalado, reinstalação recusada, papel com LOGIN e `transaction_read_only=on`, `zero_effect` |
