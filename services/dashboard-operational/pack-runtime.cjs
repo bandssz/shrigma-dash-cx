@@ -32,7 +32,7 @@ function pack(dist,output){
  const smallFiles=['bootstrap.cjs','artifact-policy.cjs'];
  const mounts=smallFiles.map(file=>({type:'file',mountPath:'/app/'+file,content:regularFile(path.join(__dirname,file)).toString('utf8')}));
  const seedMounts=[...mounts,{type:'file',mountPath:'/app/runtime-pack.json',content:packed}],seedMountsBytes=Buffer.byteLength(JSON.stringify(seedMounts));
- if(seedMountsBytes>950000)throw Error('PACK_SEED_TRANSPORT_TOO_LARGE');
+ if(seedMountsBytes>960000)throw Error('PACK_SEED_TRANSPORT_TOO_LARGE');
  fs.mkdirSync(destination,{recursive:true,mode:0o700});
  for(const file of smallFiles)fs.writeFileSync(path.join(destination,file),regularFile(path.join(__dirname,file)),{flag:'wx',mode:0o600});
  fs.writeFileSync(path.join(destination,'runtime-pack.json'),packed,{flag:'wx',mode:0o600});

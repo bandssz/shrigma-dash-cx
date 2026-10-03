@@ -192,7 +192,7 @@ jobs:
         run: bash tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
 
   publish-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
     if: >-
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&
@@ -218,7 +218,7 @@ jobs:
 
 # Publishes one gateway image; does not install a service, SQL, role or flag.
   publish-crm-provisioner-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&
@@ -352,7 +352,7 @@ jobs:
           retention-days: 7
 
   publish-crm-campaign-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&

@@ -66,7 +66,7 @@ function audience(value, row, c, reviewOnly = false) {
   // Evaluate freshness at the historical atomic effect, not the poll time.
   return expires - checked === 300000 && (reviewOnly || rechecked >= checked && rechecked < expires && Date.parse(row.send_at) >= rechecked + 15 * 60000);
 }
-function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition }) {
+function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false }) {
   try {
     if (!db || typeof db.isTransaction !== 'boolean' || ![authorize, transport, now].every(fn => typeof fn === 'function')) fail('CAMPAIGN_DELIVERY_CONFIG');
     if (db.isTransaction) fail('CAMPAIGN_DELIVERY_TRANSACTION');
@@ -209,6 +209,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       if (prior) {
         if (prior.payload_sha256 !== fingerprint || prior.credential_mac !== a.credentialMac) fail('CAMPAIGN_DELIVERY_CONFLICT'); return prior;
       }
+      const createOpen=hasOpenCreate(a.userId,q.brand);if(createOpen&&typeof createOpen.then==='function'){Promise.resolve(createOpen).catch(()=>{});fail('CAMPAIGN_DELIVERY_CONFIG');}if(typeof createOpen!=='boolean')fail('CAMPAIGN_DELIVERY_CONFIG');if(createOpen)fail('CAMPAIGN_DELIVERY_PENDING');
       if (db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(a.userId, q.brand)) fail('CAMPAIGN_DELIVERY_PENDING');
       db.prepare("INSERT INTO crm_campaign_delivery_v1(user_id,client_key,remote_key,brand,action,campaign_id,expected_version,audience_review_id,payload_sha256,credential_mac,phase,created_at,updated_at,definition_ciphertext) VALUES(?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)")
         .run(a.userId, q.idempotency_key, 'bff-' + crypto.randomBytes(32).toString('hex'), q.brand, q.acao.replace('campanha_', ''), q.id, q.expected_version, q.audience_review_id ?? null, fingerprint, a.credentialMac, t, t,cipher);

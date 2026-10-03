@@ -64,7 +64,7 @@
   // adds CSRF to reads and directs all mutations to the explicit shell editor.
   if(route==='campaigns'){
    try{await csrf();}catch(_){return reject(401);}
-   if(campaignWriter&&method!=='GET')return new Response(JSON.stringify({error:'CAMPAIGN_PORTAL_EDITOR_REQUIRED',message:'Use Editar campanhas existentes no portal para salvar, conferir, agendar ou cancelar.'}),{status:403,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+   if(campaignWriter&&method!=='GET')return new Response(JSON.stringify({error:'CAMPAIGN_PORTAL_EDITOR_REQUIRED',message:'Use Campanhas no portal para criar rascunhos, salvar, conferir, agendar ou cancelar.'}),{status:403,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   }
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);

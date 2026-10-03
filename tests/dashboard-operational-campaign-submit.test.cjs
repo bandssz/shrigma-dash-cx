@@ -107,13 +107,13 @@ function originFixture(now) {
   return { service: createService({ store, provider, now }), operations, effects, row: () => clone(row), setRow: value => { row = clone(value); }, definition };
 }
 
-async function fixture(t, { enabled = true } = {}) {
+async function fixture(t, { enabled = true, createMode = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'campaign-submit-http-')), dbPath = path.join(dir, 'identity.sqlite');
   let clock = Date.now(), auth, server;
   const config = { dbPath, managerHost: hosts.manager, areaHosts: { growth: hosts.growth, organico: hosts.organico, influs: hosts.influs }, allowedEmailDomains: ['synthetic.invalid'], bootstrapAdminEmail: 'admin@synthetic.invalid', bootstrapTokenSha256: sha('synthetic-submit-bootstrap'), encryptionKey: crypto.randomBytes(32), now: () => clock, ...(enabled ? { crmCampaignSubmitWrite: true } : {}) };
   auth = createAuth(config);
   const inspect = fn => { const db = new DatabaseSync(dbPath); try { return fn(db); } finally { db.close(); } };
-  const origin = originFixture(() => clock), credentials = new Map(), calls = [];
+  const origin = (createMode?require('./dashboard-operational-campaign-create-fixture.cjs').createOrigin:originFixture)(() => clock), credentials = new Map(), calls = [];
   let behavior = null;
   const fetchImpl = async (value, options) => {
     const url = new URL(value); assert.equal(url.origin + url.pathname, SANDBOX_CAMPAIGN_DESTINATION);
@@ -129,7 +129,8 @@ async function fixture(t, { enabled = true } = {}) {
     const credential = credentials.get(bearer); assert.ok(credential, 'Origin must receive the attested individual writer');
     calls.push({ method: options.method, command: clone(payload), actor: credential.actor });
     if (options.method === 'POST') {
-      const saved = inspect(db => db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE remote_key=?').get(payload.idempotency_key));
+      const table=createMode&&payload.acao==='campanha_salvar'&&!Object.hasOwn(payload,'id')?'crm_campaign_create_v1':'crm_campaign_delivery_v1';
+      const saved = inspect(db => db.prepare('SELECT * FROM '+table+' WHERE remote_key=?').get(payload.idempotency_key));
       assert.ok(saved); assert.equal(saved.phase, 'uncertain', 'The dispatch intent commits before origin I/O');
       assert.notEqual(saved.client_key, payload.idempotency_key);
     }
@@ -146,7 +147,8 @@ async function fixture(t, { enabled = true } = {}) {
   assert.equal((await post(hosts.manager, '/auth/bootstrap/complete', { email: config.bootstrapAdminEmail, token: 'synthetic-submit-bootstrap', password: PASSWORD })).status, 200);
   const adminLogin = await post(hosts.manager, '/auth/login', { email: config.bootstrapAdminEmail, password: PASSWORD }); assert.equal(adminLogin.status, 200);
   const admin = session(adminLogin), adminContext = { host: hosts.manager, origin: 'https://' + hosts.manager, method: 'POST', cookieHeader: admin.cookie, csrf: admin.csrf };
-  const manager = async (email, { writer = true, number = 1 } = {}) => {
+  let managerNumber=0;
+  const manager = async (email, { writer = true, number = createMode?++managerNumber:1 } = {}) => {
     const invited = await post(hosts.manager, '/auth/users', { action: 'invite', role: 'manager', email, areas: ['growth'], permissions: { growth: { read: true, edit: false } } }, admin); assert.equal(invited.status, 201);
     const token = new URLSearchParams(new URL(invited.json.inviteUrl).hash.slice(1)).get('invite');
     assert.equal((await post(hosts.growth, '/auth/invite/accept', { token, password: PASSWORD })).status, 200);

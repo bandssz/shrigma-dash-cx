@@ -44,7 +44,7 @@
   <header class="topbar">
    <div class="topbar-brand">Shrigma <small id="entry-area"></small></div>
    <nav id="entry-nav" aria-label="Áreas" hidden></nav>
-   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-campaign-open" type="button" hidden>Editar campanhas existentes</button><button id="entry-manage" type="button" hidden>Gestores</button><button id="entry-logout" type="button">Sair</button></div>
+   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-campaign-open" type="button" hidden>Campanhas</button><button id="entry-manage" type="button" hidden>Gestores</button><button id="entry-logout" type="button">Sair</button></div>
   </header>
   <main>
    <div id="entry-frame"></div>
@@ -65,11 +65,12 @@
   </main>
  </section>
  <dialog id="entry-campaign-dialog" hidden aria-labelledby="campaign-heading">
-  <header><h2 id="campaign-heading">Campanhas existentes</h2><button id="campaign-close" type="button" aria-label="Fechar editor">Fechar</button></header>
+  <header><h2 id="campaign-heading">Campanhas</h2><button id="campaign-close" type="button" aria-label="Fechar editor">Fechar</button></header>
   <p>Salvar conserva o rascunho. O envio só será agendado após conferir o público e confirmar o horário.</p>
-  <div class="campaign-picker"><label>Marca<select id="campaign-brand"><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option></select></label><label>Campanha<select id="campaign-select"></select></label><button id="campaign-refresh" type="button">Atualizar leitura</button></div>
+  <div class="campaign-picker"><label>Marca<select id="campaign-brand"><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option></select></label><label>Campanha<select id="campaign-select"></select></label><button id="campaign-new" type="button" disabled>Novo rascunho</button><button id="campaign-refresh" type="button">Atualizar leitura</button></div>
   <p id="campaign-state"></p><p id="campaign-status" role="status" aria-live="polite"></p>
   <form id="campaign-form"><fieldset id="campaign-fields" disabled>
+   <fieldset id="campaign-create-details" hidden><legend>Novo rascunho, sem agendamento</legend><label>Chave da iniciativa<input id="campaign-initiative-key" maxlength="100"></label><label>Nome da iniciativa<input id="campaign-initiative-name" maxlength="160"></label><label>Identificador UTM da campanha<input id="campaign-utm" maxlength="100"></label></fieldset>
    <label>Nome<input id="campaign-name" maxlength="200" required></label><label>Assunto<input id="campaign-subject" maxlength="250" required></label>
    <label>Remetente<input id="campaign-from" maxlength="254" required></label><label>Responder para<input id="campaign-reply" type="email" maxlength="254" required></label>
    <label>Horário planejado (horário deste computador)<input id="campaign-time" type="datetime-local"></label><label>Template<select id="campaign-template"></select></label>
@@ -77,7 +78,7 @@
    <label>Conteúdo HTML<textarea id="campaign-html" rows="8" required></textarea></label><label>Conteúdo em texto<textarea id="campaign-text" rows="4" required></textarea></label>
   </fieldset></form>
   <p id="campaign-review"></p><label class="campaign-confirm"><input id="campaign-confirm" type="checkbox">Confirmo a ação de agendamento ou cancelamento desta campanha e deste horário.</label>
-  <footer><button id="campaign-save" type="button" disabled>Salvar rascunho</button><button id="campaign-validate" type="button" disabled>Conferir público</button><button id="campaign-schedule" type="button" disabled>Agendar</button><button id="campaign-cancel" type="button" disabled>Cancelar agendamento</button><button id="campaign-consult" type="button" disabled>Consultar tentativa</button></footer>
+  <footer><button id="campaign-create" type="button" hidden disabled>Criar rascunho</button><button id="campaign-save" type="button" disabled>Salvar rascunho</button><button id="campaign-validate" type="button" disabled>Conferir público</button><button id="campaign-schedule" type="button" disabled>Agendar</button><button id="campaign-cancel" type="button" disabled>Cancelar agendamento</button><button id="campaign-consult" type="button" disabled>Consultar tentativa</button></footer>
  </dialog>
  <script src="/campaign-bff-client.js"></script><script src="/campaign-edit.js"></script><script src="/entry.js"></script>
 </body>

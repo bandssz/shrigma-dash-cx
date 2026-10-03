@@ -6,15 +6,15 @@
       "source": "crm-campaign-bff-client.cjs",
       "compiled": "public/campaign-bff-client.js",
       "publicName": "campaign-bff-client.js",
-      "sourceSha256": "b51220d158d85d63419f98f647d11de50e1d9860a9506e77e6e9ddcdca5bf8b0",
-      "compiledSha256": "33c2aa5530b530840a009ae4216d22b8fb36bfc564cc2a8a4772fb4bb1949263"
+      "sourceSha256": "98b6f8574d98ba3446355ee7f6d96a390ac4e1477932544633fc05b6e2522c4c",
+      "compiledSha256": "2a895f2c1bda8132b7fa9655cf2a2ced5d831492d6e6fa5ce530b04a78ff2038"
     },
     {
       "source": "public/campaign-edit.js",
       "compiled": "public/campaign-edit.compiled.js",
       "publicName": "campaign-edit.js",
-      "sourceSha256": "9c84c6e31aec78ee738d2e49ff3d767da6ff51efa8dfa62417d9ba9d7f607004",
-      "compiledSha256": "673fb0a6d4d113b61f13e3ab9869f1145caf1bc8b12da72f727031a4c77900cd"
+      "sourceSha256": "1956dfbf889fdb2b6ea9daa58ef8bd75286a5ccc91810ce181b316a9ac92c231",
+      "compiledSha256": "f3156485f639039445677c6dc8f0c2e43091f7765bc9c4d4607b70380f431b27"
     },
     {
       "source": "public/entry.js",
@@ -27,8 +27,8 @@
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "0090baec504e3dd40015c7ccb1b31f78d063e0478b0ac125fb99f9d00d42d1bd",
-      "compiledSha256": "ffde5c3c1350240a9c3824ad9f4156f6665c08c246dd064c6cb87f0d9cf1296a"
+      "sourceSha256": "d2b31fecfe4804ce6f8e6bf38bc00ee80d517cef54e8328c127a19d09cd7d9c8",
+      "compiledSha256": "14220a5039b40c8c4017184a64f52e35732d2f151a7be1c245328c6dd91689ad"
     }
   ]
 }

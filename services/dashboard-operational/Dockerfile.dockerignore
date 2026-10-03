@@ -37,6 +37,7 @@
 !services/dashboard-operational/crm-manager-dispatcher.cjs
 !services/dashboard-operational/crm-manager-runtime.cjs
 !services/dashboard-operational/crm-manager-attestation.cjs
+!services/dashboard-operational/crm-campaign-create.cjs
 !services/dashboard-operational/crm-campaign-delivery.cjs
 !services/dashboard-operational/crm-campaign-writer-attestation.cjs
 !services/dashboard-operational/crm-campaign-bff-client.cjs
