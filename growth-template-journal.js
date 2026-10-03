@@ -126,6 +126,8 @@
         // Only a fresh UUID may use MISSING as preflight. It never clears a reservation.
         let preflight;try{preflight=await lookup(id,raw.acao);}catch(_){throw fail('TPL_PREFLIGHT','Não foi possível conferir o acesso e o recibo da operação. Nada foi enviado.');}
         if(preflight?.status===401&&preflight.body?.erro==='invalid_key')throw fail('TPL_AUTH','Chave de escrita inválida. Informe a chave de novo. Nada foi enviado.');
+        // Same preflight refusal, but say which permission is missing. Nothing was reserved or sent.
+        if(preflight?.status===403&&preflight.body?.erro==='capability_missing')throw fail('TPL_PREFLIGHT',`Esta chave não tem a capacidade "${{rascunho:'draft',validar:'validate',submeter:'submit'}[raw.acao]}". Peça uma chave com essa capacidade. Nada foi enviado.`);
         const remote=preflight?.body?.operation;
         if(preflight?.status!==200||preflight.body.contract!=='template_operation_v1'||remote?.state!=='missing'||remote.hash_schema!=='json-stable-sha256-v1'||remote.idempotency_key!==id||remote.acao!==raw.acao||typeof remote.actor!=='string'||!remote.actor.trim()||remote.request_payload!==null||remote.request_sha256!==null||remote.response!==null)throw fail('TPL_PREFLIGHT','O acesso ou a consulta segura de operações não foi confirmado. Nada foi enviado.');
         if(await persistLocal()!==true)throw fail('TPL_STORAGE','O rascunho não pôde ser preservado neste navegador. Nada foi enviado.');
