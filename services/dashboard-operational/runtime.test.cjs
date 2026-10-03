@@ -7,7 +7,7 @@ function temp(t){const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),
 function source(t){const dir=temp(t),dist=path.join(dir,'dist');fs.mkdirSync(path.join(dist,'public'),{recursive:true});
  for(const file of policy.PUBLIC_FILES){const to=path.join(dist,'public',file);fs.mkdirSync(path.dirname(to),{recursive:true});fs.writeFileSync(to,policy.isText(file)?'<!doctype html>TEST SYNTHETIC '+file:Buffer.from([0,255,1,2,3]));}
  return {dir,dist};}
-function mutatePack(input,change){const old=JSON.parse(input),files=JSON.parse(zlib.gunzipSync(Buffer.from(old.gzipBase64,'base64')));change(files);const raw=Buffer.from(JSON.stringify(files)),sha256=policy.sha(raw);return {input:JSON.stringify({schema:policy.SCHEMA,sha256,gzipBase64:zlib.gzipSync(raw).toString('base64')}),sha256};}
+function mutatePack(input,change){const old=JSON.parse(input),files=policy.decodePack(input,old.sha256).files;change(files);const raw=Buffer.from(JSON.stringify(files)),sha256=policy.sha(raw);return {input:JSON.stringify({schema:policy.SCHEMA,sha256,gzipBase64:zlib.gzipSync(raw).toString('base64')}),sha256};}
 test('closed public/runtime package roundtrip preserves all bytes and stays below MCP transport limit',t=>{
  const {dir,dist}=source(t),out=path.join(dir,'pack'),meta=pack(dist,out),input=fs.readFileSync(path.join(out,'runtime-pack.json'),'utf8');
  assert.equal(meta.publicFiles,policy.PUBLIC_FILES.length);assert.equal(meta.runtimeFiles,policy.RUNTIME_FILES.length);assert(meta.seedMountsBytes<950000);
@@ -28,12 +28,12 @@ test('source allowlist rejects secrets, SQLite, extra code and symlink assets',t
 test('checksum, revision pin, exact paths, duplicates and encoding are enforced before extraction',t=>{
  const {dir,dist}=source(t),meta=pack(dist,path.join(dir,'pack')),input=fs.readFileSync(path.join(dir,'pack','runtime-pack.json'),'utf8');
  assert.throws(()=>policy.decodePack(input,'0'.repeat(64)),/PACK_INVALID/);
- const checksum=JSON.parse(input);checksum.gzipBase64=zlib.gzipSync(Buffer.from('[]')).toString('base64');
+ const checksum=JSON.parse(input);checksum.brotliBase64=zlib.brotliCompressSync(Buffer.from('[]')).toString('base64');
  assert.throws(()=>policy.decodePack(JSON.stringify(checksum),meta.packSha256),/CHECKSUM/);
  for(const edit of [f=>f[0].path='../secret.cjs',f=>f[0].path=f[1].path,f=>f[0].encoding='base64',f=>f.pop(),f=>f[0].content+='\ud800']){
   const changed=mutatePack(input,edit);assert.throws(()=>policy.decodePack(changed.input,changed.sha256));
  }
- const packed=JSON.parse(input);packed.gzipBase64+='\n';assert.throws(()=>policy.decodePack(JSON.stringify(packed),meta.packSha256));
+ const packed=JSON.parse(input);packed.brotliBase64+='\n';assert.throws(()=>policy.decodePack(JSON.stringify(packed),meta.packSha256));
 });
 test('gzip bombs and oversized envelopes are rejected',()=>{
  const raw=Buffer.alloc(policy.MAX_BYTES+1,65),sha256=policy.sha(raw),input=JSON.stringify({schema:policy.SCHEMA,sha256,gzipBase64:zlib.gzipSync(raw).toString('base64')});

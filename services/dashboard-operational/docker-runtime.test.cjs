@@ -53,8 +53,8 @@ test('an existing corrupt or different-revision volume pack is never overwritten
  const {dir,imageDir}=prepared(t),dataDir=volume(dir),file=path.join(dataDir,'runtime-pack.json'),options=seedOptions(dataDir,imageDir);
  fs.writeFileSync(file,'CORRUPT PRESERVE',{mode:0o600});assert.throws(()=>canary.seedVolume(options));assert.equal(fs.readFileSync(file,'utf8'),'CORRUPT PRESERVE');
  const wrapper=JSON.parse(fs.readFileSync(path.join(imageDir,'runtime-pack.json'),'utf8'));
- const files=JSON.parse(zlib.gunzipSync(Buffer.from(wrapper.gzipBase64,'base64')));files[0].content+=' CHANGED REVISION';const raw=Buffer.from(JSON.stringify(files));
- const changed=JSON.stringify({...wrapper,sha256:policy.sha(raw),gzipBase64:zlib.gzipSync(raw).toString('base64')});fs.writeFileSync(file,changed);
+ const files=policy.decodePack(JSON.stringify(wrapper),wrapper.sha256).files;files[0].content+=' CHANGED REVISION';const raw=Buffer.from(JSON.stringify(files));
+ const changed=JSON.stringify({schema:policy.SCHEMA,sha256:policy.sha(raw),gzipBase64:zlib.gzipSync(raw).toString('base64')});fs.writeFileSync(file,changed);
  assert.throws(()=>canary.seedVolume(options));assert.equal(fs.readFileSync(file,'utf8'),changed);
 });
 test('symlink and hardlink image/volume artifacts fail closed',t=>{

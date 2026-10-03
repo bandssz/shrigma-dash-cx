@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib');
-const SCHEMA='shrigma_dashboard_operational_pack_v1';
+const SCHEMA='shrigma_dashboard_operational_pack_v1',SCHEMA_V2='shrigma_dashboard_operational_pack_v2';
 const MAX_BYTES=16*1024*1024,MAX_PACK_BYTES=950000;
 const PUBLIC_FILES=Object.freeze([
  'growth.html','organico.html','influs.html',
@@ -36,10 +36,14 @@ function decodePack(input,expectedSha256){
  if(typeof expectedSha256!=='string'||!/^[a-f0-9]{64}$/.test(expectedSha256))throw Error('ARTIFACT_PIN_REQUIRED');
  if(typeof input!=='string'||Buffer.byteLength(input)>MAX_PACK_BYTES)throw Error('ARTIFACT_PACK_TOO_LARGE');
  let wrapper;try{wrapper=JSON.parse(input);}catch{throw Error('ARTIFACT_PACK_INVALID');}
- if(!exact(wrapper,['schema','sha256','gzipBase64'])||wrapper.schema!==SCHEMA||wrapper.sha256!==expectedSha256||!canonicalBase64(wrapper.gzipBase64))throw Error('ARTIFACT_PACK_INVALID');
- const raw=zlib.gunzipSync(Buffer.from(wrapper.gzipBase64,'base64'),{maxOutputLength:MAX_BYTES});
+ const key=wrapper?.schema===SCHEMA?'gzipBase64':wrapper?.schema===SCHEMA_V2?'brotliBase64':null;
+ if(!key||!exact(wrapper,['schema','sha256',key])||wrapper.sha256!==expectedSha256||!canonicalBase64(wrapper[key]))throw Error('ARTIFACT_PACK_INVALID');
+ const compressed=Buffer.from(wrapper[key],'base64');
+ let raw;
+ if(key==='gzipBase64')raw=zlib.gunzipSync(compressed,{maxOutputLength:MAX_BYTES});
+ else{const decoded=zlib.brotliDecompressSync(compressed,{maxOutputLength:MAX_BYTES,info:true});if(decoded.engine.bytesWritten!==compressed.length)throw Error('ARTIFACT_PACK_INVALID');raw=decoded.buffer;}
  if(sha(raw)!==expectedSha256)throw Error('ARTIFACT_CHECKSUM_INVALID');
- const files=JSON.parse(raw),stats=validateFiles(files);
+ const files=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw)),stats=validateFiles(files);
  return {files,stats,sha256:expectedSha256};
 }
 function unpack(packFile,target,{expectedSha256,fsImpl=fs}={}){
@@ -60,4 +64,4 @@ function unpack(packFile,target,{expectedSha256,fsImpl=fs}={}){
  }catch(error){fsImpl.rmSync(root,{recursive:true,force:true});throw error;}
  return {...parsed.stats,sha256:parsed.sha256,root,publicDir:path.join(root,'public'),runtimeDir:path.join(root,'runtime')};
 }
-module.exports={SCHEMA,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,RUNTIME_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};
+module.exports={SCHEMA,SCHEMA_V2,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,RUNTIME_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};

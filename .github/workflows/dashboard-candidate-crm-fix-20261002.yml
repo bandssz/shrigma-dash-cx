@@ -32,7 +32,7 @@ jobs:
       - name: Validar cadastro privado e RPCs em banco descartável
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
-        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs tests/crm-manager-role-install.test.cjs
+        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs tests/crm-manager-role-install.test.cjs tools/crm-manager-read-activation-review/activation.test.cjs
       - name: Exercitar listas, vínculo, recibos e troca de marca
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
@@ -121,8 +121,8 @@ jobs:
           NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
         run: node --test tests/crm-manager-provision-native-postgres.test.cjs
 
-  # Installation proof only. Own disposable cluster; no server credentials,
-  # issuer activation, deployment or changes to the existing publishers.
+  # Installation and READ activation proof in separate disposable clusters.
+  # No server credentials, production issuer activation or deployment.
   native-postgres-v3-install-rollback-proof:
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -145,6 +145,7 @@ jobs:
         run: |
           node --test tools/crm-manager-install-review/native-v3-proof-pure.test.cjs
           bash tools/crm-manager-install-review/run-native-v3-proof.sh
+          CRM_MANAGER_READ_ACTIVATION_NATIVE_PROOF=1 bash tools/crm-manager-read-activation-review/run-native-proof.sh
 
   native-postgres17-writer-component-proof:
     runs-on: ubuntu-latest
