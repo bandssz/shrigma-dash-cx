@@ -42,3 +42,16 @@ test('24-field diagnosis projects only tmpfs count/key booleans and refuses miss
   const v=row();change(v);assert.throws(()=>D.projectContainer(v,meta,'installer','after_up'),/NATIVE_PREFLIGHT_DIAGNOSTIC_REFUSED/);
  }
 });
+
+test('capability diagnosis accepts only the verified singleton alias and projects no raw capability string',()=>{
+ for(const capAdd of [['CHOWN'],['CAP_CHOWN']]){
+  const p=D.projectContainer({...row('prepare_volume'),capAdd},meta,'prepare_volume','after_up');
+  assert.equal(p.capAddMatches,true);assert.equal(p.resourcesMatch,true);assert.equal(p.observerState,'ready');
+  assert.equal(JSON.stringify(p).includes('CAP_CHOWN'),false);
+ }
+ for(const capAdd of [[],null,['CAP_DAC_OVERRIDE'],['CHOWN','CAP_CHOWN'],['CHOWN','CHOWN'],['CAP_CHOWN','CAP_CHOWN'],['CAP_CHOWN','CAP_DAC_OVERRIDE']]){
+  const p=D.projectContainer({...row('prepare_volume'),capAdd},meta,'prepare_volume','after_up');
+  assert.equal(p.capAddMatches,false);assert.equal(p.resourcesMatch,false);assert.equal(p.observerState,'refused');
+ }
+ assert.equal(D.projectContainer({...row(),capAdd:['CAP_CHOWN']},meta,'installer','after_up').resourcesMatch,false);
+});

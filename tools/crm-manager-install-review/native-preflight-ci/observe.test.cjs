@@ -29,3 +29,22 @@ test('native Mounts and HostConfig.Tmpfs are separate exact projections; old two
   const v=row('prepare_volume');change(v);assert.throws(()=>O.inspect(v,meta,'prepare_volume'),e=>e.message==='NATIVE_PREFLIGHT_OBSERVATION_REFUSED');
  }
 });
+
+test('Docker API admits only singleton CHOWN or CAP_CHOWN for initializer and no added runtime capability',()=>{
+ for(const capAdd of [['CHOWN'],['CAP_CHOWN']])assert.equal(O.inspect({...row('prepare_volume'),capAdd},meta,'prepare_volume'),'ready');
+ for(const capAdd of [[],null,['CAP_DAC_OVERRIDE'],['CHOWN','CAP_CHOWN'],['CHOWN','CHOWN'],['CAP_CHOWN','CAP_CHOWN'],['CAP_CHOWN','CAP_DAC_OVERRIDE'],['chown']]){
+  assert.throws(()=>O.inspect({...row('prepare_volume'),capAdd},meta,'prepare_volume'),e=>e.message==='NATIVE_PREFLIGHT_OBSERVATION_REFUSED');
+ }
+ for(const capAdd of [['CHOWN'],['CAP_CHOWN'],['CAP_DAC_OVERRIDE']])assert.throws(()=>O.inspect({...row(),capAdd},meta,'installer'));
+});
+test('Compose variant may restore exactly the same deploy pids while top-level limits remain exact',()=>{
+ const vp=B.buildPreflight({suffix:'012345abcdef',runtimeRoot,pidsProfile:'pids_limit_only'}),vm={...vp};delete vm.json;
+ const original=JSON.parse(vp.json),c=JSON.parse(vp.json);c.name=vm.composeProjectName;
+ assert.equal(O.verifyConfig(c,vm,original),true);
+ c.services.prepare_volume.deploy.resources.limits.pids=16;c.services.installer.deploy.resources.limits.pids=32;
+ assert.equal(O.verifyConfig(c,vm,original),true);
+ for(const role of ['prepare_volume','installer'])for(const invalid of [0,-1,33,'16',null]){
+  const bad=JSON.parse(JSON.stringify(c));bad.services[role].deploy.resources.limits.pids=invalid;assert.throws(()=>O.verifyConfig(bad,vm,original));
+ }
+ const bad=JSON.parse(JSON.stringify(c));bad.services.installer.pids_limit=33;assert.throws(()=>O.verifyConfig(bad,vm,original));
+});
