@@ -95,7 +95,7 @@ test('reabrir do histórico com falha no catálogo não vincula o conteúdo loca
   const journal=JSON.parse(x.store.get('shrigma_campaign_operation_v1:'+brand)||'null');
   // Se o diário passou para 102, o formulário precisa ter o conteúdo de 102; nunca o rascunho local.
   if(journal?.campaign?.id===102)assert.equal(x.q('[name=subject]').value,'Assunto 102');
-  else assert.match(x.q('[data-ce-status]').textContent,/não confirmado|Consulte|catálogo/i);
+  else assert.match(x.q('[data-ce-status]').textContent,/não confirmad|Consulte|catálogo/i);
   x.q('[data-ce-save]').click();await new Promise(r=>setTimeout(r,30));
   const saved=x.calls.filter(c=>c.acao==='campanha_salvar');
   assert.ok(!saved.some(c=>c.id===102&&c.definition.subject==='Rascunho local não salvo'),'conteúdo local gravado sobre a campanha 102');

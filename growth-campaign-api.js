@@ -45,7 +45,8 @@ const GCA=(()=>{
     return {status:res.status,body,ok:res.status>=200&&res.status<300};
    }catch{return {status:0,body:null,ok:false};}
   }
-  const responseError=res=>error(res.body?.error||'RESPONSE_UNCONFIRMED',res.status===401?'Chave inválida. Informe a chave correta; a tentativa existente será preservada.':res.status===403?'Esta chave não tem permissão para a ação.':res.body?.message||'Resultado não confirmado. Consulte a operação antes de repetir.');
+  // Leitura (catálogo, lista, campanha) não tem efeito: pode ser repetida. Escrita segue pelo recibo.
+  const responseError=(res,{read=false}={})=>error(res.body?.error||'RESPONSE_UNCONFIRMED',res.status===401?'Chave inválida. Informe a chave correta; a tentativa existente será preservada.':res.status===403?'Esta chave não tem permissão para a ação.':res.body?.message||(read?'Leitura não confirmada. Nada foi alterado; tente carregar novamente.':'Resultado não confirmado. Consulte a operação antes de repetir.'));
   function validRecord(c){return !!c&&Number.isSafeInteger(c.id)&&c.id>0&&typeof c.version==='string'&&!!c.version&&typeof c.status==='string'&&Number.isSafeInteger(c.sent)&&c.sent>=0&&Object.hasOwn(c,'started_at')&&Object.hasOwn(c,'send_at')&&(c.send_at===null||Number.isFinite(Date.parse(c.send_at)))&&c.definition?.brand===brand;}
   function validCampaign(c){
    if(!validRecord(c))return false;
@@ -145,7 +146,7 @@ const GCA=(()=>{
   }
   const clean=d=>{if(!state.campaign)return false;try{return JSON.stringify(CampaignContract.normalize(d))===JSON.stringify(CampaignContract.normalize(state.campaign.definition));}catch{return false;}};
   function reviewed(d){if(busy||locked())throw error('OPERATION_PENDING','Consulte a tentativa pendente.');if(!clean(d))throw error('UNSAVED_CHANGES','Salve as alterações desta campanha antes de validar ou agendar.');const c=state.campaign;if(c.status!=='draft'||c.sent!==0||c.started_at)throw error('CAMPAIGN_LOCKED','Esta campanha não é um rascunho disponível para edição.');return c;}
-  async function read(action,input={},k){gate('read');const res=await call('GET',CampaignContract.request(action,{brand,...input}),k||key(readKey));if(!res.ok)throw responseError(res);return res.body;}
+  async function read(action,input={},k){gate('read');const res=await call('GET',CampaignContract.request(action,{brand,...input}),k||key(readKey));if(!res.ok)throw responseError(res,{read:true});return res.body;}
   return {
    snapshot,locked,clean,canWrite,canRecover,recover,updateCapabilities:c=>{availability=c;},
    async catalog(){const c=await read('catalogo');if(c?.brand!==brand||c.current!==true||!Array.isArray(c.lists)||!Array.isArray(c.templates))throw error('CATALOG_UNAVAILABLE','Catálogo da marca não confirmado.');catalog=c;return copy(c);},
