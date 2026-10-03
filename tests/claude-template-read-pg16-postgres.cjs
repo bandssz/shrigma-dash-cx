@@ -4,9 +4,13 @@
 // diferente de 5432, database listmonk vazio.
 // Uso: TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55435/listmonk
 //      CRM_TEMPLATE_TEST_ISOLATED=1 PG_MODULE=<caminho do pacote pg> node este-arquivo
+//      [CRM_PG_EXPECTED_VERSION_NUM=170010] (PG 17.10: tools/claude-native-proofs/run-pg17.sh)
 const assert=require('node:assert/strict');
 const {Pool}=require(process.env.PG_MODULE||'pg');
 const X=require('./claude-template-read-fixture.cjs'),B=require('../services/dashboard-operational/crm-template-read-bridge.cjs');
+// Versão alvo explícita: sem variável mantém a prova original (16.x); com
+// CRM_PG_EXPECTED_VERSION_NUM=160015|170010 exige exatamente a versão informada.
+const assertPgVersion=v=>{const e=process.env.CRM_PG_EXPECTED_VERSION_NUM;if(!e){assert.ok(v>=160000&&v<170000,'PostgreSQL 16 (defina CRM_PG_EXPECTED_VERSION_NUM para outra versão)');return;}assert.ok(['160015','170010'].includes(e),'CRM_PG_EXPECTED_VERSION_NUM não suportado: '+e);assert.equal(v,Number(e));};
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.CRM_TEMPLATE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.pathname!=='/listmonk'||!u.port||u.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
 const owner=new Pool({connectionString:uri,max:3});
@@ -15,7 +19,7 @@ let reader;
 const accepts=(query,body)=>{B.responseShape(B.decision('templates','GET',new URLSearchParams(query)),JSON.parse(JSON.stringify(body)));return true;};
 (async()=>{const out={};try{
  const info=(await db.query("SELECT current_database() AS db,current_user AS who,current_setting('server_version_num')::int AS v,(SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r') AS existing")).rows[0];
- assert.equal(info.db,'listmonk');assert.equal(info.who,'postgres');assert.ok(info.v>=160000&&info.v<170000);assert.equal(info.existing,0);out.server_version_num=info.v;
+ assert.equal(info.db,'listmonk');assert.equal(info.who,'postgres');assertPgVersion(info.v);assert.equal(info.existing,0);out.server_version_num=info.v;
  await X.schema(db);await X.data(db);
  await db.exec(X.accessSQL({strict:true}));
  await assert.rejects(db.exec(X.accessSQL({strict:true})),/CRM_TEMPLATE_READ_INSTALL_COLLISION/);out.install='strict_file_ok_reinstall_refused';

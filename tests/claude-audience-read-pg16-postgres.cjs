@@ -3,11 +3,15 @@
 // descartável em loopback, porta diferente de 5432, database listmonk vazio.
 // Uso: TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55433/listmonk
 //      CRM_AUDIENCE_TEST_ISOLATED=1 PG_MODULE=<caminho do pacote pg> node este-arquivo
+//      [CRM_PG_EXPECTED_VERSION_NUM=170010] (PG 17.10: tools/claude-native-proofs/run-pg17.sh)
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const {Pool}=require(process.env.PG_MODULE||'pg');
 const F=require('./segment-campaign-binding-fixture.cjs'),X=require('./claude-audience-read-fixture.cjs');
 const R=require('../services/crm-audience/read-store.cjs'),S=require('../n8n/growth/segment-audience-store.cjs'),GCAC=require('../growth-campaign-audience-client.js');
 const {createReadServer}=require('../services/crm-audience/read-server.cjs'),Bridge=require('../services/dashboard-operational/crm-audience-read-bridge.cjs');
+// Versão alvo explícita: sem variável mantém a prova original (16.x); com
+// CRM_PG_EXPECTED_VERSION_NUM=160015|170010 exige exatamente a versão informada.
+const assertPgVersion=v=>{const e=process.env.CRM_PG_EXPECTED_VERSION_NUM;if(!e){assert.ok(v>=160000&&v<170000,'PostgreSQL 16 (defina CRM_PG_EXPECTED_VERSION_NUM para outra versão)');return;}assert.ok(['160015','170010'].includes(e),'CRM_PG_EXPECTED_VERSION_NUM não suportado: '+e);assert.equal(v,Number(e));};
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.CRM_AUDIENCE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.pathname!=='/listmonk'||!u.port||u.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
 const owner=new Pool({connectionString:uri,max:4,statement_timeout:10000});
@@ -15,7 +19,7 @@ const db={query:(q,p)=>owner.query(q,p),exec:q=>owner.query(q),transaction:async
 let reader,app;
 (async()=>{try{
  const info=(await db.query("SELECT current_database() AS db,current_user AS who,current_setting('server_version_num')::int AS v,(SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r') AS existing")).rows[0];
- assert.equal(info.db,'listmonk');assert.equal(info.who,'postgres');assert.ok(info.v>=160000&&info.v<170000);assert.equal(info.existing,0);
+ assert.equal(info.db,'listmonk');assert.equal(info.who,'postgres');assertPgVersion(info.v);assert.equal(info.existing,0);
  const f=await F.setup(db);
  // Arquivo proposto SEM alteração (owner postgres, database listmonk).
  await db.exec(fs.readFileSync(require.resolve('../n8n/growth/crm-audience-read-access.sql'),'utf8'));
