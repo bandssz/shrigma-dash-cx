@@ -105,6 +105,10 @@ test('D4: primeira leitura com cache acima de 20 min mostra o último retrato e 
  // A próxima preparação dentro do prazo substitui o retrato e remove a ressalva.
  x.setResponse(fixture());await x.run('carregar()');assert.match(text(x,'#atualizado-em'),/^Dados de 07\/09\/2026, 22:10 BRT$/);assert.doesNotMatch(text(x,'#faixa-alertas'),/retrato/);
 });
+test('D4 (futuro): retrato com data no futuro não é exibido como retrato antigo',async()=>{
+ const p=fixture();p._cache_gerado_em='2026-09-09T12:00:00Z';const x=await boot({payload:p});
+ assert.equal(x.run('API'),null,'data no futuro não pode virar retrato antigo');assert.doesNotMatch(text(x,'#atualizado-em'),/retrato antigo/);
+});
 test('D4 (aceite): retrato vencido nunca substitui uma leitura mais nova já na tela; payload inválido continua sem dado',async()=>{
  const x=await boot();const p=fixture();p._cache_gerado_em='2026-09-08T00:45:00Z';p.crm_campanha=[];x.setResponse(p);await x.run('carregar()');
  assert.equal(x.run('API._cache_gerado_em'),NOW);assert.match(text(x,'#atualizado-em'),/Atualização falhou/);assert.match(text(x,'#faixa-alertas'),/ainda não estão disponíveis/);

@@ -993,7 +993,7 @@ async function leCacheGrowth(k){
   // Retrato vencido (mais de 20 min) não é tratado como atual, mas fica disponível para o painel
   // cair nele e avisar, em vez de ficar sem dado. Nenhuma consulta extra é feita.
   const fresh=c.r.ok&&cacheGrowthValido(c.payload);
-  const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))?c.payload:null;
+  const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))&&Date.parse(c.payload._cache_gerado_em)<=Date.now()+60000?c.payload:null;
   return {r:c.r,next:fresh?c.payload:null,antigo};
 }
 // GROWTH_CACHE_READ_END
