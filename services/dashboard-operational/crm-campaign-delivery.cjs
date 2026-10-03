@@ -192,10 +192,12 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     const sent = await call(context, row, 'POST', wire(row));
     return sent ? reconcileRow(context, row) : pending();
   }
-  function coalesce(context, row) {
-    const key = row.user_id + ':' + row.client_key;
+  function coalesce(context, row, readOnly = false) {
+    // A GET may never take the queued POST dispatch path. Separate in-process
+    // coalescing also lets an original authorized POST proceed if GET ran first.
+    const key = row.user_id + ':' + row.client_key + (readOnly ? ':read' : ':write');
     if (active.has(key)) return active.get(key);
-    const promise = run(context, row).finally(() => active.delete(key)); active.set(key, promise); return promise;
+    const promise = (readOnly ? row.phase === 'rejected' && row.remote_operation_id === null ? Promise.resolve(result('rejected')) : reconcileRow(context, row) : run(context, row)).finally(() => active.delete(key)); active.set(key, promise); return promise;
   }
   async function submit(context, input) {
     outside(); const q = command(input), a = identity(context, q), fingerprint = sha(q), t = clock();
@@ -217,7 +219,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     });
     return coalesce(context, row);
   }
-  async function reconcile(context, input) { return coalesce(context, select(context, input)); }
+  async function reconcile(context, input) { return coalesce(context, select(context, input), true); }
   return Object.freeze({
     submit: async (context, input) => { try { return await submit(context, input); } catch (error) { closedError(error); } },
     reconcile: async (context, input) => { try { return await reconcile(context, input); } catch (error) { closedError(error); } },

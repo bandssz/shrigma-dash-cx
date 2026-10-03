@@ -53,8 +53,11 @@ test('validation DTO can supply review ID only for its own current campaign vers
  const audience={policy:'listmonk-6.1-regular-v1',brand:'fish',list_ids:[125],eligible_count:2,unique_members_count:3,excluded_blocklisted_count:1,excluded_subscription_count:0,native_disabled_count:0,review_id:REVIEW,campaign_id:7,campaign_version:A,frozen:false,checked_at:'2026-10-03T12:00:00.000Z',expires_at:'2026-10-03T12:05:00.000Z'};
  f.transport((r,row)=>f.answer(row.action,row.attemptKey,'succeeded',{id:7,version:A,status:'draft',sent:0,startedAt:null,sendAt:'2026-10-03T14:00:00.000Z'},{policy:'crm-campaign-v1',version:A,ok:true,validatedAt:audience.checked_at,audience}));
  const v=await c.validate(q);assert.equal(v.validation.audience.review_id,REVIEW);assert.equal(Object.isFrozen(v.validation.audience.list_ids),true);
+ const proven=structuredClone(f.rows.get('ui-'+A+':fish'));
  f.transport((r,row)=>{const bad=f.answer(row.action,row.attemptKey,'succeeded',{id:7,version:B,status:'draft',sent:0,startedAt:null,sendAt:null},{policy:'crm-campaign-v1',version:A,ok:true,validatedAt:audience.checked_at,audience});return bad;});
- await assert.rejects(c.consult('fish'),{code:'CAMPAIGN_BFF_UNCERTAIN'});assert.equal(f.rows.get('ui-'+A+':fish').phase,'uncertain');
+ // An invalid later GET supplies no fresh validation, but cannot undo the
+ // earlier terminal receipt or reclassify its actor/key as unresolved.
+ await assert.rejects(c.consult('fish'),{code:'CAMPAIGN_BFF_UNCERTAIN'});assert.deepEqual(f.rows.get('ui-'+A+':fish'),proven);assert.deepEqual(f.calls.map(r=>r.method),['POST','GET']);
 });
 test('storage refusal prevents POST; same-owner calls coalesce until one request settles',async()=>{
  const f=fixture(),c=createCampaignBffClient({...f,writeJournal:()=>{throw Error('PRIVATE_QUOTA');}});await assert.rejects(c.schedule(fields()),{code:'CAMPAIGN_BFF_STORAGE'});assert.equal(f.calls.length,0);

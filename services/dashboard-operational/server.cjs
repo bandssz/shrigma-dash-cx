@@ -71,6 +71,8 @@ function settingsFromEnv(env=process.env){
     if(mode!=='operational'||upstreamProfile!=='production'||env.DASHBOARD_CRM_MANAGED_READ!=='enabled'||env.DASHBOARD_CRM_MANAGED_READ_UI!=='enabled'||!crmCampaignSubmitWrite||!require('./crm-manager-runtime.cjs').corporateHostsAllowed(managerHost,areaHosts)||env.DASHBOARD_ADMIN_EMAIL!=='felipebandeira@oaristocrata.com'||!/^[A-Za-z0-9_-]{43,128}$/.test(env.DASHBOARD_CRM_WRITER_PROVISIONER_TOKEN||''))throw Error('Corporate writer configuration invalid');
     crmManagedWriter=Object.freeze({...corporateWriter,provisionerToken:env.DASHBOARD_CRM_WRITER_PROVISIONER_TOKEN});
   }else if(env.DASHBOARD_CRM_WRITER_DESCRIPTOR!==undefined||env.DASHBOARD_CRM_WRITER_PROVISIONER_TOKEN!==undefined)throw Error('Inactive writer material refused');
+  const crmCorporateCreate=env.DASHBOARD_CRM_CORPORATE_CREATE==='enabled';
+  if(env.DASHBOARD_CRM_CORPORATE_CREATE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_CORPORATE_CREATE)||crmCorporateCreate&&(!corporateWriter||!crmCampaignSubmitWrite))throw Error('Corporate campaign create gate invalid');
   const upstreams=validateUpstreams(upstreamConfig,allowedHosts,dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})});
   if(upstreamProfile==='crm-sandbox'&&(crmDraftWrite||domains.length!==1||domains[0]!=='synthetic.invalid'||!String(env.DASHBOARD_ADMIN_EMAIL).endsWith('@synthetic.invalid')))throw Error('Sandbox identity or write configuration invalid');
   if(mode==='synthetic'&&Object.keys(upstreams).length)throw Error('Synthetic mode cannot configure external upstreams');
@@ -101,7 +103,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,upstreamProfile,crmDraftWrite,crmAudienceDraft,crmCampaignSubmitWrite,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
+  return {mode,upstreamProfile,crmDraftWrite,crmAudienceDraft,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
 }
 function safeRequestPath(raw){
   if(typeof raw!=='string'||raw.length>4096||!raw.startsWith('/')||raw.startsWith('//'))throw jsonError(400,'PATH_INVALID');
@@ -161,6 +163,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(s.managerHost,s.areaHosts)||s.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'||s.mode!=='operational'||sandbox||s.crmManagedReadUi!==true))throw Error('Corporate writer profile invalid');
   if(s.crmCampaignSubmitWrite!==undefined&&typeof s.crmCampaignSubmitWrite!=='boolean'||s.crmCampaignSubmitWrite===true&&(!sandbox&&!corporateWriter||s.mode!=='operational'||s.crmDraftWrite===true||s.crmAudienceDraft===true||s.crmManagedRead!==undefined&&!corporateWriter))throw Error('Invalid CRM campaign submit write gate');
   const allowCampaignSubmit=s.crmCampaignSubmitWrite===true;
+  const crmCorporateCreate=s.crmCorporateCreate===true;
+  if(s.crmCorporateCreate!==undefined&&typeof s.crmCorporateCreate!=='boolean'||crmCorporateCreate&&(!corporateWriter||!allowCampaignSubmit))throw Error('Corporate campaign create gate invalid');
   if(!['production','crm-sandbox'].includes(upstreamProfile)||sandbox&&(s.mode!=='operational'||s.crmDraftWrite===true||s.allowedEmailDomains?.length!==1||s.allowedEmailDomains[0]!=='synthetic.invalid'||!String(s.bootstrapAdminEmail).endsWith('@synthetic.invalid')))throw Error('Invalid sandbox settings');
   const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite:allowCampaignSubmit,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})}):Object.freeze(Object.create(null));
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
@@ -249,7 +253,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(url.pathname==='/auth/session'&&req.method==='GET'){
-        const found=auth.session(ctx),state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:auth.campaignWriterReady(ctx)}:{})}}:found;
+        const found=auth.session(ctx),state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:auth.campaignWriterReady(ctx),...(corporateWriter?{campaignCreate:crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
         // The owner view validates invite links against this service's exact
         // host configuration, so a new isolated canary needs no JS allowlist.
         if(state.authenticated&&state.user?.role==='superadmin'&&host===s.managerHost)
@@ -258,8 +262,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       }
       if(url.pathname==='/auth/users'&&req.method==='GET')return sendJson(req,res,200,{users:auth.users({context:ctx})});
       if(url.pathname==='/auth/campaign-create'){
-        // Corporate CREATE remains closed; historical GET recovery is retained.
-        if(!campaignCreator||corporateWriter&&req.method==='POST')throw jsonError(403,'EDIT_NOT_READY');
+        // Corporate CREATE needs its own explicit gate and the existing FULL
+        // individual WRITER authorization; historical GET recovery is unchanged.
+        if(!campaignCreator||corporateWriter&&req.method==='POST'&&!crmCorporateCreate)throw jsonError(403,'EDIT_NOT_READY');
         if(!['GET','POST'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
         let q;
         if(req.method==='POST'){
@@ -319,6 +324,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(Object.keys(b).length!==2||typeof b.userId!=='string')throw jsonError(400,'ACTION_DENIED');
             const result=auth.approveManagedCampaignWriter({context:ctx,userId:b.userId});
             kickManagedCrm();return sendJson(req,res,202,{...result,state:'provisioning'});
+          }
+          if(b.action==='crm_writer_renew'){
+            auth.authorize({...ctx,admin:true});
+            if(!corporateWriter||!managedCrmRuntime||typeof auth.renewManagedCampaignWriter!=='function')throw jsonError(403,'EDIT_NOT_READY');
+            if(Object.keys(b).length!==2||typeof b.userId!=='string')throw jsonError(400,'ACTION_DENIED');
+            const result=auth.renewManagedCampaignWriter({context:ctx,userId:b.userId});
+            kickManagedCrm();return sendJson(req,res,202,result);
           }
           if(b.action==='crm_renew'){
             auth.authorize({...ctx,admin:true});

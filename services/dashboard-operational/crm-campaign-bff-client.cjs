@@ -16,13 +16,13 @@ function createCampaignBffClient({request,readJournal,writeJournal,getSession}){
  if(![request,readJournal,writeJournal,getSession].every(f=>typeof f==='function'))closed('CAMPAIGN_BFF_CONFIG');
  const active=new Map();
  const sync=fn=>{try{const v=fn();if(v&&typeof v.then==='function'){Promise.resolve(v).catch(()=>{});closed('CAMPAIGN_BFF_STORAGE');}return v;}catch{closed('CAMPAIGN_BFF_STORAGE');}};
- function session(){
+ function session(method='POST'){
   const s=sync(getSession);
-  if(!s?.authenticated||s.features?.campaignSubmitWrite!==true||s.user?.role!=='manager'||s.user?.areas?.length!==1||s.user.areas[0]!=='growth'||s.user.permissions?.growth?.read!==true||s.user.permissions.growth.edit!==true||typeof s.csrf!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(s.csrf)||typeof s.uiKey!=='string'||!/^ui-[a-f0-9]{32}$/.test(s.uiKey))closed('CAMPAIGN_BFF_DENIED');
+  if(!s?.authenticated||s.features?.campaignSubmitWrite!==true&&!(method==='GET'&&s.features?.campaignHistoryRead===true)||s.user?.role!=='manager'||s.user?.areas?.length!==1||s.user.areas[0]!=='growth'||s.user.permissions?.growth?.read!==true||s.user.permissions.growth.edit!==true||typeof s.csrf!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(s.csrf)||typeof s.uiKey!=='string'||!/^ui-[a-f0-9]{32}$/.test(s.uiKey))closed('CAMPAIGN_BFF_DENIED');
   return Object.freeze({uiKey:s.uiKey,csrf:s.csrf});
  }
  const scope=(s,brand)=>Object.freeze({uiKey:s.uiKey,brand});
- const same=s=>{if(session().uiKey!==s.uiKey)closed('CAMPAIGN_BFF_DENIED');};
+ const same=(s,method)=>{if(session(method).uiKey!==s.uiKey)closed('CAMPAIGN_BFF_DENIED');};
  function journal(s,brand){
   if(!['fish','aristo'].includes(brand))closed('CAMPAIGN_BFF_INPUT');
   const row=sync(()=>readJournal(scope(s,brand)));if(row===null||row===undefined)return null;
@@ -59,9 +59,11 @@ function createCampaignBffClient({request,readJournal,writeJournal,getSession}){
  async function perform(s,row,method){
   const create=row.action==='campanha_criar',endpoint=create?'/auth/campaign-create':'/auth/campaign-delivery';
   const path=method==='POST'?(create?endpoint:'/api/campaigns'):endpoint+'?brand='+encodeURIComponent(row.brand)+'&idempotency_key='+encodeURIComponent(row.attemptKey);
+  const priorTerminal=method==='GET'&&['succeeded','rejected'].includes(row.phase);
+  const failurePhase=priorTerminal?row.phase:'uncertain';
   let value;
-  try{same(s);value=await request(Object.freeze({method,path,headers:Object.freeze({Accept:'application/json','X-CSRF-Token':s.csrf,...(method==='POST'?{'Content-Type':'application/json'}:{})}),...(method==='POST'?{body:row.command}:{})}));same(s);}catch{persist(s,row,'uncertain');closed('CAMPAIGN_BFF_UNCERTAIN');}
-  const verified=dto(value,row);if(!verified){persist(s,row,'uncertain');closed('CAMPAIGN_BFF_UNCERTAIN');}
+  try{same(s,method);value=await request(Object.freeze({method,path,headers:Object.freeze({Accept:'application/json','X-CSRF-Token':s.csrf,...(method==='POST'?{'Content-Type':'application/json'}:{})}),...(method==='POST'?{body:row.command}:{})}));same(s,method);}catch{persist(s,row,failurePhase);closed('CAMPAIGN_BFF_UNCERTAIN');}
+  const verified=dto(value,row);if(!verified||priorTerminal&&verified.state!==row.phase){persist(s,row,failurePhase);closed('CAMPAIGN_BFF_UNCERTAIN');}
   persist(s,verified.state==='succeeded'&&create?{...row,createdId:verified.campaign.id}:row,verified.state==='pending'?'uncertain':verified.state);return verified;
  }
  const coalesce=(s,row,method)=>{const id=s.uiKey+':'+row.brand;if(active.has(id))return active.get(id);const p=perform(s,row,method).finally(()=>active.delete(id));active.set(id,p);return p;};
@@ -71,10 +73,13 @@ function createCampaignBffClient({request,readJournal,writeJournal,getSession}){
    if(canonical(old.command)!==canonical(q))closed('CAMPAIGN_BFF_PENDING');return coalesce(s,old,'GET');
   }
   if(old&&old.attemptKey===q.idempotency_key){if(canonical(old.command)!==canonical(q))closed('CAMPAIGN_BFF_PENDING');return coalesce(s,old,'GET');}
+  // A corporate session advertises CREATE separately. Existing attempts keep
+  // their GET-only reconciliation path when new creation is disabled.
+  if(action==='campanha_criar'&&sync(getSession)?.features?.campaignCreate===false)closed('CAMPAIGN_BFF_DENIED');
   const row=persist(s,{schema:'crm-campaign-bff-client-v1',brand:q.brand,action,attemptKey:q.idempotency_key,command:q},'pending');
   return coalesce(s,row,'POST');
  }
- async function consult(brand){const s=session(),row=journal(s,brand);if(!row)closed('CAMPAIGN_BFF_UNKNOWN');return coalesce(s,row,'GET');}
+ async function consult(brand){const s=session('GET'),row=journal(s,brand);if(!row)closed('CAMPAIGN_BFF_UNKNOWN');return coalesce(s,row,'GET');}
  const guard=fn=>async(...args)=>{try{return await fn(...args);}catch(e){if(e?.name==='CampaignBffClientError')throw e;closed('CAMPAIGN_BFF_UNCERTAIN');}};
  return Object.freeze({...Object.fromEntries(Object.entries(ACTIONS).map(([name,action])=>[name,guard(fields=>mutate(action,fields))])),consult:guard(consult)});
 }

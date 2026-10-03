@@ -15,9 +15,9 @@ const uuid=v=>{if(typeof v!=='string'||!UUID.test(v))fail('MANAGED_ID_INVALID');
 const exact=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype&&Reflect.ownKeys(value).length===keys.length&&keys.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable===true&&Object.hasOwn(d,'value');});
 const caps=value=>Array.isArray(value)&&Reflect.ownKeys(value).length===CAPS.length+1&&value.length===CAPS.length&&CAPS.every((cap,i)=>value[i]===cap);
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value!==null&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
-function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,now=Date.now,writerBindingReady}){
+function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,now=Date.now,writerBindingReady,writerRenewalBindingReady}){
  if(!db||typeof db.isTransaction!=='boolean'||![encrypt,decrypt,digest,now].every(f=>typeof f==='function'))fail('MANAGED_CONFIG_INVALID');
- uuid(issuerId);uuid(namespaceId);if(writerBindingReady!==undefined&&typeof writerBindingReady!=='function')fail('MANAGED_CONFIG_INVALID');
+ uuid(issuerId);uuid(namespaceId);if(writerBindingReady!==undefined&&typeof writerBindingReady!=='function'||writerRenewalBindingReady!==undefined&&(typeof writerRenewalBindingReady!=='function'||typeof writerBindingReady!=='function'))fail('MANAGED_CONFIG_INVALID');
  const clock=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('MANAGED_CLOCK_INVALID');return t;};
  db.exec(`CREATE TABLE IF NOT EXISTS crm_manager_configuration_v1 (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1),issuer_id TEXT NOT NULL,namespace_id TEXT NOT NULL);
@@ -41,10 +41,10 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
  if(!configured)db.prepare('INSERT INTO crm_manager_configuration_v1 VALUES(1,?,?)').run(issuerId,namespaceId);
  const atomic=fn=>{if(db.isTransaction)fail('MANAGED_TRANSACTION_ALREADY_OPEN');db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}};
  const hook=()=>{if(!db.isTransaction)fail('MANAGED_IDENTITY_TRANSACTION_REQUIRED');};
- const manager=(userId,state,allowWriter=false)=>{
+ const manager=(userId,state,allowWriter=false,allowExpiredWriter=false)=>{
   uuid(userId);const u=db.prepare('SELECT id,email,role,state FROM users WHERE id=?').get(userId);
   const g=db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=?').all(userId);
-  if(!u||u.role!=='manager'||u.state!==state||g.length!==1||g[0].area!=='growth'||g[0].can_read!==1||g[0].can_edit!==0&&!(allowWriter&&g[0].can_edit===1&&writerBindingReady?.(userId)===true))fail('MANAGED_MANAGER_DENIED');return u;
+  if(!u||u.role!=='manager'||u.state!==state||g.length!==1||g[0].area!=='growth'||g[0].can_read!==1||g[0].can_edit!==0&&!(allowWriter&&g[0].can_edit===1&&(allowExpiredWriter?writerRenewalBindingReady?.(userId):writerBindingReady?.(userId))===true))fail('MANAGED_MANAGER_DENIED');return u;
  };
  const current=userId=>db.prepare('SELECT l.* FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(uuid(userId));
  const operation=id=>{const o=db.prepare('SELECT o.*,l.user_id,l.owner,l.version AS current_version,l.state AS lifecycle_state FROM crm_manager_operations_v1 o JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE o.operation_id=?').get(uuid(id));if(!o)fail('MANAGED_OPERATION_UNKNOWN');return o;};
@@ -71,6 +71,19 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   return enqueue(current(userId),'issue');
  }
  function renew(userId){return atomic(()=>{manager(userId,'active');const l=current(userId);if(!l||l.state!=='ready'||l.expires_at<=clock())fail('MANAGED_NOT_READY');return enqueue(l,'renew');});}
+ // Corporate-only private renewal admission. This verifies the retained
+ // original identity/generation/slot; it never grants READ or ignores expiry
+ // in credentialReady(), readBinding(), attestation or HTTP authorization.
+ function renewalReady(userId){
+  if(typeof writerRenewalBindingReady!=='function')return false;
+  try{const u=manager(userId,'active',true,true),l=current(userId);return !!l&&u.email===l.owner&&l.state==='ready'&&l.active_generation>0&&slotMatches(l)&&!db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND kind IN('issue','renew') AND phase NOT IN('promoted','failed','expired')").get(l.lifecycle_id);}catch{return false;}
+ }
+ function renewExpired(userId){return atomic(()=>{
+  if(typeof writerRenewalBindingReady!=='function')fail('MANAGED_NOT_READY');
+  manager(userId,'active');const l=current(userId);
+  if(!l||l.state!=='ready'||l.expires_at>clock()||!renewalReady(userId))fail('MANAGED_NOT_READY');
+  return enqueue(l,'renew');
+ });}
  function retryIssue(userId){return atomic(()=>{manager(userId,'active');const l=current(userId);if(!l||l.state!=='provisioning'||l.active_generation!==0)fail('MANAGED_NOT_READY');return enqueue(l,'issue');});}
  const proofMac=proof=>digest('manager-receipt:'+canonical(proof));
  function intactCandidate(o){try{if(typeof o.candidate_ciphertext!=='string'||crypto.createHash('sha256').update(o.candidate_ciphertext).digest('hex')!==o.candidate_cipher_sha256)fail('MANAGED_CANDIDATE_INVALID');const bearer=decrypt(o.candidate_ciphertext);if(typeof bearer!=='string'||!/^[a-f0-9]{64}$/.test(bearer)||digest(bearer)!==o.candidate_digest||crypto.createHash('sha256').update(bearer).digest('hex')!==o.key_sha256)fail('MANAGED_CANDIDATE_INVALID');return bearer;}catch{fail('MANAGED_CANDIDATE_INVALID');}}
@@ -153,6 +166,6 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   const l=current(userId);
   return Object.freeze({userId:l.user_id,owner:l.owner,lifecycleId:l.lifecycle_id,lifecycleVersion:l.version,principalId:l.active_principal,generation:l.active_generation,expiresAt:l.expires_at});
  }
- return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady,readBinding});
+ return Object.freeze({createLifecycle,activateLifecycle,renew,renewExpired,renewalReady,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady,readBinding});
 }
 module.exports={createManagerJournal};

@@ -46,6 +46,15 @@ function createWriterAuthAdapter(c){
   const previous=admission(id),version=(previous?.version??0)+1;if(!Number.isSafeInteger(version))fail();
   db.prepare('INSERT INTO crm_writer_auth_admission_v1 VALUES(?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET lifecycle_id=excluded.lifecycle_id,version=excluded.version,owner=excluded.owner,issuer_id=excluded.issuer_id,namespace_id=excluded.namespace_id,approved=0').run(id,crypto.randomUUID(),version,u.email,c.issuerId,c.namespaceId);return Object.freeze({ok:true});
  }
+ // A pre-existing corporate READ manager can request a distinct dormant WRITER
+ // admission. No password, READ lifecycle, session, slot or grant is replaced.
+ function requestLifecycle(id){
+  transaction();if(!corporate||typeof id!=='string'||!UUID.test(id))fail();
+  const {u,g}=identity(id);if(!u||u.role!=='manager'||u.state!=='active'||!exclusive(g)||g[0].can_edit!==0||hasPendingCampaigns(id)||sync(()=>c.readReady(id))!==true)fail();
+  const previous=admission(id);if(previous){if(previous.owner!==u.email||previous.issuer_id!==c.issuerId||previous.namespace_id!==c.namespaceId)fail();return Object.freeze({ok:true});}
+  if(binding(id)||db.prepare("SELECT 1 FROM crm_writer_bridge_life_v1 WHERE user_id=? AND state<>'revoked'").get(id)||db.prepare("SELECT 1 FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(id)||db.prepare('SELECT 1 FROM campaign_writer_attestation_v1 WHERE user_id=?').get(id))fail();
+  db.prepare('INSERT INTO crm_writer_auth_admission_v1 VALUES(?,?,?,?,?,?,0)').run(id,crypto.randomUUID(),1,u.email,c.issuerId,c.namespaceId);return Object.freeze({ok:true});
+ }
  function approve(id){
   transaction();const s=getSubject(id);if(s.role!=='manager'||s.state!=='active'||!s.exclusive||!s.canRead||s.canEdit||s.hasPendingCampaigns||binding(id)||db.prepare("SELECT 1 FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(id)||db.prepare("SELECT 1 FROM campaign_writer_attestation_v1 WHERE user_id=?").get(id)||db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN('pending','uncertain')").get(id))fail();
   if(db.prepare("SELECT 1 FROM crm_writer_bridge_life_v1 WHERE user_id=? AND state<>'revoked'").get(id))fail();
@@ -60,10 +69,10 @@ function createWriterAuthAdapter(c){
  }
  function shape(p,keys){if(!exact(p,keys)||!UUID.test(p.userId||'')||!UUID.test(p.lifecycleId||'')||!UUID.test(p.namespaceId||'')||p.namespaceId!==c.namespaceId||!Number.isSafeInteger(p.version)||p.version<1)fail();}
  const owned=(b,p)=>b&&b.lifecycle_id===p.lifecycleId&&b.version===p.version&&b.namespace_id===p.namespaceId&&b.issuer_id===c.issuerId;
- function fullBinding(b,{promotionReadback=false}={}){
+ function fullBinding(b,{promotionReadback=false,renewalOnly=false}={}){
   if(!b)return false;
   const a=admission(b.user_id),s=getSubject(b.user_id);
-  if(!eligible(s)||!s.canEdit||!owned(b,{lifecycleId:s.lifecycleId,version:s.version,namespaceId:c.namespaceId})||a.owner!==b.owner||b.owner!==s.owner||b.expires_at<=clock())return false;
+  if(!eligible(s)||!s.canEdit||!owned(b,{lifecycleId:s.lifecycleId,version:s.version,namespaceId:c.namespaceId})||a.owner!==b.owner||b.owner!==s.owner||b.expires_at<=clock()&&!(corporate&&renewalOnly))return false;
   const life=db.prepare('SELECT * FROM crm_writer_bridge_life_v1 WHERE lifecycle_id=? AND user_id=?').get(b.lifecycle_id,b.user_id);
   if(!life||life.owner!==b.owner||life.version!==b.version||life.state!=='active')return false;
   const advancing=life.active_generation!==b.generation;
@@ -94,7 +103,7 @@ function createWriterAuthAdapter(c){
   if(db.prepare("SELECT 1 FROM upstream_credentials WHERE key_digest=? AND (user_id<>? OR slot<>'growth-campaign') LIMIT 1").get(p.credentialMac,p.userId))fail();
   const old=binding(p.userId),slot=db.prepare("SELECT key_digest FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(p.userId),att=db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(p.userId);
   if(p.expectedGeneration===0){if(old||slot||att)fail();}
-  else if(!owned(old,p)||old.generation!==p.expectedGeneration||old.expires_at<=clock()||old.owner!==p.owner||!slot||slot.key_digest!==old.credential_mac||!att||att.credential_mac!==old.credential_mac||att.owner!==old.owner||att.principal_id!==old.principal_id||att.expires_at!==old.expires_at)fail();
+  else if(!owned(old,p)||old.generation!==p.expectedGeneration||old.expires_at<=clock()&&!(corporate&&q.action==='renew_writer')||old.owner!==p.owner||!slot||slot.key_digest!==old.credential_mac||!att||att.credential_mac!==old.credential_mac||att.owner!==old.owner||att.principal_id!==old.principal_id||att.expires_at!==old.expires_at)fail();
   // This specific dependency loss is compensatable only after all identity,
   // proof and reservation checks have passed, before any edit grant is written.
   if(corporate&&sync(()=>c.readReady(p.userId))!==true){const error=new Error('CRM_WRITER_READ_DEPENDENCY_LOST');error.code='CRM_WRITER_READ_DEPENDENCY_LOST';throw error;}
@@ -127,13 +136,29 @@ function createWriterAuthAdapter(c){
   transaction();const s=getSubject(id),b=binding(id);if(!eligible(s)||s.hasPendingCampaigns||!b||!fullBinding(b))fail();
   db.prepare("UPDATE grants SET can_edit=0 WHERE user_id=? AND area='growth'").run(id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);return Object.freeze({ok:true});
  }
+ function renewalPhase(id){
+  const a=admission(id);if(!a)return null;
+  return db.prepare("SELECT o.phase FROM crm_writer_bridge_op_v1 o JOIN crm_writer_bridge_life_v1 l USING(lifecycle_id) WHERE l.user_id=? AND l.lifecycle_id=? AND l.version=? AND l.state='active' AND o.kind='renew' AND o.phase NOT IN('promoted','expired','revoked')").get(id,a.lifecycle_id,a.version)?.phase??null;
+ }
+ function stageRenew(id){
+  transaction();if(!corporate||renewalPhase(id)!==null)fail();
+  const s=getSubject(id),b=binding(id);if(!eligible(s)||!s.canEdit||s.hasPendingCampaigns||!b||!fullBinding(b,{renewalOnly:true})||db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN('pending','uncertain')").get(id))fail();
+  // Keep the login usable for READ, but close every new campaign mutation.
+  // A failed enqueue rolls this CAS back with the surrounding identity tx.
+  const changed=db.prepare("UPDATE grants SET can_edit=0 WHERE user_id=? AND area='growth' AND can_read=1 AND can_edit=1").run(id);if(changed.changes!==1||sync(()=>c.readReady(id))!==true)fail();
+  journal.stageRenew(id);return Object.freeze({ok:true});
+ }
+ // Metadata only, for a manual renewal decision. Never used by READ or
+ // WRITER route authorization, ready flags or attestation.
+ function bindingForRenewal(id){try{const b=binding(id);return corporate&&fullBinding(b,{renewalOnly:true});}catch{return false;}}
  function bindingForUser(id){try{const b=binding(id);return fullBinding(b)?db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(id):null;}catch{return null;}}
  function publicState(id){
   const a=admission(id);if(!a)return null;const {u,g}=identity(id),b=binding(id),life=db.prepare('SELECT state FROM crm_writer_bridge_life_v1 WHERE user_id=? AND lifecycle_id=?').get(id,a.lifecycle_id);
   const ready=bindingForUser(id)!==null&&(!corporate||sync(()=>c.readReady(id))===true),expired=!!b&&b.expires_at<=clock();
-  const state=ready?'ready':life?.state==='revoking'?'revoking':life?.state==='revoked'?'revoked':b?'blocked':a.approved===1?'provisioning':'requested';
-  return Object.freeze({state,ready,expired,canApprove:u?.role==='manager'&&u.state==='active'&&exclusive(g)&&g[0].can_edit===0&&!hasPendingCampaigns(id)&&!b&&(!life||life.state==='revoked')});
+  const renewal=renewalPhase(id);
+  const state=renewal!==null?'renewing':ready?'ready':life?.state==='revoking'?'revoking':life?.state==='revoked'?'revoked':b?'blocked':a.approved===1?'provisioning':'requested';
+  return Object.freeze({state,ready,expired,...(corporate?{renewalPhase:renewal,canRenew:bindingForRenewal(id)&&renewal===null&&!hasPendingCampaigns(id)&&!db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN('pending','uncertain')").get(id)}:{}),canApprove:u?.role==='manager'&&u.state==='active'&&exclusive(g)&&g[0].can_edit===0&&!hasPendingCampaigns(id)&&!b&&(!life||life.state==='revoked')});
  }
- return Object.freeze({journal,createLifecycle,approve,stageRevoke,quiesce,getSubject,bindingForUser,publicState});
+ return Object.freeze({journal,createLifecycle,requestLifecycle,approve,stageRevoke,stageRenew,quiesce,getSubject,hasPendingCampaigns,bindingForUser,bindingForRenewal,publicState});
 }
 module.exports={createWriterAuthAdapter};

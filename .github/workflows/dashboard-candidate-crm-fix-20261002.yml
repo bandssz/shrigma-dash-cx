@@ -47,6 +47,12 @@ jobs:
           node --test tools/crm-manager-install-review/runtime/run-install.test.cjs tools/crm-manager-install-review/runtime/supervisor/supervisor.test.cjs tools/crm-manager-install-review/runtime/compose/compose.test.cjs
           node --test tools/crm-manager-read-activation-review/runtime/runtime.test.cjs tools/crm-manager-read-activation-review/runtime/supervisor.test.cjs tools/crm-manager-read-activation-review/runtime/independent/durability.test.cjs
           node --test tools/crm-manager-read-activation-review/compose/build-compose.test.cjs
+      - name: Provar retenção cifrada e retomada sem repetir instalação
+        run: node --test tools/crm-manager-read-credential-custody/operator.test.cjs tools/crm-manager-read-credential-custody/admission.test.cjs
+      - name: Validar emissor de edição individual desligado e contratos fechados
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test services/crm-manager-writer/server.test.cjs
       - name: Conferir identidade de edição separada somente em fixture descartável
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
@@ -176,6 +182,35 @@ jobs:
           NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
         run: bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
 
+  native-postgres17-writer-broker-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Conferir fontes e recusa sem autorização nativa
+        run: |
+          node tools/crm-manager-writer-review/broker/native-broker.test.cjs --pure
+          bash -n tools/crm-manager-writer-review/broker/run-native-broker-proof.sh
+          bash -n tools/crm-manager-writer-review/broker/run-off-image-proof.sh
+      - name: Construir e iniciar somente emissor desligado sem rede
+        env:
+          CRM_WRITER_IMAGE_OFF_PROOF: '1'
+        run: |
+          docker build --file services/crm-manager-writer/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-crm-manager-writer:ci services/crm-manager-writer
+          bash tools/crm-manager-writer-review/broker/run-off-image-proof.sh
+      - name: Provar SCRAM, admissão e quatro RPCs em PostgreSQL17 novo e descartável
+        env:
+          CRM_WRITER_BROKER_NATIVE_PROOF: '1'
+        run: bash tools/crm-manager-writer-review/broker/run-native-broker-proof.sh
+
   manager-oci-no-sql-preflight:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
@@ -268,7 +303,7 @@ jobs:
             "$CLAUDE_CI_NODE" tools/claude-native-proofs/pg17-ci.cjs --cleanup
 
   publish-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&
@@ -294,7 +329,7 @@ jobs:
 
 # Publishes one gateway image; does not install a service, SQL, role or flag.
   publish-crm-provisioner-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&
@@ -428,7 +463,7 @@ jobs:
           retention-days: 7
 
   publish-crm-campaign-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&

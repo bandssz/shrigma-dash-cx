@@ -200,7 +200,11 @@ else (function(){'use strict';
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
-  campaignUi?.close();if(campaignButton)campaignButton.hidden=!(area==='growth'&&session.features?.campaignSubmitWrite===true&&session.user.role==='manager'&&session.user.areas.length===1&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
+  campaignUi?.close();if(campaignButton){
+   const writer=session.features?.campaignSubmitWrite===true,history=session.features?.campaignHistoryRead===true;
+   campaignButton.hidden=!(area==='growth'&&(writer||history)&&session.user.role==='manager'&&session.user.areas.length===1&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
+   campaignButton.textContent=writer?'Editar campanhas':'Consultar tentativas de campanhas';
+  }
   audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
   audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
   frame=document.createElement('iframe');frame.title=AREAS[area].label;frame.referrerPolicy='no-referrer';
@@ -291,7 +295,7 @@ else (function(){'use strict';
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
   const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
-  const writerLabels={requested:'Edição de campanhas solicitada',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',blocked:'Edição indisponível · retire a edição antes de renovar a leitura'};
+  const writerLabels={requested:'Edição de campanhas solicitada',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',renewing:'Renovando edição de campanhas · leitura preservada',blocked:'Edição indisponível · confira os acessos antes de renovar'};
   const access=user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   details.textContent=[areas,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
@@ -299,7 +303,7 @@ else (function(){'use strict';
    const actions=document.createElement('div');actions.className='user-row-actions';
    const label=document.createElement('label');label.textContent='Nível solicitado';
    const select=document.createElement('select');select.setAttribute('aria-label',`Nível de acesso de ${user.email}`);
-   for(const [value,title] of [['read','Somente leitura'],['edit',user.crmWriter?'Edição de campanhas (pendente)':'Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
+   for(const [value,title] of [['read','Somente leitura'],['edit',user.crmWriter||user.crmAccess?'Edição de campanhas (pendente)':'Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
    const currentAccess=granted||user.requestedAccess==='edit'?'edit':'read';
    select.value=currentAccess;
    const save=document.createElement('button');save.type='button';save.textContent='Salvar';save.disabled=true;
@@ -307,8 +311,11 @@ else (function(){'use strict';
    save.addEventListener('click',()=>saveAccessRequest(user,select,save));
    const revokeButton=document.createElement('button');revokeButton.type='button';revokeButton.textContent='Revogar acesso';revokeButton.addEventListener('click',()=>revoke(user,revokeButton));
    label.append(select);actions.append(label,save);
-   if(user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&user.permissions.growth.edit===false&&user.crmAccess?.state==='ready'&&user.crmAccess.ready===true&&user.crmAccess.canRenew===true&&user.crmAccess.expired===false&&user.crmAccess.renewalPhase===null){
+   if(user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&(user.permissions.growth.edit===false||user.crmWriter)&&user.crmAccess?.state==='ready'&&user.crmAccess.canRenew===true&&user.crmAccess.renewalPhase===null&&(user.crmAccess.ready===true&&user.crmAccess.expired===false||Object.hasOwn(user.crmAccess,'writerRevocationPending'))){
     const renewButton=document.createElement('button');renewButton.type='button';renewButton.textContent='Renovar acesso CRM';renewButton.setAttribute('aria-label',`Renovar acesso CRM de ${user.email}`);renewButton.addEventListener('click',()=>renewCrm(user,renewButton));actions.append(renewButton);
+   }
+   if(user.status==='active'&&user.crmWriter?.canRenew===true){
+    const renew=document.createElement('button');renew.type='button';renew.textContent='Renovar edição de campanhas';renew.setAttribute('aria-label',`Renovar edição de campanhas de ${user.email}`);renew.addEventListener('click',()=>renewCampaignWriter(user,renew));actions.append(renew);
    }
    if(user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
     const approve=document.createElement('button');approve.type='button';approve.textContent='Aprovar edição de campanhas';approve.setAttribute('aria-label',`Aprovar edição de campanhas de ${user.email}`);approve.addEventListener('click',()=>approveCampaignWriter(user,approve));actions.append(approve);
@@ -324,13 +331,20 @@ else (function(){'use strict';
   catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível aprovar. Confira o acesso de leitura e campanhas ainda pendentes.';}
   finally{button.disabled=false;}
  }
+ async function renewCampaignWriter(user,button){
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canRenew!==true)return;
+  button.disabled=true;adminMessage.textContent='Solicitando renovação da edição de campanhas…';
+  try{const {response,data}=await post('/auth/users',{action:'crm_writer_renew',userId:user.id});if(!response.ok&&!(response.status===409&&data?.error==='CRM_WRITER_RENEWAL_PENDING'))throw Error('writer_renewal_failed');await loadUsers();adminMessage.textContent='Renovação registrada. A leitura continua disponível; a edição aguarda nova validação individual.';}
+  catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível renovar a edição. Confira a leitura e tentativas pendentes das duas marcas.';}
+  finally{button.disabled=false;}
+ }
  async function renewCrm(user,button){
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmAccess?.canRenew!==true)return;
   button.disabled=true;adminMessage.textContent='Solicitando renovação do acesso CRM…';
   try{
    const {response,data}=await post('/auth/users',{action:'crm_renew',userId:user.id});
    if(!response.ok&&!(response.status===409&&data?.error==='CRM_RENEWAL_PENDING'))throw Error('crm_renew_failed');
-   await loadUsers();adminMessage.textContent=response.ok?'Renovação solicitada. Confira a fase do acesso; a confirmação ainda pode estar pendente.':'Já há uma renovação pendente. Use “Conferir acessos CRM” para retomar a confirmação.';
+   await loadUsers();adminMessage.textContent=response.ok?(data?.state==='writer_revocation_pending'?'Edição encerrada localmente. Confira os acessos CRM; após a confirmação da revogação, solicite novamente a renovação de leitura. A edição precisará de nova aprovação.':'Renovação solicitada para leitura. Confira a fase do acesso; a confirmação ainda pode estar pendente.'):'Já há uma renovação pendente. Use “Conferir acessos CRM” para retomar a confirmação.';
   }catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível confirmar a solicitação. Confira a fase do acesso CRM e se ele ainda está válido.';}
   finally{button.disabled=false;}
  }
@@ -349,7 +363,7 @@ else (function(){'use strict';
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
-  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
+  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
  }
  $('admin-crm-reconcile').addEventListener('click',async()=>{
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;

@@ -25,17 +25,21 @@ function createWriterJournal(c){
  const current=o=>{try{const s=subject(o.user_id);return eligible(s)&&s.owner===o.owner&&s.lifecycleId===o.lifecycle_id&&s.version===o.version&&o.life_state==='active';}catch{return false;}};
  const request=id=>{const o=row(id);if(mac('request:'+o.request_json)!==o.request_mac)fail();const q=JSON.parse(o.request_json);policy.statusRequest(q);return Object.freeze(q);};
  const proof=(o,name)=>{const value=o[name+'_json'];if(typeof value!=='string'||mac(name+':'+value)!==o[name+'_mac'])fail();return JSON.parse(value);};
- function enqueue(userId,kind='issue'){return atomic(()=>{
+ function enqueueCore(userId,kind='issue',allowExpired=false){
   if(!['issue','renew'].includes(kind))fail();const s=subject(userId);if(!eligible(s)||kind==='renew'&&(s.hasPendingCampaigns||s.canEdit))fail();
   let l=db.prepare('SELECT * FROM crm_writer_bridge_life_v1 WHERE lifecycle_id=?').get(s.lifecycleId);
   if(!l){if(kind!=='issue'||db.prepare("SELECT 1 FROM crm_writer_bridge_life_v1 WHERE user_id=? AND state<>'revoked'").get(userId))fail();db.prepare('INSERT INTO crm_writer_bridge_life_v1 VALUES(?,?,?,?,0,?,?)').run(s.lifecycleId,s.userId,s.owner,s.version,'active',crypto.randomUUID());l=db.prepare('SELECT * FROM crm_writer_bridge_life_v1 WHERE lifecycle_id=?').get(s.lifecycleId);}
   if(l.user_id!==s.userId||l.owner!==s.owner||l.version!==s.version||l.state!=='active'||kind==='issue'&&l.active_generation!==0||kind==='renew'&&l.active_generation<1)fail();
-  if(kind==='renew'){const old=db.prepare("SELECT committed_json,committed_mac FROM crm_writer_bridge_op_v1 WHERE lifecycle_id=? AND phase='promoted' ORDER BY rowid DESC LIMIT 1").get(l.lifecycle_id);if(!old||proof(old,'committed').expiresAt<=clock())fail();}
+  if(kind==='renew'){const old=db.prepare("SELECT committed_json,committed_mac FROM crm_writer_bridge_op_v1 WHERE lifecycle_id=? AND phase='promoted' ORDER BY rowid DESC LIMIT 1").get(l.lifecycle_id);if(!old||proof(old,'committed').expiresAt<=clock()&&!allowExpired)fail();}
   const id=crypto.randomUUID(),bearer=crypto.randomBytes(32).toString('hex'),cipher=sync(()=>c.encrypt(bearer));if(typeof cipher!=='string'||cipher.length>2048||cipher===bearer)fail();
   const args={operationId:id,userId:s.userId,lifecycleId:s.lifecycleId,owner:s.owner,principalId:'dcrmw-'+crypto.randomBytes(16).toString('hex'),keySha256:crypto.createHash('sha256').update(bearer).digest('hex'),...(kind==='renew'?{generation:l.active_generation+1,expectedGeneration:l.active_generation}:{})};
   const q=policy.command(kind==='issue'?'prepare_writer':'renew_writer',args),j=canonical(q);
   db.prepare('INSERT INTO crm_writer_bridge_op_v1(operation_id,commit_operation_id,lifecycle_id,kind,phase,request_json,request_mac,ciphertext,cipher_mac,bearer_mac) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,crypto.randomUUID(),s.lifecycleId,kind,'queued',j,mac('request:'+j),cipher,mac('cipher:'+cipher),mac(bearer));return Object.freeze({operationId:id});
- });}
+ }
+ function enqueue(userId,kind='issue'){return atomic(()=>enqueueCore(userId,kind));}
+ // Auth must quiesce the old grant and persist renewal in one identity transaction.
+ // This hook accepts only renewal; generic enqueue keeps its no-nesting contract.
+ function stageRenew(userId){if(!db.isTransaction||c.profile!=='corporate-read-writer-v1')fail();return enqueueCore(userId,'renew',true);}
  function state(id){if(db.isTransaction)fail();const o=row(id);let valid=current(o);if(o.phase==='promoted'){const q=request(id),r=proof(o,'committed');valid=valid&&subject(o.user_id).canEdit&&o.active_generation===q.generation&&r.expiresAt>clock()&&sync(()=>c.bindingReady(Object.freeze({userId:o.user_id,lifecycleId:o.lifecycle_id,version:o.version,namespaceId:c.namespaceId,principalId:q.principalId,generation:q.generation,expiresAt:r.expiresAt})))===true;}return Object.freeze({kind:o.kind,phase:o.phase,current:valid,candidateExpiresAt:o.prepared_json?proof(o,'prepared').candidateExpiresAt:null,expiresAt:o.committed_json?proof(o,'committed').expiresAt:null});}
  function live(o){if(!current(o))fail();return o;}
  function beginPrepare(id){return atomic(()=>{const o=live(row(id));if(!['queued','prepare_uncertain'].includes(o.phase))fail();db.prepare("UPDATE crm_writer_bridge_op_v1 SET phase='prepare_uncertain' WHERE operation_id=?").run(id);return request(id);});}
@@ -59,6 +63,6 @@ function createWriterJournal(c){
  function confirmRevoked(id,p){return atomic(()=>{const o=row(id);if(o.kind!=='revoke'||o.phase!=='revoke_pending')fail();policy.receipt(p,request(id));db.prepare("UPDATE crm_writer_bridge_life_v1 SET state='revoked' WHERE lifecycle_id=?").run(o.lifecycle_id);db.prepare("UPDATE crm_writer_bridge_op_v1 SET phase='revoked',ciphertext=NULL WHERE lifecycle_id=?").run(o.lifecycle_id);return true;});}
  function expire(id){return atomic(()=>{const o=live(row(id));if(o.phase!=='prepared'||proof(o,'prepared').candidateExpiresAt>clock())fail();db.prepare("UPDATE crm_writer_bridge_op_v1 SET phase='expired',ciphertext=NULL WHERE operation_id=?").run(id);return true;});}
  function pending(maximum=8){if(db.isTransaction||!Number.isSafeInteger(maximum)||maximum<1||maximum>8)fail();return Object.freeze(db.prepare("SELECT operation_id FROM crm_writer_bridge_op_v1 WHERE phase NOT IN ('promoted','expired','revoked') ORDER BY CASE WHEN kind='revoke' THEN 0 ELSE 1 END,rowid LIMIT ?").all(maximum).map(r=>r.operation_id));}
- return Object.freeze({enqueue,state,request,beginPrepare,recordPrepared,commitRequest,beginCommit,recordCommitted,candidate,recordAttestation,promote,compensate,stageRevoke,confirmRevoked,expire,pending});
+ return Object.freeze({enqueue,stageRenew,state,request,beginPrepare,recordPrepared,commitRequest,beginCommit,recordCommitted,candidate,recordAttestation,promote,compensate,stageRevoke,confirmRevoked,expire,pending});
 }
 module.exports={createWriterJournal};
