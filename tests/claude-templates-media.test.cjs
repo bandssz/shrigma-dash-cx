@@ -283,3 +283,19 @@ test('troca de marca não leva a biblioteca carregada nem o arquivo escolhido pa
  }
  assert.equal(x.calls.filter(c=>c.init.method==='POST').length,0);assert.ok(x.calls.every(c=>c.init.headers.Authorization==='Bearer read-key'));
 });
+
+test('biblioteca não abre vazia quando a página nativa só tem arquivos da outra marca',async()=>{
+ // 24 arquivos recentes d'O Aristocrata ocupam a página 1 do Listmonk; os da Fishermans estão na página 2.
+ const per=24,aristo=Array.from({length:per},(_,i)=>item(canonicalFilename('aristo',operation,String(i).padStart(64,'b'),'png'),100+i));
+ const fish=[1,2,3].map(i=>item(canonicalFilename('fish',operation,String(i).padStart(64,'a'),'png'),i)),all=[...aristo,...fish],pages=[];
+ const native={origin:'https://email.shrigma.com.br',list:async({page,perPage})=>{pages.push(page);return {status:200,body:{data:{results:all.slice((page-1)*perPage,page*perPage),total:all.length,page,per_page:perPage}}};},upload:async()=>assert.fail('read only')};
+ const execute=createMediaExecutor({pool:authPool(['read_content']),native});
+ const r=await execute({key:'read',method:'GET',input:{brand:'fish',page:1,per_page:per}});
+ assert.equal(r.status,200);assert.deepEqual(r.body.items.map(x=>x.id),[1,2,3],'a primeira consulta já traz as imagens da marca');
+ assert.equal(r.body.page,2);assert.equal(r.body.next_page,null);assert.deepEqual(pages,[1,2]);
+ // Sem nenhum arquivo da marca, a varredura é limitada e devolve a próxima página para continuar.
+ pages.length=0;const many=Array.from({length:per*6},(_,i)=>item(canonicalFilename('aristo',operation,String(i).padStart(64,'c'),'png'),500+i));
+ native.list=async({page,perPage})=>{pages.push(page);return {status:200,body:{data:{results:many.slice((page-1)*perPage,page*perPage),total:many.length,page,per_page:perPage}}};};
+ const empty=await execute({key:'read',method:'GET',input:{brand:'fish',page:1,per_page:per}});
+ assert.equal(empty.status,200);assert.deepEqual(empty.body.items,[]);assert.equal(pages.length,4);assert.equal(empty.body.page,4);assert.equal(empty.body.next_page,5);
+});
