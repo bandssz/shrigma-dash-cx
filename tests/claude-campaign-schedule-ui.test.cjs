@@ -64,12 +64,24 @@ test('a confirmação de agendamento mostra as listas conferidas mesmo sem o cat
  }
 });
 
+test('campanha antiga agendada fora do contrato aparece com status e aviso de que o painel não a cancela',async()=>{
+ for(const brand of ['fish','aristo']){
+  const legacy={id:91,version:'legacy-2',status:'scheduled',sent:0,started_at:null,send_at:'2030-01-02T12:00:00.000Z',definition:{...definition(brand),name:'Envio <b>antigo</b> agendado',html:'<p>sem descadastro</p>',text:'sem descadastro'}};
+  const x=boot({brand,history:[legacy]});x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);
+  x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]'));
+  const hidden=x.q('[data-ce-campaigns-hidden]');assert.ok(hidden,'histórico informa a campanha fora do contrato');
+  const row=hidden.querySelector('[data-ce-hidden-status="scheduled"]');assert.ok(row);
+  assert.match(row.textContent,/Envio <b>antigo<\/b> agendado · Agendada · 0 enviados/);assert.equal(row.querySelector('b'),null,'nome escapado');
+  assert.match(row.textContent,/não pode ser cancelada por este painel/);assert.equal(hidden.querySelector('[data-ce-open]'),null,'sem botão de reabrir');
+ }
+});
+
 test('uma campanha antiga fora do contrato não impede carregar catálogo e histórico da marca, e o histórico avisa que ela ficou de fora',async()=>{
  for(const brand of ['fish','aristo']){
   const legacy={id:90,version:'legacy',status:'finished',sent:12,started_at:'2026-01-01T12:00:00.000Z',send_at:'2026-01-01T12:00:00.000Z',definition:{...definition(brand),name:'Envio antigo',html:'<p>sem descadastro</p>',text:'sem descadastro'}};
   const x=boot({brand,history:[legacy]});x.q('[data-ce-save]').click();await until(()=>!x.q('[data-ce-validate]').disabled);
   x.q('[data-ce-refresh]').click();await until(()=>x.q('[data-ce-list]'));
-  assert.match(x.q('[data-ce-catalog]').textContent,/Clientes recorrentes/);assert.match(x.q('[data-ce-campaigns]').textContent,/Campanha de exemplo/);assert.doesNotMatch(x.q('[data-ce-campaigns]').textContent,/Envio antigo/);
+  assert.match(x.q('[data-ce-catalog]').textContent,/Clientes recorrentes/);assert.match(x.q('[data-ce-campaigns]').textContent,/Campanha de exemplo/);assert.doesNotMatch(x.q('[data-ce-campaigns] .ce-campaign-list').textContent,/Envio antigo/,'fora da lista de reabertura');assert.match(x.q('[data-ce-campaigns-hidden]').textContent,/Envio antigo · Concluída · 12 enviados/);
   // A campanha fora do contrato não some em silêncio: o histórico informa quantas ficaram de fora.
   assert.match(x.q('[data-ce-campaigns-hidden]')?.textContent||'',/^1 campanha antiga desta marca está fora do contrato atual/);
   assert.doesNotMatch(x.q('[data-ce-status]').textContent,/não foi confirmada/);

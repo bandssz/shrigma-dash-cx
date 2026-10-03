@@ -3,7 +3,7 @@
 const GCE=(()=>{
  let contextBrand=null,contextEpoch=0,localError='',localCampaign=undefined,checkCampaign=false;
  const fields=['brand','initiative_name','initiative_key','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','send_at','tags','html','text'];
- let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[],hiddenCampaigns=0;
+ let root=null,dirty=false,api=null,remote=null,remoteCaps=null,remoteBusy=false,remoteBrand=null,remoteCampaigns=[],hiddenCampaigns=[];
  let sessionWrite='',legacyWrite=true,accessImporting=false,accessEpoch=0,accessFileError=false,accessCaller=null;
  let confirmation=null,deferredAccess='',audienceTimer=null,remoteRead=false,dialogOpen=false;
  let confirmedCatalog=null,onCatalog=null,audienceView=null,queuedSavedAudience=null;
@@ -59,7 +59,7 @@ const GCE=(()=>{
  function enterBrand(brand){
   if(contextStatus().navigationBlocked)return false;
   if(brand!==contextBrand){audienceView?.destroy();audienceView=null;queuedSavedAudience=null;} // Per-brand journals remain in storage for consultation on return.
-  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];hiddenCampaigns=0;localError='';clearCatalog();
+  contextBrand=brand;contextEpoch++;remote=null;remoteBrand=null;remoteCampaigns=[];hiddenCampaigns=[];localError='';clearCatalog();
   let initial=blank(brand);try{initial={...initial,...(GBS.campaign(brand)||{})};}catch(e){localError=e.message;}
   checkCampaign=Object.hasOwn(initial,'_campaign');localCampaign=checkCampaign?initial._campaign:undefined;
   initial.brand=GBS.validBrand(brand)?brand:'';fill(initial);dirty=fields.some(k=>k!=='brand'&&initial[k]);
@@ -168,7 +168,7 @@ const GCE=(()=>{
   const next=GCA.caps(api),brand=contextBrand;
   if(confirmedCatalog&&(!catalogCurrent(confirmedCatalog.context)||next.endpoint!==remoteCaps?.endpoint||!next.read||!next.brands.includes(brand)))clearCatalog();
   if(remote&&remoteBrand===brand&&remoteCaps?.endpoint===next.endpoint){remoteCaps=next;remote.updateCapabilities(next);checkLocalCampaign();paintRemote();return;}
-  remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];hiddenCampaigns=0;
+  remote=null;remoteCaps=next;remoteBrand=brand;remoteCampaigns=[];hiddenCampaigns=[];
   q('[data-ce-catalog]').innerHTML='';q('[data-ce-campaigns]').innerHTML='';
   for(const n of ['list_ids','template_id'])q(`[name=${n}]`).closest('label').hidden=false;
   if(next.endpoint&&next.brands.includes(brand)){
@@ -290,7 +290,7 @@ const GCE=(()=>{
  }
  function renderCampaigns(campaigns){
   remoteCampaigns=campaigns;
-  q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||`<p>Nenhuma campanha salva nesta marca.${remoteCaps?.save?' Use Preparar novo rascunho para começar.':''}</p>`}</div>${hiddenCampaigns>0?`<p class="mini" data-ce-campaigns-hidden>${hiddenCampaigns===1?'1 campanha antiga desta marca está fora do contrato atual e não pode ser reaberta aqui':hiddenCampaigns+' campanhas antigas desta marca estão fora do contrato atual e não podem ser reabertas aqui'}. Ela${hiddenCampaigns===1?' continua':'s continuam'} preservada${hiddenCampaigns===1?'':'s'} no serviço de envio.</p>`:''}`;
+  q('[data-ce-campaigns]').innerHTML=`<div class="ce-campaign-list">${campaigns.map(c=>`<article><div><strong>${esc(c.definition.name)}</strong><span>${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}</span></div><button type="button" class="ce-secondary" data-ce-open="${c.id}">Reabrir</button></article>`).join('')||`<p>Nenhuma campanha salva nesta marca.${remoteCaps?.save?' Use Preparar novo rascunho para começar.':''}</p>`}</div>${hiddenCampaigns.length?`<div class="ce-campaign-hidden" data-ce-campaigns-hidden><p class="mini">${hiddenCampaigns.length===1?'1 campanha antiga desta marca está fora do contrato atual e não pode ser reaberta aqui':hiddenCampaigns.length+' campanhas antigas desta marca estão fora do contrato atual e não podem ser reabertas aqui'}. Continua${hiddenCampaigns.length===1?'':'m'} preservada${hiddenCampaigns.length===1?'':'s'} no serviço de envio.</p><ul>${hiddenCampaigns.map(c=>`<li data-ce-hidden-status="${esc(c.status)}"><strong>${esc(c.name||'Campanha '+c.id)}</strong> · ${esc(statusName(c.status))} · ${c.sent} enviados · ${esc(stamp(c.send_at))}${['scheduled','running','paused'].includes(c.status)?' · <strong>não pode ser cancelada por este painel; acione o responsável pelo serviço de envio.</strong>':''}</li>`).join('')}</ul></div>`:''}`;
   q('[data-ce-campaigns]').querySelectorAll('[data-ce-open]').forEach(btn=>btn.addEventListener('click',()=>{
    if(confirmation||remoteBusy)return;const id=Number(btn.dataset.ceOpen),client=remote;
    // Catálogo antes da reabertura: se a leitura falhar, o diário continua na campanha anterior
@@ -301,7 +301,7 @@ const GCE=(()=>{
  }
  function bindRemote(){
   bindAccess();
-  q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);hiddenCampaigns=client.listSkipped?.()||0;renderCampaigns(campaigns);},{read:true});});
+  q('[data-ce-refresh]').addEventListener('click',()=>{const client=remote;return runRemote(async()=>{const context=catalogContext(),catalog=await readCatalog(client);if(!catalog)return;const campaigns=await client.list();if(!catalogCurrent(context)){clearCatalog();return;}renderCatalog(catalog);hiddenCampaigns=client.listSkipped?.()||[];renderCampaigns(campaigns);},{read:true});});
   q('[data-ce-new]').addEventListener('click',()=>{
    if(!remote||remote.locked()||remoteBusy||confirmation||audienceFrozen()||localError)return;const client=remote,brand=values().brand;
    const work=confirmed=>runRemote(async()=>{await client.newDraft();fill(blank(brand));saveLocal();return {localOnly:true};},{confirmed});
