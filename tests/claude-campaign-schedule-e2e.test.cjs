@@ -12,9 +12,11 @@ const AUTH={[WRITE]:{actor:'claude-e2e-manager',caps:['read_content','draft','va
 const definition=(brand='fish')=>{const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';return {schema_version:'crm-campaign-v1',brand,channel:'email',initiative:{key:'e2e-'+brand,name:'E2E '+brand},utm_campaign:'e2e-'+brand,name:'Disparo '+brand,subject:'Assunto',from_email:'contato@'+domain,reply_to:'contato@'+domain,list_ids:[brand==='fish'?3:7],template_id:1,html:`<a href="https://${domain}/products/x">x</a>{{ UnsubscribeURL }}`,text:`https://${domain}/products/x {{ UnsubscribeURL }}`,tags:[],send_at:new Date(Date.now()+86400000).toISOString()};};
 
 async function setup(t){
+ const control={before:null,after:null,query:null};
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite'),db=new PGlite();t.after(()=>db.close());
  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
- let next=300;const query=(sql,params)=>db.query(sql,params);
+ // control.query (R1): simula falha de transporte antes do SQL do provider, sem tocar no banco.
+ let next=300;const query=(sql,params)=>control.query?control.query(sql,params,db):db.query(sql,params);
  const provider=createProvider({query,validateContent:async({templateVersion})=>({ok:true,templateVersion}),nativeCreate:async payload=>{
   const id=next++;await db.exec('BEGIN');
   await db.query(`INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs)
@@ -23,7 +25,7 @@ async function setup(t){
   await db.exec('COMMIT');return {id};
  }});
  const service=createService({store:createStore({query}),provider});
- const calls=[],control={before:null,after:null};
+ const calls=[];
  // Mesmo contrato do serviço HTTP: GET usa Bearer, POST usa body.k; id do GET vira número.
  async function fetch(url,init){
   const u=new URL(url);let key,request;
@@ -81,7 +83,7 @@ test('timeout antes do commit não muda a campanha, mantém o diário travado e 
  assert.equal(f.posts('agendar').length,1);assert.equal((await f.row(id)).status,'draft');
 });
 
-test('duas abas pedindo agendar ao mesmo tempo produzem uma intenção; cancelamento concorrente de outro navegador reconcilia por GET',async t=>{
+test('duas abas pedindo agendar ao mesmo tempo produzem uma intenção; cancelamento concorrente de outro navegador é recusado sem efeito e a versão atual é relida por GET',async t=>{
  const f=await setup(t),{b,client,d,s}=await reviewed(f),id=s.campaign.id,tab=A.createClient(b.options);
  const results=await Promise.allSettled([client.schedule(d,'agendar',s.validation.audience.review_id),tab.schedule(d,'agendar',s.validation.audience.review_id)]);
  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.find(r=>r.status==='rejected').reason.code,'OPERATION_PENDING');
@@ -90,9 +92,11 @@ test('duas abas pedindo agendar ao mesmo tempo produzem uma intenção; cancelam
  const other=f.browser().open();await other.reopen(id);
  const both=await Promise.allSettled([client.cancel('cancelar'),A.createClient(b.options).cancel('cancelar')]);
  assert.equal(both.filter(r=>r.status==='fulfilled').length,1);assert.equal(f.posts('cancelar').length,1);
- // O outro navegador ainda vê a versão agendada: o servidor recusa e o cliente concilia sem novo POST.
- await assert.rejects(()=>other.cancel('cancelar'));assert.equal(other.locked(),true);assert.equal(f.posts('cancelar').length,2);
- await other.consult();assert.equal(other.locked(),false);assert.equal(other.snapshot().campaign.status,'cancelled');assert.equal(other.snapshot().operation.phase,'rejected');
+ // O outro navegador ainda vê a versão agendada: o servidor grava a recusa (409 com operation_id,
+ // sem efeito) e o cliente a resolve na hora, sem novo POST; reabrir mostra a versão atual.
+ await assert.rejects(()=>other.cancel('cancelar'),e=>e.code==='VERSION_CONFLICT'&&/Nada foi alterado/.test(e.message));assert.equal(other.locked(),false);assert.equal(f.posts('cancelar').length,2);
+ assert.equal(other.snapshot().operation.phase,'rejected');assert.equal(other.snapshot().operation.response.status,409);assert.equal((await f.operation(other.snapshot().operation.key)).state,'rejected');
+ await other.reopen(id);assert.equal(other.snapshot().campaign.status,'cancelled');
  assert.equal(f.posts('cancelar').length,2);assert.deepEqual(await f.row(id),{status:'cancelled',sent:0,started_at:null});
 });
 
@@ -107,4 +111,23 @@ test('histórico do editor: campanha antiga fora do contrato não derruba a list
  // Uma resposta que traga outra marca continua recusada por inteiro.
  f.control.after=async(req,r)=>{if(req.acao==='campanha_listar')r.body.campaigns.push(structuredClone(aristoList[0]));};
  await assert.rejects(()=>fish.b.open().list(),{code:'CAMPAIGNS_UNCONFIRMED'});
+});
+
+test('R1: agendar interrompido antes do SQL fica outcome_unknown; o painel prova ausência (recibo final + mesma versão) e libera por ação explícita, sem repetir POST',async t=>{
+ for(const brand of ['fish','aristo']){
+  const f=await setup(t);
+  if(brand==='aristo')await f.db.exec("INSERT INTO subscribers VALUES(50,'enabled');INSERT INTO subscriber_lists VALUES(50,7,'confirmed')");
+  const {b,client,d,s}=await reviewed(f,brand),id=s.campaign.id;
+  f.control.query=(sql,params,db)=>{if(params?.[0]==='schedule')throw Error('synthetic connection reset before SQL');return db.query(sql,params);};
+  await assert.rejects(()=>client.schedule(d,'agendar',s.validation.audience.review_id));f.control.query=null;
+  const key=client.snapshot().operation.key;assert.equal(client.locked(),true);assert.equal((await f.operation(key)).state,'outcome_unknown');assert.equal((await f.row(id)).status,'draft');
+  const reopened=b.open();await reopened.consult();assert.equal(reopened.locked(),true);assert.equal(reopened.canReleaseUnapplied(),true);
+  const released=await reopened.releaseUnapplied('liberar');assert.equal(reopened.locked(),false);
+  assert.equal(released.operation.absence.operation_state,'outcome_unknown');assert.equal(released.campaign.version,s.campaign.version);assert.equal(released.validation,null);
+  assert.equal(f.posts('agendar').length,1);assert.equal((await f.operation(key)).state,'outcome_unknown','recibo do servidor preservado');
+  // Nova tentativa só depois de nova conferência, com nova chave.
+  await assert.rejects(()=>reopened.schedule(d,'agendar',s.validation.audience.review_id));
+  await reopened.validate(d);const again=await reopened.schedule(d,'agendar',reopened.snapshot().validation.audience.review_id);
+  assert.equal(again.campaign.status,'scheduled');assert.equal(f.posts('agendar').length,2);assert.notEqual(f.posts('agendar')[1].request.idempotency_key,key);
+ }
 });

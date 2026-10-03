@@ -77,8 +77,9 @@ test('catalog drift before save yields a durable rejection; the DOM keeps origin
  const f=await setup(t),x=boot(f);await x.ui.sync({api,brand:'fish'});x.input('[data-gs-name]','Cem reais','input');await click(x,'add-condition');x.input('[data-gs-field]','purchase.amount');x.input('[data-gs-value]','100,00');x.q('[data-gs="remove"][data-path="0"]').click();
  const old=JSON.parse(f.storage.getItem(UI.SLOT+'fish')).draft_catalog_hash;
  await f.db.exec("UPDATE crm_audience_v2.config SET catalog=jsonb_set(catalog,'{currency}','\"USD\"'::jsonb) WHERE brand='fish'");
- await click(x,'save');assert.match(x.element.textContent,/tentativa sem confirmação/);assert.equal((await rows(f)).length,0);
- await click(x,'consult');assert.match(x.element.textContent,/Tentativa recusada/);assert.match(x.element.textContent,/Valor em BRL/);assert.doesNotMatch(x.element.textContent,/Valor em USD/);assert.ok(x.q('[data-gs-context-changed]'));assert.equal(x.q('[data-gs="save"]').disabled,true);
+ // A recusa sai depois do recibo gravado e sem efeito: resolve na hora, sem consultar.
+ await click(x,'save');assert.match(x.element.textContent,/fontes, moeda ou regras de inscrição mudaram/);assert.doesNotMatch(x.element.textContent,/tentativa sem confirmação/);assert.equal((await rows(f)).length,0);assert.equal(f.calls.filter(c=>c.request.acao==='segmento_operacao').length,0);
+ assert.match(x.element.textContent,/Valor em BRL/);assert.doesNotMatch(x.element.textContent,/Valor em USD/);assert.ok(x.q('[data-gs-context-changed]'));assert.equal(x.q('[data-gs="save"]').disabled,true);
  const request=f.calls.find(c=>c.request.acao==='segmento_criar').request;assert.equal(request.expected_catalog_hash,old);assert.equal(f.calls.filter(c=>c.request.acao==='segmento_criar').length,1);
  const receipt=(await f.db.query('SELECT response FROM crm_audience_v2.request')).rows[0].response;assert.equal(receipt._http,409);assert.equal(receipt._body.error,'SEGMENT_CATALOG_CHANGED');
 });
