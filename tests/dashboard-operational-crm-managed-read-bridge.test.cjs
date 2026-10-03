@@ -169,13 +169,13 @@ test('master retains its own existing campaign/read/organic/influs credentials a
  assert.equal(calls.length,4);assert.equal(bridgeCalls,0);assert.equal(server.listening,false);assert.deepEqual(f.inspect(d=>d.prepare('SELECT * FROM upstream_credentials WHERE user_id=? ORDER BY slot').all(admin)),before);
  assert.equal(f.auth.managedCrmJournal.status(admin),null);
 });
-test('master missing a route-specific credential remains a documented gap; neither manager bearer nor crm-panel-read is adopted, and CREATE code is retained',async t=>{
+test('master missing a route-specific credential remains a documented gap; neither manager bearer nor crm-panel-read is adopted, and reviewed CREATE guards remain closed',async t=>{
  const{f}=await ready(t),admin=f.master.user.id,before=f.baseline();let bridgeCalls=0,calls=0;
  const auth={...f.auth,managedCrmReadAuthorization:ctx=>{bridgeCalls++;return f.auth.managedCrmReadAuthorization(ctx);}};
  const server=S.createServer(serverSettings(f),{auth,managedCrmRuntime:{kick:async()=>{},close:async()=>{}},fetchImpl:async()=>{calls++;return response({});}}),ctx={host:hosts.manager,method:'GET',cookieHeader:f.context.cookieHeader};
  for(const url of ['/api/campaigns?acao=campanha_catalogo&brand=fish','/api/cx?painel=organico']){const denied=await request(server,ctx,url);assert.equal(denied.status,503);assert.equal(denied.body.error,'INDIVIDUAL_CREDENTIAL_MISSING');}
  assert.equal(bridgeCalls,0);assert.equal(calls,0);assert.deepEqual(f.baseline(),before);assert.equal(f.auth.managedCrmJournal.status(admin),null);
- for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","1b0bcc0fee086011efaeae6647c7e09746b0a68c43c1cec7ba034956a06409ca"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","92033c5c18390e5d2bf8332e3d461db60691fad1819e1ecd1b98824af1cca08e"]]){
+ for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","45d9c75164b9272782c778916420d9c4207f9c5bd58cae6fd3377fd3d849dc75"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","56f9a591b1dc1872685a898c5ed3b1faf92a4727b36e42e1d931c670f57e6758"]]){
   const proposed=fs.readFileSync(path.join(ROOT,'services/dashboard-operational',name),'utf8'),begin=proposed.indexOf(start),finish=proposed.indexOf(end,begin);assert.ok(begin>=0&&finish>begin);assert.equal(crypto.createHash('sha256').update(proposed.slice(begin,finish)).digest('hex'),expected);
  }
  assert.equal(B.PASSTHROUGH_DESTINATIONS.cx,P.FIXED_DESTINATIONS.cx);assert.equal(B.PASSTHROUGH_DESTINATIONS.influ,P.FIXED_DESTINATIONS.influ);

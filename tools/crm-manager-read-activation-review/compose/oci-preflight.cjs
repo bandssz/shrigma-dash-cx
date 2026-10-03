@@ -1,14 +1,30 @@
 'use strict';
 // Public proposal. Import/pure tests do not use Docker, PG, env or a socket.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const BUILDER_SHA='2bb67edc376b401b36470ee082e1621a4f7160f9250bb6e9dc214c4eea75c62f';
+const BUILDER_SHA='6a7946f703e1661a174d53314c833b4bb7d1eb246b905bc18d4c463020d42f20';
 const IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815';
 const PURPOSE='read-stage-isolated-review',FAIL='READ_COMPOSE_OCI_PREFLIGHT_REFUSED';
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const copy=x=>JSON.parse(JSON.stringify(x));
-function refuse(){throw Error(FAIL);}
-function pinsMatch(builder){if(sha(fs.readFileSync(path.join(__dirname,'build-compose.cjs')))!==BUILDER_SHA||builder.IMAGE!==IMAGE||Object.keys(builder.PINS).length!==9)refuse();}
-function sourceInputs(builder){return Object.fromEntries(Object.keys(builder.PINS).map(name=>{const p=path.join(__dirname,'../runtime',name),s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)refuse();const bytes=fs.readFileSync(p);if(sha(bytes)!==builder.PINS[name])refuse();return[name,bytes.toString('utf8')];}));}
+const CHECKS=Object.freeze(['unspecified','unexpected_exception','platform_opt_in','builder_pin','source_pin','probe_size','resource_policy','execution_command','health_disabled','capabilities','mount_policy','secret_env','container_state','name_collision','image_volume','compose_shape','container_ids','exit_code','docker_command','resource_inventory','json_reply','cleanup']);
+const PHASES=Object.freeze(['entrypoint','requirements','source_admission','prepare_config','collision_check','image_pull','image_admission','compose_parse','compose_create','inspect_created_init','inspect_created_gateway','start_init','wait_init','inspect_exited_init','start_gateway','wait_gateway','inspect_exited_gateway','cleanup']);
+const failures=new WeakMap(),reported=new WeakSet();
+function refuse(check='unspecified'){const e=Error(FAIL);failures.set(e,CHECKS.includes(check)?check:'unspecified');throw e;}
+function failureEnvelope(phase,check,cleanup){
+ if(!PHASES.includes(phase)||!CHECKS.includes(check)||!['not_needed','verified','refused'].includes(cleanup))refuse();
+ return Object.freeze({schema:'shrigma-read-compose-oci-refusal-v1',phase,check,cleanup});
+}
+function emitFailure(phase,error,cleanup){
+ process.stderr.write(JSON.stringify(failureEnvelope(phase,failures.get(error)||'unexpected_exception',cleanup))+'\n');
+ if(error&&typeof error==='object')reported.add(error);
+}
+function dockerOutput(reply){if(reply.status!==0||typeof reply.stdout!=='string')refuse('docker_command');return reply.stdout.trim();}
+function listedOwn(raw,exact){
+ if(typeof raw!=='string'||raw.length>128)refuse('resource_inventory');
+ const names=raw===''?[]:raw.split('\n');if(names.length>1||names.some(x=>x!==exact))refuse('resource_inventory');return names.length===1;
+}
+function pinsMatch(builder){if(sha(fs.readFileSync(path.join(__dirname,'build-compose.cjs')))!==BUILDER_SHA||builder.IMAGE!==IMAGE||Object.keys(builder.PINS).length!==9)refuse('builder_pin');}
+function sourceInputs(builder){return Object.fromEntries(Object.keys(builder.PINS).map(name=>{const p=path.join(__dirname,'../runtime',name),s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)refuse('source_pin');const bytes=fs.readFileSync(p);if(sha(bytes)!==builder.PINS[name])refuse('source_pin');return[name,bytes.toString('utf8')];}));}
 function probeRuntime(PINS){
  const fs=require('node:fs'),crypto=require('node:crypto');
  const reject=()=>{throw 0;};
@@ -41,7 +57,7 @@ function probeRuntime(PINS){
   if(fs.readdirSync('/runtime-proof').length)reject();
  }catch{process.stderr.write('READ_COMPOSE_OCI_PROBE_REFUSED\n');process.exitCode=1;}
 }
-function probeSource(pins){const source="'use strict';("+probeRuntime.toString()+')('+JSON.stringify(pins)+');';if(source.includes('$')||Buffer.byteLength(source)>16000)refuse();return source;}
+function probeSource(pins){const source="'use strict';("+probeRuntime.toString()+')('+JSON.stringify(pins)+');';if(source.includes('$')||Buffer.byteLength(source)>16000)refuse('probe_size');return source;}
 function preflightCompose(plan){
  const compose=copy(plan.compose),g=compose.services.gateway;
  // Exact explicit CI deltas: inactive probe command, network none, no env file,
@@ -59,55 +75,63 @@ function tmpfsPolicy(host,init){
 }
 function assertContainer(value,kind,plan,project){
  const c=value.Config,h=value.HostConfig,init=kind==='init-volumes',service=plan.compose.services[kind],net=value.NetworkSettings;
- if(!owned(c?.Labels,plan.serviceName.slice(-12),project)||c.Image!==IMAGE||c.User!==service.user||h.ReadonlyRootfs!==true||h.NetworkMode!=='none'||Object.keys(h.PortBindings||{}).length||h.PublishAllPorts!==false||h.Privileged!==false||h.NanoCpus!==(init?100000000:350000000)||h.Memory!==service.mem_limit||h.MemorySwap!==service.memswap_limit||h.PidsLimit!==service.pids_limit||JSON.stringify(h.CapDrop)!==JSON.stringify(['ALL'])||JSON.stringify(h.CapAdd||[])!==JSON.stringify(init?['CHOWN']:[])||!Array.isArray(h.SecurityOpt)||h.SecurityOpt.length!==1||!['no-new-privileges','no-new-privileges:true'].includes(h.SecurityOpt[0])||h.RestartPolicy?.Name!=='no'||Object.keys(net?.Networks||{}).some(k=>k!=='none')||!tmpfsPolicy(h,init))refuse();
+ if(!owned(c?.Labels,plan.serviceName.slice(-12),project)||c.Image!==IMAGE||c.User!==service.user||h.ReadonlyRootfs!==true||h.NetworkMode!=='none'||Object.keys(h.PortBindings||{}).length||h.PublishAllPorts!==false||h.Privileged!==false||h.NanoCpus!==(init?100000000:350000000)||h.Memory!==service.mem_limit||h.MemorySwap!==service.memswap_limit||h.PidsLimit!==service.pids_limit||!Array.isArray(h.SecurityOpt)||h.SecurityOpt.length!==1||!['no-new-privileges','no-new-privileges:true'].includes(h.SecurityOpt[0])||h.RestartPolicy?.Name!=='no'||Object.keys(net?.Networks||{}).some(k=>k!=='none')||!tmpfsPolicy(h,init))refuse('resource_policy');
+ const added=h.CapAdd||[];if(JSON.stringify(h.CapDrop)!==JSON.stringify(['ALL'])||!Array.isArray(added)||(init?added.length!==1||!['CHOWN','CAP_CHOWN'].includes(added[0]):added.length!==0))refuse('capabilities');
  const expected=init?service:preflightCompose(plan).services.gateway;
- if(JSON.stringify(c.Entrypoint)!==JSON.stringify(expected.entrypoint)||JSON.stringify(c.Cmd)!==JSON.stringify(expected.command)||init&&c.Healthcheck||!init&&JSON.stringify(c.Healthcheck?.Test)!==JSON.stringify(['NONE'])||!init&&h.Init!==true)refuse();
- const mounts=value.Mounts;if(!Array.isArray(mounts)||mounts.filter(x=>x.Type==='volume').length!==3||JSON.stringify(Object.keys(c.Volumes||{}).sort())!==JSON.stringify(['/dashboard-data']))refuse();
- const extra=mounts.filter(x=>x.Type!=='volume');if(init&&extra.length||!init&&(extra.length>1||extra.some(x=>x.Type!=='tmpfs'||x.Destination!=='/tmp'||x.RW!==true)))refuse();
- const inherited=mounts.find(x=>x.Destination==='/dashboard-data');if(!inherited||inherited.Type!=='volume'||!/^[a-f0-9]{64}$/.test(inherited.Name||'')||inherited.RW!==true||h.Mounts?.some(x=>x.Target==='/dashboard-data'))refuse();
- for(const m of expected.volumes){const actual=mounts.find(x=>x.Destination===m.target),requested=h.Mounts?.find(x=>x.Target===m.target),name=plan.compose.volumes[m.source].name;if(!actual||actual.Type!=='volume'||actual.Name!==name||actual.RW!==(m.read_only!==true)||!requested||requested.Type!=='volume'||requested.Source!==name||requested.VolumeOptions?.NoCopy!==true||(requested.ReadOnly??false)!==(m.read_only===true))refuse();}
- if((c.Env||[]).some(x=>/^(PG_ADMIN_PASSWORD|READ_SERVICE_SCRAM|PGPASSWORD|READ_RUNTIME_ACTION|READ_RUNTIME_OPERATION_ID)=/.test(x)))refuse();
- if(value.State?.OOMKilled||value.State?.Dead)refuse();
+ if(JSON.stringify(c.Entrypoint)!==JSON.stringify(expected.entrypoint)||JSON.stringify(c.Cmd)!==JSON.stringify(expected.command)||!init&&h.Init!==true)refuse('execution_command');
+ if(expected.healthcheck?.disable!==true||JSON.stringify(c.Healthcheck?.Test)!==JSON.stringify(['NONE']))refuse('health_disabled');
+ const mounts=value.Mounts;if(!Array.isArray(mounts)||mounts.filter(x=>x.Type==='volume').length!==3||JSON.stringify(Object.keys(c.Volumes||{}).sort())!==JSON.stringify(['/dashboard-data']))refuse('mount_policy');
+ const extra=mounts.filter(x=>x.Type!=='volume');if(init&&extra.length||!init&&(extra.length>1||extra.some(x=>x.Type!=='tmpfs'||x.Destination!=='/tmp'||x.RW!==true)))refuse('mount_policy');
+ const inherited=mounts.find(x=>x.Destination==='/dashboard-data');if(!inherited||inherited.Type!=='volume'||!/^[a-f0-9]{64}$/.test(inherited.Name||'')||inherited.RW!==true||h.Mounts?.some(x=>x.Target==='/dashboard-data'))refuse('mount_policy');
+ for(const m of expected.volumes){const actual=mounts.find(x=>x.Destination===m.target),requested=h.Mounts?.find(x=>x.Target===m.target),name=plan.compose.volumes[m.source].name;if(!actual||actual.Type!=='volume'||actual.Name!==name||actual.RW!==(m.read_only!==true)||!requested||requested.Type!=='volume'||requested.Source!==name||requested.VolumeOptions?.NoCopy!==true||(requested.ReadOnly??false)!==(m.read_only===true))refuse('mount_policy');}
+ if((c.Env||[]).some(x=>/^(PG_ADMIN_PASSWORD|READ_SERVICE_SCRAM|PGPASSWORD|READ_RUNTIME_ACTION|READ_RUNTIME_OPERATION_ID)=/.test(x)))refuse('secret_env');
+ if(value.State?.OOMKilled||value.State?.Dead)refuse('container_state');
  return true;
 }
 function runOci(){
- if(process.platform!=='linux'||process.versions.node.split('.')[0]!=='22'||process.env.READ_COMPOSE_OCI_PREFLIGHT!=='1'||!fs.statSync('/var/run/docker.sock').isSocket())refuse();
- const builder=require('./build-compose.cjs');pinsMatch(builder);
+ let phase='requirements';
+ if(process.platform!=='linux'||process.versions.node.split('.')[0]!=='22'||process.env.READ_COMPOSE_OCI_PREFLIGHT!=='1'||!fs.statSync('/var/run/docker.sock').isSocket())refuse('platform_opt_in');
+ phase='source_admission';const builder=require('./build-compose.cjs');pinsMatch(builder);
  const suffix=crypto.randomBytes(6).toString('hex'),project='read-stage-oci-'+suffix,plan=builder.buildCompose({suffix,sources:sourceInputs(builder)}),compose=preflightCompose(plan);
- const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'read-compose-oci-')),config=path.join(temporary,'docker-config'),file=path.join(temporary,'compose.json');fs.chmodSync(temporary,0o700);fs.mkdirSync(config,{mode:0o700});fs.writeFileSync(file,JSON.stringify(compose),{mode:0o600,flag:'wx'});
+ phase='prepare_config';const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'read-compose-oci-')),config=path.join(temporary,'docker-config'),file=path.join(temporary,'compose.json');fs.chmodSync(temporary,0o700);fs.mkdirSync(config,{mode:0o700});fs.writeFileSync(file,JSON.stringify(compose),{mode:0o600,flag:'wx'});
  const {spawnSync}=require('node:child_process');
- const docker=(args,timeout=30000,allowFailure=false)=>{const r=spawnSync('/usr/bin/docker',['--config',config,'--host','unix:///var/run/docker.sock',...args],{env:{PATH:'/usr/bin:/bin',LANG:'C'},encoding:'utf8',maxBuffer:262144,timeout});if(r.status!==0&&!allowFailure)refuse();return r.status===0?r.stdout.trim():null;};
- const parse=x=>{try{return JSON.parse(x);}catch{refuse();}},inspect=id=>parse(docker(['container','inspect',id]))[0];
+ const docker=(args,timeout=30000)=>{const r=spawnSync('/usr/bin/docker',['--config',config,'--host','unix:///var/run/docker.sock',...args],{env:{PATH:'/usr/bin:/bin',LANG:'C'},encoding:'utf8',maxBuffer:262144,timeout});return dockerOutput(r);};
+ const parse=x=>{try{return JSON.parse(x);}catch{refuse('json_reply');}},inspect=id=>parse(docker(['container','inspect',id]))[0];
  const cc=(args,...tail)=>docker(['compose','--project-name',project,'--file',file,...args],...tail);
- const ids={};let completed=false,createAttempted=false;
- const capture=()=>{for(const name of ['init-volumes','gateway']){const id=cc(['ps','--all','--quiet',name],30000,true);if(id&&/^[a-f0-9]{64}$/.test(id)){const v=inspect(id);if(owned(v.Config?.Labels,suffix,project))ids[name]=id;else refuse();}}};
+ // A nonzero inspect/list response never proves absence. These own-ID/name
+ // filtered lists must exit zero before their empty result is admitted.
+ const containerExists=id=>listedOwn(docker(['container','ls','--all','--no-trunc','--filter','id='+id,'--format','{{.ID}}']),id);
+ const volumeExists=name=>listedOwn(docker(['volume','ls','--filter','name='+name,'--format','{{.Name}}']),name);
+
+ const ids={};let completed=false,createAttempted=false,failure;
+ const capture=()=>{for(const name of ['init-volumes','gateway']){const id=cc(['ps','--all','--quiet',name]);if(!id)continue;if(!/^[a-f0-9]{64}$/.test(id))refuse('container_ids');const v=inspect(id);if(!owned(v.Config?.Labels,suffix,project))refuse('container_ids');ids[name]=id;}};
  try{
-  for(const name of Object.values(compose.volumes).map(x=>x.name))if(docker(['volume','inspect',name],30000,true)!==null)refuse();
-  if(cc(['ps','--all','--quiet'],30000,true))refuse();
-  docker(['pull','--quiet',IMAGE],180000);
-  const image=parse(docker(['image','inspect',IMAGE]))[0];if(JSON.stringify(Object.keys(image.Config?.Volumes||{}).sort())!==JSON.stringify(['/dashboard-data']))refuse();
+  phase='collision_check';for(const name of Object.values(compose.volumes).map(x=>x.name))if(volumeExists(name))refuse('name_collision');
+  if(cc(['ps','--all','--quiet']))refuse('name_collision');
+  phase='image_pull';docker(['pull','--quiet',IMAGE],180000);
+  phase='image_admission';const image=parse(docker(['image','inspect',IMAGE]))[0];if(JSON.stringify(Object.keys(image.Config?.Volumes||{}).sort())!==JSON.stringify(['/dashboard-data']))refuse('image_volume');
   // Parsing alone is reported separately; no claim of OCI execution here.
-  const normalized=parse(cc(['config','--format','json']));if(Object.keys(normalized.services).sort().join(',')!=='gateway,init-volumes'||normalized.networks&&Object.keys(normalized.networks).length)refuse();
-  createAttempted=true;cc(['create','--no-build','--pull','never']);capture();if(Object.keys(ids).length!==2||ids.gateway===ids['init-volumes'])refuse();
-  for(const name of ['init-volumes','gateway']){const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State?.Status!=='created')refuse();}
+  phase='compose_parse';const normalized=parse(cc(['config','--format','json']));if(Object.keys(normalized.services).sort().join(',')!=='gateway,init-volumes'||normalized.networks&&Object.keys(normalized.networks).length)refuse('compose_shape');
+  phase='compose_create';createAttempted=true;cc(['create','--no-build','--pull','never']);capture();if(Object.keys(ids).length!==2||ids.gateway===ids['init-volumes'])refuse('container_ids');
+  for(const name of ['init-volumes','gateway']){phase=name==='init-volumes'?'inspect_created_init':'inspect_created_gateway';const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State?.Status!=='created')refuse('container_state');}
   const exits=[];
   for(const name of ['init-volumes','gateway']){
-   docker(['start',ids[name]]);const exit=docker(['wait',ids[name]],45000);if(exit!=='0')refuse();
-   const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State.Status!=='exited'||v.State.ExitCode!==0||!v.State.FinishedAt||v.State.FinishedAt.startsWith('0001-'))refuse();exits.push(v.State.ExitCode);
+   phase=name==='init-volumes'?'start_init':'start_gateway';docker(['start',ids[name]]);phase=name==='init-volumes'?'wait_init':'wait_gateway';const exit=docker(['wait',ids[name]],45000);if(exit!=='0')refuse('exit_code');
+   phase=name==='init-volumes'?'inspect_exited_init':'inspect_exited_gateway';const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State.Status!=='exited'||v.State.ExitCode!==0||!v.State.FinishedAt||v.State.FinishedAt.startsWith('0001-'))refuse('container_state');exits.push(v.State.ExitCode);
   }
   completed=true;
   return Object.freeze({schema:'shrigma-read-compose-oci-preflight-v1',composeParsed:true,initializerExitCode:exits[0],probeExitCode:exits[1],sourceFilesVerified:9,sourceReadOnlyVerified:true,sourceModeVerified:true,ledgerPrivateWritableVerified:true,uid1000Verified:true,networkNoneVerified:true,resourcePolicyVerified:true,applicationStarted:false,postgresConnected:false});
- }finally{
+ }catch(e){failure=e;throw e;}finally{
   let cleanupOk=true;
   if(createAttempted){
    try{capture();}catch{cleanupOk=false;}
-   for(const id of Object.values(ids)){try{const v=inspect(id),anonymous=v.Mounts?.find(x=>x.Destination==='/dashboard-data');if(!owned(v.Config?.Labels,suffix,project)||docker(['rm','--force','--volumes',id],30000,true)===null||docker(['container','inspect',id],30000,true)!==null||anonymous&&docker(['volume','inspect',anonymous.Name],30000,true)!==null)cleanupOk=false;}catch{cleanupOk=false;}}
-   for(const name of Object.values(compose.volumes).map(x=>x.name)){try{const raw=docker(['volume','inspect',name],30000,true);if(raw!==null){const v=parse(raw)[0];if(!owned(v?.Labels,suffix,project)||docker(['volume','rm',name],30000,true)===null||docker(['volume','inspect',name],30000,true)!==null)cleanupOk=false;}}catch{cleanupOk=false;}}
+   for(const id of Object.values(ids)){try{const v=inspect(id),anonymous=v.Mounts?.find(x=>x.Destination==='/dashboard-data');if(!owned(v.Config?.Labels,suffix,project))refuse('cleanup');docker(['rm','--force','--volumes',id]);if(containerExists(id)||anonymous&&volumeExists(anonymous.Name))cleanupOk=false;}catch{cleanupOk=false;}}
+   for(const name of Object.values(compose.volumes).map(x=>x.name)){try{if(volumeExists(name)){const v=parse(docker(['volume','inspect',name]))[0];if(!owned(v?.Labels,suffix,project))refuse('cleanup');docker(['volume','rm',name]);if(volumeExists(name))cleanupOk=false;}}catch{cleanupOk=false;}}
   }
-  fs.rmSync(temporary,{recursive:true,force:true});
+  try{fs.rmSync(temporary,{recursive:true,force:true});}catch{cleanupOk=false;}
   // Never print container logs, config, argv, IDs, environment or raw errors.
-  if(!completed||!cleanupOk)process.stderr.write(FAIL+'\n');
-  if(!cleanupOk)refuse();
+  if(!cleanupOk){const e=Error(FAIL);failures.set(e,'cleanup');emitFailure('cleanup',e,'refused');throw e;}
+  if(!completed)emitFailure(phase,failure,createAttempted?'verified':'not_needed');
  }
 }
 function pureTests(){
@@ -127,11 +151,39 @@ function pureTests(){
   const tmp=copy(v);tmp.HostConfig.Tmpfs['/tmp']='mode=01777,noexec,size=16777216,nodev,nosuid,rw';tmp.Mounts.push({Type:'tmpfs',Destination:'/tmp',RW:true});assert.equal(assertContainer(tmp,'gateway',p,project),true);
   for(const change of [x=>x.HostConfig.Tmpfs={},x=>x.HostConfig.Tmpfs['/other']='rw',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,exec,size=16m,mode=1777',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,noexec,size=32m,mode=1777',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,noexec,size=16m,mode=777',x=>x.Mounts[3].Destination='/other',x=>x.Mounts.push({Type:'tmpfs',Destination:'/tmp',RW:true})]){const bad=copy(tmp);change(bad);assert.throws(()=>assertContainer(bad,'gateway',p,project),new RegExp(FAIL));}
   assert.equal(tmpfsPolicy({},true),true);assert.equal(tmpfsPolicy({Tmpfs:{'/tmp':'rw'}},true),false);
+  // The initializer uses the same strict disabled Docker Test as the probe.
+  // No inherited application healthcheck may run before initializer exit.
+  const initializer=p.compose.services['init-volumes'],iv=copy(v);
+  Object.assign(iv.Config,{User:initializer.user,Entrypoint:initializer.entrypoint,Cmd:initializer.command,Healthcheck:{Test:['NONE']},Env:[]});
+  Object.assign(iv.HostConfig,{NanoCpus:100000000,Memory:initializer.mem_limit,MemorySwap:initializer.memswap_limit,PidsLimit:16,CapAdd:['CHOWN'],Init:false,Tmpfs:{},Mounts:initializer.volumes.map(x=>({Target:x.target,Type:'volume',Source:p.compose.volumes[x.source].name,ReadOnly:false,VolumeOptions:{NoCopy:true}}))});
+  iv.Mounts=[...initializer.volumes.map(x=>({Destination:x.target,Type:'volume',Name:p.compose.volumes[x.source].name,RW:true})),{Destination:'/dashboard-data',Type:'volume',Name:'b'.repeat(64),RW:true}];
+  assert.deepEqual(initializer.healthcheck,{disable:true});assert.equal(assertContainer(iv,'init-volumes',p,project),true);
+  for(const health of [undefined,{Test:['CMD','node','/app/health.cjs']},{Test:['NONE','extra']}]){const bad=copy(iv);bad.Config.Healthcheck=health;let caught;try{assertContainer(bad,'init-volumes',p,project);}catch(e){caught=e;}assert.equal(failures.get(caught),'health_disabled');}
+  const cap=copy(iv);cap.HostConfig.CapAdd=['CAP_CHOWN'];assert.equal(assertContainer(cap,'init-volumes',p,project),true);
+  for(const added of [[],['CHOWN','CHOWN'],['CHOWN','CAP_CHOWN'],['CAP_CHOWN','SYS_ADMIN'],['SYS_ADMIN']]){const bad=copy(iv);bad.HostConfig.CapAdd=added;let capError;try{assertContainer(bad,'init-volumes',p,project);}catch(e){capError=e;}assert.equal(failures.get(capError),'capabilities');}
+
+ });
+ test('closed diagnostics contain only fixed enum stage/check/cleanup without error values',()=>{
+  const result=failureEnvelope('inspect_created_init','health_disabled','verified');
+  assert.deepEqual(result,{schema:'shrigma-read-compose-oci-refusal-v1',phase:'inspect_created_init',check:'health_disabled',cleanup:'verified'});assert.ok(Object.isFrozen(result));
+  const sentinels=['RAW_ENV_SENTINEL','RAW_ARGV_SENTINEL','RAW_DOCKER_ERROR_SENTINEL'];
+  assert.equal(listedOwn('','owned-resource'),false);assert.equal(listedOwn('owned-resource','owned-resource'),true);for(const raw of [null,'other','owned-resource\nowned-resource'])assert.throws(()=>listedOwn(raw,'owned-resource'),new RegExp(FAIL));
+  for(const x of sentinels){assert.throws(()=>failureEnvelope(x,'health_disabled','verified'),new RegExp(FAIL));assert.throws(()=>failureEnvelope('inspect_created_init',x,'verified'),new RegExp(FAIL));assert.throws(()=>failureEnvelope('inspect_created_init','health_disabled',x),new RegExp(FAIL));assert.equal(JSON.stringify(result).includes(x),false);}
+ });
+ test('positive CLI fixture proves absence only after status-zero own resource list',()=>{
+  assert.equal(listedOwn(dockerOutput({status:0,stdout:'',stderr:'SYNTHETIC_IGNORED_STDERR'}),'owned-resource'),false);
+  assert.equal(listedOwn(dockerOutput({status:0,stdout:'owned-resource\n',stderr:''}),'owned-resource'),true);
+ });
+ test('negative CLI fixture never projects failed or timed-out command as verified absence',()=>{
+  for(const reply of [{status:1,stdout:'',stderr:'RAW_DOCKER_ERROR_SENTINEL'},{status:null,stdout:'',error:Error('RAW_TIMEOUT_SENTINEL')},{status:0,stdout:null}]){
+   let caught;try{listedOwn(dockerOutput(reply),'owned-resource');}catch(e){caught=e;}assert.equal(failures.get(caught),'docker_command');
+   const result=failureEnvelope('cleanup',failures.get(caught),'refused');assert.equal(result.cleanup,'refused');assert.doesNotMatch(JSON.stringify(result),/SENTINEL/);
+  }
  });
  test('no opt-in refuses before Docker; probe never imports application or PG',()=>{
   if(process.env.READ_COMPOSE_OCI_PREFLIGHT==='1')refuse();assert.throws(runOci,new RegExp(FAIL));
   const source=probeSource(builder.PINS);assert.doesNotMatch(source,/require\(['"](?:\.\/|\/review|pg|https|http|net|tls)/);assert.match(source,/sourceFiles|Object\.entries\(PINS\)/);assert.match(source,/O_NOFOLLOW/);assert.match(source,/fsyncSync/);
  });
 }
-module.exports=Object.freeze({preflightCompose,probeSource,assertContainer,owned});
-if(require.main===module){try{if(process.argv.length!==3)refuse();if(process.argv[2]==='--pure')pureTests();else if(process.argv[2]==='--oci')process.stdout.write(JSON.stringify(runOci())+'\n');else refuse();}catch{process.stderr.write(FAIL+'\n');process.exitCode=1;}}
+module.exports=Object.freeze({preflightCompose,probeSource,assertContainer,owned,failureEnvelope});
+if(require.main===module){try{if(process.argv.length!==3)refuse();if(process.argv[2]==='--pure')pureTests();else if(process.argv[2]==='--oci')process.stdout.write(JSON.stringify(runOci())+'\n');else refuse();}catch(e){if(!reported.has(e))emitFailure('entrypoint',e,'not_needed');process.exitCode=1;}}
