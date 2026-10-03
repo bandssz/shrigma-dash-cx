@@ -93,7 +93,7 @@ const REVIEWED_DYNAMIC=Object.freeze({
   sourceRevision:'4517cc3d3060a75e9d11c360479054cb0bd4d459',
   sourceSha256:Object.freeze({
     'services/crm-audience/server.cjs':'2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480',
-    'services/crm-campaign/server.cjs':'df4298022372e18afde1ac89b1600cd56475da92c86a0063a873d6f83c1c3c53',
+    'services/crm-campaign/server.cjs':'fedf25ddd817a6cc7cb9a631da9ba7959190dc5dbb0d23fc9f9e0107846bb721',
     'services/crm-campaign/media.cjs':'2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc'
   }),
   routes:Object.freeze({
