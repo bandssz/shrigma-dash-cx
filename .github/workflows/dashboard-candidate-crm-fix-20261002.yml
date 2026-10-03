@@ -42,6 +42,12 @@ jobs:
         run: node --test tests/claude-*.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-media-page-boundary.test.cjs tests/growth-media.test.cjs
       - name: Conferir executor fechado, supervisão e plano de recursos sem banco ou credenciais
         run: node --test tools/crm-manager-install-review/runtime/run-install.test.cjs tools/crm-manager-install-review/runtime/supervisor/supervisor.test.cjs tools/crm-manager-install-review/runtime/compose/compose.test.cjs
+      - name: Conferir identidade de edição separada somente em fixture descartável
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: |
+          node --test tools/crm-manager-writer-review/writer-policy.test.cjs tools/crm-manager-writer-review/native/native-writer-pure.test.cjs
+          node tools/crm-manager-writer-review/writer-provision.test.cjs "$GITHUB_WORKSPACE/tests/crm-manager-provision-postgres.test.cjs" "$RUNNER_TEMP/growth-test-tools/node_modules/@electric-sql/pglite"
       - name: Gerar pacote fechado sem dados nem credenciais
         run: |
           node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
@@ -138,6 +144,27 @@ jobs:
         run: |
           node --test tools/crm-manager-install-review/native-v3-proof-pure.test.cjs
           bash tools/crm-manager-install-review/run-native-v3-proof.sh
+
+  native-postgres17-writer-component-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Instalar cliente fixado da fixture nativa
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Provar candidato inativo, locks nativos e reversão vazia
+        env:
+          CRM_MANAGER_WRITER_NATIVE_PROOF: '1'
+          NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+        run: bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
 
   publish-candidate-image:
     needs: [validate-and-package, native-postgres-manager-proof]
