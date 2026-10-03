@@ -23,6 +23,8 @@ jobs:
           npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
           npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
       - name: Conferir bundle CRM e segurança do pacote operacional
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
         run: |
           node tools/panel-build/build.cjs --panel=growth --check
           node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs

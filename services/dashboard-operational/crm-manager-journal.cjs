@@ -119,7 +119,15 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
  }
  function confirmRevoked(operationId,proof){return atomic(()=>{const o=operation(operationId);if(o.kind!=='revoke'||!exact(proof,REVOKED)||proof.schema!==RECEIPT_SCHEMA||proof.issuerId!==issuerId||proof.namespaceId!==namespaceId||proof.action!=='revoke_read'||proof.operationId!==o.operation_id||proof.state!=='revoked'||proof.userId!==o.user_id||proof.lifecycleId!==o.lifecycle_id||proof.owner!==o.owner||proof.allGenerationsRevoked!==true||proof.revocationMode!=='lifecycle'||!Number.isSafeInteger(proof.effectiveAt)||proof.effectiveAt<0||proof.effectiveAt>clock()+30000||!Number.isSafeInteger(proof.revokedCount)||proof.revokedCount<0)fail('MANAGED_REVOCATION_DENIED');const mac=proofMac(proof);if(o.revoked_proof_mac!==null&&o.revoked_proof_mac!==mac)fail('MANAGED_RECEIPT_DRIFT');db.prepare('UPDATE crm_manager_operations_v1 SET revoked_proof_mac=? WHERE operation_id=?').run(mac,operationId);db.prepare("UPDATE crm_manager_lifecycles_v1 SET state='revoked',updated_at=? WHERE lifecycle_id=?").run(clock(),o.lifecycle_id);db.prepare("UPDATE crm_manager_operations_v1 SET phase=CASE WHEN kind='revoke' THEN 'revoked' ELSE 'failed' END,candidate_ciphertext=NULL,key_sha256=NULL,updated_at=? WHERE lifecycle_id=? AND phase<>'promoted'").run(clock(),o.lifecycle_id);return {ok:true};});}
  function status(userId){return publicState(current(userId));}
+ // Private coordinator projection. Never includes a bearer, digest, ciphertext,
+ // receipt, identifier or SQL row; the gateway must not serialize this API.
+ function operationState(operationId){
+  const o=operation(operationId),l=current(o.user_id);let isCurrent=!!l&&l.lifecycle_id===o.lifecycle_id&&l.version===o.lifecycle_version;
+  if(o.kind!=='revoke')try{isCurrent=isCurrent&&manager(o.user_id,'active').email===o.owner&&!['revoking','revoked','failed'].includes(l?.state);}catch{isCurrent=false;}
+  if(o.phase==='promoted')isCurrent=isCurrent&&l.active_generation===o.generation&&l.active_principal===o.principal_id&&credentialReady(o.user_id)===true;
+  return Object.freeze({kind:o.kind,phase:o.phase,candidateExpiresAt:o.candidate_expires_at??null,lifecycleState:o.lifecycle_state,current:isCurrent});
+ }
  function credentialReady(userId){const l=current(userId);if(!l)return null;try{if(manager(userId,'active').email!==l.owner)return false;}catch{return false;}if(l.state!=='ready'||l.expires_at<=clock()||!slotMatches(l))return false;return !db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND phase IN ('commit_uncertain','committed') LIMIT 1").get(l.lifecycle_id);}
- return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,credentialReady});
+ return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,credentialReady});
 }
 module.exports={createManagerJournal};

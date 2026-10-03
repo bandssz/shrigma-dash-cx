@@ -32,6 +32,9 @@
 !services/dashboard-operational/server.cjs
 !services/dashboard-operational/auth.cjs
 !services/dashboard-operational/crm-manager-journal.cjs
+!services/dashboard-operational/crm-manager-provisioning.cjs
+!services/dashboard-operational/crm-manager-coordinator.cjs
+!services/dashboard-operational/crm-manager-attestation.cjs
 !services/dashboard-operational/proxy.cjs
 !services/dashboard-operational/backend-credential-attestation.cjs
 !services/dashboard-operational/fixtures.cjs

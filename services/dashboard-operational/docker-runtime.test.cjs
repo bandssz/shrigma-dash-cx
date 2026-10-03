@@ -65,7 +65,7 @@ test('symlink and hardlink image/volume artifacts fail closed',t=>{
 });
 test('Docker context is an exact source allowlist; final stage imports only immutable package files',()=>{
  const docker=fs.readFileSync(path.join(__dirname,'Dockerfile'),'utf8'),ignore=fs.readFileSync(path.join(__dirname,'Dockerfile.dockerignore'),'utf8');
- const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','crm-manager-journal.cjs','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
+ const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-attestation.cjs','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
  const rules=ignore.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));assert.equal(rules[0],'**');
  const files=rules.slice(1).filter(l=>!l.endsWith('/')).map(l=>{assert(l.startsWith('!'));assert(!/[?*]/.test(l));return l.slice(1);}).sort();assert.deepEqual(files,expected);
  const stages=docker.split(/^FROM /m).slice(1);assert.equal(stages.length,2);for(const stage of stages)assert(stage.startsWith(IMAGE+' AS '));

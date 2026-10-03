@@ -141,3 +141,24 @@ test('a lost prepare acknowledgement is reconciled after expiry before a first i
   f.j.recordPrepared(op,historical);assert.throws(()=>f.j.candidateForAttestation(op),/CANDIDATE_DENIED/);assert.throws(()=>f.attest(op,historical),/ATTESTATION_DENIED/);f.j.expireCandidate(op);assert.notEqual(f.j.retryIssue(id).operationId,op);
  }finally{f.close();}
 });
+test('private coordinator state is closed and follows revocation/reinvite without key material',()=>{
+ const f=fixture();try{
+  const id=f.add(),op=f.start(id),request=f.j.request(op);
+  const state=f.j.operationState(op);assert.deepEqual(state,{kind:'issue',phase:'queued',candidateExpiresAt:null,lifecycleState:'provisioning',current:true});assert.ok(Object.isFrozen(state));
+  assert.ok(!JSON.stringify(state).includes(request.keySha256)&&!JSON.stringify(state).includes(request.principalId)&&!JSON.stringify(state).includes(id));
+  f.j.beginPrepare(op);assert.equal(f.j.operationState(op).phase,'prepare_uncertain');const p=f.prepared(op);f.j.recordPrepared(op,p);assert.equal(f.j.operationState(op).candidateExpiresAt,p.candidateExpiresAt);
+  f.db.prepare('UPDATE grants SET can_read=0 WHERE user_id=?').run(id);assert.equal(f.j.operationState(op).current,false);f.db.prepare('UPDATE grants SET can_read=1 WHERE user_id=?').run(id);
+  const rev=f.txn(()=>f.j.stageRevoke(id)).operationId;assert.equal(f.j.operationState(op).current,false);assert.equal(f.j.operationState(op).lifecycleState,'revoking');
+  f.db.prepare("UPDATE users SET state='disabled' WHERE id=?").run(id);assert.equal(f.j.operationState(rev).current,true);
+  const r=f.j.request(rev);f.j.confirmRevoked(rev,{...r,schema:'crm-manager-provision-receipt-v1',issuerId:f.issuerId,namespaceId:f.namespaceId,action:'revoke_read',state:'revoked',allGenerationsRevoked:true,revocationMode:'lifecycle',effectiveAt:0,revokedCount:1});
+  f.db.prepare("UPDATE users SET state='invited' WHERE id=?").run(id);const fresh=f.start(id);assert.equal(f.j.operationState(fresh).current,true);assert.equal(f.j.operationState(rev).current,false);assert.equal(f.j.operationState(rev).phase,'revoked');
+  assert.throws(()=>f.j.operationState(crypto.randomUUID()),/OPERATION_UNKNOWN/);
+ }finally{f.close();}
+});
+test('promoted coordinator state is no longer current after renewal or final credential expiry',()=>{
+ const f=fixture();try{
+  const id=f.add(),first=f.start(id);f.complete(first);assert.equal(f.j.operationState(first).current,true);
+  const renewal=f.j.renew(id).operationId;f.complete(renewal);assert.equal(f.j.operationState(first).current,false);assert.equal(f.j.operationState(renewal).current,true);
+  f.advance(14*86400000);assert.equal(f.j.operationState(renewal).current,false);assert.equal(f.j.credentialReady(id),false);
+ }finally{f.close();}
+});
