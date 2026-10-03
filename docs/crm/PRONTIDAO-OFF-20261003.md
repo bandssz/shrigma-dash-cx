@@ -10,7 +10,7 @@ Legenda de tamanho: **P** até ~1 dia · **M** 2–4 dias · **G** 1 semana ou m
 |---|---|---|
 | A/B operacional | `GABExperimentPanel.ACTIVATION={enabled:false}`; `CRM_AUDIENCE_AB_ENABLED` default `false`; `ab-audience-*.cjs ENABLED=false` | Aba "Testes A/B" mostra "Teste com campanhas salvas · desligado nesta versão"; painel operacional oculto; cadastro legado "Somente configuração" |
 | RFM (7 perfis) | `segment-audience-contract.js ENABLED=false`; `createWorker()` sem `rfmRevision` → `CRM_SHOPIFY_RFM_DISABLED`; produtor não ligado em `services/crm-shopify-sync/main.cjs` | Só retrato de análise; botão "Disponível apenas para análise" desabilitado nas duas marcas |
-| Conversão por comprador único | `capture_control_v1.enabled DEFAULT false` (SQL candidato, não instalado); sem API/UI | Nenhuma métrica de compradores; "Pedidos por 100 envios" e "ped./1000 envios" dizem que não medem pessoas compradoras |
+| Conversão por comprador único | `capture_control_v1.enabled DEFAULT false` e `buyer_read_control_v1.enabled DEFAULT false` (SQL candidatos, não instalados); sem API/UI | Nenhuma métrica de compradores; "Pedidos por 100 envios" e "ped./1000 envios" dizem que não medem pessoas compradoras |
 | Fluxos novos | `journey-graph-*.cjs ENABLED=false`; `CRM_FLOWS_ENABLED` default `false`; aba "Construir fluxo" só com capacidade `journey_graph_draft_api_v1` | Aba oculta; introdução diz "Construir fluxo está desligado nesta versão"; Jornadas "Somente leitura" |
 
 ## 1. A/B operacional
@@ -58,24 +58,67 @@ Legenda de tamanho: **P** até ~1 dia · **M** 2–4 dias · **G** 1 semana ou m
 
 ## 3. Conversão por comprador único
 
-**Existe:** só a captura de identidade do envio aceito (`recipient-conversion-evidence.sql`) e o compilador de instalação (`recipient-conversion-install.cjs`). Não há cálculo de comprador, API nem tela.
+**Existe:** captura de identidade do envio aceito (`recipient-conversion-evidence.sql`), compilador de instalação (`recipient-conversion-install.cjs`) e, desde 03/10, a **função de leitura candidata** `recipient-buyer-conversion.sql` (OFF, não instalada em lugar nenhum, só provada em PGlite). Não há API nem tela.
 
-| Critério | Prova sintética |
+### Contrato `crm_email_conversion_candidate.buyer_conversion_v1(b text, cid integer, window_days integer DEFAULT 7) → jsonb`
+
+- **Instalação:** depois de `recipient-conversion-evidence.sql`, como `postgres`, com marcador `shrigma.buyer_conversion.install_guard` (64 hex) na sessão. Sem marcador, sem a captura v1, com captura alterada (md5 de `claim_hash_v1` e `accepted_coverage_v1`), sem `crm_attribution_order_v2`/`crm_attribution_coverage_v2` ou já instalada → `BUYER_CONVERSION_INSTALL_GUARD`/`BUYER_CONVERSION_DEPENDENCY_DRIFT` e rollback.
+- **Gate:** `buyer_read_control_v1(brand, enabled DEFAULT false)`, linhas `fish` e `aristo` desligadas. Desligado → `available:false`, `reason:'buyer_read_disabled'`, todos os números `null`. A instalação revoga privilégios default e falha (`BUYER_CONVERSION_AFTER_DRIFT`) se o gate vier ligado ou se um papel comum (ex.: `crm_audience_api`, `crm_panel_reader`) puder executar a função ou ler o gate.
+- **Papel:** só o dono (`SECURITY DEFINER`, `STABLE`, `search_path=pg_catalog`). Nenhum papel de API recebe acesso.
+- **Entrada:** `b` ∈ {`fish`,`aristo`}; `cid` = campanha regular de público salvo da mesma marca; `window_days` inteiro 1–14 (fora disso → `BUYER_CONVERSION_WINDOW_INVALID`).
+- **Escopo:** campanha inexistente, de outra marca ou com braço A/B (`crm_ab_arm_v2`) → `available:false`, `reason:'campaign_scope_unavailable'`, números `null` (mesma regra de `accepted_coverage_v1`).
+- **Unidade:** pessoas (`recipient_key` do envio aceito), nunca pedidos. Uma pessoa conta uma vez por campanha, com N pedidos.
+- **Janela:** por pessoa, `[accepted_at, accepted_at + window_days)` — início inclusivo, fim exclusivo, padrão 7 dias, máximo 14. Pedido antes do envio aceito não conta.
+- **Pedido que conta:** linha de `crm_attribution_order_v2` da **mesma marca**, `payload.eligible = true` (pago/parcialmente reembolsado, BRL, não teste, não cancelado — regra do coletor `attribution.js`), `customer_identity_state = confirmed` e `customer_gid` igual ao GID **capturado e imutável** no envio. Leitura do estado atual dos pedidos coletados (cancelamento posterior tira o comprador).
+- **Opt-out:** regra do claim nativo — quem já saiu antes do envio não é reivindicado e não entra no denominador; sair depois do envio aceito não tira a pessoa.
+- **Estado de cada pessoa (nesta ordem):** `identity_unknown` (sem captura confirmada: captura OFF, antes de `coverage_started_at`, não resolvida, divergente ou hash alterado) → `window_open` (agora < fim da janela) → `orders_unavailable` (algum dia de São Paulo da janela sem coleta completa em `crm_attribution_coverage_v2` até o fim da janela, ou pedido elegível na janela coletado sem o campo de identidade) → `measured`.
+
+| Campo | Significado | Unidade |
+|---|---|---|
+| `contract`, `brand`, `campaign_id`, `unit:'people'`, `window{anchor,days,max_days,start,end}`, `as_of`, `authorizes_send:false` | identificação | — |
+| `available`, `reason` | leitura liberada ou motivo | — |
+| `accepted_people` | pessoas com envio aceito (igual a `accepted_coverage_v1.accepted_people`) | pessoas |
+| `identity_mapped_people` / `identity_unknown_people` | com/sem identidade capturada | pessoas |
+| `window_open_people` | mapeadas com janela aberta | pessoas |
+| `orders_unavailable_people` | mapeadas, janela fechada, pedidos sem cobertura | pessoas |
+| `measured_people` | mapeadas, janela fechada, pedidos cobertos | pessoas |
+| `buyers` / `non_buyers` | entre as medidas; `null` se `measured_people = 0` | pessoas |
+| `buyer_rate` | `buyers ÷ measured_people` (0–1, 6 casas); `null` se nada medido | fração |
+| `identity_coverage` | `identity_mapped_people ÷ accepted_people` | fração |
+| `measured_share` | `measured_people ÷ accepted_people` | fração |
+| `orders_without_customer` | pedidos elegíveis sem cliente (checkout sem conta/ID inválido) dentro de janelas medidas | pedidos |
+| `buyers_lower_bound` | `true` se `orders_without_customer > 0`: `buyers` é piso | — |
+
+Zero medido = `measured_people > 0` e `buyers = 0`. Desconhecido = `buyers = null`. `buyer_rate` nunca é pedidos/100 envios: o denominador são pessoas medidas, não envios.
+
+| Critério | Prova sintética (arquivo › teste) |
 |---|---|
 | Envio aceito → identidade imutável | `recipient-conversion-evidence` › "enabled ready source captures confirmed identity and keeps it immutable…" |
-| Default OFF, sem retroativo | `recipient-conversion-evidence` › "capture defaults OFF…"; `recipient-conversion-install` (3 testes) |
-| A/B fora da cobertura regular | `recipient-conversion-evidence` › "an A/B assignment excludes its regular-shaped claim…" |
-| Cobertura (aceitos / mapeados / desconhecidos) | `accepted_coverage_v1` coberto no teste acima; só dono do banco |
-| Comprador único, deduplicação, janela | **sem implementação** |
-| Opt-out depois do envio não reduz denominador | **sem implementação** |
-| API/UI | **sem implementação** |
-| Não confundir pedidos/100 envios com taxa de compradores | `claude-crm-off-track` › "OFF-3…" e "aceite…"; título de "Pedidos por 100 envios" em `growth-attribution.js` |
+| Default OFF, sem retroativo | `recipient-conversion-evidence` › "capture defaults OFF…"; `recipient-conversion-install` (3 testes); `claude-buyer-conversion-postgres` › "install is guarded and OFF…" (marcador, versão, privilégio default, gate desligado nas duas marcas) |
+| Captura real → leitura nas duas marcas; janela aberta fica desconhecida | `claude-buyer-conversion-postgres` › "install is guarded and OFF; real capture in both brands…" |
+| Opt-out antes do envio fora; depois do envio não reduz denominador | idem (claim `ineligible` + resultado igual após descadastro) |
+| Janela dentro/fora/limite, início inclusivo, fim exclusivo, janela de 3 dias | `claude-buyer-conversion-postgres` › "both brands: window limits, dedupe…" |
+| Deduplicação (2 pedidos = 1 comprador; pedidos ≠ compradores) | idem |
+| Pedido de outra marca não conta; pedido antes do envio não conta; pedido não pago não conta | idem |
+| Desconhecido ≠ zero (sem coleta, coleta parcial, pedido sem campo de identidade, janela aberta) | idem + teste de captura real |
+| Cobertura parcial (`identity_coverage`, `measured_share`) | idem |
+| A/B excluído; gate desligado volta a `null` | idem; `recipient-conversion-evidence` › "an A/B assignment excludes…" |
+| API/UI | **sem implementação** (fora desta etapa) |
+| Não confundir pedidos/100 envios com taxa de compradores | `claude-crm-off-track` › "OFF-3…" e "aceite…"; contrato acima |
+
+**O que a captura/coleta existente não garante (não inventado; fica `null` ou ressalvado):**
+- Pedidos coletados antes da publicação do coletor com `customer{id}` não têm `customer_identity_state` → janelas que os contêm ficam `orders_unavailable`. Medição só começa depois da publicação nas duas marcas **e** de `coverage_started_at` da captura.
+- Checkout sem cliente (`absent`/`invalid`) não liga a pessoa → `buyers_lower_bound`.
+- `crm_attribution_coverage_v2` marca dias pelo intervalo informado ao ingest (também no modo `updated`); a função herda a mesma leitura por dia de criação usada em `crm_attribution_order_model_v2`. Confirmar em Prod que a coleta diária cobre dias de criação completos.
+- Supõe pedidos e envios no mesmo banco (`listmonk`), como as views de atribuição atuais que juntam `public.campaigns`. Se Prod separar os bancos, falta a ponte versionada citada em `recipient-conversion-evidence.md`; a guarda recusa a instalação sem as tabelas.
+- Fora de escopo da captura: campanhas de lista simples (legado), transacionais, Olivas, A/B.
+- Desempenho: varre os pedidos da marca no intervalo das janelas (sem índice por `created_at` no payload); prova de plano com volume real não feita.
 
 **Falta (ordem):**
-1. Função SQL de compradores únicos: identidade confirmada × pedidos pagos da mesma marca, janela fixa após `accepted_at`, um comprador por `customer_gid`, desconhecido separado de zero — **M**.
-2. Testes PGlite dessa função nas duas marcas (dedupe, janela, cobertura parcial, opt-out posterior, A/B excluído) — **M**.
-3. Contrato de leitura no `crm-panel-read` e coluna na tela com rótulo "compradores ÷ pessoas com envio aceito", cobertura visível — **M**.
-4. Instalação do candidato e `capture_control_v1.enabled` por marca — **P** (Prod; sem retroativo).
+1. Prova nativa em PostgreSQL 17 real de `recipient-buyer-conversion.sql` (instalação guardada, ACL, plano com volume) — **P** (CI/Prod).
+2. Leitura no `crm-panel-read`: hoje só aceita `action=identity|cache_growth` com dois parâmetros e o papel `crm_panel_reader` não executa a função. Criar ação nova (ex.: `buyers` + `campaign_id`) no despachante `shrigma_crm_read_fast_v1`, de preferência lendo um cache por campanha atualizado pelo dono (padrão `crm_attribution_dispatch_cache_v3`), sem expor `recipient_key`/GID — **M**.
+3. Tela: coluna "Compradores ÷ pessoas medidas" com `identity_coverage`/`measured_share` visíveis como etiqueta no cabeçalho, `null` como "sem dado" (nunca 0), "piso" quando `buyers_lower_bound`; separada de "Pedidos por 100 envios" (`growth-attribution.js`, recompilar bundle) — **M**.
+4. Prod: instalar captura (`recipient-conversion-install.cjs`) e depois esta função; ligar `capture_control_v1` por marca (sem retroativo); publicar coletor com `customer{id}`; ligar `buyer_read_control_v1` por marca só após a primeira janela fechada e coberta (≥ 7 dias depois de `coverage_started_at`) — **P** (Prod).
 
 ## 4. Execução dos fluxos novos
 
