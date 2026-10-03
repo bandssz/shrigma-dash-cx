@@ -2,7 +2,7 @@
 // Importing this module does not read environment, start a child or open a port.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {parsePublicProof,PINS,PROFILE}=require('../run-install.cjs');
-const EXECUTOR_SHA='48b307910621f0e12f4bbc0fbca589f43aed095f51c177721e042e9a1d632f4c';
+const EXECUTOR_SHA='ed5b2c033b04fb1d6fc7ab818ac095bbfb207134b1442e14a004d8c62701e75e';
 const EXE=path.resolve(__dirname,'../run-install.cjs');
 const PUBLIC_KEYS=['schema','action','phase','recordedAt','sourcePins','contextVerified','mutationAttempted','commitAcknowledged','counts','profileSha256','emptyTables','durable'];
 function fail(){throw Error('MANAGER_INSTALL_SUPERVISOR_REFUSED');}

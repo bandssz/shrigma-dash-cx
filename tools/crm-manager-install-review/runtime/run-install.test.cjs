@@ -10,12 +10,13 @@ function fixture(t,opts={}){
  const f={...fs,lstatSync:p=>wrapStat(fs.lstatSync(p)),fstatSync:fd=>wrapStat(fs.fstatSync(fd))};
  const calls=[],flags={connected:0,ended:0,destroyed:0,mutations:0,rollbacks:0};let installed=Boolean(opts.installed);
  class FakeClient extends events.EventEmitter{
-  constructor(config){super();this.connectionParameters={...config};if(opts.badHost)this.connectionParameters.host='foreign';this.connection={stream:{destroy:()=>{flags.destroyed++;}}};}
+  constructor(config){super();assert.match(config.options,/(?:^| )-c transaction_timeout=500$/);this.connectionParameters={...config};if(opts.badHost)this.connectionParameters.host='foreign';this.connection={stream:{destroy:()=>{flags.destroyed++;}}};}
   async connect(){flags.connected++;if(opts.connectError)throw Error(CANARY);}
   async end(){flags.ended++;if(opts.endError)throw Error(CANARY);}
   async query(sql){
    calls.push(sql);
    if(sql==='ROLLBACK'){flags.rollbacks++;return{command:'ROLLBACK',rows:[]};}
+   if(sql==="SELECT current_setting('transaction_timeout') AS transaction_timeout")return{command:'SELECT',rows:[{transaction_timeout:opts.badTransactionLimit?'0':'500ms'}]};
    if(sql.includes('AS context_verified'))return[{command:'BEGIN',rows:[]},{command:'SELECT',rows:[{context_verified:!opts.contextFalse,...(installed?INSTALLED:ABSENT),...(opts.foreignField?{raw_secret:CANARY}:{})}]},{command:'ROLLBACK',rows:[]}];
    if(sql.includes('AS issuer_empty'))return[{command:'BEGIN',rows:[]},{command:'SELECT',rows:[{issuer_empty:!opts.nonempty,subject_empty:true,operation_empty:true,generation_empty:true}]},{command:'SELECT',rows:[{profile_sha256:opts.badProfile?'f'.repeat(64):PROFILE}]},{command:'ROLLBACK',rows:[]}];
    flags.mutations++;
@@ -54,6 +55,12 @@ test('fixed host, UID, directory permission, nonempty volume, context and schema
  const uid=fixture(t);const runner=R.createInstallRunner(uid.config,{...uid.adapters,getuid:()=>0});assert.equal((await runner.run()).phase,'setup_refused');assert.equal(uid.flags.connected,0);
  const permissions=fixture(t);fs.chmodSync(permissions.dir,0o755);assert.equal((await permissions.runner.run()).phase,'setup_refused');assert.equal(permissions.flags.connected,0);
  const existing=fixture(t);fs.writeFileSync(path.join(existing.dir,'existing-private-file'),CANARY);assert.equal((await existing.runner.run()).phase,'setup_refused');assert.equal(existing.flags.connected,0);assert.equal(fs.readFileSync(path.join(existing.dir,'existing-private-file'),'utf8'),CANARY);
+});
+test('a divergent server transaction budget refuses before catalog reads and mutation',async t=>{
+ const f=fixture(t,{badTransactionLimit:true}),proof=await f.runner.run();
+ assert.equal(proof.phase,'preflight_refused');assert.equal(f.flags.mutations,0);
+ assert.deepEqual(f.calls,["SELECT current_setting('transaction_timeout') AS transaction_timeout"]);
+ assert.equal(proof.contextVerified,false);assert.equal(proof.mutationAttempted,false);
 });
 test('SQL refusal is confirmed only by cleanup ROLLBACK; COMMIT ambiguity never retries or drops',async t=>{
  const refusal=fixture(t,{refused:true});assert.equal((await refusal.runner.run()).phase,'refused_rolled_back');assert.equal(refusal.flags.rollbacks,1);

@@ -78,7 +78,7 @@ function readPublicProof(directory,{fsImpl=fs}={}){
   return parsePublicProof({...last,contextVerified:highest.context,mutationAttempted:possible,commitAcknowledged:highest.ack,durable:true});
  }catch{fail();}finally{if(dir!==undefined)try{fsImpl.closeSync(dir);}catch{}}
 }
-function connectionConfig(password){return {host:'comunicacao_postgres',port:5432,database:'listmonk',user:'postgres',password,ssl:false,application_name:'shrigma-manager-install-review-v1',options:'-c search_path=pg_catalog -c statement_timeout=4000 -c lock_timeout=500 -c idle_in_transaction_session_timeout=5000',connectionTimeoutMillis:2000,query_timeout:5000,statement_timeout:4000,lock_timeout:500,idle_in_transaction_session_timeout:5000};}
+function connectionConfig(password){return {host:'comunicacao_postgres',port:5432,database:'listmonk',user:'postgres',password,ssl:false,application_name:'shrigma-manager-install-review-v1',options:'-c search_path=pg_catalog -c statement_timeout=4000 -c lock_timeout=500 -c idle_in_transaction_session_timeout=5000 -c transaction_timeout=500',connectionTimeoutMillis:2000,query_timeout:5000,statement_timeout:4000,lock_timeout:500,idle_in_transaction_session_timeout:5000};}
 function requireConnection(client,expected){const p=client.connectionParameters;if(!p)fail();for(const k of ['host','port','database','user','password','ssl','application_name','options'])if(p[k]!==expected[k])fail();}
 function flattenRows(result){return(Array.isArray(result)?result:[result]).flatMap(v=>v?.rows||[]);}
 function oneRow(result){const rows=flattenRows(result);if(rows.length!==1)fail();return rows[0];}
@@ -113,6 +113,11 @@ function createInstallRunner(config,adapters={}){
    deadline=new Promise((_,reject)=>{timer=setTimer(()=>{cut();reject(Error('MANAGER_INSTALL_DEADLINE'));},30000);});
    const params=connectionConfig(password);client=new adapters.Client(params);requireConnection(client,params);password=undefined;
    client.on?.('error',()=>{});phase='preflight_refused';await bounded(client.connect());
+   // PostgreSQL 17 terminates this session when any transaction spans 500 ms.
+   // lock_timeout alone limits acquisition waits, never lock retention. Confirm
+   // the server accepted the session-only budget before catalog reads or DDL.
+   const limits=oneRow(await bounded(client.query("SELECT current_setting('transaction_timeout') AS transaction_timeout")));
+   closed(limits,['transaction_timeout']);if(limits.transaction_timeout!=='500ms')fail();
    const before=await observe();phase='preflight_refused';
    if(action==='install'&&before!=='absent'||action==='rollback'&&before!=='installed')fail();
    store.write('02-context.json',proof('context_verified',true));

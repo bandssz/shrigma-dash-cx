@@ -2,6 +2,7 @@
 // No transport, environment inspection or test is started by importing this file.
 const assert=require('node:assert/strict');
 const F=require('./native-fixture.cjs');
+const {proveTransactionTimeout500}=require('./native-transaction-timeout-proof.cjs');
 const EXPECTED='4f5b8bdec729d2924c043da6bd3c0f8f2ce01a82af614187cefa1322ecef11c9';
 const stateSql="SELECT current_setting('transaction_read_only') AS read_only,current_setting('transaction_isolation') AS isolation,current_setting('statement_timeout') AS statement_timeout,current_setting('lock_timeout') AS lock_timeout,current_setting('idle_in_transaction_session_timeout') AS idle_timeout";
 async function profile(db){
@@ -47,6 +48,7 @@ async function proveNativeV3(t,{Client,container}){
   assert.deepEqual(hbaBefore.reports[0].rows[0],{target:'provisioner_hba',rule_errors:0,candidate_rules:4,ambiguous_selector_rules:0});
   assert.deepEqual(hbaBefore.reports[1].rows.map(r=>[r.target,r.total,r.trust,r.scram]),[['local',1,1,0],['loopback_only',2,2,0],['non_loopback',1,0,1],['unclassified',0,0,0]]);
   assert.equal(hbaBefore.reports[2].rows.length,18);assert.equal(hbaBefore.reports[2].rows[0].entry_count,1);assert.equal(hbaBefore.reports[2].rows.slice(1).every(r=>r.entry_count===0),true);
+  await proveTransactionTimeout500(t,{Client,db,baseline});
   // This is a separate authenticated session to the SAME disposable cluster.
   // A divergent database context must refuse before any new namespace or role.
   await t.test('exact SQL refuses divergent context and rolls back before DDL',()=>guarded(t,async()=>{

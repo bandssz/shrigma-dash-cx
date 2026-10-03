@@ -1,7 +1,7 @@
 'use strict';
 // Portable public builder only. Import does not read environment/files/network.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const PINS=Object.freeze({builder:'678d0f71221ee24cb67058690b7b81b61b036502487f57fa1aa3b2ca7b8ddf21',originalBootstrap:'804e31f4b2674e469b2114a1fe9961e5192fc3be67a40382b90f1cac1c90da0e',fixedBootstrap:'0292fb5e7da032567fabdb167b1bb84c4b3d0c95142fd82dd6b55188569f5c31'});
+const PINS=Object.freeze({builder:'678d0f71221ee24cb67058690b7b81b61b036502487f57fa1aa3b2ca7b8ddf21',originalBootstrap:'804e31f4b2674e469b2114a1fe9961e5192fc3be67a40382b90f1cac1c90da0e',fixedBootstrap:'3edd7e68bc306533ee9827c009a2f4451f170411b7397a624c82b641c4233dc3'});
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 function fail(){throw Error('NATIVE_PREFLIGHT_PLAN_REFUSED');}
 function closed(v,keys){if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!keys.includes(k)))fail();}
