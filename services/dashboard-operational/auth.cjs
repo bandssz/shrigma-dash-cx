@@ -106,6 +106,7 @@ function invitePermissions(areas,permissions){
 
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
+ if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
  const {dbPath}=options,managerHost=hostname(options.managerHost);
  const areaHosts=Object.fromEntries(AREAS.map(a=>[a,hostname(options.areaHosts[a])]));
  if(new Set([managerHost,...Object.values(areaHosts)]).size!==4)err('CONFIG_INVALID',500);
@@ -204,6 +205,13 @@ function createAuth(options){
   }
   db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
+ // Off by default: records local identity jobs, never starts remote transport
+ // or a worker. The private gateway constructor owns this configuration.
+ let managedCrm=null;
+ if(options.crmManagedRead!==undefined)try{
+  managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+ }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
+ function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
  let hashing=false;const waiters=[];
  async function derive(password,salt){
   if(hashing){if(waiters.length>=8)err('AUTH_BUSY',503);await new Promise(resolve=>waiters.push(resolve));}
@@ -311,6 +319,7 @@ function createAuth(options){
  function adminContext(context){const ctx={...context,admin:true};if(ctx.method!=='POST')err('METHOD_DENIED',405);return authorize(ctx);}
  function createInvite({context,email,areas,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
   adminContext(context);const e=emailAddress(email,domainSet),p=invitePermissions(areas,requested);
+  if(managedCrm&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
@@ -326,6 +335,7 @@ function createAuth(options){
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(id);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(id,t);
    db.prepare('INSERT INTO invites(token_hash,user_id,host,expires_at) VALUES(?,?,?,?)').run(sha(token),id,host,t+expiresMs);
+   if(managedCrm&&p.growth?.read)managedCall(()=>managedCrm.createLifecycle(id));
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {token,userId:id,host};
@@ -335,12 +345,14 @@ function createAuth(options){
   if(typeof token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(token))err('INVITE_DENIED',403);
   const t=current(),hash=sha(token),invite=db.prepare('SELECT i.*,u.state FROM invites i JOIN users u ON u.id=i.user_id WHERE i.token_hash=?').get(hash);
   if(!invite||invite.host!==h||invite.state!=='invited'||invite.used_at!==null||invite.expires_at<=t)err('INVITE_DENIED',403);
-  const passwordHash=await hashPassword(password);
+  const passwordHash=await hashPassword(password),acceptedAt=current();
   db.exec('BEGIN IMMEDIATE');try{
-   const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(t,hash,t);
+   const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(acceptedAt,hash,acceptedAt);
    if(used.changes!==1)err('INVITE_DENIED',403);
-   const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,t,invite.user_id);
-   if(activated.changes!==1)err('INVITE_DENIED',403);db.exec('COMMIT');
+   const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,acceptedAt,invite.user_id);
+   if(activated.changes!==1)err('INVITE_DENIED',403);
+   if(managedCrm&&permissions(invite.user_id).growth?.read&&managedCrm.status(invite.user_id))managedCall(()=>managedCrm.activateLifecycle(invite.user_id));
+   db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true};
  }
@@ -348,7 +360,8 @@ function createAuth(options){
   authorize({...context,admin:true,method:'GET'});
   return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
    const p=permissions(u.id);
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state};
+   const crmAccess=managedCrm?.status(u.id);
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess:{...crmAccess,ready:managedCrm.credentialReady(u.id)===true}}:{})};
   });
  }
  function setRequestedAccess({context,userId,requestedAccess}){
@@ -376,8 +389,11 @@ function createAuth(options){
   const actor=adminContext(context),user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
   if(!user||user.state==='disabled'||user.role==='superadmin'&&user.id!==actor.id)err('USER_DENIED',404);
   const p=normalizePermissions(requested);
+  if(managedCrm&&user.role==='manager'&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(user.role==='superadmin'&&(Object.keys(p).length!==3||AREAS.some(a=>!p[a]?.read)))err('GRANTS_INVALID',400);
   if(user.role==='manager'&&Object.keys(p).length!==1)err('GRANTS_INVALID',400);
+  // Invitations are bound to an area host; transfer requires revoke/reinvite.
+  if(managedCrm&&user.role==='manager'&&Object.keys(p)[0]!==Object.keys(permissions(userId))[0])err('AREA_CHANGE_REQUIRES_REINVITE',409);
   if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   db.exec('BEGIN IMMEDIATE');try{
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
@@ -392,18 +408,20 @@ function createAuth(options){
   adminContext(context);const user=db.prepare('SELECT id,role FROM users WHERE id=?').get(userId);
   if(!user||user.role!=='manager')err('USER_DENIED',404);
   db.exec('BEGIN IMMEDIATE');try{
+   if(managedCrm&&managedCrm.status(userId))managedCall(()=>managedCrm.stageRevoke(userId));
    db.prepare("UPDATE users SET state='disabled',password_hash=NULL,updated_at=? WHERE id=?").run(current(),userId);
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM upstream_credentials WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM invites WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);db.exec('COMMIT');
-  }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
+  }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true,...(managedCrm?.status(userId)?{crmRevocationPending:managedCrm.status(userId).state!=='revoked'}:{})};
  }
  function credentialTarget({context,userId,slot,bearer}){
   adminContext(context);const definition=CREDENTIAL_SLOTS[slot];
   if(!definition||typeof bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(bearer))err('CREDENTIAL_INVALID',400);
   const user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
+  if(managedCrm&&user.role==='manager'&&definition.area==='growth'&&managedCrm.status(userId))err('MANAGED_CREDENTIAL_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   return user;
  }
@@ -445,7 +463,9 @@ function createAuth(options){
  }
  function getUpstreamCredential(ctx){
   const definition=CREDENTIAL_SLOTS[ctx?.slot];if(!definition||ctx.area!==definition.area||!!ctx.edit!==definition.mayWrite)err('CREDENTIAL_DENIED',403);
-  const user=authorize(ctx),row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
+  const user=authorize(ctx);
+  if(ctx.slot==='crm-panel-read'&&user.role==='manager'&&managedCrm&&managedCrm.credentialReady(user.id)===false)err('CRM_ACCESS_NOT_READY',503);
+  const row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
   return row?decrypt(row.encrypted_key):null;
  }
  function audienceDraftReady(ctx){
@@ -551,6 +571,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(managedCrm?{managedCrmJournal:managedCrm}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

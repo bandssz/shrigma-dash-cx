@@ -20,11 +20,16 @@ jobs:
       - name: Instalar ferramentas fixadas somente na CI
         run: |
           npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
           npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
       - name: Conferir bundle CRM e segurança do pacote operacional
         run: |
           node tools/panel-build/build.cjs --panel=growth --check
           node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs
+      - name: Validar cadastro privado e RPCs em banco descartável
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs
       - name: Exercitar listas, vínculo, recibos e troca de marca
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
@@ -36,6 +41,14 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/shrigma-pack/source-revision.txt"
       - name: Construir imagem imutável fora do servidor
         run: docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-dashboard-crm-candidate:ci .
+      - name: Construir e conferir emissor desligado sem rede ou credenciais
+        run: |
+          docker build --file services/crm-manager-provisioner/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-crm-manager-provisioner:ci services/crm-manager-provisioner
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-crm-manager-provisioner:ci)" = "$GITHUB_SHA"
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 \
+            --entrypoint node shrigma-crm-manager-provisioner:ci \
+            -e 'if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const s=require("/app/server.cjs"); if(typeof s.createServer!=="function")throw Error("Missing runtime"); console.log("Provisioner module verified; no socket or database started.");'
       - name: Provar limite CRM de 8 MiB na imagem sem rede
         run: |
           docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
@@ -60,8 +73,35 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  native-postgres-manager-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: crm_manager_fixture
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --cpus 1 --memory 512m
+          --health-cmd "pg_isready -U postgres -d crm_manager_fixture"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar somente dependência fixada do emissor
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Provar SQL, ACL e concorrência no PostgreSQL efêmero da CI
+        env:
+          CRM_MANAGER_NATIVE_FIXTURE: '1'
+          NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+        run: node --test tests/crm-manager-provision-native-postgres.test.cjs
+
   publish-candidate-image:
-    needs: validate-and-package
+    needs: [validate-and-package, native-postgres-manager-proof]
     if: >-
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&

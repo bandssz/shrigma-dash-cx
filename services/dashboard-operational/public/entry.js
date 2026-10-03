@@ -268,6 +268,13 @@ else (function(){'use strict';
   catch(_){adminMessage.textContent='Não foi possível encerrar a sessão. Tente novamente.';}
   finally{button.disabled=false;}
  });
+ function crmAccessLabel(user){
+  if(user.role!=='manager'||!Array.isArray(user.areas)||user.areas.length!==1||user.areas[0]!=='growth')return '';
+  const access=user.crmAccess;if(!access||typeof access!=='object')return '';
+  if(access.state==='ready')return access.ready===true?'CRM pronto':'CRM acesso pendente';
+  const labels={awaiting_accept:'CRM aguarda aceite',provisioning:'CRM preparando acesso',revoking:'CRM revogação pendente',revoked:'CRM revogado',failed:'CRM indisponível'};
+  return Object.hasOwn(labels,access.state)?labels[access.state]:'';
+ }
  function userRow(user){
   const row=document.createElement('div');row.className='user-row';const info=document.createElement('div');
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
@@ -275,7 +282,7 @@ else (function(){'use strict';
   const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
   const access=granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
-  details.textContent=[areas,access,state].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
+  details.textContent=[areas,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
   if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
    const actions=document.createElement('div');actions.className='user-row-actions';
    const label=document.createElement('label');label.textContent='Nível solicitado';
@@ -334,9 +341,9 @@ else (function(){'use strict';
   finally{busy=false;button.disabled=false;}
  });
  async function revoke(user,button){
-  if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? Chaves individuais dos serviços de origem exigem revogação separada.`))return;
+  if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? ${user.crmAccess?'A revogação do CRM será confirmada antes de um novo convite.':'Chaves individuais dos serviços de origem exigem revogação separada.'}`))return;
   button.disabled=true;adminMessage.textContent='Revogando acesso…';
-  try{const {response}=await post('/auth/users',{action:'revoke',userId:user.id});if(!response.ok)throw Error('revoke_failed');inviteResult.hidden=true;inviteLink.value='';await loadUsers();adminMessage.textContent='Acesso ao portal revogado. Revogue também a chave individual no serviço de origem, se existir.';}
+  try{const {response,data}=await post('/auth/users',{action:'revoke',userId:user.id});if(!response.ok)throw Error('revoke_failed');inviteResult.hidden=true;inviteLink.value='';await loadUsers();adminMessage.textContent=data?.crmRevocationPending===true?'Acesso ao portal revogado. A confirmação da revogação no CRM está pendente.':data?.crmRevocationPending===false?'Acesso ao portal e ao CRM revogado.':'Acesso ao portal revogado. Revogue também a chave individual no serviço de origem, se existir.';}
   catch(_){adminMessage.textContent='Não foi possível revogar o acesso agora.';}
   finally{button.disabled=false;}
  }
