@@ -504,9 +504,12 @@ const GRU={
     $('#d-refazer')?.addEventListener('click',()=>{if(!r.servidor?.conflito)return;r.servidor.version=r.servidor.conflito.current_version;GTA.evento(r.servidor,{at:GR.agora(),who:'este painel',action:'refazer',result:'ok',detail:`versão esperada ajustada para v${r.servidor.version}; nada enviado`});delete r.servidor.conflito;GR.guarda(r);GRU.aviso(`Versão esperada ajustada para v${r.servidor.version}. Revise o conteúdo e clique em Salvar rascunho.`);GRU.render();});
     $('#d-submeter')?.addEventListener('click',()=>{GRU.state.confirmando=true;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-confirm-texto')?.focus();});
     const ct=$('#d-confirm-texto');if(ct)ct.oninput=()=>{GRU.state.confirmTexto=ct.value;const ok=ct.value.trim().toLowerCase()==='submeter';const btn=document.getElementById('d-confirm-ok');if(btn)btn.disabled=!ok||!!GRU.state.ocupado;};
-    $('#d-confirm-cancel')?.addEventListener('click',()=>{GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();});
+    $('#d-confirm-cancel')?.addEventListener('click',()=>GRU.cancelarConfirmacao());
+    const confirmar=$('#d-confirmar');if(confirmar)confirmar.onkeydown=e=>{if(e.key==='Escape'&&!GRU.state.ocupado){e.preventDefault();GRU.cancelarConfirmacao();}};
     $('#d-confirm-ok')?.addEventListener('click',()=>{if(GRU.state.confirmTexto.trim().toLowerCase()!=='submeter')return;GRU.submeter(r);});
   },
+  // Fechar sem publicar devolve o foco a quem abriu a confirmação.
+  cancelarConfirmacao(){GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-submeter')?.focus();},
   mudou(r){const sujoAgora=GTA.situacao(r).sujo;if(sujoAgora!==GRU._sujo){GRU._sujo=sujoAgora;GRU.render();}else GRU.atualizaPreview();},
   exporta(d){if(typeof GT!=='undefined')GT.baixar(GR.nomeArquivo(d),GR.exporta(d),'application/json');},
   importaTexto(texto){const res=GR.importa(texto);if(res.erro){GRU.aviso(res.erro,'erro');GRU.render();return;}GRU.trocarEditor(()=>{GRU.abrir(res.rascunho,null);GRU.aviso('Arquivo importado como novo rascunho. Revise e salve.');GRU.render();});},

@@ -148,7 +148,7 @@ test('aceite: leitura de públicos de Fishermans em andamento segura a troca; de
  const x=await boot({section:'visao'});
  x.f.control.before=async body=>{if(hold&&body.acao==='segmentos_listar'&&body.brand==='fish'){hold=false;entered();await barrier;}};
  x.q('[data-s="base"]').click();await started;
- x.q('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.match(x.q('#brand-context-status').textContent,/Conclua/);
+ x.q('[data-marca="aristo"]').click();assert.equal(x.run('MARCA'),'fish');assert.match(x.q('#brand-context-status').textContent,/leitura em andamento.*Aguarde/);
  release();await settled(x);assert.ok(x.q('[data-gs-list]').textContent.includes('Lista principal fish'));
  await changeBrand(x,'aristo');assert.equal(x.run('MARCA'),'aristo');
  assert.ok(x.q('[data-gs-list]').textContent.includes('Lista principal aristo'));assert.ok(!x.q('#crm-segments-editor').textContent.includes('Lista principal fish'));

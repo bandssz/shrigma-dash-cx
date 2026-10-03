@@ -1063,7 +1063,10 @@ function trocaMarca(next,afterConfirm=null){
   const ready=()=>{
     if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
     const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{},segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
-    if(AB_BUSY||GCE.contextStatus().navigationBlocked||GRU.contextStatus().blocked||experiment.blocked||segments.navigationBlocked||(typeof GJG!=='undefined'&&GJG.contextStatus().blocked)){notice('Conclua a operação ou feche a confirmação aberta antes de trocar de marca.');return false;}
+    // Leitura em andamento só pede para aguardar; confirmação aberta e escrita mantêm seus avisos.
+    const campaign=GCE.contextStatus(),kind=s=>s.confirming?'confirm':s.reading?'read':'op';
+    const causes=[AB_BUSY&&'op',campaign.navigationBlocked&&kind(campaign),GRU.contextStatus().blocked&&'op',experiment.blocked&&'op',segments.navigationBlocked&&kind(segments),typeof GJG!=='undefined'&&GJG.contextStatus().blocked&&'op'].filter(Boolean);
+    if(causes.length){notice(causes.includes('op')?'Conclua a operação ou feche a confirmação aberta antes de trocar de marca.':causes.includes('confirm')?'Feche a confirmação aberta antes de trocar de marca.':'Há uma leitura em andamento (catálogo, campanhas ou públicos). Aguarde terminar para trocar de marca; nada foi alterado.');return false;}
     if(segments.pending){notice('Há uma tentativa de público sem confirmação. Consulte a mesma tentativa antes de trocar de marca.');return false;}
     if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
     if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
