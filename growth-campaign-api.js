@@ -2,7 +2,7 @@
    Availability flags are not personal authorization; the server checks each key. */
 'use strict';
 const GCA=(()=>{
- const VERSION='crm-campaign-v1',JOURNAL='shrigma_campaign_operation_v1:',RECOVERY_POLICY='crm-campaign-recovery-v1';
+ const VERSION='crm-campaign-v1',JOURNAL='shrigma_campaign_operation_v1:',RECOVERY_POLICY='crm-campaign-recovery-v1',ABANDON_POLICY='crm-campaign-abandon-v1';
  const copy=v=>JSON.parse(JSON.stringify(v));
  const ordered=v=>Array.isArray(v)?v.map(ordered):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,ordered(v[k])])):v;
  const sameJSON=(a,b)=>JSON.stringify(ordered(a))===JSON.stringify(ordered(b));
@@ -12,7 +12,9 @@ const GCA=(()=>{
   let endpoint=null;try{const u=new URL(e);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash)endpoint=u.href;}catch{}
   const valid=c?.contract_version===VERSION&&Array.isArray(c.brands)&&!!endpoint,audience=valid&&c.audience_review===CampaignContract.AUDIENCE_POLICY;
   const recovery=valid&&c.recovery_policy===RECOVERY_POLICY&&c.recover===true&&c.save===true&&c.operation===true;
-  return {recovery_policy:recovery?RECOVERY_POLICY:null,recover:recovery,audience_review:audience?c.audience_review:null,endpoint:valid?endpoint:null,brands:valid?c.brands.filter(b=>['aristo','fish'].includes(b)):[],
+  // Encerramento de tentativa pendente: só com política e flag anunciadas pelo servidor (desligado hoje).
+  const abandon=valid&&c.abandon_policy===ABANDON_POLICY&&c.abandon===true&&c.operation===true;
+  return {recovery_policy:recovery?RECOVERY_POLICY:null,recover:recovery,abandon_policy:abandon?ABANDON_POLICY:null,abandon,audience_review:audience?c.audience_review:null,endpoint:valid?endpoint:null,brands:valid?c.brands.filter(b=>['aristo','fish'].includes(b)):[],
    ...Object.fromEntries(['read','save','validate','schedule','cancel','operation'].map(k=>[k,valid&&c[k]===true&&(!['validate','schedule'].includes(k)||audience)]))};
  }
  async function fingerprint(key){
@@ -167,6 +169,26 @@ const GCA=(()=>{
     return snapshot();
    }finally{busy=false;}
   });}
+  // Encerramento sem efeito de agendar/cancelar ainda 'pending' (ou sem registro) no
+  // servidor. A prova é a lápide gravada sob o lock da operação e a cerca do provider
+  // (campaign-pending-recovery.sql); tempo ou 404 sozinhos não provam nada. Depois do
+  // POST, o registro durável decide pela consulta normal (rejected libera; succeeded relê).
+  const ABANDONABLE={campanha_agendar:'agendar',campanha_cancelar:'cancelar'};
+  const canAbandon=()=>availability?.abandon===true&&availability?.operation===true&&!busy&&!state.recoveryId&&['pending','uncertain'].includes(state.operation?.phase)&&['pending','missing'].includes(state.operation.remote_state)&&!!ABANDONABLE[state.operation.request?.acao];
+  async function abandon(confirm){return exclusive(async()=>{
+   gate('abandon');refreshJournal();
+   if(confirm!=='abandonar')throw error('CONFIRM_REQUIRED','Confirme o encerramento desta tentativa sem efeito.');
+   const op=copy(state.operation||null);
+   if(!canAbandon())throw error('ABANDON_UNAVAILABLE','Esta tentativa não pode ser encerrada pelo painel. Consulte a tentativa antes; criação de rascunho segue pela conciliação da operação.');
+   const k=key(writeKey);if(await keyFingerprint(k)!==op.actorFingerprint)throw error('OPERATION_ACTOR_CHANGED','Use a mesma chave de escrita da tentativa original.');
+   busy=true;
+   try{
+    const res=await call('POST',{acao:'campanha_operacao_abandonar',brand,idempotency_key:op.key,operation_action:ABANDONABLE[op.request.acao],confirm},k),saved=res.body?.operation;
+    if(!res.ok||res.body?.policy!==ABANDON_POLICY||typeof res.body.abandoned!=='boolean'||!saved||saved.operation_key!==op.key||saved.brand!==brand)throw responseError(res);
+    refreshJournal();if(!sameJSON(state.operation,op))throw error('OPERATION_CHANGED','A tentativa mudou em outra aba. Consulte novamente.');
+   }finally{busy=false;}
+   return consult(true);
+  });}
   async function readCurrent(id,k){
    const latest=await call('GET',CampaignContract.request('obter',{brand,id}),k);
    if(!latest.ok||!validCampaign(latest.body?.campaign)||latest.body.campaign.id!==id)throw error('READBACK_UNCONFIRMED','A operação foi confirmada, mas o estado atual da campanha ainda não. Consulte novamente.');
@@ -199,7 +221,7 @@ const GCA=(()=>{
   function reviewed(d){if(busy||locked())throw error('OPERATION_PENDING','Consulte a tentativa pendente.');if(!clean(d))throw error('UNSAVED_CHANGES','Salve as alterações desta campanha antes de validar ou agendar.');const c=state.campaign;if(c.status!=='draft'||c.sent!==0||c.started_at)throw error('CAMPAIGN_LOCKED','Esta campanha não é um rascunho disponível para edição.');return c;}
   async function read(action,input={},k){gate('read');const res=await call('GET',CampaignContract.request(action,{brand,...input}),k||key(readKey));if(!res.ok)throw responseError(res,{read:true});return res.body;}
   return {
-   snapshot,locked,clean,canWrite,canRecover,recover,canReleaseUnapplied,releaseUnapplied,updateCapabilities:c=>{availability=c;},
+   snapshot,locked,clean,canWrite,canRecover,recover,canReleaseUnapplied,releaseUnapplied,canAbandon,abandon,updateCapabilities:c=>{availability=c;},
    async catalog(){const c=await read('catalogo');if(c?.brand!==brand||c.current!==true||!Array.isArray(c.lists)||!Array.isArray(c.templates))throw error('CATALOG_UNAVAILABLE','Catálogo da marca não confirmado.');catalog=c;return copy(c);},
    // Formato e marca continuam validando a resposta inteira (outra marca recusa tudo).
    // Uma campanha antiga fora do contrato atual só fica fora da lista de reabertura.
@@ -253,6 +275,6 @@ const GCA=(()=>{
     return snapshot();
   }
  }
- return {caps,createClient,VERSION,JOURNAL,RECOVERY_POLICY};
+ return {caps,createClient,VERSION,JOURNAL,RECOVERY_POLICY,ABANDON_POLICY};
 })();
 if(typeof module!=='undefined')module.exports=GCA;
