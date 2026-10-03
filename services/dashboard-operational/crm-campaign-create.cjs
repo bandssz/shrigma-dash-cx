@@ -40,8 +40,10 @@ function campaign(c,brand,id){
  if(!exact(c,['id','version','status','sent','started_at','send_at','definition'])||c.id!==id||!positive(c.id)||!/^[a-fA-F0-9]{32}$/.test(c.version||'')||!STATES.has(c.status)||!Number.isSafeInteger(c.sent)||c.sent<0||c.started_at!==null&&!date(c.started_at)||c.send_at!==null&&!date(c.send_at)||!plain(c.definition)||c.definition.brand!==brand)return null;
  return Object.freeze({id:c.id,version:c.version,status:c.status,sent:c.sent,startedAt:c.started_at,sendAt:c.send_at});
 }
-function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,authorize,transport,now=Date.now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery}){
- if(enabled!==true||profile!=='crm-sandbox'||!Array.isArray(allowedEmailDomains)||allowedEmailDomains.length!==1||allowedEmailDomains[0]!=='synthetic.invalid')fail('CAMPAIGN_CREATE_DENIED');
+function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,corporateWriter,authorize,transport,now=Date.now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery}){
+ const sandbox=profile==='crm-sandbox'&&allowedEmailDomains?.length===1&&allowedEmailDomains[0]==='synthetic.invalid';
+ const corporate=profile==='corporate-read-writer-v1'&&allowedEmailDomains?.length===1&&allowedEmailDomains[0]==='oaristocrata.com'&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(corporateWriter);
+ if(enabled!==true||!Array.isArray(allowedEmailDomains)||!sandbox&&!corporate)fail('CAMPAIGN_CREATE_DENIED');
  if(!db||typeof db.isTransaction!=='boolean'||![authorize,transport,now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery].every(f=>typeof f==='function'))fail('CAMPAIGN_CREATE_CONFIG');
  const outside=()=>{if(db.isTransaction)fail('CAMPAIGN_CREATE_TRANSACTION');};
  outside();

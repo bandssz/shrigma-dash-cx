@@ -291,14 +291,15 @@ else (function(){'use strict';
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
   const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
-  const access=granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
+  const writerLabels={requested:'Edição de campanhas solicitada',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',blocked:'Edição indisponível · retire a edição antes de renovar a leitura'};
+  const access=user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   details.textContent=[areas,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
   if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
    const actions=document.createElement('div');actions.className='user-row-actions';
    const label=document.createElement('label');label.textContent='Nível solicitado';
    const select=document.createElement('select');select.setAttribute('aria-label',`Nível de acesso de ${user.email}`);
-   for(const [value,title] of [['read','Somente leitura'],['edit','Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
+   for(const [value,title] of [['read','Somente leitura'],['edit',user.crmWriter?'Edição de campanhas (pendente)':'Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
    const currentAccess=granted||user.requestedAccess==='edit'?'edit':'read';
    select.value=currentAccess;
    const save=document.createElement('button');save.type='button';save.textContent='Salvar';save.disabled=true;
@@ -309,9 +310,19 @@ else (function(){'use strict';
    if(user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&user.permissions.growth.edit===false&&user.crmAccess?.state==='ready'&&user.crmAccess.ready===true&&user.crmAccess.canRenew===true&&user.crmAccess.expired===false&&user.crmAccess.renewalPhase===null){
     const renewButton=document.createElement('button');renewButton.type='button';renewButton.textContent='Renovar acesso CRM';renewButton.setAttribute('aria-label',`Renovar acesso CRM de ${user.email}`);renewButton.addEventListener('click',()=>renewCrm(user,renewButton));actions.append(renewButton);
    }
+   if(user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
+    const approve=document.createElement('button');approve.type='button';approve.textContent='Aprovar edição de campanhas';approve.setAttribute('aria-label',`Aprovar edição de campanhas de ${user.email}`);approve.addEventListener('click',()=>approveCampaignWriter(user,approve));actions.append(approve);
+   }
    actions.append(revokeButton);row.append(actions);
   }
  return row;
+ }
+ async function approveCampaignWriter(user,button){
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canApprove!==true)return;
+  button.disabled=true;adminMessage.textContent='Validando acesso individual para edição de campanhas…';
+  try{const {response}=await post('/auth/users',{action:'crm_writer_approve',userId:user.id});if(!response.ok)throw Error('writer_approval_failed');await loadUsers();adminMessage.textContent='Aprovação registrada. A leitura continua disponível; a edição será liberada após a validação do acesso.';}
+  catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível aprovar. Confira o acesso de leitura e campanhas ainda pendentes.';}
+  finally{button.disabled=false;}
  }
  async function renewCrm(user,button){
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmAccess?.canRenew!==true)return;
@@ -338,7 +349,7 @@ else (function(){'use strict';
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
-  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
+  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
  }
  $('admin-crm-reconcile').addEventListener('click',async()=>{
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;

@@ -107,9 +107,12 @@ function invitePermissions(areas,permissions){
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
- if(options.crmCampaignSubmitWrite!==undefined&&typeof options.crmCampaignSubmitWrite!=='boolean'||options.crmCampaignSubmitWrite===true&&(options.crmManagedRead!==undefined||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!=='synthetic.invalid'))err('CAMPAIGN_WRITE_CONFIG_INVALID',500);
+ let corporateWriter=null;
+ if(options.crmManagedWriter?.mode!==undefined)try{corporateWriter=require('./crm-manager-runtime.cjs').corporateWriterDescriptor(options.crmManagedWriter,options.crmManagedRead,options.allowedEmailDomains);}catch{err('MANAGED_WRITER_CONFIG_INVALID',500);}
+ if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MANAGED_WRITER_CONFIG_INVALID',500);
+ if(options.crmCampaignSubmitWrite!==undefined&&typeof options.crmCampaignSubmitWrite!=='boolean'||options.crmCampaignSubmitWrite===true&&!corporateWriter&&(options.crmManagedRead!==undefined||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!=='synthetic.invalid'))err('CAMPAIGN_WRITE_CONFIG_INVALID',500);
  const campaignSubmit=options.crmCampaignSubmitWrite===true;
- if(options.crmManagedWriter!==undefined&&(!campaignSubmit||options.crmManagedRead!==undefined||!plain(options.crmManagedWriter)||Object.keys(options.crmManagedWriter).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedWriter).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_WRITER_CONFIG_INVALID',500);
+ if(options.crmManagedWriter!==undefined&&(!campaignSubmit||!corporateWriter&&(options.crmManagedRead!==undefined||!plain(options.crmManagedWriter)||Object.keys(options.crmManagedWriter).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedWriter).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v)))))err('MANAGED_WRITER_CONFIG_INVALID',500);
  const {dbPath}=options,managerHost=hostname(options.managerHost);
  const areaHosts=Object.fromEntries(AREAS.map(a=>[a,hostname(options.areaHosts[a])]));
  if(new Set([managerHost,...Object.values(areaHosts)]).size!==4)err('CONFIG_INVALID',500);
@@ -213,13 +216,12 @@ function createAuth(options){
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
- let managedCrm=null;
+ let managedCrm=null,managedWriter=null;
  if(options.crmManagedRead!==undefined)try{
-  managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+  managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
- let managedWriter=null;
  if(options.crmManagedWriter!==undefined)try{
-  managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:'crm-sandbox',...options.crmManagedWriter,allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+  managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',issuerId:options.crmManagedWriter.issuerId,namespaceId:options.crmManagedWriter.namespaceId,...(corporateWriter?{readReady:id=>managedCrm.credentialReady(id)===true}:{}),allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_WRITER_CONFIG_INVALID',500);}
  function writerCall(fn){try{return fn();}catch{err('MANAGED_WRITER_STORE_UNAVAILABLE',503);}}
  function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
@@ -233,7 +235,7 @@ function createAuth(options){
   const status=managedCrm?.status(user.id);if(!status)return null;
   const renewalPhase=managedRenewalPhase(user.id),ready=managedCrm.credentialReady(user.id)===true;
   const expired=status.state==='ready'&&Number.isSafeInteger(status.expiresAt)&&status.expiresAt<=current();
-  return {...status,ready,renewalPhase,expired,canRenew:user.role==='manager'&&user.state==='active'&&status.state==='ready'&&ready&&!expired&&renewalPhase===null};
+  return {...status,ready,renewalPhase,expired,canRenew:permissions(user.id).growth?.edit===false&&user.role==='manager'&&user.state==='active'&&status.state==='ready'&&ready&&!expired&&renewalPhase===null};
  }
  let hashing=false;const waiters=[];
  async function derive(password,salt){
@@ -385,8 +387,8 @@ function createAuth(options){
   authorize({...context,admin:true,method:'GET'});
   return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
    const p=permissions(u.id);
-   const crmAccess=managedAccess(u);
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess}:{})};
+   const crmAccess=managedAccess(u),crmWriter=managedWriter?.publicState(u.id);
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
   });
  }
  function renewManagedCrm({context,userId}){
@@ -424,6 +426,7 @@ function createAuth(options){
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
    else{
+    if(corporateWriter&&managedWriter.getSubject(userId).hasPendingCampaigns)err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
     if(managedWriter)writerCall(()=>managedWriter.stageRevoke(userId));
     db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
     db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
@@ -447,6 +450,7 @@ function createAuth(options){
   if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
   db.exec('BEGIN IMMEDIATE');try{
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   if(corporateWriter&&user.role==='manager'&&managedWriter.getSubject(userId).hasPendingCampaigns)err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
    if(managedWriter&&user.role==='manager')writerCall(()=>managedWriter.stageRevoke(userId));
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(userId,area,g.edit?1:0);
@@ -515,6 +519,7 @@ function createAuth(options){
  // Private caller only: no new HTTP route and no automatic dispatch.
  function approveManagedCampaignWriter({context,userId}){
   adminContext(context);if(!managedWriter)err('EDIT_NOT_READY',403);
+  if(corporateWriter&&managedCrm.credentialReady(userId)!==true)err('CRM_ACCESS_NOT_READY',409);
   if(typeof userId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(userId))err('USER_INVALID',400);
   db.exec('BEGIN IMMEDIATE');try{writerCall(()=>managedWriter.approve(userId));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
   // enqueue owns its own transaction. Its failure leaves only an inactive,
@@ -527,12 +532,15 @@ function createAuth(options){
   const a=db.prepare("SELECT a.*,c.key_digest FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id);
   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&a.expires_at>current()?a:null;
  }
- function campaignWriterReady(ctx){try{return !!writerBinding(authorize({...ctx,method:'GET',area:'growth',edit:false}));}catch{return false;}}
+ function campaignWriterReady(ctx){try{const user=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(user)&&(!corporateWriter||managedCrm.credentialReady(user.id)===true);}catch{return false;}}
  let campaignCreateInitialized=false;
  function hasOpenCampaignCreate(userId,brand){return campaignCreateInitialized&&!!db.prepare("SELECT 1 FROM crm_campaign_create_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand);}
  function campaignWriterAuthorization(ctx,{brand,action}){
   draftBrand(brand);if(!campaignSubmit)err('EDIT_NOT_READY',403);
   const user=authorize({...ctx,area:'growth',edit:true}),a=writerBinding(user);if(!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  // Old WRITER identity remains available for GET receipts/reconciliation.
+  // Only new POST mutations depend on a current individual READ binding.
+  if(corporateWriter&&ctx.method==='POST'&&managedCrm.credentialReady(user.id)!==true)err('CRM_ACCESS_NOT_READY',403);
   if(db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND brand=? AND phase IN ('pending','uncertain')").get(user.id,brand))err('DRAFT_RECONCILIATION_REQUIRED',409);
   if(['salvar','validar','agendar','cancelar'].includes(action)&&hasOpenCampaignCreate(user.id,brand))err('CAMPAIGN_CREATE_PENDING',409);
   return Object.freeze({userId:user.id,role:user.role,slot:'growth-campaign',canEdit:true,credentialMac:a.credential_mac,caps:Object.freeze(['read_content','draft','validate','submit'])});
@@ -545,7 +553,7 @@ function createAuth(options){
  function campaignCreateFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
   const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
-  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:'crm-sandbox',allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,
+  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',...(corporateWriter?{corporateWriter}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,
    hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
    preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
    prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
@@ -582,7 +590,7 @@ function createAuth(options){
  function managedCrmReadAuthorization(ctx){
   if(!managedCrm||ctx?.method!=='GET')err('MANAGED_READ_DENIED',403);
   const user=authorize({...ctx,area:'growth',edit:false});
-  if(user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.read!==true||user.permissions.growth?.edit!==false)err('MANAGED_READ_DENIED',403);
+  if(user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.read!==true||user.permissions.growth?.edit!==false&&!(corporateWriter&&managedWriter.bindingForUser(user.id)))err('MANAGED_READ_DENIED',403);
   const binding=managedCall(()=>managedCrm.readBinding(user.id));
   const row=db.prepare("SELECT key_digest FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(user.id);
   if(!row||binding.owner!==user.email)err('CRM_ACCESS_NOT_READY',503);

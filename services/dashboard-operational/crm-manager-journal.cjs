@@ -15,9 +15,9 @@ const uuid=v=>{if(typeof v!=='string'||!UUID.test(v))fail('MANAGED_ID_INVALID');
 const exact=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype&&Reflect.ownKeys(value).length===keys.length&&keys.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable===true&&Object.hasOwn(d,'value');});
 const caps=value=>Array.isArray(value)&&Reflect.ownKeys(value).length===CAPS.length+1&&value.length===CAPS.length&&CAPS.every((cap,i)=>value[i]===cap);
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value!==null&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
-function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,now=Date.now}){
+function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,now=Date.now,writerBindingReady}){
  if(!db||typeof db.isTransaction!=='boolean'||![encrypt,decrypt,digest,now].every(f=>typeof f==='function'))fail('MANAGED_CONFIG_INVALID');
- uuid(issuerId);uuid(namespaceId);
+ uuid(issuerId);uuid(namespaceId);if(writerBindingReady!==undefined&&typeof writerBindingReady!=='function')fail('MANAGED_CONFIG_INVALID');
  const clock=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('MANAGED_CLOCK_INVALID');return t;};
  db.exec(`CREATE TABLE IF NOT EXISTS crm_manager_configuration_v1 (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1),issuer_id TEXT NOT NULL,namespace_id TEXT NOT NULL);
@@ -41,10 +41,10 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
  if(!configured)db.prepare('INSERT INTO crm_manager_configuration_v1 VALUES(1,?,?)').run(issuerId,namespaceId);
  const atomic=fn=>{if(db.isTransaction)fail('MANAGED_TRANSACTION_ALREADY_OPEN');db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}};
  const hook=()=>{if(!db.isTransaction)fail('MANAGED_IDENTITY_TRANSACTION_REQUIRED');};
- const manager=(userId,state)=>{
+ const manager=(userId,state,allowWriter=false)=>{
   uuid(userId);const u=db.prepare('SELECT id,email,role,state FROM users WHERE id=?').get(userId);
   const g=db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=?').all(userId);
-  if(!u||u.role!=='manager'||u.state!==state||g.length!==1||g[0].area!=='growth'||g[0].can_read!==1||g[0].can_edit!==0)fail('MANAGED_MANAGER_DENIED');return u;
+  if(!u||u.role!=='manager'||u.state!==state||g.length!==1||g[0].area!=='growth'||g[0].can_read!==1||g[0].can_edit!==0&&!(allowWriter&&g[0].can_edit===1&&writerBindingReady?.(userId)===true))fail('MANAGED_MANAGER_DENIED');return u;
  };
  const current=userId=>db.prepare('SELECT l.* FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(uuid(userId));
  const operation=id=>{const o=db.prepare('SELECT o.*,l.user_id,l.owner,l.version AS current_version,l.state AS lifecycle_state FROM crm_manager_operations_v1 o JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE o.operation_id=?').get(uuid(id));if(!o)fail('MANAGED_OPERATION_UNKNOWN');return o;};
@@ -146,7 +146,7 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
    ORDER BY CASE WHEN o.kind='revoke' THEN 0 ELSE 1 END,o.created_at,o.operation_id LIMIT ?`).all(maximum);
   return Object.freeze(rows.map(row=>uuid(row.operation_id)));
  }
- function credentialReady(userId){const l=current(userId);if(!l)return null;try{if(manager(userId,'active').email!==l.owner)return false;}catch{return false;}if(l.state!=='ready'||l.expires_at<=clock()||!slotMatches(l))return false;return !db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND phase IN ('commit_uncertain','committed') LIMIT 1").get(l.lifecycle_id);}
+ function credentialReady(userId){const l=current(userId);if(!l)return null;try{if(manager(userId,'active',true).email!==l.owner)return false;}catch{return false;}if(l.state!=='ready'||l.expires_at<=clock()||!slotMatches(l))return false;return !db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND phase IN ('commit_uncertain','committed') LIMIT 1").get(l.lifecycle_id);}
  // PRIVATE binding for the reviewed managed-read bridge. Never serialize it.
  function readBinding(userId){
   if(credentialReady(userId)!==true)fail('MANAGED_READ_BINDING_DENIED');

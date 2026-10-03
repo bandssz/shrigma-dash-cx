@@ -44,7 +44,13 @@ test('shipping the adapter leaves default APIs inactive and preserves READ and c
  assert.throws(()=>createAuth({...writerConfig(),crmManagedRead:read}),e=>e.code==='CAMPAIGN_WRITE_CONFIG_INVALID');
  assert.throws(()=>createAuth({...writerConfig(),allowedEmailDomains:['oaristocrata.com'],bootstrapAdminEmail:'master@oaristocrata.com'}),e=>e.code==='CAMPAIGN_WRITE_CONFIG_INVALID');
 });
-test('the HTTP startup factory does not project an unreviewed writer descriptor into auth',()=>{
- const {authOptionsFor}=require(DIR+'/server.cjs'),settings=writerConfig(),options=authOptionsFor(settings);assert.equal(options.crmManagedWriter,undefined);assert.equal(options.crmCampaignSubmitWrite,true);
+test('the HTTP startup factory rejects an unreviewed descriptor and strips private material from the corporate descriptor',async t=>{
+ const {authOptionsFor}=require(DIR+'/server.cjs');assert.throws(()=>authOptionsFor(writerConfig()),e=>e.code==='MANAGED_CRM_RUNTIME_REFUSED');
+ const options=authOptionsFor(config({crmCampaignSubmitWrite:true}));assert.equal(options.crmManagedWriter,undefined);assert.equal(options.crmCampaignSubmitWrite,true);
  const {createAuth}=require(DIR+'/auth.cjs'),auth=createAuth(options);try{assert.equal(auth.approveManagedCampaignWriter,undefined);assert.equal(auth.managedCampaignWriterJournal,undefined);}finally{auth.close();}
+ const f=await require('./corporate-writer-fixture.cjs').fixture(t),reviewed=authOptionsFor({...f.config,crmManagedWriter:{...f.config.crmManagedWriter,provisionerToken:'W'.repeat(43)}});
+ assert.equal(require(DIR+'/crm-manager-runtime.cjs').isCorporateWriterDescriptor(reviewed.crmManagedWriter),true);
+ assert.deepEqual(Object.keys(reviewed.crmManagedWriter).sort(),['issuerId','mode','namespaceId']);
+ assert.equal(reviewed.crmManagedWriter.provisionerToken,undefined);
+ assert.notEqual(reviewed.crmManagedWriter.issuerId,reviewed.crmManagedRead.issuerId);
 });

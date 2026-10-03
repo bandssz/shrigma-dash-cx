@@ -79,7 +79,12 @@ function createWriterCoordinator(options){
     journal.recordAttestation(id,proof);
     // Promotion is synchronous in the same continuation as the fresh proof.
     // Restart in `attested` must obtain a new active attestation above.
-    journal.promote(id);return result(journal.state(id));
+    try{journal.promote(id);}catch(e){
+     // The corporate promoter emits this only for a lost READ dependency on
+     // the same proven, reservation-free lifecycle. Other errors stay pending.
+     if(e?.code==='CRM_WRITER_READ_DEPENDENCY_LOST')return compensate(id);
+     throw e;
+    }return result(journal.state(id));
    }else return OUTPUT.pending;
   }
   return OUTPUT.pending;

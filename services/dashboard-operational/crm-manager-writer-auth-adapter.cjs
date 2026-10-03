@@ -9,8 +9,9 @@ const exact=(v,keys)=>v&&Object.getPrototypeOf(v)===Object.prototype&&Reflect.ow
 function fail(){const e=new Error('CRM_WRITER_AUTH_REFUSED');e.code='CRM_WRITER_AUTH_REFUSED';throw e;}
 function sync(f){const v=f();let promise=false;try{Promise.prototype.then.call(v,()=>{},()=>{});promise=true;}catch{}if(promise)fail();if(v&&['object','function'].includes(typeof v)&&'then'in v){Promise.resolve(v).catch(()=>{});fail();}return v;}
 function createWriterAuthAdapter(c){
- const keys=['db','enabled','profile','issuerId','namespaceId','allowedEmailDomains','encrypt','decrypt','digest','now'];
- if(!exact(c,keys)||c.enabled!==true||c.profile!=='crm-sandbox'||!c.db||typeof c.db.isTransaction!=='boolean'||c.db.isTransaction||!UUID.test(c.issuerId||'')||!UUID.test(c.namespaceId||'')||!Array.isArray(c.allowedEmailDomains)||c.allowedEmailDomains.length!==1||c.allowedEmailDomains[0]!=='synthetic.invalid'||!['encrypt','decrypt','digest','now'].every(k=>typeof c[k]==='function'))fail();
+ const corporate=c?.profile==='corporate-read-writer-v1';
+ const keys=['db','enabled','profile','issuerId','namespaceId','allowedEmailDomains','encrypt','decrypt','digest','now',...(corporate?['readReady']:[])];
+ if(!exact(c,keys)||c.enabled!==true||c.profile!=='crm-sandbox'&&!corporate||!c.db||typeof c.db.isTransaction!=='boolean'||c.db.isTransaction||!UUID.test(c.issuerId||'')||!UUID.test(c.namespaceId||'')||!Array.isArray(c.allowedEmailDomains)||c.allowedEmailDomains.length!==1||c.allowedEmailDomains[0]!== (corporate?'oaristocrata.com':'synthetic.invalid')||corporate&&typeof c.readReady!=='function'||!['encrypt','decrypt','digest','now'].every(k=>typeof c[k]==='function'))fail();
  const {db}=c;
  const clock=()=>{const n=sync(c.now);if(!Number.isSafeInteger(n)||n<0||n>8640000000000000-1209600000)fail();return n;};
  const mac=v=>{const m=sync(()=>c.digest(v));if(typeof m!=='string'||!HASH.test(m))fail();return m;};
@@ -18,6 +19,7 @@ function createWriterAuthAdapter(c){
  db.exec(`CREATE TABLE IF NOT EXISTS crm_writer_auth_config_v1(singleton INTEGER PRIMARY KEY CHECK(singleton=1),issuer_id TEXT NOT NULL,namespace_id TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS crm_writer_auth_admission_v1(user_id TEXT PRIMARY KEY REFERENCES users(id),lifecycle_id TEXT NOT NULL UNIQUE,version INTEGER NOT NULL CHECK(version>0),owner TEXT NOT NULL,issuer_id TEXT NOT NULL,namespace_id TEXT NOT NULL,approved INTEGER NOT NULL CHECK(approved IN(0,1)));
  CREATE TABLE IF NOT EXISTS crm_writer_auth_binding_v1(user_id TEXT PRIMARY KEY REFERENCES users(id),lifecycle_id TEXT NOT NULL,version INTEGER NOT NULL,owner TEXT NOT NULL,issuer_id TEXT NOT NULL,namespace_id TEXT NOT NULL,principal_id TEXT NOT NULL UNIQUE,generation INTEGER NOT NULL CHECK(generation>0),expires_at INTEGER NOT NULL,credential_mac TEXT NOT NULL);`);
+ if(corporate)db.exec('CREATE TABLE IF NOT EXISTS crm_writer_retired_binding_v1(user_id TEXT NOT NULL,lifecycle_id TEXT NOT NULL,version INTEGER NOT NULL,namespace_id TEXT NOT NULL,owner TEXT NOT NULL,principal_id TEXT NOT NULL,generation INTEGER NOT NULL,credential_mac TEXT NOT NULL,encrypted_key TEXT NOT NULL,retired_at INTEGER NOT NULL,PRIMARY KEY(user_id,lifecycle_id,generation))');
  const config=db.prepare('SELECT issuer_id,namespace_id FROM crm_writer_auth_config_v1 WHERE singleton=1').get();
  if(config&&(config.issuer_id!==c.issuerId||config.namespace_id!==c.namespaceId))fail();
  if(!config)db.prepare('INSERT INTO crm_writer_auth_config_v1 VALUES(1,?,?)').run(c.issuerId,c.namespaceId);
@@ -93,6 +95,9 @@ function createWriterAuthAdapter(c){
   const old=binding(p.userId),slot=db.prepare("SELECT key_digest FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(p.userId),att=db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(p.userId);
   if(p.expectedGeneration===0){if(old||slot||att)fail();}
   else if(!owned(old,p)||old.generation!==p.expectedGeneration||old.expires_at<=clock()||old.owner!==p.owner||!slot||slot.key_digest!==old.credential_mac||!att||att.credential_mac!==old.credential_mac||att.owner!==old.owner||att.principal_id!==old.principal_id||att.expires_at!==old.expires_at)fail();
+  // This specific dependency loss is compensatable only after all identity,
+  // proof and reservation checks have passed, before any edit grant is written.
+  if(corporate&&sync(()=>c.readReady(p.userId))!==true){const error=new Error('CRM_WRITER_READ_DEPENDENCY_LOST');error.code='CRM_WRITER_READ_DEPENDENCY_LOST';throw error;}
   db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(p.userId,p.encryptedKey,p.credentialMac,clock());
   db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at').run(p.userId,p.owner,p.principalId,p.credentialMac,p.expiresAt,clock());
   db.prepare('INSERT INTO crm_writer_auth_binding_v1 VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET lifecycle_id=excluded.lifecycle_id,version=excluded.version,owner=excluded.owner,issuer_id=excluded.issuer_id,namespace_id=excluded.namespace_id,principal_id=excluded.principal_id,generation=excluded.generation,expires_at=excluded.expires_at,credential_mac=excluded.credential_mac').run(p.userId,p.lifecycleId,p.version,p.owner,c.issuerId,c.namespaceId,p.principalId,p.generation,p.expiresAt,p.credentialMac);
@@ -102,6 +107,7 @@ function createWriterAuthAdapter(c){
  function disableBinding(p){
   transaction();shape(p,['userId','lifecycleId','version','namespaceId']);const b=binding(p.userId),a=admission(p.userId);
   if(owned(b,p)){
+   if(corporate){const old=db.prepare("SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign' AND key_digest=?").get(p.userId,b.credential_mac);if(old)db.prepare('INSERT OR IGNORE INTO crm_writer_retired_binding_v1 VALUES(?,?,?,?,?,?,?,?,?,?)').run(p.userId,b.lifecycle_id,b.version,b.namespace_id,b.owner,b.principal_id,b.generation,b.credential_mac,old.encrypted_key,clock());}
    // A stale revoke never removes a new lifecycle's slot or an unrelated key.
    db.prepare("DELETE FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign' AND key_digest=?").run(p.userId,b.credential_mac);
    db.prepare('DELETE FROM campaign_writer_attestation_v1 WHERE user_id=? AND principal_id=? AND credential_mac=?').run(p.userId,b.principal_id,b.credential_mac);
@@ -122,6 +128,12 @@ function createWriterAuthAdapter(c){
   db.prepare("UPDATE grants SET can_edit=0 WHERE user_id=? AND area='growth'").run(id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);return Object.freeze({ok:true});
  }
  function bindingForUser(id){try{const b=binding(id);return fullBinding(b)?db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(id):null;}catch{return null;}}
- return Object.freeze({journal,createLifecycle,approve,stageRevoke,quiesce,getSubject,bindingForUser});
+ function publicState(id){
+  const a=admission(id);if(!a)return null;const {u,g}=identity(id),b=binding(id),life=db.prepare('SELECT state FROM crm_writer_bridge_life_v1 WHERE user_id=? AND lifecycle_id=?').get(id,a.lifecycle_id);
+  const ready=bindingForUser(id)!==null&&(!corporate||sync(()=>c.readReady(id))===true),expired=!!b&&b.expires_at<=clock();
+  const state=ready?'ready':life?.state==='revoking'?'revoking':life?.state==='revoked'?'revoked':b?'blocked':a.approved===1?'provisioning':'requested';
+  return Object.freeze({state,ready,expired,canApprove:u?.role==='manager'&&u.state==='active'&&exclusive(g)&&g[0].can_edit===0&&!hasPendingCampaigns(id)&&!b&&(!life||life.state==='revoked')});
+ }
+ return Object.freeze({journal,createLifecycle,approve,stageRevoke,quiesce,getSubject,bindingForUser,publicState});
 }
 module.exports={createWriterAuthAdapter};

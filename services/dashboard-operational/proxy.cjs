@@ -254,7 +254,9 @@ function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false}={}){
+function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false,crmCorporateWriter}={}){
+  const corporate=crmCorporateWriter!==undefined&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(crmCorporateWriter);
+  if(crmCorporateWriter!==undefined&&!corporate)throw Error('Corporate writer profile invalid');
   if(!plain(config)||!Array.isArray(allowedHosts)||allowedHosts.some(h=>typeof h!=='string'))throw Error('Invalid upstream configuration');
   if(!['production','crm-sandbox'].includes(profile))throw Error('Invalid upstream profile');
   if(profile==='crm-sandbox'){
@@ -267,7 +269,8 @@ function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='pro
     }
     return Object.freeze(out);
   }
-  if(crmCampaignSubmitWrite)throw Error('Campaign submission requires synthetic sandbox');
+  if(crmCampaignSubmitWrite&&!corporate)throw Error('Campaign submission requires reviewed profile');
+  if(corporate&&(!crmCampaignSubmitWrite||!Object.hasOwn(config,'crm-read')||!Object.hasOwn(config,'campaigns')||Object.keys(config).some(k=>!['crm-read','campaigns','campaigns_media','cx','influ'].includes(k))))throw Error('Corporate writer routes invalid');
   const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
   if(dynamic.length){
     if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');
@@ -371,9 +374,9 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,crmCorporateWriter,fetchImpl=fetch}){
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
-  const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&target?.href===SANDBOX_CAMPAIGN_DESTINATION;
+  const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
   if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
   if(d.edit&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');

@@ -38,6 +38,11 @@
 !services/dashboard-operational/crm-manager-runtime.cjs
 !services/dashboard-operational/crm-manager-attestation.cjs
 !services/dashboard-operational/crm-manager-read-bridge.cjs
+!services/dashboard-operational/crm-manager-writer-auth-adapter.cjs
+!services/dashboard-operational/crm-manager-writer-client.cjs
+!services/dashboard-operational/crm-manager-writer-coordinator.cjs
+!services/dashboard-operational/crm-manager-writer-journal.cjs
+!services/dashboard-operational/crm-manager-writer-policy.cjs
 !services/dashboard-operational/crm-campaign-create.cjs
 !services/dashboard-operational/crm-campaign-delivery.cjs
 !services/dashboard-operational/crm-campaign-writer-attestation.cjs

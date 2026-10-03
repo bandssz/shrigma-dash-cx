@@ -1,0 +1,35 @@
+# Descriptor público READ: dois volumes novos, fontes montadas readonly
+
+Esta entrega contém somente proposta e testes locais, sem MCP, PostgreSQL, Docker, deploy, credencial ou ação aprovada. O builder está integrado como fonte inativa na candidata; não há execução automática no servidor. Os nove arquivos em `runtime/` são byte-exatos ao pacote congelado, manifest `00e2198d20f1344f40feccdba74bafda8a7634b7afa105b16f52bb9a1a64830f`.
+
+`compose/build-compose.cjs` é inerte ao importar. `buildCompose({suffix,sources})` aceita somente sufixo hexadecimal de12caracteres e os nove textos públicos com SHA verificados. O transporte final não usa configs inline nem fontes em tmpfs: um volume público NOVO é inicializado separadamente e montado `read_only:true` em `/review` no gateway. O ledger usa outro volume NOVO.
+
+## Escopo concreto preparado
+
+Gera serviço novo `mgr-stage-<suffix>` no projeto `dashboard-image-20260930`, dois aliases de até63bytes e hostname temporário novo de mesmo sufixo `mgr-stage-<suffix>.tazdb8.easypanel.host`. O único endpoint público previsto é GET/status, através do gateway interno8099. Nada publica portaPG. O campo `env` do plano fica vazio; a referência `.env` é para futura entrega privada por MCP, sem arquivo local com credencial.
+
+O gateway usa digest5ca20, UID/GID1000, rootRO, capsALLdrop, NNP,320MiB e mesmo limite para memória+swap,.35CPU,PID64,restartno,timeoutKILL600 e heap96. Somente `/tmp` recebe tmpfs16MiB. `/review` usa volume fonte read_only/nocopy; `/runtime-proof` usa ledger RW/nocopy. Não há build, comando SQL ou configuração de ação/secret na proposta. Sem opt-in configurado, o runtime recusa trabalho privilegiado.
+
+O inicializador é um serviço diferente, networknone, rootRO, capsALLdrop mais CHOWN apenas,.1CPU/64MiB/PID16/heap16/restartno. Não recebe env_file nem env privado; recusa se PG_ADMIN_PASSWORD ou READ_SERVICE_SCRAM estiverem presentes. Ele recebe no argv SOMENTE nove fontes públicas codificadas em base64, com pins e limite de argumento96KiB. Nomes e destinos são literais. Nenhuma senha, SCRAM, dados pessoais, SQL parametrizado privado ou env secreto entra nesse argv.
+
+Antes de qualquer escrita, o inicializador admite os DOIS mounts: diretórios canônicos, diferentes, UID/GID0,mode0755,vazios, sem symlink. Valida também todos os nove bytes/hashes antes de criar qualquer arquivo. Usa criação exclusiva NOFOLLOW/mode0444, fsync e readback dos arquivos; deixa a pasta fonte em0555/root e o ledger vazio em0700/UID/GID1000. O FD do ledger é aberto ANTES da mudança de proprietário e mantido para fsync posterior; seu estado vazio também é conferido antes de chown. O código não reabre nem percorre esse diretório após entregá-lo a UID1000, pois root sem DAC_OVERRIDE não teria acesso a mode0700. O FD é fechado em finally, inclusive em falhas. A pasta fonte permanece root0555 e pode ser aberta para fsync pelo inicializador. Não limpa, sobrescreve, aceita nem reutiliza volumes existentes ou parcialmente inicializados. O gateway depende da conclusão bem-sucedida desse inicializador.
+
+A proposta exige dois volumes novos, com nomes e labels próprios: `shrigma-read-source-<suffix>` e `shrigma-read-stage-<suffix>`. Antes de qualquer criação futura, o root deve confirmar que serviço, volumes e domínio são novos e verificar margem de recursos. Picos declarados caso inicializador e gateway fossem contados juntos: .45CPU/384MiB; depende_on mantém a execução sequencial. Nenhum volume atual de identidade ou PG é montado.
+
+## Decisão de transporte baseada em fonte primária
+
+Docker documenta `configs.content` a partir de Compose2.23.1 e modo padrão0444. Isso descreve parsing e formato; não comprova criação de config inline em serviço rootRO. [Documentação oficial de configs](https://docs.docker.com/reference/compose-file/configs/) e [long syntax](https://docs.docker.com/reference/compose-file/services/#configs).
+
+O código oficial de Compose2.23.1 injeta configs inline com CopyToContainer. Em Compose2.39.4, injectConfigs linhas78–80 recusa esse transporte quando service.ReadOnly é verdadeiro e aceita somente configs com fonte file. Por isso descartamos content inline em rootRO, mantendo o runtime readonly por um volume de fontes. Não houve enfraquecimento para rootRW ou tmpfs gravável. [Implementação2.23.1](https://raw.githubusercontent.com/docker/compose/v2.23.1/pkg/compose/secrets.go), [implementação2.39.4](https://raw.githubusercontent.com/docker/compose/v2.39.4/pkg/compose/secrets.go).
+
+A versão de Compose do Easypanel não foi consultada neste escopo. O fallback usa volume long syntax e depends_on service_completed_successfully, mas ainda precisa de parsing e criação em CI/fixture. Um check docker compose config prova apenas parsing. Mount readonly, UID1000,capabilities, recursos, arquivos e ausência de escrita precisam ser comprovados na execução isolada antes de usar esse executor no servidor.
+
+## Verificação local e pendências concretas
+
+Três testes pure passam em Node22 com rede externa bloqueada. O inicializador é executado em modelo de filesystem que aplica permissões POSIX a UID0 sem DAC_OVERRIDE: escreve exatamente nove fontes pinadas, só após todos os guards; recusa volume ocupado/parcial, UID/modo incorretos, mounts iguais, bytes corruptos, env secreto e segunda execução, sem novas escritas nesses casos. A prova confere open do ledger antes de chown, fsync pelo FD depois de chown, fechamento de todos os FDs e rejeição de open/readdir tardios. Os testes também conferem aliases/env/recursos, readonly no source-volume, ausência de configs e limite do argumento. Sintaxe do builder e do inicializador gerado passou. Não foi executado Docker/PG.
+
+O resultado marca prepared_not_deployed, deployApprovedfalse, mutationActionsApproved vazio e env privado ausente. OCI do inicializador e mount real ainda pendentes. Para CI, emitir o JSON de compose em diretório temporário público com .env vazia e rede de fixture própria, nunca a rede Easypanel real. O roteiro deve usar os resources do builder, provar init0, novearquivos/SHA/mode0444/source0555, ledger0700/1000, Mount.RWfalse para review e falha ao escrever como UID1000. Não usar criação de container aceita como prova de funcionamento.
+
+Reconciliar uma operação que já tenha ledger exige plano separado que preserve o volume original e não execute esse inicializador de volumes novos. Não criar novo ledger vazio e alegar reconciliação. O executor deve continuar com uma tentativa, mesma intenção e readback READ ONLY conforme runtime congelado; esta proposta não configura stage/activate/disable, não concede LOGIN e não cria issuer.
+
+A rede externa Easypanel continua compartilhada. As futuras variáveis privadas podem permanecer temporariamente nos metadados do Docker/Easypanel até limpeza; nenhum claim de purge forense ou RAM-only no painel é feito. Depois de eventual operação autorizada: capturar proof fechado, remover somente domínio novo, parar somente serviço novo, limpar env e confirmar zero containers executando, preservando ledger público.

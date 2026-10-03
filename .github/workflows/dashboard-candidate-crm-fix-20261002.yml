@@ -45,6 +45,7 @@ jobs:
         run: |
           node --test tools/crm-manager-install-review/runtime/run-install.test.cjs tools/crm-manager-install-review/runtime/supervisor/supervisor.test.cjs tools/crm-manager-install-review/runtime/compose/compose.test.cjs
           node --test tools/crm-manager-read-activation-review/runtime/runtime.test.cjs tools/crm-manager-read-activation-review/runtime/supervisor.test.cjs tools/crm-manager-read-activation-review/runtime/independent/durability.test.cjs
+          node --test tools/crm-manager-read-activation-review/compose/build-compose.test.cjs
       - name: Conferir identidade de edição separada somente em fixture descartável
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
@@ -150,6 +151,8 @@ jobs:
           CRM_MANAGER_READ_ACTIVATION_NATIVE_PROOF=1 bash tools/crm-manager-read-activation-review/run-native-proof.sh
           node --test tools/crm-manager-read-activation-review/runtime/native-pure.test.cjs
           READ_RUNTIME_NATIVE_OCI_PROOF=1 bash tools/crm-manager-read-activation-review/run-native-oci-proof.sh
+          node tools/crm-manager-read-activation-review/compose/oci-preflight.cjs --pure
+          READ_COMPOSE_OCI_PREFLIGHT=1 bash tools/crm-manager-read-activation-review/compose/run-oci-preflight.sh
 
   native-postgres17-writer-component-proof:
     runs-on: ubuntu-latest
