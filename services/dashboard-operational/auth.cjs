@@ -5,7 +5,7 @@
  * createAuth({dbPath, managerHost, areaHosts, allowedEmailDomains,
  *   bootstrapAdminEmail, bootstrapTokenSha256, encryptionKey, now?}) returns:
  *   beginBootstrap/completeBootstrap, login, session, authorize, logout,
- *   createInvite, acceptInvite, users, setGrants, setRequestedAccess, revokeUser,
+ *   createInvite, acceptInvite, users, renewManagedCrm, setGrants, setRequestedAccess, revokeUser,
  *   setUpstreamCredential, getUpstreamCredential, audienceDraft,
  *   reserveAudienceDraft, audienceDraftOutcome, close.
  *
@@ -212,6 +212,18 @@ function createAuth(options){
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
  function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
+ // Only the current lifecycle's open renewal is projected into the admin
+ // list. Private operation IDs and candidate material never leave the store.
+ function managedRenewalPhase(userId){
+  if(!managedCrm)return null;
+  return db.prepare("SELECT o.phase FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' AND o.lifecycle_version=l.version AND l.state='ready' AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')").get(userId)?.phase??null;
+ }
+ function managedAccess(user){
+  const status=managedCrm?.status(user.id);if(!status)return null;
+  const renewalPhase=managedRenewalPhase(user.id),ready=managedCrm.credentialReady(user.id)===true;
+  const expired=status.state==='ready'&&Number.isSafeInteger(status.expiresAt)&&status.expiresAt<=current();
+  return {...status,ready,renewalPhase,expired,canRenew:user.role==='manager'&&user.state==='active'&&status.state==='ready'&&ready&&!expired&&renewalPhase===null};
+ }
  let hashing=false;const waiters=[];
  async function derive(password,salt){
   if(hashing){if(waiters.length>=8)err('AUTH_BUSY',503);await new Promise(resolve=>waiters.push(resolve));}
@@ -360,9 +372,32 @@ function createAuth(options){
   authorize({...context,admin:true,method:'GET'});
   return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
    const p=permissions(u.id);
-   const crmAccess=managedCrm?.status(u.id);
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess:{...crmAccess,ready:managedCrm.credentialReady(u.id)===true}}:{})};
+   const crmAccess=managedAccess(u);
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess}:{})};
   });
+ }
+ function renewManagedCrm({context,userId}){
+  adminContext(context);
+  if(!managedCrm)err('CRM_PROVISIONING_NOT_READY',403);
+  if(typeof userId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(userId))err('USER_INVALID',400);
+  try{
+   const user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId),p=permissions(userId);
+   if(!user||user.role!=='manager'||user.state!=='active'||Object.keys(p).length!==1||p.growth?.read!==true||p.growth?.edit!==false)err('USER_DENIED',404);
+   const access=managedAccess(user);
+   if(!access||access.state!=='ready')err('CRM_RENEWAL_NOT_READY',409);
+   if(access.expired)err('CRM_ACCESS_EXPIRED',409);
+   if(access.renewalPhase!==null)err('CRM_RENEWAL_PENDING',409);
+   if(!access.canRenew)err('CRM_RENEWAL_NOT_READY',409);
+   // renew() owns its SQLite transaction and returns only after COMMIT. The
+   // HTTP gateway may then kick its private runtime; this method does no I/O.
+   managedCrm.renew(userId);
+  }catch(e){
+   if(e instanceof AuthError)throw e;
+   if(e?.code==='MANAGED_OPERATION_PENDING')err('CRM_RENEWAL_PENDING',409);
+   if(['MANAGED_NOT_READY','MANAGED_MANAGER_DENIED'].includes(e?.code))err('CRM_RENEWAL_NOT_READY',409);
+   err('MANAGED_STORE_UNAVAILABLE',503);
+  }
+  return {ok:true};
  }
  function setRequestedAccess({context,userId,requestedAccess}){
   adminContext(context);
@@ -571,6 +606,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(managedCrm?{managedCrmJournal:managedCrm}:{}),close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(managedCrm?{managedCrmJournal:managedCrm}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

@@ -227,6 +227,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           kickManagedCrm();return sendJson(req,res,200,result);
         }
         if(url.pathname==='/auth/users'){
+          if(!b||typeof b!=='object'||Array.isArray(b))throw jsonError(400,'ACTION_DENIED');
+          if(b.action==='crm_renew'){
+            auth.authorize({...ctx,admin:true});
+            if(!managedCrmRuntime||!crmExclusiveReadProfile)throw jsonError(403,'CRM_PROVISIONING_NOT_READY');
+            if(Object.keys(b).length!==2||!Object.hasOwn(b,'userId'))throw jsonError(400,'ACTION_DENIED');
+            const result=auth.renewManagedCrm({context:ctx,userId:b.userId});
+            kickManagedCrm();return sendJson(req,res,202,result);
+          }
           if(b.action==='crm_reconcile'){
             auth.authorize({...ctx,admin:true});
             if(!managedCrmRuntime)throw jsonError(403,'CRM_PROVISIONING_NOT_READY');

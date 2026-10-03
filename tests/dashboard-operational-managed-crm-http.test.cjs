@@ -20,8 +20,8 @@ function rpcBridge(app,calls){return (url,opts,callback)=>{
   app.handle(req,res).catch(e=>clientReq.emit('error',e));queueMicrotask(()=>{req.emit('data',Buffer.from(wire));req.complete=true;req.emit('end');});
  };return clientReq;
 };}
-function call(port,host,pathname,{method='GET',body,cookie,csrf}={}){return new Promise((resolve,reject)=>{
- const headers={Host:host,Origin:'https://'+host};if(body!==undefined)headers['Content-Type']='application/json';if(cookie)headers.Cookie=cookie;if(csrf)headers['X-CSRF-Token']=csrf;
+function call(port,host,pathname,{method='GET',body,cookie,csrf,origin='https://'+host}={}){return new Promise((resolve,reject)=>{
+ const headers={Host:host};if(origin!==null)headers.Origin=origin;if(body!==undefined)headers['Content-Type']='application/json';if(cookie)headers.Cookie=cookie;if(csrf)headers['X-CSRF-Token']=csrf;
  const req=http.request({hostname:'127.0.0.1',port,path:pathname,method,headers},res=>{const chunks=[];res.on('data',v=>chunks.push(v));res.on('end',()=>{const raw=Buffer.concat(chunks).toString('utf8');let json;try{json=JSON.parse(raw);}catch{}resolve({status:res.statusCode,headers:res.headers,json,raw});});});req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));
 });}
 test('HTTP admin creates two managed CRM accounts, verifies their private origin identities and revokes only one',async t=>{
@@ -37,7 +37,9 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
   const identity={schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',owner:operator.label,allowedPanels:['growth'],permissions:{growth:operator,influs:null}};
   const response=new Response(JSON.stringify(target.searchParams.get('action')==='identity'?identity:{panel:'growth',owner:operator.label,items:[]}),{status:200,headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:target.href});return response;
  };
- let heldPrepare=null,heldRevoke=null;const rpcCalls=[],pool={query:async(sql,args)=>{assert.equal(args.length,1);const command=JSON.parse(args[0]);assert.equal(sql,gateway.QUERIES[command.action]);if(command.action==='prepare_read'&&heldPrepare)await heldPrepare;if(command.action==='revoke_read'&&heldRevoke)await heldRevoke;return {rows:[{body:await origin.call(command)}]};}};
+ let heldPrepare=null,heldRenew=null,heldRevoke=null;const rpcCalls=[],pool={query:async(sql,args)=>{assert.equal(args.length,1);const command=JSON.parse(args[0]);assert.equal(sql,gateway.QUERIES[command.action]);if(command.action==='renew_read'){
+  const row=inspect(db=>db.prepare('SELECT phase,commit_operation_id,candidate_ciphertext FROM crm_manager_operations_v1 WHERE operation_id=?').get(command.operationId));assert.equal(row.phase,'prepare_uncertain');assert.ok(row.commit_operation_id&&row.candidate_ciphertext);assert.ok(auth.managedCrmJournal.pendingOperations(8).includes(command.operationId));if(heldRenew)await heldRenew;
+ }if(command.action==='prepare_read'&&heldPrepare)await heldPrepare;if(command.action==='revoke_read'&&heldRevoke)await heldRevoke;return {rows:[{body:await origin.call(command)}]};}};
  const app=gateway.createServer({pool,issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43),revision:'a'.repeat(40),enabled:true});t.after(()=>app.stop());
  managedCrmRuntime=createManagerRuntime({auth,issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43)},{requestImpl:rpcBridge(app,rpcCalls),fetchImpl});
  const server=createServer({mode:'operational',crmManagedRead:{issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,provisionerToken:'S'.repeat(43)},managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},upstreams:{'crm-read':new URL(backend)},allowedUpstreamHosts:[new URL(backend).hostname],publicDir:path.join(dir,'public')},{auth,fetchImpl,managedCrmRuntime});
@@ -65,6 +67,22 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  assert.equal((await post(hosts.manager,'/auth/users',{action:'crm_reconcile'},admin)).status,202);
  const users=await call(port,hosts.manager,'/auth/users',admin);assert.equal(users.status,200);for(const m of managers)assert.equal(users.json.users.find(u=>u.id===m.id).crmAccess.ready,true);
  const keys=privateReads.filter(r=>r.action==='identity').map(r=>r.bearer);assert.equal(new Set(keys).size,2);for(const key of keys){assert.ok(!users.raw.includes(key));assert.ok(rpcCalls.every(wire=>!wire.includes(key)));}
+ // A renewal is a durable manual intent; old read access remains usable until
+ // the new generation is committed, and a replay cannot replace that intent.
+ const renewBody={action:'crm_renew',userId:managers[0].id},rpcBefore=rpcCalls.length,renewCount=()=>inspect(db=>db.prepare("SELECT COUNT(*) n FROM crm_manager_operations_v1 WHERE kind='renew'").get().n);
+ for(const [host,body,credentials,status] of [[hosts.manager,renewBody,{cookie:admin.cookie},403],[hosts.manager,renewBody,{...admin,origin:'https://wrong.http.synthetic.invalid'},403],[hosts.manager,renewBody,{...admin,origin:null},403],[hosts.growth,renewBody,managers[0].credentials,403],[hosts.manager,{action:'crm_renew'},admin,400],[hosts.manager,{...renewBody,operationId:crypto.randomUUID()},admin,400],[hosts.manager,{...renewBody,userId:'not-a-uuid'},admin,400],[hosts.manager,{...renewBody,userId:adminId},admin,404]])assert.equal((await post(host,'/auth/users',body,credentials)).status,status);
+ assert.equal(renewCount(),0);assert.equal(rpcCalls.length,rpcBefore);
+ let releaseRenew;heldRenew=new Promise(resolve=>{releaseRenew=resolve;});
+ const requested=await post(hosts.manager,'/auth/users',renewBody,admin);assert.equal(requested.status,202);assert.deepEqual(requested.json,{ok:true});assert.equal(renewCount(),1);
+ const persisted=inspect(db=>db.prepare("SELECT * FROM crm_manager_operations_v1 WHERE kind='renew'").get());assert.equal(persisted.phase,'prepare_uncertain');
+ const pending=await call(port,hosts.manager,'/auth/users',admin),renewalDto=pending.json.users.find(u=>u.id===managers[0].id).crmAccess;assert.equal(renewalDto.ready,true);assert.equal(renewalDto.canRenew,false);assert.equal(renewalDto.renewalPhase,'prepare_uncertain');
+ assert.equal((await post(hosts.manager,'/auth/users',renewBody,admin)).status,409);assert.deepEqual(inspect(db=>db.prepare("SELECT * FROM crm_manager_operations_v1 WHERE kind='renew'").get()),persisted);
+ const oldRead=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[0].credentials);assert.equal(oldRead.status,200);assert.equal(oldRead.json.owner,managers[0].email);
+ const renewing=managedCrmRuntime.kick();releaseRenew();heldRenew=null;assert.deepEqual(await renewing,{ready:1,pending:0,expired:0,revoked:0});
+ const renewedUsers=await call(port,hosts.manager,'/auth/users',admin),renewed=renewedUsers.json.users.find(u=>u.id===managers[0].id).crmAccess;assert.equal(renewed.generation,2);assert.equal(renewed.ready,true);assert.equal(renewed.renewalPhase,null);assert.equal(renewed.canRenew,true);
+ assert.equal((await fetchImpl(backend+'?action=identity&painel=growth',{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+keys[0]}})).status,401);
+ assert.equal((await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[0].credentials)).status,200);
+ for(const value of [persisted.operation_id,persisted.commit_operation_id,persisted.candidate_ciphertext,persisted.candidate_digest,persisted.principal_id,keys[0],keys[1]])assert.ok(!pending.raw.includes(value)&&!renewedUsers.raw.includes(value));
  assert.equal((await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},{cookie:admin.cookie})).status,403);
  let releaseRevoke;heldRevoke=new Promise(resolve=>{releaseRevoke=resolve;});
  const revoked=await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},admin);assert.equal(revoked.json.crmRevocationPending,true);assert.equal((await call(port,hosts.growth,'/auth/session',managers[0].credentials)).json.authenticated,false);

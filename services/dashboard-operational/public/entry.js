@@ -271,6 +271,9 @@ else (function(){'use strict';
  function crmAccessLabel(user){
   if(user.role!=='manager'||!Array.isArray(user.areas)||user.areas.length!==1||user.areas[0]!=='growth')return '';
   const access=user.crmAccess;if(!access||typeof access!=='object')return '';
+  const renewals={queued:'renovação solicitada',prepare_uncertain:'renovação aguardando confirmação',prepared:'renovação em validação',attested:'renovação em confirmação',commit_uncertain:'renovação aguardando confirmação',committed:'renovação finalizando'};
+  if(access.expired===true)return 'CRM acesso expirado'+(Object.hasOwn(renewals,access.renewalPhase)?' · '+renewals[access.renewalPhase]:'');
+  if(Object.hasOwn(renewals,access.renewalPhase))return `CRM ${access.ready===true?'pronto':'acesso pendente'} · ${renewals[access.renewalPhase]}`;
   if(access.state==='ready')return access.ready===true?'CRM pronto':'CRM acesso pendente';
   const labels={awaiting_accept:'CRM aguarda aceite',provisioning:'CRM preparando acesso',revoking:'CRM revogação pendente',revoked:'CRM revogado',failed:'CRM indisponível'};
   return Object.hasOwn(labels,access.state)?labels[access.state]:'';
@@ -294,9 +297,23 @@ else (function(){'use strict';
    select.addEventListener('change',()=>{save.disabled=select.value===currentAccess;});
    save.addEventListener('click',()=>saveAccessRequest(user,select,save));
    const revokeButton=document.createElement('button');revokeButton.type='button';revokeButton.textContent='Revogar acesso';revokeButton.addEventListener('click',()=>revoke(user,revokeButton));
-   label.append(select);actions.append(label,save,revokeButton);row.append(actions);
+   label.append(select);actions.append(label,save);
+   if(user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&user.permissions.growth.edit===false&&user.crmAccess?.state==='ready'&&user.crmAccess.ready===true&&user.crmAccess.canRenew===true&&user.crmAccess.expired===false&&user.crmAccess.renewalPhase===null){
+    const renewButton=document.createElement('button');renewButton.type='button';renewButton.textContent='Renovar acesso CRM';renewButton.setAttribute('aria-label',`Renovar acesso CRM de ${user.email}`);renewButton.addEventListener('click',()=>renewCrm(user,renewButton));actions.append(renewButton);
+   }
+   actions.append(revokeButton);row.append(actions);
   }
-  return row;
+ return row;
+ }
+ async function renewCrm(user,button){
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmAccess?.canRenew!==true)return;
+  button.disabled=true;adminMessage.textContent='Solicitando renovação do acesso CRM…';
+  try{
+   const {response,data}=await post('/auth/users',{action:'crm_renew',userId:user.id});
+   if(!response.ok&&!(response.status===409&&data?.error==='CRM_RENEWAL_PENDING'))throw Error('crm_renew_failed');
+   await loadUsers();adminMessage.textContent=response.ok?'Renovação solicitada. Confira a fase do acesso; a confirmação ainda pode estar pendente.':'Já há uma renovação pendente. Use “Conferir acessos CRM” para retomar a confirmação.';
+  }catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível confirmar a solicitação. Confira a fase do acesso CRM e se ele ainda está válido.';}
+  finally{button.disabled=false;}
  }
  async function saveAccessRequest(user,select,button){
   if(session?.user?.role!=='superadmin'||requested!=='todos')return;
@@ -313,7 +330,7 @@ else (function(){'use strict';
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
-  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&user.crmAccess.ready===false));
+  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
  }
  $('admin-crm-reconcile').addEventListener('click',async()=>{
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
