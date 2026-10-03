@@ -104,7 +104,7 @@ const GRU={
   },
   cliente(escrita,bearerWrite=false){
     const c=GRU.caps||GRU.capacidades();
-    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||'',bearerWrite});
+    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||'',bearerWrite,leituraMarca:c.leitura_marca===true});
   },
   /* ---------- render ---------- */
   render(ctx){
@@ -601,7 +601,8 @@ const GRU={
   },
   async verificarSubmissao(r,silencioso){
     const s=r.servidor;if(!s?.submission_id)return;
-    const out=await GRU.chamada('submissao',r,c=>c.submissao(s.submission_id));if(!out)return;
+    // Contrato por marca: a consulta leva a marca dona do rascunho (sem o contrato, o argumento é ignorado).
+    const out=await GRU.chamada('submissao',r,c=>c.submissao(s.submission_id,r.marca));if(!out)return;
     const {res,erro}=out;
     if(erro){if(!silencioso){GRU.aviso(`Não deu para consultar a submissão: ${erro.texto}`,'erro');GRU.render();}return;}
     const b=res.body||{};
@@ -625,8 +626,9 @@ const GRU={
   },
   async carregarHistorico(r){
     const s=r.servidor;if(!s)return;
-    const ref=s.template_key?{key:s.template_key}:{draft_id:s.draft_id};
-    const out=await GRU.chamada('historico',r,c=>c.historico(ref));if(!out)return;
+    // Contrato por marca: só o histórico por draft_id tem marca derivável; por key não é servido.
+    const ref=GRU.caps?.leitura_marca===true&&s.draft_id?{draft_id:s.draft_id}:s.template_key?{key:s.template_key}:{draft_id:s.draft_id};
+    const out=await GRU.chamada('historico',r,c=>c.historico(ref,r.marca));if(!out)return;
     const {res,erro}=out;
     if(erro){GRU.aviso(`Histórico indisponível: ${erro.texto}`,'erro');GRU.render();return;}
     s.historico=Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];

@@ -164,9 +164,11 @@ const GC={
     const check=()=>{if(!current())throw Error('A marca ou o acesso mudou. Feche e abra a prévia novamente.');};
     try{
       if(!caps.pode.read_content||!key)throw Error('Prévia indisponível neste acesso. Atualize o painel.');
-      const client=GTA.cliente({endpoint:caps.endpoint,chaveLeitura:key}),res=await client.listar(ref.brand,ref.channel);check();
+      const client=GTA.cliente({endpoint:caps.endpoint,chaveLeitura:key,leituraMarca:caps.leitura_marca===true}),res=await client.listar(ref.brand,ref.channel);check();
+      if(!res.ok&&(res.recusada||res.semLeitura))throw Error(res.recusada||res.semLeitura);
       if(!res.ok||!Array.isArray(res.body?.templates)||res.body.templates.length>250)throw Error('Não foi possível consultar o conteúdo publicado. Feche e tente novamente.');
-      const matches=res.body.templates.filter(t=>t&&t.brand===ref.brand&&t.channel===ref.channel&&String(t.id)===String(ref.id)&&(!ref.key||t.key===ref.key));
+      // Contrato por marca: a key nova (email.template.<id>) não casa com as keys legadas; casa por marca, canal e id.
+      const matches=res.body.templates.filter(t=>t&&t.brand===ref.brand&&t.channel===ref.channel&&String(t.id)===String(ref.id)&&(!ref.key||caps.leitura_marca===true||t.key===ref.key));
       if(matches.length!==1)throw Error('O conteúdo deste template não foi confirmado. Atualize a lista antes de abrir a prévia.');
       const t=matches[0];if(JSON.stringify(t.components||null).length>400000)throw Error('O conteúdo ultrapassa o limite de visualização.');
       const checkedAt=GC.stamp(Number.isFinite(GC.time(res.body.consultado_em))?res.body.consultado_em:new Date().toISOString());
@@ -204,11 +206,12 @@ const GC={
   },
   readTicket:null,
   startRead(ctx,action){
-    const ticket={brand:ctx.marca,endpoint:GC.caps.endpoint,key:GTA.chaveLeitura()};
+    const ticket={brand:ctx.marca,endpoint:GC.caps.endpoint,key:GTA.chaveLeitura(),leituraMarca:GC.caps.leitura_marca===true};
     GC.readTicket=ticket;GC.carregando=action;GC.render(ctx);return ticket;
   },
   currentRead(ticket){
-    return GC.readTicket===ticket&&GC.previewContext?.marca===ticket.brand&&GTA.caps(GC.previewContext?.api||{},{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}).endpoint===ticket.endpoint&&GTA.chaveLeitura()===ticket.key;
+    const caps=GTA.caps(GC.previewContext?.api||{},{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined});
+    return GC.readTicket===ticket&&GC.previewContext?.marca===ticket.brand&&caps.endpoint===ticket.endpoint&&(caps.leitura_marca===true)===ticket.leituraMarca&&GTA.chaveLeitura()===ticket.key;
   },
   finishRead(ticket){
     if(GC.readTicket!==ticket)return null;
@@ -219,7 +222,7 @@ const GC={
   async carregarConteudo(ctx){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.read_content)return;
     GC.conteudoErro=null;const ticket=GC.startRead(ctx,'listar');
-    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:ticket.leituraMarca});
     let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
     if(!res.ok){GC.conteudoErro=GTA.erro(res,'listar').texto;GC.render(ctx);return;}
@@ -229,9 +232,10 @@ const GC={
   async carregarHistorico(ctx,key){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history)return;
     const ticket=GC.startRead(ctx,'historico');
-    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
-    let res;try{res=await c.historico({key});}catch(_){res={ok:false,status:0,body:null,rede:true};}
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:ticket.leituraMarca});
+    let res;try{res=await c.historico({key},ticket.brand);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
+    if(res.recusada||res.semLeitura){GC.conteudoErro=GTA.erro(res,'historico').texto;GC.render(ctx);return;}
     GC.historicos[key]=res.ok&&Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];
     if(!res.ok)GC.conteudoErro=GTA.erro(res,'historico').texto;
     GC.render(ctx);
