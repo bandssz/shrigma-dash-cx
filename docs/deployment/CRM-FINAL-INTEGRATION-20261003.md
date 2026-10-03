@@ -8,7 +8,7 @@ Os seis commits da entrega foram incorporados à branch `codex/dashboard-candida
 
 Esse ajuste adicional interrompe o scan antes de cada nova página e reconhece UUID válido em maiúsculas no nome do arquivo. Conserva o limite de quatro páginas, a identidade exata da recuperação e o filtro por marca. A origem de produção observada pelo MCP ainda informa `03a02b4c98f471e6739c8a7cbe46e49aa4cbf285`; a comparação dos quinze arquivos da imagem mostra alteração apenas em `services/crm-campaign/media.cjs`. Não houve atualização do serviço ativo.
 
-O portal continua removendo exatamente o módulo legado de mídia e fornecendo sua biblioteca somente de leitura. A assinatura do bloco gerado foi revisada e atualizada para `02e3d5a1d7457aadb99858e36c156b3fdf760651c4ca043b45a314c885972e95`. Um teste novo recusa bytes não revisados. O manifesto privado do gateway registra o commit de fonte adicional e o SHA `2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc` de `media.cjs`; esse registro não comprova que a origem já recebeu a imagem.
+O portal continua removendo exatamente o módulo legado de mídia e fornecendo sua biblioteca somente de leitura. A assinatura do bloco gerado foi revisada e atualizada para `02e3d5a1d7457aadb99858e36c156b3fdf760651c4ca043b45a314c885972e95`. Um teste novo recusa bytes não revisados. O manifesto privado do gateway registra o snapshot candidato `4517cc3d3060a75e9d11c360479054cb0bd4d459` e o SHA `2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc` de `media.cjs`; as três fontes do manifesto foram conferidas nesse mesmo snapshot. Esse registro não comprova que a origem já recebeu a imagem.
 
 ## Validação
 

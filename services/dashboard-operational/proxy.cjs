@@ -86,7 +86,7 @@ const SANDBOX_DESTINATIONS=Object.freeze({cx:'https://'+SANDBOX_HOST+'/dashboard
 // This pin does not prove live application readiness. Templates and
 // journey_graph stay unpinned.
 const REVIEWED_DYNAMIC=Object.freeze({
-  sourceRevision:'70f914c3f235f56f14fc15d66144ae8a8e551b4d',
+  sourceRevision:'4517cc3d3060a75e9d11c360479054cb0bd4d459',
   sourceSha256:Object.freeze({
     'services/crm-audience/server.cjs':'2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480',
     'services/crm-campaign/server.cjs':'df4298022372e18afde1ac89b1600cd56475da92c86a0063a873d6f83c1c3c53',
