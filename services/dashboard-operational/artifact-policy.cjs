@@ -11,17 +11,24 @@ const PUBLIC_FILES=Object.freeze([
  'crm/index.html','organico/index.html','creators/index.html','gestao/index.html',
  'entry.js','entry.css','guard.js','media-read.js','campaign-edit.js','campaign-bff-client.js'
 ].sort());
-const RUNTIME_FILES=Object.freeze(['server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-dispatcher.cjs','crm-manager-runtime.cjs','crm-manager-attestation.cjs','crm-manager-read-bridge.cjs','proxy.cjs','backend-credential-attestation.cjs','crm-campaign-create.cjs','crm-campaign-delivery.cjs','crm-campaign-writer-attestation.cjs','campaign-write-contract.js','campaign-write-tracking.js','fixtures.cjs','segment-audience-contract.js'].sort());
+const LEGACY_RUNTIME_FILES=Object.freeze(['server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-dispatcher.cjs','crm-manager-runtime.cjs','crm-manager-attestation.cjs','crm-manager-read-bridge.cjs','proxy.cjs','backend-credential-attestation.cjs','crm-campaign-create.cjs','crm-campaign-delivery.cjs','crm-campaign-writer-attestation.cjs','campaign-write-contract.js','campaign-write-tracking.js','fixtures.cjs','segment-audience-contract.js'].sort());
+const WRITER_RUNTIME_FILES=Object.freeze(['crm-manager-writer-policy.cjs','crm-manager-writer-client.cjs','crm-manager-writer-journal.cjs','crm-manager-writer-coordinator.cjs','crm-manager-writer-auth-adapter.cjs'].sort());
+const RUNTIME_FILES=Object.freeze([...LEGACY_RUNTIME_FILES,...WRITER_RUNTIME_FILES].sort());
+const LEGACY_FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...LEGACY_RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).sort().join(',')===keys.slice().sort().join(',');
 const canonicalBase64=value=>typeof value==='string'&&/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)&&Buffer.from(value,'base64').toString('base64')===value;
 function isText(file){return /\.(?:html|js|css|svg|cjs)$/.test(file);}
 function validateFiles(files){
- if(!Array.isArray(files)||files.length!==FILES.length)throw Error('ARTIFACT_FILES_INVALID');
+ // Accept exactly the complete legacy set or the complete writer set. A
+ // partial writer set cannot authorize loading a dormant runtime component.
+ if(!Array.isArray(files))throw Error('ARTIFACT_FILES_INVALID');
+ const expected=files.length===FILES.length?FILES:files.length===LEGACY_FILES.length?LEGACY_FILES:null;
+ if(!expected)throw Error('ARTIFACT_FILES_INVALID');
  const seen=new Set();let bytes=0,publicBytes=0,runtimeBytes=0;
  for(const f of files){
-  if(!exact(f,['path','encoding','content'])||typeof f.path!=='string'||!FILES.includes(f.path)||seen.has(f.path)||typeof f.content!=='string')throw Error('ARTIFACT_FILE_INVALID');
+  if(!exact(f,['path','encoding','content'])||typeof f.path!=='string'||!expected.includes(f.path)||seen.has(f.path)||typeof f.content!=='string')throw Error('ARTIFACT_FILE_INVALID');
   const text=isText(f.path);
   if(f.encoding!==(text?'utf8':'base64')||!text&&!canonicalBase64(f.content))throw Error('ARTIFACT_ENCODING_INVALID');
   const buffer=Buffer.from(f.content,f.encoding);
@@ -29,8 +36,8 @@ function validateFiles(files){
   bytes+=buffer.length;f.path.startsWith('public/')?publicBytes+=buffer.length:runtimeBytes+=buffer.length;
   if(bytes>MAX_BYTES)throw Error('ARTIFACT_BYTES_INVALID');seen.add(f.path);
  }
- if(JSON.stringify([...seen].sort())!==JSON.stringify(FILES))throw Error('ARTIFACT_ALLOWLIST_INVALID');
- return {files:files.length,publicFiles:PUBLIC_FILES.length,runtimeFiles:RUNTIME_FILES.length,bytes,publicBytes,runtimeBytes};
+ if(JSON.stringify([...seen].sort())!==JSON.stringify(expected))throw Error('ARTIFACT_ALLOWLIST_INVALID');
+ return {files:files.length,publicFiles:PUBLIC_FILES.length,runtimeFiles:expected.length-PUBLIC_FILES.length,bytes,publicBytes,runtimeBytes};
 }
 function decodePack(input,expectedSha256){
  if(typeof expectedSha256!=='string'||!/^[a-f0-9]{64}$/.test(expectedSha256))throw Error('ARTIFACT_PIN_REQUIRED');
@@ -64,4 +71,4 @@ function unpack(packFile,target,{expectedSha256,fsImpl=fs}={}){
  }catch(error){fsImpl.rmSync(root,{recursive:true,force:true});throw error;}
  return {...parsed.stats,sha256:parsed.sha256,root,publicDir:path.join(root,'public'),runtimeDir:path.join(root,'runtime')};
 }
-module.exports={SCHEMA,SCHEMA_V2,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,RUNTIME_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};
+module.exports={SCHEMA,SCHEMA_V2,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,LEGACY_RUNTIME_FILES,WRITER_RUNTIME_FILES,RUNTIME_FILES,LEGACY_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};
