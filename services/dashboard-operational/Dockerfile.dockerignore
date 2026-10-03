@@ -37,6 +37,10 @@
 !services/dashboard-operational/crm-manager-dispatcher.cjs
 !services/dashboard-operational/crm-manager-runtime.cjs
 !services/dashboard-operational/crm-manager-attestation.cjs
+!services/dashboard-operational/crm-campaign-delivery.cjs
+!services/dashboard-operational/crm-campaign-writer-attestation.cjs
+!services/dashboard-operational/campaign-write-contract.js
+!services/dashboard-operational/campaign-write-tracking.js
 !services/dashboard-operational/proxy.cjs
 !services/dashboard-operational/backend-credential-attestation.cjs
 !services/dashboard-operational/fixtures.cjs

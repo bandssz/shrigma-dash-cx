@@ -1,0 +1,10 @@
+{
+  "README.md": "c72616ef4f531f0566cb3d42be121dde74cf8ce4a2e722f9899bd352364419c8",
+  "run-install.cjs": "48b307910621f0e12f4bbc0fbca589f43aed095f51c177721e042e9a1d632f4c",
+  "run-install.test.cjs": "7157fdf1fd891bde9a94b3bd199b43d1c7cb684680d840b3dafb1a2452cf6e01",
+  "sql/empty.sql": "a55f9a2fe863f5797383915b0239f3aab5e3733dcdc8ee222b7ff3f4a9fdb697",
+  "sql/installer.sql": "33a412f3d8b8fc4293010e2aec95dc5a8ba3f1296f86000d50e79cfb87ec0bd9",
+  "sql/objects.sql": "00ebc821445ec653bd96b01fa1b74a82207551a1cebd1498e7ddd512bc41a370",
+  "sql/profile.sql": "a20c51e10dfff6c781b94158ed392a38c1ec64d30966281ecd2ede72e52f62e9",
+  "sql/rollback.sql": "dace1eab926186c4aa277d89c92813ce0ac06cc5fd971c0569f2cd9ef0734d4f"
+}

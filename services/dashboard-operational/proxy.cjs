@@ -12,7 +12,10 @@ const READ=Object.freeze({
   campaigns:{area:'growth',slot:'growth-campaign-read',method:'GET',selector:'acao',actions:{
     campanha_catalogo:rule(['brand']),campanha_listar:rule(['brand']),campanha_obter:rule(['brand','id']),
     campanha_operacao:rule(['brand','idempotency_key'],[],{slot:'growth-campaign',edit:true}),
-    campanha_salvar:rule(['brand','definition','idempotency_key'],['id','expected_version'],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true})}},
+    campanha_salvar:rule(['brand','definition','idempotency_key'],['id','expected_version'],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true}),
+    campanha_validar:rule(['brand','id','expected_version','idempotency_key'],[],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true,submitGate:true}),
+    campanha_agendar:rule(['brand','id','expected_version','idempotency_key','confirm','audience_review_id'],[],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true,submitGate:true}),
+    campanha_cancelar:rule(['brand','id','expected_version','idempotency_key','confirm'],[],{method:'POST',slot:'growth-campaign',edit:true,bodyKey:true,submitGate:true})}},
   // Media is an independent, opt-in route. Only the bounded library listing
   // is admitted; upload and recovery remain unavailable through this BFF.
   campaigns_media:{area:'growth',slot:'growth-campaign-read',method:'GET',actions:{'':rule(['brand'],['page','per_page'])}},
@@ -80,6 +83,7 @@ const DYNAMIC_MANIFEST_SCHEMA='shrigma_dashboard_dynamic_upstreams_v1';
 // mix with, or redirect any production destination through environment input.
 const SANDBOX_HOST='dashboard-crm-sandbox-20261002.tazdb8.easypanel.host';
 const SANDBOX_DESTINATIONS=Object.freeze({cx:'https://'+SANDBOX_HOST+'/dashboard',cache:'https://'+SANDBOX_HOST+'/dashboard',segments:'https://'+SANDBOX_HOST+'/segments'});
+const SANDBOX_CAMPAIGN_DESTINATION='https://'+SANDBOX_HOST+'/campaigns';
 // Candidate destinations reviewed against the source at this commit. The
 // campaign URL preserves its published n8n-host path, which Easypanel maps to
 // crm-campaign; the direct service alias must not replace that journal origin.
@@ -131,6 +135,9 @@ const validField=(route,name,value)=>{
     case 'teste_id':return typeof value==='string'&&value.length>=1&&value.length<=256&&value===value.trim()&&!/[\x00-\x1f\x7f]/.test(value);
     case 'idempotency_key':return route==='campaigns'?/^[A-Za-z0-9_-]{16,100}$/.test(value):route==='segments'?AUDIENCE_KEY.test(value):KEY.test(value);
     case 'expected_catalog_hash':return route==='segments'&&typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
+    case 'expected_version':return route==='campaigns'&&typeof value==='string'&&/^[a-f0-9]{32}$/i.test(value);
+    case 'audience_review_id':return route==='campaigns'&&typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+    case 'confirm':return route==='campaigns'&&['agendar','cancelar'].includes(value);
     case 'draft_id':return /^d_[A-Za-z0-9_-]{1,96}$/.test(value);
     case 'key':case 'submission_id':return /^[A-Za-z0-9_.:-]{1,128}$/.test(value);
     case 'operacao':return route==='ab'?['criar','encerrar'].includes(value):['rascunho','validar','submeter'].includes(value);
@@ -193,20 +200,20 @@ function verifiedAudienceOperation(body,{brand,key,action,requestId,expectedVers
  return {phase:'succeeded',status:receipt.status,body:inner,receiptCode:null,segmentId:segment.id,segmentVersion:segment.version};
 }
 const CAMPAIGN_DEFINITION_FIELDS=new Set(['schema_version','brand','channel','initiative','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','html','text','tags','send_at']);
-function validCampaignDefinition(value,brand){
+function validCampaignDefinition(value,brand,{crmCampaignSubmitWrite=false}={}){
   if(!plain(value)||Object.keys(value).some(k=>!CAMPAIGN_DEFINITION_FIELDS.has(k))||
     value.schema_version!=='crm-campaign-v1'||value.brand!==brand||value.channel!=='email'||
     !plain(value.initiative)||Object.keys(value.initiative).some(k=>!['key','name'].includes(k))||
     !Array.isArray(value.list_ids)||value.list_ids.length<1||value.list_ids.length>30||
     !value.list_ids.every(n=>Number.isSafeInteger(n)&&n>0)||!Number.isSafeInteger(value.template_id)||value.template_id<1||
     !Array.isArray(value.tags)||value.tags.length>20||!value.tags.every(s=>typeof s==='string'&&s.length>0&&s.length<=100)||
-    value.send_at!==undefined&&value.send_at!==null)return false;
+    value.send_at!==undefined&&value.send_at!==null&&(!crmCampaignSubmitWrite||typeof value.send_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value.send_at)||!Number.isSafeInteger(Date.parse(value.send_at))||new Date(value.send_at).toISOString()!==value.send_at))return false;
   for(const [name,max]of Object.entries({utm_campaign:100,name:200,subject:250,from_email:254,reply_to:254,html:220000,text:50000}))
     if(typeof value[name]!=='string'||!value[name].trim()||value[name].length>max)return false;
   return typeof value.initiative.key==='string'&&value.initiative.key.length>0&&value.initiative.key.length<=100&&
     typeof value.initiative.name==='string'&&value.initiative.name.length>0&&value.initiative.name.length<=160;
 }
-function decide(route,method,query,body){
+function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
   const spec=READ[route];if(!spec)throw new ProxyError(403,'ROUTE_DENIED');
   if(method!==spec.method&&!(method==='POST'&&['campaigns','segments'].includes(route)))throw new ProxyError(403,'METHOD_DENIED');
   if(!(query instanceof URLSearchParams)||query.toString().length>2048)throw new ProxyError(413,'QUERY_TOO_LARGE');
@@ -218,6 +225,7 @@ function decide(route,method,query,body){
   const selector=spec.selector,action=selector?fields[selector]:'';
   if(typeof action!=='string'||!Object.hasOwn(spec.actions,action))throw new ProxyError(403,'ACTION_DENIED');
   const policy=spec.actions[action],required=[...(selector?[selector]:[]),...policy.required];
+  if(policy.submitGate&&!crmCampaignSubmitWrite)throw new ProxyError(403,'EDIT_NOT_READY');
   if(method!==(policy.method||spec.method))throw new ProxyError(403,'METHOD_DENIED');
   const allowed=new Set([...required,...policy.optional,...(method==='POST'?['k']:[])]);
   if(Object.keys(fields).some(k=>!allowed.has(k))||required.some(k=>!Object.hasOwn(fields,k)))throw new ProxyError(403,'FIELD_DENIED');
@@ -229,11 +237,12 @@ function decide(route,method,query,body){
     if(typeof value==='string'&&value.length>256||!validField(route,name,value))throw new ProxyError(403,'FIELD_DENIED');
   }
   if(route==='campaigns'&&action==='campanha_salvar'){
-    if(!validCampaignDefinition(fields.definition,fields.brand)||
+    if(!validCampaignDefinition(fields.definition,fields.brand,{crmCampaignSubmitWrite})||
       Object.hasOwn(fields,'id')!==Object.hasOwn(fields,'expected_version')||
       Object.hasOwn(fields,'id')&&(!Number.isSafeInteger(fields.id)||fields.id<1||!/^[a-f0-9]{32}$/i.test(fields.expected_version)))
       throw new ProxyError(403,'FIELD_DENIED');
   }
+  if(route==='campaigns'&&policy.submitGate&&(!Number.isSafeInteger(fields.id)||fields.id<1||action!=='campanha_validar'&&fields.confirm!==action.replace('campanha_','')))throw new ProxyError(403,'FIELD_DENIED');
   if(route==='segments'&&method==='POST'){
     if(Object.hasOwn(fields,'expected_version')&&(!Number.isSafeInteger(fields.expected_version)||fields.expected_version<1||fields.expected_version>999999999)||
       Object.hasOwn(fields,'definition')&&(!plain(fields.definition)||fields.definition.brand!==fields.brand||!validAudienceDefinition(fields.definition))||
@@ -245,19 +254,20 @@ function decide(route,method,query,body){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production'){
+function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false}={}){
   if(!plain(config)||!Array.isArray(allowedHosts)||allowedHosts.some(h=>typeof h!=='string'))throw Error('Invalid upstream configuration');
   if(!['production','crm-sandbox'].includes(profile))throw Error('Invalid upstream profile');
   if(profile==='crm-sandbox'){
-    if(dynamicManifest!==null||allowedHosts.length!==1||allowedHosts[0]!==SANDBOX_HOST||Object.keys(config).sort().join(',')!=='cache,cx,segments')throw Error('Invalid sandbox upstream configuration');
+    if(dynamicManifest!==null||allowedHosts.length!==1||allowedHosts[0]!==SANDBOX_HOST||Object.keys(config).sort().join(',')!==(crmCampaignSubmitWrite?'cache,campaigns,cx,segments':'cache,cx,segments'))throw Error('Invalid sandbox upstream configuration');
     const out=Object.create(null);
     for(const [route,raw]of Object.entries(config)){
       const value=raw instanceof URL?raw.href:raw;
-      if(value!==SANDBOX_DESTINATIONS[route])throw Error('Unapproved sandbox destination');
+      if(value!==(route==='campaigns'&&crmCampaignSubmitWrite?SANDBOX_CAMPAIGN_DESTINATION:SANDBOX_DESTINATIONS[route]))throw Error('Unapproved sandbox destination');
       out[route]=new URL(value);
     }
     return Object.freeze(out);
   }
+  if(crmCampaignSubmitWrite)throw Error('Campaign submission requires synthetic sandbox');
   const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
   if(dynamic.length){
     if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');
@@ -361,9 +371,11 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,fetchImpl=fetch}){
-  const d=decide(route,method,query,body),target=upstreams[route];
-  if(d.edit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,fetchImpl=fetch}){
+  const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
+  const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&target?.href===SANDBOX_CAMPAIGN_DESTINATION;
+  if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
+  if(d.edit&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');
   if(!user||!(user.role==='superadmin'||user.areas?.includes(d.area)))throw new ProxyError(403,'AREA_DENIED');
   if(typeof credential!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(credential))throw new ProxyError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
@@ -393,11 +405,11 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);
   let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch{throw new ProxyError(502,'UPSTREAM_INVALID_JSON');}
   if(route==='campaigns'&&d.action==='campanha_salvar'&&result.status>=200&&result.status<300&&
-    (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||parsed.campaign.send_at!==null||parsed.campaign.definition?.brand!==body.brand))
+    (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||(campaignSubmit?parsed.campaign.send_at!==(body.definition.send_at??null):parsed.campaign.send_at!==null)||parsed.campaign.definition?.brand!==body.brand))
     throw new ProxyError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
-  if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&
+  if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,route})};
 }
-module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
+module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

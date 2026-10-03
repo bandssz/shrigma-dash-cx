@@ -40,6 +40,8 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
         run: node --test tests/claude-*.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-media-page-boundary.test.cjs tests/growth-media.test.cjs
+      - name: Conferir executor fechado, supervisão e plano de recursos sem banco ou credenciais
+        run: node --test tools/crm-manager-install-review/runtime/run-install.test.cjs tools/crm-manager-install-review/runtime/supervisor/supervisor.test.cjs tools/crm-manager-install-review/runtime/compose/compose.test.cjs
       - name: Gerar pacote fechado sem dados nem credenciais
         run: |
           node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"

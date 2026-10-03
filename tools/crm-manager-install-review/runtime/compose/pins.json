@@ -1,0 +1,9 @@
+{
+  ".env": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "README.md": "2d672ea754cdd34a26755a0c0cd2784949f355606531e5ddff1b5d16ae298fa3",
+  "bootstrap.cjs": "804e31f4b2674e469b2114a1fe9961e5192fc3be67a40382b90f1cac1c90da0e",
+  "build-compose.cjs": "678d0f71221ee24cb67058690b7b81b61b036502487f57fa1aa3b2ca7b8ddf21",
+  "compose.plan.json": "836fdec6dbc2a64ec9b1e55d0c7ad00847d54eeb969d13f479e93ab0e2c2ece6",
+  "compose.test.cjs": "9210595a65ebf51fe1fc043f36e16dc84082f4032d94c69df8464778289db1bb",
+  "plan.metadata.json": "dab5ad98e1ff613798e5f1a96b64c09e408981f07889e3e2595db3c7c3a76dbb"
+}
