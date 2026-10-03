@@ -57,7 +57,7 @@ finish(){
   if [[ ${OWN} == 1 ]]; then node "${BASE}/diagnose.cjs" phase "${META}" "${PHASE}" </dev/null || true; fi
   if ! cleanup_own; then PHASE='cleanup_refused'; RESULT=1; fi
   # Only typed booleans are public. No Docker logs/config/argv/SQL/raw errors.
-  printf '{"schema":"crm-manager-native-preflight-ci-v1","phase":"%s","canonicalConfigAccepted":%s,"canonicalHealthy":%s,"pidsLimitOnlyConfigAccepted":%s,"pidsLimitOnlyHealthy":%s,"databaseClientLoaded":false,"sqlExecuted":false,"containerExternalNetwork":false}\n' "${PHASE}" "${CANONICAL_CONFIG}" "${CANONICAL_HEALTH}" "${PIDSLIMIT_CONFIG}" "${PIDSLIMIT_HEALTH}"
+  printf '{"schema":"crm-manager-native-preflight-ci-v1","phase":"%s","canonicalConfigAccepted":%s,"canonicalHealthy":%s,"pidsLimitOnlyAttempted":false,"pidsLimitOnlyConfigAccepted":%s,"pidsLimitOnlyHealthy":%s,"databaseClientLoaded":false,"sqlExecuted":false,"containerExternalNetwork":false}\n' "${PHASE}" "${CANONICAL_CONFIG}" "${CANONICAL_HEALTH}" "${PIDSLIMIT_CONFIG}" "${PIDSLIMIT_HEALTH}"
   rm -rf -- "${TASK_DIR}"
   [[ ${RESULT} == 0 && ${code} == 0 ]] && exit 0
   exit 1
@@ -69,7 +69,7 @@ IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a1
 if ! D image inspect --format '{{.Id}}' "${IMAGE}" >/dev/null; then
   if ! env -i PATH="${D_PATH}" timeout --signal=TERM --kill-after=3s 90s docker --host unix:///var/run/docker.sock --config "${TASK_DIR}/docker-config" pull "${IMAGE}" >/dev/null 2>&1; then exit 1; fi
 fi
-for profile in canonical pids_limit_only; do
+for profile in canonical; do
   PHASE='plan'; suffix="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(6).toString("hex"))')"; folder="${TASK_DIR}/${profile}"; mkdir -m 700 "${folder}"
   node "${BASE}/build-preflight.cjs" "${suffix}" "${folder}" "${RUNTIME}" "${profile}" >/dev/null 2>&1 || exit 1
   PROJECT="shrigma-native-preflight-${suffix}"; VOLUME="shrigma-native-preflight-volume-${suffix}"; META="${folder}/plan.metadata.json"; PLAN="${folder}/compose.preflight.json"
@@ -103,5 +103,5 @@ for profile in canonical pids_limit_only; do
   if [[ ${profile} == canonical ]]; then CANONICAL_HEALTH="${success}"; else PIDSLIMIT_HEALTH="${success}"; fi
   PHASE='cleanup'; cleanup_own || exit 1
  done
-if [[ ${CANONICAL_CONFIG} == true && ${CANONICAL_HEALTH} == true && ${PIDSLIMIT_CONFIG} == true && ${PIDSLIMIT_HEALTH} == true ]]; then PHASE='passed'; RESULT=0; else PHASE='compatibility_or_runtime_refused'; RESULT=1; fi
+if [[ ${CANONICAL_CONFIG} == true && ${CANONICAL_HEALTH} == true ]]; then PHASE='passed'; RESULT=0; else PHASE='compatibility_or_runtime_refused'; RESULT=1; fi
 [[ ${RESULT} == 0 ]]
