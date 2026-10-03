@@ -3,10 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),{spawnSync}
 const D=require('./diagnose.cjs');
 const IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815';
 const meta={composeProjectName:'shrigma-native-preflight-a1b2c3d4e5f6',volumeName:'shrigma-native-preflight-volume-a1b2c3d4e5f6',status:{schema:'synthetic'},composeSha256:'a'.repeat(64),pidsProfile:'canonical'};
-function row(role='installer'){const init=role==='prepare_volume';return{id:'a'.repeat(64),project:meta.composeProjectName,service:role,image:IMAGE,state:init?'exited':'running',exitCode:0,oomKilled:false,health:init?'none':'healthy',memory:init?67108864:268435456,memorySwap:init?67108864:268435456,nanoCpus:init?100000000:250000000,pidsLimit:init?16:32,readOnly:true,capDrop:['ALL'],capAdd:init?['CHOWN']:null,securityOpt:['no-new-privileges:true'],networkMode:'none',user:init?'0:0':'1000:1000',init:true,proofVolume:meta.volumeName,portBindingsCount:0,mountCount:init?1:2};}
+function row(role='installer'){const init=role==='prepare_volume';return{id:'a'.repeat(64),project:meta.composeProjectName,service:role,image:IMAGE,state:init?'exited':'running',exitCode:0,oomKilled:false,health:init?'none':'healthy',memory:init?67108864:268435456,memorySwap:init?67108864:268435456,nanoCpus:init?100000000:250000000,pidsLimit:init?16:32,readOnly:true,capDrop:['ALL'],capAdd:init?['CHOWN']:null,securityOpt:['no-new-privileges:true'],networkMode:'none',user:init?'0:0':'1000:1000',init:true,proofVolume:meta.volumeName,portBindingsCount:0,mountCount:1,tmpfsCount:init?0:1,reviewTmpfsConfigured:!init};}
 test('closed state diagnosis separates init failure, runtime mount mismatch and ownership',()=>{
  const init=row('prepare_volume');init.exitCode=1;assert.equal(D.projectContainer(init,meta,'prepare_volume','before_cleanup').observerState,'failed');
- const runtime=row();runtime.mountCount=1;const p=D.projectContainer(runtime,meta,'installer','before_cleanup');assert.equal(p.mountCount,1);assert.equal(p.mountCountMatches,false);assert.equal(p.ownershipMatches,true);assert.equal(p.observerState,'refused');
+ const runtime=row();runtime.mountCount=2;const p=D.projectContainer(runtime,meta,'installer','before_cleanup');assert.equal(p.mountCount,2);assert.equal(p.mountCountMatches,false);assert.equal(p.ownershipMatches,true);assert.equal(p.observerState,'refused');
  assert.equal(D.projectContainer(row(),meta,'installer','after_up').observerState,'ready');runtime.project='foreign';assert.equal(D.projectContainer(runtime,meta,'installer','cleanup_container').projectMatches,false);
  const text=JSON.stringify(p);for(const raw of [IMAGE,meta.composeProjectName,meta.volumeName,'a'.repeat(64)])assert.equal(text.includes(raw),false);
 });
@@ -25,4 +25,20 @@ test('CLI prints only closed diagnosis and never raw malformed data or errors',(
  const cli=invoke(['cli',file,'cleanup_volume:volume_remove','1'],'');assert.equal(cli.status,0);assert.equal(JSON.parse(cli.stdout).ok,false);
  const phase=invoke(['phase',file,'healthy'],'');assert.equal(phase.status,0);assert.equal(JSON.parse(phase.stdout).phase,'healthy');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('24-field diagnosis projects only tmpfs count/key booleans and refuses missing or unknown fields',()=>{
+ const good=D.projectContainer(row(),meta,'installer','after_up');
+ assert.equal(good.mountCount,1);assert.equal(good.tmpfsCount,1);assert.equal(good.reviewTmpfsConfigured,true);
+ assert.equal(good.mountCountMatches,true);assert.equal(good.tmpfsCountMatches,true);assert.equal(good.reviewTmpfsConfiguredMatches,true);
+ assert.equal(good.resourcesMatch,true);assert.equal(good.observerState,'ready');
+ const init=D.projectContainer(row('prepare_volume'),meta,'prepare_volume','after_up');
+ assert.equal(init.tmpfsCount,0);assert.equal(init.reviewTmpfsConfigured,false);assert.equal(init.resourcesMatch,true);
+ for(const change of [v=>{v.tmpfsCount=0;},v=>{v.tmpfsCount=2;},v=>{v.reviewTmpfsConfigured=false;},v=>{v.mountCount=2;}]){
+  const v=row();change(v);const result=D.projectContainer(v,meta,'installer','after_up');
+  assert.equal(result.ownershipMatches,true);assert.equal(result.resourcesMatch,false);assert.equal(result.observerState,'refused');
+ }
+ for(const change of [v=>{delete v.tmpfsCount;},v=>{delete v.reviewTmpfsConfigured;},v=>{v.tmpfsCount='1';},v=>{v.reviewTmpfsConfigured='CANARY_RAW_SECRET';},v=>{v.tmpfsPaths=['/CANARY_RAW_SECRET'];}]){
+  const v=row();change(v);assert.throws(()=>D.projectContainer(v,meta,'installer','after_up'),/NATIVE_PREFLIGHT_DIAGNOSTIC_REFUSED/);
+ }
 });
