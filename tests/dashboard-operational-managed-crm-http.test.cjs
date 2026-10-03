@@ -37,10 +37,26 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
   const identity={schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',owner:operator.label,allowedPanels:['growth'],permissions:{growth:operator,influs:null}};
   const response=new Response(JSON.stringify(target.searchParams.get('action')==='identity'?identity:{panel:'growth',owner:operator.label,items:[]}),{status:200,headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:target.href});return response;
  };
- let heldPrepare=null,heldRenew=null,heldRevoke=null;const rpcCalls=[],pool={query:async(sql,args)=>{assert.equal(args.length,1);const command=JSON.parse(args[0]);assert.equal(sql,gateway.QUERIES[command.action]);if(command.action==='renew_read'){
+ let heldPrepare=null,heldRenew=null,heldRevoke=null;const rpcCalls=[],leaseQueries=[],released=[],rpcQuery=async(sql,args)=>{assert.equal(args.length,1);const command=JSON.parse(args[0]);assert.equal(sql,gateway.QUERIES[command.action]);if(command.action==='renew_read'){
   const row=inspect(db=>db.prepare('SELECT phase,commit_operation_id,candidate_ciphertext FROM crm_manager_operations_v1 WHERE operation_id=?').get(command.operationId));assert.equal(row.phase,'prepare_uncertain');assert.ok(row.commit_operation_id&&row.candidate_ciphertext);assert.ok(auth.managedCrmJournal.pendingOperations(8).includes(command.operationId));if(heldRenew)await heldRenew;
- }if(command.action==='prepare_read'&&heldPrepare)await heldPrepare;if(command.action==='revoke_read'&&heldRevoke)await heldRevoke;return {rows:[{body:await origin.call(command)}]};}};
+ }if(command.action==='prepare_read'&&heldPrepare)await heldPrepare;if(command.action==='revoke_read'&&heldRevoke)await heldRevoke;return {rows:[{body:await origin.call(command)}]};};
+ // The synthetic lease models only the exact reviewed admission query and
+ // health transaction. All four RPC bodies still execute the real PGlite SQL.
+ const pool={connect:async()=>{
+  const client=new EventEmitter();let readOnly=false,closed=false;
+  client.connectionParameters={host:gateway.PG_HOST,port:gateway.PG_PORT,database:gateway.DATABASE,user:gateway.ROLE,password:'SYNTHETIC_HTTP_FIXTURE_ONLY',ssl:false};client.connection={stream:{destroy(){}}};
+  client.query=async(sql,args)=>{
+   assert.equal(closed,false);leaseQueries.push(sql);
+   if(sql===gateway.admissionSql(false)){assert.equal(args,undefined);assert.equal(readOnly,false);return {rows:[{database_ok:true,session_ok:true,actor_ok:true,version_ok:true,role_ok:true,memberships_ok:true,rpc_ok:true,table_scope_ok:true,tls_ok:true}]};}
+   if(sql==='BEGIN READ ONLY'){assert.equal(args,undefined);assert.equal(readOnly,false);await origin.db.exec(sql);readOnly=true;return {command:'BEGIN',rows:[]};}
+   if(sql==='ROLLBACK'){assert.equal(args,undefined);assert.equal(readOnly,true);await origin.db.exec(sql);readOnly=false;return {command:'ROLLBACK',rows:[]};}
+   assert.ok(Object.values(gateway.QUERIES).includes(sql));assert.equal(args.length,1);const q=JSON.parse(args[0]);assert.equal(args[0],gateway.canonical(q));assert.equal(q.issuerId,issuerA.issuerId);assert.equal(q.namespaceId,issuerA.namespaceId);if(readOnly)assert.equal(q.action,'status');return rpcQuery(sql,args);
+  };
+  client.release=bad=>{assert.equal(closed,false);assert.equal(readOnly,false);closed=true;released.push(bad);};return client;
+ }};
  const app=gateway.createServer({pool,issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43),revision:'a'.repeat(40),enabled:true});t.after(()=>app.stop());
+ const beforeHealth=(await origin.db.query('SELECT count(*)::int AS n FROM public.shrigma_crm_manager_operation_v1')).rows[0].n,probeReq=new EventEmitter(),probeRes=new EventEmitter();probeReq.method='GET';probeReq.url='/healthz';probeReq.headers={};probeReq.socket={remoteAddress:'127.0.0.1'};probeRes.writeHead=status=>{probeRes.status=status;};probeRes.end=bytes=>{probeRes.writableEnded=true;probeRes.body=JSON.parse(bytes);};
+ await app.handle(probeReq,probeRes);assert.equal(probeRes.status,200);assert.equal(probeRes.body.ready,true);assert.equal(probeRes.body.policy.connectionVerified,true);assert.deepEqual(leaseQueries,[gateway.admissionSql(false),'BEGIN READ ONLY',gateway.QUERIES.status,'ROLLBACK']);assert.deepEqual(released,[false]);assert.equal((await origin.db.query('SELECT count(*)::int AS n FROM public.shrigma_crm_manager_operation_v1')).rows[0].n,beforeHealth);await origin.unchanged();
  managedCrmRuntime=createManagerRuntime({auth,issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43)},{requestImpl:rpcBridge(app,rpcCalls),fetchImpl});
  const server=createServer({mode:'operational',crmManagedRead:{issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,provisionerToken:'S'.repeat(43)},managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},upstreams:{'crm-read':new URL(backend)},allowedUpstreamHosts:[new URL(backend).hostname],publicDir:path.join(dir,'public')},{auth,fetchImpl,managedCrmRuntime});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -89,5 +105,5 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const revoking=managedCrmRuntime.kick();releaseRevoke();heldRevoke=null;assert.deepEqual(await revoking,{ready:0,pending:0,expired:0,revoked:1});const still=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[1].credentials);assert.equal(still.status,200);assert.equal(still.json.owner,managers[1].email);
  assert.deepEqual(await managedCrmRuntime.kick(),{ready:0,pending:0,expired:0,revoked:0});
  const originRevoked=await fetchImpl(backend+'?action=identity&painel=growth',{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+keys[0]}});assert.equal(originRevoked.status,401);
- assert.deepEqual(baseline(),before);await origin.unchanged();assert.equal((await call(port,hosts.manager,'/cx/',admin)).status,404);
+ assert.ok(released.length>1);assert.ok(released.every(v=>v===false));assert.equal(leaseQueries.filter(q=>q===gateway.admissionSql(false)).length,released.length);assert.deepEqual(baseline(),before);await origin.unchanged();assert.equal((await call(port,hosts.manager,'/cx/',admin)).status,404);
 });
