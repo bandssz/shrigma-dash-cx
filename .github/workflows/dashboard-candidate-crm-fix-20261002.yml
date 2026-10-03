@@ -184,6 +184,7 @@ jobs:
         run: |
           node tools/crm-manager-install-review/native-preflight-ci/preflight.test.cjs
           node tools/crm-manager-install-review/native-preflight-ci/observe.test.cjs
+          node tools/crm-manager-install-review/native-preflight-ci/diagnose.test.cjs
           bash -n tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
       - name: Provar Compose, limites, volume e fsync na imagem imutável sem SQL
         env:

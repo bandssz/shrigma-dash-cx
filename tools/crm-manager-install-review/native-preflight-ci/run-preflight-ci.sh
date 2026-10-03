@@ -36,10 +36,12 @@ cleanup_own(){
     [[ "${id}" =~ ^[a-f0-9]{12,64}$ ]] || { safe=false; continue; }
     role="$(D inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "${id}" || true)"
     [[ "${role}" == installer || "${role}" == prepare_volume ]] || { safe=false; continue; }
+    D inspect --format "${INSPECT}" "${id}" | node "${BASE}/diagnose.cjs" container "${META}" before_cleanup "${role}" || true
     if D inspect --format "${INSPECT}" "${id}" | node "${BASE}/observe.cjs" owned "${META}" "${role}" >/dev/null 2>&1; then
       D rm --force "${id}" >/dev/null || safe=false
     else safe=false; fi
   done <<< "${ids}"
+  D volume inspect --format "${VINSPECT}" "${VOLUME}" | node "${BASE}/diagnose.cjs" volume "${META}" cleanup_volume || true
   if D volume inspect --format "${VINSPECT}" "${VOLUME}" | node "${BASE}/observe.cjs" volume "${META}" >/dev/null 2>&1; then
     D volume rm "${VOLUME}" >/dev/null || safe=false
   else
@@ -52,6 +54,7 @@ cleanup_own(){
 }
 finish(){
   local code=$?; trap - EXIT TERM INT
+  if [[ ${OWN} == 1 ]]; then node "${BASE}/diagnose.cjs" phase "${META}" "${PHASE}" </dev/null || true; fi
   if ! cleanup_own; then PHASE='cleanup_refused'; RESULT=1; fi
   # Only typed booleans are public. No Docker logs/config/argv/SQL/raw errors.
   printf '{"schema":"crm-manager-native-preflight-ci-v1","phase":"%s","canonicalConfigAccepted":%s,"canonicalHealthy":%s,"pidsLimitOnlyConfigAccepted":%s,"pidsLimitOnlyHealthy":%s,"databaseClientLoaded":false,"sqlExecuted":false,"containerExternalNetwork":false}\n' "${PHASE}" "${CANONICAL_CONFIG}" "${CANONICAL_HEALTH}" "${PIDSLIMIT_CONFIG}" "${PIDSLIMIT_HEALTH}"
@@ -79,7 +82,13 @@ for profile in canonical pids_limit_only; do
   if ! DC config --format json | node "${BASE}/observe.cjs" config "${META}" "${PLAN}" >/dev/null 2>&1; then continue; fi
   if [[ ${profile} == canonical ]]; then CANONICAL_CONFIG=true; else PIDSLIMIT_CONFIG=true; fi
   PHASE='compose_up'; OWN=1
-  if ! DC up --detach >/dev/null; then cleanup_own || exit 1; continue; fi
+  if DC up --detach >/dev/null; then
+    node "${BASE}/diagnose.cjs" cli "${META}" after_up:compose_up 0 </dev/null || true
+  else
+    up_status=$?
+    node "${BASE}/diagnose.cjs" cli "${META}" after_up:compose_up "${up_status}" </dev/null || true
+    cleanup_own || exit 1; continue
+  fi
   PHASE='healthy'; success=false; end=$((SECONDS+70))
   while ((SECONDS<end)); do
     initid="$(DC ps --all --quiet prepare_volume || true)"; runtimeid="$(DC ps --all --quiet installer || true)"
