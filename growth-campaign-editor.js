@@ -62,7 +62,7 @@ const GCE=(()=>{
   bindRemote();setupRemote();
  }
  const q=selector=>root.querySelector(selector);
- function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign,anchor=remote?(c?{id:c.id,version:c.version}:null):(localCampaign??null);GBS.save('campaign',contextBrand,{...values(),_campaign:anchor});localCampaign=anchor;checkCampaign=!remote;localError='';}
+ function saveLocal({recover=false}={}){if(localError&&!recover)throw Error(localError);if(!GBS.validBrand(contextBrand))return;dirty=true;const c=remote?.snapshot()?.campaign,anchor=remote?(c?{id:c.id,version:c.version}:null):(localCampaign??null);GBS.save('campaign',contextBrand,{...values(),_campaign:anchor},{...Object.fromEntries(fields.map(k=>[k,k==='brand'?contextBrand:''])),_campaign:null});localCampaign=anchor;checkCampaign=!remote;localError='';}
  // reading: a navegação só está presa por leituras (catálogo, campanhas, públicos salvos); confirming: diálogo aberto.
  function contextStatus(){const a=audienceState(),confirming=dialogOpen||!!a.confirming,reading=!confirming&&!accessImporting&&(remoteBusy?remoteRead:!confirmation)&&(!a.activeOperation||!!a.reading)&&!!(remoteBusy||a.activeOperation);return {blocked:!!(remoteBusy||confirmation||accessImporting||a.blocked||a.pending),navigationBlocked:!!(remoteBusy||confirmation||accessImporting||a.activeOperation),dirty:!!localError,pending:!!(remote?.locked()||a.pending),brand:contextBrand,reading,confirming};}
  function preserve(){if(localError)throw Error(localError);if(root&&GBS.validBrand(contextBrand))saveLocal();}
