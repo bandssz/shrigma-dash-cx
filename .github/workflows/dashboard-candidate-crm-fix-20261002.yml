@@ -27,6 +27,7 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
         run: |
           node tools/panel-build/build.cjs --panel=growth --check
+          node tools/dashboard-campaign-ui-build.cjs --check
           node --test services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs
       - name: Validar cadastro privado e RPCs em banco descartável
         env:
@@ -165,6 +166,29 @@ jobs:
           CRM_MANAGER_WRITER_NATIVE_PROOF: '1'
           NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
         run: bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
+
+  manager-oci-no-sql-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Provar transferência de proprietário e observação fechada sem banco
+        run: |
+          node tools/crm-manager-install-review/native-preflight-ci/preflight.test.cjs
+          node tools/crm-manager-install-review/native-preflight-ci/observe.test.cjs
+          bash -n tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
+      - name: Provar Compose, limites, volume e fsync na imagem imutável sem SQL
+        env:
+          SHRIGMA_NATIVE_PREFLIGHT_CI: '1'
+        run: bash tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
 
   publish-candidate-image:
     needs: [validate-and-package, native-postgres-manager-proof]

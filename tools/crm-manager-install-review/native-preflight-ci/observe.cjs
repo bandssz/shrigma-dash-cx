@@ -1,0 +1,31 @@
+'use strict';
+// Closed Docker projections only. Never prints raw config, error, env or logs.
+const fs=require('node:fs');
+const IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815';
+function fail(){throw Error('NATIVE_PREFLIGHT_OBSERVATION_REFUSED');}
+function object(v){if(!v||typeof v!=='object'||Array.isArray(v))fail();return v;}
+function closed(v,keys){object(v);if(Object.keys(v).length!==keys.length||keys.some(k=>!Object.hasOwn(v,k)))fail();}
+function metadata(v){closed(v,['composeProjectName','volumeName','status','composeSha256','pidsProfile']);if(!/^shrigma-native-preflight-[a-f0-9]{12}$/.test(v.composeProjectName)||v.volumeName!=='shrigma-native-preflight-volume-'+v.composeProjectName.slice(-12)||!/^[a-f0-9]{64}$/.test(v.composeSha256)||!['canonical','pids_limit_only'].includes(v.pidsProfile))fail();return v;}
+function bytes(v){if(typeof v==='number'&&Number.isSafeInteger(v)&&v>0)return v;if(typeof v!=='string')fail();const m=/^([0-9]+)([mM]?)$/.exec(v);if(!m)fail();const n=Number(m[1])*(m[2]?1048576:1);if(!Number.isSafeInteger(n)||n<=0)fail();return n;}
+function equal(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function verifyConfig(v,meta,plan){metadata(meta);object(v);object(plan);if(v.name!==meta.composeProjectName||!equal(Object.keys(v.services).sort(),['installer','prepare_volume'])||v.networks&&Object.keys(v.networks).length!==0)fail();
+ const logical=Object.keys(plan.volumes)[0];if(!equal(Object.keys(v.volumes),[logical])||v.volumes[logical].name!==meta.volumeName)fail();
+ for(const role of ['prepare_volume','installer']){const s=object(v.services[role]),p=plan.services[role],init=role==='prepare_volume',memory=init?67108864:268435456,pids=init?16:32,cpu=init?.1:.25;
+ if(s.image!==IMAGE||s.user!==p.user||s.read_only!==true||s.init!==true||s.restart!=='no'||s.network_mode!=='none'||s.env_file||s.ports?.length||s.networks&&Object.keys(s.networks).length||s.cap_add&&!equal(s.cap_add,init?['CHOWN']:[])||!equal(s.cap_drop,['ALL'])||!equal(s.security_opt,['no-new-privileges:true'])||!equal(s.entrypoint,p.entrypoint)||!equal(s.command,[])||Number(s.cpus)!==cpu||bytes(s.mem_limit)!==memory||bytes(s.memswap_limit)!==memory||s.pids_limit!==pids)fail();
+ const e=s.environment||{};object(e);if(init&&Object.keys(e).length||!init&&!equal(e,p.environment))fail();
+ const limits=s.deploy?.resources?.limits;if(!limits||Number(limits.cpus)!==cpu||bytes(limits.memory)!==memory||s.deploy.replicas!==1||s.deploy.restart_policy?.condition!=='none'||(meta.pidsProfile==='canonical'?limits.pids!==pids:Object.hasOwn(limits,'pids')))fail();
+ const mounts=s.volumes;if(!Array.isArray(mounts)||mounts.length!==1)fail();const mount=mounts[0];if(typeof mount==='string'){if(mount!==logical+':/manager-install-proof')fail();}else if(mount.type!=='volume'||mount.source!==logical||mount.target!=='/manager-install-proof'||mount.read_only===true)fail();
+ if(init){if(s.tmpfs?.length||s.healthcheck?.disable!==true)fail();}else{if(!equal(s.tmpfs,p.tmpfs)||s.depends_on?.prepare_volume?.condition!=='service_completed_successfully'||!equal(s.healthcheck?.test,p.healthcheck.test))fail();}
+ }return true;
+}
+const FIELDS=['id','project','service','image','state','exitCode','oomKilled','health','memory','memorySwap','nanoCpus','pidsLimit','readOnly','capDrop','capAdd','securityOpt','networkMode','user','init','proofVolume','portBindingsCount','mountCount'];
+function verifyOwned(v,meta,role){metadata(meta);closed(v,FIELDS);if(!/^[a-f0-9]{64}$/.test(v.id)||v.project!==meta.composeProjectName||v.service!==role||!['installer','prepare_volume'].includes(role))fail();return true;}
+function inspect(v,meta,role){verifyOwned(v,meta,role);const init=role==='prepare_volume',memory=init?67108864:268435456,pids=init?16:32;
+ if(v.image!==IMAGE||!['created','running','paused','restarting','removing','exited','dead'].includes(v.state)||!Number.isInteger(v.exitCode)||v.exitCode<0||v.exitCode>255||typeof v.oomKilled!=='boolean'||!['none','starting','healthy','unhealthy'].includes(v.health)||v.memory!==memory||v.memorySwap!==memory||v.nanoCpus!==(init?100000000:250000000)||v.pidsLimit!==pids||v.readOnly!==true||!equal(v.capDrop,['ALL'])||!equal(v.capAdd||[],init?['CHOWN']:[])||!Array.isArray(v.securityOpt)||v.securityOpt.length!==1||!['no-new-privileges:true','no-new-privileges'].includes(v.securityOpt[0])||v.networkMode!=='none'||v.user!==(init?'0:0':'1000:1000')||v.init!==true||v.proofVolume!==meta.volumeName||v.portBindingsCount!==0||v.mountCount!==(init?1:2))fail();
+ if(v.oomKilled||v.state==='dead'||v.state==='removing'||v.state==='paused'||v.state==='restarting'||v.health==='unhealthy'||v.state==='exited'&&(!init||v.exitCode!==0))return'failed';
+ if(init&&v.state==='exited'&&v.exitCode===0||!init&&v.state==='running'&&v.health==='healthy')return'ready';return'waiting';
+}
+function verifyVolume(v,meta){metadata(meta);closed(v,['name','purpose','exclusive','project']);if(v.name!==meta.volumeName||v.purpose!=='crm-manager-native-preflight'||v.exclusive!==meta.composeProjectName||v.project!==meta.composeProjectName)fail();return true;}
+function parse(text,max=524288){if(typeof text!=='string'||Buffer.byteLength(text)>max)fail();try{return JSON.parse(text);}catch{fail();}}
+module.exports={metadata,verifyConfig,verifyOwned,inspect,verifyVolume,parse,IMAGE};
+if(require.main===module){let raw='',size=0;process.stdin.setEncoding('utf8');process.stdin.on('data',chunk=>{size+=Buffer.byteLength(chunk);if(size>524288){process.stderr.write('Native observation refused.\n');process.exit(1);}raw+=chunk;});process.stdin.on('end',()=>{try{const[mode,metaFile,extra]=process.argv.slice(2),meta=metadata(parse(fs.readFileSync(metaFile,'utf8'),8192));const v=parse(raw);if(mode==='config'){if(!extra)fail();verifyConfig(v,meta,parse(fs.readFileSync(extra,'utf8')));}else if(mode==='state')process.stdout.write(inspect(v,meta,extra));else if(mode==='owned')verifyOwned(v,meta,extra);else if(mode==='volume')verifyVolume(v,meta);else fail();}catch{if(process.argv[2]==='state')process.stdout.write('refused');process.stderr.write('Native observation refused.\n');process.exitCode=1;}});}

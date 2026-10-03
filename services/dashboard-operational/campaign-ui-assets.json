@@ -1,0 +1,34 @@
+{
+  "schema": "shrigma_campaign_ui_assets_v1",
+  "esbuildVersion": "0.28.2",
+  "assets": [
+    {
+      "source": "crm-campaign-bff-client.cjs",
+      "compiled": "public/campaign-bff-client.js",
+      "publicName": "campaign-bff-client.js",
+      "sourceSha256": "b51220d158d85d63419f98f647d11de50e1d9860a9506e77e6e9ddcdca5bf8b0",
+      "compiledSha256": "33c2aa5530b530840a009ae4216d22b8fb36bfc564cc2a8a4772fb4bb1949263"
+    },
+    {
+      "source": "public/campaign-edit.js",
+      "compiled": "public/campaign-edit.compiled.js",
+      "publicName": "campaign-edit.js",
+      "sourceSha256": "9c84c6e31aec78ee738d2e49ff3d767da6ff51efa8dfa62417d9ba9d7f607004",
+      "compiledSha256": "673fb0a6d4d113b61f13e3ab9869f1145caf1bc8b12da72f727031a4c77900cd"
+    },
+    {
+      "source": "public/entry.js",
+      "compiled": "public/entry.compiled.js",
+      "publicName": "entry.js",
+      "sourceSha256": "7fc0343d0573f484020bdb845ae03ab40d4b6c247e9a2416df0ef0a949702eb9",
+      "compiledSha256": "d26417e40d276f07a4d13042330543a8856d268c99b88758e1760f35bec90368"
+    },
+    {
+      "source": "public/guard.js",
+      "compiled": "public/guard.compiled.js",
+      "publicName": "guard.js",
+      "sourceSha256": "0090baec504e3dd40015c7ccb1b31f78d063e0478b0ac125fb99f9d00d42d1bd",
+      "compiledSha256": "ffde5c3c1350240a9c3824ad9f4156f6665c08c246dd064c6cb87f0d9cf1296a"
+    }
+  ]
+}

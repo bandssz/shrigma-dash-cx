@@ -83,6 +83,12 @@ else (function(){'use strict';
  let inviteToken=bootstrapToken?'':fragment.get('invite')||'';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  let session=null,frame=null,selected='',busy=false,version=0;
+ const campaignButton=$('entry-campaign-open');
+ const campaignUi=window.ShrigmaCampaignEdit?.createCampaignEditor({document,getSession:()=>session,storage:window.localStorage,locks:window.navigator?.locks,request:async q=>{
+  const {response,data}=await request(q.path,{method:q.method,headers:q.headers,...(q.body?{body:JSON.stringify(q.body)}:{}),editReceipt:q.method==='GET',deadlineMs:q.method==='POST'?90000:20000});
+  return {status:response.status,body:data};
+ }});
+ campaignButton?.addEventListener('click',()=>void campaignUi?.open());
  let audienceGate={state:'off'},audienceGatePromise=Promise.resolve(audienceGate),audienceConsulting=false;
  const uiKeyOk=x=>typeof x==='string'&&/^ui-[a-f0-9]{16,128}$/.test(x);
  const AUDIENCE_BRANDS={fish:'Fishermans',aristo:'O Aristocrata'};
@@ -173,6 +179,7 @@ else (function(){'use strict';
   return Object.hasOwn(AREAS,requested)&&u.areas.includes(requested)&&(u.role==='superadmin'||u.role==='manager'&&u.areas.length===1);
  }
  function showLogin(text=''){
+  campaignUi?.close();if(campaignButton)campaignButton.hidden=true;
   version++;session=null;selected='';audienceGate={state:'off'};audienceGatePromise=Promise.resolve(audienceGate);frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
   $('login-password').value='';
@@ -193,6 +200,7 @@ else (function(){'use strict';
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
+  campaignUi?.close();if(campaignButton)campaignButton.hidden=!(area==='growth'&&session.features?.campaignSubmitWrite===true&&session.user.role==='manager'&&session.user.areas.length===1&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
   audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
   audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
   frame=document.createElement('iframe');frame.title=AREAS[area].label;frame.referrerPolicy='no-referrer';

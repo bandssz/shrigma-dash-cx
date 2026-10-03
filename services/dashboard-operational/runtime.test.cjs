@@ -111,6 +111,11 @@ test('extracted runtime serves read-only presentation on direct panel URLs',asyn
  });
  const crmPage=await get(areaHosts.growth,'/growth.html','synthetic-session');
  assert.equal(crmPage.status,200);
+ for(const file of ['entry.js','guard.js','campaign-edit.js','campaign-bff-client.js']){
+  const asset=await get(areaHosts.growth,'/'+file);assert.equal(asset.status,200,file);
+  assert.equal(asset.body,fs.readFileSync(path.join(artifact.publicDir,file),'utf8'),file);
+ }
+ for(const file of ['campaign-edit.compiled.js','entry.compiled.js','guard.compiled.js','campaign-ui-assets.json'])assert.equal((await get(areaHosts.growth,'/'+file)).status,404,file);
  const diagnosticLink=crmPage.body.match(/href="(\/growth-diagnostico\.html)">Diagnóstico de pedido pago<\/a>/)?.[1];
  assert.equal(diagnosticLink,'/growth-diagnostico.html');
  const navigated=await get(areaHosts.growth,diagnosticLink,'synthetic-session');

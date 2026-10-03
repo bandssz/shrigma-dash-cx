@@ -39,12 +39,7 @@ function initializeVolume({proc=process,fsImpl=fs}={}){
  directory(fsImpl,'/manager-install-proof',0,0,0o755);
  // Only a new, root-owned, empty volume is admitted. Make it private BEFORE
  // ownership transfer; no file or other existing directory is ever changed.
- fsImpl.chmodSync('/manager-install-proof',0o700);fsImpl.chownSync('/manager-install-proof',1000,1000);
- // With CHOWN only, root cannot enumerate a now-1000-owned mode0700 volume.
- // Empty was proved before transfer; guardRuntime repeats it as UID1000 before
- // any staging or SQL. Keep this final check metadata-only, without new caps.
- const transferred=fsImpl.lstatSync('/manager-install-proof');
- if(!transferred.isDirectory()||transferred.isSymbolicLink()||transferred.uid!==1000||transferred.gid!==1000||(transferred.mode&0o7777)!==0o700)fail();return true;
+ fsImpl.chmodSync('/manager-install-proof',0o700);fsImpl.chownSync('/manager-install-proof',1000,1000);directory(fsImpl,'/manager-install-proof',1000,1000,0o700);return true;
 }
 function validateBundle(bundle){
  closed(bundle,['schema','files']);if(bundle.schema!=='crm-manager-install-public-bundle-v1'||!Array.isArray(bundle.files)||bundle.files.length!==Object.keys(EXPECTED).length)fail();

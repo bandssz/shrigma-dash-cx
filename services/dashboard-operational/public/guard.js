@@ -2,7 +2,7 @@
 (function(){'use strict';
  const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
  const nativeFetch=window.fetch.bind(window);
- let csrfPromise=null;
+ let csrfPromise=null,campaignWriter=false;
  const uiKey=value=>typeof value==='string'&&/^ui-[a-f0-9]{16,128}$/.test(value);
  function reject(status=403){return new Response(JSON.stringify({erro:'Rota não autorizada pelo painel.'}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}
  function notifyExpired(){if(window.parent!==window)window.parent.postMessage({type:'shrigma:session-expired'},location.origin);}
@@ -46,6 +46,7 @@
    if(!response.ok)throw Error('session_unavailable');
    const state=await response.json();
    if(state?.authenticated!==true||typeof state.csrf!=='string'||!state.csrf){notifyExpired();throw Error('session_expired');}
+   campaignWriter=state.features?.campaignSubmitWrite===true&&state.user?.role==='manager'&&state.user.areas?.length===1&&state.user.areas[0]==='growth'&&state.user.permissions?.growth?.read===true&&state.user.permissions.growth.edit===true;
    return state.csrf;
   })().catch(error=>{csrfPromise=null;throw error;});
   return csrfPromise;
@@ -58,11 +59,18 @@
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
   if(route==='campaigns_media'&&method!=='GET')return reject(405);
+  // The new portal DTO must never be mistaken for a legacy Growth receipt.
+  // Legacy reads retain their original body; the authenticated writer profile
+  // adds CSRF to reads and directs all mutations to the explicit shell editor.
+  if(route==='campaigns'){
+   try{await csrf();}catch(_){return reject(401);}
+   if(campaignWriter&&method!=='GET')return new Response(JSON.stringify({error:'CAMPAIGN_PORTAL_EDITOR_REQUIRED',message:'Use Editar campanhas existentes no portal para salvar, conferir, agendar ou cancelar.'}),{status:403,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+  }
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
   const editReceipt=method==='GET'&&(route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao');
-  if(!['GET','HEAD'].includes(method)||editReceipt){
+  if(!['GET','HEAD'].includes(method)||editReceipt||route==='campaigns'&&campaignWriter){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');
   try{

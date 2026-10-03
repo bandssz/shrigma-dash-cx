@@ -1,0 +1,77 @@
+/* Portal-only existing campaign editor. It consumes the closed BFF DTO;
+   legacy Growth receipt/capability objects are never synthesized. */
+'use strict';
+function createCampaignEditor({document,getSession,request,storage,locks,now=Date.now,uuid=()=>globalThis.crypto.randomUUID(),createClient=globalThis.ShrigmaCampaignBffClient?.createCampaignBffClient}){
+ const $=id=>document.getElementById('campaign-'+id),dialog=document.getElementById('entry-campaign-dialog'),opener=document.getElementById('entry-campaign-open');
+ const clone=v=>JSON.parse(JSON.stringify(v)),brands={fish:'Fishermans',aristo:'O Aristocrata'},views=new Map(),busy=new Set();
+ let opened=false,epoch=0;
+ const allowed=()=>{const s=getSession();return s?.authenticated===true&&s.features?.campaignSubmitWrite===true&&s.user?.role==='manager'&&s.user.areas?.length===1&&s.user.areas[0]==='growth'&&s.user.permissions?.growth?.read===true&&s.user.permissions.growth.edit===true;};
+ const scopeKey=s=>'shrigma_campaign_bff_v1:'+s.uiKey+':'+s.brand;
+ const readJournal=s=>{const raw=storage.getItem(scopeKey(s));if(raw===null)return null;if(typeof raw!=='string'||raw.length>300000)throw Error();return JSON.parse(raw);};
+ const client=createClient({request,getSession,readJournal,writeJournal:(s,row)=>storage.setItem(scopeKey(s),JSON.stringify(row))});
+ const brand=()=>$('brand').value,view=b=>{if(!views.has(b))views.set(b,{campaign:null,validation:null,failed:false});return views.get(b);};
+ const current=()=>view(brand()),say=text=>{$('status').textContent=text;};
+ const record=b=>readJournal({uiKey:getSession().uiKey,brand:b});
+ const pending=b=>{try{return ['pending','uncertain'].includes(record(b)?.phase);}catch{return true;}};
+ const stamp=b=>({b,epoch,owner:getSession()?.uiKey}),live=s=>opened&&allowed()&&epoch===s.epoch&&brand()===s.b&&getSession()?.uiKey===s.owner;
+ const iso=value=>value?new Date(value).toISOString():null;
+ const local=value=>{if(!value)return '';const d=new Date(value),n=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+n(d.getMonth()+1)+'-'+n(d.getDate())+'T'+n(d.getHours())+':'+n(d.getMinutes());};
+ const definition=()=>{const d=clone(current().campaign.definition);for(const [field,key]of [['name','name'],['subject','subject'],['from','from_email'],['reply','reply_to'],['html','html'],['text','text']])d[key]=$(field).value;if($('time').value!==local(d.send_at))d.send_at=iso($('time').value);d.template_id=Number($('template').value);d.list_ids=[...$('lists').querySelectorAll('input:checked')].map(n=>Number(n.value)).sort((a,b)=>a-b);return d;};
+ const dirty=()=>{try{return JSON.stringify(definition())!==JSON.stringify(current().campaign?.definition);}catch{return true;}};
+ const draft=c=>c?.status==='draft'&&c.sent===0&&c.started_at===null;
+ function reviewReady(){const c=current().campaign,v=current().validation,a=v?.audience;return draft(c)&&!dirty()&&v?.ok===true&&v.version===c.version&&a?.campaign_version===c.version&&a.campaign_id===c.id&&a.brand===brand()&&Date.parse(a.checked_at)<=now()+30000&&Date.parse(a.expires_at)>now()&&a.eligible_count>0&&a.native_disabled_count===0&&Date.parse(c.send_at)>=now()+900000;}
+ function paint(){
+  const b=brand(),v=current(),c=v.campaign,locked=!allowed()||busy.has(b)||pending(b)||v.failed,write=typeof locks?.request==='function';
+  $('fields').disabled=locked||!draft(c);$('save').disabled=locked||!write||!draft(c);
+  $('validate').disabled=locked||!write||!draft(c)||dirty();
+  $('schedule').disabled=locked||!write||!reviewReady()||!$('confirm').checked;
+  $('cancel').disabled=locked||!write||c?.status!=='scheduled'||c.sent!==0||c.started_at!==null||Date.parse(c.send_at)<=now()||!$('confirm').checked;
+  let row;try{row=record(b);}catch{}$('consult').disabled=busy.has(b)||!row;
+  $('state').textContent=c?'Campanha '+c.id+' · '+c.status+(c.send_at?' · '+new Date(c.send_at).toLocaleString():''):'';
+  $('review').textContent=reviewReady()?'Público conferido: '+v.validation.audience.eligible_count+' pessoas. Validade até '+new Date(v.validation.audience.expires_at).toLocaleTimeString()+'.':v.validation?'A conferência perdeu a validade ou o conteúdo mudou. Confira novamente.':'Uma nova conferência é necessária antes de agendar.';
+  if(!write)say('A edição precisa da proteção entre abas deste navegador. A consulta continua disponível.');
+ }
+ function option(select,value,label){const o=document.createElement('option');o.value=String(value);o.textContent=label;select.append(o);}
+ function fill(){
+  const v=current(),c=v.campaign;if(!c){paint();return;}const d=c.definition;
+  for(const [field,key]of [['name','name'],['subject','subject'],['from','from_email'],['reply','reply_to'],['html','html'],['text','text']])$(field).value=d[key];$('time').value=local(d.send_at);$('confirm').checked=false;
+  $('template').replaceChildren();for(const t of v.catalog.templates.filter(t=>t.available===true&&t.type==='campaign'))option($('template'),t.id,t.name||'Template '+t.id);$('template').value=String(d.template_id);
+  $('lists').replaceChildren();for(const list of v.catalog.lists.filter(l=>l.available===true&&l.brand===brand())){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=String(list.id);input.checked=d.list_ids.includes(list.id);label.append(input,document.createTextNode(' '+(list.name||'Lista '+list.id)));$('lists').append(label);}paint();
+ }
+ const valid=c=>c&&Number.isSafeInteger(c.id)&&c.id>0&&/^[a-f0-9]{32}$/i.test(c.version||'')&&['draft','scheduled','running','paused','finished','cancelled'].includes(c.status)&&Number.isSafeInteger(c.sent)&&c.sent>=0&&Object.hasOwn(c,'started_at')&&Object.hasOwn(c,'send_at')&&c.definition?.schema_version==='crm-campaign-v1'&&c.definition.brand===brand()&&Array.isArray(c.definition.list_ids);
+ async function read(acao,b,id){const s=getSession(),path='/api/campaigns?'+new URLSearchParams({acao,brand:b,...(id?{id:String(id)}:{})});const r=await request({method:'GET',path,headers:{Accept:'application/json','X-CSRF-Token':s.csrf}});if(r.status!==200)throw Error();return r.body;}
+ async function reopen(id,s){const r=await read('campanha_obter',s.b,id);if(!live(s))return;if(!valid(r.campaign)||r.campaign.id!==id)throw Error();const v=current();v.campaign=clone(r.campaign);if(v.validation?.version!==r.campaign.version)v.validation=null;$('select').value=String(id);fill();}
+ async function load(){
+  const b=brand(),s=stamp(b),v=current();v.failed=false;v.campaign=null;v.validation=null;say('Consultando a marca e a tentativa anterior…');paint();
+  let saved;try{saved=record(b);if(saved){const result=await client.consult(b);if(live(s)){v.validation=result.validation;say(result.state==='pending'?'Há uma tentativa sem confirmação. Consulte a mesma tentativa.':result.validation?'Conferência recebida.':'Tentativa anterior encerrada; uma nova conferência poderá ser feita.');}}}catch{if(live(s))say('A tentativa foi preservada. Consulte novamente; nenhuma operação será repetida.');}
+  try{const catalog=await read('campanha_catalogo',b),list=await read('campanha_listar',b);if(!live(s))return;if(catalog?.brand!==b||catalog.current!==true||!Array.isArray(catalog.lists)||!Array.isArray(catalog.templates)||!Array.isArray(list?.campaigns)||list.campaigns.length>1000)throw Error();v.catalog=catalog;$('select').replaceChildren();const rows=list.campaigns.filter(valid);for(const c of rows)option($('select'),c.id,(c.definition.name||'Campanha '+c.id)+' · '+c.status);const id=rows.find(c=>c.id===saved?.command?.id)?.id||rows[0]?.id;if(id)await reopen(id,s);else say('Não há campanhas existentes disponíveis nesta marca.');if(live(s))paint();}
+  catch{if(live(s)){v.failed=true;v.campaign=null;say('Não foi possível confirmar a leitura. Preserve a tentativa e consulte novamente.');paint();}}
+ }
+ async function work(action){
+  if(!opened||!allowed()||!['save','validate','schedule','cancel','consult'].includes(action))return;
+  const b=brand(),s=stamp(b);if(busy.has(b))return;
+  const act=async()=>{
+   if(!live(s))return;const v=current(),c=v.campaign;
+   if(action!=='consult'&&(pending(b)||v.failed||!c||!allowed()))throw Error();
+   if(['validate','schedule'].includes(action)&&(!draft(c)||dirty())||action==='schedule'&&(!reviewReady()||!$('confirm').checked)||action==='cancel'&&(c?.status!=='scheduled'||c.sent!==0||c.started_at!==null||Date.parse(c.send_at)<=now()||!$('confirm').checked)||action==='save'&&!draft(c))throw Error();
+   const q=action==='consult'?null:{brand:b,id:c.id,expected_version:c.version,idempotency_key:uuid(),...(action==='save'?{definition:definition()}:{}),...(['schedule','cancel'].includes(action)?{confirm:action==='schedule'?'agendar':'cancelar'}:{}),...(action==='schedule'?{audience_review_id:v.validation.audience.review_id}:{})};
+   const result=action==='consult'?await client.consult(b):await client[action](q);
+   if(!live(s))return;v.validation=result.validation;
+   say(result.state==='pending'?'Resultado ainda sem confirmação. Consulte a mesma tentativa; ela não será repetida.':result.state==='rejected'?'A operação foi recusada. Confira a versão atual antes de iniciar outra tentativa.':action==='schedule'?'Agendamento confirmado.':action==='cancel'?'Cancelamento confirmado.':result.validation?'Público conferido. Confira quantidade e horário antes de confirmar o agendamento.':'Tentativa encerrada. Confira novamente antes de agendar.');
+   if(result.state!=='pending'&&result.campaign)await reopen(result.campaign.id,s);
+  };
+  busy.add(b);paint();
+  try{if(typeof locks?.request!=='function'){if(action!=='consult')throw Error();await act();}else await locks.request('shrigma-campaign-bff:'+s.owner+':'+b,{mode:'exclusive',ifAvailable:true},lock=>{if(!lock)throw Error();return act();});}
+  catch{if(live(s))say('A ação não foi confirmada. Preserve a tentativa e consulte seu resultado; não repita o pedido.');}
+  finally{busy.delete(b);if(live(s))paint();}
+ }
+ function close(){opened=false;epoch++;dialog.hidden=true;if(dialog.open)dialog.close();opener?.focus();}
+ dialog.addEventListener('cancel',event=>{event.preventDefault();close();});dialog.addEventListener('close',()=>{opened=false;epoch++;dialog.hidden=true;opener?.focus();});
+ $('close').addEventListener('click',close);$('form').addEventListener('submit',event=>event.preventDefault());
+ $('brand').addEventListener('change',()=>{epoch++;void load();});$('select').addEventListener('change',()=>{const s=stamp(brand());void reopen(Number($('select').value),s).catch(()=>{if(live(s)){current().failed=true;say('Campanha não confirmada. Consulte novamente.');paint();}});});
+ $('refresh').addEventListener('click',()=>{epoch++;void load();});$('form').addEventListener('input',()=>{$('confirm').checked=false;paint();});$('confirm').addEventListener('change',paint);
+ for(const action of ['save','validate','schedule','cancel','consult'])$(action).addEventListener('click',()=>void work(action));
+ return Object.freeze({async open(){if(!allowed())return false;opened=true;epoch++;dialog.hidden=false;dialog.showModal();$('brand').focus();await load();return true;},close});
+}
+if(typeof module==='object'&&module.exports)module.exports={createCampaignEditor};
+else globalThis.ShrigmaCampaignEdit=Object.freeze({createCampaignEditor});

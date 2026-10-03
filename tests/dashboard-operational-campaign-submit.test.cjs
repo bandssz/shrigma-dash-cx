@@ -176,6 +176,9 @@ function dto(response, action, key, state = 'succeeded') {
   return response.json;
 }
 
+// Importing the fixture does not register or execute this HTTP suite.
+module.exports = { fixture, originFixture, hosts, call, session, command, dto, C, T };
+if (require.main === module) {
 test('attested individual writer completes update-save, validate, schedule and cancel through local HTTP receipts', async t => {
   const f = await fixture(t), a = await f.manager('a@synthetic.invalid'), b = await f.manager('b@synthetic.invalid', { number: 2 });
   const before = f.inspect(db => ({ admin: db.prepare("SELECT * FROM users WHERE role='superadmin'").get(), grants: db.prepare('SELECT * FROM grants WHERE user_id=? ORDER BY area').all(f.admin.userId) }));
@@ -265,3 +268,4 @@ test('gate remains unavailable when OFF and rejects production, managed read and
   assert.throws(() => createAuth({ ...f.config, crmManagedRead: { issuerId: crypto.randomUUID(), namespaceId: crypto.randomUUID() } }), { code: 'CAMPAIGN_WRITE_CONFIG_INVALID' });
   assert.equal(f.calls.length, 0);
 });
+}
