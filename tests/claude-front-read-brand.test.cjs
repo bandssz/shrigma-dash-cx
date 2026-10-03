@@ -2,19 +2,26 @@
 /* Front do painel growth para o contrato de leitura por marca (§9.5/§9.2 de
    docs/crm/PARIDADE-LEITURA-PORTAL-20261003.md). Prova, em fixture sintética e nas duas marcas:
    - OFF (servidor não anuncia `capabilities.templates.read_content` + `read_contract`): requisições
-     byte a byte iguais às do código-base 99f2c56;
+     byte a byte iguais às da base declarada (fixture explícita em tests/fixtures/claude-front-read-brand,
+     cópia de 1405de5 conferida por sha256, bytes e blob git — não depende de histórico do checkout);
    - ON: marca fish|aristo obrigatória, paginação offset/limit, pedidos aceitos pela ponte real;
    - resposta com item de outra marca/sem marca descartada inteira, com mensagem, nunca exibida;
    - mídia: `legacy:true` (saída real do validador) etiquetado e não contado como da marca.
    Nada sai da máquina. */
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{execFileSync}=require('node:child_process');
-const {webcrypto}=require('node:crypto'),{parseHTML}=require('linkedom');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
+const {webcrypto}=crypto,{parseHTML}=require('linkedom');
 const Bridge=require('../services/dashboard-operational/crm-template-read-bridge.cjs');
 const MediaRead=require('../services/dashboard-operational/crm-media-read-validator.cjs');
 
-const ROOT=path.join(__dirname,'..'),E='https://example.invalid/templates',BASE='99f2c56',CONTRACT='crm-template-read-v1';
+const ROOT=path.join(__dirname,'..'),E='https://example.invalid/templates',CONTRACT='crm-template-read-v1';
 const read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
-const baseSource=f=>execFileSync('git',['-C',ROOT,'show',`${BASE}:${f}`],{encoding:'utf8'});
+// Base portátil: arquivo da base copiado na fixture; o manifesto fixa commit, sha256, bytes e blob git.
+const FIXTURE=path.join(__dirname,'fixtures','claude-front-read-brand'),MANIFEST=JSON.parse(fs.readFileSync(path.join(FIXTURE,'manifest.json'),'utf8'));
+function baseSource(f){const [name,meta]=Object.entries(MANIFEST.files).find(([,m])=>m.source===f)||[];if(!meta)throw Error('fixture de base ausente para '+f);
+ const b=fs.readFileSync(path.join(FIXTURE,name));
+ assert.equal(b.length,meta.bytes,f+': bytes da base');assert.equal(crypto.createHash('sha256').update(b).digest('hex'),meta.sha256,f+': sha256 da base');
+ assert.equal(crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${b.length}\0`),b])).digest('hex'),meta.git_blob,f+': blob git da base');
+ return b.toString('utf8');}
 const hex=(n,c)=>c.repeat(n);
 function loadGTA(source){const c=vm.createContext({URLSearchParams,AbortSignal,Intl,Date,console});vm.runInContext(source+'\nthis.GTA=GTA;',c);return c.GTA;}
 // Registro do que vai para a rede: URL inteira e init sem o sinal (o AbortSignal é um objeto novo a cada chamada).
@@ -39,7 +46,7 @@ function server(catalog,{poison=null,history={},submissions={}}={}){
 function bridgeAccepts(url){const q=new URL(url).searchParams;return Bridge.decision('templates','GET',q);}
 
 /* ---------------- OFF: idêntico ao código-base ---------------- */
-test('OFF: sem read_contract (ou com outro valor) as leituras saem byte a byte iguais às de 99f2c56, ignorando a marca extra',async()=>{
+test('OFF: sem read_contract (ou com outro valor) as leituras saem byte a byte iguais às da base (fixture 1405de5), ignorando a marca extra',async()=>{
  const now=loadGTA(read('growth-templates-api.js')),before=loadGTA(baseSource('growth-templates-api.js'));
  for(const templates of [undefined,{read_content:true,list_history:true},{read_content:true,read_contract:'crm-template-read-v2'},{read_content:true,read_contract:true},{read_content:true,read_contract:' crm-template-read-v1'}]){
   const api={capabilities:{templates,endpoints:{templates:E}}},caps=now.caps(api);
@@ -229,4 +236,11 @@ test('Mídia: saída do validador (§9.2) etiqueta o legado "Arquivo antigo (sem
  // legacy com tipo errado: resposta recusada inteira.
  const wrong=media(mediaPage('fish',[{...mediaItem(1,'a.png'),legacy:'sim'}]));wrong.q('#crm-media-library-load').click();await tick();await tick();
  assert.equal(wrong.qa('[data-media-index]').length,0);assert.match(wrong.q('#crm-media-library-status').textContent,/não está disponível/);
+});
+
+test('base portátil: fixture explícita confere sha256, bytes e blob git do commit declarado; adulterada é recusada',()=>{
+ assert.match(MANIFEST.base_commit,/^[0-9a-f]{40}$/);
+ for(const meta of Object.values(MANIFEST.files))assert.ok(baseSource(meta.source).length===meta.bytes||Buffer.byteLength(baseSource(meta.source))===meta.bytes);
+ const [name,meta]=Object.entries(MANIFEST.files)[0],b=fs.readFileSync(path.join(FIXTURE,name));b[0]^=1;
+ assert.notEqual(crypto.createHash('sha256').update(b).digest('hex'),meta.sha256);
 });
