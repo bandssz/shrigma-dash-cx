@@ -40,6 +40,7 @@ jobs:
       - name: Conferir entrega CRM e isolamento da biblioteca de mídia
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: ${{ runner.temp }}/growth-test-tools/node_modules/@electric-sql/pglite
         run: node --test tests/claude-*.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-media-page-boundary.test.cjs tests/growth-media.test.cjs
       - name: Conferir executor fechado, supervisão e plano de recursos sem banco ou credenciais
         run: |
