@@ -147,6 +147,12 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   return Object.freeze(rows.map(row=>uuid(row.operation_id)));
  }
  function credentialReady(userId){const l=current(userId);if(!l)return null;try{if(manager(userId,'active').email!==l.owner)return false;}catch{return false;}if(l.state!=='ready'||l.expires_at<=clock()||!slotMatches(l))return false;return !db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND phase IN ('commit_uncertain','committed') LIMIT 1").get(l.lifecycle_id);}
- return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady});
+ // PRIVATE binding for the reviewed managed-read bridge. Never serialize it.
+ function readBinding(userId){
+  if(credentialReady(userId)!==true)fail('MANAGED_READ_BINDING_DENIED');
+  const l=current(userId);
+  return Object.freeze({userId:l.user_id,owner:l.owner,lifecycleId:l.lifecycle_id,lifecycleVersion:l.version,principalId:l.active_principal,generation:l.active_generation,expiresAt:l.expires_at});
+ }
+ return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady,readBinding});
 }
 module.exports={createManagerJournal};
