@@ -76,11 +76,16 @@ jobs:
           retention-days: 7
 
   native-postgres-manager-proof:
+    name: native-postgres-manager-proof (PostgreSQL ${{ matrix.postgres }})
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '17']
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_DB: crm_manager_fixture
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -99,6 +104,7 @@ jobs:
       - name: Provar SQL, ACL e concorrência no PostgreSQL efêmero da CI
         env:
           CRM_MANAGER_NATIVE_FIXTURE: '1'
+          CRM_MANAGER_NATIVE_MAJOR: ${{ matrix.postgres }}
           NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
         run: node --test tests/crm-manager-provision-native-postgres.test.cjs
 
@@ -126,3 +132,139 @@ jobs:
           docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           printf 'Imagem candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+# Proposal only: insert this job under `jobs` in the candidate workflow.
+# Publishes one gateway image; does not install a service, SQL, role or flag.
+  publish-crm-provisioner-candidate-image:
+    needs: [validate-and-package, native-postgres-manager-proof]
+    if: >-
+      success() &&
+      needs.validate-and-package.result == 'success' &&
+      needs.native-postgres-manager-proof.result == 'success' &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-provisioner-candidate-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: crm-provisioner-candidate-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
+      image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
+    env:
+      CRM_PROVISIONER_REPOSITORY: ghcr.io/bandssz/shrigma-dash-operational-canary
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Construir e conferir somente os quatro arquivos públicos do emissor
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_IMAGE="$CRM_PROVISIONER_REPOSITORY:crm-provisioner-candidate-$GITHUB_SHA"
+          GATEWAY_CONTEXT="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-context.XXXXXX")"
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'rm -rf -- "$GATEWAY_CONTEXT" "$GATEWAY_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-provisioner-manifest.json" "$RUNNER_TEMP/crm-provisioner-manifest.error"' EXIT
+          for GATEWAY_FILE in package.json package-lock.json server.cjs Dockerfile; do
+            test -f "services/crm-manager-provisioner/$GATEWAY_FILE"
+            test ! -L "services/crm-manager-provisioner/$GATEWAY_FILE"
+            install -m 0644 "services/crm-manager-provisioner/$GATEWAY_FILE" "$GATEWAY_CONTEXT/$GATEWAY_FILE"
+          done
+          # Only a recognized missing-manifest error permits a first publication.
+          # Auth, network, rate-limit and unknown errors are never absence.
+          if docker manifest inspect "$GATEWAY_IMAGE" > "$RUNNER_TEMP/crm-provisioner-manifest.json" 2> "$RUNNER_TEMP/crm-provisioner-manifest.error"; then
+            printf '%s\n' 'Gateway candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          GATEWAY_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-provisioner-manifest.error")"
+          case "$GATEWAY_MANIFEST_ERROR" in
+            "no such manifest: $GATEWAY_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Gateway tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          docker build --platform linux/amd64 --file "$GATEWAY_CONTEXT/Dockerfile" \
+            --build-arg GIT_SHA="$GITHUB_SHA" \
+            --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
+            --label org.opencontainers.image.title=shrigma-crm-manager-provisioner \
+            --label com.shrigma.component=crm-manager-provisioner \
+            --tag "$GATEWAY_IMAGE" "$GATEWAY_CONTEXT"
+          test "$(docker image inspect --format '{{.Config.User}}' "$GATEWAY_IMAGE")" = '1000:1000'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$GATEWAY_IMAGE")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$GATEWAY_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$GATEWAY_IMAGE")" = 'crm-manager-provisioner'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 --entrypoint node "$GATEWAY_IMAGE" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs");a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-manager-provisioner");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["node_modules","package-lock.json","package.json","server.cjs"]);a.equal(typeof require("/app/server.cjs").createServer,"function");'
+          GATEWAY_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$GATEWAY_IMAGE")"
+          [[ "$GATEWAY_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$GATEWAY_IMAGE_ID" > "$RUNNER_TEMP/crm-provisioner-built-image-id.txt"
+      - name: Publicar somente a tag inédita com token temporário da CI
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_IMAGE="$CRM_PROVISIONER_REPOSITORY:crm-provisioner-candidate-$GITHUB_SHA"
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-push-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf -- "$GATEWAY_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-provisioner-manifest.json" "$RUNNER_TEMP/crm-provisioner-manifest.error"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GHCR_TOKEN
+          # Check again just before push. Concurrency also serializes this job per SHA.
+          if docker manifest inspect "$GATEWAY_IMAGE" > "$RUNNER_TEMP/crm-provisioner-manifest.json" 2> "$RUNNER_TEMP/crm-provisioner-manifest.error"; then
+            printf '%s\n' 'Gateway candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          GATEWAY_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-provisioner-manifest.error")"
+          case "$GATEWAY_MANIFEST_ERROR" in
+            "no such manifest: $GATEWAY_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Gateway tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          test "$(docker image inspect --format '{{.Id}}' "$GATEWAY_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-provisioner-built-image-id.txt")"
+          docker push "$GATEWAY_IMAGE"
+          test "$(docker image inspect --format '{{len .RepoDigests}}' "$GATEWAY_IMAGE")" = '1'
+          GATEWAY_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' "$GATEWAY_IMAGE")"
+          [[ "$GATEWAY_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$GATEWAY_REF" > "$RUNNER_TEMP/crm-provisioner-pushed-image-ref.txt"
+      - name: Conferir digest público sem login e registrar a imagem exata do emissor
+        id: verify-public-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_REF="$(cat "$RUNNER_TEMP/crm-provisioner-pushed-image-ref.txt")"
+          [[ "$GATEWAY_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-anonymous-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'rm -rf -- "$GATEWAY_DOCKER_CONFIG"' EXIT
+          docker pull --platform linux/amd64 "$GATEWAY_REF"
+          test "$(docker image inspect --format '{{.Id}}' "$GATEWAY_REF")" = "$(cat "$RUNNER_TEMP/crm-provisioner-built-image-id.txt")"
+          test "$(docker image inspect --format '{{.Config.User}}' "$GATEWAY_REF")" = '1000:1000'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$GATEWAY_REF")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$GATEWAY_REF")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$GATEWAY_REF")" = 'crm-manager-provisioner'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 --entrypoint node "$GATEWAY_REF" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs");a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-manager-provisioner");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["node_modules","package-lock.json","package.json","server.cjs"]);a.equal(typeof require("/app/server.cjs").createServer,"function");'
+          GATEWAY_RECORD="$RUNNER_TEMP/crm-provisioner-publication"
+          mkdir "$GATEWAY_RECORD"
+          printf '%s\n' "$GATEWAY_REF" > "$GATEWAY_RECORD/image-ref.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$GATEWAY_RECORD/source-revision.txt"
+          printf '%s\n' 'crm-manager-provisioner' > "$GATEWAY_RECORD/component.txt"
+          install -m 0644 "$RUNNER_TEMP/crm-provisioner-built-image-id.txt" "$GATEWAY_RECORD/image-config-id.txt"
+          printf 'image_ref=%s\nimage_digest=%s\n' "$GATEWAY_REF" "${GATEWAY_REF#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Emissor CRM candidato (somente imagem): `%s`\nRevisão: `%s`; UID/GID1000; digest conferido por acesso público.\n' "$GATEWAY_REF" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-provisioner-candidate-image-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-provisioner-publication/
+          if-no-files-found: error
+          retention-days: 7

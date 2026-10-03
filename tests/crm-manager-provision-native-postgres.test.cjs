@@ -5,9 +5,11 @@
 // synthetic database; the CI service must be fresh and use trust authentication.
 const test=require('node:test'),assert=require('node:assert/strict');
 
-test('native PostgreSQL16: closed manager RPCs, ACLs and concurrent lifecycle transactions',{
+test('native PostgreSQL fixture: closed manager RPCs, ACLs and concurrent lifecycle transactions',{
  skip:process.env.CRM_MANAGER_NATIVE_FIXTURE!=='1',timeout:90000
 },async t=>{
+ const expectedMajor=process.env.CRM_MANAGER_NATIVE_MAJOR===undefined?'16':process.env.CRM_MANAGER_NATIVE_MAJOR;
+ assert.ok(['16','17'].includes(expectedMajor),'fixture major must be explicitly supported');
  const {Client}=require('pg');
  const {createFixture,createPrepare:prepare,createRenewal:renewal,createCommit:commit,createRevoke:revoke,createStatus:status,canonical,sha,issuerA:A,issuerB:B}=require('./crm-manager-provision-postgres.test.cjs');
  const password='synthetic-local-trust-fixture-only';
@@ -30,7 +32,7 @@ test('native PostgreSQL16: closed manager RPCs, ACLs and concurrent lifecycle tr
   // Docker's published loopback socket reaches a private container address;
   // destination authority is the client pin above, not that internal address.
   const r=(await client.query("SELECT current_database() AS db,session_user AS login,inet_server_port() AS port,current_setting('server_version_num')::int AS version")).rows[0];
-  assert.equal(r.db,'crm_manager_fixture');assert.equal(r.login,user);assert.equal(r.port,5432);assert.ok(r.version>=160000&&r.version<170000,'fixture must be native PostgreSQL16');
+  assert.equal(r.db,'crm_manager_fixture');assert.equal(r.login,user);assert.equal(r.port,5432);assert.ok(r.version>=Number(expectedMajor)*10000&&r.version<(Number(expectedMajor)+1)*10000,'fixture must match its pinned PostgreSQL major');
  }
  class NativeFixtureEngine{
   constructor(){
