@@ -162,3 +162,28 @@ test('promoted coordinator state is no longer current after renewal or final cre
   f.advance(14*86400000);assert.equal(f.j.operationState(renewal).current,false);assert.equal(f.j.credentialReady(id),false);
  }finally{f.close();}
 });
+test('pending discovery requires an explicit bounded maximum and returns only frozen IDs',()=>{
+ const f=fixture();try{const invited=f.add();f.txn(()=>f.j.createLifecycle(invited));assert.deepEqual(f.j.pendingOperations(8),[]);const op=f.start(f.add());for(const invalid of[undefined,null,0,9,-1,1.5,'8',true,NaN,Infinity,{},Symbol('limit')])assert.throws(()=>f.j.pendingOperations(invalid),/PENDING_LIMIT_INVALID/);f.txn(()=>assert.throws(()=>f.j.pendingOperations(8),/TRANSACTION_ALREADY_OPEN/));const value=f.j.pendingOperations(1);assert.deepEqual(value,[op]);assert.ok(Object.isFrozen(value));assert.throws(()=>value.push(crypto.randomUUID()),TypeError);}finally{f.close();}
+});
+test('all open issue phases remain discoverable across TTL expiry and restart without changing state',()=>{
+ const f=fixture();try{
+  const operations=[];
+  for(const phase of['queued','prepare_uncertain','prepared','attested','commit_uncertain','committed']){f.advance(1);const op=f.start(f.add()),p=f.prepared(op);operations.push(op);if(phase!=='queued')f.j.beginPrepare(op);if(!['queued','prepare_uncertain'].includes(phase))f.j.recordPrepared(op,p);if(['attested','commit_uncertain','committed'].includes(phase))f.attest(op,p);if(['commit_uncertain','committed'].includes(phase))f.j.beginCommit(op);if(phase==='committed')f.j.recordCommitted(op,f.committed(op,p));}
+  f.advance(700000);const before=f.db.prepare('SELECT * FROM crm_manager_operations_v1 ORDER BY operation_id').all();assert.deepEqual(f.j.pendingOperations(8),operations);f.restart();assert.deepEqual(f.j.pendingOperations(8),operations);assert.deepEqual(f.db.prepare('SELECT * FROM crm_manager_operations_v1 ORDER BY operation_id').all(),before);
+ }finally{f.close();}
+});
+test('revocations precede an oversized backlog and discovery leaves administrator and legacy slots intact',()=>{
+ const f=fixture();try{const ids=[],operations=[];for(let n=0;n<10;n++){f.advance(1);const id=f.add();ids.push(id);operations.push(f.start(id));}f.advance(100);const rev=f.txn(()=>f.j.stageRevoke(ids[0])).operationId;const admin=f.add('superadmin');f.db.prepare('INSERT INTO upstream_credentials VALUES(?,?,?,?,?)').run(admin,'crm-panel-read','SYNTHETIC_ADMIN_CIPHER','SYNTHETIC_ADMIN_DIGEST',1);const baseline=f.db.prepare('SELECT * FROM upstream_credentials').all();assert.deepEqual(f.j.pendingOperations(8),[rev,...operations.slice(1,8)]);assert.deepEqual(f.j.pendingOperations(1),[rev]);assert.deepEqual(f.db.prepare('SELECT * FROM upstream_credentials').all(),baseline);}finally{f.close();}
+});
+test('discovery excludes changed identities and all closed phases while retaining an open renewal',()=>{
+ const f=fixture();try{
+  for(const change of['disabled','email','edit','read','extraGrant']){const id=f.add();f.start(id);if(change==='disabled')f.db.prepare("UPDATE users SET state='disabled' WHERE id=?").run(id);if(change==='email')f.db.prepare("UPDATE users SET email='other@synthetic.invalid' WHERE id=?").run(id);if(change==='edit')f.db.prepare('UPDATE grants SET can_edit=1 WHERE user_id=?').run(id);if(change==='read')f.db.prepare('UPDATE grants SET can_read=0 WHERE user_id=?').run(id);if(change==='extraGrant')f.db.prepare("INSERT INTO grants VALUES(?,'influs',1,0)").run(id);}
+  const ready=f.add();f.complete(f.start(ready));const renew=f.j.renew(ready).operationId;
+  const expired=f.start(f.add()),ep=f.prepared(expired);f.j.recordPrepared(expired,ep);f.advance(600000);f.j.expireCandidate(expired);
+  const awaiting=f.start(f.add());f.db.prepare("UPDATE crm_manager_lifecycles_v1 SET state='awaiting_accept' WHERE lifecycle_id=?").run(f.j.request(awaiting).lifecycleId);
+  assert.deepEqual(f.j.pendingOperations(8),[renew]);
+ }finally{f.close();}
+});
+test('historical revocation stays discoverable after reinvite without exposing old issue intentions',()=>{
+ const f=fixture();try{const id=f.add(),old=f.start(id),rev=f.txn(()=>f.j.stageRevoke(id)).operationId,r=f.j.request(rev);f.j.confirmRevoked(rev,{...r,schema:'crm-manager-provision-receipt-v1',issuerId:f.issuerId,namespaceId:f.namespaceId,action:'revoke_read',state:'revoked',allGenerationsRevoked:true,revocationMode:'lifecycle',effectiveAt:0,revokedCount:1});f.db.prepare("UPDATE users SET state='invited' WHERE id=?").run(id);const fresh=f.start(id);f.db.prepare("UPDATE crm_manager_operations_v1 SET phase='revoke_pending' WHERE operation_id=?").run(rev);assert.equal(f.j.operationState(rev).current,false);assert.deepEqual(f.j.pendingOperations(8),[rev,fresh]);assert.equal(f.j.pendingOperations(8).includes(old),false);}finally{f.close();}
+});

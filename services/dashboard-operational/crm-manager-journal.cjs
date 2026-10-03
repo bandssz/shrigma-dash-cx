@@ -127,7 +127,26 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   if(o.phase==='promoted')isCurrent=isCurrent&&l.active_generation===o.generation&&l.active_principal===o.principal_id&&credentialReady(o.user_id)===true;
   return Object.freeze({kind:o.kind,phase:o.phase,candidateExpiresAt:o.candidate_expires_at??null,lifecycleState:o.lifecycle_state,current:isCurrent});
  }
+ // Private bounded intent discovery. No ciphertext, bearer, digest or identity
+ // data is projected. TTL is deliberately not filtered: reconciliation owns it.
+ function pendingOperations(maximum){
+  if(!Number.isInteger(maximum)||maximum<1||maximum>8)fail('MANAGED_PENDING_LIMIT_INVALID');
+  if(db.isTransaction)fail('MANAGED_TRANSACTION_ALREADY_OPEN');
+  const rows=db.prepare(`SELECT o.operation_id FROM crm_manager_operations_v1 o
+   JOIN crm_manager_lifecycles_v1 l ON l.lifecycle_id=o.lifecycle_id
+   LEFT JOIN crm_manager_current_v1 c ON c.user_id=l.user_id
+   LEFT JOIN users u ON u.id=l.user_id
+   WHERE l.state<>'awaiting_accept' AND (
+    (o.kind='revoke' AND o.phase='revoke_pending') OR
+    (o.kind IN ('issue','renew') AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')
+     AND c.lifecycle_id=o.lifecycle_id AND l.version=o.lifecycle_version AND l.state IN ('provisioning','ready')
+     AND u.role='manager' AND u.state='active' AND u.email=l.owner
+     AND (SELECT count(*) FROM grants g WHERE g.user_id=u.id)=1
+     AND EXISTS(SELECT 1 FROM grants g WHERE g.user_id=u.id AND g.area='growth' AND g.can_read=1 AND g.can_edit=0)))
+   ORDER BY CASE WHEN o.kind='revoke' THEN 0 ELSE 1 END,o.created_at,o.operation_id LIMIT ?`).all(maximum);
+  return Object.freeze(rows.map(row=>uuid(row.operation_id)));
+ }
  function credentialReady(userId){const l=current(userId);if(!l)return null;try{if(manager(userId,'active').email!==l.owner)return false;}catch{return false;}if(l.state!=='ready'||l.expires_at<=clock()||!slotMatches(l))return false;return !db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND phase IN ('commit_uncertain','committed') LIMIT 1").get(l.lifecycle_id);}
- return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,credentialReady});
+ return Object.freeze({createLifecycle,activateLifecycle,renew,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady});
 }
 module.exports={createManagerJournal};

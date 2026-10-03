@@ -34,6 +34,7 @@
 !services/dashboard-operational/crm-manager-journal.cjs
 !services/dashboard-operational/crm-manager-provisioning.cjs
 !services/dashboard-operational/crm-manager-coordinator.cjs
+!services/dashboard-operational/crm-manager-dispatcher.cjs
 !services/dashboard-operational/crm-manager-attestation.cjs
 !services/dashboard-operational/proxy.cjs
 !services/dashboard-operational/backend-credential-attestation.cjs

@@ -157,4 +157,9 @@ test('native PostgreSQL16: closed manager RPCs, ACLs and concurrent lifecycle tr
   const fresh=prepare({userId:q.userId,lifecycleId:q.lifecycleId,owner:q.owner}),fp=receipt(await invoke(a,fresh),fresh,'prepared');assert.equal((await f.key(q)).ativo,false);assert.deepEqual(await f.permissions(q),[]);
   assert.deepEqual((await invoke(b,lookup)).receipt,p);const late=commit(q,p);failure(await invoke(a,late),'CANDIDATE_EXPIRED',late);await invoke(a,commit(fresh,fp));assert.equal((await f.key(fresh)).ativo,true);await f.unchanged();
  });
+ await t.test('new non-superuser function owner and service login preserve scoped authority',async sub=>{
+  const {proveRoleInstallation}=require('./crm-manager-role-install.test.cjs');
+  await proveRoleInstallation(f,sub);
+ });
+
 });

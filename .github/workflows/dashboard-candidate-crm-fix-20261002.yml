@@ -31,7 +31,7 @@ jobs:
       - name: Validar cadastro privado e RPCs em banco descartável
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
-        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs
+        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs tests/crm-manager-role-install.test.cjs
       - name: Exercitar listas, vínculo, recibos e troca de marca
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules

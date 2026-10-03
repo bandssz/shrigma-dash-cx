@@ -7,6 +7,7 @@ const {createServer}=require('../services/dashboard-operational/server.cjs');
 const {build}=require('../services/dashboard-operational/build.cjs');
 const {createProvisioningClient}=require('../services/dashboard-operational/crm-manager-provisioning.cjs');
 const {createManagerCoordinator:createCoordinator}=require('../services/dashboard-operational/crm-manager-coordinator.cjs');
+const {createManagerDispatcher}=require('../services/dashboard-operational/crm-manager-dispatcher.cjs');
 const {verifyManagedCrmCredential}=require('../services/dashboard-operational/crm-manager-attestation.cjs');
 const gateway=require('../services/crm-manager-provisioner/server.cjs');
 const {createFixture,issuerA}=require('./crm-manager-provision-postgres.test.cjs');
@@ -31,7 +32,6 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const dbPath=path.join(dir,'identity.sqlite'),bootstrap=crypto.randomBytes(32).toString('base64url');
  const auth=createAuth({dbPath,managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['example.test'],bootstrapAdminEmail:'admin@example.test',bootstrapTokenSha256:sha(bootstrap),encryptionKey:crypto.randomBytes(32),crmManagedRead:{issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId}});t.after(()=>auth.close());
  const inspect=fn=>{const db=new DatabaseSync(dbPath);try{return fn(db);}finally{db.close();}};
- const operation=(id,kind='issue')=>inspect(db=>db.prepare('SELECT o.operation_id FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) WHERE c.user_id=? AND o.kind=? ORDER BY o.created_at DESC').get(id,kind).operation_id);
  const backend=FIXED_DESTINATIONS['crm-read'],privateReads=[];
  const fetchImpl=async(url,options)=>{
   const target=new URL(url);assert.equal(target.origin+target.pathname,backend);assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(options.headers.Origin,undefined);
@@ -51,6 +51,8 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const app=gateway.createServer({pool,issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43),revision:'a'.repeat(40),enabled:true});t.after(()=>app.stop());
  const client=createProvisioningClient({issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId,allowedEmailDomains:['example.test'],provisionerToken:'S'.repeat(43),requestImpl:rpcBridge(app,rpcCalls)}),journal=auth.managedCrmJournal;
  const coordinator=createCoordinator({journal,client,getOperationState:journal.operationState,attest:args=>verifyManagedCrmCredential(args,{fetchImpl})});
+ const dispatcher=createManagerDispatcher({getPendingOperations:journal.pendingOperations,coordinator});
+ assert.deepEqual(await dispatcher.drain(),{ready:0,pending:0,expired:0,revoked:0});
  const managers=[];
  for(const email of ['a@example.test','b@example.test']){
   const invite=await post(hosts.manager,'/auth/users',{action:'invite',role:'manager',email,areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},admin);assert.equal(invite.status,201);const token=new URLSearchParams(new URL(invite.json.inviteUrl).hash.slice(1)).get('invite');
@@ -58,7 +60,7 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
   assert.equal((await post(hosts.growth,'/auth/invite/accept',{token,password:'Synthetic manager password 2026!'})).status,200);
   const m=await post(hosts.growth,'/auth/login',{email,password:'Synthetic manager password 2026!'});assert.equal(m.status,200);assert.equal(m.json.user.permissions.growth.edit,false);const credentials={cookie:m.headers['set-cookie'][0].split(';')[0],csrf:m.json.csrf};
   assert.equal((await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials)).status,503);
-  assert.equal((await coordinator.run(operation(invite.json.userId))).state,'ready');const read=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials);assert.equal(read.status,200);assert.equal(read.json.owner,email);
+  assert.deepEqual(await dispatcher.drain(),{ready:1,pending:0,expired:0,revoked:0});const read=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials);assert.equal(read.status,200);assert.equal(read.json.owner,email);
   assert.equal((await call(port,hosts.organico,'/auth/session',credentials)).json.authenticated,false);assert.equal((await call(port,hosts.growth,'/organico/',credentials)).status,404);
   managers.push({id:invite.json.userId,email,credentials});
  }
@@ -66,7 +68,8 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const keys=privateReads.filter(r=>r.action==='identity').map(r=>r.bearer);assert.equal(new Set(keys).size,2);for(const key of keys){assert.ok(!users.raw.includes(key));assert.ok(rpcCalls.every(wire=>!wire.includes(key)));}
  assert.equal((await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},{cookie:admin.cookie})).status,403);
  const revoked=await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},admin);assert.equal(revoked.json.crmRevocationPending,true);assert.equal((await call(port,hosts.growth,'/auth/session',managers[0].credentials)).json.authenticated,false);
- assert.equal((await coordinator.run(operation(managers[0].id,'revoke'))).state,'revoked');const still=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[1].credentials);assert.equal(still.status,200);assert.equal(still.json.owner,managers[1].email);
+ assert.deepEqual(await dispatcher.drain(),{ready:0,pending:0,expired:0,revoked:1});const still=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[1].credentials);assert.equal(still.status,200);assert.equal(still.json.owner,managers[1].email);
+ assert.deepEqual(await dispatcher.drain(),{ready:0,pending:0,expired:0,revoked:0});
  const originRevoked=await fetchImpl(backend+'?action=identity&painel=growth',{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+keys[0]}});assert.equal(originRevoked.status,401);
  assert.deepEqual(baseline(),before);await origin.unchanged();assert.equal((await call(port,hosts.manager,'/cx/',admin)).status,404);
 });
