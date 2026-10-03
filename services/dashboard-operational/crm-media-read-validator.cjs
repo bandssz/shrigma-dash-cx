@@ -65,7 +65,7 @@ function uploadUrl(raw,host){
  if(name==='.'||name==='..'||/[/\\\u0000-\u001f\u007f]/.test(name))return null;
  return {name,ext:/[.]([A-Za-z0-9]+)$/.exec(name)?.[1].toLowerCase()||''};
 }
-function hasSecret(text,secrets){return secrets.some(s=>s&&text.includes(s));}
+function hasSecret(text,secrets){const lower=text.toLowerCase();return secrets.some(s=>s&&lower.includes(s.toLowerCase()));}
 function validateMediaLibraryResponse(body,{brand,page,per_page:perPage,allowedOrigin=ALLOWED_ORIGIN,legacy='mark',secrets=[]}={}){
  if(!BRANDS.includes(brand)||!int(page,1,MAX_PAGE)||!int(perPage,1,MAX_PER_PAGE)||!['mark','exclude'].includes(legacy)||!Array.isArray(secrets)||secrets.some(s=>typeof s!=='string'))deny('MEDIA_READ_VALIDATOR_CONFIG');
  let origin;try{origin=new URL(allowedOrigin);}catch{deny('MEDIA_READ_VALIDATOR_CONFIG');}
@@ -96,7 +96,11 @@ function validateMediaLibraryResponse(body,{brand,page,per_page:perPage,allowedO
   const extOk=TYPES[type].includes(url.ext);
   const parts=filenameParts(name);
   // Marca de cada arquivo apontado pelo item (url e miniatura) e do filename.
-  const fileMarks=[name,url.name,...(thumb?[thumb.name]:[])].flatMap(marks),foreignFile=fileMarks.some(b=>b!==brand);
+  const fileNames=[name,url.name,...(thumb?[thumb.name]:[])];
+  // uploadUrl already decodes the admitted single filename segment. Check
+  // that same decoded text before filtering any item; an echo poisons the page.
+  if(fileNames.some(file=>hasSecret(file,secrets)))deny('MEDIA_READ_SECRET_ECHO');
+  const fileMarks=fileNames.flatMap(marks),foreignFile=fileMarks.some(b=>b!==brand);
   if(parts){
    // Nome canônico: a marca é a do nome. Outra marca = filtro do serviço ausente.
    // Vale também para url e miniatura: arquivo de outra marca recusa a página.
