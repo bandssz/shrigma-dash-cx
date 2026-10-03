@@ -1,13 +1,16 @@
 /* Recuperação segura de tentativas pendentes · PostgreSQL NATIVO com sessões concorrentes.
    Isolado: exige CRM_PENDING_RECOVERY_TEST_ISOLATED=1 e TEST_DATABASE_URL
    postgresql://postgres@127.0.0.1:<porta≠5432>/listmonk (cluster descartável, sem senha).
-   Medido aqui em PostgreSQL 16.15; o CI dos vizinhos usa 17.10 (este teste aceita 16 e 17).
+   Medido aqui em PostgreSQL 16.15 e 17.10 (tools/claude-native-proofs/run-pg17.sh); aceita 16 e 17.
    Sem rede, sem Listmonk, sem envio: o nativo não é chamado em nenhum cenário. */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),{createHash}=require('node:crypto');
 const {Client,Pool}=require('pg');
 if(process.env.CRM_PENDING_RECOVERY_TEST_ISOLATED!=='1'||!process.env.TEST_DATABASE_URL)throw Error('isolated PostgreSQL required');
 const parsed=new URL(process.env.TEST_DATABASE_URL);
+// Versão alvo explícita opcional: CRM_PG_EXPECTED_VERSION_NUM=160015|170010 exige exatamente
+// a versão informada; sem a variável, aceita 16 ou 17 como antes.
+const assertPgVersion=v=>{assert.ok(/^1[67]\d{4}$/.test(v),'PostgreSQL 16 ou 17');const e=process.env.CRM_PG_EXPECTED_VERSION_NUM;if(e){assert.ok(['160015','170010'].includes(e),'CRM_PG_EXPECTED_VERSION_NUM não suportado: '+e);assert.equal(String(v),e);}};
 if(parsed.protocol!=='postgresql:'||parsed.hostname!=='127.0.0.1'||parsed.port===''||parsed.port==='5432'||parsed.pathname!=='/listmonk'||parsed.username!=='postgres'||parsed.password)throw Error('isolated PostgreSQL URL required');
 const {createServer,PATH}=require('../services/crm-campaign/server.cjs');
 const {createAbandonExecutor}=require('../services/crm-campaign/abandon.cjs');
@@ -43,7 +46,7 @@ const claim=(c,req)=>store(c,'claim',{actor,key:req.idempotency_key,hash:request
 test.before(async()=>{
  owner=await connect();
  version=(await one(owner,'SHOW server_version_num')).server_version_num;
- assert.ok(/^1[67]\d{4}$/.test(version),'PostgreSQL 16 ou 17');
+ assertPgVersion(version);
  await owner.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text NOT NULL,dono text,ativo boolean DEFAULT true,revogada_em timestamptz,ultimo_uso timestamptz,usos integer DEFAULT 0); CREATE TABLE shrigma_template_key_v2(key_hash text,active boolean,actor text,capabilities jsonb);`);
  for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await owner.query(read(f));
  await owner.query("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
