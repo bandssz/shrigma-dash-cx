@@ -51,6 +51,9 @@ const GUI = {
       return `<span class="chip ${good ? 'd-bom' : 'd-ruim'}">${delta > 0 ? '+' : ''}${GUI.pf(delta)}</span><span class="mini">vs. ${GUI.esc(previousLabel)}</span>`;
     };
     const jump=(label,target)=>`<button type="button" class="kpi-jump" data-kpi-jump="${target}">${label}</button>`;
+    // Total de atribuição com dias sem conciliação não é o total do período: etiqueta com detalhe no title.
+    const cov=conversionKnown&&typeof GA!=='undefined'&&GA.valid?.(api)?GA.coverage(api,marca,ini,fim):null;
+    const partial=cov&&!cov.complete?`<span class="control-badge" tabindex="0" title="Total parcial: dias sem conciliação ficam fora dos resultados. Confira a cobertura em Resultados.">Cobertura parcial · ${GUI.nf(cov.covered)} de ${GUI.nf(cov.expected)} dias × marca</span> · `:'';
     const waDelivery={label:'Entrega WhatsApp',value:wa.entrega_pct,before:previous?.wa?.entrega_pct,format:GUI.pf,
       note:GUI.number(wa.entregues)?`${GUI.nf(wa.entregues)} entregues · ${GUI.nf(wa.falhas)} falhas · de ${GUI.nf(wa.aceitos)} aceitos`:'Entregues ÷ aceitos pelo WhatsApp',link:jump('Ver automações','flows:whatsapp')};
     const emailCtr={label:'CTR das campanhas de e-mail',value:email.ctr,before:previous?.email?.ctr,format:GUI.pf,
@@ -62,8 +65,8 @@ const GUI = {
         {label:'Entregues',value:wa.entregues,before:previous?.wa?.entregues,format:GUI.nf,note:GUI.number(wa.entrega_pct)?`${GUI.pf(wa.entrega_pct)} dos aceitos · entregues ou lidos`:'entregues ou lidos · sem duplicar',link:jump('Ver automações','flows:whatsapp')},
         {label:'Falhas na entrega',value:wa.falhas,before:previous?.wa?.falhas,format:GUI.nf,invert:true,note:GUI.number(wa.pendentes_entrega)?`${GUI.nf(wa.pendentes_entrega)} aguardando confirmação`:'Aguardando confirmação: —',link:jump('Ver ocorrências','attention'),failure:GUI.number(wa.falhas)&&+wa.falhas>0},
       ]:[]),
-      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
-      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:`${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
+      {label:'Receita atribuída',value:receipt,before:conversionKnown ? previous?.receita : null,format:GUI.rf,note:`${partial}${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
+      {label:'Pedidos atribuídos',value:orders,before:conversionKnown ? previous?.pedidos : null,format:GUI.nf,note:`${partial}${api._attribution_model==='last_click'?'Último clique':'Último clique não direto'} · data da compra`,link:jump('Ver conversão','conv')},
       ...(canal==='todos'?[waDelivery,emailCtr]:canal==='email'?[emailCtr]:[]),
     ];
     if(ctx.visiblePanel!=='results')GUI.html('#area-kpis',kpis.map(k=>`<div class="kpi${k.failure?' kpi-falha':''}"><div class="kpi-rot">${k.label}</div>
