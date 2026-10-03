@@ -64,6 +64,22 @@ const GCA=(()=>{
    return !!source&&source.key!==op.key&&source.key===source.request?.idempotency_key&&['pending','uncertain'].includes(source.phase)&&source.actorFingerprint===op.actorFingerprint&&source.request?.brand===brand&&source.request?.acao==='campanha_salvar'&&!source.request.id&&
     uuidValue(op.request?.source_operation_id)&&source.serverRecord?.id===op.request.source_operation_id&&source.serverRecord.operation_key===source.key&&source.serverRecord.brand===brand&&source.serverRecord.action==='salvar'&&source.serverRecord.state==='outcome_unknown'&&source.serverRecord.providerId===op.request.id;
   }
+  // 409 definitivo: o serviço só responde 409 depois de gravar a tentativa como
+  // recusada (finish 'rejected', operation_id) e sem efeito iniciado; o efeito
+  // incerto sai como 502 OUTCOME_UNKNOWN. Criar rascunho fica fora: o rascunho
+  // nativo pode existir mesmo com recusa posterior (provider_id), então segue
+  // pelo recibo. Chave repetida/pendente também segue incerta.
+  function definitiveConflict(res,operation){
+   const b=res.body,r=operation.request;
+   return res.status===409&&!!b&&typeof b==='object'&&Object.keys(b).sort().join()==='error,message,operation_id,provider_id'&&typeof b.error==='string'&&/^[A-Z][A-Z0-9_]{2,63}$/.test(b.error)&&
+    !['OUTCOME_UNKNOWN','OPERATION_PENDING','IDEMPOTENCY_CONFLICT'].includes(b.error)&&typeof b.message==='string'&&uuidValue(b.operation_id)&&
+    ['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar'].includes(r.acao)&&Number.isSafeInteger(r.id)&&r.id>0&&b.provider_id===r.id;
+  }
+  function conflictMessage(b){
+   const next=b.error==='VERSION_CONFLICT'?'A campanha mudou desde que foi aberta. Use Carregar catálogo e campanhas, reabra a versão atual e confira antes de repetir.':
+    b.error==='CAMPAIGN_BUSY'?'Outra alteração estava em andamento. Reabra a campanha e confira a versão antes de repetir.':'Confira a campanha e corrija o motivo antes de repetir.';
+   return `Ação recusada pelo servidor: ${b.message.slice(0,300)} Nada foi alterado por esta tentativa. ${next}`;
+  }
   const canRecover=()=>availability?.recover===true&&availability.recovery_policy===RECOVERY_POLICY&&!busy&&!state.recoveryId&&state.operation?.phase==='uncertain'&&validRecovery(state.recoveryProof,state.recoveryRecord,state.operation);
   function applyResponse(res,operation,{historical=false}={}){
    const c=res.body?.campaign;
@@ -118,6 +134,39 @@ const GCA=(()=>{
     await consult(true);return snapshot();
    }finally{busy=false;}
   });}
+  // Liberação sem efeito (agendar/cancelar). O servidor prova ausência quando:
+  // 1) o recibo está em 'outcome_unknown' — estado final: finish só grava sobre
+  //    'pending' e o provider agenda/cancela somente com a operação 'pending' sob
+  //    FOR UPDATE (campaign-provider.sql), então essa tentativa nunca mais age;
+  // 2) a campanha relida tem a mesma versão do pedido — a versão é o md5 da linha
+  //    da campanha (status/updated_at), que muda em todo agendamento/cancelamento.
+  // 404, 'pending' ou versão diferente não provam nada e continuam travados.
+  const RELEASABLE={campanha_agendar:{action:'agendar',status:'draft'},campanha_cancelar:{action:'cancelar',status:'scheduled'}};
+  const canReleaseUnapplied=()=>availability?.operation===true&&!busy&&!state.recoveryId&&state.operation?.phase==='uncertain'&&state.operation.remote_state==='outcome_unknown'&&!!RELEASABLE[state.operation.request?.acao]&&Number.isSafeInteger(state.operation.request.id)&&typeof state.operation.request.expected_version==='string';
+  async function releaseUnapplied(confirm){return exclusive(async()=>{
+   gate('operation');refreshJournal();
+   if(confirm!=='liberar')throw error('CONFIRM_REQUIRED','Confirme a liberação desta tentativa sem efeito.');
+   const op=copy(state.operation||null),rule=RELEASABLE[op?.request?.acao];
+   if(!canReleaseUnapplied())throw error('RELEASE_UNAVAILABLE','Esta tentativa não pode ser liberada pelo painel. Consulte a tentativa; se continuar incerta, peça ao responsável técnico do CRM a conciliação da operação.');
+   const k=key(writeKey);if(await keyFingerprint(k)!==op.actorFingerprint)throw error('OPERATION_ACTOR_CHANGED','Use a mesma chave de escrita da tentativa original.');
+   busy=true;
+   try{
+    const unproven=()=>error('RELEASE_UNPROVEN',`Não foi possível provar que a tentativa ficou sem efeito. O registro continua travado; não repita a ação nem use outra chave. Peça ao responsável técnico do CRM a conciliação da operação ${op.key}.`);
+    const res=await call('GET',CampaignContract.request('operacao',{brand,idempotency_key:op.key}),k),saved=res.body?.operation;
+    // A consulta já é pela chave desta tentativa; recibos anteriores ao CRM21 não ecoam operation_key.
+    const sameKey=saved?.operation_key===undefined||saved.operation_key===op.key;
+    if(res.ok&&saved?.brand===brand&&sameKey&&saved.state!=='outcome_unknown')throw error('OPERATION_CHANGED','O estado desta tentativa mudou no servidor. Use Consultar tentativa para ver o resultado.');
+    if(!res.ok||!saved||saved.brand!==brand||!sameKey||saved.action!==rule.action||saved.state!=='outcome_unknown'||!uuidValue(saved.id))throw unproven();
+    const latest=await call('GET',CampaignContract.request('obter',{brand,id:op.request.id}),k),c=latest.body?.campaign;
+    if(!latest.ok||!validCampaign(c)||c.id!==op.request.id)throw error('READBACK_UNCONFIRMED','A campanha atual não foi confirmada. O registro continua travado; consulte novamente.');
+    if(c.version!==op.request.expected_version||c.status!==rule.status)throw unproven();
+    gate('operation');refreshJournal();
+    if(!sameJSON(state.operation,op))throw error('OPERATION_CHANGED','A tentativa mudou em outra aba. Consulte novamente antes de liberar.');
+    const absence={policy:'crm-campaign-absence-v1',operation_id:saved.id,operation_state:saved.state,campaign_id:c.id,campaign_version:c.version,checked_at:new Date(now()).toISOString()};
+    persist({...state,campaign:copy(c),validation:null,recoveryId:null,recoveryProof:null,recoveryRecord:null,operation:{...op,phase:'rejected',last_error:'OUTCOME_UNKNOWN',response:copy(saved.response||null),absence}});
+    return snapshot();
+   }finally{busy=false;}
+  });}
   async function readCurrent(id,k){
    const latest=await call('GET',CampaignContract.request('obter',{brand,id}),k);
    if(!latest.ok||!validCampaign(latest.body?.campaign)||latest.body.campaign.id!==id)throw error('READBACK_UNCONFIRMED','A operação foi confirmada, mas o estado atual da campanha ainda não. Consulte novamente.');
@@ -140,7 +189,9 @@ const GCA=(()=>{
     const res=await call('POST',request,k);
     if(applyResponse(res,operation))return snapshot();
     const denied=(res.status===401&&res.body?.error==='UNAUTHORIZED')||(res.status===403&&res.body?.error==='CAPABILITY_MISSING'&&res.body?.operation_id===null);
-    persist({...state,operation:{...operation,phase:denied?'rejected':'uncertain',last_error:res.body?.error||'RESPONSE_UNCONFIRMED'}});
+    const refused=!denied&&definitiveConflict(res,operation);
+    persist({...state,operation:{...operation,phase:denied||refused?'rejected':'uncertain',last_error:res.body?.error||'RESPONSE_UNCONFIRMED',...(refused?{response:{status:res.status,body:copy(res.body)}}:{})}});
+    if(refused)throw error(res.body.error,conflictMessage(res.body));
     throw responseError(res);
    }finally{busy=false;}
   }
@@ -148,7 +199,7 @@ const GCA=(()=>{
   function reviewed(d){if(busy||locked())throw error('OPERATION_PENDING','Consulte a tentativa pendente.');if(!clean(d))throw error('UNSAVED_CHANGES','Salve as alterações desta campanha antes de validar ou agendar.');const c=state.campaign;if(c.status!=='draft'||c.sent!==0||c.started_at)throw error('CAMPAIGN_LOCKED','Esta campanha não é um rascunho disponível para edição.');return c;}
   async function read(action,input={},k){gate('read');const res=await call('GET',CampaignContract.request(action,{brand,...input}),k||key(readKey));if(!res.ok)throw responseError(res,{read:true});return res.body;}
   return {
-   snapshot,locked,clean,canWrite,canRecover,recover,updateCapabilities:c=>{availability=c;},
+   snapshot,locked,clean,canWrite,canRecover,recover,canReleaseUnapplied,releaseUnapplied,updateCapabilities:c=>{availability=c;},
    async catalog(){const c=await read('catalogo');if(c?.brand!==brand||c.current!==true||!Array.isArray(c.lists)||!Array.isArray(c.templates))throw error('CATALOG_UNAVAILABLE','Catálogo da marca não confirmado.');catalog=c;return copy(c);},
    // Formato e marca continuam validando a resposta inteira (outra marca recusa tudo).
    // Uma campanha antiga fora do contrato atual só fica fora da lista de reabertura.
@@ -165,6 +216,12 @@ const GCA=(()=>{
     gate('operation');refreshJournal();const op=state.operation;if(!op)throw error('OPERATION_MISSING','Não há tentativa registrada neste navegador.');
     const k=key(writeKey);if(await keyFingerprint(k)!==op.actorFingerprint)throw error('OPERATION_ACTOR_CHANGED','Use a mesma chave de escrita da tentativa. Outra autoria não pode consultar esta operação.');
     const res=await call('GET',CampaignContract.request('operacao',{brand,idempotency_key:op.key}),k),saved=res.body?.operation;
+    if(res.status===404&&res.body?.error==='OPERATION_NOT_FOUND'){
+     // Ausência agora não prova ausência depois: um POST atrasado ainda pode chegar
+     // e ser gravado com esta chave. O diário continua travado; só orienta a saída.
+     if(writeJournal&&['pending','uncertain'].includes(op.phase)&&op.remote_state!=='missing')persist({...state,operation:{...op,remote_state:'missing'}});
+     throw error('OPERATION_NOT_FOUND',`O servidor ainda não tem registro desta tentativa. Ela pode ter se perdido antes de chegar ou ainda estar a caminho, por isso o registro continua travado. Não repita a ação nem use outra chave; consulte de novo mais tarde e, se continuar sem registro, peça ao responsável técnico do CRM a conciliação da operação ${op.key}.`);
+    }
     if(!res.ok||!saved||saved.brand!==brand)throw responseError(res);
     if(op.request.acao==='campanha_recuperar'&&(saved.operation_key!==op.key||saved.action!=='recuperar'||!uuidValue(saved.id)||(saved.state==='succeeded'&&(saved.providerId!==op.request.id||saved.response?.body?.operation_id!==saved.id||(op.phase==='succeeded'&&!sameJSON(saved.response,op.response))))))throw error('RESPONSE_UNCONFIRMED','A resposta não confirmou a mesma recuperação. O registro original foi preservado; consulte novamente.');
     if(!writeJournal)return {...snapshot(),consultation:{state:saved.state},readOnly:true};

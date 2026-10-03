@@ -73,6 +73,8 @@
   function refocus(c){if(!c)return;const same=c.gs&&[...element.querySelectorAll('[data-gs]')].find(b=>b.dataset.gs===c.gs&&(b.dataset.id||'')===c.id);const target=c.node?.isConnected&&!c.node.disabled?c.node:same&&!same.disabled?same:q('[data-gs="refresh"]');target?.focus?.();}
   function ask(text,work){if(blocked()||pending())return;confirmation={text,work,key:currentKey(),definition:copy(draft),server:copy(server),caller:opener()};render();}
   function cancel(){if(!confirmation)return;const caller=confirmation.caller;confirmation=null;render();refocus(caller);}
+  // Recusa já resolvida pelo cliente (sem incerteza): recarrega como a consulta faria, para mostrar a versão e o catálogo atuais.
+  async function refusalReload(write){try{return await write();}catch(e){const op=client.snapshot().operation;if(!client.pending()&&op?.phase==='rejected'&&op.receipt?.body?.error===e?.code){count=null;try{await load();}catch{}}throw e;}}
   async function guarded(work,{read=false}={}){if(busy)return;busy=true;busyRead=read;error='';render();try{await work();}catch(e){error=messages[e.code]||({SEGMENT_READ_UNCONFIRMED:'Não foi possível carregar os públicos. Clique em Criar público ou Atualizar públicos para tentar consultar novamente. Sua preparação foi preservada.',SEGMENT_JOURNAL_INVALID:'Há uma tentativa local incompatível neste navegador. Ela foi preservada; use o acesso original para conferir o resultado.',SEGMENT_BUSY:'Outra aba está usando esta preparação. Aguarde a conclusão antes de tentar novamente.'}[e.code])||'Não foi possível confirmar esta ação. Sua preparação foi preservada.';count=null;}finally{busy=false;busyRead=false;render();}}
   async function load(append=false){catalog=null;permissions=null;const response=await client.list({offset:append?offset+50:0});catalog=response.catalog;if(draftCatalogHash===null&&!dirty())bindDraftCatalog();permissions=response.capabilities;offset=response.offset;more=response.segments.length===response.limit;rows=append?[...rows,...response.segments.filter(s=>!rows.some(x=>x.id===s.id))]:response.segments;if(server&&contract().FIELDS){const current=rows.find(s=>s.id===server.id&&s.version===server.version);if(current)server.semantic_context=copy(current.semantic_context);}if(contextChanged())count=null;}
   async function recoverLegacyContext(){
@@ -96,9 +98,9 @@
    if(action==='new')return replace(async()=>{await client.newDraft();draft=empty(ctx.brand,contract());base=copy(draft);server=null;bindDraftCatalog();count=null;persist();notice='Defina as condições e salve para disponibilizar este público no painel.';});
    if(action==='open')return replace(async()=>{const s=await client.open(id);stateFrom(s);notice='Público aberto.';},{read:true});
    if(action==='more')return guarded(()=>load(true),{read:true});
-   if(action==='save'&&valid())return guarded(async()=>{const s=await client.save(normalized(),server);stateFrom(s);await load();notice='Público salvo. Nenhuma mensagem enviada.';});
+   if(action==='save'&&valid())return guarded(async()=>{const s=await refusalReload(()=>client.save(normalized(),server));stateFrom(s);await load();notice='Público salvo. Nenhuma mensagem enviada.';});
    if(action==='count'&&valid())return guarded(async()=>{count=await client.count(normalized(),server&&!dirty()?server:null);notice='Contagem consultada. Este número não autoriza envio.';},{read:true});
-   if(action==='archive'&&server&&!dirty())return ask('Arquivar “'+draft.name+'” de '+names[ctx.brand]+' · versão '+server.version+'? O histórico será preservado.',async()=>{stateFrom(await client.archive(server));await load();notice='Público arquivado. O histórico foi preservado.';});
+   if(action==='archive'&&server&&!dirty())return ask('Arquivar “'+draft.name+'” de '+names[ctx.brand]+' · versão '+server.version+'? O histórico será preservado.',async()=>{stateFrom(await refusalReload(()=>client.archive(server)));await load();notice='Público arquivado. O histórico foi preservado.';});
    if(!catalog||server?.archived)return;
    if(action==='quick'){
     const field=id,root=draft?.rule,canEdit=!blocked()&&!pending()&&!server?.archived&&!contextChanged();

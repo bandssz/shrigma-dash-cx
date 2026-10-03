@@ -8,7 +8,7 @@ const GABF={
  values(){return Object.fromEntries(GABF.ids.map(id=>[id,GABF.el(id).value]));},
  fill(value){for(const id of GABF.ids)GABF.el(id).value=typeof value[id]==='string'?value[id]:GABF.defaults[id];GABF.channel=GABF.el('f-canal').value;},
  contextStatus(){return {dirty:GBS.validBrand(GABF.brand)&&JSON.stringify(GABF.values())!==GABF.saved};},
- preserve(){if(GABF.error)throw Error(GABF.error);if(GBS.validBrand(GABF.brand)){const value=GABF.values();GBS.save('ab',GABF.brand,value);GABF.saved=JSON.stringify(value);}},
+ preserve(){if(GABF.error)throw Error(GABF.error);if(GBS.validBrand(GABF.brand)){const value=GABF.values();GBS.save('ab',GABF.brand,value,GABF.defaults);GABF.saved=JSON.stringify(value);}},
  enter(brand,api){
   if(GABF.brand!==brand){
    let value=null;GABF.error='';try{value=GBS.read('ab',brand);}catch(e){GABF.error=e.message;}
