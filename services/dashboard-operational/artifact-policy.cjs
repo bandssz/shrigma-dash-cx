@@ -11,7 +11,7 @@ const PUBLIC_FILES=Object.freeze([
  'crm/index.html','organico/index.html','creators/index.html','gestao/index.html',
  'entry.js','entry.css','guard.js','media-read.js'
 ].sort());
-const RUNTIME_FILES=Object.freeze(['server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-dispatcher.cjs','crm-manager-attestation.cjs','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js'].sort());
+const RUNTIME_FILES=Object.freeze(['server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-dispatcher.cjs','crm-manager-runtime.cjs','crm-manager-attestation.cjs','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js'].sort());
 const FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).sort().join(',')===keys.slice().sort().join(',');

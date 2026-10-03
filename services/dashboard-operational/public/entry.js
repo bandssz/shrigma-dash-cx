@@ -313,7 +313,17 @@ else (function(){'use strict';
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
+  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&user.crmAccess.ready===false));
  }
+ $('admin-crm-reconcile').addEventListener('click',async()=>{
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
+  const button=$('admin-crm-reconcile');button.disabled=true;adminMessage.textContent='Conferindo acessos CRM…';
+  try{
+   const {response}=await post('/auth/users',{action:'crm_reconcile'});if(!response.ok)throw Error('crm_reconcile_failed');
+   await loadUsers();adminMessage.textContent='Conferência solicitada. Acessos ainda pendentes podem ser conferidos novamente em alguns segundos.';
+  }catch(_){adminMessage.textContent='Não foi possível conferir os acessos CRM agora.';}
+  finally{button.disabled=false;}
+ });
  manage.addEventListener('click',async()=>{
   if(session?.user?.role!=='superadmin'||requested!=='todos')return;
   if(!admin.hidden){openPanel(selected||session.user.areas[0]);return;}

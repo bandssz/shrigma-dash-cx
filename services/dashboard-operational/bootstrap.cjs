@@ -45,12 +45,33 @@ function start(){
  const runtime=require(path.join(artifact.runtimeDir,'server.cjs'));
  const settings=runtime.settingsFromEnv({...env,DASHBOARD_PUBLIC_DIR:artifact.publicDir});
  const {createAuth}=require(path.join(artifact.runtimeDir,'auth.cjs'));
- const auth=createAuth({dbPath:settings.dbPath,managerHost:settings.managerHost,areaHosts:settings.areaHosts,allowedEmailDomains:settings.allowedEmailDomains,bootstrapAdminEmail:settings.bootstrapAdminEmail,bootstrapTokenSha256:settings.bootstrapTokenSha256,encryptionKey:settings.encryptionKey});
- const server=runtime.createServer(settings,{auth});
- let closing=false;
- const close=()=>{if(closing)return;closing=true;server.close(()=>{auth.close();fs.rmSync(parent,{recursive:true,force:true});process.exitCode=0;});server.closeIdleConnections?.();};
- process.once('SIGTERM',close);process.once('SIGINT',close);
- server.on('error',()=>{try{auth.close();}catch{}console.error('Dashboard operational startup refused.');process.exitCode=1;});
+ const auth=createAuth(runtime.authOptionsFor(settings)),managedCrmRuntime=runtime.managedRuntimeFor(settings,auth);
+ const server=runtime.createServer(settings,{auth,managedCrmRuntime});
+ let closing=false,failureSeen=false;
+ const fail=()=>{if(!failureSeen)console.error('Dashboard operational startup refused.');failureSeen=true;process.exitCode=1;};
+ const close=(failed=false)=>{
+  // An error may arrive while a signal is already draining, or after cleanup.
+  // Preserve that failure without starting a second identity finalizer.
+  if(failed)fail();
+  if(closing)return;
+  closing=true;
+  let drained;
+  try{drained=managedCrmRuntime?managedCrmRuntime.close():Promise.resolve();}
+  catch{fail();drained=Promise.resolve();}
+  const stopped=new Promise(resolve=>{
+   try{server.close(error=>{if(error&&error.code!=='ERR_SERVER_NOT_RUNNING')fail();resolve();});}
+   catch{fail();resolve();}
+  });
+  try{server.closeIdleConnections?.();}catch{fail();}
+  Promise.allSettled([drained,stopped]).then(results=>{
+   if(results.some(result=>result.status==='rejected'))fail();
+   try{auth.close();}catch{fail();}
+   try{fs.rmSync(parent,{recursive:true,force:true});}catch{fail();}
+   if(!failureSeen)process.exitCode=0;
+  });
+ };
+ process.once('SIGTERM',()=>close());process.once('SIGINT',()=>close());
+ server.on('error',()=>close(true));
  server.listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening; artifact verified; persistent identity volume ready.'));
  return {server,artifact};
 }
