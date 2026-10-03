@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4ed8407a99b1">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-roI2VOBQ0Qxfjjpevax9olXUQULvnfqyinGmdwaHrpA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-K8Njk8glDgDIB7Rk9SNeyc4vMjvOYZXX5/jnvCkMVYk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -94,7 +94,7 @@
   <div class="sec ativa" id="sec-visao">
 <div class="crm-section-intro"><div><span class="crm-eyebrow">SUA OPERAÇÃO</span><h2>Uma visão clara para começar o dia.</h2><p>Confira os resultados do período e escolha o próximo passo. A marca selecionada acompanha sua navegação.</p></div></div><div class="crm-home-heading"><h2>Resumo do período</h2></div>
 <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
-<div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas, construção e histórico</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
+<div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas e histórico de envios</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
 
     <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
 
@@ -121,7 +121,7 @@
 
 
 
-  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel"><div class="crm-subsection-heading"><h2>Executar teste com campanhas salvas</h2><p>Selecione Fishermans ou O Aristocrata. Prepare duas campanhas com o mesmo público salvo e horário; o teste divide esse público em duas variantes.</p></div><div id="ab-experiment-panel" hidden></div><details class="crm-legacy-records"><summary>Planejamento e registros anteriores de A/B</summary><p class="mini">Este cadastro guarda hipóteses e observações. Para preparar a divisão de público e agendar as variantes, use o teste com campanhas salvas acima quando disponível.</p>
+  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel"><div class="crm-subsection-heading" id="ab-experiment-intro" hidden><h2>Executar teste com campanhas salvas</h2><p>Selecione Fishermans ou O Aristocrata. Prepare duas campanhas com o mesmo público salvo e horário; o teste divide esse público em duas variantes.</p></div><div class="crm-subsection-heading" id="ab-experiment-off" role="status"><h2>Teste com campanhas salvas · desligado nesta versão</h2><p>A divisão de público e o agendamento das variantes estão desligados para a marca selecionada. Nada é dividido, agendado ou enviado por aqui.</p></div><div id="ab-experiment-panel" hidden></div><details class="crm-legacy-records"><summary>Planejamento e registros anteriores de A/B</summary><p class="mini">Este cadastro guarda hipóteses e observações. Para preparar a divisão de público e agendar as variantes, use o teste com campanhas salvas acima quando disponível.</p>
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Nova configuração</button></div>
       <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
@@ -169,7 +169,7 @@
       <div id="area-testes"></div>
     </details></section></div></div>
   <div class="sec" id="sec-regua">
-    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes; Construir fluxo prepara novos caminhos quando disponível. Envios no período mostra o que foi registrado.</p></div></div>
+    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
     <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
       <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
@@ -187,7 +187,7 @@
     <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
     <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
     <section class="painel" id="email-comparison-block">
-      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="mini">e-mail no período</span></div>
+      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="tag nulo crm-help" tabindex="0" data-metric-scope="pedidos-por-envio" title="Pedidos atribuídos pela data da compra ÷ e-mails pela data do envio, no período. Não conta pessoas compradoras nem é conversão dos envios deste período.">e-mail no período · não é taxa de compradores ⓘ</span></div>
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=4a3d0077db2e"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6724b54f2d4f"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -285,7 +285,17 @@ GA.install(G);
 let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
-let CONSULTA={em:null,falhou:false};
+let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
+// A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
+// Ela é sempre redesenhada inteira: alerta de outra marca/seção ou falha já resolvida não fica na tela.
+function pintaAlertas(itens=[]){
+  const el=$('#faixa-alertas');if(!el)return;
+  const hora=API?GUI.sourceTime(API._cache_gerado_em):null;
+  const leitura=CONSULTA.falhou?`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(FALHA_LEITURA)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`
+    :CONSULTA.antigo&&API?`<div class="alerta" role="status">Os dados atualizados do CRM ainda não foram preparados. Exibindo o último retrato disponível, de ${esc(hora||'horário não informado')}. <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`:'';
+  el.innerHTML=leitura+itens.map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  const retry=$('#tentar-novamente');if(retry)retry.onclick=()=>carregar({retryIdentity:true});
+}
 const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
 let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0,AB_BUSY=false;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
@@ -509,7 +519,12 @@ function restoreABExperimentBrand(next){
   MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
   GRU.enterBrand(MARCA);GRU.ctx={...GRU.ctx,api:API,marca:MARCA};pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
 }
-function renderABExperiment(){
+function syncABExperimentState(){
+  const element=$('#ab-experiment-panel'),on=!!element&&!element.hidden;
+  const intro=$('#ab-experiment-intro'),off=$('#ab-experiment-off');if(intro)intro.hidden=!on;if(off)off.hidden=on;
+}
+function renderABExperiment(){try{renderABExperimentPanel();}finally{syncABExperimentState();}}
+function renderABExperimentPanel(){
   const element=$('#ab-experiment-panel');
   if(typeof GABExperimentPanel==='undefined'){if(element)element.hidden=true;return;}
   const activation=GABExperimentPanel.activation(API,MARCA);
@@ -632,6 +647,9 @@ function renderJornadas(modeloOp){
     if(GC.activeTab==='graph'&&(!GJG.available(API)||!['fish','aristo'].includes(MARCA)))GC.setTab('fluxos');
   }
   if(PENDENTE_GRAPH&&API)PENDENTE_GRAPH=false;
+  const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
+  const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
+  if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
   if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
@@ -667,12 +685,15 @@ function render(){
   const cs=(home||resultsEmail)?G.campanhas(API,MARCA,ini,fim,true,CANAL):[];
   const conv=(home||resultsOverview||resultsConversion)?G.conversao(API,MARCA,ini,fim,GRAO,CANAL):[];
   const tot=home?G.totais(cs,conv):null;
+  // Sem nenhum dia conciliado, a lista vazia é desconhecida, não "sem venda".
+  const vazioConv=(resultsOverview||resultsConversion)&&GA.valid(API)&&!GA.coverage(API,MARCA,ini,fim).covered
+    ?'Atribuição sem conciliação para esta marca no período. Não é possível afirmar que não houve venda; confira os horários da coleta e atualize.'
+    :'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.';
   // A faixa de fontes pertence ao shell do CRM e precisa refletir marca/consulta
   // mesmo quando a rota ativa não monta os cartões de Início ou Resultados.
   GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,ini,fim,CANAL));
 
-  if(home)$('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
-    .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  pintaAlertas(home?G.alertas(cs,tot,API,{canal:CANAL}):[]);
 
   if(campaigns||SEC==='resultados')renderRelatoriosCampanha();
   if(resultsConversion)GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
@@ -698,8 +719,9 @@ function render(){
   if(!porHora){ sAtual=GD.series(G,API,MARCA,ini,fim,METRICA,CANAL); sAnt=GD.series(G,API,MARCA,ant.ini,ant.fim,METRICA,CANAL); }
   const temAnt=CMP&&sAnt.some(p=>p.v!==null);
   grafico(sAtual,sAnt);
-  const ultConv=(API.crm_conversao||[]).reduce((a,r)=>{const d=String(r.coletado_em||'');return d>a?d:a;},'');
-  const hConv=ultConv?new Date(ultConv).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):null;
+  // Coleta de venda da marca selecionada, comparada como instante e exibida em Brasília com a data.
+  const ultConv=(API.crm_conversao||[]).filter(r=>MARCA==='todas'||r.marca===MARCA).reduce((a,r)=>{const t=Date.parse(r.coletado_em||'');return Number.isFinite(t)&&(a===null||t>a)?t:a;},null);
+  const hConv=ultConv===null?null:GUI.sourceTime(new Date(ultConv).toISOString());
   $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
     temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
     porHora?'<span>por hora, acumulado'+(lim!==undefined?' · comparação até a mesma hora':'')+'</span>':'',
@@ -745,11 +767,11 @@ function render(){
             <i style="width:${car.voltaramMedidos?Math.max(.6,100*car.recuperados/car.voltaramMedidos):0}%;opacity:.55"></i></div>
           <div class="funil-leg">
             <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
-            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos):0}% do resgate é do CRM</span>
+            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos)+'% do resgate é do CRM':'participação do CRM sem base: ninguém voltou'}</span>
           </div></div>`:''}
         ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
         ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
-        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${Math.round(100*car.consent/car.carrinhos)}%).</div>
+        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${car.carrinhos?Math.round(100*car.consent/car.carrinhos)+'%':'sem base'}).</div>
         ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
           const tv=m.carrinhos?(100*m.voltou/m.carrinhos):null;
           const t=m.medido&&m.voltou?(100*m.rec/m.voltou):null;
@@ -771,7 +793,7 @@ function render(){
       <div class="barra"><i style="width:${100*c.receita/mx}%;background:${cor(c.marca)}"></i></div>
       <div class="num tabn">${rf(c.receita)}</div>
       <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
-  }).join(''):'<div class="vazio">Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.</div>';
+  }).join(''):`<div class="vazio">${vazioConv}</div>`;
   }
 
   if(resultsConversion){
@@ -797,7 +819,7 @@ function render(){
       <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
       <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:vazioConv}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
   $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
   }
@@ -968,7 +990,11 @@ async function consultaGrowth(url,k,timeoutMs){
 async function leCacheGrowth(k){
   const url=new URL(CRM_READ_API_URL);url.searchParams.set('action','cache_growth');url.searchParams.set('painel','growth');
   const c=await consultaGrowth(url.href,k,12000);
-  return {r:c.r,next:c.r.ok&&cacheGrowthValido(c.payload)?c.payload:null};
+  // Retrato vencido (mais de 20 min) não é tratado como atual, mas fica disponível para o painel
+  // cair nele e avisar, em vez de ficar sem dado. Nenhuma consulta extra é feita.
+  const fresh=c.r.ok&&cacheGrowthValido(c.payload);
+  const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))&&Date.parse(c.payload._cache_gerado_em)<=Date.now()+60000?c.payload:null;
+  return {r:c.r,next:fresh?c.payload:null,antigo};
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
@@ -979,10 +1005,15 @@ async function carregar({retryIdentity=false}={}){
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
-    const {next,r}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    const {next:fresh,antigo,r}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
+    const recua=!fresh&&!!antigo&&(!API||Date.parse(antigo._cache_gerado_em)>Date.parse(API._cache_gerado_em||''));
+    const next=fresh||(recua?antigo:null);
     if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.');}
-    API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
+    API=GA.project(next,ATTR_MODEL);
+    // Retrato vencido não serve de prova de leitura para conciliar gravações A/B.
+    if(fresh){AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};}
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
@@ -991,21 +1022,22 @@ async function carregar({retryIdentity=false}={}){
     const connectionStatus=$('#crm-connection-status');connectionStatus.hidden=!connectionAlerts.some(c=>['vencida','quebrada','vencendo'].includes(c.estado));
     connectionStatus.textContent=connectionStatus.hidden?'':'Há uma conexão que precisa de atenção. Confira as datas de atualização antes de usar os resultados.';
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
-    CONSULTA={em:new Date().toISOString(),falhou:false};
+    CONSULTA={em:new Date().toISOString(),falhou:false,antigo:!fresh};FALHA_LEITURA='';
     render();
     if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
     gravaHash();
     $('#load-state').hidden=true;
     const horaBR=d=>GUI.sourceTime(d);
     $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
-      ?'Dados de '+horaBR(next._cache_gerado_em)
+      ?'Dados de '+horaBR(next._cache_gerado_em)+(fresh?'':' · retrato antigo')
       :'Consultado em '+horaBR(Date.now());
-    $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
+    $('#atualizado-em').title=!fresh?'A preparação mais recente dos dados tem mais de 20 minutos. O painel mostra o último retrato disponível; os números não são de agora. Atualize em alguns minutos.':ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
     $('#load-state').hidden=true;
-    CONSULTA={...CONSULTA,falhou:true};
-    $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(GrowthAccess.readError(e))} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
-    $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
+    CONSULTA={...CONSULTA,falhou:true};FALHA_LEITURA=GrowthAccess.readError(e);
+    pintaAlertas();
+    const exibidos=API?GUI.sourceTime(API._cache_gerado_em):null;
+    $('#atualizado-em').textContent=API?'Atualização falhou · '+(exibidos?'exibindo dados de '+exibidos:'exibindo a consulta anterior'):'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
     if(SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
     if(SEC==='regua'){
@@ -1014,7 +1046,6 @@ async function carregar({retryIdentity=false}={}){
       renderJornadas(modeloOp2);
     }else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
     else if(SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
-    $('#tentar-novamente').onclick=()=>carregar({retryIdentity:true});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
   }

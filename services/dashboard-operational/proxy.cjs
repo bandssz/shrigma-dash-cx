@@ -336,13 +336,16 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,route=null}={}){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,managedAudienceRead=false,route=null}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
   if(Array.isArray(value.capabilities)){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
   if(!plain(value.capabilities))return clone;
   const caps=scrubCapabilityFlags(value.capabilities);
+  // Only an admitted BFF listener may declare the new template read contract.
+  // It remains unavailable here; a legacy cache must not assert its readiness.
+  if(plain(caps.templates))delete caps.templates.read_contract;
   if(plain(value.capabilities.endpoints)){
     const urls=Object.fromEntries(Object.entries(upstreams)
       .filter(([route])=>Object.values(READ[route]?.actions||{}).some(action=>action.edit!==true))
@@ -370,6 +373,12 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
     // Restore only the reviewed audience CRUD/receipt contract. Counts,
     // campaign bindings, workers and delivery stay unavailable.
     caps.segments.save=true;caps.segments.operation=true;
+  }
+  if(managedAudienceRead===true&&route==='crm-read'){
+    caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments',campaign_audience:origin+'/api/campaign_audience'};
+    caps.segments={...(plain(caps.segments)?caps.segments:{}),read:true,save:false,count:false,operation:false};
+    caps.campaign_audience={...(plain(caps.campaign_audience)?caps.campaign_audience:{}),read:true,inspect:false,operation:false,validate:false,bind:false,release:false};
+    // No template read_contract is published until its backend is admitted.
   }
   clone.capabilities=caps;
   return clone;

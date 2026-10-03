@@ -38,6 +38,9 @@
 !services/dashboard-operational/crm-manager-runtime.cjs
 !services/dashboard-operational/crm-manager-attestation.cjs
 !services/dashboard-operational/crm-manager-read-bridge.cjs
+!services/dashboard-operational/crm-audience-read-bridge.cjs
+!services/dashboard-operational/crm-media-read-validator.cjs
+!services/dashboard-operational/crm-template-read-bridge.cjs
 !services/dashboard-operational/crm-manager-writer-auth-adapter.cjs
 !services/dashboard-operational/crm-manager-writer-client.cjs
 !services/dashboard-operational/crm-manager-writer-coordinator.cjs

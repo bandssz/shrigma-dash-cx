@@ -199,8 +199,75 @@ jobs:
           SHRIGMA_NATIVE_PREFLIGHT_CI: '1'
         run: bash tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
 
+  claude-native-pg17-proof:
+    name: claude-native-pg17-proof (${{ matrix.fixture }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        fixture: [audience, templates, recovery, installer, gateway]
+    services:
+      postgres:
+        image: postgres:17.10@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:55440:5432']
+        options: >-
+          --cpus 1 --memory 512m --memory-swap 512m --pids-limit 128
+          --label com.shrigma.claude-native-pg17=${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar somente pg fixado para a fixture
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Conferir guardas sem banco ou sockets
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin "$CLAUDE_CI_NODE" --test tools/claude-native-proofs/pg17-ci.test.cjs
+      - name: Provar fixture nativa em cluster vazio próprio
+        env:
+          CLAUDE_NATIVE_PG17_CI: '1'
+          CLAUDE_PG17_CASE: ${{ matrix.fixture }}
+          CLAUDE_PG17_CONTAINER_ID: ${{ job.services.postgres.id }}
+          CLAUDE_PG17_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin \
+            CLAUDE_NATIVE_PG17_CI="$CLAUDE_NATIVE_PG17_CI" \
+            CLAUDE_PG17_CASE="$CLAUDE_PG17_CASE" \
+            CLAUDE_PG17_CONTAINER_ID="$CLAUDE_PG17_CONTAINER_ID" \
+            CLAUDE_PG17_OWNER="$CLAUDE_PG17_OWNER" \
+            "$CLAUDE_CI_NODE" --max-old-space-size=128 tools/claude-native-proofs/pg17-ci.cjs --native
+      - name: Remover somente serviço e volume próprios
+        if: always()
+        env:
+          CLAUDE_NATIVE_PG17_CI: '1'
+          CLAUDE_PG17_CASE: ${{ matrix.fixture }}
+          CLAUDE_PG17_CONTAINER_ID: ${{ job.services.postgres.id }}
+          CLAUDE_PG17_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin \
+            CLAUDE_NATIVE_PG17_CI="$CLAUDE_NATIVE_PG17_CI" \
+            CLAUDE_PG17_CASE="$CLAUDE_PG17_CASE" \
+            CLAUDE_PG17_CONTAINER_ID="$CLAUDE_PG17_CONTAINER_ID" \
+            CLAUDE_PG17_OWNER="$CLAUDE_PG17_OWNER" \
+            "$CLAUDE_CI_NODE" tools/claude-native-proofs/pg17-ci.cjs --cleanup
+
   publish-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&
@@ -226,7 +293,7 @@ jobs:
 
 # Publishes one gateway image; does not install a service, SQL, role or flag.
   publish-crm-provisioner-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&
@@ -360,7 +427,7 @@ jobs:
           retention-days: 7
 
   publish-crm-campaign-candidate-image:
-    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight]
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
     if: >-
       success() &&
       needs.validate-and-package.result == 'success' &&
@@ -405,6 +472,7 @@ jobs:
             services/crm-campaign/server.cjs \
             services/crm-campaign/transport.cjs \
             services/crm-campaign/media.cjs \
+            services/crm-campaign/abandon.cjs \
             services/crm-panel-read/server.cjs \
             n8n/growth/campaign-contract.js \
             n8n/growth/campaign-tracking.js \

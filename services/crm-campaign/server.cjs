@@ -3,6 +3,7 @@ const http=require('node:http'),{gzip}=require('node:zlib'),{promisify}=require(
 const {acceptsGzip}=require('../crm-panel-read/server.cjs');
 const {createExecutor,unavailable}=require('./transport.cjs');
 const {MAX_FILE_BYTES,UUID,SHA}=require('./media.cjs');
+const {ACTION:ABANDON_ACTION,parseAbandon}=require('./abandon.cjs');
 const compress=promisify(gzip),ORIGIN='https://bandssz.github.io';
 const PATH='/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35';
 const MEDIA_PATH=PATH+'/media';
@@ -52,10 +53,10 @@ async function readMultipart(req,maxBytes=MAX_FILE_BYTES+65536){
  const brand=form.get('brand'),operationId=form.get('operation_id'),hash=form.get('sha256'),file=form.get('file');if(!['fish','aristo'].includes(brand)||!UUID.test(operationId)||!SHA.test(hash)||!file||typeof file.arrayBuffer!=='function'||typeof file.type!=='string'||file.size>MAX_FILE_BYTES)throw problem(422,'REQUEST_INVALID','Solicitação inválida.');
  return {brand,operation_id:operationId,sha256:hash,content_type:file.type,bytes:Buffer.from(await file.arrayBuffer())};
 }
-function createServer({pool,native,revision,enabled=false,mediaEnabled=false,executor=createExecutor({pool,native}),mediaExecutor=null,maxPending=12,readDeadlineMs=16000,writeDeadlineMs=85000,maxBodyBytes=2*1024*1024,maxResponseBytes=8*1024*1024}){
+function createServer({pool,native,revision,enabled=false,mediaEnabled=false,abandonEnabled=false,abandonExecutor=null,executor=createExecutor({pool,native}),mediaExecutor=null,maxPending=12,readDeadlineMs=16000,writeDeadlineMs=85000,maxBodyBytes=2*1024*1024,maxResponseBytes=8*1024*1024}){
  let pending=0,closing=false;
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:15000,headersTimeout:10000},async(req,res)=>{
-  let admitted=false,timer,ended=false,responding=false;
+  let admitted=false,timer,ended=false,responding=false,abandon=false;
   const disconnected=()=>{if(!res.writableEnded)ended=true;};res.on('close',disconnected);
   async function reply(status,body){
    if(res.destroyed||res.writableEnded||responding)return;responding=true;
@@ -80,9 +81,12 @@ function createServer({pool,native,revision,enabled=false,mediaEnabled=false,exe
    timer=setTimeout(()=>{ended=true;reply(req.method==='POST'?502:503,{error:mediaRoute&&req.method==='POST'?'MEDIA_OUTCOME_UNKNOWN':req.method==='POST'?'OUTCOME_UNKNOWN':'READ_UNAVAILABLE',message:'Consulta não concluída. Consulte a mesma operação antes de tentar novamente.'}).catch(()=>res.destroy());},req.method==='POST'?writeDeadlineMs:readDeadlineMs);
    let input;
    if(mediaRoute){if(req.method==='GET')input=mediaGet(req,url);else{const key=bearer(req);if(!key)throw problem(401,'UNAUTHORIZED','Autenticação necessária.');input={key,input:await readMultipart(req)};}}
-   else{const body=req.method==='POST'?await readBody(req,maxBodyBytes):null;input=parse(req,url,body);}
+   else{const body=req.method==='POST'?await readBody(req,maxBodyBytes):null;
+    // Encerramento de tentativa pendente: só existe com o gate ligado; desligado, a ação segue recusada por parse().
+    abandon=abandonEnabled===true&&typeof abandonExecutor==='function'&&req.method==='POST'&&!!body&&typeof body==='object'&&body.acao===ABANDON_ACTION;
+    input=abandon?parseAbandon(req,url,body):parse(req,url,body);}
    if(ended)return;
-   const result=mediaRoute?await mediaExecutor({...input,method:req.method,interrupted:()=>ended||closing}):await executor({...input,interrupted:()=>ended||closing});
+   const result=mediaRoute?await mediaExecutor({...input,method:req.method,interrupted:()=>ended||closing}):abandon?await abandonExecutor({...input,interrupted:()=>ended||closing}):await executor({...input,interrupted:()=>ended||closing});
    if(!result||!Number.isInteger(result.status)||result.status<200||result.status>599||!result.body||typeof result.body!=='object')throw Error('RESPONSE_INVALID');
    await reply(result.status,result.body);
   }catch(e){await reply(e.status||503,e.body||unavailable().body).catch(()=>res.destroy());}

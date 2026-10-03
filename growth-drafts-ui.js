@@ -420,7 +420,7 @@ const GRU={
   preserve(){
     if(GRU.contextError)throw Error(GRU.contextError);
     if(!GBS.validBrand(GRU.contextBrand))return;
-    const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value);GRU.contextSaved=JSON.stringify(value);
+    const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value,{editando:null,rascunho:null});GRU.contextSaved=JSON.stringify(value);
   },
   enterBrand(brand){
     if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;

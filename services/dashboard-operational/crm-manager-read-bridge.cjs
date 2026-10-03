@@ -2,6 +2,7 @@
 // PRIVATE candidate. Loading or constructing this module performs no I/O.
 // Only these read actions may use an attested crm-panel-read principal.
 const P=require('./proxy.cjs');
+const MediaRead=require('./crm-media-read-validator.cjs');
 const CAPS=Object.freeze(['read_content','list_history','submission']);
 const DESTINATIONS=Object.freeze({
  'crm-read':'https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read',
@@ -36,6 +37,7 @@ function decision(route,method,query){
  try{query=new URLSearchParams(URLSearchParams.prototype.toString.call(query));}catch{fail();}
  let d;try{d=P.decide(route,method,query,undefined);}catch{fail();}
  if(d.edit||d.area!=='growth'||!ACTIONS[route].includes(d.action)||!['fish','aristo'].includes(query.get('brand')))fail();
+ if(route==='campaigns_media')try{MediaRead.mediaRequest(query);}catch{fail();}
  return Object.freeze({...d,sourceCredentialSlot:'crm-panel-read'});
 }
 function validateReadUpstreams(upstreams){
@@ -43,16 +45,18 @@ function validateReadUpstreams(upstreams){
  for(const k of Reflect.ownKeys(upstreams)){const d=Object.getOwnPropertyDescriptor(upstreams,k);if(!d||!Object.hasOwn(d,'value')||!d.enumerable||!(d.value instanceof URL)||d.value.href!==PROFILE_DESTINATIONS[k])fail();}
  return Object.freeze(Object.fromEntries(Object.entries(upstreams).map(([k,v])=>[k,new URL(v.href)])));
 }
-function responseShape(d,value,query){
+function responseShape(d,value,query,credential){
  if(!plain(value))fail(502,'MANAGED_READ_RESPONSE_DENIED');
  const brand=query.get('brand');
  if(d.route==='campaigns_media'){
-  if(value.contract!=='crm-media-v1'||value.brand!==brand||!Array.isArray(value.items)||value.items.length>50)fail(502,'MANAGED_READ_RESPONSE_DENIED');
+  const r=MediaRead.mediaRequest(query);
+  try{return MediaRead.validateMediaLibraryResponse(value,{brand:r.brand,page:r.page,per_page:r.per_page,secrets:[credential]}).body;}catch{fail(502,'MANAGED_READ_RESPONSE_DENIED');}
  }else if(d.action==='campanha_catalogo'){
   if(value.brand!==brand||!Array.isArray(value.lists)||!Array.isArray(value.templates)||!Array.isArray(value.initiatives)||value.lists.some(x=>!plain(x)||x.brand!==brand))fail(502,'MANAGED_READ_RESPONSE_DENIED');
  }else if(d.action==='campanha_listar'){
   if(!Array.isArray(value.campaigns)||value.campaigns.some(x=>!plain(x)||x.definition?.brand!==brand))fail(502,'MANAGED_READ_RESPONSE_DENIED');
  }else if(!plain(value.campaign)||value.campaign.id!==Number(query.get('id'))||value.campaign.definition?.brand!==brand)fail(502,'MANAGED_READ_RESPONSE_DENIED');
+ return value;
 }
 function createManagedReadBridge(config,{fetchImpl=globalThis.fetch}={}){
  if(!record(config,['auth','upstreams','enabled'])||typeof config.enabled!=='boolean'||typeof fetchImpl!=='function'||
@@ -71,7 +75,7 @@ function createManagedReadBridge(config,{fetchImpl=globalThis.fetch}={}){
   let proof,credential,initial;
   try{proof=sync(auth.managedCrmReadAuthorization(ctx));initial=binding(proof);credential=sync(auth.getUpstreamCredential({...ctx,slot:'crm-panel-read'}));if(typeof credential!=='string'||!/^[a-f0-9]{64}$/.test(credential)||initial!==binding(sync(auth.managedCrmReadAuthorization(ctx))))fail();}
   catch{fail(503,'MANAGED_READ_NOT_READY');}
-  const url=new URL(target.href);url.search=query.toString();const controller=new AbortController();let reader,timer;
+  const url=new URL(target.href);url.search=(d.route==='campaigns_media'?MediaRead.mediaRequest(query).query:query).toString();const controller=new AbortController();let reader,timer;
   const max=d.route==='campaigns_media'?2*1024*1024:4*1024*1024;
   const cancel=()=>{try{const v=reader?.cancel();Promise.resolve(v).catch(()=>{});}catch{}};
   const work=async()=>{
@@ -85,7 +89,7 @@ function createManagedReadBridge(config,{fetchImpl=globalThis.fetch}={}){
    if(length!==null&&Number(length)!==bytes)fail(502,'MANAGED_READ_RESPONSE_DENIED');
    let value;try{value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{fail(502,'MANAGED_READ_RESPONSE_DENIED');}
    if(JSON.stringify(value).includes(credential))fail(502,'MANAGED_READ_RESPONSE_DENIED');
-   responseShape(d,value,query);
+   value=responseShape(d,value,query,credential);
    try{if(initial!==binding(sync(auth.managedCrmReadAuthorization(ctx))))fail();}catch{fail(503,'MANAGED_READ_NOT_READY');}
    return {status:200,body:P.rewriteCapabilities(value,upstreams,origin,{route})};
   };
