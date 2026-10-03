@@ -2,7 +2,7 @@
 -- PROPOSTA para revisão. NÃO aplicar em produção sem a sequência descrita em
 -- docs/crm/RECUPERACAO-TENTATIVAS-PENDENTES-20261003.md. Aplicada só em bancos de teste.
 --
--- O que instala (idempotente, uma transação, aborta em qualquer desvio):
+-- O que instala (uma transação; recusa QUALQUER desvio ANTES de qualquer DDL):
 --  1) colunas novas em shrigma_campaign_operation: lease_expires_at e abandoned_at;
 --  2) tabela de configuração com enabled=false (gate SQL; sem ela ligada nada muda);
 --  3) gatilho de cerca (fencing) na própria linha da operação:
@@ -12,47 +12,122 @@
 --     - lápide (abandoned_at) é imutável e só nasce pela função abaixo;
 --  4) public.shrigma_campaign_abandon(jsonb): grava a lápide sob o MESMO advisory lock
 --     do claim e o MESMO FOR UPDATE da linha usado pelo provider.
--- Não altera o corpo de shrigma_campaign_store/provider/recovery (md5 preservados) e
--- não toca campanhas, contatos nem recibos existentes. Owner do backend apenas.
+--
+-- Atestação (comentário no corpo NÃO conta como prova): cada função de que a lápide
+-- depende precisa bater EXATAMENTE com a versão revisada — md5 do corpo (prosrc), dono
+-- postgres, SECURITY INVOKER/DEFINER, volatilidade, linguagem, retorno, proconfig
+-- (search_path/lock_timeout) e ACL. São os mesmos pins de crm-campaign-gateway-role.sql
+-- (store/provider/recovery) e os corpos que esse arquivo instala (auth_v1/effect_v1,
+-- conferidos se o gateway já estiver instalado). Qualquer diferença: RAISE, nada alterado.
+--
+-- Objetos próprios: ou nenhum existe (instalação limpa) ou TODOS existem exatamente como
+-- este arquivo os cria (reinstalação = no-op, nada é recriado nem o gate é tocado).
+-- Objeto homônimo alheio ou divergente (gatilho, função, coluna, CHECK, tabela) é
+-- recusado com PENDING_RECOVERY_OBJECT_COLLISION; instalação parcial (ex.: gatilho
+-- removido) com PENDING_RECOVERY_PARTIAL. Nunca sobrescreve objeto que não atestou.
+-- Não altera o corpo de shrigma_campaign_store/provider/recovery nem do gateway e não
+-- toca campanhas, contatos nem recibos existentes. Executar como postgres.
 BEGIN;
 SET LOCAL lock_timeout='3s';
-DO $check$
+DO $install$
+DECLARE
+ op regclass:=to_regclass('public.shrigma_campaign_operation');
+ cfg regclass;
+ d record; r record;
+ present integer; pass integer;
 BEGIN
- IF current_user<>'postgres' AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) THEN
-  RAISE EXCEPTION 'PENDING_RECOVERY_OWNER_REQUIRED';
- END IF;
- IF to_regclass('public.shrigma_campaign_operation') IS NULL OR to_regprocedure('public.shrigma_campaign_store(text,jsonb)') IS NULL
-  OR to_regprocedure('public.shrigma_campaign_provider(text,jsonb)') IS NULL THEN RAISE EXCEPTION 'PENDING_RECOVERY_DEPENDENCY_MISSING'; END IF;
- -- A lápide só é verdadeira se agendar/cancelar gravam o recibo 'succeeded' na
- -- mesma transação do efeito (CRM atomic receipt) e o claim usa este advisory lock.
- IF strpos((SELECT prosrc FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure),'CAMPAIGN_ATOMIC_SCHEDULE_RECEIPT_V1')=0
-  OR strpos((SELECT prosrc FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure),'CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1')=0
-  OR strpos((SELECT prosrc FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure),'op.state<>''pending''')=0
-  OR strpos((SELECT prosrc FROM pg_proc WHERE oid='public.shrigma_campaign_store(text,jsonb)'::regprocedure),'pg_advisory_xact_lock(hashtextextended(''campaign-operation:''||jsonb_build_array(p->>''actor'',p->>''key'')::text,0))')=0
- THEN RAISE EXCEPTION 'PENDING_RECOVERY_PROVIDER_DRIFT'; END IF;
- IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='public.shrigma_campaign_operation'::regclass AND attname IN ('lease_expires_at','abandoned_at') AND NOT attisdropped
-   AND format_type(atttypid,atttypmod)<>'timestamp with time zone') THEN RAISE EXCEPTION 'PENDING_RECOVERY_COLUMN_DRIFT'; END IF;
-END $check$;
+ IF current_user<>'postgres' THEN RAISE EXCEPTION 'PENDING_RECOVERY_OWNER_REQUIRED'; END IF;
+ IF op IS NULL THEN RAISE EXCEPTION 'PENDING_RECOVERY_DEPENDENCY_MISSING public.shrigma_campaign_operation'; END IF;
+ -- Passo 1 confere tudo antes de qualquer DDL; passo 2 reconfere depois de instalar.
+ FOR pass IN 1..2 LOOP
+  -- Funções: dependências (dep obrigatórias; gateway se existir) e próprias (own).
+  present:=0;
+  FOR d IN SELECT * FROM (VALUES
+    ('dep','public.shrigma_campaign_store(text,jsonb)','jsonb','b77d960aca32c2c93dfe15e82922d7ff',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
+    ('dep','public.shrigma_campaign_provider(text,jsonb)','jsonb','fe3a35e75c8d0830f1b289fa806e52fc',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
+    ('dep','public.shrigma_campaign_recovery(text,jsonb)','jsonb','1e2c0a2bacd82f4dcf8d6797cbf1842c',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
+    ('gateway','public.shrigma_crm_campaign_auth_v1(text)','jsonb','e2b117ecf6a640a6272fdb8005895c31',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('gateway','public.shrigma_crm_campaign_effect_v1(text,jsonb,jsonb)','jsonb','e4d3e3143e26cd186a31e8d21ed5b473',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('own','public.shrigma_campaign_operation_fence()','trigger','5b15a30623151649574bb4b9de1453c8',false,ARRAY['search_path=pg_catalog, public'],'postgres:EXECUTE'),
+    ('own','public.shrigma_campaign_abandon(jsonb)','jsonb','72bd1f5ec9aba153f1bbc0b5848fb362',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE')
+   ) v(kind,sig,ret,body_md5,definer,config,acl)
+  LOOP
+   SELECT p.proowner::regrole::text AS owner,p.prosecdef,p.provolatile,p.prokind,l.lanname,p.prorettype::regtype::text AS ret,p.proconfig,md5(p.prosrc) AS body_md5,
+    (SELECT string_agg(x.grantee::regrole::text||':'||x.privilege_type||CASE WHEN x.is_grantable THEN '*' ELSE '' END,',' ORDER BY x.grantee::regrole::text,x.privilege_type)
+     FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x) AS acl
+   INTO r FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(d.sig);
+   IF NOT FOUND THEN
+    IF d.kind='dep' THEN RAISE EXCEPTION 'PENDING_RECOVERY_DEPENDENCY_MISSING %',d.sig; END IF;
+    CONTINUE;
+   END IF;
+   IF (r.owner,r.prosecdef,r.provolatile,r.prokind,r.lanname,r.ret,r.proconfig,r.body_md5,r.acl)
+    IS DISTINCT FROM ('postgres',d.definer,'v'::"char",'f'::"char",'plpgsql',d.ret,d.config,d.body_md5,d.acl) THEN
+    IF d.kind='own' THEN RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION %',d.sig; END IF;
+    RAISE EXCEPTION 'PENDING_RECOVERY_DEPENDENCY_DRIFT %',d.sig;
+   END IF;
+   IF d.kind='own' THEN present:=present+1; END IF;
+  END LOOP;
+  -- Sobrecargas homônimas (outra assinatura) também são objetos alheios.
+  IF (SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('shrigma_campaign_operation_fence','shrigma_campaign_abandon'))<>present THEN
+   RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION overload'; END IF;
+  -- Colunas: timestamptz, anuláveis, sem default/identity/generated.
+  FOR r IN SELECT a.attname,format_type(a.atttypid,a.atttypmod) AS typ,a.attnotnull,a.atthasdef,a.attidentity,a.attgenerated
+   FROM pg_attribute a WHERE a.attrelid=op AND a.attname IN ('lease_expires_at','abandoned_at') AND NOT a.attisdropped LOOP
+   IF (r.typ,r.attnotnull,r.atthasdef,r.attidentity,r.attgenerated) IS DISTINCT FROM ('timestamp with time zone',false,false,''::"char",''::"char") THEN
+    RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION column %',r.attname; END IF;
+   present:=present+1;
+  END LOOP;
+  -- CHECK da lápide.
+  FOR r IN SELECT c.contype,c.convalidated,pg_get_constraintdef(c.oid) AS def FROM pg_constraint c
+   WHERE c.conrelid=op AND c.conname='shrigma_campaign_operation_abandon_check' LOOP
+   IF (r.contype,r.convalidated,r.def) IS DISTINCT FROM ('c'::"char",true,
+    $q$CHECK (((abandoned_at IS NULL) OR ((state = 'rejected'::text) AND (action = ANY (ARRAY['agendar'::text, 'cancelar'::text])))))$q$) THEN
+    RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION constraint shrigma_campaign_operation_abandon_check'; END IF;
+   present:=present+1;
+  END LOOP;
+  -- Tabela de configuração: forma exata, dono postgres, sem grant a terceiros, sem gatilho/RLS.
+  cfg:=to_regclass('public.shrigma_campaign_pending_recovery_config');
+  IF cfg IS NOT NULL THEN
+   IF (SELECT relkind<>'r' OR relowner::regrole::text<>'postgres' OR relrowsecurity FROM pg_class WHERE oid=cfg)
+    OR (SELECT string_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull||':'||coalesce(pg_get_expr(ad.adbin,ad.adrelid),''),',' ORDER BY a.attnum)
+        FROM pg_attribute a LEFT JOIN pg_attrdef ad ON ad.adrelid=a.attrelid AND ad.adnum=a.attnum WHERE a.attrelid=cfg AND a.attnum>0 AND NOT a.attisdropped)
+     IS DISTINCT FROM 'id:boolean:true:true,enabled:boolean:true:false,lease_seconds:integer:true:900,updated_at:timestamp with time zone:true:clock_timestamp()'
+    OR (SELECT string_agg(conname||'='||pg_get_constraintdef(oid),';' ORDER BY conname) FROM pg_constraint WHERE conrelid=cfg)
+     IS DISTINCT FROM 'shrigma_campaign_pending_recovery_config_id_check=CHECK (id);shrigma_campaign_pending_recovery_config_lease_seconds_check=CHECK (((lease_seconds >= 300) AND (lease_seconds <= 3600)));shrigma_campaign_pending_recovery_config_pkey=PRIMARY KEY (id)'
+    OR EXISTS(SELECT 1 FROM pg_class c,aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x WHERE c.oid=cfg AND x.grantee<>c.relowner)
+    OR EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=cfg AND NOT tgisinternal)
+   THEN RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION table shrigma_campaign_pending_recovery_config'; END IF;
+   present:=present+1;
+  END IF;
+  -- Gatilho de cerca: identidade E corpo da função (conferido acima) exatamente os esperados.
+  FOR r IN SELECT t.* FROM pg_trigger t WHERE t.tgrelid=op AND t.tgname='shrigma_campaign_operation_fence' LOOP
+   IF r.tgisinternal OR r.tgfoid IS DISTINCT FROM to_regprocedure('public.shrigma_campaign_operation_fence()')::oid
+    OR r.tgtype<>23 OR r.tgenabled<>'O' OR r.tgnargs<>0 OR r.tgattr::text<>'' OR r.tgqual IS NOT NULL OR r.tgconstraint<>0
+    OR r.tgoldtable IS NOT NULL OR r.tgnewtable IS NOT NULL THEN
+    RAISE EXCEPTION 'PENDING_RECOVERY_OBJECT_COLLISION trigger shrigma_campaign_operation_fence'; END IF;
+   present:=present+1;
+  END LOOP;
 
-ALTER TABLE public.shrigma_campaign_operation ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
-ALTER TABLE public.shrigma_campaign_operation ADD COLUMN IF NOT EXISTS abandoned_at timestamptz;
-DO $c$ BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='public.shrigma_campaign_operation'::regclass AND conname='shrigma_campaign_operation_abandon_check') THEN
-  ALTER TABLE public.shrigma_campaign_operation ADD CONSTRAINT shrigma_campaign_operation_abandon_check
-   CHECK (abandoned_at IS NULL OR (state='rejected' AND action IN ('agendar','cancelar')));
- END IF;
-END $c$;
+  IF pass=2 THEN
+   IF present<>7 THEN RAISE EXCEPTION 'PENDING_RECOVERY_POSTCHECK %/7',present; END IF;
+   EXIT;
+  END IF;
+  IF present=7 THEN RAISE NOTICE 'PENDING_RECOVERY_ALREADY_INSTALLED: nada alterado'; RETURN; END IF;
+  IF present<>0 THEN RAISE EXCEPTION 'PENDING_RECOVERY_PARTIAL %/7',present; END IF;
 
-CREATE TABLE IF NOT EXISTS public.shrigma_campaign_pending_recovery_config (
+  -- Instalação limpa (nenhum objeto próprio existia). CREATE sem OR REPLACE/IF NOT EXISTS:
+  -- se algo aparecer entre a checagem e aqui, o CREATE falha e a transação inteira volta.
+  EXECUTE $ddl$ALTER TABLE public.shrigma_campaign_operation ADD COLUMN lease_expires_at timestamptz, ADD COLUMN abandoned_at timestamptz,
+   ADD CONSTRAINT shrigma_campaign_operation_abandon_check CHECK (abandoned_at IS NULL OR (state='rejected' AND action IN ('agendar','cancelar')))$ddl$;
+  EXECUTE $ddl$CREATE TABLE public.shrigma_campaign_pending_recovery_config (
  id boolean PRIMARY KEY DEFAULT true CHECK (id),
  enabled boolean NOT NULL DEFAULT false,
  lease_seconds integer NOT NULL DEFAULT 900 CHECK (lease_seconds BETWEEN 300 AND 3600),
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
-);
-INSERT INTO public.shrigma_campaign_pending_recovery_config(id) VALUES(true) ON CONFLICT(id) DO NOTHING;
-REVOKE ALL ON public.shrigma_campaign_pending_recovery_config FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_operation_fence() RETURNS trigger
+)$ddl$;
+  EXECUTE $ddl$INSERT INTO public.shrigma_campaign_pending_recovery_config(id) VALUES(true)$ddl$;
+  EXECUTE $ddl$REVOKE ALL ON public.shrigma_campaign_pending_recovery_config FROM PUBLIC$ddl$;
+  EXECUTE $ddl$CREATE FUNCTION public.shrigma_campaign_operation_fence() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $fn$
 DECLARE cfg public.shrigma_campaign_pending_recovery_config%ROWTYPE; writer text:=current_setting('shrigma.campaign_abandon',true);
 BEGIN
@@ -80,14 +155,12 @@ BEGIN
  IF OLD.state='pending' AND NEW.state='succeeded' AND OLD.lease_expires_at IS NOT NULL
   AND OLD.lease_expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'OPERATION_LEASE_EXPIRED'; END IF;
  RETURN NEW;
-END $fn$;
-REVOKE ALL ON FUNCTION public.shrigma_campaign_operation_fence() FROM PUBLIC;
-DROP TRIGGER IF EXISTS shrigma_campaign_operation_fence ON public.shrigma_campaign_operation;
-CREATE TRIGGER shrigma_campaign_operation_fence BEFORE INSERT OR UPDATE ON public.shrigma_campaign_operation
- FOR EACH ROW EXECUTE FUNCTION public.shrigma_campaign_operation_fence();
-
--- Lápide terminal para (ator, chave). Recusas são exceções: nada é gravado.
-CREATE OR REPLACE FUNCTION public.shrigma_campaign_abandon(p jsonb) RETURNS jsonb
+END $fn$$ddl$;
+  EXECUTE $ddl$REVOKE ALL ON FUNCTION public.shrigma_campaign_operation_fence() FROM PUBLIC$ddl$;
+  EXECUTE $ddl$CREATE TRIGGER shrigma_campaign_operation_fence BEFORE INSERT OR UPDATE ON public.shrigma_campaign_operation
+ FOR EACH ROW EXECUTE FUNCTION public.shrigma_campaign_operation_fence()$ddl$;
+  -- Lápide terminal para (ator, chave). Recusas são exceções: nada é gravado.
+  EXECUTE $ddl$CREATE FUNCTION public.shrigma_campaign_abandon(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public SET lock_timeout='3s' AS $fn$
 DECLARE r public.shrigma_campaign_operation%ROWTYPE; cfg public.shrigma_campaign_pending_recovery_config%ROWTYPE;
  created boolean:=false; t timestamptz; new_id uuid;
@@ -137,6 +210,8 @@ BEGIN
  RETURN jsonb_build_object('policy','crm-campaign-abandon-v1','abandoned',r.abandoned_at IS NOT NULL,'created',created,
   'operation',jsonb_build_object('id',r.id,'operation_key',r.operation_key,'brand',r.brand,'action',r.action,'state',r.state,
    'providerId',r.provider_id,'response',r.response,'abandoned_at',r.abandoned_at,'created_at',r.created_at,'updated_at',r.updated_at));
-END $fn$;
-REVOKE ALL ON FUNCTION public.shrigma_campaign_abandon(jsonb) FROM PUBLIC;
+END $fn$$ddl$;
+  EXECUTE $ddl$REVOKE ALL ON FUNCTION public.shrigma_campaign_abandon(jsonb) FROM PUBLIC$ddl$;
+ END LOOP;
+END $install$;
 COMMIT;
