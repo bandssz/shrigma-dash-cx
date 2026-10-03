@@ -648,7 +648,8 @@ function renderJornadas(modeloOp){
   }
   if(PENDENTE_GRAPH&&API)PENDENTE_GRAPH=false;
   const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
-  if($('#control-graph-intro'))$('#control-graph-intro').hidden=!graphOn;if($('#control-graph-off'))$('#control-graph-off').hidden=graphOn;
+  const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
+  if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
   if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
