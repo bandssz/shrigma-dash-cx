@@ -120,23 +120,17 @@ Prefixos: `ref214/` = testes da PR #214 (rodam na CI875); sem prefixo = `tests/`
 
 - **Ação:** Templates › biblioteca de imagens em cada marca.
 - **Esperado no V24:** biblioteca oculta/indisponível; **sem upload** pelo portal (módulo só leitura).
+- **Esperado quando liberado:** só arquivos da marca (nome canônico `crm-<marca>-…`) e arquivos antigos sem marca, estes marcados como legado e nunca contados como da marca; nenhuma imagem de outro host; página seguinte coerente.
 - **Evidência:** print + horário.
-- **Status:** **bloqueado por ativação** — rota `campaigns_media` (opt-in) não configurada; filtro por marca de `services/crm-campaign/media.cjs` depende da imagem de campanhas 23e472ab, não instalada. Preparado: `ref214/services/dashboard-operational/media-read.test.cjs` › "media listing is hidden until explicitly advertised and loads metadata only on click", "pagination and brand changes never mix a stale response with the selected brand"; `ref214/tests/dashboard-operational-proxy.test.cjs` › "media library opt-in forwards only bounded JSON GET with the individual read key"; `claude-templates-media.test.cjs` › "biblioteca de uma marca não lista arquivos gerados para a outra marca". Sem upload: `ref214/services/dashboard-operational/build.test.cjs` › "operational CRM replaces the reviewed legacy media module with the read-only library".
+- **Status:** **bloqueado por ativação** — rota `campaigns_media` (opt-in) não configurada; filtro por marca de `services/crm-campaign/media.cjs` depende da imagem de campanhas 23e472ab, não instalada; delta do validador estrito na ponte da #214 **preparado, não aplicado** (PARIDADE-LEITURA-PORTAL §9.3). Preparado: `ref214/services/dashboard-operational/media-read.test.cjs` › "media listing is hidden until explicitly advertised and loads metadata only on click", "pagination and brand changes never mix a stale response with the selected brand"; `ref214/tests/dashboard-operational-proxy.test.cjs` › "media library opt-in forwards only bounded JSON GET with the individual read key"; `claude-templates-media.test.cjs` › "biblioteca de uma marca não lista arquivos gerados para a outra marca"; `claude-media-read-validator.test.cjs` › "GET de mídia não tem efeito: uma autenticação STABLE, só GET /api/media, sem upload, sem mutex e sem estado", "resposta real do executor nas duas marcas: aceita, legado marcado e nunca contado como da marca", "resposta fora do contrato é recusada inteira: marca, URL, credencial, paginação e item". Sem upload: `ref214/services/dashboard-operational/build.test.cjs` › "operational CRM replaces the reviewed legacy media module with the read-only library".
 
-## P10. Revogação de acesso
+## P9b. Biblioteca de templates (conteúdo publicado, histórico, submissão)
 
-- **Pré-condição:** P2 com o analista logado no CRM.
-- **Ação:** mestre revoga o analista no gerencial; analista recarrega/clica em qualquer leitura.
-- **Esperado:** sessão do analista cai na próxima ação; leitura pendente não entrega corpo; demais contas intactas.
-- **Evidência:** print antes/depois + horário da revogação e da recusa.
-- **Status:** **testado** (conta legada) — `ref214/tests/dashboard-operational-flow.test.cjs` › "CRM-only operational canary forwards only an individual read and stops at revocation"; `ref214/tests/dashboard-operational-auth.test.cjs` › "invite, area grants, CSRF, encrypted per-slot bearers and revocation". Revogação do gestor **gerenciado** (credencial individual no emissor): **preparado** — `ref214/tests/dashboard-operational-crm-managed-read-bridge.test.cjs` › "life revocation and credential mutation while response is pending suppress the body"; `ref214/tests/dashboard-operational-managed-ui.test.cjs` › "revocation reports the backend acknowledgement and does not declare a pending CRM revocation complete".
-
-## P11. Expiração de acesso
-
-- **Ação:** (a) deixar a aba do analista parada > 30 min e clicar; (b) anotar login e conferir que após 8 h pede login de novo; (c) usar um convite com mais de 48 h (ou já usado).
-- **Esperado:** (a) e (b) voltam para a entrada; (c) convite recusado.
-- **Evidência:** print + horários.
-- **Status:** **testado** — `ref214/tests/dashboard-operational-auth.test.cjs` › "login rate limits, host binding, and absolute session expiry", "successful login and new invitation purge expired sessions and spent invite tokens" (sessão 8 h absoluta, 30 min ociosa, convite 48 h em `auth.cjs`). Expiração da credencial gerenciada: **preparado** — `ref214/tests/dashboard-operational-managed-crm.test.cjs` › "invite expiry is rechecked after password hashing…", "expired access and local renewal persistence failure preserve the existing lifecycle and credential".
+- **Ação:** Automações/Templates › "Carregar conteúdo" e "Carregar histórico" em cada marca; abrir a prévia de um template de e-mail.
+- **Esperado no V24:** botões ausentes (sem `capabilities.templates` no perfil gerenciado); **nenhum** pedido ao n8n.
+- **Esperado quando liberado:** só templates de e-mail registrados da marca selecionada; com "todas as marcas" a leitura é recusada; histórico/submissão de rascunho de outra marca = "não encontrado"; WhatsApp publicado e histórico por template publicado indisponíveis (sem marca derivável).
+- **Evidência:** print por marca + horário.
+- **Status:** **bloqueado por ativação** — handler n8n não versionado (`listar` sem marca obrigatória; `historico`/`submissao` sem marca) **não** é admitido; destino de leitura próprio **preparado** (contrato `crm-template-read-v1`, ponte e SQL somente leitura **não executado**), listener, host e deltas do BFF/front pendentes (PARIDADE-LEITURA-PORTAL §9.4–9.9). WhatsApp e histórico por `key`: **bloqueados** até existir metadado de marca. Preparado: `claude-template-read-store.test.cjs` › "listar: só e-mail registrado da marca pedida, nas duas marcas, paginado e aceito pela ponte; zero efeito", "histórico e submissão: marca do rascunho, outra marca vira "não encontrado", nada consulta o provedor", "principal individual com a capacidade da ação; chaves legadas, revogadas ou sem capacidade não leem"; `claude-template-read-bridge.test.cjs` › "sem marca, todas as marcas, WhatsApp, por key, escrita ou recuperação: recusado sem I/O", "item de outra marca ou sem marca, contrato errado, corpo grande, eco de segredo ou alegação de prova: 502"; `claude-template-read-pg16-postgres.cjs` (PG 16.15, duas sessões).
 
 ---
 
@@ -167,7 +161,8 @@ Prefixos: `ref214/` = testes da PR #214 (rodam na CI875); sem prefixo = `tests/`
 | P7 | Campanha só com listas | bloqueado por ativação (escrita OFF, perfil WRITER, imagem crm-campaign) |
 | P8a | Histórico em Resultados | testado |
 | P8b | Histórico do editor | bloqueado por ativação (ponte READ) |
-| P9 | Mídia | bloqueado por ativação (`campaigns_media`, imagem 23e472ab) |
+| P9 | Mídia | bloqueado por ativação (`campaigns_media`, imagem 23e472ab); validador estrito preparado |
+| P9b | Biblioteca de templates | bloqueado por ativação (handler n8n não admitido; leitura própria preparada, não instalada); WhatsApp/histórico por key bloqueados (sem metadado de marca) |
 | P10 | Revogação | testado (legado); gerenciado preparado |
 | P11 | Expiração | testado (sessão/convite); gerenciado preparado |
 

@@ -1,4 +1,4 @@
-# Paridade de leitura do CRM no portal: listas e públicos (fish, aristo)
+# Paridade de leitura do CRM no portal: listas, públicos, mídia e templates (fish, aristo)
 
 Agente K, 03/10/2026. Branch `claude/crm-read-parity-20261003`, base `a19555c` (PR #218 sobre a #217). A referência é a PR #214 (portal/BFF, head `5e80f98`), consultada somente para leitura. **Nada aqui foi instalado, publicado ou ligado.** O SQL é uma proposta não executada em produção. Os testes rodaram apenas em PGlite e num PostgreSQL 16 descartável, em loopback.
 
@@ -170,6 +170,9 @@ Resultados dos comandos:
 
 ## 8. Próximo delta: templates e mídia
 
+> Diagnóstico de origem do §9 (agente N), que entrega o validador de mídia, a ponte e o SQL de templates.
+
+
 - **Templates da campanha** (seletor `template_id`): já cobertos. Vêm de `campanha_catalogo.templates` (Listmonk `type='campaign'`, `id/name/type/available/version`), que a ponte da #214 admite. Lacuna: o `responseShape` da #214 só confere `Array.isArray(templates)`. Falta validar item a item (chaves exatas, `type==='campaign'`, `version` md5) e limitar a quantidade.
 - **Biblioteca de templates Growth** (`growth-templates-api.js`, rota `templates`: `listar`, `email_capacidades`, `historico`, `submissao`, `fluxos_listar`):
   - O destino é o webhook n8n, cujo handler **não está versionado no repo**. Não há prova de ausência de efeitos: fila e registro de execução do n8n, auth pelo caminho legado.
@@ -184,7 +187,216 @@ Resultados dos comandos:
   - O filtro por marca depende da liberação separada da imagem de campanhas (pendência 1 do documento de integração da #214).
 - Em nenhum dos dois casos há alargamento genérico do proxy. Cada fonte entra com ação, destino, ator, capacidade e efeito declarados, como nesta ponte.
 
-## 9. Limitações
+## 9. Templates e mídia (agente N, branch `claude/crm-read-templates-media-20261003`, base `a7c05c5`)
+
+Tudo OFF e nada instalado. Arquivos novos, nenhum arquivo existente de serviço, da #214, de empacotamento, do emissor READ, do WRITER ou de workflows foi alterado. Nenhuma fonte do bundle growth foi tocada.
+
+| Arquivo | Papel |
+|---|---|
+| `services/dashboard-operational/crm-media-read-validator.cjs` | Validador estrito da biblioteca de mídia (`crm-media-v1`) para a ponte da #214 |
+| `services/dashboard-operational/crm-template-read-bridge.cjs` | Ponte READ de templates, padrão da #219, destino fixo **proposto** |
+| `n8n/growth/crm-template-read-access.sql` | Papel e funções de leitura propostos, **não executado** |
+| `tests/claude-media-read-validator.test.cjs`, `tests/claude-template-read-{bridge,store}.test.cjs`, `tests/claude-template-read-fixture.cjs`, `tests/claude-template-read-pg16-postgres.cjs` | Provas |
+
+### 9.1 Mídia: o GET de listagem não tem efeito
+
+Lido em `services/crm-campaign/{server,media,transport,main}.cjs` e no SQL de autenticação:
+
+- `mediaGet` só aceita `brand`, `page`, `per_page` (ou o trio de recuperação de upload). Não lê corpo.
+- O executor faz **uma** chamada `SELECT public.shrigma_crm_campaign_auth_v1($1)`. A cadeia (`shrigma_crm_operator_auth_v1` → `shrigma_panel_operator_v1` / `shrigma_template_auth_v2`) é STABLE e não tem INSERT/UPDATE/DELETE nem bloqueio de linha. `shrigma_panel_auth_v1`, que grava `ultimo_uso`/`usos`, **não** está nessa cadeia. A `_v1` do gateway é plpgsql VOLATILE, mas só chama as STABLE.
+- Depois faz de 1 a 4 `GET /api/media?page&per_page&query=` no Listmonk (Basic auth do serviço, `redirect:'manual'`, sem corpo). Não há upload, mutex de marca, cache, diário nem estado entre leituras. O único estado é o contador de vagas em memória do `server.cjs`.
+- O GET do Listmonk (`/api/media`, v6.1.0) é externo ao repo. Pela fonte pública ele é uma consulta, mas isso **não foi verificado aqui**.
+- O destino `campaigns_media` da #214 é o host n8n (`…/webhook/crm-campanhas-api-…/media`). O documento de corte da #214 registra que esse caminho chega ao `crm-campaign`: o GET anônimo devolveu 401 com o cabeçalho de revisão do backend.
+- Conclusão: não é preciso um caminho de leitura novo para mídia. Basta validar a resposta.
+
+Prova: `claude-media-read-validator.test.cjs` › "GET de mídia não tem efeito…". O pool só vê `AUTH_SQL`; o Listmonk só vê `list` com `query=''`; o scan para em 4 páginas; duas leituras seguidas dão o mesmo resultado; um GET pendente não bloqueia o upload da marca; o transporte usa GET sem corpo. Os corpos SQL da cadeia de autenticação foram conferidos, com contraprova de que `shrigma_panel_auth_v1` grava.
+
+### 9.2 Mídia: contrato validado (`validateMediaLibraryResponse`)
+
+- **Pedido** (`mediaRequest`): só `brand` (`fish|aristo`), `page` (1–10 000, padrão 1) e `per_page` (1–50, padrão 24), sem chave repetida. A query sai canônica. A recuperação de upload (`operation_id`/`filename`/`sha256`) fica **fora**, porque é caminho de escrita.
+- **Topo** com chaves exatas: `contract:'crm-media-v1'`, `brand` igual à pedida, `items`, `total` (0–1 000 000), `page`, `per_page`, `next_page`.
+- **Paginação coerente**:
+  - `per_page` ecoa o pedido e `items.length ≤ per_page`.
+  - `page` fica entre o pedido e o pedido+3. O serviço pula até 3 páginas nativas só da outra marca.
+  - `next_page === (page*per_page<total ? page+1 : null)`.
+  - Página vazia com continuação só vale quando o scan esgotou as 4 páginas.
+  - Itens além de `total` e `total:0` fora da página pedida são recusados.
+- **Item** com chaves exatas `id, filename, url, thumb_url, content_type, width, height, created_at`:
+  - `id` positivo e único na página.
+  - `content_type` só `image/png|jpeg|gif`.
+  - Dimensões dentro de 4 MP.
+  - `created_at` é null ou data.
+  - `filename` tem até 180 caracteres, sem `/`, `\` e controle.
+- **URL** (`url` e `thumb_url`):
+  - `https`, host exato `email.shrigma.com.br`, sem userinfo, porta, query (nem `?` vazio) ou hash.
+  - O texto precisa já estar canônico.
+  - Um único segmento sob `/uploads/`, sem `%2f`, `%5c` ou `%00`.
+  - Violar qualquer regra recusa a resposta **inteira** (502).
+- **Credencial:** eco da credencial do principal em qualquer campo recusa tudo (`MEDIA_READ_SECRET_ECHO`).
+- **Marca pelo nome canônico** `crm-<marca>-<uuid4>-<sha256>.<png|jpg|gif>`. A regex é a mesma de `media.cjs`, e o teste confere a equivalência.
+  - Nome canônico de **outra marca** recusa a resposta inteira (`MEDIA_READ_FOREIGN_BRAND`). Isso significa que o filtro por marca do serviço não está ativo (imagem 23e472ab).
+  - No nome canônico, a extensão precisa casar com o tipo e a URL apontar para o próprio arquivo.
+- **Decisão sobre legado (sem nome canônico):** o serviço mostra o arquivo nas duas marcas. O validador o devolve com `legacy:true`, e os itens da marca saem com `legacy:false`. Ele **nunca** entra em `summary.brand_items`. Com `legacy:'exclude'`, sai da lista.
+  - Nome com prefixo de outra marca (inclusive `crm-olivas-` ou em maiúsculas) sem ser canônico: excluído, nunca mostrado como neutro.
+  - Legado cuja URL não aponta para o próprio arquivo ou cuja extensão não é do tipo: excluído (`excluded_irregular`), sem derrubar a página.
+- **Saída:** `{body, summary}`. O `body` mantém o contrato `crm-media-v1`, e cada item ganha `legacy`. O `growth-media.js` atual ignora o campo extra. Mostrar a etiqueta "sem marca (legado)" exige um delta de front, **não feito aqui** (fonte do bundle).
+
+### 9.3 Delta exato proposto para `crm-manager-read-bridge.cjs` (#214, não editado)
+
+```diff
+ const P=require('./proxy.cjs');
++const MediaRead=require('./crm-media-read-validator.cjs');
+@@ function decision(route,method,query){
+  if(d.edit||d.area!=='growth'||!ACTIONS[route].includes(d.action)||!['fish','aristo'].includes(query.get('brand')))fail();
++ if(route==='campaigns_media')try{MediaRead.mediaRequest(query);}catch{fail();}
+  return Object.freeze({...d,sourceCredentialSlot:'crm-panel-read'});
+@@
+-function responseShape(d,value,query){
++function responseShape(d,value,query,credential){
+  if(!plain(value))fail(502,'MANAGED_READ_RESPONSE_DENIED');
+  const brand=query.get('brand');
+  if(d.route==='campaigns_media'){
+-  if(value.contract!=='crm-media-v1'||value.brand!==brand||!Array.isArray(value.items)||value.items.length>50)fail(502,'MANAGED_READ_RESPONSE_DENIED');
++  const r=MediaRead.mediaRequest(query);
++  try{return MediaRead.validateMediaLibraryResponse(value,{brand:r.brand,page:r.page,per_page:r.per_page,secrets:[credential]}).body;}
++  catch{fail(502,'MANAGED_READ_RESPONSE_DENIED');}
+  }else if(d.action==='campanha_catalogo'){
+@@ (fim de responseShape)
++ return value;
+ }
+@@ async function read(value,onSettled){
+-  const url=new URL(target.href);url.search=query.toString();
++  const url=new URL(target.href);url.search=(d.route==='campaigns_media'?MediaRead.mediaRequest(query).query:query).toString();
+@@
+-   responseShape(d,value,query);
++   value=responseShape(d,value,query,credential);
+```
+
+Mais o allowlist do Docker e do pack para o módulo novo (cerca de 9 KB). A margem do pack é pequena (§7.5): medir antes. Os testes da #214 que montam respostas de mídia precisam de itens completos e de `total/page/per_page/next_page`.
+
+### 9.4 Templates: de onde vem a marca e o que falta
+
+| Ação legada (n8n, handler **não versionado**) | Marca derivável de dado versionado? | Destino de leitura proposto |
+|---|---|---|
+| `listar`, canal e-mail | **Sim**, para template Listmonk registrado em `shrigma_template_email_registry(template_id,brand)`: registro da marca e nenhum de outra. É o critério de `journey-graph-catalog.sql` e `engagement-editor-validation.sql`; a coluna e o CHECK existem em produção (`olivas-nps.sql`) | `listar`, só `registered_email_only` |
+| `listar`, canal WhatsApp | **Não.** Nenhuma tabela versionada liga um template aprovado na Meta a uma marca | não servido (403 na ponte) |
+| `historico` por `draft_id` | **Sim**, por `shrigma_template_draft.brand` (critério de `email-test-recipient.sql`) | `historico` |
+| `historico` por `key` | **Não.** A `key` de template publicado é conceito do handler, sem tabela versionada | não servido |
+| `submissao` | **Sim**: `submissao.draft_id` → `draft.brand` | `submissao` (estado gravado; não consulta a Meta) |
+| `email_capacidades`, `email_previa` (POST), `operacao`, `rascunho`, `validar`, `submeter`, `fluxos_listar`, `email_teste_*` | — | fora (escrita, recuperação ou render) |
+
+**O que falta para o restante, sem inventar:**
+1. Metadado de marca dos templates WhatsApp publicados. Por exemplo, um registro versionado `(waba_id, template_name, language) → brand`, ou o WABA de cada marca em configuração versionada.
+2. Mapa `key` → `draft_id`/marca para o histórico de templates publicados.
+3. Templates Listmonk legados sem registro: hoje não têm marca e **não aparecem** (`coverage:'registered_email_only'`). Registrar cada um com aprovação, ou aceitar a perda.
+4. DDL de produção de `shrigma_template_evento`/`_submissao`. As colunas `at`, `who`, `from_version`, `detail`, `rejected_reason` e `checked_at` só aparecem em fixtures. O SQL as lê por `to_jsonb(linha)` e devolve `null` quando faltam.
+5. Prova de que o `submissao` legado não grava ao consultar a Meta. O handler não está no repo, e o caminho novo **não consulta** o provedor (`provider_polled:false`).
+
+### 9.5 Templates: contrato do destino de leitura (`crm-template-read-v1`)
+
+Destino fixo **proposto** (host a confirmar pelo Codex): `https://comunicacao-crm-template-read.tazdb8.easypanel.host/template-read`.
+- Só GET, `Authorization: Bearer <credencial crm-panel-read>`, sem Origin e sem CORS.
+- Sem efeito, então idempotente por construção: repetir dá o mesmo resultado. Não há chave de idempotência, recibo nem contador.
+- O serviço HTTP (listener) **não foi construído**. A forma proposta é igual à `read-main.cjs` da #219: flag OFF, `BEGIN READ ONLY`, papel `crm_template_reader`, exigir `txid_current_if_assigned() IS NULL` e `ROLLBACK`. Ele só chama as três funções abaixo.
+
+| acao | Campos | Resposta |
+|---|---|---|
+| `listar` | `brand` (`fish|aristo`, obrigatória), `channel=email`, `offset` (0–100 000), `limit` (1–20 na ponte; até 50 no SQL) | `{contract:'crm-template-read-v1', brand, channel:'email', templates[], offset, limit, total, next_offset, coverage:'registered_email_only', consultado_em, schedule_proof:false}` |
+| `historico` | `brand`, `draft_id` (`[A-Za-z0-9_-]{1,64}`) | `{contract:'crm-template-history-read-v1', brand, draft_id, events[≤200], truncated, read_at}` |
+| `submissao` | `brand`, `submission_id` | `{contract:'crm-template-submission-read-v1', brand, submission_id, draft_id, draft_version, provider, estado, provider_status, rejected_reason, checked_at, read_at, provider_polled:false}` |
+
+Detalhes do contrato:
+- Item de `listar`, com chaves exatas:
+  - `key`, `brand`, `channel`, `id` (string de dígitos), `name` (até 160, sem controle) e `type` (`campaign|tx`);
+  - `draft_id`: null quando há zero ou mais de um rascunho registrado;
+  - `components {subject, body_html, altbody:null}`, ou null quando o corpo passa de 400 000 caracteres. Nesse caso `content_available:false`, e nada é truncado;
+  - `content_hash` (sha256 do conteúdo) e `updated_at`.
+- Evento: `{at, who, action, from_version, to_version, result, detail}`.
+- Erros: rascunho ou submissão de outra marca, Olivas ou inexistentes viram "não encontrado", sem distinção.
+
+**Ponte (`crm-template-read-bridge.cjs`):**
+- Mesma interface e mesmo controle da #219:
+  - flag OFF dá 503 antes de qualquer auth, credencial ou fetch;
+  - principal `crm-panel-read`, com 10 chaves, `caps` exatos e expiração com margem de 5 s, conferido antes, ao obter a credencial e depois do corpo;
+  - credencial de 64 hex;
+  - 401/403/404 sem ler o corpo nem repetir;
+  - JSON identity até 8 MiB e UTF-8 estrito;
+  - eco da credencial é recusado.
+- **Pedido** no vocabulário do cliente `GTA`: `acao=listar&marca[&canal=email][&offset][&limit]`, `historico&marca&draft_id`, `submissao&marca&submission_id`.
+  - `marca` ausente, `todas`, `olivas` ou vazia é recusada sem I/O. O mesmo vale para `canal=whatsapp`, `historico` por `key`, chave `k`, ações de escrita e query acima de 512 bytes.
+  - A ponte reescreve para `brand` em ordem canônica.
+- **Resposta:**
+  - Chaves exatas e paginação coerente: `templates.length === min(limit, total-offset)` e `next_offset` consistente.
+  - Ids em ordem crescente e sem repetição.
+  - **Qualquer item de outra marca, sem marca ou de outro canal recusa a resposta inteira** (502).
+  - `schedule_proof:false` e `provider_polled:false` são obrigatórios.
+
+### 9.6 Templates: SQL somente leitura (`n8n/growth/crm-template-read-access.sql`, não executado)
+
+- Exige owner `postgres` e database `listmonk`, é fresh-only (recusa colisão) e confere dependências.
+- Schema `crm_template_read` com quatro funções `STABLE SECURITY DEFINER SET search_path=pg_catalog`, sem bloqueio nem escrita:
+  - `principal(k,cap)`, interna e **não concedida**. Aceita só a chave de 64 hex de um principal `panel:dcrm-<32 hex>` via `shrigma_panel_operator_v1(k,'growth')` (STABLE), com a capacidade da ação.
+  - Chaves legadas compartilhadas (`crm_dash_chave` sem hash, `shrigma_template_key_v2`) **não** leem por aqui, embora o handler legado as aceite.
+  - `listar(k,b,offset,limit)` exige `read_content`, `historico(k,b,draft_id)` exige `list_history` e `submissao(k,b,submission_id)` exige `submission`.
+- Papel `crm_template_reader`: `NOLOGIN NOINHERIT`, `CONNECTION LIMIT 4`, `default_transaction_read_only=on`, timeouts e `search_path=pg_catalog`.
+  - Recebe só `CONNECT`, `USAGE` no schema e `EXECUTE` nas três funções.
+  - **Nenhuma** tabela.
+- O arquivo traz as conferências pós-instalação e a reversão.
+
+### 9.7 Provas
+
+| Critério | Prova |
+|---|---|
+| Mídia: GET sem efeito | `claude-media-read-validator.test.cjs` teste 2 (executor real com pool e Listmonk sintéticos, SQL da cadeia de auth) |
+| Mídia: marca, legado e contagem | testes 1 e 4: resposta real do executor nas duas marcas; legado `legacy:true` fora de `brand_items`; política `exclude`; prefixo de outra marca e legado irregular excluídos |
+| Mídia: recusa estrita | teste 5: outra marca canônica, 13 variantes de URL (http, host, userinfo, porta, query, `?` vazio, hash, fora de `/uploads/`, subpasta, `%2f`, host em maiúsculas, `javascript:`, espaço), thumb, eco de segredo, 11 itens malformados, id duplicado e 9 casos de paginação |
+| Mídia: equivalência com `media.cjs` | teste 3: `filenameParts` igual em 10 nomes; `mediaRequest` canônico e recuperação recusada |
+| Templates: isolamento de marca no servidor | `claude-template-read-store.test.cjs` testes 1 e 2 (PGlite): fish = 1, 6 e 8, e aristo = 2 e 9. Ficam fora: legado sem registro, ambíguo, Olivas e clone interno. Histórico e submissão cruzados, Olivas e órfãos dão `NOT_FOUND`. A ponte aceita a saída real do SQL e recusa a de outra marca |
+| Templates: zero efeito | testes 1 e 2: hash de linhas, xmin e xmax iguais e `txid_current_if_assigned()` nulo. Teste 4: o owner lê em `READ ONLY`; as funções são STABLE e sem escrita no `prosrc`. **PG16 16.15** (`claude-template-read-pg16-postgres.cjs`, cluster descartável em `/tmp`, porta 55435, já derrubado): arquivo **sem alteração** instalado, reinstalação recusada, papel com LOGIN e `transaction_read_only=on`, `zero_effect` |
+| Templates: papel sem privilégio | teste 4 e PG16: SELECT direto, `principal`, `shrigma_panel_operator_v1` e `shrigma_panel_auth_v1` dão 42501; INSERT/UPDATE/DELETE em transação READ WRITE dão 42501; zero `role_table_grants` |
+| Templates: principal | teste 3: sem capacidade dá `ACCESS_DENIED`; revogado, legado, `template_key_v2`, maiúsculas e vazio dão `UNAUTHORIZED`, com contraprova de que o caminho legado aceita. Expiração real. PG16: revogação confirmada por outra sessão é vista na leitura seguinte (READ COMMITTED) |
+| Templates: sem disputa de lock | PG16: com `FOR UPDATE` do escritor em templates, rascunhos e chaves, a leitura respondeu em 9 ms |
+| Ponte de templates | `claude-template-read-bridge.test.cjs`: duas marcas e query canônica; flag OFF sem I/O; 21 pedidos fora do contrato sem I/O; principal revogado ou trocado antes e depois do corpo; 23 corpos de lista, 7 de histórico e 7 de submissão inválidos; 404/401/403/503/302 |
+
+**Observação** (não alterada): `shrigma_template_auth_v2` continua executável por PUBLIC (`panel-short-keys.sql` não revoga). Qualquer papel com CONNECT, inclusive o novo, pode chamá-la. Ela é STABLE e não grava, mas valida chaves. A PG16 registra `preexisting_public_execute_template_auth_v2:true`.
+
+### 9.8 Deltas do BFF (#214) para templates, não feitos
+
+1. `server.cjs`, em `managedReadRoute`: admitir `TemplateRead.ACTIONS.templates[acao]` em GET e encaminhar a `templateReadBridge.read(...)` com o mesmo controle de vagas e `onSettled`. Construir com `upstreams={'template-read':new URL(DESTINATIONS['template-read'])}` atrás de uma flag própria (ex.: `DASHBOARD_CRM_MANAGED_TEMPLATE_READ`), OFF, que exige o perfil gerenciado e todas as flags de escrita OFF.
+2. `rewriteCapabilities` no perfil gerenciado:
+   - publicar `endpoints.templates=origin+'/api/templates'`;
+   - `capabilities.templates={read_content:true, list_history:true}` só com a ponte ligada;
+   - `draft`, `validate`, `submit` e `submit_email` `false`; `workflows.{set_mode,activate}=false`; `write_key_required:true`.
+   - `email_capacidades` e `email_previa` não ficam disponíveis: a prévia com variáveis mostra "não está disponível neste acesso".
+3. Allowlist do Docker e do pack para o módulo (cerca de 14 KB). Somado ao de mídia e ao de públicos, **provavelmente estoura** a margem atual de 949 014/950 000 bytes. Medir; não subir o teto sem decisão.
+4. Front, **não feito** (fontes do bundle):
+   - `GTA.cliente.historico/submissao` precisam mandar `marca`;
+   - `carregarConteudo` precisa mandar a marca selecionada (com `todas`, a ponte recusa) e paginar `offset/limit≤20`;
+   - a `key` nova (`email.template.<id>`) não casa com as keys legadas. `previaPublicada` cai no casamento por `name`+`brand`, que continua funcionando;
+   - prévia WhatsApp: 403, a tela mostra "Não foi possível consultar".
+
+### 9.9 Sequência proposta
+
+1. Mídia: aplicar o delta 9.3 na #214 e rodar de novo os testes da ponte e do pack. Só ligar `campaigns_media` depois que a imagem de campanhas com filtro por marca (23e472ab) estiver instalada. Sem ela, o validador recusa toda página que tenha arquivo canônico da outra marca, ou seja, falha fechado.
+2. Templates:
+   - revisar e mesclar a ponte e o SQL;
+   - instalar o SQL com aprovação e rodar as três conferências;
+   - construir o listener (padrão `read-main.cjs`) e criar o app `comunicacao/crm-template-read` com a flag OFF;
+   - conferir `healthz` e o 503;
+   - ligar e testar com o gestor de teste nas duas marcas (registro, histórico, submissão, 401 com a chave revogada);
+   - só então os deltas 9.8 e a UI.
+3. WhatsApp, histórico por `key` e legado sem registro ficam **bloqueados** até existir o metadado de marca do item 9.4.
+
+### 9.10 Limitações
+
+- Nada foi testado contra o V24 real, o Listmonk real ou produção.
+- O listener de templates não existe.
+- A ponte de templates fica fora do pack até a decisão sobre o tamanho.
+- Listagem de templates: só e-mail registrado; páginas de até 20 itens na ponte. O teto de 8 MiB pode recusar uma página com corpos grandes; nesse caso, usar `limit` menor.
+- `submissao` devolve o estado gravado, não o do provedor. O acompanhamento automático do painel (a cada 60 s) deixa de "verificar" na Meta por esse caminho.
+- Mídia: o legado aparece nas duas marcas, marcado e nunca contado como da marca. A etiqueta visual depende de um delta de front.
+
+## 10. Limitações (públicos)
 - O GET só-leitura nunca renova o catálogo. `stale:true` é o estado normal fora da janela de cerca de 4 min do caminho de escrita. A UI deve mostrar idade, não erro.
 - O `semantic_context.current` de públicos e vínculos depende do catálogo atual. Com `stale`, vem `false` mesmo que nada tenha mudado.
 - `campaign_current` (`shrigma_campaign_current`) inclui o corpo da campanha na versão md5. A função de leitura devolve o JSON completo ao serviço, mas a resposta HTTP expõe só `version`, `status` e `list_ids`.
