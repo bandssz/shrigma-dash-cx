@@ -40,8 +40,9 @@ const LEGACY_MASTER_CHECK='panels.length===4&&new Set(panels).size===4&&["cx","g
 const OPERATIONAL_MASTER_CHECK='panels.length===3&&new Set(panels).size===3&&["growth","organico","influs"].every(p=>panels.includes(p))';
 // The public source bundles image upload and legacy credential handling. Remove
 // exactly the reviewed module from the operational artifact before packaging.
-// PR216 changes only the legacy library's 403 messages; keep exact removal pinned.
-const LEGACY_MEDIA_SHA256='02e3d5a1d7457aadb99858e36c156b3fdf760651c4ca043b45a314c885972e95';
+// PR221 adds the reviewed legacy-file label/count and boolean validation.
+// Keep exact removal pinned; its upload/credential code never enters the pack.
+const LEGACY_MEDIA_SHA256='e63d92ac55847cd708cd56374d2967668e4fa7a99599231a7aa2681c96d6a854';
 function removeLegacyMedia(source){
  const startToken='const GMedia=(()=>{',endToken=';const CampaignTracking=';
  const start=source.indexOf(startToken),end=source.indexOf(endToken,start);
