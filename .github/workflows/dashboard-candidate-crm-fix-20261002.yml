@@ -36,6 +36,10 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
         run: node --test tests/growth-campaign-audience-path.test.cjs tests/growth-campaign-catalog-ui.test.cjs tests/growth-campaign-editor.test.cjs tests/growth-campaign-audience-client.test.cjs tests/growth-render.test.cjs
+      - name: Conferir entrega CRM e isolamento da biblioteca de mídia
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test tests/claude-*.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-media-page-boundary.test.cjs tests/growth-media.test.cjs
       - name: Gerar pacote fechado sem dados nem credenciais
         run: |
           node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
@@ -133,7 +137,6 @@ jobs:
           docker push "$IMAGE"
           printf 'Imagem candidata: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
 
-# Proposal only: insert this job under `jobs` in the candidate workflow.
 # Publishes one gateway image; does not install a service, SQL, role or flag.
   publish-crm-provisioner-candidate-image:
     needs: [validate-and-package, native-postgres-manager-proof]
@@ -266,5 +269,151 @@ jobs:
         with:
           name: crm-provisioner-candidate-image-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/crm-provisioner-publication/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-crm-campaign-candidate-image:
+    needs: [validate-and-package, native-postgres-manager-proof]
+    if: >-
+      success() &&
+      needs.validate-and-package.result == 'success' &&
+      needs.native-postgres-manager-proof.result == 'success' &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-campaign-candidate-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: crm-campaign-media-candidate-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
+      image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
+    env:
+      CRM_CAMPAIGN_REPOSITORY: ghcr.io/bandssz/shrigma-dash-operational-canary
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Construir e conferir somente o contexto público fechado do serviço de campanhas
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          CAMPAIGN_IMAGE="$CRM_CAMPAIGN_REPOSITORY:crm-campaign-media-candidate-$GITHUB_SHA"
+          CAMPAIGN_CONTEXT="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-context.XXXXXX")"
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'rm -rf -- "$CAMPAIGN_CONTEXT" "$CAMPAIGN_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-campaign-media-manifest.json" "$RUNNER_TEMP/crm-campaign-media-manifest.error"' EXIT
+          for CAMPAIGN_FILE in \
+            services/crm-campaign/Dockerfile \
+            services/crm-campaign/package.json \
+            services/crm-campaign/package-lock.json \
+            services/crm-campaign/main.cjs \
+            services/crm-campaign/server.cjs \
+            services/crm-campaign/transport.cjs \
+            services/crm-campaign/media.cjs \
+            services/crm-panel-read/server.cjs \
+            n8n/growth/campaign-contract.js \
+            n8n/growth/campaign-tracking.js \
+            n8n/growth/campaign-service.js \
+            n8n/growth/campaign-store.js \
+            n8n/growth/campaign-provider.js \
+            n8n/growth/campaign-native.js \
+            n8n/growth/campaign-runtime.js; do
+            test -f "$CAMPAIGN_FILE"
+            test ! -L "$CAMPAIGN_FILE"
+            install -D -m 0644 "$CAMPAIGN_FILE" "$CAMPAIGN_CONTEXT/$CAMPAIGN_FILE"
+          done
+          # Only a recognized missing-manifest error permits a first publication.
+          # Auth, network, rate-limit and unknown errors are never absence.
+          if docker manifest inspect "$CAMPAIGN_IMAGE" > "$RUNNER_TEMP/crm-campaign-media-manifest.json" 2> "$RUNNER_TEMP/crm-campaign-media-manifest.error"; then
+            printf '%s\n' 'Campaign media candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          CAMPAIGN_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-campaign-media-manifest.error")"
+          case "$CAMPAIGN_MANIFEST_ERROR" in
+            "no such manifest: $CAMPAIGN_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Campaign media tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          docker build --platform linux/amd64 --file "$CAMPAIGN_CONTEXT/services/crm-campaign/Dockerfile" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
+            --label org.opencontainers.image.title=shrigma-crm-campaign \
+            --label com.shrigma.component=crm-campaign \
+            --tag "$CAMPAIGN_IMAGE" "$CAMPAIGN_CONTEXT"
+          test "$(docker image inspect --format '{{.Config.User}}' "$CAMPAIGN_IMAGE")" = 'node'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$CAMPAIGN_IMAGE")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$CAMPAIGN_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$CAMPAIGN_IMAGE")" = 'crm-campaign'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 32 --entrypoint node "$CAMPAIGN_IMAGE" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),pg=require("/app/node_modules/pg");const deny=()=>{throw Error("Import attempted I/O");};net.Server.prototype.listen=deny;net.Socket.prototype.connect=deny;pg.Pool.prototype.query=pg.Pool.prototype.connect=pg.Client.prototype.query=pg.Client.prototype.connect=deny;a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-campaign");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["n8n","node_modules","package-lock.json","package.json","services"]);a.equal(typeof require("/app/services/crm-campaign/server.cjs").createServer,"function");a.equal(typeof require("/app/services/crm-campaign/media.cjs").createMediaExecutor,"function");a.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync("/app/services/crm-campaign/media.cjs")).digest("hex"),"2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc");a.equal(Object.keys(require.cache).some(p=>p.endsWith("/services/crm-campaign/main.cjs")),false);'
+          CAMPAIGN_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_IMAGE")"
+          [[ "$CAMPAIGN_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$CAMPAIGN_IMAGE_ID" > "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt"
+      - name: Publicar somente a tag inédita com token temporário da CI
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          CAMPAIGN_IMAGE="$CRM_CAMPAIGN_REPOSITORY:crm-campaign-media-candidate-$GITHUB_SHA"
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-push-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf -- "$CAMPAIGN_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-campaign-media-manifest.json" "$RUNNER_TEMP/crm-campaign-media-manifest.error"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GHCR_TOKEN
+          # Check again just before push. Concurrency also serializes this job per SHA.
+          if docker manifest inspect "$CAMPAIGN_IMAGE" > "$RUNNER_TEMP/crm-campaign-media-manifest.json" 2> "$RUNNER_TEMP/crm-campaign-media-manifest.error"; then
+            printf '%s\n' 'Campaign media candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          CAMPAIGN_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-campaign-media-manifest.error")"
+          case "$CAMPAIGN_MANIFEST_ERROR" in
+            "no such manifest: $CAMPAIGN_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Campaign media tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          test "$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt")"
+          docker push "$CAMPAIGN_IMAGE"
+          test "$(docker image inspect --format '{{len .RepoDigests}}' "$CAMPAIGN_IMAGE")" = '1'
+          CAMPAIGN_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' "$CAMPAIGN_IMAGE")"
+          [[ "$CAMPAIGN_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$CAMPAIGN_REF" > "$RUNNER_TEMP/crm-campaign-media-pushed-image-ref.txt"
+      - name: Conferir digest público sem login e registrar somente a referência imutável
+        id: verify-public-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          CAMPAIGN_REF="$(cat "$RUNNER_TEMP/crm-campaign-media-pushed-image-ref.txt")"
+          [[ "$CAMPAIGN_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-anonymous-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'rm -rf -- "$CAMPAIGN_DOCKER_CONFIG"' EXIT
+          docker pull --platform linux/amd64 "$CAMPAIGN_REF"
+          test "$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_REF")" = "$(cat "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt")"
+          test "$(docker image inspect --format '{{.Config.User}}' "$CAMPAIGN_REF")" = 'node'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$CAMPAIGN_REF")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$CAMPAIGN_REF")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$CAMPAIGN_REF")" = 'crm-campaign'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 32 --entrypoint node "$CAMPAIGN_REF" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),pg=require("/app/node_modules/pg");const deny=()=>{throw Error("Import attempted I/O");};net.Server.prototype.listen=deny;net.Socket.prototype.connect=deny;pg.Pool.prototype.query=pg.Pool.prototype.connect=pg.Client.prototype.query=pg.Client.prototype.connect=deny;a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-campaign");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["n8n","node_modules","package-lock.json","package.json","services"]);a.equal(typeof require("/app/services/crm-campaign/server.cjs").createServer,"function");a.equal(typeof require("/app/services/crm-campaign/media.cjs").createMediaExecutor,"function");a.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync("/app/services/crm-campaign/media.cjs")).digest("hex"),"2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc");a.equal(Object.keys(require.cache).some(p=>p.endsWith("/services/crm-campaign/main.cjs")),false);'
+          CAMPAIGN_RECORD="$RUNNER_TEMP/crm-campaign-media-publication"
+          mkdir "$CAMPAIGN_RECORD"
+          printf '%s\n' "$CAMPAIGN_REF" > "$CAMPAIGN_RECORD/image-ref.txt"
+          printf 'image_ref=%s\nimage_digest=%s\n' "$CAMPAIGN_REF" "${CAMPAIGN_REF#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Serviço CRM de campanhas candidato (somente imagem): `%s`\nRevisão: `%s`; UID/GID1000; digest conferido por acesso público.\n' "$CAMPAIGN_REF" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-campaign-media-candidate-image-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-campaign-media-publication/image-ref.txt
           if-no-files-found: error
           retention-days: 7

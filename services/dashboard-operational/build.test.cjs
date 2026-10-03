@@ -6,7 +6,7 @@ const os=require('node:os');
 const path=require('node:path');
 const vm=require('node:vm');
 const crypto=require('node:crypto');
-const {build,CONTENT,ENDPOINTS}=require('./build.cjs');
+const {build,transform,CONTENT,ENDPOINTS}=require('./build.cjs');
 const {typeAndCsp}=require('./server.cjs');
 const {inviteUrlForArea,readOnlyStyles,audienceDraftOperation}=require('./public/entry.js');
 
@@ -48,6 +48,14 @@ test('operational CRM replaces the reviewed legacy media module with the read-on
  assert.doesNotMatch(media,/fetch\([^)]*https?:|<img|createElement\(['"]img['"]\)|FormData|sessionStorage|localStorage|Authorization|Bearer |method:\s*['"]POST['"]/);
  assert.match(media,/\/api\/campaigns_media/);
 }));
+
+test('operational build refuses unreviewed legacy media bytes instead of packaging upload handling',()=>{
+ const panel=fs.readFileSync(path.resolve(__dirname,'../../assets/panels/growth.js'),'utf8');
+ const start=panel.indexOf('const GMedia=(()=>{');
+ assert.ok(start>=0);
+ const changed=panel.slice(0,start)+'const GMedia=(()=>{/* unreviewed */'+panel.slice(start+'const GMedia=(()=>{'.length);
+ assert.throws(()=>transform(changed,'assets/panels/growth.js'),/Legacy media module needs review/);
+});
 
 test('payment diagnostic is a CRM-only cookie-session page with no browser key form',()=>withArtifact(publicRoot=>{
  const html=fs.readFileSync(path.join(publicRoot,'growth-diagnostico.html'),'utf8');
