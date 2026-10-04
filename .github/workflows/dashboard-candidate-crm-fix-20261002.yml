@@ -353,14 +353,14 @@ jobs:
       contents: read
       actions: read
     env:
-      PORTAL_SOURCE_REVISION: 'a6ae8725e50c728ee8dff670d02a56df7d3be3db'
-      PORTAL_PACK_SHA256: '3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1'
-      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-a6ae8725e50c728ee8dff670d02a56df7d3be3db'
+      PORTAL_SOURCE_REVISION: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+      PORTAL_PACK_SHA256: 'adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3'
     steps:
       # Workflow carrier SHA and image source SHA are intentionally distinct.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: 'a6ae8725e50c728ee8dff670d02a56df7d3be3db'
+          ref: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
           persist-credentials: false
       - name: Confirmar CI concluída da revisão exata antes da construção
         shell: bash
@@ -372,26 +372,26 @@ jobs:
           git diff --quiet
           git diff --cached --quiet
           mkdir "$RUNNER_TEMP/crm-portal-publication"
-          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37214615265 > "$RUNNER_TEMP/crm-portal-target-run.json"
-          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37214615265/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37228919950 > "$RUNNER_TEMP/crm-portal-target-run.json"
+          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37228919950/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
           python3 - <<'PY_GATE'
           import json,pathlib
           root=pathlib.Path(__import__('os').environ['RUNNER_TEMP'])
           run=json.loads((root/'crm-portal-target-run.json').read_text())
           jobs=json.loads((root/'crm-portal-target-jobs.json').read_text())
-          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped'}
+          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped', 'portal-image-oci-preflight': 'success'}
           def require(condition):
            if not condition: raise SystemExit('Target CI gate refused.')
-          require(run['id']==37214615265 and run['workflow_id']==373226706)
+          require(run['id']==37228919950 and run['workflow_id']==373226706)
           require(run['path']=='.github/workflows/dashboard-candidate-crm-fix-20261002.yml')
           require(run['event']=='push' and run['head_branch']=='codex/dashboard-candidate-crm-fix-20261002')
-          require(run['head_sha']=='a6ae8725e50c728ee8dff670d02a56df7d3be3db' and run['status']=='completed' and run['conclusion']=='success')
+          require(run['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' and run['status']=='completed' and run['conclusion']=='success')
           require(run['run_attempt']==1)
           require(jobs['total_count']==len(expected) and len(jobs['jobs'])==len(expected))
           require(len({j['name'] for j in jobs['jobs']})==len(expected))
           require({j['name']:j['conclusion'] for j in jobs['jobs']}==expected)
           require(all(j['status']=='completed' for j in jobs['jobs']))
-          require(all(j['run_id']==37214615265 and j['run_attempt']==1 and j['head_sha']=='a6ae8725e50c728ee8dff670d02a56df7d3be3db' for j in jobs['jobs']))
+          require(all(j['run_id']==37228919950 and j['run_attempt']==1 and j['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' for j in jobs['jobs']))
           proof={k:run[k] for k in ['id','workflow_id','path','event','head_branch','head_sha','status','conclusion','run_attempt','html_url']}
           proof['jobs']=[{k:j[k] for k in ['id','name','status','conclusion','run_id','run_attempt','head_sha']} for j in jobs['jobs']]
           (root/'crm-portal-publication'/'target-ci.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
@@ -409,7 +409,7 @@ jobs:
           'use strict';
           const a=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
           const sqlite=require('node:sqlite');
-          const revision='a6ae8725e50c728ee8dff670d02a56df7d3be3db',pack='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1';
+          const revision='0e488d82431f4985ab6202a422dff4b837c4b1c3',pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a';
           let stage='node-api';
           (async()=>{
            a.equal(process.versions.node.split('.')[0],'22');
@@ -421,7 +421,7 @@ jobs:
            a.deepEqual(fs.readdirSync('/app').sort(),I.IMAGE_FILES);
            const verified=I.verifyImagePack('/app');
            a.deepEqual(verified.pin,{schema:'shrigma_dashboard_canary_image_v1',baseImage:'node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402',sourceRevision:revision,packSha256:pack});
-           a.equal(Buffer.byteLength(verified.input),806456);
+           a.equal(Buffer.byteLength(verified.input),812340);
            const decoded=P.decodePack(verified.input,pack);
            a.equal(decoded.stats.files,56);a.equal(decoded.stats.publicFiles,30);a.equal(decoded.stats.runtimeFiles,26);
            stage='synthetic-backup';
@@ -451,7 +451,7 @@ jobs:
             stage='source-preservation';
             a.equal(hash(source),before);
             a.deepEqual(fs.readdirSync(root).sort(),['backup.sqlite','source.sqlite']);
-            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:806456,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
+            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:812340,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
            }finally{
             for(const db of [copy,reader,writer])if(db)try{db.close();}catch{}
             fs.rmSync(root,{recursive:true,force:true});
@@ -480,17 +480,17 @@ jobs:
           ref: ${{ github.sha }}
           path: crm-clone-carrier
           persist-credentials: false
-      - name: Provar cópia sintética f56 na mesma imagem OCI a6
+      - name: Provar cópia sintética f56 na mesma imagem OCI 0e
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'SYNTHETIC_CLONE'
-          # Inline only in portal-image-oci-preflight, after its existing a6 build.
+          # Inline only in portal-image-oci-preflight, after its existing 0e build.
           import hashlib,json,os,pathlib,platform,re,secrets,shutil,stat,subprocess,tempfile,time
-          REV='a6ae8725e50c728ee8dff670d02a56df7d3be3db'
-          PACK='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1'
+          REV='0e488d82431f4985ab6202a422dff4b837c4b1c3'
+          PACK='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
           BASE='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402'
-          FILES={'directed-clone-proof.cjs':(21693,'716a451c5f38565469b582d3f192a3065245830a5d95991ce49e988ad9220b26'),'shadow-import.cjs':(7607,'f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e'),'public-source-pins.json':(4479,'3d544c1cb8eac5b8e270d47defc8e6da1910b38cc3559e9d7f804d5c6b486266')}
+          FILES={'directed-clone-proof.cjs':(21693,'20fc902b42394a08ade76cd46df5cf3ad0e472a0cdbfd1cc9e41ea6b925aa685'),'shadow-import.cjs':(7607,'f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e'),'public-source-pins.json':(3534,'a15358877f8434e4550b6a94dc337a65883ba25f9e2051ca4c310802f1f1132a')}
           TMPFS={'/tmp':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700','/dashboard-data':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700'}
           FORMAT='{"id":{{json .Id}},"image":{{json .Image}},"name":{{json .Name}},"owner":{{json (index .Config.Labels "com.shrigma.synthetic-clone-ci-owner")}},"user":{{json .Config.User}},"health":{{json .Config.Healthcheck.Test}},"readonly":{{json .HostConfig.ReadonlyRootfs}},"network":{{json .HostConfig.NetworkMode}},"memory":{{json .HostConfig.Memory}},"swap":{{json .HostConfig.MemorySwap}},"nanoCpus":{{json .HostConfig.NanoCpus}},"pids":{{json .HostConfig.PidsLimit}},"privileged":{{json .HostConfig.Privileged}},"capAdd":{{json .HostConfig.CapAdd}},"capDrop":{{json .HostConfig.CapDrop}},"securityOpt":{{json .HostConfig.SecurityOpt}},"tmpfs":{{json .HostConfig.Tmpfs}},"mounts":{{json .Mounts}},"running":{{json .State.Running}},"exitCode":{{json .State.ExitCode}},"oom":{{json .State.OOMKilled}}}'
           def require(value):
@@ -565,7 +565,7 @@ jobs:
             native[role]=profile(snapshot,role);require(snapshot['running'] is False)
             return cid
            try:
-            # Only three carrier files and nine pinned a6 public sources reach /proof.
+            # Only three carrier files and nine pinned 0e public sources reach /proof.
             for name,(size,digest) in FILES.items():
              (proof_dir/name).write_bytes(checked_bytes(helper/name,size,digest));(proof_dir/name).chmod(0o444)
             pins=document((proof_dir/'public-source-pins.json').read_bytes())
@@ -653,8 +653,8 @@ jobs:
             clone_require(len(pairs)==len(dict(pairs)));return dict(pairs)
            return json.loads(raw,object_pairs_hook=unique)
           def validate_clone(clone,image_id,carrier,run,attempt):
-           revision='a6ae8725e50c728ee8dff670d02a56df7d3be3db'
-           pack='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1'
+           revision='0e488d82431f4985ab6202a422dff4b837c4b1c3'
+           pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
            base='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402'
            keys=['schema','imageSourceRevision','packSha256','baseImage','imageConfigId','workflowCarrierRevision','ciRunId','ciRunAttempt','owner','holderContainerId','verifierContainerId','nativeProfiles','holderLiveThroughVerification','verifierExitCode','ownTemporaryCleanup','fixtureOnly','realCustodyProven','registryWriteByThisJob','result']
            clone_require(type(clone) is dict and set(clone)==set(keys))
@@ -683,13 +683,13 @@ jobs:
            clone_require(all(r[k]==v and type(r[k]) is type(v) for k,v in scalar.items()))
           clone=clone_json((root/'synthetic-clone-oci.json').read_bytes())
           validate_clone(clone,image_id,carrier,int(os.environ['GITHUB_RUN_ID']),int(os.environ['GITHUB_RUN_ATTEMPT']))
-          if (root/'source-revision.txt').read_text().strip()!='a6ae8725e50c728ee8dff670d02a56df7d3be3db' or (root/'pack-sha256.txt').read_text().strip()!='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1': raise SystemExit('Public OCI source pins refused.')
+          if (root/'source-revision.txt').read_text().strip()!='0e488d82431f4985ab6202a422dff4b837c4b1c3' or (root/'pack-sha256.txt').read_text().strip()!='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a': raise SystemExit('Public OCI source pins refused.')
           proof={'schema':'shrigma_portal_image_ci_preflight_v1','imageSourceRevision':(root/'source-revision.txt').read_text().strip(),'packSha256':(root/'pack-sha256.txt').read_text().strip(),'workflowCarrierRevision':carrier,'ciRunId':int(os.environ['GITHUB_RUN_ID']),'ciRunAttempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'imageConfigId':image_id,'registryImageRef':None,'registryWriteByThisJob':False,'imageTarExported':False,'syntheticOnly':True,'publicFileSha256':hashes}
           (root/'ci-build-context.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
           PUBLIC_PROOF
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: crm-portal-oci-preflight-a6ae8725e50c728ee8dff670d02a56df7d3be3db-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: crm-portal-oci-preflight-0e488d82431f4985ab6202a422dff4b837c4b1c3-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/crm-portal-publication/
           if-no-files-found: error
           retention-days: 7
@@ -704,11 +704,11 @@ jobs:
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&
       github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
-      contains(github.event.head_commit.message, '[publish-crm-portal-a6ae8725e50c728ee8dff670d02a56df7d3be3db]')
+      contains(github.event.head_commit.message, '[publish-crm-portal-0e488d82431f4985ab6202a422dff4b837c4b1c3]')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     concurrency:
-      group: crm-portal-candidate-a6ae8725e50c728ee8dff670d02a56df7d3be3db
+      group: crm-portal-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3
       cancel-in-progress: false
     permissions:
       contents: read
@@ -718,14 +718,14 @@ jobs:
       image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
       image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
     env:
-      PORTAL_SOURCE_REVISION: 'a6ae8725e50c728ee8dff670d02a56df7d3be3db'
-      PORTAL_PACK_SHA256: '3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1'
-      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-a6ae8725e50c728ee8dff670d02a56df7d3be3db'
+      PORTAL_SOURCE_REVISION: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+      PORTAL_PACK_SHA256: 'adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3'
     steps:
       # Workflow carrier SHA and image source SHA are intentionally distinct.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: 'a6ae8725e50c728ee8dff670d02a56df7d3be3db'
+          ref: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
           persist-credentials: false
       - name: Confirmar CI concluída da revisão exata antes da construção
         shell: bash
@@ -737,26 +737,26 @@ jobs:
           git diff --quiet
           git diff --cached --quiet
           mkdir "$RUNNER_TEMP/crm-portal-publication"
-          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37214615265 > "$RUNNER_TEMP/crm-portal-target-run.json"
-          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37214615265/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37228919950 > "$RUNNER_TEMP/crm-portal-target-run.json"
+          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37228919950/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
           python3 - <<'PY_GATE'
           import json,pathlib
           root=pathlib.Path(__import__('os').environ['RUNNER_TEMP'])
           run=json.loads((root/'crm-portal-target-run.json').read_text())
           jobs=json.loads((root/'crm-portal-target-jobs.json').read_text())
-          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped'}
+          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped', 'portal-image-oci-preflight': 'success'}
           def require(condition):
            if not condition: raise SystemExit('Target CI gate refused.')
-          require(run['id']==37214615265 and run['workflow_id']==373226706)
+          require(run['id']==37228919950 and run['workflow_id']==373226706)
           require(run['path']=='.github/workflows/dashboard-candidate-crm-fix-20261002.yml')
           require(run['event']=='push' and run['head_branch']=='codex/dashboard-candidate-crm-fix-20261002')
-          require(run['head_sha']=='a6ae8725e50c728ee8dff670d02a56df7d3be3db' and run['status']=='completed' and run['conclusion']=='success')
+          require(run['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' and run['status']=='completed' and run['conclusion']=='success')
           require(run['run_attempt']==1)
           require(jobs['total_count']==len(expected) and len(jobs['jobs'])==len(expected))
           require(len({j['name'] for j in jobs['jobs']})==len(expected))
           require({j['name']:j['conclusion'] for j in jobs['jobs']}==expected)
           require(all(j['status']=='completed' for j in jobs['jobs']))
-          require(all(j['run_id']==37214615265 and j['run_attempt']==1 and j['head_sha']=='a6ae8725e50c728ee8dff670d02a56df7d3be3db' for j in jobs['jobs']))
+          require(all(j['run_id']==37228919950 and j['run_attempt']==1 and j['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' for j in jobs['jobs']))
           proof={k:run[k] for k in ['id','workflow_id','path','event','head_branch','head_sha','status','conclusion','run_attempt','html_url']}
           proof['jobs']=[{k:j[k] for k in ['id','name','status','conclusion','run_id','run_attempt','head_sha']} for j in jobs['jobs']]
           (root/'crm-portal-publication'/'target-ci.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
@@ -774,7 +774,7 @@ jobs:
           'use strict';
           const a=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
           const sqlite=require('node:sqlite');
-          const revision='a6ae8725e50c728ee8dff670d02a56df7d3be3db',pack='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1';
+          const revision='0e488d82431f4985ab6202a422dff4b837c4b1c3',pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a';
           let stage='node-api';
           (async()=>{
            a.equal(process.versions.node.split('.')[0],'22');
@@ -786,7 +786,7 @@ jobs:
            a.deepEqual(fs.readdirSync('/app').sort(),I.IMAGE_FILES);
            const verified=I.verifyImagePack('/app');
            a.deepEqual(verified.pin,{schema:'shrigma_dashboard_canary_image_v1',baseImage:'node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402',sourceRevision:revision,packSha256:pack});
-           a.equal(Buffer.byteLength(verified.input),806456);
+           a.equal(Buffer.byteLength(verified.input),812340);
            const decoded=P.decodePack(verified.input,pack);
            a.equal(decoded.stats.files,56);a.equal(decoded.stats.publicFiles,30);a.equal(decoded.stats.runtimeFiles,26);
            stage='synthetic-backup';
@@ -816,7 +816,7 @@ jobs:
             stage='source-preservation';
             a.equal(hash(source),before);
             a.deepEqual(fs.readdirSync(root).sort(),['backup.sqlite','source.sqlite']);
-            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:806456,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
+            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:812340,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
            }finally{
             for(const db of [copy,reader,writer])if(db)try{db.close();}catch{}
             fs.rmSync(root,{recursive:true,force:true});
@@ -899,7 +899,7 @@ jobs:
           printf 'Portal candidato: `%s`\nFonte: `%s`; pacote: `%s`; linux/amd64, UID/GID1000 e SQLite backup conferidos no digest público.\n' "$PORTAL_REF" "$PORTAL_SOURCE_REVISION" "$PORTAL_PACK_SHA256" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: crm-portal-candidate-image-a6ae8725e50c728ee8dff670d02a56df7d3be3db-${{ github.run_id }}-${{ github.run_attempt }}
+          name: crm-portal-candidate-image-0e488d82431f4985ab6202a422dff4b837c4b1c3-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/crm-portal-publication/
           if-no-files-found: error
           retention-days: 7

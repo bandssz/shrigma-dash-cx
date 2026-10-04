@@ -3,8 +3,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),zlib=require('node:zlib');
 const {spawnSync}=require('node:child_process');
 const {DatabaseSync,backup}=require('node:sqlite');
-const REVISION='a6ae8725e50c728ee8dff670d02a56df7d3be3db';
-const PACK='3b90fdd344b0453cc511963eaf4029ad492fffa7622c8e1162c5c2765c4344a1';
+const REVISION='0e488d82431f4985ab6202a422dff4b837c4b1c3';
+const PACK='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a';
 const BASE='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402';
 const IMPORTER_SHA='f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e';
 // This public identifier is mandatory in the byte-exact importer. All account
