@@ -5,7 +5,7 @@
  * createAuth({dbPath, managerHost, areaHosts, allowedEmailDomains,
  *   bootstrapAdminEmail, bootstrapTokenSha256, encryptionKey, now?}) returns:
  *   beginBootstrap/completeBootstrap, login, session, authorize, logout,
- *   createInvite, acceptInvite, users, setGrants, setRequestedAccess, revokeUser,
+ *   createInvite, acceptInvite, users, renewManagedCrm, setGrants, setRequestedAccess, revokeUser,
  *   setUpstreamCredential, getUpstreamCredential, audienceDraft,
  *   reserveAudienceDraft, audienceDraftOutcome, close.
  *
@@ -106,6 +106,13 @@ function invitePermissions(areas,permissions){
 
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
+ if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
+ let corporateWriter=null;
+ if(options.crmManagedWriter?.mode!==undefined)try{corporateWriter=require('./crm-manager-runtime.cjs').corporateWriterDescriptor(options.crmManagedWriter,options.crmManagedRead,options.allowedEmailDomains);}catch{err('MANAGED_WRITER_CONFIG_INVALID',500);}
+ if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MANAGED_WRITER_CONFIG_INVALID',500);
+ if(options.crmCampaignSubmitWrite!==undefined&&typeof options.crmCampaignSubmitWrite!=='boolean'||options.crmCampaignSubmitWrite===true&&!corporateWriter&&(options.crmManagedRead!==undefined||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!=='synthetic.invalid'))err('CAMPAIGN_WRITE_CONFIG_INVALID',500);
+ const campaignSubmit=options.crmCampaignSubmitWrite===true;
+ if(options.crmManagedWriter!==undefined&&(!campaignSubmit||!corporateWriter&&(options.crmManagedRead!==undefined||!plain(options.crmManagedWriter)||Object.keys(options.crmManagedWriter).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedWriter).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v)))))err('MANAGED_WRITER_CONFIG_INVALID',500);
  const {dbPath}=options,managerHost=hostname(options.managerHost);
  const areaHosts=Object.fromEntries(AREAS.map(a=>[a,hostname(options.areaHosts[a])]));
  if(new Set([managerHost,...Object.values(areaHosts)]).size!==4)err('CONFIG_INVALID',500);
@@ -172,6 +179,9 @@ function createAuth(options){
   bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,first_at INTEGER NOT NULL,locked_until INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS identity_metadata (
   key TEXT PRIMARY KEY,encrypted_value TEXT NOT NULL);`);
+ if(campaignSubmit)db.exec(`CREATE TABLE IF NOT EXISTS campaign_writer_attestation_v1 (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,owner TEXT NOT NULL,principal_id TEXT NOT NULL UNIQUE,
+  credential_mac TEXT NOT NULL,expires_at INTEGER NOT NULL,attested_at INTEGER NOT NULL);`);
  // Existing shadow volumes may already contain an unresolved v1 audience
  // journal. Keep that row locked; a missing MAC cannot authorize a v2 receipt.
  if(!db.prepare('PRAGMA table_info(audience_draft_operations)').all().some(column=>column.name==='payload_mac'))
@@ -204,6 +214,34 @@ function createAuth(options){
   }
   db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
+ // Off by default: records local identity jobs, never starts remote transport
+ // or a worker. The private gateway constructor owns this configuration.
+ let managedCrm=null,managedWriter=null;
+ if(options.crmManagedRead!==undefined)try{
+  managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+ }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
+ if(options.crmManagedWriter!==undefined)try{
+  managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',issuerId:options.crmManagedWriter.issuerId,namespaceId:options.crmManagedWriter.namespaceId,...(corporateWriter?{readReady:id=>managedCrm.credentialReady(id)===true}:{}),allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+ }catch{db.close();err('MANAGED_WRITER_CONFIG_INVALID',500);}
+ function writerCall(fn){try{return fn();}catch{err('MANAGED_WRITER_STORE_UNAVAILABLE',503);}}
+ function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
+ // Only the current lifecycle's open renewal is projected into the admin
+ // list. Private operation IDs and candidate material never leave the store.
+ function managedRenewalPhase(userId){
+  if(!managedCrm)return null;
+  return db.prepare("SELECT o.phase FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' AND o.lifecycle_version=l.version AND l.state='ready' AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')").get(userId)?.phase??null;
+ }
+ function managedAccess(user){
+  const status=managedCrm?.status(user.id);if(!status)return null;
+  const renewalPhase=managedRenewalPhase(user.id),ready=managedCrm.credentialReady(user.id)===true;
+  const expired=status.state==='ready'&&Number.isSafeInteger(status.expiresAt)&&status.expiresAt<=current();
+  const edit=permissions(user.id).growth?.edit,writer=corporateWriter?managedWriter.publicState(user.id):null;
+  const writerRevocationPending=writer?.state==='revoking',writerRenewalPending=typeof writer?.renewalPhase==='string';
+  const pending=corporateWriter&&(managedWriter.hasPendingCampaigns(user.id)||unresolvedAudienceDraft(user.id));
+  const renewalReady=corporateWriter?managedCrm.renewalReady(user.id)===true:ready&&!expired;
+  const canRenew=(edit===false||corporateWriter&&managedWriter.bindingForRenewal(user.id)===true)&&user.role==='manager'&&user.state==='active'&&status.state==='ready'&&renewalReady&&renewalPhase===null&&!pending&&!writerRevocationPending&&!writerRenewalPending;
+  return {...status,ready,renewalPhase,expired,canRenew,...(corporateWriter?{writerRevocationPending}: {})};
+ }
  let hashing=false;const waiters=[];
  async function derive(password,salt){
   if(hashing){if(waiters.length>=8)err('AUTH_BUSY',503);await new Promise(resolve=>waiters.push(resolve));}
@@ -311,12 +349,14 @@ function createAuth(options){
  function adminContext(context){const ctx={...context,admin:true};if(ctx.method!=='POST')err('METHOD_DENIED',405);return authorize(ctx);}
  function createInvite({context,email,areas,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
   adminContext(context);const e=emailAddress(email,domainSet),p=invitePermissions(areas,requested);
+  if((managedCrm||managedWriter)&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
   db.exec('BEGIN IMMEDIATE');try{
    if(existing&&unresolvedAudienceDraft(existing.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   if(existing&&unresolvedCampaignDelivery(existing.id))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
    if(existing&&p.growth?.edit&&unresolvedCampaignDraft(existing.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM invites WHERE expires_at<=? OR used_at IS NOT NULL').run(t);
    if(existing){db.prepare("UPDATE users SET role='manager',state='invited',password_hash=NULL,totp_secret=NULL,totp_last_step=-1,updated_at=? WHERE id=? AND state='disabled'").run(t,id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);db.prepare('DELETE FROM upstream_credentials WHERE user_id=?').run(id);db.prepare('DELETE FROM invites WHERE user_id=?').run(id);}
@@ -326,6 +366,8 @@ function createAuth(options){
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(id);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(id,t);
    db.prepare('INSERT INTO invites(token_hash,user_id,host,expires_at) VALUES(?,?,?,?)').run(sha(token),id,host,t+expiresMs);
+   if(managedCrm&&p.growth?.read)managedCall(()=>managedCrm.createLifecycle(id));
+   if(managedWriter&&p.growth?.read)writerCall(()=>managedWriter.createLifecycle(id));
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {token,userId:id,host};
@@ -335,12 +377,14 @@ function createAuth(options){
   if(typeof token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(token))err('INVITE_DENIED',403);
   const t=current(),hash=sha(token),invite=db.prepare('SELECT i.*,u.state FROM invites i JOIN users u ON u.id=i.user_id WHERE i.token_hash=?').get(hash);
   if(!invite||invite.host!==h||invite.state!=='invited'||invite.used_at!==null||invite.expires_at<=t)err('INVITE_DENIED',403);
-  const passwordHash=await hashPassword(password);
+  const passwordHash=await hashPassword(password),acceptedAt=current();
   db.exec('BEGIN IMMEDIATE');try{
-   const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(t,hash,t);
+   const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(acceptedAt,hash,acceptedAt);
    if(used.changes!==1)err('INVITE_DENIED',403);
-   const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,t,invite.user_id);
-   if(activated.changes!==1)err('INVITE_DENIED',403);db.exec('COMMIT');
+   const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,acceptedAt,invite.user_id);
+   if(activated.changes!==1)err('INVITE_DENIED',403);
+   if(managedCrm&&permissions(invite.user_id).growth?.read&&managedCrm.status(invite.user_id))managedCall(()=>managedCrm.activateLifecycle(invite.user_id));
+   db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true};
  }
@@ -348,8 +392,52 @@ function createAuth(options){
   authorize({...context,admin:true,method:'GET'});
   return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
    const p=permissions(u.id);
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state};
+   const crmAccess=managedAccess(u),writerState=managedWriter?.publicState(u.id);
+   const crmWriter=corporateWriter&&writerState?{...writerState,canRenew:writerState.canRenew===true&&managedCrm.renewalReady(u.id)===true&&Number.isSafeInteger(crmAccess?.expiresAt)&&crmAccess.expiresAt>current()&&crmAccess.renewalPhase===null}:writerState;
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
   });
+ }
+ function renewManagedCrm({context,userId}){
+  adminContext(context);
+  if(!managedCrm)err('CRM_PROVISIONING_NOT_READY',403);
+  if(typeof userId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(userId))err('USER_INVALID',400);
+  try{
+   const user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId),p=permissions(userId);
+   if(!user||user.role!=='manager'||user.state!=='active'||Object.keys(p).length!==1||p.growth?.read!==true||p.growth?.edit!==false&&!corporateWriter)err('USER_DENIED',404);
+   const access=managedAccess(user);
+   if(!access||access.state!=='ready')err('CRM_RENEWAL_NOT_READY',409);
+   if(access.expired&&!corporateWriter)err('CRM_ACCESS_EXPIRED',409);
+   if(access.renewalPhase!==null)err('CRM_RENEWAL_PENDING',409);
+   if(corporateWriter){
+    if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+    const writer=managedWriter.publicState(userId);
+    if(writer?.state==='revoking')err('CRM_WRITER_REVOCATION_PENDING',409);
+    if(typeof writer?.renewalPhase==='string')err('CRM_WRITER_RENEWAL_PENDING',409);
+    if(writer?.state==='ready'||writer?.state==='blocked'&&managedWriter.bindingForRenewal(userId)===true){
+     if(!access.canRenew)err('CRM_RENEWAL_NOT_READY',409);
+     // First retire WRITER; READ rotation must wait for verified lifecycle
+     // revocation. The existing READ slot/login and terminal receipts survive.
+     db.exec('BEGIN IMMEDIATE');try{
+      if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+      if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+      writerCall(()=>managedWriter.stageRevoke(userId));db.exec('COMMIT');
+     }catch(e){db.exec('ROLLBACK');throw e;}
+     return {ok:true,state:'writer_revocation_pending'};
+    }
+    if(p.growth.edit===true||writer&&['provisioning','blocked','renewing'].includes(writer.state))err('CRM_WRITER_REVOCATION_REQUIRED',409);
+   }
+   if(!access.canRenew)err('CRM_RENEWAL_NOT_READY',409);
+   // renew() owns its SQLite transaction and returns only after COMMIT. The
+   // HTTP gateway may then kick its private runtime; this method does no I/O.
+   if(access.expired&&corporateWriter)managedCrm.renewExpired(userId);else managedCrm.renew(userId);
+  }catch(e){
+   if(e instanceof AuthError)throw e;
+   if(e?.code==='MANAGED_OPERATION_PENDING')err('CRM_RENEWAL_PENDING',409);
+   if(['MANAGED_NOT_READY','MANAGED_MANAGER_DENIED'].includes(e?.code))err('CRM_RENEWAL_NOT_READY',409);
+   err('MANAGED_STORE_UNAVAILABLE',503);
+  }
+  return {ok:true};
  }
  function setRequestedAccess({context,userId,requestedAccess}){
   adminContext(context);
@@ -361,8 +449,18 @@ function createAuth(options){
   const t=current();db.exec('BEGIN IMMEDIATE');try{
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
-   if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
+   if(requestedAccess==='edit'){
+    if(corporateWriter&&p.growth?.read){
+     if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+     // Existing admissions stay put; only the missing active READ pilot gets
+     // a new unapproved WRITER lifecycle. Requesting edit never grants it.
+     if(user.state==='active'&&managedWriter.publicState(userId)===null)writerCall(()=>managedWriter.requestLifecycle(userId));
+    }
+    db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
+   }
    else{
+    if(corporateWriter&&managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+    if(managedWriter)writerCall(()=>managedWriter.stageRevoke(userId));
     db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
     db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
     for(const [slot,definition]of Object.entries(CREDENTIAL_SLOTS))if(definition.mayWrite)db.prepare('DELETE FROM upstream_credentials WHERE user_id=? AND slot=?').run(userId,slot);
@@ -376,11 +474,17 @@ function createAuth(options){
   const actor=adminContext(context),user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
   if(!user||user.state==='disabled'||user.role==='superadmin'&&user.id!==actor.id)err('USER_DENIED',404);
   const p=normalizePermissions(requested);
+  if((managedCrm||managedWriter)&&user.role==='manager'&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(user.role==='superadmin'&&(Object.keys(p).length!==3||AREAS.some(a=>!p[a]?.read)))err('GRANTS_INVALID',400);
   if(user.role==='manager'&&Object.keys(p).length!==1)err('GRANTS_INVALID',400);
+  // Invitations are bound to an area host; transfer requires revoke/reinvite.
+  if(managedCrm&&user.role==='manager'&&Object.keys(p)[0]!==Object.keys(permissions(userId))[0])err('AREA_CHANGE_REQUIRES_REINVITE',409);
   if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  if(p.growth?.edit&&!permissions(userId).growth?.edit&&unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
   db.exec('BEGIN IMMEDIATE');try{
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   if(corporateWriter&&user.role==='manager'&&managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+   if(managedWriter&&user.role==='manager')writerCall(()=>managedWriter.stageRevoke(userId));
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(userId,area,g.edit?1:0);
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
@@ -392,19 +496,23 @@ function createAuth(options){
   adminContext(context);const user=db.prepare('SELECT id,role FROM users WHERE id=?').get(userId);
   if(!user||user.role!=='manager')err('USER_DENIED',404);
   db.exec('BEGIN IMMEDIATE');try{
+   if(managedCrm&&managedCrm.status(userId))managedCall(()=>managedCrm.stageRevoke(userId));
+   if(managedWriter)writerCall(()=>managedWriter.stageRevoke(userId));
    db.prepare("UPDATE users SET state='disabled',password_hash=NULL,updated_at=? WHERE id=?").run(current(),userId);
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM upstream_credentials WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM invites WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);db.exec('COMMIT');
-  }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
+  }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true,...(managedCrm?.status(userId)?{crmRevocationPending:managedCrm.status(userId).state!=='revoked'}:{})};
  }
  function credentialTarget({context,userId,slot,bearer}){
   adminContext(context);const definition=CREDENTIAL_SLOTS[slot];
   if(!definition||typeof bearer!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(bearer))err('CREDENTIAL_INVALID',400);
   const user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
+  if(managedCrm&&user.role==='manager'&&definition.area==='growth'&&managedCrm.status(userId))err('MANAGED_CREDENTIAL_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  if(slot==='growth-campaign'&&unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
   return user;
  }
  function crmPanelReadOwner(user,context){
@@ -422,7 +530,89 @@ function createAuth(options){
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true};
  }
- function setUpstreamCredential(args){return storeUpstreamCredential(args);}
+ function setUpstreamCredential(args){if(campaignSubmit&&args?.slot==='growth-campaign')err('CREDENTIAL_ATTESTATION_REQUIRED',403);return storeUpstreamCredential(args);}
+ // PRIVATE fixture/issuer promotion hook. No HTTP route accepts this payload.
+ // The present write gate is restricted to the synthetic identity domain;
+ // a reviewed writer issuer is still required before production support.
+ async function installCampaignWriter({context,userId,bearer,principalId,expiresAt,fetchImpl=globalThis.fetch}){
+  if(!campaignSubmit||managedWriter)err('EDIT_NOT_READY',403);
+  const user=credentialTarget({context,userId,slot:'growth-campaign',bearer});
+  if(user.role!=='manager'||user.state!=='active'||Object.keys(permissions(userId)).join(',')!=='growth'||!Number.isSafeInteger(expiresAt)||expiresAt<=current()||expiresAt>current()+14*86400000)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  try{await require('./crm-campaign-writer-attestation.cjs').verifyCampaignWriterCredential({bearer,owner:user.email,principalId},{fetchImpl});}catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+  const checked=credentialTarget({context,userId,slot:'growth-campaign',bearer});
+  if(checked.email!==user.email||checked.updated_at!==user.updated_at||checked.role!=='manager'||checked.state!=='active'||expiresAt<=current())err('CREDENTIAL_ATTESTATION_FAILED',403);
+  const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
+  db.exec('BEGIN IMMEDIATE');try{
+   if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
+   db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(userId,encrypt(bearer),digest,current());
+   db.prepare('INSERT INTO campaign_writer_attestation_v1 VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at').run(userId,user.email,principalId,digest,expiresAt,current());
+   db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
+ }
+ // Private caller only: no new HTTP route and no automatic dispatch.
+ function approveManagedCampaignWriter({context,userId}){
+  adminContext(context);if(!managedWriter)err('EDIT_NOT_READY',403);
+  if(corporateWriter&&managedCrm.credentialReady(userId)!==true)err('CRM_ACCESS_NOT_READY',409);
+  if(typeof userId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(userId))err('USER_INVALID',400);
+  if(corporateWriter&&!db.prepare("SELECT 1 FROM access_requests WHERE user_id=? AND requested_access='edit'").get(userId))err('CRM_WRITER_REQUEST_REQUIRED',409);
+  db.exec('BEGIN IMMEDIATE');try{writerCall(()=>managedWriter.approve(userId));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
+  // enqueue owns its own transaction. Its failure leaves only an inactive,
+  // durable approval; the same admission can be resumed before any RPC.
+  writerCall(()=>managedWriter.journal.enqueue(userId,'issue'));return {ok:true};
+ }
+ // Manual corporate renewal is an admin operation. The old WRITER actor
+ // is never rotated while a campaign receipt in either brand is unresolved.
+ function renewManagedCampaignWriter({context,userId}){
+  adminContext(context);if(!corporateWriter||!managedWriter)err('EDIT_NOT_READY',403);
+  if(typeof userId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(userId))err('USER_INVALID',400);
+  const writer=managedWriter.publicState(userId);
+  if(typeof writer?.renewalPhase==='string')err('CRM_WRITER_RENEWAL_PENDING',409);
+  if(managedCrm.renewalReady(userId)!==true||managedCrm.status(userId)?.expiresAt<=current()||managedRenewalPhase(userId)!==null)err('CRM_ACCESS_NOT_READY',409);
+  if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+  if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+  if(writer?.canRenew!==true)err('CRM_WRITER_RENEWAL_NOT_READY',409);
+  db.exec('BEGIN IMMEDIATE');try{writerCall(()=>managedWriter.stageRenew(userId));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
+  return {ok:true,state:'renewing'};
+ }
+ function writerBinding(user){
+  if(managedWriter)return managedWriter.bindingForUser(user.id);
+  if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
+  const a=db.prepare("SELECT a.*,c.key_digest FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id);
+  return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&a.expires_at>current()?a:null;
+ }
+ // Only a currently FULL corporate WRITER can expose its old receipt GETs.
+ // READ expiry stays closed for data reads and every new campaign mutation.
+ function campaignHistoryRead(ctx){
+  if(!corporateWriter)return false;
+  try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(u);}catch{return false;}
+ }
+ function campaignWriterReady(ctx){try{const user=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(user)&&(!corporateWriter||managedCrm.credentialReady(user.id)===true);}catch{return false;}}
+ let campaignCreateInitialized=false;
+ function hasOpenCampaignCreate(userId,brand){return campaignCreateInitialized&&!!db.prepare("SELECT 1 FROM crm_campaign_create_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand);}
+ function campaignWriterAuthorization(ctx,{brand,action}){
+  draftBrand(brand);if(!campaignSubmit)err('EDIT_NOT_READY',403);
+  const user=authorize({...ctx,area:'growth',edit:true}),a=writerBinding(user);if(!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  // Old WRITER identity remains available for GET receipts/reconciliation.
+  // Only new POST mutations depend on a current individual READ binding.
+  if(corporateWriter&&ctx.method==='POST'&&managedCrm.credentialReady(user.id)!==true)err('CRM_ACCESS_NOT_READY',403);
+  if(db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND brand=? AND phase IN ('pending','uncertain')").get(user.id,brand))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  if(['salvar','validar','agendar','cancelar'].includes(action)&&hasOpenCampaignCreate(user.id,brand))err('CAMPAIGN_CREATE_PENDING',409);
+  return Object.freeze({userId:user.id,role:user.role,slot:'growth-campaign',canEdit:true,credentialMac:a.credential_mac,caps:Object.freeze(['read_content','draft','validate','submit'])});
+ }
+ function campaignDeliveryFor(transport){
+  if(!campaignSubmit)err('EDIT_NOT_READY',403);
+  return require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
+   prepareDefinition:(definition,{catalog,id,now:time})=>require('./campaign-write-contract.js').prepare(definition,{catalog,tracking:require('./campaign-write-tracking.js'),trackingId:id,now:time}).definition});
+ }
+ function campaignCreateFor(transport){
+  if(!campaignSubmit)err('EDIT_NOT_READY',403);
+  const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
+  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',...(corporateWriter?{corporateWriter}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,
+   hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
+   preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
+   prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+  campaignCreateInitialized=true;return creator;
+ }
  async function setSandboxCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
   if(!['growth-read','growth-audience-read','growth-audience'].includes(slot))err('CREDENTIAL_INVALID',400);
   const user=credentialTarget({context,userId,slot,bearer});
@@ -445,8 +635,20 @@ function createAuth(options){
  }
  function getUpstreamCredential(ctx){
   const definition=CREDENTIAL_SLOTS[ctx?.slot];if(!definition||ctx.area!==definition.area||!!ctx.edit!==definition.mayWrite)err('CREDENTIAL_DENIED',403);
-  const user=authorize(ctx),row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
+  const user=authorize(ctx);
+  if(ctx.slot==='crm-panel-read'&&user.role==='manager'&&managedCrm&&managedCrm.credentialReady(user.id)===false)err('CRM_ACCESS_NOT_READY',503);
+  const row=db.prepare('SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
   return row?decrypt(row.encrypted_key):null;
+ }
+ // PRIVATE: bridges only reviewed GETs. No slot alias or bearer is returned.
+ function managedCrmReadAuthorization(ctx){
+  if(!managedCrm||ctx?.method!=='GET')err('MANAGED_READ_DENIED',403);
+  const user=authorize({...ctx,area:'growth',edit:false});
+  if(user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.read!==true||user.permissions.growth?.edit!==false&&!(corporateWriter&&managedWriter.bindingForUser(user.id)))err('MANAGED_READ_DENIED',403);
+  const binding=managedCall(()=>managedCrm.readBinding(user.id));
+  const row=db.prepare("SELECT key_digest FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(user.id);
+  if(!row||binding.owner!==user.email)err('CRM_ACCESS_NOT_READY',503);
+  return Object.freeze({...binding,credentialMac:row.key_digest,slot:'crm-panel-read',caps:Object.freeze(['read_content','list_history','submission'])});
  }
  function audienceDraftReady(ctx){
   const user=authorize({...ctx,method:'GET',area:'growth',edit:false});
@@ -465,6 +667,10 @@ function createAuth(options){
  const audienceActorMatches=(mac,hash)=>typeof mac==='string'&&/^[a-f0-9]{64}$/.test(mac)&&typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash)&&crypto.timingSafeEqual(Buffer.from(mac,'hex'),Buffer.from(audienceActorMac(hash),'hex'));
  const audienceDefinitionMatches=(mac,hash)=>typeof mac==='string'&&/^[a-f0-9]{64}$/.test(mac)&&typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash)&&crypto.timingSafeEqual(Buffer.from(mac,'hex'),Buffer.from(audienceDefinitionMac(hash),'hex'));
  const unresolvedCampaignDraft=userId=>!!db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
+ function unresolvedCampaignDelivery(userId,brand){
+  if(!campaignSubmit||!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='crm_campaign_delivery_v1'").get())return false;
+  return !!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND (? IS NULL OR brand=?) AND phase IN ('queued','uncertain','confirmed') LIMIT 1").get(userId,brand??null,brand??null);
+ }
  const unresolvedAudienceDraft=userId=>!!db.prepare("SELECT 1 FROM audience_draft_operations WHERE user_id=? AND phase IN ('pending','uncertain') LIMIT 1").get(userId);
  const audienceActions=new Set(['segmento_criar','segmento_salvar','segmento_arquivar']);
  const audienceRejectCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
@@ -551,6 +757,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,CREDENTIAL_SLOTS,COOKIE};

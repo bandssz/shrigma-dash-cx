@@ -2,7 +2,7 @@
 // The immutable image supplies the artifact pin. Runtime environment variables
 // may agree with it, but cannot select another artifact.
 const fs=require('node:fs'),path=require('node:path');
-const {decodePack,MAX_PACK_BYTES,SCHEMA}=require('./artifact-policy.cjs');
+const {decodePack,MAX_PACK_BYTES,SCHEMA,SCHEMA_V2}=require('./artifact-policy.cjs');
 const IMAGE='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402';
 const IMAGE_SCHEMA='shrigma_dashboard_canary_image_v1';
 const IMAGE_FILES=Object.freeze(['runtime-pack.json','bootstrap.cjs','artifact-policy.cjs','canary-start.cjs','canary-image.cjs','image-pin.json'].sort());
@@ -25,9 +25,9 @@ function prepareImage(packDirectory,sourceRevision,destination){
  if(!/^[a-f0-9]{40}$/.test(sourceRevision||''))throw Error('IMAGE_SOURCE_REVISION_REQUIRED');
  const source=path.resolve(packDirectory),out=path.resolve(destination);
  const metadata=JSON.parse(regular(path.join(source,'deployment-metadata.json'),4096));
- if(metadata.schema!==SCHEMA||metadata.image!==IMAGE||metadata.runtimeUid!==1000||metadata.runtimeGid!==1000||metadata.volume!=='/dashboard-data')throw Error('IMAGE_METADATA_INVALID');
+ if(![SCHEMA,SCHEMA_V2].includes(metadata.schema)||metadata.image!==IMAGE||metadata.runtimeUid!==1000||metadata.runtimeGid!==1000||metadata.volume!=='/dashboard-data')throw Error('IMAGE_METADATA_INVALID');
  const input=regular(path.join(source,'runtime-pack.json'),MAX_PACK_BYTES);
- decodePack(input,metadata.packSha256);
+ decodePack(input,metadata.packSha256);if(JSON.parse(input).schema!==metadata.schema)throw Error('IMAGE_METADATA_INVALID');
  if(fs.existsSync(out)){const stat=fs.lstatSync(out);if(!stat.isDirectory()||stat.isSymbolicLink()||fs.readdirSync(out).length)throw Error('IMAGE_DESTINATION_INVALID');}
  fs.mkdirSync(out,{recursive:true,mode:0o700});
  const pin={schema:IMAGE_SCHEMA,baseImage:IMAGE,sourceRevision,packSha256:metadata.packSha256};

@@ -104,7 +104,7 @@ const GRU={
   },
   cliente(escrita,bearerWrite=false){
     const c=GRU.caps||GRU.capacidades();
-    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||'',bearerWrite});
+    return GTA.cliente({endpoint:c.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:GTA.chaveLeitura(),chaveEscrita:escrita||'',bearerWrite,leituraMarca:c.leitura_marca===true});
   },
   /* ---------- render ---------- */
   render(ctx){
@@ -197,7 +197,7 @@ const GRU={
         <div class="campo"><label for="d-peca">Nome da etapa (opcional)</label><input type="text" id="d-peca" data-campo="peca" value="${GRU.e(r.peca)}" placeholder="rastreio-criado"><span class="ajuda">Mesmo nome da peça usado nas automações, para bater com o histórico.</span></div>
         ${wa?`<div class="campo largo"><label for="d-cabecalho">Cabeçalho (opcional)</label><input type="text" id="d-cabecalho" data-campo="cabecalho" maxlength="${GR.LIMITES.cabecalho}" value="${GRU.e(r.cabecalho)}"><span class="ajuda" id="d-cabecalho-conta">${String(r.cabecalho||'').length} de ${GR.LIMITES.cabecalho}</span></div>`:''}
         <div class="campo largo"><label for="d-corpo">Corpo</label><textarea id="d-corpo" data-campo="corpo" rows="7" placeholder="${wa?'Olá {{1}}, seu pedido {{2}} saiu para entrega…':'Texto do e-mail…'}">${GRU.e(r.corpo)}</textarea><span class="ajuda" id="d-corpo-conta">${GRU.contaCorpo(r)}</span></div>
-        ${wa?`<div class="campo largo"><label for="d-rodape">Rodapé (opcional)</label><input type="text" id="d-rodape" data-campo="rodape" maxlength="${GR.LIMITES.rodape}" value="${GRU.e(r.rodape)}"><span class="ajuda" id="d-rodape-conta">${String(r.rodape||'').length} de ${GR.LIMITES.rodape}</span></div>`:''}
+        ${wa||r.rodape?`<div class="campo largo"><label for="d-rodape">Rodapé (opcional)</label><input type="text" id="d-rodape" data-campo="rodape" maxlength="${GR.LIMITES.rodape}" value="${GRU.e(r.rodape)}"><span class="ajuda" id="d-rodape-conta">${String(r.rodape||'').length} de ${GR.LIMITES.rodape}</span></div>`:''}
         ${wa&&vars.length?`<div class="campo largo"><label>Exemplos das variáveis</label><div class="draft-exemplos">${vars.map(n=>`<label>{{${n}}}<input type="text" data-exemplo="${n}" value="${GRU.e((r.exemplos||{})[n]||'')}" placeholder="exemplo real, sem dado de cliente"></label>`).join('')}</div><span class="ajuda">A Meta pede um exemplo por variável. Use valores fictícios.</span></div>`:''}
         <div class="campo largo"><label>Botões ${wa?`(até ${GR.LIMITES.botoes})`:'(links do e-mail)'}</label><div class="draft-botoes" id="d-botoes">${botoes||'<span class="ajuda">Use Adicionar botão para incluir um link.</span>'}</div>
           ${(r.botoes||[]).length<GR.LIMITES.botoes?'<button type="button" class="refresh-btn" id="d-botao-add">Adicionar botão</button>':''}</div>
@@ -420,7 +420,7 @@ const GRU={
   preserve(){
     if(GRU.contextError)throw Error(GRU.contextError);
     if(!GBS.validBrand(GRU.contextBrand))return;
-    const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value);GRU.contextSaved=JSON.stringify(value);
+    const value=GRU.contextValue();GBS.save('template',GRU.contextBrand,value,{editando:null,rascunho:null});GRU.contextSaved=JSON.stringify(value);
   },
   enterBrand(brand){
     if(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return false;
@@ -504,9 +504,12 @@ const GRU={
     $('#d-refazer')?.addEventListener('click',()=>{if(!r.servidor?.conflito)return;r.servidor.version=r.servidor.conflito.current_version;GTA.evento(r.servidor,{at:GR.agora(),who:'este painel',action:'refazer',result:'ok',detail:`versão esperada ajustada para v${r.servidor.version}; nada enviado`});delete r.servidor.conflito;GR.guarda(r);GRU.aviso(`Versão esperada ajustada para v${r.servidor.version}. Revise o conteúdo e clique em Salvar rascunho.`);GRU.render();});
     $('#d-submeter')?.addEventListener('click',()=>{GRU.state.confirmando=true;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-confirm-texto')?.focus();});
     const ct=$('#d-confirm-texto');if(ct)ct.oninput=()=>{GRU.state.confirmTexto=ct.value;const ok=ct.value.trim().toLowerCase()==='submeter';const btn=document.getElementById('d-confirm-ok');if(btn)btn.disabled=!ok||!!GRU.state.ocupado;};
-    $('#d-confirm-cancel')?.addEventListener('click',()=>{GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();});
+    $('#d-confirm-cancel')?.addEventListener('click',()=>GRU.cancelarConfirmacao());
+    const confirmar=$('#d-confirmar');if(confirmar)confirmar.onkeydown=e=>{if(e.key==='Escape'&&!GRU.state.ocupado){e.preventDefault();GRU.cancelarConfirmacao();}};
     $('#d-confirm-ok')?.addEventListener('click',()=>{if(GRU.state.confirmTexto.trim().toLowerCase()!=='submeter')return;GRU.submeter(r);});
   },
+  // Fechar sem publicar devolve o foco a quem abriu a confirmação.
+  cancelarConfirmacao(){GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-submeter')?.focus();},
   mudou(r){const sujoAgora=GTA.situacao(r).sujo;if(sujoAgora!==GRU._sujo){GRU._sujo=sujoAgora;GRU.render();}else GRU.atualizaPreview();},
   exporta(d){if(typeof GT!=='undefined')GT.baixar(GR.nomeArquivo(d),GR.exporta(d),'application/json');},
   importaTexto(texto){const res=GR.importa(texto);if(res.erro){GRU.aviso(res.erro,'erro');GRU.render();return;}GRU.trocarEditor(()=>{GRU.abrir(res.rascunho,null);GRU.aviso('Arquivo importado como novo rascunho. Revise e salve.');GRU.render();});},
@@ -572,7 +575,10 @@ const GRU={
       let r=GRU.state.rascunho?.id===op.local_id?GRU.state.rascunho:GR.lista().find(x=>x.id===op.local_id);
       if(!r&&op.request_payload.rascunho)r=GR.novo({...op.request_payload.rascunho,id:op.local_id});
       GRU.state.ocupado=null;
-      if(r){GRU.state.rascunho=r;GRU.state.editando=r.id;await GRU.aplicarRecibo(r,res);}
+      // Open the receipt's draft only in its own brand and never over another unsaved preparation.
+      const outraMarca=!!GRU.ctx.marca&&r?.marca!==GRU.ctx.marca,abrir=!!r&&(r===GRU.state.rascunho||!outraMarca&&!GRU.contextStatus().dirty);
+      if(r&&abrir){GRU.state.rascunho=r;GRU.state.editando=r.id;await GRU.aplicarRecibo(r,res);}
+      else if(r){await GRU.aplicarRecibo(r,res);GRU.aviso(`${GRU.state.msg} ${outraMarca?`O template é de ${GRU.rotulo(GR.MARCAS,r.marca)}; selecione essa marca no cabeçalho para editá-lo.`:'A edição aberta foi preservada; salve ou feche-a para abrir este template.'}`.trim(),GRU.state.msgTone);GRU.render();}
       else{GRU.aviso('Recibo conferido e preservado. O rascunho local não está disponível; consulte o integrador para recuperar o conteúdo.','aviso');GRU.render();}
     }catch(e){GRU.state.ocupado=null;GRU.aviso(String(e?.code||'').startsWith('TPL_')?e.message:'Não foi possível consultar o recibo. A operação permanece bloqueada.','erro');GRU.render();}
   },
@@ -595,7 +601,8 @@ const GRU={
   },
   async verificarSubmissao(r,silencioso){
     const s=r.servidor;if(!s?.submission_id)return;
-    const out=await GRU.chamada('submissao',r,c=>c.submissao(s.submission_id));if(!out)return;
+    // Contrato por marca: a consulta leva a marca dona do rascunho (sem o contrato, o argumento é ignorado).
+    const out=await GRU.chamada('submissao',r,c=>c.submissao(s.submission_id,r.marca));if(!out)return;
     const {res,erro}=out;
     if(erro){if(!silencioso){GRU.aviso(`Não deu para consultar a submissão: ${erro.texto}`,'erro');GRU.render();}return;}
     const b=res.body||{};
@@ -619,8 +626,9 @@ const GRU={
   },
   async carregarHistorico(r){
     const s=r.servidor;if(!s)return;
-    const ref=s.template_key?{key:s.template_key}:{draft_id:s.draft_id};
-    const out=await GRU.chamada('historico',r,c=>c.historico(ref));if(!out)return;
+    // Contrato por marca: só o histórico por draft_id tem marca derivável; por key não é servido.
+    const ref=GRU.caps?.leitura_marca===true&&s.draft_id?{draft_id:s.draft_id}:s.template_key?{key:s.template_key}:{draft_id:s.draft_id};
+    const out=await GRU.chamada('historico',r,c=>c.historico(ref,r.marca));if(!out)return;
     const {res,erro}=out;
     if(erro){GRU.aviso(`Histórico indisponível: ${erro.texto}`,'erro');GRU.render();return;}
     s.historico=Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];

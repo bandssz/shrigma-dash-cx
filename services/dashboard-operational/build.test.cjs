@@ -6,9 +6,9 @@ const os=require('node:os');
 const path=require('node:path');
 const vm=require('node:vm');
 const crypto=require('node:crypto');
-const {build,CONTENT,ENDPOINTS}=require('./build.cjs');
+const {build,transform,CONTENT,ENDPOINTS,verifyCampaignAssets}=require('./build.cjs');
 const {typeAndCsp}=require('./server.cjs');
-const {inviteUrlForArea,readOnlyStyles,audienceDraftOperation}=require('./public/entry.js');
+const {inviteUrlForArea,readOnlyStyles,audienceDraftOperation}=require('./public/entry.compiled.js');
 
 function withArtifact(fn){const dest=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-operational-'));try{build(dest);return fn(path.join(dest,'public'));}finally{fs.rmSync(dest,{recursive:true,force:true});}}
 function sha(source){return crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');}
@@ -18,7 +18,7 @@ test('artifact contains only three team panels and management, without CX or bac
  for(const absent of ['cx/index.html','index.html','assets/panels/index.js','assets/panels/index.css','assets/panels/entry.js','services','n8n','.git'])assert.equal(fs.existsSync(path.join(publicRoot,absent)),false,absent);
  const manifest=JSON.parse(fs.readFileSync(path.join(path.dirname(publicRoot),'artifact-manifest.json')));
  assert.deepEqual(manifest.areas,['growth','organico','influs','todos']);
- assert.equal(manifest.publicFiles.length,28);
+ assert.equal(manifest.publicFiles.length,30);
  assert.ok(manifest.publicFiles.includes('media-read.js'));
 }));
 
@@ -48,6 +48,14 @@ test('operational CRM replaces the reviewed legacy media module with the read-on
  assert.doesNotMatch(media,/fetch\([^)]*https?:|<img|createElement\(['"]img['"]\)|FormData|sessionStorage|localStorage|Authorization|Bearer |method:\s*['"]POST['"]/);
  assert.match(media,/\/api\/campaigns_media/);
 }));
+
+test('operational build refuses unreviewed legacy media bytes instead of packaging upload handling',()=>{
+ const panel=fs.readFileSync(path.resolve(__dirname,'../../assets/panels/growth.js'),'utf8');
+ const start=panel.indexOf('const GMedia=(()=>{');
+ assert.ok(start>=0);
+ const changed=panel.slice(0,start)+'const GMedia=(()=>{/* unreviewed */'+panel.slice(start+'const GMedia=(()=>{'.length);
+ assert.throws(()=>transform(changed,'assets/panels/growth.js'),/Legacy media module needs review/);
+});
 
 test('payment diagnostic is a CRM-only cookie-session page with no browser key form',()=>withArtifact(publicRoot=>{
  const html=fs.readFileSync(path.join(publicRoot,'growth-diagnostico.html'),'utf8');
@@ -101,14 +109,14 @@ test('entry uses email/password, fragment invites and same-origin CSP',()=>withA
   assert.match(html,/connect-src 'self'/);assert.match(html,/frame-src 'self'/);
  }
  const js=fs.readFileSync(path.join(publicRoot,'entry.js'),'utf8');
- assert.match(js,/fragment\.get\('invite'\)/);assert.match(js,/fragment\.get\('bootstrap'\)/);
- assert.match(js,/history\.replaceState/);assert.match(js,/session\.uiKey/);
+ assert.match(js,/\.get\(["']invite["']\)/);assert.match(js,/\.get\(["']bootstrap["']\)/);
+ assert.match(js,/history\.replaceState/);assert.match(js,/\.uiKey/);
  assert.doesNotMatch(js,/login-totp|bootstrap-totp|bootstrap-begin|bootstrap-secret|mfa_required|\/auth\/bootstrap\/begin/);
  assert.doesNotMatch(js,/localStorage\.setItem|sessionStorage\.setItem|fetch\(['"]https:\/\//);
 }));
 
 test('login and initial admin activation send email and password without a verification code',async()=>{
- const source=fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8');
+ const source=fs.readFileSync(path.join(__dirname,'public/entry.compiled.js'),'utf8');
  async function submit(hash,formId,values){
   const nodes=new Map(),handlers=new Map(),calls=[];
   const element=id=>{
@@ -165,7 +173,7 @@ test('operational iframe opens only audience draft controls after a scoped prese
  assert.ok(readOnlyStyles('growth',{embeddedOnly:false}).includes('body #crm-media-library-load'));
  assert.equal(readOnlyStyles('cx'),'');
  withArtifact(publicRoot=>{
-  assert.match(fs.readFileSync(path.join(publicRoot,'entry.js'),'utf8'),/installReadOnlyPresentation\(selected\)/);
+  assert.match(fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8'),/installReadOnlyPresentation\(selected\)/);
   const panel=fs.readFileSync(path.join(publicRoot,'assets/panels/growth.js'),'utf8');
   assert.match(panel,/ga-rfm-create/,'the packaged CRM includes the new RFM preset action');
   assert.match(panel,/gs-shortcuts/,'the packaged CRM includes the new condition shortcuts');
@@ -224,7 +232,7 @@ test('an invite opens its activation form even when another account has a sessio
   sessionReads++;return new Response(JSON.stringify({authenticated:true,user:{role:'manager',areas:['growth']}}));
  }};
  const context={window,document,location,history:{replaceState(){historyReplacements++;}},URL,URLSearchParams,Headers,AbortController,Response,setTimeout,clearTimeout};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/entry.compiled.js'),'utf8'),context);
  assert.equal(sessionReads,0);
  assert.equal(historyReplacements,1);
  assert.equal(element('invite-form').hidden,false);
@@ -256,7 +264,7 @@ function guardHarness(session={authenticated:true,csrf:'csrf-test'}){
   return new Response(JSON.stringify(String(url).endsWith('/auth/session')?session:{ok:true}),{status:200,headers:{'Content-Type':'application/json'}});
  },open:(...args)=>{opens.push(args);return {};}};browser.parent=browser;
  const context={window:browser,location:{origin,href:origin+'/growth.html'},navigator:{sendBeacon:()=>true},document:{addEventListener:(type,handler)=>{listeners[type]=handler;}},Request,Response,Headers,URL,URLSearchParams,FormData,HTMLFormElement:class{},console};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/guard.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/guard.compiled.js'),'utf8'),context);
  return {browser,calls,opens,listeners,origin};
 }
 
@@ -374,4 +382,35 @@ test('guard with no authenticated session does not transmit POST to the BFF',asy
  const {browser,calls}=guardHarness({authenticated:false});
  const response=await browser.fetch('/api/ab',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"acao":"criar"}'});
  assert.equal(response.status,401);assert.equal(calls.length,1);assert.equal(calls[0].url,'/auth/session');
+});
+
+test('compiled campaign assets publish browser factories without starting requests or exposing credentials',()=>withArtifact(publicRoot=>{
+ const context={fetch(){assert.fail('Asset loading must not request data');}};
+ for(const file of ['campaign-bff-client.js','campaign-edit.js'])vm.runInNewContext(fs.readFileSync(path.join(publicRoot,file),'utf8'),context);
+ assert.equal(typeof context.ShrigmaCampaignBffClient.createCampaignBffClient,'function');
+ assert.equal(typeof context.ShrigmaCampaignEdit.createCampaignEditor,'function');
+ for(const factory of [context.ShrigmaCampaignBffClient,context.ShrigmaCampaignEdit])assert.equal(Object.isFrozen(factory),true);
+ for(const absent of ['campaign-edit.compiled.js','campaign-ui-assets.json','crm-campaign-bff-client.cjs'])assert.equal(fs.existsSync(path.join(publicRoot,absent)),false);
+ assert.deepEqual(fs.readFileSync(path.join(publicRoot,'campaign-edit.js')),fs.readFileSync(path.join(__dirname,'public/campaign-edit.compiled.js')));
+ assert.notDeepEqual(fs.readFileSync(path.join(publicRoot,'campaign-edit.js')),fs.readFileSync(path.join(__dirname,'public/campaign-edit.js')));
+}));
+
+test('campaign build refuses stale sources, modified compiled bytes, extra manifest paths and symlinks',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-campaign-assets-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'campaign-ui-assets.json'))),files=['campaign-ui-assets.json',...manifest.assets.flatMap(a=>[a.source,a.compiled])];
+ const reset=()=>{fs.rmSync(root,{recursive:true,force:true});fs.mkdirSync(root);for(const file of files){fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});fs.copyFileSync(path.join(__dirname,file),path.join(root,file));}};
+ reset();assert.equal(verifyCampaignAssets(root).length,4);
+ for(const file of ['public/campaign-edit.js','public/campaign-edit.compiled.js']){reset();fs.appendFileSync(path.join(root,file),'\n/* drift */');assert.throws(()=>verifyCampaignAssets(root),/needs regeneration/);}
+ reset();const changed=structuredClone(manifest);changed.assets[0].compiled='../other.js';fs.writeFileSync(path.join(root,'campaign-ui-assets.json'),JSON.stringify(changed));assert.throws(()=>verifyCampaignAssets(root),/Invalid campaign UI manifest/);
+ reset();fs.unlinkSync(path.join(root,'public/campaign-edit.compiled.js'));fs.symlinkSync(path.join(root,'public/campaign-edit.js'),path.join(root,'public/campaign-edit.compiled.js'));assert.throws(()=>verifyCampaignAssets(root),/Invalid campaign UI asset/);
+});
+
+test('writer iframe reads include session CSRF and legacy writes never reach the new DTO route',async()=>{
+ const session={authenticated:true,csrf:'csrf-test',features:{campaignSubmitWrite:true},user:{role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:true}}}};
+ const {browser,calls,origin}=guardHarness(session);
+ assert.equal((await browser.fetch('/api/campaigns?acao=campanha_listar&brand=fish',{headers:{Authorization:'Bearer ui-'+'a'.repeat(32)}})).status,200);
+ assert.equal(calls.length,2);assert.equal(calls[1].url,origin+'/api/campaigns?acao=campanha_listar&brand=fish');assert.equal(calls[1].options.headers.get('X-CSRF-Token'),'csrf-test');assert.equal(calls[1].options.headers.has('Authorization'),false);
+ for(const method of ['POST','PUT','PATCH','DELETE']){const refused=await browser.fetch('/api/campaigns',{method,body:'{}'});assert.equal(refused.status,403);assert.equal((await refused.json()).error,'CAMPAIGN_PORTAL_EDITOR_REQUIRED');}
+ assert.equal(calls.length,2);
+ const off=guardHarness({...session,features:{campaignSubmitWrite:false}});assert.equal((await off.browser.fetch('/api/campaigns',{method:'POST',body:'{"acao":"campanha_salvar"}'})).status,200);assert.equal(off.calls.length,2,'OFF keeps the existing BFF authorization behavior');
 });

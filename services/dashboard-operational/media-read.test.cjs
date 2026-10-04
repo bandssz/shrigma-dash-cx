@@ -42,6 +42,8 @@ test('media listing is hidden until explicitly advertised and loads metadata onl
  assert.equal(h.byId('crm-media-read-list').children.length,1);
  assert.equal(h.byId('crm-media-read-list').children[0].children[0].textContent,'fish.png');
  assert.equal(h.created.some(node=>['img','a','input','form'].includes(node.tag)),false);
+ assert.equal(h.byId('crm-media-read-status').textContent,'1 arquivo(s) listado(s) para Fishermans. A biblioteca é compartilhada entre as marcas.');
+ assert.equal(h.byId('crm-media-read-list').children[0].children.length,2,'resposta antiga sem flag mantém a apresentação');
 });
 
 test('pagination and brand changes never mix a stale response with the selected brand',async()=>{
@@ -82,4 +84,30 @@ test('unexpected brand and malformed metadata clear the displayed library',async
  h.media.mount({marca:'fish',api:{capabilities:{endpoints:{campaigns_media:'https://evil.invalid/api/campaigns_media'}}}});
  assert.equal(h.byId('crm-media-read-controls').hidden,true);
  assert.equal(h.calls.length,3);
+ for(const legacy of ['true',0,null]){
+  const bad=harness(async()=>reply(page('fish',1,[{...item(1,'old.png'),legacy}])));bad.media.mount({marca:'fish',api:gate});
+  await bad.byId('crm-media-read-load').click();
+  assert.equal(bad.byId('crm-media-read-list').children.length,0,'legacy presente precisa ser booleano');
+  assert.match(bad.byId('crm-media-read-status').textContent,/não pôde ser confirmada/);
+ }
+});
+
+
+test('brand and legacy counts stay separate across pagination and brand change, with text-only labels',async()=>{
+ const old={...item(2,'<img src=x>.png'),legacy:true},own=id=>({...item(id,'canonical-'+id+'.png'),legacy:false});
+ const h=harness(async url=>reply(url.includes('brand=aristo')?page('aristo',1,[old]):url.includes('&page=2&')?page('fish',2,[old,own(3)]):page('fish',1,[own(1),old],2)));
+ h.media.mount({marca:'fish',api:gate});await h.byId('crm-media-read-load').click();
+ assert.equal(h.byId('crm-media-read-status').textContent,'1 arquivo(s) da marca Fishermans e 1 arquivo(s) antigo(s) sem marca.');
+ assert.equal(h.byId('crm-media-read-list').children[0].children.length,2,'canônico não recebe etiqueta de legado');
+ const legacyLine=h.byId('crm-media-read-list').children[1];
+ assert.equal(legacyLine.children[0].textContent,'<img src=x>.png');
+ assert.equal(legacyLine.children[2].textContent,' · Arquivo antigo (sem marca)');
+ await h.byId('crm-media-read-more').click();
+ assert.equal(h.byId('crm-media-read-status').textContent,'2 arquivo(s) da marca Fishermans e 1 arquivo(s) antigo(s) sem marca.');
+ assert.equal(h.byId('crm-media-read-list').children.length,3,'item repetido na continuação conta uma vez');
+ h.media.mount({marca:'aristo',api:gate});await h.byId('crm-media-read-load').click();
+ assert.equal(h.byId('crm-media-read-status').textContent,'0 arquivo(s) da marca O Aristocrata e 1 arquivo(s) antigo(s) sem marca.');
+ assert.equal(h.byId('crm-media-read-list').children[0].children[2].textContent,' · Arquivo antigo (sem marca)');
+ assert.equal(h.calls.length,3);assert.ok(h.calls.every(([,options])=>options.method==='GET'));
+ assert.equal(h.created.some(node=>['img','a','input','form'].includes(node.tag)),false);
 });

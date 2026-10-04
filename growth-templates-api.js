@@ -12,7 +12,11 @@ const GTA={
     if(typeof GrowthAccess!=='undefined'&&GrowthAccess.ready())return GrowthAccess.current();
     try{return typeof shrigmaChave==='function'?shrigmaChave('growth'):typeof localStorage!=='undefined'?localStorage.getItem(GTA.CHAVE_LEITURA)||'':'';}catch(_){return '';}
   },
-  POLL_MS:60000,                                // R5.4: consultar a submissão a cada 60 s enquanto "submetido"
+  POLL_MS:60000,
+  /* Contrato de leitura por marca (crm-template-read-v1). Desligado enquanto o GET Growth não declarar
+     `capabilities.templates.read_contract === 'crm-template-read-v1'`: sem isso, as leituras saem idênticas às de antes. */
+  CONTRATO_LEITURA:'crm-template-read-v1',LEITURA_LIMITE:20,LEITURA_PAGINAS:50,
+  MARCAS_LEITURA:['fish','aristo'],                                // R5.4: consultar a submissão a cada 60 s enquanto "submetido"
   ESTADOS:[['local','Local'],['rascunho','No servidor'],['validado','Validado'],['submetido','Submetido'],['publicado','Publicado']],
   ORDEM:{local:0,rascunho:1,validado:2,submetido:3,publicado:4,rejeitado:4},
   esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));},
@@ -31,7 +35,9 @@ const GTA={
     const caps={declaradas:!!c,endpoint,api_version:typeof c?.api_version==='string'?c.api_version:null,
       write_key_required:c?c.write_key_required!==false:true,
       read_content:b(t.read_content),draft:b(t.draft),validate:b(t.validate),submit:b(t.submit),submit_email:b(t.submit_email),list_history:b(t.list_history),
-      set_mode:b(w.set_mode),activate:b(w.activate)};
+      set_mode:b(w.set_mode),activate:b(w.activate),
+      // Leitura por marca (§9.5 de docs/crm/PARIDADE-LEITURA-PORTAL-20261003.md): só quando o servidor anuncia exatamente o contrato.
+      leitura_marca:t.read_contract===GTA.CONTRATO_LEITURA};
     caps.pode={};['read_content','draft','validate','submit','list_history','set_mode','activate'].forEach(k=>{caps.pode[k]=caps[k]&&!!endpoint;});
     caps.semEndpoint=!!c&&!endpoint&&['read_content','draft','validate','submit','list_history'].some(k=>caps[k]);
     return caps;
@@ -51,7 +57,30 @@ const GTA={
 
   /* ---------- cliente ----------
      Devolve sempre {ok,status,body,rede}. Nunca lança. Nunca loga chave. */
-  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita,bearerWrite=false}){
+  /* ---------- leitura por marca (crm-template-read-v1) ----------
+     Cada resposta é conferida inteira: um item de outra marca, sem marca ou fora do contrato descarta a resposta toda.
+     Devolve null quando confere, ou o texto para a pessoa. */
+  RECUSA_MARCA:'A consulta devolveu template de outra marca ou sem marca. A resposta foi descartada inteira e nada foi exibido. Recarregue com a marca selecionada; se repetir, avise o integrador.',
+  RECUSA_CONTRATO:'A resposta da consulta de templates não confere com o contrato. Nada foi exibido. Tente de novo; se repetir, avise o integrador.',
+  SEM_MARCA:'Escolha Fishermans ou O Aristocrata no cabeçalho para consultar os templates. Nada foi consultado.',
+  confereLeitura(acao,body,pedido){
+    const obj=v=>!!v&&typeof v==='object'&&!Array.isArray(v),marca=pedido.marca;
+    if(!obj(body))return GTA.RECUSA_CONTRATO;
+    if(acao==='listar'){
+      if(!Array.isArray(body.templates))return GTA.RECUSA_CONTRATO;
+      if(body.templates.some(t=>!obj(t)||t.brand!==marca||t.channel!=='email'))return GTA.RECUSA_MARCA;
+      if(body.brand!==marca)return GTA.RECUSA_MARCA;
+      const fim=pedido.offset+pedido.limit;
+      if(body.contract!==GTA.CONTRATO_LEITURA||body.channel!=='email'||body.offset!==pedido.offset||body.limit!==pedido.limit||!Number.isSafeInteger(body.total)||body.total<0||
+        body.templates.length!==Math.min(pedido.limit,Math.max(0,body.total-pedido.offset))||body.next_offset!==(fim<body.total?fim:null)||
+        body.templates.some(t=>typeof t.key!=='string'||!t.key))return GTA.RECUSA_CONTRATO;
+      return null;
+    }
+    if(body.brand!==marca)return GTA.RECUSA_MARCA;
+    if(acao==='historico')return body.contract==='crm-template-history-read-v1'&&body.draft_id===pedido.draft_id&&Array.isArray(body.events)?null:GTA.RECUSA_CONTRATO;
+    return body.contract==='crm-template-submission-read-v1'&&body.submission_id===pedido.submission_id&&body.provider_polled===false?null:GTA.RECUSA_CONTRATO;
+  },
+  cliente({endpoint,fetch:fetchFn,chaveLeitura,chaveEscrita,bearerWrite=false,leituraMarca=false}){
     const fx=fetchFn||(typeof fetch==='function'?fetch:null);
     const parse=async r=>{try{return await r.json();}catch(_){return null;}};
     const chama=async(url,init)=>{
@@ -61,14 +90,42 @@ const GTA={
     };
     const get=params=>{const q=new URLSearchParams(params);return chama(`${endpoint}?${q}`,{headers:{Authorization:'Bearer '+(chaveLeitura||'')},cache:'no-store',credentials:'omit',redirect:'error',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined});};
     const post=corpo=>{const body={k:chaveEscrita||'',...corpo};return chama(endpoint,{method:'POST',headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'Content-Type':'application/json','Idempotency-Key':corpo.idempotency_key||''},body:JSON.stringify(body),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(60000):undefined});};
+    // Contrato novo: marca fish|aristo obrigatória (todas/olivas não consultam), páginas de LEITURA_LIMITE e conferência da resposta inteira.
+    const semLeitura=texto=>Promise.resolve({ok:false,status:0,body:null,rede:false,semLeitura:texto});
+    const confere=(acao,res,pedido)=>{if(!res.ok)return res;const recusa=GTA.confereLeitura(acao,res.body,pedido);return recusa?{ok:false,status:res.status,body:null,rede:false,recusada:recusa}:res;};
+    const porMarca={
+      listar:async(marca,canal)=>{
+        if(!GTA.MARCAS_LEITURA.includes(marca))return semLeitura(GTA.SEM_MARCA);
+        if(canal!==undefined&&canal!==null&&canal!=='email')return semLeitura('O conteúdo de templates WhatsApp não está disponível neste acesso. Nada foi consultado.');
+        const templates=[],limit=GTA.LEITURA_LIMITE;let offset=0,primeira=null;
+        for(let pagina=0;pagina<GTA.LEITURA_PAGINAS;pagina++){
+          const res=confere('listar',await get({acao:'listar',marca,canal:'email',offset:String(offset),limit:String(limit)}),{marca,offset,limit});
+          if(!res.ok)return res;
+          if(primeira&&res.body.total!==primeira.total)return {ok:false,status:res.status,body:null,rede:false,recusada:'A lista de templates mudou durante a consulta. Nada foi exibido. Carregue de novo.'};
+          primeira=primeira||res.body;templates.push(...res.body.templates);
+          if(res.body.next_offset===null)return {ok:true,status:res.status,rede:false,body:{contract:res.body.contract,brand:marca,channel:'email',templates,total:primeira.total,coverage:primeira.coverage,consultado_em:primeira.consultado_em,paginas:pagina+1}};
+          offset=res.body.next_offset;
+        }
+        return {ok:false,status:0,body:null,rede:false,recusada:'A lista de templates passou do limite de páginas desta tela. Nada foi exibido. Avise o integrador.'};
+      },
+      historico:(ref,marca)=>{
+        if(!GTA.MARCAS_LEITURA.includes(marca))return semLeitura(GTA.SEM_MARCA);
+        if(!ref||typeof ref.draft_id!=='string'||!ref.draft_id)return semLeitura('O histórico por template publicado não está disponível neste acesso. Nada foi consultado.');
+        return get({acao:'historico',marca,draft_id:ref.draft_id}).then(res=>confere('historico',res,{marca,draft_id:ref.draft_id}));
+      },
+      submissao:(submission_id,marca)=>{
+        if(!GTA.MARCAS_LEITURA.includes(marca))return semLeitura(GTA.SEM_MARCA);
+        return get({acao:'submissao',marca,submission_id}).then(res=>confere('submissao',res,{marca,submission_id}));
+      },
+    };
     return {
-      listar:(marca,canal)=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{}),...(['email','whatsapp'].includes(canal)?{canal}:{})}),
+      listar:leituraMarca?porMarca.listar:(marca,canal)=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{}),...(['email','whatsapp'].includes(canal)?{canal}:{})}),
       emailCapacidades:()=>get({acao:'email_capacidades'}),
       // Native rendering is read-only. This path never uses the write key, a
       // submission identity or a send action, and never creates a local draft.
       emailPrevia:rascunho=>chama(endpoint,{method:'POST',headers:{Authorization:'Bearer '+(chaveLeitura||''),'Content-Type':'application/json'},body:JSON.stringify({acao:'email_previa',rascunho}),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
-      historico:ref=>get({acao:'historico',...ref}),                                   // {key} ou {draft_id}
-      submissao:submission_id=>get({acao:'submissao',submission_id}),
+      historico:leituraMarca?porMarca.historico:ref=>get({acao:'historico',...ref}),      // {key} ou {draft_id}
+      submissao:leituraMarca?porMarca.submissao:submission_id=>get({acao:'submissao',submission_id}),
       operacao:(idempotency_key,operacao)=>chama(`${endpoint}?${new URLSearchParams({acao:'operacao',idempotency_key,operacao})}`,{headers:{...(bearerWrite?{Authorization:'Bearer '+(chaveEscrita||'')}:{ }),'X-Template-Key':chaveEscrita||''},redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
       rascunho:(rascunho,extra)=>post({acao:'rascunho',rascunho,...extra}),           // extra: idempotency_key, draft_id?, expected_version?
       validar:(draft_id,idempotency_key,expected_version)=>post({acao:'validar',draft_id,idempotency_key,...(expected_version!==undefined?{expected_version}:{})}),
@@ -81,6 +138,8 @@ const GTA={
   erro(res,acao=''){
     const b=res.body&&typeof res.body==='object'?res.body:{};
     const seg=b.retry_after?` Tente em ${b.retry_after} s.`:'';
+    if(res.recusada)return {texto:res.recusada,tipo:'incerto'};
+    if(res.semLeitura)return {texto:res.semLeitura,tipo:'indisponivel'};
     if(res.rede)return {texto:'Falha de rede: nada foi confirmado. Confira o histórico antes de repetir.',tipo:'incerto'};
     switch(res.status){
       case 401:return {texto:'Chave de escrita inválida. Informe a chave de novo.',tipo:'chave',chaveInvalida:true};

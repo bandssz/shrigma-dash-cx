@@ -1,7 +1,8 @@
 'use strict';
 // Direct, bounded backend identity check shared by the private operator CLI
-// and the HTTP gateway. The gateway must still pin its sole upstream to
-// crm-panel-read before accepting the dedicated CRM credential slot.
+// and the HTTP gateway. Before accepting the dedicated CRM credential slot,
+// the gateway pins crm-panel-read to its reviewed origin and admits beside it
+// only the reviewed cx/influ read routes, with both CRM draft-write gates off.
 const {FIXED_DESTINATIONS,SANDBOX_HOST}=require('./proxy.cjs');
 
 const MAX_RESPONSE_BYTES=8192,TIMEOUT_MS=5000;

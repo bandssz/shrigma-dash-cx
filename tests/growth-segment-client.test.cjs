@@ -23,9 +23,9 @@ test('unknown operation, wrong actor and missing current readback cannot unlock 
  const other=f.create('fish',()=> 'synthetic-other-actor');const before=f.calls.length;await assert.rejects(other.consult(),{code:'SEGMENT_OPERATION_ACTOR_CHANGED'});assert.equal(f.calls.length,before);
  f.control.unconfirmed=false;f.control.failCurrent=true;await assert.rejects(c.consult());assert.equal(c.pending(),true);assert.equal(f.store.get(Client.SLOT+'fish'),saved);
 });
-test('version conflict remains pending until its durable rejection is looked up, then preserves original preparation',async()=>{
- const f=fixture(),c=f.create();await c.list();const first=await c.save(definition());f.rows.get(first.segment.id).version=4;await assert.rejects(c.save(definition('fish','Ainda local'),first.segment));assert.equal(c.pending(),true);
- const s=await c.consult();assert.equal(s.operation.phase,'rejected');assert.equal(s.segment.version,1);assert.equal(s.operation.request.definition.name,'Ainda local');assert.equal(f.rows.size,1);assert.equal(f.calls.filter(x=>x.body.acao==='segmento_criar').length,1);
+test('exact durable version conflict resolves without lookup and preserves original preparation',async()=>{
+ const f=fixture(),c=f.create();await c.list();const first=await c.save(definition());f.rows.get(first.segment.id).version=4;await assert.rejects(c.save(definition('fish','Ainda local'),first.segment),{code:'SEGMENT_VERSION_CONFLICT'});assert.equal(c.pending(),false);
+ const s=c.snapshot();assert.equal(f.calls.filter(x=>x.body.acao==='segmento_operacao').length,0);assert.equal(s.operation.phase,'rejected');assert.equal(s.segment.version,1);assert.equal(s.operation.request.definition.name,'Ainda local');assert.equal(f.rows.size,1);assert.equal(f.calls.filter(x=>x.body.acao==='segmento_criar').length,1);
 });
 test('no storage or cross-tab lock prevents mutation transport',async()=>{
  for(const mode of ['storage','locks']){const f=fixture(),c=f.create('fish',()=> 'synthetic-actor-one',mode==='locks'?{locks:null}:{storage:{getItem:()=>null,setItem(){throw Error('blocked');}}});await c.list();await assert.rejects(c.save(definition()),{code:mode==='locks'?'SEGMENT_LOCK_UNAVAILABLE':'SEGMENT_STORAGE_UNAVAILABLE'});assert.equal(f.calls.filter(x=>x.method==='POST').length,0);}

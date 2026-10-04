@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-const source=fs.readFileSync(path.join(__dirname,'public/entry.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'public/entry.compiled.js'),'utf8');
 const operationKey='123e4567-e89b-42d3-a456-426614174000';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 
