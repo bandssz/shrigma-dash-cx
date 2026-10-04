@@ -72,18 +72,23 @@ test('pedido: só a forma canônica da ponte; marca, canal, paginação e campos
 });
 
 test('cadeia ponte → listener → SQL nas duas marcas: listar paginado, histórico e submissão; zero efeito, provedor não consultado',async t=>{
- const db=await fixture(t),{port}=await serve(t,db),before=await X.snapshot(db),c=chain(port,KEY);
+ const db=await fixture(t),{port}=await serve(t,db),before=await X.snapshot(db),c=chain(port,KEY,'fish'),aristoContext=chain(port,X.ARISTO_KEY,'aristo');
+ const contexts={fish:c,aristo:aristoContext};
+ for(const [scoped,foreign]of [[c,'aristo'],[aristoContext,'fish']]){
+  await assert.rejects(scoped.read({acao:'listar',marca:foreign}),{status:403,code:'TEMPLATE_READ_DENIED'});
+  assert.equal(scoped.calls.length,0);assert.deepEqual(scoped.authCalls,{proof:0,credential:0});
+ }
  const fish=await c.read({acao:'listar',marca:'fish'});assert.equal(fish.status,200);assert.deepEqual(fish.body.templates.map(x=>x.id),['1','6','8']);
  assert.ok(fish.body.templates.every(x=>x.brand==='fish'&&x.channel==='email'));assert.equal(fish.body.schedule_proof,false);assert.equal(fish.body.coverage,'registered_email_only');
- const aristo=await c.read({acao:'listar',marca:'aristo',canal:'email'});assert.deepEqual(aristo.body.templates.map(x=>x.id),['2','9']);
+ const aristo=await aristoContext.read({acao:'listar',marca:'aristo',canal:'email'});assert.deepEqual(aristo.body.templates.map(x=>x.id),['2','9']);
  const p1=await c.read({acao:'listar',marca:'fish',offset:'0',limit:'2'}),p2=await c.read({acao:'listar',marca:'fish',offset:'2',limit:'2'});
  assert.deepEqual([p1.body.templates.map(x=>x.id),p1.body.next_offset,p2.body.templates.map(x=>x.id),p2.body.next_offset],[['1','6'],2,['8'],null]);
- assert.deepEqual(c.calls.slice(0,2),['?acao=listar&brand=fish&channel=email&offset=0&limit=20','?acao=listar&brand=aristo&channel=email&offset=0&limit=20']);
+ assert.deepEqual([c.calls[0],aristoContext.calls[0]],['?acao=listar&brand=fish&channel=email&offset=0&limit=20','?acao=listar&brand=aristo&channel=email&offset=0&limit=20']);
  const h=await c.read({acao:'historico',marca:'fish',draft_id:'d_fish_1'});assert.deepEqual(h.body.events.map(e=>e.action),['rascunho','validate','submeter']);
- const s=await c.read({acao:'submissao',marca:'aristo',submission_id:'s_aristo_1'});assert.equal(s.body.estado,'publicado');assert.equal(s.body.provider_polled,false);
+ const s=await aristoContext.read({acao:'submissao',marca:'aristo',submission_id:'s_aristo_1'});assert.equal(s.body.estado,'publicado');assert.equal(s.body.provider_polled,false);
  // Outra marca, Olivas ou inexistente: "não encontrado", sem distinção.
  for(const q of [{acao:'historico',marca:'aristo',draft_id:'d_fish_1'},{acao:'historico',marca:'fish',draft_id:'d_olivas_1'},{acao:'submissao',marca:'fish',submission_id:'s_aristo_1'},{acao:'submissao',marca:'fish',submission_id:'s_nada'}])
-  await assert.rejects(c.read(q),{status:404,code:'TEMPLATE_READ_NOT_FOUND'});
+  await assert.rejects(contexts[q.marca].read(q),{status:404,code:'TEMPLATE_READ_NOT_FOUND'});
  assert.deepEqual(await X.snapshot(db),before,'nenhuma linha, xmin ou xmax mudou');
 });
 
@@ -96,7 +101,7 @@ test('revogação, expiração, chave sem capacidade e chaves legadas: o listene
  assert.equal((await get(port,'?acao=historico&brand=fish&draft_id=d_fish_1',{authorization:'Bearer '+X.NOCAP_KEY})).status,403);
  await db.query("UPDATE public.crm_dash_chave SET expira_em=now()-interval '1 second' WHERE chave=$1",[X.PRINCIPAL]);
  assert.equal((await get(port,q,{authorization:'Bearer '+KEY})).status,401);
- await assert.rejects(chain(port,KEY).read({acao:'listar',marca:'fish'}),{status:403,code:'TEMPLATE_READ_UPSTREAM_DENIED'});
+ await assert.rejects(chain(port,KEY,'fish').read({acao:'listar',marca:'fish'}),{status:403,code:'TEMPLATE_READ_UPSTREAM_DENIED'});
  await db.query('UPDATE public.crm_dash_chave SET expira_em=NULL,revogada_em=now() WHERE chave=$1',[X.PRINCIPAL]);
  assert.equal((await get(port,q,{authorization:'Bearer '+KEY})).status,401);
 });

@@ -7,6 +7,7 @@ const fs=require('node:fs'),path=require('node:path'),{createHash}=require('node
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const PRINCIPAL='dcrm-'+'a'.repeat(32),KEY='b'.repeat(64);
+const ARISTO_PRINCIPAL='dcrm-'+'9'.repeat(32),ARISTO_KEY='2'.repeat(64);
 const NOCAP_PRINCIPAL='dcrm-'+'c'.repeat(32),NOCAP_KEY='d'.repeat(64);
 const REVOKED_PRINCIPAL='dcrm-'+'e'.repeat(32),REVOKED_KEY='f'.repeat(64);
 const LEGACY_KEY='growth-legacy-key',TEMPLATE_V2_KEY='1'.repeat(64);
@@ -42,8 +43,8 @@ async function data(db){
  for(const [s,d,v,p,e,ps] of [['s_fish_1','d_fish_1',2,'meta','submetido','PENDING'],['s_aristo_1','d_aristo_1',2,'listmonk','publicado','APPROVED'],['s_olivas_1','d_olivas_1',1,'listmonk','publicado','APPROVED'],['s_orfa','d_inexistente',1,'meta','submetido','PENDING']])
   await db.query('INSERT INTO public.shrigma_template_submissao VALUES($1,$2,$3,$4,$5,$6,$7)',[s,d,v,p,'prov-'+s,e,ps]);
  const all='["read_content","list_history","submission"]';
- for(const [id,key,caps,revoked] of [[PRINCIPAL,KEY,all,false],[NOCAP_PRINCIPAL,NOCAP_KEY,'["read_content"]',false],[REVOKED_PRINCIPAL,REVOKED_KEY,all,true]]){
-  await db.query("INSERT INTO public.crm_dash_chave(chave,painel,dono,chave_hash,revogada_em) VALUES($1,'growth','gestor@oaristocrata.com',$2,$3)",[id,sha(key),revoked?'2026-10-01T00:00:00Z':null]);
+ for(const [id,key,caps,revoked,owner='gestor@oaristocrata.com'] of [[PRINCIPAL,KEY,all,false],[ARISTO_PRINCIPAL,ARISTO_KEY,all,false,'gestor-aristo@oaristocrata.com'],[NOCAP_PRINCIPAL,NOCAP_KEY,'["read_content"]',false],[REVOKED_PRINCIPAL,REVOKED_KEY,all,true]]){
+  await db.query("INSERT INTO public.crm_dash_chave(chave,painel,dono,chave_hash,revogada_em) VALUES($1,'growth',$2,$3,$4)",[id,owner,sha(key),revoked?'2026-10-01T00:00:00Z':null]);
   await db.query("INSERT INTO public.shrigma_panel_permission_v1 VALUES($1,'growth',$2::jsonb)",[id,caps]);
  }
  // Chaves legadas válidas no handler n8n: aqui não leem.
@@ -58,4 +59,4 @@ async function snapshot(db){
  for(const {s,t}of tables){const r=(await db.query(`SELECT count(*)::int AS n,coalesce(md5(string_agg(x::text||'|'||x.xmin::text||'|'||x.xmax::text,',' ORDER BY x::text)),'') AS h FROM "${s}"."${t}" x`)).rows[0];out[s+'.'+t]=r.n+':'+r.h;}
  return out;
 }
-module.exports={install,schema,data,accessSQL,snapshot,sha,PRINCIPAL,KEY,NOCAP_KEY,REVOKED_KEY,LEGACY_KEY,TEMPLATE_V2_KEY,SQL_FILE};
+module.exports={install,schema,data,accessSQL,snapshot,sha,PRINCIPAL,KEY,ARISTO_PRINCIPAL,ARISTO_KEY,NOCAP_KEY,REVOKED_KEY,LEGACY_KEY,TEMPLATE_V2_KEY,SQL_FILE};

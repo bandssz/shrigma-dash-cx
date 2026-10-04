@@ -315,3 +315,46 @@ test('cart recovery count/revenue must both be measured or both null; neither mi
   assert.equal(reply.status,200);assert.deepEqual(reply.body.crm_carrinho,[{...row,...pair}]);
  }
 });
+
+function sandboxAudienceFixture(){
+ const stamp='2026-10-04T05:00:00.000Z',segment={id:'12345678-1234-4234-8234-123456789abc',brand:'fish',name:'Synthetic owned audience',definition:{schema_version:'crm-audience-v2',brand:'fish',name:'Synthetic owned audience',rule:{op:'in_list',list_id:17}},version:1,archived:false,created_at:stamp,updated_at:stamp,updated_by:'panel:synthetic-editor',semantic_context:{currency:null,timezone:null,current:true}};
+ const catalog={brand:'fish',current:true,currency:null,timezone:null,shop_id:null,fields:Object.keys(require('../services/dashboard-operational/segment-audience-contract.js').FIELDS).map(key=>({key,available:false,source_hash:null})),products:[],origins:[],lists:[{id:17,brand:'fish',name:'Synthetic Fish base',available:true}],coverage:'unconfirmed',checked_at:stamp,catalog_hash:'1'.repeat(64)};
+ return{segments:[segment],limit:50,offset:0,catalog,capabilities:{draft:false,count:false,send:false}};
+}
+function sandboxAudienceSettings(){return settings(P.SANDBOX_DESTINATIONS,{upstreamProfile:'crm-sandbox',bootstrapAdminEmail:'master@synthetic.invalid',crmAudienceDraft:true,dynamicRouteManifest:null});}
+const sandboxAudiencePath='/api/segments?acao=segmentos_listar&brand=fish&offset=0&limit=50';
+
+test('closed crm-sandbox preserves the legacy saved-audience list/get contract and separately attested draft capability',async t=>{
+ const body=sandboxAudienceFixture(),i=identity();i.auth.audienceDraftReady=()=>true;let calls=0;
+ const server=app(t,i,async(raw)=>{calls++;assert.equal(new URL(raw).hostname,P.SANDBOX_HOST);return response(new URL(raw).searchParams.get('acao')==='segmento_obter'?{segment:body.segments[0]}:body);},sandboxAudienceSettings());
+ const list=await request(server,sandboxAudiencePath);assert.equal(list.status,200,JSON.stringify(list.body));assert.deepEqual(list.body.segments,body.segments);assert.deepEqual(list.body.catalog,body.catalog);assert.deepEqual(list.body.capabilities,{draft:true,count:false,send:false});
+ const get=await request(server,'/api/segments?acao=segmento_obter&brand=fish&id='+body.segments[0].id);assert.equal(get.status,200,JSON.stringify(get.body));assert.deepEqual(get.body,{segment:body.segments[0]});assert.equal(calls,2);
+ assert.equal((await request(server,sandboxAudiencePath.replace('brand=fish','brand=aristo'))).status,403);assert.equal(calls,2);assert.equal(i.calls.credential.length,2);
+});
+
+test('closed sandbox audience reads reject foreign or malformed nested records, unmarked extras and credential echo after parsing',async t=>{
+ const changes=[
+  b=>b.catalog=null,
+  b=>b.catalog.brand='aristo',b=>b.catalog.lists[0].brand='aristo',
+  b=>b.catalog.products=[{id:'gid://shopify/Product/1',brand:'aristo',name:'PRIVATE',available:true}],
+  b=>b.catalog.origins=[{key:'popup',brand:'aristo',name:'PRIVATE',available:false,provenance_hash:null}],
+  b=>b.segments[0].brand='aristo',b=>b.segments[0].definition.brand='aristo',
+  b=>b.segments[0].definition.rule.other_brand_secret='PRIVATE',
+  b=>b.segments[0].semantic_context.other_brand_secret='PRIVATE',
+  b=>b.segments[0].other_brand_secret='PRIVATE',b=>b.catalog.other_brand_secret='PRIVATE',
+  b=>b.catalog.fields[0].other_brand_secret='PRIVATE',b=>b.catalog.lists[0].other_brand_secret='PRIVATE',
+  b=>b.other_brand_secret='PRIVATE',b=>b.capabilities.other_brand_secret='PRIVATE',
+  b=>b.limit=20,b=>b.offset=1,b=>b.segments[0].definition.name='Different name',
+  b=>b.segments[0].version=1000000000,b=>b.segments[0].semantic_context.current='true',b=>b.segments[0].semantic_context.currency=['USD'],
+  b=>b.catalog.lists[0].name='a'.repeat(64)
+ ];
+ for(const change of changes){const body=sandboxAudienceFixture();change(body);const server=app(t,identity(),async()=>response(body),sandboxAudienceSettings()),r=await request(server,sandboxAudiencePath);assert.equal(r.status,502,JSON.stringify(r));assert.equal(r.body.error,'BRAND_RESPONSE_UNSCOPED');assert.equal(Object.hasOwn(r.body,'segments'),false);assert.equal(JSON.stringify(r.body).includes('PRIVATE'),false);}
+ const wrong=sandboxAudienceFixture().segments[0],server=app(t,identity(),async()=>response({segment:{...wrong,id:'12345678-1234-4234-8234-123456789abd'}}),sandboxAudienceSettings());assert.equal((await request(server,'/api/segments?acao=segmento_obter&brand=fish&id='+wrong.id)).status,502);
+});
+
+test('a valid legacy sandbox audience payload cannot admit the production read path or a broadened sandbox profile',async t=>{
+ const body=sandboxAudienceFixture(),server=app(t,identity(),async()=>response(body),settings({segments:P.REVIEWED_DYNAMIC.routes.segments})),r=await request(server,sandboxAudiencePath);
+ assert.equal(r.status,503);assert.equal(r.body.error,'BRAND_READ_CONTRACT_NOT_READY');assert.equal(Object.hasOwn(r.body,'segments'),false);
+ assert.throws(()=>S.createServer({...sandboxAudienceSettings(),allowedEmailDomains:['synthetic.invalid','oaristocrata.com']},{auth:identity().auth,fetchImpl:()=>assert.fail('broadened profile must not fetch')}),/sandbox settings/);
+ assert.throws(()=>S.createServer({...sandboxAudienceSettings(),upstreams:{segments:P.REVIEWED_DYNAMIC.routes.segments},allowedUpstreamHosts:[new URL(P.REVIEWED_DYNAMIC.routes.segments).hostname]},{auth:identity().auth,fetchImpl:()=>assert.fail('production destination must not fetch')}));
+});

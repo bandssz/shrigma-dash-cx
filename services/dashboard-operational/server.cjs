@@ -339,8 +339,48 @@ function projectCampaignRecord(value,brand){
  }
  return out;
 }
+// The already admitted crm-sandbox profile speaks the legacy audience API,
+// without the production private bridge's freshness proof. Validate this
+// closed synthetic response locally; it grants no production admission.
+function validateSandboxAudienceRead(body,action,brand,query,credential){
+ const denied=()=>{throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');};
+ const exact=(v,keys)=>brandRecord(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+ const bool=v=>typeof v==='boolean',positive=v=>Number.isSafeInteger(v)&&v>0&&v<=2147483647;
+ const hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v),text=(v,max=500)=>typeof v==='string'&&v.length<=max;
+ const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':brandRecord(v)?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
+ const encoded=JSON.stringify(body);
+ if(Buffer.byteLength(encoded)>2000000||typeof credential!=='string'||!credential||encoded.toLowerCase().includes(credential.toLowerCase()))denied();
+ const segment=s=>{
+  if(!exact(s,['id','brand','name','definition','version','archived','created_at','updated_at','updated_by','semantic_context'])||!text(s.id,36)||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(s.id)||s.brand!==brand||!positive(s.version)||s.version>999999999||!bool(s.archived)||!brandDate(s.created_at)||!brandDate(s.updated_at)||!text(s.updated_by,200)||!/^panel:[A-Za-z0-9_.:-]{1,194}$/.test(s.updated_by)||!exact(s.semantic_context,['currency','timezone','current'])||!bool(s.semantic_context.current)||s.semantic_context.currency!==null&&(typeof s.semantic_context.currency!=='string'||!/^[A-Z]{3}$/.test(s.semantic_context.currency))||s.semantic_context.timezone!==null&&!text(s.semantic_context.timezone,100))return false;
+  try{const d=AudienceContract.normalize(s.definition);return d.brand===brand&&d.name===s.name&&canonical(d)===canonical(s.definition);}catch{return false;}
+ };
+ const catalog=c=>{
+  if(!brandRecord(c))return false;
+  if(!exact(c,['brand','current','currency','timezone','shop_id','fields','products','origins','lists','coverage','checked_at','catalog_hash',...(Object.hasOwn(c,'recorded_origins')?['recorded_origins']:[]),...(Object.hasOwn(c,'shopify_snapshot')?['shopify_snapshot']:[])])||c.brand!==brand||!bool(c.current)||c.coverage!=='unconfirmed'||!brandDate(c.checked_at)||!hash(c.catalog_hash)||c.currency!==null&&(typeof c.currency!=='string'||!/^[A-Z]{3}$/.test(c.currency))||c.shop_id!==null&&(typeof c.shop_id!=='string'||!/^gid:\/\/shopify\/Shop\/[1-9]\d{0,19}$/.test(c.shop_id))||c.timezone!==null&&!text(c.timezone,100))return false;
+  if(c.timezone!==null)try{new Intl.DateTimeFormat('en',{timeZone:c.timezone});}catch{return false;}
+  const rows=(v,max,key,check)=>Array.isArray(v)&&v.length<=max&&new Set(v.map(x=>x?.[key])).size===v.length&&v.every(check);
+  if(!rows(c.fields,Object.keys(AudienceContract.FIELDS).length,'key',f=>exact(f,['key','available','source_hash'])&&Object.hasOwn(AudienceContract.FIELDS,f.key)&&bool(f.available)&&(f.source_hash===null||hash(f.source_hash))&&(!f.available||f.source_hash!==null))||!rows(c.lists,1000,'id',l=>exact(l,['id','brand','name','available'])&&positive(l.id)&&l.brand===brand&&text(l.name)&&bool(l.available))||!rows(c.products,1000,'id',p=>exact(p,['id','brand','name','available'])&&p.brand===brand&&typeof p.id==='string'&&/^gid:\/\/shopify\/Product\/[1-9]\d{0,19}$/.test(p.id)&&text(p.name)&&bool(p.available))||!rows(c.origins,3,'key',o=>exact(o,['key','brand','name','available','provenance_hash'])&&['popup','vip_alma','vip_desodorante'].includes(o.key)&&o.brand===brand&&text(o.name)&&bool(o.available)&&(o.provenance_hash===null||hash(o.provenance_hash))&&(!o.available||o.provenance_hash!==null)))return false;
+  if(Object.hasOwn(c,'recorded_origins')){
+   if(!AudienceContract.recordedOriginsValid(c.recorded_origins,brand))return false;
+   for(const o of c.recorded_origins){const pinned={contract:'crm-recorded-origin-exists-v1',brand:o.brand,origin:o.key,scope_id:o.scope_id,producer_id:o.producer_id,producer_revision:o.producer_revision,coverage_started_at:o.coverage_started_at};if(o.provenance_hash!==crypto.createHash('sha256').update(canonical(pinned)).digest('hex'))return false;}
+  }
+  if(Object.hasOwn(c,'shopify_snapshot')){
+   const v=c.shopify_snapshot;
+   if(!brandRecord(v)||!bool(v.current)||!(exact(v,['current'])&&!v.current||exact(v,['current','started_at','observed_at','expires_at'])&&[v.started_at,v.observed_at,v.expires_at].every(brandDate)&&Date.parse(v.started_at)<=Date.parse(v.observed_at)&&Date.parse(v.expires_at)-Date.parse(v.started_at)===93600000))return false;
+  }
+  return true;
+ };
+ if(action==='segmentos_listar'){
+  const limit=Number(query.get('limit')||50),offset=Number(query.get('offset')||0);
+  if(!exact(body,['segments','limit','offset','catalog','capabilities'])||body.limit!==limit||body.offset!==offset||!Array.isArray(body.segments)||body.segments.length>limit||!body.segments.every(segment)||!catalog(body.catalog)||!exact(body.capabilities,['draft','count','send'])||!bool(body.capabilities.draft)||body.capabilities.count!==false||body.capabilities.send!==false||!body.catalog.current&&body.capabilities.draft)denied();
+ }else if(action==='segmento_obter'){
+  if(!exact(body,['segment'])||!segment(body.segment)||body.segment.id.toLowerCase()!==query.get('id')?.toLowerCase())denied();
+ }else throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
+ return body;
+}
 function validateScopedRead(body,route,action,brand,query,credential,{isolatedSandbox=false}={}){
  if(!brandRecord(body))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
+ if(isolatedSandbox&&route==='segments')return validateSandboxAudienceRead(body,action,brand,query,credential);
  if(route==='campaigns_media'){
   try{return require('./crm-media-read-validator.cjs').validateMediaLibraryResponse(body,{brand,page:Number(query.get('page')||1),per_page:Number(query.get('per_page')||24),secrets:[credential]}).body;}catch{throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');}
  }
