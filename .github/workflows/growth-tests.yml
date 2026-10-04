@@ -32,9 +32,14 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
+  synthetic:
+    name: Synthetic regression (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,11 +66,58 @@ jobs:
       - name: Run synthetic regression tests
         shell: bash
         env:
+          LC_ALL: C
+          TEST_SHARD: ${{ matrix.shard }}
           NODE_PATH: ../growth-test-tools/node_modules
           AB_UPSTREAM_SOURCE: ${{ runner.temp }}/listmonk-campaigns.sql
         run: |
           set -o pipefail
-          node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
+          node --test --test-shard="$TEST_SHARD/2" tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests-$TEST_SHARD.txt"
+      - name: Save synthetic shard result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: growth-test-results-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/growth-tests-${{ matrix.shard }}.txt
+          retention-days: 7
+
+  test:
+    needs: synthetic
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Require both synthetic shards
+        shell: bash
+        env:
+          SYNTHETIC_RESULT: ${{ needs.synthetic.result }}
+        run: |
+          if [[ "$SYNTHETIC_RESULT" != "success" ]]; then
+            echo "Synthetic regression shards did not both succeed: $SYNTHETIC_RESULT" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: npm install --prefix ../growth-test-tools --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Install the pinned worker credential operator dependency
+        run: npm ci --prefix tools/graph-worker-credential --ignore-scripts --no-audit --no-fund
+      - name: Fetch the exact native SQL fixture for complete worker regression
+        run: |
+          python3 - <<'PYFIXTURE'
+          import hashlib,os,pathlib,urllib.request
+          url='https://raw.githubusercontent.com/knadh/listmonk/1b5e8d38c778e869003486d3c38bc7a964661e91/queries/campaigns.sql'
+          with urllib.request.urlopen(url,timeout=30) as response:
+              body=response.read(262145)
+          assert len(body)<=262144 and hashlib.sha256(body).hexdigest()=='37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882'
+          pathlib.Path(os.environ['RUNNER_TEMP'],'listmonk-campaigns.sql').write_bytes(body)
+          PYFIXTURE
+      - name: Install the pinned campaign UI compiler before synthetic tests
+        run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
       - name: Check pinned campaign runtime bundle
         run: |
           node tools/campaign-runtime-build/build.cjs --check
@@ -131,12 +183,19 @@ jobs:
         run: |
           node tests/tts-cobranca-safety-postgres.cjs
           node tests/tts-cobranca-auto-postgres.cjs
+      - name: Download synthetic shard results
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: growth-test-results-shard-*
+          path: ${{ runner.temp }}/growth-synthetic-results
+          merge-multiple: true
       - name: Save test result
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: growth-test-results
-          path: ${{ runner.temp }}/growth-tests.txt
+          path: ${{ runner.temp }}/growth-synthetic-results/*.txt
           retention-days: 7
 
   tiktok-rule-concurrency:
