@@ -110,20 +110,16 @@ for(const brand of ['fish','aristo']){
   assert.equal(state(x).schedule.disabled,true);assert.equal(campaignPosts(x,'campanha_agendar').length,0);
   assert.equal((await be.row(id)).status,'draft');assert.equal(effects(be,'schedule'),0);
  });
- test(brand+': vínculo criado durante o envio do agendar → serviço bloqueia; consultar e liberar relê o vínculo e fecha o agendamento por listas',async t=>{
+ test(brand+': vínculo criado durante o envio do agendar → recusa transacional comprovada relê o vínculo e fecha o agendamento por listas',async t=>{
   const be=await backend(t),store=new Map();let once=false;
   const x=await page(be,brand,{store,beforeCampaign:async acao=>{if(acao==='campanha_agendar'&&!once){once=true;await bindAudience(be);}}});
   await reopen(x,id);await conferir(x);await agendarPelaTela(x,brand);await settledAfter(x,'campanha_agendar','agendar');
   await until(()=>journal(store,brand).operation.phase!=='pending',x,'resposta do agendar');
   assert.equal((await be.row(id)).status,'draft');assert.equal(effects(be,'schedule'),1,'uma tentativa de agenda, barrada pela guarda');
-  const s=await ops(be,brand,'agendar');assert.equal(s.length,1);assert.ok(['outcome_unknown','rejected'].includes(s[0]),s[0]);
-  if(s[0]==='outcome_unknown'){
-   assert.equal(journal(store,brand).operation.phase,'uncertain');
-   x.q('[data-ce-consult]').click();await until(()=>x.calls.some(c=>c.acao==='campanha_operacao')&&!x.run('GCE.contextStatus().reading'),x,'consulta');await wait(20);
-   assert.equal(x.q('[data-ce-release]').hidden,false);x.q('[data-ce-release]').click();assert.equal(x.q('[data-ce-confirm]').open,true);x.q('[data-ce-confirm-yes]').click();
-   await until(()=>idle(x)&&x.calls.filter(c=>c.acao==='campanha_publico_obter').length>=3,x,'liberar');await wait(20);
-  }
-  // Depois da reconciliação, a tela mostra o vínculo atual e não oferece outra tentativa por listas.
+  const s=await ops(be,brand,'agendar');assert.equal(s.length,1);assert.equal(s[0],'rejected','a exceção SQL conhecida comprova rollback e grava recusa definitiva');
+  const response=x.calls.find(c=>c.acao==='campanha_agendar');assert.equal(response.status,409);
+  assert.equal(journal(store,brand).operation.phase,'rejected');assert.match(state(x).status,/campanha usa um público salvo/);
+  // Depois da recusa comprovada, a tela mostra o vínculo atual e não oferece outra tentativa por listas.
   assert.match(state(x).saved,/Público vinculado · versão 1/);assert.equal(state(x).schedule.disabled,true);assert.equal(state(x).validate.disabled,true);
   state(x).schedule.click();state(x).validate.click();await wait(40);
   assert.equal(campaignPosts(x,'campanha_agendar').length,1);assert.equal(effects(be,'schedule'),1);assert.equal((await be.row(id)).status,'draft');

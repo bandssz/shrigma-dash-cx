@@ -296,7 +296,10 @@ const GCE=(()=>{
    if(!remote.locked()&&result?.operation?.absence){message('Tentativa liberada sem efeito. A campanha foi relida do servidor; confira a versão atual antes de repetir a ação.');return;}
    if(!remote.locked()&&result?.operation?.request?.acao==='campanha_recuperar'){message('Rascunho existente recuperado. Seu conteúdo original foi preservado. Confira os links e salve as correções nesta mesma campanha.');return;}
    message(remote.locked()?'A tentativa continua pendente ou incerta. Consulte novamente; não crie outra tentativa.':'Operação conferida. Confira o resultado acima.',remote.locked());}
-  catch(err){message(err.message,true);contentError=['NO_COMMERCIAL_LINK','TRACKING_INVALID','TRACKING_CONFLICT','TRACKING_POLICY'].includes(err.code);if(write&&['UNAUTHORIZED','CAPABILITY_MISSING'].includes(err.code)){sessionWrite='';legacyWrite=false;clearCatalog();accessDenied=err.code==='UNAUTHORIZED'?'Chave recusada. Confira a chave de escrita de campanhas.':'Esta chave não tem permissão para a ação. Confira o acesso; a tentativa foi preservada.';}}
+  catch(err){
+   // A known SQL rollback may reveal a binding created by another session. Refresh only after the durable rejection; uncertain operations stay locked.
+   if(err.code==='SEGMENT_CAMPAIGN_SELECTOR_REQUIRED'&&client.snapshot()?.operation?.phase==='rejected')readSavedAudience=true;
+   message(err.message,true);contentError=['NO_COMMERCIAL_LINK','TRACKING_INVALID','TRACKING_CONFLICT','TRACKING_POLICY'].includes(err.code);if(write&&['UNAUTHORIZED','CAPABILITY_MISSING'].includes(err.code)){sessionWrite='';legacyWrite=false;clearCatalog();accessDenied=err.code==='UNAUTHORIZED'?'Chave recusada. Confira a chave de escrita de campanhas.':'Esta chave não tem permissão para a ação. Confira o acesso; a tentativa foi preservada.';}}
   finally{remoteBusy=false;remoteRead=false;paintRemote();if(readSavedAudience)queuedSavedAudience={epoch,client};finishSavedAudienceRead();if(contentError&&!q('[name=html]').disabled)q('[name=html]').focus();if(accessDenied){if(confirmation)deferredAccess=accessDenied;else showAccess(accessDenied);}}
  }
  function renderCatalog(catalog){
