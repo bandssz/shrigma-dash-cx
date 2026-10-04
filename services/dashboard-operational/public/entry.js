@@ -207,6 +207,17 @@ else (function(){'use strict';
   const style=doc.createElement('style');style.id='dashboard-operational-readonly';style.textContent=css;doc.head.append(style);
   return true;
  }
+ // Edição aprovada no cadastro, mas a escrita individual ainda não está pronta: explicar
+ // em vez de esconder em silêncio, sem prometer edição. O CRM segue em leitura.
+ function showCampaignNote(area){
+  if(!campaignButton)return;
+  let note=document.getElementById('entry-campaign-note');
+  const waiting=area==='growth'&&campaignButton.hidden&&session?.user?.role==='manager'&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true;
+  if(waiting&&!note){note=document.createElement('span');note.id='entry-campaign-note';note.setAttribute('role','status');campaignButton.before(note);}
+  if(!note)return;
+  note.hidden=!waiting;note.textContent=waiting?'Edição de campanhas aguardando validação · CRM em leitura':'';
+  note.title=waiting?'O acesso de edição foi solicitado ou aprovado, mas a escrita individual de campanhas ainda não está pronta. Nada pode ser salvo ou agendado por aqui; a leitura do CRM continua disponível.':'';
+ }
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
@@ -217,6 +228,7 @@ else (function(){'use strict';
   }
   audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
   audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
+  showCampaignNote(area);
   frame=document.createElement('iframe');frame.title=AREAS[area].label;frame.referrerPolicy='no-referrer';
   const target=new URL(AREAS[area].page,location.origin);target.searchParams.set('embed','1');frame.src=target.href;
   frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=AREAS[area].label;
