@@ -330,7 +330,7 @@ const GCE=(()=>{
   q('[data-ce-release]').addEventListener('click',()=>{
    const client=remote,op=client?.snapshot()?.operation;if(!client?.canReleaseUnapplied?.()||confirmation||remoteBusy||!requireWriteAccess())return;
    const what=op.request.acao==='campanha_agendar'?'agendamento':'cancelamento';
-   confirmAction(`O servidor registrou esta tentativa de ${what} como resultado incerto. O painel vai conferir de novo a tentativa e a campanha e só libera se a campanha continuar na mesma versão do pedido, isto é, se nada foi alterado. A campanha será relida do servidor; nenhuma ação será repetida.`,'Liberar tentativa',confirmed=>runRemote(()=>client.releaseUnapplied('liberar'),{fillSaved:true,write:true,confirmed,recoverLocal:true}),{allowRelease:true});
+   confirmAction(`O servidor registrou esta tentativa de ${what} como resultado incerto. O painel vai conferir de novo a tentativa e a campanha e só libera se a campanha continuar na mesma versão do pedido, isto é, se nada foi alterado. A campanha será relida do servidor; nenhuma ação será repetida.`,'Liberar tentativa',confirmed=>runRemote(()=>client.releaseUnapplied('liberar'),{fillSaved:true,write:true,confirmed,recoverLocal:true,confirmSavedAudience:true}),{allowRelease:true});
   });
   q('[data-ce-recover]').addEventListener('click',()=>{
    const client=remote,proof=client?.snapshot()?.recoveryProof;if(!client?.canRecover()||confirmation||remoteBusy||!requireWriteAccess())return;
@@ -338,17 +338,24 @@ const GCE=(()=>{
    confirmAction(`Recuperar ${brand} · “${c.definition.name}” (campanha ${c.id})? Foi confirmado um rascunho com 0 envios, ainda não iniciado. Seu conteúdo original será preservado para correção. Esta ação não cria outra campanha, não agenda e não envia.`, 'Recuperar este rascunho',confirmed=>runRemote(()=>client.recover(proof,'recuperar'),{fillSaved:true,write:true,confirmed,recoverLocal:true}),{allowRecovery:true});
   });
   q('[data-ce-save]').addEventListener('click',()=>{if(remote?.locked())return;const client=remote;runRemote(async()=>{if(!await readCatalog(client))return;return client.save(definition(values()));},{fillSaved:true,write:true,confirmSavedAudience:true});});
-  q('[data-ce-validate]').addEventListener('click',()=>{if(audienceState().legacyBlocked){if(audienceState().canValidate)void audienceView.validate();return;}runRemote(()=>remote.validate(definition(values())),{fillSaved:true,write:true});});
+  q('[data-ce-validate]').addEventListener('click',()=>{if(audienceState().legacyBlocked){if(audienceState().canValidate)void audienceView.validate();return;}runRemote(()=>remote.validate(definition(values())),{fillSaved:true,write:true,confirmSavedAudience:true});});
   q('[data-ce-cancel]').addEventListener('click',()=>{
    const client=remote,c=client?.snapshot()?.campaign;if(!c||confirmation||remoteBusy)return;
    if(!requireWriteAccess())return;
    confirmAction(`Cancelar o agendamento de “${c.definition.name}” para ${stamp(c.send_at)}? A campanha agendada será cancelada; as alterações locais não serão salvas.`,'Cancelar agendamento',confirmed=>runRemote(()=>client.cancel('cancelar'),{fillSaved:true,write:true,confirmed}));
   });
-  q('[data-ce-schedule]').addEventListener('click',()=>{
+  q('[data-ce-schedule]').addEventListener('click',async()=>{
    if(audienceState().legacyBlocked){if(audienceState().canSchedule)void audienceView.schedule();return;}
    const client=remote,s=client?.snapshot(),c=s?.campaign;if(!c||confirmation||remoteBusy||audienceState().legacyBlocked)return;
    if(!requireWriteAccess())return;
    let d,a;try{d=definition(values());a=CampaignContract.audienceReview(s.validation?.audience,c);CampaignContract.schedule({confirm:'agendar',expected_version:c.version,audience_review_id:a.review_id},{...c,validation:s.validation},{canPublish:remoteCaps.schedule===true});}catch(e){message(scheduleReason(e,c),true);paintRemote();return;}
+   // O vínculo de público pode mudar depois da conferência (outra aba ou pessoa). Antes de
+   // abrir a confirmação, relê o vínculo atual: a conferência por listas não autoriza agendar
+   // uma campanha que passou a ter público salvo vinculado.
+   if(audienceState().active){
+    const ok=await audienceView.confirmBindingRead();
+    if(!ok||audienceState().legacyBlocked||remote!==client||client.snapshot()?.campaign?.version!==c.version){message('O vínculo de público desta campanha mudou ou não pôde ser confirmado agora. Nada foi agendado; confira o público e a campanha antes de agendar.',true);paintRemote();return;}
+   }
    confirmAction(`Agendar ${contextBrand==='fish'?'Fishermans':contextBrand==='aristo'?'O Aristocrata':contextBrand} · “${c.definition.name}” para ${stamp(c.send_at)}? ${audienceNumber(a.eligible_count)} ${a.eligible_count===1?'pessoa pode':'pessoas podem'} receber agora, sem duplicar contatos entre listas. Listas: ${audienceLists(a.list_ids)}. Conferência válida até ${stamp(a.expires_at)}. O total pode mudar por inscrições e descadastros até o envio.`,'Agendar campanha',confirmed=>runRemote(()=>client.schedule(d,'agendar',a.review_id),{fillSaved:true,write:true,confirmed}));
   });
  }
