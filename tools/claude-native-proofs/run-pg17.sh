@@ -29,6 +29,7 @@ PG_NODE_MODULES=${PG_NODE_MODULES:-$ROOT/services/crm-audience/node_modules}
 TESTS=(
   "listmonk|script|CRM_AUDIENCE_TEST_ISOLATED|tests/claude-audience-read-pg16-postgres.cjs"
   "listmonk|script|CRM_TEMPLATE_TEST_ISOLATED|tests/claude-template-read-pg16-postgres.cjs"
+  "listmonk|test|CRM_TEMPLATE_TEST_ISOLATED|tests/claude-template-read-listener-pg17-postgres.cjs"
 )
 
 die(){ echo "RECUSADO: $*" >&2; exit 2; }

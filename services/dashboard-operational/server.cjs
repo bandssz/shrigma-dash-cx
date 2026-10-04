@@ -94,7 +94,7 @@ function settingsFromEnv(env=process.env){
     crmManagedRead=Object.freeze({issuerId,namespaceId,provisionerToken});
   }
   if(crmManagedAudienceRead||crmManagedTemplateRead){
-    if(!crmManagedRead||!crmManagedReadUi||mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft||crmCampaignSubmitWrite||corporateWriter)throw Error('Managed CRM parity profile invalid');
+    if(!crmManagedRead||!crmManagedReadUi||mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft||crmCampaignSubmitWrite&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!allowedHosts.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
     // TODO: admit the exact template listener revision/pins and isolated proofs first.
     // A proposed URL or an environment flag cannot establish backend readiness.
@@ -186,7 +186,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const crmManagedAudienceRead=s.crmManagedAudienceRead===true,crmManagedTemplateRead=s.crmManagedTemplateRead===true;
   if(s.crmManagedAudienceRead!==undefined&&typeof s.crmManagedAudienceRead!=='boolean'||s.crmManagedTemplateRead!==undefined&&typeof s.crmManagedTemplateRead!=='boolean')throw Error('Managed CRM parity flag invalid');
   if(crmManagedAudienceRead||crmManagedTemplateRead){
-    if(!crmManagedReadUi||!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit||corporateWriter)throw Error('Managed CRM parity profile invalid');
+    if(!crmManagedReadUi||!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!s.allowedUpstreamHosts?.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
     // Template integration remains inert until its listener is reviewed and admitted.
     if(crmManagedTemplateRead)throw Error('Managed template read backend not admitted');

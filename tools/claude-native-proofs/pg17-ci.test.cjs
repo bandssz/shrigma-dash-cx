@@ -4,8 +4,9 @@ const C=require('./pg17-ci.cjs'),G=require('./pg17-network-guard.cjs');
 const id='a'.repeat(64),owner='123-1-audience',ctx={id,owner,caseId:'audience'};
 function model(){return {Id:id,Image:C.IMAGE_ID,Config:{Image:C.IMAGE,Labels:{[C.LABEL]:owner},Env:['POSTGRES_DB=listmonk','POSTGRES_HOST_AUTH_METHOD=trust']},State:{Running:true,OOMKilled:false,Dead:false},HostConfig:{Memory:536870912,MemorySwap:536870912,NanoCpus:1000000000,PidsLimit:128,Privileged:false,PortBindings:{'5432/tcp':[{HostIp:'127.0.0.1',HostPort:'55440'}]}},NetworkSettings:{Networks:{github_network_fixture:{NetworkID:'b'.repeat(64)}}},Mounts:[{Type:'volume',Destination:'/var/lib/postgresql/data',Name:'c'.repeat(64),RW:true}]};}
 function refuses(fn){assert.throws(fn,/CLAUDE_NATIVE_PG17_CI_REFUSED/);}
-test('five exact fixtures, mandatory opt-in and own GHA context',()=>{
- assert.deepEqual(Object.keys(C.FIXTURES),['audience','templates','recovery','installer','gateway']);
+test('six exact fixtures, mandatory opt-in and own GHA context',()=>{
+ assert.deepEqual(Object.keys(C.FIXTURES),['audience','templates','template_listener','recovery','installer','gateway']);
+ assert.deepEqual(C.fixture('template_listener'),{file:'tests/claude-template-read-listener-pg17-postgres.cjs',flag:'CRM_TEMPLATE_TEST_ISOLATED',mode:'test'});
  const env={CLAUDE_NATIVE_PG17_CI:'1',CLAUDE_PG17_CASE:'audience',CLAUDE_PG17_CONTAINER_ID:id,CLAUDE_PG17_OWNER:owner};
  assert.deepEqual(C.context(env),ctx);assert.ok(Object.isFrozen(C.context(env)));
  for(const change of [{CLAUDE_NATIVE_PG17_CI:''},{CLAUDE_PG17_CASE:'unknown'},{CLAUDE_PG17_CONTAINER_ID:'old'},{CLAUDE_PG17_OWNER:'123-1-gateway'}])refuses(()=>C.context({...env,...change}));

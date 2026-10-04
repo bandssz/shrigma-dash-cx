@@ -57,5 +57,11 @@ for NATIVE_V3_ATTEMPT in $(seq 1 15); do
   sleep 1
 done
 [[ "$NATIVE_V3_FINAL" = '1' ]] || exit 1
-CRM_MANAGER_V3_CONTAINER="$NATIVE_V3_CONTAINER" node --test "$NATIVE_V3_DIR/native-v3-proof.test.cjs"
+# Reuse this exact disposable cluster wrapper; only the fixed WRITER suite is
+# selectable by a separate deliberate opt-in. No arbitrary entrypoint is read.
+if [[ "${CRM_WRITER_PRODUCTION_NATIVE_PROOF:-}" = '1' ]]; then
+  CRM_MANAGER_V3_CONTAINER="$NATIVE_V3_CONTAINER" node --test "$NATIVE_V3_DIR/../crm-manager-writer-review/production/native.test.cjs"
+else
+  CRM_MANAGER_V3_CONTAINER="$NATIVE_V3_CONTAINER" node --test "$NATIVE_V3_DIR/native-v3-proof.test.cjs"
+fi
 NATIVE_V3_OK=1

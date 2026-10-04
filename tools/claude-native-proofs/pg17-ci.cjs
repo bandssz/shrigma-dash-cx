@@ -7,6 +7,7 @@ const LABEL='com.shrigma.claude-native-pg17';
 const FIXTURES=Object.freeze({
  audience:Object.freeze({file:'tests/claude-audience-read-pg16-postgres.cjs',flag:'CRM_AUDIENCE_TEST_ISOLATED',mode:'script'}),
  templates:Object.freeze({file:'tests/claude-template-read-pg16-postgres.cjs',flag:'CRM_TEMPLATE_TEST_ISOLATED',mode:'script'}),
+ template_listener:Object.freeze({file:'tests/claude-template-read-listener-pg17-postgres.cjs',flag:'CRM_TEMPLATE_TEST_ISOLATED',mode:'test'}),
  recovery:Object.freeze({file:'tests/claude-pending-recovery-pg16-postgres.cjs',flag:'CRM_PENDING_RECOVERY_TEST_ISOLATED',mode:'test'}),
  installer:Object.freeze({file:'tests/claude-pending-recovery-install-pg16-postgres.cjs',flag:'CRM_PENDING_RECOVERY_TEST_ISOLATED',mode:'test'}),
  gateway:Object.freeze({file:'tests/crm-campaign-gateway-postgres.cjs',flag:'CRM_CAMPAIGN_GATEWAY_TEST_ISOLATED',mode:'test'})

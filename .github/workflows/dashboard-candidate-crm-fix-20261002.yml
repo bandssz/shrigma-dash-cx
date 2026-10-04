@@ -59,6 +59,7 @@ jobs:
         run: |
           node --test tools/crm-manager-writer-review/writer-policy.test.cjs tools/crm-manager-writer-review/native/native-writer-pure.test.cjs
           node tools/crm-manager-writer-review/writer-provision.test.cjs "$GITHUB_WORKSPACE/tests/crm-manager-provision-postgres.test.cjs" "$RUNNER_TEMP/growth-test-tools/node_modules/@electric-sql/pglite"
+          node --require ./tools/crm-manager-writer-review/production/network-guard.cjs --test tools/crm-manager-writer-review/production/installer.test.cjs tools/crm-manager-writer-review/production/profile.test.cjs
       - name: Gerar pacote fechado sem dados nem credenciais
         run: |
           node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
@@ -74,6 +75,28 @@ jobs:
             --read-only --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 \
             --entrypoint node shrigma-crm-manager-provisioner:ci \
             -e 'if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const s=require("/app/server.cjs"); if(typeof s.createServer!=="function")throw Error("Missing runtime"); console.log("Provisioner module verified; no socket or database started.");'
+      - name: Construir leitor de templates e provar modo OFF sem banco
+        run: |
+          docker build --file services/crm-template-read/Dockerfile --build-arg CRM_TEMPLATE_READ_REVISION="$GITHUB_SHA" --tag shrigma-crm-template-read:ci .
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-crm-template-read:ci)" = "$GITHUB_SHA"
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --memory-swap 256m --cpus 0.35 --pids-limit 64 --entrypoint node shrigma-crm-template-read:ci --max-old-space-size=96 -e '
+            const a=require("node:assert/strict"),M=require("node:module"),load=M._load;
+            M._load=function(name,...rest){if(name==="pg")throw Error("OFF_LOADED_PG");return load.call(this,name,...rest);};
+            (async()=>{
+              a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);
+              a.match(process.env.CRM_TEMPLATE_READ_REVISION,/^[a-f0-9]{40}$/);
+              a.equal(process.env.CRM_TEMPLATE_READ_ENABLED,"false");
+              const runtime=require("/app/services/crm-template-read/main.cjs").start(process.env,{port:0,host:"127.0.0.1"});
+              try{
+                const server=runtime.app.server;
+                if(!server.listening)await new Promise(resolve=>server.once("listening",resolve));
+                const base="http://127.0.0.1:"+server.address().port;
+                const h=await fetch(base+"/healthz");a.equal(h.status,200);
+                const health=await h.json();a.equal(health.enabled,false);a.equal(health.revision,process.env.CRM_TEMPLATE_READ_REVISION);
+                const r=await fetch(base+"/template-read");a.equal(r.status,503);a.deepEqual(await r.json(),{error:"TEMPLATE_READ_DISABLED"});
+              }finally{await runtime.stop();}
+              console.log("Template image exact revision; UID1000; OFF; no driver or PostgreSQL.");
+            })().catch(()=>{console.error("TEMPLATE_OFF_OCI_REFUSED");process.exitCode=1;});'
       - name: Provar limite CRM de 8 MiB na imagem sem rede
         run: |
           docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
@@ -180,7 +203,9 @@ jobs:
         env:
           CRM_MANAGER_WRITER_NATIVE_PROOF: '1'
           NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
-        run: bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
+        run: |
+          bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
+          CRM_MANAGER_V3_NATIVE_PROOF=1 CRM_WRITER_PRODUCTION_NATIVE_PROOF=1 bash tools/crm-manager-install-review/run-native-v3-proof.sh
 
   native-postgres17-writer-broker-proof:
     runs-on: ubuntu-24.04
@@ -262,7 +287,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        fixture: [audience, templates, recovery, installer, gateway]
+        fixture: [audience, templates, template_listener, recovery, installer, gateway]
     services:
       postgres:
         image: postgres:17.10@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
