@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-f6h4QyLEYrmRIS5uFTx3KDotq06+IT9weMg9tU8jz40='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Bb1kT/moExfpK3g9imHty5gmYwOsaPI1Yh0Yp5GIV1M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -610,7 +610,12 @@ async function carrega(){
         },{espera:[1500],parar:()=>controller.signal.aborted});
       }catch(e){if(controller.signal.aborted)throw e;payload=null;}
     }
-    if(semContrato){avisoTela('Leitura da sua marca aguardando validação','O Orgânico ainda não tem a leitura por marca validada para este acesso. Nenhum dado foi exibido, e isso não significa ausência de resultados. Dados de outras marcas não são apresentados.',false);return;}
+    if(semContrato){
+      API=null;COM=null;MIDIA=null;ORIGEM_LEITURA='';
+      document.querySelectorAll('#area-kpis,#organico-attribution,#stories-conversions,#tab-eq tbody,#tab-posts tbody,#tab-story tbody,#tab-venda tbody,#n-grade,#n-posts,#n-stories,#n-venda,#story-rot,#venda-rot,#origem-leitura').forEach(el=>{el.textContent='';});
+      $('#frescor').textContent='coleta sem confirmação';$('#frescor').title='';$('#origem-leitura').title='';
+      avisoTela('Leitura da sua marca aguardando validação','O Orgânico ainda não tem a leitura por marca validada para este acesso. Nenhum dado foi exibido, e isso não significa ausência de resultados. Dados de outras marcas não são apresentados.',false);return;
+    }
     if(!payload&&!(r&&(r.status===401||r.status===403))){
       try{
         r=await fetch(CX_API_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});

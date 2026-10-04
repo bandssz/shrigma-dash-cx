@@ -19,6 +19,40 @@ async function portal(t){
  t.after(()=>app.removeAllListeners());
  return {f,http:transport(app),upstream};
 }
+
+for(const area of ['organico','influs']){
+ test(area+': uma leitura válida anterior desaparece quando o contrato da marca fica indisponível',async t=>{
+  const p=await portal(t),cookie=await manager(p,area,'aristo');
+  // Resposta anterior vem do perfil sintético existente, com a mesma identidade.
+  // Depois, o handler operacional real recusa o contrato; nenhuma origem externa.
+  const prior=S.createServer({...p.f.config,crmManagedRead:undefined,mode:'synthetic',upstreams:{},allowedUpstreamHosts:[],publicDir:__dirname},
+   {auth:p.f.auth,fetchImpl:denied});
+  t.after(()=>prior.removeAllListeners());const old=transport(prior);let unavailable=false;
+  const http={get:(...args)=>(unavailable?p.http:old).get(...args),post:(...args)=>(unavailable?p.http:old).post(...args)};
+  const x=await panel(http,{host:hosts[area],cookie,page:area+'.html'});
+  assert.equal(x.run(area==='organico'?'API!==null':'INFLU!==null&&INFLU_ULTIMA!==null'),true,'leitura anterior aplicada');
+  assert.ok(x.q('#area-kpis').textContent.trim(),'KPIs anteriores existem antes da recusa');
+  if(area==='organico')assert.ok(x.q('#tab-posts tbody').textContent.trim(),'publicação sintética anterior visível');
+  else assert.match(x.q('#area-kpis').textContent,/R\$\s*300/);
+  await new Promise(resolve=>setImmediate(resolve));const start=x.requests.length;unavailable=true;
+  await x.run(area==='organico'?'carrega()':'carregarInflu()');
+  const reads=x.requests.slice(start).filter(r=>r.path?.startsWith('/api/'));
+  assert.deepEqual(reads.map(r=>[r.path,r.status,r.error]),[[area==='organico'?'/api/cache?painel=organico':'/api/influ',503,'BRAND_READ_CONTRACT_NOT_READY']]);
+  assert.equal(x.run(area==='organico'?'API':'INFLU'),null);
+  assert.equal(x.q('#area-kpis').textContent.trim(),'','sem KPI anterior ou zero');
+  assert.equal(x.q('#btn-retry'),null);assert.equal(x.q('#btn-retry-influ'),null);
+  if(area==='organico'){
+   assert.equal(x.run('COM===null&&MIDIA===null&&ORIGEM_LEITURA===""'),true);
+   for(const selector of ['#tab-posts tbody','#tab-story tbody','#tab-venda tbody','#organico-attribution','#stories-conversions'])assert.equal(x.q(selector).textContent.trim(),'');
+   assert.match(x.q('#aviso-carga').textContent,/Leitura da sua marca aguardando validação/);
+  }else{
+   assert.equal(x.run('INFLU_ULTIMA'),null,'última leitura não pode voltar como fallback');
+   for(const selector of ['#area-creators','#area-cupons','#i-inbox','#i-contadores'])assert.equal(x.q(selector).textContent.trim(),'');
+   assert.match(x.q('#area-tabela').textContent,/Leitura da sua marca aguardando validação/);
+  }
+  assert.deepEqual(p.upstream,[]);
+ });
+}
 async function manager(p,area,brand){
  const email=`${area}.${brand}@synthetic.invalid`,i=p.f.invite(email,area,brand);await p.f.accept(i);
  const login=await p.f.auth.login({email,password:'synthetic-manager-password-2026',host:hosts[area],origin:'https://'+hosts[area]});

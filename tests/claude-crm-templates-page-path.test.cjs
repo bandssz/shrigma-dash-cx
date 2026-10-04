@@ -85,7 +85,7 @@ async function page(m,{canal='todos'}={}){
    if(u.hostname==='comunicacao-crm-panel-read.tazdb8.easypanel.host')pathname='/api/crm-read'+u.search;
    else if(u.origin==='https://'+m.ctx.host&&u.pathname==='/api/templates')pathname=u.pathname+u.search;
    else{requests.push({url:String(url),blocked:true});throw new TypeError('blocked '+u.origin);}
-   requests.push({url:String(url),path:pathname});if(m.state.offline&&pathname.startsWith('/api/templates'))throw new TypeError('synthetic offline');const r=await request(m.app,m.ctx,pathname);
+   const trace={url:String(url),path:pathname};requests.push(trace);if(m.state.offline&&pathname.startsWith('/api/templates'))throw new TypeError('synthetic offline');const r=await request(m.app,m.ctx,pathname);trace.status=r.status;
    return {status:r.status,ok:r.status>=200&&r.status<300,json:async()=>realm(r.text)};}});
  vm.runInContext(BUNDLE,context,{filename:'published-growth.js'});
  vm.runInContext("shrigmaGuardaChave('growth','ui-portal-session-marker');",context);
@@ -195,12 +195,35 @@ test('gestor ainda não pronto (convite aceito, credencial não confirmada): nen
  t.diagnostic('não pronto: '+x.q('#atualizado-em').textContent+' · caps '+JSON.stringify(x.run('typeof GC.caps==="object"&&GC.caps?{leitura_marca:GC.caps.leitura_marca,endpoint:GC.caps.endpoint}:null')));
 });
 
-/* Achado P3 para o Codex (proxy.cjs L343–344, não alterado aqui): com só a leitura de PÚBLICOS ligada
-   (DASHBOARD_CRM_MANAGED_AUDIENCE_READ), um cache cujo `capabilities` vem em lista ou ausente sai pelo retorno
-   antecipado e o gestor pronto perde segments/campaign_audience; com a leitura de TEMPLATES ligada a forma não
-   importa. O produtor real (cache_growth, CASE … ::json para growth/todos) devolve objeto, então hoje não há
-   impacto de uso. Fica como `todo` até a correção na camada do Codex. */
-test('achado P3: leitura de públicos ligada sozinha depende da forma de capabilities no cache',{todo:'proxy.cjs L343–344: isentar também managedAudienceRead no crm-read'},async t=>{
+for(const action of ['listar','historico'])for(const status of [401,403])test(`leitura carregada: ${action} ${status} limpa lista, prévia e histórico anteriores`,async t=>{
+ const m=await manager(t,'aristo'),x=await page(m,{canal:'email'});await load(x);
+ assert.deepEqual(rowNames(x),EXPECTED.aristo.keys,'lista válida carregada antes da recusa');
+ const historyButton=x.q('[data-tpl-historico-draft="d_aristo_1"]');assert.ok(historyButton);historyButton.click();await settled(x);
+ assert.ok(x.q('[data-hist-draft="d_aristo_1"] li'),'histórico válido já carregado');
+ assert.ok(x.run('GC.historicosRascunho.d_aristo_1.length>0'));
+ x.q('[data-brand-email="email.template.2"] [data-tpl-preview-email]').click();assert.ok(x.q('#message-preview-dialog[open] iframe'),'prévia anterior aberta');
+ const {db}=await database(),before=await X.snapshot(db),listenerCalls=m.state.templateCalls.length;
+ if(status===401)m.f.auth.revokeUser({context:m.f.context,userId:m.login.user.id});
+ else m.state.templateFault=()=>new Response(JSON.stringify({error:'SYNTHETIC_TEMPLATE_READ_DENIED'}),{status:403,headers:{'content-type':'application/json'}});
+ if(action==='listar')await load(x);
+ else{
+  // O histórico carregado substitui seu botão. Exercita a mesma função de leitura por draft em uma nova tentativa.
+  await x.run("GC.carregarHistoricoRascunho(GC.previewContext,'d_aristo_1')");await settled(x);
+ }
+ assert.equal(templateCalls(x).at(-1).status,status,'recusa observada na resposta real do portal');
+ assert.equal(rowNames(x).length,0,'linhas anteriores removidas');assert.equal(x.q('#message-preview-dialog'),null,'prévia anterior removida');
+ assert.equal(x.q('[data-hist-draft="d_aristo_1"]'),null,'histórico anterior removido');
+ assert.equal(x.run('GC.conteudo'),null);assert.equal(x.run('GC.conteudoEm'),null);assert.equal(x.run('GC.conteudoEscopo'),null);
+ assert.equal(x.run('Object.keys(GC.historicos).length'),0);assert.equal(x.run('Object.keys(GC.historicosRascunho).length'),0);assert.equal(x.run('GC.historicoErro'),null);
+ const alert=library(x).querySelector('[role=alert]');assert.ok(alert);assert.match(alert.textContent,status===401?/Entre novamente para consultar/:/Seu acesso não inclui esta leitura de templates/);
+ assert.doesNotMatch(library(x).textContent,/Newsletter Aristocrata|Campanha Aristocrata|Nenhum template de e-mail registrado|consultado em/);
+ assert.deepEqual(writable(x).map(b=>b.textContent.trim()),[]);assert.deepEqual(await X.snapshot(db),before,'recusa não altera dados de templates');
+ if(status===401)assert.equal(m.state.templateCalls.length,listenerCalls,'revogação recusa antes do listener');
+});
+
+/* Regressão P3: a leitura individual de públicos deve ser anunciada com qualquer forma do cache;
+   a autorização continua no servidor e não anuncia ações de escrita. */
+test('leitura de públicos ligada sozinha anuncia o contrato com capabilities em objeto, lista ou ausente',async t=>{
  const AudienceRead=require('../services/dashboard-operational/crm-audience-read-bridge.cjs');
  const m=await manager(t,'fish',{commit:true}),seen={};
  const app=S.createServer(settings(m.f,{crmManagedTemplateRead:false,crmManagedAudienceRead:true,allowedUpstreamHosts:[...new Set([...Object.values(B.DESTINATIONS),AudienceRead.DESTINATIONS['audience-read']].map(v=>new URL(v).hostname))]}),{auth:m.f.auth,fetchImpl:async()=>new Response(JSON.stringify(m.state.cache),{status:200,headers:{'content-type':'application/json'}}),managedCrmRuntime:{kick:async()=>{},close:async()=>{}}});t.after(()=>app.removeAllListeners());

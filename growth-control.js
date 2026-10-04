@@ -210,6 +210,10 @@ const GC={
   readTicket:null,
   mesmoEscopo(a,b){return !!a&&!!b&&a.brand===b.brand&&a.endpoint===b.endpoint&&a.key===b.key&&a.leituraMarca===b.leituraMarca;},
   limpaLeitura(){GC.conteudo=null;GC.conteudoEm=null;GC.conteudoErro=null;GC.historicos={};GC.historicosRascunho={};GC.historicoErro=null;GC.conteudoEscopo=null;},
+  limpaLeituraNegada(ticket,res){
+    if(ticket.leituraMarca!==true||![401,403].includes(res.status))return false;
+    GC.limpaLeitura();document.getElementById('message-preview-dialog')?.remove();return true;
+  },
   /* Leitura por marca no portal: a sessão é do portal (não há chave de escrita) e indisponível não é vazio. */
   erroLeitura(res,acao){
     if(res.recusada||res.semLeitura)return GTA.erro(res,acao).texto;
@@ -240,7 +244,7 @@ const GC={
     const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:ticket.leituraMarca});
     let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
-    if(!res.ok){GC.conteudoErro=ticket.leituraMarca?GC.erroLeitura(res,'listar'):GTA.erro(res,'listar').texto;GC.render(ctx);return;}
+    if(!res.ok){GC.limpaLeituraNegada(ticket,res);GC.conteudoErro=ticket.leituraMarca?GC.erroLeitura(res,'listar'):GTA.erro(res,'listar').texto;GC.render(ctx);return;}
     const lista=Array.isArray(res.body?.templates)?res.body.templates.filter(t=>t&&typeof t==='object'&&typeof t.key==='string'):[];
     GC.conteudo=Object.fromEntries(lista.map(t=>[t.key,t]));GC.conteudoEm=new Date().toISOString();GC.render(ctx);
   },
@@ -263,6 +267,7 @@ const GC={
     let res;try{res=await c.historico({draft_id:draftId},ticket.brand);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
     if(res.ok&&Array.isArray(res.body?.events))GC.historicosRascunho[draftId]=res.body.events.filter(x=>x&&typeof x==='object');
+    else if(GC.limpaLeituraNegada(ticket,res))GC.conteudoErro=GC.erroLeitura(res,'historico');
     else GC.historicoErro={draftId,texto:GC.erroLeitura(res,'historico')};
     GC.render(ctx);
   },

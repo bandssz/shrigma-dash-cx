@@ -7,7 +7,7 @@
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=9d723386a6a4">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DIFu1wI+gTMGTUuEPfP280gN6cCmq+17ttxTPQjHVBc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YvsiXN2Vqv+I1zb0FCmw4cT1+7wkMQSVGxtp/X4sbYU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -571,6 +571,12 @@ async function carregarInflu(){
   }catch(e){
     // A current authorization refusal may already have cleared the key inside influPost.
     if(seq!==INFLU_SEQ||(!vigente()&&e.status!==401&&e.status!==403))return;
+    if(e.semContrato){
+      INFLU=null;INFLU_ULTIMA=null;
+      avisoTela('Leitura da sua marca aguardando validação',esc(e.message));
+      document.querySelectorAll('#area-creators,#area-cupons,#i-inbox,#i-contadores,#i-custo-aviso,#area-conferencia,#n-creators,#n-cupons,#i-frescor').forEach(el=>{el.textContent='';});
+      return;
+    }
     const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
     const ult=INFLU_ULTIMA;
     if(!chaveRuim&&ult&&ult.k===k&&ult.ini===periodo.ini&&ult.fim===periodo.fim){
@@ -579,7 +585,6 @@ async function carregarInflu(){
       const f=$('#faixa-alertas');if(f&&f.insertAdjacentHTML){f.insertAdjacentHTML('afterbegin',`<p class="aviso-antigo"><span class="tag alerta" title="A leitura atual não respondeu (${esc(e.message)}). A tela mostra a última leitura boa deste período, de ${hora}.">leitura de ${hora} · a atual não respondeu</span> <button type="button" class="btn sec" id="btn-retry-influ">Tentar de novo</button></p>`);const b=$('#btn-retry-influ');if(b)b.onclick=()=>carregarInflu();}
       return;
     }
-    if(e.semContrato){avisoTela('Leitura da sua marca aguardando validação',esc(e.message));return;}
     avisoTela(chaveRuim?'Acesso não confirmado':'Falha ao carregar',
       esc(e.transitorio&&typeof PainelRede!=='undefined'?PainelRede.mensagem(e):e.message)+(chaveRuim?'':'<br><span class="mini">Os dados não foram atualizados nesta consulta.</span>'),
       chaveRuim?'Informar acesso':'Tentar de novo');

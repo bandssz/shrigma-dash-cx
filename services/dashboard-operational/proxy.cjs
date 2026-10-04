@@ -340,8 +340,8 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
-  if(Array.isArray(value.capabilities)&&!(managedTemplateRead===true&&route==='crm-read')){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
-  if(!plain(value.capabilities)&&!(managedTemplateRead===true&&route==='crm-read'))return clone;
+  if(Array.isArray(value.capabilities)&&!(route==='crm-read'&&(managedTemplateRead===true||managedAudienceRead===true))){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
+  if(!plain(value.capabilities)&&!(route==='crm-read'&&(managedTemplateRead===true||managedAudienceRead===true)))return clone;
   const caps=plain(value.capabilities)?scrubCapabilityFlags(value.capabilities):{};
   // Only an admitted BFF listener may declare the new template read contract.
   // A legacy cache must not assert its readiness.

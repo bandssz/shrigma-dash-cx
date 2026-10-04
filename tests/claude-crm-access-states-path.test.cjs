@@ -16,9 +16,9 @@ const GrowthAccess=require('../growth-access.js');
 const manifest={schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:B.DESTINATIONS.campaigns,campaigns_media:B.DESTINATIONS.campaigns_media}};
 const OWNER_PASSWORD='synthetic-owner-password-2026',MANAGER_PASSWORD='synthetic-manager-password-2026',DAY=86400000;
 
-async function portal(t){
+async function portal(t,cacheExtra=()=>({})){
  const f=await fixture();t.after(()=>f.close());let kicks=0;
- const cache=()=>({_escopo:'growth',_painel:'growth',gerado_em:new Date(f.config.now()).toISOString(),_cache_gerado_em:new Date(Date.now()).toISOString(),crm_diario:[],crm_campanha:[],crm_fluxo:[],crm_conversao:[],capabilities:{}});
+ const cache=()=>({_escopo:'growth',_painel:'growth',gerado_em:new Date(f.config.now()).toISOString(),_cache_gerado_em:new Date(Date.now()).toISOString(),crm_diario:[],crm_campanha:[],crm_fluxo:[],crm_conversao:[],capabilities:{},...cacheExtra()});
  const upstream=[];
  const app=S.createServer({...f.config,mode:'operational',upstreamProfile:'production',crmManagedReadUi:true,upstreams:Object.fromEntries(Object.entries(B.DESTINATIONS).map(([k,v])=>[k,new URL(v)])),allowedUpstreamHosts:[...new Set(Object.values(B.DESTINATIONS).map(v=>new URL(v).hostname))],dynamicRouteManifest:manifest,publicDir:__dirname},
   {auth:f.auth,fetchImpl:async(url,init)=>{upstream.push({url:String(url),authorization:init?.headers?.Authorization});assert.equal(String(url).split('?')[0],B.DESTINATIONS['crm-read']);return new Response(JSON.stringify(cache()),{status:200,headers:{'content-type':'application/json'}});},
@@ -98,3 +98,39 @@ test('convite → aceite → preparação → pronto → renovação → expira�
  assert.ok(p.upstream.every(u=>u.url.startsWith(B.DESTINATIONS['crm-read'])));
 });
 
+test('última consulta válida → acesso CRM expirado: retira dados anteriores, preserva intenção uncertain e recupera só após nova leitura válida',async t=>{
+ let campaignName='synthetic-first-read';
+ const p=await portal(t,()=>({crm_campanha:[{marca:'fish',canal:'email',tipo:'enviada',campanha_id:1,nome:campaignName,enviado_em:new Date().toISOString(),enviados:100,entregues:98,abriram:30,clicaram:10,hard:2,complaints:0,coletado_em:new Date().toISOString()}]})),email='leitura-expira.fish@synthetic.invalid',invite=p.f.invite(email);await p.f.accept(invite);
+ const client=p.f.client(),op=p.f.queued(invite.userId),prepared=await p.f.prepare(client,op);await p.f.commit(client,op,prepared.prepared);
+ // The portal session remains valid when only the CRM read credential expires.
+ p.f.advance(14*DAY-5*60000);const login=await p.f.login(email);
+ const journalKey='shrigma_campaign_bff_v1:'+login.uiKey+':fish',intent=JSON.stringify({phase:'uncertain',fixtureOnly:true,operationId:'synthetic-unknown-ack'}),values=new Map([[journalKey,intent]]);
+ const x=await panel(p.http,{host:hosts.growth,cookie:login.cookie.split(';')[0],values});
+ assert.equal(x.run('API!==null'),true);assert.match(x.q('#atualizado-em').textContent,/^Dados de /);assert.notEqual(x.q('#area-kpis').textContent,'');
+ x.run("setCanal('email');CRMWorkspace.setReport('email');abrirSecaoCRM('resultados')");assert.match(x.q('#tab-camp tbody').textContent,/synthetic-first-read/);
+ // Read-only renders in inactive sections must also be withdrawn, while editor nodes survive.
+ const editor=x.q('#campaign-composer');x.q('#control-templates').textContent='synthetic-loaded-template';
+ const preview=x.document.createElement('dialog');preview.id='message-preview-dialog';preview.textContent='synthetic-loaded-preview';x.document.body.append(preview);
+ x.run("GC.conteudo={fixtureOnly:true};GC.conteudoEm='synthetic-loaded-time';GC.historicos={fixtureOnly:true};GC.historicosRascunho={fixtureOnly:true};GC.readTicket={fixtureOnly:true};globalThis.REVIEW_OLD_TICKET=GC.readTicket;GC.carregando='listar'");
+ x.run("ULT.camp=[{nome:'synthetic-export-row'}];ULT.conv=[{peca:'synthetic-export-row'}]");
+ await p.f.refreshAdmin();p.f.auth.renewManagedCrm({context:p.f.context,userId:invite.userId});const renewal=p.f.renewal(invite.userId);
+ const calls=p.upstream.length;p.f.advance(10*60000);await x.run('carregar()');
+ const last=x.requests.filter(r=>r.path?.startsWith('/api/crm-read?action=cache_growth')).at(-1);
+ assert.equal(last.status,503);assert.equal(last.error,'CRM_ACCESS_NOT_READY');assert.equal(p.upstream.length,calls);
+ assert.equal(x.run('API'),null);assert.equal(x.run('AB_PROVA_LEITURA'),null);assert.equal(x.run('ULT.camp.length+ULT.conv.length'),0);
+ assert.equal(x.q('#message-preview-dialog'),null);assert.equal(x.run('GC.conteudo'),null);assert.equal(x.run('GC.conteudoEm'),null);assert.equal(x.run('Object.keys(GC.historicos).length+Object.keys(GC.historicosRascunho).length'),0);
+ assert.equal(x.run('GC.readTicket'),null);assert.equal(x.run('GC.carregando'),null);assert.equal(x.run('GC.finishRead(REVIEW_OLD_TICKET)'),null,'an old read completion cannot restore its cache');
+ assert.equal(x.q('#area-kpis').textContent,'');assert.equal(x.q('#fontes').textContent,'');assert.equal(x.q('#control-templates').textContent,'');assert.equal(x.q('#tab-camp tbody').textContent,'');
+ assert.ok(x.qa('main>.sec').every(el=>el.style.display==='none'&&el.hasAttribute('inert')));
+ assert.equal(x.q('#campaign-composer'),editor);assert.equal(values.get(journalKey),intent);
+ assert.equal(x.q('#atualizado-em').textContent,'Dados indisponíveis');assert.equal(x.q('#atualizado-em').title,'');
+ assert.match(x.qa('[role=alert]').map(el=>el.textContent).join(' '),/Nenhum dado do CRM está sendo exibido/);assert.doesNotMatch(x.q('#faixa-alertas').textContent,/continuam na tela|exibindo dados/);
+ x.run("setCanal('email');abrirSecaoCRM('resultados');render()");assert.equal(x.q('#tab-camp tbody').textContent,'');assert.ok(x.qa('main>.sec').every(el=>el.style.display==='none'));
+ const rp=await p.f.prepare(client,renewal.operation_id);await p.f.commit(client,renewal.operation_id,rp.prepared);
+ campaignName='synthetic-new-read';
+ await x.run('carregar()');assert.equal(x.run('API!==null'),true);assert.match(x.q('#atualizado-em').textContent,/^Dados de /);assert.equal(x.q('#faixa-alertas').textContent,'');
+ assert.ok(x.qa('main>.sec').every(el=>el.style.display!=='none'&&!el.hasAttribute('inert')));assert.equal(x.q('#campaign-composer'),editor);assert.equal(values.get(journalKey),intent);
+ assert.match(x.q('#tab-camp tbody').textContent,/synthetic-new-read/);assert.doesNotMatch(x.q('#tab-camp tbody').textContent,/synthetic-first-read/);assert.equal(p.upstream.length,calls+1);
+ assert.equal(x.q('#message-preview-dialog'),null);assert.equal(x.run('GC.conteudo'),null);
+ assert.ok(x.requests.every(r=>r.method==='GET'),'the panel never resends or clears the uncertain campaign');
+});

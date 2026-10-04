@@ -5,7 +5,7 @@ const GrowthAccess=(()=>{
  const validKey=v=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=2048&&!/[\x00-\x20\x7f]/.test(v.trim());
  // Portal: a conta existe, mas a credencial individual de leitura do CRM ainda não vale (preparação, confirmação
  // pendente ou expiração). Não promete prazo nem acesso.
- const ACESSO_CRM_PENDENTE='Seu acesso ao CRM ainda não está liberado: ele pode estar em preparação, aguardando confirmação ou expirado. Nenhum dado foi exibido. Peça ao administrador para conferir o acesso em Gestão geral.';
+ const ACESSO_CRM_PENDENTE='Seu acesso ao CRM ainda não está liberado: ele pode estar em preparação, aguardando confirmação ou expirado. Nenhum dado do CRM está sendo exibido. Peça ao administrador para conferir o acesso em Gestão geral.';
  function readError(e){
   if(['TimeoutError','AbortError'].includes(e?.name))return 'A consulta demorou além do esperado.';
   const allowed=[ACESSO_CRM_PENDENTE,'Acesso recusado. Informe uma chave válida no formulário.','Esta chave não retornou os dados do CRM.','O servidor demorou para responder. Tente atualizar novamente.','Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.'];

@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=69c22d48b86e">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/YdyQcj8/+j0MItMIiE40f5A3hzxa8MC5ahNNLi0nTM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=af6a122c1ea6"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=28a56b1f1879"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -301,6 +301,24 @@ let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=fal
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
+let CRM_LEITURA_BLOQUEADA=false;
+function limpaConsultaCRM(){
+  API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
+  GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
+  CRM_LEITURA_BLOQUEADA=true;
+  // Keep editors and their uncertain journals intact, but withdraw every section
+  // while the individual read credential is unavailable. Clear rendered read results.
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.display='none';el.setAttribute('inert','');});
+  document.querySelectorAll('#fontes,#fluxo-saude,#wa-coverage,#area-kpis,#automation-attention,#tab-fila tbody,#fila-rot,#fila-indisponivel,#campaign-monitor,#attribution-campaigns,#attribution-campaign-status,#control-fluxos,#control-workflows,#control-templates,#ses-delivery,#area-cvr,#tab-regua tbody,#nota-regua,#regua-rot,#area-carrinho,#car-rot,#area-arvore [data-ga-rfm],#area-arvore [data-ga-summary],#area-arvore [data-ga-result],#arv-rot,#attribution-status,#area-top,#pix-conversion,#tab-camp tbody,#camp-rot,#camp-contagem,#nota-camp,#tab-conv tbody,#conv-contagem,#nota-conv,#grafico,#legenda-graf,#growth-context,#crm-channel-status,#crm-connection-status,#frescor,#dica').forEach(el=>el.replaceChildren());
+  document.querySelectorAll('#secoes .n').forEach(el=>{el.textContent='';});
+  $('#message-preview-dialog')?.remove();$('#atualizado-em').title='';
+  $('#crm-data-summary').textContent='Atualização por origem';
+}
+function restauraConsultaCRM(){
+  if(!CRM_LEITURA_BLOQUEADA)return;
+  CRM_LEITURA_BLOQUEADA=false;
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.removeProperty('display');el.removeAttribute('inert');});
+}
 // Colunas de recorte repetidas em toda linha exportada: o CSV continua legível fora do painel.
 function exportMeta(extra={}){
   const canal={todos:'E-mail e WhatsApp',email:'E-mail',whatsapp:'WhatsApp próprio'}[CANAL]||CANAL;
@@ -664,6 +682,7 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
+  if(CRM_LEITURA_BLOQUEADA)return;
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   // Contadores da navegação valem só para a marca em que foram calculados.
   document.querySelectorAll('#secoes .n').forEach(n=>{if(n.dataset.marca!==MARCA){n.textContent='';n.dataset.marca=MARCA;}});
@@ -1008,13 +1027,14 @@ async function carregar({retryIdentity=false}={}){
   try{
     const inicioLeituraAB=Date.now();
     const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
-    if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY')throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);
+    if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY'){limpaConsultaCRM();throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);}
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
     const recua=!fresh&&!!antigo&&(!API||Date.parse(antigo._cache_gerado_em)>Date.parse(API._cache_gerado_em||''));
     const next=fresh||(recua?antigo:null);
     if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.');}
     API=GA.project(next,ATTR_MODEL);
+    restauraConsultaCRM();
     // Retrato vencido não serve de prova de leitura para conciliar gravações A/B.
     if(fresh){AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};}
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
@@ -1042,13 +1062,13 @@ async function carregar({retryIdentity=false}={}){
     const exibidos=API?GUI.sourceTime(API._cache_gerado_em):null;
     $('#atualizado-em').textContent=API?'Atualização falhou · '+(exibidos?'exibindo dados de '+exibidos:'exibindo a consulta anterior'):'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
-    if(SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
-    if(SEC==='regua'){
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='regua'){
       const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
       const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
       renderJornadas(modeloOp2);
-    }else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
-    else if(SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
+    }else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
   }
