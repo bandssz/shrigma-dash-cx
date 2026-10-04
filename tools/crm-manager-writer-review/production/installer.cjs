@@ -2,7 +2,7 @@
 // Inert, OFF by default. Only explicitly constructed runners may perform I/O.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const PROFILE='07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040';
-const SOURCE_MANIFEST_SHA256='6ff1f93ac9ed8fc43bef6d00f49706c7ccc417f0d6ecb40b1ff88e208b17e5bb';
+const SOURCE_MANIFEST_SHA256='fb85a2345bfe31bfcf53b921df46a601be24e4d80188974890585dafbf16c5f5';
 const READ_CORE='4f5b8bdec729d2924c043da6bd3c0f8f2ce01a82af614187cefa1322ecef11c9';
 const SCHEMA='crm-manager-writer-production-proof-v1';
 const KEYS=['tables','relations','indexes','functions','types','roles','no_login_roles','restricted_roles','membership_edges','passworded_roles'];
