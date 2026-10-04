@@ -106,3 +106,19 @@ test('edição desligada (somente leitura): sem botão e sem aviso de espera; le
  const forged=await f.post(hosts.growth,'/api/campaigns',command('salvar',row,'forged-portal-key-000002',{definition:row.definition}),{cookie:s.cookie(),csrf:session.json.csrf});
  assert.ok([403,503].includes(forged.status),String(forged.status));assert.deepEqual(f.origin.effects,{save:0,validate:0,schedule:0,cancel:0,create:0});
 });
+
+test('edição expira com agendamento sem confirmação: o aviso diz que a tentativa está preservada e não será repetida; nada é reenviado',async t=>{
+ const f=await fixture(t);await f.manager('writer@synthetic.invalid');let lost=0;
+ const s=shell(f,{loseAck:(method,body)=>method==='POST'&&body?.acao==='campanha_agendar'&&++lost===1});await s.login('writer@synthetic.invalid');
+ await openEditor(s);s.el('campaign-validate').click();await until(()=>/Público conferido/.test(s.el('campaign-status').textContent)&&!s.el('campaign-consult').disabled,'conferência');
+ s.confirm();await until(()=>!s.el('campaign-schedule').disabled,'agendar liberado');s.el('campaign-schedule').click();await until(()=>lost===1&&/não foi confirmada/.test(s.el('campaign-status').textContent),'ACK perdido');
+ const journal=()=>[...s.values.entries()].filter(([k])=>k.startsWith('shrigma_campaign_bff_v1:')),before=JSON.stringify(journal());
+ const sent=f.calls.filter(c=>c.method==='POST').length;
+ f.advance(14*86400000+1);
+ const e=shell(f,{values:s.values});await e.login('writer@synthetic.invalid');
+ assert.equal(e.el('entry-campaign-open').hidden,true);const note=e.document.getElementById('entry-campaign-note');
+ assert.equal(note.hidden,false);assert.equal(note.getAttribute('role'),'status');
+ assert.equal(note.textContent,'Edição de campanhas aguardando validação · tentativa sem confirmação preservada, não será repetida');
+ assert.match(note.title,/não será enviada de novo.*conferir o resultado antes de qualquer nova ação/);assert.doesNotMatch(note.textContent,/\bativa\b|liberad|agendad/i);
+ assert.equal(JSON.stringify(journal()),before,'diário intacto');assert.equal(f.calls.filter(c=>c.method==='POST').length,sent,'nada reenviado');assert.equal(f.origin.effects.schedule,1);
+});
