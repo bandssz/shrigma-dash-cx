@@ -78,6 +78,28 @@ const {PGlite}=require(process.env.ORGANICO_PGLITE_MODULE||process.env.CAMPAIGN_
   assert.deepEqual(daily,base,'known models reconcile including cross-channel and known no-touch');
   assert.ok(!projection.includes('JOIN public.crm_organico_utm'),'no piece lookup fanout');
   const payload=(await db.query("SELECT crm_organico_attribution_payload_v2('2026-09-19','2026-09-19') payload")).rows[0].payload;
+
+  // Reuse the ledger fixture to preserve the original contract for each brand.
+  const brandSql=read('n8n/organico/brand-payload-function.sql');
+  await db.exec(brandSql);
+  for(const marca of ['aristo','fish']){
+   const pair=(await db.query("SELECT crm_organico_attribution_payload_v2($1::date,$2::date) base, crm_organico_attribution_brand_payload_v1($1::date,$2::date,$3::text) scoped",['2026-09-19','2026-09-19',marca])).rows[0];
+   const expected={...pair.base,daily:pair.base.daily.filter(r=>r.marca===marca),quality:pair.base.quality.filter(r=>r.marca===marca),coverage:pair.base.coverage.filter(r=>r.marca===marca)};
+   assert.deepEqual(pair.scoped,expected,'complete branded payload equals original filtered data; all metadata/models/totals preserved: '+marca);
+   for(const family of ['daily','quality','coverage'])assert.ok(pair.scoped[family].length>0&&pair.scoped[family].every(r=>r.marca===marca),'cross-brand isolation: '+family+'/'+marca);
+   const emptyBrand=(await db.query("SELECT crm_organico_attribution_brand_payload_v1('2026-08-01','2026-08-01',$1::text) payload",[marca])).rows[0].payload;
+   for(const family of ['daily','quality','coverage'])assert.deepEqual(emptyBrand[family],[]);
+  }
+  for(const invalid of [null,'','todos','olivas','ARISTO','fishermans',"aristo' OR true --"]){
+   await assert.rejects(db.query("SELECT crm_organico_attribution_brand_payload_v1('2026-09-19','2026-09-19',$1::text)",[invalid]),/ORGANICO_BRAND_INVALID/);
+  }
+  await assert.rejects(db.query("SELECT crm_organico_attribution_brand_payload_v1('2026-09-20','2026-09-19','aristo')"),/ORGANICO_WINDOW_INVALID/);
+  await assert.rejects(db.query("SELECT crm_organico_attribution_brand_payload_v1(NULL,'2026-09-19','aristo')"),/ORGANICO_WINDOW_INVALID/);
+  const privilege=(await db.query("SELECT p.prosecdef,p.provolatile,(SELECT count(*)::int FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') public_execute FROM pg_proc p WHERE p.oid='public.crm_organico_attribution_brand_payload_v1(date,date,text)'::regprocedure")).rows[0];
+  assert.deepEqual(privilege,{prosecdef:false,provolatile:'s',public_execute:0});
+  await assert.rejects(db.exec(brandSql),/already exists/,'CREATE refuses overwriting an existing unknown function');
+  console.log('Branded Organic payload proof passed: both brands, three families, full payload parity, empty/date/brand refusal, invoker, PUBLIC revoked; discarded PGlite only.');
+
   assert.equal(payload.default_model,'last_click');assert.equal(payload.window_days,30);assert.equal(payload.assistance_available,false);assert.equal(payload.utm_raw_available,false);
   assert.equal(payload.coverage.length,2);assert.equal(payload.quality.length,2,'quality not multiplied by model/UTM');
   const aristo=payload.quality.find(q=>q.marca==='aristo');assert.equal(aristo.pedidos_lidos,30);assert.equal(aristo.pagos_elegiveis,26);assert.equal(aristo.ultima_sessao_desconhecida,3);assert.equal(aristo.origem_nao_direta_desconhecida,2);
