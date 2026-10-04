@@ -73,7 +73,9 @@ const GCA=(()=>{
   // pelo recibo. Chave repetida/pendente também segue incerta.
   function definitiveConflict(res,operation){
    const b=res.body,r=operation.request;
-   return res.status===409&&!!b&&typeof b==='object'&&Object.keys(b).sort().join()==='error,message,operation_id,provider_id'&&typeof b.error==='string'&&/^[A-Z][A-Z0-9_]{2,63}$/.test(b.error)&&
+   // 409 e 422 com recibo: o serviço só responde assim depois de gravar a tentativa como
+   // recusada (finish 'rejected'); se essa gravação falhar, a resposta vira 502 OUTCOME_UNKNOWN.
+   return (res.status===409||res.status===422)&&!!b&&typeof b==='object'&&Object.keys(b).sort().join()==='error,message,operation_id,provider_id'&&typeof b.error==='string'&&/^[A-Z][A-Z0-9_]{2,63}$/.test(b.error)&&
     !['OUTCOME_UNKNOWN','OPERATION_PENDING','IDEMPOTENCY_CONFLICT'].includes(b.error)&&typeof b.message==='string'&&uuidValue(b.operation_id)&&
     ['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar'].includes(r.acao)&&Number.isSafeInteger(r.id)&&r.id>0&&b.provider_id===r.id;
   }
