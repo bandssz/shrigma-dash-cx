@@ -19,14 +19,13 @@ const lists=brand=>({brand,base_list_id:brand==='fish'?17:16,lists:[{id:brand===
 function response(value,url){const r=new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json; charset=utf-8'}});Object.defineProperty(r,'url',{value:String(url)});return r;}
 const read=(ctx,brand='fish')=>({...ctx,method:'GET',brand});
 
-test('corporate constructors admit Audience READ with the closed WRITER descriptor; templates and generic draft remain closed',async t=>{
+test('corporate constructors admit Audience READ with the closed WRITER descriptor; template host and generic draft remain guarded',async t=>{
  const f=await fixture(t),e=env(f),s=S.settingsFromEnv(e);
  assert.equal(s.crmManagedAudienceRead,true);assert.equal(s.crmManagedWriter.mode,'corporate-read-writer-v1');app(t,f,()=>assert.fail('constructor must be inert'));
  for(const delta of [{DASHBOARD_CRM_DRAFT_WRITE:'enabled'},{DASHBOARD_CRM_AUDIENCE_DRAFT:'enabled'},{DASHBOARD_CRM_MANAGED_READ_UI:'disabled'},{DASHBOARD_CRM_WRITER_DESCRIPTOR:JSON.stringify({...f.config.crmManagedWriter,namespaceId:f.config.crmManagedRead.namespaceId})},{DASHBOARD_CRM_WRITER_DESCRIPTOR:JSON.stringify({...f.config.crmManagedWriter,url:'https://arbitrary.invalid'})},{DASHBOARD_UPSTREAM_HOSTS:JSON.stringify(settings(f).allowedUpstreamHosts.filter(x=>x!==audienceHost))},{DASHBOARD_CRM_MANAGED_WRITER:'disabled'}])assert.throws(()=>S.settingsFromEnv({...e,...delta}));
  for(const delta of [{crmDraftWrite:true},{crmAudienceDraft:true},{crmManagedReadUi:false},{crmManagedWriter:undefined},{crmManagedWriter:{...f.config.crmManagedWriter,namespaceId:f.config.crmManagedRead.namespaceId}},{allowedUpstreamHosts:settings(f).allowedUpstreamHosts.filter(x=>x!==audienceHost)},{upstreams:{...settings(f).upstreams,'audience-read':'https://arbitrary.invalid'}}])assert.throws(()=>app(t,f,()=>assert.fail('refused constructor must be inert'),delta));
- const allowed=[...settings(f).allowedUpstreamHosts,new URL(T.DESTINATIONS['template-read']).hostname];
- assert.throws(()=>S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_TEMPLATE_READ:'enabled',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify(allowed)}),/Managed template read backend not admitted/);
- assert.throws(()=>app(t,f,()=>assert.fail('template must remain closed'),{crmManagedTemplateRead:true,allowedUpstreamHosts:allowed}),/Managed template read backend not admitted/);
+ assert.throws(()=>S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_TEMPLATE_READ:'enabled'}),/Managed template read host not admitted/);
+ assert.throws(()=>app(t,f,()=>assert.fail('template without admitted host must remain closed'),{crmManagedTemplateRead:true}),/Managed template read host not admitted/);
 });
 
 test('both brands use only the individual dcrm READ before and after FULL; WRITER stays distinct and audience mutations stay unavailable',async t=>{

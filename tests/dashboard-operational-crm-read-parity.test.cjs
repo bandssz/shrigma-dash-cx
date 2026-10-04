@@ -20,11 +20,12 @@ const flags={selector_ready:false,execution_blocked:true,authorizes_selection:fa
 const lists=brand=>({brand,base_list_id:brand==='fish'?17:16,lists:[{id:brand==='fish'?17:16,brand,name:'Synthetic base',available:true}],freshness:fresh});
 const context=(brand,id)=>({contract:'crm-audience-campaign-read-context-v1',brand,campaign_id:id,campaign_version:'a'.repeat(32),status:'draft',list_ids:[brand==='fish'?17:16],lists:[{id:brand==='fish'?17:16,name:'Synthetic base',available:true,in_brand:true}],list_only:true,binding_state:'none',binding:null,freshness:fresh,schedule_proof:false,...flags});
 
-test('parity flags default OFF; audience needs managed read, writes OFF and its explicit fixed host; template ON is refused',()=>{
+test('parity flags default OFF; each listener needs managed read, writes OFF and its explicit fixed host',()=>{
  const e=env(),off=S.settingsFromEnv(e);assert.equal(off.crmManagedAudienceRead,false);assert.equal(off.crmManagedTemplateRead,false);
  assert.equal(S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_AUDIENCE_READ:'enabled'}).crmManagedAudienceRead,true);
  for(const delta of [{DASHBOARD_CRM_MANAGED_AUDIENCE_READ:'true'},{DASHBOARD_CRM_MANAGED_AUDIENCE_READ:'enabled',DASHBOARD_CRM_MANAGED_READ_UI:'disabled'},{DASHBOARD_CRM_MANAGED_AUDIENCE_READ:'enabled',DASHBOARD_CRM_DRAFT_WRITE:'enabled'},{DASHBOARD_CRM_MANAGED_AUDIENCE_READ:'enabled',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify(['comunicacao-crm-panel-read.tazdb8.easypanel.host','n8n-n8n.tazdb8.easypanel.host'])}])assert.throws(()=>S.settingsFromEnv({...e,...delta}));
- assert.throws(()=>S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_TEMPLATE_READ:'enabled',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify([...JSON.parse(e.DASHBOARD_UPSTREAM_HOSTS),new URL(T.DESTINATIONS['template-read']).hostname])}),/Managed template read backend not admitted/);
+ assert.throws(()=>S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_TEMPLATE_READ:'enabled'}),/Managed template read host not admitted/);
+ assert.equal(S.settingsFromEnv({...e,DASHBOARD_CRM_MANAGED_TEMPLATE_READ:'enabled',DASHBOARD_UPSTREAM_HOSTS:JSON.stringify([...JSON.parse(e.DASHBOARD_UPSTREAM_HOSTS),new URL(T.DESTINATIONS['template-read']).hostname])}).crmManagedTemplateRead,true);
 });
 
 test('audience GET uses the individual principal and canonical query for both brands; legacy slots and browser bearer are ignored',async t=>{
@@ -43,7 +44,7 @@ test('OFF and invalid/write/receipt audience requests make no new backend reques
  const on=server(f,fetchImpl,{crmManagedAudienceRead:true});
  for(const url of ['/api/segments?acao=publicos_listas&brand=olivas','/api/segments?acao=publicos_listas&brand=fish&brand=aristo','/api/segments?acao=publicos_listas&brand=fish&k=synthetic-browser-key','/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=synthetic-operation-key','/api/campaign_audience?acao=campanha_publico_operacao&brand=fish&idempotency_key=synthetic-operation-key','/api/templates?acao=listar&marca=fish'])assert.ok([403,503].includes((await request(on,ctx,url)).status));
  assert.equal((await request(on,ctx,'/api/segments',{method:'POST',body:{acao:'segmento_criar',brand:'fish'},csrf:login.csrf})).status,403);assert.equal(calls,0);
- assert.throws(()=>server(f,fetchImpl,{crmManagedTemplateRead:true}),/Managed template read backend not admitted/);
+ assert.throws(()=>server(f,fetchImpl,{crmManagedTemplateRead:true}),/Managed template read host not admitted/);
 });
 
 test('capabilities expose audience reads only to the ready manager, all writes false and template contract absent',async t=>{

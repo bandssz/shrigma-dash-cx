@@ -336,17 +336,17 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,managedAudienceRead=false,route=null}={}){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,managedAudienceRead=false,managedTemplateRead=false,route=null}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
-  if(Array.isArray(value.capabilities)){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
-  if(!plain(value.capabilities))return clone;
-  const caps=scrubCapabilityFlags(value.capabilities);
+  if(Array.isArray(value.capabilities)&&!(managedTemplateRead===true&&route==='crm-read')){clone.capabilities=scrubActionList(value.capabilities,0);return clone;}
+  if(!plain(value.capabilities)&&!(managedTemplateRead===true&&route==='crm-read'))return clone;
+  const caps=plain(value.capabilities)?scrubCapabilityFlags(value.capabilities):{};
   // Only an admitted BFF listener may declare the new template read contract.
-  // It remains unavailable here; a legacy cache must not assert its readiness.
+  // A legacy cache must not assert its readiness.
   if(plain(caps.templates))delete caps.templates.read_contract;
-  if(plain(value.capabilities.endpoints)){
+  if(plain(value.capabilities?.endpoints)){
     const urls=Object.fromEntries(Object.entries(upstreams)
       .filter(([route])=>Object.values(READ[route]?.actions||{}).some(action=>action.edit!==true))
       .map(([route,url])=>[url.href,route]));
@@ -378,7 +378,10 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
     caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments',campaign_audience:origin+'/api/campaign_audience'};
     caps.segments={...(plain(caps.segments)?caps.segments:{}),read:true,save:false,count:false,operation:false};
     caps.campaign_audience={...(plain(caps.campaign_audience)?caps.campaign_audience:{}),read:true,inspect:false,operation:false,validate:false,bind:false,release:false};
-    // No template read_contract is published until its backend is admitted.
+  }
+  if(managedTemplateRead===true&&route==='crm-read'){
+    caps.endpoints={...(caps.endpoints||{}),templates:origin+'/api/templates'};
+    caps.templates={read_content:true,list_history:true,read_contract:'crm-template-read-v1',draft:false,validate:false,submit:false,submit_email:false};
   }
   clone.capabilities=caps;
   return clone;

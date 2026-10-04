@@ -96,9 +96,9 @@ function settingsFromEnv(env=process.env){
   if(crmManagedAudienceRead||crmManagedTemplateRead){
     if(!crmManagedRead||!crmManagedReadUi||mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft||crmCampaignSubmitWrite&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!allowedHosts.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
-    // TODO: admit the exact template listener revision/pins and isolated proofs first.
-    // A proposed URL or an environment flag cannot establish backend readiness.
-    if(crmManagedTemplateRead)throw Error('Managed template read backend not admitted');
+    // #222 serves the registered_email_only contract through the fixed bridge;
+    // its per-request SQL attestation and response validator remain authoritative.
+    if(crmManagedTemplateRead&&!allowedHosts.includes(new URL(TemplateRead.DESTINATIONS['template-read']).hostname))throw Error('Managed template read host not admitted');
   }
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
@@ -458,8 +458,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(crmManagedAudienceRead||crmManagedTemplateRead){
     if(!crmManagedReadUi||!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!s.allowedUpstreamHosts?.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
-    // Template integration remains inert until its listener is reviewed and admitted.
-    if(crmManagedTemplateRead)throw Error('Managed template read backend not admitted');
+    if(crmManagedTemplateRead&&!s.allowedUpstreamHosts?.includes(new URL(TemplateRead.DESTINATIONS['template-read']).hostname))throw Error('Managed template read host not admitted');
   }
   const managedReadBridge=crmManagedReadUi?ManagedRead.createManagedReadBridge({auth,upstreams,enabled:true},{fetchImpl}):undefined;
   const audienceReadBridge=crmManagedAudienceRead?AudienceRead.createAudienceReadBridge({auth,upstreams:{'audience-read':new URL(AudienceRead.DESTINATIONS['audience-read'])},enabled:true},{fetchImpl}):undefined;
@@ -812,9 +811,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         finally{
           if(managedReadSettled)managedReadSettled.then(releaseUpstream,releaseUpstream);else releaseUpstream();
         }
-        if(crmManagedAudienceRead&&route==='crm-read'&&d.action==='cache_growth'&&result.status===200&&user.role==='manager'&&auth.managedCrmJournal.status(user.id)!==null){
+        if((crmManagedAudienceRead||crmManagedTemplateRead)&&route==='crm-read'&&d.action==='cache_growth'&&result.status===200&&user.role==='manager'&&auth.managedCrmJournal.status(user.id)!==null){
           let ready=false;try{const proof=auth.managedCrmReadAuthorization({...brandedCtx,area:'growth',edit:false});if(proof&&typeof proof.then==='function')Promise.resolve(proof).catch(()=>{});else ready=Boolean(proof);}catch{}
-          if(ready)result={...result,body:require('./proxy.cjs').rewriteCapabilities(result.body,upstreams,origin,{route,managedAudienceRead:true})};
+          if(ready)result={...result,body:require('./proxy.cjs').rewriteCapabilities(result.body,upstreams,origin,{route,managedAudienceRead:crmManagedAudienceRead,managedTemplateRead:crmManagedTemplateRead})};
         }
         if(user.role==='manager'){
           // Revocation or a changed grant during fetch cannot return the body.
