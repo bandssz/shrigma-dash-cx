@@ -12,7 +12,21 @@ const db={query:(q,p)=>owner.query(q,p),exec:q=>owner.query(q),transaction:async
 const leaf=(field,operator,value)=>({op:'condition',field,operator,value}),confirmed=rule=>({op:'confirmed',rule});
 const definition=(brand,rule)=>({schema_version:'crm-audience-v2',brand,name:'Confirmed synthetic '+brand,rule});
 const buyers=leaf('purchase.count','gt',0),never=leaf('purchase.count','eq',0);
-async function ingest(e){const{customers,...meta}=e;for(let p=0;p<Math.ceil(customers.length/5000);p++)await db.query('SELECT crm_audience_v2.shopify_ingest_product_chunk($1,$2,$3)',[JSON.stringify(meta),p,JSON.stringify(customers.slice(p*5000,(p+1)*5000))]);}
+// This helper loads only disposable bulk evidence. Keep the API/count budgets
+// unchanged, and restore the exact session setting inherited from the fixture.
+async function ingest(e){
+ const {customers,...meta}=e,c=await owner.connect();let priorTimeout,discard;
+ try{
+  priorTimeout=(await c.query('SHOW statement_timeout')).rows[0].statement_timeout;
+  await c.query("SET statement_timeout='120s'");
+  for(let p=0;p<Math.ceil(customers.length/5000);p++)await c.query('SELECT crm_audience_v2.shopify_ingest_product_chunk($1,$2,$3)',[JSON.stringify(meta),p,JSON.stringify(customers.slice(p*5000,(p+1)*5000))]);
+ }catch(error){if(priorTimeout===undefined)discard=error;throw error;}
+ finally{
+  try{if(priorTimeout!==undefined)await c.query("SELECT set_config('statement_timeout',$1,false)",[priorTimeout]);}
+  catch(error){discard=error;throw error;}
+  finally{c.release(discard);}
+ }
+}
 (async()=>{let rolePool,transaction;const metrics={};try{
  assert.equal((await db.query('show server_version_num')).rows[0].server_version_num,'170010');
  const x=await F.setupProducts(db);
