@@ -699,7 +699,7 @@ jobs:
     # Enable false -> true only in a concretely reviewed and approved carrier.
     # The carrier revision never selects the portal image source revision.
     if: >-
-      false &&
+      true &&
       success() &&
       github.event_name == 'push' &&
       github.repository == 'bandssz/shrigma-dash-cx' &&
