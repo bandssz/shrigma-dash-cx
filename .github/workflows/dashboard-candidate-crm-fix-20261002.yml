@@ -230,6 +230,10 @@ jobs:
           node tools/crm-manager-install-review/native-preflight-ci/observe.test.cjs
           node tools/crm-manager-install-review/native-preflight-ci/diagnose.test.cjs
           bash -n tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
+          node --require ./tools/crm-manager-read-credential-custody/unit-guard.cjs --test tools/crm-manager-read-credential-custody/manual-reconcile/recovery.test.cjs
+          node --require ./tools/crm-manager-read-credential-custody/manual-disable/unit-guard.cjs --test tools/crm-manager-read-credential-custody/manual-disable/manual-disable.test.cjs
+          bash -n tools/crm-manager-read-credential-custody/manual-reconcile/oci/run-oci-proof.sh
+          bash -n tools/crm-manager-read-credential-custody/manual-disable/run-oci-preflight.sh
       - name: Provar Compose, limites, volume e fsync na imagem imutável sem SQL
         env:
           SHRIGMA_NATIVE_PREFLIGHT_CI: '1'
@@ -238,6 +242,15 @@ jobs:
         env:
           READ_BOOTSTRAP_HANDOFF_OCI: '1'
         run: bash tools/crm-manager-read-activation-review/compose/run-bootstrap-handoff-preflight.sh
+      - name: Provar leitura do diário original sem repetir Stage ou SQL
+        env:
+          READ_MANUAL_RECONCILE_OCI_PROOF: '1'
+          READ_RECONCILE_RUNTIME_DIRECTORY: ${{ github.workspace }}/tools/crm-manager-read-credential-custody
+        run: bash tools/crm-manager-read-credential-custody/manual-reconcile/oci/run-oci-proof.sh
+      - name: Provar compensação manual desligada com volumes sintéticos sem SQL
+        env:
+          MANUAL_DISABLE_OCI_PROOF: '1'
+        run: bash tools/crm-manager-read-credential-custody/manual-disable/run-oci-preflight.sh
 
   claude-native-pg17-proof:
     name: claude-native-pg17-proof (${{ matrix.fixture }})
