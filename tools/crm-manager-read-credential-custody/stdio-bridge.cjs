@@ -46,7 +46,7 @@ function readPublicFile(d){
 }
 function createStdioBridge({enabled=false,directory:dir,materialize,input,output,timeoutMs=30000}={}){
  if(typeof enabled!=='boolean')throw unknown();
- if(!enabled)return Object.freeze({enabled:false,execute:async()=>{throw unknown();},request:async()=>{throw unknown();},abort:()=>({state:'unknown'}),close:()=>{}});
+ if(!enabled)return Object.freeze({enabled:false,execute:async()=>{throw unknown();},abort:()=>({state:'unknown'}),close:()=>{}});
  input=input||process.stdin;output=output||process.stdout;
  directory(dir);if(typeof materialize!=='function'||typeof input?.on!=='function'||typeof output?.write!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<10||timeoutMs>60000)throw unknown();
  let seq=0,pending=null,closed=false,chunks=[],bytes=0;
@@ -72,9 +72,8 @@ function createStdioBridge({enabled=false,directory:dir,materialize,input,output
   inputShape(args.procedure,args.input);const privateRequest=privateInput(args.input);
    return JSON.stringify({schema:REQUEST,seq:n,kind:'mcp',visibility:privateRequest?'private':'public',executor:frame.executor,...(privateRequest?{args}:{file:publicFile(dir,n,frame.executor,args)})});
  });}
- // Explicit callbacks only: no discovery or native executor in this Node module.
- async function request(kind,payload){if(!['admin-password','admission','observe'].includes(kind)||privateInput(payload))throw unknown();return send(n=>JSON.stringify({schema:REQUEST,seq:n,kind,visibility:'public',payload}));}
- return Object.freeze({enabled:true,execute,request,abort:()=>{terminal();return{state:'unknown'};},close:terminal});
+ // Only the closed MCP frame protocol is admitted. No opaque helper channel.
+ return Object.freeze({enabled:true,execute,abort:()=>{terminal();return{state:'unknown'};},close:terminal});
 }
 module.exports=Object.freeze({createStdioBridge,readPublicFile,PROCS,REQUEST,RESPONSE,READBACK,MAX_PUBLIC,MAX_PRIVATE,MAX_INPUT,BridgeUnknown,privateInput,inputShape});
 if(require.main===module){process.stderr.write('READ_STDIO_API_ONLY\n');process.exitCode=1;}

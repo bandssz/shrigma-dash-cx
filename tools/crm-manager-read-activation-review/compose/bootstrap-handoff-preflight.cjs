@@ -2,8 +2,8 @@
 // Inert public source-only proof; only --oci with opt-in may use own CI Docker.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const C=require('./build-compose.cjs'),P=require('./oci-preflight.cjs'),E=require('../../crm-manager-read-credential-custody/easypanel-plan.cjs'),R=require('../../crm-manager-read-credential-custody/remote-operator.cjs'),G=require('../../crm-manager-read-credential-custody/public-postcondition.cjs');
-const BUILDER_SHA='6a7946f703e1661a174d53314c833b4bb7d1eb246b905bc18d4c463020d42f20';
-const PREVIOUS_OCI_SHA='ad1cc73cd621b1a5f1c72ebd272e3062509fc91b35ec72a9cd7179259404186c';
+const BUILDER_SHA='426f27efaf8e9740e741f752df5d54dd78539862bc53f658bc52215bd983091f';
+const PREVIOUS_OCI_SHA='c2e5171f28929fd64a36eec69b9d94727d35759d43704e88edb1549b5838c821';
 const IMAGE=C.IMAGE,FAIL='READ_BOOTSTRAP_HANDOFF_REFUSED',PURPOSE='read-stage-isolated-review';
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),copy=v=>JSON.parse(JSON.stringify(v));
 function fail(){throw Error(FAIL);}

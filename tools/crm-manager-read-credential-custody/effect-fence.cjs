@@ -19,8 +19,14 @@ function scope(p){
  const body={schema:p.schema,mode:p.mode,intent:p.intent,descriptor:p.descriptor,parentStage:p.parentStage},encoded=canonical(body);if(Buffer.byteLength(encoded)>524288||sha(encoded)!==p.planSha256)fail();
  exact(p.intent,['schema','operationId','credentialIntentId','action','fromPhase']);const i=p.intent;if(i.schema!=='crm-manager-read-runtime-intent-v1'||!UUID.test(i.operationId)||!UUID.test(i.credentialIntentId)||i.action!=='stage'||i.fromPhase!=='empty')fail();
  const d=p.descriptor,projectName=data(d,'projectName'),serviceName=data(d,'serviceName'),image=data(d,'image'),compose=data(d,'compose'),volumes=data(compose,'volumes'),source=data(data(volumes,'source'),'name'),ledger=data(data(volumes,'ledger'),'name');
- if(projectName!==PROJECT||typeof serviceName!=='string'||!(p.mode==='execute'?/^mgr-stage-[a-f0-9]{12}$/:/^mgr-rec-[a-f0-9]{12}$/).test(serviceName)||image!==IMAGE||typeof source!=='string'||!/^shrigma-read-source-[a-f0-9]{12}$/.test(source)||ledger!=='shrigma-read-stage-'+source.slice(-12))fail();
- if(p.mode==='execute'&&(source.slice(-12)!==serviceName.slice(-12)||p.parentStage!==null)||p.mode==='reconcile'&&(!p.parentStage||p.parentStage.intent?.operationId!==i.operationId||p.parentStage.intent?.credentialIntentId!==i.credentialIntentId))fail();
+ if(projectName!==PROJECT||typeof serviceName!=='string'||!(p.mode==='execute'?/^mgr-stage-[a-f0-9]{12}$/:/^mgr-rec-[a-f0-9]{12}$/).test(serviceName)||image!==IMAGE||typeof source!=='string'||!/^shrigma-read-source-(?:[a-f0-9]{12}|[a-f0-9]{32})$/.test(source))fail();
+ const namespace=source.slice('shrigma-read-source-'.length),fresh=namespace.length===32;if(ledger!=='shrigma-read-stage-'+namespace)fail();
+ if(fresh&&namespace!==sha('crm-manager-read-fresh-volume-namespace-v1\0'+i.operationId+'\0'+i.credentialIntentId).slice(0,32))fail();
+ if(p.mode==='execute'&&(!fresh&&namespace!==serviceName.slice(-12)||p.parentStage!==null))fail();
+ if(p.mode==='reconcile'){
+  const parent=p.parentStage;if(!parent||parent.mode!=='execute'||parent.intent?.operationId!==i.operationId||parent.intent?.credentialIntentId!==i.credentialIntentId)fail();
+  const parentVolumes=data(data(parent.descriptor,'compose'),'volumes');if(data(data(parentVolumes,'source'),'name')!==source||data(data(parentVolumes,'ledger'),'name')!==ledger)fail();
+ }
  return Object.freeze({projectName,serviceName,mode:p.mode,operationId:i.operationId,credentialIntentId:i.credentialIntentId,sourceVolume:source,ledgerVolume:ledger,image,domainId:data(data(d,'domain'),'id'),testHostname:data(data(d,'domain'),'host')});
 }
 function privateDir(dir){if(typeof dir!=='string'||!path.isAbsolute(dir)||path.resolve(dir)!==dir)fail();const s=fs.lstatSync(dir);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==process.getuid()||(s.mode&0o7777)!==0o700||fs.realpathSync(dir)!==dir)fail();return s;}

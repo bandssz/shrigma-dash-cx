@@ -1,6 +1,6 @@
 # Ponte STDIO — QUERY somente
 
-A entrega inicial do agente foi somente fonte e testes sintéticos, sem MCP, PG, Docker ou chave real. A raiz integrou os arquivos no worktree exclusivo e executou depois uma única consulta MCP de leitura, descrita ao final. Não contém StageRunner. Node/relay estão OFF por padrão; `nativeApproved` também é false, listas autorizadas vazias. O único escopo nativo exercitado pela raiz foi: `execute_query` / `listDomains`, com input exato `{projectName: "dashboard-image-20260930", serviceName: "web-access-v24-f58dfa73"}`. Nenhuma mutação está admitida.
+A entrega inicial do agente foi somente fonte e testes sintéticos, sem MCP, PG, Docker ou chave real. A raiz integrou os arquivos no worktree exclusivo e executou depois uma única consulta MCP de leitura, descrita ao final. O StageRunner separado, incorporado posteriormente, usa esta ponte em testes sintéticos; não integra esta prova nativa. Node/relay estão OFF por padrão; `nativeApproved` também é false, listas autorizadas vazias. O único escopo nativo exercitado pela raiz foi: `execute_query` / `listDomains`, com input exato `{projectName: "dashboard-image-20260930", serviceName: "web-access-v24-f58dfa73"}`. Nenhuma mutação está admitida.
 
 ## Comando de canal
 
@@ -30,9 +30,9 @@ O relay envia `read-stdio-response-v1` / seq1 / oktrue / result (envelope MCP co
 
 ## Limites explícitos
 
-PRIVATE é derivado de env não vazio/campos sensíveis reconhecidos, não de boolean do caller. Inputs MCP têm shape/tipos fechados. Na futura integração com adapter v2, ainda não validada, materialize deve ser `mcpArguments` branded. `source.content` é texto opaco público fornecido pelo materializer confiável, não um detector semântico genérico de segredo. Regras de scope/approval e fences existentes continuam antes de efeitos.
+PRIVATE é derivado de env não vazio/campos sensíveis reconhecidos, não de boolean do caller. Inputs MCP têm shape/tipos fechados. A composição source-only com adapter v2 usa `mcpArguments` branded; teve somente testes sintéticos, sem mutações nativas ou credenciais reais. `source.content` é texto opaco público fornecido pelo materializer confiável, não um detector semântico genérico de segredo. Regras de scope/approval e fences existentes continuam antes de efeitos.
 
-Os helper kinds `admin-password`, `admission` e `observe` continuam FUTUROS, não admitidos nesta prova. Seus payloads opacos não têm contrato fechado completo; não conectar, aprovar nem usar request(helper) com credenciais ou planos até revisão separada. Não há StageRunner nem ativação READ/LOGIN/issuer autorizada pela ponte.
+A API `request(helper)` foi retirada. O protocolo admite somente `kind: 'mcp'`; envelopes `admin-password`, `admission` e `observe` são recusados antes de qualquer callback, mesmo com `nativeApproved:true`. Callbacks de aplicação para senha, capacidade ou observação precisam permanecer separados e receber contratos fechados em revisão própria. A remoção não valida nem autoriza StageRunner, canal de credenciais reais ou ativação READ/LOGIN/issuer.
 
 Capturar stdout PRIVATE internamente e manter respostas MCP em RAM são regras do futuro executor. O transporte privado teve testes somente com sentinelas sintéticas; a consulta nativa usa apenas identificadores públicos e não acessa credenciais. Ferramentas e stdin/stdout internos podem ter registros privados. Não há promessa zero logs privados, zero forense ou purge.
 

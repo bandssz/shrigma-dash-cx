@@ -12,6 +12,12 @@ function refuse(){throw Error('READ_REMOTE_OPERATOR_REFUSED');}
 function exact(v,keys){if(!v||Object.getPrototypeOf(v)!==Object.prototype)refuse();const own=Reflect.ownKeys(v);if(own.length!==keys.length||own.some(k=>typeof k!=='string'||!keys.includes(k)))refuse();for(const k of own){const d=Object.getOwnPropertyDescriptor(v,k);if(!d||d.enumerable!==true||!Object.hasOwn(d,'value'))refuse();}}
 function canonical(v){return Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);}
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
+const VOLUME_TAG='crm-manager-read-fresh-volume-namespace-v1';
+function volumeNamespace(intent){O.binding(intent);return sha(VOLUME_TAG+'\0'+intent.operationId+'\0'+intent.credentialIntentId).slice(0,32);}
+function assertFreshVolumeNamespace(p){
+ if(!p||p.mode!=='execute'||p.parentStage!==null)refuse();const ns=volumeNamespace(p.intent),v=p.descriptor?.compose?.volumes;
+ if(!v||v.source?.name!=='shrigma-read-source-'+ns||v.ledger?.name!=='shrigma-read-stage-'+ns||v.source.external===true||v.ledger.external===true)refuse();return true;
+}
 function frozen(v){if(v&&typeof v==='object'){for(const value of Object.values(v))frozen(value);Object.freeze(v);}return v;}
 const clone=v=>JSON.parse(JSON.stringify(v));
 function makePlan(body){const p=frozen({...body,planSha256:sha(canonical(body))});branded.add(p);return p;}
@@ -19,7 +25,7 @@ function admitPlan(p,mode){if(!branded.has(p)||p.schema!==PLAN||p.mode!==mode)re
 function buildStagePlan(input){
  exact(input,['suffix','sources','intent','domainId']);O.binding(input.intent);admitDomainId(input.domainId,input.intent);
  exact(input.sources,Object.keys(C.PINS));
- const intent=frozen({...input.intent}),sources=frozen({...input.sources}),descriptor=C.buildCompose({suffix:input.suffix,sources});descriptor.domain={...descriptor.domain,id:input.domainId,certificateResolver:'',path:'/',wildcard:false,middlewares:[],internalProtocol:'http'};
+ const intent=frozen({...input.intent}),sources=frozen({...input.sources}),descriptor=C.buildCompose({suffix:input.suffix,sources,volumeNamespace:volumeNamespace(intent)});descriptor.domain={...descriptor.domain,id:input.domainId,certificateResolver:'',path:'/',wildcard:false,middlewares:[],internalProtocol:'http'};
  return makePlan({schema:PLAN,mode:'execute',intent,descriptor,parentStage:null});
 }
 function buildReconcilePlan(input){
@@ -35,9 +41,14 @@ function publicResult(mode,state,cleanupVerified=false,proof=null){return frozen
 function effect(v,p,action){exact(v,['schema','planSha256','action','accepted','projectName','serviceName','ownedExact']);if(v.schema!=='crm-manager-read-remote-effect-v1'||v.planSha256!==p.planSha256||v.action!==action||v.accepted!==true||v.projectName!==p.descriptor.projectName||v.serviceName!==p.descriptor.serviceName||v.ownedExact!==true)refuse();}
 function quiescence(v,p){exact(v,['schema','planSha256','serviceDisabled','envEmpty','runningContainers','testDomainAbsent','volumesNotDeletedByOperator','allContainersInspected']);if(v.schema!=='crm-manager-read-mcp-quiescence-v1'||v.planSha256!==p.planSha256||v.serviceDisabled!==true||v.envEmpty!==true||v.runningContainers!==0||v.testDomainAbsent!==true||v.volumesNotDeletedByOperator!==true||v.allContainersInspected!==false)refuse();}
 function admission(v,p){
- exact(v,['schema','planSha256','capacityVerified','targetAbsent','domainAbsent','imagePinned','nineSourcesPinned','newVolumesAbsent','existingSourceVerified','existingLedgerVerified','priorQuiescent']);
- if(v.schema!=='crm-manager-read-remote-admission-v1'||v.planSha256!==p.planSha256||['capacityVerified','targetAbsent','domainAbsent','imagePinned','nineSourcesPinned'].some(k=>v[k]!==true))refuse();
- if(p.mode==='execute'?(v.newVolumesAbsent!==true||v.existingSourceVerified!==false||v.existingLedgerVerified!==false||v.priorQuiescent!==false):(v.newVolumesAbsent!==false||v.existingSourceVerified!==true||v.existingLedgerVerified!==true||v.priorQuiescent!==true))refuse();
+ admitPlan(p,p.mode);const schema=Object.getOwnPropertyDescriptor(v||{},'schema'),v2=schema&&Object.hasOwn(schema,'value')&&schema.value==='crm-manager-read-remote-admission-v2';
+ exact(v,['schema','planSha256','capacityVerified','targetAbsent','domainAbsent','imagePinned','nineSourcesPinned','newVolumesAbsent','existingSourceVerified','existingLedgerVerified','priorQuiescent',...(v2?['volumeExistence','freshVolumeNamespaceVerified']:[])]);
+ if(!['crm-manager-read-remote-admission-v1','crm-manager-read-remote-admission-v2'].includes(v.schema)||v.planSha256!==p.planSha256||['capacityVerified','targetAbsent','domainAbsent','imagePinned','nineSourcesPinned'].some(k=>v[k]!==true))refuse();
+ if(v2){
+  // This is a fresh-name policy, never a claim that global volumes were listed.
+  assertFreshVolumeNamespace(p);if(v.newVolumesAbsent!==false||v.volumeExistence!=='unobserved'||v.freshVolumeNamespaceVerified!==true||v.existingSourceVerified!==false||v.existingLedgerVerified!==false||v.priorQuiescent!==false)refuse();
+ }else if(p.mode==='execute'?(v.newVolumesAbsent!==true||v.existingSourceVerified!==false||v.existingLedgerVerified!==false||v.priorQuiescent!==false):(v.newVolumesAbsent!==false||v.existingSourceVerified!==true||v.existingLedgerVerified!==true||v.priorQuiescent!==true))refuse();
+ return true;
 }
 function status(v){
  exact(v,['schema','action','state','childExitConfirmed','proofBarrierConfirmed','proof']);
@@ -96,5 +107,5 @@ function createRemoteOperator(config,adapters){
  }
  return Object.freeze({stage,reconcile});
 }
-module.exports=Object.freeze({PLAN,RESULT,buildStagePlan,buildReconcilePlan,assertRemotePlan:p=>{if(!branded.has(p))refuse();return admitPlan(p,p.mode);},createRemoteOperator});
+module.exports=Object.freeze({PLAN,RESULT,buildStagePlan,buildReconcilePlan,assertRemotePlan:p=>{if(!branded.has(p))refuse();return admitPlan(p,p.mode);},createRemoteOperator,assertFreshVolumeNamespace,assertRemoteAdmission:admission});
 if(require.main===module){process.stderr.write('READ_REMOTE_OPERATOR_API_ONLY\n');process.exitCode=1;}

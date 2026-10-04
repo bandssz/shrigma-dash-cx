@@ -1,7 +1,7 @@
 'use strict';
 // Public proposal. Import/pure tests do not use Docker, PG, env or a socket.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const BUILDER_SHA='6a7946f703e1661a174d53314c833b4bb7d1eb246b905bc18d4c463020d42f20';
+const BUILDER_SHA='426f27efaf8e9740e741f752df5d54dd78539862bc53f658bc52215bd983091f';
 const IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815';
 const IMAGE_CONFIG_SHA='sha256:ca74c58437bc63601444e8f5a8137a0777b70270bf99c3642e5cd15dd7084a40';
 const PURPOSE='read-stage-isolated-review',FAIL='READ_COMPOSE_OCI_PREFLIGHT_REFUSED';
