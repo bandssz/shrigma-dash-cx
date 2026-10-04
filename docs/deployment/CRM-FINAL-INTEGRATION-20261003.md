@@ -31,13 +31,13 @@ Na #222, a revisão reproduziu liberação da vaga HTTP enquanto a transação/c
 
 ## Validação da candidata
 
-A última CI terminal registrada antes deste lote é [37163457960](https://github.com/bandssz/shrigma-dash-cx/actions/runs/37163457960), head `769e7eebb0bc74dd10fdacfc3a7ae872da623a52`:12 validações aprovadas, três publicadores ignorados. Inclui pacote/build, OCI, PostgreSQL16/17, instalação/reversão V3, READ, WRITER, cinco fixtures Claude e broker WRITER. As instâncias PostgreSQL são descartáveis; não houve acesso ao banco instalado.
+A última CI terminal registrada antes deste lote é [37166846830](https://github.com/bandssz/shrigma-dash-cx/actions/runs/37166846830), head `1fcc8572309d54f65ad2838884ca2abdf8104a9b`:12 validações aprovadas, três publicadores ignorados. Inclui pacote/build, OCI, PostgreSQL16/17, instalação/reversão V3, READ, WRITER, cinco fixtures Claude e broker WRITER. As instâncias PostgreSQL são descartáveis; não houve acesso ao banco instalado.
 
 O broker WRITER novo vem OFF sem pg/pool/segredo. A imagem própria foi exercitada com CMD real OFF; a prova composta com fontes fechadas/PostgreSQL17.10 admite SCRAM/catálogo/quatro RPCs em isolamento. Isso não admite a imagem ON no servidor. A prova OCI pública READ confirmou nove fontes RO, UID1000, rede none, limites, transferência dos volumes, dois GET separados por stop/start público e limpeza própria, com postgresConnected/applicationStarted false.
 
 Pacote operacional:56 arquivos,30 públicos/26 runtime,794024 bytes (teto950000), seed806389 (teto960000), expansão2570229 (teto16MiB), SHA `f32a9fee8774eef86f33457251e869a93cd573ee13c36613b05efbc23380010c`. Famílias completas anteriores48/53 continuam admitidas e conjuntos parciais recusados. Nenhum teto ampliado.
 
-O lote atual é somente ferramentas OFF, fora desse pacote: remove helpers STDIO opacos, compõe StageRunner, acrescenta reader HTTPS fechado e política de namespace128. Nove arquivos de teste passaram70/70 com Node22/ambiente limpo/guard de rede; os onze casos finais do runner passaram11/11, incluindo o caso integrado adicional V2. Revisões independentes não encontraram bloqueador no escopo de fonte. A CI deste novo head só será afirmada após resultado terminal; este lote não pede imagem/publicação/deploy.
+O lote atual é somente ferramentas OFF, fora desse pacote: acrescenta o driver de processo/bootstrap privado e a opção literal de projeto fixo novo, mantendo defaults e recursos. Quatorze arquivos passaram121/121 com Node22/ambiente limpo/guard de rede e processo. Revisões independentes não encontraram bloqueador de fonte. Um TTY real com credenciais fictícias chegou a uma QUERY simulada e recusou a admissão, sem MCP/mutação/PG. A CI deste novo head só será afirmada após resultado terminal; este lote não pede imagem/publicação/deploy.
 
 ## Caminho MCP preparado e seus limites
 
@@ -47,7 +47,9 @@ A ponte Node↔functions admite somente kind:mcp, scopes/argumentos literais e e
 
 Readbacks públicos78093/7903/1937 bytes chegaram completos com reader/hash/exit0 no contexto da ferramenta, sem MCP/PG. Não foi necessário dividir conteúdo; truncamento futuro continua recusa/unknown. Isso não comprova aceitação de mutação MCP com esses frames.
 
-O StageRunner injeta callbacks fechados de admissão, senha administrativa e observação. O reader HTTPS só aceita os dois contratos GET/status vinculados ao plano e projeta saída validada; seus testes não fazem TLS/GET real. Ainda faltam bootstrap/processo real, scopes privados previamente ligados, provider de admissão observável e prova específica desse transporte antes de apresentar o stage crítico.
+O StageRunner injeta callbacks fechados de admissão, senha administrativa e observação. O reader HTTPS só aceita os dois contratos GET/status vinculados ao plano e projeta saída validada; seus testes não fazem TLS/GET real. O driver reconstrói o plano, recebe o bootstrap privado e exige scopes exatos antes de ACK0; sua prova de processo usa somente credenciais fictícias. Ainda faltam providers reais de binding/admissão/GET e prova específica desse transporte antes de apresentar o stage crítico.
+
+A opção isolada seleciona apenas `crm-manager-stage-20261004`; não cria esse projeto e mantém a rede externa compartilhada easypanel do gateway. O MCP confirmou que esse nome ainda não existe na consulta registrada, mas não forneceu inventário limitado de serviços. `inspectComposeService`404 não é ausência de alvo: um App existente devolveu a mesma resposta. Projeto presente em listProjects não é prova de vazio. Nenhum gate verdadeiro é inferido desses erros. Reconcile herda o projeto original e não permite converter plano/cápsula legados para o projeto novo.
 
 O catálogo MCP consultado não forneceu inventário global de volumes. V1 exige ausência observada; a nova V2 somente execute registra existência unobserved/ausência false e exige namespace128 derivado dos IDs, nomes próprios e demais gates. Nomes fortes reduzem colisão, sem provar ausência: volume estrangeiro vazio root0755 ainda pode ser preenchido. Não reutilizar IDs, importar/reinterpretar plano48 ou regenerar intenção após ACK incerto. Reconcile usa somente V1/volumes originais/fonte-ledger-quiescência previamente observados. Não há inventário global nem registro global de intenções.
 

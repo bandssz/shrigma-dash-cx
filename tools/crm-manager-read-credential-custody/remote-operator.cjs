@@ -23,18 +23,19 @@ const clone=v=>JSON.parse(JSON.stringify(v));
 function makePlan(body){const p=frozen({...body,planSha256:sha(canonical(body))});branded.add(p);return p;}
 function admitPlan(p,mode){if(!branded.has(p)||p.schema!==PLAN||p.mode!==mode)refuse();return p;}
 function buildStagePlan(input){
- exact(input,['suffix','sources','intent','domainId']);O.binding(input.intent);admitDomainId(input.domainId,input.intent);
+ exact(input,['suffix','sources','intent','domainId',...(input&&Object.hasOwn(input,'isolatedProject')?['isolatedProject']:[])]);if(Object.hasOwn(input,'isolatedProject')&&input.isolatedProject!==true)refuse();O.binding(input.intent);admitDomainId(input.domainId,input.intent);
  exact(input.sources,Object.keys(C.PINS));
- const intent=frozen({...input.intent}),sources=frozen({...input.sources}),descriptor=C.buildCompose({suffix:input.suffix,sources,volumeNamespace:volumeNamespace(intent)});descriptor.domain={...descriptor.domain,id:input.domainId,certificateResolver:'',path:'/',wildcard:false,middlewares:[],internalProtocol:'http'};
+ const intent=frozen({...input.intent}),sources=frozen({...input.sources}),descriptor=C.buildCompose({suffix:input.suffix,sources,volumeNamespace:volumeNamespace(intent),...(Object.hasOwn(input,'isolatedProject')?{isolatedProject:true}:{})});descriptor.domain={...descriptor.domain,id:input.domainId,certificateResolver:'',path:'/',wildcard:false,middlewares:[],internalProtocol:'http'};
  return makePlan({schema:PLAN,mode:'execute',intent,descriptor,parentStage:null});
 }
 function buildReconcilePlan(input){
  exact(input,['suffix','stagePlan','domainId']);const stage=admitPlan(input.stagePlan,'execute');O.binding(stage.intent);admitDomainId(input.domainId,stage.intent,stage.descriptor.domain.id);
  if(typeof input.suffix!=='string'||!/^[a-f0-9]{12}$/.test(input.suffix)||input.suffix===stage.descriptor.serviceName.slice(-12))refuse();
- const serviceName='mgr-rec-'+input.suffix,aliases=[C.PROJECT+'_'+serviceName+'-gateway',C.PROJECT+'_'+serviceName+'_gateway'];if(aliases.some(a=>Buffer.byteLength(a)>63))refuse();
+ const projectName=stage.descriptor.projectName;if(![C.PROJECT,C.ISOLATED_PROJECT].includes(projectName))refuse();
+ const serviceName='mgr-rec-'+input.suffix,aliases=[projectName+'_'+serviceName+'-gateway',projectName+'_'+serviceName+'_gateway'];if(aliases.some(a=>Buffer.byteLength(a)>63))refuse();
  const gateway=clone(stage.descriptor.compose.services.gateway);delete gateway.depends_on;
  gateway.networks={easypanel:{aliases}};gateway.labels={'com.shrigma.read-runtime-plan':input.suffix,'com.shrigma.read-runtime-purpose':'read-reconcile-isolated-review','com.shrigma.read-runtime-parent':stage.descriptor.serviceName.slice(-12)};
- const descriptor={schema:'shrigma-read-runtime-reconcile-compose-proposal-v1',inertProposal:true,deployability:'prepared_not_deployed',projectName:C.PROJECT,serviceName,env:'',createDotEnv:true,image:C.IMAGE,sourcePins:C.PINS,domain:{id:input.domainId,certificateResolver:'',host:serviceName+'.tazdb8.easypanel.host',https:true,path:'/',wildcard:false,middlewares:[],internalProtocol:'http',port:8099,composeService:'gateway',readOnlyStatusPath:'/status'},compose:{services:{gateway},volumes:{source:{external:true,name:stage.descriptor.compose.volumes.source.name},ledger:{external:true,name:stage.descriptor.compose.volumes.ledger.name}},networks:{easypanel:{external:true,name:'easypanel'}}},limitations:{deployApproved:false,mutationActionsApproved:[],privateEnvConfigured:false,priorQuiescenceRequired:true,existingLedgerReused:true,initializerIncluded:false,sharedNetworkIsFullIsolation:false}};
+ const descriptor={schema:'shrigma-read-runtime-reconcile-compose-proposal-v1',inertProposal:true,deployability:'prepared_not_deployed',projectName,serviceName,env:'',createDotEnv:true,image:C.IMAGE,sourcePins:C.PINS,domain:{id:input.domainId,certificateResolver:'',host:serviceName+'.tazdb8.easypanel.host',https:true,path:'/',wildcard:false,middlewares:[],internalProtocol:'http',port:8099,composeService:'gateway',readOnlyStatusPath:'/status'},compose:{services:{gateway},volumes:{source:{external:true,name:stage.descriptor.compose.volumes.source.name},ledger:{external:true,name:stage.descriptor.compose.volumes.ledger.name}},networks:{easypanel:{external:true,name:'easypanel'}}},limitations:{deployApproved:false,mutationActionsApproved:[],privateEnvConfigured:false,priorQuiescenceRequired:true,existingLedgerReused:true,initializerIncluded:false,sharedNetworkIsFullIsolation:false}};
  return makePlan({schema:PLAN,mode:'reconcile',intent:stage.intent,descriptor,parentStage:stage});
 }
 function publicResult(mode,state,cleanupVerified=false,proof=null){return frozen({schema:RESULT,mode,state,cleanupVerified,proof});}
