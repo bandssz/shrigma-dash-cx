@@ -56,6 +56,8 @@ jobs:
           assert len(body)<=262144 and hashlib.sha256(body).hexdigest()=='37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882'
           pathlib.Path(os.environ['RUNNER_TEMP'],'listmonk-campaigns.sql').write_bytes(body)
           PYFIXTURE
+      - name: Install the pinned campaign UI compiler before synthetic tests
+        run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
       - name: Run synthetic regression tests
         shell: bash
         env:
@@ -66,7 +68,6 @@ jobs:
           node --test tests/*.test.cjs | tee "$RUNNER_TEMP/growth-tests.txt"
       - name: Check pinned campaign runtime bundle
         run: |
-          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
           node tools/campaign-runtime-build/build.cjs --check
           node tools/panel-build/build.cjs --check
       - name: Check campaign SQL on isolated PostgreSQL
