@@ -303,7 +303,7 @@ Mais o allowlist do Docker e do pack para o módulo novo (cerca de 9 KB). A marg
 Destino fixo **proposto** (host a confirmar pelo Codex): `https://comunicacao-crm-template-read.tazdb8.easypanel.host/template-read`.
 - Só GET, `Authorization: Bearer <credencial crm-panel-read>`, sem Origin e sem CORS.
 - Sem efeito, então idempotente por construção: repetir dá o mesmo resultado. Não há chave de idempotência, recibo nem contador.
-- O serviço HTTP (listener) está em `services/crm-template-read/` (PR própria, base #219): flag `CRM_TEMPLATE_READ_ENABLED` OFF sem pool nem segredo, `BEGIN READ ONLY`, papel `crm_template_reader`, `txid_current_if_assigned() IS NULL` e `ROLLBACK`; só chama as três funções abaixo e valida a saída com a mesma `responseShape` da ponte. **Preparado e testado em isolamento** (PGlite e PostgreSQL 17.10 descartável); não instalado nem validado no portal real. Ver `services/crm-template-read/README.md`.
+- O serviço HTTP (listener) está em `services/crm-template-read/` (PR própria, base #219): flag `CRM_TEMPLATE_READ_ENABLED` OFF sem pool nem segredo, `BEGIN READ ONLY`, papel `crm_template_reader`, `txid_current_if_assigned() IS NULL` e `ROLLBACK`; só chama as três funções abaixo e valida a saída com a mesma `responseShape` da ponte. **Preparado e testado em isolamento** (PGlite e PostgreSQL 17.10 descartável); não instalado nem validado no portal real. Vaga presa até a conexão terminar (inclusive após 503 por prazo), eco da credencial também codificado e admissão do catálogo por md5 a cada pedido (revisão 5974202110). Ver `services/crm-template-read/README.md` e o roteiro `docs/crm/ROTEIRO-ACEITE-TEMPLATES-20261004.md`.
 
 | acao | Campos | Resposta |
 |---|---|---|

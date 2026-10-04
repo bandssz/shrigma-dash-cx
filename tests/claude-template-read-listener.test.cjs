@@ -103,7 +103,7 @@ test('revogação, expiração, chave sem capacidade e chaves legadas: o listene
 
 // Transação sintética: devolve o corpo que o teste quiser, para provar a validação de saída.
 function fakeTx(body,{xid=null,hang=false}={}){
- const seen=[];const tx=async(work,{signal}={})=>{const q=async(text,values)=>{seen.push(text);if(!new Set(Object.values(S.SQL)).has(text))throw Error('DENIED');if(hang)await new Promise((_,rej)=>signal.addEventListener('abort',()=>rej(Error('aborted'))));return {rows:[{r:body}]};};
+ const seen=[];const tx=async(work,{signal}={})=>{const q=async(text,values)=>{seen.push(text);if(!new Set(Object.values(S.SQL)).has(text))throw Error('DENIED');if(text===S.SQL.attest)return {rows:S.ATTEST_ROWS.map(x=>({...x}))};if(hang)await new Promise((_,rej)=>signal.addEventListener('abort',()=>rej(Error('aborted'))));return {rows:[{r:body}]};};
   const r=await work({query:q});if(xid!==null)throw Object.assign(Error('CRM_TEMPLATE_READ_WRITE_DETECTED'),{code:'CRM_TEMPLATE_READ_WRITE_DETECTED'});return r;};
  tx.seen=seen;return tx;
 }
@@ -134,7 +134,7 @@ test('prazo, cancelamento e escrita detectada: 503 sem corpo parcial; só as ins
  assert.equal((await p).status,503);
  assert.equal((await S.createTemplateReadStore({transaction:fakeTx(page('fish',[]),{xid:1})}).handle({authorization:AUTH,pairs:L})).status,503);
  const t=fakeTx(page('fish',[]));await S.createTemplateReadStore({transaction:t}).handle({authorization:AUTH,pairs:L});
- assert.deepEqual(t.seen,[S.SQL.setup,S.SQL.listar]);
+ assert.deepEqual(t.seen,[S.SQL.setup,S.SQL.attest,S.SQL.listar]);
  // A transação real recusa qualquer outra instrução e exige papel/READ ONLY.
  const calls=[];const client={async query(q){const text=typeof q==='string'?q:q.text;calls.push(text);if(text===S.SQL.identity)return {rows:[{role:'crm_template_reader',read_only:'on'}]};if(text===S.SQL.xid)return {rows:[{xid:null}]};return {rows:[]};},release(){}};
  const tx=S.createReadTransaction({pool:{connect:async()=>client}});

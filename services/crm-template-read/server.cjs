@@ -30,6 +30,8 @@ function createReadServer({handler=null,revision,enabled=false,maxInFlight=4,ope
    timer=setTimeout(()=>controller.abort(),operationTimeoutMs);timer.unref?.();
    const r=await handler.handle({authorization:req.headers.authorization,pairs:[...url.searchParams]},{signal:controller.signal});
    if(!gone){if(typeof r.text==='string')send(res,r.status,r.text);else reply(res,r.status,r.body);}
+   // A resposta já saiu; a vaga só volta quando a transação terminou de fato.
+   if(r&&typeof r.settled?.then==='function')await r.settled;
   }catch{if(!gone)reply(res,503,{error:'TEMPLATE_READ_UNAVAILABLE'});}
   finally{clearTimeout(timer);req.removeListener('aborted',abort);inFlight--;if(inFlight===0){for(const d of idle)d();idle.clear();}}
  });
