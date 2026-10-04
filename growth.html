@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=69c22d48b86e">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-K8Njk8glDgDIB7Rk9SNeyc4vMjvOYZXX5/jnvCkMVYk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/YdyQcj8/+j0MItMIiE40f5A3hzxa8MC5ahNNLi0nTM='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=aed86fd0e48d"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=af6a122c1ea6"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -983,8 +983,10 @@ async function consultaGrowth(url,k,timeoutMs){
   const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error('O servidor demorou para responder. Tente atualizar novamente.'));controller.abort();},timeoutMs);});
   try{return await Promise.race([expired,(async()=>{
     const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
-    let payload=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
-    return {r,payload};
+    let payload=null,codigo=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
+    // 503 do portal: só o código de erro é lido (nenhum dado), para orientar sem prometer acesso.
+    else if(r.status===503&&typeof r.json==='function'){try{const b=await r.json();codigo=typeof b?.error==='string'&&/^[A-Z_]{1,64}$/.test(b.error)?b.error:null;}catch(_){codigo=null;}}
+    return {r,payload,codigo};
   })()]);}finally{clearTimeout(timer);}
 }
 async function leCacheGrowth(k){
@@ -994,7 +996,7 @@ async function leCacheGrowth(k){
   // cair nele e avisar, em vez de ficar sem dado. Nenhuma consulta extra é feita.
   const fresh=c.r.ok&&cacheGrowthValido(c.payload);
   const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))&&Date.parse(c.payload._cache_gerado_em)<=Date.now()+60000?c.payload:null;
-  return {r:c.r,next:fresh?c.payload:null,antigo};
+  return {r:c.r,next:fresh?c.payload:null,antigo,codigo:c.codigo||null};
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
@@ -1005,7 +1007,8 @@ async function carregar({retryIdentity=false}={}){
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
-    const {next:fresh,antigo,r}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY')throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
     const recua=!fresh&&!!antigo&&(!API||Date.parse(antigo._cache_gerado_em)>Date.parse(API._cache_gerado_em||''));
