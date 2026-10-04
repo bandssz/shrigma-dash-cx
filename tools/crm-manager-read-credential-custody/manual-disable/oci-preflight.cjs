@@ -28,7 +28,8 @@ if(process.env.MANUAL_DISABLE_OCI_PROOF!=='1'||process.env.CI!=='true'||process.
   const sourceMount='type=volume,source='+p.sourceVolume+',target=/source,volume-nocopy',ledgerMount='type=volume,source='+p.ledgerVolume+',target=/runtime-proof,volume-nocopy';
   complete(create('synthetic-source-fixture',['--max-old-space-size=16','-e',seed],[sourceMount],'0:0',67108864,0.1,16));
   complete(create('manual-ledger-initializer',p.bootstrap.services['init-ledger'].command,[ledgerMount],'0:0',67108864,0.1,16,true));
-  const gateway=create('public-only-loader',p.publicPreflight.services.gateway.command,[ledgerMount,'type=volume,source='+p.sourceVolume+',target=/review,readonly,volume-nocopy'],'1000:1000',335544320,0.35,64);
+  const gatewayCommand=p.publicPreflight.services.gateway.command;if(!Array.isArray(gatewayCommand)||gatewayCommand[0]!=='node')fail();
+  const gateway=create('public-only-loader',gatewayCommand.slice(1),[ledgerMount,'type=volume,source='+p.sourceVolume+',target=/review,readonly,volume-nocopy'],'1000:1000',335544320,0.35,64);
   const x=inspect(gateway),source=x.Mounts.filter(m=>m.Destination==='/review'),ledger=x.Mounts.filter(m=>m.Destination==='/runtime-proof');if(source.length!==1||source[0].Name!==p.sourceVolume||source[0].RW!==false||ledger.length!==1||ledger[0].Name!==p.ledgerVolume||ledger[0].RW!==true||x.HostConfig.Tmpfs['/tmp']!=='rw,nosuid,nodev,noexec,size=16m,mode=1777')fail();
   docker(['start',gateway]);
   const getCode="let b=0,s='';const q=require('node:http').get({host:'127.0.0.1',port:8099,path:'/status',headers:{host:"+JSON.stringify(p.host)+"},timeout:1500},r=>{if(r.statusCode!==200)throw 0;r.on('data',c=>{b+=c.length;if(b>2048)throw 0;s+=c;});r.on('end',()=>process.stdout.write(s));});q.on('error',()=>process.exitCode=1);q.on('timeout',()=>q.destroy());";
