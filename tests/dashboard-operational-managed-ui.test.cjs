@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8');
 function element(){return {children:[],textContent:'',append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){}};}
 const text=node=>[node.textContent,...node.children.map(text)].filter(Boolean).join(' | ');
-const manager={id:'synthetic-id',email:'manager@synthetic.invalid',role:'manager',status:'active',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'read'};
+const manager={id:'synthetic-id',email:'manager@synthetic.invalid',role:'manager',status:'active',brand:'fish',brands:['fish'],brandAccess:'single',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'read'};
 test('manager list displays readiness and pending revocation without exposing private fields or changing legacy rows',()=>{
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
  const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};
@@ -13,7 +13,7 @@ test('manager list displays readiness and pending revocation without exposing pr
   const result=render({...manager,crmAccess:{state,ready,namespaceId:'private-namespace',principalId:'private-principal',bearer:'private-bearer',generation:3}});
   assert.ok(result.includes(label));assert.doesNotMatch(result,/private-namespace|private-principal|private-bearer/);
  }
- assert.equal(render(manager),'manager@synthetic.invalid | CRM · Somente leitura · Ativo | Nível solicitado | Somente leitura | Edição geral do painel (pendente) | Salvar | Revogar acesso');
+ assert.equal(render(manager),'manager@synthetic.invalid | CRM · Fishermans · Somente leitura · Ativo | Nível solicitado | Somente leitura | Edição geral do painel (pendente) | Salvar | Revogar acesso');
  for(const user of [{...manager,role:'superadmin'},{...manager,areas:['organico']},{...manager,areas:['growth','organico']}])assert.doesNotMatch(render({...user,crmAccess:{state:'ready',ready:true}}),/CRM pronto/);
   assert.doesNotMatch(render({...manager,crmAccess:{state:'private-unrecognized-error'}}),/private-unrecognized/);
  for(const state of ['__proto__','constructor','toString'])assert.doesNotMatch(render({...manager,crmAccess:{state}}),/\[object Object\]|function/);

@@ -39,7 +39,7 @@ async function fixture(t){
  const client=createWriterClient({issuerId,namespaceId,allowedEmailDomains:['synthetic.invalid'],now:()=>time,invoke});
  const attest=async input=>{events.push('FULL_ATTEST');if(duringAttest)await duringAttest(input);return verifyCampaignWriterCredential(input,{fetchImpl:async(url,options)=>{assert.equal(url,IDENTITY_URL);assert.equal(options.redirect,'manual');assert.equal(active.has(input.principalId),true);const response=new Response(JSON.stringify({schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',owner:input.owner,allowedPanels:['growth'],permissions:{growth:{who:'panel:'+input.principalId,label:input.owner,caps:invalidIdentity?['read_content']:[...CAPS]},influs:null}}),{status:200,headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:IDENTITY_URL});return response;}});};
  const coordinator=createWriterCoordinator({journal:auth.managedCampaignWriterJournal,client,attest,now:()=>time});
- const invite=(email='manager@synthetic.invalid',area='growth')=>auth.createInvite({context,email,areas:[area],requestedAccess:'edit'});
+ const invite=(email='manager@synthetic.invalid',area='growth')=>auth.createInvite({context,email,areas:[area],brand:'fish',requestedAccess:'edit'});
  const accept=i=>auth.acceptInvite({token:i.token,password:PASSWORD,host:i.host,origin:'https://'+i.host});
  const manager=async(email='manager@synthetic.invalid')=>{const i=invite(email);await accept(i);return i.userId;};
  const login=async(email='manager@synthetic.invalid')=>{const l=await auth.login({email,password:PASSWORD,host:hosts.growth,origin:'https://'+hosts.growth});return{host:hosts.growth,origin:'https://'+hosts.growth,method:'POST',cookieHeader:l.cookie.split(';')[0],csrf:l.csrf};};
@@ -154,10 +154,16 @@ test('identity restart preserves the owned writer binding; expiry refuses author
  f.restart();assert.equal(f.auth.campaignWriterReady(await f.login()),true);assert.deepEqual(f.db.prepare('SELECT * FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(id),before);
  f.advance(1209600001);const ctx=await f.login();assert.equal(f.auth.campaignWriterReady(ctx),false);assert.throws(()=>f.auth.campaignWriterAuthorization(ctx,{brand:'fish',action:'agendar'}),e=>e.code==='CREDENTIAL_ATTESTATION_REQUIRED');
 });
-test('switching an existing writer to another area disables only its campaign binding and stages the old lifecycle revoke',async t=>{
+test('changing a writer area is denied without mutation; explicit revocation still stages its exact outbox',async t=>{
  const f=await fixture(t),id=await f.manager();assert.deepEqual(await f.issue(id),{state:'ready'});
- f.auth.setGrants({context:f.context,userId:id,permissions:{organico:{read:true,edit:false}}});const s=f.adapter.getSubject(id);assert.equal(s.area,'organico');assert.equal(s.canEdit,false);assert.equal(s.writeApproved,false);assert.equal(f.db.prepare("SELECT count(*) AS n FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(id).n,0);
- const revoke=f.db.prepare("SELECT operation_id FROM crm_writer_bridge_op_v1 WHERE kind='revoke' AND phase='revoke_pending'").get().operation_id;assert.deepEqual(await f.coordinator.run(revoke),{state:'revoked'});assert.throws(()=>f.approval(id));assert.deepEqual(f.db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=?').all(id).map(r=>({...r})),[{area:'organico',can_read:1,can_edit:0}]);
+ const state=()=>({subject:f.adapter.getSubject(id),slots:f.db.prepare('SELECT * FROM upstream_credentials WHERE user_id=?').all(id),grants:f.db.prepare('SELECT * FROM grants WHERE user_id=?').all(id),outbox:f.db.prepare('SELECT * FROM crm_writer_bridge_op_v1 ORDER BY operation_id').all(),scope:f.db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(id)}),before=state(),master=f.masterBaseline();
+ assert.throws(()=>f.auth.setGrants({context:f.context,userId:id,permissions:{organico:{read:true,edit:false}}}),e=>e.code==='AREA_CHANGE_REQUIRES_REINVITE');
+ assert.deepEqual(state(),before);assert.equal(f.adapter.getSubject(id).canEdit,true);assert.equal(f.db.prepare("SELECT count(*) AS n FROM crm_writer_bridge_op_v1 WHERE kind='revoke'").get().n,0);
+ // Revocation is a separate explicit action; changing area never silently
+ // closes a working writer or authorizes the new area's credentials.
+ f.auth.revokeUser({context:f.context,userId:id});assert.equal(f.adapter.getSubject(id).state,'disabled');assert.equal(f.adapter.getSubject(id).canEdit,false);assert.equal(f.db.prepare("SELECT count(*) AS n FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(id).n,0);
+ const revoke=f.db.prepare("SELECT operation_id FROM crm_writer_bridge_op_v1 WHERE kind='revoke' AND phase='revoke_pending'").get().operation_id;assert.deepEqual(await f.coordinator.run(revoke),{state:'revoked'});assert.throws(()=>f.approval(id));
+ assert.throws(()=>f.invite('manager@synthetic.invalid','organico'),e=>e.code==='BRAND_CHANGE_REQUIRES_NEW_IDENTITY');assert.deepEqual(f.db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=?').all(id).map(r=>({...r})),[{area:'growth',can_read:1,can_edit:0}]);assert.deepEqual(f.masterBaseline(),master);
 });
 test('public writer readiness requires the exact promoted generation and principal in the durable journal',async t=>{
  const f=await fixture(t),id=await f.manager();assert.deepEqual(await f.issue(id),{state:'ready'});const ctx=await f.login();assert.equal(f.auth.campaignWriterReady(ctx),true);

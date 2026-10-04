@@ -71,7 +71,7 @@ function createManagedReadBridge(config,{fetchImpl=globalThis.fetch}={}){
   try{query=new URLSearchParams(URLSearchParams.prototype.toString.call(query));}catch{fail();}
   const d=decision(route,method,query),target=upstreams[route];if(!target)fail(503,'MANAGED_READ_NOT_CONFIGURED');
   if(context?.method!=='GET'||typeof context.host!=='string'||origin!=='https://'+context.host)fail();
-  const ctx={...context,method:'GET',area:'growth',edit:false};
+  const ctx={...context,method:'GET',area:'growth',edit:false};if(ctx.brand!==query.get('brand'))fail();
   let proof,credential,initial;
   try{proof=sync(auth.managedCrmReadAuthorization(ctx));initial=binding(proof);credential=sync(auth.getUpstreamCredential({...ctx,slot:'crm-panel-read'}));if(typeof credential!=='string'||!/^[a-f0-9]{64}$/.test(credential)||initial!==binding(sync(auth.managedCrmReadAuthorization(ctx))))fail();}
   catch{fail(503,'MANAGED_READ_NOT_READY');}

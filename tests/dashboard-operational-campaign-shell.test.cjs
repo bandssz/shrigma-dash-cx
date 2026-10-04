@@ -10,11 +10,11 @@ const CAPS=['read_content','draft','validate','submit'];
 const copy=v=>JSON.parse(JSON.stringify(v));
 const projection=c=>({id:c.id,version:c.version,status:c.status,sent:c.sent,startedAt:c.started_at,sendAt:c.send_at});
 async function until(check,label){const deadline=Date.now()+5000;while(!check()){if(Date.now()>deadline)assert.fail('Shell did not settle: '+label);await new Promise(resolve=>setImmediate(resolve));}for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));}
-function shell({requested='growth',role='manager',areas=['growth'],feature=true,edit=true}={}){
+function shell({requested='growth',role='manager',areas=['growth'],feature=true,edit=true,brand='fish'}={}){
   const html=fs.readFileSync(path.join(PUB,'entry.html'),'utf8').replaceAll('__PANEL__',requested).replaceAll('__LABEL__','Synthetic shell');
   const {document,window:domWindow}=parseHTML(html),calls=[],values=new Map(),locks=[];
   const stamp=Date.parse('2026-10-03T12:00:00Z'),origin=originFixture(()=>stamp),receipts=new Map();
-  const state={authenticated:true,uiKey:'ui-'+ '1'.repeat(32),csrf:'c'.repeat(43),user:{id:'11111111-1111-4111-8111-111111111111',email:'shell@synthetic.invalid',role,areas,permissions:{growth:{read:true,edit},organico:{read:true,edit:false},influs:{read:true,edit:false}}},features:{audienceDraft:false,...(feature?{campaignSubmitWrite:true}:{})}};
+  const state={authenticated:true,uiKey:'ui-'+ '1'.repeat(32),csrf:'c'.repeat(43),user:{id:'11111111-1111-4111-8111-111111111111',email:'shell@synthetic.invalid',role,areas,brand:role==='superadmin'?null:brand,brands:role==='superadmin'?['fish','aristo']:[brand],brandAccess:role==='superadmin'?'all':'single',permissions:{growth:{read:true,edit},organico:{read:true,edit:false},influs:{read:true,edit:false}}},features:{audienceDraft:false,...(feature?{campaignSubmitWrite:true}:{})}};
   if(role==='superadmin')state.areaHosts={growth:'crm.shell.synthetic.invalid',organico:'organico.shell.synthetic.invalid',influs:'influs.shell.synthetic.invalid'};
   let focus=document.body;
   Object.defineProperty(document,'activeElement',{configurable:true,get:()=>focus});
@@ -58,6 +58,7 @@ function shell({requested='growth',role='manager',areas=['growth'],feature=true,
 
 test('compiled browser shell exposes the gated dialog and carries CSRF through all four actions',async()=>{
   const s=shell();await until(()=>!s.element('entry-shell').hidden,'manager shell');
+  assert.equal(s.state.user.brandAccess,'single');assert.equal(s.element('entry-brand').textContent,'Fishermans');
   assert.equal(s.element('entry-campaign-open').hidden,false);s.element('entry-campaign-open').click();
   await until(()=>s.dialog.open&&!s.element('campaign-validate').disabled,'open existing draft');
   s.input('campaign-subject','Compiled browser subject');
@@ -76,6 +77,7 @@ for(const [label,args]of [
   ['OFF manager',{feature:false}],['read manager',{feature:false,edit:false}],['superadmin',{requested:'todos',role:'superadmin',areas:['growth','organico','influs']}],['cross-area manager',{requested:'organico',areas:['organico']}]
 ])test('compiled shell keeps campaign writes closed for '+label,async()=>{
   const s=shell(args);await until(()=>!s.element('entry-shell').hidden,label+' shell');
+  assert.equal(s.element('entry-brand').textContent,args.role==='superadmin'?'Visão gerencial · todas as marcas':'Fishermans');
   assert.equal(s.element('entry-campaign-open').hidden,true);s.element('entry-campaign-open').click();
   await new Promise(resolve=>setImmediate(resolve));assert.equal(s.dialog.open,false);assert.equal(s.calls.filter(c=>c.path.startsWith('/api/')).length,0);assert.deepEqual(s.origin.effects,{save:0,validate:0,schedule:0,cancel:0,create:0});
 });

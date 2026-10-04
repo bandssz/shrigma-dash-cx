@@ -1,6 +1,8 @@
 'use strict';
-// Disposable SQLite, individual synthetic FULL proof and in-process HTTP only.
-// The backend effect is an in-memory campaign provider; no socket or real SQL.
+// Prepared component coverage uses synthetic FULL identities and an in-memory
+// campaign provider. Production HTTP CREATE remains closed for missing template
+// ownership; only receipt recovery GET is exercised through the HTTP handler.
+// No socket, external fetch or production SQL is used.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Readable}=require('node:stream'),{EventEmitter}=require('node:events');
 const {fixture,hosts,CAPS}=require('./corporate-writer-fixture.cjs');
@@ -28,47 +30,160 @@ async function setup(t,{issue=true}={}){
   const dispatch=()=>origin.service.handle({actor:'panel:'+slot.principal_id,caps:[...CAPS]},payload);const out=behavior?await behavior({payload,options,dispatch}):await dispatch();return new Response(JSON.stringify(out.body),{status:out.status,headers:{'content-type':'application/json'}});
  };
  const make=on=>{const app=S.createServer(settings(f,on),{auth:f.auth,fetchImpl,managedCrmRuntime:{kick:async()=>{},close:async()=>{}}});t.after(()=>app.removeAllListeners());assert.equal(app.listening,false);return app;};
- return{f,id,ctx,origin,calls,fetchImpl,make,setBehavior:v=>{behavior=v;},post:(app,command,context=ctx)=>request(app,context,'/auth/campaign-create',{method:'POST',body:command}),get:(app,command,context=ctx)=>request(app,context,route(command)),count:()=>f.db.prepare('SELECT count(*) n FROM crm_campaign_create_v1').get().n};
+ // Deliberately test the prepared journal component below the production
+ // ownership admission gate. This adapter is local to this test; it does not
+ // establish a backend template owner or enable an HTTP production mutation.
+ const componentDescriptor=require('../services/dashboard-operational/crm-manager-runtime.cjs').corporateWriterDescriptor(f.config.crmManagedWriter,f.config.crmManagedRead,f.config.allowedEmailDomains);
+ const preparedTransport=async(context,{method,command})=>{
+  const scoped={...context,brand:command.brand};
+  const user=f.auth.authorizeBrand({...scoped,area:'growth',edit:true},command.brand);
+  const credential=f.auth.getUpstreamCredential({...scoped,slot:'growth-campaign',area:'growth',edit:true});
+  assert.ok(credential,'component transport requires the individual WRITER');
+  const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
+  return P.forward({route:'campaigns',method,query,body:method==='POST'?command:undefined,user,credential,
+   upstreams:{campaigns:new URL(campaignUrl)},origin:context.origin,crmCampaignSubmitWrite:true,
+   crmCorporateWriter:componentDescriptor,fetchImpl});
+ };
+ const preparedSubmit=async(command,context=ctx)=>{
+  try{const body=await f.auth.campaignCreateFor(preparedTransport).submit(context,command);
+   return{status:body.state==='pending'?202:body.state==='rejected'?409:200,body};
+  }catch(e){if(!Number.isInteger(e.status)||typeof e.code!=='string')throw e;return{status:e.status,body:{error:e.code}};}
+ };
+ const member=async(email,brand)=>{
+  const invited=f.invite(email,'growth',brand);await f.accept(invited);f.promoteRead(invited.userId);
+  assert.deepEqual(await f.issue(invited.userId),{state:'ready'});
+  const context=await f.login(email);const user=f.auth.authorizeBrand({...context,area:'growth'},brand);
+  assert.equal(user.brand,brand);assert.deepEqual(user.brands,[brand]);
+  return{id:invited.userId,ctx:context};
+ };
+ return{f,id,ctx,origin,calls,fetchImpl,make,preparedSubmit,member,setBehavior:v=>{behavior=v;},post:(app,command,context=ctx)=>request(app,context,'/auth/campaign-create',{method:'POST',body:command}),get:(app,command,context=ctx)=>request(app,context,route(command)),count:()=>f.db.prepare('SELECT count(*) n FROM crm_campaign_create_v1').get().n};
 }
 
-test('corporate CREATE gate defaults OFF, rejects malformed/unbranded activation and advertises OFF/ON only with ready FULL',async t=>{
- const legacy={DASHBOARD_MODE:'synthetic',DASHBOARD_MANAGER_HOST:'gerencial.synthetic.invalid',DASHBOARD_AREA_HOSTS:JSON.stringify({growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'}),DASHBOARD_EMAIL_DOMAINS:'[\"synthetic.invalid\"]'};const legacyOff=S.settingsFromEnv(legacy);assert.equal(legacyOff.crmCorporateCreate,false);assert.deepEqual(S.settingsFromEnv({...legacy,DASHBOARD_CRM_CORPORATE_CREATE:'disabled'}),legacyOff);assert.throws(()=>S.settingsFromEnv({...legacy,DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}),/Corporate campaign create gate invalid/);
- const a=await setup(t),v=env(a.f);assert.equal(S.settingsFromEnv(v).crmCorporateCreate,false);assert.equal(S.settingsFromEnv({...v,DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}).crmCorporateCreate,true);for(const bad of ['true','on','false','ENABLED'])assert.throws(()=>S.settingsFromEnv({...v,DASHBOARD_CRM_CORPORATE_CREATE:bad}));
- assert.throws(()=>S.settingsFromEnv({...v,DASHBOARD_CRM_MANAGED_WRITER:'disabled',DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}));assert.throws(()=>S.createServer({...settings(a.f,true),crmCorporateCreate:'enabled'},{auth:a.f.auth}));assert.throws(()=>S.createServer({...settings(a.f,true),crmManagedWriter:undefined},{auth:a.f.auth}));
- const off=a.make(false),on=a.make(true);assert.equal((await a.post(off,q())).status,403);assert.equal(a.count(),0);assert.equal(a.calls.length,0);const before=await request(off,a.ctx,'/auth/session'),after=await request(on,a.ctx,'/auth/session');assert.equal(before.body.features.campaignSubmitWrite,true);assert.equal(before.body.features.campaignCreate,false);assert.equal(after.body.features.campaignCreate,true);
+test('production CREATE defaults OFF; ready FULL still advertises OFF and POST503 without template ownership, journal or effects',async t=>{
+ const legacy={DASHBOARD_MODE:'synthetic',DASHBOARD_MANAGER_HOST:'gerencial.synthetic.invalid',DASHBOARD_AREA_HOSTS:JSON.stringify({growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'}),DASHBOARD_EMAIL_DOMAINS:'["synthetic.invalid"]'};
+ const legacyOff=S.settingsFromEnv(legacy);assert.equal(legacyOff.crmCorporateCreate,false);
+ assert.deepEqual(S.settingsFromEnv({...legacy,DASHBOARD_CRM_CORPORATE_CREATE:'disabled'}),legacyOff);
+ assert.throws(()=>S.settingsFromEnv({...legacy,DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}),/Corporate campaign create gate invalid/);
+ const a=await setup(t),v=env(a.f);assert.equal(S.settingsFromEnv(v).crmCorporateCreate,false);
+ assert.equal(S.settingsFromEnv({...v,DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}).crmCorporateCreate,true);
+ for(const bad of ['true','on','false','ENABLED'])assert.throws(()=>S.settingsFromEnv({...v,DASHBOARD_CRM_CORPORATE_CREATE:bad}));
+ assert.throws(()=>S.settingsFromEnv({...v,DASHBOARD_CRM_MANAGED_WRITER:'disabled',DASHBOARD_CRM_CORPORATE_CREATE:'enabled'}));
+ assert.throws(()=>S.createServer({...settings(a.f,true),crmCorporateCreate:'enabled'},{auth:a.f.auth}));
+ assert.throws(()=>S.createServer({...settings(a.f,true),crmManagedWriter:undefined},{auth:a.f.auth}));
+ const off=a.make(false),on=a.make(true);
+ assert.equal((await a.post(off,q())).status,403);
+ const denied=await a.post(on,q());assert.equal(denied.status,503);assert.equal(denied.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ assert.equal(a.count(),0);assert.equal(a.calls.length,0);assert.equal(a.origin.effects.create,0);assert.equal(a.origin.effects.schedule,0);
+ for(const app of [off,on]){
+  const session=await request(app,a.ctx,'/auth/session');
+  assert.equal(session.body.features.campaignSubmitWrite,false);assert.equal(session.body.features.campaignCreate,false);
+  assert.equal(session.body.features.campaignTemplateOwnershipUnavailable,true);
+ }
 });
 
-test('corporate FULL CREATE commits encrypted intent before its only POST and binds receipt ID without scheduling either brand',async t=>{
- const a=await setup(t),app=a.make(true),master=a.f.masterBaseline(),reader=a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(a.id);
- for(const [brand,key] of [['fish','corporate_fish_create_01'],['aristo','corporate_aristo_create_01']]){const reply=await a.post(app,q(key,brand));assert.equal(reply.status,200);assert.equal(reply.body.state,'succeeded');assert.equal(reply.body.campaign.status,'draft');assert.equal(reply.body.campaign.sendAt,null);assert.equal(reply.body.campaign.sent,0);const saved=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE user_id=? AND client_key=?').get(a.id,key);assert.equal(saved.phase,'succeeded');assert.equal(saved.campaign_id,reply.body.campaign.id);assert.equal(JSON.stringify(reply).includes(saved.remote_key),false);assert.equal(JSON.stringify(reply).includes('Synthetic HTML canary'),false);}
- assert.equal(a.origin.effects.create,2);assert.equal(a.origin.effects.schedule,0);assert.equal(a.calls.filter(v=>v.method==='POST').length,2);assert.deepEqual(a.f.masterBaseline(),master);assert.deepEqual(a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(a.id),reader);assert.equal(a.f.events.filter(v=>v==='FULL_ATTEST').length,1);
+test('prepared CREATE component commits encrypted intent before its only synthetic POST; two real brand identities bind receipts without scheduling',async t=>{
+ const a=await setup(t),app=a.make(true),master=a.f.masterBaseline();
+ const aristo=await a.member('aristo@oaristocrata.com','aristo');
+ const members=[{id:a.id,ctx:a.ctx,brand:'fish',key:'corporate_fish_create_01'},{...aristo,brand:'aristo',key:'corporate_aristo_create_01'}];
+ const readers=new Map(members.map(m=>[m.id,a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(m.id)]));
+ for(const member of members){
+  const command=q(member.key,member.brand),before=a.calls.length;
+  const closed=await a.post(app,command,member.ctx);assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+  assert.equal(a.calls.length,before);assert.equal(a.count(),members.indexOf(member));
+  const reply=await a.preparedSubmit(command,member.ctx);
+  assert.equal(reply.status,200);assert.equal(reply.body.state,'succeeded');assert.equal(reply.body.campaign.status,'draft');
+  assert.equal(reply.body.campaign.sendAt,null);assert.equal(reply.body.campaign.sent,0);
+  const saved=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE user_id=? AND client_key=?').get(member.id,member.key);
+  assert.equal(saved.phase,'succeeded');assert.equal(saved.campaign_id,reply.body.campaign.id);
+  assert.equal(JSON.stringify(reply).includes(saved.remote_key),false);assert.equal(JSON.stringify(reply).includes('Synthetic HTML canary'),false);
+  const recovered=await a.get(app,command,member.ctx);assert.equal(recovered.status,200);assert.equal(recovered.body.campaign.id,reply.body.campaign.id);
+ }
+ assert.notEqual(members[0].id,members[1].id);
+ const before=a.calls.length,foreign=await a.get(app,q(members[1].key,'aristo'),a.ctx);
+ assert.equal(foreign.status,403);assert.equal(foreign.body.error,'BRAND_DENIED');assert.equal(a.calls.length,before);
+ assert.equal(a.origin.effects.create,2);assert.equal(a.origin.effects.schedule,0);assert.equal(a.calls.filter(v=>v.method==='POST').length,2);
+ assert.deepEqual(a.f.masterBaseline(),master);
+ for(const member of members)assert.deepEqual(a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(member.id),readers.get(member.id));
+ assert.equal(a.f.events.filter(v=>v==='FULL_ATTEST').length,2);
+ assert.notEqual(a.calls.find(v=>v.method==='POST'&&v.brand==='fish').actor,a.calls.find(v=>v.method==='POST'&&v.brand==='aristo').actor);
 });
 
-test('lost CREATE ACK restarts through GET of the same actor, brand and remote key; gate OFF never repeats POST',async t=>{
- const a=await setup(t),command=q(),on=a.make(true);a.setBehavior(async({options,dispatch})=>{const r=await dispatch();if(options.method==='POST')throw Error('SYNTHETIC_LOST_ACK');return r;});assert.equal((await a.post(on,command)).status,202);const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get();assert.equal(prior.phase,'uncertain');assert.equal(prior.campaign_id,null);assert.equal(a.origin.effects.create,1);a.f.restart();a.setBehavior(null);const off=a.make(false),out=await a.get(off,command);assert.equal(out.status,200);assert.equal(out.body.campaign.id,1001);assert.equal((await a.post(off,command)).status,403);assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.calls.filter(v=>v.action==='campanha_operacao').every(v=>v.key===prior.remote_key&&v.actor===a.calls[0].actor&&v.brand===prior.brand),true);assert.equal(a.f.db.prepare('SELECT remote_key FROM crm_campaign_create_v1').get().remote_key,prior.remote_key);
+test('prepared component lost ACK restarts through real HTTP GET with the same actor, brand and remote key; OFF never repeats POST',async t=>{
+ const a=await setup(t),command=q(),on=a.make(true);
+ a.setBehavior(async({options,dispatch})=>{const r=await dispatch();if(options.method==='POST')throw Error('SYNTHETIC_LOST_ACK');return r;});
+ assert.equal((await a.preparedSubmit(command)).status,202);
+ const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get();assert.equal(prior.phase,'uncertain');assert.equal(prior.campaign_id,null);assert.equal(a.origin.effects.create,1);
+ a.f.restart();a.setBehavior(null);const off=a.make(false),out=await a.get(off,command);
+ assert.equal(out.status,200);assert.equal(out.body.campaign.id,1001);assert.equal((await a.post(off,command)).status,403);
+ const closed=await a.post(a.make(true),command);assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ assert.equal(a.calls.filter(v=>v.method==='POST').length,1);
+ assert.equal(a.calls.filter(v=>v.action==='campanha_operacao').every(v=>v.key===prior.remote_key&&v.actor===a.calls[0].actor&&v.brand===prior.brand),true);
+ assert.equal(a.f.db.prepare('SELECT remote_key FROM crm_campaign_create_v1').get().remote_key,prior.remote_key);
 });
 
-test('lost request and repeated 404 retain CREATE pending, block a new key/UPDATE and isolate another actor and brand',async t=>{
- const a=await setup(t),command=q(),app=a.make(true);const otherId=await a.f.manager('other@oaristocrata.com');assert.deepEqual(await a.f.issue(otherId),{state:'ready'});const other=await a.f.login('other@oaristocrata.com');a.setBehavior(({options,dispatch})=>options.method==='POST'?Promise.reject(Error('SYNTHETIC_LOST_REQUEST')):dispatch());assert.equal((await a.post(app,command)).status,202);const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get();a.f.restart();a.setBehavior(null);const re=a.make(true);for(let i=0;i<2;i++)assert.equal((await a.get(re,command)).status,202);assert.equal((await a.post(re,command)).status,202);assert.equal((await a.post(re,q('corporate_next_attempt_02'))).status,409);assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.origin.effects.create,0);assert.equal(a.f.db.prepare('SELECT phase,remote_key FROM crm_campaign_create_v1').get().remote_key,prior.remote_key);
- const changed=q();changed.definition.subject='Changed payload';assert.equal((await a.post(re,changed)).status,409);assert.equal((await a.get(re,{...command,brand:'aristo'})).status,404);
- assert.equal((await a.get(re,command,other)).status,404);assert.equal((await a.post(re,command,other)).status,200);assert.equal((await a.post(re,q('corporate_aristo_attempt_02','aristo'))).status,200);assert.equal(a.origin.effects.create,2);assert.equal(a.origin.effects.schedule,0);
+test('prepared component lost request/repeated HTTP404 keeps pending, blocks new key/UPDATE and isolates separate actor and brand identities',async t=>{
+ const a=await setup(t),command=q(),app=a.make(true);
+ const other=await a.member('other@oaristocrata.com','fish'),aristo=await a.member('other-aristo@oaristocrata.com','aristo');
+ a.setBehavior(({options,dispatch})=>options.method==='POST'?Promise.reject(Error('SYNTHETIC_LOST_REQUEST')):dispatch());
+ assert.equal((await a.preparedSubmit(command)).status,202);
+ const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get();a.f.restart();a.setBehavior(null);const re=a.make(true);
+ for(let i=0;i<2;i++)assert.equal((await a.get(re,command)).status,202);
+ assert.equal((await a.preparedSubmit(command)).status,202);
+ assert.equal((await a.preparedSubmit(q('corporate_next_attempt_02'))).status,409);
+ assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.origin.effects.create,0);
+ assert.equal(a.f.db.prepare('SELECT phase,remote_key FROM crm_campaign_create_v1').get().remote_key,prior.remote_key);
+ const changed=q();changed.definition.subject='Changed payload';assert.equal((await a.preparedSubmit(changed)).status,409);
+ const before=a.calls.length,foreign=await a.get(re,{...command,brand:'aristo'});
+ assert.equal(foreign.status,403);assert.equal(foreign.body.error,'BRAND_DENIED');assert.equal(a.calls.length,before);
+ assert.equal((await a.get(re,command,other.ctx)).status,404);
+ assert.equal((await a.preparedSubmit(command,other.ctx)).status,200);
+ assert.equal((await a.preparedSubmit(q('corporate_aristo_attempt_02','aristo'),aristo.ctx)).status,200);
+ assert.equal(a.origin.effects.create,2);assert.equal(a.origin.effects.schedule,0);
  assert.throws(()=>a.f.auth.campaignWriterAuthorization(a.ctx,{brand:'fish',action:'salvar'}),e=>e.code==='CAMPAIGN_CREATE_PENDING');
+ const closed=await a.post(re,q('corporate_next_attempt_03'));assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ assert.equal(a.calls.filter(v=>v.method==='POST').length,3);
 });
 
-test('READ-only, unpromoted/tampered FULL, master, foreign Origin/CSRF and malformed bodies create no effect or shared-key fallback',async t=>{
- const a=await setup(t,{issue:false}),app=a.make(true);assert.equal((await request(app,a.ctx,'/auth/session')).body.features.campaignCreate,false);assert.equal((await a.post(app,q())).status,403);a.f.approval(a.id);assert.equal((await a.post(app,q())).status,403);assert.equal(a.calls.length,0);assert.deepEqual(await a.f.coordinator.run(a.f.operation(a.id)),{state:'ready'});
+test('prepared component READ/unpromoted/tampered FULL and malformed inputs reject; real HTTP master/Origin/CSRF fail with no effect or fallback',async t=>{
+ const a=await setup(t,{issue:false}),app=a.make(true);
+ assert.equal((await request(app,a.ctx,'/auth/session')).body.features.campaignCreate,false);
+ assert.equal((await a.post(app,q())).status,403);assert.equal((await a.preparedSubmit(q())).status,403);
+ a.f.approval(a.id);assert.equal((await a.preparedSubmit(q())).status,403);assert.equal(a.calls.length,0);
+ assert.deepEqual(await a.f.coordinator.run(a.f.operation(a.id)),{state:'ready'});
  for(const ctx of [a.f.context,{...a.ctx,csrf:'forged'},{...a.ctx,origin:'https://foreign.shrigma.com.br'},{...a.ctx,host:hosts.organico}])assert.ok([401,403].includes((await a.post(app,q(),ctx)).status));
- for(const bad of [{...q(),id:167},{...q(),expected_version:'a'.repeat(32)},{...q(),k:'synthetic-shared-key'},{...q(),definition:{...definition(),send_at:new Date(a.f.now+3600000).toISOString()}}])assert.equal((await a.post(app,bad)).status,400);assert.equal(a.calls.length,0);assert.equal(a.count(),0);
- a.f.db.prepare("UPDATE crm_writer_bridge_op_v1 SET committed_mac=? WHERE kind='issue'").run('f'.repeat(64));assert.equal((await request(app,a.ctx,'/auth/session')).body.features.campaignCreate,false);assert.equal((await a.post(app,q())).status,403);assert.equal(a.calls.length,0);assert.equal(a.count(),0);
+ for(const bad of [{...q(),id:167},{...q(),expected_version:'a'.repeat(32)},{...q(),k:'synthetic-shared-key'},{...q(),definition:{...definition(),send_at:new Date(a.f.now+3600000).toISOString()}}]){
+  assert.equal((await a.preparedSubmit(bad)).status,400);
+  const closed=await a.post(app,bad);assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ }
+ assert.equal(a.calls.length,0);assert.equal(a.count(),0);assert.equal(a.origin.effects.create,0);
+ a.f.db.prepare("UPDATE crm_writer_bridge_op_v1 SET committed_mac=? WHERE kind='issue'").run('f'.repeat(64));
+ assert.equal((await request(app,a.ctx,'/auth/session')).body.features.campaignCreate,false);
+ assert.equal((await a.preparedSubmit(q())).status,403);assert.equal(a.calls.length,0);assert.equal(a.count(),0);
+ const tampered=await a.post(app,q());assert.equal(tampered.status,503);assert.equal(tampered.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
 });
 
-test('READ loss after CREATE effect suppresses POST ACK; the same unrotated WRITER recovers by GET and no new CREATE is admitted',async t=>{
- const a=await setup(t),app=a.make(true),command=q();a.setBehavior(async({options,dispatch})=>{const r=await dispatch();if(options.method==='POST')a.f.db.prepare("DELETE FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").run(a.id);return r;});assert.equal((await a.post(app,command)).status,403);assert.equal(a.origin.effects.create,1);assert.equal(a.f.db.prepare('SELECT phase FROM crm_campaign_create_v1').get().phase,'uncertain');a.setBehavior(null);assert.equal((await a.get(app,command)).status,200);assert.equal((await a.post(app,q('corporate_readlost_new_02'))).status,403);assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.f.auth.managedCampaignWriterJournal.pending().length,0);
+test('prepared component READ loss suppresses effect ACK; real HTTP GET recovers with unrotated WRITER and new CREATE stays closed',async t=>{
+ const a=await setup(t),app=a.make(true),command=q();
+ a.setBehavior(async({options,dispatch})=>{const r=await dispatch();if(options.method==='POST')a.f.db.prepare("DELETE FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").run(a.id);return r;});
+ assert.equal((await a.preparedSubmit(command)).status,403);assert.equal(a.origin.effects.create,1);
+ assert.equal(a.f.db.prepare('SELECT phase FROM crm_campaign_create_v1').get().phase,'uncertain');a.setBehavior(null);
+ assert.equal((await a.get(app,command)).status,200);
+ assert.equal((await a.preparedSubmit(q('corporate_readlost_new_02'))).status,403);
+ const closed=await a.post(app,q('corporate_readlost_new_02'));assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.f.auth.managedCampaignWriterJournal.pending().length,0);
 });
 
-test('disable/expiry preserve CREATE evidence and deny further transport; no automatic TTL release or credential reuse',async t=>{
- for(const mode of ['disable','expiry']){const a=await setup(t),app=a.make(true);a.setBehavior(({options,dispatch})=>options.method==='POST'?Promise.reject(Error('SYNTHETIC_UNKNOWN')):dispatch());assert.equal((await a.post(app,q())).status,202);const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get(),calls=a.calls.length;
+test('prepared component disable/expiry preserve intent evidence; HTTP receipt and further transport denied without TTL release or credential reuse',async t=>{
+ for(const mode of ['disable','expiry']){
+  const a=await setup(t),app=a.make(true);
+  a.setBehavior(({options,dispatch})=>options.method==='POST'?Promise.reject(Error('SYNTHETIC_UNKNOWN')):dispatch());
+  assert.equal((await a.preparedSubmit(q())).status,202);
+  const prior=a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get(),calls=a.calls.length;
   if(mode==='disable')a.f.auth.revokeUser({context:a.f.context,userId:a.id});else{a.f.advance(1209600001);a.ctx=await a.f.login();}
-  assert.ok([401,403].includes((await a.get(app,q(),a.ctx)).status));assert.ok([401,403].includes((await a.post(app,q('corporate_expired_next_02'),a.ctx)).status));assert.equal(a.calls.length,calls);assert.deepEqual(a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get(),prior);assert.equal(a.origin.effects.create,0);
+  assert.ok([401,403].includes((await a.get(app,q(),a.ctx)).status));
+  assert.equal((await a.preparedSubmit(q('corporate_expired_next_02'),a.ctx)).status,403);
+  const denied=await a.post(app,q('corporate_expired_next_02'),a.ctx);
+  if(mode==='disable')assert.equal(denied.status,401);else{assert.equal(denied.status,503);assert.equal(denied.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');}
+  assert.equal(a.calls.length,calls);assert.deepEqual(a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get(),prior);assert.equal(a.origin.effects.create,0);
  }
 });

@@ -93,8 +93,19 @@ function transformDiagnosticUi(source){
  if(/\b(?:shrigmaChave|shrigmaGuardaChave|shrigmaEsqueceChave|shrigmaMarcaMestra|CX_API_URL|Authorization|auth-key|auth-form)\b/.test(output))throw Error('Legacy diagnostic credential remains');
  return output;
 }
+function bindOperationalBrand(source,file){
+ const contracts={
+  'growth.html':{anchor:"let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;",render:'if(API)render();'},
+  'organico.html':{anchor:"let API=null,MARCA='todas',PER=G.preset('mes',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';",render:'if(API)render();'},
+  'influs.html':{anchor:"let MARCA='todas', SEC='creators';",render:"if(typeof INFLU!=='undefined'&&INFLU)renderTudo();"}
+ };
+ const contract=contracts[file];if(!contract)return source;
+ if(source.split(contract.anchor).length!==2||source.includes("'shrigma:brand-access'"))throw Error('Operational brand presentation contract changed: '+file);
+ const listener=`\n// The BFF authorizes the brand; this listener only keeps the visible panel in that scope.\nwindow.addEventListener('shrigma:brand-access',event=>{\n const scope=event.detail;if(scope?.brandAccess!=='single'||!['fish','aristo'].includes(scope.brand))return;\n MARCA=scope.brand;document.querySelectorAll('#seg-marca button').forEach(button=>button.classList.toggle('ativo',button.dataset.marca===MARCA));\n pintaMarca();${contract.render}\n});\n`;
+ return source.replace(contract.anchor,contract.anchor+listener);
+}
 function transform(input,file){
- let output=input;
+ let output=bindOperationalBrand(input,file);
  if(file==='growth-diagnostic-ui.js')output=transformDiagnosticUi(output);
  if(file==='growth-diagnostico.html'){
   const auth=/<section class="panel" id="auth" hidden>[\s\S]*?<\/section>\n/;
@@ -182,4 +193,4 @@ function build(destination){
  return {directory:out,files:manifest.publicFiles.length,areas:manifest.areas};
 }
 if(require.main===module)console.log(JSON.stringify(build(process.argv[2])));
-module.exports={build,transform,CONTENT,ENTRIES,ENDPOINTS,DYNAMIC_ROUTES,cspFor,verifyCampaignAssets};
+module.exports={build,transform,bindOperationalBrand,CONTENT,ENTRIES,ENDPOINTS,DYNAMIC_ROUTES,cspFor,verifyCampaignAssets};

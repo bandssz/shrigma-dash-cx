@@ -127,7 +127,7 @@ function createAudienceReadBridge(config,{fetchImpl=globalThis.fetch,now=()=>Dat
   if(!(query instanceof URLSearchParams))fail();
   const d=decision(route,method,query),target=upstreams['audience-read'];
   if(context?.method!=='GET'||typeof context.host!=='string'||origin!=='https://'+context.host)fail();
-  const ctx={...context,method:'GET',area:'growth',edit:false};
+  const ctx={...context,method:'GET',area:'growth',edit:false};if(ctx.brand!==d.brand)fail();
   let credential,initial;
   try{
    initial=binding(sync(auth.managedCrmReadAuthorization(ctx)),now());

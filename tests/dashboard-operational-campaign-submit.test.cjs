@@ -148,8 +148,8 @@ async function fixture(t, { enabled = true, createMode = false } = {}) {
   const adminLogin = await post(hosts.manager, '/auth/login', { email: config.bootstrapAdminEmail, password: PASSWORD }); assert.equal(adminLogin.status, 200);
   const admin = session(adminLogin), adminContext = { host: hosts.manager, origin: 'https://' + hosts.manager, method: 'POST', cookieHeader: admin.cookie, csrf: admin.csrf };
   let managerNumber=0;
-  const manager = async (email, { writer = true, number = createMode?++managerNumber:1 } = {}) => {
-    const invited = await post(hosts.manager, '/auth/users', { action: 'invite', role: 'manager', email, areas: ['growth'], permissions: { growth: { read: true, edit: false } } }, admin); assert.equal(invited.status, 201);
+  const manager = async (email, { writer = true, number = createMode?++managerNumber:1, brand = 'fish' } = {}) => {
+    const invited = await post(hosts.manager, '/auth/users', { action: 'invite', role: 'manager', email, brand, areas: ['growth'], permissions: { growth: { read: true, edit: false } } }, admin); assert.equal(invited.status, 201);
     const token = new URLSearchParams(new URL(invited.json.inviteUrl).hash.slice(1)).get('invite');
     assert.equal((await post(hosts.growth, '/auth/invite/accept', { token, password: PASSWORD })).status, 200);
     if (enabled) auth.setGrants({ context: adminContext, userId: invited.json.userId, permissions: { growth: { read: true, edit: true } } });

@@ -61,7 +61,7 @@ async function until(condition, label) {
   while (!condition()) { if (Date.now() >= deadline) assert.fail('UI did not settle: ' + label); await new Promise(resolve => setImmediate(resolve)); }
 }
 async function uiFixture(t, { enabled = true, writer = true, storage = memoryStorage(), locks = serialLocks() } = {}) {
-  const f = await fixture(t, { enabled }), person = await f.manager('ui@synthetic.invalid', { writer });
+  const f = await fixture(t, { enabled }); let person = await f.manager('ui@synthetic.invalid', { writer, brand: 'fish' });
   let currentSession = (await f.get(hosts.growth, '/auth/session', person)).json;
   const dom = browserDom(), requests = [], responses = [];
   const request = async q => {
@@ -80,8 +80,13 @@ async function uiFixture(t, { enabled = true, writer = true, storage = memorySto
   };
   const controller = mount(dom);
   return { f, person, ...dom, requests, responses, storage, locks, controller, session: () => currentSession, setSession: value => { currentSession = value; },
-    remount() { controller.close(); const freshDom = browserDom(); return { ...this, ...freshDom, controller: mount(freshDom) }; }
+    remount() { this.controller.close(); const freshDom = browserDom(); return { ...this, ...freshDom, controller: mount(freshDom) }; },
+    async reloginAs(other) { this.controller.close(); person=other; currentSession=(await f.get(hosts.growth, '/auth/session', other)).json; assert.equal(currentSession.user.brandAccess,'single'); const freshDom=browserDom(); return {...this,person:other,...freshDom,controller:mount(freshDom)}; }
   };
+}
+
+function forgeBrand(ui, brand) {
+  const option=ui.document.createElement('option');option.value=brand;option.textContent='Forged other brand';ui.element('campaign-brand').append(option);ui.change('campaign-brand',brand);
 }
 
 function checked(ui, value = true) {
@@ -179,48 +184,50 @@ test('opening seconds and milliseconds does not dirty the draft, and another fie
   assert.equal(postRequests(ui).find(request => request.body.acao === 'campanha_salvar').body.definition.send_at, planned);
 });
 
-test('bare 404 preserves a brand journal across switching, close and refresh with GET only', async t => {
+test('bare 404 preserves the own-brand journal across refused forged switching, close and refresh with GET only', async t => {
   const ui = await uiFixture(t); alignFixtureMinute(ui); await ui.controller.open();
   ui.f.behavior(async ({ options, dispatch }) => options.method === 'POST' ? { status: 404, body: { error: 'NOT_FOUND' } } : dispatch());
   ui.element('campaign-validate').click();
   await until(() => stored(ui)?.phase === 'uncertain' && !ui.element('campaign-consult').disabled, 'bare 404 pending');
   const original = stored(ui), before = ui.requests.length;
-  ui.change('campaign-brand', 'aristo');
-  await until(() => ui.responses.slice(before).some(response => response.request.path.includes('brand=aristo')), 'other brand read');
-  assert.equal(stored(ui, 'aristo'), null); assert.equal(stored(ui).attemptKey, original.attemptKey);
-  const resumed = ui.requests.length;
-  ui.change('campaign-brand', 'fish');
-  await until(() => ui.responses.slice(-3).some(response => response.request.path.startsWith('/auth/campaign-delivery?')), 'original brand status');
-  assert.match(ui.requests[resumed].path, /^\/auth\/campaign-delivery\?brand=fish/);
-  ui.controller.close(); await ui.controller.open();
-  assert.equal(stored(ui).attemptKey, original.attemptKey); assert.equal(stored(ui).phase, 'uncertain');
-  assert.equal(postRequests(ui).length, 1); assert.equal(ui.f.origin.effects.validate, 0);
-  assert.equal(ui.element('campaign-save').disabled, true); assert.equal(ui.element('campaign-schedule').disabled, true);
+  forgeBrand(ui,'aristo');for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.requests.length,before,'A forged selector cannot read another brand or submit a new intent');
+  assert.equal(ui.element('campaign-brand').value,'fish');assert.match(ui.element('campaign-status').textContent,/vinculado à sua marca/);
+  assert.equal(stored(ui,'aristo'),null);assert.deepEqual(stored(ui),original);
+  ui.controller.close();const resume=ui.requests.length;await ui.controller.open();
+  assert.match(ui.requests[resume].path,/^\/auth\/campaign-delivery\?brand=fish/);
+  assert.equal(stored(ui).attemptKey,original.attemptKey);assert.equal(stored(ui).phase,'uncertain');
+  assert.equal(postRequests(ui).length,1);assert.equal(ui.f.origin.effects.validate,0);
+  assert.equal(ui.element('campaign-save').disabled,true);assert.equal(ui.element('campaign-schedule').disabled,true);
 });
 
-test('closing during an active write preserves intent and a late ACK cannot fill another brand', async t => {
+test('closing during an active write preserves intent and a late ACK cannot fill another authenticated brand', async t => {
   let ui = await uiFixture(t); alignFixtureMinute(ui); await ui.controller.open();
+  const fishPerson=ui.person;
   let release;
   const waiting = new Promise(resolve => { release = resolve; });
   t.after(() => release());
   ui.f.behavior(async ({ options, dispatch }) => { const result = await dispatch(); if (options.method === 'POST') await waiting; return result; });
-  ui.input('campaign-subject', 'First delayed save'); ui.element('campaign-save').click();
-  await until(() => ui.f.origin.effects.save === 1 && stored(ui)?.phase === 'pending', 'active save after durable browser intent');
-  const attemptKey = stored(ui).attemptKey;
-  ui.escape(); assert.equal(ui.dialog.open, false); assert.equal(ui.document.activeElement.id, 'entry-campaign-open');
-  ui = ui.remount(); const opening = ui.controller.open();
-  const switched = ui.responses.length; ui.change('campaign-brand', 'aristo');
-  await until(() => ui.responses.slice(switched).some(response => response.request.path.includes('brand=aristo')), 'other brand during active save');
-  const untouched = ui.element('campaign-subject').value;
-  assert.equal(stored(ui).attemptKey, attemptKey); assert.equal(stored(ui, 'aristo'), null);
-  release(); await opening;
-  await until(() => ui.responses.filter(value => value.request.method === 'POST').length === 1, 'late ACK');
-  for (let i = 0; i < 3; i++) await new Promise(resolve => setImmediate(resolve));
-  assert.equal(ui.element('campaign-brand').value, 'aristo'); assert.equal(ui.element('campaign-subject').value, untouched);
-  assert.equal(ui.f.origin.effects.save, 1); assert.equal(postRequests(ui).length, 1);
-  ui.controller.close(); ui.element('campaign-brand').value = 'fish'; await ui.controller.open();
-  assert.equal(stored(ui).phase, 'succeeded'); assert.equal(stored(ui).attemptKey, attemptKey);
-  assert.equal(ui.element('campaign-subject').value, 'First delayed save'); assert.equal(postRequests(ui).length, 1);
+  ui.input('campaign-subject','First delayed save');ui.element('campaign-save').click();
+  await until(()=>ui.f.origin.effects.save===1&&stored(ui)?.phase==='pending','active save after durable browser intent');
+  const attemptKey=stored(ui).attemptKey,fishJournalKey='shrigma_campaign_bff_v1:'+ui.session().uiKey+':fish';
+  ui.escape();assert.equal(ui.dialog.open,false);assert.equal(ui.document.activeElement.id,'entry-campaign-open');
+  ui=ui.remount();await ui.controller.open();
+  const before=ui.requests.length;forgeBrand(ui,'aristo');for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.requests.length,before);assert.equal(ui.element('campaign-brand').value,'fish');assert.equal(stored(ui).attemptKey,attemptKey);
+  const other=await ui.f.manager('other-brand@synthetic.invalid',{number:2,brand:'aristo'});
+  ui=await ui.reloginAs(other);assert.equal(ui.session().user.brand,'aristo');await ui.controller.open();
+  assert.equal(ui.element('campaign-brand').value,'aristo');assert.equal(ui.element('campaign-brand').disabled,true);
+  const untouched=ui.element('campaign-subject').value;
+  release();await until(()=>ui.responses.filter(value=>value.request.method==='POST').length===1,'late ACK');
+  for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.element('campaign-subject').value,untouched);assert.equal(ui.element('campaign-name').value,'');assert.equal(stored(ui,'aristo'),null);
+  assert.equal(JSON.parse(ui.storage.getItem(fishJournalKey)).attemptKey,attemptKey);
+  assert.equal(ui.f.origin.effects.save,1);assert.equal(postRequests(ui).length,1);
+  ui=await ui.reloginAs(fishPerson);const resume=ui.requests.length;await ui.controller.open();
+  assert.match(ui.requests[resume].path,/^\/auth\/campaign-delivery\?brand=fish/);
+  assert.equal(stored(ui).phase,'succeeded');assert.equal(stored(ui).attemptKey,attemptKey);
+  assert.equal(ui.element('campaign-subject').value,'First delayed save');assert.equal(postRequests(ui).length,1);
 });
 
 test('a write lock held by another tab prevents a browser intent and POST', async t => {

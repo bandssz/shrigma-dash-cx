@@ -31,10 +31,10 @@ async function fixture(managed=true){
   const res=new EventEmitter();res.statusCode=200;res.headers={'content-type':'application/json'};res.destroy=()=>{};callback(res);res.emit('data',Buffer.from(JSON.stringify(value)));res.emit('end');res.emit('close');
  });};return req;};
  const client=()=>createProvisioningClient({issuerId,namespaceId,allowedEmailDomains:['synthetic.invalid'],provisionerToken:'synthetic-service-token-'.repeat(3),requestImpl,now:()=>time});
- const invite=(email,area='growth')=>auth.createInvite({context,email,areas:[area],requestedAccess:'edit'});
+ const invite=(email,area='growth',brand='fish')=>auth.createInvite({context,email,areas:[area],brand,requestedAccess:'edit'});
  const accept=i=>auth.acceptInvite({token:i.token,password:'synthetic-manager-password-2026',host:i.host,origin:'https://'+i.host});
  const login=email=>auth.login({email,password:'synthetic-manager-password-2026',host:hosts.growth,origin:'https://'+hosts.growth});
- const reader=l=>({cookieHeader:l.cookie.split(';')[0],host:hosts.growth,method:'GET',area:'growth',edit:false,slot:'crm-panel-read'});
+ const reader=l=>({cookieHeader:l.cookie.split(';')[0],host:hosts.growth,method:'GET',area:'growth',edit:false,slot:'crm-panel-read',...(l.user.role==='manager'?{brand:l.user.brand}:{})});
  const queued=userId=>inspect(d=>d.prepare("SELECT o.operation_id FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) WHERE c.user_id=? AND o.kind='issue'").get(userId).operation_id);
  const renewal=userId=>inspect(d=>d.prepare("SELECT o.* FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' ORDER BY o.created_at DESC").get(userId));
  const refreshAdmin=async()=>{const login=await auth.login({email:config.bootstrapAdminEmail,password:'synthetic-owner-password-2026',host:hosts.manager,origin:'https://'+hosts.manager});Object.assign(context,{cookieHeader:login.cookie.split(';')[0],csrf:login.csrf});};

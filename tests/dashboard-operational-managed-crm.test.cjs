@@ -32,10 +32,10 @@ async function fixture(managed=true){
   const res=new EventEmitter();res.statusCode=200;res.headers={'content-type':'application/json'};res.destroy=()=>{};callback(res);res.emit('data',Buffer.from(JSON.stringify(value)));res.emit('end');res.emit('close');
  });};return req;};
  const client=()=>createProvisioningClient({issuerId,namespaceId,allowedEmailDomains:['synthetic.invalid'],provisionerToken:'synthetic-service-token-'.repeat(3),requestImpl,now:()=>time});
- const invite=(email,area='growth')=>auth.createInvite({context,email,areas:[area],requestedAccess:'edit'});
+ const invite=(email,area='growth',brand='fish')=>auth.createInvite({context,email,areas:[area],brand,requestedAccess:'edit'});
  const accept=i=>auth.acceptInvite({token:i.token,password:'synthetic-manager-password-2026',host:i.host,origin:'https://'+i.host});
  const login=email=>auth.login({email,password:'synthetic-manager-password-2026',host:hosts.growth,origin:'https://'+hosts.growth});
- const reader=l=>({cookieHeader:l.cookie.split(';')[0],host:hosts.growth,method:'GET',area:'growth',edit:false,slot:'crm-panel-read'});
+ const reader=l=>({cookieHeader:l.cookie.split(';')[0],host:hosts.growth,method:'GET',area:'growth',edit:false,slot:'crm-panel-read',...(l.user.role==='manager'?{brand:l.user.brand}:{})});
  const queued=userId=>inspect(d=>d.prepare("SELECT o.operation_id FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) WHERE c.user_id=? AND o.kind='issue'").get(userId).operation_id);
  const renewal=userId=>inspect(d=>d.prepare("SELECT o.* FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' ORDER BY o.created_at DESC").get(userId));
  const refreshAdmin=async()=>{const login=await auth.login({email:config.bootstrapAdminEmail,password:'synthetic-owner-password-2026',host:hosts.manager,origin:'https://'+hosts.manager});Object.assign(context,{cookieHeader:login.cookie.split(';')[0],csrf:login.csrf});};
@@ -51,12 +51,12 @@ function adminPost(server,context,body){return new Promise(resolve=>{
 });}
 test('real identity hooks and private RPC client provision two managers, renew and revoke independently',async()=>{
  const f=await fixture();try{
-  const admin=f.baseline(),a=f.invite('a@synthetic.invalid'),b=f.invite('b@synthetic.invalid');assert.equal(f.calls.length,0);
-  await f.accept(a);await f.accept(b);const al=await f.login('a@synthetic.invalid'),bl=await f.login('b@synthetic.invalid');assert.equal(al.user.permissions.growth.edit,false);
+  const admin=f.baseline(),a=f.invite('a@synthetic.invalid'),b=f.invite('b@synthetic.invalid','growth','aristo');assert.equal(f.calls.length,0);
+  await f.accept(a);await f.accept(b);const al=await f.login('a@synthetic.invalid'),bl=await f.login('b@synthetic.invalid');assert.equal(al.user.permissions.growth.edit,false);assert.equal(al.user.brand,'fish');assert.equal(bl.user.brand,'aristo');
   assert.throws(()=>f.auth.getUpstreamCredential(f.reader(al)),{code:'CRM_ACCESS_NOT_READY'});
   assert.throws(()=>f.auth.setUpstreamCredential({context:f.context,userId:a.userId,slot:'growth-read',bearer:f.masterKey}),{code:'MANAGED_CREDENTIAL_DENIED'});
   const c=f.client(),ao=f.queued(a.userId),bo=f.queued(b.userId),ap=await f.prepare(c,ao),bp=await f.prepare(c,bo);assert.notEqual(ap.bearer,bp.bearer);
-  await f.commit(c,ao,ap.prepared);await f.commit(c,bo,bp.prepared);assert.equal(f.auth.getUpstreamCredential(f.reader(al)),ap.bearer);assert.equal(f.auth.getUpstreamCredential(f.reader(bl)),bp.bearer);
+  await f.commit(c,ao,ap.prepared);await f.commit(c,bo,bp.prepared);assert.equal(f.auth.getUpstreamCredential(f.reader(al)),ap.bearer);assert.equal(f.auth.getUpstreamCredential(f.reader(bl)),bp.bearer);assert.throws(()=>f.auth.getUpstreamCredential({...f.reader(al),brand:'aristo'}),{code:'BRAND_DENIED'});assert.throws(()=>f.auth.getUpstreamCredential({...f.reader(bl),brand:'fish'}),{code:'BRAND_DENIED'});
   const publicJson=JSON.stringify({users:f.auth.users({context:f.context}),session:f.auth.session(f.reader(al))});assert.ok(!publicJson.includes(ap.bearer)&&!publicJson.includes(bp.bearer));assert.ok(!f.calls.some(call=>call.wire.includes(ap.bearer)||call.wire.includes(bp.bearer)||call.wire.includes(f.masterKey)));
   assert.deepEqual(f.auth.renewManagedCrm({context:f.context,userId:a.userId}),{ok:true});
   const renew=f.renewal(a.userId).operation_id,rp=await f.prepare(c,renew);assert.equal(f.auth.getUpstreamCredential(f.reader(al)),ap.bearer);await f.commit(c,renew,rp.prepared);assert.equal(f.auth.getUpstreamCredential(f.reader(al)),rp.bearer);
@@ -64,7 +64,8 @@ test('real identity hooks and private RPC client provision two managers, renew a
   const revoked=f.auth.revokeUser({context:f.context,userId:a.userId});assert.equal(revoked.crmRevocationPending,true);assert.equal(f.auth.session(f.reader(al)).authenticated,false);assert.equal(f.auth.getUpstreamCredential(f.reader(bl)),bp.bearer);
   const rev=f.inspect(d=>d.prepare("SELECT operation_id FROM crm_manager_operations_v1 WHERE kind='revoke'").get().operation_id),rr=await c.revokeRead(f.auth.managedCrmJournal.request(rev));f.auth.managedCrmJournal.confirmRevoked(rev,rr);f.restart();assert.equal(f.auth.managedCrmJournal.status(a.userId).state,'revoked');assert.deepEqual(f.baseline(),admin);
   assert.equal(f.auth.getUpstreamCredential({...f.reader(bl),cookieHeader:f.master.cookie.split(';')[0],host:hosts.manager}),f.masterKey);
-  const reinvite=f.invite('a@synthetic.invalid','organico');await f.accept(reinvite);assert.equal(f.auth.managedCrmJournal.status(a.userId).state,'revoked');
+  assert.throws(()=>f.invite('a@synthetic.invalid','organico'),{code:'BRAND_CHANGE_REQUIRES_NEW_IDENTITY'});
+  const otherArea=f.invite('organic@synthetic.invalid','organico');await f.accept(otherArea);assert.notEqual(otherArea.userId,a.userId);assert.equal(f.auth.managedCrmJournal.status(a.userId).state,'revoked');assert.equal(f.auth.managedCrmJournal.status(otherArea.userId),null);
  }finally{f.close();}
 });
 test('accept failure rolls back password, invite consumption and issue intent together',async()=>{
@@ -80,7 +81,7 @@ test('invite expiry is rechecked after password hashing and the disabled profile
  const f=await fixture(false);try{
   assert.equal(Object.hasOwn(f.auth,'managedCrmJournal'),false);assert.equal(f.inspect(d=>d.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE name LIKE 'crm_manager_%'").get().n),0);
   assert.throws(()=>f.auth.renewManagedCrm({context:f.context,userId:f.master.user.id}),{code:'CRM_PROVISIONING_NOT_READY',status:403});
-  const i=f.auth.createInvite({context:f.context,email:'expiry@synthetic.invalid',areas:['growth'],expiresMs:300000});const pending=f.accept(i);f.advance(300001);await assert.rejects(pending,{code:'INVITE_DENIED'});
+  const i=f.auth.createInvite({context:f.context,email:'expiry@synthetic.invalid',areas:['growth'],brand:'fish',expiresMs:300000});const pending=f.accept(i);f.advance(300001);await assert.rejects(pending,{code:'INVITE_DENIED'});
   assert.equal(f.inspect(d=>d.prepare('SELECT state FROM users WHERE id=?').get(i.userId).state),'invited');assert.equal(f.calls.length,0);
  }finally{f.close();}
 });

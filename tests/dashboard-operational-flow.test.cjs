@@ -43,6 +43,7 @@ test('complete isolated flow: password admin, invite, team scope, CSRF and revok
  assert.equal(login.status,200);
  const adminCookie=login.headers['set-cookie'][0].split(';')[0],adminCsrf=login.json.csrf;
  assert.deepEqual(login.json.user.areas,['growth','organico','influs']);
+ assert.equal(login.json.user.brandAccess,'all');
  const ownerSession=await call(port,HOSTS.manager,'/auth/session',{cookie:adminCookie});
  assert.deepEqual(ownerSession.json.areaHosts,{growth:HOSTS.growth,organico:HOSTS.organico,influs:HOSTS.influs});
  assert.equal((await call(port,HOSTS.manager,'/cx/',{cookie:adminCookie})).status,404);
@@ -50,25 +51,34 @@ test('complete isolated flow: password admin, invite, team scope, CSRF and revok
  assert.equal(identity.status,200);assert.equal(identity.json.role,'master');assert.deepEqual(identity.json.allowedPanels,['growth','organico','influs']);
  assert.equal((await call(port,HOSTS.manager,'/api/cache?painel=organico',{cookie:adminCookie})).status,200);
  assert.equal((await call(port,HOSTS.manager,'/api/cx?access=1&painel=cx',{cookie:adminCookie})).status,403);
- assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',areas:['growth'],permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie})).status,403);
- assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',areas:['growth'],permissions:{growth:{read:true,edit:true}}},{cookie:adminCookie,csrf:adminCsrf})).status,403);
- assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',areas:['growth'],requestedAccess:'write',permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie,csrf:adminCsrf})).status,400);
- const invite=await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',areas:['growth'],requestedAccess:'edit',permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie,csrf:adminCsrf});
+ assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',brand:'fish',areas:['growth'],permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie})).status,403);
+ assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',brand:'fish',areas:['growth'],permissions:{growth:{read:true,edit:true}}},{cookie:adminCookie,csrf:adminCsrf})).status,403);
+ assert.equal((await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',brand:'fish',areas:['growth'],requestedAccess:'write',permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie,csrf:adminCsrf})).status,400);
+ const invite=await post(HOSTS.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@example.test',brand:'fish',areas:['growth'],requestedAccess:'edit',permissions:{growth:{read:true,edit:false}}},{cookie:adminCookie,csrf:adminCsrf});
  assert.equal(invite.status,201);
  const pending=await call(port,HOSTS.manager,'/auth/users',{cookie:adminCookie});
  assert.equal(pending.status,200);
  assert.deepEqual(pending.json.users.find(user=>user.id===invite.json.userId).permissions,{growth:{read:true,edit:false}});
  assert.equal(pending.json.users.find(user=>user.id===invite.json.userId).requestedAccess,'edit');
+ assert.equal(pending.json.users.find(user=>user.id===invite.json.userId).brand,'fish');
  const inviteUrl=new URL(invite.json.inviteUrl);assert.equal(inviteUrl.hostname,HOSTS.growth);
  const token=new URLSearchParams(inviteUrl.hash.slice(1)).get('invite');
  assert.equal((await post(HOSTS.growth,'/auth/invite/accept',{token,password:'Example-only Manager Password 2026!'})).status,200);
  const manager=await post(HOSTS.growth,'/auth/login',{email:'crm@example.test',password:'Example-only Manager Password 2026!'});
  assert.equal(manager.status,200);
  assert.equal(manager.json.user.permissions.growth.edit,false);
+ assert.equal(manager.json.user.brand,'fish');assert.deepEqual(manager.json.user.brands,['fish']);assert.equal(manager.json.user.brandAccess,'single');
  const managerCookie=manager.headers['set-cookie'][0].split(';')[0];
  assert.equal((await call(port,HOSTS.growth,'/auth/campaign-draft?brand=fish',{cookie:managerCookie})).status,403);
  assert.equal(Object.hasOwn((await call(port,HOSTS.growth,'/auth/session',{cookie:managerCookie})).json,'areaHosts'),false);
- assert.equal((await call(port,HOSTS.growth,'/api/cx?access=1&painel=growth',{cookie:managerCookie})).json.role,'manager');
+ const managerIdentity=await call(port,HOSTS.growth,'/api/cx?access=1&painel=growth',{cookie:managerCookie});
+ assert.equal(managerIdentity.json.role,'manager');assert.equal(managerIdentity.json.brand,'fish');assert.deepEqual(managerIdentity.json.brands,['fish']);
+ const managerCache=await call(port,HOSTS.growth,'/api/cache?painel=growth',{cookie:managerCookie});
+ assert.equal(managerCache.status,200);assert.equal(managerCache.json.brand,'fish');assert.deepEqual(managerCache.json.crm_campanha,[]);
+ const masterCache=await call(port,HOSTS.manager,'/api/cache?painel=growth',{cookie:adminCookie});
+ assert.equal(masterCache.status,200);assert.equal(masterCache.json.crm_campanha[0].marca,'aristo');
+ assert.equal(masterCache.json.crm_campanha[0].campanha_id,900001);
+ assert.equal((await call(port,HOSTS.growth,'/auth/campaign-draft?brand=aristo',{cookie:managerCookie})).status,403);
  assert.equal((await call(port,HOSTS.growth,'/api/cx?access=1&painel=influs',{cookie:managerCookie})).status,403);
  assert.equal((await call(port,HOSTS.growth,'/influs.html',{cookie:managerCookie})).status,404);
  assert.equal((await call(port,HOSTS.influs,'/auth/session',{cookie:managerCookie})).json.authenticated,false);
@@ -98,6 +108,7 @@ test('CRM-only operational canary forwards only an individual read and stops at 
  const auth=createAuth(identity);t.after(()=>auth.close());
  const backend=FIXED_DESTINATIONS['crm-read'],backendHost=new URL(backend).hostname;
  const credential='crm-panel-read-individual-1234';
+ const crmCache={crm_diario:[{marca:'fish',dia:'2026-09-30',enviados:12},{marca:'aristo',dia:'2026-09-30',enviados:99}],crm_campanha:[]};
  let identityCalls=0,upstreamCalls=0,identityOverride;
  const fetchImpl=async(url,options)=>{
   if(url===backend+'?action=identity&painel=growth'){
@@ -113,7 +124,7 @@ test('CRM-only operational canary forwards only an individual read and stops at 
   assert.equal(options.method,'GET');
   assert.equal(options.headers.Authorization,'Bearer '+credential);
   assert.equal(Object.hasOwn(options.headers,'Origin'),false);
-  return new Response(JSON.stringify({panel:'growth',items:[]}),{status:200,headers:{'Content-Type':'application/json'}});
+  return new Response(JSON.stringify(crmCache),{status:200,headers:{'Content-Type':'application/json'}});
  };
  const server=createServer({mode:'operational',managerHost:HOSTS.manager,
   areaHosts:identity.areaHosts,upstreams:{'crm-read':new URL(backend)},
@@ -132,7 +143,7 @@ test('CRM-only operational canary forwards only an individual read and stops at 
  assert.equal(login.status,200);
  const admin={cookie:login.headers['set-cookie'][0].split(';')[0],csrf:login.json.csrf};
  const invite=await post(HOSTS.manager,'/auth/users',{
-  action:'invite',role:'manager',email:'crm@example.test',areas:['growth'],
+  action:'invite',role:'manager',email:'crm@example.test',brand:'fish',areas:['growth'],
   permissions:{growth:{read:true,edit:false}}},admin);
  assert.equal(invite.status,201);
  const token=new URLSearchParams(new URL(invite.json.inviteUrl).hash.slice(1)).get('invite');
@@ -157,7 +168,10 @@ test('CRM-only operational canary forwards only an individual read and stops at 
   action:'credential',userId:invite.json.userId,slot:'crm-panel-read',bearer:credential},admin)).status,200);
  assert.equal(identityCalls,2);
  const read=await call(port,HOSTS.growth,readPath,{cookie:managerCookie});
- assert.equal(read.status,200);assert.deepEqual(read.json,{panel:'growth',items:[]});assert.equal(upstreamCalls,1);
+ assert.equal(read.status,200);assert.equal(read.json.brand,'fish');assert.deepEqual(read.json.brands,['fish']);
+ assert.deepEqual(read.json.crm_diario,[crmCache.crm_diario[0]]);assert.deepEqual(read.json.crm_campanha,[]);assert.equal(upstreamCalls,1);
+ const foreign=await call(port,HOSTS.growth,'/api/campaigns?acao=campanha_listar&brand=aristo',{cookie:managerCookie});
+ assert.equal(foreign.status,403);assert.equal(foreign.json.error,'BRAND_DENIED');assert.equal(upstreamCalls,1);
  assert.equal((await call(port,HOSTS.growth,'/api/crm-read?action=identity&painel=growth',{cookie:managerCookie})).status,200);
  assert.equal(upstreamCalls,1);
  assert.equal((await call(port,HOSTS.influs,readPath,{cookie:managerCookie})).status,401);
@@ -187,6 +201,7 @@ test('CRM credential stays individually attested with reviewed read routes, but 
  const admin={cookie:login.cookie.split(';')[0],csrf:login.csrf};
  const credential={action:'credential',userId:login.user.id,slot:'crm-panel-read',bearer};
  const readBase=FIXED_DESTINATIONS['crm-read'];let identityCalls=0,cacheCalls=0;
+ const crmCache={crm_diario:[{marca:'fish',dia:'2026-09-30',enviados:12},{marca:'aristo',dia:'2026-09-30',enviados:99}],crm_campanha:[]};
  const fetchImpl=async(url,options)=>{
   assert.equal(options.headers.Authorization,'Bearer '+bearer);
   assert.equal(options.method,'GET');
@@ -197,7 +212,7 @@ test('CRM credential stays individually attested with reviewed read routes, but 
     allowedPanels:['growth'],permissions:{growth:{who:'panel:crm-mixed-test',label:adminEmail,caps:['read_content']},influs:null}});
   }
   assert.equal(url.href,readBase+'?action=cache_growth&painel=growth');cacheCalls++;
-  return Response.json({panel:'growth',items:[]});
+  return Response.json(crmCache);
  };
  const serve=async(config,run)=>{
   const server=createServer({mode:'operational',managerHost:HOSTS.manager,areaHosts:identity.areaHosts,
@@ -215,7 +230,7 @@ test('CRM credential stays individually attested with reviewed read routes, but 
    const stored=await call(port,HOSTS.manager,'/auth/users',{method:'POST',body:credential,...admin});
    assert.equal(stored.status,200);assert.deepEqual(stored.json,{ok:true});
    const read=await call(port,HOSTS.manager,'/api/crm-read?action=cache_growth&painel=growth',{cookie:admin.cookie});
-   assert.equal(read.status,200);assert.deepEqual(read.json,{panel:'growth',items:[]});
+   assert.equal(read.status,200);assert.deepEqual(read.json,crmCache);
    if(routes.includes('influ')){
     const denied=await call(port,HOSTS.manager,'/api/influ',{method:'POST',body:{acao:'piloto_operacao',request_id:crypto.randomUUID()},...admin});
     assert.equal(denied.status,403);assert.equal(denied.json.error,'EDIT_NOT_READY');
@@ -259,10 +274,15 @@ test('existing media read route keeps its isolated GET contract in a broader ser
  const auth={
   authorize:ctx=>{
    if(ctx.area!=='growth'||ctx.edit)throw Error('UNEXPECTED_SCOPE');
-   return {id:'synthetic-manager',role:'manager',areas:['growth'],email:'crm@example.test'};
+   return {id:'synthetic-manager',role:'manager',areas:['growth'],email:'crm@example.test',brand:'fish',brands:['fish'],brandAccess:'single'};
+  },
+  authorizeBrand(ctx,brand){
+   const user=this.authorize(ctx);
+   if(brand!==user.brand)throw Object.assign(Error('BRAND_DENIED'),{status:403,code:'BRAND_DENIED'});
+   return user;
   },
   getUpstreamCredential:ctx=>{
-   assert.equal(ctx.slot,'growth-campaign-read');assert.equal(ctx.area,'growth');
+   assert.equal(ctx.slot,'growth-campaign-read');assert.equal(ctx.area,'growth');assert.equal(ctx.brand,'fish');
    return bearer;
   }
  };
@@ -281,6 +301,8 @@ test('existing media read route keeps its isolated GET contract in a broader ser
  const port=server.address().port,path='/api/campaigns_media?brand=fish&page=1&per_page=24';
  const read=await call(port,HOSTS.growth,path);
  assert.equal(read.status,200);assert.equal(read.json.contract,'crm-media-v1');assert.equal(calls,1);
+ const foreign=await call(port,HOSTS.growth,'/api/campaigns_media?brand=aristo&page=1&per_page=24');
+ assert.equal(foreign.status,403);assert.equal(foreign.json.error,'BRAND_DENIED');assert.equal(calls,1);
  assert.equal((await call(port,HOSTS.growth,'/api/campaigns_media?brand=fish&filename=unreviewed')).status,403);
  assert.equal((await call(port,HOSTS.growth,path,{method:'POST',body:{brand:'fish',file:'synthetic'}})).status,403);
  assert.equal((await call(port,HOSTS.manager,'/auth/users',{method:'POST',body:{action:'credential',slot:'crm-panel-read',bearer:'synthetic-key'}})).status,403);

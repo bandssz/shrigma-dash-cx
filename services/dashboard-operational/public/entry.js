@@ -70,7 +70,15 @@ function audienceDraftOperation(payload){
  if(operation.phase==='rejected'&&(![404,409,422,503].includes(operation.receiptStatus)||typeof operation.receiptCode!=='string'||!operation.receiptCode))return undefined;
  return operation;
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation};
+// This presentation contract never substitutes for the BFF's authorization.
+function sessionBrandScope(user){
+ const brands=['fish','aristo'];
+ if(!user||!Array.isArray(user.brands)||new Set(user.brands).size!==user.brands.length)return null;
+ if(user.role==='superadmin'&&user.brandAccess==='all'&&user.brand===null&&user.brands.length===2&&brands.every(b=>user.brands.includes(b)))return {brand:null,brands:[...brands],brandAccess:'all'};
+ if(user.role==='manager'&&user.brandAccess==='single'&&brands.includes(user.brand)&&user.brands.length===1&&user.brands[0]===user.brand)return {brand:user.brand,brands:[user.brand],brandAccess:'single'};
+ return null;
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope};
 else (function(){'use strict';
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs & Afiliados',page:'/influs.html'}};
  const requested=document.body.dataset.accessPanel;
@@ -113,7 +121,9 @@ else (function(){'use strict';
  async function loadAudienceGate(currentSession){
   if(currentSession?.features?.audienceDraft!==true||currentSession.user?.permissions?.growth?.edit!==true)return {state:'off'};
   try{
-   const operations=await Promise.all(Object.keys(AUDIENCE_BRANDS).map(async brand=>{
+   const allowedBrands=sessionBrandScope(currentSession?.user)?.brands||[];
+   if(!allowedBrands.length)return {state:'unavailable'};
+   const operations=await Promise.all(allowedBrands.map(async brand=>{
     const {response,data}=await request('/auth/audience-draft?brand='+brand,{editReceipt:true,deadlineMs:20000});
     if(!response.ok)throw Error('journal_unavailable');
     const operation=audienceDraftOperation(data);
@@ -124,7 +134,7 @@ else (function(){'use strict';
    if(unresolved.length)return {state:'pending',operations:unresolved};
    // A terminal receipt is useful only after a fresh read of the current
    // catalogue. It also prevents a stale page from presenting a new attempt.
-   await Promise.all(Object.keys(AUDIENCE_BRANDS).map(async brand=>{
+   await Promise.all(allowedBrands.map(async brand=>{
     const query=new URLSearchParams({acao:'segmentos_listar',brand,offset:'0',limit:'50'});
     const {response,data}=await request('/api/segments?'+query,{deadlineMs:20000});
     if(!response.ok||!Array.isArray(data?.segments)||data?.catalog?.brand!==brand||data.catalog.current!==true
@@ -159,7 +169,7 @@ else (function(){'use strict';
   if(frame?.style){frame.style.flex='1 1 auto';frame.style.minHeight='0';frame.style.height='auto';}
  }
  async function consultAudienceOperation(brand,key){
-  if(audienceConsulting||selected!=='growth'||!session||!Object.hasOwn(AUDIENCE_BRANDS,brand))return;
+  if(audienceConsulting||selected!=='growth'||!session||!sessionBrandScope(session.user)?.brands.includes(brand))return;
   const currentSession=session,currentFrame=frame;audienceConsulting=true;showAudienceNotice(audienceGate);
   try{
    const query=new URLSearchParams({acao:'segmento_operacao',brand,idempotency_key:key});
@@ -173,7 +183,7 @@ else (function(){'use strict';
  }
  function validSession(s){
   const u=s?.user;
-  if(s?.authenticated!==true||!u||typeof u.email!=='string'||!uiKeyOk(s.uiKey)||typeof s.csrf!=='string'||!Array.isArray(u.areas)||!u.areas.length)return false;
+  if(s?.authenticated!==true||!u||!sessionBrandScope(u)||typeof u.email!=='string'||!uiKeyOk(s.uiKey)||typeof s.csrf!=='string'||!Array.isArray(u.areas)||!u.areas.length)return false;
   if(!u.areas.every(a=>Object.hasOwn(AREAS,a))||new Set(u.areas).size!==u.areas.length)return false;
   if(requested==='todos')return u.role==='superadmin'&&Object.keys(AREAS).every(a=>u.areas.includes(a));
   return Object.hasOwn(AREAS,requested)&&u.areas.includes(requested)&&(u.role==='superadmin'||u.role==='manager'&&u.areas.length===1);
@@ -213,8 +223,9 @@ else (function(){'use strict';
   for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area?'page':'false');
  }
  function showShell(s){
-  if(!validSession(s)){showLogin('Este acesso não está autorizado para este endereço.');return;}
+  if(!validSession(s)){showLogin(s?.user?.brandAccess==='reprovision_required'?'Este acesso precisa ser vinculado a uma marca pelo administrador. Peça um novo acesso.':'Este acesso não está autorizado para este endereço.');return;}
   clearLegacy();bootstrapToken='';inviteToken='';session=s;loginScreen.hidden=true;shell.hidden=false;message.textContent='';$('entry-owner').textContent=s.user.email;
+  $('entry-brand').textContent=s.user.brandAccess==='all'?'Visão gerencial · todas as marcas':AUDIENCE_BRANDS[s.user.brand];
   const managerial=s.user.role==='superadmin'&&requested==='todos';
   nav.replaceChildren();nav.hidden=!managerial;manage.hidden=!managerial;
   if(managerial)for(const area of s.user.areas){const button=document.createElement('button');button.type='button';button.dataset.area=area;button.textContent=AREAS[area].label;button.addEventListener('click',()=>openPanel(area));nav.append(button);}
@@ -223,6 +234,12 @@ else (function(){'use strict';
  window.addEventListener('message',async event=>{
   if(!session||!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
   if(event.data?.type==='shrigma:session-expired'){showLogin('Sua sessão terminou. Entre novamente.');return;}
+  if(event.data?.type==='shrigma:brand-read-unavailable'){
+   const texts={BRAND_READ_CONTRACT_NOT_READY:'A leitura deste setor para a sua marca ainda aguarda validação. Nenhum dado de outra marca será apresentado.',BRAND_RESPONSE_UNSCOPED:'Esta leitura não confirmou o recorte da sua marca. Os dados novos não foram aplicados; peça uma revisão ao administrador.'};
+   const text=Object.hasOwn(texts,event.data.code)?texts[event.data.code]:null;if(!text)return;
+   let notice=frameHost.querySelector('#entry-access-status');if(!notice){notice=document.createElement('section');notice.id='entry-access-status';notice.setAttribute('role','status');frameHost.prepend(notice);}notice.textContent=text;
+   frameHost.style.display='flex';frameHost.style.flexDirection='column';frame.style.flex='1 1 auto';frame.style.minHeight='0';frame.style.height='auto';return;
+  }
   if(event.data?.type!=='shrigma:ready'||event.data.panel!==selected)return;
   const currentFrame=frame,currentSession=session,currentArea=selected;
   const gate=await audienceGatePromise;
@@ -239,9 +256,9 @@ else (function(){'use strict';
   const email=$('login-email').value.trim().toLowerCase(),password=$('login-password').value;
   message.textContent='Conferindo acesso…';loginForm.querySelector('button').disabled=true;
   try{
-   const {response}=await post('/auth/login',{email,password});if(ticket!==version)return;
+   const {response,data}=await post('/auth/login',{email,password});if(ticket!==version)return;
    if(!response.ok){
-    message.textContent=response.status===429?'Muitas tentativas. Aguarde antes de tentar novamente.':'E-mail ou senha não conferem. Confira os dados e tente novamente.';return;
+    message.textContent=data?.error==='BRAND_REPROVISION_REQUIRED'?'Seu acesso precisa ser vinculado a uma marca. Peça um novo acesso ao administrador.':response.status===429?'Muitas tentativas. Aguarde antes de tentar novamente.':'E-mail ou senha não conferem. Confira os dados e tente novamente.';return;
    }
    const s=await readSession();if(ticket!==version)return;showShell(s);
   }catch(_){if(ticket===version)message.textContent='Não foi possível confirmar o acesso agora. Tente novamente.';}
@@ -296,28 +313,35 @@ else (function(){'use strict';
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
   const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
   const writerLabels={requested:'Edição de campanhas solicitada',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',renewing:'Renovando edição de campanhas · leitura preservada',blocked:'Edição indisponível · confira os acessos antes de renovar'};
-  const access=user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
+  // Issuer readiness is not proof that content is admitted by the BFF.
+  // This content gate excludes cancellation/history, which keep their own
+  // authorization contract. Absent metadata preserves the isolated legacy UI.
+  const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.campaignContentAccess?.available===false;
+  const access=contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
-  details.textContent=[areas,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
+  const brandLabel=user.role==='superadmin'?'Todas as marcas':user.brandAccess==='single'&&['fish','aristo'].includes(user.brand)?({fish:'Fishermans',aristo:'O Aristocrata'})[user.brand]:'Marca pendente · recrie o acesso';
+  details.setAttribute('data-brand-access',user.brandAccess==='single'?'single':user.role==='superadmin'?'all':'reprovision_required');
+  details.textContent=[areas,brandLabel,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
   if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
+   const brandReady=user.brandAccess==='single'&&['fish','aristo'].includes(user.brand);
    const actions=document.createElement('div');actions.className='user-row-actions';
    const label=document.createElement('label');label.textContent='Nível solicitado';
    const select=document.createElement('select');select.setAttribute('aria-label',`Nível de acesso de ${user.email}`);
    for(const [value,title] of [['read','Somente leitura'],['edit',user.crmWriter||user.crmAccess?'Edição de campanhas (pendente)':'Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
    const currentAccess=granted||user.requestedAccess==='edit'?'edit':'read';
-   select.value=currentAccess;
+   select.value=currentAccess;select.disabled=!brandReady;
    const save=document.createElement('button');save.type='button';save.textContent='Salvar';save.disabled=true;
-   select.addEventListener('change',()=>{save.disabled=select.value===currentAccess;});
+   select.addEventListener('change',()=>{save.disabled=!brandReady||select.value===currentAccess;});
    save.addEventListener('click',()=>saveAccessRequest(user,select,save));
    const revokeButton=document.createElement('button');revokeButton.type='button';revokeButton.textContent='Revogar acesso';revokeButton.addEventListener('click',()=>revoke(user,revokeButton));
    label.append(select);actions.append(label,save);
-   if(user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&(user.permissions.growth.edit===false||user.crmWriter)&&user.crmAccess?.state==='ready'&&user.crmAccess.canRenew===true&&user.crmAccess.renewalPhase===null&&(user.crmAccess.ready===true&&user.crmAccess.expired===false||Object.hasOwn(user.crmAccess,'writerRevocationPending'))){
+   if(brandReady&&user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&(user.permissions.growth.edit===false||user.crmWriter)&&user.crmAccess?.state==='ready'&&user.crmAccess.canRenew===true&&user.crmAccess.renewalPhase===null&&(user.crmAccess.ready===true&&user.crmAccess.expired===false||Object.hasOwn(user.crmAccess,'writerRevocationPending'))){
     const renewButton=document.createElement('button');renewButton.type='button';renewButton.textContent='Renovar acesso CRM';renewButton.setAttribute('aria-label',`Renovar acesso CRM de ${user.email}`);renewButton.addEventListener('click',()=>renewCrm(user,renewButton));actions.append(renewButton);
    }
-   if(user.status==='active'&&user.crmWriter?.canRenew===true){
+   if(brandReady&&!contentUnavailable&&user.status==='active'&&user.crmWriter?.canRenew===true){
     const renew=document.createElement('button');renew.type='button';renew.textContent='Renovar edição de campanhas';renew.setAttribute('aria-label',`Renovar edição de campanhas de ${user.email}`);renew.addEventListener('click',()=>renewCampaignWriter(user,renew));actions.append(renew);
    }
-   if(user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
+   if(brandReady&&!contentUnavailable&&user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
     const approve=document.createElement('button');approve.type='button';approve.textContent='Aprovar edição de campanhas';approve.setAttribute('aria-label',`Aprovar edição de campanhas de ${user.email}`);approve.addEventListener('click',()=>approveCampaignWriter(user,approve));actions.append(approve);
    }
    actions.append(revokeButton);row.append(actions);
@@ -325,17 +349,17 @@ else (function(){'use strict';
  return row;
  }
  async function approveCampaignWriter(user,button){
-  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canApprove!==true)return;
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canApprove!==true||user.campaignContentAccess?.available===false)return;
   button.disabled=true;adminMessage.textContent='Validando acesso individual para edição de campanhas…';
   try{const {response}=await post('/auth/users',{action:'crm_writer_approve',userId:user.id});if(!response.ok)throw Error('writer_approval_failed');await loadUsers();adminMessage.textContent='Aprovação registrada. A leitura continua disponível; a edição será liberada após a validação do acesso.';}
   catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível aprovar. Confira o acesso de leitura e campanhas ainda pendentes.';}
   finally{button.disabled=false;}
  }
  async function renewCampaignWriter(user,button){
-  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canRenew!==true)return;
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canRenew!==true||user.campaignContentAccess?.available===false)return;
   button.disabled=true;adminMessage.textContent='Solicitando renovação da edição de campanhas…';
   try{const {response,data}=await post('/auth/users',{action:'crm_writer_renew',userId:user.id});if(!response.ok&&!(response.status===409&&data?.error==='CRM_WRITER_RENEWAL_PENDING'))throw Error('writer_renewal_failed');await loadUsers();adminMessage.textContent='Renovação registrada. A leitura continua disponível; a edição aguarda nova validação individual.';}
-  catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível renovar a edição. Confira a leitura e tentativas pendentes das duas marcas.';}
+  catch(_){try{await loadUsers();}catch(_){}adminMessage.textContent='Não foi possível renovar a edição. Confira a leitura e tentativas pendentes deste acesso.';}
   finally{button.disabled=false;}
  }
  async function renewCrm(user,button){
@@ -382,23 +406,24 @@ else (function(){'use strict';
  });
  $('admin-invite-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
-  const email=$('admin-email').value.trim().toLowerCase(),area=$('admin-area').value,requestedAccess=$('admin-access').value;
+  const email=$('admin-email').value.trim().toLowerCase(),area=$('admin-area').value,brand=$('admin-brand').value,requestedAccess=$('admin-access').value;
   if(!AREAS[area]||!['read','edit'].includes(requestedAccess))return;
+  if(!Object.hasOwn(AUDIENCE_BRANDS,brand)){adminMessage.textContent='Escolha a marca antes de criar o acesso.';$('admin-brand').focus();return;}
   if(typeof session.areaHosts?.[area]!=='string'){
    adminMessage.textContent='Não foi possível confirmar o endereço deste painel. Atualize a página e tente novamente.';return;
   }
-  busy=true;const button=$('admin-invite-form').querySelector('button');button.disabled=true;
+  busy=true;const form=$('admin-invite-form'),button=form.querySelector('button');form.setAttribute('aria-busy','true');for(const field of form.querySelectorAll('input,select,button'))field.disabled=true;
   inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Criando convite…';
   try{
-   const body={action:'invite',email,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess};
+   const body={action:'invite',email,brand,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess};
    const {response,data}=await post('/auth/users',body);
    if(!response.ok)throw Error('invite_failed');
    const safeUrl=inviteUrlForArea(data?.inviteUrl,area,session.areaHosts);
    if(!safeUrl)throw Error('invite_failed');
-   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=requestedAccess==='edit'?'Convite criado em somente leitura. O pedido de edição ficou pendente de validação; compartilhe o link por um canal seguro.':'Convite de leitura criado. Compartilhe o link por um canal seguro com a pessoa indicada.';
-   $('admin-email').value='';$('admin-access').value='read';await loadUsers();
+   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=`Convite de leitura criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A edição ficou solicitada e aguarda validação individual. ':''}Compartilhe o link por um canal seguro. A disponibilidade dos dados aparece no estado do acesso.`;
+   $('admin-email').value='';$('admin-brand').value='';$('admin-access').value='read';await loadUsers();
   }catch(_){adminMessage.textContent='Não foi possível criar o convite. Confira os dados e tente novamente.';}
-  finally{busy=false;button.disabled=false;}
+  finally{busy=false;form.setAttribute('aria-busy','false');for(const field of form.querySelectorAll('input,select,button'))field.disabled=false;}
  });
  async function revoke(user,button){
   if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? ${user.crmAccess?'A revogação do CRM será confirmada antes de um novo convite.':'Chaves individuais dos serviços de origem exigem revogação separada.'}`))return;

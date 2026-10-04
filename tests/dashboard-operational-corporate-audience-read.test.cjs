@@ -17,7 +17,7 @@ function request(server,ctx,url,{method='GET',body,origin=ctx.origin}={}){return
 const freshness={contract:'crm-audience-read-freshness-v1',catalog_refreshed_at:'2026-10-03T11:59:00.000Z',catalog_expires_at:'2026-10-03T12:03:00.000Z',catalog_age_seconds:60,read_at:'2026-10-03T12:00:00.000Z',current:true,stale:false,coverage:'unconfirmed',schedule_proof:false};
 const lists=brand=>({brand,base_list_id:brand==='fish'?17:16,lists:[{id:brand==='fish'?17:16,brand,name:'Synthetic base',available:true}],freshness});
 function response(value,url){const r=new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json; charset=utf-8'}});Object.defineProperty(r,'url',{value:String(url)});return r;}
-const read=ctx=>({...ctx,method:'GET'});
+const read=(ctx,brand='fish')=>({...ctx,method:'GET',brand});
 
 test('corporate constructors admit Audience READ with the closed WRITER descriptor; templates and generic draft remain closed',async t=>{
  const f=await fixture(t),e=env(f),s=S.settingsFromEnv(e);
@@ -30,23 +30,26 @@ test('corporate constructors admit Audience READ with the closed WRITER descript
 });
 
 test('both brands use only the individual dcrm READ before and after FULL; WRITER stays distinct and audience mutations stay unavailable',async t=>{
- const f=await fixture(t),id=await f.manager(),ctx=await f.login(),calls=[];let foreign=false;
- const source={capabilities:{endpoints:{read:B.DESTINATIONS['crm-read']},segments:{read:true,save:true,count:true,operation:true},campaign_audience:{read:true,inspect:true,operation:true,validate:true,bind:true,release:true},templates:{read_content:true,list_history:true,read_contract:'crm-template-read-v1'}}};
- const readKey=f.auth.getUpstreamCredential({...read(ctx),area:'growth',edit:false,slot:'crm-panel-read'}),before=f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(id);
- const server=app(t,f,async(url,init)=>{const u=new URL(url);assert.equal(init.method,'GET');assert.equal(init.body,undefined);assert.equal(init.headers.Authorization,'Bearer '+readKey);calls.push(u.href);if(u.origin+u.pathname===A.DESTINATIONS['audience-read'])return response(lists(foreign?'aristo':u.searchParams.get('brand')),url);assert.equal(u.origin+u.pathname,B.DESTINATIONS['crm-read']);return response(source,url);});
+ for(const brand of ['fish','aristo']){
+ const f=await fixture(t),email=brand+'-manager@oaristocrata.com',invitation=f.invite(email,'growth',brand);await f.accept(invitation);const id=invitation.userId;f.promoteRead(id);const ctx=await f.login(email),calls=[],other=brand==='fish'?'aristo':'fish';let foreign=false;
+ const source={crm_diario:[],crm_campanha:[],crm_fluxo:[],crm_conversao:[],crm_attribution:{schema_version:2,daily:[],quality:[],coverage:[]},capabilities:{endpoints:{read:B.DESTINATIONS['crm-read']},segments:{read:true,save:true,count:true,operation:true},campaign_audience:{read:true,inspect:true,operation:true,validate:true,bind:true,release:true},templates:{read_content:true,list_history:true,read_contract:'crm-template-read-v1'}}};
+ const readKey=f.auth.getUpstreamCredential({...read(ctx,brand),area:'growth',edit:false,slot:'crm-panel-read'}),before=f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(id);
+ const server=app(t,f,async(url,init)=>{const u=new URL(url);assert.equal(init.method,'GET');assert.equal(init.body,undefined);assert.equal(init.headers.Authorization,'Bearer '+readKey);calls.push(u.href);if(u.origin+u.pathname===A.DESTINATIONS['audience-read'])return response(lists(foreign?other:u.searchParams.get('brand')),url);assert.equal(u.origin+u.pathname,B.DESTINATIONS['crm-read']);return response(source,url);});
  for(const full of [false,true]){
   if(full)assert.deepEqual(await f.issue(id),{state:'ready'});
   assert.equal(f.auth.campaignWriterReady(ctx),full);
-  const proof=f.auth.managedCrmReadAuthorization(read(ctx));assert.match(proof.principalId,/^dcrm-/);assert.deepEqual(proof.caps,['read_content','list_history','submission']);assert.equal(proof.slot,'crm-panel-read');
-  for(const brand of ['fish','aristo']){const r=await request(server,ctx,'/api/segments?acao=publicos_listas&brand='+brand);assert.equal(r.status,200);assert.equal(r.body.brand,brand);assert.equal(r.body.freshness.schedule_proof,false);assert.equal(JSON.stringify(r).includes(readKey),false);}
+  const proof=f.auth.managedCrmReadAuthorization(read(ctx,brand));assert.match(proof.principalId,/^dcrm-/);assert.deepEqual(proof.caps,['read_content','list_history','submission']);assert.equal(proof.slot,'crm-panel-read');
+  const r=await request(server,ctx,'/api/segments?acao=publicos_listas&brand='+brand);assert.equal(r.status,200);assert.equal(r.body.brand,brand);assert.equal(r.body.freshness.schedule_proof,false);assert.equal(JSON.stringify(r).includes(readKey),false);
+  const beforeForeign=calls.length;assert.equal((await request(server,ctx,'/api/segments?acao=publicos_listas&brand='+other)).status,403);assert.equal(calls.length,beforeForeign);
  }
- const writer=f.db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(id);assert.match(writer.principal_id,/^dcrmw-/);assert.notEqual(writer.principal_id,f.auth.managedCrmReadAuthorization(read(ctx)).principalId);assert.deepEqual(f.auth.campaignWriterAuthorization(ctx,{brand:'fish',action:'salvar'}).caps,CAPS);
- const writerKey=f.auth.getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign'});assert.notEqual(writerKey,readKey);assert.deepEqual(f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(id),before);
+ const writer=f.db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(id);assert.match(writer.principal_id,/^dcrmw-/);assert.notEqual(writer.principal_id,f.auth.managedCrmReadAuthorization(read(ctx,brand)).principalId);assert.deepEqual(f.auth.campaignWriterAuthorization(ctx,{brand,action:'salvar'}).caps,CAPS);
+ const writerKey=f.auth.getUpstreamCredential({...ctx,brand,area:'growth',edit:true,slot:'growth-campaign'});assert.notEqual(writerKey,readKey);assert.deepEqual(f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(id),before);
  const cache=await request(server,ctx,'/api/crm-read?action=cache_growth&painel=growth');assert.equal(cache.status,200);assert.deepEqual(cache.body.capabilities.segments,{read:true,save:false,count:false,operation:false});assert.deepEqual(cache.body.capabilities.campaign_audience,{read:true,inspect:false,operation:false,validate:false,bind:false,release:false});assert.equal(Object.hasOwn(cache.body.capabilities.templates,'read_contract'),false);
  const count=calls.length;
- for(const url of ['/api/segments?acao=publicos_listas&brand=olivas','/api/segments?acao=publicos_listas&brand=fish&brand=aristo','/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=synthetic-receipt','/api/segments?acao=segmento_contexto_v2&brand=fish','/api/templates?acao=listar&marca=fish'])assert.ok([403,503].includes((await request(server,ctx,url)).status));
- assert.equal((await request(server,ctx,'/api/segments',{method:'POST',body:{acao:'segmento_criar',brand:'fish'}})).status,403);assert.equal(calls.length,count);
- foreign=true;assert.equal((await request(server,ctx,'/api/segments?acao=publicos_listas&brand=fish')).status,502);assert.equal(calls.length,count+1);
+ for(const url of ['/api/segments?acao=publicos_listas&brand=olivas','/api/segments?acao=publicos_listas&brand=fish&brand=aristo','/api/segments?acao=segmento_operacao&brand='+brand+'&idempotency_key=synthetic-receipt','/api/segments?acao=segmento_contexto_v2&brand='+brand,'/api/templates?acao=listar&marca='+brand])assert.ok([403,503].includes((await request(server,ctx,url)).status));
+ assert.equal((await request(server,ctx,'/api/segments',{method:'POST',body:{acao:'segmento_criar',brand}})).status,403);assert.equal(calls.length,count);
+ foreign=true;assert.equal((await request(server,ctx,'/api/segments?acao=publicos_listas&brand='+brand)).status,502);assert.equal(calls.length,count+1);
+ }
 });
 
 test('combined READ refuses expiry or revocation during the response without returning data or retrying',async t=>{

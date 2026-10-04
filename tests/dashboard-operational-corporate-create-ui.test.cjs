@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {parseHTML}=require('linkedom');
 const {createCampaignBffClient}=require('../services/dashboard-operational/public/campaign-bff-client.js');
 const {createCampaignEditor}=require('../services/dashboard-operational/public/campaign-edit.compiled.js');
-const session=flag=>({authenticated:true,uiKey:'ui-'+'a'.repeat(32),csrf:'c'.repeat(43),features:{campaignSubmitWrite:true,...(flag===undefined?{}:{campaignCreate:flag})},user:{role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:true}}}});
+const session=flag=>({authenticated:true,uiKey:'ui-'+'a'.repeat(32),csrf:'c'.repeat(43),features:{campaignSubmitWrite:true,...(flag===undefined?{}:{campaignCreate:flag})},user:{role:'manager',brand:'fish',brands:['fish'],brandAccess:'single',areas:['growth'],permissions:{growth:{read:true,edit:true}}}});
 const command={brand:'fish',idempotency_key:'corporate_ui_create_0001',definition:{brand:'fish',send_at:null}};
 const pending=row=>({status:202,body:{schema:'crm-campaign-bff-operation-v1',action:row.action,attemptKey:row.attemptKey,state:'pending',campaign:null,validation:null}});
 function clientFixture(flag){let state=session(flag);const rows=new Map(),calls=[],key=s=>s.uiKey+':'+s.brand,client=createCampaignBffClient({getSession:()=>state,readJournal:s=>rows.get(key(s))??null,writeJournal:(s,row)=>rows.set(key(s),structuredClone(row)),request:async q=>{calls.push(q);return pending(rows.get('ui-'+'a'.repeat(32)+':fish'));}});return{rows,calls,client,setFlag:flag=>{state=session(flag);}};}

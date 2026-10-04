@@ -3,14 +3,15 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const M=require('../services/dashboard-operational/crm-audience-read-bridge.cjs');
 const NOW=Date.UTC(2026,9,3,12),CRED='c'.repeat(64),HOST='dashboard-v24-crm.tazdb8.easypanel.host',ORIGIN='https://'+HOST;
-const proof=(over={})=>({userId:'11111111-1111-4111-8111-111111111111',owner:'gestor@oaristocrata.com',lifecycleId:'22222222-2222-4222-8222-222222222222',lifecycleVersion:1,principalId:'dcrm-'+'a'.repeat(32),generation:1,expiresAt:NOW+86400000,credentialMac:'d'.repeat(64),slot:'crm-panel-read',caps:['read_content','list_history','submission'],...over});
-function harness({proofs=null,credential=CRED,body,status=200,headers={},enabled=true,raw=null,fetchCheck=null}={}){
+const proof=(over={},brand='fish')=>({userId:brand==='fish'?'11111111-1111-4111-8111-111111111111':'33333333-3333-4333-8333-333333333333',owner:brand+'@oaristocrata.com',lifecycleId:brand==='fish'?'22222222-2222-4222-8222-222222222222':'44444444-4444-4444-8444-444444444444',lifecycleVersion:1,principalId:'dcrm-'+(brand==='fish'?'a':'b').repeat(32),generation:1,expiresAt:NOW+86400000,credentialMac:'d'.repeat(64),slot:'crm-panel-read',caps:['read_content','list_history','submission'],...over});
+const credentialFor=brand=>brand==='fish'?CRED:'e'.repeat(64);
+function harness({brand='fish',proofs=null,credential=credentialFor(brand),body,status=200,headers={},enabled=true,raw=null,fetchCheck=null}={}){
  const calls={auth:0,cred:0,fetch:[]};let n=0;
- const auth={managedCrmReadAuthorization(ctx){calls.auth++;assert.equal(ctx.method,'GET');assert.equal(ctx.area,'growth');assert.equal(ctx.edit,false);const p=proofs?proofs[Math.min(n++,proofs.length-1)]:proof();if(p instanceof Error)throw p;return p;},
-  getUpstreamCredential(ctx){calls.cred++;assert.equal(ctx.slot,'crm-panel-read');assert.equal(ctx.edit,false);return credential;}};
+ const auth={managedCrmReadAuthorization(ctx){calls.auth++;assert.equal(ctx.brand,brand);assert.equal(ctx.method,'GET');assert.equal(ctx.area,'growth');assert.equal(ctx.edit,false);const p=proofs?proofs[Math.min(n++,proofs.length-1)]:proof({},brand);if(p instanceof Error)throw p;return p;},
+  getUpstreamCredential(ctx){calls.cred++;assert.equal(ctx.brand,brand);assert.equal(ctx.slot,'crm-panel-read');assert.equal(ctx.edit,false);return credential;}};
  const fetchImpl=async(url,init)=>{calls.fetch.push({url:String(url),init});fetchCheck?.(url,init);const text=raw??JSON.stringify(body);return new Response(text,{status,headers:{'content-type':'application/json; charset=utf-8',...headers}});};
  const bridge=M.createAudienceReadBridge({auth,upstreams:{'audience-read':new URL(M.DESTINATIONS['audience-read'])},enabled},{fetchImpl,now:()=>NOW});
- const read=(route,query,extra={})=>bridge.read({context:{method:'GET',host:HOST,...extra.context},route,method:extra.method||'GET',query:new URLSearchParams(query),origin:extra.origin||ORIGIN});
+ const read=(route,query,extra={})=>bridge.read({context:{method:'GET',host:HOST,brand,...extra.context},route,method:extra.method||'GET',query:new URLSearchParams(query),origin:extra.origin||ORIGIN});
  return {calls,read};
 }
 const fresh={contract:'crm-audience-read-freshness-v1',catalog_refreshed_at:'2026-10-03T11:59:00.000Z',catalog_expires_at:'2026-10-03T12:03:00.000Z',catalog_age_seconds:60,read_at:'2026-10-03T12:00:00.000Z',current:true,stale:false,coverage:'unconfirmed',schedule_proof:false};
@@ -21,13 +22,13 @@ const ctxBody=(brand,id,over={})=>({contract:'crm-audience-campaign-read-context
 
 test('campanha só-lista nas duas marcas: GET fixo, credencial do principal, query canônica e corpo validado',async()=>{
  for(const [brand,id]of [['fish',300],['aristo',200]]){
-  const h=harness({body:ctxBody(brand,id),fetchCheck:(url,init)=>{assert.equal(init.method,'GET');assert.equal(init.redirect,'manual');assert.equal(init.headers.Authorization,'Bearer '+CRED);assert.equal(init.body,undefined);}});
+  const h=harness({brand,body:ctxBody(brand,id),fetchCheck:(url,init)=>{assert.equal(init.method,'GET');assert.equal(init.redirect,'manual');assert.equal(init.headers.Authorization,'Bearer '+credentialFor(brand));assert.equal(init.body,undefined);}});
   const r=await h.read('campaign_audience',{campaign_id:String(id),brand,acao:'campanha_publico_contexto'});
   assert.equal(r.status,200);assert.equal(r.body.list_only,true);assert.equal(r.body.binding,null);
   assert.equal(h.calls.fetch[0].url,M.DESTINATIONS['audience-read']+`?acao=campanha_publico_contexto&brand=${brand}&campaign_id=${id}`);
   assert.equal(h.calls.auth,3,'vínculo conferido antes, ao obter a credencial e depois do corpo');
-  const lists=harness({body:listsBody(brand)});assert.equal((await lists.read('segments',{acao:'publicos_listas',brand})).status,200);
-  const ob=harness({body:{binding:null,campaign_id:id,campaign_version:'e'.repeat(32),...FLAGS}});assert.equal((await ob.read('campaign_audience',{acao:'campanha_publico_obter',brand,campaign_id:String(id)})).body.binding,null);
+  const lists=harness({brand,body:listsBody(brand)});assert.equal((await lists.read('segments',{acao:'publicos_listas',brand})).status,200);
+  const ob=harness({brand,body:{binding:null,campaign_id:id,campaign_version:'e'.repeat(32),...FLAGS}});assert.equal((await ob.read('campaign_audience',{acao:'campanha_publico_obter',brand,campaign_id:String(id)})).body.binding,null);
  }
  const old=harness({body:ctxBody('fish',300,{freshness:stale})});assert.equal((await old.read('campaign_audience',{acao:'campanha_publico_contexto',brand:'fish',campaign_id:'300'})).body.freshness.stale,true,'catálogo velho passa como informação, nunca como prova');
 });
@@ -45,6 +46,7 @@ test('pedido fora do contrato é recusado sem I/O: escrita, operação, marca, m
   ['segments',{acao:'segmento_obter',brand:'fish',id:'not-a-uuid'}],['segments',{acao:'segmentos_listar',brand:'fish',offset:'0',limit:'101'}],['campaign_audience',{acao:'campanha_publico_obter',brand:'fish',campaign_id:'0'}],
   ['campaigns',{acao:'campanha_listar',brand:'fish'}],['templates',{acao:'listar'}],['segments',{acao:'publicos_listas',brand:'fish',pad:'x'.repeat(600)}]];
  for(const [route,q]of cases){const h=harness({body:listsBody('fish')});await assert.rejects(h.read(route,q),e=>e instanceof M.AudienceReadError&&[403,413].includes(e.status),JSON.stringify(q));assert.equal(h.calls.fetch.length,0);assert.equal(h.calls.cred,0);}
+ const scoped=harness({brand:'fish',body:listsBody('aristo')});await assert.rejects(scoped.read('segments',{acao:'publicos_listas',brand:'aristo'}),{status:403});assert.deepEqual([scoped.calls.auth,scoped.calls.cred,scoped.calls.fetch.length],[0,0,0]);
  const dup=harness({body:listsBody('fish')});await assert.rejects(dup.read('segments','acao=publicos_listas&brand=fish&brand=aristo'),{status:403});
  for(const extra of [{method:'POST'},{origin:'https://evil.example'},{context:{method:'POST'}}]){const h=harness({body:listsBody('fish')});await assert.rejects(h.read('segments',{acao:'publicos_listas',brand:'fish'},extra),{status:403});assert.equal(h.calls.fetch.length,0);}
  assert.throws(()=>M.createAudienceReadBridge({auth:{managedCrmReadAuthorization(){},getUpstreamCredential(){}},upstreams:{'audience-read':new URL('https://evil.example/audience-read')},enabled:true}),{status:403},'destino fixo');

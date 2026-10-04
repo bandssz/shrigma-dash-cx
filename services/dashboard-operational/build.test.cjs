@@ -256,14 +256,14 @@ test('every transformed inline script has a matching CSP hash and guard loads fi
  }
 }));
 
-function guardHarness(session={authenticated:true,csrf:'csrf-test'}){
+function guardHarness(session={authenticated:true,csrf:'csrf-test',user:{role:'superadmin',brand:null,brands:['fish','aristo'],brandAccess:'all'}}){
  const calls=[],opens=[],listeners={};
  const origin='https://crm.shrigma.com.br';
  const browser={fetch:async(url,options)=>{
   calls.push({url:String(url),options});
   return new Response(JSON.stringify(String(url).endsWith('/auth/session')?session:{ok:true}),{status:200,headers:{'Content-Type':'application/json'}});
- },open:(...args)=>{opens.push(args);return {};}};browser.parent=browser;
- const context={window:browser,location:{origin,href:origin+'/growth.html'},navigator:{sendBeacon:()=>true},document:{addEventListener:(type,handler)=>{listeners[type]=handler;}},Request,Response,Headers,URL,URLSearchParams,FormData,HTMLFormElement:class{},console};
+ },dispatchEvent(){},open:(...args)=>{opens.push(args);return {};}};browser.parent=browser;
+ const context={window:browser,location:{origin,href:origin+'/growth.html'},navigator:{sendBeacon:()=>true},document:{body:{dataset:{}},querySelectorAll:()=>[],addEventListener:(type,handler)=>{listeners[type]=handler;}},CustomEvent:class{constructor(type,init){this.type=type;this.detail=init.detail;}},Request,Response,Headers,URL,URLSearchParams,FormData,HTMLFormElement:class{},console};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'public/guard.compiled.js'),'utf8'),context);
  return {browser,calls,opens,listeners,origin};
 }
@@ -329,25 +329,25 @@ test('guard rejects external and unknown routes before any network request',asyn
 test('guard sends GET only to the same-origin BFF with cookie and no legacy bearer or key',async()=>{
  const {browser,calls}=guardHarness();
  const response=await browser.fetch('/api/influ?k=ui-0123456789abcdef0123456789abcdef&acao=listar',{headers:{Authorization:'Bearer ui-0123456789abcdef0123456789abcdef','X-TTS-Write-Key':'ui-0123456789abcdef0123456789abcdef'}});
- assert.equal(response.status,200);assert.equal(calls.length,1);
- assert.equal(new URL(calls[0].url).searchParams.has('k'),false);
- assert.equal(calls[0].options.headers.has('Authorization'),false);
- assert.equal(calls[0].options.headers.has('X-TTS-Write-Key'),false);
- assert.equal(calls[0].options.credentials,'same-origin');
+ assert.equal(response.status,200);assert.equal(calls.length,2);assert.equal(calls[0].url,'/auth/session');
+ assert.equal(new URL(calls[1].url).searchParams.has('k'),false);
+ assert.equal(calls[1].options.headers.has('Authorization'),false);
+ assert.equal(calls[1].options.headers.has('X-TTS-Write-Key'),false);
+ assert.equal(calls[1].options.credentials,'same-origin');
 });
 
 test('guard admits only a same-origin GET for the opt-in media listing',async()=>{
  const {browser,calls,origin}=guardHarness();
  const key='ui-0123456789abcdef0123456789abcdef';
  const allowed=await browser.fetch('/api/campaigns_media?brand=fish&page=1&per_page=24&k='+key,{headers:{Authorization:'Bearer '+key}});
- assert.equal(allowed.status,200);assert.equal(calls.length,1);
- assert.equal(calls[0].url,origin+'/api/campaigns_media?brand=fish&page=1&per_page=24');
- assert.equal(calls[0].options.headers.has('Authorization'),false);
- assert.equal(calls[0].options.credentials,'same-origin');
+ assert.equal(allowed.status,200);assert.equal(calls.length,2);assert.equal(calls[0].url,'/auth/session');
+ assert.equal(calls[1].url,origin+'/api/campaigns_media?brand=fish&page=1&per_page=24');
+ assert.equal(calls[1].options.headers.has('Authorization'),false);
+ assert.equal(calls[1].options.credentials,'same-origin');
  assert.equal((await browser.fetch('/api/campaigns_media',{method:'POST',body:'{}'})).status,405);
  assert.equal((await browser.fetch('/api/campaigns_media',{method:'HEAD'})).status,405);
  assert.equal((await browser.fetch('https://evil.invalid/api/campaigns_media?brand=fish')).status,403);
- assert.equal(calls.length,1);
+ assert.equal(calls.length,2);assert.equal(calls[0].url,'/auth/session');
 });
 
 test('guard obtains session and CSRF before POST, then strips nested uiKey and k',async()=>{
@@ -406,7 +406,7 @@ test('campaign build refuses stale sources, modified compiled bytes, extra manif
 });
 
 test('writer iframe reads include session CSRF and legacy writes never reach the new DTO route',async()=>{
- const session={authenticated:true,csrf:'csrf-test',features:{campaignSubmitWrite:true},user:{role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:true}}}};
+ const session={authenticated:true,csrf:'csrf-test',features:{campaignSubmitWrite:true},user:{role:'manager',brand:'fish',brands:['fish'],brandAccess:'single',areas:['growth'],permissions:{growth:{read:true,edit:true}}}};
  const {browser,calls,origin}=guardHarness(session);
  assert.equal((await browser.fetch('/api/campaigns?acao=campanha_listar&brand=fish',{headers:{Authorization:'Bearer ui-'+'a'.repeat(32)}})).status,200);
  assert.equal(calls.length,2);assert.equal(calls[1].url,origin+'/api/campaigns?acao=campanha_listar&brand=fish');assert.equal(calls[1].options.headers.get('X-CSRF-Token'),'csrf-test');assert.equal(calls[1].options.headers.has('Authorization'),false);

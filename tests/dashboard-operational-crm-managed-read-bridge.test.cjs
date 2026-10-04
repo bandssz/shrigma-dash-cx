@@ -15,8 +15,8 @@ const manifest={schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAM
 function response(value,status=200){return new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8'}});}
 function campaign(brand,id){return{id,version:'a'.repeat(32),status:'draft',sent:0,started_at:null,send_at:null,definition:{brand,name:'Synthetic campaign'}};}
 function catalog(brand){return{brand,current:true,read_at:'2026-10-03T00:00:00Z',lists:[{id:brand==='fish'?17:16,brand,name:'Synthetic list',available:true}],templates:[],initiatives:[]};}
-async function ready(t){
- const f=await fixture();t.after(()=>f.close());const invitation=f.invite('manager@synthetic.invalid');await f.accept(invitation);const login=await f.login('manager@synthetic.invalid'),ctx=f.reader(login),userId=login.user.id,op=f.queued(userId);
+async function ready(t,brand='fish'){
+ const f=await fixture();t.after(()=>f.close());const email=brand+'-manager@synthetic.invalid',invitation=f.invite(email,'growth',brand);await f.accept(invitation);const login=await f.login(email),ctx=f.reader(login),userId=login.user.id,op=f.queued(userId);
  const client=f.client(),prepared=await f.prepare(client,op);await f.commit(client,op,prepared.prepared);
  return{f,ctx,userId,login};
 }
@@ -48,15 +48,18 @@ function transport(auth,ctx){
 }
 const input=(ctx,route,query)=>({context:ctx,route,method:'GET',query:new URLSearchParams(query),origin:'https://'+hosts.growth});
 test('real SQLite managed principal reads campaign catalog, list, detail and media on both brands through current backend parser/runtime',async t=>{
- const{f,ctx}=await ready(t),x=transport(f.auth,ctx),bridge=B.createManagedReadBridge({auth:f.auth,upstreams:UPSTREAMS,enabled:true},{fetchImpl:x.fetchImpl});
+ const transports=[];
  for(const brand of ['fish','aristo']){
+  const{f,ctx,login}=await ready(t,brand),x=transport(f.auth,ctx),bridge=B.createManagedReadBridge({auth:f.auth,upstreams:UPSTREAMS,enabled:true},{fetchImpl:x.fetchImpl});transports.push(x);
   const c=await bridge.read(input(ctx,'campaigns',{acao:'campanha_catalogo',brand}));assert.equal(c.body.brand,brand);assert.equal(c.body.lists[0].brand,brand);
   const l=await bridge.read(input(ctx,'campaigns',{acao:'campanha_listar',brand}));assert.equal(l.body.campaigns[0].definition.brand,brand);
   const d=await bridge.read(input(ctx,'campaigns',{acao:'campanha_obter',brand,id:String(brand==='fish'?167:168)}));assert.equal(d.body.campaign.definition.brand,brand);
   const m=await bridge.read(input(ctx,'campaigns_media',{brand,page:'1',per_page:'24'}));assert.equal(m.body.brand,brand);assert.equal(m.body.items.length,1);
+  assert.equal(x.calls.length,4);assert.equal(x.native.every(x=>x.method==='GET'),true);assert.equal(x.queries.every(q=>q===T.AUTH_SQL||q===T.EFFECT_SQL),true);
+  const bearer=f.auth.getUpstreamCredential(ctx);assert.equal(JSON.stringify(x.calls).includes(bearer),false);assert.equal(f.auth.users({context:f.context}).find(u=>u.id===login.user.id).permissions.growth.edit,false);
+  assert.throws(()=>f.auth.getUpstreamCredential({...ctx,brand:brand==='fish'?'aristo':'fish'}),{code:'BRAND_DENIED'});
  }
- assert.equal(x.calls.length,8);assert.equal(x.native.every(x=>x.method==='GET'),true);assert.equal(x.queries.every(q=>q===T.AUTH_SQL||q===T.EFFECT_SQL),true);
- const bearer=f.auth.getUpstreamCredential(ctx);assert.equal(JSON.stringify(x.calls).includes(bearer),false);assert.equal(f.auth.users({context:f.context}).find(u=>u.email==='manager@synthetic.invalid').permissions.growth.edit,false);
+ assert.equal(transports.reduce((n,x)=>n+x.calls.length,0),8);
 });
 test('exact GET fields/actions/destinations only: writes, receipt lookups, audience, templates and alias attempts do not call transport',async t=>{
  const{f,ctx}=await ready(t);let calls=0;const bridge=B.createManagedReadBridge({auth:f.auth,upstreams:UPSTREAMS,enabled:true},{fetchImpl:async()=>{calls++;return response(catalog('fish'));}});
@@ -177,7 +180,7 @@ test('master missing a route-specific credential remains a documented gap; neith
  assert.equal(bridgeCalls,0);assert.equal(calls,0);assert.deepEqual(f.baseline(),before);assert.equal(f.auth.managedCrmJournal.status(admin),null);
  // Pin the reviewed independent CREATE gate; dedicated HTTP/UI regressions
  // cover OFF denial and ON requiring a ready, individual FULL writer.
- for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","45d9c75164b9272782c778916420d9c4207f9c5bd58cae6fd3377fd3d849dc75"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","1b502a0b7c564423d5bcdb8421e96670eb449d14434c9a0b0f53b711547b5c5f"]]){
+ for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","45d9c75164b9272782c778916420d9c4207f9c5bd58cae6fd3377fd3d849dc75"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","35ece002d9219f6b005653a265875e2f5d1f34202355ebd57e131bfd49ecc5da"]]){
   const proposed=fs.readFileSync(path.join(ROOT,'services/dashboard-operational',name),'utf8'),begin=proposed.indexOf(start),finish=proposed.indexOf(end,begin);assert.ok(begin>=0&&finish>begin);assert.equal(crypto.createHash('sha256').update(proposed.slice(begin,finish)).digest('hex'),expected);
  }
  assert.equal(B.PASSTHROUGH_DESTINATIONS.cx,P.FIXED_DESTINATIONS.cx);assert.equal(B.PASSTHROUGH_DESTINATIONS.influ,P.FIXED_DESTINATIONS.influ);

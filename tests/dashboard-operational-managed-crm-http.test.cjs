@@ -27,15 +27,15 @@ function call(port,host,pathname,{method='GET',body,cookie,csrf,origin='https://
 test('HTTP admin creates two managed CRM accounts, verifies their private origin identities and revokes only one',async t=>{
  const origin=await createFixture(t),dir=fs.mkdtempSync(path.join(os.tmpdir(),'manager-http-fixture-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));build(dir);
  const dbPath=path.join(dir,'identity.sqlite'),bootstrap=crypto.randomBytes(32).toString('base64url');
- const auth=createAuth({dbPath,managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['example.test'],bootstrapAdminEmail:'admin@example.test',bootstrapTokenSha256:sha(bootstrap),encryptionKey:crypto.randomBytes(32),crmManagedRead:{issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId}});let managedCrmRuntime;t.after(async()=>{await managedCrmRuntime?.close();auth.close();});
+ const auth=createAuth({dbPath,managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['example.test'],bootstrapAdminEmail:'admin@example.test',bootstrapTokenSha256:sha(bootstrap),encryptionKey:crypto.randomBytes(32),crmManagedRead:{issuerId:issuerA.issuerId,namespaceId:issuerA.namespaceId}});const pendingFixtureReleases=[];let managedCrmRuntime;t.after(async()=>{for(const release of pendingFixtureReleases)release();await managedCrmRuntime?.close();auth.close();});
  const inspect=fn=>{const db=new DatabaseSync(dbPath);try{return fn(db);}finally{db.close();}};
  const backend=FIXED_DESTINATIONS['crm-read'],privateReads=[];
  const fetchImpl=async(url,options)=>{
   const target=new URL(url);assert.equal(target.origin+target.pathname,backend);assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(options.headers.Origin,undefined);
-  const bearer=options.headers.Authorization.slice('Bearer '.length),operator=(await origin.db.query('SELECT public.shrigma_panel_operator_v1($1,$2) AS body',[bearer,'growth'])).rows[0].body;privateReads.push({action:target.searchParams.get('action'),bearer});
+  const bearer=options.headers.Authorization.slice('Bearer '.length),operator=(await origin.db.query('SELECT public.shrigma_panel_operator_v1($1,$2) AS body',[bearer,'growth'])).rows[0].body;privateReads.push({action:target.searchParams.get('action'),bearer,owner:operator?.label});
   if(!operator)return new Response('{"error":"denied"}',{status:401,headers:{'content-type':'application/json'}});
   const identity={schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',owner:operator.label,allowedPanels:['growth'],permissions:{growth:operator,influs:null}};
-  const response=new Response(JSON.stringify(target.searchParams.get('action')==='identity'?identity:{panel:'growth',owner:operator.label,items:[]}),{status:200,headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:target.href});return response;
+  const response=new Response(JSON.stringify(target.searchParams.get('action')==='identity'?identity:{crm_diario:[{marca:'fish',dia:'2026-10-04',enviados:0}],crm_campanha:[]}),{status:200,headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:target.href});return response;
  };
  let heldPrepare=null,heldRenew=null,heldRevoke=null;const rpcCalls=[],leaseQueries=[],released=[],rpcQuery=async(sql,args)=>{assert.equal(args.length,1);const command=JSON.parse(args[0]);assert.equal(sql,gateway.QUERIES[command.action]);if(command.action==='renew_read'){
   const row=inspect(db=>db.prepare('SELECT phase,commit_operation_id,candidate_ciphertext FROM crm_manager_operations_v1 WHERE operation_id=?').get(command.operationId));assert.equal(row.phase,'prepare_uncertain');assert.ok(row.commit_operation_id&&row.candidate_ciphertext);assert.ok(auth.managedCrmJournal.pendingOperations(8).includes(command.operationId));if(heldRenew)await heldRenew;
@@ -67,13 +67,13 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const baseline=()=>inspect(db=>({user:db.prepare('SELECT * FROM users WHERE id=?').get(adminId),grants:db.prepare('SELECT * FROM grants WHERE user_id=? ORDER BY area').all(adminId),slot:db.prepare('SELECT * FROM upstream_credentials WHERE user_id=?').all(adminId)}));const before=baseline();
  const managers=[];
  for(const email of ['a@example.test','b@example.test']){
-  let releasePrepare;heldPrepare=new Promise(resolve=>{releasePrepare=resolve;});
-  const invite=await post(hosts.manager,'/auth/users',{action:'invite',role:'manager',email,areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},admin);assert.equal(invite.status,201);const token=new URLSearchParams(new URL(invite.json.inviteUrl).hash.slice(1)).get('invite');
+  let releasePrepare;heldPrepare=new Promise(resolve=>{releasePrepare=resolve;pendingFixtureReleases.push(resolve);});
+  const invite=await post(hosts.manager,'/auth/users',{action:'invite',role:'manager',email,brand:'fish',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},admin);assert.equal(invite.status,201);const token=new URLSearchParams(new URL(invite.json.inviteUrl).hash.slice(1)).get('invite');
   assert.equal((await post(hosts.organico,'/auth/invite/accept',{token,password:'Synthetic manager password 2026!'})).status,403);
   assert.equal((await post(hosts.growth,'/auth/invite/accept',{token,password:'Synthetic manager password 2026!'})).status,200);
   const m=await post(hosts.growth,'/auth/login',{email,password:'Synthetic manager password 2026!'});assert.equal(m.status,200);assert.equal(m.json.user.permissions.growth.edit,false);const credentials={cookie:m.headers['set-cookie'][0].split(';')[0],csrf:m.json.csrf};
   assert.equal((await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials)).status,503);
-  const preparing=managedCrmRuntime.kick();releasePrepare();heldPrepare=null;assert.deepEqual(await preparing,{ready:1,pending:0,expired:0,revoked:0});const read=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials);assert.equal(read.status,200);assert.equal(read.json.owner,email);
+  const preparing=managedCrmRuntime.kick();releasePrepare();heldPrepare=null;assert.deepEqual(await preparing,{ready:1,pending:0,expired:0,revoked:0});const read=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',credentials);assert.equal(read.status,200);assert.equal(read.json.brand,'fish');assert.equal(privateReads.at(-1).owner,email);
   assert.equal((await call(port,hosts.organico,'/auth/session',credentials)).json.authenticated,false);assert.equal((await call(port,hosts.growth,'/organico/',credentials)).status,404);
   managers.push({id:invite.json.userId,email,credentials});
  }
@@ -88,21 +88,21 @@ test('HTTP admin creates two managed CRM accounts, verifies their private origin
  const renewBody={action:'crm_renew',userId:managers[0].id},rpcBefore=rpcCalls.length,renewCount=()=>inspect(db=>db.prepare("SELECT COUNT(*) n FROM crm_manager_operations_v1 WHERE kind='renew'").get().n);
  for(const [host,body,credentials,status] of [[hosts.manager,renewBody,{cookie:admin.cookie},403],[hosts.manager,renewBody,{...admin,origin:'https://wrong.http.synthetic.invalid'},403],[hosts.manager,renewBody,{...admin,origin:null},403],[hosts.growth,renewBody,managers[0].credentials,403],[hosts.manager,{action:'crm_renew'},admin,400],[hosts.manager,{...renewBody,operationId:crypto.randomUUID()},admin,400],[hosts.manager,{...renewBody,userId:'not-a-uuid'},admin,400],[hosts.manager,{...renewBody,userId:adminId},admin,404]])assert.equal((await post(host,'/auth/users',body,credentials)).status,status);
  assert.equal(renewCount(),0);assert.equal(rpcCalls.length,rpcBefore);
- let releaseRenew;heldRenew=new Promise(resolve=>{releaseRenew=resolve;});
+ let releaseRenew;heldRenew=new Promise(resolve=>{releaseRenew=resolve;pendingFixtureReleases.push(resolve);});
  const requested=await post(hosts.manager,'/auth/users',renewBody,admin);assert.equal(requested.status,202);assert.deepEqual(requested.json,{ok:true});assert.equal(renewCount(),1);
  const persisted=inspect(db=>db.prepare("SELECT * FROM crm_manager_operations_v1 WHERE kind='renew'").get());assert.equal(persisted.phase,'prepare_uncertain');
  const pending=await call(port,hosts.manager,'/auth/users',admin),renewalDto=pending.json.users.find(u=>u.id===managers[0].id).crmAccess;assert.equal(renewalDto.ready,true);assert.equal(renewalDto.canRenew,false);assert.equal(renewalDto.renewalPhase,'prepare_uncertain');
  assert.equal((await post(hosts.manager,'/auth/users',renewBody,admin)).status,409);assert.deepEqual(inspect(db=>db.prepare("SELECT * FROM crm_manager_operations_v1 WHERE kind='renew'").get()),persisted);
- const oldRead=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[0].credentials);assert.equal(oldRead.status,200);assert.equal(oldRead.json.owner,managers[0].email);
+ const oldRead=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[0].credentials);assert.equal(oldRead.status,200);assert.equal(oldRead.json.brand,'fish');assert.equal(privateReads.at(-1).owner,managers[0].email);
  const renewing=managedCrmRuntime.kick();releaseRenew();heldRenew=null;assert.deepEqual(await renewing,{ready:1,pending:0,expired:0,revoked:0});
  const renewedUsers=await call(port,hosts.manager,'/auth/users',admin),renewed=renewedUsers.json.users.find(u=>u.id===managers[0].id).crmAccess;assert.equal(renewed.generation,2);assert.equal(renewed.ready,true);assert.equal(renewed.renewalPhase,null);assert.equal(renewed.canRenew,true);
  assert.equal((await fetchImpl(backend+'?action=identity&painel=growth',{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+keys[0]}})).status,401);
  assert.equal((await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[0].credentials)).status,200);
  for(const value of [persisted.operation_id,persisted.commit_operation_id,persisted.candidate_ciphertext,persisted.candidate_digest,persisted.principal_id,keys[0],keys[1]])assert.ok(!pending.raw.includes(value)&&!renewedUsers.raw.includes(value));
  assert.equal((await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},{cookie:admin.cookie})).status,403);
- let releaseRevoke;heldRevoke=new Promise(resolve=>{releaseRevoke=resolve;});
+ let releaseRevoke;heldRevoke=new Promise(resolve=>{releaseRevoke=resolve;pendingFixtureReleases.push(resolve);});
  const revoked=await post(hosts.manager,'/auth/users',{action:'revoke',userId:managers[0].id},admin);assert.equal(revoked.json.crmRevocationPending,true);assert.equal((await call(port,hosts.growth,'/auth/session',managers[0].credentials)).json.authenticated,false);
- const revoking=managedCrmRuntime.kick();releaseRevoke();heldRevoke=null;assert.deepEqual(await revoking,{ready:0,pending:0,expired:0,revoked:1});const still=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[1].credentials);assert.equal(still.status,200);assert.equal(still.json.owner,managers[1].email);
+ const revoking=managedCrmRuntime.kick();releaseRevoke();heldRevoke=null;assert.deepEqual(await revoking,{ready:0,pending:0,expired:0,revoked:1});const still=await call(port,hosts.growth,'/api/crm-read?action=cache_growth&painel=growth',managers[1].credentials);assert.equal(still.status,200);assert.equal(still.json.brand,'fish');assert.equal(privateReads.at(-1).owner,managers[1].email);
  assert.deepEqual(await managedCrmRuntime.kick(),{ready:0,pending:0,expired:0,revoked:0});
  const originRevoked=await fetchImpl(backend+'?action=identity&painel=growth',{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+keys[0]}});assert.equal(originRevoked.status,401);
  assert.ok(released.length>1);assert.ok(released.every(v=>v===false));assert.equal(leaseQueries.filter(q=>q===gateway.admissionSql(false)).length,released.length);assert.deepEqual(baseline(),before);await origin.unchanged();assert.equal((await call(port,hosts.manager,'/cx/',admin)).status,404);
