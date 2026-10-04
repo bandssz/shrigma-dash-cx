@@ -215,8 +215,11 @@ else (function(){'use strict';
   const waiting=area==='growth'&&campaignButton.hidden&&session?.user?.role==='manager'&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true;
   if(waiting&&!note){note=document.createElement('span');note.id='entry-campaign-note';note.setAttribute('role','status');campaignButton.before(note);}
   if(!note)return;
-  note.hidden=!waiting;note.textContent=waiting?'Edição de campanhas aguardando validação · CRM em leitura':'';
-  note.title=waiting?'O acesso de edição foi solicitado ou aprovado, mas a escrita individual de campanhas ainda não está pronta. Nada pode ser salvo ou agendado por aqui; a leitura do CRM continua disponível.':'';
+  // Tentativa sem confirmação guardada neste navegador (diário do editor): fica preservada e não é repetida.
+  let preserved=false;
+  if(waiting)try{const raw=window.localStorage.getItem('shrigma_campaign_bff_v1:'+session.uiKey+':'+session.user.brand);preserved=typeof raw==='string'&&raw.length<=300000&&['pending','uncertain'].includes(JSON.parse(raw)?.phase);}catch(_){preserved=true;}
+  note.hidden=!waiting;note.textContent=!waiting?'':preserved?'Edição de campanhas aguardando validação · tentativa sem confirmação preservada, não será repetida':'Edição de campanhas aguardando validação · CRM em leitura';
+  note.title=!waiting?'':preserved?'Uma tentativa de campanha ficou sem confirmação neste navegador. Ela está guardada e não será enviada de novo. Quando a edição voltar a valer, abra Campanhas para conferir o resultado antes de qualquer nova ação.':'O acesso de edição foi solicitado ou aprovado, mas a escrita individual de campanhas ainda não está pronta. Nada pode ser salvo ou agendado por aqui; a leitura do CRM continua disponível.';
  }
  function openPanel(area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
