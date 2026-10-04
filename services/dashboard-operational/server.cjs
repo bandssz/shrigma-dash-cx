@@ -697,8 +697,12 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(s.mode==='operational'&&user.role==='manager'&&['organico','influs'].includes(d.area))throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
         if(s.mode==='operational'&&user.role==='manager'&&!aggregate&&!managedReadRoute&&!campaignSubmitRoute&&!['campaigns','campaigns_media','segments'].includes(route)&&!audienceAction)throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
         if(s.mode==='synthetic'){
-          const result=fixture(['cx','cache','crm-read'].includes(route)?d.area:route,Object.fromEntries(url.searchParams));
-          return sendJson(req,res,200,user.role==='manager'?projectBrandCache(result,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead,isolatedSandbox:sandbox}):result);
+          const fixturePanel=aggregate?d.area:route==='influ'?'influs':route;
+          const scopedInflu=user.role==='manager'&&route==='influ';
+          const result=fixture(fixturePanel,fields,scopedInflu?requestBrand:undefined);
+          // Influ's synthetic fixture has a closed authored, scoped payload;
+          // the operational manager gate above remains unchanged.
+          return sendJson(req,res,200,user.role==='manager'&&!scopedInflu?projectBrandCache(result,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead,isolatedSandbox:sandbox}):result);
         }
         // The current CRM UI reads cache_growth through crm-read. Only this
         // explicit synthetic profile translates that validated GET to its
