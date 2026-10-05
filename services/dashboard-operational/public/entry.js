@@ -327,7 +327,7 @@ else (function(){'use strict';
  // The current Master manages its own CRM permission through the authenticated
  // endpoint. The browser never selects another identity, key or capability.
  function ownMasterRow(user){
-  return requested==='todos'&&session?.authenticated===true&&session.user?.role==='superadmin'&&typeof session.user.id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(session.user.id)&&sessionBrandScope(session.user)?.brandAccess==='all'&&session.user.areas?.length===3&&new Set(session.user.areas).size===3&&Object.keys(AREAS).every(a=>session.user.areas.includes(a))&&user?.role==='superadmin'&&user.status==='active'&&user.id===session.user.id&&user.email===session.user.email;
+  return typeof requested==='string'&&typeof session!=='undefined'&&requested==='todos'&&session?.authenticated===true&&session.user?.role==='superadmin'&&typeof session.user.id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(session.user.id)&&sessionBrandScope(session.user)?.brandAccess==='all'&&session.user.areas?.length===3&&new Set(session.user.areas).size===3&&Object.keys(AREAS).every(a=>session.user.areas.includes(a))&&user?.role==='superadmin'&&user.status==='active'&&user.id===session.user.id&&user.email===session.user.email;
  }
  function ownMasterCrmReady(user){
   return ownMasterRow(user)&&session.features?.campaignSubmitWrite===true&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true&&user.permissions?.growth?.read===true&&user.permissions.growth.edit===true;
@@ -355,17 +355,73 @@ else (function(){'use strict';
   }catch(_){if(ticket===version&&session)adminMessage.textContent='Não foi possível conferir a ativação. Atualize os acessos antes de tentar novamente.';}
   finally{busy=false;button.disabled=false;}
  }
+ function profileRevisionValid(user){return typeof user?.profileRevision==='string'&&/^[a-f0-9]{64}$/.test(user.profileRevision);}
+ function profileEditor(row,user){
+  if(!profileRevisionValid(user)||user.role!=='manager')return;
+  const update=user.profileUpdate;
+  if(update&&['revoking','ready','completed'].includes(update.state)){
+   const note=document.createElement('div');note.className='user-profile-update';
+   note.textContent=update.state==='revoking'?`Alteração para ${update.email} · ${AREAS[update.area]?.label||''} · ${AUDIENCE_BRANDS[update.brand]||''} em configuração. O acesso anterior está bloqueado; o novo convite aguarda a confirmação da revogação.`:update.state==='ready'?'Acesso anterior revogado. O novo convite está pronto para concluir a atualização.':update.inviteAvailable===true?'Cadastro atualizado. Compartilhe o novo convite para a pessoa criar a senha.':'';
+   if(update.state==='ready'||update.state==='completed'&&update.inviteAvailable===true){const button=document.createElement('button');button.type='button';button.textContent='Mostrar novo convite';button.setAttribute('data-user-action','update-finish');button.addEventListener('click',()=>finishProfileUpdate(user,button));note.append(button);}
+   row.append(note);
+  }
+  const correcting=update?.canCorrect===true&&['revoking','ready'].includes(update.state);
+  if((!correcting&&!['active','invited'].includes(user.status))||user.brandAccess!=='single'||!AREAS[user.areas?.[0]])return;
+  const details=document.createElement('details');details.className='user-profile-editor';const summary=document.createElement('summary');summary.textContent=correcting?'Corrigir alteração pendente':'Editar cadastro';details.append(summary);
+  const form=document.createElement('form');form.className='user-profile-form';form.setAttribute('data-user-profile',user.id);
+  const field=(labelText,node,name)=>{const field=document.createElement('div');field.className='admin-field';const label=document.createElement('label');label.textContent=labelText;node.name=name;node.setAttribute('data-profile-field',name);node.setAttribute('aria-label',`${labelText} de ${user.email}`);label.append(node);field.append(label);form.append(field);return node;};
+  const email=field('E-mail corporativo',document.createElement('input'),'email');email.type='email';email.autocomplete='off';email.required=true;email.value=correcting?update.email:user.email;
+  const area=field('Setor',document.createElement('select'),'area');for(const [value,definition]of Object.entries(AREAS)){const option=document.createElement('option');option.value=value;option.textContent=definition.label;area.append(option);}area.value=correcting?update.area:user.areas[0];
+  const brand=field('Marca',document.createElement('select'),'brand');for(const [value,title]of Object.entries(AUDIENCE_BRANDS)){const option=document.createElement('option');option.value=value;option.textContent=title;brand.append(option);}brand.value=correcting?update.brand:user.brand;
+  const access=field('Nível de acesso',document.createElement('select'),'access');for(const [value,title]of [['read','Leitura'],['edit','Edição']]){const option=document.createElement('option');option.value=value;option.textContent=title;access.append(option);}access.value=correcting?update.access:user.requestedAccess==='edit'||user.permissions?.[user.areas[0]]?.edit===true?'edit':'read';
+  const button=document.createElement('button');button.type='submit';button.textContent='Salvar alterações';form.append(button);
+  const note=document.createElement('p');note.className='admin-access-note';note.textContent=correcting?'Corrigir os dados mantém o acesso anterior bloqueado e preserva as revogações em andamento. O novo convite aguarda a confirmação da revogação.':'Alterar e-mail, setor ou marca encerra o acesso anterior e gera um novo convite após a confirmação da revogação. Alterar somente leitura/edição preserva a senha.';
+  form.addEventListener('submit',event=>{event.preventDefault();void saveProfile(user,form,{email:email.value.trim().toLowerCase(),area:area.value,brand:brand.value,access:access.value});});details.append(form,note);row.append(details);
+ }
+ async function saveProfile(user,form,fields){
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||!profileRevisionValid(user)||!AREAS[fields.area]||!Object.hasOwn(AUDIENCE_BRANDS,fields.brand)||!['read','edit'].includes(fields.access))return;
+  const original=session,ticket=version,changed=fields.email!==user.email||fields.area!==user.areas?.[0]||fields.brand!==user.brand;
+  busy=true;form.setAttribute('aria-busy','true');for(const input of form.querySelectorAll('input,select,button'))input.disabled=true;adminMessage.textContent='Salvando cadastro…';let uncertain=false;
+  try{
+   let response,data;try{({response,data}=await post('/auth/users',{action:'update',userId:user.id,expectedRevision:user.profileRevision,...fields}));}catch(_){uncertain=true;}
+   if(ticket!==version||session!==original)return;
+   if(response?.status===401){showLogin('Sua sessão expirou. Entre novamente para conferir o cadastro.');return;}
+   if(response&&!response.ok){
+    await loadUsers();
+    const messages={USER_CHANGED:'O cadastro mudou. Confira os dados atualizados antes de salvar novamente.',USER_UPDATE_PENDING:'Já há uma alteração em configuração para este cadastro.',USER_EXISTS:'Este e-mail já possui outro acesso.',USER_UPDATE_CREDENTIAL_REVOCATION_REQUIRED:'A chave anterior deste setor precisa ter a revogação confirmada antes de trocar o cadastro.',CAMPAIGN_RECONCILIATION_REQUIRED:'Confira as tentativas de campanhas pendentes antes de alterar este cadastro.',AUDIENCE_RECONCILIATION_REQUIRED:'Confira a tentativa de público pendente antes de alterar este cadastro.'};
+    adminMessage.textContent=messages[data?.error]||'Não foi possível salvar o cadastro. Confira o estado do acesso.';return;
+   }
+   await loadUsers();if(ticket!==version||session!==original)return;
+   inviteResult.hidden=true;inviteLink.value='';
+   adminMessage.textContent=uncertain?'A resposta não foi confirmada. Confira o cadastro atualizado; nenhuma alteração foi reenviada.':changed?'Alteração registrada. O acesso anterior foi bloqueado; o novo convite aparece após a confirmação da revogação.':fields.access==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Leitura definida. A senha foi preservada.';
+  }catch(_){if(ticket===version&&session===original)adminMessage.textContent='Não foi possível conferir o cadastro agora. Atualize os acessos antes de tentar novamente.';}
+  finally{busy=false;form.setAttribute('aria-busy','false');for(const input of form.querySelectorAll('input,select,button'))input.disabled=false;}
+ }
+ async function finishProfileUpdate(user,button){
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||!profileRevisionValid(user)||!user.profileUpdate||!['ready','completed'].includes(user.profileUpdate.state))return;
+  const original=session,ticket=version;busy=true;button.disabled=true;inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Conferindo novo convite…';
+  try{
+   const {response,data}=await post('/auth/users',{action:'update_finish',userId:user.id,expectedRevision:user.profileRevision});
+   if(ticket!==version||session!==original)return;
+   if(response.status===401){showLogin('Sua sessão expirou. Entre novamente para conferir o novo convite.');return;}
+   if(!response.ok){await loadUsers();adminMessage.textContent=response.status===409?'A configuração ainda não foi confirmada. Confira os acessos e tente novamente depois.':'Não foi possível obter o novo convite. Confira o estado do cadastro.';return;}
+   const url=inviteUrlForArea(data?.inviteUrl,user.profileUpdate.area,session.areaHosts);if(!url)throw Error('invite_failed');
+   inviteLink.value=url;inviteResult.hidden=false;await loadUsers();if(ticket!==version||session!==original){inviteResult.hidden=true;inviteLink.value='';return;}
+   adminMessage.textContent='Cadastro atualizado. Compartilhe o novo convite para a pessoa criar a senha. A edição depende da confirmação mostrada no estado do acesso.';
+  }catch(_){if(ticket===version&&session===original){try{await loadUsers();}catch(_){}adminMessage.textContent='A resposta do convite não foi confirmada. Confira o cadastro; o mesmo convite pode ser recuperado sem repetir a alteração.';}}
+  finally{busy=false;button.disabled=false;}
+ }
  function userRow(user){
   const row=document.createElement('div');row.className='user-row';const info=document.createElement('div');
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
   const areas=Array.isArray(user.areas)?user.areas.filter(a=>AREAS[a]).map(a=>AREAS[a].label).join(', '):'';
   const granted=Array.isArray(user.areas)&&user.areas.length===1&&user.permissions?.[user.areas[0]]?.edit===true;
-  const writerLabels={requested:'Edição de campanhas solicitada',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',renewing:'Renovando edição de campanhas · leitura preservada',blocked:'Edição indisponível · confira os acessos antes de renovar'};
+  const writerLabels={requested:'Edição configurada · aguardando preparo',provisioning:'Preparando edição de campanhas',ready:'Edição de campanhas ativa',revoking:'Revogando edição de campanhas',revoked:'Edição de campanhas revogada',renewing:'Renovando edição de campanhas · leitura preservada',blocked:'Edição indisponível · confira os acessos antes de renovar'};
   // Issuer readiness is not proof that content is admitted by the BFF.
   // This content gate excludes cancellation/history, which keep their own
   // authorization contract. Absent metadata preserves the isolated legacy UI.
   const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.campaignContentAccess?.available===false;
-  const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
+  const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Edição configurada · aguardando confirmação':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   const brandLabel=user.role==='superadmin'?'Todas as marcas':user.brandAccess==='single'&&['fish','aristo'].includes(user.brand)?({fish:'Fishermans',aristo:'O Aristocrata'})[user.brand]:'Marca pendente · recrie o acesso';
   details.setAttribute('data-brand-access',user.brandAccess==='single'?'single':user.role==='superadmin'?'all':'reprovision_required');
@@ -377,28 +433,28 @@ else (function(){'use strict';
   if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
    const brandReady=user.brandAccess==='single'&&['fish','aristo'].includes(user.brand);
    const actions=document.createElement('div');actions.className='user-row-actions';
-   const label=document.createElement('label');label.textContent='Nível solicitado';
+   const label=document.createElement('label');label.textContent='Nível de acesso';
    const select=document.createElement('select');select.setAttribute('aria-label',`Nível de acesso de ${user.email}`);
-   for(const [value,title] of [['read','Somente leitura'],['edit',user.crmWriter||user.crmAccess?'Edição de campanhas (pendente)':'Edição geral do painel (pendente)']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
+   for(const [value,title] of [['read','Leitura'],['edit','Edição']]){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}
    const currentAccess=granted||user.requestedAccess==='edit'?'edit':'read';
    select.value=currentAccess;select.disabled=!brandReady;
    const save=document.createElement('button');save.type='button';save.textContent='Salvar';save.disabled=true;
    select.addEventListener('change',()=>{save.disabled=!brandReady||select.value===currentAccess;});
    save.addEventListener('click',()=>saveAccessRequest(user,select,save));
    const revokeButton=document.createElement('button');revokeButton.type='button';revokeButton.textContent='Revogar acesso';revokeButton.addEventListener('click',()=>revoke(user,revokeButton));
-   label.append(select);actions.append(label,save);
+   label.append(select);if(!profileRevisionValid(user))actions.append(label,save);
    if(brandReady&&user.status==='active'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.permissions?.growth?.read===true&&(user.permissions.growth.edit===false||user.crmWriter)&&user.crmAccess?.state==='ready'&&user.crmAccess.canRenew===true&&user.crmAccess.renewalPhase===null&&(user.crmAccess.ready===true&&user.crmAccess.expired===false||Object.hasOwn(user.crmAccess,'writerRevocationPending'))){
     const renewButton=document.createElement('button');renewButton.type='button';renewButton.textContent='Renovar acesso CRM';renewButton.setAttribute('aria-label',`Renovar acesso CRM de ${user.email}`);renewButton.addEventListener('click',()=>renewCrm(user,renewButton));actions.append(renewButton);
    }
    if(brandReady&&!contentUnavailable&&user.status==='active'&&user.crmWriter?.canRenew===true){
     const renew=document.createElement('button');renew.type='button';renew.textContent='Renovar edição de campanhas';renew.setAttribute('aria-label',`Renovar edição de campanhas de ${user.email}`);renew.addEventListener('click',()=>renewCampaignWriter(user,renew));actions.append(renew);
    }
-   if(brandReady&&!contentUnavailable&&user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
+   if(!profileRevisionValid(user)&&brandReady&&!contentUnavailable&&user.status==='active'&&user.requestedAccess==='edit'&&user.crmWriter?.canApprove===true&&user.crmAccess?.ready===true){
     const approve=document.createElement('button');approve.type='button';approve.textContent='Aprovar edição de campanhas';approve.setAttribute('aria-label',`Aprovar edição de campanhas de ${user.email}`);approve.addEventListener('click',()=>approveCampaignWriter(user,approve));actions.append(approve);
    }
    actions.append(revokeButton);row.append(actions);
   }
- return row;
+ if(typeof profileEditor==='function')profileEditor(row,user);return row;
  }
  async function approveCampaignWriter(user,button){
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||user.crmWriter?.canApprove!==true||user.campaignContentAccess?.available===false)return;
@@ -428,18 +484,18 @@ else (function(){'use strict';
   if(session?.user?.role!=='superadmin'||requested!=='todos')return;
   const requestedAccess=select.value;if(!['read','edit'].includes(requestedAccess))return;
   if(requestedAccess==='read'&&user.permissions?.[user.areas?.[0]]?.edit===true&&!window.confirm(`Retirar agora a edição de ${user.email}? A sessão atual será encerrada.`))return;
-  button.disabled=true;select.disabled=true;adminMessage.textContent='Salvando nível solicitado…';
+  button.disabled=true;select.disabled=true;adminMessage.textContent='Salvando nível de acesso…';
   try{
    const {response}=await post('/auth/users',{action:'access_request',userId:user.id,requestedAccess});
    if(!response.ok)throw Error('access_request_failed');
-   await loadUsers();adminMessage.textContent=requestedAccess==='edit'?'Edição solicitada. O acesso continua somente leitura até a validação técnica.':'Acesso definido como somente leitura.';
+   await loadUsers();adminMessage.textContent=requestedAccess==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Acesso definido como somente leitura.';
   }catch(_){button.disabled=false;select.disabled=false;adminMessage.textContent='Não foi possível salvar o nível de acesso.';}
  }
  async function loadUsers(){
   const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
-  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
+  $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(user.profileUpdate?.state==='revoking'||['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
  }
  $('admin-crm-reconcile').addEventListener('click',async()=>{
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
@@ -472,7 +528,7 @@ else (function(){'use strict';
    if(!response.ok)throw Error('invite_failed');
    const safeUrl=inviteUrlForArea(data?.inviteUrl,area,session.areaHosts);
    if(!safeUrl)throw Error('invite_failed');
-   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=`Convite de leitura criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A edição ficou solicitada e aguarda validação individual. ':''}Compartilhe o link por um canal seguro. A disponibilidade dos dados aparece no estado do acesso.`;
+   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=`Convite com ${requestedAccess==='edit'?'Edição':'Leitura'} criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A configuração da edição acontece após o aceite; confira o estado do acesso. ':''}Compartilhe o link por um canal seguro.`;
    $('admin-email').value='';$('admin-brand').value='';$('admin-access').value='read';await loadUsers();
   }catch(_){adminMessage.textContent='Não foi possível criar o convite. Confira os dados e tente novamente.';}
   finally{busy=false;form.setAttribute('aria-busy','false');for(const field of form.querySelectorAll('input,select,button'))field.disabled=false;}

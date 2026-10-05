@@ -44,10 +44,10 @@ BEGIN
   present:=0;
   FOR d IN SELECT * FROM (VALUES
     ('dep','public.shrigma_campaign_store(text,jsonb)','jsonb','b77d960aca32c2c93dfe15e82922d7ff',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
-    ('dep','public.shrigma_campaign_provider(text,jsonb)','jsonb','fe3a35e75c8d0830f1b289fa806e52fc',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
+    ('dep','public.shrigma_campaign_provider(text,jsonb)','jsonb','ee8c16b6c37785dafd59c062330b2290',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
     ('dep','public.shrigma_campaign_recovery(text,jsonb)','jsonb','1e2c0a2bacd82f4dcf8d6797cbf1842c',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
-    ('gateway','public.shrigma_crm_campaign_auth_v1(text)','jsonb','e2b117ecf6a640a6272fdb8005895c31',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
-    ('gateway','public.shrigma_crm_campaign_effect_v1(text,jsonb,jsonb)','jsonb','e4d3e3143e26cd186a31e8d21ed5b473',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('gateway','public.shrigma_crm_campaign_auth_v1(text)','jsonb','6195c421dedb3f63a0c933f5d90fddd9',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('gateway','public.shrigma_crm_campaign_effect_v1(text,jsonb,jsonb)','jsonb','33ed94af3e5872454e4aa780780b9919',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
     ('own','public.shrigma_campaign_operation_fence()','trigger','5b15a30623151649574bb4b9de1453c8',false,ARRAY['search_path=pg_catalog, public'],'postgres:EXECUTE'),
     ('own','public.shrigma_campaign_abandon(jsonb)','jsonb','72bd1f5ec9aba153f1bbc0b5848fb362',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE')
    ) v(kind,sig,ret,body_md5,definer,config,acl)

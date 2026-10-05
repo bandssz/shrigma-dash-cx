@@ -18,7 +18,7 @@ test('physical WRITER ready does not advertise or offer content write when the B
   const result=text(render({...manager,brand,brands:[brand],campaignContentAccess:unavailable}));
   assert.match(result,/Conteúdo em leitura · criação, edição e agendamento aguardam validação/);
   assert.doesNotMatch(result,/Edição de campanhas ativa|Edição ativa|Aprovar edição|Renovar edição/);
-  assert.match(result,/Renovar acesso CRM/);assert.match(result,/CRM pronto/);assert.match(result,/Nível solicitado/);assert.match(result,/Revogar acesso/);
+  assert.match(result,/Renovar acesso CRM/);assert.match(result,/CRM pronto/);assert.match(result,/Nível de acesso/);assert.match(result,/Revogar acesso/);
  }
 });
 

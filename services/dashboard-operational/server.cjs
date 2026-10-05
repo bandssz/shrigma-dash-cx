@@ -635,6 +635,16 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(Object.keys(b).length!==1)throw jsonError(400,'ACTION_DENIED');
             kickManagedCrm();return sendJson(req,res,202,{ok:true});
           }
+          if(b.action==='update'){
+            if(Object.keys(b).sort().join(',')!=='access,action,area,brand,email,expectedRevision,userId')throw jsonError(400,'ACTION_DENIED');
+            const result=auth.updateUserProfile({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision,email:b.email,area:b.area,brand:b.brand,access:b.access});
+            kickManagedCrm();if(!managedCrmRuntime)auth.reconcileUserProfileUpdates();return sendJson(req,res,result.state==='configured'?200:202,result);
+          }
+          if(b.action==='update_finish'){
+            if(Object.keys(b).sort().join(',')!=='action,expectedRevision,userId')throw jsonError(400,'ACTION_DENIED');
+            const result=auth.finishUserProfileUpdate({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision});
+            return sendJson(req,res,200,{ok:true,state:result.state,userId:result.userId,inviteUrl:'https://'+result.host+'/#invite='+encodeURIComponent(result.token)});
+          }
           if(b.action==='invite'){
             if(b.role!=='manager')throw jsonError(400,'ROLE_DENIED');
             if(!editGrantsAllowed(b.permissions))throw jsonError(403,'EDIT_NOT_READY');
@@ -861,9 +871,9 @@ function managedRuntimeFor(settings,auth){
   const {issuerId,namespaceId,provisionerToken}=settings.crmManagedRead;
   const {createManagerRuntime,createWriterManagerRuntime}=require('./crm-manager-runtime.cjs');
   const read=createManagerRuntime({auth,issuerId,namespaceId,provisionerToken,allowedEmailDomains:settings.allowedEmailDomains});
-  if(!settings.crmManagedWriter)return read;
+  if(!settings.crmManagedWriter)return Object.freeze({kick:async()=>{const result=await Promise.allSettled([read.kick()]);try{auth.reconcileUserProfileUpdates();}catch{}return result;},close:()=>read.close()});
   const writer=createWriterManagerRuntime({auth,descriptor:settings.crmManagedWriter,readDescriptor:settings.crmManagedRead,allowedEmailDomains:settings.allowedEmailDomains,provisionerToken:settings.crmManagedWriter.provisionerToken});
-  return Object.freeze({kick:()=>Promise.allSettled([read.kick(),writer.kick()]),close:()=>Promise.allSettled([read.close(),writer.close()]).then(()=>undefined)});
+  return Object.freeze({kick:async()=>{const first=await Promise.allSettled([read.kick()]);if(first[0].status==='fulfilled')try{auth.fulfillManagedCampaignWriterRequests();}catch{}const last=await Promise.allSettled([writer.kick()]);try{auth.reconcileUserProfileUpdates();}catch{}return [...first,...last];},close:()=>Promise.allSettled([read.close(),writer.close()]).then(()=>undefined)});
 }
 if(require.main===module){
   try{

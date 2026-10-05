@@ -18,10 +18,10 @@ BEGIN
  FOR pass IN 1..2 LOOP
   present:=0;
   FOR d IN SELECT * FROM (VALUES
-    ('dep','public.shrigma_crm_campaign_auth_v1(text)','e2b117ecf6a640a6272fdb8005895c31',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
-    ('dep','public.shrigma_crm_campaign_effect_v1(text,jsonb,jsonb)','e4d3e3143e26cd186a31e8d21ed5b473',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('dep','public.shrigma_crm_campaign_auth_v1(text)','6195c421dedb3f63a0c933f5d90fddd9',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
+    ('dep','public.shrigma_crm_campaign_effect_v1(text,jsonb,jsonb)','33ed94af3e5872454e4aa780780b9919',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE'),
     ('dep','public.shrigma_campaign_abandon(jsonb)','72bd1f5ec9aba153f1bbc0b5848fb362',false,ARRAY['search_path=pg_catalog, public','lock_timeout=3s'],'postgres:EXECUTE'),
-    ('own','public.shrigma_crm_campaign_abandon_v1(text,jsonb)','b5b4991afb08240100670188b5009a33',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE')
+    ('own','public.shrigma_crm_campaign_abandon_v1(text,jsonb)','e0854d0a6555efac1d06e24e9d1a795e',true,ARRAY['search_path=pg_catalog, public'],'crm_campaign_api:EXECUTE,postgres:EXECUTE')
    ) v(kind,sig,body_md5,definer,config,acl)
   LOOP
    SELECT p.proowner::regrole::text AS owner,p.prosecdef,p.provolatile,p.prokind,l.lanname,p.prorettype::regtype::text AS ret,p.proconfig,md5(p.prosrc) AS body_md5,
@@ -59,6 +59,7 @@ BEGIN
   OR p_command->>'acao' IS DISTINCT FROM 'campanha_operacao_abandonar' OR p_command->>'confirm' IS DISTINCT FROM 'abandonar'
   OR jsonb_typeof(p_command->'idempotency_key') IS DISTINCT FROM 'string' OR jsonb_typeof(p_command->'brand') IS DISTINCT FROM 'string'
   OR jsonb_typeof(p_command->'operation_action') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'ABANDON_INPUT'; END IF;
+ IF auth ? 'brand' AND auth->>'brand' IS DISTINCT FROM p_command->>'brand' THEN RAISE EXCEPTION 'CRM_CAMPAIGN_GATEWAY_FORBIDDEN'; END IF;
  RETURN public.shrigma_campaign_abandon(jsonb_build_object('actor',auth->>'actor','key',p_command->>'idempotency_key',
   'brand',p_command->>'brand','action',p_command->>'operation_action'));
 END $fn$$ddl$;

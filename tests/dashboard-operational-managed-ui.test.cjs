@@ -13,7 +13,7 @@ test('manager list displays readiness and pending revocation without exposing pr
   const result=render({...manager,crmAccess:{state,ready,namespaceId:'private-namespace',principalId:'private-principal',bearer:'private-bearer',generation:3}});
   assert.ok(result.includes(label));assert.doesNotMatch(result,/private-namespace|private-principal|private-bearer/);
  }
- assert.equal(render(manager),'manager@synthetic.invalid | CRM · Fishermans · Somente leitura · Ativo | Nível solicitado | Somente leitura | Edição geral do painel (pendente) | Salvar | Revogar acesso');
+ assert.equal(render(manager),'manager@synthetic.invalid | CRM · Fishermans · Somente leitura · Ativo | Nível de acesso | Leitura | Edição | Salvar | Revogar acesso');
  for(const user of [{...manager,role:'superadmin'},{...manager,areas:['organico']},{...manager,areas:['growth','organico']}])assert.doesNotMatch(render({...user,crmAccess:{state:'ready',ready:true}}),/CRM pronto/);
   assert.doesNotMatch(render({...manager,crmAccess:{state:'private-unrecognized-error'}}),/private-unrecognized/);
  for(const state of ['__proto__','constructor','toString'])assert.doesNotMatch(render({...manager,crmAccess:{state}}),/\[object Object\]|function/);

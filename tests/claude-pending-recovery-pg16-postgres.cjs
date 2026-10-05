@@ -50,8 +50,8 @@ test.before(async()=>{
  await owner.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text NOT NULL,dono text,ativo boolean DEFAULT true,revogada_em timestamptz,ultimo_uso timestamptz,usos integer DEFAULT 0); CREATE TABLE shrigma_template_key_v2(key_hash text,active boolean,actor text,capabilities jsonb);`);
  for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await owner.query(read(f));
  await owner.query("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
- for(const [kid,dono,key,caps] of [['synthetic-manager-id','Manager','synthetic-manager-key',['read_content','draft','validate','submit']],['synthetic-other-id','Other','synthetic-other-key',['read_content','draft','validate','submit']],['synthetic-reader-id','Reader','synthetic-reader-key',['read_content']]]){
-  await owner.query("INSERT INTO crm_dash_chave(chave,painel,dono,chave_hash,chave_hash_curta) VALUES($1,'growth',$2,$3,$4)",[kid,dono,sha(key),sha(key+'-short')]);
+ for(const [kid,dono,key,caps,panel] of [['synthetic-manager-id','Master','synthetic-manager-key',['read_content','draft','validate','submit'],'todos'],['synthetic-other-id','Other Master','synthetic-other-key',['read_content','draft','validate','submit'],'todos'],['synthetic-reader-id','Reader','synthetic-reader-key',['read_content','list_history','submission'],'growth']]){
+  await owner.query("INSERT INTO crm_dash_chave(chave,painel,dono,chave_hash,chave_hash_curta) VALUES($1,$2,$3,$4,$5)",[kid,panel,dono,sha(key),sha(key+'-short')]);
   await owner.query("INSERT INTO shrigma_panel_permission_v1 VALUES($1,'growth',$2::jsonb)",[kid,JSON.stringify(caps)]);
  }
  await owner.query(atomic(read('n8n/growth/crm-campaign-gateway-role.sql')));

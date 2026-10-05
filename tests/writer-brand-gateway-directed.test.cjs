@@ -159,3 +159,13 @@ test('legacy media and Master list/upload remain usable; manager media cannot cr
  const own=await execute({key:KEY,method:'GET',input:{brand:'fish',page:1,per_page:24}});assert.equal(own.status,200);assert.equal(own.body.items[0].filename,'unattributed-legacy.png');
  const noEdit=await execute({key:KEY,method:'POST',input:{brand:'fish',bytes,sha256:hash,operation_id:operation,content_type:'image/png'}});assert.equal(noEdit.status,403);assert.equal(noEdit.body.error,'CAPABILITY_MISSING');assert.equal(uploads,4);
 });
+
+
+test('bound individual writer cannot abandon a foreign brand, while its own brand and genuine Master remain admitted',async t=>{
+ const f=await setup(t);await f.activate();await f.db.exec('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM central_leitor');await f.db.exec(read('n8n/growth/campaign-pending-recovery.sql'));await f.db.exec(read('n8n/growth/crm-campaign-abandon-gateway.sql'));await f.db.exec('UPDATE shrigma_campaign_pending_recovery_config SET enabled=true');
+ const command=(brand,key)=>({acao:'campanha_operacao_abandonar',brand,confirm:'abandonar',idempotency_key:key,operation_action:'agendar'});
+ const abandon=async(key,q)=>(await f.api('SELECT public.shrigma_crm_campaign_abandon_v1($1::text,$2::jsonb) AS r',[key,JSON.stringify(q)])).rows[0].r;
+ const before=await f.count('shrigma_campaign_operation');await assert.rejects(abandon(KEY,command('aristo','foreign-abandon-proof-01')),/CRM_CAMPAIGN_GATEWAY_FORBIDDEN/);assert.equal(await f.count('shrigma_campaign_operation'),before);
+ assert.equal((await abandon(KEY,command('fish','own-abandon-proof-0001'))).abandoned,true);assert.equal(await f.count('shrigma_campaign_operation'),before+1);
+ assert.equal((await abandon(MASTER_KEY,command('aristo','master-abandon-proof-01'))).abandoned,true);assert.equal(await f.count('shrigma_campaign_operation'),before+2);
+});

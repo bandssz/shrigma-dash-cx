@@ -22,7 +22,7 @@ const AUTH={actor:'pending-recovery-fixture',caps:['read_content','draft','valid
   await db.exec("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
   const md5=async()=>(await db.query("SELECT proname,md5(prosrc) m FROM pg_proc WHERE proname IN ('shrigma_campaign_store','shrigma_campaign_provider','shrigma_campaign_recovery') ORDER BY proname")).rows;
   const before=await md5();
-  assert.deepEqual(before.map(r=>r.m),['fe3a35e75c8d0830f1b289fa806e52fc','1e2c0a2bacd82f4dcf8d6797cbf1842c','b77d960aca32c2c93dfe15e82922d7ff'],'cadeia igual à pinada pelo gateway');
+  assert.deepEqual(before.map(r=>r.m),['ee8c16b6c37785dafd59c062330b2290','1e2c0a2bacd82f4dcf8d6797cbf1842c','b77d960aca32c2c93dfe15e82922d7ff'],'cadeia igual à pinada pelo gateway');
   await db.exec(read('n8n/growth/campaign-pending-recovery.sql'));await db.exec(read('n8n/growth/campaign-pending-recovery.sql'));
   assert.deepEqual(await md5(),before,'store/provider/recovery intactos (md5 pinados pelo gateway)');
   assert.equal((await db.query('SELECT enabled FROM shrigma_campaign_pending_recovery_config')).rows[0].enabled,false,'gate SQL nasce desligado');

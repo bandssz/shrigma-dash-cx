@@ -49,16 +49,16 @@
   <main>
    <div id="entry-frame"></div>
    <section id="admin-panel" class="admin-panel" hidden aria-label="Gestão de acessos">
-    <div class="admin-heading"><h2>Acessos do time</h2><p>Escolha o e-mail corporativo, o setor, a marca e o nível solicitado. Cada pessoa verá somente a marca cadastrada. O convite permite criar a própria senha.</p></div>
+    <div class="admin-heading"><h2>Acessos do time</h2><p>Escolha o e-mail corporativo, o setor, a marca e o nível de acesso. Cada pessoa verá somente a marca cadastrada. O convite permite criar a própria senha.</p></div>
     <form id="admin-invite-form" method="post" action="/auth/users">
      <div class="admin-field"><label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required></div>
      <div class="admin-field"><label for="admin-area">Setor</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs &amp; Afiliados</option></select></div>
      <div class="admin-field"><label for="admin-brand">Marca</label><select id="admin-brand" required><option value="">Selecione a marca</option><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option></select></div>
-     <div class="admin-field"><label for="admin-access">Nível solicitado</label><select id="admin-access"><option value="read">Somente leitura</option><option value="edit">Solicitar edição</option></select></div>
+     <div class="admin-field"><label for="admin-access">Nível de acesso</label><select id="admin-access"><option value="read">Leitura</option><option value="edit">Edição</option></select></div>
      <button type="submit">Criar convite</button>
     </form>
-    <p class="admin-access-note">Marca e setor ficam vinculados a este acesso. Edição é uma solicitação: o convite começa em leitura e a escrita aguarda aprovação e validação individual. Criar o convite não confirma que a integração do setor já está disponível.</p>
-    <div id="admin-invite-result" hidden><label for="admin-invite-link">Link de convite, exibido somente agora</label><input id="admin-invite-link" type="text" readonly><button id="admin-copy" type="button">Copiar link</button><button id="admin-invite-hide" type="button">Ocultar link</button></div>
+    <p class="admin-access-note">Ao escolher Edição, você autoriza a configuração do acesso. A edição fica disponível após a confirmação da integração, mostrada no estado do acesso. Alterar e-mail, setor ou marca encerra o acesso anterior e exige um novo convite.</p>
+    <div id="admin-invite-result" hidden><label for="admin-invite-link">Link de convite</label><input id="admin-invite-link" type="text" readonly><button id="admin-copy" type="button">Copiar link</button><button id="admin-invite-hide" type="button">Ocultar link</button></div>
     <p id="admin-message" role="status" aria-live="polite"></p>
     <button id="admin-crm-reconcile" type="button" hidden>Conferir acessos CRM pendentes</button>
     <div id="admin-users" class="user-list"></div>
