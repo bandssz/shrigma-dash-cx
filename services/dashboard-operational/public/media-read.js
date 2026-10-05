@@ -10,6 +10,7 @@ const GMediaRead=(()=>{'use strict';
  }
  function validItem(item){
   return item&&Number.isSafeInteger(item.id)&&item.id>0&&
+   (item.legacy===undefined||typeof item.legacy==='boolean')&&
    typeof item.filename==='string'&&item.filename.length>0&&item.filename.length<=180&&
    !/[\x00-\x1f\x7f-\x9f]/.test(item.filename)&&
    ['image/png','image/jpeg','image/gif'].includes(item.content_type)&&
@@ -49,11 +50,13 @@ const GMediaRead=(()=>{'use strict';
   }
   load.disabled=state.busy;more.disabled=state.busy;
   more.hidden=!state.loaded||state.next===null;
-  status.textContent=state.error|| (state.busy?'Consultando a biblioteca…':state.loaded?`${state.items.length} arquivo(s) listado(s) para ${LABELS[state.brand]}. A biblioteca é compartilhada entre as marcas.`:'Consulte os arquivos da biblioteca compartilhada.');
+  const classified=state.items.length>0&&state.items.every(item=>typeof item.legacy==='boolean'),legacy=state.items.filter(item=>item.legacy===true).length;
+  const summary=classified?`${state.items.length-legacy} arquivo(s) da marca ${LABELS[state.brand]} e ${legacy} arquivo(s) antigo(s) sem marca.`:`${state.items.length} arquivo(s) listado(s) para ${LABELS[state.brand]}. A biblioteca é compartilhada entre as marcas.`;
+  status.textContent=state.error|| (state.busy?'Consultando a biblioteca…':state.loaded?summary:'Consulte os arquivos da biblioteca compartilhada.');
   list.replaceChildren();
   if(state.loaded&&!state.items.length)list.append(make('li','Nenhum arquivo compatível nesta página.'));
   for(const item of state.items){
-   const line=make('li');line.append(make('strong',item.filename),make('span',` · ${item.width} × ${item.height} · ${item.content_type}`));list.append(line);
+   const line=make('li');line.append(make('strong',item.filename),make('span',` · ${item.width} × ${item.height} · ${item.content_type}`));if(item.legacy===true)line.append(make('span',' · Arquivo antigo (sem marca)'));list.append(line);
   }
  }
  async function loadPage(more){

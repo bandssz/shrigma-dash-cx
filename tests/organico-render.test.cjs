@@ -184,3 +184,56 @@ test('sem o ledger na página o card cai para a projeção anterior e explica a 
  assert.match(html,/Receita histórica de story/);
  assert.match(html,/não reconhece os links com medium=story/,'a ausência é explicada, não fica só "sem dado"');
 });
+
+// Real consumers of the operational DTO and legacy rows. No daMarca/posts/
+// stories/conta stubs: execute the same filters and aggregate used by the page.
+function recortePorMarca(marca){
+ const marcas=['aristo','aristocrata','fish','fishermans','olivas','ARISTO',null];
+ const rows=marcas.map((marca,i)=>({marca,post_id:'post-'+i,story_id:'story-'+i,
+  publicado_em:'2026-09-19T15:00:00Z',dia:'2026-09-19',formato:'IMAGE',
+  alcance:(i+1)*10,salvos:2,compartilh:3,seguidores:(i+1)*100,link_clicks:i+1}));
+ const api={cx_post:rows.map(x=>({...x})),cx_story:rows.map(x=>({...x})),
+  cx_conta_dia:rows.map(x=>({...x})),cx_post_comentario:[],cx_post_midia:[]};
+ api.cx_post.push({...rows[0],post_id:'fora-periodo',publicado_em:'2026-08-19T15:00:00Z'},
+  {...rows[0],post_id:'impulsionado',impulsionado:true});
+ api.cx_story.push({...rows[0],story_id:'fora-periodo',publicado_em:'2026-08-19T15:00:00Z'});
+ api.cx_conta_dia.push({...rows[0],dia:'2026-08-19'});
+ const context=vm.createContext({Intl,API:api,MARCA:marca});
+ vm.runInContext(trecho('const G={','const HOJE='),context);
+ vm.runInContext(trecho('function daMarca(x){','/* ---------- KPIs ---------- */'),context);
+ return {context,run:s=>vm.runInContext(s,context)};
+}
+
+for(const [marca,ids,alcance] of [['aristo',[0,1],30],['fish',[2,3],70]]){
+ test('recortes reais de '+marca+' incluem marca canônica e alias legado sem somar outra marca',()=>{
+  const x=recortePorMarca(marca),ini='2026-09-01',fim='2026-09-30';
+  const posts=x.run(`posts('${ini}','${fim}')`),stories=x.run(`stories('${ini}','${fim}')`),contas=x.run(`conta('${ini}','${fim}')`);
+  assert.deepEqual([...posts].map(p=>p.post_id),ids.map(i=>'post-'+i));
+  assert.deepEqual([...stories].map(p=>p.story_id),ids.map(i=>'story-'+i));
+  assert.deepEqual([...contas].map(p=>p.seguidores),ids.map(i=>(i+1)*100));
+  const total=x.run(`agregado(posts('${ini}','${fim}'))`);
+  assert.equal(total.posts,2);assert.equal(total.alcance,alcance);assert.equal(total.qualificado,10);
+  assert.ok([...posts,...stories,...contas].every(p=>marca==='aristo'?['aristo','aristocrata'].includes(p.marca):['fish','fishermans'].includes(p.marca)));
+ });
+}
+
+test('recortes reais conservam Olivas e o consolidado legado, inclusive marcas desconhecidas somente no consolidado',()=>{
+ const olivas=recortePorMarca('olivas'),all=recortePorMarca('todas');
+ assert.deepEqual([...olivas.run("posts('2026-09-01','2026-09-30')")].map(p=>p.post_id),['post-4']);
+ assert.deepEqual([...olivas.run("stories('2026-09-01','2026-09-30')")].map(p=>p.story_id),['story-4']);
+ assert.deepEqual([...olivas.run("conta('2026-09-01','2026-09-30')")].map(p=>p.seguidores),[500]);
+ assert.equal(all.run("posts('2026-09-01','2026-09-30').length"),7);
+ assert.equal(all.run("stories('2026-09-01','2026-09-30').length"),7);
+ assert.equal(all.run("conta('2026-09-01','2026-09-30').length"),7);
+ assert.equal(all.run('daMarca(null)'),true,'consolidado conserva o curto-circuito legado');
+});
+
+test('filtro real não infere marca de caixa, espaços, nomes comerciais ou outro campo',()=>{
+ for(const marca of ['aristo','fish']){
+  const x=recortePorMarca(marca);
+  for(const row of [{marca:'ARISTO'},{marca:'FISH'},{marca:' aristo '},{marca:' fish '},
+   {marca:'O Aristocrata'},{marca:'Fishermans'}, {brand:marca}, {marca:null}, {}]){
+   x.context.row=row;assert.equal(x.run('daMarca(row)'),false);
+  }
+ }
+});

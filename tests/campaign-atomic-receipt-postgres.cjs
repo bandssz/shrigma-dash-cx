@@ -27,16 +27,26 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
   try{
    await db.exec(read('tests/campaign-provider-schema.sql'));
    await db.exec("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
-   await db.exec(read('tests/fixtures/campaign-store-pre-recovery.sql'));await db.exec(install==='upgrade'?prior:provider);await db.exec(read('n8n/growth/campaign-write-guard.sql'));
+   await db.exec(read('tests/fixtures/campaign-store-pre-recovery.sql'));await db.exec(install==='upgrade'?prior:provider);await db.exec(read('n8n/growth/campaign-template-ownership.sql'));await db.exec(read('n8n/growth/campaign-write-guard.sql'));
    await db.exec(`INSERT INTO shrigma_campaign_operation(actor,operation_key,request_hash,brand,action,state,provider_id,response)
     VALUES('legacy','legacy-schedule-pending','${'a'.repeat(64)}','fish','agendar','pending',100,NULL),
     ('legacy','legacy-cancel-uncertain','${'b'.repeat(64)}','fish','cancelar','outcome_unknown',100,'{"status":502,"body":{"error":"OUTCOME_UNKNOWN"}}')`);
    const audit=async()=>JSON.stringify((await db.query("SELECT * FROM shrigma_campaign_operation WHERE actor='legacy' ORDER BY operation_key")).rows);
    const guards=async()=>JSON.stringify((await db.query("SELECT tgname,pg_get_triggerdef(oid) AS definition FROM pg_trigger WHERE NOT tgisinternal ORDER BY tgname")).rows);
-   const oldAudit=await audit(),oldGuards=await guards();assert.equal(JSON.parse(oldGuards).length,6);
+   const oldAudit=await audit(),oldGuards=await guards();assert.deepEqual(JSON.parse(oldGuards).map(g=>g.tgname),[
+  "shrigma_campaign_list_guard",
+  "shrigma_campaign_lists_guard",
+  "shrigma_campaign_media_asset_guard",
+  "shrigma_campaign_media_guard",
+  "shrigma_campaign_template_create_guard_v1",
+  "shrigma_campaign_template_guard",
+  "shrigma_campaign_template_registry_guard_v1",
+  "shrigma_campaign_template_registry_truncate_guard_v1",
+  "shrigma_campaign_write_guard"
+],'six campaign write guards and three template ownership guards');
    await db.exec(migration);await db.exec(migration);
    await db.exec(read('n8n/growth/campaign-audience.sql'));await db.exec(read('n8n/growth/campaign-audience.sql'));
-   assert.equal(await audit(),oldAudit,'migration cannot reinterpret old pending/uncertain operations');assert.equal(await guards(),oldGuards,'six guards preserved');
+   assert.equal(await audit(),oldAudit,'migration cannot reinterpret old pending/uncertain operations');assert.equal(await guards(),oldGuards,'all nine guards preserved');
    const installed=(await db.query("SELECT prosrc FROM pg_proc WHERE oid='shrigma_campaign_provider(text,jsonb)'::regprocedure")).rows[0].prosrc;
    for(const marker of ['CAMPAIGN_ATOMIC_SCHEDULE_RECEIPT_V1','CAMPAIGN_ATOMIC_CANCEL_RECEIPT_V1'])assert.equal(installed.split(marker).length-1,1);
    const reviewIds=new Map();
@@ -126,7 +136,7 @@ assert.ok(!prior.includes('CAMPAIGN_ATOMIC_'));
    const driftBefore=(await db.query("SELECT prosrc FROM pg_proc WHERE oid='shrigma_campaign_provider(text,jsonb)'::regprocedure")).rows[0].prosrc;
    await assert.rejects(db.exec(migration),/ATOMIC_RECEIPT_PROVIDER_DRIFT_0/);await db.exec('ROLLBACK');
    assert.equal((await db.query("SELECT prosrc FROM pg_proc WHERE oid='shrigma_campaign_provider(text,jsonb)'::regprocedure")).rows[0].prosrc,driftBefore);assert.equal(await audit(),oldAudit);
-   console.log('PASS atomic receipt '+install+': migration twice, legacy audit/six guards, crash/timeout/poll/replay, identical/divergent finish, rollback and preconditions; no transport.');
+   console.log('PASS atomic receipt '+install+': migration twice, legacy audit/nine guards, crash/timeout/poll/replay, identical/divergent finish, rollback and preconditions; no transport.');
   }finally{await db.close();}
  }
 })().catch(e=>{console.error(e.message,e.where||'');process.exitCode=1;});

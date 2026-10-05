@@ -50,9 +50,10 @@ test('operational canary binds every request to its user, area, slot and pinned 
  });
  const upstreams={cache:FIXED_DESTINATIONS.cache,'tts-cobranca':FIXED_DESTINATIONS['tts-cobranca']};
  const calls=[];
+ const crmCache={crm_diario:[{marca:'fish',dia:'2026-09-30',enviados:12},{marca:'aristo',dia:'2026-09-30',enviados:99}],crm_campanha:[]};
  const fetchImpl=async(url,options)=>{
   calls.push({url:url.href,method:options.method,headers:{...options.headers},body:options.body});
-  return new Response(JSON.stringify({ok:true}),{status:200,headers:{'content-type':'application/json'}});
+  return new Response(JSON.stringify(url.searchParams.get('painel')==='growth'?crmCache:{ok:true}),{status:200,headers:{'content-type':'application/json'}});
  };
  const server=createServer({
   mode:'operational',managerHost:hosts.manager,
@@ -72,23 +73,28 @@ test('operational canary binds every request to its user, area, slot and pinned 
   assert.equal(adminLogin.status,200);
   const admin={cookie:adminLogin.headers['set-cookie'][0].split(';')[0],csrf:adminLogin.json.csrf};
 
-  async function invite(email,area,password){
-   const made=await post(hosts.manager,'/auth/users',{action:'invite',role:'manager',email,areas:[area]},{...admin});
+  async function invite(email,area,brand,password){
+   const made=await post(hosts.manager,'/auth/users',{action:'invite',role:'manager',email,brand,areas:[area]},{...admin});
    assert.equal(made.status,201);
    const token=new URLSearchParams(new URL(made.json.inviteUrl).hash.slice(1)).get('invite');
    assert.equal((await post(hosts[area],'/auth/invite/accept',{token,password})).status,200);
    const login=await post(hosts[area],'/auth/login',{email,password});
    assert.equal(login.status,200);
+   assert.equal(login.json.user.brand,brand);assert.deepEqual(login.json.user.brands,[brand]);assert.equal(login.json.user.brandAccess,'single');
    return {id:made.json.userId,cookie:login.headers['set-cookie'][0].split(';')[0],csrf:login.json.csrf,uiKey:login.json.uiKey};
   }
-  const growth=await invite('crm@canary.test','growth','Synthetic CRM Passphrase 2026!');
-  const influs=await invite('creators@canary.test','influs','Synthetic Creators Passphrase 2026!');
+  const growth=await invite('crm@canary.test','growth','fish','Synthetic CRM Passphrase 2026!');
+  const influs=await invite('creators@canary.test','influs','aristo','Synthetic Creators Passphrase 2026!');
+
+  const organico=await invite('organic@canary.test','organico','fish','Synthetic Organic Passphrase 2026!');
 
   const adminGrowthKey='SyntheticAdminGrowthRead2026';
   const growthKey='SyntheticManagerGrowthRead2026';
   const influsKey='SyntheticManagerInflusRead2026';
+  const adminInflusKey='SyntheticAdminInflusRead2026';
   for(const [userId,slot,bearer] of [
    [adminLogin.json.user.id,'growth-read',adminGrowthKey],
+   [adminLogin.json.user.id,'influs-read',adminInflusKey],
    [growth.id,'growth-read',growthKey],
    [influs.id,'influs-read',influsKey]
   ]){
@@ -99,16 +105,26 @@ test('operational canary binds every request to its user, area, slot and pinned 
 
   const browserHeaders={Authorization:'Bearer browser-supplied-token','X-AB-Write-Key':'browser-write-token','X-Fake-Upstream-Key':'browser-fake-token'};
   const cachePath='/api/cache?painel=growth';
-  assert.equal((await request(port,hosts.manager,cachePath,{cookie:admin.cookie,extraHeaders:browserHeaders})).status,200);
-  assert.equal((await request(port,hosts.growth,cachePath,{cookie:growth.cookie,extraHeaders:browserHeaders})).status,200);
-  assert.equal((await request(port,hosts.influs,'/api/cache?painel=influs',{cookie:influs.cookie,extraHeaders:browserHeaders})).status,200);
+  const masterCache=await request(port,hosts.manager,cachePath,{cookie:admin.cookie,extraHeaders:browserHeaders});
+  assert.equal(masterCache.status,200);assert.deepEqual(masterCache.json,crmCache);
+  const managerCache=await request(port,hosts.growth,cachePath,{cookie:growth.cookie,extraHeaders:browserHeaders});
+  assert.equal(managerCache.status,200);assert.equal(managerCache.json.brand,'fish');
+  assert.deepEqual(managerCache.json.crm_diario,[crmCache.crm_diario[0]]);assert.deepEqual(managerCache.json.crm_campanha,[]);
+  assert.equal((await request(port,hosts.manager,'/api/cache?painel=influs',{cookie:admin.cookie,extraHeaders:browserHeaders})).status,200);
+  // Legacy mixed aggregates are available to the master only. Single-brand
+  // Influs/Orgânico cannot establish ownership and must stop before transport.
+  for(const [area,member]of [['influs',influs],['organico',organico]]){
+   const before=calls.length;
+   const denied=await request(port,hosts[area],'/api/cache?painel='+area,{cookie:member.cookie,extraHeaders:browserHeaders});
+   assert.equal(denied.status,503);assert.equal(denied.json.error,'BRAND_READ_CONTRACT_NOT_READY');assert.equal(calls.length,before);
+  }
   assert.deepEqual(calls.map(call=>call.url),[
    expectedTargets.cache+'?painel=growth',
    expectedTargets.cache+'?painel=growth',
    expectedTargets.cache+'?painel=influs'
   ]);
   assert.deepEqual(calls.map(call=>call.headers.Authorization),[
-   'Bearer '+adminGrowthKey,'Bearer '+growthKey,'Bearer '+influsKey
+   'Bearer '+adminGrowthKey,'Bearer '+growthKey,'Bearer '+adminInflusKey
   ]);
   for(const call of calls){
    assert.equal(call.method,'GET');
@@ -124,19 +140,23 @@ test('operational canary binds every request to its user, area, slot and pinned 
   assert.equal((await post(hosts.influs,'/api/tts-cobranca',{acao:'ler',k:influs.uiKey},{cookie:influs.cookie})).status,403);
   assert.equal(calls.length,beforeDenied);
 
-  const read=await post(hosts.influs,'/api/tts-cobranca',{acao:'ler',k:influs.uiKey},{cookie:influs.cookie,csrf:influs.csrf,extraHeaders:browserHeaders});
+  const scopedRead=await post(hosts.influs,'/api/tts-cobranca',{acao:'ler',k:influs.uiKey},{cookie:influs.cookie,csrf:influs.csrf,extraHeaders:browserHeaders});
+  assert.equal(scopedRead.status,503);assert.equal(scopedRead.json.error,'BRAND_READ_CONTRACT_NOT_READY');assert.equal(calls.length,beforeDenied);
+  const read=await post(hosts.manager,'/api/tts-cobranca',{acao:'ler',k:adminLogin.json.uiKey},{...admin,extraHeaders:browserHeaders});
   assert.equal(read.status,200);
   assert.equal(calls.length,beforeDenied+1);
   assert.equal(calls.at(-1).url,expectedTargets['tts-cobranca']);
   assert.deepEqual(Object.keys(calls.at(-1).headers).sort(),['Accept','Content-Type']);
-  assert.deepEqual(JSON.parse(calls.at(-1).body),{acao:'ler',k:influsKey});
+  assert.deepEqual(JSON.parse(calls.at(-1).body),{acao:'ler',k:adminInflusKey});
 
   const revoked=await post(hosts.manager,'/auth/users',{action:'revoke',userId:growth.id},{...admin});
   assert.equal(revoked.status,200);
   assert.equal((await request(port,hosts.growth,'/auth/session',{cookie:growth.cookie})).json.authenticated,false);
   assert.equal((await request(port,hosts.growth,cachePath,{cookie:growth.cookie})).status,401);
   assert.equal(calls.length,beforeDenied+1);
-  assert.equal((await request(port,hosts.influs,'/api/cache?painel=influs',{cookie:influs.cookie})).status,200);
+  assert.equal((await request(port,hosts.influs,'/api/cache?painel=influs',{cookie:influs.cookie})).status,503);
+  assert.equal(calls.length,beforeDenied+1);
+  assert.equal((await request(port,hosts.manager,'/api/cache?painel=influs',{cookie:admin.cookie})).status,200);
  }finally{
   if(server.listening)await new Promise(resolve=>server.close(resolve));
   auth.close();fs.rmSync(directory,{recursive:true,force:true});

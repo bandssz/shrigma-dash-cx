@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-jpMBV1SmZ11ZOvA8QzZgNY3wCbMKGmAC842diB+gTCA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=556ad546e042">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Bb1kT/moExfpK3g9imHty5gmYwOsaPI1Yh0Yp5GIV1M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -241,7 +241,10 @@ const varia=(a,b)=>(b===null||b===undefined||!b)?null:Math.round(100*(a-b)/b);
 /* ---------- recortes ---------- */
 // Toda serie de post e story e filtrada por data BR do publicado_em; a serie de conta
 // ja chega como coluna DATE e usa slice(0,10) direto -- converter quebraria o dia.
-function daMarca(x){return MARCA==='todas'||G.CLASSE[x.marca]===MARCA;}
+function daMarca(x){
+  return MARCA==='todas'||G.CLASSE[x.marca]===MARCA
+    ||((x.marca==='aristo'||x.marca==='fish')&&x.marca===MARCA);
+}
 let COM=null;
 function comentarios(){
   // Indexa uma vez por carga: sao 500+ posts e a tabela repinta a cada clique de coluna.
@@ -592,17 +595,26 @@ async function carrega(){
     // Cache de 10 min primeiro, como CX e CRM; a API viva fica de reserva.
     // Cache velho (mais de 20 min) não vence a consulta ao vivo, mas fica guardado: se o ao vivo falhar,
     // o painel mostra esse retrato e avisa que caiu para ele, em vez de ficar sem dado.
-    let r=null,payload=null,origem='',antigo=null;
+    let r=null,payload=null,origem='',antigo=null,semContrato=false;
     const tenta=typeof PainelRede!=='undefined'?PainelRede.ler:fn=>fn();
     if(typeof CX_CACHE_URL==='string'&&CX_CACHE_URL){
       try{
         await tenta(async()=>{
           const c=await fetch(CX_CACHE_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
           r=c;
+          // Portal: leitura por marca ainda sem contrato validado. Não é falha passageira nem resultado vazio:
+          // não repete, não cai para a API viva e não exibe agregado de outra marca.
+          if(c.status===503){const b=await c.clone().json().catch(()=>null);if(b?.error==='BRAND_READ_CONTRACT_NOT_READY'){semContrato=true;return;}}
           if(c.status>=500){const e=new Error('cache_indisponivel');e.transitorio=true;throw e;}
           if(c.ok){const corpo=payloadOrganico(await c.json().catch(()=>null));if(cacheOrganicoValido(corpo)){payload=corpo;origem='cache';}else if(payloadOrganicoValido(corpo))antigo=corpo;}
         },{espera:[1500],parar:()=>controller.signal.aborted});
       }catch(e){if(controller.signal.aborted)throw e;payload=null;}
+    }
+    if(semContrato){
+      API=null;COM=null;MIDIA=null;ORIGEM_LEITURA='';
+      document.querySelectorAll('#area-kpis,#organico-attribution,#stories-conversions,#tab-eq tbody,#tab-posts tbody,#tab-story tbody,#tab-venda tbody,#n-grade,#n-posts,#n-stories,#n-venda,#story-rot,#venda-rot,#origem-leitura').forEach(el=>{el.textContent='';});
+      $('#frescor').textContent='coleta sem confirmação';$('#frescor').title='';$('#origem-leitura').title='';
+      avisoTela('Leitura da sua marca aguardando validação','O Orgânico ainda não tem a leitura por marca validada para este acesso. Nenhum dado foi exibido, e isso não significa ausência de resultados. Dados de outras marcas não são apresentados.',false);return;
     }
     if(!payload&&!(r&&(r.status===401||r.status===403))){
       try{

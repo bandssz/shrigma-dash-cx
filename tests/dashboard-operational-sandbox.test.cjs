@@ -65,7 +65,7 @@ test('HTTP session enables audience draft only for its own attested manager and 
   await auth.completeBootstrap({email:config.bootstrapAdminEmail,token:bootstrap,password:'synthetic-admin-passphrase',host:hosts.manager,origin:'https://'+hosts.manager});
   const admin=await auth.login({email:config.bootstrapAdminEmail,password:'synthetic-admin-passphrase',host:hosts.manager,origin:'https://'+hosts.manager});
   const context={cookieHeader:admin.cookie.split(';')[0],host:hosts.manager,method:'POST',origin:'https://'+hosts.manager,csrf:admin.csrf};
-  const invite=auth.createInvite({context,email:owner,areas:['growth'],permissions:{growth:{read:true,edit:true}}});
+  const invite=auth.createInvite({context,email:owner,areas:['growth'],brand:'fish',permissions:{growth:{read:true,edit:true}}});
   await auth.acceptInvite({token:invite.token,password:'synthetic-editor-passphrase',host:hosts.growth,origin:'https://'+hosts.growth});
   const editor=await auth.login({email:owner,password:'synthetic-editor-passphrase',host:hosts.growth,origin:'https://'+hosts.growth});
   const cookie=editor.cookie.split(';')[0];

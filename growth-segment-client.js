@@ -6,6 +6,9 @@
  const exact=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
  const rejectionCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
  const rejected=r=>!!r&&[404,409,422,503].includes(r.status)&&rejectionCodes.has(r.body?.error)&&Object.keys(r.body).every(k=>['error','current_version','transport_supported'].includes(k))&&(!Object.hasOwn(r.body,'current_version')||positive(r.body.current_version))&&(!Object.hasOwn(r.body,'transport_supported')||r.body.transport_supported===false);
+ // Exact access refusals are emitted before any write (SQL returns before the
+ // effect; v2 rolls the transaction back), so they leave no receipt to consult.
+ const accessRefusal=r=>exact(r?.body,['error'])&&(r.status===401&&r.body.error==='SEGMENT_UNAUTHORIZED'||r.status===403&&r.body.error==='SEGMENT_ACCESS_DENIED');
  function caps(api){const c=api?.capabilities?.segments;let endpoint=null;try{const u=new URL(api.capabilities.endpoints.segments);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash)endpoint=u.href;}catch{}
   const ok=[VERSION,AudienceContract?.VERSION].filter(Boolean).includes(c?.contract_version)&&Array.isArray(c.brands)&&endpoint;return {contract_version:ok?c.contract_version:null,endpoint:ok?endpoint:null,brands:ok?c.brands.filter(b=>['fish','aristo'].includes(b)):[],read:!!ok&&c.read===true,operation:!!ok&&c.operation===true,save:!!ok&&c.read===true&&c.save===true&&c.operation===true,count:!!ok&&c.read===true&&c.count===true,send:false};}
  async function fingerprint(key){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
@@ -25,7 +28,7 @@
    if(Contract.FIELDS&&(create||save)&&!/^[a-f0-9]{64}$/.test(p.expected_catalog_hash))return false;
    if(create?op.before!==null:!validSegment(op.before)||op.before.archived||p.id!==op.before.id||p.expected_version!==op.before.version)return false;
    if((create||save)&&normalized(p.definition).brand!==brand)return false;
-   return op.phase==='confirmed'?receipt(op.receipt,op):op.phase==='rejected'?rejected(op.receipt):true;
+   return op.phase==='confirmed'?receipt(op.receipt,op):op.phase==='rejected'?rejected(op.receipt)||accessRefusal(op.receipt):true;
   }catch{return false;}}
   function refresh(){let saved;try{saved=JSON.parse(storage.getItem(slot)||'null');}catch{fail('SEGMENT_JOURNAL_INVALID');}if(saved){if(!validState(saved))fail('SEGMENT_JOURNAL_INVALID');state=saved;}}
   refresh();const snapshot=()=>clone(state),pending=()=>['pending','uncertain'].includes(state.operation?.phase);
@@ -35,7 +38,9 @@
    if(method==='GET')url.search=new URLSearchParams(request).toString();else{init.headers['Content-Type']='application/json';init.body=JSON.stringify(request);}
    try{const response=await fetcher(url.href,init),body=await response.json();return {status:response.status,body};}catch{return {status:0,body:null};}}
   function ok(r){return r.status>=200&&r.status<300;}
-  function requireOK(r){if(!ok(r))fail(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE'].includes(r.body?.error)?r.body.error:'SEGMENT_READ_UNCONFIRMED');return r.body;}
+  // Exact access refusals are shown as such; every other failure stays unconfirmed.
+  const accessRefused=accessRefusal;
+  function requireOK(r){if(!ok(r))fail(accessRefused(r)||['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE'].includes(r.body?.error)?r.body.error:'SEGMENT_READ_UNCONFIRMED');return r.body;}
   async function exclusive(work){if(typeof locks?.request!=='function')fail('SEGMENT_LOCK_UNAVAILABLE');return locks.request(slot,{mode:'exclusive',ifAvailable:true},async lock=>{if(!lock||busy)fail('SEGMENT_BUSY');busy=true;try{refresh();return await work();}finally{busy=false;}});}
   function writable(){access('save');if(pending())fail('SEGMENT_OPERATION_PENDING');if(!catalog||permissions?.draft!==true)fail('SEGMENT_CATALOG_UNCONFIRMED');}
   function checkDefinition(input){const d=normalized(input);if(d.brand!==brand||!catalog||catalog.brand!==brand||catalog.current!==true)fail('SEGMENT_CATALOG_UNCONFIRMED');if(Contract.checkCatalog){if(!Contract.checkCatalog(d,catalog).ok)fail('SEGMENT_CATALOG_UNCONFIRMED');return d;}const walk=r=>{if(r.op==='in_list'){const matches=catalog.lists.filter(l=>l.id===r.list_id);if(matches.length!==1||matches[0].available!==true||matches[0].brand!==brand)fail('SEGMENT_LIST_UNAVAILABLE');}else r.rules.forEach(walk);};walk(d.rule);return d;}
@@ -58,6 +63,9 @@
    if(!/^[A-Za-z0-9_.:-]{8,128}$/.test(request.idempotency_key))fail('SEGMENT_OPERATION_ID_INVALID');
    const operation={phase:'pending',actor:actorHash,request,before};persist({...state,operation});const r=await call('POST',request,'save');
    if(receipt(r,operation)){persist({...state,segment:r.body.segment,operation:{...operation,phase:'confirmed',receipt:r}});return snapshot();}
+   // Recusa provada na resposta (acesso recusado antes de gravar, ou recusa de
+   // negócio já gravada como recibo sem efeito): resolve sem incerteza.
+   if(rejected(r)||accessRefusal(r)){persist({...state,operation:{...operation,phase:'rejected',receipt:{status:r.status,body:clone(r.body)}}});fail(r.body.error);}
    persist({...state,operation:{...operation,phase:'uncertain'}});fail('SEGMENT_OPERATION_UNCONFIRMED');
   });}
   return {

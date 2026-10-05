@@ -1,0 +1,1191 @@
+name: Dashboard operacional · CRM candidato isolado
+
+'on':
+  push:
+    branches: ['codex/dashboard-candidate-crm-fix-20261002']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar ferramentas fixadas somente na CI
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/growth-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Conferir bundle CRM e segurança do pacote operacional
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: |
+          node tools/panel-build/build.cjs --panel=growth --check
+          node tools/panel-build/build.cjs --panel=organico --check
+          node tools/dashboard-campaign-ui-build.cjs --check
+          node --test --test-concurrency=2 --test-timeout=120000 services/dashboard-operational/*.test.cjs tests/dashboard-operational-*.test.cjs tests/config-embed-handshake.test.cjs tests/influ-cac-cliente-novo.test.cjs tests/organico-render.test.cjs
+      - name: Validar cadastro privado e RPCs em banco descartável
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test services/crm-manager-provisioner/server.test.cjs tests/crm-manager-provision-postgres.test.cjs tests/crm-manager-role-install.test.cjs tools/crm-manager-read-activation-review/activation.test.cjs
+      - name: Exercitar listas, vínculo, recibos e troca de marca
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test tests/growth-campaign-audience-path.test.cjs tests/growth-campaign-catalog-ui.test.cjs tests/growth-campaign-editor.test.cjs tests/growth-campaign-audience-client.test.cjs tests/growth-render.test.cjs
+      - name: Conferir entrega CRM e isolamento da biblioteca de mídia
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: ${{ runner.temp }}/growth-test-tools/node_modules/@electric-sql/pglite
+        run: node --test tests/claude-*.test.cjs tests/crm-campaign-media.test.cjs tests/crm-campaign-media-page-boundary.test.cjs tests/growth-media.test.cjs
+      - name: Conferir executor fechado, supervisão e plano de recursos sem banco ou credenciais
+        run: |
+          node --test tools/crm-manager-install-review/runtime/run-install.test.cjs tools/crm-manager-install-review/runtime/supervisor/supervisor.test.cjs tools/crm-manager-install-review/runtime/compose/compose.test.cjs
+          node --test tools/crm-manager-read-activation-review/runtime/runtime.test.cjs tools/crm-manager-read-activation-review/runtime/supervisor.test.cjs tools/crm-manager-read-activation-review/runtime/independent/durability.test.cjs
+          node --test tools/crm-manager-read-activation-review/compose/build-compose.test.cjs
+      - name: Provar retenção cifrada e retomada sem repetir instalação
+        run: node --test tools/crm-manager-read-credential-custody/*.test.cjs tools/crm-manager-read-activation-review/compose/bootstrap-handoff-preflight.test.cjs
+      - name: Validar emissor de edição individual desligado e contratos fechados
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: node --test services/crm-manager-writer/server.test.cjs
+      - name: Conferir identidade de edição separada somente em fixture descartável
+        env:
+          NODE_PATH: ${{ runner.temp }}/growth-test-tools/node_modules
+        run: |
+          node --test tools/crm-manager-writer-review/writer-policy.test.cjs tools/crm-manager-writer-review/native/native-writer-pure.test.cjs
+          node tools/crm-manager-writer-review/writer-provision.test.cjs "$GITHUB_WORKSPACE/tests/crm-manager-provision-postgres.test.cjs" "$RUNNER_TEMP/growth-test-tools/node_modules/@electric-sql/pglite"
+          node --require ./tools/crm-manager-writer-review/production/network-guard.cjs --test tools/crm-manager-writer-review/production/installer.test.cjs tools/crm-manager-writer-review/production/profile.test.cjs
+      - name: Gerar pacote fechado sem dados nem credenciais
+        run: |
+          node services/dashboard-operational/build.cjs "$RUNNER_TEMP/shrigma-build"
+          node services/dashboard-operational/pack-runtime.cjs "$RUNNER_TEMP/shrigma-build" "$RUNNER_TEMP/shrigma-pack"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/shrigma-pack/source-revision.txt"
+      - name: Construir imagem imutável fora do servidor
+        run: docker build --file services/dashboard-operational/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-dashboard-crm-candidate:ci .
+      - name: Construir e conferir emissor desligado sem rede ou credenciais
+        run: |
+          docker build --file services/crm-manager-provisioner/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-crm-manager-provisioner:ci services/crm-manager-provisioner
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-crm-manager-provisioner:ci)" = "$GITHUB_SHA"
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 \
+            --entrypoint node shrigma-crm-manager-provisioner:ci \
+            -e 'if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const s=require("/app/server.cjs"); if(typeof s.createServer!=="function")throw Error("Missing runtime"); console.log("Provisioner module verified; no socket or database started.");'
+      - name: Construir leitor de templates e provar modo OFF sem banco
+        run: |
+          docker build --file services/crm-template-read/Dockerfile --build-arg CRM_TEMPLATE_READ_REVISION="$GITHUB_SHA" --tag shrigma-crm-template-read:ci .
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-crm-template-read:ci)" = "$GITHUB_SHA"
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --memory-swap 256m --cpus 0.35 --pids-limit 64 --entrypoint node shrigma-crm-template-read:ci --max-old-space-size=96 -e '
+            const a=require("node:assert/strict"),M=require("node:module"),load=M._load;
+            M._load=function(name,...rest){if(name==="pg")throw Error("OFF_LOADED_PG");return load.call(this,name,...rest);};
+            (async()=>{
+              a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);
+              a.match(process.env.CRM_TEMPLATE_READ_REVISION,/^[a-f0-9]{40}$/);
+              a.equal(process.env.CRM_TEMPLATE_READ_ENABLED,"false");
+              const runtime=require("/app/services/crm-template-read/main.cjs").start(process.env,{port:0,host:"127.0.0.1"});
+              try{
+                const server=runtime.app.server;
+                if(!server.listening)await new Promise(resolve=>server.once("listening",resolve));
+                const base="http://127.0.0.1:"+server.address().port;
+                const h=await fetch(base+"/healthz");a.equal(h.status,200);
+                const health=await h.json();a.equal(health.enabled,false);a.equal(health.revision,process.env.CRM_TEMPLATE_READ_REVISION);
+                const r=await fetch(base+"/template-read");a.equal(r.status,503);a.deepEqual(await r.json(),{error:"TEMPLATE_READ_DISABLED"});
+              }finally{await runtime.stop();}
+              console.log("Template image exact revision; UID1000; OFF; no driver or PostgreSQL.");
+            })().catch(()=>{console.error("TEMPLATE_OFF_OCI_REFUSED");process.exitCode=1;});'
+      - name: Provar limite CRM de 8 MiB na imagem sem rede
+        run: |
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --user 1000:1000 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/services/dashboard-operational,target=/proof/services/dashboard-operational,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/tests/dashboard-operational-crm-cache-limit.test.cjs,target=/proof/tests/dashboard-operational-crm-cache-limit.test.cjs,readonly" \
+            --entrypoint node shrigma-dashboard-crm-candidate:ci \
+            --max-old-space-size=128 --test /proof/tests/dashboard-operational-crm-cache-limit.test.cjs
+      - name: Validar UID, revisão e volume vazio sem rede
+        run: |
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' shrigma-dashboard-crm-candidate:ci)" = "$GITHUB_SHA"
+          CANDIDATE_TEST_VOLUME="shrigma-crm-candidate-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker volume rm "$CANDIDATE_TEST_VOLUME" >/dev/null 2>&1 || true' EXIT
+          docker volume create "$CANDIDATE_TEST_VOLUME" >/dev/null
+          docker run --rm --network none --cap-drop ALL --memory 512m --cpus 0.5 --volume "$CANDIDATE_TEST_VOLUME:/dashboard-data" --entrypoint node shrigma-dashboard-crm-candidate:ci --max-old-space-size=128 -e 'const fs=require("node:fs"),start=require("/app/canary-start.cjs"); if(process.getuid()!==1000||process.getgid()!==1000)throw Error("UID mismatch"); const first=start.prepare(),file="/dashboard-data/runtime-pack.json",inode=fs.statSync(file).ino,bytes=fs.readFileSync(file); start.prepare(); if(fs.statSync(file).ino!==inode||!fs.readFileSync(file).equals(bytes)||fs.readdirSync("/dashboard-data").join()!=="runtime-pack.json")throw Error("Seed changed identity volume"); console.log("Candidate pack verified; UID1000; seed once; no backend or worker started.");'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-crm-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/shrigma-pack/
+          if-no-files-found: error
+          retention-days: 7
+
+  native-postgres-manager-proof:
+    name: native-postgres-manager-proof (PostgreSQL ${{ matrix.postgres }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '17']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_DB: crm_manager_fixture
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --cpus 1 --memory 512m
+          --health-cmd "pg_isready -U postgres -d crm_manager_fixture"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar somente dependência fixada do emissor
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Provar SQL, ACL e concorrência no PostgreSQL efêmero da CI
+        env:
+          CRM_MANAGER_NATIVE_FIXTURE: '1'
+          CRM_MANAGER_NATIVE_MAJOR: ${{ matrix.postgres }}
+          NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+        run: node --test tests/crm-manager-provision-native-postgres.test.cjs
+
+  # Installation and READ activation proof in separate disposable clusters.
+  # No server credentials, production issuer activation or deployment.
+  native-postgres-v3-install-rollback-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Instalar somente o cliente fixado da fixture nativa
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Provar instalação V3 e reversão vazia em PostgreSQL17 descartável
+        env:
+          CRM_MANAGER_V3_NATIVE_PROOF: '1'
+          NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+        run: |
+          node --test tools/crm-manager-install-review/native-v3-proof-pure.test.cjs
+          bash tools/crm-manager-install-review/run-native-v3-proof.sh
+          CRM_MANAGER_READ_ACTIVATION_NATIVE_PROOF=1 bash tools/crm-manager-read-activation-review/run-native-proof.sh
+          node --test tools/crm-manager-read-activation-review/runtime/native-pure.test.cjs
+          READ_RUNTIME_NATIVE_OCI_PROOF=1 bash tools/crm-manager-read-activation-review/run-native-oci-proof.sh
+          node tools/crm-manager-read-activation-review/compose/oci-preflight.cjs --pure
+          READ_COMPOSE_OCI_PREFLIGHT=1 bash tools/crm-manager-read-activation-review/compose/run-oci-preflight.sh
+
+  native-postgres17-writer-component-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Instalar cliente fixado da fixture nativa
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Provar candidato inativo, locks nativos e reversão vazia
+        env:
+          CRM_MANAGER_WRITER_NATIVE_PROOF: '1'
+          NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+        run: |
+          bash tools/crm-manager-writer-review/native/run-native-writer-proof.sh
+          CRM_MANAGER_V3_NATIVE_PROOF=1 CRM_WRITER_PRODUCTION_NATIVE_PROOF=1 bash tools/crm-manager-install-review/run-native-v3-proof.sh
+
+  native-postgres17-writer-broker-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Conferir fontes e recusa sem autorização nativa
+        run: |
+          node tools/crm-manager-writer-review/broker/native-broker.test.cjs --pure
+          bash -n tools/crm-manager-writer-review/broker/run-native-broker-proof.sh
+          bash -n tools/crm-manager-writer-review/broker/run-off-image-proof.sh
+      - name: Construir e iniciar somente emissor desligado sem rede
+        env:
+          CRM_WRITER_IMAGE_OFF_PROOF: '1'
+        run: |
+          docker build --file services/crm-manager-writer/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" --tag shrigma-crm-manager-writer:ci services/crm-manager-writer
+          bash tools/crm-manager-writer-review/broker/run-off-image-proof.sh
+      - name: Provar SCRAM, admissão e quatro RPCs em PostgreSQL17 novo e descartável
+        env:
+          CRM_WRITER_BROKER_NATIVE_PROOF: '1'
+        run: bash tools/crm-manager-writer-review/broker/run-native-broker-proof.sh
+
+  manager-oci-no-sql-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Provar transferência de proprietário e observação fechada sem banco
+        run: |
+          node tools/crm-manager-install-review/native-preflight-ci/preflight.test.cjs
+          node tools/crm-manager-install-review/native-preflight-ci/observe.test.cjs
+          node tools/crm-manager-install-review/native-preflight-ci/diagnose.test.cjs
+          bash -n tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
+          node --require ./tools/crm-manager-read-credential-custody/unit-guard.cjs --test tools/crm-manager-read-credential-custody/manual-reconcile/recovery.test.cjs
+          node --require ./tools/crm-manager-read-credential-custody/manual-disable/unit-guard.cjs --test tools/crm-manager-read-credential-custody/manual-disable/manual-disable.test.cjs
+          bash -n tools/crm-manager-read-credential-custody/manual-reconcile/oci/run-oci-proof.sh
+          bash -n tools/crm-manager-read-credential-custody/manual-disable/run-oci-preflight.sh
+      - name: Provar Compose, limites, volume e fsync na imagem imutável sem SQL
+        env:
+          SHRIGMA_NATIVE_PREFLIGHT_CI: '1'
+        run: bash tools/crm-manager-install-review/native-preflight-ci/run-preflight-ci.sh
+      - name: Provar bootstrap público e observador com volumes externos sem SQL
+        env:
+          READ_BOOTSTRAP_HANDOFF_OCI: '1'
+        run: bash tools/crm-manager-read-activation-review/compose/run-bootstrap-handoff-preflight.sh
+      - name: Provar leitura do diário original sem repetir Stage ou SQL
+        env:
+          READ_MANUAL_RECONCILE_OCI_PROOF: '1'
+          READ_RECONCILE_RUNTIME_DIRECTORY: ${{ github.workspace }}/tools/crm-manager-read-credential-custody
+        run: bash tools/crm-manager-read-credential-custody/manual-reconcile/oci/run-oci-proof.sh
+      - name: Provar compensação manual desligada com volumes sintéticos sem SQL
+        env:
+          MANUAL_DISABLE_OCI_PROOF: '1'
+        run: bash tools/crm-manager-read-credential-custody/manual-disable/run-oci-preflight.sh
+
+  claude-native-pg17-proof:
+    name: claude-native-pg17-proof (${{ matrix.fixture }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        fixture: [audience, templates, template_listener, recovery, installer, gateway]
+    services:
+      postgres:
+        image: postgres:17.10@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
+        env:
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:55440:5432']
+        options: >-
+          --cpus 1 --memory 512m --memory-swap 512m --pids-limit 128
+          --label com.shrigma.claude-native-pg17=${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Instalar somente pg fixado para a fixture
+        run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+      - name: Conferir guardas sem banco ou sockets
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin "$CLAUDE_CI_NODE" --test tools/claude-native-proofs/pg17-ci.test.cjs
+      - name: Provar fixture nativa em cluster vazio próprio
+        env:
+          CLAUDE_NATIVE_PG17_CI: '1'
+          CLAUDE_PG17_CASE: ${{ matrix.fixture }}
+          CLAUDE_PG17_CONTAINER_ID: ${{ job.services.postgres.id }}
+          CLAUDE_PG17_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin \
+            CLAUDE_NATIVE_PG17_CI="$CLAUDE_NATIVE_PG17_CI" \
+            CLAUDE_PG17_CASE="$CLAUDE_PG17_CASE" \
+            CLAUDE_PG17_CONTAINER_ID="$CLAUDE_PG17_CONTAINER_ID" \
+            CLAUDE_PG17_OWNER="$CLAUDE_PG17_OWNER" \
+            "$CLAUDE_CI_NODE" --max-old-space-size=128 tools/claude-native-proofs/pg17-ci.cjs --native
+      - name: Remover somente serviço e volume próprios
+        if: always()
+        env:
+          CLAUDE_NATIVE_PG17_CI: '1'
+          CLAUDE_PG17_CASE: ${{ matrix.fixture }}
+          CLAUDE_PG17_CONTAINER_ID: ${{ job.services.postgres.id }}
+          CLAUDE_PG17_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.fixture }}
+        run: |
+          CLAUDE_CI_NODE=$(command -v node)
+          env -i PATH=/usr/bin:/bin \
+            CLAUDE_NATIVE_PG17_CI="$CLAUDE_NATIVE_PG17_CI" \
+            CLAUDE_PG17_CASE="$CLAUDE_PG17_CASE" \
+            CLAUDE_PG17_CONTAINER_ID="$CLAUDE_PG17_CONTAINER_ID" \
+            CLAUDE_PG17_OWNER="$CLAUDE_PG17_OWNER" \
+            "$CLAUDE_CI_NODE" tools/claude-native-proofs/pg17-ci.cjs --cleanup
+
+  # CI evidence only: builds the literal portal revision; never publishes.
+  portal-image-oci-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      actions: read
+    env:
+      PORTAL_SOURCE_REVISION: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+      PORTAL_PACK_SHA256: 'adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3'
+    steps:
+      # Workflow carrier SHA and image source SHA are intentionally distinct.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+          persist-credentials: false
+      - name: Confirmar CI concluída da revisão exata antes da construção
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PORTAL_SOURCE_REVISION"
+          git diff --quiet
+          git diff --cached --quiet
+          mkdir "$RUNNER_TEMP/crm-portal-publication"
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37228919950 > "$RUNNER_TEMP/crm-portal-target-run.json"
+          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37228919950/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
+          python3 - <<'PY_GATE'
+          import json,pathlib
+          root=pathlib.Path(__import__('os').environ['RUNNER_TEMP'])
+          run=json.loads((root/'crm-portal-target-run.json').read_text())
+          jobs=json.loads((root/'crm-portal-target-jobs.json').read_text())
+          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped', 'portal-image-oci-preflight': 'success'}
+          def require(condition):
+           if not condition: raise SystemExit('Target CI gate refused.')
+          require(run['id']==37228919950 and run['workflow_id']==373226706)
+          require(run['path']=='.github/workflows/dashboard-candidate-crm-fix-20261002.yml')
+          require(run['event']=='push' and run['head_branch']=='codex/dashboard-candidate-crm-fix-20261002')
+          require(run['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' and run['status']=='completed' and run['conclusion']=='success')
+          require(run['run_attempt']==1)
+          require(jobs['total_count']==len(expected) and len(jobs['jobs'])==len(expected))
+          require(len({j['name'] for j in jobs['jobs']})==len(expected))
+          require({j['name']:j['conclusion'] for j in jobs['jobs']}==expected)
+          require(all(j['status']=='completed' for j in jobs['jobs']))
+          require(all(j['run_id']==37228919950 and j['run_attempt']==1 and j['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' for j in jobs['jobs']))
+          proof={k:run[k] for k in ['id','workflow_id','path','event','head_branch','head_sha','status','conclusion','run_attempt','html_url']}
+          proof['jobs']=[{k:j[k] for k in ['id','name','status','conclusion','run_id','run_attempt','head_sha']} for j in jobs['jobs']]
+          (root/'crm-portal-publication'/'target-ci.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
+          PY_GATE
+      - name: Construir e conferir o portal exato sem rede no preflight OCI
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PORTAL_SOURCE_REVISION"
+          PORTAL_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-portal-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$PORTAL_DOCKER_CONFIG"
+          trap 'rm -rf -- "$PORTAL_DOCKER_CONFIG"' EXIT
+          cat > "$RUNNER_TEMP/crm-portal-oci-preflight.cjs" <<'PORTAL_OCI'
+          // Future OCI-only check. Synthetic SQLite files stay in container /tmp.
+          'use strict';
+          const a=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
+          const sqlite=require('node:sqlite');
+          const revision='0e488d82431f4985ab6202a422dff4b837c4b1c3',pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a';
+          let stage='node-api';
+          (async()=>{
+           a.equal(process.versions.node.split('.')[0],'22');
+           a.equal(process.platform,'linux');a.equal(process.arch,'x64');
+           a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);
+           a.equal(typeof sqlite.DatabaseSync,'function');a.equal(typeof sqlite.backup,'function');
+           stage='image-pack';
+           const I=require('/app/canary-image.cjs'),P=require('/app/artifact-policy.cjs');
+           a.deepEqual(fs.readdirSync('/app').sort(),I.IMAGE_FILES);
+           const verified=I.verifyImagePack('/app');
+           a.deepEqual(verified.pin,{schema:'shrigma_dashboard_canary_image_v1',baseImage:'node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402',sourceRevision:revision,packSha256:pack});
+           a.equal(Buffer.byteLength(verified.input),812340);
+           const decoded=P.decodePack(verified.input,pack);
+           a.equal(decoded.stats.files,56);a.equal(decoded.stats.publicFiles,30);a.equal(decoded.stats.runtimeFiles,26);
+           stage='synthetic-backup';
+           const root=fs.mkdtempSync('/tmp/crm-portal-sqlite-preflight-');
+           const source=root+'/source.sqlite',destination=root+'/backup.sqlite';
+           const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+           const schema=db=>db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all().map(r=>[r.type,r.name,r.tbl_name,r.sql]);
+           const rows=db=>db.prepare('SELECT id,label,payload FROM proof ORDER BY id').all().map(r=>[r.id,r.label,Buffer.from(r.payload).toString('hex')]);
+           let writer,reader,copy;
+           try{
+            writer=new sqlite.DatabaseSync(source);
+            writer.exec('PRAGMA journal_mode=DELETE; CREATE TABLE proof(id INTEGER PRIMARY KEY,label TEXT NOT NULL,payload BLOB NOT NULL) STRICT;');
+            const insert=writer.prepare('INSERT INTO proof VALUES(?,?,?)');
+            insert.run(1,'synthetic',Buffer.from([0,255,1]));insert.run(2,'ação',Buffer.from([]));
+            writer.close();writer=null;
+            const before=hash(source);
+            reader=new sqlite.DatabaseSync(source,{readOnly:true});
+            reader.exec('BEGIN');
+            const expectedSchema=schema(reader),expectedRows=rows(reader);
+            await sqlite.backup(reader,destination);
+            a.deepEqual(schema(reader),expectedSchema);a.deepEqual(rows(reader),expectedRows);
+            reader.exec('ROLLBACK');reader.close();reader=null;
+            copy=new sqlite.DatabaseSync(destination,{readOnly:true});
+            a.deepEqual(schema(copy),expectedSchema);a.deepEqual(rows(copy),expectedRows);
+            a.equal(copy.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+            copy.close();copy=null;
+            stage='source-preservation';
+            a.equal(hash(source),before);
+            a.deepEqual(fs.readdirSync(root).sort(),['backup.sqlite','source.sqlite']);
+            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:812340,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
+           }finally{
+            for(const db of [copy,reader,writer])if(db)try{db.close();}catch{}
+            fs.rmSync(root,{recursive:true,force:true});
+           }
+          })().catch(()=>{console.error('Portal OCI preflight refused at '+stage+'.');process.exitCode=1;});
+          PORTAL_OCI
+          docker build --platform linux/amd64 --file services/dashboard-operational/Dockerfile \
+            --build-arg GIT_SHA="$PORTAL_SOURCE_REVISION" --tag "$PORTAL_IMAGE" .
+          test "$(docker image inspect --format '{{.Config.User}}' "$PORTAL_IMAGE")" = '1000:1000'
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$PORTAL_IMAGE")" = 'linux/amd64'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$PORTAL_IMAGE")" = "$PORTAL_SOURCE_REVISION"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$PORTAL_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.title"}}' "$PORTAL_IMAGE")" = 'Shrigma dashboard canary'
+          docker run --rm -i --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+            --tmpfs /dashboard-data:rw,noexec,nosuid,nodev,size=4m,uid=1000,gid=1000,mode=0700 \
+            --entrypoint node "$PORTAL_IMAGE" --max-old-space-size=128 - \
+            < "$RUNNER_TEMP/crm-portal-oci-preflight.cjs" > "$RUNNER_TEMP/crm-portal-publication/pre-publication-oci.json"
+          PORTAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$PORTAL_IMAGE")"
+          [[ "$PORTAL_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$PORTAL_IMAGE_ID" > "$RUNNER_TEMP/crm-portal-built-image-id.txt"
+      - name: Obter somente os três helpers públicos do carrier em checkout isolado
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          path: crm-clone-carrier
+          persist-credentials: false
+      - name: Provar cópia sintética f56 na mesma imagem OCI 0e
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'SYNTHETIC_CLONE'
+          # Inline only in portal-image-oci-preflight, after its existing 0e build.
+          import hashlib,json,os,pathlib,platform,re,secrets,shutil,stat,subprocess,tempfile,time
+          REV='0e488d82431f4985ab6202a422dff4b837c4b1c3'
+          PACK='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+          BASE='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402'
+          FILES={'directed-clone-proof.cjs':(21693,'20fc902b42394a08ade76cd46df5cf3ad0e472a0cdbfd1cc9e41ea6b925aa685'),'shadow-import.cjs':(7607,'f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e'),'public-source-pins.json':(3534,'a15358877f8434e4550b6a94dc337a65883ba25f9e2051ca4c310802f1f1132a')}
+          TMPFS={'/tmp':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700','/dashboard-data':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700'}
+          FORMAT='{"id":{{json .Id}},"image":{{json .Image}},"name":{{json .Name}},"owner":{{json (index .Config.Labels "com.shrigma.synthetic-clone-ci-owner")}},"user":{{json .Config.User}},"health":{{json .Config.Healthcheck.Test}},"readonly":{{json .HostConfig.ReadonlyRootfs}},"network":{{json .HostConfig.NetworkMode}},"memory":{{json .HostConfig.Memory}},"swap":{{json .HostConfig.MemorySwap}},"nanoCpus":{{json .HostConfig.NanoCpus}},"pids":{{json .HostConfig.PidsLimit}},"privileged":{{json .HostConfig.Privileged}},"capAdd":{{json .HostConfig.CapAdd}},"capDrop":{{json .HostConfig.CapDrop}},"securityOpt":{{json .HostConfig.SecurityOpt}},"tmpfs":{{json .HostConfig.Tmpfs}},"mounts":{{json .Mounts}},"running":{{json .State.Running}},"exitCode":{{json .State.ExitCode}},"oom":{{json .State.OOMKilled}}}'
+          def require(value):
+           if not value: raise RuntimeError('Synthetic clone OCI refused.')
+          def document(raw):
+           def closed(pairs):
+            require(len(pairs)==len(dict(pairs)));return dict(pairs)
+           return json.loads(raw,object_pairs_hook=closed)
+          def checked_bytes(file,size,sha):
+           info=file.lstat();require(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size==size)
+           data=file.read_bytes();require(hashlib.sha256(data).hexdigest()==sha);return data
+          def main():
+           require(os.environ.get('GITHUB_ACTIONS')=='true' and platform.system()=='Linux')
+           require(os.environ.get('GITHUB_REPOSITORY')=='bandssz/shrigma-dash-cx')
+           require(os.environ.get('GITHUB_EVENT_NAME') in ['push','workflow_dispatch'])
+           require(os.environ['PORTAL_SOURCE_REVISION']==REV and os.environ['PORTAL_PACK_SHA256']==PACK)
+           carrier=os.environ['GITHUB_SHA'];require(re.fullmatch('[a-f0-9]{40}',carrier))
+           run=int(os.environ['GITHUB_RUN_ID']);attempt=int(os.environ['GITHUB_RUN_ATTEMPT']);require(run>0 and attempt>0)
+           workspace=pathlib.Path(os.environ['GITHUB_WORKSPACE']).resolve();runner=pathlib.Path(os.environ['RUNNER_TEMP']).resolve()
+           helper=workspace/'crm-clone-carrier'/'tests/helpers/dashboard-corporate-clone'
+           def git(args,cwd):
+            p=subprocess.run(['git',*args],cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=10);require(p.returncode==0 and len(p.stdout)<4096);return p.stdout.decode().strip()
+           require(git(['rev-parse','HEAD'],workspace)==REV)
+           require(git(['diff','--name-only'],workspace)=='' and git(['diff','--cached','--name-only'],workspace)=='')
+           require(git(['rev-parse','HEAD'],workspace/'crm-clone-carrier')==carrier)
+           require(git(['status','--porcelain'],workspace/'crm-clone-carrier')=='')
+           image_file=runner/'crm-portal-built-image-id.txt';info=image_file.lstat()
+           require(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size==72)
+           image_id=image_file.read_text().strip();require(re.fullmatch('sha256:[a-f0-9]{64}',image_id))
+           require(stat.S_ISSOCK(pathlib.Path('/var/run/docker.sock').stat().st_mode))
+           base=pathlib.Path(tempfile.mkdtemp(prefix='crm-synthetic-clone-',dir=runner));base_stat=base.stat()
+           source=base/'source';source.mkdir(mode=0o700);source_stat=source.stat();require(not list(source.iterdir()))
+           proof_dir=base/'proof';proof_dir.mkdir(mode=0o755)
+           config=base/'docker-config';config.mkdir(mode=0o700)
+           owner='crm-clone-'+str(run)+'-'+str(attempt)+'-'+secrets.token_hex(4)
+           handles=[];native={};holder_id=None;verifier_id=None;result=None;cleanup_ok=True
+           # New, purely synthetic fixture key. No real config or custody is consulted.
+           # It stays in process/subprocess environments, never argv/stdout/file/artifact.
+           os.environ['DASHBOARD_ENCRYPTION_KEY']=secrets.token_hex(32)
+           def docker(args,limit=4096,timeout=30,check=True):
+            p=subprocess.run(['docker','--host','unix:///var/run/docker.sock','--config',str(config),*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout)
+            require(len(p.stdout)<=limit)
+            if check: require(p.returncode==0)
+            return p
+           def inspect(cid):
+            return document(docker(['inspect','--format',FORMAT,cid],limit=12288).stdout)
+           def owned(snapshot,cid,name):
+            require(snapshot['id']==cid and snapshot['name']=='/'+name and snapshot['owner']==owner)
+           def profile(snapshot,role):
+            require(snapshot['image']==image_id and snapshot['user']=='1000:1000' and snapshot['health']==['NONE'])
+            require(snapshot['readonly'] is True and snapshot['network']=='none' and snapshot['privileged'] is False)
+            require(snapshot['memory']==536870912 and snapshot['swap']==536870912 and snapshot['nanoCpus']==500000000 and snapshot['pids']==64)
+            require(snapshot['capAdd'] in [None,[]] and snapshot['capDrop']==['ALL'])
+            require(snapshot['securityOpt'] in [['no-new-privileges'],['no-new-privileges:true']])
+            require(snapshot['tmpfs']==TMPFS and snapshot['oom'] is False)
+            mounts=snapshot['mounts'];require(isinstance(mounts,list))
+            binds=[m for m in mounts if m['Type']=='bind'];require(len(binds)==2)
+            require(all(m['Type'] in ['bind','tmpfs'] for m in mounts))
+            require(len({m['Destination'] for m in mounts})==len(mounts))
+            expected={'/proof':(str(proof_dir),False),'/source-identity':(str(source),role=='holder')}
+            require({m['Destination']:(m['Source'],m['RW']) for m in binds}==expected)
+            require(all(m['Destination'] in TMPFS and m['RW'] is True for m in mounts if m['Type']=='tmpfs'))
+            return {'image':snapshot['image'],'user':snapshot['user'],'healthcheck':snapshot['health'],'readOnlyRootfs':snapshot['readonly'],'network':snapshot['network'],'memory':snapshot['memory'],'memorySwap':snapshot['swap'],'nanoCpus':snapshot['nanoCpus'],'pidsLimit':snapshot['pids'],'privileged':snapshot['privileged'],'capAdd':[],'capDrop':snapshot['capDrop'],'noNewPrivileges':True,'tmpfs':snapshot['tmpfs'],'binds':[{'destination':m['Destination'],'readOnly':not m['RW']} for m in sorted(binds,key=lambda m:m['Destination'])]}
+           def create(role):
+            name=owner+'-'+role
+            args=['create','--pull=never','--platform','linux/amd64','--name',name,'--label','com.shrigma.synthetic-clone-ci-owner='+owner,'--user','1000:1000','--network','none','--no-healthcheck','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','512m','--memory-swap','512m','--cpus','0.5','--pids-limit','64','--env','DASHBOARD_ENCRYPTION_KEY']
+            for target,options in TMPFS.items():args+=['--tmpfs',target+':'+options]
+            args+=['--mount','type=bind,source='+str(proof_dir)+',target=/proof,readonly','--mount','type=bind,source='+str(source)+',target=/source-identity'+(',readonly' if role=='verifier' else ''),'--entrypoint','node',image_id,'--no-warnings','--max-old-space-size=128','/proof/directed-clone-proof.cjs','--fixture-hold' if role=='holder' else '--verify-oci']
+            cid=docker(args).stdout.decode().strip();require(re.fullmatch('[a-f0-9]{64}',cid))
+            # Use the actual engine handle, then recheck native name/label before cleanup.
+            handles.append((cid,name));snapshot=inspect(cid);owned(snapshot,cid,name)
+            native[role]=profile(snapshot,role);require(snapshot['running'] is False)
+            return cid
+           try:
+            # Only three carrier files and nine pinned 0e public sources reach /proof.
+            for name,(size,digest) in FILES.items():
+             (proof_dir/name).write_bytes(checked_bytes(helper/name,size,digest));(proof_dir/name).chmod(0o444)
+            pins=document((proof_dir/'public-source-pins.json').read_bytes())
+            require(pins['sourceRevision']==REV and len(pins['files'])==10)
+            expected_files=set(FILES);copied=0
+            for pin in pins['files']:
+             if pin['file']=='shadow-import.cjs':require(pin['sha256']==FILES['shadow-import.cjs'][1]);continue
+             relative=pathlib.PurePosixPath(pin['file']);require(not relative.is_absolute() and '..' not in relative.parts)
+             require(relative.parts[:3]==('public-source','services','dashboard-operational') and len(relative.parts)==4)
+             data=checked_bytes(workspace/pathlib.Path(*relative.parts[1:]),pin['bytes'],pin['sha256'])
+             target=proof_dir/pathlib.Path(*relative.parts);target.parent.mkdir(parents=True,exist_ok=True,mode=0o755)
+             target.write_bytes(data);target.chmod(0o444);expected_files.add(pin['file']);copied+=1
+            require(copied==9 and {p.relative_to(proof_dir).as_posix() for p in proof_dir.rglob('*') if p.is_file()}==expected_files)
+            image_format='{"id":{{json .Id}},"user":{{json .Config.User}},"os":{{json .Os}},"arch":{{json .Architecture}},"revision":{{json (index .Config.Labels "org.opencontainers.image.revision")}},"source":{{json (index .Config.Labels "org.opencontainers.image.source")}},"title":{{json (index .Config.Labels "org.opencontainers.image.title")}}}'
+            require(document(docker(['image','inspect','--format',image_format,image_id]).stdout)=={'id':image_id,'user':'1000:1000','os':'linux','arch':'amd64','revision':REV,'source':'https://github.com/bandssz/shrigma-dash-cx','title':'Shrigma dashboard canary'})
+            subprocess.run(['sudo','--non-interactive','chown','1000:1000','--',str(source)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True,timeout=10)
+            info=source.stat();require(info.st_ino==source_stat.st_ino and info.st_dev==source_stat.st_dev and info.st_uid==1000 and info.st_gid==1000 and stat.S_IMODE(info.st_mode)==0o700)
+            holder_id=create('holder');require(docker(['start',holder_id]).stdout.decode().strip()==holder_id)
+            deadline=time.monotonic()+30;ready=False
+            while time.monotonic()<deadline:
+             snapshot=inspect(holder_id);owned(snapshot,holder_id,owner+'-holder');profile(snapshot,'holder');require(snapshot['running'] is True)
+             probe=docker(['exec',holder_id,'node','--no-warnings','/proof/directed-clone-proof.cjs','--fixture-ready'],timeout=5,check=False)
+             if probe.returncode==0:
+              require(document(probe.stdout)=={'syntheticFixtureReady':True});ready=True;break
+             time.sleep(0.25)
+            require(ready)
+            verifier_id=create('verifier')
+            completed=docker(['start','--attach',verifier_id],limit=12288,timeout=120);result=document(completed.stdout)
+            snapshot=inspect(verifier_id);owned(snapshot,verifier_id,owner+'-verifier');profile(snapshot,'verifier')
+            require(snapshot['running'] is False and snapshot['exitCode']==0 and snapshot['oom'] is False)
+            snapshot=inspect(holder_id);owned(snapshot,holder_id,owner+'-holder');profile(snapshot,'holder');require(snapshot['running'] is True)
+            # The recorder below independently validates the closed positive result.
+           finally:
+            os.environ.pop('DASHBOARD_ENCRYPTION_KEY',None)
+            for cid,name in reversed(handles):
+             try:
+              snapshot=inspect(cid);owned(snapshot,cid,name)
+              docker(['rm','--force',cid]);require(docker(['inspect','--format','{{json .Id}}',cid],check=False).returncode!=0)
+             except BaseException:cleanup_ok=False
+            try:
+             info=source.lstat();require(stat.S_ISDIR(info.st_mode) and info.st_ino==source_stat.st_ino and info.st_dev==source_stat.st_dev and source.parent==base)
+             subprocess.run(['sudo','--non-interactive','rm','-rf','--',str(source)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True,timeout=10);require(not source.exists())
+             info=base.lstat();require(stat.S_ISDIR(info.st_mode) and info.st_ino==base_stat.st_ino and info.st_dev==base_stat.st_dev and info.st_uid==os.getuid() and base.parent==runner)
+             shutil.rmtree(base);require(not base.exists())
+            except BaseException:cleanup_ok=False
+           require(cleanup_ok and holder_id and verifier_id and result is not None)
+           proof={'schema':'shrigma_portal_synthetic_clone_oci_v1','imageSourceRevision':REV,'packSha256':PACK,'baseImage':BASE,'imageConfigId':image_id,'workflowCarrierRevision':carrier,'ciRunId':run,'ciRunAttempt':attempt,'owner':owner,'holderContainerId':holder_id,'verifierContainerId':verifier_id,'nativeProfiles':native,'holderLiveThroughVerification':True,'verifierExitCode':0,'ownTemporaryCleanup':{'containersRemoved':True,'fixtureRemoved':True},'fixtureOnly':True,'realCustodyProven':False,'registryWriteByThisJob':False,'result':result}
+           encoded=(json.dumps(proof,sort_keys=True)+'\n').encode();require(len(encoded)<=12288)
+           target=runner/'crm-portal-publication'/'synthetic-clone-oci.json'
+           with target.open('xb') as stream:stream.write(encoded)
+           target.chmod(0o644)
+          if __name__=='__main__':
+           try:main()
+           except BaseException:raise SystemExit('Synthetic clone OCI step refused; review own temporary cleanup if admission failed.') from None
+          SYNTHETIC_CLONE
+      - name: Registrar somente provas públicas do build OCI sem publicação
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORTAL_RECORD="$RUNNER_TEMP/crm-portal-publication"
+          test "$(docker image inspect --format '{{.Id}}' "$PORTAL_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-portal-built-image-id.txt")"
+          printf '%s\n' "$PORTAL_SOURCE_REVISION" > "$PORTAL_RECORD/source-revision.txt"
+          printf '%s\n' "$PORTAL_PACK_SHA256" > "$PORTAL_RECORD/pack-sha256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$PORTAL_RECORD/workflow-carrier-revision.txt"
+          install -m 0644 "$RUNNER_TEMP/crm-portal-built-image-id.txt" "$PORTAL_RECORD/image-config-id.txt"
+          python3 - <<'PUBLIC_PROOF'
+          import hashlib,json,os,pathlib,re,stat
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'crm-portal-publication'
+          names=['image-config-id.txt','pack-sha256.txt','pre-publication-oci.json','source-revision.txt','synthetic-clone-oci.json','target-ci.json','workflow-carrier-revision.txt']
+          if sorted(p.name for p in root.iterdir())!=sorted(names): raise SystemExit('Public OCI proof directory refused.')
+          hashes={}
+          for name in names:
+           item=root/name;info=item.lstat()
+           if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>12288: raise SystemExit('Public OCI proof file refused.')
+           hashes[name]=hashlib.sha256(item.read_bytes()).hexdigest()
+          image_id=(root/'image-config-id.txt').read_text().strip()
+          if not re.fullmatch(r'sha256:[a-f0-9]{64}',image_id): raise SystemExit('Public OCI image ID refused.')
+          carrier=(root/'workflow-carrier-revision.txt').read_text().strip()
+          if not re.fullmatch(r'[a-f0-9]{40}',carrier): raise SystemExit('Public OCI carrier revision refused.')
+          # Closed validation added only to the existing public OCI recorder.
+          def clone_require(condition):
+           if not condition: raise SystemExit('Synthetic clone public proof refused.')
+          def clone_json(raw):
+           def unique(pairs):
+            clone_require(len(pairs)==len(dict(pairs)));return dict(pairs)
+           return json.loads(raw,object_pairs_hook=unique)
+          def validate_clone(clone,image_id,carrier,run,attempt):
+           revision='0e488d82431f4985ab6202a422dff4b837c4b1c3'
+           pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+           base='node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402'
+           keys=['schema','imageSourceRevision','packSha256','baseImage','imageConfigId','workflowCarrierRevision','ciRunId','ciRunAttempt','owner','holderContainerId','verifierContainerId','nativeProfiles','holderLiveThroughVerification','verifierExitCode','ownTemporaryCleanup','fixtureOnly','realCustodyProven','registryWriteByThisJob','result']
+           clone_require(type(clone) is dict and set(clone)==set(keys))
+           clone_require(clone['schema']=='shrigma_portal_synthetic_clone_oci_v1' and clone['imageSourceRevision']==revision and clone['packSha256']==pack and clone['baseImage']==base)
+           clone_require(clone['imageConfigId']==image_id and clone['workflowCarrierRevision']==carrier)
+           clone_require(type(clone['ciRunId']) is int and clone['ciRunId']==run and type(clone['ciRunAttempt']) is int and clone['ciRunAttempt']==attempt)
+           clone_require(type(clone['owner']) is str and re.fullmatch('crm-clone-'+str(run)+'-'+str(attempt)+'-[a-f0-9]{8}',clone['owner']))
+           clone_require(all(type(clone[k]) is str and re.fullmatch('[a-f0-9]{64}',clone[k]) for k in ['holderContainerId','verifierContainerId']) and clone['holderContainerId']!=clone['verifierContainerId'])
+           clone_require(clone['holderLiveThroughVerification'] is True and type(clone['verifierExitCode']) is int and clone['verifierExitCode']==0)
+           cleanup=clone['ownTemporaryCleanup'];clone_require(type(cleanup) is dict and set(cleanup)=={'containersRemoved','fixtureRemoved'} and all(v is True for v in cleanup.values()))
+           clone_require(clone['fixtureOnly'] is True and clone['realCustodyProven'] is False and clone['registryWriteByThisJob'] is False)
+           profiles=clone['nativeProfiles'];clone_require(type(profiles) is dict and set(profiles)=={'holder','verifier'})
+           for role,p in profiles.items():
+            tmpfs={'/tmp':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700','/dashboard-data':'rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700'}
+            expected={'image':image_id,'user':'1000:1000','healthcheck':['NONE'],'readOnlyRootfs':True,'network':'none','memory':536870912,'memorySwap':536870912,'nanoCpus':500000000,'pidsLimit':64,'privileged':False,'capAdd':[],'capDrop':['ALL'],'noNewPrivileges':True,'tmpfs':tmpfs,'binds':[{'destination':'/proof','readOnly':True},{'destination':'/source-identity','readOnly':role=='verifier'}]}
+            clone_require(type(p) is dict and p==expected and set(p)==set(expected))
+            clone_require(p['readOnlyRootfs'] is True and p['privileged'] is False and p['noNewPrivileges'] is True)
+            clone_require(all(type(p[k]) is int for k in ['memory','memorySwap','nanoCpus','pidsLimit']))
+            clone_require(all(type(b) is dict and set(b)=={'destination','readOnly'} and type(b['readOnly']) is bool for b in p['binds']))
+           r=clone['result'];clone_require(type(r) is dict)
+           yes=['pass','productionCli1000Exercised','sourceMountReadOnlyCheckedByPinnedImporter','sourceImagePinVerified','allTableContentsAndSchemaEqual','masterHashAndCipherAndUpstreamsPreserved','uncertainJournalsNonemptyAndPreserved','activeWalCaptured','rawMainCounterproofPassed','sourceFilesAndSidecarsUnchanged','newPackInodePreserved','attemptMarkerPresent','replayRefusedWithoutChanges','sameSyntheticKeyAuthOpened','wrongSyntheticKeyAuthRefused','authProbeAfterCloneParity','destinationAuthProbeMayChangeState']
+           no=['hostOnly','actualOciProvenByHarnessAlone','nativeDockerConfigIdVerifiedByHarness','attemptPowerLossDurabilityProven','realDataOrCredentialsUsed']
+           scalar={'schema':'directed_synthetic_corporate_clone_proof_v1','mode':'synthetic-oci-intended','node':'22.23.3','uid':1000,'gid':1000,'importerSha256':'f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e','sourceRevision':revision,'imagePackSha256':pack,'schemaObjects':26,'tables':20,'providerCalls':0,'networkCalls':0,'registryImageReference':None}
+           clone_require(set(r)==set(yes+no+list(scalar)))
+           clone_require(all(r[k] is True for k in yes) and all(r[k] is False for k in no))
+           clone_require(all(r[k]==v and type(r[k]) is type(v) for k,v in scalar.items()))
+          clone=clone_json((root/'synthetic-clone-oci.json').read_bytes())
+          validate_clone(clone,image_id,carrier,int(os.environ['GITHUB_RUN_ID']),int(os.environ['GITHUB_RUN_ATTEMPT']))
+          if (root/'source-revision.txt').read_text().strip()!='0e488d82431f4985ab6202a422dff4b837c4b1c3' or (root/'pack-sha256.txt').read_text().strip()!='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a': raise SystemExit('Public OCI source pins refused.')
+          proof={'schema':'shrigma_portal_image_ci_preflight_v1','imageSourceRevision':(root/'source-revision.txt').read_text().strip(),'packSha256':(root/'pack-sha256.txt').read_text().strip(),'workflowCarrierRevision':carrier,'ciRunId':int(os.environ['GITHUB_RUN_ID']),'ciRunAttempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'imageConfigId':image_id,'registryImageRef':None,'registryWriteByThisJob':False,'imageTarExported':False,'syntheticOnly':True,'publicFileSha256':hashes}
+          (root/'ci-build-context.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
+          PUBLIC_PROOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-portal-oci-preflight-0e488d82431f4985ab6202a422dff4b837c4b1c3-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-portal-publication/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-candidate-image:
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof, portal-image-oci-preflight]
+    # Enable false -> true only in a concretely reviewed and approved carrier.
+    # The carrier revision never selects the portal image source revision.
+    if: >-
+      true &&
+      success() &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-portal-0e488d82431f4985ab6202a422dff4b837c4b1c3]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: crm-portal-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
+      image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
+    env:
+      PORTAL_SOURCE_REVISION: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+      PORTAL_PACK_SHA256: 'adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a'
+      PORTAL_IMAGE: 'ghcr.io/bandssz/shrigma-dash-operational-canary:crm-candidate-0e488d82431f4985ab6202a422dff4b837c4b1c3'
+    steps:
+      # Workflow carrier SHA and image source SHA are intentionally distinct.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: '0e488d82431f4985ab6202a422dff4b837c4b1c3'
+          persist-credentials: false
+      - name: Confirmar CI concluída da revisão exata antes da construção
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PORTAL_SOURCE_REVISION"
+          git diff --quiet
+          git diff --cached --quiet
+          mkdir "$RUNNER_TEMP/crm-portal-publication"
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37228919950 > "$RUNNER_TEMP/crm-portal-target-run.json"
+          gh api 'repos/bandssz/shrigma-dash-cx/actions/runs/37228919950/attempts/1/jobs?per_page=100' > "$RUNNER_TEMP/crm-portal-target-jobs.json"
+          python3 - <<'PY_GATE'
+          import json,pathlib
+          root=pathlib.Path(__import__('os').environ['RUNNER_TEMP'])
+          run=json.loads((root/'crm-portal-target-run.json').read_text())
+          jobs=json.loads((root/'crm-portal-target-jobs.json').read_text())
+          expected={'native-postgres-v3-install-rollback-proof': 'success', 'native-postgres17-writer-component-proof': 'success', 'native-postgres-manager-proof (PostgreSQL 16)': 'success', 'native-postgres-manager-proof (PostgreSQL 17)': 'success', 'native-postgres17-writer-broker-proof': 'success', 'manager-oci-no-sql-preflight': 'success', 'validate-and-package': 'success', 'claude-native-pg17-proof (templates)': 'success', 'claude-native-pg17-proof (gateway)': 'success', 'claude-native-pg17-proof (installer)': 'success', 'claude-native-pg17-proof (audience)': 'success', 'claude-native-pg17-proof (recovery)': 'success', 'claude-native-pg17-proof (template_listener)': 'success', 'publish-crm-provisioner-candidate-image': 'skipped', 'publish-candidate-image': 'skipped', 'publish-crm-campaign-candidate-image': 'skipped', 'portal-image-oci-preflight': 'success'}
+          def require(condition):
+           if not condition: raise SystemExit('Target CI gate refused.')
+          require(run['id']==37228919950 and run['workflow_id']==373226706)
+          require(run['path']=='.github/workflows/dashboard-candidate-crm-fix-20261002.yml')
+          require(run['event']=='push' and run['head_branch']=='codex/dashboard-candidate-crm-fix-20261002')
+          require(run['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' and run['status']=='completed' and run['conclusion']=='success')
+          require(run['run_attempt']==1)
+          require(jobs['total_count']==len(expected) and len(jobs['jobs'])==len(expected))
+          require(len({j['name'] for j in jobs['jobs']})==len(expected))
+          require({j['name']:j['conclusion'] for j in jobs['jobs']}==expected)
+          require(all(j['status']=='completed' for j in jobs['jobs']))
+          require(all(j['run_id']==37228919950 and j['run_attempt']==1 and j['head_sha']=='0e488d82431f4985ab6202a422dff4b837c4b1c3' for j in jobs['jobs']))
+          proof={k:run[k] for k in ['id','workflow_id','path','event','head_branch','head_sha','status','conclusion','run_attempt','html_url']}
+          proof['jobs']=[{k:j[k] for k in ['id','name','status','conclusion','run_id','run_attempt','head_sha']} for j in jobs['jobs']]
+          (root/'crm-portal-publication'/'target-ci.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
+          PY_GATE
+      - name: Construir e conferir o portal exato sem rede no preflight OCI
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PORTAL_SOURCE_REVISION"
+          PORTAL_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-portal-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$PORTAL_DOCKER_CONFIG"
+          trap 'rm -rf -- "$PORTAL_DOCKER_CONFIG"' EXIT
+          cat > "$RUNNER_TEMP/crm-portal-oci-preflight.cjs" <<'PORTAL_OCI'
+          // Future OCI-only check. Synthetic SQLite files stay in container /tmp.
+          'use strict';
+          const a=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
+          const sqlite=require('node:sqlite');
+          const revision='0e488d82431f4985ab6202a422dff4b837c4b1c3',pack='adb1187fc532b898b85c143e99cc0dfcab98f937f18f99e0c46ced688e112e4a';
+          let stage='node-api';
+          (async()=>{
+           a.equal(process.versions.node.split('.')[0],'22');
+           a.equal(process.platform,'linux');a.equal(process.arch,'x64');
+           a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);
+           a.equal(typeof sqlite.DatabaseSync,'function');a.equal(typeof sqlite.backup,'function');
+           stage='image-pack';
+           const I=require('/app/canary-image.cjs'),P=require('/app/artifact-policy.cjs');
+           a.deepEqual(fs.readdirSync('/app').sort(),I.IMAGE_FILES);
+           const verified=I.verifyImagePack('/app');
+           a.deepEqual(verified.pin,{schema:'shrigma_dashboard_canary_image_v1',baseImage:'node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402',sourceRevision:revision,packSha256:pack});
+           a.equal(Buffer.byteLength(verified.input),812340);
+           const decoded=P.decodePack(verified.input,pack);
+           a.equal(decoded.stats.files,56);a.equal(decoded.stats.publicFiles,30);a.equal(decoded.stats.runtimeFiles,26);
+           stage='synthetic-backup';
+           const root=fs.mkdtempSync('/tmp/crm-portal-sqlite-preflight-');
+           const source=root+'/source.sqlite',destination=root+'/backup.sqlite';
+           const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+           const schema=db=>db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all().map(r=>[r.type,r.name,r.tbl_name,r.sql]);
+           const rows=db=>db.prepare('SELECT id,label,payload FROM proof ORDER BY id').all().map(r=>[r.id,r.label,Buffer.from(r.payload).toString('hex')]);
+           let writer,reader,copy;
+           try{
+            writer=new sqlite.DatabaseSync(source);
+            writer.exec('PRAGMA journal_mode=DELETE; CREATE TABLE proof(id INTEGER PRIMARY KEY,label TEXT NOT NULL,payload BLOB NOT NULL) STRICT;');
+            const insert=writer.prepare('INSERT INTO proof VALUES(?,?,?)');
+            insert.run(1,'synthetic',Buffer.from([0,255,1]));insert.run(2,'ação',Buffer.from([]));
+            writer.close();writer=null;
+            const before=hash(source);
+            reader=new sqlite.DatabaseSync(source,{readOnly:true});
+            reader.exec('BEGIN');
+            const expectedSchema=schema(reader),expectedRows=rows(reader);
+            await sqlite.backup(reader,destination);
+            a.deepEqual(schema(reader),expectedSchema);a.deepEqual(rows(reader),expectedRows);
+            reader.exec('ROLLBACK');reader.close();reader=null;
+            copy=new sqlite.DatabaseSync(destination,{readOnly:true});
+            a.deepEqual(schema(copy),expectedSchema);a.deepEqual(rows(copy),expectedRows);
+            a.equal(copy.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+            copy.close();copy=null;
+            stage='source-preservation';
+            a.equal(hash(source),before);
+            a.deepEqual(fs.readdirSync(root).sort(),['backup.sqlite','source.sqlite']);
+            console.log(JSON.stringify({schema:'shrigma_portal_oci_publication_preflight_v1',sourceRevision:revision,packSha256:pack,packBytes:812340,files:56,baseImage:verified.pin.baseImage,nodeVersion:process.versions.node,sqliteVersion:process.versions.sqlite,os:process.platform,processArchitecture:process.arch,uid:process.getuid(),gid:process.getgid(),backupApi:true,sourceBytesPreserved:true,schemaAndRowsPreserved:true,syntheticOnly:true,network:false,hostDatabaseMounted:false}));
+           }finally{
+            for(const db of [copy,reader,writer])if(db)try{db.close();}catch{}
+            fs.rmSync(root,{recursive:true,force:true});
+           }
+          })().catch(()=>{console.error('Portal OCI preflight refused at '+stage+'.');process.exitCode=1;});
+          PORTAL_OCI
+          docker build --platform linux/amd64 --file services/dashboard-operational/Dockerfile \
+            --build-arg GIT_SHA="$PORTAL_SOURCE_REVISION" --tag "$PORTAL_IMAGE" .
+          test "$(docker image inspect --format '{{.Config.User}}' "$PORTAL_IMAGE")" = '1000:1000'
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$PORTAL_IMAGE")" = 'linux/amd64'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$PORTAL_IMAGE")" = "$PORTAL_SOURCE_REVISION"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$PORTAL_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.title"}}' "$PORTAL_IMAGE")" = 'Shrigma dashboard canary'
+          docker run --rm -i --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+            --tmpfs /dashboard-data:rw,noexec,nosuid,nodev,size=4m,uid=1000,gid=1000,mode=0700 \
+            --entrypoint node "$PORTAL_IMAGE" --max-old-space-size=128 - \
+            < "$RUNNER_TEMP/crm-portal-oci-preflight.cjs" > "$RUNNER_TEMP/crm-portal-publication/pre-publication-oci.json"
+          PORTAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$PORTAL_IMAGE")"
+          [[ "$PORTAL_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$PORTAL_IMAGE_ID" > "$RUNNER_TEMP/crm-portal-built-image-id.txt"
+      - name: Publicar somente a tag ausente usando credencial temporária da CI
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PORTAL_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-portal-push-config.XXXXXX")"
+          export DOCKER_CONFIG="$PORTAL_DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf -- "$PORTAL_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-portal-manifest.json" "$RUNNER_TEMP/crm-portal-manifest.error"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GHCR_TOKEN
+          # Fail closed for existing tags and unrecognized registry errors.
+          if docker manifest inspect "$PORTAL_IMAGE" > "$RUNNER_TEMP/crm-portal-manifest.json" 2> "$RUNNER_TEMP/crm-portal-manifest.error"; then
+            printf '%s\n' 'Portal candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          PORTAL_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-portal-manifest.error")"
+          case "$PORTAL_MANIFEST_ERROR" in
+            "no such manifest: $PORTAL_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Portal tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          test "$(docker image inspect --format '{{.Id}}' "$PORTAL_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-portal-built-image-id.txt")"
+          docker push "$PORTAL_IMAGE"
+          test "$(docker image inspect --format '{{len .RepoDigests}}' "$PORTAL_IMAGE")" = '1'
+          PORTAL_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' "$PORTAL_IMAGE")"
+          [[ "$PORTAL_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$PORTAL_REF" > "$RUNNER_TEMP/crm-portal-pushed-image-ref.txt"
+      - name: Confirmar digest público e repetir preflight na imagem publicada
+        id: verify-public-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORTAL_REF="$(cat "$RUNNER_TEMP/crm-portal-pushed-image-ref.txt")"
+          [[ "$PORTAL_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          PORTAL_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-portal-anonymous-config.XXXXXX")"
+          export DOCKER_CONFIG="$PORTAL_DOCKER_CONFIG"
+          trap 'rm -rf -- "$PORTAL_DOCKER_CONFIG"' EXIT
+          docker pull --platform linux/amd64 "$PORTAL_REF"
+          test "$(docker image inspect --format '{{.Id}}' "$PORTAL_REF")" = "$(cat "$RUNNER_TEMP/crm-portal-built-image-id.txt")"
+          test "$(docker image inspect --format '{{.Config.User}}' "$PORTAL_REF")" = '1000:1000'
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$PORTAL_REF")" = 'linux/amd64'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$PORTAL_REF")" = "$PORTAL_SOURCE_REVISION"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$PORTAL_REF")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.title"}}' "$PORTAL_REF")" = 'Shrigma dashboard canary'
+          docker run --rm -i --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+            --tmpfs /dashboard-data:rw,noexec,nosuid,nodev,size=4m,uid=1000,gid=1000,mode=0700 \
+            --entrypoint node "$PORTAL_REF" --max-old-space-size=128 - \
+            < "$RUNNER_TEMP/crm-portal-oci-preflight.cjs" > "$RUNNER_TEMP/crm-portal-publication/public-digest-oci.json"
+          PORTAL_RECORD="$RUNNER_TEMP/crm-portal-publication"
+          printf '%s\n' "$PORTAL_REF" > "$PORTAL_RECORD/image-ref.txt"
+          printf '%s\n' "$PORTAL_SOURCE_REVISION" > "$PORTAL_RECORD/source-revision.txt"
+          printf '%s\n' "$PORTAL_PACK_SHA256" > "$PORTAL_RECORD/pack-sha256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$PORTAL_RECORD/workflow-carrier-revision.txt"
+          install -m 0644 "$RUNNER_TEMP/crm-portal-built-image-id.txt" "$PORTAL_RECORD/image-config-id.txt"
+          printf 'image_ref=%s\nimage_digest=%s\n' "$PORTAL_REF" "${PORTAL_REF#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Portal candidato: `%s`\nFonte: `%s`; pacote: `%s`; linux/amd64, UID/GID1000 e SQLite backup conferidos no digest público.\n' "$PORTAL_REF" "$PORTAL_SOURCE_REVISION" "$PORTAL_PACK_SHA256" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-portal-candidate-image-0e488d82431f4985ab6202a422dff4b837c4b1c3-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-portal-publication/
+          if-no-files-found: error
+          retention-days: 7
+
+# Publishes one gateway image; does not install a service, SQL, role or flag.
+  publish-crm-provisioner-candidate-image:
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
+    if: >-
+      success() &&
+      needs.validate-and-package.result == 'success' &&
+      needs.native-postgres-manager-proof.result == 'success' &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-provisioner-candidate-image]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: crm-provisioner-candidate-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
+      image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
+    env:
+      CRM_PROVISIONER_REPOSITORY: ghcr.io/bandssz/shrigma-dash-operational-canary
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Construir e conferir somente os quatro arquivos públicos do emissor
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_IMAGE="$CRM_PROVISIONER_REPOSITORY:crm-provisioner-candidate-$GITHUB_SHA"
+          GATEWAY_CONTEXT="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-context.XXXXXX")"
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'rm -rf -- "$GATEWAY_CONTEXT" "$GATEWAY_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-provisioner-manifest.json" "$RUNNER_TEMP/crm-provisioner-manifest.error"' EXIT
+          for GATEWAY_FILE in package.json package-lock.json server.cjs Dockerfile; do
+            test -f "services/crm-manager-provisioner/$GATEWAY_FILE"
+            test ! -L "services/crm-manager-provisioner/$GATEWAY_FILE"
+            install -m 0644 "services/crm-manager-provisioner/$GATEWAY_FILE" "$GATEWAY_CONTEXT/$GATEWAY_FILE"
+          done
+          # Only a recognized missing-manifest error permits a first publication.
+          # Auth, network, rate-limit and unknown errors are never absence.
+          if docker manifest inspect "$GATEWAY_IMAGE" > "$RUNNER_TEMP/crm-provisioner-manifest.json" 2> "$RUNNER_TEMP/crm-provisioner-manifest.error"; then
+            printf '%s\n' 'Gateway candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          GATEWAY_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-provisioner-manifest.error")"
+          case "$GATEWAY_MANIFEST_ERROR" in
+            "no such manifest: $GATEWAY_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Gateway tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          docker build --platform linux/amd64 --file "$GATEWAY_CONTEXT/Dockerfile" \
+            --build-arg GIT_SHA="$GITHUB_SHA" \
+            --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
+            --label org.opencontainers.image.title=shrigma-crm-manager-provisioner \
+            --label com.shrigma.component=crm-manager-provisioner \
+            --tag "$GATEWAY_IMAGE" "$GATEWAY_CONTEXT"
+          test "$(docker image inspect --format '{{.Config.User}}' "$GATEWAY_IMAGE")" = '1000:1000'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$GATEWAY_IMAGE")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$GATEWAY_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$GATEWAY_IMAGE")" = 'crm-manager-provisioner'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 --entrypoint node "$GATEWAY_IMAGE" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs");a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-manager-provisioner");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["node_modules","package-lock.json","package.json","server.cjs"]);a.equal(typeof require("/app/server.cjs").createServer,"function");'
+          GATEWAY_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$GATEWAY_IMAGE")"
+          [[ "$GATEWAY_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$GATEWAY_IMAGE_ID" > "$RUNNER_TEMP/crm-provisioner-built-image-id.txt"
+      - name: Publicar somente a tag inédita com token temporário da CI
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_IMAGE="$CRM_PROVISIONER_REPOSITORY:crm-provisioner-candidate-$GITHUB_SHA"
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-push-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf -- "$GATEWAY_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-provisioner-manifest.json" "$RUNNER_TEMP/crm-provisioner-manifest.error"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GHCR_TOKEN
+          # Check again just before push. Concurrency also serializes this job per SHA.
+          if docker manifest inspect "$GATEWAY_IMAGE" > "$RUNNER_TEMP/crm-provisioner-manifest.json" 2> "$RUNNER_TEMP/crm-provisioner-manifest.error"; then
+            printf '%s\n' 'Gateway candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          GATEWAY_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-provisioner-manifest.error")"
+          case "$GATEWAY_MANIFEST_ERROR" in
+            "no such manifest: $GATEWAY_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Gateway tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          test "$(docker image inspect --format '{{.Id}}' "$GATEWAY_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-provisioner-built-image-id.txt")"
+          docker push "$GATEWAY_IMAGE"
+          test "$(docker image inspect --format '{{len .RepoDigests}}' "$GATEWAY_IMAGE")" = '1'
+          GATEWAY_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' "$GATEWAY_IMAGE")"
+          [[ "$GATEWAY_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$GATEWAY_REF" > "$RUNNER_TEMP/crm-provisioner-pushed-image-ref.txt"
+      - name: Conferir digest público sem login e registrar a imagem exata do emissor
+        id: verify-public-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          GATEWAY_REF="$(cat "$RUNNER_TEMP/crm-provisioner-pushed-image-ref.txt")"
+          [[ "$GATEWAY_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          GATEWAY_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-provisioner-anonymous-config.XXXXXX")"
+          export DOCKER_CONFIG="$GATEWAY_DOCKER_CONFIG"
+          trap 'rm -rf -- "$GATEWAY_DOCKER_CONFIG"' EXIT
+          docker pull --platform linux/amd64 "$GATEWAY_REF"
+          test "$(docker image inspect --format '{{.Id}}' "$GATEWAY_REF")" = "$(cat "$RUNNER_TEMP/crm-provisioner-built-image-id.txt")"
+          test "$(docker image inspect --format '{{.Config.User}}' "$GATEWAY_REF")" = '1000:1000'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$GATEWAY_REF")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$GATEWAY_REF")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$GATEWAY_REF")" = 'crm-manager-provisioner'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 128m --memory-swap 128m --cpus 0.25 --pids-limit 32 --entrypoint node "$GATEWAY_REF" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs");a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-manager-provisioner");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["node_modules","package-lock.json","package.json","server.cjs"]);a.equal(typeof require("/app/server.cjs").createServer,"function");'
+          GATEWAY_RECORD="$RUNNER_TEMP/crm-provisioner-publication"
+          mkdir "$GATEWAY_RECORD"
+          printf '%s\n' "$GATEWAY_REF" > "$GATEWAY_RECORD/image-ref.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$GATEWAY_RECORD/source-revision.txt"
+          printf '%s\n' 'crm-manager-provisioner' > "$GATEWAY_RECORD/component.txt"
+          install -m 0644 "$RUNNER_TEMP/crm-provisioner-built-image-id.txt" "$GATEWAY_RECORD/image-config-id.txt"
+          printf 'image_ref=%s\nimage_digest=%s\n' "$GATEWAY_REF" "${GATEWAY_REF#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Emissor CRM candidato (somente imagem): `%s`\nRevisão: `%s`; UID/GID1000; digest conferido por acesso público.\n' "$GATEWAY_REF" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-provisioner-candidate-image-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-provisioner-publication/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-crm-campaign-candidate-image:
+    needs: [validate-and-package, native-postgres-manager-proof, native-postgres-v3-install-rollback-proof, native-postgres17-writer-component-proof, native-postgres17-writer-broker-proof, manager-oci-no-sql-preflight, claude-native-pg17-proof]
+    if: >-
+      true &&
+      success() &&
+      needs.validate-and-package.result == 'success' &&
+      needs.native-postgres-manager-proof.result == 'success' &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/dashboard-candidate-crm-fix-20261002' &&
+      contains(github.event.head_commit.message, '[publish-crm-campaign-media-70f914c3f235f56f14fc15d66144ae8a8e551b4d]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: crm-campaign-media-candidate-70f914c3f235f56f14fc15d66144ae8a8e551b4d
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.verify-public-digest.outputs.image_ref }}
+      image-digest: ${{ steps.verify-public-digest.outputs.image_digest }}
+    env:
+      CRM_CAMPAIGN_REPOSITORY: ghcr.io/bandssz/shrigma-dash-operational-canary
+      CRM_CAMPAIGN_SOURCE_SHA: 70f914c3f235f56f14fc15d66144ae8a8e551b4d
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: 70f914c3f235f56f14fc15d66144ae8a8e551b4d
+          persist-credentials: false
+      - name: Construir e conferir somente o contexto público fechado do serviço de campanhas
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CRM_CAMPAIGN_SOURCE_SHA"
+          CAMPAIGN_IMAGE="$CRM_CAMPAIGN_REPOSITORY:crm-campaign-media-candidate-$CRM_CAMPAIGN_SOURCE_SHA"
+          CAMPAIGN_CONTEXT="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-context.XXXXXX")"
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-build-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'rm -rf -- "$CAMPAIGN_CONTEXT" "$CAMPAIGN_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-campaign-media-manifest.json" "$RUNNER_TEMP/crm-campaign-media-manifest.error"' EXIT
+          for CAMPAIGN_FILE in \
+            services/crm-campaign/Dockerfile \
+            services/crm-campaign/package.json \
+            services/crm-campaign/package-lock.json \
+            services/crm-campaign/main.cjs \
+            services/crm-campaign/server.cjs \
+            services/crm-campaign/transport.cjs \
+            services/crm-campaign/media.cjs \
+            services/crm-panel-read/server.cjs \
+            n8n/growth/campaign-contract.js \
+            n8n/growth/campaign-tracking.js \
+            n8n/growth/campaign-service.js \
+            n8n/growth/campaign-store.js \
+            n8n/growth/campaign-provider.js \
+            n8n/growth/campaign-native.js \
+            n8n/growth/campaign-runtime.js; do
+            test -f "$CAMPAIGN_FILE"
+            test ! -L "$CAMPAIGN_FILE"
+            install -D -m 0644 "$CAMPAIGN_FILE" "$CAMPAIGN_CONTEXT/$CAMPAIGN_FILE"
+          done
+          # Only a recognized missing-manifest error permits a first publication.
+          # Auth, network, rate-limit and unknown errors are never absence.
+          if docker manifest inspect "$CAMPAIGN_IMAGE" > "$RUNNER_TEMP/crm-campaign-media-manifest.json" 2> "$RUNNER_TEMP/crm-campaign-media-manifest.error"; then
+            printf '%s\n' 'Campaign media candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          CAMPAIGN_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-campaign-media-manifest.error")"
+          case "$CAMPAIGN_MANIFEST_ERROR" in
+            "no such manifest: $CAMPAIGN_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Campaign media tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          docker build --platform linux/amd64 --file "$CAMPAIGN_CONTEXT/services/crm-campaign/Dockerfile" \
+            --label org.opencontainers.image.revision="$CRM_CAMPAIGN_SOURCE_SHA" \
+            --label org.opencontainers.image.source=https://github.com/bandssz/shrigma-dash-cx \
+            --label org.opencontainers.image.title=shrigma-crm-campaign \
+            --label com.shrigma.component=crm-campaign \
+            --tag "$CAMPAIGN_IMAGE" "$CAMPAIGN_CONTEXT"
+          test "$(docker image inspect --format '{{.Config.User}}' "$CAMPAIGN_IMAGE")" = 'node'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$CAMPAIGN_IMAGE")" = "$CRM_CAMPAIGN_SOURCE_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$CAMPAIGN_IMAGE")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$CAMPAIGN_IMAGE")" = 'crm-campaign'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 32 --entrypoint node "$CAMPAIGN_IMAGE" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),pg=require("/app/node_modules/pg");const deny=()=>{throw Error("Import attempted I/O");};net.Server.prototype.listen=deny;net.Socket.prototype.connect=deny;pg.Pool.prototype.query=pg.Pool.prototype.connect=pg.Client.prototype.query=pg.Client.prototype.connect=deny;a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-campaign");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["n8n","node_modules","package-lock.json","package.json","services"]);a.equal(typeof require("/app/services/crm-campaign/server.cjs").createServer,"function");a.equal(typeof require("/app/services/crm-campaign/media.cjs").createMediaExecutor,"function");a.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync("/app/services/crm-campaign/media.cjs")).digest("hex"),"2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc");a.equal(Object.keys(require.cache).some(p=>p.endsWith("/services/crm-campaign/main.cjs")),false);'
+          CAMPAIGN_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_IMAGE")"
+          [[ "$CAMPAIGN_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$CAMPAIGN_IMAGE_ID" > "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt"
+      - name: Publicar somente a tag inédita com token temporário da CI
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CRM_CAMPAIGN_SOURCE_SHA"
+          CAMPAIGN_IMAGE="$CRM_CAMPAIGN_REPOSITORY:crm-campaign-media-candidate-$CRM_CAMPAIGN_SOURCE_SHA"
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-push-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf -- "$CAMPAIGN_DOCKER_CONFIG"; rm -f -- "$RUNNER_TEMP/crm-campaign-media-manifest.json" "$RUNNER_TEMP/crm-campaign-media-manifest.error"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GHCR_TOKEN
+          # Check again just before push. Concurrency also serializes this job per SHA.
+          if docker manifest inspect "$CAMPAIGN_IMAGE" > "$RUNNER_TEMP/crm-campaign-media-manifest.json" 2> "$RUNNER_TEMP/crm-campaign-media-manifest.error"; then
+            printf '%s\n' 'Campaign media candidate tag already exists; publication refused.' >&2
+            exit 1
+          fi
+          CAMPAIGN_MANIFEST_ERROR="$(cat "$RUNNER_TEMP/crm-campaign-media-manifest.error")"
+          case "$CAMPAIGN_MANIFEST_ERROR" in
+            "no such manifest: $CAMPAIGN_IMAGE"|"manifest unknown"|"manifest unknown: manifest unknown") ;;
+            *) printf '%s\n' 'Campaign media tag absence could not be confirmed; publication refused.' >&2; exit 1 ;;
+          esac
+          test "$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_IMAGE")" = "$(cat "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt")"
+          docker push "$CAMPAIGN_IMAGE"
+          test "$(docker image inspect --format '{{len .RepoDigests}}' "$CAMPAIGN_IMAGE")" = '1'
+          CAMPAIGN_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' "$CAMPAIGN_IMAGE")"
+          [[ "$CAMPAIGN_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$CAMPAIGN_REF" > "$RUNNER_TEMP/crm-campaign-media-pushed-image-ref.txt"
+      - name: Conferir digest público sem login e registrar somente a referência imutável
+        id: verify-public-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CRM_CAMPAIGN_SOURCE_SHA"
+          CAMPAIGN_REF="$(cat "$RUNNER_TEMP/crm-campaign-media-pushed-image-ref.txt")"
+          [[ "$CAMPAIGN_REF" =~ ^ghcr\.io/bandssz/shrigma-dash-operational-canary@sha256:[a-f0-9]{64}$ ]]
+          CAMPAIGN_DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/crm-campaign-media-anonymous-config.XXXXXX")"
+          export DOCKER_CONFIG="$CAMPAIGN_DOCKER_CONFIG"
+          trap 'rm -rf -- "$CAMPAIGN_DOCKER_CONFIG"' EXIT
+          docker pull --platform linux/amd64 "$CAMPAIGN_REF"
+          test "$(docker image inspect --format '{{.Id}}' "$CAMPAIGN_REF")" = "$(cat "$RUNNER_TEMP/crm-campaign-media-built-image-id.txt")"
+          test "$(docker image inspect --format '{{.Config.User}}' "$CAMPAIGN_REF")" = 'node'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$CAMPAIGN_REF")" = "$CRM_CAMPAIGN_SOURCE_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$CAMPAIGN_REF")" = 'https://github.com/bandssz/shrigma-dash-cx'
+          test "$(docker image inspect --format '{{index .Config.Labels "com.shrigma.component"}}' "$CAMPAIGN_REF")" = 'crm-campaign'
+          docker run --rm --network none --no-healthcheck --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 32 --entrypoint node "$CAMPAIGN_REF" \
+            -e 'const a=require("node:assert/strict"),fs=require("node:fs"),net=require("node:net"),pg=require("/app/node_modules/pg");const deny=()=>{throw Error("Import attempted I/O");};net.Server.prototype.listen=deny;net.Socket.prototype.connect=deny;pg.Pool.prototype.query=pg.Pool.prototype.connect=pg.Client.prototype.query=pg.Client.prototype.connect=deny;a.equal(process.getuid(),1000);a.equal(process.getgid(),1000);a.equal(require("/app/package.json").name,"shrigma-crm-campaign");a.equal(require("/app/node_modules/pg/package.json").version,"8.13.1");a.deepEqual(fs.readdirSync("/app").sort(),["n8n","node_modules","package-lock.json","package.json","services"]);a.equal(typeof require("/app/services/crm-campaign/server.cjs").createServer,"function");a.equal(typeof require("/app/services/crm-campaign/media.cjs").createMediaExecutor,"function");a.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync("/app/services/crm-campaign/media.cjs")).digest("hex"),"2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc");a.equal(Object.keys(require.cache).some(p=>p.endsWith("/services/crm-campaign/main.cjs")),false);'
+          CAMPAIGN_RECORD="$RUNNER_TEMP/crm-campaign-media-publication"
+          mkdir "$CAMPAIGN_RECORD"
+          printf '%s\n' "$CAMPAIGN_REF" > "$CAMPAIGN_RECORD/image-ref.txt"
+          printf 'image_ref=%s\nimage_digest=%s\n' "$CAMPAIGN_REF" "${CAMPAIGN_REF#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Serviço CRM de campanhas candidato (somente imagem): `%s`\nRevisão: `%s`; UID/GID1000; digest conferido por acesso público.\n' "$CAMPAIGN_REF" "$CRM_CAMPAIGN_SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: crm-campaign-media-candidate-image-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-campaign-media-publication/image-ref.txt
+          if-no-files-found: error
+          retention-days: 7

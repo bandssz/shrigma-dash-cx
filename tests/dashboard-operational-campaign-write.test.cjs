@@ -21,7 +21,7 @@ function call(port,host,pathname,{method='GET',body,cookie,csrf,origin='https://
  });
 }
 const cookie=response=>response.headers['set-cookie'][0].split(';')[0];
-test('opt-in CRM gateway saves only idempotent unscheduled drafts with individual writer and receipt',async t=>{
+test('CRM legacy draft gate blocks single-brand managers and preserves master idempotent unscheduled drafts and receipts',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-campaign-write-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const bootstrap=crypto.randomBytes(32).toString('base64url');
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(bootstrap).digest('hex'),encryptionKey:crypto.randomBytes(32).toString('hex')});
@@ -35,7 +35,7 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
   assert.equal(options.redirect,'manual');
   const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
   if(options.method==='GET'){
-   assert.equal(options.headers.Authorization,'Bearer individual-campaign-writer');
+   assert.equal(options.headers.Authorization,'Bearer master-own-campaign-writer');
    assert.equal(url.searchParams.get('acao'),'campanha_operacao');
    const operation=operations.get(url.searchParams.get('idempotency_key'));
    return operation?reply(200,{operation:{operation_key:url.searchParams.get('idempotency_key'),action:'salvar',brand:operation.body.brand,state:operation.response.status<300?'succeeded':'rejected',providerId:operation.response.body.campaign?.id??null,response:operation.response}}):reply(404,{error:'OPERATION_NOT_FOUND'});
@@ -43,7 +43,7 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
   assert.equal(options.method,'POST');
   assert.equal(url.search,'');
   assert.equal(Object.hasOwn(options.headers,'Authorization'),false);
-  const body=JSON.parse(options.body);assert.equal(body.k,'individual-campaign-writer');
+  const body=JSON.parse(options.body);assert.equal(body.k,'master-own-campaign-writer');
   assert.equal(body.acao,'campanha_salvar');assert.equal(body.definition.send_at,null);
   const prior=operations.get(body.idempotency_key),payload=JSON.stringify({...body,k:undefined});
   if(prior)return prior.payload===payload?reply(prior.response.status,prior.response.body):reply(409,{error:'IDEMPOTENCY_CONFLICT'});
@@ -69,9 +69,9 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
  const post=(p,h,pathname,body,options={})=>call(p,h,pathname,{...options,method:'POST',body});
  const adminPassword='Synthetic Admin Password 2026!';
  assert.equal((await post(port,hosts.manager,'/auth/bootstrap/complete',{email:'admin@synthetic.invalid',token:bootstrap,password:adminPassword})).status,200);
- const adminLogin=await post(port,hosts.manager,'/auth/login',{email:'admin@synthetic.invalid',password:adminPassword});
- assert.equal(adminLogin.status,200);const admin={cookie:cookie(adminLogin),csrf:adminLogin.json.csrf};
- const invited=await post(port,hosts.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@synthetic.invalid',areas:['growth'],permissions:{growth:{read:true,edit:false}}},admin);
+ let adminLogin=await post(port,hosts.manager,'/auth/login',{email:'admin@synthetic.invalid',password:adminPassword});
+ assert.equal(adminLogin.status,200);let admin={cookie:cookie(adminLogin),csrf:adminLogin.json.csrf};
+ const invited=await post(port,hosts.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@synthetic.invalid',brand:'fish',areas:['growth'],permissions:{growth:{read:true,edit:false}}},admin);
  assert.equal(invited.status,201);const userId=invited.json.userId,inviteToken=new URLSearchParams(new URL(invited.json.inviteUrl).hash.slice(1)).get('invite');
  const managerPassword='Synthetic Manager Password 2026!';
  assert.equal((await post(port,hosts.growth,'/auth/invite/accept',{token:inviteToken,password:managerPassword})).status,200);
@@ -93,23 +93,44 @@ test('opt-in CRM gateway saves only idempotent unscheduled drafts with individua
  assert.equal((await post(port,hosts.growth,'/api/campaigns',{...create,acao:'campanha_agendar'},manager)).status,403);
  assert.equal((await post(port,hosts.growth,'/api/campaigns_media',{brand:'fish'},manager)).status,403);
  assert.equal(upstreamCalls,0);
- const saved=await post(port,hosts.growth,'/api/campaigns',{...create,k:'ui-'+'a'.repeat(32)},manager);
+ // The production template provider has no per-brand ownership contract.
+ // Even an explicitly granted manager with an individual credential must stop
+ // before journal reservation and transport; this is not a WRITE sandbox.
+ for(const request of [create,{...create,k:'ui-'+'a'.repeat(32)}]){
+  const denied=await post(port,hosts.growth,'/api/campaigns',request,manager);
+  assert.equal(denied.status,503);assert.equal(denied.json.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ }
+ assert.equal((await call(port,hosts.growth,'/auth/campaign-draft?brand=fish',{cookie:manager.cookie})).json.operation,null);
+ assert.equal(upstreamCalls,0);assert.equal(effects,0);
+ // Preserve the legacy gateway's positive transport/journal proofs with the
+ // real bootstrapped master, its own grants and its own credential. No manager
+ // is converted to master, and no HTTP ownership gate is bypassed.
+ const adminId=adminLogin.json.user.id;
+ assert.equal(adminLogin.json.user.role,'superadmin');assert.equal(adminLogin.json.user.brandAccess,'all');
+ assert.notEqual(adminId,userId);
+ assert.equal((await post(port,hosts.manager,'/auth/users',{action:'grant',userId:adminId,permissions:{growth:{read:true,edit:true},organico:{read:true,edit:false},influs:{read:true,edit:false}}},admin)).status,200);
+ adminLogin=await post(port,hosts.manager,'/auth/login',{email:'admin@synthetic.invalid',password:adminPassword});assert.equal(adminLogin.status,200);admin={cookie:cookie(adminLogin),csrf:adminLogin.json.csrf};
+ assert.equal((await post(port,hosts.manager,'/auth/users',{action:'credential',userId:adminId,slot:'growth-campaign',bearer:'master-own-campaign-writer'},admin)).status,200);
+ const saved=await post(port,hosts.manager,'/api/campaigns',{...create,k:'ui-'+'a'.repeat(32)},admin);
  assert.equal(saved.status,201);assert.equal(saved.json.campaign.status,'draft');assert.equal(saved.json.campaign.send_at,null);assert.equal(effects,1);
- const replay=await post(port,hosts.growth,'/api/campaigns',create,manager);
+ const replay=await post(port,hosts.manager,'/api/campaigns',create,admin);
  assert.equal(replay.status,409);assert.equal(replay.json.error,'OPERATION_PENDING');assert.equal(effects,1);
- assert.equal((await post(port,hosts.growth,'/api/campaigns',{...create,definition:{...definition(),subject:'Changed'}},manager)).status,409);
+ assert.equal((await post(port,hosts.manager,'/api/campaigns',{...create,definition:{...definition(),subject:'Changed'}},admin)).status,409);
  assert.equal(effects,1);
  const receipt='/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key='+key;
- assert.equal((await call(port,hosts.growth,receipt,{cookie:manager.cookie})).status,403);
- assert.equal((await call(offPort,hosts.growth,receipt,manager)).status,403);
- assert.equal((await call(port,hosts.growth,receipt,manager)).json.operation.state,'succeeded');
- assert.equal((await call(port,hosts.influs,receipt,manager)).status,401);
+ assert.equal((await call(port,hosts.manager,receipt,{cookie:admin.cookie})).status,403);
+ assert.equal((await call(offPort,hosts.manager,receipt,admin)).status,403);
+ assert.equal((await call(port,hosts.manager,receipt,admin)).json.operation.state,'succeeded');
+ assert.equal((await call(port,hosts.influs,receipt,admin)).status,401);
  const edit={...create,id:saved.json.campaign.id,expected_version:saved.json.campaign.version,idempotency_key:'campaign-edit-key-000001'};
- assert.equal((await post(port,hosts.growth,'/api/campaigns',edit,manager)).status,200);assert.equal(effects,2);
- assert.equal((await post(port,hosts.growth,'/api/campaigns',{...edit,idempotency_key:'campaign-stale-key-00001'},manager)).status,409);assert.equal(effects,2);
+ assert.equal((await post(port,hosts.manager,'/api/campaigns',edit,admin)).status,200);assert.equal(effects,2);
+ assert.equal((await post(port,hosts.manager,'/api/campaigns',{...edit,idempotency_key:'campaign-stale-key-00001'},admin)).status,409);assert.equal(effects,2);
+ const masterJournalBefore=(await call(port,hosts.manager,'/auth/campaign-draft?brand=fish',{cookie:admin.cookie})).json.operation;assert.equal(masterJournalBefore.operationKey,'campaign-stale-key-00001');assert.equal(masterJournalBefore.phase,'uncertain');
  assert.equal((await post(port,hosts.manager,'/auth/users',{action:'revoke',userId},admin)).status,200);
  const before=upstreamCalls;
  assert.equal((await post(port,hosts.growth,'/api/campaigns',{...create,idempotency_key:'campaign-after-revoke-001'},manager)).status,401);
  assert.equal((await call(port,hosts.growth,receipt,manager)).status,401);
  assert.equal(upstreamCalls,before);
+ assert.equal(effects,2);
+ assert.deepEqual((await call(port,hosts.manager,'/auth/campaign-draft?brand=fish',{cookie:admin.cookie})).json.operation,masterJournalBefore);
 });

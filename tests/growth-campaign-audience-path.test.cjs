@@ -2,7 +2,7 @@
 // Native editor + real binding/segment clients -> HTTP boundaries -> real SQL,
 // all in an isolated local DOM/PGlite fixture. No browser or remote transport.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const {webcrypto}=require('node:crypto'),{parseHTML}=require('linkedom');
+const {webcrypto,createHash}=require('node:crypto'),{parseHTML}=require('linkedom');
 const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
 const F=require('./segment-campaign-binding-fixture.cjs'),API=require('../n8n/growth/segment-campaign-binding-api.cjs');
 const Contract=require('../campaign-contract.js');global.CampaignContract=Contract;
@@ -27,7 +27,7 @@ async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaig
  dialogProto.showModal=function(){this.setAttribute('open','');};dialogProto.close=function(){this.removeAttribute('open');this.onclose?.();};
  Object.defineProperty(dialogProto,'open',{configurable:true,get(){return this.hasAttribute('open');}});
  let focused=null;window.HTMLElement.prototype.focus=function(){focused=this;};Object.defineProperty(document,'activeElement',{configurable:true,get:()=>focused?.isConnected?focused:document.body});
- const calls=[],control={lose,before:null,failReopen:0},payload=caps();if(regular)Object.assign(payload.capabilities.campaign_audience,{validate:true,regular:{contract_version:'crm-audience-regular-admission-v1',prepare:true,schedule:true,operation:true}});if(!enabled)delete payload.capabilities.campaign_audience;if(noCapabilities)payload.capabilities={};if(noCampaignCapability)delete payload.capabilities.campaigns;
+ const calls=[],control={lose,before:null,failReopen:0,campaignRejected:false},payload=caps();if(regular)Object.assign(payload.capabilities.campaign_audience,{validate:true,regular:{contract_version:'crm-audience-regular-admission-v1',prepare:true,schedule:true,operation:true}});if(!enabled)delete payload.capabilities.campaign_audience;if(noCapabilities)payload.capabilities={};if(noCampaignCapability)delete payload.capabilities.campaigns;
  class Clock extends Date{}
  const context=vm.createContext({document,window,console,Date:Clock,Intl,URL,URLSearchParams,AbortSignal,AbortController,TextEncoder,TextDecoder,crypto:webcrypto,setTimeout,clearTimeout,
   navigator:{locks:require('./campaign-lock-fixture.cjs')()},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
@@ -38,6 +38,12 @@ async function setup(t,brand='fish',{enabled=true,noCapabilities=false,noCampaig
    let r;
    if(u.origin==='https://audience.test')r=await f.api.handle(input);
    else if(u.origin==='https://binding.test')r=await (regularAPI&&Object.values(require('../n8n/growth/segment-regular-admission.cjs').ACTIONS).includes(request.acao)?regularAPI:bindingAPI).handle(input);
+   else if(u.origin==='https://campaign.test'&&request.acao==='campanha_catalogo'){
+    const current=await f.current(campaignId),d=current.definition;
+    r={status:200,body:{brand,current:true,lists:d.list_ids.map(id=>({id,brand,name:'Synthetic list '+id,available:true})),templates:[{id:d.template_id,name:'Synthetic template',available:true,type:'campaign'}]}};
+   }
+   else if(u.origin==='https://campaign.test'&&request.acao==='campanha_listar')r={status:200,body:{campaigns:[await f.current(campaignId)]}};
+   else if(u.origin==='https://campaign.test'&&request.acao==='campanha_operacao'&&control.campaignRejected)r={status:200,body:{operation:{brand,state:'rejected',providerId:null}}};
    else if(u.origin==='https://campaign.test'&&request.acao==='campanha_obter'){if(control.failReopen>0){control.failReopen--;throw Error('synthetic reopen failure');}r={status:200,body:{campaign:await f.current(Number(request.id))}};}
    else throw Error('UNEXPECTED_LEGACY_ACTION');
    if(control.lose&&(regular?request.acao==='campanha_publico_agendar':request.acao==='campanha_publico_vincular'))throw Error('synthetic lost ACK');
@@ -51,6 +57,80 @@ async function until(check){for(let i=0;i<1500;i++){if(check())return;await new 
 async function load(x){x.q('[data-ca="load"]').click();try{await until(()=>x.q('[data-ca-select]')&&!x.run('GCE.contextStatus().blocked'));}catch{assert.fail(JSON.stringify({status:x.q('[data-ca-status]')?.textContent,calls:x.calls.map(c=>c.request.acao)}));}}
 async function inspect(x){await load(x);const s=x.q('[data-ca-select]');s.value=x.audience.id;s.dispatchEvent(new x.window.Event('change',{bubbles:true}));x.q('[data-ca="inspect"]').click();await until(()=>x.q('[data-ca-inspection]')&&!x.run('GCE.contextStatus().blocked'));}
 const posts=x=>x.calls.filter(c=>c.request.acao==='campanha_publico_vincular');
+async function reopenSaved(x){
+ const before=x.calls.filter(c=>c.request.acao==='campanha_publico_obter').length;
+ x.q('[data-ce-refresh]').click();await until(()=>!!x.q('[data-ce-open]')&&!x.q('[data-ce-open]').disabled&&!x.run('GCE.contextStatus().blocked'));
+ x.q('[data-ce-open]').click();if(x.q('[data-ce-confirm]').open)x.q('[data-ce-confirm-yes]').click();
+ try{await until(()=>x.calls.filter(c=>c.request.acao==='campanha_publico_obter').length>before&&!x.run('GCE.contextStatus().blocked'));}catch{assert.fail(JSON.stringify({actions:x.calls.map(c=>c.request.acao),status:x.q('[data-ce-status]')?.textContent,audience:x.q('[data-ca-status]')?.textContent,dialog:x.q('[data-ce-confirm]')?.open,blocked:x.run('GCE.contextStatus().blocked')}));}
+}
+for(const brand of ['fish','aristo'])test(brand+': reopening a list-only draft confirms null binding before legacy validation',async t=>{
+ const x=await setup(t,brand),before=x.calls.length;
+ assert.equal(x.q('[data-ce-validate]').disabled,true);
+ await reopenSaved(x);
+ assert.equal(x.run('GCE.contextStatus().pending'),false);
+ assert.equal(x.run('GCE.contextStatus().blocked'),false);
+ assert.equal(x.q('[data-ce-validate]').disabled,false);
+ assert.equal(x.q('[data-ce-schedule]').disabled,true); // The original validation and review are still required.
+ assert.match(x.q('[data-ce-saved-audience]').textContent,/Nenhum público salvo vinculado/);
+ assert.deepEqual(x.calls.slice(before).filter(c=>c.method==='POST'),[]);
+ assert.equal(x.calls.slice(before).filter(c=>c.request.acao==='campanha_publico_obter').length,1);
+});
+test('a reopened bound draft keeps the legacy list schedule closed without any send POST',async t=>{
+ const x=await setup(t,'fish');await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
+ const before=x.calls.length;await reopenSaved(x);
+ assert.equal(x.run('GCE.contextStatus().pending'),false);
+ assert.equal(x.q('[data-ce-schedule]').disabled,true);
+ assert.match(x.q('[data-ce-audience]').textContent,/público salvo/i);
+ assert.deepEqual(x.calls.slice(before).filter(c=>c.method==='POST'),[]);
+});
+test('binding read failure leaves a reopened list draft blocked and retryable without POST',async t=>{
+ const x=await setup(t,'fish');x.control.before=entry=>{if(entry.request.acao==='campanha_publico_obter')throw Error('synthetic transport loss');};
+ const before=x.calls.length;await reopenSaved(x);
+ assert.equal(x.q('[data-ce-validate]').disabled,true);
+ assert.equal(x.q('[data-ce-schedule]').disabled,true);
+ assert.match(x.q('[data-ce-audience]').textContent,/Não foi possível confirmar o vínculo/);
+ assert.deepEqual(x.calls.slice(before).filter(c=>c.method==='POST'),[]);
+});
+test('a version changed between campaign reopen and binding GET cannot unlock list scheduling',async t=>{
+ const x=await setup(t,'fish');
+ await x.db.exec("CREATE FUNCTION fixture_campaign_auto_read_touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=clock_timestamp(); RETURN NEW; END $$; CREATE TRIGGER fixture_campaign_auto_read_touch BEFORE UPDATE ON campaigns FOR EACH ROW EXECUTE FUNCTION fixture_campaign_auto_read_touch();");
+ let touched=false;x.control.before=async entry=>{if(!touched&&entry.request.acao==='campanha_publico_obter'){touched=true;await x.db.query('UPDATE campaigns SET body=body WHERE id=$1',[x.campaignId]);}};
+ const before=x.calls.length;await reopenSaved(x);
+ assert.equal(touched,true);assert.equal(x.q('[data-ce-validate]').disabled,true);assert.equal(x.q('[data-ce-schedule]').disabled,true);
+ assert.match(x.q('[data-ca-status]').textContent,/campanha mudou/i);
+ assert.deepEqual(x.calls.slice(before).filter(c=>c.method==='POST'),[]);
+});
+test('editing the reopened campaign disables validation until the changed draft is saved',async t=>{
+ const x=await setup(t,'fish');await reopenSaved(x);assert.equal(x.q('[data-ce-validate]').disabled,false);
+ const subject=x.q('[name=subject]');subject.value='Synthetic unsaved change';subject.dispatchEvent(new x.window.Event('input',{bubbles:true}));
+ assert.equal(x.q('[data-ce-validate]').disabled,true);assert.equal(x.q('[data-ce-schedule]').disabled,true);
+ assert.equal(x.calls.filter(c=>c.method==='POST').length,0);
+});
+test('read-only audience capability permits binding lookup but never opens editor writes',async t=>{
+ const x=await setup(t,'aristo');Object.assign(x.payload.capabilities.campaign_audience,{inspect:false,bind:false,release:false,validate:false});Object.assign(x.payload.capabilities.campaigns,{save:false,validate:false,schedule:false,cancel:false});
+ x.run('GCE.mount({marca:"aristo",api:__api})');const before=x.calls.length;await reopenSaved(x);
+ assert.equal(x.q('[data-ce-validate]').hidden,true);
+ assert.equal(x.q('[data-ce-schedule]').hidden,true);
+ assert.deepEqual(x.calls.slice(before).filter(c=>c.method==='POST'),[]);
+});
+test('switching brands detaches old audience handlers and each click performs one scoped GET pair',async t=>{
+ const x=await setup(t,'fish');await load(x);
+ const journalKey='shrigma_campaign_audience_v1:fish:'+x.campaignId,original=x.store.get(journalKey);
+ assert.equal(x.run('GCE.enterBrand("aristo")'),true);assert.equal(x.run('GCE.enterBrand("fish")'),true);
+ assert.equal(x.store.get(journalKey),original);
+ const before=x.calls.length;x.q('[data-ca="load"]').click();
+ await until(()=>x.calls.slice(before).filter(c=>c.request.acao==='segmentos_listar').length===1&&!x.run('GCE.contextStatus().blocked'));
+ assert.deepEqual(x.calls.slice(before).map(c=>c.request.acao),['campanha_publico_obter','segmentos_listar']);
+ assert.equal(x.calls.slice(before).filter(c=>c.method==='POST').length,0);
+});
+test('corrupt original-brand binding journal remains frozen after navigating away and back',async t=>{
+ const slot='shrigma_campaign_audience_v1:fish:100',corrupt='{"synthetic":"invalid-journal"}',x=await setup(t,'fish',{store:new Map([[slot,corrupt]])});
+ assert.equal(x.run('GCE.contextStatus().blocked'),true);assert.equal(x.q('[data-ce-validate]').disabled,true);
+ assert.equal(x.run('GCE.enterBrand("aristo")'),true);assert.equal(x.run('GCE.enterBrand("fish")'),true);
+ assert.equal(x.store.get(slot),corrupt);assert.equal(x.run('GCE.contextStatus().blocked'),true);
+ assert.equal(x.q('[data-ce-validate]').disabled,true);assert.equal(x.q('[data-ce-schedule]').disabled,true);
+ assert.equal(x.calls.filter(c=>c.method==='POST').length,0);
+});
 test('selector explains saved Shopify rules and freshness without counting or changing local records',async t=>{
  const db=new PGlite();t.after(()=>db.close());const f=await F.setup(db,{countProvider:require('../n8n/growth/segment-audience-listmonk.cjs').countAudience});
  await f.createAudience('fish','shopify-selector-proof',{op:'condition',field:'purchase.product',operator:'not_purchased',value:'gid://shopify/Product/101'});
@@ -95,9 +175,28 @@ for(const brand of ['fish','aristo'])test(brand+': saved audience uses the actua
 });
 test('lost acknowledgement survives reload and consults one original operation without another bind',async t=>{
  const x=await setup(t,'fish',{lose:true});await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending'));
- assert.equal(posts(x).length,1);assert.equal(x.run('GCE.enterBrand("aristo")'),false);assert.equal(x.q('[data-ce-new]').disabled,true);
+ const original=x.store.get('shrigma_campaign_audience_v1:fish:'+x.campaignId);
+ assert.equal(posts(x).length,1);assert.equal(x.run('GCE.enterBrand("aristo")'),true);assert.equal(x.store.get('shrigma_campaign_audience_v1:fish:'+x.campaignId),original);
+ assert.equal(x.run('GCE.enterBrand("fish")'),true);assert.equal(x.run('GCE.contextStatus().pending'),true);assert.equal(x.store.get('shrigma_campaign_audience_v1:fish:'+x.campaignId),original);assert.equal(x.q('[data-ce-new]').disabled,true);
  const y=await setup(t,'fish',{store:x.store,fixture:x.f});assert.equal(y.run('GCE.contextStatus().pending'),true);y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));
  assert.equal(posts(y).length,0);assert.equal((await x.db.query('SELECT count(*)::int n FROM crm_audience_v2.campaign_binding_request')).rows[0].n,1);assert.match(y.q('[data-ce-saved-audience]').textContent,/Público vinculado/);
+});
+test('two durable pending journals recover in order with GETs only and original operation keys',async t=>{
+ const x=await setup(t,'fish',{lose:true});await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending'));
+ const audienceSlot='shrigma_campaign_audience_v1:fish:'+x.campaignId,audienceBefore=JSON.parse(x.store.get(audienceSlot)),campaignSlot='shrigma_campaign_operation_v1:fish',campaignBefore=JSON.parse(x.store.get(campaignSlot)),operationKey='synthetic-campaign-001';
+ campaignBefore.operation={phase:'pending',actorFingerprint:createHash('sha256').update('synthetic-manager-key').digest('hex'),key:operationKey,request:{acao:'campanha_validar',brand:'fish',idempotency_key:operationKey}};
+ x.store.set(campaignSlot,JSON.stringify(campaignBefore));
+ const y=await setup(t,'fish',{store:x.store,fixture:x.f});y.control.campaignRejected=true;
+ assert.equal(y.run('GCE.contextStatus().pending'),true);assert.equal(y.q('[data-ce-consult]').disabled,false);
+ assert.equal(y.q('[data-ca="consult"]').disabled,true); // The campaign journal is reconciled first.
+ y.q('[data-ce-consult]').click();await until(()=>JSON.parse(y.store.get(campaignSlot)).operation.phase==='rejected'&&!y.q('[data-ca="consult"]').disabled);
+ assert.equal(y.run('GCE.contextStatus().pending'),true);assert.equal(JSON.parse(y.store.get(audienceSlot)).operation.request.idempotency_key,audienceBefore.operation.request.idempotency_key);
+ y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));
+ assert.equal(JSON.parse(y.store.get(campaignSlot)).operation.key,operationKey);
+ assert.equal(JSON.parse(y.store.get(audienceSlot)).operation.request.idempotency_key,audienceBefore.operation.request.idempotency_key);
+ assert.equal(y.calls.filter(c=>c.method==='POST').length,0);
+ assert.equal(y.calls.filter(c=>c.request.acao==='campanha_operacao').length,1);
+ assert.equal(y.calls.filter(c=>c.request.acao==='campanha_publico_operacao').length,1);
 });
 test('a saved binding remains releasable when the audience listing is unavailable',async t=>{
  const x=await setup(t);await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>!x.run('GCE.contextStatus().blocked'));
@@ -126,13 +225,15 @@ test('revoked capability preserves a known binding and freezes editing, includin
  assert.equal(posts(x).length,1);delete x.payload.capabilities.campaign_audience;x.run('GCE.mount({marca:"fish",api:__api})');
  for(const y of [x,await setup(t,'fish',{enabled:false,store:x.store,fixture:x.f})]){
   assert.equal(y.q('[data-ce-saved-audience]').hidden,false);assert.match(y.q('[data-ce-saved-audience]').textContent,/registro foi preservado/);
-  assert.equal(y.run('GCE.contextStatus().blocked'),true);assert.equal(y.run('GCE.enterBrand("aristo")'),false);
+  assert.equal(y.run('GCE.contextStatus().blocked'),true);
+  for(const selector of ['[name=subject]','[data-ce-save]','[data-ce-validate]','[data-ce-schedule]'])assert.equal(y.q(selector).disabled,true,selector);
+  assert.equal(y.run('GCE.enterBrand("aristo")'),true);assert.equal(y.run('GCE.enterBrand("fish")'),true);
   for(const selector of ['[name=subject]','[data-ce-save]','[data-ce-validate]','[data-ce-schedule]'])assert.equal(y.q(selector).disabled,true,selector);
  }
 });
 test('reload without capability cannot abandon an uncertain binding; restoring access permits only consultation',async t=>{
  const x=await setup(t,'fish',{lose:true});await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending'));
- const y=await setup(t,'fish',{enabled:false,store:x.store,fixture:x.f});assert.equal(y.run('GCE.contextStatus().blocked'),true);assert.equal(y.run('GCE.enterBrand("aristo")'),false);assert.equal(y.q('[data-ce-save]').disabled,true);assert.equal(y.q('[name=subject]').disabled,true);assert.equal(y.calls.length,0);
+ const y=await setup(t,'fish',{enabled:false,store:x.store,fixture:x.f});assert.equal(y.run('GCE.contextStatus().blocked'),true);assert.equal(y.run('GCE.enterBrand("aristo")'),true);assert.equal(y.run('GCE.enterBrand("fish")'),true);assert.equal(y.q('[data-ce-save]').disabled,true);assert.equal(y.q('[name=subject]').disabled,true);assert.equal(y.calls.length,0);
  y.payload.capabilities.campaign_audience=caps().capabilities.campaign_audience;y.run('GCE.mount({marca:"fish",api:__api})');assert.equal(y.run('GCE.contextStatus().pending'),true);assert.equal(y.q('[data-ca="load"]').disabled,true);
  y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));assert.equal(posts(y).length,0);
  assert.equal((await x.db.query('SELECT count(*)::int n FROM crm_audience_v2.campaign_binding_request')).rows[0].n,1);
@@ -155,7 +256,7 @@ test('a native timestamp trigger changes the campaign revision; the editor reope
 test('the local campaign anchor preserves an uncertain binding when native or all capabilities disappear on reload',async t=>{
  const x=await setup(t,'fish',{lose:true});await inspect(x);x.q('[data-ca="bind"]').click();x.q('[data-ca-yes]').click();await until(()=>x.run('GCE.contextStatus().pending'));
  for(const noCapabilities of [false,true]){
- const y=await setup(t,'fish',{noCapabilities,noCampaignCapability:true,store:new Map(x.store),fixture:x.f});assert.equal(y.run('GCE.contextStatus().blocked'),true);assert.equal(y.run('GCE.enterBrand("aristo")'),false);assert.equal(y.q('[name=subject]').disabled,true);assert.equal(y.q('[data-ce-import]').disabled,true);assert.equal(y.q('[data-ce-saved-audience]').hidden,false);assert.equal(y.calls.length,0);
+ const y=await setup(t,'fish',{noCapabilities,noCampaignCapability:true,store:new Map(x.store),fixture:x.f});assert.equal(y.run('GCE.contextStatus().blocked'),true);assert.equal(y.run('GCE.enterBrand("aristo")'),true);assert.equal(y.run('GCE.enterBrand("fish")'),true);assert.equal(y.q('[name=subject]').disabled,true);assert.equal(y.q('[data-ce-import]').disabled,true);assert.equal(y.q('[data-ce-saved-audience]').hidden,false);assert.equal(y.calls.length,0);
  y.payload.capabilities=caps().capabilities;y.run('GCE.mount({marca:"fish",api:__api})');assert.equal(y.run('GCE.contextStatus().pending'),true);
  y.q('[data-ca="consult"]').click();await until(()=>!y.run('GCE.contextStatus().pending')&&!y.run('GCE.contextStatus().blocked'));assert.equal(posts(y).length,0);assert.match(y.q('[data-ce-saved-audience]').textContent,/Público vinculado/);
  }

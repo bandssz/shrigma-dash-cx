@@ -166,3 +166,12 @@ test('missing operation and unknown stage labels stay actionable without exposin
  const y=render(p,{marca:'fish',canal:'email'}),section=y.document.querySelector('.control-email-inventory');assert.match(section.textContent,/private-stage-id/);
  const manager=managerProjection(section);assert.match(manager.textContent,/Jornada não identificada.*Etapa não identificada.*Pausada/);assert.doesNotMatch(manager.textContent,/private-stage-id|private-flow-id/);
 });
+
+test('portal Inventory explains READ without promising hidden template or journey editing; legacy guidance remains exact',()=>{
+ const p=fixture();p.templates=[];const x=render(p),root=x.document.querySelector('#control-templates'),legacy=root.innerHTML;
+ assert.match(root.textContent,/Criar templates/);
+ const marker=x.document.createElement('style');marker.id='dashboard-operational-readonly';x.document.head.append(marker);x.run('GC.render(ctx)');
+ assert.match(root.textContent,/Nenhum template disponível nesta leitura/);assert.match(root.textContent,/Inventário de leitura · conteúdo publicado/);
+ assert.doesNotMatch(root.textContent,/Criar templates|Edição em|Jornadas/);assert.match(root.querySelector('.control-badge[title*="Inventário"]').getAttribute('title'),/não cria templates nem altera jornadas/);
+ marker.remove();x.run('GC.render(ctx)');assert.equal(root.innerHTML,legacy);
+});

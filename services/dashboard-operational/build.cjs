@@ -40,7 +40,9 @@ const LEGACY_MASTER_CHECK='panels.length===4&&new Set(panels).size===4&&["cx","g
 const OPERATIONAL_MASTER_CHECK='panels.length===3&&new Set(panels).size===3&&["growth","organico","influs"].every(p=>panels.includes(p))';
 // The public source bundles image upload and legacy credential handling. Remove
 // exactly the reviewed module from the operational artifact before packaging.
-const LEGACY_MEDIA_SHA256='6780faf9f3685bf7d207005e664916d8759a304039f7862b4a762d1245ff1b94';
+// PR221 adds the reviewed legacy-file label/count and boolean validation.
+// Keep exact removal pinned; its upload/credential code never enters the pack.
+const LEGACY_MEDIA_SHA256='e63d92ac55847cd708cd56374d2967668e4fa7a99599231a7aa2681c96d6a854';
 function removeLegacyMedia(source){
  const startToken='const GMedia=(()=>{',endToken=';const CampaignTracking=';
  const start=source.indexOf(startToken),end=source.indexOf(endToken,start);
@@ -91,8 +93,19 @@ function transformDiagnosticUi(source){
  if(/\b(?:shrigmaChave|shrigmaGuardaChave|shrigmaEsqueceChave|shrigmaMarcaMestra|CX_API_URL|Authorization|auth-key|auth-form)\b/.test(output))throw Error('Legacy diagnostic credential remains');
  return output;
 }
+function bindOperationalBrand(source,file){
+ const contracts={
+  'growth.html':{anchor:"let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;",render:'if(API)render();'},
+  'organico.html':{anchor:"let API=null,MARCA='todas',PER=G.preset('mes',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';",render:'if(API)render();'},
+  'influs.html':{anchor:"let MARCA='todas', SEC='creators';",render:"if(typeof INFLU!=='undefined'&&INFLU)renderTudo();"}
+ };
+ const contract=contracts[file];if(!contract)return source;
+ if(source.split(contract.anchor).length!==2||source.includes("'shrigma:brand-access'"))throw Error('Operational brand presentation contract changed: '+file);
+ const listener=`\n// The BFF authorizes the brand; this listener only keeps the visible panel in that scope.\nwindow.addEventListener('shrigma:brand-access',event=>{\n const scope=event.detail;if(scope?.brandAccess!=='single'||!['fish','aristo'].includes(scope.brand))return;\n MARCA=scope.brand;document.querySelectorAll('#seg-marca button').forEach(button=>button.classList.toggle('ativo',button.dataset.marca===MARCA));\n pintaMarca();${contract.render}\n});\n`;
+ return source.replace(contract.anchor,contract.anchor+listener);
+}
 function transform(input,file){
- let output=input;
+ let output=bindOperationalBrand(input,file);
  if(file==='growth-diagnostic-ui.js')output=transformDiagnosticUi(output);
  if(file==='growth-diagnostico.html'){
   const auth=/<section class="panel" id="auth" hidden>[\s\S]*?<\/section>\n/;
@@ -103,6 +116,12 @@ function transform(input,file){
   if(/\b(?:config\.js|auth-key|auth-form|Chave de leitura)\b/.test(output))throw Error('Legacy diagnostic access remains');
  }
  if(file==='growth.html'){
+  const oldJourney='GFU.render({...ctx,workflowsModel:';
+  if(output.split(oldJourney).length!==2)throw Error('Observed journey binding changed');
+  output=output.replace(oldJourney,'GFU.render({...ctx,observedOnly:true,workflowsModel:');
+  const oldIntro='<h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes.';
+  if(output.split(oldIntro).length!==2)throw Error('Observed journey heading changed');
+  output=output.replace(oldIntro,'<h2>Consulte as jornadas observadas da marca.</h2><p>Jornadas mostra as mensagens registradas. O histórico não declara gatilhos, esperas nem sequência de execução.');
   const target='<div class="crm-home-heading"><h2>Resumo do período</h2></div>';
   if(output.split(target).length!==2)throw Error('CRM diagnostic navigation anchor changed');
   output=output.replace(target,target+'<p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>');
@@ -142,6 +161,19 @@ function safeCopy(source,destination){
  const bytes=fs.readFileSync(from);
  fs.writeFileSync(destination,/\.(?:html|js|css)$/.test(source)?transform(bytes.toString('utf8'),source):bytes);
 }
+function verifyCampaignAssets(directory=__dirname){
+ const inputs=[['crm-campaign-bff-client.cjs','public/campaign-bff-client.js','campaign-bff-client.js'],['public/campaign-edit.js','public/campaign-edit.compiled.js','campaign-edit.js'],['public/entry.js','public/entry.compiled.js','entry.js'],['public/guard.js','public/guard.compiled.js','guard.js']];
+ const read=file=>{const from=path.join(directory,file),stat=fs.lstatSync(from);if(!stat.isFile()||stat.isSymbolicLink())throw Error('Invalid campaign UI asset');return fs.readFileSync(from);};
+ const bytes=read('campaign-ui-assets.json');if(bytes.length>4096)throw Error('Invalid campaign UI manifest');
+ const manifest=JSON.parse(bytes.toString('utf8'));
+ if(Object.keys(manifest).sort().join(',')!=='assets,esbuildVersion,schema'||manifest.schema!=='shrigma_campaign_ui_assets_v1'||manifest.esbuildVersion!=='0.28.2'||!Array.isArray(manifest.assets)||manifest.assets.length!==inputs.length)throw Error('Invalid campaign UI manifest');
+ return inputs.map(([source,compiled,publicName],index)=>{
+  const asset=manifest.assets[index];if(!asset||Object.keys(asset).sort().join(',')!=='compiled,compiledSha256,publicName,source,sourceSha256'||asset.source!==source||asset.compiled!==compiled||asset.publicName!==publicName||!['sourceSha256','compiledSha256'].every(key=>/^[a-f0-9]{64}$/.test(asset[key])))throw Error('Invalid campaign UI manifest');
+  const input=read(source),output=read(compiled);
+  if(crypto.createHash('sha256').update(input).digest('hex')!==asset.sourceSha256||crypto.createHash('sha256').update(output).digest('hex')!==asset.compiledSha256)throw Error('Campaign UI asset needs regeneration');
+  return {publicName,bytes:output};
+ });
+}
 function build(destination){
  if(!destination)throw Error('Usage: node build.cjs /absolute/empty/destination');
  const out=path.resolve(destination);
@@ -156,14 +188,15 @@ function build(destination){
   const target=path.join(publicRoot,folder,'index.html');fs.mkdirSync(path.dirname(target),{recursive:true});
   fs.writeFileSync(target,putCsp(html,target));
  }
- for(const file of ['entry.js','entry.css','guard.js','media-read.js']){
+ for(const file of ['entry.css','media-read.js']){
   const from=path.join(__dirname,'public',file);
   if(fs.lstatSync(from).isSymbolicLink())throw Error('Symlink forbidden: '+file);
   fs.copyFileSync(from,path.join(publicRoot,file));
  }
- const manifest={schema:'shrigma_dashboard_operational_artifact_v1',mode:'cookie-session-bff',areas:Object.values(ENTRIES).map(x=>x.area),publicFiles:[...CONTENT,...Object.keys(ENTRIES).map(x=>`${x}/index.html`),'entry.js','entry.css','guard.js','media-read.js'],fixedApiRoutes:[...new Set(Object.values(ENDPOINTS))],dynamicApiRoutes:DYNAMIC_ROUTES};
+ for(const asset of verifyCampaignAssets())fs.writeFileSync(path.join(publicRoot,asset.publicName),asset.bytes);
+ const manifest={schema:'shrigma_dashboard_operational_artifact_v1',mode:'cookie-session-bff',areas:Object.values(ENTRIES).map(x=>x.area),publicFiles:[...CONTENT,...Object.keys(ENTRIES).map(x=>`${x}/index.html`),'entry.js','entry.css','guard.js','media-read.js','campaign-edit.js','campaign-bff-client.js'],fixedApiRoutes:[...new Set(Object.values(ENDPOINTS))],dynamicApiRoutes:DYNAMIC_ROUTES};
  fs.writeFileSync(path.join(out,'artifact-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
  return {directory:out,files:manifest.publicFiles.length,areas:manifest.areas};
 }
 if(require.main===module)console.log(JSON.stringify(build(process.argv[2])));
-module.exports={build,transform,CONTENT,ENTRIES,ENDPOINTS,DYNAMIC_ROUTES,cspFor};
+module.exports={build,transform,bindOperationalBrand,CONTENT,ENTRIES,ENDPOINTS,DYNAMIC_ROUTES,cspFor,verifyCampaignAssets};

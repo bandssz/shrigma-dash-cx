@@ -1,0 +1,17 @@
+{
+  "README.md": "1aebe151acad4596fdc76f868e423330dbe883fc3bef5e62bae5b5ce273c8ae9",
+  "ci-job-proposal.yml": "a45442fc63d477ff2a13b841fc46cf61f4242e6b243736fb2b9a7939b0622e3c",
+  "native-fixture.cjs": "3c1b80df92513767ed7ce7f1651adcf6919d56d00f5c9d3d3cf77b65fffa3e28",
+  "native-v3-proof-pure.test.cjs": "9015b5ea1622a6a27963fbc1c1b1b228c87ea691b3104a9054ad237924b482ee",
+  "native-v3-proof.test.cjs": "419c2f980b176a0a3adb9dbb98ab7edf2f8ec12bb0cd278a86cb8b553192b117",
+  "pg_hba.conf": "a2501b162522dd9b062c5f85004e1c36ba6473ec2fa5c4c99ca8f922717266e3",
+  "run-native-v3-proof.sh": "13498bb7531f46ccdb4de79deff03130d4db436dbcc9f34dae9ce2ebb401b85b",
+  "sql/auth.sql": "57d47b4ff130179f897eabd1c3a843f39373dcc4d9592a71e485443992867124",
+  "sql/installer.sql": "33a412f3d8b8fc4293010e2aec95dc5a8ba3f1296f86000d50e79cfb87ec0bd9",
+  "sql/operator.sql": "7b1ab4bb657c6109337355c9a615c0fe5ff6a9837e69ef181ab1806d307446e8",
+  "sql/profile.sql": "a20c51e10dfff6c781b94158ed392a38c1ec64d30966281ecd2ede72e52f62e9",
+  "sql/read.sql": "8dd2f1a904626795fbdd8914c366170fb8127f66598db71f0a56163c8a7a17c1",
+  "sql/rollback.sql": "dace1eab926186c4aa277d89c92813ce0ac06cc5fd971c0569f2cd9ef0734d4f",
+  "sql/scope.sql": "add1d1d91e0b6d5d15600c8a2e40875edf725d9afc54d76433751f5003831030",
+  "sql/short.sql": "7337b1e60b06648c28e126586b015dada7165eeb89d040ac6cc46b1f9d983682"
+}

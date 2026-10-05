@@ -1,0 +1,22 @@
+# PROPOSAL ONLY: root owns repository/workflow integration. No publisher added.
+# Copy this private, secret-free proof directory to tools/crm-manager-install-review.
+native-postgres-v3-install-rollback-proof:
+  runs-on: ubuntu-latest
+  timeout-minutes: 8
+  permissions:
+    contents: read
+  steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Install only the locked native fixture client
+      run: npm ci --prefix services/crm-manager-provisioner --ignore-scripts --no-audit --no-fund
+    - name: Prove exact V3 installation and empty rollback on disposable PostgreSQL 17
+      env:
+        CRM_MANAGER_V3_NATIVE_PROOF: '1'
+        NODE_PATH: ${{ github.workspace }}/services/crm-manager-provisioner/node_modules
+      run: bash tools/crm-manager-install-review/run-native-v3-proof.sh

@@ -7,7 +7,13 @@ REVOKE ALL ON FUNCTION public.shrigma_template_auth_v2(text) FROM PUBLIC;
 INSERT INTO public.crm_dash_chave VALUES
  ('synthetic-manager','Synthetic manager','growth',true,NULL,NULL,encode(sha256(convert_to('synthetic-manager-key','UTF8')),'hex')),
  ('synthetic-reader','Synthetic reader','growth',true,NULL,NULL,encode(sha256(convert_to('synthetic-reader-key','UTF8')),'hex'));
-INSERT INTO templates(id,name,subject,body,is_default) VALUES(1,'Synthetic wrapper','','{{ template "content" . }}',true);
+-- The current provider requires the same exclusive template/brand registry as
+-- the real schema. Keep each synthetic brand on its own campaign template.
+CREATE TABLE public.shrigma_template_email_registry(template_id integer,brand text);
+INSERT INTO templates(id,name,subject,body,is_default) VALUES
+ (1,'Synthetic wrapper','','{{ template "content" . }}',true),
+ (2,'Synthetic Aristo wrapper','','{{ template "content" . }}',false);
+INSERT INTO public.shrigma_template_email_registry VALUES(1,'fish'),(2,'aristo');
 INSERT INTO lists(id,uuid,name,type,optin,tags) VALUES
  (3,gen_random_uuid(),'Synthetic Fish double','private','double',ARRAY['fish']),
  (17,gen_random_uuid(),'Synthetic Fish overlap','private','single',ARRAY['fish']),
@@ -22,7 +28,7 @@ INSERT INTO subscriber_lists(subscriber_id,list_id,status) SELECT n,7,'confirmed
 INSERT INTO campaigns(id,uuid,name,subject,from_email,body,altbody,content_type,status,send_at,messenger,template_id,attribs)
  SELECT id,gen_random_uuid(),'Synthetic '||id,'Synthetic subject','Synthetic <synthetic@example.invalid>',
  '<p>Synthetic content</p><a href="{{ UnsubscribeURL }}">Unsubscribe</a>','Synthetic content','html','draft',
- date_trunc('milliseconds',clock_timestamp()+interval '2 hours'),'email',1,
+ date_trunc('milliseconds',clock_timestamp()+interval '2 hours'),'email',CASE WHEN brand='aristo' THEN 2 ELSE 1 END,
  jsonb_build_object('crm',jsonb_build_object('policy','crm-campaign-v1','brand',brand,'initiative_key','synthetic','initiative_name','Synthetic','utm_campaign','synthetic'))
  FROM (VALUES(100,'fish'),(101,'fish'),(200,'aristo'),(201,'aristo')) c(id,brand);
 -- Both arms must have exactly the same timestamp; current revisions include it.

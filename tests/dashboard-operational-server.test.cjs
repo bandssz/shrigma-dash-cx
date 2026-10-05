@@ -12,6 +12,12 @@ function request(port,host,pathname,method='GET',body,headersExtra={}){
     req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));
   });
 }
+async function waitForAdmission(reached,pending,label){
+  let timer;
+  try{
+    await Promise.race([reached,...pending.map(p=>p.then(result=>assert.fail(label+' completed before admission: '+(result?.status??'socket closed')))),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' was not reached within 3000 ms')),3000);})]);
+  }finally{clearTimeout(timer);}
+}
 test('host routing, CX removal and isolated synthetic API enforcement',async t=>{
   const publicDir=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-op-public-'));
   t.after(()=>fs.rmSync(publicDir,{recursive:true,force:true}));
@@ -20,7 +26,8 @@ test('host routing, CX removal and isolated synthetic API enforcement',async t=>
   }
   const auth={
     session:()=>({authenticated:false}),
-    authorize:ctx=>{if(!ctx.cookieHeader)throw new AuthError('SESSION_REQUIRED',401);if(ctx.area&&ctx.host!==HOSTS[ctx.area])throw new AuthError('AREA_DENIED',403);return {role:'manager',areas:[ctx.area],permissions:{[ctx.area]:{read:true,edit:false}}};},
+    authorize:ctx=>{if(!ctx.cookieHeader)throw new AuthError('SESSION_REQUIRED',401);if(ctx.area&&(ctx.area!=='growth'||ctx.host!==HOSTS.growth))throw new AuthError('AREA_DENIED',403);return {id:'synthetic-fish-reader',email:'reader@synthetic.invalid',role:'manager',areas:['growth'],brand:'fish',brands:['fish'],brandAccess:'single',permissions:{growth:{read:true,edit:false}}};},
+    authorizeBrand(ctx,brand){const user=this.authorize(ctx);if(brand!=='fish'||ctx.brand!==undefined&&ctx.brand!=='fish')throw new AuthError('BRAND_DENIED',403);return user;},
     getUpstreamCredential:()=>null
   };
   const server=createServer({...settings,publicDir},{auth});
@@ -38,6 +45,7 @@ test('host routing, CX removal and isolated synthetic API enforcement',async t=>
   const identity=await request(port,HOSTS.growth,'/api/cx?access=1&painel=growth','GET',undefined,{Cookie:'test-session'});
   assert.equal(identity.status,200);
   assert.deepEqual(JSON.parse(identity.body).allowedPanels,['growth']);
+  assert.equal(JSON.parse(identity.body).brand,'fish');assert.equal(JSON.parse(identity.body).brandAccess,'single');
   assert.equal((await request(port,HOSTS.growth,'/api/cx?access=1&painel=influs','GET',undefined,{Cookie:'test-session'})).status,403);
   const health=await request(port,HOSTS.manager,'/healthz');assert.equal(health.status,200);assert.equal(JSON.parse(health.body).mode,'synthetic');
   assert.match(root.headers['content-security-policy'],/frame-ancestors 'self'/);
@@ -70,11 +78,11 @@ test('completed malformed logins do not create a shared-proxy attempt ceiling',a
   const retry=await request(port,HOSTS.manager,'/auth/login','POST',{email:'random@shrigma.com.br',password:'invalid'},{'X-Forwarded-For':'192.0.2.201'});
   assert.equal(retry.status,401);assert.equal(loginCalls,1);assert.equal(lastIp,'127.0.0.1');
 });
-test('login gate ignores spoofed forwarding headers and caps only concurrent requests before JSON parsing',async t=>{
+test('login gate ignores spoofed forwarding headers and caps only concurrent requests before JSON parsing',{timeout:10000},async t=>{
   const publicDir=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-login-pending-'));
   t.after(()=>fs.rmSync(publicDir,{recursive:true,force:true}));
   fs.writeFileSync(path.join(publicDir,'entry.js'),'// public test asset');
-  let started=0,signal,rejects=[];
+  let started=0,signal,rejects=[],pending=[];
   const reached=new Promise(resolve=>signal=resolve);
   const auth={
     login:()=>{
@@ -86,10 +94,10 @@ test('login gate ignores spoofed forwarding headers and caps only concurrent req
   };
   const server=createServer({...settings,publicDir},{auth});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  t.after(async()=>{for(const reject of rejects)reject(new AuthError('AUTH_INVALID',401));await Promise.allSettled(pending);await new Promise(resolve=>server.close(resolve));});
   const port=server.address().port,body={email:'random@shrigma.com.br',password:'invalid'};
-  const pending=Array.from({length:8},(_,i)=>request(port,HOSTS.manager,'/auth/login','POST',body,{'X-Forwarded-For':`198.51.100.${i+1}`,Forwarded:`for=203.0.113.${i+1}`}));
-  await reached;
+  pending=Array.from({length:8},(_,i)=>request(port,HOSTS.manager,'/auth/login','POST',body,{'X-Forwarded-For':`198.51.100.${i+1}`,Forwarded:`for=203.0.113.${i+1}`}));
+  await waitForAdmission(reached,pending,'Eight pending logins');
   const blocked=await request(port,HOSTS.manager,'/auth/login','POST',undefined,{'X-Forwarded-For':'192.0.2.200'});
   assert.equal(blocked.status,429);
   assert.equal(JSON.parse(blocked.body).error,'AUTH_BUSY');
@@ -102,26 +110,26 @@ test('login gate ignores spoofed forwarding headers and caps only concurrent req
   assert.equal((await request(port,HOSTS.manager,'/auth/login','POST')).status,400);
   assert.equal(started,9);
 });
-test('partial login bodies time out and release concurrency slots before the server request timeout',async t=>{
+test('partial login bodies time out and release concurrency slots before the server request timeout',{timeout:10000},async t=>{
   const publicDir=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-login-timeout-'));
   t.after(()=>fs.rmSync(publicDir,{recursive:true,force:true}));
   fs.writeFileSync(path.join(publicDir,'entry.js'),'// public test asset');
-  let started=0,signal,loginCalls=0;
+  let started=0,signal,loginCalls=0;const slowRequests=[];
   const reached=new Promise(resolve=>signal=resolve);
   const auth={login:async()=>{loginCalls++;throw new AuthError('AUTH_INVALID',401);}};
   const server=createServer({...settings,publicDir},{auth,loginBodyTimeoutMs:1000});
   server.on('request',req=>{if(req.method==='POST'&&req.url==='/auth/login'&&++started===8)signal();});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  t.after(async()=>{for(const req of slowRequests)req.destroy();await new Promise(resolve=>server.close(resolve));});
   const port=server.address().port;
   const slow=Array.from({length:8},()=>{
     const req=http.request({hostname:'127.0.0.1',port,path:'/auth/login',method:'POST',headers:{Host:HOSTS.manager,Origin:'https://'+HOSTS.manager,'Content-Type':'application/json','Content-Length':'100'}},res=>res.resume());
-    req.on('error',()=>{});
+    slowRequests.push(req);req.on('error',()=>{});
     const closed=new Promise(resolve=>req.once('close',resolve));
     req.write('{');
     return closed;
   });
-  await reached;
+  await waitForAdmission(reached,slow,'Eight partial login bodies');
   assert.equal((await request(port,HOSTS.manager,'/auth/login','POST',{email:'random@shrigma.com.br',password:'invalid'})).status,429);
   assert.equal((await request(port,HOSTS.manager,'/entry.js')).status,200);
   assert.equal((await request(port,HOSTS.manager,'/healthz')).status,200);
@@ -181,25 +189,32 @@ test('operational startup pins each full destination and its reviewed source rev
   assert.doesNotThrow(()=>createServer({...settings,mode:'synthetic',upstreams:{}},{auth}));
 });
 
-test('operational gateway bounds simultaneous upstream calls per user',async t=>{
+test('operational gateway bounds simultaneous upstream calls per single-brand manager',{timeout:10000},async t=>{
   let release,notify;
   const gate=new Promise(resolve=>release=resolve),fourReached=new Promise(resolve=>notify=resolve);
-  let started=0;
-  const auth={authorize:()=>({id:'manager-one',role:'manager',areas:['growth']}),getUpstreamCredential:()=> 'individual-read-key-1234'};
-  const fetchImpl=async()=>{
+  let started=0,active=[];
+  const manager={id:'synthetic-fish-reader',email:'reader@synthetic.invalid',role:'manager',areas:['growth'],brand:'fish',brands:['fish'],brandAccess:'single',permissions:{growth:{read:true,edit:false}}};
+  const auth={
+    authorize(ctx){assert.equal(ctx.host,HOSTS.growth);assert.equal(ctx.area,'growth');assert.equal(ctx.edit,false);if(ctx.brand!==undefined)assert.equal(ctx.brand,'fish');return manager;},
+    authorizeBrand(ctx,brand){const user=this.authorize(ctx);if(brand!=='fish')throw new AuthError('BRAND_DENIED',403);return user;},
+    getUpstreamCredential(ctx){this.authorize(ctx);assert.equal(ctx.brand,'fish');assert.equal(ctx.slot,'growth-read');return 'individual-read-key-1234';}
+  };
+  const cache={_painel:'growth',_escopo:'growth',_cache_gerado_em:'2026-10-04T05:00:00.000Z',crm_diario:[{marca:'fish',dia:'2026-10-04',enviados:12}]};
+  const fetchImpl=async(raw,options)=>{
+    assert.equal(new URL(raw).href,FIXED_DESTINATIONS.cx+'?painel=growth');assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer individual-read-key-1234');
     if(++started===4)notify();
     await gate;
-    return new Response(JSON.stringify({ok:true}),{status:200,headers:{'content-type':'application/json'}});
+    return new Response(JSON.stringify(cache),{status:200,headers:{'content-type':'application/json'}});
   };
   const server=createServer({...settings,mode:'operational',upstreams:{cx:new URL(FIXED_DESTINATIONS.cx)},allowedUpstreamHosts:[new URL(FIXED_DESTINATIONS.cx).hostname]},{auth,fetchImpl});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  t.after(async()=>{release();await Promise.allSettled(active);await new Promise(resolve=>server.close(resolve));});
   const port=server.address().port,route='/api/cx?painel=growth';
-  const active=Array.from({length:4},()=>request(port,HOSTS.growth,route));
-  await fourReached;
+  active=Array.from({length:4},()=>request(port,HOSTS.growth,route));
+  await waitForAdmission(fourReached,active,'Four manager upstream calls');
   assert.equal((await request(port,HOSTS.growth,route)).status,429);
   assert.equal(started,4);
   release();
-  for(const result of await Promise.all(active))assert.equal(result.status,200);
-  assert.equal((await request(port,HOSTS.growth,route)).status,200);
+  for(const result of await Promise.all(active)){assert.equal(result.status,200);const body=JSON.parse(result.body);assert.equal(body.brand,'fish');assert.equal(body.brandAccess,'single');assert.deepEqual(body.brands,['fish']);assert.deepEqual(body.crm_diario,cache.crm_diario);}
+  const resumed=await request(port,HOSTS.growth,route);assert.equal(resumed.status,200);assert.equal(started,5);assert.deepEqual(JSON.parse(resumed.body).crm_diario,cache.crm_diario);
 });

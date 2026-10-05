@@ -31,6 +31,7 @@ async function setupRegularPostgres(db,{subscribersPerBrand,rulesByBrand={},cata
   CREATE INDEX regular_cost_list_member ON subscriber_lists(list_id,subscriber_id);
   CREATE TABLE campaign_views(campaign_id integer,subscriber_id integer,created_at timestamptz NOT NULL);
   CREATE TABLE link_clicks(campaign_id integer,subscriber_id integer,created_at timestamptz NOT NULL);`);
+ await exec(read('n8n/growth/campaign-template-ownership.sql'));
  await exec(read('n8n/growth/campaign-provider.sql').split('-- Current regular-campaign eligibility')[0]);
  await exec(`CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text,ativo boolean DEFAULT true,revogada_em timestamptz,expira_em timestamptz,chave_hash text,chave_hash_curta text);
   CREATE TABLE shrigma_panel_permission_v1(principal_id text,area text,caps jsonb,PRIMARY KEY(principal_id,area));

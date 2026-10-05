@@ -1,0 +1,80 @@
+Acessos corporativos por setor e marca — candidata, 04/10/2026
+
+Objetivo
+O mestre cadastra email corporativo, um setor (CRM, Orgânico ou Influs &
+Afiliados), uma marca (Fishermans ou O Aristocrata) e o nível solicitado.
+A pessoa define a senha pelo convite de uso único e entra com email/senha.
+Leitura e solicitação de edição são estados distintos; solicitar edição não
+cria uma credencial de escrita nem ativa qualquer serviço ou envio.
+
+Identidade
+O IAM adiciona user_brand_grants_v1, user_brand_lifecycles_v1 e
+upstream_brand_bindings_v1 ao SQLite. Vínculos e ciclo de vida são protegidos
+pela integridade criptográfica existente. Credenciais e diários continuam
+privados, ligados ao titular, setor e marca. Contas e sessões existentes não
+são reescritas. Master preserva todas as áreas e marcas.
+
+Um gestor antigo sem vínculo comprovado de marca precisa de recredenciamento
+explícito. O código não converte essa ausência em acesso às duas marcas.
+Marca/setor de uma conta já vinculada são imutáveis nesta versão; a troca
+formal de lotação ainda precisa de um fluxo próprio. Revogar e convidar
+novamente na mesma marca mantém as verificações do ciclo de vida.
+
+Autorização e dados
+Gestores apresentam a marca em consultas e intenções. O BFF verifica a
+autorização antes de ler diários, escolher credenciais ou buscar dados, e
+confere novamente após a resposta. O filtro de cache por marca roda no
+servidor com uma lista explícita de relações e campos. Agregados desconhecidos,
+campos aninhados e marcas alheias não chegam ao navegador. Medições
+incompletas não são apresentadas como zero. Master conserva a seleção
+consolidada já permitida pelo proxy; seleções novas continuam recusadas.
+
+As pontes privadas de CRM, públicos e templates também comparam a marca do
+contexto individual com a da consulta antes de qualquer efeito ou transporte.
+Esta alteração não modifica SQL, atestações do catálogo, permissões PostgreSQL,
+papéis, bindings físicos ou flags de ativação.
+
+Limitações deliberadas
+O catálogo atual enumera templates sem um contrato comprovado de propriedade
+por marca. No portal de produção, gestores não recebem um catálogo global e
+não podem criar, salvar, conferir ou agendar conteúdo enquanto esse contrato
+não for admitido. A lista do admin informa a disponibilidade efetiva, mesmo
+quando um WRITER físico esteja pronto. Cancelamento próprio com FULL e leitura
+do recibo original continuam como exceções explícitas; READ não libera essas
+ações. O ambiente sintético fechado preserva os percursos de teste.
+
+Orgânico e Influs ainda precisam de contratos próprios de dados por marca.
+Os gestores desses setores permanecem sem leitura/edição operacional no novo
+portal até o aceite desses contratos. A hospedagem e os acessos existentes
+do mestre são preservados. Esta candidata não é o corte completo solicitado.
+
+Interface
+O formulário exige setor/marca/nível e a sessão determina a seleção disponível.
+Um gestor não amplia acesso alterando o seletor, a URL ou o corpo do pedido.
+O mestre mantém a escolha consolidada. Guardas de interface aguardam a sessão
+antes de carregar dados; a proteção independente continua no servidor.
+
+Provas e instalação
+Casos sintéticos cobrem contas Fish e Aristo, marca alheia, adulteração de
+vínculo/credencial, revogação, troca de sessão, respostas tardias, diários,
+catálogo, métricas, mestre consolidado e apresentação de edição indisponível.
+Esses testes não comprovam usuários, integrações ou permissões no portal real.
+O cadastro da equipe e os endereços finais ainda dependem de aceite real.
+
+O rollout precisa de imagem/pacote pinados e instância e volume novos, após
+medir capacidade e definir limites. Não sobrescrever o volume do V24. Fazer
+backup consistente cifrado, validar restauração e custódia da chave fora do
+Mac antes do uso operacional. Não repetir o estágio READ de resultado
+desconhecido: reconciliar a intenção original com suas provas preservadas.
+
+Reversão
+Voltar à instância anterior e ao volume original, no escopo autorizado.
+Nunca executar o IAM antigo sobre um volume novo com contas restritas por
+marca: a versão antiga não interpreta esses vínculos. Preservar ambos os
+volumes e os diários; rollback não apaga nem desfaz envios. Não apagar a
+intenção de operação com resultado desconhecido nem trocar sua credencial.
+
+Estado
+Candidata preparada/testada em isolamento. Nenhum gestor ou envio é ativado
+por este arquivo ou commit. Sem DNS, tráfego, pipeline de produção, banco de
+produção ou hospedagem existente alterados por este lote.

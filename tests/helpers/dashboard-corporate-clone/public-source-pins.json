@@ -1,0 +1,66 @@
+{
+  "schema": "corporate-clone-directed-public-sources-v1",
+  "sourceRevision": "0e488d82431f4985ab6202a422dff4b837c4b1c3",
+  "files": [
+    {
+      "file": "public-source/services/dashboard-operational/auth.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/auth.cjs",
+      "sha256": "585f1e74774ed3d73f6bf49a465ce06437bbf5166af1bb8da1618657958db7ed",
+      "bytes": 74328
+    },
+    {
+      "file": "public-source/services/dashboard-operational/backend-credential-attestation.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/backend-credential-attestation.cjs",
+      "sha256": "0e97c44f814dc9e2a353f0cbf6bf4049a90dfdd32810b830d49a2aeedae3b0ec",
+      "bytes": 7587
+    },
+    {
+      "file": "public-source/services/dashboard-operational/crm-manager-journal.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/crm-manager-journal.cjs",
+      "sha256": "8c233aca65b834086e8562a40cb53f0e30314a0fc3f9c1bba70faffc20296f07",
+      "bytes": 24432
+    },
+    {
+      "file": "public-source/services/dashboard-operational/artifact-policy.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/artifact-policy.cjs",
+      "sha256": "13057da20595cb8300517b33c8e76643dc866e55e50b8b3ead04c3eab154ae66",
+      "bytes": 6949
+    },
+    {
+      "file": "public-source/services/dashboard-operational/bootstrap.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/bootstrap.cjs",
+      "sha256": "6f3bff53826eff2788be17181fbae2a619ec42a482092cf25924ad0864c6dde0",
+      "bytes": 5050
+    },
+    {
+      "file": "public-source/services/dashboard-operational/canary-image.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/canary-image.cjs",
+      "sha256": "195a7e24ab74e795cdf451190042c1d2bd0b5e7aa00ae0ece8f6069fbfa445cc",
+      "bytes": 3450
+    },
+    {
+      "file": "public-source/services/dashboard-operational/canary-start.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/canary-start.cjs",
+      "sha256": "0d47603282a95af89d1dd4534b316b1c1df5157e0b93c3d6b0a5792edc794000",
+      "bytes": 2793
+    },
+    {
+      "file": "shadow-import.cjs",
+      "origin": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/migration/crm-final-20261003/integrator-transfer-20261004/corporate-clone-proposal/reused/shadow-import.cjs",
+      "sha256": "f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e",
+      "bytes": 7607
+    },
+    {
+      "file": "public-source/services/dashboard-operational/proxy.cjs",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/proxy.cjs",
+      "sha256": "2ac97568639f0b9777e6491687b0cbf791208e8b1636d09cb9507cfd71463b92",
+      "bytes": 38739
+    },
+    {
+      "file": "public-source/services/dashboard-operational/segment-audience-contract.js",
+      "origin": "git:bandssz/shrigma-dash-cx@0e488d82431f4985ab6202a422dff4b837c4b1c3:services/dashboard-operational/segment-audience-contract.js",
+      "sha256": "a0ac4d8d06ed408f213e7de53a9dbdeb109acc347e4c434d75b9726602bb4ce7",
+      "bytes": 11927
+    }
+  ]
+}

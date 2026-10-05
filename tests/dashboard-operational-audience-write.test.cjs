@@ -1,5 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto');
+const {DatabaseSync}=require('node:sqlite');
 const {createAuth}=require('../services/dashboard-operational/auth.cjs');
 const {createServer}=require('../services/dashboard-operational/server.cjs');
 const {DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,audiencePayloadHash}=require('../services/dashboard-operational/proxy.cjs');
@@ -27,7 +28,7 @@ function call(port,host,pathname,{method='GET',body,cookie:session,csrf,origin='
  });
 }
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
-async function harness(t){
+async function harness(t,brand='fish'){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-audience-bff-'));
  const bootstrap=crypto.randomBytes(32).toString('base64url');
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(bootstrap).digest('hex'),encryptionKey:crypto.randomBytes(32).toString('hex')});
@@ -78,17 +79,19 @@ async function harness(t){
  assert.equal((await post(port,hosts.manager,'/auth/bootstrap/complete',{email:'admin@synthetic.invalid',token:bootstrap,password:adminPassword})).status,200);
  const adminLogin=await post(port,hosts.manager,'/auth/login',{email:'admin@synthetic.invalid',password:adminPassword});
  assert.equal(adminLogin.status,200);const admin={cookie:cookie(adminLogin),csrf:adminLogin.json.csrf};
- const invite=await post(port,hosts.manager,'/auth/users',{action:'invite',role:'manager',email:'crm@synthetic.invalid',areas:['growth'],permissions:{growth:{read:true,edit:true}}},admin);
+ const email='crm-'+brand+'@synthetic.invalid';
+ const invite=await post(port,hosts.manager,'/auth/users',{action:'invite',role:'manager',email,brand,areas:['growth'],permissions:{growth:{read:true,edit:true}}},admin);
  assert.equal(invite.status,201);
  const userId=invite.json.userId,token=new URLSearchParams(new URL(invite.json.inviteUrl).hash.slice(1)).get('invite');
  const managerPassword='Synthetic Manager Password 2026!';
  assert.equal((await post(port,hosts.growth,'/auth/invite/accept',{token,password:managerPassword})).status,200);
  assert.equal((await post(port,hosts.manager,'/auth/users',{action:'credential',userId,slot:'growth-audience',bearer:writer},admin)).status,200);
  const login=async()=>{
-  const response=await post(port,hosts.growth,'/auth/login',{email:'crm@synthetic.invalid',password:managerPassword});
+  const response=await post(port,hosts.growth,'/auth/login',{email,password:managerPassword});
   assert.equal(response.status,200);return {cookie:cookie(response),csrf:response.json.csrf};
  };
- return {port,offPort,post,call,admin,userId,login,manager:await login(),records,state};
+ const inspect=fn=>{const db=new DatabaseSync(path.join(dir,'identity.sqlite'));try{return fn(db);}finally{db.close();}};
+ return {port,offPort,post,call,admin,userId,login,manager:await login(),records,state,inspect};
 }
 
 test('audience writer remains OFF by default and permits only verified create, save and archive receipts',async t=>{
@@ -138,29 +141,35 @@ test('absent or contradictory receipts never clear uncertainty; a durable reject
  assert.equal(missing.status,502);assert.equal(missing.json.error,'UPSTREAM_RECEIPT_UNCONFIRMED');
  assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=fish&idempotency_key=${fishKey}`,h.manager)).status,404);
  assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_criar','fish',crypto.randomUUID()),h.manager)).status,409);
+ const a=await harness(t,'aristo');assert.notEqual(a.userId,h.userId);
+ const foreign=makeBody('segmento_criar','aristo',crypto.randomUUID()),beforeCalls={post:h.state.postCalls,lookup:h.state.lookupCalls,scope:h.state.scopeCalls},beforeJournal=h.inspect(db=>db.prepare('SELECT * FROM audience_draft_operations ORDER BY user_id,brand').all());
+ assert.equal((await h.post(h.port,hosts.growth,'/api/segments',foreign,h.manager)).status,403);
+ assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${foreign.idempotency_key}`,h.manager)).status,403);
+ assert.equal((await h.call(h.port,hosts.growth,'/auth/audience-draft?brand=aristo',h.manager)).status,403);
+ assert.deepEqual({post:h.state.postCalls,lookup:h.state.lookupCalls,scope:h.state.scopeCalls},beforeCalls);assert.deepEqual(h.inspect(db=>db.prepare('SELECT * FROM audience_draft_operations ORDER BY user_id,brand').all()),beforeJournal);assert.equal(h.inspect(db=>db.prepare("SELECT count(*) n FROM audience_draft_operations WHERE user_id=? AND brand='aristo'").get(h.userId)).n,0);
  const aristoKey=crypto.randomUUID(),aristo=makeBody('segmento_criar','aristo',aristoKey);
- h.state.next={tamper:'action'};
- const contradictory=await h.post(h.port,hosts.growth,'/api/segments',aristo,h.manager);
+ a.state.next={tamper:'action'};
+ const contradictory=await a.post(a.port,hosts.growth,'/api/segments',aristo,a.manager);
  assert.equal(contradictory.status,502);assert.equal(contradictory.json.error,'UPSTREAM_RECEIPT_UNCONFIRMED');
- h.records.get(aristoKey).tamper='payload';
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
- h.records.get(aristoKey).tamper='actor';
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
- h.records.get(aristoKey).tamper='definition';
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,502);
- assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',crypto.randomUUID()),h.manager)).status,409);
- h.records.get(aristoKey).tamper=null;
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,h.manager)).status,201);
- const saveKey=crypto.randomUUID();h.state.next={tamper:'id'};
- assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',saveKey,1),h.manager)).status,502);
- h.records.get(saveKey).tamper='version';
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,h.manager)).status,502);
- assert.equal((await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',crypto.randomUUID(),1),h.manager)).status,409);
- h.records.get(saveKey).tamper=null;
- assert.equal((await h.call(h.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,h.manager)).status,200);
- const rejectionKey=crypto.randomUUID();h.state.next={rejection:true};
- const rejected=await h.post(h.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',rejectionKey),h.manager);
+ a.records.get(aristoKey).tamper='payload';
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,a.manager)).status,502);
+ a.records.get(aristoKey).tamper='actor';
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,a.manager)).status,502);
+ a.records.get(aristoKey).tamper='definition';
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,a.manager)).status,502);
+ assert.equal((await a.post(a.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',crypto.randomUUID()),a.manager)).status,409);
+ a.records.get(aristoKey).tamper=null;
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${aristoKey}`,a.manager)).status,201);
+ const saveKey=crypto.randomUUID();a.state.next={tamper:'id'};
+ assert.equal((await a.post(a.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',saveKey,1),a.manager)).status,502);
+ a.records.get(saveKey).tamper='version';
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,a.manager)).status,502);
+ assert.equal((await a.post(a.port,hosts.growth,'/api/segments',makeBody('segmento_salvar','aristo',crypto.randomUUID(),1),a.manager)).status,409);
+ a.records.get(saveKey).tamper=null;
+ assert.equal((await a.call(a.port,hosts.growth,`/api/segments?acao=segmento_operacao&brand=aristo&idempotency_key=${saveKey}`,a.manager)).status,200);
+ const rejectionKey=crypto.randomUUID();a.state.next={rejection:true};
+ const rejected=await a.post(a.port,hosts.growth,'/api/segments',makeBody('segmento_criar','aristo',rejectionKey),a.manager);
  assert.equal(rejected.status,409);assert.equal(rejected.json.error,'SEGMENT_CATALOG_CHANGED');
- assert.equal((await h.call(h.port,hosts.growth,'/auth/audience-draft?brand=aristo',h.manager)).json.operation.phase,'rejected');
- assert.equal(h.state.postCalls,4,'no write was replayed during receipt recovery');
+ assert.equal((await a.call(a.port,hosts.growth,'/auth/audience-draft?brand=aristo',a.manager)).json.operation.phase,'rejected');
+ assert.equal(h.state.postCalls+a.state.postCalls,4,'no write was replayed during receipt recovery');assert.equal(h.state.postCalls,1);assert.equal(a.state.postCalls,3);
 });

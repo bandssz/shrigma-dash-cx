@@ -1,0 +1,19 @@
+{
+ "base_commit": "1405de517c8dd0bb9492c5567056e1702f957af4",
+ "base_ref": "claude/crm-read-parity-20261003 (PR #219) — base declarada da #221",
+ "note": "Cópia exata dos arquivos da base. Conferir: git rev-parse <base_commit>:<source> == git_blob.",
+ "files": {
+  "growth-templates-api.base.js": {
+   "source": "growth-templates-api.js",
+   "bytes": 16273,
+   "sha256": "460bdd7c899cf98e2b2f5b70a012f187052fbe0350d010f70de511481a2dbb85",
+   "git_blob": "63986dc8adb9c5b1242e7f5bae6b4123bb690615"
+  },
+  "growth-media.base.js": {
+   "source": "growth-media.js",
+   "bytes": 23096,
+   "sha256": "21b519e33cef451bc2cfb914a84d6af46ba688a962626bc9a47e11be1d79be84",
+   "git_blob": "81c744a9493a6fd6c987836c6e7f2cd547192be1"
+  }
+ }
+}

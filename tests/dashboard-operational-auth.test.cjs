@@ -122,13 +122,13 @@ test('a legacy unactivated admin completes private bootstrap without a verificat
 test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',async()=>{
  const f=fixture();try{
   const admin=await activateAdmin(f),context=admin.context;
-  assert.throws(()=>f.auth.createInvite({context:{...context,origin:'https://other.test'},email:'gestor@shrigma.test',areas:['growth']}),error('ORIGIN_DENIED',403));
-  assert.throws(()=>f.auth.createInvite({context:{...context,csrf:'bad'},email:'gestor@shrigma.test',areas:['growth']}),error('CSRF_DENIED',403));
-  assert.throws(()=>f.auth.createInvite({context,email:'gestor@other.test',areas:['growth']}),error('EMAIL_DOMAIN_DENIED',400));
+  assert.throws(()=>f.auth.createInvite({context:{...context,origin:'https://other.test'},email:'gestor@shrigma.test',areas:['growth'],brand:'fish'}),error('ORIGIN_DENIED',403));
+  assert.throws(()=>f.auth.createInvite({context:{...context,csrf:'bad'},email:'gestor@shrigma.test',areas:['growth'],brand:'fish'}),error('CSRF_DENIED',403));
+  assert.throws(()=>f.auth.createInvite({context,email:'gestor@other.test',areas:['growth'],brand:'fish'}),error('EMAIL_DOMAIN_DENIED',400));
   assert.throws(()=>f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['cx']}),error('GRANTS_INVALID',400));
   assert.throws(()=>f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['growth','organico']}),error('GRANTS_INVALID',400));
-  assert.throws(()=>f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['organico'],permissions:{organico:{read:true,edit:true}}}),error('GRANTS_INVALID',400));
-  const invitation=f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['growth'],permissions:{growth:{read:true,edit:true}}});
+  assert.throws(()=>f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['organico'],brand:'fish',permissions:{organico:{read:true,edit:true}}}),error('GRANTS_INVALID',400));
+  const invitation=f.auth.createInvite({context,email:'gestor@shrigma.test',areas:['growth'],brand:'fish',permissions:{growth:{read:true,edit:true}}});
   assert.equal(invitation.host,hosts.growth);assert.equal(f.auth.users({context}).length,2);
   await assert.rejects(f.auth.acceptInvite({token:invitation.token,password:'short',host:hosts.growth,origin:origin(hosts.growth)}),error('PASSWORD_INVALID',400));
   await f.auth.acceptInvite({token:invitation.token,password:'gestor-synthetic-password',host:hosts.growth,origin:origin(hosts.growth)});
@@ -136,7 +136,7 @@ test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',asyn
   const manager=await f.auth.login({email:'gestor@shrigma.test',password:'gestor-synthetic-password',host:hosts.growth,origin:origin(hosts.growth),ip:'192.0.2.11'});
   assert.deepEqual(manager.user.areas,['growth']);assert.equal(manager.user.permissions.growth.edit,true);
   assert.notEqual(manager.uiKey,admin.login.uiKey);
-  const managerCtx={cookieHeader:cookieHeader(manager.cookie),host:hosts.growth,origin:origin(hosts.growth),method:'POST',csrf:manager.csrf,area:'growth',edit:true};
+  const managerCtx={cookieHeader:cookieHeader(manager.cookie),host:hosts.growth,origin:origin(hosts.growth),method:'POST',csrf:manager.csrf,area:'growth',edit:true,brand:'fish'};
   assert.equal(f.auth.authorize(managerCtx).email,'gestor@shrigma.test');
   assert.throws(()=>f.auth.authorize({...managerCtx,area:'organico'}),error('AREA_DENIED',403));
   assert.throws(()=>f.auth.authorize({...managerCtx,csrf:'bad'}),error('CSRF_DENIED',403));
@@ -158,7 +158,7 @@ test('invite, area grants, CSRF, encrypted per-slot bearers and revocation',asyn
   const restore=new DatabaseSync(f.dbPath);
   try{restore.prepare('DELETE FROM grants WHERE user_id=? AND area=?').run(invitation.userId,'organico');}finally{restore.close();}
   assert.equal(f.auth.session({cookieHeader:cookieHeader(manager.cookie),host:hosts.growth}).authenticated,true);
-  const second=f.auth.createInvite({context,email:'outro@shrigma.test',areas:['growth'],permissions:{growth:{read:true,edit:true}}});
+  const second=f.auth.createInvite({context,email:'outro@shrigma.test',areas:['growth'],brand:'fish',permissions:{growth:{read:true,edit:true}}});
   assert.throws(()=>f.auth.setUpstreamCredential({context,userId:second.userId,slot:'growth-campaign',bearer}),error('CREDENTIAL_REUSED',409));
   // Reusing a bearer in another slot for the same person is permitted; a
   // second person cannot receive that bearer in any slot.
@@ -206,7 +206,7 @@ test('legacy GET edits require exact Origin, CSRF and an edit grant',async()=>{
 test('login rate limits, host binding, and absolute session expiry',async()=>{
  const f=fixture();try{
   const admin=await activateAdmin(f);
-  const invite=f.auth.createInvite({context:admin.context,email:'colega@shrigma.test',areas:['growth']});
+  const invite=f.auth.createInvite({context:admin.context,email:'colega@shrigma.test',areas:['growth'],brand:'fish'});
   await f.auth.acceptInvite({token:invite.token,password:'colleague-test-password',host:hosts.growth,origin:origin(hosts.growth)});
   for(let i=0;i<5;i++)await assert.rejects(f.auth.login({email:'owner@shrigma.test',password:'wrong-passphrase-value',host:hosts.manager,origin:origin(hosts.manager),ip:'192.0.2.55'}),error('AUTH_INVALID',401));
   await assert.rejects(f.auth.login({email:'owner@shrigma.test',password:'test-owner-passphrase-2026',host:hosts.manager,origin:origin(hosts.manager),ip:'192.0.2.55'}),error('AUTH_RATE_LIMIT',429));
@@ -294,12 +294,12 @@ test('invalid password types cannot create unbounded per-email limit records',as
 test('successful login and new invitation purge expired sessions and spent invite tokens',async()=>{
  const f=fixture();try{
   const admin=await activateAdmin(f);
-  const first=f.auth.createInvite({context:admin.context,email:'first@shrigma.test',areas:['growth']});
+  const first=f.auth.createInvite({context:admin.context,email:'first@shrigma.test',areas:['growth'],brand:'fish'});
   await f.auth.acceptInvite({token:first.token,password:'first-manager-password',host:hosts.growth,origin:origin(hosts.growth)});
   f.advance(31*60*1000);
   const renewed=await f.auth.login({email:'owner@shrigma.test',password:'test-owner-passphrase-2026',host:hosts.manager,origin:origin(hosts.manager),ip:'192.0.2.10'});
   const context={cookieHeader:cookieHeader(renewed.cookie),host:hosts.manager,origin:origin(hosts.manager),method:'POST',csrf:renewed.csrf};
-  f.auth.createInvite({context,email:'second@shrigma.test',areas:['influs']});
+  f.auth.createInvite({context,email:'second@shrigma.test',areas:['influs'],brand:'fish'});
   const inspect=new DatabaseSync(f.dbPath);
   try{
    assert.equal(inspect.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,1);
@@ -336,7 +336,7 @@ test('admin uses only a self-owned Growth reader for CRM while backend identity 
    await assert.rejects(attach(),error('CREDENTIAL_ATTESTATION_FAILED',403));
    assert.equal(stored(),bearer);
   }
-  const invited=f.auth.createInvite({context:admin.context,email:'pending@shrigma.test',areas:['growth']});
+  const invited=f.auth.createInvite({context:admin.context,email:'pending@shrigma.test',areas:['growth'],brand:'fish'});
   const before=checks;
   await assert.rejects(f.auth.setCrmPanelReadCredential({context:admin.context,userId:invited.userId,slot:'crm-panel-read',bearer,fetchImpl}),error('GRANT_DENIED',403));
   f.auth.revokeUser({context:admin.context,userId:invited.userId});

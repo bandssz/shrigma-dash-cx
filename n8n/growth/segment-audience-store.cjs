@@ -34,6 +34,7 @@ const SQL=Object.freeze({
  // The shared helper uses now(), which is transaction-start time. Match the
  // exact helper identity/key again with clock_timestamp() after every wait.
  auth:"SELECT operator,live_count,live_actor FROM crm_audience_v2.authenticate($1::text)",
+ corporateAuth:"SELECT crm_audience_v2.authenticate_corporate_v1($1::text,$2::text) AS binding",
  lock:"SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('crm-audience-v2-request:'||pg_catalog.jsonb_build_array($1::text,$2::text)::text,0))",
  operation:"SELECT brand,payload,payload_hash,response FROM crm_audience_v2.request WHERE actor=$1::text AND operation_key=$2::text",
  config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at FROM crm_audience_v2.config_snapshot($1::text)",
@@ -52,7 +53,12 @@ const SQL=Object.freeze({
 });
 function date(v){const n=v instanceof Date?v.getTime():Date.parse(v);if(!Number.isFinite(n))throw fail('SEGMENT_READBACK_UNCONFIRMED');return n;}
 function iso(v){return new Date(date(v)).toISOString();}
-async function readAuth(query,key,needed){
+async function readAuth(query,key,needed,{corporateWriter=false,brand}={}){
+ if(corporateWriter){
+  const rows=(await query(SQL.corporateAuth,[key,brand])).rows,b=rows?.length===1?rows[0].binding:null;
+  if(!exact(b,['actor','caps','brand'])||b.brand!==brand||typeof b.actor!=='string'||!/^panel:[A-Za-z0-9_.:-]{1,194}$/.test(b.actor)||!Array.isArray(b.caps)||b.caps.length!==4||new Set(b.caps).size!==4||!['read_content','draft','validate','submit'].every(c=>b.caps.includes(c)))throw fail('SEGMENT_ACCESS_DENIED',403);
+  return {actor:b.actor,caps:b.caps};
+ }
  const rows=(await query(SQL.auth,[key])).rows,op=rows?.length===1?rows[0].operator:null;
  if(!op||typeof op.who!=='string'||!/^panel:[A-Za-z0-9_.:-]{1,194}$/.test(op.who)||rows[0].live_count!==1||rows[0].live_actor!==op.who)throw fail('SEGMENT_UNAUTHORIZED',401);
  if(!Array.isArray(op.caps)||!op.caps.includes(needed))throw fail('SEGMENT_ACCESS_DENIED',403);
@@ -166,8 +172,8 @@ function operationV2(old,p,actor){
  }
  return response(200,{operation:{schema:'crm-audience-operation-v2',idempotency_key:p.idempotency_key,brand:p.brand,action:original.acao,actor_sha256:H.digest(actor),payload_sha256:old.payload_hash,receipt:{status,body}}});
 }
-function createAudienceStore({transaction,countProvider=null,refreshCatalog=null,timeoutMs=25000}={}){
- if(typeof transaction!=='function'||refreshCatalog!==null&&typeof refreshCatalog!=='function'||countProvider!==null&&typeof countProvider!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<10||timeoutMs>30000)throw fail('SEGMENT_ADAPTER_INVALID');
+function createAudienceStore({transaction,countProvider=null,refreshCatalog=null,timeoutMs=25000,corporateWriter=false}={}){
+ if(typeof corporateWriter!=='boolean'||corporateWriter&&countProvider!==null||typeof transaction!=='function'||refreshCatalog!==null&&typeof refreshCatalog!=='function'||countProvider!==null&&typeof countProvider!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<10||timeoutMs>30000)throw fail('SEGMENT_ADAPTER_INVALID');
  async function execute({key,request:input,signal:external}={}){
   let p;try{p=request(input);}catch(e){return error(e.status||400,e.code||'SEGMENT_REQUEST_INVALID');}
   if(typeof key!=='string'||!/^[a-z0-9-]{8,128}$/.test(key))return error(401,'SEGMENT_UNAUTHORIZED');
@@ -179,7 +185,7 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
    const query=async(text,values=[])=>{active();const r=await tx.query(text,values);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_READBACK_UNCONFIRMED');return r;};
    await query(SQL.setup);const boundary=(await query(SQL.boundary)).rows[0];
    if(boundary?.isolation!=='read committed'||!(Number(boundary.timeout_ms)>0&&Number(boundary.timeout_ms)<=30000))throw fail('SEGMENT_SESSION_BOUNDARY');
-   const first=await readAuth(query,key,needed),reauth=async()=>{const a=await readAuth(query,key,needed);if(a.actor!==first.actor)throw fail('SEGMENT_UNAUTHORIZED',401);return a;};
+   const scope={corporateWriter,brand:p.brand},first=await readAuth(query,key,needed,scope),reauth=async()=>{const a=await readAuth(query,key,needed,scope);if(a.actor!==first.actor)throw fail('SEGMENT_UNAUTHORIZED',401);return a;};
    if(p.acao==='segmento_contexto_v2'){
     if(!first.caps.includes('draft'))throw fail('SEGMENT_ACCESS_DENIED',403);
     await reauth();return response(200,{scope:{schema:'crm-audience-writer-scope-v2',brand:p.brand,actor_sha256:H.digest(first.actor)}});

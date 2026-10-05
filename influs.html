@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=9d723386a6a4">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L3FJGWQBN4mTSocasKZ+JrlC/8UCq72fzkdOvG6jl6s='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=954e7aeae13f">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YvsiXN2Vqv+I1zb0FCmw4cT1+7wkMQSVGxtp/X4sbYU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -502,6 +502,8 @@ async function influPost(corpo,leitura={}){
   }
   const valid=j&&typeof j==='object'&&!Array.isArray(j)&&Object.keys(j).length>0;
   if(!valid){const err=new Error(escrita?'Resposta não confirmada. Confira o estado antes de repetir a alteração.':'Resposta de leitura indisponível; tente atualizar novamente.');if(!escrita&&(r.status>=500||r.status===429))err.transitorio=true;throw err;}
+  // Portal: leitura por marca ainda sem contrato validado. Não é vazio nem falha passageira.
+  if(!escrita&&r.status===503&&j.error==='BRAND_READ_CONTRACT_NOT_READY'){const err=new Error('A leitura de Influs & Afiliados para a sua marca ainda aguarda validação. Nenhum dado foi exibido, e isso não significa ausência de resultados. Dados de outras marcas não são apresentados.');err.semContrato=true;throw err;}
   if(!r.ok||j.erro){
     const message=typeof j.erro==='string'?j.erro.slice(0,400):'Não foi possível concluir a operação (HTTP '+r.status+').';
     throw new Error(corpo.k?message.split(corpo.k).join('[acesso ocultado]'):message);
@@ -569,6 +571,12 @@ async function carregarInflu(){
   }catch(e){
     // A current authorization refusal may already have cleared the key inside influPost.
     if(seq!==INFLU_SEQ||(!vigente()&&e.status!==401&&e.status!==403))return;
+    if(e.semContrato){
+      INFLU=null;INFLU_ULTIMA=null;
+      avisoTela('Leitura da sua marca aguardando validação',esc(e.message));
+      document.querySelectorAll('#area-creators,#area-cupons,#i-inbox,#i-contadores,#i-custo-aviso,#area-conferencia,#n-creators,#n-cupons,#i-frescor').forEach(el=>{el.textContent='';});
+      return;
+    }
     const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
     const ult=INFLU_ULTIMA;
     if(!chaveRuim&&ult&&ult.k===k&&ult.ini===periodo.ini&&ult.fim===periodo.fim){

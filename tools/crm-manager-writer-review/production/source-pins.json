@@ -1,0 +1,13 @@
+{
+  "../writer-provision-v1.sql": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04",
+  "../writer-empty-rollback-v1.sql": "19a3714bb989047a8ad304ef05d88a916ef841705d69b003b2cc828571164ecd",
+  "../../crm-manager-read-activation-review/activation.cjs": "9a3459983b415661e2665e8c3f6de1ae4fa6aa712ae012ebd3344da09e180a83",
+  "../../crm-manager-read-activation-review/sources.cjs": "9c216b9e651c52e142babb3c069493b4f8329cdc0320eadef37be99bd13a1de8",
+  "../../crm-manager-install-review/runtime/run-install.cjs": "ed5b2c033b04fb1d6fc7ab818ac095bbfb207134b1442e14a004d8c62701e75e",
+  "../../crm-manager-install-review/runtime/sql/installer.sql": "33a412f3d8b8fc4293010e2aec95dc5a8ba3f1296f86000d50e79cfb87ec0bd9",
+  "sql/objects.sql": "5cae859813155509bdab3629f107b7bf77fa7c2be014e9536884606722328888",
+  "sql/legacy-guard.sql": "f68366e04e8ceff133cf319e666f75da99a48f6d8152c516687b68e0019f013f",
+  "sql/profile.sql": "76a5a0881963d7e52120a7483c3a22ed3ca0cdfc0131f90cf0e2ca7e4d7c5334",
+  "sql/empty.sql": "53b00b4ba5eeaacd749f89c5adf93fbe51e7048317d5ca104e9700449bf0caa9",
+  "sql/legacy-profile.sql": "06047b3fbd6f2e1db0a73232a433ca783ee9ffc6692bc540738794766b5feefb"
+}

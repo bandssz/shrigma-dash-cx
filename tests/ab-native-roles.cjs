@@ -24,7 +24,7 @@ async function proof(db,{schema,source,pglite=false}){
  const extension='CREATE EXTENSION IF NOT EXISTS pgcrypto;';assert.equal(schema.split(extension).length,2);
  await exec(pglite?schema.replace(extension,'-- PGlite-only: pgcrypto extension unavailable; not used by this proof.'):schema);
  await exec(read('tests/ab-native-roles-fixture.sql'));
- for(const file of ['n8n/access/panel-operator.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql',
+ for(const file of ['n8n/access/panel-operator.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql',
   'n8n/growth/ab-experiment-core.sql','n8n/growth/ab-experiment-selection.sql','n8n/growth/ab-experiment-coordinator.sql','n8n/growth/ab-experiment-api.sql'])await exec(read(file));
  await exec(`INSERT INTO shrigma_panel_permission_v1 VALUES('synthetic-manager','growth','["read_content","draft","validate","submit"]'),('synthetic-reader','growth','["read_content"]')`);
  await exec(read('tests/ab-native-roles-grants.sql'));

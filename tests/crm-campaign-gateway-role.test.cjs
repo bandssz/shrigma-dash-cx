@@ -7,8 +7,8 @@ async function setup(){
  const db=new PGlite();
  await db.exec(`CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text NOT NULL,dono text,ativo boolean DEFAULT true,revogada_em timestamptz,ultimo_uso timestamptz,usos integer DEFAULT 0);
   CREATE TABLE shrigma_template_key_v2(key_hash text,active boolean,actor text,capabilities jsonb);`);
- for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
- await db.query('INSERT INTO crm_dash_chave(chave,painel,dono,chave_hash,chave_hash_curta) VALUES($1,\'growth\',\'Manager\',$2,$3)',
+ for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
+ await db.query('INSERT INTO crm_dash_chave(chave,painel,dono,chave_hash,chave_hash_curta) VALUES($1,\'todos\',\'Manager\',$2,$3)',
   ['synthetic-manager-id',hash('synthetic-manager-key'),hash('synthetic-short-key')]);
  await db.query("INSERT INTO shrigma_panel_permission_v1 VALUES('synthetic-manager-id','growth',$1::jsonb)",[JSON.stringify(['read_content','draft','validate','submit'])]);
  const migration=read('n8n/growth/crm-campaign-gateway-role.sql');

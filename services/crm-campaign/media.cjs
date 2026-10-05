@@ -38,7 +38,8 @@ function validateFile(bytes,declaredType,expectedHash){
  return {...image,hash,bytes};
 }
 function canonicalFilename(brand,operationId,hash,ext){return `crm-${brand}-${operationId}-${hash}.${ext}`;}
-function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-f-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
+const MEDIA_LIST_SCAN_PAGES=4;
+function filenameParts(filename){const match=/^crm-(fish|aristo)-([0-9a-fA-F-]{36})-([0-9a-f]{64})[.](png|jpg|gif)$/.exec(filename||'');return match&&UUID.test(match[2])?{brand:match[1],operation_id:match[2],sha256:match[3],ext:match[4]}:null;}
 
 async function boundedJSON(response,maxBytes=MAX_RESPONSE_BYTES){
  if(!response||!Number.isInteger(response.status)||response.status<200||response.status>599||!response.body)throw Error('MEDIA_NATIVE_RESPONSE');
@@ -63,9 +64,10 @@ function nativePage(response,native){
  const items=data.results.map(item=>safeItem(item,native.origin)).filter(Boolean);
  return {items,total:data.total,page:data.page,per_page:data.per_page,next_page:data.page*data.per_page<data.total?data.page+1:null};
 }
-async function authorize(pool,key,capability){
+async function authorize(pool,key,capability,brand){
  const rows=(await pool.query(AUTH_SQL,[key]))?.rows;if(rows?.length!==1)throw Error('MEDIA_AUTH_RESPONSE');const auth=rows[0].auth;
  if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(cap=>typeof cap!=='string'))return result(401,{error:'UNAUTHORIZED',message:'Autenticação necessária.',posted:false});
+ if(Object.hasOwn(auth,'brand')&&(!BRANDS.has(auth.brand)||auth.brand!==brand))return result(403,{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.',posted:false});
  if(!auth.caps.includes(capability))return result(403,{error:'CAPABILITY_MISSING',message:'Esta chave não tem permissão para esta ação.',posted:false});
  return auth;
 }
@@ -78,10 +80,20 @@ function createMediaExecutor({pool,native}){
  }
  return async function execute({key,method,input,interrupted=()=>false}){
   if(!BRANDS.has(input?.brand))return result(422,{error:'BRAND_UNAVAILABLE',message:'Marca fora desta etapa.',posted:false});
-  const auth=await authorize(pool,key,method==='GET'?'read_content':'edit_content');if(auth.status)return auth;
+  const auth=await authorize(pool,key,method==='GET'?'read_content':'edit_content',input.brand);if(auth.status)return auth;
   if(method==='GET'){
    if(input.filename!==undefined){const parts=filenameParts(input.filename);if(!parts||parts.brand!==input.brand||parts.operation_id!==input.operation_id||parts.sha256!==input.sha256)return result(422,{error:'MEDIA_RECOVERY_INVALID',message:'A tentativa de upload não confere.',posted:false});const {item}=await lookup({brand:input.brand,filename:input.filename});return result(200,{contract:'crm-media-v1',brand:input.brand,state:item?'found':'missing',media:item||null,operation_id:input.operation_id,filename:input.filename,sha256:input.sha256});}
-   const response=await native.list({page:input.page,perPage:input.per_page,query:''}),page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
+   // The shared Listmonk library keeps files generated for the other brand; never list them here. Unattributed legacy files stay visible.
+   // A native page holding only the other brand's files is skipped (bounded) so the first answer is not an empty library.
+   // page/next_page follow the last native page read; total stays the native library total.
+   const visible=entry=>{const part=filenameParts(entry.filename);return !part||part.brand===input.brand;};
+   let number=input.page,page=null;
+   for(let scanned=0;scanned<MEDIA_LIST_SCAN_PAGES;scanned++){
+    if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A consulta da biblioteca foi interrompida.',posted:false});
+    const response=await native.list({page:number,perPage:input.per_page,query:''});page=nativePage(response,native);if(!page)throw Error('MEDIA_NATIVE_LIST');
+    page.items=page.items.filter(visible);if(page.items.length||page.next_page===null)break;number=page.next_page;
+   }
+   return result(200,{contract:'crm-media-v1',brand:input.brand,...page});
   }
   if(busy.has(input.brand))return result(409,{error:'MEDIA_BUSY',message:'Outro upload desta marca está em andamento.',posted:false});
   busy.add(input.brand);
@@ -91,7 +103,7 @@ function createMediaExecutor({pool,native}){
    const existing=await lookup({brand:input.brand,filename,hash:file.hash,ext:file.ext});
    if(existing.item)return result(200,{contract:'crm-media-v1',brand:input.brand,state:'existing',operation_id:input.operation_id,filename:existing.item.filename,sha256:file.hash,media:existing.item});
    if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A tentativa terminou antes do envio. Nenhum arquivo foi enviado.',posted:false});
-   const reauthenticated=await authorize(pool,key,'edit_content');if(reauthenticated.status)return reauthenticated;if(reauthenticated.actor!==auth.actor)return result(409,{error:'MEDIA_ACTOR_CHANGED',message:'O acesso mudou durante a conferência. Nenhum arquivo foi enviado.',posted:false});if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A tentativa terminou antes do envio. Nenhum arquivo foi enviado.',posted:false});
+   const reauthenticated=await authorize(pool,key,'edit_content',input.brand);if(reauthenticated.status)return reauthenticated;if(reauthenticated.actor!==auth.actor||reauthenticated.brand!==auth.brand)return result(409,{error:'MEDIA_ACTOR_CHANGED',message:'O acesso mudou durante a conferência. Nenhum arquivo foi enviado.',posted:false});if(interrupted())return result(503,{error:'MEDIA_INTERRUPTED',message:'A tentativa terminou antes do envio. Nenhum arquivo foi enviado.',posted:false});
    let response;try{response=await native.upload({filename,type:file.type,bytes:file.bytes});}catch{return result(502,{error:'MEDIA_OUTCOME_UNKNOWN',message:'O resultado do upload não foi confirmado. Confira esta mesma tentativa antes de tentar novamente.',operation_id:input.operation_id,filename,sha256:file.hash});}
    if(![200,201].includes(response.status))return result(502,{error:'MEDIA_OUTCOME_UNKNOWN',message:'O resultado do upload não foi confirmado. Confira esta mesma tentativa antes de tentar novamente.',operation_id:input.operation_id,filename,sha256:file.hash});
    const item=safeItem(response.body?.data,native.origin);if(!item||item.filename!==filename)return result(502,{error:'MEDIA_OUTCOME_UNKNOWN',message:'O resultado do upload não foi confirmado. Confira esta mesma tentativa antes de tentar novamente.',operation_id:input.operation_id,filename,sha256:file.hash});

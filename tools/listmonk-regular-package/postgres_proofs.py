@@ -23,12 +23,12 @@ def run(args):
     with socket.socket() as probe:
         probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
     if port==5432:raise RuntimeError('Disposable port required')
-    env=dict(os.environ,NODE_PATH=args.node_path,TEST_DATABASE_URL=f'postgresql://crm_shadow@127.0.0.1:{port}/listmonk',CRM_AUDIENCE_TEST_ISOLATED='1',AB_UPSTREAM_SOURCE=str(args.upstream_query))
+    env=dict(os.environ,NODE_PATH=args.node_path,TEST_DATABASE_URL=f'postgresql://postgres@127.0.0.1:{port}/listmonk',CRM_AUDIENCE_TEST_ISOLATED='1',AB_UPSTREAM_SOURCE=str(args.upstream_query))
     report={'schema':'regular-postgres-proof-v1','production_changed':False,'sends':0,'runs':[],'success':False}
     started=False
     try:
         with (work/'init.log').open('w') as log:
-            subprocess.run([str(args.pg_bin/'initdb'),'-D',str(work/'data'),'-U','crm_shadow','--auth-local=trust','--auth-host=trust','--encoding=UTF8','--locale=C','--no-sync'],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+            subprocess.run([str(args.pg_bin/'initdb'),'-D',str(work/'data'),'-U','postgres','--auth-local=trust','--auth-host=trust','--encoding=UTF8','--locale=C','--no-sync'],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
         with (work/'lifecycle.log').open('w') as log:
             subprocess.run([str(args.pg_bin/'pg_ctl'),'-D',str(work/'data'),'-l',str(work/'server.log'),'-o',f'-h 127.0.0.1 -k {sock} -p {port}','-w','-t','15','start'],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=20)
         started=True

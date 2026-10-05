@@ -1,0 +1,1 @@
+SELECT NOT EXISTS(SELECT 1 FROM public.crm_manager_writer_issuer_v1) AS issuer_empty,NOT EXISTS(SELECT 1 FROM public.crm_manager_writer_subject_v1) AS subject_empty,NOT EXISTS(SELECT 1 FROM public.crm_manager_writer_operation_v1) AS operation_empty,NOT EXISTS(SELECT 1 FROM public.crm_manager_writer_generation_v1) AS generation_empty;

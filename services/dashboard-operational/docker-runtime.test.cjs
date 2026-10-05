@@ -53,8 +53,8 @@ test('an existing corrupt or different-revision volume pack is never overwritten
  const {dir,imageDir}=prepared(t),dataDir=volume(dir),file=path.join(dataDir,'runtime-pack.json'),options=seedOptions(dataDir,imageDir);
  fs.writeFileSync(file,'CORRUPT PRESERVE',{mode:0o600});assert.throws(()=>canary.seedVolume(options));assert.equal(fs.readFileSync(file,'utf8'),'CORRUPT PRESERVE');
  const wrapper=JSON.parse(fs.readFileSync(path.join(imageDir,'runtime-pack.json'),'utf8'));
- const files=JSON.parse(zlib.gunzipSync(Buffer.from(wrapper.gzipBase64,'base64')));files[0].content+=' CHANGED REVISION';const raw=Buffer.from(JSON.stringify(files));
- const changed=JSON.stringify({...wrapper,sha256:policy.sha(raw),gzipBase64:zlib.gzipSync(raw).toString('base64')});fs.writeFileSync(file,changed);
+ const files=policy.decodePack(JSON.stringify(wrapper),wrapper.sha256).files;files[0].content+=' CHANGED REVISION';const raw=Buffer.from(JSON.stringify(files));
+ const changed=JSON.stringify({schema:policy.SCHEMA,sha256:policy.sha(raw),gzipBase64:zlib.gzipSync(raw).toString('base64')});fs.writeFileSync(file,changed);
  assert.throws(()=>canary.seedVolume(options));assert.equal(fs.readFileSync(file,'utf8'),changed);
 });
 test('symlink and hardlink image/volume artifacts fail closed',t=>{
@@ -65,7 +65,7 @@ test('symlink and hardlink image/volume artifacts fail closed',t=>{
 });
 test('Docker context is an exact source allowlist; final stage imports only immutable package files',()=>{
  const docker=fs.readFileSync(path.join(__dirname,'Dockerfile'),'utf8'),ignore=fs.readFileSync(path.join(__dirname,'Dockerfile.dockerignore'),'utf8');
- const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
+ const expected=[...CONTENT,...['build.cjs','pack-runtime.cjs','artifact-policy.cjs','bootstrap.cjs','server.cjs','auth.cjs','crm-manager-journal.cjs','crm-manager-provisioning.cjs','crm-manager-coordinator.cjs','crm-manager-dispatcher.cjs','crm-manager-runtime.cjs','crm-manager-attestation.cjs','crm-manager-read-bridge.cjs','crm-audience-read-bridge.cjs','crm-media-read-validator.cjs','crm-template-read-bridge.cjs','crm-manager-writer-auth-adapter.cjs','crm-manager-writer-client.cjs','crm-manager-writer-coordinator.cjs','crm-manager-writer-journal.cjs','crm-manager-writer-policy.cjs','crm-campaign-create.cjs','crm-campaign-delivery.cjs','crm-campaign-writer-attestation.cjs','crm-campaign-content-admission.cjs','crm-campaign-content-profile.cjs','campaign-write-contract.js','campaign-write-tracking.js','crm-campaign-bff-client.cjs','campaign-ui-assets.json','proxy.cjs','backend-credential-attestation.cjs','fixtures.cjs','segment-audience-contract.js','canary-start.cjs','canary-image.cjs'].map(f=>'services/dashboard-operational/'+f),...['entry.html','entry.js','entry.css','guard.js','media-read.js','campaign-edit.js','campaign-edit.compiled.js','campaign-bff-client.js','entry.compiled.js','guard.compiled.js'].map(f=>'services/dashboard-operational/public/'+f)].sort();
  const rules=ignore.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));assert.equal(rules[0],'**');
  const files=rules.slice(1).filter(l=>!l.endsWith('/')).map(l=>{assert(l.startsWith('!'));assert(!/[?*]/.test(l));return l.slice(1);}).sort();assert.deepEqual(files,expected);
  const stages=docker.split(/^FROM /m).slice(1);assert.equal(stages.length,2);for(const stage of stages)assert(stage.startsWith(IMAGE+' AS '));

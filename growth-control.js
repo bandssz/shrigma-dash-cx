@@ -150,6 +150,9 @@ const GC={
   /* Fase A (11/09/2026): conteúdo publicado (R5.2) só quando `capabilities.templates.read_content` for true e a pessoa
      pedir. `conteudo` = null → nunca carregado; {} → carregado sem itens. Prévia vem de `components` da API, nunca do nome. */
   conteudo:null,conteudoEm:null,conteudoErro:null,historicos:{},carregando:null,
+  /* Escopo do que foi carregado: marca, endpoint, contrato e sessão. Mudou qualquer um → o conteúdo, os erros e os
+     históricos somem, para que nada de uma marca (ou de outra sessão) apareça rotulado como da marca atual. */
+  conteudoEscopo:null,historicosRascunho:{},historicoErro:null,focoLeitura:null,
   previewContext:null,
   previewButton(ref,api){
     if(!['fish','aristo'].includes(ref.brand)||!['email','whatsapp'].includes(ref.channel)||!/^\d+$/.test(String(ref.id||'')))return '<span class="mini">Prévia indisponível: template não identificado.</span>';
@@ -164,9 +167,11 @@ const GC={
     const check=()=>{if(!current())throw Error('A marca ou o acesso mudou. Feche e abra a prévia novamente.');};
     try{
       if(!caps.pode.read_content||!key)throw Error('Prévia indisponível neste acesso. Atualize o painel.');
-      const client=GTA.cliente({endpoint:caps.endpoint,chaveLeitura:key}),res=await client.listar(ref.brand,ref.channel);check();
+      const client=GTA.cliente({endpoint:caps.endpoint,chaveLeitura:key,leituraMarca:caps.leitura_marca===true}),res=await client.listar(ref.brand,ref.channel);check();
+      if(!res.ok&&(res.recusada||res.semLeitura))throw Error(res.recusada||res.semLeitura);
       if(!res.ok||!Array.isArray(res.body?.templates)||res.body.templates.length>250)throw Error('Não foi possível consultar o conteúdo publicado. Feche e tente novamente.');
-      const matches=res.body.templates.filter(t=>t&&t.brand===ref.brand&&t.channel===ref.channel&&String(t.id)===String(ref.id)&&(!ref.key||t.key===ref.key));
+      // Contrato por marca: a key nova (email.template.<id>) não casa com as keys legadas; casa por marca, canal e id.
+      const matches=res.body.templates.filter(t=>t&&t.brand===ref.brand&&t.channel===ref.channel&&String(t.id)===String(ref.id)&&(!ref.key||caps.leitura_marca===true||t.key===ref.key));
       if(matches.length!==1)throw Error('O conteúdo deste template não foi confirmado. Atualize a lista antes de abrir a prévia.');
       const t=matches[0];if(JSON.stringify(t.components||null).length>400000)throw Error('O conteúdo ultrapassa o limite de visualização.');
       const checkedAt=GC.stamp(Number.isFinite(GC.time(res.body.consultado_em))?res.body.consultado_em:new Date().toISOString());
@@ -203,12 +208,29 @@ const GC={
       ${GC.caps?.pode?.list_history?(hist?`<ul class="control-template-hist">${hist.length?hist.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'?')} · ${e(x.action)}${x.from_version!=null||x.to_version!=null?` v${e(x.from_version??'—')}→v${e(x.to_version??'—')}`:''} · ${e(x.result||'')}</li>`).join(''):'<li>Nenhum evento devolvido pela API.</li>'}</ul>`:`<button type="button" class="refresh-btn" data-tpl-historico="${e(row.key)}"${GC.carregando?' disabled':''}>Carregar histórico</button>`):''}</details>`;
   },
   readTicket:null,
+  mesmoEscopo(a,b){return !!a&&!!b&&a.brand===b.brand&&a.endpoint===b.endpoint&&a.key===b.key&&a.leituraMarca===b.leituraMarca;},
+  limpaLeitura(){GC.conteudo=null;GC.conteudoEm=null;GC.conteudoErro=null;GC.historicos={};GC.historicosRascunho={};GC.historicoErro=null;GC.conteudoEscopo=null;},
+  limpaLeituraNegada(ticket,res){
+    if(ticket.leituraMarca!==true||![401,403].includes(res.status))return false;
+    GC.limpaLeitura();document.getElementById('message-preview-dialog')?.remove();return true;
+  },
+  /* Leitura por marca no portal: a sessão é do portal (não há chave de escrita) e indisponível não é vazio. */
+  erroLeitura(res,acao){
+    if(res.recusada||res.semLeitura)return GTA.erro(res,acao).texto;
+    if(res.rede)return 'Não foi possível consultar agora (falha de rede). Nada foi alterado. Tente novamente.';
+    if(res.status===401)return 'Sua sessão não permite esta leitura agora. Entre novamente para consultar. Nada foi exibido.';
+    if(res.status===403)return 'Seu acesso não inclui esta leitura de templates. Nada foi exibido. Peça a revisão do acesso ao administrador.';
+    if(res.status===404)return 'Não encontrado para esta marca. Nada foi exibido.';
+    return 'A leitura de templates está indisponível agora. Isso não significa que a marca não tenha templates. Tente novamente mais tarde.';
+  },
   startRead(ctx,action){
-    const ticket={brand:ctx.marca,endpoint:GC.caps.endpoint,key:GTA.chaveLeitura()};
+    const ticket={brand:ctx.marca,endpoint:GC.caps.endpoint,key:GTA.chaveLeitura(),leituraMarca:GC.caps.leitura_marca===true};
+    if(!GC.mesmoEscopo(GC.conteudoEscopo,ticket))GC.limpaLeitura();GC.conteudoEscopo={brand:ticket.brand,endpoint:ticket.endpoint,key:ticket.key,leituraMarca:ticket.leituraMarca};
     GC.readTicket=ticket;GC.carregando=action;GC.render(ctx);return ticket;
   },
   currentRead(ticket){
-    return GC.readTicket===ticket&&GC.previewContext?.marca===ticket.brand&&GTA.caps(GC.previewContext?.api||{},{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}).endpoint===ticket.endpoint&&GTA.chaveLeitura()===ticket.key;
+    const caps=GTA.caps(GC.previewContext?.api||{},{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined});
+    return GC.readTicket===ticket&&GC.previewContext?.marca===ticket.brand&&caps.endpoint===ticket.endpoint&&(caps.leitura_marca===true)===ticket.leituraMarca&&GTA.chaveLeitura()===ticket.key;
   },
   finishRead(ticket){
     if(GC.readTicket!==ticket)return null;
@@ -219,22 +241,64 @@ const GC={
   async carregarConteudo(ctx){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.read_content)return;
     GC.conteudoErro=null;const ticket=GC.startRead(ctx,'listar');
-    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:ticket.leituraMarca});
     let res;try{res=await c.listar(ctx.marca);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
-    if(!res.ok){GC.conteudoErro=GTA.erro(res,'listar').texto;GC.render(ctx);return;}
+    if(!res.ok){GC.limpaLeituraNegada(ticket,res);GC.conteudoErro=ticket.leituraMarca?GC.erroLeitura(res,'listar'):GTA.erro(res,'listar').texto;GC.render(ctx);return;}
     const lista=Array.isArray(res.body?.templates)?res.body.templates.filter(t=>t&&typeof t==='object'&&typeof t.key==='string'):[];
     GC.conteudo=Object.fromEntries(lista.map(t=>[t.key,t]));GC.conteudoEm=new Date().toISOString();GC.render(ctx);
   },
   async carregarHistorico(ctx,key){
     if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history)return;
     const ticket=GC.startRead(ctx,'historico');
-    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key});
-    let res;try{res=await c.historico({key});}catch(_){res={ok:false,status:0,body:null,rede:true};}
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:ticket.leituraMarca});
+    let res;try{res=await c.historico({key},ticket.brand);}catch(_){res={ok:false,status:0,body:null,rede:true};}
     ctx=GC.finishRead(ticket);if(!ctx)return;
+    if(res.recusada||res.semLeitura){GC.conteudoErro=GTA.erro(res,'historico').texto;GC.render(ctx);return;}
     GC.historicos[key]=res.ok&&Array.isArray(res.body?.events)?res.body.events.filter(x=>x&&typeof x==='object'):[];
     if(!res.ok)GC.conteudoErro=GTA.erro(res,'historico').texto;
     GC.render(ctx);
+  },
+  // Histórico de um rascunho registrado (contrato por marca): leva a marca do cabeçalho e o draft_id, nunca a key global.
+  async carregarHistoricoRascunho(ctx,draftId){
+    if(GC.carregando||typeof GTA==='undefined'||!GC.caps?.pode?.list_history||GC.caps.leitura_marca!==true||!/^[A-Za-z0-9_-]{1,64}$/.test(String(draftId||'')))return;
+    const ticket=GC.startRead(ctx,'historico');GC.historicoErro=null;
+    const c=GTA.cliente({endpoint:ticket.endpoint,fetch:typeof fetch==='function'?fetch:null,chaveLeitura:ticket.key,leituraMarca:true});
+    let res;try{res=await c.historico({draft_id:draftId},ticket.brand);}catch(_){res={ok:false,status:0,body:null,rede:true};}
+    ctx=GC.finishRead(ticket);if(!ctx)return;
+    if(res.ok&&Array.isArray(res.body?.events))GC.historicosRascunho[draftId]=res.body.events.filter(x=>x&&typeof x==='object');
+    else if(GC.limpaLeituraNegada(ticket,res))GC.conteudoErro=GC.erroLeitura(res,'historico');
+    else GC.historicoErro={draftId,texto:GC.erroLeitura(res,'historico')};
+    GC.render(ctx);
+  },
+  /* Biblioteca de e-mails registrados da marca (crm-template-read-v1). Só aparece quando o BFF anuncia o contrato;
+     sem ele, o painel fica exatamente como antes. Somente leitura: não há editar, publicar, enviar nem enviar imagem aqui. */
+  brandEmailLibrary(ctx){
+    const caps=GC.caps;
+    if(caps?.leitura_marca!==true||!caps.pode?.read_content||ctx.canal==='whatsapp')return '';
+    const e=GC.esc,marca=ctx.marca,nome=GC.brand(marca),heading='<h3 id="control-brand-email-title">Templates de e-mail registrados'+(['fish','aristo'].includes(marca)?' · '+e(nome):'')+'</h3>';
+    if(!['fish','aristo'].includes(marca))return `<section class="control-email-catalog control-brand-email" aria-labelledby="control-brand-email-title">${heading}<p class="nota" role="status">Escolha Fishermans ou O Aristocrata para consultar os templates de e-mail registrados. Nada foi consultado.</p></section>`;
+    const loading=GC.carregando==='listar',lista=GC.conteudo?Object.values(GC.conteudo):null;
+    const label=loading?'Carregando templates…':lista?'Recarregar templates de e-mail':'Carregar templates de e-mail';
+    const status=loading?'Consultando os templates de e-mail registrados de '+e(nome)+'…'
+      :lista?`${lista.length} ${lista.length===1?'template de e-mail registrado':'templates de e-mail registrados'} de ${e(nome)} · consultado em ${e(GC.stamp(GC.conteudoEm))}.`
+      :GC.conteudoErro?'':'Nada carregado ainda. A consulta só lê; não altera templates.';
+    const tipo=t=>t==='tx'?'Transacional':t==='campaign'?'Campanha':'Tipo não informado';
+    const hist=t=>{
+      if(!caps.pode.list_history||typeof t.draft_id!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(t.draft_id))return '';
+      const ev=GC.historicosRascunho[t.draft_id],erro=GC.historicoErro?.draftId===t.draft_id?GC.historicoErro.texto:'';
+      if(ev)return `<ul class="control-template-hist" data-hist-draft="${e(t.draft_id)}" tabindex="-1" aria-label="Histórico do rascunho ${e(t.draft_id)}">${ev.length?ev.map(x=>`<li>${e(GC.stamp(x.at))} · ${e(x.who||'autor não informado')} · ${e(x.action)}${x.to_version!=null?` · v${e(x.to_version)}`:''}${x.result!=null?` · ${e(x.result)}`:''}</li>`).join(''):'<li>Nenhum evento registrado para este rascunho.</li>'}</ul>`;
+      return `<button type="button" class="refresh-btn" data-tpl-historico-draft="${e(t.draft_id)}"${GC.carregando?' disabled':''}>Carregar histórico do rascunho</button>${erro?`<p class="control-warning" role="alert">${e(erro)}</p>`:''}`;
+    };
+    const conteudo=t=>t.content_available===true&&GC.object(t.components)&&typeof t.components.body_html==='string'&&t.components.body_html.trim()
+      ?`<button type="button" class="refresh-btn" data-tpl-preview-email="${e(t.key)}" aria-label="Abrir prévia do HTML de ${e(t.name)}">Abrir prévia do HTML</button>`
+      :'<span class="control-template-meta">Conteúdo indisponível nesta consulta (acima do limite de visualização ou sem corpo). Nada foi cortado.</span>';
+    const rows=lista&&lista.length?`<div class="rolagem"><table class="comparativo" id="control-brand-email-table"><caption class="mini">Somente e-mails registrados desta marca. WhatsApp e templates sem registro não entram nesta lista.</caption><thead><tr><th scope="col">Template</th><th scope="col">Assunto</th><th scope="col">Atualizado em</th><th scope="col">Conteúdo e histórico</th></tr></thead><tbody>${lista.map(t=>`<tr data-brand-email="${e(t.key)}"><td>${e(t.name)}<br><span class="control-template-meta">${e(tipo(t.type))} · id ${e(t.id)}</span></td><td>${e(t.components?.subject||'Sem assunto informado')}</td><td>${e(GC.stamp(t.updated_at))}</td><td>${conteudo(t)}${hist(t)}</td></tr>`).join('')}</tbody></table></div>`
+      :lista?`<p class="vazio">Nenhum template de e-mail registrado para ${e(nome)}. A lista cobre só e-mails registrados da marca; WhatsApp não entra aqui.</p>`:'';
+    return `<section class="control-email-catalog control-brand-email" aria-labelledby="control-brand-email-title" aria-busy="${loading}">${heading}
+      <p class="nota">Leitura por marca: mostra os e-mails registrados de ${e(nome)} com o conteúdo publicado. Não altera, publica nem envia nada.</p>
+      <button type="button" class="refresh-btn" id="control-tpl-email-load"${GC.carregando?' disabled':''}>${label}</button>
+      <p class="mini" id="control-brand-email-status" role="status" aria-live="polite" tabindex="-1">${status}</p>${GC.conteudoErro?`<p class="control-warning" role="alert">${e(GC.conteudoErro)}</p>`:''}${rows}</section>`;
   },
   templateLink(row){
     const links=Array.isArray(row.mapped_in)?row.mapped_in:null;
@@ -352,6 +416,7 @@ const GC={
       cobertura:GC.object(cob)&&/^\d{4}-\d{2}-\d{2}$/.test(cob.inicio||'')&&/^\d{4}-\d{2}-\d{2}$/.test(cob.fim||'')?{inicio:cob.inicio,fim:cob.fim}:null};
     GC.caps=typeof GTA!=='undefined'?GTA.caps(ctx.api,{TEMPLATE_API_URL:typeof TEMPLATE_API_URL!=='undefined'?TEMPLATE_API_URL:undefined}):null;
     if(GC.readTicket&&!GC.currentRead(GC.readTicket)){GC.readTicket=null;GC.carregando=null;}
+    if(GC.conteudoEscopo&&!GC.readTicket&&typeof GTA!=='undefined'&&!GC.mesmoEscopo(GC.conteudoEscopo,{brand:ctx.marca,endpoint:GC.caps?.endpoint,key:GTA.chaveLeitura(),leituraMarca:GC.caps?.leitura_marca===true}))GC.limpaLeitura();
     if(typeof document==='undefined')return model;
     const workflowRoot=document.querySelector('#control-workflows'),templateRoot=document.querySelector('#control-templates');
     if(!workflowRoot||!templateRoot)return model;
@@ -384,20 +449,21 @@ const GC={
     const searched=model.templates.filter(row=>[row.name,row.piece,GC.brand(row.brand)].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(search))).filter(row=>GC.templateMatches(row,ft));
     const templates=hasGT?GT.ordena(searched,ft.sort,ft.dir,r=>ft.sort==='collection'?r.checked_at:r[ft.sort]):searched;
     const tplFiltered=!!GC.search||ft.status!=='todos'||ft.categoria!=='todas'||ft.uso!=='todos';
-    const tplEmpty=!model.templates.length?'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Criar templates.'
+    const portalReadOnly=!!document.getElementById('dashboard-operational-readonly');
+    const tplEmpty=!model.templates.length?(portalReadOnly?'Nenhum template disponível nesta leitura. Confira a marca, o canal e a última consulta.':'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Criar templates.')
       :`Nenhum template${GC.describe([ft.status==='APPROVED'?'aprovado':ft.status==='outros'?'não aprovado':'',
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
     const th=(key,label,cls='')=>`<th data-sort="${key}"${cls?` class="${cls}"`:''}><button type="button" class="gt-th">${e(label)}</button></th>`;
-    if(drawTemplates)templateRoot.innerHTML=GC.metadata(model)+GC.emailCatalog(ctx)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
+    if(drawTemplates)templateRoot.innerHTML=GC.metadata(model)+GC.emailCatalog(ctx)+GC.brandEmailLibrary(ctx)+`<div class="control-explainer">${GC.badge('Templates WhatsApp','neutral','Status e categoria da última consulta. Use Carregar conteúdo publicado para conferir a mensagem.')}${GC.badge('Aprovação não comprova envio','neutral','Um template mapeado pode pertencer a uma jornada em simulação.')}${GC.badge('Uso indicado por template','neutral','Opcionais e retirados têm sua justificativa e não são tarefas de integração obrigatórias.')}</div>
       ${model.canal==='email'?(['fish','aristo','todas','todos'].includes(model.marca)?'<p class="mini">Para consultar também as mensagens de WhatsApp, selecione Todos os canais.</p>':'<div class="vazio">Este catálogo acompanha templates de WhatsApp. Selecione WhatsApp ou Todos os canais no filtro acima.</div>'):`<div class="gt-toolbar control-toolbar control-template-toolbar"><label class="gt-busca" for="control-template-search">Buscar template<input type="search" id="control-template-search" placeholder="Nome ou peça" value="${e(GC.search)}" autocomplete="off"></label>
         ${GC.select('control-tpl-status',GC.STATUS_TPL,ft.status,'Status')}${GC.select('control-tpl-categoria',GC.CATEGORIAS_TPL,ft.categoria,'Categoria')}${GC.select('control-tpl-uso',GC.USOS_TPL,ft.uso,'Uso')}
         <span class="gt-contagem">${templates.length} de ${model.templates.length} templates neste recorte</span>
         ${tplFiltered?'<button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}
-        ${GC.caps?.pode?.read_content?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Carrega a mensagem publicada para conferir a prévia. Esta consulta não altera o template.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
-        <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
+        ${GC.caps?.pode?.read_content&&GC.caps.leitura_marca!==true?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Carrega a mensagem publicada para conferir a prévia. Esta consulta não altera o template.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
+        <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro&&GC.caps?.leitura_marca!==true?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
-      <span class="control-badge" title="Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.">Edição em Criar templates e Jornadas</span>`;
+      <span class="control-badge" title="${portalReadOnly?'Este Inventário permite consultar o conteúdo publicado. A consulta não cria templates nem altera jornadas.':'Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.'}">${portalReadOnly?'Inventário de leitura · conteúdo publicado':'Edição em Criar templates e Jornadas'}</span>`;
     if(drawTemplates&&hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
     if(drawWorkflows)workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);
@@ -419,6 +485,10 @@ const GC={
     if(drawTemplates)document.querySelectorAll('[data-tpl-preview-email]').forEach(b=>b.onclick=()=>{const t=GC.conteudo?.[b.dataset.tplPreviewEmail];if(t?.components?.body_html)GMP.openEmail({source:t.components.body_html,subject:t.components.subject,label:'Prévia do template publicado'});});
     if(drawWorkflows)GC.bindPreviews(workflowRoot,ctx);if(drawTemplates)GC.bindPreviews(templateRoot,ctx);
     const tplConteudo=document.getElementById('control-tpl-conteudo');if(tplConteudo)tplConteudo.onclick=()=>GC.carregarConteudo(ctx);
+    const emailLoad=drawTemplates?templateRoot.querySelector('#control-tpl-email-load'):null;if(emailLoad)emailLoad.onclick=()=>{GC.focoLeitura='#control-tpl-email-load';GC.carregarConteudo(ctx);};
+    if(drawTemplates)templateRoot.querySelectorAll('[data-tpl-historico-draft]').forEach(b=>b.onclick=()=>{GC.focoLeitura=`[data-hist-draft="${b.dataset.tplHistoricoDraft}"], [data-tpl-historico-draft="${b.dataset.tplHistoricoDraft}"]`;GC.carregarHistoricoRascunho(ctx,b.dataset.tplHistoricoDraft);});
+    // Teclado: o redesenho troca os botões; o foco volta ao controle usado (ou ao histórico carregado) quando a leitura termina.
+    if(drawTemplates&&GC.focoLeitura&&!GC.carregando){const alvo=templateRoot.querySelector(GC.focoLeitura)||templateRoot.querySelector('#control-brand-email-status');GC.focoLeitura=null;alvo?.focus?.();}
     templateRoot.querySelectorAll('[data-tpl-historico]').forEach(b=>b.onclick=()=>GC.carregarHistorico(ctx,b.dataset.tplHistorico));
     if(tplExport)tplExport.onclick=()=>{if(!hasGT)return;const m={...meta(),coleta_inventario:GC.stamp(model.meta.generated_at)};delete m.periodo_inicio;delete m.periodo_fim;GT.baixar(GT.nomeArquivo('templates',m),GT.csv(GC.templateColumns,templates,m));};
     if(hasGT){if(drawWorkflows&&keptWf&&!restoreInput)GT.restaura(workflowRoot,keptWf);if(drawTemplates&&keptTpl&&!restoreInput)GT.restaura(templateRoot,keptTpl);}

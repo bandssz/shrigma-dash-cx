@@ -87,7 +87,7 @@ test('audience journal survives lost ACK, restart and relogin; only a matching t
 
 test('an uncertain audience write blocks write-key rotation and re-grant but permits immediate revocation',async()=>{
  const f=fixture();try{
-  const owner=await admin(f),invite=f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth'],permissions:{growth:{read:true,edit:true}}});
+  const owner=await admin(f),invite=f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth'],brand:'aristo',permissions:{growth:{read:true,edit:true}}});
   await f.auth.acceptInvite({token:invite.token,password:managerPassword,host:hosts.growth,origin:origin(hosts.growth)});
   const editor=await login(f.auth,'editor@shrigma.test',managerPassword,hosts.growth),key=crypto.randomUUID();
   f.auth.setUpstreamCredential({context:owner.context,userId:invite.userId,slot:'growth-audience',bearer:'synthetic-individual-audience-key-1'});
@@ -104,8 +104,8 @@ test('an uncertain audience write blocks write-key rotation and re-grant but per
    assert.deepEqual({...row},{phase:'uncertain',operation_key:key,action:'segmento_arquivar',receipt_status:null});
    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=?').get(invite.userId).n,0);
   }finally{db.close();}
-  assert.throws(()=>f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth'],permissions:{growth:{read:true,edit:true}}}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
-  assert.throws(()=>f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth']}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
+  assert.throws(()=>f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth'],brand:'aristo',permissions:{growth:{read:true,edit:true}}}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
+  assert.throws(()=>f.auth.createInvite({context:owner.context,email:'editor@shrigma.test',areas:['growth'],brand:'aristo'}),error('AUDIENCE_RECONCILIATION_REQUIRED',409));
   // A late verified receipt is still recorded after revocation, without
   // restoring the disabled account or its credential.
   assert.equal(f.auth.audienceDraftOutcome(invite.userId,'aristo',key,'segmento_arquivar','succeeded',{receiptStatus:200,segmentId:crypto.randomUUID(),segmentVersion:2}),true);

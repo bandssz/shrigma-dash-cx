@@ -18,6 +18,10 @@ GRANT INSERT,UPDATE ON crm_audience_v2.audience,crm_audience_v2.campaign_binding
 GRANT INSERT ON crm_audience_v2.revision,crm_audience_v2.request,crm_audience_v2.campaign_binding_revision,crm_audience_v2.campaign_binding_request TO crm_audience_api;
 GRANT INSERT ON crm_audience_v2.campaign_binding_release TO crm_audience_api;
 GRANT SELECT ON public.lists,public.campaigns,public.campaign_lists,public.templates,public.media,public.campaign_media,public.crm_familia_campanha TO crm_audience_api;
+-- The current catalog's SECURITY INVOKER ownership read stays on the same
+-- exclusive registry; this adds no registry mutation permission.
+GRANT SELECT ON public.shrigma_template_email_registry TO crm_audience_api;
+GRANT EXECUTE ON FUNCTION public.shrigma_campaign_template_owned_v1(integer,text) TO crm_audience_api;
 GRANT SELECT(id,status) ON public.subscribers TO crm_audience_api;
 GRANT SELECT(subscriber_id,list_id,status) ON public.subscriber_lists TO crm_audience_api;
 GRANT SELECT(subscriber_id,campaign_id,created_at) ON public.campaign_views,public.link_clicks TO crm_audience_api;

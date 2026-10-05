@@ -32,3 +32,16 @@ test('defined fallback preserves invalid counts and known descriptions while res
  for(const trigger of manager.querySelectorAll('.flow-trigger'))assert.doesNotMatch(trigger.textContent,/chave do evento|checkout_id|order_id|pedido_pago|checkout_abandonado|reentrada:/);
  assert.doesNotMatch(manager.textContent,/gatilho\.chave_evento|marca inválida|formato inválido ignorada/);assert.match(owner.textContent,/2 definição\(ões\).*quebrado/);assert.match(owner.textContent,/chave do evento checkout_id/);assert.equal(manager.querySelectorAll('[data-origem=definido]').length,2);assert.equal(JSON.stringify(api),before);
 });
+
+// The corporate artifact uses only the already scoped, observed cache.
+test('corporate observed mode cannot enter legacy editor or hide observations behind a declared definition',()=>{
+ const api={capabilities:{workflows:{editor:true}},crm_fluxo_def:{schema_version:1,fluxos:[{key:'carrinho',marca:'fish',nome:'Declared same key',gatilho:{evento:'checkout',reentrada:'uma_vez',saida:[]},modo:'real',versao:1,etapas:[]}]},crm_fluxo:[{marca:'fish',dia:'2026-09-07',flow:'carrinho',piece:'30min',canal:'email',enviados:12},{marca:'aristo',dia:'2026-09-07',flow:'aristo-private',piece:'secret-piece',canal:'email',enviados:900}]};
+ const before=JSON.stringify(api),x=boot({},'fish');x.run('let editorCalls=0;const GB={render(){editorCalls++}}');x.run('GFU.state.origem="definidos"');
+ const encoded=JSON.stringify(api);x.run('GFU.render({api:'+encoded+',marca:"fish",observedOnly:true,ini:"2026-09-01",fim:"2026-09-07"})');
+ const root=x.document.querySelector('#control-fluxos');assert.equal(x.run('editorCalls'),0);assert.equal(root.querySelectorAll('[data-flow]').length,1);assert.match(root.textContent,/12 envios registrados/);assert.doesNotMatch(root.textContent,/Declared same key|aristo-private|secret-piece|900/);assert.equal(root.querySelector('#fluxos-origem'),null);assert.match(root.textContent,/Sequência e esperas ainda não disponíveis/);assert.equal(JSON.stringify(api),before);
+ x.run('GFU.render({api:'+encoded+',marca:"todas",observedOnly:true})');assert.equal(root.querySelectorAll('[data-flow]').length,0);assert.match(root.textContent,/Escolha Fishermans ou O Aristocrata/);assert.equal(x.run('editorCalls'),0);
+});
+test('corporate build binds only observed journeys while legacy HTML remains unchanged',()=>{
+ const B=require('../services/dashboard-operational/build.cjs'),original=fs.readFileSync(require.resolve('../growth.html'),'utf8'),html=B.transform(original,'growth.html');
+ assert.match(html,/GFU\.render\(\{\.\.\.ctx,observedOnly:true,workflowsModel:/);assert.match(html,/Consulte as jornadas observadas da marca/);assert.match(original,/GFU\.render\(\{\.\.\.ctx,workflowsModel:/);assert.doesNotMatch(original,/GFU\.render\(\{\.\.\.ctx,observedOnly:true/);
+});
