@@ -33,10 +33,17 @@ function ownerValid(owner){
  if(typeof owner!=='string'||owner.length>254||owner!==owner.toLowerCase()||!/^[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@([a-z0-9-]+\.)+[a-z]{2,63}$/.test(owner))return false;
  const [local,domain]=owner.split('@');return local.length<=64&&/^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain);
 }
-function verifyIdentity(value,expected){
+function verifyIdentity(value,expected,master){
  const identity=snapshot(value,['schema','role','panel','owner','allowedPanels','permissions']);
- if(identity.schema!=='shrigma_access_identity_v1'||identity.role!=='manager'||identity.panel!=='growth'||identity.owner!==expected.owner||!arrayEquals(identity.allowedPanels,['growth']))refuse();
- const permissions=snapshot(identity.permissions,['growth','influs']);if(permissions.influs!==null)refuse();
+ if(identity.schema!=='shrigma_access_identity_v1'||identity.role!==(master?'master':'manager')||identity.panel!==(master?'todos':'growth')||identity.owner!==expected.owner||!arrayEquals(identity.allowedPanels,master?['cx','growth','organico','influs']:['growth']))refuse();
+ const permissions=snapshot(identity.permissions,['growth','influs']);
+ if(permissions.influs!==null){
+  if(!master)refuse();
+  // The actual master identity may also expose Influs operator grants. They
+  // must bind the same principal/owner; none authorizes a Growth mutation.
+  const other=snapshot(permissions.influs,['who','label','caps']);
+  if(other.who!=='panel:'+expected.principalId||other.label!==expected.owner||!Array.isArray(other.caps)||other.caps.length>64||Reflect.ownKeys(other.caps).length!==other.caps.length+1||new Set(other.caps).size!==other.caps.length||other.caps.some(c=>typeof c!=='string'||!/^[a-z_]{1,40}$/.test(c)))refuse();
+ }
  const grant=snapshot(permissions.growth,['who','label','caps']);
  if(grant.who!=='panel:'+expected.principalId||grant.label!==expected.owner||!arrayEquals(grant.caps,CAPS))refuse();
  return Object.freeze({owner:expected.owner,principalId:expected.principalId,caps:Object.freeze([...CAPS])});
@@ -45,7 +52,7 @@ function verifyIdentity(value,expected){
 // input is EXACT {bearer,owner,principalId}; owner is the already normalized
 // corporate email from the identity store. Its domain policy belongs to that
 // store/issuer. This proof cannot add a domain, grant, area or backend slot.
-async function verifyCampaignWriterCredential(input,options={}){
+async function verifyCredential(input,options,master){
  let controller,timer,response,reader,cancelled=false;
  const cancel=()=>{
   if(cancelled)return;
@@ -56,7 +63,7 @@ async function verifyCampaignWriterCredential(input,options={}){
  };
  try{
   const expected=snapshot(input,['bearer','owner','principalId']);
-  if(typeof expected.bearer!=='string'||!/^[a-f0-9]{64}$/.test(expected.bearer)||!ownerValid(expected.owner)||typeof expected.principalId!=='string'||!/^dcrmw-[a-f0-9]{32}$/.test(expected.principalId))refuse();
+  if(typeof expected.bearer!=='string'||!(master?/^[a-z0-9-]{8,128}$/:/^[a-f0-9]{64}$/).test(expected.bearer)||!ownerValid(expected.owner)||typeof expected.principalId!=='string'||!(master?/^[a-z0-9-]{8,128}$/:/^dcrmw-[a-f0-9]{32}$/).test(expected.principalId))refuse();
   const supplied=snapshot(options,Object.hasOwn(options,'fetchImpl')?['fetchImpl']:[]),fetchImpl=Object.hasOwn(supplied,'fetchImpl')?supplied.fetchImpl:globalThis.fetch;
   if(typeof fetchImpl!=='function')refuse();
   const pinned=new URL(IDENTITY_URL);if(pinned.protocol!=='https:'||pinned.username||pinned.password||pinned.port||pinned.hash||pinned.href!==IDENTITY_URL)refuse();
@@ -87,10 +94,14 @@ async function verifyCampaignWriterCredential(input,options={}){
    }
    if(length!==null&&Number(length)!==bytes)refuse();
    const body=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));
-   const identity=JSON.parse(body),proof=verifyIdentity(identity,expected);if(expired())refuse();return proof;
+   const identity=JSON.parse(body),proof=verifyIdentity(identity,expected,master);if(expired())refuse();return proof;
   })();
   const proof=await Promise.race([work,deadline]);if(expired())refuse();return proof;
  }catch{try{controller?.abort();}catch{}throw new CampaignWriterAttestationError();}
  finally{clearTimeout(timer);cancel();try{observe(reader?.releaseLock?.());}catch{}}
 }
-module.exports={verifyCampaignWriterCredential,CampaignWriterAttestationError,IDENTITY_URL,MAX_RESPONSE_BYTES,TIMEOUT_MS};
+// Separate entry points preserve the manager-only issuer contract. Neither
+// endpoint issues a key or derives write caps from the word "master".
+const verifyCampaignWriterCredential=(input,options={})=>verifyCredential(input,options,false);
+const verifyMasterCampaignWriterCredential=(input,options={})=>verifyCredential(input,options,true);
+module.exports={verifyCampaignWriterCredential,verifyMasterCampaignWriterCredential,CampaignWriterAttestationError,IDENTITY_URL,MAX_RESPONSE_BYTES,TIMEOUT_MS};

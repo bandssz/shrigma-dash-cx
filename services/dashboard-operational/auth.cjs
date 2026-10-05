@@ -196,7 +196,9 @@ function createAuth(options){
   binding_mac TEXT NOT NULL,PRIMARY KEY(user_id,slot));`);
  if(campaignSubmit)db.exec(`CREATE TABLE IF NOT EXISTS campaign_writer_attestation_v1 (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,owner TEXT NOT NULL,principal_id TEXT NOT NULL UNIQUE,
-  credential_mac TEXT NOT NULL,expires_at INTEGER NOT NULL,attested_at INTEGER NOT NULL);`);
+  credential_mac TEXT NOT NULL,expires_at INTEGER NOT NULL,attested_at INTEGER NOT NULL,master_proof_mac TEXT);`);
+ if(campaignSubmit&&!db.prepare('PRAGMA table_info(campaign_writer_attestation_v1)').all().some(c=>c.name==='master_proof_mac'))
+  db.exec('ALTER TABLE campaign_writer_attestation_v1 ADD COLUMN master_proof_mac TEXT');
  // Existing shadow volumes may already contain an unresolved v1 audience
  // journal. Keep that row locked; a missing MAC cannot authorize a v2 receipt.
  if(!db.prepare('PRAGMA table_info(audience_draft_operations)').all().some(column=>column.name==='payload_mac'))
@@ -612,9 +614,41 @@ function createAuth(options){
   db.exec('BEGIN IMMEDIATE');try{
    if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
    db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(userId,encrypt(bearer),digest,current());
-   db.prepare('INSERT INTO campaign_writer_attestation_v1 VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at').run(userId,user.email,principalId,digest,expiresAt,current());
+   db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at,master_proof_mac=NULL').run(userId,user.email,principalId,digest,expiresAt,current());
    recordUpstreamBinding(user,'growth-campaign',db.prepare("SELECT encrypted_key,key_digest FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(userId));
    db.exec('COMMIT');
+ }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
+ }
+ // PRIVATE own-master promotion only; no HTTP route, issuance, role/grant
+ // change or manager lifecycle. The backend identity must attest the actual
+ // master operator's four exact Growth caps, not a browser capability claim.
+ const masterWriterMac=(user,a)=>brandMac(['campaign-master-writer-v1',user.id,user.email,'master','todos',a.principal_id,a.credential_mac,a.expires_at,a.attested_at,['read_content','draft','validate','submit']]);
+ function masterCreatePending(userId){
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='crm_campaign_create_v1'").get()&&db.prepare("SELECT 1 FROM crm_campaign_create_v1 WHERE user_id=? AND phase IN ('queued','uncertain','confirmed')").get(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+ }
+ async function installMasterCampaignWriter({context,userId,bearer,principalId,expiresAt,fetchImpl=globalThis.fetch}){
+  if(!campaignSubmit||!corporateWriter)err('EDIT_NOT_READY',403);
+  const actor=adminContext(context),user=credentialTarget({context,userId,slot:'growth-campaign',bearer});
+  if(actor.id!==user.id||user.role!=='superadmin'||user.email!==adminEmail||user.state!=='active'||!Number.isSafeInteger(expiresAt)||expiresAt<=current()||expiresAt>current()+14*86400000)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  masterCreatePending(userId);
+  try{await require('./crm-campaign-writer-attestation.cjs').verifyMasterCampaignWriterCredential({bearer,owner:user.email,principalId},{fetchImpl});}catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+  const checked=credentialTarget({context,userId,slot:'growth-campaign',bearer});
+  if(checked.email!==user.email||checked.updated_at!==user.updated_at||checked.role!=='superadmin'||checked.state!=='active'||expiresAt<=current())err('CREDENTIAL_ATTESTATION_FAILED',403);
+  masterCreatePending(userId);
+  // Legacy master operator IDs may themselves be an accepted old key. Keep
+  // the verified raw principal in RAM only; persist a segregated keyed digest.
+  const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex'),attestedAt=current(),a={principal_id:'master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+principalId).digest('hex'),credential_mac:digest,expires_at:expiresAt,attested_at:attestedAt};
+  db.exec('BEGIN IMMEDIATE');try{
+   // Serialize the final session/grant/pending checks with journal reservation
+   // even if another gateway process held the SQLite write lock while we waited.
+   const locked=credentialTarget({context,userId,slot:'growth-campaign',bearer});
+   if(locked.email!==user.email||locked.updated_at!==user.updated_at||locked.role!=='superadmin'||locked.state!=='active'||expiresAt<=current())err('CREDENTIAL_ATTESTATION_FAILED',403);
+   masterCreatePending(userId);
+   if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
+   const encrypted=encrypt(bearer);
+   db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(userId,encrypted,digest,attestedAt);
+   db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at,master_proof_mac) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at,master_proof_mac=excluded.master_proof_mac').run(userId,user.email,a.principal_id,digest,expiresAt,attestedAt,masterWriterMac(user,a));
+   recordUpstreamBinding(user,'growth-campaign',{encrypted_key:encrypted,key_digest:digest});db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
  }
  // Private caller only: no new HTTP route and no automatic dispatch.
@@ -644,6 +678,11 @@ function createAuth(options){
   return {ok:true,state:'renewing'};
  }
  function writerBinding(user){
+  if(user.role==='superadmin'){
+   if(!campaignSubmit||!corporateWriter||user.email!==adminEmail||user.permissions.growth?.edit!==true)return null;
+   const a=db.prepare("SELECT a.*,c.key_digest,c.encrypted_key FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
+   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>current()&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
+  }
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
   const a=db.prepare("SELECT a.*,c.key_digest FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id);
@@ -655,7 +694,7 @@ function createAuth(options){
   if(!corporateWriter)return false;
   try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(u);}catch{return false;}
  }
- function campaignWriterReady(ctx){try{const user=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(user)&&(!corporateWriter||managedCrm.credentialReady(user.id)===true);}catch{return false;}}
+ function campaignWriterReady(ctx){try{const user=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(user)&&(!corporateWriter||user.role==='superadmin'||managedCrm.credentialReady(user.id)===true);}catch{return false;}}
  let campaignCreateInitialized=false;
  function hasOpenCampaignCreate(userId,brand){return campaignCreateInitialized&&!!db.prepare("SELECT 1 FROM crm_campaign_create_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand);}
  function campaignWriterAuthorization(ctx,{brand,action}){
@@ -663,7 +702,7 @@ function createAuth(options){
   const user=authorizeBrand({...ctx,area:'growth',edit:true},brand),a=writerBinding(user);if(!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
   // Old WRITER identity remains available for GET receipts/reconciliation.
   // Only new POST mutations depend on a current individual READ binding.
-  if(corporateWriter&&ctx.method==='POST'&&managedCrm.credentialReady(user.id)!==true)err('CRM_ACCESS_NOT_READY',403);
+  if(corporateWriter&&user.role==='manager'&&ctx.method==='POST'&&managedCrm.credentialReady(user.id)!==true)err('CRM_ACCESS_NOT_READY',403);
   if(db.prepare("SELECT 1 FROM campaign_draft_operations WHERE user_id=? AND brand=? AND phase IN ('pending','uncertain')").get(user.id,brand))err('DRAFT_RECONCILIATION_REQUIRED',409);
   if(['salvar','validar','agendar','cancelar'].includes(action)&&hasOpenCampaignCreate(user.id,brand))err('CAMPAIGN_CREATE_PENDING',409);
   return Object.freeze({userId:user.id,role:user.role,slot:'growth-campaign',canEdit:true,credentialMac:a.credential_mac,caps:Object.freeze(['read_content','draft','validate','submit'])});
@@ -709,6 +748,7 @@ function createAuth(options){
   if(ctx.slot==='crm-panel-read'&&user.role==='manager'&&managedCrm&&managedCrm.credentialReady(user.id)===false)err('CRM_ACCESS_NOT_READY',503);
   const row=db.prepare('SELECT encrypted_key,key_digest FROM upstream_credentials WHERE user_id=? AND slot=?').get(user.id,ctx.slot);
   if(!row)return null;
+  if(user.role==='superadmin'&&campaignSubmit&&ctx.slot==='growth-campaign'&&!writerBinding(user))err('CREDENTIAL_UNAVAILABLE',503);
   if(user.role==='manager'){
    if(ctx.slot==='crm-panel-read'&&managedCrm){if(managedCrm.credentialReady(user.id)!==true)err('CRM_ACCESS_NOT_READY',503);}
    else if(ctx.slot==='growth-campaign'&&managedWriter){if(!managedWriter.bindingForUser(user.id))err('CREDENTIAL_UNAVAILABLE',503);}
@@ -835,6 +875,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

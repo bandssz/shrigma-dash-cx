@@ -675,7 +675,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const audienceAction=route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao'].includes(d.action);
         if(route==='segments'&&d.action==='segmento_contexto_v2')throw jsonError(403,'ACTION_DENIED');
         if(d.edit&&!(allowCampaignSubmit&&route==='campaigns')&&!(allowCampaignDraft&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(allowAudienceDraft&&audienceAction))throw jsonError(403,'EDIT_NOT_READY');
-        const campaignSubmitRoute=allowCampaignSubmit&&route==='campaigns'&&(d.edit||!corporateWriter);
+        // An attested own master WRITER includes read_content. Keep all other
+        // production data readers on their existing individual READ slot.
+        const campaignSubmitRoute=allowCampaignSubmit&&route==='campaigns'&&(d.edit||!corporateWriter||auth.session(ctx).user?.role==='superadmin'&&auth.campaignWriterReady(ctx));
         const user=parityDecision?parityUser:auth.authorize({...ctx,area:d.area,edit:d.edit||campaignSubmitRoute});
         const managedReadRoute=audienceReadRoute||templateReadRoute||crmManagedReadUi&&user.role==='manager'&&auth.managedCrmJournal.status(user.id)!==null&&Object.hasOwn(ManagedRead.ACTIONS,route);
         const identity=route==='cx'&&url.searchParams.get('access')==='1'||route==='crm-read'&&d.action==='identity';
@@ -740,7 +742,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               const q={brand:url.searchParams.get('brand'),idempotency_key:url.searchParams.get('idempotency_key')},descriptor=campaignDelivery.describe(ctx,q),value=await campaignDelivery.reconcile(ctx,q);
               return sendJson(req,res,campaignStatus(value),campaignDto(descriptor.action,q.idempotency_key,value));
             }
-            result=await forward({route,method:'GET',query:url.searchParams,user,credential,upstreams,origin,crmCampaignSubmitWrite:true,fetchImpl});
+            result=await forward({route,method:'GET',query:url.searchParams,user,credential,upstreams,origin,crmCampaignSubmitWrite:true,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{}),fetchImpl});
             if(user.role==='manager'&&result.status===200)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox})};
             auth.authorizeBrand({...brandedCtx,area:d.area,edit:true},requestBrand);
             return sendJson(req,res,result.status,result.body);
