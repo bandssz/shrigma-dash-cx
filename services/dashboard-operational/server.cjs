@@ -823,7 +823,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(result.status>=200&&result.status<300){
             if(aggregate)result={...result,body:projectBrandCache(result.body,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead,isolatedSandbox:sandbox})};
             else if(['campaigns','campaigns_media'].includes(route)||!managedReadRoute&&!draftSave&&!draftReceipt)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox})};
-          }else result={...result,body:{error:'UPSTREAM_REQUEST_DENIED'}};
+          }else result={...result,body:{error:result.status===503&&result.body?.error==='UPSTREAM_CREDENTIAL_REJECTED'?'UPSTREAM_CREDENTIAL_REJECTED':'UPSTREAM_REQUEST_DENIED'}};
         }
         return sendJson(req,res,result.status,result.body);
         }finally{if(releaseCacheWork)releaseCacheWork();}

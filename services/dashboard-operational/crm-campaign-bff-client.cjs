@@ -18,11 +18,13 @@ function createCampaignBffClient({request,readJournal,writeJournal,getSession}){
  const sync=fn=>{try{const v=fn();if(v&&typeof v.then==='function'){Promise.resolve(v).catch(()=>{});closed('CAMPAIGN_BFF_STORAGE');}return v;}catch{closed('CAMPAIGN_BFF_STORAGE');}};
  function session(method='POST'){
   const s=sync(getSession);
-  if(!s?.authenticated||s.features?.campaignSubmitWrite!==true&&!(method==='GET'&&s.features?.campaignHistoryRead===true)||s.user?.role!=='manager'||s.user?.areas?.length!==1||s.user.areas[0]!=='growth'||s.user.permissions?.growth?.read!==true||s.user.permissions.growth.edit!==true||typeof s.csrf!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(s.csrf)||typeof s.uiKey!=='string'||!/^ui-[a-f0-9]{32}$/.test(s.uiKey))closed('CAMPAIGN_BFF_DENIED');
-  return Object.freeze({uiKey:s.uiKey,csrf:s.csrf});
+  const u=s?.user,master=u?.role==='superadmin'&&u.brandAccess==='all'&&u.brand===null&&Array.isArray(u.brands)&&u.brands.length===2&&new Set(u.brands).size===2&&['fish','aristo'].every(b=>u.brands.includes(b))&&Array.isArray(u.areas)&&u.areas.length===3&&new Set(u.areas).size===3&&['growth','organico','influs'].every(a=>u.areas.includes(a));
+  const manager=u?.role==='manager'&&u.areas?.length===1&&u.areas[0]==='growth';
+  if(s?.authenticated!==true||s.features?.campaignSubmitWrite!==true&&!(method==='GET'&&s.features?.campaignHistoryRead===true)||!master&&!manager||u.permissions?.growth?.read!==true||u.permissions.growth.edit!==true||typeof s.csrf!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(s.csrf)||typeof s.uiKey!=='string'||!/^ui-[a-f0-9]{32}$/.test(s.uiKey))closed('CAMPAIGN_BFF_DENIED');
+  return Object.freeze({uiKey:s.uiKey,csrf:s.csrf,...(master?{master:true}:{})});
  }
  const scope=(s,brand)=>Object.freeze({uiKey:s.uiKey,brand});
- const same=(s,method)=>{if(session(method).uiKey!==s.uiKey)closed('CAMPAIGN_BFF_DENIED');};
+ const same=(s,method)=>{const current=session(method);if(current.uiKey!==s.uiKey||s.master===true&&current.master!==true)closed('CAMPAIGN_BFF_DENIED');};
  function journal(s,brand){
   if(!['fish','aristo'].includes(brand))closed('CAMPAIGN_BFF_INPUT');
   const row=sync(()=>readJournal(scope(s,brand)));if(row===null||row===undefined)return null;

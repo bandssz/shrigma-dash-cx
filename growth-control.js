@@ -449,7 +449,8 @@ const GC={
     const searched=model.templates.filter(row=>[row.name,row.piece,GC.brand(row.brand)].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(search))).filter(row=>GC.templateMatches(row,ft));
     const templates=hasGT?GT.ordena(searched,ft.sort,ft.dir,r=>ft.sort==='collection'?r.checked_at:r[ft.sort]):searched;
     const tplFiltered=!!GC.search||ft.status!=='todos'||ft.categoria!=='todas'||ft.uso!=='todos';
-    const tplEmpty=!model.templates.length?'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Criar templates.'
+    const portalReadOnly=!!document.getElementById('dashboard-operational-readonly');
+    const tplEmpty=!model.templates.length?(portalReadOnly?'Nenhum template disponível nesta leitura. Confira a marca, o canal e a última consulta.':'Nenhum template disponível. Confira a marca e o canal ou prepare uma mensagem em Criar templates.')
       :`Nenhum template${GC.describe([ft.status==='APPROVED'?'aprovado':ft.status==='outros'?'não aprovado':'',
           ['UTILITY','MARKETING','AUTHENTICATION'].includes(ft.categoria)?GC.categoryLabel(ft.categoria):ft.categoria==='divergente'?'com categoria divergente':'',
           ft.uso==='current'?'mapeado em fluxo':ft.uso==='native_pending'?'com integração pendente':ft.uso!=='todos'?GC.usoLabel(ft.uso):'',GC.search?`contendo "${e(GC.search)}"`:''])}${model.marca!=='todas'?` de ${e(GC.brand(model.marca))}`:''} neste recorte.`;
@@ -462,7 +463,7 @@ const GC={
         ${GC.caps?.pode?.read_content&&GC.caps.leitura_marca!==true?`<button type="button" class="refresh-btn" id="control-tpl-conteudo"${GC.carregando?' disabled':''} title="Carrega a mensagem publicada para conferir a prévia. Esta consulta não altera o template.">${GC.carregando==='listar'?'Carregando…':GC.conteudo?`Recarregar conteúdo publicado (${GC.stamp(GC.conteudoEm)})`:'Carregar conteúdo publicado'}</button>`:''}
         <button type="button" class="refresh-btn gt-export" id="control-tpl-export"${templates.length?'':' disabled'}>Exportar CSV</button></div>${GC.conteudoErro&&GC.caps?.leitura_marca!==true?`<p class="control-warning">${e(GC.conteudoErro)}</p>`:''}
         <div class="rolagem"><table class="comparativo control-template-table" id="control-template-table"><thead><tr>${th('piece','Template / marca')}${th('status','Status e categoria')}${th('usage','Uso')}${th('collection','Consulta')}</tr></thead><tbody>${templates.length?templates.map(GC.template).join(''):`<tr><td colspan="4"><div class="vazio">${tplEmpty}${tplFiltered?' <button type="button" class="refresh-btn gt-limpar" data-clear="tpl">Limpar filtros</button>':''}</div></td></tr>`}</tbody></table></div>`}
-      <span class="control-badge" title="Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.">Edição em Criar templates e Jornadas</span>`;
+      <span class="control-badge" title="${portalReadOnly?'Este Inventário permite consultar o conteúdo publicado. A consulta não cria templates nem altera jornadas.':'Use Criar templates para preparar e publicar mensagens. Para editar etapas, pausar ou reativar uma jornada, abra Jornadas.'}">${portalReadOnly?'Inventário de leitura · conteúdo publicado':'Edição em Criar templates e Jornadas'}</span>`;
     if(drawTemplates&&hasGT)GT.marcaCabecalhos(templateRoot.querySelector('#control-template-table'),ft);
     if(drawWorkflows)workflowRoot.querySelectorAll('[data-control-workflow]').forEach(card=>{if(openDetails.includes(card.dataset.controlWorkflow))card.querySelector('details').open=true;});
     const rerender=()=>GC.render(ctx);

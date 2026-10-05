@@ -4,7 +4,7 @@ Objetivo: Felipe administrar os acessos pelo painel e cada analista operar o set
 
 ## Estado verificável
 
-A candidata reúne as frentes CRM do Claude e a correção de autorização própria do mestre. A revisão f6ee81e passou em todos os 16 workflows: 52 verificações aprovadas e três ignoradas pelas condições dos workflows. Isso valida o código dessa revisão, sem comprovar que ele esteja instalado no portal.
+A candidata reúne as frentes CRM do Claude, o azul escuro da Fishermans, a limpeza administrativa após expiração e a autorização própria do mestre. O editor do mestre agora usa sua sessão e permissões efetivas, com recuperação separada por marca. Uma recusa de credencial do serviço mantém a sessão local; o Inventário de leitura explica as ações disponíveis. Os ajustes novos passaram em 53 casos de UI/cliente/Inventário e seis casos da distinção de sessão, com revisão independente. A revisão anterior 301ff13 passou nos 16 workflows, com 52 verificações aprovadas e três ignoradas. A revisão final terá suas próprias verificações; nenhum desses testes comprova instalação no portal.
 
 A correção da biblioteca de mídia já foi instalada no backend CRM e o serviço está saudável. O portal gerencial continua na revisão anterior f58. Cadastro corporativo, novas permissões, ajustes visuais e demais correções da candidata precisam da instalação e do aceite real para serem considerados disponíveis.
 

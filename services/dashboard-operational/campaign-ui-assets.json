@@ -6,22 +6,22 @@
       "source": "crm-campaign-bff-client.cjs",
       "compiled": "public/campaign-bff-client.js",
       "publicName": "campaign-bff-client.js",
-      "sourceSha256": "58192f42ef2d05d194ffff833f064899ac7fc7559a989b3ba1a7e2e4d22a6c3d",
-      "compiledSha256": "b63bee379ee2564855551672cd22b8b36fe388006f4271574fe0ee3b38844bed"
+      "sourceSha256": "8bebbb3ca223de60e835bf6511d3a29f25f8abc74c4f4915590832ed4e57a3c4",
+      "compiledSha256": "6d450aa63f8caa58e6e730ee30eb50f4cb99df661154b0500731d10da9aead84"
     },
     {
       "source": "public/campaign-edit.js",
       "compiled": "public/campaign-edit.compiled.js",
       "publicName": "campaign-edit.js",
-      "sourceSha256": "677540d6dda96bde948cf06826861c372a2e5ea6a05f9d3d924808c198b56aac",
-      "compiledSha256": "1efdf09c2094016d5c570ccaf26e2d553d9bdfc35bfcd7af86ffb7ed7db3799f"
+      "sourceSha256": "13793a4c020ea555877a84c1346734e89a8f06e8484c9ae3f4a71046fce03486",
+      "compiledSha256": "f021aab7056fd661384db65bbd17ad8d0faad76ce48f865330da1e421bb2e64e"
     },
     {
       "source": "public/entry.js",
       "compiled": "public/entry.compiled.js",
       "publicName": "entry.js",
-      "sourceSha256": "f766a8e827b950e3dc4e5f75fde30f10e41e3a23acc19846dbfb8d09e339ddc6",
-      "compiledSha256": "c874c1322076ac1fcb6495dce96402f357e1be6b4fd4da547e5d8b56f7ea6e92"
+      "sourceSha256": "16afca093ef3a9cf09428fa92b78d95ee3b09299b9e24aedbd5c23499c4948f9",
+      "compiledSha256": "fe4d68e78b807d61730d1a40382757f48d0903f2752620459c133afba5074d72"
     },
     {
       "source": "public/guard.js",

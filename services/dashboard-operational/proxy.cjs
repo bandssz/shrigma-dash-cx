@@ -415,6 +415,8 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     options.headers['Content-Type']='application/json';options.body=JSON.stringify(payload);
   }
   let result;try{result=await fetchImpl(url,options);}catch{throw new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
+  // A remote credential rejection must not invalidate the browser's local session.
+  if(result.status===401){try{await result.body?.cancel();}catch{}return {status:503,body:{error:'UPSTREAM_CREDENTIAL_REJECTED'}};}
   if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_REDIRECT_DENIED');}
   if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||'')){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_CONTENT_TYPE_DENIED');}
   const bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);

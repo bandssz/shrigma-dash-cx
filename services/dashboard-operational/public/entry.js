@@ -228,7 +228,7 @@ else (function(){'use strict';
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
   campaignUi?.close();if(campaignButton){
    const writer=session.features?.campaignSubmitWrite===true,history=session.features?.campaignHistoryRead===true;
-   campaignButton.hidden=!(area==='growth'&&(writer||history)&&session.user.role==='manager'&&session.user.areas.length===1&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
+   campaignButton.hidden=!(area==='growth'&&(writer||history)&&sessionBrandScope(session.user)&&(session.user.role==='superadmin'&&session.user.areas.length===3&&new Set(session.user.areas).size===3&&Object.keys(AREAS).every(a=>session.user.areas.includes(a))||session.user.role==='manager'&&session.user.areas.length===1)&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
    campaignButton.textContent=writer?'Editar campanhas':'Consultar tentativas de campanhas';
   }
   audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
