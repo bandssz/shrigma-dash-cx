@@ -55,12 +55,12 @@ jobs:
         image: postgres:17.10
         env:
           POSTGRES_DB: ab_experiment_test
-          POSTGRES_USER: synthetic
+          POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U synthetic -d ab_experiment_test"
+          --health-cmd "pg_isready -U postgres -d ab_experiment_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
       - name: Check independent sessions against empty PostgreSQL
         env:
           NODE_PATH: ../ab-test-tools/node_modules
-          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/ab_experiment_test
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/ab_experiment_test
           AB_TEST_DATABASE_ISOLATED: '1'
         run: node tests/ab-experiment-concurrency-postgres.cjs
       - name: Check complete pinned upstream queries in synthetic database
@@ -97,12 +97,12 @@ jobs:
         image: postgres:17.10
         env:
           POSTGRES_DB: ab_native_roles_test
-          POSTGRES_USER: synthetic
+          POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 127.0.0.1:5432:5432
         options: >-
-          --health-cmd "pg_isready -U synthetic -d ab_native_roles_test"
+          --health-cmd "pg_isready -U postgres -d ab_native_roles_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -120,7 +120,7 @@ jobs:
       - name: Check all four modules with restricted API and worker roles
         env:
           NODE_PATH: ../ab-test-tools/node_modules
-          TEST_DATABASE_URL: postgres://synthetic@localhost:5432/ab_native_roles_test
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/ab_native_roles_test
           AB_NATIVE_ROLES_ISOLATED: '1'
           AB_NATIVE_SCHEMA: /tmp/listmonk-v6.1.0-schema.sql
           AB_UPSTREAM_SOURCE: /tmp/listmonk-v6.1.0-campaigns.sql

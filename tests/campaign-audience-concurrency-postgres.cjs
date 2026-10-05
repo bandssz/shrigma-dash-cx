@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {Client}=require('pg');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const raw=process.env.TEST_DATABASE_URL;let target;try{target=new URL(raw);}catch{}
-if(process.env.CAMPAIGN_TEST_DATABASE_ISOLATED!=='1'||!target||!['localhost','127.0.0.1'].includes(target.hostname)||target.pathname!=='/campaign_audience_test'||target.username!=='synthetic'||target.password){throw Error('Requires explicitly isolated localhost campaign_audience_test with synthetic user.');}
+if(process.env.CAMPAIGN_TEST_DATABASE_ISOLATED!=='1'||!target||!['localhost','127.0.0.1'].includes(target.hostname)||target.pathname!=='/campaign_audience_test'||target.username!=='postgres'||target.password){throw Error('Requires explicitly isolated localhost campaign_audience_test with postgres installer.');}
 (async()=>{
  const clients=['audience-locker','audience-scheduler','audience-observer'].map(application_name=>new Client({connectionString:raw,application_name}));
  await Promise.all(clients.map(c=>c.connect()));const [a,b,c]=clients;

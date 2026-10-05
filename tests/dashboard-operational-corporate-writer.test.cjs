@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {Readable}=require('node:stream'),{EventEmitter}=require('node:events');
 const {fixture,pending,hosts,CAPS,sha}=require('./corporate-writer-fixture.cjs');
+const {nativeContentFixture}=require('./helpers/corporate-content-native-fixture.cjs');
 const DIR=path.resolve(__dirname,'../services/dashboard-operational'),R=require(DIR+'/crm-manager-runtime.cjs'),P=require(DIR+'/proxy.cjs'),S=require(DIR+'/server.cjs');
 const readUrl='https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read';
 const campaignUrl='https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35';
@@ -35,10 +36,10 @@ test('dedicated corporate approval route checks admin/Origin/CSRF and kicks only
  const reply=await handler(server,f.context,{action:'crm_writer_approve',userId:id});assert.equal(reply.status,202);assert.deepEqual(reply.body,{ok:true,state:'provisioning'});await new Promise(resolve=>setImmediate(resolve));assert.equal(kicks,1);assert.doesNotMatch(JSON.stringify(reply),/bearer|principal|namespace|lifecycle|operationId/);
 });
 test('the combined handler still serves campaign READ through the individual READ principal while editing is pending',async t=>{
- const f=await fixture(t),id=await f.manager(),ctx=await f.login();f.approval(id);const calls=[];
- const server=S.createServer(settings(f),{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,options)=>{calls.push({url:String(url),auth:options.headers.Authorization});const response=new Response(JSON.stringify({brand:'fish',lists:[],templates:[],initiatives:[]}),{headers:{'content-type':'application/json'}});Object.defineProperty(response,'url',{value:String(url)});return response;}});t.after(()=>server.removeAllListeners());
+ const f=await fixture(t),id=await f.manager(),ctx=await f.login();f.approval(id);const calls=[],native=await nativeContentFixture(t,f),readerKey=await native.registerReader(id);
+ const server=S.createServer(settings(f),{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,options)=>{calls.push({url:String(url),auth:options.headers.Authorization});assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer '+readerKey);return native.fetch(url,options);}});t.after(()=>server.removeAllListeners());
  const reply=await new Promise(resolve=>{const req=Readable.from([]);Object.assign(req,{url:'/api/campaigns?acao=campanha_catalogo&brand=fish',method:'GET',headers:{host:ctx.host,origin:ctx.origin,cookie:ctx.cookieHeader,'x-csrf-token':ctx.csrf},socket:{remoteAddress:'127.0.0.1'}});const res=new EventEmitter();res.setHeader=()=>{};res.end=body=>{res.emit('finish');resolve({status:res.statusCode,body:JSON.parse(String(body))});};server.emit('request',req,res);});
- assert.equal(reply.status,200);assert.equal(calls.length,1);assert.equal(calls[0].url,campaignUrl+'?acao=campanha_catalogo&brand=fish');assert.ok(calls[0].auth.startsWith('Bearer '));assert.equal(f.auth.campaignWriterReady(ctx),false);
+ assert.equal(reply.status,200);assert.equal(calls.length,2);assert.equal(calls[0].url,campaignUrl+'?acao=campanha_catalogo&brand=fish');assert.equal(calls[1].url,campaignUrl+'?acao=campanha_acesso&brand=fish');assert.equal(calls.every(c=>c.auth==='Bearer '+readerKey),true);assert.equal(native.authorityQueries,1);assert.deepEqual(reply.body.templates.map(t=>t.id),[1]);assert.equal(reply.body.template_selection_available,true);assert.equal(f.auth.campaignWriterReady(ctx),false);
 });
 test('voluntary downgrade and reapproval are blocked by unresolved campaigns in another brand',async t=>{
  const f=await fixture(t),id=await f.manager();assert.deepEqual(await f.issue(id),{state:'ready'});pending(f,id,'crm_campaign_create_v1','confirmed','aristo');const before=f.db.prepare('SELECT * FROM crm_campaign_create_v1').all();

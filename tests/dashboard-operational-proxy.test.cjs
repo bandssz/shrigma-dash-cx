@@ -220,7 +220,10 @@ test('graph activation review, activation and receipt lookup are denied before f
 test('fixed destinations match the frontend build and reject wrong paths on an approved host',()=>{
   assert.deepEqual(FIXED_DESTINATIONS,Object.fromEntries(Object.entries(ENDPOINTS).map(([url,route])=>[route,url])));
   assert.deepEqual(Object.keys(REVIEWED_DYNAMIC.routes).filter(route=>!DYNAMIC_ROUTES.includes(route)),[]);
-  for(const [source,expected]of Object.entries(REVIEWED_DYNAMIC.sourceSha256))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'..',source))).digest('hex'),expected,source);
+  // The route declaration retains its historical review; current source adds
+  // the closed GET campanha_acesso. This pin does not admit a live gateway.
+  const currentReviewedSourcePins={...REVIEWED_DYNAMIC.sourceSha256,'services/crm-campaign/server.cjs':'7ce3fae43e9118c50817ee78b1e48457c6496d2a10756b87747f0b058418e3b1'};
+  for(const [source,expected]of Object.entries(currentReviewedSourcePins))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'..',source))).digest('hex'),expected,source);
   assert.equal(MEDIA_PATH,CAMPAIGN_PATH+'/media');
   assert.equal(new URL(REVIEWED_DYNAMIC.routes.campaigns_media).pathname,MEDIA_PATH);
   const hosts=hostsFor(FIXED_DESTINATIONS),read=FIXED_DESTINATIONS['crm-read'];

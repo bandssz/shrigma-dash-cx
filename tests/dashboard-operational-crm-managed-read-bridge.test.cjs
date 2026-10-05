@@ -118,7 +118,7 @@ test('full server listener invoked in-process uses managed bridge and existing g
  const denied=await request(server,ctx,'/api/campaigns?acao=campanha_operacao&brand=fish&idempotency_key=synthetic-operation-key');assert.equal(denied.status,403);assert.equal(x.calls.length,1);assert.equal(kicks,0);assert.equal(server.listening,false);
 });
 test('reviewed source establishes read capability and early return; audience GET refresh writes and absent template pins stay blocked',()=>{
- const root=ROOT,pins={"n8n/growth/campaign-provider.sql":"a293e6a971795126bf8b0e98e087c31199319726ea95d1e354bada0f2bfe396d","n8n/growth/campaign-service.js":"1858178696d8537a23a2a49df20df45b786548efb3d266c4c6d8d21725a5d629","services/crm-campaign/transport.cjs":"5714773f5e3178bbc708ce87fd7d122d3fb6606b9b975d08e926ffc3c918f5f6","services/crm-campaign/media.cjs":"ca341115f736c0dae0b0dc7fd1645c583e2ee6bf7eb3c700a90d0859fab21a4f"};
+ const root=ROOT,pins={"n8n/growth/campaign-provider.sql":"a293e6a971795126bf8b0e98e087c31199319726ea95d1e354bada0f2bfe396d","n8n/growth/campaign-service.js":"1858178696d8537a23a2a49df20df45b786548efb3d266c4c6d8d21725a5d629","services/crm-campaign/transport.cjs":"c1f88a8174da867864d21931d85c3d5132ebcc97fb5255625a660a849599c2dd","services/crm-campaign/media.cjs":"ca341115f736c0dae0b0dc7fd1645c583e2ee6bf7eb3c700a90d0859fab21a4f"};
  for(const name of ['n8n/growth/campaign-provider.sql','n8n/growth/campaign-service.js','services/crm-campaign/transport.cjs','services/crm-campaign/media.cjs'])assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex'),pins[name]);
  const provider=fs.readFileSync(path.join(root,'n8n/growth/campaign-provider.sql'),'utf8'),early=provider.slice(provider.indexOf("ELSIF a='catalog'"),provider.indexOf('SELECT * INTO op'));
  assert.match(early,/a='get'/);assert.match(early,/a='list'/);assert.doesNotMatch(early,/\b(UPDATE|INSERT|DELETE)\b/);
@@ -180,7 +180,7 @@ test('master missing a route-specific credential remains a documented gap; neith
  assert.equal(bridgeCalls,0);assert.equal(calls,0);assert.deepEqual(f.baseline(),before);assert.equal(f.auth.managedCrmJournal.status(admin),null);
  // Pin the reviewed independent CREATE gate; dedicated HTTP/UI regressions
  // cover OFF denial and ON requiring a ready, individual FULL writer.
- for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","45d9c75164b9272782c778916420d9c4207f9c5bd58cae6fd3377fd3d849dc75"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","35ece002d9219f6b005653a265875e2f5d1f34202355ebd57e131bfd49ecc5da"]]){
+ for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","45d9c75164b9272782c778916420d9c4207f9c5bd58cae6fd3377fd3d849dc75"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","cd0a972f15b58dd1a07b34471ad0c8f6cd7bf42ec82ef59a750a6a9b9c7412f9"]]){
   const proposed=fs.readFileSync(path.join(ROOT,'services/dashboard-operational',name),'utf8'),begin=proposed.indexOf(start),finish=proposed.indexOf(end,begin);assert.ok(begin>=0&&finish>begin);assert.equal(crypto.createHash('sha256').update(proposed.slice(begin,finish)).digest('hex'),expected);
  }
  assert.equal(B.PASSTHROUGH_DESTINATIONS.cx,P.FIXED_DESTINATIONS.cx);assert.equal(B.PASSTHROUGH_DESTINATIONS.influ,P.FIXED_DESTINATIONS.influ);

@@ -6,6 +6,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Readable}=require('node:stream'),{EventEmitter}=require('node:events');
 const {fixture,hosts,CAPS}=require('./corporate-writer-fixture.cjs');
+const {nativeContentFixture}=require('./helpers/corporate-content-native-fixture.cjs');
 const {createOrigin,definition}=require('./dashboard-operational-campaign-create-fixture.cjs');
 const S=require('../services/dashboard-operational/server.cjs'),P=require('../services/dashboard-operational/proxy.cjs');
 const Backend=require('../services/crm-campaign/server.cjs');
@@ -18,13 +19,18 @@ function env(f){const s=settings(f);return{DASHBOARD_MODE:'operational',DASHBOAR
 function request(app,ctx,path,{method='GET',body,patch={}}={}){return new Promise(resolve=>{const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))],{objectMode:false});Object.assign(req,{url:path,method,headers:{host:ctx.host,origin:ctx.origin,cookie:ctx.cookieHeader,'x-csrf-token':ctx.csrf,...(body===undefined?{}:{'content-type':'application/json'}),...patch},socket:{remoteAddress:'127.0.0.1'}});const res=new EventEmitter();res.setHeader=()=>{};res.end=bytes=>{res.emit('finish');resolve({status:res.statusCode,body:JSON.parse(String(bytes))});};app.emit('request',req,res);});}
 async function setup(t,{issue=true}={}){
  const f=await fixture(t),id=await f.manager(),ctx=await f.login();if(issue)assert.deepEqual(await f.issue(id),{state:'ready'});
- const origin=createOrigin(()=>f.now),calls=[];let behavior=null;
+ const origin=createOrigin(()=>f.now),calls=[],admissionCalls=[],native=await nativeContentFixture(t,f,{ownershipReady:false});await native.registerReader(id);let behavior=null;
  const fetchImpl=async(url,options)=>{
   const u=new URL(url);assert.equal(u.origin+u.pathname,campaignUrl);assert.equal(options.redirect,'manual');assert.equal(options.cache,'no-store');assert.equal(options.headers.Cookie,undefined);assert.equal(options.headers.Origin,undefined);
   const parsed=Backend.parse({method:options.method,headers:Object.fromEntries(Object.entries(options.headers).map(([k,v])=>[k.toLowerCase(),v])),rawHeaders:Object.entries(options.headers).flat()},u,options.method==='POST'?JSON.parse(options.body):undefined);
-  const bearer=parsed.key,slot=f.db.prepare("SELECT c.user_id,c.encrypted_key,b.principal_id FROM upstream_credentials c JOIN crm_writer_auth_binding_v1 b ON c.user_id=b.user_id WHERE c.slot='growth-campaign' AND c.key_digest=?").get(f.digest(bearer));assert.ok(slot,'only the individual WRITER slot is accepted');assert.equal(f.decrypt(slot.encrypted_key),bearer);
+  const payload=parsed.command,bearer=parsed.key;
+  if(payload.acao==='campanha_acesso'){
+   const proofSlot=f.db.prepare('SELECT user_id,encrypted_key,slot FROM upstream_credentials WHERE key_digest=?').get(f.digest(bearer));assert.ok(proofSlot);assert.ok(['crm-panel-read','growth-campaign'].includes(proofSlot.slot));assert.equal(f.decrypt(proofSlot.encrypted_key),bearer);
+   assert.equal(options.method,'GET');assert.deepEqual(Object.keys(payload).sort(),['acao','brand']);admissionCalls.push({method:options.method,brand:payload.brand,slot:proofSlot.slot});return native.fetch(url,options);
+  }
+  const slot=f.db.prepare("SELECT c.user_id,c.encrypted_key,b.principal_id FROM upstream_credentials c JOIN crm_writer_auth_binding_v1 b ON c.user_id=b.user_id WHERE c.slot='growth-campaign' AND c.key_digest=?").get(f.digest(bearer));assert.ok(slot,'only the individual WRITER slot is accepted');assert.equal(f.decrypt(slot.encrypted_key),bearer);
   const reader=f.db.prepare("SELECT encrypted_key FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(slot.user_id);if(reader)assert.notEqual(f.decrypt(reader.encrypted_key),bearer);
-  const payload=parsed.command;assert.equal(Object.hasOwn(payload,'k'),false);if(options.method==='POST'){assert.equal(options.headers.Authorization,undefined);assert.equal(JSON.parse(options.body).k,bearer);}else assert.equal(options.headers.Authorization,'Bearer '+bearer);
+  assert.equal(Object.hasOwn(payload,'k'),false);if(options.method==='POST'){assert.equal(options.headers.Authorization,undefined);assert.equal(JSON.parse(options.body).k,bearer);}else assert.equal(options.headers.Authorization,'Bearer '+bearer);
   calls.push({method:options.method,action:payload.acao,brand:payload.brand,key:payload.idempotency_key,actor:'panel:'+slot.principal_id});
   if(options.method==='POST'){const row=f.db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE remote_key=?').get(payload.idempotency_key);assert.ok(row);assert.equal(f.db.isTransaction,false);assert.equal(row.phase,'uncertain');assert.match(row.input_ciphertext,/^v1\./);assert.match(row.catalog_ciphertext,/^v1\./);assert.match(row.normalized_ciphertext,/^v1\./);assert.equal(row.campaign_id,null);assert.notEqual(row.client_key,row.remote_key);assert.equal(payload.acao,'campanha_salvar');assert.equal(payload.definition.send_at,null);assert.equal(Object.hasOwn(payload,'id'),false);assert.equal(Object.hasOwn(payload,'expected_version'),false);}
   const dispatch=()=>origin.service.handle({actor:'panel:'+slot.principal_id,caps:[...CAPS]},payload);const out=behavior?await behavior({payload,options,dispatch}):await dispatch();return new Response(JSON.stringify(out.body),{status:out.status,headers:{'content-type':'application/json'}});
@@ -56,7 +62,7 @@ async function setup(t,{issue=true}={}){
   assert.equal(user.brand,brand);assert.deepEqual(user.brands,[brand]);
   return{id:invited.userId,ctx:context};
  };
- return{f,id,ctx,origin,calls,fetchImpl,make,preparedSubmit,member,setBehavior:v=>{behavior=v;},post:(app,command,context=ctx)=>request(app,context,'/auth/campaign-create',{method:'POST',body:command}),get:(app,command,context=ctx)=>request(app,context,route(command)),count:()=>f.db.prepare('SELECT count(*) n FROM crm_campaign_create_v1').get().n};
+ return{f,id,ctx,origin,calls,admissionCalls,native,fetchImpl,make,preparedSubmit,member,setBehavior:v=>{behavior=v;},post:(app,command,context=ctx)=>request(app,context,'/auth/campaign-create',{method:'POST',body:command}),get:(app,command,context=ctx)=>request(app,context,route(command)),count:()=>f.db.prepare('SELECT count(*) n FROM crm_campaign_create_v1').get().n};
 }
 
 test('production CREATE defaults OFF; ready FULL still advertises OFF and POST503 without template ownership, journal or effects',async t=>{
@@ -73,7 +79,7 @@ test('production CREATE defaults OFF; ready FULL still advertises OFF and POST50
  const off=a.make(false),on=a.make(true);
  assert.equal((await a.post(off,q())).status,403);
  const denied=await a.post(on,q());assert.equal(denied.status,503);assert.equal(denied.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
- assert.equal(a.count(),0);assert.equal(a.calls.length,0);assert.equal(a.origin.effects.create,0);assert.equal(a.origin.effects.schedule,0);
+ assert.equal(a.count(),0);assert.equal(a.calls.length,0);assert.equal(a.admissionCalls.length,1);assert.equal(a.native.businessEffects,0);assert.equal(a.origin.effects.create,0);assert.equal(a.origin.effects.schedule,0);
  for(const app of [off,on]){
   const session=await request(app,a.ctx,'/auth/session');
   assert.equal(session.body.features.campaignSubmitWrite,false);assert.equal(session.body.features.campaignCreate,false);
@@ -87,9 +93,9 @@ test('prepared CREATE component commits encrypted intent before its only synthet
  const members=[{id:a.id,ctx:a.ctx,brand:'fish',key:'corporate_fish_create_01'},{...aristo,brand:'aristo',key:'corporate_aristo_create_01'}];
  const readers=new Map(members.map(m=>[m.id,a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(m.id)]));
  for(const member of members){
-  const command=q(member.key,member.brand),before=a.calls.length;
+  const command=q(member.key,member.brand),before=a.calls.length,beforeAdmission=a.admissionCalls.length;
   const closed=await a.post(app,command,member.ctx);assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
-  assert.equal(a.calls.length,before);assert.equal(a.count(),members.indexOf(member));
+  assert.equal(a.calls.length,before);assert.equal(a.admissionCalls.length,beforeAdmission+1);assert.equal(a.native.businessEffects,0);assert.equal(a.count(),members.indexOf(member));
   const reply=await a.preparedSubmit(command,member.ctx);
   assert.equal(reply.status,200);assert.equal(reply.body.state,'succeeded');assert.equal(reply.body.campaign.status,'draft');
   assert.equal(reply.body.campaign.sendAt,null);assert.equal(reply.body.campaign.sent,0);
@@ -155,11 +161,11 @@ test('prepared component READ/unpromoted/tampered FULL and malformed inputs reje
   assert.equal((await a.preparedSubmit(bad)).status,400);
   const closed=await a.post(app,bad);assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
  }
- assert.equal(a.calls.length,0);assert.equal(a.count(),0);assert.equal(a.origin.effects.create,0);
+ assert.equal(a.calls.length,0);assert.equal(a.admissionCalls.filter(c=>c.slot==='growth-campaign').length,4);assert.equal(a.admissionCalls.filter(c=>c.slot==='crm-panel-read').length,1);assert.equal(a.native.businessEffects,0);assert.equal(a.count(),0);assert.equal(a.origin.effects.create,0);
  a.f.db.prepare("UPDATE crm_writer_bridge_op_v1 SET committed_mac=? WHERE kind='issue'").run('f'.repeat(64));
  assert.equal((await request(app,a.ctx,'/auth/session')).body.features.campaignCreate,false);
  assert.equal((await a.preparedSubmit(q())).status,403);assert.equal(a.calls.length,0);assert.equal(a.count(),0);
- const tampered=await a.post(app,q());assert.equal(tampered.status,503);assert.equal(tampered.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ const beforeTamperedAdmission=a.admissionCalls.length,tampered=await a.post(app,q());assert.equal(tampered.status,403);assert.equal(tampered.body.error,'CRM_ACCESS_NOT_READY');assert.equal(a.admissionCalls.length,beforeTamperedAdmission);
 });
 
 test('prepared component READ loss suppresses effect ACK; real HTTP GET recovers with unrotated WRITER and new CREATE stays closed',async t=>{
@@ -169,7 +175,7 @@ test('prepared component READ loss suppresses effect ACK; real HTTP GET recovers
  assert.equal(a.f.db.prepare('SELECT phase FROM crm_campaign_create_v1').get().phase,'uncertain');a.setBehavior(null);
  assert.equal((await a.get(app,command)).status,200);
  assert.equal((await a.preparedSubmit(q('corporate_readlost_new_02'))).status,403);
- const closed=await a.post(app,q('corporate_readlost_new_02'));assert.equal(closed.status,503);assert.equal(closed.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+ const beforeAdmission=a.admissionCalls.length,closed=await a.post(app,q('corporate_readlost_new_02'));assert.equal(closed.status,403);assert.equal(closed.body.error,'CRM_ACCESS_NOT_READY');assert.equal(a.admissionCalls.length,beforeAdmission);
  assert.equal(a.calls.filter(v=>v.method==='POST').length,1);assert.equal(a.f.auth.managedCampaignWriterJournal.pending().length,0);
 });
 
@@ -183,7 +189,7 @@ test('prepared component disable/expiry preserve intent evidence; HTTP receipt a
   assert.ok([401,403].includes((await a.get(app,q(),a.ctx)).status));
   assert.equal((await a.preparedSubmit(q('corporate_expired_next_02'),a.ctx)).status,403);
   const denied=await a.post(app,q('corporate_expired_next_02'),a.ctx);
-  if(mode==='disable')assert.equal(denied.status,401);else{assert.equal(denied.status,503);assert.equal(denied.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');}
+  if(mode==='disable')assert.equal(denied.status,401);else{assert.equal(denied.status,403);assert.equal(denied.body.error,'CRM_ACCESS_NOT_READY');}
   assert.equal(a.calls.length,calls);assert.deepEqual(a.f.db.prepare('SELECT * FROM crm_campaign_create_v1').get(),prior);assert.equal(a.origin.effects.create,0);
  }
 });
