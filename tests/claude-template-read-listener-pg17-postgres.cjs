@@ -16,6 +16,22 @@ if(process.env.CRM_TEMPLATE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.h
 const EXPECTED=Number(process.env.CRM_PG_EXPECTED_VERSION_NUM||170010);
 const REV='c'.repeat(40),Q='?acao=listar&brand=fish&channel=email&offset=0&limit=20',A={authorization:'Bearer '+X.KEY};
 
+// pool.end() closes its local pool; the server can still be finishing a backend.
+// Observe teardown only, bounded to 2 s. A connection that remains still fails.
+async function readerConnectionsAfterStop(owner){
+ const deadline=performance.now()+2000;let left;
+ do{
+  const remaining=Math.floor(deadline-performance.now());if(remaining<1)break;
+  left=(await owner.query({text:"SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename='crm_template_reader'",query_timeout:remaining})).rows[0].n;
+  assert.ok(Number.isSafeInteger(left)&&left>=0);
+  assert.ok(performance.now()<=deadline,'reader disconnect observation exceeded 2 s');
+  if(left===0)return left;
+  const wait=Math.min(20,deadline-performance.now());if(wait<=0)break;
+  await new Promise(r=>setTimeout(r,wait));
+ }while(performance.now()<deadline);
+ return left;
+}
+
 test('listener nativo: duas marcas pela ponte, duas sessões, prazo, revogação/expiração, zero efeito e nenhuma conexão sobrando',async()=>{
  const owner=new PG.Pool({connectionString:uri,max:3}),out={};let svc;
  // Conta toda chamada HTTP que não seja ao listener local (provedor, Listmonk, Meta): tem de ser zero.
@@ -90,7 +106,7 @@ test('listener nativo: duas marcas pela ponte, duas sessões, prazo, revogação
 
   // Parada limpa: nenhuma conexão do papel, nenhuma transação aberta.
   await svc.stop();svc=null;
-  const left=(await owner.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename='crm_template_reader'")).rows[0].n;assert.equal(left,0);out.connections_after_stop=left;
+  const left=await readerConnectionsAfterStop(owner);assert.equal(left,0);out.connections_after_stop=left;
   // O papel tem CONNECTION LIMIT 4: o serviço principal já parou e devolveu as conexões.
   // Prazo curto com bloqueio de tabela (revisão 5974202110, P1): o pedido recebe 503 no prazo, mas a
   // vaga e a conexão ficam presas até o PostgreSQL encerrar a espera (lock_timeout); o quinto pedido é
@@ -115,7 +131,7 @@ test('listener nativo: duas marcas pela ponte, duas sessões, prazo, revogação
     assert.equal((await get(lp,Q,A)).status,200);out.lease='4x503_then_busy_then_200';
    }finally{if(lw){try{await lw.query('ROLLBACK');}catch{}lw.release();}await app.stop();await rp.end();}
   }
-  const left2=(await owner.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename='crm_template_reader'")).rows[0].n;assert.equal(left2,0);out.connections_after_lease=left2;
+  const left2=await readerConnectionsAfterStop(owner);assert.equal(left2,0);out.connections_after_lease=left2;
 
   assert.equal(external,0);out.non_loopback_http_calls=external;console.log(JSON.stringify(out));
  }finally{globalThis.fetch=realFetch;if(svc)await svc.stop();await owner.end();}

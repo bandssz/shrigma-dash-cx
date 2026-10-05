@@ -10,11 +10,12 @@ const CAPS=['read_content','draft','validate','submit'];
 const copy=v=>JSON.parse(JSON.stringify(v));
 const projection=c=>({id:c.id,version:c.version,status:c.status,sent:c.sent,startedAt:c.started_at,sendAt:c.send_at});
 async function until(check,label){const deadline=Date.now()+5000;while(!check()){if(Date.now()>deadline)assert.fail('Shell did not settle: '+label);await new Promise(resolve=>setImmediate(resolve));}for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));}
-function shell({requested='growth',role='manager',areas=['growth'],feature=true,edit=true,brand='fish'}={}){
+function shell({requested='growth',role='manager',areas=['growth'],feature=true,edit=true,brand='fish',userPatch={}}={}){
   const html=fs.readFileSync(path.join(PUB,'entry.html'),'utf8').replaceAll('__PANEL__',requested).replaceAll('__LABEL__','Synthetic shell');
   const {document,window:domWindow}=parseHTML(html),calls=[],values=new Map(),locks=[];
   const stamp=Date.parse('2026-10-03T12:00:00Z'),origin=originFixture(()=>stamp),receipts=new Map();
   const state={authenticated:true,uiKey:'ui-'+ '1'.repeat(32),csrf:'c'.repeat(43),user:{id:'11111111-1111-4111-8111-111111111111',email:'shell@synthetic.invalid',role,areas,brand:role==='superadmin'?null:brand,brands:role==='superadmin'?['fish','aristo']:[brand],brandAccess:role==='superadmin'?'all':'single',permissions:{growth:{read:true,edit},organico:{read:true,edit:false},influs:{read:true,edit:false}}},features:{audienceDraft:false,...(feature?{campaignSubmitWrite:true}:{})}};
+  state.user={...state.user,...userPatch};
   if(role==='superadmin')state.areaHosts={growth:'crm.shell.synthetic.invalid',organico:'organico.shell.synthetic.invalid',influs:'influs.shell.synthetic.invalid'};
   let focus=document.body;
   Object.defineProperty(document,'activeElement',{configurable:true,get:()=>focus});
@@ -74,10 +75,28 @@ test('compiled browser shell exposes the gated dialog and carries CSRF through a
   s.element('campaign-close').click();assert.equal(s.dialog.open,false);assert.equal(s.document.activeElement.id,'entry-campaign-open');
 });
 for(const [label,args]of [
-  ['OFF manager',{feature:false}],['read manager',{feature:false,edit:false}],['superadmin',{requested:'todos',role:'superadmin',areas:['growth','organico','influs']}],['cross-area manager',{requested:'organico',areas:['organico']}]
+  ['OFF manager',{feature:false}],['read manager',{feature:false,edit:false}],['OFF superadmin',{requested:'todos',role:'superadmin',areas:['growth','organico','influs'],feature:false}],['read superadmin',{requested:'todos',role:'superadmin',areas:['growth','organico','influs'],edit:false}],['cross-area manager',{requested:'organico',areas:['organico']}]
 ])test('compiled shell keeps campaign writes closed for '+label,async()=>{
   const s=shell(args);await until(()=>!s.element('entry-shell').hidden,label+' shell');
   assert.equal(s.element('entry-brand').textContent,args.role==='superadmin'?'Visão gerencial · todas as marcas':'Fishermans');
   assert.equal(s.element('entry-campaign-open').hidden,true);s.element('entry-campaign-open').click();
   await new Promise(resolve=>setImmediate(resolve));assert.equal(s.dialog.open,false);assert.equal(s.calls.filter(c=>c.path.startsWith('/api/')).length,0);assert.deepEqual(s.origin.effects,{save:0,validate:0,schedule:0,cancel:0,create:0});
+});
+
+
+test('compiled shell admits the server-enabled scoped MASTER without impersonating a manager',async()=>{
+ const s=shell({requested:'todos',role:'superadmin',areas:['growth','organico','influs']});await until(()=>!s.element('entry-shell').hidden,'authorized MASTER shell');
+ assert.equal(s.state.user.role,'superadmin');assert.equal(s.element('entry-brand').textContent,'Visão gerencial · todas as marcas');assert.equal(s.element('entry-campaign-open').hidden,false);
+ s.element('entry-campaign-open').click();await until(()=>s.dialog.open&&!s.element('campaign-validate').disabled,'MASTER reads existing draft');
+ assert.equal(s.element('campaign-brand').disabled,false);assert.deepEqual([...s.element('campaign-brand').querySelectorAll('option')].map(o=>o.value),['fish','aristo']);
+ assert.equal(s.calls.some(c=>c.method==='POST'),false);assert.ok(s.calls.some(c=>c.path.includes('campanha_catalogo')&&c.path.includes('brand=fish')));
+ assert.deepEqual(s.origin.effects,{save:0,validate:0,schedule:0,cancel:0,create:0});s.element('campaign-close').click();
+});
+
+test('compiled shell refuses forged MASTER brand or area scope before any campaign I/O',async()=>{
+ for(const userPatch of [{brand:'fish'},{brandAccess:'single'},{brands:['fish']},{brands:['fish','fish']},{areas:['growth']},{areas:['growth','organico','organico']},{areas:['cx','growth','organico','influs']}]){
+  const s=shell({requested:'todos',role:'superadmin',areas:['growth','organico','influs'],userPatch});await until(()=>s.calls.some(c=>c.path==='/auth/session'),'rejected MASTER session');
+  assert.equal(s.element('entry-shell').hidden,true);assert.equal(s.element('entry-campaign-open').hidden,true);s.element('entry-campaign-open').click();await new Promise(r=>setImmediate(r));
+  assert.equal(s.dialog.open,false);assert.equal(s.calls.some(c=>c.method==='POST'||c.path.startsWith('/api/')),false);assert.deepEqual(s.origin.effects,{save:0,validate:0,schedule:0,cancel:0,create:0});
+ }
 });

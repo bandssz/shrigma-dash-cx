@@ -72,9 +72,15 @@ test('queued GET and simultaneous original POST do not suppress or duplicate the
  assert.deepEqual(await delivery.reconcile({...ctx,method:'GET'},{brand:'fish',idempotency_key:KEY}),{state:'pending',campaign:null});assert.equal(calls.filter(c=>c.method==='POST').length,1);assert.equal(calls.filter(c=>c.command.acao==='campanha_operacao').length,2);
 });
 
-test('entry exposes an honest history CTA only for the scoped manager when WRITE is false',()=>{
+test('entry exposes history CTA only with the real scope helper, effective grant and server feature',()=>{
  const source=fs.readFileSync(path.resolve(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8'),start=source.indexOf('campaignUi?.close();if(campaignButton)',source.indexOf(' function openPanel(')),end=source.indexOf('\n  audienceGate=',start);assert.ok(start>=0&&end>start);
- for(const [history,role,edit,expected]of [[true,'manager',true,false],[false,'manager',true,true],[true,'superadmin',true,true],[true,'manager',false,true]]){const c={area:'growth',campaignUi:{close(){}},campaignButton:{hidden:true,textContent:''},session:{...session('a'),features:{campaignSubmitWrite:false,campaignHistoryRead:history},user:{...session('a').user,role,permissions:{growth:{read:true,edit}}}}};vm.runInNewContext(source.slice(start,end),c);assert.equal(c.campaignButton.hidden,expected);if(!expected)assert.match(c.campaignButton.textContent,/Consultar tentativas/);}
+ const {sessionBrandScope}=require('../services/dashboard-operational/public/entry.js');
+ const areasStart=source.indexOf(' const AREAS='),areasEnd=source.indexOf('\n',areasStart);assert.ok(areasStart>=0&&areasEnd>areasStart);
+ // The snippet uses the same helper and private AREAS declaration as entry,
+ // rather than replacing either authorization dependency with a stub.
+ const manager=session('a').user,master={...manager,role:'superadmin',brand:null,brands:['fish','aristo'],brandAccess:'all',areas:['growth','organico','influs']};
+ const cases=[[true,manager,true,false],[false,manager,true,true],[true,{...manager,role:'superadmin'},true,true],[true,manager,false,true],[true,master,true,false],[false,master,true,true],[true,master,false,true],[true,{...master,brands:['fish']},true,true],[true,{...master,areas:['growth','organico','organico']},true,true]];
+ for(const [history,user,edit,expected]of cases){const c={sessionBrandScope,area:'growth',campaignUi:{close(){}},campaignButton:{hidden:true,textContent:''},session:{...session('a'),features:{campaignSubmitWrite:false,campaignHistoryRead:history},user:{...user,permissions:{growth:{read:true,edit}}}}};vm.runInNewContext(source.slice(areasStart,areasEnd)+'\n'+source.slice(start,end),c);assert.equal(c.campaignButton.hidden,expected);if(!expected)assert.match(c.campaignButton.textContent,/Consultar tentativas/);}
 });
 
 test('failed/contradictory old terminal GET after WRITER rotation preserves its proof and does not deadlock a fresh authorized attempt',async()=>{
