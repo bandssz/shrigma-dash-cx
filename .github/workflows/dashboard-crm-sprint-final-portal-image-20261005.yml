@@ -1,0 +1,98 @@
+name: CRM sprint final exact portal image
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  image-oci-preflight:
+    if: github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.ref == 'codex/crm-sprint-final-portal-20261005-c3f0ac329d04'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      CARRIER_REVISION: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Obter a fonte literal admitida pelo CI dirigido
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 'c3f0ac329d04903078fc0a558ed89aa9f50696c9'
+          path: source
+          persist-credentials: false
+      - name: Obter somente código público do carrier, nunca merge ref
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: carrier
+          persist-credentials: false
+      - name: Exigir CI dirigido terminal e head literal da fonte
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py gate portal
+      - name: Construir contexto fechado e conferir somente OCI do portal
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py build portal
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-sprint-final-preflight-portal-c3f0ac329d04903078fc0a558ed89aa9f50696c9-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-stack-portal-proof/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-portal:
+    needs: [image-oci-preflight]
+    # Preparation stays disabled. The integrator enables only the own carrier.
+    if: >-
+      true &&
+      success() &&
+      github.event_name == 'pull_request' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' &&
+      github.event.pull_request.head.ref == 'codex/crm-sprint-final-portal-20261005-c3f0ac329d04' &&
+      github.event.pull_request.title == '[publish-crm-sprint-final-portal-c3f0ac329d04903078fc0a558ed89aa9f50696c9]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    env:
+      CARRIER_REVISION: ${{ github.event.pull_request.head.sha }}
+    concurrency:
+      group: crm-sprint-final-portal-c3f0ac329d04903078fc0a558ed89aa9f50696c9
+      cancel-in-progress: false
+    steps:
+      - name: Obter a mesma fonte literal
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 'c3f0ac329d04903078fc0a558ed89aa9f50696c9'
+          path: source
+          persist-credentials: false
+      - name: Obter código público do carrier literal
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: carrier
+          persist-credentials: false
+      - name: Reconfirmar gate da mesma fonte
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py gate portal
+      - name: Construir e conferir objeto exato da publicação
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py build portal
+      - name: Publicar somente tag própria cuja ausência foi confirmada
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py publish portal
+      - name: Comprovar pull anônimo por digest e mesma OCI
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py anonymous portal
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-sprint-final-published-portal-c3f0ac329d04903078fc0a558ed89aa9f50696c9-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-stack-portal-proof/
+          if-no-files-found: error
+          retention-days: 7
