@@ -112,6 +112,7 @@ else (function(){'use strict';
    if(fetchOptions.body!==undefined)headers.set('Content-Type','application/json');
    if((fetchOptions.method&&fetchOptions.method!=='GET'||editReceipt)&&session?.csrf)headers.set('X-CSRF-Token',session.csrf);
    const response=await fetch(url,{...fetchOptions,headers,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+   if(url==='/auth/users'&&response.status===401)showLogin('Sua sessão expirou. Entre novamente para gerenciar os acessos.');
    let data={};try{data=await response.json();}catch(_){}
    return {response,data};
   }finally{clearTimeout(deadline);}
@@ -192,6 +193,7 @@ else (function(){'use strict';
   campaignUi?.close();if(campaignButton)campaignButton.hidden=true;
   version++;session=null;selected='';audienceGate={state:'off'};audienceGatePromise=Promise.resolve(audienceGate);frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
+  $('admin-users').replaceChildren();$('admin-crm-reconcile').hidden=true;
   $('login-password').value='';
   loginForm.hidden=!!inviteToken||!!bootstrapToken;inviteForm.hidden=!inviteToken;bootstrapForm.hidden=!bootstrapToken;message.textContent=text;
   (bootstrapToken?$('bootstrap-email'):inviteToken?$('invite-password'):$('login-email')).focus();

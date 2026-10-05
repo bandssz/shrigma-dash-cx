@@ -16,6 +16,68 @@ const GrowthAccess=require('../growth-access.js');
 const manifest={schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:B.DESTINATIONS.campaigns,campaigns_media:B.DESTINATIONS.campaigns_media}};
 const OWNER_PASSWORD='synthetic-owner-password-2026',MANAGER_PASSWORD='synthetic-manager-password-2026',DAY=86400000;
 
+test('master: sessão local expira após lista e convite carregados; 401 limpa a administração e orienta novo login sem apagar tentativa uncertain',async t=>{
+ const p=await portal(t),s=await master(p),email='admin-idle-expiry@synthetic.invalid';
+ s.el('admin-email').value=email;s.select('admin-area','growth');s.select('admin-brand','fish');s.select('admin-access','edit');
+ await s.submit('admin-invite-form');
+ await until(()=>!s.el('admin-invite-result').hidden&&rowOf(s,email),'lista e convite carregados');
+ const rowsBefore=s.el('admin-users').children.length,postsBefore=s.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length;
+ assert.equal(rowsBefore,2);assert.notEqual(s.el('admin-invite-link').value,'');
+ const journalKey='shrigma_campaign_bff_v1:synthetic-idle-review:fish',intent=JSON.stringify({phase:'uncertain',operationId:'synthetic-unknown-ack'});
+ s.values.set(journalKey,intent);
+ p.f.advance(31*60*1000);
+ s.el('entry-manage').click();s.el('entry-manage').click();
+ await until(()=>s.calls.some(c=>c.path==='/auth/users'&&c.status===401),'sessão local recusada');
+ await until(()=>!s.el('entry-login').hidden,'orientação de novo login');
+ assert.match(s.el('entry-message').textContent,/Sua sessão expirou.*Entre novamente/);
+ assert.equal(s.el('entry-shell').hidden,true);assert.equal(s.el('admin-panel').hidden,true);assert.equal(s.el('entry-manage').hidden,true);
+ assert.equal(s.el('admin-users').children.length,0);assert.equal(s.el('admin-crm-reconcile').hidden,true);
+ assert.equal(s.el('admin-invite-result').hidden,true);assert.equal(s.el('admin-invite-link').value,'');
+ assert.equal(s.values.get(journalKey),intent,'não apaga nem repete uma tentativa de campanha');
+ assert.equal(s.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length,postsBefore);
+ // Reauthentication uses the existing owner/password; no reset, extra invite or grant.
+ await s.login(p.f.config.bootstrapAdminEmail);
+ s.el('entry-manage').click();await until(()=>rowOf(s,email),'lista atual após novo login');
+ assert.equal(s.el('admin-users').children.length,rowsBefore);assert.equal(s.el('admin-invite-result').hidden,true);
+ assert.equal(s.el('admin-invite-link').value,'');assert.equal(s.values.get(journalKey),intent);
+ assert.equal(s.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length,postsBefore);
+
+ // The same literal route handles every local admin POST, including expiry inside a submit.
+ for(const scenario of ['invite','revoke-invite','access_request','revoke-user']){
+  const xp=await portal(t),xs=await master(xp),xe='idle-'+scenario+'@synthetic.invalid';
+  xs.el('admin-email').value=xe;xs.select('admin-area','growth');xs.select('admin-brand','fish');xs.select('admin-access','edit');
+  await xs.submit('admin-invite-form');await until(()=>!xs.el('admin-invite-result').hidden&&rowOf(xs,xe),'convite da ação '+scenario);
+  if(scenario==='access_request'||scenario==='revoke-user'){
+   const link=new URL(xs.el('admin-invite-link').value);
+   await xp.f.accept({token:link.hash.slice('#invite='.length),host:link.hostname});await refresh(xs);
+   assert.match(label(xs,xe),/Ativo/);
+  }
+  const identityState=()=>xp.f.inspect(d=>({users:d.prepare('SELECT id,state FROM users ORDER BY id').all(),grants:d.prepare('SELECT user_id,area,can_read,can_edit FROM grants ORDER BY user_id,area').all(),requests:d.prepare('SELECT user_id,requested_access FROM access_requests ORDER BY user_id').all()}));
+  const before=identityState(),posts=xs.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length;
+  xs.values.set(journalKey,intent);xp.f.advance(31*60*1000);
+  if(scenario==='invite'){
+   xs.el('admin-email').value='second-'+xe;xs.select('admin-area','growth');xs.select('admin-brand','fish');xs.select('admin-access','edit');await xs.submit('admin-invite-form');
+  }else if(scenario==='access_request'){
+   const row=rowOf(xs,xe),select=row.querySelector('select');select.value='read';
+   select.dispatchEvent(new xs.window.Event('change',{bubbles:true}));
+   [...row.querySelectorAll('button')].find(b=>b.textContent==='Salvar').click();
+  }else [...rowOf(xs,xe).querySelectorAll('button')].find(b=>b.textContent==='Revogar acesso').click();
+  await until(()=>xs.calls.some(c=>c.path==='/auth/users'&&c.method==='POST'&&c.status===401),'POST local recusado '+scenario);
+  await until(()=>!xs.el('entry-login').hidden,'login após POST '+scenario);
+  const refused=xs.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').at(-1);
+  assert.equal(refused.body.action,scenario.startsWith('revoke-')?'revoke':scenario);assert.equal(refused.status,401);
+  assert.equal(xs.el('entry-shell').hidden,true);assert.equal(xs.el('admin-panel').hidden,true);assert.equal(xs.el('entry-manage').hidden,true);
+  assert.equal(xs.el('admin-users').children.length,0);assert.equal(xs.el('admin-crm-reconcile').hidden,true);
+  assert.equal(xs.el('admin-invite-result').hidden,true);assert.equal(xs.el('admin-invite-link').value,'');
+  assert.match(xs.el('entry-message').textContent,/Sua sessão expirou.*Entre novamente/);
+  assert.equal(xs.values.get(journalKey),intent);assert.deepEqual(identityState(),before);
+  assert.equal(xs.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length,posts+1,'nenhum retry automático');
+ }
+ t.diagnostic('GET users + 4 POST administrativos locais: 401, UI limpa, uncertain preservado, identidade sem efeito e nenhum replay');
+
+});
+
+
 async function portal(t,cacheExtra=()=>({})){
  const f=await fixture();t.after(()=>f.close());let kicks=0;
  const cache=()=>({_escopo:'growth',_painel:'growth',gerado_em:new Date(f.config.now()).toISOString(),_cache_gerado_em:new Date(Date.now()).toISOString(),crm_diario:[],crm_campanha:[],crm_fluxo:[],crm_conversao:[],capabilities:{},...cacheExtra()});

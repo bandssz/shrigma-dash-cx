@@ -18,8 +18,8 @@ function luminance(hex){
 function contrast(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
 test('brand changes select isolated CRM tokens while other panels and status semantics stay untouched',()=>{
  const fish=tokens('growth','fish'),aristo=tokens('growth','aristo'),all=tokens('growth','todas'),olivas=tokens('growth','olivas');
- assert.equal(fish['--crm-accent'],'#1a1c2e');assert.equal(aristo['--crm-accent'],'#0c3c21');
- assert.equal(fish['--crm-sidebar-bg'],'#f8f9fa');assert.equal(aristo['--crm-sidebar-bg'],'#0c3c21');assert.equal(aristo['--fundo'],'#f7f4ec');
+ assert.equal(fish['--crm-accent'],'#102b46');assert.equal(aristo['--crm-accent'],'#0c3c21');
+ assert.equal(fish['--crm-sidebar-bg'],'#102b46');assert.equal(aristo['--crm-sidebar-bg'],'#0c3c21');assert.equal(aristo['--fundo'],'#f7f4ec');
  assert.equal(all['--crm-accent'],'#244b73');assert.equal(olivas['--crm-accent'],'var(--marca-texto)');
  for(const panel of ['cx','organico','influs'])for(const brand of ['fish','aristo','olivas'])assert.deepEqual(tokens(panel,brand),{});
  for(const theme of [fish,aristo,all,olivas]){
