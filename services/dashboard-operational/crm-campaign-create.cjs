@@ -42,7 +42,7 @@ function campaign(c,brand,id){
 }
 function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,corporateWriter,authorize,transport,now=Date.now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery}){
  const sandbox=profile==='crm-sandbox'&&allowedEmailDomains?.length===1&&allowedEmailDomains[0]==='synthetic.invalid';
- const corporate=profile==='corporate-read-writer-v1'&&Array.isArray(allowedEmailDomains)&&allowedEmailDomains.length===3&&Object.keys(allowedEmailDomains).length===3&&new Set(allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d))&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(corporateWriter);
+ const corporate=(profile==='corporate-read-writer-v1'&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(corporateWriter)||profile==='own-master-production-v1'&&require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(corporateWriter))&&Array.isArray(allowedEmailDomains)&&allowedEmailDomains.length===3&&Object.keys(allowedEmailDomains).length===3&&new Set(allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d));
  if(enabled!==true||!Array.isArray(allowedEmailDomains)||!sandbox&&!corporate)fail('CAMPAIGN_CREATE_DENIED');
  if(!db||typeof db.isTransaction!=='boolean'||![authorize,transport,now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery].every(f=>typeof f==='function'))fail('CAMPAIGN_CREATE_CONFIG');
  const outside=()=>{if(db.isTransaction)fail('CAMPAIGN_CREATE_TRANSACTION');};
@@ -60,6 +60,7 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
  const atomic=f=>{outside();db.exec('BEGIN IMMEDIATE');try{const r=f();db.exec('COMMIT');return r;}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}};
  const identity=(ctx,q)=>{try{
   const a=synchronous(authorize(ctx,Object.freeze({brand:q.brand,action:q.action||'criar'})),'CAMPAIGN_CREATE_DENIED');
+  if(profile==='own-master-production-v1'&&a?.role!=='superadmin')fail('CAMPAIGN_CREATE_DENIED');
   if(!exact(a,['userId','role','slot','canEdit','credentialMac','caps'])||!UUID.test(a.userId||'')||!['manager','superadmin'].includes(a.role)||a.slot!=='growth-campaign'||a.canEdit!==true||!MAC.test(a.credentialMac||'')||!Array.isArray(a.caps)||a.caps.length!==4||new Set(a.caps).size!==4||!a.caps.every(c=>CAPS.has(c)))fail('CAMPAIGN_CREATE_DENIED');return a;
  }catch{fail('CAMPAIGN_CREATE_DENIED');}};
  const get=(u,k)=>db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE user_id=? AND client_key=?').get(u,k);

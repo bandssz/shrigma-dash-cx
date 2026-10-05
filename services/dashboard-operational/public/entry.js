@@ -393,7 +393,7 @@ else (function(){'use strict';
    }
    await loadUsers();if(ticket!==version||session!==original)return;
    inviteResult.hidden=true;inviteLink.value='';
-   adminMessage.textContent=uncertain?'A resposta não foi confirmada. Confira o cadastro atualizado; nenhuma alteração foi reenviada.':changed?'Alteração registrada. O acesso anterior foi bloqueado; o novo convite aparece após a confirmação da revogação.':fields.access==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Leitura definida. A senha foi preservada.';
+   adminMessage.textContent=uncertain?'A resposta não foi confirmada. Confira o cadastro atualizado; nenhuma alteração foi reenviada.':changed?'Alteração registrada. O acesso anterior foi bloqueado; o novo convite aparece após a confirmação da revogação.':user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${fields.access==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado. A senha foi preservada.`:fields.access==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Leitura definida. A senha foi preservada.';
   }catch(_){if(ticket===version&&session===original)adminMessage.textContent='Não foi possível conferir o cadastro agora. Atualize os acessos antes de tentar novamente.';}
   finally{busy=false;form.setAttribute('aria-busy','false');for(const input of form.querySelectorAll('input,select,button'))input.disabled=false;}
  }
@@ -421,8 +421,9 @@ else (function(){'use strict';
   // This content gate excludes cancellation/history, which keep their own
   // authorization contract. Absent metadata preserves the isolated legacy UI.
   const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&(user.campaignContentAccess?.available===false||user.campaignContentAccess?.writeReady===false&&(granted||user.crmWriter?.state==='ready'));
-  const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Edição configurada · aguardando confirmação':'Somente leitura';
-  const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
+  const individualUnavailable=user.role==='manager'&&user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY';
+  const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):individualUnavailable?'Cadastro preservado · acesso individual ainda não habilitado':contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Edição configurada · aguardando confirmação':'Somente leitura';
+  const state=individualUnavailable&&user.status==='active'?'Cadastro ativo':{active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   const brandLabel=user.role==='superadmin'?'Todas as marcas':user.brandAccess==='single'&&['fish','aristo'].includes(user.brand)?({fish:'Fishermans',aristo:'O Aristocrata'})[user.brand]:'Marca pendente · recrie o acesso';
   details.setAttribute('data-brand-access',user.brandAccess==='single'?'single':user.role==='superadmin'?'all':'reprovision_required');
   details.textContent=[areas,brandLabel,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
@@ -488,7 +489,7 @@ else (function(){'use strict';
   try{
    const {response}=await post('/auth/users',{action:'access_request',userId:user.id,requestedAccess});
    if(!response.ok)throw Error('access_request_failed');
-   await loadUsers();adminMessage.textContent=requestedAccess==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Acesso definido como somente leitura.';
+   await loadUsers();adminMessage.textContent=user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${requestedAccess==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado.`:requestedAccess==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Acesso definido como somente leitura.';
   }catch(_){button.disabled=false;select.disabled=false;adminMessage.textContent='Não foi possível salvar o nível de acesso.';}
  }
  async function loadUsers(){
@@ -528,7 +529,7 @@ else (function(){'use strict';
    if(!response.ok)throw Error('invite_failed');
    const safeUrl=inviteUrlForArea(data?.inviteUrl,area,session.areaHosts);
    if(!safeUrl)throw Error('invite_failed');
-   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=`Convite com ${requestedAccess==='edit'?'Edição':'Leitura'} criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A configuração da edição acontece após o aceite; confira o estado do acesso. ':''}Compartilhe o link por um canal seguro.`;
+   inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=area==='growth'&&session.features?.crmIndividualAccessUnavailable===true?`Convite criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. Solicitação de ${requestedAccess==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado. Compartilhe o link por um canal seguro.`:`Convite com ${requestedAccess==='edit'?'Edição':'Leitura'} criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A configuração da edição acontece após o aceite; confira o estado do acesso. ':''}Compartilhe o link por um canal seguro.`;
    $('admin-email').value='';$('admin-brand').value='';$('admin-access').value='read';await loadUsers();
   }catch(_){adminMessage.textContent='Não foi possível criar o convite. Confira os dados e tente novamente.';}
   finally{busy=false;form.setAttribute('aria-busy','false');for(const field of form.querySelectorAll('input,select,button'))field.disabled=false;}

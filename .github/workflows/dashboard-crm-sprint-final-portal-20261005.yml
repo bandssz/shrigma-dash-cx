@@ -1,0 +1,70 @@
+name: CRM sprint final directed source and portal proof
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  directed-source-validation:
+    if: github.event.pull_request.number == 214 && github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.ref == 'codex/dashboard-candidate-crm-fix-20261002'
+    env:
+      SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+      SOURCE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      SOURCE_PR: ${{ github.event.pull_request.number }}
+      SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Admitir somente o delta literal autorizado contra a fonte conferida
+        run: python3 tools/crm-sprint-final-portal/verify-source.py delta
+      - name: Instalar ferramentas de teste fixadas somente no runner
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/crm-sprint-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Conferir artefatos dos percursos afetados
+        run: |
+          node tools/panel-build/build.cjs --panel=growth --check
+          node tools/dashboard-campaign-ui-build.cjs --check
+      - name: Executar somente verificações afetadas pelo delta
+        env:
+          NODE_PATH: ${{ runner.temp }}/crm-sprint-test-tools/node_modules
+          CAMPAIGN_PGLITE_MODULE: ${{ runner.temp }}/crm-sprint-test-tools/node_modules/@electric-sql/pglite
+        run: python3 tools/crm-sprint-final-portal/verify-source.py test
+      - name: Construir somente portal sem publicar imagem
+        run: >-
+          docker build --platform linux/amd64
+          --file services/dashboard-operational/Dockerfile
+          --build-arg GIT_SHA="$SOURCE_REVISION"
+          --tag crm-sprint-final-portal:ci
+          --label org.opencontainers.image.base.name=node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+          --label com.shrigma.component=crm-portal .
+      - name: Emitir pack e pins da imagem Node22 sem rede ou aplicação
+        run: |
+          mkdir -p "$RUNNER_TEMP/crm-sprint-final-source-proof"
+          docker run --rm --pull=never --network none --no-healthcheck --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --memory 512m --memory-swap 512m --cpus 0.5 --pids-limit 64 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+            --tmpfs /dashboard-data:rw,noexec,nosuid,nodev,size=4m,uid=1000,gid=1000,mode=0700 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/tools/crm-sprint-final-portal,target=/proof,readonly" \
+            --entrypoint node crm-sprint-final-portal:ci --max-old-space-size=128 /proof/portal-proof.cjs "$SOURCE_REVISION" \
+            > "$RUNNER_TEMP/crm-sprint-final-source-proof/portal-source-image.json"
+          cat "$RUNNER_TEMP/crm-sprint-final-source-proof/portal-source-image.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-sprint-final-source-portal-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-sprint-final-source-proof/portal-source-image.json
+          if-no-files-found: error
+          retention-days: 7

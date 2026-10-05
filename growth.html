@@ -6,7 +6,7 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=26e84847333c">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=297a8f06d1c6">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="growth" data-crm-view="manager">
@@ -20,10 +20,10 @@
     </div>
   </nav></details><nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="visao" class="ativo">Início</button>
+    <button data-s="base">Públicos<span class="n" id="n-arv"></span></button>
     <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
     <button data-s="templates">Templates</button>
-    <button data-s="base">Público<span class="n" id="n-arv"></span></button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
     <button data-s="resultados">Resultados</button>
     <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
   </nav><span class="crm-sidebar-foot">Operação de CRM</span></aside>
@@ -31,7 +31,7 @@
 <header class="topo">
   <div class="titulo">
     <span class="marcas" id="marcas-topo"></span>
-    <div><h1 id="crm-screen-title">Início</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
+    <div><h1 id="crm-screen-title">Início</h1><p class="crm-active-brand" id="crm-active-brand">Todas as marcas</p><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
 
   <div class="status" data-crm-owner-only><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
@@ -211,7 +211,7 @@
   <div class="sec" id="sec-base">
 
     <section class="ga-workspace-head" aria-labelledby="crm-audience-title">
-      <div><span class="ga-eyebrow">SEGMENTAÇÃO DA BASE</span><h2 id="crm-audience-title">Conheça seus clientes. Crie seus públicos.</h2><p>Combine listas, compras, produtos e engajamento. Salve o público e escolha-o na campanha da mesma marca.</p></div>
+      <div><span class="ga-eyebrow">PÚBLICOS · SEGMENTOS DE CONTATOS</span><h2 id="crm-audience-title">Conheça seus clientes. Crie seus públicos.</h2><p>Combine listas, compras, produtos e engajamento. Salve o público e escolha-o na campanha da mesma marca.</p></div>
       <button type="button" class="ga-create-primary" id="crm-audience-create"><span aria-hidden="true">＋</span> Criar público</button>
       <div class="ga-brand-choices" id="crm-audience-brand-choices" role="group" aria-label="Marca do novo público" hidden><span>Escolha a marca do público</span><button type="button" data-audience-create-brand="fish">Fishermans</button><button type="button" data-audience-create-brand="aristo">O Aristocrata</button></div>
       <p id="crm-audience-create-status" role="status" aria-live="polite" hidden></p>
@@ -273,7 +273,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=99516a2cc105"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=e10b181b2d00"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);

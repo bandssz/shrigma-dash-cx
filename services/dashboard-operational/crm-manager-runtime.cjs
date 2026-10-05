@@ -77,6 +77,11 @@ function createManagerRuntime(config,adapters={}){
 }
 const corporateDescriptors=new WeakSet();
 const CORPORATE_WRITER_MODE='corporate-read-writer-v1';
+const OWN_MASTER_WRITER_MODE='own-master-production-v1',ownMasterDescriptors=new WeakSet();
+function ownMasterWriterDescriptor(mode,allowedEmailDomains){
+ if(mode!==OWN_MASTER_WRITER_MODE||!Array.isArray(allowedEmailDomains)||allowedEmailDomains.length!==3||Object.keys(allowedEmailDomains).length!==3||new Set(allowedEmailDomains).size!==3||!['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d)))refuse();
+ const out=Object.freeze({mode});ownMasterDescriptors.add(out);return out;
+}
 const CORPORATE_HOSTS=Object.freeze([
  Object.freeze({manager:'gerencial.shrigma.com.br',growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'}),
  Object.freeze({manager:'dashboard-v25-gerencial.tazdb8.easypanel.host',growth:'dashboard-v25-crm.tazdb8.easypanel.host',organico:'dashboard-v25-organico.tazdb8.easypanel.host',influs:'dashboard-v25-influs.tazdb8.easypanel.host'})
@@ -138,4 +143,4 @@ function createWriterManagerRuntime(config,adapters={}){
   return Object.freeze({kick,close});
  }catch{refuse();}
 }
-module.exports={createManagerRuntime,createWriterManagerRuntime,corporateWriterDescriptor,corporateHostsAllowed,CORPORATE_WRITER_MODE,WRITER_ORIGIN,isCorporateWriterDescriptor:value=>corporateDescriptors.has(value),ManagedCrmRuntimeError};
+module.exports={createManagerRuntime,createWriterManagerRuntime,corporateWriterDescriptor,ownMasterWriterDescriptor,corporateHostsAllowed,CORPORATE_WRITER_MODE,OWN_MASTER_WRITER_MODE,WRITER_ORIGIN,isCorporateWriterDescriptor:value=>corporateDescriptors.has(value),isOwnMasterWriterDescriptor:value=>ownMasterDescriptors.has(value),isCampaignWriterDescriptor:value=>corporateDescriptors.has(value)||ownMasterDescriptors.has(value),ManagedCrmRuntimeError};

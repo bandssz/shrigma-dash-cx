@@ -1,7 +1,7 @@
 /* Presentation and navigation only. Editors, permissions and operation journals retain ownership of their state. */
 'use strict';
 const CRMWorkspace=(()=>{
- const titles={visao:'Início',camp:'Campanhas',regua:'Automações',templates:'Templates',base:'Público',resultados:'Resultados'};
+ const titles={visao:'Início',camp:'Campanhas',regua:'Automações',templates:'Templates',base:'Públicos',resultados:'Resultados'};
  const brands={todas:'Todas as marcas',fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo'};
  let report='overview',campaign='list',notify=()=>{},lastBrand=null,lastIssue='',bound=false;
  const el=id=>typeof document==='undefined'?null:document.getElementById(id);
@@ -37,7 +37,7 @@ const CRMWorkspace=(()=>{
   if(typeof document==='undefined')return;
   document.body.dataset.crmSection=Object.hasOwn(titles,section)?section:'visao';
   const heading=el('crm-screen-title');if(heading)heading.textContent=titles[section]||'CRM';
-  const label=el('crm-brand-label');if(label)label.textContent=brands[brand]||'Marca não identificada';
+  for(const id of ['crm-brand-label','crm-active-brand']){const label=el(id);if(label)label.textContent=brands[brand]||'Marca não identificada';}
   if(lastBrand!==null&&lastBrand!==brand&&el('crm-brand-picker'))el('crm-brand-picker').open=false;lastBrand=brand;
   document.querySelectorAll('#secoes button').forEach(b=>{if(b.dataset.s===section)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   if(period?.ini&&period?.fim){
