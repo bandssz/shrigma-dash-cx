@@ -1,6 +1,7 @@
 'use strict';
 // Actual in-process HTTP request handler, pinned proxy and Response body parsing.
-// Identity and transport are injected, so no secrets, TCP, database or sends.
+// Original Auth/SQLite and selected disposable native IAM/SQL fixtures carry
+// content authority through the in-process gateway; no TCP, secrets or sends.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Readable}=require('node:stream'),{EventEmitter}=require('node:events');
 const S=require('../services/dashboard-operational/server.cjs');
@@ -145,13 +146,12 @@ test('actual revoked identity cannot return a body fetched before revocation',as
 function managedRequest(server,ctx,url,{method='GET',body}={}){return new Promise(resolve=>{const req=Readable.from(body?[Buffer.from(JSON.stringify(body))]:[]);Object.assign(req,{url,method,headers:{host:ctx.host,origin:ctx.origin,cookie:ctx.cookieHeader,'x-csrf-token':ctx.csrf,...(body?{'content-type':'application/json'}:{})},socket:{remoteAddress:'127.0.0.1'}});const res=new EventEmitter();res.setHeader=()=>{};res.end=bytes=>{res.writableFinished=true;res.emit('finish');resolve({status:res.statusCode,body:JSON.parse(String(bytes))});};server.emit('request',req,res);});}
 
 test('managed READ carries the actual single-brand identity through the existing frozen bridge binding',async t=>{
- const {fixture}=require('./corporate-writer-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
- const f=await fixture(t);await f.manager();const ctx=await f.login();let calls=0;
+ const {fixture}=require('./corporate-writer-fixture.cjs'),{nativeContentFixture}=require('./helpers/corporate-content-native-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
+ const f=await fixture(t),id=await f.manager(),ctx=await f.login(),native=await nativeContentFixture(t,f),readerKey=await native.registerReader(id);let calls=0;
  const config={...f.config,mode:'operational',upstreamProfile:'production',crmManagedReadUi:true,crmManagedWriter:{...f.config.crmManagedWriter,provisionerToken:'S'.repeat(43)},upstreams:{'crm-read':B.DESTINATIONS['crm-read'],campaigns:B.DESTINATIONS.campaigns},allowedUpstreamHosts:[new URL(B.DESTINATIONS['crm-read']).hostname,new URL(B.DESTINATIONS.campaigns).hostname],dynamicRouteManifest:{schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:B.DESTINATIONS.campaigns}}};
- const body={brand:'fish',lists:[{brand:'fish',id:17}],templates:[],initiatives:[]};
- const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,init)=>{calls++;assert.equal(init.headers.Authorization,'Bearer '+f.auth.getUpstreamCredential({...ctx,method:'GET',area:'growth',slot:'crm-panel-read',brand:'fish'}));return response(body);}});t.after(()=>server.removeAllListeners());
- const accepted=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=fish');assert.equal(accepted.status,200,JSON.stringify(accepted.body));assert.equal(accepted.body.brand,'fish');assert.equal(calls,1);
- const refused=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=aristo');assert.equal(refused.status,403);assert.equal(calls,1);
+ const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,init)=>{calls++;assert.equal(init.method,'GET');assert.equal(init.headers.Authorization,'Bearer '+readerKey);assert.equal(new URL(url).origin+new URL(url).pathname,B.DESTINATIONS.campaigns);return native.fetch(url,init);}});t.after(()=>server.removeAllListeners());
+ const accepted=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=fish');assert.equal(accepted.status,200,JSON.stringify(accepted.body));assert.equal(accepted.body.brand,'fish');assert.equal(accepted.body.template_ownership_contract,'crm-campaign-template-brand-v1');assert.deepEqual(accepted.body.templates.map(t=>t.id),[1]);assert.equal(accepted.body.template_selection_available,true);assert.equal(calls,2);assert.equal(native.authorityQueries,1);assert.equal(native.businessEffects,1);
+ const refused=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=aristo');assert.equal(refused.status,403);assert.equal(calls,2);assert.equal(native.authorityQueries,1);assert.equal(native.businessEffects,1);
 });
 
 test('FULL individual WRITER cannot validate or schedule a campaign of another brand',async t=>{
@@ -187,26 +187,26 @@ test('campaign read only returns selected campaign and definition fields, even i
 });
 
 test('managed READ cannot bypass the catalog ownership gate or projection for marked campaign records',async t=>{
- const {fixture}=require('./corporate-writer-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
- const f=await fixture(t);await f.manager();const ctx=await f.login();let calls=0;
+ const {fixture}=require('./corporate-writer-fixture.cjs'),{nativeContentFixture}=require('./helpers/corporate-content-native-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
+ const f=await fixture(t),id=await f.manager(),ctx=await f.login(),native=await nativeContentFixture(t,f,{ownershipReady:false}),readerKey=await native.registerReader(id);let calls=0;
  const config={...f.config,mode:'operational',upstreamProfile:'production',crmManagedReadUi:true,crmManagedWriter:{...f.config.crmManagedWriter,provisionerToken:'S'.repeat(43)},upstreams:{'crm-read':B.DESTINATIONS['crm-read'],campaigns:B.DESTINATIONS.campaigns},allowedUpstreamHosts:[new URL(B.DESTINATIONS['crm-read']).hostname,new URL(B.DESTINATIONS.campaigns).hostname],dynamicRouteManifest:{schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:B.DESTINATIONS.campaigns}}};
- const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url)=>{calls++;if(new URL(url).searchParams.get('acao')==='campanha_catalogo')return response({brand:'fish',lists:[{brand:'fish',id:17}],templates:[{id:99,name:'PRIVATE-GLOBAL'}],initiatives:[]});return response({campaign:{id:167,definition:{brand:'fish'},other_brand_secret:'PRIVATE'},other_brand_secret:'PRIVATE'});}});t.after(()=>server.removeAllListeners());
- const refused=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=fish');assert.equal(refused.status,503);assert.equal(refused.body.error,'BRAND_CATALOG_SCOPE_NOT_READY');assert.equal(JSON.stringify(refused.body).includes('PRIVATE'),false);
- const allowed=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_obter&brand=fish&id=167');assert.equal(allowed.status,200);assert.deepEqual(allowed.body,{campaign:{id:167,definition:{brand:'fish'}}});assert.equal(calls,2);
+ const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,init)=>{calls++;assert.equal(init.method,'GET');assert.equal(init.headers.Authorization,'Bearer '+readerKey);if(new URL(url).searchParams.get('acao')==='campanha_acesso')return native.fetch(url,init);if(new URL(url).searchParams.get('acao')==='campanha_catalogo')return response({brand:'fish',lists:[{brand:'fish',id:17}],templates:[{id:99,name:'PRIVATE-GLOBAL'}],initiatives:[]});return response({campaign:{id:167,definition:{brand:'fish'},other_brand_secret:'PRIVATE'},other_brand_secret:'PRIVATE'});}});t.after(()=>server.removeAllListeners());
+ const refused=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_catalogo&brand=fish');assert.equal(refused.status,503);assert.equal(refused.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');assert.equal(JSON.stringify(refused.body).includes('PRIVATE'),false);
+ const allowed=await managedRequest(server,ctx,'/api/campaigns?acao=campanha_obter&brand=fish&id=167');assert.equal(allowed.status,200);assert.deepEqual(allowed.body,{campaign:{id:167,definition:{brand:'fish'}}});assert.equal(calls,3);assert.equal(native.authorityQueries,1);assert.equal(native.businessEffects,0);assert.equal((await native.db.query("SELECT tgenabled FROM pg_trigger WHERE tgname='shrigma_campaign_template_registry_guard_v1'")).rows[0].tgenabled,'D');
 });
 
 test('same-brand FULL WRITER stays unavailable for save, validation, scheduling and CREATE until template ownership is established',async t=>{
- const {fixture}=require('./corporate-writer-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
- const f=await fixture(t),id=await f.manager();assert.deepEqual(await f.issue(id),{state:'ready'});const ctx=await f.login();let calls=0;
+ const {fixture}=require('./corporate-writer-fixture.cjs'),{nativeContentFixture}=require('./helpers/corporate-content-native-fixture.cjs'),B=require('../services/dashboard-operational/crm-manager-read-bridge.cjs');
+ const f=await fixture(t),id=await f.manager();assert.deepEqual(await f.issue(id),{state:'ready'});const ctx=await f.login(),native=await nativeContentFixture(t,f,{ownershipReady:false});await native.registerReader(id);const physicalWriter=f.adapter.bindingForUser(id);let calls=0;
  const config={...f.config,mode:'operational',upstreamProfile:'production',crmManagedReadUi:true,crmCorporateCreate:true,crmManagedWriter:{...f.config.crmManagedWriter,provisionerToken:'S'.repeat(43)},upstreams:{'crm-read':B.DESTINATIONS['crm-read'],campaigns:B.DESTINATIONS.campaigns},allowedUpstreamHosts:[new URL(B.DESTINATIONS['crm-read']).hostname,new URL(B.DESTINATIONS.campaigns).hostname],dynamicRouteManifest:{schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:B.DESTINATIONS.campaigns}}};
- const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async()=>{calls++;assert.fail('unowned template must not reach backend');}});t.after(()=>server.removeAllListeners());
+ const server=S.createServer(config,{auth:f.auth,managedCrmRuntime:{kick:()=>Promise.resolve(),close:()=>Promise.resolve()},fetchImpl:async(url,init)=>{calls++;assert.equal(init.method,'GET');assert.equal(new URL(url).origin+new URL(url).pathname,B.DESTINATIONS.campaigns);assert.equal(new URL(url).searchParams.get('acao'),'campanha_acesso');assert.equal(new URL(url).searchParams.get('brand'),'fish');assert.equal(init.body,undefined);return native.fetch(url,init);}});t.after(()=>server.removeAllListeners());
  const session=await managedRequest(server,ctx,'/auth/session');assert.equal(session.status,200);assert.equal(session.body.features.campaignSubmitWrite,false);assert.equal(session.body.features.campaignCreate,false);assert.equal(session.body.features.campaignTemplateOwnershipUnavailable,true);
  for(const acao of ['campanha_salvar','campanha_validar','campanha_agendar']){
   const definition={schema_version:'crm-campaign-v1',brand:'fish',channel:'email',initiative:{key:'synthetic',name:'Synthetic'},utm_campaign:'synthetic',name:'Synthetic fish',subject:'Synthetic',from_email:'test@fishermans.com.br',reply_to:'test@fishermans.com.br',list_ids:[17],template_id:999,html:'<p>Potential foreign template</p>',text:'Synthetic',tags:[],send_at:null};
   const body={acao,brand:'fish',id:167,expected_version:'a'.repeat(32),idempotency_key:'synthetic_client_key_123',...(acao==='campanha_salvar'?{definition}:acao==='campanha_agendar'?{confirm:'agendar',audience_review_id:'12345678-1234-4234-8234-123456789abc'}:{})};
   const r=await managedRequest(server,ctx,'/api/campaigns',{method:'POST',body});assert.equal(r.status,503,JSON.stringify(r.body));assert.equal(r.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
  }
- const created=await managedRequest(server,ctx,'/auth/campaign-create',{method:'POST',body:{brand:'fish',idempotency_key:'synthetic_client_key_123'}});assert.equal(created.status,503);assert.equal(created.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');assert.equal(calls,0);
+ const created=await managedRequest(server,ctx,'/auth/campaign-create',{method:'POST',body:{brand:'fish',idempotency_key:'synthetic_client_key_123'}});assert.equal(created.status,503);assert.equal(created.body.error,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');assert.equal(calls,6);assert.equal(native.authorityQueries,1);assert.equal(native.businessEffects,0);assert.equal(f.db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n,0);assert.equal(f.db.prepare('SELECT count(*) n FROM crm_campaign_create_v1').get().n,0);assert.deepEqual(f.adapter.bindingForUser(id),physicalWriter);assert.equal(f.auth.campaignWriterReady(ctx),true);
 });
 
 test('cart projection preserves the real G.carrinho metrics and measured/null distinction without another brand',async t=>{
@@ -290,7 +290,7 @@ test('owner user list exposes effective content availability without rewriting p
  const server=app(t,i,()=>assert.fail('user list must not contact an upstream'));
  const r=await request(server,'/auth/users',{host:hosts.manager});assert.equal(r.status,200);
  for(const user of r.body.users.slice(0,2)){
-  assert.deepEqual(user.campaignContentAccess,{available:false,reason:'BRAND_TEMPLATE_OWNERSHIP_NOT_READY'});
+  assert.deepEqual(user.campaignContentAccess,{available:false,writeReady:false,catalogueReady:false,reason:'CONTENT_AUTHORITY_NOT_CONFIRMED'});
   assert.deepEqual(user.crmWriter,writer);assert.equal(user.permissions.growth.edit,true);
  }
  for(const user of r.body.users.slice(2))assert.equal(Object.hasOwn(user,'campaignContentAccess'),false);

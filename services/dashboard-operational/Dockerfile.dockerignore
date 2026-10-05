@@ -49,6 +49,8 @@
 !services/dashboard-operational/crm-campaign-create.cjs
 !services/dashboard-operational/crm-campaign-delivery.cjs
 !services/dashboard-operational/crm-campaign-writer-attestation.cjs
+!services/dashboard-operational/crm-campaign-content-admission.cjs
+!services/dashboard-operational/crm-campaign-content-profile.cjs
 !services/dashboard-operational/crm-campaign-bff-client.cjs
 !services/dashboard-operational/campaign-ui-assets.json
 !services/dashboard-operational/campaign-write-contract.js
