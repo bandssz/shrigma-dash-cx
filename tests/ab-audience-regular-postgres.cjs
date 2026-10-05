@@ -57,7 +57,17 @@ async function claim(f,campaign,row,outcome){const did=randomUUID(),snapshot=row
  await db.exec('DROP TRIGGER fixture_fail_second_arm ON crm_audience_v2.regular_delivery_campaign;DROP FUNCTION fixture_fail_second_arm()');
  f.control.afterCommit=()=>{throw Error('fixture lost ACK');};const uncertain=await call(fishSchedule);assert.equal(uncertain.status,202);f.control.afterCommit=null;const recovered=await call({acao:Admission.ACTIONS.operation,brand:'fish',idempotency_key:fishSchedule.idempotency_key});assert.equal(recovered.status,200,JSON.stringify(recovered));proof.lost_ack_reconciled=true;
 
- const aristoPrepare=prepareRequest(f,'aristo'),aristoReview=await call(aristoPrepare);assert.equal(aristoReview.status,200,JSON.stringify(aristoReview));const aristoSchedule=scheduleRequest(aristoPrepare,aristoReview,'aristo-pair-schedule-0001'),race=await Promise.all([call(aristoSchedule),call(aristoSchedule)]);assert.equal(race[0].status,200);assert.deepEqual(race[1],race[0]);assert.equal((await db.query("SELECT count(*)::int n FROM crm_audience_v2.ab_regular_request WHERE operation_key='aristo-pair-schedule-0001'")).rows[0].n,1);proof.concurrent_idempotency=true;
+ const aristoPrepare=prepareRequest(f,'aristo'),aristoReview=await call(aristoPrepare);assert.equal(aristoReview.status,200,JSON.stringify(aristoReview));const aristoSchedule=scheduleRequest(aristoPrepare,aristoReview,'aristo-pair-schedule-0001'),race=await Promise.all([call(aristoSchedule),call(aristoSchedule)]);
+ // The competing transaction may hit the unchanged 500ms lock budget. An
+ // unconfirmed write is reconciled by reading its operation, never rescheduled.
+ const confirmed=race.find(r=>r.status===200);assert.ok(confirmed,JSON.stringify(race));
+ for(const r of race){if(r.status===200)assert.deepEqual(r,confirmed);else assert.deepEqual(r,{status:202,body:{error:'AB_REGULAR_ADMISSION_UNCONFIRMED',state:'unconfirmed',idempotency_key:aristoSchedule.idempotency_key,automatic_retry:false}});}
+ assert.deepEqual(await call({acao:Admission.ACTIONS.operation,brand:'aristo',idempotency_key:aristoSchedule.idempotency_key}),confirmed);
+ assert.equal((await db.query("SELECT count(*)::int n FROM crm_audience_v2.ab_regular_request WHERE operation_key='aristo-pair-schedule-0001'")).rows[0].n,1);
+ assert.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.ab_regular_pair WHERE test_id=$1',[aristoPrepare.test_id])).rows[0].n,1);
+ assert.deepEqual((await db.query('SELECT campaign_id FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id IN(200,201) ORDER BY campaign_id')).rows,[{campaign_id:200},{campaign_id:201}]);
+ assert.equal((await db.query("SELECT count(*)::int n FROM campaigns c JOIN crm_ab_arm_v2 a ON a.campaign_id=c.id WHERE a.test_id=$1 AND c.status='scheduled' AND c.sent=0 AND c.started_at IS NULL",[aristoPrepare.test_id])).rows[0].n,2);
+ proof.concurrent_idempotency=true;
 
  const contexts=(await db.query('SELECT id,crm_audience_v2.selection_worker_context(id) IS NOT NULL AS valid FROM campaigns WHERE id=ANY($1) ORDER BY id',[[100,101,200,201]])).rows;assert.equal(contexts.length,4);assert.ok(contexts.every(x=>x.valid));proof.contexts_valid_before_wait=true;
 
