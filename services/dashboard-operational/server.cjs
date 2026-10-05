@@ -59,7 +59,7 @@ function settingsFromEnv(env=process.env){
   const writerMode=env.DASHBOARD_CRM_MANAGED_WRITER||'disabled';
   if(!['disabled','enabled'].includes(writerMode))throw Error('Managed CRM writer mode invalid');
   const crmCampaignSubmitWrite=env.DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE==='enabled';
-  if(env.DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE)||crmCampaignSubmitWrite&&(mode!=='operational'||upstreamProfile!=='crm-sandbox'&&writerMode!=='enabled'||crmDraftWrite||crmAudienceDraft))throw Error('DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE invalid');
+  if(env.DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE)||crmCampaignSubmitWrite&&(mode!=='operational'||upstreamProfile!=='crm-sandbox'&&writerMode!=='enabled'||crmDraftWrite||crmAudienceDraft&&writerMode!=='enabled'))throw Error('DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE invalid');
   const managerHost=env.DASHBOARD_MANAGER_HOST;
   let areaHosts,domains,upstreamConfig,allowedHosts,dynamicRouteManifest;
   try{areaHosts=JSON.parse(env.DASHBOARD_AREA_HOSTS);domains=JSON.parse(env.DASHBOARD_EMAIL_DOMAINS);upstreamConfig=JSON.parse(env.DASHBOARD_UPSTREAMS||'{}');allowedHosts=JSON.parse(env.DASHBOARD_UPSTREAM_HOSTS||'[]');dynamicRouteManifest=JSON.parse(env.DASHBOARD_DYNAMIC_ROUTE_MANIFEST||'null');}catch{throw Error('Dashboard configuration invalid');}
@@ -73,7 +73,7 @@ function settingsFromEnv(env=process.env){
   }else if(env.DASHBOARD_CRM_WRITER_DESCRIPTOR!==undefined||env.DASHBOARD_CRM_WRITER_PROVISIONER_TOKEN!==undefined)throw Error('Inactive writer material refused');
   const crmCorporateCreate=env.DASHBOARD_CRM_CORPORATE_CREATE==='enabled';
   if(env.DASHBOARD_CRM_CORPORATE_CREATE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_CORPORATE_CREATE)||crmCorporateCreate&&(!corporateWriter||!crmCampaignSubmitWrite))throw Error('Corporate campaign create gate invalid');
-  const upstreams=validateUpstreams(upstreamConfig,allowedHosts,dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})});
+  const upstreams=validateUpstreams(upstreamConfig,allowedHosts,dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite,crmAudienceDraft,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})});
   if(upstreamProfile==='crm-sandbox'&&(crmDraftWrite||domains.length!==1||domains[0]!=='synthetic.invalid'||!String(env.DASHBOARD_ADMIN_EMAIL).endsWith('@synthetic.invalid')))throw Error('Sandbox identity or write configuration invalid');
   if(mode==='synthetic'&&Object.keys(upstreams).length)throw Error('Synthetic mode cannot configure external upstreams');
   if(mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
@@ -86,15 +86,15 @@ function settingsFromEnv(env=process.env){
   for(const name of ['DASHBOARD_CRM_MANAGED_AUDIENCE_READ','DASHBOARD_CRM_MANAGED_TEMPLATE_READ'])if(env[name]!==undefined&&!['disabled','enabled'].includes(env[name]))throw Error('Managed CRM parity flag invalid');
   let crmManagedRead;
   if(managedMode==='enabled'){
-    if(mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft||crmCampaignSubmitWrite&&!corporateWriter||(!crmManagedReadUi&&Object.keys(upstreams).length!==1)||!upstreams['crm-read'])throw Error('Managed CRM profile invalid');
-    if(crmManagedReadUi)ManagedRead.validateReadUpstreams(upstreams);
+    if(mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft&&!corporateWriter||crmCampaignSubmitWrite&&!corporateWriter||(!crmManagedReadUi&&Object.keys(upstreams).length!==1)||!upstreams['crm-read'])throw Error('Managed CRM profile invalid');
+    if(crmManagedReadUi)ManagedRead.validateReadUpstreams(corporateWriter&&crmAudienceDraft?Object.fromEntries(Object.entries(upstreams).filter(([route])=>route!=='segments')):upstreams);
     const issuerId=env.DASHBOARD_CRM_MANAGER_ISSUER_ID,namespaceId=env.DASHBOARD_CRM_MANAGER_NAMESPACE_ID,provisionerToken=env.DASHBOARD_CRM_MANAGER_PROVISIONER_TOKEN;
     const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
     if(typeof issuerId!=='string'||!uuid.test(issuerId)||typeof namespaceId!=='string'||!uuid.test(namespaceId)||typeof provisionerToken!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(provisionerToken))throw Error('Managed CRM configuration invalid');
     crmManagedRead=Object.freeze({issuerId,namespaceId,provisionerToken});
   }
   if(crmManagedAudienceRead||crmManagedTemplateRead){
-    if(!crmManagedRead||!crmManagedReadUi||mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft||crmCampaignSubmitWrite&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
+    if(!crmManagedRead||!crmManagedReadUi||mode!=='operational'||upstreamProfile!=='production'||crmDraftWrite||crmAudienceDraft&&!corporateWriter||crmCampaignSubmitWrite&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!allowedHosts.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
     // #222 serves the registered_email_only contract through the fixed bridge;
     // its per-request SQL attestation and response validator remain authoritative.
@@ -378,9 +378,9 @@ function validateSandboxAudienceRead(body,action,brand,query,credential){
  }else throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
  return body;
 }
-function validateScopedRead(body,route,action,brand,query,credential,{isolatedSandbox=false,contentProfile=false}={}){
+function validateScopedRead(body,route,action,brand,query,credential,{isolatedSandbox=false,corporateAudience=false,contentProfile=false}={}){
  if(!brandRecord(body))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
- if(isolatedSandbox&&route==='segments')return validateSandboxAudienceRead(body,action,brand,query,credential);
+ if((isolatedSandbox||corporateAudience)&&route==='segments')return validateSandboxAudienceRead(body,action,brand,query,credential);
  if(route==='campaigns_media'){
   try{return require('./crm-media-read-validator.cjs').validateMediaLibraryResponse(body,{brand,page:Number(query.get('page')||1),per_page:Number(query.get('per_page')||24),secrets:[credential]}).body;}catch{throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');}
  }
@@ -437,12 +437,12 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const upstreamProfile=s.upstreamProfile||'production',sandbox=upstreamProfile==='crm-sandbox';
   const corporateWriter=s.crmManagedWriter?require('./crm-manager-runtime.cjs').corporateWriterDescriptor(s.crmManagedWriter,s.crmManagedRead,s.allowedEmailDomains):undefined;
   if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(s.managerHost,s.areaHosts)||s.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'||s.mode!=='operational'||sandbox||s.crmManagedReadUi!==true))throw Error('Corporate writer profile invalid');
-  if(s.crmCampaignSubmitWrite!==undefined&&typeof s.crmCampaignSubmitWrite!=='boolean'||s.crmCampaignSubmitWrite===true&&(!sandbox&&!corporateWriter||s.mode!=='operational'||s.crmDraftWrite===true||s.crmAudienceDraft===true||s.crmManagedRead!==undefined&&!corporateWriter))throw Error('Invalid CRM campaign submit write gate');
+  if(s.crmCampaignSubmitWrite!==undefined&&typeof s.crmCampaignSubmitWrite!=='boolean'||s.crmCampaignSubmitWrite===true&&(!sandbox&&!corporateWriter||s.mode!=='operational'||s.crmDraftWrite===true||s.crmAudienceDraft===true&&!corporateWriter||s.crmManagedRead!==undefined&&!corporateWriter))throw Error('Invalid CRM campaign submit write gate');
   const allowCampaignSubmit=s.crmCampaignSubmitWrite===true;
   const crmCorporateCreate=s.crmCorporateCreate===true;
   if(s.crmCorporateCreate!==undefined&&typeof s.crmCorporateCreate!=='boolean'||crmCorporateCreate&&(!corporateWriter||!allowCampaignSubmit))throw Error('Corporate campaign create gate invalid');
   if(!['production','crm-sandbox'].includes(upstreamProfile)||sandbox&&(s.mode!=='operational'||s.crmDraftWrite===true||s.allowedEmailDomains?.length!==1||s.allowedEmailDomains[0]!=='synthetic.invalid'||!String(s.bootstrapAdminEmail).endsWith('@synthetic.invalid')))throw Error('Invalid sandbox settings');
-  const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite:allowCampaignSubmit,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})}):Object.freeze(Object.create(null));
+  const upstreams=s.mode==='operational'?validateUpstreams({...s.upstreams},s.allowedUpstreamHosts,s.dynamicRouteManifest,upstreamProfile,{crmCampaignSubmitWrite:allowCampaignSubmit,crmAudienceDraft:s.crmAudienceDraft===true,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{})}):Object.freeze(Object.create(null));
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   if(s.crmDraftWrite!==undefined&&typeof s.crmDraftWrite!=='boolean'||s.crmDraftWrite===true&&s.mode!=='operational')throw Error('Invalid CRM draft write gate');
   if(s.crmAudienceDraft!==undefined&&typeof s.crmAudienceDraft!=='boolean'||s.crmAudienceDraft===true&&s.mode!=='operational')throw Error('Invalid CRM audience draft gate');
@@ -457,17 +457,18 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     Object.keys(upstreams).every(route=>['crm-read','cx','influ'].includes(route));
   const crmExclusiveReadProfile=crmReadCredentialEligible&&Object.keys(upstreams).length===1;
   const crmManagedReadUi=s.crmManagedReadUi===true;
-  if(s.crmManagedReadUi!==undefined&&typeof s.crmManagedReadUi!=='boolean'||crmManagedReadUi&&(!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit&&!corporateWriter))throw Error('Managed CRM read UI profile invalid');
-  if(crmManagedReadUi)ManagedRead.validateReadUpstreams(upstreams);
+  if(s.crmManagedReadUi!==undefined&&typeof s.crmManagedReadUi!=='boolean'||crmManagedReadUi&&(!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft&&!corporateWriter||allowCampaignSubmit&&!corporateWriter))throw Error('Managed CRM read UI profile invalid');
+  const managedReadUpstreams=corporateWriter&&allowAudienceDraft?Object.fromEntries(Object.entries(upstreams).filter(([route])=>route!=='segments')):upstreams;
+  if(crmManagedReadUi)ManagedRead.validateReadUpstreams(managedReadUpstreams);
   const crmManagedAudienceRead=s.crmManagedAudienceRead===true,crmManagedTemplateRead=s.crmManagedTemplateRead===true;
   if(s.crmManagedAudienceRead!==undefined&&typeof s.crmManagedAudienceRead!=='boolean'||s.crmManagedTemplateRead!==undefined&&typeof s.crmManagedTemplateRead!=='boolean')throw Error('Managed CRM parity flag invalid');
   if(crmManagedAudienceRead||crmManagedTemplateRead){
-    if(!crmManagedReadUi||!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
+    if(!crmManagedReadUi||!s.crmManagedRead||s.mode!=='operational'||sandbox||allowCampaignDraft||allowAudienceDraft&&!corporateWriter||allowCampaignSubmit&&!corporateWriter)throw Error('Managed CRM parity profile invalid');
     if(crmManagedAudienceRead&&!s.allowedUpstreamHosts?.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
     if(crmManagedTemplateRead&&!s.allowedUpstreamHosts?.includes(new URL(TemplateRead.DESTINATIONS['template-read']).hostname))throw Error('Managed template read host not admitted');
   }
   const contentAdmission=corporateWriter&&upstreams.campaigns?require('./crm-campaign-content-admission.cjs').createContentAdmission({auth,corporateWriter,upstreams},{fetchImpl}):null;
-  const managedReadBridge=crmManagedReadUi?ManagedRead.createManagedReadBridge({auth,upstreams,enabled:true},{fetchImpl}):undefined;
+  const managedReadBridge=crmManagedReadUi?ManagedRead.createManagedReadBridge({auth,upstreams:managedReadUpstreams,enabled:true},{fetchImpl}):undefined;
   const audienceReadBridge=crmManagedAudienceRead?AudienceRead.createAudienceReadBridge({auth,upstreams:{'audience-read':new URL(AudienceRead.DESTINATIONS['audience-read'])},enabled:true},{fetchImpl}):undefined;
   const templateReadBridge=crmManagedTemplateRead?TemplateRead.createTemplateReadBridge({auth,upstreams:{'template-read':new URL(TemplateRead.DESTINATIONS['template-read'])},enabled:true},{fetchImpl}):undefined;
   if(Boolean(s.crmManagedRead)!==(managedCrmRuntime!==undefined)||managedCrmRuntime!==undefined&&(!crmExclusiveReadProfile&&!crmManagedReadUi||!auth.managedCrmJournal||typeof managedCrmRuntime?.kick!=='function'||typeof managedCrmRuntime?.close!=='function'))throw Error('Managed CRM runtime invalid');
@@ -491,7 +492,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
   const campaignStatus=value=>value.state==='pending'?202:value.state==='rejected'?409:200;
   const audienceFeature=ctx=>{
-    if(!sandbox||!allowAudienceDraft)return false;
+    if(!allowAudienceDraft||!sandbox&&!corporateWriter)return false;
     try{return auth.audienceDraftReady(ctx)===true;}catch{return false;}
   };
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
@@ -703,7 +704,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
-        const individualParity=parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
+        const individualParity=!(corporateWriter&&allowAudienceDraft&&route==='segments'&&audienceFeature(ctx))&&parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
         const audienceReadRoute=individualParity&&crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'));
         const templateReadRoute=individualParity&&crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao'));
         const parityDecision=audienceReadRoute?AudienceRead.decision(route,req.method,url.searchParams):templateReadRoute?TemplateRead.decision(route,req.method,url.searchParams):null;
@@ -713,8 +714,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(d.edit&&!(allowCampaignSubmit&&route==='campaigns')&&!(allowCampaignDraft&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(allowAudienceDraft&&audienceAction))throw jsonError(403,'EDIT_NOT_READY');
         // An attested own master WRITER includes read_content. Keep all other
         // production data readers on their existing individual READ slot.
+        const corporateAudienceRoute=!!corporateWriter&&allowAudienceDraft&&route==='segments'&&(audienceAction||audienceFeature(ctx));
         const campaignSubmitRoute=allowCampaignSubmit&&route==='campaigns'&&(d.edit||!corporateWriter||auth.session(ctx).user?.role==='superadmin'&&auth.campaignWriterReady(ctx));
-        const user=parityDecision?parityUser:auth.authorize({...ctx,area:d.area,edit:d.edit||campaignSubmitRoute});
+        const user=parityDecision?parityUser:auth.authorize({...ctx,area:d.area,edit:d.edit||campaignSubmitRoute||corporateAudienceRoute});
         const managedReadRoute=audienceReadRoute||templateReadRoute||crmManagedReadUi&&user.role==='manager'&&auth.managedCrmJournal.status(user.id)!==null&&Object.hasOwn(ManagedRead.ACTIONS,route);
         const identity=route==='cx'&&url.searchParams.get('access')==='1'||route==='crm-read'&&d.action==='identity';
         if(identity)return sendJson(req,res,200,{schema:'shrigma_access_identity_v1',role:user.role==='superadmin'?'master':'manager',panel:user.role==='superadmin'?'todos':d.area,allowedPanels:user.areas,owner:user.email,brand:user.brand,brands:user.brands,brandAccess:user.brandAccess});
@@ -749,7 +751,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const proxyRoute=sandboxCache?'cache':route;
         const proxyQuery=sandboxCache?new URLSearchParams({painel:'growth'}):url.searchParams;
         if(campaignSubmitRoute)auth.campaignWriterAuthorization(ctx,{brand:req.method==='POST'?body.brand:url.searchParams.get('brand'),action:d.action==='campanha_operacao'?'operacao':d.action.replace('campanha_','')});
-        const credential=managedReadRoute?null:auth.getUpstreamCredential({...brandedCtx,slot:campaignSubmitRoute?'growth-campaign':sandboxCache?'growth-read':d.credentialSlot,area:d.area,edit:d.edit||campaignSubmitRoute});
+        if(corporateAudienceRoute)auth.audienceWriterAuthorization(ctx,{brand:requestBrand});
+        const credential=managedReadRoute?null:auth.getUpstreamCredential({...brandedCtx,slot:campaignSubmitRoute||corporateAudienceRoute?'growth-campaign':sandboxCache?'growth-read':d.credentialSlot,area:d.area,edit:d.edit||campaignSubmitRoute||corporateAudienceRoute});
         if(allowCampaignDraft&&route==='campaigns'&&d.action==='campanha_salvar'&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         if(audienceAction&&!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
         const principal=user.id;
@@ -791,6 +794,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               const scope=await forward({route:'segments',method:'GET',query:scopeQuery,user,credential,upstreams,origin,crmAudienceDraft:true,fetchImpl});
               if(scope.status!==200)throw jsonError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
               const actorSha256=verifiedAudienceScope(scope.body,brand),payloadSha256=audiencePayloadHash(body);
+              if(corporateAudienceRoute)auth.audienceWriterAuthorization(ctx,{brand});
               auth.reserveAudienceDraft(ctx,brand,key,d.action,payloadSha256,actorSha256,{
                 id:d.action==='segmento_criar'?null:body.id,
                 expectedVersion:d.action==='segmento_criar'?null:body.expected_version,
@@ -814,6 +818,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             let verified;
             try{verified=verifiedAudienceOperation(lookup.body,{brand,key,action:journal.action,requestId:journal.requestId,expectedVersion:journal.expectedVersion,payloadMatches:hash=>auth.audiencePayloadMatches(journal.payloadMac,hash),actorMatches:hash=>auth.audienceActorMatches(journal.actorMac,hash),definitionMatches:hash=>auth.audienceDefinitionMatches(journal.definitionMac,hash)});}
             catch(error){if(writing)auth.audienceDraftOutcome(principal,brand,key,d.action,'uncertain');throw error;}
+            if(corporateAudienceRoute)auth.audienceWriterAuthorization(ctx,{brand});
             auth.audienceDraftOutcome(principal,brand,key,journal.action,verified.phase,{receiptStatus:verified.status,receiptCode:verified.receiptCode,segmentId:verified.segmentId,segmentVersion:verified.segmentVersion});
             return sendJson(req,res,verified.status,verified.body);
           }
@@ -822,7 +827,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(!existing||existing.operationKey!==draftKey)throw jsonError(404,'OPERATION_NOT_FOUND');
           }
           if(draftSave)auth.reserveCampaignDraft(ctx,draftBrand,draftKey);
-          try{result=managedReadRoute?await (audienceReadRoute?audienceReadBridge:templateReadRoute?templateReadBridge:managedReadBridge).read({context:brandedCtx,route,method:req.method,query:url.searchParams,origin},settled=>{managedReadSettled=settled;}):await forward({route:proxyRoute,method:req.method,query:proxyQuery,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,sandboxAudienceDraft:audienceFeature(ctx),fetchImpl});}
+          try{result=managedReadRoute?await (audienceReadRoute?audienceReadBridge:templateReadRoute?templateReadBridge:managedReadBridge).read({context:brandedCtx,route,method:req.method,query:url.searchParams,origin},settled=>{managedReadSettled=settled;}):await forward({route:proxyRoute,method:req.method,query:proxyQuery,body,user,credential,upstreams,origin,crmDraftWrite:allowCampaignDraft,sandboxAudienceDraft:sandbox&&audienceFeature(ctx),corporateAudienceDraft:!!corporateWriter&&audienceFeature(ctx),fetchImpl});}
           catch(error){if(draftSave)auth.campaignDraftOutcome(principal,draftBrand,draftKey,'uncertain');throw error;}
           if(draftSave){
             const campaign=result.body?.campaign;
@@ -853,12 +858,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           let ready=false;try{const proof=auth.managedCrmReadAuthorization({...brandedCtx,area:'growth',edit:false});if(proof&&typeof proof.then==='function')Promise.resolve(proof).catch(()=>{});else ready=Boolean(proof);}catch{}
           if(ready)result={...result,body:require('./proxy.cjs').rewriteCapabilities(result.body,upstreams,origin,{route,managedAudienceRead:crmManagedAudienceRead,managedTemplateRead:crmManagedTemplateRead})};
         }
+        if(corporateAudienceRoute)auth.audienceWriterAuthorization(ctx,{brand:requestBrand});
+        if(corporateWriter&&audienceFeature(ctx)&&route==='crm-read'&&d.action==='cache_growth'&&result.status===200)result={...result,body:require('./proxy.cjs').rewriteCapabilities(result.body,upstreams,origin,{route,corporateAudienceDraft:true,managedAudienceRead:crmManagedAudienceRead,managedTemplateRead:crmManagedTemplateRead})};
         if(user.role==='manager'){
           // Revocation or a changed grant during fetch cannot return the body.
           auth.authorizeBrand({...brandedCtx,area:d.area,edit:d.edit||campaignSubmitRoute},requestBrand);
           if(result.status>=200&&result.status<300){
-            if(aggregate)result={...result,body:projectBrandCache(result.body,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead,isolatedSandbox:sandbox})};
-            else if(['campaigns','campaigns_media'].includes(route)||!managedReadRoute&&!draftSave&&!draftReceipt)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox,contentProfile:route==='campaigns'&&d.action==='campanha_catalogo'&&!!contentAdmission&&(await contentAdmission.attest(ctx,{brand:requestBrand})).read})};
+            if(aggregate)result={...result,body:projectBrandCache(result.body,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead||!!corporateWriter&&audienceFeature(ctx),isolatedSandbox:sandbox})};
+            else if(['campaigns','campaigns_media'].includes(route)||!managedReadRoute&&!draftSave&&!draftReceipt)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox,corporateAudience:corporateAudienceRoute,contentProfile:route==='campaigns'&&d.action==='campanha_catalogo'&&!!contentAdmission&&(await contentAdmission.attest(ctx,{brand:requestBrand})).read})};
           }else result={...result,body:{error:result.status===503&&result.body?.error==='UPSTREAM_CREDENTIAL_REJECTED'?'UPSTREAM_CREDENTIAL_REJECTED':'UPSTREAM_REQUEST_DENIED'}};
         }
         return sendJson(req,res,result.status,result.body);

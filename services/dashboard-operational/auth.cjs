@@ -1043,7 +1043,12 @@ function createAuth(options){
   if(!row||binding.owner!==user.email)err('CRM_ACCESS_NOT_READY',503);
   return Object.freeze({...binding,credentialMac:row.key_digest,slot:'crm-panel-read',caps:Object.freeze(['read_content','list_history','submission'])});
  }
+ function audienceWriterAuthorization(ctx,{brand}={}){
+  if(!corporateWriter)err('EDIT_NOT_READY',403);
+  return campaignWriterAuthorization(ctx,{brand,action:'audience'});
+ }
  function audienceDraftReady(ctx){
+  if(corporateWriter)return campaignWriterReady(ctx);
   const user=authorize({...ctx,method:'GET',area:'growth',edit:false});
   return user.role==='manager'&&user.permissions.growth?.edit===true&&db.prepare("SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-read','growth-audience-read','growth-audience')").get(user.id).n===3;
  }
@@ -1150,6 +1155,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&corporateWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter,campaignContentAdmissionSnapshot}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&corporateWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter,campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

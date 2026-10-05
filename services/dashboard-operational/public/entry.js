@@ -137,7 +137,7 @@ else (function(){'use strict';
    // catalogue. It also prevents a stale page from presenting a new attempt.
    await Promise.all(allowedBrands.map(async brand=>{
     const query=new URLSearchParams({acao:'segmentos_listar',brand,offset:'0',limit:'50'});
-    const {response,data}=await request('/api/segments?'+query,{deadlineMs:20000});
+    const {response,data}=await request('/api/segments?'+query,{editReceipt:true,deadlineMs:20000});
     if(!response.ok||!Array.isArray(data?.segments)||data?.catalog?.brand!==brand||data.catalog.current!==true
      ||data.capabilities?.draft!==true||data.capabilities?.send!==false)throw Error('catalog_unavailable');
    }));

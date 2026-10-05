@@ -254,7 +254,7 @@ function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false,crmCorporateWriter}={}){
+function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false,crmAudienceDraft=false,crmCorporateWriter}={}){
   const corporate=crmCorporateWriter!==undefined&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(crmCorporateWriter);
   if(crmCorporateWriter!==undefined&&!corporate)throw Error('Corporate writer profile invalid');
   if(!plain(config)||!Array.isArray(allowedHosts)||allowedHosts.some(h=>typeof h!=='string'))throw Error('Invalid upstream configuration');
@@ -270,7 +270,7 @@ function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='pro
     return Object.freeze(out);
   }
   if(crmCampaignSubmitWrite&&!corporate)throw Error('Campaign submission requires reviewed profile');
-  if(corporate&&(!crmCampaignSubmitWrite||!Object.hasOwn(config,'crm-read')||!Object.hasOwn(config,'campaigns')||Object.keys(config).some(k=>!['crm-read','campaigns','campaigns_media','cx','influ'].includes(k))))throw Error('Corporate writer routes invalid');
+  if(corporate&&(!crmCampaignSubmitWrite||!Object.hasOwn(config,'crm-read')||!Object.hasOwn(config,'campaigns')||Object.keys(config).some(k=>!['crm-read','campaigns','campaigns_media','cx','influ',...(crmAudienceDraft?['segments']:[])].includes(k))))throw Error('Corporate writer routes invalid');
   const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
   if(dynamic.length){
     if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');
@@ -336,7 +336,7 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,managedAudienceRead=false,managedTemplateRead=false,route=null}={}){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,corporateAudienceDraft=false,managedAudienceRead=false,managedTemplateRead=false,route=null}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
@@ -379,6 +379,13 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
     caps.segments={...(plain(caps.segments)?caps.segments:{}),read:true,save:false,count:false,operation:false};
     caps.campaign_audience={...(plain(caps.campaign_audience)?caps.campaign_audience:{}),read:true,inspect:false,operation:false,validate:false,bind:false,release:false};
   }
+  if(corporateAudienceDraft===true&&upstreams.segments?.href===REVIEWED_DYNAMIC.routes.segments){
+    if(route==='segments'&&plain(value.catalog)&&['fish','aristo'].includes(value.catalog.brand)&&value.catalog.current===true&&value.capabilities?.count===false&&value.capabilities?.send===false)caps.draft=true;
+    if(route==='crm-read'){
+      caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments'};
+      caps.segments={read:true,save:true,operation:true,count:false,send:false,contract_version:AudienceContract.VERSION};
+    }
+  }
   if(managedTemplateRead===true&&route==='crm-read'){
     caps.endpoints={...(caps.endpoints||{}),templates:origin+'/api/templates'};
     caps.templates={read_content:true,list_history:true,read_contract:'crm-template-read-v1',draft:false,validate:false,submit:false,submit_email:false};
@@ -386,7 +393,7 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,crmCorporateWriter,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,crmCorporateWriter,fetchImpl=fetch}){
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
   const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
   if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
@@ -427,6 +434,6 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,route})};
+  return {status:result.status,body:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

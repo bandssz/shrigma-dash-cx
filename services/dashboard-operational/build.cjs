@@ -116,6 +116,12 @@ function transform(input,file){
   if(/\b(?:config\.js|auth-key|auth-form|Chave de leitura)\b/.test(output))throw Error('Legacy diagnostic access remains');
  }
  if(file==='growth.html'){
+  const oldJourney='GFU.render({...ctx,workflowsModel:';
+  if(output.split(oldJourney).length!==2)throw Error('Observed journey binding changed');
+  output=output.replace(oldJourney,'GFU.render({...ctx,observedOnly:true,workflowsModel:');
+  const oldIntro='<h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes.';
+  if(output.split(oldIntro).length!==2)throw Error('Observed journey heading changed');
+  output=output.replace(oldIntro,'<h2>Consulte as jornadas observadas da marca.</h2><p>Jornadas mostra as mensagens registradas. O histórico não declara gatilhos, esperas nem sequência de execução.');
   const target='<div class="crm-home-heading"><h2>Resumo do período</h2></div>';
   if(output.split(target).length!==2)throw Error('CRM diagnostic navigation anchor changed');
   output=output.replace(target,target+'<p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>');
