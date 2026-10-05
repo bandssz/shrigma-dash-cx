@@ -21,7 +21,7 @@ test('presentation requires an exact single-brand corporate grant and preserves 
  for(const user of [{...manager('fish'),brand:null,brands:[],brandAccess:'reprovision_required'},{...manager('fish'),brands:['fish','aristo']},{...manager('fish'),brands:['aristo']},{...manager('fish'),brand:'olivas',brands:['olivas']},{...master,brand:'fish'},{...master,brands:['fish','fish']},{...master,brandAccess:'single'}])assert.equal(sessionBrandScope(user),null);
 });
 
-test('actual admin form requires brand and submits email, sector and read/edit request without granting edit',async()=>{
+test('actual admin form requires brand and submits email, sector and direct read/edit choice without granting unverified native edit',async()=>{
  for(const [area,brand,requestedAccess] of [['growth','fish','read'],['growth','aristo','edit'],['organico','fish','edit'],['organico','aristo','read'],['influs','fish','read'],['influs','aristo','edit']]){
   const d=dom(fs.readFileSync(path.join(service,'public/entry.html'),'utf8'));d.document.body.dataset.accessPanel='todos';
   const calls=[],hosts={growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'};
@@ -33,7 +33,7 @@ test('actual admin form requires brand and submits email, sector and read/edit r
   d.$('admin-invite-form').dispatchEvent(new d.window.Event('submit',{cancelable:true}));await tick();assert.equal(calls.some(v=>v.body?.action==='invite'),false);assert.match(d.$('admin-message').textContent,/Escolha a marca/);
   d.$('admin-brand').value=brand;d.$('admin-invite-form').dispatchEvent(new d.window.Event('submit',{cancelable:true}));await settle(()=>calls.some(v=>v.body?.action==='invite')&&d.$('admin-invite-form').getAttribute('aria-busy')==='false');
   const body=calls.find(v=>v.body?.action==='invite').body;assert.deepEqual(body,{action:'invite',email:'person@synthetic.invalid',brand,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess});
-  assert.match(d.$('admin-message').textContent,/disponibilidade dos dados/);assert.equal(d.$('admin-brand').value,'');assert.equal(d.$('admin-invite-result').hidden,false);assert.equal(d.$('admin-brand').disabled,false);
+  assert.match(d.$('admin-message').textContent,new RegExp('Convite com '+(requestedAccess==='edit'?'Edição':'Leitura')+' criado'));assert.doesNotMatch(d.$('admin-message').textContent,/solicitar edição|aprovação adicional/i);assert.equal(d.$('admin-brand').value,'');assert.equal(d.$('admin-invite-result').hidden,false);assert.equal(d.$('admin-brand').disabled,false);
  }
 });
 

@@ -21,7 +21,7 @@ test('enabled profile binds only issuer and namespace into identity and construc
  assert.deepEqual(options.crmManagedRead,{issuerId,namespaceId});assert.equal(Object.hasOwn(options.crmManagedRead,'provisionerToken'),false);
  const auth=createAuth(options);try{
   const runtime=managedRuntimeFor(s,auth);assert.deepEqual(Object.keys(runtime).sort(),['close','kick']);
-  await runtime.close();assert.deepEqual(await runtime.kick(),{ready:0,pending:0,expired:0,revoked:0});
+  await runtime.close();assert.deepEqual(await runtime.kick(),[{status:'fulfilled',value:{ready:0,pending:0,expired:0,revoked:0}}]);
  }finally{auth.close();}
 });
 test('unknown flag, missing/malformed private binding and write/mixed profiles fail before identity creation',()=>{
