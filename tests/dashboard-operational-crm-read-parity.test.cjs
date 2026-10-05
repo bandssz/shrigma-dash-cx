@@ -78,6 +78,6 @@ test('existing managed media bridge applies strict validator, marks legacy and r
 
 test('complete bridge pack and both prior families are admitted; partial bridge family is refused without raising transport limit',()=>{
  const entry=p=>({path:p,encoding:policy.isText(p)?'utf8':'base64',content:policy.isText(p)?'SYNTHETIC':Buffer.from([0,1]).toString('base64')});
- for(const family of [policy.FILES,policy.PRE_PARITY_FILES,policy.LEGACY_FILES])assert.equal(policy.validateFiles(family.map(entry)).files,family.length);
+ for(const family of [policy.FILES,policy.PARITY_FILES,policy.PRE_PARITY_FILES,policy.LEGACY_FILES])assert.equal(policy.validateFiles(family.map(entry)).files,family.length);
  const partial=policy.PRE_PARITY_FILES.map(entry).concat(entry('runtime/crm-audience-read-bridge.cjs'));assert.throws(()=>policy.validateFiles(partial),/ARTIFACT_FILES_INVALID/);assert.equal(policy.MAX_PACK_BYTES,950000);assert.deepEqual(policy.READ_BRIDGE_RUNTIME_FILES,['crm-audience-read-bridge.cjs','crm-media-read-validator.cjs','crm-template-read-bridge.cjs']);
 });

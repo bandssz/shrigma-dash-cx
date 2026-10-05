@@ -13,7 +13,7 @@ function config(extra={}){return{dbPath:':memory:',managerHost:'gerencial.synthe
 function writerConfig(){return config({crmCampaignSubmitWrite:true,crmManagedWriter:{issuerId:crypto.randomUUID(),namespaceId:crypto.randomUUID()}});}
 
 test('allowlist preserves the old complete set and prior complete writer family alongside the new read bridges',()=>{
- assert.equal(P.PUBLIC_FILES.length,30);assert.equal(P.LEGACY_FILES.length,48);assert.equal(P.PRE_PARITY_FILES.length,53);assert.equal(P.FILES.length,56);assert.deepEqual([...P.WRITER_RUNTIME_FILES],WRITER);
+ assert.equal(P.PUBLIC_FILES.length,30);assert.equal(P.LEGACY_FILES.length,48);assert.equal(P.PRE_PARITY_FILES.length,53);assert.equal(P.PARITY_FILES.length,56);assert.equal(P.FILES.length,58);assert.deepEqual([...P.WRITER_RUNTIME_FILES],WRITER);
  assert.equal(P.MAX_PACK_BYTES,950000);assert.equal(P.MAX_BYTES,16*1024*1024);
  assert.equal(P.validateFiles(entries(false)).runtimeFiles,18);assert.equal(P.validateFiles(entries(true)).runtimeFiles,23);
  const partial=entries(true).filter(f=>f.path!=='runtime/crm-manager-writer-policy.cjs');assert.throws(()=>P.validateFiles(partial),/ARTIFACT_FILES_INVALID/);
@@ -30,7 +30,7 @@ test('a complete public writer pack decodes losslessly without adding tools path
 test('the real pack builder and extracted runtime load the writer adapter without a tools tree',t=>{
  const dir=temporary(t),dist=path.join(dir,'dist');
  for(const f of entries(false).filter(f=>f.path.startsWith('public/'))){const target=path.join(dist,f.path);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,Buffer.from(f.content,f.encoding));}
- const built=pack(dist,path.join(dir,'pack'));assert.equal(built.files,56);assert.equal(built.runtimeFiles,26);assert.ok(built.packBytes<=950000);assert.ok(built.seedMountsBytes<=960000);
+ const built=pack(dist,path.join(dir,'pack'));assert.equal(built.files,58);assert.equal(built.runtimeFiles,28);assert.ok(built.packBytes<=950000);assert.ok(built.seedMountsBytes<=960000);
  const extracted=P.unpack(path.join(dir,'pack/runtime-pack.json'),path.join(dir,'artifact'),{expectedSha256:built.packSha256});assert.equal(fs.existsSync(path.join(dir,'artifact/tools')),false);
  const {createAuth}=require(extracted.runtimeDir+'/auth.cjs'),auth=createAuth(writerConfig());
  try{assert.equal(typeof auth.approveManagedCampaignWriter,'function');assert.deepEqual(auth.managedCampaignWriterJournal.pending(),[]);assert.equal(auth.managedCrmJournal,undefined);}finally{auth.close();}
@@ -53,4 +53,11 @@ test('the HTTP startup factory rejects an unreviewed descriptor and strips priva
  assert.deepEqual(Object.keys(reviewed.crmManagedWriter).sort(),['issuerId','mode','namespaceId']);
  assert.equal(reviewed.crmManagedWriter.provisionerToken,undefined);
  assert.notEqual(reviewed.crmManagedWriter.issuerId,reviewed.crmManagedRead.issuerId);
+});
+
+test('historical complete26 runtime family still decodes both formats and the current28 family closes both new dependencies',()=>{
+ assert.deepEqual(P.CONTENT_RUNTIME_FILES,['crm-campaign-content-admission.cjs','crm-campaign-content-profile.cjs']);
+ const input=[...entries(true),...P.READ_BRIDGE_RUNTIME_FILES.map(f=>({path:'runtime/'+f,encoding:'utf8',content:fs.readFileSync(DIR+'/'+f,'utf8')}))].sort((a,b)=>a.path.localeCompare(b.path));
+ for(const schema of [P.SCHEMA,P.SCHEMA_V2]){const w=wrapper(input,schema),d=P.decodePack(w.text,w.body.sha256);assert.equal(d.stats.files,56);assert.equal(d.stats.runtimeFiles,26);assert.deepEqual(d.files,input);}
+ for(const missing of P.CONTENT_RUNTIME_FILES){const all=input.concat(P.CONTENT_RUNTIME_FILES.map(f=>({path:'runtime/'+f,encoding:'utf8',content:fs.readFileSync(DIR+'/'+f,'utf8')}))).filter(f=>f.path!=='runtime/'+missing);assert.throws(()=>P.validateFiles(all),/ARTIFACT_FILES_INVALID/);}
 });

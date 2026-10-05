@@ -2,7 +2,7 @@
 // Harness compartilhado do percurso de campanhas pela tela (extraído sem mudança de
 // comportamento de tests/claude-crm-list-schedule-path.test.cjs, PR #223):
 // growth.html + bundle publicado (assets/panels/growth.js) + script inline, login
-// individual de gestor (identidade sintética, sem chave mestre) → editor real (GCE)
+// individual de gestor WRITER vinculado à marca (duas identidades sintéticas, sem chave mestre) → editor real (GCE)
 // → cliente real (GCA) → HTTP real do serviço crm-campaign (createServer/createExecutor)
 // em 127.0.0.1 → gateway SQL real (crm_campaign_api) + store/provider/recovery/write-guard
 // e vínculo de público reais em PGlite descartável. O único adaptador fictício é o
@@ -11,10 +11,11 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),http=require('node:http');
 const {webcrypto,createHash}=require('node:crypto'),{parseHTML}=require('linkedom');
 const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
+const W=require('../../tools/crm-manager-writer-review/writer-provision.test.cjs');
 const F=require('../segment-campaign-binding-fixture.cjs'),BindingAPI=require('../../n8n/growth/segment-campaign-binding-api.cjs');
 const {createServer,PATH}=require('../../services/crm-campaign/server.cjs'),{createExecutor,EFFECT_SQL}=require('../../services/crm-campaign/transport.cjs');
 const root=path.resolve(__dirname,'../..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
-const KEY='synthetic-manager-key',CAPS=['read_content','draft','validate','submit'];
+const KEY='synthetic-fish-writer-key',KEYS={fish:KEY,aristo:'synthetic-aristo-manager-key'},CAPS=['read_content','draft','validate','submit'];
 const endpoints={campaigns:'https://campaign.test/api',segments:'https://audience.test/api',campaign_audience:'https://binding.test/api'};
 const capabilities=()=>({endpoints,
  campaigns:{contract_version:'crm-campaign-v1',brands:['fish','aristo'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:'listmonk-6.1-regular-v1'},
@@ -29,9 +30,24 @@ async function backend(t,{standardize=true}={}){
  const f=await F.setup(db,{countProvider:require('../../n8n/growth/segment-audience-listmonk.cjs').countAudience});
  const op=read('n8n/access/panel-operator.sql'),a=op.indexOf('CREATE OR REPLACE FUNCTION public.shrigma_crm_operator_auth_v1'),b=op.indexOf('REVOKE ALL ON FUNCTION public.shrigma_crm_operator_auth_v1(text) FROM PUBLIC;');
  await db.exec(op.slice(a,b)+'REVOKE ALL ON FUNCTION public.shrigma_crm_operator_auth_v1(text) FROM PUBLIC;');
+ await db.exec('CREATE TABLE public.shrigma_template_key_v2(key_hash text,active boolean,actor text,capabilities jsonb);');
  await db.exec(read('n8n/growth/campaign-recovery.sql'));await db.exec(read('n8n/growth/crm-campaign-gateway-role.sql'));
- // Gestor individual fictício com as capacidades de campanha (sem chave mestre).
- await db.query("UPDATE shrigma_panel_permission_v1 SET caps=$1::jsonb WHERE principal_id='manager'",[JSON.stringify(CAPS)]);
+ // Prepare/commit originais, somente no PGlite descartável: emissor,
+ // generation e subject ativos vinculam cada gestor à sua marca imutável.
+ await db.exec('ALTER TABLE crm_dash_chave ADD COLUMN ultimo_uso timestamptz, ADD COLUMN usos integer DEFAULT 0;');
+ await db.exec('CREATE ROLE central_leitor NOLOGIN;ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO central_leitor;');
+ await db.exec(read('tools/crm-manager-writer-review/writer-provision-v1.sql'));
+ await db.exec('CREATE ROLE crm_manager_fixture_a LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;GRANT EXECUTE ON FUNCTION public.crm_manager_writer_prepare_v1(jsonb),public.crm_manager_writer_commit_v1(jsonb) TO crm_manager_fixture_a;');
+ await db.query('INSERT INTO public.crm_manager_writer_issuer_v1(issuer_id,namespace_id,login_role,allowed_email_domains,active) VALUES($1,$2,$3,ARRAY[$4],true)',[W.A.issuerId,W.A.namespaceId,W.A.login,'example.test']);
+ const principals={};
+ const writerRpc=async(q,name)=>{await db.exec('SET SESSION AUTHORIZATION crm_manager_fixture_a');try{return(await db.query('SELECT public.crm_manager_writer_'+name+'_v1($1::jsonb) AS r',[W.canonical(q)])).rows[0].r;}finally{await db.exec('SET SESSION AUTHORIZATION postgres');}};
+ for(const brand of ['fish','aristo']){const q=W.prepare({brand,owner:brand+'-manager@example.test',keySha256:createHash('sha256').update(KEYS[brand]).digest('hex')}),prepared=await writerRpc(q,'prepare');assert.equal(prepared.state,'prepared');const committed=await writerRpc(W.commit(q,prepared),'commit');assert.equal(committed.state,'committed');principals[brand]=q.principalId;}
+ // Audience and binding use the same individual principal as campaigns.
+ const createAudience=async(brand,name,rule)=>{const r=await f.call(f.create(brand,name,rule),KEYS[brand]);assert.equal(r.status,201);return r.body.segment;};
+ const inspect=(brand,id,a)=>f.bindingCall({acao:'campanha_publico_conferir',brand,campaign_id:id,audience_id:a.id,audience_revision:a.version},KEYS[brand]);
+ const boundFixture={...f,createAudience,inspect,bind:(intent,idempotency_key)=>f.bind(intent,idempotency_key,KEYS[intent.brand])};
+ const setCaps=caps=>db.query('UPDATE shrigma_panel_permission_v1 SET caps=$1::jsonb WHERE principal_id=ANY($2::text[])',[JSON.stringify(caps),Object.values(principals)]);
+ const revoke=brand=>db.query('UPDATE crm_dash_chave SET revogada_em=now() WHERE chave=$1',[principals[brand]]);
  // Rascunhos de listas com conteúdo válido (link comercial da marca e descadastro), sem tocar gatilhos.
  for(const id of [100,200])await db.transaction(async tx=>{await tx.query("SELECT set_config('shrigma.campaign_writer',$1,true)",[String(id)]);const shop=id===100?'https://fishermans.com.br/products/linha-sintetica':'https://oaristocrata.com/products/sabonete-sintetico';
   await tx.query("UPDATE campaigns SET body=body||$2||' {{ UnsubscribeURL }}',altbody=altbody||' '||$3||' {{ UnsubscribeURL }}' WHERE id=$1",[id,'<a href="'+shop+'">Ver produto</a>',shop]);});
@@ -45,22 +61,23 @@ async function backend(t,{standardize=true}={}){
  const bindingAPI=BindingAPI.createCampaignBindingAPI({store:f.bindingService||f.service});
  // Estado inicial: o rascunho de listas já foi salvo pelo cadastro padronizado (mesmo serviço
  // HTTP, chave do gestor fictício). Isso é preparação do fixture, não parte do percurso medido.
- const call=(method,query,body)=>new Promise((resolve,reject)=>{const bytes=body?Buffer.from(JSON.stringify({k:KEY,...body})):null,req=http.request({host:'127.0.0.1',port:app.server.address().port,path:PATH+(query||''),method,headers:bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{Authorization:'Bearer '+KEY}},res=>{const c=[];res.on('data',d=>c.push(d));res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(Buffer.concat(c).toString('utf8'))}));});req.on('error',reject);if(bytes)req.write(bytes);req.end();});
+ const call=(method,query,body)=>new Promise((resolve,reject)=>{const brand=body?.brand||new URL('http://synthetic.invalid/'+(query||'')).searchParams.get('brand')||'fish',key=KEYS[brand];assert.ok(key);const bytes=body?Buffer.from(JSON.stringify({k:key,...body})):null,req=http.request({host:'127.0.0.1',port:app.server.address().port,path:PATH+(query||''),method,headers:bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{Authorization:'Bearer '+key}},res=>{const c=[];res.on('data',d=>c.push(d));res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(Buffer.concat(c).toString('utf8'))}));});req.on('error',reject);if(bytes)req.write(bytes);req.end();});
+ for(const brand of ['fish','aristo']){const a=(await db.query('SELECT public.shrigma_crm_campaign_auth_v1($1) AS a',[KEYS[brand]])).rows[0].a;assert.ok(a,JSON.stringify({brand,panel:(await db.query('SELECT public.shrigma_panel_operator_v1($1,$2) AS a',[KEYS[brand],'growth'])).rows[0].a,rows:(await db.query('SELECT principal_id,brand,state FROM crm_manager_writer_generation_v1')).rows}));assert.equal(a.brand,brand);}
  if(standardize)for(const [brand,id]of Object.entries(CAMPAIGN)){
-  const current=(await call('GET',`?acao=campanha_obter&brand=${brand}&id=${id}`)).body.campaign;
+  const got=await call('GET',`?acao=campanha_obter&brand=${brand}&id=${id}`);assert.equal(got.status,200,JSON.stringify(got.body));const current=got.body.campaign;
   const saved=await call('POST','',{acao:'campanha_salvar',brand,id,expected_version:current.version,idempotency_key:'fixture-save-'+brand+'-000001',definition:{...current.definition,name:'Rascunho por listas '+brand,send_at:new Date(Date.now()+2*86400000).toISOString()}});
   assert.equal(saved.status,200,JSON.stringify(saved.body));
  }
  effects.length=0;intents.length=0;
  const row=async id=>(await db.query('SELECT status,sent,started_at FROM campaigns WHERE id=$1',[id])).rows[0];
  const operations=async()=>(await db.query("SELECT action,state,brand FROM shrigma_campaign_operation ORDER BY created_at")).rows;
- return {db,f,app,effects,intents,bindingAPI,row,operations,call};
+ return {db,f:boundFixture,app,effects,intents,bindingAPI,row,operations,call,principals,setCaps,revoke};
 }
 
 // Página real. Rede: identidade/cache sintéticos; campanhas → HTTP real do serviço em
 // loopback; públicos/vínculo → APIs reais do fixture. Qualquer outro destino falha.
 async function page(be,brand,{store=new Map(),loseAck=null,beforeCampaign=null,caps=CAPS}={}){
- const html=read('growth.html'),{document,window}=parseHTML(html);
+ const key=KEYS[brand];assert.ok(key);const html=read('growth.html'),{document,window}=parseHTML(html);
  const selectProto=Object.getPrototypeOf(document.createElement('select'));
  Object.defineProperty(selectProto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  const dialogProto=Object.getPrototypeOf(document.createElement('dialog'));
@@ -94,7 +111,7 @@ async function page(be,brand,{store=new Map(),loseAck=null,beforeCampaign=null,c
    const input={method,request:{headers:{...init.headers},[method==='POST'?'body':'query']:request}};
    const r=await (u.origin==='https://audience.test'?be.f.api:be.bindingAPI).handle(input);return reply(r.status,r.body);
   }
-  if(u.searchParams.get('action')==='identity')return reply(200,{schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',allowedPanels:['growth'],permissions:{growth:{who:'panel:manager',label:'Gestor fictício',caps}}});
+  if(u.searchParams.get('action')==='identity')return reply(200,{schema:'shrigma_access_identity_v1',role:'manager',panel:'growth',allowedPanels:['growth'],permissions:{growth:{who:'panel:'+be.principals[brand],label:brand+'-manager@example.test',caps}}});
   if(u.searchParams.get('action')==='cache_growth'){calls.push({to:'cache',method});return reply(200,{...payload,_cache_gerado_em:new Date().toISOString()});}
   throw Error('UNEXPECTED_DESTINATION '+u.origin+u.pathname);
  };
@@ -105,7 +122,7 @@ async function page(be,brand,{store=new Map(),loseAck=null,beforeCampaign=null,c
  const run=code=>vm.runInContext(code,context);
  vm.runInContext(read('assets/panels/growth.js'),context,{filename:'assets/panels/growth.js'});
  for(const s of document.querySelectorAll('script:not([src])'))vm.runInContext(s.textContent,context,{filename:'growth-inline.js'});
- document.querySelector('#growth-chave').value=KEY;await document.querySelector('#growth-acesso').onsubmit({preventDefault(){}});
+ document.querySelector('#growth-chave').value=key;await document.querySelector('#growth-acesso').onsubmit({preventDefault(){}});
  const x={document,window,run,calls,store,q:s=>document.querySelector(s),qa:s=>[...document.querySelectorAll(s)]};
  await until(()=>!!x.q('[data-ce-refresh]')&&!x.run('LOADING'),x,'tela de campanhas');
  return x;
@@ -134,4 +151,4 @@ async function agendarPelaTela(x,brand){
  x.q('[data-ce-confirm-yes]').click();
 }
 
-module.exports={backend,page,until,idle,reopen,campaignPosts,state,conferir,agendarPelaTela,abrirConfirmacaoAgendar,CAMPAIGN,CAPS,KEY};
+module.exports={backend,page,until,idle,reopen,campaignPosts,state,conferir,agendarPelaTela,abrirConfirmacaoAgendar,CAMPAIGN,CAPS,KEY,KEYS};

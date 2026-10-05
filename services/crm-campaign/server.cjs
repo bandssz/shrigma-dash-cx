@@ -7,7 +7,7 @@ const {ACTION:ABANDON_ACTION,parseAbandon}=require('./abandon.cjs');
 const compress=promisify(gzip),ORIGIN='https://bandssz.github.io';
 const PATH='/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35';
 const MEDIA_PATH=PATH+'/media';
-const READS=new Set(['campanha_catalogo','campanha_listar','campanha_obter','campanha_operacao']);
+const READS=new Set(['campanha_acesso','campanha_catalogo','campanha_listar','campanha_obter','campanha_operacao']);
 const WRITES=new Set(['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_recuperar']);
 const FIELDS=new Set(['k','acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id','source_operation_id']);
 const problem=(status,error,message)=>Object.assign(Error(message),{status,body:{error,message}});
@@ -27,6 +27,7 @@ function parse(req,url,body){
  const key=req.method==='GET'&&header!==undefined?(typeof header==='string'&&header.startsWith('Bearer ')?header.slice(7):''):source.k;
  if(typeof key!=='string'||!/^[A-Za-z0-9_.:-]{1,256}$/.test(key))throw problem(401,'UNAUTHORIZED','Autenticação necessária.');
  const command=Object.fromEntries(Object.entries(source).filter(([k])=>k!=='k'));
+ if(command.acao==='campanha_acesso'&&(req.method!=='GET'||Object.keys(command).sort().join(',')!=='acao,brand'||!['fish','aristo'].includes(command.brand)))throw problem(422,'REQUEST_INVALID','Solicitação inválida.');
  if(req.method==='GET'&&command.id!==undefined){if(!/^[1-9][0-9]*$/.test(command.id)||!Number.isSafeInteger(Number(command.id)))throw problem(422,'ID_INVALID','Campanha inválida.');command.id=Number(command.id);}
  return {key,command};
 }

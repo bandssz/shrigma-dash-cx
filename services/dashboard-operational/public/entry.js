@@ -420,7 +420,7 @@ else (function(){'use strict';
   // Issuer readiness is not proof that content is admitted by the BFF.
   // This content gate excludes cancellation/history, which keep their own
   // authorization contract. Absent metadata preserves the isolated legacy UI.
-  const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.campaignContentAccess?.available===false;
+  const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&(user.campaignContentAccess?.available===false||user.campaignContentAccess?.writeReady===false&&(granted||user.crmWriter?.state==='ready'));
   const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Edição configurada · aguardando confirmação':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   const brandLabel=user.role==='superadmin'?'Todas as marcas':user.brandAccess==='single'&&['fish','aristo'].includes(user.brand)?({fish:'Fishermans',aristo:'O Aristocrata'})[user.brand]:'Marca pendente · recrie o acesso';
@@ -492,7 +492,7 @@ else (function(){'use strict';
   }catch(_){button.disabled=false;select.disabled=false;adminMessage.textContent='Não foi possível salvar o nível de acesso.';}
  }
  async function loadUsers(){
-  const {response,data}=await request('/auth/users');if(!response.ok)throw Error('users_unavailable');
+  const {response,data}=await request('/auth/users',{editReceipt:true});if(!response.ok)throw Error('users_unavailable');
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
   $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(user.profileUpdate?.state==='revoking'||['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));

@@ -19,8 +19,13 @@ async function setup(t,{full=true,gates=true,values=new Map(),loseAck=null,wrapH
  await pg.exec(source('n8n/growth/crm-read-fast.sql'));
  await pg.query("INSERT INTO crm_dash_chave(chave,painel,dono,chave_hash) VALUES($1,'growth',$2,encode(sha256(convert_to($3,'UTF8')),'hex'))",[PRINCIPAL,OWNER,KEY]);
  await pg.query("INSERT INTO shrigma_panel_permission_v1 VALUES($1,'growth','[\"read_content\",\"list_history\",\"submission\"]')",[PRINCIPAL]);
- let during=null,reads=0,business=0;
+ let during=null,reads=0,business=0,contentReads=0;
  const fetchImpl=async(url,options)=>{
+  const u=new URL(url);
+  if(u.origin+u.pathname===P.REVIEWED_DYNAMIC.routes.campaigns&&u.searchParams.get('acao')==='campanha_acesso'){
+   assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(u.searchParams.get('brand'),'fish');assert.match(options.headers.Authorization,/^Bearer [a-f0-9]{64}$/);
+   contentReads++;const r=new Response(JSON.stringify({error:'CONTENT_AUTHORITY_NOT_READY'}),{status:503,headers:{'content-type':'application/json'}});Object.defineProperty(r,'url',{value:u.href});return r;
+  }
   if(url!==A.IDENTITY_URL){business++;throw Error('Synthetic fixture does not permit business HTTP');}
   reads++;assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(options.headers.Authorization,'Bearer '+KEY);assert.equal(f.db.isTransaction,false);
   const result=(await pg.query('SELECT * FROM shrigma_crm_read_fast_v1($1,NULL,$2::jsonb)',['Bearer '+KEY,JSON.stringify({action:'identity',painel:'growth'})])).rows[0];
@@ -38,7 +43,7 @@ async function setup(t,{full=true,gates=true,values=new Map(),loseAck=null,wrapH
  const ui=make();await ui.ready();await until(()=>!ui.el('entry-shell').hidden,'own Master shell');
  const manage=async(x=ui)=>{x.el('entry-manage').click();await until(()=>!x.el('admin-panel').hidden&&x.document.querySelector('.user-row'),'actual access list');};
  const edit=()=>f.db.prepare("SELECT can_edit FROM grants WHERE user_id=? AND area='growth'").get(f.master.user.id).can_edit;
- return {f,pg,ui,http,make,manage,edit,get reads(){return reads;},get business(){return business;},set during(fn){during=fn;}};
+ return {f,pg,ui,http,make,manage,edit,get reads(){return reads;},get business(){return business;},get contentReads(){return contentReads;},set during(fn){during=fn;}};
 }
 const rowFor=(ui,email=OWNER)=>[...ui.document.querySelectorAll('.user-row')].find(r=>r.querySelector('strong')?.textContent===email);
 const posts=ui=>ui.calls.filter(c=>c.method==='POST'&&c.path===ACTIVATE);
@@ -76,7 +81,7 @@ test('explicit gates OFF expose no activation button and do not send an activati
 test('a foreign user row never receives own-Master activation and a real manager session exposes none',async t=>{
  const a=await setup(t,{wrapHttp:http=>({...http,get:async(host,p,ctx)=>{const r=await http.get(host,p,ctx);if(p==='/auth/users')r.json={users:r.json.users.map(u=>u.role==='superadmin'?{...u,id:'b1111111-1234-4234-8234-123456789abc',email:'other@oaristocrata.com'}:u)};return r;}})});
  await a.manage();assert.equal(a.ui.el('admin-master-crm-activate'),null);assert.equal(posts(a.ui).length,0);
- await a.f.manager();const ctx=await a.f.login();const manager=shell(a.http,{host:hosts.growth,area:'crm',cookie:ctx.cookieHeader});await manager.ready();await until(()=>!manager.el('entry-shell').hidden,'actual manager shell');assert.equal(manager.el('entry-manage').hidden,true);assert.equal(manager.el('admin-master-crm-activate'),null);assert.equal(posts(manager).length,0);assertZeroWrites(a);
+ await a.f.manager();const ctx=await a.f.login();const manager=shell(a.http,{host:hosts.growth,area:'crm',cookie:ctx.cookieHeader});await manager.ready();await until(()=>!manager.el('entry-shell').hidden,'actual manager shell');assert.equal(manager.el('entry-manage').hidden,true);assert.equal(manager.el('admin-master-crm-activate'),null);assert.equal(posts(manager).length,0);assert.equal(a.contentReads,1,'only current read-only admission GET; unavailable SQL closes editing');assertZeroWrites(a);
 });
 
 test('lost activation ACK is reconciled only by real session/access GETs and reloading never repeats it or removes campaign journal',async t=>{

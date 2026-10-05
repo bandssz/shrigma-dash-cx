@@ -13,7 +13,7 @@ const {backend,page,until,idle,reopen,campaignPosts,state,conferir,agendarPelaTe
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const effects=(be,action)=>be.effects.filter(e=>e.kind==='provider'&&e.action===action).length;
 const ops=async(be,brand,action)=>(await be.operations()).filter(o=>o.brand===brand&&o.action===action).map(o=>o.state);
-const setCaps=(be,caps)=>be.db.query("UPDATE shrigma_panel_permission_v1 SET caps=$1::jsonb WHERE principal_id='manager'",[JSON.stringify(caps)]);
+const setCaps=(be,caps)=>be.setCaps(caps);
 const journal=(store,brand)=>JSON.parse(store.get('shrigma_campaign_operation_v1:'+brand)||'null');
 async function settledAfter(x,acao,label){await until(()=>x.calls.some(c=>c.acao===acao)&&x.calls.filter(c=>c.acao===acao).every(c=>c.status!==undefined)&&!x.run('GCE.contextStatus().reading')&&!x.run('GCE.contextStatus().confirming')&&!x.q('[data-ce-confirm]').open&&(idle(x)||!x.q('[data-ce-consult]').hidden),x,label);await wait(30);}
 
@@ -78,7 +78,7 @@ test('fish: submit retirado depois da conferência → agendar recusado pelo ser
 test('aristo: chave revogada com a confirmação aberta → agendar recusado, sem efeito',async t=>{
  const be=await backend(t),x=await page(be,'aristo');await reopen(x,200);await conferir(x);
  await abrirConfirmacaoAgendar(x);assert.equal(x.q('[data-ce-confirm]').open,true);
- await be.db.query("UPDATE crm_dash_chave SET revogada_em=now() WHERE chave='manager'");
+ await be.revoke('aristo');
  x.q('[data-ce-confirm-yes]').click();await settledAfter(x,'campanha_agendar','agendar');
  assert.equal((await be.row(200)).status,'draft');assert.equal(effects(be,'schedule'),0);assert.deepEqual(await ops(be,'aristo','agendar'),[]);
  assert.doesNotMatch(state(x).server,/^Agendada/);

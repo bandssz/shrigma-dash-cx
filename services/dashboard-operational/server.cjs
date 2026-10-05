@@ -378,7 +378,7 @@ function validateSandboxAudienceRead(body,action,brand,query,credential){
  }else throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
  return body;
 }
-function validateScopedRead(body,route,action,brand,query,credential,{isolatedSandbox=false}={}){
+function validateScopedRead(body,route,action,brand,query,credential,{isolatedSandbox=false,contentProfile=false}={}){
  if(!brandRecord(body))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
  if(isolatedSandbox&&route==='segments')return validateSandboxAudienceRead(body,action,brand,query,credential);
  if(route==='campaigns_media'){
@@ -387,10 +387,9 @@ function validateScopedRead(body,route,action,brand,query,credential,{isolatedSa
  if(route==='campaigns'){
   if(action==='campanha_catalogo'){
    if(body.brand!==brand||!Array.isArray(body.lists)||!Array.isArray(body.templates)||!Array.isArray(body.initiatives))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
-   // The pinned provider enumerates every campaign template without ownership.
-   // A fabricated brand field or the selected dropdown cannot attest it. Until
-   // a reviewed ownership contract exists, no non-empty library is returned.
-   if(!isolatedSandbox&&(body.templates.length||body.initiatives.length))throw jsonError(503,'BRAND_CATALOG_SCOPE_NOT_READY');
+   // Only the private current SQL/IAM proof admits the exclusive ownership
+   // catalogue. A brand field in a response alone cannot establish authority.
+   if(!isolatedSandbox&&!contentProfile&&(body.templates.length||body.initiatives.length))throw jsonError(503,'BRAND_CATALOG_SCOPE_NOT_READY');
    const lists=brandedRows(body.lists,brand,rowSpec('name','id','','available'));
    if(lists.length!==body.lists.length)throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
    let out;
@@ -405,6 +404,11 @@ function validateScopedRead(body,route,action,brand,query,credential,{isolatedSa
      }return value;
     });
     out={brand,current:body.current===true,lists,templates:columns(body.templates,rowSpec('name type version','id','','available')),initiatives:columns(body.initiatives,rowSpec('utm_campaign key'))};
+   }else if(contentProfile){
+    if(body.template_ownership_contract!==require('./crm-campaign-content-profile.cjs').TEMPLATE_CONTRACT||typeof body.current!=='boolean'||body.templates.length>10000||body.initiatives.length>10000)throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
+    const seen=new Set(),templates=body.templates.map(t=>{if(!brandRecord(t)||Object.keys(t).sort().join(',')!=='available,brand,id,name,type,version'||t.brand!==brand||t.type!=='campaign'||t.available!==true||!Number.isSafeInteger(t.id)||t.id<1||seen.has(t.id)||typeof t.name!=='string'||t.name.length>500||!/^[a-f0-9]{32}$/.test(t.version||''))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');seen.add(t.id);return{id:t.id,name:t.name,brand,type:'campaign',available:true,version:t.version};});
+    const initiatives=body.initiatives.map(i=>{if(!brandRecord(i)||Object.keys(i).sort().join(',')!=='key,utm_campaign'||!selectedRowField(i.key,'text')||!selectedRowField(i.utm_campaign,'text'))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');return{key:i.key,utm_campaign:i.utm_campaign};});
+    out={brand,current:body.current,lists,templates,initiatives,template_ownership_contract:body.template_ownership_contract,template_selection_available:templates.length>0};
    }else out={brand,current:false,lists,templates:[],initiatives:[],template_selection_available:false,write:false,scope_status:'catalog_ownership_unavailable'};
    if(brandDate(body.read_at))out.read_at=body.read_at;
    return out;
@@ -422,8 +426,10 @@ function validateScopedRead(body,route,action,brand,query,credential,{isolatedSa
  // response without that admission is unavailable to a single-brand manager.
  throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
 }
-function templateOwnershipWriteGate(user,action,{isolatedSandbox=false}={}){
- if(!isolatedSandbox&&user.role==='manager'&&['campanha_criar','campanha_salvar','campanha_validar','campanha_agendar','criar'].includes(action))throw jsonError(503,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');
+async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,admit}={}){
+ if(!isolatedSandbox&&user.role==='manager'&&['campanha_criar','campanha_salvar','campanha_validar','campanha_agendar','criar'].includes(action)){
+  if(typeof admit!=='function')throw jsonError(503,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');await admit();
+ }
 }
 function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime}={}){
   if(!auth)throw Error('Auth required');
@@ -460,6 +466,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     if(crmManagedAudienceRead&&!s.allowedUpstreamHosts?.includes(new URL(AudienceRead.DESTINATIONS['audience-read']).hostname))throw Error('Managed audience read host not admitted');
     if(crmManagedTemplateRead&&!s.allowedUpstreamHosts?.includes(new URL(TemplateRead.DESTINATIONS['template-read']).hostname))throw Error('Managed template read host not admitted');
   }
+  const contentAdmission=corporateWriter&&upstreams.campaigns?require('./crm-campaign-content-admission.cjs').createContentAdmission({auth,corporateWriter,upstreams},{fetchImpl}):null;
   const managedReadBridge=crmManagedReadUi?ManagedRead.createManagedReadBridge({auth,upstreams,enabled:true},{fetchImpl}):undefined;
   const audienceReadBridge=crmManagedAudienceRead?AudienceRead.createAudienceReadBridge({auth,upstreams:{'audience-read':new URL(AudienceRead.DESTINATIONS['audience-read'])},enabled:true},{fetchImpl}):undefined;
   const templateReadBridge=crmManagedTemplateRead?TemplateRead.createTemplateReadBridge({auth,upstreams:{'template-read':new URL(TemplateRead.DESTINATIONS['template-read'])},enabled:true},{fetchImpl}):undefined;
@@ -472,7 +479,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const campaignTransport=async(context,{method,command})=>{
     const brandedContext={...context,brand:command.brand};
     const user=auth.authorizeBrand({...brandedContext,area:'growth',edit:true},command.brand);
-    if(method==='POST')templateOwnershipWriteGate(user,command.acao,{isolatedSandbox:sandbox});
+    if(method==='POST')await templateOwnershipWriteGate(user,command.acao,{isolatedSandbox:sandbox,admit:contentAdmission?()=>contentAdmission.requireWrite(context,{brand:command.brand}):undefined});
     const credential=auth.getUpstreamCredential({...brandedContext,slot:'growth-campaign',area:'growth',edit:true});
     if(!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
     const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
@@ -524,7 +531,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(url.pathname==='/auth/session'&&req.method==='GET'){
-        const found=auth.session(ctx),state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin')&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager',...(corporateWriter?{campaignMasterActivation:found.user?.role==='superadmin'&&found.user?.permissions?.growth?.read===true,campaignCreate:(sandbox||found.user?.role==='superadmin')&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
+        const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
+        const found=auth.session(ctx);
+        if(initial.authenticated&&(!found.authenticated||found.user.id!==initial.user.id||found.user.email!==initial.user.email||found.user.brand!==initial.user.brand))return sendJson(req,res,200,{authenticated:false});
+        const state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin'||admission.write)&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager'&&!admission.read,...(corporateWriter?{campaignMasterActivation:found.user?.role==='superadmin'&&found.user?.permissions?.growth?.read===true,campaignCreate:(sandbox||found.user?.role==='superadmin'||admission.write)&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
         // The owner view validates invite links against this service's exact
         // host configuration, so a new isolated canary needs no JS allowlist.
         if(state.authenticated&&state.user?.role==='superadmin'&&host===s.managerHost)
@@ -542,9 +552,15 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         return sendJson(req,res,200,result);
       }
       if(url.pathname==='/auth/users'&&req.method==='GET'){
-        const users=auth.users({context:ctx}).map(user=>!sandbox&&user.role==='manager'&&user.areas.includes('growth')?{
-          ...user,campaignContentAccess:{available:false,reason:'BRAND_TEMPLATE_OWNERSHIP_NOT_READY'}
-        }:user);
+        const sourceUsers=auth.users({context:ctx});
+        const users=[];
+        // Bound each batch to the private bridge limit so a larger team is
+        // inspected instead of being marked unavailable by its own fan-out.
+        for(let i=0;i<sourceUsers.length;i+=8)users.push(...await Promise.all(sourceUsers.slice(i,i+8).map(async user=>{
+          if(sandbox||user.role!=='manager'||!user.areas.includes('growth'))return user;
+          const proof=contentAdmission?await contentAdmission.inspect(ctx,{brand:user.brand,userId:user.id}):{read:false,write:false,catalogueReady:false};
+          return {...user,campaignContentAccess:{available:proof.read,writeReady:proof.write,catalogueReady:proof.catalogueReady,reason:proof.read?(proof.catalogueReady?null:'CATALOG_EMPTY'):'CONTENT_AUTHORITY_NOT_CONFIRMED'}};
+        })));
         return sendJson(req,res,200,{users});
       }
       if(url.pathname==='/auth/campaign-create'){
@@ -561,7 +577,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           q={brand:url.searchParams.get('brand'),idempotency_key:url.searchParams.get('idempotency_key')};
         }
         const createUser=auth.authorizeBrand({...ctx,area:'growth',edit:true},q.brand);
-        if(req.method==='POST')templateOwnershipWriteGate(createUser,'campanha_criar',{isolatedSandbox:sandbox});
+        if(req.method==='POST')await templateOwnershipWriteGate(createUser,'campanha_criar',{isolatedSandbox:sandbox,admit:contentAdmission?()=>contentAdmission.requireWrite(ctx,{brand:q.brand}):undefined});
         const release=reserveCampaignWork(auth.campaignWriterAuthorization(ctx,{brand:q.brand,action:req.method==='POST'?'criar':'operacao_criar'}).userId);
         try{const value=await campaignCreator[req.method==='POST'?'submit':'reconcile'](ctx,q);return sendJson(req,res,campaignStatus(value),campaignDto('campanha_criar',q.idempotency_key,value));}finally{release();}
       }
@@ -711,7 +727,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         // Superadmin retains the selectors already admitted by the proxy (for
         // example Influencer 'todas'); those legacy selectors are not IAM grants.
         const brandedCtx={...ctx,...(user.role==='manager'?{brand:requestBrand}:{})};
-        if(req.method==='POST'&&route==='campaigns')templateOwnershipWriteGate(user,d.action,{isolatedSandbox:sandbox});
+        if(req.method==='POST'&&route==='campaigns')await templateOwnershipWriteGate(user,d.action,{isolatedSandbox:sandbox,admit:contentAdmission?()=>contentAdmission.requireWrite(ctx,{brand:requestBrand}):undefined});
         // Their legacy contracts return mixed aggregates and have not yet
         // established a server-verified per-brand projection. Preserve master
         // access; single-brand production access waits for that contract.
@@ -763,7 +779,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               return sendJson(req,res,campaignStatus(value),campaignDto(descriptor.action,q.idempotency_key,value));
             }
             result=await forward({route,method:'GET',query:url.searchParams,user,credential,upstreams,origin,crmCampaignSubmitWrite:true,...(corporateWriter?{crmCorporateWriter:corporateWriter}:{}),fetchImpl});
-            if(user.role==='manager'&&result.status===200)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox})};
+            if(user.role==='manager'&&result.status===200)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox,contentProfile:route==='campaigns'&&d.action==='campanha_catalogo'&&!!contentAdmission&&(await contentAdmission.attest(ctx,{brand:requestBrand})).read})};
             auth.authorizeBrand({...brandedCtx,area:d.area,edit:true},requestBrand);
             return sendJson(req,res,result.status,result.body);
           }
@@ -842,7 +858,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           auth.authorizeBrand({...brandedCtx,area:d.area,edit:d.edit||campaignSubmitRoute},requestBrand);
           if(result.status>=200&&result.status<300){
             if(aggregate)result={...result,body:projectBrandCache(result.body,requestBrand,d.area,origin,{templateReadAdmitted:crmManagedTemplateRead,audienceReadAdmitted:crmManagedAudienceRead,isolatedSandbox:sandbox})};
-            else if(['campaigns','campaigns_media'].includes(route)||!managedReadRoute&&!draftSave&&!draftReceipt)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox})};
+            else if(['campaigns','campaigns_media'].includes(route)||!managedReadRoute&&!draftSave&&!draftReceipt)result={...result,body:validateScopedRead(result.body,route,d.action,requestBrand,url.searchParams,credential,{isolatedSandbox:sandbox,contentProfile:route==='campaigns'&&d.action==='campanha_catalogo'&&!!contentAdmission&&(await contentAdmission.attest(ctx,{brand:requestBrand})).read})};
           }else result={...result,body:{error:result.status===503&&result.body?.error==='UPSTREAM_CREDENTIAL_REJECTED'?'UPSTREAM_CREDENTIAL_REJECTED':'UPSTREAM_REQUEST_DENIED'}};
         }
         return sendJson(req,res,result.status,result.body);

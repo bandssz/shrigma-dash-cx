@@ -863,6 +863,50 @@ function createAuth(options){
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true,ready:true};
  }
+ // Native integrator authority is distinct from a user session. This private
+ // maintenance hook is never routed over HTTP and never manufactures context.
+ function nativeMasterActivationSnapshot(){
+  const user=db.prepare("SELECT id,email,role,state,updated_at FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
+  if(!user||user.email!=='felipebandeira@oaristocrata.com')err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const grants=db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=? ORDER BY area').all(user.id);
+  if(grants.length!==3||AREAS.some(a=>!grants.some(g=>g.area===a&&g.can_read===1)))err('GRANT_DENIED',403);
+  if(unresolvedCampaignDraft(user.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  if(unresolvedCampaignDelivery(user.id))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+  if(unresolvedAudienceDraft(user.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+  masterCreatePending(user.id);
+  const source=db.prepare("SELECT slot,encrypted_key,key_digest,updated_at FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-campaign','crm-panel-read','growth-read') ORDER BY CASE slot WHEN 'growth-campaign' THEN 0 WHEN 'crm-panel-read' THEN 1 ELSE 2 END LIMIT 1").get(user.id);
+  if(!source)err('INDIVIDUAL_CREDENTIAL_MISSING',503);
+  const bound=db.prepare('SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot=?').get(user.id,source.slot);
+  if(!bound||!equalHex(bound.binding_mac,upstreamBindingMac(user,source.slot,source)))err('CREDENTIAL_UNAVAILABLE',503);
+  if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(source.key_digest,user.id))err('CREDENTIAL_REUSED',409);
+  return {user,grants,source,bindingMac:bound.binding_mac};
+ }
+ async function activateNativeOwnMasterCampaignWriter({operationId,programSha256,expiresAt,authorizationMac,fetchImpl=globalThis.fetch}){
+  if(!campaignSubmit||!corporateWriter)err('EDIT_NOT_READY',403);
+  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(operationId||'')||!/^[a-f0-9]{64}$/.test(programSha256||'')||!Number.isSafeInteger(expiresAt)||expiresAt<=current()||expiresAt>current()+600000)err('NATIVE_MASTER_AUTHORIZATION_REQUIRED',403);
+  const scope=JSON.stringify({schema:'CRM_NATIVE_OWN_MASTER_SQLITE_WRITER_V1',operationId,owner:adminEmail,action:'install-own-master-campaign-writer',programSha256,expiresAt});
+  if(!equalHex(authorizationMac,crypto.createHmac('sha256',encKey).update('native-own-master-sqlite-writer-v1:'+scope).digest('hex')))err('NATIVE_MASTER_AUTHORIZATION_REQUIRED',403);
+  const original=nativeMasterActivationSnapshot();
+  // Fixed one-shot marker survives errors/restarts and even a different UUID.
+  // The native controller also reserves its own durable fence before env delivery.
+  db.exec('BEGIN IMMEDIATE');try{
+   if(JSON.stringify(nativeMasterActivationSnapshot())!==JSON.stringify(original)||expiresAt<=current())err('CREDENTIAL_ATTESTATION_FAILED',403);
+   if(db.prepare("SELECT 1 FROM identity_metadata WHERE key='native_master_campaign_writer_once_v1'").get())err('NATIVE_MASTER_ATTEMPT_CONSUMED',409);
+   db.prepare("INSERT INTO identity_metadata(key,encrypted_value) VALUES('native_master_campaign_writer_once_v1',?)").run(encrypt(scope));db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}
+  let bearer=decrypt(original.source.encrypted_key),proof;
+  try{
+   if(!equalHex(original.source.key_digest,crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+   try{proof=await require('./crm-campaign-writer-attestation.cjs').verifyStoredMasterCampaignWriterCredential({bearer,owner:original.user.email},{fetchImpl});}catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+   db.exec('BEGIN IMMEDIATE');try{
+    if(expiresAt<=current()||JSON.stringify(nativeMasterActivationSnapshot())!==JSON.stringify(original))err('CREDENTIAL_ATTESTATION_FAILED',403);
+    const attestedAt=current(),credentialExpiresAt=attestedAt+14*86400000;
+    db.prepare("UPDATE grants SET can_edit=1 WHERE user_id=? AND area='growth' AND can_read=1").run(original.user.id);
+    persistMasterCampaignWriter(original.user,{bearer,principalId:proof.principalId,expiresAt:credentialExpiresAt,attestedAt});db.exec('COMMIT');
+   }catch(e){db.exec('ROLLBACK');throw e;}
+   return {ok:true,ready:true,actor:'native-integrator',attemptMustRemainConsumed:true};
+  }finally{bearer=undefined;proof=undefined;}
+ }
  // Private caller only: no new HTTP route and no automatic dispatch.
  function approveManagedCampaignWriter({context,userId}){
   adminContext(context);if(!managedWriter)err('EDIT_NOT_READY',403);
@@ -905,6 +949,25 @@ function createAuth(options){
  function campaignHistoryRead(ctx){
   if(!corporateWriter)return false;
   try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(u);}catch{return false;}
+ }
+ // PRIVATE read-only projection for current native content admission. The
+ // actual Master may inspect a target; no manager session/context is fabricated.
+ function campaignContentAdmissionSnapshot(context,{brand,write=false,userId}={}){
+  if(!corporateWriter||!campaignSubmit||typeof write!=='boolean')err('EDIT_NOT_READY',403);
+  let raw;
+  if(userId!==undefined){authorize({...context,admin:true});const master=lookup(context,false);checkOrigin(master.host,context.origin);if(typeof context.csrf!=='string'||context.csrf.length!==master.csrf.length||!crypto.timingSafeEqual(Buffer.from(context.csrf),Buffer.from(master.csrf)))err('CSRF_DENIED',403);raw=db.prepare('SELECT * FROM users WHERE id=?').get(userId);}
+  else{const own=authorizeBrand({...context,area:'growth',edit:false},brand);raw=db.prepare('SELECT * FROM users WHERE id=?').get(own.id);}
+  if(!raw||raw.role!=='manager'||raw.state!=='active')err('CRM_ACCESS_NOT_READY',403);
+  const user=publicUser(raw),scope=requireBrandScope(raw);if(user.areas.join(',')!=='growth'||scope.brand!==brand||scope.brandAccess!=='single'||managedCrm.credentialReady(raw.id)!==true)err('CRM_ACCESS_NOT_READY',403);
+  const read=managedCrm.readBinding(raw.id),att=write?writerBinding(user):null;if(write&&!att)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  // bindingForUser validates the entire original promoted journal but returns
+  // the attestation row; native lifecycle metadata lives in its bound table.
+  const a=write?db.prepare('SELECT * FROM crm_writer_auth_binding_v1 WHERE user_id=?').get(raw.id):read;if(!a||write&&(a.owner!==att.owner||a.principal_id!==att.principal_id||a.credential_mac!==att.credential_mac||a.expires_at!==att.expires_at))err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const slot=write?'growth-campaign':'crm-panel-read',stored=db.prepare('SELECT * FROM upstream_credentials WHERE user_id=? AND slot=?').get(raw.id,slot),credentialMac=write?a.credential_mac:stored?.key_digest;
+  if(!stored||stored.key_digest!==credentialMac||db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND (user_id<>? OR slot<>?)').get(credentialMac,raw.id,slot))err('CREDENTIAL_UNAVAILABLE',503);
+  const credential=decrypt(stored.encrypted_key);if(!equalHex(credentialMac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+  const writerBindingProof=write?{issuerId:a.issuer_id,namespaceId:a.namespace_id,userId:raw.id,lifecycleId:a.lifecycle_id,principalId:a.principal_id,generation:a.generation,expiresAt:a.expires_at}:null;
+  return Object.freeze({userId:raw.id,owner:raw.email,brand,slot,credential,credentialMac,profileRevision:profileRevision(raw.id),principalId:write?a.principal_id:read.principalId,caps:write?['read_content','draft','validate','submit']:['read_content','list_history','submission'],writerBinding:writerBindingProof,readBinding:read});
  }
  function campaignWriterReady(ctx){try{const user=authorize({...ctx,method:'GET',area:'growth',edit:false});return !!writerBinding(user)&&(!corporateWriter||user.role==='superadmin'||managedCrm.credentialReady(user.id)===true);}catch{return false;}}
  let campaignCreateInitialized=false;
@@ -1087,6 +1150,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&corporateWriter?{activateOwnMasterCampaignWriter}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&corporateWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter,campaignContentAdmissionSnapshot}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

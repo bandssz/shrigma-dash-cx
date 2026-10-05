@@ -43,11 +43,11 @@ test('master: sessão local expira após lista e convite carregados; 401 limpa a
  assert.equal(s.calls.filter(c=>c.path==='/auth/users'&&c.method==='POST').length,postsBefore);
 
  // The same literal route handles every local admin POST, including expiry inside a submit.
- for(const scenario of ['invite','revoke-invite','access_request','revoke-user']){
+ for(const scenario of ['invite','revoke-invite','update','revoke-user']){
   const xp=await portal(t),xs=await master(xp),xe='idle-'+scenario+'@synthetic.invalid';
   xs.el('admin-email').value=xe;xs.select('admin-area','growth');xs.select('admin-brand','fish');xs.select('admin-access','edit');
   await xs.submit('admin-invite-form');await until(()=>!xs.el('admin-invite-result').hidden&&rowOf(xs,xe),'convite da ação '+scenario);
-  if(scenario==='access_request'||scenario==='revoke-user'){
+  if(scenario==='update'||scenario==='revoke-user'){
    const link=new URL(xs.el('admin-invite-link').value);
    await xp.f.accept({token:link.hash.slice('#invite='.length),host:link.hostname});await refresh(xs);
    assert.match(label(xs,xe),/Ativo/);
@@ -57,10 +57,10 @@ test('master: sessão local expira após lista e convite carregados; 401 limpa a
   xs.values.set(journalKey,intent);xp.f.advance(31*60*1000);
   if(scenario==='invite'){
    xs.el('admin-email').value='second-'+xe;xs.select('admin-area','growth');xs.select('admin-brand','fish');xs.select('admin-access','edit');await xs.submit('admin-invite-form');
-  }else if(scenario==='access_request'){
-   const row=rowOf(xs,xe),select=row.querySelector('select');select.value='read';
-   select.dispatchEvent(new xs.window.Event('change',{bubbles:true}));
-   [...row.querySelectorAll('button')].find(b=>b.textContent==='Salvar').click();
+  }else if(scenario==='update'){
+   const form=rowOf(xs,xe).querySelector('form[data-user-profile]');assert.ok(form,'editor real de cadastro');
+   form.querySelector('[data-profile-field=access]').value='read';
+   form.dispatchEvent(new xs.window.Event('submit',{bubbles:true,cancelable:true}));
   }else [...rowOf(xs,xe).querySelectorAll('button')].find(b=>b.textContent==='Revogar acesso').click();
   await until(()=>xs.calls.some(c=>c.path==='/auth/users'&&c.method==='POST'&&c.status===401),'POST local recusado '+scenario);
   await until(()=>!xs.el('entry-login').hidden,'login após POST '+scenario);
@@ -110,7 +110,7 @@ test('convite → aceite → preparação → pronto → renovação → expira�
  await until(()=>!s.el('admin-invite-result').hidden||/Não foi possível/.test(s.el('admin-message').textContent),'convite criado');
  const invite=s.calls.find(c=>c.method==='POST'&&c.path==='/auth/users'&&c.body?.action==='invite');
  assert.deepEqual(invite.body,{action:'invite',email,brand:'fish',role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},'convite começa em leitura; edição só solicitada');
- assert.match(s.el('admin-message').textContent,/Convite de leitura criado para CRM · Fishermans\. A edição ficou solicitada e aguarda validação individual\./);
+ assert.match(s.el('admin-message').textContent,/Convite com Edição criado para CRM · Fishermans\. A configuração da edição acontece após o aceite; confira o estado do acesso\./);
  const link=new URL(s.el('admin-invite-link').value);assert.equal(link.hostname,hosts.growth);
  await until(()=>rowOf(s,email),'linha do convite');assert.equal(label(s,email),'CRM · Fishermans · Conteúdo em leitura · criação, edição e agendamento aguardam validação · Convite pendente · CRM aguarda aceite');
  assert.ok(!buttons(s,email).includes('Renovar acesso CRM'));
