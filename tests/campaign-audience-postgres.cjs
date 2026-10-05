@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 async function run(db){
- for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
+ for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
  await db.exec("INSERT INTO crm_familia_campanha VALUES('fish','week','week');INSERT INTO subscribers SELECT i,CASE i WHEN 6 THEN 'blocklisted' WHEN 7 THEN 'disabled' ELSE 'enabled' END FROM generate_series(3,13)i;UPDATE lists SET optin='double' WHERE id=17;INSERT INTO subscriber_lists VALUES(1,17,'confirmed'),(3,3,'unconfirmed'),(4,17,'unconfirmed'),(5,3,'unsubscribed'),(5,17,'confirmed'),(6,3,'confirmed'),(7,3,'confirmed'),(8,17,'confirmed'),(9,3,'unsubscribed'),(10,3,'unsubscribed'),(10,17,'unconfirmed');");
  await db.exec("BEGIN;SELECT set_config('shrigma.campaign_writer','100',true);INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(100,17,'Fish double');COMMIT;");
  const query=async(sql,p=[])=>(await db.query(sql,p)).rows[0];

@@ -524,12 +524,22 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(url.pathname==='/auth/session'&&req.method==='GET'){
-        const found=auth.session(ctx),state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin')&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager',...(corporateWriter?{campaignCreate:(sandbox||found.user?.role==='superadmin')&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
+        const found=auth.session(ctx),state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin')&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager',...(corporateWriter?{campaignMasterActivation:found.user?.role==='superadmin'&&found.user?.permissions?.growth?.read===true,campaignCreate:(sandbox||found.user?.role==='superadmin')&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
         // The owner view validates invite links against this service's exact
         // host configuration, so a new isolated canary needs no JS allowlist.
         if(state.authenticated&&state.user?.role==='superadmin'&&host===s.managerHost)
           return sendJson(req,res,200,{...state,areaHosts:s.areaHosts});
         return sendJson(req,res,200,state);
+      }
+      if(url.pathname==='/auth/master/campaign-writer/activate'){
+        if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
+        auth.authorize({...ctx,admin:true});
+        if(!corporateWriter||!allowCampaignSubmit||typeof auth.activateOwnMasterCampaignWriter!=='function')throw jsonError(403,'EDIT_NOT_READY');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,256);
+        if(url.search||!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)throw jsonError(400,'ACTION_DENIED');
+        const result=await auth.activateOwnMasterCampaignWriter({context:ctx,fetchImpl});
+        return sendJson(req,res,200,result);
       }
       if(url.pathname==='/auth/users'&&req.method==='GET'){
         const users=auth.users({context:ctx}).map(user=>!sandbox&&user.role==='manager'&&user.areas.includes('growth')?{

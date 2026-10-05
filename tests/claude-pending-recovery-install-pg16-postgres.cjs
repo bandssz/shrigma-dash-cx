@@ -21,7 +21,7 @@ test('instalador recusa qualquer desvio antes do DDL; reinstalação exata no-op
  const version=(await c.query('SHOW server_version_num')).rows[0].server_version_num;assertPgVersion(version);
  assert.equal((await c.query("SELECT to_regclass('public.shrigma_campaign_operation') AS r")).rows[0].r,null,'banco descartável novo exigido');
  await c.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text NOT NULL,dono text,ativo boolean DEFAULT true,revogada_em timestamptz,ultimo_uso timestamptz,usos integer DEFAULT 0); CREATE TABLE shrigma_template_key_v2(key_hash text,active boolean,actor text,capabilities jsonb);`);
- for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await c.query(read(f));
+ for(const f of ['n8n/access/panel-auth.sql','n8n/access/panel-operator.sql','n8n/access/panel-short-keys.sql','tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await c.query(read(f));
  // Papel do cluster descartável pode ter ficado com LOGIN de outro teste: volta ao estado da migração.
  await c.query("DO $r$ BEGIN IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='crm_campaign_api') THEN ALTER ROLE crm_campaign_api NOLOGIN PASSWORD NULL; END IF; END $r$");
  await c.query(atomic(read('n8n/growth/crm-campaign-gateway-role.sql')));

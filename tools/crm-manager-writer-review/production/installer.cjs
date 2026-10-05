@@ -1,8 +1,8 @@
 'use strict';
 // Inert, OFF by default. Only explicitly constructed runners may perform I/O.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const PROFILE='07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040';
-const SOURCE_MANIFEST_SHA256='fb85a2345bfe31bfcf53b921df46a601be24e4d80188974890585dafbf16c5f5';
+const PROFILE='464d3cac6073dc6f3c42948203aa0d557d7396cefe1d8a5d0968c83896939311';
+const SOURCE_MANIFEST_SHA256='ddf4f490874a03b690a6303c5d6b67cea4cc38caf43f316210b8a6e5e6d71516';
 const READ_CORE='4f5b8bdec729d2924c043da6bd3c0f8f2ce01a82af614187cefa1322ecef11c9';
 const SCHEMA='crm-manager-writer-production-proof-v1';
 const KEYS=['tables','relations','indexes','functions','types','roles','no_login_roles','restricted_roles','membership_edges','passworded_roles'];
@@ -40,7 +40,7 @@ function sources(){
  const manifestBytes=fs.readFileSync(path.join(__dirname,'source-pins.json'));if(sha(manifestBytes)!==SOURCE_MANIFEST_SHA256)refuse();const pins=JSON.parse(manifestBytes);
  const expected=['../writer-provision-v1.sql','../writer-empty-rollback-v1.sql','../../crm-manager-read-activation-review/activation.cjs','../../crm-manager-read-activation-review/sources.cjs','../../crm-manager-install-review/runtime/run-install.cjs','../../crm-manager-install-review/runtime/sql/installer.sql','sql/objects.sql','sql/legacy-guard.sql','sql/profile.sql','sql/empty.sql','sql/legacy-profile.sql'];
  closed(pins,expected);const out={};for(const n of expected){if(!digest(pins[n]))refuse();const b=fs.readFileSync(path.join(__dirname,n));if(sha(b)!==pins[n])refuse();out[n]=b.toString('utf8');}
- if(pins['../writer-provision-v1.sql']!=='b78251cc9bb2e28d7a2c6e286363b0e8368e3c65b17a2ae9fd9f997ae5a2160e'||pins['../writer-empty-rollback-v1.sql']!=='a5a138a4f5c0956b2cccd11a38d0c43e0e0c8e6298e3765e880a0b586aca6aeb'||pins['../../crm-manager-read-activation-review/activation.cjs']!=='9a3459983b415661e2665e8c3f6de1ae4fa6aa712ae012ebd3344da09e180a83')refuse();
+ if(pins['../writer-provision-v1.sql']!=='0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04'||pins['../writer-empty-rollback-v1.sql']!=='19a3714bb989047a8ad304ef05d88a916ef841705d69b003b2cc828571164ecd'||pins['../../crm-manager-read-activation-review/activation.cjs']!=='9a3459983b415661e2665e8c3f6de1ae4fa6aa712ae012ebd3344da09e180a83')refuse();
  const A=require('../../crm-manager-read-activation-review/activation.cjs'),S=require('../../crm-manager-read-activation-review/sources.cjs');A.validateSources(S);
  return Object.freeze({out,A,S,pinsSha256:sha(manifestBytes)});
 }

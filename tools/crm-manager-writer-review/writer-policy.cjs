@@ -8,7 +8,7 @@ const SCHEMAS=Object.freeze({request:'crm-manager-writer-request-v1',receipt:'cr
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const PRINCIPAL=/^dcrmw-[a-f0-9]{32}$/,HASH=/^[a-f0-9]{64}$/;
 const COMMON=['operationId','userId','lifecycleId','owner'];
-const PREPARE=[...COMMON,'principalId','keySha256'];
+const PREPARE=[...COMMON,'brand','principalId','keySha256'];
 const RENEW=[...PREPARE,'generation','expectedGeneration'];
 const COMMIT=[...RENEW,'prepareOperationId','issuedAt','candidateExpiresAt','expiresAt'];
 const COMMANDS=Object.freeze({prepare_writer:PREPARE,renew_writer:RENEW,commit_writer:COMMIT,revoke_writer:COMMON});
@@ -30,7 +30,7 @@ function createWriterPolicy(config){
   const s=Object.fromEntries(keys.map(k=>[k,args[k]]));
   if(!uuid(s.operationId)||!uuid(s.userId)||!uuid(s.lifecycleId)||!owner(s.owner))fail();
   if(action!=='revoke_writer'){
-   if(typeof s.principalId!=='string'||!PRINCIPAL.test(s.principalId)||typeof s.keySha256!=='string'||!HASH.test(s.keySha256))fail();
+   if(!['fish','aristo'].includes(s.brand)||typeof s.principalId!=='string'||!PRINCIPAL.test(s.principalId)||typeof s.keySha256!=='string'||!HASH.test(s.keySha256))fail();
    if(action==='prepare_writer'){s.generation=1;s.expectedGeneration=0;}
    if(!generation(s.generation)||!generation(s.expectedGeneration)||s.generation!==s.expectedGeneration+1||action==='renew_writer'&&s.expectedGeneration<1)fail();
    if(action==='commit_writer'&&(!uuid(s.prepareOperationId)||s.prepareOperationId===s.operationId||!time(s.issuedAt)||s.candidateExpiresAt!==s.issuedAt+POLICY.candidateTtlMs||s.expiresAt!==s.issuedAt+POLICY.lifetimeMs))fail();
@@ -48,11 +48,11 @@ function createWriterPolicy(config){
  function receipt(value,input){
   const c=expected(input),revoked=c.action==='revoke_writer',committed=c.action==='commit_writer';
   const base=['schema','issuerId','namespaceId','operationId','action','requestSha256','userId','lifecycleId','owner','state'];
-  const fields=revoked?['revocationMode','allGenerationsRevoked','effectiveAt','revokedCount']:['principalId','generation','expectedGeneration','area','slot','role','caps','issuedAt','candidateExpiresAt','expiresAt',...(committed?['prepareOperationId','committedAt','revokedGeneration']:[])];
+  const fields=revoked?['revocationMode','allGenerationsRevoked','effectiveAt','revokedCount']:['brand','principalId','generation','expectedGeneration','area','slot','role','caps','issuedAt','candidateExpiresAt','expiresAt',...(committed?['prepareOperationId','committedAt','revokedGeneration']:[])];
   if(!exact(value,[...base,...fields])||value.schema!==SCHEMAS.receipt||value.requestSha256!==hash(c)||['issuerId','namespaceId','operationId','action','userId','lifecycleId','owner'].some(k=>value[k]!==c[k]))fail();
   if(revoked){if(value.state!=='revoked'||value.revocationMode!=='lifecycle'||value.allGenerationsRevoked!==true||!time(value.effectiveAt)||value.effectiveAt>current()+30000||!generation(value.revokedCount))fail();}
   else{
-   if(['principalId','generation','expectedGeneration','area','slot','role'].some(k=>value[k]!==c[k])||!exactCaps(value.caps)||!time(value.issuedAt)||value.issuedAt>current()+30000||value.candidateExpiresAt!==value.issuedAt+POLICY.candidateTtlMs||value.expiresAt!==value.issuedAt+POLICY.lifetimeMs)fail();
+   if(['brand','principalId','generation','expectedGeneration','area','slot','role'].some(k=>value[k]!==c[k])||!exactCaps(value.caps)||!time(value.issuedAt)||value.issuedAt>current()+30000||value.candidateExpiresAt!==value.issuedAt+POLICY.candidateTtlMs||value.expiresAt!==value.issuedAt+POLICY.lifetimeMs)fail();
    if(committed){if(value.state!=='committed'||['prepareOperationId','issuedAt','candidateExpiresAt','expiresAt'].some(k=>value[k]!==c[k])||!time(value.committedAt)||value.committedAt<value.issuedAt||value.committedAt>=value.candidateExpiresAt||value.committedAt>current()+30000||value.revokedGeneration!==(c.expectedGeneration===0?null:c.expectedGeneration))fail();}
    else if(value.state!=='prepared')fail();
   }
@@ -65,7 +65,7 @@ function createWriterPolicy(config){
  function commit(input){
   if(!exact(input,['operationId','proof']))fail();const {operationId,proof}=input;
   const c=prepared.get(proof);if(!c||current()>=proof.candidateExpiresAt||revokedLifecycles.has(c.userId+':'+c.lifecycleId))fail();
-  return command('commit_writer',{operationId,prepareOperationId:c.operationId,userId:c.userId,lifecycleId:c.lifecycleId,owner:c.owner,principalId:c.principalId,keySha256:c.keySha256,generation:c.generation,expectedGeneration:c.expectedGeneration,issuedAt:proof.issuedAt,candidateExpiresAt:proof.candidateExpiresAt,expiresAt:proof.expiresAt});
+  return command('commit_writer',{operationId,prepareOperationId:c.operationId,userId:c.userId,lifecycleId:c.lifecycleId,owner:c.owner,brand:c.brand,principalId:c.principalId,keySha256:c.keySha256,generation:c.generation,expectedGeneration:c.expectedGeneration,issuedAt:proof.issuedAt,candidateExpiresAt:proof.candidateExpiresAt,expiresAt:proof.expiresAt});
  }
  function statusRequest(input){const c=expected(input);return freeze({schema:SCHEMAS.request,issuerId,namespaceId,action:'writer_status',operationId:c.operationId,expectedRequestSha256:hash(c)});}
  function status(value,input,options={}){

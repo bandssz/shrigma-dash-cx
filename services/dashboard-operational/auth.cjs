@@ -238,7 +238,7 @@ function createAuth(options){
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
  if(options.crmManagedWriter!==undefined)try{
-  managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',issuerId:options.crmManagedWriter.issuerId,namespaceId:options.crmManagedWriter.namespaceId,...(corporateWriter?{readReady:id=>managedCrm.credentialReady(id)===true}:{}),allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
+  managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',issuerId:options.crmManagedWriter.issuerId,namespaceId:options.crmManagedWriter.namespaceId,...(corporateWriter?{readReady:id=>managedCrm.credentialReady(id)===true}:{}),allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),brandForUser:id=>{try{return requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(id)).brand;}catch{return null;}},now:current});
  }catch{db.close();err('MANAGED_WRITER_CONFIG_INVALID',500);}
  function writerCall(fn){try{return fn();}catch{err('MANAGED_WRITER_STORE_UNAVAILABLE',503);}}
  function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
@@ -626,6 +626,16 @@ function createAuth(options){
  function masterCreatePending(userId){
   if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='crm_campaign_create_v1'").get()&&db.prepare("SELECT 1 FROM crm_campaign_create_v1 WHERE user_id=? AND phase IN ('queued','uncertain','confirmed')").get(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
  }
+ // Shared by the private installation hook and the own-session activation.
+ // Caller owns the transaction and final checks; raw principal stays in RAM.
+ function persistMasterCampaignWriter(user,{bearer,principalId,expiresAt,attestedAt}){
+  const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex');
+  if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,user.id))err('CREDENTIAL_REUSED',409);
+  const encrypted=encrypt(bearer),a={principal_id:'master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+principalId).digest('hex'),credential_mac:digest,expires_at:expiresAt,attested_at:attestedAt};
+  db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(user.id,encrypted,digest,attestedAt);
+  db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at,master_proof_mac) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at,master_proof_mac=excluded.master_proof_mac').run(user.id,user.email,a.principal_id,digest,expiresAt,attestedAt,masterWriterMac(user,a));
+  recordUpstreamBinding(user,'growth-campaign',{encrypted_key:encrypted,key_digest:digest});
+ }
  async function installMasterCampaignWriter({context,userId,bearer,principalId,expiresAt,fetchImpl=globalThis.fetch}){
   if(!campaignSubmit||!corporateWriter)err('EDIT_NOT_READY',403);
   const actor=adminContext(context),user=credentialTarget({context,userId,slot:'growth-campaign',bearer});
@@ -637,19 +647,49 @@ function createAuth(options){
   masterCreatePending(userId);
   // Legacy master operator IDs may themselves be an accepted old key. Keep
   // the verified raw principal in RAM only; persist a segregated keyed digest.
-  const digest=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex'),attestedAt=current(),a={principal_id:'master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+principalId).digest('hex'),credential_mac:digest,expires_at:expiresAt,attested_at:attestedAt};
+  const attestedAt=current();
   db.exec('BEGIN IMMEDIATE');try{
    // Serialize the final session/grant/pending checks with journal reservation
    // even if another gateway process held the SQLite write lock while we waited.
    const locked=credentialTarget({context,userId,slot:'growth-campaign',bearer});
    if(locked.email!==user.email||locked.updated_at!==user.updated_at||locked.role!=='superadmin'||locked.state!=='active'||expiresAt<=current())err('CREDENTIAL_ATTESTATION_FAILED',403);
    masterCreatePending(userId);
-   if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(digest,userId))err('CREDENTIAL_REUSED',409);
-   const encrypted=encrypt(bearer);
-   db.prepare("INSERT INTO upstream_credentials(user_id,slot,encrypted_key,key_digest,updated_at) VALUES(?,'growth-campaign',?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET encrypted_key=excluded.encrypted_key,key_digest=excluded.key_digest,updated_at=excluded.updated_at").run(userId,encrypted,digest,attestedAt);
-   db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at,master_proof_mac) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,principal_id=excluded.principal_id,credential_mac=excluded.credential_mac,expires_at=excluded.expires_at,attested_at=excluded.attested_at,master_proof_mac=excluded.master_proof_mac').run(userId,user.email,a.principal_id,digest,expiresAt,attestedAt,masterWriterMac(user,a));
-   recordUpstreamBinding(user,'growth-campaign',{encrypted_key:encrypted,key_digest:digest});db.exec('COMMIT');
+   persistMasterCampaignWriter(user,{bearer,principalId,expiresAt,attestedAt});db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}return {ok:true};
+ }
+ function masterActivationSnapshot(context){
+  const actor=adminContext(context),session=lookup(context,false),user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(actor.id);
+  if(!session||session.user.id!==actor.id||!user||user.role!=='superadmin'||user.email!==adminEmail||user.state!=='active')err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const grants=db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=? ORDER BY area').all(user.id);
+  if(!grants.some(g=>g.area==='growth'&&g.can_read===1))err('GRANT_DENIED',403);
+  if(unresolvedCampaignDraft(user.id))err('DRAFT_RECONCILIATION_REQUIRED',409);
+  if(unresolvedCampaignDelivery(user.id))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+  if(unresolvedAudienceDraft(user.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+  masterCreatePending(user.id);
+  const source=db.prepare("SELECT slot,encrypted_key,key_digest,updated_at FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-campaign','crm-panel-read','growth-read') ORDER BY CASE slot WHEN 'growth-campaign' THEN 0 WHEN 'crm-panel-read' THEN 1 ELSE 2 END LIMIT 1").get(user.id);
+  if(!source)err('INDIVIDUAL_CREDENTIAL_MISSING',503);
+  const bound=db.prepare('SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot=?').get(user.id,source.slot);
+  if(!bound||!equalHex(bound.binding_mac,upstreamBindingMac(user,source.slot,source)))err('CREDENTIAL_UNAVAILABLE',503);
+  if(db.prepare('SELECT 1 FROM upstream_credentials WHERE key_digest=? AND user_id<>? LIMIT 1').get(source.key_digest,user.id))err('CREDENTIAL_REUSED',409);
+  return {user,tokenHash:session.tokenHash,grants,source,bindingMac:bound.binding_mac};
+ }
+ // Own Master only: no caller-selected user, key, slot, principal or lifetime.
+ // Read access does not become edit until the same fixed GET proves four caps.
+ async function activateOwnMasterCampaignWriter({context,fetchImpl=globalThis.fetch}){
+  if(!campaignSubmit||!corporateWriter)err('EDIT_NOT_READY',403);
+  const original=masterActivationSnapshot(context),bearer=decrypt(original.source.encrypted_key);
+  if(!equalHex(original.source.key_digest,crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+  let proof;
+  try{proof=await require('./crm-campaign-writer-attestation.cjs').verifyStoredMasterCampaignWriterCredential({bearer,owner:original.user.email},{fetchImpl});}catch{err('CREDENTIAL_ATTESTATION_FAILED',403);}
+  db.exec('BEGIN IMMEDIATE');try{
+   // Recheck after the remote GET and after waiting for the SQLite writer lock.
+   const locked=masterActivationSnapshot(context);
+   if(JSON.stringify(locked)!==JSON.stringify(original))err('CREDENTIAL_ATTESTATION_FAILED',403);
+   const attestedAt=current(),expiresAt=attestedAt+14*86400000;
+   db.prepare("UPDATE grants SET can_edit=1 WHERE user_id=? AND area='growth' AND can_read=1").run(original.user.id);
+   persistMasterCampaignWriter(original.user,{bearer,principalId:proof.principalId,expiresAt,attestedAt});db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}
+  return {ok:true,ready:true};
  }
  // Private caller only: no new HTTP route and no automatic dispatch.
  function approveManagedCampaignWriter({context,userId}){
@@ -875,6 +915,6 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&corporateWriter?{activateOwnMasterCampaignWriter}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

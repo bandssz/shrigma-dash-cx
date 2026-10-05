@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const file=path.join(__dirname,'native-writer.test.cjs');
 test('native proof import is inert with forbidden environment/transport/files',()=>{
  const m={exports:{}},proc=new Proxy({}, {get(){throw Error('FORBIDDEN_PROCESS_ACCESS');}}),requireStub=name=>{if(name==='node:fs')return{readFileSync(){throw Error('FORBIDDEN_FILE_READ');}};if(['node:assert/strict','node:path','node:crypto'].includes(name))return require(name);throw Error('FORBIDDEN_DEPENDENCY');};
- vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:m,exports:m.exports,require:requireStub,process:proc},{timeout:1000});assert.equal(typeof m.exports.proveNativeWriter,'function');assert.equal(m.exports.PROFILE,'07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040');
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:m,exports:m.exports,require:requireStub,process:proc},{timeout:1000});assert.equal(typeof m.exports.proveNativeWriter,'function');assert.equal(m.exports.PROFILE,'464d3cac6073dc6f3c42948203aa0d557d7396cefe1d8a5d0968c83896939311');
 });
 test('native client metadata/identity pins fail closed before transport and without relying on PG environment',async()=>{
  const N=require('./native-writer.test.cjs'),config=N.clientConfig(),client={connectionParameters:{...config}};assert.equal(N.checkParameters(client),undefined);

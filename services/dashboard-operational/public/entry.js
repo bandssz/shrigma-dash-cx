@@ -324,6 +324,37 @@ else (function(){'use strict';
   const labels={awaiting_accept:'CRM aguarda aceite',provisioning:'CRM preparando acesso',revoking:'CRM revogação pendente',revoked:'CRM revogado',failed:'CRM indisponível'};
   return Object.hasOwn(labels,access.state)?labels[access.state]:'';
  }
+ // The current Master manages its own CRM permission through the authenticated
+ // endpoint. The browser never selects another identity, key or capability.
+ function ownMasterRow(user){
+  return requested==='todos'&&session?.authenticated===true&&session.user?.role==='superadmin'&&typeof session.user.id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(session.user.id)&&sessionBrandScope(session.user)?.brandAccess==='all'&&session.user.areas?.length===3&&new Set(session.user.areas).size===3&&Object.keys(AREAS).every(a=>session.user.areas.includes(a))&&user?.role==='superadmin'&&user.status==='active'&&user.id===session.user.id&&user.email===session.user.email;
+ }
+ function ownMasterCrmReady(user){
+  return ownMasterRow(user)&&session.features?.campaignSubmitWrite===true&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true&&user.permissions?.growth?.read===true&&user.permissions.growth.edit===true;
+ }
+ async function activateOwnMasterCrm(user,button){
+  if(busy||!ownMasterRow(user)||session.features?.campaignMasterActivation!==true||ownMasterCrmReady(user))return;
+  const original=session,ticket=version;busy=true;button.disabled=true;adminMessage.textContent='Validando sua edição do CRM…';
+  let refused=false,uncertain=false;
+  try{
+   try{
+    const {response,data}=await post('/auth/master/campaign-writer/activate',{});
+    if(ticket!==version||session!==original)return;
+    if(response.status===401){showLogin('Sua sessão expirou. Entre novamente para ativar a edição do CRM.');return;}
+    refused=!response.ok||data?.ok!==true||data?.ready!==true;
+   }catch(_){uncertain=true;}
+   if(ticket!==version||session!==original)return;
+   // An unconfirmed reply is followed only by reads. No activation is replayed.
+   const next=await readSession();
+   if(ticket!==version||session!==original)return;
+   if(!validSession(next)||next.user.id!==original.user.id||next.user.email!==original.user.email){showLogin('Sua sessão mudou. Entre novamente para conferir seu acesso ao CRM.');return;}
+   session=next;await loadUsers();
+   if(ticket!==version||session!==next)return;
+   const ready=next.features?.campaignSubmitWrite===true&&next.user.permissions?.growth?.read===true&&next.user.permissions.growth.edit===true;
+   adminMessage.textContent=ready?'Edição de campanhas no CRM confirmada. Abra CRM e use “Editar campanhas”.':uncertain?'Não foi possível confirmar a ativação. Confira os acessos antes de tentar novamente.':refused?'A edição do CRM ainda não está disponível. Seu acesso continua em leitura.':'A edição do CRM ainda aguarda confirmação. Seu acesso continua em leitura.';
+  }catch(_){if(ticket===version&&session)adminMessage.textContent='Não foi possível conferir a ativação. Atualize os acessos antes de tentar novamente.';}
+  finally{busy=false;button.disabled=false;}
+ }
  function userRow(user){
   const row=document.createElement('div');row.className='user-row';const info=document.createElement('div');
   const email=document.createElement('strong');email.textContent=String(user.email||'');const details=document.createElement('small');
@@ -334,11 +365,15 @@ else (function(){'use strict';
   // This content gate excludes cancellation/history, which keep their own
   // authorization contract. Absent metadata preserves the isolated legacy UI.
   const contentUnavailable=user.role==='manager'&&user.areas?.length===1&&user.areas[0]==='growth'&&user.campaignContentAccess?.available===false;
-  const access=contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
+  const access=ownMasterRow(user)?(ownMasterCrmReady(user)?'CRM · edição de campanhas ativa':'CRM · somente leitura'):contentUnavailable&&(granted||user.requestedAccess==='edit'||user.crmWriter?.state==='ready')?'Conteúdo em leitura · criação, edição e agendamento aguardam validação':user.crmWriter&&Object.hasOwn(writerLabels,user.crmWriter.state)?writerLabels[user.crmWriter.state]:granted?'Edição ativa':user.requestedAccess==='edit'?'Somente leitura · edição solicitada':'Somente leitura';
   const state={active:'Ativo',invited:'Convite pendente',disabled:'Revogado',bootstrap:'Ativação pendente'}[user.status]||'';
   const brandLabel=user.role==='superadmin'?'Todas as marcas':user.brandAccess==='single'&&['fish','aristo'].includes(user.brand)?({fish:'Fishermans',aristo:'O Aristocrata'})[user.brand]:'Marca pendente · recrie o acesso';
   details.setAttribute('data-brand-access',user.brandAccess==='single'?'single':user.role==='superadmin'?'all':'reprovision_required');
   details.textContent=[areas,brandLabel,access,state,crmAccessLabel(user)].filter(Boolean).join(' · ');info.append(email,details);row.append(info);
+  if(ownMasterRow(user)&&session.features?.campaignMasterActivation===true&&!ownMasterCrmReady(user)&&session.user.permissions?.growth?.read===true){
+   const actions=document.createElement('div');actions.className='user-row-actions';
+   const activate=document.createElement('button');activate.type='button';activate.id='admin-master-crm-activate';activate.textContent='Ativar edição do CRM';activate.addEventListener('click',()=>activateOwnMasterCrm(user,activate));actions.append(activate);row.append(actions);
+  }
   if(user.role==='manager'&&['active','invited'].includes(user.status)&&user.id){
    const brandReady=user.brandAccess==='single'&&['fish','aristo'].includes(user.brand);
    const actions=document.createElement('div');actions.className='user-row-actions';

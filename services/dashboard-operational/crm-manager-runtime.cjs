@@ -90,7 +90,7 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}
 function corporateWriterDescriptor(value,read,allowedEmailDomains){
  const keys=['mode','issuerId','namespaceId',...(Object.hasOwn(value||{},'provisionerToken')?['provisionerToken']:[])];
  const v=snapshot(value,keys);
- if(v.mode!==CORPORATE_WRITER_MODE||!UUID.test(v.issuerId||'')||!UUID.test(v.namespaceId||'')||!read||!UUID.test(read.issuerId||'')||!UUID.test(read.namespaceId||'')||new Set([v.issuerId,v.namespaceId,read.issuerId,read.namespaceId]).size!==4||!Array.isArray(allowedEmailDomains)||allowedEmailDomains.length!==1||allowedEmailDomains[0]!=='oaristocrata.com'||Object.hasOwn(v,'provisionerToken')&&!/^[A-Za-z0-9_-]{43,128}$/.test(v.provisionerToken))refuse();
+ if(v.mode!==CORPORATE_WRITER_MODE||!UUID.test(v.issuerId||'')||!UUID.test(v.namespaceId||'')||!read||!UUID.test(read.issuerId||'')||!UUID.test(read.namespaceId||'')||new Set([v.issuerId,v.namespaceId,read.issuerId,read.namespaceId]).size!==4||!(Array.isArray(allowedEmailDomains)&&allowedEmailDomains.length===3&&Object.keys(allowedEmailDomains).length===3&&new Set(allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d)))||Object.hasOwn(v,'provisionerToken')&&!/^[A-Za-z0-9_-]{43,128}$/.test(v.provisionerToken))refuse();
  const out=Object.freeze({mode:v.mode,issuerId:v.issuerId,namespaceId:v.namespaceId});corporateDescriptors.add(out);return out;
 }
 // A separate, fixed writer origin and authentication scheme. Neither a SQL

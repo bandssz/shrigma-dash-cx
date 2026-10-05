@@ -9,7 +9,7 @@ const cases=require('./claude-pending-recovery-install-cases.cjs');
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');
  const db=new PGlite();
  try{
-  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
+  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
   await cases(db,{native:false});
   console.log('PASS pending recovery installer (PGlite): provider alterado com comentários, owner/SECURITY/volatilidade/search_path/ACL divergentes e trigger/função homônimos alheios recusados sem DDL; parcial recusado; reinstalação exata no-op; gate OFF mantém a cerca; inventário do documento roda.');
  }finally{await db.close();}

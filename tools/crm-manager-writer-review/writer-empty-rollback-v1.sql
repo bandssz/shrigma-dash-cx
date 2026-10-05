@@ -105,7 +105,7 @@ WITH tables AS MATERIALIZED (
 )
 SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('kind',kind,'label',label,'data',data) ORDER BY kind,label),'[]'::jsonb)::text,'UTF8')),'hex') AS profile_sha256 INTO profile_sha256 FROM records;
 
- IF profile_sha256 IS DISTINCT FROM '07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040' THEN
+ IF profile_sha256 IS DISTINCT FROM '464d3cac6073dc6f3c42948203aa0d557d7396cefe1d8a5d0968c83896939311' THEN
   RAISE EXCEPTION USING MESSAGE='CRM_MANAGER_WRITER_EMPTY_ROLLBACK_REFUSED'; END IF;
 END
 $manager_rollback_profile$;

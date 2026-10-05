@@ -9,18 +9,18 @@ const {createService}=require('../n8n/growth/campaign-service'),{createStore}=re
 const END='https://campaign.example.test/operations',WRITE='synthetic-write-secret',READ='synthetic-read-secret';
 const API={capabilities:{campaigns:{contract_version:A.VERSION,brands:['aristo','fish'],read:true,save:true,validate:true,schedule:true,cancel:true,operation:true,audience_review:'listmonk-6.1-regular-v1'},endpoints:{campaigns:END}}};
 const AUTH={[WRITE]:{actor:'claude-e2e-manager',caps:['read_content','draft','validate','submit']},[READ]:{actor:'claude-e2e-reader',caps:['read_content']}};
-const definition=(brand='fish')=>{const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';return {schema_version:'crm-campaign-v1',brand,channel:'email',initiative:{key:'e2e-'+brand,name:'E2E '+brand},utm_campaign:'e2e-'+brand,name:'Disparo '+brand,subject:'Assunto',from_email:'contato@'+domain,reply_to:'contato@'+domain,list_ids:[brand==='fish'?3:7],template_id:1,html:`<a href="https://${domain}/products/x">x</a>{{ UnsubscribeURL }}`,text:`https://${domain}/products/x {{ UnsubscribeURL }}`,tags:[],send_at:new Date(Date.now()+86400000).toISOString()};};
+const definition=(brand='fish')=>{const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';return {schema_version:'crm-campaign-v1',brand,channel:'email',initiative:{key:'e2e-'+brand,name:'E2E '+brand},utm_campaign:'e2e-'+brand,name:'Disparo '+brand,subject:'Assunto',from_email:'contato@'+domain,reply_to:'contato@'+domain,list_ids:[brand==='fish'?3:7],template_id:brand==='fish'?1:3,html:`<a href="https://${domain}/products/x">x</a>{{ UnsubscribeURL }}`,text:`https://${domain}/products/x {{ UnsubscribeURL }}`,tags:[],send_at:new Date(Date.now()+86400000).toISOString()};};
 
 async function setup(t){
  const control={before:null,after:null,query:null};
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite'),db=new PGlite();t.after(()=>db.close());
- for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
+ for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(f));
  // control.query (R1): simula falha de transporte antes do SQL do provider, sem tocar no banco.
  let next=300;const query=(sql,params)=>control.query?control.query(sql,params,db):db.query(sql,params);
  const provider=createProvider({query,validateContent:async({templateVersion})=>({ok:true,templateVersion}),nativeCreate:async payload=>{
   const id=next++;await db.exec('BEGIN');
   await db.query(`INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs)
-   VALUES($1,$2,$3,$4,$5,$6,'html',$7::jsonb,'draft','{}','regular','email',1,0,$8::jsonb)`,[id,payload.name,payload.subject,payload.from_email,payload.body,payload.altbody,JSON.stringify(payload.headers),JSON.stringify(payload.attribs)]);
+   VALUES($1,$2,$3,$4,$5,$6,'html',$7::jsonb,'draft','{}','regular','email',$9,0,$8::jsonb)`,[id,payload.name,payload.subject,payload.from_email,payload.body,payload.altbody,JSON.stringify(payload.headers),JSON.stringify(payload.attribs),payload.template_id]);
   for(const list of payload.lists)await db.query('INSERT INTO campaign_lists(campaign_id,list_id,list_name) SELECT $1,id,name FROM lists WHERE id=$2',[id,list]);
   await db.exec('COMMIT');return {id};
  }});

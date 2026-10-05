@@ -20,7 +20,7 @@ const AUTH={actor:'absence-fixture',caps:['read_content','submit']};
   await db.exec(read('tests/campaign-provider-schema.sql'));
   await db.exec("UPDATE campaigns SET body='<p>Fixture</p>{{ UnsubscribeURL }}',altbody='Fixture {{ UnsubscribeURL }}'; INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week')");
   await db.exec(read('tests/fixtures/campaign-store-pre-recovery.sql'));await db.exec(read('tests/fixtures/campaign-provider-pre-audience.sql'));
-  await db.exec(read('n8n/growth/campaign-write-guard.sql'));await db.exec(read('n8n/growth/campaign-atomic-receipt.sql'));await db.exec(read('n8n/growth/campaign-audience.sql'));
+  await db.exec(read('n8n/growth/campaign-template-ownership.sql'));await db.exec(read('n8n/growth/campaign-write-guard.sql'));await db.exec(read('n8n/growth/campaign-atomic-receipt.sql'));await db.exec(read('n8n/growth/campaign-audience.sql'));
   const reviewIds=new Map();
   const call=async(action,p)=>(await db.query('SELECT shrigma_campaign_provider($1::text,$2::jsonb) AS r',[action,JSON.stringify(action==='schedule'?{audienceReviewId:reviewIds.get(p.id),...p}:p)])).rows[0].r;
   const store=async(action,p)=>(await db.query('SELECT shrigma_campaign_store($1::text,$2::jsonb) AS r',[action,JSON.stringify(p)])).rows[0].r;

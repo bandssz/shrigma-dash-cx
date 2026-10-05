@@ -9,7 +9,7 @@ if(process.env.CAMPAIGN_TEST_DATABASE_ISOLATED!=='1'||!target||!['localhost','12
  await Promise.all(clients.map(c=>c.connect()));const [a,b,c]=clients;
  try{
   assert.equal((await a.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='public'")).rows[0].n,0,'refuse a populated database');
-  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await a.query(read(f));
+  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await a.query(read(f));
   let counter=0;
   const call=async(client,action,p)=>(await client.query('SELECT shrigma_campaign_store($1,$2::jsonb) r',[action,JSON.stringify(p)])).rows[0].r;
   const claim=(client,action)=>call(client,'claim',{actor:'synthetic-manager',key:'concurrency-key-'+(++counter),hash:'a'.repeat(64),brand:'fish',action});

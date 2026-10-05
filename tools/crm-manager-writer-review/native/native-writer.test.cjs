@@ -3,8 +3,8 @@
 // starts no test. Native execution needs explicit opt-in on a disposable runner.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
-const PROFILE='07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040';
-const SOURCE_PINS=Object.freeze({'writer-provision-v1.sql':'b78251cc9bb2e28d7a2c6e286363b0e8368e3c65b17a2ae9fd9f997ae5a2160e','writer-empty-rollback-v1.sql':'a5a138a4f5c0956b2cccd11a38d0c43e0e0c8e6298e3765e880a0b586aca6aeb','writer-provision.test.cjs':'e546cd45b2b35fbb66f1734a5c0196fb80b59a44337af260b015aba5062f9df6','writer-policy.cjs':'e2d4c6713f9c7d699973c6da305be0b0967c984e8ee187d9dde74930d4af3108'});
+const PROFILE='464d3cac6073dc6f3c42948203aa0d557d7396cefe1d8a5d0968c83896939311';
+const SOURCE_PINS=Object.freeze({'writer-provision-v1.sql':'0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04','writer-empty-rollback-v1.sql':'19a3714bb989047a8ad304ef05d88a916ef841705d69b003b2cc828571164ecd','writer-provision.test.cjs':'bd124b8e9994bc3b829c196538f9b04bf0e97f77b99ab636820e571adda0c189','writer-policy.cjs':'fbfcc642c43243cb53b081bf018782f3191317d976ecc73111e9583562e83703'});
 const REPO_PINS=Object.freeze({'tests/crm-manager-provision-postgres.test.cjs':'49520781a50c1488a2a3d37d18ae3a3d435d35d408dd133c59a32c5e1316c2e2','n8n/access/crm-manager-provision-v1.sql':'be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4','n8n/access/panel-operator.sql':'7b1ab4bb657c6109337355c9a615c0fe5ff6a9837e69ef181ab1806d307446e8','services/dashboard-operational/crm-manager-provisioning.cjs':'723bca94435efe08bea98fdd3ceec450264b7e7001d57c42f7a427384ec087a5'});
 const CAPS=Object.freeze(['read_content','draft','validate','submit']);
 function fail(){throw Error('NATIVE_WRITER_PROOF_REFUSED');}

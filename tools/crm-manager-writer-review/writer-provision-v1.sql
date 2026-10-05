@@ -54,8 +54,10 @@ CREATE TABLE public.crm_manager_writer_issuer_v1 (
 CREATE TABLE public.crm_manager_writer_subject_v1 (
  namespace_id uuid NOT NULL REFERENCES public.crm_manager_writer_issuer_v1(namespace_id),
  user_id uuid NOT NULL,lifecycle_id uuid NOT NULL,owner text NOT NULL,
+ brand text CHECK(brand IN ('fish','aristo')),
  state text NOT NULL CHECK(state IN ('active','revoked')),active_generation integer NOT NULL DEFAULT 0 CHECK(active_generation BETWEEN 0 AND 999999999),
- revoked_at timestamptz,PRIMARY KEY(namespace_id,user_id,lifecycle_id)
+ revoked_at timestamptz,PRIMARY KEY(namespace_id,user_id,lifecycle_id),
+ CHECK(brand IS NOT NULL OR state='revoked' AND active_generation=0)
 );
 CREATE TABLE public.crm_manager_writer_operation_v1 (
  namespace_id uuid NOT NULL REFERENCES public.crm_manager_writer_issuer_v1(namespace_id),
@@ -67,6 +69,7 @@ CREATE TABLE public.crm_manager_writer_generation_v1 (
  namespace_id uuid NOT NULL,user_id uuid NOT NULL,lifecycle_id uuid NOT NULL,prepare_operation_id uuid NOT NULL,
  generation integer NOT NULL CHECK(generation BETWEEN 1 AND 999999999),
  expected_generation integer NOT NULL CHECK(expected_generation=generation-1),
+ brand text NOT NULL CHECK(brand IN ('fish','aristo')),
  principal_id text NOT NULL UNIQUE CHECK(principal_id ~ '^dcrmw-[a-f0-9]{32}$') REFERENCES public.crm_dash_chave(chave),
  state text NOT NULL CHECK(state IN ('prepared','active','revoked','expired')),
  issued_at_ms bigint NOT NULL,candidate_expires_at_ms bigint NOT NULL,expires_at_ms bigint NOT NULL,
@@ -128,9 +131,9 @@ BEGIN
   THEN RETURN public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'INPUT_INVALID'); END IF;
  action:=req->>'action';
  IF rpc='prepare' AND action IN ('prepare_writer','renew_writer') THEN
-  expected_keys:=ARRAY['schema','issuerId','namespaceId','action','operationId','userId','lifecycleId','owner','principalId','keySha256','generation','expectedGeneration','area','slot','role','caps','candidateTtlMs','lifetimeMs'];
+  expected_keys:=ARRAY['schema','issuerId','namespaceId','action','operationId','userId','lifecycleId','owner','brand','principalId','keySha256','generation','expectedGeneration','area','slot','role','caps','candidateTtlMs','lifetimeMs'];
  ELSIF rpc='commit' AND action='commit_writer' THEN
-  expected_keys:=ARRAY['schema','issuerId','namespaceId','action','operationId','userId','lifecycleId','owner','principalId','keySha256','generation','expectedGeneration','area','slot','role','caps','candidateTtlMs','lifetimeMs','prepareOperationId','issuedAt','candidateExpiresAt','expiresAt'];
+  expected_keys:=ARRAY['schema','issuerId','namespaceId','action','operationId','userId','lifecycleId','owner','brand','principalId','keySha256','generation','expectedGeneration','area','slot','role','caps','candidateTtlMs','lifetimeMs','prepareOperationId','issuedAt','candidateExpiresAt','expiresAt'];
  ELSIF rpc='revoke' AND action='revoke_writer' THEN
   expected_keys:=ARRAY['schema','issuerId','namespaceId','action','operationId','userId','lifecycleId','owner'];
  ELSIF rpc='status' AND action='writer_status' THEN
@@ -177,7 +180,8 @@ BEGIN
   THEN RETURN public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'INPUT_INVALID'); END IF;
  uid:=(req->>'userId')::uuid;life:=(req->>'lifecycleId')::uuid;owner_email:=req->>'owner';
  IF rpc IN ('prepare','commit') THEN
-  IF coalesce(req->>'principalId','') !~ '^dcrmw-[a-f0-9]{32}$'
+  IF jsonb_typeof(req->'brand') IS DISTINCT FROM 'string' OR coalesce(req->>'brand','') NOT IN ('fish','aristo')
+   OR coalesce(req->>'principalId','') !~ '^dcrmw-[a-f0-9]{32}$'
    OR jsonb_typeof(req->'keySha256') IS DISTINCT FROM 'string' OR coalesce(req->>'keySha256','') !~ '^[a-f0-9]{64}$'
    OR jsonb_typeof(req->'generation') IS DISTINCT FROM 'number' OR jsonb_typeof(req->'expectedGeneration') IS DISTINCT FROM 'number'
    OR coalesce(req->>'generation','') !~ '^[0-9]{1,9}$' OR coalesce(req->>'expectedGeneration','') !~ '^[0-9]{1,9}$'
@@ -206,7 +210,7 @@ BEGIN
  IF op.request_sha256<>fp OR op.action<>action THEN RETURN public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'IDEMPOTENCY_CONFLICT'); END IF;
  SELECT * INTO subject FROM public.crm_manager_writer_subject_v1 WHERE namespace_id=ns AND user_id=uid AND lifecycle_id=life FOR UPDATE;
  now_ms:=floor(extract(epoch FROM clock_timestamp())*1000)::bigint;
- IF FOUND AND subject.owner<>owner_email THEN
+ IF FOUND AND (subject.owner<>owner_email OR subject.state<>'revoked' AND rpc IN ('prepare','commit') AND subject.brand IS DISTINCT FROM req->>'brand') THEN
   result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CREDENTIAL_CONFLICT');
  ELSIF FOUND AND subject.state='revoked' AND rpc<>'revoke' THEN
   result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'LIFECYCLE_REVOKED');
@@ -219,11 +223,11 @@ BEGIN
   RETURN op.response;
  END IF;
  IF result IS NULL AND rpc IN ('prepare','revoke') AND subject.namespace_id IS NULL THEN
-  INSERT INTO public.crm_manager_writer_subject_v1(namespace_id,user_id,lifecycle_id,owner,state)
-   VALUES(ns,uid,life,owner_email,CASE WHEN rpc='revoke' THEN 'revoked' ELSE 'active' END) ON CONFLICT DO NOTHING;
+  INSERT INTO public.crm_manager_writer_subject_v1(namespace_id,user_id,lifecycle_id,owner,brand,state)
+   VALUES(ns,uid,life,owner_email,CASE WHEN rpc='revoke' THEN NULL ELSE req->>'brand' END,CASE WHEN rpc='revoke' THEN 'revoked' ELSE 'active' END) ON CONFLICT DO NOTHING;
   SELECT * INTO subject FROM public.crm_manager_writer_subject_v1 WHERE namespace_id=ns AND user_id=uid AND lifecycle_id=life FOR UPDATE;
   now_ms:=floor(extract(epoch FROM clock_timestamp())*1000)::bigint;
-  IF subject.owner<>owner_email THEN result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CREDENTIAL_CONFLICT'); END IF;
+  IF subject.owner<>owner_email OR rpc IN ('prepare','commit') AND subject.brand IS DISTINCT FROM req->>'brand' THEN result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CREDENTIAL_CONFLICT'); END IF;
   IF subject.state='revoked' AND rpc<>'revoke' THEN result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'LIFECYCLE_REVOKED'); END IF;
  END IF;
  IF result IS NULL AND subject.namespace_id IS NULL THEN result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'SUBJECT_NOT_FOUND'); END IF;
@@ -247,11 +251,11 @@ BEGIN
      INSERT INTO public.crm_dash_chave(chave,painel,dono,ativo,revogada_em,ultimo_uso,usos,chave_hash,chave_hash_curta,expira_em)
       VALUES(principal,'growth',owner_email,false,NULL,NULL,0,hash_value,NULL,to_timestamp(candidate_until/1000.0));
      INSERT INTO public.shrigma_panel_permission_v1(principal_id,area,caps) VALUES(principal,'growth','["read_content","draft","validate","submit"]'::jsonb);
-     INSERT INTO public.crm_manager_writer_generation_v1(namespace_id,user_id,lifecycle_id,prepare_operation_id,generation,expected_generation,principal_id,state,issued_at_ms,candidate_expires_at_ms,expires_at_ms)
-      VALUES(ns,uid,life,opid,gen,previous,principal,'prepared',issued,candidate_until,final_until);
+     INSERT INTO public.crm_manager_writer_generation_v1(namespace_id,user_id,lifecycle_id,prepare_operation_id,generation,expected_generation,brand,principal_id,state,issued_at_ms,candidate_expires_at_ms,expires_at_ms)
+      VALUES(ns,uid,life,opid,gen,previous,req->>'brand',principal,'prepared',issued,candidate_until,final_until);
     EXCEPTION WHEN unique_violation THEN result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CREDENTIAL_CONFLICT'); END;
     IF result IS NULL THEN result:=jsonb_build_object('schema','crm-manager-writer-receipt-v1','issuerId',issuer.issuer_id,'namespaceId',ns,'operationId',opid,'action',action,'requestSha256',fp,'userId',uid,'lifecycleId',life,'owner',owner_email,
-     'state','prepared','principalId',principal,'generation',gen,'expectedGeneration',previous,'area','growth','slot','growth-campaign','role','manager','caps','["read_content","draft","validate","submit"]'::jsonb,
+     'state','prepared','brand',subject.brand,'principalId',principal,'generation',gen,'expectedGeneration',previous,'area','growth','slot','growth-campaign','role','manager','caps','["read_content","draft","validate","submit"]'::jsonb,
      'issuedAt',issued,'candidateExpiresAt',candidate_until,'expiresAt',final_until); END IF;
    END IF;
   END IF;
@@ -262,7 +266,7 @@ BEGIN
   PERFORM c.chave FROM public.crm_dash_chave c WHERE c.chave=candidate.principal_id FOR UPDATE;
   PERFORM p.principal_id FROM public.shrigma_panel_permission_v1 p WHERE p.principal_id=candidate.principal_id FOR UPDATE;
   now_ms:=floor(extract(epoch FROM clock_timestamp())*1000)::bigint;
-  IF candidate.namespace_id IS NULL OR candidate.user_id<>uid OR candidate.lifecycle_id<>life OR candidate.principal_id<>principal OR candidate.generation<>gen OR candidate.expected_generation<>previous THEN
+  IF candidate.namespace_id IS NULL OR candidate.user_id<>uid OR candidate.lifecycle_id<>life OR candidate.principal_id<>principal OR candidate.brand IS DISTINCT FROM req->>'brand' OR candidate.brand IS DISTINCT FROM subject.brand OR candidate.generation<>gen OR candidate.expected_generation<>previous THEN
    result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CREDENTIAL_CONFLICT');
   ELSIF candidate.state IN ('expired','revoked') OR candidate.candidate_expires_at_ms<=now_ms THEN
    result:=public.crm_manager_writer_error_v1(req,issuer.issuer_id,ns,'CANDIDATE_EXPIRED');
@@ -284,7 +288,7 @@ BEGIN
    UPDATE public.crm_manager_writer_generation_v1 SET state='active',commit_operation_id=opid,committed_at_ms=now_ms WHERE namespace_id=ns AND prepare_operation_id=prepare_id;
    UPDATE public.crm_manager_writer_subject_v1 SET active_generation=gen WHERE namespace_id=ns AND user_id=uid AND lifecycle_id=life;
    result:=jsonb_build_object('schema','crm-manager-writer-receipt-v1','issuerId',issuer.issuer_id,'namespaceId',ns,'operationId',opid,'action',action,'requestSha256',fp,'userId',uid,'lifecycleId',life,'owner',owner_email,
-    'state','committed','principalId',principal,'generation',gen,'expectedGeneration',previous,'area','growth','slot','growth-campaign','role','manager','caps','["read_content","draft","validate","submit"]'::jsonb,
+    'state','committed','brand',subject.brand,'principalId',principal,'generation',gen,'expectedGeneration',previous,'area','growth','slot','growth-campaign','role','manager','caps','["read_content","draft","validate","submit"]'::jsonb,
     'issuedAt',candidate.issued_at_ms,'candidateExpiresAt',candidate.candidate_expires_at_ms,'expiresAt',candidate.expires_at_ms,'prepareOperationId',prepare_id,'committedAt',now_ms,'revokedGeneration',CASE WHEN previous=0 THEN NULL ELSE previous END);
   END IF;
  ELSIF result IS NULL AND rpc='revoke' THEN
@@ -349,7 +353,7 @@ BEGIN
  FOR item IN SELECT * FROM (VALUES
   ('public.crm_manager_writer_canonical_v1(jsonb)','text','plpgsql',false,'i','0954dea00b21d1df3ee80ba3138da84bb0d56092525fc6d878bfa91e0184d879'),
   ('public.crm_manager_writer_error_v1(jsonb,uuid,uuid,text)','jsonb','sql',false,'i','013470bf619352bdaf85f591502494a2a5d95c75d472843e993901681d49342d'),
-  ('public.crm_manager_writer_apply_v1(jsonb,text)','jsonb','plpgsql',false,'v','9e2a82dc01ba1a6c17eab6c5e2d686b5556b10094e01f5852ddca40c0c12cfee'),
+  ('public.crm_manager_writer_apply_v1(jsonb,text)','jsonb','plpgsql',false,'v','81bdc5f7ebbbaab57feeaecd41dd36ec7270497b4ae69758a5ed3b838e6b91fd'),
   ('public.crm_manager_writer_prepare_v1(jsonb)','jsonb','sql',true,'v','c38fe18763520f1b33035dad0f6a71d61fe90c5ce6c2a05f7c883cf0ec329552'),
   ('public.crm_manager_writer_commit_v1(jsonb)','jsonb','sql',true,'v','ff56b491d033c7448e52e6f3b5fb187ad6b1f72bebeb17b834994ba1b4583120'),
   ('public.crm_manager_writer_revoke_v1(jsonb)','jsonb','sql',true,'v','ca936031b6824b52e51f1392fd71b65c19fee87f789705784b263e1a254e8a4f'),

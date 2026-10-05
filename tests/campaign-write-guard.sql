@@ -41,7 +41,7 @@ BEGIN
  ASSERT bad,'cancelled campaigns cannot restart accidentally';
  -- Shared edits are allowed after stopping. For drafts they invalidate revisions.
  before_version:=public.shrigma_campaign_current(200)->>'version';
- UPDATE templates SET body=body||' changed' WHERE id=1;
+ UPDATE templates SET body=body||' changed' WHERE id=3;
  ASSERT public.shrigma_campaign_current(200)->>'version'<>before_version,'wrapper edits invalidate draft review';
  -- Authorized provider writes still work and restore their transaction context.
  UPDATE crm_familia_campanha SET familia='week' WHERE marca='aristo' AND utm_campaign='week';

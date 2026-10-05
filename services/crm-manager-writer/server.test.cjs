@@ -7,13 +7,13 @@ const root=process.env.CRM_WRITER_PUBLIC_SOURCE_ROOT||path.resolve(__dirname,'..
 const {createWriterClient,FUNCTIONS}=require(path.join(root,'services/dashboard-operational/crm-manager-writer-client.cjs'));
 const NOW=1791028800000,id=n=>'123e4567-e89b-42d3-a456-'+String(n).padStart(12,'0');
 const TOKEN='SYNTHETIC_BFF_TOKEN_FOR_WRITER_ONLY_'.repeat(2),PASSWORD='SYNTHETIC_PG_PASSWORD_FOR_WRITER_ONLY_'.repeat(2),RAW='PRIVATE_CAUSE_SENTINEL_FOR_NEGATIVE_TESTS';
-const options={enabled:true,issuerId:id(90),namespaceId:id(91),allowedEmailDomains:['oaristocrata.com'],provisionerToken:TOKEN,revision:'a'.repeat(40),now:()=>NOW};
+const options={enabled:true,issuerId:id(90),namespaceId:id(91),allowedEmailDomains:['oaristocrata.com','shrigma.com.br','fishermans.com.br'],provisionerToken:TOKEN,revision:'a'.repeat(40),now:()=>NOW};
 const policy={area:'growth',slot:'growth-campaign',role:'manager',caps:['read_content','draft','validate','submit'],candidateTtlMs:600000,lifetimeMs:1209600000};
-const args=(n=1)=>({operationId:id(n),userId:id(10),lifecycleId:id(20),owner:'gestor@oaristocrata.com',principalId:'dcrmw-'+'a'.repeat(32),keySha256:sha('SYNTHETIC_MANAGER_BEARER')});
+const args=(n=1)=>({operationId:id(n),userId:id(10),lifecycleId:id(20),owner:'gestor@oaristocrata.com',brand:'fish',principalId:'dcrmw-'+'a'.repeat(32),keySha256:sha('SYNTHETIC_MANAGER_BEARER')});
 const command=(n=1)=>({schema:'crm-manager-writer-request-v1',issuerId:options.issuerId,namespaceId:options.namespaceId,action:'prepare_writer',...args(n),generation:1,expectedGeneration:0,...policy});
 function receipt(c){const base={schema:'crm-manager-writer-receipt-v1',issuerId:c.issuerId,namespaceId:c.namespaceId,operationId:c.operationId,action:c.action,requestSha256:sha(canonical(c)),userId:c.userId,lifecycleId:c.lifecycleId,owner:c.owner};
  if(c.action==='revoke_writer')return {...base,state:'revoked',revocationMode:'lifecycle',allGenerationsRevoked:true,effectiveAt:NOW,revokedCount:2};
- const issuedAt=c.issuedAt??NOW;return {...base,state:c.action==='commit_writer'?'committed':'prepared',principalId:c.principalId,generation:c.generation,expectedGeneration:c.expectedGeneration,area:'growth',slot:'growth-campaign',role:'manager',caps:[...policy.caps],issuedAt,candidateExpiresAt:issuedAt+600000,expiresAt:issuedAt+1209600000,...(c.action==='commit_writer'?{prepareOperationId:c.prepareOperationId,committedAt:issuedAt+100,revokedGeneration:c.expectedGeneration===0?null:c.expectedGeneration}:{})};}
+ const issuedAt=c.issuedAt??NOW;return {...base,state:c.action==='commit_writer'?'committed':'prepared',principalId:c.principalId,generation:c.generation,expectedGeneration:c.expectedGeneration,area:'growth',slot:'growth-campaign',role:'manager',brand:c.brand,caps:[...policy.caps],issuedAt,candidateExpiresAt:issuedAt+600000,expiresAt:issuedAt+1209600000,...(c.action==='commit_writer'?{prepareOperationId:c.prepareOperationId,committedAt:issuedAt+100,revokedGeneration:c.expectedGeneration===0?null:c.expectedGeneration}:{})};}
 function fakePool(handle=c=>receipt(c),changes={}){
  const saved=new Map(),calls=[],leases=[];let connects=0;
  const pool={connect:async()=>{connects++;const c=Object.assign(new EventEmitter(),{connectionParameters:{host:PG_HOST,port:5432,database:'listmonk',user:ROLE,password:PASSWORD,ssl:false,...changes.parameters},connection:{stream:{destroy(){c.destroyed=true;}}},release(kill){leases.push(kill);},query:async(sql,params)=>{
@@ -34,7 +34,7 @@ function send(app,body=command(),change={}){
 }
 const tick=()=>new Promise(r=>setImmediate(r));
 const rpcCalls=f=>f.calls.filter(x=>Object.values(QUERIES).includes(x.sql));
-function client(app){return createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com'],now:()=>NOW,invoke:async q=>{
+function client(app){return createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com','shrigma.com.br','fishermans.com.br'],now:()=>NOW,invoke:async q=>{
  const body=JSON.parse(q.parameters[0]);assert.equal(q.procedure,FUNCTIONS[body.action]);const path=Object.entries(S.ROUTES).find(([,a])=>a.includes(body.action))[0],r=send(app,body,{path});await r.done;if(r.res.status!==200)throw Error('SYNTHETIC_TRANSPORT_REFUSED');return r.res.body;
  }});}
 
@@ -103,24 +103,24 @@ test('health is loopback-only READ ONLY and projects no issuer IDs, key, counts 
  const other=send(f.app,{}, {path:'/healthz',method:'GET',socket:{remoteAddress:'192.0.2.4'}});await other.done;assert.equal(other.res.status,503);
 });
 test('production configuration fixes own role/host/domain and refuses unsupported transport/material',()=>{
- const env={CRM_WRITER_ENABLED:'true',CRM_WRITER_REVISION:'a'.repeat(40),CRM_WRITER_ISSUER_ID:id(90),CRM_WRITER_NAMESPACE_ID:id(91),CRM_WRITER_PROVISIONER_TOKEN:TOKEN,CRM_WRITER_PG_TLS:'false',PGHOST:PG_HOST,PGDATABASE:'listmonk',PGUSER:ROLE,PGPASSWORD:PASSWORD};const cfg=S.config(env);assert.equal(cfg.pg.ssl,false);assert.equal(cfg.pg.max,1);assert.equal(cfg.pg.user,ROLE);assert.deepEqual(cfg.allowedEmailDomains,['oaristocrata.com']);
+ const env={CRM_WRITER_ENABLED:'true',CRM_WRITER_REVISION:'a'.repeat(40),CRM_WRITER_ISSUER_ID:id(90),CRM_WRITER_NAMESPACE_ID:id(91),CRM_WRITER_PROVISIONER_TOKEN:TOKEN,CRM_WRITER_PG_TLS:'false',PGHOST:PG_HOST,PGDATABASE:'listmonk',PGUSER:ROLE,PGPASSWORD:PASSWORD};const cfg=S.config(env);assert.equal(cfg.pg.ssl,false);assert.equal(cfg.pg.max,1);assert.equal(cfg.pg.user,ROLE);assert.deepEqual(cfg.allowedEmailDomains,['oaristocrata.com','shrigma.com.br','fishermans.com.br']);
  for(const extra of [{PGHOST:'127.0.0.1'},{PGUSER:'postgres'},{PGDATABASE:'other'},{PGPORT:'5440'},{PGSERVICE:'other'},{DATABASE_URL:'postgres://other'},{PGPASSWORD:TOKEN},{CRM_WRITER_PG_TLS:'true',CRM_WRITER_PG_CA:'not-pem'},{CRM_WRITER_PG_TLS:'false',CRM_WRITER_PG_CA:'material'},{CRM_WRITER_ALLOWED_EMAIL_DOMAINS:'["other.test"]'}])assert.throws(()=>S.config({...env,...extra}),/UNAVAILABLE/);
 });
 test('lost ACK recovers from same STATUS; historical expired prepare never extends its dates',async()=>{
  const f=setup(),c=client(f.app),q=c.command('prepare_writer',args()),first=send(f.app,q);await first.done;const saved=first.res.body;
  const recovery=await c.status(q,{requireFound:true});assert.deepEqual(recovery.receipt,saved);assert.equal(rpcCalls(f).filter(x=>x.sql===QUERIES.prepare_writer).length,1);
- const late=createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com'],now:()=>NOW+660001,invoke:async x=>{const body=JSON.parse(x.parameters[0]),r=send(f.app,body,{path:'/internal/v1/crm-writers/status'});await r.done;return r.res.body;}});
+ const late=createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com','shrigma.com.br','fishermans.com.br'],now:()=>NOW+660001,invoke:async x=>{const body=JSON.parse(x.parameters[0]),r=send(f.app,body,{path:'/internal/v1/crm-writers/status'});await r.done;return r.res.body;}});
  assert.deepEqual((await late.status(q)).receipt,saved);assert.equal(f.saved.get(q.operationId).candidateExpiresAt,saved.candidateExpiresAt);
 });
 test('exact public SQL parses in PGlite; service status→prepare→commit→revoke preserves READ/legacy',async t=>{
  const {PGlite}=require('@electric-sql/pglite'),R=require(path.join(root,'tests/crm-manager-provision-postgres.test.cjs')),F=require(path.join(root,'tools/crm-manager-writer-review/writer-provision.test.cjs'));
  const f=await F.createWriterFixture(t,{Engine:PGlite,readFixture:R.createFixture,register:false});
- await f.db.exec('ALTER ROLE crm_manager_writer_service_v1 LOGIN');await f.db.query('INSERT INTO public.crm_manager_writer_issuer_v1(issuer_id,namespace_id,login_role,allowed_email_domains,active) VALUES($1,$2,$3,ARRAY[$4],true)',[options.issuerId,options.namespaceId,ROLE,'oaristocrata.com']);assert.equal(await f.profile(),S.PROFILE);
+ await f.db.exec('ALTER ROLE crm_manager_writer_service_v1 LOGIN');await f.db.query('INSERT INTO public.crm_manager_writer_issuer_v1(issuer_id,namespace_id,login_role,allowed_email_domains,active) VALUES($1,$2,$3,$4::text[],true)',[options.issuerId,options.namespaceId,ROLE,['oaristocrata.com','shrigma.com.br','fishermans.com.br']]);assert.equal(await f.profile(),S.PROFILE);
  // PGlite has no native SCRAM/transport. This adapter deliberately bypasses
  // service metadata only in the fake lease; the actual SQL/core is asserted separately.
  const sql=fakePool(),pool={connect:async()=>{const c=await sql.pool.connect();const original=c.query;c.query=async(text,p)=>{
   if(Object.values(QUERIES).includes(text)){const q=JSON.parse(p[0]);return {rows:[{body:await f.call(q,{issuerId:options.issuerId,namespaceId:options.namespaceId,login:ROLE})}]};}return original(text,p);};return c;}};
- const app=createServer({...options,pool,now:Date.now}),c=createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com'],now:Date.now,invoke:async x=>{const q=JSON.parse(x.parameters[0]),p=Object.entries(S.ROUTES).find(([,a])=>a.includes(q.action))[0],r=send(app,q,{path:p});await r.done;assert.equal(r.res.status,200);return r.res.body;}});
+ const app=createServer({...options,pool,now:Date.now}),c=createWriterClient({issuerId:options.issuerId,namespaceId:options.namespaceId,allowedEmailDomains:['oaristocrata.com','shrigma.com.br','fishermans.com.br'],now:Date.now,invoke:async x=>{const q=JSON.parse(x.parameters[0]),p=Object.entries(S.ROUTES).find(([,a])=>a.includes(q.action))[0],r=send(app,q,{path:p});await r.done;assert.equal(r.res.status,200);return r.res.body;}});
  const q=c.command('prepare_writer',args()),p=await c.prepare(q);assert.equal((await f.key(q)).ativo,false);const cq=c.command('commit_writer',{...args(2),prepareOperationId:q.operationId,generation:1,expectedGeneration:0,issuedAt:p.issuedAt,candidateExpiresAt:p.candidateExpiresAt,expiresAt:p.expiresAt});assert.equal((await c.commit({operationId:id(2),proof:p,expectedRequest:cq})).state,'committed');assert.equal((await f.key(q)).ativo,true);
  const rev=c.command('revoke_writer',{operationId:id(4),userId:id(10),lifecycleId:id(20),owner:args().owner});assert.equal((await c.revoke(rev)).allGenerationsRevoked,true);assert.equal((await f.key(q)).ativo,false);await f.unchanged();
  // PGlite refuses its shared pg_database catalog to this synthetic role even

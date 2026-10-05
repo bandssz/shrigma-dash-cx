@@ -10,7 +10,7 @@ if(process.env.CAMPAIGN_TEST_DATABASE_ISOLATED!=='1'||!target||!['localhost','12
  await Promise.all(clients.map(c=>c.connect()));const [a,b,c]=clients;
  try{
   assert.equal((await a.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='public'")).rows[0].n,0,'refuse a populated database');
-  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await a.query(read(f));
+  for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql'])await a.query(read(f));
   await a.query("INSERT INTO crm_familia_campanha VALUES('fish','week','week');INSERT INTO subscribers VALUES(3,'enabled'),(4,'enabled');INSERT INTO subscriber_lists VALUES(3,3,'confirmed')");
   const review=async()=> (await a.query('SELECT fixture_audience_review(100) v')).rows[0].v;
   const current=async()=> (await a.query('SELECT shrigma_campaign_current(100) c')).rows[0].c;

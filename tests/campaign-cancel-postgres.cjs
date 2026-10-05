@@ -11,7 +11,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
   const start=provider.indexOf(" IF a='cancel' THEN"),end=provider.indexOf(" IF c.status::text<>'draft'",start);
   assert.ok(start>0&&end>start);
   const priorProvider=(provider.slice(0,start)+provider.slice(end)).replace("'update','schedule','cancel'","'update','schedule'").replace(" WHEN a='cancel' THEN 'cancelar'",'');
-  await db.exec(read('tests/campaign-provider-schema.sql'));await db.exec(priorStore);await db.exec(priorProvider);await db.exec(read('n8n/growth/campaign-write-guard.sql'));
+  await db.exec(read('tests/campaign-provider-schema.sql'));await db.exec(priorStore);await db.exec(priorProvider);await db.exec(read('n8n/growth/campaign-template-ownership.sql'));await db.exec(read('n8n/growth/campaign-write-guard.sql'));
   await db.exec("INSERT INTO shrigma_campaign_operation(actor,operation_key,request_hash,brand,action) VALUES('prior','prior-uncertain-key','"+'a'.repeat(64)+"','fish','salvar')");
   const guards=async()=>JSON.stringify((await db.query("SELECT tgname,pg_get_triggerdef(oid) AS def FROM pg_trigger WHERE NOT tgisinternal ORDER BY tgname")).rows);
   const beforeGuards=await guards(),beforeAudit=(await db.query('SELECT * FROM shrigma_campaign_operation')).rows;

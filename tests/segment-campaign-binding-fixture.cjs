@@ -12,7 +12,7 @@ async function setup(db,options={}){
  INSERT INTO campaigns SELECT (jsonb_populate_record(NULL::campaigns,to_jsonb(c)||'{"id":400,"attribs":{"crm":{"policy":"crm-campaign-v1","brand":"olivas"}}}'::jsonb)).* FROM campaigns c WHERE id=100;
  INSERT INTO crm_familia_campanha(marca,utm_campaign,familia) VALUES('fish','week','week'),('aristo','week','week');
  UPDATE subscribers SET status='blocklisted' WHERE id=4;`);
- for(const file of ['n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql','n8n/growth/segment-campaign-binding.sql'])await db.exec(F.read(file));
+ for(const file of ['n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','n8n/growth/campaign-write-guard.sql','n8n/growth/segment-campaign-binding.sql'])await db.exec(F.read(file));
  await db.exec(schema.slice(schema.indexOf('CREATE FUNCTION fixture_audience_review(')));
  const service=B.createSegmentCampaignBinding({transaction:f.transaction,timeoutMs:10000,...options}),call=async(request,key='synthetic-manager-key')=>{const r=await service.execute({key,request});return {status:r._http,body:r._body};};
  const createAudience=async(brand='fish',name='binding-audience',rule)=>{const r=await f.call(f.create(brand,name,rule));if(r.status!==201)throw Error('BINDING_FIXTURE_AUDIENCE');return r.body.segment;};

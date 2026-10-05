@@ -27,7 +27,7 @@ function ownerValid(v,domains){return typeof v==='string'&&v.length<=254&&v===v.
 const COMMON=['schema','issuerId','namespaceId','action','operationId'];
 const SUBJECT=['userId','lifecycleId','owner'];
 const POLICY=['area','slot','role','caps','candidateTtlMs','lifetimeMs'];
-const CREDENTIAL=['principalId','keySha256','generation','expectedGeneration'];
+const CREDENTIAL=['brand','principalId','keySha256','generation','expectedGeneration'];
 function validateRequest(value,path,{issuerId,namespaceId,domains}){
  if(!plain(value)||!Object.hasOwn(ROUTES,path)||!ROUTES[path].includes(value.action))refuse();
  const keys=[...COMMON,...(value.action==='writer_status'?['expectedRequestSha256']:[...SUBJECT,...(value.action==='revoke_writer'?[]:[...POLICY,...CREDENTIAL,...(value.action==='commit_writer'?['prepareOperationId','issuedAt','candidateExpiresAt','expiresAt']:[])])])];
@@ -36,7 +36,7 @@ function validateRequest(value,path,{issuerId,namespaceId,domains}){
  if(value.action==='writer_status'){if(!hash(value.expectedRequestSha256))refuse();return value;}
  if(!uuid(value.userId)||!uuid(value.lifecycleId)||!ownerValid(value.owner,domains))refuse();
  if(value.action==='revoke_writer')return value;
- if(value.area!=='growth'||value.slot!=='growth-campaign'||value.role!=='manager'||!caps(value.caps)||value.candidateTtlMs!==CANDIDATE_TTL||value.lifetimeMs!==LIFETIME||!principal(value.principalId)||!hash(value.keySha256)||!generation(value.generation)||!generation(value.expectedGeneration)||value.generation!==value.expectedGeneration+1)refuse();
+ if(!['fish','aristo'].includes(value.brand)||value.area!=='growth'||value.slot!=='growth-campaign'||value.role!=='manager'||!caps(value.caps)||value.candidateTtlMs!==CANDIDATE_TTL||value.lifetimeMs!==LIFETIME||!principal(value.principalId)||!hash(value.keySha256)||!generation(value.generation)||!generation(value.expectedGeneration)||value.generation!==value.expectedGeneration+1)refuse();
  if(value.action==='prepare_writer'&&(value.generation!==1||value.expectedGeneration!==0)||value.action==='renew_writer'&&value.expectedGeneration<1)refuse();
  if(value.action==='commit_writer'&&(!uuid(value.prepareOperationId)||value.prepareOperationId===value.operationId||!time(value.issuedAt)||value.candidateExpiresAt!==value.issuedAt+CANDIDATE_TTL||value.expiresAt!==value.issuedAt+LIFETIME))refuse();
  return value;
@@ -44,14 +44,14 @@ function validateRequest(value,path,{issuerId,namespaceId,domains}){
 function validateReceipt(value,command,scope,now,{statusLookup=false}={}){
  const base=['schema','issuerId','namespaceId','operationId','action','requestSha256','userId','lifecycleId','owner','state'];
  const action=statusLookup?value?.action:command.action;
- const extra=action==='revoke_writer'?['revocationMode','allGenerationsRevoked','effectiveAt','revokedCount']:['principalId','generation','expectedGeneration','area','slot','role','caps','issuedAt','candidateExpiresAt','expiresAt',...(action==='commit_writer'?['prepareOperationId','committedAt','revokedGeneration']:[])];
+ const extra=action==='revoke_writer'?['revocationMode','allGenerationsRevoked','effectiveAt','revokedCount']:['brand','principalId','generation','expectedGeneration','area','slot','role','caps','issuedAt','candidateExpiresAt','expiresAt',...(action==='commit_writer'?['prepareOperationId','committedAt','revokedGeneration']:[])];
  if(!['prepare_writer','renew_writer','commit_writer','revoke_writer'].includes(action)||!exact(value,[...base,...extra])||value.schema!==RECEIPT||value.issuerId!==scope.issuerId||value.namespaceId!==scope.namespaceId||value.operationId!==command.operationId||value.action!==action||value.requestSha256!==(statusLookup?command.expectedRequestSha256:sha(canonical(command)))||!uuid(value.userId)||!uuid(value.lifecycleId)||!ownerValid(value.owner,scope.domains))refuse('UNAVAILABLE');
  if(!statusLookup&&(value.userId!==command.userId||value.lifecycleId!==command.lifecycleId||value.owner!==command.owner))refuse('UNAVAILABLE');
  if(action==='revoke_writer'){
   if(value.state!=='revoked'||value.revocationMode!=='lifecycle'||value.allGenerationsRevoked!==true||!time(value.effectiveAt)||value.effectiveAt>now+30000||!generation(value.revokedCount))refuse('UNAVAILABLE');return value;
  }
- if(!principal(value.principalId)||!generation(value.generation)||!generation(value.expectedGeneration)||value.generation!==value.expectedGeneration+1||value.area!=='growth'||value.slot!=='growth-campaign'||value.role!=='manager'||!caps(value.caps)||!time(value.issuedAt)||value.issuedAt>now+30000||value.candidateExpiresAt!==value.issuedAt+CANDIDATE_TTL||value.expiresAt!==value.issuedAt+LIFETIME)refuse('UNAVAILABLE');
- if(!statusLookup&&(value.principalId!==command.principalId||value.generation!==command.generation||value.expectedGeneration!==command.expectedGeneration))refuse('UNAVAILABLE');
+ if(!['fish','aristo'].includes(value.brand)||!principal(value.principalId)||!generation(value.generation)||!generation(value.expectedGeneration)||value.generation!==value.expectedGeneration+1||value.area!=='growth'||value.slot!=='growth-campaign'||value.role!=='manager'||!caps(value.caps)||!time(value.issuedAt)||value.issuedAt>now+30000||value.candidateExpiresAt!==value.issuedAt+CANDIDATE_TTL||value.expiresAt!==value.issuedAt+LIFETIME)refuse('UNAVAILABLE');
+ if(!statusLookup&&(value.brand!==command.brand||value.principalId!==command.principalId||value.generation!==command.generation||value.expectedGeneration!==command.expectedGeneration))refuse('UNAVAILABLE');
  if(action==='prepare_writer'&&(value.generation!==1||value.expectedGeneration!==0)||action==='renew_writer'&&value.expectedGeneration<1)refuse('UNAVAILABLE');
  if(action==='commit_writer'){
   if(value.state!=='committed'||!uuid(value.prepareOperationId)||value.prepareOperationId===value.operationId||!time(value.committedAt)||value.committedAt<value.issuedAt||value.committedAt>=value.candidateExpiresAt||value.committedAt>now+30000||value.revokedGeneration!==(value.expectedGeneration===0?null:value.expectedGeneration))refuse('UNAVAILABLE');

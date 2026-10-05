@@ -4,7 +4,7 @@ const http=require('node:http'),crypto=require('node:crypto');
 const W=require('./wire.cjs'),A=require('./admission.cjs');
 const {HOST,ROLE,DATABASE,PG_HOST,PG_PORT,REQUEST,ERROR,ROUTES,QUERIES,MAX_BODY,MAX_RESPONSE,uuid,time,plain,exact,canonical,sha,GatewayError,refuse,validateRequest,validateResult}=W;
 const {admissionSql,ADMISSION_KEYS}=A;
-const DOMAIN='oaristocrata.com',AUTH='CRM-Writer-Provisioner ';
+const DOMAINS=Object.freeze(['oaristocrata.com','shrigma.com.br','fishermans.com.br']),AUTH='CRM-Writer-Provisioner ';
 function containsSecret(value,secrets){
  let encoded;try{encoded=canonical(value).toLowerCase();for(let n=0;n<3;n++){const next=encoded.replace(/%([a-f0-9]{2})/gi,(_,b)=>String.fromCharCode(parseInt(b,16)));if(next===encoded)break;encoded=next.toLowerCase();}}catch{}
  return typeof encoded!=='string'||secrets.filter(x=>typeof x==='string'&&x.length>0).flatMap(x=>[x,Buffer.from(x).toString('base64'),Buffer.from(x).toString('base64url'),Buffer.from(x).toString('hex')]).some(x=>encoded.includes(x.toLowerCase()));
@@ -43,10 +43,10 @@ function createServer(options){
  const required=enabled?['enabled','revision','pool','issuerId','namespaceId','allowedEmailDomains','provisionerToken']:['revision',...(Object.hasOwn(options,'enabled')?['enabled']:[])];
  if(typeof enabled!=='boolean'||!exact(options,[...required,...(enabled?optional.filter(k=>Object.hasOwn(options,k)):[])]))refuse('UNAVAILABLE');
  const {revision,pool,issuerId,namespaceId,provisionerToken}=options;
- if(enabled&&(!pool||typeof pool.connect!=='function'||!uuid(issuerId)||!uuid(namespaceId)||issuerId===namespaceId||!Array.isArray(options.allowedEmailDomains)||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!==DOMAIN||!/^[A-Za-z0-9_-]{43,128}$/.test(provisionerToken||'')))refuse('UNAVAILABLE');
+ if(enabled&&(!pool||typeof pool.connect!=='function'||!uuid(issuerId)||!uuid(namespaceId)||issuerId===namespaceId||!(Array.isArray(options.allowedEmailDomains)&&options.allowedEmailDomains.length===3&&Object.keys(options.allowedEmailDomains).length===3&&new Set(options.allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>options.allowedEmailDomains.includes(d)))||!/^[A-Za-z0-9_-]{43,128}$/.test(provisionerToken||'')))refuse('UNAVAILABLE');
  const maxQueued=options.maxQueued??2,deadlineMs=options.deadlineMs??4000,bodyTimeoutMs=options.bodyTimeoutMs??1000,now=options.now??Date.now,pgTlsRequired=options.pgTlsRequired??false;
  if(!Number.isInteger(maxQueued)||maxQueued<0||maxQueued>2||!Number.isInteger(deadlineMs)||deadlineMs<10||deadlineMs>4500||!Number.isInteger(bodyTimeoutMs)||bodyTimeoutMs<10||bodyTimeoutMs>1000||bodyTimeoutMs>deadlineMs||typeof now!=='function'||typeof pgTlsRequired!=='boolean')refuse('UNAVAILABLE');
- const scope={issuerId,namespaceId,domains:new Set([DOMAIN])},authHash=enabled?Buffer.from(sha(AUTH+provisionerToken),'hex'):null;
+ const scope={issuerId,namespaceId,domains:new Set(DOMAINS)},authHash=enabled?Buffer.from(sha(AUTH+provisionerToken),'hex'):null;
  const current=()=>{const t=now();if(t&&typeof t.then==='function'){Promise.resolve(t).catch(()=>{});refuse('UNAVAILABLE');}if(!time(t))refuse('UNAVAILABLE');return t;};
  let active=null,handling=0,closing=false,stopping,drained;const queue=[];
  const errorBody=(code,command)=>command?{schema:ERROR,issuerId,namespaceId,operationId:command.operationId,requestSha256:sha(canonical(command)),code}:{schema:ERROR,code};
@@ -117,7 +117,7 @@ function config(env){
  const pgTlsRequired=env.CRM_WRITER_PG_TLS==='true';let ssl=false;
  if(pgTlsRequired){const ca=env.CRM_WRITER_PG_CA;if(typeof ca!=='string'||Buffer.byteLength(ca)>16384||env.CRM_WRITER_PG_SERVERNAME!==PG_HOST)refuse('UNAVAILABLE');const certs=ca.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g);if(!certs||certs.length>8||certs.join('').replace(/\s/g,'')!==ca.replace(/\s/g,''))refuse('UNAVAILABLE');try{for(const pem of certs)if(new crypto.X509Certificate(pem).ca!==true)refuse('UNAVAILABLE');}catch{refuse('UNAVAILABLE');}ssl={rejectUnauthorized:true,ca,servername:PG_HOST};}
  else if(env.CRM_WRITER_PG_CA!==undefined||env.CRM_WRITER_PG_SERVERNAME!==undefined)refuse('UNAVAILABLE');
- return {port:8080,enabled:true,revision:env.CRM_WRITER_REVISION,issuerId:env.CRM_WRITER_ISSUER_ID,namespaceId:env.CRM_WRITER_NAMESPACE_ID,allowedEmailDomains:[DOMAIN],provisionerToken:env.CRM_WRITER_PROVISIONER_TOKEN,pgTlsRequired,pg:{host:PG_HOST,port:PG_PORT,database:DATABASE,user:ROLE,password:env.PGPASSWORD,ssl,max:1,connectionTimeoutMillis:1000,idleTimeoutMillis:30000,statement_timeout:3000,query_timeout:3500,application_name:'crm-manager-writer',options:'-c search_path=pg_catalog -c statement_timeout=3000 -c lock_timeout=500 -c idle_in_transaction_session_timeout=5000 -c transaction_timeout=3000'}};
+ return {port:8080,enabled:true,revision:env.CRM_WRITER_REVISION,issuerId:env.CRM_WRITER_ISSUER_ID,namespaceId:env.CRM_WRITER_NAMESPACE_ID,allowedEmailDomains:[...DOMAINS],provisionerToken:env.CRM_WRITER_PROVISIONER_TOKEN,pgTlsRequired,pg:{host:PG_HOST,port:PG_PORT,database:DATABASE,user:ROLE,password:env.PGPASSWORD,ssl,max:1,connectionTimeoutMillis:1000,idleTimeoutMillis:30000,statement_timeout:3000,query_timeout:3500,application_name:'crm-manager-writer',options:'-c search_path=pg_catalog -c statement_timeout=3000 -c lock_timeout=500 -c idle_in_transaction_session_timeout=5000 -c transaction_timeout=3000'}};
 }
 function start(env,adapters={}){
  const settings=config(env);let pool;

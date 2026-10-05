@@ -9,10 +9,10 @@ let serial=0;const id=()=> (++serial).toString(16).padStart(8,'0')+'-1234-4234-8
 const A=Object.freeze({issuerId:'c1111111-1234-4234-8234-123456789abc',namespaceId:'c2222222-1234-4234-8234-123456789abc',login:'crm_manager_fixture_a'});
 const B=Object.freeze({issuerId:'d1111111-1234-4234-8234-123456789abc',namespaceId:'d2222222-1234-4234-8234-123456789abc',login:'crm_manager_fixture_b'});
 const policy={area:'growth',slot:'growth-campaign',role:'manager',caps:[...CAPS],candidateTtlMs:600000,lifetimeMs:1209600000};
-const PROFILE_SHA256='07ebbf98472f2d693a35e8bb7151e966692e2b90af921c64807041b44c067040';
+const PROFILE_SHA256='464d3cac6073dc6f3c42948203aa0d557d7396cefe1d8a5d0968c83896939311';
 const OWNED=['issuer','subject','operation','generation'].map(s=>'crm_manager_writer_'+s+'_v1');
 const FUNCTIONS=['canonical','error','apply','prepare','commit','revoke','status'].map(s=>'crm_manager_writer_'+s+'_v1');
-function prepare(change={},issuer=A){return{schema:SCHEMAS.request,issuerId:issuer.issuerId,namespaceId:issuer.namespaceId,action:'prepare_writer',operationId:id(),userId:id(),lifecycleId:id(),owner:'manager@example.test',principalId:'dcrmw-'+(++serial).toString(16).padStart(32,'0'),keySha256:sha('SYNTHETIC_WRITER_KEY_'+serial),generation:1,expectedGeneration:0,...policy,...change};}
+function prepare(change={},issuer=A){return{schema:SCHEMAS.request,issuerId:issuer.issuerId,namespaceId:issuer.namespaceId,action:'prepare_writer',operationId:id(),userId:id(),lifecycleId:id(),owner:'manager@example.test',brand:'fish',principalId:'dcrmw-'+(++serial).toString(16).padStart(32,'0'),keySha256:sha('SYNTHETIC_WRITER_KEY_'+serial),generation:1,expectedGeneration:0,...policy,...change};}
 const renew=(q,change={})=>prepare({action:'renew_writer',userId:q.userId,lifecycleId:q.lifecycleId,owner:q.owner,generation:q.generation+1,expectedGeneration:q.generation,...change});
 const commit=(q,r,change={})=>({...q,action:'commit_writer',operationId:id(),prepareOperationId:q.operationId,issuedAt:r.issuedAt,candidateExpiresAt:r.candidateExpiresAt,expiresAt:r.expiresAt,...change});
 const revoke=(q,change={})=>({schema:SCHEMAS.request,issuerId:q.issuerId,namespaceId:q.namespaceId,action:'revoke_writer',operationId:id(),userId:q.userId,lifecycleId:q.lifecycleId,owner:q.owner,...change});

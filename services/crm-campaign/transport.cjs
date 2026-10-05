@@ -38,6 +38,7 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
   if(verified?.length!==1)throw Error('AUTH_RESPONSE_INVALID');
   const auth=verified[0].auth;
   if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(c=>typeof c!=='string'))return {status:401,body:{error:'UNAUTHORIZED',message:'Autenticação necessária.'}};
+  if(Object.hasOwn(auth,'brand')&&(!['fish','aristo'].includes(auth.brand)||auth.brand!==command.brand))return {status:403,body:{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.'}};
   if(interrupted())return unavailable();
   const runtime=runtimeFactory(),id=executionId();let operation=null,step=await runtime.start({actor:auth.actor,caps:auth.caps},command,{executionId:id});
   for(let index=0;step.kind==='effect'&&index<64;index++){

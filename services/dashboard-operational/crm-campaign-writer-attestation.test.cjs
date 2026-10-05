@@ -22,7 +22,7 @@ test('import is dormant and exports only its explicit private proof API',()=>{
  const context={module,exports:module.exports,require:name=>{assert.equal(name,'node:perf_hooks');return require(name);},Uint8Array,Object,Error,Set};
  for(const key of ['fetch','process','setTimeout','AbortController'])Object.defineProperty(context,key,{get(){throw Error('IMPORT_SIDE_EFFECT');}});
  vm.runInNewContext(fs.readFileSync(require.resolve('./crm-campaign-writer-attestation.cjs'),'utf8'),context);
- assert.deepEqual(Object.keys(module.exports).sort(),['CampaignWriterAttestationError','IDENTITY_URL','MAX_RESPONSE_BYTES','TIMEOUT_MS','verifyCampaignWriterCredential','verifyMasterCampaignWriterCredential']);
+ assert.deepEqual(Object.keys(module.exports).sort(),['CampaignWriterAttestationError','IDENTITY_URL','MAX_RESPONSE_BYTES','TIMEOUT_MS','verifyCampaignWriterCredential','verifyMasterCampaignWriterCredential','verifyStoredMasterCampaignWriterCredential']);
  assert.equal(module.exports.IDENTITY_URL,'https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read?action=identity&painel=growth');
  assert.equal(module.exports.MAX_RESPONSE_BYTES,8192);assert.equal(module.exports.TIMEOUT_MS,5000);
 });
