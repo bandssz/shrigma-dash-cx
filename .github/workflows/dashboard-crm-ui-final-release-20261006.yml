@@ -40,6 +40,9 @@ jobs:
             'growth-flows-ui.js': 'f7ac18de1bb5823a90564a0f137e3cb5961c2295c43d0dcaf909cbb5f60c1cb9',
             'assets/panels/growth.js': '611a9ef3765c75e164ea7e548fb3a8c0edbd1b70c05e1d84b5bf02c55c2fa461',
             'growth.html': 'ff7d397a77c3387100cbe30f08c4fdfc8995973160e0c1a5769639636278596b',
+            'tests/dashboard-operational-managed-ui.test.cjs': 'e599f72fad66bc646b13593b077349be34cd57ef73de2613f485a694f0d565db',
+            'tests/dashboard-operational-content-access-ui.test.cjs': '1140f387d837dce4b2a28766182c8258b9e2510159780ff502115d1ac8a08e6b',
+            'tests/growth-campaign-catalog-ui.test.cjs': '1bdc609a49dde37e68a85474b388fa12af5c13d3a330bc4b8e6e4c7b5ed42060',
             'services/dashboard-operational/build.cjs': '4bb955d96644f1a4472a81210a644cbd4a0b15e23d67c614e78062c2d2b99c2c',
             'ops/releases/crm-presentation-20261006/release.cjs': 'bb2c6f0adb4c05a1e2ee5148395795ace48a657dab4e9ea5108232736d58ffd2',
             'ops/releases/crm-presentation-20261006/build-release.cjs': 'c3d5aab3ed989010085a927cc0568e588bc50b1a228fdbb7aedfb56f0829540c',
@@ -69,6 +72,9 @@ jobs:
           tests/growth-audience-source-state.test.cjs
           tests/growth-flows-ui.test.cjs
           tests/growth-flows-unavailable-ui.test.cjs
+          tests/dashboard-operational-managed-ui.test.cjs
+          tests/dashboard-operational-content-access-ui.test.cjs
+          tests/growth-campaign-catalog-ui.test.cjs
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
