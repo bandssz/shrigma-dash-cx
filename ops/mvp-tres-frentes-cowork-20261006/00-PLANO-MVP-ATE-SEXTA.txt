@@ -1,0 +1,62 @@
+PLANO ÚNICO — MVP CRM, ORGÂNICO E INFLUS/AFILIADOS
+Emitido em 06/10/2026. Alvo: sexta-feira, 09/10/2026, horário de Brasília.
+
+DECISÃO E RESPONSÁVEIS
+Recomendo chats paralelos com tarefas fechadas, um responsável por arquivo e um único integrador. Este chat continua centralizando CRM, acesso, contratos, persistência, GitHub/Easypanel e implantação. Dois chats Cowork recebem pacotes separados de apresentação: Afiliados e Orgânico. Um segundo chat Codex implementa controles CRM isolados. Uma quinta frente faz QA a partir das primeiras entregas. Não abrir chats diferentes para implementar a mesma função ou corrigir o mesmo arquivo.
+
+Frente A — este Codex: edição do Mestre; criar, atualizar e revogar usuários READ/WRITE por marca; Gateway/servidor compartilhado; banco consolidado; compilação/publicação e provas reais.
+Frente B1 — Codex produtor: adapters dos controles CRM (fatias, hard/soft bounce, limites de frequência), recebendo persistência central por interface injetada. Caminhos novos exclusivos services/dashboard-operational/domain/crm-mvp-controls/** e tests/crm-mvp-controls/**.
+Frente C1 — Cowork Afiliados: somente ui/affiliates-v2/** e tests/affiliates-v2/** novos. Tabela e funil Kanban com perfis, amostras, produtos, conteúdos, tarefas e desempenho próprios.
+Frente C2 — Cowork Orgânico: somente ui/organic-v2/** e tests/organic-v2/** novos. Topo único, conteúdo, Stories, atribuição e gestão de links UTM.
+Frente QA — Codex ou Cowork: somente tests/mvp-acceptance/** e evidence/mvp/** novos. Casos integrados e revisão de evidências; este Codex executa ações reais em produção.
+
+O projeto local não é um checkout Git gerenciado. Cada produtor trabalha no próprio staging, com contexto congelado. Os pacotes C1/C2 contêm apenas fontes públicas selecionadas, verificadas contra a revisão nativa 2676c48c015628244b51ffc1b1d5a8288b7a2225. Legados são referência de leitura; o produtor não os altera. Nenhum produtor recebe credenciais, configurações privadas, dados reais ou autoridade de implantação. Não se cria banco, helper, serviço ou volume por chat. Pedidos de mudança em arquivo compartilhado retornam a este Codex.
+
+SEQUÊNCIA E ACEITE
+Terça 06/10 — fechar interfaces e escopo; pacotes C1/C2 prontos para encaminhamento. Caminho crítico deste Codex: obter/admitir a autoridade própria já existente para IAM, leitura por marca e escrita com persistência. O bloqueio concreto atual é de acesso/contrato; mais chats não o resolvem.
+Quarta 07/10 — produtores entregam a primeira versão funcional isolada, com testes dirigidos. Este Codex prioriza o percurso Mestre → criar usuário → ler/escrever a marca → atualizar → revogar. QA inicia com o primeiro pacote entregue.
+Quinta 08/10 — este Codex integra as versões aceitas, fecha gateway de cada ação, verifica regressões e prepara a publicação no runtime existente. Congelar o recorte de sexta após os testes. Mudanças de arquitetura ou integrações externas sem contrato ficam registradas para a próxima etapa.
+Sexta 09/10 — comprovar os percursos nos domínios reais, inclusive recusa por marca/papel, recuperação de erro e revogação. Liberar e aceitar função por função com evidência.
+
+CRITÉRIOS OBRIGATÓRIOS DO MVP DE SEXTA
+CRM / crm.shrigma.com.br, com acessos em gerencial.shrigma.com.br:
+1. Mestre legítimo edita sem trocar sua senha, chave, identidade ou sessões.
+2. Criar, atualizar e revogar usuário de uma marca, READ/WRITE efetivo no servidor; outra marca e leitor não escrevem.
+3. Públicos e um percurso manual autorizado de campanha/jornada completos: selecionar base, validar elegibilidade, revisar, confirmar ação permitida e consultar seu resultado. Um resultado incerto não gera segundo envio. Sem autoridade/material válido, a função permanece bloqueada.
+4. Fatias para aquecimento: distribuição estável, base atualizada válida, teto e exclusão de destinatários já usados/reservados/incertos. Hard bounce confiável bloqueia a primeira ocorrência; soft bounce conta tentativas únicas até o limite configurado. Supressão e limites devem persistir e vetar o envio real. Código e interface preparados não bastam.
+
+Orgânico / organico.shrigma.com.br:
+1. Conteúdo/Stories próprios por marca e período, origem/cobertura/frescor visíveis; indisponível não vira zero.
+2. Atribuição pelos modelos existentes, sem somar modelos nem inventar receita por publicação. Detalhe por pedido depende de DTO admitido; hoje o payload público é agregado.
+3. Criar, reler/copiar e arquivar um link UTM com histórico e autorização efetiva; leitor e outra marca recusados.
+4. Percurso publicado, móvel/teclado e recuperação de falha comprovados.
+
+Influs / influs.shrigma.com.br:
+1. Tabela/funil e perfil com identidade de criador por fonte/marca; preservar a aba Creators existente.
+2. Cadastrar/atualizar um criador próprio, registrar amostra e tarefa manual, reabrir e confirmar a persistência. Registrar uma amostra manual não confirma envio/aprovação no TikTok.
+3. Produtos, conteúdos e desempenho provenientes de fonte própria ou claramente declarados. Separar estimado, apurado e liquidado; comissão paga exige liquidação confirmada. Não fixar taxa histórica de 5% ou 7% no navegador.
+4. Outra marca/leitor recusados; uma confirmação perdida é recuperada pela mesma operação, sem repetir gravações ou comunicações.
+
+Nenhuma frente recebe aceite completo só por tela, fixture, CI ou health. Usar estados: preparada, bloqueada com motivo, instalada aguardando prova, operacional com evidência real. Os aceites acima continuam obrigatórios; aceitar somente leitura não encerra a demanda de escrita.
+
+REFERÊNCIAS E LIMITE DE ESCOPO
+Euka orienta o CRM de criadores, listas, relacionamento e amostras. Kalodata orienta filtros e comparação de criadores/produtos/vídeos/LIVE. Sua pesquisa de mercado é estimada e não serve para liquidar comissões. O MVP usa dados próprios disponíveis; uma assinatura/API externa só entra após contrato e fonte verificados. O Euka informa limitações por recurso/mercado; Social Intelligence não cobre Brasil na documentação consultada. Referências e URLs estão em REFERENCIAS-OFICIAIS.json.
+A apresentação do CRM mantém a direção HubSpot/RD: navegação clara, tabelas úteis, filtros, perfis, ações guiadas e estados compreensíveis. Priorizar um percurso completo por vez, aproveitando a implementação existente.
+
+PREVISÃO HONESTA
+Sexta 09/10 é a meta de um MVP operacional nas três frentes, condicionada à liberação dos contratos/autoridade próprios no início da sprint e à conclusão dos aceites. Hoje não há base para prometer todos esses fluxos em produção até sexta: a edição/CRUD do CRM ainda não foi comprovada e Orgânico/Influs recusam leitura por marca e várias gravações.
+A estimativa anterior para todas as melhorias do CRM era 15–25 dias úteis de trabalho após os acessos; a independência completa de Listmonk/n8n acrescentava 10–20. São estimativas de esforço, não prazos garantidos, e não desaparecem ao abrir mais chats. A divisão acelera UI, testes e adapters independentes; o caminho crítico de autoridade/persistência e integração permanece central.
+Priorizar sexta exige fechar o MVP acima. Não declarar toda a plataforma concluída enquanto houver critério obrigatório pendente.
+
+BACKLOG PRESERVADO
+Continuam mapeados: jornadas completas e seu motor; STO; capping avançado; aquecimento e observabilidade de entregabilidade; UI HubSpot/RD; coleta/atribuição completa das três frentes; descoberta de mercado licenciada; mensagens e automação próprias; independência de Listmonk/n8n. Cada demanda recebe contrato, fonte, aceites e estágio; nenhuma é cancelada pelo recorte de sexta.
+Para independência futura, separar interfaces de públicos/campanhas/dispatch/eventos/jornadas da implementação dos provedores. Substituir um adapter por vez, preservando IDs, consentimento, supressões, operações e histórico. Não executar a mesma automação simultaneamente no painel e no provedor antigo.
+
+CONSOLIDAÇÃO EM PARALELO
+Este Codex continua único responsável. Já foram removidos 41 registros legados e cinco projetos vazios; quatro PostgreSQL existentes ainda não foram migrados. Os cartões nas imagens incluem muitos helpers Compose, não apenas bancos. O alvo é um banco lógico central para o DASH, com organização por domínio e papéis próprios, preservando serviços de Comunicação que não pertencem ao DASH.
+Inventariar cada conjunto, comprovar origem/uso, copiar com reconciliação, apontar os adapters para o destino e só então desativar o que ficou sem dependentes. Não despejar bancos de outros sistemas em uma base nem apagar volumes com dados para limpar a tela.
+A revisão automática bloqueou o acesso ao helper de arquivo privado; os 24 registros legados e 14 volumes frios correspondentes permanecem preservados. Esse bloqueio não é transferido ao Cowork ou a outro chat como contorno. Consolidar banco e arquivar os resíduos continuam pendências explícitas.
+
+COMO USAR AS ENTREGAS
+Abrir dois chats Cowork com COWORK-AFILIADOS-MVP-20261006-v2.zip ou COWORK-ORGANICO-MVP-20261006-v2.zip, conforme a frente, e colar seu prompt 01 ou 02. A v2 substitui a v1 antes do encaminhamento, corrigindo dois detalhes do contrato de contexto/sync; fontes legadas idênticas e sem integração em produção. Para o segundo Codex, usar o prompt 03; para QA, o 04. Não anexar o handoff privado completo. Cada produtor devolve somente seus novos arquivos, DELIVERY.json com base/hashes/testes/limites e pedidos concretos de integração.
+Estado atual dos novos chats: pacotes preparados, aguardando abertura/encaminhamento pelo usuário. Este documento não afirma que Claude ou esses chats estejam executando.

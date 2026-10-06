@@ -1,0 +1,33 @@
+CRM — estado de execução em 06/10/2026
+
+A edição do Mestre e a gestão de usuários por marca são o caminho crítico. Fatias, bounces e consolidação seguem em paralelo com auxiliares; a integração e as alterações remotas ficam concentradas no integrador. As credenciais permanecem privadas.
+
+Instalado: correções dos estados de Públicos/Jornadas e confirmação das ações de contas, preservando rascunhos e evitando repetição após resultado incerto. A versão entregue às 09:19 de Brasília segue saudável na conferência nativa das 11:39. Isso comprova o processo; login humano, edição e criação/atualização/revogação por marca ainda não foram comprovados.
+
+Preparado no código, sem instalação: tratamento de contas existentes (9 casos); persistência de identidade no PostgreSQL existente (23 casos); fatias estáveis e hard/soft bounce (28 novos casos e 8 de interface aprovados no Node 22.23.3, incluindo build). A suíte geral da fonte candidata final passou 3.652 casos, zero falhas e 1 ignorado; as três verificações de concorrência também passaram. Fatias continuam desativadas no candidato; os módulos ainda precisam de armazenamento central, recebimento de eventos e autorização final de envio.
+
+Qualidade anterior: a correção de expectativas antigas passou 24 casos e 2 verificações HTTP. Sua suíte geral passou 3.638 casos, zero falhas e 1 ignorado, com três verificações de concorrência aprovadas. A versão posterior de fatias teve uma colisão de texto com um alerta antigo; a ajuda foi corrigida e os testes antigos foram preservados. A fonte instalada e as provas históricas permanecem intactas. O teste adicional de agenda A/B também terminou com suas duas rotinas aprovadas no PostgreSQL isolado do CI; isso não representa execução em produção.
+
+Passo a passo e aceite:
+1. Comprovar sua edição no domínio e criar/atualizar/revogar contas de Leitura/Edição nas duas marcas, incluindo recusa de acesso cruzado e encerramento das sessões revogadas.
+2. Consolidar a persistência DASH em PostgreSQL existente, com cópia consistente, comparação dos dados e recuperação comprovada; remover os auxiliares após arquivo comprovado.
+3. Concluir Públicos e o percurso Público → Conteúdo → Conferência → Agendamento, com navegação familiar a HubSpot/RD e marca sempre visível.
+4. Integrar fatias para aquecimento, suspensão por hard bounce no primeiro evento válido, soft bounce por limite configurável de tentativas e frequência comum a campanhas/jornadas.
+5. Concluir editor/motor de jornadas e horário individual por histórico (STO), com agenda durável, consentimento, cotas, fuso e recuperação sem ações duplicadas.
+6. Substituir os adaptadores Listmonk/n8n por execução própria. O DASH será dono das regras, segmentos, reservas, bloqueios, agenda, disparos e recibos; a troca exige comprovar que não haverá dupla entrega.
+
+Bloqueios concretos: faltam credenciais individuais e fluxo de leitura/escrita por marca admitidos. O conector disponível não oferece execução SQL para criar o esquema/autoridade necessários, e a credencial própria restrita não tem essa autoridade. O login humano também não está disponível para a prova. Configuração real de bounce, recebimento de eventos e fonte de conteúdo ainda não estão comprovados.
+
+Organização do servidor: 41 registros experimentais e 5 projetos vazios foram removidos. Restam 24 legados preservados, associados a 14 volumes declarados. Os quatro PostgreSQL existentes permanecem ativos e não foram migrados/apagados. Aplicativos terceiros em Comunicação e volumes da identidade ativa continuam protegidos. Nenhum banco, serviço ou volume novo foi criado nesta etapa.
+
+A revisão automática recusou armazenamento de credenciais em auxiliar e acesso às pastas privadas para arquivo dos legados. A autorização específica já apresentada permanece pendente; o pedido não foi repetido. Essa limitação impede a remoção segura do conjunto restante.
+
+Previsão preliminar de esforço após acesso, autoridade e fontes necessários estarem disponíveis:
+• CRM básico com homologação real: 3–6 dias úteis.
+• Conjunto de melhorias: 15–25 dias úteis.
+• Independência efetiva de Listmonk/n8n: mais 10–20 dias úteis após estabilizar o núcleo.
+As esperas por acessos não têm duração comprovada; essas faixas não são datas de calendário.
+
+Referências: plano-execucao-aceite/PLANO-UNICO.txt e MATRIZ-ACEITE.json; presentation-release/NATIVE-DELIVERY.json; final-native-health.json; revisao-acessos/regressoes-c3f/CI-RECIBO.json; audience-deliverability-ci/CI-RECIBO.json e FINAL-CI-RECIBO.json; ../consolidacao-banco-unico-20261006/factory-pg-candidate/CI-RECIBO.json.
+
+CRM operacional=false. Banco único concluído=false. O aceite depende de fluxos reais.

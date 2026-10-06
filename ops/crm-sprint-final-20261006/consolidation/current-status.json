@@ -1,0 +1,822 @@
+{
+  "schema": "single-database-integration-status-v1",
+  "observedAtUTC": "2026-10-06 14:58:21 UTC",
+  "scope": "user-system-consolidation",
+  "scopeReceipt": "../consolidacao-banco-unico-20261006/continuacao-receipt.json",
+  "statusEvidence": [
+    "dashboard-legacy-removal-receipt.json",
+    "dashboard-second-legacy-removal-receipt.json",
+    "dashboard-final-cleanup-receipt.json",
+    "dashboard-disposable-sandbox-removal-admission.json",
+    "dashboard-native-diagnostic-receipt.json",
+    "../crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json",
+    "../crm-sprint-final-20261005/integracao/master-native-github-publication-receipt-v1.json",
+    "../consolidacao-banco-unico-20261006/continuacao-receipt.json",
+    "../crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json",
+    "../sprint-20261006/acessos/pr-preparation/CI-RECIBO.json",
+    "../consolidacao-banco-unico-20261006/consistencia-local-receipt.json",
+    "../consolidacao-banco-unico-20261006/factory-pg-candidate/CI-RECIBO.json",
+    "../crm-sprint-final-20261006/revisao-acessos/regressoes-c3f/CI-RECIBO.json",
+    "../crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+    "../crm-sprint-final-20261006/final-native-health.json",
+    "../crm-sprint-final-20261006/audience-deliverability-ci/FINAL-CI-RECIBO.json"
+  ],
+  "canonicalTarget": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "database": "listmonk",
+    "existing": true
+  },
+  "initialServerPostgresServicesObserved": 4,
+  "fullServerConsolidationPlanSuperseded": true,
+  "otherApplicationsUntouched": true,
+  "legacyTestRuntimesStopped": 24,
+  "legacyAppsRemoved": 21,
+  "legacyRemovalAfterVerifiedBackupsAndPrivateTar": true,
+  "legacyRemovalReceipt": "dashboard-final-cleanup-receipt.json",
+  "retainedColdArchive": {
+    "schema": "dash-retained-archive-v3-bound-verification-v1",
+    "observedAtUTC": "2026-10-06T02:02:25.918Z",
+    "verified": true,
+    "credentialsIncluded": false,
+    "rowValuesIncluded": false,
+    "sourceWritten": false,
+    "sourceSqlOpened": false,
+    "bytes": 21424303,
+    "sha256": "882330c84a2c9847bc0de5f458a902e0d2b300365e977ed95c0bdb70c3f23951",
+    "previousArchiveSha256": "60b85e49fe78ce07632a22d9f7408d2b1778bfa1509fe917a2180731d02d432b",
+    "previousArchiveEmbeddedAndVerified": true,
+    "pinnedCopiesBeforeAfter": true,
+    "allFilesCovered": true,
+    "fileDescriptorPathStable": true,
+    "gzipIntegrity": true,
+    "tarBytesAndMetadataMatch": true,
+    "directoryFsync": true,
+    "privateMode0400": true,
+    "rows": [
+      {
+        "index": 0,
+        "volumeName": "dashboard-canary-restore-drill-20260930-01",
+        "treeSha256": "e2201fcea757e0093de8dd70e665fda34400ef649f138dbb44dbc68bcc57de46",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      },
+      {
+        "index": 1,
+        "volumeName": "dashboard-canary-snapshot-drill-20260930-01",
+        "treeSha256": "48bcaf7ad831401aba547fd0fcd58d02d7e22b957a63fd247ae1ed7080a40e3a",
+        "metadataSha256": "d5d384c86b9108024e2a91a551065f166ee20b06d2aa38cccd0d889172962ced",
+        "verified": true
+      },
+      {
+        "index": 2,
+        "volumeName": "dashboard-canary-shadow-update-drill-20260930-01",
+        "treeSha256": "7943dcaf341c47200be4de234033d6e10767c407f1f48fdefc445b4943e515c6",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      }
+    ],
+    "verificationAfter33Removals": {
+      "verified": true,
+      "sha256": "882330c84a2c9847bc0de5f458a902e0d2b300365e977ed95c0bdb70c3f23951",
+      "bytes": 21424303,
+      "observedAtUTC": "2026-10-06T02:06:20.802Z"
+    },
+    "lastSandboxRemovalOutsideArchiveNamespace": true,
+    "functionalRestoreProven": false,
+    "physicalGlobalOrphanVolumePruneExecuted": false,
+    "fullDetailsAndTreeHashesPreservedIn": [
+      "dashboard-legacy-removal-receipt.json",
+      "dashboard-second-legacy-removal-receipt.json",
+      "dashboard-final-cleanup-receipt.json"
+    ]
+  },
+  "backupRestoreVerified": false,
+  "readonlyProgram": {
+    "sha256": "9881281ad81e9cbb27a1887553df9e251dc4cb47d0f2b56214c92cb175ef4b5d",
+    "nativeNode": "22.23.3",
+    "nativeTestsPassed": 7,
+    "executedAgainstProduction": false,
+    "broadConsolidationProfileSuperseded": true
+  },
+  "privateHelperEnvironment": {
+    "service": "comunicacao/db-consolidation-maint",
+    "empty": true,
+    "removed": true,
+    "unrelatedCredentialTransferOccurred": false,
+    "broadTransferRequestSupersededByCorrectedScope": true
+  },
+  "dashboardPostgresDiagnostic": {
+    "receipt": "dashboard-native-diagnostic-receipt.json",
+    "state": "observed",
+    "transactionReadOnlyVerified": true,
+    "rollbackAcknowledged": true,
+    "databaseCreated": false,
+    "mutationOccurred": false,
+    "dashboardOwnRole": true,
+    "superuser": false,
+    "canCreateSchema": false,
+    "canCreatePublicObjects": false,
+    "cannotBootstrapIdentityImport": true,
+    "administrativeCredentialTransferred": false,
+    "identitySchemaBootstrapBlocked": true
+  },
+  "productionPreserved": {
+    "portalSameContainerHealthy": null,
+    "portalSameContainerHealthyBeforeMasterUpdate": true,
+    "portalCurrentHealthy": true,
+    "campaignSameContainerHealthy": true,
+    "credentialsChanged": false,
+    "existingEncryptionKeyChanged": false,
+    "humanPasswordReset": false,
+    "originalVolumesAndEnvironmentPreserved": true,
+    "portalSameConfirmedMasterContainerHealthy": false,
+    "portalCurrentContainerId": "4cca615136ddd98fc28364dfb0a5d88da48ee0ce57354363672a813aed8db713",
+    "campaignCurrentContainerId": "ec3599d53549a5a410cde6c14e91b5a7b2d9a46d9410686caa3098274e12ae55",
+    "finalCleanupReceipt": "dashboard-final-cleanup-receipt.json",
+    "originalIdentityKeyPasswordAndDataPreserved": true,
+    "samePortalAndCampaignConfirmedOnContinuation": false,
+    "portalNewPresentationContainerHealthy": true,
+    "samePortalAndCampaignConfirmedBeforePresentationDelivery": true
+  },
+  "masterStartup": {
+    "sourceRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+    "sourceAppliedAndDeployed": true,
+    "nativeResultReceipt": "../crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json",
+    "nativeResultReportedByIntegrator": true,
+    "preparationVersion": 2,
+    "operationId": "73a35984-9884-4e8f-b132-24c06a8fd7e7",
+    "programSha256": "ec222c5e51838b1059e81577d41824df9e267073add4631a4f2ce82fd936a4b1",
+    "state": "confirmed",
+    "code": "NATIVE_WRITER_CONFIRMED",
+    "attemptConsumed": true,
+    "enableOwnMaster": true,
+    "portalContinuationInvoked": true,
+    "nativeOwnMasterActivationConfirmed": true,
+    "restartAfterExpiry": {
+      "confirmed": true,
+      "sameOperation": true,
+      "publicResultRows": 2,
+      "threeDurableFilesSha256Unchanged": true,
+      "evidence": "../crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json"
+    },
+    "humanLoginAndEditFlowTested": false,
+    "humanPasswordAvailableForFlowTest": false,
+    "realEditingFlowProven": false,
+    "operational": false
+  },
+  "migrationExecuted": false,
+  "dashboardIdentityPostgresImportExecuted": false,
+  "dashboardIdentityPersistenceRemainsSQLite": true,
+  "consolidated": false,
+  "operational": false,
+  "credentialsIncluded": false,
+  "sourceAccessBlockers": [],
+  "supersededOutOfScopeSourceAccessBlockers": [
+    "Grupo-Shrigma/sistema",
+    "Grupo-Shrigma/chatwoot",
+    "juniormoretao/backoffice_shrigma_support",
+    "Joaozinvsg/sistema-central"
+  ],
+  "publicStatusPortuguese": "Correções de estados e confirmação de ações entregues no portal existente, saudável; dados, identidade e acessos preservados. Enrollment e persistência PostgreSQL preparados na fonte; fatias e política de bounces passaram 28 novos casos e 8 de interface, sem instalação ou execução real. Suíte geral final da fonte de fatias: 3.652 aprovados, zero falhas e 1 ignorado. Consolidação: 41 legados removidos, 24 preservados; quatro PostgreSQL existentes ainda sem migração. Edição, CRUD por marca e banco único não comprovados.",
+  "legacyServicesRemoved": 41,
+  "legacyComposeServicesRemoved": 20,
+  "legacyRemovalReceipts": [
+    "dashboard-legacy-removal-receipt.json",
+    "dashboard-second-legacy-removal-receipt.json",
+    "dashboard-final-cleanup-receipt.json"
+  ],
+  "previousRetainedColdArchive": {
+    "sha256": "0cedf57efafad3af12de09e23d9ae745b7d7fa624321fb886687b93adfcfc977",
+    "bytes": 15908530,
+    "sourceVolumes": 18,
+    "sqliteIntegrityVerified": 17,
+    "storageIndependentFromDeletedServiceConfigurations": true,
+    "privateMode0400": true,
+    "fullDetailsAndTreeHashesPreservedIn": "dashboard-legacy-removal-receipt.json"
+  },
+  "dashboardCleanup": {
+    "initiallyStopped": 24,
+    "ofInitially24StoppedRemoved": 24,
+    "remainingInitiallyStoppedRuntimes": 0,
+    "removed": 34,
+    "removedApps": 21,
+    "removedCompose": 13,
+    "breakdown": {
+      "initiallyStopped": 24,
+      "additionalBrandHelpers": 2,
+      "additionalOldMaintenanceServices": 8
+    },
+    "receipt": "dashboard-final-cleanup-receipt.json",
+    "emptyProjectsRemoved": [
+      "dashboard-preview-20260930",
+      "dashboard-canary-20260930",
+      "dashboard-operational-20260930",
+      "dash-brand-20261004",
+      "dashboard-maintenance-20260930"
+    ],
+    "emptyProjectsVerifiedAbsent": true,
+    "emptyProjectCount": 5,
+    "remainingStoppedRuntime": null,
+    "listedRetiredServicesAllRemoved": true,
+    "brandSeedAndProbeRemoved": true,
+    "oldMaintenanceServicesRemoved": 8,
+    "temporaryHelperRemoved": true,
+    "temporaryHelperPrivateEnvironmentEmptyAtRemoval": true,
+    "noNewDatabaseServiceCreated": true,
+    "sandbox": {
+      "target": {
+        "projectName": "dashboard-image-20260930",
+        "serviceName": "crm-sandbox-20261002"
+      },
+      "type": "app",
+      "removed": true,
+      "syntheticPGliteFixture": true,
+      "nativePostgresService": false,
+      "onlyTestDomains": true,
+      "originalProductionDataMounted": false,
+      "coldBytesPreviouslyVerified": true,
+      "coldArchiveSha256": "0cedf57efafad3af12de09e23d9ae745b7d7fa624321fb886687b93adfcfc977",
+      "coldTreeSha256": "def9999323b341a974674f9362de72764ffd0cd54d0b637dea0037fc9eda5507",
+      "restorationFunctionallyTested": false,
+      "admission": "dashboard-disposable-sandbox-removal-admission.json"
+    },
+    "archiveFunctionalRestoreProven": false,
+    "physicalGlobalOrphanVolumePruneExecuted": false,
+    "finalNativeProjectAbsenceRecheck": {
+      "observedUtcMinute": "2026-10-06 02:14 UTC",
+      "allFiveReturned404": true,
+      "reportedByIntegrator": true
+    },
+    "latestContinuationReceipt": "../consolidacao-banco-unico-20261006/continuacao-receipt.json",
+    "currentRetiredRecordsRemoved": 41,
+    "remainingScreenshotLegacyServices": 24,
+    "remainingColdVolumesObservedExcludingLiveVolumes": 14,
+    "remainingPrivateArchiveExecuted": false,
+    "temporaryHelperRemovedOnContinuation": true
+  },
+  "masterActivationConfirmed": true,
+  "brandUserCRUD": {
+    "ready": false,
+    "realCreateUpdateRevokeFlowsTested": false,
+    "individualReadBrokerCredentialAdmitted": false,
+    "individualWriterBrokerCredentialAdmitted": false,
+    "requestedPermissionsAreIntentOnly": true,
+    "reason": "DIRECT_BRAND_USER_ACCESS_NOT_READY"
+  },
+  "fourDomainPublicHealth": {
+    "state": "public-readonly-verification-confirmed",
+    "allDomainsConfirmed": true,
+    "receipt": "dashboard-final-cleanup-receipt.json",
+    "realMasterLogin": false,
+    "businessWrite": false,
+    "domains": [
+      {
+        "host": "gerencial.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "crm.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "organico.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "influs.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      }
+    ]
+  },
+  "initialStoppedRuntimeCountIsHistorical": true,
+  "historicalRetainedColdArchives": [
+    {
+      "sha256": "0cedf57efafad3af12de09e23d9ae745b7d7fa624321fb886687b93adfcfc977",
+      "bytes": 15908530,
+      "sourceVolumes": 18,
+      "sqliteIntegrityVerified": 17,
+      "storageIndependentFromDeletedServiceConfigurations": true,
+      "privateMode0400": true,
+      "fullDetailsAndTreeHashesPreservedIn": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "schema": "dash-retained-archive-v2-proof",
+      "observedAtUTC": "2026-10-06T01:30:41.980Z",
+      "verified": true,
+      "sourceSqlOpened": false,
+      "credentialsIncluded": false,
+      "rowValuesIncluded": false,
+      "bytes": 19611930,
+      "sha256": "60b85e49fe78ce07632a22d9f7408d2b1778bfa1509fe917a2180731d02d432b",
+      "oldArchiveEmbeddedAndVerified": true,
+      "oldArchiveSha256": "0cedf57efafad3af12de09e23d9ae745b7d7fa624321fb886687b93adfcfc977",
+      "gzipIntegrity": true,
+      "tarContentMatchesVerifiedBackups": true,
+      "additionalColdVolumes": 6,
+      "additionalSqliteIntegrityVerified": 5,
+      "privateMode0400": true,
+      "sourceVolumesTotal": 24,
+      "sqliteIntegrityVerifiedTotal": 22,
+      "archiveSurvivedRemoval": true,
+      "storageIndependentFromDeletedServiceConfigurations": true,
+      "fullDetailsAndTreeHashesPreservedIn": [
+        "dashboard-legacy-removal-receipt.json",
+        "dashboard-second-legacy-removal-receipt.json"
+      ]
+    }
+  ],
+  "publicVersioning": {
+    "receipt": "../crm-sprint-final-20261005/integracao/master-native-github-publication-receipt-v1.json",
+    "repository": "bandssz/shrigma-dash-cx",
+    "branch": "codex/crm-sprint-final-portal-20261005-c3f0ac329d04",
+    "commitSha": "5e05fa59ca4015624a47435b921993645a0c99d2",
+    "blobSha": "e897865a1470a604941bdea33c6af3b40d56ccc5",
+    "path": "ops/handoffs/crm-sprint-final-20261005/master-native-installed-public-bundle-v2.json",
+    "publicBundleSha256": "ca5a3f84dbaa4e266161dd090041cfd32aa7bddcb216440c0cfcfbed92ec6bf3",
+    "bytes": 162895,
+    "files": 20,
+    "exactReadBack": true,
+    "draftPullRequest": {
+      "number": 231,
+      "draft": true,
+      "updatedReportedByIntegrator": true,
+      "merged": false,
+      "headSha": "93b286fd183f89223f85f4a9c8b71ed0ef7ec6d5"
+    },
+    "bundledTestsAreHistoricalLocalSyntheticEvidence": true,
+    "ciExecutionClaimed": false,
+    "consumedPlanRearmed": false,
+    "credentialsIncluded": false,
+    "cleanupReceiptPublished": true,
+    "cleanupReceiptPublicationCommitSha": "93b286fd183f89223f85f4a9c8b71ed0ef7ec6d5",
+    "bundlePublicationCommitSha": "5e05fa59ca4015624a47435b921993645a0c99d2",
+    "cleanupPublicationReportedByIntegrator": true
+  },
+  "temporaryFinalCleanupHelperRemoved": true,
+  "noNewDatabaseServiceCreated": true,
+  "legacyServiceFilesRemovedAfterVerifiedArchive": true,
+  "legacyRecoverableBytesRetained": true,
+  "unarchivedProductionDataDeleted": false,
+  "currentDashboardBlockers": [
+    {
+      "code": "IDENTITY_SCHEMA_DDL_NOT_ADMITTED",
+      "descriptionPortuguese": "O papel PostgreSQL próprio DASH não pode criar o schema dashboard_identity; DDL e importação de identidade ainda não foram admitidos nem executados.",
+      "ownRoleCanCreateSchema": false,
+      "identityDDLAdmitted": false,
+      "identityImportExecuted": false,
+      "evidence": "dashboard-native-diagnostic-receipt.json"
+    },
+    {
+      "code": "DIRECT_BRAND_INDIVIDUAL_READ_WRITER_NOT_ADMITTED",
+      "descriptionPortuguese": "Leitura e escrita diretas individuais por marca ainda não têm brokers e credenciais admitidos. A tentativa READ832f permanece consumida e não pode ser rearmada ou repetida.",
+      "individualReadAdmitted": false,
+      "individualWriterAdmitted": false,
+      "priorRead832fConsumed": true,
+      "priorRead832fReplayAllowed": false,
+      "brandUserCRUDReady": false
+    },
+    {
+      "code": "HUMAN_LOGIN_EDIT_FLOW_NOT_PROVEN",
+      "descriptionPortuguese": "A senha humana não está disponível para a prova de login; login Mestre e edição real por marca ainda não foram testados.",
+      "humanPasswordAvailableForFlowTest": false,
+      "humanLoginAndEditFlowTested": false,
+      "operational": false,
+      "evidence": "../crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json"
+    },
+    {
+      "code": "PRIVATE_ARCHIVE_HELPER_ACCESS_AUTO_REVIEW_REJECTED",
+      "descriptionPortuguese": "A revisão automática recusou acesso de auxiliar temporário às pastas privadas do Easypanel; backup nativo de volumes não aceita Compose. Candidato fechado de24serviços/14volumes preparado, ainda não executado.",
+      "archiveExecuted": false,
+      "credentialTransferExecuted": false,
+      "candidate": "../crm-sprint-final-20261006/backup-remaining/manifest.json",
+      "nativeEvidence": "../consolidacao-banco-unico-20261006/continuacao-receipt.json"
+    }
+  ],
+  "scopePreviouslyDashboardOnly": true,
+  "scopeRevisionPortuguese": "A mensagem de06/10 com imagens ampliou o pedido para os bancos do sistema do usuário. As exclusões por nome de projeto no escopo anterior não são prova de propriedade externa.",
+  "latestContinuationReceipt": "../consolidacao-banco-unico-20261006/continuacao-receipt.json",
+  "jornadasSourceDelta": {
+    "pullRequest": 232,
+    "headSha": "fe27c6a158fecce8b0b0aaae641f77c43351ce20",
+    "sourceFiles": 5,
+    "directedNode22Run": 37451984900,
+    "directedCI": "success",
+    "directedTests": 15,
+    "deployed": false,
+    "generalRegression": {
+      "runId": 37451984826,
+      "conclusion": "failure",
+      "failures": 3,
+      "baselineComparisonPending": false,
+      "threeObservedAssertionsAlreadyDivergedInBaseC3f": true,
+      "existingTestsAndGuardsChanged": false,
+      "proof": "../crm-sprint-final-20261006/pr232-baseline-review/RECIBO.json"
+    }
+  },
+  "latestContinuationPublicVersioning": {
+    "receipt": "../consolidacao-banco-unico-20261006/github-publication-receipt.json",
+    "pullRequest": 231,
+    "headSha": "6bfae8be51f6d8bbf02bd45732919851fc8b45a1",
+    "readBackExact": true
+  },
+  "privateArchiveContinuation": {
+    "candidate": "../crm-sprint-final-20261006/backup-remaining/MANIFEST-ENTREGA.json",
+    "helperTarget": "dashboard-image-20260930/arquivar-legados-20261006",
+    "prepared": true,
+    "executed": false,
+    "specificApprovalPending": true,
+    "preserveActiveIdentityVolumes": true,
+    "services": 24,
+    "declaredAssociatedColdVolumes": 14
+  },
+  "latestContinuationHandoff": "../consolidacao-banco-unico-20261006/CONTINUACAO.txt",
+  "presentationRelease": {
+    "sourceRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+    "image": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+    "nativeDelivered": true,
+    "sameExistingService": true,
+    "changedPublicFiles": 7,
+    "originalRuntimeFilesPreserved": 28,
+    "originalImageFilesPreserved": 6,
+    "historicalMasterPlanPreserved": true,
+    "readOnlyNativeGuardRequiresOriginalDurableMasterFiles": true,
+    "sourceTestsNode22": 51,
+    "httpDeliveryTestsNode22": 15,
+    "defaultUid1000StartupVerified": true,
+    "realHumanFlowProven": false,
+    "proof": "../crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json",
+    "generalRegressionFullyPassed": false,
+    "generalRegressionRemainingBaselineFailures": 3,
+    "generalRegressionNewHarnessOrExpectationFailuresUnderRepair": 0,
+    "generalRegressionCompatibilityTestsPassed": 70,
+    "generalRegressionProof": "../crm-sprint-final-20261006/presentation-regression-compat/CI-RECIBO.json",
+    "reviewedFullGeneralRegression": {
+      "gitRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+      "run": 37473191425,
+      "pass": 3638,
+      "fail": 0,
+      "skipped": 1,
+      "productionCodeChanged": false,
+      "proof": "../crm-sprint-final-20261006/revisao-acessos/regressoes-c3f/CI-RECIBO.json"
+    }
+  },
+  "activeReadEnrollment": {
+    "sourceRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+    "prURL": "https://github.com/bandssz/shrigma-dash-cx/pull/234",
+    "directedNode22TestsPassed": 9,
+    "sourceGatePassed": true,
+    "productionApplied": false,
+    "newRuntimeAdmissionRequired": true,
+    "brokersAdmitted": false,
+    "proof": "../sprint-20261006/acessos/pr-preparation/CI-RECIBO.json"
+  },
+  "currentServerPostgresServicesObserved": 4,
+  "currentServerPostgresContainerObservation": "../consolidacao-banco-unico-20261006/native-postgres-inventory-current.json",
+  "currentPostgresSqlConnectivityProven": false,
+  "identityStoreFactorySource": {
+    "schema": "dashboard-identity-factory-source-ci-publication-v1",
+    "observedAtUTC": "2026-10-06T13:33:16Z",
+    "sourceOnly": true,
+    "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/235",
+    "gitRevision": "b6260961e16762997b7c9d47ba2edc1c16056269",
+    "baseGitRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+    "exactDeltaPaths": 17,
+    "payload14UnchangedFromManifest": "cb2469230c41370b7621e92f4f8c430226ddc18d420741ea914ca1f1edb0399c",
+    "node": "22.23.3",
+    "focalCI": {
+      "pushRun": 37471215120,
+      "pushJob": 112294898337,
+      "prRun": 37471223584,
+      "prJob": 112294927985,
+      "conclusion": "success",
+      "factoryAndIntegration": {
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0
+      },
+      "activeEnrollment": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    "registry": {
+      "statements": 247,
+      "queries": 226,
+      "sourcePins": 7,
+      "relations": 29,
+      "sourceRevision": "unpublished-enrollment-factory-candidate",
+      "finalGitRevisionAdmitted": null
+    },
+    "changesToExistingEnrollmentWorkflow": "limits exact-five-files proof to its own branch; new factory workflow runs same nine enrollment cases",
+    "sourceContractVerified": true,
+    "packageAllowlistAdmitsFactory": false,
+    "postgresConnectionPerformed": false,
+    "identityMigrationPerformed": false,
+    "imageBuilt": false,
+    "productionChanged": false,
+    "operational": false
+  },
+  "latestAnalystRecommendations": {
+    "audienceSlices": "source-only stable selection and unavailable UI prepared; central claims, reservation and dispatch not admitted",
+    "deliverability": "source-only hard-first and configurable soft unique-attempt policy prepared; actual receipt and durable suppression unproven",
+    "futureRuntimeDirection": "DASH owns identity, segments, claims, suppression, frequency limits, campaign/journey scheduling, dispatch and receipts; Listmonk/n8n temporary adapters without dual sending",
+    "sourceRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+    "sourceProof": "../crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+    "operational": false
+  },
+  "reviewedBaselineRegressions": {
+    "schema": "crm-reviewed-baselines-ci-receipt-v1",
+    "gitRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+    "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/236",
+    "base": "c659e0962e920b1c136a170128f4abce268799db",
+    "paths": 4,
+    "reviewedExpectationsOnly": true,
+    "productionCodeChanged": false,
+    "focal": {
+      "run": 37473184053,
+      "job": 112301717305,
+      "node": "22.23.3",
+      "tests": 24,
+      "gates": 2,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0
+    },
+    "general": {
+      "run": 37473191425,
+      "conclusion": "success",
+      "counts": {
+        "tests": 3639,
+        "pass": 3638,
+        "fail": 0,
+        "skipped": 1
+      },
+      "concurrencyJobs": "three passed"
+    },
+    "setupFailuresPreserved": [
+      "npm-ci-without-root-lock-before-tests",
+      "runner-context-in-job-env-before-job-creation"
+    ],
+    "operational": false
+  },
+  "analystFeatureSourceCI": {
+    "schema": "crm-audience-deliverability-ci-receipt-v1",
+    "observedAtUTC": "2026-10-06 14:53:07 UTC",
+    "repository": "bandssz/shrigma-dash-cx",
+    "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/237",
+    "baseRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+    "gitRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+    "sourceOnly": true,
+    "exactDeltaPaths": 14,
+    "payloadFiles": 13,
+    "workflow": {
+      "files": 13,
+      "privateValuesChecked": 5,
+      "matches": 0,
+      "workflowBytes": 16832,
+      "workflowSha256": "86add5c9d8679f505f70f568287bff23485925b20eb20f0572e82341b0689d23",
+      "workflowBlob": "3ddd9b45d325564a44f700e49dd82843b71e6e5b"
+    },
+    "focal": {
+      "node": "22.23.3",
+      "pushRun": 37480811129,
+      "pushJob": 112328125534,
+      "conclusion": "success",
+      "newCases": {
+        "tests": 28,
+        "pass": 28,
+        "fail": 0,
+        "skipped": 0
+      },
+      "existingSelectedUI": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sourceGateBeforeAndAfterPassed": true,
+      "legacyTemplateFilesUnchanged": 71,
+      "canonicalGrowthBuildAndCheckPassed": true,
+      "pinnedTemporaryToolsOnly": true,
+      "prRun": 37480816539,
+      "prJob": 112328144848
+    },
+    "general": {
+      "run": 37480816621,
+      "conclusion": "success",
+      "counts": {
+        "tests": 3653,
+        "pass": 3652,
+        "fail": 0,
+        "skipped": 1
+      },
+      "shards": [
+        {
+          "job": 112328146852,
+          "tests": 1914,
+          "pass": 1913,
+          "fail": 0,
+          "skipped": 1
+        },
+        {
+          "job": 112328147075,
+          "tests": 1739,
+          "pass": 1739,
+          "fail": 0,
+          "skipped": 0
+        }
+      ],
+      "concurrencyJobs": [
+        112328145915,
+        112328146550,
+        112328147037
+      ],
+      "concurrencyConclusion": "success",
+      "finalJob": 112332764915,
+      "finalConclusion": "success"
+    },
+    "history": [
+      {
+        "gitRevision": "793cc9e2278865143083b4de30f9cf6feda873c6",
+        "focalRun": 37475611642,
+        "newCasesPassed": 28,
+        "selectedUICasesPassed": 8,
+        "workflowCounterRefused": true,
+        "reason": "Node22 excludes filtered tests from counts; no payload changed by counter repair"
+      },
+      {
+        "gitRevision": "57ed6680800327d63025da502b4c7f1acef86c3d",
+        "focalRuns": [
+          37476046514,
+          37476053962
+        ],
+        "focal": "success",
+        "generalRun": 37476053966,
+        "general": "failure",
+        "counts": {
+          "tests": 3653,
+          "pass": 3651,
+          "fail": 1,
+          "skipped": 1
+        },
+        "failure": "new slice help wording collided with legacy broad save-attempt alert assertion; fixed only new help/new assertion/bundle/cache pins; legacy tests unchanged"
+      }
+    ],
+    "newSliceHelpChangeOnly": true,
+    "legacyTestsChanged": false,
+    "postgresCreated": false,
+    "migrationPerformed": false,
+    "actualBounceSettingsObserved": false,
+    "actualBounceEventIngestionProven": false,
+    "actualSuppressionCommitProven": false,
+    "actualAudienceSliceReservationProven": false,
+    "productionChanged": false,
+    "imageBuilt": false,
+    "deployed": false,
+    "operational": false,
+    "privateValuesChecked": 5,
+    "privateMatches": 0,
+    "otherInheritedCI": {
+      "savedAudienceABRun": 37480816745,
+      "runtimeJob": 112328145085,
+      "runtimeConclusion": "success",
+      "regularJob": 112328144641,
+      "regularConclusion": "in_progress",
+      "regularReason": "real paired schedule in isolated CI PostgreSQL; job timeout22 minutes; no production connection"
+    }
+  },
+  "finalNativePortalHealth": {
+    "observedAtUTC": "2026-10-06 14:39:52 UTC",
+    "samePresentationContainerAndImage": true,
+    "processHealthy": true,
+    "humanFlowProven": false,
+    "proof": "../crm-sprint-final-20261006/final-native-health.json"
+  },
+  "finalApplicableAnalystSourceCI": {
+    "schema": "crm-analyst-source-final-applicable-ci-v1",
+    "observedAtUTC": "2026-10-06 14:58:21 UTC",
+    "gitRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+    "runConclusions": [
+      {
+        "id": 37480816732,
+        "name": "Candidate journey graph",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816539,
+        "name": "CRM audience and deliverability source Node22",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816598,
+        "name": "CRM RFM and recipient evidence candidates (OFF)",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816754,
+        "name": "CRM recorded form receipts",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816700,
+        "name": "CRM sprint final directed source and portal proof",
+        "event": "pull_request",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 37480816698,
+        "name": "Reviewed CRM baseline expectations",
+        "event": "pull_request",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 37480816528,
+        "name": "CRM audience runtime",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816694,
+        "name": "A/B registry durable operations",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816712,
+        "name": "CRM Shopify audience evidence (OFF)",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816621,
+        "name": "Dashboard regression",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480816745,
+        "name": "CRM saved audience A/B (OFF)",
+        "event": "pull_request",
+        "conclusion": "success"
+      },
+      {
+        "id": 37480811129,
+        "name": "CRM audience and deliverability source Node22",
+        "event": "push",
+        "conclusion": "success"
+      }
+    ],
+    "applicableRunsPassed": 10,
+    "branchSpecificRunsSkipped": 2,
+    "savedAudienceAB": {
+      "run": 37480816745,
+      "jobs": [
+        {
+          "id": 112328144641,
+          "name": "postgres (regular)",
+          "conclusion": "success"
+        },
+        {
+          "id": 112328145085,
+          "name": "postgres (runtime)",
+          "conclusion": "success"
+        }
+      ],
+      "postgresIsolatedInCI": true,
+      "actualProductionPostgresAccess": false
+    },
+    "generalCounts": {
+      "tests": 3653,
+      "pass": 3652,
+      "fail": 0,
+      "skipped": 1
+    },
+    "supersedesEarlierABPendingSnapshotOnly": true,
+    "productionChanged": false,
+    "operational": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "crm-final-native-portal-process-observation-v1",
+  "observedAtUTC": "2026-10-06 14:39:52 UTC",
+  "nativeProcedure": "getDockerContainers",
+  "containers": [
+    {
+      "containerId": "4cca615136ddd98fc28364dfb0a5d88da48ee0ce57354363672a813aed8db713",
+      "image": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+      "state": "running",
+      "status": "Up 2 hours (healthy)"
+    }
+  ],
+  "humanLoginProven": false,
+  "editingProven": false,
+  "brandUserCRUDProven": false,
+  "operational": false
+}

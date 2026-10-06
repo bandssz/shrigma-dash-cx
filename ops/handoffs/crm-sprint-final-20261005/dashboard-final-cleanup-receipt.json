@@ -1,0 +1,441 @@
+{
+  "schema": "dashboard-only-final-cleanup-receipt-v1",
+  "observedAtUTC": "2026-10-06T02:12:59.212Z",
+  "nativeConnectorOnly": true,
+  "scope": "DASH-created retired runtimes and own test resources only",
+  "removed": [
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v10",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v19",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v8",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v13",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v18",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v9",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v11",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v14",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v15",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-invites",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-crm-published",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v20",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v17",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v12",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v16",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-operational-20260930",
+      "serviceName": "web",
+      "type": "app",
+      "removed": true,
+      "evidence": "dashboard-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-preview-20260930",
+      "serviceName": "web",
+      "type": "app",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-canary-20260930",
+      "serviceName": "web",
+      "type": "app",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dash-brand-20261004",
+      "serviceName": "portal-brand-20261004",
+      "type": "compose",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v22-3878990bc6d3",
+      "type": "compose",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v23-2b23c500",
+      "type": "compose",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "web-access-v21",
+      "type": "app",
+      "removed": true,
+      "domainsRemaining": 0,
+      "stoppedBeforeRemoval": true,
+      "privateConfigCustodyPreserved": true,
+      "evidence": "dashboard-second-legacy-removal-receipt.json"
+    },
+    {
+      "projectName": "dash-brand-20261004",
+      "serviceName": "probe-brand-20261004",
+      "type": "compose",
+      "removed": true,
+      "evidence": "native brand helper removal and absent empty project"
+    },
+    {
+      "projectName": "dash-brand-20261004",
+      "serviceName": "seed-brand-20261004",
+      "type": "compose",
+      "removed": true,
+      "evidence": "native brand helper removal and absent empty project"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "preflight",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "recovery",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "restore",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "shadow-inspect",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "shadow-recovery",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "shadow-restore",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "shadow-seed",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-maintenance-20260930",
+      "serviceName": "snapshot",
+      "type": "compose",
+      "removed": true,
+      "evidence": "dashboard-old-maintenance-final-admission.json"
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "crm-sandbox-20261002",
+      "type": "app",
+      "removed": true,
+      "absentAfterRemoval": true,
+      "evidence": "dashboard-disposable-sandbox-removal-admission.json"
+    }
+  ],
+  "oldServicesRemoved": 34,
+  "ofInitially24StoppedRemoved": 24,
+  "emptyProjectsRemoved": [
+    "dashboard-preview-20260930",
+    "dashboard-canary-20260930",
+    "dashboard-operational-20260930",
+    "dash-brand-20261004",
+    "dashboard-maintenance-20260930"
+  ],
+  "emptyProjectsVerifiedAbsent": true,
+  "temporaryHelperRemoved": true,
+  "temporaryHelperPrivateEnvironmentEmptyAtRemoval": true,
+  "noNewDatabaseServiceCreated": true,
+  "archive": {
+    "schema": "dash-retained-archive-v3-bound-verification-v1",
+    "observedAtUTC": "2026-10-06T02:02:25.918Z",
+    "verified": true,
+    "credentialsIncluded": false,
+    "rowValuesIncluded": false,
+    "sourceWritten": false,
+    "sourceSqlOpened": false,
+    "bytes": 21424303,
+    "sha256": "882330c84a2c9847bc0de5f458a902e0d2b300365e977ed95c0bdb70c3f23951",
+    "previousArchiveSha256": "60b85e49fe78ce07632a22d9f7408d2b1778bfa1509fe917a2180731d02d432b",
+    "previousArchiveEmbeddedAndVerified": true,
+    "pinnedCopiesBeforeAfter": true,
+    "allFilesCovered": true,
+    "fileDescriptorPathStable": true,
+    "gzipIntegrity": true,
+    "tarBytesAndMetadataMatch": true,
+    "directoryFsync": true,
+    "privateMode0400": true,
+    "rows": [
+      {
+        "index": 0,
+        "volumeName": "dashboard-canary-restore-drill-20260930-01",
+        "treeSha256": "e2201fcea757e0093de8dd70e665fda34400ef649f138dbb44dbc68bcc57de46",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      },
+      {
+        "index": 1,
+        "volumeName": "dashboard-canary-snapshot-drill-20260930-01",
+        "treeSha256": "48bcaf7ad831401aba547fd0fcd58d02d7e22b957a63fd247ae1ed7080a40e3a",
+        "metadataSha256": "d5d384c86b9108024e2a91a551065f166ee20b06d2aa38cccd0d889172962ced",
+        "verified": true
+      },
+      {
+        "index": 2,
+        "volumeName": "dashboard-canary-shadow-update-drill-20260930-01",
+        "treeSha256": "7943dcaf341c47200be4de234033d6e10767c407f1f48fdefc445b4943e515c6",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      }
+    ]
+  },
+  "archiveVerificationAfter33Removals": {
+    "schema": "dash-retained-archive-v3-bound-verification-v1",
+    "observedAtUTC": "2026-10-06T02:06:20.802Z",
+    "verified": true,
+    "credentialsIncluded": false,
+    "rowValuesIncluded": false,
+    "sourceWritten": false,
+    "sourceSqlOpened": false,
+    "bytes": 21424303,
+    "sha256": "882330c84a2c9847bc0de5f458a902e0d2b300365e977ed95c0bdb70c3f23951",
+    "previousArchiveSha256": "60b85e49fe78ce07632a22d9f7408d2b1778bfa1509fe917a2180731d02d432b",
+    "previousArchiveEmbeddedAndVerified": true,
+    "pinnedCopiesBeforeAfter": true,
+    "allFilesCovered": true,
+    "fileDescriptorPathStable": true,
+    "gzipIntegrity": true,
+    "tarBytesAndMetadataMatch": true,
+    "directoryFsync": true,
+    "privateMode0400": true,
+    "rows": [
+      {
+        "index": 0,
+        "volumeName": "dashboard-canary-restore-drill-20260930-01",
+        "treeSha256": "e2201fcea757e0093de8dd70e665fda34400ef649f138dbb44dbc68bcc57de46",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      },
+      {
+        "index": 1,
+        "volumeName": "dashboard-canary-snapshot-drill-20260930-01",
+        "treeSha256": "48bcaf7ad831401aba547fd0fcd58d02d7e22b957a63fd247ae1ed7080a40e3a",
+        "metadataSha256": "d5d384c86b9108024e2a91a551065f166ee20b06d2aa38cccd0d889172962ced",
+        "verified": true
+      },
+      {
+        "index": 2,
+        "volumeName": "dashboard-canary-shadow-update-drill-20260930-01",
+        "treeSha256": "7943dcaf341c47200be4de234033d6e10767c407f1f48fdefc445b4943e515c6",
+        "metadataSha256": "fc05cba11d445cb1168184025434c0c7ae3af4eff9bead22f4a4242ccfda6ac8",
+        "verified": true
+      }
+    ]
+  },
+  "lastSandboxRemovalOutsideArchiveNamespace": true,
+  "archiveFunctionalRestoreProven": false,
+  "production": {
+    "portal": {
+      "target": {
+        "projectName": "dashboard-image-20260930",
+        "serviceName": "portal-read-8fd9c71c9126"
+      },
+      "containerId": "33bf247b43b89e42780b56e77bdecb9a45d3f1be0232f4669dea4345301206ff",
+      "healthy": true,
+      "sameConfirmedMasterContainer": true,
+      "image": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:e1729ca3a6d064244c82a8df3d13bd1f3323797d5cfb8a80e1d6d0cf12345e32"
+    },
+    "campaign": {
+      "target": {
+        "projectName": "comunicacao",
+        "serviceName": "crm-campaign"
+      },
+      "containerId": "ec3599d53549a5a410cde6c14e91b5a7b2d9a46d9410686caa3098274e12ae55",
+      "healthy": true,
+      "sameOriginalContainer": true,
+      "image": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:266102a4821c31df343cc25355cfef6098fae7c836a24d20191e39577f05997b"
+    }
+  },
+  "publicRoutes": {
+    "schema": "dash-original-portal-public-routes-final-cleanup-v1",
+    "observedAtUTC": "2026-10-06T02:06:25.403Z",
+    "readOnly": true,
+    "realMasterLogin": false,
+    "businessWrite": false,
+    "credentialsIncluded": false,
+    "rows": [
+      {
+        "host": "gerencial.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "crm.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "organico.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      },
+      {
+        "host": "influs.shrigma.com.br",
+        "health": true,
+        "anonymousSessionConfirmed": true,
+        "userListRequiresAuthentication": true,
+        "sessionStatus": 200,
+        "userListStatus": 401
+      }
+    ],
+    "allVerified": true
+  },
+  "originalIdentityKeyPasswordAndDataPreserved": true,
+  "masterNativeActivationConfirmed": true,
+  "consumedAttemptsRearmed": false,
+  "humanLoginEditFlowTested": false,
+  "brandUserCrudTested": false,
+  "singlePostgresIdentityMigrationExecuted": false,
+  "otherApplicationsChanged": false,
+  "credentialsIncluded": false,
+  "allCrmFlowsOperational": false,
+  "physicalGlobalOrphanVolumePruneExecuted": false
+}

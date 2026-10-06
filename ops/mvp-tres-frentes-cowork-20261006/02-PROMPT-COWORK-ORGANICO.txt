@@ -1,0 +1,36 @@
+ASSUMA O C2 — ORGÂNICO DO MVP SHRIGMA
+
+Use COWORK-ORGANICO-MVP-20261006-v2.zip para preparar uma interface nova de Orgânico, integrável ao RootGateway. Codex/Root é o único integrador de backend, identidade, banco e produção; C1 cuida de Influs e B1 dos controles CRM. Sua frente é C2.
+
+BASE E LIMITES
+Fonte pública de interface confirmada pelo integrador: 2676c48c015628244b51ffc1b1d5a8288b7a2225. Leia o manifesto e os hashes. context/source é somente leitura e não prova operação atual. contr/GATEWAY-ORGANICO-v1.json tem estado proposed-not-production-admitted. Proposta, fixture ou seletor de marca não concedem permissão.
+Contexto: organico.html; organico-attribution.js; organico-stories.js; organico-legacy.js; organico-links.js; organico-page.css; organico-mobile.css; tests/organico-render.test.cjs; tests/organico-attribution.test.cjs; tests/organico-stories.test.cjs; tests/organico-links-utm.test.cjs; tests/organico-cache-read.test.cjs. São 12 arquivos públicos; os dois assets gerados foram excluídos. Testes antigos são referência imutável; suas dependências não são presumidas incluídas.
+
+ESCRITA PERMITIDA
+Use o package-id exato do manifesto, sem gerar outro:
+- staging/C2/<package-id>/files/ui/organic-v2/**
+- staging/C2/<package-id>/files/tests/organic-v2/**
+- staging/C2/<package-id>/DELIVERY.json, sua metadata.
+Nenhum outro arquivo é gravável. Não edite legado, Auth/server/proxy/guard, entry/config, CSS global, build/manifest/workflows, SQL, providers ou arquivos de C1/B1. Não leia cofres, exports privados, credenciais ou dados de clientes. Sem rede, conectores, serviços remotos ou instalação de dependências. Não faça deploy, migração, chamada direta a n8n/Meta ou sessão/ator fabricados. Preserve planos/fences/recibos históricos; a UI não decide repetir operação de produção.
+
+COMPONENTE
+Exporte UMD ShrigmaOrganicV2.create({element,document,gateway}), compatível com CommonJS em teste. Retorne sync e dispose. sync aplica o estado descrito no contrato; não invente API/DTO. gateway injetado é a única fronteira de leitura/operação. Não use fetch, XHR, WebSocket, credencial em storage ou endpoint próprio. Não implemente banco, emissão de acesso ou classificador financeiro no browser.
+Monte só no element recebido. CSS/classes próprios, sem tocar body/:root ou outras páginas. dispose remove listeners/timers e invalida respostas pendentes. Cada sync explícito atualiza a leitura; chamadas concorrentes equivalentes compartilham essa atualização, sem requisições paralelas duplicadas nem efeitos de escrita. Mudança de marca/papel/fonte/capability invalida o contexto anterior; resposta atrasada não repovoa a nova marca.
+
+MÍNIMO UTILIZÁVEL
+Topo único: marca, período, métricas disponíveis, frescor/estado da fonte. Abaixo: Posts, Stories, atribuição e Links UTM. Português simples, teclado/foco/móvel; não refazer toda a grade antiga.
+Posts/Stories só mostram dados/cobertura admitidos da marca. Data do cache não é data da coleta. Identifique retrato antigo, indisponível, parcial e vazio confirmado; ausência não vira zero. Não misture marcas nem distribua receita por alcance/clique/nome/data de campanha.
+Atribuição usa fonte/modelo/janela do gateway. last_click e last_non_direct são alternativas, não parcelas somáveis. Editorial, Bio, DM, Ads, CRM, cupom e TikTok nativo não se somam entre fontes. Peça sem vínculo continua desconhecida; atribuição não prova causalidade.
+DTO por pedido ainda não admitido: mostre desconhecido/bloqueado e motivo; não derive pedidos individuais de agregado UTM. Detalhe futuro só pode usar campos explicitamente admitidos pelo RootGateway para a marca, sem PII desnecessária.
+Links: criar, reler, copiar e arquivar somente com capability/operação real do gateway. Sem admissão, gravação indisponível com explicação. Chave pessoal do Mestre ou antiga chave de leitura não é permissão de escrita; nenhum bearer chega ao componente. URL/marca/origem/superfície/autoria dependem da validação servidor.
+
+CONFIRMAÇÃO E RECUPERAÇÃO
+Separe POST confirmado, refresh falho, operação desconhecida e recusa. ACK confirmado seguido de GET falho preserva a confirmação e permite apenas atualizar leitura. ACK ausente bloqueia nova gravação e consulta a mesma tentativa do contrato, com ID/payload/marca originais. Nunca retry automático de escrita, nova UUID ou resultado de outra marca. Arquivar preserva histórico; não desarquive para completar tentativa.
+
+TESTES NOVOS
+Na sua pasta, com gateway sintético injetado e sem transporte, cubra: retirada de capability; across-brand e resposta atrasada após troca; cache velho/incompleto/vazio versus desconhecido; modelos alternativos e peça/pedido sem vínculo; criar/reler/arquivar permitido versus fechado; POST confirmado + GET falho; ACK incerto sem repetir escrita; sync/dispose sem efeitos duplicados. Não simule confirmação de produção. Use só ferramentas locais disponíveis; declare testes não executados se faltar dependência.
+Os seis aceites reais pertencem a Root: acesso/marca, leitura/frescor, peça/atribuição, criar/reler/copiar, arquivar/recovery e percurso publicado. CI/componente saudável não equivale a operação admitida.
+
+ENTREGA E ALVO
+DELIVERY.json: package-id, base2676, contrato proposto, arquivos relativos/bytes/SHA256, testes realmente executados, limitações/dependências de Root; sem dados privados. Entregue só o staging permitido, sem modificar/reempacotar a origem. Resultado: fonte de interface preparada, nunca operacional.
+Alvo: sexta-feira 09/10/2026, antes do fim de semana, condicionado a IAM/read/write/source admitidos pelo integrador. Esforço C2: 2–3 dias úteis paralelos após contrato estável. Não prometa acesso/dados nem contorne bloqueios para cumprir a data.

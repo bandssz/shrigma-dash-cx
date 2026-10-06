@@ -1,0 +1,44 @@
+{
+  "schema": "cowork-package-local-receipt-v1",
+  "supersedesReceipt": "PACOTES-RECIBO.json",
+  "sourceNativeBase": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "createdOn": "2026-10-06",
+  "packages": [
+    {
+      "lane": "C1",
+      "packageId": "afiliados-mvp-20261006-v2",
+      "supersedesPackageId": "afiliados-mvp-20261006-v1",
+      "zip": "COWORK-AFILIADOS-MVP-20261006-v2.zip",
+      "bytes": 156255,
+      "sha256": "968b44578280b8d992fdef17230cb5c7f2ae74c2dbf6ee77e7816a37b59451ca",
+      "members": 26,
+      "verifiedSourceFiles": 17,
+      "manifestSha256": "df2413ea77a92e9dd624762ff539db508dfb8f4f586b47b254665c7a86148d5c",
+      "zipIntegrity": "passed",
+      "memberHashes": "passed",
+      "privateValuesScanned": 5,
+      "privateValueMatches": 0,
+      "operational": false
+    },
+    {
+      "lane": "C2",
+      "packageId": "organico-mvp-20261006-v2",
+      "supersedesPackageId": "organico-mvp-20261006-v1",
+      "zip": "COWORK-ORGANICO-MVP-20261006-v2.zip",
+      "bytes": 86644,
+      "sha256": "7f31bc73dfd7e99cbd16c36997fbf98ed3d4642e676eca17f20a3b8d4f3b2cf2",
+      "members": 21,
+      "verifiedSourceFiles": 12,
+      "manifestSha256": "10efa12ea3917f4d1f494c213e9fa21ab753147195b68f0c37287dd85674ada0",
+      "zipIntegrity": "passed",
+      "memberHashes": "passed",
+      "privateValuesScanned": 5,
+      "privateValueMatches": 0,
+      "operational": false
+    }
+  ],
+  "newChatsCreated": false,
+  "coworkDispatched": false,
+  "productionChanged": false,
+  "businessFlowsTested": false
+}

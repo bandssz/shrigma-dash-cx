@@ -1,0 +1,147 @@
+{
+  "schema": "dashboard-cleanup-continuation-20261006-v1",
+  "observedAtUTC": "2026-10-06T10:47:41Z",
+  "userScopeExpanded": true,
+  "scope": "user-system-consolidation",
+  "productionWriteOccurred": false,
+  "noNewDatabaseServiceCreated": true,
+  "consolidationComplete": false,
+  "previousRetiredServicesRemoved": 34,
+  "newRetiredServicesRemoved": 7,
+  "totalRetiredServicesRemoved": 41,
+  "newRetiredRecords": [
+    {
+      "projectName": "crm-manager-stage-20261004",
+      "serviceName": "mgr-catalog-current-20261004",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0
+    },
+    {
+      "projectName": "crm-manager-stage-20261004",
+      "serviceName": "mgr-catalog-observe-20261004",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0
+    },
+    {
+      "projectName": "crm-manager-stage-20261004",
+      "serviceName": "public-runtime-20261004",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0
+    },
+    {
+      "projectName": "dashboard-identity-offsite-20261002",
+      "serviceName": "growth-provision-v21",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "crm-manager-environment-ro-48988a076ac1",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0,
+      "domainCountBefore": 0
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "env-ro-48988a076ac1",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0,
+      "domainCountBefore": 0
+    },
+    {
+      "projectName": "dashboard-image-20260930",
+      "serviceName": "mgr-cache-832f",
+      "removed": true,
+      "configurationPreservedPrivately": true,
+      "persistentVolumesConfigured": false,
+      "containersBefore": 0,
+      "domainCountBefore": 0
+    }
+  ],
+  "temporaryHelper": {
+    "projectName": "dashboard-image-20260930",
+    "serviceName": "integracao-final",
+    "createdThisContinuation": true,
+    "removed": true,
+    "postInspect404": true,
+    "postContainers": 0,
+    "postgresCredentialsTransferred": false,
+    "environmentContentEmptyAtRemoval": true,
+    "privateMountRestartRejected": true,
+    "privateMountsNeverAppliedToRunningContainer": true
+  },
+  "historicalShadow": {
+    "projectName": "dashboard-image-20260930",
+    "serviceName": "identity-shadow-v23-2b23c500",
+    "containersBefore": 0,
+    "disabledNow": true,
+    "volumeDeleted": false
+  },
+  "remainingScreenshotLegacyServices": 24,
+  "coldVolumesObservedExcludingTwoLiveIdentityVolumes": 14,
+  "backupAttempt": {
+    "kind": "nativeVolumeBackup",
+    "service": "dashboard-identity-offsite-20261002/cipher-reader",
+    "supportedForCompose": false,
+    "manualRunError": "Invariant failed",
+    "serviceVolumeMountQueryError": "Service is not an app or a box",
+    "completedBackup": false,
+    "disabledConfigRemoved": true,
+    "recurringBackupCreated": false
+  },
+  "protected": {
+    "portalContainerId": "33bf247b43b89e42780b56e77bdecb9a45d3f1be0232f4669dea4345301206ff",
+    "campaignContainerId": "ec3599d53549a5a410cde6c14e91b5a7b2d9a46d9410686caa3098274e12ae55",
+    "samePortalContainerHealthy": true,
+    "sameCampaignContainerHealthy": true,
+    "originalLiveVolumesUntouched": true,
+    "consumedMaster73aRearmed": false,
+    "read832fReplayed": false,
+    "unarchivedProductionDataDeleted": false,
+    "globalVolumePruneExecuted": false
+  },
+  "githubUI": {
+    "pullRequest": "https://github.com/bandssz/shrigma-dash-cx/pull/232",
+    "draft": true,
+    "headSha": "fe27c6a158fecce8b0b0aaae641f77c43351ce20",
+    "baseSha": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+    "files": 5,
+    "directedNode22Run": 37451984900,
+    "directedJob": 112230459252,
+    "directedCI": "success",
+    "directedTests": 15,
+    "growthBuildCheck": "success",
+    "deployed": false
+  },
+  "automaticReviewBlocks": [
+    {
+      "action": "updateBoxEnv",
+      "reason": "Temporary PostgreSQL password storage in that helper destination was not admitted",
+      "executed": false
+    },
+    {
+      "action": "restartBoxService after own-project and backup binds",
+      "reason": "Access to potentially sensitive project and backup configuration by the temporary helper was not admitted",
+      "executed": false
+    }
+  ],
+  "privateConfigurations": {
+    "localOnly": true,
+    "filesMode": "0600",
+    "parentMode": "0700",
+    "publicValuesIncluded": false
+  },
+  "operational": false
+}

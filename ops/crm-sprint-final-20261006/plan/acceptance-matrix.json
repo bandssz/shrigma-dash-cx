@@ -1,0 +1,744 @@
+{
+  "schema": "crm-unified-execution-acceptance-planning-v1",
+  "date": "2026-10-06",
+  "sourceReviewed": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+  "scope": "DASH/CRM expanded by the user to sistema-central, backoffice-support and shrigma-teste; SQL data ownership/dependencies still require native proof; third-party communication apps preserved",
+  "plan": {
+    "path": "deliverables/crm-sprint-final-20261006/plano-execucao-aceite/PLANO-UNICO.txt",
+    "bytes": 29353,
+    "sha256": "3d97ea5b2d4a16a83e17b7e2cc0bc66e3e98727c3de29ab77bad585222668079"
+  },
+  "contracts": {
+    "path": "deliverables/crm-sprint-final-20261006/plano-execucao-aceite/CONTRATOS-PUBLICOS.txt",
+    "bytes": 4301,
+    "sha256": "8289806f62440128ea909729cb53142d1bac23232377b833973d106f20bb5a0a"
+  },
+  "factualSources": [
+    {
+      "path": "deliverables/handoff-crm-20261005/02-PROMPT-RETOMADA-CODEX-OU-CLAUDE.txt",
+      "bytes": 7078,
+      "sha256": "ba575798d49dbcfe6f983990aa36172b9dee1539523f3a2854ea7f5ffc1cd16e"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/03-FREQUENCY-CAPPING-E-STO.txt",
+      "bytes": 8664,
+      "sha256": "978b9e366d3545d9c8bb0655a3c549242413635d9f557bb365bff9521736b6ac"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/05-UI-UX-CRM-FAMILIAR.txt",
+      "bytes": 7776,
+      "sha256": "6505af173017140ff421b7f9e7574b2fbb2fff1feb9b68e9407538cfd191d671"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/produto/FREQUENCY-CAPPING-E-STO-ESPECIFICACAO.txt",
+      "bytes": 10685,
+      "sha256": "f65ad5074c631818943a3741a93e962996ad16cb1fedc9bdc6cf65b537877842"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/revisao-acessos/regressoes-c3f/CANDIDATE-MANIFEST.json",
+      "bytes": 6751,
+      "sha256": "94f3e4d16c555c131c9b0e3cc1220b17d026d7107e7b3acf1ed24840fa8c2623"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json",
+      "bytes": 3731,
+      "sha256": "a5bdf5952a75f341fd6fdb8021f3601373e94ddd0b536cde3d71300d4557d7c5"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/presentation-regression-compat/CI-RECIBO.json",
+      "bytes": 1812,
+      "sha256": "54b7b25d2dad7ae1c7a5bf5181c9a85dc520af1dae71766a212f6118a662b7f5"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261006/factory-pg-candidate/CI-RECIBO.json",
+      "bytes": 1434,
+      "sha256": "e42f152b903692e8622f1fec2a5d682cda23ceda8065cd012ef7377874228a59"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261006/CONTINUACAO.txt",
+      "bytes": 7224,
+      "sha256": "7bc142d3b19e20a55848a4ce7fa2587b13ad2c7676ec55116efa53804712d7ae",
+      "previousSnapshotPin": {
+        "bytes": 6282,
+        "sha256": "04dd1ac655aaa553462485acab7d0f61ddf567cbc62d57a276945db5238e165d"
+      },
+      "pinRefreshScope": "Current public file metadata only; prior observed bytes retained as a historical pin, no new remote or semantic admission"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/revisao-acessos/regressoes-c3f/CI-RECIBO.json",
+      "bytes": 855,
+      "sha256": "85065904cdef6c7af755cb3776ebcdd13b3e6cca5979f34498a0c49c44650c1c"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/RECIBO.json",
+      "bytes": 13660,
+      "sha256": "e1e56b07e92f56e236713d1ba10db0328883a73e8558d21163a4abdd609c75ff",
+      "previousSnapshotPin": {
+        "bytes": 6713,
+        "sha256": "df0789d747aac47dae3c15397b20f1da8a4af2190eea0d7cba6016d448ff72ce"
+      },
+      "pinRefreshScope": "Current public file metadata only; prior observed bytes retained as a historical pin, no new remote or semantic admission"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+      "bytes": 3504,
+      "sha256": "53cda471ab7c5bcd0759847c0185c63116a58b016c9014688299dd85db945364"
+    }
+  ],
+  "contractSources": [
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/services/crm-audience/server.cjs",
+      "bytes": 6909,
+      "sha256": "2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/services/crm-audience/main.cjs",
+      "bytes": 3169,
+      "sha256": "bcf79ecdc1bfcdba049ce0d6cec4a85bdf94473c681fea3665713cdee0fcdaaf"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/services/crm-audience/config.cjs",
+      "bytes": 2276,
+      "sha256": "d431fe65978eded5abc73619638409281d3e0842f4b3c26b65792b5db8c07386"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-audience-store.cjs",
+      "bytes": 28453,
+      "sha256": "a16473ab0c6a7b30953dd482350b6ba4ad376431e10ca3e7ad09ba611f10c68d"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-audience-api.cjs",
+      "bytes": 11072,
+      "sha256": "0ffa1cf118f8032e968ee1ddd5141beed7d3b88bf72b93d44920232d720142b9"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-audience-contract.js",
+      "bytes": 11927,
+      "sha256": "a0ac4d8d06ed408f213e7de53a9dbdeb109acc347e4c434d75b9726602bb4ce7"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-audience-listmonk.cjs",
+      "bytes": 13606,
+      "sha256": "4343a9a44586774c384707b44b1e41ec4c1b1c31f403609988f199b86b8e4aa3"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-audience-cohort.cjs",
+      "bytes": 7165,
+      "sha256": "27710e8917a35cf17f4008deae7a47bb2d8c21f89cca6bfb42b60f39041591cd"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-campaign-binding.cjs",
+      "bytes": 25479,
+      "sha256": "9f18c9d950f54c0073cf5d23f8f126cd218815ac63ca3d0ccb7c55d54fe2c0cb"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-campaign-binding-api.cjs",
+      "bytes": 6423,
+      "sha256": "06a9327fbb9fc3c2cba9ff1cf7e89ee9428b96863ac6d7aeab3d30cbb97af0d6"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-regular-admission.cjs",
+      "bytes": 11080,
+      "sha256": "181f5f803aea1d05f3fed1c813a1ba10c520d3fd505d40600d622ff5237de53a"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-regular-admission-api.cjs",
+      "bytes": 3355,
+      "sha256": "d79276ddc546ccf493db7266bb48e7d2d82eaa94c3cac905db5bdd83135c7ccc"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-regular-delivery.sql",
+      "bytes": 17219,
+      "sha256": "765636e2c027b8c4f88dde60c26b3a9aada1a0eb775cf1601f6de150c1943cf4"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/segment-listmonk-selection.cjs",
+      "bytes": 11072,
+      "sha256": "29f3be594e8b1184ea9b50bcf59f54d2e7d94a339327a3896e542ecb51c83685"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/campaign-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/campaign-service.js",
+      "bytes": 10274,
+      "sha256": "1858178696d8537a23a2a49df20df45b786548efb3d266c4c6d8d21725a5d629"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/campaign-provider.js",
+      "bytes": 6268,
+      "sha256": "f46ae2494494cedbf3f5571af15e731a73ddc583319b4c321ab75d828ae5fc0c"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/campaign-provider.sql",
+      "bytes": 20587,
+      "sha256": "a293e6a971795126bf8b0e98e087c31199319726ea95d1e354bada0f2bfe396d"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/ses-metrics.sql",
+      "bytes": 2821,
+      "sha256": "f4255aab9b46b775f357f09cb073e59a6f07f247bb54dc1bd8d8b003bbefcce6"
+    },
+    {
+      "path": "deliverables/handoff-crm-20261005/projeto-781653/n8n/growth/ses-engagement.sql",
+      "bytes": 9682,
+      "sha256": "15980dd3d9cbe3aae57136d417685bc54ccc12c826aa71fc7ec22b3c2b02f9f1"
+    }
+  ],
+  "acceptanceMatrix": [
+    {
+      "function": "fonte_e_baselines",
+      "currentLocalAssessment": "PR236 8938 focal24+2/general3639 passed; PR237 53844 directed28+8/build/check and general3653/3652pass/0fail/1skip passed; separate additional AB regular run pending; prior57ed failure retained",
+      "prerequisite": "Source image/native admission and real feature acceptance remain separate from CI; additional AB regular result pending before any claim about that run",
+      "acceptance": "Reviewed expectations and new-help compatibility pass current source CI; source only, production unchanged; additional AB run not presumed complete",
+      "conditionalEngineeringEffort": "0,5–1 dia por admissão focal",
+      "operationalClaim": false
+    },
+    {
+      "function": "mestre",
+      "currentLocalAssessment": "Ativação nativa confirmada; fluxo humano não aceito",
+      "prerequisite": "Login humano preservado, catálogo/template/material permitido",
+      "acceptance": "Salvar e reler rascunho no CRM com host/CSRF reais; same-key recovery",
+      "conditionalEngineeringEffort": "0,5–1 dia após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "contas_por_marca",
+      "currentLocalAssessment": "Bloqueado por integração individual",
+      "prerequisite": "READ/WRITER próprios, issuer/namespace/status/SQL/perfil admitidos",
+      "acceptance": "Criar/aceitar/login/ler/editar/atualizar/revogar ambas marcas e recusar marca alheia",
+      "conditionalEngineeringEffort": "2–4 dias após admissões",
+      "operationalClaim": false
+    },
+    {
+      "function": "banco_central_dash",
+      "currentLocalAssessment": "Factory PR235 sourceCI23/23 passed; no PG connection/migration/admitted image; expanded DASH data ownership unproven",
+      "prerequisite": "Own DDL, expanded SQL ownership/dependency map, custody/archive/restore and adapter admitted",
+      "acceptance": "Dados/cifras/ordem/sequences/once preservados; uma persistência PG; sem dual-write",
+      "conditionalEngineeringEffort": "2–4 dias após admissões",
+      "operationalClaim": false
+    },
+    {
+      "function": "publicos",
+      "currentLocalAssessment": "Preparado com gates",
+      "prerequisite": "Fonte/SQL/capacidade própria/countProvider confirmado",
+      "acceptance": "Definir/salvar/arquivar/CAS; desconhecido separado de zero; vínculo sem falso send",
+      "conditionalEngineeringEffort": "2–4 dias após admissões",
+      "operationalClaim": false
+    },
+    {
+      "function": "fatias",
+      "currentLocalAssessment": "Kernel source PR237 53844 directed and general CI passed; no native endpoint/store/claim admission or real slice reservation proven",
+      "prerequisite": "Seleção/snapshot real e persistência de operação",
+      "acceptance": "Grupo determinístico/disjunto, marca/key/version fixas, recovery sem recalcular",
+      "conditionalEngineeringEffort": "3–5 dias após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "bounces",
+      "currentLocalAssessment": "Policy source PR237 53844 directed and general CI passed; no authenticated receiving adapter/store/suppression native admission",
+      "prerequisite": "Evento autenticado/correlação/canonical recipient/gates de claim",
+      "acceptance": "Dedup, hard/soft/complaint explícitos, opt-out e evento durante espera sem replay",
+      "conditionalEngineeringEffort": "2–3 dias após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "frequencia",
+      "currentLocalAssessment": "Especificado, sem proteção ativa comprovada",
+      "prerequisite": "Todos emissores marketing DASH na mesma reserva/finish",
+      "acceptance": "Última vaga concorrente única; terceira bloqueada; unknown ocupa cota",
+      "conditionalEngineeringEffort": "3–5 dias após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "jornadas",
+      "currentLocalAssessment": "Viewer separado de engine",
+      "prerequisite": "Graph/worker/trigger/material/runtime admitidos",
+      "acceptance": "Revisão fixa, entrada única, pausa/retomada e receipt por passo",
+      "conditionalEngineeringEffort": "5–8 dias após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "sto",
+      "currentLocalAssessment": "Especificado, sem agenda ativa comprovada",
+      "prerequisite": "Frequência, histórico utilizável, política e agenda por contato",
+      "acceptance": "Horários distintos/fallback/fuso/prazo/restart/consent-cota revalidados",
+      "conditionalEngineeringEffort": "3–5 dias após dependências",
+      "operationalClaim": false
+    },
+    {
+      "function": "ux_resultados_postmaster",
+      "currentLocalAssessment": "Seven presentation public files natively installed; business UX/results/email receipts still await real acceptance",
+      "prerequisite": "Real authenticated feature flows, metric sources and deliverability receiving gates admitted",
+      "acceptance": "RD/HubSpot familiar; marca/teclado/móvel/contraste; resultado honesto; teste autorizado",
+      "conditionalEngineeringEffort": "1–2 dias por recorte integrado",
+      "operationalClaim": false
+    },
+    {
+      "function": "limpeza_fria",
+      "currentLocalAssessment": "Candidato OFF; aprovação de leitura privada pendente",
+      "prerequisite": "Aprovação específica,38 origens físicas/OCI/destino/confinamento admitidos",
+      "acceptance": "Arquivo privado íntegro/árvore; custódia protegida; remover só pós-arquivo sem prune genérico",
+      "conditionalEngineeringEffort": "Sem estimativa de espera pela aprovação",
+      "operationalClaim": false
+    }
+  ],
+  "estimationRules": [
+    "Ranges are conditional engineering effort, not calendar dates or external waiting-time estimates.",
+    "No total-calendar promise while credentials, DDL, custody/approval and human access remain unknown.",
+    "Independent work can overlap; only Root integrates remotely."
+  ],
+  "currentProductionMutation": false,
+  "privateInputRead": false,
+  "testExecutionBeyondBaselineCandidate": false,
+  "allUserAsksComplete": false,
+  "estimateBlocks": [
+    {
+      "block": "CRM básico e homologação real",
+      "conditionalWorkingDays": [
+        3,
+        6
+      ],
+      "startsOnlyAfter": "Login humano, brokers/capacidades/credenciais próprias, catálogo/material e autoridade do recorte admitidos",
+      "scope": "Mestre salvar/reler; CRUD/marca, leitura/edição/revogação e recusa cruzada reais",
+      "calendarDatePromised": false
+    },
+    {
+      "block": "Todas as melhorias funcionais",
+      "conditionalWorkingDays": [
+        15,
+        25
+      ],
+      "startsOnlyAfter": "Base CRM, fontes e respectivas autoridades disponíveis; um integrador e até duas frentes auxiliares",
+      "scope": "Públicos/fatias/bounces/templates/campanhas/experimentos/jornadas-motor/frequência/STO/UX/resultados/entregabilidade",
+      "calendarDatePromised": false
+    },
+    {
+      "block": "Independência efetiva Listmonk/n8n no recorte DASH",
+      "conditionalWorkingDays": [
+        10,
+        20
+      ],
+      "startsOnlyAfter": "Núcleo e persistência central/execução estáveis; adapter substituto e escopo de dados admitidos",
+      "scope": "Adapter próprio e migração incremental de catálogo/material/preview/seleção/agenda/execução/entrega/inspect/eventos",
+      "calendarDatePromised": false
+    }
+  ],
+  "forecastHypotheses": [
+    "No presumed ready clients, test recipients, external providers, credentials or privileges.",
+    "Conditional effort only; external authorization/access waiting time has no estimate.",
+    "No progress percentage derived from time already spent.",
+    "Reestimate the affected block when actual source/data/gates differ from assumptions."
+  ],
+  "stateVocabulary": [
+    "operando no domínio com prova e alcance explícitos",
+    "preparado mas ainda não instalado/aceito",
+    "bloqueado com causa conhecida/evidência faltante"
+  ],
+  "finalBusinessFunctionsClaimedOperational": [],
+  "audienceSlicesProducerReport": {
+    "path": "deliverables/crm-sprint-final-20261006/audience-slices/candidate/domain/audience-slices",
+    "sharedContract": "audience-slice-contract.js",
+    "localTestsReported": 11,
+    "node": "24",
+    "independentlyRerunByThisAgent": false,
+    "finalReadiness": "ready for atomic claim only, never send",
+    "requires": [
+      "consent/bounce/frequency/content policy bindings",
+      "members_hash/campaign/version",
+      "TTL<=60s",
+      "real contact UUID mapping",
+      "distribution key custody",
+      "durable claims and backend action"
+    ],
+    "nativeAdmission": false,
+    "defaultOff": true
+  },
+  "currentNativePresentation": {
+    "source": "deliverables/crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json",
+    "sourceRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+    "imageSha256": "88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+    "containerId": "4cca615136ddd98fc28364dfb0a5d88da48ee0ce57354363672a813aed8db713",
+    "nativeProductionDeployed": true,
+    "sevenPublicFilesInstalled": true,
+    "runtime28C3fUnchanged": true,
+    "sixImageFilesUnchanged": true,
+    "other23PublicUnchanged": true,
+    "master73aAdmissionUnchanged": true,
+    "nativeHealth": "healthy",
+    "deployUtcReportedByIntegrator": "2026-10-06 12:19 UTC",
+    "timeNotPresentAsLiteralInLocalNativeReceipt": true,
+    "humanLoginOrBrandCrudProven": false,
+    "operationalClaim": false,
+    "latestHealthSnapshot": {
+      "observedAtUtc": "2026-10-06 14:39:52 UTC",
+      "reportedBy": "/root, native connector observation",
+      "health": "healthy",
+      "uptimeReported": "Up 2h",
+      "sameContainer4cca": true,
+      "sameImage88b": true,
+      "newDeployment": false,
+      "freshRemoteQueryByThisAgent": false
+    }
+  },
+  "currentPublicationStates": [
+    {
+      "pr": 233,
+      "sourceRevision": "c659e0962e920b1c136a170128f4abce268799db",
+      "type": "fixture compatibility, production unchanged",
+      "ciNode": "22.23.3",
+      "focalPassed": 70,
+      "httpPassed": 15,
+      "defaultSmokePassed": true,
+      "generalConclusionAtReceipt": "three inherited assertion failures; not globally green",
+      "source": "deliverables/crm-sprint-final-20261006/presentation-regression-compat/CI-RECIBO.json"
+    },
+    {
+      "pr": 235,
+      "sourceRevision": "b6260961e16762997b7c9d47ba2edc1c16056269",
+      "type": "identity factory source only",
+      "deltaPaths": 17,
+      "ciNode": "22.23.3",
+      "factoryIntegrationPassed": 14,
+      "enrollmentPassed": 9,
+      "pgConnectionPerformed": false,
+      "migrationPerformed": false,
+      "imageOrProductionAdmission": false,
+      "source": "deliverables/consolidacao-banco-unico-20261006/factory-pg-candidate/CI-RECIBO.json"
+    },
+    {
+      "pr": 236,
+      "sourceRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+      "type": "three reviewed baseline tests plus one workflow, own branch based on c659",
+      "productionChanged": false,
+      "ciNode": "22.23.3",
+      "focalRun": 37473184053,
+      "focalPassed": 24,
+      "httpGatePassed": 2,
+      "general": {
+        "run": 37473191425,
+        "conclusion": "success",
+        "tests": 3639,
+        "pass": 3638,
+        "fail": 0,
+        "skipped": 1,
+        "concurrencyJobs": "three passed"
+      },
+      "localNode24FocalPassed": 24,
+      "localNode24GatePassed": 2,
+      "historicalSetupFailures": [
+        "npm ci without lock, before tests",
+        "runner context in job.env, before job creation"
+      ],
+      "workflowCorrectionReported": "LinkeDOM 0.18.12 in RUNNER_TEMP",
+      "source": "deliverables/crm-sprint-final-20261006/revisao-acessos/regressoes-c3f/CI-RECIBO.json",
+      "independentlyFetchedRemotelyByThisAgent": false
+    },
+    {
+      "pr": 237,
+      "sourceRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+      "type": "audience slices and bounce policy source only",
+      "ciNode": "22.23.3",
+      "directedSourceRun": {
+        "id": 37480811129,
+        "job": 112328125534,
+        "conclusion": "SUCCESS"
+      },
+      "directedPrRun": {
+        "id": 37480816539,
+        "conclusion": "SUCCESS",
+        "job": 112328144848
+      },
+      "newTestsPassed": 28,
+      "existingUiSelectedPassed": 8,
+      "directedSkipped": 0,
+      "buildPassed": true,
+      "checkPassed": true,
+      "sourceGates": {
+        "closedDeltaPaths": 14,
+        "payloadPins": 13,
+        "templatesPreserved": true,
+        "reportedBy": "/root, current integrator snapshot",
+        "legacyTemplateFilesUnchanged": 71
+      },
+      "general": {
+        "run": 37480816621,
+        "conclusion": "success",
+        "tests": 3653,
+        "pass": 3652,
+        "fail": 0,
+        "skipped": 1,
+        "shards": [
+          {
+            "job": 112328146852,
+            "tests": 1914,
+            "pass": 1913,
+            "fail": 0,
+            "skipped": 1
+          },
+          {
+            "job": 112328147075,
+            "tests": 1739,
+            "pass": 1739,
+            "fail": 0,
+            "skipped": 0
+          }
+        ],
+        "concurrencyJobs": "three passed",
+        "finalJob": {
+          "id": 112332764915,
+          "conclusion": "success"
+        },
+        "reportedBy": "/root, final native API proof",
+        "freshNativeQueryByThisAgent": false,
+        "concurrencyJobIds": [
+          112328145915,
+          112328146550,
+          112328147037
+        ],
+        "receiptObservedAtUtc": "2026-10-06 14:53:07 UTC"
+      },
+      "correction": {
+        "scope": [
+          "new Fatias help wording",
+          "one new test",
+          "bundle/cache",
+          "workflow pins"
+        ],
+        "oldTestsChanged": false,
+        "sourceAppliedToCi": true
+      },
+      "history": [
+        {
+          "sourceRevision": "57ed6680800327d63025da502b4c7f1acef86c3d",
+          "directedSourceRun": {
+            "id": 37476046514,
+            "conclusion": "SUCCESS"
+          },
+          "directedPrRun": {
+            "id": 37476053962,
+            "conclusion": "SUCCESS"
+          },
+          "newTestsPassed": 28,
+          "existingUiSelectedPassed": 8,
+          "buildPassed": true,
+          "general": {
+            "run": 37476053966,
+            "conclusion": "failure",
+            "tests": 3653,
+            "pass": 3651,
+            "fail": 1,
+            "skipped": 1,
+            "reportedBy": "/root, prior source57ed snapshot",
+            "nativeReceiptCollectedByThisAgent": false
+          },
+          "failureCause": "New Fatias help includes /tentativa sem confirmação/, colliding with the existing broad DOM guard",
+          "existingTest": "tests/growth-segment-v2-path.test.cjs:81",
+          "receipt": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/RECIBO.json at prior snapshot, historical directed source only",
+          "historicalReceiptsUnchangedByThisAgent": true,
+          "supersededBySourceRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+        }
+      ],
+      "source": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json and current integrator native API proof; prior57ed local receipt remains historical",
+      "currentFinalCiReceipt": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+      "productionChanged": false,
+      "imageBuilt": false,
+      "databaseCreatedOrMigrated": false,
+      "providerReceivingSendingAdmitted": false,
+      "operationalClaim": false,
+      "independentlyFetchedRemotelyByThisAgent": false,
+      "additionalABRun": {
+        "run": 37480816745,
+        "runtimeConclusion": "success",
+        "regularConclusion": "in_progress",
+        "wait": "Real paired schedule in isolated test database",
+        "timeoutMinutes": 22,
+        "separateFromPassedGeneral": true,
+        "sourceOnlyGuards": true,
+        "productionFunctionalityProven": false,
+        "reportedBy": "/root, latest snapshot",
+        "runtimeJob": 112328145085,
+        "regularJob": 112328144641,
+        "productionConnection": false
+      },
+      "currentFinalCiReceiptPin": {
+        "path": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+        "bytes": 3504,
+        "sha256": "53cda471ab7c5bcd0759847c0185c63116a58b016c9014688299dd85db945364"
+      }
+    }
+  ],
+  "expandedDashboardOwnership": {
+    "inScopeProjects": [
+      "sistema-central",
+      "backoffice-support",
+      "shrigma-teste"
+    ],
+    "source": "deliverables/consolidacao-banco-unico-20261006/CONTINUACAO.txt:3 and current integrator steering",
+    "dataSqlOwnershipProvenByThisAgent": false,
+    "dataMigrationPerformed": false,
+    "thirdPartyCommunicationAppsPreserved": true,
+    "projectNamesOrGitOriginsAreNotOwnershipProof": true
+  },
+  "latestUpdateScope": "Only current plan/matrix final factual closure; PR237 source53844 directed and general SUCCESS, separate additional AB regular run pending, prior57ed failure retained; native same-image/container health reported; historical receipts/manifests/programs untouched; no rerun/remote/private operation",
+  "snapshot": {
+    "schema": "crm-plan-factual-snapshot-v1",
+    "recordedAtUtc": "2026-10-06 14:54:13 UTC",
+    "authority": "Final integrator native API proof plus named local public receipts",
+    "pr236GeneralConclusion": "success at exact source8938",
+    "pr237CurrentSource": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+    "pr237DirectedConclusion": "SUCCESS at current source53844,28+8/build/check",
+    "pr237GeneralConclusion": "SUCCESS at exact source53844,3653tests/3652pass/0fail/1skip",
+    "pr237PriorGeneralHistory": "one failure at exact source57ed preserved separately",
+    "additionalAbRun37480816745": "runtime passed; regular in progress in separate isolated test database",
+    "nativePortalLatestObservationUtc": "2026-10-06 14:39:52 UTC",
+    "historicalDirectedReceiptsPreserved": true,
+    "freshRemoteQueryByThisAgent": false,
+    "testRerunByThisAgent": false,
+    "additionalAbOutcomeAssumed": false,
+    "businessOperationalityAssumed": false,
+    "currentCiReceiptObservedAtUtc": "2026-10-06 14:53:07 UTC",
+    "currentCiReceiptPin": {
+      "path": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/CI-RECIBO.json",
+      "bytes": 3504,
+      "sha256": "53cda471ab7c5bcd0759847c0185c63116a58b016c9014688299dd85db945364"
+    },
+    "latestNativeIntegratorUpdateUtc": "2026-10-06 14:58:21 UTC",
+    "allApplicableSourceRunsFinal": "success; branch-specific routines intentionally skipped; source only"
+  },
+  "futureProviderIndependence": {
+    "state": "future, not natively admitted",
+    "ownedDomains": [
+      "segments/audience revisions",
+      "audience selection/slices",
+      "consent/bounce/suppression",
+      "frequency",
+      "atomic claims/reservations/original attempts",
+      "dispatch/durable agenda",
+      "receipts/inspect/reconciliation",
+      "journey graph revisions and instances"
+    ],
+    "providers": "Listmonk/n8n remain explicit adapters until a replacement passes the same permission/CAS/idempotency/UNKNOWN and real delivery acceptance",
+    "centralPersistence": "Existing own DASH database after ownership/DDL/custody/cutover admission",
+    "originalAttemptIdentitySharedAcrossAdapters": true,
+    "dualDeliveryPermitted": false,
+    "dispatchOrSendingClaimedOperational": false
+  },
+  "finalNativeIntegratorSourceCI": {
+    "receipt": {
+      "path": "deliverables/crm-sprint-final-20261006/audience-deliverability-ci/FINAL-CI-RECIBO.json",
+      "bytes": 2635,
+      "sha256": "276fc5128bd83e8a84f930c904210763bd3a78496ef9cb1a14e6af3f7ef4697d"
+    },
+    "proof": {
+      "schema": "crm-analyst-source-final-applicable-ci-v1",
+      "observedAtUTC": "2026-10-06 14:58:21 UTC",
+      "gitRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+      "runConclusions": [
+        {
+          "id": 37480816732,
+          "name": "Candidate journey graph",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816539,
+          "name": "CRM audience and deliverability source Node22",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816598,
+          "name": "CRM RFM and recipient evidence candidates (OFF)",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816754,
+          "name": "CRM recorded form receipts",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816700,
+          "name": "CRM sprint final directed source and portal proof",
+          "event": "pull_request",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 37480816698,
+          "name": "Reviewed CRM baseline expectations",
+          "event": "pull_request",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 37480816528,
+          "name": "CRM audience runtime",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816694,
+          "name": "A/B registry durable operations",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816712,
+          "name": "CRM Shopify audience evidence (OFF)",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816621,
+          "name": "Dashboard regression",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480816745,
+          "name": "CRM saved audience A/B (OFF)",
+          "event": "pull_request",
+          "conclusion": "success"
+        },
+        {
+          "id": 37480811129,
+          "name": "CRM audience and deliverability source Node22",
+          "event": "push",
+          "conclusion": "success"
+        }
+      ],
+      "applicableRunsPassed": 10,
+      "branchSpecificRunsSkipped": 2,
+      "savedAudienceAB": {
+        "run": 37480816745,
+        "jobs": [
+          {
+            "id": 112328144641,
+            "name": "postgres (regular)",
+            "conclusion": "success"
+          },
+          {
+            "id": 112328145085,
+            "name": "postgres (runtime)",
+            "conclusion": "success"
+          }
+        ],
+        "postgresIsolatedInCI": true,
+        "actualProductionPostgresAccess": false
+      },
+      "generalCounts": {
+        "tests": 3653,
+        "pass": 3652,
+        "fail": 0,
+        "skipped": 1
+      },
+      "supersedesEarlierABPendingSnapshotOnly": true,
+      "productionChanged": false,
+      "operational": false
+    },
+    "previousPendingSnapshotsAreHistorical": true
+  }
+}

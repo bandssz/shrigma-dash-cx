@@ -1,0 +1,20 @@
+{
+  "schema": "crm-presentation-compose-transform-v1",
+  "beforeContentSha256": "cbeb2a69e33b5db384bad3e01368a132130643001d53aef8ba73197702830a67",
+  "afterContentSha256": "5da189ff83a132a7118d9d4cc6634292749444f2f363ce417292d850e84e94f0",
+  "baseImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:e1729ca3a6d064244c82a8df3d13bd1f3323797d5cfb8a80e1d6d0cf12345e32",
+  "childImage": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+  "oldCommandSha256": "a8f08b03844e59f770a17372c95d0e6e0fce34ea18ef39798b311937d9dc20ed",
+  "newCommandSha256": "d0c7bdd8c8f65b72ecb7e42dc45aa54f017ca10cd7b06c75b11091c06e5eddc5",
+  "oldHealthSha256": "18137970f88ddc2b53e14bb6335ddc3d85ccf36011031e689c33088eed431880",
+  "newHealthSha256": "9dbdf325021204239e925ead9297f1a3b03a5d1c829fefe5c9f0d2e8ee0f68f3",
+  "deltaPaths": [
+    "services.gateway.image",
+    "services.gateway.command.4",
+    "services.gateway.healthcheck.test.5"
+  ],
+  "allOtherConfigurationPreserved": true,
+  "historicalMasterPlanUnchanged": true,
+  "operational": false,
+  "credentialsIncluded": false
+}

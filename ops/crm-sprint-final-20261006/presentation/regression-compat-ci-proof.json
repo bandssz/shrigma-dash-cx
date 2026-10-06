@@ -1,0 +1,54 @@
+{
+  "schema": "crm-presentation-regression-compat-ci-proof-v1",
+  "sourceRevision": "c659e0962e920b1c136a170128f4abce268799db",
+  "deployedSourceRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "deployedImage": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+  "productionPresentationSourceUnchangedByTestRepair": true,
+  "productionAuthJournalUnchanged": true,
+  "nativeGitHubCompareFiles": [
+    ".github/workflows/dashboard-crm-ui-final-release-20261006.yml",
+    "tests/dashboard-operational-content-access-ui.test.cjs",
+    "tests/dashboard-operational-managed-ui.test.cjs",
+    "tests/growth-campaign-catalog-ui.test.cjs"
+  ],
+  "runId": 37463849012,
+  "jobId": 112269808211,
+  "runURL": "https://github.com/bandssz/shrigma-dash-cx/actions/runs/37463849012",
+  "conclusion": "success",
+  "node": "22.23.3",
+  "directedTests": {
+    "total": 70,
+    "passed": 70,
+    "failed": 0
+  },
+  "httpDeliveryTests": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0
+  },
+  "defaultStartupUid1000Passed": true,
+  "fourGeneralRegressionFixtureFailuresRepaired": true,
+  "preexistingHashThemeAssertionsPreserved": true,
+  "fullGeneralRegressionConclusion": "failure-three-preexisting-assertions",
+  "backendEnrollmentSeparateCI": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "runId": 37463226283
+  },
+  "productionRedeployedForTestOnlyChanges": false,
+  "realHumanFlowsProven": false,
+  "operational": false,
+  "credentialsIncluded": false,
+  "fullGeneralRegression": {
+    "runId": 37463854695,
+    "total": 3636,
+    "pass": 3632,
+    "fail": 3,
+    "skipped": 1,
+    "concurrencyJobs": 3,
+    "concurrencyJobsPassed": 3,
+    "remainingFailuresAllReproducedOnFrozenBase": true,
+    "newFixtureFailuresRemaining": 0
+  }
+}

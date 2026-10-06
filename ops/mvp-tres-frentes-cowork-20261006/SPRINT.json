@@ -1,0 +1,197 @@
+{
+  "schema": "sprint-mvp-three-fronts-board-v1",
+  "createdOn": "2026-10-06",
+  "targetDate": "2026-10-09",
+  "timezone": "America/Sao_Paulo",
+  "targetGuaranteed": false,
+  "overallOperational": false,
+  "taskOwnerRegistry": "OWNERSHIP.json",
+  "executionPlan": "00-PLANO-MVP-ATE-SEXTA.txt",
+  "productionBaseline": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "controlsSourceCandidate": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+  "tasks": [
+    {
+      "id": "CRM-01",
+      "owner": "A",
+      "priority": 0,
+      "name": "Edição humana do Mestre e IAM próprio",
+      "status": "blocked-concrete-reason",
+      "block": "Material/autoridade próprios de READ/WRITER não admitidos; edição humana não comprovada",
+      "acceptance": "Sessão legítima existente; editar, reler e preservar senha/identidade/acesso",
+      "dependencies": [],
+      "plannedDay": "2026-10-06"
+    },
+    {
+      "id": "CRM-02",
+      "owner": "A",
+      "priority": 0,
+      "name": "Usuários READ/WRITE por marca",
+      "status": "prepared-not-operational",
+      "acceptance": "Criar/ler/escrever/atualizar/revogar; leitor e marca alheia recusados; persistência e auditoria reais",
+      "dependencies": [
+        "CRM-01"
+      ],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "CRM-03",
+      "owner": "A",
+      "priority": 0,
+      "name": "Público e percurso manual campanha/jornada",
+      "status": "prepared-not-operational",
+      "acceptance": "Base válida/eligibilidade/revisão/ação autorizada/resultado ou consulta mesma tentativa incerta",
+      "dependencies": [
+        "CRM-02",
+        "CTRL-02"
+      ],
+      "plannedDay": "2026-10-08"
+    },
+    {
+      "id": "CTRL-01",
+      "owner": "B1",
+      "priority": 0,
+      "name": "Fatias, hard/soft bounce e capping: composição isolada",
+      "status": "ready-for-user-dispatch",
+      "acceptance": "Novo delta fechado; usa kernels existentes; nenhum envio; store/journal/gates de Root injetados; testes dirigidos",
+      "dependencies": [],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "CTRL-02",
+      "owner": "A",
+      "priority": 0,
+      "name": "Persistência, supressão e veto no dispatch real",
+      "status": "not-production-admitted",
+      "acceptance": "Atomicidade e reserva central; hard bounce confiável veto; soft únicos threshold; capping e fatia limitam ação real",
+      "dependencies": [
+        "CRM-01",
+        "CTRL-01"
+      ],
+      "plannedDay": "2026-10-08"
+    },
+    {
+      "id": "AFI-01",
+      "owner": "C1",
+      "priority": 0,
+      "name": "Tabela/funil/perfil e operações manuais próprias",
+      "status": "ready-for-user-dispatch",
+      "package": "COWORK-AFILIADOS-MVP-20261006-v2.zip",
+      "acceptance": "UMD/CSS isolados; fonte/estimativa/apurado/liquidado; Criadores existentes preservados; contrato e testes",
+      "dependencies": [],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "AFI-02",
+      "owner": "A",
+      "priority": 0,
+      "name": "Gateway Afiliados: leitura e persistência reais por marca",
+      "status": "blocked-concrete-reason",
+      "block": "BRAND_READ_CONTRACT_NOT_READY e writers não admitidos",
+      "acceptance": "Cadastro/atualização/releitura criador, amostra e tarefa manuais; leitor/marca alheia recusados; recibo recuperável",
+      "dependencies": [
+        "CRM-01"
+      ],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "AFI-03",
+      "owner": "A",
+      "priority": 0,
+      "name": "Afiliados publicado e fluxo real",
+      "status": "not-accepted",
+      "acceptance": "Operador percorre tabela→perfil→registro próprio→reload; métricas com linhagem e pagamentos confirmados",
+      "dependencies": [
+        "AFI-01",
+        "AFI-02"
+      ],
+      "plannedDay": "2026-10-09"
+    },
+    {
+      "id": "ORG-01",
+      "owner": "C2",
+      "priority": 0,
+      "name": "Conteúdo, Stories, atribuição e Links UTM",
+      "status": "ready-for-user-dispatch",
+      "package": "COWORK-ORGANICO-MVP-20261006-v2.zip",
+      "acceptance": "UMD/CSS isolados; períodos/fontes/cobertura/frescor; unknown≠zero; modelos alternativos; testes dirigidos",
+      "dependencies": [],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "ORG-02",
+      "owner": "A",
+      "priority": 0,
+      "name": "Gateway Orgânico e links persistentes por marca",
+      "status": "blocked-concrete-reason",
+      "block": "READ por marca não admitido; grant/slot/action de edição UTM recusados; DTO individual por pedido ausente",
+      "acceptance": "Criar→reler/copiar→arquivar com histórico; contexto/marca/revisão/recibo; negativos reais",
+      "dependencies": [
+        "CRM-01"
+      ],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "ORG-03",
+      "owner": "A",
+      "priority": 0,
+      "name": "Orgânico publicado e fluxo real",
+      "status": "not-accepted",
+      "acceptance": "Conteúdo/fonte/atribuição e link real no domínio; permissão e recuperação; não fabricar vínculo por peça",
+      "dependencies": [
+        "ORG-01",
+        "ORG-02"
+      ],
+      "plannedDay": "2026-10-09"
+    },
+    {
+      "id": "QA-01",
+      "owner": "QA",
+      "priority": 0,
+      "name": "Casos integrados e revisão de evidências",
+      "status": "ready-after-first-producer-delivery",
+      "acceptance": "Separar sintético/prod; late response/cap withdrawn/brand/error/ACK; não alterar arquivos dos produtores",
+      "dependencies": [],
+      "plannedDay": "2026-10-07"
+    },
+    {
+      "id": "REL-01",
+      "owner": "A",
+      "priority": 0,
+      "name": "Integração, regressões e release no runtime existente",
+      "status": "not-accepted",
+      "acceptance": "Somente conectores nativos; sem novos DB/helpers; preserva access/data; fluxo real positivo e negativo por função",
+      "dependencies": [
+        "CRM-02",
+        "CTRL-02",
+        "AFI-02",
+        "ORG-02",
+        "QA-01"
+      ],
+      "plannedDay": "2026-10-08"
+    },
+    {
+      "id": "DB-01",
+      "owner": "A",
+      "priority": 1,
+      "name": "Consolidação de bancos e resíduos em paralelo",
+      "status": "partially-cleaned-not-migrated",
+      "block": "Custódia dos resíduos privados bloqueada pela revisão automática; autoridade/import/admission ainda não comprovaram migração dos quatro PostgreSQL",
+      "acceptance": "Um banco lógico próprio DASH; ownership/cópia/reconciliação/readback/cutover; dados alheios Comunicação preservados",
+      "dependencies": [],
+      "plannedDay": "parallel-conditional"
+    }
+  ],
+  "backlogPreserved": [
+    "UI CRM HubSpot/RD",
+    "jornadas completas e motor próprio",
+    "STO",
+    "capping avançado",
+    "aquecimento/observabilidade de bounce",
+    "fontes e atribuição completas",
+    "descoberta de mercado licenciada",
+    "mensagens/automações próprias",
+    "independência Listmonk/n8n"
+  ],
+  "gateRule": "Sem prova real de um critério obrigatório, MVP total permanece não aceito; entregas parciais possuem estados próprios.",
+  "producerClaimsAreNotRunningChats": true
+}

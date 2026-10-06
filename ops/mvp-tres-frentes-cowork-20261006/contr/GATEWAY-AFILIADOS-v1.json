@@ -1,0 +1,149 @@
+{
+  "schema": "shrigma-injected-ui-gateway-contract-v1",
+  "version": "1.0.1-proposed",
+  "status": "proposed-not-production-admitted",
+  "realRuntimeAdapterInstalled": false,
+  "integrator": "Codex-Root",
+  "factory": "create({element,document,gateway}) -> {sync,dispose}",
+  "implementationPolicy": {
+    "legacySourceReadOnly": true,
+    "newFilesOnly": true,
+    "cssScoped": true,
+    "transportOrAuthInModule": false,
+    "localPersistentStore": false,
+    "providerCalls": false,
+    "businessMathInView": false,
+    "allAuthorizationAndPersistenceOnServer": true
+  },
+  "methods": {
+    "context": {
+      "arguments": "none",
+      "returns": "Promise<Context>",
+      "description": "Trusted root adapter supplies current session revision, effective brand, role/capabilities and source version. No tokens/keys/cookies."
+    },
+    "read": {
+      "arguments": "{resource, filters, expectedContextRevision}, {signal?}",
+      "returns": "Promise<ReadEnvelope>",
+      "description": "Typed branded projection. Unknown/incomplete collections do not imply zero; rows unavailable=null."
+    },
+    "beginMutation": {
+      "arguments": "{kind, recordId?, payload, expectedRecordRevision?, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Root binds the immutable intent to principal/brand/version and returns the journaled operation ID. Absence of adapter closes actions."
+    },
+    "submit": {
+      "arguments": "{operationId, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Root alone authorizes and atomically executes the bound operation. UI does not reissue/replace an uncertain operation."
+    },
+    "receipt": {
+      "arguments": "{operationId, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Read-only recovery of the SAME original operation after timeout/ACK loss/reload. No second dispatch."
+    }
+  },
+  "types": {
+    "Context": {
+      "effectiveBrand": "server-bound identifier",
+      "sessionRevision": "opaque nonsecret revision",
+      "principalReference": "non-PII stable server reference",
+      "role": "read|write|master as admitted",
+      "capabilities": "typed action -> available boolean/reason; server rechecks every action",
+      "sourceRevision": "server revision",
+      "pendingOperations": "Root-owned journal read: unresolved operation references for current principal/brand; recover via receipt, never client persistence",
+      "contextRevision": "opaque server-bound revision for principal/session/effective brand/capabilities; passed as expectedContextRevision; any change invalidates old responses and actions"
+    },
+    "ReadEnvelope": {
+      "state": "ready|empty|unavailable|forbidden",
+      "contextRevision": "server revision",
+      "brandId": "effective server-bound brand",
+      "source": "own_verified|own_declared|derived|market_estimated|unknown",
+      "coverage": "complete|partial|unknown",
+      "collectedAt": "ISO date|null",
+      "cacheAt": "ISO date|null",
+      "freshness": "fresh|stale|unknown",
+      "data": "typed object|null",
+      "error": "public reason without credentials"
+    },
+    "OperationEnvelope": {
+      "operationId": "root journal bound original identifier",
+      "contextRevision": "server revision",
+      "state": "prepared|confirmed|pending|uncertain|rejected",
+      "binding": "immutable effective brand/action/record/payload/version",
+      "receiptReference": "public nonsecret identifier|null",
+      "result": "confirmed typed result|null",
+      "reason": "public reason|null"
+    }
+  },
+  "lifecycle": {
+    "staleSnapshotsReadOnly": true,
+    "forbiddenClearsData": true,
+    "lateResponseAfterBrandOrSessionChangeIgnored": true,
+    "disposeRemovesListeners": true,
+    "dirtyDraftPreservedWithinSameContext": true,
+    "confirmedWriteAndFailedRefreshRemainConfirmed": true,
+    "uncertainOperationRecoveredReadOnly": true,
+    "noClientGeneratedOperationOrStore": true
+  },
+  "acceptanceBoundary": "Fixtures/tests verify UI behavior only; real routes, authority, journal, database and business proof are issued/admitted by Root.",
+  "front": "C1",
+  "exportName": "ShrigmaAffiliatesV2",
+  "allowedPrefixes": [
+    "ui/affiliates-v2/",
+    "tests/affiliates-v2/"
+  ],
+  "readResources": [
+    "creators",
+    "creator-profile",
+    "samples",
+    "products",
+    "content",
+    "tasks",
+    "own-performance"
+  ],
+  "mutationKinds": [
+    "creator.create",
+    "creator.update",
+    "creator.archive",
+    "sample.record-manual",
+    "sample.update-manual",
+    "task.create",
+    "task.update",
+    "content.record-manual",
+    "content.update-manual"
+  ],
+  "externalCommunicationOrPaymentAuthorized": false,
+  "productionMutationAdmission": {
+    "creator.create": false,
+    "creator.update": false,
+    "creator.archive": false,
+    "sample.record-manual": false,
+    "sample.update-manual": false,
+    "task.create": false,
+    "task.update": false,
+    "content.record-manual": false,
+    "content.update-manual": false
+  },
+  "domainRules": {
+    "creatorIdentity": "provider + effective brand + persisted provider identity; handle alone cannot join accounts",
+    "commissionFields": "estimatedMinor, accruedMinor, settledMinor; nullable; currency, source, policy version and settlement proof",
+    "commissionPaidLabel": "only settled with actual server confirmation",
+    "rate": "versioned policy from server; no hardcoded 5%/7%",
+    "manualSample": "own record/status, not shipment or approval by TikTok",
+    "kanbanMove": "requires admitted action/version/receipt; presentation alone does not persist",
+    "marketResearch": "optional external estimate, never used for payouts",
+    "preserveLegacyCreators": true
+  },
+  "syncContract": "sync({filters?}={}) -> Promise<void>: each explicit refresh rereads context and typed data; coalesce equivalent concurrent calls, discard outdated results; never submit a mutation",
+  "disposeContract": "dispose() -> void: invalidate generation, remove listeners/timers; no backend mutation",
+  "resourceFields": {
+    "creators": "items[{id,provider,brandId,providerId,displayName,handle?,ownerReference?,stage,revision}], completeness",
+    "creator-profile": "creator plus authorized own references; absent stats nullable",
+    "samples": "items[{id,creatorId,sku,manualStatus,dueAt?,revision,source}], manual vs provider-confirmed",
+    "products": "items[{id,sku,label,source}], no inferred sales",
+    "content": "items[{id,creatorId,provider,kind,url?,publishedAt?,source,revision}], nullable metrics",
+    "tasks": "items[{id,creatorId?,label,state,dueAt?,ownerReference?,revision}]",
+    "own-performance": "period,currency,source,coverage,estimatedMinor?,accruedMinor?,settledMinor?,settlementProof?,policyVersion?,returnsMinor?; nullable, no sums across source lenses"
+  },
+  "supersedesContractVersion": "1.0.0-proposed"
+}

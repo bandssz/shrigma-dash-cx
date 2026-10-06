@@ -1,0 +1,42 @@
+{
+  "schema": "official-reference-research-v1",
+  "checkedOn": "2026-10-06",
+  "sources": [
+    {
+      "title": "Euka — plataforma oficial",
+      "url": "https://euka.ai/",
+      "use": "CRM de criadores, listas, relacionamento e amostras como referência funcional; capacidades dependem de fonte e mercado."
+    },
+    {
+      "title": "Euka — Supported markets",
+      "url": "https://support.euka.ai/articles/4379705043-supported-markets",
+      "use": "Brasil disponível em partes da plataforma. Social Intelligence cobre sete mercados listados sem Brasil; marketplace e dashboard de affiliate orders/estimated commissions têm restrições nos EUA.",
+      "copiedQuotes": false
+    },
+    {
+      "title": "Euka — Claude MCP",
+      "url": "https://support.euka.ai/articles/1497068944-Euka-Claude-MCP",
+      "use": "Documenta MCP com OAuth e planos aplicáveis; Open API descrita como leitura. Conta/plano/contrato próprios ainda não verificados neste projeto.",
+      "integrationConfigured": false
+    },
+    {
+      "title": "Kalodata — plataforma oficial",
+      "url": "https://www.kalodata.com/",
+      "use": "Pesquisa de produtos, criadores, vídeos e LIVE com dados públicos/modelados. Valores são estimativas; não usar para liquidação de comissão.",
+      "integrationConfigured": false
+    },
+    {
+      "title": "Kalodata — guia oficial",
+      "url": "https://www.kalodata.com/knowledge.html",
+      "use": "Filtros, tendências e comparação de categorias/lojas/criadores/produtos/conteúdos. Inclui Brasil entre mercados."
+    },
+    {
+      "title": "Kalodata — portal de API",
+      "url": "https://www.kalodata.com/open-center/home",
+      "use": "Portal API encontrado no site oficial; escopos, quotas, contrato, preço e disponibilidade de conta não verificados.",
+      "apiContractVerified": false
+    }
+  ],
+  "noExternalAccountOrSubscriptionCreated": true,
+  "marketEstimatesAreNotOwnFinancialEvidence": true
+}

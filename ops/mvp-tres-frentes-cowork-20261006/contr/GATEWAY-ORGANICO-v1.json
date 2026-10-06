@@ -1,0 +1,128 @@
+{
+  "schema": "shrigma-injected-ui-gateway-contract-v1",
+  "version": "1.0.1-proposed",
+  "status": "proposed-not-production-admitted",
+  "realRuntimeAdapterInstalled": false,
+  "integrator": "Codex-Root",
+  "factory": "create({element,document,gateway}) -> {sync,dispose}",
+  "implementationPolicy": {
+    "legacySourceReadOnly": true,
+    "newFilesOnly": true,
+    "cssScoped": true,
+    "transportOrAuthInModule": false,
+    "localPersistentStore": false,
+    "providerCalls": false,
+    "businessMathInView": false,
+    "allAuthorizationAndPersistenceOnServer": true
+  },
+  "methods": {
+    "context": {
+      "arguments": "none",
+      "returns": "Promise<Context>",
+      "description": "Trusted root adapter supplies current session revision, effective brand, role/capabilities and source version. No tokens/keys/cookies."
+    },
+    "read": {
+      "arguments": "{resource, filters, expectedContextRevision}, {signal?}",
+      "returns": "Promise<ReadEnvelope>",
+      "description": "Typed branded projection. Unknown/incomplete collections do not imply zero; rows unavailable=null."
+    },
+    "beginMutation": {
+      "arguments": "{kind, recordId?, payload, expectedRecordRevision?, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Root binds the immutable intent to principal/brand/version and returns the journaled operation ID. Absence of adapter closes actions."
+    },
+    "submit": {
+      "arguments": "{operationId, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Root alone authorizes and atomically executes the bound operation. UI does not reissue/replace an uncertain operation."
+    },
+    "receipt": {
+      "arguments": "{operationId, expectedContextRevision}",
+      "returns": "Promise<OperationEnvelope>",
+      "description": "Read-only recovery of the SAME original operation after timeout/ACK loss/reload. No second dispatch."
+    }
+  },
+  "types": {
+    "Context": {
+      "effectiveBrand": "server-bound identifier",
+      "sessionRevision": "opaque nonsecret revision",
+      "principalReference": "non-PII stable server reference",
+      "role": "read|write|master as admitted",
+      "capabilities": "typed action -> available boolean/reason; server rechecks every action",
+      "sourceRevision": "server revision",
+      "pendingOperations": "Root-owned journal read: unresolved operation references for current principal/brand; recover via receipt, never client persistence",
+      "contextRevision": "opaque server-bound revision for principal/session/effective brand/capabilities; passed as expectedContextRevision; any change invalidates old responses and actions"
+    },
+    "ReadEnvelope": {
+      "state": "ready|empty|unavailable|forbidden",
+      "contextRevision": "server revision",
+      "brandId": "effective server-bound brand",
+      "source": "own_verified|own_declared|derived|market_estimated|unknown",
+      "coverage": "complete|partial|unknown",
+      "collectedAt": "ISO date|null",
+      "cacheAt": "ISO date|null",
+      "freshness": "fresh|stale|unknown",
+      "data": "typed object|null",
+      "error": "public reason without credentials"
+    },
+    "OperationEnvelope": {
+      "operationId": "root journal bound original identifier",
+      "contextRevision": "server revision",
+      "state": "prepared|confirmed|pending|uncertain|rejected",
+      "binding": "immutable effective brand/action/record/payload/version",
+      "receiptReference": "public nonsecret identifier|null",
+      "result": "confirmed typed result|null",
+      "reason": "public reason|null"
+    }
+  },
+  "lifecycle": {
+    "staleSnapshotsReadOnly": true,
+    "forbiddenClearsData": true,
+    "lateResponseAfterBrandOrSessionChangeIgnored": true,
+    "disposeRemovesListeners": true,
+    "dirtyDraftPreservedWithinSameContext": true,
+    "confirmedWriteAndFailedRefreshRemainConfirmed": true,
+    "uncertainOperationRecoveredReadOnly": true,
+    "noClientGeneratedOperationOrStore": true
+  },
+  "acceptanceBoundary": "Fixtures/tests verify UI behavior only; real routes, authority, journal, database and business proof are issued/admitted by Root.",
+  "front": "C2",
+  "exportName": "ShrigmaOrganicV2",
+  "allowedPrefixes": [
+    "ui/organic-v2/",
+    "tests/organic-v2/"
+  ],
+  "readResources": [
+    "posts",
+    "stories",
+    "attribution-aggregate",
+    "links",
+    "attribution-order-if-admitted"
+  ],
+  "mutationKinds": [
+    "link.create",
+    "link.archive"
+  ],
+  "productionMutationAdmission": {
+    "link.create": false,
+    "link.archive": false
+  },
+  "domainRules": {
+    "attributionModels": "last_click and last_non_direct are alternative models, not additive totals",
+    "attributionOrders": "not currently exposed by public payload; unavailable until Root admits separate DTO",
+    "pieceRevenue": "never fabricate post/order revenue from aggregate or UTM alone",
+    "links": "server validates destination/effective brand/surface/origin, record revision and operation binding",
+    "archive": "preserve historical identity; same URL does not silently reactivate",
+    "postingToSocialNetworksAuthorized": false
+  },
+  "syncContract": "sync({filters?}={}) -> Promise<void>: each explicit refresh rereads context and typed data; coalesce equivalent concurrent calls, discard outdated results; never submit a mutation",
+  "disposeContract": "dispose() -> void: invalidate generation, remove listeners/timers; no backend mutation",
+  "resourceFields": {
+    "posts": "items[{id,provider,brandId,title?,publishedAt?,kind,source,metrics?}], source collection coverage",
+    "stories": "items[{id,provider,brandId,publishedAt?,expiresAt?,source,metrics?}], expired coverage explicitly retained",
+    "attribution-aggregate": "period,model,currency,daily?,quality,coverage; no additive alternative models",
+    "attribution-order-if-admitted": "only Root-admitted orderReference/model/amountMinor/source/window, no PII; unavailable before admission",
+    "links": "items[{id,brandId,destination,url,origin,surface,state,revision,createdAt}], historical archive retained"
+  },
+  "supersedesContractVersion": "1.0.0-proposed"
+}

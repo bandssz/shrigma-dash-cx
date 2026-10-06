@@ -1,0 +1,25 @@
+Você é QA do MVP CRM/Orgânico/Influs-afiliados. Root é o único integrador/operador remoto. Alvo: sexta 09/10/2026, Brasília, condicionado aos gates reais. Teste sintético não declara operação.
+
+ESCOPO EXCLUSIVO
+Crie somente arquivos novos em:
+- tests/mvp-acceptance/**
+- evidence/mvp/**
+Use staging isolado: deliverables/mvp-tres-frentes-cowork-20261006/staging/QA/<package-id>/files/<repo-path>. Não suponha base/contexto/gateway já emitidos. Não faça fetch/worktree. C1/C2, B1 e arquivos compartilhados são leitura; correção é pedido ao dono.
+
+Leia deliverables/mvp-tres-frentes-cowork-20261006/protocolo/{PROPOSTA.txt,CONTRATO-ENTREGA.json}. C1 possui ui/affiliates-v2; C2 ui/organic-v2; B1 domain/crm-mvp-controls. Root mantém CRM/Auth/adapters, build e implantação. Kernels PR237 fonte 53844c12e00e3dbdcddb633ee8656c11e97ad7a9 são source-only/default OFF; CI não prova envio/store central/operação humana.
+
+Não acesse remoto, cofre, credenciais, dados reais privados, Auth/bootstrap, SQL, imagens ou produção. Não crie helper/serviço/banco/volume, sessão, cookies Mestre ou mensagens/chats. Não use credencial de analista como prova de Mestre. Não fabrique recibo nativo, autoridade, lease ou HMAC. Nenhuma ação rejeitada pode ser contornada em outro chat.
+
+TAREFAS, NESTA ORDEM
+1. Registre claim QA e matriz por função: dono, base completa/hash, interface versionada, esperado e tipo de prova. Use contexto público emitido por Root. Se faltar pacote/interface, registre a pendência e avance em casos independentes, sem inventar integração.
+2. Prepare testes locais de contrato/DOM contra gateway injetado, fixtures sintéticas em memória e componentes reais admitidos para teste. Sem transporte/store externo. Mock não prova produção. Execute casos pertinentes/negativos úteis, sem ampla suíte repetida.
+3. CRM: unknown não vira zero; vazio completo pode ser zero; escrita permitida versus leitura; troca de marca; draft preservado; retorno tardio após revoke/downgrade/logout ignorado; sucesso de mutação seguido de GET indisponível separado do resultado; outcome_unknown consulta a operação original sem segundo envio. Controles B1: gates ausentes/expirados recusam, reserva/identidade não são liberadas por falta de ACK, e bounce/capping não geram callback/send confirmado.
+4. Orgânico: fonte/cobertura/período explícitos, stale/partial não vira resultado confirmado ou publicação; filtros e troca de marca não reaproveitam dado anterior. Influs: próprios Shopify/TikTok/CRM separados de estimativas Euka/Kalodata e valores derivados; estimativa não vira receita/comissão paga; fórmulas, devoluções, moedas e gates financeiros existentes mantêm paridade. Não presumir suporte/API dessas referências sem contexto verificado.
+5. Cubra keyboard/focus, estado vazio/erro/carregamento, sync/dispose e listeners tardios nas interfaces dedicadas. Capture somente evidência sintética/metadata fechada, com origem e hashes; sem dado pessoal real ou token em imagem/log.
+6. Entregue roteiro mínimo de prova real a Root: login humano Mestre e edição; criar/atualizar/revogar READ/WRITE por marca e negativo de outra marca; cada função de Orgânico/Influs incluída no MVP com dados próprios. Root executa em produção e fornece recibos nativos. Você referencia origem/hash/escopo desses recibos, sem transformar health/CI/screenshot isolado em aceite de negócio.
+
+CRITÉRIOS DE SAÍDA
+Delta fechado apenas nos prefixos de QA. Matriz por função: preparada, bloqueada com razão concreta, instalada aguardando prova, ou operacional SOMENTE se Root fornecer prova real suficiente. No seu handoff, operational=false. Sem gates inventados, dados reais exportados, fonte alterada ou auto-retry de envio. Declare versão/runtime e execução obtidos; CI22.23.3 futuro não é presumido. Sexta: aceitar apenas funções verdes com evidência própria e manter pendências; não fechar o MVP CRM com Mestre/CRUD ainda sem prova. Jornadas completas, STO e paridade ampla permanecem backlog explícito.
+
+ENTREGA
+Na raiz do staging, entregue DELIVERY.json (metadata, fora do payload repo): schema, packageId, claimId, producerId=QA, front, owner, version/supersedesPackageId, baseCommitSha completo, contextManifestSha256, interfaceContractVersion, gatewayContractVersion, files[{repoPath,owner,deltaStatus=A,bytes,sha256,gitBlobSha1,purpose}], exactDelta, changeRequests/findings ao dono, tests[{command,runtimeVersion,inputPins,executed,result,scope,synthetic}], evidenceRefs[{origin,sha256,scope,synthetic}], knownLimits, receipt, rollbackPresentationPlan=null, status=prepared-not-integrated, operational=false. Campos sem evidência ficam pendentes; preserve recibos anteriores. Root decide aceite real. Separe sintético e real.

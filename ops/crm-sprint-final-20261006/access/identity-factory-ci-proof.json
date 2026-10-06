@@ -1,0 +1,46 @@
+{
+  "schema": "dashboard-identity-factory-source-ci-publication-v1",
+  "observedAtUTC": "2026-10-06T13:33:16Z",
+  "sourceOnly": true,
+  "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/235",
+  "gitRevision": "b6260961e16762997b7c9d47ba2edc1c16056269",
+  "baseGitRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+  "exactDeltaPaths": 17,
+  "payload14UnchangedFromManifest": "cb2469230c41370b7621e92f4f8c430226ddc18d420741ea914ca1f1edb0399c",
+  "node": "22.23.3",
+  "focalCI": {
+    "pushRun": 37471215120,
+    "pushJob": 112294898337,
+    "prRun": 37471223584,
+    "prJob": 112294927985,
+    "conclusion": "success",
+    "factoryAndIntegration": {
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skipped": 0
+    },
+    "activeEnrollment": {
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "registry": {
+    "statements": 247,
+    "queries": 226,
+    "sourcePins": 7,
+    "relations": 29,
+    "sourceRevision": "unpublished-enrollment-factory-candidate",
+    "finalGitRevisionAdmitted": null
+  },
+  "changesToExistingEnrollmentWorkflow": "limits exact-five-files proof to its own branch; new factory workflow runs same nine enrollment cases",
+  "sourceContractVerified": true,
+  "packageAllowlistAdmitsFactory": false,
+  "postgresConnectionPerformed": false,
+  "identityMigrationPerformed": false,
+  "imageBuilt": false,
+  "productionChanged": false,
+  "operational": false
+}
