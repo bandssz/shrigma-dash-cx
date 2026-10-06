@@ -1,0 +1,49 @@
+name: CRM active READ enrollment directed proof
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - services/dashboard-operational/auth.cjs
+      - services/dashboard-operational/crm-manager-journal.cjs
+      - tests/dashboard-operational-active-read-enrollment.test.cjs
+      - tools/dashboard-active-read-enrollment/verify-source.cjs
+      - .github/workflows/dashboard-active-read-enrollment-20261006.yml
+
+permissions:
+  contents: read
+
+jobs:
+  active-read-enrollment:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'bandssz/shrigma-dash-cx'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+      SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Conferir base, cinco arquivos e dependências de runtime preservadas
+        run: node tools/dashboard-active-read-enrollment/verify-source.cjs > "$RUNNER_TEMP/enrollment-source-proof.json"
+      - name: Executar os nove casos focais de autenticação, READ e fila WRITER
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-active-read-enrollment.test.cjs | tee "$RUNNER_TEMP/enrollment-tests.tap"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: crm-active-read-enrollment-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/enrollment-source-proof.json
+            ${{ runner.temp }}/enrollment-tests.tap
+          if-no-files-found: error
+          retention-days: 7

@@ -70,6 +70,19 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   db.prepare("UPDATE crm_manager_lifecycles_v1 SET state='provisioning',version=version+1,updated_at=? WHERE lifecycle_id=?").run(clock(),l.lifecycle_id);
   return enqueue(current(userId),'issue');
  }
+ // Master-authorized enrollment of an existing active identity. The caller
+ // owns the identity transaction and the signed brand binding. This is only
+ // the first READ lifecycle: retired/failed history and manual keys cannot
+ // be adopted or rearmed. Promotion still needs the original remote proofs.
+ function enrollActiveLifecycle(userId){
+  hook();const u=manager(userId,'active');
+  if(current(userId)||db.prepare('SELECT 1 FROM crm_manager_lifecycles_v1 WHERE user_id=?').get(userId))fail('MANAGED_LIFECYCLE_CHANGED');
+  if(db.prepare('SELECT 1 FROM upstream_credentials WHERE user_id=?').get(userId))fail('MANAGED_LEGACY_CREDENTIAL_DENIED');
+  const id=crypto.randomUUID(),t=clock();
+  db.prepare('INSERT INTO crm_manager_lifecycles_v1(lifecycle_id,user_id,owner,version,state,updated_at) VALUES(?,?,?,2,?,?)').run(id,userId,u.email,'provisioning',t);
+  db.prepare('INSERT INTO crm_manager_current_v1(user_id,lifecycle_id) VALUES(?,?)').run(userId,id);
+  return {lifecycleId:id,...enqueue(current(userId),'issue')};
+ }
  function renew(userId){return atomic(()=>{manager(userId,'active');const l=current(userId);if(!l||l.state!=='ready'||l.expires_at<=clock())fail('MANAGED_NOT_READY');return enqueue(l,'renew');});}
  // Corporate-only private renewal admission. This verifies the retained
  // original identity/generation/slot; it never grants READ or ignores expiry
@@ -166,6 +179,6 @@ function createManagerJournal({db,issuerId,namespaceId,encrypt,decrypt,digest,no
   const l=current(userId);
   return Object.freeze({userId:l.user_id,owner:l.owner,lifecycleId:l.lifecycle_id,lifecycleVersion:l.version,principalId:l.active_principal,generation:l.active_generation,expiresAt:l.expires_at});
  }
- return Object.freeze({createLifecycle,activateLifecycle,renew,renewExpired,renewalReady,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady,readBinding});
+ return Object.freeze({createLifecycle,activateLifecycle,enrollActiveLifecycle,renew,renewExpired,renewalReady,retryIssue,request,beginPrepare,recordPrepared,candidateForAttestation,recordAttestation,commitOperationId,commitDescriptor,beginCommit,recordCommitted,promote,expireCandidate,stageRevoke,confirmRevoked,status,operationState,pendingOperations,credentialReady,readBinding});
 }
 module.exports={createManagerJournal};
