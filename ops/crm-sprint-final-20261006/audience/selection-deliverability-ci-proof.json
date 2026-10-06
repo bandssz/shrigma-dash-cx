@@ -1,0 +1,126 @@
+{
+  "schema": "crm-audience-deliverability-ci-receipt-v1",
+  "observedAtUTC": "2026-10-06 14:53:07 UTC",
+  "repository": "bandssz/shrigma-dash-cx",
+  "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/237",
+  "baseRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+  "gitRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+  "sourceOnly": true,
+  "exactDeltaPaths": 14,
+  "payloadFiles": 13,
+  "workflow": {
+    "files": 13,
+    "privateValuesChecked": 5,
+    "matches": 0,
+    "workflowBytes": 16832,
+    "workflowSha256": "86add5c9d8679f505f70f568287bff23485925b20eb20f0572e82341b0689d23",
+    "workflowBlob": "3ddd9b45d325564a44f700e49dd82843b71e6e5b"
+  },
+  "focal": {
+    "node": "22.23.3",
+    "pushRun": 37480811129,
+    "pushJob": 112328125534,
+    "conclusion": "success",
+    "newCases": {
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "skipped": 0
+    },
+    "existingSelectedUI": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0
+    },
+    "sourceGateBeforeAndAfterPassed": true,
+    "legacyTemplateFilesUnchanged": 71,
+    "canonicalGrowthBuildAndCheckPassed": true,
+    "pinnedTemporaryToolsOnly": true,
+    "prRun": 37480816539,
+    "prJob": 112328144848
+  },
+  "general": {
+    "run": 37480816621,
+    "conclusion": "success",
+    "counts": {
+      "tests": 3653,
+      "pass": 3652,
+      "fail": 0,
+      "skipped": 1
+    },
+    "shards": [
+      {
+        "job": 112328146852,
+        "tests": 1914,
+        "pass": 1913,
+        "fail": 0,
+        "skipped": 1
+      },
+      {
+        "job": 112328147075,
+        "tests": 1739,
+        "pass": 1739,
+        "fail": 0,
+        "skipped": 0
+      }
+    ],
+    "concurrencyJobs": [
+      112328145915,
+      112328146550,
+      112328147037
+    ],
+    "concurrencyConclusion": "success",
+    "finalJob": 112332764915,
+    "finalConclusion": "success"
+  },
+  "history": [
+    {
+      "gitRevision": "793cc9e2278865143083b4de30f9cf6feda873c6",
+      "focalRun": 37475611642,
+      "newCasesPassed": 28,
+      "selectedUICasesPassed": 8,
+      "workflowCounterRefused": true,
+      "reason": "Node22 excludes filtered tests from counts; no payload changed by counter repair"
+    },
+    {
+      "gitRevision": "57ed6680800327d63025da502b4c7f1acef86c3d",
+      "focalRuns": [
+        37476046514,
+        37476053962
+      ],
+      "focal": "success",
+      "generalRun": 37476053966,
+      "general": "failure",
+      "counts": {
+        "tests": 3653,
+        "pass": 3651,
+        "fail": 1,
+        "skipped": 1
+      },
+      "failure": "new slice help wording collided with legacy broad save-attempt alert assertion; fixed only new help/new assertion/bundle/cache pins; legacy tests unchanged"
+    }
+  ],
+  "newSliceHelpChangeOnly": true,
+  "legacyTestsChanged": false,
+  "postgresCreated": false,
+  "migrationPerformed": false,
+  "actualBounceSettingsObserved": false,
+  "actualBounceEventIngestionProven": false,
+  "actualSuppressionCommitProven": false,
+  "actualAudienceSliceReservationProven": false,
+  "productionChanged": false,
+  "imageBuilt": false,
+  "deployed": false,
+  "operational": false,
+  "privateValuesChecked": 5,
+  "privateMatches": 0,
+  "otherInheritedCI": {
+    "savedAudienceABRun": 37480816745,
+    "runtimeJob": 112328145085,
+    "runtimeConclusion": "success",
+    "regularJob": 112328144641,
+    "regularConclusion": "in_progress",
+    "regularReason": "real paired schedule in isolated CI PostgreSQL; job timeout22 minutes; no production connection"
+  }
+}

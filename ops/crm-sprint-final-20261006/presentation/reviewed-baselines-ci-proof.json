@@ -1,0 +1,35 @@
+{
+  "schema": "crm-reviewed-baselines-ci-receipt-v1",
+  "gitRevision": "8938b6bac9648107802b40dc2fb20a68988cb2a9",
+  "pr": "https://github.com/bandssz/shrigma-dash-cx/pull/236",
+  "base": "c659e0962e920b1c136a170128f4abce268799db",
+  "paths": 4,
+  "reviewedExpectationsOnly": true,
+  "productionCodeChanged": false,
+  "focal": {
+    "run": 37473184053,
+    "job": 112301717305,
+    "node": "22.23.3",
+    "tests": 24,
+    "gates": 2,
+    "pass": 26,
+    "fail": 0,
+    "skipped": 0
+  },
+  "general": {
+    "run": 37473191425,
+    "conclusion": "success",
+    "counts": {
+      "tests": 3639,
+      "pass": 3638,
+      "fail": 0,
+      "skipped": 1
+    },
+    "concurrencyJobs": "three passed"
+  },
+  "setupFailuresPreserved": [
+    "npm-ci-without-root-lock-before-tests",
+    "runner-context-in-job-env-before-job-creation"
+  ],
+  "operational": false
+}

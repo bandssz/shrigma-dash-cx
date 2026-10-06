@@ -1,0 +1,107 @@
+{
+  "schema": "crm-analyst-source-final-applicable-ci-v1",
+  "observedAtUTC": "2026-10-06 14:58:21 UTC",
+  "gitRevision": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+  "runConclusions": [
+    {
+      "id": 37480816732,
+      "name": "Candidate journey graph",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816539,
+      "name": "CRM audience and deliverability source Node22",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816598,
+      "name": "CRM RFM and recipient evidence candidates (OFF)",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816754,
+      "name": "CRM recorded form receipts",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816700,
+      "name": "CRM sprint final directed source and portal proof",
+      "event": "pull_request",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 37480816698,
+      "name": "Reviewed CRM baseline expectations",
+      "event": "pull_request",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 37480816528,
+      "name": "CRM audience runtime",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816694,
+      "name": "A/B registry durable operations",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816712,
+      "name": "CRM Shopify audience evidence (OFF)",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816621,
+      "name": "Dashboard regression",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480816745,
+      "name": "CRM saved audience A/B (OFF)",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    {
+      "id": 37480811129,
+      "name": "CRM audience and deliverability source Node22",
+      "event": "push",
+      "conclusion": "success"
+    }
+  ],
+  "applicableRunsPassed": 10,
+  "branchSpecificRunsSkipped": 2,
+  "savedAudienceAB": {
+    "run": 37480816745,
+    "jobs": [
+      {
+        "id": 112328144641,
+        "name": "postgres (regular)",
+        "conclusion": "success"
+      },
+      {
+        "id": 112328145085,
+        "name": "postgres (runtime)",
+        "conclusion": "success"
+      }
+    ],
+    "postgresIsolatedInCI": true,
+    "actualProductionPostgresAccess": false
+  },
+  "generalCounts": {
+    "tests": 3653,
+    "pass": 3652,
+    "fail": 0,
+    "skipped": 1
+  },
+  "supersedesEarlierABPendingSnapshotOnly": true,
+  "productionChanged": false,
+  "operational": false
+}
