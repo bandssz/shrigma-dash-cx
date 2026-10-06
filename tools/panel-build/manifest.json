@@ -132,6 +132,7 @@
       "organico-links.js",
       "painel-tabelas.js",
       "panel-bridge.js",
+      "ui/organic-v2/organic-contract-v1-0-2.js",
       "ui/organic-v2/organic-v2.js",
       "ui/root-mounts/organic-v2-mount.js"
     ]
