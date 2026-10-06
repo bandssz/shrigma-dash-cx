@@ -1,0 +1,198 @@
+name: CRM audience and deliverability source Node22
+
+'on':
+  push:
+    branches: [codex/crm-audience-deliverability-source-20261006]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [codex/crm-reviewed-baselines-20261006]
+permissions:
+  contents: read
+concurrency:
+  group: crm-audience-deliverability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only-node22:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.head_ref == 'codex/crm-audience-deliverability-source-20261006'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Conferir fonte fechada e arvore legada
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          SOURCE_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          SOURCE_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name || github.repository }}
+          SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SOURCE_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          node -e "if(process.version!=='v22.23.3')throw Error('NODE_VERSION_REFUSED')"
+          cat > "$RUNNER_TEMP/audience-deliverability-verify.py" <<'PY_GATE'
+          import hashlib, json, os, pathlib, re, stat, subprocess
+
+          def require(value, code):
+              if not value:
+                  raise SystemExit(code)
+          def git(*args):
+              return subprocess.check_output(['git', *args], stderr=subprocess.DEVNULL)
+          def textgit(*args):
+              return git(*args).decode('ascii').strip()
+          def tree(ref):
+              result = {}
+              for row in git('ls-tree', '-r', '-z', ref).split(b'\0'):
+                  if not row:
+                      continue
+                  left, name = row.split(b'\t', 1)
+                  mode, kind, blob = left.decode('ascii').split(' ')
+                  result[name.decode('utf-8')] = (mode, kind, blob)
+              return result
+          def read_owned(name):
+              path = pathlib.Path(name)
+              require(not path.is_absolute() and '..' not in path.parts, 'SOURCE_PATH_REFUSED')
+              for parent in [path, *path.parents]:
+                  require(not parent.is_symlink(), 'SOURCE_LINK_REFUSED')
+              before = path.stat()
+              require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1, 'SOURCE_FILE_REFUSED')
+              fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+              try:
+                  opened = os.fstat(fd)
+                  fields = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+                  require(fields(before) == fields(opened), 'SOURCE_CHANGED')
+                  with os.fdopen(fd, 'rb', closefd=False) as stream:
+                      data = stream.read()
+                  require(fields(opened) == fields(os.fstat(fd)) == fields(path.stat()), 'SOURCE_CHANGED')
+                  return data
+              finally:
+                  os.close(fd)
+          BASE = '8938b6bac9648107802b40dc2fb20a68988cb2a9'
+          ANCESTOR = 'c659e0962e920b1c136a170128f4abce268799db'
+          C3F = 'c3f0ac329d04903078fc0a558ed89aa9f50696c9'
+          BRANCH = 'codex/crm-audience-deliverability-source-20261006'
+          REPO = 'bandssz/shrigma-dash-cx'
+          HEAD = os.environ['SOURCE_HEAD_SHA']
+          EVENT = os.environ['GITHUB_EVENT_NAME']
+          require(EVENT in ('push', 'pull_request'), 'SOURCE_EVENT_REFUSED')
+          require(os.environ['SOURCE_HEAD_REPO'] == REPO and os.environ['SOURCE_BASE_REPO'] == REPO, 'SOURCE_REPO_REFUSED')
+          require(os.environ['SOURCE_HEAD_REF'] == BRANCH, 'SOURCE_BRANCH_REFUSED')
+          require(re.fullmatch('[0-9a-f]{40}', HEAD) is not None and textgit('rev-parse', 'HEAD') == HEAD, 'SOURCE_HEAD_REFUSED')
+          require(textgit('rev-parse', HEAD + '^{commit}') == HEAD and textgit('rev-parse', BASE + '^{commit}') == BASE, 'SOURCE_COMMIT_REFUSED')
+          require(textgit('merge-base', BASE, HEAD) == BASE and textgit('merge-base', ANCESTOR, BASE) == ANCESTOR and textgit('merge-base', C3F, BASE) == C3F, 'SOURCE_ANCESTRY_REFUSED')
+          if EVENT == 'pull_request':
+              require(os.environ['SOURCE_BASE_SHA'] == BASE and os.environ['SOURCE_BASE_REF'] == 'codex/crm-reviewed-baselines-20261006', 'SOURCE_PR_BASE_REFUSED')
+          else:
+              require(os.environ['GITHUB_REF'] == 'refs/heads/' + BRANCH, 'SOURCE_PUSH_REFUSED')
+          EXPECTED = {'assets/panels/growth.js': 'M', 'audience-slice-contract.js': 'A', 'domain/audience-slices/kernel.cjs': 'A', 'domain/audience-slices/provider-boundary.cjs': 'A', 'growth-audience-slices-ui.js': 'A', 'growth-segment-ui.js': 'M', 'growth.html': 'M', 'tests/audience-slice-kernel.test.cjs': 'A', 'tests/growth-audience-slices-ui.test.cjs': 'A', 'tools/panel-build/manifest.json': 'M', 'services/dashboard-operational/domain/deliverability/policy.cjs': 'A', 'services/dashboard-operational/domain/deliverability/policy.test.cjs': 'A', 'tools/dashboard-deliverability/integration-contract.json': 'A', '.github/workflows/dashboard-audience-deliverability-source-20261006.yml': 'A'}
+          PINS = {'assets/panels/growth.js': [971028, 'df664b7ec95b9f4349533159e81a4babdc38eed2ddd64d86131aba89dc3bca12', '1241bd54fe8152e813184bdf7fc05b79837bf152'], 'audience-slice-contract.js': [3066, 'f07c41f0cddcc742817056de0840dcb49a398a2e0b5891454b3669fa1be3eee6', '2ba2b8c037045a551a20d36943ee17e0b874bc75'], 'domain/audience-slices/kernel.cjs': [9729, '0f905084d55a2856027615eb6e4a4d30202ad74a994cf08320feb112503d94b4', '59ce9167604a0f23386b4518fb32a32d6297e267'], 'domain/audience-slices/provider-boundary.cjs': [4196, 'f626a9239fb6d0afb1e47166ebe10993c6fa2315a19b68d7e2fa3b46f1b48372', 'f452f102d3a3d1ce5fb6b3f42fef5609d9df397b'], 'growth-audience-slices-ui.js': [1693, 'edfff3baaa275fc0a4e631861d40d2d0e133f8205fe1552a16dc71ec31023b69', '258d8ab66fc175c849689e5e0cd966b17775e783'], 'growth-segment-ui.js': [38143, 'ad12d387885471055bda86e423759f35cead38a7205c336f9b686bd2006caef1', '35cc62a618710d3cc6ac39a5b356f04306824672'], 'growth.html': [107012, '0292e197c96bec11328dd1208366b1ebe47f42ebfc675f5b99b87b36f54c7188', '56e36e45e03fbceee182b69fa28e85c124b8fa98'], 'tests/audience-slice-kernel.test.cjs': [12938, '9b2300308e5799c2af103ee8326ff63f6d25947f117ffe98d1f781b392cb0679', 'f60b28a7ea908aa60b8559cd00b5c5b49e85bd76'], 'tests/growth-audience-slices-ui.test.cjs': [4417, 'c46680b879982a7eb1d72ee93d99d23651d72141dc29f350ccc4a3f99c2d993e', '0b679fcd3d5cb6b7d9579c32aa59a5882506f7da'], 'tools/panel-build/manifest.json': [4230, '807892fcc1f3771eebda9dc6760e687db9f17195fa72c68dbabad02fc34e33d5', '9043c66ba64005fb84afe908b5d69dc5ecc640a7'], 'services/dashboard-operational/domain/deliverability/policy.cjs': [11169, 'f0006cb43770e605e45ddd3c2f14ff53655eb23f0cfefb54b726f75477c4d4cf', '77e6b2e9a095efb9de3154347205eab6ac17039f'], 'services/dashboard-operational/domain/deliverability/policy.test.cjs': [13546, '57ff01a2d1a1424c419e6eca1333e208a3248e2b59d90e21c6704e3cdfcfdc88', 'c7fcc758ab38a3473d6e4998bd32bc0f4d9eefda'], 'tools/dashboard-deliverability/integration-contract.json': [13347, '49fb76f7bd61a92a0cd6ae2e9e0e5f45107cdb054cfb7d68db7d378e84715851', '78a61c1a4136e18f6242d08142f897e867e1d20f']}
+          LEGACY = {'services/dashboard-operational/auth.cjs': [110733, 'cdec138777a749e39d6318d799b8d704900450ba6ad3e0798d2642c3f79ac0d4'], 'services/dashboard-operational/server.cjs': [91898, 'b3e0cc550831647f16e09db073f27dc6cdebe81cae09263e8c15c5616ac1a40e'], 'services/dashboard-operational/crm-campaign-create.cjs': [16148, '581590756252384e2c17da6ba2e390d5942b1528f1cd81d6eba18664a27ffd01'], 'services/dashboard-operational/artifact-policy.cjs': [7409, '430f53eb5b542c47db54b2576ac5bf99018f2f70f70121c9e16e75fff9d1011f'], 'tests/growth-segment-ui.test.cjs': [33672, 'df4e7429d95238b754000be79c5f681776c6de392954ae8c3f67a33ed6a723a3'], 'tests/growth-segment-fixture.cjs': [5083, 'b7122ec1eedce0e963a6cd95353526af6959d41cd30dad6c2510306e006facd1'], 'tools/panel-build/build.cjs': [7232, '5751785176fcf65eef1d40b946be745d4a761accfec23e26caba4e87b353d35b']}
+          raw = git('diff', '--name-status', '--no-renames', '-z', BASE, HEAD, '--').split(b'\0')
+          require(raw[-1] == b'' and len(raw) == 2 * len(EXPECTED) + 1, 'SOURCE_DELTA_SIZE_REFUSED')
+          observed = {raw[i+1].decode('utf-8'): raw[i].decode('ascii') for i in range(0, len(raw)-1, 2)}
+          require(observed == EXPECTED, 'SOURCE_DELTA_REFUSED')
+          old, current = tree(BASE), tree(HEAD)
+          for name, meta in old.items():
+              if name not in EXPECTED:
+                  require(current.get(name) == meta, 'SOURCE_LEGACY_TREE_REFUSED')
+          for name, (size, pin, blob) in PINS.items():
+              data = read_owned(name)
+              require(len(data) == size and hashlib.sha256(data).hexdigest() == pin, 'SOURCE_PAYLOAD_PIN_REFUSED')
+              require(hashlib.sha1(b'blob ' + str(size).encode('ascii') + b'\0' + data).hexdigest() == blob and current.get(name) == ('100644', 'blob', blob), 'SOURCE_BLOB_REFUSED')
+          for name, (size, pin) in LEGACY.items():
+              data = read_owned(name)
+              require(len(data) == size and hashlib.sha256(data).hexdigest() == pin and old.get(name) == current.get(name), 'SOURCE_LEGACY_PIN_REFUSED')
+          template_names = [n for n in old if 'template' in n.lower() or n.endswith('.mjml')]
+          require(bool(template_names) and all(old[n] == current.get(n) for n in template_names), 'SOURCE_TEMPLATE_TREE_REFUSED')
+          html = read_owned('growth.html').decode('utf-8')
+          original_html = git('show', BASE + ':growth.html').decode('utf-8')
+          require(re.findall(r'<template\b[^>]*>[\s\S]*?</template>', original_html) == re.findall(r'<template\b[^>]*>[\s\S]*?</template>', html), 'SOURCE_INLINE_TEMPLATE_REFUSED')
+          boundary = read_owned('domain/audience-slices/provider-boundary.cjs').decode('utf-8')
+          require('provider.send' not in boundary and 'provider.claim' not in boundary, 'SOURCE_TRANSPORT_REFUSED')
+          fixture = read_owned('tests/audience-slice-kernel.test.cjs').decode('utf-8')
+          require('send(){writes++;},claim(){writes++;}' in fixture, 'SOURCE_SYNTHETIC_SPY_REFUSED')
+          for name in ['domain/audience-slices/kernel.cjs', 'domain/audience-slices/provider-boundary.cjs', 'services/dashboard-operational/domain/deliverability/policy.cjs']:
+              code = read_owned(name).decode('utf-8')
+              require(not re.search(r"(?:require|import)\s*\([^)]*(?:node:fs|node:http|node:https|node:net|node:child_process|node:sqlite|['\"]pg['\"]|pglite)", code, re.I), 'SOURCE_IO_IMPORT_REFUSED')
+          print(json.dumps({'schema':'crm-audience-deliverability-source-ci-v1','baseRevision':BASE,'sourceRevision':HEAD,'payloadFiles':len(PINS),'deltaFiles':len(observed),'legacyTemplateFilesUnchanged':len(template_names),'nativeMasterProofsInspected':False,'publicationEnabled':False,'operational':False}, sort_keys=True))
+          PY_GATE
+          python3 "$RUNNER_TEMP/audience-deliverability-verify.py"
+      - name: Preparar somente ferramentas temporarias fixadas
+        run: |
+          set -euo pipefail
+          deps="$RUNNER_TEMP/audience-deliverability-tools"
+          test ! -e "$deps"
+          npm install --prefix "$deps" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund esbuild@0.28.2 linkedom@0.18.12
+          python3 - <<'PY_TOOLS'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'],'audience-deliverability-tools','node_modules')
+          for package,version in [('esbuild','0.28.2'),('linkedom','0.18.12')]:
+              assert json.loads((root/package/'package.json').read_text())['version']==version
+          print('RUNNER_TOOL_VERSIONS_CONFIRMED')
+          PY_TOOLS
+          mkdir -p tools/campaign-runtime-build/node_modules
+          test ! -e tools/campaign-runtime-build/node_modules/esbuild
+          test ! -L tools/campaign-runtime-build/node_modules/esbuild
+          ln -s "$deps/node_modules/esbuild" tools/campaign-runtime-build/node_modules/esbuild
+      - name: Executar os 28 casos novos sem skips
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$RUNNER_TEMP/audience-deliverability-tools/node_modules"
+          set +e
+          node --test --test-reporter=tap --test-concurrency=2 --test-timeout=120000 tests/audience-slice-kernel.test.cjs tests/growth-audience-slices-ui.test.cjs services/dashboard-operational/domain/deliverability/policy.test.cjs > "$RUNNER_TEMP/audience-deliverability-new.tap" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/audience-deliverability-new.tap"
+          test "$status" -eq 0
+          python3 - <<'PY_COUNTS'
+          import os, pathlib, re
+          tap=pathlib.Path(os.environ['RUNNER_TEMP'],'audience-deliverability-new.tap').read_text()
+          for field,number in {'tests':28,'pass':28,'fail':0,'cancelled':0,'skipped':0,'todo':0}.items():
+              values=re.findall(r'^# '+field+r' (\d+)$',tap,re.M)
+              assert values==[str(number)],field
+          print('NEW_DOMAIN_AND_DOM_CASES_CONFIRMED=28')
+          PY_COUNTS
+      - name: Conferir oito regressoes existentes da interface
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$RUNNER_TEMP/audience-deliverability-tools/node_modules"
+          set +e
+          node --test --test-reporter=tap --test-timeout=120000 --test-name-pattern '^(?:without\ capability\ segments\ stay\ OFF\ and\ issue\ no\ requests|read\-only\ announcement\ does\ not\ expose\ save\ or\ count\ even\ when\ the\ list\ response\ grants\ them|in\-place\ capability\ withdrawal\ invalidates\ the\ catalog\ and\ cannot\ retain\ previously\ enabled\ actions|uncertain\ save\ freezes\ edits\ and\ reload\ consults\ only\ the\ original\ operation|brand\ switch\ preserves\ separate\ local\ drafts;\ repeated\ same\-context\ sync\ retains\ catalog\ without\ extra\ reads|unconfirmed\ source\ count\ stays\ unknown,\ never\ zero|a\ draft\-only\ preparation\ cannot\ move\ silently\ to\ a\ different\ endpoint\ or\ contract|the\ shared\ audience\ catalog\ is\ a\ read\-only\ copy\ of\ the\ existing\ read\ with\ no\ draft,\ key\ or\ additional\ I/O)$' tests/growth-segment-ui.test.cjs > "$RUNNER_TEMP/audience-deliverability-existing.tap" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/audience-deliverability-existing.tap"
+          test "$status" -eq 0
+          python3 - <<'PY_EXISTING'
+          import os, pathlib, re
+          tap=pathlib.Path(os.environ['RUNNER_TEMP'],'audience-deliverability-existing.tap').read_text()
+          for field,number in {'tests':8,'pass':8,'fail':0,'cancelled':0,'skipped':0,'todo':0}.items():
+              values=re.findall(r'^# '+field+r' (\d+)$',tap,re.M)
+              assert values==[str(number)],field
+          print('EXISTING_UI_SELECTED_CASES_CONFIRMED=8')
+          PY_EXISTING
+      - name: Conferir build e check Growth canonicos
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$RUNNER_TEMP/audience-deliverability-tools/node_modules"
+          node tools/panel-build/build.cjs --panel=growth --check
+          node tools/panel-build/build.cjs --panel=growth
+          node tools/panel-build/build.cjs --panel=growth --check
+          git diff --exit-code
+      - name: Revalidar os treze payloads e preservacao apos os checks
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          SOURCE_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          SOURCE_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name || github.repository }}
+          SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SOURCE_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/audience-deliverability-verify.py"
+          git diff --exit-code
