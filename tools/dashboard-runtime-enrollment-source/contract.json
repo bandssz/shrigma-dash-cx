@@ -1,0 +1,268 @@
+{
+  "schema": "crm-enrollment-runtime-source-contract-v1",
+  "enabled": false,
+  "scope": "source-bytes-only",
+  "baseSourceRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+  "candidateSourceRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+  "candidateParentRevision": "fe27c6a158fecce8b0b0aaae641f77c43351ce20",
+  "basePack": {
+    "schema": "shrigma_dashboard_operational_pack_v2",
+    "bytes": 827816,
+    "transportSha256": "3b7ffcb0095a723402bc37ed3187ccab1e05f27b1e27cff8d1a9699011972be4",
+    "rawSha256": "c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da",
+    "rawBytes": 2711964,
+    "files": 58,
+    "publicFiles": 30,
+    "runtimeFiles": 28
+  },
+  "runtime": [
+    {
+      "path": "auth.cjs",
+      "bytes": 110733,
+      "sha256": "cdec138777a749e39d6318d799b8d704900450ba6ad3e0798d2642c3f79ac0d4"
+    },
+    {
+      "path": "backend-credential-attestation.cjs",
+      "bytes": 7587,
+      "sha256": "0e97c44f814dc9e2a353f0cbf6bf4049a90dfdd32810b830d49a2aeedae3b0ec"
+    },
+    {
+      "path": "campaign-write-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "campaign-write-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "crm-audience-read-bridge.cjs",
+      "bytes": 16004,
+      "sha256": "979e679eee1da6277ac3468cbcedd81d989c7b395b26b63cee2c6116444937dc"
+    },
+    {
+      "path": "crm-campaign-content-admission.cjs",
+      "bytes": 4943,
+      "sha256": "0ea55f72f061471deb67e42d597f25344ccd50268c74e38a6d4a0e5de46d0e07"
+    },
+    {
+      "path": "crm-campaign-content-profile.cjs",
+      "bytes": 302,
+      "sha256": "204f32a3fab33580c3b15a4049ce782db5879687a95c92e10b3b613757f39f81"
+    },
+    {
+      "path": "crm-campaign-create.cjs",
+      "bytes": 16148,
+      "sha256": "581590756252384e2c17da6ba2e390d5942b1528f1cd81d6eba18664a27ffd01"
+    },
+    {
+      "path": "crm-campaign-delivery.cjs",
+      "bytes": 23941,
+      "sha256": "766bd28528fde80169ffb675609d5a058bcc1c4ca2e6f85525963e518701316b"
+    },
+    {
+      "path": "crm-campaign-writer-attestation.cjs",
+      "bytes": 9142,
+      "sha256": "645bef9f46eeeb41eb78b99f93f5c4aa843eacc55e821fb60ce2369e21c597ac"
+    },
+    {
+      "path": "crm-manager-attestation.cjs",
+      "bytes": 7367,
+      "sha256": "040f1bd4f32ee8bc392fce5fc4226eca3172adf637fea2cdf0ecd3b4827aa097"
+    },
+    {
+      "path": "crm-manager-coordinator.cjs",
+      "bytes": 13158,
+      "sha256": "d1e07211d6a36001b0ef1178a868af552d78c007706c06aa7084d95572712ddb"
+    },
+    {
+      "path": "crm-manager-dispatcher.cjs",
+      "bytes": 3063,
+      "sha256": "b80a96b09e701734f4140c0e9e280b39c87988f75f36c3bd54b0f141707feb46"
+    },
+    {
+      "path": "crm-manager-journal.cjs",
+      "bytes": 24432,
+      "sha256": "8c233aca65b834086e8562a40cb53f0e30314a0fc3f9c1bba70faffc20296f07"
+    },
+    {
+      "path": "crm-manager-provisioning.cjs",
+      "bytes": 18285,
+      "sha256": "723bca94435efe08bea98fdd3ceec450264b7e7001d57c42f7a427384ec087a5"
+    },
+    {
+      "path": "crm-manager-read-bridge.cjs",
+      "bytes": 9485,
+      "sha256": "cc7d66c0cd0170d53c604d610e959a8583c51b4b1c9f32ed9e9ea19b548133f7"
+    },
+    {
+      "path": "crm-manager-runtime.cjs",
+      "bytes": 12945,
+      "sha256": "e52d1bcdc0d00e553163a695d12b2225f3a1bc3b2b0f78655407e07b0599af07"
+    },
+    {
+      "path": "crm-manager-writer-auth-adapter.cjs",
+      "bytes": 22588,
+      "sha256": "8601d5d3c9d78d16d17e55fa62d515b56b188a6476df4937c27aa3a86741a980"
+    },
+    {
+      "path": "crm-manager-writer-client.cjs",
+      "bytes": 3386,
+      "sha256": "d8a082c9e7527b87620e84d5a17580103fd95333dc2f7a9832cf2ebc60771f67"
+    },
+    {
+      "path": "crm-manager-writer-coordinator.cjs",
+      "bytes": 7047,
+      "sha256": "2dc38dc6acb96546be8f6dc96d063d9612f3fb5b1355d1905c77eac7136f8086"
+    },
+    {
+      "path": "crm-manager-writer-journal.cjs",
+      "bytes": 15696,
+      "sha256": "da9583ce6cfb0252697a7b4e97a819ae51c7e0462cfb8d8547042ad2f070e802"
+    },
+    {
+      "path": "crm-manager-writer-policy.cjs",
+      "bytes": 9633,
+      "sha256": "fbfcc642c43243cb53b081bf018782f3191317d976ecc73111e9583562e83703"
+    },
+    {
+      "path": "crm-media-read-validator.cjs",
+      "bytes": 10221,
+      "sha256": "02daa36ae8bb7929583a937acf7e66b558b2f305c174543af0290fc8b33a9fe0"
+    },
+    {
+      "path": "crm-template-read-bridge.cjs",
+      "bytes": 14298,
+      "sha256": "b6a8b2e89aa4e69312ec0cba0640c8bce0f951889d0084dabaddeae69bd15d5d"
+    },
+    {
+      "path": "fixtures.cjs",
+      "bytes": 5421,
+      "sha256": "3be268310235e6e14244833b3e1b6489d2fb715688ab4b74edfb1fc0088857e7"
+    },
+    {
+      "path": "proxy.cjs",
+      "bytes": 40015,
+      "sha256": "bd6f6fa3444ea8a66c26e79ea08ae9ba5589121064a616b9983695ffe245dc0f"
+    },
+    {
+      "path": "segment-audience-contract.js",
+      "bytes": 11927,
+      "sha256": "a0ac4d8d06ed408f213e7de53a9dbdeb109acc347e4c434d75b9726602bb4ce7"
+    },
+    {
+      "path": "server.cjs",
+      "bytes": 91898,
+      "sha256": "b3e0cc550831647f16e09db073f27dc6cdebe81cae09263e8c15c5616ac1a40e"
+    }
+  ],
+  "delta": [
+    {
+      "path": "auth.cjs",
+      "beforeBytes": 110733,
+      "beforeSha256": "cdec138777a749e39d6318d799b8d704900450ba6ad3e0798d2642c3f79ac0d4",
+      "afterBytes": 112250,
+      "afterSha256": "6579c3bffffd73f09d6e2950d010ce72ac08d5e579b7688013cb0f56cfab92bb"
+    },
+    {
+      "path": "crm-manager-journal.cjs",
+      "beforeBytes": 24432,
+      "beforeSha256": "8c233aca65b834086e8562a40cb53f0e30314a0fc3f9c1bba70faffc20296f07",
+      "afterBytes": 25484,
+      "afterSha256": "585d5dbabd920b53061dae362ff3c1be9c526195f66ae9e4f52987c8a84c9ea5"
+    }
+  ],
+  "historicalReferences": [
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/program.cjs",
+      "bytes": 23039,
+      "sha256": "ec222c5e51838b1059e81577d41824df9e267073add4631a4f2ce82fd936a4b1"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/controller.cjs",
+      "bytes": 3017,
+      "sha256": "1f4a9fef0113f5d7a1267d8583597523a3781aba5358f486a67fdfcb2608160e"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/observer.cjs",
+      "bytes": 12040,
+      "sha256": "7e4ba5c087dcf134f5ecc04a411568311914291382fc6fbfcc44fa6fee7ffc4b"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/crm-campaign-writer-attestation.cjs",
+      "bytes": 9142,
+      "sha256": "645bef9f46eeeb41eb78b99f93f5c4aa843eacc55e821fb60ce2369e21c597ac"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/native-preserved-guard-functions.cjs",
+      "bytes": 15807,
+      "sha256": "e17347140e72f4adb558631a8ac1469e9ce739f520976a960fe76cd6b4ecd7a4"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-continuity-proposal.json",
+      "bytes": 2291,
+      "sha256": "b1ca0b5764ad65313c6a6ecd7e27aec42dc108d16abe68fc4be241861515b194"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-source-image.json",
+      "bytes": 2012,
+      "sha256": "d1cc363db682c23a40c059c1ae860d059362462d8996f86773b66a79e26e0287"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json",
+      "bytes": 5469,
+      "sha256": "233382a69a0f7b8f907cd836597d56df09b6de1d6f637aa2cfd1ec084d6542b4"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/revisao-acessos/read-original-custody-lineage-receipt.json",
+      "bytes": 3236,
+      "sha256": "8851d6482769d0c43768bd95916fde937533297366040ae39e33e65294ab4c20"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/presentation-release/release.cjs",
+      "bytes": 11869,
+      "sha256": "bb2c6f0adb4c05a1e2ee5148395795ace48a657dab4e9ea5108232736d58ffd2"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/presentation-release/payload/manifest.json",
+      "bytes": 2263,
+      "sha256": "c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json",
+      "bytes": 3731,
+      "sha256": "a5bdf5952a75f341fd6fdb8021f3601373e94ddd0b536cde3d71300d4557d7c5"
+    },
+    {
+      "path": "deliverables/sprint-20261006/acessos/pr-preparation/CI-RECIBO.json",
+      "bytes": 1067,
+      "sha256": "1163b4ea2e74bbde29a29ffacdea6a1042983a67bfd34e804b79e9586d0f42a3"
+    },
+    {
+      "path": "deliverables/sprint-20261006/acessos/pr-preparation/files/tools/dashboard-active-read-enrollment/verify-source.cjs",
+      "bytes": 4942,
+      "sha256": "0c0d5d0df097ca2cc51992c11b66a89fb1d5c5bad8d6a8e897b68525651d00c4"
+    }
+  ],
+  "protectedOperations": {
+    "master": "73a35984-9884-4e8f-b132-24c06a8fd7e7",
+    "read": "832f",
+    "replayAllowed": false,
+    "receiptRepinningAllowed": false
+  },
+  "authority": {
+    "nativeAdmission": false,
+    "installation": false,
+    "managedModeEnable": false,
+    "humanSession": false,
+    "credentialIssuance": false,
+    "postgresDdl": false
+  },
+  "limits": {
+    "maxSourceFileBytes": 262144,
+    "maxHistoricalFileBytes": 262144,
+    "maxDecodedPackBytes": 16777216,
+    "nodeCiRequired": "22.23.3"
+  }
+}

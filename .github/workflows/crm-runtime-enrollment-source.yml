@@ -1,0 +1,201 @@
+name: CRM runtime enrollment source only
+on:
+  pull_request:
+    branches: [codex/crm-mvp-controls-source-20261006]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/dashboard-runtime-enrollment-source/contract.json
+      - tools/dashboard-runtime-enrollment-source/validate-source.cjs
+      - tools/dashboard-runtime-enrollment-source/validate-source.test.cjs
+      - tools/dashboard-runtime-enrollment-source/public-corpus.json
+      - .github/workflows/crm-runtime-enrollment-source.yml
+permissions:
+  contents: read
+concurrency:
+  group: crm-runtime-enrollment-source-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  source-only:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      PR_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+      PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.23.3
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Closed five-path source gate before decode
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
+          const BASE='bc5efd57f40ba798a981c67a5937be084e441eaf';
+          const PINS=[{"path":"tools/dashboard-runtime-enrollment-source/contract.json","bytes":9642,"sha256":"10fce0ab0752bf2d7208226859cd777f734a266cdf4281b5ad5d7a0e11ca85c0","gitBlobSha1":"94208504e81843637f966d20ea44e0e1fa61fafa"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.cjs","bytes":9860,"sha256":"eb3f98a41c267c3f9c842f091fcdf3e5426c7ab7ae49ec1896abd434e3f8f9bf","gitBlobSha1":"1b013ed61ef709de107bd6424dd3ae39960fab4c"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.test.cjs","bytes":9032,"sha256":"e3b5135623665aae0ed453939dd08e39e3e128d1dd74ec55fe7df398c58e4121","gitBlobSha1":"f2c9ce8b5e39e114f797834780b2b8797f567c89"},{"path":"tools/dashboard-runtime-enrollment-source/public-corpus.json","bytes":905315,"sha256":"6697df85686021f6ed516b47a673d26d927571375dbd76b63baf9e1a9264f337","gitBlobSha1":"508e0430ee406d523cdd4726fb7a7c4d61ab9dc3"}];
+          const paths=[...PINS.map(x=>x.path),'.github/workflows/crm-runtime-enrollment-source.yml'].sort();
+          const git=(...args)=>cp.execFileSync('git',args,{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
+          const fail=()=>{throw Error('ENROLLMENT_SOURCE_GATE_REFUSED');};
+          const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+          const head=process.env.EXPECTED_HEAD;
+          if(process.version!=='v22.23.3'||!/^[a-f0-9]{40}$/.test(head||'')||process.env.PR_BASE_SHA!==BASE||process.env.PR_HEAD_REPO!=='bandssz/shrigma-dash-cx'||process.env.PR_BASE_REPO!=='bandssz/shrigma-dash-cx'||process.env.PR_HEAD_REF!=='codex/crm-runtime-enrollment-source-20261006'||process.env.PR_BASE_REF!=='codex/crm-mvp-controls-source-20261006')fail();
+          if(git('rev-parse','HEAD')!==head||git('rev-parse',BASE+'^{commit}')!==BASE||git('merge-base',BASE,head)!==BASE)fail();
+          const changed=cp.execFileSync('git',['diff','--name-status','--no-renames','-z',BASE,head]).toString('utf8').split('\0');changed.pop();const changes=[];
+          for(let i=0;i<changed.length;i+=2){if(changed[i]!=='A'||typeof changed[i+1]!=='string')fail();changes.push(changed[i+1]);}
+          if(!same(changes.sort(),paths)||git('status','--porcelain','--untracked-files=all')!=='')fail();
+          const tree=ref=>new Map(cp.execFileSync('git',['ls-tree','-r','-z','--full-tree',ref]).toString('utf8').split('\0').filter(Boolean).map(line=>{const tab=line.indexOf('\t');return [line.slice(tab+1),line.slice(0,tab)];}));
+          const before=tree(BASE),after=tree(head);
+          for(const [file,pin] of before)if(after.get(file)!==pin)fail();
+          if(after.size!==before.size+5)fail();
+          for(const file of paths)if(!after.get(file)?.startsWith('100644 blob '))fail();
+          for(const pin of PINS){
+           const file=path.join(process.env.GITHUB_WORKSPACE,pin.path),s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||fs.realpathSync(file)!==file)fail();
+           const b=fs.readFileSync(file),blob=crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
+           if(b.length!==pin.bytes||crypto.createHash('sha256').update(b).digest('hex')!==pin.sha256||blob!==pin.gitBlobSha1||after.get(pin.path)!=='100644 blob '+blob)fail();
+          }
+          const contract=JSON.parse(fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE,PINS[0].path),'utf8'));
+          if(contract.enabled!==false||contract.scope!=='source-bytes-only'||Object.values(contract.authority).some(v=>v!==false))fail();
+          console.log(JSON.stringify({state:'exact-five-new-source-paths-preserved-parent',base:BASE,head,sourceOnly:true,operational:false}));
+          NODE
+      - name: Materialize only seventeen pinned public source inputs
+        id: materialize
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib');
+          const PINS=[{"path":"tools/dashboard-runtime-enrollment-source/contract.json","bytes":9642,"sha256":"10fce0ab0752bf2d7208226859cd777f734a266cdf4281b5ad5d7a0e11ca85c0","gitBlobSha1":"94208504e81843637f966d20ea44e0e1fa61fafa"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.cjs","bytes":9860,"sha256":"eb3f98a41c267c3f9c842f091fcdf3e5426c7ab7ae49ec1896abd434e3f8f9bf","gitBlobSha1":"1b013ed61ef709de107bd6424dd3ae39960fab4c"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.test.cjs","bytes":9032,"sha256":"e3b5135623665aae0ed453939dd08e39e3e128d1dd74ec55fe7df398c58e4121","gitBlobSha1":"f2c9ce8b5e39e114f797834780b2b8797f567c89"},{"path":"tools/dashboard-runtime-enrollment-source/public-corpus.json","bytes":905315,"sha256":"6697df85686021f6ed516b47a673d26d927571375dbd76b63baf9e1a9264f337","gitBlobSha1":"508e0430ee406d523cdd4726fb7a7c4d61ab9dc3"}],RECORDS=[{"kind":"base-pack","path":"base/runtime-pack.json","bytes":827816,"sha256":"3b7ffcb0095a723402bc37ed3187ccab1e05f27b1e27cff8d1a9699011972be4","gitBlobSha1":"508b7765caddc3b9bd33d0858dc78eb8fa1bf130"},{"kind":"delta","path":"delta/auth.cjs","bytes":112250,"sha256":"6579c3bffffd73f09d6e2950d010ce72ac08d5e579b7688013cb0f56cfab92bb","gitBlobSha1":"fa7e2b040c17cfac7db3ea6e3af8bd8cca94dd1f"},{"kind":"delta","path":"delta/crm-manager-journal.cjs","bytes":25484,"sha256":"585d5dbabd920b53061dae362ff3c1be9c526195f66ae9e4f52987c8a84c9ea5","gitBlobSha1":"76e4efd5472e5d1fb251f3a47efc3a84f444fca7"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/program.cjs","bytes":23039,"sha256":"ec222c5e51838b1059e81577d41824df9e267073add4631a4f2ce82fd936a4b1","gitBlobSha1":"53e4a1eb4730464944e98c185f217dcf4cfa6c03"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/controller.cjs","bytes":3017,"sha256":"1f4a9fef0113f5d7a1267d8583597523a3781aba5358f486a67fdfcb2608160e","gitBlobSha1":"c208592d6e67661c618be05da1717fd787d2e123"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/observer.cjs","bytes":12040,"sha256":"7e4ba5c087dcf134f5ecc04a411568311914291382fc6fbfcc44fa6fee7ffc4b","gitBlobSha1":"4f400bf01144b000406fa9b7d0f1800bc1cc1ea1"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/crm-campaign-writer-attestation.cjs","bytes":9142,"sha256":"645bef9f46eeeb41eb78b99f93f5c4aa843eacc55e821fb60ce2369e21c597ac","gitBlobSha1":"45024f4c1e0c271f3e4af6cfce4ddde473ef4336"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/native-preserved-guard-functions.cjs","bytes":15807,"sha256":"e17347140e72f4adb558631a8ac1469e9ce739f520976a960fe76cd6b4ecd7a4","gitBlobSha1":"e482ababb821e4dac136fade14f2171af9b5a238"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-continuity-proposal.json","bytes":2291,"sha256":"b1ca0b5764ad65313c6a6ecd7e27aec42dc108d16abe68fc4be241861515b194","gitBlobSha1":"cfc7575559c87e40b8c2f9d297a3ee8503823e02"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-source-image.json","bytes":2012,"sha256":"d1cc363db682c23a40c059c1ae860d059362462d8996f86773b66a79e26e0287","gitBlobSha1":"f357cb3ef829b1b6e24a7ec407a5eb8ca6c66df1"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json","bytes":5469,"sha256":"233382a69a0f7b8f907cd836597d56df09b6de1d6f637aa2cfd1ec084d6542b4","gitBlobSha1":"f61f3e82b6635e2492375bbfe97278b78b1888ad"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/revisao-acessos/read-original-custody-lineage-receipt.json","bytes":3236,"sha256":"8851d6482769d0c43768bd95916fde937533297366040ae39e33e65294ab4c20","gitBlobSha1":"df3510dbc498038e677716f8878bcf9c5c3a1cb8"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/release.cjs","bytes":11869,"sha256":"bb2c6f0adb4c05a1e2ee5148395795ace48a657dab4e9ea5108232736d58ffd2","gitBlobSha1":"c3e3aa06165b8c070cac303437f527947a2cdf16"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/payload/manifest.json","bytes":2263,"sha256":"c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b","gitBlobSha1":"7ce38f6748307ee76acac2de322c814def04864e"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json","bytes":3731,"sha256":"a5bdf5952a75f341fd6fdb8021f3601373e94ddd0b536cde3d71300d4557d7c5","gitBlobSha1":"4155c1a2e98a1a79d6bec376ebe7cc7fcc81261e"},{"kind":"historical-reference","path":"evidence/deliverables/sprint-20261006/acessos/pr-preparation/CI-RECIBO.json","bytes":1067,"sha256":"1163b4ea2e74bbde29a29ffacdea6a1042983a67bfd34e804b79e9586d0f42a3","gitBlobSha1":"65f068d2310e21d66a5084304977317b3a86b885"},{"kind":"historical-reference","path":"evidence/deliverables/sprint-20261006/acessos/pr-preparation/files/tools/dashboard-active-read-enrollment/verify-source.cjs","bytes":4942,"sha256":"0c0d5d0df097ca2cc51992c11b66a89fb1d5c5bad8d6a8e897b68525651d00c4","gitBlobSha1":"8f84bd6fbbd8fff4a8095a4abe19cdf7a55ff1ab"}];
+          const exact=(o,keys)=>o&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(',')===keys.slice().sort().join(',');
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const blob=b=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
+          const same=(a,b)=>['dev','ino','size','mode','uid','gid','nlink','mtimeMs','ctimeMs'].every(k=>a[k]===b[k]);
+          const refuse=()=>{throw Error('ENROLLMENT_PUBLIC_MATERIALIZER_REFUSED');};
+          function physical(p,dir=false,privateMode){
+           if(typeof p!=='string'||!path.isAbsolute(p)||p!==path.resolve(p)||/[\r\n\0]/.test(p)||p.split(path.sep).includes('.private'))refuse();
+           const s=fs.lstatSync(p);if(fs.realpathSync(p)!==p||s.isSymbolicLink()||(dir?!s.isDirectory():!s.isFile()||s.nlink!==1))refuse();
+           if(privateMode!==undefined&&((s.mode&0o777)!==privateMode||s.uid!==process.getuid()||s.gid!==process.getgid()))refuse();
+           return s;
+          }
+          function readPinned(p,pin,privateMode){
+           const s=physical(p,false,privateMode);if(s.size!==pin.bytes)refuse();let fd;
+           try{fd=fs.openSync(p,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);if(!same(s,fs.fstatSync(fd)))refuse();const b=fs.readFileSync(fd);if(!same(s,fs.fstatSync(fd))||!same(s,physical(p,false,privateMode))||b.length!==pin.bytes||sha(b)!==pin.sha256||blob(b)!==pin.gitBlobSha1)refuse();return b;}finally{if(fd!==undefined)fs.closeSync(fd);}
+          }
+          function decoded(){
+           const workspace=process.env.GITHUB_WORKSPACE;physical(workspace,true);for(const pin of PINS)readPinned(path.join(workspace,pin.path),pin);
+           const transport=readPinned(path.join(workspace,PINS[3].path),PINS[3]);const wrapper=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(transport));
+           if(!exact(wrapper,['schema','recordCount','rawBytes','rawSha256','brotliBase64'])||wrapper.schema!=='crm-enrollment-public-corpus-carrier-v1'||wrapper.recordCount!==17||wrapper.rawBytes!==1075030||wrapper.rawSha256!=='86d828f77406020a9a2aa84ce7592695d0a3838d91249b9cda312491337f9795'||typeof wrapper.brotliBase64!=='string'||!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(wrapper.brotliBase64))refuse();
+           const compressed=Buffer.from(wrapper.brotliBase64,'base64');if(compressed.toString('base64')!==wrapper.brotliBase64)refuse();
+           const result=zlib.brotliDecompressSync(compressed,{info:true,maxOutputLength:2097152});if(result.engine.bytesWritten!==compressed.length||result.buffer.length!==wrapper.rawBytes||sha(result.buffer)!==wrapper.rawSha256)refuse();
+           const data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(result.buffer));
+           if(!exact(data,['schema','scope','sourceOnly','operational','nativeAdmission','installation','baseSourceRevision','candidateSourceRevision','contractSha256','recordCount','records'])||data.schema!=='crm-enrollment-public-corpus-records-v1'||data.scope!=='source-bytes-only'||data.sourceOnly!==true||data.operational!==false||data.nativeAdmission!==false||data.installation!==false||data.baseSourceRevision!=='c3f0ac329d04903078fc0a558ed89aa9f50696c9'||data.candidateSourceRevision!=='cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9'||data.contractSha256!==PINS[0].sha256||data.recordCount!==17||!Array.isArray(data.records)||data.records.length!==17)refuse();
+           const contract=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(readPinned(path.join(workspace,PINS[0].path),PINS[0])));
+           const expectedContract=[{path:'base/runtime-pack.json',bytes:contract.basePack.bytes,sha256:contract.basePack.transportSha256},...contract.delta.map(p=>({path:'delta/'+p.path,bytes:p.afterBytes,sha256:p.afterSha256})),...contract.historicalReferences.map(p=>({path:'evidence/'+p.path,bytes:p.bytes,sha256:p.sha256}))];
+           if(expectedContract.length!==17||contract.enabled!==false||contract.basePack.runtimeFiles!==28||contract.delta.length!==2||contract.historicalReferences.length!==14)refuse();
+           const seen=new Set();return data.records.map(record=>{
+            if(!exact(record,['kind','path','encoding','bytes','sha256','gitBlobSha1','content'])||typeof record.path!=='string'||seen.has(record.path)||record.encoding!=='utf8'||typeof record.content!=='string')refuse();seen.add(record.path);
+            const pin=RECORDS.find(p=>p.path===record.path),cp=expectedContract.find(p=>p.path===record.path);if(!pin||!cp||!/^([a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+$/.test(record.path)||record.path.split('/').some(p=>p==='.'||p==='..'||p.startsWith('.'))||record.kind!==pin.kind||record.bytes!==pin.bytes||record.sha256!==pin.sha256||record.gitBlobSha1!==pin.gitBlobSha1||cp.bytes!==pin.bytes||cp.sha256!==pin.sha256)refuse();
+            const bytes=Buffer.from(record.content,'utf8');if(new TextDecoder('utf-8',{fatal:true}).decode(bytes)!==record.content||bytes.length!==pin.bytes||sha(bytes)!==pin.sha256||blob(bytes)!==pin.gitBlobSha1)refuse();return {pin,bytes};
+           });
+          }
+          function writeRecords(root,records){
+           for(const {pin,bytes} of records){let dir=root;for(const part of pin.path.split('/').slice(0,-1)){dir=path.join(dir,part);if(!fs.existsSync(dir))fs.mkdirSync(dir,{mode:0o700});physical(dir,true,0o700);}
+            const file=path.join(root,pin.path),fd=fs.openSync(file,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);try{fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);if((fs.fstatSync(fd).mode&0o777)!==0o600)refuse();}finally{fs.closeSync(fd);}readPinned(file,pin,0o600);
+           }
+          }
+          function verify(root,records){
+           physical(root,true,0o700);const expected=new Set(records.map(r=>r.pin.path)),dirs=new Set(['']);for(const f of expected){let d=path.posix.dirname(f);while(d!=='.'){dirs.add(d);d=path.posix.dirname(d);}}
+           const seen=[],inodes=new Set();function walk(dir,rel=''){physical(dir,true,0o700);for(const name of fs.readdirSync(dir)){const file=path.join(dir,name),key=rel?rel+'/'+name:name,s=fs.lstatSync(file);if(s.isSymbolicLink())refuse();if(s.isDirectory()){if(!dirs.has(key))refuse();walk(file,key);}else{if(!expected.has(key))refuse();const pin=records.find(r=>r.pin.path===key).pin;const stat=physical(file,false,0o600),inode=stat.dev+':'+stat.ino;if(inodes.has(inode))refuse();inodes.add(inode);readPinned(file,pin,0o600);seen.push(key);}}}walk(root);if(seen.length!==17||seen.sort().join('\0')!==[...expected].sort().join('\0'))refuse();
+          }
+          function main(){
+           process.umask(0o077);const records=decoded(),temp=process.env.RUNNER_TEMP;physical(temp,true);
+           const output=process.env.GITHUB_OUTPUT;const outputStat=physical(output);if(outputStat.uid!==process.getuid())refuse();
+           let root;try{root=fs.mkdtempSync(path.join(temp,'crm-enrollment-public-'));physical(root,true,0o700);writeRecords(root,records);verify(root,records);
+            const values={base_pack:path.join(root,'base/runtime-pack.json'),delta_dir:path.join(root,'delta'),evidence_root:path.join(root,'evidence')};const fd=fs.openSync(output,fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW);try{if(!same(outputStat,fs.fstatSync(fd)))refuse();fs.writeFileSync(fd,Object.entries(values).map(([k,v])=>k+'='+v+'\n').join(''));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+            console.log(JSON.stringify({state:'public-source-fixtures-materialized',records:17,sourceOnly:true,operational:false}));
+           }catch(e){if(root){physical(root,true,0o700);fs.rmSync(root,{recursive:true,force:true});}throw e;}
+          }
+          try{main();}catch{console.error('ENROLLMENT_PUBLIC_MATERIALIZER_REFUSED');process.exitCode=1;}
+          NODE
+      - name: Default OFF and mandatory fifteen source-only cases
+        shell: bash
+        env:
+          ENROLLMENT_PUBLIC_BASE_PACK: ${{ steps.materialize.outputs.base_pack }}
+          ENROLLMENT_PUBLIC_DELTA_DIR: ${{ steps.materialize.outputs.delta_dir }}
+          ENROLLMENT_EVIDENCE_ROOT: ${{ steps.materialize.outputs.evidence_root }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node --check tools/dashboard-runtime-enrollment-source/validate-source.cjs
+          node --check tools/dashboard-runtime-enrollment-source/validate-source.test.cjs
+          node tools/dashboard-runtime-enrollment-source/validate-source.cjs | node -e "let s='';process.stdin.on('data',b=>s+=b);process.stdin.on('end',()=>{const r=JSON.parse(s);if(r.state!=='disabled'||r.code!=='DEFAULT_OFF'||r.nativeAdmission!==false||r.installation!==false||r.operational!==false)process.exit(1);console.log(JSON.stringify(r));});"
+          node --test --test-concurrency=1 --test-reporter=tap tools/dashboard-runtime-enrollment-source/validate-source.test.cjs | tee "$RUNNER_TEMP/runtime-enrollment-source.tap"
+          node - "$RUNNER_TEMP/runtime-enrollment-source.tap" <<'NODE'
+          const fs=require('node:fs');const s=fs.readFileSync(process.argv[2],'utf8');
+          for(const [name,n] of [['tests',15],['pass',15],['fail',0],['cancelled',0],['skipped',0],['todo',0]])if(!new RegExp('^# '+name+' '+n+'$','m').test(s))throw Error('ENROLLMENT_FIFTEEN_REQUIRED_NO_SKIPS');
+          if((s.match(/^ok \d+ - /gm)||[]).length!==15||/^not ok /m.test(s)||/^(?:ok|not ok) \d+ - [^\r\n]*# (?:SKIP|TODO)(?:[ \t]|$)/mi.test(s))throw Error('ENROLLMENT_FIFTEEN_REQUIRED_NO_SKIPS');
+          console.log(JSON.stringify({state:'fifteen-source-only-cases-passed',node:process.version,operational:false}));
+          NODE
+          node tools/dashboard-runtime-enrollment-source/validate-source.cjs --base-pack "$ENROLLMENT_PUBLIC_BASE_PACK" --delta-dir "$ENROLLMENT_PUBLIC_DELTA_DIR" --evidence-root "$ENROLLMENT_EVIDENCE_ROOT" | node -e "let s='';process.stdin.on('data',b=>s+=b);process.stdin.on('end',()=>{const r=JSON.parse(s);if(r.state!=='source-delta-validated'||r.runtimeFiles!==28||r.unchangedRuntimeFiles!==26||JSON.stringify(r.changedFiles)!==JSON.stringify(['auth.cjs','crm-manager-journal.cjs'])||r.runtimeClosureSha256!=='4f9e4d51340dfa2754e2fe340936c2f68f559bb3e5b1bbad019ab24d5774d28c'||r.historicalPublicReferencesMatched!==14||r.nativeAdmission!==false||r.installation!==false||r.managedModeEnable!==false||r.identitySqlExecuted!==false||r.targetPackProduced!==false||r.operational!==false)process.exit(1);console.log(JSON.stringify({state:r.state,runtimeFiles:r.runtimeFiles,unchangedRuntimeFiles:r.unchangedRuntimeFiles,changedFiles:r.changedFiles,runtimeClosureSha256:r.runtimeClosureSha256,operational:false}));});"
+      - name: Recheck source tree and every physical input
+        if: ${{ success() }}
+        shell: bash
+        env:
+          ENROLLMENT_PUBLIC_BASE_PACK: ${{ steps.materialize.outputs.base_pack }}
+          ENROLLMENT_PUBLIC_DELTA_DIR: ${{ steps.materialize.outputs.delta_dir }}
+          ENROLLMENT_EVIDENCE_ROOT: ${{ steps.materialize.outputs.evidence_root }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
+          const BASE='bc5efd57f40ba798a981c67a5937be084e441eaf';
+          const PINS=[{"path":"tools/dashboard-runtime-enrollment-source/contract.json","bytes":9642,"sha256":"10fce0ab0752bf2d7208226859cd777f734a266cdf4281b5ad5d7a0e11ca85c0","gitBlobSha1":"94208504e81843637f966d20ea44e0e1fa61fafa"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.cjs","bytes":9860,"sha256":"eb3f98a41c267c3f9c842f091fcdf3e5426c7ab7ae49ec1896abd434e3f8f9bf","gitBlobSha1":"1b013ed61ef709de107bd6424dd3ae39960fab4c"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.test.cjs","bytes":9032,"sha256":"e3b5135623665aae0ed453939dd08e39e3e128d1dd74ec55fe7df398c58e4121","gitBlobSha1":"f2c9ce8b5e39e114f797834780b2b8797f567c89"},{"path":"tools/dashboard-runtime-enrollment-source/public-corpus.json","bytes":905315,"sha256":"6697df85686021f6ed516b47a673d26d927571375dbd76b63baf9e1a9264f337","gitBlobSha1":"508e0430ee406d523cdd4726fb7a7c4d61ab9dc3"}];
+          const paths=[...PINS.map(x=>x.path),'.github/workflows/crm-runtime-enrollment-source.yml'].sort();
+          const git=(...args)=>cp.execFileSync('git',args,{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
+          const fail=()=>{throw Error('ENROLLMENT_SOURCE_GATE_REFUSED');};
+          const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+          const head=process.env.EXPECTED_HEAD;
+          if(process.version!=='v22.23.3'||!/^[a-f0-9]{40}$/.test(head||'')||process.env.PR_BASE_SHA!==BASE||process.env.PR_HEAD_REPO!=='bandssz/shrigma-dash-cx'||process.env.PR_BASE_REPO!=='bandssz/shrigma-dash-cx'||process.env.PR_HEAD_REF!=='codex/crm-runtime-enrollment-source-20261006'||process.env.PR_BASE_REF!=='codex/crm-mvp-controls-source-20261006')fail();
+          if(git('rev-parse','HEAD')!==head||git('rev-parse',BASE+'^{commit}')!==BASE||git('merge-base',BASE,head)!==BASE)fail();
+          const changed=cp.execFileSync('git',['diff','--name-status','--no-renames','-z',BASE,head]).toString('utf8').split('\0');changed.pop();const changes=[];
+          for(let i=0;i<changed.length;i+=2){if(changed[i]!=='A'||typeof changed[i+1]!=='string')fail();changes.push(changed[i+1]);}
+          if(!same(changes.sort(),paths)||git('status','--porcelain','--untracked-files=all')!=='')fail();
+          const tree=ref=>new Map(cp.execFileSync('git',['ls-tree','-r','-z','--full-tree',ref]).toString('utf8').split('\0').filter(Boolean).map(line=>{const tab=line.indexOf('\t');return [line.slice(tab+1),line.slice(0,tab)];}));
+          const before=tree(BASE),after=tree(head);
+          for(const [file,pin] of before)if(after.get(file)!==pin)fail();
+          if(after.size!==before.size+5)fail();
+          for(const file of paths)if(!after.get(file)?.startsWith('100644 blob '))fail();
+          for(const pin of PINS){
+           const file=path.join(process.env.GITHUB_WORKSPACE,pin.path),s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||fs.realpathSync(file)!==file)fail();
+           const b=fs.readFileSync(file),blob=crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
+           if(b.length!==pin.bytes||crypto.createHash('sha256').update(b).digest('hex')!==pin.sha256||blob!==pin.gitBlobSha1||after.get(pin.path)!=='100644 blob '+blob)fail();
+          }
+          const contract=JSON.parse(fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE,PINS[0].path),'utf8'));
+          if(contract.enabled!==false||contract.scope!=='source-bytes-only'||Object.values(contract.authority).some(v=>v!==false))fail();
+          console.log(JSON.stringify({state:'exact-five-new-source-paths-preserved-parent',base:BASE,head,sourceOnly:true,operational:false}));
+          NODE
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+          const PINS=[{"path":"tools/dashboard-runtime-enrollment-source/contract.json","bytes":9642,"sha256":"10fce0ab0752bf2d7208226859cd777f734a266cdf4281b5ad5d7a0e11ca85c0","gitBlobSha1":"94208504e81843637f966d20ea44e0e1fa61fafa"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.cjs","bytes":9860,"sha256":"eb3f98a41c267c3f9c842f091fcdf3e5426c7ab7ae49ec1896abd434e3f8f9bf","gitBlobSha1":"1b013ed61ef709de107bd6424dd3ae39960fab4c"},{"path":"tools/dashboard-runtime-enrollment-source/validate-source.test.cjs","bytes":9032,"sha256":"e3b5135623665aae0ed453939dd08e39e3e128d1dd74ec55fe7df398c58e4121","gitBlobSha1":"f2c9ce8b5e39e114f797834780b2b8797f567c89"},{"path":"tools/dashboard-runtime-enrollment-source/public-corpus.json","bytes":905315,"sha256":"6697df85686021f6ed516b47a673d26d927571375dbd76b63baf9e1a9264f337","gitBlobSha1":"508e0430ee406d523cdd4726fb7a7c4d61ab9dc3"}],RECORDS=[{"kind":"base-pack","path":"base/runtime-pack.json","bytes":827816,"sha256":"3b7ffcb0095a723402bc37ed3187ccab1e05f27b1e27cff8d1a9699011972be4","gitBlobSha1":"508b7765caddc3b9bd33d0858dc78eb8fa1bf130"},{"kind":"delta","path":"delta/auth.cjs","bytes":112250,"sha256":"6579c3bffffd73f09d6e2950d010ce72ac08d5e579b7688013cb0f56cfab92bb","gitBlobSha1":"fa7e2b040c17cfac7db3ea6e3af8bd8cca94dd1f"},{"kind":"delta","path":"delta/crm-manager-journal.cjs","bytes":25484,"sha256":"585d5dbabd920b53061dae362ff3c1be9c526195f66ae9e4f52987c8a84c9ea5","gitBlobSha1":"76e4efd5472e5d1fb251f3a47efc3a84f444fca7"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/program.cjs","bytes":23039,"sha256":"ec222c5e51838b1059e81577d41824df9e267073add4631a4f2ce82fd936a4b1","gitBlobSha1":"53e4a1eb4730464944e98c185f217dcf4cfa6c03"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/controller.cjs","bytes":3017,"sha256":"1f4a9fef0113f5d7a1267d8583597523a3781aba5358f486a67fdfcb2608160e","gitBlobSha1":"c208592d6e67661c618be05da1717fd787d2e123"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/observer.cjs","bytes":12040,"sha256":"7e4ba5c087dcf134f5ecc04a411568311914291382fc6fbfcc44fa6fee7ffc4b","gitBlobSha1":"4f400bf01144b000406fa9b7d0f1800bc1cc1ea1"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/crm-campaign-writer-attestation.cjs","bytes":9142,"sha256":"645bef9f46eeeb41eb78b99f93f5c4aa843eacc55e821fb60ce2369e21c597ac","gitBlobSha1":"45024f4c1e0c271f3e4af6cfce4ddde473ef4336"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/native-preserved-guard-functions.cjs","bytes":15807,"sha256":"e17347140e72f4adb558631a8ac1469e9ce739f520976a960fe76cd6b4ecd7a4","gitBlobSha1":"e482ababb821e4dac136fade14f2171af9b5a238"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-continuity-proposal.json","bytes":2291,"sha256":"b1ca0b5764ad65313c6a6ecd7e27aec42dc108d16abe68fc4be241861515b194","gitBlobSha1":"cfc7575559c87e40b8c2f9d297a3ee8503823e02"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/revisao-acessos/original-runtime-master-startup-v2/portal-source-image.json","bytes":2012,"sha256":"d1cc363db682c23a40c059c1ae860d059362462d8996f86773b66a79e26e0287","gitBlobSha1":"f357cb3ef829b1b6e24a7ec407a5eb8ca6c66df1"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261005/integracao/master-native-final-proof-v1.json","bytes":5469,"sha256":"233382a69a0f7b8f907cd836597d56df09b6de1d6f637aa2cfd1ec084d6542b4","gitBlobSha1":"f61f3e82b6635e2492375bbfe97278b78b1888ad"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/revisao-acessos/read-original-custody-lineage-receipt.json","bytes":3236,"sha256":"8851d6482769d0c43768bd95916fde937533297366040ae39e33e65294ab4c20","gitBlobSha1":"df3510dbc498038e677716f8878bcf9c5c3a1cb8"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/release.cjs","bytes":11869,"sha256":"bb2c6f0adb4c05a1e2ee5148395795ace48a657dab4e9ea5108232736d58ffd2","gitBlobSha1":"c3e3aa06165b8c070cac303437f527947a2cdf16"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/payload/manifest.json","bytes":2263,"sha256":"c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b","gitBlobSha1":"7ce38f6748307ee76acac2de322c814def04864e"},{"kind":"historical-reference","path":"evidence/deliverables/crm-sprint-final-20261006/presentation-release/NATIVE-DELIVERY.json","bytes":3731,"sha256":"a5bdf5952a75f341fd6fdb8021f3601373e94ddd0b536cde3d71300d4557d7c5","gitBlobSha1":"4155c1a2e98a1a79d6bec376ebe7cc7fcc81261e"},{"kind":"historical-reference","path":"evidence/deliverables/sprint-20261006/acessos/pr-preparation/CI-RECIBO.json","bytes":1067,"sha256":"1163b4ea2e74bbde29a29ffacdea6a1042983a67bfd34e804b79e9586d0f42a3","gitBlobSha1":"65f068d2310e21d66a5084304977317b3a86b885"},{"kind":"historical-reference","path":"evidence/deliverables/sprint-20261006/acessos/pr-preparation/files/tools/dashboard-active-read-enrollment/verify-source.cjs","bytes":4942,"sha256":"0c0d5d0df097ca2cc51992c11b66a89fb1d5c5bad8d6a8e897b68525651d00c4","gitBlobSha1":"8f84bd6fbbd8fff4a8095a4abe19cdf7a55ff1ab"}];
+          const fail=()=>{throw Error('ENROLLMENT_POST_SOURCE_PIN_REFUSED');};const sha=b=>crypto.createHash('sha256').update(b).digest('hex');const blob=b=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
+          function check(file,pin,mode){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||fs.realpathSync(file)!==file||(mode!==undefined&&((s.mode&0o777)!==mode||s.uid!==process.getuid()||s.gid!==process.getgid())))fail();const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);try{const f=fs.fstatSync(fd),b=fs.readFileSync(fd),after=fs.lstatSync(file);if(['dev','ino','size','mode','uid','gid','nlink','mtimeMs','ctimeMs'].some(k=>s[k]!==f[k]||s[k]!==fs.fstatSync(fd)[k]||s[k]!==after[k])||b.length!==pin.bytes||sha(b)!==pin.sha256||blob(b)!==pin.gitBlobSha1)fail();}finally{fs.closeSync(fd);}}
+          for(const pin of PINS)check(path.join(process.env.GITHUB_WORKSPACE,pin.path),pin);
+          const base=process.env.ENROLLMENT_PUBLIC_BASE_PACK,root=path.dirname(path.dirname(base));if(base!==path.join(root,'base/runtime-pack.json')||process.env.ENROLLMENT_PUBLIC_DELTA_DIR!==path.join(root,'delta')||process.env.ENROLLMENT_EVIDENCE_ROOT!==path.join(root,'evidence'))fail();
+          const expected=new Set(RECORDS.map(p=>p.path)),dirs=new Set(['']);for(const f of expected){let d=path.posix.dirname(f);while(d!=='.'){dirs.add(d);d=path.posix.dirname(d);}}
+          const seen=[],inodes=new Set();function walk(dir,rel=''){const stat=fs.lstatSync(dir);if(!stat.isDirectory()||stat.isSymbolicLink()||fs.realpathSync(dir)!==dir||(stat.mode&0o777)!==0o700||stat.uid!==process.getuid()||stat.gid!==process.getgid())fail();for(const name of fs.readdirSync(dir)){const p=path.join(dir,name),key=rel?rel+'/'+name:name,s=fs.lstatSync(p);if(s.isSymbolicLink())fail();if(s.isDirectory()){if(!dirs.has(key))fail();walk(p,key);}else{if(!expected.has(key))fail();const inode=s.dev+':'+s.ino;if(inodes.has(inode))fail();inodes.add(inode);check(p,RECORDS.find(r=>r.path===key),0o600);seen.push(key);}}}walk(root);if(seen.length!==17||seen.sort().join('\0')!==[...expected].sort().join('\0'))fail();
+          console.log(JSON.stringify({state:'source-and-seventeen-public-inputs-unchanged',operational:false}));
+          NODE
