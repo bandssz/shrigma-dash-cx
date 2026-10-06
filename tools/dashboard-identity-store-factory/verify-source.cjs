@@ -67,6 +67,7 @@ const PINS=Object.freeze({
   }
 });
 const MODIFIED=Object.freeze({
+ '.github/workflows/dashboard-active-read-enrollment-20261006.yml':'4e4a4e701c05f6a6f3f92a9d7f2d8d877e359c78addebc661dc624ab9fbeb246',
  'services/dashboard-operational/auth.cjs':'6579c3bffffd73f09d6e2950d010ce72ac08d5e579b7688013cb0f56cfab92bb',
  'services/dashboard-operational/server.cjs':'b3e0cc550831647f16e09db073f27dc6cdebe81cae09263e8c15c5616ac1a40e',
  'services/dashboard-operational/bootstrap.cjs':'6f3bff53826eff2788be17181fbae2a619ec42a482092cf25924ad0864c6dde0'
@@ -76,7 +77,7 @@ const UNCHANGED=Object.freeze({
  'tests/dashboard-operational-active-read-enrollment.test.cjs':{bytes:17516,sha256:'8f46f841eeeed93c80bde00c822c46e975c6ccd7eae282eb45f9f0f8313e1dd5'}
 });
 const SOURCE_PIN_NAMES=Object.freeze(['auth.cjs','crm-manager-journal.cjs','crm-manager-writer-journal.cjs','crm-manager-writer-auth-adapter.cjs','crm-campaign-create.cjs','crm-campaign-delivery.cjs','crm-manager-runtime.cjs'].sort());
-const PATHS=Object.freeze([...Object.keys(PINS),TOOL,WORKFLOW].sort());
+const PATHS=Object.freeze([...Object.keys(PINS),'.github/workflows/dashboard-active-read-enrollment-20261006.yml',TOOL,WORKFLOW].sort());
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const refuse=()=>{throw Error('IDENTITY_FACTORY_SOURCE_CONTRACT_REFUSED');};
@@ -122,7 +123,7 @@ function verify(){
  }
  const grants=JSON.parse(physical(adapter+'runtime-grants.json').toString('utf8'));
  if(grants.schema!=='dashboard-pg-runtime-grants-v1'||grants.registrySha256!==registrySha256||grants.relations.length!==29)refuse();
- return {schema:'dashboard-identity-factory-ci-source-proof-v1',state:'source-contract-verified-tests-pending',head,base:BASE,frozenBaseSourceRevision:FROZEN_BASE,finalGitRevisionAdmitted:null,node:process.version,exactDeltaPaths:16,pinnedPayloadFiles:14,files,unchangedJournalAndEnrollmentTest:true,registryStatements:247,queryStatements:226,registrySourcePins:7,registrySha256,expectedTests:{factoryAndSourceIntegration:14,enrollment:9},identityDataAccessed:false,postgresConnected:false,driversImported:false,imageBuilt:false,deployment:false,packageAllowlistAdmitsFactory:false,operational:false};
+ return {schema:'dashboard-identity-factory-ci-source-proof-v1',state:'source-contract-verified-tests-pending',head,base:BASE,frozenBaseSourceRevision:FROZEN_BASE,finalGitRevisionAdmitted:null,node:process.version,exactDeltaPaths:17,pinnedPayloadFiles:14,files,unchangedJournalAndEnrollmentTest:true,registryStatements:247,queryStatements:226,registrySourcePins:7,registrySha256,expectedTests:{factoryAndSourceIntegration:14,enrollment:9},identityDataAccessed:false,postgresConnected:false,driversImported:false,imageBuilt:false,deployment:false,packageAllowlistAdmitsFactory:false,operational:false};
 }
 try{process.stdout.write(JSON.stringify(verify())+'\n');}catch{
  process.stdout.write(JSON.stringify({schema:'dashboard-identity-factory-ci-source-proof-v1',state:'refused',code:'IDENTITY_FACTORY_SOURCE_CONTRACT_REFUSED'})+'\n');process.exitCode=1;

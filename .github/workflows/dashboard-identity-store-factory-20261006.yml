@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22.23.3'
-      - name: Verify exact sixteen paths, immutable source pins and registry
+      - name: Verify exact seventeen paths, immutable source pins and registry
         run: node tools/dashboard-identity-store-factory/verify-source.cjs > "$RUNNER_TEMP/identity-factory-source-proof.json"
       - name: Run fourteen real factory and source initialization cases
         run: |
