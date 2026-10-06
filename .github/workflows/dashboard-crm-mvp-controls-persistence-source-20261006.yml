@@ -1,0 +1,80 @@
+name: CRM persistence source-only Node22 PG17
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/dashboard-crm-mvp-controls-persistence-source-20261006.yml"
+      - "tools/dashboard-crm-mvp-controls-persistence/source-gate.cjs"
+      - "tools/dashboard-crm-mvp-controls-persistence/public-context.json"
+      - "tools/dashboard-crm-mvp-controls-persistence/materialize-context.cjs"
+      - "tests/crm-mvp-controls-persistence/source-ci-gate.test.cjs"
+      - "services/dashboard-operational/domain/crm-mvp-controls-persistence/codec.cjs"
+      - "services/dashboard-operational/domain/crm-mvp-controls-persistence/schema-v1.sql"
+      - "services/dashboard-operational/domain/crm-mvp-controls-persistence/sql.cjs"
+      - "services/dashboard-operational/domain/crm-mvp-controls-persistence/store.cjs"
+      - "tests/crm-mvp-controls-persistence/context-pins.test.cjs"
+      - "tests/crm-mvp-controls-persistence/fixtures.cjs"
+      - "tests/crm-mvp-controls-persistence/pg17.test.cjs"
+      - "tests/crm-mvp-controls-persistence/store.test.cjs"
+      - "tests/crm-mvp-controls-persistence/verify-context.cjs"
+permissions:
+  contents: read
+jobs:
+  source-pg17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
+    env:
+      SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+      CRM_PERSISTENCE_CONTEXT_DIRECTORY: ${{ runner.temp }}/crm-public-context-ci
+    steps:
+      - name: Require same repository source
+        env:
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: test "$HEAD_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify exact source and materialize public context
+        run: |
+          node tools/dashboard-crm-mvp-controls-persistence/source-gate.cjs
+          node tools/dashboard-crm-mvp-controls-persistence/materialize-context.cjs
+      - name: Directed source helper tests
+        run: |
+          node --test --test-reporter=tap tests/crm-mvp-controls-persistence/source-ci-gate.test.cjs > "$RUNNER_TEMP/source-ci.tap"
+          node --test --test-reporter=tap tests/crm-mvp-controls-persistence/context-pins.test.cjs > "$RUNNER_TEMP/context-pins.tap"
+          node --test --test-reporter=tap --test-name-pattern='^source: schema text is exact, fixed/qualified SQL only, foundation cannot activate frozen v6 boundary$' tests/crm-mvp-controls-persistence/store.test.cjs > "$RUNNER_TEMP/frozen-v6.tap"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          for(const [name,want,maxSkip] of [['source-ci',5,0],['context-pins',5,0],['frozen-v6',1,26]]){
+            const text=fs.readFileSync(path.join(process.env.RUNNER_TEMP,name+'.tap'),'utf8');
+            const n=k=>{const m=text.match(new RegExp('^# '+k+' (\\d+)$','m'));if(!m)throw Error('CI_TEST_SUMMARY_REFUSED');return Number(m[1]);};
+            if(n('pass')!==want||n('fail')!==0||n('cancelled')!==0||n('skipped')>maxSkip||n('todo')!==0)throw Error('CI_TEST_SUMMARY_REFUSED');
+          }
+          console.log(JSON.stringify({code:'CRM_DIRECTED_TESTS_PASSED',newGroups:5,contextGroups:5,frozenCases:1,notSelected:26,operational:false}));
+          NODE
+      - name: Isolated test-only PG17 engine
+        run: |
+          mkdir "$RUNNER_TEMP/crm-pglite"
+          npm install --prefix "$RUNNER_TEMP/crm-pglite" --ignore-scripts --no-audit --no-fund --no-package-lock --no-save @electric-sql/pglite@0.3.14
+          export CRM_TEST_PGLITE_MODULE="$RUNNER_TEMP/crm-pglite/node_modules/@electric-sql/pglite"
+          node tests/crm-mvp-controls-persistence/pg17.test.cjs > "$RUNNER_TEMP/pg17-result.json"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const r=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'pg17-result.json'),'utf8'));
+          if(r.executed!==true||r.result!=='passed-isolated-real-PG17-SQL-fixture'||!Number.isSafeInteger(r.engineVersionNum)||Math.floor(r.engineVersionNum/10000)!==17||r.groups!==10||r.runtimeVersion!=='v22.23.3'||r.nativeNetworkAckProof!==false||r.productionDurabilityProved!==false||r.operational!==false)throw Error('PG17_CI_RESULT_REFUSED');
+          console.log(JSON.stringify(r));
+          NODE
+      - name: Recheck source custody and emit closed receipt
+        run: |
+          node tools/dashboard-crm-mvp-controls-persistence/source-gate.cjs
+          node <<'NODE'
+          console.log(JSON.stringify({code:'CRM_SOURCE_CI_CLOSED',sourceOnly:true,defaultEnabled:false,operational:false,runtimeModified:0,completeReservation:false,productionChanged:false,nodeVersion:process.version,newHelperGroups:5,contextGroups:5,frozenCases:1,notSelected:26,pg17FixtureGroups:10,nativeWireAckProved:false,productionDurabilityProved:false}));
+          NODE
