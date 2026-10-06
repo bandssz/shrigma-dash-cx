@@ -1,0 +1,41 @@
+name: Organic scoped legacy READ Node22 source
+on:
+  push:
+    branches: [codex/organic-legacy-read-adapter-20261006]
+  pull_request:
+    paths:
+      - "services/dashboard-operational/domain/organic-legacy-read-projection/**"
+      - "tests/crm-organic-legacy-read-projection/**"
+      - ".github/workflows/organic-scoped-legacy-read-source-20261006.yml"
+permissions:
+  contents: read
+jobs:
+  new-organic-read:
+    if: ${{ github.event_name == 'push' && github.ref_name == 'codex/organic-legacy-read-adapter-20261006' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify exact new payload and existing real normalizer before imports
+        run: |
+          test "$GITHUB_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');const pins={"services/dashboard-operational/domain/organic-legacy-read-projection/projection.cjs":{"bytes":14772,"sha256":"27af908b51bcadff8e76a7259344ffb908993c64d61cb7fc32e21e34b755ce5a"},"tests/crm-organic-legacy-read-projection/projection.test.cjs":{"bytes":22223,"sha256":"7c462ab1d5058d0d3f347a1b3d9a1ff7b98466ea307dc90643dcde214e57fdca"},"ui/organic-v2/organic-contract-v1-0-2.js":{"bytes":24693,"sha256":"a53fc473eb2afec76259dea7f157aea69da8c2990f86b025874cd146450b3bb8"}};
+          if(process.version!=='v22.23.3')throw Error('ORGANIC_SOURCE_NODE_REFUSED');
+          for(const [file,p] of Object.entries(pins)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)throw Error('ORGANIC_SOURCE_PIN_REFUSED');const b=fs.readFileSync(file);if(b.length!==p.bytes||crypto.createHash('sha256').update(b).digest('hex')!==p.sha256)throw Error('ORGANIC_SOURCE_PIN_REFUSED');}
+          NODE
+      - name: Execute all22 new projection cases in this native Node22 checkout
+        run: |
+          node --test --test-reporter=tap tests/crm-organic-legacy-read-projection/projection.test.cjs > "$RUNNER_TEMP/organic-new-read.tap"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),t=fs.readFileSync(path.join(process.env.RUNNER_TEMP,'organic-new-read.tap'),'utf8');const count=k=>{const m=t.match(new RegExp('^# '+k+' (\\d+)$','m'));if(!m)throw Error('ORGANIC_SOURCE_TAP_REFUSED');return Number(m[1]);};
+          if(count('tests')!==22||count('pass')!==22||['fail','cancelled','skipped','todo'].some(k=>count(k)!==0))throw Error('ORGANIC_SOURCE_TAP_REFUSED');
+          console.log(JSON.stringify({code:'ORGANIC_SCOPED_READ_SOURCE_PASSED',tests:22,runtime:process.version,sourceOnly:true,readAdmission:false,productionInstalled:false,operational:false}));
+          NODE
