@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Influs &amp; Afiliados · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=954e7aeae13f">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YvsiXN2Vqv+I1zb0FCmw4cT1+7wkMQSVGxtp/X4sbYU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-9WcxGmugnxKLjSObvkAp8LA5XxPQgI6lJIyL1uSJf+I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -208,11 +208,14 @@
          (ΔE 7,6). Separados em abas, a cor vira reconhecimento da plataforma e o nome carrega a
          identidade — que é o que a etiqueta faz. Os quatro passam nas checagens de cor, claro e escuro. -->
     <nav class="canais" id="canais" aria-label="Canais de afiliados">
+      <button data-c="crm" data-plataforma="crm">CRM de afiliados</button>
       <button data-c="parceiros" class="ativo" data-plataforma="parceiros">Parceiros do site</button>
       <button data-c="tiktok" data-plataforma="tiktok">TikTok Shop</button>
       <button data-c="meli" data-plataforma="meli" disabled title="Ainda não conectado: nenhuma venda foi lida desta plataforma">Mercado Livre <span class="mini">em breve</span></button>
       <button data-c="shopee" data-plataforma="shopee" disabled title="Ainda não conectado: nenhuma venda foi lida desta plataforma">Shopee <span class="mini">em breve</span></button>
     </nav>
+
+    <div class="canal" id="canal-crm" data-plataforma="crm" hidden><section class="painel" id="affiliates-v2-root" aria-label="CRM de afiliados"><p role="status">CRM de afiliados indisponível: leitura própria ainda não foi conectada. Nenhum resultado foi interpretado como zero.</p></section></div>
 
     <div class="canal" id="canal-parceiros" data-plataforma="parceiros"><div id="area-candidaturas"></div><div id="area-partners"></div></div>
 
@@ -244,7 +247,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=cbd8f53fe591"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=e662c04812a1"></script>
 <script>
 const $=s=>document.querySelector(s);
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
@@ -1219,10 +1222,11 @@ $('#i-f-salvar').onclick=salvarInflu;
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;pintaMarca();renderTudo();if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();renderTudo();if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
 // A leitura segue a aba visível; trocar de aba sempre relê o período atual.
 function carregarAbaAtiva(){
   if(SEC==='escopo'&&ESCOPO)return ESCOPO.mount($('#area-escopo'));
+  if(SEC==='afil'&&CANAL==='crm')return AFFILIATES_MOUNT?AFFILIATES_MOUNT.sync():Promise.resolve();
   if(SEC==='afil')return CANAL==='tiktok'&&typeof window.carregarTTS==='function'?window.carregarTTS():carregarInflu();
   return carregarInflu();
 }
@@ -1230,15 +1234,19 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
   if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta,#sec-diagnostico,#sec-escopo').forEach(x=>x.classList.remove('ativa'));
-  b.classList.add('ativo');SEC=b.dataset.s;$('#sec-'+SEC).classList.add('ativa');
+  b.classList.add('ativo');SEC=b.dataset.s;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();$('#sec-'+SEC).classList.add('ativa');
   // Afiliados TikTok e uma lane separada dos cupons: os KPIs e alertas de cupom (topo) saem de cena nessa secao.
   document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');document.body.classList.toggle('sec-meta',SEC==='meta');document.body.classList.toggle('sec-diagnostico',SEC==='diagnostico');document.body.classList.toggle('sec-escopo',SEC==='escopo');carregarAbaAtiva();});
 
 // Canais de afiliados. O TikTok só é carregado quando o canal dele é aberto — abrir Afiliados em
 // Parceiros não dispara a consulta pesada do TikTok Shop.
 let CANAL='parceiros';
+// Root injeta explicitamente gateway + vínculo de marca após admissão. Sem adaptador padrão.
+const AFFILIATES_MOUNT=window.ShrigmaAffiliatesMount?ShrigmaAffiliatesMount.bind({document,element:$('#affiliates-v2-root'),view:window.ShrigmaAffiliatesV2,
+  getSelection:()=>MARCA,isActive:()=>SEC==='afil'&&CANAL==='crm',getFilters:()=>({period:{start:PER.ini,end:PER.fim}})}):null;
+window.addEventListener('pagehide',()=>{if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.dispose();},{once:true});
 function trocaCanal(c){
-  CANAL=c;
+  CANAL=c;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();
   document.querySelectorAll('#canais button').forEach(x=>x.classList.toggle('ativo',x.dataset.c===c));
   document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==c;});
   document.body.classList.toggle('sec-partners',SEC==='afil'&&c==='parceiros');

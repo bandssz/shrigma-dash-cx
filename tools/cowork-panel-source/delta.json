@@ -1,0 +1,318 @@
+{
+  "baseRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "sourceOnly": true,
+  "operational": false,
+  "productionChanged": false,
+  "soleSharedManifestWriter": "Codex-Root",
+  "files": [
+    {
+      "repoPath": "assets/panels/influs.css",
+      "deltaStatus": "M",
+      "bytes": 98381,
+      "sha256": "86f46577e9c72d36b23f599de45b049ebda134bbf339607d81f39d58e69a2406",
+      "gitBlobSha1": "0d1a651a7933a3f949636a938eda36c266bd7594",
+      "before": {
+        "repoPath": "assets/panels/influs.css",
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/assets/panels/influs.css",
+        "gitBlobSha1": "dfe381d7fb6662ca6dd3517f0285ca9c8597c6e9",
+        "sha256": "954e7aeae13fbf1e789e5e1917802eb9ca67e105f45faf864865e0983f8b501b",
+        "bytes": 90634
+      }
+    },
+    {
+      "repoPath": "assets/panels/influs.js",
+      "deltaStatus": "M",
+      "bytes": 278596,
+      "sha256": "e662c04812a1505e4178eaa589a9f83b57e688faebffd9877497eda643f98bae",
+      "gitBlobSha1": "42ff57d5ed40d509b0eebe5e96e3d25c2a4a4f94",
+      "before": {
+        "repoPath": "assets/panels/influs.js",
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/assets/panels/influs.js",
+        "gitBlobSha1": "bf3ff9f6bdb02414f7c019ca27915073e09b822a",
+        "sha256": "cbd8f53fe5910153118e4fd785ec9ca98e5e02a275c48c08e689d3c3f79cbc8a",
+        "bytes": 219847
+      }
+    },
+    {
+      "repoPath": "assets/panels/organico.css",
+      "deltaStatus": "M",
+      "bytes": 71232,
+      "sha256": "ef89318de87830f0e79b905a2617edd6685b567ac7156b67c0d444af3a9a9a75",
+      "gitBlobSha1": "572e72c48a0bda025b4942bb712e269242fdda79",
+      "before": {
+        "repoPath": "assets/panels/organico.css",
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/assets/panels/organico.css",
+        "gitBlobSha1": "56408ed2b9e9c40077da84ccb97f2d436abe803e",
+        "sha256": "556ad546e042e364546c50e40e81d17660358afc3698ff793e84c29a4d9653db",
+        "bytes": 65053
+      }
+    },
+    {
+      "repoPath": "assets/panels/organico.js",
+      "deltaStatus": "M",
+      "bytes": 108728,
+      "sha256": "e6ecfa42e86608fe73fa1f154384f671b99009339e4021303887ab06b02bbf56",
+      "gitBlobSha1": "9d7cfc3825fd3a6081279caaafb3cbb7b4aadbc0",
+      "before": {
+        "repoPath": "assets/panels/organico.js",
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/assets/panels/organico.js",
+        "gitBlobSha1": "60eabbcc6de3cd90cd14e2b429e4399d983a83e4",
+        "sha256": "7d9bdcd5fdeac3db036d28d84c8f5992ccceb9f9d6ad06836dc5f9a65e164fcb",
+        "bytes": 56079
+      }
+    },
+    {
+      "repoPath": "influs-affiliates-mount.js",
+      "deltaStatus": "A",
+      "bytes": 5071,
+      "sha256": "9a6f41f09f45a7730ae3715ccfa7860a8d126540003a7183edcfef172cb9235a",
+      "gitBlobSha1": "f7433c0fc71d8c4958a1ac4ae710e6750fad3acd",
+      "before": null
+    },
+    {
+      "repoPath": "influs.html",
+      "deltaStatus": "M",
+      "bytes": 97384,
+      "sha256": "9884e1b18bfc06f3137027965d50f2c099432808cf2b86fecb4a623cd15bce16",
+      "gitBlobSha1": "8f1ed72e21fc124590e25cad1773d5bac0b447d0",
+      "before": {
+        "repoPath": "influs.html",
+        "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/cowork-trabalho/afiliados/context/source/influs.html",
+        "gitBlobSha1": "bcac9f41662696bb01241a746eea0aee1e7ac131",
+        "sha256": "c2475121aff58db8d7e6fa91286235cdb9f6beb9c4d2ac4c94aea0ab0203c73d",
+        "bytes": 96288
+      }
+    },
+    {
+      "repoPath": "organico.html",
+      "deltaStatus": "M",
+      "bytes": 51680,
+      "sha256": "335edec281ef076bc676ce1a0aaf455440f3107bc2c995b2040446155eae72e9",
+      "gitBlobSha1": "8566d21320cdb8ceb06e3057e7f1628083d9a4dc",
+      "before": {
+        "repoPath": "organico.html",
+        "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/cowork-trabalho/organico/context/source/organico.html",
+        "gitBlobSha1": "d72a9de66d6bb6a79b09b224352ea53192ef75fd",
+        "sha256": "1600c0983eaa1732f2e68075a30d51f4651c144719f2e44d73c78df8353b5483",
+        "bytes": 50486
+      }
+    },
+    {
+      "repoPath": "tests/affiliates-v2/affiliates-v2.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 37838,
+      "sha256": "6590f901b71fd34a011e19ec70275209b0cc6cf3db8a7bdbb124e2967f7eab84",
+      "gitBlobSha1": "69f75f15e22c3e4d2a82f8c1f7067b321d8cf914",
+      "before": null
+    },
+    {
+      "repoPath": "tests/affiliates-v2/mini-dom.cjs",
+      "deltaStatus": "A",
+      "bytes": 7725,
+      "sha256": "d7ff99dba627013337a6c4a1f458da3242eeecb3c86d585e2e0f4e5a6083f75c",
+      "gitBlobSha1": "78c8aae1abb501d8e4d794c78b992b25df124d97",
+      "before": null
+    },
+    {
+      "repoPath": "tests/influs-affiliates-mount-lifecycle.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 3227,
+      "sha256": "cc681a9576e7718ec8adc1ffbf4662e2a071f4227d04a26bdd564ec54034b440",
+      "gitBlobSha1": "cf7516c24d71ad3474ee3dae8ba9c12ac85a67f7",
+      "before": null
+    },
+    {
+      "repoPath": "tests/influs-affiliates-mount.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 7986,
+      "sha256": "8da0d6eda2e45bf22b0b1b601d9ac3512958830ff103e9f2f88b93b337327998",
+      "gitBlobSha1": "eebd68a0f8eb6e9fb02b989268496729eea57627",
+      "before": null
+    },
+    {
+      "repoPath": "tests/mvp-root-integration/cowork-binding-and-journal.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 11945,
+      "sha256": "02e6f47e33d5a89eba591c12c2b72e75063acae19b7f7d12f9e1bdb87b693625",
+      "gitBlobSha1": "6a6f778a5d2876e76b722d8afa09ebd75dd033d2",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/browser.smoke.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 7170,
+      "sha256": "ab705fa80b068f867c7d8bdad0d798a409d46535312bccdec9fa650fd6ca4357",
+      "gitBlobSha1": "8a0810609957052cd3b617b07b40c5f550700ff4",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/data-states.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 8531,
+      "sha256": "d9cab1ad3c227d282e4d76b7de525b7d3588a968bed226bf475b784925291d81",
+      "gitBlobSha1": "7476f0e36f698fe56263dc97d1b1f266eda605bc",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/draft-intent-root.test.cjs",
+      "deltaStatus": "A",
+      "before": null,
+      "bytes": 3232,
+      "sha256": "5926e9509535da0f8c855619f083cbb44289a84003d1bd66e70ce28fdaec145d",
+      "gitBlobSha1": "6a1e3c3ee7546bd050eb392daff4f05ecdb6cc23"
+    },
+    {
+      "repoPath": "tests/organic-v2/fake-dom.cjs",
+      "deltaStatus": "A",
+      "bytes": 5771,
+      "sha256": "b77c1be20e6141e2c8cd4cade2629b092cfa8ef61ba7651c8073b3e407447007",
+      "gitBlobSha1": "73efc28be112b0b7d4c429e2a98ca1eeebbaba06",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/harness.cjs",
+      "deltaStatus": "A",
+      "bytes": 1974,
+      "sha256": "23c9739d64680e4b50431dc86bc67d19168c0bc9fbdf2e170f15208002674775",
+      "gitBlobSha1": "3cf9153962f002e409faaf3a0523ec2d7151ee07",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/lifecycle.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 8599,
+      "sha256": "e931e3d0ea269671a8a99880f2af43f58bcbf3774df9d610e5c43a78c1d2b9f7",
+      "gitBlobSha1": "3f0c62a180696698c578d0f8a3e59290706a7c82",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/links-recovery.test.cjs",
+      "deltaStatus": "A",
+      "before": null,
+      "bytes": 7694,
+      "sha256": "0854c1eabca54a0b4fe691c2d3cdaef91a9895abc0cb64bbf78c47c6e9d43e80",
+      "gitBlobSha1": "a03aa821a5c729baa848a4533c2f74cd347620a5"
+    },
+    {
+      "repoPath": "tests/organic-v2/links.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 10666,
+      "sha256": "abcedf888c742463019eb7eb5d8526b3e8cf6e6d6834fc11bbe73ff9f602c2ac",
+      "gitBlobSha1": "f6b7178df03a875f204bf79afc5dc2202389ecca",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/pending-journal-root.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 3511,
+      "sha256": "8d30445f630db3b6f3c60d9e53a9760b4f780523243fc3aeb742fdfbb2f203f9",
+      "gitBlobSha1": "2837b5d31268ec7b6bfd19d620567db4abbce336",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/static-guard.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 2192,
+      "sha256": "059df3ea84b15462ef8a04dcafc6f72e0b1d5e85efe40774d0ca6c4d287dad3c",
+      "gitBlobSha1": "fc60342b09dadde9f93d8676ef0b60a1f89dfc93",
+      "before": null
+    },
+    {
+      "repoPath": "tests/organic-v2/synthetic-gateway.cjs",
+      "deltaStatus": "A",
+      "bytes": 10667,
+      "sha256": "5c97a3d216c51d963034b38827d1b5a3f3cf9cea4539dbf487dc5e48ffbd67a5",
+      "gitBlobSha1": "db13aae7d6b9cde342be24c4202512b39d8b6101",
+      "before": null
+    },
+    {
+      "repoPath": "tests/root-mounts/dom-fixture.cjs",
+      "deltaStatus": "A",
+      "bytes": 5771,
+      "sha256": "b77c1be20e6141e2c8cd4cade2629b092cfa8ef61ba7651c8073b3e407447007",
+      "gitBlobSha1": "73efc28be112b0b7d4c429e2a98ca1eeebbaba06",
+      "before": null
+    },
+    {
+      "repoPath": "tests/root-mounts/organic-v2-mount.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 7054,
+      "sha256": "4ebe4514c654faa0ab785207cb43e9b198782b13ff3626f5ab120d9e2140f150",
+      "gitBlobSha1": "2d12f6c097f1eeb61c8c3303d90e6bf6621cf94c",
+      "before": null
+    },
+    {
+      "repoPath": "tools/panel-build/manifest.json",
+      "deltaStatus": "M",
+      "bytes": 4479,
+      "sha256": "64f3d1b395986c987c7903606ee7230c337e4f39619d418f738d548a540036b6",
+      "gitBlobSha1": "fb23564dfcad2a0d0ec8f50fc8554d3b03bdf930",
+      "before": {
+        "repoPath": "tools/panel-build/manifest.json",
+        "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-builder-2676/tools/panel-build/manifest.json",
+        "gitBlobSha1": "1fefb7189d720d239853696a976dbc92516a1180",
+        "sha256": "a3ba56d29bfa8a95ae4699be1bd61e3a1a0edfddcbfe634a0a679363d3a5e13d",
+        "bytes": 4192
+      }
+    },
+    {
+      "repoPath": "ui/affiliates-v2/affiliates-v2.css",
+      "deltaStatus": "A",
+      "bytes": 8175,
+      "sha256": "e141c2f12408e4422dadffd5ce2e2077d0fbd35d7791930721cb5a01cf015c2e",
+      "gitBlobSha1": "d0a2a51dcbc8f81ecf9d18d98025aff3b89d9f13",
+      "before": null
+    },
+    {
+      "repoPath": "ui/affiliates-v2/affiliates-v2.js",
+      "deltaStatus": "A",
+      "bytes": 71622,
+      "sha256": "7d486c070c9c78484595fd4355a5a78a9ec9569e1100a30ca499aca6f8485bcd",
+      "gitBlobSha1": "55e929fc63e1a2ef5dca8b45d98c2ea86f78b438",
+      "before": null
+    },
+    {
+      "repoPath": "ui/organic-v2/INTEGRACAO.md",
+      "deltaStatus": "A",
+      "bytes": 3691,
+      "sha256": "868c1a9960e23f9fb13c2f2a29742bed414920b9ed5cf68ae54a45cf7e0b8128",
+      "gitBlobSha1": "f874e345fcea20810439ef077e3f78c49d364d01",
+      "before": null
+    },
+    {
+      "repoPath": "ui/organic-v2/organic-v2.css",
+      "deltaStatus": "A",
+      "bytes": 6293,
+      "sha256": "47c920e7986f79bb33719a88392b98b31c4db23df218c8b38a52828b39d8a2d0",
+      "gitBlobSha1": "0e6675def4cf9cf5891eb3929824918ffeac720d",
+      "before": null
+    },
+    {
+      "repoPath": "ui/organic-v2/organic-v2.js",
+      "deltaStatus": "A",
+      "bytes": 63175,
+      "sha256": "bb4e8624aa2695ee4ad25cc936bdf83dbd8f529844360a9726167e1b712640c4",
+      "gitBlobSha1": "339e75b47e9099b46dda591f7545c290798a3035",
+      "before": null
+    },
+    {
+      "repoPath": "ui/root-mounts/organic-v2-mount.css",
+      "deltaStatus": "A",
+      "bytes": 402,
+      "sha256": "3791e5e6ad56657b5300ae355ed9fd35430554189d10051a8239c5c11eccb390",
+      "gitBlobSha1": "7b659bdd3e1325b2de6e0933a49ac6b9cb323dc4",
+      "before": null
+    },
+    {
+      "repoPath": "ui/root-mounts/organic-v2-mount.js",
+      "deltaStatus": "A",
+      "bytes": 6295,
+      "sha256": "fdd0f71361e0e92133e00e8df4c652ca366bad4c5b92857c8a39b297dcc0903d",
+      "gitBlobSha1": "fa97eee4e6efe13f31d4d7f7072f376057eab2fe",
+      "before": null
+    }
+  ],
+  "defaultGatewayInstalled": false,
+  "allMutationsAdmitted": false,
+  "schema": "root-shared-mount-source-composition-v1"
+}

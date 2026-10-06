@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=556ad546e042">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Bb1kT/moExfpK3g9imHty5gmYwOsaPI1Yh0Yp5GIV1M='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=ef89318de878">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0rhL/7LrSt5EfW+CvGOGrsH+3iO6scfTvMMzutC6T0I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -21,6 +21,7 @@
     <button data-s="stories">Stories<small>links, toques e conversões</small><span class="n" id="n-stories"></span></button>
     <button data-s="venda">Venda<small>pedidos atribuídos, modelo e cobertura</small><span class="n" id="n-venda"></span></button>
     <button data-s="links">Links UTM<small>gerar, registrar e ver o que vendeu</small></button>
+    <button data-s="organic-v2">Visão integrada<small>posts, atribuição e links</small></button>
   </nav>
   <p class="area-rodape">Instagram e Facebook · leitura de snapshots no Postgres; a página nunca chama a Meta.</p>
 </aside>
@@ -120,6 +121,8 @@
 
   <section class="sec" id="sec-links"><div id="organico-links"></div></section>
 
+  <section class="sec" id="sec-organic-v2" aria-label="Orgânico integrado"><div id="organic-v2-root-host"><section class="painel"><h2>Orgânico integrado</h2><p role="status">Dados indisponíveis. O acesso desta área ainda não foi habilitado.</p></section></div></section>
+
   <section class="sec" id="sec-venda">
     <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <details class="painel org-legado">
@@ -142,7 +145,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=7d9bdcd5fdea"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=e6ecfa42e866"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -544,6 +547,7 @@ document.addEventListener('click',e=>{
 });
 function render(){
   pintaMarca();
+  if(typeof ORGANIC_V2_ROOT!=='undefined'&&ORGANIC_V2_ROOT)ORGANIC_V2_ROOT.sync();
   if(!API)return;
   $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
   const lista=pintaKPIs();
@@ -555,11 +559,17 @@ function troca(s){
   document.querySelectorAll('#secoes button').forEach(b=>b.classList.toggle('ativo',b.dataset.s===s));
   document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+s));
   document.body.classList.toggle('sec-links',s==='links');
+  document.body.classList.toggle('organic-v2-root-active',s==='organic-v2');
+  if(typeof ORGANIC_V2_ROOT!=='undefined'&&ORGANIC_V2_ROOT){if(s==='organic-v2')ORGANIC_V2_ROOT.activate({filters:{period:{from:PER.ini,to:PER.fim}}});else ORGANIC_V2_ROOT.leave();}
   if(s==='links'&&typeof LINKS_ORG!=='undefined'&&LINKS_ORG)LINKS_ORG.mount($('#organico-links'));
 }
 // Registro de links UTM: grava com a mesma chave de leitura do Orgânico (acesso único).
 var ORGANICO_LINKS_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/organico-links-utm-8f07a61f3f3c';
 var LINKS_ORG=typeof OrganicoLinks!=='undefined'?OrganicoLinks.create({document,endpoint:()=>ORGANICO_LINKS_URL,key:()=>ACESSO_ORGANICO.current(),getApi:()=>API,getMarca:()=>MARCA,getPeriod:()=>PER}):null;
+
+// Root injects its admitted adapter; this host supplies no endpoint, key or session.
+var ORGANIC_V2_ROOT=typeof ShrigmaOrganicRootMount!=='undefined'?ShrigmaOrganicRootMount.create({element:$('#organic-v2-root-host'),document,component:typeof ShrigmaOrganicV2!=='undefined'?ShrigmaOrganicV2:null,getScopeHint:()=>MARCA}):null;
+if(ORGANIC_V2_ROOT){window.ShrigmaOrganicRootHost=ORGANIC_V2_ROOT;window.addEventListener('pagehide',()=>ORGANIC_V2_ROOT.dispose(),{once:true});}
 
 /* ---------- carga ---------- */
 const ACESSO_ORGANICO=OrganicAccess.bind({document,readExisting:()=>shrigmaChave('organico'),onAccess:()=>carrega()});

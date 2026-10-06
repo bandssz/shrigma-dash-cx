@@ -1,0 +1,8 @@
+/* One overview in this new section; legacy layout is unchanged on every other tab. */
+body.organic-v2-root-active > .topo,
+body.organic-v2-root-active #periodo,
+body.organic-v2-root-active #area-kpis,
+body.organic-v2-root-active #aviso-carga,
+body.organic-v2-root-active #faixa-alertas,
+body.organic-v2-root-active #organico-acesso-bar,
+body.organic-v2-root-active #organico-acesso { display: none; }
