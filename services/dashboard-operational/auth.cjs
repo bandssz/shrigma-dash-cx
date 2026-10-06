@@ -692,13 +692,27 @@ function createAuth(options){
   requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(userId));
   const t=current();db.exec('BEGIN IMMEDIATE');try{
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
+   // A real Master-CSRF request may enroll an already active growth account
+   // once the managed READ integration is configured. No account/password,
+   // session or upstream key is replaced, and no credential is promoted here.
+   if(managedCrm&&user.state==='active'&&p.growth?.read&&managedCrm.status(userId)===null){
+    const scope=requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(userId)),currentPermissions=permissions(userId);
+    if(Object.keys(currentPermissions).length!==1||currentPermissions.growth?.read!==true||currentPermissions.growth?.edit!==false||!validBrand('growth',scope.brand))err('GRANTS_INVALID',400);
+    if(updateIntent(userId)?.row.phase==='revoking')err('USER_UPDATE_PENDING',409);
+    if(unresolvedCampaignDraft(userId)||unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
+    const slots=db.prepare('SELECT slot FROM upstream_credentials WHERE user_id=?').all(userId);
+    if(slots.length!==0)err('CRM_ENROLLMENT_CREDENTIAL_REVOCATION_REQUIRED',409);
+    managedCall(()=>managedCrm.enrollActiveLifecycle(userId));bindCurrentBrandLifecycles(userId);
+   }
+   const preserveReadOnlySessions=managedCrm&&user.state==='active'&&p.growth?.read===true&&p.growth?.edit===false&&
+    (!managedWriter||managedWriter.publicState(userId)===null)&&!db.prepare('SELECT slot FROM upstream_credentials WHERE user_id=?').all(userId).some(({slot})=>CREDENTIAL_SLOTS[slot]?.mayWrite);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
    if(requestedAccess==='edit'){
     if(corporateWriter&&p.growth?.read){
      if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
-     // Existing admissions stay put; only the missing active READ pilot gets
-     // a new unapproved WRITER lifecycle. Requesting edit never grants it.
-     if(user.state==='active'&&managedWriter.publicState(userId)===null){writerCall(()=>managedWriter.requestLifecycle(userId));bindCurrentBrandLifecycles(userId);}
+     // The original bounded fulfillment creates/approves WRITER only after
+     // READ is actually committed. Pending enrollment only records intent.
+     if(user.state==='active'&&managedCrm.credentialReady(userId)===true&&managedWriter.publicState(userId)===null){writerCall(()=>managedWriter.requestLifecycle(userId));bindCurrentBrandLifecycles(userId);}
     }
     db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(userId,t);
    }
@@ -706,7 +720,7 @@ function createAuth(options){
     if(corporateWriter&&managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
     if(managedWriter)writerCall(()=>managedWriter.stageRevoke(userId));
     db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
-    db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+    if(!preserveReadOnlySessions)db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
     for(const [slot,definition]of Object.entries(CREDENTIAL_SLOTS))if(definition.mayWrite)db.prepare('DELETE FROM upstream_credentials WHERE user_id=? AND slot=?').run(userId,slot);
    }
    db.prepare('UPDATE users SET updated_at=? WHERE id=?').run(t,userId);recordWriterRequestAuthority(userId);
