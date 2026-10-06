@@ -1,0 +1,55 @@
+{
+  "schema": "borrowed-PG17-source-manifest-v1",
+  "base": "3a56a7fb55f4eff4fd8840eed8bbafa1adb57a1b",
+  "files": [
+    {
+      "repoPath": "tests/crm-mvp-controls-persistence/BORROWED-PG17-PROOF-v1.json",
+      "bytes": 11371,
+      "sha256": "ed2ce33e6ebe5c7a695fe7e2070ab9ffa91c9e8917d2d15f545e5f1240c8b579",
+      "gitBlobSha1": "b0614f88d1c4fd8250ea1b38dca17b0c141fde74"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls-persistence/borrowed-pg17-protocol.cjs",
+      "bytes": 15138,
+      "sha256": "d6371c6be73ed3fd3ef02f3d225df48c6ce1b6536e280040fe6a20a4d0c2c091",
+      "gitBlobSha1": "4ce4ee9c2e27de9cd171a8aaeade442bc3390e6c"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls-persistence/borrowed-pg17-protocol.test.cjs",
+      "bytes": 9943,
+      "sha256": "13cc71746b35f52ebebc4843a5eee34c894028e5c5430db49ca218b0b504265d",
+      "gitBlobSha1": "9660f03e890a154d644beade3d99034ad58b0dfc"
+    },
+    {
+      "repoPath": "tools/dashboard-crm-mvp-controls-borrowed-pg17/source-gate.cjs",
+      "bytes": 14095,
+      "sha256": "5c6e7de62ca9a2a898c412f174c17e0da48a1395396aaabf3dee55957b658b24",
+      "gitBlobSha1": "de2b3028aa1ca2e4642c215d6b55ef15043c9275"
+    },
+    {
+      "repoPath": "tools/dashboard-crm-mvp-controls-borrowed-pg17/original-v3-snapshot.json",
+      "bytes": 485970,
+      "sha256": "7a9a6795d9284baa412c70494f1287cf09972099d09e25651a06b3dee6e42102",
+      "gitBlobSha1": "93021513c9d86994a595ddcd193defbe3978bd5c"
+    },
+    {
+      "repoPath": "tools/dashboard-crm-mvp-controls-borrowed-pg17/materialize-v3-context.cjs",
+      "bytes": 1863,
+      "sha256": "0edba05e0188170b1bf05df73c4541516c98e1e46a00a7166e73a2f019f0b968",
+      "gitBlobSha1": "6efdd0cd3a14df700565e347f2dd2c3efcf48d81"
+    },
+    {
+      "repoPath": "tools/dashboard-crm-mvp-controls-borrowed-pg17/root-ci-fixture.cjs",
+      "bytes": 5825,
+      "sha256": "ae22d3f41b4dce023aef9d8d2e943b9b6a0c294a18cc732b7af09fe7c92f33aa",
+      "gitBlobSha1": "50534e39f12b67cfbefff8f166fa29b4279d7857"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls-persistence/borrowed-pg17-ci.test.cjs",
+      "bytes": 5713,
+      "sha256": "d50136977fb97119f2663a1f981968579bb3d0d59116608349911ed8826d4c5e",
+      "gitBlobSha1": "3e239a2f5d941bb522c03da9f4ba76157fb3ae51"
+    }
+  ],
+  "sourceOnly": true
+}
