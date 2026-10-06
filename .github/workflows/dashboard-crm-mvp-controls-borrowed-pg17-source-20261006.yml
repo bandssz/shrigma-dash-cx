@@ -1,0 +1,99 @@
+name: Borrowed raw PG17 source-only
+on:
+  push:
+    branches: [codex/crm-mvp-persistence-borrowed-source-20261006]
+  pull_request:
+    paths:
+      - "tests/crm-mvp-controls-persistence/BORROWED-PG17-PROOF-v1.json"
+      - "tests/crm-mvp-controls-persistence/borrowed-pg17-protocol.cjs"
+      - "tests/crm-mvp-controls-persistence/borrowed-pg17-protocol.test.cjs"
+      - "tools/dashboard-crm-mvp-controls-borrowed-pg17/source-gate.cjs"
+      - "tools/dashboard-crm-mvp-controls-borrowed-pg17/source-manifest.json"
+      - "tools/dashboard-crm-mvp-controls-borrowed-pg17/original-v3-snapshot.json"
+      - "tools/dashboard-crm-mvp-controls-borrowed-pg17/materialize-v3-context.cjs"
+      - "tools/dashboard-crm-mvp-controls-borrowed-pg17/root-ci-fixture.cjs"
+      - "tests/crm-mvp-controls-persistence/borrowed-pg17-ci.test.cjs"
+      - ".github/workflows/dashboard-crm-mvp-controls-borrowed-pg17-source-20261006.yml"
+permissions:
+  contents: read
+jobs:
+  raw-pg17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
+    env:
+      SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      BORROWED_SOURCE_DIRECTORY: ${{ runner.temp }}/borrowed-source-ci
+      CRM_PERSISTENCE_CONTEXT_DIRECTORY: ${{ runner.temp }}/borrowed-reference-ci
+      BORROWED_PG17_CI: '1'
+      BORROWED_PG17_DIGEST_ADMITTED: 'true'
+    services:
+      postgres:
+        # Root admission: native GitHub job111939518218 pulled official library/postgres17, observed PostgreSQL17.11 on linux/amd64.
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        env:
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: crm_test_only
+          POSTGRES_DB: crm_borrowed_source_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm_test -d crm_borrowed_source_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Require exact same-repository branch and Root image admission
+        run: |
+          test "$GITHUB_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          test "$HEAD_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          test "$SOURCE_BRANCH" = 'codex/crm-mvp-persistence-borrowed-source-20261006'
+          test "$BORROWED_PG17_DIGEST_ADMITTED" = 'true'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Authenticate new gate and manifest before imports
+        run: |
+          node <<'NODE'
+          try{
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+          const pins={"source-gate.cjs": {"bytes": 14095, "sha256": "5c6e7de62ca9a2a898c412f174c17e0da48a1395396aaabf3dee55957b658b24", "gitBlobSha1": "de2b3028aa1ca2e4642c215d6b55ef15043c9275"}, "source-manifest.json": {"bytes": 2303, "sha256": "ae7dfed1e122a25b0057fe2641f592db6c435b9e5804a579c9447467d20f7685", "gitBlobSha1": "8c19e273e743ca9413465fb6d64954a5bdc3f51d"}};
+          for(const [name,pin] of Object.entries(pins)){
+            const f=path.resolve('tools/dashboard-crm-mvp-controls-borrowed-pg17',name),s=fs.lstatSync(f);
+            if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||fs.realpathSync(f)!==f)throw Error('BORROWED_BOOTSTRAP_REFUSED');
+            const b=fs.readFileSync(f),sha=crypto.createHash('sha256').update(b).digest('hex'),blob=crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex');
+            if(b.length!==pin.bytes||sha!==pin.sha256||blob!==pin.gitBlobSha1)throw Error('BORROWED_BOOTSTRAP_REFUSED');
+          }
+          }catch{console.error(JSON.stringify({code:'BORROWED_CI_BOUNDARY_REFUSED',operational:false}));process.exitCode=1;}
+          NODE
+          node tools/dashboard-crm-mvp-controls-borrowed-pg17/source-gate.cjs
+          node tools/dashboard-crm-mvp-controls-borrowed-pg17/materialize-v3-context.cjs
+      - name: Install exact driver only in temporary CI directory
+        run: |
+          mkdir "$RUNNER_TEMP/borrowed-pg-driver"
+          npm install --prefix "$RUNNER_TEMP/borrowed-pg-driver" --ignore-scripts --no-audit --no-fund --no-package-lock --no-save pg@8.13.1
+      - name: Complete new TAP with five raw-session scenarios
+        run: |
+          export BORROWED_PG_MODULE="$RUNNER_TEMP/borrowed-pg-driver/node_modules/pg"
+          node --test --test-reporter=tap tests/crm-mvp-controls-persistence/borrowed-pg17-ci.test.cjs > "$RUNNER_TEMP/borrowed-pg17.tap"
+          node <<'NODE'
+          try{
+          const fs=require('node:fs'),path=require('node:path');
+          const text=fs.readFileSync(path.join(process.env.RUNNER_TEMP,'borrowed-pg17.tap'),'utf8');
+          const count=k=>{const m=text.match(new RegExp('^# '+k+' (\\d+)$','m'));if(!m)throw Error('BORROWED_TAP_REFUSED');return Number(m[1]);};
+          if(count('tests')!==9||count('pass')!==9||count('fail')!==0||count('cancelled')!==0||count('skipped')!==0||count('todo')!==0)throw Error('BORROWED_TAP_REFUSED');
+          const expected=['registration-race','consume-cas','brand-isolation','pending-hook','ack-hook'];
+          const receipts=text.split('\n').filter(l=>l.startsWith('# {')).map(l=>JSON.parse(l.slice(2))).filter(r=>r.code==='BORROWED_SCENARIO_CLOSED');
+          if(receipts.length!==5||new Set(receipts.map(r=>r.scenario)).size!==5||receipts.some(r=>!expected.includes(r.scenario)||!Number.isSafeInteger(r.engineVersionNum)||Math.floor(r.engineVersionNum/10000)!==17||r.runtimeVersion!=='v22.23.3'||r.cleanup.created!==2||r.cleanup.endCalls!==2||r.cleanup.closed!==2||r.operational!==false||r.nativeNetworkAckProof!==false||r.productionDurabilityProved!==false))throw Error('BORROWED_RECEIPT_REFUSED');
+          console.log(JSON.stringify({code:'BORROWED_NATIVE_CI_SCENARIOS_PASSED',tests:9,scenarios:5,cleanupClients:10,engineVersionNum:receipts[0].engineVersionNum,sourceOnly:true,operational:false,completeReservation:false,nativeNetworkAckProof:false,productionDurabilityProved:false}));
+          }catch{console.error(JSON.stringify({code:'BORROWED_CI_BOUNDARY_REFUSED',operational:false}));process.exitCode=1;}
+          NODE
+      - name: Recheck all1917base blobs and exact10A source custody
+        run: |
+          node tools/dashboard-crm-mvp-controls-borrowed-pg17/source-gate.cjs

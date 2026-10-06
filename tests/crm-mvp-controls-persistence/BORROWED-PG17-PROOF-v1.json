@@ -1,0 +1,165 @@
+{
+  "schema": "borrowed-PG17-proof-result-and-scope-v1",
+  "status": "source-prepared-native-execution-pending",
+  "sourceOnly": true,
+  "defaultEnabled": false,
+  "operational": false,
+  "productionChanged": false,
+  "completeReservation": false,
+  "runtimeModified": 0,
+  "inputBoundary": {
+    "clients": "Two distinct already connected node-postgres sessions supplied by Root in future isolated CI; neither Pool.query nor original Auth lease; custody cannot be derived from a public flag.",
+    "testDatabaseName": null,
+    "nativeServerOrService": null,
+    "schema": "dashboard_crm_controls, exact original v1; must already be installed by Root test setup; runner installs nothing.",
+    "driverVersion": "pg@8.13.1 if Root selects it; no producer download/dependency tree or runtime installation.",
+    "context": "Mandatory existing verify-context/contract/14 pins before any frozen source import. All14 v3 payloads are immutable context.",
+    "reservedRows": "Only existing synthetic test models/seeds, supplied outside runner by Root isolated setup; no production reservation is inferred."
+  },
+  "rootOwnsCustody": true,
+  "admission": "Root injects a private admitTest callback which validates actual isolated already-connected clients and absence of external transactions. Caller flags and public receipt alone are not custody evidence. Callback is test-only, not production authority.",
+  "entrypoint": {
+    "module": "tests/crm-mvp-controls-persistence/borrowed-pg17-protocol.cjs",
+    "export": "run",
+    "arguments": [
+      "enabled (default false)",
+      "clients (exactly two distinct already-connected node-postgres Clients)",
+      "admitTest (Root-private callback)",
+      "sourceDirectory (absolute physical public root of pinned v3 files)",
+      "scenario"
+    ],
+    "sourceContext": "All14source payload pins before helper import; unchanged verify-context requires explicit CRM_PERSISTENCE_CONTEXT_DIRECTORY and original14/contract before domain/fixture import. No identity reference import."
+  },
+  "scenarioInvocations": {
+    "brand-isolation": "Existing fish/aristo fixture identity1 and same UUID; evidence stays brand-separated.",
+    "pending-hook": "Root externally prepares original synthetic fish61 reserved row. Labeled synthetic57014 before second BEGIN; other session observes pending and refuses finalization replay.",
+    "ack-hook": "Root externally prepares original synthetic fish62 reserved row. Labeled synthetic malformed ACK after second realCOMMIT; same poisoned wrapper refuses; other session reads accepted and confirmed duplicate has zero newFINISH.",
+    "registration-race": "Two concurrent first registerOriginal calls for same original fixture identity; one canonical row/revision1 and exact duplicate has no extra INSERT. A serialization loser remains poisoned; no retry/reconnect/rewrap.",
+    "consume-cas": "Root supplies a separate fresh pair/test setup. Establish original once using registerOriginal, then race consume at revision1. Revision2 irreversible fence and exact duplicate has no extra CONSUME; stale/different attempt refuses. Serialization loser remains poisoned."
+  },
+  "isolationPolicy": "One scenario per invocation with a newly Root-admitted pair and isolated setup. Separate registration and consume races prevent a serialization-poisoned loser being reused. Clients permanently marked used after source admission; wrappers stay stable in WeakMap. Root owns fresh pairs/setup externally; no automatic reconnection/scenario continuation.",
+  "setupOutsideRunner": {
+    "reservedModel": "Existing fixtures.cjs reserved fish61/fish62, matching fixed scope/proof/revision2; externally seeded before relevant invocation by Root only.",
+    "requiresSchemaInstalled": true,
+    "requiresIsolated": true,
+    "requiresNoExternalTransaction": true,
+    "requiresReservedRowsReady": true,
+    "noDatabaseOrServiceNameInvented": true
+  },
+  "fixedReadOnlyMetadataQueries": [
+    "SHOW server_version_num",
+    "SELECT current_database() AS database_name, pg_backend_pid() AS backend_pid"
+  ],
+  "sqlMutationBoundary": "Only unchanged foundation SQL through existing store APIs, on explicitly Root-admitted isolated test sessions; no dynamic identifiers/DDL/GRANT/SET ROLE/CREATE/DELETE/TRUNCATE/seed/import in new runner.",
+  "scenarios": [
+    {
+      "id": "B1-PG-WIRE-01",
+      "kind": "structural-default-off",
+      "source": "store.cjs create/use; existing store.test.cjs defaultOFF/ownership",
+      "required": "Default OFF or missing either client/Root test setup performs zero SQL and no connect/end/release. No enabled boolean counts as production/test custody authority."
+    },
+    {
+      "id": "B1-PG-WIRE-02",
+      "kind": "actual-session-conformance-after-Root-test-admission",
+      "source": "pg17.test.cjs SHOW server_version_num; store.cjs query/tx",
+      "required": "When Root explicitly supplies two already connected sessions of an isolated test database with the original fixed schema installed, verify actual major17, same database and two distinct stable backend PIDs. Use direct node-postgres result objects: command/rows/rowCount, BIGINT strings; no PGlite result normalizer or emulated engine. Metadata queries are fixed read-only SQL. Root owns clients/setup; fixture never provisions schema/database or grants."
+    },
+    {
+      "id": "B1-PG-WIRE-03",
+      "kind": "actual-two-session-registration-and-CAS-race",
+      "source": "store.cjs registerOriginal/load/INSERT and consumeReservationAttempt; pg17 groups2/4",
+      "required": "In admitted isolated CI, run the existing registration and consume APIs concurrently on the two sessions for the original synthetic fixture identity. Require one registration row, one monotone consumed fence, same canonical receipt for exact duplicate, and no new operation/attempt on retry. A stale/different attempt or conflicting principal evidence refuses."
+    },
+    {
+      "id": "B1-PG-WIRE-04",
+      "kind": "actual-brand-isolation",
+      "source": "pg17 group3; fixtures.cjs identity/registration",
+      "required": "Use existing fish/aristo fixture identities only; same UUID in both brands stays separated. Cross-brand result and changed original identity fail. No user/session/grant or credential is created."
+    },
+    {
+      "id": "B1-PG-WIRE-05",
+      "kind": "synthetic-fault-hook-between-real-SQL-transactions",
+      "source": "pg17 interrupted group8; store.cjs recordOutcome and pending intent",
+      "required": "Root test setup may supply the existing explicitly synthetic reserved rows using the unchanged test seed/model BEFORE the runner. The runner has no reserve/seed/import API or DDL. Inject a labeled synthetic failure before the second BEGIN after first intent COMMIT; inspect through the other client and prove pending/consult-only with no FINISH replay or new UUID."
+    },
+    {
+      "id": "B1-PG-WIRE-06",
+      "kind": "synthetic-ACK-hook-after-real-SQL-COMMIT",
+      "source": "pg17 after group9; store.cjs tx poison and idempotent terminal outcome",
+      "required": "If using the existing after-COMMIT response fault, call it a SYNTHETIC ACK hook, never real packet loss. The affected borrowed session remains poisoned; keep the same per-session object/wrapper, never recreate a wrapper to bypass poison. The other session inspects original accepted receipt and exact outcome retry performs no second FINISH. Preserve original scope/expiry and consumed intent."
+    },
+    {
+      "id": "B1-PG-WIRE-07",
+      "kind": "borrowed-ownership-and-closed-error-boundary",
+      "source": "store.cjs sessions/use/sanitize, pg17 ownedCalls and finally",
+      "required": "No connect/end/release, no transaction sharing with original Auth lease, no global pg parser override. Root closes the isolated clients externally. Return/log only closed enums, counts, actual engine version and booleans; no query/detail/parameters/stack/credential/actor values."
+    }
+  ],
+  "defaultResult": {
+    "code": "BORROWED_PG17_PROOF_DISABLED",
+    "executed": false,
+    "sourceOnly": true,
+    "operational": false,
+    "completeReservation": false,
+    "nativeNetworkAckProof": false,
+    "productionDurabilityProved": false
+  },
+  "requiredFutureProofFields": [
+    "executed",
+    "engineVersionNum",
+    "runtimeVersion",
+    "twoDistinctStableSessions",
+    "scenarioResults",
+    "syntheticFaultHooks",
+    "nativeNetworkAckProof",
+    "productionDurabilityProved",
+    "sourceOnly",
+    "operational",
+    "completeReservation"
+  ],
+  "additionalResultCodes": [
+    "BORROWED_PG17_SCENARIO_PASSED",
+    "BORROWED_PG17_PROOF_REFUSED"
+  ],
+  "faultMeaning": {
+    "actualProtocolResultConformance": "Only after real future Root CI execution with admitted node-postgres sessions.",
+    "sqlRaceProof": "Only after actual two-session SQL execution.",
+    "networkPacketLossOrNativeRestartProof": false,
+    "responseHooks": "Synthetic and separately labeled, even when surrounding SQL was real.",
+    "productionDurabilityProved": false
+  },
+  "proofAggregation": "Root aggregates the separate actual scenario receipts; a single passed invocation is not complete suite/native production admission. Structural negative tests do not count as actual session proof.",
+  "futureRootRequired": [
+    "Two isolated connected node-postgres17 sessions and fixed existing schema/test setup admission",
+    "Actual conformance/race execution and closed receipt in future CI",
+    "Any native protocol packet-loss/restart/production durability proof remains separate"
+  ],
+  "forbidden": [
+    "Runtime/schema/service/database provisioning",
+    "Production/native credentials or coffer/private reads",
+    "Auth/session/broker/cookie/writer/admission creation",
+    "Changing any14v3 payload or old PG17 fixture to make tests pass",
+    "PGlite/synthetic clients reported as native two-session PG17 proof",
+    "Automatic send/complete reservation/operation replay or fence reset",
+    "External chat/remotes/npm install/local engine execution"
+  ],
+  "executed": false,
+  "actualEngineVersionNum": null,
+  "actualTwoSessionProof": false,
+  "nativeNetworkAckProof": false,
+  "productionDurabilityProved": false,
+  "sourcePatchVersion": "1.0.1",
+  "sourceCorrections": {
+    "QA21-SHOW-ROWCOUNT": "Raw node-postgres8.13.1 SHOW command has rowCount=null and exactly1row; fixed SELECT still requires rowCount1. No driver/result normalization.",
+    "QA21-OWN-CLIENT-PAIR": "Indices0/1 must each have own enumerable data descriptors; descriptor values are used only after both pass. Sparse/inherited/hidden/accessor slots refuse before custody callback and getters never run."
+  },
+  "focalReferenceProof": {
+    "reference": "Public primary pg@8.13.1 result.js",
+    "bytes": 2713,
+    "sha256": "4eb2296d33c87377e4326e3dda80a204dba86bac60851070558c5845252a0dae",
+    "gitBlobSha1": "98018a7d8ed69f1c0059bd39734f15b034893de6",
+    "meaning": "Pure constructor/addRow/addCommandComplete and exact extracted metadata predicate only; unused pg-types placeholder never called; no SQL, driver connection, full positive runner or engine.",
+    "requiredPublicContextVariable": "B1_BORROWED_PROTOCOL_CONTEXT",
+    "mandatoryPreflight": "Fixed r5MANIFEST SHA before parse, then all35entries byte/SHA/blob before primary reference interpretation; absent/mutated context refuses without skip/fallback."
+  }
+}
