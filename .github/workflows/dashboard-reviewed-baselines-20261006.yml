@@ -15,8 +15,6 @@ jobs:
         github.event.pull_request.head.ref == 'codex/crm-reviewed-baselines-20261006'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      NODE_PATH: ${{ runner.temp }}/crm-baseline-test-tools/node_modules
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -28,6 +26,6 @@ jobs:
       - name: Install the existing pinned DOM test dependency outside the checkout
         run: npm install --prefix "$RUNNER_TEMP/crm-baseline-test-tools" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund linkedom@0.18.12
       - name: Test historically reviewed expectations and existing refusal/recovery assertions
-        run: node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-campaign-create-independent.test.cjs tests/dashboard-operational-crm-managed-read-bridge.test.cjs tests/growth-brand-theme.test.cjs
+        run: NODE_PATH="$RUNNER_TEMP/crm-baseline-test-tools/node_modules" node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-campaign-create-independent.test.cjs tests/dashboard-operational-crm-managed-read-bridge.test.cjs tests/growth-brand-theme.test.cjs
       - name: Test existing host Origin CSRF and CREATE OFF refusal gates
-        run: node --test --test-concurrency=1 --test-reporter=tap --test-name-pattern='^(host/Origin/CSRF|OFF/default)' tests/dashboard-operational-campaign-create-http.test.cjs
+        run: NODE_PATH="$RUNNER_TEMP/crm-baseline-test-tools/node_modules" node --test --test-concurrency=1 --test-reporter=tap --test-name-pattern='^(host/Origin/CSRF|OFF/default)' tests/dashboard-operational-campaign-create-http.test.cjs
