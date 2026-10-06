@@ -1,0 +1,206 @@
+{
+  "schema": "crm-deliverability-integration-proposal-v1",
+  "state": "source-reviewed-domain-tests-passed-adapters-unadmitted",
+  "sourceBaseRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+  "authEnrollmentParentRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+  "sourceEvidence": [
+    {
+      "path": "services/dashboard-operational/server.cjs",
+      "lineStart": 438,
+      "lineEnd": 507,
+      "bytes": 91898,
+      "sha256": "b3e0cc550831647f16e09db073f27dc6cdebe81cae09263e8c15c5616ac1a40e",
+      "observation": "Closed gateway constructor/campaignTransport; no deliverability event service or policy gate."
+    },
+    {
+      "path": "services/crm-campaign/server.cjs",
+      "lineStart": 8,
+      "lineEnd": 23,
+      "bytes": 11846,
+      "sha256": "7ce3fae43e9118c50817ee78b1e48457c6496d2a10756b87747f0b058418e3b1",
+      "observation": "Campaign parser admits only its fixed business actions, not a bounce event."
+    },
+    {
+      "path": "n8n/growth/ses-metrics.sql",
+      "lineStart": 15,
+      "lineEnd": 19,
+      "bytes": 2821,
+      "sha256": "f4255aab9b46b775f357f09cb073e59a6f07f247bb54dc1bd8d8b003bbefcce6",
+      "observation": "Read-model metrics classify Permanent/Transient/complaint; this is not a suppression writer."
+    },
+    {
+      "path": "n8n/growth/campaign-provider.sql",
+      "lineStart": 46,
+      "lineEnd": 76,
+      "bytes": 20587,
+      "sha256": "a293e6a971795126bf8b0e98e087c31199319726ea95d1e354bada0f2bfe396d",
+      "observation": "The audience union excludes global blocklisted and failed consent/membership checks. Native disabled subscribers can remain in eligible_count and are separately counted in native_disabled_count; this read function alone does not authorize schedule or send."
+    },
+    {
+      "path": "n8n/growth/campaign-provider.sql",
+      "lineStart": 170,
+      "lineEnd": 195,
+      "bytes": 20587,
+      "sha256": "a293e6a971795126bf8b0e98e087c31199319726ea95d1e354bada0f2bfe396d",
+      "observation": "Schedule revalidates the stored audience fingerprint/version in the same transaction, explicitly refuses native_disabled_count > 0 and an empty eligible audience before scheduled status."
+    },
+    {
+      "path": "n8n/growth/segment-regular-delivery.sql",
+      "lineStart": 119,
+      "lineEnd": 167,
+      "bytes": 17219,
+      "sha256": "765636e2c027b8c4f88dde60c26b3a9aada1a0eb775cf1601f6de150c1943cf4",
+      "observation": "Actual dispatch admission revalidates native subscriber/membership/snapshot before in_flight."
+    },
+    {
+      "path": "n8n/growth/journey-graph-runtime.cjs",
+      "lineStart": 55,
+      "lineEnd": 61,
+      "bytes": 21326,
+      "sha256": "45562e0c1f11e41799c77c1523ded153a3afbfcdf504186058ac59f242254e01",
+      "observation": "Source proof requires current eligibility/consent/suppressed; source_ineligible/consent_withdrawn/suppressed stop reasons remain separate."
+    },
+    {
+      "path": "services/dashboard-operational/campaign-write-contract.js",
+      "lineStart": 50,
+      "lineEnd": 58,
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390",
+      "observation": "Campaign preparation preserves tracking policy, links and dispatch identity. House bounce policy must not rewrite this payload."
+    },
+    {
+      "path": "services/dashboard-operational/campaign-write-contract.js",
+      "lineStart": 61,
+      "lineEnd": 72,
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390",
+      "observation": "Audience review distinguishes eligible_count from native_disabled_count. Default audienceReview validation refuses disabled recipients; the final SQL schedule gate independently refuses them."
+    }
+  ],
+  "humanRule": {
+    "hardBounce": "One authenticated and correlated hard bounce requires immediate brand-owned suppression. Never delete history or auto-unblock.",
+    "softBounce": "Required configurable limit; count unique original dispatch attempts for this brand/recipient, not webhook deliveries. Counts are cumulative and delivered events do not reset them.",
+    "configuration": "Initial limit supplied by trusted server code. Later changes require a separately authorized, idempotent journal entry; increasing a limit never auto-unblocks existing suppression."
+  },
+  "candidateDesign": {
+    "module": "policy.cjs",
+    "storage": "No storage implementation or persistence of JSON is supplied. Immutable brand-owned journal state is an internal domain value only. The future repository belongs to the already planned own central database, is absent by default and must atomically append/CAS against its original revision/history hash; no new SQLite database, sidecar service or empty-state fallback.",
+    "authenticity": "Required trusted authenticate-and-classify callback mints a private WeakMap-owned event token. Caller verified:true flags, unknown types and foreign-brand tokens are refused. The callback must itself prove original-attempt correlation; the domain module cannot independently attest a provider or dispatch that it does not own. No provider-specific normalizer is included.",
+    "identity": "Opaque recipient reference only. Trusted adapter must resolve canonical address/brand membership and correlate the original unique dispatch attempt. Raw addresses, provider payloads and credential values are not journaled or returned.",
+    "dedup": "Event identity scoped by brand+provider; original attempt identity scoped by brand+recipient and shared across provider notifications. Identical events no-op; changed event identity bindings conflict; multiple soft events for one attempt count once.",
+    "history": "Hash-linked append-only observations and authorized configuration records. Sticky hard/soft suppression, no unblock/delete endpoint. Hash integrity is not authentication of external storage.",
+    "decision": "Local suppression requirement is an additional veto, never send authorization. Provider suppression confirmation, worker suspension and tracking state remain untouched."
+  },
+  "requiredFutureHooks": [
+    {
+      "source": "services/dashboard-operational/server.cjs:createServer",
+      "contract": "Inject a reviewed deliverability service through the private constructor, default absent. A new dedicated authenticated event handler must preserve signed raw body until verification, correlate brand/recipient/attempt from trusted existing dispatch custody, admit the token, and atomically commit the journal/decision before acknowledging. Existing browser proxy routes and READ credentials do not authorize provider events. No handler is added by this candidate."
+    },
+    {
+      "source": "Native schedule/dispatch admission in campaign-provider.sql and segment-regular-delivery.sql",
+      "contract": "Compose current consent/global suppression/worker suspension/frequency gates with the brand-owned house suppression veto in the same final claim transaction. Recheck after audience review and before outbound transport; preserve finish/outcome_unknown and original tracking/idempotency keys. BFF scheduling alone cannot enforce this for independent workers."
+    },
+    {
+      "source": "Audience and journey source adapters",
+      "contract": "Bind the durable policy revision/history hash and current local suppression into the trusted eligibility proof/review. Invalidate stale eligibility when it changes. Do not clear upstream blocklisted status or mutate global Listmonk subscriber status for an address shared across brands."
+    }
+  ],
+  "primaryDocumentation": {
+    "reference": "https://listmonk.app/docs/bounces/",
+    "reviewedBy": "root",
+    "providedFinding": "Listmonk Settings Bounces exposes soft/hard thresholds and actions.",
+    "subagentFetched": false,
+    "restriction": "Deployed provider version and legacy webhook type semantics remain unverified; the candidate consumes only separately authenticated normalized classification and does not configure Listmonk or n8n."
+  },
+  "proofLimits": [
+    "No operational provider classifier, durable repository, inbound HTTP handler, dispatch gate or callback receipt exists in this delivery.",
+    "Raw provider classification, signature format, attempt correlation and deployed provider version need native evidence before an adapter is admitted.",
+    "Missing/corrupt/full ledger or unknown ingestion result must fail closed at future dispatch admission; never recreate an empty state or consider an event confirmed.",
+    "Runtime package, DB schema, least role and migrations are outside this source-only candidate. No new database/service is created.",
+    "The local count and suppression are domain requirements, not an observation that a provider status changed. No callback acknowledgment or final dispatch gate is confirmed."
+  ],
+  "privateCredentialsRead": false,
+  "remoteOperations": 0,
+  "sourceFrozenChanged": false,
+  "providerSuppressionRunning": false,
+  "operational": false,
+  "api": {
+    "createPolicy": {
+      "required": [
+        "brand",
+        "softBounceAttempts",
+        "providers",
+        "verifyClassifiedEvent"
+      ],
+      "optional": [
+        "authorizePolicyChange",
+        "clock"
+      ],
+      "softBounceAttempts": "Explicit safe integer 1..100; no default threshold.",
+      "providers": "1..8 trusted classifier names, immutable private allowlist.",
+      "operationalDefault": "No operational verifier, provider adapter, repository or route is supplied."
+    },
+    "normalizedEvent": {
+      "exactFields": [
+        "schema",
+        "providerId",
+        "brand",
+        "recipientRef",
+        "eventId",
+        "attemptId",
+        "classification",
+        "occurredAt"
+      ],
+      "schema": "crm-classified-delivery-event-v1",
+      "classifications": [
+        "hard_bounce",
+        "soft_bounce",
+        "delivered"
+      ],
+      "recipientRef": "Opaque lowercase SHA256-shaped reference supplied by trusted own brand identity; never an address from the request.",
+      "eventId": "Stable canonical provider event identity.",
+      "attemptId": "Stable ORIGINAL dispatch attempt identity shared across notifications/providers; a webhook notification ID is not a dispatch attempt.",
+      "occurredAt": "Nonnegative safe UTC epoch milliseconds, not future; authenticated late hard events still suppress.",
+      "callbackObligations": [
+        "Verify source/raw-body authentication and deployed version/type mapping.",
+        "Resolve the brand and recipient through owned dispatch custody; reject ambiguous identity or a mismatched original attempt.",
+        "Return a fresh closed immutable classification after successful verification, never trust request verified flags."
+      ]
+    },
+    "methods": {
+      "initialState": "Only for a newly provisioned own brand policy in trusted storage; never after load failure.",
+      "admitEvent": "Async private classifier invocation; returns only a private process-owned admission token, TTL <300000ms. Token serialization or transfer to another policy is not supported.",
+      "admitPolicyChange": "Async private authorization of frozen brand/UUID/threshold; requires separate actor authority, not provider event authority.",
+      "apply": "Synchronous pure transition; validates scope and hash-linked history, deduplicates immutable events/operations, returns next state and local veto. Never commits or acknowledges.",
+      "inspect": "Synchronous current decision for one owned recipient; never grants send permission."
+    },
+    "journal": {
+      "maximumRecords": 10000,
+      "entryTypes": [
+        "event",
+        "configuration"
+      ],
+      "persistedIdentifierForm": "Only opaque recipient/actor references and event/attempt/operation hashes; no raw email, original IDs, provider body or credential.",
+      "integrityBoundary": "Hash chain detects inconsistency but does not authenticate a state supplied externally. A trusted repository/CAS must retain the admitted state and enforce no rollback or replacement.",
+      "restartProof": "Tests replay an in-memory JSON encoding of synthetic data; no file/database/store was created and no production restart was proved."
+    },
+    "resultFlags": {
+      "durableCommitConfirmed": false,
+      "providerSuppressionConfirmed": false,
+      "authorizesSend": false,
+      "workerSuspensionChanged": false,
+      "trackingChanged": false
+    }
+  },
+  "requiredFutureRepositoryInterface": {
+    "default": null,
+    "database": "Already planned own central database only; native least-role/schema admission remains separate.",
+    "methods": [
+      "loadOwnedBrandState(brand)",
+      "appendOwnedBrandTransition({brand,expectedRevision,expectedHistoryHash,records,nextHistoryHash,decision})"
+    ],
+    "admission": "Private server constructor owns this interface. It must never accept state, brand ownership, callbacks, threshold authority or verifier functions from HTTP/environment arbitrary input.",
+    "commit": "Append and compare revisions atomically; a conflict reloads original state and re-applies the same admitted immutable event, never invents another send attempt.",
+    "unknown": "Missing, corrupt, full, uncertain load/commit or unavailable repository refuses acknowledgment/dispatch and preserves the original event/operation for recovery."
+  }
+}

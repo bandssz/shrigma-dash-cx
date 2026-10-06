@@ -1,0 +1,31 @@
+name: Reviewed CRM baseline expectations
+'on':
+  push:
+    branches: [codex/crm-reviewed-baselines-20261006]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  reviewed-baselines:
+    if: >-
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/codex/crm-reviewed-baselines-20261006') ||
+       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'codex/crm-reviewed-baselines-20261006'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Install the existing pinned DOM test dependency outside the checkout
+        run: npm install --prefix "$RUNNER_TEMP/crm-baseline-test-tools" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Test historically reviewed expectations and existing refusal/recovery assertions
+        run: NODE_PATH="$RUNNER_TEMP/crm-baseline-test-tools/node_modules" node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-campaign-create-independent.test.cjs tests/dashboard-operational-crm-managed-read-bridge.test.cjs tests/growth-brand-theme.test.cjs
+      - name: Test existing host Origin CSRF and CREATE OFF refusal gates
+        run: NODE_PATH="$RUNNER_TEMP/crm-baseline-test-tools/node_modules" node --test --test-concurrency=1 --test-reporter=tap --test-name-pattern='^(host/Origin/CSRF|OFF/default)' tests/dashboard-operational-campaign-create-http.test.cjs

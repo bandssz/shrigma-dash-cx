@@ -1,5 +1,5 @@
 {
-  "baseRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "baseRevision": "bc5efd57f40ba798a981c67a5937be084e441eaf",
   "sourceOnly": true,
   "operational": false,
   "productionChanged": false,
@@ -98,6 +98,34 @@
       }
     },
     {
+      "repoPath": "services/dashboard-preview/bootstrap.cjs",
+      "deltaStatus": "M",
+      "bytes": 4747,
+      "sha256": "a12522f0b5419a3089c487f9ad3146f1570ca3b01bc07c4abd3bd5789a37075c",
+      "gitBlobSha1": "60ea83d5c1283c05d196db49a53786ce05664f28",
+      "before": {
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/services/dashboard-preview/bootstrap.cjs",
+        "bytes": 4314,
+        "sha256": "9bf85b2277dc37eea666b755d875e4a1a315bbee076631d3e637847c650375b6",
+        "gitBlobSha1": "5177383982a5476bd95ddbfe79cc311d8e52c845",
+        "repoPath": "services/dashboard-preview/bootstrap.cjs"
+      }
+    },
+    {
+      "repoPath": "services/dashboard-preview/pack-runtime.cjs",
+      "deltaStatus": "M",
+      "bytes": 3201,
+      "sha256": "f07baf2ff0fa21fa08ce56acacf08c4147d0a5d85e0d240e7b3ecfb54769844f",
+      "gitBlobSha1": "c882b4ef4c85cda7d0ab837ac3984f42eff6d44a",
+      "before": {
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/services/dashboard-preview/pack-runtime.cjs",
+        "bytes": 2669,
+        "sha256": "bf31bb21bfb452aff66b403dfe8628b26c06533cff498a16dfea3c22a1e987b3",
+        "gitBlobSha1": "351935edeb760e604875dd0d52e37654264a4d8a",
+        "repoPath": "services/dashboard-preview/pack-runtime.cjs"
+      }
+    },
+    {
       "repoPath": "tests/affiliates-v2/affiliates-v2.test.cjs",
       "deltaStatus": "A",
       "bytes": 38116,
@@ -114,6 +142,42 @@
       "before": null
     },
     {
+      "repoPath": "tests/dashboard-preview-brotli-integrity.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 2347,
+      "sha256": "8d20881fff566b0060fb97283e45fde57cf8a711fbfeaf014cb2de9dacde48a8",
+      "gitBlobSha1": "31e93bbe5de9656f2722329564c419f72dba27db",
+      "before": null
+    },
+    {
+      "repoPath": "tests/dashboard-preview.test.cjs",
+      "deltaStatus": "M",
+      "bytes": 15768,
+      "sha256": "8366a047f0972058a26723f2e37881a26d9b8befa507ee89963766bb700fbb23",
+      "gitBlobSha1": "1036ed0ba7e6def5227effc76890d129b985e7bc",
+      "before": {
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/tests/dashboard-preview.test.cjs",
+        "bytes": 11868,
+        "sha256": "198266bc74f94c157f9c94c6d055c8a4d764ad712621729f70ac4211d197191c",
+        "gitBlobSha1": "6dff8526bcab9157630e4872e7a7a5b964105c29",
+        "repoPath": "tests/dashboard-preview.test.cjs"
+      }
+    },
+    {
+      "repoPath": "tests/influs-active-read.test.cjs",
+      "deltaStatus": "M",
+      "bytes": 4182,
+      "sha256": "386b0ecffa699e774df880a4bde78d98a65d09da0c191adcf7b75a4949938de5",
+      "gitBlobSha1": "96a9ea190fcf5b9fbc608d6f03def196f80621aa",
+      "before": {
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/tests/influs-active-read.test.cjs",
+        "bytes": 4178,
+        "sha256": "fe803ba3c313b2f4aa2392f890302ceafbb8c18ebd0292475b8a57259e8db210",
+        "gitBlobSha1": "c1329e7b3a9922a180fc566ba39ae7022eb49ed0",
+        "repoPath": "tests/influs-active-read.test.cjs"
+      }
+    },
+    {
       "repoPath": "tests/influs-affiliates-mount-lifecycle.test.cjs",
       "deltaStatus": "A",
       "bytes": 3227,
@@ -127,6 +191,28 @@
       "bytes": 7986,
       "sha256": "8da0d6eda2e45bf22b0b1b601d9ac3512958830ff103e9f2f88b93b337327998",
       "gitBlobSha1": "eebd68a0f8eb6e9fb02b989268496729eea57627",
+      "before": null
+    },
+    {
+      "repoPath": "tests/influs-sections.test.cjs",
+      "deltaStatus": "M",
+      "bytes": 5616,
+      "sha256": "520a6c825dec53c02af766203b36b968e800511c40e794fe083f03c8afabee63",
+      "gitBlobSha1": "3fc2001452077b305ce78c48aa00c55c43962def",
+      "before": {
+        "localPath": "deliverables/handoff-crm-20261005/projeto-781653/tests/influs-sections.test.cjs",
+        "bytes": 5612,
+        "sha256": "0a70d71227071c1cc40a1906e1a76b535b848887edcfd6ca6211ae4f9adec693",
+        "gitBlobSha1": "9b3cf13f67d8fc43e42743208278087a5e14b05c",
+        "repoPath": "tests/influs-sections.test.cjs"
+      }
+    },
+    {
+      "repoPath": "tests/influs-window-lifecycle.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 1495,
+      "sha256": "ac057434ee4bd716075979d29d707f1652f35a18756dda879025622038a3ece4",
+      "gitBlobSha1": "67f27920d474f25b668a05e58412b587edeedb7a",
       "before": null
     },
     {
@@ -244,15 +330,15 @@
     {
       "repoPath": "tools/panel-build/manifest.json",
       "deltaStatus": "M",
-      "bytes": 4479,
-      "sha256": "64f3d1b395986c987c7903606ee7230c337e4f39619d418f738d548a540036b6",
-      "gitBlobSha1": "fb23564dfcad2a0d0ec8f50fc8554d3b03bdf930",
+      "bytes": 4517,
+      "sha256": "f3d64b6a26c8c02e5fa2649ee55160de659e38dcd1929769360c255f567c8918",
+      "gitBlobSha1": "589377d19345a46a3e2ee93918c2a6bd24afcd1e",
       "before": {
         "repoPath": "tools/panel-build/manifest.json",
-        "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-builder-2676/tools/panel-build/manifest.json",
-        "gitBlobSha1": "1fefb7189d720d239853696a976dbc92516a1180",
-        "sha256": "a3ba56d29bfa8a95ae4699be1bd61e3a1a0edfddcbfe634a0a679363d3a5e13d",
-        "bytes": 4192
+        "localPath": "root-integration/shared-mount-general-regression-review/GREEN-PANEL-MANIFEST.json",
+        "bytes": 4230,
+        "sha256": "807892fcc1f3771eebda9dc6760e687db9f17195fa72c68dbabad02fc34e33d5",
+        "gitBlobSha1": "9043c66ba64005fb84afe908b5d69dc5ecc640a7"
       }
     },
     {
@@ -314,5 +400,25 @@
   ],
   "defaultGatewayInstalled": false,
   "allMutationsAdmitted": false,
-  "schema": "root-shared-mount-source-composition-v1"
+  "schema": "root-shared-mount-source-composition-v1",
+  "parentSourceCommit": "c6d12d29df10ed3ad870292fa54d8639a46dd88f",
+  "integrationGreenBase": "bc5efd57f40ba798a981c67a5937be084e441eaf",
+  "priorPanelSpecificCI": {
+    "commit": "c6d12d29df10ed3ad870292fa54d8639a46dd88f",
+    "run": 37511689849,
+    "tests": 118,
+    "pass": 118,
+    "fail": 0,
+    "skipped": 0,
+    "productUIAndBuildBytesUnchanged": true
+  },
+  "regressionFixes": {
+    "inheritedBaseCorrectionsCarriedForwardWithoutRepin": true,
+    "growthIndexPreservedFromGreenBase": true,
+    "influsVMFixturesUseRealEventTarget": true,
+    "previewBudget950000Unchanged": true,
+    "previewPublicAllowlistUnchanged": true,
+    "codec": "v2 gzip fits; v3 Brotli fallback; both read by bounded bootstrap",
+    "brotliFullInputConsumptionBeforeWriting": true
+  }
 }

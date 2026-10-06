@@ -82,6 +82,7 @@
       "n8n/growth/segment-contract.js",
       "n8n/growth/segment-audience-contract.js",
       "growth-segment-client.js",
+      "growth-audience-slices-ui.js",
       "growth-segment-ui.js",
       "growth-campaign-audience-client.js",
       "growth-campaign-regular-client.js",

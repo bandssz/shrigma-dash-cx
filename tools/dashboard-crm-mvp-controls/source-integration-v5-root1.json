@@ -1,0 +1,280 @@
+{
+  "schema": "root-crm-mvp-controls-source-integration-v1",
+  "packageId": "controles-crm-v5-root1",
+  "owner": "Codex-Root",
+  "baseCommitSha": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+  "producerPackageId": "controles-crm-mvp-20261006-v5",
+  "producerDeliverySha256": "18d00ace1c074635659d0d7cd28fbd02e6625005c621f5e3ee684639c0f73dc8",
+  "contextManifestSha256": "2767a6b87756ef1dc3c59e1309fd932308a2ce180fa7f00182e288bcdd9005f6",
+  "interfaceContractVersion": "crm-mvp-controls-proposed-v4",
+  "sourceOnly": true,
+  "enabled": false,
+  "operational": false,
+  "productionChanged": false,
+  "producerPackageModified": false,
+  "interfaceProductionAdmitted": false,
+  "rootStoreAndIAMAdapterInstalled": false,
+  "realOperational": false,
+  "files": [
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+      "deltaStatus": "A",
+      "sourceOwner": "Codex-B1",
+      "integrationOwner": "Codex-Root",
+      "bytes": 8545,
+      "sha256": "1b889695df4243e90f17d1b137d82bd3770081cafd3273a8a3dda4669451a915",
+      "gitBlobSha1": "bc530db667bd52843d4a3928c70dad3b3e6da360",
+      "producerOriginal": {
+        "bytes": 8496,
+        "sha256": "a5d067a42cb7767331da8c542bdfc8cbff2ae0b4df0d1d11b70f723026017bb4",
+        "gitBlobSha1": "81a3a500c6a9ab2659d6908ae59895e4324a7325"
+      },
+      "integratedBytesEqualProducer": false,
+      "rootCorrection": true
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+      "deltaStatus": "A",
+      "sourceOwner": "Codex-B1",
+      "integrationOwner": "Codex-Root",
+      "bytes": 3226,
+      "sha256": "c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf",
+      "gitBlobSha1": "daa041570d5df9086174da92c1cd643d882ce955",
+      "producerOriginal": {
+        "bytes": 3226,
+        "sha256": "c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf",
+        "gitBlobSha1": "daa041570d5df9086174da92c1cd643d882ce955"
+      },
+      "integratedBytesEqualProducer": true,
+      "rootCorrection": false
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md",
+      "deltaStatus": "A",
+      "sourceOwner": "Codex-B1",
+      "integrationOwner": "Codex-Root",
+      "bytes": 12944,
+      "sha256": "ee80308837357d98beb8a3f86b1d382ac6953dfa65e412fadffad4f559091cbe",
+      "gitBlobSha1": "1dd3a9fc66e9fc4d31f115b61e1660fae42c6831",
+      "producerOriginal": {
+        "bytes": 12944,
+        "sha256": "ee80308837357d98beb8a3f86b1d382ac6953dfa65e412fadffad4f559091cbe",
+        "gitBlobSha1": "1dd3a9fc66e9fc4d31f115b61e1660fae42c6831"
+      },
+      "integratedBytesEqualProducer": true,
+      "rootCorrection": false
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls/boundary.test.cjs",
+      "deltaStatus": "A",
+      "sourceOwner": "Codex-B1",
+      "integrationOwner": "Codex-Root",
+      "bytes": 32869,
+      "sha256": "ece24e44edcd61a29f45f3f70861d34f1106a6daf989e917e056fe5acde6217f",
+      "gitBlobSha1": "b0c3b9a0eb42a3bbc501582bca34bc2af90270d4",
+      "producerOriginal": {
+        "bytes": 32869,
+        "sha256": "ece24e44edcd61a29f45f3f70861d34f1106a6daf989e917e056fe5acde6217f",
+        "gitBlobSha1": "b0c3b9a0eb42a3bbc501582bca34bc2af90270d4"
+      },
+      "integratedBytesEqualProducer": true,
+      "rootCorrection": false
+    },
+    {
+      "repoPath": "tests/crm-mvp-root-integration/ack-and-recovery.test.cjs",
+      "deltaStatus": "A",
+      "sourceOwner": "Codex-Root-QA",
+      "integrationOwner": "Codex-Root",
+      "bytes": 14696,
+      "sha256": "00a2631e54ded2a066690acbaa6ae7e67225cfdf236ec033136a94d3c25e1be6",
+      "gitBlobSha1": "d6f53dd25482d74fa026a6b6cf6a3aade3a142c0",
+      "producerOriginal": null,
+      "integratedBytesEqualProducer": false,
+      "rootCorrection": false,
+      "purpose": "12 adversarial synthetic cases against the Root overlay and unchanged pinned kernels"
+    }
+  ],
+  "kernelPins": [
+    {
+      "repoPath": "audience-slice-contract.js",
+      "bytes": 3066,
+      "sha256": "f07c41f0cddcc742817056de0840dcb49a398a2e0b5891454b3669fa1be3eee6",
+      "gitBlobSha1": "2ba2b8c037045a551a20d36943ee17e0b874bc75",
+      "unchangedNativeBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    },
+    {
+      "repoPath": "domain/audience-slices/kernel.cjs",
+      "bytes": 9729,
+      "sha256": "0f905084d55a2856027615eb6e4a4d30202ad74a994cf08320feb112503d94b4",
+      "gitBlobSha1": "59ce9167604a0f23386b4518fb32a32d6297e267",
+      "unchangedNativeBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    },
+    {
+      "repoPath": "domain/audience-slices/provider-boundary.cjs",
+      "bytes": 4196,
+      "sha256": "f626a9239fb6d0afb1e47166ebe10993c6fa2315a19b68d7e2fa3b46f1b48372",
+      "gitBlobSha1": "f452f102d3a3d1ce5fb6b3f42fef5609d9df397b",
+      "unchangedNativeBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/deliverability/policy.cjs",
+      "bytes": 11169,
+      "sha256": "f0006cb43770e605e45ddd3c2f14ff53655eb23f0cfefb54b726f75477c4d4cf",
+      "gitBlobSha1": "77e6b2e9a095efb9de3154347205eab6ac17039f",
+      "unchangedNativeBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    },
+    {
+      "repoPath": "tools/dashboard-deliverability/integration-contract.json",
+      "bytes": 13347,
+      "sha256": "49fb76f7bd61a92a0cd6ae2e9e0e5f45107cdb054cfb7d68db7d378e84715851",
+      "gitBlobSha1": "78a61c1a4136e18f6242d08142f897e867e1d20f",
+      "unchangedNativeBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    }
+  ],
+  "expectedDelta": [
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls/boundary.test.cjs",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": "tests/crm-mvp-root-integration/ack-and-recovery.test.cjs",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": "tools/dashboard-crm-mvp-controls/source-integration-v5-root1.json",
+      "deltaStatus": "A"
+    },
+    {
+      "repoPath": ".github/workflows/dashboard-crm-mvp-controls-source-20261006.yml",
+      "deltaStatus": "A"
+    }
+  ],
+  "producerOriginalPayloadPins": [
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md",
+      "deltaStatus": "A",
+      "bytes": 12944,
+      "sha256": "ee80308837357d98beb8a3f86b1d382ac6953dfa65e412fadffad4f559091cbe",
+      "gitBlobSha1": "1dd3a9fc66e9fc4d31f115b61e1660fae42c6831"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/PENDENCIAS.json",
+      "deltaStatus": "A",
+      "bytes": 5294,
+      "sha256": "6de0c95c8bdcb18f40b9215e841aace28bbc0ab5e6f17cc552d9ecd7c7bf3cce",
+      "gitBlobSha1": "f982de0c74ddd4a15bbd0f40efc9aecef84552cf"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/PENDENCIAS.md",
+      "deltaStatus": "A",
+      "bytes": 3183,
+      "sha256": "fba8ff33a7f6a143c0b3f506147425df3363bcc5558bc04fcab2129bb5349390",
+      "gitBlobSha1": "675e4de07f6fe5da95861eda9e8bfd5cfbf3bb15"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+      "deltaStatus": "A",
+      "bytes": 8496,
+      "sha256": "a5d067a42cb7767331da8c542bdfc8cbff2ae0b4df0d1d11b70f723026017bb4",
+      "gitBlobSha1": "81a3a500c6a9ab2659d6908ae59895e4324a7325"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/claim.json",
+      "deltaStatus": "A",
+      "bytes": 2865,
+      "sha256": "abbfbe94bc4e3520cb2c2ce20dd94374d4f229db0cb851ee8f0bb7ed2aff6b1d",
+      "gitBlobSha1": "307532fc2efa55abb90db41505370328dd5c3a1e"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+      "deltaStatus": "A",
+      "bytes": 3226,
+      "sha256": "c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf",
+      "gitBlobSha1": "daa041570d5df9086174da92c1cd643d882ce955"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls/boundary.test.cjs",
+      "deltaStatus": "A",
+      "bytes": 32869,
+      "sha256": "ece24e44edcd61a29f45f3f70861d34f1106a6daf989e917e056fe5acde6217f",
+      "gitBlobSha1": "b0c3b9a0eb42a3bbc501582bca34bc2af90270d4"
+    },
+    {
+      "repoPath": "tests/crm-mvp-controls/verify-package.cjs",
+      "deltaStatus": "A",
+      "bytes": 6456,
+      "sha256": "7dc56b297ad85de7d5996027cfdff79eb1977ad40b13238c9676c8e17b531cc8",
+      "gitBlobSha1": "73bce2ff3e58a049e9b82dcd394f731821c999cd"
+    }
+  ],
+  "excludedProducerAuxiliaryFiles": [
+    "services/dashboard-operational/domain/crm-mvp-controls/PENDENCIAS.json",
+    "services/dashboard-operational/domain/crm-mvp-controls/PENDENCIAS.md",
+    "services/dashboard-operational/domain/crm-mvp-controls/claim.json",
+    "tests/crm-mvp-controls/verify-package.cjs"
+  ],
+  "rootCorrection": "Only initial reservation ACK adds positive safe-integer revision guard; original v5 staging remains byte-identical. Unconfirmed ACK retains original attempt and consult-only recovery.",
+  "nativeSourceClaim": {
+    "schema": "root-B1-source-claim-intake-v1",
+    "receiptSha256": "fc2f89df45e42797f912d17d6bd26471796062db32c5909b2f70236ca7fe2b47",
+    "receiptBytes": 3039,
+    "source": "native-GitHub-connector",
+    "nativeTreeComplete": true,
+    "nativeTreeEntryCount": 2006,
+    "nativeTreeTruncated": false,
+    "sourcePathsOnly": true,
+    "newRootQaPathAbsenceAtBase": "To be independently checked by source CI Git tree; not inferred from original eight-path intake"
+  },
+  "localQaAtAuthoring": {
+    "receiptSha256": "f50e8f5f4f44a27095dbc52d04cf94db1012a9d7e9ced25149044ea05f3de074",
+    "runtime": "v24.19.0",
+    "testGroups": [
+      {
+        "scope": "producer59",
+        "result": {
+          "exitCode": 0,
+          "tests": 59,
+          "pass": 59,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "synthetic": true
+      },
+      {
+        "scope": "qa12",
+        "result": {
+          "exitCode": 0,
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "synthetic": true
+      }
+    ],
+    "productionProof": false,
+    "node22CiExecuted": false
+  },
+  "sourceCI22AtAuthoring": "pending",
+  "activationRequirements": [
+    "Root admits store/IAM and authoritative current evidence",
+    "Central original identity, member/capping atomic reservation, CAS and outcome fences proven across restart",
+    "Real positive and negative flow receipts; source CI does not authorize dispatch or production"
+  ]
+}

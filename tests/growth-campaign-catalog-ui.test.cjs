@@ -111,7 +111,12 @@ test('late catalog from a replaced endpoint or access cannot publish or paint it
   assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);assert.equal(x.q('[data-ce-catalog]').textContent,'');assert.equal(x.calls.length,1,change);
  }
 });
-test('failed catalog refresh withdraws previous confirmation and empty Public explains how to load lists',async()=>{
+test('failed catalog refresh withdraws confirmation and Public distinguishes unavailable source from loaded empty lists',async()=>{
  let fail=false;const x=boot({respond:req=>fail?{status:503,body:{error:'unavailable'}}:dynamicReply(req)});await load(x);assert.equal(x.run('GCE.catalogs().length'),1);fail=true;await load(x);
- assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);assert.equal(x.q('[data-ce-catalog]').textContent,'');const el=x.document.createElement('div');Audience.mount({element:el}).update({brand:'fish',catalogs:[]});assert.match(el.textContent,/Campanhas/);
+ assert.deepEqual(clone(x.run('GCE.catalogs()')),[]);assert.equal(x.q('[data-ce-catalog]').textContent,'');
+ const el=x.document.createElement('div'),view=Audience.mount({element:el});view.update({brand:'fish',catalogs:clone(x.run('GCE.catalogs()'))});
+ assert.match(el.querySelector('[data-ga-summary]').textContent,/Quantidade de públicos indisponível/);assert.doesNotMatch(el.querySelector('[data-ga-summary]').textContent,/0 de 0/);
+ assert.match(el.querySelector('[data-ga-result]').textContent,/fonte está ausente ou incompleta/);assert.match(el.querySelector('[data-ga-result]').textContent,/Recarregue os dados para confirmar/);
+ view.update({brand:'fish',catalogs:[{brand:'fish',current:true,lists:[]}]});
+ assert.equal(el.querySelector('[data-ga-summary]').textContent,'0 de 0 públicos carregados');assert.match(el.querySelector('[data-ga-result]').textContent,/carregue as listas em Campanhas/);assert.doesNotMatch(el.querySelector('[data-ga-result]').textContent,/fonte está ausente ou incompleta/);
 });
