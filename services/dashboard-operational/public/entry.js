@@ -387,28 +387,29 @@ else (function(){'use strict';
    if(ticket!==version||session!==original)return;
    if(response?.status===401){showLogin('Sua sessão expirou. Entre novamente para conferir o cadastro.');return;}
    if(response&&!response.ok){
-    await loadUsers();
+    await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
     const messages={USER_CHANGED:'O cadastro mudou. Confira os dados atualizados antes de salvar novamente.',USER_UPDATE_PENDING:'Já há uma alteração em configuração para este cadastro.',USER_EXISTS:'Este e-mail já possui outro acesso.',USER_UPDATE_CREDENTIAL_REVOCATION_REQUIRED:'A chave anterior deste setor precisa ter a revogação confirmada antes de trocar o cadastro.',CAMPAIGN_RECONCILIATION_REQUIRED:'Confira as tentativas de campanhas pendentes antes de alterar este cadastro.',AUDIENCE_RECONCILIATION_REQUIRED:'Confira a tentativa de público pendente antes de alterar este cadastro.'};
     adminMessage.textContent=messages[data?.error]||'Não foi possível salvar o cadastro. Confira o estado do acesso.';return;
    }
-   await loadUsers();if(ticket!==version||session!==original)return;
+   const loaded=await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
    inviteResult.hidden=true;inviteLink.value='';
-   adminMessage.textContent=uncertain?'A resposta não foi confirmada. Confira o cadastro atualizado; nenhuma alteração foi reenviada.':changed?'Alteração registrada. O acesso anterior foi bloqueado; o novo convite aparece após a confirmação da revogação.':user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${fields.access==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado. A senha foi preservada.`:fields.access==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Leitura definida. A senha foi preservada.';
+   const confirmedMessage=uncertain?'A resposta não foi confirmada. Confira o cadastro atualizado; nenhuma alteração foi reenviada.':changed?'Alteração registrada. O acesso anterior foi bloqueado; o novo convite aparece após a confirmação da revogação.':user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${fields.access==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado. A senha foi preservada.`:fields.access==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Leitura definida. A senha foi preservada.';
+   adminMessage.textContent=confirmedMessage+(loaded?'':' A lista de acessos ainda não pôde ser atualizada.');
   }catch(_){if(ticket===version&&session===original)adminMessage.textContent='Não foi possível conferir o cadastro agora. Atualize os acessos antes de tentar novamente.';}
   finally{busy=false;form.setAttribute('aria-busy','false');for(const input of form.querySelectorAll('input,select,button'))input.disabled=false;}
  }
  async function finishProfileUpdate(user,button){
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||!profileRevisionValid(user)||!user.profileUpdate||!['ready','completed'].includes(user.profileUpdate.state))return;
-  const original=session,ticket=version;busy=true;button.disabled=true;inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Conferindo novo convite…';
+  const original=session,ticket=version;let response,data;busy=true;button.disabled=true;inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Conferindo novo convite…';
   try{
-   const {response,data}=await post('/auth/users',{action:'update_finish',userId:user.id,expectedRevision:user.profileRevision});
+   ({response,data}=await post('/auth/users',{action:'update_finish',userId:user.id,expectedRevision:user.profileRevision}));
    if(ticket!==version||session!==original)return;
    if(response.status===401){showLogin('Sua sessão expirou. Entre novamente para conferir o novo convite.');return;}
-   if(!response.ok){await loadUsers();adminMessage.textContent=response.status===409?'A configuração ainda não foi confirmada. Confira os acessos e tente novamente depois.':'Não foi possível obter o novo convite. Confira o estado do cadastro.';return;}
+   if(!response.ok){await refreshUsersAfterChange();if(ticket!==version||session!==original)return;adminMessage.textContent=response.status===409?'A configuração ainda não foi confirmada. Confira os acessos e tente novamente depois.':'Não foi possível obter o novo convite. Confira o estado do cadastro.';return;}
    const url=inviteUrlForArea(data?.inviteUrl,user.profileUpdate.area,session.areaHosts);if(!url)throw Error('invite_failed');
-   inviteLink.value=url;inviteResult.hidden=false;await loadUsers();if(ticket!==version||session!==original){inviteResult.hidden=true;inviteLink.value='';return;}
-   adminMessage.textContent='Cadastro atualizado. Compartilhe o novo convite para a pessoa criar a senha. A edição depende da confirmação mostrada no estado do acesso.';
-  }catch(_){if(ticket===version&&session===original){try{await loadUsers();}catch(_){}adminMessage.textContent='A resposta do convite não foi confirmada. Confira o cadastro; o mesmo convite pode ser recuperado sem repetir a alteração.';}}
+   inviteLink.value=url;inviteResult.hidden=false;const loaded=await refreshUsersAfterChange();if(ticket!==version||session!==original){inviteResult.hidden=true;inviteLink.value='';return;}
+   adminMessage.textContent='Cadastro atualizado. Compartilhe o novo convite para a pessoa criar a senha. A edição depende da confirmação mostrada no estado do acesso.'+(loaded?'':' A lista de acessos ainda não pôde ser atualizada; o link recebido continua disponível.');
+  }catch(_){if(ticket===version&&session===original){await refreshUsersAfterChange();if(ticket!==version||session!==original)return;adminMessage.textContent='A resposta do convite não foi confirmada. Confira o cadastro; o mesmo convite pode ser recuperado sem repetir a alteração.';}}
   finally{busy=false;button.disabled=false;}
  }
  function userRow(user){
@@ -482,21 +483,42 @@ else (function(){'use strict';
   finally{button.disabled=false;}
  }
  async function saveAccessRequest(user,select,button){
-  if(session?.user?.role!=='superadmin'||requested!=='todos')return;
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
   const requestedAccess=select.value;if(!['read','edit'].includes(requestedAccess))return;
   if(requestedAccess==='read'&&user.permissions?.[user.areas?.[0]]?.edit===true&&!window.confirm(`Retirar agora a edição de ${user.email}? A sessão atual será encerrada.`))return;
-  button.disabled=true;select.disabled=true;adminMessage.textContent='Salvando nível de acesso…';
+  const original=session,ticket=version;let response;busy=true;button.disabled=true;select.disabled=true;adminMessage.textContent='Salvando nível de acesso…';
   try{
-   const {response}=await post('/auth/users',{action:'access_request',userId:user.id,requestedAccess});
+   ({response}=await post('/auth/users',{action:'access_request',userId:user.id,requestedAccess}));if(ticket!==version||session!==original)return;
    if(!response.ok)throw Error('access_request_failed');
-   await loadUsers();adminMessage.textContent=user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${requestedAccess==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado.`:requestedAccess==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Acesso definido como somente leitura.';
-  }catch(_){button.disabled=false;select.disabled=false;adminMessage.textContent='Não foi possível salvar o nível de acesso.';}
+   const loaded=await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
+   const confirmedMessage=user.crmAccess?.operational===false&&user.crmAccess?.reason==='INDIVIDUAL_ACCESS_NOT_READY'?`Solicitação de ${requestedAccess==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado.`:requestedAccess==='edit'?'Edição configurada. O estado do acesso mostra quando a integração confirmar a edição.':'Acesso definido como somente leitura.';
+   adminMessage.textContent=confirmedMessage+(loaded?'':' A lista de acessos ainda não pôde ser atualizada.');
+  }catch(_){if(ticket!==version||session!==original)return;await refreshUsersAfterChange();if(ticket!==version||session!==original)return;adminMessage.textContent=!response||response.ok||response.status>=500?'A resposta da alteração não foi confirmada. Confira o estado na lista de acessos; nenhuma alteração foi reenviada.':'O nível de acesso foi recusado. Confira o estado do cadastro.';}
+  finally{busy=false;button.disabled=false;select.disabled=false;}
  }
  async function loadUsers(){
+  const original=session,ticket=version;
   const {response,data}=await request('/auth/users',{editReceipt:true});if(!response.ok)throw Error('users_unavailable');
+  if(ticket!==version||session!==original)return;
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
   $('admin-users').replaceChildren(...users.map(userRow));
   $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(user.profileUpdate?.state==='revoking'||['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
+ }
+ async function refreshUsersAfterChange(){
+  const original=session,ticket=version;
+  try{await loadUsers();return ticket===version&&session===original;}
+  catch(_){
+   if(ticket!==version||session!==original||session?.user?.role!=='superadmin'||requested!=='todos')return false;
+   const notice=document.createElement('p');notice.setAttribute('role','status');notice.textContent='A lista de acessos está indisponível. Consulte novamente antes de alterar outro cadastro.';
+   const retry=document.createElement('button');retry.type='button';retry.id='admin-users-refresh';retry.textContent='Atualizar lista';
+   retry.addEventListener('click',async()=>{
+    if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
+    const original=session,ticket=version;busy=true;retry.disabled=true;
+    try{const loaded=await refreshUsersAfterChange();if(ticket===version&&session===original)adminMessage.textContent=loaded?'Lista de acessos atualizada. Confira o estado de cada cadastro.':'A lista de acessos continua indisponível. Nenhuma alteração foi reenviada.';}
+    finally{busy=false;retry.disabled=false;}
+   });
+   $('admin-users').replaceChildren(notice,retry);$('admin-crm-reconcile').hidden=true;return false;
+  }
  }
  $('admin-crm-reconcile').addEventListener('click',async()=>{
   if(busy||session?.user?.role!=='superadmin'||requested!=='todos')return;
@@ -521,25 +543,44 @@ else (function(){'use strict';
   if(typeof session.areaHosts?.[area]!=='string'){
    adminMessage.textContent='Não foi possível confirmar o endereço deste painel. Atualize a página e tente novamente.';return;
   }
+  const original=session,ticket=version;let response,data;
   busy=true;const form=$('admin-invite-form'),button=form.querySelector('button');form.setAttribute('aria-busy','true');for(const field of form.querySelectorAll('input,select,button'))field.disabled=true;
   inviteResult.hidden=true;inviteLink.value='';adminMessage.textContent='Criando convite…';
   try{
    const body={action:'invite',email,brand,role:'manager',areas:[area],permissions:{[area]:{read:true,edit:false}},requestedAccess};
-   const {response,data}=await post('/auth/users',body);
+   ({response,data}=await post('/auth/users',body));
+   if(ticket!==version||session!==original)return;
    if(!response.ok)throw Error('invite_failed');
    const safeUrl=inviteUrlForArea(data?.inviteUrl,area,session.areaHosts);
    if(!safeUrl)throw Error('invite_failed');
    inviteLink.value=safeUrl;inviteResult.hidden=false;adminMessage.textContent=area==='growth'&&session.features?.crmIndividualAccessUnavailable===true?`Convite criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. Solicitação de ${requestedAccess==='edit'?'Edição':'Leitura'} registrada; acesso individual ainda não habilitado. Compartilhe o link por um canal seguro.`:`Convite com ${requestedAccess==='edit'?'Edição':'Leitura'} criado para ${AREAS[area].label} · ${AUDIENCE_BRANDS[brand]}. ${requestedAccess==='edit'?'A configuração da edição acontece após o aceite; confira o estado do acesso. ':''}Compartilhe o link por um canal seguro.`;
-   $('admin-email').value='';$('admin-brand').value='';$('admin-access').value='read';await loadUsers();
-  }catch(_){adminMessage.textContent='Não foi possível criar o convite. Confira os dados e tente novamente.';}
+   $('admin-email').value='';$('admin-brand').value='';$('admin-access').value='read';
+   const confirmedMessage=adminMessage.textContent,loaded=await refreshUsersAfterChange();
+   if(ticket===version&&session===original)adminMessage.textContent=confirmedMessage+(loaded?'':' A lista de acessos ainda não pôde ser atualizada; o link recebido continua disponível.');
+  }catch(_){
+   if(ticket!==version||session!==original)return;
+   const uncertain=!response||response.ok||response.status>=500;
+   await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
+   adminMessage.textContent=uncertain?'A resposta do convite não foi confirmada. Confira a lista de acessos; o convite não foi reenviado.':data?.error==='USER_EXISTS'?'Este e-mail já possui um cadastro. Confira o acesso existente antes de criar outro convite.':'O convite foi recusado. Confira os dados e o estado do cadastro.';
+  }
   finally{busy=false;form.setAttribute('aria-busy','false');for(const field of form.querySelectorAll('input,select,button'))field.disabled=false;}
  });
  async function revoke(user,button){
-  if(session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? ${user.crmAccess?'A revogação do CRM será confirmada antes de um novo convite.':'Chaves individuais dos serviços de origem exigem revogação separada.'}`))return;
-  button.disabled=true;adminMessage.textContent='Revogando acesso…';
-  try{const {response,data}=await post('/auth/users',{action:'revoke',userId:user.id});if(!response.ok)throw Error('revoke_failed');inviteResult.hidden=true;inviteLink.value='';await loadUsers();adminMessage.textContent=data?.crmRevocationPending===true?'Acesso ao portal revogado. A confirmação da revogação no CRM está pendente.':data?.crmRevocationPending===false?'Acesso ao portal e ao CRM revogado.':'Acesso ao portal revogado. Revogue também a chave individual no serviço de origem, se existir.';}
-  catch(_){adminMessage.textContent='Não foi possível revogar o acesso agora.';}
-  finally{button.disabled=false;}
+  if(busy||session?.user?.role!=='superadmin'||requested!=='todos'||!window.confirm(`Revogar o acesso de ${user.email} ao portal? ${user.crmAccess&&user.crmAccess.operational!==false?'A revogação do CRM será confirmada antes de um novo convite.':'Chaves individuais dos serviços de origem exigem revogação separada.'}`))return;
+  const original=session,ticket=version;let response,data;busy=true;button.disabled=true;adminMessage.textContent='Revogando acesso…';
+  try{
+   ({response,data}=await post('/auth/users',{action:'revoke',userId:user.id}));if(ticket!==version||session!==original)return;if(!response.ok)throw Error('revoke_failed');
+   inviteResult.hidden=true;inviteLink.value='';
+   const loaded=await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
+   const confirmedMessage=data?.crmRevocationPending===true?'Acesso ao portal revogado. A confirmação da revogação no CRM está pendente.':data?.crmRevocationPending===false?'Acesso ao portal e ao CRM revogado.':'Acesso ao portal revogado. Revogue também a chave individual no serviço de origem, se existir.';
+   adminMessage.textContent=confirmedMessage+(loaded?'':' A lista de acessos ainda não pôde ser atualizada.');
+  }catch(_){
+   if(ticket!==version||session!==original)return;
+   const uncertain=!response||response.ok||response.status>=500;
+   await refreshUsersAfterChange();if(ticket!==version||session!==original)return;
+   adminMessage.textContent=uncertain?'A resposta da revogação não foi confirmada. Confira o estado na lista de acessos; nenhuma revogação foi reenviada.':'A revogação foi recusada. Confira o estado do cadastro.';
+  }
+  finally{busy=false;button.disabled=false;}
  }
  $('admin-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(inviteLink.value);adminMessage.textContent='Link copiado.';}catch(_){inviteLink.select();adminMessage.textContent='Selecione e copie o link de convite.';}});
  $('admin-invite-hide').addEventListener('click',()=>{inviteLink.value='';inviteResult.hidden=true;});

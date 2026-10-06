@@ -73,7 +73,7 @@ test('READ renewal and pending access reconciliation remain available under the 
   [{...manager.crmAccess},{...manager.crmWriter,state:'provisioning'},false],
   [{...manager.crmAccess,renewalPhase:'prepare_uncertain'},{...manager.crmWriter},false]
  ]){
-  const button={hidden:null},list={replaceChildren(){}},context={$:id=>id==='admin-crm-reconcile'?button:list,request:async()=>({response:{ok:true},data:{users:[{...manager,crmAccess,crmWriter,campaignContentAccess:unavailable}]}}),userRow:()=>({})};
+  const button={hidden:null},list={replaceChildren(){}},context={session:{user:{role:'superadmin'}},version:0,$:id=>id==='admin-crm-reconcile'?button:list,request:async(url,options)=>{assert.equal(url,'/auth/users');assert.equal(options.editReceipt,true);return {response:{ok:true},data:{users:[{...manager,crmAccess,crmWriter,campaignContentAccess:unavailable}]}};},userRow:()=>({})};
   vm.runInNewContext(source.slice(start,end)+'\nglobalThis.refresh=loadUsers;',context);await context.refresh();assert.equal(button.hidden,hidden);
  }
  const renewStart=source.indexOf(' async function renewCrm('),renewEnd=source.indexOf(' async function saveAccessRequest(',renewStart);

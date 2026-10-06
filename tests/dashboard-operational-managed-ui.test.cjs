@@ -20,11 +20,12 @@ test('manager list displays readiness and pending revocation without exposing pr
 });
 test('revocation reports the backend acknowledgement and does not declare a pending CRM revocation complete',async()=>{
  const start=source.indexOf(' async function revoke('),end=source.indexOf(" $('admin-copy').addEventListener(");assert.ok(start>=0&&end>start);
+ const refreshStart=source.indexOf(' async function loadUsers('),refreshEnd=source.indexOf(" $('admin-crm-reconcile').addEventListener(",refreshStart);assert.ok(refreshStart>=0&&refreshEnd>refreshStart);
  for(const [data,expected] of [[{crmRevocationPending:true},'A confirmação da revogação no CRM está pendente.'],[{crmRevocationPending:false},'Acesso ao portal e ao CRM revogado.'],[{},'Revogue também a chave individual no serviço de origem']]){
-  let confirmation='',calls=0;const context={session:{user:{role:'superadmin'}},requested:'todos',window:{confirm(value){confirmation=value;return true;}},post:async(url,body)=>{assert.equal(url,'/auth/users');assert.equal(body.action,'revoke');calls++;return {response:{ok:true},data};},loadUsers:async()=>{},inviteResult:{hidden:false},inviteLink:{value:'synthetic-invite'},adminMessage:{textContent:''}};
-  vm.runInNewContext(source.slice(start,end)+'\nglobalThis.revokeUser=revoke;',context);
+  let confirmation='',calls=0,loads=0;const list={replaceChildren(){}},reconcile={hidden:false},context={busy:false,version:0,session:{user:{role:'superadmin'}},requested:'todos',$:id=>{assert.ok(['admin-users','admin-crm-reconcile'].includes(id));return id==='admin-users'?list:reconcile;},userRow:()=>({}),window:{confirm(value){confirmation=value;return true;}},post:async(url,body)=>{assert.equal(url,'/auth/users');assert.equal(body.action,'revoke');calls++;return {response:{ok:true},data};},request:async(url,options)=>{assert.equal(url,'/auth/users');assert.deepEqual(Object.keys(options),['editReceipt']);assert.equal(options.editReceipt,true);loads++;return {response:{ok:true},data:{users:[]}};},inviteResult:{hidden:false},inviteLink:{value:'synthetic-invite'},adminMessage:{textContent:''}};
+  vm.runInNewContext(source.slice(refreshStart,refreshEnd)+source.slice(start,end)+'\nglobalThis.revokeUser=revoke;',context);
   const button={disabled:false};await context.revokeUser({...manager,crmAccess:{state:'ready',ready:true}},button);
-  assert.equal(calls,1);assert.ok(context.adminMessage.textContent.includes(expected));assert.match(confirmation,/confirmada antes de um novo convite/);assert.equal(context.inviteLink.value,'');assert.equal(context.inviteResult.hidden,true);assert.equal(button.disabled,false);
+  assert.equal(calls,1);assert.equal(loads,1);assert.equal(context.busy,false);assert.ok(context.adminMessage.textContent.includes(expected));assert.match(confirmation,/confirmada antes de um novo convite/);assert.equal(context.inviteLink.value,'');assert.equal(context.inviteResult.hidden,true);assert.equal(button.disabled,false);
  }
 });
 test('pending-access action is restricted to the manager view and requests reconciliation without private inputs',async()=>{
@@ -38,7 +39,7 @@ test('pending-access action is restricted to the manager view and requests recon
 test('pending list includes an uncertain renewal without exposing managed state on legacy users',async()=>{
  const start=source.indexOf(' async function loadUsers('),end=source.indexOf(" $('admin-crm-reconcile').addEventListener(",start);assert.ok(start>=0&&end>start);
  for(const [user,expectedHidden] of [[manager,true],[{...manager,crmAccess:{state:'ready',ready:true}},true],[{...manager,crmAccess:{state:'ready',ready:false}},false],[{...manager,crmAccess:{state:'ready',ready:true,renewalPhase:'prepare_uncertain'}},false],[{...manager,crmAccess:{state:'ready',ready:false,expired:true,renewalPhase:'commit_uncertain'}},false],[{...manager,crmAccess:{state:'provisioning',ready:false}},false],[{...manager,crmAccess:{state:'revoking',ready:false}},false],[{...manager,role:'superadmin',crmAccess:{state:'ready',ready:false}},true]]){
-  const button={hidden:null},list={replaceChildren(){}},context={$:id=>id==='admin-crm-reconcile'?button:list,request:async()=>({response:{ok:true},data:{users:[user]}}),userRow:()=>({})};
+  const button={hidden:null},list={replaceChildren(){}},context={session:{user:{role:'superadmin'}},version:0,$:id=>id==='admin-crm-reconcile'?button:list,request:async(url,options)=>{assert.equal(url,'/auth/users');assert.equal(options.editReceipt,true);return {response:{ok:true},data:{users:[user]}};},userRow:()=>({})};
   vm.runInNewContext(source.slice(start,end)+'\nglobalThis.refresh=loadUsers;',context);await context.refresh();assert.equal(button.hidden,expectedHidden);
  }
 });
