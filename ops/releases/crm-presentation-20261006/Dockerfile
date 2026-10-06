@@ -6,8 +6,13 @@ COPY --from=admitted /app/artifact-policy.cjs /app/bootstrap.cjs /app/canary-ima
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS presentation-build
 WORKDIR /source
-COPY . .
+COPY growth.html ./growth.html
+COPY assets/panels/growth.js ./assets/panels/growth.js
+COPY services/dashboard-operational/build.cjs services/dashboard-operational/crm-campaign-bff-client.cjs services/dashboard-operational/campaign-ui-assets.json ./services/dashboard-operational/
+COPY services/dashboard-operational/public/entry.js services/dashboard-operational/public/entry.compiled.js services/dashboard-operational/public/campaign-bff-client.js services/dashboard-operational/public/campaign-edit.js services/dashboard-operational/public/campaign-edit.compiled.js services/dashboard-operational/public/guard.js services/dashboard-operational/public/guard.compiled.js ./services/dashboard-operational/public/
+COPY ops/releases/crm-presentation-20261006/release.cjs ops/releases/crm-presentation-20261006/build-release.cjs ./ops/releases/crm-presentation-20261006/
 COPY --from=admitted /app/artifact-policy.cjs /app/bootstrap.cjs /app/canary-image.cjs /app/canary-start.cjs /app/image-pin.json /app/runtime-pack.json /admitted-base/
+RUN node -e 'const fs=require("node:fs"),path=require("node:path"),root="/source",expected=["growth.html","assets/panels/growth.js","services/dashboard-operational/build.cjs","services/dashboard-operational/crm-campaign-bff-client.cjs","services/dashboard-operational/campaign-ui-assets.json","services/dashboard-operational/public/entry.js","services/dashboard-operational/public/entry.compiled.js","services/dashboard-operational/public/campaign-bff-client.js","services/dashboard-operational/public/campaign-edit.js","services/dashboard-operational/public/campaign-edit.compiled.js","services/dashboard-operational/public/guard.js","services/dashboard-operational/public/guard.compiled.js","ops/releases/crm-presentation-20261006/release.cjs","ops/releases/crm-presentation-20261006/build-release.cjs"].sort(),actual=[];function walk(dir,prefix=""){for(const name of fs.readdirSync(dir)){const file=path.join(dir,name),relative=prefix+name,s=fs.lstatSync(file);if(s.isSymbolicLink())throw Error("PRESENTATION_SOURCE_INVENTORY_REFUSED");if(s.isDirectory())walk(file,relative+"/");else{if(!s.isFile()||s.nlink!==1)throw Error("PRESENTATION_SOURCE_INVENTORY_REFUSED");actual.push(relative);}}}walk(root);if(JSON.stringify(actual.sort())!==JSON.stringify(expected))throw Error("PRESENTATION_SOURCE_INVENTORY_REFUSED");process.stdout.write("PUBLIC_BUILD_INPUTS_CONFIRMED=14\n");'
 RUN node ops/releases/crm-presentation-20261006/build-release.cjs /source /admitted-base /presentation-public
 
 # Auth, SQLite, canary controls, the c3f pack and native activation stay in the
