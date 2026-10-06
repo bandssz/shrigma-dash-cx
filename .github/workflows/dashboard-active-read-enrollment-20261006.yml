@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   active-read-enrollment:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'bandssz/shrigma-dash-cx'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.ref == 'codex/crm-active-read-enrollment-20261006'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

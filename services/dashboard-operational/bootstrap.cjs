@@ -34,7 +34,26 @@ function pinnedEnv(env=process.env){
  if(env.DASHBOARD_EXPECT_GID!==undefined&&env.DASHBOARD_EXPECT_GID!=='1000')throw Error('RUNTIME_GID_CONFIG_INVALID');
  return {...env,DASHBOARD_DB_PATH:DB_FILE,DASHBOARD_EXPECT_UID:'1000'};
 }
-function start(){
+// Called after artifact admission by start(). Exported for source-level
+// initialization tests; it does not replace UID/pack/storage admission.
+function initializeArtifactRuntime(artifact,env,identityStoreInput){
+ let store;
+ try{
+  const runtime=require(path.join(artifact.runtimeDir,'server.cjs'));
+  const settings=runtime.settingsFromEnv({...env,DASHBOARD_PUBLIC_DIR:artifact.publicDir});
+  if(identityStoreInput!==undefined){
+   // A SQLite lease must address the same actual configured store.
+   if((identityStoreInput.dialect??'sqlite-v1')==='sqlite-v1'&&identityStoreInput.dbPath!==settings.dbPath)throw Error('RUNTIME_FACTORY_STARTUP_REFUSED');
+   store=require(path.join(artifact.runtimeDir,'identity-store-factory.cjs')).openIdentityStore(identityStoreInput);
+  }
+  return runtime.initializeRuntime(settings,store);
+ }catch{
+  try{store?.close();}catch{}
+  const error=new Error('RUNTIME_FACTORY_STARTUP_REFUSED');error.code='RUNTIME_FACTORY_STARTUP_REFUSED';throw error;
+ }
+}
+function start(startupOptions){
+ if(startupOptions!==undefined&&(!startupOptions||typeof startupOptions!=='object'||Array.isArray(startupOptions)||Object.keys(startupOptions).some(key=>key!=='identityStoreInput')))throw Error('RUNTIME_FACTORY_STARTUP_REFUSED');
  checkIdentity();process.umask(0o077);
  const env=pinnedEnv();checkStorage();
  // Validate pin, allowlist and bytes before importing code or touching SQLite.
@@ -42,11 +61,10 @@ function start(){
  let artifact;
  try{artifact=unpack(selectPackFile(),path.join(parent,'artifact'),{expectedSha256:env.DASHBOARD_PACK_SHA256});}
  catch(error){fs.rmSync(parent,{recursive:true,force:true});throw error;}
- const runtime=require(path.join(artifact.runtimeDir,'server.cjs'));
- const settings=runtime.settingsFromEnv({...env,DASHBOARD_PUBLIC_DIR:artifact.publicDir});
- const {createAuth}=require(path.join(artifact.runtimeDir,'auth.cjs'));
- const auth=createAuth(runtime.authOptionsFor(settings)),managedCrmRuntime=runtime.managedRuntimeFor(settings,auth);
- const server=runtime.createServer(settings,{auth,managedCrmRuntime});
+ let initialized;
+ try{initialized=initializeArtifactRuntime(artifact,env,startupOptions?.identityStoreInput);}
+ catch(error){fs.rmSync(parent,{recursive:true,force:true});throw error;}
+ const {auth,managedCrmRuntime,server}=initialized;
  let closing=false,failureSeen=false;
  const fail=()=>{if(!failureSeen)console.error('Dashboard operational startup refused.');failureSeen=true;process.exitCode=1;};
  const close=(failed=false)=>{
@@ -55,25 +73,17 @@ function start(){
   if(failed)fail();
   if(closing)return;
   closing=true;
-  let drained;
-  try{drained=managedCrmRuntime?managedCrmRuntime.close():Promise.resolve();}
-  catch{fail();drained=Promise.resolve();}
-  const stopped=new Promise(resolve=>{
-   try{server.close(error=>{if(error&&error.code!=='ERR_SERVER_NOT_RUNNING')fail();resolve();});}
-   catch{fail();resolve();}
-  });
-  try{server.closeIdleConnections?.();}catch{fail();}
-  Promise.allSettled([drained,stopped]).then(results=>{
+  Promise.allSettled([initialized.close()]).then(results=>{
    if(results.some(result=>result.status==='rejected'))fail();
-   try{auth.close();}catch{fail();}
    try{fs.rmSync(parent,{recursive:true,force:true});}catch{fail();}
    if(!failureSeen)process.exitCode=0;
   });
  };
  process.once('SIGTERM',()=>close());process.once('SIGINT',()=>close());
  server.on('error',()=>close(true));
- server.listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening; artifact verified; persistent identity volume ready.'));
+ try{initialized.listen(()=>console.log('Dashboard operational service listening; artifact verified; persistent identity volume ready.'));}
+ catch{close(true);const error=new Error('RUNTIME_FACTORY_LISTEN_REFUSED');error.code='RUNTIME_FACTORY_LISTEN_REFUSED';throw error;}
  return {server,artifact};
 }
 if(require.main===module){try{start();}catch{console.error('Dashboard operational startup refused: invalid identity, volume, configuration or artifact.');process.exitCode=1;}}
-module.exports={DATA_DIR,PACK_FILE,SEED_FILE,DB_FILE,checkIdentity,checkStorage,selectPackFile,pinnedEnv,start};
+module.exports={DATA_DIR,PACK_FILE,SEED_FILE,DB_FILE,checkIdentity,checkStorage,selectPackFile,pinnedEnv,initializeArtifactRuntime,start};

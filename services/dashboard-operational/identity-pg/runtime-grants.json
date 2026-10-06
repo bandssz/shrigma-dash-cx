@@ -1,0 +1,243 @@
+{
+  "schema": "dashboard-pg-runtime-grants-v1",
+  "registrySha256": "55adf6b3680faaebc671d476f95312d2f3dc16828ac57f11d181c9b4102f7f98",
+  "relations": [
+    {
+      "table": "users",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "grants",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "sessions",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "invites",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "access_requests",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "user_profile_updates_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "upstream_credentials",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "campaign_draft_operations",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "audience_draft_operations",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "login_limits",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "identity_metadata",
+      "privileges": [
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "user_brand_grants_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "user_brand_lifecycles_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "upstream_brand_bindings_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_writer_request_authority_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "campaign_writer_attestation_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_manager_configuration_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "crm_manager_lifecycles_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_manager_current_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_manager_operations_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_writer_auth_config_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "crm_writer_auth_admission_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_writer_auth_binding_v1",
+      "privileges": [
+        "DELETE",
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_writer_retired_binding_v1",
+      "privileges": [
+        "INSERT"
+      ]
+    },
+    {
+      "table": "crm_writer_bridge_config_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT"
+      ]
+    },
+    {
+      "table": "crm_writer_bridge_life_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_writer_bridge_op_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_campaign_create_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    },
+    {
+      "table": "crm_campaign_delivery_v1",
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ]
+    }
+  ]
+}

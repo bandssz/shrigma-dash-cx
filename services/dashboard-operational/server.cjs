@@ -904,11 +904,56 @@ function managedRuntimeFor(settings,auth){
   const writer=createWriterManagerRuntime({auth,descriptor:settings.crmManagedWriter,readDescriptor:settings.crmManagedRead,allowedEmailDomains:settings.allowedEmailDomains,provisionerToken:settings.crmManagedWriter.provisionerToken});
   return Object.freeze({kick:async()=>{const first=await Promise.allSettled([read.kick()]);if(first[0].status==='fulfilled')try{auth.fulfillManagedCampaignWriterRequests();}catch{}const last=await Promise.allSettled([writer.kick()]);try{auth.reconcileUserProfileUpdates();}catch{}return [...first,...last];},close:()=>Promise.allSettled([read.close(),writer.close()]).then(()=>undefined)});
 }
+// Private startup seam. Never selected by an HTTP request or environment flag.
+function initializeRuntime(settings,trustedIdentityStore){
+ const Store=require('./identity-store-factory.cjs');
+ // A reused/forged lease belongs to no new initializer; do not close its owner.
+ if(trustedIdentityStore!==undefined)Store.describeIdentityStore(trustedIdentityStore);
+ let auth,managedCrmRuntime,server;
+ try{
+  const options=authOptionsFor(settings);
+  if(trustedIdentityStore?.dialect==='postgres-pg17-v1')delete options.dbPath;
+  auth=createAuth(options,trustedIdentityStore);
+  managedCrmRuntime=managedRuntimeFor(settings,auth);
+  server=createServer(settings,{auth,managedCrmRuntime});
+ }catch{
+  try{if(managedCrmRuntime)Promise.resolve(managedCrmRuntime.close()).catch(()=>{});}catch{}
+  try{auth?.close();}catch{}
+  try{trustedIdentityStore?.close();}catch{}
+  const error=new Error('RUNTIME_FACTORY_STARTUP_REFUSED');error.code='RUNTIME_FACTORY_STARTUP_REFUSED';throw error;
+ }
+ let closeTask,listenAttempted=false;
+ const close=()=>{
+  if(closeTask)return closeTask;
+  closeTask=Promise.allSettled([
+   Promise.resolve().then(()=>managedCrmRuntime?.close()),
+   new Promise((resolve,reject)=>{
+    try{server.close(error=>error&&error.code!=='ERR_SERVER_NOT_RUNNING'?reject(error):resolve());server.closeIdleConnections?.();}catch(error){reject(error);}
+   })
+  ]).then(results=>{
+   let failed=results.some(result=>result.status==='rejected');
+   try{auth.close();}catch{failed=true;}
+   if(failed){const error=new Error('RUNTIME_FACTORY_SHUTDOWN_REFUSED');error.code='RUNTIME_FACTORY_SHUTDOWN_REFUSED';throw error;}
+  });
+  return closeTask;
+ };
+ const listenAddress=Object.freeze({host:settings.host,port:settings.port});
+ const listen=callback=>{
+  const refused=()=>{const error=new Error('RUNTIME_FACTORY_LISTEN_REFUSED');error.code='RUNTIME_FACTORY_LISTEN_REFUSED';return error;};
+  if(closeTask||listenAttempted)throw refused();
+  listenAttempted=true;
+  try{return server.listen(listenAddress.port,listenAddress.host,callback);}
+  catch{close().catch(()=>{});throw refused();}
+ };
+ return Object.freeze({auth,managedCrmRuntime,server,close,listen,listenAddress});
+}
 if(require.main===module){
   try{
     const settings=settingsFromEnv();
-    const auth=createAuth(authOptionsFor(settings)),managedCrmRuntime=managedRuntimeFor(settings,auth);
-    createServer(settings,{auth,managedCrmRuntime}).listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening'));
+    const runtime=initializeRuntime(settings);
+    const stop=()=>{runtime.close().catch(()=>{console.error('Dashboard operational shutdown refused');process.exitCode=1;});};
+    process.once('SIGTERM',stop);process.once('SIGINT',stop);runtime.server.once('error',()=>{process.exitCode=1;stop();});
+    runtime.listen(()=>console.log('Dashboard operational service listening'));
   }catch{console.error('Dashboard operational startup refused: invalid configuration');process.exitCode=1;}
 }
-module.exports={settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};
+module.exports={settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor,initializeRuntime};

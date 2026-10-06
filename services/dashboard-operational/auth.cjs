@@ -17,7 +17,7 @@
  * Admin activation uses a one-time private bootstrap token. There is no public
  * password reset route; recovery requires verified offline maintenance.
  */
-const {DatabaseSync}=require('node:sqlite');
+const IdentityStore=require('./identity-store-factory.cjs');
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const {promisify}=require('node:util');
@@ -108,8 +108,16 @@ function invitePermissions(areas,permissions){
  return normalized;
 }
 
-function createAuth(options){
- if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
+function createAuth(options,trustedIdentityStore){
+ let identityStore;
+ try{
+  if(trustedIdentityStore!==undefined){
+   IdentityStore.describeIdentityStore(trustedIdentityStore);
+   identityStore=trustedIdentityStore;
+   IdentityStore.claimIdentityStore(identityStore,options?.dbPath);
+  }
+  const postgresIdentity=identityStore?.dialect==='postgres-pg17-v1';
+ if(!plain(options)||(postgresIdentity?options.dbPath!==undefined:typeof options.dbPath!=='string'||!options.dbPath)||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
  let corporateWriter=null;
  let ownMasterWriter=null;
@@ -137,9 +145,10 @@ function createAuth(options){
  const requireWriteContext=ctx=>{if(!plain(ctx)||ctx.method!=='POST')err('METHOD_DENIED',405);const h=knownHost(ctx.host);checkOrigin(h,ctx.origin);return h;};
  const encrypt=value=>{const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',encKey,iv);const payload=Buffer.concat([cipher.update(value,'utf8'),cipher.final()]);return ['v1',iv.toString('base64url'),cipher.getAuthTag().toString('base64url'),payload.toString('base64url')].join('.');};
  const decrypt=value=>{try{const [v,i,t,c]=value.split('.');if(v!=='v1'||!i||!t||!c)throw Error();const decipher=crypto.createDecipheriv('aes-256-gcm',encKey,Buffer.from(i,'base64url'));decipher.setAuthTag(Buffer.from(t,'base64url'));return Buffer.concat([decipher.update(Buffer.from(c,'base64url')),decipher.final()]).toString('utf8');}catch{err('CREDENTIAL_UNAVAILABLE',503);}};
- const db=new DatabaseSync(dbPath);
- try{db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');}catch{db.close();err('DATABASE_UNAVAILABLE',503);}
- if(dbPath!==':memory:')for(const path of [dbPath,dbPath+'-wal',dbPath+'-shm'])try{if(fs.existsSync(path))fs.chmodSync(path,0o600);}catch{db.close();err('DATABASE_PERMISSIONS',503);}
+ if(!identityStore)identityStore=IdentityStore.claimIdentityStore(IdentityStore.openIdentityStore({dbPath}),dbPath);
+ const db=identityStore.database;
+ try{db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');}catch{identityStore.close();err('DATABASE_UNAVAILABLE',503);}
+ if(identityStore.sqliteFilePermissionsRequired&&dbPath!==':memory:')for(const path of [dbPath,dbPath+'-wal',dbPath+'-shm'])try{if(fs.existsSync(path))fs.chmodSync(path,0o600);}catch{identityStore.close();err('DATABASE_PERMISSIONS',503);}
  db.exec(`CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,role TEXT NOT NULL CHECK(role IN ('superadmin','manager')),
   state TEXT NOT NULL CHECK(state IN ('bootstrap','invited','active','disabled')),
@@ -224,6 +233,9 @@ function createAuth(options){
   const admins=db.prepare("SELECT * FROM users WHERE role='superadmin'").all();
   if(admins.length>1||admins.length===1&&admins[0].email!==adminEmail)err('ADMIN_CONFIG_DRIFT',500);
   const verifier=db.prepare("SELECT encrypted_value FROM identity_metadata WHERE key='encryption_verifier'").get();
+  // A PG import must preserve the original Master and encryption verifier.
+  // Refuse an incomplete import; never bootstrap a replacement identity.
+  if(postgresIdentity&&(admins.length!==1||!verifier))err('IMPORTED_IDENTITY_REQUIRED',503);
   // Older identity volumes kept an encrypted TOTP secret. Verify that key
   // before establishing the new encrypted verifier; never silently accept a
   // different key for an existing identity.
@@ -240,16 +252,16 @@ function createAuth(options){
    if(!['bootstrap','active'].includes(admin.state)||grants.length!==3||AREAS.some(a=>!grants.some(g=>g.area===a&&g.can_read===1))||admin.state==='bootstrap'&&admin.bootstrap_hash!==options.bootstrapTokenSha256)err('ADMIN_CONFIG_DRIFT',500);
   }
   db.exec('COMMIT');
- }catch(e){db.exec('ROLLBACK');db.close();throw e;}
+ }catch(e){db.exec('ROLLBACK');identityStore.close();throw e;}
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
  let managedCrm=null,managedWriter=null;
  if(options.crmManagedRead!==undefined)try{
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
- }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
+ }catch{identityStore.close();err('MANAGED_CONFIG_INVALID',500);}
  if(options.crmManagedWriter!==undefined)try{
   managedWriter=require('./crm-manager-writer-auth-adapter.cjs').createWriterAuthAdapter({db,enabled:true,profile:corporateWriter?'corporate-read-writer-v1':'crm-sandbox',issuerId:options.crmManagedWriter.issuerId,namespaceId:options.crmManagedWriter.namespaceId,...(corporateWriter?{readReady:id=>managedCrm.credentialReady(id)===true}:{}),allowedEmailDomains:options.allowedEmailDomains,encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),brandForUser:id=>{try{return requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(id)).brand;}catch{return null;}},now:current});
- }catch{db.close();err('MANAGED_WRITER_CONFIG_INVALID',500);}
+ }catch{identityStore.close();err('MANAGED_WRITER_CONFIG_INVALID',500);}
  function writerCall(fn){try{return fn();}catch{err('MANAGED_WRITER_STORE_UNAVAILABLE',503);}}
  function managedCall(fn){try{return fn();}catch(e){if(e?.code==='MANAGED_REVOCATION_REQUIRED')err(e.code,409);err('MANAGED_STORE_UNAVAILABLE',503);}}
  // Only the current lifecycle's open renewal is projected into the admin
@@ -1176,7 +1188,8 @@ function createAuth(options){
   }
   return true;
  }
- function close(){db.close();}
+ function close(){identityStore.close();}
  return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ }catch(error){try{identityStore?.close();}catch{}throw error;}
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
