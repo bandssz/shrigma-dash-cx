@@ -27,8 +27,6 @@ jobs:
       SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
       HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-      BORROWED_SOURCE_DIRECTORY: ${{ runner.temp }}/borrowed-source-ci
-      CRM_PERSISTENCE_CONTEXT_DIRECTORY: ${{ runner.temp }}/borrowed-reference-ci
       BORROWED_PG17_CI: '1'
       BORROWED_PG17_DIGEST_ADMITTED: 'true'
     services:
@@ -50,6 +48,7 @@ jobs:
           test "$HEAD_REPOSITORY" = 'bandssz/shrigma-dash-cx'
           test "$SOURCE_BRANCH" = 'codex/crm-mvp-persistence-borrowed-source-20261006'
           test "$BORROWED_PG17_DIGEST_ADMITTED" = 'true'
+          printf 'BORROWED_SOURCE_DIRECTORY=%s/borrowed-source-ci\nCRM_PERSISTENCE_CONTEXT_DIRECTORY=%s/borrowed-reference-ci\n' "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
