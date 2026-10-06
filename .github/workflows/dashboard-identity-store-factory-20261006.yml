@@ -1,0 +1,65 @@
+name: DASH identity store factory source proof
+
+'on':
+  push:
+    branches: [codex/identity-store-factory-source-20261006]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  identity-factory-source:
+    if: >-
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/codex/identity-store-factory-source-20261006') ||
+       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'codex/identity-store-factory-source-20261006'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SOURCE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      SOURCE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.SOURCE_REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify exact sixteen paths, immutable source pins and registry
+        run: node tools/dashboard-identity-store-factory/verify-source.cjs > "$RUNNER_TEMP/identity-factory-source-proof.json"
+      - name: Run fourteen real factory and source initialization cases
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-identity-factory.test.cjs tests/dashboard-operational-identity-factory-integration.test.cjs | tee "$RUNNER_TEMP/identity-factory-tests.tap"
+      - name: Run nine unchanged active enrollment cases with default SQLite
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 --test-reporter=tap tests/dashboard-operational-active-read-enrollment.test.cjs | tee "$RUNNER_TEMP/identity-enrollment-tests.tap"
+      - name: Confirm all twenty-three directed cases executed without skips
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          for(const [name,count]of [['identity-factory-tests.tap',14],['identity-enrollment-tests.tap',9]]){
+            const text=fs.readFileSync(path.join(process.env.RUNNER_TEMP,name),'utf8');
+            for(const [key,value]of [['tests',count],['pass',count],['fail',0],['cancelled',0],['skipped',0],['todo',0]])if(!new RegExp('^# '+key+' '+value+'$','m').test(text))throw Error('DIRECTED_TEST_COUNT_REFUSED');
+          }
+          console.log('DIRECTED_TEST_COUNTS_CONFIRMED_14_PLUS_9');
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: dash-identity-factory-source-${{ env.SOURCE_REVISION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/identity-factory-source-proof.json
+            ${{ runner.temp }}/identity-factory-tests.tap
+            ${{ runner.temp }}/identity-enrollment-tests.tap
+          if-no-files-found: error
+          retention-days: 7
