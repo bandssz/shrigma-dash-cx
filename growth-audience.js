@@ -78,6 +78,17 @@
    const k=identity(c.brand,l.id);if(!lists.has(k))lists.set(k,{key:'list:'+k,id:l.id,brand:c.brand,name:text(l.name)||'Lista '+l.id,kind:'list',group:'list',available:l.available,source:'campaign_catalog',count:null,measuredAt:null,dateOnly:false,reason:'catalog_without_count'});
   }}result.push(...lists.values());return result;
  }
+ // An absent or malformed identity source cannot prove a loaded-empty catalog.
+ // crm_galho contains measurements only and cannot establish audience identity.
+ function sourceState(api,catalogs,now){let loaded=false,incomplete=false;
+  const inspect=(value,valid)=>{if(value===null||value===undefined)return;if(!Array.isArray(value)){incomplete=true;return;}if(!value.length){loaded=true;return;}if(value.some(valid))loaded=true;if(value.some(r=>!valid(r)))incomplete=true;};
+  inspect(api.crm_base,r=>!!brand(r?.marca));
+  inspect(api.crm_regra_galho,r=>!!brand(r?.marca)&&!!text(r?.galho));
+  if(catalogs!==null&&catalogs!==undefined&&!Array.isArray(catalogs))incomplete=true;
+  for(const c of list(catalogs))if(brand(c?.brand)&&c.current===true)inspect(c.lists,l=>l?.brand===c.brand&&Number.isSafeInteger(l.id)&&l.id>0&&typeof l.available==='boolean');
+  if(rfmCatalogSources(catalogs,now).size)loaded=true;
+  return {loaded,incomplete};
+ }
  const normalized=v=>String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  function sortRows(input,{sort='size_desc',search='',kind='all',group='all'}={}){
   const needle=normalized(search.trim()),selected=list(input).filter(r=>(kind==='all'||r.kind===kind)&&(group==='all'||r.group===group)&&(!needle||normalized(r.name+' '+(BRANDS[r.brand]||'')+' '+(GROUPS[r.group]||'')).includes(needle)));
@@ -111,8 +122,9 @@
    if(focusedKey)[...cards.querySelectorAll('[data-ga-rfm-key]')].find(n=>n.getAttribute('data-ga-rfm-key')===focusedKey)?.focus?.({preventScroll:true});
    let visible=sortRows(all,state);if(state.rfmKey)visible=visible.filter(r=>r.key===state.rfmKey);
    const unknown=visible.filter(r=>r.count===null).length;
-   q('[data-ga-summary]').textContent=visible.length+' de '+all.length+' públicos carregados'+(unknown?' · '+unknown+' sem contagem':'')+(state.groupNotice?' · '+state.groupNotice:'');
-   q('[data-ga-result]').innerHTML=visible.length?`<div class="ga-table-wrap"><table class="ga-table"><thead><tr><th scope="col">Público</th><th scope="col">Grupo</th><th scope="col" class="ga-count">Pessoas</th><th scope="col">Contagem</th></tr></thead><tbody>${visible.map(r=>{const f=freshness(r,state.now);return `<tr data-ga-row="${esc(r.key)}"><th scope="row"><strong>${esc(r.name)}</strong><span class="ga-brand">${esc(BRANDS[r.brand])}${r.available===false?' · Indisponível para novas campanhas':''}</span></th><td>${esc(GROUPS[r.group])}</td><td class="ga-count">${r.count===null?'<span title="Não há uma contagem confirmada para este público.">Sem contagem</span>':r.count.toLocaleString('pt-BR')}</td><td><span>${esc(f.label)}</span><small class="${f.stale?'ga-stale':''}">${esc(f.age)}</small>${r.reason==='conflicting_snapshot'?'<small class="ga-stale">Contagens divergentes na mesma data</small>':''}</td></tr>`;}).join('')}</tbody></table></div>`:`<div class="ga-empty">${all.length?'Nenhum público corresponde à busca. Altere o nome ou o filtro para ver os demais.':'Nenhum público disponível nesta consulta. Atualize os segmentos ou carregue as listas em Campanhas.'}</div>`;
+   const source=sourceState(state.api,state.catalogs,state.now),unavailable=!source.loaded||source.incomplete;
+   q('[data-ga-summary]').textContent=(unavailable?'Quantidade de públicos indisponível'+(all.length?' · '+visible.length+(visible.length===1?' público exibido':' públicos exibidos'):''):visible.length+' de '+all.length+' públicos carregados')+(unknown?' · '+unknown+' sem contagem':'')+(state.groupNotice?' · '+state.groupNotice:'');
+   q('[data-ga-result]').innerHTML=visible.length?`<div class="ga-table-wrap"><table class="ga-table"><thead><tr><th scope="col">Público</th><th scope="col">Grupo</th><th scope="col" class="ga-count">Pessoas</th><th scope="col">Contagem</th></tr></thead><tbody>${visible.map(r=>{const f=freshness(r,state.now);return `<tr data-ga-row="${esc(r.key)}"><th scope="row"><strong>${esc(r.name)}</strong><span class="ga-brand">${esc(BRANDS[r.brand])}${r.available===false?' · Indisponível para novas campanhas':''}</span></th><td>${esc(GROUPS[r.group])}</td><td class="ga-count">${r.count===null?'<span title="Não há uma contagem confirmada para este público.">Sem contagem</span>':r.count.toLocaleString('pt-BR')}</td><td><span>${esc(f.label)}</span><small class="${f.stale?'ga-stale':''}">${esc(f.age)}</small>${r.reason==='conflicting_snapshot'?'<small class="ga-stale">Contagens divergentes na mesma data</small>':''}</td></tr>`;}).join('')}</tbody></table></div>`:`<div class="ga-empty">${all.length?'Nenhum público corresponde à busca. Altere o nome ou o filtro para ver os demais.':unavailable?'Nenhum público disponível para exibir: a fonte está ausente ou incompleta. Recarregue os dados para confirmar.':'Nenhum público disponível nesta consulta. Atualize os segmentos ou carregue as listas em Campanhas.'}</div>`;
    return {total:all.length,visible:visible.length,unknown};
   }
   q('[data-ga-rfm]').onclick=e=>{const create=e.target.closest?.('[data-ga-rfm-create]');if(create){if(!create.disabled&&typeof onCreateRfm==='function')void onCreateRfm({brand:create.dataset.gaRfmBrand,tag:create.dataset.gaRfmCreate,name:RFM[create.dataset.gaRfmCreate]});return;}const button=e.target.closest?.('[data-ga-rfm-key]');if(!button)return;const key=button.getAttribute('data-ga-rfm-key');state.group='rfm';state.rfmKey=state.rfmKey===key?'':key;state.groupNotice='';paint();};
