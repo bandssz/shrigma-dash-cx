@@ -1,0 +1,97 @@
+name: CRM jornadas source state directed Node22
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [codex/dashboard-candidate-crm-fix-20261002]
+    paths:
+      - .github/workflows/dashboard-crm-jornadas-source-state-20261006.yml
+      - growth-flows-ui.js
+      - tests/growth-flows-unavailable-ui.test.cjs
+      - assets/panels/growth.js
+      - growth.html
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-jornadas-source-state-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  jornadas-directed-node22:
+    if: github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.ref == 'codex/crm-jornadas-source-state-20261006'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SOURCE_REVISION: ${{ github.event.pull_request.head.sha }}
+      SOURCE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      SOURCE_BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+      SOURCE_BASE_REF: ${{ github.event.pull_request.base.ref }}
+      SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Conferir base c3f, contexto da PR e somente cinco caminhos
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re, subprocess
+          def require(condition, code):
+              if not condition:
+                  raise SystemExit(code)
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          base = 'c3f0ac329d04903078fc0a558ed89aa9f50696c9'
+          head = os.environ['SOURCE_REVISION']
+          require(os.environ['GITHUB_EVENT_NAME'] == 'pull_request', 'JORNADAS_EVENT_REFUSED')
+          require(os.environ['SOURCE_REPOSITORY'] == 'bandssz/shrigma-dash-cx' and os.environ['BASE_REPOSITORY'] == 'bandssz/shrigma-dash-cx', 'JORNADAS_REPOSITORY_REFUSED')
+          require(os.environ['SOURCE_HEAD_REF'] == 'codex/crm-jornadas-source-state-20261006', 'JORNADAS_HEAD_REF_REFUSED')
+          require(os.environ['SOURCE_BASE_REF'] == 'codex/dashboard-candidate-crm-fix-20261002' and os.environ['SOURCE_BASE_REVISION'] == base, 'JORNADAS_BASE_REFUSED')
+          require(re.fullmatch('[0-9a-f]{40}', head) is not None, 'JORNADAS_HEAD_SHA_REFUSED')
+          require(git('rev-parse', 'HEAD') == head and git('rev-parse', head + '^{commit}') == head, 'JORNADAS_CHECKOUT_REFUSED')
+          require(git('rev-parse', base + '^{commit}') == base and git('merge-base', base, head) == base, 'JORNADAS_ANCESTRY_REFUSED')
+          expected = {
+              '.github/workflows/dashboard-crm-jornadas-source-state-20261006.yml': 'A',
+              'growth-flows-ui.js': 'M',
+              'tests/growth-flows-unavailable-ui.test.cjs': 'A',
+              'assets/panels/growth.js': 'M',
+              'growth.html': 'M',
+          }
+          raw = subprocess.check_output(['git', 'diff', '--name-status', '--no-renames', '-z', base, head, '--'])
+          parts = raw.split(b'\0')
+          require(parts[-1] == b'' and len(parts) == 2 * len(expected) + 1, 'JORNADAS_DELTA_SIZE_REFUSED')
+          observed = {parts[i + 1].decode('utf-8'): parts[i].decode('ascii') for i in range(0, len(parts) - 1, 2)}
+          require(observed == expected, 'JORNADAS_DELTA_PATHS_REFUSED')
+          pins = {
+              'growth-flows-ui.js': (14692, 'f7ac18de1bb5823a90564a0f137e3cb5961c2295c43d0dcaf909cbb5f60c1cb9'),
+              'tests/growth-flows-unavailable-ui.test.cjs': (7278, '21fb662532c46f5da7fa18451ae935379e3eee269ee1576e6f32f3f8384727f8'),
+              'assets/panels/growth.js': (968349, '87b263a117a931aedb3d96f4b3bf7d318b7459fdddd96b954c20db2da49172af'),
+              'growth.html': (107012, 'c44170fb7766673173f5b0f56f6c66da9203c8be114364fba9d2edb18d722ca9'),
+          }
+          for name, (size, digest) in pins.items():
+              path = pathlib.Path(name)
+              require(path.is_file() and not path.is_symlink(), 'JORNADAS_FILE_REFUSED')
+              data = path.read_bytes()
+              require(len(data) == size and hashlib.sha256(data).hexdigest() == digest, 'JORNADAS_BYTES_REFUSED')
+          print(json.dumps({'schema': 'crm-jornadas-directed-source-v1', 'baseRevision': base, 'sourceRevision': head, 'changedFiles': len(observed), 'pinnedProductFiles': len(pins), 'publicationEnabled': False}, sort_keys=True))
+          PY
+      - name: Instalar ferramentas fixadas somente no runner
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/jornadas-ui-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Conferir somente o build Growth
+        run: node tools/panel-build/build.cjs --panel=growth --check
+      - name: Executar somente os quinze casos de Jornadas
+        env:
+          NODE_PATH: ${{ runner.temp }}/jornadas-ui-tools/node_modules
+        run: >-
+          node --test --test-concurrency=2 --test-timeout=120000
+          tests/growth-flows-ui.test.cjs
+          tests/growth-flows-unavailable-ui.test.cjs
