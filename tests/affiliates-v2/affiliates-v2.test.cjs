@@ -540,10 +540,15 @@ test('dispose durante gravação em voo: resposta tardia não renderiza nem disp
   assert.equal(x.g.calls.length, before, 'nenhuma chamada ao gateway após dispose');
 });
 
-// ------------------------------------------------------------------ DOM real opcional (CI do integrador)
-test('smoke com linkedom quando disponível', { skip: (() => { try { require.resolve('linkedom'); return false; } catch (_) { return 'linkedom não instalado neste ambiente'; } })() }, async () => {
-  const { parseHTML } = require('linkedom');
-  const { document } = parseHTML('<html><body><div id="m"></div></body></html>');
+// ------------------------------------------------------------------ DOM WHATWG em memória (CI do integrador)
+test('smoke com jsdom quando disponível', { skip: (() => { try { require.resolve('jsdom'); return false; } catch (_) { return 'jsdom não instalado neste ambiente'; } })() }, async () => {
+  const { JSDOM } = require('jsdom');
+  const dom = new JSDOM('<html><body><div id="m"></div></body></html>');
+  const document = dom.window.document;
+  const probe = document.createElement('select');
+  probe.innerHTML = '<option value="a">A</option><option value="b">B</option>';
+  probe.value = 'b';
+  assert.equal(probe.value, 'b', 'DOM implements the standard select.value setter');
   const g = makeGateway();
   const inst = A.create({ element: document.getElementById('m'), document, gateway: g.gateway });
   await inst.sync({}); await flush();
@@ -551,4 +556,5 @@ test('smoke com linkedom quando disponível', { skip: (() => { try { require.res
   assert.deepEqual(ids, ['c-1', 'c-2', 'c-3']);
   inst.dispose();
   assert.equal(document.getElementById('m').childNodes.length, 0);
+  dom.window.close();
 });

@@ -100,9 +100,9 @@
     {
       "repoPath": "tests/affiliates-v2/affiliates-v2.test.cjs",
       "deltaStatus": "A",
-      "bytes": 37838,
-      "sha256": "6590f901b71fd34a011e19ec70275209b0cc6cf3db8a7bdbb124e2967f7eab84",
-      "gitBlobSha1": "69f75f15e22c3e4d2a82f8c1f7067b321d8cf914",
+      "bytes": 38116,
+      "sha256": "ddb46ffce512632c0d37b61d2305ce297089d72a553c6cb942505c7146fcef5b",
+      "gitBlobSha1": "9b364a33692cd4e2c482999d169ccba5e9424ef3",
       "before": null
     },
     {
