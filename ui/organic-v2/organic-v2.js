@@ -46,8 +46,33 @@
     postId: 'Post', storyId: 'Story', surface: 'Superfície', origin: 'Origem', source: 'Fonte', model: 'Modelo', window: 'Janela',
     ordersRead: 'Pedidos lidos', paidEligible: 'Pagos elegíveis', unknownOrigin: 'Origem desconhecida', knownSession: 'Sessão conhecida',
     pendingJourney: 'Jornada pendente', partialJourney: 'Jornada parcial', checkedAt: 'Verificado em', collectedAt: 'Coletado em',
-    covered: 'Dias cobertos', expected: 'Dias esperados', complete: 'Completo'
+    covered: 'Dias cobertos', expected: 'Dias esperados', complete: 'Completo',
+    marca: 'Marca', detail_level: 'Detalhe', rede: 'Rede', superficie: 'Superfície', source_system: 'Sistema', currency: 'Moeda',
+    rule_version: 'Regra', rule_reason: 'Motivo da regra', utm_source: 'utm_source', utm_medium: 'utm_medium', utm_campaign: 'utm_campaign',
+    utm_content: 'utm_content', utm_term: 'utm_term', utm_raw_available: 'UTM original', utm_provenance: 'Proveniência UTM', piece_status: 'Peça',
+    receita_liquida: 'Receita líquida', receita_elegivel: 'Receita elegível', pedidos_lidos: 'Pedidos lidos', pagos_elegiveis: 'Pagos elegíveis',
+    jornada_pendente: 'Jornada pendente', jornada_parcial: 'Jornada parcial', ultima_sessao_conhecida: 'Última sessão conhecida',
+    ultima_sessao_desconhecida: 'Última sessão desconhecida', origem_nao_direta_desconhecida: 'Origem não direta desconhecida',
+    checked_at: 'Verificado em', coletado_em: 'Coletado em', leitura_mais_antiga: 'Leitura mais antiga'
   };
+  // Contrato 1.0.2: texto público para os motivos fechados do normalizador (sem ecoar objetos recebidos).
+  var C102_TEXT = {
+    per_order_not_admitted: 'DTO por pedido não admitido no contrato 1.0.2; nenhum pedido ou peça é derivado do agregado.',
+    model_mismatch: 'O gateway devolveu outro modelo de atribuição; nada exibido para não misturar modelos.',
+    period_mismatch: 'O gateway devolveu outro período; nada exibido.',
+    state_unavailable: 'Fonte indisponível nesta leitura.',
+    brand_mismatch: 'Resposta de outra marca descartada.'
+  };
+  // R6 — apresentação apenas: textos públicos fixos. Nenhum enum, Error, stack, markup ou objeto recebido é ecoado.
+  var OP_INVALID_TEXT = { operation_id_mismatch: 'A resposta não corresponde à operação original; foi descartada.' };
+  var OP_INVALID_GENERIC = 'Resposta inconsistente descartada; o resultado da operação original continua desconhecido.';
+  var CAP_CREATE_UNCONFIRMED = 'Permissão para criar links não confirmada.';
+  var CAP_DEFAULT_BLOCK = 'Operação não admitida pelo integrador para esta marca/papel.';
+  var PREPARE_LOST_TEXT = 'Preparação não confirmada. Esta tela não enviou confirmação para execução. Sem o identificador original, uma nova preparação permanece bloqueada até recuperação comprovada.';
+  function opInvalidText(reason) {
+    return typeof reason === 'string' && Object.prototype.hasOwnProperty.call(OP_INVALID_TEXT, reason) ? OP_INVALID_TEXT[reason] : OP_INVALID_GENERIC;
+  }
+  var CHANNEL_SUMMARY_FIELDS = ['rede', 'superficie', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
   var LINK_STATE = { active: 'Ativo', archived: 'Arquivado' };
   var instanceCount = 0;
 
@@ -73,6 +98,12 @@
   }
   function num(v) {
     return typeof v === 'number' && isFinite(v) ? v.toLocaleString('pt-BR') : 'indisponível';
+  }
+  function decimalMajor(text, currency) {
+    var m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(text);
+    if (!m) return 'indisponível';
+    var body = m[2].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (m[3] ? ',' + m[3] : '');
+    return m[1] + (currency === 'BRL' ? 'R$ ' + body : body + (str(currency) ? ' ' + currency : ' (moeda não informada)'));
   }
   function money(minor, currency) {
     if (typeof minor !== 'number' || !isFinite(minor)) return 'indisponível';
@@ -142,6 +173,8 @@
     if (!doc || typeof doc.createElement !== 'function') throw new TypeError('ShrigmaOrganicV2.create: document é obrigatório.');
     if (!(gw && (typeof gw === 'object' || typeof gw === 'function'))) gw = null;
     function has(name) { return !!gw && typeof gw[name] === 'function'; }
+    var C102 = (doc.defaultView && doc.defaultView.ShrigmaOrganicContractV102) || (typeof globalThis !== 'undefined' && globalThis.ShrigmaOrganicContractV102) || null;
+    if (!C102 || typeof C102.normalizeContext !== 'function' || C102.version !== '1.0.2-proposed') C102 = null;
     var uid = 'sov2-' + (++instanceCount);
     var win = doc.defaultView || null;
     var AbortCtl = (win && win.AbortController) || (typeof AbortController !== 'undefined' ? AbortController : null);
@@ -149,7 +182,8 @@
     var st = {
       disposed: false, gen: 0, inflight: null, syncing: false, ctx: null, blocked: null,
       filters: defaultFilters(), views: {}, op: null, pending: [], pendingKnown: false,
-      writeLock: false, message: '', draft: emptyDraft(), draftToken: {}, draftOwner: null, lastSync: null
+      writeLock: false, message: '', draft: emptyDraft(), draftToken: {}, draftOwner: null, lastSync: null,
+      nctx: null, holds: null
     };
     RESOURCES.forEach(function (r) { st.views[r] = { status: 'idle' }; });
 
@@ -289,6 +323,12 @@
       if (changed) {
         // Contexto anterior invalidado: dados, operação local e leituras pendentes não valem para o novo.
         RESOURCES.forEach(function (r) { setView(r, { status: 'loading' }); });
+        if (C102 && st.nctx && st.op) {
+          var held = holdOf(st.nctx.effectiveBrand, st.nctx.principalReference, true), cop = st.op;
+          if (cop.operationId != null && OPEN_OP_PHASES.indexOf(cop.phase) >= 0) {
+            if (!held.carried.some(function (c) { return c.operationId === cop.operationId; })) held.carried.push({ operationId: cop.operationId, kind: cop.kind || null, intent: cop.intent || null });
+          } else if (cop.phase === 'preparing') held.lost = true;
+        }
         st.op = null;
         st.writeLock = false;
         st.message = prev && prev.effectiveBrand !== ctx.effectiveBrand ? 'Marca alterada; dados da marca anterior removidos.' : st.message;
@@ -309,6 +349,13 @@
           else st.pendingKnown = false;
         }
       }
+      if (C102) {
+        // 1.0.2: só journal complete com revisão real abre gravação; IDs válidos ficam só para receipt.
+        var nc = C102.normalizeContext(ctx);
+        st.nctx = nc.state === 'valid' ? nc.value : null;
+        st.pendingKnown = !!st.nctx && st.nctx.journal.state === 'complete';
+        st.pending = st.nctx ? st.nctx.journal.pending.map(function (q) { return { operationId: q.operationId, kind: q.kind }; }) : [];
+      }
     }
     function blockAll(reason, status) {
       st.ctx = null; st.op = null; st.pending = []; st.pendingKnown = false; st.blocked = reason;
@@ -327,7 +374,7 @@
       try { p = Promise.resolve(gw.read(req, ctl ? { signal: ctl.signal } : {})); } catch (e) { p = Promise.reject(e); }
       return p.then(function (env) {
         if (isObj(env) && env.contextRevision !== ctx.contextRevision) return { resource: resource, mismatch: true };
-        return { resource: resource, env: env, model: f.model };
+        return { resource: resource, env: env, model: f.model, filters: req.filters };
       }, function (e) { return { resource: resource, error: e }; });
     }
     function itemsOf(env, ctx, view) {
@@ -337,8 +384,27 @@
       view.dropped = d.items.length - kept.length;
       return kept;
     }
+    function applyRead102(x, ctx) {
+      var r = x.resource, rev = ctx.contextRevision;
+      var n = C102.normalizeRead({ resource: r, filters: x.filters }, x.env, st.nctx);
+      var m = n.value && n.value.meta;
+      var meta = m ? { source: m.source, coverage: m.coverage, freshness: m.freshness, collectedAt: m.collectedAt, cacheAt: m.cacheAt, error: m.publicError } : undefined;
+      if (n.state === 'forbidden') { setView(r, { status: 'forbidden', ctxRev: rev, reason: (m && m.publicError) || 'Acesso recusado pelo servidor para esta marca/papel.' }); return; }
+      if (n.state !== 'valid') {
+        if (n.reason === 'brand_mismatch') setView(r, { status: 'discarded', ctxRev: rev, reason: C102_TEXT.brand_mismatch });
+        else if (C102_TEXT[n.reason]) setView(r, { status: 'unavailable', ctxRev: rev, meta: meta, reason: (n.reason === 'state_unavailable' && m && m.publicError) || C102_TEXT[n.reason] });
+        else setView(r, { status: 'error', ctxRev: rev, reason: 'Resposta fora do contrato 1.0.2 (' + n.reason + '); nada exibido.' });
+        return;
+      }
+      var v = n.value;
+      var view = { status: v.readState === 'empty' ? 'empty' : 'ready', ctxRev: rev, meta: meta, items: [], data: null, dropped: v.dropped, model: x.model, typed102: true };
+      if (r === 'attribution-aggregate') view.data = v.data;
+      else if (v.data) view.items = v.data.items;
+      setView(r, view);
+    }
     function applyRead(x, ctx) {
       var r = x.resource, prev = st.views[r];
+      if (C102 && st.nctx && !x.error) { applyRead102(x, ctx); return; }
       var base = { ctxRev: ctx.contextRevision };
       if (x.error) {
         if (hasData(prev) && prev.ctxRev === ctx.contextRevision) {
@@ -379,6 +445,19 @@
     // ---------- sync / dispose ----------
     function sync(opts) {
       if (st.disposed) return Promise.resolve();
+      if (C102 && opts && opts.filters !== undefined) {
+        var nf = C102.normalizeFilters({ filters: opts.filters });
+        if (nf.state !== 'valid') {
+          st.gen++;
+          if (st.inflight && st.inflight.ctl) { try { st.inflight.ctl.abort(); } catch (_) { /* ignore */ } }
+          st.inflight = null; st.syncing = false;
+          RESOURCES.forEach(function (r) { setView(r, { status: 'unavailable', reason: 'Filtro inválido (' + nf.reason + '); nada foi lido.' }); });
+          st.message = 'Filtro inválido (' + nf.reason + '); nada foi lido nem reaproveitado.';
+          renderAll();
+          return Promise.resolve();
+        }
+        return startSync({ from: nf.value.filters.period.from, to: nf.value.filters.period.to, model: nf.value.filters.model || st.filters.model }, false);
+      }
       var f = normalizeFilters(opts && opts.filters, st.filters);
       return startSync(f, false);
     }
@@ -464,7 +543,12 @@
     function writeBlock(kind) {
       if (!has('beginMutation') || !has('submit')) return 'Gravação não instalada no gateway; operação indisponível.';
       if (!st.ctx) return st.blocked || 'Sem contexto confirmado.';
-      var c = capability(st.ctx, kind);
+      if (!C102) return 'Normalizador do contrato 1.0.2 ausente; gravação indisponível.';
+      if (!st.nctx) return 'Contexto fora do contrato 1.0.2; gravação indisponível.';
+      var hd = holdOf(st.nctx.effectiveBrand, st.nctx.principalReference, false);
+      if (hd && hd.lost) return 'Uma preparação anterior desta marca ficou sem confirmação e sem ID; gravação fechada até Root comprovar a recuperação.';
+      if (hd && hd.carried.length) return 'Há operação anterior desta marca aguardando consulta de resultado; gravação fechada.';
+      var c = st.nctx.capabilities[kind];
       if (!c.available) return c.reason || 'Operação não admitida pelo integrador para esta marca/papel.';
       if (!st.pendingKnown) return 'O contexto não informou o journal de operações; gravação bloqueada.';
       if (st.pending.length) return 'Há operação pendente no journal; consulte o resultado antes de gravar de novo.';
@@ -475,18 +559,43 @@
       var lv = st.views.links;
       if (!hasData(lv) || lv.refreshFailed) return 'Lista de links sem leitura atual; atualize antes de gravar.';
       if (lv.meta && lv.meta.freshness === 'stale') return 'Retrato antigo é somente leitura; atualize antes de gravar.';
+      if (C102 && !linksCurrent()) return 'Leitura de links sem cobertura completa e frescor atual; gravação fechada.';
+      return null;
+    }
+    function linksCurrent() {
+      var lv = st.views.links;
+      return !!(st.ctx && hasData(lv) && lv.typed102 && !lv.refreshFailed && lv.ctxRev === st.ctx.contextRevision && lv.meta && lv.meta.coverage === 'complete' && lv.meta.freshness === 'fresh');
+    }
+    // Bloqueios causais em memória por escopo exato marca/principal, na vida da instância (sem store, relógio ou ID).
+    function holdOf(brand, principal, create) {
+      if (!st.holds) st.holds = Object.create(null);
+      var key = JSON.stringify([String(brand), principal == null ? null : String(principal)]);
+      if (!st.holds[key] && create) st.holds[key] = { lost: false, carried: [] };
+      return st.holds[key] || null;
+    }
+    function carriedNow() {
+      var hd = st.nctx ? holdOf(st.nctx.effectiveBrand, st.nctx.principalReference, false) : null;
+      return hd ? hd.carried : [];
+    }
+    function submitGate(op) {
+      var c = st.nctx && st.nctx.capabilities[op.kind];
+      if (!c || !c.available) return 'Permissão retirada: a operação ' + op.operationId + ' fica preparada e não é executada.';
+      if (!st.pendingKnown) return 'Journal indisponível: a operação ' + op.operationId + ' fica preparada e não é executada.';
+      if (!linksCurrent()) return 'Leitura de links sem cobertura completa e frescor atual: a operação ' + op.operationId + ' fica preparada e não é executada.';
       return null;
     }
     function canCopy() {
       var lv = st.views.links;
-      return hasData(lv) && !lv.refreshFailed && lv.meta && lv.meta.freshness !== 'stale';
+      return hasData(lv) && !lv.refreshFailed && lv.meta && lv.meta.freshness !== 'stale' && (!C102 || linksCurrent());
     }
     function opStale(op) { return st.disposed || st.op !== op || !st.ctx || st.ctx.contextRevision !== op.ctxRev; }
     function begin(kind, args, summary) {
       var block = writeBlock(kind);
       if (block) { st.message = block; renderAll(); return Promise.resolve(); }
       var ctx = st.ctx;
-      var op = { kind: kind, phase: 'preparing', ctxRev: ctx.contextRevision, brand: ctx.effectiveBrand, summary: summary, operationId: null, refresh: null, draftToken: kind === 'link.create' ? st.draftToken : null };
+      var ic = C102.normalizeOperation({ kind: kind, contextRevision: ctx.contextRevision, effectiveBrand: ctx.effectiveBrand, payload: args.payload, recordId: args.recordId, expectedRecordRevision: args.expectedRecordRevision });
+      if (ic.state !== 'valid') { st.message = 'Pedido fora do contrato 1.0.2; nada foi preparado.'; renderAll(); return Promise.resolve(); }
+      var op = { kind: kind, phase: 'preparing', ctxRev: ctx.contextRevision, brand: ctx.effectiveBrand, summary: summary, operationId: null, refresh: null, draftToken: kind === 'link.create' ? st.draftToken : null, intent: ic.value.intent, principal: st.nctx.principalReference };
       st.op = op; st.message = ''; renderAll();
       var req = { kind: kind, payload: args.payload, expectedContextRevision: op.ctxRev };
       if (args.recordId != null) req.recordId = args.recordId;
@@ -495,6 +604,7 @@
       try { p = Promise.resolve(gw.beginMutation(req)); } catch (e) { p = Promise.reject(e); }
       return p.then(function (env) {
         if (opStale(op)) return;
+        if (C102) { applyBegin102(op, env); return; }
         if (!isObj(env) || !revOk(env.operationId) || env.contextRevision !== op.ctxRev || (bindingBrand(env.binding) !== undefined && bindingBrand(env.binding) !== op.brand)) {
           if (isObj(env) && revOk(env.operationId) && env.contextRevision === op.ctxRev) {
             op.operationId = env.operationId; op.phase = 'uncertain'; op.reason = 'Preparação com vínculo inconsistente; consulte o resultado.';
@@ -511,11 +621,40 @@
       }, function () {
         if (opStale(op)) return;
         st.op = null; st.writeLock = true;
-        st.message = 'Preparação não confirmada. Nada foi enviado para execução; atualize a leitura antes de tentar de novo.';
+        if (C102) holdOf(op.brand, op.principal, true).lost = true;
+        st.message = PREPARE_LOST_TEXT;
         renderAll();
       });
     }
+    function applyBegin102(op, env) {
+      var n = C102.normalizeOperation(op.intent, env);
+      if (n.state === 'valid') {
+        op.operationId = n.value.operationId; op.binding = n.value.binding;
+        if (n.value.opState === 'prepared') op.phase = 'prepared';
+        else if (n.value.opState === 'rejected') { op.phase = 'rejected'; op.reason = n.value.publicReason || 'Recusada pelo servidor.'; }
+        else { op.phase = 'uncertain'; op.reason = n.value.publicReason || 'Estado inesperado na preparação; consulte o resultado.'; }
+      } else if (isObj(env) && revOk(env.operationId) && env.contextRevision === op.ctxRev) {
+        op.operationId = env.operationId; op.phase = 'uncertain'; op.reason = 'Preparação com vínculo inválido (' + n.reason + '); só a consulta do resultado é permitida.';
+      } else {
+        st.op = null; holdOf(op.brand, op.principal, true).lost = true;
+        st.message = 'Preparação sem resposta válida e sem ID. Nada foi executado por esta tela; gravação fechada até Root comprovar a recuperação.';
+      }
+      renderAll();
+      if (op.phase === 'prepared' && st.op === op) refocus('op-confirm');
+    }
+    function applyOp102(op, env, via) {
+      var expected = op.intent ? Object.assign({ operationId: op.operationId }, op.intent) : { operationId: op.operationId, kind: op.kind || null, contextRevision: op.ctxRev, effectiveBrand: op.brand };
+      var n = C102.normalizeOperation(expected, env);
+      if (n.state !== 'valid') { op.phase = 'uncertain'; op.reason = opInvalidText(n.reason); return; }
+      var v = n.value;
+      op.receiptReference = v.receiptReference;
+      if (!op.kind) op.kind = v.binding.kind;
+      if (v.opState === 'confirmed') { op.phase = 'confirmed'; op.result = v.result; op.resultState = v.resultState; op.refresh = 'pending'; op.reason = null; }
+      else if (v.opState === 'rejected') { op.phase = 'rejected'; op.reason = v.publicReason || 'Recusada pelo servidor.'; }
+      else { op.phase = 'uncertain'; op.reason = v.publicReason || (via === 'receipt' ? 'Ainda sem resultado final.' : 'Sem confirmação final.'); }
+    }
     function applyOpEnvelope(op, env, via) {
+      if (C102) { applyOp102(op, env, via); return; }
       if (!isObj(env) || env.operationId !== op.operationId) { op.phase = 'uncertain'; op.reason = 'Resposta não corresponde à operação original; descartada.'; return; }
       if (env.contextRevision !== op.ctxRev) { op.phase = 'uncertain'; op.reason = 'Resposta de outro contexto descartada.'; return; }
       var bb = bindingBrand(env.binding);
@@ -537,6 +676,7 @@
       var op = st.op;
       if (!op || op.phase !== 'prepared') return Promise.resolve();
       if (opStale(op)) { st.op = null; renderAll(); return Promise.resolve(); }
+      if (C102 && submitGate(op)) { st.message = submitGate(op); renderAll(); return Promise.resolve(); }
       op.phase = 'submitting'; renderAll();
       var p;
       try { p = Promise.resolve(gw.submit({ operationId: op.operationId, expectedContextRevision: op.ctxRev })); } catch (e) { p = Promise.reject(e); }
@@ -559,8 +699,10 @@
       var op = st.op && st.op.operationId === operationId ? st.op : null;
       if (!op) {
         var entry = st.pending.filter(function (p) { return p.operationId === operationId; })[0];
-        if (!entry || opOpen()) return Promise.resolve();
-        op = { kind: entry.kind, phase: 'uncertain', ctxRev: st.ctx.contextRevision, brand: st.ctx.effectiveBrand, operationId: operationId, fromJournal: true };
+        var carried = C102 ? carriedNow().filter(function (c) { return c.operationId === operationId; })[0] : null;
+        if ((!entry && !carried) || opOpen()) return Promise.resolve();
+        op = { kind: (carried || entry).kind, phase: 'uncertain', ctxRev: st.ctx.contextRevision, brand: st.ctx.effectiveBrand, operationId: operationId, fromJournal: !(carried && carried.intent) };
+        if (carried && carried.intent) { op.intent = Object.assign({}, carried.intent, { contextRevision: st.ctx.contextRevision }); op.principal = st.nctx.principalReference; }
         st.op = op;
       }
       if (op.phase !== 'uncertain') return Promise.resolve();
@@ -572,6 +714,7 @@
         applyOpEnvelope(op, env, 'receipt');
         if (op.phase === 'confirmed' || op.phase === 'rejected') {
           st.pending = st.pending.filter(function (x) { return x.operationId !== op.operationId; });
+          if (C102 && st.nctx) { var hc = holdOf(st.nctx.effectiveBrand, st.nctx.principalReference, false); if (hc) hc.carried = hc.carried.filter(function (c) { return c.operationId !== op.operationId; }); }
         }
         if (op.phase === 'confirmed') return afterConfirmed(op);
         renderAll(); refocus('op-receipt');
@@ -622,21 +765,21 @@
       if (a === 'op-confirm') { confirmOp(); return; }
       if (a === 'op-cancel') { if (st.op && st.op.phase === 'prepared') { st.op = null; st.message = 'Revisão cancelada; nada foi gravado.'; renderAll(); refocus('link-review'); } return; }
       if (a === 'op-dismiss') { if (st.op && (st.op.phase === 'rejected' || (st.op.phase === 'confirmed' && st.op.refresh === 'ok'))) { st.op = null; renderAll(); } return; }
-      if (a === 'receipt') { var id = t.getAttribute('data-ov-op'); var op = st.op && String(st.op.operationId) === id ? st.op.operationId : (st.pending.filter(function (p) { return String(p.operationId) === id; })[0] || {}).operationId; if (op != null) checkReceipt(op); return; }
+      if (a === 'receipt') { var id = t.getAttribute('data-ov-op'); var op = st.op && String(st.op.operationId) === id ? st.op.operationId : (st.pending.concat(C102 ? carriedNow() : []).filter(function (p) { return String(p.operationId) === id; })[0] || {}).operationId; if (op != null) checkReceipt(op); return; }
       if (a === 'copy') {
         var l = linkById(t.getAttribute('data-ov-link'));
-        if (!l || !canCopy() || l.state === 'archived' || !str(l.url)) return;
+        if (!l || !canCopy() || l.state !== 'active' || !str(l.url) || (C102 && l.copyEligible !== true)) return;
         var inp = null, list = rootEl.querySelectorAll('[data-ov-url]');
         for (var i = 0; i < list.length; i++) if (list[i].getAttribute('data-ov-url') === String(l.id)) inp = list[i];
         copyText(l.url, inp); return;
       }
       if (a === 'copy-result') {
-        if (st.op && st.op.phase === 'confirmed' && st.op.result && st.op.result.state !== 'archived' && str(st.op.result.url)) copyText(st.op.result.url, rootEl.querySelector('[data-ov-result-url]'));
+        if (st.op && st.op.phase === 'confirmed' && st.op.result && st.op.result.state !== 'archived' && str(st.op.result.url) && (!C102 || st.op.resultState === 'active')) copyText(st.op.result.url, rootEl.querySelector('[data-ov-result-url]'));
         return;
       }
       if (a === 'archive') {
         var al = linkById(t.getAttribute('data-ov-link'));
-        if (!al || al.state === 'archived') return;
+        if (!al || al.state !== 'active' || (C102 && al.archiveEligible !== true)) return;
         begin('link.archive', { recordId: al.id, payload: {}, expectedRecordRevision: al.revision }, { 'Link': al.url, 'Destino': al.destination });
       }
     }
@@ -773,21 +916,22 @@
       if (typeof value === 'number') return !isFinite(value) ? 'indisponível' : /minor$/i.test(key) ? money(value, currency) : value.toLocaleString('pt-BR');
       if (typeof value === 'boolean') return value ? 'sim' : 'não';
       if (typeof value === 'string') {
+        if (/^receita_/.test(key)) return decimalMajor(value, currency);
         if (validDay(value)) return dayBR(value);
         if (/^\d{4}-\d{2}-\d{2}T/.test(value) && stamp(value)) return stamp(value);
         return value;
       }
       var s = JSON.stringify(value); return s.length > 200 ? s.slice(0, 200) + '…' : s;
     }
-    function generic(label, value, currency) {
+    function generic(label, value, currency, pick) {
       if (value === null || value === undefined) return h('p', { class: 'sov2-note', text: label + ': não fornecido pelo gateway.' });
       if (Array.isArray(value)) {
         var rows = value.filter(isObj);
         if (!rows.length) return h('p', { class: 'sov2-note', text: label + ': ' + (value.length ? value.map(function (x) { return cell('', x, currency); }).join(' · ') : 'nenhuma linha') });
-        var cols = [];
-        rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && cols.length < 12) cols.push(k); }); });
+        var cols = Array.isArray(pick) ? pick.slice() : [];
+        if (!Array.isArray(pick)) rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && cols.length < 12) cols.push(k); }); });
         return h('div', { class: 'sov2-block', 'data-ov-block': label }, [h('h4', { text: label }), scrollTable(label + '; role para ver mais', cols.map(function (k) { return FIELD_LABEL[k] || k; }), rows.map(function (r) {
-          return h('tr', null, cols.map(function (k) { return h('td', { text: cell(k, r[k], currency) }); }));
+          return h('tr', null, cols.map(function (k) { return h('td', { text: r.detail_level === 'channel_summary' && r[k] === null && CHANNEL_SUMMARY_FIELDS.indexOf(k) >= 0 ? 'não transmitido (resumo de canal)' : cell(k, r[k], currency) }); }));
         }))]);
       }
       if (isObj(value)) {
@@ -819,11 +963,16 @@
       append(body, h('dl', { class: 'sov2-dl sov2-dl--inline', 'data-ov-attr-meta': '' }, [
         h('dt', { text: 'Modelo' }), h('dd', { 'data-ov-attr-model': d.model, text: MODELS[d.model] }),
         h('dt', { text: 'Período' }), h('dd', { text: periodText(d.period) }),
-        h('dt', { text: 'Janela' }), h('dd', { text: d.window != null ? cell('window', d.window) : 'não informada pelo gateway' }),
+        h('dt', { text: 'Janela' }), h('dd', { text: v.typed102 ? (d.window && d.window.days !== null ? d.window.days + ' dias' : 'não informada pelo gateway') + (d.window && d.window.sourceSystem ? ' · ' + d.window.sourceSystem : '') + (d.window && d.window.ruleVersion ? ' · regra ' + d.window.ruleVersion : '') : d.window != null ? cell('window', d.window) : 'não informada pelo gateway' }),
         h('dt', { text: 'Moeda' }), h('dd', { text: cur || 'não informada' }),
         h('dt', { text: 'Fonte' }), h('dd', { text: SOURCE_LABEL[v.meta.source] })
       ]));
-      append(body, [generic('Por dia', d.daily, cur), generic('Qualidade', d.quality, cur), generic('Cobertura', d.coverage, cur)]);
+      if (v.typed102) append(body, [
+        generic('Por dia', d.daily, cur, ['dia', 'classification', 'detail_level', 'rede', 'superficie', 'utm_source', 'utm_medium', 'utm_campaign', 'piece_status', 'pedidos', 'receita_liquida']),
+        generic('Qualidade', d.quality, cur, ['dia', 'pedidos_lidos', 'pagos_elegiveis', 'receita_elegivel', 'jornada_pendente', 'jornada_parcial', d.model === 'last_click' ? 'ultima_sessao_desconhecida' : 'origem_nao_direta_desconhecida']),
+        generic('Cobertura', d.coverage, cur, ['dia', 'checked_at'])
+      ]);
+      else append(body, [generic('Por dia', d.daily, cur), generic('Qualidade', d.quality, cur), generic('Cobertura', d.coverage, cur)]);
     }
     function paintOrders(body, v) {
       clear(body);
@@ -858,7 +1007,7 @@
         if (op.summary) out.push(kv(op.summary));
         if (op.binding) out.push(h('details', null, [h('summary', { text: 'Vínculo registrado pelo servidor' }), kv(op.binding)]));
         out.push(h('div', { class: 'sov2-actions' }, [
-          h('button', { type: 'button', class: 'sov2-btn', 'data-ov-action': 'op-confirm', 'data-ov-focus': 'op-confirm', text: op.kind === 'link.archive' ? 'Confirmar arquivamento' : 'Confirmar criação' }),
+          h('button', { type: 'button', class: 'sov2-btn', 'data-ov-action': 'op-confirm', 'data-ov-focus': 'op-confirm', disabled: !!(C102 && submitGate(op)), title: (C102 && submitGate(op)) || null, text: op.kind === 'link.archive' ? 'Confirmar arquivamento' : 'Confirmar criação' }),
           h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'op-cancel', 'data-ov-focus': 'op-cancel', text: 'Cancelar' })
         ]));
       }
@@ -877,6 +1026,9 @@
         out.push(h('p', { 'data-ov-op-state': 'confirmed', text: (op.kind === 'link.archive' ? 'Arquivamento confirmado pelo servidor (histórico preservado).' : 'Criação confirmada pelo servidor.') + (op.receiptReference != null ? ' Recibo: ' + op.receiptReference + '.' : '') }));
         if (op.kind === 'link.create' && op.result && op.result.state === 'archived') {
           out.push(h('p', { 'data-ov-op-state': 'archived-existing', text: 'O servidor devolveu um link já arquivado com o mesmo endereço. Ele não foi reativado e não deve ser divulgado.' }));
+        } else if (C102 && op.kind === 'link.create' && op.resultState !== 'active') {
+          // 1.0.2: resultado confirmado sem projeção ativa (null/unknown) não oferece cópia; arquivado segue o ramo Root2 acima.
+          out.push(h('p', { 'data-ov-op-state': 'result-unknown', text: 'Confirmado, mas sem projeção utilizável do link; nada para copiar até a releitura.' }));
         } else if (op.kind === 'link.create' && op.result && str(op.result.url)) {
           out.push(h('div', { class: 'sov2-url' }, [
             h('input', { type: 'text', readonly: true, value: op.result.url, 'data-ov-result-url': '', 'aria-label': 'Link confirmado' }),
@@ -891,22 +1043,33 @@
       if (idText) out.push(h('p', { class: 'sov2-mini', text: idText }));
       append(lk.op, out);
     }
+    // R6 — só texto: com a capability link.create normalizada indisponível, a razão pública dela aparece junto da razão
+    // principal devolvida por writeBlock (que não muda de ordem nem de efeito). Ausente/malformada: texto fixo.
+    function capCreateNote(block) {
+      if (!C102 || !block || !st.nctx || !st.nctx.capabilities) return '';
+      var c = st.nctx.capabilities['link.create'];
+      if (!c || c.available === true) return '';
+      var note = c.known === true && str(c.reason) ? c.reason : CAP_CREATE_UNCONFIRMED;
+      if (block === note || block === CAP_DEFAULT_BLOCK || block.indexOf(note) >= 0) return '';
+      return ' ' + note;
+    }
     function paintLinks(body, v) {
       var block = writeBlock('link.create');
       lk.submit.disabled = !!block;
-      lk.cap.textContent = block ? 'Criação indisponível: ' + block : 'Criação disponível. O servidor valida destino, marca, origem, superfície e autoria.';
+      lk.cap.textContent = block ? 'Criação indisponível: ' + block + capCreateNote(block) : 'Criação disponível. O servidor valida destino, marca, origem, superfície e autoria.';
       lk.cap.setAttribute('data-ov-cap-state', block ? 'closed' : 'open');
       paintOp();
       clear(lk.pending);
-      var pend = st.pending.filter(function (p) { return !st.op || p.operationId !== st.op.operationId; });
+      var pend = st.pending.concat((C102 ? carriedNow() : []).filter(function (c) { return !st.pending.some(function (p) { return p.operationId === c.operationId; }); }).map(function (c) { return { operationId: c.operationId, kind: c.kind }; })).filter(function (p) { return !st.op || p.operationId !== st.op.operationId; });
       if (pend.length) append(lk.pending, [h('h4', { text: 'Operações pendentes no journal' }), h('ul', null, pend.map(function (p) {
         return h('li', null, [(KIND_LABEL[p.kind] || 'Operação') + ' ' + String(p.operationId) + ' ',
           h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'receipt', 'data-ov-op': String(p.operationId), disabled: !has('receipt') || opOpen(), text: 'Consultar resultado' })]);
       }))]);
       clear(lk.list);
       if (!hasData(v)) { append(lk.list, statusBlock(v)); return; }
-      var active = v.items.filter(function (l) { return l.state !== 'archived'; });
+      var active = v.items.filter(function (l) { return l.state === 'active'; });
       var archived = v.items.filter(function (l) { return l.state === 'archived'; });
+      var unknownState = v.items.filter(function (l) { return l.state !== 'active' && l.state !== 'archived'; });
       var archBlock = writeBlock('link.archive'), copyOk = canCopy();
       if (!active.length) append(lk.list, h('p', { class: 'sov2-note', 'data-ov-note': 'empty', text: emptyText(v, 'link ativo') }));
       else append(lk.list, scrollTable('Links UTM ativos; role para ver mais', ['Criado em', 'Superfície', 'Origem', 'Destino', 'Link', 'Estado', 'Ações'], active.map(function (l) {
@@ -917,14 +1080,19 @@
           h('td', null, h('input', { type: 'text', readonly: true, value: str(l.url) ? l.url : '', 'data-ov-url': id, 'aria-label': 'Link completo' })),
           h('td', { text: LINK_STATE[l.state] || cell('state', l.state) }),
           h('td', { class: 'sov2-actions' }, [
-            h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'copy', 'data-ov-link': id, 'data-ov-focus': 'copy-' + id, disabled: !copyOk || !str(l.url), title: copyOk ? null : 'Leitura não atual; atualize antes de copiar.', text: 'Copiar' }),
-            h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'archive', 'data-ov-link': id, 'data-ov-focus': 'archive-' + id, disabled: !!archBlock, title: archBlock || 'Arquiva preservando o histórico.', text: 'Arquivar' })
+            h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'copy', 'data-ov-link': id, 'data-ov-focus': 'copy-' + id, disabled: !copyOk || !str(l.url) || (C102 && l.copyEligible !== true), title: copyOk ? null : 'Leitura não atual; atualize antes de copiar.', text: 'Copiar' }),
+            h('button', { type: 'button', class: 'sov2-btn sov2-btn--sec', 'data-ov-action': 'archive', 'data-ov-link': id, 'data-ov-focus': 'archive-' + id, disabled: !!archBlock || (C102 && l.archiveEligible !== true), title: archBlock || (C102 && l.archiveEligible !== true ? 'Registro sem revisão real; arquivamento indisponível.' : 'Arquiva preservando o histórico.'), text: 'Arquivar' })
           ])
         ]);
       })));
       if (archived.length) append(lk.list, h('details', { class: 'sov2-archive' }, [h('summary', { text: 'Histórico arquivado (' + archived.length + ')' }),
         scrollTable('Links arquivados; somente leitura', ['Criado em', 'Superfície', 'Origem', 'Destino', 'Link'], archived.map(function (l) {
           return h('tr', { 'data-ov-archived-row': String(l.id) }, [h('td', { text: stamp(l.createdAt) || 'data desconhecida' }), h('td', { text: SURFACES[l.surface] || cell('surface', l.surface) }),
+            h('td', { text: cell('origin', l.origin) }), h('td', { class: 'sov2-wrap', text: cell('destination', l.destination) }), h('td', { class: 'sov2-wrap', text: cell('url', l.url) })]);
+        }))]));
+      if (unknownState.length) append(lk.list, h('details', { class: 'sov2-archive', 'data-ov-unknown-links': '' }, [h('summary', { text: 'Estado desconhecido (' + unknownState.length + ') · sem ações' }),
+        scrollTable('Links com estado desconhecido; somente leitura', ['Criado em', 'Superfície', 'Origem', 'Destino', 'Link'], unknownState.map(function (l) {
+          return h('tr', { 'data-ov-unknown-row': String(l.id) }, [h('td', { text: stamp(l.createdAt) || 'data desconhecida' }), h('td', { text: SURFACES[l.surface] || cell('surface', l.surface) }),
             h('td', { text: cell('origin', l.origin) }), h('td', { class: 'sov2-wrap', text: cell('destination', l.destination) }), h('td', { class: 'sov2-wrap', text: cell('url', l.url) })]);
         }))]));
     }
