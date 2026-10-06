@@ -29,7 +29,7 @@
   "defaultStartupUid1000Passed": true,
   "fourGeneralRegressionFixtureFailuresRepaired": true,
   "preexistingHashThemeAssertionsPreserved": true,
-  "fullGeneralRegressionConclusion": "pending",
+  "fullGeneralRegressionConclusion": "failure-three-preexisting-assertions",
   "backendEnrollmentSeparateCI": {
     "total": 9,
     "passed": 9,
@@ -39,5 +39,16 @@
   "productionRedeployedForTestOnlyChanges": false,
   "realHumanFlowsProven": false,
   "operational": false,
-  "credentialsIncluded": false
+  "credentialsIncluded": false,
+  "fullGeneralRegression": {
+    "runId": 37463854695,
+    "total": 3636,
+    "pass": 3632,
+    "fail": 3,
+    "skipped": 1,
+    "concurrencyJobs": 3,
+    "concurrencyJobsPassed": 3,
+    "remainingFailuresAllReproducedOnFrozenBase": true,
+    "newFixtureFailuresRemaining": 0
+  }
 }
