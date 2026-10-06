@@ -1,0 +1,223 @@
+name: CRM MVP controls source Node22
+
+'on':
+  push:
+    branches: [codex/crm-mvp-controls-source-20261006]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [codex/crm-audience-deliverability-source-20261006]
+permissions:
+  contents: read
+concurrency:
+  group: crm-mvp-controls-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only-node22:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.head_ref == 'codex/crm-mvp-controls-source-20261006'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+      SOURCE_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      SOURCE_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name || github.repository }}
+      SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      SOURCE_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Conferir delta Root e fonte legada imutavel
+        run: |
+          set -euo pipefail
+          node -e "if(process.version!=='v22.23.3')throw Error('NODE_VERSION_REFUSED')"
+          cat > "$RUNNER_TEMP/crm-mvp-controls-source-gate.cjs" <<'NODE_GATE'
+          'use strict';
+          // Root source gate only. No runtime, provider, database or staging verifier is imported.
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const {execFileSync} = require('node:child_process');
+          const BASE = '53844c12e00e3dbdcddb633ee8656c11e97ad7a9';
+          const REPO = 'bandssz/shrigma-dash-cx';
+          const BRANCH = 'codex/crm-mvp-controls-source-20261006';
+          const BASE_BRANCH = 'codex/crm-audience-deliverability-source-20261006';
+          const WORKFLOW = '.github/workflows/dashboard-crm-mvp-controls-source-20261006.yml';
+          const MANIFEST = 'tools/dashboard-crm-mvp-controls/source-integration-v5-root1.json';
+          const MANIFEST_PIN = [10942, '7a04470aa6bb7c18176a22b3fd474bfd8a754993533513ce1b6f3765ace2e19a', '09b79615a61131538472610b0c5a8773515f045f'];
+          const QA_PIN = [14696, '00a2631e54ded2a066690acbaa6ae7e67225cfdf236ec033136a94d3c25e1be6', 'd6f53dd25482d74fa026a6b6cf6a3aade3a142c0'];
+          const PAYLOAD = {
+            'services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md': [12944, 'ee80308837357d98beb8a3f86b1d382ac6953dfa65e412fadffad4f559091cbe', '1dd3a9fc66e9fc4d31f115b61e1660fae42c6831'],
+            'services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs': [8545, '1b889695df4243e90f17d1b137d82bd3770081cafd3273a8a3dda4669451a915', 'bc530db667bd52843d4a3928c70dad3b3e6da360'],
+            'services/dashboard-operational/domain/crm-mvp-controls/decision.cjs': [3226, 'c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf', 'daa041570d5df9086174da92c1cd643d882ce955'],
+            'tests/crm-mvp-controls/boundary.test.cjs': [32869, 'ece24e44edcd61a29f45f3f70861d34f1106a6daf989e917e056fe5acde6217f', 'b0c3b9a0eb42a3bbc501582bca34bc2af90270d4'],
+            'tests/crm-mvp-root-integration/ack-and-recovery.test.cjs': QA_PIN
+          };
+          const KERNELS = {
+            'audience-slice-contract.js': [3066, 'f07c41f0cddcc742817056de0840dcb49a398a2e0b5891454b3669fa1be3eee6', '2ba2b8c037045a551a20d36943ee17e0b874bc75'],
+            'domain/audience-slices/kernel.cjs': [9729, '0f905084d55a2856027615eb6e4a4d30202ad74a994cf08320feb112503d94b4', '59ce9167604a0f23386b4518fb32a32d6297e267'],
+            'domain/audience-slices/provider-boundary.cjs': [4196, 'f626a9239fb6d0afb1e47166ebe10993c6fa2315a19b68d7e2fa3b46f1b48372', 'f452f102d3a3d1ce5fb6b3f42fef5609d9df397b'],
+            'services/dashboard-operational/domain/deliverability/policy.cjs': [11169, 'f0006cb43770e605e45ddd3c2f14ff53655eb23f0cfefb54b726f75477c4d4cf', '77e6b2e9a095efb9de3154347205eab6ac17039f'],
+            'tools/dashboard-deliverability/integration-contract.json': [13347, '49fb76f7bd61a92a0cd6ae2e9e0e5f45107cdb054cfb7d68db7d378e84715851', '78a61c1a4136e18f6242d08142f897e867e1d20f']
+          };
+          function requireValue(ok, code) { if (!ok) throw Error(code); }
+          const sha = (type, data) => crypto.createHash(type).update(data).digest('hex');
+          const blob = data => sha('sha1', Buffer.concat([Buffer.from(`blob ${data.length}\0`), data]));
+          function verifyPin(data, pin) {
+            requireValue(Array.isArray(pin) && pin.length === 3 && Number.isSafeInteger(pin[0]) && pin[0] > 0 && /^[a-f0-9]{64}$/.test(pin[1]) && /^[a-f0-9]{40}$/.test(pin[2]), 'SOURCE_PIN_NOT_FROZEN');
+            requireValue(data.length === pin[0] && sha('sha256', data) === pin[1] && blob(data) === pin[2], 'SOURCE_PIN_REFUSED');
+          }
+          function verifyContext(env) {
+            requireValue(['push', 'pull_request'].includes(env.GITHUB_EVENT_NAME), 'SOURCE_EVENT_REFUSED');
+            requireValue(env.SOURCE_HEAD_REPO === REPO && env.SOURCE_BASE_REPO === REPO, 'SOURCE_REPO_REFUSED');
+            requireValue(env.SOURCE_HEAD_REF === BRANCH, 'SOURCE_BRANCH_REFUSED');
+            requireValue(/^[a-f0-9]{40}$/.test(env.SOURCE_HEAD_SHA || ''), 'SOURCE_HEAD_REFUSED');
+            if (env.GITHUB_EVENT_NAME === 'pull_request') {
+              requireValue(env.SOURCE_BASE_SHA === BASE && env.SOURCE_BASE_REF === BASE_BRANCH, 'SOURCE_PR_BASE_REFUSED');
+            } else requireValue(env.GITHUB_REF === 'refs/heads/' + BRANCH, 'SOURCE_PUSH_REFUSED');
+          }
+          function readOwned(name, root = process.cwd()) {
+            requireValue(typeof name === 'string' && name.length > 0 && !path.isAbsolute(name) && !name.split('/').some(s => !s || s === '.' || s === '..'), 'SOURCE_PATH_REFUSED');
+            let current = root;
+            for (const segment of name.split('/')) {
+              current = path.join(current, segment);
+              requireValue(!fs.lstatSync(current).isSymbolicLink(), 'SOURCE_LINK_REFUSED');
+            }
+            const before = fs.lstatSync(current, {bigint: true});
+            requireValue(before.isFile() && before.nlink === 1n, 'SOURCE_FILE_REFUSED');
+            const fd = fs.openSync(current, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+            const unchanged = (a, b) => ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].every(k => a[k] === b[k]);
+            try {
+              const opened = fs.fstatSync(fd, {bigint: true});
+              requireValue(unchanged(before, opened), 'SOURCE_CHANGED');
+              const data = fs.readFileSync(fd);
+              requireValue(unchanged(opened, fs.fstatSync(fd, {bigint: true})) && unchanged(opened, fs.lstatSync(current, {bigint: true})), 'SOURCE_CHANGED');
+              return data;
+            } finally { fs.closeSync(fd); }
+          }
+          function git(...args) { return execFileSync('git', args, {stdio: ['ignore', 'pipe', 'ignore']}); }
+          function textgit(...args) { return git(...args).toString('utf8').trim(); }
+          function tree(ref) {
+            const entries = new Map();
+            for (const row of git('ls-tree', '-r', '-z', ref).toString('utf8').split('\0').filter(Boolean)) {
+              const split = row.indexOf('\t');
+              requireValue(split > 0, 'SOURCE_TREE_REFUSED');
+              requireValue(!entries.has(row.slice(split + 1)), 'SOURCE_TREE_DUPLICATE');
+              entries.set(row.slice(split + 1), row.slice(0, split));
+            }
+            return entries;
+          }
+          function verifyDelta(raw, expected) {
+            const fields = raw.toString('utf8').split('\0');
+            requireValue(fields.pop() === '' && fields.length === expected.length * 2, 'SOURCE_DELTA_SIZE_REFUSED');
+            const observed = new Map();
+            for (let n = 0; n < fields.length; n += 2) {
+              requireValue(fields[n] === 'A' && !observed.has(fields[n + 1]), 'SOURCE_DELTA_STATUS_REFUSED');
+              observed.set(fields[n + 1], fields[n]);
+            }
+            requireValue(expected.every(name => observed.has(name)), 'SOURCE_DELTA_REFUSED');
+          }
+          function verifyManifest(manifest) {
+            requireValue(manifest.schema === 'root-crm-mvp-controls-source-integration-v1' && manifest.owner === 'Codex-Root' && manifest.baseCommitSha === BASE && manifest.packageId === 'controles-crm-v5-root1' && manifest.producerPackageId === 'controles-crm-mvp-20261006-v5', 'SOURCE_MANIFEST_ID_REFUSED');
+            requireValue(manifest.sourceOnly === true && manifest.enabled === false && manifest.operational === false && manifest.productionChanged === false && manifest.producerPackageModified === false && manifest.interfaceProductionAdmitted === false && manifest.rootStoreAndIAMAdapterInstalled === false && manifest.realOperational === false, 'SOURCE_AUTHORITY_REFUSED');
+            requireValue(manifest.interfaceContractVersion === 'crm-mvp-controls-proposed-v4', 'SOURCE_INTERFACE_REFUSED');
+            requireValue(Array.isArray(manifest.files) && manifest.files.length === 5 && new Set(manifest.files.map(f => f.repoPath)).size === 5, 'SOURCE_MANIFEST_FILES_REFUSED');
+            for (const [name, pin] of Object.entries(PAYLOAD)) {
+              const file = manifest.files.find(f => f.repoPath === name);
+              requireValue(file && file.deltaStatus === 'A' && file.bytes === pin[0] && file.sha256 === pin[1] && file.gitBlobSha1 === pin[2], 'SOURCE_MANIFEST_PIN_REFUSED');
+            }
+            requireValue(Array.isArray(manifest.kernelPins) && manifest.kernelPins.length === 5 && new Set(manifest.kernelPins.map(f => f.repoPath)).size === 5, 'SOURCE_MANIFEST_KERNELS_REFUSED');
+            for (const [name, pin] of Object.entries(KERNELS)) {
+              const file = manifest.kernelPins.find(f => f.repoPath === name);
+              requireValue(file && file.bytes === pin[0] && file.sha256 === pin[1] && file.gitBlobSha1 === pin[2] && file.unchangedNativeBase === BASE, 'SOURCE_MANIFEST_KERNEL_PIN_REFUSED');
+            }
+            const expected = [...Object.keys(PAYLOAD), MANIFEST, WORKFLOW];
+            requireValue(Array.isArray(manifest.expectedDelta) && manifest.expectedDelta.length === 7 && new Set(manifest.expectedDelta.map(f => f.repoPath)).size === 7 && manifest.expectedDelta.every(f => f.deltaStatus === 'A' && expected.includes(f.repoPath)), 'SOURCE_MANIFEST_DELTA_REFUSED');
+            const boundary = manifest.files.find(f => f.repoPath.endsWith('/boundary.cjs'));
+            requireValue(boundary.rootCorrection === true && boundary.integratedBytesEqualProducer === false && boundary.producerOriginal.bytes === 8496 && boundary.producerOriginal.sha256 === 'a5d067a42cb7767331da8c542bdfc8cbff2ae0b4df0d1d11b70f723026017bb4' && boundary.producerOriginal.gitBlobSha1 === '81a3a500c6a9ab2659d6908ae59895e4324a7325', 'SOURCE_PROVENANCE_REFUSED');
+          }
+          function main() {
+            verifyContext(process.env);
+            requireValue(MANIFEST_PIN !== null && QA_PIN !== null, 'SOURCE_PIN_NOT_FROZEN');
+            const head = process.env.SOURCE_HEAD_SHA;
+            requireValue(textgit('rev-parse', 'HEAD') === head && textgit('rev-parse', `${head}^{commit}`) === head && textgit('rev-parse', `${BASE}^{commit}`) === BASE, 'SOURCE_COMMIT_REFUSED');
+            requireValue(textgit('merge-base', BASE, head) === BASE, 'SOURCE_ANCESTRY_REFUSED');
+            const expected = [...Object.keys(PAYLOAD), MANIFEST, WORKFLOW];
+            verifyDelta(git('diff', '--name-status', '--no-renames', '-z', BASE, head, '--'), expected);
+            const old = tree(BASE), current = tree(head);
+            requireValue(current.size === old.size + expected.length, 'SOURCE_TREE_SIZE_REFUSED');
+            for (const [name, meta] of old) requireValue(current.get(name) === meta, 'SOURCE_LEGACY_TREE_REFUSED');
+            for (const name of expected) requireValue(!old.has(name) && current.has(name) && current.get(name).startsWith('100644 blob '), 'SOURCE_NEW_PATH_REFUSED');
+            for (const [name, pin] of Object.entries({...PAYLOAD, [MANIFEST]: MANIFEST_PIN, ...KERNELS})) {
+              const data = readOwned(name);
+              verifyPin(data, pin);
+              requireValue(current.get(name) === `100644 blob ${pin[2]}`, 'SOURCE_BLOB_REFUSED');
+              if (Object.hasOwn(KERNELS, name)) requireValue(old.get(name) === current.get(name), 'SOURCE_KERNEL_BASE_REFUSED');
+            }
+            requireValue(current.get(WORKFLOW) === `100644 blob ${blob(readOwned(WORKFLOW))}`, 'SOURCE_WORKFLOW_BLOB_REFUSED');
+            verifyManifest(JSON.parse(readOwned(MANIFEST).toString('utf8')));
+            const corrected = readOwned('services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs').toString('utf8');
+            const addedGuard = '||!Number.isSafeInteger(r.revision)||r.revision<1';
+            const pieces = corrected.split(addedGuard);
+            requireValue(pieces.length === 2 && sha('sha256', Buffer.from(pieces.join(''))) === 'a5d067a42cb7767331da8c542bdfc8cbff2ae0b4df0d1d11b70f723026017bb4', 'SOURCE_ROOT_CORRECTION_REFUSED');
+            requireValue(corrected.includes('function create({enabled=false,') && corrected.includes('authorizesSend:false,operational:false'), 'SOURCE_DEFAULT_OFF_REFUSED');
+            requireValue(textgit('status', '--porcelain=v1', '--untracked-files=all') === '', 'SOURCE_WORKTREE_CHANGED');
+            console.log(JSON.stringify({schema:'crm-mvp-controls-source-ci-v1',baseRevision:BASE,sourceRevision:head,payloadFiles:5,kernelPins:5,deltaFiles:7,legacyFilesUnchanged:old.size,sourceOnly:true,enabled:false,operational:false,productionChanged:false}));
+          }
+          module.exports = Object.freeze({verifyPin, verifyContext, verifyDelta, verifyManifest, readOwned});
+          if (require.main === module) {
+            try { main(); }
+            catch (error) { console.error(/^SOURCE_[A-Z0-9_]+$/.test(error.message) ? error.message : 'SOURCE_GATE_REFUSED'); process.exitCode = 1; }
+          }
+          NODE_GATE
+          node "$RUNNER_TEMP/crm-mvp-controls-source-gate.cjs"
+      - name: Executar os 59 casos B1 originais sem skips
+        env:
+          CRM_CONTEXT_DIRECTORY: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          set +e
+          node --test --test-reporter=tap --test-timeout=120000 tests/crm-mvp-controls/boundary.test.cjs > "$RUNNER_TEMP/crm-mvp-b1-original.tap" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/crm-mvp-b1-original.tap"
+          test "$status" -eq 0
+          node <<'NODE_COUNTS'
+          const fs = require('node:fs'), path = require('node:path');
+          const tap = fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'crm-mvp-b1-original.tap'), 'utf8');
+          for (const [field, expected] of Object.entries({tests:59,pass:59,fail:0,cancelled:0,skipped:0,todo:0})) {
+            const values = [...tap.matchAll(new RegExp('^# ' + field + ' ([0-9]+)$', 'gm'))].map(m => Number(m[1]));
+            if (values.length !== 1 || values[0] !== expected) throw Error('SOURCE_TEST_COUNTS_REFUSED:' + field);
+          }
+          console.log('SYNTHETIC_CASES_CONFIRMED=59;OPERATIONAL=false');
+          NODE_COUNTS
+      - name: Executar os 12 casos adversariais Root sem skips
+        env:
+          CRM_CONTEXT_DIRECTORY: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          set +e
+          node --test --test-reporter=tap --test-timeout=120000 tests/crm-mvp-root-integration/ack-and-recovery.test.cjs > "$RUNNER_TEMP/crm-mvp-root-adversarial.tap" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/crm-mvp-root-adversarial.tap"
+          test "$status" -eq 0
+          node <<'NODE_COUNTS'
+          const fs = require('node:fs'), path = require('node:path');
+          const tap = fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'crm-mvp-root-adversarial.tap'), 'utf8');
+          for (const [field, expected] of Object.entries({tests:12,pass:12,fail:0,cancelled:0,skipped:0,todo:0})) {
+            const values = [...tap.matchAll(new RegExp('^# ' + field + ' ([0-9]+)$', 'gm'))].map(m => Number(m[1]));
+            if (values.length !== 1 || values[0] !== expected) throw Error('SOURCE_TEST_COUNTS_REFUSED:' + field);
+          }
+          console.log('SYNTHETIC_CASES_CONFIRMED=12;OPERATIONAL=false');
+          NODE_COUNTS
+      - name: Revalidar pins e ausencia de delta apos os testes
+        if: always()
+        run: |
+          set -euo pipefail
+          node "$RUNNER_TEMP/crm-mvp-controls-source-gate.cjs"
