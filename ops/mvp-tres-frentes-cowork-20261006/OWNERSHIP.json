@@ -1,0 +1,77 @@
+{
+  "schema": "sprint-owner-claims-v1",
+  "createdOn": "2026-10-06",
+  "target": "2026-10-09",
+  "timezone": "America/Sao_Paulo",
+  "singleIntegrator": "Codex-Root",
+  "canonicalLocalCheckoutIsGit": false,
+  "newChatsCreated": false,
+  "coworkDispatched": false,
+  "claims": [
+    {
+      "id": "A",
+      "owner": "Codex-Root",
+      "status": "active",
+      "scope": "CRM IAM/backend/shared adapters/build/GitHub/Easypanel/DB/deploy/real proofs",
+      "prefixes": [
+        "* except explicitly assigned new producer paths"
+      ]
+    },
+    {
+      "id": "B1",
+      "owner": "Codex producer",
+      "status": "ready-for-user-dispatch",
+      "newFilesOnly": true,
+      "prefixes": [
+        "services/dashboard-operational/domain/crm-mvp-controls/",
+        "tests/crm-mvp-controls/"
+      ],
+      "sourceBase": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9"
+    },
+    {
+      "id": "C1",
+      "owner": "Cowork Afiliados",
+      "status": "ready-for-user-dispatch",
+      "newFilesOnly": true,
+      "prefixes": [
+        "ui/affiliates-v2/",
+        "tests/affiliates-v2/"
+      ],
+      "sourceBase": "2676c48c015628244b51ffc1b1d5a8288b7a2225"
+    },
+    {
+      "id": "C2",
+      "owner": "Cowork Organico",
+      "status": "ready-for-user-dispatch",
+      "newFilesOnly": true,
+      "prefixes": [
+        "ui/organic-v2/",
+        "tests/organic-v2/"
+      ],
+      "sourceBase": "2676c48c015628244b51ffc1b1d5a8288b7a2225"
+    },
+    {
+      "id": "QA",
+      "owner": "Codex or Cowork QA",
+      "status": "ready-after-first-producer-delivery",
+      "newFilesOnly": true,
+      "prefixes": [
+        "tests/mvp-acceptance/",
+        "evidence/mvp/"
+      ],
+      "sourceBase": "Root-issued integration package"
+    }
+  ],
+  "stagingPattern": "staging/<claim>/<package-id>/files/<repo-path>",
+  "metadataAtPackageRoot": [
+    "DELIVERY.json"
+  ],
+  "immutableContext": true,
+  "oneWriterPerFile": true,
+  "remoteNativeOperationsOnlyRoot": true,
+  "producerSecretAccess": false,
+  "producerProductionOperations": false,
+  "newDatabaseOrServicePerChat": false,
+  "externalWaitingIsNotEstimated": false,
+  "gatewayContractsProductionAdmitted": false
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "mvp-handoff-verification-v1",
+  "verifiedOn": "2026-10-06",
+  "publicFilesExactSecretScanned": 72,
+  "privateValuesChecked": 5,
+  "privateMatches": 0,
+  "validJsonFiles": 25,
+  "producerPrefixesDisjoint": true,
+  "taskDependenciesExist": true,
+  "coworkSourceNativeParityFiles": 29,
+  "controlsNativeParityFiles": 5,
+  "zipChecks": "PACOTES-RECIBO.json",
+  "appTestsRequiredForDocsOnly": false,
+  "appTestsExecuted": false,
+  "remoteProductionChanged": false,
+  "chatsCreated": false,
+  "coworkDispatched": false,
+  "operational": false,
+  "latestCoworkReceipt": "PACOTES-RECIBO-v2.json",
+  "gatewayContractVersion": "1.0.1-proposed",
+  "independentReview": "Two contract inconsistencies corrected; contextRevision and concurrent sync semantics checked",
+  "supersededPackagesRetainedUnchanged": true
+}
