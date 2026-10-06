@@ -171,7 +171,7 @@ jobs:
           python3 - <<'PY_EXISTING'
           import os, pathlib, re
           tap=pathlib.Path(os.environ['RUNNER_TEMP'],'audience-deliverability-existing.tap').read_text()
-          for field,number in {'tests':31,'pass':8,'fail':0,'cancelled':0,'skipped':23,'todo':0}.items():
+          for field,number in {'tests':8,'pass':8,'fail':0,'cancelled':0,'skipped':0,'todo':0}.items():
               values=re.findall(r'^# '+field+r' (\d+)$',tap,re.M)
               assert values==[str(number)],field
           print('EXISTING_UI_SELECTED_CASES_CONFIRMED=8')
