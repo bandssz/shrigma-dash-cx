@@ -3,8 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {parseHTML}=require('linkedom');
 const html=fs.readFileSync(require.resolve('../influs.html'),'utf8');
 function fixture(source=html){
- const {document}=parseHTML(source),reads=[];
- const state={document,window:{},SEC:'creators',MARCA:'todas',PER:{ini:'2026-09-01',fim:'2026-09-20'},$:s=>document.querySelector(s),
+ const {document,window}=parseHTML(source),reads=[];
+ const state={document,window,SEC:'creators',MARCA:'todas',PER:{ini:'2026-09-01',fim:'2026-09-20'},$:s=>document.querySelector(s),
   carregarInflu:()=>{reads.push({area:'creators',...state.PER});return Promise.resolve();},
   carregarTTS:()=>{reads.push({area:'tiktok',...state.PER});return Promise.resolve();},
   faixaCredencial:()=>{reads.push({area:'health'});return Promise.resolve();},

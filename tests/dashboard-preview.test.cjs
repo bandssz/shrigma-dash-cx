@@ -6,6 +6,9 @@ const {pack}=require('../services/dashboard-preview/pack-runtime.cjs');
 const {unpack,selectPackFile}=require('../services/dashboard-preview/bootstrap.cjs');
 const zlib=require('node:zlib');
 const vm=require('node:vm');
+// Fixture codec follows the closed wrapper actually emitted; security assertions stay unchanged.
+const packRaw=wrapper=>{assert.ok(['shrigma_preview_pack_v2','shrigma_preview_pack_v3'].includes(wrapper.schema));return wrapper.schema==='shrigma_preview_pack_v2'?zlib.gunzipSync(Buffer.from(wrapper.gzipBase64,'base64')):zlib.brotliDecompressSync(Buffer.from(wrapper.brotliBase64,'base64'));};
+const reencode=(wrapper,raw)=>({...wrapper,sha256:crypto.createHash('sha256').update(raw).digest('hex'),...(wrapper.schema==='shrigma_preview_pack_v2'?{gzipBase64:zlib.gzipSync(raw).toString('base64')}:{brotliBase64:zlib.brotliCompressSync(raw).toString('base64')})});
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'dashboard-preview-test-')),dist=path.join(tmp,'dist');
 const keys={master:'synthetic-master-12345',cx:'synthetic-cx-12345',growth:'synthetic-growth-12345',organico:'synthetic-organico-12345',influs:'synthetic-influs-12345'};
 const hashes=Object.fromEntries(Object.entries(keys).map(([scope,key])=>[crypto.createHash('sha256').update(key).digest('hex'),scope]));
@@ -55,8 +58,8 @@ test('traversal, private artifacts and unlisted runtime files cannot be served',
 test('mount pack roundtrips public allowlist and rejects corruption/traversal',()=>{
  const target=path.join(tmp,'mounts'),dest=path.join(tmp,'unpack');const result=pack(dist,target);assert.ok(result.mountsJsonBytes<950000);assert.equal(JSON.parse(fs.readFileSync(path.join(target,'mounts.json'))).length,4);const restored=unpack(path.join(target,'assets-pack.json'),dest);assert.equal(restored.files,FILES.length+2);for(const file of [...FILES,'preview.js','preview.css'])assert.deepEqual(fs.readFileSync(path.join(dest,file)),fs.readFileSync(path.join(dist,'public',file)),file);
  const bad=path.join(tmp,'bad-pack.json'),data=JSON.parse(fs.readFileSync(path.join(target,'assets-pack.json')));data.sha256='0'.repeat(64);fs.writeFileSync(bad,JSON.stringify(data));assert.throws(()=>unpack(bad,path.join(tmp,'bad')));
- const original=JSON.parse(fs.readFileSync(path.join(target,'assets-pack.json'))),listed=JSON.parse(zlib.gunzipSync(Buffer.from(original.gzipBase64,'base64')));listed[0].path='credentials.js';const raw=Buffer.from(JSON.stringify(listed));fs.writeFileSync(bad,JSON.stringify({...original,sha256:crypto.createHash('sha256').update(raw).digest('hex'),gzipBase64:zlib.gzipSync(raw).toString('base64')}));assert.throws(()=>unpack(bad,path.join(tmp,'bad-allowlist')),/closed public allowlist/);
- const wrongEncoding=JSON.parse(zlib.gunzipSync(Buffer.from(original.gzipBase64,'base64')));wrongEncoding.find(f=>f.path.endsWith('.png')).encoding='utf8';const encoded=Buffer.from(JSON.stringify(wrongEncoding));fs.writeFileSync(bad,JSON.stringify({...original,sha256:crypto.createHash('sha256').update(encoded).digest('hex'),gzipBase64:zlib.gzipSync(encoded).toString('base64')}));assert.throws(()=>unpack(bad,path.join(tmp,'bad-encoding')),/Invalid asset encoding/);
+ const original=JSON.parse(fs.readFileSync(path.join(target,'assets-pack.json'))),listed=JSON.parse(packRaw(original));listed[0].path='credentials.js';const raw=Buffer.from(JSON.stringify(listed));fs.writeFileSync(bad,JSON.stringify(reencode(original,raw)));assert.throws(()=>unpack(bad,path.join(tmp,'bad-allowlist')),/closed public allowlist/);
+ const wrongEncoding=JSON.parse(packRaw(original));wrongEncoding.find(f=>f.path.endsWith('.png')).encoding='utf8';const encoded=Buffer.from(JSON.stringify(wrongEncoding));fs.writeFileSync(bad,JSON.stringify(reencode(original,encoded)));assert.throws(()=>unpack(bad,path.join(tmp,'bad-encoding')),/Invalid asset encoding/);
 });
 test('bootstrap chooses only fixed volume/seed paths, reads the copied volume pack and enforces its revision',()=>{
  assert.equal(selectPackFile({existsSync:()=>false}),'/app/assets-pack.json');
@@ -68,4 +71,32 @@ test('bootstrap chooses only fixed volume/seed paths, reads the copied volume pa
  const readFile=(file,encoding)=>{assert.equal(file,volumePath);reads++;return fs.readFileSync(copied,encoding);};
  const result=unpack(selectPackFile(present),path.join(tmp,'from-volume'),{readFile,expectedSha256:wrapper.sha256});assert.equal(reads,1);assert.equal(result.files,28);assert.deepEqual(fs.readFileSync(path.join(tmp,'from-volume','preview.js')),fs.readFileSync(path.join(dist,'public','preview.js')));
  assert.throws(()=>unpack(selectPackFile(present),path.join(tmp,'wrong-revision'),{readFile,expectedSha256:'0'.repeat(64)}),/Unexpected preview pack revision/);
+});
+
+// Directly affected codec controls: built-in only, real decompression/filesystem, synthetic data.
+test('Brotli v3 and legacy gzip v2 restore exactly the same public bytes and raw revision',()=>{
+ const packed=JSON.parse(fs.readFileSync(path.join(tmp,'mounts','assets-pack.json'),'utf8')),raw=packRaw(packed);
+ for(const [schema,field,compressed] of [['shrigma_preview_pack_v2','gzipBase64',zlib.gzipSync(raw)],['shrigma_preview_pack_v3','brotliBase64',zlib.brotliCompressSync(raw)]]){
+  const file=path.join(tmp,schema+'.json'),out=path.join(tmp,schema);fs.writeFileSync(file,JSON.stringify({schema,sha256:packed.sha256,[field]:compressed.toString('base64')}));
+  assert.equal(unpack(file,out,{expectedSha256:packed.sha256}).files,FILES.length+2);
+  for(const name of [...FILES,'preview.js','preview.css'])assert.deepEqual(fs.readFileSync(path.join(out,name)),fs.readFileSync(path.join(dist,'public',name)),name);
+ }
+});
+test('Brotli v3 refuses mixed/foreign wrapper fields, corruption and excessive decoded bytes before writing',()=>{
+ const packed=JSON.parse(fs.readFileSync(path.join(tmp,'mounts','assets-pack.json'),'utf8')),raw=packRaw(packed),compressed=zlib.brotliCompressSync(raw);
+ const base={schema:'shrigma_preview_pack_v3',sha256:packed.sha256,brotliBase64:compressed.toString('base64')};
+ const tooLarge=Buffer.alloc(16*1024*1024+1,97);
+ const bad=[{...base,gzipBase64:zlib.gzipSync(raw).toString('base64')},{...base,schema:'shrigma_preview_pack_v2'},{...base,brotliBase64:compressed.subarray(0,8).toString('base64')},{...base,sha256:'0'.repeat(64)},{...base,sha256:crypto.createHash('sha256').update(tooLarge).digest('hex'),brotliBase64:zlib.brotliCompressSync(tooLarge).toString('base64')}];
+ for(let i=0;i<bad.length;i++){const file=path.join(tmp,'br-bad-'+i+'.json'),out=path.join(tmp,'br-bad-'+i);fs.writeFileSync(file,JSON.stringify(bad[i]));assert.throws(()=>unpack(file,out),i===4?{code:'ERR_BUFFER_TOO_LARGE'}:undefined);assert.equal(fs.existsSync(out),false);}
+});
+test('Brotli v3 refuses traversal and removed/extra public assets without relaxing the allowlist',()=>{
+ const packed=JSON.parse(fs.readFileSync(path.join(tmp,'mounts','assets-pack.json'),'utf8')),original=JSON.parse(packRaw(packed));
+ const changed=[original.map((f,i)=>i===0?{...f,path:'../index.html'}:f),original.slice(1),[...original,{path:'extra.js',encoding:'utf8',content:'synthetic-only'}]];
+ for(let i=0;i<changed.length;i++){const raw=Buffer.from(JSON.stringify(changed[i])),file=path.join(tmp,'br-path-'+i+'.json'),out=path.join(tmp,'br-path-'+i);fs.writeFileSync(file,JSON.stringify({schema:'shrigma_preview_pack_v3',sha256:crypto.createHash('sha256').update(raw).digest('hex'),brotliBase64:zlib.brotliCompressSync(raw).toString('base64')}));assert.throws(()=>unpack(file,out));assert.equal(fs.existsSync(out),false);}
+});
+test('Brotli fallback still refuses a transport above 950000 bytes without partial runtime output',()=>{
+ const huge=path.join(tmp,'huge'),out=path.join(tmp,'huge-pack');fs.mkdirSync(huge);fs.cpSync(path.join(dist,'public'),path.join(huge,'public'),{recursive:true});
+ // Deterministic high-entropy synthetic bytes; no record/provider/real image.
+ const bytes=Buffer.alloc(2*1024*1024);for(let i=0;i<bytes.length;i+=32)crypto.createHash('sha256').update('synthetic-pack-budget:'+i).digest().copy(bytes,i);
+ fs.writeFileSync(path.join(huge,'public','logos/icone-aristocrata.png'),bytes);assert.throws(()=>pack(huge,out),/950 KB transport safety budget/);assert.deepEqual(fs.readdirSync(out),[]);
 });

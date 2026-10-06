@@ -115,7 +115,9 @@
       "organico-page.css",
       "panel-ui.css",
       "area-brand.css",
-      "organico-mobile.css"
+      "organico-mobile.css",
+      "ui/organic-v2/organic-v2.css",
+      "ui/root-mounts/organic-v2-mount.css"
     ],
     "scripts": [
       "frescor.js",
@@ -129,7 +131,9 @@
       "organico-legacy.js",
       "organico-links.js",
       "painel-tabelas.js",
-      "panel-bridge.js"
+      "panel-bridge.js",
+      "ui/organic-v2/organic-v2.js",
+      "ui/root-mounts/organic-v2-mount.js"
     ]
   },
   "influs": {
@@ -140,7 +144,8 @@
       "creators-pilot.css",
       "area-brand.css",
       "tts-visual.css",
-      "influ-escopo.css"
+      "influ-escopo.css",
+      "ui/affiliates-v2/affiliates-v2.css"
     ],
     "scripts": [
       "frescor.js",
@@ -159,7 +164,9 @@
       "influs-tts.js",
       "alerta-credencial.js",
       "painel-tabelas.js",
-      "panel-bridge.js"
+      "panel-bridge.js",
+      "ui/affiliates-v2/affiliates-v2.js",
+      "influs-affiliates-mount.js"
     ]
   }
 }

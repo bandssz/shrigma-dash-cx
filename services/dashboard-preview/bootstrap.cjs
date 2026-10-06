@@ -21,9 +21,16 @@ function selectPackFile(fsImpl=fs){
 function unpack(packFile,target,{readFile=fs.readFileSync,expectedSha256=process.env.PREVIEW_PACK_SHA256}={}){
  const input=readFile(packFile,'utf8');if(input.length>2*1024*1024)throw Error('Oversize pack.');
  const wrapper=JSON.parse(input);
- if(wrapper.schema!=='shrigma_preview_pack_v2'||Object.keys(wrapper).sort().join(',')!=='gzipBase64,schema,sha256'||!/^[a-f0-9]{64}$/.test(wrapper.sha256)||typeof wrapper.gzipBase64!=='string'||!/^[A-Za-z0-9+/=]+$/.test(wrapper.gzipBase64))throw Error('Invalid pack.');
+ const keys=Object.keys(wrapper).sort().join(',');
+ const gzip=wrapper.schema==='shrigma_preview_pack_v2'&&keys==='gzipBase64,schema,sha256';
+ const brotli=wrapper.schema==='shrigma_preview_pack_v3'&&keys==='brotliBase64,schema,sha256';
+ const encoded=gzip?wrapper.gzipBase64:brotli?wrapper.brotliBase64:null;
+ if((!gzip&&!brotli)||!/^[a-f0-9]{64}$/.test(wrapper.sha256)||typeof encoded!=='string'||!/^[A-Za-z0-9+/=]+$/.test(encoded))throw Error('Invalid pack.');
  if(expectedSha256!==undefined&&(!/^[a-f0-9]{64}$/.test(expectedSha256)||expectedSha256!==wrapper.sha256))throw Error('Unexpected preview pack revision.');
- const raw=zlib.gunzipSync(Buffer.from(wrapper.gzipBase64,'base64'),{maxOutputLength:MAX_BYTES});
+ const compressed=Buffer.from(encoded,'base64');
+ const decoded=gzip?null:zlib.brotliDecompressSync(compressed,{maxOutputLength:MAX_BYTES,info:true});
+ if(decoded&&decoded.engine.bytesWritten!==compressed.length)throw Error('Invalid pack stream.');
+ const raw=gzip?zlib.gunzipSync(compressed,{maxOutputLength:MAX_BYTES}):decoded.buffer;
  if(crypto.createHash('sha256').update(raw).digest('hex')!==wrapper.sha256)throw Error('Pack checksum mismatch.');
  const files=JSON.parse(raw);if(!Array.isArray(files)||files.length<1||files.length>MAX_FILES)throw Error('Invalid pack count.');
  const seen=new Set();let total=0;
