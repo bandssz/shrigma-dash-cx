@@ -28,12 +28,13 @@ jobs:
     env:
       SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
-      CRM_PERSISTENCE_CONTEXT_DIRECTORY: ${{ runner.temp }}/crm-public-context-ci
     steps:
       - name: Require same repository source
         env:
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-        run: test "$HEAD_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+        run: |
+          test "$HEAD_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          printf 'CRM_PERSISTENCE_CONTEXT_DIRECTORY=%s/crm-public-context-ci\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha }}
