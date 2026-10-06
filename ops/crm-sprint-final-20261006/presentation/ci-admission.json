@@ -1,0 +1,59 @@
+{
+  "schema": "crm-presentation-native-ci-admission-v1",
+  "sourceRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "image": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+  "parentImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:e1729ca3a6d064244c82a8df3d13bd1f3323797d5cfb8a80e1d6d0cf12345e32",
+  "runId": 37461867123,
+  "jobId": 112263159234,
+  "runURL": "https://github.com/bandssz/shrigma-dash-cx/actions/runs/37461867123",
+  "githubNativeConnector": true,
+  "jobConclusion": "success",
+  "directedSourceTests": {
+    "tests": 51,
+    "pass": 51,
+    "fail": 0
+  },
+  "httpDeliveryTests": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0
+  },
+  "closedBuildInventoryFiles": 14,
+  "defaultStartupSmoke": {
+    "schema": "crm-presentation-default-smoke-v1",
+    "ok": true,
+    "node": "v22.23.3",
+    "uid": 1000,
+    "gid": 1000,
+    "mode": "synthetic",
+    "upstreamProfile": "production",
+    "manifestSha256": "c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b",
+    "defaultStartWithPresentation": true,
+    "defaultVerifyReady": true,
+    "readyFdInodeModeVerified": true,
+    "sevenPublicHttpCspVerified": true,
+    "immutableImageFiles": 6,
+    "runtimeFilesUnchanged": 28,
+    "otherPublicFilesUnchanged": 23,
+    "sameArtifactReplayRefused": true,
+    "freshArtifactRestartAccepted": true,
+    "identityAndSessionsPreserved": true,
+    "readyHealthRefusals": 7,
+    "originalAuthDrains": [
+      1,
+      1,
+      1
+    ],
+    "failedStartupHttpRequests": 0,
+    "failedStartupSocket": "ECONNREFUSED",
+    "externalNetworkAttempts": 0,
+    "operational": false
+  },
+  "manifestSha256": "c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b",
+  "historicalMasterAdmissionChanged": false,
+  "productionDeployed": false,
+  "realHumanLogin": false,
+  "brandCRUDReal": false,
+  "operational": false,
+  "credentialsIncluded": false
+}

@@ -1,0 +1,109 @@
+{
+  "schema": "crm-presentation-native-delivery-proof-v1",
+  "sourceRevision": "2676c48c015628244b51ffc1b1d5a8288b7a2225",
+  "image": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+  "parentImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:e1729ca3a6d064244c82a8df3d13bd1f3323797d5cfb8a80e1d6d0cf12345e32",
+  "runId": 37461867123,
+  "jobId": 112263159234,
+  "runURL": "https://github.com/bandssz/shrigma-dash-cx/actions/runs/37461867123",
+  "githubNativeConnector": true,
+  "jobConclusion": "success",
+  "directedSourceTests": {
+    "tests": 51,
+    "pass": 51,
+    "fail": 0
+  },
+  "httpDeliveryTests": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0
+  },
+  "closedBuildInventoryFiles": 14,
+  "defaultStartupSmoke": {
+    "schema": "crm-presentation-default-smoke-v1",
+    "ok": true,
+    "node": "v22.23.3",
+    "uid": 1000,
+    "gid": 1000,
+    "mode": "synthetic",
+    "upstreamProfile": "production",
+    "manifestSha256": "c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b",
+    "defaultStartWithPresentation": true,
+    "defaultVerifyReady": true,
+    "readyFdInodeModeVerified": true,
+    "sevenPublicHttpCspVerified": true,
+    "immutableImageFiles": 6,
+    "runtimeFilesUnchanged": 28,
+    "otherPublicFilesUnchanged": 23,
+    "sameArtifactReplayRefused": true,
+    "freshArtifactRestartAccepted": true,
+    "identityAndSessionsPreserved": true,
+    "readyHealthRefusals": 7,
+    "originalAuthDrains": [
+      1,
+      1,
+      1
+    ],
+    "failedStartupHttpRequests": 0,
+    "failedStartupSocket": "ECONNREFUSED",
+    "externalNetworkAttempts": 0,
+    "operational": false
+  },
+  "manifestSha256": "c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b",
+  "historicalMasterAdmissionChanged": false,
+  "productionDeployed": true,
+  "realHumanLogin": false,
+  "brandCRUDReal": false,
+  "operational": false,
+  "credentialsIncluded": false,
+  "nativeDeployProcedure": "deployComposeService",
+  "nativeTarget": {
+    "projectName": "dashboard-image-20260930",
+    "serviceName": "portal-read-8fd9c71c9126"
+  },
+  "nativeSourceReadbackExact": true,
+  "onlyChangedNativePaths": [
+    "services.gateway.image",
+    "services.gateway.command.4",
+    "services.gateway.healthcheck.test.5"
+  ],
+  "container": {
+    "id": "4cca615136ddd98fc28364dfb0a5d88da48ee0ce57354363672a813aed8db713",
+    "image": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+    "state": "running",
+    "health": {
+      "Status": "healthy",
+      "FailingStreak": 0
+    },
+    "created": 1791289164
+  },
+  "originalVolumesAndEnvironmentPreserved": true,
+  "volumes": [
+    {
+      "name": "shrigma-corporate-read-identity-8fd9c71c9126430aa29258a6470b3499",
+      "target": "/dashboard-data",
+      "readWrite": true
+    },
+    {
+      "name": "dashboard-access-identity-20261003-v24-f58dfa73",
+      "target": "/source-identity",
+      "readWrite": false
+    }
+  ],
+  "nativeHealthVerified": {
+    "presentationManifest": true,
+    "sevenChangedPublicFiles": true,
+    "twentyEightOriginalRuntimeFiles": true,
+    "twentyThreeOtherPublicFiles": true,
+    "sixOriginalImageFiles": true,
+    "threeMasterDurableFilesMatchPinnedOriginals": true,
+    "originalIdentityContinuityGuard": true,
+    "fourAreaHealthEndpoints": true,
+    "method": "Unskippable additive native health guard and original four-host HTTP guard; native Docker status healthy.",
+    "directRawFileReadbackExported": false
+  },
+  "historicalMasterPlanUnchanged": true,
+  "masterConsumedOperationRearmed": false,
+  "campaignServiceConfigurationUnchanged": true,
+  "postgresConsolidated": false
+}

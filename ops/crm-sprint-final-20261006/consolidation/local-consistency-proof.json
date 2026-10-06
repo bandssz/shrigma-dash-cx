@@ -1,0 +1,103 @@
+{
+  "schema": "dashboard-consolidation-local-consistency-v1",
+  "createdAtUTC": "2026-10-06T12:21:31.877707+00:00",
+  "evidenceType": "local-public-receipts-only",
+  "remoteCalls": 0,
+  "privateFilesRead": false,
+  "credentialValuesRead": false,
+  "sqlExecuted": false,
+  "archiveProgramExecuted": false,
+  "counts": {
+    "uniqueRemovedServices": 41,
+    "removedApps": 21,
+    "removedCompose": 20,
+    "remainingLegacyRecords": 24,
+    "remainingByProject": {
+      "crm-manager-stage-20261004": 3,
+      "dashboard-identity-offsite-20261002": 13,
+      "dashboard-image-20260930": 8
+    },
+    "declaredDistinctAssociatedColdVolumes": 14,
+    "archiveSourceBindings": 38,
+    "emptyProjectsRemovedAndVerifiedAbsent": 5,
+    "postgresServicesAtHistoricalSnapshot": 4
+  },
+  "remainingNamesDisjointFromRemoved": true,
+  "manifestConfigAndVolumeNamesMatchLineage": true,
+  "archiveCandidateFilePinsMatch": true,
+  "archiveApprovalPending": true,
+  "archiveExecuted": false,
+  "physicalColdVolumePresenceOrIntegrityProvenByThisReview": false,
+  "postgresSnapshotObservedAt": "2026-10-05T21:11:41Z",
+  "postgresServiceNames": [
+    "comunicacao/postgres",
+    "sistema-central/postgres",
+    "backoffice-support/banco",
+    "shrigma-teste/postgres"
+  ],
+  "postgresCountDoesNotMeanDatasetCount": true,
+  "disposableSandboxWasAppPGliteNotPostgresService": true,
+  "postgresMigrationExecuted": false,
+  "dashboardIdentityImportExecuted": false,
+  "dashboardIdentityCurrentPersistenceFromReceipt": "SQLite",
+  "historicalScopeReceiptsDoNotOverrideContinuation": true,
+  "preservedHistoricalArtifactsUnchanged": true,
+  "activeIdentityVolumesAndPortalExcludedFromArchiveCandidate": true,
+  "localNextWork": {
+    "candidateOnly": true,
+    "description": "Integrate the prepared database-sync factory into a separate future runtime candidate; current frozen auth still imports node:sqlite directly. Define admission and lifecycle without enabling production or altering the public presentation overlay.",
+    "sourceReferences": [
+      "deliverables/handoff-crm-20261005/projeto-781653/services/dashboard-operational/auth.cjs:20",
+      "deliverables/handoff-crm-20261005/projeto-781653/services/dashboard-operational/auth.cjs:140",
+      "deliverables/handoff-crm-20261005/projeto-781653/services/dashboard-operational/server.cjs:910",
+      "deliverables/consolidacao-banco-unico-20261005/dashboard-pg-adapter/database-sync.cjs:34"
+    ],
+    "isImplementedInActiveSource": false,
+    "requiresFutureRuntimeAdmissionBeforeActivation": true
+  },
+  "otherApplicationsMigrationPreparationRequiresExactSourceAndCatalog": true,
+  "sourcePins": [
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261005/dashboard-final-cleanup-receipt.json",
+      "bytes": 14582,
+      "sha256": "49df0efc9c363f753a9c6e5d9a4f185d558ac042508e1b3cd885880ad92b3fac"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261006/continuacao-receipt.json",
+      "bytes": 4922,
+      "sha256": "f9e2124a5c48e973b655e06cd28ad4eeba27c6da88220b57ec710c58f6cf39ad"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261006/CONTINUACAO.txt",
+      "bytes": 4052,
+      "sha256": "2fd834d3f3c93db33ab4c20b8101796f4d5ed10284408ab8694fa4b72f0e6383"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261005/estado-integracao.json",
+      "bytes": 18228,
+      "sha256": "b31c85d328db9e532a651ead62e8eb7b59113daf2a759b56c84683acd2b013c8"
+    },
+    {
+      "path": "deliverables/consolidacao-banco-unico-20261005/inventario-nativo.json",
+      "bytes": 4210,
+      "sha256": "db73c004db1294940a973ad45a6867ac34433ba38b89f7c7b52a5789e8fb55dc"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/backup-remaining/manifest.json",
+      "bytes": 10148,
+      "sha256": "766acc184792cc5726cfeb6ab1bcc75ac269f62558e392af052ef2a3892c04d4"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/backup-remaining/source-bindings.json",
+      "bytes": 21998,
+      "sha256": "6dc5267bff087d99f5c315b2ed59b3019b35138d00a816d62b2d857fcccad7e2"
+    },
+    {
+      "path": "deliverables/crm-sprint-final-20261006/backup-remaining/MANIFEST-ENTREGA.json",
+      "bytes": 1342,
+      "sha256": "fe53023579640fe14e538843072a65f671cc119d7158947b8700e44763dfcd60"
+    }
+  ],
+  "consolidated": false,
+  "operational": false
+}

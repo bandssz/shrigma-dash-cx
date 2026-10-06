@@ -1,0 +1,31 @@
+{
+  "schema": "crm-active-read-enrollment-native-ci-proof-v1",
+  "repository": "bandssz/shrigma-dash-cx",
+  "sourceRevision": "cc82776f8b8ff20b4adfb0eaa6494fa41020c4e9",
+  "parentRevision": "fe27c6a158fecce8b0b0aaae641f77c43351ce20",
+  "frozenRuntimeRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+  "prURL": "https://github.com/bandssz/shrigma-dash-cx/pull/234",
+  "runId": 37463226283,
+  "jobId": 112267730809,
+  "runURL": "https://github.com/bandssz/shrigma-dash-cx/actions/runs/37463226283",
+  "conclusion": "success",
+  "node": "22.23.3",
+  "fivePathsAndRuntimeClosureVerified": true,
+  "tests": {
+    "total": 9,
+    "pass": 9,
+    "fail": 0,
+    "baselineReproduced": true
+  },
+  "nativeGitHubConnector": true,
+  "providersInvoked": false,
+  "productionDataAccessed": false,
+  "presentationImageIncludesDelta": false,
+  "productionAuthJournalModified": false,
+  "newRuntimeAdmissionRequired": true,
+  "brokersAdmitted": false,
+  "postgresIdentityDdlAdmitted": false,
+  "humanFlowsProven": false,
+  "operational": false,
+  "credentialsIncluded": false
+}
