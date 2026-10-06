@@ -1,0 +1,257 @@
+{
+  "schema": "dashboard-mvp-producer-package-v1",
+  "packageId": "crm-authoritative-control-facts-20261006-v1",
+  "version": 1,
+  "deliveryRevision": 1,
+  "producerId": "B1",
+  "claimId": "B1",
+  "owner": "Codex-B1",
+  "front": "authoritative-control-facts-persistence",
+  "outputLocator": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1",
+  "supersedesPackageId": null,
+  "baseCommitSha": "53844c12e00e3dbdcddb633ee8656c11e97ad7a9",
+  "baseMeaning": "original B1 claim; fresh native classification/integration remains Root responsibility",
+  "contextManifest": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/CONTEXT-MANIFEST.json",
+    "bytes": 8123,
+    "sha256": "2d05b7bcf711b9244b96441ed9c422d4ea19cf52ffefd0bfcf7097dbccd866a5",
+    "gitBlobSha1": "5b95651b05601438ebc9cb4694d6f02b3e425d66"
+  },
+  "lineageReference": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-mvp-controls-pg17-borrowed-ci-source-20261006-v6/DELIVERY.json",
+    "bytes": 30798,
+    "sha256": "da91be89315635b0356f1eafeff00814e9fdf0c7981645747c9b4e2895b1afca",
+    "gitBlobSha1": "92651b08cf28cdd2786039610399a6219f6f2ac0"
+  },
+  "previousPackagesModified": false,
+  "authorityScope": "Latest Root delegated functional facts block; additive facts/** under crm-mvp-controls-persistence product/tests prefixes. Root is sole integrator. Existing kernels/boundary/operations/intents/CAS/recovery unchanged.",
+  "status": "prepared-not-integrated-frozen",
+  "sourceOnly": true,
+  "defaultEnabled": false,
+  "operational": false,
+  "completeReservation": false,
+  "engineExecuted": false,
+  "productionAdmitted": false,
+  "files": [
+    {
+      "bytes": 8860,
+      "sha256": "c0a04b46285916f55643988fc5ace4030d9b1e2b4d63e30f284728c527ffa2c0",
+      "gitBlobSha1": "02cf07d1e92ac8af252c1d691ca836ef9437755a",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/codec.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 4984,
+      "sha256": "ae139bdcfc13491e3a0ce34cfd2c68e6d60b169c08f0de7214d3f8e58f6b0249",
+      "gitBlobSha1": "9642ee769cd67b3466cc83354b89fa15ef5e7c28",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/schema-v1.sql",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 3165,
+      "sha256": "24d9c380b0cbec62e74e3c358e362374bcb24c4a12f14917c617da001efd10c3",
+      "gitBlobSha1": "bf84b2c0ab2e6069d8d3b17ab33ad86c49e2f86c",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/sql.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 16612,
+      "sha256": "70f0551f421381dffdfc5975be27ca2300a2409700f753dd6df0a3b2bed9cf5e",
+      "gitBlobSha1": "ba0b607207efc5c5357bcf77bbfd83bc991e6530",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/store.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 8584,
+      "sha256": "762cef6f76b514e40df290c11e7343628e7a610ea1d33377cb3ea406e9f5c71f",
+      "gitBlobSha1": "1d7208d94da22b2e76a8d342a9a47e85f8fb1347",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/fixtures.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 969,
+      "sha256": "32de0a630a2ee0bef75f36e70397d8120382213ece413ce9e67b722bb3d49317",
+      "gitBlobSha1": "686719f40a250ac3e333c498b87e5ad26fe01f4f",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/pg17-source.test.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 4888,
+      "sha256": "5f41929b892faddde9dc91cb3bcf65cdf848391bb8274f461ed807990aac593a",
+      "gitBlobSha1": "97d258002439ebb56757088fd89c9c59902f3c25",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/pg17.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    },
+    {
+      "bytes": 17591,
+      "sha256": "f9d1cd3825fdedddbc07118ccb20890c43ed54effd768647650d3fc8751a961b",
+      "gitBlobSha1": "c6efd8fa92cd06e5df9f30188ebdf9fa5eb6bf4a",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/store.test.cjs",
+      "owner": "Codex-B1",
+      "producerDelta": "new-source"
+    }
+  ],
+  "delta": [
+    "Transactional fact batches, historical revisions and CAS heads for consent, original deliverability policy, suspension, finite capacity/frequency and distribution claims in dashboard_crm_controls.",
+    "Immutable batch/source/event identity binds every historical row to verified envelope; idempotent identical event, conflicting reuse refused. Explicit authoritative revisions only, no inferred genesis/current consent or empty ledger.",
+    "Private verified-snapshot ingress and original-attempt-event ingress; every changed policy event/claim requires durable original operation plus private provider-attempt/subject membership proof. Consent is independent of bounce.",
+    "Repeatable read supplies persisted claims and member consent/capping plus full original policy to existing pinned decision; evaluation exactly once synchronously inside read-only transaction. Missing, stale, vetoed, suspended or exhausted facts close.",
+    "Session lease is injected by Root, no client creation/ownership/broker/reconnection/retry. Uncertain COMMIT and fatal SQL errors poison borrowed client. Recovery consults immutable original batch on separately admitted client.",
+    "18 synthetic control tests plus one default-OFF native-fixture source test; four native PG17 scenarios prepared using two Root-lent raw clients only."
+  ],
+  "integrationContract": {
+    "factory": "facts/store.cjs exports create({enabled=false,client,withDomainSession,verifyFacts,verifyOriginalAttempt,verifyLiveContext,clock,kernel,deliverability})",
+    "lease": "Root supplies existing exclusive domain-session lease and connected dedicated/exclusively leased client; callback must execute/await work exactly once and return its result. Missing any dependency closes without SQL.",
+    "publishDTO": "brand,inputKind,sourceRef,eventRef,evidenceHash,expectedBrandRevision,brandRevision,observedAt,expiresAt,facts,bindings; exact closed DTO, explicit positive revisions and freshness <=60000ms. facts entries kind/expectedRevision/revision/body. See codec.cjs for exact per-kind and binding validation.",
+    "verifyFacts": "Private callback returns exact matching brand/sourceRef/eventRef/payloadHash plus authorityRef hash; must authenticate complete source snapshot or original event and actual revisions, mapping and counters. Test verifiers are not production authority.",
+    "verifyOriginalAttempt": "Private callback receives frozen request and durable original row, returns brand/sourceRef/eventRef/bindingHash/requirementsHash/operationReceiptHash. Must prove subject membership, recipient, distribution and authenticated provider-attempt-to-original-UUID mapping, including accounting attribution. Original operation table is read-only.",
+    "verifyLiveContext": "Private callback returns matching brand/operationId/contextHash after validating actual current complete audience/content/identity bindings and admitted stored fact authorities. Caller booleans cannot establish authority.",
+    "readForEvaluation": "Request brand/operationId/selection/before/campaign/beforeCampaign/contentGuards/memberBindings; returns live/revisionVector/expiresAt and optional synchronous decision. No caller claims are used. Revision vector includes brand revision plus kind/key/revision/bodyHash.",
+    "reserveBoundary": "This evidence read does not reserve or mutate capacity. Root must compare all revisions/freshness with its own full reservation writer, under its existing central authority/session contract; no claim of atomic read-and-reserve.",
+    "lookup": "inspectBatch({brand,sourceRef,eventRef}) and readHistorical({brand,kind,key,revision}) never turn absence/failure into permission or empty facts. Successful lookup ends acknowledged ROLLBACK; uncertainty requires original-batch consultation, no replay/freeing.",
+    "DDL": "facts/schema-v1.sql static source only; Root installs four additive tables and immutability/monotonic triggers in existing namespace and admits least-privilege roles/SQL statements. No schema/role/database/service installer included.",
+    "nativeFixture": "tests/.../facts/pg17.cjs run({enabled,clients:[rawA,rawB],admitIsolatedClients,withDomainSessions:[leaseA,leaseB]}). Private custody attestation before SQL, observed PG17 and distinct PIDs. Root owns clean isolated fixture schema/client lifecycle. CONTROL_FACTS_PUBLIC_CONTEXT points to pinned r1 context. No DDL/client factory/cleanup/query normalization in runner."
+  },
+  "tests": [
+    {
+      "kind": "synthetic-initial",
+      "executed": true,
+      "tests": 14,
+      "passed": 13,
+      "failed": 1,
+      "failure": "Commit serialization error lost SQLSTATE 40001 when converted to ACK_UNKNOWN. Fixed sanitized SQLSTATE preservation; no original message/cause disclosure."
+    },
+    {
+      "kind": "synthetic-directed-fix",
+      "executed": true,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "command": "CONTROL_FACTS_PUBLIC_CONTEXT=\"/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1\" node --test --test-name-pattern=\"^facts synthetic: two sessions compete CAS\" deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/store.test.cjs"
+    },
+    {
+      "kind": "synthetic-final-after-new-isolation/context/attempt/bounce-cases-and-freshness-reduction-delta",
+      "executed": true,
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "command": "CONTROL_FACTS_PUBLIC_CONTEXT=\"/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1\" node --test deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/store.test.cjs",
+      "scope": "Map-backed transaction model and original pinned audience/deliverability/decision kernels; not real PostgreSQL/durability/network proof."
+    },
+    {
+      "kind": "native-fixture-default-OFF-source-only",
+      "executed": true,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "command": "node --test deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/pg17-source.test.cjs",
+      "scope": "Missing dependencies/admission refuse before SQL/context import; zero engine execution."
+    },
+    {
+      "kind": "syntax",
+      "executed": true,
+      "files": 7,
+      "command": "node --check <each 7 payload CJS files>",
+      "result": "passed; SQL syntax/DDL not executed on engine"
+    },
+    {
+      "kind": "context-and-output-pins",
+      "executed": true,
+      "result": "r1 manifest and all14 referenced bytes/SHA256/GitBlob pins verified before fixture imports; parent v6 delivery pin verified; eight new payload pins computed"
+    },
+    {
+      "kind": "native-new-facts-PG17",
+      "executed": false,
+      "scenariosPrepared": 4,
+      "reason": "No local pg module or admitted borrowed connected PG17 clients/schema. Root owns existing isolated CI execution; no install/service/production SQL performed."
+    }
+  ],
+  "runtime": {
+    "cwd": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira",
+    "node": "v25.9.0",
+    "localDependenciesInstalled": false,
+    "remoteOperations": 0,
+    "newServicesOrDatabasesCreated": false,
+    "credentialsRead": false
+  },
+  "priorNativeEvidence": {
+    "provenance": "Root reported existing PR242 head 75a1c6756eeb8f97876d47e097696ff9eda4678e, PG17 engine170011, nine tests/five scenarios/ten clients closed for earlier borrowed-CI block. Not rerun here; not proof for these new facts/DDL or production."
+  },
+  "referenceOnly": [
+    {
+      "path": "repo/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94",
+      "gitBlobSha1": "4e956c045c6a4fd839fa146f508e5f8a2f92ef6f",
+      "usage": "read-only partial source reference; never imported/executed, not authority"
+    },
+    {
+      "path": "deliverables/migration/crm-final-20261003/ci-fixture-budget-20261004/head/n8n/growth/segment-regular-readiness.sql",
+      "bytes": 6875,
+      "sha256": "dd615cbab8e97f0c9fedf1fd41f61ea300cecb1717b4c2f330d566c1ac1edd79",
+      "gitBlobSha1": "54a7314084312ec331c32985085e143783fc8f51",
+      "usage": "read-only partial source reference; never imported/executed, not authority"
+    }
+  ],
+  "acceptance": {
+    "authorizedSourceImplementation": "complete",
+    "ownPendingAudit": "complete",
+    "localChecks": "19 tests passed across two final test files; 7 CJS syntax checks passed",
+    "nativeDDLAndFactsExecution": "pending-Root",
+    "integration": "pending-Root",
+    "production": "not-admitted"
+  },
+  "blockers": [
+    {
+      "code": "FACTS_NATIVE_PG17_EXECUTION",
+      "owner": "Codex-Root",
+      "function": "schema installation and native proof",
+      "reason": "No admitted schema/borrowed clients here",
+      "required": "Admit additive facts schema in existing isolated PG17 CI and run pg17.cjs with two raw clients, private custody and exclusive leases; record observed outcomes and lifecycle."
+    },
+    {
+      "code": "FACTS_AUTHENTICATED_INGRESS_AND_IDENTITY",
+      "owner": "Codex-Root",
+      "function": "ingestion/live mapping authority",
+      "reason": "Existing partial Listmonk/SES references lack authoritative own revisions, authenticated event binding and complete UUID/subscriber mapping",
+      "required": "Supply verifyFacts/verifyOriginalAttempt/verifyLiveContext using real admitted facts and durable original attempts; missing mapping blocks feeding/enabling, not source implementation."
+    },
+    {
+      "code": "FACTS_PRODUCTION_SESSION_SQL_ADMISSION",
+      "owner": "Codex-Root",
+      "function": "existing domain session and database privilege integration",
+      "reason": "New statements/schema/role not production admitted",
+      "required": "Admit fixed parameterized statements and least-privilege schema/session contract; preserve exclusive lease and uncertain original-batch recovery."
+    },
+    {
+      "code": "CENTRAL_FULL_RESERVATION",
+      "owner": "Codex-Root",
+      "function": "final read/reserve consistency",
+      "reason": "Standalone coherent evidence read does not atomically reserve capacity/claims",
+      "required": "Compare actual revision vector and expiry under central full reservation transaction; preserve existing operation/intent/recovery contracts."
+    }
+  ],
+  "knownLimits": [
+    "Batch/body hash integrity does not replace authenticated ingress or DB role admission.",
+    "Synthetic explicit empty claims are test data; production complete-empty ledger needs authority proof.",
+    "Capture is bounded by depth20/nodes2000000/arrays100000; large repeated policy journals may refuse instead of partial evidence.",
+    "Provider, restart/network-loss, human and production durability proofs were not executed.",
+    "No repeated historical corpora, workflow changes or public runtime integration were written."
+  ],
+  "receipt": {
+    "sourceScopeComplete": true,
+    "bytesFrozen": true,
+    "remainingIntegrationOwner": "Codex-Root",
+    "noRoutineContinuationRequested": true,
+    "allRemainingTasksExternalAdmissions": true
+  }
+}

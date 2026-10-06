@@ -1,0 +1,184 @@
+{
+  "factsDelivery": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/DELIVERY.json",
+    "bytes": 15902,
+    "sha256": "6186c8422f908954f12b7414e017c2c953ef9afc2e24e1046efcc47dbdb972e7",
+    "gitBlobSha1": "b75c2efc3a7edfb61d1ae7a2fa9f7606f0a6f3c0"
+  },
+  "facts": [
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/codec.cjs",
+      "bytes": 8860,
+      "sha256": "c0a04b46285916f55643988fc5ace4030d9b1e2b4d63e30f284728c527ffa2c0",
+      "gitBlobSha1": "02cf07d1e92ac8af252c1d691ca836ef9437755a",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/codec.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/schema-v1.sql",
+      "bytes": 4984,
+      "sha256": "ae139bdcfc13491e3a0ce34cfd2c68e6d60b169c08f0de7214d3f8e58f6b0249",
+      "gitBlobSha1": "9642ee769cd67b3466cc83354b89fa15ef5e7c28",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/schema-v1.sql"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/sql.cjs",
+      "bytes": 3165,
+      "sha256": "24d9c380b0cbec62e74e3c358e362374bcb24c4a12f14917c617da001efd10c3",
+      "gitBlobSha1": "bf84b2c0ab2e6069d8d3b17ab33ad86c49e2f86c",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/sql.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/store.cjs",
+      "bytes": 16612,
+      "sha256": "70f0551f421381dffdfc5975be27ca2300a2409700f753dd6df0a3b2bed9cf5e",
+      "gitBlobSha1": "ba0b607207efc5c5357bcf77bbfd83bc991e6530",
+      "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/store.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/fixtures.cjs",
+      "bytes": 8584,
+      "sha256": "762cef6f76b514e40df290c11e7343628e7a610ea1d33377cb3ea406e9f5c71f",
+      "gitBlobSha1": "1d7208d94da22b2e76a8d342a9a47e85f8fb1347",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/fixtures.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/pg17-source.test.cjs",
+      "bytes": 969,
+      "sha256": "32de0a630a2ee0bef75f36e70397d8120382213ece413ce9e67b722bb3d49317",
+      "gitBlobSha1": "686719f40a250ac3e333c498b87e5ad26fe01f4f",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/pg17-source.test.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/pg17.cjs",
+      "bytes": 4888,
+      "sha256": "5f41929b892faddde9dc91cb3bcf65cdf848391bb8274f461ed807990aac593a",
+      "gitBlobSha1": "97d258002439ebb56757088fd89c9c59902f3c25",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/pg17.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/tests/crm-mvp-controls-persistence/facts/store.test.cjs",
+      "bytes": 17591,
+      "sha256": "f9d1cd3825fdedddbc07118ccb20890c43ed54effd768647650d3fc8751a961b",
+      "gitBlobSha1": "c6efd8fa92cd06e5df9f30188ebdf9fa5eb6bf4a",
+      "repoPath": "tests/crm-mvp-controls-persistence/facts/store.test.cjs"
+    }
+  ],
+  "contextManifest": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/CONTEXT-MANIFEST.json",
+    "bytes": 8123,
+    "sha256": "2d05b7bcf711b9244b96441ed9c422d4ea19cf52ffefd0bfcf7097dbccd866a5",
+    "gitBlobSha1": "5b95651b05601438ebc9cb4694d6f02b3e425d66"
+  },
+  "context": [
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/evidence/B1-v6-DELIVERY.json",
+      "bytes": 20493,
+      "sha256": "100adeee0bf549075986b1d479ee59079f06f520aa2c30b323ee453db5c67f5a",
+      "gitBlobSha1": "5fc905ea7650592d49b34743e9a513b82f23d591",
+      "relativePath": "context/evidence/B1-v6-DELIVERY.json"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/evidence/PR235-CI-RECIBO.json",
+      "bytes": 1434,
+      "sha256": "e42f152b903692e8622f1fec2a5d682cda23ceda8065cd012ef7377874228a59",
+      "gitBlobSha1": "99c73a143e45f103d8a30267fa10f36ba60c5a55",
+      "relativePath": "context/evidence/PR235-CI-RECIBO.json"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/evidence/PR235-upload-manifest.json",
+      "bytes": 7642,
+      "sha256": "cb2469230c41370b7621e92f4f8c430226ddc18d420741ea914ca1f1edb0399c",
+      "gitBlobSha1": "ff71fb3b01b84d43fe62bbe839e0386683020b45",
+      "relativePath": "context/evidence/PR235-upload-manifest.json"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md",
+      "bytes": 13750,
+      "sha256": "69268d6cd5aa901be6a4a05a847b1f22c68d95cd551472fb22625be3084e5b27",
+      "gitBlobSha1": "c7aa011b967a345e52e086eb7476bfd5c9fe5074",
+      "relativePath": "context/source/services/dashboard-operational/domain/crm-mvp-controls/INTERFACE.md"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+      "bytes": 8546,
+      "sha256": "4906934b44c103dc26c488a3c0dcbe11ac31823560b7d0f40c2903a61ba55c43",
+      "gitBlobSha1": "cf15e36254eb202047b4b568e77cc6d7664c391c",
+      "relativePath": "context/source/services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+      "bytes": 3226,
+      "sha256": "c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf",
+      "gitBlobSha1": "daa041570d5df9086174da92c1cd643d882ce955",
+      "relativePath": "context/source/services/dashboard-operational/domain/crm-mvp-controls/decision.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/tests/crm-mvp-controls/boundary.test.cjs",
+      "bytes": 35706,
+      "sha256": "3aa3fd8ee35540babd0a03ba04116fad4fa7e3a4271b7ae39ab929c7166e67e2",
+      "gitBlobSha1": "610ebc9ae1d71487ed971ae3f5fa206346e3c3aa",
+      "relativePath": "context/source/tests/crm-mvp-controls/boundary.test.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/audience-slice-contract.js",
+      "bytes": 3066,
+      "sha256": "f07c41f0cddcc742817056de0840dcb49a398a2e0b5891454b3669fa1be3eee6",
+      "gitBlobSha1": "2ba2b8c037045a551a20d36943ee17e0b874bc75",
+      "relativePath": "context/source/audience-slice-contract.js"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/domain/audience-slices/kernel.cjs",
+      "bytes": 9729,
+      "sha256": "0f905084d55a2856027615eb6e4a4d30202ad74a994cf08320feb112503d94b4",
+      "gitBlobSha1": "59ce9167604a0f23386b4518fb32a32d6297e267",
+      "relativePath": "context/source/domain/audience-slices/kernel.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/deliverability/policy.cjs",
+      "bytes": 11169,
+      "sha256": "f0006cb43770e605e45ddd3c2f14ff53655eb23f0cfefb54b726f75477c4d4cf",
+      "gitBlobSha1": "77e6b2e9a095efb9de3154347205eab6ac17039f",
+      "relativePath": "context/source/services/dashboard-operational/domain/deliverability/policy.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/reference/identity/identity-store-factory.cjs",
+      "bytes": 3770,
+      "sha256": "2db0cb45162b8addfc6c297a4c1acbce92cd8f2f5eaaeb8abaf0222c21a41c32",
+      "gitBlobSha1": "ddac42fc8a53ceb04554cae62677bd74754135ea",
+      "relativePath": "context/reference/identity/identity-store-factory.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/reference/identity/identity-pg/database-sync.cjs",
+      "bytes": 4591,
+      "sha256": "8a3ab845009c3448ba7b396215c1f11486a7af487259380f2a1884ecc771cbc5",
+      "gitBlobSha1": "889d50d80fd93b0aba9811451143dd45ac0642d7",
+      "relativePath": "context/reference/identity/identity-pg/database-sync.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/reference/identity/identity-pg/worker.cjs",
+      "bytes": 11034,
+      "sha256": "6855653b3722e1a99857a6eea322d1b68d2c672d9133b83a12f03525baa704fa",
+      "gitBlobSha1": "3d5336af80e49e5b8066f70f2ecbd1959dcd5207",
+      "relativePath": "context/reference/identity/identity-pg/worker.cjs"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/reference/identity/identity-pg/admission.cjs",
+      "bytes": 8008,
+      "sha256": "d23cd6f0f4ca2493659497903039c1138e66b837f0e07cb935c64c0ac51696e8",
+      "gitBlobSha1": "9a45a2f47c97b51f3a05d6ebcaa139c8ebbffbe4",
+      "relativePath": "context/reference/identity/identity-pg/admission.cjs"
+    }
+  ],
+  "originalSchema": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r6/context/original-v3/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/schema-v1.sql",
+    "bytes": 8800,
+    "sha256": "fa7fe274af0223cc992e86d3f6b4a741714aab93e8b175712fb9b507dc24fe59",
+    "gitBlobSha1": "9491b04de587d1d9a006070e68b9dbef9a6bbc33"
+  },
+  "custodyReference": {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/B1-borrowed-pg17-ci-source-root2/files/tools/dashboard-crm-mvp-controls-borrowed-pg17/root-ci-fixture.cjs",
+    "bytes": 5825,
+    "sha256": "ae22d3f41b4dce023aef9d8d2e943b9b6a0c294a18cc732b7af09fe7c92f33aa",
+    "gitBlobSha1": "50534e39f12b67cfbefff8f166fa29b4279d7857"
+  }
+}

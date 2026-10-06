@@ -1,0 +1,73 @@
+name: CRM own control facts PG17 source
+on:
+  push:
+    branches: [codex/crm-control-facts-pg17-source-20261006]
+  pull_request:
+    paths:
+      - "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/**"
+      - "tests/crm-mvp-controls-persistence/facts/**"
+      - "tests/crm-mvp-controls-persistence/facts-ci/**"
+      - "tools/dashboard-crm-control-facts-pg17/**"
+      - ".github/workflows/dashboard-crm-control-facts-pg17-source-20261006.yml"
+permissions:
+  contents: read
+jobs:
+  new-facts-pg17:
+    if: ${{ (github.event.pull_request.head.ref || github.ref_name) == 'codex/crm-control-facts-pg17-source-20261006' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
+    services:
+      postgres:
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        env:
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: crm_test_only
+          POSTGRES_DB: crm_borrowed_source_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm_test -d crm_borrowed_source_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify same repository and exact new bootstrap pins before imports
+        env:
+          SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        run: |
+          test "$GITHUB_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          test "$SOURCE_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const pins={"tests/crm-mvp-controls-persistence/facts-ci/fixture.test.cjs":{"bytes":5464,"sha256":"1c1d30be8178ac1f0fbc1021d709d80147471e0a07b2b6350c20f8fc6c42ef41","gitBlobSha1":"479fca909b7febfddb4190310be40b2f117b175d"},"tools/dashboard-crm-control-facts-pg17/fixture.cjs":{"bytes":5486,"sha256":"aac0da1aa06dde3add929dbed3a82f6b59a9287fdbe27118f9e09a19cfdd70b1","gitBlobSha1":"d40f3b39205c5e8d91b336be8c8143ef37df1ef9"},"tools/dashboard-crm-control-facts-pg17/pins.json":{"bytes":11025,"sha256":"3620d354f0f9e6845c6fc73e71775af0d9c80a233bf883eb144303126417e26e","gitBlobSha1":"83f59d001e405347b3b2fc7214c69d0c533c7bec"},"tools/dashboard-crm-control-facts-pg17/prepare.cjs":{"bytes":2923,"sha256":"ccaa49093d780380343079fc98e5624161670998d4c77f4ef09748a0311a89f7","gitBlobSha1":"8a4d291f4b41b127d3efc68ddfac6786f57f7209"},"tools/dashboard-crm-control-facts-pg17/stage-inputs.cjs":{"bytes":2976,"sha256":"2565f814d376cb2ed15f269387c3d35018cbb96f34f9363c3fe0176d8e1a8b20","gitBlobSha1":"7012399e130c7ea662d7aa9322fba40758a032a2"}};
+          for(const [file,p] of Object.entries(pins)){
+            const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)throw Error('FACTS_BOOTSTRAP_REFUSED');
+            const b=fs.readFileSync(file);if(b.length!==p.bytes||crypto.createHash('sha256').update(b).digest('hex')!==p.sha256||crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex')!==p.gitBlobSha1)throw Error('FACTS_BOOTSTRAP_REFUSED');
+          }
+          NODE
+          node tools/dashboard-crm-control-facts-pg17/stage-inputs.cjs
+      - name: Install existing pinned driver in temporary CI directory
+        run: |
+          mkdir "$RUNNER_TEMP/borrowed-pg-driver"
+          npm install --prefix "$RUNNER_TEMP/borrowed-pg-driver" --ignore-scripts --no-audit --no-fund --no-package-lock --no-save pg@8.13.1
+      - name: New facts and fixture checks on Node22
+        run: |
+          export CONTROL_FACTS_PUBLIC_CONTEXT="$GITHUB_WORKSPACE/deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1"
+          node --test --test-reporter=tap tests/crm-mvp-controls-persistence/facts/store.test.cjs tests/crm-mvp-controls-persistence/facts/pg17-source.test.cjs tests/crm-mvp-controls-persistence/facts-ci/fixture.test.cjs tests/crm-mvp-controls-persistence/facts-ci/injected-native-proof.test.cjs
+      - name: Four new native PG17 scenarios on two raw dedicated sessions
+        run: |
+          CONTROL_FACTS_PG17_CI=1 BORROWED_PG_MODULE="$RUNNER_TEMP/borrowed-pg-driver/node_modules/pg" node tools/dashboard-crm-control-facts-pg17/fixture.cjs > "$RUNNER_TEMP/control-facts-native.json"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const lines=fs.readFileSync(path.join(process.env.RUNNER_TEMP,'control-facts-native.json'),'utf8').trim().split('\n');const r=JSON.parse(lines[lines.length-1]);
+          if(r.executed!==true||r.nativeFactsProof!==true||!/^17[0-9]{4}$/.test(r.engine)||r.scenarios!==4||r.cleanup.created!==2||r.cleanup.endCalls!==2||r.cleanup.closed!==2||r.fixtureScope!=='Root-isolated-raw-PG17'||r.operational!==false||r.productionAdmitted!==false)throw Error('FACTS_NATIVE_RECEIPT_REFUSED');
+          console.log(JSON.stringify({...r,code:'FACTS_NATIVE_PG17_SOURCE_PASSED',runtime:process.version}));
+          NODE
