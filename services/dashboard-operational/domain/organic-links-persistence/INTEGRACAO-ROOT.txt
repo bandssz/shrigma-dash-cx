@@ -1,0 +1,93 @@
+C2 · ORGANIC-LINKS-PERSISTENCE v1 — PERSISTÊNCIA PRÓPRIA DE LINKS UTM DO ORGÂNICO (fonte apenas)
+Pacote: organic-links-persistence-20261006-v1. DEFAULT OFF. operational=false até Root comprovar gravação e releitura reais.
+Sem n8n no caminho do módulo. PostgreSQL central existente, namespace existente dashboard_crm_controls.
+Nada aqui conecta, cria banco/schema/role/serviço/helper, aplica DDL, habilita escrita na UI ou no n8n, ou toca produção.
+
+1. ARQUIVOS (services/dashboard-operational/domain/organic-links-persistence/)
+- schema-v1.sql   DDL aditiva e reaplicável: organic_links_v1, organic_link_operations_v1, organic_link_history_v1, 2 índices,
+                  2 funções de guarda + 3 triggers (arquivado não reabre; link sem DELETE; operação/histórico só inserção),
+                  FK diferida histórico->operação. Sem CREATE SCHEMA/ROLE/EXTENSION, GRANT, DROP ou dado. PG >= 14 (alvo PG17).
+- sql.cjs         12 instruções fixas e nomeadas ({name,text,values}, compatível com node-postgres), só as três tabelas.
+- codec.cjs       regras do link (legado links-utm.sql conferido por Root), URL montada no backend, hash do intento, recibo,
+                  projeção pública e envelope de operação 1.0.2.
+- store.cjs       DAL transacional: execute (create/archive), receipt (lookup read-only), listLinks.
+- index.cjs       ponto de entrada (DEFAULT_ENABLED=false, OPERATIONAL=false).
+
+2. CONTRATO DE INJEÇÃO (Root fornece; o módulo nunca fabrica)
+createOrganicLinksStore({ enabled, normalizer, authorizeIntent })
+- enabled: só o literal true liga. Qualquer outro valor => todas as chamadas devolvem refused/store_disabled sem SQL.
+- normalizer: ShrigmaOrganicContractV102 REAL (version 1.0.2-proposed, sha256 a53fc473…). Sem ele: dependency_missing.
+- authorizeIntent(request) -> Promise<grant>. PRIVADA de Root: valida identidade, Mestre ou WRITE individual da marca,
+  contexto/sessão atuais, usuário não revogado e o intento ORIGINAL. request (congelado):
+    { action: 'link.create'|'link.archive'|'link.receipt'|'link.list', operationId?, effectiveBrand, contextRevision,
+      sessionRevision, principalReference, intentHash?, intent?, newRecordId? }
+  grant aceito SOMENTE se: decision==='allow' e action/effectiveBrand/contextRevision (e operationId/intentHash quando
+  presentes) iguais aos do request; role em master|write (escrita) ou master|write|read (receipt/list); actorReference
+  string não vazia <= 200. Boolean, flag do caller ou DTO válido nunca autorizam. Exceção => authority_unavailable.
+Cada chamada recebe session = { client, lease }:
+- client: já conectado por Root; o módulo só chama client.query(config). Nunca end/connect/release.
+- lease: { client (o MESMO objeto), held(): boolean, poison(code): void }. held() é conferido antes do BEGIN, depois da
+  autorização e imediatamente antes do COMMIT. poison(code) é o aviso a Root para descartar o cliente/encerrar a lease;
+  o módulo também recusa reusar esse cliente (session_poisoned) sem SQL. Códigos: commit_unacknowledged,
+  statement_failed, begin_failed, lease_lost_before_commit, receipt_failed, list_failed.
+- Uma operação por cliente por vez (session_busy).
+
+3. ENTRADAS E ID
+execute(session, { operationId, newRecordId?, intent, context })
+- operationId: ORIGINAL e persistível de Root (/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/).
+- intent: intento 1.0.2 existente, validado pelo normalizador REAL. link.create: payload EXATO destination/origin/surface/
+  campaign/date, recordId e expectedRecordRevision null; newRecordId explícito alocado por Root. link.archive: payload {},
+  recordId e expectedRecordRevision reais; newRecordId ausente.
+- context: { contextRevision (== intent.contextRevision), sessionRevision, principalReference }.
+receipt(session, { operationId, effectiveBrand, context }) — sessão Root nova admitida; lê a operação ORIGINAL.
+listLinks(session, { effectiveBrand, includeArchived: true|ausente, context }).
+
+4. REGRAS DE NEGÓCIO (codec)
+- Marcas: aristo -> oaristocrata.com | www.oaristocrata.com; fish -> fishermans.com.br | www.fishermans.com.br. olivas e
+  demais: brand_not_admitted (sem host admitido).
+- Destino: https, host EXATO (sem subdomínio/sufixo/prefixo externo), sem usuário/senha, sem porta, sem fragmento, sem
+  caractere de controle/espaço/aspas/<>/\ , sem utm_* (inclusive codificado), em forma canônica WHATWG (href idêntico),
+  sem '?' vazio, '&&' ou '&' final; até 2000 caracteres.
+- origin: instagram_social|facebook_social|tiktok_social|youtube|whatsapp. surface: story|linktree|dm|feed|reels|comunidade|
+  direct|grupo. campaign: [A-Za-z0-9_-]{2,60}. date: null ou AAAA-MM-DD real (2000–2099).
+- utm_campaign = AAAAMMDD_campanha com data; campanha sem data. URL = destino + ('?' ou '&' se já há query) +
+  utm_source=..&utm_medium=..&utm_campaign=.. (encodeURIComponent). A URL do navegador nunca é prova.
+
+5. SEMÂNTICA TRANSACIONAL
+- Uma transação READ COMMITTED por escrita: (a) operação já existe? -> resultado gravado ou fecha; (b) INSERT do link
+  (revisão 1, active) ou UPDATE CAS marca+id+revisão+active; (c) histórico da nova revisão; (d) operação original com
+  hash do intento, vínculo/revisões, resultado, recibo, contexto/sessão e ator (interno); (e) lease conferida; COMMIT.
+- Repetição idêntica (mesmo operationId, marca, tipo, hash e recordId) devolve o MESMO resultado, recibo e snapshot do
+  histórico da revisão resultante, sem nova escrita. Reuso divergente do operationId => refused/operation_id_reused.
+- Recusas de negócio (url_conflict_active, url_conflict_archived, record_id_conflict, record_not_found, revision_conflict,
+  already_archived) são gravadas como resultado da operação original (estáveis e reconsultáveis). O registro alheio nunca
+  é devolvido como sucesso. Criar a mesma URL de um arquivado NUNCA reabre.
+- Concorrência: segunda sessão espera os locks da primeira (testado com locks reais no PG16 local); mesma operação em
+  duas sessões => um efeito e o resultado original na outra (ROLLBACK + releitura).
+- COMMIT enviado sem ACK => uncertain com o operationId ORIGINAL, lease envenenada, sem replay automático. Recuperação:
+  receipt(operationId original) numa sessão nova admitida (não reserva, não executa, não fabrica sucesso) ou repetição
+  idêntica do mesmo intento (idempotente). Falha antes do COMMIT => ROLLBACK, not_committed, sem recibo confirmado.
+- Projeção pública: id, brandId, destination, url, origin, surface, campaign, date, utmCampaign, state, revision,
+  createdAt. Sem ator, operationId, sessão ou PII. Erros nunca ecoados; o módulo não escreve logs.
+- Lista: só linhas deste módulo (scope organic_links_v1_only, coverageClaimed false). Registros legados
+  (organico_link_utm_v1/planilha) NÃO são importados nem recebem revisão inventada; seguem na leitura legada.
+- Envelope 1.0.2: codec.toOperationEnvelope(result, contextRevision) para o gateway de Root (confirmed/rejected/uncertain);
+  conferido no normalizador REAL. Recusas pré-SQL não viram envelope de operação.
+
+6. TESTES (tests/organic-links-persistence/)
+- codec.test.cjs, schema-static.test.cjs, store-synthetic.test.cjs (17 cenários no motor sintético de 2 sessões).
+- scenarios.cjs: cenários independentes de backend; synthetic-sessions.cjs: motor de referência em RAM (só teste).
+- pg17-runner.cjs: Root chama runAll({clientA, clientB, normalizer, idleMs}) com DOIS clientes emprestados de uma instância
+  de TESTE com schema-v1.sql aplicado e tabelas vazias; roda os 17 cenários + 4 guardas do banco. Não conecta nem apaga.
+- Comando: CRM_C2_ORGANIC_LINKS_CONTEXT=<ROOT-WORK/20261006-r6/context/current/files> node --test --test-concurrency=1 \
+  tests/organic-links-persistence/*.test.cjs   (contexto ausente ou normalizador fora do pin FALHA, nunca skip).
+
+7. PRÓXIMO ENCAIXE DE ROOT (não entregue por C2)
+1) Aplicar schema-v1.sql no namespace dashboard_crm_controls (instância de teste, depois produção) e conceder ao role do
+   serviço apenas SELECT/INSERT nas três tabelas e UPDATE em organic_links_v1 (triggers limitam a archive).
+2) Fornecer authorizeIntent real (IAM: Mestre/WRITE por marca, revogação, contexto/sessão atuais) e operationId/newRecordId
+   originais persistíveis.
+3) Emprestar cliente + lease exclusiva por chamada; tratar poison(code) descartando o cliente.
+4) Rodar pg17-runner.cjs no CI/instância de teste PG17 existente; depois ligar enabled=true só no adapter do gateway do
+   Orgânico (links), mantendo UI/n8n inalterados até gravação e releitura reais comprovadas.
+5) Decidir a convivência com a leitura legada (organico_link_utm_v1): este módulo não migra nem a substitui.
