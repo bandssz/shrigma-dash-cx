@@ -42,6 +42,8 @@ if(!panel){output(path.join(out,'entry.js'),entryJS);output(path.join(out,'entry
 output(path.join(out,'crm-entry.js'),crmEntryJS);
 for(const [folder,area,label] of [['cx','cx','CX/CS'],['crm','growth','CRM'],['organico','organico','Orgânico'],['creators','influs','Influs & Afiliados'],['gestao','todos','Gestão geral']]){
  if(panel&&folder!=='crm')continue;
+ // Management now has one official entry; rebuilds must preserve that destination.
+ if(folder==='gestao'){const dir=path.join(root,folder);if(!check)fs.mkdirSync(dir,{recursive:true});output(path.join(dir,'index.html'),"<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"referrer\" content=\"no-referrer\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'\"><meta http-equiv=\"refresh\" content=\"0;url=https://gerencial.shrigma.com.br/\"><link rel=\"canonical\" href=\"https://gerencial.shrigma.com.br/\"><title>Portal oficial · Shrigma</title></head><body><main><h1>Portal oficial Shrigma</h1><p>A gestão está em nosso domínio.</p><p><a href=\"https://gerencial.shrigma.com.br/\" rel=\"noreferrer\">Abrir o portal Shrigma</a></p></main></body></html>\n");continue;}
  const entryPanel=area;
  const entryScript=area==='growth'?'crm-entry.js':'entry.js',entryCode=area==='growth'?crmEntryJS:entryJS;
  const dir=path.join(root,folder);if(!check)fs.mkdirSync(dir,{recursive:true});
