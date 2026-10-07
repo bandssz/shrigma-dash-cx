@@ -1,0 +1,106 @@
+{
+  "J": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/B1-persistence-ci-source-root3/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/codec.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/codec.cjs",
+    "context": false,
+    "bytes": 7944,
+    "sha256": "b240e3c840fabe6f359c57deff1ab1f6c7aae8b2e9120a2729d36781f0de3e0e",
+    "gitBlobSha1": "9714282e34db7a260318301d7e49d349b56d5920"
+  },
+  "JS": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/B1-persistence-ci-source-root3/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/sql.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/sql.cjs",
+    "context": false,
+    "bytes": 14002,
+    "sha256": "f52c780189e315f8abe6278316ce02f458b171ff15d098f24c7eb855f98b2feb",
+    "gitBlobSha1": "2a4c647ba7e33e22fd679dd8b51152e428ccc82b"
+  },
+  "foundation": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/B1-persistence-ci-source-root3/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/store.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/store.cjs",
+    "context": false,
+    "bytes": 11423,
+    "sha256": "ffd6c73a813db7a95fbf2dde69b8a72c9c19ea96343933f6ceda4160a7d705c7",
+    "gitBlobSha1": "c7ca5b6ae9ba7d3950425bc065daac211da7defb"
+  },
+  "journalDDL": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/B1-persistence-ci-source-root3/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/schema-v1.sql",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/schema-v1.sql",
+    "context": false,
+    "bytes": 8800,
+    "sha256": "fa7fe274af0223cc992e86d3f6b4a741714aab93e8b175712fb9b507dc24fe59",
+    "gitBlobSha1": "9491b04de587d1d9a006070e68b9dbef9a6bbc33"
+  },
+  "F": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/codec.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/codec.cjs",
+    "context": false,
+    "bytes": 8860,
+    "sha256": "c0a04b46285916f55643988fc5ace4030d9b1e2b4d63e30f284728c527ffa2c0",
+    "gitBlobSha1": "02cf07d1e92ac8af252c1d691ca836ef9437755a"
+  },
+  "FS": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/sql.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/sql.cjs",
+    "context": false,
+    "bytes": 3165,
+    "sha256": "24d9c380b0cbec62e74e3c358e362374bcb24c4a12f14917c617da001efd10c3",
+    "gitBlobSha1": "bf84b2c0ab2e6069d8d3b17ab33ad86c49e2f86c"
+  },
+  "factStore": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/store.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/store.cjs",
+    "context": false,
+    "bytes": 16612,
+    "sha256": "70f0551f421381dffdfc5975be27ca2300a2409700f753dd6df0a3b2bed9cf5e",
+    "gitBlobSha1": "ba0b607207efc5c5357bcf77bbfd83bc991e6530"
+  },
+  "factsDDL": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/crm-authoritative-control-facts-20261006-v1/files/services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/schema-v1.sql",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-persistence/facts/schema-v1.sql",
+    "context": false,
+    "bytes": 4984,
+    "sha256": "ae139bdcfc13491e3a0ce34cfd2c68e6d60b169c08f0de7214d3f8e58f6b0249",
+    "gitBlobSha1": "9642ee769cd67b3466cc83354b89fa15ef5e7c28"
+  },
+  "kernel": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/domain/audience-slices/kernel.cjs",
+    "repoPath": "domain/audience-slices/kernel.cjs",
+    "context": true,
+    "bytes": 9729,
+    "sha256": "0f905084d55a2856027615eb6e4a4d30202ad74a994cf08320feb112503d94b4",
+    "gitBlobSha1": "59ce9167604a0f23386b4518fb32a32d6297e267"
+  },
+  "deliverability": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/deliverability/policy.cjs",
+    "repoPath": "services/dashboard-operational/domain/deliverability/policy.cjs",
+    "context": true,
+    "bytes": 11169,
+    "sha256": "f0006cb43770e605e45ddd3c2f14ff53655eb23f0cfefb54b726f75477c4d4cf",
+    "gitBlobSha1": "77e6b2e9a095efb9de3154347205eab6ac17039f"
+  },
+  "decision": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/decision.cjs",
+    "context": true,
+    "bytes": 3226,
+    "sha256": "c8ef97eb3de34dbbd6a44ea04f4ee0ffcfb4ef415457464752bc2839b9c3f0cf",
+    "gitBlobSha1": "daa041570d5df9086174da92c1cd643d882ce955"
+  },
+  "boundary": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source/services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls/boundary.cjs",
+    "context": true,
+    "bytes": 8546,
+    "sha256": "4906934b44c103dc26c488a3c0dcbe11ac31823560b7d0f40c2903a61ba55c43",
+    "gitBlobSha1": "cf15e36254eb202047b4b568e77cc6d7664c391c"
+  },
+  "domainSession": {
+    "localPath": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/crm-domain-session-20261007-root1/files/services/dashboard-operational/domain/crm-mvp-controls-integration/domain-session.cjs",
+    "repoPath": "services/dashboard-operational/domain/crm-mvp-controls-integration/domain-session.cjs",
+    "context": false,
+    "bytes": 5755,
+    "sha256": "11ef71b9217f66ffae23ce00c9234942670ed0ccf6d3e1e0c0df4371791f09a2",
+    "gitBlobSha1": "efb9c86e7b9c9ec69ce5a612f84e54a99d66dfe5"
+  }
+}
