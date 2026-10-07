@@ -8,6 +8,7 @@ const writing=p=>['segmento_criar','segmento_salvar','segmento_arquivar'].includ
 const response=(status,body)=>({status,headers:{'Cache-Control':'no-store'},body});
 const fail=(code,status=503)=>Object.assign(Error(code),{code,status});
 const errors=new Set(['SEGMENT_REQUEST_INVALID','SEGMENT_FIELDS','SEGMENT_ID_INVALID','SEGMENT_VERSION_REQUIRED','SEGMENT_OPERATION_ID_REQUIRED','SEGMENT_PAGE_INVALID','SEGMENT_UNAUTHORIZED','SEGMENT_ACCESS_DENIED','SEGMENT_SESSION_BOUNDARY','SEGMENT_OPERATION_MISMATCH','SEGMENT_OPERATION_UNCONFIRMED','SEGMENT_NOT_FOUND','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_BRAND_MISMATCH','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SERVICE_UNAVAILABLE','SEGMENT_CATALOG_CHANGED']);
+const durableRejections=Object.freeze({SEGMENT_SHAPE:422,SEGMENT_BRAND_MISMATCH:422,SEGMENT_LIST_UNAVAILABLE:422,SEGMENT_UNAVAILABLE:503,SEGMENT_NOT_FOUND:404,SEGMENT_VERSION_CONFLICT:409,SEGMENT_ARCHIVED:409,SEGMENT_CATALOG_CHANGED:409});
 function copy(v,max){const text=H.canonical(v);if(Buffer.byteLength(text)>max)throw fail('SEGMENT_REQUEST_SIZE',413);return JSON.parse(text);}
 function parse(value){
  try{
@@ -42,6 +43,12 @@ function catalog(c,brand){
 function project(entry,value){
  const r=copy(value,MAX_RESPONSE),p=entry.request,b=r?._body,status=r?._http;if(!exact(r,['_http','_body'])||!b||typeof b!=='object'||Array.isArray(b))throw fail('SEGMENT_READBACK_UNCONFIRMED');
  if(Object.hasOwn(b,'error')){
+  if(['segmento_contexto_v2','segmento_operacao_v2'].includes(p.acao)){
+   const fixed={SEGMENT_UNAUTHORIZED:401,SEGMENT_ACCESS_DENIED:403,SEGMENT_SESSION_BOUNDARY:503,SEGMENT_SERVICE_UNAVAILABLE:503,...(p.acao==='segmento_operacao_v2'?{SEGMENT_OPERATION_UNCONFIRMED:404,SEGMENT_OPERATION_MISMATCH:409}:{})};
+   if(!exact(b,['error'])||!Object.hasOwn(fixed,b.error)||fixed[b.error]!==status)throw fail('SEGMENT_READBACK_UNCONFIRMED');
+   return response(status,b);
+  }
+
   const allowed=status===202?['error','state','idempotency_key']:['error','current_version'];
   if(![202,400,401,403,404,409,422,503].includes(status)||!errors.has(b.error)||Object.keys(b).some(k=>!allowed.includes(k))||Object.hasOwn(b,'current_version')&&(!Number.isSafeInteger(b.current_version)||b.current_version<1)||status===202&&(b.error!=='SEGMENT_SERVICE_UNAVAILABLE'||b.state!=='unconfirmed'||b.idempotency_key!==p.idempotency_key||!entry.writing))throw fail('SEGMENT_READBACK_UNCONFIRMED');
   return response(status,b);
@@ -49,6 +56,17 @@ function project(entry,value){
  let ok=false;
  if(p.acao==='segmentos_listar')ok=status===200&&exact(b,['segments','limit','offset','catalog','capabilities'])&&Array.isArray(b.segments)&&b.segments.length<=p.limit&&b.segments.every(x=>segment(x,p.brand))&&b.limit===p.limit&&b.offset===p.offset&&catalog(b.catalog,p.brand)&&exact(b.capabilities,['draft','count','send'])&&typeof b.capabilities.draft==='boolean'&&typeof b.capabilities.count==='boolean'&&b.capabilities.send===false&&(b.catalog.current||!b.capabilities.draft&&!b.capabilities.count);
  else if(p.acao==='segmento_obter')ok=status===200&&exact(b,['segment'])&&segment(b.segment,p.brand)&&b.segment.id===p.id;
+ else if(p.acao==='segmento_contexto_v2')ok=status===200&&exact(b,['scope'])&&exact(b.scope,['schema','brand','actor_sha256'])&&b.scope.schema==='crm-audience-writer-scope-v2'&&b.scope.brand===p.brand&&typeof b.scope.actor_sha256==='string'&&/^[a-f0-9]{64}$/.test(b.scope.actor_sha256);
+ else if(p.acao==='segmento_operacao_v2'){
+  const o=b.operation,r=o?.receipt,inner=r?.body;
+  ok=status===200&&exact(b,['operation'])&&exact(o,['schema','idempotency_key','brand','action','actor_sha256','payload_sha256','receipt'])&&
+   o.schema==='crm-audience-operation-v2'&&o.idempotency_key===p.idempotency_key&&o.brand===p.brand&&
+   ['segmento_criar','segmento_salvar','segmento_arquivar'].includes(o.action)&&typeof o.actor_sha256==='string'&&/^[a-f0-9]{64}$/.test(o.actor_sha256)&&typeof o.payload_sha256==='string'&&/^[a-f0-9]{64}$/.test(o.payload_sha256)&&
+   exact(r,['status','body'])&&inner&&typeof inner==='object'&&!Array.isArray(inner);
+  if(ok&&Object.hasOwn(inner,'error'))ok=durableRejections[inner.error]===r.status&&exact(inner,['error',...(inner.error==='SEGMENT_VERSION_CONFLICT'?['current_version']:[])])&&!(o.action==='segmento_criar'&&['SEGMENT_NOT_FOUND','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED'].includes(inner.error))&&!(o.action==='segmento_arquivar'&&['SEGMENT_SHAPE','SEGMENT_BRAND_MISMATCH','SEGMENT_LIST_UNAVAILABLE'].includes(inner.error))&&(!Object.hasOwn(inner,'current_version')||Number.isSafeInteger(inner.current_version)&&inner.current_version>0&&inner.current_version<=S.MAX_VERSION);
+  else if(ok)ok=exact(inner,['segment','transport_supported'])&&inner.transport_supported===false&&segment(inner.segment,p.brand)&&
+   (o.action==='segmento_criar'?r.status===201&&inner.segment.version===1&&!inner.segment.archived:r.status===200&&inner.segment.version>=2&&inner.segment.archived===(o.action==='segmento_arquivar'));
+ }
  else if(p.acao==='segmento_contar')ok=status===200&&exact(b,['source_confirmed','eligible_count','checked_at','definition','definition_hash','base_list_id','transport_supported','unknown_reason','segment_id','version'])&&typeof b.source_confirmed==='boolean'&&(b.source_confirmed?Number.isSafeInteger(b.eligible_count)&&b.eligible_count>=0&&b.unknown_reason===null:b.eligible_count===null&&['external_source_unavailable','list_source_unavailable'].includes(b.unknown_reason))&&Number.isFinite(Date.parse(b.checked_at))&&H.digest(A.normalize(b.definition))===b.definition_hash&&b.definition.brand===p.brand&&Number.isSafeInteger(b.base_list_id)&&b.base_list_id>0&&b.transport_supported===false&&(p.id?b.segment_id===p.id&&b.version===p.expected_version:b.segment_id===null&&b.version===null&&same(b.definition,p.definition));
  else {
   ok=exact(b,['segment','transport_supported'])&&segment(b.segment,p.brand)&&b.transport_supported===false;
