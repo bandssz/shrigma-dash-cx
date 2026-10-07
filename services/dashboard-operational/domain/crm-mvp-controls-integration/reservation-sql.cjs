@@ -1,0 +1,4 @@
+'use strict';
+module.exports=Object.freeze({
+ RESERVE:"UPDATE dashboard_crm_controls.crm_mvp_operations_v1 SET state='reserved', reservation_attempted=true, revision=revision+1, updated_at=$6::bigint, scope=$7::jsonb, reservation=true, reserved_member_count=$8::bigint, reserved_members_hash=$9, capacity_evidence_hash=$10, receipt_hash=$11 WHERE brand=$1 AND operation_id=$2::uuid AND attempt_id=$3::uuid AND revision=$4::bigint AND receipt_hash=$5 AND state='registered' AND reservation_attempted=true AND outcome_write_state='idle' RETURNING brand, operation_id, attempt_id, principal_ref_hash, registration_evidence_hash, revision, state, reservation_attempted, outcome_write_state, registered_at, updated_at, scope, reservation, reserved_member_count, reserved_members_hash, capacity_evidence_hash, receipt_hash"
+});

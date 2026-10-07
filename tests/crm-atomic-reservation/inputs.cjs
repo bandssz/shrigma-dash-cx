@@ -1,0 +1,6 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),pins=require('./input-pins.json');
+function load({mode=process.env.CRM_ATOMIC_SOURCE_MODE||'local-public',root=process.env.CRM_ATOMIC_SOURCE_ROOT||process.cwd(),contextRoot=process.env.CRM_ATOMIC_PUBLIC_CONTEXT||root}={}){if(!['local-public','candidate'].includes(mode))throw Error('ATOMIC_TEST_INPUT_REFUSED');const files={};for(const [name,e] of Object.entries(pins)){const p=mode==='local-public'?path.resolve(root,e.localPath):path.resolve(e.context?contextRoot:root,e.repoPath);const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)throw Error('ATOMIC_TEST_INPUT_REFUSED');const b=fs.readFileSync(p);if(b.length!==e.bytes||crypto.createHash('sha256').update(b).digest('hex')!==e.sha256||crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex')!==e.gitBlobSha1)throw Error('ATOMIC_TEST_INPUT_REFUSED');files[name]=p;}
+ // Verify all narrow source inputs before imports. No context carrier/materializer.
+ const result={};for(const [name,p] of Object.entries(files))result[name]=name.endsWith('DDL')?fs.readFileSync(p,'utf8'):require(p);return result;}
+module.exports=Object.freeze({load});

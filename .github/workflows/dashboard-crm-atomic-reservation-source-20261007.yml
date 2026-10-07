@@ -1,0 +1,91 @@
+name: CRM atomic reservation PG17 source
+on:
+  push:
+    branches: [codex/crm-atomic-reservation-source-20261007]
+  pull_request:
+    paths:
+      - 'services/dashboard-operational/domain/crm-mvp-controls-integration/**'
+      - 'tests/crm-mvp-controls-integration/**'
+      - 'tests/crm-atomic-reservation/**'
+      - 'tools/crm-atomic-reservation-pg17/**'
+      - '.github/workflows/dashboard-crm-atomic-reservation-source-20261007.yml'
+permissions:
+  contents: read
+jobs:
+  atomic-reservation-pg17:
+    if: ${{ (github.event.pull_request.head.ref || github.ref_name) == 'codex/crm-atomic-reservation-source-20261007' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
+    env:
+      CRM_ATOMIC_SOURCE_MODE: candidate
+      CRM_ATOMIC_SOURCE_ROOT: ${{ github.workspace }}
+      CRM_ATOMIC_PUBLIC_CONTEXT: ${{ github.workspace }}/deliverables/mvp-tres-frentes-cowork-20261006/staging/B1/ROOT-WORK/20261006-r1/context/source
+    services:
+      postgres:
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        env:
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: crm_test_only
+          POSTGRES_DB: crm_borrowed_source_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm_test -d crm_borrowed_source_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify source pins and preserve the entire admitted base before imports
+        env:
+          SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict'),cp=require('node:child_process');
+          assert.equal(process.env.GITHUB_REPOSITORY,'bandssz/shrigma-dash-cx');
+          assert.equal(process.env.SOURCE_REPOSITORY,'bandssz/shrigma-dash-cx');
+          assert.equal(process.version,'v22.23.3');
+          const git=(...args)=>cp.execFileSync('git',args,{encoding:'utf8'});
+          assert.equal(git('rev-parse','HEAD').trim(),process.env.EXPECTED_HEAD);
+          const parse=ref=>new Map(git('ls-tree','-r','-z',ref).split('\0').filter(Boolean).map(line=>{const i=line.indexOf('\t'),[mode,type,sha]=line.slice(0,i).split(' ');return [line.slice(i+1),{mode,type,sha}]}));
+          const original=parse('8a8455580301f5e3aea5c08a5b3c0ce3baf66bfc'), current=parse('HEAD');
+          assert.equal([...original.values()].filter(e=>e.type==='blob').length,1943);
+          for(const [file,e] of original)assert.deepEqual(current.get(file),e);
+          const additions=[".github/workflows/dashboard-crm-atomic-reservation-source-20261007.yml","services/dashboard-operational/domain/crm-mvp-controls-integration/atomic-reservation.cjs","services/dashboard-operational/domain/crm-mvp-controls-integration/domain-session.cjs","services/dashboard-operational/domain/crm-mvp-controls-integration/reservation-live.cjs","services/dashboard-operational/domain/crm-mvp-controls-integration/reservation-sql.cjs","tests/crm-atomic-reservation/data.cjs","tests/crm-atomic-reservation/fixture.test.cjs","tests/crm-atomic-reservation/input-pins.json","tests/crm-atomic-reservation/inputs.cjs","tests/crm-atomic-reservation/model.cjs","tests/crm-atomic-reservation/pg17.cjs","tests/crm-atomic-reservation/store.test.cjs","tests/crm-mvp-controls-integration/domain-session.test.cjs","tools/crm-atomic-reservation-pg17/fixture.cjs","tools/crm-atomic-reservation-pg17/native-ci.cjs"];
+          assert.deepEqual([...current.keys()].filter(file=>!original.has(file)).sort(),additions);
+          const pins={"services/dashboard-operational/domain/crm-mvp-controls-integration/atomic-reservation.cjs":{"bytes":14587,"sha256":"ebb19ec435ae4b0f24b0e69a7d43595cdb572ba9d41375379a0cc43f9ea36db9","gitBlobSha1":"445eec70160220b17589cd27df6a151cd1b9e96b"},"services/dashboard-operational/domain/crm-mvp-controls-integration/reservation-live.cjs":{"bytes":4115,"sha256":"ce2d2a3255786a39af25a5c4617ec3511c8363b0bbbbab9dd2aab29d47ac1005","gitBlobSha1":"fb02795f6e586cb537c35b5b34e6323f4df85748"},"services/dashboard-operational/domain/crm-mvp-controls-integration/reservation-sql.cjs":{"bytes":822,"sha256":"ab3d35e3f80e4fe926dbaab95212f8b39dbccea65aca1000b806b086afce79b3","gitBlobSha1":"f3088eb94c1b3bd1e1f46d098faaff2a37465e8b"},"tests/crm-atomic-reservation/data.cjs":{"bytes":4434,"sha256":"9071bea92f0fb860903bf4d707ac4166bc38e9ce6e0970b62c89f6996df0d580","gitBlobSha1":"16ffcff98a452a5effb07b0fa16da608e90b84f9"},"tests/crm-atomic-reservation/fixture.test.cjs":{"bytes":2744,"sha256":"d4399b7421cc22d99959830fa879347771cf4f75ff8d8eb36a7d3da2c7815311","gitBlobSha1":"45a9194e2f2e7713b36fc9ffced50ca4eb01d0d0"},"tests/crm-atomic-reservation/input-pins.json":{"bytes":6411,"sha256":"01b21f3bc9bb3c8a439482a693585d147ebc46a695107006c78728c9e944a4f9","gitBlobSha1":"dca01c63d7335966fbb7bb25e819dce304f6c6f2"},"tests/crm-atomic-reservation/inputs.cjs":{"bytes":1232,"sha256":"36ea3f303847aadc3b89c34c59e4bf5635fb0446adf90f86e60c83d31cd47fa9","gitBlobSha1":"81f7fbcb9ab1dfb8f27c3a261f394bcda843721c"},"tests/crm-atomic-reservation/model.cjs":{"bytes":5591,"sha256":"0884b254191c124e5cbc3e6b1ed967f5b1b1d9910ec470cf3065d679daee6b70","gitBlobSha1":"037f608fa9b2a860d789427ccc0448023c79ca39"},"tests/crm-atomic-reservation/pg17.cjs":{"bytes":7899,"sha256":"97b3e81673bbeececc32a56d4225b32008b230ee46a739e3f7a2eed2370cb492","gitBlobSha1":"2601ebc9305930cb719fa9ae2aebda8c28618273"},"tests/crm-atomic-reservation/store.test.cjs":{"bytes":9869,"sha256":"8a1e648d522b02df40fa83d087cf59d78330e319d23b52672e18c882e0d40d7c","gitBlobSha1":"8709577b28f818d9f7a226bcb26a9e4ae89dc4e2"},"tools/crm-atomic-reservation-pg17/fixture.cjs":{"bytes":4395,"sha256":"2ef95947d28b194ecd5f519960ad3b9541af0edde86539ab143d5b442ce441be","gitBlobSha1":"c5197a90bd3f1bc5a2a180aa091a1aa59919d14d"},"services/dashboard-operational/domain/crm-mvp-controls-integration/domain-session.cjs":{"bytes":5755,"sha256":"11ef71b9217f66ffae23ce00c9234942670ed0ccf6d3e1e0c0df4371791f09a2","gitBlobSha1":"efb9c86e7b9c9ec69ce5a612f84e54a99d66dfe5"},"tests/crm-mvp-controls-integration/domain-session.test.cjs":{"bytes":10175,"sha256":"6dc2c6eeb5f7679f5e7b6129977c1e0034a97bbfe99d4fa79de175b01d0abcf8","gitBlobSha1":"c6071a03e996deb96d12bd78793c2280fe562fb4"},"tools/crm-atomic-reservation-pg17/native-ci.cjs":{"bytes":3526,"sha256":"14ca140eb810db6d375ee558dd615c8f65fa233bd7d21033b0a51fdd21a2016f","gitBlobSha1":"d7441fab8755d1b5618e00c14062a891dbac2285"},"tools/dashboard-crm-control-facts-pg17/stage-inputs.cjs":{"bytes":2976,"sha256":"2565f814d376cb2ed15f269387c3d35018cbb96f34f9363c3fe0176d8e1a8b20","gitBlobSha1":"7012399e130c7ea662d7aa9322fba40758a032a2"},"tools/dashboard-crm-control-facts-pg17/prepare.cjs":{"bytes":2923,"sha256":"ccaa49093d780380343079fc98e5624161670998d4c77f4ef09748a0311a89f7","gitBlobSha1":"8a4d291f4b41b127d3efc68ddfac6786f57f7209"},"tools/dashboard-crm-control-facts-pg17/pins.json":{"bytes":11025,"sha256":"3620d354f0f9e6845c6fc73e71775af0d9c80a233bf883eb144303126417e26e","gitBlobSha1":"83f59d001e405347b3b2fc7214c69d0c533c7bec"}};
+          for(const [file,p] of Object.entries(pins)){
+           const absolute=path.join(process.env.GITHUB_WORKSPACE,file),s=fs.lstatSync(absolute);
+           assert(s.isFile()&&!s.isSymbolicLink()&&s.nlink===1);assert.equal(fs.realpathSync(absolute),absolute);
+           const b=fs.readFileSync(absolute),blob=crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex');
+           assert.equal(b.length,p.bytes);assert.equal(crypto.createHash('sha256').update(b).digest('hex'),p.sha256);assert.equal(blob,p.gitBlobSha1);
+           assert.deepEqual(current.get(file),{mode:'100644',type:'blob',sha:blob});
+          }
+          for(const file of additions){const b=fs.readFileSync(file);assert.deepEqual(current.get(file),{mode:'100644',type:'blob',sha:crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex')});}
+          console.log(JSON.stringify({code:'CRM_ATOMIC_INPUTS_AND_BASE_PRESERVED',originalBlobs:1943,additions:15,modifications:0,deletions:0,head:process.env.EXPECTED_HEAD,operational:false}));
+          NODE
+          node tools/dashboard-crm-control-facts-pg17/stage-inputs.cjs
+      - name: Install pinned driver only in temporary isolated CI directory
+        run: |
+          mkdir "$RUNNER_TEMP/borrowed-pg-driver"
+          npm install --prefix "$RUNNER_TEMP/borrowed-pg-driver" --ignore-scripts --no-audit --no-fund --no-package-lock --no-save pg@8.13.1
+      - name: Thirty new session and atomic reservation checks on Node22
+        run: |
+          node --test --test-reporter=tap tests/crm-mvp-controls-integration/domain-session.test.cjs tests/crm-atomic-reservation/store.test.cjs tests/crm-atomic-reservation/fixture.test.cjs | tee "$RUNNER_TEMP/crm-atomic-tests.tap"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+          const tap=fs.readFileSync(path.join(process.env.RUNNER_TEMP,'crm-atomic-tests.tap'),'utf8');
+          for(const [key,value] of Object.entries({tests:30,pass:30,fail:0,cancelled:0,skipped:0,todo:0}))assert(new RegExp('^# '+key+' '+value+'$','m').test(tap));
+          console.log(JSON.stringify({code:'CRM_ATOMIC_THIRTY_NEW_TESTS_PASSED',tests:30,passed:30,failed:0,skipped:0,runtime:process.version,operational:false}));
+          NODE
+      - name: Six new native PG17 groups and twelve closed clients
+        run: |
+          CRM_ATOMIC_NATIVE_CI=1 node tools/crm-atomic-reservation-pg17/native-ci.cjs | tee "$RUNNER_TEMP/crm-atomic-native.json"
