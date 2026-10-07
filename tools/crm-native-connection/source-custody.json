@@ -166,8 +166,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 4502,
-      "sha256": "7bbc01a6ba299556bcaaf939a23d8546c770ea60119e71af59a42aa2880fc077"
+      "bytes": 4543,
+      "sha256": "7d56cff2c1d672d8b90f899af3083ede240f30d686d44c3c4c1354a559316b14"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -176,8 +176,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 7339,
-      "sha256": "9ed17f8015ae3bfa05b9273d1a1a725a25e0eb82425869e41a785aee0ecc361d"
+      "bytes": 7603,
+      "sha256": "97f84c0b822858bc0a679a93a45f4f169f74d757a5591a2f5c77e2fbcc2fd486"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
@@ -191,8 +191,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
-      "bytes": 7943,
-      "sha256": "27f3d26b4d3612fc5c121238518f1051f5e789d777888f78fff24f7baef1ec9d"
+      "bytes": 8443,
+      "sha256": "575f35e3c86d5a2d57c2cb4e8e5fc95e6b1d21035f4e275eeb7c7ba15b77f293"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",

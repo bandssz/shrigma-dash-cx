@@ -36,7 +36,10 @@ function start({manifestSha256}={}){
  const m=verifyRelease(manifestSha256),boot=require('/app/bootstrap.cjs');boot.checkIdentity();process.umask(0o077);
  // Production prestart uses the separately admitted read-only verifier.
  // This bootstrap invokes no historical activation or issuer helper.
- const env=boot.pinnedEnv();boot.checkStorage();if(env.DASHBOARD_PACK_SHA256!==BASE_PACK)refuse();
+ if(process.env.DASHBOARD_PACK_SHA256!==undefined&&process.env.DASHBOARD_PACK_SHA256!==BASE_PACK)refuse();
+ // The old canary prepared these in RAM. Derive only the already verified pin;
+ // do not invoke its seeding/chmod path against the existing identity volume.
+ const env=boot.pinnedEnv({...process.env,DASHBOARD_PACK_SHA256:BASE_PACK});boot.checkStorage();
  const parent=fs.realpathSync(fs.mkdtempSync('/tmp/shrigma-operational-'));let artifact,auth,server;
  try{
   artifact=require('/app/artifact-policy.cjs').unpack(boot.selectPackFile(),path.join(parent,'artifact'),{expectedSha256:BASE_PACK});

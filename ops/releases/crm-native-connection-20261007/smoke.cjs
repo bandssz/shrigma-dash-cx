@@ -21,7 +21,10 @@ async function main(){
  assert.throws(()=>N.verifyRelease('0'.repeat(64)),/NATIVE_BACKEND_RELEASE_REFUSED/);
  stage='fresh-entrypoint-refusal';
  let originalContinuityRefused=false;try{await require('/app/native-backend/start-existing.cjs').startExisting({manifestSha256,imageDigest:'1'.repeat(64)});}catch(e){originalContinuityRefused=/^CONTINUITY_/.test(e.code||'');}assert.equal(originalContinuityRefused,true);assert.equal(fs.existsSync('/dashboard-data/dashboard.sqlite'),false);
- stage='start';require('/app/canary-start.cjs').prepare();
+ stage='start';assert.equal(process.env.DASHBOARD_PACK_SHA256,undefined);
+ // Isolated synthetic fixture only. Production never seeds or chmods identity.
+ fs.writeFileSync('/dashboard-data/runtime-pack.json',fs.readFileSync('/app/runtime-pack.json'),{flag:'wx',mode:0o600});
+ process.env.DASHBOARD_PACK_SHA256='0'.repeat(64);assert.throws(()=>N.start({manifestSha256}),/NATIVE_BACKEND_RELEASE_REFUSED/);delete process.env.DASHBOARD_PACK_SHA256;assert.equal(fs.existsSync('/dashboard-data/dashboard.sqlite'),false);
  const started=require('/app/presentation-release/release.cjs').startWithPresentation(()=>N.start({manifestSha256}));
  await new Promise(resolve=>started.server.listening?resolve():started.server.once('listening',resolve));
  const request=(path,{method='GET',body,cookie,csrf,bearer}={})=>new Promise((resolve,reject)=>{
@@ -45,7 +48,7 @@ async function main(){
  const db=new DatabaseSync('/dashboard-data/dashboard.sqlite',{readOnly:true});const delegate=db.prepare('SELECT user_id,token_hash FROM crm_native_connections_v1 WHERE id=?').get(issued.value.connection.id);assert.equal(delegate.user_id,originalId);assert.equal(delegate.token_hash,sha(bearer));assert.equal(db.prepare("SELECT COUNT(*) n FROM users WHERE role='superadmin'").get().n,1);db.close();
  stage='revoke';assert.equal((await request('/auth/native-connections',{method:'POST',cookie,csrf,body:{action:'revoke',connectionId:issued.value.connection.id}})).status,200);
  assert.equal((await call('crm_status')).status,401);
- console.log(JSON.stringify({schema:'shrigma-native-image-smoke-v1',ok:true,realImmutableReadWithoutWrites,freshPrestartDeniedWithoutOriginalContinuity:originalContinuityRefused,node:process.version,uid:process.getuid(),manifestSha256,sourceRevision:JSON.parse(bytes).sourceRevision,originalIdentityRetained:true,genuineSyntheticConsent:true,unauthenticatedInvocationDenied:true,crossBrandDenied:true,writeWithoutGrantDenied:true,nativeRevocationDenied:true,originalPackAndV2PresentationPreserved:true,actualNativeRuntimeFiles:33,runtimeReplacements:2,runtimeAdditions:5,sqlInstallerEnabled:false,productionIdentityUsed:false,operational:false}));
+ console.log(JSON.stringify({schema:'shrigma-native-image-smoke-v1',ok:true,manifestDerivedPinWithoutLegacyPrepare:true,realImmutableReadWithoutWrites,freshPrestartDeniedWithoutOriginalContinuity:originalContinuityRefused,node:process.version,uid:process.getuid(),manifestSha256,sourceRevision:JSON.parse(bytes).sourceRevision,originalIdentityRetained:true,genuineSyntheticConsent:true,unauthenticatedInvocationDenied:true,crossBrandDenied:true,writeWithoutGrantDenied:true,nativeRevocationDenied:true,originalPackAndV2PresentationPreserved:true,actualNativeRuntimeFiles:33,runtimeReplacements:2,runtimeAdditions:5,sqlInstallerEnabled:false,productionIdentityUsed:false,operational:false}));
  process.kill(process.pid,'SIGTERM');
 }
 main().catch(e=>{console.error(JSON.stringify({ok:false,stage,code:/^[A-Z][A-Z0-9_]{1,80}$/.test(e.code||'')?e.code:'NATIVE_IMAGE_SMOKE_FAILED'}));process.exitCode=1;process.kill(process.pid,'SIGTERM');});
