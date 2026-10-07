@@ -19,7 +19,8 @@ const manager={schema:'shrigma_access_identity_v1',role:'manager',panel:'growth'
 test('CRM uses only a typed key while other area login documents keep their contract',()=>{
  const {document}=parseHTML(page());assert.equal(document.querySelector('input[type=file]'),null);assert.equal(document.getElementById('entry-key').type,'password');
  assert.match(page(),/assets\/panels\/crm-entry\.js/);assert.doesNotMatch(source,/entry-file|\.files\b|\.text\(\)/);
- for(const area of ['cx','organico','creators','gestao']){const html=fs.readFileSync(require.resolve('../'+area+'/index.html'),'utf8');assert.match(html,/id="entry-file"/);assert.match(html,/assets\/panels\/entry\.js/);}
+ for(const area of ['cx','organico','creators']){const html=fs.readFileSync(require.resolve('../'+area+'/index.html'),'utf8');assert.match(html,/id="entry-file"/);assert.match(html,/assets\/panels\/entry\.js/);}
+ const management=parseHTML(fs.readFileSync(require.resolve('../gestao/index.html'),'utf8')).document;assert.equal(management.querySelector('meta[http-equiv="refresh"]').getAttribute('content'),'0;url=https://gerencial.shrigma.com.br/');assert.equal(management.querySelector('link[rel="canonical"]').getAttribute('href'),'https://gerencial.shrigma.com.br/');assert.equal(management.querySelectorAll('form,script,input,iframe').length,0);
 });
 test('manager enters CRM without file controls; logout preserves pending business state',async()=>{
  const x=boot(manager);await x.submit();const d=x.document;
