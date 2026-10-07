@@ -1,4 +1,4 @@
-name: Original audience context review
+name: Original audience context availability
 'on':
   push:
     branches: [codex/crm-audience-provenance-20261007]
@@ -25,10 +25,10 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
-          const a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process'),git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim(),base='a5ba088480c74faff41ea3053769ce8b8e1ab42a';
-          a.equal(git('merge-base',base,'HEAD'),base);a.equal(git('rev-parse',base+'^{tree}'),'3eb1388210a128a763cdc9af83aa5361c932f748');
-          a.deepEqual(git('diff','--name-only',base,'HEAD').split('\n').sort(),['.github/workflows/crm-audience-original-provenance-20261007.yml','n8n/growth/segment-audience-api.cjs','n8n/growth/segment-audience-store.cjs','n8n/growth/segment-audience-context-review.cjs','tests/audience-context-review/original.test.cjs'].sort());a.equal(git('diff','--name-only','--diff-filter=D',base,'HEAD'),'');
-          const inputs=path.join(process.env.RUNNER_TEMP,'original-audience-context-base');fs.mkdirSync(inputs,{mode:0o755});for(const n of ['segment-audience-api.cjs','segment-audience-store.cjs','segment-audience-contract.js','segment-audience-review.cjs','segment-shopify-facts.cjs','segment-recorded-origin.cjs'])fs.writeFileSync(path.join(inputs,n),execFileSync('git',['show',base+':n8n/growth/'+n]),{mode:0o444});fs.appendFileSync(process.env.GITHUB_ENV,'SHRIGMA_AUDIENCE_CONTEXT_INPUTS='+inputs+'\n');console.log(JSON.stringify({installedBasePreserved:true,newSql:false,newIssuer:false,replayedOperation:false,operational:false}));
+          const a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process'),git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim(),base='5ccb543a48db3e2ed8b3ee10c319d8000644d90f';
+          a.equal(git('merge-base',base,'HEAD'),base);a.equal(git('rev-parse',base+'^{tree}'),'c463a67b79d2c1fef6ef39c6d816a0e8ca5850f9');
+          a.deepEqual(git('diff','--name-only',base,'HEAD').split('\n').sort(),['.github/workflows/crm-audience-original-provenance-20261007.yml','n8n/growth/segment-audience-api.cjs','n8n/growth/segment-audience-store.cjs','n8n/growth/segment-audience-context-review.cjs','tests/audience-context-availability/original.test.cjs'].sort());a.equal(git('diff','--name-only','--diff-filter=D',base,'HEAD'),'');
+          const inputs=path.join(process.env.RUNNER_TEMP,'original-audience-context-base');fs.mkdirSync(inputs,{mode:0o755});for(const n of ['segment-audience-api.cjs','segment-audience-store.cjs','segment-audience-context-review.cjs','segment-audience-contract.js','segment-audience-review.cjs','segment-shopify-facts.cjs','segment-recorded-origin.cjs'])fs.writeFileSync(path.join(inputs,n),execFileSync('git',['show',base+':n8n/growth/'+n]),{mode:0o444});fs.appendFileSync(process.env.GITHUB_ENV,'SHRIGMA_AUDIENCE_CONTEXT_INPUTS='+inputs+'\n');console.log(JSON.stringify({installedBasePreserved:true,newSql:false,newIssuer:false,replayedOperation:false,operational:false}));
           NODE
       - name: Build the unchanged original service container around the reviewed context GET addition
         run: docker build --pull --platform linux/amd64 --tag shrigma-original-audience:${{ github.sha }} --file services/crm-audience/Dockerfile .
@@ -36,5 +36,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --memory 256m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --env SHRIGMA_AUDIENCE_CONTEXT_INPUTS=/tmp/original-inputs --mount "type=bind,src=$SHRIGMA_AUDIENCE_CONTEXT_INPUTS,dst=/tmp/original-inputs,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/tests/audience-context-review/original.test.cjs,dst=/app/tests/audience-context-review/original.test.cjs,readonly" --entrypoint node shrigma-original-audience:${{ github.sha }} --test /app/tests/audience-context-review/original.test.cjs
-          docker run --rm --network none --read-only --entrypoint node shrigma-original-audience:${{ github.sha }} -e 'const a=require("node:assert/strict");a.equal(process.getuid(),1000);a.equal(process.version,"v22.23.3");console.log(JSON.stringify({schema:"shrigma-original-audience-image-v1",node:process.version,uid:process.getuid(),originalContextGetContract:true,newSql:false,productionIdentityUsed:false,productionDatabaseUsed:false,operational:false}))'
+          docker run --rm --network none --read-only --memory 256m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --env SHRIGMA_AUDIENCE_CONTEXT_INPUTS=/tmp/original-inputs --mount "type=bind,src=$SHRIGMA_AUDIENCE_CONTEXT_INPUTS,dst=/tmp/original-inputs,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/tests/audience-context-availability/original.test.cjs,dst=/app/tests/audience-context-availability/original.test.cjs,readonly" --entrypoint node shrigma-original-audience:${{ github.sha }} --test /app/tests/audience-context-availability/original.test.cjs
+          docker run --rm --network none --read-only --entrypoint node shrigma-original-audience:${{ github.sha }} -e 'const a=require("node:assert/strict");a.equal(process.getuid(),1000);a.equal(process.version,"v22.23.3");console.log(JSON.stringify({schema:"shrigma-original-audience-image-v1",node:process.version,uid:process.getuid(),originalContextAvailabilityContract:true,newSql:false,productionIdentityUsed:false,productionDatabaseUsed:false,operational:false}))'

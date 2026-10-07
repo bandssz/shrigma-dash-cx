@@ -44,7 +44,7 @@ function catalog(c,brand){
 }
 function project(entry,value){
  const r=copy(value,MAX_RESPONSE),p=entry.request,b=r?._body,status=r?._http;if(!exact(r,['_http','_body'])||!b||typeof b!=='object'||Array.isArray(b))throw fail('SEGMENT_READBACK_UNCONFIRMED');
- if(p.acao==='segmento_contexto_revisao'){const checked=status===200?{status,body:ContextReview.validateBody(b,p,{secrets:[entry.key]})}:ContextReview.validateResponse({status,body:b},p,{secrets:[entry.key]});return response(checked.status,checked.body);}
+ if(p.acao==='segmento_contexto_revisao'){const checked=status===200?{status,body:ContextReview.validateBody(value._body,p,{secrets:[entry.key]})}:ContextReview.validateResponse({status,body:b},p,{secrets:[entry.key]});return response(checked.status,checked.body);}
  if(Object.hasOwn(b,'error')){
   if(['segmento_contexto_v2','segmento_operacao_v2'].includes(p.acao)){
    const fixed={SEGMENT_UNAUTHORIZED:401,SEGMENT_ACCESS_DENIED:403,SEGMENT_SESSION_BOUNDARY:503,SEGMENT_SERVICE_UNAVAILABLE:503,...(p.acao==='segmento_operacao_v2'?{SEGMENT_OPERATION_UNCONFIRMED:404,SEGMENT_OPERATION_MISMATCH:409}:{})};

@@ -119,6 +119,20 @@ function pins(definition,current){
  });
  return {contract:'crm-audience-context-v1',hash_contract:H.HASH_CONTRACT,brand:definition.brand,base:current.base,rules:contexts};
 }
+// Metadata-only view: tolerate unavailable typed fields with their real hash.
+// Bindings and all pin values still pass the original pins/checkCatalog checks.
+// Never pass this detached view to count/save/provider/refresh.
+function reviewPins(definition,current){
+ const view=copy(current),unavailable_fields=[];
+ const selected=[...new Set(A.leaves(definition).filter(x=>x.rule.op!=='in_list').map(x=>x.rule.field))].sort();
+ for(const field of selected){
+  const rows=view.catalog.fields.filter(x=>x.key===field);
+  if(rows.length!==1||typeof rows[0].available!=='boolean'||typeof rows[0].source_hash!=='string'||!HASH.test(rows[0].source_hash))throw fail('SEGMENT_LIST_UNAVAILABLE',422);
+  if(!rows[0].available)unavailable_fields.push(field);
+  rows[0].available=true;
+ }
+ return {context:pins(definition,view),source_ready:unavailable_fields.length===0,unavailable_fields};
+}
 function validStored(row){
  let d;try{d=A.normalize(row?.definition);}catch{throw fail('SEGMENT_READBACK_UNCONFIRMED');}
  if(!row||typeof row.id!=='string'||!UUID.test(row.id)||row.brand!==d.brand||row.name!==d.name||!positive(row.version)||row.version>MAX_VERSION||typeof row.archived!=='boolean'||H.digest(d)!==row.definition_hash||H.digest(row.definition)!==row.definition_hash||H.digest(row.context)!==row.context_hash||row.context?.contract!=='crm-audience-context-v1'||row.context.brand!==row.brand||typeof row.updated_by!=='string'||!/^panel:[A-Za-z0-9_.:-]{1,194}$/.test(row.updated_by))throw fail('SEGMENT_READBACK_UNCONFIRMED');
@@ -191,11 +205,11 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
      await reauth();const before=await readCatalog(query,p.brand);await reauth();
      const checkCatalog=c=>{if(!c.ready||!c.catalog.current)throw fail('SEGMENT_UNAVAILABLE',503);if(c.catalog.catalog_hash!==p.expected_catalog_hash)throw fail('SEGMENT_CATALOG_CHANGED',409);};checkCatalog(before);
      const readRow=async()=>{const rows=(await query(SQL.get,[p.id,p.brand])).rows;if(!rows.length)throw fail('SEGMENT_NOT_FOUND',404);if(rows.length!==1)throw fail('SEGMENT_READBACK_UNCONFIRMED');const s=validStored(rows[0]);row=s;if(s.id!==p.id||s.brand!==p.brand)throw fail('SEGMENT_READBACK_UNCONFIRMED');if(s.version!==p.expected_version)throw fail('SEGMENT_VERSION_CONFLICT',409);if(s.archived)throw fail('SEGMENT_ARCHIVED',409);return s;};
-     row=await readRow();const custody=s=>copy({id:s.id,brand:s.brand,version:s.version,definition:s.definition,definition_hash:s.definition_hash,context:s.context,context_hash:s.context_hash});const saved=custody(row),current=pins(saved.definition,before);
+     row=await readRow();const custody=s=>copy({id:s.id,brand:s.brand,version:s.version,definition:s.definition,definition_hash:s.definition_hash,context:s.context,context_hash:s.context_hash});const saved=custody(row),current=reviewPins(saved.definition,before);
      await reauth();const after=await readCatalog(query,p.brand);await reauth();checkCatalog(after);
-     if(before.config_revision!==after.config_revision||before.expires_at!==after.expires_at||H.digest(current)!==H.digest(pins(saved.definition,after)))throw fail('SEGMENT_CATALOG_CHANGED',409);
+     if(before.config_revision!==after.config_revision||before.expires_at!==after.expires_at||H.digest(current)!==H.digest(reviewPins(saved.definition,after)))throw fail('SEGMENT_CATALOG_CHANGED',409);
      const final=await readRow();if(H.digest(custody(final))!==H.digest(saved))throw fail('SEGMENT_READBACK_UNCONFIRMED');
-     const body=ContextReview.create({brand:p.brand,id:p.id,version:saved.version,definition:saved.definition,definition_hash:saved.definition_hash,stored_context:saved.context,stored_context_hash:saved.context_hash,current_context:current,catalog_hash:after.catalog.catalog_hash,checked_at:after.catalog.checked_at},{secrets:[key,first.actor]});
+     const body=ContextReview.create({brand:p.brand,id:p.id,version:saved.version,definition:saved.definition,definition_hash:saved.definition_hash,stored_context:saved.context,stored_context_hash:saved.context_hash,current_context:current.context,source_ready:current.source_ready,unavailable_fields:current.unavailable_fields,catalog_hash:after.catalog.catalog_hash,checked_at:after.catalog.checked_at},{secrets:[key,first.actor]});
      await reauth();active();return response(200,body);
     }catch(e){await reauth();if(['SEGMENT_NOT_FOUND','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_CATALOG_CHANGED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE','SEGMENT_READBACK_UNCONFIRMED'].includes(e?.code))return error(e.status||503,e.code,e.code==='SEGMENT_VERSION_CONFLICT'&&row?{current_version:row.version}:{});throw e;}
    }
