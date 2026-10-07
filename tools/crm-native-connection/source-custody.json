@@ -184,6 +184,7 @@
     "services/dashboard-operational/server.cjs",
     "tests/audience-removal/fixture.cjs",
     "tests/audience-removal/removal.test.cjs",
+    "tests/claude-crm-ux.test.cjs",
     "tests/configured-journeys-read/fixtures.cjs",
     "tests/configured-journeys-read/model.test.cjs",
     "tests/configured-journeys-read/ui.test.cjs",
@@ -212,8 +213,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 5223,
-      "sha256": "e4227e002ad91f8980a812bf59c42caba3002da558c2a70bd3e11e4ff9820659"
+      "bytes": 7216,
+      "sha256": "76ecaea4b269bd6a379eaa906111f705530b57d5a61771ca350a5e9a93459ac2"
     },
     {
       "path": "assets/panels/growth.js",
@@ -471,6 +472,11 @@
       "sha256": "1746c3ab2d092c945d7ad84aa357cbb576137ff6c7fa54bc4043d5859400680d"
     },
     {
+      "path": "tests/claude-crm-ux.test.cjs",
+      "bytes": 35648,
+      "sha256": "6b5296869bad7fa773f38ea1ff934e374064cdfe52419d21ddb30f2c88c4a54d"
+    },
+    {
       "path": "tests/configured-journeys-read/fixtures.cjs",
       "bytes": 850,
       "sha256": "4d968cc072094e7dc2a41c36a920c5e4db6ad09f43b6ffb7afe47370c7144a59"
@@ -567,8 +573,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4159,
-      "sha256": "853b948d959c9c26c92eae7b5b88fa0bfaeb7513db06a58a7c4522068f5733b3"
+      "bytes": 4190,
+      "sha256": "ba89c961130e036c341db28ffe0878fc8fa6a180d1042a12a6fb7c6de7a4e5e3"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

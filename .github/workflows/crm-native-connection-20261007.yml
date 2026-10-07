@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: github.repository == 'bandssz/shrigma-dash-cx'
+    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -78,3 +78,31 @@ jobs:
         if: always()
         shell: bash
         run: rm -rf -- "$DOCKER_CONFIG"
+
+  verify-test-only:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      NODE_PATH: ${{ github.workspace }}/../growth-test-tools/node_modules
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prove only review expectations and custody changed since the published source
+        run: |
+          node <<'NODE'
+          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='8ea2fe1043bd3062a7cf62217ca5effc710f5e55',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/claude-crm-ux.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,operational:false}));
+          NODE
+      - name: Verify complete source custody
+        run: node tools/crm-native-connection/verify-source.cjs
+      - name: Install the original local DOM test dependency
+        run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
+      - name: Verify the two changed READ audience expectations
+        run: |
+          node --test --test-name-pattern='anúncio somente de leitura' tests/claude-crm-ux.test.cjs
