@@ -7,7 +7,7 @@ async function healthExisting({manifestSha256,imageDigest}={}){
   const preserved=await verifier.v.verifyPreservedFiles();
   if(preserved.sqliteOpened!==false||preserved.environmentProof!==false||preserved.currentWriterVerified!==false||preserved.oldInvocations!==0||preserved.writes!==0)throw Error('NATIVE_HEALTH_REFUSED');
   const native=N.verifyReady({manifestSha256}),presentation=P.verifyReady();
-  if(native.runtimeFiles!==33||native.sourceRevision!==verifier.manifest.sourceRevision||presentation.runtimeFilesUnchanged!==28)throw Error('NATIVE_HEALTH_REFUSED');
+  if(native.runtimeFiles!==verifier.manifest.baseRuntime.length+verifier.manifest.additions.length||native.sourceRevision!==verifier.manifest.sourceRevision||presentation.runtimeFilesUnchanged!==28||presentation.manifestSha256!==verifier.manifest.presentationManifestSha256)throw Error('NATIVE_HEALTH_REFUSED');
   const host=process.env.DASHBOARD_MANAGER_HOST;
   if(typeof host!=='string'||!/^[a-z0-9.-]{1,253}$/.test(host))throw Error('NATIVE_HEALTH_REFUSED');
   const body=await new Promise((resolve,reject)=>{

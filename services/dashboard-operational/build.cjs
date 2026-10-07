@@ -118,10 +118,10 @@ function transform(input,file){
  if(file==='growth.html'){
   const oldJourney='GFU.render({...ctx,workflowsModel:';
   if(output.split(oldJourney).length!==2)throw Error('Observed journey binding changed');
-  output=output.replace(oldJourney,'GFU.render({...ctx,observedOnly:true,workflowsModel:');
+  output=output.replace(oldJourney,'GFU.render({...ctx,configuredReadOnly:true,workflowsModel:');
   const oldIntro='<h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes.';
   if(output.split(oldIntro).length!==2)throw Error('Observed journey heading changed');
-  output=output.replace(oldIntro,'<h2>Consulte as jornadas observadas da marca.</h2><p>Jornadas mostra as mensagens registradas. O histórico não declara gatilhos, esperas nem sequência de execução.');
+  output=output.replace(oldIntro,'<h2>Consulte as jornadas e suas conexões originais.</h2><p>Jornadas mostra as definições disponíveis e o histórico de mensagens. O fluxograma usa somente as conexões declaradas na configuração.');
   const target='<div class="crm-home-heading"><h2>Resumo do período</h2></div>';
   if(output.split(target).length!==2)throw Error('CRM diagnostic navigation anchor changed');
   output=output.replace(target,target+'<p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>');

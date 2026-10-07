@@ -534,7 +534,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const host=String(req.headers.host||'').toLowerCase();
       if(!allowedHosts.has(host))throw jsonError(421,'HOST_DENIED');
       const url=safeRequestPath(req.url),origin='https://'+host;
-      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method)){
+        const journeyPublicFiles=s.crmJourneyPresentationManifestSha256?['growth.html','assets/panels/growth.js'].map(file=>{
+          const root=fs.realpathSync(s.publicDir),p=path.join(root,file),st=fs.lstatSync(p);
+          if(!st.isFile()||st.isSymbolicLink()||st.size>2*1024*1024||fs.realpathSync(p)!==p)throw jsonError(503,'JOURNEY_PUBLIC_FILES_UNAVAILABLE');
+          const b=fs.readFileSync(p);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
+        }):undefined;
+        return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+      }
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin
       // only from browser-controlled Fetch Metadata on this allowed host.

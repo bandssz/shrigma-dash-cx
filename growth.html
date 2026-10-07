@@ -8,6 +8,40 @@
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=297a8f06d1c6">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style id="crm-configured-journeys-read">
+#control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
+#control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
+#control-fluxos .gjr-source, #control-fluxos .gjr-card { background: #fff; border: 1px solid #d1dce3; border-radius: 14px; padding: 1rem; }
+#control-fluxos .gjr-card header > span, #control-fluxos .gjr-card footer { color: #496270; font-size: .85rem; }
+#control-fluxos .gjr-read-badge { border: 1px solid #aac2ce; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; display: inline-block; }
+#control-fluxos .gjr-toolbar, #control-fluxos .gjr-view { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+#control-fluxos .gjr-toolbar label { display: grid; gap: .3rem; }
+#control-fluxos .gjr-toolbar input, #control-fluxos .gjr-toolbar select, #control-fluxos .gjr-toolbar button { font: inherit; border: 1px solid #9fb4c0; border-radius: 8px; padding: .55rem .75rem; background: #fff; color: #182a36; }
+#control-fluxos .gjr-toolbar button[aria-pressed="true"] { background: #e8f2f7; border-color: #356d86; }
+#control-fluxos .gjr-toolbar button:disabled { opacity: .5; }
+#control-fluxos .gjr-only :focus-visible { outline: 3px solid #226c96; outline-offset: 3px; }
+#control-fluxos .gjr-caution, #control-fluxos .gjr-warning { background: #fff6e6; padding: .65rem; border-radius: 8px; }
+#control-fluxos .gjr-stages { list-style: none; padding: 0; display: grid; gap: .65rem; }
+#control-fluxos .gjr-stages > li { border: 1px solid #d1dce3; border-radius: 8px; padding: .75rem; }
+#control-fluxos .gjr-stages > li > span { display: block; margin-top: .35rem; color: #496270; }
+#control-fluxos .gjr-links { margin-top: .5rem; }
+#control-fluxos .gjr-diagram { overflow: auto; max-height: 48rem; border: 1px solid #d1dce3; border-radius: 10px; background: #f7fafc; }
+#control-fluxos .gjr-diagram svg { display: block; visibility: visible; width: min(100%, 480px); min-width: 340px; height: auto; margin: auto; }
+#control-fluxos .gjr-node rect { fill: #fff; stroke: #7896a7; stroke-width: 1.5; }
+#control-fluxos .gjr-type-condicao rect { fill: #fff4db; }
+#control-fluxos .gjr-type-espera rect { fill: #eef2fc; }
+#control-fluxos .gjr-type-fim rect { fill: #e9f1f2; }
+#control-fluxos .gjr-node text { fill: #182a36; font: 13px system-ui, sans-serif; }
+#control-fluxos .gjr-node .gjr-node-key { fill: #496270; font-size: 11px; }
+#control-fluxos .gjr-edges > g > path { fill: none; stroke: #356d86; stroke-width: 1.6; }
+#control-fluxos .gjr-edges marker path, #control-fluxos .gjr-diagram marker path { fill: #356d86; }
+#control-fluxos .gjr-edge-label { fill: #496270; font: 10px system-ui, sans-serif; }
+#control-fluxos .gjr-accessible-list { padding: .75rem 0; }
+#control-fluxos .gjr-accessible-list summary { cursor: pointer; }
+#control-fluxos .gjr-history { border-top: 1px solid #d1dce3; padding-top: 1rem; }
+#control-fluxos .gjr-empty { color: #496270; }
+@media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
+</style>
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=df664b7ec95b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=74dbbf3eaa70"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);

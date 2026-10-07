@@ -8,6 +8,7 @@ const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
+ ['crm_journey_catalog','Consultar definições originais das jornadas','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_list','Listar campanhas da marca','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_get','Reler campanha original','crm.read',obj({brand,id},['brand','id']),true,false],
  ['crm_campaign_save','Salvar rascunho existente','crm.draft',obj({brand,id,expected_version:{type:'string',pattern:'^[a-f0-9]{32}$'},definition:{type:'object'},idempotency_key:key},['brand','id','expected_version','definition','idempotency_key']),false,false],
@@ -42,10 +43,11 @@ function response(res,status,body){res.statusCode=status;res.setHeader('Cache-Co
 // upstream token, network client, actor payload, or alternate writer here.
 function dispatchJson(dispatch,{method,path,body,context}){
  return new Promise((resolve,reject)=>{
+  const responseLimit=method==='GET'&&path==='/api/crm-read?action=cache_growth&painel=growth'?8*1024*1024:2*1024*1024;
   const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);
   req.method=method;req.url=path;req.headers={host:context.host,origin:context.origin,'x-csrf-token':context.csrf,...(body===undefined?{}:{'content-type':'application/json'})};req.socket={remoteAddress:'native-delegation'};
   const chunks=[];let bytes=0,settled=false;
-  const res=new Writable({write(chunk,encoding,cb){bytes+=chunk.length;if(bytes>2*1024*1024)return cb(Object.assign(Error('NATIVE_RESPONSE_LIMIT'),{code:'NATIVE_RESPONSE_LIMIT'}));chunks.push(Buffer.from(chunk));cb();}});
+  const res=new Writable({write(chunk,encoding,cb){bytes+=chunk.length;if(bytes>responseLimit)return cb(Object.assign(Error('NATIVE_RESPONSE_LIMIT'),{code:'NATIVE_RESPONSE_LIMIT'}));chunks.push(Buffer.from(chunk));cb();}});
   res.statusCode=200;const headers=new Map();res.setHeader=(k,v)=>headers.set(k.toLowerCase(),v);res.getHeader=k=>headers.get(k.toLowerCase());res.removeHeader=k=>headers.delete(k.toLowerCase());
   const timer=setTimeout(()=>{if(settled)return;settled=true;reject(Object.assign(Error('NATIVE_OPERATION_UNCERTAIN'),{code:'NATIVE_OPERATION_UNCERTAIN',status:504}));},95000);timer.unref?.();
   res.once('finish',()=>{if(settled)return;settled=true;clearTimeout(timer);try{resolve({status:res.statusCode,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))});}catch{reject(Object.assign(Error('NATIVE_RESPONSE_INVALID'),{code:'NATIVE_RESPONSE_INVALID',status:502}));}});
@@ -70,12 +72,24 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
   let result;
   if(name==='crm_status'){
    const state=await run('GET','/auth/session');
-   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,operational:false}};
+   const health=state.status===200?await run('GET','/healthz'):null;
+   const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
+   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,operational:false}};
+  }else if(name==='crm_journey_catalog'){
+   result=require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
   }else if(name.startsWith('crm_campaign_')){
    const actions={crm_campaign_catalog:'campanha_catalogo',crm_campaign_list:'campanha_listar',crm_campaign_get:'campanha_obter',crm_campaign_save:'campanha_salvar',crm_campaign_operation:'campanha_operacao'},action=actions[name];
    if(!action)fail('NATIVE_TOOL_NOT_FOUND');
    if(name==='crm_campaign_save')result=await run('POST','/api/campaigns',{acao:action,...args});
    else{const q=new URLSearchParams({acao:action,...Object.fromEntries(Object.entries(args).map(([k,v])=>[k,String(v)]))});result=await run('GET','/api/campaigns?'+q);}
+   if(name==='crm_campaign_catalog'&&result.status===200){
+    // The campaign catalog remains usable when configured journeys are absent.
+    // Delegation is checked before and after EACH original dispatcher read.
+    const source=require('./crm-journey-read.cjs');let journeySource;
+    try{journeySource=source.journeySummary(source.projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand));}
+    catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});journeySource={status:502,brand:args.brand,source:'unavailable',configuredCount:null,code:/^JOURNEY_[A-Z_]+$/.test(e.code||'')?e.code:'JOURNEY_READ_UNAVAILABLE',operational:false};}
+    result={...result,body:{...result.body,journeySource}};
+   }
   }else if(name.startsWith('crm_user')){
    const listing=await run('GET','/auth/users');
    if(listing.status!==200)return redact(listing);
