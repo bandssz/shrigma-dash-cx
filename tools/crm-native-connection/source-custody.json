@@ -182,8 +182,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 8044,
-      "sha256": "33cd3a6b8966294f85ee047a236554fc21dbb266f0634db9f3ed5fc33529f57b"
+      "bytes": 7790,
+      "sha256": "b15f1d2f402536b11106081499a993c39519c6df33b71906bc9ad7a522072573"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -202,8 +202,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
-      "bytes": 8383,
-      "sha256": "a3988b45547b41e33a684d00de37e7c083d854516fbe6bf95e9ddbc8e128216c"
+      "bytes": 9155,
+      "sha256": "af57aaf5ad839f23491f9176e69acad3f92a42362df2f8ab28745a3da43da16d"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -222,8 +222,8 @@
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
-      "bytes": 8493,
-      "sha256": "9e7cfa75cbf0d2c6270d46a067beadc5b47a1424f9860d16408e5564354d0d1a"
+      "bytes": 11856,
+      "sha256": "89957f724394a87b59a4b6216c25cd0aad40bf5ddc5b24eaa65b280a2dce54eb"
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
@@ -262,8 +262,8 @@
     },
     {
       "path": "services/dashboard-operational/native-database-inventory.cjs",
-      "bytes": 14437,
-      "sha256": "4d0f3ef4b3a6cbfe79e270ef869d1889774603b1b84f53163096c51ecae0b181"
+      "bytes": 14677,
+      "sha256": "f3c1b6f7486d633cbf85d46121caeddca1d4ba8c1b48de4411a81ebf47df540c"
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
@@ -347,8 +347,8 @@
     },
     {
       "path": "tests/database-inventory/inventory.test.cjs",
-      "bytes": 11797,
-      "sha256": "d09fd86133046980257d6894ae347e76c2a270956b3d09c2405dde7ecaae9ca1"
+      "bytes": 14267,
+      "sha256": "05ddff82b7bca086fdcff7dee374f5d4ce6c216f658f51da460d0c2973cde7d3"
     },
     {
       "path": "tests/native-continuity/fixture.cjs",
@@ -445,26 +445,26 @@
       ]
     },
     {
-      "packageId": "native-connection-c2-db-inventory-20261007-v2",
-      "deliverySha256": "c8c93cad07520a96fc7324e09f81cef52ce74cb91a12abaef218999db5a1041c",
+      "packageId": "native-connection-c2-db-inventory-20261007-v3",
+      "deliverySha256": "4e4ed7e1b7962d595d2002d11ef0c800df0311712790fb3f6513e8a6f99a2bca",
       "files": [
         {
           "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
-          "bytes": 8493,
-          "sha256": "9e7cfa75cbf0d2c6270d46a067beadc5b47a1424f9860d16408e5564354d0d1a",
-          "gitBlobSha1": "8862a6e27e19a75dfdf4b1700ab14237f5797e2d"
+          "bytes": 11856,
+          "sha256": "89957f724394a87b59a4b6216c25cd0aad40bf5ddc5b24eaa65b280a2dce54eb",
+          "gitBlobSha1": "96d7048e9303a103c1f18351f2439bd8ad9e7101"
         },
         {
           "path": "services/dashboard-operational/native-database-inventory.cjs",
-          "bytes": 14437,
-          "sha256": "4d0f3ef4b3a6cbfe79e270ef869d1889774603b1b84f53163096c51ecae0b181",
-          "gitBlobSha1": "ef528a52528d8ab30c422836ddb6631ae2ca8012"
+          "bytes": 14677,
+          "sha256": "f3c1b6f7486d633cbf85d46121caeddca1d4ba8c1b48de4411a81ebf47df540c",
+          "gitBlobSha1": "e0951095b907e444c0245d6ebf732691c34795e8"
         },
         {
           "path": "tests/database-inventory/inventory.test.cjs",
-          "bytes": 11797,
-          "sha256": "d09fd86133046980257d6894ae347e76c2a270956b3d09c2405dde7ecaae9ca1",
-          "gitBlobSha1": "b438f10c67b5ff962dfbb71ea812f89e92aea15b"
+          "bytes": 14267,
+          "sha256": "05ddff82b7bca086fdcff7dee374f5d4ce6c216f658f51da460d0c2973cde7d3",
+          "gitBlobSha1": "159be5c870084592b92610b45551a593df622a4a"
         }
       ]
     }
