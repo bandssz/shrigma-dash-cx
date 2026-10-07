@@ -243,7 +243,8 @@ function createAuth(options){
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
- let managedCrm=null,managedWriter=null;
+ let managedCrm=null,managedWriter=null,nativeConnections=null;
+ if(options.crmNativeEnabled!==undefined&&typeof options.crmNativeEnabled!=='boolean')err('NATIVE_CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined)try{
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
@@ -415,7 +416,16 @@ function createAuth(options){
   return {cookie:cookie(token,Math.floor(SESSION_MS/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
  }
  function lookup(ctx,refresh=true){
-  const h=knownHost(ctx?.host),token=cookieToken(ctx?.cookieHeader);if(!token)return null;
+  const h=knownHost(ctx?.host);
+  if(ctx?.nativeBearer!==undefined){
+   if(!nativeConnections)return null;
+   let proof;try{proof=nativeConnections.authenticate(ctx.nativeBearer);}catch{return null;}
+   if(proof.host!==h)return null;
+   const raw=db.prepare('SELECT * FROM users WHERE id=?').get(proof.userId);
+   if(!raw||raw.role!=='superadmin'||raw.state!=='active'||h!==managerHost)return null;
+   return {user:publicUser(raw),csrf:nativeConnections.context(ctx.nativeBearer).csrf,uiKey:publicUiKey(raw.id),tokenHash:null,host:h};
+  }
+  const token=cookieToken(ctx?.cookieHeader);if(!token)return null;
   const row=db.prepare('SELECT s.*,u.email,u.role,u.state FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.host=?').get(sha(token),h);
   const t=current();if(!row||row.state!=='active'||row.expires_at<=t||row.idle_expires_at<=t)return null;
   const area=Object.entries(areaHosts).find(([,v])=>v===h)?.[0],perms=permissions(row.user_id);
@@ -1163,6 +1173,20 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({
+  db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),
+  consent:context=>{
+   if(context?.nativeBearer!==undefined)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   const user=adminContext(context),found=lookup(context,false);
+   if(!found?.tokenHash)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   return {userId:user.id,sessionHash:found.tokenHash};
+  },
+  identity:userId=>{
+   const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!user)return null;
+   return {role:user.role,active:user.state==='active',canEditGrowth:permissions(userId).growth?.edit===true,
+    revision:crypto.createHmac('sha256',encKey).update('native-owner-v1:'+JSON.stringify([user.id,user.email,user.role,user.state,user.password_hash])).digest('hex')};
+  }
+ });
+ return Object.freeze({...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

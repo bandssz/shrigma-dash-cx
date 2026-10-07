@@ -1,0 +1,20 @@
+FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911 AS native-build
+USER 0:0
+WORKDIR /source
+ARG GIT_SHA
+COPY services/dashboard-operational/auth.cjs services/dashboard-operational/server.cjs services/dashboard-operational/crm-native-delegation.cjs services/dashboard-operational/crm-native-mcp.cjs services/dashboard-operational/crm-native-operator.cjs ./services/dashboard-operational/
+COPY ops/releases/crm-native-connection-20261007/bootstrap.cjs ops/releases/crm-native-connection-20261007/build-release.cjs ./ops/releases/crm-native-connection-20261007/
+RUN node ops/releases/crm-native-connection-20261007/build-release.cjs /source /app /native-output "$GIT_SHA"
+
+FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911 AS runtime
+ARG GIT_SHA
+LABEL org.opencontainers.image.title="Shrigma native CRM connection" \
+      org.opencontainers.image.source="https://github.com/bandssz/shrigma-dash-cx" \
+      org.opencontainers.image.revision="$GIT_SHA" \
+      shrigma.native.parent="sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911"
+USER 0:0
+COPY --from=native-build /native-output/ /app/native-backend/
+RUN chmod 0555 /app/native-backend /app/native-backend/runtime
+USER 1000:1000
+# Native startup is admitted separately by Root on the existing Compose gateway.
+# The historical pack/controller, original CMD and public V2 payloads stay intact.

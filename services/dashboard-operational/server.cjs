@@ -49,6 +49,8 @@ function cspFor(html){
 }
 
 function settingsFromEnv(env=process.env){
+  const crmNativeMode=env.DASHBOARD_NATIVE_MCP||'disabled';
+  if(!['disabled','enabled'].includes(crmNativeMode))throw Error('Native MCP mode invalid');
   const mode=env.DASHBOARD_MODE;if(!['synthetic','operational'].includes(mode))throw Error('DASHBOARD_MODE invalid');
   const upstreamProfile=env.DASHBOARD_UPSTREAM_PROFILE||'production';
   if(!['production','crm-sandbox'].includes(upstreamProfile)||upstreamProfile==='crm-sandbox'&&mode!=='operational')throw Error('DASHBOARD_UPSTREAM_PROFILE invalid');
@@ -107,7 +109,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,upstreamProfile,crmDraftWrite,crmAudienceDraft,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
+  return {mode,...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),upstreamProfile,crmDraftWrite,crmAudienceDraft,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
 }
 function safeRequestPath(raw){
   if(typeof raw!=='string'||raw.length>4096||!raw.startsWith('/')||raw.startsWith('//'))throw jsonError(400,'PATH_INVALID');
@@ -435,7 +437,7 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
   if(typeof admit!=='function')throw jsonError(503,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');await admit();
  }
 }
-function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime}={}){
+function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller}={}){
   if(!auth)throw Error('Auth required');
   if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');
   const upstreamProfile=s.upstreamProfile||'production',sandbox=upstreamProfile==='crm-sandbox';
@@ -524,19 +526,23 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     // read/parse still retains the large payload in this process.
     return ()=>{workDone=true;release();};
   };
-  const server=http.createServer({maxHeaderSize:8192},(req,res)=>{
+  if(s.crmNativeEnabled!==undefined&&typeof s.crmNativeEnabled!=='boolean'||s.crmNativeEnabled===true&&!auth.nativeConnections)throw Error('Native MCP identity configuration required');
+  let nativeMcp;
+  const dispatch=(req,res,nativeContext)=>{
     headers(res);
     const handle=async()=>{
       const host=String(req.headers.host||'').toLowerCase();
       if(!allowedHosts.has(host))throw jsonError(421,'HOST_DENIED');
       const url=safeRequestPath(req.url),origin='https://'+host;
-      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin
       // only from browser-controlled Fetch Metadata on this allowed host.
       // An explicit foreign Origin or missing metadata never gets this path.
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
-      const ctx={cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
+      if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
+      const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
+      if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
       if(url.pathname==='/auth/session'&&req.method==='GET'){
         const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
         const found=auth.session(ctx);
@@ -887,13 +893,18 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(status===503&&code==='CRM_CACHE_BUSY')res.setHeader('Retry-After','2');
       sendJson(req,res,status,{error:code});
     });
-  });
+  };
+  if(s.crmNativeEnabled===true){
+    const N=require('./crm-native-mcp.cjs');
+    nativeMcp=N.createNativeMcp({auth,managerHost:s.managerHost,installer:nativeInstaller,invoke:request=>N.dispatchJson(dispatch,request)});
+  }
+  const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;
   if(managedCrmRuntime){server.once('listening',kickManagedCrm);server.once('close',()=>{Promise.resolve().then(()=>managedCrmRuntime.close()).catch(()=>{});});}
   return server;
 }
 function authOptionsFor(settings){
-  return {dbPath:settings.dbPath,managerHost:settings.managerHost,areaHosts:settings.areaHosts,allowedEmailDomains:settings.allowedEmailDomains,bootstrapAdminEmail:settings.bootstrapAdminEmail,bootstrapTokenSha256:settings.bootstrapTokenSha256,encryptionKey:settings.encryptionKey,...(settings.crmCampaignWriterProfile!==undefined?{crmCampaignWriterProfile:settings.crmCampaignWriterProfile}:{}),...(settings.crmCampaignSubmitWrite===true?{crmCampaignSubmitWrite:true}:{}),...(settings.crmManagedWriter?{crmManagedWriter:require('./crm-manager-runtime.cjs').corporateWriterDescriptor(settings.crmManagedWriter,settings.crmManagedRead,settings.allowedEmailDomains)}:{}),...(settings.crmManagedRead?{crmManagedRead:{issuerId:settings.crmManagedRead.issuerId,namespaceId:settings.crmManagedRead.namespaceId}}:{})};
+  return {...(settings.crmNativeEnabled===true?{crmNativeEnabled:true}:{}),dbPath:settings.dbPath,managerHost:settings.managerHost,areaHosts:settings.areaHosts,allowedEmailDomains:settings.allowedEmailDomains,bootstrapAdminEmail:settings.bootstrapAdminEmail,bootstrapTokenSha256:settings.bootstrapTokenSha256,encryptionKey:settings.encryptionKey,...(settings.crmCampaignWriterProfile!==undefined?{crmCampaignWriterProfile:settings.crmCampaignWriterProfile}:{}),...(settings.crmCampaignSubmitWrite===true?{crmCampaignSubmitWrite:true}:{}),...(settings.crmManagedWriter?{crmManagedWriter:require('./crm-manager-runtime.cjs').corporateWriterDescriptor(settings.crmManagedWriter,settings.crmManagedRead,settings.allowedEmailDomains)}:{}),...(settings.crmManagedRead?{crmManagedRead:{issuerId:settings.crmManagedRead.issuerId,namespaceId:settings.crmManagedRead.namespaceId}}:{})};
 }
 function managedRuntimeFor(settings,auth){
   if(!settings.crmManagedRead)return undefined;

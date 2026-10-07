@@ -1,0 +1,272 @@
+{
+  "schema": "shrigma-native-source-custody-v1",
+  "baseHead": "01f9b7cb5ac06a6b170986f6b9a02f278d45dd3b",
+  "baseTree": "3ae8728f1f1f1e462d906164c9ac71f1f3afe268",
+  "baseBlobCount": 1943,
+  "baseRuntime": [
+    {
+      "path": "services/dashboard-operational/auth.cjs",
+      "gitBlobSha1": "43147119bd236daa067c46c876e394ef310bd548"
+    },
+    {
+      "path": "services/dashboard-operational/backend-credential-attestation.cjs",
+      "gitBlobSha1": "2fa1aeb13f718473cd832214b8716f601adae7ba"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-write-contract.js",
+      "gitBlobSha1": "cded444534101eb8a4d516a91079cbb63c6db4d4"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-write-tracking.js",
+      "gitBlobSha1": "8cde2fe3ec6cb74fbd600d89bc1fa9ad32174ef7"
+    },
+    {
+      "path": "services/dashboard-operational/crm-audience-read-bridge.cjs",
+      "gitBlobSha1": "230d7999f922361f829f91405564232a426b12f3"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-content-admission.cjs",
+      "gitBlobSha1": "504aa722f3c7fe22d09dda4c15379d835cd8838b"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-content-profile.cjs",
+      "gitBlobSha1": "2aefc4b4f324a4ee13e5681a19f2cca79676bdbb"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-create.cjs",
+      "gitBlobSha1": "4c471f8abde6f547d00a19661836df3354330904"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
+      "gitBlobSha1": "919574dc693c766e0daec5d6bb3d0bbd133057c8"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-writer-attestation.cjs",
+      "gitBlobSha1": "45024f4c1e0c271f3e4af6cfce4ddde473ef4336"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-attestation.cjs",
+      "gitBlobSha1": "301a84fd2d605b1260b2cc694001e916d6f825a5"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-coordinator.cjs",
+      "gitBlobSha1": "920a263c0bc704d395b055baa0b5dbe43a78b903"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-dispatcher.cjs",
+      "gitBlobSha1": "6eb7b79c70dcdca605970a1c1f26ca6fed85f06f"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-journal.cjs",
+      "gitBlobSha1": "6106ceb9bdab3766815e49f4675bdc031f454f01"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-provisioning.cjs",
+      "gitBlobSha1": "9b96acd65a74198c65b75173db6c1ef683371a18"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-read-bridge.cjs",
+      "gitBlobSha1": "59abd853289c2f18db71b034ecb00bfc0a4cac30"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-runtime.cjs",
+      "gitBlobSha1": "7cf41f8ed2386d5f4f9d216728a2ce05b905e651"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-writer-auth-adapter.cjs",
+      "gitBlobSha1": "5dd01a6b4062daecc9836a7877f92701691bd8a9"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-writer-client.cjs",
+      "gitBlobSha1": "390f40255a10d0b8e61fa504424e7886227d7aae"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-writer-coordinator.cjs",
+      "gitBlobSha1": "479d9dd0f47f17c2283baa7479e2aa79c8945c0b"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-writer-journal.cjs",
+      "gitBlobSha1": "eb563c74427787a9e7281459f0a807a286242138"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-writer-policy.cjs",
+      "gitBlobSha1": "60da644cb5882971651d2a5f636d2e7256ac151a"
+    },
+    {
+      "path": "services/dashboard-operational/crm-media-read-validator.cjs",
+      "gitBlobSha1": "c16e75262a61efb744f16282dbe58a060e034514"
+    },
+    {
+      "path": "services/dashboard-operational/crm-template-read-bridge.cjs",
+      "gitBlobSha1": "2e18cde5a9da4ec41f72fbecbae64a3041048df0"
+    },
+    {
+      "path": "services/dashboard-operational/fixtures.cjs",
+      "gitBlobSha1": "8df70e2050fbeebd9e4ebdff540e5dd3915aff6d"
+    },
+    {
+      "path": "services/dashboard-operational/proxy.cjs",
+      "gitBlobSha1": "92d0e9ed210bd684c3bf8ea94a0dac18d4cd22b6"
+    },
+    {
+      "path": "services/dashboard-operational/segment-audience-contract.js",
+      "gitBlobSha1": "0f435e4d6e423686b8c4214d260e383fdf6d07af"
+    },
+    {
+      "path": "services/dashboard-operational/server.cjs",
+      "gitBlobSha1": "3ecbedd242d3f304357ba1141dbc764c121157e6"
+    }
+  ],
+  "reviewedSql": [
+    {
+      "path": "n8n/access/crm-manager-provision-v1.sql",
+      "gitBlobSha1": "e68af6ccea1ba809529b35b5dd76560df720474a"
+    },
+    {
+      "path": "n8n/access/crm-manager-role-install-v1.sql",
+      "gitBlobSha1": "cafbd8c0413569d728f646a386e013170a02dec8"
+    },
+    {
+      "path": "tools/crm-manager-writer-review/writer-provision-v1.sql",
+      "gitBlobSha1": "4c789d0a80b87d18de57faf1e0bae6b60b0803fc"
+    }
+  ],
+  "paths": [
+    ".github/workflows/crm-native-connection-20261007.yml",
+    "ops/releases/crm-native-connection-20261007/Dockerfile",
+    "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
+    "ops/releases/crm-native-connection-20261007/build-release.cjs",
+    "ops/releases/crm-native-connection-20261007/smoke.cjs",
+    "services/dashboard-operational/auth.cjs",
+    "services/dashboard-operational/crm-native-delegation.cjs",
+    "services/dashboard-operational/crm-native-mcp.cjs",
+    "services/dashboard-operational/crm-native-operator.cjs",
+    "services/dashboard-operational/native-installer/INTEGRATION.txt",
+    "services/dashboard-operational/native-installer/catalog.cjs",
+    "services/dashboard-operational/native-installer/installer.cjs",
+    "services/dashboard-operational/native-installer/manifest.json",
+    "services/dashboard-operational/native-installer/migrations/crm-manager-provision-v1.sql",
+    "services/dashboard-operational/native-installer/migrations/crm-manager-role-install-v1.sql",
+    "services/dashboard-operational/native-installer/migrations/writer-provision-v1.sql",
+    "services/dashboard-operational/native-installer/sql.cjs",
+    "services/dashboard-operational/server.cjs",
+    "tests/dashboard-operational-native-mcp.test.cjs",
+    "tests/native-installer/installer.test.cjs",
+    "tests/native-installer/model.cjs",
+    "tools/crm-native-connection/source-custody.json",
+    "tools/crm-native-connection/verify-source.cjs"
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/crm-native-connection-20261007.yml",
+      "bytes": 4324,
+      "sha256": "fa384b4eae472a5111d20f14a79ab4dea61398eabe4478b45c87c7f86c5bb4d1"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 1518,
+      "sha256": "117c226f6e4773b9b0219c2dc58a8598bf08cbb57e6075a60cfe80f9cc00da85"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
+      "bytes": 6926,
+      "sha256": "36fe197fd1826fca5737e95f3fced035e0f1ce6107d2ac6973b7ed0b56daa7e9"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
+      "bytes": 3253,
+      "sha256": "80fca17f9f5c6eb409deb7495665541647848fe6845d923fbb42c15571156e1c"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
+      "bytes": 5748,
+      "sha256": "aacf2e81ff81c7d7f2f2f88c243b5f24209107621c84672a9d2747dd91c3162f"
+    },
+    {
+      "path": "services/dashboard-operational/auth.cjs",
+      "bytes": 112383,
+      "sha256": "08d86fe2c58981159d05ca36e99a5b7cbf57058652d668408258f64f77805e08"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-delegation.cjs",
+      "bytes": 6724,
+      "sha256": "8523dcd5b0a091434d80f5161086f852b61496721b7c42f3ddf04ffaf67c9cbd"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-mcp.cjs",
+      "bytes": 12980,
+      "sha256": "7455b46ebb7f1b0567d76d0380fbd93ea6fbfebc55fd9d42e06d3690d93b5073"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-operator.cjs",
+      "bytes": 6566,
+      "sha256": "a007ae2bc894a2d33f005000146be473fd558ccf8f196da0121f70bd21b65e0e"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/INTEGRATION.txt",
+      "bytes": 10764,
+      "sha256": "89060c6e92dae7c302bd88803cbe4832a8049b92091e1fe26e70fa26f0bf8347"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/catalog.cjs",
+      "bytes": 1270,
+      "sha256": "69db61871025c1de8b9a3bc2c641dbfb6408d2f3d77528f67d5bd316a912a0af"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/installer.cjs",
+      "bytes": 21207,
+      "sha256": "48e1d97792bbd91daa8f1bfccae47d0ce7f52c8721cf53292ec34c993610c8b6"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/manifest.json",
+      "bytes": 6454,
+      "sha256": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/crm-manager-provision-v1.sql",
+      "bytes": 24527,
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/crm-manager-role-install-v1.sql",
+      "bytes": 9310,
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/writer-provision-v1.sql",
+      "bytes": 38349,
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/sql.cjs",
+      "bytes": 9024,
+      "sha256": "e70133a94cca69e8ca85b0499ab50d81478859755b1756bd3947db76afd28271"
+    },
+    {
+      "path": "services/dashboard-operational/server.cjs",
+      "bytes": 93046,
+      "sha256": "24302db697ffabed0e027099c51b2c7e75b177d686d2554f1abfade42b9f7689"
+    },
+    {
+      "path": "tests/dashboard-operational-native-mcp.test.cjs",
+      "bytes": 13384,
+      "sha256": "df0d4d6747db860ee0c8592c786551bd925de5badebbacdeaa16cbd755c43565"
+    },
+    {
+      "path": "tests/native-installer/installer.test.cjs",
+      "bytes": 8926,
+      "sha256": "79b5079a91e6e83dcab61a9556a71108b05d591d68165eaf3fc47a5c8f633750"
+    },
+    {
+      "path": "tests/native-installer/model.cjs",
+      "bytes": 6476,
+      "sha256": "3a8167bb4eab251cd92c4385bd70fc9c9cc05669e6f4260caaca65eff6460cc9"
+    },
+    {
+      "path": "tools/crm-native-connection/verify-source.cjs",
+      "bytes": 3511,
+      "sha256": "cc1110fffd568e95ec091168d0bfcaa63283c96f1e3c1ed4850c8d1d3ad6b846"
+    }
+  ],
+  "operational": false
+}

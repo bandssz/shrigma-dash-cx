@@ -1,0 +1,188 @@
+{
+  "schema": "shrigma-reviewed-installer-manifest-v1",
+  "sourceHead": "01f9b7cb5ac06a6b170986f6b9a02f278d45dd3b",
+  "target": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "database": "listmonk"
+  },
+  "migrations": [
+    {
+      "id": "crm-read-provision-v1",
+      "sourcePath": "n8n/access/crm-manager-provision-v1.sql",
+      "file": "crm-manager-provision-v1.sql",
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4",
+      "bytes": 24527,
+      "executionSha256": "10ef062fc450b9c7eb7808dcc1aa0e2b8117373c8077b8968cc0c919fd5cc942",
+      "dependsOn": [],
+      "creates": {
+        "tables": [
+          "shrigma_crm_manager_issuer_v1",
+          "shrigma_crm_manager_subject_v1",
+          "shrigma_crm_manager_operation_v1",
+          "shrigma_crm_manager_generation_v1"
+        ],
+        "indexes": [
+          "shrigma_crm_manager_one_prepared_v1",
+          "shrigma_crm_manager_one_active_v1"
+        ],
+        "functions": [
+          "shrigma_crm_manager_canonical_v1",
+          "shrigma_crm_manager_error_v1",
+          "shrigma_crm_manager_apply_v1",
+          "shrigma_crm_manager_prepare_v1",
+          "shrigma_crm_manager_commit_v1",
+          "shrigma_crm_manager_revoke_v1",
+          "shrigma_crm_manager_status_v1"
+        ],
+        "roles": []
+      },
+      "ownPublicObjects": [
+        "crm_dash_chave",
+        "shrigma_crm_manager_apply_v1",
+        "shrigma_crm_manager_canonical_v1",
+        "shrigma_crm_manager_commit_v1",
+        "shrigma_crm_manager_error_v1",
+        "shrigma_crm_manager_generation_v1",
+        "shrigma_crm_manager_issuer_v1",
+        "shrigma_crm_manager_one_active_v1",
+        "shrigma_crm_manager_one_prepared_v1",
+        "shrigma_crm_manager_operation_v1",
+        "shrigma_crm_manager_prepare_v1",
+        "shrigma_crm_manager_revoke_v1",
+        "shrigma_crm_manager_status_v1",
+        "shrigma_crm_manager_subject_v1",
+        "shrigma_panel_permission_v1"
+      ],
+      "createdOwner": "installer",
+      "requires": [
+        "authOwnership",
+        "authShapeReviewed",
+        "freshCatalog",
+        "hbaTlsLoggingReviewed",
+        "backupRecoveryReviewed",
+        "nativePG17Reviewed"
+      ],
+      "replay": "consult-original-only",
+      "activation": false,
+      "gitBlobSha1": "e68af6ccea1ba809529b35b5dd76560df720474a"
+    },
+    {
+      "id": "crm-read-role-install-v1",
+      "sourcePath": "n8n/access/crm-manager-role-install-v1.sql",
+      "file": "crm-manager-role-install-v1.sql",
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789",
+      "bytes": 9310,
+      "executionSha256": "eedc4768505271ef33f683e8be2ecb603d49e24f2dd6881effbf9dfcee5b3199",
+      "dependsOn": [
+        "crm-read-provision-v1"
+      ],
+      "creates": {
+        "tables": [],
+        "indexes": [],
+        "functions": [],
+        "roles": [
+          "crm_manager_function_owner_v1",
+          "crm_manager_provisioner"
+        ]
+      },
+      "ownPublicObjects": [
+        "crm_dash_chave",
+        "shrigma_crm_manager_apply_v1",
+        "shrigma_crm_manager_canonical_v1",
+        "shrigma_crm_manager_commit_v1",
+        "shrigma_crm_manager_error_v1",
+        "shrigma_crm_manager_generation_v1",
+        "shrigma_crm_manager_issuer_v1",
+        "shrigma_crm_manager_one_active_v1",
+        "shrigma_crm_manager_one_prepared_v1",
+        "shrigma_crm_manager_operation_v1",
+        "shrigma_crm_manager_prepare_v1",
+        "shrigma_crm_manager_revoke_v1",
+        "shrigma_crm_manager_status_v1",
+        "shrigma_crm_manager_subject_v1",
+        "shrigma_panel_permission_v1"
+      ],
+      "createdOwner": "crm_manager_function_owner_v1",
+      "requires": [
+        "authOwnership",
+        "authShapeReviewed",
+        "freshCatalog",
+        "hbaTlsLoggingReviewed",
+        "backupRecoveryReviewed",
+        "nativePG17Reviewed",
+        "publicAclReviewed",
+        "existingFunctionHashesReviewed"
+      ],
+      "replay": "consult-original-only",
+      "activation": false,
+      "gitBlobSha1": "cafbd8c0413569d728f646a386e013170a02dec8"
+    },
+    {
+      "id": "crm-writer-provision-v1",
+      "sourcePath": "tools/crm-manager-writer-review/writer-provision-v1.sql",
+      "file": "writer-provision-v1.sql",
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04",
+      "bytes": 38349,
+      "executionSha256": "ee8fbfa171f694201f328e470e7d545b44c02fa9600d9fd9733ba9e1f1a7e07e",
+      "dependsOn": [],
+      "creates": {
+        "tables": [
+          "crm_manager_writer_issuer_v1",
+          "crm_manager_writer_subject_v1",
+          "crm_manager_writer_operation_v1",
+          "crm_manager_writer_generation_v1"
+        ],
+        "indexes": [
+          "crm_manager_writer_one_prepared_v1",
+          "crm_manager_writer_one_active_v1"
+        ],
+        "functions": [
+          "crm_manager_writer_canonical_v1",
+          "crm_manager_writer_error_v1",
+          "crm_manager_writer_apply_v1",
+          "crm_manager_writer_prepare_v1",
+          "crm_manager_writer_commit_v1",
+          "crm_manager_writer_revoke_v1",
+          "crm_manager_writer_status_v1"
+        ],
+        "roles": [
+          "crm_manager_writer_owner_v1",
+          "crm_manager_writer_service_v1"
+        ]
+      },
+      "ownPublicObjects": [
+        "crm_dash_chave",
+        "crm_manager_writer_apply_v1",
+        "crm_manager_writer_canonical_v1",
+        "crm_manager_writer_commit_v1",
+        "crm_manager_writer_error_v1",
+        "crm_manager_writer_generation_v1",
+        "crm_manager_writer_issuer_v1",
+        "crm_manager_writer_one_active_v1",
+        "crm_manager_writer_one_prepared_v1",
+        "crm_manager_writer_operation_v1",
+        "crm_manager_writer_prepare_v1",
+        "crm_manager_writer_revoke_v1",
+        "crm_manager_writer_status_v1",
+        "crm_manager_writer_subject_v1",
+        "shrigma_panel_permission_v1"
+      ],
+      "createdOwner": "crm_manager_writer_owner_v1",
+      "requires": [
+        "authOwnership",
+        "authShapeReviewed",
+        "freshCatalog",
+        "hbaTlsLoggingReviewed",
+        "backupRecoveryReviewed",
+        "nativePG17Reviewed",
+        "writerFences73a832fReviewed",
+        "defaultAclCentralLeitorReviewed"
+      ],
+      "replay": "consult-original-only",
+      "activation": false,
+      "gitBlobSha1": "4c789d0a80b87d18de57faf1e0bae6b60b0803fc"
+    }
+  ],
+  "nativeSourceVerified": true
+}

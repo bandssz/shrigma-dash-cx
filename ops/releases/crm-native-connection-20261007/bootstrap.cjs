@@ -1,0 +1,54 @@
+'use strict';
+// Fresh, explicit backend admission. Old pack/seals/controller/73a stay intact.
+// The old presentation verifier covers its own artifact. This verifier covers
+// the actual 31-file runtime used by this server, including the two replacements.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const ROOT='/app/native-backend',READY='/tmp/shrigma-native-ready-v1.json';
+const PARENT='ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911';
+const BASE_PACK='c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da';
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const refuse=()=>{throw Error('NATIVE_BACKEND_RELEASE_REFUSED');};
+const same=(a,b)=>['dev','ino','size','mode','nlink','uid','gid','mtimeMs','ctimeMs'].every(k=>a[k]===b[k]);
+function read(file,{uid=0,gid=0,mode=0o444,max=2*1024*1024}={}){
+ const s=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.uid!==uid||s.gid!==gid||(s.mode&0o777)!==mode||s.size<1||s.size>max)refuse();
+ const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);try{if(!same(s,fs.fstatSync(fd)))refuse();const b=fs.readFileSync(fd);if(b.length!==s.size||!same(s,fs.fstatSync(fd))||!same(s,fs.lstatSync(file)))refuse();return b;}finally{fs.closeSync(fd);}
+}
+function verifyRelease(manifestSha256){
+ if(!/^[a-f0-9]{64}$/.test(manifestSha256||''))refuse();
+ for(const dir of [ROOT,ROOT+'/runtime']){const s=fs.lstatSync(dir);if(fs.realpathSync(dir)!==dir||!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o555)refuse();}
+ const bytes=read(ROOT+'/manifest.json',{max:16384});if(sha(bytes)!==manifestSha256)refuse();const m=JSON.parse(bytes);
+ if(Object.keys(m).sort().join(',')!=='additions,basePackSha256,baseRuntime,files,historicalActivationReplayed,identityDatabase,operational,originalPackPreserved,parentImage,replacements,schema,sourceRevision,sqlInstallerEnabled'||m.schema!=='shrigma-native-backend-release-v1'||m.parentImage!==PARENT||m.basePackSha256!==BASE_PACK||!/^[a-f0-9]{40}$/.test(m.sourceRevision)||m.identityDatabase!=='/dashboard-data/dashboard.sqlite'||m.originalPackPreserved!==true||m.historicalActivationReplayed!==false||m.sqlInstallerEnabled!==false||m.operational!==false||JSON.stringify(m.replacements)!=='["auth.cjs","server.cjs"]'||JSON.stringify(m.additions)!=='["crm-native-delegation.cjs","crm-native-mcp.cjs","crm-native-operator.cjs"]')refuse();
+ const policy=require('/app/artifact-policy.cjs'),old=policy.decodePack(read('/app/runtime-pack.json').toString(),BASE_PACK);
+ const base=old.files.filter(f=>f.path.startsWith('runtime/')).map(f=>({path:f.path.slice(8),b:Buffer.from(f.content,f.encoding)})).sort((a,b)=>a.path.localeCompare(b.path));
+ if(base.length!==28||JSON.stringify(base.map(f=>({path:f.path,sha256:sha(f.b),bytes:f.b.length})))!==JSON.stringify(m.baseRuntime))refuse();
+ const expected=['bootstrap.cjs',...base.map(f=>'runtime/'+f.path),...m.additions.map(f=>'runtime/'+f)].sort();
+ if(!Array.isArray(m.files)||m.files.length!==32||JSON.stringify(m.files.map(f=>f.path).sort())!==JSON.stringify(expected)||fs.readdirSync(ROOT).sort().join(',')!=='bootstrap.cjs,manifest.json,runtime'||JSON.stringify(fs.readdirSync(ROOT+'/runtime').sort())!==JSON.stringify(expected.filter(f=>f.startsWith('runtime/')).map(f=>f.slice(8))))refuse();
+ for(const f of m.files){if(Object.keys(f).sort().join(',')!=='bytes,path,sha256'||!/^[a-f0-9]{64}$/.test(f.sha256)||!Number.isSafeInteger(f.bytes)||f.bytes<1)refuse();const b=read(ROOT+'/'+f.path);if(b.length!==f.bytes||sha(b)!==f.sha256)refuse();const before=base.find(v=>'runtime/'+v.path===f.path);if(before&&!(m.replacements.includes(before.path))&&!b.equals(before.b)||before&&m.replacements.includes(before.path)&&b.equals(before.b))refuse();}
+ return m;
+}
+function verifyReady({manifestSha256}){
+ const m=verifyRelease(manifestSha256),r=JSON.parse(read(READY,{uid:1000,gid:1000,mode:0o600,max:1024}));
+ if(Object.keys(r).sort().join(',')!=='manifestSha256,schema,sourceRevision'||r.schema!=='shrigma-native-ready-v1'||r.manifestSha256!==manifestSha256||r.sourceRevision!==m.sourceRevision)refuse();
+ return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:31,runtimeReplacements:2,originalRuntimePreserved:26,runtimeAdditions:3,sqlInstallerEnabled:false,operational:false};
+}
+function start({manifestSha256}={}){
+ const m=verifyRelease(manifestSha256),boot=require('/app/bootstrap.cjs');boot.checkIdentity();process.umask(0o077);
+ // Production's historical controller already reconciles its consumed receipt
+ // before calling us. No activation/issuer helper is invoked by this bootstrap.
+ const env=boot.pinnedEnv();boot.checkStorage();if(env.DASHBOARD_PACK_SHA256!==BASE_PACK)refuse();
+ const parent=fs.realpathSync(fs.mkdtempSync('/tmp/shrigma-operational-'));let artifact,auth,server;
+ try{
+  artifact=require('/app/artifact-policy.cjs').unpack(boot.selectPackFile(),path.join(parent,'artifact'),{expectedSha256:BASE_PACK});
+  const runtime=require(ROOT+'/runtime/server.cjs'),settings=runtime.settingsFromEnv({...env,DASHBOARD_NATIVE_MCP:'enabled',DASHBOARD_PUBLIC_DIR:artifact.publicDir});
+  settings.crmNativeManifestSha256=manifestSha256;
+  auth=require(ROOT+'/runtime/auth.cjs').createAuth(runtime.authOptionsFor(settings));
+  const managedCrmRuntime=runtime.managedRuntimeFor(settings,auth);server=runtime.createServer(settings,{auth,managedCrmRuntime});
+  let closing=false,failed=false;
+  const close=(failure=false)=>{if(failure||process.exitCode){failed=true;process.exitCode=1;}if(closing)return;closing=true;const drain=Promise.resolve().then(()=>managedCrmRuntime?.close());const stopped=new Promise(resolve=>{try{server.close(()=>resolve());server.closeIdleConnections?.();}catch{resolve();}});Promise.allSettled([drain,stopped]).then(results=>{if(results.some(r=>r.status==='rejected'))failed=true;try{auth.close();fs.rmSync(parent,{recursive:true,force:true});fs.rmSync(READY,{force:true});}catch{failed=true;}process.exitCode=failed?1:0;});};
+  server.on('error',()=>close(true));process.once('SIGTERM',()=>close());process.once('SIGINT',()=>close());
+  const fd=fs.openSync(READY,fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_WRONLY|fs.constants.O_NOFOLLOW,0o600);try{fs.writeFileSync(fd,JSON.stringify({schema:'shrigma-native-ready-v1',manifestSha256,sourceRevision:m.sourceRevision})+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+  server.listen(settings.port,settings.host);
+  return {server,artifact,nativeBackend:{manifestSha256,sourceRevision:m.sourceRevision,sqlInstallerEnabled:false,operational:false}};
+ }catch(e){try{server?.close();auth?.close();fs.rmSync(parent,{recursive:true,force:true});}catch{}throw e;}
+}
+module.exports={verifyRelease,verifyReady,start,ROOT,READY};
