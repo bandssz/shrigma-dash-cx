@@ -5,9 +5,10 @@ const A=require('./segment-audience-contract.js');
 const H=require('./segment-audience-review.cjs');
 const Shopify=require('./segment-shopify-facts.cjs');
 const Recorded=require('./segment-recorded-origin.cjs');
+const ContextReview=require('./segment-audience-context-review.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i,HASH=/^[a-f0-9]{64}$/,KEY=/^[A-Za-z0-9_.:-]{8,128}$/;
-const fields={segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_contexto_v2:[],segmento_operacao:['idempotency_key'],segmento_operacao_v2:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
+const fields={segmento_contexto_revisao:['id','expected_version','expected_catalog_hash'],segmentos_listar:['limit','offset'],segmento_obter:['id'],segmento_contexto_v2:[],segmento_operacao:['idempotency_key'],segmento_operacao_v2:['idempotency_key'],segmento_criar:['definition','idempotency_key','expected_catalog_hash'],segmento_salvar:['id','expected_version','definition','idempotency_key','expected_catalog_hash'],segmento_arquivar:['id','expected_version','idempotency_key'],segmento_contar:['definition','expected_catalog_hash']};
 const mutations=['segmento_criar','segmento_salvar','segmento_arquivar'];
 const fail=(code,status=503)=>Object.assign(Error(code),{code,status});
 const exact=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
@@ -183,6 +184,20 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
     if(!rows.length)return error(404,'SEGMENT_OPERATION_UNCONFIRMED');
     const old=rows[0];if(old.brand!==p.brand)return error(409,'SEGMENT_OPERATION_MISMATCH');
     const result=operationV2(old,p,first.actor);await reauth();return result;
+   }
+   if(p.acao==='segmento_contexto_revisao'){
+    let row;
+    try{
+     await reauth();const before=await readCatalog(query,p.brand);await reauth();
+     const checkCatalog=c=>{if(!c.ready||!c.catalog.current)throw fail('SEGMENT_UNAVAILABLE',503);if(c.catalog.catalog_hash!==p.expected_catalog_hash)throw fail('SEGMENT_CATALOG_CHANGED',409);};checkCatalog(before);
+     const readRow=async()=>{const rows=(await query(SQL.get,[p.id,p.brand])).rows;if(!rows.length)throw fail('SEGMENT_NOT_FOUND',404);if(rows.length!==1)throw fail('SEGMENT_READBACK_UNCONFIRMED');const s=validStored(rows[0]);row=s;if(s.id!==p.id||s.brand!==p.brand)throw fail('SEGMENT_READBACK_UNCONFIRMED');if(s.version!==p.expected_version)throw fail('SEGMENT_VERSION_CONFLICT',409);if(s.archived)throw fail('SEGMENT_ARCHIVED',409);return s;};
+     row=await readRow();const custody=s=>copy({id:s.id,brand:s.brand,version:s.version,definition:s.definition,definition_hash:s.definition_hash,context:s.context,context_hash:s.context_hash});const saved=custody(row),current=pins(saved.definition,before);
+     await reauth();const after=await readCatalog(query,p.brand);await reauth();checkCatalog(after);
+     if(before.config_revision!==after.config_revision||before.expires_at!==after.expires_at||H.digest(current)!==H.digest(pins(saved.definition,after)))throw fail('SEGMENT_CATALOG_CHANGED',409);
+     const final=await readRow();if(H.digest(custody(final))!==H.digest(saved))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+     const body=ContextReview.create({brand:p.brand,id:p.id,version:saved.version,definition:saved.definition,definition_hash:saved.definition_hash,stored_context:saved.context,stored_context_hash:saved.context_hash,current_context:current,catalog_hash:after.catalog.catalog_hash,checked_at:after.catalog.checked_at},{secrets:[key,first.actor]});
+     await reauth();active();return response(200,body);
+    }catch(e){await reauth();if(['SEGMENT_NOT_FOUND','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_CATALOG_CHANGED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE','SEGMENT_READBACK_UNCONFIRMED'].includes(e?.code))return error(e.status||503,e.code,e.code==='SEGMENT_VERSION_CONFLICT'&&row?{current_version:row.version}:{});throw e;}
    }
    if(writing)await query(SQL.lock,[first.actor,p.idempotency_key]);
    await reauth();

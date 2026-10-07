@@ -1,6 +1,7 @@
 'use strict';
 // Local HTTP-shaped boundary only: no listener, fetch, n8n workflow or deployment.
 const A=require('./segment-audience-contract.js'),S=require('./segment-audience-store.cjs'),H=require('./segment-audience-review.cjs');
+const ContextReview=require('./segment-audience-context-review.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_RESPONSE=2000000;
 const same=(a,b)=>H.digest(A.normalize(a))===H.digest(A.normalize(b));
 const exact=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
@@ -22,6 +23,7 @@ function parse(value){
   if(p.acao==='segmentos_listar')for(const [key,fallback]of [['limit',50],['offset',0]]){
    if(!Object.hasOwn(p,key))p[key]=fallback;else if(typeof p[key]==='string'&&/^(0|[1-9][0-9]*)$/.test(p[key]))p[key]=Number(p[key]);
   }
+  if(p.acao==='segmento_contexto_revisao'&&typeof p.expected_version==='string'&&/^[1-9][0-9]*$/.test(p.expected_version))p.expected_version=Number(p.expected_version);
   const request=S.request(p);if(v.method!==(['segmento_criar','segmento_salvar','segmento_arquivar','segmento_contar'].includes(p.acao)?'POST':'GET'))throw fail('SEGMENT_METHOD_NOT_ALLOWED',405);
   return {route:'execute',key:auth[0][1].slice(7),request,writing:writing(request)};
  }catch(e){return {route:'response',response:response(e.status||400,{error:e.code?.startsWith('SEGMENT_')?e.code:'SEGMENT_REQUEST_INVALID'})};}
@@ -42,6 +44,7 @@ function catalog(c,brand){
 }
 function project(entry,value){
  const r=copy(value,MAX_RESPONSE),p=entry.request,b=r?._body,status=r?._http;if(!exact(r,['_http','_body'])||!b||typeof b!=='object'||Array.isArray(b))throw fail('SEGMENT_READBACK_UNCONFIRMED');
+ if(p.acao==='segmento_contexto_revisao'){const checked=status===200?{status,body:ContextReview.validateBody(b,p,{secrets:[entry.key]})}:ContextReview.validateResponse({status,body:b},p,{secrets:[entry.key]});return response(checked.status,checked.body);}
  if(Object.hasOwn(b,'error')){
   if(['segmento_contexto_v2','segmento_operacao_v2'].includes(p.acao)){
    const fixed={SEGMENT_UNAUTHORIZED:401,SEGMENT_ACCESS_DENIED:403,SEGMENT_SESSION_BOUNDARY:503,SEGMENT_SERVICE_UNAVAILABLE:503,...(p.acao==='segmento_operacao_v2'?{SEGMENT_OPERATION_UNCONFIRMED:404,SEGMENT_OPERATION_MISMATCH:409}:{})};
