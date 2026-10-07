@@ -66,12 +66,13 @@ test('failed refresh and retry preserve dirty draft, layout, base version and pe
  assert.equal(x.calls.length,3);assert.ok(x.calls.every(c=>!c.init.method));
 });
 
-function connectSources(html){const csp=html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];return csp.split(';').find(s=>s.trim().startsWith('connect-src ')).trim().split(/\s+/).slice(1);}
+function connectSources(html){const csp=html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];return (csp.split(';').find(s=>s.trim().startsWith('connect-src '))||csp.split(';').find(s=>s.trim().startsWith('default-src '))).trim().split(/\s+/).slice(1);}
 test('published Growth permits its declared API origin without broadening other panels or their login',()=>{
  const sources=connectSources(fs.readFileSync(path.join(root,'growth.html'),'utf8'));
  assert.deepEqual(connectSources(fs.readFileSync(path.join(root,'crm/index.html'),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host','https://comunicacao-crm-panel-read.tazdb8.easypanel.host']);
  assert.deepEqual(sources,['https://n8n-n8n.tazdb8.easypanel.host',new URL(endpoint).origin,'https://comunicacao-crm-audience.tazdb8.easypanel.host','https://comunicacao-crm-panel-read.tazdb8.easypanel.host']);
- for(const file of ['index.html','organico.html','influs.html','cx/index.html','organico/index.html','creators/index.html','gestao/index.html'])assert.deepEqual(connectSources(fs.readFileSync(path.join(root,file),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host'],file);
+ for(const file of ['index.html','organico.html','influs.html','cx/index.html','organico/index.html','creators/index.html'])assert.deepEqual(connectSources(fs.readFileSync(path.join(root,file),'utf8')),['https://n8n-n8n.tazdb8.easypanel.host'],file);
+ assert.deepEqual(connectSources(fs.readFileSync(path.join(root,'gestao/index.html'),'utf8')),["'none'"]);
 });
 
 test('targeted Growth build writes only Growth artifacts and emits the matching policy',()=>{

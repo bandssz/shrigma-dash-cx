@@ -20,10 +20,11 @@ test('memory-only reader storage migrates only one legacy credential and never w
  assert.equal(vm.runInContext("shrigmaChave('growth')",c),'');assert.equal(map.get('shrigma_campaign_journal'),'retain-reservation');
 });
 test('manager entry documents contain no cross-area navigation and strict script policies',()=>{
- for(const dir of ['cx','crm','organico','creators','gestao']){
+ for(const dir of ['cx','crm','organico','creators']){
   const s=fs.readFileSync(path.join(__dirname,'..',dir,'index.html'),'utf8');
   assert.match(s,/id="entry-nav"[^>]*hidden><\/nav>/);assert.match(s,/script-src 'self';/);assert(!s.includes('unsafe-inline'));assert(!s.includes('localStorage.setItem'));
  }
+ const management=fs.readFileSync(path.join(__dirname,'../gestao/index.html'),'utf8');assert.match(management,/default-src 'none'/);assert.match(management,/url=https:\/\/gerencial\.shrigma\.com\.br\//);assert.doesNotMatch(management,/<script|<form|<input|<iframe|localStorage|sessionStorage/);
  for(const page of ['index','growth','organico','influs']){
   const s=fs.readFileSync(path.join(__dirname,'..',page+'.html'),'utf8');
   assert(!s.includes('class="workspace-links"'));assert.match(s,/script-src 'self' 'sha256-/);assert(!/script-src[^;]*unsafe-inline/.test(s));assert.match(s,/name="referrer" content="no-referrer"/);
