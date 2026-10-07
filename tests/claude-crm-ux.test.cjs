@@ -118,7 +118,8 @@ const gate=()=>{let release,entered;const barrier=new Promise(r=>release=r),star
   test('D-UX4: '+brand+' · anúncio somente de leitura explica Salvar/Contar desabilitados e não oferece exclusão',async()=>{
    const x=boot(),readOnly=structuredClone(api);readOnly.capabilities.segments.save=false;readOnly.capabilities.segments.count=false;
    await x.ui.sync({api:readOnly,brand});fill(x,brand);
-   assert.equal(x.q('[data-gs="archive"]'),null);\n   for(const a of ['save','count']){assert.equal(x.q(`[data-gs="${a}"]`).disabled,true,a);assert.equal(x.q(`[data-gs="${a}"]`).getAttribute('aria-describedby'),'gs-access-note',a);}
+   assert.equal(x.q('[data-gs="archive"]'),null);
+   for(const a of ['save','count']){assert.equal(x.q(`[data-gs="${a}"]`).disabled,true,a);assert.equal(x.q(`[data-gs="${a}"]`).getAttribute('aria-describedby'),'gs-access-note',a);}
    assert.match(x.q('#gs-access-note').textContent,/Seu acesso a públicos é de leitura: consultar está disponível; salvar, arquivar e contar não estão liberados\./);
    assert.equal(x.f.calls.filter(c=>c.method==='POST').length,0);
   });
@@ -309,4 +310,3 @@ const gate=()=>{let release,entered;const barrier=new Promise(r=>release=r),star
   x.q('[data-gs="back"]').click();assert.equal(x.f.calls.filter(c=>c.method==='POST').length,1);
  });
 }
-

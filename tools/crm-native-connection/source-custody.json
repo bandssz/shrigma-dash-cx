@@ -193,6 +193,7 @@
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
     "tests/growth-flows-ui.test.cjs",
+    "tests/growth-segment-ui.test.cjs",
     "tests/native-continuity/fixture.cjs",
     "tests/native-continuity/read-only.test.cjs",
     "tests/native-database-custody.test.cjs",
@@ -213,8 +214,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7216,
-      "sha256": "76ecaea4b269bd6a379eaa906111f705530b57d5a61771ca350a5e9a93459ac2"
+      "bytes": 7347,
+      "sha256": "0fdbbba7f4e9d2fc4a1aa4e04f2ab15b40fbbd54281563cbdb1a002611ccc59f"
     },
     {
       "path": "assets/panels/growth.js",
@@ -473,8 +474,8 @@
     },
     {
       "path": "tests/claude-crm-ux.test.cjs",
-      "bytes": 35648,
-      "sha256": "6b5296869bad7fa773f38ea1ff934e374064cdfe52419d21ddb30f2c88c4a54d"
+      "bytes": 35646,
+      "sha256": "dae1f4d821b5753d29aa2272c28861a78f235f7081967930a0ab6de9511d9e2f"
     },
     {
       "path": "tests/configured-journeys-read/fixtures.cjs",
@@ -515,6 +516,11 @@
       "path": "tests/growth-flows-ui.test.cjs",
       "bytes": 7574,
       "sha256": "23e1494af25d000d718fd22085a9fa013b88427c6fefa000e3b82e0c6279fce0"
+    },
+    {
+      "path": "tests/growth-segment-ui.test.cjs",
+      "bytes": 33683,
+      "sha256": "2231f6a7e4a0c13e60bcd81fcd7e2b4008f530ce01e34602f0a8bb024080f04c"
     },
     {
       "path": "tests/native-continuity/fixture.cjs",
@@ -573,8 +579,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4190,
-      "sha256": "ba89c961130e036c341db28ffe0878fc8fa6a180d1042a12a6fb7c6de7a4e5e3"
+      "bytes": 4225,
+      "sha256": "16ce637252d17a34fca3ea4c8df76b728d793f38d98d0fe02d1f41a66ea9be5b"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

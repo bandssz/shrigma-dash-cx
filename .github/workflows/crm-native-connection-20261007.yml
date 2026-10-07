@@ -97,12 +97,12 @@ jobs:
       - name: Prove only review expectations and custody changed since the published source
         run: |
           node <<'NODE'
-          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='8ea2fe1043bd3062a7cf62217ca5effc710f5e55',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/claude-crm-ux.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,operational:false}));
+          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='8ea2fe1043bd3062a7cf62217ca5effc710f5e55',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/claude-crm-ux.test.cjs','tests/growth-segment-ui.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,operational:false}));
           NODE
       - name: Verify complete source custody
         run: node tools/crm-native-connection/verify-source.cjs
       - name: Install the original local DOM test dependency
         run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
-      - name: Verify the two changed READ audience expectations
+      - name: Verify the four changed audience UI expectations
         run: |
-          node --test --test-name-pattern='anúncio somente de leitura' tests/claude-crm-ux.test.cjs
+          node --test --test-name-pattern='anúncio somente de leitura|both brands use named lists|archive and replacing dirty content' tests/claude-crm-ux.test.cjs tests/growth-segment-ui.test.cjs
