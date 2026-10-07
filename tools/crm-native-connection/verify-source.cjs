@@ -13,7 +13,7 @@ function verify({workspaceOnly=false}={}){
  for(const m of manifest.migrations){const b=fs.readFileSync(path.join(ROOT,'services/dashboard-operational/native-installer/migrations',m.file));assert.equal(blob(b),m.gitBlobSha1);assert.equal(sha(b),m.sha256);assert.equal(b.length,m.bytes);assert.equal(c.reviewedSql.find(f=>f.path===m.sourcePath)?.gitBlobSha1,m.gitBlobSha1);}
  if(!workspaceOnly){
   const git=(...args)=>execFileSync('git',args,{cwd:ROOT,encoding:'utf8'}).trim();
-  const head=git('rev-parse','HEAD');assert.match(head,/^[a-f0-9]{40}$/);assert.equal(head,process.env.GITHUB_SHA);assert.equal(git('rev-parse','HEAD^'),BASE);assert.equal(git('rev-parse',BASE+'^{tree}'),TREE);
+  const head=git('rev-parse','HEAD');assert.match(head,/^[a-f0-9]{40}$/);assert.equal(head,process.env.GITHUB_SHA);assert.equal(git('merge-base',BASE,head),BASE);assert.equal(git('rev-parse',BASE+'^{tree}'),TREE);
   const rows=ref=>git('ls-tree','-r',ref).split('\n').map(s=>{const [meta,p]=s.split('\t');const [mode,type,id]=meta.split(' ');return {path:p,mode,type,id};});
   const before=rows(BASE),after=new Map(rows(head).map(f=>[f.path,f]));assert.equal(before.length,1943);assert(before.every(f=>f.type==='blob'));assert.equal(after.size,1964);
   assert.deepEqual(git('diff','--name-only',BASE,head).split('\n').sort(),[...c.paths].sort());assert.equal(git('diff','--name-only','--diff-filter=D',BASE,head),'');assert.equal(git('status','--porcelain'),'');

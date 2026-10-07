@@ -179,8 +179,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
-      "bytes": 5748,
-      "sha256": "aacf2e81ff81c7d7f2f2f88c243b5f24209107621c84672a9d2747dd91c3162f"
+      "bytes": 6254,
+      "sha256": "f1090ad7c947b583c782eeac4637db70b38ac291e44565b6f787ad650f4a8835"
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
@@ -264,8 +264,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 3511,
-      "sha256": "cc1110fffd568e95ec091168d0bfcaa63283c96f1e3c1ed4850c8d1d3ad6b846"
+      "bytes": 3514,
+      "sha256": "dcf5af8ce7efb5183c7915b9f634ffb56bd02536fad7e42abfcb79a3cb8bfc8e"
     }
   ],
   "operational": false
