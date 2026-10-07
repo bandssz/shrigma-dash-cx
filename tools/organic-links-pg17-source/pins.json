@@ -1,0 +1,127 @@
+{
+  "schema": "organic-links-pg17-input-pins-v1",
+  "files": [
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/INTEGRACAO-ROOT.txt",
+      "bytes": 8750,
+      "sha256": "89c3001156d31472dddb050b13d732a790d567eefbcee10e6a0ac6a1f15d8b6b",
+      "gitBlobSha1": "9be0b19820931a272ffd21c287d74af3a2721d94"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/codec.cjs",
+      "bytes": 8158,
+      "sha256": "24b9f3334794594ac9fc7438dc6d2d26dd4a31b4aea10553d00373311dc3c4c1",
+      "gitBlobSha1": "e79f173d7869d559eb41e7d880c75ac9112e8cf5"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/index.cjs",
+      "bytes": 636,
+      "sha256": "e22f5828a2c3115c29496d64529c20b0a5721eda52b9c2d6cb479a6861ad3ab4",
+      "gitBlobSha1": "f3823ad6c554473afd4168d851df71a51d841a9d"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/schema-v1.sql",
+      "bytes": 8166,
+      "sha256": "56b7c351939dc054c5a2de6c035d744fe35af593b8ec3b1465f22dcca16309f9",
+      "gitBlobSha1": "1db7cfc6cd3db2b412e16e1cc34d81bd040121ac"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/sql.cjs",
+      "bytes": 5899,
+      "sha256": "7fcfdf9fbb6a73f7196ea91ec8e6116334976b0243d9d54b1659d5f37d294746",
+      "gitBlobSha1": "afe7b716c7fb9ddbcd0670dbd1e3de43f3e74d5d"
+    },
+    {
+      "repoPath": "services/dashboard-operational/domain/organic-links-persistence/store.cjs",
+      "bytes": 18639,
+      "sha256": "4823708f10bfe9b60853b1dbf3ab0b3cafc74aca666d7ca97036915cb5e48fee",
+      "gitBlobSha1": "9001e8b34bd252e8a7ee154f3c95257f713decaa"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/codec.test.cjs",
+      "bytes": 7566,
+      "sha256": "4673b8803dd28898bc20b296dedad9d0cf00a837f368cb0f57f773497076e391",
+      "gitBlobSha1": "99e2d73e67cf7947693600d2609cdad7a03be40c"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/normalizer-context.cjs",
+      "bytes": 1077,
+      "sha256": "90c34a547bd00a16311f791f1b7a27f637c8827de24f3dbb4a3fd1a01437dc13",
+      "gitBlobSha1": "46d54110116f40293e0719a4feaf4cf49858b3cc"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/pg17-runner.cjs",
+      "bytes": 6044,
+      "sha256": "5c83a91702c1aeb538036868638c6f7f4d9c4c60b589b2fa43077e0e90345554",
+      "gitBlobSha1": "4833714f032e224deada9cfd6e2edf3f6af5b8c3"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/scenarios.cjs",
+      "bytes": 31951,
+      "sha256": "324ef74876529964b6b1486512f27d1e44d5930634d202e668d9cd8487d8057d",
+      "gitBlobSha1": "59bf93868b6c18d293f5430080d2101ea34b2a7f"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/schema-static.test.cjs",
+      "bytes": 3553,
+      "sha256": "3e800ad2cd4665e773ea04b3545cd29d46a28f4cd02bb54a3f02827e04784af6",
+      "gitBlobSha1": "60db0e2532d5961bf3843263d3ec036b365ef730"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/store-synthetic.test.cjs",
+      "bytes": 1008,
+      "sha256": "d7b86b55fb761263d96f3f612b6d7ed5efca5e1b9215734ee06a403316075973",
+      "gitBlobSha1": "92c3f4dc048f9491ef4afba991f96bacce5bc96d"
+    },
+    {
+      "repoPath": "tests/organic-links-persistence/synthetic-sessions.cjs",
+      "bytes": 10815,
+      "sha256": "62dd292bfa69cc769191fc36a106e43a2462c8b4f778cccb0cf8408b5b7a8613",
+      "gitBlobSha1": "957be2a8b40e3baa669dc907cc284f6b10420c6d"
+    }
+  ],
+  "normalizer": {
+    "bytes": 24693,
+    "sha256": "a53fc473eb2afec76259dea7f157aea69da8c2990f86b025874cd146450b3bb8",
+    "gitBlobSha1": "65588460b70430382693121d125eea7278b65e8d",
+    "repoPath": "ui/organic-v2/organic-contract-v1-0-2.js"
+  },
+  "expectedResults": [
+    "s01 criação original: revisão 1 active, URL montada no backend, recibo e envelope 1.0.2 válido no normalizador real",
+    "s02 repetição idêntica devolve o MESMO resultado e recibo, sem segunda linha",
+    "s03 reuso divergente do operationId fecha sem escrever",
+    "s04 conflito de URL ativa ou de ID recusa sem devolver o registro alheio",
+    "s05 arquivar por CAS: revisão 2 archived, histórico, lista padrão sem arquivados e filtro explícito com eles",
+    "s06 arquivado nunca reabre: recriar a mesma URL recusa; arquivar de novo recusa",
+    "s07 CAS com revisão velha recusa revision_conflict sem mudar a linha",
+    "s08 CAS concorrente em duas sessões: a segunda espera o COMMIT da primeira e recusa",
+    "s09 criação concorrente da mesma URL: a segunda espera; recusa se A confirma, confirma se A falha antes do COMMIT",
+    "s10 mesma operação em duas sessões concorrentes: um único efeito, segunda devolve o resultado original",
+    "s11 isolamento de marca: CAS cruzado, recibo e lista de outra marca não veem nada; WRITE de uma marca não grava na outra",
+    "s12 COMMIT sem ACK: uncertain com ID original, lease envenenada, sem replay; sessão nova reconsulta a operação original",
+    "s13 falha parcial antes do COMMIT: rollback, nenhum recibo confirmado, nada visível; nova sessão pode concluir a MESMA operação",
+    "s14 sem autoridade/lease/dependência ou com boolean do caller: recusa antes de qualquer SQL",
+    "s15 entradas adversariais de URL/data/origem/campanha/IDs recusam antes de qualquer SQL",
+    "s16 lease perdida antes do COMMIT: rollback, nada gravado, sessão envenenada",
+    "s17 projeção pública sem ator/operação/PII em lista e recibo",
+    "pg · arquivado não reabre e link não é apagado (trigger)",
+    "pg · operações e histórico só inserção (trigger)",
+    "pg · CHECKs: marca não admitida, archived sem operação, utm_campaign divergente",
+    "pg · histórico sem operação original falha no COMMIT (FK diferida)"
+  ],
+  "originalStorePin": {
+    "repoPath": "services/dashboard-operational/domain/organic-links-persistence/store.cjs",
+    "bytes": 17710,
+    "sha256": "8e29fc408711d50c70ddd704d23fda3e8d7bbd176090b1c0088e665da2815558",
+    "gitBlobSha1": "9dc50a4d66711e7daeba8be2062b7d47fdda845b"
+  },
+  "overlayAdmitted": true,
+  "overlayTest": {
+    "repoPath": "tests/organic-links-persistence/recovery-transport.test.cjs",
+    "bytes": 12559,
+    "sha256": "7d55f13aeb20109da9bb2f8553b138e0501399b3b15d6fb5205fa9f5a99b9acc",
+    "gitBlobSha1": "3b40554c2593b3a9b2eb318e9eec30c7361d1b01"
+  },
+  "focalTests": 3,
+  "overlayRevision": 2
+}

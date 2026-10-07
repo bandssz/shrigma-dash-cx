@@ -1,0 +1,70 @@
+name: Organic own links PG17 source
+'on':
+  push:
+    branches: [codex/organic-own-links-source-20261006]
+    paths:
+      - 'services/dashboard-operational/domain/organic-links-persistence/**'
+      - 'tests/organic-links-persistence/**'
+      - 'ui/organic-v2/organic-contract-v1-0-2.js'
+      - 'tools/organic-links-pg17-source/**'
+      - 'tests/organic-links-pg17-source/**'
+      - '.github/workflows/organic-links-pg17-source-20261006.yml'
+permissions:
+  contents: read
+jobs:
+  own-links-pg17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
+    services:
+      postgres:
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        env:
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: crm_test_only
+          POSTGRES_DB: crm_borrowed_source_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm_test -d crm_borrowed_source_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify bootstrap,13 current inputs,Root focal and normalizer before imports
+        run: |
+          test "$GITHUB_REPOSITORY" = 'bandssz/shrigma-dash-cx'
+          test "$GITHUB_EVENT_NAME" = 'push'
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const pins={"tests/organic-links-pg17-source/fixture.test.cjs":{"bytes":5287,"sha256":"63079ecd608a8f85bfd418ad2b47045f5bd9b09d5eaab1a8c785ba9218815aaf","gitBlobSha1":"3339a5e4d0ddef82617426f424c2e7e5cab4fec1"},"tools/organic-links-pg17-source/fixture.cjs":{"bytes":5525,"sha256":"af3f2d0acf1acd514cb91aabf3f72cd49b66393f04b5557ccecc9b1d56d18532","gitBlobSha1":"1f491a5afc7aedc13cf63f4d0653365620a1c8dc"},"tools/organic-links-pg17-source/gate.cjs":{"bytes":1914,"sha256":"360cc56e12f8123c3ac4fe0078d1f9947ce8450632ddb34cb2c3042228576a17","gitBlobSha1":"9317e62a223d0c7b098fa3d5ae00d801b7a9ed57"},"tools/organic-links-pg17-source/pins.json":{"bytes":6446,"sha256":"05341448ed36e52d5a0627392a15b991740a31572a425baa4d774842c154d73a","gitBlobSha1":"0734921b1548e812856678d8d4421942306d63ae"},"tools/organic-links-pg17-source/run-tests.cjs":{"bytes":1917,"sha256":"1c89597bee2a16b7fd6333425ab58a805353426f591aac801477112d7c57f47f","gitBlobSha1":"0b473ac9431be2930737d5a557086a9645e73633"},"tools/organic-links-pg17-source/tap.cjs":{"bytes":954,"sha256":"f57bfa5a0f41e94c9fad68fe8ec1f3cb2134ef12a4f423bfe4e4a2183278ef2b","gitBlobSha1":"7025c79966f981390359c966ec7022c332fddb2e"}};
+          for(const [f,p] of Object.entries(pins)){
+            const s=fs.lstatSync(f);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)throw Error('ORGANIC_BOOTSTRAP_REFUSED');
+            const b=fs.readFileSync(f);if(b.length!==p.bytes||crypto.createHash('sha256').update(b).digest('hex')!==p.sha256||crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex')!==p.gitBlobSha1)throw Error('ORGANIC_BOOTSTRAP_REFUSED');
+          }
+          NODE
+          node tools/organic-links-pg17-source/gate.cjs
+      - name: Prepare pinned driver only in temporary CI directory
+        run: |
+          mkdir "$RUNNER_TEMP/borrowed-pg-driver"
+          npm install --prefix "$RUNNER_TEMP/borrowed-pg-driver" --ignore-scripts --no-audit --no-fund --no-package-lock --no-save pg@8.13.1
+      - name: Strict26 C2 tests,3 Root regressions and outer lifecycle
+        run: |
+          node tools/organic-links-pg17-source/run-tests.cjs
+          node --test --test-reporter=tap tests/organic-links-pg17-source/fixture.test.cjs
+      - name: Native21 outcomes on two original PG17 clients
+        run: |
+          ORGANIC_LINKS_PG17_CI=1 BORROWED_PG_MODULE="$RUNNER_TEMP/borrowed-pg-driver/node_modules/pg" node tools/organic-links-pg17-source/fixture.cjs > "$RUNNER_TEMP/organic-links-native.json"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const lines=fs.readFileSync(path.join(process.env.RUNNER_TEMP,'organic-links-native.json'),'utf8').trim().split('\n');const r=JSON.parse(lines[lines.length-1]);
+          if(r.executed!==true||r.nativePG17Proof!==true||!/^17[0-9]{4}$/.test(r.engine)||r.scenarios!==21||r.runtime!=='v22.23.3'||r.created!==2||r.endCalls!==2||r.closed!==2||r.pids.length!==2||r.pids[0]===r.pids[1]||r.sourceOnly!==true||r.productionInstalled!==false||r.operational!==false||r.nativeNetworkAckProof!==false||r.fixtureScope!=='Root-isolated-raw-PG17')throw Error('ORGANIC_NATIVE_RECEIPT_REFUSED');
+          console.log(JSON.stringify(r));
+          NODE
