@@ -208,8 +208,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 4746,
-      "sha256": "54aaeeb11e3034c7416864ae5761c7b14c4dfb84d141aa7f47e2a5d14757bf36"
+      "bytes": 4426,
+      "sha256": "f2dead412ee1b1ffc9c8928a27a44cc14c7a069b8403b48b8452d4f5c4a4517b"
     },
     {
       "path": "assets/panels/growth.js",
@@ -303,8 +303,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-journey-read.cjs",
-      "bytes": 2897,
-      "sha256": "d8f46f327a3dcadb3000e20a69f8e7c6101a58213c33c10e00287184bbdb638a"
+      "bytes": 2996,
+      "sha256": "0f815d87682f9644799e3bfb89b9f967ba308395ecac49fa77193cc1255cb5c9"
     },
     {
       "path": "services/dashboard-operational/crm-native-delegation.cjs",
@@ -468,8 +468,8 @@
     },
     {
       "path": "tests/crm-journey-read.test.cjs",
-      "bytes": 8301,
-      "sha256": "308c7c91189a24f85bcdb7bfa4cc7ef93ce1e3c759039a34402d7a56d9a96db7"
+      "bytes": 8525,
+      "sha256": "2edb2279153ae7cdb3adb6965589e63233da32f842e4f3f3006d09c4e149ef8a"
     },
     {
       "path": "tests/dashboard-operational-native-mcp.test.cjs",

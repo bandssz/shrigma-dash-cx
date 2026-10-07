@@ -6,7 +6,9 @@ function projectJourneyRead(result,brand,{now=()=>new Date().toISOString()}={}){
  if(!['fish','aristo'].includes(brand))error('BRAND_DENIED',403);
  if(result?.status!==200)return {status:result?.status||503,body:{contract:'shrigma-crm-journey-read-v1',brand,source:'unavailable',definitions:[],configuredCount:null,operational:false}};
  const api=result.body;
- if(!GF.obj(api)||api._escopo!==undefined&&api._escopo!=='growth'||api._escopo===undefined&&api._painel!=='growth'||api._painel!==undefined&&api._painel!=='growth')error('JOURNEY_SCOPE_UNCONFIRMED');
+ // The original SQL reader sets _painel from the authenticated access record;
+ // a genuine Master has 'todos'. Only _escopo describes the data payload.
+ if(!GF.obj(api)||api._escopo!=='growth'||api._painel!==undefined&&!['growth','todos'].includes(api._painel))error('JOURNEY_SCOPE_UNCONFIRMED');
  const declared=api.crm_fluxo_def,has=Object.hasOwn(api,'crm_fluxo_def')&&declared!==null;
  if(has&&(!GF.obj(declared)||!Array.isArray(declared.fluxos)))error('JOURNEY_SOURCE_INVALID');
  if(has&&declared.fluxos.length>GF.configuredLimits.flows)error('JOURNEY_SOURCE_LIMIT');
