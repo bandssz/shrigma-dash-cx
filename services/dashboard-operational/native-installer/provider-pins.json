@@ -1,0 +1,65 @@
+{
+  "schema": "shrigma-pg-session-provider-public-pins-v1",
+  "installerPackageId": "native-connection-c2-installer-20261007-v2",
+  "installerDeliverySha256": "ae2e1486a40a3d82cdf16f6ce37005b5c26a60d39408e4a2c9f7233c37e242a5",
+  "manifestHash": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7",
+  "files": [
+    {
+      "path": "catalog.cjs",
+      "bytes": 1270,
+      "sha256": "69db61871025c1de8b9a3bc2c641dbfb6408d2f3d77528f67d5bd316a912a0af",
+      "gitBlobSha1": "3cde95a11e6a8b39292a340e6bcd47dbe07255d6"
+    },
+    {
+      "path": "installer.cjs",
+      "bytes": 21207,
+      "sha256": "48e1d97792bbd91daa8f1bfccae47d0ce7f52c8721cf53292ec34c993610c8b6",
+      "gitBlobSha1": "0d6327566c06422155dbe1f98d2b8c077b5b2e13"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 6454,
+      "sha256": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7",
+      "gitBlobSha1": "f52ca4dbf72cce615a88c2f72f09194eac18beb0"
+    },
+    {
+      "path": "migrations/crm-manager-provision-v1.sql",
+      "bytes": 24527,
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4",
+      "gitBlobSha1": "e68af6ccea1ba809529b35b5dd76560df720474a"
+    },
+    {
+      "path": "migrations/crm-manager-role-install-v1.sql",
+      "bytes": 9310,
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789",
+      "gitBlobSha1": "cafbd8c0413569d728f646a386e013170a02dec8"
+    },
+    {
+      "path": "migrations/writer-provision-v1.sql",
+      "bytes": 38349,
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04",
+      "gitBlobSha1": "4c789d0a80b87d18de57faf1e0bae6b60b0803fc"
+    },
+    {
+      "path": "sql.cjs",
+      "bytes": 9024,
+      "sha256": "e70133a94cca69e8ca85b0499ab50d81478859755b1756bd3947db76afd28271",
+      "gitBlobSha1": "dec5b04ed2a9c3555673624ee1fadccb0ac7428e"
+    }
+  ],
+  "resource": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "host": "comunicacao_postgres",
+    "port": 5432,
+    "database": "listmonk",
+    "network": "easypanel"
+  },
+  "forbiddenOperationIds": [
+    "73a35984-9884-4e8f-b132-24c06a8fd7e7",
+    "832f490e-7557-4194-bdab-82b4f883b3e2"
+  ],
+  "gatewayHeadReportedByRoot": "846597045aff17087e5661c2629922b47c0d78b6",
+  "productionDriverVersion": null,
+  "ciReferenceOnly": "pg8.13.1 is CI input, never production dependency admission"
+}

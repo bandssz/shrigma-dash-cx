@@ -11,7 +11,7 @@ jobs:
   verify:
     if: github.repository == 'bandssz/shrigma-dash-cx'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -28,8 +28,11 @@ jobs:
           node-version: '22.23.3'
       - name: Verify source composition
         run: node tools/crm-native-connection/verify-source.cjs
-      - name: New native authentication and installer tests
-        run: node --test tests/dashboard-operational-native-mcp.test.cjs tests/native-installer/installer.test.cjs tests/native-continuity/read-only.test.cjs
+      - name: Current native authentication, custody, new PG lifecycle and metadata tests
+        env:
+          PG_PROVIDER_SOURCE_MODE: candidate
+          PG_PROVIDER_SOURCE_ROOT: ${{ github.workspace }}
+        run: node --test tests/dashboard-operational-native-mcp.test.cjs tests/native-database-custody.test.cjs tests/pg-session-provider/provider.test.cjs tests/database-inventory/inventory.test.cjs
       - name: Private registry session
         env:
           REGISTRY_TOKEN: ${{ github.token }}
@@ -54,7 +57,26 @@ jobs:
           smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/smoke.cjs"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/native-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/native-smoke.cjs > "$NATIVE_CI_DIR/smoke.json"
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
-          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,33);for(const k of ['manifestDerivedPinWithoutLegacyPrepare','freshPrestartDeniedWithoutOriginalContinuity','realImmutableReadWithoutWrites','originalIdentityRetained','genuineSyntheticConsent','unauthenticatedInvocationDenied','crossBrandDenied','writeWithoutGrantDenied','nativeRevocationDenied','originalPackAndV2PresentationPreserved'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,37);for(const k of ['manifestDerivedPinWithoutLegacyPrepare','freshPrestartDeniedWithoutOriginalContinuity','realImmutableReadWithoutWrites','originalIdentityRetained','genuineSyntheticConsent','unauthenticatedInvocationDenied','crossBrandDenied','writeWithoutGrantDenied','nativeRevocationDenied','originalPackAndV2PresentationPreserved','privateDatabasePasswordCiphered','readOnlyScopeExtendedWithSameBearer','sqlInstallationStillRefused'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          NODE
+      - name: New catalog-only invocation on isolated PostgreSQL17
+        shell: bash
+        run: |
+          set -euo pipefail
+          native_pg_network="shrigma-native-pg-${GITHUB_RUN_ID}"
+          native_pg_container="shrigma-native-pg-${GITHUB_RUN_ID}"
+          printf 'NATIVE_PG_NETWORK=%s\nNATIVE_PG_CONTAINER=%s\n' "$native_pg_network" "$native_pg_container" >> "$GITHUB_ENV"
+          docker network create --internal "$native_pg_network" > /dev/null
+          docker run -d --name "$native_pg_container" --network "$native_pg_network" --network-alias comunicacao_postgres --tmpfs /var/lib/postgresql/data:rw --env POSTGRES_USER=synthetic_pg_owner --env POSTGRES_DB=listmonk --env POSTGRES_PASSWORD=Synthetic-ShriGma-PG-CI-Only-2026! postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f > /dev/null
+          for native_pg_attempt in $(seq 1 30); do
+            if docker exec "$native_pg_container" pg_isready -U synthetic_pg_owner -d listmonk > /dev/null; then break; fi
+            sleep 1
+          done
+          docker exec "$native_pg_container" pg_isready -U synthetic_pg_owner -d listmonk > /dev/null
+          database_smoke="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs"
+          docker run --rm --network "$native_pg_network" --read-only --memory 512m --env SHRIGMA_NATIVE_ISOLATED_CI=1 --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$database_smoke,dst=/tmp/database-isolated-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" --no-warnings /tmp/database-isolated-smoke.cjs > "$NATIVE_CI_DIR/database-smoke.json"
+          node - "$NATIVE_CI_DIR/database-smoke.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.engine,170011);a.equal(r.pgDriverVersion,'8.23.1');a.equal(r.independentPhysicalSessions,2);for(const k of ['actualReadOnlyNativeInvocation','metadataOwnershipAndForeignKeysPreserved','dataPayloadNotRead','fixtureDataUnchanged','confirmedInventorySessionsClosed','sameBearerInspectionConsent','privateCredentialRevocationDenied','sqlInstallationStillRefused'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);const receipt=JSON.parse(fs.readFileSync(process.env.NATIVE_CI_DIR+'/receipt.json'));a.equal(receipt.manifestSha256,r.manifestSha256);a.equal(receipt.pgDriverManifestSha256,r.pgDriverManifestSha256);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify({...receipt,isolatedPG:r}));console.log(JSON.stringify(r));
           NODE
       - name: Publish exactly the tested image
         shell: bash
@@ -64,6 +86,12 @@ jobs:
           node <<'NODE'
           const fs=require('node:fs'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process'),image=process.env.IMAGE+':source-'+process.env.GITHUB_SHA,info=JSON.parse(execFileSync('docker',['image','inspect',image],{encoding:'utf8'}));a.equal(info.length,1);const digest=info[0].RepoDigests.filter(s=>s.startsWith(process.env.IMAGE+'@sha256:'));a.equal(digest.length,1);const r={...JSON.parse(fs.readFileSync(process.env.NATIVE_CI_DIR+'/receipt.json')),image:digest[0],configImageId:info[0].Id,published:true,productionAdmitted:false};fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(r,null,2)+'\n```\n');console.log(JSON.stringify(r));
           NODE
+      - name: Remove isolated PostgreSQL fixture
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${NATIVE_PG_CONTAINER:-}" ]; then docker rm -f "$NATIVE_PG_CONTAINER" > /dev/null; fi
+          if [ -n "${NATIVE_PG_NETWORK:-}" ]; then docker network rm "$NATIVE_PG_NETWORK" > /dev/null; fi
       - name: Remove private registry session
         if: always()
         shell: bash

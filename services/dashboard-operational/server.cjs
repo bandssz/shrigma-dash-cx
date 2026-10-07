@@ -534,7 +534,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const host=String(req.headers.host||'').toLowerCase();
       if(!allowedHosts.has(host))throw jsonError(421,'HOST_DENIED');
       const url=safeRequestPath(req.url),origin='https://'+host;
-      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method))return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin
       // only from browser-controlled Fetch Metadata on this allowed host.
@@ -543,6 +543,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
+       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
       if(url.pathname==='/auth/session'&&req.method==='GET'){
         const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
         const found=auth.session(ctx);

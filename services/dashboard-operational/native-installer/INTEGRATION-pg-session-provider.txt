@@ -1,0 +1,40 @@
+C2 PostgreSQL permanent exclusive session provider v1 — prepared-not-integrated
+Default OFF; operational=false; productionAdmitted=false. Root alone integrates/publishes.
+
+Mount the two new production files alongside the seven exact V2 kernel files in provider-pins.json. No kernel or SQL replacement. Provider verifies bytes/SHA256/Git blobs and plain regular files before requiring the kernel. No migration corpus copying, pool, connection URI, environment fallback, retry, bootstrap or issuer.
+
+Server-private factory:
+const {createPGSessionProvider}=require('./native-installer/pg-session-provider.cjs');
+const nativeInstaller=createPGSessionProvider({enabled: actualPrivateEnable,
+ driver:{Client:reviewedPg.Client,version:reviewedVersion,packageSha256:reviewedPackageHash},
+ getPrivateProfile, getRealAdmission});
+Pass nativeInstaller into the existing createServer dependency. Only inspect/preview/apply/status belong to MCP. close/lifecycle remain server-private; Root wires shutdown to await close(), and keeps failed/unconfirmed closure unavailable.
+
+Driver: pg.Client exclusively owned by provider. Constructor receives every connection field. Driver descriptor is private input, not self-proving review. Root verifies actual production package, version and source compatibility. pg8.13.1 in fixture is only a CI reference. Requires EventEmitter Client.error/end, Client.connection.readyForQuery status I/T/E, processID and TLS stream encrypted/authorized. This internal readyForQuery interface needs Root review against the admitted dependency. PG17 peer identity is checked after connect. Same physical client is retained across operations; concurrent calls are rejected, no queue. AsyncLocalStorage lease encloses the whole V2 operation, one pending query, revoked at exit. Closed SQL allowlist includes pinned execution bodies, ledger SQL, PEER and explicit COMMIT/ROLLBACK.
+
+Private profile exact shape (values must come from legitimate server custody):
+{schema:'shrigma-private-pg-installer-profile-v1',profileRef:sha256,revision:positiveInteger,
+ resource:{project:'comunicacao',service:'postgres',host:'comunicacao_postgres',port:5432,database:'listmonk',network:'easypanel'},
+ target:{project:'comunicacao',service:'postgres',database:'listmonk',ownNamespace:actualOwnedNamespace,installerRole:actualRole,runtimeRole:distinctActualRole},
+ password:actualPrivatePassword,driver:{version:reviewedVersion,packageSha256:reviewedPackageHash},
+ transport:{mode:'verified-tls',ca:reviewedCA,serverName:'comunicacao_postgres'},
+ mode:'installer-exclusive',originalOperationId:null}
+Alternatively transport:{mode:'admitted-private-network'} requires explicit private Root admission and uses ssl:false. No implied approval from Docker or this source. sistema-bandeira is not the current target. Password and raw CA never enter public hashes or errors. Revision/profile/role/credential drift retires an existing session.
+
+getPrivateProfile({action,...validatedArgs}) runs before connection and during kernel admission. getRealAdmission receives admitted:false and must validate real authority, private profile binding, resource, driver, transport and recovery readiness, not merely echo its input. Connect/recovery includes previousOperationId; omit that input-only field from the answer. Exact answer:
+{admitted:true,phase:'connect'|'reuse'|'recovery',action,operationId:UUIDorNull,
+ profileRef,profileRevision,profileHash,targetHash,manifestHash,resourceHash,transportHash,
+ driverVersion,driverPackageSha256,purpose:'installer-exclusive'|'recovery-status-only',
+ authenticationVerified:true,profileBindingVerified:true,recoveryReady:true}
+profileBindingVerified concerns actual private binding, not invented database object existence. Actual namespace, roles, public ownership, ACL, ledger and dependency preconditions remain V2 inventory and private admission responsibilities.
+Migration phase input {admitted:false,phase:'migration',profileRef,profileRevision,profileHash,operationId,purpose,kernel:actualV2Input,pid}.
+Exact answer contains the same fields except kernel/pid, admitted:true and kernelProof: exact V2 admission proof. Use V2 INTEGRATION.txt for authority/ownership/input review. Root must verify actual operator authority and recovery/backup conditions; fixture echo is synthetic only.
+
+Public DTOs: inspect({}); preview({migrationId,expectedSha256}); apply({migrationId,expectedSha256,operationId}); status({operationId}). No caller-configurable SQL/profile/host. Historical73a/832f operations are refused. Unknown ACK/network/protocol state retires and ends client once. Failed or unconfirmed end vetoes replacement. Recovery requires an explicit STATUS of the original UUID with a new real private recovery admission on a fresh exclusive connection. That connection stays original-status-only; repeated healthy STATUS reuses it, never resumes apply. Across server restart Root can supply mode:'recovery-status-only', originalOperationId: actual original UUID from legitimate recovery context; this context cannot be derived solely from untrusted MCP arguments. No replay or release from absent/attempted/unknown state.
+
+Bounds: private profile/connect/migration admission 5s, connection driver 3s, query 12s, ready state 10s, total operation 45s, shutdown drain 15s, physical end 5s. Known server SQL ERROR/SQLSTATE permits V2 rollback; network/fatal or missing acknowledgement poisons. Late lease cannot query after operation invalidation. Source does not create services, execute SQL, read real credentials or contact PostgreSQL.
+
+New synthetic suite uses the pinned public V2 model, not its historical test suite. Fixture Module compilation maps only seven read-only kernel files to preserved V2 paths so producer does not copy/edit previous packages. Integrated candidate mode uses PG_PROVIDER_SOURCE_MODE=candidate and PG_PROVIDER_SOURCE_ROOT=<repo-root>; model at tests/native-installer/model.cjs must match 3a8167bb4eab251cd92c4385bd70fc9c9cc05669e6f4260caaca65eff6460cc9. New files are tests/pg-session-provider/{fixture.cjs,provider.test.cjs}.
+Run node --test tests/pg-session-provider/provider.test.cjs in candidate mode. 14 synthetic tests passed locally; no native admission, real network, real PostgreSQL or production driver was tested.
+Root pending: legitimate private callbacks and custody binding; production dependency/readyForQuery review; server mounting/shutdown; native CI and actual private-network/TLS/PG17 inventory/admission and original UUID recovery. Producer scope complete; these are Root integration dependencies.
+References: https://node-postgres.com/features/connecting ; https://node-postgres.com/features/transactions ; https://node-postgres.com/apis/client .

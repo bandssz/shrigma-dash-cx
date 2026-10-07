@@ -90,7 +90,8 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
   }else if(name.startsWith('db_')){
    if(!installer)fail('NATIVE_INSTALLER_NOT_ADMITTED',503);
    const fn={db_inspect:'inspect',db_migration_preview:'preview',db_migration_apply:'apply',db_migration_status:'status'}[name];
-   result={status:200,body:await installer[fn](args)};
+   const original=store.authenticate(bearer,{scope:tool.scope});
+   result={status:200,body:await installer[fn](args,{ownerId:original.userId,connectionId:original.id})};
    store.authenticate(bearer,{scope:tool.scope});
   }else fail('NATIVE_TOOL_NOT_FOUND');
   return redact(result);

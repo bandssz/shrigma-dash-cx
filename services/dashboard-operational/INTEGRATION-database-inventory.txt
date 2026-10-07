@@ -1,0 +1,46 @@
+C2 database catalog inventory v2 — prepared-not-integrated / operational=false
+Root is sole integrator/publisher. New independent source; previous pg-session-provider-v1 and V2 installer are untouched and are not imported or tested by this package.
+
+const {createDatabaseInventory}=require('./native-database-inventory.cjs');
+const inventory=createDatabaseInventory({enabled:actualPrivateReadEnable,
+ driver:{Client:reviewedPg.Client,version:reviewedVersion,packageSha256:reviewedPackageHash},
+ getPrivateCredential,admitInspection});
+await inventory.inspect({}, {ownerId:actualRootAuthenticatedOwnerId});
+await inventory.close(); // Root server shutdown, server-private only
+
+Default OFF. Missing driver review descriptor/private callbacks closes before lookup or construction. Root must inject ownerId from authenticated account/context; never forward ownerId from model DTO. Public DTO must be exactly {}. This source cannot authenticate the application caller by itself. Root proves delegated db.inspect consent from original legitimate Mestre account; this read never creates db.install or other authority.
+
+Exact private getPrivateCredential({ownerId}) response:
+{schema:'shrigma-private-database-credential-v1',revision:positiveInteger,ownerId:actualAuthenticatedOwner,
+ username:actualDatabaseUsername,password:actualPrivatePassword,
+ resource:{project:'comunicacao',service:'postgres',host:'comunicacao_postgres',port:5432,database:'listmonk',network:'easypanel'},
+ transport:{mode:'admitted-private-network'}}
+No own namespace or installer/runtime role is required. Real existing username is accepted, including quoted/unconventional role names; no fabricated identifiers. Binding revision must increase for every private credential rebind, including password rotation. Root verifies encrypted credential MAC and original identity; module metadata hash does not attest password integrity.
+
+canonicalSortedKeys recursively sorts object keys using JavaScript .sort(); JSON.stringify of that object uses UTF-8.
+credentialBindingHash = sha256(JSON.stringify(canonicalSortedKeys({schema,revision,ownerId,username,resource,transport}))). Password is excluded entirely.
+resourceHash = sha256(JSON.stringify(canonicalSortedKeys(resource))).
+Private admitInspection input:
+{phase:'connect'|'catalog',ownerId,profileRevision,credentialBindingHash,resourceHash,purpose:'read-only-migration-inventory',peer?}
+Peer appears only at catalog phase after confirmed connection/read-only session. Exact response:
+{admitted:true,ownerId,profileRevision,credentialBindingHash,resourceHash,purpose:'read-only-migration-inventory'}
+Root checks MAC, current authenticated original Mestre, delegated READ consent, resource confirmed in Easypanel and legitimately bound connection; no synthetic echo constitutes authority. Driver version and actual package hash are verified by Root before injection and in its custody review. pg8.23.1 is Root-reported public candidate, not a claimed production admission; fixture version/hash are synthetic. No production version is hard-coded.
+
+One exclusive new pg.Client per explicit inspect. No pool/URI/environment defaults/connection reuse/retry. Fixed programmatic host/database/user/password/ssl:false, pipeline:false, UTF8 and startup options set pg_catalog search_path, default_transaction_read_only=on and limits. Explicit private-network admission is mandatory; no inferred TLS or Docker approval. Provider checks actual TLS is absent and peer ssl=false, current_database=listmonk, PG17, port5432, processID equals backend PID, current_user=session_user=actual username (peer.currentRole/peer.sessionRole), transaction_read_only=on. Driver connection.readyForQuery internal I/T/E interface must be reviewed by Root against admitted pg package. Every query requires fresh ready acknowledgement with matching transaction state. Constructor query and connect bounds are independent of external deadlines.
+
+Only fixed SELECTs over pg_catalog are used, plus BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY and ROLLBACK. No DDL, SET ROLE, payload-table reads, pg_authid, rolpassword, function/view/default source, query text, issuance or existing controller execution. Startup options do not change durable configuration. Schema ACL, relation ACL, column ACL return raw catalog text; null ACL is absence of explicit catalog ACL, not absence of effective privileges. Root must analyze effective ownership/grants separately before any migration.
+
+Output schema shrigma-database-inventory-v1:
+resource/peer, classification:'unknown', data {schemas,relations,columns,foreignKeys,dependencies,sharedDependencies,roles,memberships,sessions}, completeness per section {limit,returned,truncated}, complete, cutoverAdmitted:false, cutoverRefused:true when truncated, estimatedRowsAreExact:false, operational:false, productionAdmitted:false.
+Relations include kind/owner/RLS/persistence/reltuples as estimated_rows (negative means unknown/not analyzed; never exact row count). Columns include numeric type/collation identity and flags only, no default expression. FK column numbers are catalog array text; dependencies retain OIDs and sub-IDs. Shared dependencies include current database and shared objects; roles/memberships are cluster-wide; session counts are current database by role and include this inspection session. OIDs are identities in the observed database, not portable migration IDs. System objects are included without business classification or automatic exclusion. No ownership/adoption judgment is made.
+Repeatable-read catalogs share the transaction snapshot. Session counters are observational and not a transactional completeness proof. Complete means only bounded sections were not truncated, not a full semantic migration audit (no index definitions, routines, triggers, policy source, secrets or row payload). Even complete does not admit cutover.
+
+Deterministic SQL limit+1 per section: schemas1000, relations5000, columns20000, foreignKeys5000, dependencies20000, sharedDependencies5000, roles1000, memberships5000, sessions1000. Returned metadata strings max16KiB each; combined serialized rows max2MiB. Overflow/malformed protocol refuses entire result; no silent clipping besides explicit section truncation. Catalog denied/unavailable never becomes empty accepted data. Root UI displays completeness and refuses cutover on truncation.
+
+Bounds: credential/admission/connect/end5s each; driver connect3s/query12s/statement8s/lock2s/idle transaction10s; fresh ready event2s; overall inspect60s; close drain15s. Any error/timeout/ACK uncertainty ends exactly once; late completion cannot resume catalog after invalidation. Successful inspect returns only after ROLLBACK acknowledged and end event confirmed. Unconfirmed/failed end blocks future inspections. Explicit close rejects new calls, drains active work or invalidates/ends at deadline. Error messages/codes are closed and do not retain original exception/cause or private payload. Future independently admitted inspection is an explicit new call, never an automatic retry of failed read.
+
+Run node --test tests/database-inventory/inventory.test.cjs (Node v25.9.0 verified locally). 15 new synthetic tests; no old suites rerun, no actual PostgreSQL/credentials/network/production CI contacted. Fake Client has pg8.23.1 candidate label and dummy SHA only; neither proves dependency admission or PostgreSQL query execution. Root native validation must check catalog SQL, driver compatibility and real private/read-only resource.
+Root remaining: legitimate private custody/MAC/owner/consent callbacks; reviewed production dependency; authenticated READ gateway/UI mounting and shutdown; native CI and real PG17 connection/catalog/completeness. Producer scope complete; those responsibilities are not supplied or bypassed here.
+References: https://node-postgres.com/apis/client ; https://www.postgresql.org/docs/17/catalogs.html .
+
+V2 compatibility delta: schema/relation metadata ownership uses ownerRole; peer uses sessionRole/currentRole, including the private catalog callback. PostgreSQL SQL aliases are double-quoted to preserve case. No owner/email keys are emitted, so the existing recursive MCP redactor retains these PostgreSQL role identifiers. Connect admission proves private custody/consent/resource only, before database authentication; catalog admission verifies confirmed peer database/roles/PG17. Supersedes preserved inventory V1; same output schema and remaining interfaces.

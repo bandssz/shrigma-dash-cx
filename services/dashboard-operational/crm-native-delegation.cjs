@@ -17,7 +17,11 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
  CREATE TABLE IF NOT EXISTS crm_native_connection_audit_v1 (
   id INTEGER PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
   action TEXT NOT NULL CHECK(action IN ('issue','revoke')), actor_id TEXT NOT NULL REFERENCES users(id), happened_at INTEGER NOT NULL);
- CREATE INDEX IF NOT EXISTS crm_native_connection_owner_v1 ON crm_native_connections_v1(user_id);`);
+ CREATE INDEX IF NOT EXISTS crm_native_connection_owner_v1 ON crm_native_connections_v1(user_id);
+ CREATE TABLE IF NOT EXISTS crm_native_inspection_consent_v1(
+ id INTEGER PRIMARY KEY,connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
+ actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
+ new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);`);
  const time=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)deny('NATIVE_CLOCK_INVALID',500);return t;};
  const bind=r=>mac(JSON.stringify([r.id,r.token_hash,r.user_id,r.host,r.label,r.brands_json,r.scopes_json,r.auth_revision,r.source_session_hash,r.created_at,r.expires_at,r.revoked_at]));
  const valid=r=>typeof r?.binding_mac==='string'&&/^[a-f0-9]{64}$/.test(r.binding_mac)&&crypto.timingSafeEqual(Buffer.from(r.binding_mac,'hex'),Buffer.from(bind(r),'hex'));
@@ -69,6 +73,22 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   }catch(e){db.exec('ROLLBACK');throw e;}
   return {id:row.id,revoked:true};
  }
- return Object.freeze({issue,authenticate,context,list,revoke});
+ function permitInspection({context,connectionId}={}){
+  const proof=consent(context),owner=identity(proof.userId);
+  if(!owner||owner.role!=='superadmin'||owner.active!==true||!/^[a-f0-9]{64}$/.test(proof.sessionHash||''))deny('NATIVE_OWNER_REQUIRED');
+  if(typeof connectionId!=='string'||!/^[a-f0-9-]{36}$/.test(connectionId))deny('NATIVE_CONNECTION_NOT_FOUND',404);
+  db.exec('BEGIN IMMEDIATE');try{
+   const row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(connectionId,proof.userId);
+   if(!row||!valid(row)||row.revoked_at!==null||row.expires_at<=time()||owner.revision!==row.auth_revision)deny('NATIVE_CONNECTION_NOT_FOUND',404);
+   const before=project(row);if(before.scopes.includes('db.inspect')){db.exec('COMMIT');return {connection:before,inspectionAuthorized:true,installationAuthorized:before.scopes.includes('db.install')};}
+   const next={...row,scopes_json:JSON.stringify([...before.scopes,'db.inspect'].sort())},t=time();next.binding_mac=bind(next);
+   const changed=db.prepare('UPDATE crm_native_connections_v1 SET scopes_json=?,binding_mac=? WHERE id=? AND binding_mac=? AND revoked_at IS NULL').run(next.scopes_json,next.binding_mac,row.id,row.binding_mac).changes;
+   if(changed!==1)deny('NATIVE_CONNECTION_CHANGED',409);
+   const fields=[row.id,proof.userId,proof.sessionHash,sha(row.scopes_json),sha(next.scopes_json),t];
+   db.prepare('INSERT INTO crm_native_inspection_consent_v1(connection_id,actor_id,session_hash,prior_scopes_hash,new_scopes_hash,happened_at,binding_mac) VALUES(?,?,?,?,?,?,?)').run(...fields,mac(JSON.stringify(['db-inspection-consent-v1',...fields])));
+   db.exec('COMMIT');return {connection:project(next),inspectionAuthorized:true,installationAuthorized:before.scopes.includes('db.install')};
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ return Object.freeze({issue,authenticate,context,list,revoke,permitInspection});
 }
 module.exports={createDelegationStore,SCOPES,BRANDS};

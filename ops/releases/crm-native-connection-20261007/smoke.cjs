@@ -33,9 +33,11 @@ async function main(){
  });
  stage='health';
  const health=await request('/healthz');assert.equal(health.status,200);assert.equal(health.value.nativeMcp,true);assert.equal(health.value.nativeBackendManifestSha256,manifestSha256);
- assert.equal(N.verifyReady({manifestSha256}).runtimeFiles,33);assert.equal(require('/app/presentation-release/release.cjs').verifyReady().runtimeFilesUnchanged,28);
+ assert.equal(N.verifyReady({manifestSha256}).runtimeFiles,37);assert.equal(require('/app/presentation-release/release.cjs').verifyReady().runtimeFilesUnchanged,28);
  assert.equal((await request('/api/native/mcp',{method:'POST',body:{jsonrpc:'2.0',id:1,method:'ping'}})).status,401);
  assert.equal((await request('/auth/native-connection')).status,401);
+ assert.equal((await request('/auth/native-database')).status,401);
+ const driver=require('/app/native-backend/runtime/native-pg-driver.cjs').loadPGDriver(JSON.parse(bytes).pgDriverManifestSha256);assert.equal(driver.version,'8.23.1');
  stage='synthetic-master';assert.equal((await request('/auth/bootstrap/complete',{method:'POST',body:{email:'master@synthetic.invalid',token:bootstrapToken,password}})).status,200);
  const login=await request('/auth/login',{method:'POST',body:{email:'master@synthetic.invalid',password}});assert.equal(login.status,200);
  const cookie=login.cookie.split(';')[0],csrf=login.value.csrf,originalId=login.value.user.id;
@@ -45,10 +47,16 @@ async function main(){
  stage='native-invocation';const state=await call('crm_status');assert.equal(state.status,200);assert.equal(state.value.result.structuredContent.body.authenticated,true);assert.equal(state.value.result.structuredContent.body.permissions.growth.edit,false);assert.equal(state.value.result.structuredContent.body.operational,false);assert.equal(JSON.stringify(state.value).includes(csrf),false);assert.equal(JSON.stringify(state.value).includes(cookie),false);
  const other=await call('crm_campaign_get',{brand:'aristo',id:1});assert.equal(other.value.result.structuredContent.error,'BRAND_DENIED');
  const write=await call('crm_campaign_save',{brand:'fish',id:1,expected_version:'a'.repeat(32),definition:{},idempotency_key:'same-original-key-12345'});assert.equal(write.value.result.structuredContent.error,'NATIVE_SCOPE_DENIED');
- const db=new DatabaseSync('/dashboard-data/dashboard.sqlite',{readOnly:true});const delegate=db.prepare('SELECT user_id,token_hash FROM crm_native_connections_v1 WHERE id=?').get(issued.value.connection.id);assert.equal(delegate.user_id,originalId);assert.equal(delegate.token_hash,sha(bearer));assert.equal(db.prepare("SELECT COUNT(*) n FROM users WHERE role='superadmin'").get().n,1);db.close();
+ stage='database-private-custody';
+ assert.equal((await request('/auth/native-database',{cookie})).status,200);
+ const privatePassword=crypto.randomBytes(32).toString('base64url');
+ const bound=await request('/auth/native-database-settings',{method:'POST',cookie,csrf,body:{action:'bind',username:'synthetic_pg_owner',password:privatePassword,privateNetwork:true}});assert.equal(bound.status,200);assert.equal(JSON.stringify(bound.value).includes(privatePassword),false);
+ const permit=await request('/auth/native-database-settings',{method:'POST',cookie,csrf,body:{action:'authorize-inspection',connectionId:issued.value.connection.id}});assert.equal(permit.status,200);assert.equal(permit.value.installationAuthorized,false);
+ const sql=await call('db_migration_preview',{migrationId:'crm-read-provision-v1',expectedSha256:'1'.repeat(64)});assert.equal(sql.value.result.structuredContent.error,'NATIVE_INSTALLER_NOT_ADMITTED');
+ const db=new DatabaseSync('/dashboard-data/dashboard.sqlite',{readOnly:true});assert.equal(JSON.stringify(db.prepare('SELECT * FROM shrigma_native_database_credential_v1').get()).includes(privatePassword),false);const delegate=db.prepare('SELECT user_id,token_hash FROM crm_native_connections_v1 WHERE id=?').get(issued.value.connection.id);assert.equal(delegate.user_id,originalId);assert.equal(delegate.token_hash,sha(bearer));assert.equal(db.prepare("SELECT COUNT(*) n FROM users WHERE role='superadmin'").get().n,1);db.close();
  stage='revoke';assert.equal((await request('/auth/native-connections',{method:'POST',cookie,csrf,body:{action:'revoke',connectionId:issued.value.connection.id}})).status,200);
  assert.equal((await call('crm_status')).status,401);
- console.log(JSON.stringify({schema:'shrigma-native-image-smoke-v1',ok:true,manifestDerivedPinWithoutLegacyPrepare:true,realImmutableReadWithoutWrites,freshPrestartDeniedWithoutOriginalContinuity:originalContinuityRefused,node:process.version,uid:process.getuid(),manifestSha256,sourceRevision:JSON.parse(bytes).sourceRevision,originalIdentityRetained:true,genuineSyntheticConsent:true,unauthenticatedInvocationDenied:true,crossBrandDenied:true,writeWithoutGrantDenied:true,nativeRevocationDenied:true,originalPackAndV2PresentationPreserved:true,actualNativeRuntimeFiles:33,runtimeReplacements:2,runtimeAdditions:5,sqlInstallerEnabled:false,productionIdentityUsed:false,operational:false}));
+ console.log(JSON.stringify({schema:'shrigma-native-image-smoke-v1',ok:true,manifestDerivedPinWithoutLegacyPrepare:true,realImmutableReadWithoutWrites,freshPrestartDeniedWithoutOriginalContinuity:originalContinuityRefused,node:process.version,uid:process.getuid(),manifestSha256,sourceRevision:JSON.parse(bytes).sourceRevision,originalIdentityRetained:true,genuineSyntheticConsent:true,unauthenticatedInvocationDenied:true,crossBrandDenied:true,writeWithoutGrantDenied:true,nativeRevocationDenied:true,originalPackAndV2PresentationPreserved:true,actualNativeRuntimeFiles:37,privateDatabasePasswordCiphered:true,readOnlyScopeExtendedWithSameBearer:true,sqlInstallationStillRefused:true,pgDriverVersion:driver.version,pgDriverManifestSha256:JSON.parse(bytes).pgDriverManifestSha256,runtimeReplacements:2,runtimeAdditions:9,sqlInstallerEnabled:false,productionIdentityUsed:false,operational:false}));
  process.kill(process.pid,'SIGTERM');
 }
 main().catch(e=>{console.error(JSON.stringify({ok:false,stage,code:/^[A-Z][A-Z0-9_]{1,80}$/.test(e.code||'')?e.code:'NATIVE_IMAGE_SMOKE_FAILED'}));process.exitCode=1;process.kill(process.pid,'SIGTERM');});
