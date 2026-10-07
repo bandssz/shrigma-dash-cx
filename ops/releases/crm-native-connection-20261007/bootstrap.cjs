@@ -1,7 +1,7 @@
 'use strict';
 // Fresh, explicit backend admission. Old pack/seals/controller/73a stay intact.
 // The old presentation verifier covers its own artifact. This verifier covers
-// the actual 31-file runtime used by this server, including the two replacements.
+// the actual 33-file runtime used by this server, including the two replacements.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const ROOT='/app/native-backend',READY='/tmp/shrigma-native-ready-v1.json';
 const PARENT='ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911';
@@ -15,26 +15,27 @@ function read(file,{uid=0,gid=0,mode=0o444,max=2*1024*1024}={}){
 }
 function verifyRelease(manifestSha256){
  if(!/^[a-f0-9]{64}$/.test(manifestSha256||''))refuse();
- for(const dir of [ROOT,ROOT+'/runtime']){const s=fs.lstatSync(dir);if(fs.realpathSync(dir)!==dir||!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o555)refuse();}
+ for(const dir of [ROOT,ROOT+'/runtime',ROOT+'/runtime/native-continuity']){const s=fs.lstatSync(dir);if(fs.realpathSync(dir)!==dir||!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o555)refuse();}
  const bytes=read(ROOT+'/manifest.json',{max:16384});if(sha(bytes)!==manifestSha256)refuse();const m=JSON.parse(bytes);
- if(Object.keys(m).sort().join(',')!=='additions,basePackSha256,baseRuntime,files,historicalActivationReplayed,identityDatabase,operational,originalPackPreserved,parentImage,replacements,schema,sourceRevision,sqlInstallerEnabled'||m.schema!=='shrigma-native-backend-release-v1'||m.parentImage!==PARENT||m.basePackSha256!==BASE_PACK||!/^[a-f0-9]{40}$/.test(m.sourceRevision)||m.identityDatabase!=='/dashboard-data/dashboard.sqlite'||m.originalPackPreserved!==true||m.historicalActivationReplayed!==false||m.sqlInstallerEnabled!==false||m.operational!==false||JSON.stringify(m.replacements)!=='["auth.cjs","server.cjs"]'||JSON.stringify(m.additions)!=='["crm-native-delegation.cjs","crm-native-mcp.cjs","crm-native-operator.cjs"]')refuse();
+ if(Object.keys(m).sort().join(',')!=='additions,basePackSha256,baseRuntime,files,historicalActivationReplayed,identityDatabase,operational,originalPackPreserved,parentImage,replacements,schema,sourceRevision,sqlInstallerEnabled'||m.schema!=='shrigma-native-backend-release-v1'||m.parentImage!==PARENT||m.basePackSha256!==BASE_PACK||!/^[a-f0-9]{40}$/.test(m.sourceRevision)||m.identityDatabase!=='/dashboard-data/dashboard.sqlite'||m.originalPackPreserved!==true||m.historicalActivationReplayed!==false||m.sqlInstallerEnabled!==false||m.operational!==false||JSON.stringify(m.replacements)!=='["auth.cjs","server.cjs"]'||JSON.stringify(m.additions)!=='["crm-native-delegation.cjs","crm-native-mcp.cjs","crm-native-operator.cjs","native-continuity/read-only.cjs","native-continuity/pins.json"]')refuse();
  const policy=require('/app/artifact-policy.cjs'),old=policy.decodePack(read('/app/runtime-pack.json').toString(),BASE_PACK);
  const base=old.files.filter(f=>f.path.startsWith('runtime/')).map(f=>({path:f.path.slice(8),b:Buffer.from(f.content,f.encoding)})).sort((a,b)=>a.path.localeCompare(b.path));
  if(base.length!==28||JSON.stringify(base.map(f=>({path:f.path,sha256:sha(f.b),bytes:f.b.length})))!==JSON.stringify(m.baseRuntime))refuse();
- const expected=['bootstrap.cjs',...base.map(f=>'runtime/'+f.path),...m.additions.map(f=>'runtime/'+f)].sort();
- if(!Array.isArray(m.files)||m.files.length!==32||JSON.stringify(m.files.map(f=>f.path).sort())!==JSON.stringify(expected)||fs.readdirSync(ROOT).sort().join(',')!=='bootstrap.cjs,manifest.json,runtime'||JSON.stringify(fs.readdirSync(ROOT+'/runtime').sort())!==JSON.stringify(expected.filter(f=>f.startsWith('runtime/')).map(f=>f.slice(8))))refuse();
+ const expected=['bootstrap.cjs','start-existing.cjs','health-existing.cjs',...base.map(f=>'runtime/'+f.path),...m.additions.map(f=>'runtime/'+f)].sort();
+ const actual=[];function scan(dir,prefix=''){for(const name of fs.readdirSync(dir)){const file=dir+'/'+name;if(fs.lstatSync(file).isDirectory()){if(prefix+name!=='native-continuity')refuse();scan(file,prefix+name+'/');}else actual.push(prefix+name);}}scan(ROOT+'/runtime');
+ if(!Array.isArray(m.files)||m.files.length!==36||JSON.stringify(m.files.map(f=>f.path).sort())!==JSON.stringify(expected)||fs.readdirSync(ROOT).sort().join(',')!=='bootstrap.cjs,health-existing.cjs,manifest.json,runtime,start-existing.cjs'||JSON.stringify(actual.sort())!==JSON.stringify(expected.filter(f=>f.startsWith('runtime/')).map(f=>f.slice(8))))refuse();
  for(const f of m.files){if(Object.keys(f).sort().join(',')!=='bytes,path,sha256'||!/^[a-f0-9]{64}$/.test(f.sha256)||!Number.isSafeInteger(f.bytes)||f.bytes<1)refuse();const b=read(ROOT+'/'+f.path);if(b.length!==f.bytes||sha(b)!==f.sha256)refuse();const before=base.find(v=>'runtime/'+v.path===f.path);if(before&&!(m.replacements.includes(before.path))&&!b.equals(before.b)||before&&m.replacements.includes(before.path)&&b.equals(before.b))refuse();}
  return m;
 }
 function verifyReady({manifestSha256}){
  const m=verifyRelease(manifestSha256),r=JSON.parse(read(READY,{uid:1000,gid:1000,mode:0o600,max:1024}));
  if(Object.keys(r).sort().join(',')!=='manifestSha256,schema,sourceRevision'||r.schema!=='shrigma-native-ready-v1'||r.manifestSha256!==manifestSha256||r.sourceRevision!==m.sourceRevision)refuse();
- return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:31,runtimeReplacements:2,originalRuntimePreserved:26,runtimeAdditions:3,sqlInstallerEnabled:false,operational:false};
+ return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:33,runtimeReplacements:2,originalRuntimePreserved:26,runtimeAdditions:5,sqlInstallerEnabled:false,operational:false};
 }
 function start({manifestSha256}={}){
  const m=verifyRelease(manifestSha256),boot=require('/app/bootstrap.cjs');boot.checkIdentity();process.umask(0o077);
- // Production's historical controller already reconciles its consumed receipt
- // before calling us. No activation/issuer helper is invoked by this bootstrap.
+ // Production prestart uses the separately admitted read-only verifier.
+ // This bootstrap invokes no historical activation or issuer helper.
  const env=boot.pinnedEnv();boot.checkStorage();if(env.DASHBOARD_PACK_SHA256!==BASE_PACK)refuse();
  const parent=fs.realpathSync(fs.mkdtempSync('/tmp/shrigma-operational-'));let artifact,auth,server;
  try{
