@@ -1,0 +1,171 @@
+name: Affiliates own candidate source Node22
+
+# Prepared source only. No mount, gateway, IAM, DB, image, broker or deployment.
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/affiliates-own-candidate-source-20261006.yml'
+      - 'services/dashboard-operational/domain/affiliates-read-projection/**'
+      - 'ui/affiliates-v2/affiliates-contract-v1.0.3.js'
+      - 'ui/affiliates-v2/affiliates-v103.js'
+      - 'tests/crm-affiliates-read-projection/**'
+      - 'tests/affiliates-v2/own-candidate-v103.test.cjs'
+      - 'tests/affiliates-v2/fixtures/**'
+permissions:
+  contents: read
+concurrency:
+  group: affiliates-own-candidate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  own-candidate-source:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.head_ref == 'codex/affiliates-own-candidate-source-20261006'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      SOURCE_HEAD_REF: ${{ github.head_ref }}
+      SOURCE_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      SOURCE_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+      SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify nine source paths, execute only nineteen new cases, reverify pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          node <<'NODE'
+          const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+          const assert = require('node:assert/strict');
+          const {execFileSync,spawnSync} = require('node:child_process');
+          const BASE = 'bef24b0a889a549d3da8691270b52f6c836affef';
+          const WORKFLOW = '.github/workflows/affiliates-own-candidate-source-20261006.yml';
+          const PINS = {
+            "services/dashboard-operational/domain/affiliates-read-projection/projection.cjs": [
+              21608,
+              "fb0ac83e38df47b44eb057d885566f9e4a472f0bfe1879a3a6eb89b895ae85ac",
+              "59b6b5a7600e7b64ae668679dd6840a125360025"
+            ],
+            "ui/affiliates-v2/affiliates-contract-v1.0.3.js": [
+              19350,
+              "0dc03d34d2a309eaeee256463f01d08478a0e0c8ca4f4ce3fd7b8ab782b8cd22",
+              "599f4ee238e60a99f5496f5c624ccf1a2686c7aa"
+            ],
+            "ui/affiliates-v2/affiliates-v103.js": [
+              72957,
+              "7120a8a2355beb5f036c942afb2f82354ff697276cd33eb48d7dc5600d2d2e0a",
+              "569d64fe39237c0dda3c52a1265f4f5d4a4eb7b4"
+            ],
+            "tests/crm-affiliates-read-projection/own-candidate.test.cjs": [
+              18923,
+              "edeadad8f2be4d420844ea81740fc114d37c98b66068ec76b389ab1a572ab810",
+              "3d66316f669200d2543d25e4b0a70bb94601aec9"
+            ],
+            "tests/affiliates-v2/own-candidate-v103.test.cjs": [
+              21439,
+              "8dd0b70e0d6fab5786e29f0b90d0f521fc67866a0a5f02083e619f423dd87894",
+              "58d5f84aa1ddec74e2180d49cf537183ebfb85bb"
+            ],
+            "tests/crm-affiliates-read-projection/fixtures/provider-bound-projection-v1.cjs": [
+              18532,
+              "f2ae9fa732451e1930979e05640943a691b7d39f5be4ed9610ea4117f551d841",
+              "0d830e6f231481fc7c3874cd85c482202f70f2dc"
+            ],
+            "tests/affiliates-v2/fixtures/contract-v102.cjs": [
+              17806,
+              "330b00b3e241223f53ebfade63099da33f1f5de55e6fb6908a500a11c027a420",
+              "5e6a8136631714508045be81db8910155e9daa8f"
+            ],
+            "tests/affiliates-v2/fixtures/reader-v102-profile.cjs": [
+              69977,
+              "9ac8cac7b38c9ca6065c2490eeab662834384dd6703ca9ca65f1043905091ce1",
+              "b4a62c713c43bfced213982fa9622806b61b767b"
+            ]
+          };
+          const INPUTS = {
+            "tests/affiliates-v2/mini-dom.cjs": [
+              7725,
+              "d7ff99dba627013337a6c4a1f458da3242eeecb3c86d585e2e0f4e5a6083f75c",
+              "78c8aae1abb501d8e4d794c78b992b25df124d97"
+            ]
+          };
+          const ROOT = fs.realpathSync(process.env.GITHUB_WORKSPACE);
+          process.chdir(ROOT);
+          const git = (...args) => execFileSync('git',args,{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const hash = b => crypto.createHash('sha256').update(b).digest('hex');
+          function verifyBytes(buffer,pin){
+           assert.equal(buffer.length,pin[0],'SOURCE_BYTES_MISMATCH');
+           assert.equal(hash(buffer),pin[1],'SOURCE_SHA256_MISMATCH');
+           assert.equal(crypto.createHash('sha1').update(Buffer.from('blob '+buffer.length+'\0')).update(buffer).digest('hex'),pin[2],'SOURCE_GIT_BLOB_MISMATCH');
+          }
+          function fixedFile(relative,pin){
+           assert.ok(!relative.startsWith('/')&&!relative.split('/').some(v=>!v||v==='.'||v==='..'),'SOURCE_PATH_REFUSED');
+           let full=ROOT;
+           for(const part of relative.split('/')){full=path.join(full,part);assert.ok(!fs.lstatSync(full).isSymbolicLink(),'SOURCE_SYMLINK_REFUSED');}
+           const st=fs.lstatSync(full);assert.ok(st.isFile()&&st.nlink===1,'SOURCE_FILE_REFUSED');
+           const b=fs.readFileSync(full);verifyBytes(b,pin);return b;
+          }
+          function tree(revision){
+           const out=execFileSync('git',['ls-tree','-rz','--full-tree',revision],{encoding:'utf8',maxBuffer:16*1024*1024});
+           const entries=new Map();
+           for(const item of out.split('\0').filter(Boolean)){
+            const m=/^(\d{6}) (blob|commit) ([a-f0-9]{40})\t(.+)$/.exec(item);assert.ok(m,'SOURCE_TREE_REFUSED');
+            entries.set(m[4],{mode:m[1],type:m[2],blob:m[3]});
+           }
+           return entries;
+          }
+          function verifySource(){
+           assert.equal(process.version,'v22.23.3','SOURCE_NODE_REFUSED');
+           assert.equal(process.env.GITHUB_EVENT_NAME,'pull_request','SOURCE_EVENT_REFUSED');
+           assert.equal(process.env.GITHUB_REPOSITORY,'bandssz/shrigma-dash-cx','SOURCE_REPOSITORY_REFUSED');
+           assert.equal(process.env.SOURCE_HEAD_REPO,'bandssz/shrigma-dash-cx');
+           assert.equal(process.env.SOURCE_BASE_REPO,'bandssz/shrigma-dash-cx');
+           assert.equal(process.env.SOURCE_HEAD_REF,'codex/affiliates-own-candidate-source-20261006');
+           assert.equal(process.env.SOURCE_BASE_SHA,BASE,'SOURCE_BASE_REFUSED');
+           const head=process.env.SOURCE_HEAD_SHA;assert.match(head,/^[a-f0-9]{40}$/);assert.equal(git('rev-parse','HEAD'),head,'SOURCE_HEAD_REFUSED');
+           execFileSync('git',['merge-base','--is-ancestor',BASE,head]);
+           const expected=[...Object.keys(PINS),WORKFLOW].sort();
+           const delta=git('diff','--no-renames','--name-status',BASE,head).split('\n').filter(Boolean).map(line=>line.split('\t'));
+           assert.deepEqual(delta.map(v=>v[1]).sort(),expected,'SOURCE_EXACT_NINE_PATHS_REFUSED');
+           assert.ok(delta.every(v=>v.length===2&&v[0]==='A'),'SOURCE_NON_ADDITIVE_REFUSED');
+           const baseTree=tree(BASE),headTree=tree(head);
+           for(const [name,row]of baseTree){assert.deepEqual(headTree.get(name),row,'SOURCE_LEGACY_CHANGED:'+name);}
+           assert.equal(headTree.size,baseTree.size+expected.length,'SOURCE_EXTRA_PATH_REFUSED');
+           for(const [name,pin]of Object.entries(PINS)){
+            assert.deepEqual(headTree.get(name),{mode:'100644',type:'blob',blob:pin[2]},'SOURCE_PAYLOAD_BLOB_REFUSED');fixedFile(name,pin);
+           }
+           for(const [name,pin]of Object.entries(INPUTS)){
+            assert.deepEqual(baseTree.get(name),{mode:'100644',type:'blob',blob:pin[2]},'SOURCE_BASE_INPUT_MISSING_OR_CHANGED:'+name);fixedFile(name,pin);
+           }
+           const wfRow=headTree.get(WORKFLOW);assert.ok(wfRow&&wfRow.mode==='100644'&&wfRow.type==='blob','SOURCE_WORKFLOW_MODE_REFUSED');
+          const wf=fs.readFileSync(WORKFLOW);fixedFile(WORKFLOW,[wf.length,hash(wf),wfRow.blob]);assert.deepEqual(wf,execFileSync('git',['show',head+':'+WORKFLOW]),'SOURCE_WORKFLOW_DIRTY');
+           assert.equal(git('status','--porcelain','--untracked-files=all'),'','SOURCE_WORKTREE_DIRTY');
+           return {head,base:BASE,delta:9,preserved:baseTree.size};
+          }
+          const source=verifySource();
+          for(const file of Object.keys(PINS))execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
+          const tests=['tests/crm-affiliates-read-projection/own-candidate.test.cjs','tests/affiliates-v2/own-candidate-v103.test.cjs'];
+          // Only Node builtins and already pinned checkout inputs. No inherited GitHub
+          // tokens, NODE_OPTIONS, provider keys, network, browser, npm or production context.
+          const childEnv={PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8',LC_ALL:'C.UTF-8',CI:'true',C1_AFFILIATES_ROOT:ROOT};
+          const run=spawnSync(process.execPath,['--test','--test-reporter=tap',...tests],{env:childEnv,encoding:'utf8',maxBuffer:4*1024*1024,timeout:120000});
+          if(run.stdout)process.stdout.write(run.stdout);
+          if(run.stderr)process.stderr.write(run.stderr);
+          assert.equal(run.error,undefined,'SOURCE_TEST_EXECUTION_REFUSED');assert.equal(run.signal,null,'SOURCE_TEST_SIGNAL_REFUSED');assert.equal(run.status,0,'SOURCE_TEST_FAILED');
+          assert.ok(!/^\s*not ok /m.test(run.stdout)&&!/^\s*(?:ok|not ok)\b[^\n]*#\s*(?:SKIP|TODO)\b/im.test(run.stdout),'SOURCE_TEST_SKIP_OR_FAILURE_REFUSED');
+          assert.equal([...run.stdout.matchAll(/^ok \d+ - /gm)].length,19,'SOURCE_TEST_POINTS_REFUSED');
+          const expected={tests:19,pass:19,fail:0,cancelled:0,skipped:0,todo:0};
+          for(const [field,value]of Object.entries(expected)){
+           const m=[...run.stdout.matchAll(new RegExp('^# '+field+' ([0-9]+)$','gm'))];assert.equal(m.length,1,'SOURCE_TAP_SUMMARY_REFUSED:'+field);assert.equal(Number(m[0][1]),value,'SOURCE_TAP_COUNT_REFUSED:'+field);
+          }
+          verifySource();
+          console.log(JSON.stringify({code:'AFFILIATES_OWN_CANDIDATE_SOURCE_PASSED',...source,runtime:process.version,tests:19,sourceOnly:true,readAdmission:false,productionInstalled:false,operational:false}));
+          NODE
