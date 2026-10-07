@@ -108,6 +108,17 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    if(name==='crm_audience_catalog'&&(args.limit>100||args.offset>10000))fail('NATIVE_ARGUMENTS_INVALID');
    if(['crm_audience_save','crm_audience_archive'].includes(name))result=await run('POST','/api/segments',{acao:action,...args});
    else{const fields=name==='crm_audience_catalog'?{brand:args.brand,limit:args.limit??50,offset:args.offset??0}:args;result=await run('GET','/api/segments?'+new URLSearchParams({acao:action,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,String(v)]))}));}
+   if(name==='crm_audience_get'&&result.status===200){
+    const access=await run('GET','/auth/session');
+    if(access.status===200&&access.body?.features?.audienceCount===true){
+     // Detail includes an explicitly admitted derived count. The same original
+     // dispatcher verifies version/catalog and private binding around its POST.
+     // No retry, saved-audience mutation or send is performed here.
+     const cat=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'1'}));
+     const count=cat.status===200&&cat.body?.capabilities?.count===true?await run('POST','/api/segments',{acao:'segmento_contar',brand:args.brand,id:result.body.segment.id,expected_version:result.body.segment.version,expected_catalog_hash:cat.body.catalog.catalog_hash}):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
+     result={...result,body:{...result.body,audienceCount:count}};
+    }
+   }
   }else if(name.startsWith('crm_user')){
    const listing=await run('GET','/auth/users');
    if(listing.status!==200)return redact(listing);
