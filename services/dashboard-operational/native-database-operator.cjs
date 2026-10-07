@@ -23,7 +23,7 @@ async function handleDatabaseOperator({req,res,url,ctx,auth,managerHost}){
  if(url.pathname!==API){
   if(req.method!=='GET')fail('METHOD_DENIED',405);
   // Original browser only; native delegation never edits private custody.
-  auth.nativeDatabaseVault.status(ctx);
+  if(ctx.nativeBearer!==undefined)fail('NATIVE_BROWSER_CONSENT_REQUIRED');
   res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
   res.setHeader('Content-Type',url.pathname===PAGE?'text/html; charset=utf-8':'text/javascript; charset=utf-8');res.end(url.pathname===PAGE?HTML:JS);return true;
  }

@@ -65,3 +65,18 @@ test('MCP database invocation passes authenticated owner separately from untrust
  const out=await m.call('db_inspect',{},key.token);assert.equal(out.status,200);assert.deepEqual(seen.q,{});assert.deepEqual(seen.context,{ownerId:f.ownerId,connectionId:key.connection.id});
  await assert.rejects(m.call('db_inspect',{ownerId:'forged'},key.token),e=>e.code==='NATIVE_ARGUMENTS_INVALID');
 }finally{f.close();}});
+
+test('private database page and script use original browser GET authorization; consent remains a protected POST',async()=>{const f=await fixture();try{
+ for(const pathname of ['/auth/native-database','/auth/native-database.js']){
+  const headers={},chunks=[],res=new Writable({write(c,_e,done){chunks.push(Buffer.from(c));done();}});res.setHeader=(k,v)=>{headers[k]=v;};
+  const req=Readable.from([]);req.method='GET';req.headers={};
+  const ctx={...f.ctx,method:'GET',csrf:undefined};
+  assert.equal(await handleDatabaseOperator({req,res,url:new URL(pathname,f.origin),ctx,auth:f.auth,managerHost:f.host}),true);
+  assert.equal(headers['Cache-Control'],'no-store');assert.equal(headers['Referrer-Policy'],'no-referrer');assert.equal(Buffer.concat(chunks).toString().includes(password),false);
+  await assert.rejects(handleDatabaseOperator({req,res,url:new URL(pathname,f.origin),ctx:{...ctx,cookieHeader:undefined},auth:f.auth,managerHost:f.host}),e=>e.code==='SESSION_REQUIRED');
+  const key=f.auth.nativeConnections.issue({context:f.ctx,brands:['fish'],scopes:['db.inspect']});
+  await assert.rejects(handleDatabaseOperator({req,res,url:new URL(pathname,f.origin),ctx:f.auth.nativeConnections.context(key.token),auth:f.auth,managerHost:f.host}),e=>e.code==='NATIVE_BROWSER_CONSENT_REQUIRED');
+ }
+ await assert.rejects(operator(f,{action:'status'},{...f.ctx,csrf:'wrong'}),e=>e.code==='CSRF_DENIED');
+ const d=new DatabaseSync(f.dbPath);assert.equal(d.prepare('SELECT count(*) n FROM shrigma_native_database_credential_v1').get().n,0);d.close();
+}finally{f.close();}});

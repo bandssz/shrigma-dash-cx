@@ -267,8 +267,8 @@
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
-      "bytes": 6990,
-      "sha256": "e53002eb84f98bf6b92ab85b808515f2ba272712c23029a8cff4150c97223628"
+      "bytes": 7025,
+      "sha256": "460f310406d1eb4797885d0fcd2836bf0e2da3916da0cbcd659d910f3d3c9d10"
     },
     {
       "path": "services/dashboard-operational/native-database-vault.cjs",
@@ -362,8 +362,8 @@
     },
     {
       "path": "tests/native-database-custody.test.cjs",
-      "bytes": 9969,
-      "sha256": "34bebe931dca66f95894d72a5db7c896ab7343b1fcd2451e61d341c7c591bb0b"
+      "bytes": 11542,
+      "sha256": "9a1813b82244f1642682c46aee5d5a7b34e17434785cd6f1b2c4d677d5aaa902"
     },
     {
       "path": "tests/native-installer/installer.test.cjs",
