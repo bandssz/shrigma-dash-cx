@@ -18,6 +18,7 @@ const GFU={
   render(ctx){
     if(ctx)GFU.ctx=ctx;
     if(GFU.ctx.configuredReadOnly===true){GFU.renderConfigured();return;}
+    if(GFU.ctx.observedOnly!==true&&typeof GB!=='undefined'&&GFU.ctx.api?.capabilities?.workflows?.editor===true){GB.render(GFU.ctx);return;}
     const root=typeof document!=='undefined'?document.querySelector('#control-fluxos'):null;if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
     const observedOnly=GFU.ctx.observedOnly===true;
@@ -125,4 +126,3 @@ Object.assign(GFU,{
 });
 
 if(typeof module!=='undefined'&&module.exports)module.exports=GFU;
-

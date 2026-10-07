@@ -137,6 +137,7 @@
     "growth-flows-ui.js",
     "growth-flows.js",
     "growth-journeys-read.css",
+    "growth-segment-ui.js",
     "growth.html",
     "ops/releases/crm-native-connection-20261007/Dockerfile",
     "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
@@ -181,6 +182,8 @@
     "services/dashboard-operational/own-foundation/sql.cjs",
     "services/dashboard-operational/reviewed-database-functions.json",
     "services/dashboard-operational/server.cjs",
+    "tests/audience-removal/fixture.cjs",
+    "tests/audience-removal/removal.test.cjs",
     "tests/configured-journeys-read/fixtures.cjs",
     "tests/configured-journeys-read/model.test.cjs",
     "tests/configured-journeys-read/ui.test.cjs",
@@ -188,6 +191,7 @@
     "tests/dashboard-operational-native-mcp.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
+    "tests/growth-flows-ui.test.cjs",
     "tests/native-continuity/fixture.cjs",
     "tests/native-continuity/read-only.test.cjs",
     "tests/native-database-custody.test.cjs",
@@ -208,18 +212,18 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 4426,
-      "sha256": "f2dead412ee1b1ffc9c8928a27a44cc14c7a069b8403b48b8452d4f5c4a4517b"
+      "bytes": 5140,
+      "sha256": "062533cbe216fc042f20c171faabffe650bc100f8710b01e204f90d9e50b8f32"
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 995213,
-      "sha256": "74dbbf3eaa70fa4b2273e7c215d92b0706ec17939dd5a24aac483b67dca5ce3d"
+      "bytes": 998085,
+      "sha256": "274ff96bc97b4f69e3ec0ddeca677b20e8bf2f3e6a31908c836a52bcc8d2adc7"
     },
     {
       "path": "growth-flows-ui.js",
-      "bytes": 26043,
-      "sha256": "3df9a3cf9b8b09d8e06bd374cf1cc6d780fbfaf6f9e25381fd4154803dc234cf"
+      "bytes": 26184,
+      "sha256": "024898dc44691631438564d3b6576c817fd1b5527e2b256b44f019467ee862a7"
     },
     {
       "path": "growth-flows.js",
@@ -232,9 +236,14 @@
       "sha256": "e0b20e8ea1a697c8da8a4a55e8faa332071ac87cb69caefdd936716a0358b985"
     },
     {
+      "path": "growth-segment-ui.js",
+      "bytes": 40952,
+      "sha256": "26aaf5b7c115f1aa202c850dd0b02803897a32e20e7f2682cf9b45b59c893eab"
+    },
+    {
       "path": "growth.html",
       "bytes": 110127,
-      "sha256": "8d62053aa186b7e792df22a0116889ce16eee88a73556a70751a96e46d4bab43"
+      "sha256": "16a22d5e34969fda15950dee496276fbf7c08c6a7ec1ff721d5f8d2cea7be2ec"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -452,6 +461,16 @@
       "sha256": "980a1494b45853b2c07c6dae8a89e7b513e9e2a94853160d1d286a2c710ba7be"
     },
     {
+      "path": "tests/audience-removal/fixture.cjs",
+      "bytes": 6502,
+      "sha256": "3bf172ef3574e760ba14fa5ca815daf49176cf2593c3930f429bf0d5c75988c3"
+    },
+    {
+      "path": "tests/audience-removal/removal.test.cjs",
+      "bytes": 9125,
+      "sha256": "1746c3ab2d092c945d7ad84aa357cbb576137ff6c7fa54bc4043d5859400680d"
+    },
+    {
       "path": "tests/configured-journeys-read/fixtures.cjs",
       "bytes": 850,
       "sha256": "4d968cc072094e7dc2a41c36a920c5e4db6ad09f43b6ffb7afe47370c7144a59"
@@ -485,6 +504,11 @@
       "path": "tests/database-inventory/reviewed-function-parser.cjs",
       "bytes": 3319,
       "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+    },
+    {
+      "path": "tests/growth-flows-ui.test.cjs",
+      "bytes": 7574,
+      "sha256": "23e1494af25d000d718fd22085a9fa013b88427c6fefa000e3b82e0c6279fce0"
     },
     {
       "path": "tests/native-continuity/fixture.cjs",
@@ -543,8 +567,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4024,
-      "sha256": "238a08b987c645746ad935e0e85ecc8dee08b8cd8d14aa07b281c00937b0ebe6"
+      "bytes": 4159,
+      "sha256": "853b948d959c9c26c92eae7b5b88fa0bfaeb7513db06a58a7c4522068f5733b3"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -678,5 +702,11 @@
         }
       ]
     }
-  ]
+  ],
+  "audienceRemovalSourcePackage": {
+    "packageId": "audience-removal-c2-source-20261007-v1",
+    "deliverySha256": "b260f7ba97c962bbd0b1adbf8f3ef0eaaa615b05279bfd0f699323f9bac7728d",
+    "existingArchivePersistenceUnchanged": true,
+    "productionWriteAdmitted": false
+  }
 }

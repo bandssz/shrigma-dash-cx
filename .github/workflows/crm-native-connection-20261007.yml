@@ -28,8 +28,16 @@ jobs:
           node-version: '22.23.3'
       - name: Verify source composition
         run: node tools/crm-native-connection/verify-source.cjs
-      - name: Original Master cache scope and native reader correction
-        run: node --test tests/crm-journey-read.test.cjs
+      - name: Install exact frontend test dependency
+        run: npm install --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
+      - name: Install pinned canonical panel compiler
+        run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+      - name: New audience removal and corrected journey UI
+        run: node --test tests/audience-removal/removal.test.cjs tests/configured-journeys-read/ui.test.cjs tests/growth-flows-ui.test.cjs
+      - name: Preserve the original lazy journey editor and pending operation
+        run: node --test --test-name-pattern='^CRM-27: (Início|direct journey|durable unresolved)' tests/growth-render.test.cjs
+      - name: Verify exact canonical Growth composition
+        run: node tools/panel-build/build.cjs --panel=growth --check
       - name: Private registry session
         env:
           REGISTRY_TOKEN: ${{ github.token }}
