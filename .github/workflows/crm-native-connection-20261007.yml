@@ -40,6 +40,7 @@ jobs:
           native_ci_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-native.XXXXXX")"
           printf 'NATIVE_CI_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$native_ci_dir" "$native_ci_dir" >> "$GITHUB_ENV"
           mkdir -m 0700 "$native_ci_dir/docker"
+          export DOCKER_CONFIG="$native_ci_dir/docker"
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Build explicit native backend over installed V2
         shell: bash

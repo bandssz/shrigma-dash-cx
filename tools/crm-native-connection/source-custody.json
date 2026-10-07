@@ -159,8 +159,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 4324,
-      "sha256": "fa384b4eae472a5111d20f14a79ab4dea61398eabe4478b45c87c7f86c5bb4d1"
+      "bytes": 4379,
+      "sha256": "910634d2e16abb81024d51f33ee1b0517f12784196a84f6e99cfa0685bd17647"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
