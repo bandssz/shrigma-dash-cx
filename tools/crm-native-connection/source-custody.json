@@ -163,9 +163,11 @@
     "services/dashboard-operational/native-installer/provider-pins.json",
     "services/dashboard-operational/native-installer/sql.cjs",
     "services/dashboard-operational/native-pg-driver.cjs",
+    "services/dashboard-operational/reviewed-database-functions.json",
     "services/dashboard-operational/server.cjs",
     "tests/dashboard-operational-native-mcp.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
+    "tests/database-inventory/reviewed-function-parser.cjs",
     "tests/native-continuity/fixture.cjs",
     "tests/native-continuity/read-only.test.cjs",
     "tests/native-database-custody.test.cjs",
@@ -182,8 +184,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7790,
-      "sha256": "b15f1d2f402536b11106081499a993c39519c6df33b71906bc9ad7a522072573"
+      "bytes": 7984,
+      "sha256": "d54a690751732e52cadfd810fe4fb9692777171cc4d4f111d2a73ecac99635a4"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -202,8 +204,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
-      "bytes": 9155,
-      "sha256": "af57aaf5ad839f23491f9176e69acad3f92a42362df2f8ab28745a3da43da16d"
+      "bytes": 11157,
+      "sha256": "c3e7c8e8ccf31c651fb0c42f7a925eae252917e386819a474a9d2748fac73d5d"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -222,8 +224,8 @@
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
-      "bytes": 11856,
-      "sha256": "89957f724394a87b59a4b6216c25cd0aad40bf5ddc5b24eaa65b280a2dce54eb"
+      "bytes": 12728,
+      "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143"
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
@@ -262,8 +264,8 @@
     },
     {
       "path": "services/dashboard-operational/native-database-inventory.cjs",
-      "bytes": 14677,
-      "sha256": "f3c1b6f7486d633cbf85d46121caeddca1d4ba8c1b48de4411a81ebf47df540c"
+      "bytes": 21160,
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
@@ -336,6 +338,11 @@
       "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
     },
     {
+      "path": "services/dashboard-operational/reviewed-database-functions.json",
+      "bytes": 13225,
+      "sha256": "d4a57dabc34b8856760e1bdc2d9ffacbeb07582b7cae46bc3a144e836f267c80"
+    },
+    {
       "path": "services/dashboard-operational/server.cjs",
       "bytes": 93305,
       "sha256": "34744cb07bbe2820945e0cf0a54fdd8cc994e16aaaee39bd631f5bfd1af5fdf6"
@@ -347,8 +354,13 @@
     },
     {
       "path": "tests/database-inventory/inventory.test.cjs",
-      "bytes": 14267,
-      "sha256": "05ddff82b7bca086fdcff7dee374f5d4ce6c216f658f51da460d0c2973cde7d3"
+      "bytes": 23449,
+      "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08"
+    },
+    {
+      "path": "tests/database-inventory/reviewed-function-parser.cjs",
+      "bytes": 3319,
+      "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
     },
     {
       "path": "tests/native-continuity/fixture.cjs",
@@ -388,7 +400,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 3514,
-      "sha256": "f5dab981145f7906fac2bf170a5daf450e9ee671f98b184b422c34e2080d1c2c"
+      "sha256": "8e716de11fd01756e0e431423786651f63c884a340a9d398327533946efbbdb3"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -445,26 +457,38 @@
       ]
     },
     {
-      "packageId": "native-connection-c2-db-inventory-20261007-v3",
-      "deliverySha256": "4e4ed7e1b7962d595d2002d11ef0c800df0311712790fb3f6513e8a6f99a2bca",
+      "packageId": "native-connection-c2-db-inventory-20261007-v4",
+      "deliverySha256": "bab689ed7533438cec798d1aed7e5595b9ea44495b0c341c21d3a63c273877df",
       "files": [
         {
           "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
-          "bytes": 11856,
-          "sha256": "89957f724394a87b59a4b6216c25cd0aad40bf5ddc5b24eaa65b280a2dce54eb",
-          "gitBlobSha1": "96d7048e9303a103c1f18351f2439bd8ad9e7101"
+          "bytes": 12728,
+          "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143",
+          "gitBlobSha1": "bf8bb8bcaa4b332d6bf7e1fa5d8eed0f23a15202"
         },
         {
           "path": "services/dashboard-operational/native-database-inventory.cjs",
-          "bytes": 14677,
-          "sha256": "f3c1b6f7486d633cbf85d46121caeddca1d4ba8c1b48de4411a81ebf47df540c",
-          "gitBlobSha1": "e0951095b907e444c0245d6ebf732691c34795e8"
+          "bytes": 21160,
+          "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1",
+          "gitBlobSha1": "5024fcf48191a7d11021935f37f72f0ccf7639fa"
+        },
+        {
+          "path": "services/dashboard-operational/reviewed-database-functions.json",
+          "bytes": 13225,
+          "sha256": "d4a57dabc34b8856760e1bdc2d9ffacbeb07582b7cae46bc3a144e836f267c80",
+          "gitBlobSha1": "24986b0bc9efa35d0335f9e79fa942f040440226"
         },
         {
           "path": "tests/database-inventory/inventory.test.cjs",
-          "bytes": 14267,
-          "sha256": "05ddff82b7bca086fdcff7dee374f5d4ce6c216f658f51da460d0c2973cde7d3",
-          "gitBlobSha1": "159be5c870084592b92610b45551a593df622a4a"
+          "bytes": 23449,
+          "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08",
+          "gitBlobSha1": "72b29bd68fb27d7a7f958850feccce52bd6eb6c6"
+        },
+        {
+          "path": "tests/database-inventory/reviewed-function-parser.cjs",
+          "bytes": 3319,
+          "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96",
+          "gitBlobSha1": "8d927dd6100c13184d3cafcb09f9dc8c850c7f54"
         }
       ]
     }

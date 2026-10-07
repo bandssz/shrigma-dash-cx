@@ -1,0 +1,436 @@
+{
+  "schema": "shrigma-reviewed-function-bodies-v1",
+  "algorithm": "sha256(convert_to(pg_proc.prosrc,UTF8))",
+  "equivalence": "exact UTF8 prosrc body only; metadata/ACL/role must be independently reconciled; pg_get_functiondef fingerprint has no source-side expected value",
+  "sources": [
+    {
+      "path": "migrations/crm-manager-provision-v1.sql",
+      "bytes": 24527,
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4",
+      "gitBlobSha1": "e68af6ccea1ba809529b35b5dd76560df720474a",
+      "functionCount": 7
+    },
+    {
+      "path": "migrations/crm-manager-role-install-v1.sql",
+      "bytes": 9310,
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789",
+      "gitBlobSha1": "cafbd8c0413569d728f646a386e013170a02dec8",
+      "functionCount": 0
+    },
+    {
+      "path": "migrations/writer-provision-v1.sql",
+      "bytes": 38349,
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04",
+      "gitBlobSha1": "4c789d0a80b87d18de57faf1e0bae6b60b0803fc",
+      "functionCount": 7
+    }
+  ],
+  "functions": [
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_apply_v1",
+      "argumentIdentity": "req jsonb, rpc text",
+      "argumentTypeOids": "3802 25",
+      "resultTypeOid": "3802",
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 19342,
+      "bodySha256": "81bdc5f7ebbbaab57feeaecd41dd36ec7270497b4ae69758a5ed3b838e6b91fd",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_canonical_v1",
+      "argumentIdentity": "v jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "25",
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "volatility": "i",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 533,
+      "bodySha256": "0954dea00b21d1df3ee80ba3138da84bb0d56092525fc6d878bfa91e0184d879",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_commit_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 56,
+      "bodySha256": "ff56b491d033c7448e52e6f3b5fb187ad6b1f72bebeb17b834994ba1b4583120",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_error_v1",
+      "argumentIdentity": "req jsonb, issuer uuid, ns uuid, code text",
+      "argumentTypeOids": "3802 2950 2950 25",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": false,
+      "volatility": "i",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 396,
+      "bodySha256": "013470bf619352bdaf85f591502494a2a5d95c75d472843e993901681d49342d",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_prepare_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 57,
+      "bodySha256": "c38fe18763520f1b33035dad0f6a71d61fe90c5ce6c2a05f7c883cf0ec329552",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_revoke_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 56,
+      "bodySha256": "ca936031b6824b52e51f1392fd71b65c19fee87f789705784b263e1a254e8a4f",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "crm_manager_writer_status_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 56,
+      "bodySha256": "556a9c80d727498f93c2f8a6443cb16e0b085de4cd1b3cbf09438040c3d93019",
+      "ownerRole": "crm_manager_writer_owner_v1",
+      "sourcePath": "migrations/writer-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_apply_v1",
+      "argumentIdentity": "req jsonb, rpc text",
+      "argumentTypeOids": "3802 25",
+      "resultTypeOid": "3802",
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 18762,
+      "bodySha256": "90d6981a955d281b3081996117aeb20fe5b3fc31db5a18b5f8f56d3808a6be2c",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_canonical_v1",
+      "argumentIdentity": "v jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "25",
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "volatility": "i",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 535,
+      "bodySha256": "df2d60c5e39ac10051d4a71c0227be342a07a3da7f0691914d9f8c4cbd4867f7",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_commit_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 57,
+      "bodySha256": "f752955042bcbb70018a04d89e6557c5331224ae69f9305162ba78fe0729c832",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_error_v1",
+      "argumentIdentity": "req jsonb, issuer uuid, ns uuid, code text",
+      "argumentTypeOids": "3802 2950 2950 25",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": false,
+      "volatility": "i",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 400,
+      "bodySha256": "a2e92afeaef24a814c2bb688119236b817fae30cf491f362d2c8864a4c78be95",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_prepare_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 58,
+      "bodySha256": "216adf1b068c0730ebec154e112d1ad6acf359891830fc279098a53e2b68ea27",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_revoke_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 57,
+      "bodySha256": "e9e6812207b1636288a6a9e189dcaa4c18a4cadfb490d5b5ebff13892989274e",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    },
+    {
+      "namespace": "public",
+      "name": "shrigma_crm_manager_status_v1",
+      "argumentIdentity": "jsonb",
+      "argumentTypeOids": "3802",
+      "resultTypeOid": "3802",
+      "language": "sql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "approvedConfigs": [
+        [
+          "search_path",
+          "pg_catalog, pg_temp"
+        ]
+      ],
+      "bodyUtf8Bytes": 57,
+      "bodySha256": "29eaa69ae2633319c4cc6b33c8ccf520cc35e3321227f3c20679e3b619a54b6e",
+      "ownerRole": "crm_manager_function_owner_v1",
+      "sourcePath": "migrations/crm-manager-provision-v1.sql",
+      "routineKind": "f",
+      "returnsSet": false,
+      "strict": false,
+      "leakproof": false,
+      "parallel": "u",
+      "defaultCount": 0,
+      "sqlBodyPresent": false,
+      "allArgumentTypeOids": null,
+      "argumentModes": null
+    }
+  ]
+}
