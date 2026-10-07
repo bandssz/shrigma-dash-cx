@@ -4,7 +4,7 @@ const {readJson}=require('./proxy.cjs');
 const ENDPOINT='/api/native/mcp',VERSIONS=['2025-11-25','2025-06-18','2025-03-26'];
 const BRANDS=['fish','aristo'];
 const obj=(properties={},required=[])=>({type:'object',properties,required,additionalProperties:false});
-const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:'string',pattern:'^[A-Za-z0-9_-]{16,100}$'};
+const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:'string',pattern:'^[A-Za-z0-9_-]{16,100}$'},audienceId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'},audienceHash={type:'string',pattern:'^[a-f0-9]{64}$'},audienceVersion={type:'integer',minimum:1};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
@@ -13,6 +13,11 @@ const tools=[
  ['crm_campaign_get','Reler campanha original','crm.read',obj({brand,id},['brand','id']),true,false],
  ['crm_campaign_save','Salvar rascunho existente','crm.draft',obj({brand,id,expected_version:{type:'string',pattern:'^[a-f0-9]{32}$'},definition:{type:'object'},idempotency_key:key},['brand','id','expected_version','definition','idempotency_key']),false,false],
  ['crm_campaign_operation','Consultar a tentativa original','crm.draft',obj({brand,idempotency_key:key},['brand','idempotency_key']),false,false],
+ ['crm_audience_catalog','Consultar públicos e catálogo original da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),false,false],
+ ['crm_audience_get','Reler público original da marca','crm.read',obj({brand,id:audienceId},['brand','id']),false,false],
+ ['crm_audience_save','Criar ou atualizar público com versão e catálogo originais','crm.draft',obj({brand,id:audienceId,expected_version:audienceVersion,definition:{type:'object'},expected_catalog_hash:audienceHash,idempotency_key:audienceId},['brand','definition','expected_catalog_hash','idempotency_key']),false,false],
+ ['crm_audience_archive','Excluir público da lista ativa preservando histórico','crm.draft',obj({brand,id:audienceId,expected_version:audienceVersion,idempotency_key:audienceId},['brand','id','expected_version','idempotency_key']),false,true],
+ ['crm_audience_operation','Consultar a tentativa original de público sem reenviar POST','crm.draft',obj({brand,idempotency_key:audienceId},['brand','idempotency_key']),false,false],
  ['crm_users','Consultar acessos individuais','crm.iam',obj(),false,false],
  ['crm_user_update','Atualizar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},expectedRevision:{type:'string',pattern:'^[a-f0-9]{64}$'},brand,access:{type:'string',enum:['read','edit']}},['userId','expectedRevision','brand','access']),false,true],
  ['crm_user_revoke','Revogar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},brand},['userId','brand']),false,true],
@@ -85,14 +90,24 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    if(name==='crm_campaign_catalog'&&result.status===200){
     // The campaign catalog remains usable when configured journeys are absent.
     // Delegation is checked before and after EACH original dispatcher read.
-    const source=require('./crm-journey-read.cjs');let journeySource;
-    try{journeySource=source.journeySummary(source.projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand));}
+    const source=require('./crm-journey-read.cjs');let journeySource,audienceUiSource;
+    try{const cache=await run('GET','/api/crm-read?action=cache_growth&painel=growth');journeySource=source.journeySummary(source.projectJourneyRead(cache,args.brand));const caps=cache.body?.capabilities?.segments;audienceUiSource={read:cache.status===200&&caps?.read===true,brandsRecognized:Array.isArray(caps?.brands)&&caps.brands.includes(args.brand),contractRecognized:caps?.contract_version==='crm-audience-v2',sameOriginEndpoint:cache.body?.capabilities?.endpoints?.segments==='https://'+context.host+'/api/segments',save:caps?.save===true,operation:caps?.operation===true,count:caps?.count===true,send:false,operational:false};}
     catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});journeySource={status:502,brand:args.brand,source:'unavailable',configuredCount:null,code:/^JOURNEY_[A-Z_]+$/.test(e.code||'')?e.code:'JOURNEY_READ_UNAVAILABLE',operational:false};}
     let audienceSource;
     try{const read=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'50'}));audienceSource=read.status===200&&read.body?.read_admission?read.body.read_admission:{status:read.status,brand:args.brand,source:'unavailable',gatewayWrite:false,code:read.body?.error||'MASTER_AUDIENCE_READ_UNAVAILABLE',operational:false};}
     catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});audienceSource={status:502,brand:args.brand,source:'unavailable',gatewayWrite:false,code:'MASTER_AUDIENCE_READ_UNAVAILABLE',operational:false};}
-    result={...result,body:{...result.body,journeySource,audienceSource}};
+    let audienceWriteAdmission;
+    try{store.authenticate(bearer,{scope:'crm.draft',brand:args.brand});audienceWriteAdmission=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmento_contexto_v2',brand:args.brand}));}
+    catch{store.authenticate(bearer,{scope:tool.scope,brand:args.brand});audienceWriteAdmission={status:403,body:{error:'MASTER_AUDIENCE_WRITE_NOT_ADMITTED',operational:false}};}
+    result={...result,body:{...result.body,journeySource,audienceSource,audienceUiSource,audienceWriteAdmission}};
    }
+  }else if(name.startsWith('crm_audience_')){
+   const actions={crm_audience_catalog:'segmentos_listar',crm_audience_get:'segmento_obter',crm_audience_save:Object.hasOwn(args,'id')?'segmento_salvar':'segmento_criar',crm_audience_archive:'segmento_arquivar',crm_audience_operation:'segmento_operacao'},action=actions[name];
+   if(!action)fail('NATIVE_TOOL_NOT_FOUND');
+   if(name==='crm_audience_save'&&Object.hasOwn(args,'id')!==Object.hasOwn(args,'expected_version'))fail('NATIVE_ARGUMENTS_INVALID');
+   if(name==='crm_audience_catalog'&&(args.limit>100||args.offset>10000))fail('NATIVE_ARGUMENTS_INVALID');
+   if(['crm_audience_save','crm_audience_archive'].includes(name))result=await run('POST','/api/segments',{acao:action,...args});
+   else{const fields=name==='crm_audience_catalog'?{brand:args.brand,limit:args.limit??50,offset:args.offset??0}:args;result=await run('GET','/api/segments?'+new URLSearchParams({acao:action,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,String(v)]))}));}
   }else if(name.startsWith('crm_user')){
    const listing=await run('GET','/auth/users');
    if(listing.status!==200)return redact(listing);

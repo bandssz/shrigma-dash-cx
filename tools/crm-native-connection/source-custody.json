@@ -198,6 +198,7 @@
     "tests/growth-segment-ui.test.cjs",
     "tests/master-audience-read/read.test.cjs",
     "tests/master-audience-read/root-integration.test.cjs",
+    "tests/master-audience-write/gateway.test.cjs",
     "tests/native-continuity/fixture.cjs",
     "tests/native-continuity/read-only.test.cjs",
     "tests/native-database-custody.test.cjs",
@@ -218,8 +219,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7571,
-      "sha256": "5523b47fa6e381deaa54cd6b73819e81ad74c1b315381bbcf851a1b28c7cf119"
+      "bytes": 7456,
+      "sha256": "b6588e1245c08867ab829365e8555e5c9620e55014dd9b094c4f8b52536d30e4"
     },
     {
       "path": "assets/panels/growth.js",
@@ -298,8 +299,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
-      "bytes": 3724,
-      "sha256": "82e6eb2ed1d8f8854d25cbcbd9f8b36e685ea3a327e8ecd72c1160bf03bc86ba"
+      "bytes": 3832,
+      "sha256": "2d65383d2863c809a3f15acc561c254b1abc69db04af643e17d792a80248c54d"
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
@@ -308,8 +309,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 114139,
-      "sha256": "2693ad066eafd93cce1d35bd180cd77e30a9eb26329a633bbc41c0811e6eb8e3"
+      "bytes": 115340,
+      "sha256": "6e68ab96001bb0a392bcc76bd0afd47e0dca35f20b9f79ff2b4e16d642d72681"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
@@ -333,8 +334,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 15423,
-      "sha256": "c8034f95b5ccca08fd45b183e6d1fd2b7df62f93529a58789a2e1db0db9e2450"
+      "bytes": 18662,
+      "sha256": "6a2b4b78249257af17b7f194290abfcc12e859ec6184bcc3a4ee136e38b34681"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -463,8 +464,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 41105,
-      "sha256": "83d04bd18998ae4f757fb2b3bff6e68fb9586c6d4315bb8ae5242362566d7e5d"
+      "bytes": 41677,
+      "sha256": "978d9c362fc7e22f9568f51800f16c9ee9328df8d12fa90243f45b6587cfd26e"
     },
     {
       "path": "services/dashboard-operational/reviewed-database-functions.json",
@@ -473,8 +474,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 98410,
-      "sha256": "ac0c4ede54e457cd62559634c0119859c71020472c6040a716963b9b2d84b3d1"
+      "bytes": 102766,
+      "sha256": "9ead9f4acb1d70051abd8c6cae67caa9aa9e92fec775ac8289e5f1e30ce2a901"
     },
     {
       "path": "tests/audience-removal/fixture.cjs",
@@ -547,6 +548,11 @@
       "sha256": "4105f0c6d9b2dc51257a74cd55ba9f42d20598bc4c9d155758577cde2101d987"
     },
     {
+      "path": "tests/master-audience-write/gateway.test.cjs",
+      "bytes": 18103,
+      "sha256": "c168485a577c1a5a7111faecd6c6581da571ebbe05593ebd8c58c01366855106"
+    },
+    {
       "path": "tests/native-continuity/fixture.cjs",
       "bytes": 11257,
       "sha256": "84faff1686f3862edc7d5c015aad1753f230990744ecc09cb9e6584e8f0f7789"
@@ -604,7 +610,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4268,
-      "sha256": "65f45a07470d93f6ea3d717ed1203d2947bcaa0157985e7e44d6ed28697c9103"
+      "sha256": "7ee71f41436138907dd0b1db9ba0e8138d79c50a7bd35325e755de37b9f4a03b"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

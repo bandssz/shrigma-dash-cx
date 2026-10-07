@@ -338,7 +338,7 @@ function scrubCapabilityFlags(value,depth=0){
   }
   return safe;
 }
-function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,corporateAudienceDraft=false,managedAudienceRead=false,managedTemplateRead=false,ownMasterAudienceRead=false,route=null}={}){
+function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,corporateAudienceDraft=false,managedAudienceRead=false,managedTemplateRead=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,route=null}={}){
   if(!plain(value))return value;
   const clone={...value};
   if(Object.hasOwn(clone,'pode_escrever'))clone.pode_escrever=false;
@@ -390,7 +390,7 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   }
   if(ownMasterAudienceRead===true&&route==='crm-read'&&upstreams.segments?.href===REVIEWED_DYNAMIC.routes.segments){
     caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments'};
-    caps.segments={read:true,save:false,operation:false,count:false,send:false,contract_version:AudienceContract.VERSION};
+    caps.segments={read:true,save:ownMasterAudienceWrite===true,operation:ownMasterAudienceWrite===true,count:false,send:false,brands:['fish','aristo'],contract_version:AudienceContract.VERSION};
   }
   if(managedTemplateRead===true&&route==='crm-read'){
     caps.endpoints={...(caps.endpoints||{}),templates:origin+'/api/templates'};
@@ -399,13 +399,14 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,crmCorporateWriter,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,crmCorporateWriter,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
   const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCampaignWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
   if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
   if(d.edit&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(ownMasterAudienceRead&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||method!=='GET'||d.edit||!['segmentos_listar','segmento_obter'].includes(d.action)||target?.href!==REVIEWED_DYNAMIC.routes.segments))throw new ProxyError(403,'MASTER_AUDIENCE_READ_DENIED');
+  if(ownMasterAudienceWrite&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||target?.href!==REVIEWED_DYNAMIC.routes.segments||!['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)||crmAudienceDraft!==true))throw new ProxyError(403,'MASTER_AUDIENCE_WRITE_DENIED');
   if(!target)throw new ProxyError(503,'UPSTREAM_NOT_CONFIGURED');
   if(!user||!(user.role==='superadmin'||user.areas?.includes(d.area)))throw new ProxyError(403,'AREA_DENIED');
   if(typeof credential!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(credential))throw new ProxyError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
@@ -442,6 +443,6 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  return {status:result.status,body:ownMasterAudienceRead?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route})};
+  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

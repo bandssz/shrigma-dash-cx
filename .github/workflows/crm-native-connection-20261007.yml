@@ -30,11 +30,9 @@ jobs:
       - name: Verify source composition
         run: node tools/crm-native-connection/verify-source.cjs
       # UI/public sources are unchanged from the accepted 8ea2fe release.
-      # Only the original Master audience READ boundary is new.
+      # Only the original Master audience WRITE boundary and native tools are new.
       - name: Install pinned canonical panel compiler
         run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
-      - name: Validate the original audience READ contract
-        run: node --test tests/master-audience-read/read.test.cjs
       - name: Private registry session
         env:
           REGISTRY_TOKEN: ${{ github.token }}
@@ -61,12 +59,12 @@ jobs:
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
           const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,45);a.equal(r.presentationPathsUpdated,2);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
           NODE
-      - name: Verify original Master audience boundary inside the actual UID1000 image
+      - name: Verify original Master audience WRITE inside the actual UID1000 image
         shell: bash
         run: |
           set -euo pipefail
-          audience_test="$GITHUB_WORKSPACE/tests/master-audience-read/root-integration.test.cjs"
-          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$audience_test,dst=/tmp/master-audience-read.test.cjs,readonly" --env MASTER_AUDIENCE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/master-audience-read.test.cjs
+          audience_test="$GITHUB_WORKSPACE/tests/master-audience-write/gateway.test.cjs"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$audience_test,dst=/tmp/master-audience-write.test.cjs,readonly" --env MASTER_AUDIENCE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/master-audience-write.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |
