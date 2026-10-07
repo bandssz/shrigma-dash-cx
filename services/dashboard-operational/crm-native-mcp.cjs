@@ -88,7 +88,10 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
     const source=require('./crm-journey-read.cjs');let journeySource;
     try{journeySource=source.journeySummary(source.projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand));}
     catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});journeySource={status:502,brand:args.brand,source:'unavailable',configuredCount:null,code:/^JOURNEY_[A-Z_]+$/.test(e.code||'')?e.code:'JOURNEY_READ_UNAVAILABLE',operational:false};}
-    result={...result,body:{...result.body,journeySource}};
+    let audienceSource;
+    try{const read=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'50'}));audienceSource=read.status===200&&read.body?.read_admission?read.body.read_admission:{status:read.status,brand:args.brand,source:'unavailable',gatewayWrite:false,code:read.body?.error||'MASTER_AUDIENCE_READ_UNAVAILABLE',operational:false};}
+    catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});audienceSource={status:502,brand:args.brand,source:'unavailable',gatewayWrite:false,code:'MASTER_AUDIENCE_READ_UNAVAILABLE',operational:false};}
+    result={...result,body:{...result.body,journeySource,audienceSource}};
    }
   }else if(name.startsWith('crm_user')){
    const listing=await run('GET','/auth/users');

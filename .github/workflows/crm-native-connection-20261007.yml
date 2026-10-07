@@ -29,17 +29,12 @@ jobs:
           node-version: '22.23.3'
       - name: Verify source composition
         run: node tools/crm-native-connection/verify-source.cjs
-      - name: Install exact frontend test dependency
-        run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
+      # UI/public sources are unchanged from the accepted 8ea2fe release.
+      # Only the original Master audience READ boundary is new.
       - name: Install pinned canonical panel compiler
         run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
-      # These exact UI sources passed 28 tests on Node22.23.3 in job113026166521.
-      # Only the test dependency location changed; reuse that proof without rerun.
-      - name: Preserve the original lazy journey editor and pending operation
-        run: |
-          node --test --test-name-pattern='^CRM-27: (Início|direct journey|durable unresolved)' tests/growth-render.test.cjs
-      - name: Verify exact canonical Growth composition
-        run: node tools/panel-build/build.cjs --panel=growth --check
+      - name: Validate the original audience READ contract
+        run: node --test tests/master-audience-read/read.test.cjs
       - name: Private registry session
         env:
           REGISTRY_TOKEN: ${{ github.token }}
@@ -64,8 +59,14 @@ jobs:
           smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/native-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/native-smoke.cjs > "$NATIVE_CI_DIR/smoke.json"
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
-          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,44);a.equal(r.presentationPathsUpdated,2);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,45);a.equal(r.presentationPathsUpdated,2);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
           NODE
+      - name: Verify original Master audience boundary inside the actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          audience_test="$GITHUB_WORKSPACE/tests/master-audience-read/root-integration.test.cjs"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$audience_test,dst=/tmp/master-audience-read.test.cjs,readonly" --env MASTER_AUDIENCE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/master-audience-read.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |

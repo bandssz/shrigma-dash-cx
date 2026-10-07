@@ -1064,6 +1064,21 @@ function createAuth(options){
   if(!corporateWriter)err('EDIT_NOT_READY',403);
   return campaignWriterAuthorization(ctx,{brand,action:'audience'});
  }
+ // PRIVATE original-Master read binding. The original audience service itself
+ // authenticates this same central key for read_content on every request.
+ // This snapshot selects no new actor/slot, issues no grant and admits no POST.
+ function ownMasterAudienceReadBinding(ctx,{brand}={}){
+  if(!ownMasterWriter||ctx?.method!=='GET')err('MASTER_AUDIENCE_READ_DENIED',403);
+  draftBrand(brand);const user=authorizeBrand({...ctx,area:'growth',edit:true},brand),a=writerBinding(user);
+  if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
+  if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-audience-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+ }
+ function ownMasterAudienceReadReady(ctx){
+  if(!ownMasterWriter)return false;
+  try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return u.role==='superadmin'&&!!writerBinding(u);}catch{return false;}
+ }
  function audienceDraftReady(ctx){
   if(ownMasterWriter)return false;
   if(corporateWriter)return campaignWriterReady(ctx);
@@ -1186,6 +1201,6 @@ function createAuth(options){
   };
  if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),consent:nativeConsent,identity:nativeIdentity});
  const nativeDatabaseVault=options.crmNativeEnabled===true&&options.crmNativeDatabaseEnabled===true?require('./native-database-vault.cjs').createDatabaseVault({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-database-vault-v1:'+value).digest('hex')}):undefined;
- return Object.freeze({...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
