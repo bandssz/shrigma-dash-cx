@@ -1,0 +1,42 @@
+{
+  "schema": "shrigma-own-foundation-capsule-v1",
+  "capsuleId": "shrigma-own-foundation-bootstrap-v1",
+  "resource": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "host": "comunicacao_postgres",
+    "port": 5432,
+    "database": "listmonk",
+    "network": "easypanel"
+  },
+  "namespace": "dashboard_crm_controls",
+  "runtimeRole": "shrigma_app_runtime_v1",
+  "ledger": "foundation_operation_v1",
+  "ledgerVersion": 1,
+  "runtimeUsageJustification": "Own namespace name resolution only; no ledger/data privileges, membership or login; no application authority",
+  "sql": {
+    "path": "bootstrap-v1.sql",
+    "bytes": 1052,
+    "sha256": "1fb03940600a2bed1f8835d6835d27b04ef42a487823d3a3ddff1fbe1032ca46",
+    "gitBlobSha1": "8741937e9c3be45b5a4e37c98101836a80de485a",
+    "statements": 6
+  },
+  "queries": {
+    "path": "sql.cjs",
+    "bytes": 5707,
+    "sha256": "fb1525f46582e64ef7780afe541b0b65bd793b7d4147b495166b7ce251a22116"
+  },
+  "defaultEnabled": false,
+  "operational": false,
+  "noRearm": true,
+  "historicalOperationIds": [
+    "73a35984-9884-4e8f-b132-24c06a8fd7e7",
+    "832f490e-7557-4194-bdab-82b4f883b3e2"
+  ],
+  "requiredRecoveryEvidence": [
+    "physical-backup-sha256",
+    "independent-restore-proof-sha256",
+    "role-globals-sha256",
+    "admitted-destination-receipt-sha256"
+  ]
+}

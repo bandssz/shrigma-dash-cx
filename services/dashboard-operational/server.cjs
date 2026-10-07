@@ -543,7 +543,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
-       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
+       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
       if(url.pathname==='/auth/session'&&req.method==='GET'){
         const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
         const found=auth.session(ctx);

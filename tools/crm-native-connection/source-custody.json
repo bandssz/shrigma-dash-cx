@@ -137,6 +137,7 @@
     "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
     "ops/releases/crm-native-connection-20261007/build-release.cjs",
     "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
+    "ops/releases/crm-native-connection-20261007/foundation-isolated-smoke.cjs",
     "ops/releases/crm-native-connection-20261007/health-existing.cjs",
     "ops/releases/crm-native-connection-20261007/smoke.cjs",
     "ops/releases/crm-native-connection-20261007/start-existing.cjs",
@@ -151,6 +152,7 @@
     "services/dashboard-operational/native-database-inventory.cjs",
     "services/dashboard-operational/native-database-operator.cjs",
     "services/dashboard-operational/native-database-vault.cjs",
+    "services/dashboard-operational/native-foundation-preview.cjs",
     "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
     "services/dashboard-operational/native-installer/INTEGRATION.txt",
     "services/dashboard-operational/native-installer/catalog.cjs",
@@ -163,6 +165,10 @@
     "services/dashboard-operational/native-installer/provider-pins.json",
     "services/dashboard-operational/native-installer/sql.cjs",
     "services/dashboard-operational/native-pg-driver.cjs",
+    "services/dashboard-operational/own-foundation/bootstrap-v1.sql",
+    "services/dashboard-operational/own-foundation/foundation.cjs",
+    "services/dashboard-operational/own-foundation/manifest.json",
+    "services/dashboard-operational/own-foundation/sql.cjs",
     "services/dashboard-operational/reviewed-database-functions.json",
     "services/dashboard-operational/server.cjs",
     "tests/dashboard-operational-native-mcp.test.cjs",
@@ -171,8 +177,12 @@
     "tests/native-continuity/fixture.cjs",
     "tests/native-continuity/read-only.test.cjs",
     "tests/native-database-custody.test.cjs",
+    "tests/native-foundation-preview.test.cjs",
     "tests/native-installer/installer.test.cjs",
     "tests/native-installer/model.cjs",
+    "tests/own-foundation/foundation.test.cjs",
+    "tests/own-foundation/model.cjs",
+    "tests/own-foundation/pg17-harness.cjs",
     "tests/pg-session-provider/fixture.cjs",
     "tests/pg-session-provider/provider.test.cjs",
     "tools/crm-native-connection/source-custody.json",
@@ -184,28 +194,33 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7984,
-      "sha256": "d54a690751732e52cadfd810fe4fb9692777171cc4d4f111d2a73ecac99635a4"
+      "bytes": 8243,
+      "sha256": "63a9cb15a34a5657caa1d4ef7e504deb75d192c00e1b0340a35eb67d9c04d202"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 2596,
-      "sha256": "2f7072b61f6f76ee5dd2771b3c25a447dbac4c6d44616d83615d3cbe2b3ba643"
+      "bytes": 2840,
+      "sha256": "0ed7f6bde888c40b2dcc5ee93e784bf03cfbb2c8f604d74b4376d9123e213207"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 9304,
-      "sha256": "813259c1561c83151d9805916ec9feadc458cda56a41d1549df7c1b0dceb9ae4"
+      "bytes": 10110,
+      "sha256": "6710d1280d87c164f5abe2c92c24dad2050c9082e4f560622c503f32be2bab80"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 3977,
-      "sha256": "9f07226d55651b371a02317f039d1c629351ced631a5f87afe1e5ba5abef3cd9"
+      "bytes": 4194,
+      "sha256": "7571dc31c96a1b6b1f38bd394f08176a2a0905253838f4d270fb10f3c55be263"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
       "bytes": 11157,
       "sha256": "c3e7c8e8ccf31c651fb0c42f7a925eae252917e386819a474a9d2748fac73d5d"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/foundation-isolated-smoke.cjs",
+      "bytes": 9844,
+      "sha256": "0892a273f610dc2e9e70092f42565dc7f274f576467cd81c78af19283f127214"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -214,8 +229,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
-      "bytes": 10063,
-      "sha256": "fb6d212fb79138b894ba2968a0c1bffbaa3bb8809f53715d10c33008b1b4685c"
+      "bytes": 10069,
+      "sha256": "f806b0a92d0fcba6e6c6094aa8c315e7af6d946890eef0fc0ea0136359345a60"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
@@ -269,13 +284,18 @@
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
-      "bytes": 7025,
-      "sha256": "460f310406d1eb4797885d0fcd2836bf0e2da3916da0cbcd659d910f3d3c9d10"
+      "bytes": 9491,
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09"
     },
     {
       "path": "services/dashboard-operational/native-database-vault.cjs",
       "bytes": 7257,
       "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+    },
+    {
+      "path": "services/dashboard-operational/native-foundation-preview.cjs",
+      "bytes": 8899,
+      "sha256": "80e242fb06fbbd02b8b156b288b844e5de035b718291bde4c2a271b10f04bab8"
     },
     {
       "path": "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
@@ -338,14 +358,34 @@
       "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
     },
     {
+      "path": "services/dashboard-operational/own-foundation/bootstrap-v1.sql",
+      "bytes": 1052,
+      "sha256": "1fb03940600a2bed1f8835d6835d27b04ef42a487823d3a3ddff1fbe1032ca46"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/foundation.cjs",
+      "bytes": 18525,
+      "sha256": "fc1e3c12e53dc74f262eec8ecbc7d0e160b5504850eb928ea39013a051ff37b0"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/manifest.json",
+      "bytes": 1324,
+      "sha256": "452cdbec54d59cfb7157a7efaa0ff40fbeb210c780413c3943678ddf52ce0a51"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/sql.cjs",
+      "bytes": 5707,
+      "sha256": "fb1525f46582e64ef7780afe541b0b65bd793b7d4147b495166b7ce251a22116"
+    },
+    {
       "path": "services/dashboard-operational/reviewed-database-functions.json",
       "bytes": 13225,
       "sha256": "d4a57dabc34b8856760e1bdc2d9ffacbeb07582b7cae46bc3a144e836f267c80"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 93305,
-      "sha256": "34744cb07bbe2820945e0cf0a54fdd8cc994e16aaaee39bd631f5bfd1af5fdf6"
+      "bytes": 93321,
+      "sha256": "a3d1e443b1975703849ba03c224dbc89b85547ef230b746206d4e12289ad4502"
     },
     {
       "path": "tests/dashboard-operational-native-mcp.test.cjs",
@@ -378,6 +418,11 @@
       "sha256": "9a1813b82244f1642682c46aee5d5a7b34e17434785cd6f1b2c4d677d5aaa902"
     },
     {
+      "path": "tests/native-foundation-preview.test.cjs",
+      "bytes": 7405,
+      "sha256": "87f5f4bc99c46c4448a89b9748b1206d2d5d1077c3249858e40d2dcd5192713a"
+    },
+    {
       "path": "tests/native-installer/installer.test.cjs",
       "bytes": 8926,
       "sha256": "79b5079a91e6e83dcab61a9556a71108b05d591d68165eaf3fc47a5c8f633750"
@@ -386,6 +431,21 @@
       "path": "tests/native-installer/model.cjs",
       "bytes": 6476,
       "sha256": "3a8167bb4eab251cd92c4385bd70fc9c9cc05669e6f4260caaca65eff6460cc9"
+    },
+    {
+      "path": "tests/own-foundation/foundation.test.cjs",
+      "bytes": 13961,
+      "sha256": "bf569eba0c369c511aa00b571daf86b1cbbbb052ca26e21d0d808a82a3c5a184"
+    },
+    {
+      "path": "tests/own-foundation/model.cjs",
+      "bytes": 6103,
+      "sha256": "5d6877c93b690bb3d74f5b769b0787059a46038751df21ab18a7ba67ade617fb"
+    },
+    {
+      "path": "tests/own-foundation/pg17-harness.cjs",
+      "bytes": 6028,
+      "sha256": "2d59bd6c796db9794423a9293f4e29545a0ab00ad1212eb0b908ae0831090233"
     },
     {
       "path": "tests/pg-session-provider/fixture.cjs",
@@ -400,7 +460,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 3514,
-      "sha256": "8e716de11fd01756e0e431423786651f63c884a340a9d398327533946efbbdb3"
+      "sha256": "9fb561670da81594fa300c4aadd643c69073e538a86f00bc4c5f8185e1c9d11e"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

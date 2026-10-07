@@ -4,6 +4,8 @@ WORKDIR /source
 ARG GIT_SHA
 COPY services/dashboard-operational/auth.cjs services/dashboard-operational/server.cjs services/dashboard-operational/crm-native-delegation.cjs services/dashboard-operational/crm-native-mcp.cjs services/dashboard-operational/crm-native-operator.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-database-vault.cjs services/dashboard-operational/native-database-operator.cjs services/dashboard-operational/native-database-inventory.cjs services/dashboard-operational/native-pg-driver.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/native-foundation-preview.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
 COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-lock.json tools/native-pg-dependency/build-driver.cjs ./tools/native-pg-dependency/
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
 COPY services/dashboard-operational/native-continuity/read-only.cjs services/dashboard-operational/native-continuity/pins.json ./services/dashboard-operational/native-continuity/
@@ -19,7 +21,7 @@ LABEL org.opencontainers.image.title="Shrigma native CRM connection" \
 USER 0:0
 COPY --from=native-build /native-output/ /app/native-backend/
 COPY --from=native-build /native-output-pg-driver/ /app/native-pg-driver/
-RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/native-continuity /app/native-pg-driver
+RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/native-continuity /app/native-backend/runtime/own-foundation /app/native-pg-driver
 USER 1000:1000
 # Native startup is admitted separately by Root on the existing Compose gateway.
 # The historical pack/controller and public V2 files stay intact. Production uses
