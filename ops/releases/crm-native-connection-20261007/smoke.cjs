@@ -19,6 +19,7 @@ async function main(){
  Object.assign(process.env,{DASHBOARD_MODE:'synthetic',DASHBOARD_UPSTREAM_PROFILE:'production',DASHBOARD_MANAGER_HOST:host,DASHBOARD_AREA_HOSTS:JSON.stringify({growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'affiliate.synthetic.invalid'}),DASHBOARD_EMAIL_DOMAINS:'["synthetic.invalid"]',DASHBOARD_ADMIN_EMAIL:'master@synthetic.invalid',DASHBOARD_BOOTSTRAP_SHA256:sha(bootstrapToken),DASHBOARD_ENCRYPTION_KEY:crypto.randomBytes(32).toString('hex'),DASHBOARD_UPSTREAMS:'{}',DASHBOARD_UPSTREAM_HOSTS:'[]',HOST:'127.0.0.1',PORT:'8080'});
  const bytes=fs.readFileSync('/app/native-backend/manifest.json'),manifestSha256=sha(bytes),N=require('/app/native-backend/bootstrap.cjs');
  assert.throws(()=>N.verifyRelease('0'.repeat(64)),/NATIVE_BACKEND_RELEASE_REFUSED/);
+ stage='verified-release';N.verifyRelease(manifestSha256);
  stage='fresh-entrypoint-refusal';
  let originalContinuityRefused=false;try{await require('/app/native-backend/start-existing.cjs').startExisting({manifestSha256,imageDigest:'1'.repeat(64)});}catch(e){originalContinuityRefused=/^CONTINUITY_/.test(e.code||'');}assert.equal(originalContinuityRefused,true);assert.equal(fs.existsSync('/dashboard-data/dashboard.sqlite'),false);
  stage='start';assert.equal(process.env.DASHBOARD_PACK_SHA256,undefined);
@@ -59,4 +60,4 @@ async function main(){
  console.log(JSON.stringify({schema:'shrigma-native-image-smoke-v1',ok:true,manifestDerivedPinWithoutLegacyPrepare:true,realImmutableReadWithoutWrites,freshPrestartDeniedWithoutOriginalContinuity:originalContinuityRefused,node:process.version,uid:process.getuid(),manifestSha256,sourceRevision:JSON.parse(bytes).sourceRevision,originalIdentityRetained:true,genuineSyntheticConsent:true,unauthenticatedInvocationDenied:true,crossBrandDenied:true,writeWithoutGrantDenied:true,nativeRevocationDenied:true,originalPackAndV2PresentationPreserved:true,actualNativeRuntimeFiles:37,privateDatabasePasswordCiphered:true,readOnlyScopeExtendedWithSameBearer:true,sqlInstallationStillRefused:true,pgDriverVersion:driver.version,pgDriverManifestSha256:JSON.parse(bytes).pgDriverManifestSha256,runtimeReplacements:2,runtimeAdditions:9,sqlInstallerEnabled:false,productionIdentityUsed:false,operational:false}));
  process.kill(process.pid,'SIGTERM');
 }
-main().catch(e=>{console.error(JSON.stringify({ok:false,stage,code:/^[A-Z][A-Z0-9_]{1,80}$/.test(e.code||'')?e.code:'NATIVE_IMAGE_SMOKE_FAILED'}));process.exitCode=1;process.kill(process.pid,'SIGTERM');});
+main().catch(e=>{console.error(JSON.stringify({ok:false,stage,code:/^[A-Z][A-Z0-9_]{1,80}$/.test(e.code||'')?e.code:/^[A-Z][A-Z0-9_]{1,80}$/.test(e.message||'')?e.message:'NATIVE_IMAGE_SMOKE_FAILED'}));process.exitCode=1;process.kill(process.pid,'SIGTERM');});

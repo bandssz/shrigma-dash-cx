@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="Shrigma native CRM connection" \
 USER 0:0
 COPY --from=native-build /native-output/ /app/native-backend/
 COPY --from=native-build /native-output-pg-driver/ /app/native-pg-driver/
-RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/native-continuity
+RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/native-continuity /app/native-pg-driver
 USER 1000:1000
 # Native startup is admitted separately by Root on the existing Compose gateway.
 # The historical pack/controller and public V2 files stay intact. Production uses
