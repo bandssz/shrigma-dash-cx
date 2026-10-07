@@ -110,12 +110,18 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    else{const fields=name==='crm_audience_catalog'?{brand:args.brand,limit:args.limit??50,offset:args.offset??0}:args;result=await run('GET','/api/segments?'+new URLSearchParams({acao:action,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,String(v)]))}));}
    if(name==='crm_audience_get'&&result.status===200){
     const access=await run('GET','/auth/session');
+    let cat;
+    if(access.status===200&&access.body?.features?.audienceContextReview===true&&!result.body.segment.archived){
+     cat=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'1'}));
+     const review=cat.status===200&&cat.body?.catalog?.current===true?await run('GET','/api/segments?'+new URLSearchParams({acao:'segmento_contexto_revisao',brand:args.brand,id:result.body.segment.id,expected_version:String(result.body.segment.version),expected_catalog_hash:cat.body.catalog.catalog_hash})):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
+     result={...result,body:{...result.body,contextReview:review}};
+    }
     if(access.status===200&&access.body?.features?.audienceCount===true){
-     // Detail includes an explicitly admitted derived count. The same original
-     // dispatcher verifies version/catalog and private binding around its POST.
-     // No retry, saved-audience mutation or send is performed here.
-     const cat=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'1'}));
-     const count=cat.status===200&&cat.body?.capabilities?.count===true?await run('POST','/api/segments',{acao:'segmento_contar',brand:args.brand,id:result.body.segment.id,expected_version:result.body.segment.version,expected_catalog_hash:cat.body.catalog.catalog_hash}):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
+     // An original context refusal never causes an implicit count retry.
+     // Explicit count remains protected by the original source guard.
+     cat=cat||await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'1'}));
+     const context=result.body.contextReview;
+     const count=context&&(context.status!==200||context.body.context_review.context_current!==true)?{status:409,body:{error:'SEGMENT_CATALOG_CHANGED'}}:cat.status===200&&cat.body?.capabilities?.count===true?await run('POST','/api/segments',{acao:'segmento_contar',brand:args.brand,id:result.body.segment.id,expected_version:result.body.segment.version,expected_catalog_hash:cat.body.catalog.catalog_hash}):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
      result={...result,body:{...result.body,audienceCount:count}};
     }
    }
