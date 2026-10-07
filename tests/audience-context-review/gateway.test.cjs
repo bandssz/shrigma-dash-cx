@@ -54,7 +54,7 @@ function source(f){
   if(action==='segmento_obter')return originalResponse({segment:record},u);
   if(action==='segmentos_listar'){const c=catalog('fish');c.limit=Number(u.searchParams.get('limit'));c.offset=0;c.catalog.catalog_hash=catalogHash;return originalResponse(c,u);}
   a.equal(action,'segmento_contexto_revisao');a.equal(u.searchParams.get('expected_version'),'2');a.equal(u.searchParams.get('expected_catalog_hash'),hash);
-  const body={context_review:{schema:'crm-audience-context-review-v1',brand:'fish',id,version:2,definition_hash:sha(canonical(definition)),stored_context_hash:'b'.repeat(64),current_context_hash:current?'b'.repeat(64):'c'.repeat(64),catalog_hash:hash,checked_at:new Date().toISOString(),context_current:current,changes:current?[]:[{path:'base.optin',before:'single',after:'double'}],authorizes_refresh:false,transport_supported:false}};change?.(body);
+  const body={context_review:{schema:'crm-audience-context-review-v2',brand:'fish',id,version:2,definition_hash:sha(canonical(definition)),stored_context_hash:'b'.repeat(64),current_context_hash:current?'b'.repeat(64):'c'.repeat(64),catalog_hash:hash,checked_at:new Date().toISOString(),context_current:current,changes:current?[]:[{path:'base.optin',before:'single',after:'double'}],authorizes_refresh:false,transport_supported:false,source_ready:true,unavailable_fields:[]}};change?.(body);
   const r=new Response(JSON.stringify(status===200?body:{error:'SEGMENT_CATALOG_CHANGED'}),{status,headers:{'Content-Type':'application/json'}});Object.defineProperty(r,'url',{value:u.href});return r;
  });
  return {record,get gets(){return gets;},set change(x){change=x;},set status(x){status=x;},set current(x){current=x;},set catalogHash(x){catalogHash=x;},set hook(x){hook=x;}};
@@ -67,7 +67,7 @@ test('native saved detail uses original READ context and no implicit count or mu
 });
 test('context feature is explicit and advertised only as original read',async t=>{
  const f=await fixture(t,{context:false});source(f);a.equal((await f.browser('GET',request())).status,403);a.equal(f.calls.length,0);const r=result(await f.rpc('fish','crm_audience_get',{id}));a.equal(r.body.contextReview,undefined);
- const enabled=await fixture(t);source(enabled);const cache=await enabled.browser('GET','/api/crm-read?action=cache_growth&painel=growth');a.equal(cache.body.capabilities.segments.context_review,true);a.equal(cache.body.capabilities.segments.context_review_contract,'crm-audience-context-review-v1');a.equal(cache.body.capabilities.segments.send,false);
+ const enabled=await fixture(t);source(enabled);const cache=await enabled.browser('GET','/api/crm-read?action=cache_growth&painel=growth');a.equal(cache.body.capabilities.segments.context_review,true);a.equal(cache.body.capabilities.segments.context_review_contract,'crm-audience-context-review-v2');a.equal(cache.body.capabilities.segments.send,false);
  a.throws(()=>settingsFromEnv({...enabled.env,DASHBOARD_CRM_MASTER_AUDIENCE_READ:'disabled'}));
 });
 test('saved version and archived guards suppress context upstream',async t=>{

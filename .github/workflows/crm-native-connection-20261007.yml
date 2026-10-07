@@ -35,8 +35,8 @@ jobs:
         run: node tools/panel-build/build.cjs --panel=growth --check
       - name: Install isolated DOM test dependency
         run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
-      - name: Verify four new audience context client and portal cases
-        run: node --test tests/audience-context-review/client-ui.test.cjs
+      - name: Verify five new audience availability client and portal cases
+        run: node --test tests/audience-context-availability/client-ui.test.cjs
       - name: Private registry session
         env:
           REGISTRY_TOKEN: ${{ github.token }}
@@ -63,11 +63,11 @@ jobs:
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
           const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,48);a.equal(r.presentationPathsUpdated,2);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
           NODE
-      - name: Verify original context READ inside actual UID1000 image
+      - name: Verify original availability READ inside actual UID1000 image
         shell: bash
         run: |
           set -euo pipefail
-          audience_test="$GITHUB_WORKSPACE/tests/audience-context-review/gateway.test.cjs"
+          audience_test="$GITHUB_WORKSPACE/tests/audience-context-availability/gateway.test.cjs"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$audience_test,dst=/tmp/audience-context-gateway.test.cjs,readonly" --env MASTER_AUDIENCE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/audience-context-gateway.test.cjs
       - name: Publish exactly the tested image
         shell: bash

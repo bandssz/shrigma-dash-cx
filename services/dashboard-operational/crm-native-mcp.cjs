@@ -121,7 +121,7 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
      // Explicit count remains protected by the original source guard.
      cat=cat||await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'1'}));
      const context=result.body.contextReview;
-     const count=context&&(context.status!==200||context.body.context_review.context_current!==true)?{status:409,body:{error:'SEGMENT_CATALOG_CHANGED'}}:cat.status===200&&cat.body?.capabilities?.count===true?await run('POST','/api/segments',{acao:'segmento_contar',brand:args.brand,id:result.body.segment.id,expected_version:result.body.segment.version,expected_catalog_hash:cat.body.catalog.catalog_hash}):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
+     const count=context&&(context.status!==200||context.body.context_review.context_current!==true||context.body.context_review.source_ready!==true)?{status:409,body:{error:'SEGMENT_CATALOG_CHANGED'}}:cat.status===200&&cat.body?.capabilities?.count===true?await run('POST','/api/segments',{acao:'segmento_contar',brand:args.brand,id:result.body.segment.id,expected_version:result.body.segment.version,expected_catalog_hash:cat.body.catalog.catalog_hash}):{status:503,body:{error:'SEGMENT_UNAVAILABLE'}};
      result={...result,body:{...result.body,audienceCount:count}};
     }
    }

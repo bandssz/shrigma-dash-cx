@@ -854,6 +854,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(catalog.body.catalog.catalog_hash!==expected.expected_catalog_hash)return sendJson(req,res,409,{error:'SEGMENT_CATALOG_CHANGED'});
             const raw=await forward({route,method:'GET',query:url.searchParams,user,credential,upstreams,origin,ownMasterAudienceContextReview:true,crmCorporateWriter:ownMasterWriter,fetchImpl});assertBinding();
             const checked=require('./segment-audience-context-review.cjs').validateResponse(raw,expected,{definition:original.body.segment.definition,secrets:[credential]});
+            if(checked.status===200){
+              const d=original.body.segment.definition,fields=catalog.body.catalog.fields;
+              const unavailable=[...new Set(require('./segment-audience-contract.js').leaves(d).filter(l=>l.rule.op==='condition'&&fields.find(f=>f.key===l.rule.field)?.available===false).map(l=>l.rule.field))].sort(),review=checked.body.context_review;
+              if(JSON.stringify(review.unavailable_fields)!==JSON.stringify(unavailable)||review.source_ready!==(unavailable.length===0))throw jsonError(503,'SEGMENT_READBACK_UNCONFIRMED');
+            }
             const after=await getCatalog();
             if(after.status!==200)return sendJson(req,res,after.status,after.body);
             if(!after.body.catalog.current)return sendJson(req,res,503,{error:'SEGMENT_UNAVAILABLE'});

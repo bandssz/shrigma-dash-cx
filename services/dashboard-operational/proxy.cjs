@@ -388,12 +388,12 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
     if(route==='segments'&&plain(value.catalog)&&['fish','aristo'].includes(value.catalog.brand)&&value.catalog.current===true&&value.capabilities?.count===false&&value.capabilities?.send===false)caps.draft=true;
     if(route==='crm-read'){
       caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments'};
-      caps.segments={read:true,save:true,operation:true,count:false,send:false,contract_version:AudienceContract.VERSION,...(ownMasterAudienceContextReview===true?{context_review:true,context_review_contract:'crm-audience-context-review-v1'}:{})};
+      caps.segments={read:true,save:true,operation:true,count:false,send:false,contract_version:AudienceContract.VERSION,...(ownMasterAudienceContextReview===true?{context_review:true,context_review_contract:'crm-audience-context-review-v2'}:{})};
     }
   }
   if(ownMasterAudienceRead===true&&route==='crm-read'&&upstreams.segments?.href===REVIEWED_DYNAMIC.routes.segments){
     caps.endpoints={...(caps.endpoints||{}),segments:origin+'/api/segments'};
-    caps.segments={read:true,save:ownMasterAudienceWrite===true,operation:ownMasterAudienceWrite===true,count:ownMasterAudienceCount===true,send:false,brands:['fish','aristo'],contract_version:AudienceContract.VERSION,...(ownMasterAudienceContextReview===true?{context_review:true,context_review_contract:'crm-audience-context-review-v1'}:{})};
+    caps.segments={read:true,save:ownMasterAudienceWrite===true,operation:ownMasterAudienceWrite===true,count:ownMasterAudienceCount===true,send:false,brands:['fish','aristo'],contract_version:AudienceContract.VERSION,...(ownMasterAudienceContextReview===true?{context_review:true,context_review_contract:'crm-audience-context-review-v2'}:{})};
   }
   if(managedTemplateRead===true&&route==='crm-read'){
     caps.endpoints={...(caps.endpoints||{}),templates:origin+'/api/templates'};
