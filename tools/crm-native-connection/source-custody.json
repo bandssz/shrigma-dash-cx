@@ -235,6 +235,7 @@
     "tests/delivery-health-read-native/core.test.cjs",
     "tests/delivery-health-read-native/fixture.cjs",
     "tests/delivery-health-read-native/load-operator.cjs",
+    "tests/delivery-health-read-native/observability.test.cjs",
     "tests/delivery-health-read-native/operator.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/INPUT-PINS.json",
     "tests/delivery-health-read-native/sealed-inputs/inputs/EXISTING-VIEW-CONTRACT.json",
@@ -251,6 +252,12 @@
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-commit-diagnostics-native/diagnostics.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/controller.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/operator-ui.test.cjs",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/services/dashboard-operational/native-delivery-health-operator.cjs",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/load-operator.cjs",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/operator.test.cjs",
+    "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/ui.test.cjs",
     "tests/delivery-health-read-native/ui.test.cjs",
     "tests/delivery-health-wiring-native/wiring.test.cjs",
     "tests/growth-flows-ui.test.cjs",
@@ -547,8 +554,8 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
-      "bytes": 12773,
-      "sha256": "e4434a0f95fabc5b69bfba73bbcaa31f42d0738556c87dc296c73cb697a95cd1"
+      "bytes": 15144,
+      "sha256": "3e0fb0987af08edc078eac0df9bc449c0f34e75b3be7348c49f609ce101e0a11"
     },
     {
       "path": "services/dashboard-operational/native-delivery-health.cjs",
@@ -836,6 +843,11 @@
       "sha256": "f4a0404c4d1266ee1a475470034bd65b71f2ee390eca268ce7e2c09f69512b2f"
     },
     {
+      "path": "tests/delivery-health-read-native/observability.test.cjs",
+      "bytes": 2530,
+      "sha256": "f170b05accae5550a35f071336bf9959bfe0506fb3c0328f15423ec094d08a51"
+    },
+    {
       "path": "tests/delivery-health-read-native/operator.test.cjs",
       "bytes": 3008,
       "sha256": "165f5a8f9c1efccff9bd5d8e7588186cd9f4a34a3e2535e5de24621974184544"
@@ -916,9 +928,39 @@
       "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261"
     },
     {
-      "path": "tests/delivery-health-read-native/ui.test.cjs",
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
+      "bytes": 1014,
+      "sha256": "3ad5ed76a4483b9064d1d8540bc25b4dc9ef49b4537d6e5825050f2698a0ccde"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/services/dashboard-operational/native-delivery-health-operator.cjs",
+      "bytes": 12773,
+      "sha256": "e4434a0f95fabc5b69bfba73bbcaa31f42d0738556c87dc296c73cb697a95cd1"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/load-operator.cjs",
+      "bytes": 1334,
+      "sha256": "f4a0404c4d1266ee1a475470034bd65b71f2ee390eca268ce7e2c09f69512b2f"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/operator.test.cjs",
+      "bytes": 3008,
+      "sha256": "165f5a8f9c1efccff9bd5d8e7588186cd9f4a34a3e2535e5de24621974184544"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/ui.test.cjs",
       "bytes": 8199,
       "sha256": "9287663a7f3f8f1dea704e0de838a423463c33b7e1951714742d3b6241ca374d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/ui.test.cjs",
+      "bytes": 15722,
+      "sha256": "9d03926387fcb3e6f611868e86bb97aeddfb269d3afaf925a22037902d988b27"
     },
     {
       "path": "tests/delivery-health-wiring-native/wiring.test.cjs",
@@ -1223,7 +1265,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "fa0998c00fdb0af7a0d6d9e504b15dca9c6dac18d30767eaf3257ca2766f793c"
+      "sha256": "b02d21dd5d3097cc1f2ce536f9f7d02f71684fc382b57012007737b778de083b"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1594,5 +1636,20 @@
     "productionActivation": false,
     "operational": false
   },
-  "deliveryHealthSourcePackage": "delivery-health-read-v1/c2-source-v1/DELIVERY.json"
+  "deliveryHealthSourcePackage": "delivery-health-read-v1/c2-source-v1/DELIVERY.json",
+  "deliveryHealthRefusalObservability": {
+    "schema": "shrigma-delivery-health-refusal-observability-v1",
+    "parentHead": "bb0e122df443abec5723b4577f49426438526f6b",
+    "producerInputPins": 5,
+    "producerOutputPins": 6,
+    "integratedOperator": "services/dashboard-operational/native-delivery-health-operator.cjs",
+    "safeCodeWhitelist": true,
+    "noNewQueryOrScope": true,
+    "coreControllerStoreUnchanged": true,
+    "originalFixtureAndReaderPreserved": true,
+    "refusalInputs": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
+    "focalLocalCasesPassed": 176,
+    "requiredActualImageAccepted": false,
+    "operational": false
+  }
 }
