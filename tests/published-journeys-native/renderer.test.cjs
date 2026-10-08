@@ -15,7 +15,7 @@ const reply=body=>new Response(JSON.stringify(body),{headers:{'content-type':'ap
 test('published graph reuses the canonical real projection, with arrows, parallel arms, published version and no draft substitution',()=>{
  const b=response(),before=structuredClone(b),m=P.normalize(b,'fish',C);assert.equal(m.state,'loaded');assert.deepEqual(m.flows[0].graph,C.graph(b.flows[0],b.flows[0].published));assert.deepEqual(b,before);assert.equal(m.flows[0].version,4);assert.equal(m.write,false);
  const g=m.flows[0].graph;assert(g.edges.some(e=>e.from==='trigger'&&e.to.startsWith('wait:')));assert(!g.edges.some(e=>e.from==='step:wa'&&e.to==='step:wb'));
- const h=P.html(m);assert.match(h,/marker-end/);assert.match(h,/configuração pausada/);assert.doesNotMatch(h,/draft-never-read|data-flow-node|Adicionar etapa|Publicar|<button|<input/);
+ const h=P.html(m);assert.match(h,/marker-end/);assert.match(h,/configuração pausada/);assert.doesNotMatch(h,/draft-never-read|data-flow-node|Adicionar etapa|Publicar|<input/);
 });
 test('absent, invalid, observed-only or unpublished data never generates presumed graph or unknown zero',()=>{
  for(const b of [null,{}, {flows:[],checked_at:null},{crm_fluxo:[{flow:'cart',enviados:3}]}, {...response(),flows:[{...response().flows[0],published:null,published_version:4}]}]){const m=P.normalize(b,'fish',C);assert.equal(m.state,'unavailable');assert.doesNotMatch(P.html(m),/marker-end/);}

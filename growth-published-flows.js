@@ -13,7 +13,7 @@ const GPR=(()=>{
  const stamp=s=>typeof s==='string'&&s.length<=64&&Number.isFinite(Date.parse(s));
  const unavailable=(reason='definitions_unavailable')=>({state:'unavailable',reason,flows:[],checkedAt:null,write:false});
  function normalize(body,brand,canvas){
-  if(!['fish','aristo'].includes(brand)||!plain(body)||!dense(body.flows,200)||!stamp(body.checked_at)||!canvas||typeof canvas.graph!=='function')return unavailable('response_unavailable');
+  if(!['fish','aristo'].includes(brand)||!plain(body)||!dense(body.flows,200)||!stamp(body.checked_at)||!canvas||typeof canvas.graph!=='function'||typeof canvas.edgesHtml!=='function')return unavailable('response_unavailable');
   const flows=[],keys=new Set();
   for(const f of body.flows){
    if(!plain(f)||!['fish','aristo'].includes(f.brand)||!text(f.key,160)||!f.key.startsWith(f.brand+':')||keys.has(f.key)||!text(f.name)||!text(f.trigger)||!Number.isSafeInteger(f.version)||f.version<1||typeof f.enabled!=='boolean'||typeof f.runtime_ready!=='boolean'||!own(f,'published')||!own(f,'published_version')||!own(f,'journey_kind')||!dense(f.available_steps,64))return unavailable('response_unavailable');
@@ -39,20 +39,37 @@ const GPR=(()=>{
    if(!graph||!dense(graph.nodes,300)||!dense(graph.edges,600)||!graph.edges.length)return unavailable('graph_unavailable');
    const ids=new Set();for(const n of graph.nodes){if(!plain(n)||!text(n.id,320)||ids.has(n.id)||!text(n.title)||!['trigger','wait','branch','end','email','whatsapp'].includes(n.type)||![n.x,n.y].every(v=>Number.isFinite(v)&&Math.abs(v)<=100000))return unavailable('graph_unavailable');ids.add(n.id);}
    if(graph.edges.some(e=>!plain(e)||!ids.has(e.from)||!ids.has(e.to)))return unavailable('graph_unavailable');
-   flows.push({key:f.key,name:f.name,state:'published',version:f.published_version,enabled:f.enabled,runtimeReady:f.runtime_ready,graph});
+   let edgeMarkup;try{edgeMarkup=canvas.edgesHtml(graph).replaceAll('url(#flow-arrow)','url(#jpr-flow-arrow)');}catch{return unavailable('graph_unavailable');}
+   flows.push({key:f.key,name:f.name,state:'published',version:f.published_version,enabled:f.enabled,runtimeReady:f.runtime_ready,steps:f.published.steps.map(s=>({...s})),edgeMarkup,graph});
   }
   return {state:'loaded',reason:null,flows,checkedAt:body.checked_at,write:false};
  }
- function html(model){
+ function createView(canvas){
+  let model=null,key=null,views=new Map();
+  const flow=()=>model?.flows.find(f=>f.key===key),state=()=>views.get(key);
+  return {sync(next){if(next!==model){model=next;views=new Map();key=next.flows.find(f=>f.state==='published')?.key||next.flows[0]?.key||null;}if(key&&!views.has(key))views.set(key,{x:60,y:100,z:.8,node:null,expanded:false,hand:false});return state();},flow,state,
+   select(next){if(model?.flows.some(f=>f.key===next)){key=next;if(!views.has(key))views.set(key,{x:60,y:100,z:.8,node:null,expanded:false,hand:false});}},
+   inspect(id){const v=state();if(v)v.node=flow()?.graph?.nodes.some(n=>n.id===id)?id:null;},
+   pan(x,y){const v=state();if(v&&Number.isFinite(x)&&Number.isFinite(y)){v.x+=x;v.y+=y;}},
+   zoom(z,x,y){const v=state();if(v&&[z,x,y].every(Number.isFinite))Object.assign(v,canvas.zoomAt(v,z,x,y));},
+   fit(width,height){const v=state(),f=flow();if(!v||!f?.graph)return;const b=canvas.bounds(f.graph.nodes),w=Math.max(300,width-(v.node?330:0)),h=Math.max(180,height-220),z=canvas.clamp(Math.min((w-100)/(b.right-b.x),h/(b.bottom-b.y)),.15,1);Object.assign(v,{x:(w-(b.right-b.x)*z)/2-b.x*z,y:70+(h-(b.bottom-b.y)*z)/2-b.y*z,z});},
+   map(width=800,height=620){const f=flow(),v=state();if(!f?.graph||!v)return null;const b=canvas.bounds(f.graph.nodes),scale=Math.min(180/(b.right-b.x+100),110/(b.bottom-b.y+100)),ox=(200-(b.right-b.x)*scale)/2,oy=(130-(b.bottom-b.y)*scale)/2;return {b,scale,ox,oy,html:f.graph.nodes.map(n=>'<rect x="'+(ox+(n.x-b.x)*scale)+'" y="'+(oy+(n.y-b.y)*scale)+'" width="'+(240*scale)+'" height="'+(112*scale)+'" rx="2" class="map-node '+n.type+'"/>').join('')+'<rect class="map-window" x="'+(ox+(-v.x/v.z-b.x)*scale)+'" y="'+(oy+(-v.y/v.z-b.y)*scale)+'" width="'+width/v.z*scale+'" height="'+height/v.z*scale+'"/>'};},
+   mapTo(x,y,width,height){const m=this.map(width,height),v=state();if(m&&v)Object.assign(v,{x:width/2-((x-m.ox)/m.scale+m.b.x)*v.z,y:height/2-((y-m.oy)/m.scale+m.b.y)*v.z});}
+  };
+ }
+ function nodeHtml(n,selected){return '<button type="button" class="flow-node flow-node-'+n.type+(n.enabled===false?' is-off':'')+(selected===n.id?' selected':'')+'" style="left:'+n.x+'px;top:'+n.y+'px" data-jpr-node="'+esc(n.id)+'" aria-pressed="'+(selected===n.id)+'" aria-label="'+esc(n.title)+'. Somente leitura. Abrir detalhes" title="Ver detalhes publicados"><i class="flow-port input"></i><span class="flow-node-icon">'+({trigger:'↯',wait:'◷',branch:'◇',end:'✓',whatsapp:'◉',email:'✉'}[n.type])+'</span><span class="flow-node-copy"><small>'+({trigger:'GATILHO',wait:'ESPERA',branch:'CONDIÇÃO',end:'SAÍDA',whatsapp:'WHATSAPP',email:'E-MAIL'}[n.type])+'</small><strong>'+esc(n.title)+'</strong><span>'+esc(n.subtitle)+'</span></span>'+(n.enabled===false?'<b class="flow-off">Pausada</b>':'')+'<i class="flow-port output"></i></button>';}
+ function html(model,view){
   if(model.state!=='loaded')return '<p class="jpr-unavailable">Fluxograma publicado indisponível nesta leitura. O histórico de mensagens não declara conexões, gatilhos nem esperas.</p>';
   if(!model.flows.length)return '<p class="jpr-unavailable">Nenhuma jornada publicada retornada para esta marca nesta consulta. Isso não comprova ausência de automações.</p>';
-  return model.flows.map((f,index)=>{
-   if(f.state!=='published')return '<article class="jpr-card"><h3>'+esc(f.name)+'</h3><p>Versão publicada indisponível. Nenhum rascunho foi usado como configuração publicada.</p></article>';
-   const g=f.graph,left=Math.min(0,...g.nodes.map(n=>n.x))-30,top=Math.min(0,...g.nodes.map(n=>n.y))-30,right=Math.max(...g.nodes.map(n=>n.x+240))+30,bottom=Math.max(...g.nodes.map(n=>n.y+112))+30,marker='jpr-arrow-'+index;
-   const paths=g.edges.map(e=>{const a=g.nodes.find(n=>n.id===e.from),b=g.nodes.find(n=>n.id===e.to),x=a.x+240,y=a.y+56,xx=b.x,yy=b.y+56,m=(x+xx)/2;return '<path d="M '+x+' '+y+' C '+m+' '+y+','+m+' '+yy+','+xx+' '+yy+'" marker-end="url(#'+marker+')" />'+(e.label?'<text x="'+m+'" y="'+((y+yy)/2-10)+'">'+esc(e.label)+'</text>':'');}).join('');
-   const nodes=g.nodes.map(n=>'<g transform="translate('+n.x+' '+n.y+')"><rect width="240" height="112" rx="10"/><text x="12" y="22" class="jpr-node-type">'+esc({trigger:'Gatilho',wait:'Espera',branch:'Condição',end:'Saída',email:'E-mail',whatsapp:'WhatsApp'}[n.type])+'</text><text x="12" y="49">'+esc(n.title)+'</text><text x="12" y="75" class="jpr-node-sub">'+esc(n.subtitle)+'</text>'+(n.enabled===false?'<text x="12" y="99" class="jpr-node-sub">Etapa pausada</text>':'')+'<title>'+esc(n.title+'. '+(n.detail||n.subtitle||''))+'</title></g>').join('');
-   return '<article class="jpr-card"><h3>'+esc(f.name)+'</h3><p>Versão publicada '+f.version+' · '+(f.enabled?'configuração habilitada':'configuração pausada')+' · '+(f.runtimeReady?'vínculo de execução declarado':'vínculo de execução não declarado')+'. Esta consulta não comprova entrega.</p><div class="jpr-scroll"><svg role="img" aria-label="Fluxograma publicado de '+esc(f.name)+'" width="'+(right-left)+'" height="'+(bottom-top)+'" viewBox="'+[left,top,right-left,bottom-top].join(' ')+'"><defs><marker id="'+marker+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs><g class="jpr-edges">'+paths+'</g><g class="jpr-nodes">'+nodes+'</g></svg></div></article>';
-  }).join('');
+  const f=view?.flow()||model.flows.find(f=>f.state==='published')||model.flows[0],v=view?.state()||{x:60,y:100,z:.8},g=f.graph;
+  const picker='<label class="builder-flow-label">Jornada <select data-jpr-picker>'+model.flows.map(x=>'<option value="'+esc(x.key)+'"'+(x.key===f.key?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label>';
+  let body='<p>Versão publicada indisponível. Nenhum rascunho foi usado como configuração publicada.</p>';
+  if(g){const n=g.nodes.find(n=>n.id===v.node),step=n?.stepIndex!==undefined?f.steps[n.stepIndex]:null;
+   const inspector=n?'<aside class="flow-inspector"><header><span>Detalhes publicados</span><button type="button" data-jpr-action="close" aria-label="Fechar detalhes">×</button></header><div class="flow-inspector-content"><h3>'+esc(n.title)+'</h3><p>'+esc(n.detail||n.subtitle)+'</p>'+(step?'<dl><dt>Canal</dt><dd>'+esc(step.channel)+'</dd><dt>Espera desde o gatilho</dt><dd>'+esc(step.wait_min)+' min</dd><dt>Template publicado</dt><dd>'+esc(step.template_name||'Não informado')+'</dd><dt>Configuração</dt><dd>'+(step.enabled?'Habilitada':'Pausada')+'</dd></dl>':'')+'<p class="flow-inspector-note">Somente leitura. A publicação não comprova entrega.</p></div></aside>':'';
+   const button=(action,label,title)=>'<button type="button" data-jpr-action="'+action+'" title="'+title+'" aria-label="'+title+'">'+label+'</button>';
+   body='<div class="flow-workspace '+(v.expanded?'is-expanded':'')+'"><div class="flow-viewport '+(v.hand?'hand-mode':'')+'" data-jpr-viewport tabindex="0" aria-label="Mapa publicado. Arraste o fundo para navegar. F enquadra, mais e menos ampliam."><div class="flow-world" data-jpr-world style="transform:translate('+v.x+'px,'+v.y+'px) scale('+v.z+')"><svg class="flow-wires" width="1" height="1" aria-hidden="true"><defs><marker id="jpr-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a4afc0"/></marker></defs>'+f.edgeMarkup+'</svg>'+g.nodes.map(n=>nodeHtml(n,v.node)).join('')+'</div></div><div class="flow-tools">'+button('select','↖','Selecionar detalhes')+button('hand','✥','Navegar pelo mapa')+'</div>'+button('expand',v.expanded?'↙ Sair da tela cheia':'↗ Tela cheia',v.expanded?'Sair da tela cheia':'Tela cheia').replace('type="button"','type="button" class="flow-expand"')+'<div class="flow-zoom">'+button('out','−','Diminuir zoom')+button('reset',Math.round(v.z*100)+'%','Zoom 100%')+button('in','+','Aumentar zoom')+button('fit','Enquadrar','Enquadrar jornada')+'</div><div class="flow-navigation-hint">Arraste o fundo para navegar · Ctrl/Cmd + rolagem amplia</div><svg class="flow-minimap" data-jpr-minimap viewBox="0 0 200 130" role="button" tabindex="0" aria-label="Minimapa. Clique para navegar, Enter para enquadrar">'+(view?.map()?.html||'')+'</svg>'+inspector+'</div>';
+  }
+  return '<div class="builder-layout builder-visual"><main class="builder-main '+(v.expanded?'jpr-expanded':'')+'"><header class="builder-header"><div>'+picker+'<h3 class="builder-title">'+esc(f.name)+'</h3><div class="builder-status">'+(g?'Versão publicada '+f.version+' · '+(f.enabled?'configuração habilitada':'configuração pausada')+' · '+(f.runtimeReady?'vínculo de execução declarado':'vínculo de execução não declarado'):'Publicação indisponível')+'</div></div></header>'+body+'</main></div>';
  }
  function admission(api,origin){
   const w=api?.capabilities?.workflows,endpoint=api?.capabilities?.endpoints?.templates;
@@ -98,19 +115,37 @@ const GPR=(()=>{
   }
   return Object.freeze({sync,refresh,state:()=>({model,busy,available:consultable()}),dispose(){invalidate();ctx=null;endpoint=null;}});
  }
- let browser=null;
+ let browser=null,view=null;
  function sync(ctx){
   if(typeof window==='undefined'||typeof document==='undefined')return;
   if(!browser){if(typeof window.fetch!=='function'||typeof window.location?.origin!=='string'||!window.location.origin)return;browser=create({fetchImpl:window.fetch.bind(window),canvas:typeof GBC==='undefined'?null:GBC,origin:window.location.origin,onChange:()=>paint()});window.addEventListener('pagehide',()=>{browser.dispose();paint();});}
-  browser.sync(ctx);paint();
+  browser.sync(ctx);if(!view&&typeof GBC!=='undefined')view=createView(GBC);paint();
  }
  function paint(){
-  const root=document.getElementById('jpr-published');if(!root||!browser)return;const s=browser.state();
-  root.innerHTML='<header><h2>Fluxograma publicado · somente leitura</h2><button type="button" class="refresh-btn" data-jpr-read'+(!s.available||s.busy?' disabled':'')+'>'+(s.busy?'Consultando…':s.available&&s.model.state!=='loaded'?'Verificar acesso e consultar fluxogramas publicados':'Consultar fluxogramas publicados')+'</button></header>'+(s.model.checkedAt?'<p>Consulta recebida em '+esc(s.model.checkedAt)+'.</p>':'')+html(s.model);
+  const root=document.getElementById('jpr-published');if(!root||!browser)return;const s=browser.state();view?.sync(s.model);
+  root.innerHTML='<header><h2>Fluxograma publicado · somente leitura</h2><button type="button" class="refresh-btn" data-jpr-read'+(!s.available||s.busy?' disabled':'')+'>'+(s.busy?'Consultando…':s.available&&s.model.state!=='loaded'?'Verificar acesso e consultar fluxogramas publicados':'Consultar fluxogramas publicados')+'</button></header>'+(s.model.checkedAt?'<p>Consulta recebida em '+esc(s.model.checkedAt)+'.</p>':'')+html(s.model,view);
+  bind(root);
   root.querySelector('[data-jpr-read]')?.addEventListener('click',()=>browser.refresh());
+ }
+ function bind(root){
+  const vp=root.querySelector('[data-jpr-viewport]');
+  root.querySelector('[data-jpr-picker]')?.addEventListener('change',e=>{view.select(e.target.value);paint();});
+  for(const el of root.querySelectorAll?.('[data-jpr-node]')||[])el.addEventListener('click',()=>{view.inspect(el.dataset.jprNode);paint();});
+  if(!vp||!view)return;
+  const size=()=>vp.getBoundingClientRect(),apply=()=>{const v=view.state(),world=root.querySelector('[data-jpr-world]'),map=root.querySelector('[data-jpr-minimap]'),r=size();if(world)world.style.transform='translate('+v.x+'px,'+v.y+'px) scale('+v.z+')';if(map)map.innerHTML=view.map(r.width,r.height)?.html||'';const reset=root.querySelector('[data-jpr-action="reset"]');if(reset)reset.textContent=Math.round(v.z*100)+'%';};
+  const action=a=>{const v=view.state(),r=size();if(a==='fit')view.fit(r.width,r.height);else if(a==='close')view.inspect(null);else if(a==='expand')v.expanded=!v.expanded;else if(a==='hand'||a==='select')v.hand=a==='hand';else view.zoom(a==='reset'?1:v.z*(a==='in'?1.2:1/1.2),r.width/2,r.height/2);paint();};
+  for(const el of root.querySelectorAll?.('[data-jpr-action]')||[])el.addEventListener('click',()=>action(el.dataset.jprAction));
+  let drag=null,space=false;
+  vp.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==1||e.target.closest?.('[data-jpr-node]')&&!view.state().hand&&!space&&e.button!==1)return;e.preventDefault();drag={id:e.pointerId,x:e.clientX,y:e.clientY};vp.setPointerCapture?.(e.pointerId);});
+  vp.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;view.pan(e.clientX-drag.x,e.clientY-drag.y);drag.x=e.clientX;drag.y=e.clientY;apply();});
+  for(const name of ['pointerup','pointercancel','lostpointercapture'])vp.addEventListener(name,()=>{drag=null;});
+  vp.addEventListener('wheel',e=>{e.preventDefault();const r=size(),v=view.state();if(e.ctrlKey||e.metaKey)view.zoom(v.z*Math.exp(-e.deltaY*.008),e.clientX-r.left,e.clientY-r.top);else view.pan(-(e.shiftKey?e.deltaY:e.deltaX),e.shiftKey?0:-e.deltaY);apply();},{passive:false});
+  vp.addEventListener('keydown',e=>{if(e.target!==vp)return;const k=e.key.toLowerCase();if(k===' '){space=true;e.preventDefault();}else if(['f','+','=','-','escape','h','v'].includes(k)){e.preventDefault();if(k==='escape'){view.inspect(null);view.state().expanded=false;paint();}else action(({f:'fit','+':'in','=':'in','-':'out',h:'hand',v:'select'})[k]);}});
+  vp.addEventListener('keyup',e=>{if(e.key===' ')space=false;});vp.addEventListener('blur',()=>{space=false;drag=null;});
+  const map=root.querySelector('[data-jpr-minimap]');map?.addEventListener('click',e=>{const m=map.getBoundingClientRect(),r=size();view.mapTo((e.clientX-m.left)*200/m.width,(e.clientY-m.top)*130/m.height,r.width,r.height);apply();});map?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();action('fit');}});apply();
  }
  function mount(ctx,root){sync({...ctx,section:'regua',tab:'fluxos'});if(!root||!browser)return;root.querySelector('#jpr-published')?.remove();const el=document.createElement('section');el.id='jpr-published';el.className='jpr-published';el.setAttribute('aria-label','Fluxogramas publicados');root.appendChild(el);paint();}
  function clear(){browser?.dispose();if(typeof document!=='undefined')paint();}
- return Object.freeze({VERSION,normalize,html,admission,create,sync,mount,clear});
+ return Object.freeze({VERSION,normalize,html,createView,nodeHtml,admission,create,sync,mount,clear});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=GPR;

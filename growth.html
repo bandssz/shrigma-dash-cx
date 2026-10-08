@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=9204151c4c38">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-n+d4epN6dmFpdHGiosn9eAABhcQe1G9vSSQQP12CMjU='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cdc4fef0ca42">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-imVcOEQXmluRjrqWmHL47swzL5kB+nhX2CsAI9J8Ow4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -307,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=ea2d7c4f9f9b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=099c26354073"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -1259,7 +1259,7 @@ setCanal(CANAL);
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
 let GROWTH_LAST_AUTO_READ=null;
 function atualizarGrowthVisivel(){
-  if(document.hidden||SEC==='regua'&&GC.activeTab==='fluxos')return;
+  if(document.hidden||SEC==='regua'&&GC.activeTab==='fluxos'&&GROWTH_LAST_AUTO_READ!==null)return;
   GROWTH_LAST_AUTO_READ=Date.now();
   return carregar();
 }

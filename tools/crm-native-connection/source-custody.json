@@ -219,6 +219,7 @@
     "tests/database-inventory/reviewed-function-parser.cjs",
     "tests/growth-flows-ui.test.cjs",
     "tests/growth-segment-ui.test.cjs",
+    "tests/growth-visible-refresh.test.cjs",
     "tests/master-audience-count/count.test.cjs",
     "tests/master-audience-count/gateway.test.cjs",
     "tests/master-audience-read/read.test.cjs",
@@ -237,6 +238,7 @@
     "tests/pg-session-provider/provider.test.cjs",
     "tests/presentation-context-native/context.test.cjs",
     "tests/presentation-style-native/style.test.cjs",
+    "tests/published-journeys-native/canvas-parity.test.cjs",
     "tests/published-journeys-native/fixtures/ea/growth.html",
     "tests/published-journeys-native/fixtures/ea/growth.js",
     "tests/published-journeys-native/fixtures/ea/guard.js",
@@ -286,13 +288,13 @@
     },
     {
       "path": "assets/panels/growth.css",
-      "bytes": 164332,
-      "sha256": "9204151c4c38a5508b7101983249dd6ed3c46669b1d39ba055d2f5ec429457c0"
+      "bytes": 164609,
+      "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1016536,
-      "sha256": "ea2d7c4f9f9be7420a7aeff1ba0f9d85710555ea6876f844e7b3cb34b455b1d7"
+      "bytes": 1023702,
+      "sha256": "099c263540730e04f1abcf2acf3c00524548a076ed4c65a67852760d656d2737"
     },
     {
       "path": "growth-flows-ui.js",
@@ -311,13 +313,13 @@
     },
     {
       "path": "growth-published-flows.css",
-      "bytes": 1009,
-      "sha256": "a1ad4d268ccd5b3e3973e24b3b1fa1fa33cc00ef21ee27dc5465479e5b33c135"
+      "bytes": 1287,
+      "sha256": "5a09256ffa320643c315e3f8df78958f58c013ee2fc579c9a7898f9c48179107"
     },
     {
       "path": "growth-published-flows.js",
-      "bytes": 12815,
-      "sha256": "3317e52c1bfb26ba8d629c49a620e356fc97a4a2c33150ddf1cf1ac9f8740165"
+      "bytes": 20241,
+      "sha256": "185bf6f229a86e4de7b35020ebf34969615eb7732a14033bb90defeb317cf4cb"
     },
     {
       "path": "growth-segment-client.js",
@@ -331,8 +333,8 @@
     },
     {
       "path": "growth.html",
-      "bytes": 110811,
-      "sha256": "2bdcc0322f739e11e628be07b441ae31590e8d06c7b616156220e66b3083c027"
+      "bytes": 110841,
+      "sha256": "96ea272a2fa4609a8c13275425c73f64c6a2f245b5976b524b040972a2a9463e"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -372,7 +374,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "ac92858852dc8661e9a4d52634943c7a31ee55bb07fbabad3ecd6bb6a2cf37a4"
+      "sha256": "895a1f50011853683ed7d71c5a70236e417b06f42ba79fbf6c22c82d5562f167"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -436,8 +438,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-presentation.css",
-      "bytes": 164332,
-      "sha256": "9204151c4c38a5508b7101983249dd6ed3c46669b1d39ba055d2f5ec429457c0"
+      "bytes": 164609,
+      "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
     },
     {
       "path": "services/dashboard-operational/crm-published-journey-read.cjs",
@@ -715,6 +717,11 @@
       "sha256": "2231f6a7e4a0c13e60bcd81fcd7e2b4008f530ce01e34602f0a8bb024080f04c"
     },
     {
+      "path": "tests/growth-visible-refresh.test.cjs",
+      "bytes": 2751,
+      "sha256": "4739a3d0acb0b8188c7db2106fb58ced601191196b58e43bf16d1335ee78d6a9"
+    },
+    {
       "path": "tests/master-audience-count/count.test.cjs",
       "bytes": 14480,
       "sha256": "91aaa4d8be5d7a67299b7afa7a63f32e72c7f286537565a3d40eae248ec67cf1"
@@ -805,6 +812,11 @@
       "sha256": "780680754666531f0e8c60012f25366c66f0b8bcc0c3134dea848c10ab4bfcdd"
     },
     {
+      "path": "tests/published-journeys-native/canvas-parity.test.cjs",
+      "bytes": 8933,
+      "sha256": "f1438a301c55a80e231a77ce3d4b38ac08708f3f48002df622d54c86b877dae3"
+    },
+    {
       "path": "tests/published-journeys-native/fixtures/ea/growth.html",
       "bytes": 113288,
       "sha256": "2a6d3e8e5e94c1fe1db73a49f59a73ba7c11c6ea6e23508370bd22cb12e91607"
@@ -821,8 +833,8 @@
     },
     {
       "path": "tests/published-journeys-native/fixtures/fixed/growth.html",
-      "bytes": 113675,
-      "sha256": "a7816fd1325b1197e4bc877fb02eb9986d80a45ba23e7f073175f2f81553e3df"
+      "bytes": 113705,
+      "sha256": "af135d3f91d7e6b00f48444a74e3c06548ccd0d2e98cbd44f2d72eeb3965c130"
     },
     {
       "path": "tests/published-journeys-native/gateway.test.cjs",
@@ -831,13 +843,13 @@
     },
     {
       "path": "tests/published-journeys-native/load-fix.test.cjs",
-      "bytes": 7618,
-      "sha256": "eba46bd2148292f5675f17bba86007999be42cbffbc480beeffc21eed4573b6f"
+      "bytes": 8271,
+      "sha256": "0754f8314c0b9a86f239d8c80883d70c5df4e11e5af75444c2964e673642694c"
     },
     {
       "path": "tests/published-journeys-native/load-harness.cjs",
-      "bytes": 9603,
-      "sha256": "cec23164fddc6ca4612c8467627eea723daf86cde1af87851c6f3fbbe314510a"
+      "bytes": 9627,
+      "sha256": "478e4dc1ee6593b02d6b63e45411d3650f7d6d10060c56b1d7101d5fadfddc5b"
     },
     {
       "path": "tests/published-journeys-native/original-html-ids.json",
@@ -856,8 +868,8 @@
     },
     {
       "path": "tests/published-journeys-native/renderer.test.cjs",
-      "bytes": 23735,
-      "sha256": "43c978eb4f5230721eb34876591ef9a6293f017739965ee3cabfefb4a099d5a3"
+      "bytes": 23727,
+      "sha256": "006b8c6eb4d9440bdbd161352cb699053007f19001bee745ca7ddd3e96dc7478"
     },
     {
       "path": "tests/segment-shopify-panel.test.cjs",
@@ -976,8 +988,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4634,
-      "sha256": "577c97497551642840434effe5480e855fcc4f7c8f650563bbeb4c1c0595ba01"
+      "bytes": 4674,
+      "sha256": "97a78971a01239cebb685e746330cf66e53f6eabcfd7fa0d66587240c2b00e56"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

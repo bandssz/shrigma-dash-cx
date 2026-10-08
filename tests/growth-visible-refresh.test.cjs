@@ -18,7 +18,7 @@ test('visible Início keeps the 60-second data refresh without repainting hidden
 });
 test('the 30-second timer refreshes only the visible journey, operation or published-template view',()=>{
  for(const [section,tab,expected] of [['regua','fluxos',120],['regua','workflows',120],['templates','templates',120],['regua','history',0],['templates','drafts',0],['camp','fluxos',0]]){
-  const c=clock(source,false,section,tab);c.advance(3600000);assert.deepEqual(c.counts(),{reads:61,renders:expected},section+'/'+tab);
+  const c=clock(source,false,section,tab);c.advance(3600000);assert.deepEqual(c.counts(),{reads:section==='regua'&&tab==='fluxos'?1:61,renders:expected},section+'/'+tab);
  }
 });
 test('a page opened hidden waits for visibility; a brief hide does not create an extra request',()=>{
