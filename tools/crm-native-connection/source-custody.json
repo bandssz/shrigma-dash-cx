@@ -332,7 +332,7 @@
     {
       "path": "growth.html",
       "bytes": 110811,
-      "sha256": "d400593efc3eb429549324ceb9233c70003b12b35b01d0c5285e54f888c70d8f"
+      "sha256": "2bdcc0322f739e11e628be07b441ae31590e8d06c7b616156220e66b3083c027"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -831,8 +831,8 @@
     },
     {
       "path": "tests/published-journeys-native/load-fix.test.cjs",
-      "bytes": 7294,
-      "sha256": "ec84c80afdf276a09bb6ba17b75ded54ea23994f728d4ff365b33c37c70b9b54"
+      "bytes": 7618,
+      "sha256": "eba46bd2148292f5675f17bba86007999be42cbffbc480beeffc21eed4573b6f"
     },
     {
       "path": "tests/published-journeys-native/load-harness.cjs",
@@ -1248,6 +1248,14 @@
     "finalComposedBundleExecutedInFocalHarness": true,
     "currentCapabilityCheckIndependentOfAggregateCache": true,
     "browserVisualAcceptance": false,
-    "operational": false
+    "operational": false,
+    "canonicalHtmlVersionAndCspRepairAfterCI": {
+      "run": 37807973136,
+      "job": 113417140536,
+      "failedHead": "b579f51f059672afbce2b438c30417bf381a9852",
+      "failedStep": "canonical growth.html check",
+      "canonicalOutputCopied": true,
+      "runtimeBuildReached": false
+    }
   }
 }
