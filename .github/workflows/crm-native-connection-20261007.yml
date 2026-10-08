@@ -100,13 +100,13 @@ jobs:
       - name: Prove only review expectations and custody changed since the published source
         run: |
           node <<'NODE'
-          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='2f12cd8c7db7cf16dcd6f59fd19c35b47e242ba8',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/segment-shopify-panel.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,operational:false}));
+          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='f8a5e444bc919a1fc6ba88a26ca01b03d3e02603',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/segment-shopify-products-panel.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,testedImageSource:'2f12cd8c7db7cf16dcd6f59fd19c35b47e242ba8',operational:false}));
           NODE
       - name: Verify complete source custody
         run: node tools/crm-native-connection/verify-source.cjs
       - name: Install isolated panel test dependencies
         run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
-      - name: Verify the two changed Shopify expiry expectations
+      - name: Verify the two changed Shopify product expiry expectations
         env:
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
-        run: node --test --test-name-pattern='analyst creates/reopens/counts Shopify audience' tests/segment-shopify-panel.test.cjs
+        run: node --test --test-name-pattern='Gestor saves, reopens and counts a product audience' tests/segment-shopify-products-panel.test.cjs
