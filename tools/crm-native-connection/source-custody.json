@@ -265,8 +265,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 10744,
-      "sha256": "190bb99b5502d505345229d69511121bbf79e779ead7ddc0971dde59f177f128"
+      "bytes": 10947,
+      "sha256": "9e18a306c761a850cb40283368e035d16b993211357ac3969917c514bef62694"
     },
     {
       "path": "assets/panels/growth.js",
