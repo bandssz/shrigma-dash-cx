@@ -68,7 +68,7 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,sourceDiagnosticsEnabled=false}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,sourceDiagnosticsEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics'));
@@ -90,7 +90,7 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    const sourcePeer=state.status===200&&state.body?.features?.nativeSourceSync===true?await run('GET','/api/source-peer'):null;
    result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),operational:false}};
   }else if(name==='crm_journey_catalog'){
-   result=require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
+   result=publishedJourneyReadEnabled===true?require('./crm-published-journey-read.cjs').nativeCatalog(await run('GET','/api/templates?'+new URLSearchParams({acao:'fluxos_listar',marca:args.brand})),args.brand):require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
   }else if(name==='crm_campaign_create'){
    // Business validation and durable idempotency belong to the original BFF.
    result=await run('POST','/auth/campaign-create',{acao:'campanha_criar',brand:args.brand,definition:args.definition,idempotency_key:args.idempotency_key});
@@ -106,7 +106,7 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
     // The campaign catalog remains usable when configured journeys are absent.
     // Delegation is checked before and after EACH original dispatcher read.
     const source=require('./crm-journey-read.cjs');let journeySource,audienceUiSource;
-    try{const cache=await run('GET','/api/crm-read?action=cache_growth&painel=growth');journeySource=source.journeySummary(source.projectJourneyRead(cache,args.brand));const caps=cache.body?.capabilities?.segments;audienceUiSource={read:cache.status===200&&caps?.read===true,brandsRecognized:Array.isArray(caps?.brands)&&caps.brands.includes(args.brand),contractRecognized:caps?.contract_version==='crm-audience-v2',sameOriginEndpoint:cache.body?.capabilities?.endpoints?.segments==='https://'+context.host+'/api/segments',save:caps?.save===true,operation:caps?.operation===true,count:caps?.count===true,send:false,operational:false};}
+    try{const cache=await run('GET','/api/crm-read?action=cache_growth&painel=growth');journeySource=source.journeySummary(source.projectJourneyRead(cache,args.brand));if(publishedJourneyReadEnabled){const published=require('./crm-published-journey-read.cjs').nativeCatalog(await run('GET','/api/templates?'+new URLSearchParams({acao:'fluxos_listar',marca:args.brand})),args.brand);journeySource={status:published.status,brand:args.brand,source:published.body.source,configuredCount:published.body.configuredCount,publishedCount:published.body.publishedCount,workflowVersion:published.body.workflowVersion,operational:false};}const caps=cache.body?.capabilities?.segments;audienceUiSource={read:cache.status===200&&caps?.read===true,brandsRecognized:Array.isArray(caps?.brands)&&caps.brands.includes(args.brand),contractRecognized:caps?.contract_version==='crm-audience-v2',sameOriginEndpoint:cache.body?.capabilities?.endpoints?.segments==='https://'+context.host+'/api/segments',save:caps?.save===true,operation:caps?.operation===true,count:caps?.count===true,send:false,operational:false};}
     catch(e){store.authenticate(bearer,{scope:tool.scope,brand:args.brand});journeySource={status:502,brand:args.brand,source:'unavailable',configuredCount:null,code:/^JOURNEY_[A-Z_]+$/.test(e.code||'')?e.code:'JOURNEY_READ_UNAVAILABLE',operational:false};}
     let audienceSource;
     try{const read=await run('GET','/api/segments?'+new URLSearchParams({acao:'segmentos_listar',brand:args.brand,offset:'0',limit:'50'}));audienceSource=read.status===200&&read.body?.read_admission?read.body.read_admission:{status:read.status,brand:args.brand,source:'unavailable',gatewayWrite:false,code:read.body?.error||'MASTER_AUDIENCE_READ_UNAVAILABLE',operational:false};}

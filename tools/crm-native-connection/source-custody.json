@@ -133,10 +133,13 @@
   ],
   "paths": [
     ".github/workflows/crm-native-connection-20261007.yml",
+    "assets/panels/growth.css",
     "assets/panels/growth.js",
     "growth-flows-ui.js",
     "growth-flows.js",
     "growth-journeys-read.css",
+    "growth-published-flows.css",
+    "growth-published-flows.js",
     "growth-segment-client.js",
     "growth-segment-ui.js",
     "growth.html",
@@ -161,6 +164,7 @@
     "services/dashboard-operational/crm-native-mcp.cjs",
     "services/dashboard-operational/crm-native-operator.cjs",
     "services/dashboard-operational/crm-presentation.css",
+    "services/dashboard-operational/crm-published-journey-read.cjs",
     "services/dashboard-operational/journey-read/growth-flows.js",
     "services/dashboard-operational/native-continuity/INTEGRATION.txt",
     "services/dashboard-operational/native-continuity/pins.json",
@@ -233,6 +237,11 @@
     "tests/pg-session-provider/provider.test.cjs",
     "tests/presentation-context-native/context.test.cjs",
     "tests/presentation-style-native/style.test.cjs",
+    "tests/published-journeys-native/gateway.test.cjs",
+    "tests/published-journeys-native/original-html-ids.json",
+    "tests/published-journeys-native/original-panel-manifest.json",
+    "tests/published-journeys-native/reader.test.cjs",
+    "tests/published-journeys-native/renderer.test.cjs",
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
     "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
@@ -260,648 +269,837 @@
     "tools/crm-native-connection/verify-source.cjs",
     "tools/native-pg-dependency/build-driver.cjs",
     "tools/native-pg-dependency/package-lock.json",
-    "tools/native-pg-dependency/package.json"
+    "tools/native-pg-dependency/package.json",
+    "tools/panel-build/manifest.json"
   ],
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 10947,
-      "sha256": "9e18a306c761a850cb40283368e035d16b993211357ac3969917c514bef62694"
+      "bytes": 11575,
+      "sha256": "6f001f839cafe720ff27575b28e945a0d2c34f3253001ab2e4fca1d03b7a644f",
+      "gitBlobSha1": "3772de5c73d5e16b479db70f5be13430a5027182"
+    },
+    {
+      "path": "assets/panels/growth.css",
+      "bytes": 164332,
+      "sha256": "9204151c4c38a5508b7101983249dd6ed3c46669b1d39ba055d2f5ec429457c0",
+      "gitBlobSha1": "2865fc3fb245dba6fc6cfa4b22f177f6aeb8f09b"
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1004691,
-      "sha256": "c51b5f98231d1f737e6a9b3d7e1afd37c2c80f2f2d94d84f05532e78dad03b2c"
+      "bytes": 993015,
+      "sha256": "6cad33e6bb74ad8e34e5f3a14c2b9fd1fe614e9a6e5d1746ef5b3199707501ed",
+      "gitBlobSha1": "d92db0da9a7d494ddf1c262f99e537b8802e49ef"
     },
     {
       "path": "growth-flows-ui.js",
-      "bytes": 26184,
-      "sha256": "024898dc44691631438564d3b6576c817fd1b5527e2b256b44f019467ee862a7"
+      "bytes": 26449,
+      "sha256": "9eb0c063fd12b8425b98375ff6ce1fbcbf433a38a277432643a1a9b4672114d1",
+      "gitBlobSha1": "698cf0d1fb6e32926dfcfece119479b4221fa81a"
     },
     {
       "path": "growth-flows.js",
       "bytes": 28786,
-      "sha256": "bde92e5967fd3367ef9b7f8afc87e4f21bef31b547b928a668aeefa2d2b66000"
+      "sha256": "bde92e5967fd3367ef9b7f8afc87e4f21bef31b547b928a668aeefa2d2b66000",
+      "gitBlobSha1": "6d2e400a203ca94900df1ceef09fb3ab24e8f9fb"
     },
     {
       "path": "growth-journeys-read.css",
       "bytes": 3064,
-      "sha256": "e0b20e8ea1a697c8da8a4a55e8faa332071ac87cb69caefdd936716a0358b985"
+      "sha256": "e0b20e8ea1a697c8da8a4a55e8faa332071ac87cb69caefdd936716a0358b985",
+      "gitBlobSha1": "15383ab7d9ed88e27fd360abcf0d7e1d2d9d0450"
+    },
+    {
+      "path": "growth-published-flows.css",
+      "bytes": 1009,
+      "sha256": "a1ad4d268ccd5b3e3973e24b3b1fa1fa33cc00ef21ee27dc5465479e5b33c135",
+      "gitBlobSha1": "4e26a2cf2b82471151237e20dd712deea8cf5ab3"
+    },
+    {
+      "path": "growth-published-flows.js",
+      "bytes": 11649,
+      "sha256": "4af660e336704f09d18e7d74ddc3e9c061cce34670f9362371cdcda3d3753bf1",
+      "gitBlobSha1": "5253a2e9175b470239b41f47b4c6c9a764c70bb4"
     },
     {
       "path": "growth-segment-client.js",
       "bytes": 23486,
-      "sha256": "80be98076aad16f7dc4583f7d2dfaf15a03bf264a4efbfe386b8f84f9a643050"
+      "sha256": "80be98076aad16f7dc4583f7d2dfaf15a03bf264a4efbfe386b8f84f9a643050",
+      "gitBlobSha1": "a273f34ea1379828b2cd96b7b460381473162f9e"
     },
     {
       "path": "growth-segment-ui.js",
       "bytes": 43416,
-      "sha256": "756d9dc41a29be0fa15dfec5e384db21791c0c75c7de90a0d70e059c89613e24"
+      "sha256": "756d9dc41a29be0fa15dfec5e384db21791c0c75c7de90a0d70e059c89613e24",
+      "gitBlobSha1": "022a9d76eff0c495a428856ed7a28088703214f6"
     },
     {
       "path": "growth.html",
-      "bytes": 110127,
-      "sha256": "5abf6bcfc61b96d027daf1533e49e410776b37e0eb6af3139a2025793caa8c95"
+      "bytes": 110424,
+      "sha256": "3def46d8131a5be59f4a21423a6093aa92b160f571d5f950286ccc92513d7a17",
+      "gitBlobSha1": "6e3da3b4d3540f474bb273f4ec6698ffad9a2024"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 4372,
-      "sha256": "8fc349a1d455bba6a396f7438eea44a29c5fc6b405f3998dd462df947788da8c"
+      "bytes": 4473,
+      "sha256": "d907daa43e2a74d539eb23efd851fda2dd6878f16384ee2c6d9dc769514a487e",
+      "gitBlobSha1": "7837921a40859e3d76dc6417b96667da0b7925f8"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 11468,
-      "sha256": "206b375955257def2f80406fb953531a6dad3c7530abc81837370ba6720a2b6d"
+      "bytes": 11501,
+      "sha256": "7f4c5e88a4ae28c56806efbd5c0a1cf68eff17dcabd1982e025feba7119b8dda",
+      "gitBlobSha1": "582366062c8aa9e39356e1e879aa62942b0075cd"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
       "bytes": 2975,
-      "sha256": "df83c7c87814a1b499a4a06b510a2048759dc59644f375126d292d6999ee26e0"
+      "sha256": "df83c7c87814a1b499a4a06b510a2048759dc59644f375126d292d6999ee26e0",
+      "gitBlobSha1": "7a04c80821fbb4932abfc8b3d5917d751d5d0599"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 4933,
-      "sha256": "721e50e04f2e15e1335c713d595bec2462dd4ca769fdb7dd4fc4386d94f7b283"
+      "bytes": 4966,
+      "sha256": "326dd6318e88c3819d2d6fafe42fecbda9f726b8462e95d9ee016b89b61b911d",
+      "gitBlobSha1": "b7336e0ec9749cc7e17748b31a758665a69ccf43"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
       "bytes": 11157,
-      "sha256": "c3e7c8e8ccf31c651fb0c42f7a925eae252917e386819a474a9d2748fac73d5d"
+      "sha256": "c3e7c8e8ccf31c651fb0c42f7a925eae252917e386819a474a9d2748fac73d5d",
+      "gitBlobSha1": "e27df9be1b54a6b3122a0d9af4be0675cb36678a"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/foundation-isolated-smoke.cjs",
       "bytes": 9844,
-      "sha256": "0892a273f610dc2e9e70092f42565dc7f274f576467cd81c78af19283f127214"
+      "sha256": "0892a273f610dc2e9e70092f42565dc7f274f576467cd81c78af19283f127214",
+      "gitBlobSha1": "fb99f2120b7b30380d11010efc7464485f11af98"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
       "bytes": 2366,
-      "sha256": "252e4f6980121cfb857989ccc6d70276b6de29775be3ec1b6da20e20a8e66fd6"
+      "sha256": "252e4f6980121cfb857989ccc6d70276b6de29775be3ec1b6da20e20a8e66fd6",
+      "gitBlobSha1": "ffd52ceffbea32ea0a282d60a6df298d169345d1"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6713,
-      "sha256": "9855703ae9a148f712bb4d55f60cc10162a655e1f2314b8405ac347d8ef312eb"
+      "sha256": "2e629e0cd8fbeb93745cce67661f47b68e76345a11ef24a5c89626034bcca4f1",
+      "gitBlobSha1": "b39163151297c0f1a0e1d251804a510ac9b67542"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
       "bytes": 10069,
-      "sha256": "f806b0a92d0fcba6e6c6094aa8c315e7af6d946890eef0fc0ea0136359345a60"
+      "sha256": "f806b0a92d0fcba6e6c6094aa8c315e7af6d946890eef0fc0ea0136359345a60",
+      "gitBlobSha1": "8060a24dff862edbce9c036f81919ed0d65d042f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
-      "bytes": 4123,
-      "sha256": "b45ca951d6f00ddd07f244f5ca3c93e4c23bc09eb28d3ed767d9dd008d33365f"
+      "bytes": 4328,
+      "sha256": "5c3cd66095ee5788de4d778f649c3817791310dc34137a58e25d2863210d2e5c",
+      "gitBlobSha1": "04974bb28e021ef50821daa603a3a2cdeb2cf559"
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
       "bytes": 12728,
-      "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143"
+      "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143",
+      "gitBlobSha1": "bf8bb8bcaa4b332d6bf7e1fa5d8eed0f23a15202"
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-source-sync.txt",
       "bytes": 16074,
-      "sha256": "546d898dd092e3727d311823f32213ce06d9853f6a077279c12bff894112a090"
+      "sha256": "546d898dd092e3727d311823f32213ce06d9853f6a077279c12bff894112a090",
+      "gitBlobSha1": "b96613aa543879544c3eda06136e4121437974db"
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 118025,
-      "sha256": "be7a13bf12a5fd43da1de8f10f9a3a827a98277e13bb41bcbfe4c7a8ae92c3f9"
+      "bytes": 119447,
+      "sha256": "99f39e288fa45a8da1f431eb51d8d4d6f7acc5ec59e04b4b41ffa35bcbece431",
+      "gitBlobSha1": "62bd3c74414656411be20857ce5dc4daec5794b0"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
       "bytes": 18157,
-      "sha256": "f8fac14064960528e7f5df4beff0ba5150869f10362e4302ee485ff431aacbfd"
+      "sha256": "f8fac14064960528e7f5df4beff0ba5150869f10362e4302ee485ff431aacbfd",
+      "gitBlobSha1": "81f9ade8a4a94eb3e3de810051e222353003b7d9"
     },
     {
       "path": "services/dashboard-operational/crm-journey-read.cjs",
       "bytes": 2996,
-      "sha256": "0f815d87682f9644799e3bfb89b9f967ba308395ecac49fa77193cc1255cb5c9"
+      "sha256": "0f815d87682f9644799e3bfb89b9f967ba308395ecac49fa77193cc1255cb5c9",
+      "gitBlobSha1": "44f4ed14aefd5c1deacba5623c1e28649a26eccf"
     },
     {
       "path": "services/dashboard-operational/crm-master-audience-count.cjs",
       "bytes": 8283,
-      "sha256": "7e4b0dabbe5926d6983a903421668cb60fd4bff9411235b2b14f25ceea023a4d"
+      "sha256": "7e4b0dabbe5926d6983a903421668cb60fd4bff9411235b2b14f25ceea023a4d",
+      "gitBlobSha1": "4a3a3220d3d02abcb87664541523fd4c55a4f54b"
     },
     {
       "path": "services/dashboard-operational/crm-master-audience-read.cjs",
       "bytes": 12691,
-      "sha256": "7d5f77f988ddbeb4d09304f8ba1bc8e93cd8aee9ecf467fdc059c55bcead28ee"
+      "sha256": "7d5f77f988ddbeb4d09304f8ba1bc8e93cd8aee9ecf467fdc059c55bcead28ee",
+      "gitBlobSha1": "de97c7010a157cf44c185fcb1b489268c9903563"
     },
     {
       "path": "services/dashboard-operational/crm-native-delegation.cjs",
       "bytes": 16727,
-      "sha256": "468a4389ac7009d3d1bca2dcbba313e15ef65291bed145466fe03d4e9ca404f0"
+      "sha256": "468a4389ac7009d3d1bca2dcbba313e15ef65291bed145466fe03d4e9ca404f0",
+      "gitBlobSha1": "e3f36b6d7cf36c175fa086e96d52324f3c5d3742"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 22946,
-      "sha256": "0df01f14955eb8baca1fa750978bde51864122fd725296055571425e2bb698d8"
+      "bytes": 23639,
+      "sha256": "9a1ffacd8d522d5aa9e0608be6cbdd001117beaa490d814c777a70743b7daf52",
+      "gitBlobSha1": "bf9f4bdf2672ab722dfa7fb51faf953baa3e61bc"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
       "bytes": 6758,
-      "sha256": "a9b78da2178cea4e43bad9b3d0742516869b1ce22ea78c8d3fbd480743d79ff5"
+      "sha256": "a9b78da2178cea4e43bad9b3d0742516869b1ce22ea78c8d3fbd480743d79ff5",
+      "gitBlobSha1": "73d82c0e5d25b183cde3fbc2dfd794412dd9ef57"
     },
     {
       "path": "services/dashboard-operational/crm-presentation.css",
-      "bytes": 163326,
-      "sha256": "297a8f06d1c607c1fcd393482b0f4bb9759c8818784873be72a6f6659282f04c"
+      "bytes": 164332,
+      "sha256": "9204151c4c38a5508b7101983249dd6ed3c46669b1d39ba055d2f5ec429457c0",
+      "gitBlobSha1": "2865fc3fb245dba6fc6cfa4b22f177f6aeb8f09b"
+    },
+    {
+      "path": "services/dashboard-operational/crm-published-journey-read.cjs",
+      "bytes": 8774,
+      "sha256": "a6bfe08ea8786fb473024cae8703654ffb904fd817da379ef23853fc0cba834d",
+      "gitBlobSha1": "a8a76c6ddd4f3826884d529faec0a2df3af5f76d"
     },
     {
       "path": "services/dashboard-operational/journey-read/growth-flows.js",
       "bytes": 28786,
-      "sha256": "bde92e5967fd3367ef9b7f8afc87e4f21bef31b547b928a668aeefa2d2b66000"
+      "sha256": "bde92e5967fd3367ef9b7f8afc87e4f21bef31b547b928a668aeefa2d2b66000",
+      "gitBlobSha1": "6d2e400a203ca94900df1ceef09fb3ab24e8f9fb"
     },
     {
       "path": "services/dashboard-operational/native-continuity/INTEGRATION.txt",
       "bytes": 8617,
-      "sha256": "faac78ab981eb53cfdc0ea5b7f2c3de1cebb50cc80cc782336cfee79ed71547d"
+      "sha256": "faac78ab981eb53cfdc0ea5b7f2c3de1cebb50cc80cc782336cfee79ed71547d",
+      "gitBlobSha1": "fddf498d56f479df4632f5bb312962081f5610df"
     },
     {
       "path": "services/dashboard-operational/native-continuity/pins.json",
       "bytes": 5314,
-      "sha256": "8789803c62ec8e45aea77185703d6b6e6aa74e5d7294d9bc019ae05c5a987833"
+      "sha256": "8789803c62ec8e45aea77185703d6b6e6aa74e5d7294d9bc019ae05c5a987833",
+      "gitBlobSha1": "cf114d258d8068f4921d5cadb4528c3daca5eb03"
     },
     {
       "path": "services/dashboard-operational/native-continuity/read-only.cjs",
       "bytes": 21979,
-      "sha256": "16ecd75d34ff90e9ecf718ef879eb51f7c22bcc2434c3a30c41b24ddd02fe7c6"
+      "sha256": "16ecd75d34ff90e9ecf718ef879eb51f7c22bcc2434c3a30c41b24ddd02fe7c6",
+      "gitBlobSha1": "1b275c2cb94019321460e9f01fc5b284356a6c1c"
     },
     {
       "path": "services/dashboard-operational/native-database-inventory.cjs",
       "bytes": 21160,
-      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1",
+      "gitBlobSha1": "5024fcf48191a7d11021935f37f72f0ccf7639fa"
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
       "bytes": 9491,
-      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09"
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09",
+      "gitBlobSha1": "b0887e0699370f360d86f132cbfc6b0a176b9ccb"
     },
     {
       "path": "services/dashboard-operational/native-database-vault.cjs",
       "bytes": 7257,
-      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65",
+      "gitBlobSha1": "5963f6b6a99ce97413c47ae54c07f3e9d3aedbea"
     },
     {
       "path": "services/dashboard-operational/native-foundation-preview.cjs",
       "bytes": 8899,
-      "sha256": "80e242fb06fbbd02b8b156b288b844e5de035b718291bde4c2a271b10f04bab8"
+      "sha256": "80e242fb06fbbd02b8b156b288b844e5de035b718291bde4c2a271b10f04bab8",
+      "gitBlobSha1": "83d94995dfe57d8735cd4016658ba6fdbc782146"
     },
     {
       "path": "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
       "bytes": 6729,
-      "sha256": "6eb25642840ddb657a704e708cd458f9a725de6f7f7712cc70494f885759fa32"
+      "sha256": "6eb25642840ddb657a704e708cd458f9a725de6f7f7712cc70494f885759fa32",
+      "gitBlobSha1": "ec913d8262a599d8bdb109a0d503c49eb141a1f5"
     },
     {
       "path": "services/dashboard-operational/native-installer/INTEGRATION.txt",
       "bytes": 10764,
-      "sha256": "89060c6e92dae7c302bd88803cbe4832a8049b92091e1fe26e70fa26f0bf8347"
+      "sha256": "89060c6e92dae7c302bd88803cbe4832a8049b92091e1fe26e70fa26f0bf8347",
+      "gitBlobSha1": "d2e798ccd2158a2922438b918e7435ffa08c314e"
     },
     {
       "path": "services/dashboard-operational/native-installer/catalog.cjs",
       "bytes": 1270,
-      "sha256": "69db61871025c1de8b9a3bc2c641dbfb6408d2f3d77528f67d5bd316a912a0af"
+      "sha256": "69db61871025c1de8b9a3bc2c641dbfb6408d2f3d77528f67d5bd316a912a0af",
+      "gitBlobSha1": "3cde95a11e6a8b39292a340e6bcd47dbe07255d6"
     },
     {
       "path": "services/dashboard-operational/native-installer/installer.cjs",
       "bytes": 21207,
-      "sha256": "48e1d97792bbd91daa8f1bfccae47d0ce7f52c8721cf53292ec34c993610c8b6"
+      "sha256": "48e1d97792bbd91daa8f1bfccae47d0ce7f52c8721cf53292ec34c993610c8b6",
+      "gitBlobSha1": "0d6327566c06422155dbe1f98d2b8c077b5b2e13"
     },
     {
       "path": "services/dashboard-operational/native-installer/manifest.json",
       "bytes": 6454,
-      "sha256": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7"
+      "sha256": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7",
+      "gitBlobSha1": "f52ca4dbf72cce615a88c2f72f09194eac18beb0"
     },
     {
       "path": "services/dashboard-operational/native-installer/migrations/crm-manager-provision-v1.sql",
       "bytes": 24527,
-      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4"
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4",
+      "gitBlobSha1": "e68af6ccea1ba809529b35b5dd76560df720474a"
     },
     {
       "path": "services/dashboard-operational/native-installer/migrations/crm-manager-role-install-v1.sql",
       "bytes": 9310,
-      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789"
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789",
+      "gitBlobSha1": "cafbd8c0413569d728f646a386e013170a02dec8"
     },
     {
       "path": "services/dashboard-operational/native-installer/migrations/writer-provision-v1.sql",
       "bytes": 38349,
-      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04"
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04",
+      "gitBlobSha1": "4c789d0a80b87d18de57faf1e0bae6b60b0803fc"
     },
     {
       "path": "services/dashboard-operational/native-installer/pg-session-provider.cjs",
       "bytes": 18184,
-      "sha256": "4573e0ffaca9955323ba2626ef03e43cccf8f67adc47ea4445a22bed77e883af"
+      "sha256": "4573e0ffaca9955323ba2626ef03e43cccf8f67adc47ea4445a22bed77e883af",
+      "gitBlobSha1": "b39491a7a7eb1874c32f3883bdc14ae7d3d8d02d"
     },
     {
       "path": "services/dashboard-operational/native-installer/provider-pins.json",
       "bytes": 2395,
-      "sha256": "5d4133d987a20528078567fa4cfbff98ab51e00d029de16c0f96afaf58ac3275"
+      "sha256": "5d4133d987a20528078567fa4cfbff98ab51e00d029de16c0f96afaf58ac3275",
+      "gitBlobSha1": "5a0680dcb57eb1b21a7861d763d49f1e2ff6029d"
     },
     {
       "path": "services/dashboard-operational/native-installer/sql.cjs",
       "bytes": 9024,
-      "sha256": "e70133a94cca69e8ca85b0499ab50d81478859755b1756bd3947db76afd28271"
+      "sha256": "e70133a94cca69e8ca85b0499ab50d81478859755b1756bd3947db76afd28271",
+      "gitBlobSha1": "dec5b04ed2a9c3555673624ee1fadccb0ac7428e"
     },
     {
       "path": "services/dashboard-operational/native-pg-driver.cjs",
       "bytes": 2995,
-      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9",
+      "gitBlobSha1": "c22f992d83a111ee1c17549ed86f23ec51e18791"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
       "bytes": 6092,
-      "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6"
+      "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6",
+      "gitBlobSha1": "e2c5cf4192cb6898cdcad1d7a8865d848ede91ca"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-ui.cjs",
       "bytes": 13618,
-      "sha256": "2d3bd4eb4cecd406cdb0120cd08fad8af84d6d0390e517335b5f2c18534801dc"
+      "sha256": "2d3bd4eb4cecd406cdb0120cd08fad8af84d6d0390e517335b5f2c18534801dc",
+      "gitBlobSha1": "02630f9a952b53a84b1a3175dad482b9b828ce01"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics.cjs",
       "bytes": 15533,
-      "sha256": "286f17f2109d832ac421ad11fb111706248c88951e81e49de155d651fd631a7a"
+      "sha256": "286f17f2109d832ac421ad11fb111706248c88951e81e49de155d651fd631a7a",
+      "gitBlobSha1": "b6aee4cd34e9d0a2ebc3afcf316fb5322e2857c6"
     },
     {
       "path": "services/dashboard-operational/native-source-operator.cjs",
       "bytes": 14957,
-      "sha256": "bd056c7a1aaed983f04b6cbb4dc090c12af5c70796da042e7b08167b55ca46c6"
+      "sha256": "bd056c7a1aaed983f04b6cbb4dc090c12af5c70796da042e7b08167b55ca46c6",
+      "gitBlobSha1": "95465ee7def93e51ee9b90623da1a55413925ed4"
     },
     {
       "path": "services/dashboard-operational/native-source-sync.cjs",
       "bytes": 23137,
-      "sha256": "4746cbc0bbc6be85ad2a5e27944095afb3fab4af1d4ff46c35c80370874dd6ab"
+      "sha256": "4746cbc0bbc6be85ad2a5e27944095afb3fab4af1d4ff46c35c80370874dd6ab",
+      "gitBlobSha1": "d7a2be684cd328980b3d96fc53ece0f313010000"
     },
     {
       "path": "services/dashboard-operational/native-source-transport.cjs",
       "bytes": 3285,
-      "sha256": "9c3584ee57f2e5c5362f83473ce360c32a31fb280225ebace556dd3b2277ece0"
+      "sha256": "9c3584ee57f2e5c5362f83473ce360c32a31fb280225ebace556dd3b2277ece0",
+      "gitBlobSha1": "ba7c0b14b246f32a5fd0b50c7114d41a1a84789c"
     },
     {
       "path": "services/dashboard-operational/own-foundation/bootstrap-v1.sql",
       "bytes": 1052,
-      "sha256": "1fb03940600a2bed1f8835d6835d27b04ef42a487823d3a3ddff1fbe1032ca46"
+      "sha256": "1fb03940600a2bed1f8835d6835d27b04ef42a487823d3a3ddff1fbe1032ca46",
+      "gitBlobSha1": "8741937e9c3be45b5a4e37c98101836a80de485a"
     },
     {
       "path": "services/dashboard-operational/own-foundation/foundation.cjs",
       "bytes": 18525,
-      "sha256": "fc1e3c12e53dc74f262eec8ecbc7d0e160b5504850eb928ea39013a051ff37b0"
+      "sha256": "fc1e3c12e53dc74f262eec8ecbc7d0e160b5504850eb928ea39013a051ff37b0",
+      "gitBlobSha1": "45f7c8ba6d9aa228bd9df17ce967817fea1393a9"
     },
     {
       "path": "services/dashboard-operational/own-foundation/manifest.json",
       "bytes": 1324,
-      "sha256": "452cdbec54d59cfb7157a7efaa0ff40fbeb210c780413c3943678ddf52ce0a51"
+      "sha256": "452cdbec54d59cfb7157a7efaa0ff40fbeb210c780413c3943678ddf52ce0a51",
+      "gitBlobSha1": "f6e721436514b5bf7071a385fb3a76848d021fc6"
     },
     {
       "path": "services/dashboard-operational/own-foundation/sql.cjs",
       "bytes": 5707,
-      "sha256": "fb1525f46582e64ef7780afe541b0b65bd793b7d4147b495166b7ce251a22116"
+      "sha256": "fb1525f46582e64ef7780afe541b0b65bd793b7d4147b495166b7ce251a22116",
+      "gitBlobSha1": "1420af1229cf3eae0824880c67e61fac7204ebf6"
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
       "bytes": 43440,
-      "sha256": "6b4cbbe471315d75c8eaadb92776876d1099e8e66a100f6363a9c166bd491d1d"
+      "sha256": "6b4cbbe471315d75c8eaadb92776876d1099e8e66a100f6363a9c166bd491d1d",
+      "gitBlobSha1": "555262e87570a11363ea80b76c08256a80b449ab"
     },
     {
       "path": "services/dashboard-operational/reviewed-database-functions.json",
       "bytes": 13225,
-      "sha256": "d4a57dabc34b8856760e1bdc2d9ffacbeb07582b7cae46bc3a144e836f267c80"
+      "sha256": "d4a57dabc34b8856760e1bdc2d9ffacbeb07582b7cae46bc3a144e836f267c80",
+      "gitBlobSha1": "24986b0bc9efa35d0335f9e79fa942f040440226"
     },
     {
       "path": "services/dashboard-operational/segment-audience-context-review.cjs",
       "bytes": 8235,
-      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274"
+      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274",
+      "gitBlobSha1": "86753551e6c1b94da32fc2edfd254e099f497eef"
     },
     {
       "path": "services/dashboard-operational/segment-audience-review.cjs",
       "bytes": 19040,
-      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea"
+      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea",
+      "gitBlobSha1": "4c761b7d16229557bcaece4131f98027f4d3de0b"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 119840,
-      "sha256": "6794ef1d4067a32fc8cee5f7954d7d130ca96c0be8973a150f53ee56caf89813"
+      "bytes": 122038,
+      "sha256": "5be5f1d3614f95e4b98ec5de1c6e515c615ce1d141b4e5ffe529b8227588dc1f",
+      "gitBlobSha1": "f873428ce38af03b4df02074bef72f2f483a4f1b"
     },
     {
       "path": "tests/audience-context-availability/client-ui.test.cjs",
       "bytes": 7674,
-      "sha256": "f59b892b08642ea3ad766bb52ac0bf1c2163cde990cf9660531d3962dc35e326"
+      "sha256": "f59b892b08642ea3ad766bb52ac0bf1c2163cde990cf9660531d3962dc35e326",
+      "gitBlobSha1": "18635a25c6a0bd0166ecdfbbd42930f0e0d5db68"
     },
     {
       "path": "tests/audience-context-availability/gateway.test.cjs",
       "bytes": 11792,
-      "sha256": "769ab9851eef74a72c822e97706b4894896edfba093b24e02d7b86f6993c2bc6"
+      "sha256": "769ab9851eef74a72c822e97706b4894896edfba093b24e02d7b86f6993c2bc6",
+      "gitBlobSha1": "3501a302f11f84ef3994fa3629877a4d0c5a2f5d"
     },
     {
       "path": "tests/audience-context-review/client-ui.test.cjs",
       "bytes": 6108,
-      "sha256": "69fdb2fdbbe1ab052fe406e9175e03f9451926b4ac643ff20df41089a983dd84"
+      "sha256": "69fdb2fdbbe1ab052fe406e9175e03f9451926b4ac643ff20df41089a983dd84",
+      "gitBlobSha1": "b810de9f2fb3a5a45a2aba5dfa41b73d12fded4f"
     },
     {
       "path": "tests/audience-context-review/gateway.test.cjs",
       "bytes": 14229,
-      "sha256": "f42d9d7498240abdb4a6e93c2405fedb4a8548db5622b4bc5d40480360efc8a1"
+      "sha256": "f42d9d7498240abdb4a6e93c2405fedb4a8548db5622b4bc5d40480360efc8a1",
+      "gitBlobSha1": "f9b12302c2fdb1aed8638f611a40b0790f778a02"
     },
     {
       "path": "tests/audience-removal/fixture.cjs",
       "bytes": 6502,
-      "sha256": "3bf172ef3574e760ba14fa5ca815daf49176cf2593c3930f429bf0d5c75988c3"
+      "sha256": "3bf172ef3574e760ba14fa5ca815daf49176cf2593c3930f429bf0d5c75988c3",
+      "gitBlobSha1": "4e96296b1defc0e06316b05ab22414d30a939572"
     },
     {
       "path": "tests/audience-removal/removal.test.cjs",
       "bytes": 9125,
-      "sha256": "1746c3ab2d092c945d7ad84aa357cbb576137ff6c7fa54bc4043d5859400680d"
+      "sha256": "1746c3ab2d092c945d7ad84aa357cbb576137ff6c7fa54bc4043d5859400680d",
+      "gitBlobSha1": "f17d8f5759c988d9ec40009178e307840ca5cd48"
     },
     {
       "path": "tests/campaign-create-native/gateway.test.cjs",
       "bytes": 13865,
-      "sha256": "a40fe2dcb5725c632a9d12bcb82245f03ecba00c5db668c0b6ee229d3d9c4d80"
+      "sha256": "a40fe2dcb5725c632a9d12bcb82245f03ecba00c5db668c0b6ee229d3d9c4d80",
+      "gitBlobSha1": "0ca725e38ed08ac356c2b5e3147dcc759a7a651f"
     },
     {
       "path": "tests/campaign-create-native/native.test.cjs",
       "bytes": 14048,
-      "sha256": "69641a172bdd3fbdb15e7f9c9dab73c36820abb4b0585984c36dfbdce412a21c"
+      "sha256": "69641a172bdd3fbdb15e7f9c9dab73c36820abb4b0585984c36dfbdce412a21c",
+      "gitBlobSha1": "dc35133ebb099bf2e8472fa29e341b9cfffde738"
     },
     {
       "path": "tests/claude-crm-ux.test.cjs",
       "bytes": 35646,
-      "sha256": "dae1f4d821b5753d29aa2272c28861a78f235f7081967930a0ab6de9511d9e2f"
+      "sha256": "dae1f4d821b5753d29aa2272c28861a78f235f7081967930a0ab6de9511d9e2f",
+      "gitBlobSha1": "87f577b7c8d99a0bb3eee0088d0000ef1a65c64e"
     },
     {
       "path": "tests/configured-journeys-read/fixtures.cjs",
       "bytes": 850,
-      "sha256": "4d968cc072094e7dc2a41c36a920c5e4db6ad09f43b6ffb7afe47370c7144a59"
+      "sha256": "4d968cc072094e7dc2a41c36a920c5e4db6ad09f43b6ffb7afe47370c7144a59",
+      "gitBlobSha1": "1f0c550bb50e2fdcf6d3392a151c63e064d2d99a"
     },
     {
       "path": "tests/configured-journeys-read/model.test.cjs",
       "bytes": 8846,
-      "sha256": "de7df60e7e06818c3ef200f7f7f1c7e4361267841023e08a6b9fc9cbff51104b"
+      "sha256": "de7df60e7e06818c3ef200f7f7f1c7e4361267841023e08a6b9fc9cbff51104b",
+      "gitBlobSha1": "ed9fccccd5b11c0f064b40952b7c7b3283531b30"
     },
     {
       "path": "tests/configured-journeys-read/ui.test.cjs",
       "bytes": 8463,
-      "sha256": "8f6cc4323631b99f9e760b8d4617bdeee7220ff3ef032b8e74955d3d66d432df"
+      "sha256": "8f6cc4323631b99f9e760b8d4617bdeee7220ff3ef032b8e74955d3d66d432df",
+      "gitBlobSha1": "9ed15a04d94c12c9c7d7eafb710655c1e10ddd8d"
     },
     {
       "path": "tests/crm-journey-read.test.cjs",
       "bytes": 8924,
-      "sha256": "9c0c52f3a463d57a3f6f5b7ec03a66cd70b99e3cb0d413b049033c17e0c41fd0"
+      "sha256": "9c0c52f3a463d57a3f6f5b7ec03a66cd70b99e3cb0d413b049033c17e0c41fd0",
+      "gitBlobSha1": "eae2fe3622d1f301e6dc13684284b76035848fb1"
     },
     {
       "path": "tests/dashboard-operational-brand-ui.test.cjs",
       "bytes": 12322,
-      "sha256": "77940b04de8d1fe1c66ad6fe1e94e12c722d3de7b692d6f632b98a62b975b84e"
+      "sha256": "77940b04de8d1fe1c66ad6fe1e94e12c722d3de7b692d6f632b98a62b975b84e",
+      "gitBlobSha1": "8152fa73b231743c3ef005d0e0428766b6a449e1"
     },
     {
       "path": "tests/dashboard-operational-native-mcp.test.cjs",
       "bytes": 13384,
-      "sha256": "df0d4d6747db860ee0c8592c786551bd925de5badebbacdeaa16cbd755c43565"
+      "sha256": "df0d4d6747db860ee0c8592c786551bd925de5badebbacdeaa16cbd755c43565",
+      "gitBlobSha1": "027c8c75722e5bf690fb9eb8907c8c20872d1d4b"
     },
     {
       "path": "tests/database-inventory/inventory.test.cjs",
       "bytes": 23449,
-      "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08"
+      "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08",
+      "gitBlobSha1": "72b29bd68fb27d7a7f958850feccce52bd6eb6c6"
     },
     {
       "path": "tests/database-inventory/reviewed-function-parser.cjs",
       "bytes": 3319,
-      "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+      "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96",
+      "gitBlobSha1": "8d927dd6100c13184d3cafcb09f9dc8c850c7f54"
     },
     {
       "path": "tests/growth-flows-ui.test.cjs",
       "bytes": 7574,
-      "sha256": "23e1494af25d000d718fd22085a9fa013b88427c6fefa000e3b82e0c6279fce0"
+      "sha256": "23e1494af25d000d718fd22085a9fa013b88427c6fefa000e3b82e0c6279fce0",
+      "gitBlobSha1": "65729f0c64f129866c9bc9eba853d439cd842a86"
     },
     {
       "path": "tests/growth-segment-ui.test.cjs",
       "bytes": 33683,
-      "sha256": "2231f6a7e4a0c13e60bcd81fcd7e2b4008f530ce01e34602f0a8bb024080f04c"
+      "sha256": "2231f6a7e4a0c13e60bcd81fcd7e2b4008f530ce01e34602f0a8bb024080f04c",
+      "gitBlobSha1": "4d42fb4e54435b99d9444718b9a0a8c42a42d3bd"
     },
     {
       "path": "tests/master-audience-count/count.test.cjs",
       "bytes": 14480,
-      "sha256": "91aaa4d8be5d7a67299b7afa7a63f32e72c7f286537565a3d40eae248ec67cf1"
+      "sha256": "91aaa4d8be5d7a67299b7afa7a63f32e72c7f286537565a3d40eae248ec67cf1",
+      "gitBlobSha1": "f4197f2f71ad86c1015330ed4da4422a713af9bb"
     },
     {
       "path": "tests/master-audience-count/gateway.test.cjs",
       "bytes": 15813,
-      "sha256": "6d052249771925e8e87f1f128d0e5150b120030115ae0d24a0bdf5fecf6219c6"
+      "sha256": "6d052249771925e8e87f1f128d0e5150b120030115ae0d24a0bdf5fecf6219c6",
+      "gitBlobSha1": "7a112ea8fdb633b036b09a6aa48560d297b62ffe"
     },
     {
       "path": "tests/master-audience-read/read.test.cjs",
       "bytes": 16012,
-      "sha256": "c5e9ed3f6455e3f36b3a96d23e7d9099a8f51dfbe83ed9ecc972fb5f6dacf53c"
+      "sha256": "c5e9ed3f6455e3f36b3a96d23e7d9099a8f51dfbe83ed9ecc972fb5f6dacf53c",
+      "gitBlobSha1": "45ad00566344b9ebe227b0d60f2869ab803d6261"
     },
     {
       "path": "tests/master-audience-read/root-integration.test.cjs",
       "bytes": 11837,
-      "sha256": "4105f0c6d9b2dc51257a74cd55ba9f42d20598bc4c9d155758577cde2101d987"
+      "sha256": "4105f0c6d9b2dc51257a74cd55ba9f42d20598bc4c9d155758577cde2101d987",
+      "gitBlobSha1": "9799ccb74602292f1aaaab9c17c9021332843b01"
     },
     {
       "path": "tests/master-audience-write/gateway.test.cjs",
       "bytes": 18103,
-      "sha256": "c168485a577c1a5a7111faecd6c6581da571ebbe05593ebd8c58c01366855106"
+      "sha256": "c168485a577c1a5a7111faecd6c6581da571ebbe05593ebd8c58c01366855106",
+      "gitBlobSha1": "74b492d2e2549df212fcb8ef0163fc0f6fa839bd"
     },
     {
       "path": "tests/native-continuity/fixture.cjs",
       "bytes": 11257,
-      "sha256": "84faff1686f3862edc7d5c015aad1753f230990744ecc09cb9e6584e8f0f7789"
+      "sha256": "84faff1686f3862edc7d5c015aad1753f230990744ecc09cb9e6584e8f0f7789",
+      "gitBlobSha1": "abc5e2e5b730f5a77070c622109533904b0aba5b"
     },
     {
       "path": "tests/native-continuity/read-only.test.cjs",
       "bytes": 10480,
-      "sha256": "a43f59df2f166a267c8f293897280d43a13aa23b2072fa55abb3cfdc0447ab4c"
+      "sha256": "a43f59df2f166a267c8f293897280d43a13aa23b2072fa55abb3cfdc0447ab4c",
+      "gitBlobSha1": "fb7068779fc9021d4e9af532404d9bf2e0a6b631"
     },
     {
       "path": "tests/native-database-custody.test.cjs",
       "bytes": 11542,
-      "sha256": "9a1813b82244f1642682c46aee5d5a7b34e17434785cd6f1b2c4d677d5aaa902"
+      "sha256": "9a1813b82244f1642682c46aee5d5a7b34e17434785cd6f1b2c4d677d5aaa902",
+      "gitBlobSha1": "c1e21f2b959f392e705644ac00025227d5e6d632"
     },
     {
       "path": "tests/native-foundation-preview.test.cjs",
       "bytes": 7405,
-      "sha256": "87f5f4bc99c46c4448a89b9748b1206d2d5d1077c3249858e40d2dcd5192713a"
+      "sha256": "87f5f4bc99c46c4448a89b9748b1206d2d5d1077c3249858e40d2dcd5192713a",
+      "gitBlobSha1": "3ab32f9f2072d0040f9b9b07adc05b2d24956aa1"
     },
     {
       "path": "tests/native-installer/installer.test.cjs",
       "bytes": 8926,
-      "sha256": "79b5079a91e6e83dcab61a9556a71108b05d591d68165eaf3fc47a5c8f633750"
+      "sha256": "79b5079a91e6e83dcab61a9556a71108b05d591d68165eaf3fc47a5c8f633750",
+      "gitBlobSha1": "6a30447b07e125fcf72010c164b2148d5e2f37f7"
     },
     {
       "path": "tests/native-installer/model.cjs",
       "bytes": 6476,
-      "sha256": "3a8167bb4eab251cd92c4385bd70fc9c9cc05669e6f4260caaca65eff6460cc9"
+      "sha256": "3a8167bb4eab251cd92c4385bd70fc9c9cc05669e6f4260caaca65eff6460cc9",
+      "gitBlobSha1": "0decf263c409e57c02acefcf4afe33380f510b36"
     },
     {
       "path": "tests/own-foundation/foundation.test.cjs",
       "bytes": 13961,
-      "sha256": "bf569eba0c369c511aa00b571daf86b1cbbbb052ca26e21d0d808a82a3c5a184"
+      "sha256": "bf569eba0c369c511aa00b571daf86b1cbbbb052ca26e21d0d808a82a3c5a184",
+      "gitBlobSha1": "1b6a455eccc9a2b311b6c8cedfe7c945b24b5ff2"
     },
     {
       "path": "tests/own-foundation/model.cjs",
       "bytes": 6103,
-      "sha256": "5d6877c93b690bb3d74f5b769b0787059a46038751df21ab18a7ba67ade617fb"
+      "sha256": "5d6877c93b690bb3d74f5b769b0787059a46038751df21ab18a7ba67ade617fb",
+      "gitBlobSha1": "d7d5d119501155341c716ecd928a7b5df7603143"
     },
     {
       "path": "tests/own-foundation/pg17-harness.cjs",
       "bytes": 6028,
-      "sha256": "2d59bd6c796db9794423a9293f4e29545a0ab00ad1212eb0b908ae0831090233"
+      "sha256": "2d59bd6c796db9794423a9293f4e29545a0ab00ad1212eb0b908ae0831090233",
+      "gitBlobSha1": "348a4b5b291f6b57ff5541cc9ae22e084723442d"
     },
     {
       "path": "tests/pg-session-provider/fixture.cjs",
       "bytes": 4845,
-      "sha256": "01a01722962bbe883c0feaf73885d9acd34cd15cf7bb359df5b71205c374c1a5"
+      "sha256": "01a01722962bbe883c0feaf73885d9acd34cd15cf7bb359df5b71205c374c1a5",
+      "gitBlobSha1": "649c59dac846c81f04e866ffd8156376bc8adfdf"
     },
     {
       "path": "tests/pg-session-provider/provider.test.cjs",
       "bytes": 10663,
-      "sha256": "9306965855fe9a26d364bd218f6cc65aff8a58351d653719e5cdd43d9d7c0795"
+      "sha256": "9306965855fe9a26d364bd218f6cc65aff8a58351d653719e5cdd43d9d7c0795",
+      "gitBlobSha1": "69caffae7f885d337b960a86f9b5e88fdafce7ee"
     },
     {
       "path": "tests/presentation-context-native/context.test.cjs",
       "bytes": 5633,
-      "sha256": "6d1cf04feebd7a3ef084653ad57614bcc82ce17ab111ffd58f83407d1064aab4"
+      "sha256": "6d1cf04feebd7a3ef084653ad57614bcc82ce17ab111ffd58f83407d1064aab4",
+      "gitBlobSha1": "c5daac188a4c1237f930ddc3a10006836a237285"
     },
     {
       "path": "tests/presentation-style-native/style.test.cjs",
       "bytes": 3615,
-      "sha256": "780680754666531f0e8c60012f25366c66f0b8bcc0c3134dea848c10ab4bfcdd"
+      "sha256": "780680754666531f0e8c60012f25366c66f0b8bcc0c3134dea848c10ab4bfcdd",
+      "gitBlobSha1": "09d55150c2089698bb3e0a9d378f814ea9e5e903"
+    },
+    {
+      "path": "tests/published-journeys-native/gateway.test.cjs",
+      "bytes": 9974,
+      "sha256": "9193118c3b5c56d463e1dff09a162ad244b32d0880b2797e1f839b798ce0c612",
+      "gitBlobSha1": "3bc12a0573d6188e6d0250f076a45fccd2064755"
+    },
+    {
+      "path": "tests/published-journeys-native/original-html-ids.json",
+      "bytes": 2957,
+      "sha256": "24120458f39f78873f908ead7556d1f8c9e179fcb728cd86f7baf4f5e2abac9a",
+      "gitBlobSha1": "5483ff9f2404b2f2cf99d65613d6cb6060eaf62a"
+    },
+    {
+      "path": "tests/published-journeys-native/original-panel-manifest.json",
+      "bytes": 4567,
+      "sha256": "67ecd0b2fcaf95348cea365226e0af685f8ddbfe7e2f3826228598115022a57e",
+      "gitBlobSha1": "47dc059b7c99fe21e93e8283252b56fa0a2c2e7c"
+    },
+    {
+      "path": "tests/published-journeys-native/reader.test.cjs",
+      "bytes": 7303,
+      "sha256": "979170ae28adf9902b98642951f7a1f36af5e7afe79fec27b9e581a4b0c5d2ab",
+      "gitBlobSha1": "9a667e4eabdadf4fc28c247421bdf6ef22e4b3a4"
+    },
+    {
+      "path": "tests/published-journeys-native/renderer.test.cjs",
+      "bytes": 15859,
+      "sha256": "e6e885b3ec7128dd9a6de70762c3094d7b688d843f169d1d61321c6aa55de94f",
+      "gitBlobSha1": "ce128466568acc6dd75b0b800600a690572c4558"
     },
     {
       "path": "tests/segment-shopify-panel.test.cjs",
       "bytes": 4005,
-      "sha256": "e8370a2e03e456b64dbf07711818b7339187a2d5afc192c3fffc833a92a5c24d"
+      "sha256": "e8370a2e03e456b64dbf07711818b7339187a2d5afc192c3fffc833a92a5c24d",
+      "gitBlobSha1": "71c423200ab8d145d0371b401e2e8683ad8de2c6"
     },
     {
       "path": "tests/segment-shopify-products-panel.test.cjs",
       "bytes": 7609,
-      "sha256": "40dd6821805a7df75ac446c96bbe2019646ced50bd6bfbe013fc2b1f32133ba7"
+      "sha256": "40dd6821805a7df75ac446c96bbe2019646ced50bd6bfbe013fc2b1f32133ba7",
+      "gitBlobSha1": "1412912cb0b6b75c2960045850d90bc12b178c27"
     },
     {
       "path": "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
       "bytes": 19092,
-      "sha256": "435623b04c19c85635c1f90bd70e829c67b2095d9eee024fa5447914cdd1f6a9"
+      "sha256": "435623b04c19c85635c1f90bd70e829c67b2095d9eee024fa5447914cdd1f6a9",
+      "gitBlobSha1": "6195b4d4281fe6ce7075ce9cbe9c58a77529081e"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/SOURCE-INPUTS.json",
       "bytes": 2529,
-      "sha256": "59c9cc239607eb9564cbf9f890b4ba6717a36978d15bd19a949a6e4164678433"
+      "sha256": "59c9cc239607eb9564cbf9f890b4ba6717a36978d15bd19a949a6e4164678433",
+      "gitBlobSha1": "3ffde35dcc0d41f02d6f388e9feb65558950e1fe"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/READ-ORIGINAL-LAST-CHUNK.sql",
       "bytes": 2632,
-      "sha256": "c95ebfe297842c257351fe702efcd787c19da2110f05e4da7e9bf0cd28f7a709"
+      "sha256": "c95ebfe297842c257351fe702efcd787c19da2110f05e4da7e9bf0cd28f7a709",
+      "gitBlobSha1": "4cf1aad93f1fb03c267275a7506350cf2b4a1e09"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/n8n/growth/segment-shopify-sync-runtime.sql",
       "bytes": 16091,
-      "sha256": "058133d080747909ee7ac2d54ea8511d6eda65cb69d1ceac0a4cf6597bccb009"
+      "sha256": "058133d080747909ee7ac2d54ea8511d6eda65cb69d1ceac0a4cf6597bccb009",
+      "gitBlobSha1": "88249539d5b97033e9b3d44935e7c58ceac8ab02"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/crm-shopify-sync/store.cjs",
       "bytes": 2564,
-      "sha256": "73d6df8d944be15568e0a6ada34c56ba70301cbca8ed84dbec50645a7ed2098d"
+      "sha256": "73d6df8d944be15568e0a6ada34c56ba70301cbca8ed84dbec50645a7ed2098d",
+      "gitBlobSha1": "452213b92719bcaf9c8aa811d5f47e9dd02bcbf4"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/crm-native-delegation.cjs",
       "bytes": 11128,
-      "sha256": "866f354270b592f4bc0ba230a120088afa57e401d3422e17255898ea4bcc0a17"
+      "sha256": "866f354270b592f4bc0ba230a120088afa57e401d3422e17255898ea4bcc0a17",
+      "gitBlobSha1": "e77e53f926fdf348fe79f80ff799b8347bedb71d"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/crm-native-mcp.cjs",
       "bytes": 22527,
-      "sha256": "ea73ecf0b4a0f6c2c5ea9b6c77be6d6e1739956f21ca51214e3de5a9b1fe1fe6"
+      "sha256": "ea73ecf0b4a0f6c2c5ea9b6c77be6d6e1739956f21ca51214e3de5a9b1fe1fe6",
+      "gitBlobSha1": "f10344dea90da6daa14d4d374a4edb2502890d8d"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/native-database-inventory.cjs",
       "bytes": 21160,
-      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1",
+      "gitBlobSha1": "5024fcf48191a7d11021935f37f72f0ccf7639fa"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/native-database-vault.cjs",
       "bytes": 7257,
-      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65",
+      "gitBlobSha1": "5963f6b6a99ce97413c47ae54c07f3e9d3aedbea"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/native-pg-driver.cjs",
       "bytes": 2995,
-      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9",
+      "gitBlobSha1": "c22f992d83a111ee1c17549ed86f23ec51e18791"
     },
     {
       "path": "tests/source-commit-diagnostics-native/sealed-inputs/inputs/services/dashboard-operational/native-source-sync.cjs",
       "bytes": 22227,
-      "sha256": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49"
+      "sha256": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49",
+      "gitBlobSha1": "ff64dc4ecbc6c91c6e88befbf4c804905cd1303d"
     },
     {
       "path": "tests/source-diagnostics-native/controller.test.cjs",
       "bytes": 11092,
-      "sha256": "892cafd338725f841a0f139d9cc2a009a6e335c4916f895fbb2c52117cb31f39"
+      "sha256": "892cafd338725f841a0f139d9cc2a009a6e335c4916f895fbb2c52117cb31f39",
+      "gitBlobSha1": "fe909b8d3ccefb31adacdb3deee972655a22eebb"
     },
     {
       "path": "tests/source-diagnostics-native/gateway.test.cjs",
       "bytes": 11099,
-      "sha256": "9525848fc4de4c19304373d50724d15489d17b969d78cd749a823985bcb9bbb9"
+      "sha256": "9525848fc4de4c19304373d50724d15489d17b969d78cd749a823985bcb9bbb9",
+      "gitBlobSha1": "dc383876c96812ee7ed89e6b447af5e9c6a5a1e9"
     },
     {
       "path": "tests/source-diagnostics-native/operator-ui.test.cjs",
       "bytes": 9710,
-      "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261"
+      "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261",
+      "gitBlobSha1": "7765d61ef55c03735f7d8751aefc718802a95234"
     },
     {
       "path": "tests/source-sync-native/epoch.test.cjs",
       "bytes": 18476,
-      "sha256": "3743a1d13514491fedb9e05b366d8251ae192e0adeefd7d7e512b8014bb70b72"
+      "sha256": "3743a1d13514491fedb9e05b366d8251ae192e0adeefd7d7e512b8014bb70b72",
+      "gitBlobSha1": "aef4e02dd5075ba6aa856f0894df49dee00a4818"
     },
     {
       "path": "tests/source-sync-native/operator-progress.test.cjs",
       "bytes": 12613,
-      "sha256": "062acdef6ead0aa33ea331d110caeefa26737bce929c856ba6adda2c34bb04c1"
+      "sha256": "062acdef6ead0aa33ea331d110caeefa26737bce929c856ba6adda2c34bb04c1",
+      "gitBlobSha1": "78307e64a59b8205aa72ecce9efc574d3e62a4ad"
     },
     {
       "path": "tests/source-sync-native/progress.test.cjs",
       "bytes": 13620,
-      "sha256": "bde6f303e2e0dd1fdc1c6ebf55687f0fd14c01095d28e1e66308b527de10d776"
+      "sha256": "bde6f303e2e0dd1fdc1c6ebf55687f0fd14c01095d28e1e66308b527de10d776",
+      "gitBlobSha1": "ba27c6b399b1496f2a08011629f59c4089b7d0b7"
     },
     {
       "path": "tests/source-sync-native/root-delegation.test.cjs",
       "bytes": 5615,
-      "sha256": "b87eed0cbe527e07e8f866ee112c17dce1119fad0f07f9f9ce9ad9c597c16ff5"
+      "sha256": "b87eed0cbe527e07e8f866ee112c17dce1119fad0f07f9f9ce9ad9c597c16ff5",
+      "gitBlobSha1": "295fce79bd3f5de7d783b94f73fd6c93ef6d5615"
     },
     {
       "path": "tests/source-sync-native/root-mcp.test.cjs",
       "bytes": 3520,
-      "sha256": "a15dea4fee0b09f38533bc8087f64759ac21bc7f54c8183b9eaa672ee69fbc6e"
+      "sha256": "a15dea4fee0b09f38533bc8087f64759ac21bc7f54c8183b9eaa672ee69fbc6e",
+      "gitBlobSha1": "afb5b81229e9cd59ddfabda5ad08473eac8d7744"
     },
     {
       "path": "tests/source-sync-native/root-runtime.test.cjs",
       "bytes": 8490,
-      "sha256": "0d602b1073d7b912f365a5b38d0cf89c5665a57d6f09c132d56f4ac2952cd016"
+      "sha256": "0d602b1073d7b912f365a5b38d0cf89c5665a57d6f09c132d56f4ac2952cd016",
+      "gitBlobSha1": "44a0de75a36ffb06e97d3fa1383e438b65c31d41"
     },
     {
       "path": "tests/source-sync-native/root-transport.test.cjs",
       "bytes": 3405,
-      "sha256": "02aef6eef521615f65bf22791352a9b68714fdfd85a4f9571843833662d0d3ea"
+      "sha256": "02aef6eef521615f65bf22791352a9b68714fdfd85a4f9571843833662d0d3ea",
+      "gitBlobSha1": "38639bec2599bf4298975ba92c73101f5dd8ff90"
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4489,
-      "sha256": "de57a78468dcbfd66f941ef802352adf5c82482b68fb9ff0df6129c0be557c12"
+      "bytes": 4634,
+      "sha256": "ef34d65a507ef45f4226dfe6f4d31e88f73ffa45d25f57b09a1a39ea29e2355c",
+      "gitBlobSha1": "d4f9645e32682cdee17dd0bea017596390734cea"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
       "bytes": 3219,
-      "sha256": "b659c885a8fdba8d22b444af16e14d2e321cf5db570054fba6e51fa80de566a7"
+      "sha256": "b659c885a8fdba8d22b444af16e14d2e321cf5db570054fba6e51fa80de566a7",
+      "gitBlobSha1": "802f109c9b47fe375ce2cbfbeefb7b7641b91a2d"
     },
     {
       "path": "tools/native-pg-dependency/package-lock.json",
       "bytes": 5666,
-      "sha256": "e14f3eac11c51dc18e5952757c240cd0a0f1c5e8ec049ddb634fd6645009ddba"
+      "sha256": "e14f3eac11c51dc18e5952757c240cd0a0f1c5e8ec049ddb634fd6645009ddba",
+      "gitBlobSha1": "6e97f2c99279e389fd308a06242639f06c95775c"
     },
     {
       "path": "tools/native-pg-dependency/package.json",
       "bytes": 230,
-      "sha256": "970b78b20257528a1ca16dafe5fdff5247e97e54c2e092f1fb1f8af8fecbc5d0"
+      "sha256": "970b78b20257528a1ca16dafe5fdff5247e97e54c2e092f1fb1f8af8fecbc5d0",
+      "gitBlobSha1": "707414135297a50a38e863922d2b304a91ed9f47"
+    },
+    {
+      "path": "tools/panel-build/manifest.json",
+      "bytes": 4638,
+      "sha256": "c39aa182030e95ef6077ce31f2daec6e44a79c2b40e3547e3e480c544b62de5a",
+      "gitBlobSha1": "6f6320be429763b3202e52cea86770dbbbdc8de7"
     }
   ],
   "operational": false,
@@ -1133,5 +1331,14 @@
       "changedRuntimeHash": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49",
       "runtimeBytesUnchanged": true
     }
+  },
+  "publishedJourneyRead": {
+    "contract": "crm-published-journey-read-v1",
+    "baseHead": "5d55368f048f3027012b1c3fccff0b3e8b4bf545",
+    "source": "original published definitions",
+    "C2deliverySha256": "e144e25d581067e7e0ed2f80b2e94fc2553eb4e12aac49bd4e8cb3370cea7ebc",
+    "nativeReadPrepared": true,
+    "tests": 37,
+    "operational": false
   }
 }

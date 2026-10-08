@@ -6,8 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=297a8f06d1c6">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=9204151c4c38">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-bQAlgl5tEq5hSmU4CktR4EKA48QWOAE3g0InGjCdXvQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -307,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=c51b5f98231d"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=6cad33e6bb74"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -337,6 +337,7 @@ const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
 let CRM_LEITURA_BLOQUEADA=false;
 function limpaConsultaCRM(){
+  if(typeof GPR!=='undefined')GPR.clear();
   API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
   GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
   CRM_LEITURA_BLOQUEADA=true;
@@ -688,6 +689,7 @@ function renderPublicos(){
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
+  if(typeof GPR!=='undefined')GPR.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(typeof GJG!=='undefined'){
     GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
     if(PENDENTE_GRAPH&&API){
@@ -716,6 +718,7 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
+  if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(CRM_LEITURA_BLOQUEADA)return;
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   // Contadores da navegação valem só para a marca em que foram calculados.
@@ -1053,6 +1056,7 @@ async function leCacheGrowth(k){
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
+  if(typeof GPR!=='undefined')GPR.clear();
   GrowthView.resolve({retry:retryIdentity});
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}

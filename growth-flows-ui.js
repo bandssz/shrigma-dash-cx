@@ -17,7 +17,8 @@ const GFU={
   },
   render(ctx){
     if(ctx)GFU.ctx=ctx;
-    if(GFU.ctx.configuredReadOnly===true){GFU.renderConfigured();return;}
+    if(typeof GPR!=='undefined')GPR.sync({...GFU.ctx,section:'regua',tab:'fluxos'});
+    if(GFU.ctx.configuredReadOnly===true){GFU.renderConfigured();const publishedRoot=document.querySelector('#control-fluxos');if(typeof GPR!=='undefined')GPR.mount(GFU.ctx,publishedRoot);return;}
     if(GFU.ctx.observedOnly!==true&&typeof GB!=='undefined'&&GFU.ctx.api?.capabilities?.workflows?.editor===true){GB.render(GFU.ctx);return;}
     const root=typeof document!=='undefined'?document.querySelector('#control-fluxos'):null;if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
@@ -46,6 +47,7 @@ const GFU={
       :!mostrados?`<div class="vazio">Nenhum fluxo com esses filtros. <button type="button" class="refresh-btn gt-limpar" id="fluxos-limpar">Limpar filtros</button></div>`:'');
     root.innerHTML=contexto+toolbar+`<div class="flows-grid">${defs.map(GFU.definido).join('')}${obs.map(GFU.observado).join('')}</div>`+vazio;
     GFU.bind(root,{defs,obs,lista});
+    if(typeof GPR!=='undefined')GPR.mount(GFU.ctx,root);
     if(kept&&typeof GT!=='undefined')GT.restaura(root,kept);
   },
   templateInfo(nome,ref){

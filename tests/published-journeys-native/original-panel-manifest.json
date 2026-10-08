@@ -39,8 +39,7 @@
       "growth-journey-graph-editor.css",
       "growth-journey-graph-ui.css",
       "growth-workspace.css",
-      "growth-ab-experiment.css",
-      "growth-published-flows.css"
+      "growth-ab-experiment.css"
     ],
     "scripts": [
       "frescor.js",
@@ -99,7 +98,6 @@
       "growth-drafts-ui.js",
       "growth-email-replication-ui.js",
       "growth-canvas.js",
-      "growth-published-flows.js",
       "growth-flow-journal.js",
       "growth-builder.js",
       "growth-flows.js",
