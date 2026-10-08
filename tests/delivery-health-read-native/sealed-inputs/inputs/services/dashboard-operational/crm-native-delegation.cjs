@@ -2,7 +2,7 @@
 // First-class delegated credentials issued by a real Master consent. They are
 // not browser cookies, upstream credentials, or individual brand IAM grants.
 const crypto=require('node:crypto');
-const SCOPES=Object.freeze(['crm.read','crm.draft','crm.iam','db.inspect','db.install','crm.source-sync','crm.source-diagnostics','crm.delivery-health']);
+const SCOPES=Object.freeze(['crm.read','crm.draft','crm.iam','db.inspect','db.install','crm.source-sync','crm.source-diagnostics']);
 const BRANDS=Object.freeze(['fish','aristo']);
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const plain=x=>x&&Object.getPrototypeOf(x)===Object.prototype;
@@ -31,11 +31,6 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
  actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,brand TEXT NOT NULL,
  request_id TEXT NOT NULL,binding_json TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
  new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);`);
- db.exec(`CREATE TABLE IF NOT EXISTS crm_native_delivery_health_consent_v1(
- id INTEGER PRIMARY KEY,connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
- actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,brand TEXT NOT NULL,
- binding_json TEXT NOT NULL,connection_hash TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
- new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);`);
  const time=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)deny('NATIVE_CLOCK_INVALID',500);return t;};
  const bind=r=>mac(JSON.stringify([r.id,r.token_hash,r.user_id,r.host,r.label,r.brands_json,r.scopes_json,r.auth_revision,r.source_session_hash,r.created_at,r.expires_at,r.revoked_at]));
  const valid=r=>typeof r?.binding_mac==='string'&&/^[a-f0-9]{64}$/.test(r.binding_mac)&&crypto.timingSafeEqual(Buffer.from(r.binding_mac,'hex'),Buffer.from(bind(r),'hex'));
@@ -46,7 +41,6 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   if(typeof label!=='string'||label.trim().length<1||label.length>80||/[\u0000-\u001f]/.test(label))deny('NATIVE_LABEL_INVALID',400);
   if(!Array.isArray(brands)||!brands.length||new Set(brands).size!==brands.length||brands.some(b=>!BRANDS.includes(b)))deny('NATIVE_BRANDS_INVALID',400);
   if(!Array.isArray(scopes)||!scopes.length||new Set(scopes).size!==scopes.length||scopes.some(s=>!SCOPES.includes(s)))deny('NATIVE_SCOPES_INVALID',400);
-  if(scopes.includes('crm.delivery-health'))deny('NATIVE_HEALTH_SEPARATE_CONSENT_REQUIRED');
   if(scopes.includes('crm.source-diagnostics'))deny('NATIVE_DIAGNOSTICS_SEPARATE_CONSENT_REQUIRED');
   if(!Number.isInteger(expiresDays)||expiresDays<1||expiresDays>30)deny('NATIVE_EXPIRY_INVALID',400);
   const owner=identity(proof.userId);if(!owner||owner.role!=='superadmin'||owner.active!==true||!/^[a-f0-9]{64}$/.test(owner.revision||''))deny('NATIVE_OWNER_REQUIRED');
@@ -71,7 +65,6 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   const view=project(row);
   if(scope!==undefined&&!view.scopes.includes(scope))deny('NATIVE_SCOPE_DENIED');
   if(brand!==undefined&&!view.brands.includes(brand))deny('BRAND_DENIED');
-  if(scope==='crm.delivery-health'&&(!view.scopes.includes('crm.read')||!BRANDS.every(b=>view.brands.includes(b))))deny('NATIVE_HEALTH_SHARED_READ_REQUIRED');
   return {...view,userId:row.user_id,host:row.host};
  }
  function context(token,needs={}){
@@ -158,44 +151,6 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   if(diagnosticBinding(b,ownerId)!==r.binding_json||b.ownerRevision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
   return Object.freeze(b);
  }
- // Own health purpose: no write, source-sync, inspection or IAM grant is inferred.
- const healthConnectionHash=r=>sha(JSON.stringify([r.id,r.token_hash,r.user_id,r.host,r.label,r.brands_json,r.auth_revision,r.source_session_hash,r.created_at,r.expires_at]));
- const healthSeal=r=>mac(JSON.stringify(['delivery-health-consent-v1',r.connection_id,r.actor_id,r.session_hash,r.brand,r.binding_json,r.connection_hash,r.prior_scopes_hash,r.new_scopes_hash,r.happened_at]));
- function healthBinding(value,ownerId){
-  const keys=['schema','ownerId','ownerRevision','brand','crmBindingHash','profileRevision','credentialBindingHash','resourceHash','queryHash'];
-  if(!plain(value)||Reflect.ownKeys(value).length!==keys.length||keys.some(k=>!Object.hasOwn(Object.getOwnPropertyDescriptor(value,k)||{},'value'))||Object.keys(value).sort().join(',')!==keys.slice().sort().join(',')||value.schema!=='shrigma-delivery-health-consent-v1'||value.ownerId!==ownerId||!BRANDS.includes(value.brand)||!Number.isSafeInteger(value.profileRevision)||value.profileRevision<1||['ownerRevision','crmBindingHash','credentialBindingHash','resourceHash','queryHash'].some(k=>typeof value[k]!=='string'||!/^[a-f0-9]{64}$/.test(value[k])))deny('NATIVE_HEALTH_BINDING_REFUSED');
-  return JSON.stringify(Object.fromEntries(keys.sort().map(k=>[k,value[k]])));
- }
- function healthCurrent({context,connectionId,brand},needsConsent=false){
-  if(!BRANDS.includes(brand)||typeof connectionId!=='string'||!/^[a-f0-9-]{36}$/.test(connectionId))deny('NATIVE_HEALTH_BINDING_REFUSED');
-  let ownerId;
-  if(context?.nativeBearer!==undefined){const p=authenticate(context.nativeBearer,{scope:'crm.delivery-health',brand});if(p.id!==connectionId)deny('NATIVE_HEALTH_BINDING_REFUSED');ownerId=p.userId;}
-  else ownerId=consent(context).userId;
-  const owner=identity(ownerId),row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(connectionId,ownerId);
-  if(!owner||owner.role!=='superadmin'||owner.active!==true||!row||!valid(row)||row.host!==managerHost||row.revoked_at!==null||row.expires_at<=time()||row.auth_revision!==owner.revision||!/^[a-f0-9]{64}$/.test(owner.revision||''))deny('NATIVE_HEALTH_BINDING_REFUSED');
-  const view=project(row);if(!view.scopes.includes('crm.read')||!BRANDS.every(b=>view.brands.includes(b))||needsConsent&&!view.scopes.includes('crm.delivery-health'))deny('NATIVE_HEALTH_SHARED_READ_REQUIRED');
-  return {owner,row};
- }
- function deliveryHealthOwner(q={}){const {owner,row}=healthCurrent(q);return Object.freeze({ownerId:row.user_id,ownerRevision:owner.revision});}
- function permitDeliveryHealth({context,connectionId,binding}={}){
-  if(context?.nativeBearer!==undefined||context?.method!=='POST')deny('NATIVE_HEALTH_BROWSER_CONSENT_REQUIRED');
-  const proof=consent(context),json=healthBinding(binding,proof.userId);
-  if(!/^[a-f0-9]{64}$/.test(proof.sessionHash||''))deny('NATIVE_HEALTH_BROWSER_CONSENT_REQUIRED');
-  db.exec('BEGIN IMMEDIATE');try{
-   const {owner,row}=healthCurrent({context,connectionId,brand:binding.brand});if(owner.revision!==binding.ownerRevision)deny('NATIVE_HEALTH_BINDING_REFUSED');
-   const before=project(row),next={...row,scopes_json:JSON.stringify([...new Set([...before.scopes,'crm.delivery-health'])].sort())};next.binding_mac=bind(next);
-   if(db.prepare('UPDATE crm_native_connections_v1 SET scopes_json=?,binding_mac=? WHERE id=? AND binding_mac=? AND revoked_at IS NULL').run(next.scopes_json,next.binding_mac,row.id,row.binding_mac).changes!==1)deny('NATIVE_CONNECTION_CHANGED',409);
-   const r={connection_id:row.id,actor_id:proof.userId,session_hash:proof.sessionHash,brand:binding.brand,binding_json:json,connection_hash:healthConnectionHash(next),prior_scopes_hash:sha(row.scopes_json),new_scopes_hash:sha(next.scopes_json),happened_at:time()};
-   db.prepare('INSERT INTO crm_native_delivery_health_consent_v1(connection_id,actor_id,session_hash,brand,binding_json,connection_hash,prior_scopes_hash,new_scopes_hash,happened_at,binding_mac) VALUES(?,?,?,?,?,?,?,?,?,?)').run(r.connection_id,r.actor_id,r.session_hash,r.brand,r.binding_json,r.connection_hash,r.prior_scopes_hash,r.new_scopes_hash,r.happened_at,healthSeal(r));
-   db.exec('COMMIT');return {connection:project(next),deliveryHealthAuthorized:true};
-  }catch(e){db.exec('ROLLBACK');throw e;}
- }
- function deliveryHealthConsent(q={}){
-  const {owner,row}=healthCurrent(q,true),r=db.prepare('SELECT * FROM crm_native_delivery_health_consent_v1 WHERE connection_id=? AND brand=? ORDER BY id DESC LIMIT 1').get(q.connectionId,q.brand);
-  if(!r||r.actor_id!==row.user_id||r.binding_mac!==healthSeal(r)||r.connection_hash!==healthConnectionHash(row)||r.new_scopes_hash!==sha(row.scopes_json))deny('NATIVE_HEALTH_CONSENT_REQUIRED');
-  let b;try{b=JSON.parse(r.binding_json);}catch{deny('NATIVE_HEALTH_BINDING_REFUSED');}
-  if(healthBinding(b,row.user_id)!==r.binding_json||b.ownerRevision!==owner.revision)deny('NATIVE_HEALTH_BINDING_REFUSED');return Object.freeze(b);
- }
- return Object.freeze({issue,authenticate,context,list,revoke,permitInspection,permitSourceSync,permitSourceDiagnostics,sourceDiagnosticsConsent,deliveryHealthOwner,permitDeliveryHealth,deliveryHealthConsent});
+ return Object.freeze({issue,authenticate,context,list,revoke,permitInspection,permitSourceSync,permitSourceDiagnostics,sourceDiagnosticsConsent});
 }
 module.exports={createDelegationStore,SCOPES,BRANDS};

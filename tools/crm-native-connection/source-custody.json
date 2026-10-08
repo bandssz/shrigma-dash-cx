@@ -176,6 +176,9 @@
     "services/dashboard-operational/native-database-inventory.cjs",
     "services/dashboard-operational/native-database-operator.cjs",
     "services/dashboard-operational/native-database-vault.cjs",
+    "services/dashboard-operational/native-delivery-health-controller.cjs",
+    "services/dashboard-operational/native-delivery-health-operator.cjs",
+    "services/dashboard-operational/native-delivery-health.cjs",
     "services/dashboard-operational/native-foundation-preview.cjs",
     "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
     "services/dashboard-operational/native-installer/INTEGRATION.txt",
@@ -228,6 +231,28 @@
     "tests/dashboard-operational-writer-pack.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
+    "tests/delivery-health-read-native/authority.test.cjs",
+    "tests/delivery-health-read-native/core.test.cjs",
+    "tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/load-operator.cjs",
+    "tests/delivery-health-read-native/operator.test.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/EXISTING-VIEW-CONTRACT.json",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/n8n/growth/ses-health.sql",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/auth.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/crm-native-delegation.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-database-operator.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-database-vault.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-pg-driver.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics-controller.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics-ui.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/proxy.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-commit-diagnostics-native/diagnostics.test.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/controller.test.cjs",
+    "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/operator-ui.test.cjs",
+    "tests/delivery-health-read-native/ui.test.cjs",
+    "tests/delivery-health-wiring-native/wiring.test.cjs",
     "tests/growth-flows-ui.test.cjs",
     "tests/growth-segment-ui.test.cjs",
     "tests/growth-visible-refresh.test.cjs",
@@ -297,8 +322,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 13594,
-      "sha256": "9830fb641113e5bfe5ce381a5f056beb6e7fa09466efcc7628aef4e907cc977a"
+      "bytes": 14384,
+      "sha256": "d468623d9be84623ed4fd1a1f1c63905c5e06e28c51aeeb15600cfb8b751ccfb"
     },
     {
       "path": "assets/panels/growth.css",
@@ -352,13 +377,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 4595,
-      "sha256": "53499912946243aae40d808cf8740ee5d53cf164d1beb1ef683c4e5668c7e198"
+      "bytes": 4828,
+      "sha256": "1572f0b5cfa4980ec6a2f33f50bd5142deeee4fc029468bbe4ff90047b870b91"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 11565,
-      "sha256": "118750c48f34945becb614df8e7ca9468035d7dd09e3aa4b1d6d27d5d66e96c9"
+      "bytes": 11975,
+      "sha256": "444cbc8e57c762f9ba230ea8a37f8d79858a960ac71d5ea23204f66bd51203ec"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -367,8 +392,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5030,
-      "sha256": "e503ee91fb38c3a5f314939a5db1ccd76d786f774b33e21dd9bef0c737d83ae1"
+      "bytes": 5137,
+      "sha256": "da6335d552df59448fde1db635d6d8015db19c8e5f53338e2de9f2f577cf1fdb"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -388,7 +413,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "53b58f385595ffcaca70c210cbe7bf2964b9244c4fbdf086728c18d1fa8e2179"
+      "sha256": "ec8280f54459be0c15b12b6c6e406ab585ff8d16c0a20de5944f64a5e45fb9d5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -457,13 +482,13 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-delegation.cjs",
-      "bytes": 16727,
-      "sha256": "468a4389ac7009d3d1bca2dcbba313e15ef65291bed145466fe03d4e9ca404f0"
+      "bytes": 22501,
+      "sha256": "619a2eb1558c0deee399fab86dce815029dd85e99004411e1b5dda710ffa4698"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 25283,
-      "sha256": "7addf985809e89ab014dba9fff12a76fd7595d68becc28291def91e345fa4bc5"
+      "bytes": 25645,
+      "sha256": "1f61b829b9a4dfc1d97c1dc4caaa324c118c0b5b82ba403f4b843e6d1e97076c"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -514,6 +539,21 @@
       "path": "services/dashboard-operational/native-database-vault.cjs",
       "bytes": 7257,
       "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+    },
+    {
+      "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 6307,
+      "sha256": "bbd417bf3035a56d936ac70889c527897c4efd076aa2716341f8dc97ac827bd8"
+    },
+    {
+      "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
+      "bytes": 12773,
+      "sha256": "e4434a0f95fabc5b69bfba73bbcaa31f42d0738556c87dc296c73cb697a95cd1"
+    },
+    {
+      "path": "services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
     },
     {
       "path": "services/dashboard-operational/native-foundation-preview.cjs",
@@ -652,8 +692,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 127340,
-      "sha256": "42b6faedbf024178b544b14492652e1241342d49f435c1052a220aafae62ee8a"
+      "bytes": 129340,
+      "sha256": "2d0af613ac9e80c2e8bcbfb355c8de707111b60c0c830e973fafff770e29bd1d"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -774,6 +814,116 @@
       "path": "tests/database-inventory/reviewed-function-parser.cjs",
       "bytes": 3319,
       "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+    },
+    {
+      "path": "tests/delivery-health-read-native/authority.test.cjs",
+      "bytes": 12321,
+      "sha256": "ef84b3874fe0c750f3ef77bcf0a7d884b015540bd49b43fed06bc26082f66def"
+    },
+    {
+      "path": "tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/load-operator.cjs",
+      "bytes": 1334,
+      "sha256": "f4a0404c4d1266ee1a475470034bd65b71f2ee390eca268ce7e2c09f69512b2f"
+    },
+    {
+      "path": "tests/delivery-health-read-native/operator.test.cjs",
+      "bytes": 3008,
+      "sha256": "165f5a8f9c1efccff9bd5d8e7588186cd9f4a34a3e2535e5de24621974184544"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/INPUT-PINS.json",
+      "bytes": 3652,
+      "sha256": "ecf4c4cd7f4902fc500ca7455ee3e9867b2920901d45dc4f5350e5cab334d480"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/EXISTING-VIEW-CONTRACT.json",
+      "bytes": 1844,
+      "sha256": "0866aa3f740f21daf726f7eba2dd8c05918ae7519d4a4ce62fc4475492dde039"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/auth.cjs",
+      "bytes": 121206,
+      "sha256": "8a4de4f2255dbd2f1f14fc920dac79ebfddc0f209a11d120284643c4fe4b1dc8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/crm-native-delegation.cjs",
+      "bytes": 16727,
+      "sha256": "468a4389ac7009d3d1bca2dcbba313e15ef65291bed145466fe03d4e9ca404f0"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-database-operator.cjs",
+      "bytes": 9491,
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-database-vault.cjs",
+      "bytes": 7257,
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-pg-driver.cjs",
+      "bytes": 2995,
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics-controller.cjs",
+      "bytes": 6092,
+      "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics-ui.cjs",
+      "bytes": 13618,
+      "sha256": "2d3bd4eb4cecd406cdb0120cd08fad8af84d6d0390e517335b5f2c18534801dc"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/native-source-diagnostics.cjs",
+      "bytes": 15533,
+      "sha256": "286f17f2109d832ac421ad11fb111706248c88951e81e49de155d651fd631a7a"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/services/dashboard-operational/proxy.cjs",
+      "bytes": 43440,
+      "sha256": "6b4cbbe471315d75c8eaadb92776876d1099e8e66a100f6363a9c166bd491d1d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-commit-diagnostics-native/diagnostics.test.cjs",
+      "bytes": 19092,
+      "sha256": "435623b04c19c85635c1f90bd70e829c67b2095d9eee024fa5447914cdd1f6a9"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/controller.test.cjs",
+      "bytes": 11092,
+      "sha256": "892cafd338725f841a0f139d9cc2a009a6e335c4916f895fbb2c52117cb31f39"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/operator-ui.test.cjs",
+      "bytes": 9710,
+      "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261"
+    },
+    {
+      "path": "tests/delivery-health-read-native/ui.test.cjs",
+      "bytes": 8199,
+      "sha256": "9287663a7f3f8f1dea704e0de838a423463c33b7e1951714742d3b6241ca374d"
+    },
+    {
+      "path": "tests/delivery-health-wiring-native/wiring.test.cjs",
+      "bytes": 5996,
+      "sha256": "dd8027b08acf14812ef2be2274a991e69109b01fb142db996b6fe0a4b36018a8"
     },
     {
       "path": "tests/growth-flows-ui.test.cjs",
@@ -1073,7 +1223,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "ccce1571b556873fcbf48e3470e3ed4d66945955636aa12793a970463513ee47"
+      "sha256": "fa0998c00fdb0af7a0d6d9e504b15dca9c6dac18d30767eaf3257ca2766f793c"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1443,5 +1593,6 @@
     "newActualUID1000CICases": 14,
     "productionActivation": false,
     "operational": false
-  }
+  },
+  "deliveryHealthSourcePackage": "delivery-health-read-v1/c2-source-v1/DELIVERY.json"
 }

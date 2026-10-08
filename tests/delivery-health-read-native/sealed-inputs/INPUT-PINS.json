@@ -1,0 +1,90 @@
+{
+  "schema": "delivery-health-read-c2-input-pins-v1",
+  "sourceHead": "d25acb25b8d0011d4ca39f81663ddfec105caf3c",
+  "files": [
+    {
+      "path": "services/dashboard-operational/auth.cjs",
+      "bytes": 121206,
+      "sha256": "8a4de4f2255dbd2f1f14fc920dac79ebfddc0f209a11d120284643c4fe4b1dc8",
+      "githubBlobSha1": "57f053eacac06acd0596e6978b1c3312048ca7ae"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-delegation.cjs",
+      "bytes": 16727,
+      "sha256": "468a4389ac7009d3d1bca2dcbba313e15ef65291bed145466fe03d4e9ca404f0",
+      "githubBlobSha1": "e3f36b6d7cf36c175fa086e96d52324f3c5d3742"
+    },
+    {
+      "path": "services/dashboard-operational/native-database-vault.cjs",
+      "bytes": 7257,
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65",
+      "githubBlobSha1": "5963f6b6a99ce97413c47ae54c07f3e9d3aedbea"
+    },
+    {
+      "path": "services/dashboard-operational/native-source-diagnostics.cjs",
+      "bytes": 15533,
+      "sha256": "286f17f2109d832ac421ad11fb111706248c88951e81e49de155d651fd631a7a",
+      "githubBlobSha1": "b6aee4cd34e9d0a2ebc3afcf316fb5322e2857c6"
+    },
+    {
+      "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
+      "bytes": 6092,
+      "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6",
+      "githubBlobSha1": "e2c5cf4192cb6898cdcad1d7a8865d848ede91ca"
+    },
+    {
+      "path": "services/dashboard-operational/native-source-diagnostics-ui.cjs",
+      "bytes": 13618,
+      "sha256": "2d3bd4eb4cecd406cdb0120cd08fad8af84d6d0390e517335b5f2c18534801dc",
+      "githubBlobSha1": "02630f9a952b53a84b1a3175dad482b9b828ce01"
+    },
+    {
+      "path": "services/dashboard-operational/native-database-operator.cjs",
+      "bytes": 9491,
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09",
+      "githubBlobSha1": "b0887e0699370f360d86f132cbfc6b0a176b9ccb"
+    },
+    {
+      "path": "services/dashboard-operational/native-pg-driver.cjs",
+      "bytes": 2995,
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9",
+      "githubBlobSha1": "c22f992d83a111ee1c17549ed86f23ec51e18791"
+    },
+    {
+      "path": "services/dashboard-operational/proxy.cjs",
+      "bytes": 43440,
+      "sha256": "6b4cbbe471315d75c8eaadb92776876d1099e8e66a100f6363a9c166bd491d1d",
+      "githubBlobSha1": "555262e87570a11363ea80b76c08256a80b449ab"
+    },
+    {
+      "path": "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
+      "bytes": 19092,
+      "sha256": "435623b04c19c85635c1f90bd70e829c67b2095d9eee024fa5447914cdd1f6a9",
+      "githubBlobSha1": "6195b4d4281fe6ce7075ce9cbe9c58a77529081e"
+    },
+    {
+      "path": "tests/source-diagnostics-native/controller.test.cjs",
+      "bytes": 11092,
+      "sha256": "892cafd338725f841a0f139d9cc2a009a6e335c4916f895fbb2c52117cb31f39",
+      "githubBlobSha1": "fe909b8d3ccefb31adacdb3deee972655a22eebb"
+    },
+    {
+      "path": "tests/source-diagnostics-native/operator-ui.test.cjs",
+      "bytes": 9710,
+      "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261",
+      "githubBlobSha1": "7765d61ef55c03735f7d8751aefc718802a95234"
+    },
+    {
+      "path": "n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94",
+      "githubBlobSha1": "4e956c045c6a4fd839fa146f508e5f8a2f92ef6f"
+    },
+    {
+      "path": "EXISTING-VIEW-CONTRACT.json",
+      "bytes": 1844,
+      "sha256": "0866aa3f740f21daf726f7eba2dd8c05918ae7519d4a4ce62fc4475492dde039"
+    }
+  ],
+  "secretsIncluded": false
+}

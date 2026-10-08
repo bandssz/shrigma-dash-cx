@@ -26,6 +26,7 @@ const tools=[
  ['crm_source_sync_run','Solicitar atualização da fonte original com uma intenção nova','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,true],
  ['crm_source_sync_inspect','Reler a intenção original da fonte sem reenviar POST','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,false],
  ['crm_source_diagnostics','Diagnosticar por leitura a mesma intenção original da fonte','crm.source-diagnostics',obj({brand,requestId:sourceRequestId},['brand','requestId']),true,false],
+ ['crm_email_health','Consultar saúde agregada original de e-mail da marca e fila compartilhada','crm.delivery-health',obj({brand},['brand']),true,false],
  ['crm_users','Consultar acessos individuais','crm.iam',obj(),false,false],
  ['crm_user_update','Atualizar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},expectedRevision:{type:'string',pattern:'^[a-f0-9]{64}$'},brand,access:{type:'string',enum:['read','edit']}},['userId','expectedRevision','brand','access']),false,true],
  ['crm_user_revoke','Revogar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},brand},['userId','brand']),false,true],
@@ -69,10 +70,10 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
- const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -155,6 +156,8 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
      result={...result,body:{...result.body,audienceCount:count}};
     }
    }
+  }else if(name==='crm_email_health'){
+   result=await run('GET','/api/delivery-health?'+new URLSearchParams(args));
   }else if(name==='crm_source_diagnostics'){
    result=await run('GET','/api/source-diagnostics?'+new URLSearchParams(args));
   }else if(name.startsWith('crm_source_sync_')){
