@@ -817,9 +817,9 @@
     },
     {
       "path": "tests/source-sync-native/epoch.test.cjs",
-      "bytes": 18452,
-      "sha256": "a130b4ac87559e513abc4561a411ea6cd831bd6cdf1c0091d1649ad045613410",
-      "gitBlobSha1": "b8c3091c47420901f9f3d9eb864b2043af3debab"
+      "bytes": 18463,
+      "sha256": "18edf576446dcb8f0cf8f54fed6b108813c79181c3e43125ad98b171b95f1326",
+      "gitBlobSha1": "cb2e73a454ca58216c90f84b4b99c3a413170a61"
     },
     {
       "path": "tests/source-sync-native/progress.test.cjs",
@@ -1094,6 +1094,15 @@
     "sameIntentGetOnly": true,
     "originalServiceUnchanged": true,
     "newSql": false,
-    "operational": false
+    "operational": false,
+    "runtimeHashExpectationUpdatedAfterActualFailure": {
+      "failedHead": "0b40826e7c3a8fa0ca4126cce07a3354c9a2ee06",
+      "run": 37762128579,
+      "job": 113260851666,
+      "actualCasesPassed": 67,
+      "failedCases": 1,
+      "changedRuntimeHash": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49",
+      "runtimeBytesUnchanged": true
+    }
   }
 }
