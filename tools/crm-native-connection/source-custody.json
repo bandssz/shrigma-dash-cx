@@ -229,6 +229,7 @@
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
     "tests/source-sync-native/epoch.test.cjs",
+    "tests/source-sync-native/progress.test.cjs",
     "tests/source-sync-native/root-delegation.test.cjs",
     "tests/source-sync-native/root-mcp.test.cjs",
     "tests/source-sync-native/root-runtime.test.cjs",
@@ -242,9 +243,9 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 8421,
-      "sha256": "b08a244235126fbdf4b79a9cebfda6a81fe54126f1cc3fb3450d8274b5bddee4",
-      "gitBlobSha1": "ad629f0eb3e32db103a27dd22d3ae9717c1ac7f0"
+      "bytes": 8484,
+      "sha256": "f394ec0195e954a4b9a5e682dec669a484ad6c932ef75d50ccf94e24d93768cc",
+      "gitBlobSha1": "5578a2659e60e00d525a5bc6ceea7a6843eb4c81"
     },
     {
       "path": "assets/panels/growth.js",
@@ -536,9 +537,9 @@
     },
     {
       "path": "services/dashboard-operational/native-source-sync.cjs",
-      "bytes": 21339,
-      "sha256": "e2c250ae2e41418709a257b63c0e9267082fe5d65dd1e99800bb09992892af26",
-      "gitBlobSha1": "9a2ea43ce1d7aba4c2df5cc69432696a337815fb"
+      "bytes": 22227,
+      "sha256": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49",
+      "gitBlobSha1": "ff64dc4ecbc6c91c6e88befbf4c804905cd1303d"
     },
     {
       "path": "services/dashboard-operational/native-source-transport.cjs",
@@ -821,6 +822,11 @@
       "gitBlobSha1": "b8c3091c47420901f9f3d9eb864b2043af3debab"
     },
     {
+      "path": "tests/source-sync-native/progress.test.cjs",
+      "bytes": 13620,
+      "sha256": "bde6f303e2e0dd1fdc1c6ebf55687f0fd14c01095d28e1e66308b527de10d776"
+    },
+    {
       "path": "tests/source-sync-native/root-delegation.test.cjs",
       "bytes": 5615,
       "sha256": "b87eed0cbe527e07e8f866ee112c17dce1119fad0f07f9f9ce9ad9c597c16ff5",
@@ -847,8 +853,8 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4440,
-      "sha256": "e036d0b9264c0320014e339b1a3c9dade3b53380af6eb57119142d8767fce105",
-      "gitBlobSha1": "a56764508632a2c39e52b5a60ded9608a508a94e"
+      "sha256": "15107a423caa067dff8ba20decebf6d224f73bece2f937261cbd545b31ca8c46",
+      "gitBlobSha1": "23df9a22b617d57fa9e2dd3623031afbc4296e3a"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1077,5 +1083,17 @@
     "operational": false,
     "startupProjectionAfterExistingContinuity": true,
     "historicalVerifierBytesUnchanged": true
+  },
+  "nativeSourceProgressSourcePackage": {
+    "packageId": "c2-source-progress-native-v1",
+    "deliverySha256": "a81c4103c9e69d54ad45d5a6e876c7630e30011c67666d889201c327ffbf081e",
+    "inputPins": 9,
+    "producerCases": 33,
+    "legacyResultFieldsAccepted": 4,
+    "newResultFields": 7,
+    "sameIntentGetOnly": true,
+    "originalServiceUnchanged": true,
+    "newSql": false,
+    "operational": false
   }
 }
