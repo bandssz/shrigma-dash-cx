@@ -227,6 +227,7 @@
     "tests/own-foundation/pg17-harness.cjs",
     "tests/pg-session-provider/fixture.cjs",
     "tests/pg-session-provider/provider.test.cjs",
+    "tests/presentation-context-native/context.test.cjs",
     "tests/presentation-style-native/style.test.cjs",
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
@@ -246,8 +247,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 9196,
-      "sha256": "a079129b775d492b0859a7a18f0a4755cb871444fbab3ed34ba3950ad912f16b"
+      "bytes": 9769,
+      "sha256": "ca24187f35d100b7abf92fefba467b846211a1c43e75256c552faad5fdecd437"
     },
     {
       "path": "assets/panels/growth.js",
@@ -351,8 +352,8 @@
     },
     {
       "path": "services/dashboard-operational/build.cjs",
-      "bytes": 16791,
-      "sha256": "77f49b3ce7ec3baefee329921e272cfbbd2978cd1a12408d7bfefe44f1abeb4d"
+      "bytes": 18157,
+      "sha256": "f8fac14064960528e7f5df4beff0ba5150869f10362e4302ee485ff431aacbfd"
     },
     {
       "path": "services/dashboard-operational/crm-journey-read.cjs",
@@ -720,6 +721,11 @@
       "sha256": "9306965855fe9a26d364bd218f6cc65aff8a58351d653719e5cdd43d9d7c0795"
     },
     {
+      "path": "tests/presentation-context-native/context.test.cjs",
+      "bytes": 5633,
+      "sha256": "6d1cf04feebd7a3ef084653ad57614bcc82ce17ab111ffd58f83407d1064aab4"
+    },
+    {
       "path": "tests/presentation-style-native/style.test.cjs",
       "bytes": 3615,
       "sha256": "780680754666531f0e8c60012f25366c66f0b8bcc0c3134dea848c10ab4bfcdd"
@@ -772,7 +778,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4440,
-      "sha256": "7b449f855143fa151ac82d95d65e729e47da5864059d5d47932a73276905cef2"
+      "sha256": "ce5701289ca81931600f2c931ad5afc2ba4532b270eb638b184d27af9e9c29f8"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

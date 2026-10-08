@@ -77,6 +77,11 @@ jobs:
           set -euo pipefail
           style_tests="$GITHUB_WORKSPACE/tests/presentation-style-native"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$style_tests,dst=/tmp/style-tests,readonly" --env PRESENTATION_STYLE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/style-tests/*.test.cjs
+      - name: Verify visible brand context and admitted template navigation in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/presentation-source,readonly" --env PRESENTATION_CONTEXT_SOURCE=/tmp/presentation-source --env PRESENTATION_CONTEXT_IMAGE=1 --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/presentation-source/tests/presentation-context-native/context.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |
