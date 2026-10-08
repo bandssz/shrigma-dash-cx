@@ -76,15 +76,6 @@ function createSourceSync({enabled=false,db,consent,identity,authorize,encrypt,d
  const statuses={SOURCE_INPUT_INVALID:400,SOURCE_CLOCK_INVALID:503,SOURCE_INTEGRITY:409,SOURCE_MASTER_REQUIRED:403,SOURCE_BROWSER_CONSENT_REQUIRED:403,SOURCE_PRIVATE_INPUT_INVALID:400,SOURCE_ENCRYPTION_REQUIRED:503,SOURCE_LINK_REQUIRED:503,SOURCE_BINDING_CHANGED:409,SOURCE_SPECIFIC_AUTHORIZATION_REQUIRED:403,SOURCE_BRAND_DENIED:403,SOURCE_ATTEMPT_NOT_FOUND:404,SOURCE_ATTEMPT_DENIED:403,SOURCE_ATTEMPT_PENDING:409,SOURCE_RESPONSE_UNCONFIRMED:503,SOURCE_UUID_INVALID:503};
  const sanitize=e=>{if(codes.has(e?.code))fail(e.code,statuses[e.code]);fail('SOURCE_SPECIFIC_AUTHORIZATION_REQUIRED',403);};
  const guarded=fn=>(...args)=>{try{const r=fn(...args);return r instanceof Promise?r.catch(sanitize):r;}catch(e){return sanitize(e);}};
- function diagnosticsBinding({context,...value}={}){
-  const v=input(value),p=proof(context,v.brand,false),a=bound(attempt(v.requestId),p,v.brand),publicAttempt=view(a);
-  if(publicAttempt.operation?.sourceAuthenticated!==true||!OPID.test(publicAttempt.operation.operationId||''))fail('SOURCE_ATTEMPT_NOT_FOUND',404);
-  // Immutable sealed custody, not a new upstream GET, replay or new intent.
-  // Progress updates cannot detach this original operation from its request.
-  const intentBinding=mac('diagnostic-original-intent:'+canonical([a.requestId,a.brand,a.ownerId,a.ownerRevision,a.binding,a.credentialRevision,a.credentialSeal,a.privatePayload,a.createdAt,publicAttempt.operation.operationId]));
-  guard(context,v.brand,false,p);
-  return freeze({...p,requestId:a.requestId,brand:a.brand,operationId:publicAttempt.operation.operationId,intentBinding});
- }
- return Object.freeze({status:guarded(status),bind:guarded(bind),revoke:guarded(revoke),run:guarded(({context,...v}={})=>execute(v,context,true)),inspect:guarded(({context,...v}={})=>execute(v,context,false)),list:guarded(list),authorizeDelegation:guarded(authorizeDelegation),diagnosticsBinding:guarded(diagnosticsBinding)});
+ return Object.freeze({status:guarded(status),bind:guarded(bind),revoke:guarded(revoke),run:guarded(({context,...v}={})=>execute(v,context,true)),inspect:guarded(({context,...v}={})=>execute(v,context,false)),list:guarded(list),authorizeDelegation:guarded(authorizeDelegation)});
 }
 module.exports=Object.freeze({createSourceSync,RESOURCE,REVISION,QUERY,canonical});

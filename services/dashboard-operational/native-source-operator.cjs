@@ -33,14 +33,23 @@ const JS=`'use strict';(()=>{
 })();`;
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 function headers(res){res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");}
-async function handleSourceOperator({req,res,url,ctx,auth,managerHost,source:sourceSync}={}){
- if(![PAGE,API,SCRIPT].includes(url.pathname))return false;
+async function handleSourceOperator({req,res,url,ctx,auth,managerHost,source:sourceSync,diagnostics}={}){
+ const diagnosticsScript='/auth/native-source-diagnostics.js',diagnosticsEnabled=diagnostics?.enabled===true;
+ if(![PAGE,API,SCRIPT,...(diagnosticsEnabled?[diagnosticsScript]:[])].includes(url.pathname))return false;
  headers(res);if(ctx.host!==managerHost||url.search||ctx.nativeBearer!==undefined)fail('SOURCE_BROWSER_REQUIRED');auth.authorize({...ctx,admin:true});if(!sourceSync)fail('SOURCE_LINK_NOT_ENABLED',503);
- if(url.pathname!==API){if(req.method!=='GET')fail('SOURCE_METHOD_DENIED',405);res.setHeader('Content-Type',url.pathname===PAGE?'text/html; charset=utf-8':'text/javascript; charset=utf-8');res.end(url.pathname===PAGE?HTML:JS);return true;}
+ if(url.pathname!==API){
+  if(req.method!=='GET')fail('SOURCE_METHOD_DENIED',405);
+  res.setHeader('Content-Type',url.pathname===PAGE?'text/html; charset=utf-8':'text/javascript; charset=utf-8');
+  const ui=diagnosticsEnabled?require('./native-source-diagnostics-ui.cjs'):null;
+  res.end(url.pathname===PAGE?(ui?HTML.replace('</main>',ui.HTML+'</main>').replace('</body>','<script src="'+diagnosticsScript+'"></script></body>'):HTML):url.pathname===diagnosticsScript?ui.JS:JS);return true;
+ }
  if(req.method!=='POST')fail('SOURCE_METHOD_DENIED',405);if(req.headers['content-encoding']||!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers['content-type']||''))fail('SOURCE_CONTENT_TYPE_DENIED',415);
  let bytes=0,chunks=[];for await(const c of req){bytes+=Buffer.byteLength(c);if(bytes>4096)fail('SOURCE_REQUEST_TOO_LARGE',413);chunks.push(Buffer.from(c));}auth.authorize({...ctx,admin:true});let b;try{b=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('SOURCE_ACTION_INVALID',400);}const exact=keys=>b&&typeof b==='object'&&!Array.isArray(b)&&Object.keys(b).sort().join(',')===keys.sort().join(',');
  let value;try{
   if(b?.action==='status'&&exact(['action'])){value={source:sourceSync.status(ctx),connections:auth.nativeConnections.list(ctx).filter(c=>!c.revoked&&c.expiresAt>Date.now()).map(c=>({id:c.id,label:c.label,scopes:c.scopes}))};}
+  else if(b?.action==='diagnostics-status'&&exact(['action'])&&diagnosticsEnabled)value=diagnostics.status(ctx);
+  else if(b?.action==='authorize-diagnostics'&&exact(['action','connectionId','brand','requestId','consent'])&&diagnosticsEnabled)value=diagnostics.authorize({context:ctx,connectionId:b.connectionId,brand:b.brand,requestId:b.requestId,consent:b.consent});
+  else if(b?.action==='diagnose'&&exact(['action','connectionId','brand','requestId'])&&diagnosticsEnabled)value=await diagnostics.inspect({context:ctx,connectionId:b.connectionId,brand:b.brand,requestId:b.requestId});
   else if(b?.action==='bind'&&exact(['action','key','brands','privateNetwork']))value=sourceSync.bind({context:ctx,bearer:b.key,brands:b.brands,privateNetwork:b.privateNetwork});
   else if(b?.action==='revoke'&&exact(['action']))value=sourceSync.revoke(ctx);
   else if(b?.action==='authorize-source'&&exact(['action','connectionId','consent'])&&b.consent===true){sourceSync.status(ctx);value=sourceSync.authorizeDelegation({context:ctx,connectionId:b.connectionId});}

@@ -57,7 +57,27 @@ test('brand contract failures emit closed human-readable notice metadata without
 
 test('operational transform resets a stale other-brand preference inside each panel lexical scope without modifying legacy HTML',()=>{
  const definitions={growth:{anchor:"let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;",result:'if(API)render();'},organico:{anchor:"let API=null,MARCA='todas',PER=G.preset('mes',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';",result:'if(API)render();'},influs:{anchor:"let MARCA='todas', SEC='creators';",result:"if(typeof INFLU!=='undefined'&&INFLU)renderTudo();"}};
- for(const [area,{anchor}]of Object.entries(definitions)){let handler;const document={querySelectorAll:()=>[]},context={window:{addEventListener:(name,cb)=>{assert.equal(name,'shrigma:brand-access');handler=cb;}},document,G:{preset:()=>({})},HOJE:'2026-10-04',pintaMarca(){},render(){},renderTudo(){}};vm.runInNewContext(bindOperationalBrand(anchor,area+'.html')+'\nglobalThis.currentBrand=()=>MARCA;',context);handler({detail:{brandAccess:'single',brand:'aristo'}});assert.equal(context.currentBrand(),'aristo');handler({detail:{brandAccess:'all',brand:null}});assert.equal(context.currentBrand(),'aristo');handler({detail:{brandAccess:'single',brand:'olivas'}});assert.equal(context.currentBrand(),'aristo');assert.equal(bindOperationalBrand(anchor,'cx.html'),anchor);assert.throws(()=>bindOperationalBrand(anchor+anchor,area+'.html'),/contract changed/);}
+ const bundle=fs.readFileSync(path.resolve(service,'../../assets/panels/growth.js'),'utf8');
+ const start=bundle.indexOf('const CRMWorkspace='),end=bundle.indexOf(';typeof module',start);
+ assert.ok(start>=0&&end>start,'the fixture requires the actual compiled workspace');
+ const workspace=bundle.slice(start,end)+';';
+ for(const [area,{anchor}]of Object.entries(definitions)){
+  let handler;
+  const labels=new Map(['crm-brand-label','crm-active-brand'].map(id=>[id,{textContent:'Todas as marcas'}]));
+  const document={body:{dataset:{}},getElementById:id=>labels.get(id)||null,querySelectorAll:()=>[]};
+  const context=vm.createContext({window:{addEventListener:(name,cb)=>{assert.equal(name,'shrigma:brand-access');handler=cb;}},document,G:{preset:()=>({})},HOJE:'2026-10-04',pintaMarca(){},render(){},renderTudo(){}});
+  if(area==='growth')vm.runInContext(workspace,context);
+  vm.runInContext(bindOperationalBrand(anchor,area+'.html')+'\nglobalThis.currentBrand=()=>MARCA;',context);
+  handler({detail:{brandAccess:'single',brand:'aristo'}});assert.equal(context.currentBrand(),'aristo');
+  if(area==='growth'){
+   for(const id of ['crm-brand-label','crm-active-brand'])assert.equal(labels.get(id).textContent,'O Aristocrata');
+   assert.equal(document.body.dataset.crmSection,'visao');
+  }
+  handler({detail:{brandAccess:'all',brand:null}});assert.equal(context.currentBrand(),'aristo');
+  handler({detail:{brandAccess:'single',brand:'olivas'}});assert.equal(context.currentBrand(),'aristo');
+  if(area==='growth')for(const id of ['crm-brand-label','crm-active-brand'])assert.equal(labels.get(id).textContent,'O Aristocrata');
+  assert.equal(bindOperationalBrand(anchor,'cx.html'),anchor);assert.throws(()=>bindOperationalBrand(anchor+anchor,area+'.html'),/contract changed/);
+ }
 });
 
 test('actual compiled campaign editor presents only its corporate brand and refuses a forged switch without I/O',async()=>{

@@ -1,0 +1,64 @@
+{
+  "schema": "shrigma-source-commit-diagnostics-inputs-v1",
+  "gatewayHead": "97d089f43413c76c9b73948f86a72a97e944bbe2",
+  "originalServiceHead": "79861de6f9c3628885e7840858011180b5af9899",
+  "files": [
+    {
+      "path": "services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 21160,
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "services/dashboard-operational/native-database-vault.cjs",
+      "bytes": 7257,
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "services/dashboard-operational/native-pg-driver.cjs",
+      "bytes": 2995,
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "services/dashboard-operational/native-source-sync.cjs",
+      "bytes": 22227,
+      "sha256": "043cc6723e081e37f2e5593e004739a28c37ac413ce14b5c759813afb9fc2b49",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-delegation.cjs",
+      "bytes": 11128,
+      "sha256": "866f354270b592f4bc0ba230a120088afa57e401d3422e17255898ea4bcc0a17",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-mcp.cjs",
+      "bytes": 22527,
+      "sha256": "ea73ecf0b4a0f6c2c5ea9b6c77be6d6e1739956f21ca51214e3de5a9b1fe1fe6",
+      "sourceHead": "97d089f43413c76c9b73948f86a72a97e944bbe2"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-sync-runtime.sql",
+      "bytes": 16091,
+      "sha256": "058133d080747909ee7ac2d54ea8511d6eda65cb69d1ceac0a4cf6597bccb009",
+      "sourceHead": "79861de6f9c3628885e7840858011180b5af9899"
+    },
+    {
+      "path": "services/crm-shopify-sync/store.cjs",
+      "bytes": 2564,
+      "sha256": "73d6df8d944be15568e0a6ada34c56ba70301cbca8ed84dbec50645a7ed2098d",
+      "sourceHead": "79861de6f9c3628885e7840858011180b5af9899"
+    },
+    {
+      "path": "READ-ORIGINAL-LAST-CHUNK.sql",
+      "bytes": 2632,
+      "sha256": "c95ebfe297842c257351fe702efcd787c19da2110f05e4da7e9bf0cd28f7a709",
+      "sourceHead": "root-prepared-fixed-read"
+    }
+  ],
+  "runtime": "Node22.23.3 UID1000",
+  "separateOriginalMasterConsentRequired": true,
+  "operational": false
+}
