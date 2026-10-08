@@ -65,6 +65,12 @@ jobs:
           set -euo pipefail
           source_tests="$GITHUB_WORKSPACE/tests/source-sync-native"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$source_tests,dst=/tmp/source-tests,readonly" --env SOURCE_SYNC_TEST_RUNTIME=/app/native-backend/runtime --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'exec node --test /tmp/source-tests/*.test.cjs'
+      - name: Verify new native draft-create and same-intent GET in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          campaign_tests="$GITHUB_WORKSPACE/tests/campaign-create-native"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$campaign_tests,dst=/tmp/campaign-tests,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env CAMPAIGN_CREATE_RUNTIME=/app/native-backend/runtime/crm-native-mcp.cjs --env CAMPAIGN_CREATE_INPUTS=/tmp/campaign-runtime-inputs --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'mkdir -p /tmp/campaign-runtime-inputs/services && ln -s /app/native-backend/runtime /tmp/campaign-runtime-inputs/services/dashboard-operational && exec node --test /tmp/campaign-tests/*.test.cjs'
       - name: Publish exactly the tested image
         shell: bash
         run: |

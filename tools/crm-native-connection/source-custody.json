@@ -198,6 +198,8 @@
     "tests/audience-context-review/gateway.test.cjs",
     "tests/audience-removal/fixture.cjs",
     "tests/audience-removal/removal.test.cjs",
+    "tests/campaign-create-native/gateway.test.cjs",
+    "tests/campaign-create-native/native.test.cjs",
     "tests/claude-crm-ux.test.cjs",
     "tests/configured-journeys-read/fixtures.cjs",
     "tests/configured-journeys-read/model.test.cjs",
@@ -240,8 +242,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7499,
-      "sha256": "25ad8c76446dba9b78e5e78343952a5836e6fe50cd2e24fa4d17ebd05ca2314b",
+      "bytes": 8421,
+      "sha256": "b08a244235126fbdf4b79a9cebfda6a81fe54126f1cc3fb3450d8274b5bddee4",
       "gitBlobSha1": "ad629f0eb3e32db103a27dd22d3ae9717c1ac7f0"
     },
     {
@@ -396,8 +398,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 21552,
-      "sha256": "e73c26d60f6268077d6bbb584302d74b865df0bf3abc9ca93abaa0b6453a688d",
+      "bytes": 22527,
+      "sha256": "ea73ecf0b4a0f6c2c5ea9b6c77be6d6e1739956f21ca51214e3de5a9b1fe1fe6",
       "gitBlobSha1": "eb536ae80bcf2fc770884f652153541334874543"
     },
     {
@@ -594,8 +596,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 116338,
-      "sha256": "9dcd9770d49bc3f40ec8e0f5fba5a31f1b8eb2a824eb4d14fb77946845e631d6",
+      "bytes": 116379,
+      "sha256": "32b83c4f81e251d274247b22b44bff10a83cf262188007651e94d9753520a0d2",
       "gitBlobSha1": "155202812ab49ef66c539bbd1b76d1d409a0f13f"
     },
     {
@@ -633,6 +635,16 @@
       "bytes": 9125,
       "sha256": "1746c3ab2d092c945d7ad84aa357cbb576137ff6c7fa54bc4043d5859400680d",
       "gitBlobSha1": "f17d8f5759c988d9ec40009178e307840ca5cd48"
+    },
+    {
+      "path": "tests/campaign-create-native/gateway.test.cjs",
+      "bytes": 12945,
+      "sha256": "c5d39d648e8999b1c4e279b0ee73b312c737787c85b8eefd81a9ede5086d153c"
+    },
+    {
+      "path": "tests/campaign-create-native/native.test.cjs",
+      "bytes": 14048,
+      "sha256": "69641a172bdd3fbdb15e7f9c9dab73c36820abb4b0585984c36dfbdce412a21c"
     },
     {
       "path": "tests/claude-crm-ux.test.cjs",
@@ -835,7 +847,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4440,
-      "sha256": "90a6c0dd2c35fa7f6bb718349fef78411a216a47de0e1af439241c9426186af4",
+      "sha256": "e036d0b9264c0320014e339b1a3c9dade3b53380af6eb57119142d8767fce105",
       "gitBlobSha1": "a56764508632a2c39e52b5a60ded9608a508a94e"
     },
     {
@@ -1041,6 +1053,27 @@
     "knownIntentGetOnly": true,
     "humanPrivateLinkAndScopePending": true,
     "actualSourceInvocationProven": false,
+    "operational": false
+  },
+  "nativeCampaignCreateSourcePackage": {
+    "packageId": "c2-campaign-create-native-v1",
+    "deliverySha256": "82305be282a08409ce382ffe1478eda0211e59eb2c4429ee86a1f353fb4598b9",
+    "files": [
+      {
+        "path": "services/dashboard-operational/crm-native-mcp.cjs",
+        "bytes": 22527,
+        "sha256": "ea73ecf0b4a0f6c2c5ea9b6c77be6d6e1739956f21ca51214e3de5a9b1fe1fe6"
+      },
+      {
+        "path": "tests/campaign-create-native/native.test.cjs",
+        "bytes": 14048,
+        "sha256": "69641a172bdd3fbdb15e7f9c9dab73c36820abb4b0585984c36dfbdce412a21c"
+      }
+    ],
+    "producerLocalCases": 26,
+    "rootWiringCasesExpected": 4,
+    "originalServiceHead": "03a02b4c98f471e6739c8a7cbe46e49aa4cbf285",
+    "defaultOff": true,
     "operational": false
   }
 }

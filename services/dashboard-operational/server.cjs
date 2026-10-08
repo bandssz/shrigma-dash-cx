@@ -1070,7 +1070,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   };
   if(s.crmNativeEnabled===true){
     const N=require('./crm-native-mcp.cjs');
-    nativeMcp=N.createNativeMcp({auth,managerHost:s.managerHost,installer:nativeInstaller,invoke:request=>N.dispatchJson(dispatch,request)});
+    nativeMcp=N.createNativeMcp({auth,managerHost:s.managerHost,installer:nativeInstaller,createCampaignEnabled:crmCorporateCreate,invoke:request=>N.dispatchJson(dispatch,request)});
   }
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;

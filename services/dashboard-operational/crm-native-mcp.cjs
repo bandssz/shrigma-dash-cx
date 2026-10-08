@@ -12,6 +12,8 @@ const tools=[
  ['crm_journey_catalog','Consultar definições originais das jornadas','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_list','Listar campanhas da marca','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_get','Reler campanha original','crm.read',obj({brand,id},['brand','id']),true,false],
+ ['crm_campaign_create','Criar rascunho de campanha','crm.draft',obj({brand,definition:{type:'object'},idempotency_key:key},['brand','definition','idempotency_key']),false,false],
+ ['crm_campaign_create_operation','Consultar a intenção de criação','crm.draft',obj({brand,idempotency_key:key},['brand','idempotency_key']),false,false],
  ['crm_campaign_save','Salvar rascunho existente','crm.draft',obj({brand,id,expected_version:{type:'string',pattern:'^[a-f0-9]{32}$'},definition:{type:'object'},idempotency_key:key},['brand','id','expected_version','definition','idempotency_key']),false,false],
  ['crm_campaign_operation','Consultar a tentativa original','crm.draft',obj({brand,idempotency_key:key},['brand','idempotency_key']),false,false],
  ['crm_audience_catalog','Consultar públicos e catálogo original da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),false,false],
@@ -65,11 +67,12 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
+ const availableTools=tools.filter(t=>createCampaignEnabled===true||t.name!=='crm_campaign_create');
  async function call(name,args,bearer){
-  const tool=tools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
+  const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
   const context=store.context(bearer),run=async(method,path,body)=>{
    // No retry on POST or uncertain ACK. Caller retains the original operation key.
@@ -87,6 +90,12 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),operational:false}};
   }else if(name==='crm_journey_catalog'){
    result=require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
+  }else if(name==='crm_campaign_create'){
+   // Business validation and durable idempotency belong to the original BFF.
+   result=await run('POST','/auth/campaign-create',{acao:'campanha_criar',brand:args.brand,definition:args.definition,idempotency_key:args.idempotency_key});
+  }else if(name==='crm_campaign_create_operation'){
+   const q=new URLSearchParams({brand:args.brand,idempotency_key:args.idempotency_key});
+   result=await run('GET','/auth/campaign-create?'+q);
   }else if(name.startsWith('crm_campaign_')){
    const actions={crm_campaign_catalog:'campanha_catalogo',crm_campaign_list:'campanha_listar',crm_campaign_get:'campanha_obter',crm_campaign_save:'campanha_salvar',crm_campaign_operation:'campanha_operacao'},action=actions[name];
    if(!action)fail('NATIVE_TOOL_NOT_FOUND');
@@ -178,7 +187,7 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    result={protocolVersion:VERSIONS.includes(message.params.protocolVersion)?message.params.protocolVersion:VERSIONS[0],capabilities:{tools:{listChanged:false}},serverInfo:{name:'shrigma-native',version:'0.1.0'},instructions:'Use marcas admitidas e a operação original. Código/instalação não comprovam operação CRM. Segredos são privados.'};
   }else if(message.method==='ping')result={};
   else if(message.method==='tools/list'){
-   const proof=store.authenticate(bearer);result={tools:tools.filter(t=>proof.scopes.includes(t.scope)).map(({scope,...t})=>t)};
+   const proof=store.authenticate(bearer);result={tools:availableTools.filter(t=>proof.scopes.includes(t.scope)).map(({scope,...t})=>t)};
   }else if(message.method==='tools/call'){
    try{
     if(!plain(message.params)||Object.keys(message.params).some(k=>!['name','arguments','_meta'].includes(k)))fail('NATIVE_ARGUMENTS_INVALID');
@@ -188,6 +197,6 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
   }else{response(res,200,{jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Method not found'}});return true;}
   response(res,200,{jsonrpc:'2.0',id:message.id,result});return true;
  }
- return Object.freeze({handle,call,tools});
+ return Object.freeze({handle,call,tools:availableTools});
 }
 module.exports={createNativeMcp,dispatchJson,ENDPOINT,validate,redact};
