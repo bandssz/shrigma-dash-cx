@@ -3,6 +3,7 @@ USER 0:0
 WORKDIR /source
 ARG GIT_SHA
 COPY services/dashboard-operational/auth.cjs services/dashboard-operational/server.cjs services/dashboard-operational/proxy.cjs services/dashboard-operational/crm-master-audience-read.cjs services/dashboard-operational/crm-master-audience-count.cjs services/dashboard-operational/segment-audience-context-review.cjs services/dashboard-operational/segment-audience-review.cjs services/dashboard-operational/crm-native-delegation.cjs services/dashboard-operational/crm-native-mcp.cjs services/dashboard-operational/crm-native-operator.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/native-source-sync.cjs services/dashboard-operational/native-source-operator.cjs services/dashboard-operational/native-source-transport.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-database-vault.cjs services/dashboard-operational/native-database-operator.cjs services/dashboard-operational/native-database-inventory.cjs services/dashboard-operational/native-pg-driver.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-foundation-preview.cjs services/dashboard-operational/crm-journey-read.cjs services/dashboard-operational/build.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/journey-read/growth-flows.js ./services/dashboard-operational/journey-read/
