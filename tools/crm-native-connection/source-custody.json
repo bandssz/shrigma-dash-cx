@@ -157,6 +157,7 @@
     "services/dashboard-operational/INTEGRATION-source-sync.txt",
     "services/dashboard-operational/auth.cjs",
     "services/dashboard-operational/build.cjs",
+    "services/dashboard-operational/crm-individual-coexistence.cjs",
     "services/dashboard-operational/crm-journey-read.cjs",
     "services/dashboard-operational/crm-master-audience-count.cjs",
     "services/dashboard-operational/crm-master-audience-read.cjs",
@@ -201,6 +202,10 @@
     "services/dashboard-operational/segment-audience-context-review.cjs",
     "services/dashboard-operational/segment-audience-review.cjs",
     "services/dashboard-operational/server.cjs",
+    "tests/analyst-live-coexistence/coexistence.test.cjs",
+    "tests/analyst-live-coexistence/load.cjs",
+    "tests/analyst-live-coexistence/sealed-inputs/services/dashboard-operational/auth.cjs",
+    "tests/analyst-live-coexistence/sealed-inputs/services/dashboard-operational/server.cjs",
     "tests/audience-context-availability/client-ui.test.cjs",
     "tests/audience-context-availability/gateway.test.cjs",
     "tests/audience-context-review/client-ui.test.cjs",
@@ -287,8 +292,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 12208,
-      "sha256": "e622d8b6591eb902cc1c6e0e17518790efaf6085349f6691414b99ac7fdba0de"
+      "bytes": 12913,
+      "sha256": "f1e8de015c015e0ca785807110b3ebcdf2ed648122d2263a0e66fe24efcd17fa"
     },
     {
       "path": "assets/panels/growth.css",
@@ -342,13 +347,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 4533,
-      "sha256": "11bbf38fb887ea96cecd65d217d1a8564ad10bcfafaeecfeae4b0d5a61f4fa16"
+      "bytes": 4595,
+      "sha256": "53499912946243aae40d808cf8740ee5d53cf164d1beb1ef683c4e5668c7e198"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 11532,
-      "sha256": "44c8bf7369ae6db045b22da4ef67871ce9315d86b4d9c28b1a83d81cdd66f9df"
+      "bytes": 11565,
+      "sha256": "118750c48f34945becb614df8e7ca9468035d7dd09e3aa4b1d6d27d5d66e96c9"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -357,8 +362,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 4997,
-      "sha256": "b6d51ea688b3b6605999e94f8fd7c9bcffc60394ac39d975f223a4e8b93c62c6"
+      "bytes": 5030,
+      "sha256": "e503ee91fb38c3a5f314939a5db1ccd76d786f774b33e21dd9bef0c737d83ae1"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -378,7 +383,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "c7a83a44059ab61afb6506b9232cc5cf10d95f3b7faec86951e55b505cd7ee21"
+      "sha256": "53b58f385595ffcaca70c210cbe7bf2964b9244c4fbdf086728c18d1fa8e2179"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -387,8 +392,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
-      "bytes": 4521,
-      "sha256": "b39ee90c021c354b836f19a3086ed4f8fceb7029a2eec7bf4fa48d0dde0399e9"
+      "bytes": 4917,
+      "sha256": "34e40f2da7f3dd663178cd80368c7eecc7238e0a80ad095907b88f5d82ceba53"
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
@@ -402,13 +407,18 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 119447,
-      "sha256": "99f39e288fa45a8da1f431eb51d8d4d6f7acc5ec59e04b4b41ffa35bcbece431"
+      "bytes": 121206,
+      "sha256": "8a4de4f2255dbd2f1f14fc920dac79ebfddc0f209a11d120284643c4fe4b1dc8"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
       "bytes": 18157,
       "sha256": "f8fac14064960528e7f5df4beff0ba5150869f10362e4302ee485ff431aacbfd"
+    },
+    {
+      "path": "services/dashboard-operational/crm-individual-coexistence.cjs",
+      "bytes": 2933,
+      "sha256": "3a2e5a3a59ad9dccfefbedbdfde5069b568a0d9ca5bc59ee5c4af09a0064bd6f"
     },
     {
       "path": "services/dashboard-operational/crm-journey-read.cjs",
@@ -627,6 +637,26 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
+      "bytes": 127340,
+      "sha256": "42b6faedbf024178b544b14492652e1241342d49f435c1052a220aafae62ee8a"
+    },
+    {
+      "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
+      "bytes": 23013,
+      "sha256": "17253719c01365edd56d4d0b1c9e5c7a310bda79208291fc007df7b6513879a3"
+    },
+    {
+      "path": "tests/analyst-live-coexistence/load.cjs",
+      "bytes": 1437,
+      "sha256": "08e696213b90f66c1995a3a50b91ef29c8629b127aca176bb600e36678313eae"
+    },
+    {
+      "path": "tests/analyst-live-coexistence/sealed-inputs/services/dashboard-operational/auth.cjs",
+      "bytes": 119447,
+      "sha256": "99f39e288fa45a8da1f431eb51d8d4d6f7acc5ec59e04b4b41ffa35bcbece431"
+    },
+    {
+      "path": "tests/analyst-live-coexistence/sealed-inputs/services/dashboard-operational/server.cjs",
       "bytes": 124129,
       "sha256": "f174d08a0389d9f3c7c53bd6bbf6b90243c0a0771634de778b55ef9e9e3a8b2b"
     },
@@ -1013,7 +1043,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4674,
-      "sha256": "e2f2156e07c1e1c3f7e0e1f2c7b129f3b93d4e11f91321952b24c7fef025e201"
+      "sha256": "0e7df40873901f53ecc898446f990d98a96f224705594c4f13a154f3cb3fc04a"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",

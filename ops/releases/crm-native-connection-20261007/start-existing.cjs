@@ -27,7 +27,8 @@ async function startExisting({manifestSha256,imageDigest}={}){
   const projected=runtime.environmentForOriginalMasterCampaignCreate(requested,preserved);
   const audience=runtime.environmentForOriginalMasterAudienceRead(projected);
   const journeys=runtime.environmentForOriginalMasterPublishedJourneyRead(requested,audience);
-  const next=runtime.environmentForOriginalMasterTemplateRead(requested,journeys);
+  const templates=runtime.environmentForOriginalMasterTemplateRead(requested,journeys);
+  const next=runtime.environmentForOriginalMasterIndividualCoexistence(requested,templates);
   // Only the original fixed route/profile projection is applied; no old
   // controller, observer, native activation hook, fence or receipt is invoked.
   const keys=['DASHBOARD_UPSTREAMS','DASHBOARD_UPSTREAM_HOSTS','DASHBOARD_DYNAMIC_ROUTE_MANIFEST','DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE','DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE','DASHBOARD_CRM_CORPORATE_CREATE','DASHBOARD_CRM_DRAFT_WRITE','DASHBOARD_CRM_AUDIENCE_DRAFT','DASHBOARD_CRM_MANAGED_READ','DASHBOARD_CRM_MANAGED_READ_UI','DASHBOARD_CRM_MANAGED_AUDIENCE_READ','DASHBOARD_CRM_MANAGED_TEMPLATE_READ','DASHBOARD_CRM_MANAGED_WRITER'];
@@ -36,6 +37,7 @@ async function startExisting({manifestSha256,imageDigest}={}){
   if(next.DASHBOARD_CRM_MASTER_AUDIENCE_COUNT!==undefined)keys.push('DASHBOARD_CRM_MASTER_AUDIENCE_COUNT','DASHBOARD_CRM_MASTER_AUDIENCE_CONTEXT_REVIEW');
   if(next.DASHBOARD_CRM_PUBLISHED_JOURNEY_READ!==undefined)keys.push('DASHBOARD_CRM_PUBLISHED_JOURNEY_READ');
   if(next.DASHBOARD_CRM_MASTER_TEMPLATE_READ!==undefined)keys.push('DASHBOARD_CRM_MASTER_TEMPLATE_READ');
+  if(next.DASHBOARD_CRM_INDIVIDUAL_COEXISTENCE==='enabled')keys.push('DASHBOARD_CRM_INDIVIDUAL_COEXISTENCE','DASHBOARD_CRM_MANAGER_ISSUER_ID','DASHBOARD_CRM_MANAGER_NAMESPACE_ID','DASHBOARD_CRM_MANAGER_PROVISIONER_TOKEN','DASHBOARD_CRM_WRITER_DESCRIPTOR','DASHBOARD_CRM_WRITER_PROVISIONER_TOKEN');
   for(const name of keys)process.env[name]=next[name];
   const started=P.startWithPresentation(()=>N.start({manifestSha256}));
   return {...started,continuity:{existingGrantVerified:true,writes:0,oldInvocations:0,operational:false}};
