@@ -48,7 +48,7 @@ function createDeliveryHealthController({enabled=false,driver,auth,coreFactory=c
   requireReady();if(context?.nativeBearer!==undefined)fail('DELIVERY_HEALTH_BROWSER_REQUIRED');
   const connections=store.list(context).filter(c=>!c.revoked&&c.expiresAt>Date.now()&&c.scopes.includes('crm.read')&&['fish','aristo'].every(b=>c.brands.includes(b)));
   const database=vault.status(context);
-  return {schema:'shrigma-delivery-health-status-v1',enabled:true,databaseLinked:database.linked===true,connections:connections.map(c=>({id:c.id,label:c.label,brands:c.brands})),operational:false};
+  return {schema:'shrigma-delivery-health-status-v1',enabled:true,databaseLinked:database.linked===true,connections:connections.map(c=>({id:c.id,label:c.label,brands:c.brands,authorizedBrands:['fish','aristo'].filter(brand=>{try{current(context,{connectionId:c.id,brand});return true;}catch{return false;}})})),operational:false};
  }
  function authorize(args={}){
   requireReady();if(!exact(args,['context','connectionId','brand','consent'])||args.context?.nativeBearer!==undefined||args.context?.method!=='POST'||args.consent!==true)fail('DELIVERY_HEALTH_BROWSER_CONSENT_REQUIRED');

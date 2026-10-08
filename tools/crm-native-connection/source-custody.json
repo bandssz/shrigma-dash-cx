@@ -549,13 +549,13 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
-      "bytes": 6307,
-      "sha256": "bbd417bf3035a56d936ac70889c527897c4efd076aa2716341f8dc97ac827bd8"
+      "bytes": 6440,
+      "sha256": "3fefaedf3ac479b284c7dcc4257d8c379aa6b4896e40ea53c1bddae0ec8fac79"
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
-      "bytes": 15144,
-      "sha256": "3e0fb0987af08edc078eac0df9bc449c0f34e75b3be7348c49f609ce101e0a11"
+      "bytes": 15479,
+      "sha256": "e28ea0e0b0b6f097ca94c3004c41f8d73275adf3d5fa4f1745e42d6d7098a472"
     },
     {
       "path": "services/dashboard-operational/native-delivery-health.cjs",
@@ -824,8 +824,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/authority.test.cjs",
-      "bytes": 12321,
-      "sha256": "ef84b3874fe0c750f3ef77bcf0a7d884b015540bd49b43fed06bc26082f66def"
+      "bytes": 13885,
+      "sha256": "a99013d7584aa6dfab27ee02bbb5f1e406bfc22f5259cbf887be1ac8bba294a4"
     },
     {
       "path": "tests/delivery-health-read-native/core.test.cjs",
@@ -844,8 +844,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/observability.test.cjs",
-      "bytes": 2530,
-      "sha256": "f170b05accae5550a35f071336bf9959bfe0506fb3c0328f15423ec094d08a51"
+      "bytes": 2742,
+      "sha256": "aa1b2118e66ad866006eafa7abb79f3f0908a83548ebbc00ddcd27cdbe3f9ff0"
     },
     {
       "path": "tests/delivery-health-read-native/operator.test.cjs",
@@ -959,8 +959,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/ui.test.cjs",
-      "bytes": 15722,
-      "sha256": "9d03926387fcb3e6f611868e86bb97aeddfb269d3afaf925a22037902d988b27"
+      "bytes": 17917,
+      "sha256": "ffb4a7a0b47c15ff4184938ae25206259798a28ef26309a17cf451520e099b6e"
     },
     {
       "path": "tests/delivery-health-wiring-native/wiring.test.cjs",
@@ -1650,6 +1650,16 @@
     "refusalInputs": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
     "focalLocalCasesPassed": 176,
     "requiredActualImageAccepted": false,
+    "operational": false
+  },
+  "deliveryHealthConsentAvailability": {
+    "parentHead": "ce0efcf8c4f159fdaf028adacc51338916a4298f",
+    "existingConsentPurpose": "crm.delivery-health",
+    "currentOwnerConnectionCrmAndPrivateBinding": true,
+    "newConsentPostedAutomatically": false,
+    "databaseQueryDuringAvailability": false,
+    "exactBrandConsentRequired": true,
+    "focalLocalCasesPassed": 198,
     "operational": false
   }
 }
