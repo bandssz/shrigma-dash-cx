@@ -142,7 +142,7 @@ def patch_manager_store(source):
 \tdefer cancel()
 \ttx, err := db.BeginTxx(ctx, options)
 \tif err != nil {
-\t\treturn nil, errors.New("campaign scan unavailable")
+\t\treturn nil, campaignScanDiagnostic("begin", err)
 \t}
 \tdefer tx.Rollback()
 \tif err := setRegularDeliveryBoundary(ctx, tx); err != nil {
@@ -157,13 +157,41 @@ def patch_manager_store(source):
 \tvar out []*models.Campaign
 \tif err := tx.Stmtx(s.queries.NextCampaigns).Unsafe().SelectContext(ctx, &out,
 \t\tpq.Int64Array(currentIDs), pq.Int64Array(sentCounts)); err != nil {
-\t\treturn nil, errors.New("campaign scan unavailable")
+\t\treturn nil, campaignScanDiagnostic("select", err)
 \t}
 \tif err := tx.Commit(); err != nil {
 \t\treturn nil, errors.New("campaign scan commit unconfirmed")
 \t}
 \treturn out, nil
-}'''
+}
+
+// campaignScanDiagnostic exposes only a fixed phase and a bounded SQLSTATE.
+// Driver messages, statements, identifiers, arguments and connection data are
+// deliberately excluded from the error returned to the campaign scanner.
+func campaignScanDiagnostic(phase string, cause error) error {
+	switch phase {
+	case "begin", "select":
+	default:
+		phase = "unknown"
+	}
+	state := "unknown"
+	var driver interface{ SQLState() string }
+	if errors.As(cause, &driver) {
+		code := driver.SQLState()
+		valid := len(code) == 5
+		for _, char := range code {
+			if !(char >= '0' && char <= '9' || char >= 'A' && char <= 'Z') {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			state = code
+		}
+	}
+	return errors.New("campaign scan unavailable [phase=" + phase + " sqlstate=" + state + "]")
+}
+'''
     return replace_once(source, old, new, "transactional campaign quarantine")
 
 

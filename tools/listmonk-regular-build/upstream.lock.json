@@ -49,12 +49,13 @@
       "queries/campaigns.sql": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
       "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
-      "cmd/manager_store.go": "e7622122090d751446a4dacb30ef0017de13e3641b3868c64989cd1fc194d191"
+      "cmd/manager_store.go": "bfcf483044a64d6e6f50f2f655859f5cf88f86e579e8fdea4a03dd6771761184"
     },
     "overlay": {
       "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
       "cmd/manager_store_regular.go": "02cb4d31427f459d84c11746846237c46a4c03c437da9a7f75ec41d72d2628d2",
+      "cmd/campaign_scan_diagnostic_test.go": "b7f8df4f254a3b626502c4e7a2fdea029d6c9785b19627d5394de24cde280c18",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6"
     }
   }
