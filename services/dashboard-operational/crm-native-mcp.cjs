@@ -5,6 +5,7 @@ const ENDPOINT='/api/native/mcp',VERSIONS=['2025-11-25','2025-06-18','2025-03-26
 const BRANDS=['fish','aristo'];
 const obj=(properties={},required=[])=>({type:'object',properties,required,additionalProperties:false});
 const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:'string',pattern:'^[A-Za-z0-9_-]{16,100}$'},audienceId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'},audienceHash={type:'string',pattern:'^[a-f0-9]{64}$'},audienceVersion={type:'integer',minimum:1};
+const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
@@ -18,6 +19,9 @@ const tools=[
  ['crm_audience_save','Criar ou atualizar público com versão e catálogo originais','crm.draft',obj({brand,id:audienceId,expected_version:audienceVersion,definition:{type:'object'},expected_catalog_hash:audienceHash,idempotency_key:audienceId},['brand','definition','expected_catalog_hash','idempotency_key']),false,false],
  ['crm_audience_archive','Excluir público da lista ativa preservando histórico','crm.draft',obj({brand,id:audienceId,expected_version:audienceVersion,idempotency_key:audienceId},['brand','id','expected_version','idempotency_key']),false,true],
  ['crm_audience_operation','Consultar a tentativa original de público sem reenviar POST','crm.draft',obj({brand,idempotency_key:audienceId},['brand','idempotency_key']),false,false],
+ ['crm_source_sync_list','Consultar intenções próprias de atualização da fonte','crm.source-sync',obj(),true,false],
+ ['crm_source_sync_run','Solicitar atualização da fonte original com uma intenção nova','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,true],
+ ['crm_source_sync_inspect','Reler a intenção original da fonte sem reenviar POST','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,false],
  ['crm_users','Consultar acessos individuais','crm.iam',obj(),false,false],
  ['crm_user_update','Atualizar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},expectedRevision:{type:'string',pattern:'^[a-f0-9]{64}$'},brand,access:{type:'string',enum:['read','edit']}},['userId','expectedRevision','brand','access']),false,true],
  ['crm_user_revoke','Revogar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},brand},['userId','brand']),false,true],
@@ -79,7 +83,8 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
    const state=await run('GET','/auth/session');
    const health=state.status===200?await run('GET','/healthz'):null;
    const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
-   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,operational:false}};
+   const sourcePeer=state.status===200&&state.body?.features?.nativeSourceSync===true?await run('GET','/api/source-peer'):null;
+   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),operational:false}};
   }else if(name==='crm_journey_catalog'){
    result=require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
   }else if(name.startsWith('crm_campaign_')){
@@ -125,6 +130,10 @@ function createNativeMcp({auth,managerHost,invoke,installer}={}){
      result={...result,body:{...result.body,audienceCount:count}};
     }
    }
+  }else if(name.startsWith('crm_source_sync_')){
+   const action=name.slice('crm_source_sync_'.length);
+   if(action==='run')result=await run('POST','/api/source-sync',{action,...args});
+   else{const q=new URLSearchParams({action,...Object.fromEntries(Object.entries(args).map(([k,v])=>[k,String(v)]))});result=await run('GET','/api/source-sync?'+q);}
   }else if(name.startsWith('crm_user')){
    const listing=await run('GET','/auth/users');
    if(listing.status!==200)return redact(listing);

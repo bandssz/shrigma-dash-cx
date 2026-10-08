@@ -20,7 +20,7 @@ async function handleOperator({req,res,url,ctx,auth,managerHost}){
   if(req.method!=='GET')throw Object.assign(Error('METHOD_DENIED'),{status:405,code:'METHOD_DENIED'});
   auth.authorize({...ctx,admin:true});
   res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-  res.setHeader('Content-Type',url.pathname===PAGE?'text/html; charset=utf-8':'text/javascript; charset=utf-8');res.end(url.pathname===PAGE?HTML:JS);return true;
+  res.setHeader('Content-Type',url.pathname===PAGE?'text/html; charset=utf-8':'text/javascript; charset=utf-8');res.end(url.pathname===PAGE?(auth.nativeSourceSync?HTML.replace('</main>','<p><a href="/auth/native-source">Atualizar dados da Shopify</a></p></main>'):HTML):JS);return true;
  }
  if(req.method!=='POST')throw Object.assign(Error('METHOD_DENIED'),{status:405,code:'METHOD_DENIED'});
  auth.authorize({...ctx,admin:true});

@@ -2,7 +2,7 @@
 // First-class delegated credentials issued by a real Master consent. They are
 // not browser cookies, upstream credentials, or individual brand IAM grants.
 const crypto=require('node:crypto');
-const SCOPES=Object.freeze(['crm.read','crm.draft','crm.iam','db.inspect','db.install']);
+const SCOPES=Object.freeze(['crm.read','crm.draft','crm.iam','db.inspect','db.install','crm.source-sync']);
 const BRANDS=Object.freeze(['fish','aristo']);
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const plain=x=>x&&Object.getPrototypeOf(x)===Object.prototype;
@@ -21,6 +21,10 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
  CREATE TABLE IF NOT EXISTS crm_native_inspection_consent_v1(
  id INTEGER PRIMARY KEY,connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
  actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
+ new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS crm_native_source_sync_consent_v1(
+ id INTEGER PRIMARY KEY,connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
+ actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
  new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);`);
  const time=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)deny('NATIVE_CLOCK_INVALID',500);return t;};
  const bind=r=>mac(JSON.stringify([r.id,r.token_hash,r.user_id,r.host,r.label,r.brands_json,r.scopes_json,r.auth_revision,r.source_session_hash,r.created_at,r.expires_at,r.revoked_at]));
@@ -34,7 +38,7 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   if(!Array.isArray(scopes)||!scopes.length||new Set(scopes).size!==scopes.length||scopes.some(s=>!SCOPES.includes(s)))deny('NATIVE_SCOPES_INVALID',400);
   if(!Number.isInteger(expiresDays)||expiresDays<1||expiresDays>30)deny('NATIVE_EXPIRY_INVALID',400);
   const owner=identity(proof.userId);if(!owner||owner.role!=='superadmin'||owner.active!==true||!/^[a-f0-9]{64}$/.test(owner.revision||''))deny('NATIVE_OWNER_REQUIRED');
-  if(scopes.includes('crm.draft')&&owner.canEditGrowth!==true)deny('GRANT_DENIED');
+  if((scopes.includes('crm.draft')||scopes.includes('crm.source-sync'))&&owner.canEditGrowth!==true)deny('GRANT_DENIED');
   const t=time(),token=crypto.randomBytes(32).toString('base64url');
   const row={id:crypto.randomUUID(),token_hash:sha(token),user_id:proof.userId,host:managerHost,label:label.trim(),brands_json:JSON.stringify([...brands].sort()),scopes_json:JSON.stringify([...scopes].sort()),auth_revision:owner.revision,source_session_hash:proof.sessionHash,created_at:t,expires_at:t+expiresDays*86400000,revoked_at:null};
   row.binding_mac=bind(row);
@@ -89,6 +93,22 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
    db.exec('COMMIT');return {connection:project(next),inspectionAuthorized:true,installationAuthorized:before.scopes.includes('db.install')};
   }catch(e){db.exec('ROLLBACK');throw e;}
  }
- return Object.freeze({issue,authenticate,context,list,revoke,permitInspection});
+ function permitSourceSync({context,connectionId}={}){
+  const proof=consent(context),owner=identity(proof.userId);
+  if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true||!/^[a-f0-9]{64}$/.test(owner.revision||'')||!/^[a-f0-9]{64}$/.test(proof.sessionHash||''))deny('NATIVE_OWNER_REQUIRED');
+  if(typeof connectionId!=='string'||!/^[a-f0-9-]{36}$/.test(connectionId))deny('NATIVE_CONNECTION_NOT_FOUND',404);
+  db.exec('BEGIN IMMEDIATE');try{
+   const row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(connectionId,proof.userId);
+   if(!row||!valid(row)||row.revoked_at!==null||row.expires_at<=time()||owner.revision!==row.auth_revision)deny('NATIVE_CONNECTION_NOT_FOUND',404);
+   const before=project(row);if(before.scopes.includes('crm.source-sync')){db.exec('COMMIT');return {connection:before,sourceSyncAuthorized:true};}
+   const next={...row,scopes_json:JSON.stringify([...before.scopes,'crm.source-sync'].sort())},t=time();next.binding_mac=bind(next);
+   const changed=db.prepare('UPDATE crm_native_connections_v1 SET scopes_json=?,binding_mac=? WHERE id=? AND binding_mac=? AND revoked_at IS NULL').run(next.scopes_json,next.binding_mac,row.id,row.binding_mac).changes;
+   if(changed!==1)deny('NATIVE_CONNECTION_CHANGED',409);
+   const fields=[row.id,proof.userId,proof.sessionHash,sha(row.scopes_json),sha(next.scopes_json),t];
+   db.prepare('INSERT INTO crm_native_source_sync_consent_v1(connection_id,actor_id,session_hash,prior_scopes_hash,new_scopes_hash,happened_at,binding_mac) VALUES(?,?,?,?,?,?,?)').run(...fields,mac(JSON.stringify(['source-sync-consent-v1',...fields])));
+   db.exec('COMMIT');return {connection:project(next),sourceSyncAuthorized:true};
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ return Object.freeze({issue,authenticate,context,list,revoke,permitInspection,permitSourceSync});
 }
 module.exports={createDelegationStore,SCOPES,BRANDS};

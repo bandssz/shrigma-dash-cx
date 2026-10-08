@@ -66,6 +66,8 @@ function settingsFromEnv(env=process.env){
   if(env.DASHBOARD_CRM_MASTER_AUDIENCE_COUNT!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_MASTER_AUDIENCE_COUNT)||crmMasterAudienceCount&&!crmMasterAudienceWrite)throw Error('Original Master audience COUNT configuration invalid');
   const crmMasterAudienceContextReview=env.DASHBOARD_CRM_MASTER_AUDIENCE_CONTEXT_REVIEW==='enabled';
   if(env.DASHBOARD_CRM_MASTER_AUDIENCE_CONTEXT_REVIEW!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_CRM_MASTER_AUDIENCE_CONTEXT_REVIEW)||crmMasterAudienceContextReview&&!crmMasterAudienceRead)throw Error('Original Master audience CONTEXT READ configuration invalid');
+  const crmNativeSourceSyncEnabled=env.DASHBOARD_NATIVE_SHOPIFY_SOURCE==='enabled';
+  if(env.DASHBOARD_NATIVE_SHOPIFY_SOURCE!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_NATIVE_SHOPIFY_SOURCE)||crmNativeSourceSyncEnabled&&(crmNativeMode!=='enabled'||mode!=='operational'||upstreamProfile!=='production'||!crmMasterAudienceWrite))throw Error('Original Shopify source connection configuration invalid');
   const writerMode=env.DASHBOARD_CRM_MANAGED_WRITER||'disabled';
   if(!['disabled','enabled'].includes(writerMode))throw Error('Managed CRM writer mode invalid');
   const crmCampaignWriterProfile=env.DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE;
@@ -117,7 +119,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),upstreamProfile,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
+  return {mode,...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),...(crmNativeSourceSyncEnabled?{crmNativeSourceSyncEnabled:true}:{}),upstreamProfile,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
 }
 // Apply the new bounded READ projection AFTER the immutable existing-grant
 // verifier. Its historical pins/controller/consumed operation stay untouched.
@@ -465,7 +467,7 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
   if(typeof admit!=='function')throw jsonError(503,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');await admit();
  }
 }
-function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller}={}){
+function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport}={}){
   if(!auth)throw Error('Auth required');
   if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');
   const upstreamProfile=s.upstreamProfile||'production',sandbox=upstreamProfile==='crm-sandbox';
@@ -588,11 +590,45 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
        if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
+      if(s.crmNativeSourceSyncEnabled===true&&!nativeContext&&await require('./native-source-operator.cjs').handleSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,source:auth.nativeSourceSync}))return;
+      if(url.pathname==='/api/source-peer'&&req.method==='GET'){
+        if(s.crmNativeSourceSyncEnabled!==true||url.search||host!==s.managerHost)throw jsonError(503,'SOURCE_CONNECTION_NOT_ADMITTED');
+        auth.authorize({...ctx,admin:true});
+        const brands=ctx.nativeBearer?auth.nativeConnections.authenticate(ctx.nativeBearer,{scope:'crm.read'}).brands:['fish','aristo'];
+        const before=auth.ownMasterAudienceReadBinding(ctx,{brand:brands[0]});
+        let peer;
+        try{
+          const transport=sourcePeerTransport||require('./native-source-transport.cjs').createOriginalSourceTransport();
+          const r=await transport({method:'GET',path:'/healthz'}),b=r.body;
+          if(r.status!==200||r.revision!=='79861de6f9c3628885e7840858011180b5af9899'||!b||Object.keys(b).sort().join(',')!=='enabled,product_semantics,revision,service,stopping'||b.service!=='crm-shopify-sync'||b.revision!==r.revision||b.enabled!==true||b.product_semantics!=='v2'||b.stopping!==false)throw Error('SOURCE_PEER_UNCONFIRMED');
+          peer={schema:'crm-native-source-peer-v1',reachable:true,revision:r.revision,productSemantics:'v2',keyAuthenticationProven:false,operational:false};
+        }catch{peer={schema:'crm-native-source-peer-v1',reachable:false,code:'SOURCE_PEER_UNCONFIRMED',keyAuthenticationProven:false,operational:false};}
+        const after=auth.ownMasterAudienceReadBinding(ctx,{brand:brands[0]});if(before.userId!==after.userId||before.binding!==after.binding)throw jsonError(409,'SOURCE_ORIGINAL_MASTER_CHANGED');
+        return sendJson(req,res,200,peer);
+      }
+      if(url.pathname==='/api/source-sync'){
+        if(s.crmNativeSourceSyncEnabled!==true||!auth.nativeSourceSync)throw jsonError(503,'SOURCE_CONNECTION_NOT_ADMITTED');
+        if(host!==s.managerHost)throw jsonError(403,'HOST_DENIED');
+        auth.authorize({...ctx,admin:true});
+        const source=auth.nativeSourceSync;
+        if(req.method==='GET'){
+          const keys=[...url.searchParams.keys()],action=url.searchParams.get('action');
+          if(new Set(keys).size!==keys.length)throw jsonError(400,'SOURCE_ARGUMENTS_INVALID');
+          if(['status','list'].includes(action)&&keys.length===1)return sendJson(req,res,200,await source[action](ctx));
+          if(action==='inspect'&&keys.sort().join(',')==='action,brand,requestId')return sendJson(req,res,200,await source.inspect({context:ctx,brand:url.searchParams.get('brand'),requestId:url.searchParams.get('requestId')}));
+          throw jsonError(400,'SOURCE_ARGUMENTS_INVALID');
+        }
+        if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
+        if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,2048);
+        if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='action,brand,requestId'||body.action!=='run')throw jsonError(400,'SOURCE_ARGUMENTS_INVALID');
+        return sendJson(req,res,200,await source.run({context:ctx,brand:body.brand,requestId:body.requestId}));
+      }
       if(url.pathname==='/auth/session'&&req.method==='GET'){
         const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
         const found=auth.session(ctx);
         if(initial.authenticated&&(!found.authenticated||found.user.id!==initial.user.id||found.user.email!==initial.user.email||found.user.brand!==initial.user.brand))return sendJson(req,res,200,{authenticated:false});
-        const state=found.authenticated?{...found,features:{audienceDraft:audienceFeature(ctx),audienceRead:crmMasterAudienceRead&&auth.ownMasterAudienceReadReady(ctx),audienceCount:crmMasterAudienceCount&&audienceFeature(ctx),audienceContextReview:crmMasterAudienceContextReview&&auth.ownMasterAudienceReadReady(ctx),...(ownMasterWriter?{crmIndividualAccessUnavailable:true}:{}),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin'||admission.write)&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager'&&!admission.read,...(campaignWriter?{campaignMasterActivation:found.user?.role==='superadmin'&&found.user?.permissions?.growth?.read===true,campaignCreate:(sandbox||found.user?.role==='superadmin'||admission.write)&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
+        const state=found.authenticated?{...found,features:{nativeSourceSync:s.crmNativeSourceSyncEnabled===true&&!!auth.nativeSourceSync,audienceDraft:audienceFeature(ctx),audienceRead:crmMasterAudienceRead&&auth.ownMasterAudienceReadReady(ctx),audienceCount:crmMasterAudienceCount&&audienceFeature(ctx),audienceContextReview:crmMasterAudienceContextReview&&auth.ownMasterAudienceReadReady(ctx),...(ownMasterWriter?{crmIndividualAccessUnavailable:true}:{}),...(allowCampaignSubmit?{campaignSubmitWrite:(sandbox||found.user?.role==='superadmin'||admission.write)&&auth.campaignWriterReady(ctx),campaignTemplateOwnershipUnavailable:!sandbox&&found.user?.role==='manager'&&!admission.read,...(campaignWriter?{campaignMasterActivation:found.user?.role==='superadmin'&&found.user?.permissions?.growth?.read===true,campaignCreate:(sandbox||found.user?.role==='superadmin'||admission.write)&&crmCorporateCreate&&auth.campaignWriterReady(ctx),campaignHistoryRead:typeof auth.campaignHistoryRead==='function'&&auth.campaignHistoryRead(ctx)===true}:{})}:{})}}:found;
         // The owner view validates invite links against this service's exact
         // host configuration, so a new isolated canary needs no JS allowlist.
         if(state.authenticated&&state.user?.role==='superadmin'&&host===s.managerHost)
@@ -1042,7 +1078,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   return server;
 }
 function authOptionsFor(settings){
-  return {...(settings.crmNativeEnabled===true?{crmNativeEnabled:true}:{}),dbPath:settings.dbPath,managerHost:settings.managerHost,areaHosts:settings.areaHosts,allowedEmailDomains:settings.allowedEmailDomains,bootstrapAdminEmail:settings.bootstrapAdminEmail,bootstrapTokenSha256:settings.bootstrapTokenSha256,encryptionKey:settings.encryptionKey,...(settings.crmCampaignWriterProfile!==undefined?{crmCampaignWriterProfile:settings.crmCampaignWriterProfile}:{}),...(settings.crmCampaignSubmitWrite===true?{crmCampaignSubmitWrite:true}:{}),...(settings.crmMasterAudienceWrite===true?{crmMasterAudienceWrite:true}:{}),...(settings.crmManagedWriter?{crmManagedWriter:require('./crm-manager-runtime.cjs').corporateWriterDescriptor(settings.crmManagedWriter,settings.crmManagedRead,settings.allowedEmailDomains)}:{}),...(settings.crmManagedRead?{crmManagedRead:{issuerId:settings.crmManagedRead.issuerId,namespaceId:settings.crmManagedRead.namespaceId}}:{})};
+  return {...(settings.crmNativeEnabled===true?{crmNativeEnabled:true}:{}),...(settings.crmNativeSourceSyncEnabled===true?{crmNativeSourceSyncEnabled:true}:{}),dbPath:settings.dbPath,managerHost:settings.managerHost,areaHosts:settings.areaHosts,allowedEmailDomains:settings.allowedEmailDomains,bootstrapAdminEmail:settings.bootstrapAdminEmail,bootstrapTokenSha256:settings.bootstrapTokenSha256,encryptionKey:settings.encryptionKey,...(settings.crmCampaignWriterProfile!==undefined?{crmCampaignWriterProfile:settings.crmCampaignWriterProfile}:{}),...(settings.crmCampaignSubmitWrite===true?{crmCampaignSubmitWrite:true}:{}),...(settings.crmMasterAudienceWrite===true?{crmMasterAudienceWrite:true}:{}),...(settings.crmManagedWriter?{crmManagedWriter:require('./crm-manager-runtime.cjs').corporateWriterDescriptor(settings.crmManagedWriter,settings.crmManagedRead,settings.allowedEmailDomains)}:{}),...(settings.crmManagedRead?{crmManagedRead:{issuerId:settings.crmManagedRead.issuerId,namespaceId:settings.crmManagedRead.namespaceId}}:{})};
 }
 function managedRuntimeFor(settings,auth){
   if(!settings.crmManagedRead)return undefined;
