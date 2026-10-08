@@ -104,6 +104,11 @@ jobs:
           set -euo pipefail
           coexist_tests="$GITHUB_WORKSPACE/tests/analyst-live-coexistence"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$coexist_tests,dst=/tmp/coexist-tests,readonly" --env ANALYST_COEXISTENCE_RUNTIME=/app/native-backend/runtime --env ANALYST_COEXISTENCE_SOURCE=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/coexist-tests/coexistence.test.cjs
+      - name: Verify corrected public package and CREATE guard in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'node --test /source/tests/dashboard-operational-coexistence-packaging.test.cjs /source/tests/dashboard-operational-writer-pack.test.cjs && exec node --test --test-name-pattern="master missing a route-specific credential" /source/tests/dashboard-operational-crm-managed-read-bridge.test.cjs'
       - name: Publish exactly the tested image
         shell: bash
         run: |

@@ -17,20 +17,23 @@ const PRE_PARITY_RUNTIME_FILES=Object.freeze([...LEGACY_RUNTIME_FILES,...WRITER_
 const READ_BRIDGE_RUNTIME_FILES=Object.freeze(['crm-audience-read-bridge.cjs','crm-media-read-validator.cjs','crm-template-read-bridge.cjs'].sort());
 const PARITY_RUNTIME_FILES=Object.freeze([...PRE_PARITY_RUNTIME_FILES,...READ_BRIDGE_RUNTIME_FILES].sort());
 const CONTENT_RUNTIME_FILES=Object.freeze(['crm-campaign-content-admission.cjs','crm-campaign-content-profile.cjs'].sort());
-const RUNTIME_FILES=Object.freeze([...PARITY_RUNTIME_FILES,...CONTENT_RUNTIME_FILES].sort());
+const PRE_COEXISTENCE_RUNTIME_FILES=Object.freeze([...PARITY_RUNTIME_FILES,...CONTENT_RUNTIME_FILES].sort());
+const COEXISTENCE_RUNTIME_FILES=Object.freeze(['crm-individual-coexistence.cjs']);
+const RUNTIME_FILES=Object.freeze([...PRE_COEXISTENCE_RUNTIME_FILES,...COEXISTENCE_RUNTIME_FILES].sort());
 const LEGACY_FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...LEGACY_RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const PRE_PARITY_FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...PRE_PARITY_RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const PARITY_FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...PARITY_RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
+const PRE_COEXISTENCE_FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...PRE_COEXISTENCE_RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const FILES=Object.freeze([...PUBLIC_FILES.map(f=>'public/'+f),...RUNTIME_FILES.map(f=>'runtime/'+f)].sort());
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).sort().join(',')===keys.slice().sort().join(',');
 const canonicalBase64=value=>typeof value==='string'&&/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)&&Buffer.from(value,'base64').toString('base64')===value;
 function isText(file){return /\.(?:html|js|css|svg|cjs)$/.test(file);}
 function validateFiles(files){
- // Accept only complete historical families or the current content runtime set. A
+ // Accept only complete historical families or the current coexistence runtime set. A
  // partial writer set cannot authorize loading a dormant runtime component.
  if(!Array.isArray(files))throw Error('ARTIFACT_FILES_INVALID');
- const expected=files.length===FILES.length?FILES:files.length===PARITY_FILES.length?PARITY_FILES:files.length===PRE_PARITY_FILES.length?PRE_PARITY_FILES:files.length===LEGACY_FILES.length?LEGACY_FILES:null;
+ const expected=files.length===FILES.length?FILES:files.length===PRE_COEXISTENCE_FILES.length?PRE_COEXISTENCE_FILES:files.length===PARITY_FILES.length?PARITY_FILES:files.length===PRE_PARITY_FILES.length?PRE_PARITY_FILES:files.length===LEGACY_FILES.length?LEGACY_FILES:null;
  if(!expected)throw Error('ARTIFACT_FILES_INVALID');
  const seen=new Set();let bytes=0,publicBytes=0,runtimeBytes=0;
  for(const f of files){
@@ -77,4 +80,4 @@ function unpack(packFile,target,{expectedSha256,fsImpl=fs}={}){
  }catch(error){fsImpl.rmSync(root,{recursive:true,force:true});throw error;}
  return {...parsed.stats,sha256:parsed.sha256,root,publicDir:path.join(root,'public'),runtimeDir:path.join(root,'runtime')};
 }
-module.exports={SCHEMA,SCHEMA_V2,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,LEGACY_RUNTIME_FILES,WRITER_RUNTIME_FILES,PRE_PARITY_RUNTIME_FILES,READ_BRIDGE_RUNTIME_FILES,PARITY_RUNTIME_FILES,CONTENT_RUNTIME_FILES,RUNTIME_FILES,LEGACY_FILES,PRE_PARITY_FILES,PARITY_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};
+module.exports={SCHEMA,SCHEMA_V2,MAX_BYTES,MAX_PACK_BYTES,PUBLIC_FILES,LEGACY_RUNTIME_FILES,WRITER_RUNTIME_FILES,PRE_PARITY_RUNTIME_FILES,READ_BRIDGE_RUNTIME_FILES,PARITY_RUNTIME_FILES,CONTENT_RUNTIME_FILES,PRE_COEXISTENCE_RUNTIME_FILES,COEXISTENCE_RUNTIME_FILES,RUNTIME_FILES,LEGACY_FILES,PRE_PARITY_FILES,PARITY_FILES,PRE_COEXISTENCE_FILES,FILES,sha,isText,validateFiles,decodePack,unpack};

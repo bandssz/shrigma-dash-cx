@@ -153,8 +153,10 @@
     "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
     "ops/releases/crm-native-connection-20261007/smoke.cjs",
     "ops/releases/crm-native-connection-20261007/start-existing.cjs",
+    "services/dashboard-operational/Dockerfile",
     "services/dashboard-operational/INTEGRATION-database-inventory.txt",
     "services/dashboard-operational/INTEGRATION-source-sync.txt",
+    "services/dashboard-operational/artifact-policy.cjs",
     "services/dashboard-operational/auth.cjs",
     "services/dashboard-operational/build.cjs",
     "services/dashboard-operational/crm-individual-coexistence.cjs",
@@ -220,7 +222,10 @@
     "tests/configured-journeys-read/ui.test.cjs",
     "tests/crm-journey-read.test.cjs",
     "tests/dashboard-operational-brand-ui.test.cjs",
+    "tests/dashboard-operational-coexistence-packaging.test.cjs",
+    "tests/dashboard-operational-crm-managed-read-bridge.test.cjs",
     "tests/dashboard-operational-native-mcp.test.cjs",
+    "tests/dashboard-operational-writer-pack.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
     "tests/growth-flows-ui.test.cjs",
@@ -292,8 +297,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 12913,
-      "sha256": "f1e8de015c015e0ca785807110b3ebcdf2ed648122d2263a0e66fe24efcd17fa"
+      "bytes": 13594,
+      "sha256": "9830fb641113e5bfe5ce381a5f056beb6e7fa09466efcc7628aef4e907cc977a"
     },
     {
       "path": "assets/panels/growth.css",
@@ -396,6 +401,11 @@
       "sha256": "34e40f2da7f3dd663178cd80368c7eecc7238e0a80ad095907b88f5d82ceba53"
     },
     {
+      "path": "services/dashboard-operational/Dockerfile",
+      "bytes": 4781,
+      "sha256": "ef3c18d5665021a472383f65cf87e9c636ca262cc09a72229441798c9749664b"
+    },
+    {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
       "bytes": 12728,
       "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143"
@@ -404,6 +414,11 @@
       "path": "services/dashboard-operational/INTEGRATION-source-sync.txt",
       "bytes": 16074,
       "sha256": "546d898dd092e3727d311823f32213ce06d9853f6a077279c12bff894112a090"
+    },
+    {
+      "path": "services/dashboard-operational/artifact-policy.cjs",
+      "bytes": 7906,
+      "sha256": "37c569e13f1e6db5a85ae28393c0ec6afe28720f0fcfe56de1bf7c3d3d7b9188"
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
@@ -731,9 +746,24 @@
       "sha256": "77940b04de8d1fe1c66ad6fe1e94e12c722d3de7b692d6f632b98a62b975b84e"
     },
     {
+      "path": "tests/dashboard-operational-coexistence-packaging.test.cjs",
+      "bytes": 8487,
+      "sha256": "3a56385eea9aa3b63e57bb8a9497117624679b14ec1fe9e4394e13ab85efb39e"
+    },
+    {
+      "path": "tests/dashboard-operational-crm-managed-read-bridge.test.cjs",
+      "bytes": 31355,
+      "sha256": "cb207555c125750dcf206241c022827f01bc08bf0e670e9d55c2dec28fb9ae5a"
+    },
+    {
       "path": "tests/dashboard-operational-native-mcp.test.cjs",
       "bytes": 13384,
       "sha256": "df0d4d6747db860ee0c8592c786551bd925de5badebbacdeaa16cbd755c43565"
+    },
+    {
+      "path": "tests/dashboard-operational-writer-pack.test.cjs",
+      "bytes": 8698,
+      "sha256": "7f1d4807020051c77c82113657f77562c257d02c1204f934191594cef6b9cdf4"
     },
     {
       "path": "tests/database-inventory/inventory.test.cjs",
@@ -1042,8 +1072,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4674,
-      "sha256": "0e7df40873901f53ecc898446f990d98a96f224705594c4f13a154f3cb3fc04a"
+      "bytes": 4946,
+      "sha256": "ccce1571b556873fcbf48e3470e3ed4d66945955636aa12793a970463513ee47"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1349,5 +1379,69 @@
       "templateSourceUnchanged": true,
       "notInstalled": true
     }
+  },
+  "publicCoexistencePackagingCorrection": {
+    "sourceParent": "5b2201458aa51be6b1206bcaea210ef3f76a8239",
+    "C2deliverySha256": "a28c0fc2a6f2e03e93656e1ef9b272480b7f134c5041f6c4243f6a621c386f2c",
+    "outputs": [
+      {
+        "path": "services/dashboard-operational/Dockerfile",
+        "bytes": 4781,
+        "sha256": "ef3c18d5665021a472383f65cf87e9c636ca262cc09a72229441798c9749664b",
+        "status": "replacement",
+        "before": {
+          "bytes": 4680,
+          "sha256": "7b94263a9b867e2c57fd569bde2c194cc0529de39d874cbc7599166d20210a5f"
+        }
+      },
+      {
+        "path": "services/dashboard-operational/artifact-policy.cjs",
+        "bytes": 7906,
+        "sha256": "37c569e13f1e6db5a85ae28393c0ec6afe28720f0fcfe56de1bf7c3d3d7b9188",
+        "status": "replacement",
+        "before": {
+          "bytes": 7409,
+          "sha256": "430f53eb5b542c47db54b2576ac5bf99018f2f70f70121c9e16e75fff9d1011f"
+        }
+      },
+      {
+        "path": "tests/dashboard-operational-coexistence-packaging.test.cjs",
+        "bytes": 8487,
+        "sha256": "3a56385eea9aa3b63e57bb8a9497117624679b14ec1fe9e4394e13ab85efb39e",
+        "status": "new"
+      },
+      {
+        "path": "tests/dashboard-operational-crm-managed-read-bridge.test.cjs",
+        "bytes": 31355,
+        "sha256": "cb207555c125750dcf206241c022827f01bc08bf0e670e9d55c2dec28fb9ae5a",
+        "status": "replacement",
+        "before": {
+          "bytes": 31302,
+          "sha256": "a26dd01c535c9dc8a304322e015ff31825c7b6af915cdcd12f7ea1cab0f62f6d"
+        }
+      },
+      {
+        "path": "tests/dashboard-operational-writer-pack.test.cjs",
+        "bytes": 8698,
+        "sha256": "7f1d4807020051c77c82113657f77562c257d02c1204f934191594cef6b9cdf4",
+        "status": "replacement",
+        "before": {
+          "bytes": 8549,
+          "sha256": "4eff9904e60ec358a1ff27e149a4f644a2248e8f32a64bfd655af70a00d3e747"
+        }
+      }
+    ],
+    "producerCases": 14,
+    "completeRuntimeFamilies": [
+      18,
+      23,
+      26,
+      28,
+      29
+    ],
+    "privateRuntimeUnchanged": true,
+    "newActualUID1000CICases": 14,
+    "productionActivation": false,
+    "operational": false
   }
 }
