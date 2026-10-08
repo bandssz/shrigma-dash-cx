@@ -348,8 +348,8 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
       "bytes": 11501,
-      "sha256": "7f4c5e88a4ae28c56806efbd5c0a1cf68eff17dcabd1982e025feba7119b8dda",
-      "gitBlobSha1": "582366062c8aa9e39356e1e879aa62942b0075cd"
+      "sha256": "58cef164cd2502894a53724279f333fba839104c1aa373c6cbd8978bf11bd2da",
+      "gitBlobSha1": "3198bc0de62439dd0c4189a50d3e7714db6f6f5e"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -383,9 +383,9 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
-      "bytes": 6713,
-      "sha256": "2e629e0cd8fbeb93745cce67661f47b68e76345a11ef24a5c89626034bcca4f1",
-      "gitBlobSha1": "b39163151297c0f1a0e1d251804a510ac9b67542"
+      "bytes": 6798,
+      "sha256": "ac92858852dc8661e9a4d52634943c7a31ee55bb07fbabad3ecd6bb6a2cf37a4",
+      "gitBlobSha1": "1aaa75c6053e84c8d460afe95b0be4602f015175"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
