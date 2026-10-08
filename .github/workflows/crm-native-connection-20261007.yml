@@ -57,7 +57,7 @@ jobs:
           smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/native-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/native-smoke.cjs > "$NATIVE_CI_DIR/smoke.json"
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
-          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,51);a.equal(r.presentationPathsUpdated,2);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,52);a.equal(r.presentationPathsUpdated,2);for(const k of ['canonicalCrmStylesActuallyServed','htmlCssVersionMatched','originalPresentationVerifierPreserved','publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
           NODE
       - name: Verify new original-source consent and single-intent connection in actual UID1000 image
         shell: bash
@@ -71,6 +71,12 @@ jobs:
           set -euo pipefail
           campaign_tests="$GITHUB_WORKSPACE/tests/campaign-create-native"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$campaign_tests,dst=/tmp/campaign-tests,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env CAMPAIGN_CREATE_RUNTIME=/app/native-backend/runtime/crm-native-mcp.cjs --env CAMPAIGN_CREATE_INPUTS=/tmp/campaign-runtime-inputs --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'mkdir -p /tmp/campaign-runtime-inputs/services && ln -s /app/native-backend/runtime /tmp/campaign-runtime-inputs/services/dashboard-operational && exec node --test /tmp/campaign-tests/*.test.cjs'
+      - name: Verify immutable canonical CRM stylesheet delivery in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          style_tests="$GITHUB_WORKSPACE/tests/presentation-style-native"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$style_tests,dst=/tmp/style-tests,readonly" --env PRESENTATION_STYLE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/style-tests/*.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |

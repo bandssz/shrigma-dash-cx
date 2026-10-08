@@ -10,6 +10,7 @@ COPY services/dashboard-operational/journey-read/growth-flows.js ./services/dash
 COPY services/dashboard-operational/public/entry.js ./services/dashboard-operational/public/
 COPY growth.html ./
 COPY assets/panels/growth.js ./assets/panels/
+COPY services/dashboard-operational/crm-presentation.css ./services/dashboard-operational/
 COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
 COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-lock.json tools/native-pg-dependency/build-driver.cjs ./tools/native-pg-dependency/
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org

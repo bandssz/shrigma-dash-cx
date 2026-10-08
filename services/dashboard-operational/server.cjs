@@ -187,6 +187,13 @@ function fileForHost(pathname,host,s){
   if(panel&&host!==s.managerHost&&area!==panel)return null;
   return pathname;
 }
+// This CSS is an explicit immutable native asset. The inherited public pack and
+// its historical presentation verifier remain unchanged.
+function presentationStyle(s){
+  const v=s.crmPresentationStyle;if(v===undefined)return null;
+  if(s.crmNativeEnabled!==true||!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(',')!=='bytes,path,sha256'||typeof v.path!=='string'||!path.isAbsolute(v.path)||path.basename(v.path)!=='crm-presentation.css'||!Number.isSafeInteger(v.bytes)||v.bytes<1||v.bytes>262144||!/^[a-f0-9]{64}$/.test(v.sha256||''))throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');
+  try{const st=fs.lstatSync(v.path);if(fs.realpathSync(v.path)!==v.path||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size!==v.bytes)throw Error();const data=fs.readFileSync(v.path);if(data.length!==v.bytes||crypto.createHash('sha256').update(data).digest('hex')!==v.sha256)throw Error();return data;}catch{throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');}
+}
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
   const file=fileForHost(url.pathname,host,s);
@@ -195,7 +202,7 @@ function serveFile(req,res,url,host,s,auth){
   if(area)auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area});
   const realRoot=fs.realpathSync(s.publicDir),candidate=path.resolve(realRoot,'.'+file);
   if(!candidate.startsWith(realRoot+path.sep))throw jsonError(404,'NOT_FOUND');
-  let data;try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
+  let data;if(file==='/assets/panels/growth.css'&&s.crmPresentationStyle!==undefined)data=presentationStyle(s);else try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
   const metadata=typeAndCsp(file,data);if(!metadata)throw jsonError(404,'NOT_FOUND');
   res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);
   res.setHeader('Cache-Control',file.endsWith('.html')?'no-store':'public, max-age=300');res.end(req.method==='HEAD'?undefined:data);
@@ -583,7 +590,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(!allowedHosts.has(host))throw jsonError(421,'HOST_DENIED');
       const url=safeRequestPath(req.url),origin='https://'+host;
       if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method)){
-        const journeyPublicFiles=s.crmJourneyPresentationManifestSha256?['growth.html','assets/panels/growth.js'].map(file=>{
+        const journeyPublicFiles=s.crmJourneyPresentationManifestSha256?['growth.html','assets/panels/growth.js',...(s.crmPresentationStyle?['assets/panels/growth.css']:[])].map(file=>{
+          if(file==='assets/panels/growth.css'){const b=presentationStyle(s);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};}
           const root=fs.realpathSync(s.publicDir),p=path.join(root,file),st=fs.lstatSync(p);
           if(!st.isFile()||st.isSymbolicLink()||st.size>2*1024*1024||fs.realpathSync(p)!==p)throw jsonError(503,'JOURNEY_PUBLIC_FILES_UNAVAILABLE');
           const b=fs.readFileSync(p);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
