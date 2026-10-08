@@ -112,3 +112,7 @@ test('HTML reload and withdrawn credential call clear before returning',()=>{
  assert(raw.split('function render(){')[1].trimStart().startsWith("if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API"));
  const scripts=raw.split('<script>').slice(1).map(x=>x.split('</script>')[0]);assert(scripts.length>0);for(const script of scripts)new vm.Script(script);
 });
+
+test('missing browser origin or transport leaves other panel sections usable without I/O',()=>{
+ for(const missing of ['origin','fetch']){let calls=0;const h=browserHarness(()=>{calls++;throw Error('not expected');});if(missing==='origin')delete h.ctx.window.location;else delete h.ctx.window.fetch;assert.doesNotThrow(()=>h.P.sync(h.context()));assert.doesNotThrow(()=>h.P.mount(h.context(),h.node()));assert.equal(calls,0);assert.equal(h.root,null);}
+});

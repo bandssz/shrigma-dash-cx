@@ -93,7 +93,7 @@ const GPR=(()=>{
  let browser=null;
  function sync(ctx){
   if(typeof window==='undefined'||typeof document==='undefined')return;
-  if(!browser){browser=create({fetchImpl:window.fetch.bind(window),canvas:typeof GBC==='undefined'?null:GBC,origin:window.location.origin,onChange:()=>paint()});window.addEventListener('pagehide',()=>{browser.dispose();paint();});}
+  if(!browser){if(typeof window.fetch!=='function'||typeof window.location?.origin!=='string'||!window.location.origin)return;browser=create({fetchImpl:window.fetch.bind(window),canvas:typeof GBC==='undefined'?null:GBC,origin:window.location.origin,onChange:()=>paint()});window.addEventListener('pagehide',()=>{browser.dispose();paint();});}
   browser.sync(ctx);paint();
  }
  function paint(){

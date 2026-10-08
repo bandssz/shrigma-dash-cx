@@ -287,9 +287,9 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1015500,
-      "sha256": "51aa9c6563c699d845889fa6e10188c98cab8be1d63a7e7b971c69f32620dd03",
-      "gitBlobSha1": "0f62d53aecf9903a0b4a6bc5c3ac1d40d94b8b2e"
+      "bytes": 1015616,
+      "sha256": "3648f08e3b6c0fd709ba29207c8aece4452c2e4ebc6f46baa5b346e4a8683c04",
+      "gitBlobSha1": "1eb7cf91751b01d8033f6190daa79ee21e01d652"
     },
     {
       "path": "growth-flows-ui.js",
@@ -317,9 +317,9 @@
     },
     {
       "path": "growth-published-flows.js",
-      "bytes": 11649,
-      "sha256": "4af660e336704f09d18e7d74ddc3e9c061cce34670f9362371cdcda3d3753bf1",
-      "gitBlobSha1": "5253a2e9175b470239b41f47b4c6c9a764c70bb4"
+      "bytes": 11760,
+      "sha256": "92de852b311756aaa4835c5ab0d7156eb392b5ef7dfd0068c8d0ea2d52c6a8d4",
+      "gitBlobSha1": "ce15f264bce75e1dd3cff8df9630e5d4690aac7a"
     },
     {
       "path": "growth-segment-client.js",
@@ -336,8 +336,8 @@
     {
       "path": "growth.html",
       "bytes": 110424,
-      "sha256": "3c637b3823ba500692380f1bd9af7233588595ec29b2fa49b53ff173782419e4",
-      "gitBlobSha1": "24b60805ddd35486f8e7a0dc62bd0ab84d219948"
+      "sha256": "d14febb217967d2985a9634609e0e7964f940d8902fb714d49fcd5514bb01f7b",
+      "gitBlobSha1": "cdf19f117aa8dfbf43149143fa877cc2d37b17a9"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -929,9 +929,9 @@
     },
     {
       "path": "tests/published-journeys-native/renderer.test.cjs",
-      "bytes": 15859,
-      "sha256": "e6e885b3ec7128dd9a6de70762c3094d7b688d843f169d1d61321c6aa55de94f",
-      "gitBlobSha1": "ce128466568acc6dd75b0b800600a690572c4558"
+      "bytes": 16317,
+      "sha256": "a1b455a65a14aa384c4c473ba94945ec377743a1af28f98069526995c08301df",
+      "gitBlobSha1": "be6f9cb891444051638effcb8a552a26a179c3c5"
     },
     {
       "path": "tests/segment-shopify-panel.test.cjs",
@@ -1339,6 +1339,7 @@
     "C2deliverySha256": "e144e25d581067e7e0ed2f80b2e94fc2553eb4e12aac49bd4e8cb3370cea7ebc",
     "nativeReadPrepared": true,
     "tests": 37,
-    "operational": false
+    "operational": false,
+    "focalCases": 38
   }
 }
