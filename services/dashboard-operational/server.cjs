@@ -828,7 +828,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         throw jsonError(404,'NOT_FOUND');
       }
       if(url.pathname==='/api/templates'&&crmPublishedJourneyRead){
-        const result=await publishedJourneyReader.read(ctx,url.searchParams);
+        const result=url.searchParams.get('acao')==='fluxos_capacidade'?publishedJourneyReader.capability(ctx,url.searchParams):await publishedJourneyReader.read(ctx,url.searchParams);
         return sendJson(req,res,result.status,result.body);
       }
       if(url.pathname.startsWith('/api/')){

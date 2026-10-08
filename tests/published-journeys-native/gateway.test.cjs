@@ -46,3 +46,14 @@ test('current owner credential tamper and native revocation during original READ
 test('post-verifier purpose projection is separate, immutable and rejects incompatible profiles',async t=>{const f=await fixture(t),requested={DASHBOARD_CRM_PUBLISHED_JOURNEY_READ:'enabled'},preserved={...f.env};delete preserved.DASHBOARD_CRM_PUBLISHED_JOURNEY_READ;const before=JSON.stringify(preserved),next=environmentForOriginalMasterPublishedJourneyRead(requested,preserved);a.equal(JSON.stringify(preserved),before);a.equal(next.DASHBOARD_ENCRYPTION_KEY,preserved.DASHBOARD_ENCRYPTION_KEY);a.equal(settingsFromEnv(next).crmPublishedJourneyRead,true);a.equal(next.DASHBOARD_UPSTREAMS,preserved.DASHBOARD_UPSTREAMS);a.throws(()=>environmentForOriginalMasterPublishedJourneyRead(requested,{...preserved,DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE:undefined}));});
 
 test('browser published READ needs cookie and Accept only; cross-host and missing original attestation fail before transport',async t=>{const f=await fixture(t);const result=await f.browser('GET','/api/templates?acao=fluxos_listar&marca=fish');a.equal(result.status,200);const db=new DatabaseSync(f.dbPath);db.prepare('UPDATE campaign_writer_attestation_v1 SET expires_at=1 WHERE user_id=?').run(f.user.id);db.close();a.equal((await f.browser('GET','/api/templates?acao=fluxos_listar&marca=fish')).status,403);a.equal(f.calls.length,1);});
+
+test('browser current published-read capability is independent of aggregate cache and closes on original attestation expiry',async t=>{
+ const f=await fixture(t);
+ const r=await f.browser('GET','/api/templates?acao=fluxos_capacidade&marca=fish');
+ a.equal(r.status,200);a.deepEqual(r.body,{contract:'crm-published-journey-read-v1',brand:'fish',read:true,endpoint:origin+'/api/templates',scope:'master-brand-scoped',readOnly:true,write:false});
+ a.equal(f.calls.length,0);
+ for(const secret of [f.key,f.issued.token,f.ctx.cookieHeader,f.ctx.csrf])a.equal(JSON.stringify(r).includes(secret),false);
+ for(const [method,p]of [['POST','/api/templates?acao=fluxos_capacidade&marca=fish'],['GET','/api/templates?acao=fluxos_capacidade&marca=todas'],['GET','/api/templates?acao=fluxos_capacidade&marca=fish&marca=aristo'],['GET','/api/templates?acao=fluxos_capacidade&marca=fish&k=private']])a.notEqual((await f.browser(method,p,method==='POST'?{}:undefined)).status,200);
+ const db=new DatabaseSync(f.dbPath);db.prepare('UPDATE campaign_writer_attestation_v1 SET expires_at=1 WHERE user_id=?').run(f.user.id);db.close();
+ a.equal((await f.browser('GET','/api/templates?acao=fluxos_capacidade&marca=fish')).status,403);a.equal(f.calls.length,0);
+});

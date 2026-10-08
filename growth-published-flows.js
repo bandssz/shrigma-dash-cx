@@ -69,26 +69,34 @@ const GPR=(()=>{
  function create({fetchImpl,canvas,origin,onChange=()=>{}}){
   let ctx=null,sequence=0,abort=null,model=unavailable(),busy=false,endpoint=null;
   const active=c=>!!c&&c.section==='regua'&&c.tab==='fluxos'&&['fish','aristo'].includes(c.marca);
+  // A visible button offers a CURRENT access check, never a permission claim.
+  const consultable=()=>active(ctx);
   function invalidate(){sequence++;abort?.abort();abort=null;busy=false;model=unavailable();}
   function sync(next){
    const nextEndpoint=admission(next?.api,origin),changed=!ctx||ctx.api!==next?.api||ctx.marca!==next?.marca||endpoint!==nextEndpoint||active(ctx)!==active(next);
-   if(changed)invalidate();ctx=next;endpoint=nextEndpoint;return {model,busy,available:active(ctx)&&!!endpoint};
+   if(changed)invalidate();ctx=next;endpoint=nextEndpoint;return {model,busy,available:consultable()};
   }
   async function refresh(){
-   if(busy||!active(ctx)||!endpoint||typeof fetchImpl!=='function')return false;
-   const ticket=++sequence,at={api:ctx.api,marca:ctx.marca},target=endpoint,controller=new AbortController();abort=controller;const signal=controller.signal;busy=true;model=unavailable();onChange();
+   if(busy||!consultable()||typeof fetchImpl!=='function')return false;
+   const ticket=++sequence,at={api:ctx.api,marca:ctx.marca},target=origin+'/api/templates',controller=new AbortController();abort=controller;const signal=controller.signal;busy=true;model=unavailable();onChange();
    let expire;const deadline=new Promise((_,reject)=>{expire=()=>{controller.abort();reject(Error('read_unavailable'));};});const timeout=setTimeout(expire,20000);
    const requestUrl=target+'?acao=fluxos_listar&marca='+at.marca;
    try{
+    const capabilityUrl=target+'?acao=fluxos_capacidade&marca='+at.marca;
+    const capabilityResponse=await Promise.race([fetchImpl(capabilityUrl,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal}),deadline]);
+    if(!capabilityResponse.ok||capabilityResponse.url&&capabilityResponse.url!==capabilityUrl)throw Error('read_unavailable');
+    const proof=await Promise.race([readBody(capabilityResponse),deadline]);
+    if(!plain(proof)||Object.keys(proof).sort().join(',')!=='brand,contract,endpoint,read,readOnly,scope,write'||proof.contract!==VERSION||proof.brand!==at.marca||proof.read!==true||proof.endpoint!==target||proof.scope!=='master-brand-scoped'||proof.readOnly!==true||proof.write!==false)throw Error('read_unavailable');
+    if(ticket!==sequence||ctx?.api!==at.api||ctx?.marca!==at.marca||!active(ctx))return false;
     const r=await Promise.race([fetchImpl(requestUrl,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal}),deadline]);
     if(!r.ok||r.url&&r.url!==requestUrl)throw Error('read_unavailable');
     const body=await Promise.race([readBody(r),deadline]);
-    if(ticket!==sequence||ctx?.api!==at.api||ctx?.marca!==at.marca||!active(ctx)||admission(ctx.api,origin)!==target)return false;
+    if(ticket!==sequence||ctx?.api!==at.api||ctx?.marca!==at.marca||!active(ctx))return false;
     model=normalize(body,ctx.marca,canvas);return model.state==='loaded';
    }catch{if(ticket===sequence)model=unavailable('read_unavailable');return false;}
    finally{clearTimeout(timeout);if(ticket===sequence){busy=false;abort=null;onChange();}}
   }
-  return Object.freeze({sync,refresh,state:()=>({model,busy,available:active(ctx)&&!!endpoint}),dispose(){invalidate();ctx=null;endpoint=null;}});
+  return Object.freeze({sync,refresh,state:()=>({model,busy,available:consultable()}),dispose(){invalidate();ctx=null;endpoint=null;}});
  }
  let browser=null;
  function sync(ctx){
@@ -98,7 +106,7 @@ const GPR=(()=>{
  }
  function paint(){
   const root=document.getElementById('jpr-published');if(!root||!browser)return;const s=browser.state();
-  root.innerHTML='<header><h2>Fluxograma publicado · somente leitura</h2><button type="button" class="refresh-btn" data-jpr-read'+(!s.available||s.busy?' disabled':'')+'>'+(s.busy?'Consultando…':'Consultar fluxogramas publicados')+'</button></header>'+(s.model.checkedAt?'<p>Consulta recebida em '+esc(s.model.checkedAt)+'.</p>':'')+html(s.model);
+  root.innerHTML='<header><h2>Fluxograma publicado · somente leitura</h2><button type="button" class="refresh-btn" data-jpr-read'+(!s.available||s.busy?' disabled':'')+'>'+(s.busy?'Consultando…':s.available&&s.model.state!=='loaded'?'Verificar acesso e consultar fluxogramas publicados':'Consultar fluxogramas publicados')+'</button></header>'+(s.model.checkedAt?'<p>Consulta recebida em '+esc(s.model.checkedAt)+'.</p>':'')+html(s.model);
   root.querySelector('[data-jpr-read]')?.addEventListener('click',()=>browser.refresh());
  }
  function mount(ctx,root){sync({...ctx,section:'regua',tab:'fluxos'});if(!root||!browser)return;root.querySelector('#jpr-published')?.remove();const el=document.createElement('section');el.id='jpr-published';el.className='jpr-published';el.setAttribute('aria-label','Fluxogramas publicados');root.appendChild(el);paint();}

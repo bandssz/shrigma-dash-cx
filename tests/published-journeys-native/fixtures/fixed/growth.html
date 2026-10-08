@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=9204151c4c38">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-bQAlgl5tEq5hSmU4CktR4EKA48QWOAE3g0InGjCdXvQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-tRLQlgh05utNqho0b2fI5VefSIxkUaKzw6E570nguAQ='; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://cdn.shopify.com/s/files/ https://email.shrigma.com.br/uploads/ https://cdninstagram.com/ https://*.cdninstagram.com/ https://fbcdn.net/ https://*.fbcdn.net/ https://*.ibyteimg.com/ https://*.tiktokcdn.com/ https://*.tiktokcdn-us.com/ https://*.byteimg.com/ https://*.ttwstatic.com/; connect-src 'self'; font-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -42,7 +42,7 @@
 #control-fluxos .gjr-empty { color: #496270; }
 @media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
 </style>
-</head>
+<style id="dashboard-operational-readonly">body #growth-acesso,body #organico-acesso-bar,body #organico-acesso,body #influ-access,body #ab-acesso-legado,body #ab-consultar,body #btn-novo,body #form-teste,body .e-salvar,body #ab-experiment-panel,body #control-tab-graph,body #control-graph,body #control-drafts #drafts-create,body #control-drafts #drafts-importar,body #control-drafts #drafts-arquivo,body #control-drafts #drafts-native-email,body #control-drafts .drafts-key,body #control-drafts #drafts-acesso,body #control-drafts #draft-editor,body #control-drafts [data-draft-edit],body #control-drafts [data-draft-dup],body #control-drafts [data-draft-delete],body #control-drafts [data-email-replicate],body #crm-segments-panel .gs-shell > header > p,body #crm-segments-panel [data-gs="count"],body #crm-media-library-load,body #crm-media .crm-media-integrated,body [data-crm-go="templates"],body [data-crm-open-tab="control-tab-drafts"],body #crm-campaign-open,body #campaign-composer .ce-import,body #campaign-composer [data-ce-access-open],body #campaign-composer [data-ce-access-form],body #campaign-composer [data-ce-new],body #campaign-composer [data-ce-recover],body #campaign-composer [data-ce-save],body #campaign-composer [data-ce-validate],body #campaign-composer [data-ce-schedule],body #campaign-composer [data-ce-cancel],body #campaign-composer [data-ce-saved-audience]{display:none!important}body:not(.dashboard-audience-draft-ready) #crm-segments-panel .gs-shortcuts,body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="new"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs-fields],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="save"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="archive"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs-dialog],body:not(.dashboard-audience-draft-ready) #crm-audience-create,body:not(.dashboard-audience-draft-ready) #crm-audience-brand-choices,body:not(.dashboard-audience-draft-ready) #area-arvore .ga-rfm-create{display:none!important}</style><script src="/guard.js"></script></head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
 <aside class="crm-sidebar" aria-label="Navegação do CRM"><div class="crm-wordmark">Shrigma <span>CRM</span></div><details id="crm-brand-picker"><summary><span class="crm-sidebar-label">Marca</span><strong id="crm-brand-label">Todas as marcas</strong></summary><nav class="filtros" aria-label="Selecionar marca">
@@ -126,7 +126,7 @@
 
 
   <div class="sec ativa" id="sec-visao">
-<div class="crm-section-intro"><div><span class="crm-eyebrow">SUA OPERAÇÃO</span><h2>Uma visão clara para começar o dia.</h2><p>Confira os resultados do período e escolha o próximo passo. A marca selecionada acompanha sua navegação.</p></div></div><div class="crm-home-heading"><h2>Resumo do período</h2></div>
+<div class="crm-section-intro"><div><span class="crm-eyebrow">SUA OPERAÇÃO</span><h2>Uma visão clara para começar o dia.</h2><p>Confira os resultados do período e escolha o próximo passo. A marca selecionada acompanha sua navegação.</p></div></div><div class="crm-home-heading"><h2>Resumo do período</h2></div><p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>
 <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
 <div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas e histórico de envios</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
 
@@ -203,7 +203,7 @@
       <div id="area-testes"></div>
     </details></section></div></div>
   <div class="sec" id="sec-regua">
-    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
+    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Consulte as jornadas e suas conexões originais.</h2><p>Jornadas mostra as definições disponíveis e o histórico de mensagens. O fluxograma usa somente as conexões declaradas na configuração. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
     <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
       <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
@@ -263,7 +263,7 @@
   </div>
 
 
-<div class="sec" id="sec-templates"><div class="crm-section-intro"><div><span class="crm-eyebrow">MODELOS E IMAGENS</span><h2>Uma biblioteca para suas próximas mensagens.</h2><p>Crie ou edite modelos, consulte o inventário e o uso das mensagens e publique imagens para inserir nos e-mails.</p></div><div class="crm-intro-actions"><button type="button" class="crm-primary-action" data-crm-open-tab="control-tab-drafts">Criar ou editar modelo</button><button type="button" class="crm-secondary-action" data-crm-focus="crm-media">Imagens públicas ↓</button></div></div><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar e editar</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Inventário de mensagens</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section><section class="painel" id="crm-media" aria-label="Imagens públicas para e-mail"></section></div><div class="sec" id="sec-resultados"><div class="crm-section-intro"><div><span class="crm-eyebrow">RESULTADOS</span><h2>Do envio à venda, com a cobertura visível.</h2><p>Compare os canais, consulte as campanhas e acompanhe as vendas atribuídas. As quantidades sem confirmação permanecem indicadas como indisponíveis.</p></div></div><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+<div class="sec" id="sec-templates"><div class="crm-section-intro"><div><span class="crm-eyebrow">MODELOS E IMAGENS</span><h2>Uma biblioteca para suas próximas mensagens.</h2><p>Consulte os modelos, o inventário e o uso das mensagens e as imagens públicas disponíveis para os e-mails.</p></div><div class="crm-intro-actions"><button type="button" class="crm-primary-action" data-crm-open-tab="control-tab-drafts">Criar ou editar modelo</button><button type="button" class="crm-secondary-action" data-crm-focus="crm-media">Imagens públicas ↓</button></div></div><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" hidden disabled title="Edição de modelos indisponível nesta versão" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar e editar</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Inventário de mensagens</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section><section class="painel" id="crm-media" aria-label="Imagens públicas para e-mail"></section></div><div class="sec" id="sec-resultados"><div class="crm-section-intro"><div><span class="crm-eyebrow">RESULTADOS</span><h2>Do envio à venda, com a cobertura visível.</h2><p>Compare os canais, consulte as campanhas e acompanhe as vendas atribuídas. As quantidades sem confirmação permanecem indicadas como indisponíveis.</p></div></div><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
       <div class="painel-cab"><h2>Evolução</h2>
         <select id="sel-metrica" aria-label="Métrica do gráfico">
           <option value="receita">Receita atribuída</option>
@@ -307,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=3648f08e3b6c"></script>
+<!-- PANEL_JS --><script src="/media-read.js"></script><script src="assets/panels/growth.js?v=3648f08e3b6c"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -318,6 +318,13 @@ const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&am
 GA.install(G);
 let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+// The BFF authorizes the brand; this listener only keeps the visible panel in that scope.
+window.addEventListener('shrigma:brand-access',event=>{
+ const scope=event.detail;if(scope?.brandAccess!=='single'||!['fish','aristo'].includes(scope.brand))return;
+ MARCA=scope.brand;document.querySelectorAll('#seg-marca button').forEach(button=>button.classList.toggle('ativo',button.dataset.marca===MARCA));
+ pintaMarca();CRMWorkspace.sync({section:SEC,brand:MARCA});if(API)render();
+});
+
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
 // A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
@@ -376,9 +383,9 @@ let PER=G.preset('7',HOJE);
 const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
 // Icone pequeno da marca, no topo a esquerda. O nome por extenso vive no seletor.
 const LOGO={
-  aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
-  fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',
-  olivas:'https://olivasdocampo.com.br/cdn/shop/files/logo-olivas.jpg?height=96'};
+  aristo:'/logos/icone-aristocrata.png',
+  fish:'/logos/icone-fishermans.svg',
+  olivas:'/logos/icone-olivas.jpg'};
 // Pre-carrega os tres logotipos: sem isso, trocar de marca mostra um buraco
 // no cabecalho ate o PNG chegar (o da Fishermans tem ~112 KB).
 Object.values(LOGO).forEach(u=>{const i=new Image(); i.src=u;});
@@ -711,7 +718,7 @@ function renderJornadas(modeloOp){
     if(root){root.innerHTML='<p role="status">Os dados gerais do CRM estão indisponíveis. A consulta publicada tem sua própria verificação de acesso; escolha uma marca e consulte abaixo.</p>';if(typeof GPR!=='undefined')GPR.mount(ctx,root);}
     return;
   }
-  GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
+  GFU.render({...ctx,configuredReadOnly:true,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
 function renderRelatoriosCampanha(){
   const campaigns=SEC==='camp'&&CRMWorkspace.state().campaign==='list';
@@ -734,7 +741,7 @@ function render(){
   const resultsEmail=SEC==='resultados'&&reportTab==='email',resultsConversion=SEC==='resultados'&&reportTab==='conversion';
   if(tests)renderABExperiment();
   if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
-  if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
+  if(SEC==='templates')GMediaRead.mount({marca:MARCA,api:API});
   if(!API){renderJornadas();return;}
   if(tests)GABF.enter(MARCA,API);
   pintaMarca();
@@ -1204,7 +1211,7 @@ function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
   PENDENTE_GRAPH=false;SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
-  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
+  const nextTab=SEC==='templates'?'templates':SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
   render();gravaHash();
 }
@@ -1252,8 +1259,8 @@ document.querySelectorAll('[data-audience-create-brand]').forEach(b=>b.onclick=(
 document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
 const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
 CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();if(kind==='campaign'&&API&&SEC==='camp')render();gravaHash();},initial:crmInitialView});
-if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');
-if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+if(SEC==='templates')GC.setTab('templates');
+if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){GC.setTab('templates');SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
 setCanal(CANAL);
 // Automatic refresh only while this panel is visible; server execution is independent.
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;

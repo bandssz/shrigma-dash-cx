@@ -8,11 +8,12 @@ const fail=(code,status=502)=>{throw Object.assign(Error(code),{code,status});};
 const plain=x=>x&&Object.getPrototypeOf(x)===Object.prototype;
 const text=(x,max=500)=>typeof x==='string'&&x.length>0&&x.length<=max&&!/[\x00-\x1f\x7f]/.test(x);
 const list=(x,max)=>Array.isArray(x)&&x.length<=max&&Array.from({length:x.length},(_,i)=>Object.hasOwn(x,i)).every(Boolean);
-function decision(method,query){
+function checkedQuery(method,query,action){
  if(method!=='GET')fail('PUBLISHED_JOURNEY_METHOD_DENIED',405);
- if(!(query instanceof URLSearchParams)||[...query.keys()].sort().join(',')!=='acao,marca'||query.get('acao')!=='fluxos_listar'||!['fish','aristo'].includes(query.get('marca')))fail('PUBLISHED_JOURNEY_QUERY_DENIED',400);
+ if(!(query instanceof URLSearchParams)||[...query.keys()].sort().join(',')!=='acao,marca'||query.get('acao')!==action||!['fish','aristo'].includes(query.get('marca')))fail('PUBLISHED_JOURNEY_QUERY_DENIED',400);
  return {brand:query.get('marca')};
 }
+function decision(method,query){return checkedQuery(method,query,'fluxos_listar');}
 function select(x,fields){return Object.fromEntries(fields.filter(k=>Object.hasOwn(x,k)).map(k=>[k,x[k]]));}
 function project(body,brand,secrets=[]){
  if(!['fish','aristo'].includes(brand)||!plain(body)||!list(body.flows,200)||typeof body.checked_at!=='string'||body.checked_at.length>64||!Number.isFinite(Date.parse(body.checked_at)))fail('PUBLISHED_JOURNEY_RESPONSE_INVALID');
@@ -57,9 +58,18 @@ async function boundedBody(response){
 function createReader({authorize,fetchImpl=fetch,deadlineMs=DEADLINE_MS}={}){
  if(typeof authorize!=='function'||typeof fetchImpl!=='function'||!Number.isInteger(deadlineMs)||deadlineMs<1||deadlineMs>DEADLINE_MS)fail('PUBLISHED_JOURNEY_CONFIG_INVALID',503);
  let pending=0;
- return Object.freeze({async read(ctx,query){
-  const {brand}=decision(ctx.method,query),before=authorize(ctx,{brand});
+ const current=(ctx,brand)=>{
+  const before=authorize(ctx,{brand});
   if(!before||typeof before.userId!=='string'||!text(before.binding,256)||typeof before.credential!=='string'||!/^[A-Za-z0-9._:-]{16,4096}$/.test(before.credential))fail('PUBLISHED_JOURNEY_AUTH_INVALID',403);
+  return before;
+ };
+ return Object.freeze({capability(ctx,query){
+  const {brand}=checkedQuery(ctx.method,query,'fluxos_capacidade');current(ctx,brand);
+  // The same original owner/key admission is checked independently of the
+  // aggregate cache. This exposes no credential and never reads upstream.
+  return {status:200,body:{contract:VERSION,brand,read:true,endpoint:'https://'+ctx.host+'/api/templates',scope:SCOPE,readOnly:true,write:false}};
+ },async read(ctx,query){
+  const {brand}=decision(ctx.method,query),before=current(ctx,brand);
   if(pending>=4)fail('PUBLISHED_JOURNEY_BUSY',429);pending++;
   const controller=new AbortController();let timer;
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(Error('PUBLISHED_JOURNEY_DEADLINE'),{code:'PUBLISHED_JOURNEY_DEADLINE',status:504}));},deadlineMs);});
