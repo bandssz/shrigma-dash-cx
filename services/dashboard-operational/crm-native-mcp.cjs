@@ -9,6 +9,7 @@ const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
+ ['crm_template_catalog','Consultar templates de e-mail registrados da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),true,false],
  ['crm_journey_catalog','Consultar definições originais das jornadas','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_list','Listar campanhas da marca','crm.read',obj({brand},['brand']),true,false],
  ['crm_campaign_get','Reler campanha original','crm.read',obj({brand,id},['brand','id']),true,false],
@@ -68,10 +69,10 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,sourceDiagnosticsEnabled=false}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
- const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics'));
+ const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -88,7 +89,21 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    const health=state.status===200?await run('GET','/healthz'):null;
    const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
    const sourcePeer=state.status===200&&state.body?.features?.nativeSourceSync===true?await run('GET','/api/source-peer'):null;
-   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),operational:false}};
+   // New READ capability is verified through the current native connection;
+   // only its admitted brands are queried, and template bodies stay private.
+   const templateSources=[];
+   if(masterTemplateReadEnabled&&state.status===200&&state.body?.features?.templateRead===true){
+    for(const brand of store.authenticate(bearer).brands){
+     store.authenticate(bearer,{scope:'crm.read',brand});
+     const q=new URLSearchParams({acao:'listar',marca:brand,canal:'email',limit:'20',offset:'0'});
+     try{const read=await run('GET','/api/templates?'+q),catalog=require('./crm-master-template-read.cjs').nativeCatalog(read,brand);templateSources.push({brand,status:catalog.status,total:catalog.body?.total??null,source:catalog.body?.source??'unavailable',checkedAt:catalog.body?.consultado_em??null,readOnly:true});}
+     catch(e){templateSources.push({brand,status:e.status||503,total:null,source:'unavailable',readOnly:true});}
+    }
+   }
+   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),operational:false}};
+  }else if(name==='crm_template_catalog'){
+   const q=new URLSearchParams({acao:'listar',marca:args.brand,canal:'email',...(args.offset!==undefined?{offset:String(args.offset)}:{}),...(args.limit!==undefined?{limit:String(args.limit)}:{})});
+   result=require('./crm-master-template-read.cjs').nativeCatalog(await run('GET','/api/templates?'+q),args.brand);
   }else if(name==='crm_journey_catalog'){
    result=publishedJourneyReadEnabled===true?require('./crm-published-journey-read.cjs').nativeCatalog(await run('GET','/api/templates?'+new URLSearchParams({acao:'fluxos_listar',marca:args.brand})),args.brand):require('./crm-journey-read.cjs').projectJourneyRead(await run('GET','/api/crm-read?action=cache_growth&painel=growth'),args.brand);
   }else if(name==='crm_campaign_create'){
