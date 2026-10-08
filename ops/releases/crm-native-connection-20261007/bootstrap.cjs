@@ -1,7 +1,7 @@
 'use strict';
 // Fresh, explicit backend admission. Old pack/seals/controller/73a stay intact.
 // The old presentation verifier covers its own artifact. This verifier covers
-// the actual 56-file runtime used by this server, including three replacements.
+// the actual 57-file runtime used by this server, including three replacements.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const ROOT='/app/native-backend',READY='/tmp/shrigma-native-ready-v1.json';
 const PARENT='ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911';
@@ -23,7 +23,7 @@ function verifyRelease(manifestSha256){
  if(base.length!==28||JSON.stringify(base.map(f=>({path:f.path,sha256:sha(f.b),bytes:f.b.length})))!==JSON.stringify(m.baseRuntime))refuse();
  const expected=['bootstrap.cjs','start-existing.cjs','health-existing.cjs',...base.map(f=>'runtime/'+f.path),...m.additions.map(f=>'runtime/'+f)].sort();
  const actual=[];function scan(dir,prefix=''){for(const name of fs.readdirSync(dir)){const file=dir+'/'+name;if(fs.lstatSync(file).isDirectory()){if(!['native-continuity','own-foundation','journey-read'].includes(prefix+name))refuse();scan(file,prefix+name+'/');}else actual.push(prefix+name);}}scan(ROOT+'/runtime');
- if(!Array.isArray(m.files)||m.files.length!==59||JSON.stringify(m.files.map(f=>f.path).sort())!==JSON.stringify(expected)||fs.readdirSync(ROOT).sort().join(',')!=='bootstrap.cjs,health-existing.cjs,manifest.json,runtime,start-existing.cjs'||JSON.stringify(actual.sort())!==JSON.stringify(expected.filter(f=>f.startsWith('runtime/')).map(f=>f.slice(8))))refuse();
+ if(!Array.isArray(m.files)||m.files.length!==60||JSON.stringify(m.files.map(f=>f.path).sort())!==JSON.stringify(expected)||fs.readdirSync(ROOT).sort().join(',')!=='bootstrap.cjs,health-existing.cjs,manifest.json,runtime,start-existing.cjs'||JSON.stringify(actual.sort())!==JSON.stringify(expected.filter(f=>f.startsWith('runtime/')).map(f=>f.slice(8))))refuse();
  for(const f of m.files){if(Object.keys(f).sort().join(',')!=='bytes,path,sha256'||!/^[a-f0-9]{64}$/.test(f.sha256)||!Number.isSafeInteger(f.bytes)||f.bytes<1)refuse();const b=read(ROOT+'/'+f.path);if(b.length!==f.bytes||sha(b)!==f.sha256)refuse();const before=base.find(v=>'runtime/'+v.path===f.path);if(before&&!(m.replacements.includes(before.path))&&!b.equals(before.b)||before&&m.replacements.includes(before.path)&&b.equals(before.b))refuse();}
  require(ROOT+'/runtime/native-pg-driver.cjs').verifyDriver(m.pgDriverManifestSha256);
  return m;
@@ -31,7 +31,7 @@ function verifyRelease(manifestSha256){
 function verifyReady({manifestSha256}){
  const m=verifyRelease(manifestSha256),r=JSON.parse(read(READY,{uid:1000,gid:1000,mode:0o600,max:1024}));
  if(Object.keys(r).sort().join(',')!=='manifestSha256,schema,sourceRevision'||r.schema!=='shrigma-native-ready-v1'||r.manifestSha256!==manifestSha256||r.sourceRevision!==m.sourceRevision)refuse();
- return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:56,runtimeReplacements:3,originalRuntimePreserved:25,runtimeAdditions:28,databaseInspectionEnabled:true,pgDriverManifestSha256:m.pgDriverManifestSha256,sqlInstallerEnabled:false,operational:false};
+ return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:57,runtimeReplacements:3,originalRuntimePreserved:25,runtimeAdditions:29,databaseInspectionEnabled:true,pgDriverManifestSha256:m.pgDriverManifestSha256,sqlInstallerEnabled:false,operational:false};
 }
 function start({manifestSha256}={}){
  const m=verifyRelease(manifestSha256),boot=require('/app/bootstrap.cjs');boot.checkIdentity();process.umask(0o077);

@@ -348,7 +348,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
       "bytes": 11532,
-      "sha256": "6353b4456f6ac13e1cb38286b9fb0334e5810115d46a05e19e16026c75aa7a21"
+      "sha256": "44c8bf7369ae6db045b22da4ef67871ce9315d86b4d9c28b1a83d81cdd66f9df"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -1307,6 +1307,17 @@
     "authorizesSend": false,
     "runtimeCases": 23,
     "separateProducerPinsVerified": true,
-    "operational": false
+    "operational": false,
+    "runtimePackagingCountFix": {
+      "failedHead": "64f8c0c7f65d03b127b85bd94521c72b706bc910",
+      "run": 37826201272,
+      "job": 113479590080,
+      "stage": "release-runtime-verification",
+      "manifestFileCount": 60,
+      "runtimeFiles": 57,
+      "runtimeAdditions": 29,
+      "templateSourceUnchanged": true,
+      "notInstalled": true
+    }
   }
 }
