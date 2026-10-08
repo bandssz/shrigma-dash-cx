@@ -287,9 +287,9 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 993015,
-      "sha256": "6cad33e6bb74ad8e34e5f3a14c2b9fd1fe614e9a6e5d1746ef5b3199707501ed",
-      "gitBlobSha1": "d92db0da9a7d494ddf1c262f99e537b8802e49ef"
+      "bytes": 1015500,
+      "sha256": "51aa9c6563c699d845889fa6e10188c98cab8be1d63a7e7b971c69f32620dd03",
+      "gitBlobSha1": "0f62d53aecf9903a0b4a6bc5c3ac1d40d94b8b2e"
     },
     {
       "path": "growth-flows-ui.js",
@@ -336,8 +336,8 @@
     {
       "path": "growth.html",
       "bytes": 110424,
-      "sha256": "3def46d8131a5be59f4a21423a6093aa92b160f571d5f950286ccc92513d7a17",
-      "gitBlobSha1": "6e3da3b4d3540f474bb273f4ec6698ffad9a2024"
+      "sha256": "3c637b3823ba500692380f1bd9af7233588595ec29b2fa49b53ff173782419e4",
+      "gitBlobSha1": "24b60805ddd35486f8e7a0dc62bd0ab84d219948"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
