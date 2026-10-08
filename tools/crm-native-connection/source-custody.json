@@ -344,9 +344,9 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
-      "bytes": 3987,
-      "sha256": "104504ef084a0d270560474ffcb65709a708df3cee03a25bf81130f81220484e",
-      "gitBlobSha1": "dbf090ff8fc1ac619e152c97b388e9abdf7530b1"
+      "bytes": 4123,
+      "sha256": "b45ca951d6f00ddd07f244f5ca3c93e4c23bc09eb28d3ed767d9dd008d33365f",
+      "gitBlobSha1": "d3f0afffa86d6e08ee67f7ae06174fc8905da1e2"
     },
     {
       "path": "services/dashboard-operational/INTEGRATION-database-inventory.txt",
@@ -596,9 +596,9 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 116379,
-      "sha256": "32b83c4f81e251d274247b22b44bff10a83cf262188007651e94d9753520a0d2",
-      "gitBlobSha1": "155202812ab49ef66c539bbd1b76d1d409a0f13f"
+      "bytes": 116974,
+      "sha256": "c55099dd9b24511ce0e176ef2df56616f3e2aafe34b58530700e9200f7879580",
+      "gitBlobSha1": "05bd465d81d379f2e32c6fbf2bed5094e91a7c32"
     },
     {
       "path": "tests/audience-context-availability/client-ui.test.cjs",
@@ -638,8 +638,8 @@
     },
     {
       "path": "tests/campaign-create-native/gateway.test.cjs",
-      "bytes": 12945,
-      "sha256": "c5d39d648e8999b1c4e279b0ee73b312c737787c85b8eefd81a9ede5086d153c"
+      "bytes": 13865,
+      "sha256": "a40fe2dcb5725c632a9d12bcb82245f03ecba00c5db668c0b6ee229d3d9c4d80"
     },
     {
       "path": "tests/campaign-create-native/native.test.cjs",
@@ -1071,9 +1071,11 @@
       }
     ],
     "producerLocalCases": 26,
-    "rootWiringCasesExpected": 4,
+    "rootWiringCasesExpected": 5,
     "originalServiceHead": "03a02b4c98f471e6739c8a7cbe46e49aa4cbf285",
     "defaultOff": true,
-    "operational": false
+    "operational": false,
+    "startupProjectionAfterExistingContinuity": true,
+    "historicalVerifierBytesUnchanged": true
   }
 }

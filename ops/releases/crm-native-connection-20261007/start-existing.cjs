@@ -22,8 +22,10 @@ async function startExisting({manifestSha256,imageDigest}={}){
  const verifier=createExistingVerifier({manifestSha256,imageDigest,purpose:'verify-existing-continuity-only'});
  try{
   const v=verifier.v,proof=await v.verifyExistingContinuity();
-  const preserved=v.environmentForExistingGrant({...process.env},proof);
-  const next=require(N.ROOT+'/runtime/server.cjs').environmentForOriginalMasterAudienceRead(preserved);
+  const requested={...process.env},preserved=v.environmentForExistingGrant(requested,proof);
+  const runtime=require(N.ROOT+'/runtime/server.cjs');
+  const projected=runtime.environmentForOriginalMasterCampaignCreate(requested,preserved);
+  const next=runtime.environmentForOriginalMasterAudienceRead(projected);
   // Only the original fixed route/profile projection is applied; no old
   // controller, observer, native activation hook, fence or receipt is invoked.
   const keys=['DASHBOARD_UPSTREAMS','DASHBOARD_UPSTREAM_HOSTS','DASHBOARD_DYNAMIC_ROUTE_MANIFEST','DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE','DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE','DASHBOARD_CRM_CORPORATE_CREATE','DASHBOARD_CRM_DRAFT_WRITE','DASHBOARD_CRM_AUDIENCE_DRAFT','DASHBOARD_CRM_MANAGED_READ','DASHBOARD_CRM_MANAGED_READ_UI','DASHBOARD_CRM_MANAGED_AUDIENCE_READ','DASHBOARD_CRM_MANAGED_TEMPLATE_READ','DASHBOARD_CRM_MANAGED_WRITER'];

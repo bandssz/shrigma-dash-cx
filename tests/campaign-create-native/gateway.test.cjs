@@ -4,7 +4,7 @@ const test=require('node:test'),a=require('node:assert/strict'),fs=require('node
 const {DatabaseSync}=require('node:sqlite');
 const runtime=process.env.CAMPAIGN_CREATE_TEST_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational');
 const {createAuth}=require(path.join(runtime,'auth.cjs'));
-const {createServer,settingsFromEnv,environmentForOriginalMasterAudienceRead}=require(path.join(runtime,'server.cjs'));
+const {createServer,settingsFromEnv,environmentForOriginalMasterAudienceRead,environmentForOriginalMasterCampaignCreate}=require(path.join(runtime,'server.cjs'));
 const {ENDPOINT}=require(path.join(runtime,'crm-native-mcp.cjs'));
 const P=require(path.join(runtime,'proxy.cjs'));
 const host='gerencial.shrigma.com.br',origin='https://'+host,email='felipebandeira@oaristocrata.com',sha=x=>crypto.createHash('sha256').update(x).digest('hex');
@@ -13,7 +13,8 @@ function catalog(brand){return {segments:[],limit:50,offset:0,catalog:{brand,cur
 async function fixture(t,{write=true,create=true}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'master-audience-isolated-')),dbPath=path.join(dir,'identity.sqlite'),key='isolated-central-master-'+crypto.randomBytes(12).toString('hex');
  const env={DASHBOARD_CRM_JOURNEY_CONFIGURED_READ:'enabled',DASHBOARD_MODE:'operational',DASHBOARD_UPSTREAM_PROFILE:'production',DASHBOARD_MANAGER_HOST:host,DASHBOARD_AREA_HOSTS:JSON.stringify({growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'}),DASHBOARD_EMAIL_DOMAINS:'["oaristocrata.com","shrigma.com.br","fishermans.com.br"]',DASHBOARD_ADMIN_EMAIL:email,DASHBOARD_BOOTSTRAP_SHA256:sha('isolated-bootstrap'),DASHBOARD_ENCRYPTION_KEY:crypto.randomBytes(32).toString('hex'),DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE:'own-master-production-v1',DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE:'enabled',DASHBOARD_CRM_CORPORATE_CREATE:create?'enabled':'disabled',DASHBOARD_CRM_MASTER_AUDIENCE_READ:'enabled',DASHBOARD_CRM_MASTER_AUDIENCE_WRITE:write?'enabled':'disabled',DASHBOARD_NATIVE_MCP:'enabled',DASHBOARD_UPSTREAMS:JSON.stringify({'crm-read':P.FIXED_DESTINATIONS['crm-read'],campaigns:P.REVIEWED_DYNAMIC.routes.campaigns,segments:P.REVIEWED_DYNAMIC.routes.segments}),DASHBOARD_UPSTREAM_HOSTS:JSON.stringify(['comunicacao-crm-panel-read.tazdb8.easypanel.host','n8n-n8n.tazdb8.easypanel.host','comunicacao-crm-audience.tazdb8.easypanel.host']),DASHBOARD_DYNAMIC_ROUTE_MANIFEST:JSON.stringify({schema:P.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:P.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:P.REVIEWED_DYNAMIC.routes.campaigns,segments:P.REVIEWED_DYNAMIC.routes.segments}}),DASHBOARD_DB_PATH:dbPath,DASHBOARD_PUBLIC_DIR:dir};
- const settings=settingsFromEnv(env),auth=createAuth({...settings,crmNativeEnabled:true});
+ const projected=environmentForOriginalMasterCampaignCreate(env,{...env,DASHBOARD_CRM_CORPORATE_CREATE:'disabled'});
+ const settings=settingsFromEnv(projected),auth=createAuth({...settings,crmNativeEnabled:true});
  t.after(()=>{auth.close();fs.rmSync(dir,{recursive:true,force:true});});
  await auth.completeBootstrap({email,token:'isolated-bootstrap',password:'Isolated-Test-Password-2026!',host,origin});
  const login=await auth.login({email,password:'Isolated-Test-Password-2026!',host,origin}),ctx={cookieHeader:login.cookie.split(';')[0],host,origin,method:'POST',csrf:login.csrf},user=auth.session(ctx).user;
@@ -90,4 +91,11 @@ test('original gateway refuses cross-brand and scheduled definitions before any 
   const r=result(await f.rpc('fish','crm_campaign_create',{definition:d,idempotency_key:'root-native-create-invalid'}));a.equal(r.status>=400,true,JSON.stringify(r));
  }
  a.equal(s.posts,0);a.equal(s.calls.length,0);
+});
+test('new startup opt-in preserves current writer requirements and refuses malformed flag without changing historical verifier',async t=>{
+ const f=await fixture(t),preserved={...f.env,DASHBOARD_CRM_CORPORATE_CREATE:'disabled'};
+ for(const requested of [{},{DASHBOARD_CRM_CORPORATE_CREATE:'disabled'}])a.equal(environmentForOriginalMasterCampaignCreate(requested,preserved),preserved);
+ a.throws(()=>environmentForOriginalMasterCampaignCreate({DASHBOARD_CRM_CORPORATE_CREATE:'true'},preserved));
+ a.throws(()=>environmentForOriginalMasterCampaignCreate({DASHBOARD_CRM_CORPORATE_CREATE:'enabled'},{...preserved,DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE:'disabled'}));
+ a.equal(preserved.DASHBOARD_CRM_CORPORATE_CREATE,'disabled');a.equal(f.calls.length,0);
 });

@@ -123,6 +123,15 @@ function settingsFromEnv(env=process.env){
 }
 // Apply the new bounded READ projection AFTER the immutable existing-grant
 // verifier. Its historical pins/controller/consumed operation stay untouched.
+function environmentForOriginalMasterCampaignCreate(requested,preserved){
+ const flag=requested.DASHBOARD_CRM_CORPORATE_CREATE;
+ if(flag!==undefined&&!['enabled','disabled'].includes(flag))throw Error('Original Master campaign CREATE projection invalid');
+ if(flag!=='enabled')return preserved;
+ const out={...preserved,DASHBOARD_CRM_CORPORATE_CREATE:'enabled'};
+ // Called only after the immutable continuity verifier. This opt-in enables
+ // the new route; original current writer authorization remains mandatory.
+ settingsFromEnv(out);return out;
+}
 function environmentForOriginalMasterAudienceRead(env){
  const flag=env.DASHBOARD_CRM_MASTER_AUDIENCE_READ;
  if(flag!==undefined&&!['enabled','disabled'].includes(flag))throw Error('Original Master audience READ projection invalid');
@@ -1096,4 +1105,4 @@ if(require.main===module){
     createServer(settings,{auth,managedCrmRuntime}).listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening'));
   }catch{console.error('Dashboard operational startup refused: invalid configuration');process.exitCode=1;}
 }
-module.exports={environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};
+module.exports={environmentForOriginalMasterCampaignCreate,environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};
