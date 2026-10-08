@@ -220,6 +220,7 @@
     "tests/own-foundation/pg17-harness.cjs",
     "tests/pg-session-provider/fixture.cjs",
     "tests/pg-session-provider/provider.test.cjs",
+    "tests/segment-shopify-panel.test.cjs",
     "tools/crm-native-connection/source-custody.json",
     "tools/crm-native-connection/verify-source.cjs",
     "tools/native-pg-dependency/build-driver.cjs",
@@ -229,8 +230,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 7788,
-      "sha256": "98ca57346313710636c80514bd57673c3b3b832466d6e84b018d128b2444fcd2"
+      "bytes": 7774,
+      "sha256": "395a28f046faaed4a51f5cfa15f788d6aaf632d31cd3315e4d97ae9be24e338f"
     },
     {
       "path": "assets/panels/growth.js",
@@ -668,9 +669,14 @@
       "sha256": "9306965855fe9a26d364bd218f6cc65aff8a58351d653719e5cdd43d9d7c0795"
     },
     {
+      "path": "tests/segment-shopify-panel.test.cjs",
+      "bytes": 4005,
+      "sha256": "e8370a2e03e456b64dbf07711818b7339187a2d5afc192c3fffc833a92a5c24d"
+    },
+    {
       "path": "tools/crm-native-connection/verify-source.cjs",
-      "bytes": 4349,
-      "sha256": "fdf56218492bba7d111be88308f5a5b611ffbf64b02dd39d5c4564c583f5a542"
+      "bytes": 4388,
+      "sha256": "98f980ef0bb2a87cff8b5066ab718e7f9fc81edb7d1cdeb3d2b17c7d5f942842"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -848,5 +854,11 @@
     "newProducerCases": 28,
     "authorizesRefresh": false,
     "operational": false
+  },
+  "audienceContextAvailabilityTestExpectationCorrection": {
+    "testedImageSource": "2f12cd8c7db7cf16dcd6f59fd19c35b47e242ba8",
+    "reason": "New original-expiry UI wording venceram em differs from old test regex venceu; observed two isolated panel failures",
+    "publicAndRuntimeSourcesUnchanged": true,
+    "imageRebuild": false
   }
 }
