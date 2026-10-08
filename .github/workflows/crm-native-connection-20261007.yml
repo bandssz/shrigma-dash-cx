@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           source_tests="$GITHUB_WORKSPACE/tests/source-sync-native"
-          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$source_tests,dst=/tmp/source-tests,readonly" --env SOURCE_SYNC_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_PROGRESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'exec node --test /tmp/source-tests/*.test.cjs'
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$source_tests,dst=/tmp/source-tests,readonly" --env SOURCE_SYNC_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_PROGRESS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_PROGRESS_UI_TEST_RUNTIME=/app/native-backend/runtime --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'exec node --test /tmp/source-tests/*.test.cjs'
       - name: Verify new native draft-create and same-intent GET in actual UID1000 image
         shell: bash
         run: |

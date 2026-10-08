@@ -229,6 +229,7 @@
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
     "tests/source-sync-native/epoch.test.cjs",
+    "tests/source-sync-native/operator-progress.test.cjs",
     "tests/source-sync-native/progress.test.cjs",
     "tests/source-sync-native/root-delegation.test.cjs",
     "tests/source-sync-native/root-mcp.test.cjs",
@@ -243,8 +244,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 8484,
-      "sha256": "f394ec0195e954a4b9a5e682dec669a484ad6c932ef75d50ccf94e24d93768cc",
+      "bytes": 8550,
+      "sha256": "4f8a0fa50c59892b51f3d41addbf7ecb2c5e23dba9dbb9464ada2ed002717ee3",
       "gitBlobSha1": "5578a2659e60e00d525a5bc6ceea7a6843eb4c81"
     },
     {
@@ -531,8 +532,8 @@
     },
     {
       "path": "services/dashboard-operational/native-source-operator.cjs",
-      "bytes": 11909,
-      "sha256": "7d20b6fd1b91d80c6914360244323808cce5bc5b7e14a45c6d2cec93abd8e39e",
+      "bytes": 13947,
+      "sha256": "1d7f2f705cd753491c8542890556754c8b6f0dbf3fb6adf773143f14cf76f06f",
       "gitBlobSha1": "3a7d3c369ffdd306c21c901d2f6cb9bff59f5d85"
     },
     {
@@ -817,9 +818,14 @@
     },
     {
       "path": "tests/source-sync-native/epoch.test.cjs",
-      "bytes": 18463,
-      "sha256": "18edf576446dcb8f0cf8f54fed6b108813c79181c3e43125ad98b171b95f1326",
+      "bytes": 18476,
+      "sha256": "ffd08af6ee398f74539e367332c539cd9ec6e92c53e40e3234fb21c24f67d287",
       "gitBlobSha1": "cb2e73a454ca58216c90f84b4b99c3a413170a61"
+    },
+    {
+      "path": "tests/source-sync-native/operator-progress.test.cjs",
+      "bytes": 12613,
+      "sha256": "062acdef6ead0aa33ea331d110caeefa26737bce929c856ba6adda2c34bb04c1"
     },
     {
       "path": "tests/source-sync-native/progress.test.cjs",
@@ -853,7 +859,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4440,
-      "sha256": "15107a423caa067dff8ba20decebf6d224f73bece2f937261cbd545b31ca8c46",
+      "sha256": "d9714fa81233ea93791e47f12779789ae57fb11649e9d7fd2437872e14ea3a52",
       "gitBlobSha1": "23df9a22b617d57fa9e2dd3623031afbc4296e3a"
     },
     {
