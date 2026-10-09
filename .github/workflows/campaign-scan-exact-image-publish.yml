@@ -1,0 +1,303 @@
+name: Campaign scanner exact measured OCI publication (no deployment)
+on:
+  push:
+    branches:
+      - codex/campaign-scan-diagnostic-20261008
+    paths:
+      - '.github/workflows/campaign-scan-exact-image-publish.yml'
+permissions:
+  contents: read
+  actions: read
+  packages: write
+concurrency:
+  group: campaign-scan-exact-image-publication-20261008
+  cancel-in-progress: false
+jobs:
+  publish-exact-measured-oci:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/campaign-scan-diagnostic-20261008' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Prepare digest verifier and private runner directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir "$RUNNER_TEMP/campaign-scan-exact-publish"
+          cat > "$RUNNER_TEMP/campaign-scan-exact-publish/verify.py" <<'PY'
+          import hashlib,json,os,re,stat,sys,zipfile
+          from pathlib import Path,PurePosixPath
+
+          REPO='bandssz/shrigma-dash-cx'
+          REPO_ID=1333745944
+          BRANCH='codex/campaign-scan-diagnostic-20261008'
+          RUN=37873071054
+          HEAD='2f5e5a82389d10bc3da477bffb8519ad22000982'
+          SOURCE='7c46c0b51525918b7ec1b41e9a8b433e29ec4307'
+          ARTIFACT=11591033850
+          ZIP_SIZE=31113059
+          ZIP_SHA='08f67ad9ce67f8ede592ba8f2ad18c4050cfbc17d78c20ee8bc08179c4e64287'
+          MANIFEST='sha256:99df3e03214034646e8d188def12664da72aafec9ff3e6bb23ba95219f4926f2'
+          CONFIG='sha256:759bfeeea933fc0a06eb179d56c8456df392c66f98ace1e27f552225c617eeff'
+          BINARY='6c8b92fd87c62f562c81f6aa17253f11a382743a0dfa910d0cf5df2f369d1601'
+          SOURCE_SHA='814c14efef70df0751e49a2a5414c46ecdc20ecd473157770c5e708ab973f86a'
+          NATIVE_SHA='0cc2c172746cff436c988f8b965d5d23409f28971ce3c8614601b9335c13ef05'
+          LOCK_SHA='be92b523d39468818306d2da1fb756ef573842b26a54b16d7463f96507429318'
+          QUERY_SHA='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d'
+          REGISTRY='ghcr.io/bandssz/shrigma-crm-listmonk'
+          TAG='campaign-scan-diagnostic-20261008-99df3e032140'
+          TOP_FILES={'LICENSE','image-proof.json','package-manifest.json','native-proof.json','source.tar.gz'}
+          SHA=re.compile(r'sha256:[0-9a-f]{64}\Z')
+          EXPECTED_PROOF={
+           'schema':'crm-regular-oci-v1','status':'VERIFIED_IMAGE_OFF_NOT_DEPLOYED',
+           'revision':SOURCE,
+           'base_image':'listmonk/listmonk@sha256:dbecf49c2ea6f3ebf400f2a8f102ec676d6b8a9a948ccbba14320b0a3bcb1999',
+           'manifest_digest':MANIFEST,'config_digest':CONFIG,'binary_sha256':BINARY,
+           'source_sha256':SOURCE_SHA,'native_proof_sha256':NATIVE_SHA,'source_lock_sha256':LOCK_SHA,
+           'runtime_config_preserved':True,'oci_binary_matches_native_proof':True,
+           'version_command_network_none':True,'registry_push':False,'production_changed':False}
+
+          class Refused(Exception):pass
+
+          def require(ok,code):
+           if not ok:raise Refused(code)
+
+          def sha(body):return hashlib.sha256(body).hexdigest()
+
+          def read(path,limit):
+           require(path.is_file() and not path.is_symlink(),'FILE_TYPE')
+           require(path.stat().st_size<=limit,'FILE_SIZE')
+           with path.open('rb') as handle:body=handle.read(limit+1)
+           require(len(body)<=limit,'FILE_SIZE')
+           return body
+
+          def json_body(body):
+           def pairs(items):
+            result={}
+            for key,value in items:
+             require(key not in result,'JSON_DUPLICATE')
+             result[key]=value
+            return result
+           def constant(value):raise Refused('JSON_CONSTANT')
+           return json.loads(body.decode('utf-8'),object_pairs_hook=pairs,parse_constant=constant)
+
+          def object_file(path,limit=1024*1024):
+           result=json_body(read(path,limit));require(type(result) is dict,'JSON_OBJECT');return result
+
+          def metadata(work):
+           run=object_file(work/'run.json');artifact=object_file(work/'artifact.json')
+           require(run.get('id')==RUN and run.get('head_sha')==HEAD and run.get('head_branch')==BRANCH,'RUN_PIN')
+           require(run.get('status')=='completed' and run.get('conclusion')=='success' and run.get('event')=='push','RUN_STATE')
+           require(run.get('path')=='.github/workflows/campaign-scan-snapshot-native-image.yml','RUN_WORKFLOW')
+           require(run.get('repository',{}).get('id')==REPO_ID and run.get('repository',{}).get('full_name')==REPO,'RUN_REPOSITORY')
+           require(run.get('head_repository',{}).get('id')==REPO_ID,'RUN_FORK')
+           require(artifact.get('id')==ARTIFACT and artifact.get('name')=='campaign-scanner-oci-off','ARTIFACT_PIN')
+           require(artifact.get('size_in_bytes')==ZIP_SIZE and artifact.get('digest')=='sha256:'+ZIP_SHA,'ARTIFACT_DIGEST')
+           require(artifact.get('expired') is False,'ARTIFACT_EXPIRED')
+           original=artifact.get('workflow_run',{})
+           require(original.get('id')==RUN and original.get('head_sha')==HEAD and original.get('head_branch')==BRANCH,'ARTIFACT_RUN')
+           require(original.get('repository_id')==REPO_ID and original.get('head_repository_id')==REPO_ID,'ARTIFACT_FORK')
+
+          def safe_extract(archive,target):
+           require(not target.exists(),'EXTRACTION_EXISTS')
+           with zipfile.ZipFile(archive) as zipped:
+            entries=zipped.infolist();require(0<len(entries)<=512,'ZIP_ENTRIES')
+            names=set();total=0
+            for entry in entries:
+             name=entry.filename;directory=entry.is_dir();relative=name[:-1] if directory else name
+             path=PurePosixPath(relative)
+             require(relative and re.fullmatch(r'[A-Za-z0-9._/-]+',relative) is not None,'ZIP_PATH')
+             require(not path.is_absolute() and path.as_posix()==relative and all(part not in ('','.','..') for part in relative.split('/')),'ZIP_PATH')
+             require(relative not in names,'ZIP_DUPLICATE');names.add(relative)
+             mode=entry.external_attr>>16;kind=stat.S_IFMT(mode)
+             require(kind in (0,stat.S_IFDIR if directory else stat.S_IFREG),'ZIP_SPECIAL')
+             require(not entry.flag_bits&1 and entry.compress_type in (zipfile.ZIP_STORED,zipfile.ZIP_DEFLATED),'ZIP_ENCODING')
+             require(0<=entry.file_size<=128*1024*1024 and (not directory or entry.file_size==0),'ZIP_ENTRY_SIZE')
+             total+=entry.file_size;require(total<=256*1024*1024,'ZIP_TOTAL_SIZE')
+             if directory:require(relative in ('oci','oci/blobs','oci/blobs/sha256'),'ZIP_DIRECTORY')
+             else:require(relative in TOP_FILES or relative in ('oci/index.json','oci/oci-layout') or re.fullmatch(r'oci/blobs/sha256/[0-9a-f]{64}',relative) is not None,'ZIP_INVENTORY')
+            target.mkdir(mode=0o700)
+            for entry in entries:
+             dest=target/entry.filename
+             if entry.is_dir():dest.mkdir(parents=True,exist_ok=True,mode=0o700);continue
+             dest.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+             count=0
+             with zipped.open(entry) as source,dest.open('xb') as output:
+              dest.chmod(0o600)
+              while True:
+               block=source.read(65536)
+               if not block:break
+               count+=len(block);require(count<=entry.file_size,'ZIP_STREAM_SIZE');output.write(block)
+             require(count==entry.file_size,'ZIP_STREAM_SIZE')
+
+
+          def verify_oci(root,reference):
+           require(object_file(root/'oci-layout')=={'imageLayoutVersion':'1.0.0'},'OCI_LAYOUT')
+           index=object_file(root/'index.json')
+           require(index.get('schemaVersion')==2 and type(index.get('manifests')) is list and len(index['manifests'])==1,'OCI_INDEX')
+           descriptor=index['manifests'][0]
+           require(descriptor.get('digest')==MANIFEST and descriptor.get('annotations',{}).get('org.opencontainers.image.ref.name')==reference,'OCI_REFERENCE')
+           blobs=root/'blobs'/'sha256';require(blobs.is_dir() and not blobs.is_symlink(),'OCI_BLOBS')
+           observed=set()
+           for item in blobs.iterdir():
+            require(item.is_file() and not item.is_symlink() and re.fullmatch(r'[0-9a-f]{64}',item.name) is not None,'OCI_BLOB_PATH')
+            body=read(item,128*1024*1024);require(sha(body)==item.name,'OCI_BLOB_HASH');observed.add('sha256:'+item.name)
+           referenced=set()
+           def blob(desc):
+            require(type(desc) is dict and type(desc.get('digest')) is str and SHA.fullmatch(desc['digest']) is not None,'OCI_DESCRIPTOR')
+            require(type(desc.get('size')) is int and 0<=desc['size']<=128*1024*1024,'OCI_DESCRIPTOR_SIZE')
+            digest=desc['digest'];referenced.add(digest)
+            body=read(blobs/digest[7:],128*1024*1024)
+            require(len(body)==desc['size'] and 'sha256:'+sha(body)==digest,'OCI_DESCRIPTOR_HASH');return body
+           manifest=json_body(blob(descriptor))
+           require(type(manifest) is dict and manifest.get('schemaVersion')==2,'OCI_MANIFEST')
+           require(manifest.get('config',{}).get('digest')==CONFIG,'OCI_CONFIG_PIN')
+           config=json_body(blob(manifest['config']))
+           require(type(config) is dict and config.get('os')=='linux' and config.get('architecture')=='amd64','OCI_PLATFORM')
+           require(type(manifest.get('layers')) is list and 0<len(manifest['layers'])<=128,'OCI_LAYERS')
+           for layer in manifest['layers']:blob(layer)
+           require(config.get('rootfs',{}).get('type')=='layers' and len(config['rootfs'].get('diff_ids',[]))==len(manifest['layers']),'OCI_ROOTFS')
+           require(all(type(value) is str and SHA.fullmatch(value) is not None for value in config['rootfs']['diff_ids']),'OCI_DIFF_IDS')
+           labels=config.get('config',{}).get('Labels',{})
+           require(labels.get('org.opencontainers.image.revision')==SOURCE and labels.get('crm.regular.binary-sha256')==BINARY,'OCI_SOURCE_LABELS')
+           require(labels.get('org.opencontainers.image.source')=='https://github.com/'+REPO and labels.get('crm.regular.status')=='OFF_NOT_DEPLOYED','OCI_SOURCE_LABELS')
+           require(observed==referenced,'OCI_BLOB_CLOSURE')
+           expected={'oci-layout','index.json'}|{'blobs/sha256/'+digest[7:] for digest in observed}
+           actual=set()
+           for item in root.rglob('*'):
+            require(not item.is_symlink() and (item.is_file() or item.is_dir()),'OCI_ENTRY')
+            if item.is_file():actual.add(item.relative_to(root).as_posix())
+           require(actual==expected,'OCI_FILE_CLOSURE')
+           return {'manifest':MANIFEST,'config':CONFIG,'blobs':len(observed)}
+
+
+          def proof_matches(proof):
+           return type(proof) is dict and proof==EXPECTED_PROOF and all(type(proof[key]) is type(value) for key,value in EXPECTED_PROOF.items())
+          
+          def publication_run():
+           value=os.environ.get('GITHUB_RUN_ID','')
+           require(re.fullmatch(r'[1-9][0-9]{0,19}',value) is not None,'PUBLICATION_RUN')
+           return int(value)
+          
+          def archive(work):
+           metadata(work)
+           body=read(work/'artifact.zip',ZIP_SIZE)
+           require(len(body)==ZIP_SIZE and sha(body)==ZIP_SHA,'ZIP_PIN')
+           target=work/'artifact';safe_extract(work/'artifact.zip',target)
+           require({item.name for item in target.iterdir()}==TOP_FILES|{'oci'},'ARTIFACT_INVENTORY')
+           require(proof_matches(object_file(target/'image-proof.json')),'IMAGE_PROOF')
+           native_bytes=read(target/'native-proof.json',1024*1024)
+           require(sha(native_bytes)==NATIVE_SHA,'NATIVE_PROOF_PIN')
+           native=json_body(native_bytes)
+           require(native.get('status')=='PASSED_EPHEMERAL_ONLY_NOT_DEPLOYED' and native.get('cluster_stopped') is True and native.get('binary_sha256')==BINARY,'NATIVE_PROOF')
+           package=object_file(target/'package-manifest.json')
+           require(package.get('target')=='linux_amd64' and package.get('status')=='CANDIDATE_OFF_NOT_DEPLOYED','PACKAGE_STATE')
+           require(package.get('binary_sha256')==BINARY and package.get('source_lock_sha256')==LOCK_SHA,'PACKAGE_PINS')
+           require(package.get('asset_count')==130 and package.get('changed_assets')==['/queries/campaigns.sql'] and package.get('query_sha256')==QUERY_SHA,'PACKAGE_ASSETS')
+           require(sha(read(target/'source.tar.gz',128*1024*1024))==SOURCE_SHA,'SOURCE_ARCHIVE_PIN')
+           require(len(read(target/'LICENSE',1024*1024))>0,'LICENSE')
+           verify_oci(target/'oci','candidate')
+           (work/'local-verified.json').write_text(json.dumps({'manifest':MANIFEST,'config':CONFIG,'zip':ZIP_SHA},sort_keys=True)+'\n')
+
+
+          def remote(work):
+           require(object_file(work/'local-verified.json')=={'manifest':MANIFEST,'config':CONFIG,'zip':ZIP_SHA},'LOCAL_VERIFICATION')
+           verify_oci(work/'remote-oci','published')
+           receipt={'schema':'campaign-scan-exact-oci-publication-v1',
+            'status':'EXACT_OCI_REGISTRY_VERIFIED_NOT_DEPLOYED','registry':REGISTRY,'tag':TAG,
+            'manifestDigest':MANIFEST,'configDigest':CONFIG,'binarySha256':BINARY,
+            'runtimeSourceHead':SOURCE,'sourceSha256':SOURCE_SHA,'workflowSourceHead':HEAD,
+            'measuredRun':RUN,'artifactId':ARTIFACT,'artifactZipSha256':ZIP_SHA,
+            'publicationRun':publication_run(),
+            'registryPush':True,'operational':False,'originalWorkerChanged':False}
+           (work/'PUBLICATION-RECEIPT.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+           print(json.dumps(receipt,sort_keys=True))
+
+
+          def main():
+           work=Path(os.environ['RUNNER_TEMP'])/'campaign-scan-exact-publish'
+           require(os.environ.get('GITHUB_REPOSITORY')==REPO and os.environ.get('GITHUB_REF')=='refs/heads/'+BRANCH,'PUBLICATION_SCOPE')
+           require(len(sys.argv)==2 and sys.argv[1] in ('metadata','archive','remote'),'VERIFIER_MODE')
+           {'metadata':metadata,'archive':archive,'remote':remote}[sys.argv[1]](work)
+
+          if __name__=='__main__':
+           try:main()
+           except Refused as error:
+            print('EXACT_IMAGE_REFUSED:'+str(error),file=sys.stderr);sys.exit(1)
+           except Exception:
+            print('EXACT_IMAGE_REFUSED:INVALID_INPUT_OR_IO',file=sys.stderr);sys.exit(1)
+          PY
+      - name: Retrieve only the fixed successful GitHub artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          WORK="$RUNNER_TEMP/campaign-scan-exact-publish"
+          if ! timeout --kill-after=5s 60s gh api --method GET repos/bandssz/shrigma-dash-cx/actions/runs/37873071054 > "$WORK/run.json" 2> "$WORK/run-error.private"; then
+            echo 'EXACT_IMAGE_REFUSED:RUN_METADATA_UNAVAILABLE' >&2; exit 1
+          fi
+          if ! timeout --kill-after=5s 60s gh api --method GET repos/bandssz/shrigma-dash-cx/actions/artifacts/11591033850 > "$WORK/artifact.json" 2> "$WORK/artifact-error.private"; then
+            echo 'EXACT_IMAGE_REFUSED:ARTIFACT_METADATA_UNAVAILABLE' >&2; exit 1
+          fi
+          python3 "$WORK/verify.py" metadata
+          if ! (ulimit -f 32768; timeout --kill-after=5s 120s gh api --method GET repos/bandssz/shrigma-dash-cx/actions/artifacts/11591033850/zip > "$WORK/artifact.zip" 2> "$WORK/download-error.private"); then
+            echo 'EXACT_IMAGE_REFUSED:ARTIFACT_DOWNLOAD_UNAVAILABLE' >&2; exit 1
+          fi
+          python3 "$WORK/verify.py" archive
+      - name: Install image transport only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+      - name: Publish byte-identical OCI and verify the registry round trip
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          umask 077
+          WORK="$RUNNER_TEMP/campaign-scan-exact-publish"
+          AUTH_FILE="$WORK/auth.private.json"
+          trap 'rm -f "$AUTH_FILE"' EXIT
+          python3 - <<'PY'
+          import base64,json,os,re
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'campaign-scan-exact-publish'
+          token=os.environ.get('GH_TOKEN','');actor=os.environ.get('GH_ACTOR','')
+          if not token or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9-]{0,38}',actor):
+              raise SystemExit('EXACT_IMAGE_REFUSED:REGISTRY_CREDENTIAL_UNAVAILABLE')
+          path=root/'auth.private.json'
+          descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+          with os.fdopen(descriptor,'w') as handle:
+              json.dump({'auths':{'ghcr.io':{'auth':base64.b64encode((actor+':'+token).encode()).decode()}}},handle)
+          if path.stat().st_mode&0o777!=0o600:
+              raise SystemExit('EXACT_IMAGE_REFUSED:AUTH_FILE_MODE')
+          PY
+          unset GH_TOKEN GH_ACTOR
+          if ! timeout --kill-after=5s 240s skopeo copy --preserve-digests --dest-authfile "$AUTH_FILE" "oci:$WORK/artifact/oci:candidate" docker://ghcr.io/bandssz/shrigma-crm-listmonk:campaign-scan-diagnostic-20261008-99df3e032140 > "$WORK/push-output.private" 2> "$WORK/push-error.private"; then
+            echo 'EXACT_IMAGE_REFUSED:REGISTRY_PUSH_UNCONFIRMED' >&2; exit 1
+          fi
+          if ! timeout --kill-after=5s 240s skopeo copy --preserve-digests --src-authfile "$AUTH_FILE" docker://ghcr.io/bandssz/shrigma-crm-listmonk:campaign-scan-diagnostic-20261008-99df3e032140 "oci:$WORK/remote-oci:published" > "$WORK/registry-read-output.private" 2> "$WORK/registry-read-error.private"; then
+            echo 'EXACT_IMAGE_REFUSED:REGISTRY_READ_UNCONFIRMED' >&2; exit 1
+          fi
+          python3 "$WORK/verify.py" remote
+      - name: Preserve only the minimal public registry receipt
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: campaign-scanner-exact-registry-receipt
+          path: ${{ runner.temp }}/campaign-scan-exact-publish/PUBLICATION-RECEIPT.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove temporary credentials, downloads and raw transport output
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/campaign-scan-exact-publish"
