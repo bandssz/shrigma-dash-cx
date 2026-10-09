@@ -645,6 +645,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
        if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
       if(s.crmNativeSourceSyncEnabled===true&&!nativeContext&&await require('./native-source-operator.cjs').handleSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,source:auth.nativeSourceSync,diagnostics:s.crmNativeSourceDiagnosticsEnabled===true?sourceDiagnostics:undefined}))return;
       if(s.crmNativeDeliveryHealthEnabled===true&&!nativeContext&&await require('./native-delivery-health-operator.cjs').handleDeliveryHealthOperator({req,res,url,ctx,auth,managerHost:s.managerHost,health:deliveryHealth}))return;
+      if(url.pathname==='/api/delivery-health-receipts'){
+        if(s.crmNativeDeliveryHealthEnabled!==true||deliveryHealth?.enabled!==true)throw jsonError(503,'DELIVERY_HEALTH_NOT_ADMITTED');
+        if(host!==s.managerHost||ctx.nativeBearer===undefined)throw jsonError(403,'DELIVERY_HEALTH_NATIVE_REQUIRED');
+        auth.authorize({...ctx,admin:true});
+        if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');
+        if(url.search)throw jsonError(400,'DELIVERY_HEALTH_ARGUMENTS_INVALID');
+        return sendJson(req,res,200,await deliveryHealth.nativeStatusReceipts({context:ctx}));
+      }
       if(url.pathname==='/api/delivery-health'){
         if(s.crmNativeDeliveryHealthEnabled!==true||deliveryHealth?.enabled!==true)throw jsonError(503,'DELIVERY_HEALTH_NOT_ADMITTED');
         if(host!==s.managerHost||ctx.nativeBearer===undefined)throw jsonError(403,'DELIVERY_HEALTH_NATIVE_REQUIRED');

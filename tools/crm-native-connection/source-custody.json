@@ -237,6 +237,7 @@
     "tests/delivery-health-read-native/load-operator.cjs",
     "tests/delivery-health-read-native/observability.test.cjs",
     "tests/delivery-health-read-native/operator.test.cjs",
+    "tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/INPUT-PINS.json",
     "tests/delivery-health-read-native/sealed-inputs/inputs/EXISTING-VIEW-CONTRACT.json",
     "tests/delivery-health-read-native/sealed-inputs/inputs/n8n/growth/ses-health.sql",
@@ -252,6 +253,11 @@
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-commit-diagnostics-native/diagnostics.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/controller.test.cjs",
     "tests/delivery-health-read-native/sealed-inputs/inputs/tests/source-diagnostics-native/operator-ui.test.cjs",
+    "tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+    "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+    "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/services/dashboard-operational/native-delivery-health-operator.cjs",
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
@@ -494,8 +500,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 25645,
-      "sha256": "1f61b829b9a4dfc1d97c1dc4caaa324c118c0b5b82ba403f4b843e6d1e97076c"
+      "bytes": 26402,
+      "sha256": "1788ee8dbd4b49e8b404ec6b3e1fad79d90aefa107aca3e2b352b17d420fe8db"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -549,8 +555,8 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
-      "bytes": 6440,
-      "sha256": "3fefaedf3ac479b284c7dcc4257d8c379aa6b4896e40ea53c1bddae0ec8fac79"
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
@@ -559,8 +565,8 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health.cjs",
-      "bytes": 12536,
-      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58"
     },
     {
       "path": "services/dashboard-operational/native-foundation-preview.cjs",
@@ -699,8 +705,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 129340,
-      "sha256": "2d0af613ac9e80c2e8bcbfb355c8de707111b60c0c830e973fafff770e29bd1d"
+      "bytes": 129948,
+      "sha256": "8ea9b7317f24d2a470cc4668a347fe5de32cb2d53a94c9ae05087332b7cc490a"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -824,8 +830,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/authority.test.cjs",
-      "bytes": 13885,
-      "sha256": "a99013d7584aa6dfab27ee02bbb5f1e406bfc22f5259cbf887be1ac8bba294a4"
+      "bytes": 19528,
+      "sha256": "2ab598c191325aa32fbd1229b293675e6fe80f1427963859558d49b3e4bb70b5"
     },
     {
       "path": "tests/delivery-health-read-native/core.test.cjs",
@@ -851,6 +857,11 @@
       "path": "tests/delivery-health-read-native/operator.test.cjs",
       "bytes": 3008,
       "sha256": "165f5a8f9c1efccff9bd5d8e7588186cd9f4a34a3e2535e5de24621974184544"
+    },
+    {
+      "path": "tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13213,
+      "sha256": "ccd7493fb360b0c7c7a3ba1702ab358d0122ae47ed6d09be5482079277b7cd53"
     },
     {
       "path": "tests/delivery-health-read-native/sealed-inputs/INPUT-PINS.json",
@@ -928,6 +939,31 @@
       "sha256": "8548d324ef735d8c16fcecbb673e4ddb64881ece5b1b2ed49945a7d12fef7261"
     },
     {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
       "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/INPUT-PINS.json",
       "bytes": 1014,
       "sha256": "3ad5ed76a4483b9064d1d8540bc25b4dc9ef49b4537d6e5825050f2698a0ccde"
@@ -964,8 +1000,8 @@
     },
     {
       "path": "tests/delivery-health-wiring-native/wiring.test.cjs",
-      "bytes": 5996,
-      "sha256": "dd8027b08acf14812ef2be2274a991e69109b01fb142db996b6fe0a4b36018a8"
+      "bytes": 8298,
+      "sha256": "e0173d5090b36c1b72d124b88b5a3f22cf630a044f618d85399b30ec3eb23382"
     },
     {
       "path": "tests/growth-flows-ui.test.cjs",
@@ -1265,7 +1301,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "b02d21dd5d3097cc1f2ce536f9f7d02f71684fc382b57012007737b778de083b"
+      "sha256": "7bf4176ee63be84c921e9ee1b2ce53106e8dadaf6f298efd747fabb84395be6e"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1660,6 +1696,17 @@
     "databaseQueryDuringAvailability": false,
     "exactBrandConsentRequired": true,
     "focalLocalCasesPassed": 198,
+    "operational": false
+  },
+  "deliveryHealthProtocolDiagnostic": {
+    "sourceHead": "eab7dec13031f494a966915b19db974b05bbea52",
+    "producerPackageId": "delivery-health-protocol-diagnostic-v1-c2-source-v1",
+    "producerPinsVerified": 8,
+    "ownHealthScopeAndCurrentConsentRequired": true,
+    "statusReadsOncePerConnectionBrandPerRuntime": true,
+    "batchBindingsRecheckedSynchronously": true,
+    "queryAndPurposeUnchanged": true,
+    "privatePayloadOrUnknownKeysExposed": false,
     "operational": false
   }
 }

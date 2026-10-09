@@ -101,7 +101,18 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
      catch(e){templateSources.push({brand,status:e.status||503,total:null,source:'unavailable',readOnly:true});}
     }
    }
-   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),operational:false}};
+   // Health is an independently consented purpose. crm.read alone never
+   // dispatches its SQL; the controller verifies CURRENT consent before/after
+   // a one-shot READ and reuses only that bounded receipt on later calls.
+   let deliveryHealthReceipt;
+   if(deliveryHealthEnabled&&state.status===200&&state.body?.features?.nativeDeliveryHealth===true){
+    let healthAdmitted=false;try{store.authenticate(bearer,{scope:'crm.delivery-health'});healthAdmitted=true;}catch{}
+    if(healthAdmitted){
+     deliveryHealthReceipt=await invoke({method:'GET',path:'/api/delivery-health-receipts',context:{...context,method:'GET'}});
+     store.authenticate(bearer,{scope:'crm.delivery-health'});
+    }
+   }
+   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='crm_template_catalog'){
    const q=new URLSearchParams({acao:'listar',marca:args.brand,canal:'email',...(args.offset!==undefined?{offset:String(args.offset)}:{}),...(args.limit!==undefined?{limit:String(args.limit)}:{})});
    result=require('./crm-master-template-read.cjs').nativeCatalog(await run('GET','/api/templates?'+q),args.brand);
