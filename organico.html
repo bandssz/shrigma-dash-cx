@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ff+5RC6yRHi+sZII11NT643NaAQW845Ol1bZ64trMOc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-GVKVbG4hbu+v4/0Jl0EnpOHovsanlmu6vemd4ybK3ro='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -142,7 +142,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=7f0bdf2c0188"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=bf36a010dc49"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -542,6 +542,7 @@ document.addEventListener('click',e=>{
 function render(){
   pintaMarca();
   if(!API)return;
+  if(typeof OrganicFreshness!=='undefined')OrganicFreshness.render(API,MARCA,$('#frescor'));
   // Presets acompanham o dia de Brasília; intervalos manuais ficam fixos.
   const preset=document.querySelector('#presets button.ativo');
   if(preset)PER=G.preset(preset.dataset.p,G.diaBR(new Date()));
@@ -632,10 +633,6 @@ async function carrega(){
      origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':ORIGEM_LEITURA==='cache_antigo'?'Dados de '+hora(API._cache_gerado_em)+' · retrato antigo':'Consulta ao vivo às '+hora(Date.now());
      origemRot.title=ORIGEM_LEITURA==='cache_antigo'?'O cache estava velho e a consulta ao vivo não respondeu: esta tela mostra o último retrato salvo.':ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
     }
-    // O payload do Orgânico não traz coletado_em por linha: a coleta é confirmada pelos carimbos que existem.
-    {const maxT=l=>l.reduce((m,x)=>{const t=Date.parse(x||'');return Number.isFinite(t)&&(m===null||t>m)?t:m;},null),iso=t=>t===null?null:new Date(t).toISOString();
-     const stories=maxT((API.cx_story||[]).map(s=>s.ultima_coleta)),vendas=maxT((API.organico_attribution?.coverage||[]).map(c=>c.checked_at));
-     shrigmaFrescor(API,$('#frescor'),{collections:[{name:'Stories (Instagram)',checked_at:iso(stories),required:true},{name:'Vendas (Shopify)',checked_at:iso(vendas),required:true}]});}
     if(typeof AREA_VIEW!=='undefined'&&AREA_VIEW)AREA_VIEW.resolve();
   }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
   finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}

@@ -118,6 +118,7 @@
     ],
     "scripts": [
       "frescor.js",
+      "organico-freshness.js",
       "config.js",
       "painel-rede.js",
       "area-view.js",
