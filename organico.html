@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-jpMBV1SmZ11ZOvA8QzZgNY3wCbMKGmAC842diB+gTCA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ff+5RC6yRHi+sZII11NT643NaAQW845Ol1bZ64trMOc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -542,6 +542,9 @@ document.addEventListener('click',e=>{
 function render(){
   pintaMarca();
   if(!API)return;
+  // Presets acompanham o dia de Brasília; intervalos manuais ficam fixos.
+  const preset=document.querySelector('#presets button.ativo');
+  if(preset)PER=G.preset(preset.dataset.p,G.diaBR(new Date()));
   $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
   const lista=pintaKPIs();
   pintaGrade(); pintaPosts(lista); pintaStories();
@@ -643,7 +646,7 @@ document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   b.classList.add('ativo');MARCA=b.dataset.marca;render();});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));render();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});
