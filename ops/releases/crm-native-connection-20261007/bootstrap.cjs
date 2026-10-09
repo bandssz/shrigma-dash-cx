@@ -31,7 +31,7 @@ function verifyRelease(manifestSha256){
 function verifyReady({manifestSha256}){
  const m=verifyRelease(manifestSha256),r=JSON.parse(read(READY,{uid:1000,gid:1000,mode:0o600,max:1024}));
  if(Object.keys(r).sort().join(',')!=='manifestSha256,schema,sourceRevision'||r.schema!=='shrigma-native-ready-v1'||r.manifestSha256!==manifestSha256||r.sourceRevision!==m.sourceRevision)refuse();
- return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:70,runtimeReplacements:3,originalRuntimePreserved:25,runtimeAdditions:42,databaseInspectionEnabled:true,pgDriverManifestSha256:m.pgDriverManifestSha256,sqlInstallerEnabled:false,operational:false};
+ return {nativeBackendVerified:true,manifestSha256,sourceRevision:m.sourceRevision,runtimeFiles:actual.length,runtimeReplacements:3,originalRuntimePreserved:25,runtimeAdditions:m.additions.length,databaseInspectionEnabled:true,pgDriverManifestSha256:m.pgDriverManifestSha256,sqlInstallerEnabled:false,operational:false};
 }
 function start({manifestSha256}={}){
  const m=verifyRelease(manifestSha256),boot=require('/app/bootstrap.cjs');boot.checkIdentity();process.umask(0o077);
