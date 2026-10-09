@@ -2236,6 +2236,21 @@
     "sqlInstallerEnabled": false,
     "authorizesSend": false,
     "authorizesRecovery": false,
-    "operational": false
+    "operational": false,
+    "rootIntegration": {
+      "sourceTree": "b24929d9e3f74120afbf61ad78ba595255f1088e",
+      "runtimeFiles": 70,
+      "manifestFiles": 73,
+      "sourcePreservedBlobs": 2176,
+      "modifiedBlobs": 9,
+      "addedBlobs": 7,
+      "localFocalPassed": 48,
+      "rootWiringCases": 5,
+      "requiredSqlGrammar": "isolated PostgreSQL17 actual-image CI",
+      "requiredRuntime": "Node22.23.3/UID1000",
+      "originalWorkerChanged": false,
+      "productionConsentPosted": false,
+      "productionSqlExecuted": false
+    }
   }
 }
