@@ -46,17 +46,17 @@ test('old scopes and accepted health/diagnostic consents are byte unchanged by p
 const canonical=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 // Authenticated historical fixtures use the unchanged public v1 record/intent
 // protocol. They are not real grants and never touch PG or original identity.
-function previousRecord(f,state){
- const authority={...f.snapshot(),queryHash:C.PREVIOUS_QUERY_HASH},r={id:crypto.randomUUID(),owner_id:authority.ownerId,connection_id:CID,purpose:C.PURPOSE,authority_json:canonical(authority),created_at:f.now-1000,expires_at:f.now+599000,state,consumed_at:state==='prepared'?null:f.now-500};
+function previousRecord(f,state,historicalQuery=C.PREVIOUS_QUERY_HASH){
+ const authority={...f.snapshot(),queryHash:historicalQuery},r={id:crypto.randomUUID(),owner_id:authority.ownerId,connection_id:CID,purpose:C.PURPOSE,authority_json:canonical(authority),created_at:f.now-1000,expires_at:f.now+599000,state,consumed_at:state==='prepared'?null:f.now-500};
  r.intent_hash=H(canonical({schema:'shrigma-scheduler-state-chat-intent-v1',approvalId:r.id,connectionId:CID,purpose:C.PURPOSE,authority,createdAt:r.created_at,expiresAt:r.expires_at}));
  r.record_mac=MAC(f.key,canonical(['scheduler-state-chat-record-v1',r.id,r.owner_id,r.connection_id,r.purpose,r.authority_json,r.intent_hash,r.created_at,r.expires_at,r.state,r.consumed_at]));
  f.db.prepare('INSERT INTO crm_scheduler_state_chat_intent_v1 VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(r.id,r.owner_id,r.connection_id,r.purpose,r.authority_json,r.intent_hash,r.created_at,r.expires_at,r.state,r.consumed_at,r.record_mac);return {approvalId:r.id,intentHash:r.intent_hash};
 }
-for(const state of ['prepared','approved','consumed','uncertain'])test('authenticated v1 '+state+' stays historical and cannot authorize the new fixed SQL',async()=>{
+for(const historicalQuery of [C.PREVIOUS_QUERY_HASH,C.V2_QUERY_HASH])for(const state of ['prepared','approved','consumed','uncertain'])test('authenticated '+(historicalQuery===C.V2_QUERY_HASH?'v2':'v1')+' '+state+' stays historical and cannot authorize the new fixed SQL',async()=>{
  const f=fixture();try{
   const {createSchedulerStateConsent}=require(runtime+'/native-scheduler-state-consent.cjs'),trusted=new WeakSet();
   const consent=createSchedulerStateConsent({db:f.db,current:(context,id,browser)=>{assert.equal(id,CID);assert.equal(browser,false);assert.equal(context.nativeBearer,f.token);if(f.revoked)throw Error('revoked');return f.snapshot();},mac:x=>MAC(f.key,x),now:()=>f.now,admitNativeApproval:q=>trusted.has(q)});
-  const old=previousRecord(f,state),oldRow=f.db.prepare('SELECT * FROM crm_scheduler_state_chat_intent_v1 WHERE id=?').get(old.approvalId),oldAuthority={...f.snapshot(),queryHash:C.PREVIOUS_QUERY_HASH};
+  const old=previousRecord(f,state,historicalQuery),oldRow=f.db.prepare('SELECT * FROM crm_scheduler_state_chat_intent_v1 WHERE id=?').get(old.approvalId),oldAuthority={...f.snapshot(),queryHash:historicalQuery};
   // The original accepted purpose receipt is validly MACed for the old SQL.
   const prior={id:1,owner_id:oldAuthority.ownerId,connection_id:CID,purpose:C.PURPOSE,authority_hash:MAC(f.key,canonical(['scheduler-state-current-v1',C.PURPOSE,oldAuthority])),happened_at:f.now-900,revoked_at:null};
   const priorMac=MAC(f.key,canonical(['scheduler-state-consent-record-v1',prior.id,prior.owner_id,prior.connection_id,prior.purpose,prior.authority_hash,prior.happened_at,prior.revoked_at]));
@@ -71,3 +71,5 @@ for(const state of ['prepared','approved','consumed','uncertain'])test('authenti
  }finally{f.close();}
 });
 test('old query CURRENT and historical MAC tampering remain refused without callbacks',()=>{const f=fixture();try{const old=previousRecord(f,'approved');f.mod.queryHash=C.PREVIOUS_QUERY_HASH;assert.throws(f.prepare,{code:'SCHEDULER_CHAT_CURRENT_REFUSED'});delete f.mod.queryHash;f.db.prepare('UPDATE crm_scheduler_state_chat_intent_v1 SET state=? WHERE id=?').run('uncertain',old.approvalId);assert.throws(f.prepare,{code:'SCHEDULER_CHAT_INTEGRITY_REFUSED'});assert.equal(f.callbacks.length,0);}finally{f.close();}});
+
+for(const state of ['consumed','uncertain'])test('v3 same binding '+state+' remains sticky and cannot prepare or replay callback',async()=>{const f=fixture();try{const old=previousRecord(f,state,C.queryHash);assert.equal(f.status(old).state,'uncertain');assert.throws(f.prepare,{code:'SCHEDULER_CHAT_CONFIRMATION_UNCERTAIN'});assert.equal((await f.confirm(old)).state,'uncertain');f.bridge=C.createSchedulerStateChatApproval(f.options);assert.throws(f.prepare,{code:'SCHEDULER_CHAT_CONFIRMATION_UNCERTAIN'});assert.equal(f.callbacks.length,0);}finally{f.close();}});
