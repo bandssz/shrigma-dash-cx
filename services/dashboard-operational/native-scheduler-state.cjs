@@ -5,7 +5,7 @@ const PURPOSE='crm.scheduler-state-read';
 const RESOURCE=Object.freeze({project:'comunicacao',service:'postgres',host:'comunicacao_postgres',port:5432,database:'listmonk',network:'easypanel'});
 const BEGIN='BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',ROLLBACK='ROLLBACK';
 const EXPECTED_SELECTION_QUERY='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d';
-const H=/^[a-f0-9]{64}$/;
+const H=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,NIL_UUID='00000000-0000-0000-0000-000000000000';
 const canonical=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const resourceHash=sha(canonical(RESOURCE));
@@ -16,7 +16,16 @@ function object(v,keys){
  const names=Reflect.ownKeys(v);if(names.length!==keys.length||names.some(k=>typeof k!=='string'||!keys.includes(k)))throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');
  const copy={};for(const k of names){const d=Object.getOwnPropertyDescriptor(v,k);if(!d?.enumerable||!Object.hasOwn(d,'value'))throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');copy[k]=d.value;}return copy;
 }
-function iso(x){if(typeof x!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(x)||!Number.isFinite(Date.parse(x)))return false;const d=new Date(0);d.setUTCFullYear(+x.slice(0,4),+x.slice(5,7)-1,+x.slice(8,10));return d.getUTCFullYear()===+x.slice(0,4)&&d.getUTCMonth()+1===+x.slice(5,7)&&d.getUTCDate()===+x.slice(8,10)&&+x.slice(11,13)<24&&+x.slice(14,16)<60&&+x.slice(17,19)<60&&(!x.includes('+')||+x.slice(-5,-3)<24&&+x.slice(-2)<60);}
+// Compare PostgreSQL JSON timestamps at microsecond precision. Date.parse
+// alone truncates fractions and can misclassify an exact lease deadline.
+function timestamp(x){
+ if(typeof x!=='string')return null;const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/.exec(x);if(!m)return null;
+ const year=+m[1],month=+m[2],day=+m[3],hour=+m[4],minute=+m[5],second=+m[6],offsetHour=+(m[10]||0),offsetMinute=+(m[11]||0);
+ if(month<1||month>12||day<1||day>31||hour>23||minute>59||second>59||offsetHour>23||offsetMinute>59)return null;
+ const d=new Date(0);d.setUTCFullYear(year,month-1,day);d.setUTCHours(hour,minute,second,0);if(d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1||d.getUTCDate()!==day)return null;
+ const offset=(offsetHour*60+offsetMinute)*(m[9]==='-'?-1:1);return BigInt(d.getTime()-offset*60000)*1000n+BigInt((m[7]||'').padEnd(6,'0'));
+}
+const iso=x=>timestamp(x)!==null;
 function bounded(p,ms,code='SCHEDULER_STATE_TIMEOUT'){let timer;return Promise.race([p,new Promise((_,reject)=>{timer=setTimeout(()=>reject(error(code)),ms);})]).finally(()=>clearTimeout(timer));}
 // Metadata is inspected before references to private relations are executed.
 // Only pg_catalog and the closed three-relation set are used here.
@@ -39,6 +48,7 @@ SELECT pg_catalog.jsonb_build_object(
   'approvalPresent',d.worker_sha256 IS NOT NULL AND d.runtime_sha256 IS NOT NULL AND d.query_sha256 IS NOT NULL AND d.database_role IS NOT NULL AND d.approved_at IS NOT NULL AND pg_catalog.isfinite(d.approved_at) AND d.approved_by IS NOT NULL AND pg_catalog.length(d.approved_by)>0 AND d.topology_receipt_sha256 IS NOT NULL,
   'approvalTiming',CASE WHEN d.approved_at IS NULL THEN 'missing' WHEN d.approved_at>at.at THEN 'future' ELSE 'effective' END,
   'queryExpected',d.query_sha256='${EXPECTED_SELECTION_QUERY}'),
+ 'storedIdentity',CASE WHEN l.singleton IS NULL THEN NULL ELSE pg_catalog.jsonb_build_object('instanceId',l.instance_id,'workerSha256',l.worker_sha256,'runtimeSha256',l.runtime_sha256,'heartbeatAt',l.heartbeat_at,'expiresAt',l.expires_at) END,
  'lease',pg_catalog.jsonb_build_object('present',l.singleton IS NOT NULL,
   'live',CASE WHEN l.singleton IS NULL THEN NULL ELSE l.heartbeat_at<=at.at AND l.expires_at>at.at END,
   'suspended',l.suspended,'reason',l.suspension_reason),
@@ -61,11 +71,14 @@ function validateCatalog(rows){
  }
 }
 function validateState(raw){
- const v=object(raw,['checkedAt','deployment','lease','deploymentLeaseMatch','selection']),d=object(v.deployment,['present','enabled','approvalPresent','approvalTiming','queryExpected']),l=object(v.lease,['present','live','suspended','reason']),m=object(v.deploymentLeaseMatch,['worker','runtime','databaseRole']),s=object(v.selection,['present','enabled','queryExpected','verifiedAt']);
+ const v=object(raw,['checkedAt','deployment','lease','deploymentLeaseMatch','selection','storedIdentity']),d=object(v.deployment,['present','enabled','approvalPresent','approvalTiming','queryExpected']),l=object(v.lease,['present','live','suspended','reason']),m=object(v.deploymentLeaseMatch,['worker','runtime','databaseRole']),s=object(v.selection,['present','enabled','queryExpected','verifiedAt']);
  const bool=x=>typeof x==='boolean',nullableBool=x=>x===null||bool(x),bad=()=>{throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');};
  if(!iso(v.checkedAt)||!bool(d.present)||!nullableBool(d.enabled)||!bool(d.approvalPresent)||!['missing','future','effective'].includes(d.approvalTiming)||!nullableBool(d.queryExpected)||!bool(l.present)||!nullableBool(l.live)||!nullableBool(l.suspended)||!['competing_instance','identity_changed','deployment_off',null].includes(l.reason)||!Object.values(m).every(nullableBool)||!bool(s.present)||!nullableBool(s.enabled)||!nullableBool(s.queryExpected)||!(s.verifiedAt===null||iso(s.verifiedAt)))bad();
  if(!d.present&&(d.enabled!==null||d.approvalPresent||d.approvalTiming!=='missing'||d.queryExpected!==null)||!l.present&&(l.live!==null||l.suspended!==null||l.reason!==null)||l.present&&(!bool(l.live)||!bool(l.suspended)||l.suspended!==(l.reason!==null))||!s.present&&(s.enabled!==null||s.queryExpected!==null||s.verifiedAt!==null)||d.present&&!bool(d.enabled)||s.present&&!bool(s.enabled)||(!d.present||!l.present)&&Object.values(m).some(x=>x!==null))bad();
- return Object.freeze({schema:'shrigma-original-scheduler-stored-state-v1',checkedAt:v.checkedAt,deployment:Object.freeze(d),lease:Object.freeze(l),deploymentLeaseMatch:Object.freeze(m),selection:Object.freeze(s),storedStateOnly:true,runtimeMeasured:false,causeEstablished:false,authorizesSend:false,authorizesRecovery:false,operational:false});
+ // Stored hashes are the lease record's identity, not a measurement of the
+ // current executable and never admission of another binary or a send.
+ let identity=null;if(l.present){const i=object(v.storedIdentity,['instanceId','workerSha256','runtimeSha256','heartbeatAt','expiresAt']);if(typeof i.instanceId!=='string'||!UUID.test(i.instanceId)||i.instanceId===NIL_UUID||typeof i.workerSha256!=='string'||!H.test(i.workerSha256)||typeof i.runtimeSha256!=='string'||!H.test(i.runtimeSha256)||!iso(i.heartbeatAt)||!iso(i.expiresAt))bad();const heartbeat=timestamp(i.heartbeatAt),expires=timestamp(i.expiresAt),checked=timestamp(v.checkedAt);if(expires<heartbeat||l.live!==(heartbeat<=checked&&expires>checked))bad();identity=Object.freeze(i);}else if(v.storedIdentity!==null)bad();
+ return Object.freeze({schema:'shrigma-original-scheduler-stored-state-v2',checkedAt:v.checkedAt,storedIdentity:identity,deployment:Object.freeze(d),lease:Object.freeze(l),deploymentLeaseMatch:Object.freeze(m),selection:Object.freeze(s),storedStateOnly:true,runtimeMeasured:false,causeEstablished:false,authorizesSend:false,authorizesRecovery:false,operational:false});
 }
 function credential(raw,ownerId){const p=object(raw,['schema','revision','ownerId','username','password','resource','transport']);object(p.resource,Object.keys(RESOURCE));object(p.transport,['mode']);if(p.schema!=='shrigma-private-database-credential-v1'||p.ownerId!==ownerId||!Number.isSafeInteger(p.revision)||p.revision<1||typeof p.username!=='string'||!p.username||Buffer.byteLength(p.username)>63||/[\x00-\x1f\x7f]/.test(p.username)||typeof p.password!=='string'||!p.password||Buffer.byteLength(p.password)>4096||p.password.includes('\0')||canonical(p.resource)!==canonical(RESOURCE)||p.transport.mode!=='admitted-private-network')throw error('SCHEDULER_STATE_CREDENTIAL_REFUSED');return p;}
 function credentialBinding(p){const {password,...pub}=p;return sha(canonical(pub));}

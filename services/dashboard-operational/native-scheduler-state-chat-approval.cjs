@@ -2,9 +2,10 @@
 const crypto=require('node:crypto');
 const {isProxy}=require('node:util').types;
 const PURPOSE='crm.scheduler-state-read',MAX_TTL_MS=600000;
-// Exact public contract of native-scheduler-state.cjs at parent23b6e463.
+// Exact public v2 stored-identity contract; prior v1 intents retain their MAC.
 // Repinning its fixed SQL requires a new approval module revision, not input.
-const queryHash='49931ee6f49587b423832cd94d71de5f99e77ee556b51da2db399eeee93980e4';
+const queryHash='78f2a08ad6c8514f396967a786c87c5f76c0427dd57efe4a657ae4d7beb36833';
+const PREVIOUS_QUERY_HASH='49931ee6f49587b423832cd94d71de5f99e77ee556b51da2db399eeee93980e4';
 const resourceHash='85c6d8aa54c0780dfa9f6463df77f9799cdd4c2af0c395ebccd7dd235750df35';
 const AUTHORITY_FIELDS=Object.freeze(['ownerId','ownerRevision','connectionHash','crmBindingHash','profileRevision','credentialBindingHash','resourceHash','queryHash']);
 const CURRENT_NEEDS=Object.freeze({purpose:PURPOSE,scopes:Object.freeze(['crm.read','crm.iam']),brands:Object.freeze(['fish','aristo'])});
@@ -44,9 +45,11 @@ function createSchedulerStateChatApproval({db,current,mac,authorizeBoundApproval
   return Object.freeze(Object.fromEntries(AUTHORITY_FIELDS.map(k=>[k,a[k]])));
  }
  function sameAuthority(a,b){return canonical(a)===canonical(b);}
+ // Authenticate the closed historical v1 query as history only. CURRENT
+ // still accepts only the new query; bound/status/confirm cannot promote it.
  function validated(r){
   if(!r||!UUID.test(r.id||'')||r.purpose!==PURPOSE||!Number.isSafeInteger(r.created_at)||!Number.isSafeInteger(r.expires_at)||r.created_at<0||r.expires_at<=r.created_at||r.expires_at-r.created_at>MAX_TTL_MS||!['prepared','consumed','approved','denied','expired','uncertain'].includes(r.state)||r.state==='prepared'&&r.consumed_at!==null||r.state!=='prepared'&&(!Number.isSafeInteger(r.consumed_at)||r.consumed_at<r.created_at)||!equal(r.record_mac,seal(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);
-  let a;try{a=exact(JSON.parse(r.authority_json),AUTHORITY_FIELDS);}catch{fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);}if(a.ownerId!==r.owner_id||AUTHORITY_FIELDS.slice(1).some(k=>typeof a[k]!=='string'||!H.test(a[k]))||a.resourceHash!==resourceHash||a.queryHash!==queryHash||!equal(r.intent_hash,intentHash(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);return r;
+  let a;try{a=exact(JSON.parse(r.authority_json),AUTHORITY_FIELDS);}catch{fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);}if(a.ownerId!==r.owner_id||AUTHORITY_FIELDS.slice(1).some(k=>typeof a[k]!=='string'||!H.test(a[k]))||a.resourceHash!==resourceHash||![queryHash,PREVIOUS_QUERY_HASH].includes(a.queryHash)||!equal(r.intent_hash,intentHash(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);return r;
  }
  function get(id){let r;try{r=db.prepare('SELECT * FROM crm_scheduler_state_chat_intent_v1 WHERE id=?').get(id);}catch{fail('SCHEDULER_CHAT_STORE_REFUSED',503);}if(!r)fail('SCHEDULER_CHAT_INTENT_NOT_FOUND',404);return validated(r);}
  function bound(context,connectionId,id){const a=authority(context,connectionId),r=get(id);if(r.connection_id!==connectionId||r.owner_id!==a.ownerId||!sameAuthority(a,JSON.parse(r.authority_json)))fail('SCHEDULER_CHAT_BINDING_CHANGED',409);const fresh=authority(context,connectionId);if(!sameAuthority(a,fresh))fail('SCHEDULER_CHAT_BINDING_CHANGED',409);return {a:fresh,r};}
@@ -86,4 +89,4 @@ function createSchedulerStateChatApproval({db,current,mac,authorizeBoundApproval
  }
  return Object.freeze({prepare,confirm,status});
 }
-module.exports=Object.freeze({createSchedulerStateChatApproval,PURPOSE,MAX_TTL_MS,queryHash,resourceHash,AUTHORITY_FIELDS,CURRENT_NEEDS});
+module.exports=Object.freeze({createSchedulerStateChatApproval,PURPOSE,MAX_TTL_MS,queryHash,PREVIOUS_QUERY_HASH,resourceHash,AUTHORITY_FIELDS,CURRENT_NEEDS});

@@ -23,10 +23,14 @@ test('fixed scheduler catalog and state SQL parse on isolated PostgreSQL17 with 
   try{
    const rows=(await db.query(sql(C.CATALOG_SQL))).rows;a.equal(rows.length,3);a(rows.every(r=>r.kind==='r'&&r.readable===true));a.equal(rows.find(r=>r.relation==='selection').columns.length,4);
    a.equal((await db.query(C.READ_SQL)).rows.length,0);
-   const state=(await db.query(sql(C.READ_SQL))).rows;a.equal(state.length,1);const v=state[0].payload;
+   const state=(await db.query(sql(C.READ_SQL))).rows;a.equal(state.length,1);const v=state[0].payload;const dto=C.validateState(v);a.equal(dto.schema,'shrigma-original-scheduler-stored-state-v2');a.equal(dto.runtimeMeasured,false);
    a.equal(v.deployment.enabled,true);a.equal(v.deployment.approvalPresent,true);a.equal(v.deployment.approvalTiming,'effective');a.equal(v.deployment.queryExpected,true);
    a.equal(v.lease.live,true);a.equal(v.lease.suspended,true);a.equal(v.lease.reason,'identity_changed');a.equal(v.deploymentLeaseMatch.worker,true);a.equal(v.deploymentLeaseMatch.runtime,false);a.equal(v.selection.queryExpected,true);
-   a(!JSON.stringify(v).includes('synthetic-fixture'));a(!Object.hasOwn(v.deployment,'approved_by'));a(!JSON.stringify(v).includes('a'.repeat(64)));
+   a(!JSON.stringify(v).includes('synthetic-fixture'));a(!Object.hasOwn(v.deployment,'approved_by'));a.deepEqual(Object.keys(v.storedIdentity).sort(),['expiresAt','heartbeatAt','instanceId','runtimeSha256','workerSha256']);a.equal(v.storedIdentity.instanceId,'a1111111-1111-4111-8111-111111111111');a.equal(v.storedIdentity.workerSha256,'a'.repeat(64));a.equal(v.storedIdentity.runtimeSha256,'d'.repeat(64));a(Number.isFinite(Date.parse(v.storedIdentity.heartbeatAt)));a(Date.parse(v.storedIdentity.expiresAt)>Date.parse(v.storedIdentity.heartbeatAt));a(!JSON.stringify(v).includes('synthetic-fixture'));a(!Object.hasOwn(v.storedIdentity,'database_role'));a.equal(dto.operational,false);
   }finally{await db.exec('ROLLBACK');}
+  // Only disposable fixture rows change; fixed production SQL remains READ ONLY.
+  await db.exec('DELETE FROM crm_audience_v2.regular_worker_lease');
+  await db.exec('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  try{const absent=(await db.query(sql(C.READ_SQL))).rows;a.equal(absent.length,1);a.equal(absent[0].payload.storedIdentity,null);a.equal(C.validateState(absent[0].payload).lease.present,false);}finally{await db.exec('ROLLBACK');}
  }finally{await db.close();}
 });

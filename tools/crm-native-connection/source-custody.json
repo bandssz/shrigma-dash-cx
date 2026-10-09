@@ -742,8 +742,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
-      "bytes": 13162,
-      "sha256": "3ef4cc2db16ba66c8f2e94338117ee2393d18a2ae809ea0ab792efadb34d4b29"
+      "bytes": 13464,
+      "sha256": "4b6aa3c2a7e14ada4fa26091976381b87ad829bc05b357d97e082588297febe0"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-consent.cjs",
@@ -762,8 +762,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state.cjs",
-      "bytes": 16929,
-      "sha256": "3a901c9ccbf368749c8a93a9b88205a276443023c966095b4e6cb6ba11267fb6"
+      "bytes": 18566,
+      "sha256": "e961153432ddd142f8e46626c010a2a1aa81ed8fb61be4e97cdb1fe733d8645d"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
@@ -1617,8 +1617,8 @@
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/approval.test.cjs",
-      "bytes": 14472,
-      "sha256": "b18ec3e84caa52d513e0ee45f679a41ae12586ffe03900490a7470f13820ebd3"
+      "bytes": 19339,
+      "sha256": "0439ee5e5ba48000d2a275fc474a40478fbdd636b111bea6dda11bcb48b74ef6"
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/wiring.test.cjs",
@@ -1627,8 +1627,8 @@
     },
     {
       "path": "tests/scheduler-state-native/read.test.cjs",
-      "bytes": 21319,
-      "sha256": "f0bb0679455164a158e5059e28879c5afe461e47caa651fe09a609e761247ab0"
+      "bytes": 26317,
+      "sha256": "dac431b1dd468d29aa6fc6d86d0708686cc8479b1ee1f90cb0b746fbb9273504"
     },
     {
       "path": "tests/scheduler-state-read-native/route.test.cjs",
@@ -1637,8 +1637,8 @@
     },
     {
       "path": "tests/scheduler-state-read-native/sql.test.cjs",
-      "bytes": 3523,
-      "sha256": "c8b23d9540a443017d236d432065e228e2f7212ce23e112de65014fe38c1f47a"
+      "bytes": 4641,
+      "sha256": "15e271318af90c9946145e9d1ef6c961ab3879c42676a9383fa14349d69cd78e"
     },
     {
       "path": "tests/scheduler-state-read-native/wiring.test.cjs",
@@ -2342,5 +2342,19 @@
     "actualClientCallabilityPending": true,
     "operational": false,
     "imageVerifierCountFix": "derive count from already verified m.baseRuntime/m.additions in verifyReady scope"
+  },
+  "originalStoredWorkerIdentityRead": {
+    "sourceParent": "fa833a6246396d4ff843a312ef9ba2bdd42b7333",
+    "producerDeliverySha256": "4cdd1cff1fcd83f3b79e4d1447e74d394eea974ed19c46211c3913f351ef20e5",
+    "publicInputsVerified": 9,
+    "outputsVerified": 5,
+    "purpose": "crm.scheduler-state-read",
+    "queryHash": "78f2a08ad6c8514f396967a786c87c5f76c0427dd57efe4a657ae4d7beb36833",
+    "previousQueryHash": "49931ee6f49587b423832cd94d71de5f99e77ee556b51da2db399eeee93980e4",
+    "oldApprovalPromoted": false,
+    "storedIdentityMeasuredRuntime": false,
+    "originalWorkerChanged": false,
+    "originalSqlOrAclOrGrantsChanged": false,
+    "operational": false
   }
 }
