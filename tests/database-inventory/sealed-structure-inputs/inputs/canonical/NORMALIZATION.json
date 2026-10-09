@@ -1,0 +1,282 @@
+{
+  "schema": "shrigma-canonical-full-view-isolated-normalization-v1",
+  "status": "COMPLETED_NEW_ISOLATED_SCENARIO",
+  "executedAtUTC": "2026-10-09T00:46:51.570Z",
+  "environment": {
+    "isolation": "PGlite in-memory, no dataDir or external server",
+    "nodeVersion": "v24.19.0",
+    "nodeExecutable": "/Users/felipebandeiragoncalves/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "pgliteVersion": "0.3.14",
+    "postgres": {
+      "database": "template1",
+      "version_num": "170005",
+      "version": "17.5"
+    },
+    "searchPath": "pg_catalog"
+  },
+  "pins": {
+    "script": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/normalize-canonical-view.cjs",
+      "bytes": 13230,
+      "sha256": "4d60fdfe699f6ad4d5ee470706fb770d7f39e396924104c8f9a32cb5f8e3a27e"
+    },
+    "input": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/INPUT.json",
+      "bytes": 12551,
+      "sha256": "5a09e89f308f9f445e4e84f306095a6a9ed048571dfbf882549b957eff0d2fa3"
+    },
+    "canonicalSql": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    "inventory": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 24724,
+      "sha256": "8d9c1ffd1a07074359fa449f624d62759537e326b7dcf5a61152185f38e1403f"
+    },
+    "packageJson": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/.private/test-tools/node_modules/@electric-sql/pglite/package.json",
+      "bytes": 5853,
+      "sha256": "a540c379fd1d820810793681d25fa7ad5dadfcee2b190d14a6553fdb469cfe3c"
+    },
+    "packageEntrypoint": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/.private/test-tools/node_modules/@electric-sql/pglite/dist/index.cjs",
+      "bytes": 408401,
+      "sha256": "37ba5965b7042f78b128eaed205ad076153e32468efb2796ddf706feb25e4e06"
+    },
+    "nodeExecutable": {
+      "path": "/Users/felipebandeiragoncalves/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "bytes": 121304480,
+      "sha256": "9caea9deafcb0c7f22fac3206c32f0dcaf8d1f13460b0be3017fa09e7a4be4f6"
+    },
+    "extractedFullView": {
+      "bytes": 3100,
+      "sha256": "30750e485c8c2c0b15cea56681faf5d4c060db659a9441ea5650a20e7f039c1a"
+    },
+    "originalCatalogSelect": {
+      "bytes": 1822,
+      "sha256": "a0890f0a6ea82b30898f94986a894823427f673114cf2633bdb5ddea6466a9e2"
+    },
+    "adaptedCatalogSelect": {
+      "bytes": 1823,
+      "sha256": "72074ad6df20e2b656184f376ec05194099f79f7218c29a7c1c2bc39e9a401fd"
+    },
+    "additionalCaptureScript": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/capture-canonical-definition.cjs",
+      "bytes": 4386,
+      "sha256": "511527aa35f38a5ff9d42039cc1c12c761ffdf02fe4b1c7a85f047c34d0c4d42"
+    },
+    "publicCanonicalNormalizedDefinition": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/CANONICAL-NORMALIZED.sql",
+      "bytes": 4739,
+      "sha256": "c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28"
+    }
+  },
+  "copiedSchema": {
+    "tables": [
+      {
+        "table": "shrigma_email_dispatch",
+        "columnCount": 20
+      },
+      {
+        "table": "shrigma_email_status",
+        "columnCount": 20
+      },
+      {
+        "table": "shrigma_email_coverage",
+        "columnCount": 12
+      },
+      {
+        "table": "shrigma_email_event_ingest",
+        "columnCount": 11
+      },
+      {
+        "table": "shrigma_email_consumer_health",
+        "columnCount": 11
+      }
+    ],
+    "totalColumns": 74,
+    "typeMap": {
+      "16": "pg_catalog.bool",
+      "20": "pg_catalog.int8",
+      "23": "pg_catalog.int4",
+      "25": "pg_catalog.text",
+      "1184": "pg_catalog.timestamptz",
+      "2950": "pg_catalog.uuid",
+      "3802": "pg_catalog.jsonb"
+    },
+    "requiredTypeModifier": -1,
+    "allOrdinalsNamesTypesRoundtripEqual": true,
+    "fullDispatchStarExpansionColumns": 20,
+    "noRowsInserted": true,
+    "constraintsDefaultsIndexesTriggersCopied": false
+  },
+  "originalMetadata": {
+    "source": "Root INPUT native catalog; original definition text not provided or read",
+    "oid": "135626",
+    "definition_utf8_bytes": 4930,
+    "definition_sha256": "781ffed2f3d8f671f6e2b179c1b451f4a4007886871fa24da83da2bc38087fd7",
+    "flags": {
+      "fixed_fish_aristo_values_seed": false,
+      "empty_brands_literal": false,
+      "brands_jsonb_agg": true
+    }
+  },
+  "canonicalNormalized": {
+    "definition_utf8_bytes": 4739,
+    "definition_sha256": "c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28",
+    "flags": {
+      "fixed_fish_aristo_values_seed": false,
+      "empty_brands_literal": false,
+      "brands_jsonb_agg": true
+    }
+  },
+  "comparison": {
+    "bytesEqual": false,
+    "sha256Equal": false,
+    "allFlagsEqual": true,
+    "meaning": "Full canonical normalized text compared by fingerprint with the reported original metadata. Different hashes do not establish semantic difference or cause of campaign174. Equality would be strong evidence only within the listed deparser/schema limitations."
+  },
+  "isolatedEmptyData": {
+    "tablesEmpty": 5,
+    "payloadRows": 1,
+    "brandsCardinality": 2,
+    "brandNamesFromPublicCanonicalOnly": [
+      "aristo",
+      "fish"
+    ],
+    "allSixMetricsZero": true,
+    "meaning": "Synthetic isolated empty tables only; no original row or health state inferred."
+  },
+  "originalCatalogGuard": {
+    "unmodifiedOriginalQueryReturnedRows": 0,
+    "adaptedQueryReturnedRows": 1,
+    "onlyAdaptation": "database name literal listmonk -> template1"
+  },
+  "limits": [
+    "Original pg_get_viewdef text is unknown; neither definition was diffed against raw original SQL.",
+    "Original runtime definition may have frozen d.* columns at CREATE before the supplied current catalog; this scenario expands all current columns.",
+    "PostgreSQL major17 is verified in PGlite; exact original minor/build/deparser settings are not supplied in INPUT.",
+    "Only columns, builtin type OIDs, typmods and ordinals are reproduced; no original constraints/defaults/indexes/triggers or rows are copied.",
+    "Normalized hash difference alone is not proof of semantic change and provides no cause of Listmonk campaign174 scan failure.",
+    "Flags remain lexical observations; the full isolated canonical view result validates their behavior on this scenario only."
+  ],
+  "scope": {
+    "newScenarioOnly": true,
+    "closedSuitesRepeated": false,
+    "originalSqlOrDataAccess": false,
+    "remoteConnectorCalls": 0,
+    "originalTablesCreated": 0,
+    "grantsCreated": 0,
+    "originalWorkerOrScannerExecuted": false,
+    "productionChanged": false,
+    "definitionTextPublished": true,
+    "functionsFromCanonicalScriptExecuted": false,
+    "ddlScope": "Only five isolated in-memory tables and the canonical view",
+    "publicCanonicalDefinitionOnly": true,
+    "originalDefinitionReadOrPublished": false,
+    "isolatedExecutionCount": 2,
+    "executionSplit": {
+      "newFullNormalizationScenario": 1,
+      "additionalArtifactCaptureAuthorizedByRoot": 1,
+      "closedSuiteOrOldAssertionsRepeated": 0
+    }
+  },
+  "rootReportedHistory": {
+    "canonicalSqlHistory": "Root reported one native GitHub commit in its recut:17b5a0de,2026-09-15. No demonstrated historical variant in that recut.",
+    "gatewayAcceptance": "Root reported e883 runtime accepted and compact review135; not independently queried here."
+  },
+  "isolatedDatabaseClosed": true,
+  "postExecutionAnalysis": {
+    "method": "Conclusões por leitura dos fatos da primeira execução do cenário novo e da captura adicional autorizada por Root. As verificações anteriores não foram repetidas na captura; nenhuma consulta remota foi feita.",
+    "proven": [
+      "As cinco tabelas isoladas reproduziram 74 colunas com nomes, OIDs, typmod=-1 e ordinais exatamente iguais ao INPUT; o catálogo local conferiu a igualdade.",
+      "A view canônica completa manteve SELECT d.*; as 20 colunas atuais de dispatch participaram da expansão.",
+      "O catálogo original executado com o guard listmonk retornou zero linhas em template1. A adaptação somente do literal da base retornou uma linha.",
+      "A normalização completa do SQL canônico produziu 4739 bytes e SHA256 c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28.",
+      "Os bytes/hash não são iguais aos metadados reais de 4930 bytes e SHA256 781ffed2f3d8f671f6e2b179c1b451f4a4007886871fa24da83da2bc38087fd7.",
+      "As três flags do catálogo canônico completo são false/false/true, exatamente como as flags reais informadas.",
+      "Com as cinco tabelas vazias, a view canônica isolada produziu uma linha de payload com duas marcas e todos os seis contadores zero.",
+      "O banco PGlite em memória foi fechado após o cenário.",
+      "A captura pública tem exatamente o mesmo hash/bytes da primeira normalização e contém FROM (( VALUES ...), seguido de LEFT JOIN brands; esse parêntese externo adicional explica o falso negativo lexical da seed regex."
+    ],
+    "concreteCounterexample": {
+      "claimExcluded": "fixed_fish_aristo_values_seed=false comprova ausência da semente Fish/Aristo ou exclui a implementação canônica.",
+      "proof": "O canônico completo contém explicitamente a semente VALUES Fish/Aristo, foi materializado com o schema atual reproduzido, retorna duas marcas com dados vazios e ainda recebeu fixed_fish_aristo_values_seed=false pela consulta de catálogo original.",
+      "scope": "A flag é um reconhecimento lexical incompleto. A insuficiência foi reproduzida no cenário novo; não significa que o SQL produtor canônico esteja errado."
+    },
+    "limits": [
+      "Não foi lida a definição original; não há diff textual ou semântico contra ela.",
+      "A diferença de hash não prova, isoladamente, mudança semântica da view.",
+      "O original pode ter congelado d.* com colunas anteriores no momento de CREATE; o INPUT fornece o catálogo atual. Essa hipótese não foi provada.",
+      "PostgreSQL major 17 foi confirmado em PGlite; versão minor/build/deparser do original não consta no INPUT.",
+      "Os dados reais e a cardinalidade exata do array real continuam não expostos. A recusa tipada real continua provando apenas length diferente de dois.",
+      "Nenhuma causa da campanha 174 ou do scanner Listmonk foi inferida."
+    ],
+    "nextConcreteReadDependency": "A definição canônica pública normalizada está agora disponível como input pinado. Root pode comparar primeiro metadados normalizados e, se necessário, obter uma comparação estrutural nativa fechada vinculada ao fingerprint original, sem publicar definição real. O falso negativo lexical foi explicado, mas hash/flags continuam insuficientes para reparar a view. Nenhum reparo ou READ real adicional foi iniciado."
+  },
+  "reproductionCommand": "/Users/felipebandeiragoncalves/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node '/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/normalize-canonical-view.cjs'",
+  "reproductionMeaning": "normalize-canonical-view.cjs reproduz o cenário/fatos iniciais. capture-canonical-definition.cjs captura somente o texto canônico público. A análise focal e explicação lexical foram acrescentadas ao recibo por inspeção local. Nenhuma suíte existente foi executada.",
+  "additionalRootEvidenceNotQueried": {
+    "campaign174": "Root informou READ original fresco HTTP200, scheduled/sent0/startnull, send_at 08/10 14:00Z e mesma versão63e0f0d83577089c78675adda3fb5085.",
+    "receiptPath": "operational-health-v1/original-view-metadata-review-v1/CURRENT-CAMPAIGN-174.json",
+    "scope": "Não foi relido por esta frente nem usado para inferir a causa; normalização isolada permaneceu o único cenário executado."
+  },
+  "publicCanonicalCapture": {
+    "authorization": "Root autorizou uma captura adicional porque o texto normalizado ainda não havia sido persistido e era necessário para a comparação estrutural.",
+    "purpose": "Produzir input público concreto da normalização já comparada e explicar a flag negativa, sem ler definição real.",
+    "capturedAtUTC": "2026-10-09T00:50:22.651Z",
+    "status": "CAPTURE_COMPLETED",
+    "environment": {
+      "pgliteVersion": "0.3.14",
+      "postgresVersion": "17.5",
+      "postgresVersionNum": "170005",
+      "database": "template1",
+      "nodeVersion": "v24.19.0",
+      "searchPath": "pg_catalog",
+      "memoryOnly": true
+    },
+    "source": "Somente trecho CREATE OR REPLACE VIEW do SQL canônico público pinado e 74 colunas do INPUT sanitizado.",
+    "file": {
+      "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/CANONICAL-NORMALIZED.sql",
+      "bytes": 4739,
+      "sha256": "c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28"
+    },
+    "sameBytesAndHashAsInitialNormalization": true,
+    "activities": {
+      "isolatedTablesCreated": 5,
+      "originalTablesCreated": 0,
+      "viewCreatedIsolated": 1,
+      "getViewdefCapture": 1,
+      "payloadRead": false,
+      "catalogFlagsReexecuted": false,
+      "columnRoundtripRepeated": false,
+      "oldTestAssertionsRepeated": false,
+      "remoteReads": 0,
+      "productionChanged": false,
+      "databaseClosed": true
+    },
+    "reproductionCommand": "/Users/felipebandeiragoncalves/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node '/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/capture-canonical-definition.cjs'"
+  },
+  "seedRegexFalseExplanation": {
+    "status": "PROVEN_BY_LOCAL_INSPECTION_OF_CAPTURED_PUBLIC_CANONICAL",
+    "canonicalFile": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/CANONICAL-NORMALIZED.sql",
+    "canonicalLines": [
+      51,
+      52
+    ],
+    "canonicalFragments": [
+      "FROM (( VALUES ('fish'::text), ('aristo'::text)) b(marca)",
+      "LEFT JOIN brands r USING (marca)))) AS payload"
+    ],
+    "patternProducer": "services/dashboard-operational/native-database-inventory.cjs:20",
+    "patternPrefix": "(^|[[:space:]])FROM[[:space:]]*[(][[:space:]]*VALUES",
+    "deparserTransformation": "O pg_get_viewdef completo agrupa a relação composta do LEFT JOIN com um parêntese externo. A semente VALUES já possui seu próprio parêntese; o prefixo normalizado passa a FROM (( VALUES.",
+    "whyNoMatch": "Após FROM e o primeiro (, a regex admite apenas whitespace antes de VALUES. No texto canônico há um segundo (, então a ocorrência da semente não corresponde.",
+    "relationToExistingTests": "Os casos mínimos das sementes no teste health-view-sql.test.cjs:31-32 não têm o LEFT JOIN brands do canônico completo. A leitura desses testes não demonstra cobertura do formato de JOIN materializado aqui; eles não foram reexecutados.",
+    "impact": "Falso negativo lexical demonstrado para a semente válida do canônico completo. fixed_fish_aristo_values_seed=false não pode ser tratado como ausência semântica da semente nem como exclusão do canônico.",
+    "limits": "O arquivo capturado é público e canônico. A definição original real continua desconhecida; flags reais iguais não provam definição igual nem explicam a cardinalidade real diferente de dois.",
+    "patchOrDeploymentPerformed": false
+  }
+}

@@ -180,6 +180,7 @@
     "services/dashboard-operational/native-delivery-health-operator.cjs",
     "services/dashboard-operational/native-delivery-health.cjs",
     "services/dashboard-operational/native-foundation-preview.cjs",
+    "services/dashboard-operational/native-health-view-structure.cjs",
     "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
     "services/dashboard-operational/native-installer/INTEGRATION.txt",
     "services/dashboard-operational/native-installer/catalog.cjs",
@@ -231,8 +232,19 @@
     "tests/dashboard-operational-writer-pack.test.cjs",
     "tests/database-inventory/health-view-contract.test.cjs",
     "tests/database-inventory/health-view-sql.test.cjs",
+    "tests/database-inventory/health-view-structure.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
+    "tests/database-inventory/sealed-structure-inputs/INPUT-PINS.json",
+    "tests/database-inventory/sealed-structure-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+    "tests/database-inventory/sealed-structure-inputs/inputs/canonical/CANONICAL-NORMALIZED.sql",
+    "tests/database-inventory/sealed-structure-inputs/inputs/canonical/CURRENT-SCHEMA.json",
+    "tests/database-inventory/sealed-structure-inputs/inputs/canonical/NORMALIZATION.json",
+    "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-database-inventory.cjs",
+    "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-database-operator.cjs",
+    "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-pg-driver.cjs",
+    "tests/database-inventory/sealed-structure-inputs/inputs/tests/database-inventory/health-view-contract.test.cjs",
     "tests/database-inventory/sealed-view-inputs/INPUT-PINS.json",
     "tests/database-inventory/sealed-view-inputs/TASK.txt",
     "tests/database-inventory/sealed-view-inputs/inputs/ACTUAL-HEALTH-REFUSAL.json",
@@ -344,8 +356,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 15805,
-      "sha256": "fade8e03b86f59ae7c73a2fcf8bfa22bc301bb2dc98865b9c0fe795f97b1841b"
+      "bytes": 15886,
+      "sha256": "be5be84e5128cd3e4fe3ccb3cce50b6cb3ec5d9e47f8eaa35f0ff37a706693b5"
     },
     {
       "path": "assets/panels/growth.css",
@@ -399,13 +411,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 4828,
-      "sha256": "1572f0b5cfa4980ec6a2f33f50bd5142deeee4fc029468bbe4ff90047b870b91"
+      "bytes": 4892,
+      "sha256": "8bf150224bdc72bdd4c7e98380da60c9e44f6644b739ca0c4ec7359c4ba1a17f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 11975,
-      "sha256": "444cbc8e57c762f9ba230ea8a37f8d79858a960ac71d5ea23204f66bd51203ec"
+      "bytes": 12010,
+      "sha256": "a91a3e63a81881141b9a17544ade2cadd1e2a13cad78fd1b0a0781fc473b98b2"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -414,8 +426,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5137,
-      "sha256": "da6335d552df59448fde1db635d6d8015db19c8e5f53338e2de9f2f577cf1fdb"
+      "bytes": 5172,
+      "sha256": "46203fe3b1c53d3f158fbd37c618dcc72ae92e4c90318d2525d1bcb73469a5ee"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -435,7 +447,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "ec8280f54459be0c15b12b6c6e406ab585ff8d16c0a20de5944f64a5e45fb9d5"
+      "sha256": "0c1b84b93cdb031eaa023db2f2623424abfdd25270cb5c7a0decb124d38faef1"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -549,8 +561,8 @@
     },
     {
       "path": "services/dashboard-operational/native-database-inventory.cjs",
-      "bytes": 24724,
-      "sha256": "8d9c1ffd1a07074359fa449f624d62759537e326b7dcf5a61152185f38e1403f"
+      "bytes": 25420,
+      "sha256": "2e4222444d41251f19d1866c10b155162191b671e8a87e72f2125743f480b98b"
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
@@ -581,6 +593,11 @@
       "path": "services/dashboard-operational/native-foundation-preview.cjs",
       "bytes": 8899,
       "sha256": "80e242fb06fbbd02b8b156b288b844e5de035b718291bde4c2a271b10f04bab8"
+    },
+    {
+      "path": "services/dashboard-operational/native-health-view-structure.cjs",
+      "bytes": 8148,
+      "sha256": "636595a618253548bf67da74d6a0f59afee8cb674194899dc3c5ba8b3f3ab0c8"
     },
     {
       "path": "services/dashboard-operational/native-installer/INTEGRATION-pg-session-provider.txt",
@@ -829,13 +846,18 @@
     },
     {
       "path": "tests/database-inventory/health-view-contract.test.cjs",
-      "bytes": 15598,
-      "sha256": "7638dfad736592334b23c41bd5b98626d6311389cb65fe6b76067279a34f6535"
+      "bytes": 16035,
+      "sha256": "1e43227ba833d33f063e5a0ee62844699af2c875f1dece658cecd3d52dd857ca"
     },
     {
       "path": "tests/database-inventory/health-view-sql.test.cjs",
-      "bytes": 3304,
-      "sha256": "f8231d4c8953534d6104782c329aa38789c29d879bc24296e02760674c6eadcf"
+      "bytes": 3749,
+      "sha256": "b4d64c48ae56b8fdca9a68be28f630f6edd5b3d05fbd8b601325e4d05fed80b3"
+    },
+    {
+      "path": "tests/database-inventory/health-view-structure.test.cjs",
+      "bytes": 15471,
+      "sha256": "221164fa2617e58c7611f998d167726b98bd14326087699c0c7e44837bec5ec2"
     },
     {
       "path": "tests/database-inventory/inventory.test.cjs",
@@ -846,6 +868,56 @@
       "path": "tests/database-inventory/reviewed-function-parser.cjs",
       "bytes": 3319,
       "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/INPUT-PINS.json",
+      "bytes": 3700,
+      "sha256": "e9f9773d7030b549498d70073a7c9570852d7cf2f7d2e248badd44be322af9b1"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 3878,
+      "sha256": "0714b3fcca0cbaa316e3db07541829ba6525a100d20b46c93f6539b38d8231aa"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/canonical/CANONICAL-NORMALIZED.sql",
+      "bytes": 4739,
+      "sha256": "c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/canonical/CURRENT-SCHEMA.json",
+      "bytes": 12551,
+      "sha256": "5a09e89f308f9f445e4e84f306095a6a9ed048571dfbf882549b957eff0d2fa3"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/canonical/NORMALIZATION.json",
+      "bytes": 16991,
+      "sha256": "7a20832be395d2cad73c369ff73bd4aae7e13b45d5f073919c20c7680838c18e"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 24724,
+      "sha256": "8d9c1ffd1a07074359fa449f624d62759537e326b7dcf5a61152185f38e1403f"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-database-operator.cjs",
+      "bytes": 9491,
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/services/dashboard-operational/native-pg-driver.cjs",
+      "bytes": 2995,
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
+    },
+    {
+      "path": "tests/database-inventory/sealed-structure-inputs/inputs/tests/database-inventory/health-view-contract.test.cjs",
+      "bytes": 15598,
+      "sha256": "7638dfad736592334b23c41bd5b98626d6311389cb65fe6b76067279a34f6535"
     },
     {
       "path": "tests/database-inventory/sealed-view-inputs/INPUT-PINS.json",
@@ -1355,7 +1427,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "823d780692921d0e54f62b3f7967b26bdc983f994d07dbc34c1e99cbd0c5dfaa"
+      "sha256": "57db614370648c67eb726d074cc2193667f2276415e2660d5dde98bc8859d3cd"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1777,5 +1849,13 @@
     "sqlGrammarTest": "tests/database-inventory/health-view-sql.test.cjs",
     "isolatedPostgresTestLibrary": "@electric-sql/pglite@0.3.14",
     "operational": false
+  },
+  "originalHealthViewStructure": {
+    "producer": "delivery-health-read-v1/original-view-structure-v1/c2-source-v1",
+    "deliverySha256": "95bbbe92b7660f49b79da3a001f4329bcdb590262467300e27c884131b5b9053",
+    "sealedInputPins": 9,
+    "outputs": 4,
+    "privateDefinitionNeverInPublicCatalog": true,
+    "tokenIdentityIsNotHealthProof": true
   }
 }

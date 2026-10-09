@@ -23,7 +23,10 @@ test('fixed catalog SQL parses on isolated PostgreSQL17 and distinguishes struct
     const row=rows[0];assert.equal(row.namespace,'public');assert.equal(row.name,'shrigma_growth_email_ses_health_v1');
     assert.match(row.definition_sha256,/^[a-f0-9]{64}$/);assert(row.definition_utf8_bytes>0);
     for(const [k,v] of Object.entries(expected))assert.equal(row[k],v,k);
-    assert.deepEqual(Object.keys(row),I.CATALOG.healthView.fields);
+    assert.deepEqual(Object.keys(row),['oid','namespace','name','ownerRole','acl','definition_utf8_bytes','definition_sha256','fixed_fish_aristo_values_seed','empty_brands_literal','brands_jsonb_agg','_definition_source']);
+    assert.equal(typeof row._definition_source,'string');
+    assert.equal(Buffer.byteLength(row._definition_source,'utf8'),row.definition_utf8_bytes);
+    assert.equal(require('node:crypto').createHash('sha256').update(row._definition_source,'utf8').digest('hex'),row.definition_sha256);
     assert(!Object.hasOwn(row,'payload'));assert(!Object.hasOwn(row,'source'));assert(!Object.hasOwn(row,'definition'));
    }finally{await db.exec(I.ROLLBACK);}
   };
