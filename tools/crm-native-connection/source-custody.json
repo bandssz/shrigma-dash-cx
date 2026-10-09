@@ -1355,7 +1355,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "d867c140f693542cb49a9c6a156c5c56a42fb72265859b29ed43b1e2bf132cc5"
+      "sha256": "823d780692921d0e54f62b3f7967b26bdc983f994d07dbc34c1e99cbd0c5dfaa"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
