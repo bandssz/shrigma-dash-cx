@@ -19,38 +19,7 @@ const METRICS=Object.freeze(['finalizacao_pendente','entregue_sem_gravacao','res
 // Diagnostics never contain payload values, arbitrary keys or upstream errors.
 const refusalDiagnostics=new WeakMap();
 function actualType(value){if(value===null)return 'null';if(isProxy(value))return 'other';if(Array.isArray(value))return 'array';const t=typeof value;return ['object','string','number','boolean','undefined'].includes(t)?t:'other';}
-function rejectedBrandSet(value){
- // Called only for the existing length!=2 refusal on a non-proxy array.
- if(isProxy(value)||!Array.isArray(value))return null;
- const lengthDescriptor=Object.getOwnPropertyDescriptor(value,'length');
- if(!lengthDescriptor||!Object.hasOwn(lengthDescriptor,'value')||!Number.isSafeInteger(lengthDescriptor.value)||lengthDescriptor.value<0)return null;
- const length=lengthDescriptor.value;
- const unavailable=()=>Object.freeze({length,inspection:'unavailable',fish:null,aristo:null,other:null,malformed:null});
- if(length>64||Object.getPrototypeOf(value)!==Array.prototype)return unavailable();
- const arrayKeys=Reflect.ownKeys(value);
- if(arrayKeys.length!==length+1||!arrayKeys.includes('length'))return unavailable();
- const entries=[];
- for(let i=0;i<length;i++){
-  const d=Object.getOwnPropertyDescriptor(value,String(i));
-  if(!d||!d.enumerable||!Object.hasOwn(d,'value'))return unavailable();
-  entries.push(d.value);
- }
- let fish=0,aristo=0,other=0,malformed=0;
- for(let i=0;i<entries.length;i++){
-  const entry=entries[i];
-  if(isProxy(entry))return unavailable();
-  if(!entry||typeof entry!=='object'||Array.isArray(entry)||![Object.prototype,null].includes(Object.getPrototypeOf(entry))){malformed++;continue;}
-  const keys=Reflect.ownKeys(entry),expected=['marca',...METRICS];
-  if(keys.length!==expected.length||keys.some(k=>typeof k!=='string'||!expected.includes(k))){malformed++;continue;}
-  let marcaDescriptor;
-  for(let i=0;i<keys.length;i++){const k=keys[i],d=Object.getOwnPropertyDescriptor(entry,k);if(!d||!d.enumerable||!Object.hasOwn(d,'value'))return unavailable();if(k==='marca')marcaDescriptor=d;}
-  // Metric values are intentionally never accessed or interpreted here.
-  const marca=marcaDescriptor.value;
-  if(typeof marca!=='string')malformed++;else if(marca==='fish')fish++;else if(marca==='aristo')aristo++;else other++;
- }
- return Object.freeze({length,inspection:'complete',fish,aristo,other,malformed});
-}
-function protocolRefused(field,reason,value){const e=error('HEALTH_PROTOCOL_REFUSED');const diagnostic={schema:'shrigma-email-health-protocol-refusal-v1',field,reason,actualType:actualType(value)};if(field==='brands'&&reason==='brand-set'&&diagnostic.actualType==='array'){const brandSet=rejectedBrandSet(value);if(brandSet)diagnostic.brandSet=brandSet;}refusalDiagnostics.set(e,Object.freeze(diagnostic));return e;}
+function protocolRefused(field,reason,value){const e=error('HEALTH_PROTOCOL_REFUSED');refusalDiagnostics.set(e,Object.freeze({schema:'shrigma-email-health-protocol-refusal-v1',field,reason,actualType:actualType(value)}));return e;}
 function protocolDiagnostic(e){return refusalDiagnostics.get(e)||null;}
 function payloadObject(value,field,keys){
  if(!value||typeof value!=='object'||isProxy(value)||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw protocolRefused(field,'object',value);
