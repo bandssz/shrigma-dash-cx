@@ -7,6 +7,7 @@ on:
       - '.github/workflows/campaign-scan-snapshot-package.yml'
 permissions:
   contents: read
+  actions: read
 jobs:
   measure-candidate:
     runs-on: ubuntu-24.04
@@ -48,6 +49,25 @@ jobs:
         with:
           go-version: '1.26.1'
           cache: false
+      - name: Locate exact missing archived inputs without weakening package inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 37872202516 --repo bandssz/shrigma-dash-cx --name campaign-scanner-candidate-off --dir "$RUNNER_TEMP/previous-scan-package"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'previous-scan-package/candidate'
+          missing=[];invalid=[]
+          for row in (root/'SHA256SUMS').read_text().splitlines():
+              digest,relative=row.split('  ',1)
+              path=root/relative
+              if not path.is_file():missing.append(relative)
+              elif path.is_symlink() or path.stat().st_size>64*1024*1024:invalid.append(relative)
+          assert missing and not invalid
+          assert all(any(part.startswith('.') for part in Path(p).parts) for p in missing)
+          print(json.dumps({'status':'ARCHIVE_HIDDEN_FILES_EXCLUDED_CONFIRMED','missing_count':len(missing),'missing_public_source_paths':missing,'other_invalid_inputs':invalid}))
+          PY
       - name: Verify source lease and hydrate unchanged pinned dependencies
         run: |
           test "$(go env GOVERSION)" = go1.26.1
@@ -69,6 +89,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: campaign-scanner-candidate-off
+          include-hidden-files: true
           path: |
             ${{ runner.temp }}/scan-package/source-pins.json
             ${{ runner.temp }}/scan-package/prepared/preparation.json
