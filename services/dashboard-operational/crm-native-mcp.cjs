@@ -27,6 +27,9 @@ const tools=[
  ['crm_source_sync_inspect','Reler a intenção original da fonte sem reenviar POST','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,false],
  ['crm_source_diagnostics','Diagnosticar por leitura a mesma intenção original da fonte','crm.source-diagnostics',obj({brand,requestId:sourceRequestId},['brand','requestId']),true,false],
  ['crm_email_health','Consultar saúde agregada original de e-mail da marca e fila compartilhada','crm.delivery-health',obj({brand},['brand']),true,false],
+ ['crm_scheduler_state_approval_prepare','Preparar aprovação específica de leitura das travas do agendador','crm.iam',obj(),false,false],
+ ['crm_scheduler_state_approval_confirm','Registrar aprovação ou recusa da intenção específica de leitura','crm.iam',obj({approvalId:sourceRequestId,intentHash:audienceHash,decision:{type:'string',enum:['approve','deny']}},['approvalId','intentHash','decision']),false,false],
+ ['crm_scheduler_state_approval_status','Consultar a mesma intenção de aprovação sem executá-la novamente','crm.iam',obj({approvalId:sourceRequestId},['approvalId']),true,false],
  ['crm_users','Consultar acessos individuais','crm.iam',obj(),false,false],
  ['crm_user_update','Atualizar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},expectedRevision:{type:'string',pattern:'^[a-f0-9]{64}$'},brand,access:{type:'string',enum:['read','edit']}},['userId','expectedRevision','brand','access']),false,true],
  ['crm_user_revoke','Revogar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},brand},['userId','brand']),false,true],
@@ -73,7 +76,7 @@ function dispatchJson(dispatch,{method,path,body,context}){
 function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
- const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -115,6 +118,12 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    const schedulerBindingReceipt=state.status===200&&state.body?.features?.nativeSchedulerBinding===true?await run('GET','/api/scheduler-binding-status'):undefined;
    const schedulerStateReceipt=schedulerStateEnabled&&state.status===200&&state.body?.features?.nativeSchedulerState===true?await run('GET','/api/scheduler-state-receipt'):undefined;
    result={status:state.status,body:{...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+  }else if(name.startsWith('crm_scheduler_state_approval_')){
+   // Preparing records an intention only. Confirmation is a separate human
+   // decision on that exact digest; neither call performs scheduler SQL.
+   store.authenticate(bearer,{scope:'crm.read'});
+   result=name.endsWith('_status')?await run('GET','/api/scheduler-state-approval?'+new URLSearchParams(args)):await run('POST','/api/scheduler-state-approval',{action:name.endsWith('_prepare')?'prepare':'confirm',...args});
+   store.authenticate(bearer,{scope:'crm.read'});
   }else if(name==='crm_template_catalog'){
    const q=new URLSearchParams({acao:'listar',marca:args.brand,canal:'email',...(args.offset!==undefined?{offset:String(args.offset)}:{}),...(args.limit!==undefined?{limit:String(args.limit)}:{})});
    result=require('./crm-master-template-read.cjs').nativeCatalog(await run('GET','/api/templates?'+q),args.brand);

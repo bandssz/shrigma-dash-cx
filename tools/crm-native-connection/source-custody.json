@@ -198,6 +198,7 @@
     "services/dashboard-operational/native-scheduler-binding-operator.cjs",
     "services/dashboard-operational/native-scheduler-binding.cjs",
     "services/dashboard-operational/native-scheduler-diagnostic-transport.cjs",
+    "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
     "services/dashboard-operational/native-scheduler-state-consent.cjs",
     "services/dashboard-operational/native-scheduler-state-controller.cjs",
     "services/dashboard-operational/native-scheduler-state-operator.cjs",
@@ -372,6 +373,8 @@
     "tests/scheduler-diagnostic-native/binding-wiring.test.cjs",
     "tests/scheduler-diagnostic-native/binding.test.cjs",
     "tests/scheduler-diagnostic-native/transport.test.cjs",
+    "tests/scheduler-state-chat-approval-native/approval.test.cjs",
+    "tests/scheduler-state-chat-approval-native/wiring.test.cjs",
     "tests/scheduler-state-native/read.test.cjs",
     "tests/scheduler-state-read-native/route.test.cjs",
     "tests/scheduler-state-read-native/sql.test.cjs",
@@ -409,8 +412,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 17589,
-      "sha256": "f7ca839d1fd867ed5462ff842cb060ba75acf5f9ee232d7621fca97f21b46fc4"
+      "bytes": 17671,
+      "sha256": "93c64d11e685762444fe2f9d17e7e50127a27945d65de1808b6dc073597531e7"
     },
     {
       "path": "assets/panels/growth.css",
@@ -464,13 +467,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 5496,
-      "sha256": "a50d20c7f3926e57f27069af13659f6ae03c7ed1aa1d3acdae8bb86d7eb76fb4"
+      "bytes": 5568,
+      "sha256": "81b0750bb99c38c679e4a7ed73a361d702158b8c630c82c461e713640556de48"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 12607,
-      "sha256": "0c2d81c02eee39f71c06edd084cbbac11f38d9dc94bf2befa424b442e215e260"
+      "bytes": 12650,
+      "sha256": "2fd9676a21b63332681b662af5806da8a9133e2ec5e6497898e820236bd23b94"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -479,8 +482,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5466,
-      "sha256": "d497dea40de4b7d29ee13a650a3c27a06dc5c725818740ad6db428d5dc782bb4"
+      "bytes": 5509,
+      "sha256": "0c8319675ddb98c3fdad77b4e9829990dfc1c4b173108bf38eb717f91e938c8f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -500,7 +503,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "fdf2d83b9847d9a92d0b0e03488449108e0a470a674878389893f536d6c489a5"
+      "sha256": "997d115e774b1df0b3fe940dd467e626c62624f490c2b7fbfb0e1818c7b8e7b6"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -539,8 +542,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 124280,
-      "sha256": "899971e4fbb3f7fb33b9ef4b5731662356f204938d0faf57498d456a56eb11c9"
+      "bytes": 125606,
+      "sha256": "6db65edc8ec22ac079d495eb596a3492986c252c2eea2a66dfc3315577397372"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
@@ -579,8 +582,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 26890,
-      "sha256": "998816ed399ce0c06585ed1addcbdbf1d0949cbcb7e6a468afa78a16221ba4dc"
+      "bytes": 28158,
+      "sha256": "9e3a8f4def8f9545833a6e997b460ceaadc0a2d7c82d0c3606afdd7a779b37b8"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -738,9 +741,14 @@
       "sha256": "dadb12409aee4d8a7d14b26eb23e484406a5f91a96cd9f51e9ca73b23c9e19d8"
     },
     {
+      "path": "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
+      "bytes": 13162,
+      "sha256": "3ef4cc2db16ba66c8f2e94338117ee2393d18a2ae809ea0ab792efadb34d4b29"
+    },
+    {
       "path": "services/dashboard-operational/native-scheduler-state-consent.cjs",
-      "bytes": 7594,
-      "sha256": "0cf701ab0a7aa8a5fdb5567c4fd59dfbf8e9becfc752b8c3147a488e2373cf06"
+      "bytes": 8756,
+      "sha256": "3b47fb20792f439c559568f536962c22c9d9737a9d0ebb208ab6881e837cc72c"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-controller.cjs",
@@ -829,8 +837,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 135550,
-      "sha256": "d2173e1a9bf3216474b0d5d8962c47f8d031bb04d51276c32ece07edc6a7eb4a"
+      "bytes": 137458,
+      "sha256": "4a5ea8e9518f0f23906f1a53539d55bb09726f83ca8420d9f1b957b1b3219646"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -1608,6 +1616,16 @@
       "sha256": "898f7395de22fb5df42e6b659a96b4108329c6ef7646e48930da705457ea7c28"
     },
     {
+      "path": "tests/scheduler-state-chat-approval-native/approval.test.cjs",
+      "bytes": 14472,
+      "sha256": "b18ec3e84caa52d513e0ee45f679a41ae12586ffe03900490a7470f13820ebd3"
+    },
+    {
+      "path": "tests/scheduler-state-chat-approval-native/wiring.test.cjs",
+      "bytes": 8307,
+      "sha256": "c087f639e26ae05545908a725968f3540f79c3ab6e104cb1fa89643b4874fabc"
+    },
+    {
       "path": "tests/scheduler-state-native/read.test.cjs",
       "bytes": 21319,
       "sha256": "f0bb0679455164a158e5059e28879c5afe461e47caa651fe09a609e761247ab0"
@@ -1745,7 +1763,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "e13a069c79bf9ab4ee55760212372336165a1fd938d5cb75218048dbae50c1bb"
+      "sha256": "c04de0df62504519ef60337041b0d7bcaf85c0870edc43ccfd45dd5c71a47537"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -2308,5 +2326,20 @@
       },
       "sourceHead": "5be1e826b970b767826af1d8b2ce580837a7188c"
     }
+  },
+  "rootSchedulerStateChatApproval": {
+    "purpose": "crm.scheduler-state-read",
+    "sourceParent": "23b6e463bcf4d028e0caa3abdb48fb65a336055c",
+    "humanAuthorizationReceived": true,
+    "newTests": 41,
+    "producerTests": 34,
+    "rootTests": 7,
+    "strictCurrentAuthorityFields": 8,
+    "ownIdentityStore": true,
+    "newPostgresDatabase": false,
+    "sqlOrSendPerformedByApproval": false,
+    "browserApprovalPreserved": true,
+    "actualClientCallabilityPending": true,
+    "operational": false
   }
 }

@@ -677,6 +677,24 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='action,connectionId,consent'||body.action!=='authorize'||body.consent!==true)throw jsonError(400,'SCHEDULER_STATE_ARGUMENTS_REFUSED');
         return sendJson(req,res,200,await schedulerState.authorize({context:ctx,connectionId:body.connectionId,consent:true}));
       }
+      if(url.pathname==='/api/scheduler-state-approval'){
+        if(s.crmNativeSchedulerStateEnabled!==true||schedulerState?.enabled!==true||!auth.nativeSchedulerStateChatApproval)throw jsonError(503,'SCHEDULER_STATE_NOT_ADMITTED');
+        if(host!==s.managerHost||!nativeContext||ctx.nativeBearer===undefined)throw jsonError(403,'SCHEDULER_STATE_NATIVE_APPROVAL_REQUIRED');
+        auth.authorize({...ctx,admin:true});
+        const connectionId=auth.nativeConnections.authenticate(ctx.nativeBearer,{scope:'crm.iam'}).id;
+        auth.nativeConnections.authenticate(ctx.nativeBearer,{scope:'crm.read'});
+        if(req.method==='GET'){
+          if([...url.searchParams.keys()].join(',')!=='approvalId')throw jsonError(400,'SCHEDULER_STATE_ARGUMENTS_REFUSED');
+          return sendJson(req,res,200,auth.nativeSchedulerStateChatApproval.status({context:ctx,connectionId,approvalId:url.searchParams.get('approvalId')}));
+        }
+        if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
+        if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,4096);
+        if(!body||Object.getPrototypeOf(body)!==Object.prototype)throw jsonError(400,'SCHEDULER_STATE_ARGUMENTS_REFUSED');
+        if(body.action==='prepare'&&Object.keys(body).join(',')==='action')return sendJson(req,res,200,auth.nativeSchedulerStateChatApproval.prepare({context:ctx,connectionId}));
+        if(body.action!=='confirm'||Object.keys(body).sort().join(',')!=='action,approvalId,decision,intentHash')throw jsonError(400,'SCHEDULER_STATE_ARGUMENTS_REFUSED');
+        return sendJson(req,res,200,await auth.nativeSchedulerStateChatApproval.confirm({context:ctx,connectionId,approvalId:body.approvalId,intentHash:body.intentHash,decision:body.decision}));
+      }
       if(url.pathname==='/api/scheduler-state-receipt'){
         if(s.crmNativeSchedulerStateEnabled!==true||schedulerState?.enabled!==true)throw jsonError(503,'SCHEDULER_STATE_NOT_ADMITTED');
         if(host!==s.managerHost||ctx.nativeBearer===undefined)throw jsonError(403,'SCHEDULER_STATE_NATIVE_REQUIRED');
