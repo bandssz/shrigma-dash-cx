@@ -2287,7 +2287,26 @@
       "nativeDelegationSelfConsent": false,
       "originalWorkerChanged": false,
       "productionSqlExecuted": false,
-      "operational": false
+      "operational": false,
+      "nativeIntegration": {
+        "parent": "0d558b4ed514a30d4f40b42a17981286e18121b3",
+        "tree": "bbdf7c8794456681d649870f66a76e00c2cce01d",
+        "blobsBefore": 2192,
+        "blobsAfter": 2193,
+        "changed": [
+          "services/dashboard-operational/native-scheduler-state-operator.cjs",
+          "services/dashboard-operational/server.cjs",
+          "tests/scheduler-state-native/read.test.cjs",
+          "tools/crm-native-connection/source-custody.json",
+          "tools/crm-native-connection/verify-source.cjs"
+        ],
+        "added": [
+          "tests/scheduler-state-read-native/route.test.cjs"
+        ],
+        "preserved": 2187,
+        "deleted": 0
+      },
+      "sourceHead": "5be1e826b970b767826af1d8b2ce580837a7188c"
     }
   }
 }
