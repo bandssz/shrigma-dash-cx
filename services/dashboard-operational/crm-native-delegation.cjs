@@ -196,6 +196,17 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   let b;try{b=JSON.parse(r.binding_json);}catch{deny('NATIVE_HEALTH_BINDING_REFUSED');}
   if(healthBinding(b,row.user_id)!==r.binding_json||b.ownerRevision!==owner.revision)deny('NATIVE_HEALTH_BINDING_REFUSED');return Object.freeze(b);
  }
- return Object.freeze({issue,authenticate,context,list,revoke,permitInspection,permitSourceSync,permitSourceDiagnostics,sourceDiagnosticsConsent,deliveryHealthOwner,permitDeliveryHealth,deliveryHealthConsent});
+ function schedulerDiagnosticOwner({context,connectionId}={}){
+  if(typeof connectionId!=='string'||!/^[a-f0-9-]{36}$/.test(connectionId))deny('SCHEDULER_CONNECTION_REFUSED');
+  let ownerId;
+  if(context?.nativeBearer!==undefined){const p=authenticate(context.nativeBearer,{scope:'crm.read'});if(p.id!==connectionId)deny('SCHEDULER_CONNECTION_REFUSED');ownerId=p.userId;}
+  else ownerId=consent(context).userId;
+  const owner=identity(ownerId),row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(connectionId,ownerId);
+  if(!owner||owner.role!=='superadmin'||owner.active!==true||!row||!valid(row)||row.host!==managerHost||row.revoked_at!==null||row.expires_at<=time()||row.auth_revision!==owner.revision||!/^[a-f0-9]{64}$/.test(owner.revision||''))deny('SCHEDULER_CONNECTION_REFUSED');
+  const view=project(row);if(!view.scopes.includes('crm.read')||!BRANDS.every(b=>view.brands.includes(b)))deny('SCHEDULER_SHARED_READ_REQUIRED');
+  // Stable read-only fingerprint; the new purpose does not edit existing scopes.
+  return Object.freeze({ownerId:row.user_id,ownerRevision:owner.revision,connectionHash:healthConnectionHash(row)});
+ }
+ return Object.freeze({issue,authenticate,context,list,revoke,schedulerDiagnosticOwner,permitInspection,permitSourceSync,permitSourceDiagnostics,sourceDiagnosticsConsent,deliveryHealthOwner,permitDeliveryHealth,deliveryHealthConsent});
 }
 module.exports={createDelegationStore,SCOPES,BRANDS};

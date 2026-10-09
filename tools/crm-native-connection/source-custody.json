@@ -155,6 +155,7 @@
     "ops/releases/crm-native-connection-20261007/start-existing.cjs",
     "services/dashboard-operational/Dockerfile",
     "services/dashboard-operational/INTEGRATION-database-inventory.txt",
+    "services/dashboard-operational/INTEGRATION-scheduler-binding.txt",
     "services/dashboard-operational/INTEGRATION-source-sync.txt",
     "services/dashboard-operational/artifact-policy.cjs",
     "services/dashboard-operational/auth.cjs",
@@ -193,6 +194,10 @@
     "services/dashboard-operational/native-installer/provider-pins.json",
     "services/dashboard-operational/native-installer/sql.cjs",
     "services/dashboard-operational/native-pg-driver.cjs",
+    "services/dashboard-operational/native-scheduler-api-profile.cjs",
+    "services/dashboard-operational/native-scheduler-binding-operator.cjs",
+    "services/dashboard-operational/native-scheduler-binding.cjs",
+    "services/dashboard-operational/native-scheduler-diagnostic-transport.cjs",
     "services/dashboard-operational/native-source-diagnostics-controller.cjs",
     "services/dashboard-operational/native-source-diagnostics-ui.cjs",
     "services/dashboard-operational/native-source-diagnostics.cjs",
@@ -360,6 +365,9 @@
     "tests/published-journeys-native/original-panel-manifest.json",
     "tests/published-journeys-native/reader.test.cjs",
     "tests/published-journeys-native/renderer.test.cjs",
+    "tests/scheduler-diagnostic-native/binding-wiring.test.cjs",
+    "tests/scheduler-diagnostic-native/binding.test.cjs",
+    "tests/scheduler-diagnostic-native/transport.test.cjs",
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
     "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
@@ -393,8 +401,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 16128,
-      "sha256": "e24bed39267f90e3d31124e70ca7189b40c919d402052a65af2f981454de306e"
+      "bytes": 16795,
+      "sha256": "d1f9288c2d563afc80fdca80b7ddeede4bdd942fb05ba34a64596ea7e03487e7"
     },
     {
       "path": "assets/panels/growth.css",
@@ -448,13 +456,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 4892,
-      "sha256": "8bf150224bdc72bdd4c7e98380da60c9e44f6644b739ca0c4ec7359c4ba1a17f"
+      "bytes": 5197,
+      "sha256": "5b36f8a73545b022b5837c65a956038f290e07afd48d13ba36094b8e48be08e5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 12010,
-      "sha256": "a91a3e63a81881141b9a17544ade2cadd1e2a13cad78fd1b0a0781fc473b98b2"
+      "bytes": 12160,
+      "sha256": "7721bacb56bb589e7076a10c5c3872575ab027a0867518bd6d251aa57ed862c2"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -463,8 +471,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5172,
-      "sha256": "46203fe3b1c53d3f158fbd37c618dcc72ae92e4c90318d2525d1bcb73469a5ee"
+      "bytes": 5322,
+      "sha256": "8b5b5ab2f851a66745650145b5eb24b914ef71066bde55b80187f0b758fed565"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -484,7 +492,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "0c1b84b93cdb031eaa023db2f2623424abfdd25270cb5c7a0decb124d38faef1"
+      "sha256": "e41f6d368f2a39f379a1924df44990eb00e7756bd8261a0850e071a76b2d0440"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -507,6 +515,11 @@
       "sha256": "47d7f3888f837436fbc9488cb3bd7ac4557d8a5fc4bcb1ec1b745092cb1c4143"
     },
     {
+      "path": "services/dashboard-operational/INTEGRATION-scheduler-binding.txt",
+      "bytes": 1816,
+      "sha256": "7be11bd70e0380f3303fb4dadd35c6b56500365d01c49148d6c0c39332add8ee"
+    },
+    {
       "path": "services/dashboard-operational/INTEGRATION-source-sync.txt",
       "bytes": 16074,
       "sha256": "546d898dd092e3727d311823f32213ce06d9853f6a077279c12bff894112a090"
@@ -518,8 +531,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 121206,
-      "sha256": "8a4de4f2255dbd2f1f14fc920dac79ebfddc0f209a11d120284643c4fe4b1dc8"
+      "bytes": 122637,
+      "sha256": "3b8dda4b3facd5fa13faa626c1768eba6d22f55e057ca9648033d0055c0aed51"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
@@ -553,13 +566,13 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-delegation.cjs",
-      "bytes": 22501,
-      "sha256": "619a2eb1558c0deee399fab86dce815029dd85e99004411e1b5dda710ffa4698"
+      "bytes": 23696,
+      "sha256": "5f4b3342e43f15c332475d2b9b03ccfbc48d336d3936a1802d171a6ec8ad2230"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 26402,
-      "sha256": "1788ee8dbd4b49e8b404ec6b3e1fad79d90aefa107aca3e2b352b17d420fe8db"
+      "bytes": 26625,
+      "sha256": "ded636bdc7d5eb57d36bdbbb4f3c7070d05787c825ed95f65d01afcdb4c59c74"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -697,6 +710,26 @@
       "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9"
     },
     {
+      "path": "services/dashboard-operational/native-scheduler-api-profile.cjs",
+      "bytes": 5960,
+      "sha256": "975dac681fdd4e55a2b0cf72da82a6ccb84ff0c6ab101cb4a5486ffff39d042c"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-binding-operator.cjs",
+      "bytes": 9970,
+      "sha256": "07dd09293e08b563c38789e4462345ac84b23cdc94a92c87792a2d19f95053e0"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-binding.cjs",
+      "bytes": 10961,
+      "sha256": "7f4e0c9e381c09692c64e0fbec947b43b3d312e1c540593431fb0fcf7d70d3bb"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-diagnostic-transport.cjs",
+      "bytes": 10985,
+      "sha256": "dadb12409aee4d8a7d14b26eb23e484406a5f91a96cd9f51e9ca73b23c9e19d8"
+    },
+    {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
       "bytes": 6092,
       "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6"
@@ -768,8 +801,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 129948,
-      "sha256": "8ea9b7317f24d2a470cc4668a347fe5de32cb2d53a94c9ae05087332b7cc490a"
+      "bytes": 131579,
+      "sha256": "8a5f9ff2a4512a0c64d212968b8ec113a15b8fca666c32b0c95b0c59e49fa59c"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -1532,6 +1565,21 @@
       "sha256": "006b8c6eb4d9440bdbd161352cb699053007f19001bee745ca7ddd3e96dc7478"
     },
     {
+      "path": "tests/scheduler-diagnostic-native/binding-wiring.test.cjs",
+      "bytes": 8649,
+      "sha256": "f85e79135bcd777b81a6c3740b28ef0e46a7f1b3cba65bd9154a487eb84a9412"
+    },
+    {
+      "path": "tests/scheduler-diagnostic-native/binding.test.cjs",
+      "bytes": 11652,
+      "sha256": "a816c596758f54d13444e5722f6d4273d3949558c898a954c7f78b1ea0170a40"
+    },
+    {
+      "path": "tests/scheduler-diagnostic-native/transport.test.cjs",
+      "bytes": 22570,
+      "sha256": "898f7395de22fb5df42e6b659a96b4108329c6ef7646e48930da705457ea7c28"
+    },
+    {
       "path": "tests/segment-shopify-panel.test.cjs",
       "bytes": 4005,
       "sha256": "e8370a2e03e456b64dbf07711818b7339187a2d5afc192c3fffc833a92a5c24d"
@@ -1649,7 +1697,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "9a7fa7904fa026c2e4ec38f9b54b410396815d49a7491ed833a760115bf2254f"
+      "sha256": "45dcbed8a723c1a54ca9b33e1fce1c59435b71d84152be0dd913ec5dc50b9527"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -2096,6 +2144,20 @@
     "sameReadSqlAndPurpose": true,
     "strictPublicValidatorPreserved": true,
     "thirdPartyRowsUnmodified": true,
+    "operational": false
+  },
+  "schedulerNativePrivateBinding": {
+    "sourceParent": "7370b840c4c3d1a63b7badcba32033c41eabb3ec",
+    "purpose": "crm.scheduler-diagnostic",
+    "originalApiSource": "1b5e8d38c778e869003486d3c38bc7a964661e91",
+    "candidateImage": "sha256:99df3e03214034646e8d188def12664da72aafec9ff3e6bb23ba95219f4926f2",
+    "actualOriginalApiCredentialVerified": false,
+    "actualDiagnosticRuntimeAdmitted": false,
+    "separateScopeTable": true,
+    "existingHealthConsentPreserved": true,
+    "incidentCoreDeliverySha256": "fae32b5e0ab6613edd8bf5ffd581107b1eccb5bb265eb4781bc870fcfcb0df1c",
+    "newRootLocalTests": 26,
+    "incidentCoreLocalTests": 26,
     "operational": false
   }
 }

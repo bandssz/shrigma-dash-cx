@@ -1,0 +1,13 @@
+Scheduler native binding — original identity and separate purpose
+Source parent: 7370b840c4c3d1a63b7badcba32033c41eabb3ec.
+Owner page: /auth/scheduler-binding, same existing gateway / identity SQLite.
+Admission flag: DASHBOARD_NATIVE_SCHEDULER_BINDING=enabled, default OFF.
+Private bind requires original Master browser authentication, POST CSRF, current paired Fish/Aristo crm.read connection, original CRM credential/profile binding and explicit separate crm.scheduler-diagnostic consent.
+One fixed GET http://comunicacao_listmonk:9000/api/profile verifies the actual authenticated original API user. Positive DB user ID, type API, enabled status, matching username, settings:get or original superadmin role ID1 required. Original handler hides the token; any non-null password, duplicate key, unknown profile field, timeout, redirect or oversized response refuses.
+The original API authentication view is the service's API-user cache, not a fresh database read.
+Credential stored only encrypted with existing identity encryption; same-owner rotations preserve history and revoke prior binding. Existing native scopes and delivery-health consents are unchanged.
+Native crm_status obtains only availability through /api/scheduler-binding-status; this performs no profile, SQL, campaign scan or diagnostic endpoint call.
+The separate diagnostic transport is packaged but NOT invoked/admitted. Its CURRENT hooks are future authority boundaries, not fabricated proof.
+Installing/restarting the original worker needs its OWN runtime/verifier admission; startup can process scheduled overdue campaigns. Owner binding consent does not authorize that change or sending/rescheduling/recovery.
+No new PG DB/helper, original API user, campaign, send, recovery, replay or live original service mutation. operational=false.
+

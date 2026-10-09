@@ -112,7 +112,8 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
      store.authenticate(bearer,{scope:'crm.delivery-health'});
     }
    }
-   result={status:state.status,body:{authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   const schedulerBindingReceipt=state.status===200&&state.body?.features?.nativeSchedulerBinding===true?await run('GET','/api/scheduler-binding-status'):undefined;
+   result={status:state.status,body:{...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='crm_template_catalog'){
    const q=new URLSearchParams({acao:'listar',marca:args.brand,canal:'email',...(args.offset!==undefined?{offset:String(args.offset)}:{}),...(args.limit!==undefined?{limit:String(args.limit)}:{})});
    result=require('./crm-master-template-read.cjs').nativeCatalog(await run('GET','/api/templates?'+q),args.brand);
