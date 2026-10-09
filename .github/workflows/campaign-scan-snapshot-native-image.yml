@@ -34,22 +34,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37872202516 > "$RUNNER_TEMP/measured-run.json"
-          gh api repos/bandssz/shrigma-dash-cx/actions/artifacts/11591027498 > "$RUNNER_TEMP/measured-artifact.json"
+          gh api repos/bandssz/shrigma-dash-cx/actions/runs/37872893070 > "$RUNNER_TEMP/measured-run.json"
+          gh api repos/bandssz/shrigma-dash-cx/actions/artifacts/11591455287 > "$RUNNER_TEMP/measured-artifact.json"
           python3 - <<'PY'
           import json,os
           from pathlib import Path
           root=Path(os.environ['RUNNER_TEMP'])
           run=json.loads((root/'measured-run.json').read_text())
           artifact=json.loads((root/'measured-artifact.json').read_text())
-          assert run['id']==37872202516 and run['head_sha']=='6d1cc053950d8a2efbd54d4158481184d4f166d9'
+          assert run['id']==37872893070 and run['head_sha']=='01f96920ff7aaf360308f852d1ae539280f068e9'
           assert run['status']=='completed' and run['conclusion']=='success'
-          assert artifact['id']==11591027498 and artifact['name']=='campaign-scanner-candidate-off'
+          assert artifact['id']==11591455287 and artifact['name']=='campaign-scanner-candidate-off'
           assert artifact['workflow_run']['id']==run['id'] and not artifact['expired']
-          assert artifact['size_in_bytes']==22467029
-          assert artifact['digest']=='sha256:a2d8d939427662b4b0ce559ccb304ed9268ac1e4ed520adc4ec5ceb54b49e8d4'
+          assert artifact['size_in_bytes']==22480005
+          assert artifact['digest']=='sha256:a03e436b1aeac4e121b83e23daa19b0bd4b2a1f5f04790738f4a1de7d8eb82c7'
           PY
-          gh run download 37872202516 --repo bandssz/shrigma-dash-cx --name campaign-scanner-candidate-off --dir "$RUNNER_TEMP/scan-package"
+          gh run download 37872893070 --repo bandssz/shrigma-dash-cx --name campaign-scanner-candidate-off --dir "$RUNNER_TEMP/scan-package"
       - name: Verify actual binary and original native proof inputs before execution
         run: |
           python3 - <<'PY'
@@ -79,6 +79,14 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/scan-native"
           python3 tools/listmonk-regular-build/native_proof.py --binary "$RUNNER_TEMP/scan-package/candidate/candidate/listmonk" --report "$RUNNER_TEMP/scan-native/native-proof.json" --pg-bin "$RUNNER_TEMP/scan-test-tools/node_modules/@embedded-postgres/linux-x64/native/bin" --source-dir "$RUNNER_TEMP/scan-package/candidate/source/listmonk" --runtime-dir "$RUNNER_TEMP/scan-native" --node-path "$RUNNER_TEMP/scan-test-tools/node_modules"
+      - name: Preserve new exact native proof before image validation
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: campaign-scanner-native-proof-off
+          path: ${{ runner.temp }}/scan-native/native-proof.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Build OFF OCI from the same binary and freshly matched native proof
         run: |
           python3 tools/listmonk-regular-package/image.py --package "$RUNNER_TEMP/scan-package/candidate" --native-proof "$RUNNER_TEMP/scan-native/native-proof.json" --revision 7c46c0b51525918b7ec1b41e9a8b433e29ec4307 --out "$RUNNER_TEMP/scan-image"
