@@ -174,39 +174,52 @@ const SEND_GUARD_HASHES=Object.freeze({"draft-only": "58101464bdbc4114ab77de6ba8
 
 const SELECTOR_EXTRA_COLUMNS=Object.freeze({"public.lists":{"name":"25","tags":"1009|1015","status":"enum"},"public.campaign_views":{"subscriber_id":"23","campaign_id":"23","created_at":"1184"},"public.link_clicks":{"subscriber_id":"23","campaign_id":"23","created_at":"1184"},"crm_audience_v2.campaign_binding":{"campaign_id":"23","binding_version":"23","brand":"25","audience_id":"2950","audience_revision":"23","definition_hash":"25","context_hash":"25","base_list_id":"23","catalog_hash":"25","binding":"3802","binding_hash":"25","campaign_version":"25"},"crm_audience_v2.campaign_binding_release":{"campaign_id":"23","binding_version":"23","binding_hash":"25"},"crm_audience_v2.campaign_binding_revision":{"campaign_id":"23","binding_version":"23","binding":"3802","binding_hash":"25"},"crm_audience_v2.revision":{"audience_id":"2950","version":"23","archived":"16","definition":"3802","context":"3802","definition_hash":"25","context_hash":"25"},"crm_audience_v2.config":{"brand":"25","enabled":"16","base_list_id":"23","catalog":"3802","checked_at":"1184","expires_at":"1184"},"crm_audience_v2.audience":{"id":"2950","brand":"25","archived":"16"},"crm_audience_v2.selection_timezone":{"name":"25"},"crm_audience_v2.selection_runtime":{"singleton":"16","enabled":"16","candidate_query_sha256":"25","verified_at":"1184"}});
 const selectorColumns=Object.entries(SELECTOR_EXTRA_COLUMNS).flatMap(([relation,cols])=>Object.entries(cols).map(([name,type])=>`(${quote(relation)},${quote(name)},${quote(type)})`)).join(",");
-const SELECTOR_FENCE_SQL=`WITH expected(schema_name,name,args,returns,language,volatility,defaults,search_path,body_hash) AS (VALUES ${SELECTOR_FUNCTIONS.map(f=>`(${[f.schema,f.name,f.args,f.returns,f.language,f.volatility,f.defaults,f.searchPath,f.prosrcSha256].map(v=>v===null?'NULL':quote(v)).join(',')})`).join(',')}),
+const PURE_PIN_FIELDS=Object.freeze(["kind", "support", "strict", "leakproof", "security", "volatility", "language", "returnSet", "returnType", "defaultCount", "defaultExpression", "searchPath", "singleOverload", "body"]);
+const SELECTOR_BODY_BYTES=Object.freeze({"selection_canonical":996,"selection_utf16_length":93,"selection_engagement_source_hash":439,"campaign_binding_effective":267,"shrigma_campaign_list_brand":486,"selection_hash":89,"selection_catalog_valid":3372,"selection_lists_valid":295,"selection_engagement_match":1734,"selection_rule":3128,"selection_context":5118,"selection_regular_rule_match":875,"selection_regular_matches":957,"selection_worker_context":581});
+const SEND_GUARD_BODY_BYTES=Object.freeze({"draft-only": 1063, "operation": 5494});
+const SELECTOR_FENCE_SQL=`WITH expected(schema_name,name,args,returns,language,volatility,defaults,search_path,body_hash,body_bytes) AS (VALUES ${SELECTOR_FUNCTIONS.map(f=>`(${[f.schema,f.name,f.args,f.returns,f.language,f.volatility,f.defaults,f.searchPath,f.prosrcSha256,String(SELECTOR_BODY_BYTES[f.name])].map(v=>v===null?'NULL':quote(v)).join(',')})`).join(',')}),
  relations(schema_name,name) AS (VALUES ${SELECTOR_RELATIONS.map(r=>`(${quote(r.schema)},${quote(r.name)})`).join(',')}),
  required_columns(relation,name,type) AS (VALUES ${selectorColumns}),
- helper AS (
+ helper_flags AS (
  SELECT e.name,p.oid IS NOT NULL AS present,
- COALESCE(p.prokind='f' AND p.prosupport=0 AND NOT p.proisstrict AND NOT p.proleakproof AND NOT p.prosecdef AND p.provolatile=e.volatility AND l.lanname=e.language
- AND p.proretset=(e.returns='binding') AND p.prorettype=CASE e.returns WHEN 'jsonb' THEN 3802 WHEN 'bool' THEN 16 WHEN 'text' THEN 25 WHEN 'int' THEN 23 ELSE (SELECT c.reltype FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='crm_audience_v2' AND c.relname='campaign_binding') END
- AND p.pronargdefaults=CASE WHEN e.defaults IS NULL THEN 0 WHEN e.name='selection_rule' THEN 2 ELSE 1 END
- AND pg_catalog.pg_get_expr(p.proargdefaults,0) IS NOT DISTINCT FROM e.defaults
- AND p.proconfig IS NOT DISTINCT FROM CASE WHEN e.search_path IS NULL THEN NULL::text[] ELSE ARRAY['search_path='||e.search_path] END
- AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')=e.body_hash
- AND (SELECT count(*)=1 FROM pg_catalog.pg_proc x WHERE x.pronamespace=n.oid AND x.proname=e.name),false) AS pure_pin,
+ pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') AS actual_hash,pg_catalog.octet_length(pg_catalog.convert_to(p.prosrc,'UTF8')) AS actual_bytes,
+ COALESCE(p.oid IS NOT NULL AND (p.prokind='f'),false) AS "kind",
+ COALESCE(p.oid IS NOT NULL AND (p.prosupport=0),false) AS "support",
+ COALESCE(p.oid IS NOT NULL AND (NOT p.proisstrict),false) AS "strict",
+ COALESCE(p.oid IS NOT NULL AND (NOT p.proleakproof),false) AS "leakproof",
+ COALESCE(p.oid IS NOT NULL AND (NOT p.prosecdef),false) AS "security",
+ COALESCE(p.oid IS NOT NULL AND (p.provolatile=e.volatility),false) AS "volatility",
+ COALESCE(p.oid IS NOT NULL AND (l.lanname=e.language),false) AS "language",
+ COALESCE(p.oid IS NOT NULL AND (p.proretset=(e.returns='binding')),false) AS "returnSet",
+ COALESCE(p.oid IS NOT NULL AND (p.prorettype=CASE e.returns WHEN 'jsonb' THEN 3802 WHEN 'bool' THEN 16 WHEN 'text' THEN 25 WHEN 'int' THEN 23 ELSE (SELECT c.reltype FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='crm_audience_v2' AND c.relname='campaign_binding') END),false) AS "returnType",
+ COALESCE(p.oid IS NOT NULL AND (p.pronargdefaults=CASE WHEN e.defaults IS NULL THEN 0 WHEN e.name='selection_rule' THEN 2 ELSE 1 END),false) AS "defaultCount",
+ COALESCE(p.oid IS NOT NULL AND (pg_catalog.pg_get_expr(p.proargdefaults,0) IS NOT DISTINCT FROM e.defaults),false) AS "defaultExpression",
+ COALESCE(p.oid IS NOT NULL AND (p.proconfig IS NOT DISTINCT FROM CASE WHEN e.search_path IS NULL THEN NULL::text[] ELSE ARRAY['search_path='||e.search_path] END),false) AS "searchPath",
+ COALESCE(p.oid IS NOT NULL AND ((SELECT count(*)=1 FROM pg_catalog.pg_proc x WHERE x.pronamespace=n.oid AND x.proname=e.name)),false) AS "singleOverload",
+ COALESCE(p.oid IS NOT NULL AND (pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')=e.body_hash AND pg_catalog.octet_length(pg_catalog.convert_to(p.prosrc,'UTF8'))=e.body_bytes::integer),false) AS "body",
  CASE WHEN p.oid IS NULL THEN false ELSE pg_catalog.has_schema_privilege(n.oid,'USAGE') AND pg_catalog.has_function_privilege(p.oid,'EXECUTE') END AS executable
  FROM expected e LEFT JOIN pg_catalog.pg_namespace n ON n.nspname=e.schema_name
  LEFT JOIN pg_catalog.pg_proc p ON p.pronamespace=n.oid AND p.proname=e.name AND p.proargtypes::text=CASE WHEN e.args='lists' THEN (SELECT c.reltype::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='lists') ELSE e.args END
  LEFT JOIN pg_catalog.pg_language l ON l.oid=p.prolang),
+ helper AS (SELECT *,present AND "kind" AND "support" AND "strict" AND "leakproof" AND "security" AND "volatility" AND "language" AND "returnSet" AND "returnType" AND "defaultCount" AND "defaultExpression" AND "searchPath" AND "singleOverload" AND "body" AS pure_pin FROM helper_flags),
  relation_flags AS (
  SELECT e.name,c.oid IS NOT NULL AS present,COALESCE(c.relkind='r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM required_columns q LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attname=q.name AND a.attnum>0 AND NOT a.attisdropped LEFT JOIN pg_catalog.pg_type typ ON typ.oid=a.atttypid WHERE q.relation=e.schema_name||'.'||e.name AND (a.attnum IS NULL OR NOT CASE WHEN q.type='enum' THEN typ.typtype='e' OR a.atttypid=25 WHEN q.type='1009|1015' THEN a.atttypid IN(1009,1015) ELSE a.atttypid=q.type::oid AND a.atttypmod=-1 END)),false) AS compatible,
  CASE WHEN c.oid IS NULL THEN false ELSE pg_catalog.has_schema_privilege(n.oid,'USAGE') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped AND NOT pg_catalog.has_column_privilege(c.oid,a.attnum,'SELECT')) END AS readable
  FROM relations e LEFT JOIN pg_catalog.pg_namespace n ON n.nspname=e.schema_name LEFT JOIN pg_catalog.pg_class c ON c.relnamespace=n.oid AND c.relname=e.name),
- guard AS (SELECT p.oid,pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') AS hash,
+ guard AS (SELECT p.oid,pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') AS hash,pg_catalog.octet_length(pg_catalog.convert_to(p.prosrc,'UTF8')) AS bytes,
  p.prokind='f' AND p.prorettype=2279 AND NOT p.proretset AND p.provolatile='v' AND p.prosecdef AND l.lanname='plpgsql' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.pronargdefaults=0 AS contract
  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace JOIN pg_catalog.pg_language l ON l.oid=p.prolang WHERE n.nspname='crm_audience_v2' AND p.proname='campaign_send_guard' AND p.proargtypes::text=''),
  trigger_flags AS (SELECT t.tgenabled,t.tgtype,t.tgfoid,t.tgisinternal FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='campaigns' AND t.tgname='shrigma_audience_campaign_send_guard_v1')
 SELECT pg_catalog.jsonb_build_object('sameRole',COALESCE((SELECT count(*)=1 AND bool_and(session_user=current_user AND current_user=d.database_role) FROM crm_audience_v2.regular_worker_deployment d WHERE d.singleton),false),
- 'helpers',(SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',name,'present',present,'purePin',pure_pin,'executable',executable) ORDER BY name) FROM helper),
+ 'helpers',(SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',name,'present',present,'purePin',pure_pin,'executable',executable,'actualProsrcSha256',actual_hash,'actualProsrcBytes',actual_bytes,'matches',pg_catalog.jsonb_build_object('kind',"kind",'support',"support",'strict',"strict",'leakproof',"leakproof",'security',"security",'volatility',"volatility",'language',"language",'returnSet',"returnSet",'returnType',"returnType",'defaultCount',"defaultCount",'defaultExpression',"defaultExpression",'searchPath',"searchPath",'singleOverload',"singleOverload",'body',"body")) ORDER BY name) FROM helper),
  'relations',(SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',name,'present',present,'compatible',compatible,'readable',readable) ORDER BY name) FROM relation_flags),
  'updateGuard',pg_catalog.jsonb_build_object('present',(SELECT count(*)=1 FROM guard),'variant',COALESCE((SELECT CASE hash WHEN '${SEND_GUARD_HASHES['draft-only']}' THEN 'draft-only' WHEN '${SEND_GUARD_HASHES.operation}' THEN 'operation' ELSE 'unknown' END FROM guard),'unknown'),
+ 'actualProsrcSha256',(SELECT hash FROM guard),'actualProsrcBytes',(SELECT bytes FROM guard),
  'contractMatches',COALESCE((SELECT contract FROM guard),false),'triggerPresent',(SELECT count(*)=1 FROM trigger_flags),
  'triggerEnabled',COALESCE((SELECT tgenabled='O' FROM trigger_flags),false),'triggerMatches',COALESCE((SELECT tgtype=27 AND NOT tgisinternal AND tgfoid=(SELECT oid FROM guard) FROM trigger_flags),false))) AS payload
 WHERE pg_catalog.current_database()='listmonk'`;
 
-// Direct boolean observations only. Run after every pure/ACL/same-role fence
+// Direct boolean observations only. Run after every table/ACL/same-role fence
 // passes; never use these observations as an approval or call a helper here.
 const CONTEXT_GATES_SQL=`WITH at AS (SELECT pg_catalog.statement_timestamp() AS at), targets(id) AS (VALUES(171),(174))
 SELECT pg_catalog.jsonb_build_object('checkedAt',at.at,'targets',pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('id',t.id,
@@ -233,17 +246,24 @@ const CONTEXT_FLAGS=Object.freeze(['revisionPresent','revisionActive','revisionP
 function validateContextGates(raw){const v=object(raw,['checkedAt','targets']),bad=()=>{throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');};if(!iso(v.checkedAt)||!Array.isArray(v.targets)||v.targets.length!==2)bad();const seen=new Set();v.targets=Object.freeze(v.targets.map(raw=>{const t=object(raw,['id','bindingPresent','boundEffective',...CONTEXT_FLAGS]);if(![171,174].includes(t.id)||seen.has(t.id)||typeof t.bindingPresent!=='boolean'||typeof t.boundEffective!=='boolean'||t.boundEffective&&!t.bindingPresent||CONTEXT_FLAGS.some(k=>t.boundEffective?typeof t[k]!=='boolean':t[k]!==null))bad();seen.add(t.id);return Object.freeze(t);}));return Object.freeze(v);}
 function validateSelectorFence(raw){
  const d=object(raw,['sameRole','helpers','relations','updateGuard']),bad=()=>{throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');};if(typeof d.sameRole!=='boolean')bad();
- for(const [key,expected,fields] of [['helpers',SELECTOR_FUNCTIONS,['name','present','purePin','executable']],['relations',SELECTOR_RELATIONS,['name','present','compatible','readable']]]){
-  if(!Array.isArray(d[key])||d[key].length!==expected.length)bad();const names=new Set();d[key]=Object.freeze(d[key].map(v=>{const x=object(v,fields);if(!expected.some(e=>e.name===x.name)||names.has(x.name)||fields.slice(1).some(k=>typeof x[k]!=='boolean')||!x.present&&fields.slice(2).some(k=>x[k]))bad();names.add(x.name);return Object.freeze(x);}));
- }
- const g=object(d.updateGuard,['present','variant','contractMatches','triggerPresent','triggerEnabled','triggerMatches']);if(!['draft-only','operation','unknown'].includes(g.variant)||Object.entries(g).some(([k,v])=>k!=='variant'&&typeof v!=='boolean')||!g.present&&(g.variant!=='unknown'||g.contractMatches||g.triggerMatches)||!g.triggerPresent&&(g.triggerEnabled||g.triggerMatches))bad();d.updateGuard=Object.freeze(g);return Object.freeze(d);
+ const bool=x=>typeof x==='boolean',bytes=x=>Number.isSafeInteger(x)&&x>=0&&x<=2147483647;
+ if(!Array.isArray(d.helpers)||d.helpers.length!==SELECTOR_FUNCTIONS.length)bad();let seen=new Set();d.helpers=Object.freeze(d.helpers.map(raw=>{const f=object(raw,['name','present','purePin','executable','actualProsrcSha256','actualProsrcBytes','matches']),expected=SELECTOR_FUNCTIONS.find(e=>e.name===f.name);if(!expected||seen.has(f.name)||![f.present,f.purePin,f.executable].every(bool))bad();seen.add(f.name);const m=object(f.matches,PURE_PIN_FIELDS);if(!Object.values(m).every(bool)||f.purePin!==(f.present&&Object.values(m).every(x=>x)))bad();
+  if(f.present){if(typeof f.actualProsrcSha256!=='string'||!H.test(f.actualProsrcSha256)||!bytes(f.actualProsrcBytes)||m.body!==(f.actualProsrcSha256===expected.prosrcSha256&&f.actualProsrcBytes===SELECTOR_BODY_BYTES[f.name]))bad();}
+  else if(f.actualProsrcSha256!==null||f.actualProsrcBytes!==null||f.executable||Object.values(m).some(x=>x))bad();return Object.freeze({...f,matches:Object.freeze(m)});}));
+ if(!Array.isArray(d.relations)||d.relations.length!==SELECTOR_RELATIONS.length)bad();seen=new Set();d.relations=Object.freeze(d.relations.map(raw=>{const r=object(raw,['name','present','compatible','readable']);if(!SELECTOR_RELATIONS.some(e=>e.name===r.name)||seen.has(r.name)||![r.present,r.compatible,r.readable].every(bool)||!r.present&&(r.compatible||r.readable))bad();seen.add(r.name);return Object.freeze(r);}));
+ const g=object(d.updateGuard,['present','variant','contractMatches','triggerPresent','triggerEnabled','triggerMatches','actualProsrcSha256','actualProsrcBytes']);if(!['draft-only','operation','unknown'].includes(g.variant)||!['present','contractMatches','triggerPresent','triggerEnabled','triggerMatches'].every(k=>bool(g[k]))||!g.present&&(g.variant!=='unknown'||g.contractMatches||g.triggerMatches||g.actualProsrcSha256!==null||g.actualProsrcBytes!==null)||!g.triggerPresent&&(g.triggerEnabled||g.triggerMatches))bad();
+ if(g.present){if(typeof g.actualProsrcSha256!=='string'||!H.test(g.actualProsrcSha256)||!bytes(g.actualProsrcBytes))bad();const variant=Object.keys(SEND_GUARD_HASHES).find(k=>SEND_GUARD_HASHES[k]===g.actualProsrcSha256)||'unknown';if(g.variant!==variant||variant!=='unknown'&&g.actualProsrcBytes!==SEND_GUARD_BODY_BYTES[variant])bad();}d.updateGuard=Object.freeze(g);return Object.freeze(d);
+}
+// Direct table flags need no user-defined helper permission or pin. Their
+// independent fence remains as strict as the relation/column/role gates.
+function directContextGate(f,d){
+ if(!f.sameRole)return 'same-role-required';
+ if(f.relations.some(v=>!v.present))return 'relation-missing';if(f.relations.some(v=>!v.compatible))return 'relation-incompatible';if(f.relations.some(v=>!v.readable))return 'relation-acl';
+ if(d.relations.some(v=>v.kind!=='table'||v.rowSecurity||v.forcedRowSecurity||v.columns.some(c=>!c.present||!c.typeCompatible||!c.readerSelect))||d.relations.find(v=>v.name==='campaigns').allCampaignColumnsSelect!==true)return 'projection-schema';return 'ready';
 }
 function selectorGate(f,d){
- if(!f.sameRole)return 'same-role-required';
- if(f.helpers.some(v=>!v.present))return 'helper-missing';if(f.helpers.some(v=>!v.purePin))return 'helper-pin-mismatch';if(f.helpers.some(v=>!v.executable))return 'helper-acl';
- if(f.relations.some(v=>!v.present))return 'relation-missing';if(f.relations.some(v=>!v.compatible))return 'relation-incompatible';if(f.relations.some(v=>!v.readable))return 'relation-acl';
- if(d.relations.some(v=>v.kind!=='table'||v.rowSecurity||v.forcedRowSecurity||v.columns.some(c=>!c.present||!c.typeCompatible||!c.readerSelect))||d.relations.find(v=>v.name==='campaigns').allCampaignColumnsSelect!==true)return 'projection-schema';
- return 'ready';
+ const direct=directContextGate(f,d);if(direct!=='ready')return direct;
+ if(f.helpers.some(v=>!v.present))return 'helper-missing';if(f.helpers.some(v=>!v.purePin))return 'helper-pin-mismatch';if(f.helpers.some(v=>!v.executable))return 'helper-acl';return 'ready';
 }
 function validateSelector(raw){
  const v=object(raw,['checkedAt','targets']),bad=()=>{throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');};if(!iso(v.checkedAt)||!Array.isArray(v.targets)||v.targets.length!==2)bad();const seen=new Set();
@@ -258,7 +278,7 @@ const SQLSTATE_WHITELIST=Object.freeze(['55000','57014','55P03','42501','42P01',
 function knownSQLSTATE(e){if(!e||isProxy(e)||typeof e!=='object')return null;const d=Object.getOwnPropertyDescriptor(e,'code');return d&&Object.hasOwn(d,'value')&&SQLSTATE_WHITELIST.includes(d.value)?d.value:null;}
 
 const PEER="SELECT pg_catalog.current_database() AS database,session_user::text AS \"sessionRole\",current_user::text AS \"currentRole\",pg_catalog.pg_backend_pid() AS pid,pg_catalog.inet_server_port() AS port,pg_catalog.current_setting('server_version_num')::integer AS engine,(SELECT ssl FROM pg_catalog.pg_stat_ssl WHERE pid=pg_catalog.pg_backend_pid()) AS ssl,pg_catalog.current_setting('transaction_read_only') AS read_only";
-const SELECTOR_PROTOCOL=Object.freeze({schema:'shrigma-selector-read-protocol-v4',statementMs:10000,contextMs:12000,lockMs:500,metadataMs:8000,isolation:'read-committed-read-only',ready:'I-T-(T|E)-I',errorAck:'whitelist-code-and-single-E',rollback:'confirmed-I',end:'confirmed-event',release:'CURRENT-after-end',attempt:'terminal-per-binding',sqlstates:SQLSTATE_WHITELIST});
+const SELECTOR_PROTOCOL=Object.freeze({schema:'shrigma-selector-read-protocol-v5',metadata:'fixed14-per-comparison-sha256-utf8bytes',directContext:'same-role-relations-columns-acl-types-noRLS-independent-of-helper-pins',statementMs:10000,contextMs:12000,lockMs:500,metadataMs:8000,isolation:'read-committed-read-only',ready:'I-T-(T|E)-I',errorAck:'whitelist-code-and-single-E',rollback:'confirmed-I',end:'confirmed-event',release:'CURRENT-after-end',attempt:'terminal-per-binding',sqlstates:SQLSTATE_WHITELIST});
 // Consent binds the complete fixed SQL protocol, not an arbitrary caller query.
 const queryHash=sha([PEER,BEGIN,CATALOG_SQL,READ_SQL,DEPENDENCY_SQL,SHAPES_SQL,ACTIVITY_SQL,SELECTOR_FENCE_SQL,CONTEXT_GATES_SQL,SELECTOR_SQL,canonical(SELECTOR_PROTOCOL),ROLLBACK].join('\n'));
 const COLUMN_TYPES=Object.freeze({deployment:{singleton:16,enabled:16,worker_sha256:25,runtime_sha256:25,query_sha256:25,database_role:19,approved_at:1184,approved_by:25,topology_receipt_sha256:25},lease:{singleton:16,instance_id:2950,worker_sha256:25,runtime_sha256:25,database_role:19,heartbeat_at:1184,expires_at:1184,suspended:16,suspension_reason:25},selection:{singleton:16,enabled:16,candidate_query_sha256:25,verified_at:1184}});
@@ -316,21 +336,22 @@ function createSchedulerStateRead({enabled=false,driver,getPrivateCredential,adm
    let shapes=Object.freeze({status:shapesGate(deps),limit:SHAPE_LIMIT});if(shapes.status==='observed'){await admission(t,'read',p,peer);const rows=await query(t,SHAPES_SQL,'SELECT','T');if(rows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');shapes=validateShapes(object(rows[0],['payload']).payload);}
    let activity=Object.freeze({status:'unavailable',reason:!deps.workerRoleKnown?'worker-role-unknown':!deps.activityCapability.readable?'not-readable':'not-visible'});if(deps.activityCapability.readable&&deps.activityCapability.visible){await admission(t,'read',p,peer);const rows=await query(t,ACTIVITY_SQL,'SELECT','T');if(rows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');activity=validateActivity(object(rows[0],['payload']).payload);}
    const scannerDependencies=Object.freeze({...deps,rowShapes:shapes,activity,helperExecutionPerformed:false,nextCampaignsExecuted:false});
-   await admission(t,'catalog',p,peer);const fenceRows=await query(t,SELECTOR_FENCE_SQL,'SELECT','T');if(fenceRows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');const fence=validateSelectorFence(object(fenceRows[0],['payload']).payload),gate=selectorGate(fence,deps);
+   await admission(t,'catalog',p,peer);const fenceRows=await query(t,SELECTOR_FENCE_SQL,'SELECT','T');if(fenceRows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');const fence=validateSelectorFence(object(fenceRows[0],['payload']).payload),gate=selectorGate(fence,deps),contextGate=directContextGate(fence,deps);
    let selectorDiagnostic=Object.freeze({status:'refused',reason:gate,phase:'fence',sqlstate:null,durationMs:null,checkedAt:payload.checkedAt,targets:null,fence,contextGates:null,updateGuard:fence.updateGuard,executed:false,readOnly:true,rollbackConfirmed:false,endConfirmed:false,originalScannerError:false});
-   if(gate==='ready'){
+   if(contextGate==='ready'){
     await admission(t,'catalog',p,peer);const contexts=await query(t,CONTEXT_GATES_SQL,'SELECT','T',true,8000);
     if(contexts.sqlstate)selectorDiagnostic=Object.freeze({...selectorDiagnostic,status:'postgres-error',reason:null,phase:'context-gates',sqlstate:contexts.sqlstate,durationMs:contexts.durationMs});
     else{if(contexts.rows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');selectorDiagnostic=Object.freeze({...selectorDiagnostic,contextGates:validateContextGates(object(contexts.rows[0],['payload']).payload)});
-    await admission(t,'read',p,peer);const selected=await query(t,SELECTOR_SQL,'SELECT','T',true);
+    if(gate==='ready'){await admission(t,'read',p,peer);const selected=await query(t,SELECTOR_SQL,'SELECT','T',true);
     if(selected.sqlstate)selectorDiagnostic=Object.freeze({...selectorDiagnostic,status:'postgres-error',reason:null,phase:'select',sqlstate:selected.sqlstate,durationMs:selected.durationMs,executed:true});
     else{if(selected.rows.length!==1)throw error('SCHEDULER_STATE_PROTOCOL_REFUSED');const v=validateSelector(object(selected.rows[0],['payload']).payload);selectorDiagnostic=Object.freeze({...selectorDiagnostic,status:'observed',reason:null,phase:'select',durationMs:selected.durationMs,checkedAt:v.checkedAt,targets:v.targets,executed:true});}
+    }
     }
    }
 
    await admission(t,'rollback',p,peer);await query(t,ROLLBACK,'ROLLBACK','I');
    await admission(t,'end',p,peer);await end(s);valid(t);await admission(t,'release',p,peer);valid(t);
-   const clock=now();if(!Number.isSafeInteger(clock)||clock<0||clock>8640000000000000)throw error('SCHEDULER_STATE_CLOCK_REFUSED');return Object.freeze({...payload,schema:'shrigma-original-scheduler-stored-state-v4',scannerDependencies,selectorDiagnostic:Object.freeze({...selectorDiagnostic,rollbackConfirmed:true,endConfirmed:true})});
+   const clock=now();if(!Number.isSafeInteger(clock)||clock<0||clock>8640000000000000)throw error('SCHEDULER_STATE_CLOCK_REFUSED');return Object.freeze({...payload,schema:'shrigma-original-scheduler-stored-state-v5',scannerDependencies,selectorDiagnostic:Object.freeze({...selectorDiagnostic,rollbackConfirmed:true,endConfirmed:true})});
   })();
   let result,failure;try{result=await bounded(work,60000);}catch(e){failure=own.has(e)?e:error('SCHEDULER_STATE_REFUSED');}
   finally{
@@ -344,4 +365,4 @@ function createSchedulerStateRead({enabled=false,driver,getPrivateCredential,adm
  function close(){if(closePromise)return closePromise;closing=true;closePromise=(async()=>{if(active){const t=active;t.valid=false;await end(t.session);await bounded(t.done,15000);}if(blocked)throw error('SCHEDULER_STATE_CLOSE_UNCONFIRMED');return Object.freeze({closed:true,operational:false});})();closePromise.catch(()=>{});return closePromise;}
  return Object.freeze({inspect,close});
 }
-module.exports=Object.freeze({createSchedulerStateRead,PURPOSE,RESOURCE,PEER,BEGIN,ROLLBACK,CATALOG_SQL,READ_SQL,queryHash,resourceHash,EXPECTED_SELECTION_QUERY,COLUMN_TYPES,validateCatalog,validateState,credentialBinding,canonical,DEPENDENCY_SQL,SHAPES_SQL,ACTIVITY_SQL,SCANNER_COLUMNS,SCANNER_FUNCTIONS,SHAPE_LIMIT,JSON_SHAPE_LIMIT,validateDependencies,validateShapes,validateActivity,shapesGate,SELECTOR_SQL,SELECTOR_FENCE_SQL,SELECTOR_FUNCTIONS,SELECTOR_RELATIONS,SEND_GUARD_HASHES,validateSelectorFence,selectorGate,validateSelector,SQLSTATE_WHITELIST,SELECTOR_PROTOCOL,CONTEXT_GATES_SQL,CONTEXT_FLAGS,validateContextGates,SELECTOR_EXTRA_COLUMNS});
+module.exports=Object.freeze({createSchedulerStateRead,PURPOSE,RESOURCE,PEER,BEGIN,ROLLBACK,CATALOG_SQL,READ_SQL,queryHash,resourceHash,EXPECTED_SELECTION_QUERY,COLUMN_TYPES,validateCatalog,validateState,credentialBinding,canonical,DEPENDENCY_SQL,SHAPES_SQL,ACTIVITY_SQL,SCANNER_COLUMNS,SCANNER_FUNCTIONS,SHAPE_LIMIT,JSON_SHAPE_LIMIT,validateDependencies,validateShapes,validateActivity,shapesGate,SELECTOR_SQL,SELECTOR_FENCE_SQL,SELECTOR_FUNCTIONS,SELECTOR_RELATIONS,SEND_GUARD_HASHES,validateSelectorFence,selectorGate,validateSelector,SQLSTATE_WHITELIST,SELECTOR_PROTOCOL,CONTEXT_GATES_SQL,CONTEXT_FLAGS,validateContextGates,SELECTOR_EXTRA_COLUMNS,PURE_PIN_FIELDS,SELECTOR_BODY_BYTES,SEND_GUARD_BODY_BYTES,directContextGate});

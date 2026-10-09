@@ -144,3 +144,47 @@ test('v4 exact pure-function pins plus equivalent selector execute READONLY on d
   await db.exec("ALTER FUNCTION crm_audience_v2.selection_hash(jsonb) SECURITY DEFINER");fence=C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload);a.equal(fence.helpers.find(f=>f.name==='selection_hash').purePin,false);
  }finally{await db.close();}
 });
+
+// New v5 catalogue scenario. Every unknown body raises if invoked; only the
+// catalogue and fixed direct-table flags execute in this disposable PG17 RAM.
+test('v5 installed function digest and per-attribute comparisons distinguish code drift and safe direct table context',{skip:!modulePath},async()=>{
+ const {PGlite}=require(modulePath),C=require(path.join(process.env.SCHEDULER_STATE_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational'),'native-scheduler-state.cjs')),crypto=require('node:crypto'),db=new PGlite();
+ const fixed=v=>{const guard="pg_catalog.current_database()='listmonk'";a.equal(v.split(guard).length,2);return v.replace(guard,"pg_catalog.current_database()='template1'");};
+ const hash=v=>crypto.createHash('sha256').update(v).digest('hex');
+ const one=async name=>C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload).helpers.find(f=>f.name===name);
+ const original=name=>V4_PURE_DDL.find(s=>s.includes('FUNCTION crm_audience_v2.'+name+'('));
+ try{
+  await db.exec('CREATE SCHEMA crm_audience_v2;');
+  const type=t=>typeof t==='number'?({16:'boolean',23:'integer',25:'text',1184:'timestamptz',2950:'uuid',3802:'jsonb'})[t]:t==='enum'?'text':'varchar(100)[]';
+  for(const [name,cols] of Object.entries(C.SCANNER_COLUMNS))await db.exec('CREATE TABLE public.'+name+'('+Object.entries(cols).map(([n,t])=>n+' '+type(t)).join(',')+');');
+  for(const [relation,cols] of Object.entries(C.SELECTOR_EXTRA_COLUMNS)){
+   const name=relation.split('.')[1];if(!C.SCANNER_COLUMNS[name])await db.exec('CREATE TABLE '+relation+'('+Object.entries(cols).map(([n,t])=>n+' '+type(Number(t))).join(',')+');');
+   else for(const [n,t] of Object.entries(cols))if(!C.SCANNER_COLUMNS[name][n])await db.exec('ALTER TABLE '+relation+' ADD '+n+' '+(t==='enum'?'text':t==='1009|1015'?'varchar(100)[]':type(Number(t)))+';');
+  }
+  await db.exec('CREATE TABLE crm_audience_v2.regular_worker_deployment(singleton boolean,database_role name); INSERT INTO crm_audience_v2.regular_worker_deployment VALUES(true,current_user);');
+  for(const ddl of V4_PURE_DDL)await db.exec(ddl);
+  await db.exec(V4_DRAFT_GUARD_DDL);
+  await db.exec('CREATE TRIGGER shrigma_audience_campaign_send_guard_v1 BEFORE UPDATE OR DELETE ON public.campaigns FOR EACH ROW EXECUTE FUNCTION crm_audience_v2.campaign_send_guard(); SET search_path=pg_catalog');
+  let f=await one('selection_worker_context');a(f.purePin);a.deepEqual(Object.keys(f.matches).sort(),[...C.PURE_PIN_FIELDS].sort());a(Object.values(f.matches).every(Boolean));a.equal(f.actualProsrcSha256,C.SELECTOR_FUNCTIONS.find(f=>f.name==='selection_worker_context').prosrcSha256);a.equal(f.actualProsrcBytes,C.SELECTOR_BODY_BYTES.selection_worker_context);
+  for(const [alter,restore,flag] of [
+   ['VOLATILE','STABLE','volatility'],['STRICT','CALLED ON NULL INPUT','strict'],['LEAKPROOF','NOT LEAKPROOF','leakproof'],['SECURITY DEFINER','SECURITY INVOKER','security'],['SET search_path=public','SET search_path=pg_catalog','searchPath']]){
+   await db.exec('ALTER FUNCTION crm_audience_v2.selection_worker_context(integer) '+alter);f=await one('selection_worker_context');a.equal(f.matches[flag],false);a.equal(f.matches.body,true);a.equal(f.purePin,false);a.equal(C.PURE_PIN_FIELDS.filter(k=>!f.matches[k]).length,1);await db.exec('ALTER FUNCTION crm_audience_v2.selection_worker_context(integer) '+restore);
+  }
+  const canonical=original('selection_canonical');await db.exec(canonical.replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION').replace('DEFAULT 0','DEFAULT 1'));f=await one('selection_canonical');a.equal(f.matches.defaultCount,true);a.equal(f.matches.defaultExpression,false);a.equal(f.matches.body,true);await db.exec(canonical.replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION'));
+  await db.exec('CREATE FUNCTION crm_audience_v2.selection_worker_context(text) RETURNS jsonb LANGUAGE sql STABLE AS $$SELECT NULL::jsonb$$;');f=await one('selection_worker_context');a.equal(f.matches.singleOverload,false);a.equal(f.matches.body,true);await db.exec('DROP FUNCTION crm_audience_v2.selection_worker_context(text);');
+  await db.exec('DROP FUNCTION crm_audience_v2.selection_worker_context(integer); CREATE FUNCTION crm_audience_v2.selection_worker_context(integer) RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $$BEGIN RAISE EXCEPTION \'unknown helper must never execute\'; END$$;');f=await one('selection_worker_context');a.equal(f.matches.returnSet,false);a.equal(f.matches.returnType,true);a.equal(f.matches.body,false);await db.exec('DROP FUNCTION crm_audience_v2.selection_worker_context(integer);');
+  await db.exec('CREATE FUNCTION crm_audience_v2.selection_worker_context(integer) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $$SELECT false$$;');f=await one('selection_worker_context');a.equal(f.matches.language,false);a.equal(f.matches.returnType,false);a.equal(f.matches.body,false);await db.exec('DROP FUNCTION crm_audience_v2.selection_worker_context(integer);');
+  const helperBody="BEGIN RAISE EXCEPTION 'unknown helper must never execute'; END";
+  await db.exec('CREATE FUNCTION crm_audience_v2.selection_worker_context(integer) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $$'+helperBody+'$$;');
+  const guardBody="BEGIN RAISE EXCEPTION 'unknown guard must never execute'; END";
+  await db.exec('CREATE OR REPLACE FUNCTION crm_audience_v2.campaign_send_guard() RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$'+guardBody+'$$;');
+  const deps=C.validateDependencies((await db.query(fixed(C.DEPENDENCY_SQL))).rows[0].payload);const fence=C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload);
+  f=fence.helpers.find(f=>f.name==='selection_worker_context');a.equal(f.actualProsrcSha256,hash(helperBody));a.equal(f.actualProsrcBytes,Buffer.byteLength(helperBody));a.equal(f.matches.body,false);a.equal(Object.values(f.matches).filter(x=>!x).length,1);
+  a.equal(fence.updateGuard.variant,'unknown');a.equal(fence.updateGuard.contractMatches,true);a.equal(fence.updateGuard.actualProsrcSha256,hash(guardBody));a.equal(fence.updateGuard.actualProsrcBytes,Buffer.byteLength(guardBody));a.equal(fence.updateGuard.triggerEnabled,true);
+  a.equal(C.selectorGate(fence,deps),'helper-pin-mismatch');a.equal(C.directContextGate(fence,deps),'ready');
+  await db.exec(C.BEGIN);try{const d=C.validateContextGates((await db.query(fixed(C.CONTEXT_GATES_SQL))).rows[0].payload);a.equal(d.targets.length,2);a(d.targets.every(t=>!t.boundEffective));a.equal((await db.query("SELECT current_setting('transaction_read_only') AS ro")).rows[0].ro,'on');}finally{await db.exec(C.ROLLBACK);}
+  // Failure of a required table type or RLS blocks direct context; no repair.
+  await db.exec('ALTER TABLE crm_audience_v2.config ALTER COLUMN checked_at TYPE text;');let bad=C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload);a.equal(C.directContextGate(bad,deps),'relation-incompatible');
+  await db.exec('ALTER TABLE crm_audience_v2.config ALTER COLUMN checked_at TYPE timestamptz USING checked_at::timestamptz; ALTER TABLE crm_audience_v2.config ENABLE ROW LEVEL SECURITY;');bad=C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload);a.equal(C.directContextGate(bad,deps),'relation-incompatible');
+ }finally{await db.close();}
+});
