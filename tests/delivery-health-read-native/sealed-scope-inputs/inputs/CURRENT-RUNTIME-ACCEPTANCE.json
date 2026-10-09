@@ -1,0 +1,147 @@
+{
+  "schema": "shrigma-brand-set-real-current-runtime-acceptance-v1",
+  "recordedAt": "2026-10-09T01:25:13.335224+00:00",
+  "sourceHead": "8d704def91986ee417c393471c58c4335d767ee6",
+  "image": {
+    "schema": "shrigma-configured-journey-image-smoke-v1",
+    "ok": true,
+    "node": "v22.23.3",
+    "uid": 1000,
+    "manifestSha256": "0658227dad2ff783b99751397079072cb230df3fd71ac8c2336011d357cdb0de",
+    "presentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+    "sourceRevision": "8d704def91986ee417c393471c58c4335d767ee6",
+    "actualNativeRuntimeFiles": 62,
+    "presentationPathsUpdated": 2,
+    "publicAssetsActuallyServed": true,
+    "canonicalCrmStylesActuallyServed": true,
+    "htmlCssVersionMatched": true,
+    "originalPresentationVerifierPreserved": true,
+    "originalMasterNativeRead": true,
+    "crossBrandDenied": true,
+    "revocationDuringReadGuardCovered": true,
+    "nativeRevocationDenied": true,
+    "noEditorOrSendGrant": true,
+    "verifiedRuntimeAndPresentation": true,
+    "sqlInstallerEnabled": false,
+    "productionIdentityUsed": false,
+    "productionDatabaseUsed": false,
+    "operational": false,
+    "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:567854d55a61ec1c7d9c68b9f2c65296ecdf254d91eb9770a9a5b7456c9cd20d",
+    "configImageId": "sha256:97b536c7a3e3d9cf90daf9c2cc6842ec1434ada66c10875754a57f4a9aee4420",
+    "published": true,
+    "productionAdmitted": false
+  },
+  "deployStartedAt": "2026-10-09T01:23:01.448Z",
+  "sameGateway": true,
+  "composeLeavesChanged": 5,
+  "privateMetadataPreserved": true,
+  "master": {
+    "status": 200,
+    "authenticated": true,
+    "role": "superadmin",
+    "runtime": {
+      "nativeMcp": true,
+      "nativeBackendManifestSha256": "0658227dad2ff783b99751397079072cb230df3fd71ac8c2336011d357cdb0de",
+      "journeyPresentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+      "journeyConfiguredRead": true,
+      "journeyPublicFiles": [
+        {
+          "path": "growth.html",
+          "bytes": 113705,
+          "sha256": "af135d3f91d7e6b00f48444a74e3c06548ccd0d2e98cbd44f2d72eeb3965c130"
+        },
+        {
+          "path": "assets/panels/growth.js",
+          "bytes": 1000806,
+          "sha256": "7dcd45e9f3e59cec76082f4181187cbe65bd666d4113cee242e00249c4754dc2"
+        },
+        {
+          "path": "assets/panels/growth.css",
+          "bytes": 164609,
+          "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
+        }
+      ]
+    },
+    "templateSources": [
+      {
+        "brand": "aristo",
+        "status": 200,
+        "total": 22,
+        "source": "original-registered-email-templates",
+        "checkedAt": "2026-10-09T01:23:20.315Z",
+        "readOnly": true
+      },
+      {
+        "brand": "fish",
+        "status": 200,
+        "total": 18,
+        "source": "original-registered-email-templates",
+        "checkedAt": "2026-10-09T01:23:21.185Z",
+        "readOnly": true
+      }
+    ],
+    "health": {
+      "status": 200,
+      "body": {
+        "schema": "shrigma-native-health-receipts-v1",
+        "sources": [
+          {
+            "brand": "fish",
+            "status": 503,
+            "body": {
+              "error": "HEALTH_PROTOCOL_REFUSED",
+              "diagnostic": {
+                "schema": "shrigma-email-health-protocol-refusal-v1",
+                "field": "brands",
+                "reason": "brand-set",
+                "actualType": "array",
+                "brandSet": {
+                  "length": 3,
+                  "inspection": "complete",
+                  "fish": 1,
+                  "aristo": 1,
+                  "other": 1,
+                  "malformed": 0
+                }
+              }
+            },
+            "readOnly": true,
+            "operational": false
+          },
+          {
+            "brand": "aristo",
+            "status": 503,
+            "body": {
+              "error": "HEALTH_PROTOCOL_REFUSED",
+              "diagnostic": {
+                "schema": "shrigma-email-health-protocol-refusal-v1",
+                "field": "brands",
+                "reason": "brand-set",
+                "actualType": "array",
+                "brandSet": {
+                  "length": 3,
+                  "inspection": "complete",
+                  "fish": 1,
+                  "aristo": 1,
+                  "other": 1,
+                  "malformed": 0
+                }
+              }
+            },
+            "readOnly": true,
+            "operational": false
+          }
+        ],
+        "automaticRetry": false,
+        "operational": false
+      }
+    },
+    "operational": false
+  },
+  "sameReadSqlAndPurpose": true,
+  "nativeReadCalls": 1,
+  "originalWorkerChanged": false,
+  "sqlOrGrantChanged": false,
+  "operational": false,
+  "conclusion": "Actual original health payload contains3 safe-shaped marca rows:Fish1/Aristo1/other1/malformed0. Fixed2-brand consumer refuses this broader original source. No unknown marca/value/metrics echoed. This identifies health protocol mismatch, not campaign174 scheduler cause."
+}

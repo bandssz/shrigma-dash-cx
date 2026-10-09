@@ -95,7 +95,7 @@ function transformDiagnosticUi(source){
 }
 function bindOperationalBrand(source,file){
  const contracts={
-  'growth.html':{anchor:"let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;",render:'if(API)render();'},
+  'growth.html':{anchor:"let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;",render:'CRMWorkspace.sync({section:SEC,brand:MARCA});if(API)render();'},
   'organico.html':{anchor:"let API=null,MARCA='todas',PER=G.preset('mes',HOJE),CMP=true,SEC='grade',AGREG='semana',FILTRO='todos';",render:'if(API)render();'},
   'influs.html':{anchor:"let MARCA='todas', SEC='creators';",render:"if(typeof INFLU!=='undefined'&&INFLU)renderTudo();"}
  };
@@ -116,12 +116,22 @@ function transform(input,file){
   if(/\b(?:config\.js|auth-key|auth-form|Chave de leitura)\b/.test(output))throw Error('Legacy diagnostic access remains');
  }
  if(file==='growth.html'){
+  // The native library admits inventory/media reads; template publication has
+  // its own admission. Keep its entry and deep links on the admitted inventory.
+  const libraryContracts=[
+   ['Crie ou edite modelos, consulte o inventário e o uso das mensagens e publique imagens para inserir nos e-mails.','Consulte os modelos, o inventário e o uso das mensagens e as imagens públicas disponíveis para os e-mails.'],
+   ['id="control-tab-drafts" data-control-tab="drafts"','id="control-tab-drafts" hidden disabled title="Edição de modelos indisponível nesta versão" data-control-tab="drafts"'],
+   ["SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):","SEC==='templates'?'templates':"],
+   ["if(SEC==='templates')GC.setTab(['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts');","if(SEC==='templates')GC.setTab('templates');"],
+   ["if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){SEC='templates';","if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){GC.setTab('templates');SEC='templates';"]
+  ];
+  for(const [before,after]of libraryContracts){if(output.split(before).length!==2)throw Error('Native template inventory presentation contract changed');output=output.replace(before,after);}
   const oldJourney='GFU.render({...ctx,workflowsModel:';
   if(output.split(oldJourney).length!==2)throw Error('Observed journey binding changed');
-  output=output.replace(oldJourney,'GFU.render({...ctx,observedOnly:true,workflowsModel:');
+  output=output.replace(oldJourney,'GFU.render({...ctx,configuredReadOnly:true,workflowsModel:');
   const oldIntro='<h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes.';
   if(output.split(oldIntro).length!==2)throw Error('Observed journey heading changed');
-  output=output.replace(oldIntro,'<h2>Consulte as jornadas observadas da marca.</h2><p>Jornadas mostra as mensagens registradas. O histórico não declara gatilhos, esperas nem sequência de execução.');
+  output=output.replace(oldIntro,'<h2>Consulte as jornadas e suas conexões originais.</h2><p>Jornadas mostra as definições disponíveis e o histórico de mensagens. O fluxograma usa somente as conexões declaradas na configuração.');
   const target='<div class="crm-home-heading"><h2>Resumo do período</h2></div>';
   if(output.split(target).length!==2)throw Error('CRM diagnostic navigation anchor changed');
   output=output.replace(target,target+'<p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>');

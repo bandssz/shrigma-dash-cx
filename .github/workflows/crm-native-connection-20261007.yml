@@ -1,0 +1,178 @@
+name: Shrigma native CRM connection
+'on':
+  push:
+    branches: [codex/crm-native-connection-20261007]
+permissions:
+  contents: read
+concurrency:
+  group: shrigma-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+      NODE_PATH: ${{ github.workspace }}/../growth-test-tools/node_modules
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify source composition
+        run: node tools/crm-native-connection/verify-source.cjs
+      - name: Install pinned canonical panel compiler
+        run: npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+      - name: Check canonical public assets from their exact sources
+        run: node tools/panel-build/build.cjs --panel=growth --check
+      - name: Private registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          native_ci_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-native.XXXXXX")"
+          printf 'NATIVE_CI_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$native_ci_dir" "$native_ci_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$native_ci_dir/docker"
+          export DOCKER_CONFIG="$native_ci_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build explicit native backend over installed V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:source-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
+      - name: Actual UID1000 journey assets and original authenticated READ
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/native-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/native-smoke.cjs > "$NATIVE_CI_DIR/smoke.json"
+          node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,71);a.equal(r.presentationPathsUpdated,2);for(const k of ['canonicalCrmStylesActuallyServed','htmlCssVersionMatched','originalPresentationVerifierPreserved','publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          NODE
+      - name: Verify new original-source consent and single-intent connection in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_tests="$GITHUB_WORKSPACE/tests/source-sync-native"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$source_tests,dst=/tmp/source-tests,readonly" --env SOURCE_SYNC_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_PROGRESS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_PROGRESS_UI_TEST_RUNTIME=/app/native-backend/runtime --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'exec node --test /tmp/source-tests/*.test.cjs'
+      - name: Verify new native draft-create and same-intent GET in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          campaign_tests="$GITHUB_WORKSPACE/tests/campaign-create-native"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$campaign_tests,dst=/tmp/campaign-tests,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env CAMPAIGN_CREATE_RUNTIME=/app/native-backend/runtime/crm-native-mcp.cjs --env CAMPAIGN_CREATE_INPUTS=/tmp/campaign-runtime-inputs --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'mkdir -p /tmp/campaign-runtime-inputs/services && ln -s /app/native-backend/runtime /tmp/campaign-runtime-inputs/services/dashboard-operational && exec node --test /tmp/campaign-tests/*.test.cjs'
+      - name: Verify immutable canonical CRM stylesheet delivery in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          style_tests="$GITHUB_WORKSPACE/tests/presentation-style-native"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$style_tests,dst=/tmp/style-tests,readonly" --env PRESENTATION_STYLE_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/style-tests/*.test.cjs
+      - name: Verify visible brand context and admitted template navigation in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/presentation-source,readonly" --env PRESENTATION_CONTEXT_SOURCE=/tmp/presentation-source --env PRESENTATION_CONTEXT_IMAGE=1 --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/presentation-source/tests/presentation-context-native/context.test.cjs
+      - name: Verify separate original diagnostic consent, READ closure and operator UI in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostic_tests="$GITHUB_WORKSPACE/tests"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$diagnostic_tests,dst=/tmp/diagnostic-source,readonly" --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_INPUT_ROOT=/tmp/diagnostic-source/source-commit-diagnostics-native/sealed-inputs --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'mkdir -p /tmp/diagnostic-runtime/services /tmp/diagnostic-runtime/tests && ln -s /app/native-backend/runtime /tmp/diagnostic-runtime/services/dashboard-operational && cp -R /tmp/diagnostic-source/source-commit-diagnostics-native /tmp/diagnostic-source/source-diagnostics-native /tmp/diagnostic-runtime/tests/ && exec node --test /tmp/diagnostic-runtime/tests/source-commit-diagnostics-native/*.test.cjs /tmp/diagnostic-runtime/tests/source-diagnostics-native/*.test.cjs'
+      - name: Verify published journey READ and renderer in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/published-source,readonly" --env PUBLISHED_JOURNEY_RUNTIME=/app/native-backend/runtime --env PUBLISHED_JOURNEY_SOURCE=/tmp/published-source --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/published-source/tests/published-journeys-native/*.test.cjs
+      - name: Verify original brand-scoped template READ in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/template-source,readonly" --env MASTER_TEMPLATE_READ_RUNTIME=/app/native-backend/runtime --env MASTER_TEMPLATE_READ_SOURCE=/tmp/template-source --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/template-source/tests/master-template-read-native/*.test.cjs
+      - name: Verify live individual coexistence and original Master continuity in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          coexist_tests="$GITHUB_WORKSPACE/tests/analyst-live-coexistence"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$coexist_tests,dst=/tmp/coexist-tests,readonly" --env ANALYST_COEXISTENCE_RUNTIME=/app/native-backend/runtime --env ANALYST_COEXISTENCE_SOURCE=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/coexist-tests/coexistence.test.cjs
+      - name: Verify corrected public package and CREATE guard in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --entrypoint /bin/sh "$IMAGE:source-$GITHUB_SHA" -c 'node --test /source/tests/dashboard-operational-coexistence-packaging.test.cjs /source/tests/dashboard-operational-writer-pack.test.cjs && exec node --test --test-name-pattern="master missing a route-specific credential" /source/tests/dashboard-operational-crm-managed-read-bridge.test.cjs'
+      - name: Verify new private original API binding and scheduler READ boundaries in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/scheduler-source,readonly" --env SCHEDULER_BINDING_RUNTIME=/app/native-backend/runtime --env SCHEDULER_DIAGNOSTIC_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/scheduler-source/tests/scheduler-diagnostic-native/*.test.cjs
+      - name: Verify separately consented bounded scheduler state READ in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/scheduler-state-source,readonly" --env SCHEDULER_STATE_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/scheduler-state-source/tests/scheduler-state-read-native/*.test.cjs /tmp/scheduler-state-source/tests/scheduler-state-native/*.test.cjs /tmp/scheduler-state-source/tests/scheduler-state-chat-approval-native/*.test.cjs
+      - name: Verify separate original delivery-health consent and READ closure in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/delivery-health-source,readonly" --env DELIVERY_HEALTH_RUNTIME=/app/native-backend/runtime --env DELIVERY_HEALTH_SOURCE=/tmp/delivery-health-source/tests/delivery-health-read-native/sealed-inputs --env DELIVERY_HEALTH_BRAND_SET_SOURCE=/tmp/delivery-health-source/tests/delivery-health-read-native/sealed-brand-set-inputs --env DELIVERY_HEALTH_SCOPE_SOURCE=/tmp/delivery-health-source/tests/delivery-health-read-native/sealed-scope-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/delivery-health-source/tests/delivery-health-read-native/*.test.cjs /tmp/delivery-health-source/tests/delivery-health-wiring-native/*.test.cjs
+      - name: Verify bounded original view metadata in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env DB_INVENTORY_SOURCE=/tmp/catalog-source/tests/database-inventory/sealed-structure-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-contract.test.cjs /tmp/catalog-source/tests/database-inventory/health-view-structure.test.cjs
+      - name: Verify fixed catalog SQL with isolated PostgreSQL17 in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$NATIVE_CI_DIR/catalog-sql" --ignore-scripts --no-save --no-package-lock --no-audit --no-fund @electric-sql/pglite@0.3.14
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --mount "type=bind,src=$NATIVE_CI_DIR/catalog-sql/node_modules,dst=/tmp/catalog-sql,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env SCHEDULER_STATE_RUNTIME=/app/native-backend/runtime --env CATALOG_PGLITE_MODULE=/tmp/catalog-sql/@electric-sql/pglite --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-sql.test.cjs /tmp/catalog-source/tests/scheduler-state-read-native/sql.test.cjs
+      - name: Publish exactly the tested image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:source-$GITHUB_SHA"
+          node <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process'),image=process.env.IMAGE+':source-'+process.env.GITHUB_SHA,info=JSON.parse(execFileSync('docker',['image','inspect',image],{encoding:'utf8'}));a.equal(info.length,1);const digest=info[0].RepoDigests.filter(s=>s.startsWith(process.env.IMAGE+'@sha256:'));a.equal(digest.length,1);const r={...JSON.parse(fs.readFileSync(process.env.NATIVE_CI_DIR+'/receipt.json')),image:digest[0],configImageId:info[0].Id,published:true,productionAdmitted:false};fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(r,null,2)+'\n```\n');console.log(JSON.stringify(r));
+          NODE
+      - name: Remove private registry session
+        if: always()
+        shell: bash
+        run: rm -rf -- "$DOCKER_CONFIG"
+
+  verify-test-only:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      NODE_PATH: ${{ github.workspace }}/../growth-test-tools/node_modules
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prove only review expectations and custody changed since the published source
+        run: |
+          node <<'NODE'
+          const {execFileSync}=require('node:child_process'),a=require('node:assert/strict');const base='f8a5e444bc919a1fc6ba88a26ca01b03d3e02603',allowed=['.github/workflows/crm-native-connection-20261007.yml','tests/segment-shopify-products-panel.test.cjs','tools/crm-native-connection/source-custody.json','tools/crm-native-connection/verify-source.cjs'];a.equal(execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim(),base);const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').sort();a.deepEqual(paths,allowed.sort());console.log(JSON.stringify({testOnly:true,publicAndRuntimeSourcesUnchanged:true,imageBuild:false,sourceBaseline:base,testedImageSource:'2f12cd8c7db7cf16dcd6f59fd19c35b47e242ba8',operational:false}));
+          NODE
+      - name: Verify complete source custody
+        run: node tools/crm-native-connection/verify-source.cjs
+      - name: Install isolated panel test dependencies
+        run: npm install --prefix ../growth-test-tools --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12 @electric-sql/pglite@0.3.14
+      - name: Verify the two changed Shopify product expiry expectations
+        env:
+          CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
+        run: node --test --test-name-pattern='Gestor saves, reopens and counts a product audience' tests/segment-shopify-products-panel.test.cjs

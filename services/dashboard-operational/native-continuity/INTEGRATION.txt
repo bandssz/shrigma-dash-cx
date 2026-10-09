@@ -1,0 +1,136 @@
+SHRIGMA — NOVA CONTINUIDADE ESTRITAMENTE READ, SEM ATIVAÇÃO HISTÓRICA
+07/10/2026 — fonte C2; prepared-not-integrated; operational=false
+
+Finalidade
+Verificar autenticidade e continuidade PREEXISTENTES. A recusa da instalação
+PR249 foi reportada por Root: comando antigo chamava executeOnce/
+runStartupActivation73a e append de recibo consumido. Nenhuma mudança foi
+aplicada. Este bloco é uma nova proposta para revisão nativa, não uma forma de
+reexecutar aquela operação ou supor que uma aprovação antiga cubra fonte nova.
+Não altera nenhum arquivo histórico, comando/deploy, selo, grant ou receipt.
+
+API para uso privado de Root
+const M = require('./services/dashboard-operational/native-continuity/read-only.cjs');
+const V = M.createReadOnlyContinuity({
+ enabled: false, encryptionKey: existingKeyBuffer,
+ admitNewSource, clock: Date.now
+});
+const proof = await V.verifyExistingContinuity();
+const continuedEnv = V.environmentForExistingGrant(existingEnv, proof);
+const health = await V.verifyPreservedFiles();
+
+Default OFF. Root fornece key Buffer32 já em RAM do servidor e sua admissão
+privada explícita de NOVA fonte/release. Não buscar/enviar chave, HMAC, senha,
+cookie, ciphertext ou segredo no chat/recibo; não há parâmetro path, plan,
+actor, issuer, grant, DB, IO ou pins vindo da ferramenta. M não abre listener,
+rede, Auth ou sessão/contexto de identidade. Não importa/evalua controller,
+program, observer, executeOnce, hook, canary.prepare ou guard histórico.
+
+admitNewSource recebe:
+{purpose,moduleSha256,pinsSha256,inputSha256,service}
+Retorna EXATAMENTE:
+{admitted:true,purpose,moduleSha256,pinsSha256,inputSha256,service,
+ newReleaseRevision,newReleaseImageDigest}
+
+purpose é verify-existing-continuity-only OU verify-preserved-files-only.
+Hashes, propósito e serviço precisam repetir a entrada verificada. O callback
+privado deve vincular a aprovação nativa nova, source hash e imagem/release reais
+à composição autorizada. Não implementar como echo/true de snapshots públicos.
+Revision/image novas não podem reutilizar sourceRevision/imageDigest do plano
+73a; imagem nova também difere da apresentação V2 atualmente instalada. O HMAC
+histórico autentica APENAS registros antigos, nunca esta fonte/release nova.
+A função é independente da admissão necessária à publicação e invocação MCP.
+
+Somente prestart: verifyExistingContinuity()
+Root para o gateway antigo e confirma quiescência/fechamento da última conexão.
+Verificação completa precede createAuth do runtime novo. Exige Linux x64,
+Node22.23.3, uid/gid1000 e ausência dos flags de injeção/debug originais.
+Todos os caminhos são fixos dos pins. Mount /source-identity é RO e separado
+ de /dashboard-data RW. Diretórios0700, arquivos0600, observation0400;
+sem symlink/hardlink/mudança de inode/bytes/mtime/ctime durante leitura.
+
+Os três arquivos activation-once/readonly-observation/activation-result devem
+estar presentes, com bytes/SHA/mode originais pinados e HMACs válidos sob a
+chave ORIGINAL. Compara o plano 73a, proof/fence/result confirmados e seus
+vínculos. A expiração do antigo plano/observation é histórica: não estende ou
+renova nem reutiliza sua autorização. Exige o writer REAL ainda válido hoje.
+Não cria/repina/rearma/remonta nenhum arquivo ou selo; arquivo ausente fecha.
+
+Marker de paridade original exige body/schema/binding/guard/HMAC intactos.
+Fonte RO precisa ter fingerprint original reproduzido por leitura de schema e
+dados (mesmas exclusões históricas de sessions/login_limits). Master original
+único/ativo/email/ID iguais em source e target, chave AES-GCM válida nos dois;
+grants READ nas três áreas. Nenhum segredo/fingerprint privado é exposto.
+
+Exige runtime-pack c80 com bytes e transport hash exatos; backup antigo com
+checksum de payload correto; transition HMAC ORIGINAL vinculado a backup,
+seal, binding e guards/revision/pack originais; stage deve estar AUSENTE.
+Descomprime apenas em RAM para checksum limitado, sem extrair arquivos ou
+executar conteúdo. Não invoca upgrade/clone/parity controller antigo.
+
+Ambas SQLite são abertas file:...?...immutable=1 e readOnly:true; só SELECT e
+PRAGMA integrity_check/foreign_key_check. WAL,SHM ou journal, inclusive vazios,
+presentes antes/depois fecham a verificação. Não usar immutable ignorando WAL
+comprometido; não checkpoint, limpar/remover arquivo, copiar DB, criar snapshot
+ou modificar journal_mode. Ao negar, informar a necessidade de quiescência
+real e avaliação por Root. O módulo não resolve pendência escrevendo.
+
+Writer REAL: marker SQLite consumed criptografado deve coincidir com escopo
+original73a; Master/grants growth.can_edit válidos; tuple attestation e
+credential/binding único, sem key_digest reutilizado por outro user; owner,
+principal master-HMAC, master_proof_mac, binding_mac, AES-GCM e key digest
+conferidos em RAM; attested_at/expiry atuais e limite14dias. Ausência, revogação,
+expiração ou adulteração NEGA; nunca promove usuário/writer. A chave fornecida
+não é alterada; sua cópia temporária é zerada no finally. DBs fecham mesmo em
+falha. Métodos de escrita no FS/SQL não existem neste módulo.
+
+Proof e environmentForExistingGrant
+Prova metadata fechada e frozen, branded pelo mesmo objeto/instância em RAM;
+não há MAC/credencial/sourceMasterId, senha ou ciphertext na resposta. sourceOnly
+ e operational=false sempre. TTL máximo1000ms e nunca além do expiry REAL.
+Frontend/JSON/cópia/another verifier/expired não conseguem usar a prova. Um único
+consumo em environmentForExistingGrant, inclusive se env inválido; reuso nega.
+O consumo é só de metadado volátil (WeakMap), não grava receipt/journal/grant.
+
+A função faz projeção fechada do env já existente na mesma RAM; não usa FS, DB,
+rede ou Auth. Não modifica input; só continua rota/profile own-master já
+conferidos e desliga flags de outros writes/managed. Sem proof válida não
+retorna configuração de writer. Full env é privado do servidor: NUNCA retornar
+por MCP, log ou recibo, pois pode conter credenciais já custodiadas. Essa projeção
+não cria sessão/issuer/contexto/permissão. Runtime/Auth seguem verificando grants,
+revogação e expiry a cada ação real; a prova de prestart não é grant transportável.
+
+Health: verifyPreservedFiles()
+Pode ser usado após createAuth abrir WAL/SHM do target. Confere apenas os três
+originais, seus HMACs, seal/pack/backup/transition e estabilidade de arquivos,
+por nova admissão de fonte. NÃO importa node:sqlite, não abre target/source DB,
+não lê grant/currentWriter nem computa fingerprint atual. Retorna
+existingGrantVerified:false,currentWriterVerified:false,environmentProof:false,
+sqliteOpened:false. Esse retorno NÃO é branded para environment; não autoriza
+IAM/writer e não substitui NativeReady/V2 ou autenticação real de Root.
+Não chamar verificação completa no health vivo nem depois de createAuth.
+
+Teste novo
+node --test tests/native-continuity/read-only.test.cjs
+13 novos grupos, pass13/fail0/skip0, hostNode25.9.0. VM usa só código novo com
+pins sintéticos substituídos em RAM de teste, fake FS/SQLite e processos; produto
+entregue não admite custom pins/IO/clock via ferramenta nem chave de teste.
+Não avalia quaisquer fontes antigas. Zero APIs de escrita, zero import/invocação
+antiga, cleanup READ, adulteração/expiry/ownership/replay, health sem DB e planos
+historicamente expirados são cobertos. Isso NÃO prova Native22/SQLite/produção.
+
+Pendências reais de Root
+1. Integrar somente nova fonte, conservar guards/controller/receipts históricos.
+Remover chamada antiga de startup/append do comando proposto na composição de
+Root; nenhuma edição compartilhada feita por C2.
+2. CI própria deste delta e prova nativa READ de Node22.23.3/DatabaseSync URI
+immutable real e zero writes/auxiliares. Não repetir30/seisPG/verdes históricos.
+3. Nova revisão automática nativa da proposta reduzida; não forçar replay da
+instalação recusada. Source-only/prova antiga não admite runtime novo.
+4. Em prestart, gateway antigo parado/DB quiescente, originais+mounts intactos,
+chave original em RAM sob custódia e writer ainda válido. Caso writer expirado,
+NEGA sua habilitação: nova autoridade/grant legítimo é questão separada de Root,
+não reconstrução/repin da operação consumida.
+5. Consumir proof uma vez antes de createAuth; startup/health novos usam
+verifyPreservedFiles apenas para patrimônio estático, NativeReady/V2 e IAM atual
+por fonte explicitamente admitida. Provar invocação Mestre/save/readback real.

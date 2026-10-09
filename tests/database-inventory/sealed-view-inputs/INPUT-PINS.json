@@ -1,0 +1,35 @@
+{
+  "sourceHead": "910bdaa435884e9fb0651451c5412af7871c11ac",
+  "files": [
+    {
+      "path": "services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 21160,
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
+    },
+    {
+      "path": "services/dashboard-operational/native-database-vault.cjs",
+      "bytes": 7257,
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+    },
+    {
+      "path": "tests/database-inventory/inventory.test.cjs",
+      "bytes": 23449,
+      "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08"
+    },
+    {
+      "path": "tests/database-inventory/reviewed-function-parser.cjs",
+      "bytes": 3319,
+      "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+    },
+    {
+      "path": "ACTUAL-HEALTH-REFUSAL.json",
+      "bytes": 3351,
+      "sha256": "a83dbd7fad103bdf978e4b82d12c9b85a0546f26d9dde98a9ed9b89b06a8d583"
+    },
+    {
+      "path": "TASK.txt",
+      "bytes": 3904,
+      "sha256": "142c6ca6cdab32bfa03c1495d28bf5ceb9734858ffc71b6ad147337da66c2ad3"
+    }
+  ]
+}

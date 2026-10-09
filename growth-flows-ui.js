@@ -1,10 +1,11 @@
 /* Fluxos — tela (Fase C · leitura). Regras em growth-flows.js. Sem edição: publicar/ativar/mudar etapa dependem da API de
    fluxos (Fase B, contrato R6). Tudo que aparece aqui vem da API; o que ela não declara é dito como "não declarado". */
 'use strict';
+const GFD=typeof module!=='undefined'&&module.exports?require('./growth-flows.js'):GF;
 const GFU={
   state:{q:'',origem:'todas'},
   ctx:{},
-  e:s=>GF.obj(s)?'':String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+  e:s=>GFD.obj(s)?'':String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   marca(k){return {fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo'}[k]||k;},
   stamp(v){return typeof GC!=='undefined'?GC.stamp(v):v;},
   badge(t,tone='neutral'){return `<span class="control-badge control-${GFU.e(tone)}">${GFU.e(t)}</span>`;},
@@ -16,6 +17,8 @@ const GFU={
   },
   render(ctx){
     if(ctx)GFU.ctx=ctx;
+    if(typeof GPR!=='undefined')GPR.sync({...GFU.ctx,section:'regua',tab:'fluxos'});
+    if(GFU.ctx.configuredReadOnly===true){GFU.renderConfigured();const publishedRoot=document.querySelector('#control-fluxos');if(typeof GPR!=='undefined')GPR.mount(GFU.ctx,publishedRoot);return;}
     if(GFU.ctx.observedOnly!==true&&typeof GB!=='undefined'&&GFU.ctx.api?.capabilities?.workflows?.editor===true){GB.render(GFU.ctx);return;}
     const root=typeof document!=='undefined'?document.querySelector('#control-fluxos'):null;if(!root)return;
     const kept=typeof GT!=='undefined'?GT.captura(root):null;
@@ -23,13 +26,13 @@ const GFU={
     // The corporate view consumes only the already scoped cache. A legacy
     // editor capability or definition never changes this presentation contract.
     if(observedOnly&&!['fish','aristo'].includes(GFU.ctx.marca)){root.innerHTML='<div class="vazio">Escolha Fishermans ou O Aristocrata para consultar as jornadas observadas da marca. Esta leitura não altera automações.</div>';return;}
-    const all=GF.lista(observedOnly?{...GFU.ctx.api,crm_fluxo_def:null}:GFU.ctx.api,GFU.ctx),lista=observedOnly?{...all,definidos:[],presenteDef:false,invalidosDef:0,errosDef:[]}:all;
+    const all=GFD.lista(observedOnly?{...GFU.ctx.api,crm_fluxo_def:null}:GFU.ctx.api,GFU.ctx),lista=observedOnly?{...all,definidos:[],presenteDef:false,invalidosDef:0,errosDef:[]}:all;
     const busca=f=>!GFU.state.q||typeof GT==='undefined'||GT.busca([f],GFU.state.q,['nome','flow','key',x=>GFU.marca(x.marca),x=>x.etapas.map(e=>e.peca||e.template_nome||'').join(' ')]).length>0;
     const defs=GFU.state.origem==='observados'?[]:lista.definidos.filter(busca),obs=!observedOnly&&GFU.state.origem==='definidos'?[]:lista.observados.filter(busca);
     const total=lista.definidos.length+lista.observados.length,mostrados=defs.length+obs.length;
     const sourceLoaded=lista.presenteDef||Array.isArray(GFU.ctx.api?.crm_fluxo)||Array.isArray(GFU.ctx.api?.crm_wa_envios);
     const malformedSource=['crm_fluxo','crm_wa_envios'].some(key=>GFU.ctx.api?.[key]!=null&&!Array.isArray(GFU.ctx.api[key]))||
-      !observedOnly&&GFU.ctx.api?.crm_fluxo_def!=null&&(!GF.obj(GFU.ctx.api.crm_fluxo_def)||!Array.isArray(GFU.ctx.api.crm_fluxo_def.fluxos));
+      !observedOnly&&GFU.ctx.api?.crm_fluxo_def!=null&&(!GFD.obj(GFU.ctx.api.crm_fluxo_def)||!Array.isArray(GFU.ctx.api.crm_fluxo_def.fluxos));
     const unavailable=!sourceLoaded||malformedSource||!total&&(lista.invalidosDef>0||lista.invalidasObs>0);
     const contexto=`<div class="control-context"><div><strong>Jornadas · leitura</strong><span class="control-badge" title="A edição de fluxos não está disponível nesta consulta. Nenhuma configuração é alterada aqui.">Somente leitura</span><p>${lista.presenteDef?`Configuração consultada em ${GFU.e(lista.gerado_em?GFU.stamp(lista.gerado_em):'horário não informado')}.${lista.observados.length?' Mensagens sem configuração informada aparecem no histórico.':''}`:'<strong>Histórico de mensagens.</strong> Sequência e esperas ainda não disponíveis; consulte Operação atual.'}</p>
       <details class="control-detail" data-gt-key="fluxos-como-ler"><summary>Como ler estas jornadas</summary><p>${lista.presenteDef?'Gatilho, etapas, esperas e condições seguem a configuração recebida.':'A consulta informa mensagens, canais, modelos e configuração conhecida. O nome de uma mensagem não revela o gatilho nem a ordem de execução.'} Modo é a configuração de envio; "real" não confirma entrega. Volumes usam o período selecionado: WhatsApp aceitos e entregues; e-mail aceito pelo provedor.</p></details></div>
@@ -44,10 +47,11 @@ const GFU={
       :!mostrados?`<div class="vazio">Nenhum fluxo com esses filtros. <button type="button" class="refresh-btn gt-limpar" id="fluxos-limpar">Limpar filtros</button></div>`:'');
     root.innerHTML=contexto+toolbar+`<div class="flows-grid">${defs.map(GFU.definido).join('')}${obs.map(GFU.observado).join('')}</div>`+vazio;
     GFU.bind(root,{defs,obs,lista});
+    if(typeof GPR!=='undefined')GPR.mount(GFU.ctx,root);
     if(kept&&typeof GT!=='undefined')GT.restaura(root,kept);
   },
   templateInfo(nome,ref){
-    const tpls=GFU.ctx.api?.crm_operacao?.templates;const t=Array.isArray(tpls)?tpls.find(x=>GF.obj(x)&&((nome&&x.name===nome)||(ref&&String(x.id)===String(ref)))):null;
+    const tpls=GFU.ctx.api?.crm_operacao?.templates;const t=Array.isArray(tpls)?tpls.find(x=>GFD.obj(x)&&((nome&&x.name===nome)||(ref&&String(x.id)===String(ref)))):null;
     const conteudo=typeof GC!=='undefined'&&GC.conteudo?Object.values(GC.conteudo).find(x=>x&&((nome&&x.name===nome)||(ref&&String(x.id)===String(ref)))):null;
     return {catalogo:t||null,conteudo:conteudo||null};
   },
@@ -55,7 +59,7 @@ const GFU={
     const g=f.gatilho,v=f.versao,e=GFU.e;
     const etapas=f.etapas.map(et=>{
       const ti=et.tipo==='mensagem'?GFU.templateInfo(et.template_nome,et.template_ref):null;
-      const titulo=et.tipo==='mensagem'?`${GF.CANAIS[et.canal]} · ${e(et.peca||et.template_nome||et.template_ref)}`:et.tipo==='espera'?`Espera ${GF.espera(et.espera_seg)}`:et.tipo==='condicao'?'Condição':'Fim';
+      const titulo=et.tipo==='mensagem'?`${GFD.CANAIS[et.canal]} · ${e(et.peca||et.template_nome||et.template_ref)}`:et.tipo==='espera'?`Espera ${GFD.espera(et.espera_seg)}`:et.tipo==='condicao'?'Condição':'Fim';
       const sub=et.tipo==='mensagem'?`${e(et.template_nome||et.template_ref)}${ti.catalogo?` · ${e(ti.catalogo.status||'?')}${ti.catalogo.category?` · ${e(ti.catalogo.category)}`:''}`:et.canal==='whatsapp'?' · não encontrado no catálogo da Meta desta coleta':''}${et.modo&&et.modo!==f.modo?` · modo ${e(et.modo)} (difere do fluxo)`:''}`
         :et.tipo==='condicao'?et.condicoes.map(c=>`se ${e(c.se)}${c.entao?` → ${e(c.entao)}`:''}`).join(' · '):'';
       const detalhe=et.tipo==='mensagem'?(ti.conteudo?`<div class="flow-preview">${GTA.previaComponents(ti.conteudo.components)}</div>`:`<p class="mini">${ti.catalogo?'O catálogo traz metadados, não o corpo. Abra o conteúdo publicado na aba Templates para conferir a prévia, quando disponível.':'Sem prévia: template fora do catálogo desta coleta.'}</p>`):'';
@@ -65,14 +69,14 @@ const GFU={
       <p class="flow-trigger"><span data-crm-owner-only><strong>Gatilho:</strong> ${e(g.evento)}${g.descricao?` — ${e(g.descricao)}`:''}<br><span class="mini">chave do evento <code>${e(g.chave_evento)}</code> · reentrada: ${e({nunca:'nunca',apos_fim:'só depois de terminar',sempre:'sempre'}[g.reentrada])}${g.saida.length?` · sai ao ocorrer: ${e(g.saida.join(', '))}`:' · sem condição de saída declarada'}</span></span><span data-crm-manager-only><strong>Quando começa:</strong> ${e(g.descricao||'Descrição não disponível nesta consulta.')}<br><span class="mini">Regras de retorno e encerramento: consulte Operação atual.</span></span></p>
       <ol class="flow-steps">${etapas}</ol>
       ${f.etapas_invalidas?`<p class="control-warning">${f.etapas_invalidas} etapa(s) em formato inválido não exibida(s).</p>`:''}
-      <div class="control-collected">${v?.publicada_em?`Versão publicada em ${e(GFU.stamp(v.publicada_em))}`:'Sem versão publicada'} · definição lida ${e(GFU.stamp(GF.definidos(GFU.ctx.api).gerado_em))}</div></article>`;
+      <div class="control-collected">${v?.publicada_em?`Versão publicada em ${e(GFU.stamp(v.publicada_em))}`:'Sem versão publicada'} · definição lida ${e(GFU.stamp(GFD.definidos(GFU.ctx.api).gerado_em))}</div></article>`;
   },
   observado(f){
     const e=GFU.e;
-    const etapas=f.etapas.map((et,i)=>`<li class="flow-step" data-tipo="mensagem" data-canal="${e(et.canal||'')}"><span class="flow-step-n">·</span><div class="flow-step-body"><strong>${e(et.canal?GF.CANAIS[et.canal]:`canal "${et.canal_bruto}"`)} · ${e(et.peca)}</strong>
+    const etapas=f.etapas.map((et,i)=>`<li class="flow-step" data-tipo="mensagem" data-canal="${e(et.canal||'')}"><span class="flow-step-n">·</span><div class="flow-step-body"><strong>${e(et.canal?GFD.CANAIS[et.canal]:`canal "${et.canal_bruto}"`)} · ${e(et.peca)}</strong>
       <span class="flow-step-sub">${et.templates.length?et.templates.map(t=>`${e(t.name)} · ${e(t.status)}`).join(' | '):'Modelo da mensagem não informado'}</span>
-      ${GFU.owner(`<span class="flow-step-sub">${et.workflows.length?et.workflows.map(w=>`<span class="control-template-link" data-tone="${w.atual===true&&w.modo==='real'?'verified':w.atual===false?'warning':'neutral'}">${e(w.label)} · ${e(GF.modoTexto(w))}${w.ativo===false?' · inativo':''}</span>`).join(''):'<span class="control-template-link" data-tone="neutral">workflow não declarado no manifesto</span>'}</span>`)}
-      <span class="flow-step-sub flow-volume">${e(GF.volumeTexto(et))}</span></div></li>`).join('');
+      ${GFU.owner(`<span class="flow-step-sub">${et.workflows.length?et.workflows.map(w=>`<span class="control-template-link" data-tone="${w.atual===true&&w.modo==='real'?'verified':w.atual===false?'warning':'neutral'}">${e(w.label)} · ${e(GFD.modoTexto(w))}${w.ativo===false?' · inativo':''}</span>`).join(''):'<span class="control-template-link" data-tone="neutral">workflow não declarado no manifesto</span>'}</span>`)}
+      <span class="flow-step-sub flow-volume">${e(GFD.volumeTexto(et))}</span></div></li>`).join('');
     const saude=f.saude.map(s=>`<span class="fluxo-chip" data-estado="${e(['ok','alerta'].includes(s.estado)?s.estado:'desconhecido')}" title="${e((s.motivo||'Sem ocorrência na última verificação')+' · verificado '+GFU.stamp(s.verificado_em))}">${e(s.nome||s.chave)}${s.estado==='alerta'?' · alerta':''}</span>`).join('');
     const health=f.saude.map(s=>`<span class="fluxo-chip" data-estado="${e(['ok','alerta'].includes(s.estado)?s.estado:'desconhecido')}" title="${e('Verificado em '+(s.verificado_em?GFU.stamp(s.verificado_em):'horário não informado'))}">${e(s.estado==='ok'?'Sem ocorrência na verificação':s.estado==='alerta'?'Atenção nesta automação · consulte Operação atual':'Verificação indisponível · consulte Operação atual')}</span>`).join('');
     return `<article class="control-workflow flow-card" data-flow="${e(f.marca)}|${e(f.flow)}" data-origem="observado"><div class="control-workflow-head"><div><span class="control-overline">${e(GFU.marca(f.marca))} · histórico de mensagens</span><h3>${e(f.flow)}</h3></div>
@@ -85,7 +89,42 @@ const GFU={
     const q=root.querySelector('#fluxos-busca');if(q)q.oninput=()=>{const pos=q.selectionStart;GFU.state.q=q.value;GFU.render();const n=root.querySelector('#fluxos-busca');n?.focus();n?.setSelectionRange?.(pos,pos);};
     const o=root.querySelector('#fluxos-origem');if(o)o.onchange=()=>{GFU.state.origem=o.value;GFU.render();};
     root.querySelector('#fluxos-limpar')?.addEventListener('click',()=>{GFU.state={q:'',origem:'todas'};GFU.render();});
-    const ex=root.querySelector('#fluxos-export');if(ex)ex.onclick=()=>{if(typeof GT==='undefined')return;const m={...(GFU.ctx.exportMeta?GFU.ctx.exportMeta():{})};GT.baixar(GT.nomeArquivo('fluxos',m),GT.csv(GF.colunas,GF.linhasCsv({definidos:defs,observados:obs}),m));};
+    const ex=root.querySelector('#fluxos-export');if(ex)ex.onclick=()=>{if(typeof GT==='undefined')return;const m={...(GFU.ctx.exportMeta?GFU.ctx.exportMeta():{})};GT.baixar(GT.nomeArquivo('fluxos',m),GT.csv(GFD.colunas,GFD.linhasCsv({definidos:defs,observados:obs}),m));};
   },
 };
+Object.assign(GFU,{
+  readEpoch:0,readState:{marca:null,q:'',origem:'todas',view:'diagram'},readModel:null,
+  readStage(e){return e.tipo==='mensagem'?`${GFD.CANAIS[e.canal]} · ${e.nome||e.peca||e.template_nome||e.template_ref}`:e.tipo==='espera'?`Espera · ${GFD.espera(e.espera_seg)}`:e.tipo==='condicao'?`Condição · ${e.nome||e.key}`:`Fim · ${e.nome||e.key}`;},
+  readLink(l){const status={resolved:'destino declarado',missing:'destino ausente na definição',ambiguous:'destino ambíguo',undeclared:'destino não declarado'}[l.status];return `${l.label?'Se '+l.label+' → ':'→ '}${l.toKey??'não informado'} · ${status}`;},
+  readStages(f){const e=GFU.e;return `<ul class="gjr-stages">${f.etapas.map(s=>`<li data-journey-node="${e(s.id)}"><strong>${e(GFU.readStage(s))}</strong><span>Etapa ${e(s.key)} · ordem declarada: ${e(s.ordem??'não informada')}${s.modo?` · modo da etapa: ${e(s.modo)}`:''}</span>${s.tipo==='mensagem'?`<span>Template: ${e(s.template_nome||s.template_ref)}${s.template_ref&&s.template_nome?` · referência ${e(s.template_ref)}`:''}</span>`:''}${f.graph.links.some(l=>l.fromId===s.id)?`<ul class="gjr-links">${f.graph.links.filter(l=>l.fromId===s.id).map(l=>`<li data-journey-link="${e(l.status)}">${e(GFU.readLink(l))}</li>`).join('')}</ul>`:'<span>Nenhuma conexão de saída declarada para esta etapa.</span>'}</li>`).join('')}</ul>`;},
+  readDiagram(f,index){
+    const e=GFU.e,prefix=`gjr-${GFU.readEpoch}-${index}`,positions=new Map(f.etapas.map((n,i)=>[n.id,{x:220,y:45+i*126}]));
+    const height=96+f.etapas.length*126,resolved=f.graph.links.filter(l=>l.status==='resolved');
+    const paths=resolved.map((l,i)=>{const a=positions.get(l.fromId),b=positions.get(l.toId),side=40+(i%6)*24;const d=a.y===b.y?`M 360 ${a.y+20} C 440 ${a.y-24} 440 ${a.y+96} 360 ${a.y+54}`:`M 80 ${a.y+38} C ${side} ${a.y+38} ${side} ${b.y+38} 80 ${b.y+38}`;return `<g data-journey-edge="${e(l.id)}"><title>${e(GFU.readLink(l))}</title><path d="${d}" marker-end="url(#${prefix}-arrow)"></path>${l.label?`<text class="gjr-edge-label" x="18" y="${(a.y+b.y)/2+32}">${e(l.label.length>32?l.label.slice(0,32)+'…':l.label)}</text>`:''}</g>`;}).join('');
+    const nodes=f.etapas.map(n=>{const p=positions.get(n.id),label=GFU.readStage(n);return `<g class="gjr-node gjr-type-${e(n.tipo)}" data-journey-node="${e(n.id)}" transform="translate(80 ${p.y})"><title>${e(label+' · etapa '+n.key+(n.modo?' · modo '+n.modo:''))}</title><rect width="280" height="78" rx="${n.tipo==='fim'?30:12}"></rect><text x="14" y="27">${e(label.length>42?label.slice(0,42)+'…':label)}</text><text class="gjr-node-key" x="14" y="52">${e((n.key.length>36?n.key.slice(0,36)+'…':n.key)+(n.ordem!==null?' · ordem '+n.ordem:''))}</text></g>`;}).join('');
+    return `<div class="gjr-diagram" tabindex="0" aria-label="Fluxograma de conexões declaradas: ${e(f.nome)}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 ${height}" role="img" aria-labelledby="${prefix}-title ${prefix}-desc"><title id="${prefix}-title">${e(f.nome)} · definição declarada</title><desc id="${prefix}-desc">${f.etapas.length} etapas, ${resolved.length} conexões com destino identificado. A posição é apenas visual; não indica ordem de execução. ${f.graph.links.length?'Apenas saida_para e condicoes.entao declaradas geram conexões.':'A fonte não declarou conexões.'} Etapa inicial não declarada.</desc><defs><marker id="${prefix}-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M 0 0 L 7 3.5 L 0 7 z"></path></marker></defs><g class="gjr-edges">${paths}</g>${nodes}</svg></div>`;
+  },
+  readCard(f,index){const e=GFU.e,g=f.gatilho;return `<article class="gjr-card" data-journey-brand="${e(f.marca)}" data-journey-key="${e(f.key)}"><header><span>Definição declarada · ${e(GFU.marca(f.marca))}</span><h3>${e(f.nome)}</h3><p>Revisão ${e(f.versao.id)} · v${f.versao.numero} · ${f.versao.ativa?'marcada ativa':'marcada não ativa'} na fonte · modo declarado ${e(f.modo)}</p></header><p><strong>Gatilho declarado:</strong> ${e(g.descricao||g.evento)} · reentrada ${e(g.reentrada)}${g.saida.length?` · saída nos eventos ${e(g.saida.join(', '))}`:' · eventos de saída não declarados'}.</p><p class="gjr-caution">Configuração ativa ou modo real não comprova execução nem entrega. O gatilho não declara a etapa inicial do grafo.</p>${f.graph.links.length?`<p>${f.graph.links.length} transição(ões) declarada(s); ${f.graph.links.filter(l=>l.status==='resolved').length} com destino identificado.</p>`:'<p class="gjr-caution">A fonte declarou etapas, mas não declarou conexões. Não é possível afirmar a fidelidade de um grafo de execução.</p>'}${f.graph.problemas.length?`<p class="gjr-warning">Diagrama parcial ou com inconsistências: ${f.graph.problemas.length} problema(s) de ligação/identidade. Confira os destinos na lista de etapas.</p>`:''}${GFU.readState.view==='diagram'?GFU.readDiagram(f,index)+`<details class="gjr-accessible-list"><summary>Etapas e conexões em texto</summary>${GFU.readStages(f)}</details>`:GFU.readStages(f)}<footer>${f.versao.publicada_em?`Publicação declarada na fonte: ${e(f.versao.publicada_em)}.`:'Data de publicação não declarada.'}</footer></article>`;},
+  renderConfigured(){
+    const root=typeof document!=='undefined'?document.querySelector('#control-fluxos'):null;if(!root)return;
+    GFU.readEpoch++;const epoch=GFU.readEpoch;
+    if(GFU.readState.marca!==GFU.ctx.marca)GFU.readState={marca:GFU.ctx.marca,q:'',origem:'todas',view:'diagram'};
+    const model=GFD.lista(GFU.ctx.api,{...GFU.ctx,configuredReadOnly:true}),visible=GFD.configuredFilter(model,GFU.readState);GFU.readModel=visible;
+    const e=GFU.e,stateText={'historical-not-current':'Exportação histórica não é admitida como definição atual.',absent:'Definição não fornecida nesta consulta.',error:'Falha na leitura da definição. Não é uma lista vazia.',invalid:'Definição em formato inválido; contagem de jornadas indisponível.', 'invalid-input':'Fonte recusada por formato ou limite; contagem indisponível.', 'unsupported-schema':'Formato da definição não suportado. É necessário adaptar o contrato original.', 'scope-required':'Escolha Fishermans ou O Aristocrata para consultar esta marca.',partial:'Definição parcialmente validada; itens inválidos não foram apresentados.',empty:'Nenhuma definição desta marca na resposta validada. Isso não prova ausência de automações no banco.',loaded:'Definição recebida e validada estruturalmente para esta marca.'}[model.source.state];
+    const freshness={unknown:'Frescor não informado','validity-not-declared':'Prazo de validade não declarado','within-declared-validity':'Dentro da validade declarada pela fonte',expired:'Validade declarada expirada; não representa confirmação atual','invalid-metadata':'Metadados de frescor inconsistentes'}[model.source.freshness];
+    const count=['loaded','empty','partial'].includes(model.source.state)?`${model.definidos.length} definição(ões) validada(s) desta marca${model.invalidosDef?` · ${model.invalidosDef} inválida(s)`:''}`:'Contagem de definições indisponível';
+    const rows=GFD.configuredRowsCsv(visible),scope=['fish','aristo'].includes(model.marca);
+    root.innerHTML=`<div class="gjr-only"><header class="gjr-source" data-journey-source-state="${e(model.source.state)}"><h2>Jornadas · configuração em leitura</h2><span class="gjr-read-badge">Somente leitura</span><p>${e(stateText)}</p><p>${e(count)}</p><p>${e(freshness)}${model.source.generatedAt?` · coleta declarada ${e(model.source.generatedAt)}`:''}${model.source.expiresAt?` · validade declarada até ${e(model.source.expiresAt)}`:''}${model.source.revision?` · revisão da fonte ${e(model.source.revision)}`:''}</p></header>${scope?`<div class="gjr-toolbar"><label for="gjr-search">Buscar nesta marca<input type="search" id="gjr-search" value="${e(GFU.readState.q)}" autocomplete="off"></label><label for="gjr-origin">Origem<select id="gjr-origin"><option value="todas"${GFU.readState.origem==='todas'?' selected':''}>Definição e histórico</option><option value="definidos"${GFU.readState.origem==='definidos'?' selected':''}>Definição declarada</option><option value="observados"${GFU.readState.origem==='observados'?' selected':''}>Histórico observado</option></select></label><div class="gjr-view" role="group" aria-label="Visualização da mesma definição"><button type="button" id="gjr-diagram" aria-pressed="${GFU.readState.view==='diagram'}">Fluxograma</button><button type="button" id="gjr-list" aria-pressed="${GFU.readState.view==='list'}">Lista</button></div><button type="button" id="gjr-export"${rows.length?'':' disabled'}>Exportar CSV dos dados visíveis</button><button type="button" id="gjr-clear">Limpar filtros</button></div>`:''}${visible.definidos.map(GFU.readCard).join('')}${model.definidos.length&&!visible.definidos.length?'<p class="gjr-empty">Nenhuma definição com os filtros selecionados.</p>':''}${scope?`<section class="gjr-history" data-journey-history-state="${e(model.history.state)}"><h3>Histórico observado · não é o fluxograma</h3><p>Mensagens registradas não revelam gatilho, espera ou conexões. Sua ordem alfabética não é sequência de envio. Estado: ${e(model.history.state)}.</p>${visible.observados.map(f=>`<article class="gjr-card"><h4>${e(f.flow)}</h4><ul>${f.etapas.map(s=>`<li>${e(s.peca)} · ${e(s.canal?GFD.CANAIS[s.canal]:'canal não confirmado')} · ${e(GFD.volumeTexto(s))}</li>`).join('')}</ul></article>`).join('')}</section>`:''}</div>`;
+    GFU.bindConfigured(root,visible,epoch);
+  },
+  bindConfigured(root,model,epoch){
+    const live=()=>GFU.readEpoch===epoch&&GFU.ctx.configuredReadOnly===true&&GFU.ctx.marca===model.marca;
+    const search=root.querySelector('#gjr-search');if(search)search.oninput=()=>{if(!live())return;const pos=search.selectionStart;GFU.readState.q=String(search.value).slice(0,2048);GFU.render();const next=root.querySelector('#gjr-search');next?.focus();next?.setSelectionRange?.(pos,pos);};
+    const origin=root.querySelector('#gjr-origin');if(origin)origin.onchange=()=>{if(!live())return;GFU.readState.origem=['todas','definidos','observados'].includes(origin.value)?origin.value:'todas';GFU.render();};
+    for(const view of ['diagram','list']){const button=root.querySelector('#gjr-'+view);if(button)button.onclick=()=>{if(!live())return;GFU.readState.view=view;GFU.render();root.querySelector('#gjr-'+view)?.focus();};}
+    const clear=root.querySelector('#gjr-clear');if(clear)clear.onclick=()=>{if(!live())return;GFU.readState.q='';GFU.readState.origem='todas';GFU.render();};
+    const exportButton=root.querySelector('#gjr-export');if(exportButton)exportButton.onclick=()=>{if(!live()||!GFD.configuredRowsCsv(model).length)return;const csv=GFD.configuredCsv(model),name='jornadas-leitura-'+model.marca+'.csv';if(typeof GT!=='undefined'&&typeof GT.baixar==='function'){GT.baixar(name,csv);return;}if(typeof Blob!=='undefined'&&typeof URL!=='undefined'&&typeof URL.createObjectURL==='function'&&typeof document.createElement==='function'){const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}};
+  },
+});
+
 if(typeof module!=='undefined'&&module.exports)module.exports=GFU;

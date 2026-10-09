@@ -6,8 +6,42 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=297a8f06d1c6">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cdc4fef0ca42">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-imVcOEQXmluRjrqWmHL47swzL5kB+nhX2CsAI9J8Ow4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style id="crm-configured-journeys-read">
+#control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
+#control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
+#control-fluxos .gjr-source, #control-fluxos .gjr-card { background: #fff; border: 1px solid #d1dce3; border-radius: 14px; padding: 1rem; }
+#control-fluxos .gjr-card header > span, #control-fluxos .gjr-card footer { color: #496270; font-size: .85rem; }
+#control-fluxos .gjr-read-badge { border: 1px solid #aac2ce; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; display: inline-block; }
+#control-fluxos .gjr-toolbar, #control-fluxos .gjr-view { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+#control-fluxos .gjr-toolbar label { display: grid; gap: .3rem; }
+#control-fluxos .gjr-toolbar input, #control-fluxos .gjr-toolbar select, #control-fluxos .gjr-toolbar button { font: inherit; border: 1px solid #9fb4c0; border-radius: 8px; padding: .55rem .75rem; background: #fff; color: #182a36; }
+#control-fluxos .gjr-toolbar button[aria-pressed="true"] { background: #e8f2f7; border-color: #356d86; }
+#control-fluxos .gjr-toolbar button:disabled { opacity: .5; }
+#control-fluxos .gjr-only :focus-visible { outline: 3px solid #226c96; outline-offset: 3px; }
+#control-fluxos .gjr-caution, #control-fluxos .gjr-warning { background: #fff6e6; padding: .65rem; border-radius: 8px; }
+#control-fluxos .gjr-stages { list-style: none; padding: 0; display: grid; gap: .65rem; }
+#control-fluxos .gjr-stages > li { border: 1px solid #d1dce3; border-radius: 8px; padding: .75rem; }
+#control-fluxos .gjr-stages > li > span { display: block; margin-top: .35rem; color: #496270; }
+#control-fluxos .gjr-links { margin-top: .5rem; }
+#control-fluxos .gjr-diagram { overflow: auto; max-height: 48rem; border: 1px solid #d1dce3; border-radius: 10px; background: #f7fafc; }
+#control-fluxos .gjr-diagram svg { display: block; visibility: visible; width: min(100%, 480px); min-width: 340px; height: auto; margin: auto; }
+#control-fluxos .gjr-node rect { fill: #fff; stroke: #7896a7; stroke-width: 1.5; }
+#control-fluxos .gjr-type-condicao rect { fill: #fff4db; }
+#control-fluxos .gjr-type-espera rect { fill: #eef2fc; }
+#control-fluxos .gjr-type-fim rect { fill: #e9f1f2; }
+#control-fluxos .gjr-node text { fill: #182a36; font: 13px system-ui, sans-serif; }
+#control-fluxos .gjr-node .gjr-node-key { fill: #496270; font-size: 11px; }
+#control-fluxos .gjr-edges > g > path { fill: none; stroke: #356d86; stroke-width: 1.6; }
+#control-fluxos .gjr-edges marker path, #control-fluxos .gjr-diagram marker path { fill: #356d86; }
+#control-fluxos .gjr-edge-label { fill: #496270; font: 10px system-ui, sans-serif; }
+#control-fluxos .gjr-accessible-list { padding: .75rem 0; }
+#control-fluxos .gjr-accessible-list summary { cursor: pointer; }
+#control-fluxos .gjr-history { border-top: 1px solid #d1dce3; padding-top: 1rem; }
+#control-fluxos .gjr-empty { color: #496270; }
+@media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
+</style>
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -273,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=df664b7ec95b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=099c26354073"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -303,6 +337,7 @@ const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
 let CRM_LEITURA_BLOQUEADA=false;
 function limpaConsultaCRM(){
+  if(typeof GPR!=='undefined')GPR.clear();
   API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
   GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
   CRM_LEITURA_BLOQUEADA=true;
@@ -654,6 +689,7 @@ function renderPublicos(){
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
+  if(typeof GPR!=='undefined')GPR.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(typeof GJG!=='undefined'){
     GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
     if(PENDENTE_GRAPH&&API){
@@ -668,8 +704,13 @@ function renderJornadas(modeloOp){
   const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
   const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
   if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
-  if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
+  if(SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
+  if(!API){
+    const root=document.getElementById('control-fluxos');
+    if(root){root.innerHTML='<p role="status">Os dados gerais do CRM estão indisponíveis. A consulta publicada tem sua própria verificação de acesso; escolha uma marca e consulte abaixo.</p>';if(typeof GPR!=='undefined')GPR.mount(ctx,root);}
+    return;
+  }
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
 function renderRelatoriosCampanha(){
@@ -682,6 +723,7 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
+  if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(CRM_LEITURA_BLOQUEADA)return;
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   // Contadores da navegação valem só para a marca em que foram calculados.
@@ -693,7 +735,7 @@ function render(){
   if(tests)renderABExperiment();
   if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
-  if(!API)return;
+  if(!API){renderJornadas();return;}
   if(tests)GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
@@ -1019,6 +1061,7 @@ async function leCacheGrowth(k){
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
+  if(typeof GPR!=='undefined')GPR.clear();
   GrowthView.resolve({retry:retryIdentity});
   if(LOADING)return;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
@@ -1065,7 +1108,7 @@ async function carregar({retryIdentity=false}={}){
     if(!CRM_LEITURA_BLOQUEADA&&SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
     if(!CRM_LEITURA_BLOQUEADA&&SEC==='regua'){
       const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
-      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
+      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API?.crm_operacao,ctx);
       renderJornadas(modeloOp2);
     }else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
     else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
@@ -1216,7 +1259,7 @@ setCanal(CANAL);
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
 let GROWTH_LAST_AUTO_READ=null;
 function atualizarGrowthVisivel(){
-  if(document.hidden)return;
+  if(document.hidden||SEC==='regua'&&GC.activeTab==='fluxos'&&GROWTH_LAST_AUTO_READ!==null)return;
   GROWTH_LAST_AUTO_READ=Date.now();
   return carregar();
 }

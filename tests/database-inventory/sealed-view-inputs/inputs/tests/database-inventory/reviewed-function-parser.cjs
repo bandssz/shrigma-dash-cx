@@ -1,0 +1,16 @@
+'use strict';
+// Closed grammar for the pinned reviewed migrations. Never executes SQL.
+const crypto=require('node:crypto');const sha=x=>crypto.createHash('sha256').update(x,'utf8').digest('hex');
+function extract(sql,allowedNames){const statements=[];let tokens=[],i=0;const refuse=()=>{throw Error('REVIEWED_FUNCTION_PARSE_REFUSED');};
+ while(i<sql.length){const c=sql[i];if(/\s/.test(c)){i++;continue;}if(sql.startsWith('--',i)){const end=sql.indexOf('\n',i+2);i=end<0?sql.length:end+1;continue;}if(sql.startsWith('/*',i)){let depth=1;i+=2;while(depth&&i<sql.length){if(sql.startsWith('/*',i)){depth++;i+=2;}else if(sql.startsWith('*/',i)){depth--;i+=2;}else i++;}if(depth)refuse();continue;}
+ if(c==="'"||c==='"'){const quote=c,start=i++;let found=false;while(i<sql.length){if(sql[i]===quote){if(sql[i+1]===quote){i+=2;continue;}i++;found=true;break;}i++;}if(!found)refuse();tokens.push({kind:'quoted',text:sql.slice(start,i)});continue;}
+ if(c==='$'){const m=sql.slice(i).match(/^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/);if(m){const tag=m[0],start=i+tag.length,end=sql.indexOf(tag,start);if(end<0)refuse();tokens.push({kind:'dollar',tag,body:sql.slice(start,end),text:tag});i=end+tag.length;continue;}}
+ if(c===';'){statements.push(tokens);tokens=[];i++;continue;}const m=sql.slice(i).match(/^[A-Za-z_][A-Za-z_0-9]*|^[0-9]+/);if(m){tokens.push({kind:'word',text:m[0]});i+=m[0].length;}else{tokens.push({kind:'punct',text:c});i++;}}
+ if(tokens.length)refuse();const found=[];
+ for(const t of statements){if(t[0]?.text.toUpperCase()!=='CREATE')continue;if(t[1]?.text.toUpperCase()==='OR')refuse();if(t[1]?.text.toUpperCase()!=='FUNCTION')continue;const texts=t.map(x=>x.text);if(texts[2]!=='public'||texts[3]!=='.'||!allowedNames.includes(texts[4])||texts[5]!=='(')refuse();const close=texts.indexOf(')',6);if(close<0||texts[close+1]?.toUpperCase()!=='RETURNS'||!['text','jsonb'].includes(texts[close+2])||texts[close+3]?.toUpperCase()!=='LANGUAGE'||!['sql','plpgsql'].includes(texts[close+4]))refuse();
+ const args=[];let current=[];for(const token of texts.slice(6,close)){if(token===','){if(!current.length)refuse();args.push(current);current=[];}else current.push(token);}if(current.length)args.push(current);if(args.some(a=>a.length<1||a.length>2||!['jsonb','text','uuid'].includes(a.at(-1))))refuse();
+ let j=close+5,immutable=false,securityDefiner=false;if(texts[j]?.toUpperCase()==='IMMUTABLE'){immutable=true;j++;}if(texts[j]?.toUpperCase()==='SECURITY'){if(texts[j+1]?.toUpperCase()!=='DEFINER')refuse();securityDefiner=true;j+=2;}
+ const suffix=['SET','search_path','=','pg_catalog',',','pg_temp','AS'];for(const expected of suffix){if((['SET','AS'].includes(expected)?texts[j]?.toUpperCase():texts[j])!==expected)refuse();j++;}if(t[j]?.kind!=='dollar'||j!==t.length-1)refuse();if(found.some(x=>x.name===texts[4]))refuse();const body=t[j].body;found.push({namespace:'public',name:texts[4],argumentIdentity:args.map(a=>a.join(' ')).join(', '),argumentTypeOids:args.map(a=>({jsonb:'3802',text:'25',uuid:'2950'})[a.at(-1)]).join(' '),resultTypeOid:texts[close+2]==='text'?'25':'3802',language:texts[close+4],securityDefiner,volatility:immutable?'i':'v',approvedConfigs:[['search_path','pg_catalog, pg_temp']],bodyUtf8Bytes:Buffer.byteLength(body),bodySha256:sha(body)});}
+ return found;
+}
+module.exports={extract};

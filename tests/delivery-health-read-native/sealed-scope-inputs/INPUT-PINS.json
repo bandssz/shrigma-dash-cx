@@ -1,0 +1,121 @@
+{
+  "schema": "shrigma-original-health-scope-projection-inputs-v1",
+  "sourceHead": "8d704def91986ee417c393471c58c4335d767ee6",
+  "files": [
+    {
+      "path": "services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 17725,
+      "sha256": "5293edb4e6182ba360299cf49150b8966697545b1b0555c789b97dcd2fcf8839"
+    },
+    {
+      "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13781,
+      "sha256": "037ac4f87ca5202d7deaa1bd6fe07d51746d97b9be35d17e5f0193bbb0c71a39"
+    },
+    {
+      "path": "tests/delivery-health-read-native/brand-set-diagnostic.test.cjs",
+      "bytes": 15003,
+      "sha256": "799d7d03630e61df1e9c5798d7bf6bc581b8abf2159c38d92470833c8de23431"
+    },
+    {
+      "path": "tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 5119,
+      "sha256": "693db4039cc018d2b52f5d350d16abfbcc90a5ddad488525d208ee30b40c7185"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/INPUT-PINS.json",
+      "bytes": 2255,
+      "sha256": "37df2d8814cdb2623c20ddb2223c8f13fa6e076820a4d3a0e31135a827d5f240"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 6056,
+      "sha256": "c6c9dcce517dd98d9c432f531060cd981ba962af9c74865b3eaa9325ed24cd6e"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13213,
+      "sha256": "ccd7493fb360b0c7c7a3ba1702ab358d0122ae47ed6d09be5482079277b7cd53"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+    }
+  ]
+}

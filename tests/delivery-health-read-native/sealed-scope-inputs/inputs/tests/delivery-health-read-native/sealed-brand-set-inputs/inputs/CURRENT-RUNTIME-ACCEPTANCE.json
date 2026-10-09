@@ -1,0 +1,180 @@
+{
+  "schema": "shrigma-structure-current-original-runtime-acceptance-v1",
+  "recordedAt": "2026-10-09T01:10:38.658952+00:00",
+  "sourceHead": "81fef09e53e56a531dc46389b70298e57a5081e7",
+  "service": {
+    "projectName": "dashboard-image-20260930",
+    "serviceName": "portal-read-8fd9c71c9126"
+  },
+  "image": {
+    "schema": "shrigma-configured-journey-image-smoke-v1",
+    "ok": true,
+    "node": "v22.23.3",
+    "uid": 1000,
+    "manifestSha256": "6aa4532a5b2a8803fcc8371dbaad92abf56c870151706234fdd95cee0a5c9e3c",
+    "presentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+    "sourceRevision": "81fef09e53e56a531dc46389b70298e57a5081e7",
+    "actualNativeRuntimeFiles": 62,
+    "presentationPathsUpdated": 2,
+    "publicAssetsActuallyServed": true,
+    "canonicalCrmStylesActuallyServed": true,
+    "htmlCssVersionMatched": true,
+    "originalPresentationVerifierPreserved": true,
+    "originalMasterNativeRead": true,
+    "crossBrandDenied": true,
+    "revocationDuringReadGuardCovered": true,
+    "nativeRevocationDenied": true,
+    "noEditorOrSendGrant": true,
+    "verifiedRuntimeAndPresentation": true,
+    "sqlInstallerEnabled": false,
+    "productionIdentityUsed": false,
+    "productionDatabaseUsed": false,
+    "operational": false,
+    "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:288026db32fc3d4ffb0f60275b807bbc0aabc0f07d4d6dd94e70f6aba8709725",
+    "configImageId": "sha256:a2d2e9308b77db5c83e155adec1d25fc8e6b81348878cba768844292c167e50f",
+    "published": true,
+    "productionAdmitted": false
+  },
+  "deployStartedAt": "2026-10-09T01:08:44.932Z",
+  "composeLeavesChanged": 5,
+  "privateServiceMetadataPreserved": true,
+  "master": {
+    "status": 200,
+    "authenticated": true,
+    "role": "superadmin",
+    "runtime": {
+      "nativeMcp": true,
+      "nativeBackendManifestSha256": "6aa4532a5b2a8803fcc8371dbaad92abf56c870151706234fdd95cee0a5c9e3c",
+      "journeyPresentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+      "journeyConfiguredRead": true,
+      "journeyPublicFiles": [
+        {
+          "path": "growth.html",
+          "bytes": 113705,
+          "sha256": "af135d3f91d7e6b00f48444a74e3c06548ccd0d2e98cbd44f2d72eeb3965c130"
+        },
+        {
+          "path": "assets/panels/growth.js",
+          "bytes": 1000806,
+          "sha256": "7dcd45e9f3e59cec76082f4181187cbe65bd666d4113cee242e00249c4754dc2"
+        },
+        {
+          "path": "assets/panels/growth.css",
+          "bytes": 164609,
+          "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
+        }
+      ]
+    },
+    "templateSources": [
+      {
+        "brand": "aristo",
+        "status": 200,
+        "total": 22,
+        "source": "original-registered-email-templates",
+        "checkedAt": "2026-10-09T01:08:58.257Z",
+        "readOnly": true
+      },
+      {
+        "brand": "fish",
+        "status": 200,
+        "total": 18,
+        "source": "original-registered-email-templates",
+        "checkedAt": "2026-10-09T01:08:58.704Z",
+        "readOnly": true
+      }
+    ],
+    "deliveryHealthReceipt": {
+      "status": 200,
+      "body": {
+        "schema": "shrigma-native-health-receipts-v1",
+        "sources": [
+          {
+            "brand": "fish",
+            "status": 503,
+            "body": {
+              "error": "HEALTH_PROTOCOL_REFUSED",
+              "diagnostic": {
+                "schema": "shrigma-email-health-protocol-refusal-v1",
+                "field": "brands",
+                "reason": "brand-set",
+                "actualType": "array"
+              }
+            },
+            "readOnly": true,
+            "operational": false
+          },
+          {
+            "brand": "aristo",
+            "status": 503,
+            "body": {
+              "error": "HEALTH_PROTOCOL_REFUSED",
+              "diagnostic": {
+                "schema": "shrigma-email-health-protocol-refusal-v1",
+                "field": "brands",
+                "reason": "brand-set",
+                "actualType": "array"
+              }
+            },
+            "readOnly": true,
+            "operational": false
+          }
+        ],
+        "automaticRetry": false,
+        "operational": false
+      }
+    }
+  },
+  "healthView": {
+    "fields": [
+      "oid",
+      "namespace",
+      "name",
+      "ownerRole",
+      "acl",
+      "definition_utf8_bytes",
+      "definition_sha256",
+      "fixed_fish_aristo_values_seed",
+      "empty_brands_literal",
+      "brands_jsonb_agg",
+      "structure_status",
+      "definition_tokens_sha256",
+      "recent_cte_tokens_sha256",
+      "brands_cte_tokens_sha256",
+      "brands_value_tokens_sha256",
+      "canonical_recent_match",
+      "canonical_brands_cte_match",
+      "canonical_brands_value_match"
+    ],
+    "rows": [
+      [
+        "135626",
+        "public",
+        "shrigma_growth_email_ses_health_v1",
+        "postgres",
+        "{postgres=arwdDxtm/postgres,central_leitor=r/postgres}",
+        4930,
+        "781ffed2f3d8f671f6e2b179c1b451f4a4007886871fa24da83da2bc38087fd7",
+        false,
+        false,
+        true,
+        "unknown",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ]
+  },
+  "rawPrivateDefinitionInResponse": false,
+  "catalogReadCount": 1,
+  "catalogPurpose": "read-only-migration-inventory",
+  "healthPurpose": "crm.delivery-health",
+  "originalWorkerChanged": false,
+  "sqlRepairExecuted": false,
+  "operational": false,
+  "interpretation": "Actual definition cannot be bound by closed canonical grammar, all component hashes/matches unknown. This is not evidence of a specific malformed SQL fragment or scheduler174 cause. Health original still refuses actual brands array length!=2; exact values/count not returned.",
+  "nextDependency": "A separate admitted SQL review/repair contract for this exact original view and bounded native scheduler phase/SQLSTATE evidence. No raw definition or grants fabricated; no manual owner reads requested."
+}

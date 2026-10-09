@@ -111,15 +111,19 @@ function invitePermissions(areas,permissions){
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
+ const coexistence=require('./crm-individual-coexistence.cjs').validate(options);
  let corporateWriter=null;
  let ownMasterWriter=null;
+ const ownMasterAudienceWrite=options.crmMasterAudienceWrite===true;
+ if(options.crmMasterAudienceWrite!==undefined&&typeof options.crmMasterAudienceWrite!=='boolean')err('MASTER_AUDIENCE_CONFIG_INVALID',500);
  if(options.crmCampaignWriterProfile!==undefined)try{ownMasterWriter=require('./crm-manager-runtime.cjs').ownMasterWriterDescriptor(options.crmCampaignWriterProfile,options.allowedEmailDomains);}catch{err('MASTER_WRITER_CONFIG_INVALID',500);}
- if(ownMasterWriter&&(options.crmManagedRead!==undefined||options.crmManagedWriter!==undefined||options.crmCampaignSubmitWrite!==true||!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MASTER_WRITER_CONFIG_INVALID',500);
+ if(ownMasterAudienceWrite&&!ownMasterWriter)err('MASTER_AUDIENCE_CONFIG_INVALID',500);
+ if(ownMasterWriter&&(!coexistence&&(options.crmManagedRead!==undefined||options.crmManagedWriter!==undefined)||options.crmCampaignSubmitWrite!==true||!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MASTER_WRITER_CONFIG_INVALID',500);
  if(options.crmManagedWriter?.mode!==undefined)try{corporateWriter=require('./crm-manager-runtime.cjs').corporateWriterDescriptor(options.crmManagedWriter,options.crmManagedRead,options.allowedEmailDomains);}catch{err('MANAGED_WRITER_CONFIG_INVALID',500);}
  if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MANAGED_WRITER_CONFIG_INVALID',500);
  if(options.crmCampaignSubmitWrite!==undefined&&typeof options.crmCampaignSubmitWrite!=='boolean'||options.crmCampaignSubmitWrite===true&&!corporateWriter&&!ownMasterWriter&&(options.crmManagedRead!==undefined||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!=='synthetic.invalid'))err('CAMPAIGN_WRITE_CONFIG_INVALID',500);
  const campaignSubmit=options.crmCampaignSubmitWrite===true;
- const masterWriter=corporateWriter||ownMasterWriter;
+ const masterWriter=coexistence?ownMasterWriter:corporateWriter||ownMasterWriter;
  if(options.crmManagedWriter!==undefined&&(!campaignSubmit||!corporateWriter&&(options.crmManagedRead!==undefined||!plain(options.crmManagedWriter)||Object.keys(options.crmManagedWriter).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedWriter).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v)))))err('MANAGED_WRITER_CONFIG_INVALID',500);
  const {dbPath}=options,managerHost=hostname(options.managerHost);
  const areaHosts=Object.fromEntries(AREAS.map(a=>[a,hostname(options.areaHosts[a])]));
@@ -243,7 +247,8 @@ function createAuth(options){
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
- let managedCrm=null,managedWriter=null;
+ let managedCrm=null,managedWriter=null,nativeConnections=null;
+ if(options.crmNativeEnabled!==undefined&&typeof options.crmNativeEnabled!=='boolean')err('NATIVE_CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined)try{
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
@@ -259,7 +264,7 @@ function createAuth(options){
   return db.prepare("SELECT o.phase FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' AND o.lifecycle_version=l.version AND l.state='ready' AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')").get(userId)?.phase??null;
  }
  function managedAccess(user){
-  if(ownMasterWriter&&user.role==='manager'&&permissions(user.id).growth?.read===true)return {state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',renewalPhase:null,expired:false,canRenew:false};
+  if(ownMasterWriter&&!coexistence&&user.role==='manager'&&permissions(user.id).growth?.read===true)return {state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',renewalPhase:null,expired:false,canRenew:false};
   const status=managedCrm?.status(user.id);if(!status)return null;
   const scoped=brandScope(db.prepare('SELECT * FROM users WHERE id=?').get(user.id)).brandAccess!=='reprovision_required';
   const renewalPhase=managedRenewalPhase(user.id),ready=scoped&&managedCrm.credentialReady(user.id)===true;
@@ -415,7 +420,16 @@ function createAuth(options){
   return {cookie:cookie(token,Math.floor(SESSION_MS/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
  }
  function lookup(ctx,refresh=true){
-  const h=knownHost(ctx?.host),token=cookieToken(ctx?.cookieHeader);if(!token)return null;
+  const h=knownHost(ctx?.host);
+  if(ctx?.nativeBearer!==undefined){
+   if(!nativeConnections)return null;
+   let proof;try{proof=nativeConnections.authenticate(ctx.nativeBearer);}catch{return null;}
+   if(proof.host!==h)return null;
+   const raw=db.prepare('SELECT * FROM users WHERE id=?').get(proof.userId);
+   if(!raw||raw.role!=='superadmin'||raw.state!=='active'||h!==managerHost)return null;
+   return {user:publicUser(raw),csrf:nativeConnections.context(ctx.nativeBearer).csrf,uiKey:publicUiKey(raw.id),tokenHash:null,host:h};
+  }
+  const token=cookieToken(ctx?.cookieHeader);if(!token)return null;
   const row=db.prepare('SELECT s.*,u.email,u.role,u.state FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.host=?').get(sha(token),h);
   const t=current();if(!row||row.state!=='active'||row.expires_at<=t||row.idle_expires_at<=t)return null;
   const area=Object.entries(areaHosts).find(([,v])=>v===h)?.[0],perms=permissions(row.user_id);
@@ -444,7 +458,7 @@ function createAuth(options){
    if(!AREA_SET.has(ctx.area))err('AREA_DENIED',403);
    const areaHost=areaHosts[ctx.area];if(found.host!==managerHost&&found.host!==areaHost)err('AREA_DENIED',403);
    if(!found.user.permissions[ctx.area]?.read||ctx.edit&&!found.user.permissions[ctx.area]?.edit)err('GRANT_DENIED',403);
-   if(ownMasterWriter&&ctx.area==='growth'&&ctx.edit===true&&found.user.role!=='superadmin')err('EDIT_NOT_READY',403);
+   if(ownMasterWriter&&!coexistence&&ctx.area==='growth'&&ctx.edit===true&&found.user.role!=='superadmin')err('EDIT_NOT_READY',403);
   }
   if(ctx.brand!==undefined){
    if(!BRANDS.includes(ctx.brand))err('BRAND_INVALID',400);
@@ -945,7 +959,7 @@ function createAuth(options){
    const a=db.prepare("SELECT a.*,c.key_digest,c.encrypted_key FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
    return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>current()&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
   }
-  if(ownMasterWriter)return null;
+  if(ownMasterWriter&&!coexistence)return null;
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
   const a=db.prepare("SELECT a.*,c.key_digest FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id);
@@ -989,19 +1003,33 @@ function createAuth(options){
   if(['salvar','validar','agendar','cancelar'].includes(action)&&hasOpenCampaignCreate(user.id,brand))err('CAMPAIGN_CREATE_PENDING',409);
   return Object.freeze({userId:user.id,role:user.role,slot:'growth-campaign',canEdit:true,credentialMac:a.credential_mac,caps:Object.freeze(['read_content','draft','validate','submit'])});
  }
+ function individualOperationSnapshot(ctx,{brand}){
+  if(!coexistence)return null;
+  const user=authorizeBrand({...ctx,area:'growth',edit:true},brand);if(user.role==='superadmin')return null;
+  const authority=campaignWriterAuthorization(ctx,{brand,action:'guard'});
+  const writer=db.prepare('SELECT * FROM crm_writer_auth_binding_v1 WHERE user_id=?').get(user.id),admission=db.prepare('SELECT * FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(user.id);
+  const read=db.prepare('SELECT c.*,l.version,l.state FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(user.id);
+  if(!writer||!admission)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  return JSON.stringify({userId:user.id,brand,profileRevision:profileRevision(user.id),authority,writer,admission,read});
+ }
  function campaignDeliveryFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
-  return require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
+  const G=require('./crm-individual-coexistence.cjs'),delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
    prepareDefinition:(definition,{catalog,id,now:time})=>require('./campaign-write-contract.js').prepare(definition,{catalog,tracking:require('./campaign-write-tracking.js'),trackingId:id,now:time}).definition});
+  return coexistence?G.guardedOperations(delivery,individualOperationSnapshot):delivery;
  }
  function campaignCreateFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
   const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
-  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:masterWriter?masterWriter.mode:'crm-sandbox',...(masterWriter?{corporateWriter:masterWriter}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,
+  const G=require('./crm-individual-coexistence.cjs');
+  const build=descriptor=>require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor?descriptor.mode:'crm-sandbox',...(descriptor?{corporateWriter:descriptor}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,
    hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
    preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
    prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
-  campaignCreateInitialized=true;return creator;
+  const creator=build(masterWriter);campaignCreateInitialized=true;
+  if(!coexistence)return creator;
+  const individual=build(corporateWriter),choose=ctx=>authorize({...ctx,area:'growth',edit:ctx.method==='POST'}).role==='superadmin'?creator:individual;
+  return G.guardedOperations({submit:(ctx,q)=>choose(ctx).submit(ctx,q),reconcile:(ctx,q)=>choose(ctx).reconcile(ctx,q),describe:(ctx,q)=>choose(ctx).describe(ctx,q)},individualOperationSnapshot);
  }
  async function setSandboxCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
   if(!['growth-read','growth-audience-read','growth-audience'].includes(slot))err('CREDENTIAL_INVALID',400);
@@ -1051,11 +1079,51 @@ function createAuth(options){
   return Object.freeze({...binding,credentialMac:row.key_digest,slot:'crm-panel-read',caps:Object.freeze(['read_content','list_history','submission'])});
  }
  function audienceWriterAuthorization(ctx,{brand}={}){
-  if(!corporateWriter)err('EDIT_NOT_READY',403);
+  if(!corporateWriter&&!ownMasterAudienceWrite)err('EDIT_NOT_READY',403);
   return campaignWriterAuthorization(ctx,{brand,action:'audience'});
  }
+ // PRIVATE original-Master read binding. The original audience service itself
+ // authenticates this same central key for read_content on every request.
+ // This snapshot selects no new actor/slot, issues no grant and admits no POST.
+ function ownMasterAudienceReadBinding(ctx,{brand}={}){
+  if(!ownMasterWriter||ctx?.method!=='GET')err('MASTER_AUDIENCE_READ_DENIED',403);
+  draftBrand(brand);const user=authorizeBrand({...ctx,area:'growth',edit:true},brand),a=writerBinding(user);
+  if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
+  if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-audience-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+ }
+ // PRIVATE CURRENT Master binding for published content READ only. The
+ // original service authenticates read_content; no new actor or slot is issued.
+ function ownMasterPublishedJourneyReadBinding(ctx,{brand}={}){
+  if(!ownMasterWriter||ctx?.method!=='GET')err('PUBLISHED_JOURNEY_READ_DENIED',403);
+  draftBrand(brand);const user=authorizeBrand({...ctx,area:'growth',edit:false},brand),a=writerBinding(user);
+  if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  // writerBinding already verified this exact current encrypted slot, owner,
+  // profile, credential MAC and original attestation. Decrypt privately for
+  // this GET; a read must never manufacture POST/CSRF context.
+  const credential=decrypt(a.encrypted_key);
+  if(!credential||!equalHex(a.credential_mac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-published-journey-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+ }
+ function ownMasterPublishedJourneyReadReady(ctx){
+  try{ownMasterPublishedJourneyReadBinding({...ctx,method:'GET'},{brand:'fish'});return true;}catch{return false;}
+ }
+ // PRIVATE write/receipt binding of the SAME original Master credential.
+ // Provenance comes from the authenticated original service, never the caller.
+ function ownMasterAudienceWriteBinding(ctx,{brand}={}){
+  if(!ownMasterAudienceWrite||!['GET','POST'].includes(ctx?.method))err('MASTER_AUDIENCE_WRITE_DENIED',403);
+  const authorized=audienceWriterAuthorization(ctx,{brand});
+  const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
+  if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:authorized.userId,credential,binding:brandMac(['original-master-audience-write-v1',authorized.userId,brand,authorized.credentialMac,profileRevision(authorized.userId)])});
+ }
+ function ownMasterAudienceReadReady(ctx){
+  if(!ownMasterWriter)return false;
+  try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return u.role==='superadmin'&&!!writerBinding(u);}catch{return false;}
+ }
  function audienceDraftReady(ctx){
-  if(ownMasterWriter)return false;
+  if(ownMasterWriter)return ownMasterAudienceWrite&&campaignWriterReady(ctx);
   if(corporateWriter)return campaignWriterReady(ctx);
   const user=authorize({...ctx,method:'GET',area:'growth',edit:false});
   return user.role==='manager'&&user.permissions.growth?.edit===true&&db.prepare("SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-read','growth-audience-read','growth-audience')").get(user.id).n===3;
@@ -1163,6 +1231,90 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ const nativeConsent=context=>{
+   if(context?.nativeBearer!==undefined)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   const user=adminContext(context),found=lookup(context,false);
+   if(!found?.tokenHash)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   return {userId:user.id,sessionHash:found.tokenHash};
+  };
+ const nativeIdentity=userId=>{
+   const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!user)return null;
+   return {role:user.role,active:user.state==='active',canEditGrowth:permissions(userId).growth?.edit===true,
+    revision:crypto.createHmac('sha256',encKey).update('native-owner-v1:'+JSON.stringify([user.id,user.email,user.role,user.state,user.password_hash])).digest('hex')};
+  };
+ if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),consent:nativeConsent,identity:nativeIdentity});
+ const nativeDatabaseVault=options.crmNativeEnabled===true&&options.crmNativeDatabaseEnabled===true?require('./native-database-vault.cjs').createDatabaseVault({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-database-vault-v1:'+value).digest('hex')}):undefined;
+  let nativeSchedulerBinding;
+  if(options.crmNativeSchedulerBindingEnabled===true){
+   if(options.crmNativeEnabled!==true||!nativeConnections||!ownMasterWriter)err('SCHEDULER_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+   const schedulerCurrent=(context,connectionId,browser)=>{
+    if(browser)nativeConsent(context);
+    const owner=nativeConnections.schedulerDiagnosticOwner({context,connectionId}),original=BRANDS.map(brand=>{
+     const user=authorizeBrand({...context,area:'growth',edit:false},brand),a=writerBinding(user);
+     if(user.id!==owner.ownerId||user.role!=='superadmin'||user.email!==adminEmail||!a)err('SCHEDULER_ORIGINAL_MASTER_CHANGED',409);
+     return [brand,a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac];
+    });
+    return {...owner,profileRevision:profileRevision(owner.ownerId),authorityHash:crypto.createHmac('sha256',encKey).update('scheduler-original-crm-v1:'+JSON.stringify([owner.ownerId,owner.ownerRevision,original])).digest('hex')};
+   };
+   nativeSchedulerBinding=require('./native-scheduler-binding.cjs').createSchedulerBinding({enabled:true,db,current:schedulerCurrent,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-binding-v1:'+value).digest('hex'),...(options.crmNativeSchedulerApiVerifier?{verify:options.crmNativeSchedulerApiVerifier}:{})});
+  }
+ let nativeSchedulerStateConsent,nativeSchedulerStateChatApproval;
+ if(options.crmNativeSchedulerStateEnabled===true){
+  if(options.crmNativeEnabled!==true||!nativeConnections||!nativeDatabaseVault||!ownMasterWriter)err('SCHEDULER_STATE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+  const stateCurrent=(context,connectionId,browser)=>{
+   if(browser)nativeConsent(context);
+   const owner=nativeConnections.schedulerDiagnosticOwner({context,connectionId});
+   const original=BRANDS.map(brand=>{
+    const proof=ownMasterPublishedJourneyReadBinding({...context,method:'GET'},{brand});
+    if(proof.userId!==owner.ownerId||!/^[a-f0-9]{64}$/.test(proof.binding||''))err('SCHEDULER_STATE_ORIGINAL_MASTER_CHANGED',409);
+    return [brand,proof.binding];
+   });
+   const privateBinding=nativeDatabaseVault.inspectionBinding(owner.ownerId),revision=profileRevision(owner.ownerId);
+   return {ownerId:owner.ownerId,ownerRevision:owner.ownerRevision,connectionHash:owner.connectionHash,
+    crmBindingHash:crypto.createHmac('sha256',encKey).update('scheduler-state-original-crm-v1:'+JSON.stringify([owner.ownerId,owner.ownerRevision,revision,original])).digest('hex'),
+    profileRevision:revision,credentialBindingHash:privateBinding.credentialBindingHash,resourceHash:privateBinding.resourceHash,queryHash:require('./native-scheduler-state.cjs').queryHash};
+  };
+  const chatCurrent=(context,connectionId)=>{
+   if(context?.nativeBearer===undefined||!['GET','POST'].includes(context.method))err('SCHEDULER_STATE_NATIVE_APPROVAL_REQUIRED',403);
+   const user=authorize({...context,admin:true});
+   for(const scope of ['crm.read','crm.iam'])for(const brand of BRANDS){const p=nativeConnections.authenticate(context.nativeBearer,{scope,brand});if(p.id!==connectionId||p.userId!==user.id)err('SCHEDULER_STATE_CONNECTION_REFUSED',403);}
+   return stateCurrent(context,connectionId,false);
+  };
+  const trustedApprovals=new WeakSet();
+  nativeSchedulerStateConsent=require('./native-scheduler-state-consent.cjs').createSchedulerStateConsent({db,current:stateCurrent,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-state-v1:'+value).digest('hex'),admitNativeApproval:args=>trustedApprovals.has(args)&&require('./native-scheduler-state.cjs').canonical(chatCurrent(args.context,args.connectionId))===require('./native-scheduler-state.cjs').canonical(args.authority)});
+  nativeSchedulerStateChatApproval=require('./native-scheduler-state-chat-approval.cjs').createSchedulerStateChatApproval({db,current:chatCurrent,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-state-chat-v1:'+value).digest('hex'),authorizeBoundApproval:args=>{trustedApprovals.add(args);try{return nativeSchedulerStateConsent.authorizeNativeBound(args);}finally{trustedApprovals.delete(args);}}});
+ }
+ let nativeSourceSync;
+ if(options.crmNativeSourceSyncEnabled===true){
+  if(options.crmNativeEnabled!==true||!nativeConnections||!ownMasterWriter||!ownMasterAudienceWrite)err('SOURCE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+  const authorizeSource=(context,{brand,write=false}={})=>{
+   if(brand!==undefined&&!BRANDS.includes(brand))err('SOURCE_BRAND_DENIED',403);
+   if(write===true&&context?.method!=='POST')err('SOURCE_EXPLICIT_WRITE_REQUIRED',403);
+   const native=context?.nativeBearer!==undefined;
+   let proof;
+   if(native)proof=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.source-sync',...(brand?{brand}:{})});
+   else if(context?.method==='POST')proof=nativeConsent(context);
+   else if(context?.method==='GET'){
+    const user=authorize({...context,admin:true}),found=lookup(context,false);
+    if(!found?.tokenHash)err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+    proof={userId:user.id};
+   }else err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+   const ownerId=proof.userId,owner=nativeIdentity(ownerId);
+   if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true)err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+   const brands=brand?[brand]:native?proof.brands:BRANDS;
+   const original=brands.map(b=>{
+    const q=context?.method==='POST'?ownMasterAudienceWriteBinding(context,{brand:b}):ownMasterAudienceReadBinding(context,{brand:b});
+    const user=authorizeBrand({...context,area:'growth',edit:true},b),a=writerBinding(user);
+    if(q.userId!==ownerId||user.id!==ownerId||!a)err('SOURCE_ORIGINAL_MASTER_CHANGED',409);
+    return [b,profileRevision(ownerId),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac];
+   });
+   // Session/delegation is checked at every call; durable attempts belong to
+   // the same original identity/credential across browser and native access.
+   return {ownerId,ownerRevision:owner.revision,binding:crypto.createHmac('sha256',encKey).update('native-source-authority-v1:'+JSON.stringify([ownerId,owner.revision,original])).digest('hex')};
+  };
+  const transport=options.crmNativeSourceTransport||require('./native-source-transport.cjs').createOriginalSourceTransport({fetchImpl:options.crmNativeSourceFetch||fetch});
+  nativeSourceSync=require('./native-source-sync.cjs').createSourceSync({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,authorize:authorizeSource,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-source-sync-v1:'+value).digest('hex'),transport,permitDelegation:(context,connectionId)=>nativeConnections.permitSourceSync({context,connectionId})});
+ }
+ return Object.freeze({...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
