@@ -297,6 +297,31 @@
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/load-operator.cjs",
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/operator.test.cjs",
     "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/ui.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/services/dashboard-operational/native-delivery-health-controller.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/brand-set-diagnostic.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health-controller.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+    "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+    "tests/delivery-health-read-native/source-scope-projection.test.cjs",
     "tests/delivery-health-read-native/ui.test.cjs",
     "tests/delivery-health-wiring-native/wiring.test.cjs",
     "tests/growth-flows-ui.test.cjs",
@@ -368,8 +393,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 16011,
-      "sha256": "4e2cd03162a0a06b90a8c73d1f32b3335109077e631e70aae36c56ced60392f8"
+      "bytes": 16128,
+      "sha256": "e24bed39267f90e3d31124e70ca7189b40c919d402052a65af2f981454de306e"
     },
     {
       "path": "assets/panels/growth.css",
@@ -598,8 +623,8 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health.cjs",
-      "bytes": 17725,
-      "sha256": "5293edb4e6182ba360299cf49150b8966697545b1b0555c789b97dcd2fcf8839"
+      "bytes": 20061,
+      "sha256": "63c4a802e7e0fe0381bac8ef0ab560ac7dce39d5a1a53b5a521bd3dec177bcca"
     },
     {
       "path": "services/dashboard-operational/native-foundation-preview.cjs",
@@ -973,8 +998,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/brand-set-diagnostic.test.cjs",
-      "bytes": 15003,
-      "sha256": "799d7d03630e61df1e9c5798d7bf6bc581b8abf2159c38d92470833c8de23431"
+      "bytes": 15438,
+      "sha256": "0c4fd4f99dea1f7116df8b7887017976ad5d05cb3114d2d09eee2897577549a1"
     },
     {
       "path": "tests/delivery-health-read-native/core.test.cjs",
@@ -1003,8 +1028,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
-      "bytes": 13781,
-      "sha256": "037ac4f87ca5202d7deaa1bd6fe07d51746d97b9be35d17e5f0193bbb0c71a39"
+      "bytes": 13912,
+      "sha256": "e5a8905ccf4e4c1f08c548d25d40b094a2d74b74cfb405cda0a14f510e32556f"
     },
     {
       "path": "tests/delivery-health-read-native/sealed-brand-set-inputs/INPUT-PINS.json",
@@ -1190,6 +1215,131 @@
       "path": "tests/delivery-health-read-native/sealed-refusal-inputs/inputs/tests/delivery-health-read-native/ui.test.cjs",
       "bytes": 8199,
       "sha256": "9287663a7f3f8f1dea704e0de838a423463c33b7e1951714742d3b6241ca374d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/INPUT-PINS.json",
+      "bytes": 5623,
+      "sha256": "39b21939dd92cf6b9c6dc5b99f7252b327d0479cc395250237516011e97e2477"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 5119,
+      "sha256": "693db4039cc018d2b52f5d350d16abfbcc90a5ddad488525d208ee30b40c7185"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 17725,
+      "sha256": "5293edb4e6182ba360299cf49150b8966697545b1b0555c789b97dcd2fcf8839"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/brand-set-diagnostic.test.cjs",
+      "bytes": 15003,
+      "sha256": "799d7d03630e61df1e9c5798d7bf6bc581b8abf2159c38d92470833c8de23431"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13781,
+      "sha256": "037ac4f87ca5202d7deaa1bd6fe07d51746d97b9be35d17e5f0193bbb0c71a39"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/INPUT-PINS.json",
+      "bytes": 2255,
+      "sha256": "37df2d8814cdb2623c20ddb2223c8f13fa6e076820a4d3a0e31135a827d5f240"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 6056,
+      "sha256": "c6c9dcce517dd98d9c432f531060cd981ba962af9c74865b3eaa9325ed24cd6e"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13213,
+      "sha256": "ccd7493fb360b0c7c7a3ba1702ab358d0122ae47ed6d09be5482079277b7cd53"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-brand-set-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-scope-inputs/inputs/tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/source-scope-projection.test.cjs",
+      "bytes": 12920,
+      "sha256": "64bb0614a43e3fc56307dde07424eaf94c21a2db57ed23cd9b040d17aa5759fa"
     },
     {
       "path": "tests/delivery-health-read-native/ui.test.cjs",
@@ -1499,7 +1649,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "2d763f0a335ce2bde80b1658af48001baa3cb52edfc641880bbe5d2d356423bb"
+      "sha256": "9a7fa7904fa026c2e4ec38f9b54b410396815d49a7491ed833a760115bf2254f"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1937,5 +2087,15 @@
     "outputPins": 3,
     "sameReadSqlAndPurpose": true,
     "healthGateStill503": true
+  },
+  "deliveryHealthFixedScopeProjection": {
+    "package": "delivery-health-source-scope-projection-v1-c2-source-v1",
+    "deliverySha256": "ae659df7a5958a8bee5066cb0e517ea22c207af2164088b60640a6094a4490d0",
+    "inputPins": 23,
+    "outputPins": 4,
+    "sameReadSqlAndPurpose": true,
+    "strictPublicValidatorPreserved": true,
+    "thirdPartyRowsUnmodified": true,
+    "operational": false
   }
 }

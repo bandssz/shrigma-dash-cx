@@ -96,43 +96,6 @@ function validatePayload(raw,brand){
   return {sourceCheckedAt:v.checked_at,collector:Object.freeze(collector),queue:Object.freeze(queue),brandMetrics:selected,pendingIngest15min:v.pending_ingest_15min,conflicts:v.conflicts};
  }catch(e){if(refusalDiagnostics.has(e))throw e;throw protocolRefused('payload','unknown',raw);}
 }
-// BEGIN PRIVATE FIXED SOURCE SCOPE PROJECTION
-function validatePrivateSource(raw,brand){
- let original;
- try{return validatePayload(raw,brand);}catch(e){original=e;}
- const d=protocolDiagnostic(original),set=d?.brandSet;
- if(d?.field!=='brands'||d.reason!=='brand-set'||d.actualType!=='array'||set?.inspection!=='complete'||set.length<3||set.length>64||set.fish!==1||set.aristo!==1||set.malformed!==0)throw original;
- let projected;
- try{
-  // Recheck every descriptor before copying; never read foreign metric values.
-  const top=payloadObject(raw,'payload',['schema_version','checked_at','collector','queue','pending_ingest_15min','conflicts','brands']);
-  const array=top.brands;
-  if(isProxy(array)||!Array.isArray(array)||Object.getPrototypeOf(array)!==Array.prototype)throw original;
-  const length=Object.getOwnPropertyDescriptor(array,'length');
-  if(!length||!Object.hasOwn(length,'value')||length.value!==set.length||Reflect.ownKeys(array).length!==set.length+1)throw original;
-  const selected=[];const seen=new Set();
-  for(let i=0;i<set.length;i++){
-   const item=Object.getOwnPropertyDescriptor(array,String(i));
-   if(!item||!item.enumerable||!Object.hasOwn(item,'value'))throw original;
-   const row=item.value,keys=['marca',...METRICS];
-   if(!row||typeof row!=='object'||isProxy(row)||Array.isArray(row)||![Object.prototype,null].includes(Object.getPrototypeOf(row)))throw original;
-   const names=Reflect.ownKeys(row),descriptors={};
-   if(names.length!==keys.length||names.some(k=>typeof k!=='string'||!keys.includes(k)))throw original;
-   for(let j=0;j<names.length;j++){const k=names[j],desc=Object.getOwnPropertyDescriptor(row,k);if(!desc||!desc.enumerable||!Object.hasOwn(desc,'value'))throw original;descriptors[k]=desc;}
-   const marca=descriptors.marca.value;
-   if(typeof marca!=='string')throw original;
-   if(marca==='fish'||marca==='aristo'){
-    if(seen.has(marca))throw original;seen.add(marca);
-    const copy={marca};for(let j=0;j<METRICS.length;j++){const k=METRICS[j];copy[k]=descriptors[k].value;}selected.push(copy);
-   }
-  }
-  if(seen.size!==2)throw original;
-  projected={...top,brands:selected};
- }catch{throw original;}
- // Expected-brand metric failures are diagnosed by the unchanged validator.
- return validatePayload(projected,brand);
-}
-// END PRIVATE FIXED SOURCE SCOPE PROJECTION
 function createDeliveryHealthRead({enabled=false,driver,getPrivateCredential,admitHealth,now=Date.now}={}){
  const ready=enabled===true&&typeof driver?.Client==='function'&&driver.version==='8.23.1'&&/^[a-f0-9]{64}$/.test(driver.packageSha256||'')&&typeof getPrivateCredential==='function'&&typeof admitHealth==='function'&&typeof now==='function';
  let active=null,closing=false,closed=false,closePromise=null,blocked=false;
@@ -148,7 +111,7 @@ function createDeliveryHealthRead({enabled=false,driver,getPrivateCredential,adm
  await timeout(Promise.resolve().then(()=>rawClient.connect()),5000);valid(t);s.awaiting=false;if(s.seq!==1||s.tx!=='I'||rawClient.connection.stream?.encrypted===true)throw error('HEALTH_PEER_REFUSED');const rows=await query(t,PEER,'SELECT','I');if(rows.length!==1)throw error('HEALTH_PEER_REFUSED');const peer=plain(rows[0]);exact(peer,['database','sessionRole','currentRole','pid','port','engine','ssl','read_only']);if(peer.database!==RESOURCE.database||peer.sessionRole!==p.username||peer.currentRole!==p.username||peer.port!==5432||!Number.isInteger(peer.engine)||Math.floor(peer.engine/10000)!==17||!Number.isSafeInteger(peer.pid)||peer.pid<=0||peer.pid!==rawClient.processID||peer.ssl!==false||peer.read_only!=='on')throw error('HEALTH_PEER_REFUSED');await admission(t,'read',p,peer);await query(t,BEGIN,'BEGIN','T');
  const evidenceRows=await query(t,READ_SQL,'SELECT','T');
  if(evidenceRows.length!==1)throw protocolRefused('rows','row-count',evidenceRows);const row=plain(evidenceRows[0]);exact(row,['payload']);
- const payload=validatePrivateSource(row.payload,input.brand);
+ const payload=validatePayload(row.payload,input.brand);
  await query(t,ROLLBACK,'ROLLBACK','I');valid(t);
  // Confirm closure before the final CURRENT gate: revocation during end()
  // must suppress the otherwise complete read, not race result publication.

@@ -19,38 +19,7 @@ const METRICS=Object.freeze(['finalizacao_pendente','entregue_sem_gravacao','res
 // Diagnostics never contain payload values, arbitrary keys or upstream errors.
 const refusalDiagnostics=new WeakMap();
 function actualType(value){if(value===null)return 'null';if(isProxy(value))return 'other';if(Array.isArray(value))return 'array';const t=typeof value;return ['object','string','number','boolean','undefined'].includes(t)?t:'other';}
-function rejectedBrandSet(value){
- // Called only for the existing length!=2 refusal on a non-proxy array.
- if(isProxy(value)||!Array.isArray(value))return null;
- const lengthDescriptor=Object.getOwnPropertyDescriptor(value,'length');
- if(!lengthDescriptor||!Object.hasOwn(lengthDescriptor,'value')||!Number.isSafeInteger(lengthDescriptor.value)||lengthDescriptor.value<0)return null;
- const length=lengthDescriptor.value;
- const unavailable=()=>Object.freeze({length,inspection:'unavailable',fish:null,aristo:null,other:null,malformed:null});
- if(length>64||Object.getPrototypeOf(value)!==Array.prototype)return unavailable();
- const arrayKeys=Reflect.ownKeys(value);
- if(arrayKeys.length!==length+1||!arrayKeys.includes('length'))return unavailable();
- const entries=[];
- for(let i=0;i<length;i++){
-  const d=Object.getOwnPropertyDescriptor(value,String(i));
-  if(!d||!d.enumerable||!Object.hasOwn(d,'value'))return unavailable();
-  entries.push(d.value);
- }
- let fish=0,aristo=0,other=0,malformed=0;
- for(let i=0;i<entries.length;i++){
-  const entry=entries[i];
-  if(isProxy(entry))return unavailable();
-  if(!entry||typeof entry!=='object'||Array.isArray(entry)||![Object.prototype,null].includes(Object.getPrototypeOf(entry))){malformed++;continue;}
-  const keys=Reflect.ownKeys(entry),expected=['marca',...METRICS];
-  if(keys.length!==expected.length||keys.some(k=>typeof k!=='string'||!expected.includes(k))){malformed++;continue;}
-  let marcaDescriptor;
-  for(let i=0;i<keys.length;i++){const k=keys[i],d=Object.getOwnPropertyDescriptor(entry,k);if(!d||!d.enumerable||!Object.hasOwn(d,'value'))return unavailable();if(k==='marca')marcaDescriptor=d;}
-  // Metric values are intentionally never accessed or interpreted here.
-  const marca=marcaDescriptor.value;
-  if(typeof marca!=='string')malformed++;else if(marca==='fish')fish++;else if(marca==='aristo')aristo++;else other++;
- }
- return Object.freeze({length,inspection:'complete',fish,aristo,other,malformed});
-}
-function protocolRefused(field,reason,value){const e=error('HEALTH_PROTOCOL_REFUSED');const diagnostic={schema:'shrigma-email-health-protocol-refusal-v1',field,reason,actualType:actualType(value)};if(field==='brands'&&reason==='brand-set'&&diagnostic.actualType==='array'){const brandSet=rejectedBrandSet(value);if(brandSet)diagnostic.brandSet=brandSet;}refusalDiagnostics.set(e,Object.freeze(diagnostic));return e;}
+function protocolRefused(field,reason,value){const e=error('HEALTH_PROTOCOL_REFUSED');refusalDiagnostics.set(e,Object.freeze({schema:'shrigma-email-health-protocol-refusal-v1',field,reason,actualType:actualType(value)}));return e;}
 function protocolDiagnostic(e){return refusalDiagnostics.get(e)||null;}
 function payloadObject(value,field,keys){
  if(!value||typeof value!=='object'||isProxy(value)||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw protocolRefused(field,'object',value);
@@ -96,43 +65,6 @@ function validatePayload(raw,brand){
   return {sourceCheckedAt:v.checked_at,collector:Object.freeze(collector),queue:Object.freeze(queue),brandMetrics:selected,pendingIngest15min:v.pending_ingest_15min,conflicts:v.conflicts};
  }catch(e){if(refusalDiagnostics.has(e))throw e;throw protocolRefused('payload','unknown',raw);}
 }
-// BEGIN PRIVATE FIXED SOURCE SCOPE PROJECTION
-function validatePrivateSource(raw,brand){
- let original;
- try{return validatePayload(raw,brand);}catch(e){original=e;}
- const d=protocolDiagnostic(original),set=d?.brandSet;
- if(d?.field!=='brands'||d.reason!=='brand-set'||d.actualType!=='array'||set?.inspection!=='complete'||set.length<3||set.length>64||set.fish!==1||set.aristo!==1||set.malformed!==0)throw original;
- let projected;
- try{
-  // Recheck every descriptor before copying; never read foreign metric values.
-  const top=payloadObject(raw,'payload',['schema_version','checked_at','collector','queue','pending_ingest_15min','conflicts','brands']);
-  const array=top.brands;
-  if(isProxy(array)||!Array.isArray(array)||Object.getPrototypeOf(array)!==Array.prototype)throw original;
-  const length=Object.getOwnPropertyDescriptor(array,'length');
-  if(!length||!Object.hasOwn(length,'value')||length.value!==set.length||Reflect.ownKeys(array).length!==set.length+1)throw original;
-  const selected=[];const seen=new Set();
-  for(let i=0;i<set.length;i++){
-   const item=Object.getOwnPropertyDescriptor(array,String(i));
-   if(!item||!item.enumerable||!Object.hasOwn(item,'value'))throw original;
-   const row=item.value,keys=['marca',...METRICS];
-   if(!row||typeof row!=='object'||isProxy(row)||Array.isArray(row)||![Object.prototype,null].includes(Object.getPrototypeOf(row)))throw original;
-   const names=Reflect.ownKeys(row),descriptors={};
-   if(names.length!==keys.length||names.some(k=>typeof k!=='string'||!keys.includes(k)))throw original;
-   for(let j=0;j<names.length;j++){const k=names[j],desc=Object.getOwnPropertyDescriptor(row,k);if(!desc||!desc.enumerable||!Object.hasOwn(desc,'value'))throw original;descriptors[k]=desc;}
-   const marca=descriptors.marca.value;
-   if(typeof marca!=='string')throw original;
-   if(marca==='fish'||marca==='aristo'){
-    if(seen.has(marca))throw original;seen.add(marca);
-    const copy={marca};for(let j=0;j<METRICS.length;j++){const k=METRICS[j];copy[k]=descriptors[k].value;}selected.push(copy);
-   }
-  }
-  if(seen.size!==2)throw original;
-  projected={...top,brands:selected};
- }catch{throw original;}
- // Expected-brand metric failures are diagnosed by the unchanged validator.
- return validatePayload(projected,brand);
-}
-// END PRIVATE FIXED SOURCE SCOPE PROJECTION
 function createDeliveryHealthRead({enabled=false,driver,getPrivateCredential,admitHealth,now=Date.now}={}){
  const ready=enabled===true&&typeof driver?.Client==='function'&&driver.version==='8.23.1'&&/^[a-f0-9]{64}$/.test(driver.packageSha256||'')&&typeof getPrivateCredential==='function'&&typeof admitHealth==='function'&&typeof now==='function';
  let active=null,closing=false,closed=false,closePromise=null,blocked=false;
@@ -148,7 +80,7 @@ function createDeliveryHealthRead({enabled=false,driver,getPrivateCredential,adm
  await timeout(Promise.resolve().then(()=>rawClient.connect()),5000);valid(t);s.awaiting=false;if(s.seq!==1||s.tx!=='I'||rawClient.connection.stream?.encrypted===true)throw error('HEALTH_PEER_REFUSED');const rows=await query(t,PEER,'SELECT','I');if(rows.length!==1)throw error('HEALTH_PEER_REFUSED');const peer=plain(rows[0]);exact(peer,['database','sessionRole','currentRole','pid','port','engine','ssl','read_only']);if(peer.database!==RESOURCE.database||peer.sessionRole!==p.username||peer.currentRole!==p.username||peer.port!==5432||!Number.isInteger(peer.engine)||Math.floor(peer.engine/10000)!==17||!Number.isSafeInteger(peer.pid)||peer.pid<=0||peer.pid!==rawClient.processID||peer.ssl!==false||peer.read_only!=='on')throw error('HEALTH_PEER_REFUSED');await admission(t,'read',p,peer);await query(t,BEGIN,'BEGIN','T');
  const evidenceRows=await query(t,READ_SQL,'SELECT','T');
  if(evidenceRows.length!==1)throw protocolRefused('rows','row-count',evidenceRows);const row=plain(evidenceRows[0]);exact(row,['payload']);
- const payload=validatePrivateSource(row.payload,input.brand);
+ const payload=validatePayload(row.payload,input.brand);
  await query(t,ROLLBACK,'ROLLBACK','I');valid(t);
  // Confirm closure before the final CURRENT gate: revocation during end()
  // must suppress the otherwise complete read, not race result publication.
