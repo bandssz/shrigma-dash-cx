@@ -287,3 +287,76 @@ func (s *store) FinalizeRegularDelivery(campaignID int) error {
 	}
 	return nil
 }
+
+// campaignScanPhase and the classifier intentionally expose only closed static values.
+// Returned errors contain no original error and cannot unwrap to private driver fields.
+type campaignScanPhase uint8
+
+const (
+	campaignScanBegin campaignScanPhase = iota
+	campaignScanBoundary
+	campaignScanQuarantine
+	campaignScanSelect
+	campaignScanCommit
+)
+
+func campaignScanError(phase campaignScanPhase, err error) error {
+	name := "OTHER"
+	switch phase {
+	case campaignScanBegin:
+		name = "begin"
+	case campaignScanBoundary:
+		name = "boundary"
+	case campaignScanQuarantine:
+		name = "quarantine"
+	case campaignScanSelect:
+		name = "select"
+	case campaignScanCommit:
+		name = "commit"
+	}
+	class := "OTHER"
+	if errors.Is(err, context.Canceled) {
+		class = "CANCELED"
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		class = "DEADLINE"
+	} else {
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && pgErr != nil {
+			switch pgErr.Code {
+			case "57014":
+				class = "57014"
+			case "55P03":
+				class = "55P03"
+			case "40P01":
+				class = "40P01"
+			case "53300":
+				class = "53300"
+			case "08006":
+				class = "08006"
+			case "42501":
+				class = "42501"
+			case "42P01":
+				class = "42P01"
+			case "42883":
+				class = "42883"
+			case "25P02":
+				class = "25P02"
+			}
+		}
+	}
+	return errors.New("campaign scan unavailable phase=" + name + " class=" + class)
+}
+
+// Scanner-only boundary keeps the same statements, order, and transaction.
+// Other regular-delivery methods retain their existing redacted errors unchanged.
+func setCampaignScanBoundary(ctx context.Context, tx interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}) error {
+	if _, err := tx.ExecContext(ctx, "SET LOCAL statement_timeout='10s'"); err != nil {
+		return campaignScanError(campaignScanBoundary, err)
+	}
+	if _, err := tx.ExecContext(ctx, "SET LOCAL lock_timeout='500ms'"); err != nil {
+		return campaignScanError(campaignScanBoundary, err)
+	}
+	return nil
+}

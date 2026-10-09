@@ -157,7 +157,7 @@ def patch_cmd_main(source):
 def patch_manager_store(source):
     source = replace_once(source,
         'import (\n',
-        'import (\n\t"encoding/json"\n\t"errors"\n\n',
+        'import (\n\t"encoding/json"\n\n',
         "campaign scan boundary imports")
     old = '''func (s *store) NextCampaigns(currentIDs []int64, sentCounts []int64) ([]*models.Campaign, error) {
 \tvar out []*models.Campaign
@@ -169,25 +169,25 @@ def patch_manager_store(source):
 \tdefer cancel()
 \ttx, err := db.BeginTxx(ctx, options)
 \tif err != nil {
-\t\treturn nil, errors.New("campaign scan unavailable")
+\t\treturn nil, campaignScanError(campaignScanBegin, err)
 \t}
 \tdefer tx.Rollback()
-\tif err := setRegularDeliveryBoundary(ctx, tx); err != nil {
-\t\treturn nil, errors.New("campaign scan boundary unavailable")
+\tif err := setCampaignScanBoundary(ctx, tx); err != nil {
+\t\treturn nil, err
 \t}
 \tvar quarantine []byte
 \tif err := tx.GetContext(ctx, &quarantine,
 \t\t`SELECT crm_audience_v2.regular_delivery_quarantine($1::bigint[]::integer[])`,
 \t\tpq.Int64Array(currentIDs)); err != nil || !json.Valid(quarantine) {
-\t\treturn nil, errors.New("campaign quarantine unavailable")
+\t\treturn nil, campaignScanError(campaignScanQuarantine, err)
 \t}
 \tvar out []*models.Campaign
 \tif err := tx.Stmtx(s.queries.NextCampaigns).Unsafe().SelectContext(ctx, &out,
 \t\tpq.Int64Array(currentIDs), pq.Int64Array(sentCounts)); err != nil {
-\t\treturn nil, errors.New("campaign scan unavailable")
+\t\treturn nil, campaignScanError(campaignScanSelect, err)
 \t}
 \tif err := tx.Commit(); err != nil {
-\t\treturn nil, errors.New("campaign scan commit unconfirmed")
+\t\treturn nil, campaignScanError(campaignScanCommit, err)
 \t}
 \treturn out, nil
 }'''
