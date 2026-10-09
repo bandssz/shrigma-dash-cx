@@ -1,4 +1,4 @@
-name: Campaign scan diagnostic (validation only)
+name: Campaign scan snapshot (validation only)
 on:
   push:
     branches:
@@ -8,11 +8,13 @@ on:
       - 'tools/campaign-scan-diagnostic/ci_validate.py'
       - 'tools/listmonk-regular-build/worker_patch.py'
       - 'tools/listmonk-regular-build/upstream.lock.json'
-      - 'tools/listmonk-regular-build/overlay/listmonk/cmd/campaign_scan_diagnostic_test.go'
+      - 'tools/listmonk-regular-build/overlay/listmonk/cmd/campaign_scan_snapshot.go'
+      - 'tools/listmonk-regular-build/overlay/listmonk/cmd/campaign_scan_snapshot_http.go'
+      - 'tests/listmonk-campaign-scan-snapshot/campaign_scan_snapshot_test.go'
 permissions:
   contents: read
 jobs:
-  pinned-go-diagnostic:
+  pinned-go-snapshot:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     defaults:
@@ -25,7 +27,7 @@ jobs:
       GOFLAGS: '-mod=readonly'
       GOWORK: 'off'
     steps:
-      - name: Checkout proposed diagnostic
+      - name: Checkout proposed snapshot
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
@@ -36,6 +38,12 @@ jobs:
           ref: a908beed2860fb90a1b3891f85e64cbc8040ab22
           path: _baseline
           persist-credentials: false
+      - name: Checkout exact approved diagnostic revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 72457f2851b59b76b57a5dc5da421c6774f06b67
+          path: _approved
+          persist-credentials: false
       - name: Use the baseline query composer runtime
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -45,14 +53,14 @@ jobs:
         with:
           go-version: '1.26.1'
           cache: false
-      - name: Verify baseline and sealed diagnostic pins
+      - name: Verify baseline, approved parent and new sealed source pins
         run: |
           test "$(go env GOVERSION)" = go1.26.1
-          python3 tools/campaign-scan-diagnostic/ci_validate.py check-pins --baseline-root "$GITHUB_WORKSPACE/_baseline" --proposal-root "$GITHUB_WORKSPACE" --require-git-pin --report "$RUNNER_TEMP/scan-proof/pins.json"
-      - name: Hydrate exact public source and pinned modules with the baseline bootstrap
+          python3 tools/campaign-scan-diagnostic/ci_validate.py check-pins --baseline-root "$GITHUB_WORKSPACE/_baseline" --approved-root "$GITHUB_WORKSPACE/_approved" --proposal-root "$GITHUB_WORKSPACE" --report "$RUNNER_TEMP/scan-proof/pins.json"
+      - name: Hydrate exact public source and pinned modules with the unchanged baseline bootstrap
         run: python3 _baseline/tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/scan-inputs" --go "$(command -v go)"
-      - name: Prove generator equivalence and prepare real source without starting Listmonk
-        run: python3 tools/campaign-scan-diagnostic/ci_validate.py prepare --baseline-root "$GITHUB_WORKSPACE/_baseline" --proposal-root "$GITHUB_WORKSPACE" --inputs "$RUNNER_TEMP/scan-inputs" --out "$RUNNER_TEMP/scan-proof/prepared"
+      - name: Prove only the new captures and prepare the real store and original auth harness
+        run: python3 tools/campaign-scan-diagnostic/ci_validate.py prepare --baseline-root "$GITHUB_WORKSPACE/_baseline" --approved-root "$GITHUB_WORKSPACE/_approved" --proposal-root "$GITHUB_WORKSPACE" --inputs "$RUNNER_TEMP/scan-inputs" --out "$RUNNER_TEMP/scan-proof/prepared"
       - name: Compile the complete cmd and its tests offline without executing its init
         env:
           GOPROXY: 'off'
@@ -62,33 +70,26 @@ jobs:
           export GOWORK="$RUNNER_TEMP/scan-proof/prepared/source/go.work"
           go mod verify
           go test -c -o "$RUNNER_TEMP/scan-proof/cmd.test" ./cmd
-      - name: Execute the four sealed cases on the exact generated helper offline
+      - name: Execute only eight new snapshot and original token-auth cases offline
         env:
           GOPROXY: 'off'
           GOSUMDB: 'off'
-        run: |
-          cd "$RUNNER_TEMP/scan-proof/prepared/unit"
-          go test -json ./... -run '^TestCampaignScanDiagnostic' -count=1 | tee "$RUNNER_TEMP/scan-proof/unit-go-test.jsonl"
-      - name: Execute sealed cases and the pinned PostgreSQL driver case on the real store files
-        env:
-          GOPROXY: 'off'
-          GOSUMDB: 'off'
+          CGO_ENABLED: '1'
         run: |
           cd "$RUNNER_TEMP/scan-proof/prepared/source/listmonk"
           export GOWORK="$RUNNER_TEMP/scan-proof/prepared/source/go.work"
-          go test -json ./scan-diagnostic-ci -run '^TestCampaignScanDiagnostic' -count=1 | tee "$RUNNER_TEMP/scan-proof/real-store-go-test.jsonl"
-      - name: Require every expected case and seal actual Go results
-        run: python3 tools/campaign-scan-diagnostic/ci_validate.py verify-tests --prepared "$RUNNER_TEMP/scan-proof/prepared" --unit-log "$RUNNER_TEMP/scan-proof/unit-go-test.jsonl" --real-store-log "$RUNNER_TEMP/scan-proof/real-store-go-test.jsonl" --cmd-test-binary "$RUNNER_TEMP/scan-proof/cmd.test" --report "$RUNNER_TEMP/scan-proof/go-validation.json"
-      - name: Upload bounded validation receipts and synthetic test logs
+          go test -race -json ./scan-snapshot-ci -run '^TestCampaignScanSnapshot' -count=1 | tee "$RUNNER_TEMP/scan-proof/new-snapshot-go-test.jsonl"
+      - name: Require all eight new cases and seal actual Go results
+        run: python3 tools/campaign-scan-diagnostic/ci_validate.py verify-tests --prepared "$RUNNER_TEMP/scan-proof/prepared" --new-log "$RUNNER_TEMP/scan-proof/new-snapshot-go-test.jsonl" --cmd-test-binary "$RUNNER_TEMP/scan-proof/cmd.test" --report "$RUNNER_TEMP/scan-proof/go-validation.json"
+      - name: Upload bounded new validation receipts and synthetic logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: campaign-scan-diagnostic-validation
+          name: campaign-scan-snapshot-validation
           path: |
             ${{ runner.temp }}/scan-proof/pins.json
             ${{ runner.temp }}/scan-proof/prepared/preparation.json
-            ${{ runner.temp }}/scan-proof/unit-go-test.jsonl
-            ${{ runner.temp }}/scan-proof/real-store-go-test.jsonl
+            ${{ runner.temp }}/scan-proof/new-snapshot-go-test.jsonl
             ${{ runner.temp }}/scan-proof/go-validation.json
           if-no-files-found: warn
           retention-days: 7

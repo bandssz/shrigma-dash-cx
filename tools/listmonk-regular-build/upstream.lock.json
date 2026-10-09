@@ -40,7 +40,10 @@
       "queries/campaigns.sql": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882",
       "cmd/init.go": "83ee1f81074c30986c0c9992f7b053c8753a911545287923f0369bc0726818b2",
       "cmd/main.go": "b74a7c865049990fb0302feff48b1ec8c5478cc5af281486c8e50d16cbe94ba2",
-      "cmd/manager_store.go": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240"
+      "cmd/manager_store.go": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240",
+      "cmd/handlers.go": "5326def67f06719777aee440d45dc0fbe046d25f40610906404ca0d64bbad2a1",
+      "internal/auth/auth.go": "4860fb7daa7a36bc8b3f4f0f18237c43e246836935540770217db49f65d08937",
+      "internal/auth/models.go": "149819b4e06048968d81ff77d975d259d64c4392e33c7bd419648b74fe55ae60"
     },
     "patched": {
       "internal/manager/manager.go": "121cf871f0ee8a421a6ebd99329c13a5c67267dfdcf5732428dbea03fdc1000b",
@@ -49,14 +52,19 @@
       "queries/campaigns.sql": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
       "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
-      "cmd/manager_store.go": "bfcf483044a64d6e6f50f2f655859f5cf88f86e579e8fdea4a03dd6771761184"
+      "cmd/manager_store.go": "21e87d1ee7cbb5883d2a63e6d73c7d3b549a8202136e1bb64b5e026189abd4ce",
+      "cmd/handlers.go": "f2f0328ab22b711f0fd0492e1da1852203d9ae84ddf53900761b356900159f0d",
+      "internal/auth/auth.go": "4860fb7daa7a36bc8b3f4f0f18237c43e246836935540770217db49f65d08937",
+      "internal/auth/models.go": "149819b4e06048968d81ff77d975d259d64c4392e33c7bd419648b74fe55ae60"
     },
     "overlay": {
       "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
       "cmd/manager_store_regular.go": "02cb4d31427f459d84c11746846237c46a4c03c437da9a7f75ec41d72d2628d2",
       "cmd/campaign_scan_diagnostic_test.go": "b7f8df4f254a3b626502c4e7a2fdea029d6c9785b19627d5394de24cde280c18",
-      "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6"
+      "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
+      "cmd/campaign_scan_snapshot.go": "f3daeff29a25dd38e6005df0e5eb09efbb7f3bbace8fb269507b2329532f3238",
+      "cmd/campaign_scan_snapshot_http.go": "a3d5aaef275f88ffd17e1e655cdbbad8a0c959b24d947a8158e426352071822f"
     }
   }
 }

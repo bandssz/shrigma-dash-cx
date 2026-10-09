@@ -127,6 +127,13 @@ def patch_cmd_main(source):
     return replace_once(source, anchor, identity, "identity before runtime")
 
 
+def patch_cmd_handlers(source):
+    return replace_once(source,
+        "func initHTTPHandlers(e *echo.Echo, a *App) {\n",
+        "func initHTTPHandlers(e *echo.Echo, a *App) {\n\tregisterCampaignScanDiagnostic(e, a.auth)\n",
+        "authenticated campaign scan snapshot route")
+
+
 def patch_manager_store(source):
     source = replace_once(source,
         'import (\n',
@@ -142,6 +149,7 @@ def patch_manager_store(source):
 \tdefer cancel()
 \ttx, err := db.BeginTxx(ctx, options)
 \tif err != nil {
+\t\tcampaignScanLastFailure.record(campaignScanBegin, err)
 \t\treturn nil, campaignScanDiagnostic("begin", err)
 \t}
 \tdefer tx.Rollback()
@@ -157,6 +165,7 @@ def patch_manager_store(source):
 \tvar out []*models.Campaign
 \tif err := tx.Stmtx(s.queries.NextCampaigns).Unsafe().SelectContext(ctx, &out,
 \t\tpq.Int64Array(currentIDs), pq.Int64Array(sentCounts)); err != nil {
+\t\tcampaignScanLastFailure.record(campaignScanSelect, err)
 \t\treturn nil, campaignScanDiagnostic("select", err)
 \t}
 \tif err := tx.Commit(); err != nil {
@@ -359,6 +368,9 @@ def build_plan(listmonk_root, repo_root):
         "cmd/init.go": patch_cmd_init,
         "cmd/main.go": patch_cmd_main,
         "cmd/manager_store.go": patch_manager_store,
+        "cmd/handlers.go": patch_cmd_handlers,
+        "internal/auth/auth.go": lambda source: source,
+        "internal/auth/models.go": lambda source: source,
     }
     for relative, func in funcs.items():
         path = listmonk_root / relative
