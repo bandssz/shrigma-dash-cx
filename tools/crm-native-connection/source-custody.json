@@ -472,8 +472,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 12677,
-      "sha256": "aff874126876fba593eb04c008d743c179975a720f40ca551b215ed970b3edc2"
+      "bytes": 12703,
+      "sha256": "91f38476d349bdcadf7ca172c2edaeafa35225e2fd7e65c173779d1c1a25ebf1"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -2341,6 +2341,6 @@
     "browserApprovalPreserved": true,
     "actualClientCallabilityPending": true,
     "operational": false,
-    "imageVerifierCountFix": "report actual verified manifest files/additions instead of stale constant"
+    "imageVerifierCountFix": "derive count from already verified m.baseRuntime/m.additions in verifyReady scope"
   }
 }
