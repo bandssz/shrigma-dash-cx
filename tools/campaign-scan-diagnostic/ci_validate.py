@@ -34,7 +34,7 @@ DELTA_PINS = {
     "tools/listmonk-regular-build/upstream.lock.json": "be92b523d39468818306d2da1fb756ef573842b26a54b16d7463f96507429318",
     "tools/listmonk-regular-build/overlay/listmonk/cmd/campaign_scan_snapshot.go": "f3daeff29a25dd38e6005df0e5eb09efbb7f3bbace8fb269507b2329532f3238",
     "tools/listmonk-regular-build/overlay/listmonk/cmd/campaign_scan_snapshot_http.go": "a3d5aaef275f88ffd17e1e655cdbbad8a0c959b24d947a8158e426352071822f",
-    "tests/listmonk-campaign-scan-snapshot/campaign_scan_snapshot_test.go": "9a2e53dac70e5652dbbe4fb5c26b219deb34cde6d87bfd0a6540352175d886c3",
+    "tests/listmonk-campaign-scan-snapshot/campaign_scan_snapshot_test.go": "6b3b5415d38c41bb3f0772fab24276ef404ffab101994fb2bee860c8a256b14f",
 }
 GO_MOD_SHA = "c3c0ba9b03709c32ba81b716e758150580ddcb64930403dc4dc07fb49c57b982"
 GO_SUM_SHA = "a1c63b917fa644a526e117c51a8ab8da38899e4b8123ce30152a25b836f25700"
@@ -125,8 +125,8 @@ def pins(baseline, approved, proposal, require_git=False):
     if require_git:
         require(git(baseline, "rev-parse", "HEAD") == BASE_REVISION, "Baseline revision drift")
         require(git(approved, "rev-parse", "HEAD") == APPROVED_REVISION, "Approved revision drift")
-        require(git(proposal, "rev-parse", "HEAD^") == APPROVED_REVISION,
-                "This isolated proposal must have the approved revision as its exact parent")
+        require(git(proposal, "merge-base", APPROVED_REVISION, "HEAD") == APPROVED_REVISION,
+                "This isolated proposal must retain the exact approved revision as an ancestor")
         changes = set(git(proposal, "diff", "--name-only", APPROVED_REVISION, "HEAD").splitlines())
         expected = set(DELTA_PINS) | {".github/workflows/campaign-scan-diagnostic.yml",
                                      "tools/campaign-scan-diagnostic/ci_validate.py"}

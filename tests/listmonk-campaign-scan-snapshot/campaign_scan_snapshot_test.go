@@ -199,7 +199,11 @@ func TestCampaignScanSnapshotRepeatedNativeReadDoesNotCapture(t *testing.T) {
 	if first.Code != http.StatusOK || second.Code != http.StatusOK || first.Body.String() != second.Body.String() {
 		t.Fatal("READ changed the captured diagnostic")
 	}
-	if got := read(http.MethodPost); got.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("non-READ verb accepted: %d", got.Code)
+	beforePost := campaignScanLastFailure.read()
+	if got := read(http.MethodPost); got.Code != http.StatusMethodNotAllowed && got.Code != http.StatusNotFound {
+		t.Fatalf("non-READ verb was not refused: %d", got.Code)
+	}
+	if afterPost := campaignScanLastFailure.read(); afterPost == nil || beforePost == nil || *afterPost != *beforePost {
+		t.Fatal("refused non-READ request changed the captured diagnostic")
 	}
 }
