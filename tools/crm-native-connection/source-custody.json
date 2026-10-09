@@ -742,8 +742,9 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
-      "bytes": 13583,
-      "sha256": "16cbe2ccf40fbd75b60933ee1d594ddf1f4ac1786bce6c1c822557cae2c2085f"
+      "bytes": 13702,
+      "sha256": "202aabcdb02eafca5c25d63a6138e9219287dafbf624f82ed2292cdc8b4a8133",
+      "gitBlobSha1": "5ac0836e9b4075c41a9907e7c7e883f26b889582"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-consent.cjs",
@@ -752,8 +753,9 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-controller.cjs",
-      "bytes": 7299,
-      "sha256": "7b51fa31aba7564b0b22d3e398f37ff5ea0d0174146581f2f89ba52255f9cfa4"
+      "bytes": 7336,
+      "sha256": "efe051d7dfea60349d2a5ca535354afa38f5a58bdd71a4fc4c604ad1add3ad5a",
+      "gitBlobSha1": "4637a3db49572ef28341fa30c108cbfd8ec62a89"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-operator.cjs",
@@ -762,8 +764,9 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state.cjs",
-      "bytes": 39877,
-      "sha256": "19a16d905c70ff7e91cd58b40b6f31ceef401728adeae836b8668e3303ce956e"
+      "bytes": 67042,
+      "sha256": "d7f74b47fec6b3d8c9b7ecc3b98dd4cce66df40b307b01034fbd1600cde36742",
+      "gitBlobSha1": "ab469f11ab174633de5f45089e0dd5f3a82071c1"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
@@ -1617,8 +1620,9 @@
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/approval.test.cjs",
-      "bytes": 20065,
-      "sha256": "473f3b90f9b97930984b15027a606559d2f0a49ef36ef39d53e846adafef16dc"
+      "bytes": 20874,
+      "sha256": "2ab2d67e44b1a72adc5c7fce90892b85131e2de52832ad0246ac692276a830b6",
+      "gitBlobSha1": "5027f8f4a07968f9228cc926917876c9e264b814"
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/wiring.test.cjs",
@@ -1627,8 +1631,9 @@
     },
     {
       "path": "tests/scheduler-state-native/read.test.cjs",
-      "bytes": 37005,
-      "sha256": "54a77300ed72a1323209114d878198b50a5c99950160654aef90038577635b63"
+      "bytes": 48961,
+      "sha256": "4b383b3e100a6e06400071539a7adc8c89bf506396bc7a69fea11031f1c34310",
+      "gitBlobSha1": "6e5e36f2e9dd699a5cb6ffb2e6f75cc715bd46c5"
     },
     {
       "path": "tests/scheduler-state-read-native/route.test.cjs",
@@ -1637,8 +1642,9 @@
     },
     {
       "path": "tests/scheduler-state-read-native/sql.test.cjs",
-      "bytes": 9830,
-      "sha256": "7caea6ce18fbc34572a0971e16f936881da0c324b81f7860bd4636e7317d0b97"
+      "bytes": 48278,
+      "sha256": "6772b0ce6bcb019ee15afed15b84c14587a0c0ab490909c50a25f0747392359c",
+      "gitBlobSha1": "188e3fa51a0f0315cb1ec9f00f0b4e68cf5459a9"
     },
     {
       "path": "tests/scheduler-state-read-native/wiring.test.cjs",
@@ -2372,6 +2378,64 @@
     "originalWorkerChanged": false,
     "originalSqlOrAclOrGrantsChanged": false,
     "helpersOrNextCampaignsExecuted": false,
+    "operational": false
+  },
+  "originalSelectorDiagnosticRead": {
+    "sourceParent": "dc4d4ba93d23d78ceff639d0ef1676329cd2f64e",
+    "producerDeliverySha256": "3e7689faaf4fdf5b8c8f99ac85aa0d439a4240cb429633f5848e6319fd6b7160",
+    "publicInputsVerified": 14,
+    "outputsVerified": 6,
+    "purpose": "crm.scheduler-state-read",
+    "queryHash": "e4f8d47990f356eabb87e0e2b0c5ae9efc8f3ebe7a7b30cf5322e864246b957e",
+    "protocol": {
+      "schema": "shrigma-selector-read-protocol-v4",
+      "statementMs": 10000,
+      "contextMs": 12000,
+      "lockMs": 500,
+      "metadataMs": 8000,
+      "isolation": "read-committed-read-only",
+      "ready": "I-T-(T|E)-I",
+      "errorAck": "whitelist-code-and-single-E",
+      "rollback": "confirmed-I",
+      "end": "confirmed-event",
+      "release": "CURRENT-after-end",
+      "attempt": "terminal-per-binding",
+      "sqlstates": [
+        "55000",
+        "57014",
+        "55P03",
+        "42501",
+        "42P01",
+        "42703",
+        "42883",
+        "42804",
+        "42846",
+        "22P02",
+        "22003",
+        "22007",
+        "22008",
+        "22012",
+        "22023",
+        "23502",
+        "23503",
+        "23505",
+        "23514",
+        "40001",
+        "40P01",
+        "25006",
+        "XX000"
+      ]
+    },
+    "previousQueryHashes": [
+      "49931ee6f49587b423832cd94d71de5f99e77ee556b51da2db399eeee93980e4",
+      "78f2a08ad6c8514f396967a786c87c5f76c0427dd57efe4a657ae4d7beb36833",
+      "86d6538f931260323d1a8504a315c82e234b8a0f6b77552652775b2599401fa4"
+    ],
+    "diagnosticReadOnly": true,
+    "terminalAttempt": true,
+    "originalWorkerChanged": false,
+    "originalSqlOrAclOrGrantsChanged": false,
+    "nextCampaignsWithWritesExecuted": false,
     "operational": false
   }
 }

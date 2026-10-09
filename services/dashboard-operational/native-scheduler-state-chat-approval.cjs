@@ -2,9 +2,10 @@
 const crypto=require('node:crypto');
 const {isProxy}=require('node:util').types;
 const PURPOSE='crm.scheduler-state-read',MAX_TTL_MS=600000;
-// Exact public v3 dependency contract; prior v1/v2 intents retain their MAC.
+// Exact public v4 diagnostic contract; prior v1/v2/v3 intents retain their MAC.
 // Repinning its fixed SQL requires a new approval module revision, not input.
-const queryHash='86d6538f931260323d1a8504a315c82e234b8a0f6b77552652775b2599401fa4';
+const queryHash='e4f8d47990f356eabb87e0e2b0c5ae9efc8f3ebe7a7b30cf5322e864246b957e';
+const V3_QUERY_HASH='86d6538f931260323d1a8504a315c82e234b8a0f6b77552652775b2599401fa4';
 const V2_QUERY_HASH='78f2a08ad6c8514f396967a786c87c5f76c0427dd57efe4a657ae4d7beb36833';
 const PREVIOUS_QUERY_HASH='49931ee6f49587b423832cd94d71de5f99e77ee556b51da2db399eeee93980e4';
 const resourceHash='85c6d8aa54c0780dfa9f6463df77f9799cdd4c2af0c395ebccd7dd235750df35';
@@ -50,7 +51,7 @@ function createSchedulerStateChatApproval({db,current,mac,authorizeBoundApproval
  // still accepts only the new query; bound/status/confirm cannot promote it.
  function validated(r){
   if(!r||!UUID.test(r.id||'')||r.purpose!==PURPOSE||!Number.isSafeInteger(r.created_at)||!Number.isSafeInteger(r.expires_at)||r.created_at<0||r.expires_at<=r.created_at||r.expires_at-r.created_at>MAX_TTL_MS||!['prepared','consumed','approved','denied','expired','uncertain'].includes(r.state)||r.state==='prepared'&&r.consumed_at!==null||r.state!=='prepared'&&(!Number.isSafeInteger(r.consumed_at)||r.consumed_at<r.created_at)||!equal(r.record_mac,seal(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);
-  let a;try{a=exact(JSON.parse(r.authority_json),AUTHORITY_FIELDS);}catch{fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);}if(a.ownerId!==r.owner_id||AUTHORITY_FIELDS.slice(1).some(k=>typeof a[k]!=='string'||!H.test(a[k]))||a.resourceHash!==resourceHash||![queryHash,PREVIOUS_QUERY_HASH,V2_QUERY_HASH].includes(a.queryHash)||!equal(r.intent_hash,intentHash(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);return r;
+  let a;try{a=exact(JSON.parse(r.authority_json),AUTHORITY_FIELDS);}catch{fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);}if(a.ownerId!==r.owner_id||AUTHORITY_FIELDS.slice(1).some(k=>typeof a[k]!=='string'||!H.test(a[k]))||a.resourceHash!==resourceHash||![queryHash,PREVIOUS_QUERY_HASH,V2_QUERY_HASH,V3_QUERY_HASH].includes(a.queryHash)||!equal(r.intent_hash,intentHash(r)))fail('SCHEDULER_CHAT_INTEGRITY_REFUSED',409);return r;
  }
  function get(id){let r;try{r=db.prepare('SELECT * FROM crm_scheduler_state_chat_intent_v1 WHERE id=?').get(id);}catch{fail('SCHEDULER_CHAT_STORE_REFUSED',503);}if(!r)fail('SCHEDULER_CHAT_INTENT_NOT_FOUND',404);return validated(r);}
  function bound(context,connectionId,id){const a=authority(context,connectionId),r=get(id);if(r.connection_id!==connectionId||r.owner_id!==a.ownerId||!sameAuthority(a,JSON.parse(r.authority_json)))fail('SCHEDULER_CHAT_BINDING_CHANGED',409);const fresh=authority(context,connectionId);if(!sameAuthority(a,fresh))fail('SCHEDULER_CHAT_BINDING_CHANGED',409);return {a:fresh,r};}
@@ -90,4 +91,4 @@ function createSchedulerStateChatApproval({db,current,mac,authorizeBoundApproval
  }
  return Object.freeze({prepare,confirm,status});
 }
-module.exports=Object.freeze({createSchedulerStateChatApproval,PURPOSE,MAX_TTL_MS,queryHash,PREVIOUS_QUERY_HASH,V2_QUERY_HASH,resourceHash,AUTHORITY_FIELDS,CURRENT_NEEDS});
+module.exports=Object.freeze({createSchedulerStateChatApproval,PURPOSE,MAX_TTL_MS,queryHash,PREVIOUS_QUERY_HASH,V2_QUERY_HASH,V3_QUERY_HASH,resourceHash,AUTHORITY_FIELDS,CURRENT_NEEDS});

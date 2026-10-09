@@ -30,7 +30,7 @@ function createSchedulerStateController({enabled=false,driver,auth,now=Date.now}
  async function perform(context,id,binding){if(active)fail('SCHEDULER_STATE_BUSY',409);const call={context:Object.freeze({...context}),id,binding};active=call;try{current(call.context,id,binding);const result=await core.inspect({}, {ownerId:binding.ownerId});current(call.context,id,binding);return result;}finally{if(active===call)active=null;}}
  async function nativeReadReceipt(args={}){
   requireReady();exact(args,['context']);const {context}=args,id=native(context),binding=current(context,id),bindingHash=sha(canonical(binding)),old=receipts.get(id);
-  if(old){if(old.bindingHash!==bindingHash)fail('SCHEDULER_STATE_BINDING_CHANGED',409);if(old.pending)return Object.freeze({status:409,body:Object.freeze({error:'SCHEDULER_STATE_BUSY'})});if(old.result.status!==200||clock()<=old.expiresAt){current(context,id,binding);return old.result;}}
+  if(old){if(old.bindingHash!==bindingHash)fail('SCHEDULER_STATE_BINDING_CHANGED',409);if(old.pending)return Object.freeze({status:409,body:Object.freeze({error:'SCHEDULER_STATE_BUSY'})});if(old.result.status!==200||old.result.body?.selectorDiagnostic||clock()<=old.expiresAt){current(context,id,binding);return old.result;}}
   if(active)return Object.freeze({status:409,body:Object.freeze({error:'SCHEDULER_STATE_BUSY'})});if(!old&&receipts.size>=LIMIT)fail('SCHEDULER_STATE_RECEIPT_CAPACITY',503);
   const slot={bindingHash,pending:true,result:null,expiresAt:0};receipts.set(id,slot);let result;
   try{result={status:200,body:await perform(context,id,binding)};}catch(e){result={status:503,body:{error:CODES.has(e?.code)?e.code:'SCHEDULER_STATE_REFUSED'}};}
