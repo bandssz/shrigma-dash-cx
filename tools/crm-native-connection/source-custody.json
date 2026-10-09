@@ -742,8 +742,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
-      "bytes": 13935,
-      "sha256": "5d54e46625f017b6a998c499ca64f28fea3c385f54714b22589fd3a569892855",
+      "bytes": 14051,
+      "sha256": "45d50039f73df29e13aaaa98c94393c4c76bc42aa8e87cb5586e7d2d5bd08acb",
       "gitBlobSha1": "5ac0836e9b4075c41a9907e7c7e883f26b889582"
     },
     {
@@ -764,8 +764,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state.cjs",
-      "bytes": 87033,
-      "sha256": "9f00802f629d141585a0a459a2326034443c67f32e5d7a303dcaca58e0f74c50",
+      "bytes": 87126,
+      "sha256": "2bc0162f4eab5dfc51c08c570603959f8dbf2ae0779cb1ea6bf7f95aac8f13bb",
       "gitBlobSha1": "ab469f11ab174633de5f45089e0dd5f3a82071c1"
     },
     {
@@ -1620,8 +1620,8 @@
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/approval.test.cjs",
-      "bytes": 21994,
-      "sha256": "08d9be05c54649414ad0f0079a9956c55307662717dafe71fc15142dbacf9917",
+      "bytes": 24007,
+      "sha256": "6a4e40e19914bb1713c6b6116185d62cc0b3ff1429c7b516cc13a574d349483a",
       "gitBlobSha1": "5027f8f4a07968f9228cc926917876c9e264b814"
     },
     {
@@ -1631,8 +1631,8 @@
     },
     {
       "path": "tests/scheduler-state-native/read.test.cjs",
-      "bytes": 67093,
-      "sha256": "887a468b9598baf6cebcb565f9775336f106d2eb8f8f6325f597138332c0beb2",
+      "bytes": 71626,
+      "sha256": "8afe969336e75a7e2afe0b11edc3364d69a11f1f2eec67506caca63599147be4",
       "gitBlobSha1": "6e5e36f2e9dd699a5cb6ffb2e6f75cc715bd46c5"
     },
     {
@@ -2470,6 +2470,26 @@
     "materialProjection": "fixed inline SELECT; current UTC and whole-column ACL fenced",
     "composedBodies": "metadata-only; selector not executed",
     "localFocalCases": 85,
+    "targetRuntimeRequired": "Node22.23.3/UID1000",
+    "operational": false
+  },
+  "originalUtcMaterialRead": {
+    "purpose": "crm.scheduler-state-read",
+    "protocolSchema": "shrigma-selector-read-protocol-v7",
+    "queryHash": "c4c696c246be6a06f907d92eef3ae0ad75e5b23fea60a41f3014cd2aeefde7bb",
+    "resourceHash": "85c6d8aa54c0780dfa9f6463df77f9799cdd4c2af0c395ebccd7dd235750df35",
+    "sourcePackage": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/utc-material-read-v1/incident-source-v1",
+    "scopeSha256": "3ba961a386a806e49f867052f12be27dedaf39adcecc0e8a475cdbb98068a402",
+    "sourceDeliverySha256": "d47d712d8388bd47f124497c57e7db199559ca8d92760c008a4f42ae3b7eafb8",
+    "directDeliveryControlTargets": [
+      171,
+      174
+    ],
+    "fixedStartupTimeZone": "UTC",
+    "originalWorkerSettingChanged": false,
+    "materialProjection": "fixed inline SELECT; current UTC and whole-column ACL fenced",
+    "composedBodies": "metadata-only; selector not executed",
+    "localFocalCases": 16,
     "targetRuntimeRequired": "Node22.23.3/UID1000",
     "operational": false
   }
