@@ -2340,6 +2340,10 @@
     "sqlOrSendPerformedByApproval": false,
     "browserApprovalPreserved": true,
     "actualClientCallabilityPending": true,
-    "operational": false
+    "operational": false,
+    "nativeRuntimeCommit": "1e4612b1d8a53e65d6793614a541ba691e19d2f1",
+    "nativeRuntimeTree": "a2a602f644e1fb21564a4f13162a85ccb79b539c",
+    "nativeTreePreservedBlobs": 2182,
+    "nativeTreeNewBlobs": 3
   }
 }
