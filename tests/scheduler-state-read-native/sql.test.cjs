@@ -188,3 +188,59 @@ test('v5 installed function digest and per-attribute comparisons distinguish cod
   await db.exec('ALTER TABLE crm_audience_v2.config ALTER COLUMN checked_at TYPE timestamptz USING checked_at::timestamptz; ALTER TABLE crm_audience_v2.config ENABLE ROW LEVEL SECURITY;');bad=C.validateSelectorFence((await db.query(fixed(C.SELECTOR_FENCE_SQL))).rows[0].payload);a.equal(C.directContextGate(bad,deps),'relation-incompatible');
  }finally{await db.close();}
 });
+
+test('v6 fixed control and exact inline material flags resolve on PostgreSQL17 RAM without invoking any helper',{skip:!modulePath},async()=>{
+ const {PGlite}=require(modulePath),C=require(path.join(process.env.SCHEDULER_STATE_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational'),'native-scheduler-state.cjs')),db=new PGlite();
+ const sql=v=>{const guard="pg_catalog.current_database()='listmonk'";a.equal(v.split(guard).length,2);return v.replace(guard,"pg_catalog.current_database()='template1'");},type=t=>({16:'boolean',19:'name',20:'bigint',23:'integer',25:'text',1184:'timestamptz',2950:'uuid',3802:'jsonb',1009:'text[]',1015:'varchar[]',enum:'text','string-array':'text[]','1009|1015':'text[]'}[t]);
+ const rows=async q=>(await db.query(sql(q))).rows;
+ const control=async()=>C.validateDeliveryControl((await rows(C.DELIVERY_CONTROL_SQL))[0].payload);
+ const material=async ctl=>C.validateDeliveryMaterial((await rows(C.DELIVERY_MATERIAL_SQL))[0].payload,ctl);
+ const fence=async()=>C.validateDeliveryFence((await rows(C.DELIVERY_FENCE_SQL))[0].payload);
+ const setup=`CREATE SCHEMA crm_audience_v2;SET search_path=pg_catalog;SET TimeZone='UTC';`;
+ try{
+  a.match((await db.query('SELECT version() AS v')).rows[0].v,/PostgreSQL 17/);await db.exec(setup);
+  // First catalog observation safely reports missing relations.
+  let f=await fence();a.equal(C.deliveryGate(f,'ready'),'control-missing');a.equal(C.materialGate(f),'media-missing');
+  for(const [name,cols] of Object.entries(C.SCANNER_COLUMNS))await db.exec('CREATE TABLE public.'+name+'('+Object.entries(cols).map(([n,t])=>n+' '+type(t)).join(',')+');');
+  for(const [relation,cols] of Object.entries(C.SELECTOR_EXTRA_COLUMNS)){
+   const name=relation.split('.')[1];if(!C.SCANNER_COLUMNS[name])await db.exec('CREATE TABLE '+relation+'('+Object.entries(cols).map(([n,t])=>n+' '+type(t)).join(',')+');');
+   else for(const [n,t] of Object.entries(cols))if(!Object.hasOwn(C.SCANNER_COLUMNS[name],n))await db.exec('ALTER TABLE '+relation+' ADD COLUMN '+n+' '+type(t)+';');
+  }
+  for(const [name,cols] of Object.entries(C.COLUMN_TYPES)){
+   const relation={deployment:'regular_worker_deployment',lease:'regular_worker_lease',selection:'selection_runtime'}[name];
+   if(C.SELECTOR_EXTRA_COLUMNS['crm_audience_v2.'+relation]){for(const [n,t] of Object.entries(cols))if(!Object.hasOwn(C.SELECTOR_EXTRA_COLUMNS['crm_audience_v2.'+relation],n))await db.exec('ALTER TABLE crm_audience_v2.'+relation+' ADD COLUMN '+n+' '+type(t));}
+   else await db.exec('CREATE TABLE crm_audience_v2.'+relation+'('+Object.entries(cols).map(([n,t])=>n+' '+type(t)).join(',')+')');
+  }
+  await db.exec('CREATE TABLE crm_audience_v2.regular_delivery_campaign('+Object.entries(C.DELIVERY_COLUMNS.regular_delivery_campaign).map(([n,t])=>n+' '+type(t)).join(',')+');CREATE TABLE public.media(id integer,filename text,created_at timestamptz);ALTER TABLE public.templates ADD COLUMN label text;ALTER TABLE public.lists ADD COLUMN label text;');
+  // Sentinels are installed only in RAM. None is called: any call would fail.
+  await db.exec("CREATE FUNCTION crm_audience_v2.regular_delivery_material(integer) RETURNS jsonb LANGUAGE plpgsql VOLATILE AS $$BEGIN RAISE EXCEPTION 'UNEXPECTED_HELPER_CALL';END$$;CREATE FUNCTION crm_audience_v2.ab_regular_context(integer) RETURNS jsonb LANGUAGE plpgsql VOLATILE AS $$BEGIN RAISE EXCEPTION 'UNEXPECTED_AB_CALL';END$$;");
+  await db.exec(`INSERT INTO crm_audience_v2.regular_worker_deployment(singleton,enabled,worker_sha256,runtime_sha256,query_sha256,database_role,approved_at,approved_by,topology_receipt_sha256) VALUES(true,true,repeat('a',64),repeat('b',64),'${C.EXPECTED_SELECTION_QUERY}',current_user,statement_timestamp()-interval '1 minute','fixture',repeat('c',64));
+ INSERT INTO crm_audience_v2.regular_worker_lease(singleton,instance_id,worker_sha256,runtime_sha256,database_role,heartbeat_at,expires_at,suspended) VALUES(true,'a1111111-1111-4111-8111-111111111111',repeat('a',64),repeat('b',64),current_user,statement_timestamp()-interval '1 second',statement_timestamp()+interval '1 hour',false);
+ INSERT INTO public.campaigns(id,template_id,sent,last_subscriber_id,status,created_at,updated_at) VALUES(171,1,0,0,'scheduled','2026-10-09T00:00Z','2026-10-09T00:00Z'),(174,1,0,0,'scheduled','2026-10-09T00:00Z','2026-10-09T00:00Z');
+ INSERT INTO public.templates VALUES(1,'synthetic-template',true,'template-label');INSERT INTO public.lists(id,optin,label) VALUES(17,'single','list-label');INSERT INTO public.campaign_lists VALUES(171,17),(174,17);INSERT INTO public.media VALUES(1,'synthetic-media','2026-10-09T00:00Z');INSERT INTO public.campaign_media VALUES(171,1),(174,1);
+ INSERT INTO crm_audience_v2.campaign_binding(campaign_id,binding_version,binding_hash) VALUES(171,1,repeat('c',64)),(174,1,repeat('c',64));`);
+  f=await fence();a.equal(C.deliveryGate(f,'ready'),'ready');a.equal(C.materialGate(f),'ready');
+  // Build expected snapshots independently from synthetic rows, not the
+  // production expression. This checks full row and the exact seven removals.
+  for(const id of [171,174]){
+   const campaign=(await db.query('SELECT to_jsonb(c) AS j FROM public.campaigns c WHERE id=$1',[id])).rows[0].j;
+   for(const key of ['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'])delete campaign[key];
+   const expected={campaign,template:{id:1,body:'synthetic-template',is_default:true,label:'template-label'},lists:[{relation:{campaign_id:id,list_id:17},list:{id:17,optin:'single',name:null,tags:null,status:null,label:'list-label'}}],media:[{relation:{campaign_id:id,media_id:1},media:{id:1,filename:'synthetic-media',created_at:'2026-10-09T00:00:00+00:00'}}]};
+   await db.query('INSERT INTO crm_audience_v2.regular_delivery_campaign VALUES($1,1,repeat(\'c\',64),$2::jsonb,repeat(\'a\',64),repeat(\'b\',64),0,0,true,false)',[id,JSON.stringify(expected)]);
+  }
+  await db.exec('BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');let c=await control(),m=await material(c);a.ok(c.targets.every(x=>x.controlPresent&&x.enabled&&!x.suspended&&x.bindingMatches&&x.leaseLive&&x.leaseAvailable));a.deepEqual(m.targets.map(x=>x.materialMatches),[true,true]);a.equal((await db.query("SELECT current_setting('transaction_read_only') AS v")).rows[0].v,'on');await db.exec('ROLLBACK');
+  // Progress fields do not invalidate material; native checkpoints do drift.
+  await db.exec("UPDATE public.campaigns SET status='running',sent=2,to_send=10,max_subscriber_id=99,last_subscriber_id=2,started_at=statement_timestamp(),updated_at=statement_timestamp() WHERE id=171");c=await control();a.equal(c.targets[0].sentCheckpointMatches,false);a.equal(c.targets[0].cursorCheckpointMatches,false);a.equal((await material(c)).targets[0].materialMatches,true);
+  for(const [change,restore] of [["UPDATE public.templates SET label='changed' WHERE id=1","UPDATE public.templates SET label='template-label' WHERE id=1"],["UPDATE public.lists SET label='changed' WHERE id=17","UPDATE public.lists SET label='list-label' WHERE id=17"],["UPDATE public.media SET filename='changed' WHERE id=1","UPDATE public.media SET filename='synthetic-media' WHERE id=1"],["UPDATE public.campaign_lists SET list_id=18 WHERE campaign_id=171","UPDATE public.campaign_lists SET list_id=17 WHERE campaign_id=171"],["DELETE FROM public.campaign_media WHERE campaign_id=171","INSERT INTO public.campaign_media VALUES(171,1)"]]){await db.exec(change);a.equal((await material(await control())).targets[0].materialMatches,false);await db.exec(restore);a.equal((await material(await control())).targets[0].materialMatches,true);}
+  for(const [change,flag,restore] of [["UPDATE crm_audience_v2.regular_delivery_campaign SET enabled=false WHERE campaign_id=171",'enabled',"UPDATE crm_audience_v2.regular_delivery_campaign SET enabled=true WHERE campaign_id=171"],["UPDATE crm_audience_v2.regular_delivery_campaign SET suspended=true WHERE campaign_id=171",'suspended',"UPDATE crm_audience_v2.regular_delivery_campaign SET suspended=false WHERE campaign_id=171"],["UPDATE crm_audience_v2.regular_delivery_campaign SET binding_version=2 WHERE campaign_id=171",'bindingMatches',"UPDATE crm_audience_v2.regular_delivery_campaign SET binding_version=1 WHERE campaign_id=171"],["UPDATE crm_audience_v2.regular_delivery_campaign SET worker_sha256=repeat('d',64) WHERE campaign_id=171",'workerDeploymentMatches',"UPDATE crm_audience_v2.regular_delivery_campaign SET worker_sha256=repeat('a',64) WHERE campaign_id=171"],["UPDATE crm_audience_v2.regular_delivery_campaign SET runtime_sha256=repeat('d',64) WHERE campaign_id=171",'runtimeLeaseMatches',"UPDATE crm_audience_v2.regular_delivery_campaign SET runtime_sha256=repeat('b',64) WHERE campaign_id=171"]]){await db.exec(change);a.equal((await control()).targets[0][flag],flag==='suspended');await db.exec(restore);}
+  await db.exec("UPDATE crm_audience_v2.regular_worker_lease SET expires_at=statement_timestamp()-interval '1 second'");c=await control();a.equal(c.targets[0].leaseLive,false);a.equal(c.targets[0].leaseAvailable,false);
+  await db.exec("UPDATE crm_audience_v2.regular_worker_lease SET expires_at=statement_timestamp()+interval '1 hour',suspended=true");c=await control();a.equal(c.targets[0].leaseLive,true);a.equal(c.targets[0].leaseAvailable,false);
+  await db.exec("SET TimeZone='America/Sao_Paulo'");f=await fence();a.equal(f.timeZoneUtc,false);a.equal(C.materialGate(f),'utc-unverified');m=await material(await control());a.ok(m.targets.every(x=>x.materialMatches===null));await db.exec("SET TimeZone='UTC'");
+  await db.exec('ALTER TABLE crm_audience_v2.regular_delivery_campaign ENABLE ROW LEVEL SECURITY');f=await fence();a.equal(C.deliveryGate(f,'ready'),'control-incompatible');await db.exec('ALTER TABLE crm_audience_v2.regular_delivery_campaign DISABLE ROW LEVEL SECURITY');
+  await db.exec('ALTER TABLE public.media ALTER COLUMN id TYPE bigint');f=await fence();a.equal(C.materialGate(f),'media-incompatible');await db.exec('ALTER TABLE public.media ALTER COLUMN id TYPE integer');
+  await db.exec('CREATE ROLE isolated_v6_reader;GRANT USAGE ON SCHEMA public,crm_audience_v2 TO isolated_v6_reader;GRANT SELECT ON ALL TABLES IN SCHEMA public,crm_audience_v2 TO isolated_v6_reader;REVOKE SELECT ON public.media FROM isolated_v6_reader;GRANT SELECT(id) ON public.media TO isolated_v6_reader;SET ROLE isolated_v6_reader');f=await fence();a.equal(f.relations.find(x=>x.name==='media').readable,true);a.equal(C.materialGate(f),'snapshot-acl');await db.exec('RESET ROLE');
+  await db.exec('DELETE FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=171');c=await control();a.equal(c.targets[0].controlPresent,false);for(const k of C.DELIVERY_FLAGS)a.equal(c.targets[0][k],null);m=await material(c);a.equal(m.targets[0].materialMatches,null);
+  // Duplicate target joins are not collapsed into a falsely trusted receipt.
+  await db.exec("INSERT INTO crm_audience_v2.campaign_binding(campaign_id,binding_version,binding_hash) VALUES(174,1,repeat('c',64))");a.throws(()=>C.validateDeliveryControl((dbDummy=>dbDummy)({checkedAt:c.checkedAt,targets:[...c.targets,c.targets[1]]})),{code:'SCHEDULER_STATE_PROTOCOL_REFUSED'});const duplicated=(await rows(C.DELIVERY_CONTROL_SQL))[0].payload;a.throws(()=>C.validateDeliveryControl(duplicated),{code:'SCHEDULER_STATE_PROTOCOL_REFUSED'});
+ }finally{await db.close();}
+});

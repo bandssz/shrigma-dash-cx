@@ -742,8 +742,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-chat-approval.cjs",
-      "bytes": 13819,
-      "sha256": "b8716c5bffcbf28e444ef021ab776df73ec0279d463bf1b2f7878cd8cd82097e",
+      "bytes": 13935,
+      "sha256": "5d54e46625f017b6a998c499ca64f28fea3c385f54714b22589fd3a569892855",
       "gitBlobSha1": "5ac0836e9b4075c41a9907e7c7e883f26b889582"
     },
     {
@@ -764,8 +764,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state.cjs",
-      "bytes": 71700,
-      "sha256": "2c5a620b4a85168d8cf80439c300fc4759b03cedf4cb89026e927cedd2f6288a",
+      "bytes": 87033,
+      "sha256": "9f00802f629d141585a0a459a2326034443c67f32e5d7a303dcaca58e0f74c50",
       "gitBlobSha1": "ab469f11ab174633de5f45089e0dd5f3a82071c1"
     },
     {
@@ -1620,8 +1620,8 @@
     },
     {
       "path": "tests/scheduler-state-chat-approval-native/approval.test.cjs",
-      "bytes": 20946,
-      "sha256": "4dd1e6ccc1198a60ff7d052e7e11ee2f2f5d3c7362783bafd748f2a1eb55789c",
+      "bytes": 21994,
+      "sha256": "08d9be05c54649414ad0f0079a9956c55307662717dafe71fc15142dbacf9917",
       "gitBlobSha1": "5027f8f4a07968f9228cc926917876c9e264b814"
     },
     {
@@ -1631,8 +1631,8 @@
     },
     {
       "path": "tests/scheduler-state-native/read.test.cjs",
-      "bytes": 56940,
-      "sha256": "878058bfbddbc4505af516268fedce9e561fe3fc93ca8dd6d1e20d299b6b3144",
+      "bytes": 67093,
+      "sha256": "887a468b9598baf6cebcb565f9775336f106d2eb8f8f6325f597138332c0beb2",
       "gitBlobSha1": "6e5e36f2e9dd699a5cb6ffb2e6f75cc715bd46c5"
     },
     {
@@ -1642,8 +1642,8 @@
     },
     {
       "path": "tests/scheduler-state-read-native/sql.test.cjs",
-      "bytes": 55757,
-      "sha256": "a01c332d51a1e5569bff73f7d1c7a03f3806fbf9cc93201587118da2e97857e8",
+      "bytes": 67143,
+      "sha256": "0e87e03e91a8a47fc62a6bcd340762115b534266119b4cc489dcacf313a8a486",
       "gitBlobSha1": "188e3fa51a0f0315cb1ec9f00f0b4e68cf5459a9"
     },
     {
@@ -2452,6 +2452,24 @@
     "priorIntentIntegrityPreserved": true,
     "rawOriginalFunctionBodiesExposed": false,
     "localFocalCases": 46,
+    "targetRuntimeRequired": "Node22.23.3/UID1000",
+    "operational": false
+  },
+  "originalDeliveryControlRead": {
+    "purpose": "crm.scheduler-state-read",
+    "protocolSchema": "shrigma-selector-read-protocol-v6",
+    "queryHash": "5c280140c96257547f18caaa8b68dec909820363fb4bf21927ea7b773c64f235",
+    "resourceHash": "85c6d8aa54c0780dfa9f6463df77f9799cdd4c2af0c395ebccd7dd235750df35",
+    "sourcePackage": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/delivery-control-read-v1/incident-source-v1",
+    "scopeSha256": "42f7648223bde8e1f0099112c5300e89b1e306c42b378b8b27724ede60424b35",
+    "sourceDeliverySha256": "8ab25aed203bede9638967c8e1f54efbae01372d454255b0802414b6ec52140e",
+    "directDeliveryControlTargets": [
+      171,
+      174
+    ],
+    "materialProjection": "fixed inline SELECT; current UTC and whole-column ACL fenced",
+    "composedBodies": "metadata-only; selector not executed",
+    "localFocalCases": 85,
     "targetRuntimeRequired": "Node22.23.3/UID1000",
     "operational": false
   }
