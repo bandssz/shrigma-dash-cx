@@ -34,7 +34,7 @@ function createSchedulerBinding({enabled=false,db,current,encrypt,decrypt,mac,no
  function authority(context,connectionId,browser=false){
   if(!id(connectionId)||browser&&(context?.nativeBearer!==undefined||context?.method!=='POST'))fail('SCHEDULER_BROWSER_CONSENT_REQUIRED');
   const v=current(context,connectionId,browser);
-  if(!plain(v)||typeof v.ownerId!=='string'||!h(v.authorityHash)||!h(v.connectionHash)||!h(v.ownerRevision)||!Number.isSafeInteger(v.profileRevision)||v.profileRevision<1)fail('SCHEDULER_ORIGINAL_OWNER_REFUSED');
+  if(!plain(v)||typeof v.ownerId!=='string'||!h(v.authorityHash)||!h(v.connectionHash)||!h(v.ownerRevision)||!h(v.profileRevision))fail('SCHEDULER_ORIGINAL_OWNER_REFUSED');
   return v;
  }
  const currentHash=a=>digest(['scheduler-authority-v1',a.ownerId,a.ownerRevision,a.profileRevision,a.connectionHash,a.authorityHash]);

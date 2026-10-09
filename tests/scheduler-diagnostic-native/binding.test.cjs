@@ -42,7 +42,7 @@ function fixture(){
  const db=new DatabaseSync(':memory:');db.exec("PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY);INSERT INTO users VALUES('isolated-owner');CREATE TABLE crm_native_connections_v1(id TEXT PRIMARY KEY);");
  const connectionId='a1111111-1111-4111-8111-111111111111';db.prepare('INSERT INTO crm_native_connections_v1 VALUES(?)').run(connectionId);
  let live=true,revision=1,clock=1000,profileHash=hash('original-api-fixture');const calls=[];
- const current=()=>{if(!live)throw Object.assign(Error('SCHEDULER_CONNECTION_REFUSED'),{code:'SCHEDULER_CONNECTION_REFUSED'});return {ownerId:'isolated-owner',ownerRevision:hash('owner'),profileRevision:revision,connectionHash:hash('connection'),authorityHash:hash('original-crm')};};
+ const current=()=>{if(!live)throw Object.assign(Error('SCHEDULER_CONNECTION_REFUSED'),{code:'SCHEDULER_CONNECTION_REFUSED'});return {ownerId:'isolated-owner',ownerRevision:hash('owner'),profileRevision:crypto.createHmac('sha256',Buffer.alloc(32,5)).update('profile-revision-fixture-v1:'+revision).digest('hex'),connectionHash:hash('connection'),authorityHash:hash('original-crm')};};
  const encrypt=s=>{const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',Buffer.alloc(32,7),iv),b=Buffer.concat([cipher.update(s),cipher.final()]);return [iv.toString('base64url'),cipher.getAuthTag().toString('base64url'),b.toString('base64url')].join('.');};
  const decrypt=s=>{const [iv,tag,b]=s.split('.').map(x=>Buffer.from(x,'base64url')),dec=crypto.createDecipheriv('aes-256-gcm',Buffer.alloc(32,7),iv);dec.setAuthTag(tag);return Buffer.concat([dec.update(b),dec.final()]).toString();};
  const options={enabled:true,db,current,encrypt,decrypt,mac:s=>crypto.createHmac('sha256',Buffer.alloc(32,5)).update(s).digest('hex'),now:()=>clock,verify:async value=>{calls.push(value.apiToken);return {profileHash,settingsReadPermitted:true,authenticationView:'original-api-cache'};}};
@@ -95,4 +95,19 @@ test('tampered encrypted record or consent never releases a credential',async()=
 test('monotonic late profile result refuses before timer callback gets an event-loop turn',async t=>{
  const {performance}=require('node:perf_hooks');let clock=0;t.mock.method(performance,'now',()=>clock);
  await a.rejects(P.createOriginalApiVerifier({fetchImpl:async()=>{clock=12001;return response(profile());}})(c),{code:'SCHEDULER_API_TIMEOUT'});
+});
+
+test('CURRENT profile MAC accepts original shape and rejects numeric substitutions before private verification',async()=>{
+ const f=fixture();try{
+  const original=f.options.current();a.match(original.profileRevision,/^[a-f0-9]{64}$/);
+  a.equal(f.vault.status({context:native,connectionId:f.connectionId}).linked,false);
+  await bind(f);f.changeProfile();
+  a.equal(f.vault.status({context:native,connectionId:f.connectionId}).linked,false);
+  let reads=0;await a.rejects(f.vault.withVerifiedCredential({context:native,connectionId:f.connectionId,read:async()=>{reads++;}}),{code:'SCHEDULER_API_BINDING_REQUIRED'});a.equal(reads,0);
+  for(const revision of [1,0,'1',null,undefined,'A'.repeat(64),'f'.repeat(63)]){
+   let verifies=0;const bad=B.createSchedulerBinding({...f.options,current:()=>({...original,profileRevision:revision}),verify:async()=>{verifies++;throw Error('must not call original profile');}});
+   a.throws(()=>bad.status({context:native,connectionId:f.connectionId}),{code:'SCHEDULER_ORIGINAL_OWNER_REFUSED'});
+   await a.rejects(bad.bind({context:browser,connectionId:f.connectionId,...c,consent:true}),{code:'SCHEDULER_ORIGINAL_OWNER_REFUSED'});a.equal(verifies,0);
+  }
+ }finally{f.close();}
 });

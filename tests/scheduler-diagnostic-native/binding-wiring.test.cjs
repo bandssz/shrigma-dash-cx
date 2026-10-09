@@ -11,7 +11,7 @@ test('new separate scheduler binding preserves real store scopes and accepted he
  const healthBinding={schema:'shrigma-delivery-health-consent-v1',ownerId:id,ownerRevision:identity().revision,brand:'fish',crmBindingHash:h('original-crm'),profileRevision:1,credentialBindingHash:h('private-pg'),resourceHash:h('original-pg-resource'),queryHash:h('fixed-health-read')};
  store.permitDeliveryHealth({context:browser,connectionId:issued.connection.id,binding:healthBinding});
  const prior=store.authenticate(issued.token),before=store.deliveryHealthConsent({context:browser,connectionId:prior.id,brand:'fish'});
- const current=(context,connectionId)=>({...store.schedulerDiagnosticOwner({context,connectionId}),profileRevision:1,authorityHash:h('original-crm')});
+ const current=(context,connectionId)=>({...store.schedulerDiagnosticOwner({context,connectionId}),profileRevision:h('original-crm-profile'),authorityHash:h('original-crm')});
  const vault=createSchedulerBinding({enabled:true,db,current,encrypt:s=>Buffer.from(s).toString('base64'),decrypt:s=>Buffer.from(s,'base64').toString(),mac:h,now:()=>1000,verify:async()=>({profileHash:h('actual-synthetic-profile'),authenticationView:'original-api-cache',settingsReadPermitted:true})});
  await vault.bind({context:browser,connectionId:prior.id,apiUser:'isolated_api',apiToken:'isolated-synthetic-api-token_123456',consent:true});
  a.deepEqual(store.authenticate(issued.token).scopes,prior.scopes);a.deepEqual(store.deliveryHealthConsent({context:browser,connectionId:prior.id,brand:'fish'}),before);
@@ -47,3 +47,24 @@ test('operator auth/CSRF denial happens before parsing or private profile transp
  new (require('node:vm').Script)(O.JS);a(O.HTML.includes('type="password"'));a(!O.HTML.includes('Consultar diagnóstico'));a(!O.JS.includes('localStorage'));a(!O.JS.includes('console.'));a(O.JS.includes("key.value=''"));a(O.JS.includes("body.apiToken=''"));a(O.JS.includes('Promise.race'));
 });
 
+
+test('real auth profile revision stays HMAC64 across original profile lifecycle and invalidates old binding',async()=>{
+ const {createAuth}=require(runtime+'/auth.cjs'),masterHost='manager.synthetic.invalid',origin='https://'+masterHost;
+ const auth=createAuth({dbPath:':memory:',managerHost:masterHost,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'affiliate.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'master@synthetic.invalid',bootstrapTokenSha256:h('isolated-bootstrap'),encryptionKey:Buffer.alloc(32,7).toString('hex'),now:()=>1800000000000});
+ const db=new DatabaseSync(':memory:');try{
+  await auth.completeBootstrap({email:'master@synthetic.invalid',token:'isolated-bootstrap',password:'Synthetic-Only-Password-2026!',host:masterHost,origin});
+  const login=await auth.login({email:'master@synthetic.invalid',password:'Synthetic-Only-Password-2026!',host:masterHost,origin});
+  const context={cookieHeader:login.cookie.split(';')[0],host:masterHost,origin,method:'POST',csrf:login.csrf};
+  const invited=auth.createInvite({context,email:'profile-fixture@synthetic.invalid',areas:['growth'],brand:'fish'});
+  const revision=()=>auth.users({context}).find(user=>user.id===invited.userId).profileRevision;
+  const initial=revision();a.match(initial,/^[a-f0-9]{64}$/);
+  db.exec("PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY);INSERT INTO users VALUES('fixture-owner');CREATE TABLE crm_native_connections_v1(id TEXT PRIMARY KEY);INSERT INTO crm_native_connections_v1 VALUES('a1111111-1111-4111-8111-111111111111');");
+  const connectionId='a1111111-1111-4111-8111-111111111111',current=()=>({ownerId:id,ownerRevision:h('owner'),connectionHash:h('connection'),authorityHash:h('authority'),profileRevision:revision()});
+  const vault=createSchedulerBinding({enabled:true,db,current,encrypt:s=>Buffer.from(s).toString('base64'),decrypt:s=>Buffer.from(s,'base64').toString(),mac:h,now:()=>1000,verify:async()=>({profileHash:h('api'),authenticationView:'original-api-cache',settingsReadPermitted:true})});
+  const native={method:'GET',nativeBearer:'isolated-native-token'};
+  a.equal(vault.status({context:native,connectionId}).linked,false);
+  await vault.bind({context:browser,connectionId,apiUser:'isolated_api',apiToken:'isolated-synthetic-api-token_123456',consent:true});a.equal(vault.status({context:native,connectionId}).linked,true);
+  auth.revokeUser({context,userId:invited.userId});a.match(revision(),/^[a-f0-9]{64}$/);a.notEqual(revision(),initial);
+  let reads=0;await a.rejects(vault.withVerifiedCredential({context:native,connectionId,read:async()=>{reads++;}}),{code:'SCHEDULER_API_BINDING_REQUIRED'});a.equal(reads,0);
+ }finally{db.close();auth.close();}
+});

@@ -721,8 +721,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-binding.cjs",
-      "bytes": 10961,
-      "sha256": "7f4e0c9e381c09692c64e0fbec947b43b3d312e1c540593431fb0fcf7d70d3bb"
+      "bytes": 10921,
+      "sha256": "636e9c531a0c3dbce1dec9125a160e6b055864996d06caf99a6932f777e6f911"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-diagnostic-transport.cjs",
@@ -1566,13 +1566,13 @@
     },
     {
       "path": "tests/scheduler-diagnostic-native/binding-wiring.test.cjs",
-      "bytes": 8649,
-      "sha256": "f85e79135bcd777b81a6c3740b28ef0e46a7f1b3cba65bd9154a487eb84a9412"
+      "bytes": 11445,
+      "sha256": "83d8ce12715a8e4339a2ee3820f2836598dd018fdc7782e8ab89a5f48c225da1"
     },
     {
       "path": "tests/scheduler-diagnostic-native/binding.test.cjs",
-      "bytes": 11652,
-      "sha256": "a816c596758f54d13444e5722f6d4273d3949558c898a954c7f78b1ea0170a40"
+      "bytes": 12971,
+      "sha256": "9b1941bad3bbf8af3a00d3c59edec5a6c23fcf830fd52061bc5d0fd8e56cd921"
     },
     {
       "path": "tests/scheduler-diagnostic-native/transport.test.cjs",
@@ -2158,6 +2158,16 @@
     "incidentCoreDeliverySha256": "fae32b5e0ab6613edd8bf5ffd581107b1eccb5bb265eb4781bc870fcfcb0df1c",
     "newRootLocalTests": 26,
     "incidentCoreLocalTests": 26,
-    "operational": false
+    "operational": false,
+    "profileRevisionContractCorrection": {
+      "sourceParent": "74947aa41b78af1a9a3dfad2b02746c3f6cec6ab",
+      "actualFailure": "SCHEDULER_ORIGINAL_OWNER_REFUSED",
+      "originalProfileRevision": "brandMac HMAC64; integer fixtures were incompatible",
+      "validatorStillRequiresCurrentOwner": true,
+      "numericSubstitutionsRefused": true,
+      "rootBindingCases": 28,
+      "productionCredentialVerified": false,
+      "realAuthProfileLifecycleCovered": true
+    }
   }
 }
