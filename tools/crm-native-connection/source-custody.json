@@ -463,8 +463,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 5197,
-      "sha256": "5b36f8a73545b022b5837c65a956038f290e07afd48d13ba36094b8e48be08e5"
+      "bytes": 5496,
+      "sha256": "a50d20c7f3926e57f27069af13659f6ae03c7ed1aa1d3acdae8bb86d7eb76fb4"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
@@ -2251,6 +2251,16 @@
       "originalWorkerChanged": false,
       "productionConsentPosted": false,
       "productionSqlExecuted": false
+    },
+    "imageBuildCorrection": {
+      "failedRun": 37938378775,
+      "failedJob": 113846136678,
+      "stage": "Build explicit native backend over installed V2",
+      "failure": "New scheduler modules were missing from explicit Docker COPY",
+      "fixedRuntimeFiles": 4,
+      "originalParentUnchanged": true,
+      "originalWorkerChanged": false,
+      "productionInstallOccurred": false
     }
   }
 }
