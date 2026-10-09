@@ -2260,7 +2260,11 @@
       "fixedRuntimeFiles": 4,
       "originalParentUnchanged": true,
       "originalWorkerChanged": false,
-      "productionInstallOccurred": false
+      "productionInstallOccurred": false,
+      "correctedSourceHead": "ce5932a1c4b1a086b9d71c05c08ffa0b9ff47c46",
+      "correctedSourceTree": "ab90b3a281cae9df16f717d6c6666335a9aacbf7",
+      "sameGatewayPublicationRequired": true,
+      "nativeImageCiRequiredBeforeInstallation": true
     }
   }
 }
