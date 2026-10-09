@@ -229,8 +229,17 @@
     "tests/dashboard-operational-crm-managed-read-bridge.test.cjs",
     "tests/dashboard-operational-native-mcp.test.cjs",
     "tests/dashboard-operational-writer-pack.test.cjs",
+    "tests/database-inventory/health-view-contract.test.cjs",
+    "tests/database-inventory/health-view-sql.test.cjs",
     "tests/database-inventory/inventory.test.cjs",
     "tests/database-inventory/reviewed-function-parser.cjs",
+    "tests/database-inventory/sealed-view-inputs/INPUT-PINS.json",
+    "tests/database-inventory/sealed-view-inputs/TASK.txt",
+    "tests/database-inventory/sealed-view-inputs/inputs/ACTUAL-HEALTH-REFUSAL.json",
+    "tests/database-inventory/sealed-view-inputs/inputs/services/dashboard-operational/native-database-inventory.cjs",
+    "tests/database-inventory/sealed-view-inputs/inputs/services/dashboard-operational/native-database-vault.cjs",
+    "tests/database-inventory/sealed-view-inputs/inputs/tests/database-inventory/inventory.test.cjs",
+    "tests/database-inventory/sealed-view-inputs/inputs/tests/database-inventory/reviewed-function-parser.cjs",
     "tests/delivery-health-read-native/authority.test.cjs",
     "tests/delivery-health-read-native/core.test.cjs",
     "tests/delivery-health-read-native/fixture.cjs",
@@ -335,8 +344,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 14384,
-      "sha256": "d468623d9be84623ed4fd1a1f1c63905c5e06e28c51aeeb15600cfb8b751ccfb"
+      "bytes": 15805,
+      "sha256": "fade8e03b86f59ae7c73a2fcf8bfa22bc301bb2dc98865b9c0fe795f97b1841b"
     },
     {
       "path": "assets/panels/growth.css",
@@ -540,8 +549,8 @@
     },
     {
       "path": "services/dashboard-operational/native-database-inventory.cjs",
-      "bytes": 21160,
-      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
+      "bytes": 24724,
+      "sha256": "8d9c1ffd1a07074359fa449f624d62759537e326b7dcf5a61152185f38e1403f"
     },
     {
       "path": "services/dashboard-operational/native-database-operator.cjs",
@@ -819,12 +828,57 @@
       "sha256": "7f1d4807020051c77c82113657f77562c257d02c1204f934191594cef6b9cdf4"
     },
     {
+      "path": "tests/database-inventory/health-view-contract.test.cjs",
+      "bytes": 15598,
+      "sha256": "7638dfad736592334b23c41bd5b98626d6311389cb65fe6b76067279a34f6535"
+    },
+    {
+      "path": "tests/database-inventory/health-view-sql.test.cjs",
+      "bytes": 3304,
+      "sha256": "f8231d4c8953534d6104782c329aa38789c29d879bc24296e02760674c6eadcf"
+    },
+    {
       "path": "tests/database-inventory/inventory.test.cjs",
+      "bytes": 23472,
+      "sha256": "acfb533fbb972e85ffec06b44f02fe687ca081c35b483b0309b72fee9caacfee"
+    },
+    {
+      "path": "tests/database-inventory/reviewed-function-parser.cjs",
+      "bytes": 3319,
+      "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/INPUT-PINS.json",
+      "bytes": 1138,
+      "sha256": "8cbe4920d5fcda931335bd4e44b6d74d47eb7e463a084ed1ad72ab1714d2dafb"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/TASK.txt",
+      "bytes": 3904,
+      "sha256": "142c6ca6cdab32bfa03c1495d28bf5ceb9734858ffc71b6ad147337da66c2ad3"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/inputs/ACTUAL-HEALTH-REFUSAL.json",
+      "bytes": 3351,
+      "sha256": "a83dbd7fad103bdf978e4b82d12c9b85a0546f26d9dde98a9ed9b89b06a8d583"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/inputs/services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 21160,
+      "sha256": "0656e72e6b1518e5c735fc8fc844361ea5e75735c095a213fcb401ceb51254e1"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/inputs/services/dashboard-operational/native-database-vault.cjs",
+      "bytes": 7257,
+      "sha256": "b4fa6100b4f2d2aee39315d60d8044d3f575c9cee3782d6a56074bbd7389fa65"
+    },
+    {
+      "path": "tests/database-inventory/sealed-view-inputs/inputs/tests/database-inventory/inventory.test.cjs",
       "bytes": 23449,
       "sha256": "c291a19d9fdc5af9a4cb7a0fb1ce945946f34c53453cd5cf195027547a77ed08"
     },
     {
-      "path": "tests/database-inventory/reviewed-function-parser.cjs",
+      "path": "tests/database-inventory/sealed-view-inputs/inputs/tests/database-inventory/reviewed-function-parser.cjs",
       "bytes": 3319,
       "sha256": "449207a38a5a5b41a15c43181e4cc3b75e7c5002e3381494c9d69c2f75f48a96"
     },
@@ -1301,7 +1355,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "7bf4176ee63be84c921e9ee1b2ce53106e8dadaf6f298efd747fabb84395be6e"
+      "sha256": "d867c140f693542cb49a9c6a156c5c56a42fb72265859b29ed43b1e2bf132cc5"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -1707,6 +1761,21 @@
     "batchBindingsRecheckedSynchronously": true,
     "queryAndPurposeUnchanged": true,
     "privatePayloadOrUnknownKeysExposed": false,
+    "operational": false
+  },
+  "originalHealthViewContractMetadata": {
+    "producer": "delivery-health-read-v1/original-view-contract-v1/c2-source-v1",
+    "producerInputPins": 6,
+    "producerOutputPins": 2,
+    "originalQueriesPreserved": 12,
+    "catalogPurposePreserved": true,
+    "healthPayloadReadByInventory": false,
+    "actualViewPending": true,
+    "rawDefinitionReturned": false,
+    "core": "services/dashboard-operational/native-database-inventory.cjs",
+    "focalTest": "tests/database-inventory/health-view-contract.test.cjs",
+    "sqlGrammarTest": "tests/database-inventory/health-view-sql.test.cjs",
+    "isolatedPostgresTestLibrary": "@electric-sql/pglite@0.3.14",
     "operational": false
   }
 }

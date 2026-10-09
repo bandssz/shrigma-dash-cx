@@ -114,6 +114,17 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/delivery-health-source,readonly" --env DELIVERY_HEALTH_RUNTIME=/app/native-backend/runtime --env DELIVERY_HEALTH_SOURCE=/tmp/delivery-health-source/tests/delivery-health-read-native/sealed-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/delivery-health-source/tests/delivery-health-read-native/*.test.cjs /tmp/delivery-health-source/tests/delivery-health-wiring-native/*.test.cjs
+      - name: Verify bounded original view metadata in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env DB_INVENTORY_SOURCE=/tmp/catalog-source/tests/database-inventory/sealed-view-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-contract.test.cjs
+      - name: Verify fixed catalog SQL with isolated PostgreSQL17 in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$NATIVE_CI_DIR/catalog-sql" --ignore-scripts --no-save --no-package-lock --no-audit --no-fund @electric-sql/pglite@0.3.14
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --mount "type=bind,src=$NATIVE_CI_DIR/catalog-sql/node_modules,dst=/tmp/catalog-sql,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env CATALOG_PGLITE_MODULE=/tmp/catalog-sql/@electric-sql/pglite --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-sql.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |
