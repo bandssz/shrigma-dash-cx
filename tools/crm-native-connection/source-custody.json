@@ -373,6 +373,7 @@
     "tests/scheduler-diagnostic-native/binding.test.cjs",
     "tests/scheduler-diagnostic-native/transport.test.cjs",
     "tests/scheduler-state-native/read.test.cjs",
+    "tests/scheduler-state-read-native/route.test.cjs",
     "tests/scheduler-state-read-native/sql.test.cjs",
     "tests/scheduler-state-read-native/wiring.test.cjs",
     "tests/segment-shopify-panel.test.cjs",
@@ -748,8 +749,8 @@
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state-operator.cjs",
-      "bytes": 3175,
-      "sha256": "47ecc12135d0598df1d71bd765be79201c03135380bb03792dd0838d63a417c1"
+      "bytes": 4688,
+      "sha256": "933556c8045f2ca3db27be800e0a811ebab160c0c3e8d2af41ff22a8d0bb23ea"
     },
     {
       "path": "services/dashboard-operational/native-scheduler-state.cjs",
@@ -828,8 +829,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 135549,
-      "sha256": "3683cc62d895f84aa7cce8495f8d52b86a37d9187af86c5706207e60fc9030af"
+      "bytes": 135550,
+      "sha256": "d2173e1a9bf3216474b0d5d8962c47f8d031bb04d51276c32ece07edc6a7eb4a"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -1608,8 +1609,13 @@
     },
     {
       "path": "tests/scheduler-state-native/read.test.cjs",
-      "bytes": 20765,
-      "sha256": "d7321ba550b236bfbfb89c88be3c52614b757ef7761b209138faa4efcb29a81f"
+      "bytes": 21319,
+      "sha256": "f0bb0679455164a158e5059e28879c5afe461e47caa651fe09a609e761247ab0"
+    },
+    {
+      "path": "tests/scheduler-state-read-native/route.test.cjs",
+      "bytes": 11647,
+      "sha256": "8d9d6a5db360aed1f8d088ea01ac51797b50decbd283ad28282c182dac0a8e13"
     },
     {
       "path": "tests/scheduler-state-read-native/sql.test.cjs",
@@ -1739,7 +1745,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "c9f00209491b5b3b37c6da8666d749b7984e319aa41e2a97b19539a98ede6d52"
+      "sha256": "e13a069c79bf9ab4ee55760212372336165a1fd938d5cb75218048dbae50c1bb"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -2231,7 +2237,7 @@
     "purpose": "crm.scheduler-state-read",
     "originalWorkerChanged": false,
     "readStoredStateOnly": true,
-    "rootTestImportAdaptationOnly": true,
+    "rootTestImportAdaptationOnly": false,
     "realSqlBeforeOwnConsent": false,
     "sqlInstallerEnabled": false,
     "authorizesSend": false,
@@ -2265,6 +2271,23 @@
       "correctedSourceTree": "ab90b3a281cae9df16f717d6c6666335a9aacbf7",
       "sameGatewayPublicationRequired": true,
       "nativeImageCiRequiredBeforeInstallation": true
+    },
+    "operatorRouteCorrection": {
+      "sourceParent": "0d558b4ed514a30d4f40b42a17981286e18121b3",
+      "actualFailure": "METHOD_DENIED on owner GET /auth/scheduler-state",
+      "cause": "nativeConnections.list requires original browser POST and CSRF",
+      "fix": "GET HTML and script never call list; existing protected POST lists connections before explicit purpose authorization",
+      "producerRouteCases": 5,
+      "rootReconfirmedRouteCases": 5,
+      "producerRouteTestSha256": "8d9d6a5db360aed1f8d088ea01ac51797b50decbd283ad28282c182dac0a8e13",
+      "localFocalPassed": 53,
+      "sqlCoreControllerAndConsentPreserved": true,
+      "originalBrowserSessionAndCsrfRequired": true,
+      "autoPurposeAuthorization": false,
+      "nativeDelegationSelfConsent": false,
+      "originalWorkerChanged": false,
+      "productionSqlExecuted": false,
+      "operational": false
     }
   }
 }

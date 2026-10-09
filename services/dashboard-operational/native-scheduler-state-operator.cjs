@@ -4,12 +4,23 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const SCHEDULER_STATE_JS=`'use strict';
 (()=>{
  const form=document.getElementById('scheduler-state-authorization'),button=document.getElementById('authorize'),message=document.getElementById('result'),data=document.getElementById('scheduler-state-data');
- let config;try{config=JSON.parse(data.textContent);}catch{button.disabled=true;return;}let attempted=false;
- form.addEventListener('submit',async event=>{event.preventDefault();if(attempted)return;attempted=true;button.disabled=true;
+ let config;try{config=JSON.parse(data.textContent);}catch{button.disabled=true;return;}let attempted=false,ready=false;button.disabled=true;
+ const select=document.getElementById('connection');
+ async function loadConnections(){
+  try{const response=await fetch('/auth/native-connections',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':config.csrf},body:JSON.stringify({action:'list'})});
+   if(response.status!==200)throw Error('CONNECTION_LIST_REFUSED');const value=await response.json();
+   if(!Array.isArray(value.connections)||value.connections.length>64)throw Error('CONNECTION_LIST_REFUSED');
+   const eligible=value.connections.filter(c=>c&&c.revoked===false&&Array.isArray(c.scopes)&&c.scopes.includes('crm.read')&&Array.isArray(c.brands)&&['fish','aristo'].every(brand=>c.brands.includes(brand)));
+   const ids=new Set();select.replaceChildren();for(const c of eligible){if(typeof c.id!=='string'||!${UUID}.test(c.id)||ids.has(c.id))throw Error('CONNECTION_LIST_REFUSED');ids.add(c.id);const option=document.createElement('option');option.value=c.id;option.textContent='Conexão '+(ids.size);select.append(option);}
+   ready=eligible.length>0;button.disabled=!ready;message.textContent=ready?'Selecione a conexão existente para autorizar somente a leitura das travas.':'Nenhuma conexão atual com leitura das duas marcas.';
+  }catch{ready=false;button.disabled=true;select.replaceChildren();message.textContent='Conexões indisponíveis. Entre com o Mestre original e recarregue a página.';}
+ }
+ form.addEventListener('submit',async event=>{event.preventDefault();if(attempted||!ready)return;attempted=true;button.disabled=true;
   try{const response=await fetch('/auth/scheduler-state-settings',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':config.csrf},body:JSON.stringify({action:'authorize',connectionId:document.getElementById('connection').value,consent:true})});
    message.textContent=response.status===200?'Leitura das travas autorizada. O integrador fará a consulta nativa.':'Autorização recusada ou incerta. Nenhuma consulta foi executada nesta página.';
   }catch{message.textContent='Autorização incerta. A tentativa não será repetida automaticamente.';}
  });
+ loadConnections();
 })();`;
 function renderSchedulerStateOperator({csrf,connections}={}){
  if(typeof csrf!=='string'||!csrf||csrf.length>1024||/[\x00-\x1f\x7f]/.test(csrf)||!Array.isArray(connections)||isProxy(connections)||connections.length>64)throw Object.assign(Error('SCHEDULER_STATE_OPERATOR_REFUSED'),{code:'SCHEDULER_STATE_OPERATOR_REFUSED',status:400});

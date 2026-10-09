@@ -666,8 +666,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const operator=require('./native-scheduler-state-operator.cjs');
           res.setHeader('Content-Type',url.pathname==='/auth/scheduler-state'?'text/html; charset=utf-8':'text/javascript; charset=utf-8');
           if(url.pathname==='/auth/scheduler-state.js'){res.end(operator.SCHEDULER_STATE_JS);return;}
-          const session=auth.session(ctx),connections=auth.nativeConnections.list(ctx).filter(c=>c.scopes.includes('crm.read')&&['fish','aristo'].every(b=>c.brands.includes(b))).map(c=>({id:c.id,label:c.label}));
-          res.end(operator.renderSchedulerStateOperator({csrf:session.csrf,connections}));return;
+          const session=auth.session(ctx);
+          // Listing native connections requires the original browser POST and CSRF.
+          // The page loads that list through the existing protected operator API.
+          res.end(operator.renderSchedulerStateOperator({csrf:session.csrf,connections:[]}));return;
         }
         if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
