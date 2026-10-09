@@ -10,8 +10,8 @@ function createDeliveryHealthController({enabled=false,driver,auth,coreFactory=c
  const vault=auth?.nativeDatabaseVault,store=auth?.nativeConnections;
  const ready=enabled===true&&typeof driver?.Client==='function'&&driver.version==='8.23.1'&&HASH.test(driver.packageSha256||'')&&typeof auth?.ownMasterPublishedJourneyReadBinding==='function'&&typeof vault?.getPrivateCredential==='function'&&['deliveryHealthOwner','permitDeliveryHealth','deliveryHealthConsent','authenticate','list'].every(k=>typeof store?.[k]==='function');
  let active=null,closing=false,batchActive=false;
- // A native status invocation consumes at most one health READ per connection
- // and brand in this process. Re-reading the receipt never retries SQL.
+ // Each native invocation reads at most once per connection/brand. Only an
+ // expired confirmed200 receipt may refresh; refused/uncertain attempts stay consumed.
  const receipts=new Map(),receiptLimit=64,receiptTTL=10*60*1000;
  const publicCodes=new Set(['HEALTH_OFF','HEALTH_UNAVAILABLE','HEALTH_BUSY','HEALTH_INPUT_REFUSED','HEALTH_OWNER_REFUSED','HEALTH_CREDENTIAL_REFUSED','HEALTH_ADMISSION_REFUSED','HEALTH_TIMEOUT','HEALTH_SESSION_REFUSED','HEALTH_QUERY_FAILED','HEALTH_ACK_UNKNOWN','HEALTH_DRIVER_REFUSED','HEALTH_PEER_REFUSED','HEALTH_PROTOCOL_REFUSED','HEALTH_CLOCK_REFUSED','HEALTH_CLOSE_UNCONFIRMED','HEALTH_CLOSE_FAILED','HEALTH_REFUSED','DELIVERY_HEALTH_BUSY','DELIVERY_HEALTH_BINDING_CHANGED']);
  function requireReady(){if(!ready||closing)fail('DELIVERY_HEALTH_NOT_ADMITTED',503);}
@@ -73,10 +73,12 @@ function createDeliveryHealthController({enabled=false,driver,auth,coreFactory=c
    if(existing.bindingHash!==bindingHash)fail('DELIVERY_HEALTH_BINDING_CHANGED',409);
    current(context,q,binding);
    if(existing.pending)return {status:409,body:{error:'DELIVERY_HEALTH_BUSY'}};
-   if(Date.now()>existing.expiresAt)return {status:503,body:{error:'HEALTH_READ_RECEIPT_EXPIRED'}};
-   return existing.result;
+   if(Date.now()<=existing.expiresAt)return existing.result;
+   if(existing.result?.status!==200)return {status:503,body:{error:'HEALTH_READ_RECEIPT_EXPIRED'}};
+   // The unchanged core only resolves200 after confirmed end and CURRENT.
+   // Keep this key/binding consumed; claim one pending refresh before await.
   }
-  if(receipts.size>=receiptLimit)fail('HEALTH_READ_RECEIPT_CAPACITY',503);
+  if(!existing&&receipts.size>=receiptLimit)fail('HEALTH_READ_RECEIPT_CAPACITY',503);
   const slot={bindingHash,pending:true,result:null,expiresAt:Date.now()+receiptTTL};receipts.set(key,slot);
   let result;
   try{result={status:200,body:await inspect({context,brand:q.brand})};}
@@ -89,6 +91,7 @@ function createDeliveryHealthController({enabled=false,driver,auth,coreFactory=c
    result={status:503,body:{error:code,...(diagnostic?{diagnostic}:{})}};
   }
   try{current(context,q,binding);}catch(e){slot.pending=false;slot.result={status:409,body:{error:'DELIVERY_HEALTH_BINDING_CHANGED'}};throw e;}slot.pending=false;slot.result=Object.freeze({status:result.status,body:Object.freeze(result.body)});
+  if(result.status===200)slot.expiresAt=Date.now()+receiptTTL;
   return slot.result;
  }
  async function nativeStatusReceipts(args={}){

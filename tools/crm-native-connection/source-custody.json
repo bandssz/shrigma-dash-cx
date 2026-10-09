@@ -626,8 +626,8 @@
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
-      "bytes": 10227,
-      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+      "bytes": 10500,
+      "sha256": "4cf3c594f3c58d15bc1c8fcae87729eae073f7e7ee3ae47070f5d1ccb191d546"
     },
     {
       "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
@@ -1026,8 +1026,8 @@
     },
     {
       "path": "tests/delivery-health-read-native/authority.test.cjs",
-      "bytes": 19528,
-      "sha256": "2ab598c191325aa32fbd1229b293675e6fe80f1427963859558d49b3e4bb70b5"
+      "bytes": 29855,
+      "sha256": "6b245ae386bee1aa7aeabe584235519b04508ddf198044240b7bafb045577fcc"
     },
     {
       "path": "tests/delivery-health-read-native/brand-set-diagnostic.test.cjs",
@@ -2169,5 +2169,15 @@
       "productionCredentialVerified": false,
       "realAuthProfileLifecycleCovered": true
     }
+  },
+  "deliveryHealthReceiptRefresh": {
+    "sourceHead": "e1714d5c4adbb4047268f4d319b501379d3dace1",
+    "producerDeliverySha256": "dfd4f44ad6fbc12c00a286d8dd2bdda3a2c452c7efb890e4c437b5e71448db1c",
+    "scope": "crm.delivery-health",
+    "renewOnlyConfirmed200": true,
+    "failedOrUncertainRetries": false,
+    "freshReadCompletionTTL": true,
+    "privateBindingChanged": false,
+    "operational": false
   }
 }

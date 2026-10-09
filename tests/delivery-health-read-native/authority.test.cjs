@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),path=require('node:path'),fs=require('node:fs'),{DatabaseSync}=require('node:sqlite');
-const {fixture,deferred,canonical,sha,D,inputRoot}=require('./fixture.cjs');
+const {fixture,deferred,canonical,sha,D,inputRoot,baseEvidence,accelerated}=require('./fixture.cjs');
 const runtime=process.env.DELIVERY_HEALTH_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational');
 const {createDelegationStore,SCOPES}=require(path.join(runtime,'crm-native-delegation.cjs'));
 const {createDeliveryHealthController}=require(path.join(runtime,'native-delivery-health-controller.cjs'));
@@ -14,7 +14,7 @@ function harness(options={}){
  const issued=store.issue({context,brands:options.brands||['fish','aristo'],scopes:options.scopes||['crm.read']});
  const f=fixture(options.protocol||{});const profile=()=>({schema:'shrigma-private-database-credential-v1',revision:profileRevision,ownerId,username:'fixture_reader',password:'SYNTHETIC_DB_SECRET',resource:{...D.RESOURCE},transport:{mode:'admitted-private-network'}});
  const calls=[];const auth={nativeConnections:store,nativeDatabaseVault:{getPrivateCredential:({ownerId:id})=>{assert.equal(id,ownerId);return profile();},status:ctx=>{consent(ctx);return {linked:true};}},ownMasterPublishedJourneyReadBinding:(ctx,{brand})=>{calls.push({ctx,brand});assert.equal(ctx.method,'GET');if(!crm[brand])throw Error('CRM_READ_DENIED');return {userId:ownerId,binding:crm[brand],credential:'SYNTHETIC_MASTER_SECRET'};}};
- const controller=createDeliveryHealthController({enabled:true,driver:f.args.driver,auth});
+ const controller=createDeliveryHealthController({enabled:true,driver:f.args.driver,auth,...(options.coreFactory?{coreFactory:options.coreFactory}:{})});
  const q={context,connectionId:issued.connection.id,brand:'aristo'};
  return {db,store,issued,f,auth,controller,q,mac,calls,profile,changeOwner:delta=>owner={...owner,...delta},changeProfile:()=>profileRevision++,changeCRM:brand=>crm[brand]='9'.repeat(64),denyCRM:brand=>crm[brand]=null,expire:()=>time+=31*86400000,cleanup:async()=>{await controller.close().catch(()=>{});db.close();}};
 }
@@ -47,11 +47,18 @@ test('availability only recognizes same current purpose and brand; no PG read or
 for(const [name,mutate] of Object.entries(mutations))test('availability cannot reuse changed '+name+' consent',async()=>{const h=harness();try{await admitted(h);mutate(h);let result;try{result=h.controller.status(context);}catch{}assert(!result||result.connections.every(c=>c.authorizedBrands.length===0));assert.equal(h.f.clients.length,0);}finally{await h.cleanup();}});
 test('legacy db inspection is not health availability consent',async()=>{const h=harness();try{h.store.permitInspection({context,connectionId:h.q.connectionId});assert.deepEqual(h.controller.status(context).connections[0].authorizedBrands,[]);assert.equal(h.f.clients.length,0);}finally{await h.cleanup();}});
 
-// Native status receipts are purpose guarded, finite, and never retry the SQL.
+// Native status receipts only refresh confirmed success under the same CURRENT binding.
 const nativeReceipt=h=>({context:h.store.context(h.issued.token,{scope:'crm.delivery-health',brand:'aristo'}),brand:'aristo'});
 test('native receipt does not use browser or legacy db purpose as health permission',async()=>{const h=harness();try{await assert.rejects(h.controller.nativeReadReceipt(h.q));h.store.permitInspection({context,connectionId:h.q.connectionId});const native=h.store.context(h.issued.token);await assert.rejects(h.controller.nativeReadReceipt({context:native,brand:'aristo'}));assert.equal(h.f.clients.length,0);}finally{await h.cleanup();}});
 test('native receipt reads once then relays only same CURRENT selected brand',async()=>{const h=harness();try{await admitted(h);const q=nativeReceipt(h),a=await h.controller.nativeReadReceipt(q),b=await h.controller.nativeReadReceipt(q);assert.equal(a.status,200);assert.equal(a.body.brand,'aristo');assert.equal(a.body.brandMetrics.finalizacao_pendente,0);assert.strictEqual(a,b);assert.equal(h.f.calls.filter(x=>x===D.READ_SQL).length,1);assert.equal(h.f.clients[0].ends,1);await assert.rejects(h.controller.nativeReadReceipt({...q,brand:'fish'}));assert.equal(h.f.clients.length,1);}finally{await h.cleanup();}});
-test('native receipt expiry never creates another read',async()=>{const h=harness(),now=Date.now;try{await admitted(h);const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);Date.now=()=>now()+11*60*1000;const r=await h.controller.nativeReadReceipt(q);assert.equal(r.body.error,'HEALTH_READ_RECEIPT_EXPIRED');assert.equal(h.f.clients.length,1);}finally{Date.now=now;await h.cleanup();}});
+test('native receipt expiry renews confirmed200 with fresh data under existing consent',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h),connection=h.db.prepare('SELECT * FROM crm_native_connections_v1').get(),consents=h.db.prepare('SELECT * FROM crm_native_delivery_health_consent_v1').all();
+ const first=await h.controller.nativeReadReceipt(q);assert.equal(first.status,200);assert.equal(first.body.brandMetrics.finalizacao_pendente,0);
+ clock.advance(healthReceiptTTL-1);assert.strictEqual(await h.controller.nativeReadReceipt(q),first);assert.equal(healthReadCount(h),1);
+ clock.advance(2);h.f.opts.evidence=healthMetrics(9);const fresh=await h.controller.nativeReadReceipt(q);assert.equal(fresh.status,200);assert.equal(fresh.body.brandMetrics.finalizacao_pendente,9);assert.notEqual(fresh.body.checkedAt,first.body.checkedAt);assert.notStrictEqual(fresh,first);
+ assert.strictEqual(await h.controller.nativeReadReceipt(q),fresh);assert.equal(healthReadCount(h),2);assert(h.f.clients.every(c=>c.ends===1));
+ assert.deepEqual(h.db.prepare('SELECT * FROM crm_native_connections_v1').get(),connection);assert.deepEqual(h.db.prepare('SELECT * FROM crm_native_delivery_health_consent_v1').all(),consents);
+});});
 for(const [name,mutate] of Object.entries(mutations))test('cached native receipt is suppressed after CURRENT '+name,async()=>{const h=harness();try{await admitted(h);const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);mutate(h);await assert.rejects(h.controller.nativeReadReceipt(q));assert.equal(h.f.clients.length,1);}finally{await h.cleanup();}});
 test('reconsent after private binding change does not replay a consumed native receipt',async()=>{const h=harness();try{await admitted(h);const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);h.changeProfile();await admitted(h);await assert.rejects(h.controller.nativeReadReceipt(q),{code:'DELIVERY_HEALTH_BINDING_CHANGED'});assert.equal(h.f.clients.length,1);}finally{await h.cleanup();}});
 test('native receipt retains typed refusal and does not retry invalid payload',async()=>{const h=harness({protocol:{evidence:{checked_at:'INVALID_PRIVATE_CONTENT'}}});try{await admitted(h);const q=nativeReceipt(h),a=await h.controller.nativeReadReceipt(q),b=await h.controller.nativeReadReceipt(q);assert.equal(a.status,503);assert.equal(a.body.error,'HEALTH_PROTOCOL_REFUSED');assert.deepEqual(a.body.diagnostic,{schema:'shrigma-email-health-protocol-refusal-v1',field:'checked_at',reason:'timestamp',actualType:'string'});assert.strictEqual(a,b);assert(!JSON.stringify(a).includes('INVALID_PRIVATE_CONTENT'));assert.equal(h.f.clients.length,1);}finally{await h.cleanup();}});
@@ -61,3 +68,86 @@ test('native receipt never discloses protocol fault when end is unconfirmed',asy
 test('native batch reuses both authorized brand receipts with no second SQL',async()=>{const h=harness();try{await admitted(h);h.controller.authorize({...h.q,brand:'fish',consent:true});const context=h.store.context(h.issued.token);const first=await h.controller.nativeStatusReceipts({context}),second=await h.controller.nativeStatusReceipts({context});assert.deepEqual(first,second);assert.deepEqual(first.sources.map(x=>x.brand),['fish','aristo']);assert(first.sources.every(x=>x.status===200&&x.body.operational===false));assert.equal(h.f.calls.filter(x=>x===D.READ_SQL).length,2);}finally{await h.cleanup();}});
 test('private epoch changed during second brand suppresses entire native batch',async()=>{const h=harness();try{await admitted(h);h.controller.authorize({...h.q,brand:'fish',consent:true});let reads=0;h.f.opts.queryHook=q=>{if(q===D.READ_SQL&&++reads===2)h.changeProfile();};await assert.rejects(h.controller.nativeStatusReceipts({context:h.store.context(h.issued.token)}));assert.equal(h.f.calls.filter(x=>x===D.READ_SQL).length,2);}finally{await h.cleanup();}});
 test('batch can return absence of second brand consent without querying it',async()=>{const h=harness();try{await admitted(h);const r=await h.controller.nativeStatusReceipts({context:h.store.context(h.issued.token)});assert.equal(r.sources.find(x=>x.brand==='fish').body.error,'DELIVERY_HEALTH_NOT_ADMITTED');assert.equal(r.sources.find(x=>x.brand==='aristo').status,200);assert.equal(h.f.calls.filter(x=>x===D.READ_SQL).length,1);}finally{await h.cleanup();}});
+
+// Focal expiry refresh regression: all data/credentials/SQL clients are synthetic.
+const healthReceiptTTL=10*60*1000;
+const healthReadCount=h=>h.f.calls.filter(q=>q===D.READ_SQL).length;
+const healthMetrics=n=>({brands:baseEvidence().brands.map(row=>({...row,finalizacao_pendente:n}))});
+async function withHealthReceiptClock(run,options={}){
+ const original=Date.now;let time=Date.parse('2026-10-09T12:23:00Z'),h;Date.now=()=>time;
+ try{h=harness(options);await admitted(h);return await run(h,{advance:delta=>time+=delta,now:()=>time});}
+ finally{Date.now=original;if(h)await h.cleanup();}
+}
+const bothHealthBrands=h=>h.controller.authorize({...h.q,brand:'fish',consent:true});
+const nativeHealthBatch=h=>({context:h.store.context(h.issued.token)});
+
+test('health receipt refresh TTL begins after confirmed close',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ h.f.opts.endHook=async()=>clock.advance(11*60*1000);const q=nativeReceipt(h),first=await h.controller.nativeReadReceipt(q);assert.equal(first.status,200);assert.equal(h.f.clients[0].ends,1);h.f.opts.endHook=null;
+ clock.advance(healthReceiptTTL-1);assert.strictEqual(await h.controller.nativeReadReceipt(q),first);assert.equal(healthReadCount(h),1);
+ clock.advance(2);assert.equal((await h.controller.nativeReadReceipt(q)).status,200);assert.equal(healthReadCount(h),2);
+});});
+
+test('health receipt refresh pending single flight survives TTL and returns no cached stale data',async()=>{const hold=deferred(),entered=deferred();await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);clock.advance(healthReceiptTTL+1);h.f.opts.holdRead=hold;h.f.opts.entered=entered;
+ const fresh=h.controller.nativeReadReceipt(q);fresh.catch(()=>{});await entered.promise;clock.advance(healthReceiptTTL+1);
+ try{const peers=await Promise.all([h.controller.nativeReadReceipt(q),h.controller.nativeReadReceipt(q)]);assert(peers.every(r=>r.status===409&&r.body.error==='DELIVERY_HEALTH_BUSY'));assert.equal(healthReadCount(h),2);assert.equal(h.f.clients.length,2);}
+ finally{hold.resolve();}
+ const result=await fresh;assert.equal(result.status,200);assert.strictEqual(await h.controller.nativeReadReceipt(q),result);assert.equal(healthReadCount(h),2);assert(h.f.clients.every(c=>c.ends===1));
+});});
+
+for(const [name,options,code] of [
+ ['protocol',{evidence:{checked_at:'PRIVATE_SYNTHETIC_INVALID'}},'HEALTH_PROTOCOL_REFUSED'],
+ ['query',{queryThrow:D.READ_SQL},'HEALTH_QUERY_FAILED'],
+ ['ACK',{result:(sql,r)=>sql===D.READ_SQL?{...r,command:'UPDATE'}:r},'HEALTH_ACK_UNKNOWN'],
+ ['ACK timeout',{missingAck:D.READ_SQL},'HEALTH_TIMEOUT'],
+ ['close unconfirmed',{noEndEvent:true},'HEALTH_CLOSE_UNCONFIRMED'],
+ ['close failed',{endThrow:true},'HEALTH_CLOSE_FAILED'],
+ ['close timeout',{endHang:true},'HEALTH_TIMEOUT']
+])test('health receipt refresh never retries consumed '+name+' after TTL',async()=>{
+ const fast=accelerated();await withHealthReceiptClock(async(h,clock)=>{
+  const q=nativeReceipt(h),failed=await h.controller.nativeReadReceipt(q);assert.equal(failed.status,503);assert.equal(failed.body.error,code);assert(!JSON.stringify(failed).includes('PRIVATE_SYNTHETIC_INVALID'));assert.strictEqual(await h.controller.nativeReadReceipt(q),failed);
+  const count=healthReadCount(h),clients=h.f.clients.length;clock.advance(healthReceiptTTL+1);const expired=await h.controller.nativeReadReceipt(q);assert.equal(expired.status,503);assert.equal(expired.body.error,'HEALTH_READ_RECEIPT_EXPIRED');assert.equal(healthReadCount(h),count);assert.equal(h.f.clients.length,clients);assert(h.f.clients.every(c=>c.ends===1));
+ },{protocol:{...options,D:fast.D},coreFactory:fast.D.createDeliveryHealthRead});
+});
+
+test('health receipt refresh failed renewal stays consumed across another TTL',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h);assert.equal((await h.controller.nativeReadReceipt(q)).status,200);clock.advance(healthReceiptTTL+1);h.f.opts.queryThrow=D.READ_SQL;
+ const refused=await h.controller.nativeReadReceipt(q);assert.equal(refused.status,503);assert.equal(refused.body.error,'HEALTH_QUERY_FAILED');assert.equal(healthReadCount(h),2);h.f.opts.queryThrow=null;
+ assert.strictEqual(await h.controller.nativeReadReceipt(q),refused);clock.advance(healthReceiptTTL+1);assert.equal((await h.controller.nativeReadReceipt(q)).body.error,'HEALTH_READ_RECEIPT_EXPIRED');assert.equal(healthReadCount(h),2);assert.equal(h.f.clients.length,2);
+});});
+
+for(const name of ['vault','key','owner','revoke'])test('health receipt refresh expired success cannot bypass CURRENT '+name,async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);clock.advance(healthReceiptTTL+1);mutations[name](h);await assert.rejects(h.controller.nativeReadReceipt(q));assert.equal(healthReadCount(h),1);assert.equal(h.f.clients.length,1);
+});});
+
+test('health receipt refresh reconsent cannot reconstruct a consumed changed binding',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);clock.advance(healthReceiptTTL+1);h.changeProfile();await admitted(h);
+ await assert.rejects(h.controller.nativeReadReceipt(q),{code:'DELIVERY_HEALTH_BINDING_CHANGED'});assert.equal(healthReadCount(h),1);assert.equal(h.f.clients.length,1);
+});});
+
+test('health receipt refresh revocation during end suppresses fresh payload',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ const q=nativeReceipt(h);await h.controller.nativeReadReceipt(q);clock.advance(healthReceiptTTL+1);h.f.opts.endHook=async()=>mutations.revoke(h);
+ await assert.rejects(h.controller.nativeReadReceipt(q));assert.equal(healthReadCount(h),2);assert(h.f.clients.every(c=>c.ends===1));clock.advance(healthReceiptTTL+1);await assert.rejects(h.controller.nativeReadReceipt(q));assert.equal(healthReadCount(h),2);
+});});
+
+test('health receipt refresh batch renews each brand once and caches fresh projection',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ bothHealthBrands(h);const q=nativeHealthBatch(h),first=await h.controller.nativeStatusReceipts(q),consents=h.db.prepare('SELECT * FROM crm_native_delivery_health_consent_v1').all();assert(first.sources.every(r=>r.status===200));assert.equal(healthReadCount(h),2);
+ clock.advance(healthReceiptTTL+1);h.f.opts.evidence=healthMetrics(17);const fresh=await h.controller.nativeStatusReceipts(q);assert.deepEqual(fresh.sources.map(r=>r.brand),['fish','aristo']);assert(fresh.sources.every(r=>r.status===200&&r.body.brandMetrics.finalizacao_pendente===17));assert.equal(fresh.automaticRetry,false);assert.equal(healthReadCount(h),4);assert.deepEqual(await h.controller.nativeStatusReceipts(q),fresh);assert.equal(healthReadCount(h),4);assert(h.f.clients.every(c=>c.ends===1));assert.deepEqual(h.db.prepare('SELECT * FROM crm_native_delivery_health_consent_v1').all(),consents);
+});});
+
+test('health receipt refresh batch single flight rejects concurrent batch without extra reads',async()=>{const hold=deferred(),entered=deferred();await withHealthReceiptClock(async(h,clock)=>{
+ bothHealthBrands(h);const q=nativeHealthBatch(h);await h.controller.nativeStatusReceipts(q);clock.advance(healthReceiptTTL+1);h.f.opts.holdRead=hold;h.f.opts.entered=entered;
+ const refresh=h.controller.nativeStatusReceipts(q);refresh.catch(()=>{});await entered.promise;try{await assert.rejects(h.controller.nativeStatusReceipts(q),{code:'DELIVERY_HEALTH_BUSY'});assert.equal(healthReadCount(h),3);}finally{hold.resolve();}
+ const result=await refresh;assert(result.sources.every(r=>r.status===200));assert.equal(healthReadCount(h),4);
+});});
+
+test('health receipt refresh epoch change during second brand suppresses entire renewed batch',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ bothHealthBrands(h);const q=nativeHealthBatch(h);await h.controller.nativeStatusReceipts(q);clock.advance(healthReceiptTTL+1);let reads=2;h.f.opts.queryHook=sql=>{if(sql===D.READ_SQL&&++reads===4)h.changeProfile();};
+ await assert.rejects(h.controller.nativeStatusReceipts(q));assert.equal(healthReadCount(h),4);assert(h.f.clients.every(c=>c.ends===1));clock.advance(healthReceiptTTL+1);await assert.rejects(h.controller.nativeStatusReceipts(q));assert.equal(healthReadCount(h),4);
+});});
+
+test('health receipt refresh batch never retries refused brand while renewing confirmed brand',async()=>{await withHealthReceiptClock(async(h,clock)=>{
+ bothHealthBrands(h);const q=nativeHealthBatch(h);let reads=0;h.f.opts.queryHook=sql=>{if(sql===D.READ_SQL)h.f.opts.evidence=++reads===1?{checked_at:'PRIVATE_SYNTHETIC_INVALID'}:healthMetrics(1);};
+ const first=await h.controller.nativeStatusReceipts(q);assert.equal(first.sources[0].body.error,'HEALTH_PROTOCOL_REFUSED');assert.equal(first.sources[1].status,200);assert.equal(healthReadCount(h),2);
+ clock.advance(healthReceiptTTL+1);h.f.opts.queryHook=null;h.f.opts.evidence=healthMetrics(23);const fresh=await h.controller.nativeStatusReceipts(q);assert.equal(fresh.sources[0].body.error,'HEALTH_READ_RECEIPT_EXPIRED');assert.equal(fresh.sources[1].status,200);assert.equal(fresh.sources[1].body.brandMetrics.finalizacao_pendente,23);assert.equal(healthReadCount(h),3);assert.equal(h.f.clients.length,3);assert(!JSON.stringify(fresh).includes('PRIVATE_SYNTHETIC_INVALID'));
+});});
