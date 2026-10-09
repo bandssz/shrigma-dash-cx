@@ -1,0 +1,76 @@
+name: Campaign scanner candidate package (OFF, no execution)
+on:
+  push:
+    branches:
+      - codex/campaign-scan-diagnostic-20261008
+    paths:
+      - '.github/workflows/campaign-scan-snapshot-package.yml'
+permissions:
+  contents: read
+jobs:
+  measure-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+      PYTHONDONTWRITEBYTECODE: '1'
+      CGO_ENABLED: '0'
+      GOFLAGS: '-mod=readonly'
+      GOWORK: 'off'
+    steps:
+      - name: Checkout artifact recipe
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Checkout installed source recipe
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: a908beed2860fb90a1b3891f85e64cbc8040ab22
+          path: _baseline
+          persist-credentials: false
+      - name: Checkout exact approved diagnostic ancestor
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 72457f2851b59b76b57a5dc5da421c6774f06b67
+          path: _approved
+          persist-credentials: false
+      - name: Checkout exact source that passed eight new cases
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 7c46c0b51525918b7ec1b41e9a8b433e29ec4307
+          path: _proposal
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.14.0'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Verify source lease and hydrate unchanged pinned dependencies
+        run: |
+          test "$(go env GOVERSION)" = go1.26.1
+          python3 _proposal/tools/campaign-scan-diagnostic/ci_validate.py check-pins --baseline-root "$GITHUB_WORKSPACE/_baseline" --approved-root "$GITHUB_WORKSPACE/_approved" --proposal-root "$GITHUB_WORKSPACE/_proposal" --report "$RUNNER_TEMP/scan-package/source-pins.json"
+          python3 _baseline/tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/scan-inputs" --go "$(command -v go)"
+      - name: Assemble source from the tested exact overlay without running the worker
+        run: |
+          python3 _proposal/tools/campaign-scan-diagnostic/ci_validate.py prepare --baseline-root "$GITHUB_WORKSPACE/_baseline" --approved-root "$GITHUB_WORKSPACE/_approved" --proposal-root "$GITHUB_WORKSPACE/_proposal" --inputs "$RUNNER_TEMP/scan-inputs" --out "$RUNNER_TEMP/scan-package/prepared"
+          cp -R _baseline/tools/listmonk-ab-build "$RUNNER_TEMP/scan-package/prepared/recipe/tools/listmonk-ab-build"
+      - name: Build and measure actual Linux amd64 binary and preserved embedded assets offline
+        env:
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          python3 "$RUNNER_TEMP/scan-package/prepared/recipe/tools/listmonk-regular-package/build.py" --source-archive "$RUNNER_TEMP/scan-inputs/listmonk-upstream.tar.gz" --smtp-archive "$RUNNER_TEMP/scan-inputs/smtppool.zip" --release-cache "$RUNNER_TEMP/scan-inputs" --go "$(command -v go)" --target linux_amd64 --out "$RUNNER_TEMP/scan-package/candidate"
+          cat "$RUNNER_TEMP/scan-package/candidate/manifest.json"
+      - name: Save bounded candidate and exact build receipts
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: campaign-scanner-candidate-off
+          path: |
+            ${{ runner.temp }}/scan-package/source-pins.json
+            ${{ runner.temp }}/scan-package/prepared/preparation.json
+            ${{ runner.temp }}/scan-package/candidate/
+          if-no-files-found: error
+          retention-days: 7
