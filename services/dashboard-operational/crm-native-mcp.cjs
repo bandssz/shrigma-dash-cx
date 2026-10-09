@@ -70,7 +70,7 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const availableTools=tools.filter(t=>(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
@@ -113,7 +113,8 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
     }
    }
    const schedulerBindingReceipt=state.status===200&&state.body?.features?.nativeSchedulerBinding===true?await run('GET','/api/scheduler-binding-status'):undefined;
-   result={status:state.status,body:{...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   const schedulerStateReceipt=schedulerStateEnabled&&state.status===200&&state.body?.features?.nativeSchedulerState===true?await run('GET','/api/scheduler-state-receipt'):undefined;
+   result={status:state.status,body:{...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='crm_template_catalog'){
    const q=new URLSearchParams({acao:'listar',marca:args.brand,canal:'email',...(args.offset!==undefined?{offset:String(args.offset)}:{}),...(args.limit!==undefined?{limit:String(args.limit)}:{})});
    result=require('./crm-master-template-read.cjs').nativeCatalog(await run('GET','/api/templates?'+q),args.brand);

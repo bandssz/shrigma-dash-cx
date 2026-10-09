@@ -198,6 +198,10 @@
     "services/dashboard-operational/native-scheduler-binding-operator.cjs",
     "services/dashboard-operational/native-scheduler-binding.cjs",
     "services/dashboard-operational/native-scheduler-diagnostic-transport.cjs",
+    "services/dashboard-operational/native-scheduler-state-consent.cjs",
+    "services/dashboard-operational/native-scheduler-state-controller.cjs",
+    "services/dashboard-operational/native-scheduler-state-operator.cjs",
+    "services/dashboard-operational/native-scheduler-state.cjs",
     "services/dashboard-operational/native-source-diagnostics-controller.cjs",
     "services/dashboard-operational/native-source-diagnostics-ui.cjs",
     "services/dashboard-operational/native-source-diagnostics.cjs",
@@ -368,6 +372,9 @@
     "tests/scheduler-diagnostic-native/binding-wiring.test.cjs",
     "tests/scheduler-diagnostic-native/binding.test.cjs",
     "tests/scheduler-diagnostic-native/transport.test.cjs",
+    "tests/scheduler-state-native/read.test.cjs",
+    "tests/scheduler-state-read-native/sql.test.cjs",
+    "tests/scheduler-state-read-native/wiring.test.cjs",
     "tests/segment-shopify-panel.test.cjs",
     "tests/segment-shopify-products-panel.test.cjs",
     "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
@@ -401,8 +408,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 16795,
-      "sha256": "d1f9288c2d563afc80fdca80b7ddeede4bdd942fb05ba34a64596ea7e03487e7"
+      "bytes": 17589,
+      "sha256": "f7ca839d1fd867ed5462ff842cb060ba75acf5f9ee232d7621fca97f21b46fc4"
     },
     {
       "path": "assets/panels/growth.css",
@@ -461,8 +468,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 12160,
-      "sha256": "7721bacb56bb589e7076a10c5c3872575ab027a0867518bd6d251aa57ed862c2"
+      "bytes": 12607,
+      "sha256": "0c2d81c02eee39f71c06edd084cbbac11f38d9dc94bf2befa424b442e215e260"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -471,8 +478,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5322,
-      "sha256": "8b5b5ab2f851a66745650145b5eb24b914ef71066bde55b80187f0b758fed565"
+      "bytes": 5466,
+      "sha256": "d497dea40de4b7d29ee13a650a3c27a06dc5c725818740ad6db428d5dc782bb4"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/database-isolated-smoke.cjs",
@@ -492,7 +499,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6798,
-      "sha256": "e41f6d368f2a39f379a1924df44990eb00e7756bd8261a0850e071a76b2d0440"
+      "sha256": "fdf2d83b9847d9a92d0b0e03488449108e0a470a674878389893f536d6c489a5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/smoke.cjs",
@@ -531,8 +538,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 122637,
-      "sha256": "3b8dda4b3facd5fa13faa626c1768eba6d22f55e057ca9648033d0055c0aed51"
+      "bytes": 124280,
+      "sha256": "899971e4fbb3f7fb33b9ef4b5731662356f204938d0faf57498d456a56eb11c9"
     },
     {
       "path": "services/dashboard-operational/build.cjs",
@@ -571,8 +578,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 26625,
-      "sha256": "ded636bdc7d5eb57d36bdbbb4f3c7070d05787c825ed95f65d01afcdb4c59c74"
+      "bytes": 26890,
+      "sha256": "998816ed399ce0c06585ed1addcbdbf1d0949cbcb7e6a468afa78a16221ba4dc"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -730,6 +737,26 @@
       "sha256": "dadb12409aee4d8a7d14b26eb23e484406a5f91a96cd9f51e9ca73b23c9e19d8"
     },
     {
+      "path": "services/dashboard-operational/native-scheduler-state-consent.cjs",
+      "bytes": 7594,
+      "sha256": "0cf701ab0a7aa8a5fdb5567c4fd59dfbf8e9becfc752b8c3147a488e2373cf06"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-state-controller.cjs",
+      "bytes": 7299,
+      "sha256": "7b51fa31aba7564b0b22d3e398f37ff5ea0d0174146581f2f89ba52255f9cfa4"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-state-operator.cjs",
+      "bytes": 3175,
+      "sha256": "47ecc12135d0598df1d71bd765be79201c03135380bb03792dd0838d63a417c1"
+    },
+    {
+      "path": "services/dashboard-operational/native-scheduler-state.cjs",
+      "bytes": 16929,
+      "sha256": "3a901c9ccbf368749c8a93a9b88205a276443023c966095b4e6cb6ba11267fb6"
+    },
+    {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
       "bytes": 6092,
       "sha256": "d2fd97d3ba93a44db3841c8a6267ae712340efbfeef86a1fb4c037070c19b3e6"
@@ -801,8 +828,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 131579,
-      "sha256": "8a5f9ff2a4512a0c64d212968b8ec113a15b8fca666c32b0c95b0c59e49fa59c"
+      "bytes": 135549,
+      "sha256": "3683cc62d895f84aa7cce8495f8d52b86a37d9187af86c5706207e60fc9030af"
     },
     {
       "path": "tests/analyst-live-coexistence/coexistence.test.cjs",
@@ -1580,6 +1607,21 @@
       "sha256": "898f7395de22fb5df42e6b659a96b4108329c6ef7646e48930da705457ea7c28"
     },
     {
+      "path": "tests/scheduler-state-native/read.test.cjs",
+      "bytes": 20765,
+      "sha256": "d7321ba550b236bfbfb89c88be3c52614b757ef7761b209138faa4efcb29a81f"
+    },
+    {
+      "path": "tests/scheduler-state-read-native/sql.test.cjs",
+      "bytes": 3523,
+      "sha256": "c8b23d9540a443017d236d432065e228e2f7212ce23e112de65014fe38c1f47a"
+    },
+    {
+      "path": "tests/scheduler-state-read-native/wiring.test.cjs",
+      "bytes": 5086,
+      "sha256": "0c5c8abe312c748cc6feb5d9ae3adcb9bdbf506a7dbfc579129e7c54eb26c734"
+    },
+    {
       "path": "tests/segment-shopify-panel.test.cjs",
       "bytes": 4005,
       "sha256": "e8370a2e03e456b64dbf07711818b7339187a2d5afc192c3fffc833a92a5c24d"
@@ -1697,7 +1739,7 @@
     {
       "path": "tools/crm-native-connection/verify-source.cjs",
       "bytes": 4946,
-      "sha256": "45dcbed8a723c1a54ca9b33e1fce1c59435b71d84152be0dd913ec5dc50b9527"
+      "sha256": "c9f00209491b5b3b37c6da8666d749b7984e319aa41e2a97b19539a98ede6d52"
     },
     {
       "path": "tools/native-pg-dependency/build-driver.cjs",
@@ -2178,6 +2220,22 @@
     "failedOrUncertainRetries": false,
     "freshReadCompletionTTL": true,
     "privateBindingChanged": false,
+    "operational": false
+  },
+  "originalSchedulerStateRead": {
+    "sourceParent": "0eb1a68cc32ca1ab693ef91e883adf7d179214ef",
+    "producerDeliverySha256": "118b40158724e20d379b15f3a0b62052e74c166210c59eecbdb9e1159885c4f7",
+    "inputPins": 9,
+    "outputPins": 5,
+    "producerCases": 43,
+    "purpose": "crm.scheduler-state-read",
+    "originalWorkerChanged": false,
+    "readStoredStateOnly": true,
+    "rootTestImportAdaptationOnly": true,
+    "realSqlBeforeOwnConsent": false,
+    "sqlInstallerEnabled": false,
+    "authorizesSend": false,
+    "authorizesRecovery": false,
     "operational": false
   }
 }

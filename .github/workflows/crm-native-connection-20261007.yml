@@ -57,7 +57,7 @@ jobs:
           smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs"
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/native-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/native-smoke.cjs > "$NATIVE_CI_DIR/smoke.json"
           node - "$NATIVE_CI_DIR/smoke.json" <<'NODE'
-          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,66);a.equal(r.presentationPathsUpdated,2);for(const k of ['canonicalCrmStylesActuallyServed','htmlCssVersionMatched','originalPresentationVerifierPreserved','publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.schema,'shrigma-configured-journey-image-smoke-v1');a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,70);a.equal(r.presentationPathsUpdated,2);for(const k of ['canonicalCrmStylesActuallyServed','htmlCssVersionMatched','originalPresentationVerifierPreserved','publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','noEditorOrSendGrant','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);fs.writeFileSync(process.env.NATIVE_CI_DIR+'/receipt.json',JSON.stringify(r));console.log(JSON.stringify(r));
           NODE
       - name: Verify new original-source consent and single-intent connection in actual UID1000 image
         shell: bash
@@ -114,6 +114,11 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/scheduler-source,readonly" --env SCHEDULER_BINDING_RUNTIME=/app/native-backend/runtime --env SCHEDULER_DIAGNOSTIC_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/scheduler-source/tests/scheduler-diagnostic-native/*.test.cjs
+      - name: Verify separately consented bounded scheduler state READ in actual UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/scheduler-state-source,readonly" --env SCHEDULER_STATE_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/scheduler-state-source/tests/scheduler-state-read-native/*.test.cjs /tmp/scheduler-state-source/tests/scheduler-state-native/*.test.cjs
       - name: Verify separate original delivery-health consent and READ closure in actual UID1000 image
         shell: bash
         run: |
@@ -129,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --prefix "$NATIVE_CI_DIR/catalog-sql" --ignore-scripts --no-save --no-package-lock --no-audit --no-fund @electric-sql/pglite@0.3.14
-          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --mount "type=bind,src=$NATIVE_CI_DIR/catalog-sql/node_modules,dst=/tmp/catalog-sql,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env CATALOG_PGLITE_MODULE=/tmp/catalog-sql/@electric-sql/pglite --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-sql.test.cjs
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/tmp/catalog-source,readonly" --mount "type=bind,src=$NATIVE_CI_DIR/catalog-sql/node_modules,dst=/tmp/catalog-sql,readonly" --env DB_INVENTORY_RUNTIME=/app/native-backend/runtime --env SCHEDULER_STATE_RUNTIME=/app/native-backend/runtime --env CATALOG_PGLITE_MODULE=/tmp/catalog-sql/@electric-sql/pglite --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/catalog-source/tests/database-inventory/health-view-sql.test.cjs /tmp/catalog-source/tests/scheduler-state-read-native/sql.test.cjs
       - name: Publish exactly the tested image
         shell: bash
         run: |

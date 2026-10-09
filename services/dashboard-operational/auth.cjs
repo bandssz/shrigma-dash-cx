@@ -1258,6 +1258,24 @@ function createAuth(options){
    };
    nativeSchedulerBinding=require('./native-scheduler-binding.cjs').createSchedulerBinding({enabled:true,db,current:schedulerCurrent,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-binding-v1:'+value).digest('hex'),...(options.crmNativeSchedulerApiVerifier?{verify:options.crmNativeSchedulerApiVerifier}:{})});
   }
+ let nativeSchedulerStateConsent;
+ if(options.crmNativeSchedulerStateEnabled===true){
+  if(options.crmNativeEnabled!==true||!nativeConnections||!nativeDatabaseVault||!ownMasterWriter)err('SCHEDULER_STATE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+  const stateCurrent=(context,connectionId,browser)=>{
+   if(browser)nativeConsent(context);
+   const owner=nativeConnections.schedulerDiagnosticOwner({context,connectionId});
+   const original=BRANDS.map(brand=>{
+    const proof=ownMasterPublishedJourneyReadBinding({...context,method:'GET'},{brand});
+    if(proof.userId!==owner.ownerId||!/^[a-f0-9]{64}$/.test(proof.binding||''))err('SCHEDULER_STATE_ORIGINAL_MASTER_CHANGED',409);
+    return [brand,proof.binding];
+   });
+   const privateBinding=nativeDatabaseVault.inspectionBinding(owner.ownerId),revision=profileRevision(owner.ownerId);
+   return {ownerId:owner.ownerId,ownerRevision:owner.ownerRevision,connectionHash:owner.connectionHash,
+    crmBindingHash:crypto.createHmac('sha256',encKey).update('scheduler-state-original-crm-v1:'+JSON.stringify([owner.ownerId,owner.ownerRevision,revision,original])).digest('hex'),
+    profileRevision:revision,credentialBindingHash:privateBinding.credentialBindingHash,resourceHash:privateBinding.resourceHash,queryHash:require('./native-scheduler-state.cjs').queryHash};
+  };
+  nativeSchedulerStateConsent=require('./native-scheduler-state-consent.cjs').createSchedulerStateConsent({db,current:stateCurrent,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-state-v1:'+value).digest('hex')});
+ }
  let nativeSourceSync;
  if(options.crmNativeSourceSyncEnabled===true){
   if(options.crmNativeEnabled!==true||!nativeConnections||!ownMasterWriter||!ownMasterAudienceWrite)err('SOURCE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
@@ -1289,6 +1307,6 @@ function createAuth(options){
   const transport=options.crmNativeSourceTransport||require('./native-source-transport.cjs').createOriginalSourceTransport({fetchImpl:options.crmNativeSourceFetch||fetch});
   nativeSourceSync=require('./native-source-sync.cjs').createSourceSync({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,authorize:authorizeSource,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-source-sync-v1:'+value).digest('hex'),transport,permitDelegation:(context,connectionId)=>nativeConnections.permitSourceSync({context,connectionId})});
  }
- return Object.freeze({...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
