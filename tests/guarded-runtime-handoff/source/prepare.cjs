@@ -2,7 +2,7 @@
 // Inert SOURCE; neither caller input nor a source hash creates original authority.
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const ASSETS=Object.freeze({
-  "handoff.atomic.sql.in": "19c13768b764170109233c433747db4ffda4ba3593e0f304f156c361ce308afa",
+  "handoff.atomic.sql.in": "8bc9da5a1e4685c01a12ba1b01b48fb8adf675b6d491c72cf7fa970adcf21042",
   "snapshot.private-read.sql": "90af778e67c767c4dd5b0bcb6b7c0169c55b00ec1d59c5ae42674a2b540c49f9",
   "PUBLIC-FUNCTION-PINS.json": "fac062d80b0a252823ea8e877466fd7cad4121a28c92a2db9651a13f22226b68"
 });

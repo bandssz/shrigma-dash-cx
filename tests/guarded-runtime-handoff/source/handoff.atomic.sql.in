@@ -47,12 +47,12 @@ BEGIN
    WHEN plan->>'stage'='return-to-original' THEN plan#>>'{candidate,oldWorkerSha256}' ELSE from_worker END;
  expected_processes:=CASE WHEN plan->>'stage' IN('switch-to-candidate','return-to-original') THEN 0 ELSE 1 END;
  IF admission->>'activeWorkerProcesses' IS DISTINCT FROM expected_processes::text
- OR admission->>'measuredWorkerSha256' IS DISTINCT FROM CASE
+ OR admission->>'measuredWorkerSha256' IS DISTINCT FROM (CASE
    WHEN plan->>'stage' IN('switch-to-candidate','verify-candidate') THEN plan#>>'{candidate,newWorkerSha256}'
-   ELSE plan#>>'{candidate,oldWorkerSha256}' END
- OR admission->>'measuredImageSha256' IS DISTINCT FROM CASE
+   ELSE plan#>>'{candidate,oldWorkerSha256}' END)
+ OR admission->>'measuredImageSha256' IS DISTINCT FROM (CASE
    WHEN plan->>'stage' IN('switch-to-candidate','verify-candidate') THEN plan#>>'{candidate,newImageSha256}'
-   ELSE plan#>>'{candidate,oldImageSha256}' END THEN
+   ELSE plan#>>'{candidate,oldImageSha256}' END) THEN
   RAISE EXCEPTION 'GUARDED_HANDOFF_MEASUREMENT_OR_PROCESS_REFUSED'; END IF;
  -- Original deployment/advisory/lease/selection/control order; no forced takeover.
  LOCK TABLE crm_audience_v2.regular_worker_deployment IN ACCESS EXCLUSIVE MODE;

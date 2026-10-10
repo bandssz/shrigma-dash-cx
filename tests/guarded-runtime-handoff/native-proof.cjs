@@ -4,8 +4,8 @@
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),a=require("node:assert/strict");
 const sha=b=>crypto.createHash("sha256").update(b).digest("hex");
 const ASSETS=Object.freeze({
-  "source/prepare.cjs": "b89a9838cc3c3936284e4a5d1bb0641760b0c730d26997bb3394a60104bf6cf1",
-  "source/handoff.atomic.sql.in": "19c13768b764170109233c433747db4ffda4ba3593e0f304f156c361ce308afa",
+  "source/prepare.cjs": "0a1f76fa24e63108a4ed14cea53ba2e0c8fdafcb9f270c5d94bd618572b4ce2b",
+  "source/handoff.atomic.sql.in": "8bc9da5a1e4685c01a12ba1b01b48fb8adf675b6d491c72cf7fa970adcf21042",
   "source/snapshot.private-read.sql": "90af778e67c767c4dd5b0bcb6b7c0169c55b00ec1d59c5ae42674a2b540c49f9",
   "source/PUBLIC-FUNCTION-PINS.json": "fac062d80b0a252823ea8e877466fd7cad4121a28c92a2db9651a13f22226b68",
   "bootstrap.cjs": "e05e34c3495af796134343c143570d8012d0c1502e1c26cd0e39553c1d230ebc",
@@ -37,7 +37,7 @@ async function run(stage,{change,expect,mutateEnvelope,restore,extras}={}){
   const text=await kernel.bindCurrent({prepared,snapshot:before,originalSnapshot:restore,context:{synthetic:true},current:syntheticCallback(stage,prepared.plan,{extras})});
   const e=JSON.parse(text);if(mutateEnvelope)mutateEnvelope(e);
   await client.query(prepared.statements[5],[JSON.stringify(e)]);
-  try{await client.query(prepared.statements[6]);}catch(err){if(!expect)throw err;a.equal(err.code,"P0001");a.equal(err.message,expect);await rollback();cases.push({name:phase,refused:true,rollback:true});return;}
+  try{await client.query(prepared.statements[6]);}catch(err){if(!expect||err.code!=="P0001"||err.message!==expect)throw err;a.equal(err.code,"P0001");a.equal(err.message,expect);await rollback();cases.push({name:phase,refused:true,rollback:true});return;}
   if(expect)throw Error("EXPECTED_REFUSAL_MISSING");const after=await snapshot();
   await client.query(prepared.statements[7]);await client.query(prepared.statements[8]);inTx=false;
   const target=structuredClone(before);if(!stage.startsWith("verify-")){const worker=stage==="switch-to-candidate"?kernel.CANDIDATE.newWorkerSha256:kernel.CANDIDATE.oldWorkerSha256;target.deployment.worker_sha256=worker;for(const c of target.controls)c.worker_sha256=worker;}
@@ -96,5 +96,23 @@ main().then(()=>{a(clientEnded&&rollbackConfirmed);const r={schema:"guarded-runt
  clientEndConfirmed:clientEnded,rollbackConfirmed,fixtureServerEnded:false,operational:false};
  const f=process.env.GUARDED_HANDOFF_FIXTURE_RECEIPT;a(f&&path.isAbsolute(f)&&!fs.existsSync(f));fs.writeFileSync(f,JSON.stringify(r,null,2)+"\n",{flag:"wx",mode:0o644});fs.chmodSync(f,0o644);
  console.log(JSON.stringify({schema:r.schema,ok:true,caseCount:r.caseCount,clientEndConfirmed:true,originalCalls:0,operational:false}));
-}).catch(e=>{const refusal=typeof e.message==="string"&&/^[A-Z0-9_]{1,80}$/.test(e.message)?e.message:null;console.log(JSON.stringify({schema:"guarded-runtime-handoff-native-proof-v1",ok:false,phase,
- sqlstate:typeof e.code==="string"&&/^[A-Z0-9]{5}$/.test(e.code)?e.code:null,refusalCode:refusal,caseCount:cases.length,clientEndConfirmed:clientEnded,rollbackConfirmed,originalCalls:0,operational:false}));process.exitCode=1;});
+}).catch(e=>{
+ const sqlstate=typeof e.code==="string"&&/^[A-Z0-9]{5}$/.test(e.code)?e.code:null;
+ const refusal=typeof e.message==="string"&&/^[A-Z0-9_]{1,80}$/.test(e.message)?e.message:null;
+ const pos=typeof e.position==="string"&&/^[1-9][0-9]{0,6}$/.test(e.position)?Number(e.position):null;
+ const r={schema:"guarded-runtime-handoff-native-proof-v1",ok:false,phase,sqlstate,
+  errorClass:sqlstate==="42601"?"SQL_SYNTAX_REFUSED":sqlstate?"SQL_REFUSED":e.code==="ERR_ASSERTION"?"ASSERTION_REFUSED":"PROOF_REFUSED",
+  refusalCode:refusal,statementPosition:pos,caseCount:cases.length,cases,sourcePins:ASSETS,
+  node:process.version,uid:typeof process.getuid==="function"?process.getuid():null,
+  postgresVersionExpected:"17.10",pgVersionExpected:"8.23.1",synthetic:true,
+  clientEndConfirmed:clientEnded,rollbackConfirmed,fixtureServerEnded:false,
+  originalCalls:0,originalWrites:0,smtpCalls:0,nativeWorkerExecuted:false,
+  originalAuthorityAccepted:false,originalRuntimeMeasured:false,operational:false};
+ let receiptWritten=false;const f=process.env.GUARDED_HANDOFF_FIXTURE_RECEIPT;
+ // Failure evidence is synthetic/closed. Never overwrite a receipt, emit SQL,
+ // free error text, a snapshot or any original parameter.
+ if(clientEnded&&process.env.GUARDED_HANDOFF_FIXTURE_ISOLATED==="1"&&f&&path.isAbsolute(f)&&!fs.existsSync(f)){
+  try{fs.writeFileSync(f,JSON.stringify(r,null,2)+"\n",{flag:"wx",mode:0o644});fs.chmodSync(f,0o644);receiptWritten=true;}catch{}
+ }
+ console.log(JSON.stringify({...r,receiptWritten}));process.exitCode=1;
+});
